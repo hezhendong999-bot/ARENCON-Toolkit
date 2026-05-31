@@ -357,7 +357,7 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fig-legend .lg .swc{flex:none;width:24px;height:12px;}
 .fig-leghint{font-size:calc(10.5px + var(--ts));color:var(--silver);padding:0 16px 11px;background:var(--smoke);margin-top:-1px;}
 @media(pointer:coarse){.fig-legend .lg .lg-main{padding:8px 13px;}}
-.fig-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);}
+.fig-readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--border);border-top:1px solid var(--border);}
 .fig-readout .ro{background:#fff;padding:9px 6px;text-align:center;}
 .fig-readout .ro .pct{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);letter-spacing:.4px;text-transform:uppercase;}
 .fig-readout .ro .val{font-size:calc(14px + var(--ts));font-weight:700;color:var(--slate);margin-top:2px;font-variant-numeric:tabular-nums;}
@@ -1752,6 +1752,7 @@ function updatePhaseFlags(){
           <div class="fig-hd">
             <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
             <span class="fig-t">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</span>
+            <span class="fig-verdict na" id="figv-pldChart">—</span>
           </div>
           <div class="fig-body">
             <div style="position:relative;height:500px;">
@@ -1761,6 +1762,8 @@ function updatePhaseFlags(){
           </div>
           <div class="fig-legend" id="figleg-pldChart"></div>
           <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
+          <div class="fig-readout" id="figro-pldChart"></div>
+          <div class="fig-supply" id="figsup-pldChart"></div>
         </div>
       </div>
     </div>
@@ -3992,6 +3995,49 @@ function renderFigVerdict3pt(){
 }
 function refreshFig3pt(){ renderFigLegend3pt(); renderFigReadout3pt(); renderFigSupply3pt(); renderFigVerdict3pt(); }
 
+// ── S221: 7-Point discharge-chart fig twins (mirror the 3-Point bottom section) ──
+// Uses pldData fields (dis_w/suc_w/rpm_w) and updatePldVerdictObj — NOT _calcFlowPoint,
+// which reads 3-Point field names and would yield blank/wrong values for 7-Point rows.
+function renderFigReadoutPld(){
+  var host=document.getElementById('figro-pldChart'); if(!host) return;
+  host.innerHTML='';
+  (typeof pldData!=='undefined'?pldData:[]).forEach(function(row,i){
+    var v=updatePldVerdictObj(row,i);
+    var dis=parseFloat(row.dis_w);
+    var flow=rowFlow(row);
+    var rpm=parseFloat(row.rpm_w);
+    var vtxt=v.verdict==='pass'?'PASS':v.verdict==='fail'?'FAIL':'—';
+    var cell=document.createElement('div'); cell.className='ro';
+    cell.innerHTML='<div class="pct">'+row.pct+'</div>'
+      +'<div class="val">'+(!isNaN(dis)?dis+' psi':'—')+'</div>'
+      +'<div class="sub">@ '+(!isNaN(flow)?flow.toLocaleString()+' gpm':'— gpm')+(!isNaN(rpm)&&rpm>0?' · '+rpm+' rpm':'')+'</div>'
+      +'<span class="chip '+v.verdict+'">'+vtxt+'</span>';
+    host.appendChild(cell);
+  });
+}
+function renderFigSupplyPld(){
+  var host=document.getElementById('figsup-pldChart'); if(!host) return;
+  var parts=[];
+  var sp=parseFloat(document.getElementById('pld-ws-static-psi')?.value);
+  var sf=parseFloat(document.getElementById('pld-ws-static-flow')?.value)||0;
+  var rf=parseFloat(document.getElementById('pld-ws-res-flow')?.value);
+  var rp=parseFloat(document.getElementById('pld-ws-res-psi')?.value);
+  if(!isNaN(sp)&&sp>0) parts.push('Static supply: <b>'+sp+' psi</b>'+(sf>0?' @ '+sf.toLocaleString()+' gpm':''));
+  if(!isNaN(rf)&&!isNaN(rp)&&rf>0) parts.push('Residual supply: <b>'+rp+' psi @ '+rf.toLocaleString()+' gpm</b>');
+  var df=parseFloat(document.getElementById('pld-dem-flow')?.value);
+  var dp=parseFloat(document.getElementById('pld-dem-psi')?.value);
+  if(!isNaN(df)&&!isNaN(dp)&&df>0) parts.push('System demand: <b>'+dp+' psi @ '+df.toLocaleString()+' gpm</b>');
+  host.innerHTML = parts.join('<span style="color:var(--border);">|</span>');
+}
+function renderFigVerdictPld(){
+  var el=document.getElementById('figv-pldChart'); if(!el) return;
+  var verds=(typeof pldData!=='undefined'?pldData:[]).map(function(r,i){return updatePldVerdictObj(r,i).verdict;});
+  if(verds.some(function(v){return v==='fail';})){el.className='fig-verdict fail';el.textContent='✗ FAIL';}
+  else if(verds.some(function(v){return v==='pass';})){el.className='fig-verdict pass';el.textContent='✓ PASS';}
+  else {el.className='fig-verdict na';el.textContent='—';}
+}
+function refreshFigPld(){ renderFigLegendPld(); renderFigReadoutPld(); renderFigSupplyPld(); renderFigVerdictPld(); }
+
 // Inline readout strip for the PDF report (string form, muted FRT palette)
 function _buildReadoutStripHtml3pt(){
   var cells = stdData.map(function(row){
@@ -4229,7 +4275,8 @@ function updatePldChart() {
   var maxXpld = allXpld.length ? Math.max.apply(null,allXpld) : 0;
   pldChart.options.scales.x.min = (allXpld.length>0 && maxXpld===0) ? -50 : undefined;
   pldChart.update('none');
-  if(typeof renderFigLegendPld==='function') renderFigLegendPld();
+  if(typeof refreshFigPld==='function') refreshFigPld();
+  else if(typeof renderFigLegendPld==='function') renderFigLegendPld();
 }
 
 // ══════════════════════════════════════════════════
@@ -6504,22 +6551,27 @@ function renderChartAnnotations(chartInstance, canvasId) {
       // Skip deleted annotations
       if(chartAnnotationsDeleted[key]) return;
       if(pt.x === 0 && pt.y === 0) return;
-      if(ptIdx === 0 && ds.data.length > 1 && ds.showLine && ds.pointRadius === 0) return;
       if(ds.label && ds.label.startsWith('_') && !ds.label.startsWith('_sprDem')) return;
-      // S221: suppress point labels on dotted REFERENCE lines (Cutsheet / Placard / PRV / PLD /
-      // the w/o-PRV-PLD net line). These are read as lines, not per-point values, and their labels
-      // stacked on top of the main curve's at the same flow column. Main measured/net curves,
-      // demand points, and supply endpoints keep their labels.
-      if(ds.label && /^(Cutsheet|Placard|PRV Rating|PLD Setting|Net \(w\/o PRV & PLD\))/.test(ds.label)) return;
+      // S221: annotation labels were stacking because EVERY curve labelled every flow point.
+      // Switch to an explicit allow-list: only the PRIMARY pump curve (one per chart) plus the
+      // demand/supply marker points carry per-point text. All reference/secondary lines
+      // (Cutsheet, Placard, PRV, PLD, Net-pressure overlays, Available Supply line) are drawn
+      // but un-labelled. This is robust to label wording, unlike the prior regex/pointRadius mix.
+      var _lbl = ds.label || '';
+      var _ANNOTATE_PRIMARY = {
+        'Discharge Pressure (Measured)':1,   // 3-Point primary
+        'Measured Discharge (w/ PLD)':1,     // 7-Point discharge primary
+        'Net Pressure (w/ PLD)':1            // 7-Point net primary
+      };
+      var _ANNOTATE_POINTS = {               // marker datasets — single points, no stacking
+        'Total System Demand':1, '_sprDemPt':1, '_sprDemPtPld':1,
+        '_staticPt':1, '_residualPt':1, '_staticPtPld':1, '_residualPtPld':1
+      };
+      var _isPrimary = !!_ANNOTATE_PRIMARY[_lbl];
+      var _isPoint   = !!_ANNOTATE_POINTS[_lbl];
+      if(!_isPrimary && !_isPoint) return;   // everything else: drawn, not labelled
       // Skip annotations for zero-value points (0 gpm @ 0 psi)
       if(pt.x === 0 && pt.y === 0) return;
-      // Skip PRV/PLD line start point at x=0 (only label the end)
-      if(ptIdx === 0 && ds.data.length > 1 && ds.showLine && ds.pointRadius === 0) return;
-      // Skip datasets that are internal/hidden (label starts with _)
-      if(ds.label && ds.label.startsWith('_') && !ds.label.startsWith('_sprDem')) return;
-      // Available Supply: only annotate endpoints
-      if(ds.label === 'Available Supply') { if(ptIdx !== 0 && ptIdx !== ds.data.length - 1) return; }
-      if(ds.showLine && (ds.pointRadius === 0 || typeof ds.pointRadius === 'function') && !ds.label.match(/PRV|PLD|VFD|Available Supply/)) return;
       var text = '';
       try {
         if(typeof fmt === 'function') {
