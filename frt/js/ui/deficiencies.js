@@ -2677,52 +2677,6 @@ function _scopePinFocusObs(ov) {
     : ('\u25B8 ' + hidden + ' other observation' + (hidden === 1 ? '' : 's') + ' on this pin \u2014 tap to show');
 }
 
-// ── Table view — row per (defic, obs) ────────────────────────────
-// S216: Table view RETIRED — toggle button + render branch removed. This
-// function is left defined-but-unreferenced per S137 dead-handler discipline
-// (do not call; remove at next canon pass along with .dfx-tbl* table-only CSS).
-function _renderTableView(proj, container) {
-  var rows = _flatRows(proj);
-  if (!rows.length) {
-    var hasAny = Model.getAllDeficiencies(proj).length > 0;
-    container.innerHTML = '<div class="dfx-empty">' + (hasAny
-      ? 'No items match the current ' + (_activeDlcTab === 'closed' ? 'Closed' : 'Active') + ' filters.'
-      : 'No deficiencies yet.') + '</div>';
-    return;
-  }
-  var h = '<table class="dfx-tbl"><thead><tr>'
-    + '<th class="dfx-tbl-star-h" title="Recommendation" aria-label="Recommendation">\u2606</th>'
-    + '<th>#</th><th>Trade</th><th>Contractor</th><th>Description</th>'
-    + '<th>Priority</th><th>Status</th><th>Photo</th>'
-    + '</tr></thead><tbody>';
-  rows.forEach(function(r) {
-    var d = r.d, o = r.o, oi = r.oi;
-    var closed = (oi >= 0) ? !!o.addressed : deficIsClosed(d);
-    var pri = (oi >= 0) ? (o.priority || 'high') : (Model.getEffectivePriority(d) || 'high');
-    var trade = (oi >= 0 ? (o.trade || '') : ((d.observations && d.observations[0] && d.observations[0].trade) || ''));
-    var cName = r.ctrId ? r.ctrName : SITE_RECORDS_LABEL;
-    var desc = (oi >= 0) ? (o.text || '') : deficDesc(d);
-    var numCls = closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : '');
-    // S151: per-obs rec flag for the row (rows are already per-(defic,obs)).
-    // oi<0 = a pin-summary row → fall back to the pin rollup (no obs-idx →
-    // the handler treats it as whole-pin).
-    var _trIsRec = (oi >= 0 && o) ? !!o.isRecommendation : !!d.isRecommendation;
-    var _trObsAttr = (oi >= 0) ? ' data-obs-idx="' + oi + '"' : '';
-    h += '<tr class="' + (closed ? 'dfx-closed' : '') + '" data-action="dfx-goto" data-defic-id="' + esc(d.id) + '">'
-      + '<td class="dfx-tbl-star-c"><button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '"' + _trObsAttr + ' class="dfx-tbl-star' + (_trIsRec ? ' is-rec' : '') + '" aria-pressed="' + (_trIsRec ? 'true' : 'false') + '" title="' + (_trIsRec ? 'This is a Recommendation — click to revert it to a normal item' : 'Mark this as a Recommendation') + '">' + (_trIsRec ? '★' : '☆') + '</button></td>'
-      + '<td><span class="dfx-tbl-num ' + numCls + '">#' + esc(_dfxObsLabel(d, oi)) + '</span></td>'
-      + '<td>' + (trade ? esc(trade) : '<em style="color:var(--silver);">none</em>') + '</td>'
-      + '<td>' + (r.ctrId ? '<span class="dfx-tbl-ctr" style="--cc:' + esc(_dfxCtrColor(proj, r.ctrId)) + ';"></span>' : '') + esc(cName) + '</td>'
-      + '<td>' + esc(desc) + '</td>'
-      + '<td><span class="dfx-status-mini ' + (pri === 'low' ? 'low' : pri === 'general' ? 'general' : 'high') + '">' + esc(pri.toUpperCase()) + '</span></td>'
-      + '<td><span class="dfx-status-mini ' + (closed ? 'closed' : (pri === 'low' ? 'low' : pri === 'general' ? 'general' : 'high')) + '">' + (closed ? 'CLOSED' : 'OUTSTANDING') + '</span></td>'
-      + '<td>' + _dfxThumb(d, oi, 'dfx-tbl-thumb') + '</td>'
-      + '</tr>';
-  });
-  h += '</tbody></table>';
-  container.innerHTML = h;
-}
-
 // ── Board view — priority kanban + always-visible Closed column ──
 // Pivot-independent (ignorePivot=true): the board carries its own
 // Closed column, so Active/Closed pivot does not scope it.

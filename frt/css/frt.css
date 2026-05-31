@@ -7775,83 +7775,6 @@ body.dark-mode .dfx-foldall-btn:hover { background: rgba(255,255,255,.05); borde
    Closed keep the muted spec colors.
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── Table view ──────────────────────────────────────────────────── */
-table.dfx-tbl {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: calc(13px + var(--ts));
-  font-family: Calibri, sans-serif;
-}
-table.dfx-tbl th {
-  background: #F0EDE6;
-  color: #5A6473;
-  text-align: left;
-  padding: 9px 10px;
-  font-weight: 700;
-  font-size: calc(11.5px + var(--ts));
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-body.dark-mode table.dfx-tbl th { background: #2A3247; color: #C0CADE; }
-table.dfx-tbl td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-  color: var(--fg);
-}
-table.dfx-tbl tr { cursor: pointer; }
-table.dfx-tbl tbody tr:hover td { background: rgba(156, 39, 66, 0.06); }
-table.dfx-tbl tr.dfx-closed td { color: var(--silver); }
-.dfx-tbl-num {
-  background: #9C2742;
-  color: #FFFFFF;
-  font-weight: 700;
-  font-size: calc(11.5px + var(--ts));
-  padding: 2px 10px;
-  border-radius: 12px;
-  display: inline-block;
-  white-space: nowrap;
-}
-.dfx-tbl-num.low { background: #B07F5A; }
-.dfx-tbl-num.general { background: #3A5670; }
-.dfx-tbl-num.closed { background: #4A7B6E; }
-.dfx-tbl-thumb {
-  width: 36px;
-  height: 36px;
-  border-radius: 4px;
-  object-fit: cover;
-  display: block;
-  background: linear-gradient(135deg, #6E7A88 0%, #3A4250 100%);
-}
-.dfx-tbl-ctr {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 6px;
-  vertical-align: middle;
-  background: var(--cc, #6B7280);
-}
-.dfx-status-mini {
-  font-size: calc(10.5px + var(--ts));
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.dfx-status-mini.high    { color: #8A4A4A; background: #F3E0DE; }
-.dfx-status-mini.low     { color: #7A5230; background: #FAEBDC; }
-.dfx-status-mini.general { color: #2E4256; background: #E3EBF2; }
-.dfx-status-mini.closed  { color: #3A6155; background: #E2EFE9; }
-body.dark-mode .dfx-status-mini.high    { color: #E8A0A0; background: #3A1E1E; }
-body.dark-mode .dfx-status-mini.low     { color: #E0B58A; background: #2E2212; }
-body.dark-mode .dfx-status-mini.general { color: #9FB6CC; background: #1B2733; }
-body.dark-mode .dfx-status-mini.closed  { color: #88C8B0; background: #16291F; }
-
 /* ── Board view (priority kanban + Closed column) ────────────────── */
 .dfx-board {
   display: grid;
@@ -7880,7 +7803,6 @@ body.dark-mode .dfx-bv-col { background: #1C2333; }
 }
 .dfx-bv-col-hdr.h { background: #A85959; }   /* muted red — substitutes forbidden #C0392B */
 .dfx-bv-col-hdr.l { background: #B07F5A; }
-.dfx-bv-col-hdr.g { background: #3A5670; }
 .dfx-bv-col-hdr.c { background: #4A7B6E; }
 .dfx-bv-col-count {
   background: rgba(255, 255, 255, 0.20);
@@ -7969,8 +7891,6 @@ body.dark-mode .dfx-bv-col { background: #1C2333; }
 
 @media (max-width: 900px) {
   .dfx-board { grid-template-columns: 1fr; }
-  table.dfx-tbl { font-size: calc(12px + var(--ts)); }
-  table.dfx-tbl th, table.dfx-tbl td { padding: 7px 7px; }
 }
 
 /* End S138-in-S137 Table + Board views ───────────────────────────── */
@@ -8305,9 +8225,6 @@ body.dark-mode .pin-rec-toggle.is-rec:hover { background: rgba(208,160,100,.26);
    recommendation rows. data-action="toggle-rec" reuses the existing
    S150 handler (Model.setRecommendation + re-render). Compact, centred,
    touch-enlarged for field tablets. */
-.dfx-tbl-star-h { width: 36px; text-align: center; color: #B0B6BF; font-weight: 400; }
-body.dark-mode .dfx-tbl-star-h { color: #5A6473; }
-.dfx-tbl-star-c { text-align: center; }
 .dfx-tbl-star {
   background: none;
   border: none;
