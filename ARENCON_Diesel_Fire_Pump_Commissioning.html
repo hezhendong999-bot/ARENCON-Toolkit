@@ -36,6 +36,9 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 .app-title{font-family:Calibri,sans-serif;font-weight:600;font-size:19px;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
 .header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;position:relative;z-index:10;}
 .hdr-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;border:none;color:white;transition:all .15s;white-space:nowrap;}.hdr-btn:hover{filter:brightness(1.15);}
+/* AI Review — coming soon: FRT purple, visibly inert (no backend wired to this tool yet) */
+.hdr-ai-soon{background:#7B2D8E;opacity:.5;cursor:not-allowed;}
+.hdr-ai-soon:hover{filter:none;}
 .mobile-menu-btn{display:none;background:rgba(255,255,255,.12);border:none;color:white;padding:7px;border-radius:6px;cursor:pointer;font-size:20px;}
 .app-subtitle{font-size:calc(11.5px + var(--ts));color:var(--silver);margin-top:1px;}
 
@@ -937,8 +940,16 @@ body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255
       <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span>
     </div>
     <div class="header-actions">
-      <button class="hdr-btn" id="btn-pdf" onclick="exportPDF()" style="display:none;background:#1A237E;" title="Export PDF Report">📄 Reports</button>
-      <button class="hdr-btn" id="btn-issue" onclick="issueReport()" style="display:none;background:#1A7A4A;" title="Issue Report">📋 Issue</button>
+      <!-- ✨ AI Review — coming soon (disabled until the AI Writing Assistant backend is wired to this tool) -->
+      <button class="hdr-btn hdr-ai-soon" id="btn-ai-review" disabled aria-disabled="true" title="AI Review — coming soon">✨ AI Review</button>
+      <!-- 📄 Reports dropdown (Export PDF + Issue), matching FRT -->
+      <div class="hdr-repair-wrap" id="btn-reports-wrap" style="display:none;">
+        <button class="hdr-btn" id="btn-reports-parent" style="background:#1A237E;" onclick="toggleReportsMenu(event)" title="Reports">📄 Reports ▾</button>
+        <div class="hdr-repair-menu" id="reports-menu">
+          <button onclick="exportPDF();closeReportsMenu()">📄 Export PDF <span>Generate commissioning report</span></button>
+          <button onclick="issueReport();closeReportsMenu()">📋 Issue <span>Bump revision &amp; mark issued</span></button>
+        </div>
+      </div>
       <!-- ⚙️ More dropdown -->
       <div class="hdr-repair-wrap" id="btn-more-wrap">
         <button class="hdr-btn" style="background:#455A64;" onclick="toggleMoreMenu(event)" title="More options">⚙️ More ▾</button>
@@ -7228,10 +7239,8 @@ window.addEventListener('load', () => {
       }
 
       // Show Hub-mode buttons
-      var issueBtn = document.getElementById('btn-issue');
-      if(issueBtn) issueBtn.style.display = '';
-      var pdfBtn = document.getElementById('btn-pdf');
-      if(pdfBtn) pdfBtn.style.display = '';
+      var reportsWrap = document.getElementById('btn-reports-wrap');
+      if(reportsWrap) reportsWrap.style.display = '';
       var signoutBtn = document.getElementById('btn-signout');
       if(signoutBtn) signoutBtn.style.display = '';
       var qrBtn = document.getElementById('btn-qr');
@@ -8837,12 +8846,25 @@ return{init:init,load:load,save:save,startAutoSave:startAutoSave,stopAutoSave:st
 function toggleMoreMenu(e){
   if(e)e.stopPropagation();
   var m=document.getElementById('more-menu');if(!m)return;
+  if(typeof closeReportsMenu==='function') closeReportsMenu(); // mutual exclusion
   var isOpen=m.classList.contains('open');
   m.classList.toggle('open');
   if(!isOpen){document.addEventListener('click',_closeMoreOnClick,{once:true});}
 }
 function _closeMoreOnClick(){closeMoreMenu();}
 function closeMoreMenu(){var m=document.getElementById('more-menu');if(m)m.classList.remove('open');}
+
+// ═══ REPORTS DROPDOWN (Export PDF + Issue) ═══
+function toggleReportsMenu(e){
+  if(e)e.stopPropagation();
+  var m=document.getElementById('reports-menu');if(!m)return;
+  closeMoreMenu(); // mutual exclusion with the More menu
+  var isOpen=m.classList.contains('open');
+  m.classList.toggle('open');
+  if(!isOpen){document.addEventListener('click',_closeReportsOnClick,{once:true});}
+}
+function _closeReportsOnClick(){closeReportsMenu();}
+function closeReportsMenu(){var m=document.getElementById('reports-menu');if(m)m.classList.remove('open');}
 
 // ═══ SIGN OUT ═══
 // ═══ TIERED SESSION MANAGEMENT ═══
