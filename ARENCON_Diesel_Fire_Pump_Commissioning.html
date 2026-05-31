@@ -15,11 +15,11 @@
 
 
 :root {
-  --red:#C0392B; --red-dark:#96281B; --red-light:#FADBD8;
+  --red:#A85959; --red-dark:#8A4A4A; --red-light:#F3E0DE;
   --slate:#1C2333; --slate-mid:#2C3E50; --arencon:#9C2742; --arencon-mid:#7d1f35; --steel:#4A5568;
   --silver:#A0AEC0; --smoke:#F7F8FA; --border:#DDE1E7;
-  --yes:#1A7A4A; --yes-bg:#D4EDDA;
-  --no:#C0392B;  --no-bg:#FADBD8;
+  --yes:#5F8068; --yes-bg:#E8EFE7;
+  --no:#A85959;  --no-bg:#F3E0DE;
   --na:#5A6473;  --na-bg:#E8ECF0;
   --warn:#B7791F; --warn-bg:#FEFCBF;
   --shadow:0 2px 12px rgba(28,35,51,.10);
@@ -63,8 +63,8 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 .btn-outline{background:white;color:var(--slate);border:1.5px solid var(--border);}
 .btn-outline:hover{background:var(--smoke);}
 .btn-sm{padding:5px 11px;font-size:calc(12.5px + var(--ts));}
-.btn-danger{background:#C0392B;color:white;}
-.btn-danger:hover{background:#96281B;}
+.btn-danger{background:var(--red);color:white;}
+.btn-danger:hover{background:var(--red-dark);}
 
 /* ── CARDS ── */
 .card{background:white;border-radius:11px;box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;}
@@ -419,7 +419,7 @@ body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
 .photo-thumb-dl{position:absolute;bottom:4px;right:4px;background:rgba(26,122,74,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:12px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
 .photo-thumb-grid .photo-thumb:hover .photo-thumb-del,.photo-thumb-grid .photo-thumb:hover .photo-thumb-dl{opacity:1;}
 .photo-thumb-del:hover{background:#DC2626;transform:scale(1.1);}
-.photo-thumb-dl:hover{background:#1A7A4A;transform:scale(1.1);}
+.photo-thumb-dl:hover{background:#5F8068;transform:scale(1.1);}
 body.dark-mode .photo-thumb-grid .photo-thumb{border-color:transparent;background:#1a1e28;}
 body.dark-mode .photo-thumb-grid .photo-thumb.selected{border-color:#9C2742;}
 
@@ -497,8 +497,8 @@ body.dark-mode .all-defic-tbl td{border-bottom-color:#2a2e38;color:#d0d4dc;}
 body.dark-mode .all-defic-tbl tr:nth-child(even) td{background:rgba(255,255,255,.03);}
 body.dark-mode .all-defic-tbl tr:hover td{background:rgba(156,39,66,.15);}
 .defic-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:calc(10px + var(--ts));font-weight:700;white-space:nowrap;}
-.defic-badge.outstanding{background:#FDEDEC;color:#C0392B;}
-.defic-badge.closed{background:#EAFAF1;color:#1A7A4A;}
+.defic-badge.outstanding{background:var(--no-bg);color:var(--no);}
+.defic-badge.closed{background:#E8EFE7;color:#5F8068;}
 .defic-badge.iar{background:#FFF0F6;color:#FF69B4;}
 .defic-badge.resp-ctr{background:#FFF8E1;color:#E67E22;}
 .defic-badge.resp-con{background:#E8F0FE;color:#1565C0;}
@@ -721,8 +721,8 @@ body.dark-mode .data-table tr[style*="background:#fafbfc"] td{background:#1e2028
 body.dark-mode .battery-card{border-color:#33373f;}body.dark-mode .battery-card-header{background:#3a1a28;}
 body.dark-mode .battery-table th{background:#282b34;color:#8a90a0;}
 body.dark-mode .subsection-note{background:#2a2820;color:#c8a840;border-color:#5a4a20;}
-body.dark-mode .tog-yes{background:#1a3020;color:#4aba5a;}body.dark-mode .tog-yes.on{background:#1A7A4A;color:#fff;}
-body.dark-mode .tog-no{background:#3a1a1a;color:#e06050;}body.dark-mode .tog-no.on{background:#C0392B;color:#fff;}
+body.dark-mode .tog-yes{background:#1a3020;color:#4aba5a;}body.dark-mode .tog-yes.on{background:#5F8068;color:#fff;}
+body.dark-mode .tog-no{background:#3a1a1a;color:#e06050;}body.dark-mode .tog-no.on{background:#A85959;color:#fff;}
 body.dark-mode .tog-na{background:#282b34;color:#7a8090;}body.dark-mode .tog-na.on{background:#5A6473;color:#fff;}
 body.dark-mode .cl-item.s-yes{border-left-color:#2a8a4a;}body.dark-mode .cl-item.s-no{border-left-color:#c04030;}
 body.dark-mode .cl-item.s-na{border-left-color:#4a5060;opacity:.7;}
@@ -770,17 +770,17 @@ body.dark-mode button[style*="border:1.5px dashed #E67E22"]{background:#2a2218!i
 body.dark-mode button[style*="background:var(--slate)"]{background:#323a4e!important;color:#d4daf0!important;}
 body.dark-mode .photo-upload-btn{background:rgba(255,255,255,.06)!important;color:#e0e6f8!important;}
 body.dark-mode .photo-upload-btn:hover{background:#4a5878!important;}
-body.dark-mode [style*="background:#1A7A4A"],[style*="background:#2E7D32"]{background:#1a4a2a!important;color:#a0d8b0!important;}
+body.dark-mode [style*="background:#5F8068"],[style*="background:#2E7D32"]{background:#1a4a2a!important;color:#a0d8b0!important;}
 body.dark-mode [style*="background:#1A237E"]{background:#1a2a4a!important;color:#90b0d8!important;}
 body.dark-mode [style*="background:#7B1FA2"]{background:#2a1a3a!important;color:#b090d0!important;}
 body.dark-mode [style*="background:#00695C"]{background:#0a2a28!important;color:#80c0b8!important;}
 body.dark-mode [style*="background:#455A64"]{background:#2a3038!important;color:#a0b0c0!important;}
 body.dark-mode [style*="background:#B7791F"]{background:#3a2a10!important;color:#d0b060!important;}
 body.dark-mode [style*="background:#E67E22"]{background:#3a2a10!important;color:#d0a050!important;}
-body.dark-mode [style*="background:#C0392B"]{background:#4a1a1a!important;color:#e0a0a0!important;}
+body.dark-mode [style*="background:#A85959"]{background:#4a1a1a!important;color:#e0a0a0!important;}
 body.dark-mode [style*="background:var(--warn-bg)"]{background:#2a2820!important;color:#c8a840!important;}
 body.dark-mode [style*="background:#eee"]{background:#1e2028!important;}
-body.dark-mode [style*="background:#D4EDDA"],[id*="pitot-total"]{background:#1a2a20!important;color:#4aba5a!important;}
+body.dark-mode [style*="background:#E8EFE7"],[id*="pitot-total"]{background:#1a2a20!important;color:#4aba5a!important;}
 body.dark-mode [style*="background:#e8f5e9"]{background:#1a2a20!important;}
 body.dark-mode [style*="background:#eef4ff"]{background:#1e2838!important;}
 body.dark-mode [style*="background:#f5f5f5"]{background:#282b34!important;color:#6a7080!important;}
@@ -791,8 +791,8 @@ body.dark-mode [style*="color:#333"]{color:#c0c8d0!important;}
 body.dark-mode [style*="color:#888"]{color:#7a8090!important;}
 body.dark-mode [style*="color:#E67E22"]{color:#c89040!important;}
 body.dark-mode [style*="linear-gradient(135deg,#1A5276,#1A7A4A)"]{background:linear-gradient(135deg,#1a2a3a,#1a3a2a)!important;}
-body.dark-mode [style*="color:#C0392B"][style*="border"]{color:#c08080!important;background:#22252d!important;border-color:#5a3030!important;}
-body.dark-mode [style*="color:#1A7A4A"][style*="border"]:not(.tog-yes){color:#80c090!important;background:#22252d!important;border-color:#2a5a3a!important;}
+body.dark-mode [style*="color:#A85959"][style*="border"]{color:#c08080!important;background:#22252d!important;border-color:#5a3030!important;}
+body.dark-mode [style*="color:#5F8068"][style*="border"]:not(.tog-yes){color:#80c090!important;background:#22252d!important;border-color:#2a5a3a!important;}
 body.dark-mode button[style*="background:white"],body.dark-mode button[style*="background:#fff"]{background:rgba(255,255,255,.06)!important;color:#d0d8f0!important;border-color:rgba(255,255,255,.2)!important;}
 body.dark-mode .defic-photo-btn{background:#2a3038!important;color:#c0c8d8!important;}
 body.dark-mode .add-defic-btn{background:rgba(255,255,255,.06)!important;color:#c0d0e8!important;border:1.5px solid rgba(255,255,255,.2)!important;border-radius:20px!important;}
@@ -831,7 +831,7 @@ body.dark-mode button[style*="color:#aaa"]{color:#6a7080!important;}
 body.dark-mode [style*="background:#1C2333"]{background:#22252d!important;}
 body.dark-mode button[style*="background:#c00"]{background:#8a2020!important;}
 body.dark-mode button[style*="background:#FFF5F5"]{background:#3a2020!important;color:#e08080!important;}
-body.dark-mode button[style*="background:#1A7A4A"][style*="font-size:11px"]{background:#1a4a2a!important;color:#a0d8b0!important;}
+body.dark-mode button[style*="background:#5F8068"][style*="font-size:11px"]{background:#1a4a2a!important;color:#a0d8b0!important;}
 body.dark-mode #nav-label{color:#8a90a0!important;}
 body.dark-mode [style*="color:#1565C0"]{color:#6090c0!important;}
 body.dark-mode [style*="color:#E67E22"]:not(select){color:#c89040!important;}
@@ -1699,7 +1699,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
   <div id="pmu-toolbar">
     <span style="color:white;font-weight:700;font-size:13px;margin-right:6px;">📝 Photo Markup</span>
     <label style="color:#aaa;font-size:11px;">Tool:</label>
-    <button id="pmu-btn-pen" onclick="pmuSetTool('pen')" style="background:#C0392B;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">✏️ Pen</button>
+    <button id="pmu-btn-pen" onclick="pmuSetTool('pen')" style="background:#A85959;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">✏️ Pen</button>
     <button id="pmu-btn-highlight" onclick="pmuSetTool('highlight')" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">🖍 Highlight</button>
     <button id="pmu-btn-text" onclick="pmuSetTool('text')" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">T Text</button>
     <button id="pmu-btn-erase" onclick="pmuSetTool('erase')" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">⬜ Erase</button>
@@ -1711,7 +1711,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
     <button onclick="var v=Math.max(0.1,Math.round(((pmuState.alpha||1)-0.1)*100)/100);pmuState.alpha=v;document.getElementById('pmu-alpha-val').textContent=Math.round(v*100)+'%%';" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">−</button><span id="pmu-alpha-val" style="color:white;min-width:30px;text-align:center;font-size:12px;display:inline-block;">100%%</span><button onclick="var v=Math.min(1,Math.round(((pmuState.alpha||1)+0.1)*100)/100);pmuState.alpha=v;document.getElementById('pmu-alpha-val').textContent=Math.round(v*100)+'%%';" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">+</button>
     <div style="flex:1;"></div>
     <button onclick="pmuUndo()" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">↩ Undo</button>
-    <button onclick="pmuSave()" style="background:#1A7A4A;color:white;border:none;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;">✓ Save Markup</button>
+    <button onclick="pmuSave()" style="background:#5F8068;color:white;border:none;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;">✓ Save Markup</button>
     <button onclick="pmuClose()" style="background:#444;color:white;border:none;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:12px;">✕ Cancel</button>
   </div>
   <div id="pmu-canvas-wrap">
@@ -1727,7 +1727,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
     <div style="display:flex;gap:8px;">
       <button id="lb-prev" onclick="lightboxNav(-1)" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:16px;cursor:pointer;padding:6px 14px;border-radius:6px;">‹ Prev</button>
       <button id="lb-next" onclick="lightboxNav(1)" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:16px;cursor:pointer;padding:6px 14px;border-radius:6px;">Next ›</button>
-      <a id="lb-download" href="" download style="background:#1A7A4A;border:none;color:white;font-size:12px;cursor:pointer;padding:6px 14px;border-radius:6px;text-decoration:none;display:flex;align-items:center;gap:4px;">⬇ Save</a>
+      <a id="lb-download" href="" download style="background:#5F8068;border:none;color:white;font-size:12px;cursor:pointer;padding:6px 14px;border-radius:6px;text-decoration:none;display:flex;align-items:center;gap:4px;">⬇ Save</a>
       <button onclick="saveLbMarkup()" style="background:#2196F3;border:none;color:white;font-size:12px;cursor:pointer;padding:6px 14px;border-radius:6px;" title="Save markup back to photo">💾 Save Markup</button>
       <button onclick="closeLightbox()" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:20px;cursor:pointer;width:38px;height:38px;border-radius:50%;">✕</button>
     </div>
@@ -1766,7 +1766,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
     <span style="color:rgba(255,255,255,.4);margin:0 4px;">|</span>
     <button onclick="undoLbMarkup()" style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">↩ Undo</button>
     <button onclick="clearLbMarkup()" style="background:#c00;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">🗑 Clear</button>
-    <button onclick="downloadLbPhoto()" style="background:#1A7A4A;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">⬇ Download</button>
+    <button onclick="downloadLbPhoto()" style="background:#5F8068;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">⬇ Download</button>
   </div>
   <!-- Photo canvas area -->
   <div id="lb-canvas-wrap" style="position:relative;display:inline-flex;max-width:100%;cursor:crosshair;flex-shrink:0;">
@@ -1909,7 +1909,7 @@ function pmuSetTool(t) {
   pmuState.tool = t;
   ['pen','highlight','text','erase'].forEach(tt=>{
     const b = document.getElementById('pmu-btn-'+tt);
-    if(b) b.style.background = tt===t ? '#C0392B' : '#555';
+    if(b) b.style.background = tt===t ? '#A85959' : '#555';
   });
 }
 
@@ -3046,11 +3046,11 @@ function updateVerdict() {
   // Rule: Any checklist 'No' -> downgrade to conditional pass at best
   if(hasAnyNo && openIAR) {
     resultText = '\u2717  OVERALL: FAIL \u2014 Checklist items marked NO + unresolved IAR deficiencies';
-    bgCol = '#C0392B';
+    bgCol = '#A85959';
   }
   else if(hasAnyNo && tccVal==='fail') {
     resultText = '\u2717  OVERALL: FAIL \u2014 Consultant selected FAIL';
-    bgCol = '#C0392B';
+    bgCol = '#A85959';
   }
   else if(hasAnyNo) {
     resultText = '\u26A0  OVERALL: CONDITIONAL PASS \u2014 One or more checklist items marked NO';
@@ -3059,24 +3059,24 @@ function updateVerdict() {
   // Rule: Open IAR deficiency -> FAIL
   else if(openIAR) {
     resultText = '\u2717  OVERALL: FAIL \u2014 Unresolved IAR deficiencies';
-    bgCol = '#C0392B';
+    bgCol = '#A85959';
   }
   // Rule: All yes/NA, no deficiencies → PASS
   else if(!hasDeficiencies && !hasAnyNo && perfResults.length > 0 && perfResults.every(function(r){return r===true;})) {
     resultText = '\u2713  OVERALL: PASS \u2014 All performance points met, no deficiencies';
-    bgCol = '#1A7A4A';
+    bgCol = '#5F8068';
   }
   // Rule: Non-IAR deficiencies exist → consultant chooses from dropdown
   else if(hasNonIARDefic || hasDeficiencies) {
     if(tccVal === 'pass') {
       resultText = '\u2713  OVERALL: PASS \u2014 Deficiencies noted but not IAR, consultant approved';
-      bgCol = '#1A7A4A';
+      bgCol = '#5F8068';
     } else if(tccVal === 'conditional') {
       resultText = '\u26A0  OVERALL: CONDITIONAL PASS \u2014 Non-IAR deficiencies noted';
       bgCol = '#E67E22';
     } else if(tccVal === 'fail') {
       resultText = '\u2717  OVERALL: FAIL \u2014 Major deficiencies identified';
-      bgCol = '#C0392B';
+      bgCol = '#A85959';
     } else {
       resultText = '\u26A0  Select test result above \u2014 Non-IAR deficiencies require consultant decision';
       bgCol = '#78909C';
@@ -3089,7 +3089,7 @@ function updateVerdict() {
       bgCol = '#E67E22';
     } else if(tccVal === 'fail') {
       resultText = '\u2717  OVERALL: FAIL \u2014 Performance requirements not met';
-      bgCol = '#C0392B';
+      bgCol = '#A85959';
     } else {
       resultText = '\u26A0  Review required \u2014 Performance data does not meet cutsheet';
       bgCol = '#E67E22';
@@ -3098,16 +3098,16 @@ function updateVerdict() {
   // Default: PASS
   else {
     resultText = '\u2713  OVERALL: PASS \u2014 All requirements met';
-    bgCol = '#1A7A4A';
+    bgCol = '#5F8068';
   }
 
   el.style.display = 'block';
   var isDark = document.body.classList.contains('dark-mode');
   if(isDark) {
-    var darkBg = bgCol==='#1A7A4A'?'rgba(26,122,74,.2)':bgCol==='#E67E22'?'rgba(230,126,34,.2)':bgCol==='#C0392B'?'rgba(192,57,43,.2)':'rgba(120,144,156,.2)';
+    var darkBg = bgCol==='#5F8068'?'rgba(26,122,74,.2)':bgCol==='#E67E22'?'rgba(230,126,34,.2)':bgCol==='#A85959'?'rgba(192,57,43,.2)':'rgba(120,144,156,.2)';
     el.style.background = darkBg;
-    el.style.color = bgCol==='#1A7A4A'?'#4ade80':bgCol==='#E67E22'?'#fbbf24':bgCol==='#C0392B'?'#f87171':'#94a3b8';
-    el.style.border = '1px solid ' + (bgCol==='#1A7A4A'?'rgba(26,122,74,.4)':bgCol==='#E67E22'?'rgba(230,126,34,.4)':bgCol==='#C0392B'?'rgba(192,57,43,.4)':'rgba(120,144,156,.3)');
+    el.style.color = bgCol==='#5F8068'?'#4ade80':bgCol==='#E67E22'?'#fbbf24':bgCol==='#A85959'?'#f87171':'#94a3b8';
+    el.style.border = '1px solid ' + (bgCol==='#5F8068'?'rgba(26,122,74,.4)':bgCol==='#E67E22'?'rgba(230,126,34,.4)':bgCol==='#A85959'?'rgba(192,57,43,.4)':'rgba(120,144,156,.3)');
   } else {
     el.style.background = bgCol;
     el.style.color = 'white';
@@ -3209,7 +3209,7 @@ function _chartStrokeW() { return document.body.classList.contains('dark-mode') 
 function _chartGrid() { return document.body.classList.contains('dark-mode') ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.05)'; }
 function _chartLabelColor(lightCol) {
   if(!document.body.classList.contains('dark-mode')) return lightCol;
-  var map = {'#1A7A4A':'#5aca7a','#0D47A1':'#60a0e0','#1565C0':'#60a0e0','#D35400':'#e8a050','#5B2D8E':'#b080e0','#E53935':'#f07070','#2C4770':'#7a9fc8','#9C27B0':'#c070d0','#E67E22':'#e8a050','#805AD5':'#b59ae0'};
+  var map = {'#5F8068':'#5aca7a','#A85959':'#e08080','#0D47A1':'#60a0e0','#1565C0':'#60a0e0','#D35400':'#e8a050','#5B2D8E':'#b080e0','#E53935':'#f07070','#2C4770':'#7a9fc8','#9C27B0':'#c070d0','#E67E22':'#e8a050','#805AD5':'#b59ae0'};
   return map[lightCol] || lightCol;
 }
 let pldSupplyChart = null;  // legacy var (removed from UI, kept to avoid ref errors)
@@ -3329,7 +3329,7 @@ function addCustomEquip(tab) {
   wrap.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;grid-column:span 2;';
   wrap.innerHTML = '<input type="checkbox" name="'+name+'" checked>'
     + '<input type="text" placeholder="Custom equipment description" style="flex:1;padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:Calibri,sans-serif;">'
-    + '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:13px;padding:0 4px;">✕</button>';
+    + '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#A85959;cursor:pointer;font-size:13px;padding:0 4px;">✕</button>';
   container.appendChild(wrap);
   wrap.querySelector('input[type=text]').focus();
 }
@@ -3982,7 +3982,7 @@ function renderDeficGroup(name) {
 
 function buildDeficItem(name, safe, d, i) {
   var sc = d.status || 'open';
-  var scCol = sc==='resolved' ? '#1A7A4A' : sc==='in-progress' ? '#E67E22' : '#C0392B';
+  var scCol = sc==='resolved' ? '#5F8068' : sc==='in-progress' ? '#E67E22' : '#A85959';
   var thumbsHtml = '';
   (d.photos || []).forEach(function(p, j) {
     thumbsHtml += '<div class="photo-thumb">'
@@ -4002,7 +4002,7 @@ function buildDeficItem(name, safe, d, i) {
     var icon = isContractor ? '⚡' : '🔍';
     var label = isContractor ? 'Contractor' : 'Consultant';
     var crSc = cr.status || 'open';
-    var crScCol = crSc==='resolved'?'#1A7A4A':crSc==='in-progress'?'#E67E22':'#C0392B';
+    var crScCol = crSc==='resolved'?'#5F8068':crSc==='in-progress'?'#E67E22':'#A85959';
     var crPhotosHtml = '';
     (cr.photos || []).forEach(function(rp, ri) {
       crPhotosHtml += '<div style="position:relative;display:inline-block;">'
@@ -4032,7 +4032,7 @@ function buildDeficItem(name, safe, d, i) {
       +'<span>Drag & drop photos</span>'
       +'<div style="display:flex;gap:5px;">'
       +'<button onclick="deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button>'
-      +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
+      +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
       +'</div></div></div></div></div>';
   });
 
@@ -4044,7 +4044,7 @@ function buildDeficItem(name, safe, d, i) {
 
   return '<div style="border-top:1px solid var(--border);padding:14px 16px;">'
     +'<div style="display:flex;gap:10px;align-items:flex-start;">'
-    +'<div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:#C0392B;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">'+(i+1)+'</div>'
+    +'<div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:#A85959;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">'+(i+1)+'</div>'
     +'<div style="flex:1;min-width:0;">'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
     +'<div>'
@@ -4057,7 +4057,7 @@ function buildDeficItem(name, safe, d, i) {
     +'<span>Drag & drop photos here</span>'
     +'<div style="display:flex;gap:5px;">'
     +'<button onclick="event.stopPropagation();deficUpload(\''+safe+'\','+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button>'
-    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="deficiencies[\''+safe+'\']['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="deficiencies[\''+safe+'\']['+i+'].status=this.value;_checkDeficStatusChange(\''+safe+'\','+i+');updateDeficSummary();">'
@@ -4201,7 +4201,7 @@ function renderGeneralDeficGroup() {
 
 function buildGeneralDeficItem(d, i) {
   var sc = d.status || 'open';
-  var scCol = sc==='resolved' ? '#1A7A4A' : sc==='in-progress' ? '#E67E22' : '#C0392B';
+  var scCol = sc==='resolved' ? '#5F8068' : sc==='in-progress' ? '#E67E22' : '#A85959';
   var thumbsHtml = '';
   (d.photos || []).forEach(function(p, j) {
     thumbsHtml += '<div class="photo-thumb"><img src="'+(p.r2Url||p.d)+'" onclick="openLightbox(generalDeficiencies['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view"><button class="photo-remove" onclick="generalDeficiencies['+i+'].photos.splice('+j+',1);renderGeneralDeficGroup();">✕</button></div>';
@@ -4224,13 +4224,13 @@ function buildGeneralDeficItem(d, i) {
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Comment</div><textarea placeholder="'+label+' response..." style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].responses['+ci+'].comment=this.value">'+(cr.comment||'')+'</textarea></div>';
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+crPhotosHtml+'</div>';
     respHtml += '<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';genDeficRespDrop(event,'+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">';
-    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div></div>';
+    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div></div>';
   });
   respHtml += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'contractor\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #E67E22;border-radius:5px;background:#fffbf0;color:#E67E22;font-size:12px;cursor:pointer;font-weight:600;">+ Add Contractor Response</button>';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'consultant\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #1565C0;border-radius:5px;background:#f0f4ff;color:#1565C0;font-size:12px;cursor:pointer;font-weight:600;">+ Add Consultant Response</button></div>';
 
-  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:#455A64;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">G'+(i+1)+'</div><div style="flex:1;min-width:0;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:#455A64;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">G'+(i+1)+'</div><div style="flex:1;min-width:0;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="generalDeficiencies['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="generalDeficiencies['+i+'].status=this.value;updateDeficSummary();renderGeneralDeficGroup();"><option value="open" '+(sc==='open'?'selected':'')+'>● Outstanding</option><option value="in-progress" '+(sc==='in-progress'?'selected':'')+'>● In Progress</option><option value="resolved" '+(sc==='resolved'?'selected':'')+'>● Addressed & Closed</option></select></div>'
@@ -4292,9 +4292,9 @@ function renderAllDeficSummary() {
   var tt=0, ti=0, to=0, tc=0;
   var rows = Object.keys(groups).map(function(k) {
     var g = groups[k]; tt+=g.t; ti+=g.i; to+=g.o; tc+=g.c;
-    return '<tr><td style="font-weight:600;">'+k+'</td><td>'+g.t+'</td><td style="color:'+(g.i?'#FF69B4':'inherit')+';font-weight:'+(g.i?'700':'400')+'">'+g.i+'</td><td style="color:'+(g.o?'#C0392B':'inherit')+';font-weight:'+(g.o?'700':'400')+'">'+g.o+'</td><td style="color:'+(g.c?'#1A7A4A':'inherit')+';font-weight:'+(g.c?'700':'400')+'">'+g.c+'</td></tr>';
+    return '<tr><td style="font-weight:600;">'+k+'</td><td>'+g.t+'</td><td style="color:'+(g.i?'#FF69B4':'inherit')+';font-weight:'+(g.i?'700':'400')+'">'+g.i+'</td><td style="color:'+(g.o?'#A85959':'inherit')+';font-weight:'+(g.o?'700':'400')+'">'+g.o+'</td><td style="color:'+(g.c?'#5F8068':'inherit')+';font-weight:'+(g.c?'700':'400')+'">'+g.c+'</td></tr>';
   }).join('');
-  el.innerHTML = '<table class="all-defic-tbl"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>'+rows+'<tr style="font-weight:800;background:var(--smoke);"><td>TOTAL</td><td>'+tt+'</td><td style="color:#FF69B4;">'+ti+'</td><td style="color:#C0392B;">'+to+'</td><td style="color:#1A7A4A;">'+tc+'</td></tr></tbody></table>';
+  el.innerHTML = '<table class="all-defic-tbl"><thead><tr><th>Contractor</th><th>Total</th><th>IAR</th><th>Outstanding</th><th>Closed</th></tr></thead><tbody>'+rows+'<tr style="font-weight:800;background:var(--smoke);"><td>TOTAL</td><td>'+tt+'</td><td style="color:#FF69B4;">'+ti+'</td><td style="color:#A85959;">'+to+'</td><td style="color:#5F8068;">'+tc+'</td></tr></tbody></table>';
 }
 
 function renderAllDeficTable() {
@@ -4693,7 +4693,7 @@ function _realExportPDF() {
   const cumTot = b1tot+b2tot;
 
   const statusLabel = s => s==='yes'?'YES ✓':s==='no'?'NO ✗':s==='na'?'N/A':'—';
-  const statusColor = s => s==='yes'?'#1A7A4A':s==='no'?'#C0392B':s==='na'?'#888':'#999';
+  const statusColor = s => s==='yes'?'#5F8068':s==='no'?'#A85959':s==='na'?'#888':'#999';
 
   const clSection = (items, section) => {
     const allItems = [...items, ...(customItems[section]||[])];
@@ -4815,7 +4815,7 @@ function _realExportPDF() {
   <table class="dt"><thead><tr><th>Battery #1 Test</th><th>Duration (s)</th><th>Battery #2 Test</th><th>Duration (s)</th></tr></thead>
   <tbody>${BAT_TESTS.map((t,i)=>`<tr><td class="left" style="text-align:left">${t}</td><td>${batData.b1[i].toFixed(2)}</td><td style="text-align:left">${t}</td><td>${batData.b2[i].toFixed(2)}</td></tr>`).join('')}
   <tr style="background:#EFF2F7;font-weight:700;"><td colspan="2">Battery #1 Subtotal: ${b1tot.toFixed(2)} s</td><td colspan="2">Battery #2 Subtotal: ${b2tot.toFixed(2)} s</td></tr>
-  <tr style="background:${cumTot<=45?'#D4EDDA':'#FADBD8'};font-weight:700;"><td colspan="4">Combined Total: ${cumTot.toFixed(2)} s — ${cumTot<=45?'✓ PASS (≤ 45s)':'✗ FAIL (> 45s) — Engine to run 5 min at full speed'}</td></tr>
+  <tr style="background:${cumTot<=45?'#E8EFE7':'#F3E0DE'};font-weight:700;"><td colspan="4">Combined Total: ${cumTot.toFixed(2)} s — ${cumTot<=45?'✓ PASS (≤ 45s)':'✗ FAIL (> 45s) — Engine to run 5 min at full speed'}</td></tr>
   </tbody></table>
   <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
   <tbody>${clSection(S3,'s3')}</tbody></table>
@@ -4891,13 +4891,13 @@ function _realExportPDF() {
   <h2>Deficiency Summary</h2>
   ${(()=>{
     const allItems = contractors.flatMap(n => (deficiencies[n]||[]).map(d => ({...d, _name:n})));
-    if (allItems.length === 0) return '<div style="background:#D4EDDA;border:1px solid #1A7A4A;padding:10px;border-radius:4px;color:#1A7A4A;font-weight:bold;">No deficiencies recorded.</div>';
+    if (allItems.length === 0) return '<div style="background:#E8EFE7;border:1px solid #5F8068;padding:10px;border-radius:4px;color:#5F8068;font-weight:bold;">No deficiencies recorded.</div>';
     return contractors.map(n => {
       const items = deficiencies[n]||[];
       if (!items.length) return '';
       let out = '<div style="margin-bottom:18px;"><div style="background:#1C2333;color:white;padding:6px 12px;font-weight:700;font-size:9pt;border-radius:4px 4px 0 0;">' + n + '</div>';
       items.forEach((d,i) => {
-        const sc = d.status||'open', scCol = sc==='resolved'?'#1A7A4A':sc==='in-progress'?'#E67E22':'#C0392B';
+        const sc = d.status||'open', scCol = sc==='resolved'?'#5F8068':sc==='in-progress'?'#E67E22':'#A85959';
         out += '<div class="defic" style="border-top:1px solid #eee;">';
         var iarLabel = d.iarStatus ? '<span class="iat">IMMEDIATE ACTION REQUIRED</span> ' : '';
         out += '<div class="defic-lbl">#'+(i+1)+' '+iarLabel+' <span style="color:'+scCol+'">'+sc.toUpperCase()+'</span></div>';
@@ -4954,32 +4954,32 @@ function _realExportPDF() {
     var resultLabel, resultDesc, col;
     // Rule: Any checklist NO → downgrade to conditional pass at best
     if(hasAnyNo && openIAR) {
-      resultLabel='FAIL'; resultDesc='Checklist items marked NO + unresolved IAR deficiencies.'; col='#C0392B';
+      resultLabel='FAIL'; resultDesc='Checklist items marked NO + unresolved IAR deficiencies.'; col='#A85959';
     } else if(hasAnyNo && tccVal==='fail') {
-      resultLabel='FAIL'; resultDesc='Consultant selected FAIL.'; col='#C0392B';
+      resultLabel='FAIL'; resultDesc='Consultant selected FAIL.'; col='#A85959';
     } else if(hasAnyNo) {
       resultLabel='CONDITIONAL PASS'; resultDesc='One or more checklist items marked NO.'; col='#E67E22';
     } else if(openIAR) {
       resultLabel='FAIL'; resultDesc='Unresolved IAR deficiencies remain. Test result: FAIL.';
-      col='#C0392B';
+      col='#A85959';
     } else if(tccVal==='pass' && perfPass) {
       resultLabel='PASS'; resultDesc='All pump performance points meet cutsheet criteria. No unresolved IAR deficiencies.';
-      col='#1A7A4A';
+      col='#5F8068';
     } else if(tccVal==='conditional') {
       resultLabel='CONDITIONAL PASS'; resultDesc='Minor deficiencies noted. Performance data acceptable pending resolution.';
       col='#E67E22';
     } else if(tccVal==='fail') {
       resultLabel='FAIL'; resultDesc='Major deficiencies identified. Test result: FAIL.';
-      col='#C0392B';
+      col='#A85959';
     } else if(tccVal==='pass' && !perfPass) {
       resultLabel='CONDITIONAL PASS'; resultDesc='Test completion marked as pass but one or more performance points did not meet cutsheet criteria.';
       col='#E67E22';
     } else {
       resultLabel=perfPass?'PASS':'CONDITIONAL / FAIL';
       resultDesc=perfPass?'All pump performance points meet cutsheet criteria.':'One or more performance points did not meet cutsheet criteria or test result not confirmed.';
-      col=perfPass?'#1A7A4A':'#C0392B';
+      col=perfPass?'#5F8068':'#A85959';
     }
-    return '<div style="margin:24px 0;padding:20px;border:3px solid '+col+';border-radius:8px;background:'+(col==='#1A7A4A'?'#F0FFF4':col==='#E67E22'?'#FFF8F0':'#FFF5F5')+';text-align:center;page-break-inside:avoid;">'
+    return '<div style="margin:24px 0;padding:20px;border:3px solid '+col+';border-radius:8px;background:'+(col==='#5F8068'?'#F0FFF4':col==='#E67E22'?'#FFF8F0':'#FFF5F5')+';text-align:center;page-break-inside:avoid;">'
       +'<div style="font-size:22pt;font-weight:900;color:'+col+';letter-spacing:3px;">'+resultLabel+'</div>'
       +'<div style="font-size:9pt;margin-top:6px;color:#555;">'+resultDesc+'</div>'
       +'</div>';
@@ -5133,7 +5133,7 @@ function _realExportPDF() {
     btnBar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);';
     var printBtn = w.document.createElement('button');
     printBtn.textContent = '\uD83D\uDCC4 Export PDF';
-    printBtn.style.cssText = 'padding:8px 24px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
+    printBtn.style.cssText = 'padding:8px 24px;background:#5F8068;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
     printBtn.onclick = function(){ w.print(); };
     btnBar.appendChild(printBtn);
     var hint = w.document.createElement('span');
@@ -5274,7 +5274,7 @@ function addSketchEntry() {
             <span style="width:1px;height:20px;background:var(--border);margin:0 4px;"></span>
             <!-- Colors -->
             <div class="color-dot ${document.body.classList.contains('dark-mode')?'':'active'}" style="background:#1C2333;" data-color="#1C2333" onclick="setSketchColor(${uid},'#1C2333',this)"></div>
-            <div class="color-dot" style="background:#C0392B;" data-color="#C0392B" onclick="setSketchColor(${uid},'#C0392B',this)"></div>
+            <div class="color-dot" style="background:#A85959;" data-color="#A85959" onclick="setSketchColor(${uid},'#A85959',this)"></div>
             <div class="color-dot" style="background:#1A7A4A;" data-color="#1A7A4A" onclick="setSketchColor(${uid},'#1A7A4A',this)"></div>
             <div class="color-dot" style="background:#2196F3;" data-color="#2196F3" onclick="setSketchColor(${uid},'#2196F3',this)"></div>
             <div class="color-dot" style="background:#E67E22;" data-color="#E67E22" onclick="setSketchColor(${uid},'#E67E22',this)"></div>
@@ -5319,7 +5319,7 @@ function addSketchEntry() {
             <div style="font-size:13px;color:#888;">Drag & drop a site photo here to annotate</div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-outline btn-sm" onclick="triggerSketchPhoto(${uid})">📎 Upload Photo</button>
-              <button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
+              <button class="btn btn-sm" style="background:#5F8068;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
             </div>
           </div>
         </div>
@@ -5331,7 +5331,7 @@ function addSketchEntry() {
             <button class="tool-btn" id="mtool-rect-${uid}" onclick="setMarkupTool(${uid},'rect')">⬛ Box</button>
             <button class="tool-btn" id="mtool-text-${uid}" onclick="setMarkupTool(${uid},'text')">T Text</button>
             <button class="tool-btn" id="mtool-erase-${uid}" onclick="setMarkupTool(${uid},'erase')">⬜ Erase</button>
-            <div class="color-dot active" style="background:#C0392B;" data-color="#C0392B" onclick="setMarkupColor(${uid},'#C0392B',this)"></div>
+            <div class="color-dot active" style="background:#A85959;" data-color="#A85959" onclick="setMarkupColor(${uid},'#A85959',this)"></div>
             <div class="color-dot" style="background:#E67E22;" data-color="#E67E22" onclick="setMarkupColor(${uid},'#E67E22',this)"></div>
             <div class="color-dot" style="background:#1C2333;" data-color="#1C2333" onclick="setMarkupColor(${uid},'#1C2333',this)"></div>
             <div class="color-dot" style="background:#2196F3;" data-color="#2196F3" onclick="setMarkupColor(${uid},'#2196F3',this)"></div>
@@ -5407,7 +5407,7 @@ function initSketchCanvas(uid) {
   sketchState[uid] = {
     tool: 'pen', color: _isDark ? '#ffffff' : '#1C2333', size: 3, alpha: 1.0,
     fontSize: 16, textBold: false, textItalic: false, textUnderline: false,
-    mtool: 'pen', mcolor: '#C0392B', msize: 3, malpha: 1.0,
+    mtool: 'pen', mcolor: '#A85959', msize: 3, malpha: 1.0,
     drawing: false, startX:0, startY:0, snapshot:null,
     strokePts: [], // for highlight: accumulate all points in stroke
     zoomPct: 100
@@ -6864,10 +6864,10 @@ async function issueReport() {
     showToast('✓ Report issued as B01', 3000);
     // Update header badge
     var badge = document.getElementById('issue-status-badge');
-    if(badge){ badge.textContent = 'ISSUED'; badge.style.background = '#1A7A4A'; badge.style.display = 'inline-block'; }
+    if(badge){ badge.textContent = 'ISSUED'; badge.style.background = '#5F8068'; badge.style.display = 'inline-block'; }
     // Update project bar badge
     var pbb = document.getElementById('pb-badge');
-    if(pbb){ pbb.textContent = 'ISSUED'; pbb.style.background = '#1A7A4A'; }
+    if(pbb){ pbb.textContent = 'ISSUED'; pbb.style.background = '#5F8068'; }
   } catch(e) {
     showToast('Failed to issue: ' + e.message, 3000);
   }
@@ -6879,11 +6879,11 @@ function showSaveToast(msg, color) {
   if (!t) {
     t = document.createElement('div');
     t.id = 'save-toast';
-    t.style.cssText = 'position:fixed;bottom:18px;right:18px;background:#1A7A4A;color:white;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;font-family:Calibri,sans-serif;letter-spacing:.5px;z-index:9999;transition:opacity .4s;pointer-events:none;';
+    t.style.cssText = 'position:fixed;bottom:18px;right:18px;background:#5F8068;color:white;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;font-family:Calibri,sans-serif;letter-spacing:.5px;z-index:9999;transition:opacity .4s;pointer-events:none;';
     document.body.appendChild(t);
   }
   t.textContent = msg;
-  t.style.background = color || '#1A7A4A';
+  t.style.background = color || '#5F8068';
   t.style.opacity = '1';
   clearTimeout(t._t);
   t._t = setTimeout(() => { t.style.opacity = '0'; }, 2500);
@@ -7120,7 +7120,7 @@ function _showSaveLeaveModal(destUrl) {
   box.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--slate);margin-bottom:8px;">Save before leaving?</div>'
     + '<div style="font-size:13px;color:var(--silver);margin-bottom:20px;line-height:1.5;">Your report auto-saves every 30 seconds, but you may have recent changes that haven\'t synced yet.</div>'
     + '<div style="display:flex;flex-direction:column;gap:8px;">'
-    + '<button id="sl-save-btn" style="width:100%;padding:11px;background:#1A7A4A;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">💾 Save & Leave</button>'
+    + '<button id="sl-save-btn" style="width:100%;padding:11px;background:#5F8068;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">💾 Save & Leave</button>'
     + '<button id="sl-leave-btn" style="width:100%;padding:11px;background:var(--smoke);color:var(--slate);border:1.5px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Leave without saving</button>'
     + '<button id="sl-cancel-btn" style="width:100%;padding:9px;background:none;border:none;color:var(--silver);font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel — go back</button>'
     + '</div>';
@@ -7307,7 +7307,7 @@ window.addEventListener('load', () => {
         if(badge && result && result.row){
           var st = result.row.status || 'draft';
           badge.textContent = st.toUpperCase();
-          badge.style.background = st === 'issued' ? '#1A7A4A' : st === 'review' ? '#1565C0' : '#E65100';
+          badge.style.background = st === 'issued' ? '#5F8068' : st === 'review' ? '#1565C0' : '#E65100';
           badge.style.display = 'inline-block';
         }
         // Start auto-save (30s)
