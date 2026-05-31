@@ -7610,6 +7610,14 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
   cursor: pointer; margin-left: 6px; text-transform: none; letter-spacing: 0;
 }
 .dfx-ed-choose:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
+/* S214: C (focused-pin modal) renders the ⊞ Choose button inert until the
+   selection picker is lifted to a shared helper (its own verified session).
+   Muted, non-interactive — no hover lift, default cursor. */
+.dfx-ed-choose-soon {
+  opacity: 0.5; cursor: default; color: var(--silver, #8A93A6);
+  border-color: var(--border, #D7DCE5);
+}
+.dfx-ed-choose-soon:hover { border-color: var(--border, #D7DCE5); color: var(--silver, #8A93A6); }
 
 /* auto-stamped flag on the noted line */
 .dfx-ed-noted-flag {

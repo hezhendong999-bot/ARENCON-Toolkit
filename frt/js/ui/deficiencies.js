@@ -2054,7 +2054,16 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   // above the drop box, matching pin_editor_balanced.html. A (no withHeader)
   // keeps the plain inline layout with no heading.
   if (opts.withHeader) {
-    h += '<div class="dfx-ed-photos-head"><span>Photos <button type="button" class="dfx-ed-choose" data-action="choose-obs-photos" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Choose which of this pin\'s photos belong to this observation">\u229E Choose for this obs</button></span><span class="dfx-ed-pcount">' + obsPhotos.length + ' attached</span></div>';
+    // S214: the ⊞ Choose selection picker is wired only for the on-drawing pin
+    // editor (B, in viewer.js). For C (focused-pin modal) it is rendered but
+    // inert until the picker is lifted to a shared helper in its own verified
+    // session — opts.chooseDisabled keeps the button visible (parity of layout)
+    // without a live data-action that would no-op. B never sets this flag, so
+    // its markup is unchanged.
+    var _chooseBtn = opts.chooseDisabled
+      ? '<button type="button" class="dfx-ed-choose dfx-ed-choose-soon" disabled aria-disabled="true" title="Photo selection \u2014 coming soon">\u229E Choose for this obs</button>'
+      : '<button type="button" class="dfx-ed-choose" data-action="choose-obs-photos" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Choose which of this pin\'s photos belong to this observation">\u229E Choose for this obs</button>';
+    h += '<div class="dfx-ed-photos-head"><span>Photos ' + _chooseBtn + '</span><span class="dfx-ed-pcount">' + obsPhotos.length + ' attached</span></div>';
   }
   h += '<div class="obs-media-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
   h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
@@ -2482,15 +2491,70 @@ function _pinFocusCtrIdOf(deficId) {
   }
   return null; // not under any contractor => Site Records (generalDeficiencies)
 }
+// S214: C active observation index. Mirrors B's _peObsIdx (viewer.js).
+var _pfObsIdx = 0;
+
+// S214: synchronous close/switch flush for C's unified textarea — mirrors
+// viewer.js _peFlushUnifiedTextarea (B). The obs-text textarea persists on a
+// 500ms debounce; before a tab switch / close we read the live value and write
+// it through Model.updateObservation so sub-debounce keystrokes aren't lost.
+function _pfFlushTextarea() {
+  var ov = document.getElementById('pinfocus-overlay');
+  if (!ov) return;
+  var ta = ov.querySelector('textarea[data-action="obs-text"]');
+  if (!ta) return;
+  var did = ta.getAttribute('data-defic-id');
+  var idx = parseInt(ta.getAttribute('data-obs-idx') || String(_pfObsIdx) || '0', 10);
+  if (isNaN(idx)) idx = _pfObsIdx || 0;
+  if (!did) return;
+  var f = Model.findDeficiency(did);
+  if (!f) return;
+  var cur = (f.defic.observations || [])[idx];
+  if (cur && cur.text !== ta.value) {
+    Model.updateObservation(did, idx, { text: ta.value });
+  }
+}
+
+// S214: refresh C if it's open on deficId (parallel to B's _frtRefreshPinEditor
+// / _frtPinEditorAddedObs / _frtPinEditorRemovedObs). idxHint: 'added' lands on
+// the new last obs; a number clamps to it; undefined keeps _pfObsIdx. Closes C
+// if the whole pin is gone.
+function _frtRefreshPinFocusIf(deficId, idxHint) {
+  var ov = document.getElementById('pinfocus-overlay');
+  if (!ov) return;
+  if (ov.getAttribute('data-defic-id') !== deficId) return;
+  var f = Model.findDeficiency(deficId);
+  if (!f) { _closePinFocus(); return; }
+  var n = (f.defic.observations || []).length;
+  if (idxHint === 'added') { _pfObsIdx = n > 0 ? n - 1 : 0; }
+  else if (typeof idxHint === 'number') { var i = idxHint; if (i >= n) i = n - 1; if (i < 0) i = 0; _pfObsIdx = i; }
+  if (_pfObsIdx < 0 || _pfObsIdx >= n) _pfObsIdx = 0;
+  _refreshPinFocus();
+}
+
 function _buildPinFocusBody(deficId) {
   var f = Model.findDeficiency(deficId);
   if (!f) return '';
   var d = f.defic;
   var ctrId = _pinFocusCtrIdOf(deficId);
+  // navBtn stays as C's own modal chrome (Mark, S214): View on drawing when
+  // placed, Place pin when not. It is NOT folded into the editor's reserved
+  // onDrawingLink slot — C passes no onDrawingLink, so its body is the SAME
+  // headered editor as B.
   var navBtn = d.drawingId
     ? '<button data-action="view-pin" data-defic-id="' + esc(d.id) + '" class="btn-muted-ok" style="width:100%;text-align:center;padding:10px 14px;font-size:calc(14px + var(--ts));margin-bottom:14px;cursor:pointer;">\uD83D\uDCCC View on drawing</button>'
     : '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" class="btn-muted-warn" style="width:100%;text-align:center;padding:10px 14px;font-size:calc(14px + var(--ts));margin-bottom:14px;cursor:pointer;">\uD83D\uDCCC Place pin on a drawing</button>';
-  return navBtn + buildDeficCard(d, ctrId);
+  // S214 convergence: C renders the SAME unified editor as B (withHeader →
+  // star + Pin #N header + obs tab strip + noted line + photos head + action
+  // bar), instead of the legacy buildDeficCard + _scopePinFocusObs hide-siblings
+  // approach. chooseDisabled:true keeps the ⊞ Choose button visible-but-inert
+  // until the picker is lifted to a shared helper in its own verified session.
+  var obs = d.observations || [];
+  if (_pfObsIdx < 0 || _pfObsIdx >= obs.length) _pfObsIdx = 0;
+  var editor = (typeof window !== 'undefined' && window._frtBuildObsEditor)
+    ? window._frtBuildObsEditor(d, _pfObsIdx, ctrId, { withHeader: true, pinNum: (d.num != null ? d.num : '?'), chooseDisabled: true })
+    : '<div style="padding:12px;color:var(--silver);font-family:Calibri,sans-serif;">Editor unavailable \u2014 reload the page.</div>';
+  return navBtn + '<div class="dfx-or-editor-host" id="pf-obs-content">' + editor + '</div>';
 }
 function _closePinFocus() {
   var ov = document.getElementById('pinfocus-overlay');
@@ -2510,6 +2574,10 @@ function _openPinFocus(deficId, focusOi) {
   // observation; siblings collapse behind a one-tap reveal so pin
   // context isn't lost. Table rows / external entry pass no oi → whole
   // pin (unchanged).
+  // S214: focusOi (Board card → one observation) becomes the editor's
+  // starting tab index. Whole-pin entry (table rows / external) passes no oi →
+  // index 0, all tabs available. Replaces the old data-focus-oi CSS-scoping.
+  _pfObsIdx = (focusOi != null && focusOi >= 0) ? focusOi : 0;
   if (focusOi != null && focusOi >= 0) ov.setAttribute('data-focus-oi', String(focusOi));
   ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:32px 16px;font-family:Calibri,sans-serif;';
   var panel = document.createElement('div');
@@ -2521,11 +2589,10 @@ function _openPinFocus(deficId, focusOi) {
     + '</div>'
     + '<div id="pinfocus-body">' + _buildPinFocusBody(deficId) + '</div>';
   ov.appendChild(panel);
-  ov.addEventListener('click', function(e) { if (e.target === ov) _closePinFocus(); });
-  panel.querySelector('#pinfocus-close').addEventListener('click', _closePinFocus);
+  ov.addEventListener('click', function(e) { if (e.target === ov) { _pfFlushTextarea(); _closePinFocus(); } });
+  panel.querySelector('#pinfocus-close').addEventListener('click', function() { _pfFlushTextarea(); _closePinFocus(); });
   document.body.appendChild(ov);
-  _scopePinFocusObs(ov);
-  _pinFocusKeyH = function(ev) { if (ev.key === 'Escape') _closePinFocus(); };
+  _pinFocusKeyH = function(ev) { if (ev.key === 'Escape') { _pfFlushTextarea(); _closePinFocus(); } };
   document.addEventListener('keydown', _pinFocusKeyH);
 }
 function _refreshPinFocus() {
@@ -2534,14 +2601,21 @@ function _refreshPinFocus() {
   var deficId = ov.getAttribute('data-defic-id');
   if (!deficId) return;
   if (!Model.findDeficiency(deficId)) { _closePinFocus(); return; }
-  // Never rebuild while a textarea inside the panel is being edited.
+  // S214: never rebuild while the user is mid-edit in the unified editor — the
+  // editor now carries selects/inputs as well as the textarea, so guard all
+  // three (mirrors viewer.js _peTypingInMount for B).
   var ae = document.activeElement;
-  if (ae && ae.tagName === 'TEXTAREA' && ov.contains(ae)) return;
+  if (ae && ov.contains(ae) && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) return;
   var body = ov.querySelector('#pinfocus-body');
   if (body) body.innerHTML = _buildPinFocusBody(deficId);
-  _scopePinFocusObs(ov);
 }
 
+// S214: DEFINED-BUT-INERT (S137 dead-handler discipline). No longer called —
+// C now renders the unified editor whose header tab strip handles observation
+// switching, replacing the old "render the whole buildDeficCard, CSS-hide
+// siblings" approach. Retained (not deleted) so the prior behaviour is
+// recoverable and the removal is bisectable.
+// ── (original S153 doc follows) ──
 // S153 B3 (Mark): scope the focused panel to a single observation.
 // buildDeficCard emits every observation as
 // `.defic-obs-card[data-obs-idx]`; this hides the non-target ones and
@@ -3036,6 +3110,86 @@ document.addEventListener('click', function(e) {
     else return;
   }
 
+  // ── S214: C (focused-pin modal) unified-editor actions ──────────────
+  // Parallel to viewer.js's pin-editor dispatcher (which is gated to
+  // #pin-editor-overlay and won't fire here). These handle the editor's tab
+  // strip inside #pinfocus-overlay using C's own _pfObsIdx + _refreshPinFocus.
+  // add-obs / dfx-remove-obsrow / obs-* persistence all fall through to the
+  // shared document-level handlers below; only tab-switch and split need C's
+  // render path, so only those are intercepted here.
+  if (el && el.closest && el.closest('#pinfocus-overlay')) {
+    var _pfOv = document.getElementById('pinfocus-overlay');
+    var _pfDid = _pfOv ? _pfOv.getAttribute('data-defic-id') : null;
+    if (action === 'dfx-ed-tab') {
+      var _ptd = el.getAttribute('data-defic-id');
+      var _pti = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+      if (_ptd === _pfDid) {
+        _pfFlushTextarea();
+        _pfObsIdx = isNaN(_pti) ? 0 : _pti;
+        _refreshPinFocus();
+      }
+      return;
+    }
+    if (action === 'dfx-ed-tab-split') {
+      var _psd = el.getAttribute('data-defic-id');
+      var _psi = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+      if (_psd !== _pfDid) return;
+      var _psf = Model.findDeficiency(_pfDid);
+      if (!_psf) return;
+      var _psObs = _psf.defic.observations || [];
+      if (_psi < 0 || _psi >= _psObs.length) return;
+      if (_psObs.length <= 1) { if (typeof toast === 'function') toast('Only observation \u2014 nothing to split'); return; }
+      var _psLetter = String.fromCharCode(65 + _psi);
+      var _psPrev = (_psObs[_psi].text || '').trim();
+      if (_psPrev.length > 80) _psPrev = _psPrev.slice(0, 80) + '\u2026';
+      showConfirm('Split to its own pin', 'Move observation ' + _psLetter + ' (' + (_psPrev || 'no text') + ') into a brand-new pin at the same drawing location? It will be removed from this pin.').then(function(yes) {
+        if (!yes) return;
+        var _pNewDef = Model.splitObservationToPin(_pfDid, _psi);
+        if (window._frtRenderDefic) window._frtRenderDefic();
+        if (_pNewDef && _pNewDef.id) {
+          _pfObsIdx = 0;
+          _openPinFocus(_pNewDef.id);
+          if (typeof toast === 'function') toast('Split to pin #' + (_pNewDef.num != null ? _pNewDef.num : '?'));
+        } else {
+          _pfObsIdx = 0;
+          _refreshPinFocus();
+        }
+      });
+      return;
+    }
+    // S214: inline noted-date edit (parallel to viewer.js _peEditNotedDate for
+    // B). Swaps the "Noted …" line for a date input; on change writes per-obs
+    // notedDate + saves, then rebuilds C via _refreshPinFocus.
+    if (action === 'dfx-ed-edit-noted') {
+      var _nLine = el.closest('.dfx-ed-noted');
+      if (!_nLine) return;
+      var _nDid = el.getAttribute('data-defic-id');
+      var _nIdx = parseInt(el.getAttribute('data-obs-idx') || String(_pfObsIdx) || '0', 10);
+      if (isNaN(_nIdx)) _nIdx = _pfObsIdx || 0;
+      if (_nDid !== _pfDid) return;
+      var _nCur = el.getAttribute('data-cur') || '';
+      _nLine.innerHTML = '<input type="date" class="dfx-ed-noted-input" value="' + _nCur + '" style="font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));padding:2px 6px;border:1.5px solid var(--border);border-radius:5px;">';
+      var _nInp = _nLine.querySelector('.dfx-ed-noted-input');
+      if (!_nInp) return;
+      setTimeout(function() { try { _nInp.focus(); } catch (_e) {} }, 20);
+      var _nCommit = function() {
+        var _nf = Model.findDeficiency(_pfDid);
+        if (!_nf) return;
+        var _nObs = (_nf.defic.observations || [])[_nIdx];
+        if (_nObs) {
+          var _nv = _nInp.value || '';
+          if (_nv) { _nObs.notedDate = _nv; _nObs.notedDateEdited = true; }
+          else { delete _nObs.notedDate; delete _nObs.notedDateEdited; }
+          Model.saveNow();
+        }
+        _refreshPinFocus();
+      };
+      _nInp.addEventListener('change', _nCommit);
+      _nInp.addEventListener('blur', _nCommit);
+      return;
+    }
+  }
+
   if (action === 'dfx-fold-trade') {
     var ftk = el.getAttribute('data-trade');
     if (ftk != null) {
@@ -3505,6 +3659,8 @@ document.addEventListener('click', function(e) {
       // S213: if fired from inside the pin editor, move to + show the new obs.
       if (window._frtPinEditorAddedObs) window._frtPinEditorAddedObs(deficId);
       else if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+      // S214: same for C (focused-pin modal), if open on this pin.
+      _frtRefreshPinFocusIf(deficId, 'added');
       toast('Observation added');
     }
   }
@@ -3552,6 +3708,8 @@ document.addEventListener('click', function(e) {
           initDeficiencies.render();
           // S213: whole pin gone — close the pin editor if it's showing this pin.
           if (window._frtClosePinEditorIf) window._frtClosePinEditorIf(_rd);
+          // S214: close C too if open on this (now-deleted) pin.
+          _frtRefreshPinFocusIf(_rd);
           toast('Pin #' + _rNum + ' deleted');
         }
       });
@@ -3564,6 +3722,8 @@ document.addEventListener('click', function(e) {
           // S213: refresh the open pin editor onto a valid obs index.
           if (window._frtPinEditorRemovedObs) window._frtPinEditorRemovedObs(_rd, _ro);
           else if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+          // S214: same for C (focused-pin modal), clamp toward removed slot.
+          _frtRefreshPinFocusIf(_rd, _ro);
           toast('Observation removed');
         }
       });
@@ -4192,6 +4352,8 @@ document.addEventListener('change', function(e) {
       }
       initDeficiencies.render();
       if (window._frtRenderTasks) window._frtRenderTasks();
+      if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+      _frtRefreshPinFocusIf(did);
     })();
     return;
   }
@@ -4348,6 +4510,7 @@ document.addEventListener('change', function(e) {
         if (!_name) {
           // user cancelled — revert the select to the live value
           if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+          if (_cdid) _frtRefreshPinFocusIf(_cdid);
           initDeficiencies.render();
           return;
         }
@@ -4356,6 +4519,7 @@ document.addEventListener('change', function(e) {
         Model.saveNow();
         // refresh the open pin editor (B/C) if present, plus the Detailed list
         if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+        if (_cdid) _frtRefreshPinFocusIf(_cdid);
         initDeficiencies.render();
       });
       return;
@@ -4363,6 +4527,8 @@ document.addEventListener('change', function(e) {
     if (_cdid) {
       Model.reassignDeficiency(_cdid, _cval || null);
       Model.saveNow();
+      if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+      _frtRefreshPinFocusIf(_cdid);
       initDeficiencies.render();
     }
   }
