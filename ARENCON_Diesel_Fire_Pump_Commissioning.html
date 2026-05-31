@@ -2260,10 +2260,9 @@ function buildItem(id, item, section, idx, isCustom) {
   const div = document.createElement('div');
   div.className = `cl-item${s.status ? ' s-'+s.status : ''}`;
   div.id = 'ci-'+id;
-  var _num = (function(){
+  var _num = (item && item.num) ? item.num : (function(){
     var sec=section.replace('s4pld','4b').replace('s5m','5').replace('s','');
-    var offset = section==='s5' ? 3 : 0;
-    return sec+'.'+(idx+1+offset);
+    return sec+'.'+(idx+1);
   })();
   var _nPhotos = (s.photos||[]).length;
   var _detailOpen = (s.status==='no') || _nPhotos>0;
@@ -2644,7 +2643,6 @@ function renderThumbs(id) {
 function setStatus(id, status) {
   const prev = clState[id].status;
   clState[id].status = (prev===status) ? null : status;
-  clState[id].timestamp = clState[id].status ? new Date().toLocaleString('en-CA', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}) : null;
   const el = document.getElementById('ci-'+id);
   if(!el) return;
   el.className = 'cl-item' + (clState[id].status ? ' s-'+clState[id].status : '');
@@ -2652,7 +2650,6 @@ function setStatus(id, status) {
     var btn = el.querySelector('.tog-'+s);
     if(btn) btn.classList.toggle('on', clState[id].status===s);
   });
-  // timestamp hidden from UI
   var detail = document.getElementById('id-'+id);
   if(detail) {
     var _hasPhotos = (clState[id].photos||[]).length>0;
@@ -6550,7 +6547,7 @@ function _applyStateInPlace(jsonStr) {
     if(s.pldData) s.pldData.forEach(function(r,i){ if(pldData[i]) Object.assign(pldData[i],r); });
     if(s.pumpCurvePoints) { pumpCurvePoints.length=0; s.pumpCurvePoints.forEach(function(p){pumpCurvePoints.push(p);}); }
     if(s.pldPumpCurvePoints) { pldPumpCurvePoints.length=0; s.pldPumpCurvePoints.forEach(function(p){pldPumpCurvePoints.push(p);}); }
-    if(s.clState) { Object.keys(clState).forEach(function(k){delete clState[k];}); Object.assign(clState,s.clState); }
+    if(s.clState) { Object.keys(clState).forEach(function(k){delete clState[k];}); Object.assign(clState,s.clState); Object.keys(clState).forEach(function(k){ if(clState[k]) delete clState[k].timestamp; }); }
     if(s.customItems) { Object.keys(customItems).forEach(function(k){delete customItems[k];}); Object.assign(customItems,s.customItems); }
     if(s.contractors) { contractors.length=0; s.contractors.forEach(function(c){contractors.push(c);}); }
     if(s.deficiencies) { Object.keys(deficiencies).forEach(function(k){delete deficiencies[k];}); Object.assign(deficiencies,s.deficiencies); }
@@ -7331,7 +7328,7 @@ function _applyLoadedState(raw) {
       s.pldPumpCurvePoints.forEach(p => pldPumpCurvePoints.push(p));
     }
     // clState
-    if (s.clState) Object.assign(clState, s.clState);
+    if (s.clState) { Object.assign(clState, s.clState); Object.keys(clState).forEach(function(k){ if(clState[k]) delete clState[k].timestamp; }); }
     // customItems
     if (s.customItems) Object.assign(customItems, s.customItems);
     // contractors + deficiencies
