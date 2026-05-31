@@ -1257,13 +1257,6 @@ function updatePhaseFlags(){
   <!-- ══ SECTION 1: PRE-COMMISSIONING ══ -->
   <div class="panel" id="panel-s1">
     <div class="card"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>1. Pre-Commissioning</div><div class="card-body"><div id="cl-s1"></div></div></div>
-    <div class="card"><div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Suction Supply</div><div class="card-body">
-      <div class="meta-field" style="max-width:280px;">
-        <label>NPSH — Net Positive Suction Head (psi)</label>
-        <input type="number" id="npsh-psi" placeholder="e.g. 20" oninput="setNpsh(this.value)">
-        <div style="font-size:calc(10.5px + var(--ts));color:var(--silver);margin-top:5px;line-height:1.4;">If suction pressure at any flow point falls below this value, that point is flagged (advisory — not a pass/fail).</div>
-      </div>
-    </div></div>
   </div>
 
   <!-- ══ SECTION 2: VISUAL INSPECTION ══ -->
@@ -1339,6 +1332,7 @@ function updatePhaseFlags(){
               <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart();if(typeof renderStdTable==='function')renderStdTable();if(typeof renderPldTable==='function')renderPldTable();"></div>
               <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv" placeholder="175" oninput="updateChart()"></div>
               <div class="meta-field"><label>System Rating (psi)</label><input type="number" id="pm-sysrating" placeholder="175" title="System component pressure rating — for the NFPA 20 §4.7.7.1 churn over-pressure advisory" oninput="if(typeof renderStdTable==='function')renderStdTable()"></div>
+              <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpsh(this.value)"></div>
             </div>
             <div class="ev-lbl">Photo Evidence</div>
             <div class="ev-tiles" id="pump-placard-zones"></div>
@@ -1482,6 +1476,7 @@ function updatePhaseFlags(){
               <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760" oninput="if(typeof renderPldTable==='function')renderPldTable();"></div>
               <div class="meta-field"><label>PRV Rating (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart()"></div>
               <div class="meta-field"><label>PLD Setting (psi)</label><input type="number" id="pm-pld-setting" placeholder="175" oninput="updatePldChart()"></div>
+              <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi-pld" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpshPld(this.value)"></div>
             </div>
             <div class="ev-lbl">Photo Evidence</div>
             <div class="ev-tiles" id="pump-placard-zones-4b"></div>
@@ -3013,7 +3008,8 @@ const PLD_ROWS = [
 
 const stdData = STD_ROWS.map(r=>({...r, cutsheet:'', placard:'', suction:'', discharge:'', bfUp:'', bfDown:'', rpm:'', photos:[]}));
 const pldData = PLD_ROWS.map((r,i)=>({...r, flow:i===0?0:'', cutsheet:'', placard:'', suc_no:'', dis_no:'', rpm_no:'', suc_w:'', dis_w:'', rpm_w:'', bfUp:'', bfDown:'', photos:[]}));
-var npshPsi = ''; // Net Positive Suction Head (psi) — section 1; suction below this flags a warning
+var npshPsi = ''; // Net Positive Suction Head (psi) — 3-Point tab; suction below this flags an advisory warning
+var npshPsiPld = ''; // NPSH (psi) — 7-Point PLD tab (independent of npshPsi)
 
 
 // Auto-fill flow ratings from rated flow — user can still overwrite
@@ -3168,10 +3164,15 @@ function _flowPhotoIcon(tbl, i){
 }
 // Step 2 will replace this with the full popover.
 function openFlowPhotos(tbl, i){ if(typeof showToast==='function') showToast('Gauge photo capture — coming in the next update'); }
-// NPSH (psi) — recalc all flow rows so suction<NPSH warnings refresh live
+// NPSH (psi) — 3-Point tab. Recalc std flow rows so suction<NPSH warnings refresh live.
 function setNpsh(v){
   npshPsi = v;
   if(typeof stdData!=='undefined') stdData.forEach(function(_,i){ if(typeof updateStdCalcCells==='function') updateStdCalcCells(i); });
+  if(typeof debounceAutosave==='function') debounceAutosave();
+}
+// NPSH (psi) — 7-Point PLD tab (independent value). Recalc pld flow rows only.
+function setNpshPld(v){
+  npshPsiPld = v;
   if(typeof pldData!=='undefined') pldData.forEach(function(_,i){ if(typeof updatePldCalcCells==='function') updatePldCalcCells(i); });
   if(typeof debounceAutosave==='function') debounceAutosave();
 }
@@ -3279,7 +3280,7 @@ function updatePldCalcCells(i) {
   var skipNoPLD = (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i);
   var sucCheck = parseFloat(skipNoPLD ? row.suc_w : row.suc_no);
   if(isNaN(sucCheck)) sucCheck = parseFloat(row.suc_w);
-  var npsh = parseFloat(npshPsi);
+  var npsh = parseFloat(npshPsiPld);
   if(!isNaN(sucCheck) && !isNaN(npsh) && npsh>0 && sucCheck < npsh) warns.push('Suction &lt; NPSH');
   var warnHtml = warns.length ? '<div class="flow-warn" title="'+warns.join(' · ')+'">⚠ '+warns.join(' · ')+'</div>' : '';
   if(pfEl) pfEl.innerHTML = passFail + warnHtml;
@@ -6967,6 +6968,7 @@ function collectState() {
     proj,
     testType,
     npshPsi,
+    npshPsiPld,
     equipChecked,
     stdData: stdData.map(r=>({...r})),
     pldData: pldData.map(r=>({...r})),
@@ -7257,6 +7259,7 @@ function _applyLoadedState(raw) {
     // stdData
     if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) Object.assign(stdData[i], r); });
     if (s.npshPsi !== undefined) { npshPsi = s.npshPsi; var _ne=document.getElementById('npsh-psi'); if(_ne) _ne.value = s.npshPsi||''; }
+    if (s.npshPsiPld !== undefined) { npshPsiPld = s.npshPsiPld; var _nep=document.getElementById('npsh-psi-pld'); if(_nep) _nep.value = s.npshPsiPld||''; }
     // pldData
     if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) Object.assign(pldData[i], r); });
     // pumpCurvePoints
@@ -7783,6 +7786,7 @@ function _stateHasContent(s){
     if(Array.isArray(s.flowTestPhotosPld) && s.flowTestPhotosPld.length) return true;
     if(Array.isArray(s.recordPhotos) && s.recordPhotos.length) return true;
     if(s.npshPsi!=null && String(s.npshPsi).trim()) return true;
+    if(s.npshPsiPld!=null && String(s.npshPsiPld).trim()) return true;
     if(Array.isArray(s.sketchEntries) && s.sketchEntries.length) return true;
     if(s.clState && Object.keys(s.clState).some(function(k){var v=s.clState[k]; return v && typeof v==='object' && ((v.response!=null&&v.response!=='')||(v.status!=null&&v.status!=='')||(v.val!=null&&v.val!=='')||(v.comment&&String(v.comment).trim())||(Array.isArray(v.photos)&&v.photos.length));})) return true;
     if(s.proj && ((s.proj['pi-projname']&&String(s.proj['pi-projname']).trim())||(s.proj['pi-projno']&&String(s.proj['pi-projno']).trim())||(s.proj['pi-client']&&String(s.proj['pi-client']).trim()))) return true;
