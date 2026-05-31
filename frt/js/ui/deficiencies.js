@@ -13,6 +13,7 @@
 import { Model, TRADE_LIST, SITE_RECORDS_LABEL, isSiteRecordsName } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
+import { FrtPhotoPicker } from './photoPicker.js'; // S215: shared photo-selection picker (B + C)
 import { R2 } from '../data/r2.js';
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
@@ -2546,13 +2547,13 @@ function _buildPinFocusBody(deficId) {
     : '<button data-action="place-pin" data-defic-id="' + esc(d.id) + '" class="btn-muted-warn" style="width:100%;text-align:center;padding:10px 14px;font-size:calc(14px + var(--ts));margin-bottom:14px;cursor:pointer;">\uD83D\uDCCC Place pin on a drawing</button>';
   // S214 convergence: C renders the SAME unified editor as B (withHeader →
   // star + Pin #N header + obs tab strip + noted line + photos head + action
-  // bar), instead of the legacy buildDeficCard + _scopePinFocusObs hide-siblings
-  // approach. chooseDisabled:true keeps the ⊞ Choose button visible-but-inert
-  // until the picker is lifted to a shared helper in its own verified session.
+  // bar). S215: the ⊞ Choose picker is now shared (FrtPhotoPicker), so C drops
+  // chooseDisabled and renders the live button; its click is wired in C's
+  // dispatcher below to open the picker into #pf-obs-content.
   var obs = d.observations || [];
   if (_pfObsIdx < 0 || _pfObsIdx >= obs.length) _pfObsIdx = 0;
   var editor = (typeof window !== 'undefined' && window._frtBuildObsEditor)
-    ? window._frtBuildObsEditor(d, _pfObsIdx, ctrId, { withHeader: true, pinNum: (d.num != null ? d.num : '?'), chooseDisabled: true })
+    ? window._frtBuildObsEditor(d, _pfObsIdx, ctrId, { withHeader: true, pinNum: (d.num != null ? d.num : '?') })
     : '<div style="padding:12px;color:var(--silver);font-family:Calibri,sans-serif;">Editor unavailable \u2014 reload the page.</div>';
   return navBtn + '<div class="dfx-or-editor-host" id="pf-obs-content">' + editor + '</div>';
 }
@@ -2589,10 +2590,25 @@ function _openPinFocus(deficId, focusOi) {
     + '</div>'
     + '<div id="pinfocus-body">' + _buildPinFocusBody(deficId) + '</div>';
   ov.appendChild(panel);
-  ov.addEventListener('click', function(e) { if (e.target === ov) { _pfFlushTextarea(); _closePinFocus(); } });
-  panel.querySelector('#pinfocus-close').addEventListener('click', function() { _pfFlushTextarea(); _closePinFocus(); });
+  ov.addEventListener('click', function(e) {
+    if (e.target === ov) {
+      // S215: if the shared picker is open inside C, the backdrop click exits
+      // the picker (and rebuilds C) rather than closing the whole modal.
+      if (FrtPhotoPicker.isActive()) { FrtPhotoPicker.exit(); return; }
+      _pfFlushTextarea(); _closePinFocus();
+    }
+  });
+  panel.querySelector('#pinfocus-close').addEventListener('click', function() {
+    if (FrtPhotoPicker.isActive()) { FrtPhotoPicker.exit(); return; }
+    _pfFlushTextarea(); _closePinFocus();
+  });
   document.body.appendChild(ov);
-  _pinFocusKeyH = function(ev) { if (ev.key === 'Escape') { _pfFlushTextarea(); _closePinFocus(); } };
+  _pinFocusKeyH = function(ev) {
+    if (ev.key === 'Escape') {
+      if (FrtPhotoPicker.isActive()) { FrtPhotoPicker.exit(); return; }
+      _pfFlushTextarea(); _closePinFocus();
+    }
+  };
   document.addEventListener('keydown', _pinFocusKeyH);
 }
 function _refreshPinFocus() {
@@ -3120,6 +3136,31 @@ document.addEventListener('click', function(e) {
   if (el && el.closest && el.closest('#pinfocus-overlay')) {
     var _pfOv = document.getElementById('pinfocus-overlay');
     var _pfDid = _pfOv ? _pfOv.getAttribute('data-defic-id') : null;
+    // ── S215: shared photo-picker actions (data-pp-action) ──
+    // When the picker is open inside C it owns these clicks. handleClick
+    // returns true if it consumed the click.
+    if (FrtPhotoPicker.handleClick(e)) return;
+    // ── S215: ⊞ Choose → open the shared picker into C's mount. Parallel to
+    // B's choose-obs-photos handler, but targets #pf-obs-content and uses C's
+    // _pfObsIdx + _refreshPinFocus (via onExit). flush any pending textarea
+    // first so a mid-edit obs text isn't lost when the mount is taken over.
+    if (action === 'choose-obs-photos') {
+      var _cDid = el.getAttribute('data-defic-id');
+      var _cIdx = parseInt(el.getAttribute('data-obs-idx') || String(_pfObsIdx) || '0', 10);
+      if (_cDid !== _pfDid) return;
+      if (isNaN(_cIdx)) _cIdx = _pfObsIdx || 0;
+      _pfFlushTextarea();
+      _pfObsIdx = _cIdx;
+      var _cMount = document.getElementById('pf-obs-content');
+      if (!_cMount) return;
+      FrtPhotoPicker.open({
+        mount: _cMount,
+        deficId: _pfDid,
+        obsIdx: _pfObsIdx,
+        onExit: function() { _refreshPinFocus(); }
+      });
+      return;
+    }
     if (action === 'dfx-ed-tab') {
       var _ptd = el.getAttribute('data-defic-id');
       var _pti = parseInt(el.getAttribute('data-obs-idx') || '0', 10);

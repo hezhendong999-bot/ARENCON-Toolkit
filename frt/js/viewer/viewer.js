@@ -15,6 +15,7 @@ import { Markup } from './markup.js';
 import { TiledPdf } from './tiledPdf.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
+import { FrtPhotoPicker } from '../ui/photoPicker.js'; // S215: shared photo-selection picker (B + C)
 
 // ── WebGL pins (Phase 5 polish → S81 Option B: now Canvas 2D) ────────────
 // Name kept for API compatibility; pinsGL.js is Canvas 2D as of v2.0.
@@ -1789,10 +1790,9 @@ var _peObsIdx = 0;
 var _peSubscribed = false;
 function _peOnModelChange(type, data) {
   if (!_peDeficId) return;
-  // If we're in selection mode, don't auto-rerender — that would clobber
-  // the user's pending checkbox state. Selection mode has its own redraw
-  // pathway via the toggle handlers.
-  if (_peSelectionMode) return;
+  // If a photo picker is open, don't auto-rerender — that would clobber the
+  // user's pending checkbox state. The picker has its own redraw pathway.
+  if (FrtPhotoPicker.isActive()) return;
   var touchesUs = false;
   if (data && data.deficId === _peDeficId) touchesUs = true;
   if (data && data.defic && data.defic.id === _peDeficId) touchesUs = true;
@@ -1989,7 +1989,7 @@ function _peRenderUnifiedEditor(d, idx) {
   }
   // If we're in selection mode, that path owns the mount (see
   // _peEnterSelectionMode) — don't overwrite it here.
-  if (_peSelectionMode) return;
+  if (FrtPhotoPicker.isActive()) return;
   _peObsIdx = idx;
   var obs = d.observations || [];
   if (!obs.length) { obs = [{ text: '', addressed: false, photos: [] }]; d.observations = obs; }
@@ -2209,8 +2209,9 @@ function _peRenderPhotoZone(d, idx) {
   var obs = (d.observations || [])[idx];
   if (!obs) { strip.innerHTML = ''; strip.style.display = 'none'; return; }
 
-  if (_peSelectionMode) {
-    _peRenderPhotoZoneSelectionMode(d, idx, strip);
+  if (FrtPhotoPicker.isActive()) {
+    // S215: selection mode is owned by the shared picker, which has taken over
+    // the mount. Do not render B's default zone over it.
     return;
   }
 
@@ -2264,248 +2265,57 @@ function _peRenderPhotoZone(d, idx) {
   strip.parentNode.insertBefore(header, strip);
 }
 
-function _peRenderPhotoZoneSelectionMode(d, idx, strip) {
-  var pool = (d.photos || []).filter(function(p) { return p && !p.deleted; });
-  // S120 Push 10: when Show Deleted is on, surface soft-deleted entries in
-  // a separate section below the live grid for restoration.
-  var deletedPool = (d.photos || []).filter(function(p) { return p && p.deleted; });
-  if (!_peSelectionPending || !(_peSelectionPending instanceof Set)) {
-    var obs = (d.observations || [])[idx];
-    var initial;
-    if (obs && Array.isArray(obs.photoSelection)) initial = obs.photoSelection.slice();
-    else initial = pool.map(function(p) { return p.id; });
-    _peSelectionPending = new Set(initial);
-  }
-
-  var totalCt = pool.length;
-  var pickCt = 0;
-  pool.forEach(function(p) { if (_peSelectionPending.has(p.id)) pickCt++; });
-  var allChecked = totalCt > 0 && pickCt === totalCt;
-  var someChecked = pickCt > 0 && pickCt < totalCt;
-
-  // ── Header ──
-  var header = document.createElement('div');
-  header.id = 'pe-photos-header';
-  header.className = 'pe-sel-header';
-  header.style.cssText = 'display:flex;align-items:center;gap:12px;background:#F2F4F7;border:1px solid #DDE1E7;border-radius:8px;padding:8px 12px;margin:6px 0;flex-wrap:wrap;';
-  var obsLetter = _peObsLetter(idx);
-  var obsColor = _peObsColor(idx);
-  // Show-deleted toggle button — only renders when there's at least 1
-  // soft-deleted entry to recover. Pressed/active state uses purple
-  // (matches the • custom indicator's color from §31).
-  var showDelHtml = '';
-  if (deletedPool.length > 0) {
-    var pressed = _peShowDeletedMode;
-    showDelHtml = '<button data-pe-action="toggle-show-deleted" '
-      + 'aria-pressed="' + (pressed ? 'true' : 'false') + '" '
-      + 'style="background:' + (pressed ? '#7B5A8F' : 'transparent') + ';'
-      + 'border:1.5px solid ' + (pressed ? '#7B5A8F' : 'rgba(122,90,143,.4)') + ';'
-      + 'color:' + (pressed ? 'white' : '#7B5A8F') + ';'
-      + 'border-radius:6px;padding:4px 10px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:500;cursor:pointer;" '
-      + 'title="Show soft-deleted photos so they can be restored">'
-      + (pressed ? '\u2713 ' : '') + 'Show deleted (' + deletedPool.length + ')'
-      + '</button>';
-  }
-  header.innerHTML =
-    '<input type="checkbox" id="pe-sel-master" data-pe-action="toggle-master"' + (allChecked ? ' checked' : '') + ' style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">'
-    + '<span style="font-size:calc(12px + var(--ts));color:#2C3E50;font-weight:500;">' + pickCt + ' of ' + totalCt + ' selected</span>'
-    + '<span style="font-size:calc(11px + var(--ts));color:#6B7B8C;">for </span>'
-    + '<span style="font-size:calc(11px + var(--ts));font-weight:500;color:white;background:' + obsColor + ';padding:2px 8px;border-radius:10px;">Obs ' + obsLetter + '</span>'
-    + '<span style="flex:1;"></span>'
-    + showDelHtml
-    + (someChecked ? '<script>var m=document.getElementById("pe-sel-master");if(m)m.indeterminate=true;<\/script>' : '');
-  strip.parentNode.insertBefore(header, strip);
-
-  // ── Photo grid ──
-  if (!pool.length) {
-    strip.innerHTML = '<div style="padding:12px;color:#888;font-size:calc(12px + var(--ts));text-align:center;width:100%;">No photos in this pin\u2019s pool yet. Upload photos first, then return to manage.</div>';
-    strip.style.display = 'flex';
-  } else {
-    strip.style.display = 'flex';
-    var html = '';
-    var orphanCount = 0;
-    pool.forEach(function(ph) {
-      if (!ph) return;
-      var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
-      if (!src) return;
-      var checked = _peSelectionPending.has(ph.id);
-      var otherIdxs = (Model.getObsIndicesUsingPoolPhoto
-        ? Model.getObsIndicesUsingPoolPhoto(d, ph.id)
-        : []
-      ).filter(function(i) { return i !== idx; });
-      var dotsHtml = '';
-      otherIdxs.forEach(function(i) {
-        dotsHtml += '<span class="pe-sel-dot" style="background:' + _peObsColor(i) + ';" title="Used by Obs ' + _peObsLetter(i) + '">' + _peObsLetter(i) + '</span>';
-      });
-      var isOrphan = !checked && otherIdxs.length === 0;
-      if (isOrphan) orphanCount++;
-      html += '<div class="pe-photo-thumb pe-sel-thumb' + (checked ? ' is-checked' : '') + (isOrphan ? ' is-orphan' : '') + '" '
-        + 'data-pe-action="toggle-photo" data-pe-photo-id="' + ph.id + '">'
-        + '<img src="' + src + '" alt="Photo" loading="lazy">'
-        + '<span class="pe-sel-cb' + (checked ? ' is-checked' : '') + '" aria-hidden="true">' + (checked ? '\u2713' : '') + '</span>'
-        + (isOrphan ? '<span class="pe-sel-orphan" title="No observation references this photo. Saving will leave it visible to no one.">\u26A0</span>' : '')
-        + (dotsHtml ? '<div class="pe-sel-dots">' + dotsHtml + '</div>' : '')
-        + '</div>';
-    });
-    strip.innerHTML = html;
-
-    if (orphanCount > 0) {
-      var note = document.createElement('div');
-      note.id = 'pe-photos-orphan-note';
-      note.style.cssText = 'background:rgba(168,89,89,.10);border:1px solid rgba(168,89,89,.35);color:#8A3939;border-radius:6px;padding:6px 10px;margin-top:6px;font-size:calc(11px + var(--ts));';
-      note.innerHTML = '\u26A0 ' + orphanCount + ' photo' + (orphanCount === 1 ? '' : 's') + ' will be referenced by no observation if you save now. They\u2019ll stay in the pool but won\u2019t appear in any report.';
-      strip.parentNode.insertBefore(note, strip.nextSibling);
-    }
-  }
-
-  // ── S120 Push 10: deleted-photos section (Show deleted toggle) ──
-  // Sits between the live grid and the footer. Each thumb is grayed out
-  // with a Restore button. Restore brings the photo back to the pool;
-  // default-state obs see it again automatically. Custom-state obs need
-  // manual re-add via the regular checkboxes.
-  if (_peShowDeletedMode && deletedPool.length > 0) {
-    var delSection = document.createElement('div');
-    delSection.id = 'pe-photos-deleted';
-    delSection.className = 'pe-sel-deleted-section';
-    delSection.style.cssText = 'margin-top:10px;padding-top:10px;border-top:1px dashed rgba(122,90,143,.4);';
-    var label = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:calc(11px + var(--ts));color:#7B5A8F;font-weight:500;">'
-      + '\uD83D\uDDD1 Recently deleted (' + deletedPool.length + ')'
-      + '<span style="flex:1;"></span>'
-      + '<span style="font-size:calc(10px + var(--ts));color:#6B7B8C;font-weight:400;">Click \u21BA to restore</span>'
-      + '</div>';
-    var grid = '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-    deletedPool.forEach(function(ph) {
-      if (!ph) return;
-      var src = ph.thumb || ph.dataUrl || ph.r2Url || '';
-      // Date string for tooltip
-      var deletedAt = '';
-      if (ph.deletedDate) {
-        try { deletedAt = new Date(ph.deletedDate).toLocaleString(); } catch (_) { deletedAt = ph.deletedDate; }
-      }
-      grid += '<div class="pe-photo-thumb pe-sel-deleted" data-pe-photo-id="' + ph.id + '" '
-        + 'title="' + (deletedAt ? 'Deleted ' + deletedAt + '. Click \u21BA to restore.' : 'Click \u21BA to restore.') + '">'
-        + (src ? '<img src="' + src + '" alt="Deleted photo" loading="lazy">' : '<div style="width:100%;height:100%;background:#3a3e48;"></div>')
-        + '<button data-pe-action="restore-photo" data-pe-photo-id="' + ph.id + '" '
-        +   'class="pe-sel-restore-btn" title="Restore this photo to the pool">\u21BA</button>'
-        + '</div>';
-    });
-    grid += '</div>';
-    delSection.innerHTML = label + grid;
-    // Insert before footer (which we add immediately after this block)
-    strip.parentNode.insertBefore(delSection, strip.nextSibling);
-    // If there's an orphan note, the deleted section is now BEFORE it
-    // (because nextSibling is computed against `strip`). Move it after.
-    var noteEl = document.getElementById('pe-photos-orphan-note');
-    if (noteEl && noteEl.nextSibling !== delSection) {
-      delSection.parentNode.insertBefore(delSection, noteEl.nextSibling);
-    }
-  }
-
-  // ── Footer ──
-  var footer = document.createElement('div');
-  footer.id = 'pe-photos-footer';
-  footer.className = 'pe-sel-footer';
-  footer.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0 4px;flex-wrap:wrap;';
-  var saveColor = '#5C7A65';
-  var deleteColor = '#A85959';
-  var cancelColor = '#6B7B8C';
-  footer.innerHTML =
-    '<button data-pe-action="cancel-selection" '
-    +   'style="background:none;border:1px solid ' + cancelColor + ';color:' + cancelColor + ';border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));cursor:pointer;">Cancel</button>'
-    + '<span style="flex:1;"></span>'
-    + (pickCt > 0
-        ? '<button data-pe-action="delete-selected-from-pool" '
-            + 'style="background:none;border:1px solid ' + deleteColor + ';color:' + deleteColor + ';border-radius:6px;padding:6px 14px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:500;cursor:pointer;">'
-            + '\uD83D\uDDD1 Delete ' + pickCt + ' from pool</button>'
-        : '')
-    + '<button data-pe-action="save-selection" '
-    +   'style="background:' + saveColor + ';border:none;color:white;border-radius:6px;padding:6px 16px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:500;cursor:pointer;">'
-    +   'Save as Obs ' + obsLetter + ' selection</button>';
-  // Place after the orphan note if present, else right after the strip
-  var noteRef = document.getElementById('pe-photos-orphan-note');
-  var insertAfter = noteRef || strip;
-  if (insertAfter.nextSibling) insertAfter.parentNode.insertBefore(footer, insertAfter.nextSibling);
-  else insertAfter.parentNode.appendChild(footer);
+function _peRenderPhotoZoneSelectionMode(/* d, idx, strip */) {
+  // S215 inert (S137 dead-handler discipline). Selection-mode rendering is
+  // now owned by the shared FrtPhotoPicker (ui/photoPicker.js), which B
+  // enters via _peEnterSelectionMode -> FrtPhotoPicker.open(). This legacy
+  // renderer is no longer called; kept as a no-op stub for safety.
 }
 
 function _peEnterSelectionMode() {
   if (!_peDeficId) return;
-  _peSelectionMode = true;
-  _peSelectionPending = null;
-  _peShowDeletedMode = false;
   var f = Model.findDeficiency(_peDeficId);
-  if (!f) { _peSelectionMode = false; return; }
-  // S213: the unified editor owns #pe-obs-content. Selection mode reuses the
-  // proven S120 picker UI, which keys off a #pe-obs-photos strip + inserts
-  // header/footer siblings. Inject a minimal scaffold into the mount, then let
-  // _peRenderPhotoZone (selection branch) populate it. Exiting rebuilds the
-  // unified editor.
+  if (!f) return;
   var mount = document.getElementById('pe-obs-content');
-  if (!mount) { _peSelectionMode = false; return; }
-  mount.innerHTML =
-    '<div class="pe-sel-wrap" style="display:flex;flex-direction:column;gap:4px;">'
-    + '<div id="pe-obs-photos" class="pe-photo-strip" style="display:flex;flex-wrap:wrap;gap:6px;"></div>'
-    + '</div>';
-  _peRenderPhotoZone(f.defic, _peObsIdx);
+  if (!mount) return;
+  // S215: selection mode now lives in the shared FrtPhotoPicker. B supplies
+  // its mount + current defic/obs; onExit rebuilds B's unified editor. The
+  // picker owns its own scaffold, state, save/delete, and grid render.
+  FrtPhotoPicker.open({
+    mount: mount,
+    deficId: _peDeficId,
+    obsIdx: _peObsIdx,
+    onExit: function() {
+      var f2 = Model.findDeficiency(_peDeficId);
+      if (f2) _peRenderUnifiedEditor(f2.defic, _peObsIdx);
+    }
+  });
 }
 
 function _peExitSelectionMode() {
-  _peSelectionMode = false;
-  _peSelectionPending = null;
-  _peShowDeletedMode = false;
+  // S215: delegate to the shared picker. If it isn't active (defensive), still
+  // rebuild B's editor so we never leave the mount in a half state.
+  if (FrtPhotoPicker.isActive()) { FrtPhotoPicker.exit(); return; }
   if (!_peDeficId) return;
   var f = Model.findDeficiency(_peDeficId);
   if (f) _peRenderUnifiedEditor(f.defic, _peObsIdx);
 }
 
-// S120 Push 7: expose to window so the global Esc handler in app.js can
-// detect selection mode and exit it without closing the pin editor.
+// S120 Push 7 / S215: expose to window so the global Esc handler in app.js can
+// detect an open picker and exit it without closing the pin editor. Now backed
+// by the shared FrtPhotoPicker so B and C share one Esc contract.
 if (typeof window !== 'undefined') {
-  window._peSelectionModeIsActive = function() { return _peSelectionMode === true; };
+  window._peSelectionModeIsActive = function() { return FrtPhotoPicker.isActive(); };
   window._peExitSelectionMode = _peExitSelectionMode;
 }
 
-function _peSaveSelection() {
-  if (!_peDeficId || !_peSelectionPending) { _peExitSelectionMode(); return; }
-  var f = Model.findDeficiency(_peDeficId);
-  if (!f) { _peExitSelectionMode(); return; }
-  var pool = (f.defic.photos || []).filter(function(p) { return p && !p.deleted; });
-  var picked = pool.filter(function(p) { return _peSelectionPending.has(p.id); }).map(function(p) { return p.id; });
-  var savedAsDefault = (picked.length === pool.length);
-  Model.setObsPhotoSelection(_peDeficId, _peObsIdx, savedAsDefault ? null : picked);
-  Model.saveNow();
-  if (typeof toast === 'function') {
-    toast(savedAsDefault
-      ? 'Saved (default \u2014 all pool photos)'
-      : 'Saved Obs ' + _peObsLetter(_peObsIdx) + ' selection (' + picked.length + ' photo' + (picked.length === 1 ? '' : 's') + ')',
-      'success');
-  }
-  _peExitSelectionMode();
-}
+// S215: _peSaveSelection / _peDeleteSelectedFromPool are now owned by the
+// shared FrtPhotoPicker (save / delete-from-pool actions route through
+// FrtPhotoPicker.handleClick). Kept defined-but-inert per S137 dead-handler
+// discipline so any stray caller is a harmless no-op rather than a crash.
+function _peSaveSelection() { /* S215 inert — see FrtPhotoPicker.save */ }
 
-function _peDeleteSelectedFromPool() {
-  if (!_peDeficId || !_peSelectionPending) return;
-  var f = Model.findDeficiency(_peDeficId);
-  if (!f) return;
-  var pool = (f.defic.photos || []).filter(function(p) { return p && !p.deleted; });
-  var ids = pool.filter(function(p) { return _peSelectionPending.has(p.id); }).map(function(p) { return p.id; });
-  if (!ids.length) return;
-  var n = ids.length;
-  var msg = 'This will remove ' + n + ' photo' + (n === 1 ? '' : 's') + ' from this pin\u2019s pool, including from every observation that uses ' + (n === 1 ? 'it' : 'them') + '. The original ' + (n === 1 ? 'image is' : 'images are') + ' kept in storage and can be recovered from the R2 console if needed.';
-  var doDelete = function() {
-    ids.forEach(function(id) { Model.removePoolPhoto(_peDeficId, id); });
-    Model.saveNow();
-    if (typeof toast === 'function') toast('Deleted ' + n + ' photo' + (n === 1 ? '' : 's') + ' from pool', 'success');
-    _peExitSelectionMode();
-  };
-  if (n >= 5 && typeof showTypeToConfirm === 'function') {
-    showTypeToConfirm('Delete ' + n + ' photos from pool', msg).then(function(yes) { if (yes) doDelete(); });
-  } else if (typeof showConfirm === 'function') {
-    showConfirm('Delete ' + n + ' photo' + (n === 1 ? '' : 's') + ' from pool', msg).then(function(yes) { if (yes) doDelete(); });
-  } else {
-    if (window.confirm(msg)) doDelete();
-  }
-}
+function _peDeleteSelectedFromPool() { /* S215 inert — see FrtPhotoPicker.deleteFromPool */ }
 
 // S116 Push 1 (G): canvas-based pin mini-map. Matches v1's renderPinMiniMap
 // behaviour. Loads the drawing's source image (dataUrl → r2Url → L0 tile
@@ -2940,13 +2750,13 @@ window._frtOpenPinEditor = function(deficId) { _openPinEditor(deficId); };
 // the inline "+ New contractor…" create (which fires a 'contractor' notify
 // _peOnModelChange doesn't subscribe to) and as a generic resync.
 window._frtRefreshPinEditor = function() {
-  if (!_peDeficId || _peSelectionMode) return;
+  if (!_peDeficId || FrtPhotoPicker.isActive()) return;
   var f = Model.findDeficiency(_peDeficId);
   if (f) _peRenderUnifiedEditor(f.defic, _peObsIdx);
 };
 // After add-obs fired inside the editor: move to + show the new last obs.
 window._frtPinEditorAddedObs = function(deficId) {
-  if (!_peDeficId || deficId !== _peDeficId || _peSelectionMode) return;
+  if (!_peDeficId || deficId !== _peDeficId || FrtPhotoPicker.isActive()) return;
   var f = Model.findDeficiency(_peDeficId);
   if (!f) return;
   var n = (f.defic.observations || []).length;
@@ -2955,7 +2765,7 @@ window._frtPinEditorAddedObs = function(deficId) {
 // After dfx-remove-obsrow removed an obs inside the editor: land on a valid
 // index (clamp toward the removed slot).
 window._frtPinEditorRemovedObs = function(deficId, removedIdx) {
-  if (!_peDeficId || deficId !== _peDeficId || _peSelectionMode) return;
+  if (!_peDeficId || deficId !== _peDeficId || FrtPhotoPicker.isActive()) return;
   var f = Model.findDeficiency(_peDeficId);
   if (!f) return;
   var n = (f.defic.observations || []).length;
@@ -3755,9 +3565,16 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // ── S120 Push 4: pin editor photo selection-mode click handlers ──
-  // Routed by [data-pe-action]. Fires BEFORE the legacy ✕/thumb handlers so
-  // selection-mode thumbs don't bleed into the lightbox path.
+  // ── S215: shared photo-picker actions (data-pp-action) ──
+  // When a picker is open it owns these clicks. handleClick returns true if it
+  // consumed the click, so we stop before the legacy thumb/lightbox handlers.
+  if (FrtPhotoPicker.handleClick(e)) return;
+
+  // ── S120 Push 4 / S215: pin editor DEFAULT-zone photo buttons ──
+  // Only the two default-mode buttons remain here ("Manage photos" enters the
+  // shared picker; "Reset to default" clears a custom selection). The former
+  // selection-mode branches (save/cancel/delete/toggle/restore) moved to
+  // FrtPhotoPicker.handleClick above.
   var peAct = e.target.closest && e.target.closest('[data-pe-action]');
   if (peAct && _peDeficId) {
     var act = peAct.getAttribute('data-pe-action');
@@ -3767,54 +3584,6 @@ document.addEventListener('click', function(e) {
       Model.saveNow();
       var fRs = Model.findDeficiency(_peDeficId);
       if (fRs) _peRenderObsContent(fRs.defic, _peObsIdx);
-      return;
-    }
-    if (act === 'cancel-selection') { _peExitSelectionMode(); return; }
-    if (act === 'save-selection') { _peSaveSelection(); return; }
-    if (act === 'delete-selected-from-pool') { _peDeleteSelectedFromPool(); return; }
-    if (act === 'toggle-master') {
-      if (!_peSelectionPending) _peSelectionPending = new Set();
-      var fM = Model.findDeficiency(_peDeficId);
-      if (!fM) return;
-      var poolM = (fM.defic.photos || []).filter(function(p) { return p && !p.deleted; });
-      var allCheckedNow = poolM.length > 0 && poolM.every(function(p) { return _peSelectionPending.has(p.id); });
-      _peSelectionPending = allCheckedNow ? new Set() : new Set(poolM.map(function(p) { return p.id; }));
-      _peRenderObsContent(fM.defic, _peObsIdx);
-      return;
-    }
-    if (act === 'toggle-photo') {
-      var pid = peAct.getAttribute('data-pe-photo-id');
-      if (!pid || !_peSelectionPending) return;
-      if (_peSelectionPending.has(pid)) _peSelectionPending.delete(pid);
-      else _peSelectionPending.add(pid);
-      var fT0 = Model.findDeficiency(_peDeficId);
-      if (fT0) _peRenderObsContent(fT0.defic, _peObsIdx);
-      return;
-    }
-    // S120 Push 10: show/hide soft-deleted photos in selection mode
-    if (act === 'toggle-show-deleted') {
-      _peShowDeletedMode = !_peShowDeletedMode;
-      var fSd = Model.findDeficiency(_peDeficId);
-      if (fSd) _peRenderObsContent(fSd.defic, _peObsIdx);
-      return;
-    }
-    // S120 Push 10: restore a soft-deleted photo to the pool
-    if (act === 'restore-photo') {
-      e.stopPropagation();
-      var rPid = peAct.getAttribute('data-pe-photo-id');
-      if (!rPid) return;
-      var restored = Model.restorePoolPhoto(_peDeficId, rPid);
-      if (restored) {
-        Model.saveNow();
-        if (typeof toast === 'function') toast('Photo restored to pool', 'success');
-        // After restore: if pending selection was empty for this photo,
-        // adding it back to the live pool means it should appear unchecked
-        // (custom-state) or auto-checked (default-state). The pending set
-        // governs only the active obs — leave it alone; the user can tick
-        // it explicitly. Re-render to refresh the grid.
-        var fR = Model.findDeficiency(_peDeficId);
-        if (fR) _peRenderObsContent(fR.defic, _peObsIdx);
-      }
       return;
     }
   }
@@ -3856,7 +3625,7 @@ document.addEventListener('click', function(e) {
   var peThumb = e.target.closest && e.target.closest('[data-pe-photo]');
   if (peThumb) {
     if (!_peDeficId) return;
-    if (_peSelectionMode) return;
+    if (FrtPhotoPicker.isActive()) return;
     var fT = Model.findDeficiency(_peDeficId);
     if (!fT || !fT.defic.observations) return;
     var oT = fT.defic.observations[_peObsIdx];
