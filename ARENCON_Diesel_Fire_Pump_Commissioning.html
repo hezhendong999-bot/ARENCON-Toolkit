@@ -43,6 +43,16 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 .app-subtitle{font-size:calc(11.5px + var(--ts));color:var(--silver);margin-top:1px;}
 
 /* ── SECTION NAV ── */
+/* ── Phase bar (top-level nav) ── */
+.phase-bar{background:linear-gradient(135deg,#141b2c 0%,#1c2638 100%);display:flex;gap:4px;padding:0 10px;position:relative;z-index:2;}
+.phase-tab{flex:1;padding:12px 10px;text-align:center;color:var(--silver);font-weight:700;font-size:calc(14px + var(--ts));letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent;transition:all .18s;user-select:none;position:relative;min-height:48px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;}
+.phase-tab:hover{color:#fff;}
+.phase-tab.active{color:#fff;border-bottom-color:var(--red);background:rgba(255,255,255,.04);}
+.phase-tab .ph-name{font-size:calc(14px + var(--ts));}
+.phase-tab .ph-sub{font-size:calc(10.5px + var(--ts));font-weight:600;color:#5d6470;letter-spacing:.2px;}
+.phase-tab.active .ph-sub{color:#aeb4c0;}
+.phase-tab .ph-flag{position:absolute;top:7px;right:12px;background:var(--no);color:#fff;border-radius:9px;padding:1px 7px;font-size:calc(10.5px + var(--ts));font-weight:700;align-items:center;}
+@media(max-width:600px){ .phase-tab .ph-sub{display:none;} .phase-tab{padding:13px 8px;} }
 .section-nav{background:linear-gradient(135deg,#1B2438 0%,#243048 100%);display:flex;gap:0;overflow-x:auto;padding:0 16px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:var(--silver);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}
 .nav-tab:hover{color:white;}
@@ -729,6 +739,11 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
 body.dark-mode{--smoke:#0f1318;--border:#2a3040;--slate:#d0d8f0;--slate-mid:#1e2533;--silver:#8a94b0;--steel:#8a94b0;background:#0f1318;color:#d0d8f0;}
 body.dark-mode .app-header{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);}
 body.dark-mode .section-nav{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);}
+body.dark-mode .phase-bar{background:linear-gradient(135deg,#0a0f1a 0%,#131b2a 100%);}
+body.dark-mode .phase-tab{color:#7a8090;}
+body.dark-mode .phase-tab.active{color:#fff;border-bottom-color:#c13a58;}
+body.dark-mode .phase-tab .ph-sub{color:#4a5160;}
+body.dark-mode .phase-tab.active .ph-sub{color:#8a94b0;}
 body.dark-mode .nav-tab{color:#7a8090;}body.dark-mode .nav-tab.active{color:#fff;border-bottom-color:#c13a58;}
 body.dark-mode .card,body.dark-mode .cl-item{background:#1e2533;border-color:#2a3040;}
 body.dark-mode .card-header{background:linear-gradient(135deg,#5a1a2a,#3d1220)!important;color:#e8c0cc!important;}
@@ -1088,20 +1103,77 @@ function goBackToHub(){
 function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.remove('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='none';}
   </script>
   <script>updateDarkToggleIcon();</script>
-  <div class="section-nav" id="section-nav">
-    <div class="nav-tab active" onclick="switchPanel('proj')">Summary</div>
-    <div class="nav-tab" id="tab-s1" onclick="switchPanel('s1')">1. Pre-Commissioning<span class="tab-dot" id="dot-s1"></span></div>
-    <div class="nav-tab" id="tab-s2" onclick="switchPanel('s2')">2. Visual Inspection<span class="tab-dot" id="dot-s2"></span></div>
-    <div class="nav-tab" id="tab-s3" onclick="switchPanel('s3')">3. Controller Tests<span class="tab-dot" id="dot-s3"></span></div>
-    <div class="nav-tab" id="tab-s4" onclick="switchPanel('s4')">4a. 3-Point Test<span class="tab-dot" id="dot-s4"></span></div>
-    <div class="nav-tab" id="tab-s4pld" onclick="switchPanel('s4pld')">4b. 7-Point PLD<span class="tab-dot" id="dot-s4pld"></span></div>
-    <div class="nav-tab" id="tab-s5" onclick="switchPanel('s5')">5. FA &amp; Signaling<span class="tab-dot" id="dot-s5"></span></div>
-    <div class="nav-tab" id="tab-defic" onclick="switchPanel('defic')">6. Deficiencies<span class="tab-count" id="defic-tab-count" style="display:none;"></span></div>
-    <div class="nav-tab" id="tab-sign" onclick="switchPanel('sign')">7. Signature</div>
-    <div class="nav-tab" id="tab-sketch" onclick="switchPanel('sketch')">8. Sketches</div>
-    <div class="nav-tab" id="tab-photos" onclick="switchPanel('photos')">📷 Photos</div>
+  <div class="phase-bar" id="phase-bar">
+    <div class="phase-tab" id="phase-setup" onclick="switchPhase('setup')"><span class="ph-name">Setup</span><span class="ph-sub">Summary · Pre-Comm · Visual</span></div>
+    <div class="phase-tab" id="phase-tests" onclick="switchPhase('tests')"><span class="ph-name">Tests</span><span class="ph-sub">Controller · 3-Pt · PLD · FA</span></div>
+    <div class="phase-tab" id="phase-closeout" onclick="switchPhase('closeout')"><span class="ph-name">Closeout</span><span class="ph-sub">Defic · Sign · Sketch · Photos</span><span class="ph-flag" id="phase-closeout-flag" style="display:none;"></span></div>
   </div>
+  <div class="section-nav" id="section-nav"></div>
 </header>
+<!-- Phase nav model + renderer -->
+<script>
+var PHASES = {
+  setup:    { label:'Setup',    panels:[
+    {id:'proj',  label:'Summary'},
+    {id:'s1',    label:'1. Pre-Commissioning', dot:true},
+    {id:'s2',    label:'2. Visual Inspection', dot:true}
+  ]},
+  tests:    { label:'Tests',    panels:[
+    {id:'s3',    label:'3. Controller Tests', dot:true},
+    {id:'s4',    label:'4a. 3-Point Test', dot:true},
+    {id:'s4pld', label:'4b. 7-Point PLD', dot:true},
+    {id:'s5',    label:'5. FA & Signaling', dot:true}
+  ]},
+  closeout: { label:'Closeout', panels:[
+    {id:'defic', label:'6. Deficiencies', badge:true},
+    {id:'sign',  label:'7. Signature'},
+    {id:'sketch',label:'8. Sketches'},
+    {id:'photos',label:'📷 Photos'}
+  ]}
+};
+function _phaseOf(panelId){
+  for(var ph in PHASES){ if(PHASES[ph].panels.some(function(p){return p.id===panelId;})) return ph; }
+  return 'setup';
+}
+var _activePhase = 'setup';
+function renderSubNav(phase){
+  var nav = document.getElementById('section-nav');
+  if(!nav) return;
+  var activePanel = null;
+  // which panel is currently active?
+  for(var ph in PHASES){ PHASES[ph].panels.forEach(function(p){ var el=document.getElementById('panel-'+p.id); if(el&&el.classList.contains('active')) activePanel=p.id; }); }
+  var html='';
+  PHASES[phase].panels.forEach(function(p){
+    var cls = 'nav-tab' + (p.id===activePanel?' active':'');
+    var inner = p.label;
+    if(p.dot) inner += '<span class="tab-dot" id="dot-'+p.id+'"></span>';
+    if(p.badge) inner += '<span class="tab-count" id="defic-tab-count" style="display:none;"></span>';
+    html += '<div class="'+cls+'" id="tab-'+p.id+'" onclick="switchPanel(\''+p.id+'\')">'+inner+'</div>';
+  });
+  nav.innerHTML = html;
+  // refresh the dot/badge state now that elements were recreated
+  if(typeof updateProgress==='function') { /* dots refreshed via updateProgress */ }
+}
+function switchPhase(phase){
+  _activePhase = phase;
+  document.querySelectorAll('.phase-tab').forEach(function(t){ t.classList.remove('active'); });
+  var pt = document.getElementById('phase-'+phase); if(pt) pt.classList.add('active');
+  renderSubNav(phase);
+  // refresh dots + badge for the freshly-rendered tabs
+  if(typeof updateProgress==='function') updateProgress();
+  if(typeof updateDeficTabBadge==='function') updateDeficTabBadge();
+}
+function updatePhaseFlags(){
+  // Closeout flag = open deficiency count
+  var flag = document.getElementById('phase-closeout-flag');
+  if(!flag) return;
+  var open = 0;
+  try { open = (contractors.flatMap(function(n){return deficiencies[n]||[];}).concat(generalDeficiencies||[])).filter(function(d){return (d.status||'open')!=='resolved';}).length; }
+  catch(e){ open = 0; }
+  if(open>0){ flag.style.display='inline-flex'; flag.textContent='\u2691 '+open; }
+  else { flag.style.display='none'; }
+}
+</script>
   <div class="project-bar" id="project-bar">
     <span class="pb-badge" id="pb-badge" onclick="issueReport()" title="Click to change status">DRAFT</span>
     <span class="pb-filename" id="pb-filename"></span>
@@ -2679,6 +2751,7 @@ function updateProgress() {
 
 // Live deficiency count on the Deficiencies tab (open/unresolved only)
 function updateDeficTabBadge(){
+  if(typeof updatePhaseFlags==='function') updatePhaseFlags();
   var el = document.getElementById('defic-tab-count');
   if(!el) return;
   var all = [];
@@ -4816,9 +4889,17 @@ function switchPanel(id) {
     document.getElementById('panel-'+p)?.classList.remove('active');
   });
   document.getElementById('panel-'+id)?.classList.add('active');
-  document.querySelectorAll('.nav-tab').forEach((t,i)=>{
-    t.classList.toggle('active', PANELS[i]===id);
-  });
+  // Phase-aware nav: ensure the panel's phase is active and its sub-nav is rendered
+  if(typeof PHASES!=='undefined'){
+    var ph = _phaseOf(id);
+    if(ph!==_activePhase || !document.getElementById('tab-'+id)){
+      _activePhase = ph;
+      document.querySelectorAll('.phase-tab').forEach(function(t){ t.classList.remove('active'); });
+      var pt = document.getElementById('phase-'+ph); if(pt) pt.classList.add('active');
+      renderSubNav(ph);
+    }
+    document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.toggle('active', t.id==='tab-'+id); });
+  }
   // Only do heavy work when actually needed
   try {
     if (id === 's4') {
@@ -6343,6 +6424,13 @@ renderChecklist(S4_items,'cl-s4pld','s4pld');
 renderChecklist(S5_mandatory,'cl-s5-mandatory','s5m');
 renderChecklist(S5,'cl-s5','s5');
 
+// Phase nav: initial render (Setup active, Summary panel active)
+if(typeof switchPhase==='function'){
+  _activePhase = 'setup';
+  document.querySelectorAll('.phase-tab').forEach(function(t){ t.classList.remove('active'); });
+  var _ps=document.getElementById('phase-setup'); if(_ps) _ps.classList.add('active');
+  renderSubNav('setup');
+}
 
 // Global drag/drop visual feedback
 document.addEventListener('dragover', function(e) {
