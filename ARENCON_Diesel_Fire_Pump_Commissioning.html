@@ -773,6 +773,13 @@ body.dark-mode .data-table tbody tr:nth-child(even){background:#1e2228!important
 body.dark-mode .data-table tbody tr td{background:inherit!important;color:#c8ccd4!important;}
 body.dark-mode .data-table tr:hover{background:#2a2d38!important;}
 body.dark-mode .data-table tr[style*="background:#fafbfc"] td{background:#1e2028!important;color:#5a6070!important;}
+/* S217 merge: water-supply / demand tables carry inline light backgrounds that survive into the
+   merged Performance tab. Force them dark so no cell renders white in dark mode. */
+body.dark-mode .data-table td[style*="background:#f5f5f5"]{background:#1e2228!important;color:#6a7080!important;}
+body.dark-mode .data-table tr[style*="background:#eef4ff"]{background:#1a2838!important;}
+body.dark-mode .data-table tr[style*="background:#eef4ff"] td:not(.calc-cell){background:#1a2838!important;color:#cdd6e6!important;}
+body.dark-mode .data-table input[readonly][style*="background:#eee"]{background:#262a33!important;color:#9aa2b2!important;}
+body.dark-mode .np-head{background:#242a36!important;border-bottom-color:#2a3040!important;}
 body.dark-mode .battery-card{border-color:#33373f;}body.dark-mode .battery-card-header{background:#3a1a28;}
 body.dark-mode .battery-table th{background:#282b34;color:#8a90a0;}
 body.dark-mode .subsection-note{background:#2a2820;color:#c8a840;border-color:#5a4a20;}
