@@ -879,14 +879,16 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
 .storage-label{font-size:calc(9px + var(--ts));color:rgba(255,255,255,.55);white-space:nowrap;}
 
 /* ── DASHBOARD ── */
-/* Cloud sync status indicator */
-.cloud-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;font:600 11px Calibri,sans-serif;color:#fff;margin-left:8px;}
-.cloud-status.synced{background:rgba(26,122,74,.7);}
-.cloud-status.saving{background:rgba(30,136,229,.7);}
-.cloud-status.offline{background:rgba(230,126,34,.7);}
-.cloud-status.pending{background:rgba(243,156,18,.7);}
-.cloud-status.error{background:rgba(192,57,43,.7);}
-.cloud-status .cs-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+/* Cloud sync status indicator — FRT-family: dot + text, pulsing halo when synced */
+#cloud-status{overflow:visible !important;}
+#cloud-dot{position:relative;z-index:1;box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:cloudPulse 2s ease-out infinite;}
+@keyframes cloudPulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5);}70%{box-shadow:0 0 0 7px rgba(52,211,153,0);}100%{box-shadow:0 0 0 7px rgba(52,211,153,0);}}
+/* Saving / offline / error states: recolor the dot and quiet the pulse */
+#cloud-status[data-state="saving"] #cloud-dot{background:#3B82F6 !important;animation:none;box-shadow:none;}
+#cloud-status[data-state="offline"] #cloud-dot,
+#cloud-status[data-state="pending"] #cloud-dot{background:#E0A030 !important;animation:none;box-shadow:none;}
+#cloud-status[data-state="error"] #cloud-dot{background:#C0392B !important;animation:none;box-shadow:none;}
+@media (prefers-reduced-motion:reduce){#cloud-dot{animation:none;box-shadow:none;}}
 /* Hub link in header */
 /* hdr-hub-link removed — using back-btn */
 
@@ -7276,8 +7278,10 @@ window.addEventListener('load', () => {
           var csEl = document.getElementById('cloud-status');
           var csTxt = document.getElementById('cloud-status-text');
           if(csEl){
-            csEl.className = 'cloud-status ' + status;
-            if(csTxt) csTxt.textContent = msg || status;
+            // FRT-family: drive the dot via data-state; 'synced' clears state so the green pulse resumes
+            if(status === 'synced' || status === 'saved') csEl.removeAttribute('data-state');
+            else csEl.setAttribute('data-state', status);
+            if(csTxt) csTxt.textContent = msg || (status === 'synced' ? 'Saved to cloud' : status);
           }
         }
       }).then(function(info){
@@ -7413,11 +7417,11 @@ async function _syncHeartbeat(){
       _applyLoadedState(JSON.stringify(merged));
       localStorage.setItem('_diesel_cloudSyncedAt_'+_csProjectId, row.row.updated_at);
       _syncLock = false;
-      // Flash blue cloud dot briefly
-      var dot = document.getElementById('cloud-dot');
-      if(dot){
-        dot.style.background = '#3B82F6';
-        setTimeout(function(){ dot.style.background = '#34D399'; }, 2000);
+      // Flash blue cloud dot briefly (FRT-family: drive via data-state)
+      var csFlash = document.getElementById('cloud-status');
+      if(csFlash){
+        csFlash.setAttribute('data-state','saving');
+        setTimeout(function(){ csFlash.removeAttribute('data-state'); }, 2000);
       }
     } else {
       if(cloudTime > localTime){
