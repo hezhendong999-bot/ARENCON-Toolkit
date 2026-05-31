@@ -2222,7 +2222,6 @@ function showToast(msg, duration=2500) {
   clearTimeout(t._timer);
   t._timer = setTimeout(()=>{ t.style.opacity='0'; }, duration);
 }
-// pldSupplyChart declared below with other chart vars
 const pumpCurvePoints = [{ flow:'', psi:'' }];
 // Independent pump curve points for 4b tab
 const pldPumpCurvePoints = [{ flow:'', psi:'' }];
@@ -3534,7 +3533,6 @@ const hwTicks = (axis) => {
 const tickCb = v => Number.isInteger(v) ? v.toLocaleString() : Math.round(v).toLocaleString();
 
 // Chart handles
-let supplyChart = null;     // kept as legacy var (unused in UI but PDF still refs)
 let chart3pt = null;        // Chart A: 3-pt discharge w/o PRV & PLD
 let pldChart = null;        // Chart B: 7-pt discharge + supply/demand overlays
 let netPerfChart = null;    // Chart C: net pressure both phases
@@ -3548,7 +3546,6 @@ function _chartLabelColor(lightCol) {
   var map = {'#5F8068':'#5aca7a','#A85959':'#e08080','#0D47A1':'#60a0e0','#1565C0':'#60a0e0','#D35400':'#e8a050','#5B2D8E':'#b080e0','#E53935':'#f07070','#2C4770':'#7a9fc8','#9C27B0':'#c070d0','#E67E22':'#e8a050','#805AD5':'#b59ae0'};
   return map[lightCol] || lightCol;
 }
-let pldSupplyChart = null;  // legacy var (removed from UI, kept to avoid ref errors)
 
 // PLD row indices that are skipped in w/o PRV & PLD (only 0%,100%,150% = indices 0,4,6)
 // PLD_NO_SKIP defined above near renderPldTable
@@ -3595,54 +3592,44 @@ function buildPldPumpCurveLine() {
   return pldPumpCurvePoints.filter(p=>p.flow!==''&&p.psi!=='').map(p=>({x:+p.flow,y:+p.psi})).sort((a,b)=>a.x-b.x);
 }
 
-// 3pt demand helpers (use dem-* ids)
-function getDemandPoint3pt() {
-  const df = parseFloat(document.getElementById('dem-flow')?.value);
-  const dp = parseFloat(document.getElementById('dem-psi')?.value);
+// Demand-geometry helpers. 3-Point uses dem-* ids, 7-Point uses pld-dem-* ids;
+// the geometry is identical, so a single set of base functions takes the id prefix
+// ('' for 3-Point, 'pld-' for 7-Point). Named wrappers below preserve every call site.
+function _getDemandPoint(pfx) {
+  const df = parseFloat(document.getElementById(pfx+'dem-flow')?.value);
+  const dp = parseFloat(document.getElementById(pfx+'dem-psi')?.value);
   return (!isNaN(df)&&!isNaN(dp)&&df>0) ? [{x:df,y:dp}] : [];
 }
-function getSprDemLine3pt() {
-  const sf = parseFloat(document.getElementById('dem-spr-flow')?.value)||0;
-  const sp = parseFloat(document.getElementById('dem-spr-psi')?.value)||0;
+function _getSprDemLine(pfx) {
+  const sf = parseFloat(document.getElementById(pfx+'dem-spr-flow')?.value)||0;
+  const sp = parseFloat(document.getElementById(pfx+'dem-spr-psi')?.value)||0;
   return (sf>0&&sp>0) ? [{x:0,y:0},{x:sf,y:sp}] : [];
 }
-function getOhlLine3pt() {
-  const sf = parseFloat(document.getElementById('dem-spr-flow')?.value)||0;
-  const sp = parseFloat(document.getElementById('dem-spr-psi')?.value)||0;
-  const hf = parseFloat(document.getElementById('dem-hose-flow')?.value)||0;
+function _getOhlLine(pfx) {
+  const sf = parseFloat(document.getElementById(pfx+'dem-spr-flow')?.value)||0;
+  const sp = parseFloat(document.getElementById(pfx+'dem-spr-psi')?.value)||0;
+  const hf = parseFloat(document.getElementById(pfx+'dem-hose-flow')?.value)||0;
   if(hf<=0||sp<=0) return [];
   return [{x:sf,y:sp},{x:sf+hf,y:sp}];
 }
 // Sprinkler demand point only (endpoint of SD diagonal, shown separately)
-function getSprDemPoint3pt() {
-  const sf = parseFloat(document.getElementById('dem-spr-flow')?.value)||0;
-  const sp = parseFloat(document.getElementById('dem-spr-psi')?.value)||0;
+function _getSprDemPoint(pfx) {
+  const sf = parseFloat(document.getElementById(pfx+'dem-spr-flow')?.value)||0;
+  const sp = parseFloat(document.getElementById(pfx+'dem-spr-psi')?.value)||0;
   return (sf>0&&sp>0) ? [{x:sf,y:sp}] : [];
 }
 
+// 3pt demand helpers (use dem-* ids)
+function getDemandPoint3pt() { return _getDemandPoint(''); }
+function getSprDemLine3pt() { return _getSprDemLine(''); }
+function getOhlLine3pt() { return _getOhlLine(''); }
+function getSprDemPoint3pt() { return _getSprDemPoint(''); }
+
 // 4b demand helpers (use pld-dem-* ids)
-function getDemandPointPld() {
-  const df = parseFloat(document.getElementById('pld-dem-flow')?.value);
-  const dp = parseFloat(document.getElementById('pld-dem-psi')?.value);
-  return (!isNaN(df)&&!isNaN(dp)&&df>0) ? [{x:df,y:dp}] : [];
-}
-function getSprDemLinePld() {
-  const sf = parseFloat(document.getElementById('pld-dem-spr-flow')?.value)||0;
-  const sp = parseFloat(document.getElementById('pld-dem-spr-psi')?.value)||0;
-  return (sf>0&&sp>0) ? [{x:0,y:0},{x:sf,y:sp}] : [];
-}
-function getOhlLinePld() {
-  const sf = parseFloat(document.getElementById('pld-dem-spr-flow')?.value)||0;
-  const sp = parseFloat(document.getElementById('pld-dem-spr-psi')?.value)||0;
-  const hf = parseFloat(document.getElementById('pld-dem-hose-flow')?.value)||0;
-  if(hf<=0||sp<=0) return [];
-  return [{x:sf,y:sp},{x:sf+hf,y:sp}];
-}
-function getSprDemPointPld() {
-  const sf = parseFloat(document.getElementById('pld-dem-spr-flow')?.value)||0;
-  const sp = parseFloat(document.getElementById('pld-dem-spr-psi')?.value)||0;
-  return (sf>0&&sp>0) ? [{x:sf,y:sp}] : [];
-}
+function getDemandPointPld() { return _getDemandPoint('pld-'); }
+function getSprDemLinePld() { return _getSprDemLine('pld-'); }
+function getOhlLinePld() { return _getOhlLine('pld-'); }
+function getSprDemPointPld() { return _getSprDemPoint('pld-'); }
 
 // legacy aliases for any remaining code that uses old names
 function getDemandPoint() { return getDemandPoint3pt(); }
