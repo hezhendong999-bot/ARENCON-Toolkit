@@ -1188,8 +1188,9 @@ function updatePhaseFlags(){
 
 <div class="main-wrap">
 
-  <!-- PROGRESS -->
-  <div class="summary-bar">
+  <!-- PROGRESS — global checklist bar retired S214 (completion overview on Summary tab is now the roll-up).
+       Markup kept hidden + inert so updateProgress() writes stay valid without null guards (S137 dead-handler discipline). -->
+  <div class="summary-bar" style="display:none;">
     <div class="sum-label" id="prog-label">0 / 0 Items</div>
     <div class="sum-bar-bg"><div class="sum-bar-fill" id="prog-fill" style="width:0%"></div></div>
     <div class="sum-stats">
