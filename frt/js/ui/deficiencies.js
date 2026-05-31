@@ -3065,14 +3065,9 @@ document.addEventListener('change', function(e) {
   else if (e.target.id === 'dfx-pri') { _dfxPri = e.target.value || ''; initDeficiencies.render(); }
 });
 
-function _updateDlcCounts(activeCount, closedCount) {
-  document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(tab) {
-    var type = tab.getAttribute('data-dlc');
-    var count = type === 'active' ? activeCount : closedCount;
-    var label = type === 'active' ? 'Active' : 'Closed';
-    tab.textContent = label + (count > 0 ? ' (' + count + ')' : '');
-  });
-}
+// S221: _updateDlcCounts removed — dead orphan from the pre-S216 lifecycle-tab
+// era. Zero call sites tree-wide; its DOM target (#defic-lifecycle-tabs .dlc-tab)
+// was removed from markup in the S216 board redesign, so it was inert twice over.
 
 // ── Event Delegation ─────────────────────────────────────
 var _obsDebounce = {};
