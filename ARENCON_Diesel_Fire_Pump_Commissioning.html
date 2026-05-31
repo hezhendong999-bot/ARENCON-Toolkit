@@ -1041,7 +1041,7 @@ function _refreshDarkButtons(){
   // Re-apply pump test type buttons with correct dark/light colors
   var _ri=document.querySelector('input[name="pump-test-type"]:checked');
   var ptype=_ri?_ri.value:'std';
-  if(!_ri){document.querySelectorAll('.pump-type-btns button').forEach(function(b){if(b.textContent.indexOf('⦿')===0)ptype=b.dataset.ptype;});}
+  if(!_ri){document.querySelectorAll('.pump-type-btns button').forEach(function(b){if(b.classList.contains('on'))ptype=b.dataset.ptype;});}
   if(typeof setPumpTestType==='function') setPumpTestType(ptype);
 }
 initDarkMode();
@@ -5184,18 +5184,18 @@ function _realExportPDF() {
     var testType = 'std';
     var _ri = document.querySelector('input[name="pump-test-type"]:checked');
     if(_ri) { testType = _ri.value; }
-    else { var _pb = document.querySelector('.pump-type-btns button'); if(_pb) { document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.textContent.indexOf('⦿')===0) testType=b.dataset.ptype; }); } }
+    else { document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) testType=b.dataset.ptype; }); }
     var gv=function(id){return (document.getElementById(id)||{}).value||'—';};
     var out='';
     out+='<table class="dt" style="max-width:400px;"><thead><tr><th class="left" style="text-align:left">Parameter</th><th>Value</th></tr></thead><tbody>';
     out+='<tr><td style="text-align:left">PRV Rating (psi)</td><td>'+gv('pm-prv')+'</td></tr>';
     out+='<tr><td style="text-align:left">Pump Rated Speed (RPM)</td><td>'+gv('pm-rpm')+'</td></tr>';
-    out+='<tr><td style="text-align:left">Equipment Used</td><td>'+(function(){var sel='input[name=equip3a]:checked';if(testType==='pld')sel='input[name=equip4b]:checked';else if(testType==='both')sel='input[name=equip3a]:checked,input[name=equip4b]:checked';var r=[];document.querySelectorAll(sel).forEach(function(c){var t=c.parentElement.textContent.trim();if(r.indexOf(t)<0)r.push(t)});return r.length?r.join(', '):'—'})()+'</td></tr>';
+    out+='<tr><td style="text-align:left">Equipment Used</td><td>'+(function(){var sel='input[name=equip3a]:checked';if(testType==='pld')sel='input[name=equip4b]:checked';var r=[];document.querySelectorAll(sel).forEach(function(c){var t=c.parentElement.textContent.trim();if(r.indexOf(t)<0)r.push(t)});return r.length?r.join(', '):'—'})()+'</td></tr>';
     out+='<tr><td style="text-align:left">Total Test Flow (US gpm)</td><td>'+(document.getElementById('pitot-total-3a')?.textContent||document.getElementById('pitot-total-4b')?.textContent||'—')+'</td></tr>';
     out+='</tbody></table>';
 
-    // Standard 3-Point table (only if std or both)
-    if(testType==='std'||testType==='both'){
+    // Standard 3-Point table (only if std)
+    if(testType==='std'){
       out+='<div style="font-size:10pt;font-weight:bold;background:#2C4770;color:white;padding:5px 12px;margin:16px 0 8px;letter-spacing:.3px;border-radius:3px;">Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>';
       out+='<table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th>Suction (psi)</th><th>Discharge (psi)</th><th>Net (psi)</th><th>RPM</th><th>Result</th></tr></thead><tbody>';
       stdData.forEach(function(r){var c=_calcFlowPoint(r),net=c.net,pf=c.verdict==='na'?'—':(c.verdict==='pass'?'PASS':'FAIL');out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(r.suction||'—')+'</td><td>'+(r.discharge||'—')+'</td><td>'+(net!=null?net.toFixed(1):'—')+'</td><td>'+(r.rpm||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#5F8068':pf==='FAIL'?'#A85959':'#999')+'">'+pf+'</td></tr>';});
@@ -5216,8 +5216,8 @@ function _realExportPDF() {
       if(chartImgA) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_buildReadoutStripHtml3pt()+'</div>';
     }
 
-    // PLD 7-Point table (only if pld or both)
-    if(testType==='pld'||testType==='both'){
+    // PLD 7-Point table (only if pld)
+    if(testType==='pld'){
       out+='<div style="font-size:10pt;font-weight:bold;background:#2C4770;color:white;padding:5px 12px;margin:16px 0 8px;letter-spacing:.3px;border-radius:3px;">7-Point Performance Test — Fire Pump with PLD</div>';
       out+='<table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th colspan="2">w/o PRV &amp; PLD</th><th>RPM</th><th colspan="2">w/ PLD Enabled</th><th>RPM</th><th>Pass/Fail</th></tr><tr><th></th><th></th><th></th><th></th><th>Suction</th><th>Discharge</th><th></th><th>Suction</th><th>Discharge</th><th></th><th></th></tr></thead><tbody>';
       (typeof pldData!=='undefined'?pldData:[]).forEach(function(r,ri){var skip=(typeof PLD_NO_SKIP!=='undefined'&&PLD_NO_SKIP.has(ri));var c=updatePldVerdictObj?updatePldVerdictObj(r,ri):null;var pf=c?(c.verdict==='na'?'—':(c.verdict==='pass'?'PASS':'FAIL')):'—';out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(skip?'—':(r.suc_no||'—'))+'</td><td>'+(skip?'—':(r.dis_no||'—'))+'</td><td>'+(skip?'—':(r.rpm_no||'—'))+'</td><td>'+(r.suc_w||'—')+'</td><td>'+(r.dis_w||'—')+'</td><td>'+(r.rpm_w||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#5F8068':pf==='FAIL'?'#A85959':'#999')+'">'+pf+'</td></tr>';});
@@ -6811,13 +6811,6 @@ function syncAllFields() {
   const ptps = document.getElementById('pld-dem-total-psi');
   if (ptfl) ptfl.textContent = tf > 0 ? tf.toLocaleString() + ' gpm' : '—';
   if (ptps) ptps.textContent = tp > 0 ? tp + ' psi' : '—';
-  // Update test type banner label (no recursive setPumpTestType call)
-  const checked = document.querySelector('input[name="pump-test-type"]:checked');
-  const lbl = document.getElementById('pld-test-type-label');
-  if (lbl && checked) {
-    const labels = {std:'3-Point Standard (w/o PLD)', pld:'7-Point with PLD', both:'Both (run both tests)'};
-    lbl.textContent = labels[checked.value] || checked.value;
-  }
 }
 
 // ══════════════════════════════════════════════════
