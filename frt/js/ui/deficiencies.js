@@ -1719,15 +1719,10 @@ function _renderActiveTab(proj, container) {
   container.innerHTML = html;
 }
 
-function _renderClosedTab(closedDefics, container) {
-  if (!closedDefics.length) {
-    container.innerHTML = '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:24px 0;text-align:center;">No closed deficiencies yet.</p>';
-    return;
-  }
-  var html = '';
-  closedDefics.forEach(function(d) { html += buildDeficCard(d.defic, d.contractorId); });
-  container.innerHTML = '<div class="defic-group"><div class="defic-group-header" style="background:#1C2333;color:white;padding:10px 16px;"><span>\u2705 Closed Items</span><span style="font-size:calc(12px + var(--ts));opacity:.7;">' + closedDefics.length + '</span></div>' + html + '</div>';
-}
+// S220: _renderClosedTab removed — dead orphan from the pre-S216 lifecycle-tab
+// closed view, superseded by the always-visible Closed board column. Zero
+// callers corpus-wide (not an IIFE, no dynamic dispatch); its only dependency
+// buildDeficCard remains live.
 
 // ── S137 Phase 2: unified filter engine + Detailed view ──────────
 // Flatten (defic, obs) pairs after applying the lifecycle pivot

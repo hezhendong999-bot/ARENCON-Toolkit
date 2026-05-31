@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v584';
+var CACHE_NAME = 'arencon-frt-v585';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -35,6 +35,11 @@ var APP_FILES = [
   'frt/js/data/uploadQueue.js',
   'frt/js/data/tileCache.js',
   'frt/js/data/hubBridge.js',
+  // S220: presence.js is a static (blocking) import in app.js but was absent
+  // from the precache list. Online use self-heals via runtime cache, but a
+  // cold-offline first boot on a freshly-activated SW would 503 the import and
+  // fail the module graph. Precaching closes that gap.
+  'frt/js/data/presence.js',
   // S169 (Fix A foundation) — stub module, no behavior. Cached so devices
   // pick it up on next SW activate.
   'frt/js/data/photoOutbox.js',
