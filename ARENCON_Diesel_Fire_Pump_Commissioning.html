@@ -1147,6 +1147,9 @@ function _refreshDarkButtons(){
   // B3: sketch canvases paint their own background in _skRedraw, so a dark-mode
   // toggle must repaint every sketch or a stale white/dark fill persists.
   try { if(typeof _skStrokes!=='undefined'){ Object.keys(_skStrokes).forEach(function(uid){ if(typeof _skRedraw==='function') _skRedraw(uid); }); } } catch(e){}
+  // B2 (Option B): signatures are stored as vector strokes — repaint them in the
+  // new theme's ink colour so EXISTING signatures stay visible after a toggle.
+  try { if(typeof _sigRepaintAll==='function') _sigRepaintAll(); } catch(e){}
 }
 initDarkMode();
 // ── Custom modals — callback-based replacements for confirm/prompt/alert ──
@@ -4821,9 +4824,12 @@ function initSig(canvasId) {
   const ctx = canvas.getContext('2d');
   let drawing = false;
   ctx.lineWidth = 2; ctx.lineCap = 'round';
-  // Ink colour is resolved at STROKE time, not init time, so a pad initialised
-  // in one mode still draws visibly after a dark-mode toggle.
-  const inkColor = () => document.body.classList.contains('dark-mode') ? '#ffffff' : '#1C2333';
+  // Ink colour is resolved at REPAINT time, not init time. Signatures are stored
+  // as VECTOR strokes in _sigStrokes[canvasId] so they (a) survive reload and
+  // (b) recolour cleanly when dark mode toggles (a bitmap cannot be recoloured).
+  if(typeof _sigStrokes==='undefined'){ window._sigStrokes = {}; }
+  if(!_sigStrokes[canvasId]) _sigStrokes[canvasId] = [];
+  let _cur = null;
 
   const getPos = (e) => {
     const rect = canvas.getBoundingClientRect();
@@ -4835,18 +4841,66 @@ function initSig(canvasId) {
     return { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
   };
 
-  canvas.addEventListener('mousedown', e=>{ drawing=true; ctx.strokeStyle=inkColor(); const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
-  canvas.addEventListener('mousemove', e=>{ if(!drawing) return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
-  canvas.addEventListener('mouseup', ()=>{ drawing=false; if(canvasId==='sig-canvas' && typeof updateCompletionOverview==='function') updateCompletionOverview(); });
-  canvas.addEventListener('mouseleave', ()=>drawing=false);
-  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); drawing=true; ctx.strokeStyle=inkColor(); const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
-  canvas.addEventListener('touchmove', e=>{ e.preventDefault(); if(!drawing) return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
-  canvas.addEventListener('touchend', ()=>{ drawing=false; if(canvasId==='sig-canvas' && typeof updateCompletionOverview==='function') updateCompletionOverview(); });
+  canvas.addEventListener('mousedown', e=>{ drawing=true; ctx.strokeStyle=_sigInk(); const p=getPos(e); _cur={pts:[{x:p.x,y:p.y}]}; ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+  canvas.addEventListener('mousemove', e=>{ if(!drawing) return; const p=getPos(e); if(_cur)_cur.pts.push({x:p.x,y:p.y}); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+  canvas.addEventListener('mouseup', ()=>{ drawing=false; if(_cur&&_cur.pts.length){_sigStrokes[canvasId].push(_cur);} _cur=null; if(canvasId==='sig-canvas' && typeof updateCompletionOverview==='function') updateCompletionOverview(); });
+  canvas.addEventListener('mouseleave', ()=>{ if(drawing&&_cur&&_cur.pts.length){_sigStrokes[canvasId].push(_cur);} drawing=false; _cur=null; });
+  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); drawing=true; ctx.strokeStyle=_sigInk(); const p=getPos(e); _cur={pts:[{x:p.x,y:p.y}]}; ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
+  canvas.addEventListener('touchmove', e=>{ e.preventDefault(); if(!drawing) return; const p=getPos(e); if(_cur)_cur.pts.push({x:p.x,y:p.y}); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
+  canvas.addEventListener('touchend', ()=>{ drawing=false; if(_cur&&_cur.pts.length){_sigStrokes[canvasId].push(_cur);} _cur=null; if(canvasId==='sig-canvas' && typeof updateCompletionOverview==='function') updateCompletionOverview(); });
+}
+
+// Current signature ink colour for the active theme.
+function _sigInk(){ return document.body.classList.contains('dark-mode') ? '#ffffff' : '#1C2333'; }
+
+// Repaint a signature canvas from its stored vector strokes in the current
+// theme colour. Used on load (restore) and on dark-mode toggle (recolour).
+function _sigRepaint(canvasId){
+  if(typeof _sigStrokes==='undefined') return;
+  var strokes = _sigStrokes[canvasId]; if(!strokes) return;
+  var c = document.getElementById(canvasId); if(!c) return;
+  var ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.lineWidth=2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle=_sigInk();
+  strokes.forEach(function(s){
+    if(!s.pts||!s.pts.length) return;
+    ctx.beginPath(); ctx.moveTo(s.pts[0].x,s.pts[0].y);
+    for(var i=1;i<s.pts.length;i++) ctx.lineTo(s.pts[i].x,s.pts[i].y);
+    ctx.stroke();
+  });
+}
+
+// Repaint every known signature canvas (called on dark-mode toggle).
+function _sigRepaintAll(){
+  if(typeof _sigStrokes==='undefined') return;
+  Object.keys(_sigStrokes).forEach(function(id){ _sigRepaint(id); });
+}
+
+// Render a signature for the PDF in FORCED DARK ink (theme-independent), so a
+// report exported in dark mode never produces invisible white-on-white ink.
+// Falls back to the live canvas bitmap if there are no vector strokes.
+function _sigPrintSrc(canvasId){
+  var strokes = (typeof _sigStrokes!=='undefined') ? _sigStrokes[canvasId] : null;
+  var c = document.getElementById(canvasId);
+  if(strokes && strokes.length && c){
+    var t=document.createElement('canvas'); t.width=c.width; t.height=c.height;
+    var tx=t.getContext('2d');
+    tx.lineWidth=2; tx.lineCap='round'; tx.lineJoin='round'; tx.strokeStyle='#1C2333';
+    strokes.forEach(function(s){
+      if(!s.pts||!s.pts.length) return;
+      tx.beginPath(); tx.moveTo(s.pts[0].x,s.pts[0].y);
+      for(var i=1;i<s.pts.length;i++) tx.lineTo(s.pts[i].x,s.pts[i].y);
+      tx.stroke();
+    });
+    return t.toDataURL();
+  }
+  return c ? c.toDataURL() : '';
 }
 
 function clearSig() {
   const c=document.getElementById('sig-canvas');
   c.getContext('2d').clearRect(0,0,c.width,c.height);
+  if(typeof _sigStrokes!=='undefined') _sigStrokes['sig-canvas']=[];
   const img=document.getElementById('sig-upload-img-1');
   if(img) { img.src=''; img.style.display='none'; }
   setSigMode(1,'draw');
@@ -4876,6 +4930,9 @@ function loadSigUpload(num, input) {
   r.onload = ev => {
     const canvas = document.getElementById(num===1?'sig-canvas':'sig-canvas');
     if(canvas) canvas.style.display='none';
+    // An uploaded image replaces any drawn strokes — drop them so a theme
+    // toggle doesn't repaint old ink over the uploaded signature.
+    if(typeof _sigStrokes!=='undefined'){ _sigStrokes[num===1?'sig-canvas':('sig-canvas-c-'+num)]=[]; }
     const uploadImg = document.getElementById(`sig-upload-img-${num}`);
     if(uploadImg) { uploadImg.src=ev.target.result; uploadImg.style.display='block'; }
     if(num===1 && typeof updateCompletionOverview==='function') updateCompletionOverview();
@@ -4976,10 +5033,17 @@ function renderAllSignRows() {
   function restoreSig(canvasId, savedKey, imgKey) {
     setTimeout(function() {
       initSig(canvasId);
-      var saved = savedSigs[savedKey];
-      if(saved && saved.length > 100) {
-        var c = document.getElementById(canvasId);
-        if(c) { var im=new Image(); im.onload=function(){c.getContext('2d').drawImage(im,0,0);}; im.src=saved; }
+      // Prefer vector strokes: repaint in the current theme colour. This is what
+      // survives a reload and recolours on dark-mode toggle. Bitmap is fallback.
+      var strokes = (typeof _sigStrokes!=='undefined') ? _sigStrokes[canvasId] : null;
+      if(strokes && strokes.length){
+        _sigRepaint(canvasId);
+      } else {
+        var saved = savedSigs[savedKey];
+        if(saved && saved.length > 100) {
+          var c = document.getElementById(canvasId);
+          if(c) { var im=new Image(); im.onload=function(){c.getContext('2d').drawImage(im,0,0);}; im.src=saved; }
+        }
       }
       var savedI = savedSigs[imgKey];
       if(savedI) {
@@ -4990,13 +5054,16 @@ function renderAllSignRows() {
   }
   contractorSignRows.forEach(function(_,i) { restoreSig('sig-canvas-c-'+(i+2), 'c-'+(i+2), 'img-'+(i+2)); });
   witnessSignRows.forEach(function(_,i) { restoreSig('sig-canvas-c-'+(i+100), 'c-'+(i+100), 'img-'+(i+100)); });
-  // Restore consultant main sig
-  if(savedSigs['main'] && savedSigs['main'].length > 100) {
-    setTimeout(function() {
+  // Restore consultant main sig — vector strokes first, bitmap fallback
+  setTimeout(function() {
+    var mStrokes = (typeof _sigStrokes!=='undefined') ? _sigStrokes['sig-canvas'] : null;
+    if(mStrokes && mStrokes.length){
+      _sigRepaint('sig-canvas');
+    } else if(savedSigs['main'] && savedSigs['main'].length > 100) {
       var mc = document.getElementById('sig-canvas');
       if(mc) { var im=new Image(); im.onload=function(){mc.getContext('2d').drawImage(im,0,0);}; im.src=savedSigs['main']; }
-    }, 60);
-  }
+    }
+  }, 60);
   if(savedSigs['main-img']) {
     setTimeout(function() {
       var mi = document.getElementById('sig-upload-img');
@@ -5007,6 +5074,7 @@ function renderAllSignRows() {
 function clearGenericSig(idx) {
   const c = document.getElementById(`sig-canvas-c-${idx}`);
   if(c) c.getContext('2d').clearRect(0,0,c.width,c.height);
+  if(typeof _sigStrokes!=='undefined') _sigStrokes[`sig-canvas-c-${idx}`]=[];
   const img = document.getElementById(`sig-upload-img-${idx}`);
   if(img) { img.src=''; img.style.display='none'; }
   setSigMode(idx,'draw');
@@ -5492,7 +5560,7 @@ function _realExportPDF() {
       if (sigEl) {
         const canvas = document.getElementById('sig-canvas');
         const upload = document.getElementById('sig-upload-img-1');
-        const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : (canvas ? canvas.toDataURL() : '');
+        const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : _sigPrintSrc(canvas ? canvas.id : '');
         if (src) sigEl.innerHTML = '<div style="font-size:8pt;color:#666;margin-bottom:3px;">Consultant Signature:</div><img src="'+src+'" style="height:55px;border-bottom:1.5px solid #333;display:block;">';
         else sigEl.innerHTML = '<div style="height:50px;border-bottom:1.5px solid #333;width:280px;margin-top:10px;"></div>';
       }
@@ -5504,7 +5572,7 @@ function _realExportPDF() {
           const idx = i + 2;
           const canvas = document.getElementById('sig-canvas-c-' + idx);
           const upload = document.getElementById('sig-upload-img-' + idx);
-          const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : (canvas ? canvas.toDataURL() : '');
+          const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : _sigPrintSrc(canvas ? canvas.id : '');
           csHtml += '<div style="padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;">'
             + '<div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Contractor Signature</div>'
             + '<table style="width:100%;font-size:8.5pt;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>'
@@ -5528,7 +5596,7 @@ function _realExportPDF() {
             const idx = i + 100;
             const canvas = document.getElementById('sig-canvas-c-' + idx);
             const upload = document.getElementById('sig-upload-img-' + idx);
-            const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : (canvas ? canvas.toDataURL() : '');
+            const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : _sigPrintSrc(canvas ? canvas.id : '');
             wsHtml += '<div style="padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;">'
               + '<div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Witness Signature</div>'
               + '<table style="width:100%;font-size:8.5pt;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>'
@@ -6659,6 +6727,7 @@ function _applyStateInPlace(jsonStr) {
     if(s.deficiencies) { Object.keys(deficiencies).forEach(function(k){delete deficiencies[k];}); Object.assign(deficiencies,s.deficiencies); }
     if(s.generalDeficiencies) { generalDeficiencies.length=0; s.generalDeficiencies.forEach(function(d){generalDeficiencies.push(d);}); }
     if(s.contractorSignRows) { contractorSignRows.length=0; s.contractorSignRows.forEach(function(r){contractorSignRows.push(r);}); }
+    if(s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ _sigStrokes[k]=s.sigStrokes[k]; }); }
     if(s.batData) {
       if(s.batData.b1) batData.b1=s.batData.b1.map(Number);
       if(s.batData.b2) batData.b2=s.batData.b2.map(Number);
@@ -6715,6 +6784,7 @@ document.getElementById('so-date').value = new Date().toISOString().slice(0,16);
 // ── PUMP TEST TYPE TOGGLE ──
 let flowTestPhotos = [];
 let recordPhotos = []; // S-records: site records — {d,n,id,kind:'pump'|'placard'|'site',r2*,caption,date}
+var _sigStrokes = {}; // signature vector strokes per canvas id — survives reload + recolours on theme toggle
 function setPumpTestType(type) {
   // Stage-1 merge: 3-Point and 7-Point now live in one "4. Performance Test" tab.
   // 'both' is retired (one-or-the-other always); coerce any legacy value to a real type.
@@ -7143,6 +7213,7 @@ function collectState() {
     generalDeficiencies: JSON.parse(JSON.stringify(generalDeficiencies)),
     contractorSignRows: contractorSignRows.map(r=>({...r})),
     witnessSignRows: witnessSignRows.map(r=>({...r})),
+    sigStrokes: (typeof _sigStrokes!=='undefined') ? JSON.parse(JSON.stringify(_sigStrokes)) : {},
     // Photos stored separately to keep main state lean
     batData: {b1:[...batData.b1], b2:[...batData.b2]},
     flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n})),
@@ -7452,6 +7523,7 @@ function _applyLoadedState(raw) {
       contractorSignRows.length = 0;
       s.contractorSignRows.forEach(r => contractorSignRows.push(r));
     }
+    if (s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ _sigStrokes[k]=s.sigStrokes[k]; }); }
     // flowTestPhotos
     if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(p=>flowTestPhotosPld.push(p)); renderFlowTestThumbsPld(); }
     // batData
