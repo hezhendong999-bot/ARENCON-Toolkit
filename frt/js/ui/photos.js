@@ -1013,7 +1013,16 @@ function _doReassign(destVal, selItems) {
       if (res) moved++; else skipped++;
     });
   } else {
-    // Defic -> Site: pull each photo out of its pool, push a site-shaped record.
+    // Defic -> Site (S222, Option A): per-OBSERVATION scope. Moving a photo to
+    // Site removes it from THIS observation's view only — never pin-wide. The
+    // earlier code called removePoolPhoto, which soft-deletes at the pool level
+    // and cascades the removal to every sibling obs showing the same photo
+    // (default-state obs implicitly show the whole pool). That was the S221
+    // confirmed bug. Correct behavior (Mark, S222): the photo leaves this obs
+    // and lands in Site immediately; any sibling obs still referencing the same
+    // binary keeps it, so a shared photo legitimately appears in BOTH the pin
+    // and Site (same R2 binary, two references — no re-upload, no duplication
+    // of the file itself).
     selItems.forEach(function(s) {
       if (s.type !== 'defic') return;
       var f = Model.findDeficiency(s.deficId);
@@ -1023,17 +1032,37 @@ function _doReassign(destVal, selItems) {
         : ((f.defic.observations || [])[s.obsIdx] || {}).photos || [];
       var srcRec = effective[s.photoIdx];
       if (!srcRec || !srcRec.id) { skipped++; return; }
-      // Clone before removal (removePoolPhoto stamps the live object deleted).
+      // Snapshot the binary BEFORE we narrow the obs (removePhotoFromObs never
+      // touches the pool entry, so srcRec stays live — but clone defensively).
       var rec = Object.assign({}, srcRec);
       delete rec.deleted; delete rec.deletedDate;
-      var obs = (f.defic.observations || [])[s.obsIdx];
-      if (obs && Array.isArray(obs.photoSelection)) {
-        obs.photoSelection = obs.photoSelection.filter(function(id){ return id !== srcRec.id; });
+      // Drop ONLY this obs's reference. removePhotoFromObs handles both
+      // custom-state (filter the ID out of photoSelection) and default-state
+      // (narrow to "all pool except this") obs, and deliberately leaves the
+      // pool + every sibling obs untouched.
+      if (Model.removePhotoFromObs) {
+        Model.removePhotoFromObs(s.deficId, s.obsIdx, srcRec.id);
+      } else {
+        // Defensive fallback (older Model without the helper): narrow custom-
+        // state only. Never call removePoolPhoto here — that is the bug.
+        var obs0 = (f.defic.observations || [])[s.obsIdx];
+        if (obs0 && Array.isArray(obs0.photoSelection)) {
+          obs0.photoSelection = obs0.photoSelection.filter(function(id){ return id !== srcRec.id; });
+        }
       }
-      if (Model.removePoolPhoto) Model.removePoolPhoto(s.deficId, srcRec.id);
+      // Always release the binary to Site, deduping against any live Site photo
+      // already pointing at the same binary (mirrors the removeDeficiency
+      // release guard, model.js ~2031) so the same R2 object never lands in
+      // proj.photos twice.
       if (!proj.photos) proj.photos = [];
-      if (!rec.id) rec.id = 'sp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      var key = rec.r2Key || rec.sourceR2Key || null;
+      var already = key && proj.photos.some(function(sp) {
+        return sp && !sp.deleted && (sp.r2Key || sp.sourceR2Key) === key;
+      });
+      if (already) { moved++; return; } // binary already in Site; obs narrowed
+      rec.id = 'sp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
       if (!rec.caption) rec.caption = '';
+      if (!rec.sourceR2Key) rec.sourceR2Key = rec.r2Key || null;
       rec.addedDate = new Date().toISOString();
       proj.photos.push(rec);
       moved++;
