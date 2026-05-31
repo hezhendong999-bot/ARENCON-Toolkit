@@ -1666,10 +1666,9 @@ export var initDeficiencies = {
     document.body.classList.toggle('dfx-view-board', _deficView === 'board');
     _dfxSetupStickyObserver();
 
-    // S137/S138: view dispatch — all three views live.
-    if (_deficView === 'table') {
-      _renderTableView(proj, container);
-    } else if (_deficView === 'board') {
+    // S137/S138: view dispatch. S216: Table view retired — Detailed + Board only.
+    // Any stale _deficView==='table' falls through to Detailed (the else branch).
+    if (_deficView === 'board') {
       _renderBoardView(proj, container);
     } else {
       _renderDetailedView(proj, container);
@@ -2674,6 +2673,9 @@ function _scopePinFocusObs(ov) {
 }
 
 // ── Table view — row per (defic, obs) ────────────────────────────
+// S216: Table view RETIRED — toggle button + render branch removed. This
+// function is left defined-but-unreferenced per S137 dead-handler discipline
+// (do not call; remove at next canon pass along with .dfx-tbl* table-only CSS).
 function _renderTableView(proj, container) {
   var rows = _flatRows(proj);
   if (!rows.length) {
