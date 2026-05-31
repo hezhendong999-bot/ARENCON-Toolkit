@@ -968,115 +968,91 @@ function _doReassign(destVal, selItems) {
   var moved = 0;
   var skipped = 0;
 
-  // Group defic selections to avoid index drift when removing from same obs
-  // Sort by descending photoIdx within each (deficId, obsIdx) so splice is safe
-  var deficBuckets = {};
-  selItems.forEach(function(s) {
-    if (s.type === 'defic') {
-      var k = s.deficId + '|' + s.obsIdx;
-      (deficBuckets[k] = deficBuckets[k] || []).push(s);
+  // Dedup-aware push into a destination pin's S120 photo pool. Mirrors
+  // Model.copyPhotoToPin's identity check (r2Key||sourceR2Key) so site-sourced
+  // photos don't create duplicate pool entries. Used by the SITE-source paths
+  // only; defic-source moves delegate to Model.movePhotoToPin (which dedups +
+  // carries marked-photo linkage on its own).
+  function _dedupPushToPool(defic, rec) {
+    if (!Array.isArray(defic.photos)) defic.photos = [];
+    var key = rec.r2Key || rec.sourceR2Key || null;
+    if (key) {
+      for (var i = 0; i < defic.photos.length; i++) {
+        var ex = defic.photos[i];
+        if (ex && !ex.deleted && (ex.r2Key || ex.sourceR2Key) === key) return ex;
+      }
     }
-  });
-  Object.keys(deficBuckets).forEach(function(k){
-    deficBuckets[k].sort(function(a,b){ return b.photoIdx - a.photoIdx; });
-  });
+    if (!rec.id) rec.id = 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    if (!rec.sourceR2Key) rec.sourceR2Key = rec.r2Key || null;
+    if (!rec.addedDate) rec.addedDate = new Date().toISOString().split('T')[0];
+    defic.photos.push(rec);
+    defic._photoPoolMigrated = true;
+    (defic.observations || []).forEach(function(o) {
+      if (o && Array.isArray(o.photoSelection)) o.photoSelection.push(rec.id);
+    });
+    return rec;
+  }
 
-  // Extract photo records (remove from source)
-  var extracted = [];
-  // Defic first (sorted per bucket)
-  Object.keys(deficBuckets).forEach(function(k) {
-    deficBuckets[k].forEach(function(s) {
+  // ---- DEFIC SOURCES: delegate to Model.movePhotoToPin -----------------------
+  // Each (deficId, photoId) pair is resolved, deduped, marked-linked, removed
+  // from source, and notified by the Model. We only collect ids here; we never
+  // touch obs.photos / pools / photoSelection by hand (that was the S218 bug).
+  // Skip no-op moves (same pin) and any non-pin destination (site handled below).
+  if (destVal !== '__site__') {
+    selItems.forEach(function(s) {
+      if (s.type !== 'defic') return;
+      if (destVal === s.deficId) { skipped++; return; }
       var f = Model.findDeficiency(s.deficId);
       if (!f) { skipped++; return; }
-      var obs = (f.defic.observations || [])[s.obsIdx];
-      if (!obs) { skipped++; return; }
-      // Prevent no-op move into same pin
-      if (destVal === s.deficId) { skipped++; return; }
-      // S218: gallery cards (and therefore the selection's photoIdx) are built
-      // from the S120 pool via getEffectivePhotos — NOT the frozen legacy
-      // obs.photos[] array. Resolving obs.photos[photoIdx] indexed a stale
-      // array with a pool index, so defic→destination moves grabbed the wrong
-      // record (or nothing). Resolve the real photo object the same way the UI
-      // does, then remove it from the pool via removePoolPhoto (cascades
-      // selection + markup), mirroring Model.removeObservationPhoto.
       var effective = (Model.getEffectivePhotos)
         ? Model.getEffectivePhotos(f.defic, s.obsIdx)
-        : (obs.photos || []);
+        : ((f.defic.observations || [])[s.obsIdx] || {}).photos || [];
       var srcRec = effective[s.photoIdx];
-      if (!srcRec) { skipped++; return; }
-      // Clone BEFORE soft-deleting: getEffectivePhotos returns the live pool
-      // object, and removePoolPhoto stamps deleted:true on it. Pushing that
-      // same reference to the destination would carry the tombstone and hide
-      // the moved photo. Clone, then strip any tombstone fields.
-      var rec = Object.assign({}, srcRec);
-      delete rec.deleted;
-      delete rec.deletedDate;
-      var poolHit = (f.defic.photos || []).some(function(p){ return p && p.id === srcRec.id; });
-      if (poolHit && Model.removePoolPhoto) {
-        // Custom-state source obs: drop from its selection so it stops showing.
-        if (Array.isArray(obs.photoSelection)) {
-          obs.photoSelection = obs.photoSelection.filter(function(id){ return id !== srcRec.id; });
-        }
-        Model.removePoolPhoto(s.deficId, srcRec.id);
-      } else if (obs.photos) {
-        // Legacy fallback: never-migrated obs.photos — remove by object identity.
-        var li = obs.photos.indexOf(srcRec);
-        if (li !== -1) obs.photos.splice(li, 1);
-      }
-      extracted.push({ rec: rec, fromType: 'defic' });
+      if (!srcRec || !srcRec.id) { skipped++; return; }
+      var res = Model.movePhotoToPin(s.deficId, srcRec.id, destVal);
+      if (res) moved++; else skipped++;
     });
-  });
-  // Site (sort descending by idx so splicing doesn't shift)
+  } else {
+    // Defic -> Site: pull each photo out of its pool, push a site-shaped record.
+    selItems.forEach(function(s) {
+      if (s.type !== 'defic') return;
+      var f = Model.findDeficiency(s.deficId);
+      if (!f) { skipped++; return; }
+      var effective = (Model.getEffectivePhotos)
+        ? Model.getEffectivePhotos(f.defic, s.obsIdx)
+        : ((f.defic.observations || [])[s.obsIdx] || {}).photos || [];
+      var srcRec = effective[s.photoIdx];
+      if (!srcRec || !srcRec.id) { skipped++; return; }
+      // Clone before removal (removePoolPhoto stamps the live object deleted).
+      var rec = Object.assign({}, srcRec);
+      delete rec.deleted; delete rec.deletedDate;
+      var obs = (f.defic.observations || [])[s.obsIdx];
+      if (obs && Array.isArray(obs.photoSelection)) {
+        obs.photoSelection = obs.photoSelection.filter(function(id){ return id !== srcRec.id; });
+      }
+      if (Model.removePoolPhoto) Model.removePoolPhoto(s.deficId, srcRec.id);
+      if (!proj.photos) proj.photos = [];
+      if (!rec.id) rec.id = 'sp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      if (!rec.caption) rec.caption = '';
+      rec.addedDate = new Date().toISOString();
+      proj.photos.push(rec);
+      moved++;
+    });
+  }
+
+  // ---- SITE SOURCES ----------------------------------------------------------
+  // Sort descending by idx so splices don't shift earlier indices.
   var siteItems = selItems.filter(function(s){ return s.type === 'site'; })
     .sort(function(a,b){ return b.idx - a.idx; });
   siteItems.forEach(function(s) {
     if (destVal === '__site__') { skipped++; return; } // no-op
     var src = (proj.photos || [])[s.idx];
     if (!src) { skipped++; return; }
+    var df = Model.findDeficiency(destVal);
+    if (!df) { skipped++; return; }
     var rec = proj.photos.splice(s.idx, 1)[0];
-    extracted.push({ rec: rec, fromType: 'site' });
-  });
-
-  // Place into destination
-  extracted.forEach(function(e) {
-    var rec = e.rec;
-    if (destVal === '__site__') {
-      if (!proj.photos) proj.photos = [];
-      // Ensure site-shape fields exist
-      if (!rec.id) rec.id = 'sp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-      if (!rec.caption) rec.caption = '';
-      if (!rec.addedDate) rec.addedDate = new Date().toISOString();
-      proj.photos.push(rec);
-      moved++;
-    } else {
-      var df = Model.findDeficiency(destVal);
-      if (!df) { skipped++; return; }
-      // S218: write into the S120 photo POOL (defic.photos[] + per-obs
-      // photoSelection), NOT the frozen legacy obs.photos[] backup array.
-      // Pushing to obs.photos made moved photos invisible: the pool model
-      // reads from defic.photos, and _photoPoolMigrated=true means the
-      // migration never re-scans obs.photos on reload — so the photo was
-      // silently lost from the pin. This is a MOVE, so we preserve the
-      // record's existing identity + R2 references (sibling-sharing intact);
-      // no re-upload.
-      if (!Array.isArray(df.defic.photos)) df.defic.photos = [];
-      // Ensure independent identity (S59 footgun guard) — photos keep own
-      // r2Key/r2Url; generate an id if missing so it's distinguishable.
-      if (!rec.id) rec.id = 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-      // Normalize pool-entry shape without clobbering existing references.
-      if (!rec.sourceR2Key) rec.sourceR2Key = rec.r2Key || null;
-      if (!rec.addedDate) rec.addedDate = new Date().toISOString().split('T')[0];
-      df.defic.photos.push(rec);
-      // Pool entries imply migrated state (same contract as Model.addPoolPhoto).
-      df.defic._photoPoolMigrated = true;
-      // Default-state obs (photoSelection null/undefined) auto-show every pool
-      // photo. Custom-state obs (photoSelection is an array) need the new id
-      // appended so the moved photo is actually visible there.
-      (df.defic.observations || []).forEach(function(o) {
-        if (o && Array.isArray(o.photoSelection)) o.photoSelection.push(rec.id);
-      });
-      moved++;
-    }
+    _dedupPushToPool(df.defic, rec);
+    moved++;
   });
 
   Model.saveNow();
