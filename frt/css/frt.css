@@ -2115,6 +2115,13 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-del-btn:hover{background:#A85959;}
 .ph-card:hover .ph-dl-btn,.ph-card:hover .ph-del-btn{display:flex;}
 @media(pointer:coarse){.ph-dl-btn,.ph-del-btn{display:flex;opacity:.85;}}
+/* S216: gallery move/copy button (defic photos only). Same blue + shape as the
+   download button; sits at left:36px (the site-only trash slot, free for defic
+   photos) so it never overlaps the checkbox, badges, or download. */
+.ph-move-btn{position:absolute;bottom:5px;left:36px;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);background:rgba(44,71,112,.92);color:#fff;font-size:14px;line-height:1;}
+.ph-move-btn:hover{background:#2C4770;}
+.ph-card:hover .ph-move-btn{display:flex;}
+@media(pointer:coarse){.ph-move-btn{display:flex;opacity:.85;}}
 
 /* S114 P1.8 — 3-column observation layout: comment | photos | drop zone.
    Photo column wider (1.5fr) so multiple photos are visible at once.
@@ -2245,7 +2252,8 @@ body.photos-select-mode #panel-photos .ph-card.selected::before {
 body.photos-select-mode #panel-photos .ph-card.selected {
   outline: 3px solid #9C2742; outline-offset: -1px;
 }
-body.photos-select-mode #panel-photos .ph-card .ph-hover-btn { display: none !important; }
+body.photos-select-mode #panel-photos .ph-card .ph-hover-btn,
+body.photos-select-mode #panel-photos .ph-card .ph-move-btn { display: none !important; }
 .photos-sel-status {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 10px; background: rgba(156,39,66,.1); color: #9C2742;

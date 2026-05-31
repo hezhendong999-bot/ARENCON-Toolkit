@@ -388,6 +388,13 @@ export var initPhotos = {
         html += '<button class="ph-dl-btn" ' + dlAction + ' title="Download photo">'
           + '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
           + '</button>';
+        // S216: Move/copy to another pin — DEFIC photos only (site photos have no
+        // source pin; that path is a separate task). Reuses the proven mover via
+        // window._frtOpenPinPhotoPicker. Sits in the free bottom-left slot (left:36px,
+        // where the site-only trash button would be) so it never overlaps download/checkbox.
+        if (r.type !== 'site') {
+          html += '<button class="ph-move-btn" data-action="ph-move-defic" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '" title="Move or copy to another pin">\u2934</button>';
+        }
         // S114 P1.3: trash button is SITE PHOTOS ONLY. Pin photos must be deleted via pin editor.
         if (r.type === 'site') {
           html += '<button class="ph-del-btn" data-action="delete-site-photo" data-photo-idx="' + r.siteIdx + '" title="Delete site photo">'
@@ -575,6 +582,29 @@ document.addEventListener('click', function(e) {
         : (fD.defic.observations[oi].photos || []);
       var phD = poolD[pi];
       if (phD) _downloadPhoto(phD, 'pin_' + (fD.defic.num || 'x') + '_' + (pi + 1));
+    }
+    return;
+  }
+
+  // S216: Move/copy a DEFIC photo to another pin from the gallery. Resolves the
+  // gallery's pool-aware photoIdx to the photo's id, then hands off to the proven
+  // pin-to-pin mover (shared binary, no R2 re-upload). Site photos are excluded
+  // (no source pin) and never render this button.
+  var mvD = e.target.closest && e.target.closest('[data-action="ph-move-defic"]');
+  if (mvD) {
+    e.stopPropagation();
+    var mvDid = mvD.getAttribute('data-defic-id');
+    var mvOi = parseInt(mvD.getAttribute('data-obs-idx') || '0');
+    var mvPi = parseInt(mvD.getAttribute('data-photo-idx') || '0');
+    var fMv = Model.findDeficiency(mvDid);
+    if (fMv && fMv.defic.observations && fMv.defic.observations[mvOi]) {
+      var poolMv = (Model.getEffectivePhotos)
+        ? Model.getEffectivePhotos(fMv.defic, mvOi)
+        : (fMv.defic.observations[mvOi].photos || []);
+      var phMv = poolMv[mvPi];
+      if (phMv && phMv.id && window._frtOpenPinPhotoPicker) {
+        window._frtOpenPinPhotoPicker(mvDid, mvOi, phMv.id);
+      }
     }
     return;
   }

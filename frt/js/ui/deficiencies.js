@@ -5272,6 +5272,10 @@ window._frtBuildObsEditor = function(d, oi, ctrId, opts) {
 // chip reopen the focused-pin modal the user jumped FROM. Pairs with
 // _frtSetReturnPin / _frtClearReturnPin in viewer.js. Not a nav-stack.
 window._frtOpenPinFocus = function(deficId) { _openPinFocus(deficId); };
+// S216: expose the proven pin-to-pin photo mover so the gallery (photos.js) can
+// reuse it for defic photos. Same binary-sharing path (_createDeficPhotoFromSource);
+// no R2 re-upload, no URL copying.
+window._frtOpenPinPhotoPicker = function(deficId, obsIdx, photoId) { _openPinPhotoPicker(deficId, obsIdx, photoId); };
 
 // S210 (Mark): exact-row return for the drawing viewer's "← Back to pin #N"
 // chip when the jump began on the Detailed list. Lands the user back on the
