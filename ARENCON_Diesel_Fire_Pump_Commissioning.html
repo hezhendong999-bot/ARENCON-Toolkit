@@ -1143,7 +1143,9 @@ function _refreshDarkButtons(){
   var _ri=document.querySelector('input[name="pump-test-type"]:checked');
   var ptype=_ri?_ri.value:'std';
   if(!_ri){document.querySelectorAll('.pump-type-btns button').forEach(function(b){if(b.classList.contains('on'))ptype=b.dataset.ptype;});}
-  if(typeof setPumpTestType==='function') setPumpTestType(ptype);
+  // Guarded: if setPumpTestType throws, the sketch/signature repaints below
+  // must still run (a thrown error here previously blocked signature recolour).
+  try { if(typeof setPumpTestType==='function') setPumpTestType(ptype); } catch(e){ console.warn('setPumpTestType in dark toggle:',e); }
   // B3: sketch canvases paint their own background in _skRedraw, so a dark-mode
   // toggle must repaint every sketch or a stale white/dark fill persists.
   try { if(typeof _skStrokes!=='undefined'){ Object.keys(_skStrokes).forEach(function(uid){ if(typeof _skRedraw==='function') _skRedraw(uid); }); } } catch(e){}
@@ -7161,7 +7163,7 @@ function updateRevisionDisplay() {
   const el2 = document.getElementById('pi-date-modified');
   if(el2) el2.value = formDateModified;
 }
-let _autosaveTimer = null;
+var _autosaveTimer = null;
 function debounceAutosave() {
   clearTimeout(_autosaveTimer);
   _autosaveTimer = setTimeout(() => { touchRevision(); saveState(); }, 15000);
