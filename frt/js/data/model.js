@@ -16,6 +16,14 @@ var _undoStack = [];
 var _listeners = {};
 var _autoSaveInterval = null;
 
+// S224: in-memory "recently moved" markers for the faded-with-Undo photo UX.
+// Map: undoToken -> reversible descriptor of one move/copy op. Purely a
+// session-scoped VISUAL marker — never saved to the project, never synced.
+// Cleared on every setProject (so the fade is gone on reload/navigation).
+// Each card whose live photo id is referenced by a live token renders faded
+// with an Undo button; undoPhotoMove(token) reverses exactly that op.
+var _recentMoves = {};
+
 // S217: General-priority → Site Records migration gate. Ships DORMANT
 // (false) so the data-rewriting migration never runs unattended. Mark
 // flips it on with Model.enableGeneralMigration() while watching; the
@@ -342,6 +350,7 @@ export var Model = {
   getProject: function() { return _project; },
 
   setProject: function(proj) {
+    _recentMoves = {};  // S224: drop faded-move markers on any project (re)load
     if (!proj) { _project = null; _dirty = false; this._notify('project', null); return; }
 
     // ── S114: V1→V2 normalization (one-shot, idempotent) ──
@@ -1988,6 +1997,144 @@ export var Model = {
     this.removePoolPhoto(fromDeficId, photoId);
     this._notify('photo', { action: 'move-pin', fromDeficId: fromDeficId, toDeficId: toDeficId, photo: copy });
     return copy;
+  },
+
+  // ── S224: Site → Pin ──────────────────────────────────────
+  // Copy a SITE (gallery) photo onto a pin, sharing the binary (r2Key) exactly
+  // like copyPhotoToPin. The binary already lives in R2 (the site photo has an
+  // r2Key), so this mints a NEW pool reference (its own id) that SHARES the
+  // binary — NEVER a URL copy, NEVER an R2 re-upload (canon Photo Model). Dedup:
+  // if the target pin already has a live pool entry for the same binary, return
+  // it without duplicating. Returns the target pool entry, or null.
+  copySitePhotoToPin: function(siteIdx, toDeficId) {
+    if (!_project || !Array.isArray(_project.photos)) return null;
+    var src = _project.photos[siteIdx];
+    if (!src || src.deleted) return null;
+    var dst = this.findDeficiency(toDeficId);
+    if (!dst) return null;
+    if (!Array.isArray(dst.defic.photos)) dst.defic.photos = [];
+    var key = this._photoIdentityKey(src);
+    if (key) {
+      for (var i = 0; i < dst.defic.photos.length; i++) {
+        var ex = dst.defic.photos[i];
+        if (ex && !ex.deleted && this._photoIdentityKey(ex) === key) return ex;
+      }
+    }
+    var copy = {
+      id: _uid('ph'),
+      r2Key: src.r2Key || null,
+      sourceR2Key: src.sourceR2Key || src.r2Key || null,
+      r2Url: src.r2Url || null,
+      dataUrl: src.dataUrl || null,
+      thumb: src.thumb || null,
+      filename: src.filename || ('photo_' + Date.now() + '.jpg'),
+      addedDate: src.addedDate || new Date().toISOString().split('T')[0],
+      createdBy: src.createdBy || _currentUserId || null
+    };
+    if (src._origBackupId) copy._origBackupId = src._origBackupId;
+    if (src._annotated)    copy._annotated    = src._annotated;
+    if (src.r2Status)      copy.r2Status      = src.r2Status;
+    dst.defic.photos.push(copy);
+    dst.defic._photoPoolMigrated = true;
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'copy-site-to-pin', toDeficId: toDeficId, photo: copy });
+    return copy;
+  },
+
+  // Move a SITE photo onto a pin: copy to the pin (shared binary), then remove
+  // the site reference. Binary is never deleted from R2.
+  moveSitePhotoToPin: function(siteIdx, toDeficId) {
+    if (!_project || !Array.isArray(_project.photos)) return null;
+    var src = _project.photos[siteIdx];
+    if (!src || src.deleted) return null;
+    var copy = this.copySitePhotoToPin(siteIdx, toDeficId);
+    if (!copy) return null;
+    // Remove the site entry (re-resolve index defensively — copy didn't splice)
+    var idx = _project.photos.indexOf(src);
+    var removedSite = (idx >= 0) ? _project.photos.splice(idx, 1)[0] : null;
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'move-site-to-pin', toDeficId: toDeficId, photo: copy });
+    return { copy: copy, removedSite: removedSite };
+  },
+
+  // ── S224: faded-with-Undo move markers (in-memory, session-scoped) ──
+  // registerMove() is called by the UI right after a successful move/copy. It
+  // stores a reversible descriptor keyed by a fresh token and returns the token
+  // plus the destination photo id (the card that should render faded). Nothing
+  // here is saved or synced — _recentMoves is cleared on setProject.
+  //   kind: one of 'pin-copy','pin-move','site-copy','site-move',
+  //         'to-site-copy','to-site-move'
+  registerMove: function(desc) {
+    if (!desc || !desc.destPhotoId) return null;
+    var token = _uid('mv');
+    desc.token = token;
+    _recentMoves[token] = desc;
+    return token;
+  },
+
+  // Is this live photo id the destination of an un-undone move? Returns the
+  // token (truthy) or null. Used by gallery/pin renderers to fade + show Undo.
+  recentMoveTokenForPhoto: function(photoId) {
+    if (!photoId) return null;
+    for (var t in _recentMoves) {
+      if (_recentMoves.hasOwnProperty(t) && _recentMoves[t].destPhotoId === photoId) return t;
+    }
+    return null;
+  },
+
+  // Reverse exactly one move/copy by token. Restores the source side (re-adds a
+  // removed site photo / re-selects a narrowed obs) and removes the destination
+  // reference that the op created. Idempotent: an already-consumed token is a
+  // no-op. Returns true on success.
+  undoPhotoMove: function(token) {
+    var d = _recentMoves[token];
+    if (!d) return false;
+    delete _recentMoves[token];  // consume first (idempotent)
+
+    // 1) Remove the destination reference the op created.
+    if (d.destDeficId) {
+      // destination is a pin pool entry
+      var f = this.findDeficiency(d.destDeficId);
+      if (f && Array.isArray(f.defic.photos)) {
+        var di = f.defic.photos.findIndex(function(p) { return p && p.id === d.destPhotoId; });
+        if (di >= 0) f.defic.photos.splice(di, 1);
+      }
+    } else if (d.destIsSite) {
+      // destination is a site photo
+      if (_project && Array.isArray(_project.photos)) {
+        var si = _project.photos.findIndex(function(p) { return p && p.id === d.destPhotoId; });
+        if (si >= 0) _project.photos.splice(si, 1);
+      }
+    }
+
+    // 2) Restore the source side for MOVE ops (copies left the source intact).
+    if (d.kind === 'site-move' && d.srcSitePhoto) {
+      // site→pin move removed a site entry — put it back
+      if (!_project.photos) _project.photos = [];
+      _project.photos.push(d.srcSitePhoto);
+    } else if (d.kind === 'pin-move' && d.srcDeficId && d.srcPhotoId) {
+      // pin→pin move soft-deleted the source pool photo — restore it
+      this.restorePoolPhoto(d.srcDeficId, d.srcPhotoId);
+    } else if (d.kind === 'to-site-move' && d.srcDeficId && d.srcObsIdx != null && d.srcPhotoId != null) {
+      // pin→site move narrowed the source obs — re-add the photo to that obs
+      var sf = this.findDeficiency(d.srcDeficId);
+      if (sf) {
+        var obs = (sf.defic.observations || [])[d.srcObsIdx];
+        if (obs) {
+          if (Array.isArray(obs.photoSelection)) {
+            if (obs.photoSelection.indexOf(d.srcPhotoId) === -1) obs.photoSelection.push(d.srcPhotoId);
+          }
+          // default-state obs already shows the whole pool — nothing to do
+        }
+      }
+    }
+
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'undo-move', token: token });
+    return true;
   },
 
   // All live pin references to a binary, for the gallery pills. Each entry:

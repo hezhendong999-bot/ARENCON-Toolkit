@@ -2122,6 +2122,18 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-move-btn:hover{background:#2C4770;}
 .ph-card:hover .ph-move-btn{display:flex;}
 @media(pointer:coarse){.ph-move-btn{display:flex;opacity:.85;}}
+/* S224: on SITE cards, download (6px) + delete (36px) already occupy the two
+   left slots — push the send-to-pin button to the third slot so nothing overlaps. */
+.ph-move-btn[data-action="ph-move-site"]{left:66px;}
+/* S224: faded "just moved this session" state + per-card Undo overlay. The fade
+   is a purely visual, in-memory marker (gone on reload). Undo sits centered,
+   above the image, always visible on a faded card (no hover needed — must be
+   reachable on touch tablets). */
+.ph-card.ph-just-moved img,.ph-card.ph-just-moved .ph-noimg{opacity:.4;filter:grayscale(.3);}
+.ph-card.ph-just-moved::after{content:"";position:absolute;inset:0;background:rgba(28,35,51,.28);z-index:2;pointer-events:none;}
+.ph-undo-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;background:rgba(28,35,51,.94);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:6px;padding:6px 12px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;min-height:34px;box-shadow:0 1px 4px rgba(0,0,0,.5);}
+.ph-undo-btn:hover{background:#1C2333;border-color:#fff;}
+@media(pointer:coarse){.ph-undo-btn{min-height:44px;padding:9px 16px;font-size:14px;}}
 
 /* S114 P1.8 — 3-column observation layout: comment | photos | drop zone.
    Photo column wider (1.5fr) so multiple photos are visible at once.

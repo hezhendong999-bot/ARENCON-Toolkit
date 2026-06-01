@@ -363,8 +363,14 @@ export var initPhotos = {
         var clickAction = r.type === 'site'
           ? 'data-action="open-site-lightbox" data-photo-idx="' + r.siteIdx + '"'
           : 'data-action="open-defic-lightbox" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
+        // S224: faded-with-Undo marker. If this card's live photo is the
+        // destination of a recent (un-undone, this-session) move/copy, fade it
+        // and show an Undo button. Marker is in-memory only (gone on reload).
+        var mvToken = (r.ph && r.ph.id && Model.recentMoveTokenForPhoto)
+          ? Model.recentMoveTokenForPhoto(r.ph.id) : null;
         var cardCls = 'ph-card';
         if (sel) cardCls += ' selected';
+        if (mvToken) cardCls += ' ph-just-moved';
         html += '<div class="' + cardCls + '" data-uid="' + esc(r.uid) + '">';
         // S114 P1.3: checkbox is hover-only when unselected, always shown when selected
         html += '<input type="checkbox" class="ph-check"' + (sel ? ' checked' : '') + ' data-action="ph-toggle-photo" data-uid="' + esc(r.uid) + '">';
@@ -381,6 +387,11 @@ export var initPhotos = {
           html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
         }
         html += _cloudIcon(r.ph);
+        // S224: centered Undo overlay for a just-moved card (above the image,
+        // clickable). Sits over the fade so it reads as "this just moved — undo".
+        if (mvToken) {
+          html += '<button class="ph-undo-btn" data-action="ph-undo-move" data-token="' + esc(mvToken) + '" title="Undo this move">\u21A9 Undo</button>';
+        }
         // S114 P1.3: hover-revealed download button (all photos)
         var dlAction = r.type === 'site'
           ? 'data-action="ph-download-site" data-photo-idx="' + r.siteIdx + '"'
@@ -388,12 +399,12 @@ export var initPhotos = {
         html += '<button class="ph-dl-btn" ' + dlAction + ' title="Download photo">'
           + '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
           + '</button>';
-        // S216: Move/copy to another pin — DEFIC photos only (site photos have no
-        // source pin; that path is a separate task). Reuses the proven mover via
-        // window._frtOpenPinPhotoPicker. Sits in the free bottom-left slot (left:36px,
-        // where the site-only trash button would be) so it never overlaps download/checkbox.
+        // S216: Move/copy to another pin — DEFIC photos.
+        // S224: SITE photos now get a send-to-pin button too (the inverse path).
         if (r.type !== 'site') {
           html += '<button class="ph-move-btn" data-action="ph-move-defic" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '" title="Move or copy to another pin">\u2934</button>';
+        } else {
+          html += '<button class="ph-move-btn" data-action="ph-move-site" data-photo-idx="' + r.siteIdx + '" title="Send to a pin">\u2934</button>';
         }
         // S114 P1.3: trash button is SITE PHOTOS ONLY. Pin photos must be deleted via pin editor.
         if (r.type === 'site') {
@@ -606,6 +617,25 @@ document.addEventListener('click', function(e) {
         window._frtOpenPinPhotoPicker(mvDid, mvOi, phMv.id);
       }
     }
+    return;
+  }
+
+  // S224: send a SITE photo to a pin (opens picker in site-source mode).
+  var mvS = e.target.closest && e.target.closest('[data-action="ph-move-site"]');
+  if (mvS) {
+    e.stopPropagation();
+    var mvSi = parseInt(mvS.getAttribute('data-photo-idx') || '0');
+    if (window._frtOpenSitePhotoPicker) window._frtOpenSitePhotoPicker(mvSi);
+    return;
+  }
+
+  // S224: undo a faded move/copy.
+  var undoMv = e.target.closest && e.target.closest('[data-action="ph-undo-move"]');
+  if (undoMv) {
+    e.preventDefault();
+    e.stopPropagation();
+    var tok = undoMv.getAttribute('data-token');
+    if (tok && window._frtUndoPhotoMove) window._frtUndoPhotoMove(tok);
     return;
   }
 
@@ -1100,6 +1130,8 @@ document.addEventListener('click', function(e) {
   if (!card) return;
   // Ignore clicks on hover buttons (they're display:none in select mode but defensive)
   if (e.target.closest('.ph-hover-btn')) return;
+  // S224: never swallow the Undo button — it must work regardless of select mode.
+  if (e.target.closest('.ph-undo-btn')) return;
   e.preventDefault();
   e.stopPropagation();
   e.stopImmediatePropagation();

@@ -1363,11 +1363,14 @@ function _closeCtrPicker() {
 // for each). Move shifts the reference off the source onto the chosen pin.
 // Binary is never re-uploaded or deleted. Touch-first: a tap-list, no
 // hover-reveal, default mode = Copy (non-destructive).
-function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
+function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
   _closePinPhotoPicker();
   var proj = Model.getProject();
   if (!proj) return;
-  if (!Model.findDeficiency(srcDeficId)) return;
+  // S224: site-source mode. opts.siteIdx != null => source is a gallery photo;
+  // srcDeficId is null and destinations are pins (Site button is hidden).
+  var siteSrc = (opts && opts.siteIdx != null) ? opts.siteIdx : null;
+  if (siteSrc == null && !Model.findDeficiency(srcDeficId)) return;
   var pins = Model.getAllDeficiencies(proj).filter(function(d) {
     return d.defic && d.defic.id !== srcDeficId;
   });
@@ -1393,7 +1396,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
   var p = document.createElement('div');
   p.className = 'picker pinphoto-picker';
   p.innerHTML =
-    '<div class="picker-title">Move or copy photo</div>' +
+    '<div class="picker-title">' + (siteSrc != null ? 'Send gallery photo to a pin' : 'Move or copy photo') + '</div>' +
     '<div class="pinphoto-mode">' +
       '<button class="pinphoto-mode-btn active" data-mode="copy">Copy</button>' +
       '<button class="pinphoto-mode-btn" data-mode="move">Move</button>' +
@@ -1407,7 +1410,9 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
     // Copy → photo stays on this pin AND lands in the gallery. Move → photo
     // leaves THIS observation only (siblings sharing it keep it) and lands in
     // the gallery. Per-obs scoped, mirrors the gallery select-mode path.
-    '<button class="pinphoto-site-btn" id="pinphoto-site-btn" data-action="pinphoto-site">\uD83D\uDCF7 Send to Photo Gallery (site)</button>' +
+    // Hidden in site-source mode (no site→site).
+    (siteSrc != null ? '' :
+      '<button class="pinphoto-site-btn" id="pinphoto-site-btn" data-action="pinphoto-site">\uD83D\uDCF7 Send to Photo Gallery (site)</button>') +
     '<div class="pinphoto-hint" id="pinphoto-hint">Copy keeps the photo on this pin and adds it to the chosen pin.</div>' +
     '<div id="pinphoto-stage"></div>' +
     '<div class="picker-foot"><button class="btn btn-sm picker-cancel-btn" data-action="pinphoto-close">Cancel</button></div>';
@@ -1421,13 +1426,33 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
     if (!toId) return;
     var destF = Model.findDeficiency(toId);
     var destNum = (destF && destF.defic) ? destF.defic.num : '?';
-    var res = (mode === 'move')
-      ? Model.movePhotoToPin(srcDeficId, photoId, toId)
-      : Model.copyPhotoToPin(srcDeficId, photoId, toId);
+    var res, desc = null;
+    if (siteSrc != null) {
+      // SITE → PIN
+      if (mode === 'move') {
+        var mr = Model.moveSitePhotoToPin(siteSrc, toId);
+        res = mr && mr.copy;
+        if (res) desc = { kind: 'site-move', destDeficId: toId, destPhotoId: res.id, srcSitePhoto: mr.removedSite };
+      } else {
+        res = Model.copySitePhotoToPin(siteSrc, toId);
+        if (res) desc = { kind: 'site-copy', destDeficId: toId, destPhotoId: res.id };
+      }
+    } else {
+      // PIN → PIN
+      res = (mode === 'move')
+        ? Model.movePhotoToPin(srcDeficId, photoId, toId)
+        : Model.copyPhotoToPin(srcDeficId, photoId, toId);
+      if (res) {
+        desc = (mode === 'move')
+          ? { kind: 'pin-move', destDeficId: toId, destPhotoId: res.id, srcDeficId: srcDeficId, srcPhotoId: photoId }
+          : { kind: 'pin-copy', destDeficId: toId, destPhotoId: res.id };
+      }
+    }
     _closePinPhotoPicker();
     if (res) {
+      if (desc) Model.registerMove(desc);
       initDeficiencies.render();
-      toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum);
+      toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum + ' \u2014 tap Undo on the photo to reverse');
     } else {
       toast('\u26A0 Could not ' + mode + ' photo to that pin');
     }
@@ -1478,20 +1503,41 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId) {
     // pointing at the same binary (mirrors removeDeficiency release guard).
     if (!proj.photos) proj.photos = [];
     var key = rec.r2Key || rec.sourceR2Key || null;
-    var already = key && proj.photos.some(function(sp) {
+    var existingSite = key && proj.photos.filter(function(sp) {
       return sp && !sp.deleted && (sp.r2Key || sp.sourceR2Key) === key;
-    });
-    if (!already) {
+    })[0];
+    var destSiteId, createdNewSite;
+    if (!existingSite) {
       rec.id = 'sp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
       if (!rec.caption) rec.caption = '';
       if (!rec.sourceR2Key) rec.sourceR2Key = rec.r2Key || null;
       rec.addedDate = new Date().toISOString();
       proj.photos.push(rec);
+      destSiteId = rec.id; createdNewSite = true;
+    } else {
+      destSiteId = existingSite.id; createdNewSite = false;
     }
+    // Register the faded-with-Undo marker on the gallery destination card.
+    //   to-site-move → undo re-adds the photo to the source obs AND, only if we
+    //   created the site reference here, removes it. createdNewSite=false means
+    //   the binary was already in the gallery: undo must restore the obs but
+    //   NOT delete a site photo it didn't create.
+    var udesc = { destIsSite: true, destPhotoId: destSiteId };
+    if (mode === 'move') {
+      udesc.kind = 'to-site-move';
+      udesc.srcDeficId = srcDeficId;
+      udesc.srcObsIdx = srcObsIdx;
+      udesc.srcPhotoId = srcRec.id;
+      if (!createdNewSite) udesc.destIsSite = false; // don't delete a pre-existing site photo on undo
+    } else {
+      udesc.kind = 'to-site-copy';
+      if (!createdNewSite) { udesc = null; } // pure no-op copy (already in gallery) — nothing to undo
+    }
+    if (udesc) Model.registerMove(udesc);
     Model.saveNow();
     _closePinPhotoPicker();
     initDeficiencies.render();
-    toast(mode === 'move' ? 'Moved to Photo Gallery' : 'Copied to Photo Gallery');
+    toast((mode === 'move' ? 'Moved to Photo Gallery' : 'Copied to Photo Gallery') + ' \u2014 tap Undo on the photo to reverse');
   }
 
   var siteBtn = p.querySelector('[data-action="pinphoto-site"]');
@@ -5341,6 +5387,10 @@ window._frtOpenPinFocus = function(deficId) { _openPinFocus(deficId); };
 // reuse it for defic photos. Same binary-sharing path (_createDeficPhotoFromSource);
 // no R2 re-upload, no URL copying.
 window._frtOpenPinPhotoPicker = function(deficId, obsIdx, photoId) { _openPinPhotoPicker(deficId, obsIdx, photoId); };
+// S224: open the picker for a SITE (gallery) photo source → choose a pin.
+window._frtOpenSitePhotoPicker = function(siteIdx) { _openPinPhotoPicker(null, null, null, { siteIdx: siteIdx }); };
+// S224: undo a faded move/copy by token, then repaint the gallery.
+window._frtUndoPhotoMove = function(token) { if (Model.undoPhotoMove(token)) { if (window.initPhotos && initPhotos.render) initPhotos.render(); if (window.initDeficiencies && initDeficiencies.render) initDeficiencies.render(); toast('Move undone'); } };
 
 // S210 (Mark): exact-row return for the drawing viewer's "← Back to pin #N"
 // chip when the jump began on the Detailed list. Lands the user back on the
