@@ -369,12 +369,22 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fig-supply{display:flex;flex-wrap:wrap;gap:18px;padding:9px 16px;border-top:1px solid var(--border);background:var(--smoke);font-size:calc(11px + var(--ts));color:var(--steel);}
 .fig-supply b{color:var(--slate);font-weight:700;}
 .fig-supply:empty{display:none;}
+/* S221: Safety Margin badge — distinctive bordered pill below the supply strip */
+.fig-safety:empty{display:none;}
+.fig-safety{padding:11px 16px;border-top:1px solid var(--border);background:var(--smoke);}
+.fig-safety .safety-margin{display:inline-flex;flex-direction:column;gap:1px;padding:8px 16px;border-radius:9px;min-width:200px;}
+.fig-safety .sm-lbl{font-size:calc(9.5px + var(--ts));font-weight:800;letter-spacing:1.2px;color:var(--silver);text-transform:uppercase;}
+.fig-safety .sm-val{font-size:calc(22px + var(--ts));font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;}
+.fig-safety .sm-pct{font-size:calc(12px + var(--ts));font-weight:800;letter-spacing:.4px;}
+.fig-safety .sm-sub{font-size:calc(10px + var(--ts));color:var(--steel);margin-top:3px;}
 body.dark-mode .fig{background:#1b212b;border-color:#323a48;}
 body.dark-mode .fig-hd{background:linear-gradient(135deg,#5a1a2a,#3d1220);color:#e8c0cc;border-bottom-color:#2A3A5C;}
 body.dark-mode .fig-legend,body.dark-mode .fig-supply,body.dark-mode .fig-leghint{background:#161b22;border-color:#323a48;}
 body.dark-mode .fig-legend .lg{background:#222933;border-color:#3a4250;}
 body.dark-mode .fig-legend .lg .lg-main{color:#c2c9d6;}
 body.dark-mode .fig-supply b{color:#d0d8f0;}
+body.dark-mode .fig-safety{background:#161b22;border-color:#323a48;}
+body.dark-mode .fig-safety .sm-sub{color:#9aa2b2;}
 body.dark-mode .fig-readout{background:#323a48;}
 body.dark-mode .fig-readout .ro{background:#1b212b;}
 body.dark-mode .fig-readout .ro .val{color:#e6e9ee;}
@@ -1598,6 +1608,7 @@ function updatePhaseFlags(){
           <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
           <div class="fig-readout" id="figro-chart3pt"></div>
           <div class="fig-supply" id="figsup-chart3pt"></div>
+          <div class="fig-safety" id="figsm-chart3pt"></div>
         </div>
         <canvas id="netPerfChart" style="display:none;width:1px;height:1px;"></canvas>
         <div id="cl-s4" style="margin-top:16px;padding:0 16px 16px;"></div>
@@ -1744,6 +1755,8 @@ function updatePhaseFlags(){
         </div>
       </div>
     </div>
+      </div><!-- /7pt inputs card-body -->
+    </div><!-- /7pt inputs .card -->
 
     <!-- ── CHART B: 7-Point PLD Discharge Pressure Curve ── -->
     <div class="card" style="margin-top:14px;">
@@ -1764,6 +1777,7 @@ function updatePhaseFlags(){
           <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
           <div class="fig-readout" id="figro-pldChart"></div>
           <div class="fig-supply" id="figsup-pldChart"></div>
+          <div class="fig-safety" id="figsm-pldChart"></div>
         </div>
       </div>
     </div>
@@ -1775,6 +1789,7 @@ function updatePhaseFlags(){
           <div class="fig-hd">
             <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
             <span class="fig-t">7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)</span>
+            <span class="fig-verdict na" id="figv-pldNetChart">—</span>
           </div>
           <div class="fig-body">
             <div style="position:relative;height:480px;">
@@ -1784,12 +1799,11 @@ function updatePhaseFlags(){
           </div>
           <div class="fig-legend" id="figleg-pldNetChart"></div>
           <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
+          <div class="fig-readout" id="figro-pldNetChart"></div>
         </div>
         <div id="cl-s4pld" style="margin-top:16px;padding:0 16px 16px;"></div>
       </div>
     </div>
-    </div>
-    </div><!-- /#perf-pld 7pt-inputs-card -->
     </div><!-- /#perf-pld -->
   </div><!-- /#panel-s4 -->
 
@@ -3993,7 +4007,7 @@ function renderFigVerdict3pt(){
   else if(verds.some(function(v){return v==='pass';})){el.className='fig-verdict pass';el.textContent='✓ PASS';}
   else {el.className='fig-verdict na';el.textContent='—';}
 }
-function refreshFig3pt(){ renderFigLegend3pt(); renderFigReadout3pt(); renderFigSupply3pt(); renderFigVerdict3pt(); }
+function refreshFig3pt(){ renderFigLegend3pt(); renderFigReadout3pt(); renderFigSupply3pt(); renderFigVerdict3pt(); if(typeof renderSafetyMargin3pt==='function') renderSafetyMargin3pt(); }
 
 // ── S221: 7-Point discharge-chart fig twins (mirror the 3-Point bottom section) ──
 // Uses pldData fields (dis_w/suc_w/rpm_w) and updatePldVerdictObj — NOT _calcFlowPoint,
@@ -4036,7 +4050,77 @@ function renderFigVerdictPld(){
   else if(verds.some(function(v){return v==='pass';})){el.className='fig-verdict pass';el.textContent='✓ PASS';}
   else {el.className='fig-verdict na';el.textContent='—';}
 }
-function refreshFigPld(){ renderFigLegendPld(); renderFigReadoutPld(); renderFigSupplyPld(); renderFigVerdictPld(); }
+function refreshFigPld(){ renderFigLegendPld(); renderFigReadoutPld(); renderFigSupplyPld(); renderFigVerdictPld(); if(typeof renderSafetyMarginPld==='function') renderSafetyMarginPld(); }
+
+// ── S221: 7-Point NET-pressure chart readout (shows net pressure w/ PLD + PASS/FAIL per point) ──
+function renderFigReadoutPldNet(){
+  var host=document.getElementById('figro-pldNetChart'); if(!host) return;
+  host.innerHTML='';
+  (typeof pldData!=='undefined'?pldData:[]).forEach(function(row,i){
+    var v=updatePldVerdictObj(row,i);
+    var flow=rowFlow(row);
+    var vtxt=v.verdict==='pass'?'PASS':v.verdict==='fail'?'FAIL':'—';
+    var netVal=(v.netW!=null && !isNaN(v.netW) && v.netW!==0)?Math.round(v.netW)+' psi':'—';
+    var cell=document.createElement('div'); cell.className='ro';
+    cell.innerHTML='<div class="pct">'+row.pct+'</div>'
+      +'<div class="val">'+netVal+'</div>'
+      +'<div class="sub">net @ '+(!isNaN(flow)?flow.toLocaleString()+' gpm':'— gpm')+'</div>'
+      +'<span class="chip '+v.verdict+'">'+vtxt+'</span>';
+    host.appendChild(cell);
+  });
+}
+function renderFigVerdictPldNet(){
+  var el=document.getElementById('figv-pldNetChart'); if(!el) return;
+  var verds=(typeof pldData!=='undefined'?pldData:[]).map(function(r,i){return updatePldVerdictObj(r,i).verdict;});
+  if(verds.some(function(v){return v==='fail';})){el.className='fig-verdict fail';el.textContent='✗ FAIL';}
+  else if(verds.some(function(v){return v==='pass';})){el.className='fig-verdict pass';el.textContent='✓ PASS';}
+  else {el.className='fig-verdict na';el.textContent='—';}
+}
+function refreshFigPldNet(){ renderFigLegendPldNet(); renderFigReadoutPldNet(); renderFigVerdictPldNet(); }
+
+// ── S221: SAFETY MARGIN ──
+// margin = available supply pressure (evaluated AT the total demand flow, incl. hose) − total
+// system demand pressure. Returned in psi (can be + / − / 0) and as a % of demand pressure.
+// pfx: '' for 3-Point, 'pld-' for 7-Point.
+function _safetyMargin(pfx){
+  var sf=parseFloat(document.getElementById(pfx+'ws-static-flow')?.value)||0;
+  var sp=parseFloat(document.getElementById(pfx+'ws-static-psi')?.value);
+  var rf=parseFloat(document.getElementById(pfx+'ws-res-flow')?.value);
+  var rp=parseFloat(document.getElementById(pfx+'ws-res-psi')?.value);
+  var demFlow=parseFloat(document.getElementById(pfx+'dem-flow')?.value);
+  var demPsi =parseFloat(document.getElementById(pfx+'dem-psi')?.value);
+  if(isNaN(sp)||isNaN(rf)||isNaN(rp)||rf<=0||isNaN(demFlow)||isNaN(demPsi)||demFlow<0) return null;
+  // available supply pressure at the demand flow (hydraulic 1.85 curve)
+  var ratio = Math.pow(Math.max(demFlow,0)/rf, 1.85);
+  var avail = sp - (sp - rp) * ratio;
+  var marginPsi = avail - demPsi;
+  var pct = demPsi>0 ? (marginPsi/demPsi*100) : null;
+  return {avail:avail, demPsi:demPsi, demFlow:demFlow, psi:marginPsi, pct:pct};
+}
+function _safetyMarginHtml(m){
+  if(!m) return '';
+  var pos = m.psi > 0.05, neg = m.psi < -0.05;
+  var edge = pos ? '#5F8068' : neg ? '#A85959' : '#7A8290';
+  var bg   = pos ? 'rgba(95,128,104,.12)' : neg ? 'rgba(168,89,89,.12)' : 'rgba(122,130,144,.12)';
+  var sign = m.psi>0?'+':'';
+  var pctTxt = (m.pct!=null) ? (sign+m.pct.toFixed(1)+'%') : '—';
+  var psiTxt = sign + m.psi.toFixed(1) + ' psi';
+  var verdict = pos ? 'ADEQUATE' : neg ? 'DEFICIT' : 'AT LIMIT';
+  return '<div class="safety-margin" style="border-left:4px solid '+edge+';background:'+bg+';">'
+    +'<div class="sm-lbl">SAFETY MARGIN</div>'
+    +'<div class="sm-val" style="color:'+edge+';">'+psiTxt+'</div>'
+    +'<div class="sm-pct" style="color:'+edge+';">'+pctTxt+' · '+verdict+'</div>'
+    +'<div class="sm-sub">available '+m.avail.toFixed(1)+' psi − demand '+m.demPsi.toFixed(0)+' psi @ '+m.demFlow.toLocaleString()+' gpm</div>'
+    +'</div>';
+}
+function renderSafetyMargin3pt(){
+  var host=document.getElementById('figsm-chart3pt'); if(!host) return;
+  host.innerHTML=_safetyMarginHtml(_safetyMargin(''));
+}
+function renderSafetyMarginPld(){
+  var host=document.getElementById('figsm-pldChart'); if(!host) return;
+  host.innerHTML=_safetyMarginHtml(_safetyMargin('pld-'));
+}
 
 // Inline readout strip for the PDF report (string form, muted FRT palette)
 function _buildReadoutStripHtml3pt(){
@@ -4371,7 +4455,8 @@ function updatePldNetChart() {
   var maxXnet = allXnet.length ? Math.max.apply(null,allXnet) : 0;
   pldNetChart.options.scales.x.min = (allXnet.length>0 && maxXnet===0) ? -50 : undefined;
   pldNetChart.update('none');
-  if(typeof renderFigLegendPldNet==='function') renderFigLegendPldNet();
+  if(typeof refreshFigPldNet==='function') refreshFigPldNet();
+  else if(typeof renderFigLegendPldNet==='function') renderFigLegendPldNet();
 }
 
 
