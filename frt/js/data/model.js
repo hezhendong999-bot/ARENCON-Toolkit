@@ -2125,6 +2125,23 @@ export var Model = {
     return null;
   },
 
+  // S227 DESTINATION chip: is this live photo (at deficId/obsIdx) the thing a
+  // recent move OR copy just LANDED there? → token. Lets the destination obs
+  // show a "Just added · Undo" chip so a mis-clicked obs can be reversed right
+  // where it landed. Matches on the dest pin + photoId (+ obsIdx when recorded).
+  justAddedTokenForObsPhoto: function(deficId, obsIdx, photoId) {
+    if (!photoId) return null;
+    for (var t in _recentMoves) {
+      if (!_recentMoves.hasOwnProperty(t)) continue;
+      var d = _recentMoves[t];
+      if (!d.dest || d.dest.type !== 'pin') continue;
+      if (d.dest.deficId !== deficId || d.dest.photoId !== photoId) continue;
+      if (d.dest.obsIdx != null && obsIdx != null && d.dest.obsIdx !== obsIdx) continue;
+      return t;
+    }
+    return null;
+  },
+
   // MOVE ghosts whose ORIGIN is the site gallery. Returns synthetic display
   // records [{ token, snapshot }] for the gallery renderer to draw as faded
   // ghost tiles. Pure visual — these photos are NOT in proj.photos anymore.

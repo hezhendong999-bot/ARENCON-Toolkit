@@ -398,6 +398,11 @@ export var initPhotos = {
         // ever faded as a "destination" anymore.
         var copyTok = (r.ph && r.ph.id && Model.copyOriginTokenForPhoto)
           ? Model.copyOriginTokenForPhoto(r.ph.id) : null;
+        // S227: destination "Just added" chip for a defic card whose photo a
+        // move/copy just landed under this obs (lets a mis-clicked obs be undone
+        // from the gallery too). Site cards have no obs, so defic-only.
+        var addTok = (r.type !== 'site' && r.ph && r.ph.id && Model.justAddedTokenForObsPhoto)
+          ? Model.justAddedTokenForObsPhoto(r.deficId, r.obsIdx, r.ph.id) : null;
         var cardCls = 'ph-card';
         if (sel) cardCls += ' selected';
         html += '<div class="' + cardCls + '" data-uid="' + esc(r.uid) + '">';
@@ -419,6 +424,10 @@ export var initPhotos = {
         // S226: copy chip on the origin photo.
         if (copyTok) {
           html += '<button class="ph-copy-chip" data-action="ph-undo-move" data-token="' + esc(copyTok) + '" title="Undo this copy">Copied \u00b7 \u21A9 Undo</button>';
+        }
+        // S227: destination just-added chip (move/copy just landed it here).
+        if (addTok && addTok !== copyTok) {
+          html += '<button class="ph-add-chip" data-action="ph-undo-move" data-token="' + esc(addTok) + '" title="Undo — just added here">Just added \u00b7 \u21A9</button>';
         }
         // S114 P1.3: hover-revealed download button (all photos)
         var dlAction = r.type === 'site'

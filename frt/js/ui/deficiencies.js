@@ -1424,20 +1424,14 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
   function doPick(toId, toObsIdx) {
     if (!toId) return;
     var destF = Model.findDeficiency(toId);
-    var destNum = (destF && destF.defic) ? destF.defic.num : '?';
-    var obsLabel = (toObsIdx != null) ? (' \u00b7 Obs ' + String.fromCharCode(65 + toObsIdx)) : '';
-
-    // S226 Fix 1: a bare PIN-level pick is only safe when the destination pin
-    // has a single observation in DEFAULT-selection state (which shows the whole
-    // pool, so the landed photo is visible). If the pin has >1 obs OR any obs is
-    // in custom-selection state, the photo would land in the pool unreferenced
-    // by any obs (the pool-orphan we saw: it emits 0 gallery entries and trips
-    // the integrity checker). In that case require choosing a specific obs.
-    if (toObsIdx == null && destF && _pinNeedsObsChoice(destF.defic)) {
-      _expandObsForPin(toId);
-      toast('Pick which observation this photo belongs to on Pin ' + destNum);
-      return;
-    }
+    if (!destF) { toast('\u26A0 Could not find that pin'); return; }
+    var destNum = destF.defic ? destF.defic.num : '?';
+    // S227: a pin destination ALWAYS resolves to a specific observation, so the
+    // landed photo is always referenced (orphans structurally impossible). List
+    // view passes the chosen obs; Plan/Grid (pin-level) default to Obs A (0).
+    if (toObsIdx == null) toObsIdx = 0;
+    var multiObs = ((destF.defic.observations || []).length > 1);
+    var obsLabel = multiObs ? (' \u00b7 Obs ' + String.fromCharCode(65 + toObsIdx)) : '';
 
     // Snapshot the ORIGIN photo record BEFORE the op (deep clone). For a MOVE,
     // used to restore the photo at its origin on Undo. For a COPY, used to find
@@ -1455,28 +1449,24 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       }
     }
 
-    var res, desc = null;
+    var res;
     if (siteSrc != null) {
-      // SITE → PIN(/obs)
-      if (mode === 'move') {
-        var mr = Model.moveSitePhotoToPin(siteSrc, toId);
-        res = mr && mr.copy;
-      } else {
-        res = Model.copySitePhotoToPin(siteSrc, toId);
-      }
-      if (res && toObsIdx != null) Model.addPhotoToObs(toId, toObsIdx, res.id);
-      if (res) desc = (mode === 'move')
-        ? { mode: 'move', origin: origin, snapshot: originSnap, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } }
-        : { mode: 'copy', origin: origin, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
+      res = (mode === 'move') ? (Model.moveSitePhotoToPin(siteSrc, toId) || {}).copy
+                              : Model.copySitePhotoToPin(siteSrc, toId);
     } else {
-      // PIN → PIN(/obs)
-      res = (mode === 'move')
-        ? Model.movePhotoToPin(srcDeficId, photoId, toId)
-        : Model.copyPhotoToPin(srcDeficId, photoId, toId);
-      if (res && toObsIdx != null) Model.addPhotoToObs(toId, toObsIdx, res.id);
-      if (res) desc = (mode === 'move')
-        ? { mode: 'move', origin: origin, snapshot: originSnap, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } }
-        : { mode: 'copy', origin: origin, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
+      res = (mode === 'move') ? Model.movePhotoToPin(srcDeficId, photoId, toId)
+                              : Model.copyPhotoToPin(srcDeficId, photoId, toId);
+    }
+    // Always reference the landed photo from the chosen obs (orphan-proof).
+    if (res) Model.addPhotoToObs(toId, toObsIdx, res.id);
+
+    var desc = null;
+    if (res) {
+      desc = (mode === 'move')
+        ? { mode: 'move', origin: origin, snapshot: originSnap,
+            dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } }
+        : { mode: 'copy', origin: origin,
+            dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
     }
 
     _closePinPhotoPicker();
@@ -1485,25 +1475,11 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       if (window.initPhotos && initPhotos.render) initPhotos.render();
       initDeficiencies.render();
       toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum + obsLabel +
-        ' \u2014 the original ' + (mode === 'move' ? 'is faded with Undo' : 'has an Undo chip') + ' until you reload');
+        ' \u2014 it shows under that observation with an Undo chip; the original ' +
+        (mode === 'move' ? 'is faded with Undo' : 'has an Undo chip') + ' until you reload');
     } else {
       toast('\u26A0 Could not ' + mode + ' photo');
     }
-  }
-
-  // S226: does this destination pin need an explicit observation choice?
-  // True when it has >1 observation, or any observation is in custom-selection
-  // state (so a pool-only add wouldn't be shown by that obs).
-  function _pinNeedsObsChoice(defic) {
-    var obs = defic.observations || [];
-    if (obs.length > 1) return true;
-    return obs.some(function(o) { return o && Array.isArray(o.photoSelection); });
-  }
-  // S226: open the obs sub-list for a pin row (used by the guard above).
-  function _expandObsForPin(pinId) {
-    var list = stage.querySelector('#obslist-' + (window.CSS && CSS.escape ? CSS.escape(pinId) : pinId));
-    var btn = stage.querySelector('.pinphoto-expand[data-expand="' + pinId + '"]');
-    if (list) { list.hidden = false; if (btn) btn.classList.add('open'); list.scrollIntoView({ block: 'nearest' }); }
   }
 
   // S223: send the photo to the Photo Gallery (site), honoring the Copy/Move
@@ -1616,18 +1592,23 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       var obsArr = defic.observations || [];
       var multi = obsArr.length > 1;
       h += '<div class="pinphoto-rowwrap" data-search="' + esc(hay) + '">';
-      h += '<button class="pinphoto-row" data-pin-id="' + esc(defic.id) + '">';
+      // S227: single-obs pin → the row completes the move (targets Obs A, so the
+      // photo is always referenced; no orphan possible). Multi-obs pin → the row
+      // EXPANDS to obs rows (which obs is a real decision); it does not complete.
+      h += '<button class="pinphoto-row' + (multi ? ' pinphoto-row-expand' : '') + '" data-pin-id="' + esc(defic.id) + '" data-multi="' + (multi ? '1' : '0') + '">';
       h += th
         ? '<span class="pinphoto-thumb" style="background-image:url(\'' + esc(th) + '\')"></span>'
         : '<span class="pinphoto-thumb pinphoto-thumb-empty" style="background:' + col + '">\uD83D\uDCCD</span>';
       h += '<span class="pinphoto-pill" style="background:' + col + '">Pin ' + esc(defic.num) + '</span>';
       h += '<span class="pinphoto-meta"><span class="pinphoto-ctr">' + esc(ctr) + '</span>';
       h += '<span class="pinphoto-txt' + (txt ? '' : ' none') + '">' + (txt ? esc(txt) : 'no observation text') + '</span></span>';
-      h += '<span class="pinphoto-count">' + pc + ' \uD83D\uDDBC</span>';
-      h += '</button>';
-      // S225: multi-obs pins get an expand chevron → choose a specific obs.
       if (multi) {
-        h += '<button class="pinphoto-expand" data-expand="' + esc(defic.id) + '" title="Choose an observation">\u25BE</button>';
+        h += '<span class="pinphoto-multi-hint">' + obsArr.length + ' obs \u25BE</span>';
+      } else {
+        h += '<span class="pinphoto-count">' + pc + ' \uD83D\uDDBC</span>';
+      }
+      h += '</button>';
+      if (multi) {
         h += '<div class="pinphoto-obslist" id="obslist-' + esc(defic.id) + '" hidden>';
         obsArr.forEach(function(o, oi) {
           var ot = (o && o.text) ? o.text : '';
@@ -1643,18 +1624,21 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     h += '</div>';
     stage.innerHTML = h;
     stage.querySelectorAll('.pinphoto-row').forEach(function(row) {
-      row.addEventListener('click', function() { doPick(row.getAttribute('data-pin-id')); });
+      row.addEventListener('click', function() {
+        var pid = row.getAttribute('data-pin-id');
+        if (row.getAttribute('data-multi') === '1') {
+          // Expand to obs rows — do NOT complete.
+          var list = stage.querySelector('#obslist-' + (window.CSS && CSS.escape ? CSS.escape(pid) : pid));
+          if (list) { list.hidden = !list.hidden; row.classList.toggle('open', !list.hidden); }
+        } else {
+          // Single-obs pin → target its only observation (Obs A).
+          doPick(pid, 0);
+        }
+      });
     });
     stage.querySelectorAll('.pinphoto-obsrow').forEach(function(row) {
       row.addEventListener('click', function() {
         doPick(row.getAttribute('data-pin-id'), parseInt(row.getAttribute('data-obs-idx'), 10));
-      });
-    });
-    stage.querySelectorAll('.pinphoto-expand').forEach(function(btn) {
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var list = stage.querySelector('#obslist-' + (window.CSS && CSS.escape ? CSS.escape(btn.getAttribute('data-expand')) : btn.getAttribute('data-expand')));
-        if (list) { list.hidden = !list.hidden; btn.classList.toggle('open', !list.hidden); }
       });
     });
     var s = stage.querySelector('#pinphoto-search');
@@ -2301,6 +2285,12 @@ function _buildObsEditor(d, oi, ctrId, opts) {
       var _copyTok = (Model.copyOriginTokenForPhoto) ? Model.copyOriginTokenForPhoto(pid) : null;
       if (_copyTok) {
         h += '<button data-action="ph-undo-move" data-token="' + esc(_copyTok) + '" class="obs-photo-copychip" title="Undo this copy">Copied \u00b7 \u21A9</button>';
+      }
+      // S227: "Just added" chip on the DESTINATION photo (move/copy just landed
+      // it under THIS obs) — lets a mis-clicked obs be reversed right here.
+      var _addTok = (Model.justAddedTokenForObsPhoto) ? Model.justAddedTokenForObsPhoto(d.id, oi, pid) : null;
+      if (_addTok && _addTok !== _copyTok) {
+        h += '<button data-action="ph-undo-move" data-token="' + esc(_addTok) + '" class="obs-photo-addchip" title="Undo \u2014 just added here">Just added \u00b7 \u21A9</button>';
       }
       h += '</div>';
     });
