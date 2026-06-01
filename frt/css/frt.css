@@ -2142,6 +2142,11 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-card.ph-ghost{cursor:default;}
 .ph-card.ph-ghost img,.ph-card.ph-ghost .ph-noimg{opacity:.4;filter:grayscale(.3);}
 .ph-card.ph-ghost::after{content:"";position:absolute;inset:0;background:rgba(28,35,51,.28);z-index:2;pointer-events:none;}
+/* S226: copy chip — sits on the ORIGIN photo (not faded; original is intact)
+   so Undo for a copy lives at the origin too. Top-center, always visible. */
+.ph-copy-chip{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:4;background:rgba(28,35,51,.92);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:11px;padding:3px 9px;font-family:Calibri,sans-serif;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.45);}
+.ph-copy-chip:hover{background:#1C2333;border-color:#fff;}
+@media(pointer:coarse){.ph-copy-chip{padding:6px 11px;font-size:12px;}}
 
 /* S114 P1.8 — 3-column observation layout: comment | photos | drop zone.
    Photo column wider (1.5fr) so multiple photos are visible at once.
@@ -2181,6 +2186,10 @@ body.dark-mode .obs-text-input{background:#1f232c;color:white;border-color:#3a3e
 .obs-photo-undo{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;background:rgba(28,35,51,.94);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:6px;padding:5px 9px;font-family:Calibri,sans-serif;font-size:11.5px;font-weight:600;cursor:pointer;min-height:30px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5);}
 .obs-photo-undo:hover{background:#1C2333;border-color:#fff;}
 @media(pointer:coarse){.obs-photo-undo{min-height:40px;padding:8px 12px;}}
+/* S226: copy chip on a pin-editor origin photo (copy left the original here). */
+.obs-photo-copychip{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:4;background:rgba(28,35,51,.92);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:10px;padding:2px 7px;font-family:Calibri,sans-serif;font-size:10.5px;font-weight:600;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.45);}
+.obs-photo-copychip:hover{background:#1C2333;border-color:#fff;}
+@media(pointer:coarse){.obs-photo-copychip{padding:5px 10px;font-size:11px;}}
 .obs-photo-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;background:#1c1c20;cursor:zoom-in;user-select:none;}
 .obs-drop-col{display:flex;min-width:0;}
 .obs-drop-zone{flex:1;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px 10px;min-height:120px;text-align:center;transition:border-color .15s,background .15s;}

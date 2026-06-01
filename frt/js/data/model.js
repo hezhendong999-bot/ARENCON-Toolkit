@@ -2112,13 +2112,15 @@ export var Model = {
     return token;
   },
 
-  // COPY fade: is this LIVE photo id the destination of a recent copy? → token.
-  recentCopyTokenForPhoto: function(photoId) {
+  // S226 COPY chip: is this LIVE photo id the ORIGIN of a recent copy? → token.
+  // The chip renders on the original photo (which is still there) so Undo lives
+  // at the origin for copies too, never at the destination.
+  copyOriginTokenForPhoto: function(photoId) {
     if (!photoId) return null;
     for (var t in _recentMoves) {
       if (!_recentMoves.hasOwnProperty(t)) continue;
       var d = _recentMoves[t];
-      if (d.mode === 'copy' && d.dest && d.dest.photoId === photoId) return t;
+      if (d.mode === 'copy' && d.origin && d.origin.photoId === photoId) return t;
     }
     return null;
   },

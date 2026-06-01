@@ -1427,18 +1427,31 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     var destNum = (destF && destF.defic) ? destF.defic.num : '?';
     var obsLabel = (toObsIdx != null) ? (' \u00b7 Obs ' + String.fromCharCode(65 + toObsIdx)) : '';
 
-    // Snapshot the ORIGIN photo record BEFORE the op (deep clone), so a MOVE can
-    // restore it exactly at its origin on Undo. Snapshot's id is reused on undo.
+    // S226 Fix 1: a bare PIN-level pick is only safe when the destination pin
+    // has a single observation in DEFAULT-selection state (which shows the whole
+    // pool, so the landed photo is visible). If the pin has >1 obs OR any obs is
+    // in custom-selection state, the photo would land in the pool unreferenced
+    // by any obs (the pool-orphan we saw: it emits 0 gallery entries and trips
+    // the integrity checker). In that case require choosing a specific obs.
+    if (toObsIdx == null && destF && _pinNeedsObsChoice(destF.defic)) {
+      _expandObsForPin(toId);
+      toast('Pick which observation this photo belongs to on Pin ' + destNum);
+      return;
+    }
+
+    // Snapshot the ORIGIN photo record BEFORE the op (deep clone). For a MOVE,
+    // used to restore the photo at its origin on Undo. For a COPY, used to find
+    // the live origin photo so we can show the "Copied — Undo" chip there.
     var originSnap = null, origin = null;
     if (siteSrc != null) {
       var sp = (Model.getProject().photos || [])[siteSrc];
-      if (sp) { originSnap = JSON.parse(JSON.stringify(sp)); origin = { type: 'site', siteIdx: siteSrc }; }
+      if (sp) { originSnap = JSON.parse(JSON.stringify(sp)); origin = { type: 'site', siteIdx: siteSrc, photoId: sp.id }; }
     } else {
       var sf = Model.findDeficiency(srcDeficId);
       if (sf) {
         var pool = (sf.defic.photos || []).filter(function(p2) { return p2 && !p2.deleted; });
         var rec = null; for (var i = 0; i < pool.length; i++) { if (pool[i].id === photoId) { rec = pool[i]; break; } }
-        if (rec) { originSnap = JSON.parse(JSON.stringify(rec)); origin = { type: 'pin', deficId: srcDeficId, obsIdx: srcObsIdx }; }
+        if (rec) { originSnap = JSON.parse(JSON.stringify(rec)); origin = { type: 'pin', deficId: srcDeficId, obsIdx: srcObsIdx, photoId: rec.id }; }
       }
     }
 
@@ -1454,7 +1467,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       if (res && toObsIdx != null) Model.addPhotoToObs(toId, toObsIdx, res.id);
       if (res) desc = (mode === 'move')
         ? { mode: 'move', origin: origin, snapshot: originSnap, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } }
-        : { mode: 'copy', dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
+        : { mode: 'copy', origin: origin, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
     } else {
       // PIN → PIN(/obs)
       res = (mode === 'move')
@@ -1463,7 +1476,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       if (res && toObsIdx != null) Model.addPhotoToObs(toId, toObsIdx, res.id);
       if (res) desc = (mode === 'move')
         ? { mode: 'move', origin: origin, snapshot: originSnap, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } }
-        : { mode: 'copy', dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
+        : { mode: 'copy', origin: origin, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
     }
 
     _closePinPhotoPicker();
@@ -1472,10 +1485,25 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       if (window.initPhotos && initPhotos.render) initPhotos.render();
       initDeficiencies.render();
       toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum + obsLabel +
-        ' \u2014 ' + (mode === 'move' ? 'the original is faded with Undo' : 'tap Undo on the copy to reverse'));
+        ' \u2014 the original ' + (mode === 'move' ? 'is faded with Undo' : 'has an Undo chip') + ' until you reload');
     } else {
       toast('\u26A0 Could not ' + mode + ' photo');
     }
+  }
+
+  // S226: does this destination pin need an explicit observation choice?
+  // True when it has >1 observation, or any observation is in custom-selection
+  // state (so a pool-only add wouldn't be shown by that obs).
+  function _pinNeedsObsChoice(defic) {
+    var obs = defic.observations || [];
+    if (obs.length > 1) return true;
+    return obs.some(function(o) { return o && Array.isArray(o.photoSelection); });
+  }
+  // S226: open the obs sub-list for a pin row (used by the guard above).
+  function _expandObsForPin(pinId) {
+    var list = stage.querySelector('#obslist-' + (window.CSS && CSS.escape ? CSS.escape(pinId) : pinId));
+    var btn = stage.querySelector('.pinphoto-expand[data-expand="' + pinId + '"]');
+    if (list) { list.hidden = false; if (btn) btn.classList.add('open'); list.scrollIntoView({ block: 'nearest' }); }
   }
 
   // S223: send the photo to the Photo Gallery (site), honoring the Copy/Move
@@ -1542,21 +1570,26 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       destSiteId = existingSite.id; createdNewSite = false;
     }
 
-    // S225 marker (origin-ghost model):
+    // S225/S226 marker:
     //   MOVE → ghost renders at the PIN origin (snapshot). Undo restores the pin
     //          photo AND, only if we created the site reference here, removes it.
-    //   COPY → nothing changed on the pin; fade the gallery destination card.
-    //          A copy whose binary was already in the gallery is a no-op (skip).
+    //   COPY → origin photo stays on the pin; show a "Copied — Undo" chip at the
+    //          PIN origin (S226). Undo removes the new site reference. A copy
+    //          whose binary was already in the gallery is a no-op (skip).
     var udesc = null;
     if (mode === 'move') {
       udesc = {
         mode: 'move',
-        origin: { type: 'pin', deficId: srcDeficId, obsIdx: srcObsIdx },
+        origin: { type: 'pin', deficId: srcDeficId, obsIdx: srcObsIdx, photoId: srcRec.id },
         snapshot: originSnap,
         dest: createdNewSite ? { type: 'site', photoId: destSiteId } : null
       };
     } else if (createdNewSite) {
-      udesc = { mode: 'copy', dest: { type: 'site', photoId: destSiteId } };
+      udesc = {
+        mode: 'copy',
+        origin: { type: 'pin', deficId: srcDeficId, obsIdx: srcObsIdx, photoId: srcRec.id },
+        dest: { type: 'site', photoId: destSiteId }
+      };
     }
     if (udesc) Model.registerMove(udesc);
     Model.saveNow();
@@ -2264,6 +2297,11 @@ function _buildObsEditor(d, oi, ctrId, opts) {
       h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
       h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
       h += '<button data-action="photo-assign-pin" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-pin" title="Move or copy to another pin">\u2934</button>';
+      // S226: copy chip on the ORIGIN photo (a copy left the original here).
+      var _copyTok = (Model.copyOriginTokenForPhoto) ? Model.copyOriginTokenForPhoto(pid) : null;
+      if (_copyTok) {
+        h += '<button data-action="ph-undo-move" data-token="' + esc(_copyTok) + '" class="obs-photo-copychip" title="Undo this copy">Copied \u00b7 \u21A9</button>';
+      }
       h += '</div>';
     });
     // S225: faded ghost tiles for photos just MOVED OUT of this obs.

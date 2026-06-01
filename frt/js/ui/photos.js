@@ -391,14 +391,15 @@ export var initPhotos = {
         var clickAction = r.type === 'site'
           ? 'data-action="open-site-lightbox" data-photo-idx="' + r.siteIdx + '"'
           : 'data-action="open-defic-lightbox" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
-        // S225: a COPY fades its live destination card (the new copy is the
-        // only thing that changed). MOVES no longer fade their destination —
-        // they render a faded GHOST at the ORIGIN instead (injected below).
-        var mvToken = (r.ph && r.ph.id && Model.recentCopyTokenForPhoto)
-          ? Model.recentCopyTokenForPhoto(r.ph.id) : null;
+        // S226: a COPY shows a small "Copied — Undo" CHIP on its ORIGIN photo
+        // (the original is unchanged and still here), so Undo lives at the origin
+        // for copies too — never at the destination. MOVES render a faded GHOST
+        // at the origin (injected below / in the ghost strip). No live card is
+        // ever faded as a "destination" anymore.
+        var copyTok = (r.ph && r.ph.id && Model.copyOriginTokenForPhoto)
+          ? Model.copyOriginTokenForPhoto(r.ph.id) : null;
         var cardCls = 'ph-card';
         if (sel) cardCls += ' selected';
-        if (mvToken) cardCls += ' ph-just-moved';
         html += '<div class="' + cardCls + '" data-uid="' + esc(r.uid) + '">';
         // S114 P1.3: checkbox is hover-only when unselected, always shown when selected
         html += '<input type="checkbox" class="ph-check"' + (sel ? ' checked' : '') + ' data-action="ph-toggle-photo" data-uid="' + esc(r.uid) + '">';
@@ -415,10 +416,9 @@ export var initPhotos = {
           html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
         }
         html += _cloudIcon(r.ph);
-        // S224: centered Undo overlay for a just-moved card (above the image,
-        // clickable). Sits over the fade so it reads as "this just moved — undo".
-        if (mvToken) {
-          html += '<button class="ph-undo-btn" data-action="ph-undo-move" data-token="' + esc(mvToken) + '" title="Undo this move">\u21A9 Undo</button>';
+        // S226: copy chip on the origin photo.
+        if (copyTok) {
+          html += '<button class="ph-copy-chip" data-action="ph-undo-move" data-token="' + esc(copyTok) + '" title="Undo this copy">Copied \u00b7 \u21A9 Undo</button>';
         }
         // S114 P1.3: hover-revealed download button (all photos)
         var dlAction = r.type === 'site'
