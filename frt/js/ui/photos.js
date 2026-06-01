@@ -97,6 +97,32 @@ function _cloudIcon(ph) {
     + '</svg></span>';
 }
 
+// S225: build the faded site-origin ghost strip. A photo MOVED OUT of the
+// gallery this session leaves a faded ghost here (synthesized from the
+// in-memory snapshot) with an Undo button. Pure visual; gone on reload.
+function _ghostStripHtml() {
+  if (!Model.siteOriginGhosts) return '';
+  var ghosts = Model.siteOriginGhosts();
+  if (!ghosts.length) return '';
+  var h = '<div class="ph-ghost-strip">';
+  h += '<div class="ph-ghost-strip-label">Recently moved out of the gallery</div>';
+  h += '<div class="ph-grid">';
+  ghosts.forEach(function(g) {
+    var s = g.snapshot || {};
+    var src = s.thumb || s.r2Url || s.dataUrl || '';
+    h += '<div class="ph-card ph-just-moved ph-ghost">';
+    if (src) {
+      h += '<img src="' + esc(src) + '" loading="lazy" onerror="this.style.display=\'none\'">';
+    } else {
+      h += '<div class="ph-noimg">\uD83D\uDCF7</div>';
+    }
+    h += '<button class="ph-undo-btn" data-action="ph-undo-move" data-token="' + esc(g.token) + '" title="Undo this move">\u21A9 Undo</button>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+  return h;
+}
+
 function _dayKey(ph, parentDefic) {
   // S115 P12: priority order (matches v1):
   //   1. ph.addedDate || ph.date  (explicit per-photo date)
@@ -336,9 +362,11 @@ export var initPhotos = {
 
     // Empty state
     if (!filtered.length) {
+      var ghostsOnly = _ghostStripHtml();
       var msg = totalAll === 0 ? 'No photos yet. Upload site photos or add photos to deficiencies.'
         : 'No photos match the current filter.';
       html += '<p class="ph-empty">' + msg + '</p>';
+      html += ghostsOnly;
       container.innerHTML = html;
       return;
     }
@@ -363,11 +391,11 @@ export var initPhotos = {
         var clickAction = r.type === 'site'
           ? 'data-action="open-site-lightbox" data-photo-idx="' + r.siteIdx + '"'
           : 'data-action="open-defic-lightbox" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '"';
-        // S224: faded-with-Undo marker. If this card's live photo is the
-        // destination of a recent (un-undone, this-session) move/copy, fade it
-        // and show an Undo button. Marker is in-memory only (gone on reload).
-        var mvToken = (r.ph && r.ph.id && Model.recentMoveTokenForPhoto)
-          ? Model.recentMoveTokenForPhoto(r.ph.id) : null;
+        // S225: a COPY fades its live destination card (the new copy is the
+        // only thing that changed). MOVES no longer fade their destination —
+        // they render a faded GHOST at the ORIGIN instead (injected below).
+        var mvToken = (r.ph && r.ph.id && Model.recentCopyTokenForPhoto)
+          ? Model.recentCopyTokenForPhoto(r.ph.id) : null;
         var cardCls = 'ph-card';
         if (sel) cardCls += ' selected';
         if (mvToken) cardCls += ' ph-just-moved';
@@ -416,6 +444,12 @@ export var initPhotos = {
       });
       html += '</div>';
     });
+
+    // S225: site-origin ghost strip — photos MOVED OUT of the gallery this
+    // session render as faded ghosts (synthesized from the in-memory snapshot,
+    // NOT live data) with an Undo button, so the undo lives where the user is
+    // still looking (the origin). Gone on reload.
+    html += _ghostStripHtml();
 
     container.innerHTML = html;
 

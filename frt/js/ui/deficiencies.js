@@ -1385,7 +1385,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
   function photoCount(defic) { return (defic.photos || []).filter(function(p) { return p && !p.deleted; }).length; }
   function obsText(defic) { var o = (defic.observations || [])[0]; return (o && o.text) ? o.text : ''; }
 
-  var mode = 'copy';
+  var mode = 'move';
   var view = 'rows';
 
   var ov = document.createElement('div');
@@ -1398,8 +1398,8 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
   p.innerHTML =
     '<div class="picker-title">' + (siteSrc != null ? 'Send gallery photo to a pin' : 'Move or copy photo') + '</div>' +
     '<div class="pinphoto-mode">' +
-      '<button class="pinphoto-mode-btn active" data-mode="copy">Copy</button>' +
-      '<button class="pinphoto-mode-btn" data-mode="move">Move</button>' +
+      '<button class="pinphoto-mode-btn active" data-mode="move">Move</button>' +
+      '<button class="pinphoto-mode-btn" data-mode="copy">Copy</button>' +
     '</div>' +
     '<div class="pinphoto-views">' +
       '<button class="pinphoto-view-btn active" data-view="rows">List</button>' +
@@ -1407,13 +1407,10 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       '<button class="pinphoto-view-btn" data-view="grid">Grid</button>' +
     '</div>' +
     // S223: send to the Photo Gallery (site) — honors the Copy/Move toggle.
-    // Copy → photo stays on this pin AND lands in the gallery. Move → photo
-    // leaves THIS observation only (siblings sharing it keep it) and lands in
-    // the gallery. Per-obs scoped, mirrors the gallery select-mode path.
     // Hidden in site-source mode (no site→site).
     (siteSrc != null ? '' :
       '<button class="pinphoto-site-btn" id="pinphoto-site-btn" data-action="pinphoto-site">\uD83D\uDCF7 Send to Photo Gallery (site)</button>') +
-    '<div class="pinphoto-hint" id="pinphoto-hint">Copy keeps the photo on this pin and adds it to the chosen pin.</div>' +
+    '<div class="pinphoto-hint" id="pinphoto-hint">Move takes the photo off here and puts it on the chosen pin (or observation). The original turns faded with an Undo button until you reload.</div>' +
     '<div id="pinphoto-stage"></div>' +
     '<div class="picker-foot"><button class="btn btn-sm picker-cancel-btn" data-action="pinphoto-close">Cancel</button></div>';
   ov.appendChild(p);
@@ -1422,39 +1419,62 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
   var cancelBtn = p.querySelector('[data-action="pinphoto-close"]');
   if (cancelBtn) cancelBtn.addEventListener('click', _closePinPhotoPicker);
 
-  function doPick(toId) {
+  // toObsIdx (optional): when set, the photo is narrowed to that specific
+  // observation on the destination pin (point 2 — target an obs, not just a pin).
+  function doPick(toId, toObsIdx) {
     if (!toId) return;
     var destF = Model.findDeficiency(toId);
     var destNum = (destF && destF.defic) ? destF.defic.num : '?';
+    var obsLabel = (toObsIdx != null) ? (' \u00b7 Obs ' + String.fromCharCode(65 + toObsIdx)) : '';
+
+    // Snapshot the ORIGIN photo record BEFORE the op (deep clone), so a MOVE can
+    // restore it exactly at its origin on Undo. Snapshot's id is reused on undo.
+    var originSnap = null, origin = null;
+    if (siteSrc != null) {
+      var sp = (Model.getProject().photos || [])[siteSrc];
+      if (sp) { originSnap = JSON.parse(JSON.stringify(sp)); origin = { type: 'site', siteIdx: siteSrc }; }
+    } else {
+      var sf = Model.findDeficiency(srcDeficId);
+      if (sf) {
+        var pool = (sf.defic.photos || []).filter(function(p2) { return p2 && !p2.deleted; });
+        var rec = null; for (var i = 0; i < pool.length; i++) { if (pool[i].id === photoId) { rec = pool[i]; break; } }
+        if (rec) { originSnap = JSON.parse(JSON.stringify(rec)); origin = { type: 'pin', deficId: srcDeficId, obsIdx: srcObsIdx }; }
+      }
+    }
+
     var res, desc = null;
     if (siteSrc != null) {
-      // SITE → PIN
+      // SITE → PIN(/obs)
       if (mode === 'move') {
         var mr = Model.moveSitePhotoToPin(siteSrc, toId);
         res = mr && mr.copy;
-        if (res) desc = { kind: 'site-move', destDeficId: toId, destPhotoId: res.id, srcSitePhoto: mr.removedSite };
       } else {
         res = Model.copySitePhotoToPin(siteSrc, toId);
-        if (res) desc = { kind: 'site-copy', destDeficId: toId, destPhotoId: res.id };
       }
+      if (res && toObsIdx != null) Model.addPhotoToObs(toId, toObsIdx, res.id);
+      if (res) desc = (mode === 'move')
+        ? { mode: 'move', origin: origin, snapshot: originSnap, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } }
+        : { mode: 'copy', dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
     } else {
-      // PIN → PIN
+      // PIN → PIN(/obs)
       res = (mode === 'move')
         ? Model.movePhotoToPin(srcDeficId, photoId, toId)
         : Model.copyPhotoToPin(srcDeficId, photoId, toId);
-      if (res) {
-        desc = (mode === 'move')
-          ? { kind: 'pin-move', destDeficId: toId, destPhotoId: res.id, srcDeficId: srcDeficId, srcPhotoId: photoId }
-          : { kind: 'pin-copy', destDeficId: toId, destPhotoId: res.id };
-      }
+      if (res && toObsIdx != null) Model.addPhotoToObs(toId, toObsIdx, res.id);
+      if (res) desc = (mode === 'move')
+        ? { mode: 'move', origin: origin, snapshot: originSnap, dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } }
+        : { mode: 'copy', dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
     }
+
     _closePinPhotoPicker();
     if (res) {
       if (desc) Model.registerMove(desc);
+      if (window.initPhotos && initPhotos.render) initPhotos.render();
       initDeficiencies.render();
-      toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum + ' \u2014 tap Undo on the photo to reverse');
+      toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum + obsLabel +
+        ' \u2014 ' + (mode === 'move' ? 'the original is faded with Undo' : 'tap Undo on the copy to reverse'));
     } else {
-      toast('\u26A0 Could not ' + mode + ' photo to that pin');
+      toast('\u26A0 Could not ' + mode + ' photo');
     }
   }
 
@@ -1488,6 +1508,10 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     var rec = Object.assign({}, srcRec);
     delete rec.deleted; delete rec.deletedDate;
 
+    // S225: snapshot the origin pool record BEFORE narrowing, so a MOVE can
+    // restore it at the pin origin on Undo (origin-ghost model).
+    var originSnap = JSON.parse(JSON.stringify(srcRec));
+
     if (mode === 'move') {
       if (Model.removePhotoFromObs) {
         Model.removePhotoFromObs(srcDeficId, srcObsIdx, srcRec.id);
@@ -1517,27 +1541,30 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     } else {
       destSiteId = existingSite.id; createdNewSite = false;
     }
-    // Register the faded-with-Undo marker on the gallery destination card.
-    //   to-site-move → undo re-adds the photo to the source obs AND, only if we
-    //   created the site reference here, removes it. createdNewSite=false means
-    //   the binary was already in the gallery: undo must restore the obs but
-    //   NOT delete a site photo it didn't create.
-    var udesc = { destIsSite: true, destPhotoId: destSiteId };
+
+    // S225 marker (origin-ghost model):
+    //   MOVE → ghost renders at the PIN origin (snapshot). Undo restores the pin
+    //          photo AND, only if we created the site reference here, removes it.
+    //   COPY → nothing changed on the pin; fade the gallery destination card.
+    //          A copy whose binary was already in the gallery is a no-op (skip).
+    var udesc = null;
     if (mode === 'move') {
-      udesc.kind = 'to-site-move';
-      udesc.srcDeficId = srcDeficId;
-      udesc.srcObsIdx = srcObsIdx;
-      udesc.srcPhotoId = srcRec.id;
-      if (!createdNewSite) udesc.destIsSite = false; // don't delete a pre-existing site photo on undo
-    } else {
-      udesc.kind = 'to-site-copy';
-      if (!createdNewSite) { udesc = null; } // pure no-op copy (already in gallery) — nothing to undo
+      udesc = {
+        mode: 'move',
+        origin: { type: 'pin', deficId: srcDeficId, obsIdx: srcObsIdx },
+        snapshot: originSnap,
+        dest: createdNewSite ? { type: 'site', photoId: destSiteId } : null
+      };
+    } else if (createdNewSite) {
+      udesc = { mode: 'copy', dest: { type: 'site', photoId: destSiteId } };
     }
     if (udesc) Model.registerMove(udesc);
     Model.saveNow();
     _closePinPhotoPicker();
+    if (window.initPhotos && initPhotos.render) initPhotos.render();
     initDeficiencies.render();
-    toast((mode === 'move' ? 'Moved to Photo Gallery' : 'Copied to Photo Gallery') + ' \u2014 tap Undo on the photo to reverse');
+    toast((mode === 'move' ? 'Moved to Photo Gallery \u2014 the original is faded with Undo'
+                           : 'Copied to Photo Gallery \u2014 tap Undo on the copy to reverse'));
   }
 
   var siteBtn = p.querySelector('[data-action="pinphoto-site"]');
@@ -1553,7 +1580,10 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       var defic = d.defic, ctr = d.contractorName || '', txt = obsText(defic);
       var col = PR_COL[prKey(defic)], th = leadThumb(defic), pc = photoCount(defic);
       var hay = ('pin ' + defic.num + ' ' + ctr + ' ' + txt).toLowerCase();
-      h += '<button class="pinphoto-row" data-pin-id="' + esc(defic.id) + '" data-search="' + esc(hay) + '">';
+      var obsArr = defic.observations || [];
+      var multi = obsArr.length > 1;
+      h += '<div class="pinphoto-rowwrap" data-search="' + esc(hay) + '">';
+      h += '<button class="pinphoto-row" data-pin-id="' + esc(defic.id) + '">';
       h += th
         ? '<span class="pinphoto-thumb" style="background-image:url(\'' + esc(th) + '\')"></span>'
         : '<span class="pinphoto-thumb pinphoto-thumb-empty" style="background:' + col + '">\uD83D\uDCCD</span>';
@@ -1562,17 +1592,43 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       h += '<span class="pinphoto-txt' + (txt ? '' : ' none') + '">' + (txt ? esc(txt) : 'no observation text') + '</span></span>';
       h += '<span class="pinphoto-count">' + pc + ' \uD83D\uDDBC</span>';
       h += '</button>';
+      // S225: multi-obs pins get an expand chevron → choose a specific obs.
+      if (multi) {
+        h += '<button class="pinphoto-expand" data-expand="' + esc(defic.id) + '" title="Choose an observation">\u25BE</button>';
+        h += '<div class="pinphoto-obslist" id="obslist-' + esc(defic.id) + '" hidden>';
+        obsArr.forEach(function(o, oi) {
+          var ot = (o && o.text) ? o.text : '';
+          h += '<button class="pinphoto-obsrow" data-pin-id="' + esc(defic.id) + '" data-obs-idx="' + oi + '">';
+          h += '<span class="pinphoto-obspill">Obs ' + String.fromCharCode(65 + oi) + '</span>';
+          h += '<span class="pinphoto-obstxt' + (ot ? '' : ' none') + '">' + (ot ? esc(ot) : 'no text') + '</span>';
+          h += '</button>';
+        });
+        h += '</div>';
+      }
+      h += '</div>';
     });
     h += '</div>';
     stage.innerHTML = h;
     stage.querySelectorAll('.pinphoto-row').forEach(function(row) {
       row.addEventListener('click', function() { doPick(row.getAttribute('data-pin-id')); });
     });
+    stage.querySelectorAll('.pinphoto-obsrow').forEach(function(row) {
+      row.addEventListener('click', function() {
+        doPick(row.getAttribute('data-pin-id'), parseInt(row.getAttribute('data-obs-idx'), 10));
+      });
+    });
+    stage.querySelectorAll('.pinphoto-expand').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var list = stage.querySelector('#obslist-' + (window.CSS && CSS.escape ? CSS.escape(btn.getAttribute('data-expand')) : btn.getAttribute('data-expand')));
+        if (list) { list.hidden = !list.hidden; btn.classList.toggle('open', !list.hidden); }
+      });
+    });
     var s = stage.querySelector('#pinphoto-search');
     if (s) {
       s.addEventListener('input', function() {
         var q = s.value.trim().toLowerCase();
-        stage.querySelectorAll('.pinphoto-row').forEach(function(row) {
+        stage.querySelectorAll('.pinphoto-rowwrap').forEach(function(row) {
           var hay = row.getAttribute('data-search') || '';
           row.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
         });
@@ -1683,12 +1739,12 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
 
   p.querySelectorAll('.pinphoto-mode-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      mode = btn.getAttribute('data-mode') || 'copy';
+      mode = btn.getAttribute('data-mode') || 'move';
       p.querySelectorAll('.pinphoto-mode-btn').forEach(function(b) { b.classList.toggle('active', b === btn); });
       var hint = p.querySelector('#pinphoto-hint');
       if (hint) hint.textContent = (mode === 'move')
-        ? 'Move takes the photo off this pin (this observation) and puts it on the chosen pin, or sends it to the gallery. It stays available.'
-        : 'Copy keeps the photo on this pin and adds it to the chosen pin, or sends a copy to the gallery.';
+        ? 'Move takes the photo off here and puts it on the chosen pin (or observation), or sends it to the gallery. The original turns faded with an Undo button until you reload.'
+        : 'Copy keeps the photo here and also adds it to the chosen pin (or observation), or the gallery. The copy turns faded with an Undo button until you reload.';
     });
   });
   p.querySelectorAll('.pinphoto-view-btn').forEach(function(btn) {
@@ -2184,7 +2240,9 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
   h += ' ondragleave="this.classList.remove(\'drag-over\')">';
   h += '<div class="obs-media-zone">';
-  if (obsPhotos.length) {
+  // S225: pin-origin move ghosts for THIS pin+obs (faded snapshot + Undo).
+  var _obsGhosts = (Model.pinOriginGhosts) ? Model.pinOriginGhosts(d.id, oi) : [];
+  if (obsPhotos.length || _obsGhosts.length) {
     h += '<div class="obs-media-photos">';
     obsPhotos.forEach(function(ph, phi) {
       var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
@@ -2206,6 +2264,16 @@ function _buildObsEditor(d, oi, ctrId, opts) {
       h += '<button data-action="ai-suggest-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="photo-ai-btn" title="AI Suggest from this photo">\u2728</button>';
       h += '<button data-action="delete-obs-photo" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-del" title="Remove from this observation">\u2715</button>';
       h += '<button data-action="photo-assign-pin" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-id="' + esc(pid) + '" class="obs-photo-pin" title="Move or copy to another pin">\u2934</button>';
+      h += '</div>';
+    });
+    // S225: faded ghost tiles for photos just MOVED OUT of this obs.
+    _obsGhosts.forEach(function(g) {
+      var s = g.snapshot || {};
+      var gsrc = s.thumb || s.dataUrl || s.r2Url || '';
+      h += '<div class="obs-photo-wrap obs-photo-ghost">';
+      if (gsrc) h += '<img src="' + esc(gsrc) + '" loading="lazy">';
+      else h += '<div class="obs-photo-placeholder">\uD83D\uDCF7</div>';
+      h += '<button data-action="ph-undo-move" data-token="' + esc(g.token) + '" class="obs-photo-undo" title="Undo this move">\u21A9 Undo</button>';
       h += '</div>';
     });
     h += '</div>';
@@ -4194,6 +4262,15 @@ document.addEventListener('click', function(e) {
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
     var photoId = el.getAttribute('data-photo-id') || '';
     if (photoId) _openPinPhotoPicker(deficId, obsIdx, photoId);
+  }
+
+  // S225: undo a faded move from a pin-editor origin ghost.
+  if (action === 'ph-undo-move') {
+    var uel = el.closest('[data-action="ph-undo-move"]');
+    if (!uel) return;
+    var utok = uel.getAttribute('data-token');
+    if (utok && window._frtUndoPhotoMove) window._frtUndoPhotoMove(utok);
+    return;
   }
 
   if (action === 'ai-suggest-photo') {

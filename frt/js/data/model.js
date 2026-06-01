@@ -1921,6 +1921,28 @@ export var Model = {
     return false;
   },
 
+  // S225: ensure a pool photo IS shown by a specific obs (inverse of
+  // removePhotoFromObs). Used when a move/copy targets a specific observation.
+  //   - default-state obs (photoSelection null) already shows the whole pool →
+  //     no-op (the photo is visible).
+  //   - custom-state obs → add the id if missing.
+  // Never touches the pool or sibling obs. Returns true if a change was made.
+  addPhotoToObs: function(deficId, obsIdx, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs) return false;
+    if (!Array.isArray(obs.photoSelection)) return false; // default shows all
+    if (obs.photoSelection.indexOf(photoId) === -1) {
+      obs.photoSelection.push(photoId);
+      _dirty = true;
+      _queueSave();
+      this._notify('photo', { action: 'select', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
+      return true;
+    }
+    return false;
+  },
+
   // ── S205: cross-pin photo move / copy + reference query ──
   // A photo's identity ACROSS pins is its r2Key (the shared binary). Copying
   // a photo to another pin creates a NEW pool entry in the target defic that
@@ -2059,74 +2081,138 @@ export var Model = {
     return { copy: copy, removedSite: removedSite };
   },
 
-  // ── S224: faded-with-Undo move markers (in-memory, session-scoped) ──
-  // registerMove() is called by the UI right after a successful move/copy. It
-  // stores a reversible descriptor keyed by a fresh token and returns the token
-  // plus the destination photo id (the card that should render faded). Nothing
-  // here is saved or synced — _recentMoves is cleared on setProject.
-  //   kind: one of 'pin-copy','pin-move','site-copy','site-move',
-  //         'to-site-copy','to-site-move'
+  // ── S225: move/copy markers + Undo (in-memory, session-scoped) ──
+  // Two distinct affordances, recorded by the UI right after a successful op:
+  //
+  //   MOVE → the photo genuinely LEFT its origin. We render a faded GHOST tile
+  //          at the ORIGIN slot (synthesized from the snapshot below — NOT live
+  //          data) with an Undo button. Undo re-inserts the photo at origin and
+  //          removes the reference the op created at the destination. This is
+  //          where the user is still looking right after a move (the destination
+  //          card has already re-rendered elsewhere). Origin-ghost model, S225.
+  //
+  //   COPY → nothing changed at origin; the new thing is the DESTINATION copy.
+  //          We fade the live destination photo and put Undo on it. Undo removes
+  //          the destination copy. (Copy is rare; this keeps it sensible.)
+  //
+  // Nothing here is saved or synced — _recentMoves is cleared on setProject.
+  //
+  // Marker shape (all in-memory):
+  //   { token, mode:'move'|'copy',
+  //     // ORIGIN (move only) — where the ghost renders + the snapshot to restore:
+  //     origin: { type:'site', siteIdx } | { type:'pin', deficId, obsIdx } ,
+  //     snapshot: <full photo record that was at origin> ,
+  //     // DESTINATION reference the op created (to remove on undo):
+  //     dest: { type:'site', photoId } | { type:'pin', deficId, photoId, obsIdx } }
   registerMove: function(desc) {
-    if (!desc || !desc.destPhotoId) return null;
+    if (!desc || !desc.mode) return null;
     var token = _uid('mv');
     desc.token = token;
     _recentMoves[token] = desc;
     return token;
   },
 
-  // Is this live photo id the destination of an un-undone move? Returns the
-  // token (truthy) or null. Used by gallery/pin renderers to fade + show Undo.
-  recentMoveTokenForPhoto: function(photoId) {
+  // COPY fade: is this LIVE photo id the destination of a recent copy? → token.
+  recentCopyTokenForPhoto: function(photoId) {
     if (!photoId) return null;
     for (var t in _recentMoves) {
-      if (_recentMoves.hasOwnProperty(t) && _recentMoves[t].destPhotoId === photoId) return t;
+      if (!_recentMoves.hasOwnProperty(t)) continue;
+      var d = _recentMoves[t];
+      if (d.mode === 'copy' && d.dest && d.dest.photoId === photoId) return t;
     }
     return null;
   },
 
-  // Reverse exactly one move/copy by token. Restores the source side (re-adds a
-  // removed site photo / re-selects a narrowed obs) and removes the destination
-  // reference that the op created. Idempotent: an already-consumed token is a
-  // no-op. Returns true on success.
+  // MOVE ghosts whose ORIGIN is the site gallery. Returns synthetic display
+  // records [{ token, snapshot }] for the gallery renderer to draw as faded
+  // ghost tiles. Pure visual — these photos are NOT in proj.photos anymore.
+  siteOriginGhosts: function() {
+    var out = [];
+    for (var t in _recentMoves) {
+      if (!_recentMoves.hasOwnProperty(t)) continue;
+      var d = _recentMoves[t];
+      if (d.mode === 'move' && d.origin && d.origin.type === 'site') {
+        out.push({ token: t, snapshot: d.snapshot });
+      }
+    }
+    return out;
+  },
+
+  // MOVE ghosts whose ORIGIN is a specific pin (optionally a specific obs).
+  // Returns [{ token, snapshot }] for the pin-editor photo strip / gallery
+  // defic rows to draw as faded ghosts.
+  pinOriginGhosts: function(deficId, obsIdx) {
+    var out = [];
+    for (var t in _recentMoves) {
+      if (!_recentMoves.hasOwnProperty(t)) continue;
+      var d = _recentMoves[t];
+      if (d.mode !== 'move' || !d.origin || d.origin.type !== 'pin') continue;
+      if (d.origin.deficId !== deficId) continue;
+      if (obsIdx != null && d.origin.obsIdx != null && d.origin.obsIdx !== obsIdx) continue;
+      out.push({ token: t, snapshot: d.snapshot });
+    }
+    return out;
+  },
+
+  // Reverse exactly one move/copy by token. Idempotent. Returns true on success.
   undoPhotoMove: function(token) {
     var d = _recentMoves[token];
     if (!d) return false;
     delete _recentMoves[token];  // consume first (idempotent)
 
-    // 1) Remove the destination reference the op created.
-    if (d.destDeficId) {
-      // destination is a pin pool entry
-      var f = this.findDeficiency(d.destDeficId);
-      if (f && Array.isArray(f.defic.photos)) {
-        var di = f.defic.photos.findIndex(function(p) { return p && p.id === d.destPhotoId; });
-        if (di >= 0) f.defic.photos.splice(di, 1);
-      }
-    } else if (d.destIsSite) {
-      // destination is a site photo
-      if (_project && Array.isArray(_project.photos)) {
-        var si = _project.photos.findIndex(function(p) { return p && p.id === d.destPhotoId; });
-        if (si >= 0) _project.photos.splice(si, 1);
+    // 1) Remove the reference the op created at the destination.
+    if (d.dest) {
+      if (d.dest.type === 'pin') {
+        var df = this.findDeficiency(d.dest.deficId);
+        if (df && Array.isArray(df.defic.photos)) {
+          var di = df.defic.photos.findIndex(function(p) { return p && p.id === d.dest.photoId; });
+          if (di >= 0) df.defic.photos.splice(di, 1);
+          // also drop it from a narrowed obs selection if the copy targeted one
+          if (d.dest.obsIdx != null) {
+            var dobs = (df.defic.observations || [])[d.dest.obsIdx];
+            if (dobs && Array.isArray(dobs.photoSelection)) {
+              dobs.photoSelection = dobs.photoSelection.filter(function(id) { return id !== d.dest.photoId; });
+            }
+          }
+        }
+      } else if (d.dest.type === 'site') {
+        if (_project && Array.isArray(_project.photos)) {
+          var si = _project.photos.findIndex(function(p) { return p && p.id === d.dest.photoId; });
+          if (si >= 0) _project.photos.splice(si, 1);
+        }
       }
     }
 
-    // 2) Restore the source side for MOVE ops (copies left the source intact).
-    if (d.kind === 'site-move' && d.srcSitePhoto) {
-      // site→pin move removed a site entry — put it back
-      if (!_project.photos) _project.photos = [];
-      _project.photos.push(d.srcSitePhoto);
-    } else if (d.kind === 'pin-move' && d.srcDeficId && d.srcPhotoId) {
-      // pin→pin move soft-deleted the source pool photo — restore it
-      this.restorePoolPhoto(d.srcDeficId, d.srcPhotoId);
-    } else if (d.kind === 'to-site-move' && d.srcDeficId && d.srcObsIdx != null && d.srcPhotoId != null) {
-      // pin→site move narrowed the source obs — re-add the photo to that obs
-      var sf = this.findDeficiency(d.srcDeficId);
-      if (sf) {
-        var obs = (sf.defic.observations || [])[d.srcObsIdx];
-        if (obs) {
-          if (Array.isArray(obs.photoSelection)) {
-            if (obs.photoSelection.indexOf(d.srcPhotoId) === -1) obs.photoSelection.push(d.srcPhotoId);
+    // 2) MOVE only — restore the photo at its ORIGIN from the snapshot.
+    if (d.mode === 'move' && d.origin && d.snapshot) {
+      if (d.origin.type === 'site') {
+        if (!_project.photos) _project.photos = [];
+        // restore near original index if still valid, else append
+        var at = (typeof d.origin.siteIdx === 'number' && d.origin.siteIdx <= _project.photos.length)
+          ? d.origin.siteIdx : _project.photos.length;
+        _project.photos.splice(at, 0, d.snapshot);
+      } else if (d.origin.type === 'pin') {
+        var of = this.findDeficiency(d.origin.deficId);
+        if (of) {
+          if (!Array.isArray(of.defic.photos)) of.defic.photos = [];
+          // re-add to the pool if a live entry for this id is gone
+          var exists = of.defic.photos.some(function(p) { return p && p.id === d.snapshot.id && !p.deleted; });
+          if (!exists) {
+            // clear any tombstone then push the snapshot back
+            var tomb = of.defic.photos.findIndex(function(p) { return p && p.id === d.snapshot.id; });
+            if (tomb >= 0) of.defic.photos.splice(tomb, 1);
+            of.defic.photos.push(d.snapshot);
+          } else {
+            // pool entry still present but tombstoned → restore it
+            this.restorePoolPhoto(d.origin.deficId, d.snapshot.id);
           }
-          // default-state obs already shows the whole pool — nothing to do
+          // if the origin obs had a narrowed selection, re-add the id
+          if (d.origin.obsIdx != null) {
+            var oobs = (of.defic.observations || [])[d.origin.obsIdx];
+            if (oobs && Array.isArray(oobs.photoSelection) && oobs.photoSelection.indexOf(d.snapshot.id) === -1) {
+              oobs.photoSelection.push(d.snapshot.id);
+            }
+          }
         }
       }
     }
