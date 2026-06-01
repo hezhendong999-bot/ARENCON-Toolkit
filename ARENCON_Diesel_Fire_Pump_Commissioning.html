@@ -4289,7 +4289,7 @@ function renderSafetyConnector(chartKey, chartObj, pfx){
   chip.style.cssText='position:absolute;top:'+(mid+st.y)+'px;transform:translateY(-50%);'
     +(placeLeft?'right:'+(baseRight-st.x)+'px;border-right:4px solid '+col.c+';border-left:1px solid '+col.c+'66;'
                 :'left:'+(baseLeft+st.x)+'px;border-left:4px solid '+col.c+';border-right:1px solid '+col.c+'66;')
-    +'background:var(--slate,#1e2533);border-top:1px solid '+col.c+'66;border-bottom:1px solid '+col.c+'66;'
+    +'background:#1e2533;border-top:1px solid '+col.c+'66;border-bottom:1px solid '+col.c+'66;'
     +'border-radius:8px;padding:5px 11px;white-space:nowrap;box-shadow:0 2px 9px rgba(0,0,0,.4);'
     +'cursor:grab;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:none;z-index:5;';
   chip.innerHTML='<div style="font-size:calc(13px + var(--ts));font-weight:800;color:'+col.c+';line-height:1.1;">'+sign+m.psi.toFixed(1)+' psi</div>'
@@ -4307,7 +4307,7 @@ function renderSafetyConnector(chartKey, chartObj, pfx){
   // drag (mouse + touch), persisted in smState
   function startDrag(sx,sy){
     var ox=st.x, oy=st.y; chip.style.cursor='grabbing';
-    function mv(cx,cy){ st.x = ox + (placeLeft ? (sx-cx) : (cx-sx)); st.y = oy + (cy-sy);
+    function mv(cx,cy){ st.x = ox + (cx-sx); st.y = oy + (cy-sy);
       chip.style.top=(mid+st.y)+'px';
       if(placeLeft) chip.style.right=(baseRight-st.x)+'px'; else chip.style.left=(baseLeft+st.x)+'px';
       updateLeader(); }
