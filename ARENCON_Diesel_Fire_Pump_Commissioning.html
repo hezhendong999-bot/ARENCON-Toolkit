@@ -369,23 +369,15 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fig-supply{display:flex;flex-wrap:wrap;gap:18px;padding:9px 16px;border-top:1px solid var(--border);background:var(--smoke);font-size:calc(11px + var(--ts));color:var(--steel);}
 .fig-supply b{color:var(--slate);font-weight:700;}
 .fig-supply:empty{display:none;}
-/* S221: Safety Margin badge — distinctive bordered pill below the supply strip */
-.fig-safety:empty{display:none;}
-.fig-safety{padding:11px 16px;border-top:1px solid var(--border);background:var(--smoke);}
-.fig-safety .safety-margin{display:inline-flex;flex-direction:column;gap:1px;padding:8px 16px;border-radius:9px;min-width:200px;}
-.fig-safety .sm-lbl{font-size:calc(9.5px + var(--ts));font-weight:800;letter-spacing:1.2px;color:var(--silver);text-transform:uppercase;}
-.fig-safety .sm-val{font-size:calc(22px + var(--ts));font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;}
-.fig-safety .sm-pct{font-size:calc(12px + var(--ts));font-weight:800;letter-spacing:.4px;}
-.fig-safety .sm-sub{font-size:calc(10px + var(--ts));color:var(--steel);margin-top:3px;}
+.sm-overlay{position:absolute;inset:0;pointer-events:none;}
+.sm-chip{font-family:Calibri,'Segoe UI',sans-serif;}
 body.dark-mode .fig{background:#1b212b;border-color:#323a48;}
 body.dark-mode .fig-hd{background:linear-gradient(135deg,#5a1a2a,#3d1220);color:#e8c0cc;border-bottom-color:#2A3A5C;}
 body.dark-mode .fig-legend,body.dark-mode .fig-supply,body.dark-mode .fig-leghint{background:#161b22;border-color:#323a48;}
 body.dark-mode .fig-legend .lg{background:#222933;border-color:#3a4250;}
 body.dark-mode .fig-legend .lg .lg-main{color:#c2c9d6;}
 body.dark-mode .fig-supply b{color:#d0d8f0;}
-body.dark-mode .fig-safety{background:#161b22;border-color:#323a48;}
-body.dark-mode .fig-safety .sm-sub{color:#9aa2b2;}
-body.dark-mode .fig-readout{background:#323a48;}
+body.dark-mode body.dark-mode .fig-readout{background:#323a48;}
 body.dark-mode .fig-readout .ro{background:#1b212b;}
 body.dark-mode .fig-readout .ro .val{color:#e6e9ee;}
 body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
@@ -1602,13 +1594,13 @@ function updatePhaseFlags(){
           <div class="fig-body">
             <div style="position:relative;height:460px;">
               <canvas id="chart3pt" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+              <div class="sm-overlay" id="smov-chart3pt" style="position:absolute;inset:0;pointer-events:none;"></div>
             </div>
           </div>
           <div class="fig-legend" id="figleg-chart3pt"></div>
           <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
           <div class="fig-readout" id="figro-chart3pt"></div>
           <div class="fig-supply" id="figsup-chart3pt"></div>
-          <div class="fig-safety" id="figsm-chart3pt"></div>
         </div>
         <canvas id="netPerfChart" style="display:none;width:1px;height:1px;"></canvas>
         <div id="cl-s4" style="margin-top:16px;padding:0 16px 16px;"></div>
@@ -1770,6 +1762,7 @@ function updatePhaseFlags(){
           <div class="fig-body">
             <div style="position:relative;height:500px;">
               <canvas id="pldChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+              <div class="sm-overlay" id="smov-pldChart" style="position:absolute;inset:0;pointer-events:none;"></div>
             </div>
             <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('pldChart')" id="ann-toggle-pldChart" style="font-size:11px;">🏷 Hide Annotations</button></div>
           </div>
@@ -1777,7 +1770,6 @@ function updatePhaseFlags(){
           <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
           <div class="fig-readout" id="figro-pldChart"></div>
           <div class="fig-supply" id="figsup-pldChart"></div>
-          <div class="fig-safety" id="figsm-pldChart"></div>
         </div>
       </div>
     </div>
@@ -3318,7 +3310,7 @@ function fixStickyColumns(){
     tbl.querySelectorAll('thead th:nth-child(2),tbody td:nth-child(2)').forEach(function(cell){cell.style.left=w+'px';});
   });
 }
-window.addEventListener('resize',function(){setTimeout(fixStickyColumns,100);});
+window.addEventListener('resize',function(){setTimeout(fixStickyColumns,100);setTimeout(function(){if(typeof renderSafetyMargin3pt==='function')renderSafetyMargin3pt();if(typeof renderSafetyMarginPld==='function')renderSafetyMarginPld();},160);});
 
 // Per-flow-point photo icon (opens bucket popover — Step 2 wires the popover)
 function _flowPhotoIcon(tbl, i){
@@ -3904,6 +3896,17 @@ function renderFigLegend3pt(){
       chart3pt.update(); renderFigLegend3pt();
     };
   });
+  _appendSafetyPill(host, 'chart3pt');
+}
+// S221: Safety Margin legend pill (toggles smState + connector, not a Chart.js dataset)
+function _appendSafetyPill(host, chartKey){
+  if(!host || !smState[chartKey]) return;
+  var on=smState[chartKey].on;
+  var el=document.createElement('span');
+  el.className='lg'+(on?'':' off');
+  el.innerHTML='<span class="lg-sm"><svg class="swc" viewBox="0 0 24 12"><line x1="12" y1="1" x2="12" y2="11" stroke="#3DBE6B" stroke-width="2.4" stroke-dasharray="2,3"/></svg>Safety Margin</span>';
+  el.querySelector('.lg-sm').onclick=function(){ toggleSafetyMargin(chartKey); };
+  host.appendChild(el);
 }
 // Shared pill-legend swatch builder (line / diamond / dot)
 function _figSwatch(d){
@@ -3955,6 +3958,7 @@ function renderFigLegendPld(){
   if(has(6)) defs.push({i:6, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],        t:'System Demand'});
   if(has(7)||has(8)) defs.push({i:7, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:8});
   _buildFigLegend(host, pldChart, defs);
+  _appendSafetyPill(host, 'pldChart');
 }
 // 4b — pldNetChart pill legend (datasets: 0 net w/PLD,1 net w/o,2 cutsheet,3 placard,4 PRV)
 function renderFigLegendPldNet(){
@@ -4097,29 +4101,118 @@ function _safetyMargin(pfx){
   var pct = demPsi>0 ? (marginPsi/demPsi*100) : null;
   return {avail:avail, demPsi:demPsi, demFlow:demFlow, psi:marginPsi, pct:pct};
 }
-function _safetyMarginHtml(m){
-  if(!m) return '';
-  var pos = m.psi > 0.05, neg = m.psi < -0.05;
-  var edge = pos ? '#5F8068' : neg ? '#A85959' : '#7A8290';
-  var bg   = pos ? 'rgba(95,128,104,.12)' : neg ? 'rgba(168,89,89,.12)' : 'rgba(122,130,144,.12)';
-  var sign = m.psi>0?'+':'';
-  var pctTxt = (m.pct!=null) ? (sign+m.pct.toFixed(1)+'%') : '—';
-  var psiTxt = sign + m.psi.toFixed(1) + ' psi';
-  var verdict = pos ? 'ADEQUATE' : neg ? 'DEFICIT' : 'AT LIMIT';
-  return '<div class="safety-margin" style="border-left:4px solid '+edge+';background:'+bg+';">'
-    +'<div class="sm-lbl">SAFETY MARGIN</div>'
-    +'<div class="sm-val" style="color:'+edge+';">'+psiTxt+'</div>'
-    +'<div class="sm-pct" style="color:'+edge+';">'+pctTxt+' · '+verdict+'</div>'
-    +'<div class="sm-sub">available '+m.avail.toFixed(1)+' psi − demand '+m.demPsi.toFixed(0)+' psi @ '+m.demFlow.toLocaleString()+' gpm</div>'
-    +'</div>';
+// ── S221: on-chart Safety Margin connector + draggable chip ──
+// State per chart: on/off (default ON) + chip drag offset. Saved per project via collectState.
+var smState = {
+  chart3pt: {on:true, x:0, y:0},
+  pldChart: {on:true, x:0, y:0}
+};
+function _smColor(margin, resp){
+  if(margin <= 0.001) return {c:'#C25B5B', word:'DEFICIT'};
+  var amber = Math.min(10, (resp||0)*0.10);
+  if(margin < amber) return {c:'#D6A93E', word:'TIGHT'};
+  return {c:'#3DBE6B', word:'ADEQUATE'};   // brighter than the sage measured curve
 }
-function renderSafetyMargin3pt(){
-  var host=document.getElementById('figsm-chart3pt'); if(!host) return;
-  host.innerHTML=_safetyMarginHtml(_safetyMargin(''));
+// pull live data for color thresholds (needs residual psi)
+function _smResidualPsi(pfx){ return parseFloat(document.getElementById(pfx+'ws-res-psi')?.value); }
+
+function renderSafetyConnector(chartKey, chartObj, pfx){
+  var ov=document.getElementById('smov-'+chartKey); if(!ov||!chartObj) return;
+  ov.innerHTML='';
+  var st=smState[chartKey]; if(!st||!st.on) return;
+  var m=_safetyMargin(pfx); if(!m) return;
+  var resp=_smResidualPsi(pfx);
+  var col=_smColor(m.psi, resp);
+  var sign=m.psi>0?'+':'';
+  var xs=chartObj.scales.x, ys=chartObj.scales.y; if(!xs||!ys) return;
+  var px=xs.getPixelForValue(m.demFlow);
+  var yDem=ys.getPixelForValue(m.demPsi);
+  var yAvail=ys.getPixelForValue(m.avail);
+  var top=Math.min(yDem,yAvail), bot=Math.max(yDem,yAvail), mid=(top+bot)/2;
+  var plotRight=xs.getPixelForValue(xs.max);
+  var placeLeft=(plotRight-px)<160;
+  var svgNS='http://www.w3.org/2000/svg';
+  var svg=document.createElementNS(svgNS,'svg');
+  svg.setAttribute('style','position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;');
+  // dashed vertical connector + end caps
+  var ln=document.createElementNS(svgNS,'line');
+  ln.setAttribute('x1',px);ln.setAttribute('x2',px);ln.setAttribute('y1',top);ln.setAttribute('y2',bot);
+  ln.setAttribute('stroke',col.c);ln.setAttribute('stroke-width','2.4');ln.setAttribute('stroke-dasharray','2 4');ln.setAttribute('stroke-linecap','round');
+  svg.appendChild(ln);
+  [top,bot].forEach(function(y){var t=document.createElementNS(svgNS,'line');t.setAttribute('x1',px-6);t.setAttribute('x2',px+6);t.setAttribute('y1',y);t.setAttribute('y2',y);t.setAttribute('stroke',col.c);t.setAttribute('stroke-width','2.4');t.setAttribute('stroke-linecap','round');svg.appendChild(t);});
+  // leader line (drawn if chip dragged away) — connects chip back to connector midpoint
+  var leader=document.createElementNS(svgNS,'line'); leader.setAttribute('stroke',col.c);leader.setAttribute('stroke-width','1.2');leader.setAttribute('stroke-dasharray','3 3');leader.setAttribute('opacity','0.7');
+  svg.appendChild(leader);
+  ov.appendChild(svg);
+  // chip
+  var baseLeft = placeLeft ? null : px+12;
+  var baseRight = placeLeft ? (plotRight-px+12) : null;
+  var pctTxt = m.demPsi>0 ? (sign+(m.psi/m.demPsi*100).toFixed(0)+'%') : '0%';
+  var chip=document.createElement('div');
+  chip.className='sm-chip';
+  chip.style.cssText='position:absolute;top:'+(mid+st.y)+'px;transform:translateY(-50%);'
+    +(placeLeft?'right:'+(baseRight-st.x)+'px;border-right:4px solid '+col.c+';border-left:1px solid '+col.c+'66;'
+                :'left:'+(baseLeft+st.x)+'px;border-left:4px solid '+col.c+';border-right:1px solid '+col.c+'66;')
+    +'background:var(--slate,#1e2533);border-top:1px solid '+col.c+'66;border-bottom:1px solid '+col.c+'66;'
+    +'border-radius:8px;padding:5px 11px;white-space:nowrap;box-shadow:0 2px 9px rgba(0,0,0,.4);'
+    +'cursor:grab;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:none;z-index:5;';
+  chip.innerHTML='<div style="font-size:calc(17px + var(--ts));font-weight:800;color:'+col.c+';line-height:1.05;">'+sign+m.psi.toFixed(1)+' psi</div>'
+    +'<div style="font-size:calc(11px + var(--ts));font-weight:700;color:'+col.c+';letter-spacing:.2px;">'+pctTxt+' · '+col.word+'</div>';
+  ov.appendChild(chip);
+  // position leader after chip is laid out
+  function updateLeader(){
+    var ovr=ov.getBoundingClientRect(), cr=chip.getBoundingClientRect();
+    var cx=(cr.left+cr.right)/2-ovr.left, cy=(cr.top+cr.bottom)/2-ovr.top;
+    var dist=Math.hypot(cx-px, cy-mid);
+    if(dist>46){ leader.setAttribute('x1',px);leader.setAttribute('y1',mid);leader.setAttribute('x2',cx);leader.setAttribute('y2',cy);leader.setAttribute('opacity','0.7'); }
+    else leader.setAttribute('opacity','0');
+  }
+  updateLeader();
+  // drag (mouse + touch), persisted in smState
+  function startDrag(sx,sy){
+    var ox=st.x, oy=st.y; chip.style.cursor='grabbing';
+    function mv(cx,cy){ st.x = ox + (placeLeft ? (sx-cx) : (cx-sx)); st.y = oy + (cy-sy);
+      chip.style.top=(mid+st.y)+'px';
+      if(placeLeft) chip.style.right=(baseRight-st.x)+'px'; else chip.style.left=(baseLeft+st.x)+'px';
+      updateLeader(); }
+    function mm(e){ mv(e.clientX,e.clientY); }
+    function tm(e){ if(e.touches[0]) mv(e.touches[0].clientX,e.touches[0].clientY); }
+    function up(){ chip.style.cursor='grab'; if(typeof debounceAutosave==='function') debounceAutosave();
+      window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',up);
+      window.removeEventListener('touchmove',tm);window.removeEventListener('touchend',up); }
+    window.addEventListener('mousemove',mm);window.addEventListener('mouseup',up);
+    window.addEventListener('touchmove',tm,{passive:false});window.addEventListener('touchend',up);
+  }
+  chip.addEventListener('mousedown',function(e){e.preventDefault();startDrag(e.clientX,e.clientY);});
+  chip.addEventListener('touchstart',function(e){if(e.touches[0]){e.preventDefault();startDrag(e.touches[0].clientX,e.touches[0].clientY);}},{passive:false});
 }
-function renderSafetyMarginPld(){
-  var host=document.getElementById('figsm-pldChart'); if(!host) return;
-  host.innerHTML=_safetyMarginHtml(_safetyMargin('pld-'));
+function renderSafetyMargin3pt(){ if(typeof chart3pt!=='undefined') renderSafetyConnector('chart3pt', chart3pt, ''); }
+function renderSafetyMarginPld(){ if(typeof pldChart!=='undefined') renderSafetyConnector('pldChart', pldChart, 'pld-'); }
+// PDF: safety-margin summary line — only when that chart's toggle is ON (so it never lands
+// in a client report unless deliberately shown). The on-chart SVG overlay can't be captured
+// by Chart.js toBase64Image, so the margin is reproduced here as text for the record.
+function _safetyMarginPdf(pfx, chartKey){
+  chartKey = chartKey || 'chart3pt';
+  if(!smState[chartKey] || !smState[chartKey].on) return '';
+  var m=_safetyMargin(pfx); if(!m) return '';
+  var resp=_smResidualPsi(pfx); var col=_smColor(m.psi, resp);
+  var sign=m.psi>0?'+':'';
+  var pctTxt=m.demPsi>0?(sign+(m.psi/m.demPsi*100).toFixed(0)+'%'):'—';
+  return '<div style="margin-top:8px;text-align:center;font-size:9pt;color:#333;">'
+    +'<span style="display:inline-block;border-left:4px solid '+col.c+';padding:4px 12px;background:#F7F7F7;border-radius:5px;">'
+    +'<b style="color:#1a1a1a;">Safety Margin: </b>'
+    +'<b style="color:'+col.c+';font-size:11pt;">'+sign+m.psi.toFixed(1)+' psi</b> '
+    +'<span style="color:'+col.c+';font-weight:700;">('+pctTxt+' · '+col.word+')</span> '
+    +'<span style="color:#666;">— available '+m.avail.toFixed(1)+' psi − demand '+m.demPsi.toFixed(0)+' psi @ '+m.demFlow.toLocaleString()+' gpm</span>'
+    +'</span></div>';
+}
+function toggleSafetyMargin(chartKey){
+  if(!smState[chartKey]) return;
+  smState[chartKey].on=!smState[chartKey].on;
+  if(chartKey==='chart3pt') renderSafetyMargin3pt(); else renderSafetyMarginPld();
+  if(chartKey==='chart3pt' && typeof renderFigLegend3pt==='function') renderFigLegend3pt();
+  if(chartKey==='pldChart' && typeof renderFigLegendPld==='function') renderFigLegendPld();
+  if(typeof debounceAutosave==='function') debounceAutosave();
 }
 
 // Inline readout strip for the PDF report (string form, muted FRT palette)
@@ -5570,7 +5663,7 @@ function _realExportPDF() {
       out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+totalDemF.toLocaleString()+' gpm</td><td>'+gv('dem-spr-psi')+' psi</td></tr>';
       out+='</tbody></table>';
       // Chart
-      if(chartImgA) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_buildReadoutStripHtml3pt()+'</div>';
+      if(chartImgA) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_buildReadoutStripHtml3pt()+_safetyMarginPdf('')+'</div>';
     }
 
     // PLD 7-Point table (only if pld)
@@ -5592,7 +5685,7 @@ function _realExportPDF() {
       out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+totalDemPld.toLocaleString()+' gpm</td><td>'+gv('pld-dem-spr-psi')+' psi</td></tr>';
       out+='</tbody></table>';
       // Charts
-      if(chartImgB) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</div><img src="'+chartImgB+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
+      if(chartImgB) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</div><img src="'+chartImgB+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_safetyMarginPdf('pld-','pldChart')+'</div>';
       if(chartImgC) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)</div><img src="'+chartImgC+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
     }
     return out;
@@ -6935,6 +7028,7 @@ function _applyStateInPlace(jsonStr) {
     if(s.sketchEntries) { sketchEntries.length=0; s.sketchEntries.forEach(function(e){sketchEntries.push(e);}); }
     if(s.formRevision) formRevision=s.formRevision;
     if(s.formDateModified) formDateModified=s.formDateModified;
+    if(s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
     updateRevisionDisplay();
     // Re-render all
     renderStdTable(); renderPldTable(); renderPumpCurveTable(); renderPldPumpCurveTable();
@@ -7443,6 +7537,7 @@ function collectState() {
     sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
+    smState: JSON.parse(JSON.stringify(smState)),
   };
 }
 
@@ -7715,6 +7810,8 @@ function _applyLoadedState(raw) {
     if (s.npshPsiPld !== undefined) { npshPsiPld = s.npshPsiPld; var _nep=document.getElementById('npsh-psi-pld'); if(_nep) _nep.value = s.npshPsiPld||''; }
     // pldData
     if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) Object.assign(pldData[i], r); });
+    // safety margin per-chart state (on/off + chip offset)
+    if (s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
     // pumpCurvePoints
     if (s.pumpCurvePoints) {
       pumpCurvePoints.length = 0;
