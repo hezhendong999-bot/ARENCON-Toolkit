@@ -148,9 +148,9 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .item-controls{display:flex;gap:8px;flex-shrink:0;align-items:center;}
 /* segmented Yes/No/N·A control */
 .cl-seg{display:inline-flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;flex:none;}
-.tog{border:none;background:#fff;padding:7px 13px;border-right:1.5px solid var(--border);border-radius:0;font-size:calc(12.5px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;color:var(--steel);transition:all .13s;letter-spacing:.3px;}
+.tog{border:none;background:#eceef2;padding:7px 13px;border-right:1.5px solid var(--border);border-radius:0;font-size:calc(12.5px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;color:#7a828f;transition:all .13s;letter-spacing:.3px;}
 .tog:last-child{border-right:none;}
-.tog:not(.on):hover{background:var(--smoke);}
+.tog:not(.on):hover{background:#e0e3e9;color:var(--steel);}
 .tog-yes.on{background:var(--cl-yes);color:#fff;}
 .tog-no.on{background:var(--cl-no);color:#fff;}
 .tog-na.on{background:var(--cl-na);color:#fff;}
@@ -355,8 +355,14 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fig-legend .lg.off{opacity:.42;}
 .fig-legend .lg .lg-main{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;cursor:pointer;font-size:calc(11.5px + var(--ts));color:var(--steel);white-space:nowrap;font-weight:600;}
 .fig-legend .lg .swc{flex:none;width:24px;height:12px;}
+/* S222: per-legend annotation toggle — small "A" on the right of each pill */
+.fig-legend .lg .lg-ann{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;align-self:stretch;
+  border-left:1px solid var(--border);cursor:pointer;font-weight:800;font-size:calc(11px + var(--ts));
+  color:#3F6E9C;background:rgba(63,110,156,.10);transition:background .12s,color .12s;}
+.fig-legend .lg .lg-ann:hover{background:rgba(63,110,156,.22);}
+.fig-legend .lg .lg-ann.aoff{color:var(--silver);background:transparent;}
 .fig-leghint{font-size:calc(10.5px + var(--ts));color:var(--silver);padding:0 16px 11px;background:var(--smoke);margin-top:-1px;}
-@media(pointer:coarse){.fig-legend .lg .lg-main{padding:8px 13px;}}
+@media(pointer:coarse){.fig-legend .lg .lg-main{padding:8px 13px;} .fig-legend .lg .lg-ann{width:32px;}}
 .fig-readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--border);border-top:1px solid var(--border);}
 .fig-readout .ro{background:#fff;padding:9px 6px;text-align:center;}
 .fig-readout .ro .pct{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);letter-spacing:.4px;text-transform:uppercase;}
@@ -376,6 +382,8 @@ body.dark-mode .fig-hd{background:linear-gradient(135deg,#5a1a2a,#3d1220);color:
 body.dark-mode .fig-legend,body.dark-mode .fig-supply,body.dark-mode .fig-leghint{background:#161b22;border-color:#323a48;}
 body.dark-mode .fig-legend .lg{background:#222933;border-color:#3a4250;}
 body.dark-mode .fig-legend .lg .lg-main{color:#c2c9d6;}
+body.dark-mode .fig-legend .lg .lg-ann{border-left-color:#3a4250;color:#5DA0E0;background:rgba(93,160,224,.12);}
+body.dark-mode .fig-legend .lg .lg-ann.aoff{color:#6a7280;background:transparent;}
 body.dark-mode .fig-supply b{color:#d0d8f0;}
 body.dark-mode body.dark-mode .fig-readout{background:#323a48;}
 body.dark-mode .fig-readout .ro{background:#1b212b;}
@@ -798,9 +806,11 @@ body.dark-mode .np-head{background:#242a36!important;border-bottom-color:#2a3040
 body.dark-mode .battery-card{border-color:#33373f;}body.dark-mode .battery-card-header{background:#3a1a28;}
 body.dark-mode .battery-table th{background:#282b34;color:#8a90a0;}
 body.dark-mode .subsection-note{background:#2a2820;color:#c8a840;border-color:#5a4a20;}
-body.dark-mode .tog-yes{background:#1a3020;color:#4aba5a;}body.dark-mode .tog-yes.on{background:#5F8068;color:#fff;}
-body.dark-mode .tog-no{background:#3a1a1a;color:#e06050;}body.dark-mode .tog-no.on{background:#A85959;color:#fff;}
-body.dark-mode .tog-na{background:#282b34;color:#7a8090;}body.dark-mode .tog-na.on{background:#5A6473;color:#fff;}
+body.dark-mode .tog{background:#242a33;color:#8a93a2;}
+body.dark-mode .tog:not(.on):hover{background:#2c333d;color:#c2c9d6;}
+body.dark-mode .tog-yes.on{background:#5F8068;color:#fff;}
+body.dark-mode .tog-no.on{background:#A85959;color:#fff;}
+body.dark-mode .tog-na.on{background:#5A6473;color:#fff;}
 body.dark-mode .cl-item.s-yes{border-left-color:#2a8a4a;}body.dark-mode .cl-item.s-no{border-left-color:#c04030;}
 body.dark-mode .cl-item.s-na{border-left-color:#4a5060;opacity:.7;}
 body.dark-mode .cl-item:not(.s-yes):not(.s-no):not(.s-na){border-left-color:#a08020;}
@@ -1489,8 +1499,8 @@ function updatePhaseFlags(){
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow" placeholder="2000" oninput="autoFillStdFlows()"></div>
               <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv" placeholder="175" oninput="updateChart()"></div>
               <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart();if(typeof renderStdTable==='function')renderStdTable();if(typeof renderPldTable==='function')renderPldTable();"></div>
-              <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief" placeholder="e.g. 185" title="Circulation/main pressure relief valve set pressure (recorded for the report)"></div>
-              <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing" placeholder="e.g. 165" title="Pressure reducing valve set pressure (recorded for the report)"></div>
+              <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief" placeholder="e.g. 185" oninput="updateChart()" title="Circulation/main pressure relief valve set pressure — caps the actual output curve"></div>
+              <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing" placeholder="e.g. 165" oninput="updateChart()" title="Pressure reducing valve set pressure — caps the actual output curve"></div>
               <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpsh(this.value)"></div>
             </div>
             <div class="ev-lbl">Photo Evidence</div>
@@ -1626,8 +1636,8 @@ function updatePhaseFlags(){
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow-pld" placeholder="2000" oninput="autoFillPldFlows()"></div>
               <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart()"></div>
               <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760" oninput="if(typeof renderPldTable==='function')renderPldTable();"></div>
-              <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief-pld" placeholder="e.g. 185" title="Circulation/main pressure relief valve set pressure (recorded for the report)"></div>
-              <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing-pld" placeholder="e.g. 165" title="Pressure reducing valve set pressure (recorded for the report)"></div>
+              <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief-pld" placeholder="e.g. 185" oninput="updatePldChart()" title="Circulation/main pressure relief valve set pressure — caps the actual output curve"></div>
+              <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing-pld" placeholder="e.g. 165" oninput="updatePldChart()" title="Pressure reducing valve set pressure — caps the actual output curve"></div>
               <div class="meta-field"><label>PLD Setting (psi)</label><input type="number" id="pm-pld-setting" placeholder="175" oninput="updatePldChart()"></div>
               <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi-pld" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpshPld(this.value)"></div>
             </div>
@@ -3860,18 +3870,21 @@ function renderFigLegend3pt(){
   var host=document.getElementById('figleg-chart3pt'); if(!host||!chart3pt) return;
   var ds=chart3pt.data.datasets;
   function has(i){return ds[i]&&ds[i].data&&ds[i].data.length;}
-  // {i:dsIdx, c:color, kind:'line'|'dia'|'dot', dash:[...], t:label, also:idx?}
+  // {i:dsIdx, c:color, kind, dash, t:label, also:idx?, cap:'reducing'|'relief'|'pld'?, primary:bool?}
   var defs=[];
-  if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge'});
+  if(has(15)) defs.push({i:15,c:'#D4A017', kind:'line', dash:[],          t:'Actual Output'});
+  if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge', primary:true});
   if(has(1)) defs.push({i:1, c:'#9C2742', kind:'line', dash:[10,5],      t:'Pump Curve'});
   if(has(0)) defs.push({i:0, c:'#6E86B8', kind:'line', dash:[],          t:'Available Supply'});
   if(has(3)) defs.push({i:3, c:'#4A7BA8', kind:'line', dash:[8,4,2,4],   t:'Net Pressure'});
   if(has(6)) defs.push({i:6, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Sprinkler Demand'});
   if(has(8)) defs.push({i:8, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Outside Hose'});
+  if(has(13)) defs.push({i:13,c:'#4A8C8C', kind:'line', dash:[6,4],      t:'Pressure Reducing', cap:'reducing'});
+  if(has(14)) defs.push({i:14,c:'#B05A7A', kind:'line', dash:[6,4],      t:'Pressure Relief', cap:'relief'});
   if(has(11)) defs.push({i:11,c:'#4A7BA8', kind:'line', dash:[2,3],      t:'Cutsheet'});
   if(has(12)) defs.push({i:12,c:'#7D6F9C', kind:'line', dash:[2,3],      t:'Placard'});
   if(has(10)) defs.push({i:10,c:'#A85959', kind:'line', dash:[2,3],      t:'PRV Rating'});
-  if(has(9)) defs.push({i:9, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],          t:'System Demand'});
+  if(has(9)) defs.push({i:9, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],          t:'System Demand', primary:true});
   if(has(4)||has(5)) defs.push({i:4, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:5});
   function swatch(d){
     if(d.kind==='dia') return '<svg class="swc" viewBox="0 0 24 12"><rect x="7" y="2" width="8" height="8" transform="rotate(45 11 6)" fill="'+d.c+'"/></svg>';
@@ -3883,9 +3896,12 @@ function renderFigLegend3pt(){
   defs.forEach(function(d){
     var meta=chart3pt.getDatasetMeta(d.i);
     var hidden=meta.hidden===true;
+    var allowDef = !!d.primary;   // primary curve + system-demand are labelled by default
+    var aOff = !_annOn('chart3pt', d.i, allowDef);
     var el=document.createElement('span');
     el.className='lg'+(hidden?' off':'');
-    el.innerHTML='<span class="lg-main" data-i="'+d.i+'"'+(d.also!=null?' data-also="'+d.also+'"':'')+'>'+swatch(d)+d.t+'</span>';
+    el.innerHTML='<span class="lg-main" data-i="'+d.i+'"'+(d.also!=null?' data-also="'+d.also+'"':'')+(d.cap?' data-cap="'+d.cap+'"':'')+'>'+swatch(d)+d.t+'</span>'
+      +'<span class="lg-ann'+(aOff?' aoff':'')+'" data-i="'+d.i+'" data-def="'+(allowDef?1:0)+'" title="Toggle this curve\u2019s on-chart labels">A</span>';
     host.appendChild(el);
   });
   host.querySelectorAll('.lg-main').forEach(function(m){
@@ -3893,7 +3909,16 @@ function renderFigLegend3pt(){
       var i=+m.dataset.i, also=m.dataset.also!=null?+m.dataset.also:null;
       var mt=chart3pt.getDatasetMeta(i); mt.hidden=!mt.hidden;
       if(also!=null) chart3pt.getDatasetMeta(also).hidden=mt.hidden;
+      // S222: a cap pill toggled off leaves the golden min(); re-shape the golden curve.
+      if(m.dataset.cap){ smCapVis.chart3pt[m.dataset.cap] = mt.hidden!==true; updateChart3pt(); }
       chart3pt.update(); renderFigLegend3pt();
+    };
+  });
+  host.querySelectorAll('.lg-ann').forEach(function(a){
+    a.onclick=function(e){
+      e.stopPropagation();
+      toggleDsAnnotation('chart3pt', +a.dataset.i, a.dataset.def==='1');
+      a.classList.toggle('aoff', !_annOn('chart3pt', +a.dataset.i, a.dataset.def==='1'));
     };
   });
   _appendSafetyPill(host, 'chart3pt');
@@ -3915,32 +3940,50 @@ function _figSwatch(d){
   var da=d.dash&&d.dash.length?' stroke-dasharray="'+d.dash.join(',')+'"':'';
   return '<svg class="swc" viewBox="0 0 24 12"><line x1="1" y1="6" x2="23" y2="6" stroke="'+d.c+'" stroke-width="2"'+da+'/></svg>';
 }
-// Shared pill-legend builder — wires tap-to-toggle for the given chart instance
-function _buildFigLegend(host, chart, defs){
+// Shared pill-legend builder — wires tap-to-toggle for the given chart instance.
+// chartKey ('chart3pt'|'pldChart'|'pldNetChart') enables the per-pill annotation "A" button
+// and cap-visibility wiring. defs entries may carry: primary:true (labelled by default),
+// cap:'pld'|'reducing'|'relief' (toggling the pill removes it from the golden min()).
+function _buildFigLegend(host, chart, defs, chartKey){
   if(!host||!chart) return;
   host.innerHTML='';
   defs.forEach(function(d){
     var ds0=chart.data.datasets[d.i];
     var hidden = ds0 ? (ds0.hidden===true) : false;
+    var allowDef = !!d.primary;
+    var aOff = chartKey ? !_annOn(chartKey, d.i, allowDef) : true;
     var el=document.createElement('span');
     el.className='lg'+(hidden?' off':'');
-    el.innerHTML='<span class="lg-main" data-i="'+d.i+'"'+(d.also!=null?' data-also="'+d.also+'"':'')+'>'+_figSwatch(d)+d.t+'</span>';
+    var annBtn = chartKey ? ('<span class="lg-ann'+(aOff?' aoff':'')+'" data-i="'+d.i+'" data-def="'+(allowDef?1:0)+'" title="Toggle this curve\u2019s on-chart labels">A</span>') : '';
+    el.innerHTML='<span class="lg-main" data-i="'+d.i+'"'+(d.also!=null?' data-also="'+d.also+'"':'')+(d.cap?' data-cap="'+d.cap+'"':'')+'>'+_figSwatch(d)+d.t+'</span>'+annBtn;
     host.appendChild(el);
   });
   host.querySelectorAll('.lg-main').forEach(function(m){
     m.onclick=function(){
       var i=+m.dataset.i, also=m.dataset.also!=null?+m.dataset.also:null;
-      // S221: toggle the dataset's own `hidden` flag (persists across chart.update and
-      // re-renders) instead of meta.hidden, which Chart.js can reset to null/desync — that
-      // was the flaky Placard pill (its data is intermittent, so meta state churned).
       var d0=chart.data.datasets[i]; if(!d0) return;
       var nowHidden = !(d0.hidden===true);
       d0.hidden = nowHidden;
       if(also!=null && chart.data.datasets[also]) chart.data.datasets[also].hidden = nowHidden;
+      // S222: cap pill toggled off leaves the golden min(); re-shape via the chart's update fn.
+      if(chartKey && m.dataset.cap){
+        smCapVis[chartKey][m.dataset.cap] = nowHidden!==true;
+        if(chartKey==='pldChart' && typeof updatePldChart==='function') updatePldChart();
+        else if(chartKey==='chart3pt' && typeof updateChart3pt==='function') updateChart3pt();
+      }
       chart.update();
       m.closest('.lg').classList.toggle('off', nowHidden);
     };
   });
+  if(chartKey){
+    host.querySelectorAll('.lg-ann').forEach(function(a){
+      a.onclick=function(e){
+        e.stopPropagation();
+        toggleDsAnnotation(chartKey, +a.dataset.i, a.dataset.def==='1');
+        a.classList.toggle('aoff', !_annOn(chartKey, +a.dataset.i, a.dataset.def==='1'));
+      };
+    });
+  }
 }
 // 4b — pldChart pill legend (datasets: 0 supply,1 pump,2 measured,3 SD line,4 SD pt,5 OHL,6 demand,7 static,8 residual,9 PRV,10 PLD)
 function renderFigLegendPld(){
@@ -3948,16 +3991,19 @@ function renderFigLegendPld(){
   var ds=pldChart.data.datasets;
   function has(i){return ds[i]&&ds[i].data&&ds[i].data.length;}
   var defs=[];
-  if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge (w/ PLD)'});
+  if(has(13))defs.push({i:13,c:'#D4A017', kind:'line', dash:[],          t:'Actual Output'});
+  if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge (w/ PLD)', primary:true});
   if(has(1)) defs.push({i:1, c:'#9C2742', kind:'line', dash:[10,5],      t:'Pump Curve'});
   if(has(0)) defs.push({i:0, c:'#6E86B8', kind:'line', dash:[],          t:'Available Supply'});
   if(has(3)) defs.push({i:3, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4], t:'Sprinkler Demand'});
   if(has(5)) defs.push({i:5, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4], t:'Outside Hose'});
+  if(has(10))defs.push({i:10,c:'#7D6F9C', kind:'line', dash:[2,3],       t:'PLD Setting', cap:'pld'});
+  if(has(11))defs.push({i:11,c:'#4A8C8C', kind:'line', dash:[6,4],       t:'Pressure Reducing', cap:'reducing'});
+  if(has(12))defs.push({i:12,c:'#B05A7A', kind:'line', dash:[6,4],       t:'Pressure Relief', cap:'relief'});
   if(has(9)) defs.push({i:9, c:'#A85959', kind:'line', dash:[2,3],       t:'PRV Rating'});
-  if(has(10))defs.push({i:10,c:'#7D6F9C', kind:'line', dash:[2,3],       t:'PLD Setting'});
-  if(has(6)) defs.push({i:6, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],        t:'System Demand'});
+  if(has(6)) defs.push({i:6, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],        t:'System Demand', primary:true});
   if(has(7)||has(8)) defs.push({i:7, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:8});
-  _buildFigLegend(host, pldChart, defs);
+  _buildFigLegend(host, pldChart, defs, 'pldChart');
   _appendSafetyPill(host, 'pldChart');
 }
 // 4b — pldNetChart pill legend (datasets: 0 net w/PLD,1 net w/o,2 cutsheet,3 placard,4 PRV)
@@ -4082,10 +4128,91 @@ function renderFigVerdictPldNet(){
 }
 function refreshFigPldNet(){ renderFigLegendPldNet(); renderFigReadoutPldNet(); renderFigVerdictPldNet(); }
 
-// ── S221: SAFETY MARGIN ──
-// margin = available supply pressure (evaluated AT the total demand flow, incl. hose) − total
-// system demand pressure. Returned in psi (can be + / − / 0) and as a % of demand pressure.
-// pfx: '' for 3-Point, 'pld-' for 7-Point.
+// ── S222: GOLDEN "ACTUAL OUTPUT" CURVE + CAP MODEL ──
+// The system can never deliver more than the lowest active+visible pressure cap. The golden
+// curve = min(measured discharge, lowest active cap) across the full flow range. The safety
+// margin measures to this golden line at the total demand flow.
+//
+// Cap inputs differ by chart. PLD only exists on 7-Point. Relief/Reducing on both.
+//   3-Point ('') : pm-relief, pm-reducing            (no PLD field)
+//   7-Point ('pld-'): pm-relief-pld, pm-reducing-pld, pm-pld-setting
+// Each cap has a legend pill; turning the pill off removes that cap from the min().
+// smCapVis[chartKey][capName] = true (visible/active) | false (legend toggled off).
+var smCapVis = {
+  chart3pt: {relief:true, reducing:true},
+  pldChart: {relief:true, reducing:true, pld:true}
+};
+function _capInputs(pfx){
+  if(pfx==='pld-') return [
+    {name:'pld',      id:'pm-pld-setting'},
+    {name:'reducing', id:'pm-reducing-pld'},
+    {name:'relief',   id:'pm-relief-pld'}
+  ];
+  return [
+    {name:'reducing', id:'pm-reducing'},
+    {name:'relief',   id:'pm-relief'}
+  ];
+}
+function _chartKeyForPfx(pfx){ return pfx==='pld-' ? 'pldChart' : 'chart3pt'; }
+function _lowestActiveCap(pfx){
+  var key=_chartKeyForPfx(pfx); var vis=smCapVis[key]||{};
+  var lowest=null;
+  _capInputs(pfx).forEach(function(c){
+    if(vis[c.name]===false) return;
+    var v=parseFloat(document.getElementById(c.id)?.value);
+    if(isNaN(v)||v<=0) return;
+    if(lowest===null||v<lowest) lowest=v;
+  });
+  return lowest;
+}
+function _measuredDischargePts(pfx){
+  var src = (pfx==='pld-') ? (typeof pldData!=='undefined'?pldData:[]) : (typeof stdData!=='undefined'?stdData:[]);
+  return src.map(function(r){
+    var f = (typeof rowFlow==='function') ? rowFlow(r) : parseFloat(r.flow);
+    var d = parseFloat(pfx==='pld-' ? (r.dis_w!=null?r.dis_w:r.discharge) : r.discharge);
+    if(isNaN(f)||isNaN(d)) return null;
+    return {x:f, y:d};
+  }).filter(Boolean).sort(function(a,b){return a.x-b.x;});
+}
+function _interpCurve(curve, flow){
+  if(!curve||!curve.length) return null;
+  if(flow<=curve[0].x) return curve[0].y;
+  if(flow>=curve[curve.length-1].x) return curve[curve.length-1].y;
+  for(var i=0;i<curve.length-1;i++){
+    var a=curve[i], b=curve[i+1];
+    if(flow>=a.x&&flow<=b.x){ var t=(b.x===a.x)?0:(flow-a.x)/(b.x-a.x); return a.y+t*(b.y-a.y); }
+  }
+  return curve[curve.length-1].y;
+}
+function _goldenCurve(pfx){
+  var dis=_measuredDischargePts(pfx);
+  if(!dis.length) return [];
+  var cap=_lowestActiveCap(pfx);
+  var pts=[];
+  for(var i=0;i<dis.length;i++){
+    var x=dis[i].x, y=dis[i].y;
+    pts.push({x:x, y:(cap!=null)?Math.min(y,cap):y});
+    if(cap!=null && i<dis.length-1){
+      var x2=dis[i+1].x, y2=dis[i+1].y;
+      if((y>cap)!==(y2>cap) && y!==y2){
+        var t=(cap-y)/(y2-y); var xc=x+t*(x2-x);
+        pts.push({x:xc, y:cap});
+      }
+    }
+  }
+  return pts.sort(function(a,b){return a.x-b.x;});
+}
+function _goldenAt(pfx, flow){
+  var g=_goldenCurve(pfx);
+  if(g.length) return _interpCurve(g, flow);
+  return null;
+}
+
+// ── SAFETY MARGIN (S222 rewrite) ──
+// margin = golden "actual output" pressure AT the total demand flow − total system demand
+// pressure. Golden = min(measured discharge, lowest active cap). When no pump/discharge data
+// exists, falls back to the raw water-supply hydraulic curve (pre-S222 behaviour).
+// Returned in psi (+/−/0) and as a % of demand pressure. pfx: '' (3-Point) | 'pld-' (7-Point).
 function _safetyMargin(pfx){
   var sf=parseFloat(document.getElementById(pfx+'ws-static-flow')?.value)||0;
   var sp=parseFloat(document.getElementById(pfx+'ws-static-psi')?.value);
@@ -4093,13 +4220,22 @@ function _safetyMargin(pfx){
   var rp=parseFloat(document.getElementById(pfx+'ws-res-psi')?.value);
   var demFlow=parseFloat(document.getElementById(pfx+'dem-flow')?.value);
   var demPsi =parseFloat(document.getElementById(pfx+'dem-psi')?.value);
-  if(isNaN(sp)||isNaN(rf)||isNaN(rp)||rf<=0||isNaN(demFlow)||isNaN(demPsi)||demFlow<0) return null;
-  // available supply pressure at the demand flow (hydraulic 1.85 curve)
-  var ratio = Math.pow(Math.max(demFlow,0)/rf, 1.85);
-  var avail = sp - (sp - rp) * ratio;
+  if(isNaN(demFlow)||isNaN(demPsi)||demFlow<0) return null;
+  var avail, basis;
+  // Preferred: golden "actual output" curve (pump + caps) read at the demand flow.
+  var gold=_goldenAt(pfx, demFlow);
+  if(gold!=null){
+    avail=gold; basis='golden';
+  } else {
+    // No pump/discharge data → fall back to raw water-supply hydraulic 1.85 curve.
+    if(isNaN(sp)||isNaN(rf)||isNaN(rp)||rf<=0) return null;
+    var ratio = Math.pow(Math.max(demFlow,0)/rf, 1.85);
+    avail = sp - (sp - rp) * ratio;
+    basis='supply';
+  }
   var marginPsi = avail - demPsi;
   var pct = demPsi>0 ? (marginPsi/demPsi*100) : null;
-  return {avail:avail, demPsi:demPsi, demFlow:demFlow, psi:marginPsi, pct:pct};
+  return {avail:avail, demPsi:demPsi, demFlow:demFlow, psi:marginPsi, pct:pct, basis:basis};
 }
 // ── S221: on-chart Safety Margin connector + draggable chip ──
 // State per chart: on/off (default ON) + chip drag offset. Saved per project via collectState.
@@ -4156,8 +4292,8 @@ function renderSafetyConnector(chartKey, chartObj, pfx){
     +'background:var(--slate,#1e2533);border-top:1px solid '+col.c+'66;border-bottom:1px solid '+col.c+'66;'
     +'border-radius:8px;padding:5px 11px;white-space:nowrap;box-shadow:0 2px 9px rgba(0,0,0,.4);'
     +'cursor:grab;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:none;z-index:5;';
-  chip.innerHTML='<div style="font-size:calc(17px + var(--ts));font-weight:800;color:'+col.c+';line-height:1.05;">'+sign+m.psi.toFixed(1)+' psi</div>'
-    +'<div style="font-size:calc(11px + var(--ts));font-weight:700;color:'+col.c+';letter-spacing:.2px;">'+pctTxt+' · '+col.word+'</div>';
+  chip.innerHTML='<div style="font-size:calc(13px + var(--ts));font-weight:800;color:'+col.c+';line-height:1.1;">'+sign+m.psi.toFixed(1)+' psi</div>'
+    +'<div style="font-size:calc(10px + var(--ts));font-weight:700;color:'+col.c+';letter-spacing:.2px;">'+pctTxt+' · '+col.word+'</div>';
   ov.appendChild(chip);
   // position leader after chip is laid out
   function updateLeader(){
@@ -4203,7 +4339,7 @@ function _safetyMarginPdf(pfx, chartKey){
     +'<b style="color:#1a1a1a;">Safety Margin: </b>'
     +'<b style="color:'+col.c+';font-size:11pt;">'+sign+m.psi.toFixed(1)+' psi</b> '
     +'<span style="color:'+col.c+';font-weight:700;">('+pctTxt+' · '+col.word+')</span> '
-    +'<span style="color:#666;">— available '+m.avail.toFixed(1)+' psi − demand '+m.demPsi.toFixed(0)+' psi @ '+m.demFlow.toLocaleString()+' gpm</span>'
+    +'<span style="color:#666;">— actual output '+m.avail.toFixed(1)+' psi '+(m.basis==='golden'?'(pump w/ limiters)':'(water supply)')+' \u2212 demand '+m.demPsi.toFixed(0)+' psi @ '+m.demFlow.toLocaleString()+' gpm</span>'
     +'</span></div>';
 }
 function toggleSafetyMargin(chartKey){
@@ -4284,6 +4420,15 @@ function initChart3pt() {
       // 12: Placard line
       { label:'Placard', data:[], borderColor:'#7D6F9C', backgroundColor:'transparent',
         showLine:true, fill:false, tension:0, pointRadius:2, borderWidth:1.4, borderDash:[2,3], datalabels:labelOff},
+      // 13: Pressure Reducing Valve cap — teal, flat dashed
+      { label:'Pressure Reducing', data:[], borderColor:'#4A8C8C', backgroundColor:'transparent',
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.6, borderDash:[6,4], datalabels:labelOff},
+      // 14: Pressure Relief Valve cap — mauve, flat dashed
+      { label:'Pressure Relief', data:[], borderColor:'#B05A7A', backgroundColor:'transparent',
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.6, borderDash:[6,4], datalabels:labelOff},
+      // 15: GOLDEN actual-output curve — gold, thick, drawn on top (lowest order = front)
+      { label:'Actual Output (w/ limiters)', data:[], borderColor:'#D4A017', backgroundColor:'transparent',
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:4, order:-1, datalabels:labelOff},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
@@ -4357,6 +4502,15 @@ function updateChart3pt() {
   chart3pt.data.datasets[10].data = prv3>0 ? [{x:0,y:prv3},{x:maxFlow3,y:prv3}] : [];
   chart3pt.data.datasets[11].data = buildCutsheetLine3pt();
   chart3pt.data.datasets[12].data = buildPlacardLine3pt();
+  // 13/14: cap lines — flat across full flow when entered (regardless of legend visibility;
+  //        the legend hides the dataset itself, and smCapVis drives the golden min()).
+  var maxFlowCap3 = stdDis.length ? Math.max(maxFlow3, Math.max.apply(null,stdDis.map(function(p){return p.x;}))) : 3000;
+  var redV3 = parseFloat(document.getElementById('pm-reducing')?.value);
+  var relV3 = parseFloat(document.getElementById('pm-relief')?.value);
+  chart3pt.data.datasets[13].data = (!isNaN(redV3)&&redV3>0) ? [{x:0,y:redV3},{x:maxFlowCap3,y:redV3}] : [];
+  chart3pt.data.datasets[14].data = (!isNaN(relV3)&&relV3>0) ? [{x:0,y:relV3},{x:maxFlowCap3,y:relV3}] : [];
+  // 15: golden actual-output curve = min(measured discharge, lowest active cap)
+  chart3pt.data.datasets[15].data = _goldenCurve('');
   // Shift x-axis left when only 0% data
   var allX3 = stdDis.map(function(p){return p.x;});
   var maxX3 = allX3.length ? Math.max.apply(null,allX3) : 0;
@@ -4401,6 +4555,12 @@ function initPldChart() {
       {label:'PRV Rating',data:[],borderColor:'#A85959',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[2,3],datalabels:labelOff},
       // 10: PLD Setting — muted plum, dotted (Scheme A)
       {label:'PLD Setting',data:[],borderColor:'#7D6F9C',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[2,3],datalabels:labelOff},
+      // 11: Pressure Reducing Valve cap — teal, flat dashed
+      {label:'Pressure Reducing',data:[],borderColor:'#4A8C8C',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[6,4],datalabels:labelOff},
+      // 12: Pressure Relief Valve cap — mauve, flat dashed
+      {label:'Pressure Relief',data:[],borderColor:'#B05A7A',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[6,4],datalabels:labelOff},
+      // 13: GOLDEN actual-output curve — gold, thick, drawn on top
+      {label:'Actual Output (w/ limiters)',data:[],borderColor:'#D4A017',backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:4,order:-1,datalabels:labelOff},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
@@ -4447,6 +4607,13 @@ function updatePldChart() {
   // PLD setting line
   var pldSet = parseFloat(document.getElementById('pm-pld-setting')?.value)||0;
   pldChart.data.datasets[10].data = pldSet>0 ? [{x:0,y:pldSet},{x:maxFlowPld,y:pldSet}] : [];
+  // 11/12: cap lines (reducing/relief) — flat across full flow when entered
+  var redVPld = parseFloat(document.getElementById('pm-reducing-pld')?.value);
+  var relVPld = parseFloat(document.getElementById('pm-relief-pld')?.value);
+  pldChart.data.datasets[11].data = (!isNaN(redVPld)&&redVPld>0) ? [{x:0,y:redVPld},{x:maxFlowPld,y:redVPld}] : [];
+  pldChart.data.datasets[12].data = (!isNaN(relVPld)&&relVPld>0) ? [{x:0,y:relVPld},{x:maxFlowPld,y:relVPld}] : [];
+  // 13: golden actual-output curve = min(measured discharge, lowest active cap incl. PLD)
+  pldChart.data.datasets[13].data = _goldenCurve('pld-');
   // Shift x-axis left when only 0% data so points show on y-axis edge
   var allXpld = wPLDDis.map(function(p){return p.x;});
   var maxXpld = allXpld.length ? Math.max.apply(null,allXpld) : 0;
@@ -6643,6 +6810,24 @@ var _selectedAnnotationKey = null;
 var _selectedAnnotationChart = null; // { key: {offX, offY} } for dragged positions
 var chartAnnotationsVisible = {chart3pt:true, pldChart:true, pldNetChart:true};
 var chartAnnotationsDeleted = {}; // { key: true } for individually deleted annotations
+// S222: per-dataset annotation override (the per-legend "A" button).
+// annDsForce[canvasId][dsIdx] === true  → force this dataset's labels ON (even if not in allow-list)
+// annDsForce[canvasId][dsIdx] === false → force this dataset's labels OFF (even if in allow-list)
+// undefined → fall back to the allow-list default.
+var annDsForce = {chart3pt:{}, pldChart:{}, pldNetChart:{}};
+function _annOn(canvasId, dsIdx, allowDefault){
+  var m=annDsForce[canvasId]; if(!m) return allowDefault;
+  var v=m[dsIdx];
+  return (v===true) ? true : (v===false) ? false : allowDefault;
+}
+function toggleDsAnnotation(canvasId, dsIdx, allowDefault){
+  if(!annDsForce[canvasId]) annDsForce[canvasId]={};
+  var cur=_annOn(canvasId, dsIdx, allowDefault);
+  annDsForce[canvasId][dsIdx] = !cur;   // flip current effective state
+  var chart = canvasId==='chart3pt'?chart3pt:(canvasId==='pldChart'?pldChart:pldNetChart);
+  if(chart && typeof renderChartAnnotations==='function') renderChartAnnotations(chart, canvasId);
+  if(typeof debounceAutosave==='function') debounceAutosave();
+}
  // { chartId: [{ dsIdx, ptIdx, x, y, offsetX, offsetY }] }
 
 
@@ -6712,7 +6897,9 @@ function renderChartAnnotations(chartInstance, canvasId) {
   chart.data.datasets.forEach(function(ds, dsIdx) {
     // Use stored formatter if available (display was disabled for Chart.js but we render manually)
     var fmt = (chart._storedFormatters && chart._storedFormatters[dsIdx]) || (ds.datalabels && ds.datalabels.formatter);
-    if(!fmt) return;
+    // S222: a dataset force-toggled ON via its legend "A" button has no formatter — let it
+    // through and synthesize a label below. Without a force-on, keep the original fast bail.
+    if(!fmt && annDsForce[canvasId] && annDsForce[canvasId][dsIdx]!==true) return;
     var dsColor = (chart._storedColors && chart._storedColors[dsIdx]) || (ds.datalabels && ds.datalabels.color) || ds.borderColor || '#333';
     ds.data.forEach(function(pt, ptIdx) {
       if(!pt) return;
@@ -6747,7 +6934,9 @@ function renderChartAnnotations(chartInstance, canvasId) {
       };
       var _isPrimary = !!_ANNOTATE_PRIMARY[_lbl];
       var _isPoint   = !!_ANNOTATE_POINTS[_lbl];
-      if(!_isPrimary && !_isPoint) return;   // everything else: drawn, not labelled
+      var _allowDefault = _isPrimary || _isPoint;
+      // S222: per-legend "A" toggle can force ON (label a normally-silent curve) or force OFF.
+      if(!_annOn(canvasId, dsIdx, _allowDefault)) return;
       // Skip annotations for zero-value points (0 gpm @ 0 psi)
       if(pt.x === 0 && pt.y === 0) return;
       var text = '';
@@ -6756,6 +6945,10 @@ function renderChartAnnotations(chartInstance, canvasId) {
           text = fmt(pt, {dataIndex:ptIdx, dataset:ds, chart:chart, datasetIndex:dsIdx});
         }
       } catch(e) {}
+      // S222: forced-on curves often have no datalabels formatter — synthesize a label.
+      if(!text && pt && typeof pt.x!=='undefined' && typeof pt.y!=='undefined'){
+        text = Math.round(pt.x).toLocaleString()+' gpm\n@ '+Math.round(pt.y)+' psi';
+      }
       if(!text) return;
       // Deduplicate: skip if another annotation already exists at very close coordinates
       var dedupKey = canvasId + '_pos_' + Math.round(px) + '_' + Math.round(py);
@@ -7029,6 +7222,8 @@ function _applyStateInPlace(jsonStr) {
     if(s.formRevision) formRevision=s.formRevision;
     if(s.formDateModified) formDateModified=s.formDateModified;
     if(s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
+    if(s.smCapVis){ Object.keys(smCapVis).forEach(function(k){ if(s.smCapVis[k]) Object.assign(smCapVis[k], s.smCapVis[k]); }); }
+    if(s.annDsForce){ Object.keys(annDsForce).forEach(function(k){ if(s.annDsForce[k]) annDsForce[k]=Object.assign({}, s.annDsForce[k]); }); }
     updateRevisionDisplay();
     // Re-render all
     renderStdTable(); renderPldTable(); renderPumpCurveTable(); renderPldPumpCurveTable();
@@ -7538,6 +7733,8 @@ function collectState() {
     formRevision,
     formDateModified,
     smState: JSON.parse(JSON.stringify(smState)),
+    smCapVis: JSON.parse(JSON.stringify(smCapVis)),
+    annDsForce: JSON.parse(JSON.stringify(annDsForce)),
   };
 }
 
@@ -7812,6 +8009,8 @@ function _applyLoadedState(raw) {
     if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) Object.assign(pldData[i], r); });
     // safety margin per-chart state (on/off + chip offset)
     if (s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
+    if (s.smCapVis){ Object.keys(smCapVis).forEach(function(k){ if(s.smCapVis[k]) Object.assign(smCapVis[k], s.smCapVis[k]); }); }
+    if (s.annDsForce){ Object.keys(annDsForce).forEach(function(k){ if(s.annDsForce[k]) annDsForce[k]=Object.assign({}, s.annDsForce[k]); }); }
     // pumpCurvePoints
     if (s.pumpCurvePoints) {
       pumpCurvePoints.length = 0;
