@@ -765,6 +765,7 @@ body.text-l{--ts:4px;}
             <tr>
               <th>Name</th>
               <th>User #</th>
+              <th>Initials</th>
               <th>Email</th>
               <th>Role</th>
               <th>Status</th>
@@ -940,6 +941,22 @@ body.text-l{--ts:4px;}
     <div class="modal-actions">
       <button class="dash-btn secondary" onclick="closeEditNumModal()">Cancel</button>
       <button class="dash-btn primary" onclick="saveUserNum()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ EDIT INITIALS MODAL ═══════════ -->
+<div class="modal-overlay" id="edit-init-modal">
+  <div class="modal-card">
+    <h3>Set Initials</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-init-user"></p>
+    <div class="modal-field">
+      <label>Initials</label>
+      <input type="text" id="edit-init-input" placeholder="e.g. MH (leave blank to clear)" maxlength="6">
+    </div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary" onclick="closeEditInitModal()">Cancel</button>
+      <button class="dash-btn primary" onclick="saveUserInit()">Save</button>
     </div>
   </div>
 </div>
@@ -2680,6 +2697,7 @@ function renderAdminUsers() {
     return '<tr>'
       + '<td>' + esc(u.full_name || '—') + (isSelf ? ' <span style="color:var(--arencon);font-size:calc(11px + var(--ts))">(you)</span>' : '') + '</td>'
       + '<td>' + esc(u.user_number || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditNum(\'' + u.id + '\')">Set #</button>' : '') + '</td>'
+      + '<td>' + esc(u.initials || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditInit(\'' + u.id + '\')">Set</button>' : '') + '</td>'
       + '<td>' + esc(u.email || '—') + '</td>'
       + '<td><span class="admin-role-badge ' + roleClass(u.role) + statusClass + '">' + formatRole(u.role) + '</span></td>'
       + '<td>' + (u.is_active ? '<span style="color:var(--yes)">Active</span>' : '<span style="color:var(--no)">Deactivated</span>') + '</td>'
@@ -2807,6 +2825,36 @@ async function saveUserNum() {
     await _sb.from('profiles').eq('id', _editNumUserId).update({ user_number: newNum || null });
     toast(newNum ? 'User # set to ' + newNum : 'User # cleared', 'success');
     closeEditNumModal();
+    await loadAdminUsers();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+/* ═══ Set Initials ═══ */
+let _editInitUserId = null;
+function openEditInit(userId) {
+  _editInitUserId = userId;
+  const u = _allUsers.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('edit-init-user').textContent = u.full_name + ' (' + u.email + ')';
+  document.getElementById('edit-init-input').value = u.initials || '';
+  document.getElementById('edit-init-modal').classList.add('show');
+}
+
+function closeEditInitModal() {
+  document.getElementById('edit-init-modal').classList.remove('show');
+  _editInitUserId = null;
+}
+
+async function saveUserInit() {
+  if (!_editInitUserId) return;
+  // Store uppercased, trimmed. Blank clears (falls back to name-derived initials).
+  const newInit = document.getElementById('edit-init-input').value.trim().toUpperCase();
+  try {
+    await _sb.from('profiles').eq('id', _editInitUserId).update({ initials: newInit || null });
+    toast(newInit ? 'Initials set to ' + newInit : 'Initials cleared', 'success');
+    closeEditInitModal();
     await loadAdminUsers();
   } catch (e) {
     toast('Failed: ' + e.message, 'error');
