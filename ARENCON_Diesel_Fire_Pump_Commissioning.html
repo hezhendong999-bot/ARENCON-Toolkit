@@ -328,6 +328,20 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ph-icon:hover{background:var(--smoke);color:var(--arencon);}
 .ph-icon.has{color:var(--arencon);}
 .ph-icon .cnt{position:absolute;top:-3px;right:-3px;background:var(--arencon);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;line-height:15px;border-radius:8px;padding:0 3px;}
+/* ══ Per-flow-point gauge-photo modal (.fpm-*) — fixed overlay, theme-aware ══ */
+#flow-photo-modal{position:fixed;inset:0;z-index:9000;display:none;}
+.fpm-backdrop{position:absolute;inset:0;background:rgba(20,24,30,.55);}
+.fpm-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:86vh;overflow:auto;background:var(--card-bg,#fff);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:16px;}
+.fpm-head{display:flex;align-items:center;justify-content:space-between;font-size:calc(14px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:12px;}
+.fpm-x{background:none;border:none;cursor:pointer;color:var(--steel);font-size:18px;line-height:1;padding:4px 8px;border-radius:6px;}
+.fpm-x:hover{background:var(--smoke);color:var(--arencon);}
+.fpm-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.fpm-thumb{position:relative;width:78px;height:78px;border-radius:7px;overflow:hidden;border:1.5px solid var(--border);}
+.fpm-thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;}
+.fpm-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;padding:0;cursor:pointer;}
+.fpm-empty{margin-top:12px;font-size:calc(11.5px + var(--ts));color:var(--steel);text-align:center;}
+@media(pointer:coarse){.fpm-del{width:26px;height:26px;line-height:26px;font-size:13px;}.fpm-thumb{width:84px;height:84px;}}
+body.dark-mode .fpm-card{background:#232a36;border-color:#2a3040;}
 /* ══ Flow-test CARD layout (4a 3-point) — muted palette scoped locally (does NOT touch global :root tokens) ══ */
 .fp-banner{font-size:calc(11.5px + var(--ts));color:var(--steel);background:var(--smoke);border:1.5px solid var(--border);border-radius:8px;padding:9px 13px;margin-bottom:14px;line-height:1.5;}
 .fp-banner b{color:var(--slate);}
@@ -346,8 +360,8 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fig-hd .fig-ic{flex:none;opacity:.92;}
 .fig-hd .fig-t{font-weight:700;font-size:calc(13px + var(--ts));letter-spacing:.3px;line-height:1.2;}
 .fig-verdict{margin-left:auto;font-size:calc(11px + var(--ts));font-weight:800;letter-spacing:.4px;padding:4px 12px;border-radius:11px;white-space:nowrap;}
-.fig-verdict.pass{background:#D2EBDC;color:#2f5740;}
-.fig-verdict.fail{background:#F4D6D6;color:#8E4444;}
+.fig-verdict.pass{background:#E8EFE7;color:#5F8068;}
+.fig-verdict.fail{background:#F3E0DE;color:#A85959;}
 .fig-verdict.na{background:rgba(255,255,255,.18);color:#f0e4e8;}
 .fig-body{padding:16px;}
 /* S214 4a: interactive legend — tap a name to show/hide its curve */
@@ -370,8 +384,8 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fig-readout .ro .val{font-size:calc(14px + var(--ts));font-weight:700;color:var(--slate);margin-top:2px;font-variant-numeric:tabular-nums;}
 .fig-readout .ro .sub{font-size:calc(9.5px + var(--ts));color:var(--steel);margin-top:1px;}
 .fig-readout .ro .chip{display:inline-block;font-size:calc(8.5px + var(--ts));font-weight:800;padding:1px 7px;border-radius:8px;margin-top:3px;letter-spacing:.3px;}
-.fig-readout .ro .chip.pass{background:#D2EBDC;color:#2f5740;}
-.fig-readout .ro .chip.fail{background:#F4D6D6;color:#8E4444;}
+.fig-readout .ro .chip.pass{background:#E8EFE7;color:#5F8068;}
+.fig-readout .ro .chip.fail{background:#F3E0DE;color:#A85959;}
 .fig-readout .ro .chip.na{background:#eef0f4;color:var(--silver);}
 .fig-supply{display:flex;flex-wrap:wrap;gap:18px;padding:9px 16px;border-top:1px solid var(--border);background:var(--smoke);font-size:calc(11px + var(--ts));color:var(--steel);}
 .fig-supply b{color:var(--slate);font-weight:700;}
@@ -867,7 +881,7 @@ body.dark-mode .btn-sm:hover{background:rgba(255,255,255,.12)!important;}
 body.dark-mode .btn-primary.btn-sm{background:#9C2742!important;color:white!important;}
 body.dark-mode .btn-outline.btn-sm{background:rgba(255,255,255,.06)!important;border:1.5px solid rgba(255,255,255,.2)!important;color:#c8d4f0!important;}
 body.dark-mode .btn-outline.btn-sm:hover{background:rgba(255,255,255,.12)!important;border-color:#9C2742!important;color:#f4a1b5!important;}
-body.dark-mode .btn-outline[style*="color:#c00"]{color:#e07070!important;border-color:#5a2020!important;background:#2a1818!important;}
+body.dark-mode .btn-outline[style*="color:#A85959"]{color:#e07070!important;border-color:#5a2020!important;background:#2a1818!important;}
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
 body.dark-mode .hdr-repair-menu{background:#1e2533;border:1px solid #2a3040;}
 body.dark-mode .hdr-repair-menu button{background:#1e2533;color:#d0d8f0;}
@@ -939,7 +953,7 @@ body.dark-mode tr[style*="background:#f0f0f0"] td{background:#282b34!important;c
 body.dark-mode button[style*="color:#999"]{color:#6a7080!important;}
 body.dark-mode button[style*="color:#aaa"]{color:#6a7080!important;}
 body.dark-mode [style*="background:#1C2333"]{background:#22252d!important;}
-body.dark-mode button[style*="background:#c00"]{background:#8a2020!important;}
+body.dark-mode button[style*="background:#A85959"]{background:#8a2020!important;}
 body.dark-mode button[style*="background:#FFF5F5"]{background:#3a2020!important;color:#e08080!important;}
 body.dark-mode button[style*="background:#5F8068"][style*="font-size:11px"]{background:#1a4a2a!important;color:#a0d8b0!important;}
 body.dark-mode #nav-label{color:#8a90a0!important;}
@@ -971,7 +985,7 @@ body.dark-mode .sketch-comment{background:#1e2028!important;color:#d4d4d4!import
 body.dark-mode .sketch-comment:focus{background:#22252d!important;border-color:#c13a58!important;}
 
 /* ══ DARK MODE — Remove buttons: red tint (inline-styled variants) ══ */
-body.dark-mode button[style*="color:#c00"]{color:#e07070!important;border-color:#5a2020!important;background:#2a1818!important;}
+body.dark-mode button[style*="color:#A85959"]{color:#e07070!important;border-color:#5a2020!important;background:#2a1818!important;}
 /* Deficiency inline remove buttons (white bg, #999/#aaa text) */
 body.dark-mode button[style*="color:#999"][style*="background:white"]{background:#2a1818!important;color:#e07070!important;border-color:#5a2020!important;}
 body.dark-mode button[style*="color:#aaa"][style*="background:white"]{background:#2a1818!important;color:#e07070!important;border-color:#5a2020!important;}
@@ -1140,7 +1154,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S222e</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S222f</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
@@ -1553,7 +1567,7 @@ function updatePhaseFlags(){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
           <div>
             <div class="detail-label" style="margin-bottom:8px;">Supply Data Points (from flow test)</div>
-            <table class="data-table rounded-tbl" style="font-size:12px;">
+            <table class="data-table rounded-tbl">
               <thead><tr><th>Point</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead>
               <tbody id="supply-tbody">
                 <tr><td class="left">Static</td>
@@ -1567,21 +1581,21 @@ function updatePhaseFlags(){
           </div>
           <div>
             <div class="detail-label" style="margin-bottom:8px;">System &amp; Hose Demand</div>
-            <table class="data-table rounded-tbl" style="font-size:12px;">
+            <table class="data-table rounded-tbl">
               <thead><tr><th>Component</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead>
               <tbody>
                 <tr>
-                  <td style="text-align:left;font-size:11px;">Sprinkler System Demand (SD) + Inside Hose Allowance</td>
+                  <td style="text-align:left;">Sprinkler System Demand (SD) + Inside Hose Allowance</td>
                   <td><input type="number" id="dem-spr-flow" placeholder="e.g. 150" style="width:90px" oninput="_syncSupply();calcTotalDemand3pt()"></td>
                   <td><input type="number" id="dem-spr-psi" placeholder="e.g. 81" style="width:90px" oninput="_syncSupply();calcTotalDemand3pt()"></td>
                 </tr>
                 <tr>
-                  <td style="text-align:left;font-size:11px;">Outside Hose Allowance (OHL)</td>
+                  <td style="text-align:left;">Outside Hose Allowance (OHL)</td>
                   <td><input type="number" id="dem-hose-flow" placeholder="e.g. 50" style="width:90px" oninput="_syncSupply();calcTotalDemand3pt()"></td>
-                  <td style="background:#f5f5f5;color:#999;font-size:11px;text-align:center;">—</td>
+                  <td style="background:#f5f5f5;color:#999;text-align:center;">—</td>
                 </tr>
                 <tr style="background:#eef4ff;">
-                  <td style="text-align:left;font-size:11px;font-weight:700;">Total System Demand</td>
+                  <td style="text-align:left;font-weight:700;">Total System Demand</td>
                   <td id="dem-total-flow" class="calc-cell" style="font-weight:700;">—</td>
                   <td id="dem-total-psi" class="calc-cell" style="font-weight:700;">—</td>
                 </tr>
@@ -1719,7 +1733,7 @@ function updatePhaseFlags(){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
           <div>
             <div class="detail-label" style="margin-bottom:8px;">Supply Data Points (from flow test)</div>
-            <table class="data-table rounded-tbl" style="font-size:12px;">
+            <table class="data-table rounded-tbl">
               <thead><tr><th>Point</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead>
               <tbody>
                 <tr><td class="left">Static</td>
@@ -1733,21 +1747,21 @@ function updatePhaseFlags(){
           </div>
           <div>
             <div class="detail-label" style="margin-bottom:8px;">System &amp; Hose Demand</div>
-            <table class="data-table rounded-tbl" style="font-size:12px;">
+            <table class="data-table rounded-tbl">
               <thead><tr><th>Component</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead>
               <tbody>
                 <tr>
-                  <td style="text-align:left;font-size:11px;">Sprinkler System Demand (SD) + Inside Hose Allowance</td>
+                  <td style="text-align:left;">Sprinkler System Demand (SD) + Inside Hose Allowance</td>
                   <td><input type="number" id="pld-dem-spr-flow" placeholder="e.g. 150" style="width:90px" oninput="_syncSupply();calcTotalDemandPld()"></td>
                   <td><input type="number" id="pld-dem-spr-psi" placeholder="e.g. 81" style="width:90px" oninput="_syncSupply();calcTotalDemandPld()"></td>
                 </tr>
                 <tr>
-                  <td style="text-align:left;font-size:11px;">Outside Hose Allowance (OHL)</td>
+                  <td style="text-align:left;">Outside Hose Allowance (OHL)</td>
                   <td><input type="number" id="pld-dem-hose-flow" placeholder="e.g. 50" style="width:90px" oninput="_syncSupply();calcTotalDemandPld()"></td>
-                  <td style="background:#f5f5f5;color:#999;font-size:11px;text-align:center;">—</td>
+                  <td style="background:#f5f5f5;color:#999;text-align:center;">—</td>
                 </tr>
                 <tr style="background:#eef4ff;">
-                  <td style="text-align:left;font-size:11px;font-weight:700;">Total System Demand</td>
+                  <td style="text-align:left;font-weight:700;">Total System Demand</td>
                   <td id="pld-dem-total-flow" class="calc-cell" style="font-weight:700;">—</td>
                   <td id="pld-dem-total-psi" class="calc-cell" style="font-weight:700;">—</td>
                 </tr>
@@ -2063,7 +2077,7 @@ function updatePhaseFlags(){
     </select>
     <span style="color:rgba(255,255,255,.4);margin:0 4px;">|</span>
     <button onclick="undoLbMarkup()" style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">↩ Undo</button>
-    <button onclick="clearLbMarkup()" style="background:#c00;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">🗑 Clear</button>
+    <button onclick="clearLbMarkup()" style="background:#A85959;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">🗑 Clear</button>
     <button onclick="downloadLbPhoto()" style="background:#5F8068;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">⬇ Download</button>
   </div>
   <!-- Photo canvas area -->
@@ -2372,7 +2386,7 @@ function renderDeficThumbs(safe, itemIdx) {
   const photos = deficiencies[safe]?.[itemIdx]?.photos||[];
   el.innerHTML = photos.map((p,j)=>`<div style="position:relative;display:inline-block;">
     <img src="${p.r2Url||p.d}" onclick="openLightbox(deficiencies['${safe}'][${itemIdx}].photos,${j})" style="cursor:zoom-in;width:72px;height:72px;object-fit:cover;border-radius:4px;border:2px solid #eee;" title="Click to enlarge">
-    <button onclick="event.stopPropagation();removeDeficPhoto('${safe}',${itemIdx},${j})" style="position:absolute;top:-5px;right:-5px;background:#c00;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;line-height:1;">✕</button>
+    <button onclick="event.stopPropagation();removeDeficPhoto('${safe}',${itemIdx},${j})" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;line-height:1;">✕</button>
     <button class="photo-markup-btn" onclick="event.stopPropagation();openDeficPhotoMarkup('${safe}',${itemIdx},${j})" title="Markup">✏</button>
   </div>`).join('');
 }
@@ -3334,8 +3348,76 @@ function _flowPhotoIcon(tbl, i){
     + (n?'<span class="cnt">'+n+'</span>':'')
     + '</button>';
 }
-// Step 2 will replace this with the full popover.
-function openFlowPhotos(tbl, i){ if(typeof showToast==='function') showToast('Gauge photo capture — coming in the next update'); }
+// Per-flow-point gauge photo capture (S222-Diesel) — mirrors _recAddFile pattern.
+var _flowPhotoTbl=null, _flowPhotoIdx=null;
+function _flowPhotoRow(tbl,i){ var src=(tbl==='std'?stdData:pldData); return (src&&src[i])?src[i]:null; }
+function _flowPhotoAddFile(file){
+  if(!file || !file.type || file.type.indexOf('image/')!==0) return;
+  var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row) return;
+  if(!row.photos) row.photos=[];
+  var r=new FileReader();
+  r.onload=function(ev){
+    compressImage(ev.target.result, 1600, 0.85, function(c){
+      var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+               caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
+      row.photos.push(_ph);
+      _r2EnqueuePhoto(_ph);
+      if(typeof renderStdTable==='function') renderStdTable();
+      if(typeof renderPldTable==='function') renderPldTable();
+      _renderFlowPhotoModal();
+      if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+      if(typeof debounceAutosave==='function') debounceAutosave();
+    });
+  };
+  r.readAsDataURL(file);
+}
+function _flowPhotoUpload(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowPhotoAddFile); }; inp.click(); }
+function _flowPhotoCamera(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _flowPhotoAddFile(f); }; inp.click(); }
+function _flowPhotoDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
+function _flowPhotoDelete(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return; row.photos.splice(j,1); if(typeof renderStdTable==='function') renderStdTable(); if(typeof renderPldTable==='function') renderPldTable(); _renderFlowPhotoModal(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); if(typeof debounceAutosave==='function') debounceAutosave(); }
+function _flowPhotoLightbox(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos)return; openLightbox(row.photos, j, {renderer:_renderFlowPhotoModal}); }
+function _renderFlowPhotoModal(){
+  var host=document.getElementById('flow-photo-modal'); if(!host) return;
+  var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx);
+  if(!row){ host.style.display='none'; return; }
+  var pts=row.photos||[];
+  var pct=row.pct||((_flowPhotoTbl==='std'?stdData:pldData).indexOf(row)>=0?'':'');
+  var ttl='Gauge Photos'+(row.pct?(' — '+row.pct):'')+(row.flow?(' · '+row.flow+' gpm'):'');
+  var h='<div class="fpm-backdrop" onclick="closeFlowPhotos()"></div>';
+  h+='<div class="fpm-card" role="dialog" aria-label="Gauge photos">';
+  h+='<div class="fpm-head"><span>'+ttl+'</span><button class="fpm-x" onclick="closeFlowPhotos()" title="Close">✕</button></div>';
+  h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
+  h+='<span>Drag &amp; drop gauge photo(s)</span>';
+  h+='<button class="pz-upload" onclick="_flowPhotoUpload()">📎 Upload</button>';
+  h+='<button class="pz-camera" onclick="_flowPhotoCamera()">📷 Camera</button>';
+  h+='</div>';
+  if(pts.length){
+    h+='<div class="fpm-thumbs">';
+    pts.forEach(function(p,j){
+      h+='<div class="fpm-thumb"><img src="'+(p.r2Url||p.d)+'" onclick="_flowPhotoLightbox('+j+')">'
+        +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button></div>';
+    });
+    h+='</div>';
+  } else {
+    h+='<div class="fpm-empty">No gauge photos yet for this flow point.</div>';
+  }
+  h+='</div>';
+  host.innerHTML=h;
+  host.style.display='block';
+}
+function openFlowPhotos(tbl, i){
+  _flowPhotoTbl=tbl; _flowPhotoIdx=i;
+  var host=document.getElementById('flow-photo-modal');
+  if(!host){ host=document.createElement('div'); host.id='flow-photo-modal'; document.body.appendChild(host); }
+  _renderFlowPhotoModal();
+  document.addEventListener('keydown', _flowPhotoEsc);
+}
+function _flowPhotoEsc(e){ if(e.key==='Escape'){ closeFlowPhotos(); } }
+function closeFlowPhotos(){
+  var host=document.getElementById('flow-photo-modal'); if(host){ host.style.display='none'; host.innerHTML=''; }
+  document.removeEventListener('keydown', _flowPhotoEsc);
+  _flowPhotoTbl=null; _flowPhotoIdx=null;
+}
 // NPSH (psi) — 3-Point tab. Recalc std flow rows so suction<NPSH warnings refresh live.
 function setNpsh(v){
   npshPsi = v;
@@ -4881,7 +4963,7 @@ function buildDeficItem(name, safe, d, i) {
     (cr.photos || []).forEach(function(rp, ri) {
       crPhotosHtml += '<div style="position:relative;display:inline-block;">'
         +'<img src="'+(rp.r2Url||rp.d||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:zoom-in;">'
-        +'<button onclick="deficiencies[\''+safe+'\']['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderDeficGroup(\''+name+'\');" style="position:absolute;top:-4px;right:-4px;background:#c00;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
+        +'<button onclick="deficiencies[\''+safe+'\']['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderDeficGroup(\''+name+'\');" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
@@ -5092,7 +5174,7 @@ function buildGeneralDeficItem(d, i) {
     var label = isContractor ? 'Contractor' : 'Consultant';
     var crPhotosHtml = '';
     (cr.photos || []).forEach(function(rp, ri) {
-      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.r2Url||rp.d||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="generalDeficiencies['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderGeneralDeficGroup();" style="position:absolute;top:-4px;right:-4px;background:#c00;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
+      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.r2Url||rp.d||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="generalDeficiencies['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderGeneralDeficGroup();" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">';
     respHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:'+accentCol+';text-transform:uppercase;letter-spacing:.5px;">'+(isContractor?'⚡':'🔍')+' '+label+' Response #'+(ci+1)+'</div><button onclick="generalDeficiencies['+i+'].responses.splice('+ci+',1);renderGeneralDeficGroup();" style="padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:white;color:#999;font-size:10px;cursor:pointer;">✕ Remove</button></div>';
@@ -5369,7 +5451,7 @@ function loadSigUpload(num, input) {
   const f = input.files[0]; if(!f) return;
   const r = new FileReader();
   r.onload = ev => {
-    const canvas = document.getElementById(num===1?'sig-canvas':'sig-canvas');
+    const canvas = document.getElementById(num===1?'sig-canvas':('sig-canvas-c-'+num));
     if(canvas) canvas.style.display='none';
     // An uploaded image replaces any drawn strokes — drop them so a theme
     // toggle doesn't repaint old ink over the uploaded signature.
@@ -5418,7 +5500,7 @@ function buildSignRowHtml(arr, type, containerId) {
     return `<div class="card" style="margin-bottom:12px;border:1.5px solid ${accent}22;">
       <div class="card-header" style="display:flex;justify-content:space-between;font-size:13px;padding:8px 14px;background:${accent}18;">
         <span style="font-weight:700;color:${accent};font-size:14px;">${label} ${i+1}</span>
-        <button class="btn btn-outline btn-sm" style="font-size:11px;color:#c00;border-color:#c00;" onclick="removeSignRow('${type}',${i})">✕ Remove</button>
+        <button class="btn btn-outline btn-sm" style="font-size:11px;color:#A85959;border-color:#A85959;" onclick="removeSignRow('${type}',${i})">✕ Remove</button>
       </div>
       <div class="card-body" style="padding:12px 14px;">
         <div class="proj-grid" style="margin-bottom:10px;">
@@ -6284,7 +6366,7 @@ function addSketchEntry() {
               <button class="tool-btn" onclick="sketchZoomReset(${uid})" style="font-size:10px;padding:2px 6px;">↺</button>
               <span style="width:1px;height:20px;background:var(--border);margin:0 4px;"></span>
               <button class="tool-btn" onclick="undoSketch(${uid})" title="Undo">↩ Undo</button>
-              <button class="tool-btn" onclick="clearSketchCanvas(${uid})" style="color:#c00;">🗑 Clear</button>
+              <button class="tool-btn" onclick="clearSketchCanvas(${uid})" style="color:#A85959;">🗑 Clear</button>
             </div>
           </div>
         </div>
@@ -7373,7 +7455,7 @@ function renderFlowTestThumbsPld() {
   el.innerHTML = flowTestPhotosPld.map((p,i)=>`
     <div style="position:relative;">
       <img src="${p.r2Url||p.d}" onclick="openLightbox(flowTestPhotosPld,${i})" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:2px solid #ddd;cursor:zoom-in;">
-      <button onclick="flowTestPhotosPld.splice(${i},1);renderFlowTestThumbsPld()" style="position:absolute;top:-5px;right:-5px;background:#c00;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;">✕</button>
+      <button onclick="flowTestPhotosPld.splice(${i},1);renderFlowTestThumbsPld()" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;">✕</button>
     </div>`).join('');
 }
 function triggerFlowTestPhoto() {
@@ -8139,9 +8221,9 @@ function resetCurrentPage() {
     });
   } else if (active === 's4' || active === 's4pld') {
     // Reset stdData including flow
-    stdData.forEach(function(r,i) { r.flow=(i===0?0:null); r.cutsheet='';r.placard='';r.suction='';r.discharge='';r.rpm=''; });
+    stdData.forEach(function(r,i) { r.flow=(i===0?0:null); r.cutsheet='';r.placard='';r.suction='';r.discharge='';r.rpm='';r.photos=[]; });
     // Reset pldData including flow
-    pldData.forEach(function(r) { r.flow='';r.cutsheet='';r.placard='';r.suc_no='';r.dis_no='';r.rpm_no='';r.suc_w='';r.dis_w='';r.rpm_w=''; });
+    pldData.forEach(function(r) { r.flow='';r.cutsheet='';r.placard='';r.suc_no='';r.dis_no='';r.rpm_no='';r.suc_w='';r.dis_w='';r.rpm_w='';r.photos=[]; });
     // Reset all meta fields
     ['pm-prv','pm-rpm','pm-equip','pm-pitot','pm-pitotflow','pm-rated-flow',
      'pm-relief','pm-reducing','pm-relief-pld','pm-reducing-pld',
@@ -8955,6 +9037,17 @@ function _collectAllPhotos(){
   (typeof recordPhotos==='undefined'?[]:recordPhotos).forEach(function(p,i){
     var kl = p.kind==='pump'?'Pump':p.kind==='placard'?'Placard':'Site';
     all.push({photo:p, type:'record', cat:'records', badge:kl, label:'Record: '+kl, section:'rec_'+(p.kind||'site'), idx:i, src:p.r2Url||p.d});
+  });
+  // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
+  (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
+    (row && row.photos ? row.photos : []).forEach(function(p,pi){
+      all.push({photo:p, type:'gauge', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (3-pt) '+(row.pct||''), section:'gauge_std_'+ri, idx:pi, src:p.r2Url||p.d});
+    });
+  });
+  (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
+    (row && row.photos ? row.photos : []).forEach(function(p,pi){
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (PLD) '+(row.pct||''), section:'gauge_pld_'+ri, idx:pi, src:p.r2Url||p.d});
+    });
   });
   return all;
 }
