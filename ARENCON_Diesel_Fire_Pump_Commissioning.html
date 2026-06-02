@@ -303,14 +303,17 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ts-pitot .pcard input,.ts-pitot .pcard select{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font-size:calc(11.5px + var(--ts));font-family:Calibri,sans-serif;background:#fff;margin-bottom:5px;}
 .ts-pitot .pcard select{margin-bottom:0;}
 /* rated values — compact inline */
-.ts-rated{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
-.ts-rated .meta-field{width:150px;}
+.ts-rated{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px;}
+.ts-rated-7{grid-template-columns:repeat(7,1fr);}
+.ts-rated .meta-field{width:auto;min-width:0;}
 .ts-rated .meta-field input{text-align:right;}
 .ts-rated .meta-field label{min-height:2.5em;line-height:1.2;}
+@media(max-width:1100px){.ts-rated,.ts-rated-7{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:680px){.ts-rated,.ts-rated-7{grid-template-columns:repeat(2,1fr);}}
 /* evidence tiles — prominent 3-up */
 .ev-lbl{font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);margin-bottom:9px;}
 .ev-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-@media(max-width:560px){.ev-tiles{grid-template-columns:1fr;}.ts-rated .meta-field{width:100%;}}
+@media(max-width:560px){.ev-tiles{grid-template-columns:1fr;}}
 .ev-tile{border:2px dashed var(--border);border-radius:10px;background:#fff;min-height:128px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
 .ev-tile:hover,.ev-tile.drag-over{border-color:var(--arencon);background:#fdf6f8;}
 .ev-tile .i{font-size:30px;opacity:.6;}
@@ -1154,7 +1157,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S222f</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S222g</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
@@ -1648,7 +1651,7 @@ function updatePhaseFlags(){
             <button class="np-scan" onclick="_placardScan()" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
           </div>
           <div style="padding:16px;">
-            <div class="ts-rated">
+            <div class="ts-rated ts-rated-7">
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow-pld" placeholder="2000" oninput="autoFillPldFlows()"></div>
               <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart()"></div>
               <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760" oninput="if(typeof renderPldTable==='function')renderPldTable();"></div>
@@ -3968,7 +3971,7 @@ function renderFigLegend3pt(){
   if(has(14)) defs.push({i:14,c:'#B05A7A', kind:'line', dash:[6,4],      t:'Pressure Relief', cap:'relief'});
   if(has(11)) defs.push({i:11,c:'#4A7BA8', kind:'line', dash:[2,3],      t:'Cutsheet'});
   if(has(12)) defs.push({i:12,c:'#7D6F9C', kind:'line', dash:[2,3],      t:'Placard'});
-  if(has(10)) defs.push({i:10,c:'#A85959', kind:'line', dash:[2,3],      t:'PRV Rating'});
+  if(has(10)) defs.push({i:10,c:'#A85959', kind:'line', dash:[2,3],      t:'Rated Press. (ref)'});
   if(has(9)) defs.push({i:9, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],          t:'System Demand', primary:true});
   if(has(4)||has(5)) defs.push({i:4, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:5});
   function swatch(d){
@@ -4085,7 +4088,7 @@ function renderFigLegendPld(){
   if(has(10))defs.push({i:10,c:'#7D6F9C', kind:'line', dash:[2,3],       t:'PLD Setting', cap:'pld'});
   if(has(11))defs.push({i:11,c:'#4A8C8C', kind:'line', dash:[6,4],       t:'Pressure Reducing', cap:'reducing'});
   if(has(12))defs.push({i:12,c:'#B05A7A', kind:'line', dash:[6,4],       t:'Pressure Relief', cap:'relief'});
-  if(has(9)) defs.push({i:9, c:'#A85959', kind:'line', dash:[2,3],       t:'PRV Rating'});
+  if(has(9)) defs.push({i:9, c:'#A85959', kind:'line', dash:[2,3],       t:'Rated Press. (ref)'});
   if(has(6)) defs.push({i:6, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],        t:'System Demand', primary:true});
   if(has(7)||has(8)) defs.push({i:7, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:8});
   _buildFigLegend(host, pldChart, defs, 'pldChart');
@@ -4101,7 +4104,7 @@ function renderFigLegendPldNet(){
   if(has(1)) defs.push({i:1, c:'#4A7BA8', kind:'line', dash:[8,4,2,4],   t:'Net (w/o PRV & PLD)'});
   if(has(2)) defs.push({i:2, c:'#4A7BA8', kind:'line', dash:[2,3],       t:'Cutsheet'});
   if(has(3)) defs.push({i:3, c:'#7D6F9C', kind:'line', dash:[2,3],       t:'Placard'});
-  if(has(4)) defs.push({i:4, c:'#A85959', kind:'line', dash:[2,3],       t:'PRV Rating'});
+  if(has(4)) defs.push({i:4, c:'#A85959', kind:'line', dash:[2,3],       t:'Rated Press. (ref)'});
   _buildFigLegend(host, pldNetChart, defs);
 }
 // Readout strip (per-point %/psi/gpm/rpm + verdict) — uses the REAL _calcFlowPoint
@@ -7023,6 +7026,14 @@ function renderChartAnnotations(chartInstance, canvasId) {
       var _allowDefault = _isPrimary || _isPoint;
       // S222: per-legend "A" toggle can force ON (label a normally-silent curve) or force OFF.
       if(!_annOn(canvasId, dsIdx, _allowDefault)) return;
+      // S223 FIX: a force-on, NON-primary, NON-marker line is a dense interpolated reference
+      // curve (e.g. Available Supply = 25 pts, Net Pressure, Sprinkler Demand). Labelling every
+      // sample point produces an unreadable horizontal smear. For such lines, label ENDPOINTS
+      // ONLY (first + last visible point). Primary curves and marker datasets are unaffected.
+      if(!_isPrimary && !_isPoint){
+        var _lastIdx = ds.data.length - 1;
+        if(ptIdx !== 0 && ptIdx !== _lastIdx) return;
+      }
       // Skip annotations for zero-value points (0 gpm @ 0 psi)
       if(pt.x === 0 && pt.y === 0) return;
       var text = '';
@@ -7036,14 +7047,32 @@ function renderChartAnnotations(chartInstance, canvasId) {
         text = Math.round(pt.x).toLocaleString()+' gpm\n@ '+Math.round(pt.y)+' psi';
       }
       if(!text) return;
-      // Deduplicate: skip if another annotation already exists at very close coordinates
-      var dedupKey = canvasId + '_pos_' + Math.round(px) + '_' + Math.round(py);
-      if(_annotationPositions[dedupKey] && _annotationPositions[dedupKey] !== key) return;
-      _annotationPositions[dedupKey] = key;
-      
+      // S223: smarter collision handling. Exact-pixel dedup missed near-but-not-identical
+      // clusters (e.g. all the 0-gpm points, or the three 1,000-gpm overlaps). Now:
+      //   • if the user has manually placed this label (stored offset), respect it as-is;
+      //   • otherwise auto-FAN unpositioned labels that anchor near an already-placed one,
+      //     stepping the vertical offset so they stack apart instead of overprinting.
       var labelX = px + offX;
       var labelY = py + offY;
-      
+      if(!stored){
+        var _fanStep = 17;            // ~one label height
+        var _near = 22;               // px radius treated as "same cluster"
+        var _guard = 0;
+        while(_guard < 12){
+          var _collision = false;
+          for(var _pk in _annotationPositions){
+            var _p = _annotationPositions[_pk];
+            if(_p.k === key) continue;
+            if(Math.abs(_p.x - labelX) < _near && Math.abs(_p.y - labelY) < _fanStep){ _collision = true; break; }
+          }
+          if(!_collision) break;
+          labelY -= _fanStep;          // fan upward
+          offY  -= _fanStep;
+          _guard++;
+        }
+      }
+      _annotationPositions[key] = {k:key, x:labelX, y:labelY};
+
       // Create label div
       var label = document.createElement('div');
       label.className = 'chart-annotation-label';
