@@ -1157,7 +1157,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S225a</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S225b</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
@@ -7055,10 +7055,10 @@ function renderChartAnnotations(chartInstance, canvasId) {
       var labelX = px + offX;
       var labelY = py + offY;
       if(!stored){
-        var _fanStep = 17;            // ~one label height
-        var _near = 22;               // px radius treated as "same cluster"
+        var _fanStep = 30;            // two-line label height (~26-30px); was 17 and labels still overlapped
+        var _near = 30;               // px radius treated as "same cluster" (was 22)
         var _guard = 0;
-        while(_guard < 12){
+        while(_guard < 14){
           var _collision = false;
           for(var _pk in _annotationPositions){
             var _p = _annotationPositions[_pk];
@@ -10864,9 +10864,11 @@ body.dark-mode{
 }
 
 /* ---------- LIVING BACKGROUND ---------- */
-/* stable scrollbar gutter: a tall panel showing a scrollbar and a short one hiding it
-   was shifting page content ~15px between tabs. Reserve the gutter always. */
-html{scrollbar-gutter:stable;}
+/* Prevent tab-to-tab horizontal jump: always show the vertical scrollbar track so a
+   tall panel and a short one have identical content width. (scrollbar-gutter:stable
+   was tried but the full-width sticky header bars respected the reserved gutter while
+   the body background did not, leaving a dead strip on the right.) */
+html{overflow-y:scroll;}
 body{position:relative;}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:var(--b-glow1),var(--b-glow2);}
 .app-header,.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
@@ -10981,6 +10983,12 @@ input:focus,textarea:focus,select:focus{outline:none!important;border-color:var(
 .tog-yes.on{background:var(--yes)!important;color:#fff!important;}
 .tog-no.on{background:var(--no)!important;color:#fff!important;}
 .tog-na.on{background:var(--na)!important;color:#fff!important;}
+/* DAY MODE: the resting rule `body:not(.dark-mode) .tog` is (0,0,2,1) and was
+   beating the active `.tog-X.on` (0,0,2,0), so selected toggles stayed grey.
+   Scope the active rules under body:not(.dark-mode) too -> (0,0,3,0), wins. */
+body:not(.dark-mode) .tog-yes.on{background:var(--yes)!important;color:#fff!important;}
+body:not(.dark-mode) .tog-no.on{background:var(--no)!important;color:#fff!important;}
+body:not(.dark-mode) .tog-na.on{background:var(--na)!important;color:#fff!important;}
 body.dark-mode .tog-yes.on{background:var(--yes)!important;color:#fff!important;}
 body.dark-mode .tog-no.on{background:var(--no)!important;color:#fff!important;}
 body.dark-mode .tog-na.on{background:var(--na)!important;color:#fff!important;}
