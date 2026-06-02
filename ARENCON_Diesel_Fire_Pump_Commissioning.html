@@ -10817,5 +10817,188 @@ var AIAssist = (function(){
 /* ============ end Markup Engine ============ */
 </script>
 
+
+<style id="arencon-bold-overlay">
+/* ════════════════════════════════════════════════════════════════════
+   ARENCON BOLD — HEAVY REskin OVERLAY  (appended; CSS-only, additive)
+   Transforms the REAL components into the approved Bold demo language:
+   glassy 16px cards · 01· section-number chips · blue→blue bars ·
+   glassy completion/KPI card · semantic pills · living glow background.
+   NO HTML structure change · NO panel reorder · NO JS · NO feature change.
+   Toggle existing ☀️/🌙 (#dark-toggle) for Bold·Light <-> Bold·Dark.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ---------- TOKENS ---------- */
+:root{
+  --smoke:#EFEDF0; --border:#E2DFE8; --surface:#FFFFFF; --card:#FFFFFF;
+  --slate:#1B1A22; --slate-mid:#2C3E50; --steel:#5E5B68; --silver:#928E9C;
+  --arencon:#9C2742; --arencon-mid:#7d1f35;
+  --yes:#2E9E72; --yes-bg:#DBF3E9; --no:#C0445F; --no-bg:#FBE3E9;
+  --na:#5A6473; --na-bg:#E8ECF0; --warn:#D98A1E; --warn-bg:#FBEDD3;
+  --b-info:#2C7FB8; --b-info-bg:#DEEEF8; --b-rec:#D98A1E;
+  --shadow:0 2px 6px rgba(40,30,50,.07),0 10px 30px rgba(40,30,50,.08);
+  --shadow-lg:0 18px 50px rgba(40,30,50,.16);
+  --b-bar-a:#5BC0EB; --b-bar-b:#2C7FB8;
+  --b-glow1:radial-gradient(60% 50% at 8% 0%,rgba(156,39,66,.06),transparent 70%);
+  --b-glow2:radial-gradient(55% 45% at 95% 4%,rgba(44,127,184,.06),transparent 70%);
+  --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.93),rgba(255,255,255,.76));
+  --b-fieldbg:#FFFFFF;
+  --b-chiphdr:#1B1A22; --b-chipink:#F4F3F6; --b-chipnum:#C9C5CE;
+}
+body.dark-mode{
+  --smoke:#0b0a0d; --border:rgba(255,255,255,.10); --surface:rgba(255,255,255,.04); --card:rgba(255,255,255,.04);
+  --slate:#f4f3f6; --slate-mid:#0e0d12; --steel:#a09aa8; --silver:#6b6674;
+  --arencon:#C9476A; --arencon-mid:#9C2742;
+  --yes:#3FD08A; --yes-bg:rgba(63,208,138,.15); --no:#E26076; --no-bg:rgba(226,96,118,.16);
+  --na:#a09aa8; --na-bg:rgba(255,255,255,.08); --warn:#E6A23C; --warn-bg:rgba(230,162,60,.16);
+  --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px rgba(0,0,0,.4);
+  --shadow-lg:0 24px 60px rgba(0,0,0,.55);
+  --b-bar-a:#5BC0EB; --b-bar-b:#2C7FB8;
+  --b-glow1:radial-gradient(50% 45% at 6% 0%,rgba(156,39,66,.20),transparent 70%);
+  --b-glow2:radial-gradient(48% 42% at 96% 4%,rgba(70,197,232,.13),transparent 70%);
+  --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  --b-fieldbg:rgba(255,255,255,.05);
+  --b-chiphdr:rgba(255,255,255,.02); --b-chipink:#F4F3F6; --b-chipnum:#9A95A3;
+  background:#0b0a0d; color:#f4f3f6;
+}
+
+/* ---------- LIVING BACKGROUND ---------- */
+body{position:relative;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:var(--b-glow1),var(--b-glow2);}
+.app-header,.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
+
+/* ---------- HEADER (glassy, ARENCON identity) ---------- */
+.app-header{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 24%,#15131a),color-mix(in srgb,var(--b-info) 16%,#15131a))!important;backdrop-filter:blur(10px);}
+.phase-bar{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 20%,#141b2c),color-mix(in srgb,var(--b-info) 12%,#1c2638))!important;}
+.phase-tab.active{border-bottom-color:#fff;}
+.phase-tab.active .ph-name{color:#fff;}
+body:not(.dark-mode) .section-nav{background:var(--surface);border-bottom:1px solid var(--border);}
+.nav-tab.active{border-bottom-color:var(--arencon);color:var(--slate);}
+body.dark-mode .nav-tab.active{color:#fff;}
+
+/* ---------- CARDS -> glassy 16px ---------- */
+.card{background:var(--b-cardgrad)!important;border:1px solid var(--border)!important;border-radius:16px!important;
+  box-shadow:var(--shadow)!important;backdrop-filter:blur(8px);margin-bottom:18px;}
+/* card-header -> light section-chip bar with 01· monospaced number, NOT a heavy burgundy slab */
+.card-header{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;
+  border-bottom:2px solid var(--arencon)!important;border-radius:16px 16px 0 0;
+  font-weight:700;letter-spacing:.3px;counter-increment:boldsec;padding:13px 16px!important;}
+.card-header svg{color:var(--arencon)!important;opacity:1;}
+.card-header::before{content:counter(boldsec,decimal-leading-zero);font-family:'Courier New',monospace;font-size:calc(10.5px + var(--ts));
+  font-weight:700;color:var(--b-chipnum);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.07);
+  border-radius:5px;padding:2px 7px;margin-right:4px;}
+.panel{counter-reset:boldsec;}
+/* DARK MODE — beat the tool's hard-coded burgundy header gradients (lines 776-780, two-selector !important).
+   Must match that specificity: body.dark-mode .card-header */
+body.dark-mode .card-header,
+body.dark-mode .card-header.mid,
+body.dark-mode .card-header.red{
+  background:var(--b-chiphdr)!important;            /* near-transparent -> blends into near-black body */
+  color:var(--b-chipink)!important;
+  border-bottom:1px solid var(--border)!important;  /* hairline, no burgundy */
+}
+body.dark-mode .card-header svg{color:var(--arencon)!important;}
+body.dark-mode .ov-hd{
+  background:var(--b-chiphdr)!important;
+  color:var(--b-chipink)!important;
+  border-bottom:1px solid var(--border)!important;
+}
+body.dark-mode .ov-hd svg{color:var(--arencon)!important;}
+body.dark-mode .ov-hd .ov-pct{color:#fff!important;}
+/* a left burgundy hairline accent on every card for the "alive" demo feel */
+.card{position:relative;}
+.card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:16px 0 0 16px;
+  background:linear-gradient(180deg,var(--arencon),var(--b-info));opacity:.55;}
+
+/* ---------- COMPLETION / KPI CARD (.ov-card) -> glassy, gradient ring-bar ---------- */
+.ov-card{background:var(--b-cardgrad)!important;border:1px solid var(--border)!important;border-radius:16px!important;
+  box-shadow:var(--shadow)!important;backdrop-filter:blur(8px);}
+.ov-hd{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;border-bottom:2px solid var(--arencon)!important;}
+.ov-hd svg{color:var(--arencon)!important;}
+.ov-hd .ov-pct{color:#fff!important;}
+.ov-bar{background:color-mix(in srgb,var(--slate) 9%,transparent);height:10px;}
+.ov-bar > i{background:linear-gradient(90deg,var(--b-bar-a),var(--b-bar-b))!important;}
+.ov-row{border-bottom:1px solid var(--border);}
+.ov-row:hover{background:color-mix(in srgb,var(--arencon) 5%,transparent);}
+.ov-attn-strip{background:var(--no-bg)!important;border-top:1px solid color-mix(in srgb,var(--no) 25%,transparent)!important;border-radius:0 0 16px 16px;}
+
+/* ---------- ALL BARS -> cool blue->blue ---------- */
+.sum-bar-fill,.ov-bar>i,.progress-bar>span,.bar>span,[class*="-bar-fill"],[class*="bar-fill"]{
+  background:linear-gradient(90deg,var(--b-bar-a),var(--b-bar-b))!important;}
+
+/* ---------- DATA TABLES -> rounded, glassy header ---------- */
+.data-table{border-radius:12px;overflow:hidden;border:1px solid var(--border);}
+.data-table th{background:color-mix(in srgb,var(--slate-mid) 90%,var(--arencon))!important;color:#fff!important;letter-spacing:.4px;}
+body:not(.dark-mode) .data-table tr:nth-child(even) td{background:#FAF9FC;}
+body.dark-mode .data-table tr:nth-child(even) td{background:rgba(255,255,255,.025);}
+.data-table td{border-bottom:1px solid var(--border);color:var(--slate);}
+.data-table .calc-cell{background:color-mix(in srgb,var(--b-info) 10%,transparent)!important;color:var(--slate)!important;}
+.data-table tr.total-row td{background:color-mix(in srgb,var(--arencon) 7%,transparent)!important;}
+.data-table input[type=number],.data-table input[type=text]{background:var(--b-fieldbg);color:var(--slate);border:1px solid var(--border);border-radius:8px;}
+.data-table input:focus{border-color:var(--arencon);box-shadow:0 0 0 3px color-mix(in srgb,var(--arencon) 18%,transparent);}
+
+/* ---------- FIELDS ---------- */
+/* FIELD LABELS -> true ink, matching the crisp checklist text (beat .field-group label{--silver} + body.dark-mode .field-group label{#8a90a0}) */
+body:not(.dark-mode) .field-group label{color:#1B1A22!important;}
+body.dark-mode .field-group label{color:#F4F3F6!important;}
+/* DAY MODE inputs — solid black ink (override base .field-group input color:var(--slate)) */
+body:not(.dark-mode) input,body:not(.dark-mode) select,body:not(.dark-mode) textarea,
+body:not(.dark-mode) .field-group input,body:not(.dark-mode) .field-group select,body:not(.dark-mode) .field-group textarea{
+  background:#FFFFFF!important;color:#1B1A22!important;-webkit-text-fill-color:#1B1A22!important;
+  border:1px solid var(--border)!important;border-radius:9px!important;}
+body:not(.dark-mode) input::placeholder,body:not(.dark-mode) textarea::placeholder{color:#928E9C!important;-webkit-text-fill-color:#928E9C!important;}
+/* DARK MODE inputs — solid white ink (must beat body.dark-mode input{color:#d0d8f0!important}) */
+body.dark-mode input,body.dark-mode select,body.dark-mode textarea,
+body.dark-mode .field-group input,body.dark-mode .field-group select,body.dark-mode .field-group textarea{
+  background:rgba(255,255,255,.05)!important;color:#F4F3F6!important;-webkit-text-fill-color:#F4F3F6!important;
+  border:1px solid var(--border)!important;border-radius:9px!important;}
+body.dark-mode input::placeholder,body.dark-mode textarea::placeholder{color:#6b6674!important;-webkit-text-fill-color:#6b6674!important;}
+/* readonly fields (Date Modified) — keep readable ink, not washed grey, both modes */
+body:not(.dark-mode) input[readonly]{color:#1B1A22!important;-webkit-text-fill-color:#1B1A22!important;background:#F4F1F5!important;}
+body.dark-mode input[readonly]{color:#F4F3F6!important;-webkit-text-fill-color:#F4F3F6!important;background:rgba(255,255,255,.04)!important;}
+/* focus ring burgundy, both modes */
+input:focus,textarea:focus,select:focus{outline:none!important;border-color:var(--arencon)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--arencon) 18%,transparent)!important;}
+.field-group input:focus,.field-group select:focus,.field-group textarea:focus,
+input:focus,textarea:focus,select:focus{outline:none!important;border-color:var(--arencon)!important;
+  background:var(--surface)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--arencon) 18%,transparent)!important;}
+
+/* ---------- BUTTONS -> Bold ---------- */
+.btn-primary,.btn-danger{background:var(--arencon)!important;color:#fff!important;border-radius:8px;}
+.btn-primary:hover,.btn-danger:hover{filter:brightness(1.08);background:var(--arencon)!important;}
+.btn-outline{background:var(--surface)!important;color:var(--slate)!important;border:1px solid var(--border)!important;border-radius:8px;}
+
+/* ---------- PASS/FAIL/NA + Y/N/NA -> semantic pills (glow in dark) ---------- */
+.fig-readout .ro .chip.pass{background:var(--yes-bg)!important;color:var(--yes)!important;border:1px solid color-mix(in srgb,var(--yes) 35%,transparent)!important;}
+.fig-readout .ro .chip.fail{background:var(--no-bg)!important;color:var(--no)!important;border:1px solid color-mix(in srgb,var(--no) 35%,transparent)!important;}
+.fig-readout .ro .chip.na{background:var(--na-bg)!important;color:var(--silver)!important;}
+/* Y/N/NA — real classes are .tog / .tog-yes.on / .tog-no.on / .tog-na.on (active = .on) */
+.tog-yes.on{background:var(--yes)!important;color:#fff!important;}
+.tog-no.on{background:var(--no)!important;color:#fff!important;}
+.tog-na.on{background:var(--na)!important;color:#fff!important;}
+body.dark-mode .tog-yes.on{background:var(--yes)!important;color:#fff!important;}
+body.dark-mode .tog-no.on{background:var(--no)!important;color:#fff!important;}
+body.dark-mode .tog-na.on{background:var(--na)!important;color:#fff!important;}
+/* resting tog -> Bold neutral, both modes */
+body:not(.dark-mode) .tog{background:#F1EFF3!important;color:#5E5B68!important;border-right-color:var(--border)!important;}
+body.dark-mode .tog{background:rgba(255,255,255,.05)!important;color:#a09aa8!important;border-right-color:var(--border)!important;}
+
+/* tab count badge / dots */
+.nav-tab .tab-count{background:var(--no)!important;}
+.nav-tab .tab-count.allclear{background:var(--yes)!important;}
+
+/* ---------- PHOTO ZONES + GALLERY ---------- */
+.photo-zone,.photo-zone-compact{background:var(--b-fieldbg)!important;border:2px dashed var(--border)!important;border-radius:12px!important;}
+.photo-zone.drag-over,.photo-zone-compact.drag-over{border-color:var(--arencon)!important;background:color-mix(in srgb,var(--arencon) 6%,transparent)!important;}
+#photos-gallery img,#photos-gallery .photo-tile,.gallery-tile{border-radius:12px!important;box-shadow:var(--shadow)!important;border:1px solid var(--border)!important;}
+
+/* ---------- MOBILE PAGE NAV ---------- */
+#mobile-page-nav{background:color-mix(in srgb,var(--slate-mid) 92%,var(--arencon))!important;border-top:3px solid var(--arencon)!important;}
+
+/* body bg uses retuned smoke */
+body{background:var(--smoke);color:var(--slate);}
+
+</style>
 </body>
 </html>
