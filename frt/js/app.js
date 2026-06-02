@@ -169,6 +169,17 @@ function switchTab(tabName) {
     p.classList.toggle('active', panelTab === tabName);
   });
 
+  // The Deficiencies-only fixed compact roster bar (#dfx-compact-bar) is a
+  // position:fixed overlay on <body>, shown via body.dfx-view-board +
+  // body.dfx-show-compact. Those classes are owned by the Deficiencies render
+  // and scroll path and are NOT self-clearing on tab change, so a user who
+  // scrolled down in Board view and then switched tabs would see the bar paint
+  // over Photos/Drawings/Info. Clear both whenever the active tab is not
+  // Deficiencies; the Deficiencies render re-sets dfx-view-board itself.
+  if (tabName !== 'deficiencies') {
+    document.body.classList.remove('dfx-view-board', 'dfx-show-compact');
+  }
+
   // Render the active tab
   switch (tabName) {
     case 'info': initProjectInfo.render(); break;

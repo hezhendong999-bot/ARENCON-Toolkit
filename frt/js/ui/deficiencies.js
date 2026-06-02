@@ -1430,8 +1430,6 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     // landed photo is always referenced (orphans structurally impossible). List
     // view passes the chosen obs; Plan/Grid (pin-level) default to Obs A (0).
     if (toObsIdx == null) toObsIdx = 0;
-    var multiObs = ((destF.defic.observations || []).length > 1);
-    var obsLabel = multiObs ? (' \u00b7 Obs ' + String.fromCharCode(65 + toObsIdx)) : '';
 
     // Snapshot the ORIGIN photo record BEFORE the op (deep clone). For a MOVE,
     // used to restore the photo at its origin on Undo. For a COPY, used to find
@@ -1457,16 +1455,28 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       res = (mode === 'move') ? Model.movePhotoToPin(srcDeficId, photoId, toId)
                               : Model.copyPhotoToPin(srcDeficId, photoId, toId);
     }
-    // Always reference the landed photo from the chosen obs (orphan-proof).
-    if (res) Model.addPhotoToObs(toId, toObsIdx, res.id);
+    // Reference the landed photo from the chosen obs (orphan-proof) ONLY when
+    // that obs is in custom-selection mode. addPhotoToObs returns false for a
+    // default-mode obs (photoSelection == null), which already shows the WHOLE
+    // pin pool — so the photo is visible there without an explicit reference.
+    // We capture the result so the chip/toast tell the truth: "Obs A
+    // specifically" only when it was actually pinned to that obs; otherwise
+    // "added to Pin N's photos" (it shows on every default-mode observation).
+    var attachedToObs = res ? Model.addPhotoToObs(toId, toObsIdx, res.id) : false;
 
     var desc = null;
     if (res) {
+      // Record the specific obsIdx only when the photo was actually pinned to
+      // that obs (custom mode). For a default-mode landing the photo lives in
+      // the pin pool and shows on ALL default observations, so obsIdx:null lets
+      // the "Just added" chip appear wherever it shows (justAddedTokenForObsPhoto
+      // treats null as match-any-obs).
+      var destObsIdx = attachedToObs ? toObsIdx : null;
       desc = (mode === 'move')
         ? { mode: 'move', origin: origin, snapshot: originSnap,
-            dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } }
+            dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: destObsIdx } }
         : { mode: 'copy', origin: origin,
-            dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: toObsIdx } };
+            dest: { type: 'pin', deficId: toId, photoId: res.id, obsIdx: destObsIdx } };
     }
 
     _closePinPhotoPicker();
@@ -1474,8 +1484,11 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       if (desc) Model.registerMove(desc);
       if (window.initPhotos && initPhotos.render) initPhotos.render();
       initDeficiencies.render();
-      toast((mode === 'move' ? 'Moved to Pin ' : 'Copied to Pin ') + destNum + obsLabel +
-        ' \u2014 it shows under that observation with an Undo chip; the original ' +
+      var landed = attachedToObs
+        ? ('Obs ' + String.fromCharCode(65 + toObsIdx) + ' on Pin ' + destNum)
+        : ("Pin " + destNum + "'s photos");
+      toast((mode === 'move' ? 'Moved to ' : 'Copied to ') + landed +
+        ' \u2014 it shows there with an Undo chip; the original ' +
         (mode === 'move' ? 'is faded with Undo' : 'has an Undo chip') + ' until you reload');
     } else {
       toast('\u26A0 Could not ' + mode + ' photo');
