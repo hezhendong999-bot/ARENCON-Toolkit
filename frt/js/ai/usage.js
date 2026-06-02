@@ -11,8 +11,42 @@ var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJl
 var _overlay = null;
 var _data = [];
 var _billingDay = 20;
+var _profileMap = {};   // lower(email) -> { num, init }
 
 function _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// Resolve an ai_usage_log row's user_email to { num, init } for display.
+// Falls back gracefully when a profile has no number/initials set yet:
+//  - num  : profiles.user_number, else '—'
+//  - init : profiles.initials, else derived from the email prefix, else '—'
+function _resolveUser(email) {
+  var key = String(email || '').trim().toLowerCase();
+  var p = _profileMap[key];
+  var num = (p && p.num) ? p.num : '\u2014';
+  var init = (p && p.init) ? p.init : _deriveInit(key);
+  return { num: num, init: init };
+}
+function _deriveInit(email) {
+  // Best-effort from the email local-part (e.g. "mhe" -> "MH" first+last char,
+  // single char -> that char). Only used when no canonical initials are set.
+  var local = String(email || '').split('@')[0].replace(/[^a-z]/gi, '');
+  if (!local) return '\u2014';
+  if (local.length >= 2) return (local.charAt(0) + local.charAt(local.length - 1)).toUpperCase();
+  return local.toUpperCase();
+}
+function _loadProfiles(cb) {
+  fetch(SB_URL + '/rest/v1/profiles?select=email,user_number,initials', { headers: _sbHeaders() })
+  .then(function(r) { return r.ok ? r.json() : []; })
+  .then(function(rows) {
+    _profileMap = {};
+    (rows || []).forEach(function(p) {
+      if (!p || !p.email) return;
+      _profileMap[String(p.email).trim().toLowerCase()] = { num: p.user_number || '', init: p.initials || '' };
+    });
+    if (cb) cb();
+  })
+  .catch(function() { if (cb) cb(); });  // non-fatal: fall back to derived
+}
 function _sbHeaders() {
   var h = { 'apikey': SB_ANON, 'Content-Type': 'application/json' };
   var t = localStorage.getItem('sb-access-token');
@@ -131,7 +165,7 @@ function _fetchData() {
   if (to) q += '&created_at=lte.' + to + 'T23:59:59Z';
   fetch(SB_URL + q, { headers: _sbHeaders() })
   .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-  .then(function(rows) { _data = rows || []; _populateDropdowns(); _render(); })
+  .then(function(rows) { _data = rows || []; _loadProfiles(function() { _populateDropdowns(); _render(); }); })
   .catch(function(err) { if (body) body.innerHTML = '<div class="ai-usage-loading" style="color:#C62828;">\u26A0 ' + _esc(err.message) + '</div>'; });
 }
 
@@ -143,7 +177,7 @@ function _populateDropdowns() {
     if (r.tool) tools[r.tool] = true;
   });
   var uSel = document.getElementById('ai-usage-user'), pSel = document.getElementById('ai-usage-project'), tSel = document.getElementById('ai-usage-tool');
-  if (uSel) { var cv = uSel.value; uSel.innerHTML = '<option value="all">All Users</option>'; Object.keys(users).sort().forEach(function(e) { uSel.innerHTML += '<option value="' + _esc(e) + '"' + (cv === e ? ' selected' : '') + '>' + _esc(e) + '</option>'; }); }
+  if (uSel) { var cv = uSel.value; uSel.innerHTML = '<option value="all">All Users</option>'; Object.keys(users).sort().forEach(function(e) { var ru = _resolveUser(e); uSel.innerHTML += '<option value="' + _esc(e) + '"' + (cv === e ? ' selected' : '') + '>' + _esc(ru.num + ' ' + ru.init) + '</option>'; }); }
   if (pSel) { var cv2 = pSel.value; pSel.innerHTML = '<option value="all">All Projects</option>'; Object.keys(projs).sort().forEach(function(n) { pSel.innerHTML += '<option value="' + _esc(n) + '"' + (cv2 === n ? ' selected' : '') + '>' + _esc(n + ' \u2014 ' + projs[n]) + '</option>'; }); }
   if (tSel) { var cv3 = tSel.value; tSel.innerHTML = '<option value="all">All Tools</option>'; Object.keys(tools).sort().forEach(function(t) { tSel.innerHTML += '<option value="' + _esc(t) + '"' + (cv3 === t ? ' selected' : '') + '>' + _esc(t) + '</option>'; }); }
 }
@@ -185,12 +219,12 @@ function _render() {
   Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; h += '<tr><td>' + _esc(p.num) + '</td><td>' + _esc(p.client) + '</td><td>' + _esc(p.name) + '</td><td>' + _esc(Object.keys(p.tools).join(', ')) + '</td><td style="text-align:right;">' + p.rev + '</td><td style="text-align:right;">' + p.fld + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + p.cost.toFixed(4) + '</td></tr>'; });
   h += '<tr class="total-row"><td colspan="4"><strong>TOTAL</strong></td><td style="text-align:right;"><strong>' + tRev + '</strong></td><td style="text-align:right;"><strong>' + tFld + '</strong></td><td style="text-align:right;font-family:Courier New,monospace;"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
   // User table
-  h += '<div class="ai-usage-section"><h4>Summary by User</h4><table class="ai-usage-table"><tr><th>User</th><th style="width:60px;text-align:right;">Reviews</th><th style="width:50px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
-  Object.keys(byUser).sort().forEach(function(k) { var u = byUser[k]; h += '<tr><td>' + _esc(u.email) + '</td><td style="text-align:right;">' + u.rev + '</td><td style="text-align:right;">' + u.fld + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + u.cost.toFixed(4) + '</td></tr>'; });
+  h += '<div class="ai-usage-section"><h4>Summary by User</h4><table class="ai-usage-table"><tr><th style="width:90px;">User #</th><th style="width:60px;">Initials</th><th style="width:60px;text-align:right;">Reviews</th><th style="width:50px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
+  Object.keys(byUser).sort().forEach(function(k) { var u = byUser[k]; var ru = _resolveUser(u.email); h += '<tr><td>' + _esc(ru.num) + '</td><td>' + _esc(ru.init) + '</td><td style="text-align:right;">' + u.rev + '</td><td style="text-align:right;">' + u.fld + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + u.cost.toFixed(4) + '</td></tr>'; });
   h += '</table></div>';
   // Detail log
-  h += '<div class="ai-usage-section"><h4>Detail Log</h4><table class="ai-usage-table"><tr><th style="width:80px;">Date</th><th>User</th><th style="width:80px;">Project #</th><th style="width:45px;">Tool</th><th style="width:45px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
-  fd.forEach(function(r) { h += '<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '?') + '</td><td>' + _esc(r.user_email || '?') + '</td><td>' + _esc(r.project_number || '-') + '</td><td>' + _esc(r.tool || '?') + '</td><td style="text-align:right;">' + (r.field_count || 0) + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'; });
+  h += '<div class="ai-usage-section"><h4>Detail Log</h4><table class="ai-usage-table"><tr><th style="width:80px;">Date</th><th style="width:80px;">User #</th><th style="width:55px;">Initials</th><th style="width:80px;">Project #</th><th style="width:45px;">Tool</th><th style="width:45px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
+  fd.forEach(function(r) { var ru = _resolveUser(r.user_email); h += '<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '?') + '</td><td>' + _esc(ru.num) + '</td><td>' + _esc(ru.init) + '</td><td>' + _esc(r.project_number || '-') + '</td><td>' + _esc(r.tool || '?') + '</td><td style="text-align:right;">' + (r.field_count || 0) + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'; });
   h += '</table></div>';
   body.innerHTML = h;
 }
@@ -198,8 +232,8 @@ function _render() {
 function exportCSV() {
   var fd = _filtered();
   if (!fd.length) { toast('No data'); return; }
-  var lines = ['Date,User,Project Number,Project Name,Tool,Model,Fields,Cost USD'];
-  fd.forEach(function(r) { lines.push([r.created_at ? new Date(r.created_at).toISOString() : '', '"' + (r.user_email || '') + '"', '"' + (r.project_number || '') + '"', '"' + (r.project_name || '') + '"', r.tool || '', r.model || '', r.field_count || 0, (parseFloat(r.cost_usd) || 0).toFixed(6)].join(',')); });
+  var lines = ['Date,User #,Initials,Project Number,Project Name,Tool,Model,Fields,Cost USD'];
+  fd.forEach(function(r) { var ru = _resolveUser(r.user_email); lines.push([r.created_at ? new Date(r.created_at).toISOString() : '', '"' + ru.num + '"', '"' + ru.init + '"', '"' + (r.project_number || '') + '"', '"' + (r.project_name || '') + '"', r.tool || '', r.model || '', r.field_count || 0, (parseFloat(r.cost_usd) || 0).toFixed(6)].join(',')); });
   var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ARENCON_AI_Usage.csv'; a.click(); URL.revokeObjectURL(a.href);
   toast('\uD83D\uDCC4 CSV downloaded');
@@ -215,7 +249,7 @@ function exportPDF() {
   var byProj = {}, tCost = 0, tRev = 0;
   fd.forEach(function(r) { var pk = r.project_number || '(none)'; if (!byProj[pk]) byProj[pk] = { num: pk, name: r.project_name || '', rev: 0, fld: 0, cost: 0 }; byProj[pk].rev++; byProj[pk].fld += (r.field_count || 0); byProj[pk].cost += (parseFloat(r.cost_usd) || 0); tCost += (parseFloat(r.cost_usd) || 0); tRev++; });
   var desc = 'Billing cycle: ' + (from || '?') + ' to ' + (to || '?');
-  if (uf !== 'all') desc += ' \u00B7 PM: ' + uf;
+  if (uf !== 'all') { var ruf = _resolveUser(uf); desc += ' \u00B7 User: ' + ruf.num + ' ' + ruf.init; }
   if (pf !== 'all') desc += ' \u00B7 Project: ' + pf;
 
   var w = window.open('', '_blank', 'width=850,height=700');
@@ -244,8 +278,8 @@ function exportPDF() {
   w.document.write('<h2>Summary by Project</h2><table><tr><th>Project #</th><th>Client</th><th>Project Name</th><th class="r">Reviews</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
   Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; w.document.write('<tr><td>' + p.num + '</td><td>' + (p.client || '') + '</td><td>' + p.name + '</td><td class="r">' + p.rev + '</td><td class="r">' + p.fld + '</td><td class="cost">$' + p.cost.toFixed(4) + '</td></tr>'); });
   w.document.write('<tr class="total"><td colspan="3">TOTAL</td><td class="r">' + tRev + '</td><td></td><td class="cost">$' + tCost.toFixed(4) + '</td></tr></table>');
-  w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User</th><th>Project #</th><th>Tool</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
-  fd.forEach(function(r) { w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + (r.user_email || '') + '</td><td>' + (r.project_number || '') + '</td><td>' + (r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'); });
+  w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User #</th><th>Initials</th><th>Project #</th><th>Tool</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
+  fd.forEach(function(r) { var ru = _resolveUser(r.user_email); w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + ru.num + '</td><td>' + ru.init + '</td><td>' + (r.project_number || '') + '</td><td>' + (r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'); });
   w.document.write('</table></div></body></html>');
   w.document.close();
 }
