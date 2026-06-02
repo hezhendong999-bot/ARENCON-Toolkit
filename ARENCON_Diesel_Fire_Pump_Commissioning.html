@@ -196,8 +196,8 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .photo-zone-compact .pz-upload,.photo-zone-compact .pz-camera{padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid var(--border);transition:all .14s;}
 .photo-zone-compact .pz-upload{background:var(--smoke);color:var(--steel);}
 .photo-zone-compact .pz-upload:hover{background:white;border-color:var(--arencon);}
-.photo-zone-compact .pz-camera{background:var(--arencon);color:white;border-color:var(--arencon);}
-.photo-zone-compact .pz-camera:hover{filter:brightness(1.1);}
+.photo-zone-compact .pz-camera{background:#2C4770;color:white;border-color:#2C4770;}
+.photo-zone-compact .pz-camera:hover{background:#1f3556;}
 .photo-upload-btn{display:flex;align-items:center;gap:6px;background:var(--slate);color:white;padding:7px 12px;border-radius:5px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;border:none;font-family:Calibri,sans-serif;transition:background .14s;}
 .photo-upload-btn:hover{background:var(--red);}
 .photo-hint{font-size:calc(11.5px + var(--ts));color:var(--silver);}
@@ -237,11 +237,11 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 @media(pointer:coarse){.ph-check{display:block;}}
 .ph-badges{position:absolute;top:6px;right:6px;display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:90px;z-index:2;}
 .ph-badge{padding:3px 9px;color:#fff;border-radius:11px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);line-height:1.3;background:#455A64;}
-.ph-badge-checklist{background:#455A64;}
+.ph-badge-checklist{background:#5F8068;}
 .ph-badge-deficiency{background:#A85959;}
-.ph-badge-general{background:#B07F5A;}
-.ph-badge-flow{background:#5F8068;}
-.ph-badge-records{background:#7B6F5A;}
+.ph-badge-general{background:#6E86B8;}
+.ph-badge-flow{background:#B07F5A;}
+.ph-badge-records{background:#7D6F9C;}
 .ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .ph-cloud svg{display:block;}
 .ph-dl-btn,.ph-del-btn{position:absolute;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);color:#fff;font-size:12px;line-height:1;}
@@ -825,7 +825,8 @@ body.dark-mode .detail-label{color:#8a90a0!important;}
 body.dark-mode .comment-input{background:#282b34!important;color:#d4d4d4!important;border-color:#3a3e48!important;}
 body.dark-mode .photo-zone,body.dark-mode .photo-zone-compact,body.dark-mode [style*="border:2px dashed"]{background:#1e2028!important;border-color:#3a3e48!important;color:#6a7080!important;}
 body.dark-mode .photo-zone-compact .pz-upload{background:#2a2e38!important;color:#c0c8d8!important;border-color:#3a3e48!important;}
-body.dark-mode .photo-zone-compact .pz-camera{background:#15633c!important;border-color:#15633c!important;}
+body.dark-mode .rec-zone-card{background:#232a36!important;border-color:#2a3040!important;}
+body.dark-mode .photo-zone-compact .pz-camera{background:#2C4770!important;border-color:#2C4770!important;}
 body.dark-mode .ev-tile{background:#1e2028!important;border-color:#3a3e48!important;}
 body.dark-mode .ev-tile:hover,body.dark-mode .ev-tile.drag-over{border-color:var(--arencon)!important;background:#241c20!important;}
 body.dark-mode .ev-tile .l{color:#c0c8d8!important;}
@@ -1139,7 +1140,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S222d</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S222e</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
@@ -1975,13 +1976,14 @@ function updatePhaseFlags(){
   <!-- ══ PHOTOS GALLERY PANEL (Session 53 — Batch 2) ══ -->
   <div class="panel" id="panel-photos">
     <div class="card">
-      <div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>General Site Records</div>
+      <div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>Site Records &amp; Capture</div>
       <div class="card-body">
-        <p style="font-size:calc(12.5px + var(--ts));color:var(--steel);margin-bottom:12px;">General record photos of the site. Pump &amp; placard photos are captured in section 4a and also appear in the gallery below.</p>
+        <p style="font-size:calc(12.5px + var(--ts));color:var(--steel);margin-bottom:12px;">Capture pump, placard and site-record photos. All photos — including checklist, deficiency and flow-test — appear in the gallery below.</p>
         <div id="record-zones" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;"></div>
       </div>
     </div>
     <div class="card">
+      <div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Photo Gallery</div>
       <div class="card-body">
         <div id="photos-gallery"></div>
       </div>
@@ -8999,19 +9001,19 @@ function _pgToggleFilterMenu(){ _pgFilterOpen=!_pgFilterOpen; _renderPhotoGaller
 var _REC_KINDS = [
   ['pump','Pump Photo','📷','Photo of the fire pump unit'],
   ['placard','Placard Photo','🏷','Nameplate / rating placard'],
-  ['site','General Records','📁','Any other site record photo']
+  ['site','Site Records','📁','Any other site record photo']
 ];
 function _recZoneHtml(kind){
   var def=null; _REC_KINDS.forEach(function(k){ if(k[0]===kind) def=k; });
   if(!def) return '';
   var title=def[1], icon=def[2], hint=def[3];
   var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return (o.p.kind||'site')===kind;});
-  var html='<div style="border:1.5px solid var(--border);border-radius:9px;padding:11px;background:#fff;">';
+  var html='<div class="rec-zone-card" style="border:1.5px solid var(--border);border-radius:9px;padding:11px;background:var(--card-bg,var(--smoke));">';
   html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
   html+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
   html+='<span>Drag &amp; drop · '+hint+'</span>';
   html+='<button class="pz-upload" onclick="_recUpload(\''+kind+'\')">📎 Upload</button>';
-  html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')" style="background:var(--arencon);color:#fff;border-color:var(--arencon);">📷 Camera</button>';
+  html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')">📷 Camera</button>';
   html+='</div>';
   if(thumbs.length){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
