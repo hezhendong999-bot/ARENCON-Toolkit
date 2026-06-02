@@ -1157,7 +1157,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S222g</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S225a</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
@@ -10864,6 +10864,9 @@ body.dark-mode{
 }
 
 /* ---------- LIVING BACKGROUND ---------- */
+/* stable scrollbar gutter: a tall panel showing a scrollbar and a short one hiding it
+   was shifting page content ~15px between tabs. Reserve the gutter always. */
+html{scrollbar-gutter:stable;}
 body{position:relative;}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:var(--b-glow1),var(--b-glow2);}
 .app-header,.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
@@ -10883,11 +10886,12 @@ body.dark-mode .nav-tab.active{color:#fff;}
 /* card-header -> light section-chip bar with 01· monospaced number, NOT a heavy burgundy slab */
 .card-header{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;
   border-bottom:2px solid var(--arencon)!important;border-radius:16px 16px 0 0;
-  font-weight:700;letter-spacing:.3px;counter-increment:boldsec;padding:13px 16px!important;}
+  font-weight:700;letter-spacing:.3px;counter-increment:boldsec;padding:12px 18px!important;}
 .card-header svg{color:var(--arencon)!important;opacity:1;}
+/* chip pinned to a fixed line-height/box so a 1- vs 2-digit number never changes header height (no per-tab vertical jump) */
 .card-header::before{content:counter(boldsec,decimal-leading-zero);font-family:'Courier New',monospace;font-size:calc(10.5px + var(--ts));
   font-weight:700;color:var(--b-chipnum);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.07);
-  border-radius:5px;padding:2px 7px;margin-right:4px;}
+  border-radius:5px;padding:2px 7px;margin-right:4px;line-height:1.2;flex:0 0 auto;align-self:center;}
 .panel{counter-reset:boldsec;}
 /* DARK MODE — beat the tool's hard-coded burgundy header gradients (lines 776-780, two-selector !important).
    Must match that specificity: body.dark-mode .card-header */
@@ -10993,8 +10997,47 @@ body.dark-mode .tog{background:rgba(255,255,255,.05)!important;color:#a09aa8!imp
 .photo-zone.drag-over,.photo-zone-compact.drag-over{border-color:var(--arencon)!important;background:color-mix(in srgb,var(--arencon) 6%,transparent)!important;}
 #photos-gallery img,#photos-gallery .photo-tile,.gallery-tile{border-radius:12px!important;box-shadow:var(--shadow)!important;border:1px solid var(--border)!important;}
 
+/* ---------- HEADER DROPDOWN MENUS -> solid opaque (never see-through) ---------- */
+/* The Reports/More menus were compositing as glassy and content showed through.
+   Pin a solid background on the menu AND its buttons, no backdrop-filter, both modes. */
+.hdr-repair-menu{background:#FFFFFF!important;backdrop-filter:none!important;
+  border:1px solid var(--border)!important;box-shadow:var(--shadow-lg)!important;}
+.hdr-repair-menu button{background:#FFFFFF!important;color:var(--slate)!important;backdrop-filter:none!important;}
+.hdr-repair-menu button:hover{background:#F4F1F5!important;}
+.hdr-repair-menu button span{color:var(--steel)!important;}
+body.dark-mode .hdr-repair-menu{background:#15131a!important;border:1px solid var(--border)!important;}
+body.dark-mode .hdr-repair-menu button{background:#15131a!important;color:#F4F3F6!important;}
+body.dark-mode .hdr-repair-menu button:hover{background:#221f29!important;}
+body.dark-mode .hdr-repair-menu button span{color:#a09aa8!important;}
+
+/* ---------- PROJECT (AUTONAMING) BAR -> Bold header family ---------- */
+/* Base .project-bar is hard #2C3E50 slate predating Bold; pull it under the new
+   burgundy->cyan header so it reads as one piece, not an old slab. Both modes. */
+.project-bar{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 20%,#141b2c),color-mix(in srgb,var(--b-info) 12%,#1c2638))!important;
+  border-top:1px solid rgba(255,255,255,.10)!important;backdrop-filter:blur(8px);}
+body.dark-mode .project-bar{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 22%,#0e0d12),color-mix(in srgb,var(--b-info) 12%,#12111a))!important;
+  border-top:1px solid rgba(255,255,255,.06)!important;}
+.project-bar .pb-filename{color:rgba(255,255,255,.92)!important;}
+
 /* ---------- MOBILE PAGE NAV ---------- */
 #mobile-page-nav{background:color-mix(in srgb,var(--slate-mid) 92%,var(--arencon))!important;border-top:3px solid var(--arencon)!important;}
+
+/* ---------- FLOW-CHART HEADER (.fig-hd) -> match the Bold black slab ---------- */
+/* It kept the old burgundy (var(--arencon)) bar while every .card-header became the
+   dark slab + burgundy underline. Bring it in line. Both modes. */
+.fig-hd{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;
+  border-bottom:2px solid var(--arencon)!important;}
+.fig-hd .fig-ic{color:var(--arencon)!important;opacity:1;}
+.fig-hd .fig-t{color:var(--b-chipink)!important;}
+body.dark-mode .fig-hd{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;
+  border-bottom:1px solid var(--border)!important;}
+body.dark-mode .fig-hd .fig-ic{color:var(--arencon)!important;}
+
+/* ---------- PHOTOS NAV-TAB CAMERA-EMOJI ALIGNMENT ---------- */
+/* The 📷 glyph in the Photos tab label has a taller line box, dropping that tab's
+   text ~1px vs the others and making the Closeout row look uneven. Centering each
+   tab's inner content (the parent .section-nav is already display:flex) removes it. */
+.nav-tab{display:flex;align-items:center;line-height:1;}
 
 /* body bg uses retuned smoke */
 body{background:var(--smoke);color:var(--slate);}
