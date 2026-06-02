@@ -96,6 +96,7 @@ function _ensureOverlay() {
     + '<div class="ai-usage-filters" style="border-bottom:1px solid var(--border);flex-wrap:wrap;">'
     + '<label>PM</label><select id="ai-usage-user" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));min-width:140px;"><option value="all">All Users</option></select>'
     + '<label>Project</label><select id="ai-usage-project" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));min-width:140px;"><option value="all">All Projects</option></select>'
+    + '<label>Tool</label><select id="ai-usage-tool" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));min-width:120px;"><option value="all">All Tools</option></select>'
     + '<span style="margin-left:auto;font-size:calc(11px + var(--ts));color:var(--steel);">Billing day: <input type="number" id="ai-usage-bday" value="' + _billingDay + '" min="1" max="28"' + (adm ? '' : ' disabled') + ' style="width:40px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));padding:2px 4px;border:1px solid var(--border);border-radius:4px;"> of month' + (adm ? '' : ' \uD83D\uDD12') + '</span>'
     + '</div>'
     + '<div class="ai-usage-body" id="ai-usage-body"><div class="ai-usage-loading">Loading...</div></div></div>';
@@ -109,6 +110,7 @@ function _ensureOverlay() {
   // User/project dropdown changes trigger re-render
   _overlay.querySelector('#ai-usage-user').addEventListener('change', function() { _render(); });
   _overlay.querySelector('#ai-usage-project').addEventListener('change', function() { _render(); });
+  _overlay.querySelector('#ai-usage-tool').addEventListener('change', function() { _render(); });
   // Period buttons
   [{ l: 'This Cycle', v: 'current', bg: '#1A7A4A' }, { l: 'Last Cycle', v: 'last' }, { l: 'This Month', v: 'month' }, { l: 'This Week', v: 'week' }, { l: 'Today', v: 'today' }, { l: 'All Time', v: 'all' }].forEach(function(p) {
     var btn = document.createElement('button');
@@ -134,22 +136,26 @@ function _fetchData() {
 }
 
 function _populateDropdowns() {
-  var users = {}, projs = {};
+  var users = {}, projs = {}, tools = {};
   _data.forEach(function(r) {
     if (r.user_email) users[r.user_email] = true;
     if (r.project_number) projs[r.project_number] = r.project_name || '';
+    if (r.tool) tools[r.tool] = true;
   });
-  var uSel = document.getElementById('ai-usage-user'), pSel = document.getElementById('ai-usage-project');
+  var uSel = document.getElementById('ai-usage-user'), pSel = document.getElementById('ai-usage-project'), tSel = document.getElementById('ai-usage-tool');
   if (uSel) { var cv = uSel.value; uSel.innerHTML = '<option value="all">All Users</option>'; Object.keys(users).sort().forEach(function(e) { uSel.innerHTML += '<option value="' + _esc(e) + '"' + (cv === e ? ' selected' : '') + '>' + _esc(e) + '</option>'; }); }
   if (pSel) { var cv2 = pSel.value; pSel.innerHTML = '<option value="all">All Projects</option>'; Object.keys(projs).sort().forEach(function(n) { pSel.innerHTML += '<option value="' + _esc(n) + '"' + (cv2 === n ? ' selected' : '') + '>' + _esc(n + ' \u2014 ' + projs[n]) + '</option>'; }); }
+  if (tSel) { var cv3 = tSel.value; tSel.innerHTML = '<option value="all">All Tools</option>'; Object.keys(tools).sort().forEach(function(t) { tSel.innerHTML += '<option value="' + _esc(t) + '"' + (cv3 === t ? ' selected' : '') + '>' + _esc(t) + '</option>'; }); }
 }
 
 function _filtered() {
   var uf = (document.getElementById('ai-usage-user') || {}).value || 'all';
   var pf = (document.getElementById('ai-usage-project') || {}).value || 'all';
+  var tf = (document.getElementById('ai-usage-tool') || {}).value || 'all';
   return _data.filter(function(r) {
     if (uf !== 'all' && r.user_email !== uf) return false;
     if (pf !== 'all' && r.project_number !== pf) return false;
+    if (tf !== 'all' && r.tool !== tf) return false;
     return true;
   });
 }
