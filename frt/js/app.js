@@ -169,17 +169,6 @@ function switchTab(tabName) {
     p.classList.toggle('active', panelTab === tabName);
   });
 
-  // The Deficiencies-only fixed compact roster bar (#dfx-compact-bar) is a
-  // position:fixed overlay on <body>, shown via body.dfx-view-board +
-  // body.dfx-show-compact. Those classes are owned by the Deficiencies render
-  // and scroll path and are NOT self-clearing on tab change, so a user who
-  // scrolled down in Board view and then switched tabs would see the bar paint
-  // over Photos/Drawings/Info. Clear both whenever the active tab is not
-  // Deficiencies; the Deficiencies render re-sets dfx-view-board itself.
-  if (tabName !== 'deficiencies') {
-    document.body.classList.remove('dfx-view-board', 'dfx-show-compact');
-  }
-
   // Render the active tab
   switch (tabName) {
     case 'info': initProjectInfo.render(); break;
@@ -784,11 +773,16 @@ function _updateHeaderForProject() {
   var mau = document.getElementById('mobile-ai-usage');
   if (mau) mau.style.display = '';
 
-  // Show repair section for admin
-  var repairSec = document.getElementById('more-repair-section');
-  if (repairSec) repairSec.style.display = '';
-  var mobileRepair = document.getElementById('mobile-repair-section');
-  if (mobileRepair) mobileRepair.style.display = '';
+  // Show repair section for admins only. The HTML defaults both sections to
+  // display:none, so non-admins simply never see them — protecting field users
+  // from destructive recovery actions (R2 Cleanup, Repair R2 Links, etc.).
+  // Admins (role admin/super_admin in profiles) still get full access.
+  if (Auth && Auth.isAdmin && Auth.isAdmin()) {
+    var repairSec = document.getElementById('more-repair-section');
+    if (repairSec) repairSec.style.display = '';
+    var mobileRepair = document.getElementById('mobile-repair-section');
+    if (mobileRepair) mobileRepair.style.display = '';
+  }
 
   // Update page title
   document.title = 'ARENCON \u2014 ' + Model.getSmartFilename();

@@ -1093,112 +1093,14 @@ function _tradeVars(t) {
   return '--tc-bg:' + c.bg + ';--tc-fg:' + c.fg + ';--tc-bd:' + c.bd + ';';
 }
 
-// ── S193: fixed compact-bar architecture (replaces S192 sticky-card) ──
-// Why the rebuild: S192 made the trade-board-card itself sticky AND
-// changed its height when scrolled (via body.dfx-roster-stuck CSS). The
-// height-change caused layout reflow which, on shorter pages, created
-// a scroll-position feedback loop — page flashed and scrollbar reset.
-//
-// New architecture: two separate elements with single responsibilities.
-//   - Full Contractor Roster card stays in NORMAL FLOW (no sticky, no
-//     height change). Scrolls away naturally with the page.
-//   - A SEPARATE #dfx-compact-bar element lives position:fixed at top of
-//     viewport in Board view. Invisible by default (opacity:0;
-//     visibility:hidden; pointer-events:none). Fades in via
-//     body.dfx-show-compact when the full roster's bottom edge has
-//     scrolled above the navy header.
-//   - Because the compact bar is position:fixed (removed from flow),
-//     toggling its visibility causes zero layout reflow. No flash, no
-//     scroll reset.
-// Click handlers work unchanged — the document-level delegate from S191
-// targets .crx-cc[data-crx-ctr] and .crx-tpill anywhere in the DOM.
-var _dfxScrollTicking = false;
-function _dfxCheckCompact() {
-  // Bail when not in Board view; CSS already hides the bar via class scope.
-  if (_deficView !== 'board') { document.body.classList.remove('dfx-show-compact'); return; }
-  var card = document.getElementById('trade-board-card');
-  if (!card) { document.body.classList.remove('dfx-show-compact'); return; }
-  var rect = card.getBoundingClientRect();
-  // S197: simple top-of-viewport threshold. The bar is position:fixed
-  // at top:0, so showing it has no document-flow impact — no feedback
-  // loops, no hysteresis needed. Show when the roster card's bottom
-  // edge has scrolled above the viewport top (rect.bottom < 10).
-  var shouldShow = rect.bottom < 10;
-  document.body.classList.toggle('dfx-show-compact', shouldShow);
-}
-function _dfxOnScroll() {
-  if (_dfxScrollTicking) return;
-  _dfxScrollTicking = true;
-  requestAnimationFrame(function() {
-    _dfxCheckCompact();
-    _dfxScrollTicking = false;
-  });
-}
-function _dfxSetupStickyObserver() {
-  // S197: bar is position:fixed at top:0 of viewport. The navy header
-  // CLAIMS to be position:sticky in CSS but is broken in Chrome because
-  // html and body both have `overflow-x: hidden`, which kills sticky
-  // positioning on descendants. Rather than fight that, we make the bar
-  // a true viewport-fixed overlay — it appears at top:0 independent of
-  // where the navy header ends up. When user scrolls past the roster,
-  // navy header is offscreen anyway; bar takes over.
-  // (S195/S196 tried to use the navy header as an anchor — both failed
-  // because the anchor itself wasn't stable.)
-  var bar = document.getElementById('dfx-compact-bar');
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'dfx-compact-bar';
-    document.body.appendChild(bar);
-  } else if (bar.parentElement !== document.body) {
-    document.body.appendChild(bar);
-  }
-  _dfxCheckCompact();
-  if (window._dfxScrollAttached) return;
-  window._dfxScrollAttached = true;
-  window.addEventListener('scroll', _dfxOnScroll, { passive: true });
-  window.addEventListener('resize', _dfxOnScroll, { passive: true });
-}
+// S229: the fixed compact roster bar (#dfx-compact-bar) was REMOVED. It
+// duplicated the full Contractor Roster card as a position:fixed overlay that
+// bled onto other tabs and only ever worked in Board view. The full roster
+// card (_renderTradeBoard) is the single source of truth now; it scrolls
+// naturally with the page. All sticky/scroll machinery and the dfx-view-board /
+// dfx-show-compact body classes are gone.
 
-// Render the contents of #dfx-compact-bar from the same project data.
-// Two rows: trade pills (row 1), contractor pills (row 2) — Mark's
-// directive to never merge. Click handlers are delegate-based (S191),
-// so identical IDs/classes on duplicate DOM elements are fine.
-function _renderCompactBar(proj, trades, ctrs) {
-  var bar = document.getElementById('dfx-compact-bar');
-  if (!bar) return;
-  var pickCtr = _pickCtrId ? ctrs.filter(function(c) { return c.id === _pickCtrId; })[0] : null;
-  var pickHas = pickCtr ? (pickCtr.trades || []) : [];
-  // S205c (Mark): render in CREATION order — never reorder by assignment.
-  // Unassigned cards glow amber but stay put; assigning a trade does not move
-  // them. The only time order changes is deletion (array splice closes the gap).
-  var roster = realCtrs(ctrs);
-  var h = '';
-  // Row 1 — trades
-  h += '<div class="dfx-cb-row dfx-cb-trades">';
-  trades.forEach(function(t) {
-    var taken = !!pickCtr && pickHas.indexOf(t) !== -1;
-    h += '<span class="crx-tpill' + (taken ? ' crx-taken' : '') + '" data-action="crx-pill" data-trade="' + esc(t) + '" style="' + _tradeVars(t) + '">' + esc(t) + '</span>';
-  });
-  h += '</div>';
-  // Row 2 — contractors
-  h += '<div class="dfx-cb-row dfx-cb-ctrs">';
-  roster.forEach(function(c) {
-    var _un = !((c.trades || []).length);
-    var _tgt = (_pickCtrId === c.id);
-    h += '<div class="crx-cc dfx-cb-cc' + (_un ? ' crx-unassigned' : '') + (_tgt ? ' crx-target' : '') + (_bvSel ? ' crx-assign-target' : '') + '" data-crx-ctr="' + esc(c.id) + '" style="--cc:' + esc(c.color || '#6B7280') + ';">';
-    h += '<span class="crx-dot"></span>';
-    h += '<span class="crx-nm">' + esc(ctrLabel(c.name)) + '</span>';
-    // S194: inline trade chips inside each contractor card (matches the
-    // mockup's option A "full-fidelity" look). Same _tradeVars pattern as
-    // the full roster's .crx-tag elements.
-    (c.trades || []).forEach(function(t) {
-      h += '<span class="crx-tag dfx-cb-tag" style="' + _tradeVars(t) + '">' + esc(t) + '</span>';
-    });
-    h += '</div>';
-  });
-  h += '</div>';
-  bar.innerHTML = h;
-}
+
 
 function _renderTradeBoard(proj) {
   var el = document.getElementById('contractors-on-site');
@@ -1291,8 +1193,6 @@ function _renderTradeBoard(proj) {
 
   el.innerHTML = h;
   document.body.classList.toggle('crx-picking', !!_pickCtrId);
-  // S193: keep the fixed compact bar in sync with every roster render
-  _renderCompactBar(proj, trades, ctrs);
 }
 
 // Smart picker — overlay modal for adding contractor to a trade column
@@ -1865,12 +1765,6 @@ export var initDeficiencies = {
       });
     });
     _syncDfxControls(pcActive, pcClosed, proj);
-
-    // S192: drive Board-view-only sticky roster via a body class. The
-    // sticky CSS + the compact "stuck" two-row presentation key off
-    // body.dfx-view-board and body.dfx-roster-stuck respectively.
-    document.body.classList.toggle('dfx-view-board', _deficView === 'board');
-    _dfxSetupStickyObserver();
 
     // S137/S138: view dispatch. S216: Table view retired — Detailed + Board only.
     // Any stale _deficView==='table' falls through to Detailed (the else branch).
