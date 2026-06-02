@@ -735,6 +735,10 @@ body.text-l{--ts:4px;}
             <label>Project / User #</label>
             <input type="text" id="new-user-num" placeholder="e.g. 1042">
           </div>
+          <div class="form-group" style="min-width:90px">
+            <label>Initials</label>
+            <input type="text" id="new-user-init" placeholder="e.g. MH" maxlength="6">
+          </div>
           <div class="form-group" style="flex:1;min-width:200px">
             <label>Email (@arencon.com)</label>
             <input type="email" id="new-user-email" placeholder="jsmith@arencon.com">
@@ -2714,6 +2718,7 @@ function renderAdminUsers() {
 async function createUser() {
   const nameVal = document.getElementById('new-user-name').value.trim();
   const numVal = document.getElementById('new-user-num').value.trim();
+  const initVal = document.getElementById('new-user-init').value.trim().toUpperCase();
   const emailVal = document.getElementById('new-user-email').value.trim().toLowerCase();
   const passVal = document.getElementById('new-user-pass').value;
   const roleVal = document.getElementById('new-user-role').value;
@@ -2753,6 +2758,7 @@ async function createUser() {
         email: emailVal,
         role: roleVal,
         user_number: numVal || null,
+        initials: initVal || null,
         is_active: true
       });
     } catch (profileErr) {
@@ -2761,6 +2767,7 @@ async function createUser() {
     toast('User created: ' + nameVal + ' (' + emailVal + ')', 'success');
     document.getElementById('new-user-name').value = '';
     document.getElementById('new-user-num').value = '';
+    document.getElementById('new-user-init').value = '';
     document.getElementById('new-user-email').value = '';
     document.getElementById('new-user-pass').value = '';
     await loadAdminUsers();
