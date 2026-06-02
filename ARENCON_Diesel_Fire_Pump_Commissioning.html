@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -3929,7 +3930,7 @@ function _appendSafetyPill(host, chartKey){
   var on=smState[chartKey].on;
   var el=document.createElement('span');
   el.className='lg'+(on?'':' off');
-  el.innerHTML='<span class="lg-sm"><svg class="swc" viewBox="0 0 24 12"><line x1="12" y1="1" x2="12" y2="11" stroke="#3DBE6B" stroke-width="2.4" stroke-dasharray="2,3"/></svg>Safety Margin</span>';
+  el.innerHTML='<span class="lg-main lg-sm"><svg class="swc" viewBox="0 0 24 12"><line x1="12" y1="1" x2="12" y2="11" stroke="#3DBE6B" stroke-width="2.4" stroke-dasharray="2,3"/></svg>Safety Margin</span>';
   el.querySelector('.lg-sm').onclick=function(){ toggleSafetyMargin(chartKey); };
   host.appendChild(el);
 }
@@ -4243,11 +4244,13 @@ var smState = {
   chart3pt: {on:true, x:0, y:0},
   pldChart: {on:true, x:0, y:0}
 };
-function _smColor(margin, resp){
-  if(margin <= 0.001) return {c:'#C25B5B', word:'DEFICIT'};
-  var amber = Math.min(10, (resp||0)*0.10);
-  if(margin < amber) return {c:'#D6A93E', word:'TIGHT'};
-  return {c:'#3DBE6B', word:'ADEQUATE'};   // brighter than the sage measured curve
+// Verdict colours match the golden-curve demo exactly.
+// Amber (TIGHT) when margin < min(10 psi, 10% of available pressure at demand). Red ≤ 0.
+function _smColor(margin, availPsi){
+  if(margin <= 0.001) return {c:'#C25B5B', bg:'rgba(194,91,91,.16)', word:'DEFICIT'};
+  var amber = Math.min(10, (availPsi||0)*0.10);
+  if(margin < amber) return {c:'#D6A93E', bg:'rgba(214,169,62,.16)', word:'TIGHT'};
+  return {c:'#3DBE6B', bg:'rgba(61,190,107,.16)', word:'ADEQUATE'};
 }
 // pull live data for color thresholds (needs residual psi)
 function _smResidualPsi(pfx){ return parseFloat(document.getElementById(pfx+'ws-res-psi')?.value); }
@@ -4257,8 +4260,7 @@ function renderSafetyConnector(chartKey, chartObj, pfx){
   ov.innerHTML='';
   var st=smState[chartKey]; if(!st||!st.on) return;
   var m=_safetyMargin(pfx); if(!m) return;
-  var resp=_smResidualPsi(pfx);
-  var col=_smColor(m.psi, resp);
+  var col=_smColor(m.psi, m.avail);
   var sign=m.psi>0?'+':'';
   var xs=chartObj.scales.x, ys=chartObj.scales.y; if(!xs||!ys) return;
   var px=xs.getPixelForValue(m.demFlow);
@@ -4287,13 +4289,13 @@ function renderSafetyConnector(chartKey, chartObj, pfx){
   var chip=document.createElement('div');
   chip.className='sm-chip';
   chip.style.cssText='position:absolute;top:'+(mid+st.y)+'px;transform:translateY(-50%);'
-    +(placeLeft?'right:'+(baseRight-st.x)+'px;border-right:4px solid '+col.c+';border-left:1px solid '+col.c+'66;'
-                :'left:'+(baseLeft+st.x)+'px;border-left:4px solid '+col.c+';border-right:1px solid '+col.c+'66;')
-    +'background:#1e2533;border-top:1px solid '+col.c+'66;border-bottom:1px solid '+col.c+'66;'
-    +'border-radius:8px;padding:5px 11px;white-space:nowrap;box-shadow:0 2px 9px rgba(0,0,0,.4);'
+    +(placeLeft?'right:'+(baseRight-st.x)+'px;':'left:'+(baseLeft+st.x)+'px;')
+    +'display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;'
+    +'background:'+col.bg+';border:1.5px solid '+col.c+';'
+    +'border-radius:10px;padding:6px 11px;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.35);'
     +'cursor:grab;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:none;z-index:5;';
-  chip.innerHTML='<div style="font-size:calc(13px + var(--ts));font-weight:800;color:'+col.c+';line-height:1.1;">'+sign+m.psi.toFixed(1)+' psi</div>'
-    +'<div style="font-size:calc(10px + var(--ts));font-weight:700;color:'+col.c+';letter-spacing:.2px;">'+pctTxt+' · '+col.word+'</div>';
+  chip.innerHTML='<div style="font-size:calc(13px + var(--ts));font-weight:800;color:'+col.c+';letter-spacing:.2px;">'+sign+m.psi.toFixed(1)+' psi</div>'
+    +'<div style="font-size:calc(10px + var(--ts));font-weight:700;color:'+col.c+';letter-spacing:.4px;margin-top:1px;">'+pctTxt+' · '+col.word+'</div>';
   ov.appendChild(chip);
   // position leader after chip is laid out
   function updateLeader(){
@@ -4331,7 +4333,7 @@ function _safetyMarginPdf(pfx, chartKey){
   chartKey = chartKey || 'chart3pt';
   if(!smState[chartKey] || !smState[chartKey].on) return '';
   var m=_safetyMargin(pfx); if(!m) return '';
-  var resp=_smResidualPsi(pfx); var col=_smColor(m.psi, resp);
+  var col=_smColor(m.psi, m.avail);
   var sign=m.psi>0?'+':'';
   var pctTxt=m.demPsi>0?(sign+(m.psi/m.demPsi*100).toFixed(0)+'%'):'—';
   return '<div style="margin-top:8px;text-align:center;font-size:9pt;color:#333;">'
