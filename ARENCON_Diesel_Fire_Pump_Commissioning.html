@@ -1157,7 +1157,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S225b</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S225c</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
@@ -1309,7 +1309,7 @@ var PHASES = {  setup:    { label:'Setup',    panels:[
     {id:'defic', label:'6. Deficiencies', badge:true},
     {id:'sign',  label:'7. Signature'},
     {id:'sketch',label:'8. Sketches'},
-    {id:'photos',label:'📷 Photos'}
+    {id:'photos',label:'Photos'}
   ]}
 };
 function _phaseOf(panelId){
@@ -1414,11 +1414,11 @@ function updatePhaseFlags(){
 
         <div class="proj-grid">
           <!-- Row 1: Project identification -->
-          <div class="field-group"><label>Project No.</label><input type="text" id="pi-projno" placeholder="e.g. 7155.18" onblur="if(typeof saveState==='function')saveState();"></div>
-          <div class="field-group"><label>Client</label><input type="text" id="pi-client" placeholder="e.g. Caplink"></div>
-          <div class="field-group"><label>Project Name / Building</label><input type="text" id="pi-projname" placeholder="e.g. Building A"></div>
+          <div class="field-group"><label>Project No.</label><input type="text" id="pi-projno" placeholder="9999.99" onblur="if(typeof saveState==='function')saveState();"></div>
+          <div class="field-group"><label>Client</label><input type="text" id="pi-client" placeholder="Client / Owner name"></div>
+          <div class="field-group"><label>Project Name / Building</label><input type="text" id="pi-projname" placeholder="Building # &amp; Scope of Work"></div>
           <!-- Row 2: Location -->
-          <div class="field-group" style="grid-column:span 2"><label>Project Address</label><input type="text" id="pi-addr" placeholder="6885 Langstaff Rd., Vaughan, ON"></div>
+          <div class="field-group" style="grid-column:span 2"><label>Project Address</label><input type="text" id="pi-addr" placeholder="123 ABC Ave., City, Province"></div>
           <!-- Row 3: Inspection details -->
           <div class="field-group"><label>Date of Inspection</label><input type="date" id="pi-date"></div>
           <div class="field-group"><label>Prepared By</label><input type="text" id="pi-prepby" placeholder="Initials or Name"></div>
@@ -10953,13 +10953,13 @@ body:not(.dark-mode) input,body:not(.dark-mode) select,body:not(.dark-mode) text
 body:not(.dark-mode) .field-group input,body:not(.dark-mode) .field-group select,body:not(.dark-mode) .field-group textarea{
   background:#FFFFFF!important;color:#1B1A22!important;-webkit-text-fill-color:#1B1A22!important;
   border:1px solid var(--border)!important;border-radius:9px!important;}
-body:not(.dark-mode) input::placeholder,body:not(.dark-mode) textarea::placeholder{color:#928E9C!important;-webkit-text-fill-color:#928E9C!important;}
+body:not(.dark-mode) input::placeholder,body:not(.dark-mode) textarea::placeholder{color:#A8A4B0!important;-webkit-text-fill-color:#A8A4B0!important;font-style:italic;}
 /* DARK MODE inputs — solid white ink (must beat body.dark-mode input{color:#d0d8f0!important}) */
 body.dark-mode input,body.dark-mode select,body.dark-mode textarea,
 body.dark-mode .field-group input,body.dark-mode .field-group select,body.dark-mode .field-group textarea{
   background:rgba(255,255,255,.05)!important;color:#F4F3F6!important;-webkit-text-fill-color:#F4F3F6!important;
   border:1px solid var(--border)!important;border-radius:9px!important;}
-body.dark-mode input::placeholder,body.dark-mode textarea::placeholder{color:#6b6674!important;-webkit-text-fill-color:#6b6674!important;}
+body.dark-mode input::placeholder,body.dark-mode textarea::placeholder{color:#6b6674!important;-webkit-text-fill-color:#6b6674!important;font-style:italic;}
 /* readonly fields (Date Modified) — keep readable ink, not washed grey, both modes */
 body:not(.dark-mode) input[readonly]{color:#1B1A22!important;-webkit-text-fill-color:#1B1A22!important;background:#F4F1F5!important;}
 body.dark-mode input[readonly]{color:#F4F3F6!important;-webkit-text-fill-color:#F4F3F6!important;background:rgba(255,255,255,.04)!important;}
@@ -11046,6 +11046,51 @@ body.dark-mode .fig-hd .fig-ic{color:var(--arencon)!important;}
    text ~1px vs the others and making the Closeout row look uneven. Centering each
    tab's inner content (the parent .section-nav is already display:flex) removes it. */
 .nav-tab{display:flex;align-items:center;line-height:1;}
+
+/* ════════════════════════════════════════════════════════════════════
+   S225c — CHROME REFINEMENT (supersedes earlier overlay chrome rules)
+   Goal: match FRT button family, dark header same-family, two-tier nav
+   with a CLEAR parent/child rank, full-width sub-nav, visible day hover,
+   clean solid verdict bar. Last in the overlay so these win.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* AI Review button -> FRT purple (#7B2D8E), not the burgundy it was */
+.hdr-ai-active{background:#7B2D8E!important;}
+.hdr-ai-active:hover{filter:brightness(1.12);}
+
+/* DARK header -> FRT's exact dark gradient so the two tools read as ONE family
+   (frt.css: linear-gradient(135deg, rgba(156,39,66,.28), rgba(70,197,232,.10)) over #15131a) */
+body.dark-mode .app-header{background:linear-gradient(135deg,rgba(156,39,66,.28),rgba(70,197,232,.10)),#15131a!important;backdrop-filter:blur(10px);}
+
+/* ── TWO-TIER NAV: make phase bar (parent/context) read as a DIFFERENT rank
+   than the sub-tabs (child/working level). Before: two near-identical dark
+   strips competed and the day-mode white strip was narrow + misaligned. ── */
+
+/* phase bar = quiet, recessed context */
+.phase-bar{background:rgba(0,0,0,.18)!important;}
+body.dark-mode .phase-bar{background:rgba(0,0,0,.30)!important;}
+.phase-tab{color:rgba(255,255,255,.45)!important;}
+.phase-tab .ph-sub{color:rgba(255,255,255,.40)!important;}
+.phase-tab.active{color:#fff!important;background:rgba(255,255,255,.06)!important;border-bottom-color:var(--arencon)!important;}
+.phase-tab.active .ph-name{color:#fff!important;}
+.phase-tab.active .ph-sub{color:rgba(255,255,255,.72)!important;}
+.phase-tab:not(.active):hover{color:rgba(255,255,255,.78)!important;}
+
+/* sub-tabs = the bright WORKING level on a solid full-width surface */
+.section-nav{width:100%!important;}
+body:not(.dark-mode) .section-nav{background:var(--surface)!important;border-bottom:1px solid var(--border)!important;}
+body.dark-mode .section-nav{background:linear-gradient(135deg,#0F172A,#1E293B)!important;border-bottom:1px solid var(--border)!important;}
+/* DAY hover/active must be INK/brand — never white-on-white (the disappearing-text bug) */
+body:not(.dark-mode) .nav-tab{color:#6b7280!important;}
+body:not(.dark-mode) .nav-tab:hover{color:var(--arencon)!important;}
+body:not(.dark-mode) .nav-tab.active{color:var(--slate)!important;border-bottom-color:var(--arencon)!important;}
+body.dark-mode .nav-tab{color:#7a8090!important;}
+body.dark-mode .nav-tab:hover{color:#fff!important;}
+body.dark-mode .nav-tab.active{color:#fff!important;border-bottom-color:#c13a58!important;}
+
+/* VERDICT banner -> clean solid (the inline el.style.background sets the hue;
+   ensure no glassy/gradient bleed sits under it) */
+.summary-bar,#overall-result,[id*="overall"]{backdrop-filter:none!important;}
 
 /* body bg uses retuned smoke */
 body{background:var(--smoke);color:var(--slate);}
