@@ -1766,13 +1766,10 @@ export var initDeficiencies = {
     });
     _syncDfxControls(pcActive, pcClosed, proj);
 
-    // S137/S138: view dispatch. S216: Table view retired — Detailed + Board only.
-    // Any stale _deficView==='table' falls through to Detailed (the else branch).
-    if (_deficView === 'board') {
-      _renderBoardView(proj, container);
-    } else {
-      _renderDetailedView(proj, container);
-    }
+    // S232 FRT-CV: Detailed + Board MERGE into the single Combined view.
+    // The view toggle is gone; _renderDetailedView / _renderBoardView are
+    // left defined-but-inert (S137 discipline) for one-commit revertability.
+    _renderCombinedView(proj, container);
     // S138: single unified "+ deficiency" trigger at the foot of every view.
     // Replaces the per-contractor "+ Add Deficiency" rows (Detailed) and the
     // trade-board-foot "+ General Deficiency" button. Contractor / trade /
@@ -2566,6 +2563,313 @@ function _renderDetailedView(proj, container) {
   }
   container.innerHTML = h;
 }
+
+
+// ════════════════════════════════════════════════════════════════════
+// COMBINED DEFICIENCY VIEW (FRT-CV) — S232 render fold.
+// Merges the Detailed + Board views into ONE view (the toggle is gone).
+// Consumes the S231 _deriveCategory classifier. Reuses every protected
+// building block: _flatRows (ALL rows: ignorePivot + ignoreRecMode),
+// getContractorColor, the Trade->Contractor nest helpers, and the
+// _buildObsRow / _buildObsEditor pair (which already wire toggle-rec,
+// obs-pristatus, reassignDeficiency). The ONLY new behavior here is:
+//   (1) per-obs partition by _deriveCategory (not the pin-level rec/site
+//       split _renderDetailedView used);
+//   (2) the four-category segmented PILL per row + its handler, writing
+//       back through EXISTING Model setters only;
+//   (3) the global "Edit categories" lock + DELAYED re-sort.
+// No new stored field. No data migration. Site Records still excluded
+// from the client report (the PDF filter keys off the same flags, which
+// this view never changes structurally).
+// ════════════════════════════════════════════════════════════════════
+
+// Global lock state for category editing (module scope; transient, not
+// persisted — every review starts LOCKED = fat-finger-proof). When
+// unlocked, category taps mutate state immediately but the list does NOT
+// re-group; it re-sorts only on re-lock (_cvRelock). Mirrors the
+// _recHoldUntilNav delayed-resettle pattern.
+var _cvUnlocked = false;
+// Pending category mutations applied while unlocked but not yet re-sorted.
+// Keyed obsKey -> true; cleared on re-lock. Purely a render-suppression
+// marker (the model is already mutated); used so a tapped card keeps its
+// place until the global re-lock resettles the whole list.
+var _cvDirty = {};
+
+// The four-category descriptor for the segmented pill. Lavender Site
+// Record per the lock (NOT grey, NOT the legacy FRT site green).
+function _cvCatMeta(cat) {
+  switch (cat) {
+    case 'active':  return { key: 'active', label: 'Active',         cls: 'cv-cat-active' };
+    case 'rec':     return { key: 'rec',    label: 'Recommendation', cls: 'cv-cat-rec' };
+    case 'site':    return { key: 'site',   label: 'Site Record',    cls: 'cv-cat-site' };
+    case 'closed':  return { key: 'closed', label: 'Closed',         cls: 'cv-cat-closed' };
+  }
+  return { key: 'active', label: 'Active', cls: 'cv-cat-active' };
+}
+
+// Build the four-segment category pill for one observation row. Selected
+// segment carries its colour; the rest are quiet. Faded + untappable when
+// the global lock is engaged (data-cv-locked on the container drives the
+// CSS; the handler also hard-guards on _cvUnlocked).
+function _cvCategoryPill(d, oi, cat) {
+  var cats = ['active', 'rec', 'site', 'closed'];
+  var h = '<span class="cv-catpill" role="group" aria-label="Category">';
+  cats.forEach(function(c) {
+    var m = _cvCatMeta(c);
+    var on = (c === cat);
+    h += '<button type="button" class="cv-catseg ' + m.cls + (on ? ' on' : '') + '"'
+      + ' data-action="cv-setcat" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-cat="' + c + '"'
+      + ' aria-pressed="' + (on ? 'true' : 'false') + '" title="' + esc(m.label) + '">'
+      + esc(m.label) + '</button>';
+  });
+  h += '</span>';
+  return h;
+}
+
+// One collapsed observation row for the combined view. Wraps the existing
+// _buildObsRow (which carries the thumb, title, status chip, and expands
+// into the real _buildObsEditor) and prepends the four-category pill so
+// the pill shows on the collapsed card AND — because _buildObsEditor is
+// reused verbatim — the same controls live in the expanded editor.
+// We do NOT re-implement the editor; the pill is the only added chrome.
+function _cvObsRow(d, oi, ctrId, opts, cat) {
+  var pill = '<div class="cv-row-catbar">' + _cvCategoryPill(d, oi, cat) + '</div>';
+  // _buildObsRow already renders the row + (when open) the editor. We
+  // inject the category pill as a sibling header strip above the row so a
+  // re-render of the row body never clobbers it and vice-versa.
+  return '<div class="cv-row" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">'
+    + pill + _buildObsRow(d, oi, ctrId, opts) + '</div>';
+}
+
+function _renderCombinedView(proj, container) {
+  // ALL rows, every category — the combined view owns its own grouping and
+  // is pivot-independent (no Active/Closed tab; Closed is a category).
+  var rows = _flatRows(proj, true, true);
+
+  function ctrOf(ctrId) {
+    if (!ctrId) return null;
+    return (proj.contractors || []).find(function(x) { return x.id === ctrId; }) || null;
+  }
+
+  var OTHER = 'Other Trade Items';
+  var NOTRADE = '(No trade assigned)';
+
+  // Aggregate per pin (for ordering + count) but classify per OBSERVATION.
+  // Each row already carries {d, o, oi, ctrId, ctrName}; hasCtr = !!ctrId.
+  // We build a Trade -> Contractor nest exactly like the Detailed view, but
+  // the per-row category drives which rows are emitted/labelled — the nest
+  // structure (trade band -> contractor sub-band) is preserved (Mark's call).
+
+  // Group rows by pin so a pin's obs stay together under one trade/ctr.
+  var pinOrder = [];
+  var pinAgg = {};
+  rows.forEach(function(r) {
+    var id = r.d.id;
+    if (!pinAgg[id]) { pinAgg[id] = { d: r.d, ctrId: r.ctrId, ctrName: r.ctrName, rows: [] }; pinOrder.push(id); }
+    pinAgg[id].rows.push(r);
+  });
+
+  function _sortPins(arr) {
+    if (!Array.isArray(arr)) return arr;
+    arr.sort(function(a, b) {
+      var na = parseInt(a && a.d && a.d.num, 10);
+      var nb = parseInt(b && b.d && b.d.num, 10);
+      var aok = !isNaN(na), bok = !isNaN(nb);
+      if (aok && bok && na !== nb) return na - nb;
+      if (aok !== bok) return aok ? -1 : 1;
+      var ia = (a && a.d && a.d.id != null) ? String(a.d.id) : '';
+      var ib = (b && b.d && b.d.id != null) ? String(b.d.id) : '';
+      return ia < ib ? -1 : (ia > ib ? 1 : 0);
+    });
+    return arr;
+  }
+
+  // Trade -> Contractor nest. A pin lands under its single derived trade
+  // (Model.derivePinTradeSingle) and its contractor. Unassigned (no ctr)
+  // is pinned to the TOP of its trade so new/unassigned items never hide.
+  var tradeMap = {};
+  var tradeSeen = [];
+
+  pinOrder.forEach(function(id) {
+    var e = pinAgg[id];
+    var tks = [Model.derivePinTradeSingle(e.d, ctrOf(e.ctrId))].filter(Boolean);
+    if (!tks.length) tks = e.ctrId ? [OTHER] : [NOTRADE];
+    var tk = tks[0];
+    if (!tradeMap[tk]) { tradeMap[tk] = { name: tk, count: 0, ctrKeys: [], ctrs: {} }; tradeSeen.push(tk); }
+    var T = tradeMap[tk];
+    var ck = e.ctrId || '__unassigned__';
+    if (!T.ctrs[ck]) { T.ctrs[ck] = { ctrId: e.ctrId, name: e.ctrName, pins: [], count: 0, unassigned: !e.ctrId }; T.ctrKeys.push(ck); }
+    T.ctrs[ck].pins.push(e);
+    T.ctrs[ck].count += e.rows.length;
+    T.count += e.rows.length;
+  });
+
+  function orderTrades(seen, has) {
+    var ordered = [];
+    (proj.projectTrades || []).forEach(function(t) { if (has(t)) ordered.push(t); });
+    seen.forEach(function(t) { if (ordered.indexOf(t) < 0 && t !== OTHER && t !== NOTRADE) ordered.push(t); });
+    return ordered;
+  }
+  var orderedTrades = orderTrades(tradeSeen, function(t) { return !!tradeMap[t]; });
+  if (tradeMap[OTHER]) orderedTrades.push(OTHER);
+  if (tradeMap[NOTRADE]) orderedTrades.push(NOTRADE);
+
+  var ctrIndex = {};
+  (proj.contractors || []).forEach(function(c, i) { ctrIndex[c.id] = i; });
+  function orderCtrKeys(T) {
+    return T.ctrKeys.slice().sort(function(a, b) {
+      // Unassigned pinned to TOP (load-bearing — a records-heavy project is
+      // mostly unassigned; without this its content hides).
+      if (a === '__unassigned__') return -1;
+      if (b === '__unassigned__') return 1;
+      var ia = (ctrIndex[a] == null) ? 1e9 : ctrIndex[a];
+      var ib = (ctrIndex[b] == null) ? 1e9 : ctrIndex[b];
+      return ia - ib;
+    });
+  }
+
+  _dfxSectionKeys = [];
+  function _arrow(collapsed) {
+    return '<span class="dfx-fold-arrow">' + (collapsed ? '\u25B6' : '\u25BC') + '</span>';
+  }
+
+  var h = '';
+
+  // Global "Edit categories" lock switch — ONE for the whole list.
+  h += '<div class="cv-lockbar">'
+    + '<button type="button" class="cv-lock-btn' + (_cvUnlocked ? ' unlocked' : '') + '" data-action="cv-togglelock" aria-pressed="' + (_cvUnlocked ? 'true' : 'false') + '">'
+    + (_cvUnlocked ? '\uD83D\uDD13 Editing categories \u2014 tap to lock & re-sort' : '\uD83D\uDD12 Edit categories')
+    + '</button>'
+    + (_cvUnlocked ? '<span class="cv-lock-hint">Tap a category to change it. The list re-sorts when you lock.</span>' : '')
+    + '</div>';
+
+  orderedTrades.forEach(function(tk) {
+    var T = tradeMap[tk];
+    var isOther = (tk === OTHER || tk === NOTRADE);
+    _dfxSectionKeys.push(tk);
+    var tCol = !!_dfxFoldTrade[tk];
+    h += '<div class="dfx-trade-section' + (tCol ? ' dfx-collapsed' : '') + '">';
+    h += '<div class="dfx-trade-banner' + (isOther ? ' other' : '') + '" data-action="dfx-fold-trade" data-trade="' + esc(tk) + '"><span>' + _arrow(tCol) + esc(T.name) + '</span><span class="dfx-trade-count">' + T.count + '</span></div>';
+    orderCtrKeys(T).forEach(function(ck) {
+      var C = T.ctrs[ck];
+      var cKey = tk + '::' + ck;
+      var cCol = !!_dfxFoldCtr[cKey];
+      h += '<div class="dfx-ctr-block' + (cCol ? ' dfx-collapsed' : '') + (C.unassigned ? ' cv-unassigned' : '') + '">';
+      var _cpal = C.unassigned ? { accent: '#6E6AA8', surface: '#DEDDEF', text: '#3F4470' } : getContractorColor(C.name);
+      var _cname = C.unassigned ? 'Unassigned' : C.name;
+      h += '<div class="dfx-ctr-banner dfx-ctr-tinted" style="--cc:' + esc(_cpal.accent) + ';--csurf:' + esc(_cpal.surface) + ';--ctext:' + esc(_cpal.text) + ';" data-action="dfx-fold-ctr" data-ctr-key="' + esc(cKey) + '"><span class="dfx-ctr-dot"></span><span>' + _arrow(cCol) + esc(_cname) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
+      h += '<div class="dfx-pingrp">';
+      _sortPins(C.pins).forEach(function(e) {
+        var _obs = e.d.observations || [];
+        var hasCtr = !!C.ctrId;
+        if (!_obs.length) {
+          var cat0 = _deriveCategory(e.d, null, hasCtr).cat;
+          h += _cvObsRow(e.d, 0, C.ctrId, { ctrName: C.name }, cat0);
+          return;
+        }
+        _obs.forEach(function(o, oi) {
+          var cat = _deriveCategory(e.d, o, hasCtr).cat;
+          h += _cvObsRow(e.d, oi, C.ctrId, { ctrName: C.name }, cat);
+        });
+      });
+      if (!C.unassigned) {
+        h += _addDeficTriggerHTML({ scoped: true, ctrId: C.ctrId, ctrName: C.name, trade: (isOther ? '' : T.name) });
+      }
+      h += '</div></div>';
+    });
+    h += '</div>';
+  });
+
+  if (_dfxSectionKeys.length) {
+    var allCol = _dfxSectionKeys.every(function(k) { return !!_dfxFoldTrade[k]; });
+    h = h.replace('<div class="cv-lockbar">',
+      '<div class="dfx-foldall-bar"><button class="dfx-foldall-btn" data-action="dfx-fold-all" data-all="'
+      + (allCol ? '0' : '1') + '">' + (allCol ? '\u25BC Expand all' : '\u25B6 Collapse all') + '</button></div><div class="cv-lockbar">');
+  }
+
+  if (!orderedTrades.length) {
+    var hasAny = Model.getAllDeficiencies(proj).length > 0;
+    h += '<div class="dfx-empty">' + (hasAny
+      ? 'No items to show.'
+      : 'No deficiencies yet. Add a contractor in the Trade Board, then add deficiencies here.') + '</div>';
+  }
+
+  container.innerHTML = h;
+  container.setAttribute('data-cv-locked', _cvUnlocked ? '0' : '1');
+}
+
+// Flip the global lock. Locking triggers the DELAYED re-sort: clear the
+// dirty markers and re-render so cards resettle into their (already
+// mutated) categories. Unlocking just re-renders to enable the pills.
+function _cvToggleLock() {
+  _cvUnlocked = !_cvUnlocked;
+  if (!_cvUnlocked) { _cvDirty = {}; }     // re-lock → resettle
+  initDeficiencies.render();
+}
+
+// Auto-relock backstop — called on tab-leave / card-close paths so the
+// list never lingers in the editable state.
+function _cvAutoRelock() {
+  if (_cvUnlocked) { _cvUnlocked = false; _cvDirty = {}; }
+}
+
+// Apply a category change for one observation, writing ONLY through
+// existing Model setters (no new model code; re-derives on next render).
+// Site Record auto-unassigns the contractor REVERSIBLY: the prior
+// contractor is remembered on the pin (d._cvPriorCtr) so flipping off Site
+// restores it. While unlocked, the card does NOT re-group (delayed
+// re-sort) — we mark it dirty and patch the pill in place.
+function _cvSetCategory(deficId, obsIdx, cat) {
+  if (!_cvUnlocked) return;                // hard guard — locked = untappable
+  var find = Model.findDeficiency(deficId);
+  if (!find) return;
+  var d = find.defic;
+  var o = (d.observations || [])[obsIdx] || null;
+  var hasCtr = !!find.contractor;
+  var cur = _deriveCategory(d, o, hasCtr).cat;
+  if (cur === cat) return;
+
+  switch (cat) {
+    case 'active':
+      if (o && o.isRecommendation) Model.setObsRecommendation(deficId, obsIdx, false);
+      if (o && o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
+      // Active needs a contractor; if it has none, restore a remembered one
+      // (reversal of a prior Site move) — otherwise leave it (stays Site
+      // until a contractor is assigned via the ⇄ button).
+      if (!hasCtr && d._cvPriorCtr) { Model.reassignDeficiency(deficId, d._cvPriorCtr); d._cvPriorCtr = null; }
+      break;
+    case 'rec':
+      if (o && o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
+      Model.setObsRecommendation(deficId, obsIdx, true);   // KEEP contractor
+      break;
+    case 'site':
+      if (o && o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
+      if (o && o.isRecommendation) Model.setObsRecommendation(deficId, obsIdx, false);
+      // Reversible auto-unassign: remember the prior contractor.
+      if (hasCtr) { d._cvPriorCtr = find.contractor.id; Model.reassignDeficiency(deficId, null); }
+      break;
+    case 'closed':
+      if (o && !o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
+      break;
+  }
+
+  if (typeof Model.saveNow === 'function') Model.saveNow();
+
+  // Delayed re-sort: while unlocked, patch the pill + status chip in place
+  // (no re-group). The full resettle happens on re-lock.
+  _cvDirty[_obsKey(deficId, obsIdx)] = true;
+  var rowEl = document.querySelector('.cv-row[data-defic-id="' + (window.CSS && CSS.escape ? CSS.escape(String(deficId)) : String(deficId)) + '"][data-obs-idx="' + obsIdx + '"]');
+  if (rowEl) {
+    var find2 = Model.findDeficiency(deficId);
+    var d2 = find2 ? find2.defic : d;
+    var o2 = find2 ? (d2.observations || [])[obsIdx] : o;
+    var hasCtr2 = !!(find2 && find2.contractor);
+    var newCat = _deriveCategory(d2, o2, hasCtr2).cat;
+    var bar = rowEl.querySelector('.cv-row-catbar');
+    if (bar) bar.innerHTML = _cvCategoryPill(d2, obsIdx, newCat);
+  }
+}
+
 
 // ── S138 (in S137): shared helpers for Table + Board ─────────────
 function _dfxObsLabel(d, oi) {
@@ -3377,6 +3681,19 @@ document.addEventListener('click', function(e) {
       _dfxFoldCtr = {};
     }
     initDeficiencies.render();
+    return;
+  }
+
+  // ── S232 FRT-CV: Combined-view category lock + per-obs category set ──
+  if (action === 'cv-togglelock') {
+    _cvToggleLock();
+    return;
+  }
+  if (action === 'cv-setcat') {
+    var _cvDid = el.getAttribute('data-defic-id');
+    var _cvOi = parseInt(el.getAttribute('data-obs-idx'), 10);
+    var _cvCat = el.getAttribute('data-cat');
+    if (_cvDid != null && !isNaN(_cvOi) && _cvCat) _cvSetCategory(_cvDid, _cvOi, _cvCat);
     return;
   }
 

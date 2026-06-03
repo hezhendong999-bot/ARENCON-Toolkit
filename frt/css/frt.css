@@ -8875,3 +8875,57 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
 .btn-primary,.btn-danger{background:var(--arencon)!important;color:#fff!important;border-radius:8px;}
 
 /* ==ARENCON-BOLD-OVERLAY-END== */
+
+/* ════════════════════════════════════════════════════════════════════
+   S232 FRT-CV — Combined Deficiency View
+   Four-category segmented pill + global "Edit categories" lock.
+   Site Record = LAVENDER/periwinkle (locked spec; NOT grey, NOT site green).
+   Muted palette throughout; every rule has a dark-mode variant.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Global lock bar */
+.cv-lockbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 4px 10px;}
+.cv-lock-btn{font-family:Calibri,sans-serif;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;
+  border:1px solid #C9CCD6;background:#EDEFF4;color:#4A4F5E;cursor:pointer;min-height:38px;transition:background .12s,border-color .12s;}
+.cv-lock-btn:hover{background:#E3E6EE;}
+.cv-lock-btn.unlocked{background:#F3E3E8;border-color:#9C2742;color:#9C2742;box-shadow:0 0 0 2px rgba(156,39,66,.14);}
+.cv-lock-hint{font-size:12px;color:#7A8090;}
+body.dark-mode .cv-lock-btn{background:#1e2533;border-color:#39414f;color:#aeb6c8;}
+body.dark-mode .cv-lock-btn:hover{background:#283044;}
+body.dark-mode .cv-lock-btn.unlocked{background:#2a1820;border-color:#C9476A;color:#E899AE;box-shadow:0 0 0 2px rgba(201,71,106,.22);}
+body.dark-mode .cv-lock-hint{color:#8a92a4;}
+
+/* Per-row category bar (above the reused obs row) */
+.cv-row{display:block;}
+.cv-row-catbar{display:flex;align-items:center;padding:6px 8px 0;}
+
+/* Four-segment category pill */
+.cv-catpill{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid #D2D5DE;background:#F4F5F8;}
+.cv-catseg{font-family:Calibri,sans-serif;font-size:11px;font-weight:600;line-height:1;padding:5px 9px;border:0;
+  border-right:1px solid #E2E4EB;background:transparent;color:#8C90A0;cursor:default;white-space:nowrap;transition:background .1s,color .1s;}
+.cv-catseg:last-child{border-right:0;}
+
+/* LOCKED (default): faded + desaturated + untappable (fat-finger-proof).
+   Driven solely by data-cv-locked on the container. */
+[data-cv-locked="1"] .cv-catseg{opacity:.55;cursor:default;pointer-events:none;}
+/* UNLOCKED: solid, full-colour, tappable */
+[data-cv-locked="0"] .cv-catseg{opacity:1;cursor:pointer;pointer-events:auto;}
+[data-cv-locked="0"] .cv-catseg:hover{background:rgba(156,39,66,.06);}
+
+/* Selected segment carries its category colour (semantic, both modes) */
+.cv-catseg.cv-cat-active.on{background:#F3D9DE;color:#9C2742;}
+.cv-catseg.cv-cat-rec.on{background:#F1E1CB;color:#8E6240;}
+.cv-catseg.cv-cat-site.on{background:#DEDDEF;color:#3F4470;}      /* LAVENDER Site Record */
+.cv-catseg.cv-cat-closed.on{background:#D2EBDC;color:#426B4F;}
+
+body.dark-mode .cv-catpill{border-color:#39414f;background:#1b212c;}
+body.dark-mode .cv-catseg{border-right-color:#2a313c;color:#7c8498;}
+body.dark-mode .cv-catseg.cv-cat-active.on{background:#3a1b22;color:#E08DA1;}
+body.dark-mode .cv-catseg.cv-cat-rec.on{background:#2f2310;color:#E0A36A;}
+body.dark-mode .cv-catseg.cv-cat-site.on{background:#22203a;color:#A9A4E0;}  /* LAVENDER dark */
+body.dark-mode .cv-catseg.cv-cat-closed.on{background:#0d2a1a;color:#6FCF97;}
+
+/* Unassigned contractor block (pinned to top of its trade) — lavender cue */
+.dfx-ctr-block.cv-unassigned .dfx-ctr-banner{font-style:italic;}
+.dfx-ctr-block.cv-unassigned .dfx-ctr-dot{background:#6E6AA8;}
+body.dark-mode .dfx-ctr-block.cv-unassigned .dfx-ctr-dot{background:#A9A4E0;}
