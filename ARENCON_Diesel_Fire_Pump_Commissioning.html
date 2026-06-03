@@ -1157,7 +1157,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S225c</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S226</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
@@ -1635,6 +1635,28 @@ function updatePhaseFlags(){
         <div id="cl-s4" style="margin-top:16px;padding:0 16px 16px;"></div>
       </div>
     </div>
+
+    <!-- ── CHART D (3-pt): 3-Point Fire Pump Net Pressure Curve ── -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-body" style="padding:0;">
+        <div class="fig" id="fig-netChart3pt">
+          <div class="fig-hd">
+            <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            <span class="fig-t">3-Point Fire Pump Net Pressure Curve</span>
+            <span class="fig-verdict na" id="figv-netChart3pt">—</span>
+          </div>
+          <div class="fig-body">
+            <div style="position:relative;height:460px;">
+              <canvas id="netChart3pt" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+            </div>
+            <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('netChart3pt')" id="ann-toggle-netChart3pt" style="font-size:11px;">🏷 Hide Annotations</button></div>
+          </div>
+          <div class="fig-legend" id="figleg-netChart3pt"></div>
+          <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
+          <div class="fig-readout" id="figro-netChart3pt"></div>
+        </div>
+      </div>
+    </div>
     </div><!-- /#perf-std -->
 
     <!-- ════ 7-POINT PLD SECTION (shown when Test Type = 7-Point) ════ -->
@@ -1803,13 +1825,13 @@ function updatePhaseFlags(){
       </div>
     </div>
 
-    <!-- ── CHART D: 7-Point Fire Pump Net Pressure Curve ── -->
+    <!-- ── CHART E (7-pt): 7-Point Fire Pump Net Pressure Curve ── -->
     <div class="card" style="margin-top:14px;">
       <div class="card-body" style="padding:0;">
         <div class="fig" id="fig-pldNetChart">
           <div class="fig-hd">
             <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
-            <span class="fig-t">7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)</span>
+            <span class="fig-t">7-Point Fire Pump Net Pressure Curve</span>
             <span class="fig-verdict na" id="figv-pldNetChart">—</span>
           </div>
           <div class="fig-body">
@@ -3788,7 +3810,8 @@ const tickCb = v => Number.isInteger(v) ? v.toLocaleString() : Math.round(v).toL
 // Chart handles
 let chart3pt = null;        // Chart A: 3-pt discharge w/o PRV & PLD
 let pldChart = null;        // Chart B: 7-pt discharge + supply/demand overlays
-let netPerfChart = null;    // Chart C: net pressure both phases
+let netPerfChart = null;    // Chart C: legacy stub — INERT (kept for back-compat, never rendered)
+let netChart3pt = null;     // Chart D: 3-pt net pressure (measured + adjusted + cutsheet)
 
 // Dark-mode-aware chart color helpers
 function _chartStroke() { return document.body.classList.contains('dark-mode') ? 'rgba(34,37,45,0.95)' : 'white'; }
@@ -3941,12 +3964,12 @@ function calcPitotTotal(tab){
 // ══════════════════════════════════════════════════
 // S213 REDESIGN — edge-label plugin + framed-figure helpers (chart3pt / 4a)
 // ══════════════════════════════════════════════════
-var _edgeLabelsOn = { chart3pt:true, pldChart:true, pldNetChart:true };
+var _edgeLabelsOn = { chart3pt:true, pldChart:true, pldNetChart:true, netChart3pt:true };
 function toggleEdgeLabels(cid){
   _edgeLabelsOn[cid] = !_edgeLabelsOn[cid];
   var btn = document.getElementById('edgetog-'+cid);
   if(btn) btn.classList.toggle('on', _edgeLabelsOn[cid]);
-  var ci = cid==='chart3pt'?chart3pt:cid==='pldChart'?pldChart:pldNetChart;
+  var ci = cid==='chart3pt'?chart3pt:cid==='pldChart'?pldChart:cid==='netChart3pt'?netChart3pt:pldNetChart;
   if(ci) ci.update();
 }
 // (S214: 4a edge-label / %-tag / per-curve-label apparatus removed — 4a now uses the
@@ -3964,7 +3987,6 @@ function renderFigLegend3pt(){
   if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge', primary:true});
   if(has(1)) defs.push({i:1, c:'#9C2742', kind:'line', dash:[10,5],      t:'Pump Curve'});
   if(has(0)) defs.push({i:0, c:'#6E86B8', kind:'line', dash:[],          t:'Available Supply'});
-  if(has(3)) defs.push({i:3, c:'#4A7BA8', kind:'line', dash:[8,4,2,4],   t:'Net Pressure'});
   if(has(6)) defs.push({i:6, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Sprinkler Demand'});
   if(has(8)) defs.push({i:8, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Outside Hose'});
   if(has(13)) defs.push({i:13,c:'#4A8C8C', kind:'line', dash:[6,4],      t:'Pressure Reducing', cap:'reducing'});
@@ -4094,17 +4116,15 @@ function renderFigLegendPld(){
   _buildFigLegend(host, pldChart, defs, 'pldChart');
   _appendSafetyPill(host, 'pldChart');
 }
-// 4b — pldNetChart pill legend (datasets: 0 net w/PLD,1 net w/o,2 cutsheet,3 placard,4 PRV)
+// 4b — pldNetChart pill legend (datasets: 0 measured net w/o PLD, 1 adjusted net w/o PLD, 2 cutsheet)
 function renderFigLegendPldNet(){
   var host=document.getElementById('figleg-pldNetChart'); if(!host||!pldNetChart) return;
   var ds=pldNetChart.data.datasets;
   function has(i){return ds[i]&&ds[i].data&&ds[i].data.length;}
   var defs=[];
-  if(has(0)) defs.push({i:0, c:'#5F8068', kind:'line', dash:[],          t:'Net Pressure (w/ PLD)'});
-  if(has(1)) defs.push({i:1, c:'#4A7BA8', kind:'line', dash:[8,4,2,4],   t:'Net (w/o PRV & PLD)'});
-  if(has(2)) defs.push({i:2, c:'#4A7BA8', kind:'line', dash:[2,3],       t:'Cutsheet'});
-  if(has(3)) defs.push({i:3, c:'#7D6F9C', kind:'line', dash:[2,3],       t:'Placard'});
-  if(has(4)) defs.push({i:4, c:'#A85959', kind:'line', dash:[2,3],       t:'Rated Press. (ref)'});
+  if(has(0)) defs.push({i:0, c:'#6366F1', kind:'line', dash:[],          t:'Measured Net (w/o PLD)'});
+  if(has(1)) defs.push({i:1, c:'#21D3ED', kind:'line', dash:[8,4,2,4],   t:'Adjusted Net (w/o PLD)'});
+  if(has(2)) defs.push({i:2, c:'#A78BFA', kind:'line', dash:[2,3],       t:'Cutsheet'});
   _buildFigLegend(host, pldNetChart, defs);
 }
 // Readout strip (per-point %/psi/gpm/rpm + verdict) — uses the REAL _calcFlowPoint
@@ -4146,6 +4166,26 @@ function renderFigVerdict3pt(){
   else {el.className='fig-verdict na';el.textContent='—';}
 }
 function refreshFig3pt(){ renderFigLegend3pt(); renderFigReadout3pt(); renderFigSupply3pt(); renderFigVerdict3pt(); if(typeof renderSafetyMargin3pt==='function') renderSafetyMargin3pt(); }
+
+// ── 3-Point Net Pressure chart (netChart3pt) fig helpers ──
+function renderFigLegendNet3pt(){
+  var host=document.getElementById('figleg-netChart3pt'); if(!host||!netChart3pt) return;
+  var ds=netChart3pt.data.datasets;
+  function has(i){return ds[i]&&ds[i].data&&ds[i].data.length;}
+  var defs=[];
+  if(has(0)) defs.push({i:0, c:'#6366F1', kind:'line', dash:[],          t:'Measured Net'});
+  if(has(1)) defs.push({i:1, c:'#21D3ED', kind:'line', dash:[8,4,2,4],   t:'Adjusted Net (RPM-corrected)'});
+  if(has(2)) defs.push({i:2, c:'#A78BFA', kind:'line', dash:[2,3],       t:'Cutsheet'});
+  _buildFigLegend(host, netChart3pt, defs);
+}
+function renderFigVerdictNet3pt(){
+  var el=document.getElementById('figv-netChart3pt'); if(!el) return;
+  var verds=stdData.map(function(r){return _calcFlowPoint(r).verdict;});
+  if(verds.some(function(v){return v==='fail';})){el.className='fig-verdict fail';el.textContent='✗ FAIL';}
+  else if(verds.some(function(v){return v==='pass';})){el.className='fig-verdict pass';el.textContent='✓ PASS';}
+  else {el.className='fig-verdict na';el.textContent='—';}
+}
+function refreshFigNet3pt(){ renderFigLegendNet3pt(); renderFigVerdictNet3pt(); }
 
 // ── S221: 7-Point discharge-chart fig twins (mirror the 3-Point bottom section) ──
 // Uses pldData fields (dis_w/suc_w/rpm_w) and updatePldVerdictObj — NOT _calcFlowPoint,
@@ -4577,23 +4617,28 @@ function updateChart3pt() {
   chart3pt.data.datasets[0].data = buildSupplyLine3pt();
   chart3pt.data.datasets[1].data = buildPumpCurveLine();
   chart3pt.data.datasets[2].data = stdDis;
-  chart3pt.data.datasets[3].data = stdNet;
+  chart3pt.data.datasets[3].data = [];   // S226: net moved to dedicated netChart3pt; slot kept inert
   chart3pt.data.datasets[4].data = staticPt;
   chart3pt.data.datasets[5].data = residualPt;
   chart3pt.data.datasets[6].data = getSprDemLine3pt();
   chart3pt.data.datasets[7].data = getSprDemPoint3pt();
   chart3pt.data.datasets[8].data = getOhlLine3pt();
   chart3pt.data.datasets[9].data = getDemandPoint3pt();
-  // PRV horizontal line — capped at 150% flow
+  // PRV horizontal line — extend to 150% rated flow (S226)
   const prv3 = parseFloat(document.getElementById('pm-prv')?.value)||0;
   const allDis3 = stdDis;
   const maxFlow3 = allDis3.length ? Math.max(...allDis3.map(p=>p.x)) : 3000;
-  chart3pt.data.datasets[10].data = prv3>0 ? [{x:0,y:prv3},{x:maxFlow3,y:prv3}] : [];
+  const ratedFlowPrv3 = parseFloat(document.getElementById('pm-rated-flow')?.value);
+  const prvEnd3 = (!isNaN(ratedFlowPrv3)&&ratedFlowPrv3>0) ? ratedFlowPrv3*1.5 : maxFlow3;
+  chart3pt.data.datasets[10].data = prv3>0 ? [{x:0,y:prv3},{x:prvEnd3,y:prv3}] : [];
   chart3pt.data.datasets[11].data = buildCutsheetLine3pt();
   chart3pt.data.datasets[12].data = buildPlacardLine3pt();
-  // 13/14: cap lines — flat across full flow when entered (regardless of legend visibility;
-  //        the legend hides the dataset itself, and smCapVis drives the golden min()).
-  var maxFlowCap3 = stdDis.length ? Math.max(maxFlow3, Math.max.apply(null,stdDis.map(function(p){return p.x;}))) : 3000;
+  // 13/14: cap lines — flat, extend to 150% of rated flow (S226). Fallback to max measured flow
+  //        if rated flow not entered. (Legend hides the dataset; smCapVis drives the golden min().)
+  var ratedFlow3 = parseFloat(document.getElementById('pm-rated-flow')?.value);
+  var maxFlowCap3 = (!isNaN(ratedFlow3)&&ratedFlow3>0)
+    ? ratedFlow3*1.5
+    : (stdDis.length ? Math.max(maxFlow3, Math.max.apply(null,stdDis.map(function(p){return p.x;}))) : 3000);
   var redV3 = parseFloat(document.getElementById('pm-reducing')?.value);
   var relV3 = parseFloat(document.getElementById('pm-relief')?.value);
   chart3pt.data.datasets[13].data = (!isNaN(redV3)&&redV3>0) ? [{x:0,y:redV3},{x:maxFlowCap3,y:redV3}] : [];
@@ -4606,6 +4651,74 @@ function updateChart3pt() {
   chart3pt.options.scales.x.min = (allX3.length>0 && maxX3===0) ? -50 : undefined;
   chart3pt.update('none');
   if(typeof refreshFig3pt==='function') refreshFig3pt();
+}
+
+// ══════════════════════════════════════════════════
+// CHART D (3-pt): 3-Point Net Pressure Curve
+// Datasets: 0=Measured Net (indigo), 1=Adjusted Net RPM-corrected (cyan), 2=Cutsheet (lilac)
+// Adjusted net = recorded net × (rated/recorded RPM)²  — canonical affinity law (_ratedRpm / row.rpm)
+// ══════════════════════════════════════════════════
+function initNetChart3pt() {
+  const canvas = document.getElementById('netChart3pt');
+  if(!canvas||netChart3pt) return;
+  const labelOff = {display:false};
+  netChart3pt = new Chart(canvas.getContext('2d'), {
+    type:'scatter',
+    plugins:[],
+    data:{ datasets:[
+      // 0: Measured Net — Ledger indigo, solid bold
+      {label:'Measured Net',data:[],borderColor:'#6366F1',backgroundColor:'transparent',
+        showLine:true,fill:false,tension:0,pointRadius:6,pointBorderColor:'#6366F1',pointBorderWidth:2.5,pointBackgroundColor:'#fff',borderWidth:2.6,datalabels:labelOff},
+      // 1: Adjusted Net (RPM-corrected) — Ledger cyan, dash-dot
+      {label:'Adjusted Net (RPM-corrected)',data:[],borderColor:'#21D3ED',backgroundColor:'transparent',
+        showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.8,borderDash:[8,4,2,4],datalabels:labelOff},
+      // 2: Cutsheet curve — Ledger lilac, dotted
+      {label:'Cutsheet (Design)',data:[],borderColor:'#A78BFA',backgroundColor:'transparent',
+        showLine:true,fill:false,borderDash:[2,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      layout:{ padding:{ top:26, right:window.innerWidth<=768?60:72, bottom:6, left:window.innerWidth<=768?6:10 } },
+      plugins:{
+        legend:{ display:false },
+        datalabels:{clip:false},
+        tooltip:{ enabled:true, callbacks:{ label:function(c){ var x=c.parsed.x, y=c.parsed.y; var lab=c.dataset.label||''; return lab+': '+Math.round(x).toLocaleString()+' gpm @ '+y+' psi'; } } }
+      },
+      scales:{
+        x:{ type:'linear', min:0, title:{display:true,text:'Flow Rate (US gpm)',font:{size:11,weight:'600',family:'Calibri,sans-serif'}},
+          grid:{color:_chartGrid()}, afterBuildTicks:hwTicks, ticks:{maxTicksLimit:14,callback:tickCb,font:{family:'Calibri,sans-serif',size:10}} },
+        y:{ beginAtZero:true, afterDataLimits:function(axis){axis.max=Math.ceil(axis.max*1.15/10)*10;}, title:{display:true,text:'Net Pressure (psi)',font:{size:11,weight:'600',family:'Calibri,sans-serif'}},
+          grid:{color:_chartGrid()}, min:0, ticks:{font:{family:'Calibri,sans-serif',size:10}} }
+      }
+    }
+  });
+}
+
+function updateNetChart3pt() {
+  if(!netChart3pt) return;
+  var rated=_ratedRpm();
+  // Measured net + adjusted net, both from stdData (4a). Adjusted falls back to measured when no rpm pair.
+  var measured=[], adjusted=[];
+  stdData.forEach(function(r){
+    var f=rowFlow(r); var d=parseFloat(r.discharge), s=parseFloat(r.suction), rpm=parseFloat(r.rpm);
+    if(isNaN(f)||f<0) return;
+    if(isNaN(d)&&isNaN(s)) return;
+    var net=(d||0)-(s||0);
+    measured.push({x:f,y:parseFloat(net.toFixed(1))});
+    var adj=(!isNaN(rpm)&&rpm>0&&rated)?net*Math.pow(rated/rpm,2):net;
+    adjusted.push({x:f,y:parseFloat(adj.toFixed(1))});
+  });
+  measured.sort(function(a,b){return a.x-b.x;});
+  adjusted.sort(function(a,b){return a.x-b.x;});
+  netChart3pt.data.datasets[0].data = measured;
+  netChart3pt.data.datasets[1].data = adjusted;
+  netChart3pt.data.datasets[2].data = buildCutsheetLine3pt();
+  var allXn = measured.map(function(p){return p.x;});
+  var maxXn = allXn.length ? Math.max.apply(null,allXn) : 0;
+  netChart3pt.options.scales.x.min = (allXn.length>0 && maxXn===0) ? -50 : undefined;
+  netChart3pt.update('none');
+  if(typeof refreshFigNet3pt==='function') refreshFigNet3pt();
+  else if(typeof renderFigLegendNet3pt==='function') renderFigLegendNet3pt();
 }
 
 // ══════════════════════════════════════════════════
@@ -4689,14 +4802,16 @@ function updatePldChart() {
   const rpPld = parseFloat(document.getElementById('pld-ws-res-psi')?.value);
   pldChart.data.datasets[7].data = (!isNaN(spPld)&&spPld>0) ? [{x:sfPld,y:spPld}] : [];
   pldChart.data.datasets[8].data = (!isNaN(rfPld)&&!isNaN(rpPld)&&rfPld>0) ? [{x:rfPld,y:rpPld}] : [];
-  // PRV horizontal line
+  // PRV / PLD / cap lines — extend to 150% rated flow (S226). Fallback to max measured flow.
   const prvPld = parseFloat(document.getElementById('pm-prv-pld')?.value)||0;
-  const maxFlowPld = wPLDDis.length ? Math.max(...wPLDDis.map(p=>p.x), 100) : 3000;
+  const maxMeasPld = wPLDDis.length ? Math.max(...wPLDDis.map(p=>p.x), 100) : 3000;
+  const ratedFlowPld = parseFloat(document.getElementById('pm-rated-flow-pld')?.value);
+  const maxFlowPld = (!isNaN(ratedFlowPld)&&ratedFlowPld>0) ? ratedFlowPld*1.5 : maxMeasPld;
   pldChart.data.datasets[9].data = prvPld>0 ? [{x:0,y:prvPld},{x:maxFlowPld,y:prvPld}] : [];
   // PLD setting line
   var pldSet = parseFloat(document.getElementById('pm-pld-setting')?.value)||0;
   pldChart.data.datasets[10].data = pldSet>0 ? [{x:0,y:pldSet},{x:maxFlowPld,y:pldSet}] : [];
-  // 11/12: cap lines (reducing/relief) — flat across full flow when entered
+  // 11/12: cap lines (reducing/relief) — flat to 150% rated flow when entered
   var redVPld = parseFloat(document.getElementById('pm-reducing-pld')?.value);
   var relVPld = parseFloat(document.getElementById('pm-relief-pld')?.value);
   pldChart.data.datasets[11].data = (!isNaN(redVPld)&&redVPld>0) ? [{x:0,y:redVPld},{x:maxFlowPld,y:redVPld}] : [];
@@ -4735,21 +4850,15 @@ function initPldNetChart() {
     type:'scatter',
     plugins:[],
     data:{ datasets:[
-      // 0: Net Pressure w/ PLD — sage, solid bold (Scheme A measured)
-      {label:'Net Pressure (w/ PLD)',data:[],borderColor:'#5F8068',backgroundColor:'transparent',
-        showLine:true,fill:false,tension:0,pointRadius:6,pointBorderColor:'#5F8068',pointBorderWidth:2.5,pointBackgroundColor:'#fff',borderWidth:2.6,datalabels:labelOff},
-      // 1: Net Pressure w/o PRV & PLD — steel-blue, dash-dot (Scheme A net)
-      {label:'Net Pressure (w/o PRV & PLD)',data:[],borderColor:'#4A7BA8',backgroundColor:'transparent',
-        showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[8,4,2,4],datalabels:labelOff},
-      // 2: Cutsheet — steel-blue, dotted (Scheme A)
-      {label:'Cutsheet (Design)',data:[],borderColor:'#4A7BA8',backgroundColor:'transparent',
+      // 0: Measured Net w/o PLD — Ledger indigo, solid bold
+      {label:'Measured Net (w/o PLD)',data:[],borderColor:'#6366F1',backgroundColor:'transparent',
+        showLine:true,fill:false,tension:0,pointRadius:6,pointBorderColor:'#6366F1',pointBorderWidth:2.5,pointBackgroundColor:'#fff',borderWidth:2.6,datalabels:labelOff},
+      // 1: Adjusted Net w/o PLD (RPM-corrected) — Ledger cyan, dash-dot
+      {label:'Adjusted Net (w/o PLD)',data:[],borderColor:'#21D3ED',backgroundColor:'transparent',
+        showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.8,borderDash:[8,4,2,4],datalabels:labelOff},
+      // 2: Cutsheet — Ledger lilac, dotted
+      {label:'Cutsheet (Design)',data:[],borderColor:'#A78BFA',backgroundColor:'transparent',
         showLine:true,fill:false,borderDash:[2,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
-      // 3: Placard — muted plum, dotted (Scheme A)
-      {label:'Placard',data:[],borderColor:'#7D6F9C',backgroundColor:'transparent',
-        showLine:true,fill:false,borderDash:[2,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
-      // 4: PRV Rating — muted maroon, dotted (Scheme A)
-      {label:'PRV Rating',data:[],borderColor:'#A85959',backgroundColor:'transparent',
-        showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.6,borderDash:[2,3],datalabels:labelOff},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
@@ -4770,37 +4879,28 @@ function initPldNetChart() {
 
 function updatePldNetChart() {
   if(!pldNetChart) return;
-  // Net w/ PLD — include points where discharge OR suction is entered (not just when net>0)
-  const net7 = pldData.map(r=>{
-    const f=rowFlow(r);
-    var d=parseFloat(r.dis_w), s=parseFloat(r.suc_w);
-    if(isNaN(f)||f<0) return null;
-    if(isNaN(d)&&isNaN(s)) return null;
+  var ratedPld=_ratedRpmPld();
+  // Measured + Adjusted net w/o PRV & PLD (only on 25/50/75/125% rows — PLD_NO_SKIP holds the skips)
+  var measured=[], adjusted=[];
+  pldData.forEach(function(r,i){
+    if(PLD_NO_SKIP.has(i)) return;
+    var f=rowFlow(r);
+    var d=parseFloat(r.dis_no), s=parseFloat(r.suc_no), rpm=parseFloat(r.rpm_no);
+    if(isNaN(f)||f<0) return;
+    if(isNaN(d)&&isNaN(s)) return;
     var net=(d||0)-(s||0);
-    return {x:f,y:parseFloat(net.toFixed(1))};
-  }).filter(Boolean).sort((a,b)=>a.x-b.x);
-  // Net w/o PRV & PLD (3 pts)
-  const net3 = pldData.filter((_,i)=>!PLD_NO_SKIP.has(i)).map(r=>{
-    const f=rowFlow(r);
-    var d=parseFloat(r.dis_no), s=parseFloat(r.suc_no);
-    if(isNaN(f)||f<0) return null;
-    if(isNaN(d)&&isNaN(s)) return null;
-    var net=(d||0)-(s||0);
-    return {x:f,y:parseFloat(net.toFixed(1))};
-  }).filter(Boolean).sort((a,b)=>a.x-b.x);
-  // Cutsheet & placard — show even when value is at flow=0
+    measured.push({x:f,y:parseFloat(net.toFixed(1))});
+    var adj=(!isNaN(rpm)&&rpm>0&&ratedPld)?net*Math.pow(ratedPld/rpm,2):net;
+    adjusted.push({x:f,y:parseFloat(adj.toFixed(1))});
+  });
+  measured.sort(function(a,b){return a.x-b.x;});
+  adjusted.sort(function(a,b){return a.x-b.x;});
+  // Cutsheet — show even when value is at flow=0
   const cs = pldData.map(r=>{ var f=rowFlow(r),c=parseFloat(r.cutsheet); return (!isNaN(f)&&!isNaN(c))?{x:f,y:c}:null; }).filter(Boolean).sort((a,b)=>a.x-b.x);
-  const pl = pldData.map(r=>{ var f=rowFlow(r),p=parseFloat(r.placard); return (!isNaN(f)&&!isNaN(p))?{x:f,y:p}:null; }).filter(Boolean).sort((a,b)=>a.x-b.x);
-  // PRV line — horizontal across full x range
-  const prvPsi = parseFloat(document.getElementById('pm-prv-pld')?.value)||0;
-  const maxFlow = Math.max(...pldData.map(r=>rowFlow(r)||0).filter(f=>f>0), 2000);
-  const prvLine = prvPsi>0 ? [{x:0,y:prvPsi},{x:maxFlow,y:prvPsi}] : [];
-  pldNetChart.data.datasets[0].data = net7;
-  pldNetChart.data.datasets[1].data = net3;
+  pldNetChart.data.datasets[0].data = measured;
+  pldNetChart.data.datasets[1].data = adjusted;
   pldNetChart.data.datasets[2].data = cs;
-  pldNetChart.data.datasets[3].data = pl;
-  pldNetChart.data.datasets[4].data = prvLine;
-  var allXnet = net7.concat(net3).map(function(p){return p.x;});
+  var allXnet = measured.map(function(p){return p.x;});
   var maxXnet = allXnet.length ? Math.max.apply(null,allXnet) : 0;
   pldNetChart.options.scales.x.min = (allXnet.length>0 && maxXnet===0) ? -50 : undefined;
   pldNetChart.update('none');
@@ -4811,7 +4911,7 @@ function updatePldNetChart() {
 
 // ── Master update functions ──
 function updateChart() { updateChart3pt(); }
-function refreshAllCharts() { updateChart3pt(); updatePldChart(); updatePldNetChart(); }
+function refreshAllCharts() { updateChart3pt(); updateNetChart3pt(); updatePldChart(); updatePldNetChart(); }
 
 // ── Dark Mode Chart Styling ──
 function applyChartDarkMode() {
@@ -4823,6 +4923,7 @@ function applyChartDarkMode() {
   }
   // Destroy charts — they will be recreated with fresh colors when the tab is next visited
   if(chart3pt && typeof chart3pt.destroy === 'function') { chart3pt.destroy(); chart3pt = null; }
+  if(netChart3pt && typeof netChart3pt.destroy === 'function') { netChart3pt.destroy(); netChart3pt = null; }
   if(pldChart && typeof pldChart.destroy === 'function') { pldChart.destroy(); pldChart = null; }
   if(pldNetChart && typeof pldNetChart.destroy === 'function') { pldNetChart.destroy(); pldNetChart = null; }
   // If currently on a chart tab, recreate immediately
@@ -4833,7 +4934,7 @@ function applyChartDarkMode() {
     if(_pt==='pld'){
       requestAnimationFrame(function(){ if(!pldChart)initPldChart(); if(!pldNetChart)initPldNetChart(); updatePldChart(); updatePldNetChart(); setTimeout(hookChartAnnotations, 120); });
     } else {
-      requestAnimationFrame(function(){ if(!chart3pt)initChart3pt(); updateChart3pt(); setTimeout(hookChartAnnotations, 120); });
+      requestAnimationFrame(function(){ if(!chart3pt)initChart3pt(); if(!netChart3pt)initNetChart3pt(); updateChart3pt(); updateNetChart3pt(); setTimeout(hookChartAnnotations, 120); });
     }
   } else if(curId === 's4pld') { /* RETIRED S217 — merged into s4 */ }
   } catch(e) { /* silent — charts may not be initialized yet */ }
@@ -5650,10 +5751,12 @@ function switchPanel(id) {
         } else {
           if (!chart3pt) { initChart3pt(); setTimeout(hookChartAnnotations, 200); }
           else { updateChart3pt(); if(!document.getElementById('chart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
-          if (!netPerfChart) initNetPerfChart();
+          if (!netChart3pt) { initNetChart3pt(); setTimeout(hookChartAnnotations, 200); }
+          else { updateNetChart3pt(); if(!document.getElementById('netChart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
           updateChart3pt();
-          updateNetPerfChart();
+          updateNetChart3pt();
           if(chart3pt) chart3pt.resize();
+          if(netChart3pt) netChart3pt.resize();
         }
       });
       setTimeout(fixStickyColumns,100);
@@ -5730,12 +5833,12 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
   ctx.restore();
 }
 function exportPDF() {
-  [['chart3pt',chart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
+  [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
   setTimeout(function(){
     _realExportPDF();
     // Clear baked annotations from canvases by re-rendering
     setTimeout(function(){
-      [chart3pt,pldChart,pldNetChart].forEach(function(ci){
+      [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(ci){
         if(ci) { var origUpd = ci.__origUpdate || ci.update; origUpd.call(ci,'none'); }
       });
     }, 300);
@@ -5770,6 +5873,7 @@ function _realExportPDF() {
     }).join('');
   };
   const chartImgA = chart3pt ? chart3pt.toBase64Image() : '';
+  const chartImgD = netChart3pt ? netChart3pt.toBase64Image() : '';
   const chartImgB = pldChart ? pldChart.toBase64Image() : '';
   const chartImgC = pldNetChart ? pldNetChart.toBase64Image() : '';
 
@@ -5920,6 +6024,7 @@ function _realExportPDF() {
       out+='</tbody></table>';
       // Chart
       if(chartImgA) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_buildReadoutStripHtml3pt()+_safetyMarginPdf('')+'</div>';
+      if(chartImgD) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">3-Point Fire Pump Net Pressure Curve</div><img src="'+chartImgD+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
     }
 
     // PLD 7-Point table (only if pld)
@@ -5942,7 +6047,7 @@ function _realExportPDF() {
       out+='</tbody></table>';
       // Charts
       if(chartImgB) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</div><img src="'+chartImgB+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_safetyMarginPdf('pld-','pldChart')+'</div>';
-      if(chartImgC) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Net Pressure Curve (w/ PLD, w/o PRV &amp; PLD, + PRV Rating)</div><img src="'+chartImgC+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
+      if(chartImgC) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Net Pressure Curve</div><img src="'+chartImgC+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
     }
     return out;
   })()}
@@ -6887,7 +6992,7 @@ document.addEventListener('keydown', function(e) {
     e.preventDefault();
     _pushUndo();
     chartAnnotationsDeleted[_selectedAnnotationKey] = true;
-    var ci = _selectedAnnotationChart==='chart3pt'?chart3pt:_selectedAnnotationChart==='pldChart'?pldChart:pldNetChart;
+    var ci = _selectedAnnotationChart==='chart3pt'?chart3pt:_selectedAnnotationChart==='pldChart'?pldChart:_selectedAnnotationChart==='netChart3pt'?netChart3pt:pldNetChart;
     if(ci) renderChartAnnotations(ci, _selectedAnnotationChart);
     _selectedAnnotationKey = null; _selectedAnnotationChart = null;
   }
@@ -6897,13 +7002,13 @@ document.addEventListener('input', function() { _debouncePushUndo(); }, true);
 
 var _selectedAnnotationKey = null;
 var _selectedAnnotationChart = null; // { key: {offX, offY} } for dragged positions
-var chartAnnotationsVisible = {chart3pt:true, pldChart:true, pldNetChart:true};
+var chartAnnotationsVisible = {chart3pt:true, pldChart:true, pldNetChart:true, netChart3pt:true};
 var chartAnnotationsDeleted = {}; // { key: true } for individually deleted annotations
 // S222: per-dataset annotation override (the per-legend "A" button).
 // annDsForce[canvasId][dsIdx] === true  → force this dataset's labels ON (even if not in allow-list)
 // annDsForce[canvasId][dsIdx] === false → force this dataset's labels OFF (even if in allow-list)
 // undefined → fall back to the allow-list default.
-var annDsForce = {chart3pt:{}, pldChart:{}, pldNetChart:{}};
+var annDsForce = {chart3pt:{}, pldChart:{}, pldNetChart:{}, netChart3pt:{}};
 function _annOn(canvasId, dsIdx, allowDefault){
   var m=annDsForce[canvasId]; if(!m) return allowDefault;
   var v=m[dsIdx];
@@ -6913,7 +7018,7 @@ function toggleDsAnnotation(canvasId, dsIdx, allowDefault){
   if(!annDsForce[canvasId]) annDsForce[canvasId]={};
   var cur=_annOn(canvasId, dsIdx, allowDefault);
   annDsForce[canvasId][dsIdx] = !cur;   // flip current effective state
-  var chart = canvasId==='chart3pt'?chart3pt:(canvasId==='pldChart'?pldChart:pldNetChart);
+  var chart = canvasId==='chart3pt'?chart3pt:(canvasId==='pldChart'?pldChart:(canvasId==='netChart3pt'?netChart3pt:pldNetChart));
   if(chart && typeof renderChartAnnotations==='function') renderChartAnnotations(chart, canvasId);
   if(typeof debounceAutosave==='function') debounceAutosave();
 }
@@ -6925,7 +7030,7 @@ document.addEventListener('keydown', function(e) {
     e.preventDefault();
     _pushUndo();
     chartAnnotationsDeleted[_selectedAnnotationKey] = true;
-    var ci = _selectedAnnotationChart==='chart3pt'?chart3pt:_selectedAnnotationChart==='pldChart'?pldChart:pldNetChart;
+    var ci = _selectedAnnotationChart==='chart3pt'?chart3pt:_selectedAnnotationChart==='pldChart'?pldChart:_selectedAnnotationChart==='netChart3pt'?netChart3pt:pldNetChart;
     if(ci) renderChartAnnotations(ci, _selectedAnnotationChart);
     _selectedAnnotationKey = null; _selectedAnnotationChart = null;
   }
@@ -6952,7 +7057,7 @@ function toggleAnnotations(canvasId) {
   if(overlay) overlay.style.display = chartAnnotationsVisible[canvasId] ? '' : 'none';
   // Re-render if turning on
   if(chartAnnotationsVisible[canvasId]) {
-    var ci = canvasId==='chart3pt'?chart3pt:canvasId==='pldChart'?pldChart:pldNetChart;
+    var ci = canvasId==='chart3pt'?chart3pt:canvasId==='pldChart'?pldChart:canvasId==='netChart3pt'?netChart3pt:pldNetChart;
     if(ci) renderChartAnnotations(ci, canvasId);
   }
 }
@@ -7036,9 +7141,18 @@ function renderChartAnnotations(chartInstance, canvasId) {
       }
       // Skip annotations for zero-value points (0 gpm @ 0 psi)
       if(pt.x === 0 && pt.y === 0) return;
-      var text = '';
+      // S226: cap lines (PRV/PRdV/PLD) — device+setpoint label only (no flow), right endpoint only.
+      // Cap extends to 150% rated flow; the right end is where the label reads cleanly.
+      var _CAP_LABEL = { 'Pressure Relief':'PRV', 'Pressure Reducing':'PRdV', 'PLD Setting':'PLD' };
+      var _capText = '';
+      if(_CAP_LABEL[_lbl]){
+        if(ptIdx !== (ds.data.length - 1)) return;     // right endpoint only
+        if(typeof pt.y === 'undefined') return;
+        _capText = _CAP_LABEL[_lbl] + ' @ ' + Math.round(pt.y) + ' psi';
+      }
+      var text = _capText;
       try {
-        if(typeof fmt === 'function') {
+        if(!text && typeof fmt === 'function') {
           text = fmt(pt, {dataIndex:ptIdx, dataset:ds, chart:chart, datasetIndex:dsIdx});
         }
       } catch(e) {}
@@ -7150,7 +7264,7 @@ var _origUpdateNet = null;
 function hookChartAnnotations() {
   // Hook into each chart to render draggable annotations after update.
   // S214: chart3pt (4a) re-added — it uses the draggable overlay to match 4b (7-point).
-  [['chart3pt',chart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(pair){
+  [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(pair){
     var cid=pair[0], ci=pair[1];
     if(!ci) return;
     initChartAnnotationOverlay(ci, cid);
@@ -7443,9 +7557,10 @@ function setPumpTestType(type) {
         } else {
           if (typeof initChart3pt==='function' && !chart3pt) { initChart3pt(); setTimeout(hookChartAnnotations, 200); }
           else if (typeof updateChart3pt==='function') updateChart3pt();
-          if (typeof initNetPerfChart==='function' && !netPerfChart) initNetPerfChart();
-          if (typeof updateNetPerfChart==='function') updateNetPerfChart();
+          if (typeof initNetChart3pt==='function' && !netChart3pt) { initNetChart3pt(); setTimeout(hookChartAnnotations, 200); }
+          else if (typeof updateNetChart3pt==='function') updateNetChart3pt();
           if (chart3pt) chart3pt.resize();
+          if (netChart3pt) netChart3pt.resize();
         }
       } catch(e){ console.error('setPumpTestType chart init:', e); }
     });
@@ -8377,8 +8492,8 @@ window.addEventListener('load', () => {
   _stampActivity();
 
   initChart3pt();
+  initNetChart3pt();
   initPldChart();
-  initNetPerfChart();
   initPldNetChart();
   setTimeout(function(){ if(typeof applyChartDarkMode==='function') applyChartDarkMode(); }, 100);
   initSig('sig-canvas');
