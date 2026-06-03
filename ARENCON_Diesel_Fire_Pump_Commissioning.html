@@ -425,6 +425,7 @@ body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
 .fp-cell .fp-warn{font-size:calc(8.5px + var(--ts));font-weight:700;color:var(--warn);white-space:nowrap;position:absolute;top:100%;left:0;margin-top:2px;}
 .fp-flags{padding:0 16px 12px;display:flex;flex-direction:column;gap:4px;}
 .fp-flag{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);line-height:1.3;}
+.fp-skip-note{font-size:calc(11px + var(--ts));color:var(--silver);font-style:italic;padding:8px 4px;line-height:1.4;}
 .fp-cam{background:none;border:none;cursor:pointer;color:var(--steel);padding:4px;position:relative;line-height:0;border-radius:6px;}
 .fp-cam:hover{background:#fff;color:var(--arencon);}
 .fp-cam.has{color:var(--arencon);}
@@ -1181,7 +1182,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S227</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S227b</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -1745,32 +1746,8 @@ function updatePhaseFlags(){
           * <strong>w/o PRV &amp; PLD (3 points only — 0%, 100%, 150%):</strong> Set PRV to max working pressure and <em>disconnect</em> PLD. Record readings at 0%, 100%, 150% flow only.<br>
           ** <strong>w/ PLD Enabled (all 7 points):</strong> Enable PLD and record all 7 flow points. Then run at churn while setting PLD to 175 psi. PRV shall be ≥10 psi above PLD setting.
         </div>
-        <div class="tbl-wrap">
-          <table class="data-table" id="pld-table">
-            <thead>
-              <tr>
-                <th rowspan="2">Flow %</th>
-                <th rowspan="2">Flow<br>(US gpm)</th>
-                <th rowspan="2">Cutsheet<br>P (psi)</th>
-                <th rowspan="2">Placard<br>P (psi)</th>
-                <th colspan="4" style="background:#2C4770;color:white;">w/o PRV &amp; PLD <span style="font-weight:400;font-size:11px;">(0%, 100%, 150% only)</span></th>
-                <th colspan="4" style="background:#1A5276;color:white;">w/ PLD Enabled <span style="font-weight:400;font-size:11px;">(all 7 points)</span></th>
-                <th rowspan="2">Pass/Fail</th>
-              </tr>
-              <tr>
-                <th style="background:#2C4770;">Suction (psi)</th>
-                <th style="background:#2C4770;">Discharge (psi)</th>
-                <th style="background:#2C4770;">Net (psi)*</th>
-                <th style="background:#2C4770;">RPM</th>
-                <th style="background:#1A5276;">Suction (psi)</th>
-                <th style="background:#1A5276;">Discharge (psi)**</th>
-                <th style="background:#1A5276;">Net (psi)</th>
-                <th style="background:#1A5276;">RPM</th>
-              </tr>
-            </thead>
-            <tbody id="pld-tbody"></tbody>
-          </table>
-        </div>
+        <div class="fp-banner" id="pld-fp-banner"></div>
+        <div id="pld-cards"></div>
       </div>
     </div>
 
@@ -3519,35 +3496,78 @@ function updateStdCalcCells(i) {
 // Rows that require w/o PLD testing (0%, 100%, 150% only per NFPA 20)
 const PLD_NO_SKIP = new Set([1,2,3,5]); // indices of 25%, 50%, 75%, 125% — skip w/o PLD columns
 
+// S227: Option B — one card per flow point, side-by-side segments (Reference | w/ PLD | w/o PLD).
+// Replaces the old sticky-column table. Same data model / data-field names / calc-cell IDs, so the
+// generic input writeback (data-tbl="pld"), updatePldCalcCells, charts, and photos are unchanged.
+// w/o PLD is tested on 0/100/150% ONLY (rows NOT in PLD_NO_SKIP); skipped rows show a "not required" note.
 function renderPldTable() {
-  const tbody = document.getElementById('pld-tbody');
-  tbody.innerHTML = '';
+  const host = document.getElementById('pld-cards');
+  if(!host) return;
+  // banner (mirrors the 3-pt std banner)
+  var ratedB=_ratedRpmPld();
+  var bn=document.getElementById('pld-fp-banner');
+  if(bn) bn.innerHTML = '<b>Rated speed: '+(ratedB?ratedB+' RPM':'set rated RPM above')+'</b> &nbsp;·&nbsp; '
+    + 'Adjusted net = recorded net × (rated ÷ recorded RPM)² &nbsp;·&nbsp; passes when adjusted net ≥ 95% of placard (NFPA 25). '
+    + 'Placard &lt; cutsheet is a hard fail. Suction &lt; NPSH and backflow &lt; 20 psi are advisory flags. '
+    + '<b>w/o PRV &amp; PLD</b> tested at 0%, 100%, 150% only; <b>w/ PLD</b> at all 7 points.';
+  host.innerHTML='';
   pldData.forEach((row, i) => {
-    const skipNoPLD = PLD_NO_SKIP.has(i); // these rows don't get w/o PLD testing
-    const grayCell = 'background:#f0f2f5;color:#aaa;text-align:center;font-size:11px;font-style:italic;';
-    const tr = document.createElement('tr');
-    if (skipNoPLD) tr.style.background = '#fafbfc';
-    tr.innerHTML = `
-      <td><strong>${row.pct}</strong></td>
-      <td><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="pld" style="width:65px;${i===0?'background:#eee;color:#555;':''}" ${i===0?'readonly':''} ></td>
-      <td><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="pld" style="width:55px"></td>
-      <td><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld" style="width:55px"></td>
-      ${skipNoPLD
-        ? `<td colspan="4" style="${grayCell}padding:6px;">Not required (0%, 100%, 150% only)</td>`
-        : `<td><input type="number" value="${row.suc_no||''}" placeholder="psi" data-field="suc_no" data-idx="${i}" data-tbl="pld" style="width:55px"></td>
-           <td><input type="number" value="${row.dis_no||''}" placeholder="psi" data-field="dis_no" data-idx="${i}" data-tbl="pld" style="width:55px"></td>
-           <td class="calc-cell" id="pld-net-no-${i}" style="background:#e8f0fe;">—</td>
-           <td><input type="number" value="${row.rpm_no||''}" placeholder="RPM" data-field="rpm_no" data-idx="${i}" data-tbl="pld" style="width:60px"></td>`
-      }
-      <td><input type="number" value="${row.suc_w||''}" placeholder="psi" data-field="suc_w" data-idx="${i}" data-tbl="pld" style="width:55px"></td>
-      <td><input type="number" value="${row.dis_w||''}" placeholder="psi" data-field="dis_w" data-idx="${i}" data-tbl="pld" style="width:55px"></td>
-      <td class="calc-cell" id="pld-net-w-${i}" style="background:#e8f5e9;">—</td>
-      <td><input type="number" value="${row.rpm_w||''}" placeholder="RPM" data-field="rpm_w" data-idx="${i}" data-tbl="pld" style="width:60px"></td>
-      <td id="pld-pf-${i}">—</td>`;
-    tbody.appendChild(tr);
+    const skipNoPLD = PLD_NO_SKIP.has(i); // skipped rows: no w/o PLD segment (25/50/75/125%)
+    const v = updatePldVerdictObj(row, i);
+    const vtxt = v.verdict==='pass'?'✓ PASS':v.verdict==='fail'?'✗ FAIL':'—';
+    const labelTxt = i===0?'Churn':(row.pct==='150%'?'Peak':(row.pct==='100%'?'Rated':''));
+    const flowTxt = (i===0)?'0 gpm':(row.flow!==''&&row.flow!=null?row.flow+' gpm':'— gpm');
+    const bfWarn=(!isNaN(parseFloat(row.bfUp))&&parseFloat(row.bfUp)<20)?'<div class="fp-warn">⚠ BF &lt; 20</div>':'';
+    // w/o PLD segment: suction/discharge/RPM + net calc, OR a skip note on excluded points
+    const woSeg = skipNoPLD
+      ? `<div class="fp-seg">
+           <span class="fp-seg-lbl">w/o PLD</span>
+           <div class="fp-skip-note">Not required at ${row.pct} (0%, 100%, 150% only)</div>
+         </div>`
+      : `<div class="fp-seg">
+           <span class="fp-seg-lbl">w/o PLD (psi)</span>
+           <div class="fp-fields">
+             <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suc_no||''}" placeholder="psi" data-field="suc_no" data-idx="${i}" data-tbl="pld"></div>
+             <div class="fp-cell"><label>Disch.</label><input type="number" value="${row.dis_no||''}" placeholder="psi" data-field="dis_no" data-idx="${i}" data-tbl="pld"></div>
+             <div class="fp-cell"><label>RPM</label><input type="number" value="${row.rpm_no||''}" placeholder="RPM" data-field="rpm_no" data-idx="${i}" data-tbl="pld"></div>
+             <div class="fp-cell"><label>Net</label><div class="fp-calc" id="pld-net-no-${i}">—</div></div>
+           </div>
+         </div>`;
+    const d=document.createElement('div'); d.className='fp-card'; d.id='pld-card-'+i;
+    d.innerHTML=`
+      <div class="fp-head">
+        <div class="pt">${row.pct} Flow <small>${labelTxt?labelTxt+' · ':''}${flowTxt}</small></div>
+        <div class="right">
+          ${_flowPhotoIcon('pld',i)}
+          <span class="fp-verdict ${v.verdict}" id="pld-verdict-${i}">${vtxt}</span>
+        </div>
+      </div>
+      <div class="fp-strip">
+        <div class="fp-seg" style="flex:0 0 auto;">
+          <span class="fp-seg-lbl">Reference</span>
+          <div class="fp-fields">
+            <div class="fp-cell" style="width:62px;flex:none;"><label>Flow</label><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="pld" ${i===0?'readonly style="background:#eef0f4;color:#555;"':''}></div>
+            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Cutsheet</label><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Placard</label><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld"></div>
+          </div>
+        </div>
+        <div class="fp-seg">
+          <span class="fp-seg-lbl">w/ PLD (psi)</span>
+          <div class="fp-fields">
+            <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suc_w||''}" placeholder="psi" data-field="suc_w" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell"><label>Disch.</label><input type="number" value="${row.dis_w||''}" placeholder="psi" data-field="dis_w" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell"><label>RPM</label><input type="number" value="${row.rpm_w||''}" placeholder="RPM" data-field="rpm_w" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="pld">${bfWarn}</div>
+            <div class="fp-cell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell"><label>Net</label><div class="fp-calc" id="pld-net-w-${i}">—</div></div>
+          </div>
+        </div>
+        ${woSeg}
+      </div>
+      <div class="fp-flags" id="pld-pf-${i}" style="padding:0 16px 12px;">—</div>`;
+    host.appendChild(d);
     updatePldCalcCells(i);
   });
-  setTimeout(fixStickyColumns,50);
 }
 
 // Shared PLD verdict computation — used by on-screen cells AND email export (one source of truth)
@@ -3572,13 +3592,18 @@ function updatePldVerdictObj(row, i){
 function updatePldCalcCells(i) {
   const row = pldData[i];
   const v = updatePldVerdictObj(row, i);
-  var passFail = v.verdict==='pass' ? '<span class="pass">\u2713 PASS</span>' : v.verdict==='fail' ? '<span class="fail">\u2717 FAIL</span>' : '\u2014';
   const noEl = document.getElementById('pld-net-no-'+i);
   const wEl = document.getElementById('pld-net-w-'+i);
   const pfEl = document.getElementById('pld-pf-'+i);
+  const vchip = document.getElementById('pld-verdict-'+i);
   if(noEl && v.netNo !== null) noEl.textContent = v.netNo ? v.netNo.toFixed(1) : '\u2014';
   if(wEl) wEl.textContent = v.netW ? v.netW.toFixed(1) : '\u2014';
-  // Advisory warnings (do NOT affect pass/fail)
+  // Card-head verdict chip (Option B)
+  if(vchip){
+    vchip.className = 'fp-verdict '+v.verdict;
+    vchip.textContent = v.verdict==='pass'?'\u2713 PASS':v.verdict==='fail'?'\u2717 FAIL':'\u2014';
+  }
+  // Advisory warnings (do NOT affect pass/fail) — shown in the flags row beneath the card
   var warns = [];
   var bfUp = parseFloat(row.bfUp);
   if(!isNaN(bfUp) && bfUp < 20) warns.push('Backflow &lt; 20 psi');
@@ -3587,8 +3612,10 @@ function updatePldCalcCells(i) {
   if(isNaN(sucCheck)) sucCheck = parseFloat(row.suc_w);
   var npsh = parseFloat(npshPsiPld);
   if(!isNaN(sucCheck) && !isNaN(npsh) && npsh>0 && sucCheck < npsh) warns.push('Suction &lt; NPSH');
-  var warnHtml = warns.length ? '<div class="flow-warn" title="'+warns.join(' · ')+'">⚠ '+warns.join(' · ')+'</div>' : '';
-  if(pfEl) pfEl.innerHTML = passFail + warnHtml;
+  if(pfEl){
+    if(warns.length){ pfEl.style.display=''; pfEl.innerHTML = warns.map(function(w){return '<div class="fp-flag">⚠ '+w+'</div>';}).join(''); }
+    else { pfEl.style.display='none'; pfEl.innerHTML=''; }
+  }
 }
 
 // ══════════════════════════════════════════════════
