@@ -1157,7 +1157,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S226</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S226b</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
@@ -11182,7 +11182,7 @@ body.dark-mode .app-header{background:linear-gradient(135deg,rgba(156,39,66,.28)
    strips competed and the day-mode white strip was narrow + misaligned. ── */
 
 /* phase bar = quiet, recessed context */
-.phase-bar{background:rgba(0,0,0,.18)!important;}
+.phase-bar{background:rgba(0,0,0,.18)!important;padding:0!important;gap:0!important;}
 body.dark-mode .phase-bar{background:rgba(0,0,0,.30)!important;}
 .phase-tab{color:rgba(255,255,255,.45)!important;}
 .phase-tab .ph-sub{color:rgba(255,255,255,.40)!important;}
@@ -11191,10 +11191,17 @@ body.dark-mode .phase-bar{background:rgba(0,0,0,.30)!important;}
 .phase-tab.active .ph-sub{color:rgba(255,255,255,.72)!important;}
 .phase-tab:not(.active):hover{color:rgba(255,255,255,.78)!important;}
 
+/* autoname / project bar = recessed context strip between header and phase bar
+   (was leftover navy #2C3E50 / #151a24, untouched by the Bold overlay) */
+.project-bar{background:rgba(0,0,0,.12)!important;border-top:1px solid rgba(255,255,255,.06)!important;}
+body.dark-mode .project-bar{background:rgba(0,0,0,.22)!important;border-top-color:rgba(255,255,255,.05)!important;}
+.project-bar .pb-filename{color:rgba(255,255,255,.82)!important;}
+.project-bar .pb-badge{background:var(--arencon)!important;color:#fff!important;}
+
 /* sub-tabs = the bright WORKING level on a solid full-width surface */
 .section-nav{width:100%!important;}
 body:not(.dark-mode) .section-nav{background:var(--surface)!important;border-bottom:1px solid var(--border)!important;}
-body.dark-mode .section-nav{background:linear-gradient(135deg,#0F172A,#1E293B)!important;border-bottom:1px solid var(--border)!important;}
+body.dark-mode .section-nav{background:#181820!important;border-bottom:1px solid var(--border)!important;}
 /* DAY hover/active must be INK/brand — never white-on-white (the disappearing-text bug) */
 body:not(.dark-mode) .nav-tab{color:#6b7280!important;}
 body:not(.dark-mode) .nav-tab:hover{color:var(--arencon)!important;}
