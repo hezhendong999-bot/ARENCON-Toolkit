@@ -8806,7 +8806,8 @@ body.dark-mode{ --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A
 /* ---- LIVING BACKGROUND ---- */
 body{position:relative;background:var(--bg);}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:var(--b-glow1),var(--b-glow2);}
-.app-header,.section-nav,.panel,.card,.project-card{position:relative;z-index:1;}
+.section-nav,.panel,.card,.project-card{position:relative;z-index:1;}
+.app-header{position:sticky;z-index:1000;}
 
 /* ---- HEADER + NAV (beat dark-mode lines 944-945,950) ---- */
 .app-header{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 24%,#15131a),color-mix(in srgb,var(--b-info) 16%,#15131a))!important;backdrop-filter:blur(10px);}
