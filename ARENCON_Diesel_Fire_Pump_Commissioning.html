@@ -1181,7 +1181,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S226d</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S227</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -2447,7 +2447,7 @@ function showToast(msg, duration=2500) {
   if(!t) {
     t = document.createElement('div');
     t.id = 'app-toast';
-    t.style = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--slate);color:white;padding:12px 22px;border-radius:9px;font-size:13.5px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:500px;text-align:center;transition:opacity .3s;';
+    t.style = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#23272F;color:#fff;padding:12px 22px;border-radius:9px;font-size:13.5px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.45);max-width:500px;text-align:center;transition:opacity .3s;';
     document.body.appendChild(t);
   }
   t.textContent = msg;
@@ -4017,9 +4017,7 @@ function renderFigLegend3pt(){
   if(has(8)) defs.push({i:8, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Outside Hose'});
   if(has(13)) defs.push({i:13,c:'#4A8C8C', kind:'line', dash:[6,4],      t:'Pressure Reducing', cap:'reducing'});
   if(has(14)) defs.push({i:14,c:'#B05A7A', kind:'line', dash:[6,4],      t:'Pressure Relief', cap:'relief'});
-  if(has(11)) defs.push({i:11,c:'#4A7BA8', kind:'line', dash:[2,3],      t:'Cutsheet'});
-  if(has(12)) defs.push({i:12,c:'#7D6F9C', kind:'line', dash:[2,3],      t:'Placard'});
-  if(has(10)) defs.push({i:10,c:'#A85959', kind:'line', dash:[2,3],      t:'Rated Press. (ref)'});
+  // S227: Cutsheet/Placard moved to net chart; Rated Press. (ref) removed. Chips dropped here.
   if(has(9)) defs.push({i:9, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],          t:'System Demand', primary:true});
   if(has(4)||has(5)) defs.push({i:4, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:5});
   function swatch(d){
@@ -4136,13 +4134,13 @@ function renderFigLegendPld(){
   if(has(10))defs.push({i:10,c:'#7D6F9C', kind:'line', dash:[2,3],       t:'PLD Setting', cap:'pld'});
   if(has(11))defs.push({i:11,c:'#4A8C8C', kind:'line', dash:[6,4],       t:'Pressure Reducing', cap:'reducing'});
   if(has(12))defs.push({i:12,c:'#B05A7A', kind:'line', dash:[6,4],       t:'Pressure Relief', cap:'relief'});
-  if(has(9)) defs.push({i:9, c:'#A85959', kind:'line', dash:[2,3],       t:'Rated Press. (ref)'});
+  // S227: Rated Press. (ref) chip removed (line deleted from chart).
   if(has(6)) defs.push({i:6, c:_chartLabelColor('#805AD5'), kind:'dia',  dash:[],        t:'System Demand', primary:true});
   if(has(7)||has(8)) defs.push({i:7, c:'#6E86B8', kind:'dot', dash:[],   t:'Supply Points', also:8});
   _buildFigLegend(host, pldChart, defs, 'pldChart');
   _appendSafetyPill(host, 'pldChart');
 }
-// 4b — pldNetChart pill legend (datasets: 0 measured net w/o PLD, 1 adjusted net w/o PLD, 2 cutsheet)
+// 4b — pldNetChart pill legend (datasets: 0 measured net w/o PLD, 1 adjusted net w/o PLD, 2 cutsheet, 3 placard)
 function renderFigLegendPldNet(){
   var host=document.getElementById('figleg-pldNetChart'); if(!host||!pldNetChart) return;
   var ds=pldNetChart.data.datasets;
@@ -4151,6 +4149,7 @@ function renderFigLegendPldNet(){
   if(has(0)) defs.push({i:0, c:'#6366F1', kind:'line', dash:[],          t:'Measured Net (w/o PLD)'});
   if(has(1)) defs.push({i:1, c:'#21D3ED', kind:'line', dash:[8,4,2,4],   t:'Adjusted Net (w/o PLD)'});
   if(has(2)) defs.push({i:2, c:'#A78BFA', kind:'line', dash:[2,3],       t:'Cutsheet'});
+  if(has(3)) defs.push({i:3, c:'#7D6F9C', kind:'line', dash:[5,3],       t:'Placard'});
   _buildFigLegend(host, pldNetChart, defs);
 }
 // Readout strip (per-point %/psi/gpm/rpm + verdict) — uses the REAL _calcFlowPoint
@@ -4202,6 +4201,7 @@ function renderFigLegendNet3pt(){
   if(has(0)) defs.push({i:0, c:'#6366F1', kind:'line', dash:[],          t:'Measured Net'});
   if(has(1)) defs.push({i:1, c:'#21D3ED', kind:'line', dash:[8,4,2,4],   t:'Adjusted Net (RPM-corrected)'});
   if(has(2)) defs.push({i:2, c:'#A78BFA', kind:'line', dash:[2,3],       t:'Cutsheet'});
+  if(has(3)) defs.push({i:3, c:'#7D6F9C', kind:'line', dash:[5,3],       t:'Placard'});
   _buildFigLegend(host, netChart3pt, defs);
 }
 function renderFigVerdictNet3pt(){
@@ -4650,15 +4650,14 @@ function updateChart3pt() {
   chart3pt.data.datasets[7].data = getSprDemPoint3pt();
   chart3pt.data.datasets[8].data = getOhlLine3pt();
   chart3pt.data.datasets[9].data = getDemandPoint3pt();
-  // PRV horizontal line — extend to 150% rated flow (S226)
-  const prv3 = parseFloat(document.getElementById('pm-prv')?.value)||0;
+  // S227: Rated Press. (ref) line REMOVED from performance chart (rated pressure is a design
+  //        reference, not a limiter — golden curve already caps to relief/reducing). Slot 10 inert.
+  // S227: Cutsheet (11) + Placard (12) MOVED to the 3-pt net-pressure chart. Slots kept inert.
   const allDis3 = stdDis;
   const maxFlow3 = allDis3.length ? Math.max(...allDis3.map(p=>p.x)) : 3000;
-  const ratedFlowPrv3 = parseFloat(document.getElementById('pm-rated-flow')?.value);
-  const prvEnd3 = (!isNaN(ratedFlowPrv3)&&ratedFlowPrv3>0) ? ratedFlowPrv3*1.5 : maxFlow3;
-  chart3pt.data.datasets[10].data = prv3>0 ? [{x:0,y:prv3},{x:prvEnd3,y:prv3}] : [];
-  chart3pt.data.datasets[11].data = buildCutsheetLine3pt();
-  chart3pt.data.datasets[12].data = buildPlacardLine3pt();
+  chart3pt.data.datasets[10].data = [];
+  chart3pt.data.datasets[11].data = [];
+  chart3pt.data.datasets[12].data = [];
   // 13/14: cap lines — flat, extend to 150% of rated flow (S226). Fallback to max measured flow
   //        if rated flow not entered. (Legend hides the dataset; smCapVis drives the golden min().)
   var ratedFlow3 = parseFloat(document.getElementById('pm-rated-flow')?.value);
@@ -4681,7 +4680,7 @@ function updateChart3pt() {
 
 // ══════════════════════════════════════════════════
 // CHART D (3-pt): 3-Point Net Pressure Curve
-// Datasets: 0=Measured Net (indigo), 1=Adjusted Net RPM-corrected (cyan), 2=Cutsheet (lilac)
+// Datasets: 0=Measured Net (indigo), 1=Adjusted Net RPM-corrected (cyan), 2=Cutsheet (lilac), 3=Placard (slate-violet, S227)
 // Adjusted net = recorded net × (rated/recorded RPM)²  — canonical affinity law (_ratedRpm / row.rpm)
 // ══════════════════════════════════════════════════
 function initNetChart3pt() {
@@ -4701,6 +4700,9 @@ function initNetChart3pt() {
       // 2: Cutsheet curve — Ledger lilac, dotted
       {label:'Cutsheet (Design)',data:[],borderColor:'#A78BFA',backgroundColor:'transparent',
         showLine:true,fill:false,borderDash:[2,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
+      // 3: Placard curve — slate-violet, dashed (S227: moved here from performance chart)
+      {label:'Placard',data:[],borderColor:'#7D6F9C',backgroundColor:'transparent',
+        showLine:true,fill:false,borderDash:[5,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
@@ -4739,6 +4741,7 @@ function updateNetChart3pt() {
   netChart3pt.data.datasets[0].data = measured;
   netChart3pt.data.datasets[1].data = adjusted;
   netChart3pt.data.datasets[2].data = buildCutsheetLine3pt();
+  netChart3pt.data.datasets[3].data = buildPlacardLine3pt();
   var allXn = measured.map(function(p){return p.x;});
   var maxXn = allXn.length ? Math.max.apply(null,allXn) : 0;
   netChart3pt.options.scales.x.min = (allXn.length>0 && maxXn===0) ? -50 : undefined;
@@ -4829,11 +4832,12 @@ function updatePldChart() {
   pldChart.data.datasets[7].data = (!isNaN(spPld)&&spPld>0) ? [{x:sfPld,y:spPld}] : [];
   pldChart.data.datasets[8].data = (!isNaN(rfPld)&&!isNaN(rpPld)&&rfPld>0) ? [{x:rfPld,y:rpPld}] : [];
   // PRV / PLD / cap lines — extend to 150% rated flow (S226). Fallback to max measured flow.
-  const prvPld = parseFloat(document.getElementById('pm-prv-pld')?.value)||0;
+  // S227: PRV Rating (Rated Press. ref) line REMOVED — rated pressure is a design reference,
+  //        not a limiter (golden curve already caps to relief/reducing/PLD). Slot 9 inert.
   const maxMeasPld = wPLDDis.length ? Math.max(...wPLDDis.map(p=>p.x), 100) : 3000;
   const ratedFlowPld = parseFloat(document.getElementById('pm-rated-flow-pld')?.value);
   const maxFlowPld = (!isNaN(ratedFlowPld)&&ratedFlowPld>0) ? ratedFlowPld*1.5 : maxMeasPld;
-  pldChart.data.datasets[9].data = prvPld>0 ? [{x:0,y:prvPld},{x:maxFlowPld,y:prvPld}] : [];
+  pldChart.data.datasets[9].data = [];
   // PLD setting line
   var pldSet = parseFloat(document.getElementById('pm-pld-setting')?.value)||0;
   pldChart.data.datasets[10].data = pldSet>0 ? [{x:0,y:pldSet},{x:maxFlowPld,y:pldSet}] : [];
@@ -4885,6 +4889,9 @@ function initPldNetChart() {
       // 2: Cutsheet — Ledger lilac, dotted
       {label:'Cutsheet (Design)',data:[],borderColor:'#A78BFA',backgroundColor:'transparent',
         showLine:true,fill:false,borderDash:[2,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
+      // 3: Placard — slate-violet, dashed (S227: moved off performance chart)
+      {label:'Placard',data:[],borderColor:'#7D6F9C',backgroundColor:'transparent',
+        showLine:true,fill:false,borderDash:[5,3],pointRadius:2,borderWidth:1.4,datalabels:labelOff},
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
@@ -4923,9 +4930,12 @@ function updatePldNetChart() {
   adjusted.sort(function(a,b){return a.x-b.x;});
   // Cutsheet — show even when value is at flow=0
   const cs = pldData.map(r=>{ var f=rowFlow(r),c=parseFloat(r.cutsheet); return (!isNaN(f)&&!isNaN(c))?{x:f,y:c}:null; }).filter(Boolean).sort((a,b)=>a.x-b.x);
+  // Placard (S227: moved here from performance chart)
+  const pl = pldData.map(r=>{ var f=rowFlow(r),p=parseFloat(r.placard); return (!isNaN(f)&&!isNaN(p))?{x:f,y:p}:null; }).filter(Boolean).sort((a,b)=>a.x-b.x);
   pldNetChart.data.datasets[0].data = measured;
   pldNetChart.data.datasets[1].data = adjusted;
   pldNetChart.data.datasets[2].data = cs;
+  pldNetChart.data.datasets[3].data = pl;
   var allXnet = measured.map(function(p){return p.x;});
   var maxXnet = allXnet.length ? Math.max.apply(null,allXnet) : 0;
   pldNetChart.options.scales.x.min = (allXnet.length>0 && maxXnet===0) ? -50 : undefined;
