@@ -1950,6 +1950,28 @@ function _obsNotedDate(d, o) {
   return (o && o.notedDate) || (d && d.date) || '';
 }
 
+// ── Combined-view canonical category classifier ────────────────────
+// S231 Slice 1: the single source of truth for the four-category model
+// (Active · Recommendation · Site Record · Closed). NOT yet wired to any
+// render path — introduced dead so it can be proven against real data
+// before the combined-view fold consumes it. Per-observation by design
+// (each obs is independent; a pin's obs may differ in category — verified
+// on real pin 7, SP-114). hasCtr = does this pin have a contractor.
+// Precedence (first match wins): addressed → Closed; else per-obs
+// isRecommendation → Recommendation; else no contractor → Site Record;
+// else Active. Closed preserves underlying nature for lossless reopen:
+// `under` reports what it re-derives to when reopened (rec | site | active).
+function _deriveCategory(d, o, hasCtr) {
+  var isRec = !!(o && o.isRecommendation);
+  if (o && o.addressed) {
+    var under = isRec ? 'rec' : (!hasCtr ? 'site' : 'active');
+    return { cat: 'closed', under: under };
+  }
+  if (isRec) return { cat: 'rec', under: 'rec' };
+  if (!hasCtr) return { cat: 'site', under: 'site' };
+  return { cat: 'active', under: 'active' };
+}
+
 // Combined status descriptor for an observation. site=true forces the
 // indigo Site Record treatment regardless of addressed/priority.
 function _obsStatusInfo(o, site, d) {
