@@ -1051,7 +1051,7 @@ body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255
 .hdr-ai-active:hover{filter:brightness(1.12);}
 .hdr-ai-wrap{position:relative;display:inline-flex;}
 /* AI Mode Dropdown */
-.ai-mode-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:230px;z-index:2000;}
+.ai-mode-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:230px;z-index:10001;}
 .ai-mode-menu.open{display:block;}
 .ai-mode-menu button{display:block;width:100%;padding:10px 14px;border:none;background:none;text-align:left;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));cursor:pointer;color:var(--slate);}
 .ai-mode-menu button:hover{background:var(--smoke);}
@@ -1157,16 +1157,15 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S226b</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S226c</span>
     </div>
     <div class="header-actions">
-      <!-- ✨ AI Review — wired to live worker (S219). Mode menu: Quick Fix / Full Rewrite / Shorten -->
+      <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
       <div class="hdr-ai-wrap" id="ai-review-wrap">
         <button class="hdr-btn hdr-ai-active" id="btn-ai-review" onclick="AIAssist.toggleMenu(event)" title="AI text review of deficiencies, responses & notes">✨ AI Review ▾</button>
         <div class="ai-mode-menu" id="ai-mode-menu">
-          <button onclick="AIAssist.reviewAll('quickfix')">Quick Fix<span>Grammar & clarity (Haiku)</span></button>
-          <button onclick="AIAssist.reviewAll('rewrite')">Full Rewrite<span>Polish & professionalize (Sonnet)</span></button>
-          <button onclick="AIAssist.reviewAll('shorten')">Shorten<span>Tighten wording (Haiku)</span></button>
+          <button onclick="AIAssist.reviewAll('rewrite')">✨ Full Rewrite<span>Professional report language (Sonnet)</span></button>
+          <button onclick="AIAssist.reviewAll('quickfix')">🔤 Quick Fix<span>Typos &amp; grammar only (Haiku)</span></button>
         </div>
       </div>
       <!-- 📄 Reports dropdown (Export PDF + Issue), matching FRT -->
@@ -1193,7 +1192,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
       </div>
       <button class="hdr-btn" id="btn-qr" onclick="_openToolQR()" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
       <button class="hdr-btn" id="dark-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="background:rgba(255,255,255,.15);min-width:38px;justify-content:center;">☀️</button>
-      <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: XS / S / M / L / XL">S</button>
+      <button class="hdr-btn text-size-toggle" id="btn-text-size" onclick="cycleTextSize()" title="Text size: Small / Large">S</button>
       <button class="hdr-btn" id="btn-signout" onclick="signOutSession()" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <button class="mobile-menu-btn" id="mobile-hamburger" onclick="openMobileMenu()">☰</button>
     </div>
@@ -1632,7 +1631,6 @@ function updatePhaseFlags(){
           <div class="fig-supply" id="figsup-chart3pt"></div>
         </div>
         <canvas id="netPerfChart" style="display:none;width:1px;height:1px;"></canvas>
-        <div id="cl-s4" style="margin-top:16px;padding:0 16px 16px;"></div>
       </div>
     </div>
 
@@ -1657,6 +1655,8 @@ function updatePhaseFlags(){
         </div>
       </div>
     </div>
+    <!-- S226c: 4.1 churn checklist now sits BELOW the 3-pt net pressure chart -->
+    <div id="cl-s4" style="margin-top:16px;padding:0 16px 16px;"></div>
     </div><!-- /#perf-std -->
 
     <!-- ════ 7-POINT PLD SECTION (shown when Test Type = 7-Point) ════ -->
@@ -10164,10 +10164,16 @@ return{init:init,load:load,save:save,startAutoSave:startAutoSave,stopAutoSave:st
 
 
 // ═══ MORE DROPDOWN ═══
+function _closeOtherHeaderMenus(except){
+  // S226c: full mutual exclusion across all three header dropdowns (was partial → multiple open)
+  if(except!=='more'){var m=document.getElementById('more-menu');if(m)m.classList.remove('open');}
+  if(except!=='reports'){var r=document.getElementById('reports-menu');if(r)r.classList.remove('open');}
+  if(except!=='ai'){var a=document.getElementById('ai-mode-menu');if(a)a.classList.remove('open');}
+}
 function toggleMoreMenu(e){
   if(e)e.stopPropagation();
   var m=document.getElementById('more-menu');if(!m)return;
-  if(typeof closeReportsMenu==='function') closeReportsMenu(); // mutual exclusion
+  _closeOtherHeaderMenus('more'); // mutual exclusion with Reports + AI Review
   var isOpen=m.classList.contains('open');
   m.classList.toggle('open');
   if(!isOpen){document.addEventListener('click',_closeMoreOnClick,{once:true});}
@@ -10179,7 +10185,7 @@ function closeMoreMenu(){var m=document.getElementById('more-menu');if(m)m.class
 function toggleReportsMenu(e){
   if(e)e.stopPropagation();
   var m=document.getElementById('reports-menu');if(!m)return;
-  closeMoreMenu(); // mutual exclusion with the More menu
+  _closeOtherHeaderMenus('reports'); // mutual exclusion with More + AI Review
   var isOpen=m.classList.contains('open');
   m.classList.toggle('open');
   if(!isOpen){document.addEventListener('click',_closeReportsOnClick,{once:true});}
@@ -10319,18 +10325,21 @@ function importJSON(){
   inp.click();
 }
 // ═══ TEXT SIZE S/M ═══
-var _appTextSizes=['XS','S','M','L','XL'];
-var _appTextClasses={'XS':'text-xs','S':'','M':'text-m','L':'text-l','XL':'text-xl'};
-var _appTextLabels={'XS':'Extra Small','S':'Small','M':'Medium','L':'Large','XL':'Extra Large'};
+// S226c: match FRT exactly — two sizes only. S='Small' maps to text-m (--ts:2px),
+// L='Large' maps to text-l (--ts:4px). FRT's "Small" is +2px, NOT the base 0px.
+var _appTextSizes=['S','L'];
+var _appTextClasses={'S':'text-m','L':'text-l'};
+var _appTextLabels={'S':'Small','L':'Large'};
 function cycleTextSize(){
-  var cur=localStorage.getItem('arencon-text-size')||'M';
+  var cur=localStorage.getItem('arencon-text-size');
+  if(_appTextSizes.indexOf(cur)<0)cur='S';
   var idx=_appTextSizes.indexOf(cur);
   var next=_appTextSizes[(idx+1)%_appTextSizes.length];
   applyTextSize(next);
   localStorage.setItem('arencon-text-size',next);
 }
 function applyTextSize(size){
-  if(_appTextSizes.indexOf(size)<0)size='M';
+  if(_appTextSizes.indexOf(size)<0)size='S';
   document.body.classList.remove('text-xs','text-m','text-l','text-xl');
   var cls=_appTextClasses[size];
   if(cls)document.body.classList.add(cls);
@@ -10339,7 +10348,7 @@ function applyTextSize(size){
   var mob=document.getElementById('mobile-text-size-btn');
   if(mob)mob.textContent='Text: '+_appTextLabels[size];
 }
-(function(){var s=localStorage.getItem('arencon-text-size')||'M';applyTextSize(s);})();
+(function(){var s=localStorage.getItem('arencon-text-size');if(_appTextSizes.indexOf(s)<0)s='S';applyTextSize(s);})();
 
 </script>
 <!-- ══ END CLOUDSYNC MODULE ══ -->
@@ -10628,7 +10637,7 @@ var AIAssist = (function(){
   function _projName(){ try{ var el=document.getElementById('pi-projname'); return el?el.value||'':''; }catch(e){ return ''; } }
 
   // ── Mode menu ──
-  function toggleMenu(e){ if(e)e.stopPropagation(); var m=document.getElementById('ai-mode-menu'); if(m)m.classList.toggle('open'); }
+  function toggleMenu(e){ if(e)e.stopPropagation(); if(typeof _closeOtherHeaderMenus==='function')_closeOtherHeaderMenus('ai'); var m=document.getElementById('ai-mode-menu'); if(m)m.classList.toggle('open'); }
   function closeMenu(){ var m=document.getElementById('ai-mode-menu'); if(m)m.classList.remove('open'); }
   document.addEventListener('click', function(e){ var w=document.getElementById('ai-review-wrap'); if(w && !w.contains(e.target)) closeMenu(); });
 
@@ -10989,7 +10998,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .app-header,.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
 
 /* ---------- HEADER (glassy, ARENCON identity) ---------- */
-.app-header{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 24%,#15131a),color-mix(in srgb,var(--b-info) 16%,#15131a))!important;backdrop-filter:blur(10px);}
+.app-header{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 24%,#15131a),color-mix(in srgb,var(--b-info) 16%,#15131a))!important;backdrop-filter:blur(10px);z-index:10000!important;}
 .phase-bar{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 20%,#141b2c),color-mix(in srgb,var(--b-info) 12%,#1c2638))!important;}
 .phase-tab.active{border-bottom-color:#fff;}
 .phase-tab.active .ph-name{color:#fff;}
