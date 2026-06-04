@@ -6642,14 +6642,14 @@ body.dark-mode .ctx-text-toggle.active {
   padding: 3px 11px;
   padding-right: 22px;
   border-radius: 4px;
-  border: 1.5px solid #2C4770;
-  background: #E5EDF7;
-  color: #2C4770;
+  border: 1.5px solid #1B1A22;
+  background: #EDECEF;
+  color: #1B1A22;
   appearance: none;
   -webkit-appearance: none;
   /* native caret position needs the right padding above */
-  background-image: linear-gradient(45deg, transparent 50%, #2C4770 50%),
-                    linear-gradient(135deg, #2C4770 50%, transparent 50%);
+  background-image: linear-gradient(45deg, transparent 50%, #1B1A22 50%),
+                    linear-gradient(135deg, #1B1A22 50%, transparent 50%);
   background-position: calc(100% - 12px) 50%, calc(100% - 7px) 50%;
   background-size: 5px 5px;
   background-repeat: no-repeat;
@@ -6662,9 +6662,11 @@ body.dark-mode .ctx-text-toggle.active {
 
 /* Dark mode — keep light-tinted bg for readability, mirror priority pill rule */
 body.dark-mode .trade-banner {
-  background: #E5EDF7;
-  color: #2C4770;
-  border-color: #2C4770;
+  background: #2A2E36;
+  color: #E2E6EC;
+  border-color: #6b6674;
+  background-image: linear-gradient(45deg, transparent 50%, #E2E6EC 50%),
+                    linear-gradient(135deg, #E2E6EC 50%, transparent 50%);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -6706,23 +6708,26 @@ body.dark-mode .ctr-banner {
   border-color: #5A6472;
 }
 
-/* S234: contractor banner pill tinted to its assigned ctr-cN colour (matches .ctr-tag cards). Caret bg-image preserved (we set color/bg/border only). */
-.ctr-banner.ctr-c0 { background:#E0F0F0; color:#176987; border-color:#176987; }
-.ctr-banner.ctr-c1 { background:#F2F4E0; color:#5A6829; border-color:#5A6829; }
-.ctr-banner.ctr-c2 { background:#F5EBE0; color:#7A4F2D; border-color:#7A4F2D; }
-.ctr-banner.ctr-c3 { background:#E8EFE7; color:#5F8068; border-color:#5F8068; }
-.ctr-banner.ctr-c4 { background:#E8ECF8; color:#2E3F8C; border-color:#2E3F8C; }
-.ctr-banner.ctr-c5 { background:#F2E0EA; color:#5C2A4A; border-color:#5C2A4A; }
-.ctr-banner.ctr-c6 { background:#F8E6E0; color:#8B3F2D; border-color:#8B3F2D; }
-.ctr-banner.ctr-c7 { background:#E8E9EC; color:#2C3138; border-color:#2C3138; }
-body.dark-mode .ctr-banner.ctr-c0 { background:#102A2A; color:#7AC4C4; border-color:#7AC4C4; }
-body.dark-mode .ctr-banner.ctr-c1 { background:#1F2410; color:#B8C870; border-color:#B8C870; }
-body.dark-mode .ctr-banner.ctr-c2 { background:#2A1D10; color:#D6A572; border-color:#D6A572; }
-body.dark-mode .ctr-banner.ctr-c3 { background:#0D2818; color:#80C8A0; border-color:#80C8A0; }
-body.dark-mode .ctr-banner.ctr-c4 { background:#15192C; color:#8FA0E0; border-color:#8FA0E0; }
-body.dark-mode .ctr-banner.ctr-c5 { background:#2A1424; color:#D0A0B8; border-color:#D0A0B8; }
-body.dark-mode .ctr-banner.ctr-c6 { background:#2C1810; color:#E89A7E; border-color:#E89A7E; }
-body.dark-mode .ctr-banner.ctr-c7 { background:#1A1C20; color:#A8AEBE; border-color:#A8AEBE; }
+/* S235: contractor banner pill tinted to its ctr-cN colour (matches contractor cards). Uses background-COLOR so the caret bg-image survives; caret recoloured to the text colour. */
+.ctr-banner.ctr-c0 { background-color:#E0F0F0; color:#176987; border-color:#176987; background-image:linear-gradient(45deg,transparent 50%,#176987 50%),linear-gradient(135deg,#176987 50%,transparent 50%); }
+.ctr-banner.ctr-c1 { background-color:#F2F4E0; color:#5A6829; border-color:#5A6829; background-image:linear-gradient(45deg,transparent 50%,#5A6829 50%),linear-gradient(135deg,#5A6829 50%,transparent 50%); }
+.ctr-banner.ctr-c2 { background-color:#F5EBE0; color:#7A4F2D; border-color:#7A4F2D; background-image:linear-gradient(45deg,transparent 50%,#7A4F2D 50%),linear-gradient(135deg,#7A4F2D 50%,transparent 50%); }
+.ctr-banner.ctr-c3 { background-color:#E8EFE7; color:#5F8068; border-color:#5F8068; background-image:linear-gradient(45deg,transparent 50%,#5F8068 50%),linear-gradient(135deg,#5F8068 50%,transparent 50%); }
+.ctr-banner.ctr-c4 { background-color:#E8ECF8; color:#2E3F8C; border-color:#2E3F8C; background-image:linear-gradient(45deg,transparent 50%,#2E3F8C 50%),linear-gradient(135deg,#2E3F8C 50%,transparent 50%); }
+.ctr-banner.ctr-c5 { background-color:#F2E0EA; color:#5C2A4A; border-color:#5C2A4A; background-image:linear-gradient(45deg,transparent 50%,#5C2A4A 50%),linear-gradient(135deg,#5C2A4A 50%,transparent 50%); }
+.ctr-banner.ctr-c6 { background-color:#F8E6E0; color:#8B3F2D; border-color:#8B3F2D; background-image:linear-gradient(45deg,transparent 50%,#8B3F2D 50%),linear-gradient(135deg,#8B3F2D 50%,transparent 50%); }
+.ctr-banner.ctr-c7 { background-color:#E8E9EC; color:#2C3138; border-color:#2C3138; background-image:linear-gradient(45deg,transparent 50%,#2C3138 50%),linear-gradient(135deg,#2C3138 50%,transparent 50%); }
+body.dark-mode .ctr-banner.ctr-c0 { background-color:#102A2A; color:#7AC4C4; border-color:#7AC4C4; background-image:linear-gradient(45deg,transparent 50%,#7AC4C4 50%),linear-gradient(135deg,#7AC4C4 50%,transparent 50%); }
+body.dark-mode .ctr-banner.ctr-c1 { background-color:#1F2410; color:#B8C870; border-color:#B8C870; background-image:linear-gradient(45deg,transparent 50%,#B8C870 50%),linear-gradient(135deg,#B8C870 50%,transparent 50%); }
+body.dark-mode .ctr-banner.ctr-c2 { background-color:#2A1D10; color:#D6A572; border-color:#D6A572; background-image:linear-gradient(45deg,transparent 50%,#D6A572 50%),linear-gradient(135deg,#D6A572 50%,transparent 50%); }
+body.dark-mode .ctr-banner.ctr-c3 { background-color:#0D2818; color:#80C8A0; border-color:#80C8A0; background-image:linear-gradient(45deg,transparent 50%,#80C8A0 50%),linear-gradient(135deg,#80C8A0 50%,transparent 50%); }
+body.dark-mode .ctr-banner.ctr-c4 { background-color:#15192C; color:#8FA0E0; border-color:#8FA0E0; background-image:linear-gradient(45deg,transparent 50%,#8FA0E0 50%),linear-gradient(135deg,#8FA0E0 50%,transparent 50%); }
+body.dark-mode .ctr-banner.ctr-c5 { background-color:#2A1424; color:#D0A0B8; border-color:#D0A0B8; background-image:linear-gradient(45deg,transparent 50%,#D0A0B8 50%),linear-gradient(135deg,#D0A0B8 50%,transparent 50%); }
+body.dark-mode .ctr-banner.ctr-c6 { background-color:#2C1810; color:#E89A7E; border-color:#E89A7E; background-image:linear-gradient(45deg,transparent 50%,#E89A7E 50%),linear-gradient(135deg,#E89A7E 50%,transparent 50%); }
+body.dark-mode .ctr-banner.ctr-c7 { background-color:#1A1C20; color:#A8AEBE; border-color:#A8AEBE; background-image:linear-gradient(45deg,transparent 50%,#A8AEBE 50%),linear-gradient(135deg,#A8AEBE 50%,transparent 50%); }
+
+
+
 
 
 /* End S134 ──────────────────────────────────────────────────────── */

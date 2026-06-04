@@ -4746,6 +4746,33 @@ document.addEventListener('click', function(e) {
   }
 });
 
+// S235 fix: status chip is now a click-to-cycle BUTTON (not a select), so it
+// fires 'click', never 'change'. Global click listener so it works in BOTH the
+// on-drawing editor (#pin-editor-overlay, dispatched by viewer.js) and the
+// focused modal (#pinfocus-overlay). high -> low -> closed -> high.
+document.addEventListener('click', function(e) {
+  var cb = e.target.closest && e.target.closest('[data-action="obs-status-cycle"]');
+  if (!cb) return;
+  var did = cb.getAttribute('data-defic-id');
+  var oi = parseInt(cb.getAttribute('data-obs-idx') || '0', 10);
+  var cur = cb.getAttribute('data-cur') || 'high';
+  var f = Model.findDeficiency(did);
+  if (!f) return;
+  var o = (f.defic.observations || [])[oi];
+  if (!o) return;
+  var next = cur === 'high' ? 'low' : (cur === 'low' ? 'closed' : 'high');
+  if (next === 'closed') {
+    if (!o.addressed) Model.toggleObsAddressed(did, oi);
+  } else {
+    if (o.addressed) Model.toggleObsAddressed(did, oi);
+    Model.updateObsPriority(did, oi, next);
+  }
+  initDeficiencies.render();
+  if (window._frtRenderTasks) window._frtRenderTasks();
+  if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+  _frtRefreshPinFocusIf(did);
+});
+
 // Status and priority changes via select
 document.addEventListener('change', function(e) {
   var action = e.target.getAttribute && e.target.getAttribute('data-action');
@@ -4811,30 +4838,6 @@ document.addEventListener('change', function(e) {
   // NOTE action name is obs-PRIstatus — distinct from the LEGACY obs-status
   // open/closed toggle above (which would no-op on 'high'/'low' and swallow
   // the event). Do not rename back to obs-status (S209b collision bug).
-  if (action === 'obs-status-cycle') {
-    (function() {
-      var btn = e.target.closest('[data-action="obs-status-cycle"]') || e.target;
-      var did = btn.getAttribute('data-defic-id');
-      var oi = parseInt(btn.getAttribute('data-obs-idx') || '0', 10);
-      var cur = btn.getAttribute('data-cur') || 'high';
-      var f = Model.findDeficiency(did);
-      if (!f) return;
-      var o = (f.defic.observations || [])[oi];
-      if (!o) return;
-      var next = cur === 'high' ? 'low' : (cur === 'low' ? 'closed' : 'high');
-      if (next === 'closed') {
-        if (!o.addressed) Model.toggleObsAddressed(did, oi);
-      } else {
-        if (o.addressed) Model.toggleObsAddressed(did, oi);
-        Model.updateObsPriority(did, oi, next);
-      }
-      initDeficiencies.render();
-      if (window._frtRenderTasks) window._frtRenderTasks();
-      if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
-      _frtRefreshPinFocusIf(did);
-    })();
-    return;
-  }
   if (action === 'obs-pristatus') {
     (function() {
       var did = e.target.getAttribute('data-defic-id');
