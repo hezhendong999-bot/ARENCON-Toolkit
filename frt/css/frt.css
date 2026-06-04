@@ -6668,23 +6668,6 @@ body.dark-mode .trade-banner {
   background-image: linear-gradient(45deg, transparent 50%, #E2E6EC 50%),
                     linear-gradient(135deg, #E2E6EC 50%, transparent 50%);
 }
-/* S242: per-trade colour (uses --tc-bg/fg/bd from _tradeVars). Caret recoloured to --tc-fg. Same in both modes — the palette tints are mid-tone and readable on dark. */
-.trade-banner.trade-tinted {
-  background-color: var(--tc-bg) !important;
-  color: var(--tc-fg) !important;
-  border-color: var(--tc-bd) !important;
-  background-image: linear-gradient(45deg, transparent 50%, var(--tc-fg) 50%),
-                    linear-gradient(135deg, var(--tc-fg) 50%, transparent 50%) !important;
-  background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important;
-}
-body.dark-mode .trade-banner.trade-tinted {
-  background-color: var(--tc-bg) !important;
-  color: var(--tc-fg) !important;
-  border-color: var(--tc-bd) !important;
-  background-image: linear-gradient(45deg, transparent 50%, var(--tc-fg) 50%),
-                    linear-gradient(135deg, var(--tc-fg) 50%, transparent 50%) !important;
-  background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important;
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    S142 Batch 4-2: .ctr-banner — inline contractor reassign select in
@@ -6724,23 +6707,25 @@ body.dark-mode .ctr-banner {
   color: #5A6472;
   border-color: #5A6472;
 }
-/* S245: contractor pill colours follow the contractor DOT/title colour (_CTR_PALETTE via getContractorColor), so the pill matches the roster dot + board banner exactly. Same ctr-cN class as the dot. */
-.ctr-banner.ctr-c0 { background-color:#E0F0F0 !important; color:#176987 !important; border-color:#3D8585 !important; background-image:linear-gradient(45deg,transparent 50%,#176987 50%),linear-gradient(135deg,#176987 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-.ctr-banner.ctr-c1 { background-color:#F2F4E0 !important; color:#5A6829 !important; border-color:#7B8838 !important; background-image:linear-gradient(45deg,transparent 50%,#5A6829 50%),linear-gradient(135deg,#5A6829 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-.ctr-banner.ctr-c2 { background-color:#F5EBE0 !important; color:#7A4F2D !important; border-color:#9E6B40 !important; background-image:linear-gradient(45deg,transparent 50%,#7A4F2D 50%),linear-gradient(135deg,#7A4F2D 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-.ctr-banner.ctr-c3 { background-color:#E8EFE7 !important; color:#5F8068 !important; border-color:#5F8068 !important; background-image:linear-gradient(45deg,transparent 50%,#5F8068 50%),linear-gradient(135deg,#5F8068 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-.ctr-banner.ctr-c4 { background-color:#E8ECF8 !important; color:#2E3F8C !important; border-color:#3D4D88 !important; background-image:linear-gradient(45deg,transparent 50%,#2E3F8C 50%),linear-gradient(135deg,#2E3F8C 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-.ctr-banner.ctr-c5 { background-color:#F2E0EA !important; color:#5C2A4A !important; border-color:#7A3F65 !important; background-image:linear-gradient(45deg,transparent 50%,#5C2A4A 50%),linear-gradient(135deg,#5C2A4A 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-.ctr-banner.ctr-c6 { background-color:#F8E6E0 !important; color:#8B3F2D !important; border-color:#B85A45 !important; background-image:linear-gradient(45deg,transparent 50%,#8B3F2D 50%),linear-gradient(135deg,#8B3F2D 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-.ctr-banner.ctr-c7 { background-color:#E8E9EC !important; color:#2C3138 !important; border-color:#4A4F5A !important; background-image:linear-gradient(45deg,transparent 50%,#2C3138 50%),linear-gradient(135deg,#2C3138 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-body.dark-mode .ctr-banner.ctr-c0 { background-color:#102A2A !important; color:#7AC4C4 !important; border-color:#7AC4C4 !important; background-image:linear-gradient(45deg,transparent 50%,#7AC4C4 50%),linear-gradient(135deg,#7AC4C4 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-body.dark-mode .ctr-banner.ctr-c1 { background-color:#1F2410 !important; color:#B8C870 !important; border-color:#B8C870 !important; background-image:linear-gradient(45deg,transparent 50%,#B8C870 50%),linear-gradient(135deg,#B8C870 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-body.dark-mode .ctr-banner.ctr-c2 { background-color:#2A1D10 !important; color:#D6A572 !important; border-color:#D6A572 !important; background-image:linear-gradient(45deg,transparent 50%,#D6A572 50%),linear-gradient(135deg,#D6A572 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-body.dark-mode .ctr-banner.ctr-c3 { background-color:#0D2818 !important; color:#80C8A0 !important; border-color:#80C8A0 !important; background-image:linear-gradient(45deg,transparent 50%,#80C8A0 50%),linear-gradient(135deg,#80C8A0 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-body.dark-mode .ctr-banner.ctr-c4 { background-color:#15192C !important; color:#8FA0E0 !important; border-color:#8FA0E0 !important; background-image:linear-gradient(45deg,transparent 50%,#8FA0E0 50%),linear-gradient(135deg,#8FA0E0 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-body.dark-mode .ctr-banner.ctr-c5 { background-color:#2A1424 !important; color:#D0A0B8 !important; border-color:#D0A0B8 !important; background-image:linear-gradient(45deg,transparent 50%,#D0A0B8 50%),linear-gradient(135deg,#D0A0B8 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-body.dark-mode .ctr-banner.ctr-c6 { background-color:#2C1810 !important; color:#E89A7E !important; border-color:#E89A7E !important; background-image:linear-gradient(45deg,transparent 50%,#E89A7E 50%),linear-gradient(135deg,#E89A7E 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
-body.dark-mode .ctr-banner.ctr-c7 { background-color:#1A1C20 !important; color:#A8AEBE !important; border-color:#A8AEBE !important; background-image:linear-gradient(45deg,transparent 50%,#A8AEBE 50%),linear-gradient(135deg,#A8AEBE 50%,transparent 50%) !important;background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important; }
+/* S246: pill colours via color-mix from a single --cc/--tc hex (same recipe as .picker-chip). Contractor --cc = stored c.color (matches roster dot). Trade --tc = trade hue. Works light+dark, beats the global dark select !important. */
+.ctr-banner.ctr-cc-tinted, .trade-banner.trade-cc-tinted {
+  background-color: color-mix(in srgb, var(--pc, #6B7280) 11%, transparent) !important;
+  color: color-mix(in srgb, var(--pc, #6B7280) 82%, black) !important;
+  border-color: color-mix(in srgb, var(--pc, #6B7280) 45%, transparent) !important;
+  background-image:linear-gradient(45deg,transparent 50%,color-mix(in srgb, var(--pc, #6B7280) 82%, black) 50%),linear-gradient(135deg,color-mix(in srgb, var(--pc, #6B7280) 82%, black) 50%,transparent 50%) !important;
+  background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important;
+}
+body.dark-mode .ctr-banner.ctr-cc-tinted, body.dark-mode .trade-banner.trade-cc-tinted {
+  background-color: color-mix(in srgb, var(--pc, #6B7280) 17%, #1C2333) !important;
+  color: color-mix(in srgb, var(--pc, #6B7280) 62%, white) !important;
+  border-color: color-mix(in srgb, var(--pc, #6B7280) 42%, transparent) !important;
+  background-image:linear-gradient(45deg,transparent 50%,color-mix(in srgb, var(--pc, #6B7280) 62%, white) 50%),linear-gradient(135deg,color-mix(in srgb, var(--pc, #6B7280) 62%, white) 50%,transparent 50%) !important;
+  background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50% !important;background-size:5px 5px !important;background-repeat:no-repeat !important;
+}
+/* map --cc (contractor) and --tc (trade) onto the shared --pc */
+.ctr-banner.ctr-cc-tinted { --pc: var(--cc, #6B7280); }
+.trade-banner.trade-cc-tinted { --pc: var(--tc, #6B7280); }
+
 
 
 
