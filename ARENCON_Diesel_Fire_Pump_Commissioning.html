@@ -476,35 +476,66 @@ body.dark-mode body.dark-mode .fig-readout{background:#323a48;}
 body.dark-mode .fig-readout .ro{background:#1b212b;}
 body.dark-mode .fig-readout .ro .val{color:#e6e9ee;}
 body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
-.fp-strip{display:flex;align-items:flex-start;padding:13px 16px;}
-.fp-seg{display:flex;flex-direction:column;gap:8px;flex:1;padding:0 16px;border-right:1.5px solid var(--border);}
-.fp-seg:first-child{padding-left:0;}
-.fp-seg:last-child{border-right:none;padding-right:0;}
-.fp-seg-lbl{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--silver);white-space:nowrap;height:11px;}
-.fp-fields{display:flex;gap:9px;}
-.fp-cell{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;position:relative;}
-.fp-cell label{font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);white-space:nowrap;height:12px;}
-.fp-cell input,.fp-cell .fp-calc{padding:7px 6px;border-radius:6px;font-size:calc(13px + var(--ts));font-family:inherit;width:100%;text-align:center;border:1.5px solid var(--border);}
-.fp-cell input{color:var(--slate);background:#fff;}
-.fp-cell input:focus{outline:none;border-color:#A85959;}
-.fp-cell.ref input{background:#eef0f4;color:var(--steel);}
-.fp-cell .fp-calc{font-weight:700;background:var(--smoke);color:var(--slate);}
-.fp-cell .fp-calc.adj{color:var(--arencon);background:#faf2f4;border-color:#e8cdd5;}
-.fp-cell .fp-calc.tgt{color:var(--steel);background:#fff;border-style:dashed;}
-.fp-cell .fp-warn{font-size:calc(8.5px + var(--ts));font-weight:700;color:var(--warn);white-space:nowrap;position:absolute;top:100%;left:0;margin-top:2px;}
-.fp-flags{padding:0 16px 12px;display:flex;flex-direction:column;gap:4px;}
+/* S234: dense single-grid flow-point card. Render-only redesign — same fields,
+   same data-field/data-idx wiring, same calc-cell IDs. Muted tokens preserved. */
+.fp-strip{padding:9px 14px 11px;}
+.fp-refline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.fp-refline .ri{font-size:calc(11.5px + var(--ts));color:var(--steel);white-space:nowrap;}
+.fp-refline .ri b{color:var(--silver);font-weight:600;font-size:calc(9.5px + var(--ts));text-transform:uppercase;letter-spacing:.3px;margin-right:3px;}
+.fp-refline .ri input{width:58px;padding:4px 6px;border-radius:6px;border:1.5px solid var(--border);
+  font-family:inherit;font-size:calc(12.5px + var(--ts));text-align:center;color:var(--slate);background:#fff;}
+.fp-refline .ri input:focus{outline:none;border-color:#A85959;}
+.fp-grid{display:grid;grid-template-columns:5px max-content repeat(3,minmax(46px,1fr)) max-content;
+  gap:4px 9px;align-items:center;}
+.fp-grid .fp-hdr{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--silver);text-align:center;}
+.fp-spine{width:5px;align-self:stretch;min-height:28px;border-radius:3px;}
+.fp-spine.wo{background:var(--steel);}
+.fp-spine.w{background:var(--arencon);}
+.fp-segtag{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;
+  line-height:1.05;white-space:nowrap;}
+.fp-segtag.wo{color:var(--steel);}
+.fp-segtag.w{color:var(--arencon);}
+.fp-grid input{padding:6px 6px;border-radius:6px;font-size:calc(13px + var(--ts));font-family:inherit;
+  width:100%;text-align:center;border:1.5px solid var(--border);color:var(--slate);background:#fff;position:relative;}
+.fp-grid input:focus{outline:none;border-color:#A85959;}
+.fp-grid input.gov{border-color:#c79aa6;color:var(--arencon);font-weight:700;}
+.fp-endval{display:flex;align-items:baseline;gap:6px;justify-content:flex-end;white-space:nowrap;}
+.fp-endval .el{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--silver);}
+.fp-endval .ev{font-size:calc(15px + var(--ts));font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
+.fp-endval .ea{font-size:calc(9px + var(--ts));color:var(--silver);}
+.fp-endval.gov .el{color:var(--arencon);}
+.fp-endval.gov .ev{color:var(--arencon);}
+.fp-held{position:relative;display:flex;align-items:baseline;gap:7px;justify-content:flex-end;white-space:nowrap;
+  padding:4px 10px;border-radius:7px;background:#eef3f4;border:1.5px solid #bcd2d6;}
+.fp-held::before{content:"";position:absolute;top:0;left:8px;right:8px;height:2px;border-radius:2px;background:#4A8C8C;}
+.fp-held .ht{font-size:calc(8.5px + var(--ts));font-weight:700;color:#3d7373;letter-spacing:.3px;}
+.fp-held .hl{font-size:calc(8.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#3d7373;}
+.fp-held .hv{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;}
+.fp-bf{display:flex;align-items:center;gap:7px;margin-top:6px;padding-left:60px;flex-wrap:wrap;}
+.fp-bf .bfcell{display:flex;align-items:center;gap:5px;position:relative;}
+.fp-bf label{font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);white-space:nowrap;}
+.fp-bf input{width:64px;padding:5px 6px;border-radius:6px;border:1.5px solid var(--border);
+  font-family:inherit;font-size:calc(12.5px + var(--ts));text-align:center;color:var(--slate);background:#fff;}
+.fp-bf input:focus{outline:none;border-color:#A85959;}
+.fp-bf .bftoggle{font-size:calc(10px + var(--ts));font-weight:600;color:var(--steel);cursor:pointer;
+  background:none;border:1px dashed var(--border);border-radius:6px;padding:4px 9px;font-family:inherit;}
+.fp-bf .bftoggle:hover{color:var(--arencon);border-color:#c79aa6;}
+.fp-calc{display:none;}
+.fp-warn{font-size:calc(8.5px + var(--ts));font-weight:700;color:var(--warn);white-space:nowrap;position:absolute;top:100%;left:0;margin-top:2px;}
+.fp-flags{padding:0 14px 11px;display:flex;flex-direction:column;gap:4px;}
 .fp-flag{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);line-height:1.3;}
-.fp-skip-note{font-size:calc(11px + var(--ts));color:var(--silver);font-style:italic;padding:8px 4px;line-height:1.4;}
+.fp-skip-note{grid-column:3 / -1;font-size:calc(11px + var(--ts));color:var(--silver);font-style:italic;padding:4px 0;line-height:1.4;}
 .fp-cam{background:none;border:none;cursor:pointer;color:var(--steel);padding:4px;position:relative;line-height:0;border-radius:6px;}
 .fp-cam:hover{background:#fff;color:var(--arencon);}
 .fp-cam.has{color:var(--arencon);}
 .fp-cam .cnt{position:absolute;top:-3px;right:-3px;background:var(--arencon);color:#fff;font-size:8.5px;font-weight:700;min-width:14px;height:14px;line-height:14px;border-radius:7px;}
-/* On narrow tablets, let segments wrap rather than crush — keeps inputs tappable */
+/* On narrow tablets, drop the end value to its own full-width row; nothing crushes */
 @media(max-width:760px){
-  .fp-strip{flex-wrap:wrap;gap:12px 0;}
-  .fp-seg{flex:1 1 45%;border-right:none;border-bottom:1.5px solid var(--border);padding:0 12px 12px;}
-  .fp-seg:nth-child(odd){padding-left:0;}
-  .fp-seg:nth-child(even){padding-right:0;}
+  .fp-grid{grid-template-columns:5px max-content repeat(3,1fr);row-gap:6px;}
+  .fp-grid .fp-hdr:last-child{display:none;}
+  .fp-endval,.fp-held{grid-column:3 / -1;justify-content:flex-start;margin-top:1px;}
+  .fp-bf{padding-left:0;}
 }
 /* flow-point photo popover */
 .fp-overlay{position:fixed;inset:0;background:rgba(28,35,51,.4);display:none;align-items:center;justify-content:center;z-index:10000;padding:18px;}
@@ -890,6 +921,28 @@ body.dark-mode .data-table input[readonly][style*="background:#eee"]{background:
 body.dark-mode .fp-cell .fp-calc{background:#22252d!important;color:#cdd6e6!important;border-color:#3a3e48!important;}
 body.dark-mode .fp-cell .fp-calc.adj{background:#2a1c22!important;color:#e7a8ba!important;border-color:#5a3340!important;}
 body.dark-mode .fp-cell .fp-calc.tgt{background:#1e2228!important;color:#aeb8cc!important;border-color:#3a3e48!important;}
+/* S234: dark-mode for the dense flow-point card elements (non-inputs; inputs use the global dark rule) */
+body.dark-mode .fp-refline .ri{color:#aeb8cc;}
+body.dark-mode .fp-refline .ri b{color:#7a8090;}
+body.dark-mode .fp-grid .fp-hdr{color:#7a8090;}
+body.dark-mode .fp-spine.wo{background:#5A6473;}
+body.dark-mode .fp-spine.w{background:#c13a58;}
+body.dark-mode .fp-segtag.wo{color:#9aa2b2;}
+body.dark-mode .fp-segtag.w{color:#e7a8ba;}
+body.dark-mode .fp-grid input.gov{border-color:#7a3a4a!important;color:#e7a8ba!important;}
+body.dark-mode .fp-endval .el{color:#7a8090;}
+body.dark-mode .fp-endval .ev{color:#cdd6e6;}
+body.dark-mode .fp-endval .ea{color:#7a8090;}
+body.dark-mode .fp-endval.gov .el{color:#e7a8ba;}
+body.dark-mode .fp-endval.gov .ev{color:#e7a8ba;}
+body.dark-mode .fp-held{background:#1b2628!important;border-color:#2f4a4e!important;}
+body.dark-mode .fp-held::before{background:#4fa0a0;}
+body.dark-mode .fp-held .ht,body.dark-mode .fp-held .hl{color:#6fb0b0;}
+body.dark-mode .fp-held .hv{color:#cdd6e6;}
+body.dark-mode .fp-bf label{color:#9aa2b2;}
+body.dark-mode .fp-bf .bftoggle{color:#9aa2b2;border-color:#3a3e48;}
+body.dark-mode .fp-bf .bftoggle:hover{color:#e7a8ba;border-color:#7a3a4a;}
+body.dark-mode .fp-skip-note{color:#7a8090;}
 body.dark-mode .np-head{background:#242a36!important;border-bottom-color:#2a3040!important;}
 body.dark-mode .battery-card{border-color:#33373f;}body.dark-mode .battery-card-header{background:#3a1a28;}
 body.dark-mode .battery-table th{background:#282b34;color:#8a90a0;}
@@ -1251,7 +1304,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S233</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S234</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -3790,22 +3843,30 @@ function renderPldTable() {
     const vtxt = v.verdict==='pass'?'✓ PASS':v.verdict==='fail'?'✗ FAIL':'—';
     const labelTxt = i===0?'Churn':(row.pct==='150%'?'Peak':(row.pct==='100%'?'Rated':''));
     const flowTxt = (i===0)?'0 gpm':(row.flow!==''&&row.flow!=null?row.flow+' gpm':'— gpm');
-    const bfWarn=(!isNaN(parseFloat(row.bfUp))&&parseFloat(row.bfUp)<20)?'<div class="fp-warn">⚠ BF &lt; 20</div>':'';
-    // w/o PLD segment: suction/discharge/RPM + net calc, OR a skip note on excluded points
-    const woSeg = skipNoPLD
-      ? `<div class="fp-seg">
-           <span class="fp-seg-lbl">w/o PLD</span>
-           <div class="fp-skip-note">Not required at ${row.pct} (0%, 100%, 150% only)</div>
+    const hasBF = (row.bfUp!==''&&row.bfUp!=null) || (row.bfDown!==''&&row.bfDown!=null);
+    // shared header row: spine | segtag | Suct | Disch | RPM | end
+    const header = `<div></div><div></div><div class="fp-hdr">Suct</div><div class="fp-hdr">Disch</div><div class="fp-hdr">RPM</div><div class="fp-hdr"></div>`;
+    // w/o PLD line (governing = Net) or skip note
+    const woLine = skipNoPLD
+      ? `<div class="fp-spine wo"></div><div class="fp-segtag wo">w/o<br>PLD</div><div class="fp-skip-note">Not required at ${row.pct} (0%, 100%, 150% only)</div>`
+      : `<div class="fp-spine wo"></div><div class="fp-segtag wo">w/o<br>PLD</div>
+         <input type="number" value="${row.suc_no||''}" placeholder="psi" data-field="suc_no" data-idx="${i}" data-tbl="pld">
+         <input type="number" value="${row.dis_no||''}" placeholder="psi" data-field="dis_no" data-idx="${i}" data-tbl="pld">
+         <input type="number" value="${row.rpm_no||''}" placeholder="RPM" data-field="rpm_no" data-idx="${i}" data-tbl="pld">
+         <div class="fp-endval gov" id="pld-end-no-${i}"><span class="el">Net</span><span class="ev">—</span></div>`;
+    // w/ PLD line (Discharge governing-styled; Net held)
+    const wLine = `<div class="fp-spine w"></div><div class="fp-segtag w">w/<br>PLD</div>
+         <input type="number" value="${row.suc_w||''}" placeholder="psi" data-field="suc_w" data-idx="${i}" data-tbl="pld">
+         <input type="number" class="gov" value="${row.dis_w||''}" placeholder="psi" data-field="dis_w" data-idx="${i}" data-tbl="pld">
+         <input type="number" value="${row.rpm_w||''}" placeholder="RPM" data-field="rpm_w" data-idx="${i}" data-tbl="pld">
+         <div class="fp-held" id="pld-end-w-${i}"><span class="hl">Net held</span><span class="hv">—</span></div>`;
+    // BF Up/Down: show inline only when populated; otherwise a small add toggle
+    const bfBlock = hasBF
+      ? `<div class="fp-bf">
+           <div class="bfcell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="pld"></div>
+           <div class="bfcell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="pld"></div>
          </div>`
-      : `<div class="fp-seg">
-           <span class="fp-seg-lbl">w/o PLD (psi)</span>
-           <div class="fp-fields">
-             <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suc_no||''}" placeholder="psi" data-field="suc_no" data-idx="${i}" data-tbl="pld"></div>
-             <div class="fp-cell"><label>Disch.</label><input type="number" value="${row.dis_no||''}" placeholder="psi" data-field="dis_no" data-idx="${i}" data-tbl="pld"></div>
-             <div class="fp-cell"><label>RPM</label><input type="number" value="${row.rpm_no||''}" placeholder="RPM" data-field="rpm_no" data-idx="${i}" data-tbl="pld"></div>
-             <div class="fp-cell"><label>Net</label><div class="fp-calc" id="pld-net-no-${i}">—</div></div>
-           </div>
-         </div>`;
+      : `<div class="fp-bf"><button type="button" class="bftoggle" onclick="_pldShowBF(${i})">+ Backflow readings</button></div>`;
     const d=document.createElement('div'); d.className='fp-card'; d.id='pld-card-'+i;
     d.innerHTML=`
       <div class="fp-head">
@@ -3816,31 +3877,37 @@ function renderPldTable() {
         </div>
       </div>
       <div class="fp-strip">
-        <div class="fp-seg" style="flex:0 0 auto;">
-          <span class="fp-seg-lbl">Reference</span>
-          <div class="fp-fields">
-            <div class="fp-cell" style="width:62px;flex:none;"><label>Flow</label><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="pld" ${i===0?'readonly style="background:#eef0f4;color:#555;"':''}></div>
-            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Cutsheet</label><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="pld"></div>
-            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Placard</label><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld"></div>
-          </div>
+        <div class="fp-refline">
+          <span class="ri" style="font-weight:700;color:var(--slate);">${i===0?'0':''}${i===0?' gpm':''}</span>
+          <span class="ri"><b>Flow</b><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="pld" ${i===0?'readonly style="background:#eef0f4;color:#555;width:58px;"':''}></span>
+          <span class="ri"><b>Cutsheet</b><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="pld"></span>
+          <span class="ri"><b>Placard</b><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld"></span>
         </div>
-        <div class="fp-seg">
-          <span class="fp-seg-lbl">w/ PLD (psi)</span>
-          <div class="fp-fields">
-            <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suc_w||''}" placeholder="psi" data-field="suc_w" data-idx="${i}" data-tbl="pld"></div>
-            <div class="fp-cell"><label>Disch.</label><input type="number" value="${row.dis_w||''}" placeholder="psi" data-field="dis_w" data-idx="${i}" data-tbl="pld"></div>
-            <div class="fp-cell"><label>RPM</label><input type="number" value="${row.rpm_w||''}" placeholder="RPM" data-field="rpm_w" data-idx="${i}" data-tbl="pld"></div>
-            <div class="fp-cell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="pld">${bfWarn}</div>
-            <div class="fp-cell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="pld"></div>
-            <div class="fp-cell"><label>Net</label><div class="fp-calc" id="pld-net-w-${i}">—</div></div>
-          </div>
-        </div>
-        ${woSeg}
+        <div class="fp-grid">${header}${woLine}${wLine}</div>
+        ${bfBlock}
       </div>
-      <div class="fp-flags" id="pld-pf-${i}" style="padding:0 16px 12px;">—</div>`;
+      <div class="fp-flags" id="pld-pf-${i}" style="padding:0 14px 11px;">—</div>`;
     host.appendChild(d);
     updatePldCalcCells(i);
   });
+}
+// S234: which control device is capping the w/ PLD segment (for the held-pill tag)
+function _pldCapDevice(){
+  var pld=document.getElementById('pm-pld-setting');
+  var prv=document.getElementById('pm-reducing-pld');   // pressure reducing valve (PRdV)
+  var rel=document.getElementById('pm-relief-pld');      // pressure relief valve
+  if(pld && pld.value!=='') return 'PLD';
+  if(prv && prv.value!=='') return 'PRdV';
+  if(rel && rel.value!=='') return 'PRV';
+  return 'PLD';
+}
+// S234: reveal BF inputs on demand for a flow point (render-only convenience)
+function _pldShowBF(i){
+  const card=document.getElementById('pld-card-'+i); if(!card) return;
+  const bf=card.querySelector('.fp-bf'); if(!bf) return;
+  const row=pldData[i]||{};
+  bf.innerHTML='<div class="bfcell"><label>BF Up</label><input type="number" value="'+(row.bfUp||'')+'" placeholder="psi" data-field="bfUp" data-idx="'+i+'" data-tbl="pld"></div>'+
+    '<div class="bfcell"><label>BF Down</label><input type="number" value="'+(row.bfDown||'')+'" placeholder="psi" data-field="bfDown" data-idx="'+i+'" data-tbl="pld"></div>';
 }
 
 // Shared PLD verdict computation — used by on-screen cells AND email export (one source of truth)
@@ -3865,12 +3932,24 @@ function updatePldVerdictObj(row, i){
 function updatePldCalcCells(i) {
   const row = pldData[i];
   const v = updatePldVerdictObj(row, i);
-  const noEl = document.getElementById('pld-net-no-'+i);
-  const wEl = document.getElementById('pld-net-w-'+i);
+  const noEl = document.getElementById('pld-end-no-'+i);
+  const wEl = document.getElementById('pld-end-w-'+i);
   const pfEl = document.getElementById('pld-pf-'+i);
   const vchip = document.getElementById('pld-verdict-'+i);
-  if(noEl && v.netNo !== null) noEl.textContent = v.netNo ? v.netNo.toFixed(1) : '\u2014';
-  if(wEl) wEl.textContent = v.netW ? v.netW.toFixed(1) : '\u2014';
+  // w/o PLD governing chip: Net (recorded) + adjusted + 95% threshold footnote
+  if(noEl && v.netNo !== null){
+    var netTxt = v.netNo ? v.netNo.toFixed(1) : '\u2014';
+    var adjTxt = (v.adjNet!=null && !isNaN(v.adjNet)) ? v.adjNet.toFixed(1) : '\u2014';
+    var thrTxt = (v.thresh!=null) ? v.thresh.toFixed(1) : '\u2014';
+    noEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
+      '<span class="ea">adj '+adjTxt+' \u00b7 \u2265'+thrTxt+'</span>';
+  }
+  // w/ PLD held pill: device tag + recorded Net (controlled — not scored)
+  if(wEl){
+    var heldTxt = v.netW ? v.netW.toFixed(1) : '\u2014';
+    var dev = _pldCapDevice ? _pldCapDevice() : 'PLD';
+    wEl.innerHTML = '<span class="ht">'+dev+'</span><span class="hl">Net held</span><span class="hv">'+heldTxt+'</span>';
+  }
   // Card-head verdict chip (Option B)
   if(vchip){
     vchip.className = 'fp-verdict '+v.verdict;
