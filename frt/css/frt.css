@@ -6668,6 +6668,21 @@ body.dark-mode .trade-banner {
   background-image: linear-gradient(45deg, transparent 50%, #E2E6EC 50%),
                     linear-gradient(135deg, #E2E6EC 50%, transparent 50%);
 }
+/* S242: per-trade colour (uses --tc-bg/fg/bd from _tradeVars). Caret recoloured to --tc-fg. Same in both modes — the palette tints are mid-tone and readable on dark. */
+.trade-banner.trade-tinted {
+  background-color: var(--tc-bg);
+  color: var(--tc-fg);
+  border-color: var(--tc-bd);
+  background-image: linear-gradient(45deg, transparent 50%, var(--tc-fg) 50%),
+                    linear-gradient(135deg, var(--tc-fg) 50%, transparent 50%);
+}
+body.dark-mode .trade-banner.trade-tinted {
+  background-color: var(--tc-bg);
+  color: var(--tc-fg);
+  border-color: var(--tc-bd);
+  background-image: linear-gradient(45deg, transparent 50%, var(--tc-fg) 50%),
+                    linear-gradient(135deg, var(--tc-fg) 50%, transparent 50%);
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    S142 Batch 4-2: .ctr-banner — inline contractor reassign select in
@@ -7648,8 +7663,8 @@ body.dark-mode .dfx-ed-pinlabel { color: #E2E6EC; }
 .dfx-ed-tab-x:hover { color: var(--b-high, #C0445F); background: var(--b-high-bg, #F4D6D6); }
 .dfx-ed-tab-add {
   font-family: inherit; font-size: calc(12px + var(--ts)); font-weight: 600;
-  color: var(--b-ink, #1B1A22); background: none;
-  border: 1px dashed var(--border, #D7DCE5); border-radius: 7px 7px 0 0; padding: 6px 11px; cursor: pointer;
+  color: var(--b-info, #2C7FB8); background: none;
+  border: 1px dashed var(--b-info, #2C7FB8); border-radius: 7px 7px 0 0; padding: 6px 11px; cursor: pointer;
 }
 .dfx-ed-tab-add:hover { border-color: var(--b-bar-accent, #9C2742); color: var(--b-bar-accent, #9C2742); }
 body.dark-mode .dfx-ed-tab { background: #2A2E36; border-color: #3A404B; }
@@ -7690,8 +7705,8 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
 .dfx-ed-photos-head .dfx-ed-pcount { color: var(--b-info, #5A6E80); font-weight: 700; }
 .dfx-ed-choose {
   font-family: Calibri, sans-serif; font-size: 10.5px; font-weight: 600;
-  color: var(--b-ink, #1B1A22); background: var(--b-fieldbg, #fff);
-  border: 1px solid var(--border, #D7DCE5); border-radius: 5px; padding: 2px 8px;
+  color: var(--b-info, #2C7FB8); background: var(--b-fieldbg, #fff);
+  border: 1px solid var(--b-info, #2C7FB8); border-radius: 5px; padding: 2px 8px;
   cursor: pointer; margin-left: 6px; text-transform: none; letter-spacing: 0;
 }
 .dfx-ed-choose:hover { border-color: var(--b-bar-accent, #9C2742); color: var(--b-bar-accent, #9C2742); }

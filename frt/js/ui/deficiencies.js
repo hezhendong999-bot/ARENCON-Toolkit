@@ -2120,7 +2120,12 @@ function _buildObsEditor(d, oi, ctrId, opts) {
 
   // contractor select (pin-level — same as _buildPinGroupCard obs-contractor)
   h += '<span class="ctr-banner-wrap">';
-  h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner" title="Contractor for this pin">';
+  // S242: tint the contractor pill with its assigned ctr-cN colour (on-drawing
+  // / focused editor path — the OTHER render site at ~L720 was already done).
+  var _ctrNm2 = '';
+  if (ctrId) { var _cf2 = realCtrs((Model.getProject() || {}).contractors).filter(function(c){return c.id===ctrId;})[0]; _ctrNm2 = _cf2 ? _cf2.name : ''; }
+  var _ctrCls2 = ctrColorClass(_ctrNm2);
+  h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner ' + _ctrCls2 + '" title="Contractor for this pin">';
   h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (!ctrId ? ' selected' : '') + '>\u2014 ' + esc(SITE_RECORDS_LABEL) + ' \u2014</option>';
   realCtrs((Model.getProject() || {}).contractors).forEach(function(_cc) {
     h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(ctrLabel(_cc.name) || 'Unnamed') + '</option>';
@@ -2131,7 +2136,10 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   // trade select (per-obs)
   var _trade = o.trade || '';
   h += '<span class="trade-banner-wrap">';
-  h += '<select data-action="obs-trade" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="trade-banner" title="Trade for this observation">';
+  // S242: per-trade colour via the built _tradeVars palette (--tc-bg/fg/bd),
+  // matching the trade pills on the board. Empty trade -> neutral (no vars).
+  var _trVars = _trade ? _tradeVars(_trade) : '';
+  h += '<select data-action="obs-trade" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"' + (_trVars ? ' style="' + _trVars + '"' : '') + ' class="trade-banner' + (_trade ? ' trade-tinted' : '') + '" title="Trade for this observation">';
   h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === '' ? ' selected' : '') + '>\u2014 Trade \u2014</option>';
   var _projTrades = (Model.getProject() || {}).projectTrades || TRADE_LIST;
   if (_trade && _projTrades.indexOf(_trade) < 0) {
