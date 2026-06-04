@@ -6670,18 +6670,18 @@ body.dark-mode .trade-banner {
 }
 /* S242: per-trade colour (uses --tc-bg/fg/bd from _tradeVars). Caret recoloured to --tc-fg. Same in both modes — the palette tints are mid-tone and readable on dark. */
 .trade-banner.trade-tinted {
-  background-color: var(--tc-bg);
-  color: var(--tc-fg);
-  border-color: var(--tc-bd);
+  background-color: var(--tc-bg) !important;
+  color: var(--tc-fg) !important;
+  border-color: var(--tc-bd) !important;
   background-image: linear-gradient(45deg, transparent 50%, var(--tc-fg) 50%),
-                    linear-gradient(135deg, var(--tc-fg) 50%, transparent 50%);
+                    linear-gradient(135deg, var(--tc-fg) 50%, transparent 50%) !important;
 }
 body.dark-mode .trade-banner.trade-tinted {
-  background-color: var(--tc-bg);
-  color: var(--tc-fg);
-  border-color: var(--tc-bd);
+  background-color: var(--tc-bg) !important;
+  color: var(--tc-fg) !important;
+  border-color: var(--tc-bd) !important;
   background-image: linear-gradient(45deg, transparent 50%, var(--tc-fg) 50%),
-                    linear-gradient(135deg, var(--tc-fg) 50%, transparent 50%);
+                    linear-gradient(135deg, var(--tc-fg) 50%, transparent 50%) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -6724,22 +6724,22 @@ body.dark-mode .ctr-banner {
 }
 
 /* S235: contractor banner pill tinted to its ctr-cN colour (matches contractor cards). Uses background-COLOR so the caret bg-image survives; caret recoloured to the text colour. */
-.ctr-banner.ctr-c0 { background-color:#E0F0F0; color:#176987; border-color:#176987; background-image:linear-gradient(45deg,transparent 50%,#176987 50%),linear-gradient(135deg,#176987 50%,transparent 50%); }
-.ctr-banner.ctr-c1 { background-color:#F2F4E0; color:#5A6829; border-color:#5A6829; background-image:linear-gradient(45deg,transparent 50%,#5A6829 50%),linear-gradient(135deg,#5A6829 50%,transparent 50%); }
-.ctr-banner.ctr-c2 { background-color:#F5EBE0; color:#7A4F2D; border-color:#7A4F2D; background-image:linear-gradient(45deg,transparent 50%,#7A4F2D 50%),linear-gradient(135deg,#7A4F2D 50%,transparent 50%); }
-.ctr-banner.ctr-c3 { background-color:#E8EFE7; color:#5F8068; border-color:#5F8068; background-image:linear-gradient(45deg,transparent 50%,#5F8068 50%),linear-gradient(135deg,#5F8068 50%,transparent 50%); }
-.ctr-banner.ctr-c4 { background-color:#E8ECF8; color:#2E3F8C; border-color:#2E3F8C; background-image:linear-gradient(45deg,transparent 50%,#2E3F8C 50%),linear-gradient(135deg,#2E3F8C 50%,transparent 50%); }
-.ctr-banner.ctr-c5 { background-color:#F2E0EA; color:#5C2A4A; border-color:#5C2A4A; background-image:linear-gradient(45deg,transparent 50%,#5C2A4A 50%),linear-gradient(135deg,#5C2A4A 50%,transparent 50%); }
-.ctr-banner.ctr-c6 { background-color:#F8E6E0; color:#8B3F2D; border-color:#8B3F2D; background-image:linear-gradient(45deg,transparent 50%,#8B3F2D 50%),linear-gradient(135deg,#8B3F2D 50%,transparent 50%); }
-.ctr-banner.ctr-c7 { background-color:#E8E9EC; color:#2C3138; border-color:#2C3138; background-image:linear-gradient(45deg,transparent 50%,#2C3138 50%),linear-gradient(135deg,#2C3138 50%,transparent 50%); }
-body.dark-mode .ctr-banner.ctr-c0 { background-color:#102A2A; color:#7AC4C4; border-color:#7AC4C4; background-image:linear-gradient(45deg,transparent 50%,#7AC4C4 50%),linear-gradient(135deg,#7AC4C4 50%,transparent 50%); }
-body.dark-mode .ctr-banner.ctr-c1 { background-color:#1F2410; color:#B8C870; border-color:#B8C870; background-image:linear-gradient(45deg,transparent 50%,#B8C870 50%),linear-gradient(135deg,#B8C870 50%,transparent 50%); }
-body.dark-mode .ctr-banner.ctr-c2 { background-color:#2A1D10; color:#D6A572; border-color:#D6A572; background-image:linear-gradient(45deg,transparent 50%,#D6A572 50%),linear-gradient(135deg,#D6A572 50%,transparent 50%); }
-body.dark-mode .ctr-banner.ctr-c3 { background-color:#0D2818; color:#80C8A0; border-color:#80C8A0; background-image:linear-gradient(45deg,transparent 50%,#80C8A0 50%),linear-gradient(135deg,#80C8A0 50%,transparent 50%); }
-body.dark-mode .ctr-banner.ctr-c4 { background-color:#15192C; color:#8FA0E0; border-color:#8FA0E0; background-image:linear-gradient(45deg,transparent 50%,#8FA0E0 50%),linear-gradient(135deg,#8FA0E0 50%,transparent 50%); }
-body.dark-mode .ctr-banner.ctr-c5 { background-color:#2A1424; color:#D0A0B8; border-color:#D0A0B8; background-image:linear-gradient(45deg,transparent 50%,#D0A0B8 50%),linear-gradient(135deg,#D0A0B8 50%,transparent 50%); }
-body.dark-mode .ctr-banner.ctr-c6 { background-color:#2C1810; color:#E89A7E; border-color:#E89A7E; background-image:linear-gradient(45deg,transparent 50%,#E89A7E 50%),linear-gradient(135deg,#E89A7E 50%,transparent 50%); }
-body.dark-mode .ctr-banner.ctr-c7 { background-color:#1A1C20; color:#A8AEBE; border-color:#A8AEBE; background-image:linear-gradient(45deg,transparent 50%,#A8AEBE 50%),linear-gradient(135deg,#A8AEBE 50%,transparent 50%); }
+.ctr-banner.ctr-c0 {background-color:#E0F0F0 !important;color:#176987 !important;border-color:#176987 !important;background-image:linear-gradient(45deg,transparent 50%,#176987 50%),linear-gradient(135deg,#176987 50%,transparent 50%) !important; }
+.ctr-banner.ctr-c1 {background-color:#F2F4E0 !important;color:#5A6829 !important;border-color:#5A6829 !important;background-image:linear-gradient(45deg,transparent 50%,#5A6829 50%),linear-gradient(135deg,#5A6829 50%,transparent 50%) !important; }
+.ctr-banner.ctr-c2 {background-color:#F5EBE0 !important;color:#7A4F2D !important;border-color:#7A4F2D !important;background-image:linear-gradient(45deg,transparent 50%,#7A4F2D 50%),linear-gradient(135deg,#7A4F2D 50%,transparent 50%) !important; }
+.ctr-banner.ctr-c3 {background-color:#E8EFE7 !important;color:#5F8068 !important;border-color:#5F8068 !important;background-image:linear-gradient(45deg,transparent 50%,#5F8068 50%),linear-gradient(135deg,#5F8068 50%,transparent 50%) !important; }
+.ctr-banner.ctr-c4 {background-color:#E8ECF8 !important;color:#2E3F8C !important;border-color:#2E3F8C !important;background-image:linear-gradient(45deg,transparent 50%,#2E3F8C 50%),linear-gradient(135deg,#2E3F8C 50%,transparent 50%) !important; }
+.ctr-banner.ctr-c5 {background-color:#F2E0EA !important;color:#5C2A4A !important;border-color:#5C2A4A !important;background-image:linear-gradient(45deg,transparent 50%,#5C2A4A 50%),linear-gradient(135deg,#5C2A4A 50%,transparent 50%) !important; }
+.ctr-banner.ctr-c6 {background-color:#F8E6E0 !important;color:#8B3F2D !important;border-color:#8B3F2D !important;background-image:linear-gradient(45deg,transparent 50%,#8B3F2D 50%),linear-gradient(135deg,#8B3F2D 50%,transparent 50%) !important; }
+.ctr-banner.ctr-c7 {background-color:#E8E9EC !important;color:#2C3138 !important;border-color:#2C3138 !important;background-image:linear-gradient(45deg,transparent 50%,#2C3138 50%),linear-gradient(135deg,#2C3138 50%,transparent 50%) !important; }
+body.dark-mode .ctr-banner.ctr-c0 {background-color:#102A2A !important;color:#7AC4C4 !important;border-color:#7AC4C4 !important;background-image:linear-gradient(45deg,transparent 50%,#7AC4C4 50%),linear-gradient(135deg,#7AC4C4 50%,transparent 50%) !important; }
+body.dark-mode .ctr-banner.ctr-c1 {background-color:#1F2410 !important;color:#B8C870 !important;border-color:#B8C870 !important;background-image:linear-gradient(45deg,transparent 50%,#B8C870 50%),linear-gradient(135deg,#B8C870 50%,transparent 50%) !important; }
+body.dark-mode .ctr-banner.ctr-c2 {background-color:#2A1D10 !important;color:#D6A572 !important;border-color:#D6A572 !important;background-image:linear-gradient(45deg,transparent 50%,#D6A572 50%),linear-gradient(135deg,#D6A572 50%,transparent 50%) !important; }
+body.dark-mode .ctr-banner.ctr-c3 {background-color:#0D2818 !important;color:#80C8A0 !important;border-color:#80C8A0 !important;background-image:linear-gradient(45deg,transparent 50%,#80C8A0 50%),linear-gradient(135deg,#80C8A0 50%,transparent 50%) !important; }
+body.dark-mode .ctr-banner.ctr-c4 {background-color:#15192C !important;color:#8FA0E0 !important;border-color:#8FA0E0 !important;background-image:linear-gradient(45deg,transparent 50%,#8FA0E0 50%),linear-gradient(135deg,#8FA0E0 50%,transparent 50%) !important; }
+body.dark-mode .ctr-banner.ctr-c5 {background-color:#2A1424 !important;color:#D0A0B8 !important;border-color:#D0A0B8 !important;background-image:linear-gradient(45deg,transparent 50%,#D0A0B8 50%),linear-gradient(135deg,#D0A0B8 50%,transparent 50%) !important; }
+body.dark-mode .ctr-banner.ctr-c6 {background-color:#2C1810 !important;color:#E89A7E !important;border-color:#E89A7E !important;background-image:linear-gradient(45deg,transparent 50%,#E89A7E 50%),linear-gradient(135deg,#E89A7E 50%,transparent 50%) !important; }
+body.dark-mode .ctr-banner.ctr-c7 {background-color:#1A1C20 !important;color:#A8AEBE !important;border-color:#A8AEBE !important;background-image:linear-gradient(45deg,transparent 50%,#A8AEBE 50%),linear-gradient(135deg,#A8AEBE 50%,transparent 50%) !important; }
 
 
 
