@@ -1792,29 +1792,12 @@ export var initDeficiencies = {
   }
 };
 
-function _renderActiveTab(proj, container) {
-  var html = '';
-
-  (proj.contractors || []).forEach(function(c) {
-    var active = (c.deficiencies || []).filter(deficIsOpen);
-    var total = (c.deficiencies || []).length;
-    html += buildGroup(c.id, c.name || 'Unnamed Contractor', active, total);
-  });
-
-  // S135: Site General items now render as a bottom section (Site General
-  // tab was retired in S135). Phase 2 will replace this with a
-  // recommendation-aware grey "Site General · Recommendations" section.
-  var genActive = (proj.generalDeficiencies || []).filter(deficIsOpen);
-  var genTotal = (proj.generalDeficiencies || []).length;
-  if (genActive.length || genTotal) {
-    html += buildGroup(null, SITE_RECORDS_LABEL, genActive, genTotal);
-  }
-
-  if (!(proj.contractors || []).length && !genTotal) {
-    html += '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:16px;text-align:center;">No contractors yet. Click "+ Add Contractor" to start.</p>';
-  }
-  container.innerHTML = html;
-}
+// S247: _renderActiveTab removed — dead orphan from the pre-S216 lifecycle-tab
+// system (the per-contractor Active view), superseded by the always-visible
+// Board columns + combined renderer. Siblings _renderClosedTab (S220) and
+// _updateDlcCounts (S221) were already removed; this is the last of the three.
+// Zero references across deficiencies.js / viewer.js / index.html (model.js
+// mention is a comment only). buildGroup remains live elsewhere.
 
 // S220: _renderClosedTab removed — dead orphan from the pre-S216 lifecycle-tab
 // closed view, superseded by the always-visible Closed board column. Zero
