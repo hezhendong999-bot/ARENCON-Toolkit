@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=455">
+<link rel="stylesheet" href="css/frt.css?v=456">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -890,10 +890,10 @@ function ensurePdfJs(cb){
       </div>
     </div>
     <div class="pin-editor-footer">
-      <!-- S213: Save removed — the unified editor auto-saves. Cancel relabelled
-           Close (same #pe-cancel handler; flushes the textarea then closes). -->
+      <!-- S238: Save button added (manual save; editor still auto-saves).
+           Close button removed — the header ✕ closes. Delete stays exposed. -->
+      <button id="pe-save" class="pe-save-btn" title="Save changes">Save</button>
       <button id="pe-delete" class="pe-delete-btn" title="Permanently delete this deficiency">Delete</button>
-      <button id="pe-cancel" class="pe-cancel-btn">Close</button>
     </div>
   </div>
 </div>
