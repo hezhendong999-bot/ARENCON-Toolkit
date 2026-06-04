@@ -346,26 +346,35 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 @media(pointer:coarse){.fpm-del{width:26px;height:26px;line-height:26px;font-size:13px;}.fpm-thumb{width:84px;height:84px;}}
 body.dark-mode .fpm-card{background:#232a36;border-color:#2a3040;}
 /* S228: per-photo gauge tag chips (under each thumb in the gauge-photo modal) */
-.fpm-tile{display:flex;flex-direction:column;gap:6px;width:84px;}
+/* S229: tile no longer fixed-width (was clipping chip first glyph); chips size to content */
+.fpm-tile{display:flex;flex-direction:column;gap:6px;width:auto;min-width:84px;max-width:200px;}
+.fpm-tile .fpm-thumb{width:84px;height:84px;}
 .fpm-tagchips{display:flex;flex-wrap:wrap;gap:4px;}
-.fpm-tagchip{font-size:calc(9.5px + var(--ts));font-weight:700;padding:4px 7px;border-radius:11px;cursor:pointer;
-  border:1.5px solid;background:transparent;font-family:Calibri,sans-serif;line-height:1;display:inline-flex;
-  align-items:center;gap:3px;white-space:nowrap;transition:all .12s;}
-.fpm-tagchip .dot{width:6px;height:6px;border-radius:50%;}
-.fpm-tagchip.dis{color:#2C7FB8;border-color:rgba(44,127,184,.45);} .fpm-tagchip.dis .dot{background:#2C7FB8;}
-.fpm-tagchip.suc{color:#2E9E72;border-color:rgba(46,158,114,.45);} .fpm-tagchip.suc .dot{background:#2E9E72;}
-.fpm-tagchip.bfi{color:#9C2742;border-color:rgba(156,39,66,.45);} .fpm-tagchip.bfi .dot{background:#9C2742;}
-.fpm-tagchip.bfo{color:#D98A1E;border-color:rgba(217,138,30,.45);} .fpm-tagchip.bfo .dot{background:#D98A1E;}
-.fpm-tagchip:not(.sel){opacity:.6;}
-.fpm-tagchip.sel.dis{background:rgba(44,127,184,.15);} .fpm-tagchip.sel.suc{background:rgba(46,158,114,.15);}
-.fpm-tagchip.sel.bfi{background:rgba(156,39,66,.15);} .fpm-tagchip.sel.bfo{background:rgba(217,138,30,.15);}
-@media(pointer:coarse){.fpm-tile{width:96px;}.fpm-tagchip{padding:7px 8px;font-size:calc(10.5px + var(--ts));}}
-body.dark-mode .fpm-tagchip.dis{color:#46C5E8;border-color:rgba(70,197,232,.45);} body.dark-mode .fpm-tagchip.dis .dot{background:#46C5E8;}
-body.dark-mode .fpm-tagchip.suc{color:#3FD08A;border-color:rgba(63,208,138,.45);} body.dark-mode .fpm-tagchip.suc .dot{background:#3FD08A;}
-body.dark-mode .fpm-tagchip.bfi{color:#E26076;border-color:rgba(226,96,118,.45);} body.dark-mode .fpm-tagchip.bfi .dot{background:#E26076;}
-body.dark-mode .fpm-tagchip.bfo{color:#E6A23C;border-color:rgba(230,162,60,.45);} body.dark-mode .fpm-tagchip.bfo .dot{background:#E6A23C;}
-body.dark-mode .fpm-tagchip.sel.dis{background:rgba(70,197,232,.16);} body.dark-mode .fpm-tagchip.sel.suc{background:rgba(63,208,138,.16);}
-body.dark-mode .fpm-tagchip.sel.bfi{background:rgba(226,96,118,.16);} body.dark-mode .fpm-tagchip.sel.bfo{background:rgba(230,162,60,.16);}
+.fpm-tagchip{font-size:calc(9.5px + var(--ts));font-weight:700;padding:4px 9px;border-radius:11px;cursor:pointer;
+  border:1.5px solid;background:transparent;font-family:Calibri,sans-serif;line-height:1.1;display:inline-flex;
+  align-items:center;justify-content:center;white-space:nowrap;transition:all .12s;}
+.fpm-tagchip.dis{color:#2C7FB8;border-color:rgba(44,127,184,.45);}
+.fpm-tagchip.suc{color:#2E9E72;border-color:rgba(46,158,114,.45);}
+.fpm-tagchip.bfi{color:#9C2742;border-color:rgba(156,39,66,.45);}
+.fpm-tagchip.bfo{color:#D98A1E;border-color:rgba(217,138,30,.45);}
+.fpm-tagchip:not(.sel){opacity:.55;}
+.fpm-tagchip:not(.sel):hover{opacity:.85;}
+/* S229: selected = solid accent fill + white text + heavier border — unmistakable at a glance */
+.fpm-tagchip.sel{color:#fff;border-width:2px;box-shadow:0 1px 4px rgba(0,0,0,.18);opacity:1;}
+.fpm-tagchip.sel.dis{background:#2C7FB8;border-color:#2C7FB8;}
+.fpm-tagchip.sel.suc{background:#2E9E72;border-color:#2E9E72;}
+.fpm-tagchip.sel.bfi{background:#9C2742;border-color:#9C2742;}
+.fpm-tagchip.sel.bfo{background:#D98A1E;border-color:#D98A1E;}
+@media(pointer:coarse){.fpm-tile{min-width:96px;}.fpm-tile .fpm-thumb{width:96px;height:96px;}.fpm-tagchip{padding:7px 11px;font-size:calc(10.5px + var(--ts));}}
+body.dark-mode .fpm-tagchip.dis{color:#46C5E8;border-color:rgba(70,197,232,.45);}
+body.dark-mode .fpm-tagchip.suc{color:#3FD08A;border-color:rgba(63,208,138,.45);}
+body.dark-mode .fpm-tagchip.bfi{color:#E26076;border-color:rgba(226,96,118,.45);}
+body.dark-mode .fpm-tagchip.bfo{color:#E6A23C;border-color:rgba(230,162,60,.45);}
+body.dark-mode .fpm-tagchip.sel{color:#0b0a0d;}
+body.dark-mode .fpm-tagchip.sel.dis{background:#46C5E8;border-color:#46C5E8;}
+body.dark-mode .fpm-tagchip.sel.suc{background:#3FD08A;border-color:#3FD08A;}
+body.dark-mode .fpm-tagchip.sel.bfi{background:#E26076;border-color:#E26076;}
+body.dark-mode .fpm-tagchip.sel.bfo{background:#E6A23C;border-color:#E6A23C;}
 /* ══ Flow-test CARD layout (4a 3-point) — muted palette scoped locally (does NOT touch global :root tokens) ══ */
 .fp-banner{font-size:calc(11.5px + var(--ts));color:var(--steel);background:var(--smoke);border:1.5px solid var(--border);border-radius:8px;padding:9px 13px;margin-bottom:14px;line-height:1.5;}
 .fp-banner b{color:var(--slate);}
@@ -1203,7 +1212,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S228</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S229</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -2611,7 +2620,11 @@ function initLbMarkup() {
     lbMarkupUndo = [];
     initLbEvents(canvas);
   };
-  if(img.complete) setSize(); else img.onload = setSize;
+  // S229: initLbMarkup is called from showLbPhoto's own img.onload, so the image is
+  // already loading/loaded by the time we get here. NEVER reassign img.onload (it would
+  // clobber showLbPhoto's handler and leave the markup canvas sized to a 0×0 image →
+  // opaque white overlay = blank lightbox). Just size now; if not laid out, setSize self-retries.
+  requestAnimationFrame(setSize);
 }
 
 let lbEventsInit = false;
@@ -3425,6 +3438,10 @@ function _flowPhotoCamera(){ var inp=document.createElement('input'); inp.type='
 function _flowPhotoDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
 function _flowPhotoDelete(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return; row.photos.splice(j,1); if(typeof renderStdTable==='function') renderStdTable(); if(typeof renderPldTable==='function') renderPldTable(); _renderFlowPhotoModal(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); if(typeof debounceAutosave==='function') debounceAutosave(); }
 function _flowPhotoLightbox(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos)return; openLightbox(row.photos, j, {renderer:_renderFlowPhotoModal}); }
+// S229: pick the best photo source. The local data-URL (p.d) is always present and correct.
+// Only use the R2 URL once the upload is CONFIRMED uploaded — otherwise the R2 file 404s
+// (image broken on first drop; lightbox blank). Fixes both by preferring p.d until confirmed.
+function _photoSrc(p){ if(!p) return ''; if(p.r2Status==='uploaded' && p.r2Url) return p.r2Url; return p.d||p.r2Url||''; }
 // S228: per-photo gauge tag. [value, chip-label, css-class]. Empty tag = untagged.
 var _GAUGE_TAGS=[['discharge','Disch.','dis'],['suction','Suction','suc'],['bf_in','BF-in','bfi'],['bf_out','BF-out','bfo']];
 // short badge form for the photo gallery (Shorter): D / S / BFi / BFo
@@ -3455,12 +3472,12 @@ function _renderFlowPhotoModal(){
   if(pts.length){
     h+='<div class="fpm-thumbs">';
     pts.forEach(function(p,j){
-      h+='<div class="fpm-tile"><div class="fpm-thumb"><img src="'+(p.r2Url||p.d)+'" onclick="_flowPhotoLightbox('+j+')">'
+      h+='<div class="fpm-tile"><div class="fpm-thumb"><img src="'+_photoSrc(p)+'" onclick="_flowPhotoLightbox('+j+')">'
         +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button></div>';
       h+='<div class="fpm-tagchips">';
       _GAUGE_TAGS.forEach(function(t){
         var sel=(p.tag===t[0])?' sel':'';
-        h+='<button class="fpm-tagchip '+t[2]+sel+'" onclick="_flowPhotoSetTag('+j+',\''+t[0]+'\')"><span class="dot"></span>'+t[1]+'</button>';
+        h+='<button class="fpm-tagchip '+t[2]+sel+'" onclick="_flowPhotoSetTag('+j+',\''+t[0]+'\')">'+(sel?'\u2713 ':'')+t[1]+'</button>';
       });
       h+='</div></div>';
     });
