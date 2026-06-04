@@ -8795,13 +8795,34 @@ body.dark-mode{
   --b-glow1:radial-gradient(60% 50% at 8% 0%,rgba(156,39,66,.06),transparent 70%);
   --b-glow2:radial-gradient(55% 45% at 95% 4%,rgba(44,127,184,.06),transparent 70%);
   --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.93),rgba(255,255,255,.76));
-  --b-fieldbg:#FFFFFF; }
+  --b-fieldbg:#FFFFFF;
+  /* S233 cv category tokens (Bold·Light) — selected-pill fill + ink, per category */
+  --b-cat-active-bg:#F3D9DE; --b-cat-active-fg:#9C2742;
+  --b-cat-rec-bg:#FBEDD3;    --b-cat-rec-fg:#8E6240;
+  --b-cat-site-bg:#DEDDEF;   --b-cat-site-fg:#3F4470;   /* lavender Site Record */
+  --b-cat-closed-bg:#D2EBDC; --b-cat-closed-fg:#426B4F;
+  /* segmented-pill chrome */
+  --b-pill-bg:#F4F5F8; --b-pill-bd:#D2D5DE; --b-pill-seg-bd:#E2E4EB; --b-pill-seg-fg:#8C90A0;
+  --b-pill-hover:rgba(156,39,66,.06);
+  /* lifted bar surface + red accent (locked refinement) */
+  --b-bar-bg:#ECEAF0; --b-bar-fg:#1B1A22; --b-bar-rule:#D2CEDB; --b-bar-accent:#9C2742;
+  --b-unassigned-dot:#6E6AA8; }
 body.dark-mode{ --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
   --b-chiphdr:rgba(255,255,255,.02); --b-chipnum:#9A95A3;
   --b-glow1:radial-gradient(50% 45% at 6% 0%,rgba(156,39,66,.20),transparent 70%);
   --b-glow2:radial-gradient(48% 42% at 96% 4%,rgba(70,197,232,.13),transparent 70%);
   --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
-  --b-fieldbg:rgba(255,255,255,.05); }
+  --b-fieldbg:rgba(255,255,255,.05);
+  /* S233 cv category tokens (Bold·Dark) — muted fills, bright ink (glow in text, not fill) */
+  --b-cat-active-bg:#3a1b22; --b-cat-active-fg:#E08DA1;
+  --b-cat-rec-bg:#2f2310;    --b-cat-rec-fg:#E0A36A;
+  --b-cat-site-bg:#22203a;   --b-cat-site-fg:#A9A4E0;   /* lavender Site Record */
+  --b-cat-closed-bg:#0d2a1a; --b-cat-closed-fg:#6FCF97;
+  --b-pill-bg:#1b212c; --b-pill-bd:#39414f; --b-pill-seg-bd:#2a313c; --b-pill-seg-fg:#7c8498;
+  --b-pill-hover:rgba(201,71,106,.10);
+  /* lifted bar: lighter than the #0b0a0d page so it reads as a band, red accent */
+  --b-bar-bg:#23212b; --b-bar-fg:#F4F3F6; --b-bar-rule:rgba(255,255,255,.10); --b-bar-accent:#C9476A;
+  --b-unassigned-dot:#A9A4E0; }
 
 /* ---- LIVING BACKGROUND ---- */
 body{position:relative;background:var(--bg);}
@@ -8878,54 +8899,42 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
 
 /* ════════════════════════════════════════════════════════════════════
    S232 FRT-CV — Combined Deficiency View
-   Four-category segmented pill + global "Edit categories" lock.
-   Site Record = LAVENDER/periwinkle (locked spec; NOT grey, NOT site green).
-   Muted palette throughout; every rule has a dark-mode variant.
+   S233: converted to ARENCON Bold tokens (--b-*). Single definition; both
+   modes switch via the token values in the overlay :root / body.dark-mode
+   blocks above — no per-mode rule duplication for colour. Locked refinements
+   applied: muted dark fills (glow in ink not fill), red-as-accent, lifted bar.
+   Site Record = LAVENDER (locked).
    ════════════════════════════════════════════════════════════════════ */
 
 /* Global lock bar */
 .cv-lockbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 4px 10px;}
 .cv-lock-btn{font-family:Calibri,sans-serif;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;
-  border:1px solid #C9CCD6;background:#EDEFF4;color:#4A4F5E;cursor:pointer;min-height:38px;transition:background .12s,border-color .12s;}
-.cv-lock-btn:hover{background:#E3E6EE;}
-.cv-lock-btn.unlocked{background:#F3E3E8;border-color:#9C2742;color:#9C2742;box-shadow:0 0 0 2px rgba(156,39,66,.14);}
-.cv-lock-hint{font-size:12px;color:#7A8090;}
-body.dark-mode .cv-lock-btn{background:#1e2533;border-color:#39414f;color:#aeb6c8;}
-body.dark-mode .cv-lock-btn:hover{background:#283044;}
-body.dark-mode .cv-lock-btn.unlocked{background:#2a1820;border-color:#C9476A;color:#E899AE;box-shadow:0 0 0 2px rgba(201,71,106,.22);}
-body.dark-mode .cv-lock-hint{color:#8a92a4;}
+  border:1px solid var(--b-pill-bd);background:var(--b-pill-bg);color:var(--b-bar-fg);cursor:pointer;min-height:38px;transition:background .12s,border-color .12s;}
+.cv-lock-btn:hover{background:var(--b-pill-hover);}
+.cv-lock-btn.unlocked{background:var(--b-cat-active-bg);border-color:var(--b-bar-accent);color:var(--b-cat-active-fg);box-shadow:0 0 0 2px var(--b-pill-hover);}
+.cv-lock-hint{font-size:12px;color:var(--b-pill-seg-fg);}
 
 /* Per-row category bar (above the reused obs row) */
 .cv-row{display:block;}
 .cv-row-catbar{display:flex;align-items:center;padding:6px 8px 0;}
 
 /* Four-segment category pill */
-.cv-catpill{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid #D2D5DE;background:#F4F5F8;}
+.cv-catpill{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--b-pill-bd);background:var(--b-pill-bg);}
 .cv-catseg{font-family:Calibri,sans-serif;font-size:11px;font-weight:600;line-height:1;padding:5px 9px;border:0;
-  border-right:1px solid #E2E4EB;background:transparent;color:#8C90A0;cursor:default;white-space:nowrap;transition:background .1s,color .1s;}
+  border-right:1px solid var(--b-pill-seg-bd);background:transparent;color:var(--b-pill-seg-fg);cursor:default;white-space:nowrap;transition:background .1s,color .1s;}
 .cv-catseg:last-child{border-right:0;}
 
-/* LOCKED (default): faded + desaturated + untappable (fat-finger-proof).
-   Driven solely by data-cv-locked on the container. */
+/* LOCKED (default): faded + untappable (fat-finger-proof). data-cv-locked driven. */
 [data-cv-locked="1"] .cv-catseg{opacity:.55;cursor:default;pointer-events:none;}
-/* UNLOCKED: solid, full-colour, tappable */
 [data-cv-locked="0"] .cv-catseg{opacity:1;cursor:pointer;pointer-events:auto;}
-[data-cv-locked="0"] .cv-catseg:hover{background:rgba(156,39,66,.06);}
+[data-cv-locked="0"] .cv-catseg:hover{background:var(--b-pill-hover);}
 
-/* Selected segment carries its category colour (semantic, both modes) */
-.cv-catseg.cv-cat-active.on{background:#F3D9DE;color:#9C2742;}
-.cv-catseg.cv-cat-rec.on{background:#F1E1CB;color:#8E6240;}
-.cv-catseg.cv-cat-site.on{background:#DEDDEF;color:#3F4470;}      /* LAVENDER Site Record */
-.cv-catseg.cv-cat-closed.on{background:#D2EBDC;color:#426B4F;}
-
-body.dark-mode .cv-catpill{border-color:#39414f;background:#1b212c;}
-body.dark-mode .cv-catseg{border-right-color:#2a313c;color:#7c8498;}
-body.dark-mode .cv-catseg.cv-cat-active.on{background:#3a1b22;color:#E08DA1;}
-body.dark-mode .cv-catseg.cv-cat-rec.on{background:#2f2310;color:#E0A36A;}
-body.dark-mode .cv-catseg.cv-cat-site.on{background:#22203a;color:#A9A4E0;}  /* LAVENDER dark */
-body.dark-mode .cv-catseg.cv-cat-closed.on{background:#0d2a1a;color:#6FCF97;}
+/* Selected segment carries its category colour (token-driven; switches per mode) */
+.cv-catseg.cv-cat-active.on{background:var(--b-cat-active-bg);color:var(--b-cat-active-fg);}
+.cv-catseg.cv-cat-rec.on{background:var(--b-cat-rec-bg);color:var(--b-cat-rec-fg);}
+.cv-catseg.cv-cat-site.on{background:var(--b-cat-site-bg);color:var(--b-cat-site-fg);}   /* LAVENDER */
+.cv-catseg.cv-cat-closed.on{background:var(--b-cat-closed-bg);color:var(--b-cat-closed-fg);}
 
 /* Unassigned contractor block (pinned to top of its trade) — lavender cue */
 .dfx-ctr-block.cv-unassigned .dfx-ctr-banner{font-style:italic;}
-.dfx-ctr-block.cv-unassigned .dfx-ctr-dot{background:#6E6AA8;}
-body.dark-mode .dfx-ctr-block.cv-unassigned .dfx-ctr-dot{background:#A9A4E0;}
+.dfx-ctr-block.cv-unassigned .dfx-ctr-dot{background:var(--b-unassigned-dot);}
