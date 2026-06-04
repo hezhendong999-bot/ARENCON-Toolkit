@@ -346,11 +346,11 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 @media(pointer:coarse){.fpm-del{width:26px;height:26px;line-height:26px;font-size:13px;}.fpm-thumb{width:84px;height:84px;}}
 body.dark-mode .fpm-card{background:#232a36;border-color:#2a3040;}
 /* S228: per-photo gauge tag chips (under each thumb in the gauge-photo modal) */
-/* S229: tile no longer fixed-width (was clipping chip first glyph); chips size to content */
-.fpm-tile{display:flex;flex-direction:column;gap:6px;width:auto;min-width:84px;max-width:200px;}
+/* S231: chips in a tidy 2×2 grid — compact, no ragged wrapping */
+.fpm-tile{display:flex;flex-direction:column;gap:6px;width:auto;min-width:148px;max-width:200px;}
 .fpm-tile .fpm-thumb{width:84px;height:84px;}
-.fpm-tagchips{display:flex;flex-wrap:wrap;gap:4px;}
-.fpm-tagchip{font-size:calc(9.5px + var(--ts));font-weight:700;padding:4px 9px;border-radius:11px;cursor:pointer;
+.fpm-tagchips{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:148px;}
+.fpm-tagchip{font-size:calc(9px + var(--ts));font-weight:700;padding:4px 6px;border-radius:9px;cursor:pointer;
   border:1.5px solid;background:transparent;font-family:Calibri,sans-serif;line-height:1.1;display:inline-flex;
   align-items:center;justify-content:center;white-space:nowrap;transition:all .12s;}
 .fpm-tagchip.dis{color:#2C7FB8;border-color:rgba(44,127,184,.45);}
@@ -365,7 +365,7 @@ body.dark-mode .fpm-card{background:#232a36;border-color:#2a3040;}
 .fpm-tagchip.sel.suc{background:#2E9E72;border-color:#2E9E72;}
 .fpm-tagchip.sel.bfi{background:#9C2742;border-color:#9C2742;}
 .fpm-tagchip.sel.bfo{background:#D98A1E;border-color:#D98A1E;}
-@media(pointer:coarse){.fpm-tile{min-width:96px;}.fpm-tile .fpm-thumb{width:96px;height:96px;}.fpm-tagchip{padding:7px 11px;font-size:calc(10.5px + var(--ts));}}
+@media(pointer:coarse){.fpm-tile{min-width:160px;}.fpm-tile .fpm-thumb{width:96px;height:96px;}.fpm-tagchips{width:160px;}.fpm-tagchip{padding:7px 8px;font-size:calc(10px + var(--ts));}}
 body.dark-mode .fpm-tagchip.dis{color:#46C5E8;border-color:rgba(70,197,232,.45);}
 body.dark-mode .fpm-tagchip.suc{color:#3FD08A;border-color:rgba(63,208,138,.45);}
 body.dark-mode .fpm-tagchip.bfi{color:#E26076;border-color:rgba(226,96,118,.45);}
@@ -1212,7 +1212,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S230</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S231</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -2097,6 +2097,9 @@ function updatePhaseFlags(){
     <div style="flex:1;display:flex;align-items:center;gap:10px;pointer-events:auto;">
       <span id="lightbox-label" style="color:#fff;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.6);"></span>
     </div>
+    <div style="display:flex;justify-content:center;pointer-events:auto;">
+      <button id="lb-fit" onclick="lbResetView()" title="Fit to screen" style="background:rgba(0,0,0,.55);color:#fff;border:none;height:32px;padding:0 12px;border-radius:16px;cursor:pointer;font:600 12px Calibri,sans-serif;display:flex;align-items:center;gap:6px;"><span id="lb-zoom-indicator">100%</span></button>
+    </div>
     <div style="flex:1;display:flex;justify-content:flex-end;gap:8px;pointer-events:auto;">
       <button id="lb-prev" onclick="lightboxNav(-1)" title="Previous" style="background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;">‹</button>
       <button id="lb-next" onclick="lightboxNav(1)" title="Next" style="background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;">›</button>
@@ -2105,10 +2108,12 @@ function updatePhaseFlags(){
       <button onclick="closeLightbox()" title="Close" style="background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
   </div>
-  <!-- Photo canvas area (centered) -->
-  <div id="lb-canvas-wrap" style="position:relative;display:inline-flex;max-width:100%;max-height:100%;cursor:crosshair;">
-    <img id="lightbox-img" src="" style="display:block;max-width:96vw;max-height:90vh;object-fit:contain;user-select:none;-webkit-user-drag:none;" draggable="false">
-    <canvas id="lb-markup-canvas" style="position:absolute;inset:0;width:100%;height:100%;touch-action:none;background:transparent;pointer-events:auto;"></canvas>
+  <!-- Photo area (FRT structure): full-bleed dark canvas → transformed wrap → img + markup canvas -->
+  <div id="lb-canvas" style="position:absolute;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+    <div id="lb-img-wrap" style="position:relative;transform-origin:0 0;will-change:transform;">
+      <img id="lightbox-img" src="" style="display:block;user-select:none;-webkit-user-drag:none;" draggable="false">
+      <canvas id="lb-markup-canvas" style="position:absolute;inset:0;width:100%;height:100%;touch-action:none;background:transparent;pointer-events:none;"></canvas>
+    </div>
   </div>
   <!-- Floating glassy markup bar (hidden until ✎ toggled) -->
   <div id="lb-toolbar" style="position:absolute;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:8px 12px;background:rgba(20,20,28,.92);border-radius:24px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:96vw;overflow-x:auto;">
@@ -2605,8 +2610,8 @@ function toggleLbMarkupBar(){
   _lbMarkupBarOpen=!_lbMarkupBarOpen;
   bar.style.display=_lbMarkupBarOpen?'flex':'none';
   if(canvas) canvas.style.pointerEvents=_lbMarkupBarOpen?'auto':'none';
-  var wrap=document.getElementById('lb-canvas-wrap');
-  if(wrap) wrap.style.cursor=_lbMarkupBarOpen?'crosshair':'default';
+  // Markup happens at fit-scale (no zoom/pan during drawing — keeps coord math simple, FRT behavior).
+  if(_lbMarkupBarOpen){ _lbScale=_lbFit; _lbPanX=0; _lbPanY=0; _lbApplyTransform(); }
   var dd=document.getElementById('lb-shapes-dd');
   if(dd&&!_lbMarkupBarOpen) dd.style.display='none';
 }
@@ -2648,25 +2653,16 @@ function downloadLbPhoto(){
 function initLbMarkup() {
   const img = document.getElementById('lightbox-img');
   const canvas = document.getElementById('lb-markup-canvas');
-  if(!canvas || !img) return;
-  // Wait for image to be laid out
-  const setSize = () => {
-    const w = img.offsetWidth, h = img.offsetHeight;
-    if(!w || !h) { requestAnimationFrame(setSize); return; }
-    canvas.width = img.naturalWidth || w;
-    canvas.height = img.naturalHeight || h;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    lbMarkupCtx = canvas.getContext('2d');
-    lbMarkupCtx.clearRect(0,0,canvas.width,canvas.height);
-    lbMarkupUndo = [];
-    initLbEvents(canvas);
-  };
-  // S229: initLbMarkup is called from showLbPhoto's own img.onload, so the image is
-  // already loading/loaded by the time we get here. NEVER reassign img.onload (it would
-  // clobber showLbPhoto's handler and leave the markup canvas sized to a 0×0 image →
-  // opaque white overlay = blank lightbox). Just size now; if not laid out, setSize self-retries.
-  requestAnimationFrame(setSize);
+  if(!canvas || !img || !img.naturalWidth) return;
+  // Canvas drawing buffer = image natural resolution (markup saved at full res).
+  // Canvas is stretched to fill the wrap via inset:0;width/height:100% in CSS,
+  // so it always overlays the image 1:1 regardless of display scale.
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  lbMarkupCtx = canvas.getContext('2d');
+  lbMarkupCtx.clearRect(0,0,canvas.width,canvas.height);
+  lbMarkupUndo = [];
+  initLbEvents(canvas);
 }
 
 let lbEventsInit = false;
@@ -2867,19 +2863,53 @@ function saveLbMarkup() {
 
 let lbPhotoCtx = null; // context for re-rendering after save
 
+// ── S231: FRT-clean lightbox core (single load path). ──
+// Photo lives in #lb-img-wrap inside #lb-canvas. Pan/zoom = one transform on the
+// wrap; markup canvas rides inside the wrap so it always overlays the image 1:1.
+// No competing caption/zoom/observer layers (those were removed) — this is why
+// the image now always shows instead of a blank white box.
+var _lbScale = 1, _lbFit = 1, _lbPanX = 0, _lbPanY = 0;
+var _lbDragging = false, _lbLastX = 0, _lbLastY = 0;
+var _lbPinch = false, _lbPinchDist = 0, _lbPinchScale = 1;
+
+function _lbCalcFit(){
+  var img = document.getElementById('lightbox-img');
+  var area = document.getElementById('lb-canvas');
+  if(!img || !area || !img.naturalWidth){ _lbFit = 1; return; }
+  _lbFit = Math.min(area.clientWidth / img.naturalWidth, area.clientHeight / img.naturalHeight);
+  if(_lbFit > 1) _lbFit = 1; // never upscale past 100% on fit
+}
+function _lbClampPan(){
+  var img = document.getElementById('lightbox-img');
+  var area = document.getElementById('lb-canvas');
+  if(!img || !area || !img.naturalWidth) return;
+  var aw = area.clientWidth, ah = area.clientHeight;
+  var sw = img.naturalWidth * _lbScale, sh = img.naturalHeight * _lbScale;
+  if(sw <= aw) _lbPanX = (aw - sw) / 2; else _lbPanX = Math.min(0, Math.max(aw - sw, _lbPanX));
+  if(sh <= ah) _lbPanY = (ah - sh) / 2; else _lbPanY = Math.min(0, Math.max(ah - sh, _lbPanY));
+}
+function _lbApplyTransform(){
+  _lbClampPan();
+  var wrap = document.getElementById('lb-img-wrap');
+  if(!wrap) return;
+  wrap.style.transform = 'translate3d('+_lbPanX+'px,'+_lbPanY+'px,0) scale('+_lbScale+')';
+  var zi = document.getElementById('lb-zoom-indicator');
+  if(zi) zi.textContent = Math.round(_lbScale/_lbFit*100) + '%';
+}
+function lbResetView(){ _lbScale = _lbFit; _lbPanX = 0; _lbPanY = 0; _lbApplyTransform(); }
+
 function openLightbox(photos, idx, ctx) {
   lbPhotos = photos;
   lbIdx = typeof idx === 'number' ? idx : 0;
   lbPhotoCtx = ctx || null;
   const lb = document.getElementById('photo-lightbox');
   lb.style.display = 'flex';
-  lbEventsInit = false; // re-init events each open (canvas may have changed)
-  // S229 (FRT-match): start with markup bar closed; canvas inert until ✎ tapped.
+  lbEventsInit = false;
   _buildLbSwatches();
   _lbMarkupBarOpen = false;
   var _bar = document.getElementById('lb-toolbar'); if(_bar) _bar.style.display = 'none';
   var _cv = document.getElementById('lb-markup-canvas'); if(_cv) _cv.style.pointerEvents = 'none';
-  var _wrap = document.getElementById('lb-canvas-wrap'); if(_wrap) _wrap.style.cursor = 'default';
+  _lbInitPanZoom();
   showLbPhoto();
   document.addEventListener('keydown', lbKeyHandler);
 }
@@ -2888,21 +2918,31 @@ function lbKeyHandler(e) {
   if(e.key==='ArrowRight') lightboxNav(1);
   else if(e.key==='ArrowLeft') lightboxNav(-1);
   else if(e.key==='Escape'){ if(_lbMarkupBarOpen){ toggleLbMarkupBar(); } else { closeLightbox(); } }
+  else if(e.key==='0'){ lbResetView(); }
 }
 
 function showLbPhoto() {
   const p = lbPhotos[lbIdx];
   if(!p) return;
-  const src = (typeof p === 'object') ? (p.d || p) : p;
+  const src = (typeof p === 'object') ? (p.d || p.r2Url || p) : p;
   const img = document.getElementById('lightbox-img');
   const canvas = document.getElementById('lb-markup-canvas');
-  // Reset canvas while new image loads
-  if(canvas) { canvas.width = 0; canvas.height = 0; }
+  if(canvas){ canvas.width = 0; canvas.height = 0; }
+  // Exit markup mode on photo change (FRT behavior)
+  if(_lbMarkupBarOpen) toggleLbMarkupBar();
   img.onload = function() {
-    document.getElementById('lb-download').href = src;
-    document.getElementById('lightbox-label').textContent = `Photo ${lbIdx+1} of ${lbPhotos.length} — use toolbar above to markup`;
-    document.getElementById('lb-prev').style.opacity = lbIdx===0?'0.3':'1';
-    document.getElementById('lb-next').style.opacity = lbIdx===lbPhotos.length-1?'0.3':'1';
+    // Wrap sized to image NATURAL dims; fit-scale shrinks it to the screen.
+    var wrap = document.getElementById('lb-img-wrap');
+    if(wrap){ wrap.style.width = img.naturalWidth+'px'; wrap.style.height = img.naturalHeight+'px'; }
+    img.style.width = img.naturalWidth+'px';
+    img.style.height = img.naturalHeight+'px';
+    _lbCalcFit();
+    _lbScale = _lbFit; _lbPanX = 0; _lbPanY = 0;
+    _lbApplyTransform();
+    var dl = document.getElementById('lb-download'); if(dl) dl.href = src;
+    var lbl = document.getElementById('lightbox-label'); if(lbl) lbl.textContent = (lbPhotos.length>1)?((lbIdx+1)+' / '+lbPhotos.length):'';
+    var pv = document.getElementById('lb-prev'); if(pv) pv.style.display = lbPhotos.length>1?'flex':'none';
+    var nx = document.getElementById('lb-next'); if(nx) nx.style.display = lbPhotos.length>1?'flex':'none';
     lbEventsInit = false;
     initLbMarkup();
   };
@@ -2918,7 +2958,57 @@ function closeLightbox() {
   document.getElementById('photo-lightbox').style.display='none';
   document.removeEventListener('keydown', lbKeyHandler);
   lbDrawing=false; lbMarkupCtx=null; lbEventsInit=false;
+  var img = document.getElementById('lightbox-img'); if(img) img.src='';
 }
+
+// Pan (drag) + wheel/pinch zoom on the canvas area — only when NOT in markup mode.
+var _lbPanZoomInit = false;
+function _lbInitPanZoom(){
+  var area = document.getElementById('lb-canvas');
+  if(!area || _lbPanZoomInit) return;
+  _lbPanZoomInit = true;
+  area.addEventListener('wheel', function(e){
+    if(_lbMarkupBarOpen) return;
+    e.preventDefault();
+    var r = area.getBoundingClientRect();
+    var mx = e.clientX - r.left, my = e.clientY - r.top;
+    var ix = (mx - _lbPanX)/_lbScale, iy = (my - _lbPanY)/_lbScale;
+    var ns = Math.max(_lbFit, Math.min(8, _lbScale * (e.deltaY>0?0.9:1.1)));
+    _lbPanX = mx - ix*ns; _lbPanY = my - iy*ns; _lbScale = ns;
+    _lbApplyTransform();
+  }, {passive:false});
+  area.addEventListener('mousedown', function(e){
+    if(_lbMarkupBarOpen || _lbScale<=_lbFit) return;
+    _lbDragging = true; _lbLastX = e.clientX; _lbLastY = e.clientY; area.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!_lbDragging) return;
+    _lbPanX += e.clientX-_lbLastX; _lbPanY += e.clientY-_lbLastY;
+    _lbLastX = e.clientX; _lbLastY = e.clientY; _lbApplyTransform();
+  });
+  window.addEventListener('mouseup', function(){ _lbDragging=false; var a=document.getElementById('lb-canvas'); if(a)a.style.cursor=''; });
+  // Touch: 1-finger pan (when zoomed), 2-finger pinch
+  area.addEventListener('touchstart', function(e){
+    if(_lbMarkupBarOpen) return;
+    if(e.touches.length===2){ _lbPinch=true; _lbPinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); _lbPinchScale=_lbScale; }
+    else if(e.touches.length===1 && _lbScale>_lbFit){ _lbDragging=true; _lbLastX=e.touches[0].clientX; _lbLastY=e.touches[0].clientY; }
+  }, {passive:true});
+  area.addEventListener('touchmove', function(e){
+    if(_lbMarkupBarOpen) return;
+    if(_lbPinch && e.touches.length===2){
+      e.preventDefault();
+      var d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      _lbScale = Math.max(_lbFit, Math.min(8, _lbPinchScale * d/_lbPinchDist));
+      _lbApplyTransform();
+    } else if(_lbDragging && e.touches.length===1){
+      e.preventDefault();
+      _lbPanX += e.touches[0].clientX-_lbLastX; _lbPanY += e.touches[0].clientY-_lbLastY;
+      _lbLastX=e.touches[0].clientX; _lbLastY=e.touches[0].clientY; _lbApplyTransform();
+    }
+  }, {passive:false});
+  area.addEventListener('touchend', function(e){ if(e.touches.length===0){ _lbPinch=false; _lbDragging=false; } });
+}
+
 // Backdrop click handled in window.load
 
 function renderThumbs(id) {
@@ -3461,8 +3551,14 @@ function _flowPhotoIcon(tbl, i){
 // Per-flow-point gauge photo capture (S222-Diesel) — mirrors _recAddFile pattern.
 var _flowPhotoTbl=null, _flowPhotoIdx=null;
 function _flowPhotoRow(tbl,i){ var src=(tbl==='std'?stdData:pldData); return (src&&src[i])?src[i]:null; }
+var _flowPhotoRecentAdds = {}; // S231: guard against the same file being added twice (drop double-fire)
 function _flowPhotoAddFile(file){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
+  // Dedupe: ignore an identical file (name+size+lastModified) added within the last 2s.
+  var sig = (file.name||'')+'|'+(file.size||0)+'|'+(file.lastModified||0);
+  var now = Date.now();
+  if(_flowPhotoRecentAdds[sig] && (now-_flowPhotoRecentAdds[sig]) < 2000) return;
+  _flowPhotoRecentAdds[sig] = now;
   var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row) return;
   if(!row.photos) row.photos=[];
   var r=new FileReader();
@@ -3483,7 +3579,7 @@ function _flowPhotoAddFile(file){
 }
 function _flowPhotoUpload(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowPhotoAddFile); }; inp.click(); }
 function _flowPhotoCamera(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _flowPhotoAddFile(f); }; inp.click(); }
-function _flowPhotoDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
+function _flowPhotoDrop(e){ e.preventDefault(); e.stopPropagation(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
 function _flowPhotoDelete(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return; row.photos.splice(j,1); if(typeof renderStdTable==='function') renderStdTable(); if(typeof renderPldTable==='function') renderPldTable(); _renderFlowPhotoModal(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); if(typeof debounceAutosave==='function') debounceAutosave(); }
 function _flowPhotoLightbox(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos)return; openLightbox(row.photos, j, {renderer:_renderFlowPhotoModal}); }
 // S229: pick the best photo source. The local data-URL (p.d) is always present and correct.
@@ -9787,211 +9883,8 @@ function _pgReassignSelected(){
   }, 'Reassign');
 }
 
-// ── Photo captions & dates ──
-// Extend openLightbox to show caption + date editing
-var _origOpenLightbox = typeof openLightbox === 'function' ? openLightbox : null;
-function _enhancedOpenLightbox(photos, idx, ctx){
-  if(_origOpenLightbox) _origOpenLightbox(photos, idx, ctx);
-  // After lightbox opens, inject caption/date UI
-  setTimeout(function(){
-    var lb = document.getElementById('photo-lightbox');
-    if(!lb || lb.style.display === 'none') return;
-    var existing = document.getElementById('lb-caption-wrap');
-    if(existing) existing.remove();
-    var p = photos[idx];
-    if(!p || typeof p !== 'object') return;
-    var wrap = document.createElement('div');
-    wrap.id = 'lb-caption-wrap';
-    wrap.style.cssText = 'width:min(95vw,600px);margin:8px auto 0;display:flex;gap:8px;align-items:center;';
-    wrap.innerHTML = '<input id="lb-caption" type="text" placeholder="Caption..." value="'+(p.caption||'').replace(/"/g,'&quot;')+'" style="flex:1;padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:13px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].caption=this.value">'
-      + '<input id="lb-date" type="date" value="'+(p.date||'')+'" style="padding:5px 8px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:12px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].date=this.value">';
-    var imgWrap = lb.querySelector('img[id=lightbox-img]') || lb.querySelector('img');
-    if(imgWrap && imgWrap.parentNode) imgWrap.parentNode.insertAdjacentElement('afterend', wrap);
-  }, 200);
-}
-// Override openLightbox — deferred to ensure original is defined
-setTimeout(function(){
-  if(typeof openLightbox === 'function' && openLightbox !== _enhancedOpenLightbox){
-    _origOpenLightbox = openLightbox;
-    openLightbox = _enhancedOpenLightbox;
-  }
-}, 500);
-
-// Ensure new photos get date stamp automatically
-var _origCompressImage = typeof compressImage === 'function' ? compressImage : null;
-// Instead of wrapping compressImage, we patch the photo object creation points
-// Auto-stamp date on photo creation via a post-creation hook
-(function(){
-  var _origPush = Array.prototype.push;
-  // We can't easily patch push — instead we'll rely on the gallery to show dates
-  // and let captions be manually entered in lightbox
-})();
-
-// ── Lightbox zoom (pinch/wheel/double-tap) ──
-var _lbZoom = {s:1, px:0, py:0, pinching:false, lastDist:0};
-function _initLbZoom(){
-  var img = document.getElementById('lightbox-img');
-  if(!img) return;
-  var wrap = img.parentElement;
-  if(!wrap || wrap._zoomInit) return;
-  wrap._zoomInit = true;
-  wrap.style.overflow = 'hidden';
-  wrap.style.touchAction = 'none';
-  img.style.transformOrigin = '0 0';
-  
-  // Mouse wheel zoom
-  wrap.addEventListener('wheel', function(e){
-    e.preventDefault();
-    var rect = wrap.getBoundingClientRect();
-    var mx = e.clientX - rect.left;
-    var my = e.clientY - rect.top;
-    var imgX = (mx - _lbZoom.px) / _lbZoom.s;
-    var imgY = (my - _lbZoom.py) / _lbZoom.s;
-    var delta = e.deltaY > 0 ? 0.9 : 1.1;
-    var ns = Math.max(1, Math.min(8, _lbZoom.s * delta));
-    _lbZoom.px = mx - imgX * ns;
-    _lbZoom.py = my - imgY * ns;
-    _lbZoom.s = ns;
-    if(ns <= 1){ _lbZoom.px=0; _lbZoom.py=0; _lbZoom.s=1; }
-    _lbApplyZoom(img);
-    _lbShowZoomHint();
-  }, {passive:false});
-  
-  // Touch pinch zoom
-  var touches = {};
-  wrap.addEventListener('touchstart', function(e){
-    if(e.touches.length === 2){
-      _lbZoom.pinching = true;
-      _lbZoom.lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-    }
-  }, {passive:true});
-  wrap.addEventListener('touchmove', function(e){
-    if(_lbZoom.pinching && e.touches.length === 2){
-      e.preventDefault();
-      var dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-      var scale = dist / _lbZoom.lastDist;
-      var rect = wrap.getBoundingClientRect();
-      var cx = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
-      var cy = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
-      var imgX = (cx - _lbZoom.px) / _lbZoom.s;
-      var imgY = (cy - _lbZoom.py) / _lbZoom.s;
-      var ns = Math.max(1, Math.min(8, _lbZoom.s * scale));
-      _lbZoom.px = cx - imgX * ns;
-      _lbZoom.py = cy - imgY * ns;
-      _lbZoom.s = ns;
-      if(ns <= 1){ _lbZoom.px=0; _lbZoom.py=0; _lbZoom.s=1; }
-      _lbApplyZoom(img);
-      _lbShowZoomHint();
-      _lbZoom.lastDist = dist;
-    } else if(_lbZoom.s > 1.05 && e.touches.length === 1){
-      // Pan when zoomed
-      e.preventDefault();
-    }
-  }, {passive:false});
-  wrap.addEventListener('touchend', function(e){
-    if(e.touches.length < 2) _lbZoom.pinching = false;
-  }, {passive:true});
-  
-  // Double-click/tap toggle
-  var lastTap = 0;
-  wrap.addEventListener('dblclick', function(e){
-    e.preventDefault();
-    if(_lbZoom.s > 1.05){
-      _lbZoom.s=1; _lbZoom.px=0; _lbZoom.py=0;
-    } else {
-      var rect = wrap.getBoundingClientRect();
-      var mx = e.clientX - rect.left;
-      var my = e.clientY - rect.top;
-      var imgX = (mx - _lbZoom.px) / _lbZoom.s;
-      var imgY = (my - _lbZoom.py) / _lbZoom.s;
-      _lbZoom.s = 3;
-      _lbZoom.px = mx - imgX * 3;
-      _lbZoom.py = my - imgY * 3;
-    }
-    _lbApplyZoom(img);
-    _lbShowZoomHint();
-  });
-  
-  // Keyboard zoom
-  document.addEventListener('keydown', function(e){
-    var lb = document.getElementById('photo-lightbox');
-    if(!lb || lb.style.display === 'none') return;
-    if(e.key === '+' || e.key === '='){ _lbZoom.s = Math.min(8, _lbZoom.s * 1.2); _lbApplyZoom(img); _lbShowZoomHint(); }
-    else if(e.key === '-'){ _lbZoom.s = Math.max(1, _lbZoom.s * 0.8); if(_lbZoom.s<=1){_lbZoom.px=0;_lbZoom.py=0;_lbZoom.s=1;} _lbApplyZoom(img); _lbShowZoomHint(); }
-    else if(e.key === '0'){ _lbZoom.s=1;_lbZoom.px=0;_lbZoom.py=0; _lbApplyZoom(img); _lbShowZoomHint(); }
-  });
-}
-function _lbApplyZoom(img){
-  img.style.transform = 'translate('+_lbZoom.px+'px,'+_lbZoom.py+'px) scale('+_lbZoom.s+')';
-  img.style.transition = 'transform .15s ease-out';
-}
-function _lbResetZoom(){
-  _lbZoom.s=1; _lbZoom.px=0; _lbZoom.py=0;
-  var img = document.getElementById('lightbox-img');
-  if(img){ img.style.transform=''; img.style.transition=''; }
-}
-function _lbShowZoomHint(){
-  var hint = document.getElementById('lb-zoom-hint');
-  if(!hint){
-    hint = document.createElement('div');
-    hint.id = 'lb-zoom-hint';
-    hint.style.cssText = 'position:fixed;bottom:60px;right:20px;background:rgba(0,0,0,.55);color:rgba(255,255,255,.7);font-size:11px;padding:2px 8px;border-radius:4px;pointer-events:none;font-family:Calibri,sans-serif;z-index:10001;transition:opacity .3s;';
-    document.body.appendChild(hint);
-  }
-  hint.textContent = Math.round(_lbZoom.s*100)+'%';
-  hint.style.opacity = '1';
-  clearTimeout(hint._timer);
-  hint._timer = setTimeout(function(){ hint.style.opacity='0'; }, 1200);
-}
-
-// Hook into lightbox open to init zoom — deferred
-var _origLbNav = null;
-var _origCloseLb = null;
-setTimeout(function(){
-  _origLbNav = typeof lightboxNav === 'function' ? lightboxNav : null;
-  _origCloseLb = typeof closeLightbox === 'function' ? closeLightbox : null;
-  // Wrap lightboxNav to reset zoom on nav
-  if(_origLbNav){
-    lightboxNav = function(dir){
-      _lbResetZoom();
-      _origLbNav(dir);
-      // Re-add caption UI
-      setTimeout(function(){
-        var p = lbPhotos[lbIdx];
-        var wrap = document.getElementById('lb-caption-wrap');
-        if(wrap && p && typeof p==='object'){
-          var ci = wrap.querySelector('#lb-caption');
-          var di = wrap.querySelector('#lb-date');
-          if(ci) ci.value = p.caption||'';
-          if(di) di.value = p.date||'';
-        }
-      }, 100);
-    };
-  }
-  // Wrap closeLightbox to reset zoom
-  if(_origCloseLb){
-    closeLightbox = function(){
-      _lbResetZoom();
-      var cw = document.getElementById('lb-caption-wrap');
-      if(cw) cw.remove();
-      _origCloseLb();
-    };
-  }
-  // Init zoom when lightbox opens — use MutationObserver
-  var lb = document.getElementById('photo-lightbox');
-  if(lb){
-    var obs = new MutationObserver(function(mutations){
-      mutations.forEach(function(m){
-        if(m.attributeName === 'style' && lb.style.display !== 'none'){
-          setTimeout(_initLbZoom, 100);
-          _lbResetZoom();
-        }
-      });
-    });
-    obs.observe(lb, {attributes:true, attributeFilter:['style']});
-  }
-}, 600);
-
+// S231: caption-edit override + standalone zoom layer REMOVED — replaced by FRT-clean
+// single-path lightbox (pan/zoom built into showLbPhoto/_lbInitPanZoom above).
 // ── Non-destructive photo markup (4-field architecture) ──
 // Override saveLbMarkup to store markupObjects instead of baking
 var _ndSaveLbMarkup = function(){
