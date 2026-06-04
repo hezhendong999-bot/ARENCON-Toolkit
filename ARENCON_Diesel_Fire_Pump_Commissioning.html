@@ -375,6 +375,42 @@ body.dark-mode .fpm-tagchip.sel.dis{background:#46C5E8;border-color:#46C5E8;}
 body.dark-mode .fpm-tagchip.sel.suc{background:#3FD08A;border-color:#3FD08A;}
 body.dark-mode .fpm-tagchip.sel.bfi{background:#E26076;border-color:#E26076;}
 body.dark-mode .fpm-tagchip.sel.bfo{background:#E6A23C;border-color:#E6A23C;}
+/* S231: Option B gauge-photo layout — pick reading, then shoot; grouped thumbs + tap-to-resort.
+   Reading accent colors reuse the chip palette (--gr-* set per mode). */
+.fpm-card{--gr-discharge:#2C7FB8;--gr-suction:#2E9E72;--gr-bfi:#9C2742;--gr-bfo:#D98A1E;}
+body.dark-mode .fpm-card{--gr-discharge:#46C5E8;--gr-suction:#3FD08A;--gr-bfi:#E26076;--gr-bfo:#E6A23C;}
+.gsel-lbl{font-size:calc(10px + var(--ts));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--silver);margin-bottom:6px;}
+.gsel-row{display:flex;gap:6px;margin-bottom:10px;}
+.gsel-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 4px;border-radius:8px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font:700 calc(11px + var(--ts)) Calibri,sans-serif;color:var(--steel);transition:all .12s;white-space:nowrap;}
+.gsel-btn .d{width:8px;height:8px;border-radius:50%;}
+.gsel-btn.discharge .d{background:var(--gr-discharge);} .gsel-btn.suction .d{background:var(--gr-suction);}
+.gsel-btn.bfi .d{background:var(--gr-bfi);} .gsel-btn.bfo .d{background:var(--gr-bfo);}
+.gsel-btn.active.discharge{background:var(--gr-discharge);border-color:var(--gr-discharge);color:#fff;} .gsel-btn.active.discharge .d{background:#fff;}
+.gsel-btn.active.suction{background:var(--gr-suction);border-color:var(--gr-suction);color:#fff;} .gsel-btn.active.suction .d{background:#fff;}
+.gsel-btn.active.bfi{background:var(--gr-bfi);border-color:var(--gr-bfi);color:#fff;} .gsel-btn.active.bfi .d{background:#fff;}
+.gsel-btn.active.bfo{background:var(--gr-bfo);border-color:var(--gr-bfo);color:#fff;} .gsel-btn.active.bfo .d{background:#fff;}
+@media(pointer:coarse){.gsel-btn{padding:11px 4px;}}
+.ggrp{margin-bottom:11px;}
+.ggrp-lbl{display:flex;align-items:center;gap:6px;font-size:calc(10px + var(--ts));font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;}
+.ggrp-lbl .d{width:8px;height:8px;border-radius:50%;}
+.ggrp.discharge .ggrp-lbl{color:var(--gr-discharge);} .ggrp.discharge .ggrp-lbl .d{background:var(--gr-discharge);} .ggrp.discharge .gthumb{border-left:4px solid var(--gr-discharge);}
+.ggrp.suction .ggrp-lbl{color:var(--gr-suction);} .ggrp.suction .ggrp-lbl .d{background:var(--gr-suction);} .ggrp.suction .gthumb{border-left:4px solid var(--gr-suction);}
+.ggrp.bfi .ggrp-lbl{color:var(--gr-bfi);} .ggrp.bfi .ggrp-lbl .d{background:var(--gr-bfi);} .ggrp.bfi .gthumb{border-left:4px solid var(--gr-bfi);}
+.ggrp.bfo .ggrp-lbl{color:var(--gr-bfo);} .ggrp.bfo .ggrp-lbl .d{background:var(--gr-bfo);} .ggrp.bfo .gthumb{border-left:4px solid var(--gr-bfo);}
+.ggrp.unsorted .ggrp-lbl{color:var(--steel);} .ggrp.unsorted .ggrp-lbl .d{background:var(--steel);} .ggrp.unsorted .gthumb{border-left:4px solid var(--steel);}
+.ggrp-empty{font-size:calc(10px + var(--ts));color:var(--silver);font-style:italic;font-weight:400;text-transform:none;letter-spacing:0;}
+.gthumbs{display:flex;flex-wrap:wrap;gap:8px;}
+.gthumb{position:relative;width:96px;height:96px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);}
+.gthumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block;}
+.gthumb-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:22px;padding:0;}
+.gthumb-move{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;padding:3px 6px;cursor:pointer;font-family:Calibri,sans-serif;}
+.gmove-pop{position:absolute;bottom:30px;left:4px;background:var(--card-bg,#fff);border:1.5px solid var(--border);border-radius:8px;padding:5px;display:none;flex-direction:column;gap:4px;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:5;}
+body.dark-mode .gmove-pop{background:#232a36;}
+.gmove-pop.open{display:flex;}
+.gmove-pop button{display:flex;align-items:center;gap:6px;padding:5px 9px;border:none;background:none;cursor:pointer;font:600 calc(10px + var(--ts)) Calibri,sans-serif;color:var(--slate);border-radius:5px;white-space:nowrap;}
+.gmove-pop button:hover{background:var(--smoke);}
+.gmove-pop .d{width:7px;height:7px;border-radius:50%;}
+@media(pointer:coarse){.gthumb{width:104px;height:104px;}.gthumb-del{width:26px;height:26px;line-height:26px;}.gthumb-move{font-size:11px;padding:4px 8px;}}
 /* ══ Flow-test CARD layout (4a 3-point) — muted palette scoped locally (does NOT touch global :root tokens) ══ */
 .fp-banner{font-size:calc(11.5px + var(--ts));color:var(--steel);background:var(--smoke);border:1.5px solid var(--border);border-radius:8px;padding:9px 13px;margin-bottom:14px;line-height:1.5;}
 .fp-banner b{color:var(--slate);}
@@ -1212,7 +1248,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S231</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S232</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -3565,7 +3601,8 @@ function _flowPhotoAddFile(file){
   r.onload=function(ev){
     compressImage(ev.target.result, 1600, 0.85, function(c){
       var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-               caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
+               caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:'',
+               tag:_flowPhotoActiveReading}; // S231: inherit the selected reading
       row.photos.push(_ph);
       _r2EnqueuePhoto(_ph);
       if(typeof renderStdTable==='function') renderStdTable();
@@ -3590,10 +3627,22 @@ function _photoSrc(p){ if(!p) return ''; if(p.r2Status==='uploaded' && p.r2Url) 
 var _GAUGE_TAGS=[['discharge','Disch.','dis'],['suction','Suction','suc'],['bf_in','BF-in','bfi'],['bf_out','BF-out','bfo']];
 // short badge form for the photo gallery (Shorter): D / S / BFi / BFo
 var _GAUGE_TAG_SHORT={discharge:'D',suction:'S',bf_in:'BFi',bf_out:'BFo'};
+// S231 Option B: the currently-selected reading new photos are added to. Defaults to discharge.
+var _flowPhotoActiveReading='discharge';
+function _flowPhotoSetActiveReading(r){ _flowPhotoActiveReading=r; _renderFlowPhotoModal(); }
+// Assign/move a photo's reading (used by the ⇄ Move popup). Setting same reading is a no-op; never clears.
+function _flowPhotoSetReading(j,reading){
+  var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return;
+  row.photos[j].tag=reading;
+  _renderFlowPhotoModal();
+  if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+  if(typeof debounceAutosave==='function') debounceAutosave();
+}
+// Back-compat alias (old chip code path, now unused but kept inert per dead-handler discipline).
 function _flowPhotoSetTag(j,tag){
   var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return;
   var p=row.photos[j];
-  p.tag=(p.tag===tag)?'':tag; // tap selected chip again to clear
+  p.tag=(p.tag===tag)?'':tag;
   _renderFlowPhotoModal();
   if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
   if(typeof debounceAutosave==='function') debounceAutosave();
@@ -3603,31 +3652,52 @@ function _renderFlowPhotoModal(){
   var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx);
   if(!row){ host.style.display='none'; return; }
   var pts=row.photos||[];
-  var pct=row.pct||((_flowPhotoTbl==='std'?stdData:pldData).indexOf(row)>=0?'':'');
   var ttl='Gauge Photos'+(row.pct?(' — '+row.pct):'')+(row.flow?(' · '+row.flow+' gpm'):'');
+  var READINGS=[['discharge','Discharge','Disch.','discharge'],['suction','Suction','Suction','suction'],['bf_in','BF-in','BF-in','bfi'],['bf_out','BF-out','BF-out','bfo']];
+  var active=_flowPhotoActiveReading;
   var h='<div class="fpm-backdrop" onclick="closeFlowPhotos()"></div>';
   h+='<div class="fpm-card" role="dialog" aria-label="Gauge photos">';
   h+='<div class="fpm-head"><span>'+ttl+'</span><button class="fpm-x" onclick="closeFlowPhotos()" title="Close">✕</button></div>';
+  // Active-reading selector (pick reading, then shoot)
+  h+='<div class="gsel-lbl">Adding photo to:</div><div class="gsel-row">';
+  READINGS.forEach(function(r){
+    var on=(active===r[0])?' active':'';
+    h+='<button class="gsel-btn '+r[3]+on+'" onclick="_flowPhotoSetActiveReading(\''+r[0]+'\')"><span class="d"></span>'+r[2]+'</button>';
+  });
+  h+='</div>';
+  // Single drop zone — new photos inherit the active reading
   h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
-  h+='<span>Drag &amp; drop gauge photo(s)</span>';
+  h+='<span>Drag &amp; drop, or</span>';
   h+='<button class="pz-upload" onclick="_flowPhotoUpload()">📎 Upload</button>';
   h+='<button class="pz-camera" onclick="_flowPhotoCamera()">📷 Camera</button>';
   h+='</div>';
-  if(pts.length){
-    h+='<div class="fpm-thumbs">';
-    pts.forEach(function(p,j){
-      h+='<div class="fpm-tile"><div class="fpm-thumb"><img src="'+_photoSrc(p)+'" onclick="_flowPhotoLightbox('+j+')">'
-        +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button></div>';
-      h+='<div class="fpm-tagchips">';
-      _GAUGE_TAGS.forEach(function(t){
-        var sel=(p.tag===t[0])?' sel':'';
-        h+='<button class="fpm-tagchip '+t[2]+sel+'" onclick="_flowPhotoSetTag('+j+',\''+t[0]+'\')">'+(sel?'\u2713 ':'')+t[1]+'</button>';
-      });
-      h+='</div></div>';
-    });
+  // Build move-popup html once (per photo index injected)
+  function movePop(j){
+    var m='<div class="gmove-pop"><button onclick="_flowPhotoSetReading('+j+',\'discharge\')"><span class="d" style="background:var(--gr-discharge)"></span>Discharge</button>'
+      +'<button onclick="_flowPhotoSetReading('+j+',\'suction\')"><span class="d" style="background:var(--gr-suction)"></span>Suction</button>'
+      +'<button onclick="_flowPhotoSetReading('+j+',\'bf_in\')"><span class="d" style="background:var(--gr-bfi)"></span>BF-in</button>'
+      +'<button onclick="_flowPhotoSetReading('+j+',\'bf_out\')"><span class="d" style="background:var(--gr-bfo)"></span>BF-out</button></div>';
+    return m;
+  }
+  function thumb(p,j){
+    return '<div class="gthumb"><img src="'+_photoSrc(p)+'" onclick="_flowPhotoLightbox('+j+')">'
+      +'<button class="gthumb-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button>'
+      +'<button class="gthumb-move" onclick="this.nextElementSibling.classList.toggle(\'open\')">⇄ Move</button>'
+      +movePop(j)+'</div>';
+  }
+  // Grouped thumbs, in reading order, then an Unsorted group for any photo with no/unknown reading
+  READINGS.forEach(function(r){
+    var inGrp=[];
+    pts.forEach(function(p,j){ if(p.tag===r[0]) inGrp.push(thumb(p,j)); });
+    h+='<div class="ggrp '+r[3]+'"><div class="ggrp-lbl"><span class="d"></span>'+r[1]+(inGrp.length?'':' <span class="ggrp-empty">— no photos</span>')+'</div>';
+    if(inGrp.length) h+='<div class="gthumbs">'+inGrp.join('')+'</div>';
     h+='</div>';
-  } else {
-    h+='<div class="fpm-empty">No gauge photos yet for this flow point.</div>';
+  });
+  // Unsorted (existing photos with no reading assigned yet)
+  var unsorted=[];
+  pts.forEach(function(p,j){ if(!p.tag || ['discharge','suction','bf_in','bf_out'].indexOf(p.tag)<0) unsorted.push(thumb(p,j)); });
+  if(unsorted.length){
+    h+='<div class="ggrp unsorted"><div class="ggrp-lbl"><span class="d"></span>Unsorted — tap ⇄ Move to assign</div><div class="gthumbs">'+unsorted.join('')+'</div></div>';
   }
   h+='</div>';
   host.innerHTML=h;
