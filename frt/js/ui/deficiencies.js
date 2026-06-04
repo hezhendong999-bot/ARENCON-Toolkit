@@ -5053,7 +5053,12 @@ document.addEventListener('change', function(e) {
     var _tval = e.target.value || '';
     Model.updateObsTrade(_tdid, _toi, _tval, 'manual');
     Model.saveNow();
-    initDeficiencies.render();
+    // S247: removed redundant initDeficiencies.render() here. The trade is
+    // saved above (updateObsTrade + saveNow). The full-list re-render was
+    // pointless while the on-drawing pin editor is open and raced with the
+    // viewer's own _peOnModelChange refresh, freezing the photo grid after
+    // the first trade change. The Deficiencies list re-renders on next open,
+    // so trade grouping stays correct. Pure render-dedup; no data change.
   }
 });
 
