@@ -364,8 +364,8 @@ body.dark-mode .dv-layer-row{color:white;}
 .pin-editor-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8000;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;}
 .pin-editor-modal{width:100%;max-width:1100px;max-height:calc(100vh - 40px);background:white;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;font-family:Calibri,sans-serif;color:#1C2333;}
 body.dark-mode .pin-editor-modal{background:#1e2533;box-shadow:0 16px 48px rgba(0,0,0,.6);color:white;}
-.pin-editor-header{padding:12px 18px;background:#9C2742;font-size:calc(15px + var(--ts));font-weight:700;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;color:white;}
-.pe-close-btn{background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:0 4px;}
+.pin-editor-header{padding:12px 18px;background:var(--b-bar-bg,#ECEAF0);color:var(--b-bar-fg,#1B1A22);font-size:calc(15px + var(--ts));font-weight:700;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-bottom:1px solid var(--b-bar-rule,#D2CEDB);border-left:3px solid var(--b-bar-accent,#9C2742);}
+.pe-close-btn{background:none;border:none;color:var(--b-bar-fg,#1B1A22);opacity:.7;font-size:22px;cursor:pointer;padding:0 4px;}
 /* Split layout */
 .pe-split{display:flex;flex:1;min-height:0;overflow:hidden;}
 /* S116 Push 6: slim the left fields panel and grow the drawing panel so
@@ -2161,7 +2161,7 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 @media(max-width:900px){.obs-layout{grid-template-columns:1fr;}}
 .obs-comment-col{display:flex;flex-direction:column;min-width:0;}
 .obs-text-input{width:100%;min-height:140px;flex:1;border:1.5px solid var(--border);border-radius:6px;padding:10px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;resize:vertical;box-sizing:border-box;background:var(--smoke);color:var(--ink);}
-body.dark-mode .obs-text-input{background:#1f232c;color:white;border-color:#3a3e48;}
+body.dark-mode .obs-text-input{background:var(--b-fieldbg,#1f232c);color:#f4f3f6;border-color:var(--b-pill-bd,#3a3e48);}
 /* P1.9: photos column has NO distinctive background or border — photos float on parent panel.
    Removes the "hatch" effect that read as an inset card. */
 .obs-photos-col{min-width:0;padding:0;overflow:auto;}
@@ -2213,9 +2213,9 @@ body.dark-mode .obs-drop-col.drag-over .obs-drop-zone{background:rgba(156,39,66,
 .obs-drop-btn{padding:6px 10px;border-radius:5px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;border:none;color:white;transition:filter .15s;}
 .obs-drop-btn:hover{filter:brightness(1.10);}
 /* Muted palette per Mark's color rule */
-.obs-drop-btn.is-upload{background:#5A6E80;}   /* muted slate-blue */
-.obs-drop-btn.is-camera{background:#5C7A65;}   /* muted sage */
-.obs-drop-btn.is-gallery{background:#7D3F4F;}  /* muted burgundy */
+.obs-drop-btn.is-upload{background:var(--b-pb-u,#5A6E80);}
+.obs-drop-btn.is-camera{background:var(--b-pb-c,#5C7A65);}
+.obs-drop-btn.is-gallery{background:var(--b-pb-g,#7D3F4F);}
 body.dark-mode .obs-drop-btn{color:white;}
 
 /* S114 P1.9 — per-pin AI Review button. Matches the page-header AI Review color (#7B2D8E). */
@@ -5080,9 +5080,9 @@ body.dark-mode {
 
 /* ── Photo upload/camera/gallery: dark-mode softening only.
      Light mode keeps existing #5A6E80/#5C7A65/#7D3F4F (Mark likes them). ── */
-body.dark-mode .obs-drop-btn.is-upload  { background: var(--btn-upload)  !important; }
-body.dark-mode .obs-drop-btn.is-camera  { background: var(--btn-camera)  !important; }
-body.dark-mode .obs-drop-btn.is-gallery { background: var(--btn-gallery) !important; }
+body.dark-mode .obs-drop-btn.is-upload  { background: var(--b-pb-u-bg)  !important; color: var(--b-pb-u) !important; }
+body.dark-mode .obs-drop-btn.is-camera  { background: var(--b-pb-c-bg)  !important; color: var(--b-pb-c) !important; }
+body.dark-mode .obs-drop-btn.is-gallery { background: var(--b-pb-g-bg) !important; color: var(--b-pb-g) !important; }
 
 /* End S121 Push 6 ─────────────────────────────────────────────────── */
 
@@ -7565,9 +7565,9 @@ body.dark-mode .dfx-or-editor { background: #23272F; border-top-color: #353B45; 
   border: 1.5px solid var(--border, #DDE1E7); background: #fff; color: var(--steel, #4A5568);
   border-radius: 8px; padding: 6px 11px; cursor: pointer;
 }
-.dfx-or-act:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); background: #fdf5f7; }
-.dfx-or-act.danger { border-color: #A85959; color: #A85959; }
-.dfx-or-act.danger:hover { background: #fbeeee; border-color: #8E4444; color: #8E4444; }
+.dfx-or-act:hover { border-color: var(--b-bar-accent, #9C2742); color: var(--b-bar-accent, #9C2742); background: var(--b-cat-active-bg, #fdf5f7); }
+.dfx-or-act.danger { border-color: var(--b-high, #C0445F); color: var(--b-high, #C0445F); }
+.dfx-or-act.danger:hover { background: var(--b-high-bg, #fbeeee); border-color: var(--b-high, #8E4444); color: var(--b-high, #8E4444); }
 body.dark-mode .dfx-or-act { background: #2A2E36; color: #C8CDD6; border-color: #3A404B; }
 
 /* ── S213: unified editor HEADER block (Editor B/C — withHeader). A (the
@@ -7581,7 +7581,7 @@ body.dark-mode .dfx-or-act { background: #2A2E36; color: #C8CDD6; border-color: 
   background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
   flex-shrink: 0; width: 26px; text-align: center;
 }
-.dfx-ed-star.on, .dfx-ed-star.is-rec { color: #D4A017; }
+.dfx-ed-star.on, .dfx-ed-star.is-rec { color: #C9A24A; }
 .dfx-ed-pinlabel {
   font-size: calc(15px + var(--ts)); font-weight: 700; color: var(--slate, #1C2333);
   letter-spacing: .2px;
@@ -7600,27 +7600,27 @@ body.dark-mode .dfx-ed-pinlabel { color: #E2E6EC; }
   display: inline-flex; align-items: center; border: 1px solid var(--border, #D7DCE5);
   border-bottom: 2px solid transparent; border-radius: 7px 7px 0 0; overflow: hidden; background: #fff;
 }
-.dfx-ed-tab.active { border-bottom: 2px solid var(--arencon, #9C2742); background: var(--smoke, #F7F8FA); }
+.dfx-ed-tab.active { border-bottom: 2px solid var(--b-bar-accent, #9C2742); background: var(--smoke, #F7F8FA); }
 .dfx-ed-tab-btn {
   font-family: inherit; font-size: calc(12.5px + var(--ts)); font-weight: 700;
   color: var(--silver, #5A6478); background: none; border: none; cursor: pointer;
   padding: 6px 13px;
 }
-.dfx-ed-tab.active .dfx-ed-tab-btn { color: var(--arencon, #9C2742); }
-.dfx-ed-tab-cust { color: #7B5A8F; font-weight: 700; }
+.dfx-ed-tab.active .dfx-ed-tab-btn { color: var(--b-bar-accent, #9C2742); }
+.dfx-ed-tab-cust { color: var(--b-cat-site-fg, #7B5A8F); font-weight: 700; }
 .dfx-ed-tab-split, .dfx-ed-tab-x {
   font-family: inherit; font-size: calc(12px + var(--ts)); line-height: 1;
   background: none; border: none; border-left: 1px solid var(--border, #D7DCE5);
   color: var(--silver, #A0AEC0); cursor: pointer; padding: 6px 8px;
 }
-.dfx-ed-tab-split:hover { color: #7B5A8F; background: #f3eef6; }
-.dfx-ed-tab-x:hover { color: #A85959; background: #F4D6D6; }
+.dfx-ed-tab-split:hover { color: var(--b-cat-site-fg, #7B5A8F); background: var(--b-cat-site-bg, #f3eef6); }
+.dfx-ed-tab-x:hover { color: var(--b-high, #C0445F); background: var(--b-high-bg, #F4D6D6); }
 .dfx-ed-tab-add {
   font-family: inherit; font-size: calc(12px + var(--ts)); font-weight: 600;
   color: var(--navy, #2C4770); background: none;
   border: 1px dashed var(--border, #D7DCE5); border-radius: 7px 7px 0 0; padding: 6px 11px; cursor: pointer;
 }
-.dfx-ed-tab-add:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
+.dfx-ed-tab-add:hover { border-color: var(--b-bar-accent, #9C2742); color: var(--b-bar-accent, #9C2742); }
 body.dark-mode .dfx-ed-tab { background: #2A2E36; border-color: #3A404B; }
 body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
 
@@ -7648,7 +7648,7 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
   font-family: inherit; font-size: calc(11px + var(--ts)); color: var(--steel, #4A5568);
   background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline;
 }
-.dfx-ed-noted-edit:hover { color: var(--arencon, #9C2742); }
+.dfx-ed-noted-edit:hover { color: var(--b-bar-accent, #9C2742); }
 
 /* Photos heading line (Editor B/C) — Choose + "N attached" count */
 .dfx-ed-photos-head {
@@ -7656,14 +7656,14 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
   color: var(--silver, #5A6478); margin-bottom: 7px;
   display: flex; justify-content: space-between; align-items: center;
 }
-.dfx-ed-photos-head .dfx-ed-pcount { color: #5A6E80; font-weight: 700; }
+.dfx-ed-photos-head .dfx-ed-pcount { color: var(--b-info, #5A6E80); font-weight: 700; }
 .dfx-ed-choose {
   font-family: Calibri, sans-serif; font-size: 10.5px; font-weight: 600;
   color: var(--navy, #2C4770); background: #fff;
   border: 1px solid var(--border, #D7DCE5); border-radius: 5px; padding: 2px 8px;
   cursor: pointer; margin-left: 6px; text-transform: none; letter-spacing: 0;
 }
-.dfx-ed-choose:hover { border-color: var(--arencon, #9C2742); color: var(--arencon, #9C2742); }
+.dfx-ed-choose:hover { border-color: var(--b-bar-accent, #9C2742); color: var(--b-bar-accent, #9C2742); }
 /* S214: C (focused-pin modal) renders the ⊞ Choose button inert until the
    selection picker is lifted to a shared helper (its own verified session).
    Muted, non-interactive — no hover lift, default cursor. */
@@ -8806,6 +8806,8 @@ body.dark-mode{
   --b-pill-hover:rgba(156,39,66,.06);
   /* lifted bar surface + red accent (locked refinement) */
   --b-bar-bg:#ECEAF0; --b-bar-fg:#1B1A22; --b-bar-rule:#D2CEDB; --b-bar-accent:#9C2742;
+  --b-high:#C0445F; --b-high-bg:#F3D9DE; --b-low:#C98A4A; --b-low-bg:#FBEDD3; --b-closed:#2E9E72; --b-closed-bg:#D2EBDC;
+  --b-pb-u:#2C7FB8; --b-pb-u-bg:#DEEEF8; --b-pb-c:#2E9E72; --b-pb-c-bg:#D2EBDC; --b-pb-g:#7D3F4F; --b-pb-g-bg:#F3E0E4;
   --b-unassigned-dot:#6E6AA8; }
 body.dark-mode{ --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
   --b-chiphdr:rgba(255,255,255,.02); --b-chipnum:#9A95A3;
@@ -8822,6 +8824,8 @@ body.dark-mode{ --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A
   --b-pill-hover:rgba(201,71,106,.10);
   /* lifted bar: lighter than the #0b0a0d page so it reads as a band, red accent */
   --b-bar-bg:#23212b; --b-bar-fg:#F4F3F6; --b-bar-rule:rgba(255,255,255,.10); --b-bar-accent:#C9476A;
+  --b-high:#E26076; --b-high-bg:rgba(226,96,118,.16); --b-low:#E0A36A; --b-low-bg:rgba(224,163,106,.16); --b-closed:#3FD08A; --b-closed-bg:rgba(63,208,138,.16);
+  --b-pb-u:#46C5E8; --b-pb-u-bg:rgba(70,197,232,.16); --b-pb-c:#3FD08A; --b-pb-c-bg:rgba(63,208,138,.16); --b-pb-g:#C98AA0; --b-pb-g-bg:rgba(201,138,160,.18);
   --b-unassigned-dot:#A9A4E0; }
 
 /* ---- LIVING BACKGROUND ---- */
