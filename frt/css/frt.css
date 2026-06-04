@@ -7572,6 +7572,10 @@ body.dark-mode .dfx-or-title { color: #E2E6EC; }
   background: #FCFBFB; padding: 13px 14px;
 }
 body.dark-mode .dfx-or-editor { background: transparent; border-top-color: rgba(255,255,255,.10); }
+/* S241: on-drawing editor — no top divider above the pin label (demo has none). Scoped so the detailed-list expanded editor keeps its row separator. */
+#pe-obs-content > .dfx-or-editor { border-top: none; padding-top: 0; }
+body.dark-mode #pe-obs-content > .dfx-or-editor { border-top: none; }
+
 .dfx-ed-ctrls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
 .dfx-status-sel {
   border: none; border-radius: 10px; padding: 4px 12px;
