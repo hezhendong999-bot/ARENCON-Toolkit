@@ -712,7 +712,12 @@ function _buildPinGroupCard(d, ctrId) {
     // a trade. Both are independent self-contained spans; reorder is
     // purely visual (handlers are delegated by data-action).
     h += '<span class="ctr-banner-wrap">';
-    h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner" title="Contractor for this pin">';
+    // S234: tint the contractor pill with its assigned ctr-cN colour so it
+    // matches the contractor cards/tags elsewhere in FRT (was neutral steel).
+    var _ctrNm = '';
+    if (ctrId) { var _cf = realCtrs((Model.getProject() || {}).contractors).filter(function(c){return c.id===ctrId;})[0]; _ctrNm = _cf ? _cf.name : ''; }
+    var _ctrCls = ctrColorClass(_ctrNm);
+    h += '<select data-action="obs-contractor" data-defic-id="' + esc(d.id) + '" class="ctr-banner ' + _ctrCls + '" title="Contractor for this pin">';
     h += '<option value="" style="background:white;color:#2C3E50;font-weight:600;"' + (!ctrId ? ' selected' : '') + '>\u2014 ' + esc(SITE_RECORDS_LABEL) + ' \u2014</option>';
     realCtrs((Model.getProject() || {}).contractors).forEach(function(_cc) {
       h += '<option value="' + esc(_cc.id) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (ctrId === _cc.id ? ' selected' : '') + '>' + esc(ctrLabel(_cc.name) || 'Unnamed') + '</option>';
@@ -1991,16 +1996,11 @@ function _obsStatusInfo(o, site, d) {
 // obs.priority and obs.addressed via the obs-status change handler.
 function _obsStatusSelect(d, oi, o) {
   var info = _obsStatusInfo(o, false, d);
-  var h = '<select data-action="obs-pristatus" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-status-sel ' + info.cls + '" title="Priority &amp; status">';
-  var opts = [
-    { v: 'high', t: 'Outstanding \u2014 High' },
-    { v: 'low', t: 'Outstanding \u2014 Low' },
-    { v: 'closed', t: 'Closed' }
-  ];
-  opts.forEach(function(op) {
-    h += '<option value="' + op.v + '" style="background:white;color:#2C3E50;font-weight:600;"' + (info.val === op.v ? ' selected' : '') + '>' + op.t + '</option>';
-  });
-  h += '</select>';
+  // S234: click-to-cycle button (was a <select>). One tap advances
+  // high -> low -> closed -> high. Face shows just "Outstanding" (red=high,
+  // amber=low, per the locked PDF palette) or "Closed" (green). data-cur
+  // carries the current value for the cycle handler.
+  var h = '<button type="button" data-action="obs-status-cycle" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-cur="' + esc(info.val) + '" class="dfx-status-sel ' + info.cls + '" title="Tap to change status">' + info.txt + '</button>';
   return h;
 }
 
@@ -4811,6 +4811,30 @@ document.addEventListener('change', function(e) {
   // NOTE action name is obs-PRIstatus — distinct from the LEGACY obs-status
   // open/closed toggle above (which would no-op on 'high'/'low' and swallow
   // the event). Do not rename back to obs-status (S209b collision bug).
+  if (action === 'obs-status-cycle') {
+    (function() {
+      var btn = e.target.closest('[data-action="obs-status-cycle"]') || e.target;
+      var did = btn.getAttribute('data-defic-id');
+      var oi = parseInt(btn.getAttribute('data-obs-idx') || '0', 10);
+      var cur = btn.getAttribute('data-cur') || 'high';
+      var f = Model.findDeficiency(did);
+      if (!f) return;
+      var o = (f.defic.observations || [])[oi];
+      if (!o) return;
+      var next = cur === 'high' ? 'low' : (cur === 'low' ? 'closed' : 'high');
+      if (next === 'closed') {
+        if (!o.addressed) Model.toggleObsAddressed(did, oi);
+      } else {
+        if (o.addressed) Model.toggleObsAddressed(did, oi);
+        Model.updateObsPriority(did, oi, next);
+      }
+      initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
+      if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+      _frtRefreshPinFocusIf(did);
+    })();
+    return;
+  }
   if (action === 'obs-pristatus') {
     (function() {
       var did = e.target.getAttribute('data-defic-id');
