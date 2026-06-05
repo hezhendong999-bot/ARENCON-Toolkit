@@ -1306,7 +1306,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S235</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S236/span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -3433,6 +3433,25 @@ function updateBatTotals() {
 }
 
 // ── GLOBAL TABLE INPUT DELEGATION (prevents re-render / focus loss bug) ──
+// ══════════════════════════════════════════════════
+// S236 DIAGNOSTIC INSTRUMENTATION (log-only — remove after revert is caught)
+// Captures every write to flow-point discharge/pressure fields + every state-apply,
+// with old→new value and call stack. Read back any time with: _dbgDump()
+// ══════════════════════════════════════════════════
+var _DBG_BUF = [];
+function _DBG(tag, detail){
+  try{
+    var stack = (new Error()).stack || '';
+    var rec = { t: new Date().toISOString().substr(11,12), tag: tag, detail: detail,
+                stack: stack.split('\n').slice(2,6).map(function(s){return s.trim();}).join(' << ') };
+    _DBG_BUF.push(rec); if(_DBG_BUF.length>300) _DBG_BUF.shift();
+    console.log('[DBG '+rec.t+'] '+tag, detail, '\n   via', rec.stack);
+  }catch(e){}
+}
+function _dbgDump(){ console.table(_DBG_BUF.map(function(r){return {time:r.t,tag:r.tag,detail:JSON.stringify(r.detail),via:r.stack};})); return _DBG_BUF; }
+// fields we care about for the revert investigation
+var _DBG_FIELDS = ['discharge','dis_w','dis_no','suction','suc_w','suc_no'];
+
 document.addEventListener('input', function(e) {
   const el = e.target;
   // Remove leading zeros from number inputs globally
@@ -3444,6 +3463,7 @@ document.addEventListener('input', function(e) {
   const field = el.dataset.field;
   if(!tbl || isNaN(idx) || !field) return;
   if(tbl === 'std') {
+    if(_DBG_FIELDS.indexOf(field)>=0) _DBG('INPUT std['+idx+'].'+field, {old: stdData[idx][field], new: el.value});
     stdData[idx][field] = el.value;
     updateStdCalcCells(idx);
     if(['flow','suction','discharge','cutsheet'].includes(field)) {
@@ -3451,6 +3471,7 @@ document.addEventListener('input', function(e) {
       stdChartTimer = setTimeout(() => { updateChart(); updateVerdict(); }, 120);
     }
   } else if(tbl === 'pld') {
+    if(_DBG_FIELDS.indexOf(field)>=0) _DBG('INPUT pld['+idx+'].'+field, {old: pldData[idx][field], new: el.value});
     pldData[idx][field] = el.value;
     updatePldCalcCells(idx);
     // Debounce chart updates so rapid typing doesn't freeze
@@ -7820,12 +7841,14 @@ function _debouncePushUndo() {
 }
 function globalUndo() {
   if(_undoStack.length === 0) { showToast('Nothing to undo', 1500); return; }
+  if(typeof _DBG==='function') _DBG('UNDO fired', {stackDepth:_undoStack.length, activeEl:(document.activeElement&&document.activeElement.dataset)?document.activeElement.dataset.field||document.activeElement.tagName:document.activeElement&&document.activeElement.tagName});
   try { _redoStack.push(JSON.stringify(collectState())); } catch(e){}
   _applyStateInPlace(_undoStack.pop());
   showToast('\u21b6 Undo', 1200);
 }
 function globalRedo() {
   if(_redoStack.length === 0) { showToast('Nothing to redo', 1500); return; }
+  if(typeof _DBG==='function') _DBG('REDO fired', {stackDepth:_redoStack.length});
   try { _undoStack.push(JSON.stringify(collectState())); } catch(e){}
   _applyStateInPlace(_redoStack.pop());
   showToast('\u21b7 Redo', 1200);
@@ -7848,8 +7871,14 @@ function _applyStateInPlace(jsonStr) {
       cbs.forEach(function(cb){ cb.checked = false; });
       s.equipChecked.forEach(function(i){ if(cbs[i]) cbs[i].checked = true; });
     }
-    if(s.stdData) s.stdData.forEach(function(r,i){ if(stdData[i]) Object.assign(stdData[i],r); });
-    if(s.pldData) s.pldData.forEach(function(r,i){ if(pldData[i]) Object.assign(pldData[i],r); });
+    if(s.stdData) s.stdData.forEach(function(r,i){ if(stdData[i]){
+      if(typeof _DBG==='function' && (r.discharge!==stdData[i].discharge || r.suction!==stdData[i].suction)) _DBG('STATE-APPLY std['+i+']', {dis:{old:stdData[i].discharge,new:r.discharge}, suc:{old:stdData[i].suction,new:r.suction}});
+      Object.assign(stdData[i],r);
+    } });
+    if(s.pldData) s.pldData.forEach(function(r,i){ if(pldData[i]){
+      if(typeof _DBG==='function' && (r.dis_w!==pldData[i].dis_w || r.dis_no!==pldData[i].dis_no)) _DBG('STATE-APPLY pld['+i+']', {dis_w:{old:pldData[i].dis_w,new:r.dis_w}, dis_no:{old:pldData[i].dis_no,new:r.dis_no}});
+      Object.assign(pldData[i],r);
+    } });
     if(s.pumpCurvePoints) { pumpCurvePoints.length=0; s.pumpCurvePoints.forEach(function(p){pumpCurvePoints.push(p);}); }
     if(s.pldPumpCurvePoints) { pldPumpCurvePoints.length=0; s.pldPumpCurvePoints.forEach(function(p){pldPumpCurvePoints.push(p);}); }
     if(s.clState) { Object.keys(clState).forEach(function(k){delete clState[k];}); Object.assign(clState,s.clState); Object.keys(clState).forEach(function(k){ if(clState[k]) delete clState[k].timestamp; }); }
@@ -8652,11 +8681,17 @@ function _applyLoadedState(raw) {
       if (r) { r.checked = true; setPumpTestType(s.testType); }
     }
     // stdData
-    if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) Object.assign(stdData[i], r); });
+    if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]){
+      if(typeof _DBG==='function' && (r.discharge!==stdData[i].discharge)) _DBG('LOAD-STATE std['+i+']', {dis:{old:stdData[i].discharge,new:r.discharge}});
+      Object.assign(stdData[i], r);
+    } });
     if (s.npshPsi !== undefined) { npshPsi = s.npshPsi; var _ne=document.getElementById('npsh-psi'); if(_ne) _ne.value = s.npshPsi||''; }
     if (s.npshPsiPld !== undefined) { npshPsiPld = s.npshPsiPld; var _nep=document.getElementById('npsh-psi-pld'); if(_nep) _nep.value = s.npshPsiPld||''; }
     // pldData
-    if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) Object.assign(pldData[i], r); });
+    if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]){
+      if(typeof _DBG==='function' && (r.dis_w!==pldData[i].dis_w || r.dis_no!==pldData[i].dis_no)) _DBG('LOAD-STATE pld['+i+']', {dis_w:{old:pldData[i].dis_w,new:r.dis_w}, dis_no:{old:pldData[i].dis_no,new:r.dis_no}});
+      Object.assign(pldData[i], r);
+    } });
     // safety margin per-chart state (on/off + chip offset)
     if (s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
     if (s.smCapVis){ Object.keys(smCapVis).forEach(function(k){ if(s.smCapVis[k]) Object.assign(smCapVis[k], s.smCapVis[k]); }); }
