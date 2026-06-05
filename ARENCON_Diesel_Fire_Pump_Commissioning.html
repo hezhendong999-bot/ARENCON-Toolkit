@@ -327,10 +327,11 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 /* ══ Flow-point photo icon + warning flag ══ */
 .flow-warn{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);margin-top:3px;line-height:1.25;}
 .ph-cell{text-align:center;}
-.ph-icon{position:relative;background:none;border:none;cursor:pointer;color:var(--steel);padding:5px;border-radius:7px;display:inline-flex;line-height:0;transition:all .14s;}
-.ph-icon:hover{background:var(--smoke);color:var(--arencon);}
+.ph-icon{position:relative;background:none;border:none;cursor:pointer;color:var(--steel);padding:6px;border-radius:7px;display:inline-flex;line-height:0;transition:all .14s;}
+.ph-icon svg{width:26px;height:26px;}
+.ph-icon:hover{color:var(--arencon);}
 .ph-icon.has{color:var(--arencon);}
-.ph-icon .cnt{position:absolute;top:-3px;right:-3px;background:var(--arencon);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;line-height:15px;border-radius:8px;padding:0 3px;}
+.ph-icon .cnt{position:absolute;top:-4px;right:-4px;background:#2C7FB8;color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;line-height:18px;border-radius:9px;padding:0 4px;box-shadow:0 0 0 2px var(--card-bg,#fff);}
 /* ══ Per-flow-point gauge-photo modal (.fpm-*) — fixed overlay, theme-aware ══ */
 #flow-photo-modal{position:fixed;inset:0;z-index:9000;display:none;}
 .fpm-backdrop{position:absolute;inset:0;background:rgba(20,24,30,.55);}
@@ -503,7 +504,12 @@ body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
 .fp-endval{display:flex;align-items:baseline;gap:6px;justify-content:flex-end;white-space:nowrap;}
 .fp-endval .el{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--silver);}
 .fp-endval .ev{font-size:calc(15px + var(--ts));font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
-.fp-endval .ea{font-size:calc(9px + var(--ts));color:var(--silver);}
+.fp-endval .ea{font-size:calc(11px + var(--ts));color:var(--steel);}
+.fp-endval .ea b{color:#5F8068;font-weight:700;}
+.fp-endval .ea.miss b{color:#A85959;}
+.fp-info{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
+  border:1px solid var(--silver);color:var(--silver);font-size:10px;font-weight:700;font-style:italic;cursor:help;margin-left:4px;flex:none;}
+.fp-info:hover{color:var(--arencon);border-color:var(--arencon);}
 .fp-endval.gov .el{color:var(--arencon);}
 .fp-endval.gov .ev{color:var(--arencon);}
 .fp-held{position:relative;display:flex;align-items:baseline;gap:7px;justify-content:flex-end;white-space:nowrap;
@@ -512,7 +518,7 @@ body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
 .fp-held .ht{font-size:calc(8.5px + var(--ts));font-weight:700;color:#3d7373;letter-spacing:.3px;}
 .fp-held .hl{font-size:calc(8.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#3d7373;}
 .fp-held .hv{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;}
-.fp-bf{display:flex;align-items:center;gap:7px;margin-top:6px;padding-left:60px;flex-wrap:wrap;}
+.fp-bf{display:flex;align-items:center;gap:7px;margin-top:6px;padding-left:0;flex-wrap:wrap;justify-content:flex-end;}
 .fp-bf .bfcell{display:flex;align-items:center;gap:5px;position:relative;}
 .fp-bf label{font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);white-space:nowrap;}
 .fp-bf input{width:64px;padding:5px 6px;border-radius:6px;border:1.5px solid var(--border);
@@ -934,7 +940,12 @@ body.dark-mode .fp-segtag.w{color:#e7a8ba;}
 body.dark-mode .fp-grid input.gov{border-color:#7a3a4a!important;color:#e7a8ba!important;}
 body.dark-mode .fp-endval .el{color:#7a8090;}
 body.dark-mode .fp-endval .ev{color:#cdd6e6;}
-body.dark-mode .fp-endval .ea{color:#7a8090;}
+body.dark-mode .fp-endval .ea{color:#9aa2b2;}
+body.dark-mode .fp-endval .ea b{color:#80c090;}
+body.dark-mode .fp-endval .ea.miss b{color:#e08a8a;}
+body.dark-mode .fp-info{border-color:#5a6070;color:#8a90a0;}
+body.dark-mode .fp-info:hover{color:#e7a8ba;border-color:#e7a8ba;}
+body.dark-mode .ph-icon .cnt{box-shadow:0 0 0 2px #1e2533;}
 body.dark-mode .fp-endval.gov .el{color:#e7a8ba;}
 body.dark-mode .fp-endval.gov .ev{color:#e7a8ba;}
 body.dark-mode .fp-held{background:#1b2628!important;border-color:#2f4a4e!important;}
@@ -1306,7 +1317,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S236/span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S237/span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -3666,7 +3677,7 @@ function _flowPhotoIcon(tbl, i){
   var arr = (tbl==='std'?stdData:pldData)[i];
   var n = (arr && arr.photos) ? arr.photos.length : 0;
   return '<button class="ph-icon '+(n?'has':'')+'" onclick="openFlowPhotos(\''+tbl+'\','+i+')" title="'+(n?n+' photo(s)':'Add gauge photos')+'">'
-    + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
+    + '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
     + (n?'<span class="cnt">'+n+'</span>':'')
     + '</button>';
 }
@@ -3822,11 +3833,13 @@ function updateStdCalcCells(i) {
   const vEl   = document.getElementById('std-verdict-'+i);
   const flEl  = document.getElementById('std-flags-'+i);
   if(endEl){
-    var netTxt = r.net!=null ? r.net.toFixed(0) : '\u2014';
     var adjTxt = r.adj!=null ? r.adj.toFixed(0) : '\u2014';
     var thrTxt = r.thresh!=null ? r.thresh.toFixed(0) : '\u2014';
-    endEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
-      '<span class="ea">adj '+adjTxt+' \u00b7 \u2265'+thrTxt+'</span>';
+    var meets = (r.adj!=null && r.thresh!=null && r.adj>=r.thresh);
+    var word = (r.adj!=null && r.thresh!=null) ? (meets?'meets':'needs') : '';
+    endEl.innerHTML = '<span class="el">Adj Net</span><span class="ev">'+adjTxt+'</span>'+
+      '<span class="ea'+(meets?'':' miss')+'">'+word+' <b>\u2265'+thrTxt+'</b></span>'+
+      '<span class="fp-info" title="Adjusted net = recorded net corrected to rated speed (pressure scales with RPM squared). Must be at least 95% of placard to pass per NFPA 25.">i</span>';
   }
   if(vEl){
     vEl.className = 'fp-verdict '+r.verdict;
@@ -3962,13 +3975,15 @@ function updatePldCalcCells(i) {
   const wEl = document.getElementById('pld-end-w-'+i);
   const pfEl = document.getElementById('pld-pf-'+i);
   const vchip = document.getElementById('pld-verdict-'+i);
-  // w/o PLD governing chip: Net (recorded) + adjusted + 95% threshold footnote
+  // w/o PLD governing chip: Adjusted Net (the scored value) + threshold + info (Option 3)
   if(noEl && v.netNo !== null){
-    var netTxt = v.netNo ? v.netNo.toFixed(1) : '\u2014';
-    var adjTxt = (v.adjNet!=null && !isNaN(v.adjNet)) ? v.adjNet.toFixed(1) : '\u2014';
-    var thrTxt = (v.thresh!=null) ? v.thresh.toFixed(1) : '\u2014';
-    noEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
-      '<span class="ea">adj '+adjTxt+' \u00b7 \u2265'+thrTxt+'</span>';
+    var adjTxt = (v.adjNet!=null && !isNaN(v.adjNet)) ? v.adjNet.toFixed(0) : '\u2014';
+    var thrTxt = (v.thresh!=null) ? v.thresh.toFixed(0) : '\u2014';
+    var meets = (v.adjNet!=null && v.thresh!=null && v.adjNet>=v.thresh);
+    var word = (v.adjNet!=null && v.thresh!=null) ? (meets?'meets':'needs') : '';
+    noEl.innerHTML = '<span class="el">Adj Net</span><span class="ev">'+adjTxt+'</span>'+
+      '<span class="ea'+(meets?'':' miss')+'">'+word+' <b>\u2265'+thrTxt+'</b></span>'+
+      '<span class="fp-info" title="Adjusted net = recorded net corrected to rated speed (pressure scales with RPM squared). Must be at least 95% of placard to pass per NFPA 25.">i</span>';
   }
   // w/ PLD held pill: device tag + recorded Net (controlled — not scored)
   if(wEl){
