@@ -634,7 +634,7 @@ body.dark-mode .dv-cloud-status:hover{background:rgba(255,255,255,0.08);}
   touch-action:manipulation;
 }
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{background:#9C2742;}
-body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{background:#2a2d35;}
+body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{background:var(--b-pill-bg);}
 body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{background:#9C2742;}
 @media(max-width:900px){
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{width:40px;height:40px;font-size:20px;}
@@ -687,7 +687,7 @@ body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hove
 .defic-more-popup.open{display:block;}
 .defic-more-popup button{display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));color:var(--fg);}.defic-more-popup button:hover{background:var(--smoke);}
 /* S77: Deficiency action buttons - muted filled chips for dark mode */
-body.dark-mode .defic-act-btn{background:#2a3448!important;border:1px solid rgba(255,255,255,.08)!important;color:#c0d0e0!important;opacity:1!important;}
+body.dark-mode .defic-act-btn{background:var(--b-pill-bg)!important;border:1px solid rgba(255,255,255,.08)!important;color:#c0d0e0!important;opacity:1!important;}
 body.dark-mode .defic-act-btn:hover{background:#36425a!important;border-color:rgba(255,255,255,.18)!important;}
 body.dark-mode .defic-act-btn.act-close{background:#1a2e22!important;color:#80c8a0!important;}
 body.dark-mode .defic-act-btn.act-close:hover{background:#22402e!important;}
@@ -1069,7 +1069,7 @@ body.dark-mode .more-repair-toggle .more-repair-caret{color:#8a94b0;}
 body.dark-mode .view-pill{border-color:rgba(255,255,255,.18);background:rgba(0,0,0,.25);}
 body.dark-mode .view-pill-btn{color:#94a3b8!important;}
 body.dark-mode .view-pill-btn:hover{background:rgba(255,255,255,.05)!important;color:#c0d0e0!important;}
-body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!important;}
+body.dark-mode .view-pill-btn.active{background:var(--b-pill-bg)!important;color:#e2e8f0!important;}
 /* S77: Summary filter bar — 2-row mobile (row 1: 3 filters, row 2: search + count) */
 @media(max-width:700px){
   .pins-filter-bar{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6px!important;padding:8px 10px!important;align-items:center!important;}
@@ -1094,7 +1094,7 @@ body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!
   #tasks-table .tt-status,#tasks-table .tt-priority{display:block!important;width:100%!important;text-align:center!important;font-size:calc(10px + var(--ts))!important;padding:3px 0!important;box-sizing:border-box;}
 }
 /* S77: Mobile menu uniform navy chips */
-.mobile-menu .mm-btn{background:#2a3448!important;color:#e2e8f0!important;border:1px solid rgba(255,255,255,.08)!important;width:100%;text-align:left;padding:10px 14px!important;border-radius:7px!important;font-family:Calibri,sans-serif!important;font-size:14px!important;font-weight:600!important;margin:3px 0;display:flex;align-items:center;gap:8px;cursor:pointer;}
+.mobile-menu .mm-btn{background:var(--b-pill-bg)!important;color:#e2e8f0!important;border:1px solid rgba(255,255,255,.08)!important;width:100%;text-align:left;padding:10px 14px!important;border-radius:7px!important;font-family:Calibri,sans-serif!important;font-size:14px!important;font-weight:600!important;margin:3px 0;display:flex;align-items:center;gap:8px;cursor:pointer;}
 .mobile-menu .mm-btn:hover,.mobile-menu .mm-btn:active{background:#36425a!important;}
 .mobile-menu .mm-btn.mm-danger{background:#2e1a1a!important;color:#e08080!important;border-color:rgba(224,128,128,.2)!important;}
 .mobile-menu .mm-btn.mm-danger:hover{background:#402222!important;}
@@ -1113,7 +1113,7 @@ body.dark-mode .view-pill-btn.active{background:#2a3448!important;color:#e2e8f0!
 .mobile-menu .mm-group-body{margin:2px 0 6px;padding-left:6px;border-left:2px solid rgba(255,255,255,.08);}
 .mobile-menu .mm-sub{font-size:13px!important;padding:8px 12px!important;}
 .mobile-menu .mm-icon-row{display:flex;gap:6px;margin:6px 0;}
-.mobile-menu .mm-icon-row .mm-icon-btn{flex:1;background:#2a3448!important;color:#e2e8f0!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:7px!important;padding:12px 0!important;font-family:Calibri,sans-serif!important;font-size:18px!important;font-weight:600!important;cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:44px;}
+.mobile-menu .mm-icon-row .mm-icon-btn{flex:1;background:var(--b-pill-bg)!important;color:#e2e8f0!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:7px!important;padding:12px 0!important;font-family:Calibri,sans-serif!important;font-size:18px!important;font-weight:600!important;cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:44px;}
 .mobile-menu .mm-icon-row .mm-icon-btn:hover{background:#36425a!important;}
 .ai-mode-menu.show{display:block;}
 body.dark-mode .hdr-export,body.dark-mode .hdr-export-all{background:rgba(123,31,162,.3)!important;color:#b080d0!important;border:1px solid rgba(123,31,162,.35)!important;}
@@ -2705,7 +2705,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
        top-to-bottom: sidebar -> canvas -> bottombar. */
     order:2;
   }
-  body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75{background:#2a2d35;border-top-color:#3a3d45;}
+  body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75{background:var(--b-bar-bg);border-top-color:var(--b-bar-rule);}
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{display:flex;gap:4px;flex-shrink:0;}
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button{
     width:36px;height:36px;border-radius:6px;
@@ -2721,7 +2721,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     padding:7px 14px;display:flex;align-items:center;justify-content:center;gap:6px;
     font-size:12px;color:#1B2438;
   }
-  body.dark-mode .drawing-viewer-overlay #dv-bb-namepill{background:#1f222a;border-color:#3a3d45;color:#e8eaed;}
+  body.dark-mode .drawing-viewer-overlay #dv-bb-namepill{background:var(--b-pill-bg);border-color:var(--b-pill-bd);color:var(--b-bar-fg);}
   .drawing-viewer-overlay #dv-bb-name{
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
   }
@@ -3038,7 +3038,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     max-width:600px;
     padding:8px 18px !important;
   }
-  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:#fff !important;}
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:var(--b-bar-fg) !important;}
   .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-rename{
     color:#c8ccd4 !important;background:none;border:none;cursor:pointer;
   }
@@ -3187,7 +3187,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-namepill{
     background:var(--b-pill-bg) !important;border-color:var(--b-pill-bd) !important;color:#fff !important;
   }
-  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:#fff !important;}
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:var(--b-bar-fg) !important;}
 }
 
 /* === Session 75 Push 9 — REVERT Push 6.1 desktop title/bottombar changes ===
@@ -3822,13 +3822,13 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:var(--
 .drawing-viewer-overlay #dv-bottombar-v75{
   display:flex !important;
   align-items:center;gap:8px;
-  background:#fff;padding:8px 10px;
-  border-top:1px solid #d6d9e0;
+  background:var(--b-bar-bg);padding:8px 10px;
+  border-top:1px solid var(--b-bar-rule);
   flex-shrink:0;font-family:Calibri,sans-serif;
   order:2;
 }
 body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75{
-  background:#2a2d35;border-top-color:#3a3d45;
+  background:var(--b-bar-bg);border-top-color:var(--b-bar-rule);
 }
 /* Override the @media(pointer:coarse) zoom-hide rule from line ~3344 —
    we keep zoom controls visible on every device now that they're on the
@@ -3841,14 +3841,14 @@ html body .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom{
    Promoted out so all screens render at the same size and same shape. */
 .drawing-viewer-overlay #dv-bb-namepill{
   flex:1;min-width:0;
-  background:#f5f6f8;border:1px solid #d6d9e0;border-radius:18px;
+  background:var(--b-pill-bg);border:1px solid var(--b-pill-bd);border-radius:18px;
   padding:7px 14px;display:flex;align-items:center;justify-content:center;gap:6px;
   font-family:Calibri,sans-serif;
   font-size:calc(13px + var(--ts));
-  color:#1B2438;
+  color:var(--b-bar-fg);
 }
 body.dark-mode .drawing-viewer-overlay #dv-bb-namepill{
-  background:#1f222a;border-color:#3a3d45;color:#e8eaed;
+  background:var(--b-pill-bg);border-color:var(--b-pill-bd);color:var(--b-bar-fg);
 }
 .drawing-viewer-overlay #dv-bb-name{
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
@@ -8901,7 +8901,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
    accent rule, NOT a reddish/burgundy fill. Matches the trade band so header,
    nav, and section bands read as ONE Bold system. The old burgundy gradient
    clashed against the near-black Bold·Dark page (Mark). ---- */
-.app-header{background:var(--b-bar-bg)!important;color:var(--b-bar-fg)!important;border-bottom:1px solid var(--b-bar-rule);border-left:3px solid var(--b-bar-accent);backdrop-filter:blur(10px);box-shadow:0 1px 3px rgba(0,0,0,.18)!important;}
+.app-header{background:var(--b-bar-bg)!important;color:var(--b-bar-fg)!important;border-bottom:1px solid var(--b-bar-rule);backdrop-filter:blur(10px);box-shadow:0 1px 3px rgba(0,0,0,.18)!important;}
 body.dark-mode .app-header{background:var(--b-bar-bg)!important;color:var(--b-bar-fg)!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;}
 .section-nav{background:var(--b-bar-bg)!important;border-bottom:1px solid var(--b-bar-rule);}
 body.dark-mode .section-nav{background:var(--b-bar-bg)!important;}
