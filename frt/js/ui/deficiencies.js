@@ -2037,9 +2037,10 @@ function _buildObsRow(d, oi, ctrId, opts) {
 
   var h = '<div class="dfx-obsrow' + (open ? ' open' : '') + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
   h += '<div class="dfx-obsrow-head" data-action="dfx-toggle-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
-  // Star = the ONLY recommendation control. Reuses toggle-rec (per-obs) so
-  // _recHoldUntilNav mis-tap-undo is preserved.
-  h += '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-or-star' + (isRec ? ' on' : '') + '" aria-pressed="' + (isRec ? 'true' : 'false') + '" title="' + (isRec ? 'Recommendation \u2014 click to revert' : 'Mark as recommendation') + '">' + (isRec ? '\u2605' : '\u2606') + '</button>';
+  // S248: star REMOVED to match the locked combined-view demo — Recommendation
+  // is now a category in the segmented pill, so the star is redundant. The
+  // toggle-rec action is still reachable via the pill's "Recommendation"
+  // segment (per-obs, preserving _recHoldUntilNav mis-tap-undo).
   h += '<span class="dfx-or-id" style="background:' + esc(accent) + '">' + esc(label) + '</span>';
   h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
   h += '<span class="dfx-or-mid"><span class="dfx-or-title">' + esc(o.text || deficDesc(d) || '\u2014') + '</span>';
@@ -2755,13 +2756,15 @@ function _renderCombinedView(proj, container) {
 
   var h = '';
 
-  // Global "Edit categories" lock switch — ONE for the whole list.
-  // S248: re-lock COMMITS but no longer resettles; a separate ↻ Re-sort
-  // button (with pending count) resettles when the user is ready.
+  // Global "Edit categories" lock switch — ONE for the whole list. Rendered
+  // as the demo's slide toggle (label + track + knob). S248: re-lock COMMITS
+  // but no longer resettles; a separate ↻ Re-sort button (with pending count)
+  // resettles when the user is ready.
   var _pend = _cvPendingCount();
   h += '<div class="cv-lockbar">'
-    + '<button type="button" class="cv-lock-btn' + (_cvUnlocked ? ' unlocked' : '') + '" data-action="cv-togglelock" aria-pressed="' + (_cvUnlocked ? 'true' : 'false') + '">'
-    + (_cvUnlocked ? '\uD83D\uDD13 Editing categories \u2014 tap to lock' : '\uD83D\uDD12 Edit categories')
+    + '<button type="button" class="cv-lockswitch' + (_cvUnlocked ? ' on' : '') + '" data-action="cv-togglelock" aria-pressed="' + (_cvUnlocked ? 'true' : 'false') + '" title="Toggle category editing">'
+    + '<span class="cv-ls-text">Edit categories</span>'
+    + '<span class="cv-ls-track"><span class="cv-ls-knob"></span></span>'
     + '</button>'
     + '<button type="button" class="cv-resort-btn' + (_pend ? ' has-pending' : '') + '" data-action="cv-resort"' + (_pend ? '' : ' disabled aria-disabled="true"') + ' title="Re-sort cards into their categories">'
     + '\u21BB Re-sort' + (_pend ? ' (' + _pend + ')' : '')

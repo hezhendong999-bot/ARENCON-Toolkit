@@ -8953,6 +8953,18 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
 .cv-lock-btn.unlocked{background:var(--b-cat-active-bg);border-color:var(--b-bar-accent);color:var(--b-cat-active-fg);box-shadow:0 0 0 2px var(--b-pill-hover);}
 .cv-lock-hint{font-size:12px;color:var(--b-pill-seg-fg);}
 
+/* S248: lock as the demo's slide toggle — label + track + knob. Off = grey
+   track; on = burgundy track, knob slid right. */
+.cv-lockswitch{display:inline-flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;
+  font-family:Calibri,sans-serif;font-size:13px;font-weight:600;color:var(--b-bar-fg);padding:4px 2px;min-height:38px;}
+.cv-ls-text{user-select:none;}
+.cv-ls-track{position:relative;width:38px;height:22px;border-radius:999px;background:var(--b-pill-bd,#cfcbd9);
+  transition:background .18s;flex-shrink:0;}
+.cv-lockswitch.on .cv-ls-track{background:var(--b-bar-accent,#9C2742);}
+.cv-ls-knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.35);transition:left .18s;}
+.cv-lockswitch.on .cv-ls-knob{left:18px;}
+
 /* S248: manual Re-sort button — calm/disabled when nothing pending, accented
    (burgundy) when cards are waiting to be filed. Tokens auto-switch per mode. */
 .cv-resort-btn{font-family:Calibri,sans-serif;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;
@@ -8976,24 +8988,32 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
 
 /* Per-row category bar (above the reused obs row) */
 .cv-row{display:block;}
-.cv-row-catbar{display:flex;align-items:center;padding:6px 8px 0;}
+.cv-row-catbar{display:flex;align-items:center;justify-content:flex-end;padding:8px 12px 2px;}
 
-/* Four-segment category pill */
-.cv-catpill{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--b-pill-bd);background:var(--b-pill-bg);}
+/* Four-segment category pill — matches the locked demo .catpill:
+   the WHOLE pill is faded + desaturated when locked (fat-finger-proof),
+   lights up and gains a burgundy ring when unlocked. The selected segment
+   carries a SOLID category fill with white text (demo look), not a soft tint. */
+.cv-catpill{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--b-pill-bd);background:var(--b-pill-bg);
+  opacity:.5;filter:saturate(.5);transition:opacity .2s,filter .2s,box-shadow .2s;}
+[data-cv-locked="0"] .cv-catpill{opacity:1;filter:none;box-shadow:0 0 0 2px var(--b-pill-hover);}
 .cv-catseg{font-family:Calibri,sans-serif;font-size:11px;font-weight:600;line-height:1;padding:5px 9px;border:0;
   border-right:1px solid var(--b-pill-seg-bd);background:transparent;color:var(--b-pill-seg-fg);cursor:default;white-space:nowrap;transition:background .1s,color .1s;}
 .cv-catseg:last-child{border-right:0;}
 
-/* LOCKED (default): faded + untappable (fat-finger-proof). data-cv-locked driven. */
-[data-cv-locked="1"] .cv-catseg{opacity:.55;cursor:default;pointer-events:none;}
-[data-cv-locked="0"] .cv-catseg{opacity:1;cursor:pointer;pointer-events:auto;}
+/* LOCKED (default): untappable (fat-finger-proof). data-cv-locked driven. */
+[data-cv-locked="1"] .cv-catseg{cursor:default;pointer-events:none;}
+[data-cv-locked="0"] .cv-catseg{cursor:pointer;pointer-events:auto;}
 [data-cv-locked="0"] .cv-catseg:hover{background:var(--b-pill-hover);}
+@media(pointer:coarse){.cv-catseg{padding:8px 10px;}}
 
-/* Selected segment carries its category colour (token-driven; switches per mode) */
-.cv-catseg.cv-cat-active.on{background:var(--b-cat-active-bg);color:var(--b-cat-active-fg);}
-.cv-catseg.cv-cat-rec.on{background:var(--b-cat-rec-bg);color:var(--b-cat-rec-fg);}
-.cv-catseg.cv-cat-site.on{background:var(--b-cat-site-bg);color:var(--b-cat-site-fg);}   /* LAVENDER */
-.cv-catseg.cv-cat-closed.on{background:var(--b-cat-closed-bg);color:var(--b-cat-closed-fg);}
+/* Selected segment = SOLID category colour, white text (demo). The -fg token
+   IS the saturated category colour; using it as the fill matches the demo's
+   white-on-colour selected look while staying on the locked palette. */
+.cv-catseg.cv-cat-active.on{background:var(--b-cat-active-fg);color:#fff;}
+.cv-catseg.cv-cat-rec.on{background:var(--b-cat-rec-fg);color:#fff;}
+.cv-catseg.cv-cat-site.on{background:var(--b-cat-site-fg);color:#fff;}   /* LAVENDER */
+.cv-catseg.cv-cat-closed.on{background:var(--b-cat-closed-fg);color:#fff;}
 
 /* Unassigned contractor block (pinned to top of its trade) — lavender cue */
 .dfx-ctr-block.cv-unassigned .dfx-ctr-banner{font-style:italic;}
