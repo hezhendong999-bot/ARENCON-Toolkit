@@ -2044,7 +2044,13 @@ function _buildObsRow(d, oi, ctrId, opts) {
   h += '<span class="dfx-or-id" style="background:' + esc(accent) + '">' + esc(label) + '</span>';
   h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
   h += '<span class="dfx-or-mid"><span class="dfx-or-title">' + esc(o.text || deficDesc(d) || '\u2014') + '</span>';
-  h += '<span class="dfx-or-meta">' + metaName + '</span></span>';
+  // S248: demo body-line — contractor dot + a filled category pill
+  // (Active / Recommendation / Site Record / Closed), matching
+  // FRT_manual_resort_demo. The Outstanding status chip on the right is
+  // KEPT (dfx-or-chip below) — the category pill is additive, not a replacement.
+  var _catM = _cvCatMeta(_deriveCategory(d, o, !isSite).cat);
+  h += '<span class="dfx-or-meta">' + metaName
+    + '<span class="dfx-or-catpill ' + _catM.cls + '">' + esc(_catM.label) + '</span></span></span>';
   h += '<span class="dfx-or-chip ' + info.cls + '">' + info.txt + '</span>';
   h += '<span class="dfx-or-caret">\u25BC</span>';
   h += '</div>'; // /head
@@ -2756,15 +2762,14 @@ function _renderCombinedView(proj, container) {
 
   var h = '';
 
-  // Global "Edit categories" lock switch — ONE for the whole list. Rendered
-  // as the demo's slide toggle (label + track + knob). S248: re-lock COMMITS
-  // but no longer resettles; a separate ↻ Re-sort button (with pending count)
-  // resettles when the user is ready.
+  // Global "Edit categories" lock — plain button matching the manual_resort
+  // demo (🔒 Edit categories / 🔓 Editing — tap to lock). S248: re-lock COMMITS
+  // but no longer resettles; the ↻ Re-sort button (with count) resettles when
+  // the user is ready.
   var _pend = _cvPendingCount();
   h += '<div class="cv-lockbar">'
-    + '<button type="button" class="cv-lockswitch' + (_cvUnlocked ? ' on' : '') + '" data-action="cv-togglelock" aria-pressed="' + (_cvUnlocked ? 'true' : 'false') + '" title="Toggle category editing">'
-    + '<span class="cv-ls-text">Edit categories</span>'
-    + '<span class="cv-ls-track"><span class="cv-ls-knob"></span></span>'
+    + '<button type="button" class="cv-lock-btn' + (_cvUnlocked ? ' unlocked' : '') + '" data-action="cv-togglelock" aria-pressed="' + (_cvUnlocked ? 'true' : 'false') + '">'
+    + (_cvUnlocked ? '\uD83D\uDD13 Editing \u2014 tap to lock' : '\uD83D\uDD12 Edit categories')
     + '</button>'
     + '<button type="button" class="cv-resort-btn' + (_pend ? ' has-pending' : '') + '" data-action="cv-resort"' + (_pend ? '' : ' disabled aria-disabled="true"') + ' title="Re-sort cards into their categories">'
     + '\u21BB Re-sort' + (_pend ? ' (' + _pend + ')' : '')
