@@ -2269,6 +2269,32 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   h += '</div></div>'; // /obs-media-zone /obs-media-col
   h += '</div>'; // /obs-layout-merged
 
+  // ── S248: pin location mini-map (combined-view card editor only) ──
+  // Reuses the on-drawing editor's _renderPinMiniMap via the cross-module
+  // window._frtRenderPinMiniMap hook. DESKTOP panel (cv-pe-location-thumb) is
+  // interactive (drag-to-reposition, identical _PinPan path); the NARROW panel
+  // (cv-pe-location-thumb-mobile) is a static crop — the unverified-on-tablet
+  // drag stays gated to the existing on-drawing surface, so this adds NO new
+  // silent-pin-loss risk on field tablets. The single canonical ids are safe:
+  // the combined view is a single-expand accordion (_openObsKey holds ONE row),
+  // so each id exists at most once in the DOM. CSS shows exactly one panel per
+  // breakpoint. "Open in drawing viewer" reuses the EXISTING viewer (view-pin)
+  // — never a 2nd tiled instance.
+  if (!opts.withHeader) {
+    h += '<div class="cv-loc-panel">';
+    h += '<div class="cv-loc-head"><span class="cv-loc-lbl">Location</span>';
+    if (d.drawingId) {
+      h += '<button type="button" class="cv-loc-open" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Open this pin in the drawing viewer">Open in drawing viewer \u2197</button>';
+    } else {
+      h += '<button type="button" class="cv-loc-open" data-action="place-pin" data-defic-id="' + esc(d.id) + '" title="Place this pin on a drawing">Place on a drawing</button>';
+    }
+    h += '</div>';
+    // Two panels; CSS reveals only the one for the current breakpoint.
+    h += '<div id="cv-pe-location-thumb" class="cv-loc-thumb cv-loc-desktop"></div>';
+    h += '<div id="cv-pe-location-thumb-mobile" class="cv-loc-thumb cv-loc-mobile"></div>';
+    h += '</div>'; // /cv-loc-panel
+  }
+
   // AI scratchpad (per-obs)
   h += '<div class="ai-scratchpad" data-sp-defic="' + esc(d.id) + '" data-sp-obs="' + oi + '" style="display:none;"></div>';
 
@@ -2843,6 +2869,25 @@ function _renderCombinedView(proj, container) {
 
   container.innerHTML = h;
   container.setAttribute('data-cv-locked', _cvUnlocked ? '0' : '1');
+
+  // S248: paint the pin location mini-map into the open card editor (if any).
+  // Single-expand accordion → the cv-pe-location-thumb ids exist at most once.
+  // rAF so the canvas is in the DOM. Guarded: only when a row is open, it has
+  // a drawingId, and the cross-module hook is present (viewer.js loaded).
+  if (_openObsKey && window._frtRenderPinMiniMap) {
+    try {
+      var _ci = _openObsKey.lastIndexOf(':');
+      var _odid = _ci >= 0 ? _openObsKey.slice(0, _ci) : _openObsKey;
+      var _of = Model.findDeficiency(_odid);
+      if (_of && _of.defic && _of.defic.drawingId) {
+        var _od = _of.defic;
+        requestAnimationFrame(function() {
+          window._frtRenderPinMiniMap(_od, 'cv-pe-location-thumb');
+          window._frtRenderPinMiniMap(_od, 'cv-pe-location-thumb-mobile');
+        });
+      }
+    } catch (e) {}
+  }
 }
 
 // Flip the global lock. Locking triggers the DELAYED re-sort: clear the

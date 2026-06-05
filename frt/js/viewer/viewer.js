@@ -2392,8 +2392,14 @@ function _drawPinMiniMap(canvas, img, d) {
   // pan (only when zoomed), and drag-the-pin-to-reposition. The mobile thumb
   // (#pe-location-thumb-mobile) and any other caller stays static (this body).
   // We detect the interactive panel by the canvas's container id.
+  // S248: the combined-view card-expand editor reuses this renderer via
+  // window._frtRenderPinMiniMap. Its DESKTOP panel (cv-pe-location-thumb) is
+  // interactive — identical _PinPan path as the on-drawing editor's
+  // pe-location-thumb, so it inherits no NEW drag risk. The card editor's
+  // TABLET/mobile panel uses cv-pe-location-thumb-mobile and stays static
+  // (the unverified-on-tablet drag stays gated to the existing surface).
   var host = canvas && canvas.parentElement;
-  if (host && host.id === 'pe-location-thumb') {
+  if (host && (host.id === 'pe-location-thumb' || host.id === 'cv-pe-location-thumb')) {
     _PinPan.mount(canvas, img, d);
     return;
   }
@@ -2739,6 +2745,18 @@ var _PinPan = (function() {
 
 // S116 Push 1: expose pin editor opener for Summary tab + other modules
 window._frtOpenPinEditor = function(deficId) { _openPinEditor(deficId); };
+
+// S248: render the pin location mini-map into an arbitrary container by id,
+// for the combined-view card-expand editor (deficiencies.js). Reuses the
+// SAME _renderPinMiniMap path as the on-drawing pin editor — interactive when
+// the container id is cv-pe-location-thumb (desktop), static otherwise. No
+// new drag code; the unverified-on-tablet drag stays scoped to the existing
+// interactive surfaces. d = the deficiency record; thumbId = container id.
+window._frtRenderPinMiniMap = function(d, thumbId) {
+  try { _renderPinMiniMap(d, thumbId); } catch (e) {
+    try { console.warn('[S248] _frtRenderPinMiniMap failed:', e && e.message); } catch (_) {}
+  }
+};
 
 // ── S213: cross-module hooks used by deficiencies.js handlers ──────────
 // Refresh the open pin editor (no-op if closed / different pin). Used after
