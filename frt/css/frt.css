@@ -2376,8 +2376,8 @@ body.dark-mode .dv-pill button:hover{background:rgba(255,255,255,.12);}
 body.dark-mode .drawing-viewer-overlay .dv-toolbar{background:var(--b-bar-bg) !important;}
 
 /* Title text white */
-.drawing-viewer-overlay .dv-toolbar .dv-title{color:#fff;}
-.drawing-viewer-overlay .dv-toolbar .dv-title-wrap{color:#fff;}
+.drawing-viewer-overlay .dv-toolbar .dv-title{color:var(--b-bar-fg);}
+.drawing-viewer-overlay .dv-toolbar .dv-title-wrap{color:var(--b-bar-fg);}
 
 /* Close button — dark slate pill */
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
@@ -2653,13 +2653,13 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     width:20px;height:20px;display:block;pointer-events:none;
   }
   .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin{
-    background:var(--b-pill-bg);color:#fff;border:none;border-radius:50%;
+    background:var(--b-pill-bg);color:var(--b-bar-fg);border:none;border-radius:50%;
   }
-  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin svg{color:#fff;}
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-pin svg{color:var(--b-bar-fg);}
   .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn.active{
     background:#9C2742;color:#fff;border-color:#9C2742;
   }
-  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn.active svg{color:#fff;}
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn.active svg{color:var(--b-bar-fg);}
   .drawing-viewer-overlay #dv-stylestrip-v75{
     display:flex;align-items:center;gap:10px;
     background:#eef0f3;padding:8px 12px;
@@ -2709,7 +2709,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{display:flex;gap:4px;flex-shrink:0;}
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button{
     width:36px;height:36px;border-radius:6px;
-    background:var(--b-pill-bg);color:#fff;border:none;
+    background:var(--b-pill-bg);color:var(--b-bar-fg);border:none;
     font-size:14px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;padding:0;
   }
@@ -2824,8 +2824,8 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   color:#fff;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-title,
-.drawing-viewer-overlay .dv-toolbar .dv-title{color:#fff;}
-.drawing-viewer-overlay .dv-toolbar button{color:#fff;}
+.drawing-viewer-overlay .dv-toolbar .dv-title{color:var(--b-bar-fg);}
+.drawing-viewer-overlay .dv-toolbar button{color:var(--b-bar-fg);}
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
   background:var(--b-pill-bg);color:#fff;border:none;border-radius:6px;
 }
@@ -2907,7 +2907,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     border:1px solid var(--b-pill-bd) !important;
   }
   .drawing-viewer-overlay #dv-sidebar-tools button svg,
-  .drawing-viewer-overlay #dv-sidebar-tools .mk-btn svg{color:#fff;}
+  .drawing-viewer-overlay #dv-sidebar-tools .mk-btn svg{color:var(--b-bar-fg);}
   .drawing-viewer-overlay #dv-sidebar-tools button:hover,
   .drawing-viewer-overlay #dv-sidebar-tools .mk-btn:hover{background:var(--b-pill-bd) !important;}
   .drawing-viewer-overlay #dv-sidebar-tools button.active,
@@ -2964,7 +2964,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   background:#9C2742 !important;border-color:#9C2742 !important;
 }
 .drawing-viewer-overlay #dv-layers-menu label,
-.drawing-viewer-overlay #dv-layers-menu .dv-layer-row{color:#fff !important;}
+.drawing-viewer-overlay #dv-layers-menu .dv-layer-row{color:var(--b-bar-fg) !important;}
 .drawing-viewer-overlay .dv-heights-panel input,
 .drawing-viewer-overlay .dv-heights-panel select{
   background:var(--b-pill-bg) !important;color:#fff !important;border:1px solid var(--b-pill-bd) !important;
@@ -3178,7 +3178,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     border:1px solid var(--b-pill-bd) !important;
   }
   .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step:hover{background:var(--b-pill-bd) !important;}
-  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-val{color:#fff !important;}
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-val{color:var(--b-bar-fg) !important;}
   .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-group{border-left-color:var(--b-pill-bd) !important;}
   .drawing-viewer-overlay #dv-bottombar-v75{
     background:var(--b-bar-bg) !important;
@@ -3324,7 +3324,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   border-left:1px solid var(--b-pill-bg) !important;
 }
 .drawing-viewer-overlay .dv-tasks-panel h3,
-.drawing-viewer-overlay .dv-tasks-panel .panel-title{color:#fff !important;}
+.drawing-viewer-overlay .dv-tasks-panel .panel-title{color:var(--b-bar-fg) !important;}
 .drawing-viewer-overlay .dv-tasks-panel .task-item,
 .drawing-viewer-overlay .dv-tasks-panel li{
   background:transparent !important;
@@ -3506,7 +3506,7 @@ body.dark-mode #dwg-actions-pop button.danger, body.dark-mode #photo-actions-pop
     background:var(--b-pill-bg) !important;
     color:#fff !important;
   }
-  .drawing-viewer-overlay .dv-tsv75-card-title{color:#fff !important;}
+  .drawing-viewer-overlay .dv-tsv75-card-title{color:var(--b-bar-fg) !important;}
   .drawing-viewer-overlay .dv-tsv75-card-meta{color:#a0a8b8 !important;}
   /* Bottom bar rename pencil — orange emoji render */
   .drawing-viewer-overlay #dv-bb-rename{
@@ -3683,7 +3683,7 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:var(--
   }
   .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit{
     width:36px;height:36px;border-radius:6px;
-    background:var(--b-pill-bg);color:#fff;border:none;
+    background:var(--b-pill-bg);color:var(--b-bar-fg);border:none;
     font-size:15px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;padding:0;
   }
