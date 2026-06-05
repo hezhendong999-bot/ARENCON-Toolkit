@@ -8997,7 +8997,14 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
 
 /* Per-row category bar (above the reused obs row) */
 .cv-row{display:block;}
-.cv-row-catbar{padding:7px 11px 0;}
+/* S248 Option 1: the category segment strip is now BELOW the card body and
+   only shows when the list is UNLOCKED. While locked, the card shows just the
+   single far-right status pill (dfx-or-chip) — compact, no segment strip. */
+.cv-row-catbar{display:none;padding:0 13px 11px;justify-content:flex-end;}
+[data-cv-locked="0"] .cv-row-catbar{display:flex;}
+/* When unlocked, the segment control IS the status — hide the single
+   far-right display pill so the category isn't shown twice. */
+[data-cv-locked="0"] .cv-row .dfx-or-chip{display:none;}
 
 /* S248 FIX: the card BORDER must wrap the category pill AND the body, like the
    demo. The border lived on the inner .dfx-obsrow, leaving the catbar floating

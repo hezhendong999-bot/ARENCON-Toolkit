@@ -2669,16 +2669,16 @@ function _cvCategoryPill(d, oi, cat) {
 // reused verbatim — the same controls live in the expanded editor.
 // We do NOT re-implement the editor; the pill is the only added chrome.
 function _cvObsRow(d, oi, ctrId, opts, cat) {
+  // S248 Option 1: the segment control moves to its OWN LINE BELOW the body
+  // (was a top strip). CSS hides it when the list is locked (data-cv-locked=1)
+  // and shows it only when unlocked — so while scanning the card shows just
+  // the single far-right status pill (compact), and the full segment control
+  // appears under the card only when editing. The single pill lives inside
+  // _buildObsRow (dfx-or-chip, the locked display).
   var pill = '<div class="cv-row-catbar">' + _cvCategoryPill(d, oi, cat) + '</div>';
-  // S248: mark rows whose committed category is waiting to be re-sorted, so
-  // the user can see WHICH cards are pending (load-bearing — without it the
-  // list can silently show stale order and the user trusts it).
   var pend = _cvPendingKeys[_obsKey(d.id, oi)] ? ' cv-pending' : '';
-  // _buildObsRow already renders the row + (when open) the editor. We
-  // inject the category pill as a sibling header strip above the row so a
-  // re-render of the row body never clobbers it and vice-versa.
   return '<div class="cv-row' + pend + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">'
-    + pill + _buildObsRow(d, oi, ctrId, opts) + '</div>';
+    + _buildObsRow(d, oi, ctrId, opts) + pill + '</div>';
 }
 
 function _renderCombinedView(proj, container) {
