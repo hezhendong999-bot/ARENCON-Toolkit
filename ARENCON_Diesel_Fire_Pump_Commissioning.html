@@ -1182,7 +1182,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S239</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S240</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -4983,27 +4983,32 @@ function refreshAllCharts() { updateChart3pt(); updateNetChart3pt(); updatePldCh
 function _refreshS4Charts() {
   var _ptype = 'std';
   document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) _ptype = b.dataset.ptype; });
+  // S240: console proved the real bug — after load, the chart objects DO hold the
+  // correct data and scale, but the canvas pixels were never flushed (a Chart.js
+  // repaint miss when update() runs in the same frame as init/layout). resize() is a
+  // no-op when size is unchanged, so it never forced a redraw. The fix: call an
+  // explicit .resize() THEN .render() to force the pixels to flush. render() repaints
+  // from current data without touching it — exactly what re-typing a field did.
+  function _flush(ch){ if(!ch) return; try { ch.resize(); ch.update('none'); ch.render(); } catch(e){} }
   function paint() {
     if (_ptype === 'pld') {
       if (!pldChart) { initPldChart(); setTimeout(hookChartAnnotations, 200); } else { updatePldChart(); if(!document.getElementById('pldChart-annotations')) setTimeout(hookChartAnnotations, 100); }
       if (!pldNetChart) { initPldNetChart(); setTimeout(hookChartAnnotations, 200); } else { updatePldNetChart(); if(!document.getElementById('pldNetChart-annotations')) setTimeout(hookChartAnnotations, 100); }
-      if(pldChart) pldChart.resize();
-      if(pldNetChart) pldNetChart.resize();
+      _flush(pldChart); _flush(pldNetChart);
     } else {
       if (!chart3pt) { initChart3pt(); setTimeout(hookChartAnnotations, 200); } else { updateChart3pt(); if(!document.getElementById('chart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
       if (!netChart3pt) { initNetChart3pt(); setTimeout(hookChartAnnotations, 200); } else { updateNetChart3pt(); if(!document.getElementById('netChart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
       updateChart3pt(); updateNetChart3pt();
-      if(chart3pt) chart3pt.resize();
-      if(netChart3pt) netChart3pt.resize();
+      _flush(chart3pt); _flush(netChart3pt);
     }
   }
   // First paint next frame (panel display flip needs one frame to lay out)...
   requestAnimationFrame(function(){ requestAnimationFrame(paint); });
-  // ...and a resize-only fallback a beat later in case layout was still settling.
+  // ...and a forced render a beat later in case layout was still settling on the first pass.
   setTimeout(function(){
-    if (_ptype === 'pld') { if(pldChart) pldChart.resize(); if(pldNetChart) pldNetChart.resize(); }
-    else { if(chart3pt) chart3pt.resize(); if(netChart3pt) netChart3pt.resize(); }
-  }, 300);
+    if (_ptype === 'pld') { _flush(pldChart); _flush(pldNetChart); }
+    else { _flush(chart3pt); _flush(netChart3pt); }
+  }, 350);
 }
 
 // ── Dark Mode Chart Styling ──
@@ -10274,7 +10279,7 @@ var R2Outbox=(function(){'use strict';
 <script>
 var CloudSync=(function(){'use strict';var SUPABASE_URL='https://xsemvinxsyphjiaqgywv.supabase.co';var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';var IDB_NAME='arencon_cloud_cache';var IDB_VERSION=1;var IDB_STORE='tool_state';var AUTOSAVE_MS=15000;var _projectId=null;var _toolKey=null;var _instanceId=null;var _instanceNumber=1;var _collectStateFn=null;var _onStatusChange=null;var _autoSaveTimer=null;var _idb=null;var _online=navigator.onLine;var _pendingSync=false;var _userId=null;var _projectInfo=null;var _lastSavedJson='';var _initialized=false;
 function _headers(){var h={'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=representation'};var token=localStorage.getItem('sb-access-token');if(token)h['Authorization']='Bearer '+token;else h['Authorization']='Bearer '+SUPABASE_ANON_KEY;return h;}
-async function _request(path,opts){opts=opts||{};var res=await fetch(SUPABASE_URL+path,{method:opts.method||'GET',headers:Object.assign({},_headers(),opts.headers||{}),body:opts.body?JSON.stringify(opts.body):undefined});if(!res.ok){var err;try{err=await res.json();}catch(e){err={message:res.statusText};}throw new Error(err.message||err.msg||err.error_description||res.statusText);}var text=await res.text();return text?JSON.parse(text):null;}
+async function _request(path,opts){opts=opts||{};var res=await fetch(SUPABASE_URL+path,{method:opts.method||'GET',headers:Object.assign({},_headers(),opts.headers||{}),body:opts.body?JSON.stringify(opts.body):undefined,keepalive:(opts.method==='PATCH'||opts.method==='POST')});if(!res.ok){var err;try{err=await res.json();}catch(e){err={message:res.statusText};}throw new Error(err.message||err.msg||err.error_description||res.statusText);}var text=await res.text();return text?JSON.parse(text):null;}
 function _openIDB(){return new Promise(function(resolve,reject){var req=indexedDB.open(IDB_NAME,IDB_VERSION);req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);};req.onsuccess=function(e){_idb=e.target.result;resolve(_idb);};req.onerror=function(e){reject(e.target.error);};});}
 function _idbKey(){return _projectId+'|'+_toolKey+'|'+(_instanceId||'new');}
 function _idbGet2(key){return new Promise(function(resolve,reject){if(!_idb){resolve(null);return;}var tx=_idb.transaction(IDB_STORE,'readonly');var req=tx.objectStore(IDB_STORE).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});}
