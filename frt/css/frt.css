@@ -7560,19 +7560,17 @@ body.dark-mode .dfx-or-title { color: #E2E6EC; }
   font-size: calc(11px + var(--ts)); font-weight: 700; padding: 3px 9px;
   border-radius: 10px; white-space: nowrap; flex-shrink: 0; letter-spacing: .3px;
 }
-/* combined priority+status — mirrors the PDF report pills (pdf.js S154) */
-.dfx-cs-high   { background: #FDEDEC; color: #C0392B; }
-.dfx-cs-low    { background: #FEF9E7; color: #E67E22; }
-.dfx-cs-closed { background: #D4EDDA; color: #1A7A4A; }
-.dfx-cs-site   { background: #DCDEF0; color: #3F4470; }
-/* S248: Recommendation pill — a distinct YELLOW, deliberately separated from
-   the amber low-Outstanding (#E67E22) which it previously collided with. */
-.dfx-cs-rec    { background: #FBF3D6; color: #B8860B; }
-/* S248: dark-mode far-right pills. Site Record was missing a dark rule, so it
-   fell back to the light (white-ish) bg with purple text — wrong. Give it the
-   demo's purple treatment. Recommendation gets a dark yellow. */
-body.dark-mode .dfx-cs-site { background: rgba(110,106,168,.22); color: #B7B2E8; }
-body.dark-mode .dfx-cs-rec  { background: rgba(214,170,40,.18); color: #E6C44C; }
+/* combined priority+status — mirrors the PDF report pills (pdf.js S154).
+   S248 Bold Slice 3: mapped to --b-* tokens (auto-switch per mode). This
+   RETIRES the pre-Bold hardcoded fills incl. forbidden #C0392B / #1A7A4A and
+   the bright #FDEDEC/#FEF9E7/#D4EDDA. The separate body.dark-mode rules below
+   are no longer needed (tokens carry dark) — removed. The far-right rec pill
+   now reads TEAL, matching the four-category pill (was yellow #FBF3D6). */
+.dfx-cs-high   { background: var(--b-high-bg);       color: var(--b-high); }
+.dfx-cs-low    { background: var(--b-low-bg);        color: var(--b-low); }
+.dfx-cs-closed { background: var(--b-cat-closed-bg); color: var(--b-cat-closed-fg); }
+.dfx-cs-site   { background: var(--b-cat-site-bg);   color: var(--b-cat-site-fg); }
+.dfx-cs-rec    { background: var(--b-cat-rec-bg);    color: var(--b-cat-rec-fg); }
 .dfx-or-thumb {
   width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0;
   object-fit: cover; background: #E8E9EC; position: relative;
@@ -7606,12 +7604,14 @@ body.dark-mode #pe-obs-content > .dfx-or-editor { border-top: none; }
   font-family: inherit; font-size: calc(12px + var(--ts)); font-weight: 700;
   letter-spacing: .3px; cursor: pointer; -webkit-appearance: none; appearance: none;
 }
-.dfx-status-sel.dfx-cs-high   { background: #FDEDEC; color: #C0392B; }
-body.dark-mode .dfx-cs-high   { background: #3a1515; color: #f07070; }
-.dfx-status-sel.dfx-cs-low    { background: #FEF9E7; color: #E67E22; }
-body.dark-mode .dfx-cs-low    { background: #2a1e00; color: #f0a030; }
-.dfx-status-sel.dfx-cs-closed { background: #D4EDDA; color: #1A7A4A; }
-body.dark-mode .dfx-cs-closed { background: #0d2a1a; color: #6FCF97; }
+.dfx-status-sel.dfx-cs-high   { background: var(--b-high-bg);       color: var(--b-high); }
+.dfx-status-sel.dfx-cs-low    { background: var(--b-low-bg);        color: var(--b-low); }
+.dfx-status-sel.dfx-cs-closed { background: var(--b-cat-closed-bg); color: var(--b-cat-closed-fg); }
+/* S248 Bold Slice 3: the editor status-cycle button shares the .dfx-cs-* names
+   with the display pill, now both token-driven. The former hand-rolled
+   body.dark-mode .dfx-cs-{high,low,closed} overrides (bright #3a1515/#f07070
+   etc.) are removed — the --b-* tokens already carry the muted dark fills, and
+   those global overrides were also leaking onto the display pill. */
 .dfx-or-actions {
   display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; align-items: center;
 }
