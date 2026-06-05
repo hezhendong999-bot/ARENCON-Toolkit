@@ -8979,6 +8979,31 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
 .cv-row{display:block;}
 .cv-row-catbar{padding:7px 11px 0;}
 
+/* S248 FIX: the card BORDER must wrap the category pill AND the body, like the
+   demo. The border lived on the inner .dfx-obsrow, leaving the catbar floating
+   OUTSIDE the card. Promote the card chrome to the .cv-row wrapper and make the
+   inner .dfx-obsrow borderless/transparent — scoped to .cv-row so .dfx-obsrow
+   elsewhere (editor, other paths) is untouched. */
+.cv-row{
+  background:#FFFFFF;
+  border:1.5px solid var(--border,#DDE1E7);
+  border-radius:10px;
+  margin-bottom:8px;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);
+  transition:box-shadow .12s,border-color .12s;
+  overflow:hidden;
+}
+.cv-row:last-child{margin-bottom:0;}
+.cv-row:hover{box-shadow:var(--shadow,0 2px 12px rgba(28,35,51,.10));border-color:#C9CDD6;}
+.cv-row:has(.dfx-obsrow.open){box-shadow:0 8px 32px rgba(28,35,51,.14);border-color:var(--arencon,#9C2742);}
+body.dark-mode .cv-row{background:transparent;border-color:rgba(255,255,255,.10);}
+/* inner row loses its own box now that the wrapper carries it.
+   Specificity raised with a leading `body` so the dark-mode
+   `body.dark-mode .dfx-obsrow` rule can't re-introduce a border. */
+body .cv-row .dfx-obsrow{background:transparent;border:0;border-radius:0;margin-bottom:0;box-shadow:none;}
+body .cv-row .dfx-obsrow:hover{box-shadow:none;border-color:transparent;}
+body .cv-row .dfx-obsrow.open{box-shadow:none;border-color:transparent;}
+
 /* S248: body-line category pill (demo .pill) — filled tint + category text.
    Sits on the row meta line beside the contractor dot. Site Record = lavender,
    Recommendation = amber. Tokens auto-switch per Bold mode. */
