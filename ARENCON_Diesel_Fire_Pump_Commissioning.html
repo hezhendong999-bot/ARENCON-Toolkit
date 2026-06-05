@@ -521,6 +521,8 @@ body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
 .fp-bf .bftoggle{font-size:calc(10px + var(--ts));font-weight:600;color:var(--steel);cursor:pointer;
   background:none;border:1px dashed var(--border);border-radius:6px;padding:4px 9px;font-family:inherit;}
 .fp-bf .bftoggle:hover{color:var(--arencon);border-color:#c79aa6;}
+.fp-bf .bfremove{color:var(--silver);border-style:solid;border-color:var(--border);padding:4px 9px;font-weight:700;}
+.fp-bf .bfremove:hover{color:#fff;background:#A85959;border-color:#A85959;}
 .fp-calc{display:none;}
 .fp-warn{font-size:calc(8.5px + var(--ts));font-weight:700;color:var(--warn);white-space:nowrap;position:absolute;top:100%;left:0;margin-top:2px;}
 .fp-flags{padding:0 14px 11px;display:flex;flex-direction:column;gap:4px;}
@@ -1304,7 +1306,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S234</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S235</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -3567,9 +3569,24 @@ function renderStdTable() {
   stdData.forEach((row, i) => {
     const r=_calcFlowPoint(row);
     const vtxt=r.verdict==='pass'?'✓ PASS':r.verdict==='fail'?'✗ FAIL':'—';
-    const sucWarn=(!isNaN(parseFloat(row.suction))&&!isNaN(parseFloat(npshPsi))&&parseFloat(npshPsi)>0&&parseFloat(row.suction)<parseFloat(npshPsi))?'<div class="fp-warn">⚠ &lt; NPSH</div>':'';
-    const bfWarn=(!isNaN(parseFloat(row.bfUp))&&parseFloat(row.bfUp)<20)?'<div class="fp-warn">⚠ BF &lt; 20</div>':'';
-    const flagsHtml=r.flags.length?('<div class="fp-flags" id="std-flags-'+i+'">'+r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join('')+'</div>'):('<div class="fp-flags" id="std-flags-'+i+'" style="display:none;"></div>');
+    const hasBF = (row.bfUp!==''&&row.bfUp!=null) || (row.bfDown!==''&&row.bfDown!=null);
+    const flagsHtml='<div class="fp-flags" id="std-flags-'+i+'"'+(r.flags.length?'':' style="display:none;"')+'>'+
+      (r.flags.length?r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join(''):'')+'</div>';
+    // shared header: spine | segtag | Suct | Disch | RPM | end
+    const header = `<div></div><div></div><div class="fp-hdr">Suct</div><div class="fp-hdr">Disch</div><div class="fp-hdr">RPM</div><div class="fp-hdr"></div>`;
+    // single measured line (3-point is w/o-PLD by definition); governing = Net
+    const measLine = `<div class="fp-spine wo"></div><div class="fp-segtag wo">Meas.</div>
+         <input type="number" value="${row.suction||''}" placeholder="psi" data-field="suction" data-idx="${i}" data-tbl="std">
+         <input type="number" value="${row.discharge||''}" placeholder="psi" data-field="discharge" data-idx="${i}" data-tbl="std">
+         <input type="number" value="${row.rpm||''}" placeholder="RPM" data-field="rpm" data-idx="${i}" data-tbl="std">
+         <div class="fp-endval gov" id="std-end-${i}"><span class="el">Net</span><span class="ev">—</span></div>`;
+    const bfBlock = hasBF
+      ? `<div class="fp-bf" id="std-bf-${i}">
+           <div class="bfcell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="std"></div>
+           <div class="bfcell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="std"></div>
+           <button type="button" class="bftoggle bfremove" onclick="_stdHideBF(${i})" title="Remove backflow readings">✕</button>
+         </div>`
+      : `<div class="fp-bf" id="std-bf-${i}"><button type="button" class="bftoggle" onclick="_stdShowBF(${i})">+ Backflow readings</button></div>`;
     const d=document.createElement('div'); d.className='fp-card'; d.id='std-card-'+i;
     d.innerHTML=`
       <div class="fp-head">
@@ -3580,40 +3597,32 @@ function renderStdTable() {
         </div>
       </div>
       <div class="fp-strip">
-        <div class="fp-seg" style="flex:0 0 auto;">
-          <span class="fp-seg-lbl">Reference</span>
-          <div class="fp-fields">
-            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Cutsheet</label><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="std"></div>
-            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Placard</label><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="std"></div>
-          </div>
+        <div class="fp-refline">
+          <span class="ri"><b>Flow</b><input type="number" value="${row.flow!==null&&row.flow!==''?row.flow:''}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="std"></span>
+          <span class="ri"><b>Cutsheet</b><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="std"></span>
+          <span class="ri"><b>Placard</b><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="std"></span>
         </div>
-        <div class="fp-seg">
-          <span class="fp-seg-lbl">Measured (psi)</span>
-          <div class="fp-fields">
-            <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suction||''}" placeholder="psi" data-field="suction" data-idx="${i}" data-tbl="std">${sucWarn}</div>
-            <div class="fp-cell"><label>Discharge</label><input type="number" value="${row.discharge||''}" placeholder="psi" data-field="discharge" data-idx="${i}" data-tbl="std"></div>
-            <div class="fp-cell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="std">${bfWarn}</div>
-            <div class="fp-cell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="std"></div>
-          </div>
-        </div>
-        <div class="fp-seg" style="flex:0 0 auto;">
-          <span class="fp-seg-lbl">Speed</span>
-          <div class="fp-fields">
-            <div class="fp-cell" style="width:64px;flex:none;"><label>Rec. RPM</label><input type="number" value="${row.rpm||''}" placeholder="RPM" data-field="rpm" data-idx="${i}" data-tbl="std"></div>
-          </div>
-        </div>
-        <div class="fp-seg">
-          <span class="fp-seg-lbl">Net Pressure (psi)</span>
-          <div class="fp-fields">
-            <div class="fp-cell"><label>Recorded</label><div class="fp-calc" id="std-net-${i}">${r.net!=null?r.net.toFixed(0):'—'}</div></div>
-            <div class="fp-cell"><label>Adjusted</label><div class="fp-calc adj" id="std-adj-${i}">${r.adj!=null?r.adj.toFixed(0):'—'}</div></div>
-            <div class="fp-cell"><label>Min 95%</label><div class="fp-calc tgt" id="std-tgt-${i}">${r.thresh!=null?r.thresh.toFixed(0):'—'}</div></div>
-          </div>
-        </div>
+        <div class="fp-grid">${header}${measLine}</div>
+        ${bfBlock}
       </div>
       ${flagsHtml}`;
     host.appendChild(d);
+    updateStdCalcCells(i);
   });
+}
+// S235: BF reveal/remove for 3-point flow points (render-only; clears data on remove)
+function _stdShowBF(i){
+  const bf=document.getElementById('std-bf-'+i); if(!bf) return;
+  const row=stdData[i]||{};
+  bf.innerHTML='<div class="bfcell"><label>BF Up</label><input type="number" value="'+(row.bfUp||'')+'" placeholder="psi" data-field="bfUp" data-idx="'+i+'" data-tbl="std"></div>'+
+    '<div class="bfcell"><label>BF Down</label><input type="number" value="'+(row.bfDown||'')+'" placeholder="psi" data-field="bfDown" data-idx="'+i+'" data-tbl="std"></div>'+
+    '<button type="button" class="bftoggle bfremove" onclick="_stdHideBF('+i+')" title="Remove backflow readings">✕</button>';
+}
+function _stdHideBF(i){
+  if(stdData[i]){ stdData[i].bfUp=''; stdData[i].bfDown=''; }
+  const bf=document.getElementById('std-bf-'+i); if(!bf) return;
+  bf.innerHTML='<button type="button" class="bftoggle" onclick="_stdShowBF('+i+')">+ Backflow readings</button>';
+  if(typeof updateStdCalcCells==='function') updateStdCalcCells(i);
 }
 
 // Set left offset for 2nd sticky column based on 1st column width
@@ -3788,14 +3797,16 @@ function updateStdCalcCells(i) {
   const row = stdData[i];
   if(!row) return;
   const r = _calcFlowPoint(row);
-  const netEl = document.getElementById('std-net-'+i);
-  const adjEl = document.getElementById('std-adj-'+i);
-  const tgtEl = document.getElementById('std-tgt-'+i);
+  const endEl = document.getElementById('std-end-'+i);
   const vEl   = document.getElementById('std-verdict-'+i);
   const flEl  = document.getElementById('std-flags-'+i);
-  if(netEl) netEl.textContent = r.net!=null ? r.net.toFixed(0) : '—';
-  if(adjEl) adjEl.textContent = r.adj!=null ? r.adj.toFixed(0) : '—';
-  if(tgtEl) tgtEl.textContent = r.thresh!=null ? r.thresh.toFixed(0) : '—';
+  if(endEl){
+    var netTxt = r.net!=null ? r.net.toFixed(0) : '\u2014';
+    var adjTxt = r.adj!=null ? r.adj.toFixed(0) : '\u2014';
+    var thrTxt = r.thresh!=null ? r.thresh.toFixed(0) : '\u2014';
+    endEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
+      '<span class="ea">adj '+adjTxt+' \u00b7 \u2265'+thrTxt+'</span>';
+  }
   if(vEl){
     vEl.className = 'fp-verdict '+r.verdict;
     vEl.textContent = r.verdict==='pass'?'✓ PASS':r.verdict==='fail'?'✗ FAIL':'—';
@@ -3803,19 +3814,6 @@ function updateStdCalcCells(i) {
   if(flEl){
     if(r.flags.length){ flEl.style.display=''; flEl.innerHTML = r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join(''); }
     else { flEl.style.display='none'; flEl.innerHTML=''; }
-  }
-  // refresh the inline ⚠ markers under suction / BF Up inputs
-  var card=document.getElementById('std-card-'+i);
-  if(card){
-    var npsh=parseFloat(npshPsi), suc=parseFloat(row.suction), bf=parseFloat(row.bfUp);
-    var cells=card.querySelectorAll('.fp-cell');
-    // suction is the 1st cell in the Measured seg (3rd cell overall: cutsheet, placard, suction...)
-    var sucCell=card.querySelector('input[data-field="suction"]');
-    var bfCell=card.querySelector('input[data-field="bfUp"]');
-    if(sucCell){ var w=sucCell.parentNode.querySelector('.fp-warn'); var bad=(!isNaN(suc)&&!isNaN(npsh)&&npsh>0&&suc<npsh);
-      if(bad&&!w){ var dw=document.createElement('div'); dw.className='fp-warn'; dw.innerHTML='⚠ &lt; NPSH'; sucCell.parentNode.appendChild(dw); } else if(!bad&&w){ w.remove(); } }
-    if(bfCell){ var w2=bfCell.parentNode.querySelector('.fp-warn'); var bad2=(!isNaN(bf)&&bf<20);
-      if(bad2&&!w2){ var dw2=document.createElement('div'); dw2.className='fp-warn'; dw2.innerHTML='⚠ BF &lt; 20'; bfCell.parentNode.appendChild(dw2); } else if(!bad2&&w2){ w2.remove(); } }
   }
 }
 
@@ -3862,11 +3860,12 @@ function renderPldTable() {
          <div class="fp-held" id="pld-end-w-${i}"><span class="hl">Net held</span><span class="hv">—</span></div>`;
     // BF Up/Down: show inline only when populated; otherwise a small add toggle
     const bfBlock = hasBF
-      ? `<div class="fp-bf">
+      ? `<div class="fp-bf" id="pld-bf-${i}">
            <div class="bfcell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="pld"></div>
            <div class="bfcell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="pld"></div>
+           <button type="button" class="bftoggle bfremove" onclick="_pldHideBF(${i})" title="Remove backflow readings">✕</button>
          </div>`
-      : `<div class="fp-bf"><button type="button" class="bftoggle" onclick="_pldShowBF(${i})">+ Backflow readings</button></div>`;
+      : `<div class="fp-bf" id="pld-bf-${i}"><button type="button" class="bftoggle" onclick="_pldShowBF(${i})">+ Backflow readings</button></div>`;
     const d=document.createElement('div'); d.className='fp-card'; d.id='pld-card-'+i;
     d.innerHTML=`
       <div class="fp-head">
@@ -3901,13 +3900,19 @@ function _pldCapDevice(){
   if(rel && rel.value!=='') return 'PRV';
   return 'PLD';
 }
-// S234: reveal BF inputs on demand for a flow point (render-only convenience)
+// S234: reveal/remove BF inputs on demand for a flow point
 function _pldShowBF(i){
-  const card=document.getElementById('pld-card-'+i); if(!card) return;
-  const bf=card.querySelector('.fp-bf'); if(!bf) return;
+  const bf=document.getElementById('pld-bf-'+i); if(!bf) return;
   const row=pldData[i]||{};
   bf.innerHTML='<div class="bfcell"><label>BF Up</label><input type="number" value="'+(row.bfUp||'')+'" placeholder="psi" data-field="bfUp" data-idx="'+i+'" data-tbl="pld"></div>'+
-    '<div class="bfcell"><label>BF Down</label><input type="number" value="'+(row.bfDown||'')+'" placeholder="psi" data-field="bfDown" data-idx="'+i+'" data-tbl="pld"></div>';
+    '<div class="bfcell"><label>BF Down</label><input type="number" value="'+(row.bfDown||'')+'" placeholder="psi" data-field="bfDown" data-idx="'+i+'" data-tbl="pld"></div>'+
+    '<button type="button" class="bftoggle bfremove" onclick="_pldHideBF('+i+')" title="Remove backflow readings">✕</button>';
+}
+function _pldHideBF(i){
+  if(pldData[i]){ pldData[i].bfUp=''; pldData[i].bfDown=''; }
+  const bf=document.getElementById('pld-bf-'+i); if(!bf) return;
+  bf.innerHTML='<button type="button" class="bftoggle" onclick="_pldShowBF('+i+')">+ Backflow readings</button>';
+  if(typeof updatePldCalcCells==='function') updatePldCalcCells(i);
 }
 
 // Shared PLD verdict computation — used by on-screen cells AND email export (one source of truth)
