@@ -1182,7 +1182,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S240</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S241</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -4553,7 +4553,9 @@ function _buildReadoutStripHtml3pt(){
 
 function initChart3pt() {
   const canvas = document.getElementById('chart3pt');
-  if(!canvas||chart3pt) return;
+  if(!canvas) return;
+  if(chart3pt){ if(typeof Chart!=='undefined' && Chart.getChart && Chart.getChart(canvas)===chart3pt) return; chart3pt=null; }
+  _destroyCanvasChart('chart3pt');
   // S213 redesign: muted FRT-family palette, edge labels (right axis) for measured discharge,
   // %-tags (0/100/150%) on measured only; all other on-canvas datalabels removed.
   // Marker/supply/demand values now live in the readout + supply strip beneath the figure.
@@ -4712,7 +4714,9 @@ function updateChart3pt() {
 // ══════════════════════════════════════════════════
 function initNetChart3pt() {
   const canvas = document.getElementById('netChart3pt');
-  if(!canvas||netChart3pt) return;
+  if(!canvas) return;
+  if(netChart3pt){ if(typeof Chart!=='undefined' && Chart.getChart && Chart.getChart(canvas)===netChart3pt) return; netChart3pt=null; }
+  _destroyCanvasChart('netChart3pt');
   const labelOff = {display:false};
   netChart3pt = new Chart(canvas.getContext('2d'), {
     type:'scatter',
@@ -4784,7 +4788,12 @@ function updateNetChart3pt() {
 // ══════════════════════════════════════════════════
 function initPldChart() {
   const canvas = document.getElementById('pldChart');
-  if(!canvas||pldChart) return;
+  if(!canvas) return;
+  // S241: if our global already matches the chart Chart.js has on this canvas, keep it.
+  // Otherwise the global is stale/orphaned — destroy whatever is really on the canvas
+  // and rebuild so the global and the visible instance can never diverge.
+  if(pldChart){ if(typeof Chart!=='undefined' && Chart.getChart && Chart.getChart(canvas)===pldChart) return; pldChart=null; }
+  _destroyCanvasChart('pldChart');
   const labelOff = {display:false};
   pldChart = new Chart(canvas.getContext('2d'), {
     type:'scatter',
@@ -4901,7 +4910,9 @@ function updateNetPerfChart() {}
 let pldNetChart = null;
 function initPldNetChart() {
   const canvas = document.getElementById('pldNetChart');
-  if(!canvas||pldNetChart) return;
+  if(!canvas) return;
+  if(pldNetChart){ if(typeof Chart!=='undefined' && Chart.getChart && Chart.getChart(canvas)===pldNetChart) return; pldNetChart=null; }
+  _destroyCanvasChart('pldNetChart');
   const labelOff = {display:false};
   pldNetChart = new Chart(canvas.getContext('2d'), {
     type:'scatter',
@@ -4975,6 +4986,20 @@ function updatePldNetChart() {
 // ── Master update functions ──
 function updateChart() { updateChart3pt(); }
 function refreshAllCharts() { updateChart3pt(); updateNetChart3pt(); updatePldChart(); updatePldNetChart(); }
+// S241: ROOT CAUSE of blank charts — console proved `pldChart === instance on canvas: false`:
+// the global chart var pointed at a DEAD/orphaned Chart instance while Chart.js had a
+// different (empty) instance bound to the visible canvas. Caused by applyChartDarkMode()
+// destroy+rAF-reinit racing the boot/refresh init paths, leaving a duplicate Chart on
+// the same canvas. Fix: before ANY new Chart(), destroy whatever Chart.js actually has
+// registered on that canvas (Chart.getChart = source of truth, not the global var).
+function _destroyCanvasChart(id){
+  try {
+    var canvas = document.getElementById(id);
+    if(!canvas) return;
+    var existing = (typeof Chart!=='undefined' && Chart.getChart) ? Chart.getChart(canvas) : null;
+    if(existing && typeof existing.destroy === 'function') existing.destroy();
+  } catch(e){}
+}
 // S239: reliable paint for the Performance Test (s4) charts. The old bug: charts
 // were update()'d while their canvas had zero measured size (panel not laid out at
 // load time), so Chart.js drew nothing until an incidental reflow (re-typing a field,
@@ -4990,14 +5015,22 @@ function _refreshS4Charts() {
   // explicit .resize() THEN .render() to force the pixels to flush. render() repaints
   // from current data without touching it — exactly what re-typing a field did.
   function _flush(ch){ if(!ch) return; try { ch.resize(); ch.update('none'); ch.render(); } catch(e){} }
+  // S241: a chart is "live" only if our global is the SAME instance Chart.js has on the
+  // canvas. If not (orphaned), force a rebuild — init now reconciles + destroys orphans.
+  function _live(globalChart, id){
+    if(!globalChart) return false;
+    var canvas = document.getElementById(id);
+    if(!canvas) return false;
+    return (typeof Chart!=='undefined' && Chart.getChart) ? (Chart.getChart(canvas)===globalChart) : true;
+  }
   function paint() {
     if (_ptype === 'pld') {
-      if (!pldChart) { initPldChart(); setTimeout(hookChartAnnotations, 200); } else { updatePldChart(); if(!document.getElementById('pldChart-annotations')) setTimeout(hookChartAnnotations, 100); }
-      if (!pldNetChart) { initPldNetChart(); setTimeout(hookChartAnnotations, 200); } else { updatePldNetChart(); if(!document.getElementById('pldNetChart-annotations')) setTimeout(hookChartAnnotations, 100); }
+      if (!_live(pldChart,'pldChart')) { pldChart=null; initPldChart(); setTimeout(hookChartAnnotations, 200); } else { updatePldChart(); if(!document.getElementById('pldChart-annotations')) setTimeout(hookChartAnnotations, 100); }
+      if (!_live(pldNetChart,'pldNetChart')) { pldNetChart=null; initPldNetChart(); setTimeout(hookChartAnnotations, 200); } else { updatePldNetChart(); if(!document.getElementById('pldNetChart-annotations')) setTimeout(hookChartAnnotations, 100); }
       _flush(pldChart); _flush(pldNetChart);
     } else {
-      if (!chart3pt) { initChart3pt(); setTimeout(hookChartAnnotations, 200); } else { updateChart3pt(); if(!document.getElementById('chart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
-      if (!netChart3pt) { initNetChart3pt(); setTimeout(hookChartAnnotations, 200); } else { updateNetChart3pt(); if(!document.getElementById('netChart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
+      if (!_live(chart3pt,'chart3pt')) { chart3pt=null; initChart3pt(); setTimeout(hookChartAnnotations, 200); } else { updateChart3pt(); if(!document.getElementById('chart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
+      if (!_live(netChart3pt,'netChart3pt')) { netChart3pt=null; initNetChart3pt(); setTimeout(hookChartAnnotations, 200); } else { updateNetChart3pt(); if(!document.getElementById('netChart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
       updateChart3pt(); updateNetChart3pt();
       _flush(chart3pt); _flush(netChart3pt);
     }
@@ -7989,7 +8022,13 @@ function debounceAutosave() {
     clearTimeout(_cloudPushTimer);
     _cloudPushTimer = setTimeout(() => {
       if (_csHubMode && typeof CloudSync !== 'undefined' && CloudSync.isInitialized && navigator.onLine) {
-        try { CloudSync.save(JSON.stringify(_collectCloudState())); }
+        try {
+          var _dw = (typeof pldData!=='undefined' && pldData[4]) ? pldData[4].dis_w : '?';
+          console.log('[S241 autosave→cloud] pushing, 100% dis_w =', _dw);
+          CloudSync.save(JSON.stringify(_collectCloudState()))
+            .then(function(r){ console.log('[S241 autosave→cloud] LANDED', r ? 'ok' : '(dedup/skip)'); })
+            .catch(function(e){ console.warn('[S241 autosave→cloud] FAILED', e); });
+        }
         catch (e) { console.warn('[autosave] cloud push failed:', e); }
       }
     }, 1500);
@@ -8726,6 +8765,7 @@ window.addEventListener('load', () => {
         return CloudSync.load();
       }).then(function(result){
         if(result && result.state){
+          try { var _rs=result.state; var _d=(_rs&&_rs.pldData&&_rs.pldData[4])?_rs.pldData[4].dis_w:'?'; console.log('[S241 cloud→load] cloud returned 100% dis_w =', _d, 'source:', result.source); } catch(e){}
           _applyLoadedState(JSON.stringify(result.state));
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
