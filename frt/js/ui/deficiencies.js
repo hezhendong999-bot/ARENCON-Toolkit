@@ -1735,6 +1735,14 @@ export var initDeficiencies = {
 
   render: function() {
     _recHoldUntilNav = false;  // S150g: any deliberate render resettles the list
+    // S248: combined-view delayed re-sort. A deliberate render (tab switch,
+    // filter, project/photo load) resettles the list, so a stale ordering
+    // never persists across navigation. The ONE exception is the re-lock
+    // render and the manual Re-sort render, which manage the pending set
+    // themselves — they set _cvSuppressFlush for exactly one render so
+    // locking does NOT silently resettle (the whole point of decoupling).
+    if (_cvSuppressFlush) { _cvSuppressFlush = false; }
+    else { _cvPendingKeys = {}; }
     var proj = Model.getProject();
     var container = document.getElementById('deficiencies-container');
     if (!container) return;
@@ -2590,6 +2598,19 @@ var _cvUnlocked = false;
 // place until the global re-lock resettles the whole list.
 var _cvDirty = {};
 
+// S248: committed-but-not-yet-resorted set. When the list is re-locked we
+// PROMOTE _cvDirty into here instead of resettling immediately (decoupled
+// re-sort, per LOCKED_COMBINED_VIEW_MANUAL_RESORT). Keyed per obsKey so a
+// multi-obs pin whose observations land in DIFFERENT categories (verified on
+// real Sprucewood data — pin 5: obsA=rec, obsB=active) tracks each obs
+// independently. Cleared by _cvResort() (manual button) or a deliberate
+// navigation re-render. Purely a render marker — the model is already mutated.
+var _cvPendingKeys = {};
+// S248: one-shot guard — when true, the next render() does NOT flush the
+// pending set. Set by _cvToggleLock on re-lock so committing categories does
+// not silently resettle the list (decoupled re-sort).
+var _cvSuppressFlush = false;
+
 // The four-category descriptor for the segmented pill. Lavender Site
 // Record per the lock (NOT grey, NOT the legacy FRT site green).
 function _cvCatMeta(cat) {
@@ -2629,10 +2650,14 @@ function _cvCategoryPill(d, oi, cat) {
 // We do NOT re-implement the editor; the pill is the only added chrome.
 function _cvObsRow(d, oi, ctrId, opts, cat) {
   var pill = '<div class="cv-row-catbar">' + _cvCategoryPill(d, oi, cat) + '</div>';
+  // S248: mark rows whose committed category is waiting to be re-sorted, so
+  // the user can see WHICH cards are pending (load-bearing — without it the
+  // list can silently show stale order and the user trusts it).
+  var pend = _cvPendingKeys[_obsKey(d.id, oi)] ? ' cv-pending' : '';
   // _buildObsRow already renders the row + (when open) the editor. We
   // inject the category pill as a sibling header strip above the row so a
   // re-render of the row body never clobbers it and vice-versa.
-  return '<div class="cv-row" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">'
+  return '<div class="cv-row' + pend + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">'
     + pill + _buildObsRow(d, oi, ctrId, opts) + '</div>';
 }
 
@@ -2731,11 +2756,17 @@ function _renderCombinedView(proj, container) {
   var h = '';
 
   // Global "Edit categories" lock switch — ONE for the whole list.
+  // S248: re-lock COMMITS but no longer resettles; a separate ↻ Re-sort
+  // button (with pending count) resettles when the user is ready.
+  var _pend = _cvPendingCount();
   h += '<div class="cv-lockbar">'
     + '<button type="button" class="cv-lock-btn' + (_cvUnlocked ? ' unlocked' : '') + '" data-action="cv-togglelock" aria-pressed="' + (_cvUnlocked ? 'true' : 'false') + '">'
-    + (_cvUnlocked ? '\uD83D\uDD13 Editing categories \u2014 tap to lock & re-sort' : '\uD83D\uDD12 Edit categories')
+    + (_cvUnlocked ? '\uD83D\uDD13 Editing categories \u2014 tap to lock' : '\uD83D\uDD12 Edit categories')
     + '</button>'
-    + (_cvUnlocked ? '<span class="cv-lock-hint">Tap a category to change it. The list re-sorts when you lock.</span>' : '')
+    + '<button type="button" class="cv-resort-btn' + (_pend ? ' has-pending' : '') + '" data-action="cv-resort"' + (_pend ? '' : ' disabled aria-disabled="true"') + ' title="Re-sort cards into their categories">'
+    + '\u21BB Re-sort' + (_pend ? ' (' + _pend + ')' : '')
+    + '</button>'
+    + (_cvUnlocked ? '<span class="cv-lock-hint">Tap a category to change it. Cards stay put \u2014 lock, then Re-sort when ready.</span>' : '')
     + '</div>';
 
   orderedTrades.forEach(function(tk) {
@@ -2798,14 +2829,65 @@ function _renderCombinedView(proj, container) {
 // mutated) categories. Unlocking just re-renders to enable the pills.
 function _cvToggleLock() {
   _cvUnlocked = !_cvUnlocked;
-  if (!_cvUnlocked) { _cvDirty = {}; }     // re-lock → resettle
+  if (!_cvUnlocked) {
+    // S248: re-lock COMMITS but no longer resettles. Promote this session's
+    // edits into the pending set and re-render so the pills go untappable —
+    // but cards HOLD position. The user resettles via the ↻ Re-sort button
+    // (or a deliberate navigation re-render). This stops cards jumping out
+    // from under the user the instant they lock.
+    Object.keys(_cvDirty).forEach(function(k) { _cvPendingKeys[k] = true; });
+    _cvDirty = {};
+    _cvSuppressFlush = true;   // this render commits but holds position
+  }
   initDeficiencies.render();
 }
 
+// S248: manual re-sort. Clears the pending set and re-renders, which lets the
+// existing pin/category ordering resettle the whole list. Flash + scroll the
+// first moved card into view so the motion is legible (not silent — a silent
+// resort is the one variant the lock doc says to avoid).
+function _cvResort() {
+  var keys = Object.keys(_cvPendingKeys);
+  if (!keys.length) return;
+  _cvPendingKeys = {};
+  initDeficiencies.render();
+  // Post-render: flash every row that was pending; scroll the first into view.
+  try {
+    function rowFor(k) {
+      var ci = k.lastIndexOf(':');
+      if (ci < 0) return null;
+      var did = k.slice(0, ci), oi = k.slice(ci + 1);
+      var dsel = (window.CSS && CSS.escape) ? CSS.escape(did) : did;
+      return document.querySelector('.cv-row[data-defic-id="' + dsel + '"][data-obs-idx="' + oi + '"]');
+    }
+    var firstEl = rowFor(keys[0]);
+    if (firstEl && firstEl.scrollIntoView) firstEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    keys.forEach(function(k) {
+      var r = rowFor(k);
+      if (!r) return;
+      r.classList.remove('cv-just-moved'); void r.offsetWidth; r.classList.add('cv-just-moved');
+      setTimeout(function() { r.classList.remove('cv-just-moved'); }, 1400);
+    });
+  } catch (e) {}
+}
+
+// S248: count obs-rows whose committed category no longer matches the order
+// they were rendered in (i.e. waiting to be filed). Drives the button badge
+// and the calm/disabled state. Per-obs keyed (mixed-category pins).
+function _cvPendingCount() {
+  return Object.keys(_cvPendingKeys).length;
+}
+
 // Auto-relock backstop — called on tab-leave / card-close paths so the
-// list never lingers in the editable state.
+// list never lingers in the editable state. S248: also resettles any
+// pending rows on the way out, so a stale ordering never persists across
+// navigation (resort-on-view-change).
 function _cvAutoRelock() {
-  if (_cvUnlocked) { _cvUnlocked = false; _cvDirty = {}; }
+  if (_cvUnlocked) {
+    Object.keys(_cvDirty).forEach(function(k) { _cvPendingKeys[k] = true; });
+    _cvUnlocked = false; _cvDirty = {};
+  }
+  _cvPendingKeys = {};
 }
 
 // Apply a category change for one observation, writing ONLY through
@@ -3682,6 +3764,10 @@ document.addEventListener('click', function(e) {
   // ── S232 FRT-CV: Combined-view category lock + per-obs category set ──
   if (action === 'cv-togglelock') {
     _cvToggleLock();
+    return;
+  }
+  if (action === 'cv-resort') {
+    _cvResort();
     return;
   }
   if (action === 'cv-setcat') {

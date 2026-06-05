@@ -8953,6 +8953,27 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
 .cv-lock-btn.unlocked{background:var(--b-cat-active-bg);border-color:var(--b-bar-accent);color:var(--b-cat-active-fg);box-shadow:0 0 0 2px var(--b-pill-hover);}
 .cv-lock-hint{font-size:12px;color:var(--b-pill-seg-fg);}
 
+/* S248: manual Re-sort button — calm/disabled when nothing pending, accented
+   (burgundy) when cards are waiting to be filed. Tokens auto-switch per mode. */
+.cv-resort-btn{font-family:Calibri,sans-serif;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;
+  border:1px solid var(--b-pill-bd,#D2CEDB);background:var(--b-pill-bg,#fff);color:var(--b-pill-seg-fg,#928E9C);
+  cursor:default;min-height:38px;opacity:.55;transition:background .12s,border-color .12s,opacity .12s,box-shadow .12s;}
+.cv-resort-btn.has-pending{cursor:pointer;opacity:1;color:var(--b-cat-active-fg,#C0445F);
+  background:var(--b-cat-active-bg,#fdf5f7);border-color:var(--b-bar-accent,#9C2742);
+  box-shadow:0 0 0 2px var(--b-pill-hover,rgba(156,39,66,.10));}
+.cv-resort-btn.has-pending:hover{background:var(--b-pill-hover,rgba(156,39,66,.14));}
+
+/* S248: pending marker — quiet tinted left edge on a row whose committed
+   category is waiting for the next Re-sort. Visible but not loud. */
+.cv-row.cv-pending{position:relative;}
+.cv-row.cv-pending::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:3px;
+  background:var(--b-bar-accent,#9C2742);opacity:.55;}
+
+/* S248: moved flash — brief highlight on rows that just resettled into place. */
+@keyframes cvJustMoved{0%{background:var(--b-cat-active-bg,#fdf5f7);}100%{background:transparent;}}
+.cv-row.cv-just-moved{animation:cvJustMoved 1.4s ease-out;border-radius:12px;}
+@media(prefers-reduced-motion:reduce){.cv-row.cv-just-moved{animation:none;}}
+
 /* Per-row category bar (above the reused obs row) */
 .cv-row{display:block;}
 .cv-row-catbar{display:flex;align-items:center;padding:6px 8px 0;}
