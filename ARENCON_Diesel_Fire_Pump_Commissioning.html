@@ -1182,7 +1182,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S238</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S239</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -4975,6 +4975,36 @@ function updatePldNetChart() {
 // ── Master update functions ──
 function updateChart() { updateChart3pt(); }
 function refreshAllCharts() { updateChart3pt(); updateNetChart3pt(); updatePldChart(); updatePldNetChart(); }
+// S239: reliable paint for the Performance Test (s4) charts. The old bug: charts
+// were update()'d while their canvas had zero measured size (panel not laid out at
+// load time), so Chart.js drew nothing until an incidental reflow (re-typing a field,
+// or 30-60s later). Fix: init if needed, update data, then resize AFTER layout has
+// settled. Double rAF + a delayed resize fallback covers the slow-layout case.
+function _refreshS4Charts() {
+  var _ptype = 'std';
+  document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) _ptype = b.dataset.ptype; });
+  function paint() {
+    if (_ptype === 'pld') {
+      if (!pldChart) { initPldChart(); setTimeout(hookChartAnnotations, 200); } else { updatePldChart(); if(!document.getElementById('pldChart-annotations')) setTimeout(hookChartAnnotations, 100); }
+      if (!pldNetChart) { initPldNetChart(); setTimeout(hookChartAnnotations, 200); } else { updatePldNetChart(); if(!document.getElementById('pldNetChart-annotations')) setTimeout(hookChartAnnotations, 100); }
+      if(pldChart) pldChart.resize();
+      if(pldNetChart) pldNetChart.resize();
+    } else {
+      if (!chart3pt) { initChart3pt(); setTimeout(hookChartAnnotations, 200); } else { updateChart3pt(); if(!document.getElementById('chart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
+      if (!netChart3pt) { initNetChart3pt(); setTimeout(hookChartAnnotations, 200); } else { updateNetChart3pt(); if(!document.getElementById('netChart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
+      updateChart3pt(); updateNetChart3pt();
+      if(chart3pt) chart3pt.resize();
+      if(netChart3pt) netChart3pt.resize();
+    }
+  }
+  // First paint next frame (panel display flip needs one frame to lay out)...
+  requestAnimationFrame(function(){ requestAnimationFrame(paint); });
+  // ...and a resize-only fallback a beat later in case layout was still settling.
+  setTimeout(function(){
+    if (_ptype === 'pld') { if(pldChart) pldChart.resize(); if(pldNetChart) pldNetChart.resize(); }
+    else { if(chart3pt) chart3pt.resize(); if(netChart3pt) netChart3pt.resize(); }
+  }, 300);
+}
 
 // ── Dark Mode Chart Styling ──
 function applyChartDarkMode() {
@@ -5802,26 +5832,7 @@ function switchPanel(id) {
       var _secPld = document.getElementById('perf-pld');
       if (_secStd) _secStd.style.display = (_ptype === 'pld') ? 'none' : '';
       if (_secPld) _secPld.style.display = (_ptype === 'pld') ? '' : 'none';
-      // Defer chart init to next frame — section must be visible before Chart.js measures the canvas
-      requestAnimationFrame(function(){
-        if (_ptype === 'pld') {
-          if (!pldChart) { initPldChart(); setTimeout(hookChartAnnotations, 200); }
-          else { updatePldChart(); if(!document.getElementById('pldChart-annotations')) setTimeout(hookChartAnnotations, 100); }
-          if (!pldNetChart) { initPldNetChart(); setTimeout(hookChartAnnotations, 200); }
-          else { updatePldNetChart(); if(!document.getElementById('pldNetChart-annotations')) setTimeout(hookChartAnnotations, 100); }
-          if(pldChart) pldChart.resize();
-          if(pldNetChart) pldNetChart.resize();
-        } else {
-          if (!chart3pt) { initChart3pt(); setTimeout(hookChartAnnotations, 200); }
-          else { updateChart3pt(); if(!document.getElementById('chart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
-          if (!netChart3pt) { initNetChart3pt(); setTimeout(hookChartAnnotations, 200); }
-          else { updateNetChart3pt(); if(!document.getElementById('netChart3pt-annotations')) setTimeout(hookChartAnnotations, 100); }
-          updateChart3pt();
-          updateNetChart3pt();
-          if(chart3pt) chart3pt.resize();
-          if(netChart3pt) netChart3pt.resize();
-        }
-      });
+      _refreshS4Charts();
       setTimeout(fixStickyColumns,100);
       if(typeof _renderRecordZones==='function') _renderRecordZones();
     }
@@ -7965,18 +7976,38 @@ function updateRevisionDisplay() {
 var _autosaveTimer = null;
 function debounceAutosave() {
   clearTimeout(_autosaveTimer);
-  _autosaveTimer = setTimeout(() => { touchRevision(); saveState(); }, 4000);
+  _autosaveTimer = setTimeout(() => {
+    touchRevision(); saveState();
+    // S239: also push to cloud during normal editing (debounced), so the cloud row
+    // stays current and a refresh never reloads a stale value. Slightly longer delay
+    // than the IDB write to batch rapid typing into fewer cloud writes.
+    clearTimeout(_cloudPushTimer);
+    _cloudPushTimer = setTimeout(() => {
+      if (_csHubMode && typeof CloudSync !== 'undefined' && CloudSync.isInitialized && navigator.onLine) {
+        try { CloudSync.save(JSON.stringify(_collectCloudState())); }
+        catch (e) { console.warn('[autosave] cloud push failed:', e); }
+      }
+    }, 1500);
+  }, 4000);
 }
+var _cloudPushTimer = null;
 // Flush any pending autosave immediately (page hide / app-switch / refresh).
 // Root cause of the S236 "typed value reverts on reload" bug: the 15s debounce
 // timer never fired before unload, so the edit was never persisted. This commits it.
 function _flushAutosave() {
   if (_autosaveTimer) { clearTimeout(_autosaveTimer); _autosaveTimer = null; }
   try { touchRevision(); saveState(); } catch (e) { console.warn('[flush] saveState failed:', e); }
+  // S239: ROOT CAUSE of "value reverts to old number on refresh" — autosave only
+  // wrote to IDB; the cloud row kept the stale value, and refresh reloads cloud.
+  // Push the current state to cloud here so a typed value reaches the cloud row
+  // before the page goes away. keepalive so the request survives unload.
+  if (_csHubMode && typeof CloudSync !== 'undefined' && CloudSync.isInitialized && navigator.onLine) {
+    try { CloudSync.save(JSON.stringify(_collectCloudState())); }
+    catch (e) { console.warn('[flush] cloud push failed:', e); }
+  }
 }
 // visibilitychange(hidden) covers iPad app-switch + tab background; pagehide covers
-// refresh/close. Both fire synchronously enough to land the IDB write. Hub cloud
-// push still follows the existing online-gated save() path.
+// refresh/close. Both fire synchronously enough to land the IDB write + cloud push.
 document.addEventListener('visibilitychange', function(){
   if (document.visibilityState === 'hidden') _flushAutosave();
 });
@@ -8397,6 +8428,12 @@ function _applyLoadedState(raw) {
     calcTotalDemandPld();
     syncAllFields();
     refreshAllCharts();
+    // S239: if the Performance Test tab is the active panel at load time, the plain
+    // refreshAllCharts() above runs while the canvas may not be measured yet. Re-run
+    // the deferred+resize path so the charts actually paint without needing a keystroke.
+    if (document.getElementById('panel-s4') && document.getElementById('panel-s4').classList.contains('active')) {
+      _refreshS4Charts();
+    }
     // Re-render checklists
     ['s1','s2','s3','s4','s4pld','s5'].forEach(sec => {
       const cont = document.getElementById('cl-'+sec);
@@ -8912,6 +8949,27 @@ function _mergeCloudLocal(cloud, local){
         });
       });
     }
+    // S239: Preserve local flow-test row edits (stdData/pldData/pump curves).
+    // The heartbeat only applies cloud when cloud is >5s newer, but a value typed
+    // locally in the last few seconds (not yet pushed) must not be clobbered.
+    // Cloud owns row STRUCTURE (length); local keeps any non-empty field value it
+    // holds that differs from cloud (last-write-wins favouring the visible local edit).
+    function _preserveRows(cloudArr, localArr){
+      if(!Array.isArray(cloudArr) || !Array.isArray(localArr)) return;
+      cloudArr.forEach(function(cr, i){
+        var lr = localArr[i];
+        if(!cr || !lr) return;
+        Object.keys(lr).forEach(function(k){
+          if(k === 'photos') return; // photos handled by their own preserve pass
+          var lv = lr[k];
+          if(lv !== '' && lv != null && lv !== cr[k]) cr[k] = lv;
+        });
+      });
+    }
+    _preserveRows(cloud.stdData, local.stdData);
+    _preserveRows(cloud.pldData, local.pldData);
+    _preserveRows(cloud.pumpCurvePoints, local.pumpCurvePoints);
+    _preserveRows(cloud.pldPumpCurvePoints, local.pldPumpCurvePoints);
     // Preserve sketch photos/drawings
     if(local.sketches && cloud.sketches){
       (cloud.sketches||[]).forEach(function(cs,si){
