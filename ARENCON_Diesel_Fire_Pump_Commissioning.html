@@ -1182,7 +1182,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S241</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S242</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -5000,6 +5000,48 @@ function _destroyCanvasChart(id){
     if(existing && typeof existing.destroy === 'function') existing.destroy();
   } catch(e){}
 }
+// S242: THE REAL ROOT CAUSE (proven by console: rect.top=2157, off-screen at init).
+// Chart.js with responsive:true renders blank when its canvas is far outside the
+// viewport at paint time, and only repaints on an incidental reflow — that's the
+// "shows up after ~20s" (really: when you scroll it into view). Fix: watch each
+// chart canvas; the moment it enters the viewport, sync the global var to whatever
+// chart Chart.js actually has on that canvas (handles orphaning too) and force a
+// render. This is independent of init order, dark-mode races, and tab state.
+var _chartVizObserver = null;
+function _installChartVisibilityObserver(){
+  try {
+    if(_chartVizObserver) _chartVizObserver.disconnect();
+    if(typeof IntersectionObserver === 'undefined') return;
+    var map = { 'chart3pt':'chart3pt', 'netChart3pt':'netChart3pt', 'pldChart':'pldChart', 'pldNetChart':'pldNetChart' };
+    _chartVizObserver = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(!en.isIntersecting) return;
+        var id = en.target.id;
+        var live = (typeof Chart!=='undefined' && Chart.getChart) ? Chart.getChart(en.target) : null;
+        if(!live) return; // not created yet; init paths will handle it
+        // Sync the global variable to the instance actually bound to this canvas.
+        try {
+          if(id==='chart3pt') chart3pt=live;
+          else if(id==='netChart3pt') netChart3pt=live;
+          else if(id==='pldChart') pldChart=live;
+          else if(id==='pldNetChart') pldNetChart=live;
+        } catch(e){}
+        // Push current data + force a real repaint now that it's on-screen.
+        try {
+          if(id==='chart3pt' && typeof updateChart3pt==='function') updateChart3pt();
+          else if(id==='netChart3pt' && typeof updateNetChart3pt==='function') updateNetChart3pt();
+          else if(id==='pldChart' && typeof updatePldChart==='function') updatePldChart();
+          else if(id==='pldNetChart' && typeof updatePldNetChart==='function') updatePldNetChart();
+          live.resize(); live.render();
+        } catch(e){}
+      });
+    }, { root:null, rootMargin:'200px', threshold:0.01 });
+    Object.keys(map).forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) _chartVizObserver.observe(el);
+    });
+  } catch(e){ console.warn('[chart-observer] install failed:', e); }
+}
 // S239: reliable paint for the Performance Test (s4) charts. The old bug: charts
 // were update()'d while their canvas had zero measured size (panel not laid out at
 // load time), so Chart.js drew nothing until an incidental reflow (re-typing a field,
@@ -8022,13 +8064,7 @@ function debounceAutosave() {
     clearTimeout(_cloudPushTimer);
     _cloudPushTimer = setTimeout(() => {
       if (_csHubMode && typeof CloudSync !== 'undefined' && CloudSync.isInitialized && navigator.onLine) {
-        try {
-          var _dw = (typeof pldData!=='undefined' && pldData[4]) ? pldData[4].dis_w : '?';
-          console.log('[S241 autosave→cloud] pushing, 100% dis_w =', _dw);
-          CloudSync.save(JSON.stringify(_collectCloudState()))
-            .then(function(r){ console.log('[S241 autosave→cloud] LANDED', r ? 'ok' : '(dedup/skip)'); })
-            .catch(function(e){ console.warn('[S241 autosave→cloud] FAILED', e); });
-        }
+        try { CloudSync.save(JSON.stringify(_collectCloudState())); }
         catch (e) { console.warn('[autosave] cloud push failed:', e); }
       }
     }, 1500);
@@ -8654,6 +8690,7 @@ window.addEventListener('load', () => {
   initPldChart();
   initPldNetChart();
   setTimeout(function(){ if(typeof applyChartDarkMode==='function') applyChartDarkMode(); }, 100);
+  _installChartVisibilityObserver();
   initSig('sig-canvas');
   renderAllSignRows();
   addContractorSignRow();
@@ -8765,7 +8802,6 @@ window.addEventListener('load', () => {
         return CloudSync.load();
       }).then(function(result){
         if(result && result.state){
-          try { var _rs=result.state; var _d=(_rs&&_rs.pldData&&_rs.pldData[4])?_rs.pldData[4].dis_w:'?'; console.log('[S241 cloud→load] cloud returned 100% dis_w =', _d, 'source:', result.source); } catch(e){}
           _applyLoadedState(JSON.stringify(result.state));
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
