@@ -213,14 +213,14 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .ph-btn:hover{border-color:var(--arencon);color:var(--arencon);}
 .ph-btn-danger{border-color:#A85959;color:#A85959;}
 .ph-btn-danger:hover{background:#A85959;color:#fff;}
-body.dark-mode .ph-btn{background:#2a2d35;color:#ddd;border-color:#3a3e48;}
+body.dark-mode .ph-btn{background:#2a2d35;color:#ddd;border-color:rgba(255,255,255,.14);}
 body.dark-mode .ph-stat-num{color:#eee;}
 .ph-filter-wrap{position:relative;}
 .ph-filter-menu{position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:50;min-width:180px;padding:4px;}
 .ph-filter-menu button{display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:transparent;color:var(--slate);font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));cursor:pointer;border-radius:5px;}
 .ph-filter-menu button:hover{background:var(--smoke);}
 .ph-filter-menu button.active{background:var(--arencon);color:#fff;font-weight:600;}
-body.dark-mode .ph-filter-menu{background:#2a2d35;border-color:#3a3e48;}
+body.dark-mode .ph-filter-menu{background:#2a2d35;border-color:rgba(255,255,255,.14);}
 body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ph-date-header{display:flex;align-items:center;gap:10px;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
 .ph-date-check{width:18px;height:18px;cursor:pointer;accent-color:var(--arencon);}
@@ -327,11 +327,10 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 /* ══ Flow-point photo icon + warning flag ══ */
 .flow-warn{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);margin-top:3px;line-height:1.25;}
 .ph-cell{text-align:center;}
-.ph-icon{position:relative;background:none;border:none;cursor:pointer;color:var(--steel);padding:6px;border-radius:7px;display:inline-flex;line-height:0;transition:all .14s;}
-.ph-icon svg{width:26px;height:26px;}
-.ph-icon:hover{color:var(--arencon);}
+.ph-icon{position:relative;background:none;border:none;cursor:pointer;color:var(--steel);padding:5px;border-radius:7px;display:inline-flex;line-height:0;transition:all .14s;}
+.ph-icon:hover{background:var(--smoke);color:var(--arencon);}
 .ph-icon.has{color:var(--arencon);}
-.ph-icon .cnt{position:absolute;top:-4px;right:-4px;background:#2C7FB8;color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;line-height:18px;border-radius:9px;padding:0 4px;box-shadow:0 0 0 2px var(--card-bg,#fff);}
+.ph-icon .cnt{position:absolute;top:-3px;right:-3px;background:var(--arencon);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;line-height:15px;border-radius:8px;padding:0 3px;}
 /* ══ Per-flow-point gauge-photo modal (.fpm-*) — fixed overlay, theme-aware ══ */
 #flow-photo-modal{position:fixed;inset:0;z-index:9000;display:none;}
 .fpm-backdrop{position:absolute;inset:0;background:rgba(20,24,30,.55);}
@@ -345,76 +344,7 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .fpm-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;padding:0;cursor:pointer;}
 .fpm-empty{margin-top:12px;font-size:calc(11.5px + var(--ts));color:var(--steel);text-align:center;}
 @media(pointer:coarse){.fpm-del{width:26px;height:26px;line-height:26px;font-size:13px;}.fpm-thumb{width:84px;height:84px;}}
-body.dark-mode .fpm-card{background:#232a36;border-color:#2a3040;}
-/* S228: per-photo gauge tag chips (under each thumb in the gauge-photo modal) */
-/* S231: chips in a tidy 2×2 grid — compact, no ragged wrapping */
-.fpm-tile{display:flex;flex-direction:column;gap:6px;width:auto;min-width:148px;max-width:200px;}
-.fpm-tile .fpm-thumb{width:84px;height:84px;}
-.fpm-tagchips{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:148px;}
-.fpm-tagchip{font-size:calc(9px + var(--ts));font-weight:700;padding:4px 6px;border-radius:9px;cursor:pointer;
-  border:1.5px solid;background:transparent;font-family:Calibri,sans-serif;line-height:1.1;display:inline-flex;
-  align-items:center;justify-content:center;white-space:nowrap;transition:all .12s;}
-.fpm-tagchip.dis{color:#2C7FB8;border-color:rgba(44,127,184,.45);}
-.fpm-tagchip.suc{color:#2E9E72;border-color:rgba(46,158,114,.45);}
-.fpm-tagchip.bfi{color:#9C2742;border-color:rgba(156,39,66,.45);}
-.fpm-tagchip.bfo{color:#D98A1E;border-color:rgba(217,138,30,.45);}
-.fpm-tagchip:not(.sel){opacity:.55;}
-.fpm-tagchip:not(.sel):hover{opacity:.85;}
-/* S229: selected = solid accent fill + white text + heavier border — unmistakable at a glance */
-.fpm-tagchip.sel{color:#fff;border-width:2px;box-shadow:0 1px 4px rgba(0,0,0,.18);opacity:1;}
-.fpm-tagchip.sel.dis{background:#2C7FB8;border-color:#2C7FB8;}
-.fpm-tagchip.sel.suc{background:#2E9E72;border-color:#2E9E72;}
-.fpm-tagchip.sel.bfi{background:#9C2742;border-color:#9C2742;}
-.fpm-tagchip.sel.bfo{background:#D98A1E;border-color:#D98A1E;}
-@media(pointer:coarse){.fpm-tile{min-width:160px;}.fpm-tile .fpm-thumb{width:96px;height:96px;}.fpm-tagchips{width:160px;}.fpm-tagchip{padding:7px 8px;font-size:calc(10px + var(--ts));}}
-body.dark-mode .fpm-tagchip.dis{color:#46C5E8;border-color:rgba(70,197,232,.45);}
-body.dark-mode .fpm-tagchip.suc{color:#3FD08A;border-color:rgba(63,208,138,.45);}
-body.dark-mode .fpm-tagchip.bfi{color:#E26076;border-color:rgba(226,96,118,.45);}
-body.dark-mode .fpm-tagchip.bfo{color:#E6A23C;border-color:rgba(230,162,60,.45);}
-body.dark-mode .fpm-tagchip.sel{color:#0b0a0d;}
-body.dark-mode .fpm-tagchip.sel.dis{background:#46C5E8;border-color:#46C5E8;}
-body.dark-mode .fpm-tagchip.sel.suc{background:#3FD08A;border-color:#3FD08A;}
-body.dark-mode .fpm-tagchip.sel.bfi{background:#E26076;border-color:#E26076;}
-body.dark-mode .fpm-tagchip.sel.bfo{background:#E6A23C;border-color:#E6A23C;}
-/* S231: Option B gauge-photo layout — pick reading, then shoot; grouped thumbs + tap-to-resort.
-   Reading accent colors reuse the chip palette (--gr-* set per mode). */
-.fpm-card{--gr-discharge:#2C7FB8;--gr-suction:#2E9E72;--gr-bfi:#9C2742;--gr-bfo:#D98A1E;--gr-rpm:#6E5AA8;}
-body.dark-mode .fpm-card{--gr-discharge:#46C5E8;--gr-suction:#3FD08A;--gr-bfi:#E26076;--gr-bfo:#E6A23C;--gr-rpm:#A593E0;}
-.gsel-lbl{font-size:calc(10px + var(--ts));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--silver);margin-bottom:6px;}
-.gsel-row{display:flex;gap:6px;margin-bottom:10px;}
-.gsel-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 4px;border-radius:8px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font:700 calc(11px + var(--ts)) Calibri,sans-serif;color:var(--steel);transition:all .12s;white-space:nowrap;}
-.gsel-btn .d{width:8px;height:8px;border-radius:50%;}
-.gsel-btn.discharge .d{background:var(--gr-discharge);} .gsel-btn.suction .d{background:var(--gr-suction);}
-.gsel-btn.bfi .d{background:var(--gr-bfi);} .gsel-btn.bfo .d{background:var(--gr-bfo);}
-.gsel-btn.rpm .d{background:var(--gr-rpm);}
-.gsel-btn.active.rpm{background:var(--gr-rpm);border-color:var(--gr-rpm);color:#fff;} .gsel-btn.active.rpm .d{background:#fff;}
-.gsel-btn.active.discharge{background:var(--gr-discharge);border-color:var(--gr-discharge);color:#fff;} .gsel-btn.active.discharge .d{background:#fff;}
-.gsel-btn.active.suction{background:var(--gr-suction);border-color:var(--gr-suction);color:#fff;} .gsel-btn.active.suction .d{background:#fff;}
-.gsel-btn.active.bfi{background:var(--gr-bfi);border-color:var(--gr-bfi);color:#fff;} .gsel-btn.active.bfi .d{background:#fff;}
-.gsel-btn.active.bfo{background:var(--gr-bfo);border-color:var(--gr-bfo);color:#fff;} .gsel-btn.active.bfo .d{background:#fff;}
-@media(pointer:coarse){.gsel-btn{padding:11px 4px;}}
-.ggrp{margin-bottom:11px;}
-.ggrp-lbl{display:flex;align-items:center;gap:6px;font-size:calc(10px + var(--ts));font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;}
-.ggrp-lbl .d{width:8px;height:8px;border-radius:50%;}
-.ggrp.discharge .ggrp-lbl{color:var(--gr-discharge);} .ggrp.discharge .ggrp-lbl .d{background:var(--gr-discharge);} .ggrp.discharge .gthumb{border-left:4px solid var(--gr-discharge);}
-.ggrp.suction .ggrp-lbl{color:var(--gr-suction);} .ggrp.suction .ggrp-lbl .d{background:var(--gr-suction);} .ggrp.suction .gthumb{border-left:4px solid var(--gr-suction);}
-.ggrp.bfi .ggrp-lbl{color:var(--gr-bfi);} .ggrp.bfi .ggrp-lbl .d{background:var(--gr-bfi);} .ggrp.bfi .gthumb{border-left:4px solid var(--gr-bfi);}
-.ggrp.bfo .ggrp-lbl{color:var(--gr-bfo);} .ggrp.bfo .ggrp-lbl .d{background:var(--gr-bfo);} .ggrp.bfo .gthumb{border-left:4px solid var(--gr-bfo);}
-.ggrp.unsorted .ggrp-lbl{color:var(--steel);} .ggrp.unsorted .ggrp-lbl .d{background:var(--steel);} .ggrp.unsorted .gthumb{border-left:4px solid var(--steel);}
-.ggrp.rpm .ggrp-lbl{color:var(--gr-rpm);} .ggrp.rpm .ggrp-lbl .d{background:var(--gr-rpm);} .ggrp.rpm .gthumb{border-left:4px solid var(--gr-rpm);}
-.ggrp-empty{font-size:calc(10px + var(--ts));color:var(--silver);font-style:italic;font-weight:400;text-transform:none;letter-spacing:0;}
-.gthumbs{display:flex;flex-wrap:wrap;gap:8px;}
-.gthumb{position:relative;width:96px;height:96px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);}
-.gthumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block;}
-.gthumb-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:22px;padding:0;}
-.gthumb-move{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;padding:3px 6px;cursor:pointer;font-family:Calibri,sans-serif;}
-.gmove-pop{position:absolute;bottom:30px;left:4px;background:var(--card-bg,#fff);border:1.5px solid var(--border);border-radius:8px;padding:5px;display:none;flex-direction:column;gap:4px;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:5;}
-body.dark-mode .gmove-pop{background:#232a36;}
-.gmove-pop.open{display:flex;}
-.gmove-pop button{display:flex;align-items:center;gap:6px;padding:5px 9px;border:none;background:none;cursor:pointer;font:600 calc(10px + var(--ts)) Calibri,sans-serif;color:var(--slate);border-radius:5px;white-space:nowrap;}
-.gmove-pop button:hover{background:var(--smoke);}
-.gmove-pop .d{width:7px;height:7px;border-radius:50%;}
-@media(pointer:coarse){.gthumb{width:104px;height:104px;}.gthumb-del{width:26px;height:26px;line-height:26px;}.gthumb-move{font-size:11px;padding:4px 8px;}}
+body.dark-mode .fpm-card{background:#232a36;border-color:rgba(255,255,255,.10);}
 /* ══ Flow-test CARD layout (4a 3-point) — muted palette scoped locally (does NOT touch global :root tokens) ══ */
 .fp-banner{font-size:calc(11.5px + var(--ts));color:var(--steel);background:var(--smoke);border:1.5px solid var(--border);border-radius:8px;padding:9px 13px;margin-bottom:14px;line-height:1.5;}
 .fp-banner b{color:var(--slate);}
@@ -466,7 +396,7 @@ body.dark-mode .gmove-pop{background:#232a36;}
 .sm-overlay{position:absolute;inset:0;pointer-events:none;}
 .sm-chip{font-family:Calibri,'Segoe UI',sans-serif;}
 body.dark-mode .fig{background:#1b212b;border-color:#323a48;}
-body.dark-mode .fig-hd{background:linear-gradient(135deg,#5a1a2a,#3d1220);color:#e8c0cc;border-bottom-color:#2A3A5C;}
+body.dark-mode .fig-hd{background:#23212b;color:#e8c0cc;border-bottom-color:#2A3A5C;}
 body.dark-mode .fig-legend,body.dark-mode .fig-supply,body.dark-mode .fig-leghint{background:#161b22;border-color:#323a48;}
 body.dark-mode .fig-legend .lg{background:#222933;border-color:#3a4250;}
 body.dark-mode .fig-legend .lg .lg-main{color:#c2c9d6;}
@@ -476,74 +406,36 @@ body.dark-mode .fig-supply b{color:#d0d8f0;}
 body.dark-mode body.dark-mode .fig-readout{background:#323a48;}
 body.dark-mode .fig-readout .ro{background:#1b212b;}
 body.dark-mode .fig-readout .ro .val{color:#e6e9ee;}
-body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
-/* S234: dense single-grid flow-point card. Render-only redesign — same fields,
-   same data-field/data-idx wiring, same calc-cell IDs. Muted tokens preserved. */
-.fp-strip{padding:9px 14px 11px;}
-.fp-refline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
-.fp-refline .ri{font-size:calc(11.5px + var(--ts));color:var(--steel);white-space:nowrap;}
-.fp-refline .ri b{color:var(--silver);font-weight:600;font-size:calc(9.5px + var(--ts));text-transform:uppercase;letter-spacing:.3px;margin-right:3px;}
-.fp-refline .ri input{width:58px;padding:4px 6px;border-radius:6px;border:1.5px solid var(--border);
-  font-family:inherit;font-size:calc(12.5px + var(--ts));text-align:center;color:var(--slate);background:#fff;}
-.fp-refline .ri input:focus{outline:none;border-color:#A85959;}
-.fp-grid{display:grid;grid-template-columns:5px max-content repeat(3,minmax(46px,1fr)) max-content;
-  gap:4px 9px;align-items:center;}
-.fp-grid .fp-hdr{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.4px;
-  color:var(--silver);text-align:center;}
-.fp-spine{width:5px;align-self:stretch;min-height:28px;border-radius:3px;}
-.fp-spine.wo{background:var(--steel);}
-.fp-spine.w{background:var(--arencon);}
-.fp-segtag{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;
-  line-height:1.05;white-space:nowrap;}
-.fp-segtag.wo{color:var(--steel);}
-.fp-segtag.w{color:var(--arencon);}
-.fp-grid input{padding:6px 6px;border-radius:6px;font-size:calc(13px + var(--ts));font-family:inherit;
-  width:100%;text-align:center;border:1.5px solid var(--border);color:var(--slate);background:#fff;position:relative;}
-.fp-grid input:focus{outline:none;border-color:#A85959;}
-.fp-grid input.gov{border-color:#c79aa6;color:var(--arencon);font-weight:700;}
-.fp-endval{display:flex;align-items:baseline;gap:6px;justify-content:flex-end;white-space:nowrap;}
-.fp-endval .el{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--silver);}
-.fp-endval .ev{font-size:calc(15px + var(--ts));font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
-.fp-endval .ea{font-size:calc(11px + var(--ts));color:var(--steel);}
-.fp-endval .ea b{color:#5F8068;font-weight:700;}
-.fp-endval .ea.miss b{color:#A85959;}
-.fp-info{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
-  border:1px solid var(--silver);color:var(--silver);font-size:10px;font-weight:700;font-style:italic;cursor:help;margin-left:4px;flex:none;}
-.fp-info:hover{color:var(--arencon);border-color:var(--arencon);}
-.fp-endval.gov .el{color:var(--arencon);}
-.fp-endval.gov .ev{color:var(--arencon);}
-.fp-held{position:relative;display:flex;align-items:baseline;gap:7px;justify-content:flex-end;white-space:nowrap;
-  padding:4px 10px;border-radius:7px;background:#eef3f4;border:1.5px solid #bcd2d6;}
-.fp-held::before{content:"";position:absolute;top:0;left:8px;right:8px;height:2px;border-radius:2px;background:#4A8C8C;}
-.fp-held .ht{font-size:calc(8.5px + var(--ts));font-weight:700;color:#3d7373;letter-spacing:.3px;}
-.fp-held .hl{font-size:calc(8.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#3d7373;}
-.fp-held .hv{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;}
-.fp-bf{display:flex;align-items:center;gap:7px;margin-top:6px;padding-left:0;flex-wrap:wrap;justify-content:flex-end;}
-.fp-bf .bfcell{display:flex;align-items:center;gap:5px;position:relative;}
-.fp-bf label{font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);white-space:nowrap;}
-.fp-bf input{width:64px;padding:5px 6px;border-radius:6px;border:1.5px solid var(--border);
-  font-family:inherit;font-size:calc(12.5px + var(--ts));text-align:center;color:var(--slate);background:#fff;}
-.fp-bf input:focus{outline:none;border-color:#A85959;}
-.fp-bf .bftoggle{font-size:calc(10px + var(--ts));font-weight:600;color:var(--steel);cursor:pointer;
-  background:none;border:1px dashed var(--border);border-radius:6px;padding:4px 9px;font-family:inherit;}
-.fp-bf .bftoggle:hover{color:var(--arencon);border-color:#c79aa6;}
-.fp-bf .bfremove{color:var(--silver);border-style:solid;border-color:var(--border);padding:4px 9px;font-weight:700;}
-.fp-bf .bfremove:hover{color:#fff;background:#A85959;border-color:#A85959;}
-.fp-calc{display:none;}
-.fp-warn{font-size:calc(8.5px + var(--ts));font-weight:700;color:var(--warn);white-space:nowrap;position:absolute;top:100%;left:0;margin-top:2px;}
-.fp-flags{padding:0 14px 11px;display:flex;flex-direction:column;gap:4px;}
+body.dark-mode .fig-readout .ro .chip.na{background:rgba(255,255,255,.10);}
+.fp-strip{display:flex;align-items:flex-start;padding:13px 16px;}
+.fp-seg{display:flex;flex-direction:column;gap:8px;flex:1;padding:0 16px;border-right:1.5px solid var(--border);}
+.fp-seg:first-child{padding-left:0;}
+.fp-seg:last-child{border-right:none;padding-right:0;}
+.fp-seg-lbl{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--silver);white-space:nowrap;height:11px;}
+.fp-fields{display:flex;gap:9px;}
+.fp-cell{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;position:relative;}
+.fp-cell label{font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);white-space:nowrap;height:12px;}
+.fp-cell input,.fp-cell .fp-calc{padding:7px 6px;border-radius:6px;font-size:calc(13px + var(--ts));font-family:inherit;width:100%;text-align:center;border:1.5px solid var(--border);}
+.fp-cell input{color:var(--slate);background:#fff;}
+.fp-cell input:focus{outline:none;border-color:#A85959;}
+.fp-cell.ref input{background:#eef0f4;color:var(--steel);}
+.fp-cell .fp-calc{font-weight:700;background:var(--smoke);color:var(--slate);}
+.fp-cell .fp-calc.adj{color:var(--arencon);background:#faf2f4;border-color:#e8cdd5;}
+.fp-cell .fp-calc.tgt{color:var(--steel);background:#fff;border-style:dashed;}
+.fp-cell .fp-warn{font-size:calc(8.5px + var(--ts));font-weight:700;color:var(--warn);white-space:nowrap;position:absolute;top:100%;left:0;margin-top:2px;}
+.fp-flags{padding:0 16px 12px;display:flex;flex-direction:column;gap:4px;}
 .fp-flag{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);line-height:1.3;}
-.fp-skip-note{grid-column:3 / -1;font-size:calc(11px + var(--ts));color:var(--silver);font-style:italic;padding:4px 0;line-height:1.4;}
+.fp-skip-note{font-size:calc(11px + var(--ts));color:var(--silver);font-style:italic;padding:8px 4px;line-height:1.4;}
 .fp-cam{background:none;border:none;cursor:pointer;color:var(--steel);padding:4px;position:relative;line-height:0;border-radius:6px;}
 .fp-cam:hover{background:#fff;color:var(--arencon);}
 .fp-cam.has{color:var(--arencon);}
 .fp-cam .cnt{position:absolute;top:-3px;right:-3px;background:var(--arencon);color:#fff;font-size:8.5px;font-weight:700;min-width:14px;height:14px;line-height:14px;border-radius:7px;}
-/* On narrow tablets, drop the end value to its own full-width row; nothing crushes */
+/* On narrow tablets, let segments wrap rather than crush — keeps inputs tappable */
 @media(max-width:760px){
-  .fp-grid{grid-template-columns:5px max-content repeat(3,1fr);row-gap:6px;}
-  .fp-grid .fp-hdr:last-child{display:none;}
-  .fp-endval,.fp-held{grid-column:3 / -1;justify-content:flex-start;margin-top:1px;}
-  .fp-bf{padding-left:0;}
+  .fp-strip{flex-wrap:wrap;gap:12px 0;}
+  .fp-seg{flex:1 1 45%;border-right:none;border-bottom:1.5px solid var(--border);padding:0 12px 12px;}
+  .fp-seg:nth-child(odd){padding-left:0;}
+  .fp-seg:nth-child(even){padding-right:0;}
 }
 /* flow-point photo popover */
 .fp-overlay{position:fixed;inset:0;background:rgba(28,35,51,.4);display:none;align-items:center;justify-content:center;z-index:10000;padding:18px;}
@@ -625,10 +517,10 @@ body.dark-mode .photo-thumb-grid .photo-thumb.selected{border-color:#9C2742;}
 .sticky-cols tbody tr:nth-child(even) td:first-child,.sticky-cols tbody tr:nth-child(even) td:nth-child(2){background:#FAFBFC;}
 .sticky-cols tbody tr:nth-child(odd) td:first-child,.sticky-cols tbody tr:nth-child(odd) td:nth-child(2){background:white;}
 .sticky-cols tbody tr.total-row td:first-child,.sticky-cols tbody tr.total-row td:nth-child(2){background:#EFF2F7;}
-body.dark-mode .sticky-cols thead th:first-child,body.dark-mode .sticky-cols thead th:nth-child(2){background:#2a3040;}
-body.dark-mode .sticky-cols tbody tr:nth-child(even) td:first-child,body.dark-mode .sticky-cols tbody tr:nth-child(even) td:nth-child(2){background:#1e2228;}
-body.dark-mode .sticky-cols tbody tr:nth-child(odd) td:first-child,body.dark-mode .sticky-cols tbody tr:nth-child(odd) td:nth-child(2){background:#22252d;}
-body.dark-mode .sticky-cols tbody tr.total-row td:first-child,body.dark-mode .sticky-cols tbody tr.total-row td:nth-child(2){background:#22252d;}
+body.dark-mode .sticky-cols thead th:first-child,body.dark-mode .sticky-cols thead th:nth-child(2){background:rgba(255,255,255,.10);}
+body.dark-mode .sticky-cols tbody tr:nth-child(even) td:first-child,body.dark-mode .sticky-cols tbody tr:nth-child(even) td:nth-child(2){background:rgba(255,255,255,.02);}
+body.dark-mode .sticky-cols tbody tr:nth-child(odd) td:first-child,body.dark-mode .sticky-cols tbody tr:nth-child(odd) td:nth-child(2){background:rgba(255,255,255,.03);}
+body.dark-mode .sticky-cols tbody tr.total-row td:first-child,body.dark-mode .sticky-cols tbody tr.total-row td:nth-child(2){background:rgba(255,255,255,.03);}
 
 /* ── BATTERY TEST TABLE ── */
 .battery-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -661,7 +553,7 @@ body.dark-mode .sticky-cols tbody tr.total-row td:first-child,body.dark-mode .st
 .defic-view-btn{padding:8px 16px;border:1.5px solid var(--border);border-radius:8px;background:var(--smoke);color:var(--steel);font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;transition:all .15s;}
 .defic-view-btn:hover{border-color:var(--red);color:var(--slate);}
 .defic-view-btn.active{background:#2C4770;color:white;border-color:#2C4770;}
-body.dark-mode .defic-view-btn{background:#22252d;color:#a0a8b8;border-color:#33373f;}
+body.dark-mode .defic-view-btn{background:rgba(255,255,255,.03);color:#a0a8b8;border-color:rgba(255,255,255,.10);}
 body.dark-mode .defic-view-btn:hover{border-color:#3a5080;color:#d0d4e0;}
 body.dark-mode .defic-view-btn.active{background:#2a3a5c;color:white;border-color:#3a4e78;}
 .all-defic-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:calc(12.5px + var(--ts));border-radius:8px;overflow:hidden;border:1.5px solid var(--border);}
@@ -872,7 +764,7 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
 .offline-bar{display:none;background:#E65100;color:white;text-align:center;padding:4px;font-size:calc(12px + var(--ts));font-weight:600;}
 
 /* ══ DARK MODE ══ */
-body.dark-mode{--smoke:#0f1318;--border:#2a3040;--slate:#d0d8f0;--slate-mid:#1e2533;--silver:#8a94b0;--steel:#8a94b0;background:#0f1318;color:#d0d8f0;}
+body.dark-mode{--smoke:#0b0a0d;--border:rgba(255,255,255,.10);--slate:#d0d8f0;--slate-mid:rgba(255,255,255,.04);--silver:#8a94b0;--steel:#8a94b0;background:#0b0a0d;color:#d0d8f0;}
 body.dark-mode .app-header{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);}
 body.dark-mode .section-nav{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);}
 body.dark-mode .phase-bar{background:linear-gradient(135deg,#0a0f1a 0%,#131b2a 100%);}
@@ -881,84 +773,57 @@ body.dark-mode .phase-tab.active{color:#fff;border-bottom-color:#c13a58;}
 body.dark-mode .phase-tab .ph-sub{color:#4a5160;}
 body.dark-mode .phase-tab.active .ph-sub{color:#8a94b0;}
 body.dark-mode .nav-tab{color:#7a8090;}body.dark-mode .nav-tab.active{color:#fff;border-bottom-color:#c13a58;}
-body.dark-mode .card,body.dark-mode .cl-item{background:#1e2533;border-color:#2a3040;}
-body.dark-mode .card-header{background:linear-gradient(135deg,#5a1a2a,#3d1220)!important;color:#e8c0cc!important;}
-body.dark-mode .card-header.mid{background:linear-gradient(135deg,#5a1a2a,#3d1220)!important;color:#e8c0cc!important;}
+body.dark-mode .card,body.dark-mode .cl-item{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10);}
+body.dark-mode .card-header{background:#23212b!important;color:#e8c0cc!important;}
+body.dark-mode .card-header.mid{background:#23212b!important;color:#e8c0cc!important;}
 body.dark-mode .card-header.red{background:linear-gradient(135deg,#5a1a1a,#3d1212)!important;color:#f0a0a0!important;}
-body.dark-mode .ov-card{background:#1e2533;border-color:#2a3040;}
-body.dark-mode .ov-hd{background:linear-gradient(135deg,#5a1a2a,#3d1220)!important;color:#e8c0cc!important;}
-body.dark-mode .ov-bar{background:#11151c;}
-body.dark-mode .ov-phgroup{background:#171c25;color:#8a94b0;border-bottom-color:#2a3040;}
-body.dark-mode .ov-row{border-bottom-color:#262c38;}
-body.dark-mode .ov-row:hover{background:#22252d;}
-body.dark-mode .ov-attn-strip{background:#33222a;border-top-color:#4a2f37;}
+body.dark-mode .ov-card{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10);}
+body.dark-mode .ov-hd{background:#23212b!important;color:#f4f3f6!important;}
+body.dark-mode .ov-bar{background:rgba(255,255,255,.06);}
+body.dark-mode .ov-phgroup{background:rgba(255,255,255,.02);color:#8a94b0;border-bottom-color:rgba(255,255,255,.10);}
+body.dark-mode .ov-row{border-bottom-color:rgba(255,255,255,.06);}
+body.dark-mode .ov-row:hover{background:rgba(255,255,255,.03);}
+body.dark-mode .ov-attn-strip{background:rgba(226,96,118,.16);border-top-color:#4a2f37;}
 body.dark-mode .ov-attn-strip .ov-nm{color:#e0a8a8;}
 body.dark-mode .ov-attn-strip .ov-nm .ov-s{color:#b88;}
-body.dark-mode .ov-cnt .ov-verdict{background:#1f2b22;color:#7fae8a;border-color:#3a5042;}
-body.dark-mode .ov-cnt .ov-verdict.fail{background:#33222a;color:#e08080;border-color:#5a3a3a;}
+body.dark-mode .ov-cnt .ov-verdict{background:rgba(63,208,138,.16);color:#7fae8a;border-color:#3a5042;}
+body.dark-mode .ov-cnt .ov-verdict.fail{background:rgba(226,96,118,.16);color:#e08080;border-color:#5a3a3a;}
 body.dark-mode .section-title{color:#fff;background:linear-gradient(135deg,#6b1a2e,#4a1020);margin-left:-18px;margin-right:-18px;padding:10px 18px;border-radius:6px;}
-body.dark-mode input,body.dark-mode select,body.dark-mode textarea{background:#151a24!important;color:#d0d8f0!important;border:1.5px solid #2a3040!important;border-radius:6px!important;}
-body.dark-mode input:focus,body.dark-mode select:focus,body.dark-mode textarea:focus{background:#22252d!important;border-color:#c13a58!important;box-shadow:0 0 0 2px rgba(193,58,88,.15)!important;}
+body.dark-mode input,body.dark-mode select,body.dark-mode textarea{background:rgba(255,255,255,.02)!important;color:#d0d8f0!important;border:1.5px solid rgba(255,255,255,.10)!important;border-radius:6px!important;}
+body.dark-mode input:focus,body.dark-mode select:focus,body.dark-mode textarea:focus{background:rgba(255,255,255,.03)!important;border-color:#c13a58!important;box-shadow:0 0 0 2px rgba(193,58,88,.15)!important;}
 body.dark-mode input::placeholder,body.dark-mode textarea::placeholder{color:#606878!important;}
 body.dark-mode input[readonly]{background:#1e2028!important;color:#6a7080!important;}
 body.dark-mode .field-group label{color:#8a90a0;}
-body.dark-mode .summary-bar{background:#22252d;border-color:#33373f;}body.dark-mode .sum-bar-bg{background:#282b34;}
-body.dark-mode .data-table th{background:#2a3040;color:#b0b8c8;}
+body.dark-mode .summary-bar{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.10);}body.dark-mode .sum-bar-bg{background:rgba(255,255,255,.06);}
+body.dark-mode .data-table th{background:rgba(255,255,255,.10);color:#b0b8c8;}
 body.dark-mode .data-table td{border-color:#2a2e38;color:#c8ccd4;}
-body.dark-mode .data-table input{background:#282b34!important;color:#d4d4d4!important;border-color:#3a3e48!important;}
-body.dark-mode .data-table tbody tr{background:#22252d!important;}
-body.dark-mode .data-table tbody tr:nth-child(even){background:#1e2228!important;}
+body.dark-mode .data-table input{background:rgba(255,255,255,.06)!important;color:#d4d4d4!important;border-color:rgba(255,255,255,.14)!important;}
+body.dark-mode .data-table tbody tr{background:rgba(255,255,255,.03)!important;}
+body.dark-mode .data-table tbody tr:nth-child(even){background:rgba(255,255,255,.02)!important;}
 body.dark-mode .data-table tbody tr td{background:inherit!important;color:#c8ccd4!important;}
 body.dark-mode .data-table tr:hover{background:#2a2d38!important;}
 body.dark-mode .data-table tr[style*="background:#fafbfc"] td{background:#1e2028!important;color:#5a6070!important;}
 /* S221: class-based dark coverage for plain data-tables (stylesheet defaults had no dark rule:
    even-row #FAFBFC, total-row #EFF2F7, result-row #FFF9F9, calc-cell #EFF2F7, white inputs). */
-body.dark-mode .data-table td{color:#cdd6e6;border-bottom-color:#2a3040;}
-body.dark-mode .data-table tr:nth-child(even) td{background:#1e2228!important;}
-body.dark-mode .data-table tr.total-row td{background:#22252d!important;color:#cdd6e6!important;}
+body.dark-mode .data-table td{color:#cdd6e6;border-bottom-color:rgba(255,255,255,.10);}
+body.dark-mode .data-table tr:nth-child(even) td{background:rgba(255,255,255,.02)!important;}
+body.dark-mode .data-table tr.total-row td{background:rgba(255,255,255,.03)!important;color:#cdd6e6!important;}
 body.dark-mode .data-table tr.result-row td{background:#241c20!important;}
-body.dark-mode .data-table .calc-cell{background:#22252d!important;color:#aeb8cc!important;}
-body.dark-mode .data-table input[type=number],body.dark-mode .data-table input[type=text]{background:#262a33!important;color:#d4d4d4!important;border-color:#3a3e48!important;}
+body.dark-mode .data-table .calc-cell{background:rgba(255,255,255,.03)!important;color:#aeb8cc!important;}
+body.dark-mode .data-table input[type=number],body.dark-mode .data-table input[type=text]{background:#262a33!important;color:#d4d4d4!important;border-color:rgba(255,255,255,.14)!important;}
 /* S217 merge: water-supply / demand tables carry inline light backgrounds that survive into the
    merged Performance tab. Force them dark so no cell renders white in dark mode. */
-body.dark-mode .data-table td[style*="background:#f5f5f5"]{background:#1e2228!important;color:#6a7080!important;}
+body.dark-mode .data-table td[style*="background:#f5f5f5"]{background:rgba(255,255,255,.02)!important;color:#6a7080!important;}
 body.dark-mode .data-table tr[style*="background:#eef4ff"]{background:#1a2838!important;}
 body.dark-mode .data-table tr[style*="background:#eef4ff"] td:not(.calc-cell){background:#1a2838!important;color:#cdd6e6!important;}
 body.dark-mode .data-table input[readonly][style*="background:#eee"]{background:#262a33!important;color:#9aa2b2!important;}
 /* S221: flow-point calculated value cells (.fp-calc divs, not inputs — global input rule misses them). */
-body.dark-mode .fp-cell .fp-calc{background:#22252d!important;color:#cdd6e6!important;border-color:#3a3e48!important;}
-body.dark-mode .fp-cell .fp-calc.adj{background:#2a1c22!important;color:#e7a8ba!important;border-color:#5a3340!important;}
-body.dark-mode .fp-cell .fp-calc.tgt{background:#1e2228!important;color:#aeb8cc!important;border-color:#3a3e48!important;}
-/* S234: dark-mode for the dense flow-point card elements (non-inputs; inputs use the global dark rule) */
-body.dark-mode .fp-refline .ri{color:#aeb8cc;}
-body.dark-mode .fp-refline .ri b{color:#7a8090;}
-body.dark-mode .fp-grid .fp-hdr{color:#7a8090;}
-body.dark-mode .fp-spine.wo{background:#5A6473;}
-body.dark-mode .fp-spine.w{background:#c13a58;}
-body.dark-mode .fp-segtag.wo{color:#9aa2b2;}
-body.dark-mode .fp-segtag.w{color:#e7a8ba;}
-body.dark-mode .fp-grid input.gov{border-color:#7a3a4a!important;color:#e7a8ba!important;}
-body.dark-mode .fp-endval .el{color:#7a8090;}
-body.dark-mode .fp-endval .ev{color:#cdd6e6;}
-body.dark-mode .fp-endval .ea{color:#9aa2b2;}
-body.dark-mode .fp-endval .ea b{color:#80c090;}
-body.dark-mode .fp-endval .ea.miss b{color:#e08a8a;}
-body.dark-mode .fp-info{border-color:#5a6070;color:#8a90a0;}
-body.dark-mode .fp-info:hover{color:#e7a8ba;border-color:#e7a8ba;}
-body.dark-mode .ph-icon .cnt{box-shadow:0 0 0 2px #1e2533;}
-body.dark-mode .fp-endval.gov .el{color:#e7a8ba;}
-body.dark-mode .fp-endval.gov .ev{color:#e7a8ba;}
-body.dark-mode .fp-held{background:#1b2628!important;border-color:#2f4a4e!important;}
-body.dark-mode .fp-held::before{background:#4fa0a0;}
-body.dark-mode .fp-held .ht,body.dark-mode .fp-held .hl{color:#6fb0b0;}
-body.dark-mode .fp-held .hv{color:#cdd6e6;}
-body.dark-mode .fp-bf label{color:#9aa2b2;}
-body.dark-mode .fp-bf .bftoggle{color:#9aa2b2;border-color:#3a3e48;}
-body.dark-mode .fp-bf .bftoggle:hover{color:#e7a8ba;border-color:#7a3a4a;}
-body.dark-mode .fp-skip-note{color:#7a8090;}
-body.dark-mode .np-head{background:#242a36!important;border-bottom-color:#2a3040!important;}
-body.dark-mode .battery-card{border-color:#33373f;}body.dark-mode .battery-card-header{background:#3a1a28;}
-body.dark-mode .battery-table th{background:#282b34;color:#8a90a0;}
+body.dark-mode .fp-cell .fp-calc{background:rgba(255,255,255,.03)!important;color:#cdd6e6!important;border-color:rgba(255,255,255,.14)!important;}
+body.dark-mode .fp-cell .fp-calc.adj{background:rgba(201,71,106,.14)!important;color:#e7a8ba!important;border-color:#5a3340!important;}
+body.dark-mode .fp-cell .fp-calc.tgt{background:rgba(255,255,255,.02)!important;color:#aeb8cc!important;border-color:rgba(255,255,255,.14)!important;}
+body.dark-mode .np-head{background:rgba(255,255,255,.05)!important;border-bottom-color:rgba(255,255,255,.10)!important;}
+body.dark-mode .battery-card{border-color:rgba(255,255,255,.10);}body.dark-mode .battery-card-header{background:#3a1a28;}
+body.dark-mode .battery-table th{background:rgba(255,255,255,.06);color:#8a90a0;}
 body.dark-mode .subsection-note{background:#2a2820;color:#c8a840;border-color:#5a4a20;}
 body.dark-mode .tog{background:#242a33;color:#8a93a2;}
 body.dark-mode .tog:not(.on):hover{background:#2c333d;color:#c2c9d6;}
@@ -971,38 +836,38 @@ body.dark-mode .cl-item:not(.s-yes):not(.s-no):not(.s-na){border-left-color:#a08
 body.dark-mode .item-num{color:#7a8090;}body.dark-mode .item-text{color:#c8ccd4;}
 /* S221: checklist item backgrounds — base item-detail (#FBFCFD) and the s-no light/pink
    item-main + open detail (#fdf7f7) had no dark override and rendered white. */
-body.dark-mode .item-detail{background:#1a1f29!important;border-top-color:#2a3040!important;}
+body.dark-mode .item-detail{background:#1a1f29!important;border-top-color:rgba(255,255,255,.10)!important;}
 body.dark-mode .cl-item.s-no .item-main{background:#2a1c20!important;}
 body.dark-mode .cl-item.s-no .item-detail.open{background:#2a1c20!important;}
 body.dark-mode .detail-label{color:#8a90a0!important;}
-body.dark-mode .comment-input{background:#282b34!important;color:#d4d4d4!important;border-color:#3a3e48!important;}
-body.dark-mode .photo-zone,body.dark-mode .photo-zone-compact,body.dark-mode [style*="border:2px dashed"]{background:#1e2028!important;border-color:#3a3e48!important;color:#6a7080!important;}
-body.dark-mode .photo-zone-compact .pz-upload{background:#2a2e38!important;color:#c0c8d8!important;border-color:#3a3e48!important;}
-body.dark-mode .rec-zone-card{background:#232a36!important;border-color:#2a3040!important;}
+body.dark-mode .comment-input{background:rgba(255,255,255,.06)!important;color:#d4d4d4!important;border-color:rgba(255,255,255,.14)!important;}
+body.dark-mode .photo-zone,body.dark-mode .photo-zone-compact,body.dark-mode [style*="border:2px dashed"]{background:#1e2028!important;border-color:rgba(255,255,255,.14)!important;color:#6a7080!important;}
+body.dark-mode .photo-zone-compact .pz-upload{background:#2a2e38!important;color:#c0c8d8!important;border-color:rgba(255,255,255,.14)!important;}
+body.dark-mode .rec-zone-card{background:#232a36!important;border-color:rgba(255,255,255,.10)!important;}
 body.dark-mode .photo-zone-compact .pz-camera{background:#2C4770!important;border-color:#2C4770!important;}
-body.dark-mode .ev-tile{background:#1e2028!important;border-color:#3a3e48!important;}
+body.dark-mode .ev-tile{background:#1e2028!important;border-color:rgba(255,255,255,.14)!important;}
 body.dark-mode .ev-tile:hover,body.dark-mode .ev-tile.drag-over{border-color:var(--arencon)!important;background:#241c20!important;}
 body.dark-mode .ev-tile .l{color:#c0c8d8!important;}
 body.dark-mode .ev-tile .s{color:#6a7080!important;}
 body.dark-mode .ev-tile .recap{background:rgba(40,46,56,.92)!important;color:#c0c8d8!important;}
-body.dark-mode .chart-wrap{background:#22252d;border-color:#33373f;}
+body.dark-mode .chart-wrap{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.10);}
 /* S221: flow-point performance cards (image 1 — were white, no dark coverage). */
-body.dark-mode .fp-banner{background:#22252d!important;border-color:#33373f!important;color:#aeb8cc!important;}
+body.dark-mode .fp-banner{background:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.10)!important;color:#aeb8cc!important;}
 body.dark-mode .fp-banner b{color:#dfe6f4!important;}
-body.dark-mode .fp-card{background:#1e2533!important;border-color:#2a3040!important;}
-body.dark-mode .fp-card .fp-head{background:#242a36!important;border-bottom-color:#2a3040!important;}
+body.dark-mode .fp-card{background:rgba(255,255,255,.04)!important;border-color:rgba(255,255,255,.10)!important;}
+body.dark-mode .fp-card .fp-head{background:rgba(255,255,255,.05)!important;border-bottom-color:rgba(255,255,255,.10)!important;}
 body.dark-mode .fp-card .fp-head .pt{color:#dfe6f4!important;}
 body.dark-mode .fp-card .fp-head .pt small{color:#8a90a0!important;}
-body.dark-mode .fp-verdict.pass{background:#1f2b22!important;color:#7fae8a!important;}
-body.dark-mode .fp-verdict.fail{background:#33222a!important;color:#e08a8a!important;}
-body.dark-mode .fp-verdict.na{background:#282b34!important;color:#8a90a0!important;}
-body.dark-mode .fig{background:#1e2533!important;border-color:#2a3040!important;}
+body.dark-mode .fp-verdict.pass{background:rgba(63,208,138,.16)!important;color:#7fae8a!important;}
+body.dark-mode .fp-verdict.fail{background:rgba(226,96,118,.16)!important;color:#e08a8a!important;}
+body.dark-mode .fp-verdict.na{background:rgba(255,255,255,.06)!important;color:#8a90a0!important;}
+body.dark-mode .fig{background:rgba(255,255,255,.04)!important;border-color:rgba(255,255,255,.10)!important;}
 body.dark-mode .chart-annotation-label{background:none!important;border:none!important;box-shadow:none!important;color:#aebfe0!important;text-shadow:0 0 6px rgba(34,37,45,.95),0 0 12px rgba(34,37,45,.85),0 1px 2px rgba(0,0,0,.9);}
-body.dark-mode .app-footer{background:#14161a;color:rgba(255,255,255,.4);}
+body.dark-mode .app-footer{background:#0b0a0d;color:rgba(255,255,255,.4);}
 body.dark-mode .tool-btn{background:rgba(255,255,255,.06)!important;color:#d0d8f0!important;border-color:rgba(255,255,255,.2)!important;}
-body.dark-mode .sketch-entry{background:#22252d;border-color:#33373f;}
-body.dark-mode .sig-wrap{background:#22252d;border-color:#33373f;}
-body.dark-mode canvas:not(.sig-canvas):not(.sketch-canvas):not([id^="sc-"]):not([id*="sig"]):not([id*="chart"]):not([id*="Chart"]):not([id*="netPerf"]):not([id="qrCanvas"]){background:#fff!important;border-color:#3a3e48!important;}
+body.dark-mode .sketch-entry{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.10);}
+body.dark-mode .sig-wrap{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.10);}
+body.dark-mode canvas:not(.sig-canvas):not(.sketch-canvas):not([id^="sc-"]):not([id*="sig"]):not([id*="chart"]):not([id*="Chart"]):not([id*="netPerf"]):not([id="qrCanvas"]){background:#fff!important;border-color:rgba(255,255,255,.14)!important;}
 body.dark-mode canvas[id*="chart"],body.dark-mode canvas[id*="Chart"],body.dark-mode canvas[id="qrCanvas"],body.dark-mode canvas[id*="netPerf"]{background:transparent!important;}
 body.dark-mode .pass{color:#4aba5a!important;}body.dark-mode .fail{color:#e06050!important;}
 body.dark-mode .pass-fail-row{background:#1a2a20!important;color:#4aba5a!important;}
@@ -1022,8 +887,8 @@ body.dark-mode .btn-outline.btn-sm{background:rgba(255,255,255,.06)!important;bo
 body.dark-mode .btn-outline.btn-sm:hover{background:rgba(255,255,255,.12)!important;border-color:#9C2742!important;color:#f4a1b5!important;}
 body.dark-mode .btn-outline[style*="color:#A85959"]{color:#e07070!important;border-color:#5a2020!important;background:#2a1818!important;}
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
-body.dark-mode .hdr-repair-menu{background:#1e2533;border:1px solid #2a3040;}
-body.dark-mode .hdr-repair-menu button{background:#1e2533;color:#d0d8f0;}
+body.dark-mode .hdr-repair-menu{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);}
+body.dark-mode .hdr-repair-menu button{background:rgba(255,255,255,.04);color:#d0d8f0;}
 body.dark-mode .hdr-repair-menu button:hover{background:#283044;}
 body.dark-mode .hdr-repair-menu button span{color:#8a94b0;}
 /* ══ DARK MODE — Inline-styled buttons (signature, deficiency, photo zones) ══ */
@@ -1047,23 +912,23 @@ body.dark-mode [style*="background:#eee"]{background:#1e2028!important;}
 body.dark-mode [style*="background:#E8EFE7"],[id*="pitot-total"]{background:#1a2a20!important;color:#4aba5a!important;}
 body.dark-mode [style*="background:#e8f5e9"]{background:#1a2a20!important;}
 body.dark-mode [style*="background:#eef4ff"]{background:#1e2838!important;}
-body.dark-mode [style*="background:#f5f5f5"]{background:#282b34!important;color:#6a7080!important;}
-body.dark-mode [style*="background:#f8f8f6"],[style*="background:#f8f9fa"],[style*="background:#F7F8FA"]{background:#282b34!important;}
+body.dark-mode [style*="background:#f5f5f5"]{background:rgba(255,255,255,.06)!important;color:#6a7080!important;}
+body.dark-mode [style*="background:#f8f8f6"],[style*="background:#f8f9fa"],[style*="background:#F7F8FA"]{background:rgba(255,255,255,.06)!important;}
 body.dark-mode [style*="color:#555"]{color:#8a90a0!important;}
 body.dark-mode [style*="color:#666"]{color:#8a90a0!important;}
 body.dark-mode [style*="color:#333"]{color:#c0c8d0!important;}
 body.dark-mode [style*="color:#888"]{color:#7a8090!important;}
 body.dark-mode [style*="color:#E67E22"]{color:#c89040!important;}
-body.dark-mode [style*="color:#A85959"][style*="border"]{color:#c08080!important;background:#22252d!important;border-color:#5a3030!important;}
-body.dark-mode [style*="color:#5F8068"][style*="border"]:not(.tog-yes){color:#80c090!important;background:#22252d!important;border-color:#2a5a3a!important;}
+body.dark-mode [style*="color:#A85959"][style*="border"]{color:#c08080!important;background:rgba(255,255,255,.03)!important;border-color:#5a3030!important;}
+body.dark-mode [style*="color:#5F8068"][style*="border"]:not(.tog-yes){color:#80c090!important;background:rgba(255,255,255,.03)!important;border-color:#2a5a3a!important;}
 body.dark-mode button[style*="background:white"],body.dark-mode button[style*="background:#fff"]{background:rgba(255,255,255,.06)!important;color:#d0d8f0!important;border-color:rgba(255,255,255,.2)!important;}
 body.dark-mode .defic-photo-btn{background:#2a3038!important;color:#c0c8d8!important;}
 body.dark-mode .add-defic-btn{background:rgba(255,255,255,.06)!important;color:#c0d0e8!important;border:1.5px solid rgba(255,255,255,.2)!important;border-radius:20px!important;}
-body.dark-mode .defic-summary-wrap{background:#22252d!important;border-color:#33373f!important;}
+body.dark-mode .defic-summary-wrap{background:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.10)!important;}
 body.dark-mode .nav-tab .tab-dot{background:#c87030!important;}
 body.dark-mode td[id*="net-"]{background:#1a2a20!important;color:#4aba5a!important;}
 body.dark-mode .calc-cell{background:#1a2830!important;color:#80c0d0!important;}
-body.dark-mode select option{background:#282b34;color:#d4d4d4;}
+body.dark-mode select option{background:rgba(255,255,255,.06);color:#d4d4d4;}
 .dark-toggle{background:rgba(255,255,255,.12);border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:calc(16px + var(--ts));margin-left:4px;transition:background .15s;}.dark-toggle:hover{background:rgba(255,255,255,.22);}
 .chart-annotation-label{background:rgba(255,255,255,.88)!important;border:1px solid rgba(0,0,0,.12)!important;border-radius:4px!important;padding:1px 5px!important;box-shadow:0 1px 3px rgba(0,0,0,.1)!important;font-weight:700!important;color:#1a3a5c!important;text-shadow:none!important;}
 
@@ -1076,22 +941,22 @@ body.dark-mode [style*="border:1px solid #e8d060"]{border-color:#5a4a20!importan
 body.dark-mode [style*="border:1px solid #b0c4de"]{border-color:#3a4a60!important;}
 body.dark-mode [style*="background:#FAFAFA"]{background:#1e2028!important;color:#6a7080!important;}
 body.dark-mode [style*="background:#fafafa"]{background:#1e2028!important;color:#6a7080!important;}
-body.dark-mode [style*="border:2px dashed #ccc"]{border-color:#3a3e48!important;}
+body.dark-mode [style*="border:2px dashed #ccc"]{border-color:rgba(255,255,255,.14)!important;}
 body.dark-mode [style*="color:#bbb"]{color:#6a7080!important;}
 body.dark-mode [style*="color:#aaa"]{color:#5a6070!important;}
 body.dark-mode [style*="color:#999"]{color:#5a6070!important;}
-body.dark-mode [style*="border-top:1px solid #f0f0f0"]{border-top-color:#33373f!important;}
-body.dark-mode [style*="border-top:1px solid #eee"]{border-top-color:#33373f!important;}
-body.dark-mode [style*="border:1px solid #ddd"]{border-color:#3a3e48!important;}
-body.dark-mode [style*="border:1.5px solid #ddd"]{border-color:#3a3e48!important;}
-body.dark-mode [style*="border:2px solid #ddd"]{border-color:#3a3e48!important;}
+body.dark-mode [style*="border-top:1px solid #f0f0f0"]{border-top-color:rgba(255,255,255,.10)!important;}
+body.dark-mode [style*="border-top:1px solid #eee"]{border-top-color:rgba(255,255,255,.10)!important;}
+body.dark-mode [style*="border:1px solid #ddd"]{border-color:rgba(255,255,255,.14)!important;}
+body.dark-mode [style*="border:1.5px solid #ddd"]{border-color:rgba(255,255,255,.14)!important;}
+body.dark-mode [style*="border:2px solid #ddd"]{border-color:rgba(255,255,255,.14)!important;}
 body.dark-mode [style*="border:1.5px dashed #E67E22"]{border-color:#8a6030!important;background:#2a2820!important;}
 body.dark-mode [style*="border:1.5px dashed #1565C0"]{border-color:#3a5070!important;background:#1e2838!important;}
-body.dark-mode tr[style*="background:#f0f0f0"]{background:#282b34!important;}
-body.dark-mode tr[style*="background:#f0f0f0"] td{background:#282b34!important;color:#c8ccd4!important;}
+body.dark-mode tr[style*="background:#f0f0f0"]{background:rgba(255,255,255,.06)!important;}
+body.dark-mode tr[style*="background:#f0f0f0"] td{background:rgba(255,255,255,.06)!important;color:#c8ccd4!important;}
 body.dark-mode button[style*="color:#999"]{color:#6a7080!important;}
 body.dark-mode button[style*="color:#aaa"]{color:#6a7080!important;}
-body.dark-mode [style*="background:#1C2333"]{background:#22252d!important;}
+body.dark-mode [style*="background:#1C2333"]{background:rgba(255,255,255,.03)!important;}
 body.dark-mode button[style*="background:#A85959"]{background:#8a2020!important;}
 body.dark-mode button[style*="background:#FFF5F5"]{background:#3a2020!important;color:#e08080!important;}
 body.dark-mode button[style*="background:#5F8068"][style*="font-size:11px"]{background:#1a4a2a!important;color:#a0d8b0!important;}
@@ -1101,27 +966,27 @@ body.dark-mode [style*="color:#E67E22"]:not(select){color:#c89040!important;}
 
 /* ══ DARK MODE — Signature & Sketch Canvas Backgrounds ══ */
 /* Signature canvases + wraps: match dark card bg instead of white */
-body.dark-mode .sig-wrap{background:#22252d!important;border-color:#33373f!important;}
-body.dark-mode .sig-canvas{background:#22252d!important;}
-body.dark-mode canvas.sig-canvas{background:#22252d!important;}
-body.dark-mode canvas[id*="sig"]{background:#22252d!important;}
-body.dark-mode #sig-canvas{background:#22252d!important;}
-body.dark-mode .sig-controls{background:#1e2028!important;border-color:#33373f!important;}
-body.dark-mode img[id*="sig-upload-img"]{background:#22252d!important;}
+body.dark-mode .sig-wrap{background:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.10)!important;}
+body.dark-mode .sig-canvas{background:rgba(255,255,255,.03)!important;}
+body.dark-mode canvas.sig-canvas{background:rgba(255,255,255,.03)!important;}
+body.dark-mode canvas[id*="sig"]{background:rgba(255,255,255,.03)!important;}
+body.dark-mode #sig-canvas{background:rgba(255,255,255,.03)!important;}
+body.dark-mode .sig-controls{background:#1e2028!important;border-color:rgba(255,255,255,.10)!important;}
+body.dark-mode img[id*="sig-upload-img"]{background:rgba(255,255,255,.03)!important;}
 /* Sketch freehand canvas: dark bg */
-body.dark-mode .sketch-canvas-wrap{background:#22252d!important;border-color:#33373f!important;}
-body.dark-mode canvas.sketch-canvas{background:#22252d!important;}
-body.dark-mode canvas[id^="sc-"]{background:#22252d!important;}
-body.dark-mode .sketch-toolbar{background:#1e2028!important;border-color:#33373f!important;}
-body.dark-mode .sketch-entry{background:#22252d!important;border-color:#33373f!important;}
-body.dark-mode .sketch-entry-header{background:#1e2028!important;border-color:#33373f!important;}
+body.dark-mode .sketch-canvas-wrap{background:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.10)!important;}
+body.dark-mode canvas.sketch-canvas{background:rgba(255,255,255,.03)!important;}
+body.dark-mode canvas[id^="sc-"]{background:rgba(255,255,255,.03)!important;}
+body.dark-mode .sketch-toolbar{background:#1e2028!important;border-color:rgba(255,255,255,.10)!important;}
+body.dark-mode .sketch-entry{background:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.10)!important;}
+body.dark-mode .sketch-entry-header{background:#1e2028!important;border-color:rgba(255,255,255,.10)!important;}
 /* Photo markup wrap: dark bg, remove white gap */
-body.dark-mode .markup-canvas-wrap{background:#22252d!important;border-color:#33373f!important;}
-body.dark-mode .markup-placeholder{background:#1e2028!important;border-color:#3a3e48!important;}
-body.dark-mode .markup-base-img{background:#22252d!important;}
+body.dark-mode .markup-canvas-wrap{background:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.10)!important;}
+body.dark-mode .markup-placeholder{background:#1e2028!important;border-color:rgba(255,255,255,.14)!important;}
+body.dark-mode .markup-base-img{background:rgba(255,255,255,.03)!important;}
 /* Sketch comment box */
-body.dark-mode .sketch-comment{background:#1e2028!important;color:#d4d4d4!important;border-color:#33373f!important;}
-body.dark-mode .sketch-comment:focus{background:#22252d!important;border-color:#c13a58!important;}
+body.dark-mode .sketch-comment{background:#1e2028!important;color:#d4d4d4!important;border-color:rgba(255,255,255,.10)!important;}
+body.dark-mode .sketch-comment:focus{background:rgba(255,255,255,.03)!important;border-color:#c13a58!important;}
 
 /* ══ DARK MODE — Remove buttons: red tint (inline-styled variants) ══ */
 body.dark-mode button[style*="color:#A85959"]{color:#e07070!important;border-color:#5a2020!important;background:#2a1818!important;}
@@ -1180,7 +1045,7 @@ body.text-xl{--ts:6px;}
 .project-bar .pb-filename{font-size:calc(12px + var(--ts));font-weight:500;color:rgba(255,255,255,.88);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;padding:2px 6px;border-radius:4px;}
 .project-bar .pb-badge{font-size:calc(9px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;white-space:nowrap;cursor:pointer;transition:filter .15s,transform .15s;}
 .project-bar .pb-badge:hover{filter:brightness(1.15);transform:scale(1.04);}
-body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255,.04);}
+body.dark-mode .project-bar{background:rgba(255,255,255,.02);border-top-color:rgba(255,255,255,.04);}
 @media(max-width:600px){.project-bar .pb-filename{white-space:normal;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;}}
 /* ============ AI Text Review (S219 — ported from FRT, diesel-adapted) ============ */
 .hdr-ai-active{background:#9C2742;}
@@ -1192,7 +1057,7 @@ body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255
 .ai-mode-menu button{display:block;width:100%;padding:10px 14px;border:none;background:none;text-align:left;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));cursor:pointer;color:var(--slate);}
 .ai-mode-menu button:hover{background:var(--smoke);}
 .ai-mode-menu button span{display:block;font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;}
-body.dark-mode .ai-mode-menu{background:#1e2533;border-color:#2a3040;}
+body.dark-mode .ai-mode-menu{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10);}
 body.dark-mode .ai-mode-menu button{color:#d0d8f0;}
 body.dark-mode .ai-mode-menu button:hover{background:#283044;}
 body.dark-mode .ai-mode-menu button span{color:#8a94b0;}
@@ -1200,21 +1065,21 @@ body.dark-mode .ai-mode-menu button span{color:#8a94b0;}
 .ai-fs-overlay{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .15s;}
 .ai-fs-overlay.open{opacity:1;}
 .ai-fs-modal{background:white;border-radius:14px;width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.25);font-family:Calibri,sans-serif;}
-body.dark-mode .ai-fs-modal{background:#1e2533;color:#d4d8e8;}
+body.dark-mode .ai-fs-modal{background:rgba(255,255,255,.04);color:#d4d8e8;}
 .ai-fs-header{background:#9C2742;color:white;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .ai-fs-header h3{margin:0;font-size:calc(16px + var(--ts));font-weight:700;}
 .ai-fs-x{background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:0 4px;}
 .ai-fs-subhdr{padding:10px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--smoke);}
-body.dark-mode .ai-fs-subhdr{background:#161a22;border-bottom-color:#2a3040;}
+body.dark-mode .ai-fs-subhdr{background:#161a22;border-bottom-color:rgba(255,255,255,.10);}
 .ai-fs-mode{font-size:calc(12px + var(--ts));font-weight:700;color:#6A1B9A;}
 body.dark-mode .ai-fs-mode{color:#ce93d8;}
 .ai-fs-toggle{background:white;border:1.5px solid var(--border);color:var(--steel);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;cursor:pointer;}
 .ai-fs-toggle:hover{border-color:#9C2742;color:#9C2742;}
-body.dark-mode .ai-fs-toggle{background:#2a2d35;color:#d4d8e8;border-color:#3a3e48;}
+body.dark-mode .ai-fs-toggle{background:#2a2d35;color:#d4d8e8;border-color:rgba(255,255,255,.14);}
 .ai-fs-body{flex:1;overflow-y:auto;padding:8px 14px;}
 .ai-fs-row{display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:8px;cursor:pointer;border:1px solid transparent;transition:background .12s,border-color .12s;}
 .ai-fs-row:hover{background:var(--smoke);border-color:var(--border);}
-body.dark-mode .ai-fs-row:hover{background:#22262f;border-color:#2a3040;}
+body.dark-mode .ai-fs-row:hover{background:#22262f;border-color:rgba(255,255,255,.10);}
 .ai-fs-check{width:18px;height:18px;accent-color:#9C2742;cursor:pointer;margin-top:2px;flex-shrink:0;}
 .ai-fs-info{flex:1;min-width:0;}
 .ai-fs-label{font-size:calc(12px + var(--ts));font-weight:700;color:#9C2742;margin-bottom:3px;}
@@ -1222,7 +1087,7 @@ body.dark-mode .ai-fs-label{color:#f4a1b5;}
 .ai-fs-preview{font-size:calc(12px + var(--ts));color:var(--slate);line-height:1.4;word-break:break-word;}
 body.dark-mode .ai-fs-preview{color:#c0c4cc;}
 .ai-fs-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px;flex-wrap:wrap;}
-body.dark-mode .ai-fs-footer{border-top-color:#2a3040;}
+body.dark-mode .ai-fs-footer{border-top-color:rgba(255,255,255,.10);}
 .ai-fs-count{font-size:calc(12px + var(--ts));color:var(--steel);font-weight:600;}
 body.dark-mode .ai-fs-count{color:#8090b0;}
 .ai-fs-btns{display:flex;gap:8px;}
@@ -1235,7 +1100,7 @@ body.dark-mode .ai-fs-cancel:hover{background:#402222;border-color:#e08080;}
 .ai-fs-confirm:disabled{background:transparent;border-color:rgba(0,0,0,.1);color:#aaa;cursor:not-allowed;opacity:.5;}
 body.dark-mode .ai-fs-confirm{background:#1a2e22;color:#80c8a0;border-color:rgba(128,200,160,.25);}
 body.dark-mode .ai-fs-confirm:hover{background:#22402e;border-color:#80c8a0;}
-body.dark-mode .ai-fs-confirm:disabled{background:#2a2d35;color:#666;border-color:#3a3e48;}
+body.dark-mode .ai-fs-confirm:disabled{background:#2a2d35;color:#666;border-color:rgba(255,255,255,.14);}
 @media(max-width:600px){.ai-fs-overlay{padding:0;align-items:flex-end;}.ai-fs-modal{max-width:100%;max-height:90vh;border-radius:16px 16px 0 0;}}
 /* Review panel */
 .ai-panel-overlay{position:fixed;inset:0;z-index:8999;background:rgba(0,0,0,.3);display:none;opacity:0;transition:opacity .2s;}
@@ -1267,10 +1132,10 @@ body.dark-mode .ai-fs-confirm:disabled{background:#2a2d35;color:#666;border-colo
 @keyframes ai-spin{to{transform:rotate(360deg);}}
 .ai-panel-done{padding:32px 18px;text-align:center;font-size:calc(14px + var(--ts));color:#5F8068;font-weight:600;}
 .ai-spin-icon{display:inline-block;animation:ai-spin .8s linear infinite;}
-body.dark-mode .ai-panel{background:#0f1318;border-left-color:#b0304e;}
-body.dark-mode .ai-panel-counter{color:#8a94b0;border-bottom-color:#2a3040;}
-body.dark-mode .ai-suggestion{border-bottom-color:#2a3040;}
-body.dark-mode .ai-text-box{background:#161a22;color:#d0d8f0;border-color:#2a3040;}
+body.dark-mode .ai-panel{background:#0b0a0d;border-left-color:#b0304e;}
+body.dark-mode .ai-panel-counter{color:#8a94b0;border-bottom-color:rgba(255,255,255,.10);}
+body.dark-mode .ai-suggestion{border-bottom-color:rgba(255,255,255,.10);}
+body.dark-mode .ai-text-box{background:#161a22;color:#d0d8f0;border-color:rgba(255,255,255,.10);}
 body.dark-mode .ai-field-label{color:#f4a1b5;}
 body.dark-mode .ai-diff-add{background:rgba(95,128,104,.30);color:#a3d9c0;}
 body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
@@ -1298,7 +1163,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
 .ai-usage-table .total-row td{font-weight:700;border-top:2px solid var(--border);background:rgba(156,39,66,.06);}
 .ai-usage-loading{padding:24px;text-align:center;color:var(--steel);}
 body.dark-mode .ai-usage-filters button{background:#37474F;}
-body.dark-mode .ai-usage-table th{background:#1e2533;}
+body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
 /* ============ end AI Usage Tracking panel ============ */
 </style>
 </head>
@@ -1317,7 +1182,7 @@ body.dark-mode .ai-usage-table th{background:#1e2533;}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S237/span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S238</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -1383,7 +1248,7 @@ initDarkMode();
 // ── Custom modals — callback-based replacements for confirm/prompt/alert ──
 function _aConfirm(msg,onOk,okText){
   var isDark=document.body.classList.contains('dark-mode');
-  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7';
+  var bg=isDark?'rgba(255,255,255,.04)':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'rgba(255,255,255,.10)':'#DDE1E7';
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
@@ -1400,7 +1265,7 @@ function _aConfirm(msg,onOk,okText){
 }
 function _aPrompt(msg,defVal,onOk){
   var isDark=document.body.classList.contains('dark-mode');
-  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'#2a3040':'#DDE1E7',ibg=isDark?'#151a24':'#F8FAFC';
+  var bg=isDark?'rgba(255,255,255,.04)':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'rgba(255,255,255,.10)':'#DDE1E7',ibg=isDark?'rgba(255,255,255,.02)':'#F8FAFC';
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
@@ -1419,7 +1284,7 @@ function _aPrompt(msg,defVal,onOk){
 }
 function _aAlert(msg){
   var isDark=document.body.classList.contains('dark-mode');
-  var bg=isDark?'#1e2533':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'#2a3040':'#DDE1E7';
+  var bg=isDark?'rgba(255,255,255,.04)':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'rgba(255,255,255,.10)':'#DDE1E7';
   var ov=document.createElement('div');ov.className='_a-modal-ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
@@ -2195,68 +2060,58 @@ function updatePhaseFlags(){
 </div>
 
 <!-- ── PHOTO LIGHTBOX MODAL ─────────────────────── -->
-<!-- S229: FRT-matched lightbox — full-bleed dark overlay, circular top-bar controls, floating glassy bottom markup bar. Functional IDs preserved so diesel's existing markup code is untouched. -->
-<div id="photo-lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:10000;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">
-  <!-- Top bar: counter (left) · markup toggle / download / close (right) -->
-  <div id="lb-topbar" style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top,0px)) calc(14px + env(safe-area-inset-right,0px)) 10px calc(14px + env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(0,0,0,.65),rgba(0,0,0,0));z-index:10;pointer-events:none;">
-    <div style="flex:1;display:flex;align-items:center;gap:10px;pointer-events:auto;">
-      <span id="lightbox-label" style="color:#fff;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.6);"></span>
-    </div>
-    <div style="display:flex;justify-content:center;pointer-events:auto;">
-      <button id="lb-fit" onclick="lbResetView()" title="Fit to screen" style="background:rgba(0,0,0,.55);color:#fff;border:none;height:32px;padding:0 12px;border-radius:16px;cursor:pointer;font:600 12px Calibri,sans-serif;display:flex;align-items:center;gap:6px;"><span id="lb-zoom-indicator">100%</span></button>
-    </div>
-    <div style="flex:1;display:flex;justify-content:flex-end;gap:8px;pointer-events:auto;">
-      <button id="lb-prev" onclick="lightboxNav(-1)" title="Previous" style="background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;">‹</button>
-      <button id="lb-next" onclick="lightboxNav(1)" title="Next" style="background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;">›</button>
-      <button id="lb-markup-toggle" onclick="toggleLbMarkupBar()" title="Markup" style="background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;">✎</button>
-      <a id="lb-download" href="" download title="Download" style="background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;text-decoration:none;">⬇</a>
-      <button onclick="closeLightbox()" title="Close" style="background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
+<div id="photo-lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:10000;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;padding:14px 10px 20px;">
+  <!-- Header bar -->
+  <div style="display:flex;align-items:center;gap:10px;width:100%;max-width:1100px;margin-bottom:10px;flex-shrink:0;">
+    <span id="lightbox-label" style="color:rgba(255,255,255,.6);font-size:12px;flex:1;"></span>
+    <div style="display:flex;gap:8px;">
+      <button id="lb-prev" onclick="lightboxNav(-1)" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:16px;cursor:pointer;padding:6px 14px;border-radius:6px;">‹ Prev</button>
+      <button id="lb-next" onclick="lightboxNav(1)" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:16px;cursor:pointer;padding:6px 14px;border-radius:6px;">Next ›</button>
+      <a id="lb-download" href="" download style="background:#5F8068;border:none;color:white;font-size:12px;cursor:pointer;padding:6px 14px;border-radius:6px;text-decoration:none;display:flex;align-items:center;gap:4px;">⬇ Save</a>
+      <button onclick="saveLbMarkup()" style="background:#2196F3;border:none;color:white;font-size:12px;cursor:pointer;padding:6px 14px;border-radius:6px;" title="Save markup back to photo">💾 Save Markup</button>
+      <button onclick="closeLightbox()" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:20px;cursor:pointer;width:38px;height:38px;border-radius:50%;">✕</button>
     </div>
   </div>
-  <!-- Photo area (FRT structure): full-bleed dark canvas → transformed wrap → img + markup canvas -->
-  <div id="lb-canvas" style="position:absolute;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-    <div id="lb-img-wrap" style="position:relative;transform-origin:0 0;will-change:transform;">
-      <img id="lightbox-img" src="" style="display:block;user-select:none;-webkit-user-drag:none;" draggable="false">
-      <canvas id="lb-markup-canvas" style="position:absolute;inset:0;width:100%;height:100%;touch-action:none;background:transparent;pointer-events:none;"></canvas>
-    </div>
-  </div>
-  <!-- Floating glassy markup bar (hidden until ✎ toggled) -->
-  <div id="lb-toolbar" style="position:absolute;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:8px 12px;background:rgba(20,20,28,.92);border-radius:24px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:96vw;overflow-x:auto;">
-    <button id="lbt-pen" onclick="setLbTool('pen')" style="background:#9C2742;color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">Pen</button>
-    <button id="lbt-highlight" onclick="setLbTool('highlight')" style="background:rgba(255,255,255,.12);color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">Highlight</button>
+  <!-- Markup toolbar -->
+  <div id="lb-toolbar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:rgba(0,0,0,.5);padding:8px 12px;border-radius:8px;margin-bottom:8px;width:100%;max-width:1100px;box-sizing:border-box;flex-shrink:0;">
+    <span style="color:rgba(255,255,255,.5);font-size:11px;margin-right:4px;">MARKUP:</span>
+    <button id="lbt-pen" onclick="setLbTool('pen')" style="background:#2196F3;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">✏️ Pen</button>
+    <button id="lbt-highlight" onclick="setLbTool('highlight')" style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">🖊 Highlight</button>
+    <button id="lbt-text" onclick="setLbTool('text')" style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">T Text</button>
     <div style="position:relative;display:inline-block;" id="lb-shapes-wrap">
-      <button id="lbt-shapes" onclick="document.getElementById('lb-shapes-dd').style.display=document.getElementById('lb-shapes-dd').style.display==='block'?'none':'block'" style="background:rgba(255,255,255,.12);color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">Shapes ▾</button>
-      <div id="lb-shapes-dd" style="display:none;position:absolute;bottom:100%;left:0;margin-bottom:6px;background:rgba(20,20,28,.97);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.5);padding:5px;z-index:12;min-width:130px;">
-        <button onclick="setLbTool('line')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;color:#fff;border:none;cursor:pointer;font:600 13px Calibri,sans-serif;border-radius:6px;">— Line</button>
-        <button onclick="setLbTool('arrow')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;color:#fff;border:none;cursor:pointer;font:600 13px Calibri,sans-serif;border-radius:6px;">→ Arrow</button>
-        <button onclick="setLbTool('circle')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;color:#fff;border:none;cursor:pointer;font:600 13px Calibri,sans-serif;border-radius:6px;">○ Oval</button>
-        <button onclick="setLbTool('square')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;color:#fff;border:none;cursor:pointer;font:600 13px Calibri,sans-serif;border-radius:6px;">□ Rect</button>
-        <button onclick="setLbTool('triangle')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;color:#fff;border:none;cursor:pointer;font:600 13px Calibri,sans-serif;border-radius:6px;">△ Triangle</button>
+      <button id="lbt-shapes" onclick="document.getElementById('lb-shapes-dd').style.display=document.getElementById('lb-shapes-dd').style.display==='block'?'none':'block'" style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">⬡ Shapes ▾</button>
+      <div id="lb-shapes-dd" style="display:none;position:absolute;top:100%;left:0;background:white;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.3);padding:4px;z-index:10;min-width:130px;">
+        <button onclick="setLbTool('line')" style="display:block;width:100%;text-align:left;padding:6px 10px;background:none;color:#333;border:none;cursor:pointer;font-size:12px;">— Line</button>
+        <button onclick="setLbTool('arrow')" style="display:block;width:100%;text-align:left;padding:6px 10px;background:none;color:#333;border:none;cursor:pointer;font-size:12px;">→ Arrow</button>
+        <button onclick="setLbTool('circle')" style="display:block;width:100%;text-align:left;padding:6px 10px;background:none;color:#333;border:none;cursor:pointer;font-size:12px;">○ Circle</button>
+        <button onclick="setLbTool('square')" style="display:block;width:100%;text-align:left;padding:6px 10px;background:none;color:#333;border:none;cursor:pointer;font-size:12px;">□ Square</button>
+        <button onclick="setLbTool('triangle')" style="display:block;width:100%;text-align:left;padding:6px 10px;background:none;color:#333;border:none;cursor:pointer;font-size:12px;">△ Triangle</button>
       </div>
     </div>
-    <button id="lbt-text" onclick="setLbTool('text')" style="background:rgba(255,255,255,.12);color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">Text</button>
-    <button id="lbt-erase" onclick="setLbTool('erase')" style="background:rgba(255,255,255,.12);color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">Eraser</button>
-    <div style="width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;"></div>
-    <button onclick="undoLbMarkup()" title="Undo" style="background:rgba(255,255,255,.12);color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">↶</button>
-    <div style="width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;"></div>
-    <!-- Color swatches (match FRT palette); hidden native input keeps existing code working -->
-    <input type="color" id="lbt-color" value="#FF0000" style="display:none;">
-    <span id="lb-swatches" style="display:flex;align-items:center;gap:5px;"></span>
-    <div style="display:flex;align-items:center;gap:6px;padding:0 8px;">
-      <span style="color:#fff;font:600 12px Calibri,sans-serif;">Size</span>
-      <input type="hidden" id="lbt-size" value="6">
-      <input type="range" id="lbt-size-slider" min="1" max="30" value="6" oninput="var v=+this.value;document.getElementById('lbt-size').value=v;var sv=document.getElementById('lbt-size-val');if(sv)sv.textContent=v;var sl=document.getElementById('lbt-size-lbl');if(sl)sl.textContent=v+'px';" style="width:80px;accent-color:#9C2742;">
-      <span id="lbt-size-val" style="color:#fff;font:600 12px Calibri,sans-serif;min-width:18px;text-align:center;">6</span>
-      <span id="lbt-size-lbl" style="display:none;">6px</span>
-    </div>
-    <!-- opacity + font kept as hidden inputs so existing markup code still reads them -->
-    <input type="hidden" id="lbt-opacity" value="100"><span id="lbt-op-val" style="display:none;">100%%</span><span id="lbt-opacity-lbl" style="display:none;">100%</span>
-    <select id="lbt-fontsize" style="display:none;"><option value="12">12</option><option value="14">14</option><option value="18">18</option><option value="24" selected>24</option><option value="30">30</option><option value="36">36</option><option value="48">48</option><option value="60">60</option></select>
-    <div style="width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;"></div>
-    <button onclick="saveLbMarkup()" title="Save markup back to photo" style="background:#5F8068;color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">Save</button>
-    <button onclick="clearLbMarkup()" style="background:rgba(255,255,255,.12);color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">Clear</button>
-    <button onclick="downloadLbPhoto()" title="Download annotated" style="background:rgba(255,255,255,.12);color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">⬇</button>
-    <button onclick="toggleLbMarkupBar()" title="Exit markup" style="background:#9C2742;color:#fff;border:none;width:40px;height:40px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;">✕</button>
+    <button id="lbt-erase" onclick="setLbTool('erase')" style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">⌫ Erase</button>
+    <span style="color:rgba(255,255,255,.4);margin:0 4px;">|</span>
+    <label style="color:rgba(255,255,255,.7);font-size:11px;">Color</label>
+    <input type="color" id="lbt-color" value="#FF0000" style="width:30px;height:24px;border:none;border-radius:3px;cursor:pointer;padding:0;">
+    <label style="color:rgba(255,255,255,.7);font-size:11px;">Size</label>
+    <button onclick="var _s=[1,2,3,4,5,6,8,10,14,18,24,30],e=document.getElementById('lbt-size'),v=+e.value,i=_s.indexOf(v);if(i<0){for(i=0;i<_s.length;i++)if(_s[i]>=v)break;i--;}if(i>0){e.value=_s[i-1];document.getElementById('lbt-size-val').textContent=_s[i-1];}" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">−</button><input type="hidden" id="lbt-size" value="6"><span id="lbt-size-val" style="color:white;min-width:22px;text-align:center;font-size:12px;display:inline-block;">6</span><button onclick="var _s=[1,2,3,4,5,6,8,10,14,18,24,30],e=document.getElementById('lbt-size'),v=+e.value,i=_s.indexOf(v);if(i<0){for(i=0;i<_s.length;i++)if(_s[i]>v)break;}else i++;if(i<_s.length){e.value=_s[i];document.getElementById('lbt-size-val').textContent=_s[i];}" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">+</button>
+    <span id="lbt-size-lbl" style="color:rgba(255,255,255,.7);font-size:11px;min-width:24px;">6px</span>
+    <label style="color:rgba(255,255,255,.7);font-size:11px;">Opacity</label>
+    <button onclick="var e=document.getElementById('lbt-opacity');e.value=Math.max(10,+e.value-10);document.getElementById('lbt-op-val').textContent=e.value+'%%';" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">−</button><input type="hidden" id="lbt-opacity" value="100"><span id="lbt-op-val" style="color:white;min-width:30px;text-align:center;font-size:12px;display:inline-block;">100%%</span><button onclick="var e=document.getElementById('lbt-opacity');e.value=Math.min(100,+e.value+10);document.getElementById('lbt-op-val').textContent=e.value+'%%';" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">+</button>
+    <span id="lbt-opacity-lbl" style="color:rgba(255,255,255,.7);font-size:11px;min-width:30px;">100%</span>
+    <label style="color:rgba(255,255,255,.7);font-size:11px;">Font</label>
+    <select id="lbt-fontsize" style="font-size:11px;padding:2px 4px;border-radius:4px;background:rgba(255,255,255,.9);color:#333;border:1px solid rgba(255,255,255,.3);">
+      <option value="12">12</option><option value="14">14</option><option value="18">18</option><option value="24" selected>24</option>
+      <option value="30">30</option><option value="36">36</option><option value="48">48</option><option value="60">60</option>
+    </select>
+    <span style="color:rgba(255,255,255,.4);margin:0 4px;">|</span>
+    <button onclick="undoLbMarkup()" style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">↩ Undo</button>
+    <button onclick="clearLbMarkup()" style="background:#A85959;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">🗑 Clear</button>
+    <button onclick="downloadLbPhoto()" style="background:#5F8068;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">⬇ Download</button>
+  </div>
+  <!-- Photo canvas area -->
+  <div id="lb-canvas-wrap" style="position:relative;display:inline-flex;max-width:100%;cursor:crosshair;flex-shrink:0;">
+    <img id="lightbox-img" src="" style="display:block;max-width:min(95vw,1100px);max-height:75vh;object-fit:contain;user-select:none;-webkit-user-drag:none;" draggable="false">
+    <canvas id="lb-markup-canvas" style="position:absolute;inset:0;width:100%;height:100%;touch-action:none;background:transparent;pointer-events:auto;"></canvas>
   </div>
 </div>
 
@@ -2700,47 +2555,10 @@ function setLbTool(t) {
   var shapes=['line','arrow','circle','square','triangle'];
   ['pen','highlight','text','erase','shapes'].forEach(function(id){
     var b=document.getElementById('lbt-'+id);
-    if(b) b.style.background=(id===t||(id==='shapes'&&shapes.indexOf(t)>=0))?'#9C2742':'rgba(255,255,255,.12)';
+    if(b) b.style.background=(id===t||(id==='shapes'&&shapes.indexOf(t)>=0))?'#2196F3':'rgba(255,255,255,.15)';
   });
   var dd=document.getElementById('lb-shapes-dd');
   if(dd) dd.style.display='none';
-}
-// S229 (FRT-match): markup is hidden until ✎ tapped. When hidden, the canvas
-// must not capture taps (so pan/close work like FRT); when shown, it draws.
-var _lbMarkupBarOpen=false;
-function toggleLbMarkupBar(){
-  var bar=document.getElementById('lb-toolbar');
-  var canvas=document.getElementById('lb-markup-canvas');
-  if(!bar) return;
-  _lbMarkupBarOpen=!_lbMarkupBarOpen;
-  bar.style.display=_lbMarkupBarOpen?'flex':'none';
-  if(canvas) canvas.style.pointerEvents=_lbMarkupBarOpen?'auto':'none';
-  // Markup happens at fit-scale (no zoom/pan during drawing — keeps coord math simple, FRT behavior).
-  if(_lbMarkupBarOpen){ _lbScale=_lbFit; _lbPanX=0; _lbPanY=0; _lbApplyTransform(); }
-  var dd=document.getElementById('lb-shapes-dd');
-  if(dd&&!_lbMarkupBarOpen) dd.style.display='none';
-}
-// S229: build FRT-style color swatches that feed the existing hidden lbt-color input.
-function _buildLbSwatches(){
-  var host=document.getElementById('lb-swatches');
-  if(!host||host._built) return;
-  var colors=['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'];
-  var colEl=document.getElementById('lbt-color');
-  function paint(sel){
-    Array.prototype.forEach.call(host.children,function(s){
-      s.style.borderColor=(s.dataset.col===sel)?'#fff':'rgba(255,255,255,.4)';
-      s.style.boxShadow=(s.dataset.col===sel)?'0 0 0 2px #9C2742':'none';
-    });
-  }
-  colors.forEach(function(col){
-    var s=document.createElement('button');
-    s.dataset.col=col;
-    s.style.cssText='width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:'+col+';cursor:pointer;padding:0;';
-    s.onclick=function(){ if(colEl) colEl.value=col; paint(col); };
-    host.appendChild(s);
-  });
-  host._built=true;
-  paint('#FF0000');
 }
 function downloadLbPhoto(){
   var img=document.getElementById('lightbox-img');
@@ -2758,16 +2576,21 @@ function downloadLbPhoto(){
 function initLbMarkup() {
   const img = document.getElementById('lightbox-img');
   const canvas = document.getElementById('lb-markup-canvas');
-  if(!canvas || !img || !img.naturalWidth) return;
-  // Canvas drawing buffer = image natural resolution (markup saved at full res).
-  // Canvas is stretched to fill the wrap via inset:0;width/height:100% in CSS,
-  // so it always overlays the image 1:1 regardless of display scale.
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-  lbMarkupCtx = canvas.getContext('2d');
-  lbMarkupCtx.clearRect(0,0,canvas.width,canvas.height);
-  lbMarkupUndo = [];
-  initLbEvents(canvas);
+  if(!canvas || !img) return;
+  // Wait for image to be laid out
+  const setSize = () => {
+    const w = img.offsetWidth, h = img.offsetHeight;
+    if(!w || !h) { requestAnimationFrame(setSize); return; }
+    canvas.width = img.naturalWidth || w;
+    canvas.height = img.naturalHeight || h;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    lbMarkupCtx = canvas.getContext('2d');
+    lbMarkupCtx.clearRect(0,0,canvas.width,canvas.height);
+    lbMarkupUndo = [];
+    initLbEvents(canvas);
+  };
+  if(img.complete) setSize(); else img.onload = setSize;
 }
 
 let lbEventsInit = false;
@@ -2968,53 +2791,13 @@ function saveLbMarkup() {
 
 let lbPhotoCtx = null; // context for re-rendering after save
 
-// ── S231: FRT-clean lightbox core (single load path). ──
-// Photo lives in #lb-img-wrap inside #lb-canvas. Pan/zoom = one transform on the
-// wrap; markup canvas rides inside the wrap so it always overlays the image 1:1.
-// No competing caption/zoom/observer layers (those were removed) — this is why
-// the image now always shows instead of a blank white box.
-var _lbScale = 1, _lbFit = 1, _lbPanX = 0, _lbPanY = 0;
-var _lbDragging = false, _lbLastX = 0, _lbLastY = 0;
-var _lbPinch = false, _lbPinchDist = 0, _lbPinchScale = 1;
-
-function _lbCalcFit(){
-  var img = document.getElementById('lightbox-img');
-  var area = document.getElementById('lb-canvas');
-  if(!img || !area || !img.naturalWidth){ _lbFit = 1; return; }
-  _lbFit = Math.min(area.clientWidth / img.naturalWidth, area.clientHeight / img.naturalHeight);
-  if(_lbFit > 1) _lbFit = 1; // never upscale past 100% on fit
-}
-function _lbClampPan(){
-  var img = document.getElementById('lightbox-img');
-  var area = document.getElementById('lb-canvas');
-  if(!img || !area || !img.naturalWidth) return;
-  var aw = area.clientWidth, ah = area.clientHeight;
-  var sw = img.naturalWidth * _lbScale, sh = img.naturalHeight * _lbScale;
-  if(sw <= aw) _lbPanX = (aw - sw) / 2; else _lbPanX = Math.min(0, Math.max(aw - sw, _lbPanX));
-  if(sh <= ah) _lbPanY = (ah - sh) / 2; else _lbPanY = Math.min(0, Math.max(ah - sh, _lbPanY));
-}
-function _lbApplyTransform(){
-  _lbClampPan();
-  var wrap = document.getElementById('lb-img-wrap');
-  if(!wrap) return;
-  wrap.style.transform = 'translate3d('+_lbPanX+'px,'+_lbPanY+'px,0) scale('+_lbScale+')';
-  var zi = document.getElementById('lb-zoom-indicator');
-  if(zi) zi.textContent = Math.round(_lbScale/_lbFit*100) + '%';
-}
-function lbResetView(){ _lbScale = _lbFit; _lbPanX = 0; _lbPanY = 0; _lbApplyTransform(); }
-
 function openLightbox(photos, idx, ctx) {
   lbPhotos = photos;
   lbIdx = typeof idx === 'number' ? idx : 0;
   lbPhotoCtx = ctx || null;
   const lb = document.getElementById('photo-lightbox');
   lb.style.display = 'flex';
-  lbEventsInit = false;
-  _buildLbSwatches();
-  _lbMarkupBarOpen = false;
-  var _bar = document.getElementById('lb-toolbar'); if(_bar) _bar.style.display = 'none';
-  var _cv = document.getElementById('lb-markup-canvas'); if(_cv) _cv.style.pointerEvents = 'none';
-  _lbInitPanZoom();
+  lbEventsInit = false; // re-init events each open (canvas may have changed)
   showLbPhoto();
   document.addEventListener('keydown', lbKeyHandler);
 }
@@ -3022,32 +2805,22 @@ function openLightbox(photos, idx, ctx) {
 function lbKeyHandler(e) {
   if(e.key==='ArrowRight') lightboxNav(1);
   else if(e.key==='ArrowLeft') lightboxNav(-1);
-  else if(e.key==='Escape'){ if(_lbMarkupBarOpen){ toggleLbMarkupBar(); } else { closeLightbox(); } }
-  else if(e.key==='0'){ lbResetView(); }
+  else if(e.key==='Escape') closeLightbox();
 }
 
 function showLbPhoto() {
   const p = lbPhotos[lbIdx];
   if(!p) return;
-  const src = (typeof p === 'object') ? (p.d || p.r2Url || p) : p;
+  const src = (typeof p === 'object') ? (p.d || p) : p;
   const img = document.getElementById('lightbox-img');
   const canvas = document.getElementById('lb-markup-canvas');
-  if(canvas){ canvas.width = 0; canvas.height = 0; }
-  // Exit markup mode on photo change (FRT behavior)
-  if(_lbMarkupBarOpen) toggleLbMarkupBar();
+  // Reset canvas while new image loads
+  if(canvas) { canvas.width = 0; canvas.height = 0; }
   img.onload = function() {
-    // Wrap sized to image NATURAL dims; fit-scale shrinks it to the screen.
-    var wrap = document.getElementById('lb-img-wrap');
-    if(wrap){ wrap.style.width = img.naturalWidth+'px'; wrap.style.height = img.naturalHeight+'px'; }
-    img.style.width = img.naturalWidth+'px';
-    img.style.height = img.naturalHeight+'px';
-    _lbCalcFit();
-    _lbScale = _lbFit; _lbPanX = 0; _lbPanY = 0;
-    _lbApplyTransform();
-    var dl = document.getElementById('lb-download'); if(dl) dl.href = src;
-    var lbl = document.getElementById('lightbox-label'); if(lbl) lbl.textContent = (lbPhotos.length>1)?((lbIdx+1)+' / '+lbPhotos.length):'';
-    var pv = document.getElementById('lb-prev'); if(pv) pv.style.display = lbPhotos.length>1?'flex':'none';
-    var nx = document.getElementById('lb-next'); if(nx) nx.style.display = lbPhotos.length>1?'flex':'none';
+    document.getElementById('lb-download').href = src;
+    document.getElementById('lightbox-label').textContent = `Photo ${lbIdx+1} of ${lbPhotos.length} — use toolbar above to markup`;
+    document.getElementById('lb-prev').style.opacity = lbIdx===0?'0.3':'1';
+    document.getElementById('lb-next').style.opacity = lbIdx===lbPhotos.length-1?'0.3':'1';
     lbEventsInit = false;
     initLbMarkup();
   };
@@ -3063,57 +2836,7 @@ function closeLightbox() {
   document.getElementById('photo-lightbox').style.display='none';
   document.removeEventListener('keydown', lbKeyHandler);
   lbDrawing=false; lbMarkupCtx=null; lbEventsInit=false;
-  var img = document.getElementById('lightbox-img'); if(img) img.src='';
 }
-
-// Pan (drag) + wheel/pinch zoom on the canvas area — only when NOT in markup mode.
-var _lbPanZoomInit = false;
-function _lbInitPanZoom(){
-  var area = document.getElementById('lb-canvas');
-  if(!area || _lbPanZoomInit) return;
-  _lbPanZoomInit = true;
-  area.addEventListener('wheel', function(e){
-    if(_lbMarkupBarOpen) return;
-    e.preventDefault();
-    var r = area.getBoundingClientRect();
-    var mx = e.clientX - r.left, my = e.clientY - r.top;
-    var ix = (mx - _lbPanX)/_lbScale, iy = (my - _lbPanY)/_lbScale;
-    var ns = Math.max(_lbFit, Math.min(8, _lbScale * (e.deltaY>0?0.9:1.1)));
-    _lbPanX = mx - ix*ns; _lbPanY = my - iy*ns; _lbScale = ns;
-    _lbApplyTransform();
-  }, {passive:false});
-  area.addEventListener('mousedown', function(e){
-    if(_lbMarkupBarOpen || _lbScale<=_lbFit) return;
-    _lbDragging = true; _lbLastX = e.clientX; _lbLastY = e.clientY; area.style.cursor='grabbing';
-  });
-  window.addEventListener('mousemove', function(e){
-    if(!_lbDragging) return;
-    _lbPanX += e.clientX-_lbLastX; _lbPanY += e.clientY-_lbLastY;
-    _lbLastX = e.clientX; _lbLastY = e.clientY; _lbApplyTransform();
-  });
-  window.addEventListener('mouseup', function(){ _lbDragging=false; var a=document.getElementById('lb-canvas'); if(a)a.style.cursor=''; });
-  // Touch: 1-finger pan (when zoomed), 2-finger pinch
-  area.addEventListener('touchstart', function(e){
-    if(_lbMarkupBarOpen) return;
-    if(e.touches.length===2){ _lbPinch=true; _lbPinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); _lbPinchScale=_lbScale; }
-    else if(e.touches.length===1 && _lbScale>_lbFit){ _lbDragging=true; _lbLastX=e.touches[0].clientX; _lbLastY=e.touches[0].clientY; }
-  }, {passive:true});
-  area.addEventListener('touchmove', function(e){
-    if(_lbMarkupBarOpen) return;
-    if(_lbPinch && e.touches.length===2){
-      e.preventDefault();
-      var d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      _lbScale = Math.max(_lbFit, Math.min(8, _lbPinchScale * d/_lbPinchDist));
-      _lbApplyTransform();
-    } else if(_lbDragging && e.touches.length===1){
-      e.preventDefault();
-      _lbPanX += e.touches[0].clientX-_lbLastX; _lbPanY += e.touches[0].clientY-_lbLastY;
-      _lbLastX=e.touches[0].clientX; _lbLastY=e.touches[0].clientY; _lbApplyTransform();
-    }
-  }, {passive:false});
-  area.addEventListener('touchend', function(e){ if(e.touches.length===0){ _lbPinch=false; _lbDragging=false; } });
-}
-
 // Backdrop click handled in window.load
 
 function renderThumbs(id) {
@@ -3444,25 +3167,6 @@ function updateBatTotals() {
 }
 
 // ── GLOBAL TABLE INPUT DELEGATION (prevents re-render / focus loss bug) ──
-// ══════════════════════════════════════════════════
-// S236 DIAGNOSTIC INSTRUMENTATION (log-only — remove after revert is caught)
-// Captures every write to flow-point discharge/pressure fields + every state-apply,
-// with old→new value and call stack. Read back any time with: _dbgDump()
-// ══════════════════════════════════════════════════
-var _DBG_BUF = [];
-function _DBG(tag, detail){
-  try{
-    var stack = (new Error()).stack || '';
-    var rec = { t: new Date().toISOString().substr(11,12), tag: tag, detail: detail,
-                stack: stack.split('\n').slice(2,6).map(function(s){return s.trim();}).join(' << ') };
-    _DBG_BUF.push(rec); if(_DBG_BUF.length>300) _DBG_BUF.shift();
-    console.log('[DBG '+rec.t+'] '+tag, detail, '\n   via', rec.stack);
-  }catch(e){}
-}
-function _dbgDump(){ console.table(_DBG_BUF.map(function(r){return {time:r.t,tag:r.tag,detail:JSON.stringify(r.detail),via:r.stack};})); return _DBG_BUF; }
-// fields we care about for the revert investigation
-var _DBG_FIELDS = ['discharge','dis_w','dis_no','suction','suc_w','suc_no'];
-
 document.addEventListener('input', function(e) {
   const el = e.target;
   // Remove leading zeros from number inputs globally
@@ -3474,7 +3178,6 @@ document.addEventListener('input', function(e) {
   const field = el.dataset.field;
   if(!tbl || isNaN(idx) || !field) return;
   if(tbl === 'std') {
-    if(_DBG_FIELDS.indexOf(field)>=0) _DBG('INPUT std['+idx+'].'+field, {old: stdData[idx][field], new: el.value});
     stdData[idx][field] = el.value;
     updateStdCalcCells(idx);
     if(['flow','suction','discharge','cutsheet'].includes(field)) {
@@ -3482,7 +3185,6 @@ document.addEventListener('input', function(e) {
       stdChartTimer = setTimeout(() => { updateChart(); updateVerdict(); }, 120);
     }
   } else if(tbl === 'pld') {
-    if(_DBG_FIELDS.indexOf(field)>=0) _DBG('INPUT pld['+idx+'].'+field, {old: pldData[idx][field], new: el.value});
     pldData[idx][field] = el.value;
     updatePldCalcCells(idx);
     // Debounce chart updates so rapid typing doesn't freeze
@@ -3601,24 +3303,9 @@ function renderStdTable() {
   stdData.forEach((row, i) => {
     const r=_calcFlowPoint(row);
     const vtxt=r.verdict==='pass'?'✓ PASS':r.verdict==='fail'?'✗ FAIL':'—';
-    const hasBF = (row.bfUp!==''&&row.bfUp!=null) || (row.bfDown!==''&&row.bfDown!=null);
-    const flagsHtml='<div class="fp-flags" id="std-flags-'+i+'"'+(r.flags.length?'':' style="display:none;"')+'>'+
-      (r.flags.length?r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join(''):'')+'</div>';
-    // shared header: spine | segtag | Suct | Disch | RPM | end
-    const header = `<div></div><div></div><div class="fp-hdr">Suct</div><div class="fp-hdr">Disch</div><div class="fp-hdr">RPM</div><div class="fp-hdr"></div>`;
-    // single measured line (3-point is w/o-PLD by definition); governing = Net
-    const measLine = `<div class="fp-spine wo"></div><div class="fp-segtag wo">Meas.</div>
-         <input type="number" value="${row.suction||''}" placeholder="psi" data-field="suction" data-idx="${i}" data-tbl="std">
-         <input type="number" value="${row.discharge||''}" placeholder="psi" data-field="discharge" data-idx="${i}" data-tbl="std">
-         <input type="number" value="${row.rpm||''}" placeholder="RPM" data-field="rpm" data-idx="${i}" data-tbl="std">
-         <div class="fp-endval gov" id="std-end-${i}"><span class="el">Net</span><span class="ev">—</span></div>`;
-    const bfBlock = hasBF
-      ? `<div class="fp-bf" id="std-bf-${i}">
-           <div class="bfcell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="std"></div>
-           <div class="bfcell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="std"></div>
-           <button type="button" class="bftoggle bfremove" onclick="_stdHideBF(${i})" title="Remove backflow readings">✕</button>
-         </div>`
-      : `<div class="fp-bf" id="std-bf-${i}"><button type="button" class="bftoggle" onclick="_stdShowBF(${i})">+ Backflow readings</button></div>`;
+    const sucWarn=(!isNaN(parseFloat(row.suction))&&!isNaN(parseFloat(npshPsi))&&parseFloat(npshPsi)>0&&parseFloat(row.suction)<parseFloat(npshPsi))?'<div class="fp-warn">⚠ &lt; NPSH</div>':'';
+    const bfWarn=(!isNaN(parseFloat(row.bfUp))&&parseFloat(row.bfUp)<20)?'<div class="fp-warn">⚠ BF &lt; 20</div>':'';
+    const flagsHtml=r.flags.length?('<div class="fp-flags" id="std-flags-'+i+'">'+r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join('')+'</div>'):('<div class="fp-flags" id="std-flags-'+i+'" style="display:none;"></div>');
     const d=document.createElement('div'); d.className='fp-card'; d.id='std-card-'+i;
     d.innerHTML=`
       <div class="fp-head">
@@ -3629,32 +3316,40 @@ function renderStdTable() {
         </div>
       </div>
       <div class="fp-strip">
-        <div class="fp-refline">
-          <span class="ri"><b>Flow</b><input type="number" value="${row.flow!==null&&row.flow!==''?row.flow:''}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="std"></span>
-          <span class="ri"><b>Cutsheet</b><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="std"></span>
-          <span class="ri"><b>Placard</b><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="std"></span>
+        <div class="fp-seg" style="flex:0 0 auto;">
+          <span class="fp-seg-lbl">Reference</span>
+          <div class="fp-fields">
+            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Cutsheet</label><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="std"></div>
+            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Placard</label><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="std"></div>
+          </div>
         </div>
-        <div class="fp-grid">${header}${measLine}</div>
-        ${bfBlock}
+        <div class="fp-seg">
+          <span class="fp-seg-lbl">Measured (psi)</span>
+          <div class="fp-fields">
+            <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suction||''}" placeholder="psi" data-field="suction" data-idx="${i}" data-tbl="std">${sucWarn}</div>
+            <div class="fp-cell"><label>Discharge</label><input type="number" value="${row.discharge||''}" placeholder="psi" data-field="discharge" data-idx="${i}" data-tbl="std"></div>
+            <div class="fp-cell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="std">${bfWarn}</div>
+            <div class="fp-cell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="std"></div>
+          </div>
+        </div>
+        <div class="fp-seg" style="flex:0 0 auto;">
+          <span class="fp-seg-lbl">Speed</span>
+          <div class="fp-fields">
+            <div class="fp-cell" style="width:64px;flex:none;"><label>Rec. RPM</label><input type="number" value="${row.rpm||''}" placeholder="RPM" data-field="rpm" data-idx="${i}" data-tbl="std"></div>
+          </div>
+        </div>
+        <div class="fp-seg">
+          <span class="fp-seg-lbl">Net Pressure (psi)</span>
+          <div class="fp-fields">
+            <div class="fp-cell"><label>Recorded</label><div class="fp-calc" id="std-net-${i}">${r.net!=null?r.net.toFixed(0):'—'}</div></div>
+            <div class="fp-cell"><label>Adjusted</label><div class="fp-calc adj" id="std-adj-${i}">${r.adj!=null?r.adj.toFixed(0):'—'}</div></div>
+            <div class="fp-cell"><label>Min 95%</label><div class="fp-calc tgt" id="std-tgt-${i}">${r.thresh!=null?r.thresh.toFixed(0):'—'}</div></div>
+          </div>
+        </div>
       </div>
       ${flagsHtml}`;
     host.appendChild(d);
-    updateStdCalcCells(i);
   });
-}
-// S235: BF reveal/remove for 3-point flow points (render-only; clears data on remove)
-function _stdShowBF(i){
-  const bf=document.getElementById('std-bf-'+i); if(!bf) return;
-  const row=stdData[i]||{};
-  bf.innerHTML='<div class="bfcell"><label>BF Up</label><input type="number" value="'+(row.bfUp||'')+'" placeholder="psi" data-field="bfUp" data-idx="'+i+'" data-tbl="std"></div>'+
-    '<div class="bfcell"><label>BF Down</label><input type="number" value="'+(row.bfDown||'')+'" placeholder="psi" data-field="bfDown" data-idx="'+i+'" data-tbl="std"></div>'+
-    '<button type="button" class="bftoggle bfremove" onclick="_stdHideBF('+i+')" title="Remove backflow readings">✕</button>';
-}
-function _stdHideBF(i){
-  if(stdData[i]){ stdData[i].bfUp=''; stdData[i].bfDown=''; }
-  const bf=document.getElementById('std-bf-'+i); if(!bf) return;
-  bf.innerHTML='<button type="button" class="bftoggle" onclick="_stdShowBF('+i+')">+ Backflow readings</button>';
-  if(typeof updateStdCalcCells==='function') updateStdCalcCells(i);
 }
 
 // Set left offset for 2nd sticky column based on 1st column width
@@ -3677,29 +3372,22 @@ function _flowPhotoIcon(tbl, i){
   var arr = (tbl==='std'?stdData:pldData)[i];
   var n = (arr && arr.photos) ? arr.photos.length : 0;
   return '<button class="ph-icon '+(n?'has':'')+'" onclick="openFlowPhotos(\''+tbl+'\','+i+')" title="'+(n?n+' photo(s)':'Add gauge photos')+'">'
-    + '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
+    + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
     + (n?'<span class="cnt">'+n+'</span>':'')
     + '</button>';
 }
 // Per-flow-point gauge photo capture (S222-Diesel) — mirrors _recAddFile pattern.
 var _flowPhotoTbl=null, _flowPhotoIdx=null;
 function _flowPhotoRow(tbl,i){ var src=(tbl==='std'?stdData:pldData); return (src&&src[i])?src[i]:null; }
-var _flowPhotoRecentAdds = {}; // S231: guard against the same file being added twice (drop double-fire)
 function _flowPhotoAddFile(file){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
-  // Dedupe: ignore an identical file (name+size+lastModified) added within the last 2s.
-  var sig = (file.name||'')+'|'+(file.size||0)+'|'+(file.lastModified||0);
-  var now = Date.now();
-  if(_flowPhotoRecentAdds[sig] && (now-_flowPhotoRecentAdds[sig]) < 2000) return;
-  _flowPhotoRecentAdds[sig] = now;
   var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row) return;
   if(!row.photos) row.photos=[];
   var r=new FileReader();
   r.onload=function(ev){
     compressImage(ev.target.result, 1600, 0.85, function(c){
       var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-               caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:'',
-               tag:_flowPhotoActiveReading}; // S231: inherit the selected reading
+               caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
       row.photos.push(_ph);
       _r2EnqueuePhoto(_ph);
       if(typeof renderStdTable==='function') renderStdTable();
@@ -3713,88 +3401,33 @@ function _flowPhotoAddFile(file){
 }
 function _flowPhotoUpload(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowPhotoAddFile); }; inp.click(); }
 function _flowPhotoCamera(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _flowPhotoAddFile(f); }; inp.click(); }
-function _flowPhotoDrop(e){ e.preventDefault(); e.stopPropagation(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
+function _flowPhotoDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
 function _flowPhotoDelete(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return; row.photos.splice(j,1); if(typeof renderStdTable==='function') renderStdTable(); if(typeof renderPldTable==='function') renderPldTable(); _renderFlowPhotoModal(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); if(typeof debounceAutosave==='function') debounceAutosave(); }
 function _flowPhotoLightbox(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos)return; openLightbox(row.photos, j, {renderer:_renderFlowPhotoModal}); }
-// S229: pick the best photo source. The local data-URL (p.d) is always present and correct.
-// Only use the R2 URL once the upload is CONFIRMED uploaded — otherwise the R2 file 404s
-// (image broken on first drop; lightbox blank). Fixes both by preferring p.d until confirmed.
-function _photoSrc(p){ if(!p) return ''; if(p.r2Status==='uploaded' && p.r2Url) return p.r2Url; return p.d||p.r2Url||''; }
-// S228: per-photo gauge tag. [value, chip-label, css-class]. Empty tag = untagged.
-var _GAUGE_TAGS=[['discharge','Disch.','dis'],['suction','Suction','suc'],['bf_in','BF-in','bfi'],['bf_out','BF-out','bfo']];
-// short badge form for the photo gallery (Shorter): D / S / BFi / BFo
-var _GAUGE_TAG_SHORT={discharge:'D',suction:'S',bf_in:'BFi',bf_out:'BFo',rpm:'RPM'};
-// S231 Option B: the currently-selected reading new photos are added to. Defaults to discharge.
-var _flowPhotoActiveReading='suction'; // S233: Suction is first reading
-function _flowPhotoSetActiveReading(r){ _flowPhotoActiveReading=r; _renderFlowPhotoModal(); }
-// Assign/move a photo's reading (used by the ⇄ Move popup). Setting same reading is a no-op; never clears.
-function _flowPhotoSetReading(j,reading){
-  var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return;
-  row.photos[j].tag=reading;
-  _renderFlowPhotoModal();
-  if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
-  if(typeof debounceAutosave==='function') debounceAutosave();
-}
-// Back-compat alias (old chip code path, now unused but kept inert per dead-handler discipline).
-function _flowPhotoSetTag(j,tag){
-  var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return;
-  var p=row.photos[j];
-  p.tag=(p.tag===tag)?'':tag;
-  _renderFlowPhotoModal();
-  if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
-  if(typeof debounceAutosave==='function') debounceAutosave();
-}
 function _renderFlowPhotoModal(){
   var host=document.getElementById('flow-photo-modal'); if(!host) return;
   var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx);
   if(!row){ host.style.display='none'; return; }
   var pts=row.photos||[];
-  var READINGS=[['suction','Suction','Suction','suction'],['discharge','Discharge','Disch.','discharge'],['bf_in','BF-in','BF-in','bfi'],['bf_out','BF-out','BF-out','bfo'],['rpm','RPM (tachometer)','RPM','rpm']];
-  var active=_flowPhotoActiveReading;
+  var pct=row.pct||((_flowPhotoTbl==='std'?stdData:pldData).indexOf(row)>=0?'':'');
+  var ttl='Gauge Photos'+(row.pct?(' — '+row.pct):'')+(row.flow?(' · '+row.flow+' gpm'):'');
   var h='<div class="fpm-backdrop" onclick="closeFlowPhotos()"></div>';
-  h+='<div class="fpm-card" role="dialog" aria-label="Gauge and RPM photos">';
-  h+='<div class="fpm-head"><span>Gauge &amp; RPM Photos'+(row.pct?(' — '+row.pct):'')+(row.flow?(' · '+row.flow+' gpm'):'')+'</span><button class="fpm-x" onclick="closeFlowPhotos()" title="Close">✕</button></div>';
-  // Active-reading selector (pick reading, then shoot)
-  h+='<div class="gsel-lbl">Adding photo to:</div><div class="gsel-row">';
-  READINGS.forEach(function(r){
-    var on=(active===r[0])?' active':'';
-    h+='<button class="gsel-btn '+r[3]+on+'" onclick="_flowPhotoSetActiveReading(\''+r[0]+'\')"><span class="d"></span>'+r[2]+'</button>';
-  });
-  h+='</div>';
-  // Single drop zone — new photos inherit the active reading
+  h+='<div class="fpm-card" role="dialog" aria-label="Gauge photos">';
+  h+='<div class="fpm-head"><span>'+ttl+'</span><button class="fpm-x" onclick="closeFlowPhotos()" title="Close">✕</button></div>';
   h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
-  h+='<span>Drag &amp; drop, or</span>';
+  h+='<span>Drag &amp; drop gauge photo(s)</span>';
   h+='<button class="pz-upload" onclick="_flowPhotoUpload()">📎 Upload</button>';
   h+='<button class="pz-camera" onclick="_flowPhotoCamera()">📷 Camera</button>';
   h+='</div>';
-  // Build move-popup html once (per photo index injected)
-  function movePop(j){
-    var m='<div class="gmove-pop"><button onclick="_flowPhotoSetReading('+j+',\'suction\')"><span class="d" style="background:var(--gr-suction)"></span>Suction</button>'
-      +'<button onclick="_flowPhotoSetReading('+j+',\'discharge\')"><span class="d" style="background:var(--gr-discharge)"></span>Discharge</button>'
-      +'<button onclick="_flowPhotoSetReading('+j+',\'bf_in\')"><span class="d" style="background:var(--gr-bfi)"></span>BF-in</button>'
-      +'<button onclick="_flowPhotoSetReading('+j+',\'bf_out\')"><span class="d" style="background:var(--gr-bfo)"></span>BF-out</button>'
-      +'<button onclick="_flowPhotoSetReading('+j+',\'rpm\')"><span class="d" style="background:var(--gr-rpm)"></span>RPM</button></div>';
-    return m;
-  }
-  function thumb(p,j){
-    return '<div class="gthumb"><img src="'+_photoSrc(p)+'" onclick="_flowPhotoLightbox('+j+')">'
-      +'<button class="gthumb-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button>'
-      +'<button class="gthumb-move" onclick="this.nextElementSibling.classList.toggle(\'open\')">⇄ Move</button>'
-      +movePop(j)+'</div>';
-  }
-  // Grouped thumbs, in reading order, then an Unsorted group for any photo with no/unknown reading
-  READINGS.forEach(function(r){
-    var inGrp=[];
-    pts.forEach(function(p,j){ if(p.tag===r[0]) inGrp.push(thumb(p,j)); });
-    h+='<div class="ggrp '+r[3]+'"><div class="ggrp-lbl"><span class="d"></span>'+r[1]+(inGrp.length?'':' <span class="ggrp-empty">— no photos</span>')+'</div>';
-    if(inGrp.length) h+='<div class="gthumbs">'+inGrp.join('')+'</div>';
+  if(pts.length){
+    h+='<div class="fpm-thumbs">';
+    pts.forEach(function(p,j){
+      h+='<div class="fpm-thumb"><img src="'+(p.r2Url||p.d)+'" onclick="_flowPhotoLightbox('+j+')">'
+        +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button></div>';
+    });
     h+='</div>';
-  });
-  // Unsorted (existing photos with no reading assigned yet)
-  var unsorted=[];
-  pts.forEach(function(p,j){ if(!p.tag || ['suction','discharge','bf_in','bf_out','rpm'].indexOf(p.tag)<0) unsorted.push(thumb(p,j)); });
-  if(unsorted.length){
-    h+='<div class="ggrp unsorted"><div class="ggrp-lbl"><span class="d"></span>Unsorted — tap ⇄ Move to assign</div><div class="gthumbs">'+unsorted.join('')+'</div></div>';
+  } else {
+    h+='<div class="fpm-empty">No gauge photos yet for this flow point.</div>';
   }
   h+='</div>';
   host.innerHTML=h;
@@ -3829,18 +3462,14 @@ function updateStdCalcCells(i) {
   const row = stdData[i];
   if(!row) return;
   const r = _calcFlowPoint(row);
-  const endEl = document.getElementById('std-end-'+i);
+  const netEl = document.getElementById('std-net-'+i);
+  const adjEl = document.getElementById('std-adj-'+i);
+  const tgtEl = document.getElementById('std-tgt-'+i);
   const vEl   = document.getElementById('std-verdict-'+i);
   const flEl  = document.getElementById('std-flags-'+i);
-  if(endEl){
-    var adjTxt = r.adj!=null ? r.adj.toFixed(0) : '\u2014';
-    var thrTxt = r.thresh!=null ? r.thresh.toFixed(0) : '\u2014';
-    var meets = (r.adj!=null && r.thresh!=null && r.adj>=r.thresh);
-    var word = (r.adj!=null && r.thresh!=null) ? (meets?'meets':'needs') : '';
-    endEl.innerHTML = '<span class="el">Adj Net</span><span class="ev">'+adjTxt+'</span>'+
-      '<span class="ea'+(meets?'':' miss')+'">'+word+' <b>\u2265'+thrTxt+'</b></span>'+
-      '<span class="fp-info" title="Adjusted net = recorded net corrected to rated speed (pressure scales with RPM squared). Must be at least 95% of placard to pass per NFPA 25.">i</span>';
-  }
+  if(netEl) netEl.textContent = r.net!=null ? r.net.toFixed(0) : '—';
+  if(adjEl) adjEl.textContent = r.adj!=null ? r.adj.toFixed(0) : '—';
+  if(tgtEl) tgtEl.textContent = r.thresh!=null ? r.thresh.toFixed(0) : '—';
   if(vEl){
     vEl.className = 'fp-verdict '+r.verdict;
     vEl.textContent = r.verdict==='pass'?'✓ PASS':r.verdict==='fail'?'✗ FAIL':'—';
@@ -3848,6 +3477,19 @@ function updateStdCalcCells(i) {
   if(flEl){
     if(r.flags.length){ flEl.style.display=''; flEl.innerHTML = r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join(''); }
     else { flEl.style.display='none'; flEl.innerHTML=''; }
+  }
+  // refresh the inline ⚠ markers under suction / BF Up inputs
+  var card=document.getElementById('std-card-'+i);
+  if(card){
+    var npsh=parseFloat(npshPsi), suc=parseFloat(row.suction), bf=parseFloat(row.bfUp);
+    var cells=card.querySelectorAll('.fp-cell');
+    // suction is the 1st cell in the Measured seg (3rd cell overall: cutsheet, placard, suction...)
+    var sucCell=card.querySelector('input[data-field="suction"]');
+    var bfCell=card.querySelector('input[data-field="bfUp"]');
+    if(sucCell){ var w=sucCell.parentNode.querySelector('.fp-warn'); var bad=(!isNaN(suc)&&!isNaN(npsh)&&npsh>0&&suc<npsh);
+      if(bad&&!w){ var dw=document.createElement('div'); dw.className='fp-warn'; dw.innerHTML='⚠ &lt; NPSH'; sucCell.parentNode.appendChild(dw); } else if(!bad&&w){ w.remove(); } }
+    if(bfCell){ var w2=bfCell.parentNode.querySelector('.fp-warn'); var bad2=(!isNaN(bf)&&bf<20);
+      if(bad2&&!w2){ var dw2=document.createElement('div'); dw2.className='fp-warn'; dw2.innerHTML='⚠ BF &lt; 20'; bfCell.parentNode.appendChild(dw2); } else if(!bad2&&w2){ w2.remove(); } }
   }
 }
 
@@ -3875,31 +3517,22 @@ function renderPldTable() {
     const vtxt = v.verdict==='pass'?'✓ PASS':v.verdict==='fail'?'✗ FAIL':'—';
     const labelTxt = i===0?'Churn':(row.pct==='150%'?'Peak':(row.pct==='100%'?'Rated':''));
     const flowTxt = (i===0)?'0 gpm':(row.flow!==''&&row.flow!=null?row.flow+' gpm':'— gpm');
-    const hasBF = (row.bfUp!==''&&row.bfUp!=null) || (row.bfDown!==''&&row.bfDown!=null);
-    // shared header row: spine | segtag | Suct | Disch | RPM | end
-    const header = `<div></div><div></div><div class="fp-hdr">Suct</div><div class="fp-hdr">Disch</div><div class="fp-hdr">RPM</div><div class="fp-hdr"></div>`;
-    // w/o PLD line (governing = Net) or skip note
-    const woLine = skipNoPLD
-      ? `<div class="fp-spine wo"></div><div class="fp-segtag wo">w/o<br>PLD</div><div class="fp-skip-note">Not required at ${row.pct} (0%, 100%, 150% only)</div>`
-      : `<div class="fp-spine wo"></div><div class="fp-segtag wo">w/o<br>PLD</div>
-         <input type="number" value="${row.suc_no||''}" placeholder="psi" data-field="suc_no" data-idx="${i}" data-tbl="pld">
-         <input type="number" value="${row.dis_no||''}" placeholder="psi" data-field="dis_no" data-idx="${i}" data-tbl="pld">
-         <input type="number" value="${row.rpm_no||''}" placeholder="RPM" data-field="rpm_no" data-idx="${i}" data-tbl="pld">
-         <div class="fp-endval gov" id="pld-end-no-${i}"><span class="el">Net</span><span class="ev">—</span></div>`;
-    // w/ PLD line (Discharge governing-styled; Net held)
-    const wLine = `<div class="fp-spine w"></div><div class="fp-segtag w">w/<br>PLD</div>
-         <input type="number" value="${row.suc_w||''}" placeholder="psi" data-field="suc_w" data-idx="${i}" data-tbl="pld">
-         <input type="number" class="gov" value="${row.dis_w||''}" placeholder="psi" data-field="dis_w" data-idx="${i}" data-tbl="pld">
-         <input type="number" value="${row.rpm_w||''}" placeholder="RPM" data-field="rpm_w" data-idx="${i}" data-tbl="pld">
-         <div class="fp-held" id="pld-end-w-${i}"><span class="hl">Net held</span><span class="hv">—</span></div>`;
-    // BF Up/Down: show inline only when populated; otherwise a small add toggle
-    const bfBlock = hasBF
-      ? `<div class="fp-bf" id="pld-bf-${i}">
-           <div class="bfcell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="pld"></div>
-           <div class="bfcell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="pld"></div>
-           <button type="button" class="bftoggle bfremove" onclick="_pldHideBF(${i})" title="Remove backflow readings">✕</button>
+    const bfWarn=(!isNaN(parseFloat(row.bfUp))&&parseFloat(row.bfUp)<20)?'<div class="fp-warn">⚠ BF &lt; 20</div>':'';
+    // w/o PLD segment: suction/discharge/RPM + net calc, OR a skip note on excluded points
+    const woSeg = skipNoPLD
+      ? `<div class="fp-seg">
+           <span class="fp-seg-lbl">w/o PLD</span>
+           <div class="fp-skip-note">Not required at ${row.pct} (0%, 100%, 150% only)</div>
          </div>`
-      : `<div class="fp-bf" id="pld-bf-${i}"><button type="button" class="bftoggle" onclick="_pldShowBF(${i})">+ Backflow readings</button></div>`;
+      : `<div class="fp-seg">
+           <span class="fp-seg-lbl">w/o PLD (psi)</span>
+           <div class="fp-fields">
+             <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suc_no||''}" placeholder="psi" data-field="suc_no" data-idx="${i}" data-tbl="pld"></div>
+             <div class="fp-cell"><label>Disch.</label><input type="number" value="${row.dis_no||''}" placeholder="psi" data-field="dis_no" data-idx="${i}" data-tbl="pld"></div>
+             <div class="fp-cell"><label>RPM</label><input type="number" value="${row.rpm_no||''}" placeholder="RPM" data-field="rpm_no" data-idx="${i}" data-tbl="pld"></div>
+             <div class="fp-cell"><label>Net</label><div class="fp-calc" id="pld-net-no-${i}">—</div></div>
+           </div>
+         </div>`;
     const d=document.createElement('div'); d.className='fp-card'; d.id='pld-card-'+i;
     d.innerHTML=`
       <div class="fp-head">
@@ -3910,43 +3543,31 @@ function renderPldTable() {
         </div>
       </div>
       <div class="fp-strip">
-        <div class="fp-refline">
-          <span class="ri" style="font-weight:700;color:var(--slate);">${i===0?'0':''}${i===0?' gpm':''}</span>
-          <span class="ri"><b>Flow</b><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="pld" ${i===0?'readonly style="background:#eef0f4;color:#555;width:58px;"':''}></span>
-          <span class="ri"><b>Cutsheet</b><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="pld"></span>
-          <span class="ri"><b>Placard</b><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld"></span>
+        <div class="fp-seg" style="flex:0 0 auto;">
+          <span class="fp-seg-lbl">Reference</span>
+          <div class="fp-fields">
+            <div class="fp-cell" style="width:62px;flex:none;"><label>Flow</label><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="pld" ${i===0?'readonly style="background:#eef0f4;color:#555;"':''}></div>
+            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Cutsheet</label><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell ref" style="width:58px;flex:none;"><label>Placard</label><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld"></div>
+          </div>
         </div>
-        <div class="fp-grid">${header}${woLine}${wLine}</div>
-        ${bfBlock}
+        <div class="fp-seg">
+          <span class="fp-seg-lbl">w/ PLD (psi)</span>
+          <div class="fp-fields">
+            <div class="fp-cell"><label>Suction</label><input type="number" value="${row.suc_w||''}" placeholder="psi" data-field="suc_w" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell"><label>Disch.</label><input type="number" value="${row.dis_w||''}" placeholder="psi" data-field="dis_w" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell"><label>RPM</label><input type="number" value="${row.rpm_w||''}" placeholder="RPM" data-field="rpm_w" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell"><label>BF Up</label><input type="number" value="${row.bfUp||''}" placeholder="psi" data-field="bfUp" data-idx="${i}" data-tbl="pld">${bfWarn}</div>
+            <div class="fp-cell"><label>BF Down</label><input type="number" value="${row.bfDown||''}" placeholder="psi" data-field="bfDown" data-idx="${i}" data-tbl="pld"></div>
+            <div class="fp-cell"><label>Net</label><div class="fp-calc" id="pld-net-w-${i}">—</div></div>
+          </div>
+        </div>
+        ${woSeg}
       </div>
-      <div class="fp-flags" id="pld-pf-${i}" style="padding:0 14px 11px;">—</div>`;
+      <div class="fp-flags" id="pld-pf-${i}" style="padding:0 16px 12px;">—</div>`;
     host.appendChild(d);
     updatePldCalcCells(i);
   });
-}
-// S234: which control device is capping the w/ PLD segment (for the held-pill tag)
-function _pldCapDevice(){
-  var pld=document.getElementById('pm-pld-setting');
-  var prv=document.getElementById('pm-reducing-pld');   // pressure reducing valve (PRdV)
-  var rel=document.getElementById('pm-relief-pld');      // pressure relief valve
-  if(pld && pld.value!=='') return 'PLD';
-  if(prv && prv.value!=='') return 'PRdV';
-  if(rel && rel.value!=='') return 'PRV';
-  return 'PLD';
-}
-// S234: reveal/remove BF inputs on demand for a flow point
-function _pldShowBF(i){
-  const bf=document.getElementById('pld-bf-'+i); if(!bf) return;
-  const row=pldData[i]||{};
-  bf.innerHTML='<div class="bfcell"><label>BF Up</label><input type="number" value="'+(row.bfUp||'')+'" placeholder="psi" data-field="bfUp" data-idx="'+i+'" data-tbl="pld"></div>'+
-    '<div class="bfcell"><label>BF Down</label><input type="number" value="'+(row.bfDown||'')+'" placeholder="psi" data-field="bfDown" data-idx="'+i+'" data-tbl="pld"></div>'+
-    '<button type="button" class="bftoggle bfremove" onclick="_pldHideBF('+i+')" title="Remove backflow readings">✕</button>';
-}
-function _pldHideBF(i){
-  if(pldData[i]){ pldData[i].bfUp=''; pldData[i].bfDown=''; }
-  const bf=document.getElementById('pld-bf-'+i); if(!bf) return;
-  bf.innerHTML='<button type="button" class="bftoggle" onclick="_pldShowBF('+i+')">+ Backflow readings</button>';
-  if(typeof updatePldCalcCells==='function') updatePldCalcCells(i);
 }
 
 // Shared PLD verdict computation — used by on-screen cells AND email export (one source of truth)
@@ -3971,26 +3592,12 @@ function updatePldVerdictObj(row, i){
 function updatePldCalcCells(i) {
   const row = pldData[i];
   const v = updatePldVerdictObj(row, i);
-  const noEl = document.getElementById('pld-end-no-'+i);
-  const wEl = document.getElementById('pld-end-w-'+i);
+  const noEl = document.getElementById('pld-net-no-'+i);
+  const wEl = document.getElementById('pld-net-w-'+i);
   const pfEl = document.getElementById('pld-pf-'+i);
   const vchip = document.getElementById('pld-verdict-'+i);
-  // w/o PLD governing chip: Adjusted Net (the scored value) + threshold + info (Option 3)
-  if(noEl && v.netNo !== null){
-    var adjTxt = (v.adjNet!=null && !isNaN(v.adjNet)) ? v.adjNet.toFixed(0) : '\u2014';
-    var thrTxt = (v.thresh!=null) ? v.thresh.toFixed(0) : '\u2014';
-    var meets = (v.adjNet!=null && v.thresh!=null && v.adjNet>=v.thresh);
-    var word = (v.adjNet!=null && v.thresh!=null) ? (meets?'meets':'needs') : '';
-    noEl.innerHTML = '<span class="el">Adj Net</span><span class="ev">'+adjTxt+'</span>'+
-      '<span class="ea'+(meets?'':' miss')+'">'+word+' <b>\u2265'+thrTxt+'</b></span>'+
-      '<span class="fp-info" title="Adjusted net = recorded net corrected to rated speed (pressure scales with RPM squared). Must be at least 95% of placard to pass per NFPA 25.">i</span>';
-  }
-  // w/ PLD held pill: device tag + recorded Net (controlled — not scored)
-  if(wEl){
-    var heldTxt = v.netW ? v.netW.toFixed(1) : '\u2014';
-    var dev = _pldCapDevice ? _pldCapDevice() : 'PLD';
-    wEl.innerHTML = '<span class="ht">'+dev+'</span><span class="hl">Net held</span><span class="hv">'+heldTxt+'</span>';
-  }
+  if(noEl && v.netNo !== null) noEl.textContent = v.netNo ? v.netNo.toFixed(1) : '\u2014';
+  if(wEl) wEl.textContent = v.netW ? v.netW.toFixed(1) : '\u2014';
   // Card-head verdict chip (Option B)
   if(vchip){
     vchip.className = 'fp-verdict '+v.verdict;
@@ -5333,7 +4940,7 @@ function initPldNetChart() {
 function updatePldNetChart() {
   if(!pldNetChart) return;
   var ratedPld=_ratedRpmPld();
-  // Measured + Adjusted net w/o PRV & PLD — plotted on 0/100/150% only; PLD_NO_SKIP holds the skipped 25/50/75/125% rows
+  // Measured + Adjusted net w/o PRV & PLD (only on 25/50/75/125% rows — PLD_NO_SKIP holds the skips)
   var measured=[], adjusted=[];
   pldData.forEach(function(r,i){
     if(PLD_NO_SKIP.has(i)) return;
@@ -6874,7 +6481,7 @@ function addSketchEntry() {
       <div style="width:100%;">
         <div class="sketch-col-label">Freehand Sketch</div>
         <div class="sketch-canvas-wrap" id="scw-${uid}" style="overflow-x:auto;overflow-y:hidden;position:relative;">
-          <canvas class="sketch-canvas" id="sc-${uid}" width="900" height="420" style="background:${document.body.classList.contains('dark-mode')?'#22252d':'white'};display:block;"></canvas>
+          <canvas class="sketch-canvas" id="sc-${uid}" width="900" height="420" style="background:${document.body.classList.contains('dark-mode')?'rgba(255,255,255,.03)':'white'};display:block;"></canvas>
         </div>
         <!-- SKETCH TOOLBAR — full width -->
         <div class="sketch-toolbar" style="flex-wrap:wrap;gap:4px;margin-top:2px;">
@@ -7040,7 +6647,7 @@ function initSketchCanvas(uid) {
   };
   const canvas = document.getElementById(`sc-${uid}`);
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = _isDark ? '#22252d' : 'white';
+  ctx.fillStyle = _isDark ? 'rgba(255,255,255,.03)' : 'white';
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   const getPos = (e, c) => {
@@ -7278,7 +6885,7 @@ function setSketchColor(idx, color, el) {
 function clearSketchCanvas(idx) {
   const c=document.getElementById(`sc-${idx}`);
   const ctx=c.getContext('2d');
-  ctx.fillStyle=document.body.classList.contains('dark-mode')?'#22252d':'white'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.fillStyle=document.body.classList.contains('dark-mode')?'rgba(255,255,255,.03)':'white'; ctx.fillRect(0,0,c.width,c.height);
 }
 
 // ── MARKUP (photo annotation) ──
@@ -7856,14 +7463,12 @@ function _debouncePushUndo() {
 }
 function globalUndo() {
   if(_undoStack.length === 0) { showToast('Nothing to undo', 1500); return; }
-  if(typeof _DBG==='function') _DBG('UNDO fired', {stackDepth:_undoStack.length, activeEl:(document.activeElement&&document.activeElement.dataset)?document.activeElement.dataset.field||document.activeElement.tagName:document.activeElement&&document.activeElement.tagName});
   try { _redoStack.push(JSON.stringify(collectState())); } catch(e){}
   _applyStateInPlace(_undoStack.pop());
   showToast('\u21b6 Undo', 1200);
 }
 function globalRedo() {
   if(_redoStack.length === 0) { showToast('Nothing to redo', 1500); return; }
-  if(typeof _DBG==='function') _DBG('REDO fired', {stackDepth:_redoStack.length});
   try { _undoStack.push(JSON.stringify(collectState())); } catch(e){}
   _applyStateInPlace(_redoStack.pop());
   showToast('\u21b7 Redo', 1200);
@@ -7886,14 +7491,8 @@ function _applyStateInPlace(jsonStr) {
       cbs.forEach(function(cb){ cb.checked = false; });
       s.equipChecked.forEach(function(i){ if(cbs[i]) cbs[i].checked = true; });
     }
-    if(s.stdData) s.stdData.forEach(function(r,i){ if(stdData[i]){
-      if(typeof _DBG==='function' && (r.discharge!==stdData[i].discharge || r.suction!==stdData[i].suction)) _DBG('STATE-APPLY std['+i+']', {dis:{old:stdData[i].discharge,new:r.discharge}, suc:{old:stdData[i].suction,new:r.suction}});
-      Object.assign(stdData[i],r);
-    } });
-    if(s.pldData) s.pldData.forEach(function(r,i){ if(pldData[i]){
-      if(typeof _DBG==='function' && (r.dis_w!==pldData[i].dis_w || r.dis_no!==pldData[i].dis_no)) _DBG('STATE-APPLY pld['+i+']', {dis_w:{old:pldData[i].dis_w,new:r.dis_w}, dis_no:{old:pldData[i].dis_no,new:r.dis_no}});
-      Object.assign(pldData[i],r);
-    } });
+    if(s.stdData) s.stdData.forEach(function(r,i){ if(stdData[i]) Object.assign(stdData[i],r); });
+    if(s.pldData) s.pldData.forEach(function(r,i){ if(pldData[i]) Object.assign(pldData[i],r); });
     if(s.pumpCurvePoints) { pumpCurvePoints.length=0; s.pumpCurvePoints.forEach(function(p){pumpCurvePoints.push(p);}); }
     if(s.pldPumpCurvePoints) { pldPumpCurvePoints.length=0; s.pldPumpCurvePoints.forEach(function(p){pldPumpCurvePoints.push(p);}); }
     if(s.clState) { Object.keys(clState).forEach(function(k){delete clState[k];}); Object.assign(clState,s.clState); Object.keys(clState).forEach(function(k){ if(clState[k]) delete clState[k].timestamp; }); }
@@ -8366,8 +7965,22 @@ function updateRevisionDisplay() {
 var _autosaveTimer = null;
 function debounceAutosave() {
   clearTimeout(_autosaveTimer);
-  _autosaveTimer = setTimeout(() => { touchRevision(); saveState(); }, 15000);
+  _autosaveTimer = setTimeout(() => { touchRevision(); saveState(); }, 4000);
 }
+// Flush any pending autosave immediately (page hide / app-switch / refresh).
+// Root cause of the S236 "typed value reverts on reload" bug: the 15s debounce
+// timer never fired before unload, so the edit was never persisted. This commits it.
+function _flushAutosave() {
+  if (_autosaveTimer) { clearTimeout(_autosaveTimer); _autosaveTimer = null; }
+  try { touchRevision(); saveState(); } catch (e) { console.warn('[flush] saveState failed:', e); }
+}
+// visibilitychange(hidden) covers iPad app-switch + tab background; pagehide covers
+// refresh/close. Both fire synchronously enough to land the IDB write. Hub cloud
+// push still follows the existing online-gated save() path.
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'hidden') _flushAutosave();
+});
+window.addEventListener('pagehide', _flushAutosave);
 function saveState(){
   try{
     var key=getProjectSaveKey();
@@ -8696,17 +8309,11 @@ function _applyLoadedState(raw) {
       if (r) { r.checked = true; setPumpTestType(s.testType); }
     }
     // stdData
-    if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]){
-      if(typeof _DBG==='function' && (r.discharge!==stdData[i].discharge)) _DBG('LOAD-STATE std['+i+']', {dis:{old:stdData[i].discharge,new:r.discharge}});
-      Object.assign(stdData[i], r);
-    } });
+    if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) Object.assign(stdData[i], r); });
     if (s.npshPsi !== undefined) { npshPsi = s.npshPsi; var _ne=document.getElementById('npsh-psi'); if(_ne) _ne.value = s.npshPsi||''; }
     if (s.npshPsiPld !== undefined) { npshPsiPld = s.npshPsiPld; var _nep=document.getElementById('npsh-psi-pld'); if(_nep) _nep.value = s.npshPsiPld||''; }
     // pldData
-    if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]){
-      if(typeof _DBG==='function' && (r.dis_w!==pldData[i].dis_w || r.dis_no!==pldData[i].dis_no)) _DBG('LOAD-STATE pld['+i+']', {dis_w:{old:pldData[i].dis_w,new:r.dis_w}, dis_no:{old:pldData[i].dis_no,new:r.dis_no}});
-      Object.assign(pldData[i], r);
-    } });
+    if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) Object.assign(pldData[i], r); });
     // safety margin per-chart state (on/off + chip offset)
     if (s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
     if (s.smCapVis){ Object.keys(smCapVis).forEach(function(k){ if(s.smCapVis[k]) Object.assign(smCapVis[k], s.smCapVis[k]); }); }
@@ -9502,7 +9109,7 @@ function _skRedraw(uid) {
   var canvas = document.getElementById('sc-'+uid);
   if(!canvas) return;
   var ctx = canvas.getContext('2d');
-  ctx.fillStyle=document.body.classList.contains('dark-mode')?'#22252d':'white'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle=document.body.classList.contains('dark-mode')?'rgba(255,255,255,.03)':'white'; ctx.fillRect(0,0,canvas.width,canvas.height);
   var strokes = _skStrokes[uid]||[];
   // Separate highlights from other strokes for non-stacking composite
   var highlights=[];
@@ -9655,14 +9262,12 @@ function _collectAllPhotos(){
   // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
   (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      var _bt=(p.tag&&_GAUGE_TAG_SHORT[p.tag])?' '+_GAUGE_TAG_SHORT[p.tag]:'';
-      all.push({photo:p, type:'gauge', cat:'flow', badge:(row.pct||(ri+''))+_bt, label:'Gauge (3-pt) '+(row.pct||''), section:'gauge_std_'+ri, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'gauge', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (3-pt) '+(row.pct||''), section:'gauge_std_'+ri, idx:pi, src:p.r2Url||p.d});
     });
   });
   (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      var _bt=(p.tag&&_GAUGE_TAG_SHORT[p.tag])?' '+_GAUGE_TAG_SHORT[p.tag]:'';
-      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:(row.pct||(ri+''))+_bt, label:'Gauge (PLD) '+(row.pct||''), section:'gauge_pld_'+ri, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (PLD) '+(row.pct||''), section:'gauge_pld_'+ri, idx:pi, src:p.r2Url||p.d});
     });
   });
   return all;
@@ -10090,8 +9695,211 @@ function _pgReassignSelected(){
   }, 'Reassign');
 }
 
-// S231: caption-edit override + standalone zoom layer REMOVED — replaced by FRT-clean
-// single-path lightbox (pan/zoom built into showLbPhoto/_lbInitPanZoom above).
+// ── Photo captions & dates ──
+// Extend openLightbox to show caption + date editing
+var _origOpenLightbox = typeof openLightbox === 'function' ? openLightbox : null;
+function _enhancedOpenLightbox(photos, idx, ctx){
+  if(_origOpenLightbox) _origOpenLightbox(photos, idx, ctx);
+  // After lightbox opens, inject caption/date UI
+  setTimeout(function(){
+    var lb = document.getElementById('photo-lightbox');
+    if(!lb || lb.style.display === 'none') return;
+    var existing = document.getElementById('lb-caption-wrap');
+    if(existing) existing.remove();
+    var p = photos[idx];
+    if(!p || typeof p !== 'object') return;
+    var wrap = document.createElement('div');
+    wrap.id = 'lb-caption-wrap';
+    wrap.style.cssText = 'width:min(95vw,600px);margin:8px auto 0;display:flex;gap:8px;align-items:center;';
+    wrap.innerHTML = '<input id="lb-caption" type="text" placeholder="Caption..." value="'+(p.caption||'').replace(/"/g,'&quot;')+'" style="flex:1;padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:13px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].caption=this.value">'
+      + '<input id="lb-date" type="date" value="'+(p.date||'')+'" style="padding:5px 8px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:12px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].date=this.value">';
+    var imgWrap = lb.querySelector('img[id=lightbox-img]') || lb.querySelector('img');
+    if(imgWrap && imgWrap.parentNode) imgWrap.parentNode.insertAdjacentElement('afterend', wrap);
+  }, 200);
+}
+// Override openLightbox — deferred to ensure original is defined
+setTimeout(function(){
+  if(typeof openLightbox === 'function' && openLightbox !== _enhancedOpenLightbox){
+    _origOpenLightbox = openLightbox;
+    openLightbox = _enhancedOpenLightbox;
+  }
+}, 500);
+
+// Ensure new photos get date stamp automatically
+var _origCompressImage = typeof compressImage === 'function' ? compressImage : null;
+// Instead of wrapping compressImage, we patch the photo object creation points
+// Auto-stamp date on photo creation via a post-creation hook
+(function(){
+  var _origPush = Array.prototype.push;
+  // We can't easily patch push — instead we'll rely on the gallery to show dates
+  // and let captions be manually entered in lightbox
+})();
+
+// ── Lightbox zoom (pinch/wheel/double-tap) ──
+var _lbZoom = {s:1, px:0, py:0, pinching:false, lastDist:0};
+function _initLbZoom(){
+  var img = document.getElementById('lightbox-img');
+  if(!img) return;
+  var wrap = img.parentElement;
+  if(!wrap || wrap._zoomInit) return;
+  wrap._zoomInit = true;
+  wrap.style.overflow = 'hidden';
+  wrap.style.touchAction = 'none';
+  img.style.transformOrigin = '0 0';
+  
+  // Mouse wheel zoom
+  wrap.addEventListener('wheel', function(e){
+    e.preventDefault();
+    var rect = wrap.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var imgX = (mx - _lbZoom.px) / _lbZoom.s;
+    var imgY = (my - _lbZoom.py) / _lbZoom.s;
+    var delta = e.deltaY > 0 ? 0.9 : 1.1;
+    var ns = Math.max(1, Math.min(8, _lbZoom.s * delta));
+    _lbZoom.px = mx - imgX * ns;
+    _lbZoom.py = my - imgY * ns;
+    _lbZoom.s = ns;
+    if(ns <= 1){ _lbZoom.px=0; _lbZoom.py=0; _lbZoom.s=1; }
+    _lbApplyZoom(img);
+    _lbShowZoomHint();
+  }, {passive:false});
+  
+  // Touch pinch zoom
+  var touches = {};
+  wrap.addEventListener('touchstart', function(e){
+    if(e.touches.length === 2){
+      _lbZoom.pinching = true;
+      _lbZoom.lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    }
+  }, {passive:true});
+  wrap.addEventListener('touchmove', function(e){
+    if(_lbZoom.pinching && e.touches.length === 2){
+      e.preventDefault();
+      var dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      var scale = dist / _lbZoom.lastDist;
+      var rect = wrap.getBoundingClientRect();
+      var cx = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
+      var cy = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
+      var imgX = (cx - _lbZoom.px) / _lbZoom.s;
+      var imgY = (cy - _lbZoom.py) / _lbZoom.s;
+      var ns = Math.max(1, Math.min(8, _lbZoom.s * scale));
+      _lbZoom.px = cx - imgX * ns;
+      _lbZoom.py = cy - imgY * ns;
+      _lbZoom.s = ns;
+      if(ns <= 1){ _lbZoom.px=0; _lbZoom.py=0; _lbZoom.s=1; }
+      _lbApplyZoom(img);
+      _lbShowZoomHint();
+      _lbZoom.lastDist = dist;
+    } else if(_lbZoom.s > 1.05 && e.touches.length === 1){
+      // Pan when zoomed
+      e.preventDefault();
+    }
+  }, {passive:false});
+  wrap.addEventListener('touchend', function(e){
+    if(e.touches.length < 2) _lbZoom.pinching = false;
+  }, {passive:true});
+  
+  // Double-click/tap toggle
+  var lastTap = 0;
+  wrap.addEventListener('dblclick', function(e){
+    e.preventDefault();
+    if(_lbZoom.s > 1.05){
+      _lbZoom.s=1; _lbZoom.px=0; _lbZoom.py=0;
+    } else {
+      var rect = wrap.getBoundingClientRect();
+      var mx = e.clientX - rect.left;
+      var my = e.clientY - rect.top;
+      var imgX = (mx - _lbZoom.px) / _lbZoom.s;
+      var imgY = (my - _lbZoom.py) / _lbZoom.s;
+      _lbZoom.s = 3;
+      _lbZoom.px = mx - imgX * 3;
+      _lbZoom.py = my - imgY * 3;
+    }
+    _lbApplyZoom(img);
+    _lbShowZoomHint();
+  });
+  
+  // Keyboard zoom
+  document.addEventListener('keydown', function(e){
+    var lb = document.getElementById('photo-lightbox');
+    if(!lb || lb.style.display === 'none') return;
+    if(e.key === '+' || e.key === '='){ _lbZoom.s = Math.min(8, _lbZoom.s * 1.2); _lbApplyZoom(img); _lbShowZoomHint(); }
+    else if(e.key === '-'){ _lbZoom.s = Math.max(1, _lbZoom.s * 0.8); if(_lbZoom.s<=1){_lbZoom.px=0;_lbZoom.py=0;_lbZoom.s=1;} _lbApplyZoom(img); _lbShowZoomHint(); }
+    else if(e.key === '0'){ _lbZoom.s=1;_lbZoom.px=0;_lbZoom.py=0; _lbApplyZoom(img); _lbShowZoomHint(); }
+  });
+}
+function _lbApplyZoom(img){
+  img.style.transform = 'translate('+_lbZoom.px+'px,'+_lbZoom.py+'px) scale('+_lbZoom.s+')';
+  img.style.transition = 'transform .15s ease-out';
+}
+function _lbResetZoom(){
+  _lbZoom.s=1; _lbZoom.px=0; _lbZoom.py=0;
+  var img = document.getElementById('lightbox-img');
+  if(img){ img.style.transform=''; img.style.transition=''; }
+}
+function _lbShowZoomHint(){
+  var hint = document.getElementById('lb-zoom-hint');
+  if(!hint){
+    hint = document.createElement('div');
+    hint.id = 'lb-zoom-hint';
+    hint.style.cssText = 'position:fixed;bottom:60px;right:20px;background:rgba(0,0,0,.55);color:rgba(255,255,255,.7);font-size:11px;padding:2px 8px;border-radius:4px;pointer-events:none;font-family:Calibri,sans-serif;z-index:10001;transition:opacity .3s;';
+    document.body.appendChild(hint);
+  }
+  hint.textContent = Math.round(_lbZoom.s*100)+'%';
+  hint.style.opacity = '1';
+  clearTimeout(hint._timer);
+  hint._timer = setTimeout(function(){ hint.style.opacity='0'; }, 1200);
+}
+
+// Hook into lightbox open to init zoom — deferred
+var _origLbNav = null;
+var _origCloseLb = null;
+setTimeout(function(){
+  _origLbNav = typeof lightboxNav === 'function' ? lightboxNav : null;
+  _origCloseLb = typeof closeLightbox === 'function' ? closeLightbox : null;
+  // Wrap lightboxNav to reset zoom on nav
+  if(_origLbNav){
+    lightboxNav = function(dir){
+      _lbResetZoom();
+      _origLbNav(dir);
+      // Re-add caption UI
+      setTimeout(function(){
+        var p = lbPhotos[lbIdx];
+        var wrap = document.getElementById('lb-caption-wrap');
+        if(wrap && p && typeof p==='object'){
+          var ci = wrap.querySelector('#lb-caption');
+          var di = wrap.querySelector('#lb-date');
+          if(ci) ci.value = p.caption||'';
+          if(di) di.value = p.date||'';
+        }
+      }, 100);
+    };
+  }
+  // Wrap closeLightbox to reset zoom
+  if(_origCloseLb){
+    closeLightbox = function(){
+      _lbResetZoom();
+      var cw = document.getElementById('lb-caption-wrap');
+      if(cw) cw.remove();
+      _origCloseLb();
+    };
+  }
+  // Init zoom when lightbox opens — use MutationObserver
+  var lb = document.getElementById('photo-lightbox');
+  if(lb){
+    var obs = new MutationObserver(function(mutations){
+      mutations.forEach(function(m){
+        if(m.attributeName === 'style' && lb.style.display !== 'none'){
+          setTimeout(_initLbZoom, 100);
+          _lbResetZoom();
+        }
+      });
+    });
+    obs.observe(lb, {attributes:true, attributeFilter:['style']});
+  }
+}, 600);
+
 // ── Non-destructive photo markup (4-field architecture) ──
 // Override saveLbMarkup to store markupObjects instead of baking
 var _ndSaveLbMarkup = function(){
@@ -11592,9 +11400,10 @@ body.dark-mode .card-header.red{
 }
 body.dark-mode .card-header svg{color:var(--arencon)!important;}
 body.dark-mode .ov-hd{
-  background:var(--b-chiphdr)!important;
-  color:var(--b-chipink)!important;
+  background:#23212b!important;
+  color:#f4f3f6!important;
   border-bottom:1px solid var(--border)!important;
+  border-left:3px solid var(--arencon)!important;
 }
 body.dark-mode .ov-hd svg{color:var(--arencon)!important;}
 body.dark-mode .ov-hd .ov-pct{color:#fff!important;}
@@ -11763,7 +11572,7 @@ body.dark-mode .phase-bar{background:rgba(0,0,0,.30)!important;}
 .phase-tab:not(.active):hover{color:rgba(255,255,255,.78)!important;}
 
 /* autoname / project bar = recessed context strip between header and phase bar
-   (was leftover navy #2C3E50 / #151a24, untouched by the Bold overlay) */
+   (was leftover navy #2C3E50 / rgba(255,255,255,.02), untouched by the Bold overlay) */
 .project-bar{background:rgba(0,0,0,.12)!important;border-top:1px solid rgba(255,255,255,.06)!important;}
 body.dark-mode .project-bar{background:rgba(0,0,0,.22)!important;border-top-color:rgba(255,255,255,.05)!important;}
 .project-bar .pb-filename{color:rgba(255,255,255,.82)!important;}
