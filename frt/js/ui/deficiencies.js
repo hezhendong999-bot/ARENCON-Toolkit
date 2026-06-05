@@ -1966,20 +1966,33 @@ function _deriveCategory(d, o, hasCtr) {
 }
 
 // Combined status descriptor for an observation. site=true forces the
-// indigo Site Record treatment regardless of addressed/priority.
+// Site Record treatment regardless of addressed/priority. USED BY THE EDITOR
+// status-cycle button — must keep returning Outstanding/Closed only, so the
+// high→low→closed cycle works. The collapsed-row FAR-RIGHT pill uses
+// _obsFarPill instead (which adds Recommendation/Site Record states).
 function _obsStatusInfo(o, site, d) {
   if (site) return { val: 'site', txt: 'Site Record', cls: 'dfx-cs-site' };
   if (o && o.addressed) return { val: 'closed', txt: 'Closed', cls: 'dfx-cs-closed' };
-  // Resolve priority the SAME way the rest of the tool does: per-obs value,
-  // else the pin's priority, else 'high'. (A bare o.priority||'low' default
-  // was wrong — an obs with no own priority inherits the pin's, and the
-  // tool-wide default is 'high', so the chip must match.)
   var pri = (o && o.priority) || (d && d.priority) || 'high';
   if (pri === 'low') return { val: 'low', txt: 'Outstanding', cls: 'dfx-cs-low' };
-  // high + general both render as the report's high/low buckets — general
-  // has no separate pill; it maps to the amber (low) treatment.
   if (pri === 'general') return { val: 'low', txt: 'Outstanding', cls: 'dfx-cs-low' };
   return { val: 'high', txt: 'Outstanding', cls: 'dfx-cs-high' };
+}
+
+// S248: the single FAR-RIGHT collapsed-row pill. Precedence matches
+// _deriveCategory: addressed → Closed (green); else recommendation →
+// Recommendation (yellow, distinct from amber low); else no contractor →
+// Site Record (purple); else Outstanding (red high / amber low). "Active"
+// is never shown — outstanding is self-evidently active. This replaces the
+// old behaviour of showing BOTH an under-text category pill AND an
+// Outstanding chip; now there is exactly one pill per row.
+function _obsFarPill(o, isSite, d) {
+  if (o && o.addressed) return { txt: 'Closed', cls: 'dfx-cs-closed' };
+  if (o && o.isRecommendation) return { txt: 'Recommendation', cls: 'dfx-cs-rec' };
+  if (isSite) return { txt: 'Site Record', cls: 'dfx-cs-site' };
+  var pri = (o && o.priority) || (d && d.priority) || 'high';
+  if (pri === 'low' || pri === 'general') return { txt: 'Outstanding', cls: 'dfx-cs-low' };
+  return { txt: 'Outstanding', cls: 'dfx-cs-high' };
 }
 
 // The combined priority+status control (editor). One <select> replacing
@@ -2011,10 +2024,10 @@ function _buildObsRow(d, oi, ctrId, opts) {
   // NOT a stored per-contractor color — keeps the list in lockstep with the
   // PDF contractor section + the group headers. Site Records use slate.
   var pal = (!isSite && ctrName) ? getContractorColor(ctrName) : null;
-  var accent = pal ? pal.accent : '#6B7280';
+  // S248: Site Record identity colour = the demo purple (#6E6AA8), matching
+  // the Site Record pill and the demo's 7B/2 pins. Was slate #6B7280.
+  var accent = pal ? pal.accent : '#6E6AA8';
 
-  var info = _obsStatusInfo(o, isSite, d);
-  var isRec = !!o.isRecommendation;
   var key = _obsKey(d.id, oi);
   var open = (_openObsKey === key);
 
@@ -2032,7 +2045,7 @@ function _buildObsRow(d, oi, ctrId, opts) {
   // Records rows already sit under the Site Records section, so just the
   // slate dot (no label).
   var metaName = isSite
-    ? '<span class="dfx-or-cdot" style="background:#6B7280" title="' + esc(SITE_RECORDS_LABEL) + '"></span>'
+    ? '<span class="dfx-or-cdot" style="background:#6E6AA8" title="' + esc(SITE_RECORDS_LABEL) + '"></span>'
     : ('<span class="dfx-or-cdot" style="background:' + esc(accent) + '" title="' + esc(ctrLabel(ctrName) || 'Unnamed') + '"></span>');
 
   var h = '<div class="dfx-obsrow' + (open ? ' open' : '') + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
@@ -2044,14 +2057,14 @@ function _buildObsRow(d, oi, ctrId, opts) {
   h += '<span class="dfx-or-id" style="background:' + esc(accent) + '">' + esc(label) + '</span>';
   h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
   h += '<span class="dfx-or-mid"><span class="dfx-or-title">' + esc(o.text || deficDesc(d) || '\u2014') + '</span>';
-  // S248: demo body-line — contractor dot + a filled category pill
-  // (Active / Recommendation / Site Record / Closed), matching
-  // FRT_manual_resort_demo. The Outstanding status chip on the right is
-  // KEPT (dfx-or-chip below) — the category pill is additive, not a replacement.
-  var _catM = _cvCatMeta(_deriveCategory(d, o, !isSite).cat);
-  h += '<span class="dfx-or-meta">' + metaName
-    + '<span class="dfx-or-catpill ' + _catM.cls + '">' + esc(_catM.label) + '</span></span></span>';
-  h += '<span class="dfx-or-chip ' + info.cls + '">' + info.txt + '</span>';
+  // S248: under-text category pill REMOVED — it duplicated the far-right pill.
+  // Keep only the contractor colour dot here; the single status pill lives on
+  // the far right (below).
+  h += '<span class="dfx-or-meta">' + metaName + '</span></span>';
+  // Single far-right pill: Outstanding(red/amber) · Recommendation(yellow) ·
+  // Site Record(purple) · Closed(green). No "Active" — outstanding implies it.
+  var _far = _obsFarPill(o, isSite, d);
+  h += '<span class="dfx-or-chip ' + _far.cls + '">' + _far.txt + '</span>';
   h += '<span class="dfx-or-caret">\u25BC</span>';
   h += '</div>'; // /head
   if (open) h += _buildObsEditor(d, oi, ctrId, opts);

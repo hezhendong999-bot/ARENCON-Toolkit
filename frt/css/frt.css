@@ -7494,7 +7494,19 @@ body.dark-mode .dfx-ctr-banner.rec { background: #565C66; }
   background: var(--csurf, #EEF1F5);
   color: var(--ctext, #1C2333);
 }
-body.dark-mode .dfx-ctr-banner.dfx-ctr-tinted { background: var(--csurf, #2A2E36); }
+/* S248 FIX: in dark mode the inline --csurf/--ctext carry LIGHT-palette values
+   (light surface, dark text), so the band rendered bright with dark text —
+   reversed. Force a dark band with light text in dark mode, keeping the
+   contractor's accent only as the dot (.dfx-ctr-dot uses --cc, unaffected).
+   The accent tint is layered subtly over the dark surface. */
+body.dark-mode .dfx-ctr-banner.dfx-ctr-tinted {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--cc, #6E6AA8) 14%, #1b1e25), color-mix(in srgb, var(--cc, #6E6AA8) 14%, #1b1e25));
+  color: #f0eef4;
+}
+body.dark-mode .dfx-ctr-banner.dfx-ctr-tinted .dfx-ctr-count {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e6e3ec;
+}
 .dfx-ctr-banner.dfx-ctr-tinted .dfx-ctr-count {
   background: rgba(0, 0, 0, 0.06);
   color: var(--ctext, #4A5568);
@@ -7553,6 +7565,14 @@ body.dark-mode .dfx-or-title { color: #E2E6EC; }
 .dfx-cs-low    { background: #FEF9E7; color: #E67E22; }
 .dfx-cs-closed { background: #D4EDDA; color: #1A7A4A; }
 .dfx-cs-site   { background: #DCDEF0; color: #3F4470; }
+/* S248: Recommendation pill — a distinct YELLOW, deliberately separated from
+   the amber low-Outstanding (#E67E22) which it previously collided with. */
+.dfx-cs-rec    { background: #FBF3D6; color: #B8860B; }
+/* S248: dark-mode far-right pills. Site Record was missing a dark rule, so it
+   fell back to the light (white-ish) bg with purple text — wrong. Give it the
+   demo's purple treatment. Recommendation gets a dark yellow. */
+body.dark-mode .dfx-cs-site { background: rgba(110,106,168,.22); color: #B7B2E8; }
+body.dark-mode .dfx-cs-rec  { background: rgba(214,170,40,.18); color: #E6C44C; }
 .dfx-or-thumb {
   width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0;
   object-fit: cover; background: #E8E9EC; position: relative;
