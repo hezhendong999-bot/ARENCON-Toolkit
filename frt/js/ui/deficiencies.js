@@ -2182,8 +2182,19 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '</div>';
   }
 
-  // ── body: textarea | media zone (reuses the live obs-media markup) ──
-  h += '<div class="obs-layout-merged">';
+  // ── S248 card-expand body (LOCKED layout, FRT_CARD_EXPAND_FINAL_demo +
+  // Mark's PC correction): 2-col on PC — LEFT column = comment text on top,
+  // photos below it; RIGHT column = the drawing mini-map (full height). Phone
+  // (<680px) collapses to a single stacked column: text → photos → drawing.
+  // Only the combined-view card editor (no withHeader) uses this grid; the
+  // on-drawing editor (withHeader) keeps its own obs-layout-merged. ──
+  var _cvCard = !opts.withHeader;
+  if (_cvCard) {
+    h += '<div class="cv-ed-body">';
+    h += '<div class="cv-ed-left">';
+  } else {
+    h += '<div class="obs-layout-merged">';
+  }
   h += '<div class="obs-text">';
   h += '<textarea data-action="obs-text" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="obs-text-input" placeholder="Describe the observation...">' + esc(o.text || '') + '</textarea>';
   h += '</div>';
@@ -2268,32 +2279,33 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   h += '<button class="obs-drop-btn is-gallery' + _icl + '" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F' + _gl + '</button>';
   h += '</div>';
   h += '</div></div>'; // /obs-media-zone /obs-media-col
-  h += '</div>'; // /obs-layout-merged
-
-  // ── S248: pin location mini-map (combined-view card editor only) ──
-  // Reuses the on-drawing editor's _renderPinMiniMap via the cross-module
-  // window._frtRenderPinMiniMap hook. DESKTOP panel (cv-pe-location-thumb) is
-  // interactive (drag-to-reposition, identical _PinPan path); the NARROW panel
-  // (cv-pe-location-thumb-mobile) is a static crop — the unverified-on-tablet
-  // drag stays gated to the existing on-drawing surface, so this adds NO new
-  // silent-pin-loss risk on field tablets. The single canonical ids are safe:
-  // the combined view is a single-expand accordion (_openObsKey holds ONE row),
-  // so each id exists at most once in the DOM. CSS shows exactly one panel per
-  // breakpoint. "Open in drawing viewer" reuses the EXISTING viewer (view-pin)
-  // — never a 2nd tiled instance.
-  if (!opts.withHeader) {
-    h += '<div class="cv-loc-panel">';
-    h += '<div class="cv-loc-head"><span class="cv-loc-lbl">Location</span>';
+  if (_cvCard) {
+    h += '</div>'; // /cv-ed-left  (text + photos stacked, LEFT column)
+    // RIGHT column = the drawing mini-map, full height. DESKTOP panel
+    // (cv-pe-location-thumb) is interactive via the cross-module
+    // window._frtRenderPinMiniMap hook (identical _PinPan path as the
+    // on-drawing editor — no NEW drag risk); the NARROW panel
+    // (cv-pe-location-thumb-mobile) is a static crop. CSS shows exactly one
+    // per breakpoint. Single-expand accordion → ids exist once. "Open in
+    // drawing viewer" reuses the EXISTING viewer (view-pin); never a 2nd
+    // tiled instance.
+    h += '<div class="cv-ed-right">';
+    h += '<div class="cv-loc-head"><span class="cv-loc-lbl">Location on drawing</span>';
     if (d.drawingId) {
       h += '<button type="button" class="cv-loc-open" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Open this pin in the drawing viewer">Open in drawing viewer \u2197</button>';
     } else {
       h += '<button type="button" class="cv-loc-open" data-action="place-pin" data-defic-id="' + esc(d.id) + '" title="Place this pin on a drawing">Place on a drawing</button>';
     }
     h += '</div>';
-    // Two panels; CSS reveals only the one for the current breakpoint.
     h += '<div id="cv-pe-location-thumb" class="cv-loc-thumb cv-loc-desktop"></div>';
     h += '<div id="cv-pe-location-thumb-mobile" class="cv-loc-thumb cv-loc-mobile"></div>';
-    h += '</div>'; // /cv-loc-panel
+    if (d.drawingId) {
+      h += '<div class="cv-loc-hint">Drag the pin to reposition \u00b7 \uFF0B/\u2212 to zoom \u00b7 tap \u2197 above to open the full drawing</div>';
+    }
+    h += '</div>'; // /cv-ed-right
+    h += '</div>'; // /cv-ed-body
+  } else {
+    h += '</div>'; // /obs-layout-merged
   }
 
   // AI scratchpad (per-obs)

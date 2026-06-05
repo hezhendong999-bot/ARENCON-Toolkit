@@ -723,8 +723,8 @@ body.dark-mode .dlc-tab.active{color:#f4a1b5;border-bottom-color:#9C2742;}
 .obs-row{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--smoke);}
 .obs-row:last-child{border-bottom:none;}
 .obs-toggle{padding:3px 10px;border-radius:12px;font-size:calc(10px + var(--ts));font-weight:700;cursor:pointer;border:1.5px solid;white-space:nowrap;flex-shrink:0;margin-top:2px;font-family:Calibri,sans-serif;transition:all .15s;}
-.obs-toggle.open{background:#FFF5F5;color:#A85959;border-color:#A85959;}
-.obs-toggle.addressed{background:#E8EFE7;color:#5F8068;border-color:#5F8068;}
+.obs-toggle.open{background:var(--b-high-bg);color:var(--b-high);border-color:var(--b-high);}
+.obs-toggle.addressed{background:var(--b-cat-closed-bg);color:var(--b-cat-closed-fg);border-color:var(--b-cat-closed-fg);}
 .obs-text{flex:1;min-width:0;}
 .obs-text.addressed textarea{opacity:.55;}
 .obs-label{font-size:calc(11px + var(--ts));color:var(--steel);font-weight:600;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
@@ -2109,8 +2109,8 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-cloud svg{display:block;}
 /* Hover action buttons (download + delete) — bottom-left cluster. */
 .ph-dl-btn,.ph-del-btn{position:absolute;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);}
-.ph-dl-btn{bottom:5px;left:6px;background:rgba(44,71,112,.92);}
-.ph-dl-btn:hover{background:#2C4770;}
+.ph-dl-btn{bottom:5px;left:6px;background:var(--b-pb-u,#5A6E80);}
+.ph-dl-btn:hover{background:var(--b-pb-u,#4A5A6E);filter:brightness(.92);}
 .ph-del-btn{bottom:5px;left:36px;background:rgba(192,57,43,.92);}
 .ph-del-btn:hover{background:#A85959;}
 .ph-card:hover .ph-dl-btn,.ph-card:hover .ph-del-btn{display:flex;}
@@ -2118,8 +2118,8 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 /* S216: gallery move/copy button (defic photos only). Same blue + shape as the
    download button; sits at left:36px (the site-only trash slot, free for defic
    photos) so it never overlaps the checkbox, badges, or download. */
-.ph-move-btn{position:absolute;bottom:5px;left:36px;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);background:rgba(44,71,112,.92);color:#fff;font-size:14px;line-height:1;}
-.ph-move-btn:hover{background:#2C4770;}
+.ph-move-btn{position:absolute;bottom:5px;left:36px;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);background:var(--b-pb-u,#5A6E80);color:#fff;font-size:14px;line-height:1;}
+.ph-move-btn:hover{background:var(--b-pb-u,#4A5A6E);filter:brightness(.92);}
 .ph-card:hover .ph-move-btn{display:flex;}
 @media(pointer:coarse){.ph-move-btn{display:flex;opacity:.85;}}
 /* S224: on SITE cards, download (6px) + delete (36px) already occupy the two
@@ -3977,7 +3977,7 @@ body.dark-mode .btn-muted-cancel:hover { background:#402222; border-color:#e0808
 /* P1.10: drawing-name pill — darker, muted blue per Mark feedback (was bright #2196F3). */
 .defic-dwg-pill {
   border:none;
-  background:#2C4770;
+  background:var(--b-pb-u,#5A6E80);
   color:white;
   border-radius:4px;
   padding:2px 8px;
@@ -5296,10 +5296,10 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
   border-radius:50%;
   font-size:calc(13px + var(--ts));
 }
-.obs-pill.high     { background:#A85959; }
-.obs-pill.low      { background:#B07F5A; }
-.obs-pill.general  { background:#5F8068; }
-.obs-pill.addressed{ background:#5F8068; }
+.obs-pill.high     { background:var(--b-high); }
+.obs-pill.low      { background:var(--b-low); }
+.obs-pill.general  { background:var(--b-cat-closed-fg); }
+.obs-pill.addressed{ background:var(--b-cat-closed-fg); }
 
 /* Label text next to the pill (· Observation / · Pin) */
 .obs-pill-text{
@@ -5307,7 +5307,7 @@ body.dark-mode #btn-reports-parent:hover{ background:var(--btn-action-purple-hov
   font-weight:600;
   color:var(--fg);
 }
-.obs-pill-text.addressed{ color:#5F8068; }
+.obs-pill-text.addressed{ color:var(--b-cat-closed-fg); }
 .obs-pill-text .ai-rev-dot{
   display:inline-block;width:8px;height:8px;border-radius:50%;
   background:#5F8068;margin-left:6px;vertical-align:middle;
@@ -5441,10 +5441,10 @@ body:not(.dark-mode){
    the same specificity as body:not(.dark-mode) .obs-pill.* would, but
    our rules sit AFTER, so source order alone wins. !important kept as
    defensive guard against any future rule with elevated specificity. */
-body:not(.dark-mode) .obs-pill.high     { background:#B0392B !important; }
-body:not(.dark-mode) .obs-pill.low      { background:#C97817 !important; }
-body:not(.dark-mode) .obs-pill.general  { background:#1F7A4A !important; }
-body:not(.dark-mode) .obs-pill.addressed{ background:#1F7A4A !important; }
+body:not(.dark-mode) .obs-pill.high     { background:var(--b-high) !important; }
+body:not(.dark-mode) .obs-pill.low      { background:var(--b-low) !important; }
+body:not(.dark-mode) .obs-pill.general  { background:var(--b-cat-closed-fg) !important; }
+body:not(.dark-mode) .obs-pill.addressed{ background:var(--b-cat-closed-fg) !important; }
 /* End S123 Push 1 ──────────────────────────────────────────────────── */
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -7423,8 +7423,13 @@ body.dark-mode .view-toggle-btn.active { background: #7C3344; color: #F4DDE3; bo
 .dfx-trade-section:last-child { margin-bottom: 4px; }
 
 .dfx-trade-banner {
-  background: #2A3A5C;            /* navy — locked S133/S134 trade-section color */
-  color: #FFFFFF;
+  /* S248 Bold: navy (#2A3A5C) RETIRED. Per Mark + Bold lock §189 the section
+     bar is a LIFTED SURFACE with a thin red left-accent rule, never a solid
+     navy (or solid red) fill. Tokens carry both modes. */
+  background: var(--b-bar-bg);
+  color: var(--b-bar-fg);
+  border-left: 3px solid var(--b-bar-accent);
+  border-bottom: 1px solid var(--b-bar-rule);
   padding: 7px 14px;
   font-weight: 700;
   font-size: calc(13.5px + var(--ts));
@@ -7434,10 +7439,10 @@ body.dark-mode .view-toggle-btn.active { background: #7C3344; color: #F4DDE3; bo
   justify-content: space-between;
   align-items: center;
 }
-.dfx-trade-banner.grey { background: #6B7280; }
+.dfx-trade-banner.grey { background: var(--b-bar-bg); }
 .dfx-trade-count {
-  background: rgba(255, 255, 255, 0.18);
-  color: #FFFFFF;
+  background: var(--b-pill-hover);
+  color: var(--b-bar-fg);
   font-weight: 700;
   font-size: calc(10px + var(--ts));
   padding: 1px 8px;
@@ -8083,12 +8088,12 @@ body.dark-mode .modal-checkbox-row label { color: #E0E5F0; }
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* No-trade deficiencies — distinct from a real (navy) trade band. */
-.dfx-trade-banner.other { background: #4A5568; }
-body.dark-mode .dfx-trade-banner.other { background: #3A4250; }
+.dfx-trade-banner.other { background: var(--b-bar-bg); border-left-color: var(--b-pill-seg-fg); }
+body.dark-mode .dfx-trade-banner.other { background: var(--b-bar-bg); }
 
 /* Pooled Recommendations section header (grey — advisory, not scope). */
-.dfx-trade-banner.recs { background: #6B7280; }
-body.dark-mode .dfx-trade-banner.recs { background: #565C66; }
+.dfx-trade-banner.recs { background: var(--b-bar-bg); border-left-color: var(--b-cat-rec-fg); }
+body.dark-mode .dfx-trade-banner.recs { background: var(--b-bar-bg); }
 
 /* Recommendations trade subheading (lighter grey-slate; NOT a
    contractor sub-band — recs never get one). */
@@ -8137,8 +8142,8 @@ body.dark-mode .dfx-rec-note, body.dark-mode .dfx-sr-note {
 /* Site Records — reserved internal scope. Muted slate (distinct from
    navy trade / steel other / grey recs), persistent INTERNAL pill, and
    dimmed cards so the whole section reads as secondary at a glance. */
-.dfx-trade-banner.records { background: #5C6678; }
-body.dark-mode .dfx-trade-banner.records { background: #3F4658; }
+.dfx-trade-banner.records { background: var(--b-bar-bg); border-left-color: var(--b-cat-site-fg); }
+body.dark-mode .dfx-trade-banner.records { background: var(--b-bar-bg); }
 .dfx-sr-pill {
   background: rgba(255, 255, 255, 0.16);
   color: #FFFFFF;
@@ -8292,8 +8297,8 @@ body.dark-mode .dfx-insp-toggle.active { background: #4A6B5A; color: #FFFFFF; }
    ──────────────────────────────────────────────────────────────────── */
 
 /* Recommendations section header (was grey #6B7280 / dark #565C66) */
-.dfx-trade-banner.recs { background: #BC7327; }
-body.dark-mode .dfx-trade-banner.recs { background: #915E2C; }
+.dfx-trade-banner.recs { background: var(--b-bar-bg); border-left-color: var(--b-cat-rec-fg); }
+body.dark-mode .dfx-trade-banner.recs { background: var(--b-bar-bg); }
 
 /* Recommendations trade subheading (was grey-slate #8A8F99 / #565E6E).
    Kept lighter than the band so the hierarchy reads; white bold text
@@ -8390,7 +8395,7 @@ body.dark-mode tr.dfx-rec-changed td:first-child { box-shadow: inset 3px 0 0 #D0
 .dfx-lane-sec { margin-bottom: 22px; }
 .dfx-lane-sec:last-child { margin-bottom: 4px; }
 .dfx-trade-banner.dfx-lane { margin-bottom: 10px; cursor: default; }
-.dfx-trade-banner.dfx-lane.def { background: #2A3A5C; }
+.dfx-trade-banner.dfx-lane.def { background: var(--b-bar-bg); border-left-color: var(--b-bar-accent); }
 .dfx-trade-banner.dfx-lane.rec { background: #BC7327; }
 body.dark-mode .dfx-trade-banner.dfx-lane.rec { background: #915E2C; }
 .dfx-trade-banner.dfx-lane.sr  { background: #6B7280; }
@@ -8736,8 +8741,8 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
 
 /* Move/Copy-to-pin button on obs photo tiles. Corners: del=top-right,
    AI=bottom-right, sync=bottom-left → this sits top-left. Touch-revealed. */
-.obs-photo-pin{position:absolute;top:3px;left:3px;background:rgba(44,71,112,.92);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;text-align:center;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
-.obs-photo-pin:hover{background:#2C4770;}
+.obs-photo-pin{position:absolute;top:3px;left:3px;background:var(--b-pb-u,#5A6E80);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;text-align:center;cursor:pointer;padding:0;z-index:3;display:none;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.obs-photo-pin:hover{background:var(--b-pb-u,#4A5A6E);filter:brightness(.92);}
 .obs-photo-wrap:hover .obs-photo-pin{display:flex;}
 @media(pointer:coarse){.obs-photo-pin{display:flex;opacity:.85;}}
 
@@ -8751,9 +8756,9 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
 .pinphoto-picker{max-width:460px;width:94vw;}
 .pinphoto-mode{display:flex;margin:4px 0 8px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .pinphoto-mode-btn{flex:1;background:transparent;border:none;padding:9px 0;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;color:var(--silver);cursor:pointer;min-height:42px;}
-.pinphoto-mode-btn.active{background:#2C4770;color:#fff;}
+.pinphoto-mode-btn.active{background:var(--b-pb-u,#5A6E80);color:#fff;}
 body.dark-mode .pinphoto-mode-btn{color:#9aa3bd;}
-body.dark-mode .pinphoto-mode-btn.active{background:#2C4770;color:#fff;}
+body.dark-mode .pinphoto-mode-btn.active{background:var(--b-pb-u,#5A6E80);color:#fff;}
 .pinphoto-views{display:flex;gap:6px;margin:0 0 8px;}
 .pinphoto-view-btn{flex:1;background:transparent;border:1px solid var(--border);border-radius:7px;padding:7px 0;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;color:var(--silver);cursor:pointer;min-height:38px;}
 .pinphoto-view-btn.active{background:var(--arencon);color:#fff;border-color:var(--arencon);}
@@ -8768,7 +8773,7 @@ body.dark-mode .pinphoto-site-btn:hover{background:#2A3247;color:#E0E5F0;}
 /* List view */
 .pinphoto-list{max-height:44vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:8px;-webkit-overflow-scrolling:touch;}
 .pinphoto-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card,#fff);border:1px solid var(--border);border-radius:9px;padding:8px 10px;cursor:pointer;font-family:Calibri,sans-serif;min-height:62px;transition:background .12s,border-color .12s;}
-.pinphoto-row:hover{background:rgba(44,71,112,.07);border-color:#2C4770;}
+.pinphoto-row:hover{background:var(--b-pill-hover);border-color:var(--b-pb-u,#5A6E80);}
 body.dark-mode .pinphoto-row{background:#23262e;}
 body.dark-mode .pinphoto-row:hover{background:rgba(80,110,160,.18);}
 .pinphoto-thumb{flex:0 0 auto;width:48px;height:48px;border-radius:7px;background-size:cover;background-position:center;}
@@ -8785,12 +8790,12 @@ body.dark-mode .pinphoto-ctr{color:#E0E5F0;}
 .pinphoto-rowwrap{display:flex;flex-direction:column;gap:4px;position:relative;}
 /* S227: multi-obs pin row expands on click (no separate chevron button). The
    "N obs ▾" hint sits where the count would be; the row rotates it when open. */
-.pinphoto-multi-hint{flex:0 0 auto;font-size:11.5px;font-weight:600;color:#2C4770;white-space:nowrap;}
+.pinphoto-multi-hint{flex:0 0 auto;font-size:11.5px;font-weight:600;color:var(--b-pb-u,#5A6E80);white-space:nowrap;}
 body.dark-mode .pinphoto-multi-hint{color:#7FA8D8;}
 .pinphoto-row-expand.open .pinphoto-multi-hint{text-decoration:underline;}
 .pinphoto-obslist{display:flex;flex-direction:column;gap:4px;padding:2px 0 2px 18px;}
 .pinphoto-obsrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:var(--smoke,#f4f5f7);border:1px solid var(--border);border-radius:8px;padding:7px 10px;cursor:pointer;font-family:Calibri,sans-serif;min-height:44px;transition:background .12s,border-color .12s;}
-.pinphoto-obsrow:hover{background:rgba(44,71,112,.08);border-color:#2C4770;}
+.pinphoto-obsrow:hover{background:var(--b-pill-hover);border-color:var(--b-pb-u,#5A6E80);}
 body.dark-mode .pinphoto-obsrow{background:#1f232c;}
 body.dark-mode .pinphoto-obsrow:hover{background:rgba(80,110,160,.18);}
 .pinphoto-obspill{flex:0 0 auto;font-weight:700;font-size:12px;color:#fff;background:#5A6E80;border-radius:10px;padding:2px 9px;white-space:nowrap;}
@@ -8800,7 +8805,7 @@ body.dark-mode .pinphoto-obsrow:hover{background:rgba(80,110,160,.18);}
 /* Grid view */
 .pinphoto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-height:46vh;overflow-y:auto;margin-top:8px;-webkit-overflow-scrolling:touch;}
 .pinphoto-gcard{position:relative;aspect-ratio:1;border:1px solid var(--border);border-radius:9px;overflow:hidden;cursor:pointer;padding:0;background:none;}
-.pinphoto-gcard:hover{border-color:#2C4770;}
+.pinphoto-gcard:hover{border-color:var(--b-pb-u,#5A6E80);}
 .pinphoto-gimg{position:absolute;inset:0;background-size:cover;background-position:center;}
 .pinphoto-gimg-empty{display:flex;align-items:center;justify-content:center;font-size:24px;color:rgba(255,255,255,.85);}
 .pinphoto-gbadge{position:absolute;top:5px;left:5px;font-size:11px;font-weight:700;color:#fff;border-radius:11px;padding:2px 8px;}
@@ -8809,7 +8814,7 @@ body.dark-mode .pinphoto-obsrow:hover{background:rgba(80,110,160,.18);}
 /* Plan view */
 .pinphoto-dwgtabs{display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap;}
 .pinphoto-dwgtab{font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--card,#fff);color:var(--silver);border-radius:7px;padding:5px 10px;cursor:pointer;font-family:Calibri,sans-serif;}
-.pinphoto-dwgtab.active{background:#2C4770;color:#fff;border-color:#2C4770;}
+.pinphoto-dwgtab.active{background:var(--b-pb-u,#5A6E80);color:#fff;border-color:var(--b-pb-u,#5A6E80);}
 .pinphoto-plan{position:relative;width:100%;background:#F4F6FA;border:1px solid var(--border);border-radius:9px;overflow:hidden;min-height:120px;line-height:0;}
 body.dark-mode .pinphoto-plan{background:#1c1f26;}
 .pinphoto-plan-img{display:block;width:100%;height:auto;}
@@ -8935,7 +8940,7 @@ input:focus,textarea:focus,select:focus{outline:none!important;border-color:var(
 
 /* ---- DEFICIENCY priority pills -> Bold semantic (desaturated, beat 5299-5301) ---- */
 .obs-pill.high     { background:var(--no)!important; }
-.obs-pill.low      { background:#C98A4A!important; }
+.obs-pill.low      { background:var(--b-low)!important; }
 .obs-pill.general  { background:var(--yes)!important; }
 .obs-pill.addressed{ background:var(--yes)!important; }
 body.dark-mode .obs-pill.high     { background:var(--no)!important; }
@@ -9065,29 +9070,37 @@ body .cv-row .dfx-obsrow.open{box-shadow:none;border-color:transparent;}
 .dfx-ctr-block.cv-unassigned .dfx-ctr-dot{background:var(--b-unassigned-dot);}
 
 /* ════════════════════════════════════════════════════════════════════
-   S248 — combined-view card editor pin LOCATION mini-map panel.
-   Mirrors the on-drawing editor's .pe-location-thumb look. Two panels:
-   the DESKTOP one (cv-pe-location-thumb, interactive via _PinPan) and the
-   NARROW one (cv-pe-location-thumb-mobile, static crop). CSS reveals only
-   the one for the current breakpoint (900px = the system viewer breakpoint),
-   so the unverified-on-tablet drag stays gated to the existing surface.
+   S248 — combined-view card-expand editor body (LOCKED layout, per
+   FRT_CARD_EXPAND_FINAL_demo + Mark's PC correction).
+   PC (wide): 2-col grid — LEFT = comment text (top) + photos (below),
+   stacked; RIGHT = the drawing mini-map, full height. The tall element
+   (drawing) gets its own column so the pin is big enough to drag; the
+   short elements (text, photos) share the left column.
+   PHONE (<680px): single column — text → photos → drawing.
    ════════════════════════════════════════════════════════════════════ */
-.cv-loc-panel{margin:8px 0 4px;}
-.cv-loc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;}
+.cv-ed-body{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin:8px 0 4px;align-items:start;}
+.cv-ed-left{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.cv-ed-right{display:flex;flex-direction:column;gap:7px;min-width:0;}
+/* in the card grid the textarea + media each take full width of the left col */
+.cv-ed-left .obs-text{width:100%;}
+.cv-ed-left .obs-media-col{width:100%;}
+.cv-loc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .cv-loc-lbl{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--b-pill-seg-fg,#5E5B68);text-transform:uppercase;}
 .cv-loc-open{font-family:Calibri,sans-serif;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:7px;
   border:1px solid var(--border,#DDE1E7);background:transparent;color:var(--b-bar-accent,#9C2742);cursor:pointer;white-space:nowrap;}
 .cv-loc-open:hover{background:var(--b-cat-active-bg,#F3D9DE);border-color:var(--b-bar-accent,#9C2742);}
 @media(pointer:coarse){.cv-loc-open{padding:8px 12px;min-height:40px;}}
 body.dark-mode .cv-loc-open{border-color:rgba(255,255,255,.14);}
-.cv-loc-thumb{width:100%;height:200px;background:var(--smoke,#f5f5f5);border:1px solid #dde1e7;border-radius:8px;overflow:hidden;position:relative;}
+/* the drawing panel — full height of the right column, big enough to drag the pin */
+.cv-loc-thumb{width:100%;height:300px;background:var(--smoke,#f5f5f5);border:1px solid #dde1e7;border-radius:11px;overflow:hidden;position:relative;touch-action:none;}
 .cv-loc-thumb canvas{display:block;width:100%;}
 body.dark-mode .cv-loc-thumb{background:#2a2d35;border-color:#3a3e48;}
-/* Breakpoint swap: desktop shows the interactive panel; ≤900px shows the
-   static one. Default (no media query) = desktop, so SSR/initial paint is
-   safe on wide screens. */
+.cv-loc-hint{font-size:11px;color:var(--b-pill-seg-fg,#928E9C);}
+/* desktop = interactive panel; ≤900px swaps to the static one */
 .cv-loc-mobile{display:none;}
-@media(max-width:900px){
-  .cv-loc-desktop{display:none;}
-  .cv-loc-mobile{display:block;}
+@media(max-width:900px){.cv-loc-desktop{display:none;}.cv-loc-mobile{display:block;}}
+/* PHONE PORTRAIT: collapse the 2-col grid to a single stacked column */
+@media(max-width:680px){
+  .cv-ed-body{grid-template-columns:1fr;}
+  .cv-loc-thumb{height:240px;}
 }
