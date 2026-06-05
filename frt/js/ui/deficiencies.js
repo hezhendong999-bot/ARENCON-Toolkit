@@ -2040,13 +2040,13 @@ function _buildObsRow(d, oi, ctrId, opts) {
     thumbSrc = p0.thumb || p0.dataUrl || p0.r2Url || '';
   }
 
-  // S209d (#2): contractor NAME removed from the row — it's redundant under
-  // the contractor band. Keep the colour DOT as the identity cue. Site
-  // Records rows already sit under the Site Records section, so just the
-  // slate dot (no label).
-  var metaName = isSite
-    ? '<span class="dfx-or-cdot" style="background:#6E6AA8" title="' + esc(SITE_RECORDS_LABEL) + '"></span>'
-    : ('<span class="dfx-or-cdot" style="background:' + esc(accent) + '" title="' + esc(ctrLabel(ctrName) || 'Unnamed') + '"></span>');
+  // S248 §4: the redundant contractor colour DOT is removed. The card already
+  // sits under its contractor's COLOURED band (dfx-ctr-tinted, in the
+  // contractor's own colour) and the pin badge (.dfx-or-id) carries the same
+  // accent — so the under-title dot only repeated that identity. Site Records
+  // sit under the Site Records band, equally self-evident. The now-empty
+  // .dfx-or-meta span is dropped with it (contractor NAME went in S209d, the
+  // under-text category pill in S248, so nothing else lived there).
 
   var h = '<div class="dfx-obsrow' + (open ? ' open' : '') + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
   h += '<div class="dfx-obsrow-head" data-action="dfx-toggle-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
@@ -2058,9 +2058,10 @@ function _buildObsRow(d, oi, ctrId, opts) {
   h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
   h += '<span class="dfx-or-mid"><span class="dfx-or-title">' + esc(o.text || deficDesc(d) || '\u2014') + '</span>';
   // S248: under-text category pill REMOVED — it duplicated the far-right pill.
-  // Keep only the contractor colour dot here; the single status pill lives on
-  // the far right (below).
-  h += '<span class="dfx-or-meta">' + metaName + '</span></span>';
+  // S248 §4: the contractor colour dot here is ALSO removed (band + pin badge
+  // already carry the identity). The .dfx-or-meta span held only those two and
+  // is now gone; the single status pill lives on the far right (below).
+  h += '</span>';
   // Single far-right pill: Outstanding(red/amber) · Recommendation(yellow) ·
   // Site Record(purple) · Closed(green). No "Active" — outstanding implies it.
   var _far = _obsFarPill(o, isSite, d);
