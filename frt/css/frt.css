@@ -9699,23 +9699,23 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
         header background layer so the top/left shadow is not covered. ── */
 #back-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-close{
-  position:relative !important; z-index:1 !important;     /* render above header bg/blur */
   display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:6px !important;
   background:var(--b-chrome2) !important;
   border:1px solid var(--b-chrome-rule) !important;
   color:var(--b-chrome-fg) !important;
-  height:34px !important; min-height:0 !important; max-height:34px !important;
-  padding:0 14px !important; border-radius:6px !important;
+  padding:5px 12px !important; border-radius:6px !important;
+  height:auto !important; min-height:0 !important; max-height:none !important;
   font-family:Calibri,sans-serif !important;
-  font-size:calc(13px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
+  font-size:calc(13px + var(--ts)) !important; font-weight:600 !important;
+  cursor:pointer !important;
   box-shadow:var(--b-btn-shadow) !important;
-  transition:background .15s, box-shadow .15s, transform .08s !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
   white-space:nowrap !important; flex-shrink:0 !important; box-sizing:border-box !important;
 }
-@media(hover:hover){
-  #back-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-close:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; }
-}
 #back-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-close:active{ transform:translateY(1px) !important; box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
+@media(hover:hover){
+  #back-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-close:hover{ background:rgba(255,255,255,.22) !important; }
+}
 
 /* ── 5 · Undo/redo (.hdr-sm) → matching chrome shadow-box, 34×34 ── */
 .app-header .hdr-sm{
@@ -9728,9 +9728,10 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 @media(hover:hover){ .app-header .hdr-sm:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
 .app-header .hdr-sm:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
 
-/* ── 6 · Touch (coarse) — keep the SAME 34px baseline (no diesel-small drift) ── */
+/* ── 6 · Touch (coarse) — keep the SAME 34px baseline (no diesel-small drift).
+        Back button excluded: it uses diesel's natural padded height. ── */
 @media(pointer:coarse){
-  .app-header .hdr-btn, #back-btn, .drawing-viewer-overlay .dv-toolbar #dv-close,
+  .app-header .hdr-btn,
   #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn, .app-header .hdr-sm{
     height:34px !important; max-height:34px !important;
   }
