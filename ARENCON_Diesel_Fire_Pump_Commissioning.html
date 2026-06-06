@@ -1261,7 +1261,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S244</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S245</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -11584,7 +11584,11 @@ window.AIUsage = AIUsage;
   --b-glow2:radial-gradient(55% 45% at 95% 4%,rgba(44,127,184,.06),transparent 70%);
   --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.93),rgba(255,255,255,.76));
   --b-fieldbg:#FFFFFF;
-  --b-chiphdr:#1B1A22; --b-chipink:#F4F3F6; --b-chipnum:#C9C5CE;
+  --b-chiphdr:#EFEDF0; --b-chipink:#1B1A22; --b-chipnum:#5E5B68;
+  /* S245 Slice 1 — LOCKED Bold DAY chrome (two-skin, ref LOCKED_DIESEL_BOLD_RESKIN_S245.md / frt.css v503) */
+  --b-chrome-bg:#E6E3E9; --b-chrome2:#EFEDF0; --b-chrome-fg:#1B1A22; --b-chrome-rule:#D2CEDB; --b-chrome-hover:rgba(0,0,0,.05);
+  --b-bar-bg:#ECEAF0; --b-bar-fg:#1B1A22; --b-bar-rule:#D2CEDB; --b-bar-accent:#9C2742;
+  --b-btn-shadow:0 1px 3px rgba(40,30,50,.12),0 2px 6px rgba(40,30,50,.10);
 }
 body.dark-mode{
   --smoke:#0b0a0d; --border:rgba(255,255,255,.10); --surface:rgba(255,255,255,.04); --card:rgba(255,255,255,.04);
@@ -11601,6 +11605,10 @@ body.dark-mode{
   --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
   --b-fieldbg:rgba(255,255,255,.05);
   --b-chiphdr:rgba(255,255,255,.02); --b-chipink:#F4F3F6; --b-chipnum:#9A95A3;
+  /* S245 Slice 1 — LOCKED Bold DARK chrome (near-black two-skin) */
+  --b-chrome-bg:#1d1b24; --b-chrome2:#221f29; --b-chrome-fg:#F4F3F6; --b-chrome-rule:rgba(255,255,255,.12); --b-chrome-hover:rgba(255,255,255,.10);
+  --b-bar-bg:#23212b; --b-bar-fg:#F4F3F6; --b-bar-rule:rgba(255,255,255,.10); --b-bar-accent:#C9476A;
+  --b-btn-shadow:0 2px 6px rgba(0,0,0,.40);
   background:#0b0a0d; color:#f4f3f6;
 }
 
@@ -11614,14 +11622,20 @@ body{position:relative;}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:var(--b-glow1),var(--b-glow2);}
 .app-header,.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
 
-/* ---------- HEADER (glassy, ARENCON identity) ---------- */
-.app-header{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 24%,#15131a),color-mix(in srgb,var(--b-info) 16%,#15131a))!important;backdrop-filter:blur(10px);z-index:10000!important;}
-.phase-bar{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 20%,#141b2c),color-mix(in srgb,var(--b-info) 12%,#1c2638))!important;}
-.phase-tab.active{border-bottom-color:#fff;}
-.phase-tab.active .ph-name{color:#fff;}
-body:not(.dark-mode) .section-nav{background:var(--surface);border-bottom:1px solid var(--border);}
-.nav-tab.active{border-bottom-color:var(--arencon);color:var(--slate);}
-body.dark-mode .nav-tab.active{color:#fff;}
+/* ---------- HEADER + NAV — S245 Slice 1: Bold two-skin chrome (light day / near-black dark) ---------- */
+.app-header{background:var(--b-chrome-bg)!important;color:var(--b-chrome-fg)!important;border-bottom:1px solid var(--b-chrome-rule);backdrop-filter:blur(10px);box-shadow:0 1px 3px rgba(40,30,50,.10)!important;z-index:10000!important;}
+body.dark-mode .app-header{background:var(--b-chrome-bg)!important;color:var(--b-chrome-fg)!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;}
+.app-title{color:var(--b-chrome-fg)!important;}
+.section-nav{background:var(--b-chrome-bg)!important;border-bottom:1px solid var(--b-chrome-rule);}
+body.dark-mode .section-nav{background:var(--b-chrome-bg)!important;}
+.nav-tab{color:var(--b-chrome-fg);opacity:.55;}
+.nav-tab:hover{opacity:.85;color:var(--b-chrome-fg);}
+.nav-tab.active{opacity:1;border-bottom-color:var(--arencon);color:var(--b-chrome-fg);}
+body.dark-mode .nav-tab{color:var(--b-chrome-fg);opacity:.55;}
+body.dark-mode .nav-tab.active{opacity:1;color:var(--b-chrome-fg);border-bottom-color:var(--arencon);}
+.phase-bar{background:var(--b-chrome2)!important;}
+.phase-tab.active{border-bottom-color:var(--arencon);}
+.phase-tab.active .ph-name{color:var(--b-chrome-fg);}
 
 /* ---------- CARDS -> glassy 16px ---------- */
 .card{background:var(--b-cardgrad)!important;border:1px solid var(--border)!important;border-radius:16px!important;
@@ -11760,14 +11774,12 @@ body.dark-mode .hdr-repair-menu button{background:#15131a!important;color:#F4F3F
 body.dark-mode .hdr-repair-menu button:hover{background:#221f29!important;}
 body.dark-mode .hdr-repair-menu button span{color:#a09aa8!important;}
 
-/* ---------- PROJECT (AUTONAMING) BAR -> Bold header family ---------- */
-/* Base .project-bar is hard #2C3E50 slate predating Bold; pull it under the new
-   burgundy->cyan header so it reads as one piece, not an old slab. Both modes. */
-.project-bar{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 20%,#141b2c),color-mix(in srgb,var(--b-info) 12%,#1c2638))!important;
-  border-top:1px solid rgba(255,255,255,.10)!important;backdrop-filter:blur(8px);}
-body.dark-mode .project-bar{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 22%,#0e0d12),color-mix(in srgb,var(--b-info) 12%,#12111a))!important;
-  border-top:1px solid rgba(255,255,255,.06)!important;}
-.project-bar .pb-filename{color:rgba(255,255,255,.92)!important;}
+/* ---------- PROJECT (AUTONAMING) BAR -> S245 Slice 1: Bold two-skin chrome ---------- */
+.project-bar{background:var(--b-chrome2)!important;
+  border-top:1px solid var(--b-chrome-rule)!important;backdrop-filter:blur(8px);}
+body.dark-mode .project-bar{background:var(--b-chrome2)!important;
+  border-top:1px solid var(--b-chrome-rule)!important;}
+.project-bar .pb-filename{color:var(--b-chrome-fg)!important;}
 
 /* ---------- MOBILE PAGE NAV ---------- */
 #mobile-page-nav{background:color-mix(in srgb,var(--slate-mid) 92%,var(--arencon))!important;border-top:3px solid var(--arencon)!important;}
@@ -11800,9 +11812,8 @@ body.dark-mode .fig-hd .fig-ic{color:var(--arencon)!important;}
 .hdr-ai-active{background:#7B2D8E!important;}
 .hdr-ai-active:hover{filter:brightness(1.12);}
 
-/* DARK header -> FRT's exact dark gradient so the two tools read as ONE family
-   (frt.css: linear-gradient(135deg, rgba(156,39,66,.28), rgba(70,197,232,.10)) over #15131a) */
-body.dark-mode .app-header{background:linear-gradient(135deg,rgba(156,39,66,.28),rgba(70,197,232,.10)),#15131a!important;backdrop-filter:blur(10px);}
+/* DARK header -> S245 Slice 1: Bold two-skin near-black chrome (was burgundy gradient) */
+body.dark-mode .app-header{background:var(--b-chrome-bg)!important;backdrop-filter:blur(10px);box-shadow:0 2px 12px rgba(0,0,0,.5)!important;}
 
 /* ── TWO-TIER NAV: make phase bar (parent/context) read as a DIFFERENT rank
    than the sub-tabs (child/working level). Before: two near-identical dark
@@ -11820,22 +11831,44 @@ body.dark-mode .phase-bar{background:rgba(0,0,0,.30)!important;}
 
 /* autoname / project bar = recessed context strip between header and phase bar
    (was leftover navy #2C3E50 / rgba(255,255,255,.02), untouched by the Bold overlay) */
-.project-bar{background:rgba(0,0,0,.12)!important;border-top:1px solid rgba(255,255,255,.06)!important;}
-body.dark-mode .project-bar{background:rgba(0,0,0,.22)!important;border-top-color:rgba(255,255,255,.05)!important;}
-.project-bar .pb-filename{color:rgba(255,255,255,.82)!important;}
+/* autoname / project bar = S245 Slice 1 Bold two-skin chrome (this is the source-order winner) */
+.project-bar{background:var(--b-chrome2)!important;border-top:1px solid var(--b-chrome-rule)!important;}
+body.dark-mode .project-bar{background:var(--b-chrome2)!important;border-top-color:var(--b-chrome-rule)!important;}
+.project-bar .pb-filename{color:var(--b-chrome-fg)!important;}
 .project-bar .pb-badge{background:var(--arencon)!important;color:#fff!important;}
 
-/* sub-tabs = the bright WORKING level on a solid full-width surface */
+/* sub-tabs = S245 Slice 1 Bold two-skin chrome (source-order winner) */
 .section-nav{width:100%!important;}
-body:not(.dark-mode) .section-nav{background:var(--surface)!important;border-bottom:1px solid var(--border)!important;}
-body.dark-mode .section-nav{background:#181820!important;border-bottom:1px solid var(--border)!important;}
-/* DAY hover/active must be INK/brand — never white-on-white (the disappearing-text bug) */
-body:not(.dark-mode) .nav-tab{color:#6b7280!important;}
-body:not(.dark-mode) .nav-tab:hover{color:var(--arencon)!important;}
-body:not(.dark-mode) .nav-tab.active{color:var(--slate)!important;border-bottom-color:var(--arencon)!important;}
-body.dark-mode .nav-tab{color:#7a8090!important;}
-body.dark-mode .nav-tab:hover{color:#fff!important;}
-body.dark-mode .nav-tab.active{color:#fff!important;border-bottom-color:#c13a58!important;}
+body:not(.dark-mode) .section-nav{background:var(--b-chrome-bg)!important;border-bottom:1px solid var(--b-chrome-rule)!important;}
+body.dark-mode .section-nav{background:var(--b-chrome-bg)!important;border-bottom:1px solid var(--b-chrome-rule)!important;}
+/* nav tab = chrome ink at .55, active full + burgundy underline. Never white-on-white (the disappearing-text bug). */
+body:not(.dark-mode) .nav-tab{color:var(--b-chrome-fg)!important;opacity:.55!important;}
+body:not(.dark-mode) .nav-tab:hover{opacity:.85!important;color:var(--b-chrome-fg)!important;}
+body:not(.dark-mode) .nav-tab.active{opacity:1!important;color:var(--b-chrome-fg)!important;border-bottom-color:var(--arencon)!important;}
+body.dark-mode .nav-tab{color:var(--b-chrome-fg)!important;opacity:.55!important;}
+body.dark-mode .nav-tab:hover{opacity:.85!important;color:var(--b-chrome-fg)!important;}
+body.dark-mode .nav-tab.active{opacity:1!important;color:var(--b-chrome-fg)!important;border-bottom-color:var(--arencon)!important;}
+
+/* ── S245 Slice 1: NEUTRAL CHROME BUTTONS — transparent + token border + chrome ink,
+   identical both modes, burgundy hover GATED (touch sticky-red fix). #dark-toggle has an
+   inline bg so it needs !important to beat it. Colored CTAs (AI Review, Reports) keep their fill. ── */
+#dark-toggle, .text-size-toggle{
+  background:transparent!important;
+  border:1px solid var(--b-chrome-rule)!important;
+  color:var(--b-chrome-fg)!important;
+}
+body.dark-mode #dark-toggle, body.dark-mode .text-size-toggle{
+  background:transparent!important;
+  border:1px solid var(--b-chrome-rule)!important;
+  color:var(--b-chrome-fg)!important;
+}
+@media(hover:hover){
+  #dark-toggle:hover, .text-size-toggle:hover{background:#9C2742!important;color:#fff!important;border-color:#9C2742!important;}
+  body.dark-mode #dark-toggle:hover, body.dark-mode .text-size-toggle:hover{background:#9C2742!important;color:#fff!important;border-color:#9C2742!important;}
+}
+/* Colored CTAs: flat + colored, gain the soft press-shadow + tactile dip. Never transparent. */
+.hdr-ai-active, #btn-reports-parent{box-shadow:var(--b-btn-shadow)!important;transition:box-shadow .15s,transform .08s,filter .15s!important;}
+.hdr-ai-active:active, #btn-reports-parent:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22)!important;}
 
 /* VERDICT banner -> clean solid (the inline el.style.background sets the hue;
    ensure no glassy/gradient bleed sits under it) */
