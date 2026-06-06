@@ -9673,7 +9673,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   transition:background .15s, box-shadow .15s, transform .08s !important;
 }
 body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
-@media(pointer:coarse){ #back-btn{ height:38px !important; min-height:0 !important; padding:0 14px !important; } }
+@media(pointer:coarse){ #back-btn{ height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 14px !important; } }
 @media(hover:hover){ #back-btn:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
 #back-btn:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
 /* end S250 §10 ─────────────────────────────────────────────────────── */
@@ -9706,22 +9706,22 @@ body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
 
 /* icon buttons → 34x34 squares (38 coarse), single height with everything else */
 #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{
-  width:34px !important; height:34px !important; min-width:34px !important; min-height:0 !important;
+  width:34px !important; height:34px !important; min-width:34px !important; min-height:0 !important; max-height:34px !important;
   padding:0 !important; border-radius:6px !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
-  font-size:calc(14px + var(--ts)) !important;
+  font-size:calc(13px + var(--ts)) !important; line-height:1 !important;
 }
 @media(pointer:coarse){
-  #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{ width:38px !important; height:38px !important; min-height:0 !important; padding:0 !important; }
+  #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{ width:34px !important; height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 !important; }
 }
 /* ALL header buttons share ONE height = AI Review / Reports height (34px, the
    base .hdr-btn height). No height:auto / padding-driven heights — that was the
    inconsistency. text CTAs, Back, and undo/redo all line up. */
-.app-header .hdr-btn{ height:34px !important; min-height:0 !important; padding:0 12px !important; border-radius:6px !important; }
-@media(pointer:coarse){ .app-header .hdr-btn, #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{ height:38px !important; } .app-header .hdr-btn{ padding:0 14px !important; } }
+.app-header .hdr-btn{ height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 12px !important; border-radius:6px !important; }
+@media(pointer:coarse){ .app-header .hdr-btn, #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{ height:34px !important; max-height:34px !important; } .app-header .hdr-btn{ padding:0 12px !important; } }
 /* Back button → 34px, identical to the others */
-#back-btn{ height:34px !important; min-height:0 !important; padding:0 14px !important; }
-@media(pointer:coarse){ #back-btn{ height:38px !important; padding:0 16px !important; } }
+#back-btn{ height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 14px !important; }
+@media(pointer:coarse){ #back-btn{ height:34px !important; max-height:34px !important; padding:0 14px !important; } }
 /* undo/redo (.hdr-sm) → proper shadow-box buttons at the shared 34px height
    (were bare transparent icons, wrong style). */
 .app-header .hdr-sm{
@@ -9731,7 +9731,7 @@ body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
   padding:0 !important; font-size:calc(15px + var(--ts)) !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
 }
-@media(pointer:coarse){ .app-header .hdr-sm{ width:38px !important; height:38px !important; } }
+@media(pointer:coarse){ .app-header .hdr-sm{ width:34px !important; height:34px !important; } }
 @media(hover:hover){ .app-header .hdr-sm:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
 .app-header .hdr-sm:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
 /* end S250 §14 ─────────────────────────────────────────────────────── */
