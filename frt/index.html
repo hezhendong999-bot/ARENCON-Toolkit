@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=503">
+<link rel="stylesheet" href="css/frt.css?v=505">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -475,9 +475,21 @@ function ensurePdfJs(cb){
           <!-- Unified control bar — lifecycle pivot + filters + view toggle.
                Replaces #defic-lifecycle-tabs (dlc-tabs) and the old toolbar search. -->
           <div class="defic-control-bar" id="defic-control-bar" style="display:none;">
-            <div class="defic-pivot">
-              <button class="defic-pivot-btn active" data-pivot="active">Active <span class="defic-pivot-count" id="dfx-pc-active">0</span></button>
-              <button class="defic-pivot-btn" data-pivot="closed">Closed <span class="defic-pivot-count" id="dfx-pc-closed">0</span></button>
+            <!-- S250 §4: single 4-segment category filter row (Outstanding ·
+                 Recommendations · Site Records · Closed) with live counts.
+                 Replaces BOTH the old Active/Closed pivot AND the old
+                 Deficiencies/Recommendations/Site Records/All row. The .row
+                 wrapper is one flat strip on desktop and a clean 2x2 grid on
+                 phone portrait (CSS @media 560px). data-catfilter maps to the
+                 (pivot + recmode) axes in _setCatFilter. No "All" segment —
+                 clearing/Outstanding covers it; four divides evenly 2x2. -->
+            <div class="dfx-catfilter" role="group" aria-label="Filter by category">
+              <div class="row">
+                <button class="dfx-cat-btn active" data-catfilter="outstanding">Outstanding <span class="dfx-cat-count" id="dfx-cc-outstanding">0</span></button>
+                <button class="dfx-cat-btn" data-catfilter="rec">Recommendations <span class="dfx-cat-count" id="dfx-cc-rec">0</span></button>
+                <button class="dfx-cat-btn" data-catfilter="siterec">Site Records <span class="dfx-cat-count" id="dfx-cc-siterec">0</span></button>
+                <button class="dfx-cat-btn" data-catfilter="closed">Closed <span class="dfx-cat-count" id="dfx-cc-closed">0</span></button>
+              </div>
             </div>
             <div class="defic-filters">
               <input type="text" class="dfx-filter-input" id="dfx-search" placeholder="🔍 Search...">
@@ -487,12 +499,6 @@ function ensurePdfJs(cb){
                 <option value="high">High</option>
                 <option value="low">Low</option>
               </select>
-              <div class="dfx-recmode" role="group" aria-label="Show deficiencies, recommendations, site records, or all">
-                <button class="dfx-recmode-btn active" data-recmode="def">Deficiencies</button>
-                <button class="dfx-recmode-btn" data-recmode="rec">Recommendations</button>
-                <button class="dfx-recmode-btn" data-recmode="siterec">Site Records</button>
-                <button class="dfx-recmode-btn" data-recmode="all">All</button>
-              </div>
             </div>
             <!-- S154 §2.3: "Initials" toggle removed from the live board.
                  The on-screen chip render guard (_showInspChip in
@@ -503,10 +509,9 @@ function ensurePdfJs(cb){
                  "Inspector attribution" picker in the PDF export dialog.
                  The orphaned #dfx-insp-toggle delegate in deficiencies.js
                  stays defined-but-inert per S137. -->
-            <div class="view-toggle">
-              <button class="view-toggle-btn active" data-view="detailed">📋 Detailed</button>
-              <button class="view-toggle-btn" data-view="board">▦ Board</button>
-            </div>
+            <!-- S250 §4: Detailed/Board view-toggle REMOVED — Board is gone,
+                 it is one combined view. _deficView is forced 'detailed' and
+                 _renderBoardView left defined-but-inert per S137 discipline. -->
           </div>
           <div id="deficiencies-container" class="defic-content"></div>
         </div>

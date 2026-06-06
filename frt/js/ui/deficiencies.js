@@ -186,6 +186,7 @@ var _dfxSearch = '';                     // free-text filter (obs.text)
 var _dfxCtr = '';                        // contractorId filter ('' = all)
 var _dfxPri = '';                        // priority filter ('' = all | 'high' | 'low' | 'general')
 var _dfxRecMode = 'def';                  // S150 (was S140 B2b 3-state): 4-state segmented filter — 'def' (default; deficiencies WITH a contractor only — recs AND Site Records both hidden → short working list) | 'rec' (recommendations only) | 'siterec' (Site Records only — non-rec, no contractor) | 'all' (everything; renamed from legacy 'both'). Transient module state, defaults 'def' every load, never persisted.
+var _catFilter = 'outstanding';           // S250 §4: active segment of the single 4-segment category filter row ('outstanding' | 'rec' | 'siterec' | 'closed'). Drives _activeDlcTab + _dfxRecMode via _setCatFilter; default 'outstanding' every load, never persisted. (No 'all' segment — four divides evenly 2x2 on portrait.)
 var _recHoldUntilNav = false;             // S150g (Mark): set true when a rec star is toggled in a list view; suppresses the auto re-render the queued save would otherwise trigger (via the 'saved' listener) so the card stays put / mis-tap is one tap from undo. Cleared at the top of render() — i.e. by the next deliberate view/pivot/filter change, leaving & returning, or a project/photo load. Transient, never persisted.
 // S146 (Mark): Detailed-view independent fold. Persisted at module scope
 // so it survives the frequent initDeficiencies.render() re-renders.
@@ -1770,14 +1771,32 @@ export var initDeficiencies = {
     // Render Trade Board (S136 Phase 1b)
     _renderTradeBoard(proj);
 
-    // S137: per-observation lifecycle counts drive the Active/Closed pivot.
+    // S137: per-observation lifecycle counts drive the legacy pivot.
+    // S250 §4: compute the four category-segment counts so each badge equals
+    // exactly what that segment's filter would SHOW. Per the locked decision,
+    // Recommendations and Site Records are WHOLE-category (open + closed):
+    //   outstanding → non-rec, has contractor, NOT addressed (open deficiencies)
+    //   rec         → defic.isRecommendation (any status)
+    //   siterec     → non-rec AND no contractor (any status)
+    //   closed      → addressed (any class)
+    // An addressed rec/site-record legitimately counts under BOTH its category
+    // segment AND Closed — they are different filters.
     var pcActive = 0, pcClosed = 0;
+    var ccOutstanding = 0, ccRec = 0, ccSite = 0, ccClosed = 0;
     allDefics.forEach(function(rec) {
-      (rec.defic.observations || []).forEach(function(o) {
-        if (o.addressed) pcClosed++; else pcActive++;
+      var d = rec.defic;
+      var hasCtr = !!rec.contractorId;
+      var isRec = !!d.isRecommendation;
+      var isSite = !isRec && !hasCtr;
+      (d.observations || []).forEach(function(o) {
+        if (o.addressed) { pcClosed++; ccClosed++; }
+        else { pcActive++; }
+        if (isRec) ccRec++;
+        else if (isSite) ccSite++;
+        else if (!o.addressed) ccOutstanding++;
       });
     });
-    _syncDfxControls(pcActive, pcClosed, proj);
+    _syncDfxControls(pcActive, pcClosed, proj, {outstanding: ccOutstanding, rec: ccRec, siterec: ccSite, closed: ccClosed});
 
     // S232 FRT-CV: Detailed + Board MERGE into the single Combined view.
     // The view toggle is gone; _renderDetailedView / _renderBoardView are
@@ -3555,13 +3574,63 @@ function _openAddDeficModal(prefillCtrId, prefillTrade) {
   });
 }
 
+// S250 §4: map a single category-filter segment onto the two underlying
+// filter axes (_activeDlcTab pivot + _dfxRecMode), then re-render. The
+// row-filter predicate itself (_recModeDrops + pivot test) is unchanged —
+// this only drives it from one control instead of two.
+//   outstanding → active pivot + 'def'  → open deficiencies-with-contractor
+//   rec         → 'any' pivot + 'rec'    → ALL recommendations (open + closed)
+//   siterec     → 'any' pivot + 'siterec'→ ALL Site Records (open + closed)
+//   closed      → closed pivot + 'all'   → every addressed item
+// Rec/Site use the neutral 'any' pivot so the whole category shows regardless
+// of status (locked decision). The predicate only filters on 'active'/'closed';
+// any other pivot value (incl. 'any') passes both — no predicate change needed.
+function _setCatFilter(cat) {
+  if (!cat || cat === _deriveCatFilter()) { _catFilter = cat || _catFilter; return; }
+  _catFilter = cat;
+  if (cat === 'closed') { _activeDlcTab = 'closed'; _dfxRecMode = 'all'; }
+  else if (cat === 'outstanding') { _activeDlcTab = 'active'; _dfxRecMode = 'def'; }
+  else if (cat === 'rec') { _activeDlcTab = 'any'; _dfxRecMode = 'rec'; }
+  else if (cat === 'siterec') { _activeDlcTab = 'any'; _dfxRecMode = 'siterec'; }
+  initDeficiencies.render();
+}
+
+// S250 §4: reverse-map the current (pivot + recmode) axes to the single
+// active segment, so the highlighted pill always reflects true filter state
+// — even when other code paths flip _activeDlcTab directly (close/reopen/add/
+// reassign). Closed pivot → 'closed'; recmode 'rec'/'siterec' → that category;
+// everything else (incl. 'def' on active) → 'outstanding'.
+function _deriveCatFilter() {
+  if (_activeDlcTab === 'closed') return 'closed';
+  if (_dfxRecMode === 'rec') return 'rec';
+  if (_dfxRecMode === 'siterec') return 'siterec';
+  return 'outstanding';
+}
+
 // Sync the control bar to current state: pivot counts, active classes,
 // contractor dropdown options, filter input values.
-function _syncDfxControls(pcActive, pcClosed, proj) {
+function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
   var ea = document.getElementById('dfx-pc-active');
   var ec = document.getElementById('dfx-pc-closed');
   if (ea) ea.textContent = pcActive;
   if (ec) ec.textContent = pcClosed;
+
+  // S250 §4: populate the four category-segment counts + active state.
+  if (catCounts) {
+    var _cc = {
+      outstanding: document.getElementById('dfx-cc-outstanding'),
+      rec: document.getElementById('dfx-cc-rec'),
+      siterec: document.getElementById('dfx-cc-siterec'),
+      closed: document.getElementById('dfx-cc-closed')
+    };
+    if (_cc.outstanding) _cc.outstanding.textContent = catCounts.outstanding;
+    if (_cc.rec) _cc.rec.textContent = catCounts.rec;
+    if (_cc.siterec) _cc.siterec.textContent = catCounts.siterec;
+    if (_cc.closed) _cc.closed.textContent = catCounts.closed;
+  }
+  document.querySelectorAll('.dfx-cat-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-catfilter') === _deriveCatFilter());
+  });
 
   document.querySelectorAll('.defic-pivot-btn').forEach(function(b) {
     b.classList.toggle('active', b.getAttribute('data-pivot') === _activeDlcTab);
@@ -3610,6 +3679,16 @@ document.addEventListener('click', function(e) {
     _openPinFocus(gt.getAttribute('data-defic-id'), (_goi != null && _goi !== '') ? parseInt(_goi, 10) : undefined);
     return;
   }
+  // S250 §4: single 5-segment category filter. Maps each segment to the
+  // existing (pivot + recmode) axes via _setCatFilter — no change to the
+  // underlying filter predicate (_recModeDrops / pivot test).
+  var cb = e.target.closest && e.target.closest('.dfx-cat-btn');
+  if (cb) {
+    _setCatFilter(cb.getAttribute('data-catfilter'));
+    return;
+  }
+  // S137 legacy pivot handler — markup removed S250, left inert for
+  // one-commit revertability (S137 dead-handler discipline).
   var pb = e.target.closest && e.target.closest('.defic-pivot-btn');
   if (pb) {
     var p = pb.getAttribute('data-pivot');
@@ -4819,7 +4898,7 @@ document.addEventListener('click', function(e) {
       if (_cd && _cd.defic && _cd.defic.iar) _cd.defic.iar = false;
       Model.updateDeficStatus(deficId, 'closed');
       if (note) Model.updateClosedNote(deficId, note);
-      _activeDlcTab = 'closed';
+      _activeDlcTab = 'closed'; _dfxRecMode = 'all'; _catFilter = 'closed';  // S250 §4: Closed segment = all closed
       document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
         t.classList.toggle('active', t.getAttribute('data-dlc') === 'closed');
       });

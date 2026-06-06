@@ -7326,6 +7326,73 @@ body.dark-mode .picker-cancel-btn:hover { background: #2A3247; color: #E0E5F0; }
   border-bottom: 1px solid var(--border);
 }
 
+/* S250 §4: single 4-segment category filter row (Outstanding · Recommendations
+   · Site Records · Closed). The .row is ONE flat strip on desktop; on phone
+   portrait (<=560px) it becomes a clean 2x2 grid — every edge aligned, full
+   labels, no scroll, no ragged wrap. Each active segment carries its locked
+   semantic category colour: Outstanding=red, Recommendations=teal, Site
+   Record=lavender, Closed=green. Inactive = muted ink on the lifted pill track.
+   Bold tokens drive both day + dark. */
+.dfx-catfilter { width: 100%; }
+.dfx-catfilter .row {
+  display: flex;
+  gap: 4px;
+  background: var(--b-pill-bg);
+  border: 1px solid var(--b-pill-bd);
+  border-radius: 9px;
+  padding: 3px;
+}
+.dfx-cat-btn {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--b-pill-seg-fg);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: Calibri, sans-serif;
+  font-size: calc(12.5px + var(--ts));
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .14s, color .14s, border-color .14s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 38px;
+}
+@media (hover:hover) {
+  .dfx-cat-btn:not(.active):hover { background: var(--b-pill-hover); color: var(--b-chrome-fg); }
+}
+.dfx-cat-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: calc(10.5px + var(--ts));
+  font-weight: 700;
+  line-height: 1;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  color: inherit;
+}
+/* active segment — per-category colour (locked semantics, both modes) */
+.dfx-cat-btn[data-catfilter="outstanding"].active { background: var(--b-high-bg); color: var(--b-high); border-color: color-mix(in srgb, var(--b-high) 40%, transparent); }
+.dfx-cat-btn[data-catfilter="rec"].active          { background: var(--b-cat-rec-bg); color: var(--b-cat-rec-fg); border-color: color-mix(in srgb, var(--b-cat-rec-fg) 40%, transparent); }
+.dfx-cat-btn[data-catfilter="siterec"].active      { background: var(--b-cat-site-bg); color: var(--b-cat-site-fg); border-color: color-mix(in srgb, var(--b-cat-site-fg) 40%, transparent); }
+.dfx-cat-btn[data-catfilter="closed"].active       { background: var(--b-cat-closed-bg); color: var(--b-cat-closed-fg); border-color: color-mix(in srgb, var(--b-cat-closed-fg) 40%, transparent); }
+/* phone portrait: 2x2 grid + tightened filters (search own row, dropdowns share next) */
+@media (max-width: 560px) {
+  .dfx-catfilter .row { display: grid; grid-template-columns: 1fr 1fr; }
+  .dfx-cat-btn { flex: none; }
+  .defic-filters .dfx-filter-input[type="text"] { flex: 1 1 100%; }
+  .defic-filters select.dfx-filter-input { flex: 1 1 0; min-width: 0; }
+}
+
 .defic-pivot {
   display: inline-flex;
   background: #F0EDE6;
@@ -8933,6 +9000,22 @@ body.dark-mode .project-bar{background:var(--b-chrome2)!important;}
 
 .nav-tab.active{border-bottom-color:var(--arencon);}
 body.dark-mode .nav-tab.active{border-bottom-color:var(--arencon);}
+
+/* S250 §3: DAY-MODE header contrast. These header elements were hardcoded to
+   white text (rgba(255,255,255,.x)) from the old dark-only header. In Bold·Day
+   the header is a LIGHT surface, so white text/icons read near-invisible
+   ("Saved to cloud · last sync", undo/redo arrows, IDB label, save timestamp,
+   presence chip). Repoint them to the chrome ink in DAY ONLY; dark mode keeps
+   white (correct on the near-black header). Scoped to body:not(.dark-mode). */
+body:not(.dark-mode) #cloud-status{color:var(--b-chrome-fg)!important;}
+body:not(.dark-mode) #cloud-status #cloud-status-text,
+body:not(.dark-mode) #cloud-status #last-sync-text{color:var(--b-chrome-fg);}
+body:not(.dark-mode) #cloud-status:hover{background:var(--b-chrome-hover);}
+body:not(.dark-mode) .hdr-sm{color:var(--b-chrome-fg);}
+body:not(.dark-mode) .hdr-sm:hover{color:var(--arencon);}
+body:not(.dark-mode) .header-save-ts{color:var(--steel);}
+body:not(.dark-mode) .storage-label{color:var(--steel)!important;}
+body:not(.dark-mode) .presence-chip{color:#3F4470!important;background:rgba(110,106,168,.12)!important;border-color:rgba(110,106,168,.40)!important;}
 
 /* ---- CARDS -> glassy 16px + dark section-chip header with 01· number (beat 951-954) ---- */
 .card{background:var(--b-cardgrad)!important;border:1px solid var(--border)!important;border-radius:16px!important;
