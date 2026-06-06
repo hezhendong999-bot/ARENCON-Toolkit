@@ -2389,7 +2389,7 @@ body.dark-mode .drawing-viewer-overlay .dv-toolbar{background:var(--b-chrome-bg)
   font-weight:500;
 }
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn:hover{
-  background:#36425c !important;
+  background:#9C2742 !important;
 }
 
 /* All other toolbar buttons — dark slate squares with burgundy hover border */
@@ -8871,6 +8871,7 @@ body.dark-mode{
   /* lifted bar surface + red accent (locked refinement) */
   --b-bar-bg:#ECEAF0; --b-bar-fg:#1B1A22; --b-bar-rule:#D2CEDB; --b-bar-accent:#9C2742;
   --b-chrome-bg:#23212b; --b-chrome-fg:#F4F3F6; --b-chrome-rule:rgba(255,255,255,.12); --b-chrome-hover:rgba(255,255,255,.10);
+  --b-chrome-btn:#2a2730; --b-chrome-btn-bd:#3a3742; /* S249: viewer chrome buttons — black family, NOT navy --b-pill-bg */
   --b-high:#C0445F; --b-high-bg:#F3D9DE; --b-low:#C98A4A; --b-low-bg:#FBEDD3; --b-closed:#2E9E72; --b-closed-bg:#D2EBDC;
   --b-pb-u:#2C7FB8; --b-pb-u-bg:#DEEEF8; --b-pb-c:#2E9E72; --b-pb-c-bg:#D2EBDC; --b-pb-g:#7D3F4F; --b-pb-g-bg:#F3E0E4;
   --b-unassigned-dot:#6E6AA8; }
@@ -8890,6 +8891,7 @@ body.dark-mode{ --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A
   /* lifted bar: lighter than the #0b0a0d page so it reads as a band, red accent */
   --b-bar-bg:#23212b; --b-bar-fg:#F4F3F6; --b-bar-rule:rgba(255,255,255,.10); --b-bar-accent:#C9476A;
   --b-chrome-bg:#1d1b24; --b-chrome-fg:#F4F3F6; --b-chrome-rule:rgba(255,255,255,.12); --b-chrome-hover:rgba(255,255,255,.10);
+  --b-chrome-btn:#2a2730; --b-chrome-btn-bd:#3a3742; /* S249: viewer chrome buttons — black family, NOT navy #1b212c --b-pill-bg */
   --b-high:#E26076; --b-high-bg:rgba(226,96,118,.16); --b-low:#E0A36A; --b-low-bg:rgba(224,163,106,.16); --b-closed:#3FD08A; --b-closed-bg:rgba(63,208,138,.16);
   --b-pb-u:#46C5E8; --b-pb-u-bg:rgba(70,197,232,.16); --b-pb-c:#3FD08A; --b-pb-c-bg:rgba(63,208,138,.16); --b-pb-g:#C98AA0; --b-pb-g-bg:rgba(201,138,160,.18);
   --b-unassigned-dot:#A9A4E0; }
@@ -9115,31 +9117,44 @@ body.dark-mode .cv-loc-thumb{background:#2a2d35;border-color:#3a3e48;}
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   S249 — Drawing-viewer tool buttons: un-gate the dark-chrome styling.
-   The Session-75 dark styling for the left tool rail + size/opacity
-   steppers + close was locked inside @media(min-width:901px), so field
-   tablets (<901px portrait) fell through to raw browser white. These
-   rules apply that SAME dark-chrome treatment at ALL widths. Last in
-   cascade → wins. Uses existing Bold tokens only — no new values.
-   Light + dark identical (chrome is dark in both Bold skins by design).
+   S249 — Drawing-viewer chrome buttons: ROOT-CAUSE fix.
+   The whole viewer chrome (top toolbar buttons, left tool rail, size/
+   opacity steppers, bottom name pill + nav) was sitting on --b-pill-bg,
+   which is NAVY (#1b212c dark) — that is the segmented-pill CONTENT token,
+   not chrome. So everything read navy, never matching the black header.
+   Fix: point ALL viewer chrome buttons at the new --b-chrome-btn (black
+   family), leaving --b-pill-bg untouched for content status/category
+   pills. Applies at ALL widths (Session-75 dark rules were ≥901px-gated).
+   Last in cascade → wins. Hover navy #36425c also killed.
    ═══════════════════════════════════════════════════════════════════ */
+/* --- top toolbar buttons (were navy via --b-pill-bg + #36425c hover) --- */
+.drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn){
+  background:var(--b-chrome-btn) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
+  color:var(--b-chrome-fg) !important;
+}
+.drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn):hover{
+  background:#9C2742 !important;border-color:#9C2742 !important;
+}
+.drawing-viewer-overlay .dv-toolbar button.active{background:#9C2742 !important;color:#fff !important;}
+/* --- left tool rail --- */
 .drawing-viewer-overlay #dv-sidebar-tools button,
 .drawing-viewer-overlay #dv-sidebar-tools .mk-btn,
 .drawing-viewer-overlay #dv-sidebar-tools [data-mk-tool]{
-  background:var(--b-pill-bg) !important;
+  background:var(--b-chrome-btn) !important;
   color:var(--b-chrome-fg) !important;
-  border:1px solid var(--b-pill-bd) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
 }
 .drawing-viewer-overlay #dv-sidebar-tools button svg,
 .drawing-viewer-overlay #dv-sidebar-tools .mk-btn svg{color:var(--b-chrome-fg) !important;}
 .drawing-viewer-overlay #dv-sidebar-tools button:hover,
-.drawing-viewer-overlay #dv-sidebar-tools .mk-btn:hover{background:var(--b-pill-bd) !important;}
+.drawing-viewer-overlay #dv-sidebar-tools .mk-btn:hover{background:#9C2742 !important;border-color:#9C2742 !important;}
 .drawing-viewer-overlay #dv-sidebar-tools button.active,
 .drawing-viewer-overlay #dv-sidebar-tools .mk-btn.active,
 .drawing-viewer-overlay #dv-sidebar-tools [data-mk-tool].active{
   background:#9C2742 !important;border-color:#9C2742 !important;color:#fff !important;
 }
-/* size / opacity steppers + their value readouts */
+/* --- size / opacity steppers + their value readouts --- */
 .drawing-viewer-overlay #dv-sidebar-tools #ctx-size-group button,
 .drawing-viewer-overlay #dv-sidebar-tools #ctx-opacity-group button,
 .drawing-viewer-overlay #dv-sidebar-tools .ctx-step,
@@ -9150,25 +9165,42 @@ body.dark-mode .cv-loc-thumb{background:#2a2d35;border-color:#3a3e48;}
 .drawing-viewer-overlay #dv-sidebar-tools .mk-opacity-controls button,
 .drawing-viewer-overlay #dv-sidebar-tools [class*="size"] button,
 .drawing-viewer-overlay #dv-sidebar-tools [class*="opacity"] button{
-  background:var(--b-pill-bg) !important;
+  background:var(--b-chrome-btn) !important;
   color:var(--b-chrome-fg) !important;
-  border:1px solid var(--b-pill-bd) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
 }
 .drawing-viewer-overlay #dv-sidebar-tools #ctx-size-val,
 .drawing-viewer-overlay #dv-sidebar-tools #ctx-opacity-val,
 .drawing-viewer-overlay #dv-sidebar-tools #mk-size-val,
 .drawing-viewer-overlay #dv-sidebar-tools #mk-opacity-val{color:var(--b-chrome-fg) !important;}
-/* close button in the rail */
+/* --- mobile context bar (W / α strip on tablet) --- */
+.drawing-viewer-overlay #dv-mobile-context button,
+.drawing-viewer-overlay #dv-mobile-context .ctx-btn{
+  background:var(--b-chrome-btn) !important;color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
+}
+.drawing-viewer-overlay #dv-mobile-context .ctx-val{color:var(--b-chrome-fg) !important;}
+/* --- close button in the rail --- */
 .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
-  background:var(--b-pill-bg) !important;
+  background:var(--b-chrome-btn) !important;
   color:var(--b-chrome-fg) !important;
-  border:1px solid var(--b-pill-bd) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
 }
 .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
-/* title pill — the editable drawing name at the bottom bar */
+/* --- bottom bar: name pill + prev/next/fit nav buttons --- */
 .drawing-viewer-overlay #dv-bb-namepill{
-  background:var(--b-pill-bg) !important;
-  border:1px solid var(--b-pill-bd) !important;
+  background:var(--b-chrome-btn) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
   color:var(--b-chrome-fg) !important;
 }
 .drawing-viewer-overlay #dv-bb-name{color:var(--b-chrome-fg) !important;}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button,
+.drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{
+  background:var(--b-chrome-btn) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
+  color:var(--b-chrome-fg) !important;
+}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
+.drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit:hover,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{background:#9C2742 !important;}
