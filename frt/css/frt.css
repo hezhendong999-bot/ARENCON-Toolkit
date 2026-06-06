@@ -9676,10 +9676,10 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   box-sizing:border-box !important;
 }
 
-/* ── 2 · Icon buttons (QR, day/night, text-size, hamburger) = 34×34 square ── */
-#btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{
+/* ── 2 · Icon buttons = diesel exact. Diesel squares ONLY QR + day-night (line 11948: #dark-toggle, #btn-qr = calc(34px+ts)). The text-size "S" button is a normal .hdr-btn in diesel, NOT squared — so it is intentionally excluded here. ── */
+#btn-qr, #dark-toggle, #mobile-menu-btn{
   width:calc(34px + var(--ts)) !important; height:calc(34px + var(--ts)) !important;
-  min-width:calc(34px + var(--ts)) !important; min-height:0 !important; max-height:calc(34px + var(--ts)) !important;
+  min-width:calc(34px + var(--ts)) !important; min-height:calc(34px + var(--ts)) !important; max-height:calc(34px + var(--ts)) !important;
   padding:0 !important; border-radius:6px !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
   font-size:calc(13px + var(--ts)) !important; line-height:1 !important;
@@ -9718,7 +9718,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .app-header .hdr-btn, .app-header #btn-more-wrap > button{
     min-height:40px !important; height:auto !important; max-height:none !important; padding:8px 14px !important;
   }
-  #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn, .app-header .hdr-sm{
+  #btn-qr, #dark-toggle, #mobile-menu-btn, .app-header .hdr-sm{
     height:calc(38px + var(--ts)) !important; max-height:calc(38px + var(--ts)) !important;
   }
 }
