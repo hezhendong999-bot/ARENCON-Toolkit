@@ -1356,7 +1356,7 @@ body.dark-mode .drawing-card .tile-badge{box-shadow:0 1px 3px rgba(0,0,0,.5);}
 body.dark-mode .drawing-card .tile-badge.tile-processing{background:rgba(56,142,210,.92);}
 body.dark-mode .drawing-card .tile-badge.tile-failed{background:rgba(220,72,55,.92);}
 .drawing-card .version-badge{position:absolute;top:6px;left:40px;background:#7B1FA2;color:white;font-size:9px;font-weight:600;padding:2px 5px;border-radius:8px;}
-.drawing-card.add-card{border-style:dashed;border-color:var(--silver);cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:140px;}
+.drawing-card.add-card{border-style:dashed;border-color:var(--silver);cursor:pointer;display:flex;align-items:center;justify-content:center;height:163px;min-height:163px;box-sizing:border-box;}
 .drawing-card.add-card:hover{border-color:var(--red);background:rgba(156,39,66,.03);}
 .drawing-card.add-card.drag-over{border-color:#5F8068!important;background:rgba(26,122,74,.08)!important;box-shadow:0 0 0 3px rgba(26,122,74,.2)!important;}
 .add-card-inner{color:var(--silver);font-size:calc(13px + var(--ts));font-weight:600;}
@@ -5698,9 +5698,7 @@ body.dark-mode .pg-filter.active{
       align padding token. Override explicit height with our token so
       it's source-of-truth from ONE place. ──────────────────────── */
 .hdr-btn{
-  height:var(--btn-h-md) !important;
-  padding:var(--btn-pad-md) !important;
-  font-size:calc(12.5px + var(--ts)) !important;
+  font-size:calc(12px + var(--ts)) !important;
 }
 
 /* ── Drawing viewer toolbar buttons ────────────────────────────── */
@@ -9670,10 +9668,11 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
    undo/redo and icon squares all align on the same baseline.
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── 1 · Shared geometry: every header text button = 34px, padding 0 12px ── */
+/* ── 1 · Header text buttons = EXACT diesel geometry (Mark: match diesel, FRT buttons were too big/overflowing). padding 5px 12px, 12px font, gap 4, natural height. ── */
 .app-header .hdr-btn{
-  height:34px !important; min-height:0 !important; max-height:34px !important;
-  padding:0 12px !important; border-radius:6px !important;
+  padding:5px 12px !important; border-radius:6px !important;
+  font-size:calc(12px + var(--ts)) !important; gap:4px !important;
+  height:auto !important; min-height:0 !important; max-height:none !important;
 }
 
 /* ── 2 · Icon buttons (QR, day/night, text-size, hamburger) = 34×34 square ── */
