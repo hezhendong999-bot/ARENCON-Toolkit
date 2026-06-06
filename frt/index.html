@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=513">
+<link rel="stylesheet" href="css/frt.css?v=514">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -140,7 +140,7 @@ function ensurePdfJs(cb){
            console: window._frtTogglePerfOverlay()). display:none removes its
            flex slot so following buttons flow left — no reserved gap. -->
       <button class="hdr-btn" id="btn-perf-toggle" title="Toggle performance overlay" style="display:none;" onclick="if(window._frtTogglePerfOverlay)window._frtTogglePerfOverlay();">📊</button>
-      <button id="dark-toggle" title="Toggle Dark Mode">🌙</button>
+      <button id="dark-toggle" title="Toggle Dark Mode"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
       <button class="hdr-btn" id="btn-signout" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <button id="mobile-menu-btn">☰</button>
     </div>
@@ -349,7 +349,7 @@ function ensurePdfJs(cb){
     <div class="mm-icon-row">
       <button class="btn mm-icon-btn" id="mobile-qr-btn" style="display:none;" title="QR Code">📱</button>
       <button class="btn mm-icon-btn" id="mobile-text-size-btn" title="Text Size">M</button>
-      <button class="btn mm-icon-btn" id="mobile-dark-btn" onclick="var d=document.getElementById('dark-toggle');if(d)d.click();" title="Dark Mode">🌙</button>
+      <button class="btn mm-icon-btn" id="mobile-dark-btn" onclick="var d=document.getElementById('dark-toggle');if(d)d.click();" title="Dark Mode"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
     </div>
     <div class="mm-divider"></div>
     <!-- Storage at the very bottom -->
@@ -595,7 +595,7 @@ function ensurePdfJs(cb){
     <button id="dv-undo-v75" title="Undo">↩</button>
     <button id="dv-redo-v75" title="Redo">↪</button>
     <button id="dv-actions-v75" title="Actions">Actions ▾</button>
-    <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));">🌙</button>
+    <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
   </div>
   <!-- MOBILE CONTEXT BAR -->
   <div id="dv-mobile-context" class="dv-mobile-context">

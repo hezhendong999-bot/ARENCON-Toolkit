@@ -212,12 +212,16 @@ function toggleDarkMode() {
   updateDarkToggleIcon();
 }
 
+// S251: crisp inline SVG sun/moon, replacing the system emoji (the "banana
+// moon" rendered as a yellow crescent in Chrome/Windows). currentColor +
+// 18px box so it inherits header button ink and never inflates the 34px box.
+// Glyph = the action: day shows the moon (switch to night), night the sun.
+var _SVG_MOON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+var _SVG_SUN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/><line x1="5.1" y1="5.1" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="18.9" y2="18.9"/><line x1="5.1" y1="18.9" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="18.9" y2="5.1"/></svg>';
+
 function updateDarkToggleIcon() {
   var isDark = document.body.classList.contains('dark-mode');
-  // S250 §15: use the SAME plain sun/moon emoji as the Diesel checklist
-  // (Diesel: isDark ? \u2600\uFE0F : \uD83C\uDF19). Glyph = the action: day
-  // shows the moon (switch to night), night shows the sun. No custom PNGs.
-  var icon = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  var icon = isDark ? _SVG_SUN : _SVG_MOON;
   var dt = document.getElementById('dark-toggle');
   if (dt) dt.innerHTML = icon;
   var dvdt = document.getElementById('dv-dark-toggle');
