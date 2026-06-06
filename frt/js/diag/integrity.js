@@ -173,9 +173,11 @@
     };
   }
 
-  // ── Optional: badge in dbg=1 mode ──
+  // ── Optional: badge — S250 §13: hidden even in dbg mode (Mark). Requires an
+  //    explicit separate opt-in localStorage._frtPanels='1'. Logging is unaffected. ──
+  function _panelsOn(){ try { return (typeof localStorage !== 'undefined' && localStorage.getItem('_frtPanels') === '1'); } catch(_e){ return false; } }
   function _refreshBadge() {
-    if (!_dbgEnabled) return;
+    if (!_panelsOn()) return;
     var badge = document.getElementById('frt-integrity-badge');
     if (!badge) return;
     var n = _findings.length;

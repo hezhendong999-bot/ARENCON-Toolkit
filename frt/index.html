@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=510">
+<link rel="stylesheet" href="css/frt.css?v=511">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -140,7 +140,7 @@ function ensurePdfJs(cb){
            console: window._frtTogglePerfOverlay()). display:none removes its
            flex slot so following buttons flow left — no reserved gap. -->
       <button class="hdr-btn" id="btn-perf-toggle" title="Toggle performance overlay" style="display:none;" onclick="if(window._frtTogglePerfOverlay)window._frtTogglePerfOverlay();">📊</button>
-      <button id="dark-toggle" title="Toggle Dark Mode">☀️</button>
+      <button id="dark-toggle" title="Toggle Dark Mode">🌙</button>
       <button class="hdr-btn" id="btn-signout" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <button id="mobile-menu-btn">☰</button>
     </div>
@@ -349,7 +349,7 @@ function ensurePdfJs(cb){
     <div class="mm-icon-row">
       <button class="btn mm-icon-btn" id="mobile-qr-btn" style="display:none;" title="QR Code">📱</button>
       <button class="btn mm-icon-btn" id="mobile-text-size-btn" title="Text Size">M</button>
-      <button class="btn mm-icon-btn" id="mobile-dark-btn" onclick="var d=document.getElementById('dark-toggle');if(d)d.click();" title="Dark Mode">☀️</button>
+      <button class="btn mm-icon-btn" id="mobile-dark-btn" onclick="var d=document.getElementById('dark-toggle');if(d)d.click();" title="Dark Mode">🌙</button>
     </div>
     <div class="mm-divider"></div>
     <!-- Storage at the very bottom -->
@@ -595,7 +595,7 @@ function ensurePdfJs(cb){
     <button id="dv-undo-v75" title="Undo">↩</button>
     <button id="dv-redo-v75" title="Redo">↪</button>
     <button id="dv-actions-v75" title="Actions">Actions ▾</button>
-    <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));">☀️</button>
+    <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));">🌙</button>
   </div>
   <!-- MOBILE CONTEXT BAR -->
   <div id="dv-mobile-context" class="dv-mobile-context">
@@ -939,7 +939,7 @@ function ensurePdfJs(cb){
 <!-- S120 P9 — Photo-pool integrity checker. Always-on (cheap, debounced).
      Runs after Model events and on project load; reports stale references,
      orphans, broken photos, and cascade failures. ?dbg=1 shows a badge. -->
-<script src="js/diag/integrity.js?v=1" async></script>
+<script src="js/diag/integrity.js?v=2" async></script>
 
 <!-- S120 P18 — Drawing migration tool (console-driven).
      Exposes window._drawingMigrate.{preview, plan, apply, undo}. Walks
@@ -1203,17 +1203,14 @@ function ensurePdfJs(cb){
 <button type="button" id="diag-toggle" title="Toggle debug panels" style="display:none;">🔍</button>
 <script>
 (function(){
-  var dbgOn = false;
-  try {
-    dbgOn = /[?&]dbg=1\b/.test(window.location.search || '') ||
-            (window.localStorage && localStorage.getItem('_frtDbg') === '1');
-  } catch(_e) { /* private mode etc */ }
+  // S250 §13: the debug-panel toggle is now hidden even in dbg=1 mode (Mark
+  // doesn't want it). It requires an explicit separate opt-in:
+  //   localStorage._frtPanels='1'  (set via console when needed, then reload).
+  var panelsOn = false;
+  try { panelsOn = (window.localStorage && localStorage.getItem('_frtPanels') === '1'); } catch(_e) {}
   var btn = document.getElementById('diag-toggle');
   if (!btn) return;
-  if (!dbgOn) {
-    // Debug mode off — neither the toggle nor the panels exist. Leave hidden.
-    return;
-  }
+  if (!panelsOn) { return; }
   btn.style.display = 'flex';
   btn.addEventListener('click', function(){
     document.body.classList.toggle('diag-show');

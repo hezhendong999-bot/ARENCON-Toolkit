@@ -9364,7 +9364,7 @@ body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
 #drawings-container .dwg-card-row,
 #drawings-container > .dwg-card-row{
   display:grid !important;
-  grid-template-columns:repeat(auto-fill,minmax(150px,1fr)) !important;
+  grid-template-columns:repeat(auto-fill,minmax(190px,1fr)) !important;
   gap:12px !important;
   justify-content:start !important;
   align-items:start !important;
@@ -9372,7 +9372,7 @@ body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
 /* if the JS renders cards directly in the container without a row wrapper */
 #drawings-container:not(:has(.dwg-card-row)){
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
   gap:12px;
   align-items:start;
 }
@@ -9677,3 +9677,44 @@ body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
 @media(hover:hover){ #back-btn:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
 #back-btn:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
 /* end S250 §10 ─────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S250 §14 — header CTA colours, AI-review purple, FRT pill, + icon-button
+   size, all matched to the Diesel pump tool header (Mark-locked). Last in
+   file + !important so it wins the layered history.
+   • AI Review → Diesel Bold purple #7B2D8E (was muted #7B5A8F — wrong shade)
+   • Reports   → navy #1A237E (Diesel)
+   • More      → slate #455A64 (Diesel)
+   • Sign Out  → muted teal #2C7FB8 + WHITE text (kept distinct from AI Review;
+                 Diesel uses purple there but that would clash — Mark wants AI
+                 Review to stay the purple one)
+   • FRT #1 pill (#pb-inst) → Reports slate-blue #4A6580; DRAFT stays orange
+   • #btn-qr / #dark-toggle / #btn-text-size → 34x34 squares (38 coarse) — the
+     §7 block had grown them to width:auto/height:auto; restore Diesel icon size
+   • .hdr-btn height → Diesel: padding 5px 12px (coarse min-height 40, 8px 14px)
+   ════════════════════════════════════════════════════════════════════ */
+#btn-ai-review[style*="background"], #btn-ai-review,
+.hdr-ai-active{ background:#7B2D8E !important; color:#fff !important; }
+#btn-reports-parent[style*="background"], #btn-reports-parent{ background:#1A237E !important; color:#fff !important; }
+#btn-more-wrap > button, .app-header #btn-more-wrap > button{ background:#455A64 !important; color:#fff !important; border:1px solid #455A64 !important; }
+#btn-signout{ background:#2C7FB8 !important; color:#FFFFFF !important; border:1px solid #2C7FB8 !important; font-weight:600 !important; }
+@media(hover:hover){
+  #btn-ai-review:hover, .hdr-ai-active:hover,
+  #btn-reports-parent:hover, #btn-more-wrap > button:hover, #btn-signout:hover{ filter:brightness(1.10); }
+}
+#pb-inst{ background:#4A6580 !important; color:#fff !important; }
+
+/* icon buttons back to compact Diesel-matched squares (the §7 block bloated them) */
+#btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{
+  width:34px !important; height:34px !important; min-width:34px !important; min-height:0 !important;
+  padding:0 !important; border-radius:6px !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important;
+  font-size:calc(14px + var(--ts)) !important;
+}
+@media(pointer:coarse){
+  #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{ width:38px !important; height:38px !important; min-height:0 !important; padding:0 !important; }
+}
+/* text CTAs match Diesel .hdr-btn height (padding-driven, not taller) */
+.app-header .hdr-btn{ padding:5px 12px !important; min-height:0 !important; height:auto !important; }
+@media(pointer:coarse){ .app-header .hdr-btn{ min-height:40px !important; padding:8px 14px !important; } }
+/* end S250 §14 ─────────────────────────────────────────────────────── */
