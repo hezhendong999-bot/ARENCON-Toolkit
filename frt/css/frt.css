@@ -170,6 +170,7 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 .btn-danger{background:#A85959;color:white;}.btn-danger:hover{background:#8A4A4A;}
 /* dark toggle uses hdr-btn class */
 .back-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;background:var(--b-chrome2);border:1px solid transparent;color:var(--b-chrome-fg);height:30px;padding:0 10px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;line-height:1;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;box-sizing:border-box;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
+body.dark-mode .back-btn{border:1px solid var(--b-chrome-rule);box-shadow:none;}
 .section-nav{background:var(--b-chrome-bg);display:flex;gap:0;overflow-x:auto;padding:0 14px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav .nav-tab:first-child{padding-left:0;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:rgba(244,243,246,.6);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:var(--b-chrome-fg);}.nav-tab.active{color:var(--b-chrome-fg);border-bottom-color:var(--b-bar-accent);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
@@ -9571,7 +9572,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 /* ---- (3) Sign Out → match Diesel exactly: purple #7B1FA2 fill, white text,
    with the colored-CTA press shadow (handled above). The old inline bg is the
    same purple, so we just ensure the shadow + readable white ink. ---- */
-#btn-signout{ background:#7B1FA2 !important; color:#FFFFFF !important; border:none !important; font-weight:600 !important; }
+#btn-signout{ background:#0F766E !important; color:#FFFFFF !important; border:none !important; font-weight:600 !important; }
 @media(hover:hover){ #btn-signout:hover{ filter:brightness(1.12); } }
 /* end S250 §7 ──────────────────────────────────────────────────────── */
 
@@ -9687,7 +9688,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 #btn-ai-review[style*="background"], #btn-ai-review, .hdr-ai-active{ background:#7B2D8E !important; color:#fff !important; }
 #btn-reports-parent[style*="background"], #btn-reports-parent{ background:#1A237E !important; color:#fff !important; }
 #btn-more-wrap > button, .app-header #btn-more-wrap > button{ background:#455A64 !important; color:#fff !important; border:1px solid #455A64 !important; }
-#btn-signout{ background:#2C7FB8 !important; color:#FFFFFF !important; border:1px solid #2C7FB8 !important; font-weight:600 !important; }
+#btn-signout{ background:#0F766E !important; color:#FFFFFF !important; border:1px solid #0F766E !important; font-weight:600 !important; }
 #pb-inst{ background:#4A6580 !important; color:#fff !important; }
 @media(hover:hover){
   #btn-ai-review:hover, .hdr-ai-active:hover,
@@ -9727,6 +9728,6 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .header-actions > #btn-signout{ display:none !important; }
   #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:inline-flex !important; }
 }
-@media(min-width:1025px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:none !important; } }
-.mobile-menu #mobile-signout-btn, .mobile-menu .mm-btn.mm-signout{ background:#2C7FB8 !important; color:#fff !important; border-color:#2C7FB8 !important; }
+@media(min-width:1025px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn, .app-header #mobile-menu-btn{ display:none !important; } }
+.mobile-menu #mobile-signout-btn, .mobile-menu .mm-btn.mm-signout{ background:#0F766E !important; color:#fff !important; border-color:#0F766E !important; }
 /* ── end S259 header button system ──────────────────────────────────── */
