@@ -169,7 +169,7 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 .btn-sm{padding:5px 11px;font-size:calc(12.5px + var(--ts));}
 .btn-danger{background:#A85959;color:white;}.btn-danger:hover{background:#8A4A4A;}
 /* dark toggle uses hdr-btn class */
-.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:transparent;border:1px solid transparent;color:var(--b-chrome-fg);padding:0 12px 0 0;border-radius:6px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;margin-right:10px;min-height:40px;}.back-btn:hover{background:var(--b-chrome-hover);border-color:transparent;}@media (pointer:coarse){.back-btn{min-height:44px;padding:0 14px 0 0;}}
+.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid var(--b-chrome-rule);color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;box-shadow:var(--b-btn-shadow);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
 .section-nav{background:var(--b-chrome-bg);display:flex;gap:0;overflow-x:auto;padding:0 14px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav .nav-tab:first-child{padding-left:0;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:rgba(244,243,246,.6);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:var(--b-chrome-fg);}.nav-tab.active{color:var(--b-chrome-fg);border-bottom-color:var(--b-bar-accent);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
@@ -9694,28 +9694,10 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   #btn-reports-parent:hover, #btn-more-wrap > button:hover, #btn-signout:hover{ filter:brightness(1.10); }
 }
 
-/* ── 4 · Back button (main header) + Back (drawing viewer) — IDENTICAL.
-        Chrome box, 34px height, shadow on all four sides. Lifted above the
-        header background layer so the top/left shadow is not covered. ── */
-#back-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-close{
-  display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:6px !important;
-  background:var(--b-chrome2) !important;
-  border:1px solid var(--b-chrome-rule) !important;
-  color:var(--b-chrome-fg) !important;
-  padding:5px 12px !important; border-radius:6px !important;
-  height:auto !important; min-height:0 !important; max-height:none !important;
-  font-family:Calibri,sans-serif !important;
-  font-size:calc(13px + var(--ts)) !important; font-weight:600 !important;
-  cursor:pointer !important;
-  box-shadow:var(--b-btn-shadow) !important;
-  transition:box-shadow .15s, transform .08s, background .15s !important;
-  white-space:nowrap !important; flex-shrink:0 !important; box-sizing:border-box !important;
-}
-#back-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-close:active{ transform:translateY(1px) !important; box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
-@media(hover:hover){
-  #back-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-close:hover{ background:rgba(255,255,255,.22) !important; }
-}
+/* ── 4 · Back button (main header) + Back (drawing viewer).
+        Styled ENTIRELY by the base .back-btn class (diesel-identical, no
+        !important, no fixed height) so it sizes dynamically like every other
+        header button. No ID-level overrides here — that was the freeze. ── */
 
 /* ── 5 · Undo/redo (.hdr-sm) → matching chrome shadow-box, 34×34 ── */
 .app-header .hdr-sm{
