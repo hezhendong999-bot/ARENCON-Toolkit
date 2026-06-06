@@ -9930,3 +9930,32 @@ body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
   #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:inline-flex !important; }
 }
 /* end S251d ─────────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S251e — Sign Out color → #0F766E (Mark's chosen teal, replaces #2C7FB8).
+   Last in file, attribute selector beats inline style. Header + mobile menu.
+   ════════════════════════════════════════════════════════════════════ */
+#btn-signout,
+#btn-signout[style*="background"]{
+  background:#0F766E !important; color:#fff !important; border:1px solid #0F766E !important;
+}
+@media(hover:hover){ #btn-signout:hover, #btn-signout[style*="background"]:hover{ filter:brightness(1.10); background:#0F766E !important; } }
+.mobile-menu #mobile-signout-btn,
+.mobile-menu .mm-btn.mm-signout{
+  background:#0F766E !important; color:#fff !important; border-color:#0F766E !important;
+}
+
+/* ── Mobile header (<=1024px): QR + day/night OUTSIDE (in header);
+   text-size + Sign Out go INTO the hamburger menu (already in the drawer
+   markup as #mobile-text-size-btn / #mobile-signout-btn). The catch-all
+   .header-actions>*{display:none} hides everything, then we re-show only
+   QR, day/night, hamburger, cloud-status. text-size + signout stay hidden
+   from the header so they live only in the drawer. */
+@media(max-width:1024px){
+  .header-actions > #btn-qr{ display:inline-flex !important; }
+  .header-actions > #dark-toggle{ display:inline-flex !important; }
+  /* explicitly keep these OUT of the mobile header (drawer-only) */
+  .header-actions > #btn-text-size{ display:none !important; }
+  .header-actions > #btn-signout{ display:none !important; }
+}
+/* end S251e ─────────────────────────────────────────────────────────── */
