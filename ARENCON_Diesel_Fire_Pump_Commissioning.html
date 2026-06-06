@@ -411,7 +411,7 @@ body.dark-mode .fig-supply b{color:#d0d8f0;}
 body.dark-mode body.dark-mode .fig-readout{background:#323a48;}
 body.dark-mode .fig-readout .ro{background:#1b212b;}
 body.dark-mode .fig-readout .ro .val{color:#e6e9ee;}
-body.dark-mode .fig-readout .ro .chip.na{background:#2a3040;}
+body.dark-mode .fig-readout .ro .chip.na{background:var(--b-fieldbg);}
 /* S234: dense single-grid flow-point card. Render-only redesign — same fields,
    same data-field/data-idx wiring, same calc-cell IDs. Muted tokens preserved. */
 .fp-strip{padding:9px 14px 11px;}
@@ -968,7 +968,7 @@ body.dark-mode .btn-outline[style*="color:#A85959"]{color:#e07070!important;bord
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
 body.dark-mode .hdr-repair-menu{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);}
 body.dark-mode .hdr-repair-menu button{background:rgba(255,255,255,.04);color:#d0d8f0;}
-body.dark-mode .hdr-repair-menu button:hover{background:#283044;}
+body.dark-mode .hdr-repair-menu button:hover{background:var(--b-chrome2);}
 body.dark-mode .hdr-repair-menu button span{color:#8a94b0;}
 /* ══ DARK MODE — Inline-styled buttons (signature, deficiency, photo zones) ══ */
 body.dark-mode button[style*="background:var(--smoke)"]{background:rgba(255,255,255,.06)!important;color:#b4bee0!important;border-color:rgba(255,255,255,.2)!important;}
@@ -1138,7 +1138,7 @@ body.dark-mode .project-bar{background:rgba(255,255,255,.02);border-top-color:rg
 .ai-mode-menu button span{display:block;font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;}
 body.dark-mode .ai-mode-menu{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10);}
 body.dark-mode .ai-mode-menu button{color:#d0d8f0;}
-body.dark-mode .ai-mode-menu button:hover{background:#283044;}
+body.dark-mode .ai-mode-menu button:hover{background:var(--b-chrome2);}
 body.dark-mode .ai-mode-menu button span{color:#8a94b0;}
 /* Field selector modal */
 .ai-fs-overlay{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .15s;}
@@ -1261,7 +1261,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S245</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S246</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
@@ -11782,7 +11782,7 @@ body.dark-mode .project-bar{background:var(--b-chrome2)!important;
 .project-bar .pb-filename{color:var(--b-chrome-fg)!important;}
 
 /* ---------- MOBILE PAGE NAV ---------- */
-#mobile-page-nav{background:color-mix(in srgb,var(--slate-mid) 92%,var(--arencon))!important;border-top:3px solid var(--arencon)!important;}
+#mobile-page-nav{background:var(--b-chrome-bg)!important;border-top:3px solid var(--arencon)!important;}
 
 /* ---------- FLOW-CHART HEADER (.fig-hd) -> match the Bold black slab ---------- */
 /* It kept the old burgundy (var(--arencon)) bar while every .card-header became the
