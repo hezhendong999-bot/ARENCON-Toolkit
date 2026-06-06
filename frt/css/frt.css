@@ -8903,10 +8903,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
    accent rule, NOT a reddish/burgundy fill. Matches the trade band so header,
    nav, and section bands read as ONE Bold system. The old burgundy gradient
    clashed against the near-black Bold·Dark page (Mark). ---- */
-.app-header{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 24%,#15131a),color-mix(in srgb,var(--b-info) 16%,#15131a))!important;color:var(--b-chrome-fg)!important;border-bottom:1px solid var(--b-chrome-rule);backdrop-filter:blur(10px);box-shadow:0 1px 3px rgba(0,0,0,.18)!important;}
-body.dark-mode .app-header{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 24%,#15131a),color-mix(in srgb,var(--b-info) 16%,#15131a))!important;color:var(--b-chrome-fg)!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;}
-.section-nav{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 20%,#141b2c),color-mix(in srgb,var(--b-info) 12%,#1c2638))!important;border-bottom:1px solid var(--b-chrome-rule);}
-body.dark-mode .section-nav{background:linear-gradient(135deg,color-mix(in srgb,var(--arencon) 20%,#141b2c),color-mix(in srgb,var(--b-info) 12%,#1c2638))!important;}
+.app-header{background:linear-gradient(135deg,#2a2730,#201e26)!important;color:var(--b-chrome-fg)!important;border-bottom:1px solid var(--b-chrome-rule);backdrop-filter:blur(10px);box-shadow:0 1px 3px rgba(0,0,0,.18)!important;}
+body.dark-mode .app-header{background:linear-gradient(135deg,#221f29,#19171f)!important;color:var(--b-chrome-fg)!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;}
+.section-nav{background:#252330!important;border-bottom:1px solid var(--b-chrome-rule);}
+body.dark-mode .section-nav{background:#1d1b24!important;}
 .nav-tab.active{border-bottom-color:var(--arencon);}
 body.dark-mode .nav-tab.active{border-bottom-color:var(--arencon);}
 
