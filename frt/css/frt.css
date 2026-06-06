@@ -95,7 +95,7 @@ html{overflow-x:hidden;max-width:100vw;scrollbar-gutter:stable;}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .app-header{background:var(--b-chrome-bg);color:var(--b-chrome-fg);position:sticky;top:0;z-index:1000;box-shadow:0 2px 12px rgba(27,36,56,.4);width:100%;box-sizing:border-box;}
-.header-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.07);gap:8px;overflow:visible;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:max(10px,env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px));border-bottom:1px solid rgba(255,255,255,.07);gap:8px;overflow:visible;}
 .logo-area{display:flex;align-items:center;gap:10px;text-decoration:none;color:white;flex-shrink:1;min-width:0;}
 .logo-area img{height:32px;}
 .header-logo{height:34px;width:auto;background:#fff;padding:3px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.2);display:block;flex-shrink:0;}
@@ -2539,7 +2539,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   }
   /* Back button + nav arrows slightly bigger too */
   /* S79: make viewer Back button IDENTICAL to main FRT .back-btn (position + size + font).
-  .drawing-viewer-overlay .dv-toolbar{padding:10px 12px !important;padding-right:max(16px, env(safe-area-inset-right, 0px)) !important;}
+  .drawing-viewer-overlay .dv-toolbar{padding:max(10px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px)) !important;}
   /* S82: on curved-edge Samsung devices the Edge Panel handle clips the rightmost
      toolbar button (moon/dark toggle). max() above ensures ≥16px clearance. */
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
@@ -3385,7 +3385,7 @@ body.dark-mode #reports-mode-menu button:hover{background:var(--b-pill-bg);}
   padding-right:12px !important;
 }
 @media(pointer:coarse){
-  .drawing-viewer-overlay .dv-toolbar{padding:10px 12px !important;padding-right:max(16px, env(safe-area-inset-right, 0px)) !important;}
+  .drawing-viewer-overlay .dv-toolbar{padding:max(10px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px)) !important;}
   .drawing-viewer-overlay .dv-toolbar #dv-close{padding-left:0 !important;padding-right:12px !important;margin-left:0 !important;}
 }
 
@@ -9300,3 +9300,24 @@ body.dark-mode{ --b-btn-shadow:0 2px 6px rgba(0,0,0,.40); }
   width:34px !important; height:34px !important; padding:0 !important;
 }
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{gap:6px !important;}
+
+/* ═══════ S249n — shadow style on ALL neutral/white clickable buttons app-wide
+   (Mark liked the viewer-button shadow). NOT on colored CTAs (.btn-primary
+   burgundy, .btn-danger, Build Tiles amber, active tabs). Uses the adaptive
+   --b-btn-shadow token (soft in day, deep in dark) defined in S249k. ═══════ */
+.btn-outline,
+.app-header #dark-toggle,
+.app-header #mobile-menu-btn,
+.app-header #btn-qr,
+.app-header #btn-text-size,
+.app-header #btn-more-wrap > button{
+  box-shadow:var(--b-btn-shadow) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+/* tactile press on the neutral buttons */
+.btn-outline:active,
+.app-header #dark-toggle:active,
+.app-header #mobile-menu-btn:active{
+  transform:translateY(1px);
+  box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
