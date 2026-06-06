@@ -9207,3 +9207,31 @@ body.dark-mode .cv-loc-thumb{background:#2a2d35;border-color:#3a3e48;}
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:hover,
 .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit:hover,
 .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button:hover{background:#9C2742 !important;}
+/* --- S249d: the WHITE day-mode survivors — the horizontal SIZE/OPAC
+   stylestrip (.dv-ss-step, light bg #fff at line ~2680) and the top
+   toolbar tool icons (.tool-btn, transparent → invisible on white).
+   These are DIFFERENT elements than the sidebar steppers; they were
+   never in the S249 block. Point them at chrome-btn, all widths, both
+   modes. --- */
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step{
+  background:var(--b-chrome-btn) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
+  color:var(--b-chrome-fg) !important;
+}
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step:hover{background:#9C2742 !important;}
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-lbl,
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-val{color:var(--b-chrome-fg) !important;}
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn,
+.drawing-viewer-overlay .dv-toolbar .tool-btn{
+  background:var(--b-chrome-btn) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
+  color:var(--b-chrome-fg) !important;
+}
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn svg,
+.drawing-viewer-overlay .dv-toolbar .tool-btn svg{color:var(--b-chrome-fg) !important;stroke:var(--b-chrome-fg) !important;}
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn:hover,
+.drawing-viewer-overlay .dv-toolbar .tool-btn:hover{background:#9C2742 !important;}
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn.active,
+.drawing-viewer-overlay .dv-toolbar .tool-btn.active{background:#9C2742 !important;color:#fff !important;}
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn.active svg,
+.drawing-viewer-overlay .dv-toolbar .tool-btn.active svg{color:#fff !important;stroke:#fff !important;}
