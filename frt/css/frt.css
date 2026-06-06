@@ -9836,3 +9836,97 @@ body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
   background:#2C7FB8 !important; color:#fff !important; border-color:#2C7FB8 !important;
 }
 /* end S251c ─────────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S251d — FINAL header-button unification (last in file = wins over ALL).
+   The 5 header CTAs share ONE identical box (height/padding/radius/border/
+   shadow/font). ONLY the fill color differs. Hamburger hidden on desktop.
+     Box geometry = Diesel .back-btn reference, locked 34px, both pointers.
+   Buttons covered: Back · AI Review · Reports · More · Sign Out.
+   Untouched: QR, text-size, day/night, undo/redo, pin/instance pills.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* (A) Shared GEOMETRY for all 5 — identical box, color comes after */
+#back-btn,
+#btn-ai-review, .hdr-ai-active,
+#btn-reports-parent,
+#btn-more-wrap > button,
+#btn-signout{
+  height:34px !important;
+  min-height:0 !important;
+  max-height:34px !important;
+  padding:0 12px !important;
+  border-radius:6px !important;
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(13px + var(--ts)) !important;
+  font-weight:600 !important;
+  line-height:1 !important;
+  box-shadow:var(--b-btn-shadow) !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:6px !important;
+  white-space:nowrap !important;
+  box-sizing:border-box !important;
+  cursor:pointer !important;
+  transition:box-shadow .15s, transform .08s, filter .15s, background .15s !important;
+  vertical-align:middle !important;
+}
+@media(pointer:coarse){
+  #back-btn,
+  #btn-ai-review, .hdr-ai-active,
+  #btn-reports-parent,
+  #btn-more-wrap > button,
+  #btn-signout{
+    height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 12px !important;
+  }
+}
+/* tactile press for all 5 */
+#back-btn:active,
+#btn-ai-review:active, .hdr-ai-active:active,
+#btn-reports-parent:active,
+#btn-more-wrap > button:active,
+#btn-signout:active{
+  transform:translateY(1px) !important; box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+
+/* (B) FILLS — only thing that differs. Attribute selector beats inline style. */
+#back-btn,
+#back-btn[style*="background"]{
+  background:var(--b-chrome2) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+}
+@media(hover:hover){ #back-btn:hover, #back-btn[style*="background"]:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
+
+#btn-ai-review, #btn-ai-review[style*="background"], .hdr-ai-active{
+  background:#7B2D8E !important; color:#fff !important; border:1px solid #7B2D8E !important;
+}
+#btn-reports-parent, #btn-reports-parent[style*="background"]{
+  background:#1A237E !important; color:#fff !important; border:1px solid #1A237E !important;
+}
+#btn-more-wrap > button, #btn-more-wrap > button[style*="background"]{
+  background:#455A64 !important; color:#fff !important; border:1px solid #455A64 !important;
+}
+#btn-signout, #btn-signout[style*="background"]{
+  background:#2C7FB8 !important; color:#fff !important; border:1px solid #2C7FB8 !important;
+}
+@media(hover:hover){
+  #btn-ai-review:hover, .hdr-ai-active:hover,
+  #btn-reports-parent:hover,
+  #btn-more-wrap > button:hover,
+  #btn-signout:hover{ filter:brightness(1.10); }
+}
+
+/* (C) Hamburger — DESKTOP HIDE by WIDTH ONLY. The full button row fits at
+   >=1025px, so the hamburger is redundant there. Width-only (not pointer)
+   because touchscreen laptops report pointer:coarse and would otherwise
+   keep showing it on a wide desktop. Wins over the earlier
+   .header-actions>#mobile-menu-btn !important rule. */
+@media (min-width:1025px){
+  #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:none !important; }
+}
+@media (max-width:1024px){
+  #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:inline-flex !important; }
+}
+/* end S251d ─────────────────────────────────────────────────────────── */
