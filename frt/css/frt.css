@@ -3822,13 +3822,14 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:var(--
 .drawing-viewer-overlay #dv-bottombar-v75{
   display:flex !important;
   align-items:center;gap:8px;
-  background:var(--b-chrome-bg);padding:8px 10px;
+  /* S249: match header black exactly (was --b-chrome-bg #23212b which read bluer/navy next to white) */
+  background:linear-gradient(135deg,#2a2730,#201e26) !important;padding:8px 10px;
   border-top:1px solid var(--b-chrome-rule);
   flex-shrink:0;font-family:Calibri,sans-serif;
   order:2;
 }
 body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75{
-  background:var(--b-chrome-bg);border-top-color:var(--b-chrome-rule);
+  background:linear-gradient(135deg,#221f29,#19171f) !important;border-top-color:var(--b-chrome-rule);
 }
 /* Override the @media(pointer:coarse) zoom-hide rule from line ~3344 —
    we keep zoom controls visible on every device now that they're on the
@@ -9112,3 +9113,62 @@ body.dark-mode .cv-loc-thumb{background:#2a2d35;border-color:#3a3e48;}
   .cv-ed-body{grid-template-columns:1fr;}
   .cv-loc-thumb{height:240px;}
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   S249 — Drawing-viewer tool buttons: un-gate the dark-chrome styling.
+   The Session-75 dark styling for the left tool rail + size/opacity
+   steppers + close was locked inside @media(min-width:901px), so field
+   tablets (<901px portrait) fell through to raw browser white. These
+   rules apply that SAME dark-chrome treatment at ALL widths. Last in
+   cascade → wins. Uses existing Bold tokens only — no new values.
+   Light + dark identical (chrome is dark in both Bold skins by design).
+   ═══════════════════════════════════════════════════════════════════ */
+.drawing-viewer-overlay #dv-sidebar-tools button,
+.drawing-viewer-overlay #dv-sidebar-tools .mk-btn,
+.drawing-viewer-overlay #dv-sidebar-tools [data-mk-tool]{
+  background:var(--b-pill-bg) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-pill-bd) !important;
+}
+.drawing-viewer-overlay #dv-sidebar-tools button svg,
+.drawing-viewer-overlay #dv-sidebar-tools .mk-btn svg{color:var(--b-chrome-fg) !important;}
+.drawing-viewer-overlay #dv-sidebar-tools button:hover,
+.drawing-viewer-overlay #dv-sidebar-tools .mk-btn:hover{background:var(--b-pill-bd) !important;}
+.drawing-viewer-overlay #dv-sidebar-tools button.active,
+.drawing-viewer-overlay #dv-sidebar-tools .mk-btn.active,
+.drawing-viewer-overlay #dv-sidebar-tools [data-mk-tool].active{
+  background:#9C2742 !important;border-color:#9C2742 !important;color:#fff !important;
+}
+/* size / opacity steppers + their value readouts */
+.drawing-viewer-overlay #dv-sidebar-tools #ctx-size-group button,
+.drawing-viewer-overlay #dv-sidebar-tools #ctx-opacity-group button,
+.drawing-viewer-overlay #dv-sidebar-tools .ctx-step,
+.drawing-viewer-overlay #dv-sidebar-tools button[data-ctx-step],
+.drawing-viewer-overlay #dv-sidebar-tools button.mk-size-btn,
+.drawing-viewer-overlay #dv-sidebar-tools button.mk-opacity-btn,
+.drawing-viewer-overlay #dv-sidebar-tools .mk-size-controls button,
+.drawing-viewer-overlay #dv-sidebar-tools .mk-opacity-controls button,
+.drawing-viewer-overlay #dv-sidebar-tools [class*="size"] button,
+.drawing-viewer-overlay #dv-sidebar-tools [class*="opacity"] button{
+  background:var(--b-pill-bg) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-pill-bd) !important;
+}
+.drawing-viewer-overlay #dv-sidebar-tools #ctx-size-val,
+.drawing-viewer-overlay #dv-sidebar-tools #ctx-opacity-val,
+.drawing-viewer-overlay #dv-sidebar-tools #mk-size-val,
+.drawing-viewer-overlay #dv-sidebar-tools #mk-opacity-val{color:var(--b-chrome-fg) !important;}
+/* close button in the rail */
+.drawing-viewer-overlay #dv-sidebar-tools #dv-close{
+  background:var(--b-pill-bg) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-pill-bd) !important;
+}
+.drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
+/* title pill — the editable drawing name at the bottom bar */
+.drawing-viewer-overlay #dv-bb-namepill{
+  background:var(--b-pill-bg) !important;
+  border:1px solid var(--b-pill-bd) !important;
+  color:var(--b-chrome-fg) !important;
+}
+.drawing-viewer-overlay #dv-bb-name{color:var(--b-chrome-fg) !important;}
