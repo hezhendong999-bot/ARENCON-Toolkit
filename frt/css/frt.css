@@ -9735,3 +9735,104 @@ body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
 @media(hover:hover){ .app-header .hdr-sm:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
 .app-header .hdr-sm:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
 /* end S250 §14 ─────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S251c — AUTHORITATIVE header fix (last in file = wins). Resolves four
+   long-standing issues in one place:
+     1. Mobile header padding: restore env(safe-area-inset-top) so the
+        header isn't jammed under the status bar / notch (unclickable).
+     2. Back button (#back-btn) + drawing-viewer Back (#dv-close): make
+        BOTH identical to the Diesel .back-btn chrome shadow-box.
+     3. AI Review / Reports / More / Sign Out / Back: one locked 34px box.
+     4. Sign Out → TEAL. Beats #btn-signout[style*="background"] (the
+        higher-specificity rule that was making it a pale ghost) by using
+        the SAME attribute selector.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* (1) Mobile header padding — re-add safe-area inset top (regression fix) */
+@media (max-width:900px){
+  .header-top{
+    padding-top:max(10px, env(safe-area-inset-top, 0px)) !important;
+    padding-left:max(10px, env(safe-area-inset-left, 0px)) !important;
+    padding-right:max(10px, env(safe-area-inset-right, 0px)) !important;
+    padding-bottom:10px !important;
+  }
+}
+@media (max-width:600px){
+  .header-top{
+    padding-top:max(10px, env(safe-area-inset-top, 0px)) !important;
+    padding-left:max(10px, env(safe-area-inset-left, 0px)) !important;
+    padding-right:max(10px, env(safe-area-inset-right, 0px)) !important;
+    padding-bottom:8px !important;
+  }
+}
+
+/* (2)+(3) Back (#back-btn) + viewer Back (#dv-close) = Diesel .back-btn box,
+   locked to the SAME 34px height as the colored CTAs. Both pointer modes. */
+#back-btn,
+.drawing-viewer-overlay .dv-toolbar #dv-close{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:6px !important;
+  background:var(--b-chrome2) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  color:var(--b-chrome-fg) !important;
+  padding:0 12px !important;
+  height:34px !important;
+  min-height:0 !important;
+  max-height:34px !important;
+  border-radius:6px !important;
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(13px + var(--ts)) !important;
+  font-weight:600 !important;
+  box-shadow:var(--b-btn-shadow) !important;
+  white-space:nowrap !important;
+  flex-shrink:0 !important;
+  cursor:pointer !important;
+}
+@media(pointer:coarse){
+  #back-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-close{
+    height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 12px !important;
+  }
+}
+@media(hover:hover){
+  #back-btn:hover,
+  .drawing-viewer-overlay .dv-toolbar #dv-close:hover{
+    background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+  }
+}
+#back-btn:active,
+.drawing-viewer-overlay .dv-toolbar #dv-close:active{
+  transform:translateY(1px) !important; box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+
+/* (3) Colored CTAs locked to the SAME 34px box (AI Review / Reports / More / Sign Out) */
+#btn-ai-review, .hdr-ai-active,
+#btn-reports-parent,
+#btn-more-wrap > button,
+#btn-signout{
+  height:34px !important; min-height:0 !important; max-height:34px !important;
+  padding:0 12px !important; border-radius:6px !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important;
+  font-size:calc(13px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
+  white-space:nowrap !important; box-sizing:border-box !important;
+}
+
+/* (4) Sign Out → TEAL. Attribute selector matches the markup's inline
+   background so this beats #btn-signout[style*="background"] at line ~5494.
+   White text + white lock; no orange ghost. */
+#btn-signout,
+#btn-signout[style*="background"]{
+  background:#2C7FB8 !important;
+  color:#FFFFFF !important;
+  border:1px solid #2C7FB8 !important;
+}
+@media(hover:hover){ #btn-signout:hover, #btn-signout[style*="background"]:hover{ filter:brightness(1.10); background:#2C7FB8 !important; } }
+/* mobile-menu sign-out → match teal */
+.mobile-menu #mobile-signout-btn,
+.mobile-menu .mm-btn.mm-signout{
+  background:#2C7FB8 !important; color:#fff !important; border-color:#2C7FB8 !important;
+}
+/* end S251c ─────────────────────────────────────────────────────────── */
