@@ -7433,10 +7433,11 @@ body.dark-mode .defic-pivot-btn:not(.active) .defic-pivot-count {
 
 /* Filters */
 .defic-filters {
-  display: inline-flex;
+  display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  width: 100%;
 }
 .dfx-filter-input {
   background: #F7F8FA;
@@ -7688,6 +7689,11 @@ body.dark-mode .dfx-or-editor { background: transparent; border-top-color: rgba(
 body.dark-mode #pe-obs-content > .dfx-or-editor { border-top: none; }
 
 .dfx-ed-ctrls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+/* S250 §8: Location-on-drawing label + Open button, right-aligned on the
+   controls row (was atop the right column). margin-left:auto pushes it right so
+   the drawing box top now aligns with the description box top. */
+.dfx-ed-loc-head { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+@media (max-width: 680px) { .dfx-ed-loc-head { margin-left: 0; width: 100%; } }
 .dfx-status-sel {
   border: none; border-radius: 10px; padding: 4px 12px;
   font-family: inherit; font-size: calc(12px + var(--ts)); font-weight: 700;
@@ -7899,6 +7905,15 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
    sections regardless of their differing inner structure). */
 .dfx-trade-section.dfx-collapsed > *:not(.dfx-trade-banner) { display: none !important; }
 .dfx-ctr-block.dfx-collapsed > .dfx-pingrp { display: none !important; }
+/* S250 §6 (Option A): list-action cluster on the filter row — Collapse all ·
+   Edit categories · Re-sort, right-aligned. The .cv-lock-hint (unlocked only)
+   drops to its own full-width line below so it never breaks the row. On narrow
+   screens the cluster wraps under the dropdowns (filter row is flex-wrap). */
+.dfx-list-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.dfx-list-actions .cv-lock-hint { flex: 1 1 100%; margin-left: 0; }
+@media (max-width: 560px) {
+  .dfx-list-actions { margin-left: 0; width: 100%; }
+}
 .dfx-foldall-bar { display: flex; justify-content: flex-end; margin: 0 0 10px; }
 .dfx-foldall-btn {
   background: transparent; border: 1px solid var(--border, #DDE1E7);
@@ -9207,10 +9222,13 @@ body .cv-row .dfx-obsrow.open{box-shadow:none;border-color:transparent;}
 .cv-loc-open:hover{background:var(--b-cat-active-bg,#F3D9DE);border-color:var(--b-bar-accent,#9C2742);}
 @media(pointer:coarse){.cv-loc-open{padding:8px 12px;min-height:40px;}}
 body.dark-mode .cv-loc-open{border-color:rgba(255,255,255,.14);}
-/* the drawing panel — full height of the right column, big enough to drag the pin */
-.cv-loc-thumb{width:100%;height:300px;background:var(--smoke,#f5f5f5);border:1px solid #dde1e7;border-radius:11px;overflow:hidden;position:relative;touch-action:none;}
-.cv-loc-thumb canvas{display:block;width:100%;}
-body.dark-mode .cv-loc-thumb{background:#2a2d35;border-color:#3a3e48;}
+/* the drawing panel — full height of the right column, big enough to drag the
+   pin. S250 §8: canvas centered + fills width to cut the wide side gaps; the
+   letterbox bg goes near-black in dark mode so the drawing never sits on a
+   white pad (was #2a2d35 grey showing as white-ish padding around the crop). */
+.cv-loc-thumb{width:100%;height:300px;background:var(--smoke,#f5f5f5);border:1px solid #dde1e7;border-radius:11px;overflow:hidden;position:relative;touch-action:none;display:flex;align-items:center;justify-content:center;}
+.cv-loc-thumb canvas{display:block;width:100%;height:100%;object-fit:contain;}
+body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
 .cv-loc-hint{font-size:11px;color:var(--b-pill-seg-fg,#928E9C);}
 /* desktop = interactive panel; ≤900px swaps to the static one */
 .cv-loc-mobile{display:none;}
@@ -9450,3 +9468,109 @@ body.dark-mode{ --b-btn-shadow:0 2px 6px rgba(0,0,0,.40); }
 .cv-add-defic{
   font-size:calc(12.5px + var(--ts)) !important; padding:8px 14px !important;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   S250 §7 — DAY-MODE readability + shadow-button pass (header + viewer).
+   The header and drawing-viewer chrome carried white text / white-tinted
+   buttons from the old dark-only design. In Bold·Day those read invisibly
+   on the light surface. This block: (1) forces readable chrome ink on the
+   white-text holdovers, (2) gives neutral buttons the locked shadow-button
+   treatment (raised light surface + soft shadow + border + dark ink in day,
+   flat in dark), (3) makes Sign Out a burgundy-outline button, all scoped so
+   dark mode is untouched. Colored CTAs (AI Review, Reports) are NOT included
+   — they stay flat + colored per the locked rule.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ---- shadow-button: reuse the existing --b-btn-shadow token (S249k) ---- */
+
+/* ---- (1) day-mode white-text holdovers → readable ink ---- */
+body:not(.dark-mode) #cloud-status,
+body:not(.dark-mode) #cloud-status #cloud-status-text,
+body:not(.dark-mode) #cloud-status #last-sync-text{ color:#1B1A22 !important; }
+body:not(.dark-mode) .inspector-chip,
+body:not(.dark-mode) .inspector-chip .ic-name,
+body:not(.dark-mode) .inspector-chip .ic-icon{ color:#1B1A22 !important; }
+body:not(.dark-mode) .inspector-chip{ background:#FFFFFF !important; border:1px solid #D2CEDB !important; box-shadow:var(--b-btn-shadow); }
+/* drawing-viewer cloud status + tasks panel header/rows → dark ink in day */
+body:not(.dark-mode) #dv-cloud-text,
+body:not(.dark-mode) .dv-cloud-status,
+body:not(.dark-mode) .dv-cloud-text{ color:#1B1A22 !important; }
+body:not(.dark-mode) .dv-tasks-header{ color:#1B1A22 !important; }
+body:not(.dark-mode) .dv-tasks-header *{ color:#1B1A22 !important; }
+body:not(.dark-mode) .dv-task-item,
+body:not(.dark-mode) .dv-task-desc{ color:#3A3742 !important; }
+body:not(.dark-mode) #dv-tasks-count{ color:#5E5B68 !important; }
+
+/* ---- (2) shadow-button treatment, day mode — EXACT MATCH to Diesel pump
+   tool header (S248 neutral-button block): --b-chrome2 filled surface so the
+   shadow reads + --b-chrome-rule border + --b-btn-shadow + burgundy hover +
+   tactile press. Applies to neutral header buttons in BOTH modes (Diesel
+   applies it both modes; only the token values switch). ---- */
+#btn-qr, #btn-text-size, #dark-toggle, #mobile-menu-btn,
+#btn-more-wrap > button, .hdr-sm, .back-btn{
+  background:var(--b-chrome2)!important;
+  border:1px solid var(--b-chrome-rule)!important;
+  color:var(--b-chrome-fg)!important;
+  box-shadow:var(--b-btn-shadow)!important;
+  transition:box-shadow .15s, transform .08s, background .15s!important;
+}
+body.dark-mode #btn-qr, body.dark-mode #btn-text-size, body.dark-mode #dark-toggle,
+body.dark-mode #mobile-menu-btn, body.dark-mode #btn-more-wrap > button,
+body.dark-mode .hdr-sm, body.dark-mode .back-btn{
+  background:var(--b-chrome2)!important;
+  border:1px solid var(--b-chrome-rule)!important;
+  color:var(--b-chrome-fg)!important;
+}
+#btn-qr:active, #btn-text-size:active, #dark-toggle:active, #mobile-menu-btn:active,
+#btn-more-wrap > button:active, .hdr-sm:active, .back-btn:active{
+  transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22)!important;
+}
+@media(hover:hover){
+  #btn-qr:hover, #btn-text-size:hover, #dark-toggle:hover, #mobile-menu-btn:hover,
+  #btn-more-wrap > button:hover, .hdr-sm:hover, .back-btn:hover{
+    background:#9C2742!important; color:#fff!important; border-color:#9C2742!important;
+  }
+}
+/* FRT header buttons are TALLER than Diesel — shrink to match Diesel .hdr-btn:
+   padding 5px 12px, 6px radius, 12px font, 600 weight. (Coarse: min-height 40.) */
+.app-header .hdr-btn{ padding:5px 12px!important; border-radius:6px!important;
+  font-size:calc(12px + var(--ts))!important; font-weight:600!important; }
+@media(pointer:coarse){ .app-header .hdr-btn{ min-height:40px; padding:8px 14px!important; } }
+#dark-toggle, #mobile-menu-btn{ width:auto!important; min-width:34px; height:auto!important;
+  padding:5px 10px!important; }
+/* colored CTAs: keep Diesel fills + soft press-shadow + tactile dip (never the neutral surface) */
+.hdr-ai-active, #btn-reports-parent, #btn-signout, #btn-more-wrap > button{
+  box-shadow:var(--b-btn-shadow)!important; transition:box-shadow .15s,transform .08s,filter .15s!important;
+}
+.hdr-ai-active:active, #btn-reports-parent:active, #btn-signout:active{
+  transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22)!important;
+}
+
+/* ---- (2b) shadow-button treatment, drawing-viewer toolbar — match the
+   Diesel chrome2 surface so day-mode buttons are readable (the base .dv-toolbar
+   button uses rgba(255,255,255,.08) which vanishes on the light Bold toolbar).
+   Day only; dark keeps the existing translucent-white look. ---- */
+body:not(.dark-mode) .dv-toolbar button,
+body:not(.dark-mode) #dv-dark-toggle,
+body:not(.dark-mode) #dv-tasks-btn,
+body:not(.dark-mode) .dv-close-btn,
+body:not(.dark-mode) #dv-close{
+  background:var(--b-chrome2) !important; color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-rule) !important; box-shadow:var(--b-btn-shadow) !important;
+}
+@media(hover:hover){
+  body:not(.dark-mode) .dv-toolbar button:hover,
+  body:not(.dark-mode) #dv-dark-toggle:hover,
+  body:not(.dark-mode) #dv-tasks-btn:hover{
+    background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+  }
+}
+body:not(.dark-mode) .dv-toolbar button:active,
+body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
+
+/* ---- (3) Sign Out → match Diesel exactly: purple #7B1FA2 fill, white text,
+   with the colored-CTA press shadow (handled above). The old inline bg is the
+   same purple, so we just ensure the shadow + readable white ink. ---- */
+#btn-signout{ background:#7B1FA2 !important; color:#FFFFFF !important; border:none !important; font-weight:600 !important; }
+@media(hover:hover){ #btn-signout:hover{ filter:brightness(1.12); } }
+/* end S250 §7 ──────────────────────────────────────────────────────── */

@@ -2083,8 +2083,19 @@ function _buildObsRow(d, oi, ctrId, opts) {
   h += '</span>';
   // Single far-right pill: Outstanding(red/amber) · Recommendation(yellow) ·
   // Site Record(purple) · Closed(green). No "Active" — outstanding implies it.
+  // S250 §8: the far-right pill is now the status CONTROL (was display-only).
+  // Since the editor's status-cycle button was removed as a duplicate, this
+  // pill carries obs-status-cycle so status is still changeable from the card.
+  // Recommendation/Site Record pills are not status-cyclable (those are set via
+  // the category path), so only Outstanding/Closed get the action + cursor.
   var _far = _obsFarPill(o, isSite, d);
-  h += '<span class="dfx-or-chip ' + _far.cls + '">' + _far.txt + '</span>';
+  var _farCyc = (_far.txt === 'Outstanding' || _far.txt === 'Closed');
+  if (_farCyc) {
+    var _fi = _obsStatusInfo(o, false, d);
+    h += '<button type="button" data-action="obs-status-cycle" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-cur="' + esc(_fi.val) + '" class="dfx-or-chip dfx-or-chip-btn ' + _far.cls + '" title="Tap to change status">' + _far.txt + '</button>';
+  } else {
+    h += '<span class="dfx-or-chip ' + _far.cls + '">' + _far.txt + '</span>';
+  }
   h += '<span class="dfx-or-caret">\u25BC</span>';
   h += '</div>'; // /head
   if (open) h += _buildObsEditor(d, oi, ctrId, opts);
@@ -2145,9 +2156,12 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '</div>'; // /dfx-ed-tabs
   }
 
-  // ── controls row: combined status · contractor · trade ──
+  // ── controls row: contractor · trade ──
+  // S250 §8: the status-cycle button (_obsStatusSelect) is REMOVED from this
+  // row — the collapsed row's far-right pill already shows status, so it was a
+  // duplicate. Contractor + trade now lead the row. (Status is changed via the
+  // far-right pill path; this row is identity-only.)
   h += '<div class="dfx-ed-ctrls">';
-  if (!isSite) h += _obsStatusSelect(d, oi, o);
 
   // contractor select (pin-level — same as _buildPinGroupCard obs-contractor)
   h += '<span class="ctr-banner-wrap">';
@@ -2184,6 +2198,20 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '<option value="' + esc(tv) + '" style="background:white;color:#2C3E50;font-weight:600;"' + (_trade === tv ? ' selected' : '') + '>' + esc(tv) + '</option>';
   });
   h += '</select></span>';
+  // S250 §8: Location-on-drawing label + Open button move UP onto the controls
+  // row (right-aligned), so the drawing box top lines up with the description
+  // box top. Only for the combined-view card editor (no withHeader); the
+  // on-drawing editor keeps its own layout.
+  if (!opts.withHeader) {
+    h += '<span class="dfx-ed-loc-head">';
+    h += '<span class="cv-loc-lbl">Location on drawing</span>';
+    if (d.drawingId) {
+      h += '<button type="button" class="cv-loc-open" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Open this pin in the drawing viewer">Open in drawing viewer \u2197</button>';
+    } else {
+      h += '<button type="button" class="cv-loc-open" data-action="place-pin" data-defic-id="' + esc(d.id) + '" title="Place this pin on a drawing">Place on a drawing</button>';
+    }
+    h += '</span>';
+  }
   h += '</div>'; // /dfx-ed-ctrls
 
   // ── S213: quiet auto-stamped observed-date line (Editor B/C only) ──
@@ -2309,13 +2337,9 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     // drawing viewer" reuses the EXISTING viewer (view-pin); never a 2nd
     // tiled instance.
     h += '<div class="cv-ed-right">';
-    h += '<div class="cv-loc-head"><span class="cv-loc-lbl">Location on drawing</span>';
-    if (d.drawingId) {
-      h += '<button type="button" class="cv-loc-open" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Open this pin in the drawing viewer">Open in drawing viewer \u2197</button>';
-    } else {
-      h += '<button type="button" class="cv-loc-open" data-action="place-pin" data-defic-id="' + esc(d.id) + '" title="Place this pin on a drawing">Place on a drawing</button>';
-    }
-    h += '</div>';
+    // S250 §8: loc-head (label + Open button) moved up to the controls row;
+    // the right column now starts directly with the drawing thumb so its top
+    // aligns with the description box top.
     h += '<div id="cv-pe-location-thumb" class="cv-loc-thumb cv-loc-desktop"></div>';
     h += '<div id="cv-pe-location-thumb-mobile" class="cv-loc-thumb cv-loc-mobile"></div>';
     if (d.drawingId) {
@@ -2740,9 +2764,13 @@ function _cvObsRow(d, oi, ctrId, opts, cat) {
 }
 
 function _renderCombinedView(proj, container) {
-  // ALL rows, every category — the combined view owns its own grouping and
-  // is pivot-independent (no Active/Closed tab; Closed is a category).
-  var rows = _flatRows(proj, true, true);
+  // S250 §5: the combined view now HONORS the single category filter
+  // (_catFilter → _activeDlcTab + _dfxRecMode) plus the search / contractor /
+  // priority filters, via _flatRows(proj,false,false). Previously it passed
+  // (true,true) and showed everything regardless of the pills — that's why
+  // the four segments appeared inert. The trade→contractor band grouping is
+  // preserved (Mark: keep bands); empty bands simply don't render.
+  var rows = _flatRows(proj, false, false);
 
   function ctrOf(ctrId) {
     if (!ctrId) return null;
@@ -2833,20 +2861,18 @@ function _renderCombinedView(proj, container) {
 
   var h = '';
 
-  // Global "Edit categories" lock — plain button matching the manual_resort
-  // demo (🔒 Edit categories / 🔓 Editing — tap to lock). S248: re-lock COMMITS
-  // but no longer resettles; the ↻ Re-sort button (with count) resettles when
-  // the user is ready.
+  // S250 §6 (Option A): Edit categories + Re-sort + Collapse all are no longer
+  // rendered ABOVE the list (wasted a row + left a big gap). They are built
+  // here as a right-aligned cluster and injected into #dfx-list-actions on the
+  // filter row after the list renders. _actionsHTML holds the cluster markup.
   var _pend = _cvPendingCount();
-  h += '<div class="cv-lockbar">'
+  var _actionsHTML = ''
     + '<button type="button" class="cv-lock-btn' + (_cvUnlocked ? ' unlocked' : '') + '" data-action="cv-togglelock" aria-pressed="' + (_cvUnlocked ? 'true' : 'false') + '">'
     + (_cvUnlocked ? '\uD83D\uDD13 Editing \u2014 tap to lock' : '\uD83D\uDD12 Edit categories')
     + '</button>'
     + '<button type="button" class="cv-resort-btn' + (_pend ? ' has-pending' : '') + '" data-action="cv-resort"' + (_pend ? '' : ' disabled aria-disabled="true"') + ' title="Re-sort cards into their categories">'
     + '\u21BB Re-sort' + (_pend ? ' (' + _pend + ')' : '')
-    + '</button>'
-    + (_cvUnlocked ? '<span class="cv-lock-hint">Tap a category to change it. Cards stay put \u2014 lock, then Re-sort when ready.</span>' : '')
-    + '</div>';
+    + '</button>';
 
   orderedTrades.forEach(function(tk) {
     var T = tradeMap[tk];
@@ -2887,22 +2913,34 @@ function _renderCombinedView(proj, container) {
 
   if (_dfxSectionKeys.length) {
     var allCol = _dfxSectionKeys.every(function(k) { return !!_dfxFoldTrade[k]; });
-    h = h.replace('<div class="cv-lockbar">',
-      '<div class="dfx-foldall-bar"><button class="dfx-foldall-btn" data-action="dfx-fold-all" data-all="'
-      + (allCol ? '0' : '1') + '">' + (allCol ? '\u25BC Expand all' : '\u25B6 Collapse all') + '</button></div><div class="cv-lockbar">');
+    // S250 §6: Collapse all joins the action cluster (was its own bar above list)
+    _actionsHTML = '<button class="dfx-foldall-btn" data-action="dfx-fold-all" data-all="'
+      + (allCol ? '0' : '1') + '">' + (allCol ? '\u25BC Expand all' : '\u25B6 Collapse all') + '</button>' + _actionsHTML;
+  }
+  // S250 §6: when unlocked, show the edit hint as a thin full-width line under
+  // the list-action row (kept out of the cluster so it doesn't break the row).
+  if (_cvUnlocked) {
+    _actionsHTML += '<span class="cv-lock-hint">Tap a category to change it. Cards stay put \u2014 lock, then Re-sort when ready.</span>';
   }
 
   if (!orderedTrades.length) {
     var hasAny = Model.getAllDeficiencies(proj).length > 0;
+    var _catLbl = { outstanding: 'Outstanding', rec: 'Recommendations', siterec: 'Site Records', closed: 'Closed' }[_deriveCatFilter()] || '';
     h += '<div class="dfx-empty">' + (hasAny
-      ? 'No items to show.'
+      ? ('No ' + _catLbl + ' items match the current filters.')
       : 'No deficiencies yet. Add a contractor in the Trade Board, then add deficiencies here.') + '</div>';
   }
 
   container.innerHTML = h;
   container.setAttribute('data-cv-locked', _cvUnlocked ? '0' : '1');
 
-  // S248: paint the pin location mini-map into the open card editor (if any).
+  // S250 §6 (Option A): inject the list-action cluster (Collapse all · Edit
+  // categories · Re-sort [· hint]) into the filter-row placeholder. Falls back
+  // to prepending into the container if the placeholder isn't present (e.g.
+  // a context where the static control bar isn't mounted).
+  var _actEl = document.getElementById('dfx-list-actions');
+  if (_actEl) { _actEl.innerHTML = _actionsHTML; }
+  else if (_actionsHTML) { container.insertAdjacentHTML('afterbegin', '<div class="dfx-foldall-bar">' + _actionsHTML + '</div>'); }
   // Single-expand accordion → the cv-pe-location-thumb ids exist at most once.
   // rAF so the canvas is in the DOM. Guarded: only when a row is open, it has
   // a drawingId, and the cross-module hook is present (viewer.js loaded).
@@ -4992,6 +5030,8 @@ document.addEventListener('click', function(e) {
 document.addEventListener('click', function(e) {
   var cb = e.target.closest && e.target.closest('[data-action="obs-status-cycle"]');
   if (!cb) return;
+  e.stopPropagation();  // S250 §8: pill lives on the collapsed row head (also the
+  e.preventDefault();   // expand target) — cycle status WITHOUT toggling the row open.
   var did = cb.getAttribute('data-defic-id');
   var oi = parseInt(cb.getAttribute('data-obs-idx') || '0', 10);
   var cur = cb.getAttribute('data-cur') || 'high';

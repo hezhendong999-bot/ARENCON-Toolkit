@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=505">
+<link rel="stylesheet" href="css/frt.css?v=506">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -136,7 +136,10 @@ function ensurePdfJs(cb){
       </div>
       <button class="hdr-btn" id="btn-qr" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
       <button class="hdr-btn text-size-toggle" id="btn-text-size" title="Text size: Small / Medium / Large">M</button>
-      <button class="hdr-btn" id="btn-perf-toggle" title="Toggle performance overlay" onclick="if(window._frtTogglePerfOverlay)window._frtTogglePerfOverlay();">📊</button>
+      <!-- S250 §7: perf-overlay button hidden from the header (callable via
+           console: window._frtTogglePerfOverlay()). display:none removes its
+           flex slot so following buttons flow left — no reserved gap. -->
+      <button class="hdr-btn" id="btn-perf-toggle" title="Toggle performance overlay" style="display:none;" onclick="if(window._frtTogglePerfOverlay)window._frtTogglePerfOverlay();">📊</button>
       <button id="dark-toggle" title="Toggle Dark Mode">☀️</button>
       <button class="hdr-btn" id="btn-signout" style="display:none;background:#7B1FA2;" title="Sign Out">🔓 Sign Out</button>
       <button id="mobile-menu-btn">☰</button>
@@ -499,6 +502,11 @@ function ensurePdfJs(cb){
                 <option value="high">High</option>
                 <option value="low">Low</option>
               </select>
+              <!-- S250 §6 (Option A): list-action cluster, right-aligned on the
+                   filter row. The combined view renders Edit categories · Re-sort
+                   · Collapse all into here (#dfx-list-actions) instead of a
+                   separate row above the list — kills the wasted gap. -->
+              <div class="dfx-list-actions" id="dfx-list-actions"></div>
             </div>
             <!-- S154 §2.3: "Initials" toggle removed from the live board.
                  The on-screen chip render guard (_showInspChip in
