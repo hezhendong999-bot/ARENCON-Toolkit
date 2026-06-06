@@ -2083,19 +2083,11 @@ function _buildObsRow(d, oi, ctrId, opts) {
   h += '</span>';
   // Single far-right pill: Outstanding(red/amber) · Recommendation(yellow) ·
   // Site Record(purple) · Closed(green). No "Active" — outstanding implies it.
-  // S250 §8: the far-right pill is now the status CONTROL (was display-only).
-  // Since the editor's status-cycle button was removed as a duplicate, this
-  // pill carries obs-status-cycle so status is still changeable from the card.
-  // Recommendation/Site Record pills are not status-cyclable (those are set via
-  // the category path), so only Outstanding/Closed get the action + cursor.
+  // S250 §8 (revised): the far-right pill is DISPLAY-ONLY. Status/category are
+  // changed via the Edit categories + Re-sort feature, not inline pills — so the
+  // old left-side status-cycle button is gone and this pill is just a label.
   var _far = _obsFarPill(o, isSite, d);
-  var _farCyc = (_far.txt === 'Outstanding' || _far.txt === 'Closed');
-  if (_farCyc) {
-    var _fi = _obsStatusInfo(o, false, d);
-    h += '<button type="button" data-action="obs-status-cycle" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-cur="' + esc(_fi.val) + '" class="dfx-or-chip dfx-or-chip-btn ' + _far.cls + '" title="Tap to change status">' + _far.txt + '</button>';
-  } else {
-    h += '<span class="dfx-or-chip ' + _far.cls + '">' + _far.txt + '</span>';
-  }
+  h += '<span class="dfx-or-chip ' + _far.cls + '">' + _far.txt + '</span>';
   h += '<span class="dfx-or-caret">\u25BC</span>';
   h += '</div>'; // /head
   if (open) h += _buildObsEditor(d, oi, ctrId, opts);
@@ -5030,8 +5022,6 @@ document.addEventListener('click', function(e) {
 document.addEventListener('click', function(e) {
   var cb = e.target.closest && e.target.closest('[data-action="obs-status-cycle"]');
   if (!cb) return;
-  e.stopPropagation();  // S250 §8: pill lives on the collapsed row head (also the
-  e.preventDefault();   // expand target) — cycle status WITHOUT toggling the row open.
   var did = cb.getAttribute('data-defic-id');
   var oi = parseInt(cb.getAttribute('data-obs-idx') || '0', 10);
   var cur = cb.getAttribute('data-cur') || 'high';
