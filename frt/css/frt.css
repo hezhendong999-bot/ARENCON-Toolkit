@@ -1026,7 +1026,7 @@ body.dark-mode #btn-more-wrap > button{background:transparent!important;color:va
 body.dark-mode #btn-more-wrap > button:hover{background:#9C2742!important;}
 /* S77: muted dark mode for utility chips after More — same ID-targeted approach */
 body.dark-mode #btn-qr,body.dark-mode #btn-text-size,body.dark-mode #dark-toggle{background:transparent!important;color:var(--b-chrome-fg)!important;border:1px solid var(--b-chrome-rule)!important;}
-body.dark-mode #btn-qr:hover,body.dark-mode #btn-text-size:hover,body.dark-mode #dark-toggle:hover{background:#9C2742!important;border-color:#9C2742!important;}
+@media(hover:hover){body.dark-mode #btn-qr:hover,body.dark-mode #btn-text-size:hover,body.dark-mode #dark-toggle:hover{background:#9C2742!important;border-color:#9C2742!important;}}
 body.dark-mode button[style*="background:white"],body.dark-mode button[style*="background:#fff"]{background:#1a1d24!important;color:#b0b8d0!important;border-color:#2a3040!important;}
 body.dark-mode [style*="background:#f8f9fa"],[class*="dark-mode"] [style*="background:#f8f8f6"]{background:#282b34!important;}
 body.dark-mode [style*="background:#eee"]{background:#1e2028!important;}
@@ -1898,7 +1898,7 @@ body.dark-mode #tasks-search,body.dark-mode #tasks-filter-status,body.dark-mode 
 #dark-toggle,#mobile-menu-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;padding:0;font-size:calc(16px + var(--ts));border-radius:6px;border:1px solid var(--b-chrome-rule);background:transparent;color:var(--b-chrome-fg);cursor:pointer;}
 #mobile-menu-btn{display:none;}
 @media(max-width:1024px){#mobile-menu-btn{display:inline-flex!important;}}
-#dark-toggle:hover,#mobile-menu-btn:hover{background:#9C2742;color:#fff;}
+@media(hover:hover){#dark-toggle:hover,#mobile-menu-btn:hover{background:#9C2742;color:#fff;}}
 @media(max-width:1200px){.hdr-btn{padding:0 10px;font-size:calc(11px + var(--ts));}#btn-ai-usage{display:none!important;}}
 @media(max-width:900px){.hdr-btn{padding:0 8px;font-size:calc(11px + var(--ts));}.hdr-btn span{display:none;}}
 @media(pointer:coarse){.hdr-btn,#dark-toggle,#mobile-menu-btn{height:38px;min-height:38px;}#dark-toggle,#mobile-menu-btn{width:38px;}}
@@ -3352,12 +3352,14 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   transition:background .15s,border-color .15s;
 }
 .app-header #btn-ai-usage:hover,
+@media(hover:hover){
 .app-header #btn-more-wrap > button:hover,
 .app-header #btn-qr:hover,
 .app-header #dark-toggle:hover,
 .app-header #btn-text-size:hover{
   background:var(--b-pill-hover) !important;
   border-color:var(--b-bar-accent,#9C2742) !important;
+}
 }
 
 /* === Session 76 Push 16 — Reports dropdown (Export PDF + Issue) + DRAFT chip non-clickable === */
@@ -9311,6 +9313,20 @@ body.dark-mode{ --b-btn-shadow:0 2px 6px rgba(0,0,0,.40); }
 }
 /* tactile press */
 .btn-outline:active{
+  transform:translateY(1px);
+  box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+
+/* ═══════ S249p — EXPERIMENT (Mark): shadow style on header toggle/menu buttons.
+   Give them a subtle filled surface so the shadow reads, + the adaptive shadow.
+   Both modes. If Mark dislikes, revert this block only. ═══════ */
+#dark-toggle,#mobile-menu-btn{
+  background:var(--b-chrome2) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  box-shadow:var(--b-btn-shadow) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+#dark-toggle:active,#mobile-menu-btn:active{
   transform:translateY(1px);
   box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
