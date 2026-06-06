@@ -100,7 +100,7 @@ html{overflow-x:hidden;max-width:100vw;scrollbar-gutter:stable;}
 .logo-area img{height:32px;}
 .header-logo{height:34px;width:auto;background:#fff;padding:3px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.2);display:block;flex-shrink:0;}
 .app-title{font-weight:600;font-size:19px;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
-.header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;position:relative;z-index:10;}
+.header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;position:relative;z-index:10;margin-right:8px;}
 .header-save-ts{font-size:10.5px;color:rgba(255,255,255,.5);margin-right:4px;}
 .project-bar{display:none;align-items:center;gap:8px;padding:6px 14px;font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:var(--b-chrome2);border-top:1px solid rgba(255,255,255,.06);min-height:32px;flex-wrap:wrap;}
 .project-bar.visible{display:flex;}
@@ -1356,7 +1356,7 @@ body.dark-mode .drawing-card .tile-badge{box-shadow:0 1px 3px rgba(0,0,0,.5);}
 body.dark-mode .drawing-card .tile-badge.tile-processing{background:rgba(56,142,210,.92);}
 body.dark-mode .drawing-card .tile-badge.tile-failed{background:rgba(220,72,55,.92);}
 .drawing-card .version-badge{position:absolute;top:6px;left:40px;background:#7B1FA2;color:white;font-size:9px;font-weight:600;padding:2px 5px;border-radius:8px;}
-.drawing-card.add-card{border-style:dashed;border-color:var(--silver);cursor:pointer;display:flex;align-items:center;justify-content:center;height:163px;min-height:163px;box-sizing:border-box;}
+.drawing-card.add-card{border-style:dashed;border-color:var(--silver);cursor:pointer;display:flex;align-items:center;justify-content:center;height:auto;min-height:135px;align-self:stretch;box-sizing:border-box;}
 .drawing-card.add-card:hover{border-color:var(--red);background:rgba(156,39,66,.03);}
 .drawing-card.add-card.drag-over{border-color:#5F8068!important;background:rgba(26,122,74,.08)!important;box-shadow:0 0 0 3px rgba(26,122,74,.2)!important;}
 .add-card-inner{color:var(--silver);font-size:calc(13px + var(--ts));font-weight:600;}
@@ -3345,10 +3345,11 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   border:1px solid var(--b-chrome-rule) !important;
   color:var(--b-chrome-fg) !important;
   border-radius:6px !important;
-  padding:6px 12px !important;
+  padding:5px 12px !important;
   font-family:Calibri,sans-serif !important;
+  font-size:calc(12px + var(--ts)) !important;
   font-weight:600 !important;
-  min-height:34px !important;
+  height:auto !important; min-height:0 !important;
   cursor:pointer;
   transition:background .15s,border-color .15s;
 }
