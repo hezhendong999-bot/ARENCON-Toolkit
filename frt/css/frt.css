@@ -5491,13 +5491,14 @@ body:not(.dark-mode) .obs-pill.addressed{ background:var(--b-cat-closed-fg) !imp
 }
 #btn-reports-parent:hover{filter:brightness(1.08);}
 
-/* (3) Header Sign Out: random #7B1FA2 → ghost (no longer pseudo-CTA) */
+/* (3) Header Sign Out → muted teal #0F766E (matches diesel). This attribute
+   selector beats plain #btn-signout, so the color MUST be set here. */
 #btn-signout[style*="background"], #btn-signout{
-  background:rgba(255,255,255,.14) !important;
+  background:#0F766E !important;
   color:#fff !important;
-  border:1px solid rgba(255,255,255,.20) !important;
+  border:1px solid #0F766E !important;
 }
-#btn-signout:hover{background:rgba(255,255,255,.22) !important;}
+#btn-signout:hover{background:#0d6359 !important;}
 
 /* (4) Defic footer Response: amber → blue (sibling of Comment) ──── */
 body:not(.dark-mode) .defic-act-btn.act-response{
