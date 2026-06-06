@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=507">
+<link rel="stylesheet" href="css/frt.css?v=508">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -573,7 +573,7 @@ function ensurePdfJs(cb){
     <div class="dv-title-wrap"><span class="dv-title" id="dv-title"></span><button id="dv-rename-btn" title="Rename drawing" class="dv-rename-btn">✏️</button></div>
     <!-- Layers -->
     <div style="position:relative;display:inline-block;">
-      <button id="dv-layers-btn" title="Layers"><span class="dv-lb-icon">≡</span><span class="dv-lb-txt"> Layers</span></button>
+      <button id="dv-layers-btn" title="Layers"><span class="dv-lb-icon" style="font-size:calc(17px + var(--ts));line-height:1;">&#9776;</span><span class="dv-lb-txt"> Layers</span></button>
       <div id="dv-layers-menu" class="dv-more-menu" style="display:none;min-width:180px;padding:10px 14px;">
         <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:8px;">SHOW</div>
         <label class="dv-layer-row"><input type="checkbox" id="layer-all" checked> All layers</label>

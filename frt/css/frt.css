@@ -9574,3 +9574,71 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 #btn-signout{ background:#7B1FA2 !important; color:#FFFFFF !important; border:none !important; font-weight:600 !important; }
 @media(hover:hover){ #btn-signout:hover{ filter:brightness(1.12); } }
 /* end S250 §7 ──────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S250 §9 — Drawing-viewer HEADER buttons: authoritative consistency pass.
+   This area accumulated ~30 layered .dv-toolbar rules over many sessions with
+   inconsistent padding / min-width (some 44px-wide blocks, some !important).
+   This block is intentionally LAST so it wins, and is tightly scoped to the
+   five header buttons (Back, Layers/hamburger, pin, More, day-night). Goal:
+   match the main FRT header — same compact size + Diesel shadow-button style
+   (--b-chrome2 surface, --b-btn-shadow, burgundy hover), no oversized padding.
+   The markup tools row (.tool-btn) is NOT touched. ════════════════════════ */
+.drawing-viewer-overlay .dv-toolbar #dv-close,
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
+.drawing-viewer-overlay .dv-toolbar #dv-more-btn,
+.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+  background:var(--b-chrome2) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  box-shadow:var(--b-btn-shadow) !important;
+  border-radius:6px !important;
+  padding:5px 12px !important;
+  min-height:36px !important;
+  min-width:0 !important;
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(12px + var(--ts)) !important;
+  font-weight:600 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:5px !important;
+  transition:background .15s, box-shadow .15s, transform .08s !important;
+}
+/* icon-only buttons: square-ish, not wide blocks */
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
+.drawing-viewer-overlay .dv-toolbar #dv-more-btn,
+.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ padding:5px 10px !important; }
+/* day-night sun/moon glyph stays a touch larger than the 12px text buttons */
+.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ font-size:calc(15px + var(--ts)) !important; }
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
+.drawing-viewer-overlay .dv-toolbar #dv-more-btn{ font-size:calc(15px + var(--ts)) !important; }
+/* Back button: drop the oversized left padding from the safe-area rules */
+.drawing-viewer-overlay .dv-toolbar #dv-close{ padding:5px 12px !important; margin-left:0 !important; }
+@media(hover:hover){
+  .drawing-viewer-overlay .dv-toolbar #dv-close:hover,
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:hover,
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:hover,
+  .drawing-viewer-overlay .dv-toolbar #dv-more-btn:hover,
+  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{
+    background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+  }
+}
+.drawing-viewer-overlay .dv-toolbar #dv-close:active,
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn:active,
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:active,
+.drawing-viewer-overlay .dv-toolbar #dv-more-btn:active,
+.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:active{
+  transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; }
+/* coarse pointer: keep tappable height without ballooning padding */
+@media(pointer:coarse){
+  .drawing-viewer-overlay .dv-toolbar #dv-close,
+  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ min-height:40px !important; padding:6px 12px !important; }
+}
+/* end S250 §9 ──────────────────────────────────────────────────────── */
