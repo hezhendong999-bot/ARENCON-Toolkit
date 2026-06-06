@@ -259,9 +259,11 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .np-panel{border:1.5px solid var(--border);border-radius:10px;background:var(--smoke);overflow:hidden;}
 .np-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#eef0f4;border-bottom:1.5px solid var(--border);flex-wrap:wrap;}
 .np-head .np-t{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);letter-spacing:.3px;display:flex;align-items:center;gap:7px;}
-.np-scan{display:inline-flex;align-items:center;gap:6px;background:var(--arencon);color:#fff;border:none;border-radius:7px;padding:7px 13px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;transition:filter .14s;}
-.np-scan:hover{filter:brightness(1.12);}
-.np-scan:disabled{opacity:.5;cursor:default;filter:none;}
+.np-scan{display:inline-flex;align-items:center;gap:6px;background:rgba(156,39,66,.10);color:var(--arencon);border:1.5px solid rgba(156,39,66,.40);border-radius:7px;padding:7px 13px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;transition:all .14s;}
+.np-scan:hover{background:var(--arencon);color:#fff;border-color:var(--arencon);}
+.np-scan:disabled{opacity:.5;cursor:default;background:rgba(156,39,66,.10);color:var(--arencon);}
+body.dark-mode .np-scan{background:rgba(201,71,106,.14);color:#E08DA1;border-color:rgba(201,71,106,.45);}
+body.dark-mode .np-scan:hover{background:var(--arencon);color:#fff;border-color:var(--arencon);}
 .np-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;padding:16px;}
 @media(max-width:640px){.np-grid{grid-template-columns:1fr;}}
 .np-fields{display:flex;flex-direction:column;gap:12px;}
@@ -288,8 +290,11 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ts-seg{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:var(--smoke);flex-wrap:wrap;}
 .ts-seg button{border:none;background:transparent;padding:9px 18px;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);cursor:pointer;border-right:1.5px solid var(--border);transition:all .14s;}
 .ts-seg button:last-child{border-right:none;}
-.ts-seg button.on{background:var(--arencon);color:#fff;}
-.ts-seg button:not(.on):hover{background:#fff;color:var(--arencon);}
+.ts-seg button.on{background:var(--arencon)!important;color:#fff!important;}
+.ts-seg button:not(.on){background:transparent!important;color:var(--steel)!important;}
+.ts-seg button:not(.on):hover{background:rgba(156,39,66,.10)!important;color:var(--arencon)!important;}
+body.dark-mode .ts-seg button:not(.on){color:#a09aa8!important;}
+body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!important;color:#E08DA1!important;}
 .ts-eq{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;border:1.5px solid var(--border);border-radius:9px;padding:12px 14px;background:var(--smoke);}
 @media(max-width:560px){.ts-eq{grid-template-columns:1fr;}}
 .ts-eq label{display:flex;align-items:center;gap:7px;font-size:calc(12px + var(--ts));cursor:pointer;color:var(--slate);}
@@ -303,11 +308,11 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ts-pitot .pcard input,.ts-pitot .pcard select{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font-size:calc(11.5px + var(--ts));font-family:Calibri,sans-serif;background:#fff;margin-bottom:5px;}
 .ts-pitot .pcard select{margin-bottom:0;}
 /* rated values — compact inline */
-.ts-rated{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px;}
+.ts-rated{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px;align-items:end;}
 .ts-rated-7{grid-template-columns:repeat(7,1fr);}
-.ts-rated .meta-field{width:auto;min-width:0;}
+.ts-rated .meta-field{width:auto;min-width:0;justify-content:flex-end;}
 .ts-rated .meta-field input{text-align:right;}
-.ts-rated .meta-field label{min-height:2.5em;line-height:1.2;}
+.ts-rated .meta-field label{line-height:1.2;}
 @media(max-width:1100px){.ts-rated,.ts-rated-7{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:680px){.ts-rated,.ts-rated-7{grid-template-columns:repeat(2,1fr);}}
 /* evidence tiles — prominent 3-up */
@@ -1182,7 +1187,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;" title="Saved to cloud"></span>
         <span id="cloud-status-text">Saved to cloud</span>
       </span>
-      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S242</span>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Diesel Fire Pump Commissioning Report</span><span id="build-stamp" style="font-size:9px;opacity:.5;margin-left:6px;font-weight:600;letter-spacing:.5px;white-space:nowrap;">S243</span>
     </div>
     <div class="header-actions">
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
