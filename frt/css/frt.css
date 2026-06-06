@@ -2717,11 +2717,11 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:disabled{opacity:.4;cursor:not-allowed;}
   .drawing-viewer-overlay #dv-bb-namepill{
     flex:1;min-width:0;
-    background:#f5f6f8;border:1px solid #d6d9e0;border-radius:18px;
+    background:var(--b-chrome-btn);border:1px solid var(--b-chrome-btn-bd);border-radius:18px;
     padding:7px 14px;display:flex;align-items:center;justify-content:center;gap:6px;
-    font-size:12px;color:#1B2438;
+    font-size:12px;color:var(--b-chrome-fg);
   }
-  body.dark-mode .drawing-viewer-overlay #dv-bb-namepill{background:var(--b-pill-bg);border-color:var(--b-pill-bd);color:var(--b-bar-fg);}
+  body.dark-mode .drawing-viewer-overlay #dv-bb-namepill{background:var(--b-chrome-btn);border-color:var(--b-chrome-btn-bd);color:var(--b-chrome-fg);}
   .drawing-viewer-overlay #dv-bb-name{
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
   }
@@ -3032,13 +3032,13 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     display:none !important;
   }
   .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-namepill{
-    background:var(--b-pill-bg) !important;
-    border:1px solid var(--b-pill-bd) !important;
-    color:var(--b-bar-fg) !important;
+    background:var(--b-chrome-btn) !important;
+    border:1px solid var(--b-chrome-btn-bd) !important;
+    color:var(--b-chrome-fg) !important;
     max-width:600px;
     padding:8px 18px !important;
   }
-  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:var(--b-bar-fg) !important;}
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:var(--b-chrome-fg) !important;}
   .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-rename{
     color:#c8ccd4 !important;background:none;border:none;cursor:pointer;
   }
@@ -3185,9 +3185,9 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     border-top:1px solid var(--b-chrome-rule) !important;
   }
   .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-namepill{
-    background:var(--b-pill-bg) !important;border-color:var(--b-pill-bd) !important;color:var(--b-bar-fg) !important;
+    background:var(--b-chrome-btn) !important;border-color:var(--b-chrome-btn-bd) !important;color:var(--b-chrome-fg) !important;
   }
-  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:var(--b-bar-fg) !important;}
+  .drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-name{color:var(--b-chrome-fg) !important;}
 }
 
 /* === Session 75 Push 9 — REVERT Push 6.1 desktop title/bottombar changes ===
@@ -3842,14 +3842,14 @@ html body .drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom{
    Promoted out so all screens render at the same size and same shape. */
 .drawing-viewer-overlay #dv-bb-namepill{
   flex:1;min-width:0;
-  background:var(--b-pill-bg);border:1px solid var(--b-pill-bd);border-radius:18px;
+  background:var(--b-chrome-btn);border:1px solid var(--b-chrome-btn-bd);border-radius:18px;
   padding:7px 14px;display:flex;align-items:center;justify-content:center;gap:6px;
   font-family:Calibri,sans-serif;
   font-size:calc(13px + var(--ts));
-  color:var(--b-bar-fg);
+  color:var(--b-chrome-fg);
 }
 body.dark-mode .drawing-viewer-overlay #dv-bb-namepill{
-  background:var(--b-pill-bg);border-color:var(--b-pill-bd);color:var(--b-bar-fg);
+  background:var(--b-chrome-btn);border-color:var(--b-chrome-btn-bd);color:var(--b-chrome-fg);
 }
 .drawing-viewer-overlay #dv-bb-name{
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
