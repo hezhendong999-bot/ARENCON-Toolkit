@@ -9584,7 +9584,22 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
    match the main FRT header — same compact size + Diesel shadow-button style
    (--b-chrome2 surface, --b-btn-shadow, burgundy hover), no oversized padding.
    The markup tools row (.tool-btn) is NOT touched. ════════════════════════ */
-.drawing-viewer-overlay .dv-toolbar #dv-close,
+/* Back (#dv-close): clean even shadow box matching Project-Info Back — 34px. */
+.drawing-viewer-overlay .dv-toolbar #dv-close{
+  background:var(--b-chrome2) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  box-shadow:var(--b-btn-shadow) !important;
+  border-radius:6px !important;
+  height:34px !important; min-height:0 !important;
+  padding:0 12px !important; margin:0 4px 0 0 !important;
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important;
+  transition:background .15s, box-shadow .15s, transform .08s !important;
+}
+/* four icon buttons (hamburger, pin, More, day/night): 34x34 squares, zero
+   padding — exact match to Project-Info #dark-toggle/#mobile-menu-btn. */
 .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
@@ -9594,28 +9609,19 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   border:1px solid var(--b-chrome-rule) !important;
   box-shadow:var(--b-btn-shadow) !important;
   border-radius:6px !important;
-  padding:5px 12px !important;
-  min-height:36px !important;
-  min-width:0 !important;
+  width:34px !important; height:34px !important; min-width:0 !important; min-height:0 !important;
+  padding:0 !important;
   font-family:Calibri,sans-serif !important;
-  font-size:calc(12px + var(--ts)) !important;
-  font-weight:600 !important;
-  display:inline-flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  gap:5px !important;
+  font-size:calc(16px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:0 !important;
   transition:background .15s, box-shadow .15s, transform .08s !important;
 }
-/* icon-only buttons: square-ish, not wide blocks */
-.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-more-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ padding:5px 10px !important; }
-/* day-night sun/moon glyph stays a touch larger than the 12px text buttons */
-.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ font-size:calc(15px + var(--ts)) !important; }
-.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-more-btn{ font-size:calc(15px + var(--ts)) !important; }
-/* Back button: drop the oversized left padding from the safe-area rules */
-.drawing-viewer-overlay .dv-toolbar #dv-close{ padding:5px 12px !important; margin-left:0 !important; }
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{ display:none !important; }
+.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-icon{ font-size:calc(16px + var(--ts)) !important; }
+.drawing-viewer-overlay .dv-toolbar{ padding-top:6px !important; padding-bottom:6px !important; }
+@media(pointer:coarse){
+  .drawing-viewer-overlay .dv-toolbar{ padding-top:max(8px,env(safe-area-inset-top,0px)) !important; padding-bottom:8px !important; }
+}
 @media(hover:hover){
   .drawing-viewer-overlay .dv-toolbar #dv-close:hover,
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:hover,
@@ -9633,12 +9639,41 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; }
-/* coarse pointer: keep tappable height without ballooning padding */
+/* coarse pointer: 38px squares + Back 38h (matches Project-Info touch sizing) */
 @media(pointer:coarse){
-  .drawing-viewer-overlay .dv-toolbar #dv-close,
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ min-height:40px !important; padding:6px 12px !important; }
+  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ width:38px !important; height:38px !important; min-height:0 !important; padding:0 !important; }
+  .drawing-viewer-overlay .dv-toolbar #dv-close{ height:38px !important; min-height:0 !important; padding:0 12px !important; }
 }
 /* end S250 §9 ──────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S250 §10 — MAIN HEADER Back button (#back-btn, left of the ARENCON logo).
+   It read as bare text, not a button: the neutral --b-chrome2 surface (#EFEDF0)
+   is nearly identical to the header bg (#E6E3E9) so the box vanished, the base
+   .back-btn had padding:0 12px 0 0 (no LEFT pad → text at the edge) and
+   min-height:40px (taller than the right-side buttons). This makes it a clean
+   even shadow box, padded both sides, height-matched to the other header
+   buttons. ID-scoped + last in file so it wins. Day surface lifted to white so
+   the box actually reads against the light header. ════════════════════════ */
+#back-btn{
+  background:#FFFFFF !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  box-shadow:var(--b-btn-shadow) !important;
+  border-radius:6px !important;
+  height:34px !important; min-height:0 !important;
+  padding:0 12px !important;            /* EVEN padding both sides (was 0 left) */
+  margin-right:10px !important;
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:6px !important;
+  transition:background .15s, box-shadow .15s, transform .08s !important;
+}
+body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
+@media(pointer:coarse){ #back-btn{ height:38px !important; min-height:0 !important; padding:0 14px !important; } }
+@media(hover:hover){ #back-btn:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
+#back-btn:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
+/* end S250 §10 ─────────────────────────────────────────────────────── */
