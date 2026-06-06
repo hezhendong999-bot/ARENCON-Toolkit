@@ -3822,14 +3822,14 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:var(--
 .drawing-viewer-overlay #dv-bottombar-v75{
   display:flex !important;
   align-items:center;gap:8px;
-  /* S249: match header black exactly (was --b-chrome-bg #23212b which read bluer/navy next to white) */
-  background:linear-gradient(135deg,#2a2730,#201e26) !important;padding:8px 10px;
+  /* S249f: token-driven so it flips light in day / dark in night */
+  background:var(--b-chrome-bg) !important;padding:8px 10px;
   border-top:1px solid var(--b-chrome-rule);
   flex-shrink:0;font-family:Calibri,sans-serif;
   order:2;
 }
 body.dark-mode .drawing-viewer-overlay #dv-bottombar-v75{
-  background:linear-gradient(135deg,#221f29,#19171f) !important;border-top-color:var(--b-chrome-rule);
+  background:var(--b-chrome-bg) !important;border-top-color:var(--b-chrome-rule);
 }
 /* Override the @media(pointer:coarse) zoom-hide rule from line ~3344 —
    we keep zoom controls visible on every device now that they're on the
