@@ -2381,8 +2381,8 @@ body.dark-mode .drawing-viewer-overlay .dv-toolbar{background:var(--b-chrome-bg)
 
 /* Close button — dark slate pill */
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
-  background:var(--b-pill-bg) !important;
-  color:#fff !important;
+  background:transparent !important;
+  color:var(--b-chrome-fg) !important;
   border-radius:6px;
   padding:0 14px;
   min-height:40px;
@@ -2545,7 +2545,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
     background:transparent !important;
     border:1px solid transparent !important;
-    color:#fff !important;
+    color:var(--b-chrome-fg) !important;
     padding:0 12px 0 0 !important;
     border-radius:6px !important;
     font-family:Calibri,sans-serif !important;
@@ -2827,7 +2827,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 .drawing-viewer-overlay .dv-toolbar .dv-title{color:var(--b-chrome-fg);}
 .drawing-viewer-overlay .dv-toolbar button{color:var(--b-chrome-fg);}
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
-  background:var(--b-pill-bg);color:#fff;border:none;border-radius:6px;
+  background:transparent;color:var(--b-chrome-fg);border:none;border-radius:6px;
 }
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn:hover{background:#9C2742;}
 .drawing-viewer-overlay .dv-toolbar #dv-prev,
