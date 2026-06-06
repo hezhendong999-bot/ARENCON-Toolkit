@@ -3119,9 +3119,9 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     width:calc(100% - 8px);
     margin:6px 4px 10px;
     padding:8px 6px;
-    background:var(--b-pill-bg) !important;
-    color:#fff !important;
-    border:1px solid var(--b-pill-bd) !important;
+    background:var(--b-chrome-btn) !important;
+    color:var(--b-chrome-fg) !important;
+    border:1px solid var(--b-chrome-btn-bd) !important;
     border-radius:6px;
     font-family:Calibri,sans-serif;font-size:13px;font-weight:500;
     cursor:pointer;
@@ -3146,8 +3146,8 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 @media (min-width: 901px){
   .drawing-viewer-overlay .dv-toolbar #dv-close{
     display:inline-flex !important;align-items:center;justify-content:center;
-    background:var(--b-pill-bg) !important;color:#fff !important;
-    border:1px solid var(--b-pill-bd) !important;border-radius:6px !important;
+    background:transparent !important;color:var(--b-chrome-fg) !important;
+    border:1px solid transparent !important;border-radius:6px !important;
     padding:0 12px !important;margin:0 0 0 6px !important;width:auto !important;
     min-height:40px !important;min-width:auto !important;
     font-family:Calibri,sans-serif !important;font-size:15px !important;font-weight:600 !important;
@@ -3276,7 +3276,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   background:transparent !important;
   border-color:transparent !important;
   box-shadow:none !important;
-  color:#fff !important;
+  color:var(--b-chrome-fg) !important;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-close:hover,
 .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{
