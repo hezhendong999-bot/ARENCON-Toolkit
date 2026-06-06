@@ -9263,3 +9263,40 @@ body.dark-mode .cv-loc-thumb{background:#2a2d35;border-color:#3a3e48;}
   align-items:start;
 }
 #drawings-container .drawing-card{width:auto !important;min-width:0 !important;}
+
+/* ═══════ S249k — polished shadow on viewer chrome buttons (Mark liked the
+   bottom-nav drop shadow; apply where applicable). Shadow adapts per mode:
+   stronger in dark, softer in light so it reads on the light day chrome. ═══════ */
+/* shadow token: soft in day, deeper in dark */
+:root{ --b-btn-shadow:0 1px 3px rgba(40,30,50,.12),0 2px 6px rgba(40,30,50,.10); }
+body.dark-mode{ --b-btn-shadow:0 2px 6px rgba(0,0,0,.40); }
+/* apply to: toolbar tool icons, sidebar tools, size/opac steppers, stylestrip,
+   bottom nav + name pill. NOT to: text-label buttons (Back), the big primary CTAs. */
+.drawing-viewer-overlay #dv-sidebar-tools button,
+.drawing-viewer-overlay #dv-sidebar-tools .tool-btn,
+.drawing-viewer-overlay #dv-sidebar-tools .mk-btn,
+.drawing-viewer-overlay #dv-sidebar-tools #ctx-size-group button,
+.drawing-viewer-overlay #dv-sidebar-tools #ctx-opacity-group button,
+.drawing-viewer-overlay #dv-sidebar-tools .ctx-step,
+.drawing-viewer-overlay .dv-toolbar .tool-btn,
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button,
+.drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-zoom button{
+  box-shadow:var(--b-btn-shadow) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+/* tactile press: lift on active */
+.drawing-viewer-overlay #dv-sidebar-tools button:active,
+.drawing-viewer-overlay .dv-toolbar .tool-btn:active,
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-step:active,
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button:active{
+  transform:translateY(1px);
+  box-shadow:0 1px 2px rgba(0,0,0,.25) !important;
+}
+/* tighten the prev/next nav button footprint (Mark: too much padding) */
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav button,
+.drawing-viewer-overlay #dv-bottombar-v75 #dv-bb-fit{
+  width:34px !important; height:34px !important; padding:0 !important;
+}
+.drawing-viewer-overlay #dv-bottombar-v75 .dv-bb-nav{gap:6px !important;}
