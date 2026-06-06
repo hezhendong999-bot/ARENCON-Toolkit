@@ -169,7 +169,7 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 .btn-sm{padding:5px 11px;font-size:calc(12.5px + var(--ts));}
 .btn-danger{background:#A85959;color:white;}.btn-danger:hover{background:#8A4A4A;}
 /* dark toggle uses hdr-btn class */
-.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid transparent;color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;box-sizing:border-box;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
+.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid transparent;color:var(--b-chrome-fg);padding:6px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(15px + var(--ts));font-weight:600;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;box-sizing:border-box;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
 body.dark-mode .back-btn{border:1px solid var(--b-chrome-rule);box-shadow:none;}
 .section-nav{background:var(--b-chrome-bg);display:flex;gap:0;overflow-x:auto;padding:0 14px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav .nav-tab:first-child{padding-left:0;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:rgba(244,243,246,.6);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:var(--b-chrome-fg);}.nav-tab.active{color:var(--b-chrome-fg);border-bottom-color:var(--b-bar-accent);}
@@ -9534,8 +9534,7 @@ body.dark-mode .hdr-sm{
 .app-header .hdr-btn{ padding:5px 12px!important; border-radius:6px!important;
   font-size:calc(12px + var(--ts))!important; font-weight:600!important; }
 @media(pointer:coarse){ .app-header .hdr-btn{ min-height:40px; padding:8px 14px!important; } }
-#dark-toggle, #mobile-menu-btn{ width:auto!important; min-width:34px; height:auto!important;
-  padding:5px 10px!important; }
+/* (icon geometry owned by S259 §2 — do not set width/height here) */
 /* colored CTAs: keep Diesel fills + soft press-shadow + tactile dip (never the neutral surface) */
 .hdr-ai-active, #btn-reports-parent, #btn-signout, #btn-more-wrap > button{
   box-shadow:var(--b-btn-shadow)!important; transition:box-shadow .15s,transform .08s,filter .15s!important;
@@ -9676,13 +9675,13 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   box-sizing:border-box !important;
 }
 
-/* ── 2 · Icon buttons = diesel exact. Diesel squares ONLY QR + day-night (line 11948: #dark-toggle, #btn-qr = calc(34px+ts)). The text-size "S" button is a normal .hdr-btn in diesel, NOT squared — so it is intentionally excluded here. ── */
+/* ── 2 · Icon buttons (QR, day-night, hamburger) = diesel MEASURED 36×36 square, 16px font. (text-size "S" stays a normal .hdr-btn, matching diesel.) Flat 36px to win over coarse 38 + the old height:auto. ── */
 #btn-qr, #dark-toggle, #mobile-menu-btn{
-  width:calc(34px + var(--ts)) !important; height:calc(34px + var(--ts)) !important;
-  min-width:calc(34px + var(--ts)) !important; min-height:calc(34px + var(--ts)) !important; max-height:calc(34px + var(--ts)) !important;
+  width:36px !important; height:36px !important;
+  min-width:36px !important; min-height:36px !important; max-height:36px !important;
   padding:0 !important; border-radius:6px !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
-  font-size:calc(13px + var(--ts)) !important; line-height:1 !important;
+  font-size:calc(16px + var(--ts)) !important; line-height:1 !important;
 }
 
 /* ── 3 · CTA fill colours (Diesel-matched, Mark-locked) ── */
@@ -9718,8 +9717,8 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .app-header .hdr-btn, .app-header #btn-more-wrap > button{
     min-height:40px !important; height:auto !important; max-height:none !important; padding:8px 14px !important;
   }
-  #btn-qr, #dark-toggle, #mobile-menu-btn, .app-header .hdr-sm{
-    height:calc(38px + var(--ts)) !important; max-height:calc(38px + var(--ts)) !important;
+  #btn-qr, #dark-toggle, #mobile-menu-btn{
+    width:36px !important; height:36px !important; min-height:36px !important; max-height:36px !important;
   }
 }
 
