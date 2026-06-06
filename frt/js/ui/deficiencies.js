@@ -300,31 +300,42 @@ function _showGalleryPicker(deficId, obsIdx) {
         toast('\u26A0 Observation no longer exists'); close(); return;
       }
       var liveObs = f2.defic.observations[obsIdx];
-      if (!liveObs.photos) liveObs.photos = [];
       var addedCount = 0;
       checks.forEach(function(cb) {
         var idx = parseInt(cb.getAttribute('data-gp-idx'));
         var src = sitePhotos[idx];
         if (!src) return;
-        // Copy reference: keep R2 metadata, generate a NEW photo id so it's
-        // distinguishable from the site copy. R2 has one file; two records point at it.
-        // S115: Also copy _origBackupId and _annotated so picked copies of an
-        // already-marked-up photo stay linked to the same backup record. This
-        // is what lets a later revert in this defic propagate back to the
-        // gallery copy and the original site photo.
-        var newPh = {
-          id: 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-          r2Key: src.r2Key || '',
-          r2Url: src.r2Url || '',
-          r2Status: src.r2Status || 'uploaded',
-          dataUrl: null,
-          filename: src.filename || ('site_pick_' + (idx + 1) + '.jpg'),
-          addedDate: new Date().toISOString().split('T')[0],
-          fromSiteIdx: idx  // breadcrumb
-        };
-        if (src._origBackupId) newPh._origBackupId = src._origBackupId;
-        if (src._annotated)    newPh._annotated    = true;
-        liveObs.photos.push(newPh);
+        // S251 FIX: route the picked site photo through the POOL model
+        // (Model.addPoolPhoto), the single source of truth that
+        // getEffectivePhotos reads. The previous code pushed a record into
+        // obs.photos[] directly — but a modern obs has photoSelection:[] (a
+        // custom-selection Array), so getEffectivePhotos returned only pool
+        // ids in that selection and the pushed photo was invisible ("says
+        // attached, nothing happens"). We keep the shared binary: same
+        // r2Key/thumb, a NEW per-pool id, no R2 re-upload.
+        var poolPh = Model.addPoolPhoto(deficId, (src.dataUrl || null), {
+          r2Key:    src.r2Key || null,
+          sourceR2Key: src.r2Key || src.sourceR2Key || null,
+          thumb:    src.thumb || src.r2Url || null,
+          filename: src.filename || ('site_pick_' + (idx + 1) + '.jpg')
+        });
+        if (!poolPh) return;
+        // Preserve any R2 url + markup linkage the pool factory doesn't set.
+        if (src.r2Url) poolPh.r2Url = src.r2Url;
+        poolPh.r2Status = src.r2Status || 'uploaded';
+        poolPh.fromSiteIdx = idx; // breadcrumb
+        // S115: keep picked copies of an already-marked-up photo linked to the
+        // same backup record so a later revert propagates back to the gallery.
+        if (src._origBackupId) poolPh._origBackupId = src._origBackupId;
+        if (src._annotated)    poolPh._annotated    = true;
+        // If this obs is in CUSTOM selection mode, add the new pool id to its
+        // selection so it shows in THIS obs. Default-mode (photoSelection null)
+        // already shows every pool photo, so nothing to do there.
+        if (Array.isArray(liveObs.photoSelection)) {
+          if (liveObs.photoSelection.indexOf(poolPh.id) === -1) {
+            liveObs.photoSelection.push(poolPh.id);
+          }
+        }
         addedCount++;
       });
       Model.saveNow();
