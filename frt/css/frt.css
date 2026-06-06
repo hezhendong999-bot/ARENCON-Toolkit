@@ -7101,6 +7101,17 @@ body.dark-mode .crx-ic:hover { background: #2A3142; color: #E0A0B0; }
 body.dark-mode .crx-ic.crx-del:hover { background: rgba(231, 76, 60, .18); color: var(--no); }
 @media (pointer: coarse) { .crx-ic { width: 32px; height: 32px; font-size: calc(15px + var(--ts)); } }
 
+/* S250 §2: narrow-portrait contractor card — two-tier layout.
+   On wide screens the card is a single row (dot · name · tags · spacer · count · icons).
+   Below 720px the cards go full-width and several trade tags crowd the name/count/icons,
+   so let the card wrap: top line keeps dot+name+count+icons together, trade tags flow to
+   a full-width second line. PC layout (>720px) is untouched. */
+@media (max-width: 720px) {
+  .crx-cc { flex-wrap: wrap; row-gap: 7px; }
+  .crx-cc .crx-tagwrap { order: 10; flex-basis: 100%; width: 100%; }
+  .crx-cc .crx-spacer { order: 5; }
+}
+
 /* ── empty / hint ─────────────────────────────────────────────────── */
 .crx-empty {
   font-size: calc(12px + var(--ts));
@@ -8879,7 +8890,7 @@ body.dark-mode{
   --b-pb-u:#2C7FB8; --b-pb-u-bg:#DEEEF8; --b-pb-c:#2E9E72; --b-pb-c-bg:#D2EBDC; --b-pb-g:#7D3F4F; --b-pb-g-bg:#F3E0E4;
   --b-unassigned-dot:#6E6AA8; }
 body.dark-mode{ --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
-  --b-chiphdr:rgba(255,255,255,.02); --b-chipnum:#9A95A3;
+  --b-chiphdr:rgba(255,255,255,.02); --b-chipink:#F4F3F6; --b-chipnum:#9A95A3;
   --b-glow1:radial-gradient(50% 45% at 6% 0%,rgba(156,39,66,.20),transparent 70%);
   --b-glow2:radial-gradient(48% 42% at 96% 4%,rgba(70,197,232,.13),transparent 70%);
   --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
