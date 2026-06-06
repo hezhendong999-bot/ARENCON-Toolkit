@@ -169,7 +169,7 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 .btn-sm{padding:5px 11px;font-size:calc(12.5px + var(--ts));}
 .btn-danger{background:#A85959;color:white;}.btn-danger:hover{background:#8A4A4A;}
 /* dark toggle uses hdr-btn class */
-.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid var(--b-chrome-rule);color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;box-shadow:var(--b-btn-shadow);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
+.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid transparent;color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
 .section-nav{background:var(--b-chrome-bg);display:flex;gap:0;overflow-x:auto;padding:0 14px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav .nav-tab:first-child{padding-left:0;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:rgba(244,243,246,.6);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:var(--b-chrome-fg);}.nav-tab.active{color:var(--b-chrome-fg);border-bottom-color:var(--b-bar-accent);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
@@ -9507,7 +9507,7 @@ body:not(.dark-mode) #dv-tasks-count{ color:#5E5B68 !important; }
    tactile press. Applies to neutral header buttons in BOTH modes (Diesel
    applies it both modes; only the token values switch). ---- */
 #btn-qr, #btn-text-size, #dark-toggle, #mobile-menu-btn,
-#btn-more-wrap > button, .hdr-sm, .back-btn{
+#btn-more-wrap > button, .hdr-sm{
   background:var(--b-chrome2)!important;
   border:1px solid var(--b-chrome-rule)!important;
   color:var(--b-chrome-fg)!important;
@@ -9516,18 +9516,18 @@ body:not(.dark-mode) #dv-tasks-count{ color:#5E5B68 !important; }
 }
 body.dark-mode #btn-qr, body.dark-mode #btn-text-size, body.dark-mode #dark-toggle,
 body.dark-mode #mobile-menu-btn, body.dark-mode #btn-more-wrap > button,
-body.dark-mode .hdr-sm, body.dark-mode .back-btn{
+body.dark-mode .hdr-sm{
   background:var(--b-chrome2)!important;
   border:1px solid var(--b-chrome-rule)!important;
   color:var(--b-chrome-fg)!important;
 }
 #btn-qr:active, #btn-text-size:active, #dark-toggle:active, #mobile-menu-btn:active,
-#btn-more-wrap > button:active, .hdr-sm:active, .back-btn:active{
+#btn-more-wrap > button:active, .hdr-sm:active{
   transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22)!important;
 }
 @media(hover:hover){
   #btn-qr:hover, #btn-text-size:hover, #dark-toggle:hover, #mobile-menu-btn:hover,
-  #btn-more-wrap > button:hover, .hdr-sm:hover, .back-btn:hover{
+  #btn-more-wrap > button:hover, .hdr-sm:hover{
     background:#9C2742!important; color:#fff!important; border-color:#9C2742!important;
   }
 }
