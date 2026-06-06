@@ -169,7 +169,7 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 .btn-sm{padding:5px 11px;font-size:calc(12.5px + var(--ts));}
 .btn-danger{background:#A85959;color:white;}.btn-danger:hover{background:#8A4A4A;}
 /* dark toggle uses hdr-btn class */
-.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:transparent;border:1px solid transparent;color:#fff;padding:0 12px 0 0;border-radius:6px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;margin-right:10px;min-height:40px;}.back-btn:hover{background:rgba(255,255,255,.1);border-color:transparent;}@media (pointer:coarse){.back-btn{min-height:44px;padding:0 14px 0 0;}}
+.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:transparent;border:1px solid transparent;color:var(--b-chrome-fg);padding:0 12px 0 0;border-radius:6px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;margin-right:10px;min-height:40px;}.back-btn:hover{background:var(--b-chrome-hover);border-color:transparent;}@media (pointer:coarse){.back-btn{min-height:44px;padding:0 14px 0 0;}}
 .section-nav{background:var(--b-chrome-bg);display:flex;gap:0;overflow-x:auto;padding:0 14px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav .nav-tab:first-child{padding-left:0;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:rgba(244,243,246,.6);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:var(--b-chrome-fg);}.nav-tab.active{color:var(--b-chrome-fg);border-bottom-color:var(--b-bar-accent);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
@@ -8855,7 +8855,7 @@ body.dark-mode{
   background:#0b0a0d; color:#f4f3f6;
 }
 :root{ --b-info:#2C7FB8; --b-info-bg:#DEEEF8; --b-rec:#D98A1E; --b-bar-a:#5BC0EB; --b-bar-b:#2C7FB8;
-  --b-chiphdr:#1B1A22; --b-chipink:#F4F3F6; --b-chipnum:#C9C5CE;
+  --b-chiphdr:#EFEDF0; --b-chipink:#1B1A22; --b-chipnum:#5E5B68;
   --b-glow1:radial-gradient(60% 50% at 8% 0%,rgba(156,39,66,.06),transparent 70%);
   --b-glow2:radial-gradient(55% 45% at 95% 4%,rgba(44,127,184,.06),transparent 70%);
   --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.93),rgba(255,255,255,.76));
@@ -8932,8 +8932,9 @@ body.dark-mode .nav-tab.active{border-bottom-color:var(--arencon);}
 .card-header.mid,.card-header.red{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;border-bottom:2px solid var(--arencon)!important;}
 .card-header svg{color:var(--arencon)!important;}
 .card-header::before{content:counter(boldsec,decimal-leading-zero);font-family:'Courier New',monospace;
-  font-size:calc(10.5px + var(--ts));font-weight:700;color:var(--b-chipnum);border:1px solid rgba(255,255,255,.22);
-  background:rgba(255,255,255,.07);border-radius:5px;padding:2px 7px;margin-right:2px;}
+  font-size:calc(10.5px + var(--ts));font-weight:700;color:var(--b-chipnum);border:1px solid var(--b-chrome-rule);
+  background:var(--surface);border-radius:5px;padding:2px 7px;margin-right:2px;}
+body.dark-mode .card-header::before{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.07);}
 /* dark mode: header blends into body — hairline, no burgundy slab; match dark specificity */
 body.dark-mode .card{background:var(--b-cardgrad)!important;border:1px solid var(--border)!important;}
 body.dark-mode .card-header,
@@ -9240,3 +9241,25 @@ body.dark-mode .cv-loc-thumb{background:#2a2d35;border-color:#3a3e48;}
 .drawing-viewer-overlay .dv-toolbar .tool-btn.active{background:#9C2742 !important;color:#fff !important;}
 .drawing-viewer-overlay #dv-sidebar-tools .tool-btn.active svg,
 .drawing-viewer-overlay .dv-toolbar .tool-btn.active svg{color:#fff !important;stroke:#fff !important;}
+
+/* ═══════ S249h — Drawings: enforce HORIZONTAL wrap (pre-existing bug, not theme) ═══════
+   Cards were stacking vertically. Force #drawings-container's card row to a
+   wrapping auto-fill grid so cards flow left→right and wrap to the next row
+   when they run out of width. Defensive: targets both the container and the
+   known row class. */
+#drawings-container .dwg-card-row,
+#drawings-container > .dwg-card-row{
+  display:grid !important;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr)) !important;
+  gap:12px !important;
+  justify-content:start !important;
+  align-items:start !important;
+}
+/* if the JS renders cards directly in the container without a row wrapper */
+#drawings-container:not(:has(.dwg-card-row)){
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:12px;
+  align-items:start;
+}
+#drawings-container .drawing-card{width:auto !important;min-width:0 !important;}
