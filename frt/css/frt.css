@@ -9672,7 +9672,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   padding:5px 12px !important; border-radius:6px !important;
   font-size:calc(12px + var(--ts)) !important; gap:4px !important;
   height:auto !important; min-height:0 !important; max-height:none !important;
-  display:inline-flex !important; align-items:center !important; justify-content:center !important;
+  align-items:center !important; justify-content:center !important;
   box-sizing:border-box !important;
 }
 
@@ -9734,6 +9734,3 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 @media(min-width:1025px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn, .app-header #mobile-menu-btn{ display:none !important; } }
 .mobile-menu #mobile-signout-btn, .mobile-menu .mm-btn.mm-signout{ background:#0F766E !important; color:#fff !important; border-color:#0F766E !important; }
 /* ── end S259 header button system ──────────────────────────────────── */
-
-/* S259: Load + Export All must NOT appear in the header. Load lives in the More menu (Load Project); Export All is not a feature. Hide both unconditionally. */
-#btn-load, #btn-export-all, .hdr-load, .hdr-export-all{ display:none !important; }
