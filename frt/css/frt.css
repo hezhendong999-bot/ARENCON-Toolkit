@@ -9650,80 +9650,74 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 /* end S250 §9 ──────────────────────────────────────────────────────── */
 
 /* ════════════════════════════════════════════════════════════════════
-   S250 §10 — MAIN HEADER Back button (#back-btn, left of the ARENCON logo).
-   It read as bare text, not a button: the neutral --b-chrome2 surface (#EFEDF0)
-   is nearly identical to the header bg (#E6E3E9) so the box vanished, the base
-   .back-btn had padding:0 12px 0 0 (no LEFT pad → text at the edge) and
-   min-height:40px (taller than the right-side buttons). This makes it a clean
-   even shadow box, padded both sides, height-matched to the other header
-   buttons. ID-scoped + last in file so it wins. Day surface lifted to white so
-   the box actually reads against the light header. ════════════════════════ */
-#back-btn{
-  background:#FFFFFF !important;
-  color:var(--b-chrome-fg) !important;
-  border:1px solid var(--b-chrome-rule) !important;
-  box-shadow:var(--b-btn-shadow) !important;
-  border-radius:6px !important;
-  height:34px !important; min-height:0 !important;
-  padding:0 12px !important;            /* EVEN padding both sides (was 0 left) */
-  margin-right:10px !important;
-  font-family:Calibri,sans-serif !important;
-  font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
-  display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:6px !important;
-  transition:background .15s, box-shadow .15s, transform .08s !important;
-}
-body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
-@media(pointer:coarse){ #back-btn{ height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 14px !important; } }
-@media(hover:hover){ #back-btn:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
-#back-btn:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
-/* end S250 §10 ─────────────────────────────────────────────────────── */
+   S259 — HEADER BUTTON SYSTEM (single source of truth).
+   Consolidates and REPLACES the layered patch history (S250 §10 back-btn,
+   S250 §14 CTA colours/icon sizing, S251f diesel-match). One block, one
+   place, matched property-for-property to the Diesel pump tool so every
+   tool's header lines up identically.
 
-/* ════════════════════════════════════════════════════════════════════
-   S250 §14 — header CTA colours, AI-review purple, FRT pill, + icon-button
-   size, all matched to the Diesel pump tool header (Mark-locked). Last in
-   file + !important so it wins the layered history.
-   • AI Review → Diesel Bold purple #7B2D8E (was muted #7B5A8F — wrong shade)
-   • Reports   → navy #1A237E (Diesel)
-   • More      → slate #455A64 (Diesel)
-   • Sign Out  → muted teal #2C7FB8 + WHITE text (kept distinct from AI Review;
-                 Diesel uses purple there but that would clash — Mark wants AI
-                 Review to stay the purple one)
-   • FRT #1 pill (#pb-inst) → Reports slate-blue #4A6580; DRAFT stays orange
-   • #btn-qr / #dark-toggle / #btn-text-size → 34x34 squares (38 coarse) — the
-     §7 block had grown them to width:auto/height:auto; restore Diesel icon size
-   • .hdr-btn height → Diesel: padding 5px 12px (coarse min-height 40, 8px 14px)
+   Root-cause fix for the back button: .app-header paints an opaque
+   background + backdrop-filter:blur, which composites OVER a child's
+   box-shadow on the two edges nearest the header (top/left), so the box
+   read flat there. Lifting #back-btn / #dv-close into their own stacking
+   context (position:relative; z-index) makes the shadow render above the
+   header background on all four sides. No pixel nudges, no negative
+   margins — the buttons land by construction.
+
+   ONE shared height (34px) for every header control so text CTAs, Back,
+   undo/redo and icon squares all align on the same baseline.
    ════════════════════════════════════════════════════════════════════ */
-#btn-ai-review[style*="background"], #btn-ai-review,
-.hdr-ai-active{ background:#7B2D8E !important; color:#fff !important; }
-#btn-reports-parent[style*="background"], #btn-reports-parent{ background:#1A237E !important; color:#fff !important; }
-#btn-more-wrap > button, .app-header #btn-more-wrap > button{ background:#455A64 !important; color:#fff !important; border:1px solid #455A64 !important; }
-#btn-signout{ background:#2C7FB8 !important; color:#FFFFFF !important; border:1px solid #2C7FB8 !important; font-weight:600 !important; }
-@media(hover:hover){
-  #btn-ai-review:hover, .hdr-ai-active:hover,
-  #btn-reports-parent:hover, #btn-more-wrap > button:hover, #btn-signout:hover{ filter:brightness(1.10); }
-}
-#pb-inst{ background:#4A6580 !important; color:#fff !important; }
 
-/* icon buttons → 34x34 squares (38 coarse), single height with everything else */
+/* ── 1 · Shared geometry: every header text button = 34px, padding 0 12px ── */
+.app-header .hdr-btn{
+  height:34px !important; min-height:0 !important; max-height:34px !important;
+  padding:0 12px !important; border-radius:6px !important;
+}
+
+/* ── 2 · Icon buttons (QR, day/night, text-size, hamburger) = 34×34 square ── */
 #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{
-  width:34px !important; height:34px !important; min-width:34px !important; min-height:0 !important; max-height:34px !important;
+  width:34px !important; height:34px !important; min-width:34px !important;
+  min-height:0 !important; max-height:34px !important;
   padding:0 !important; border-radius:6px !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
   font-size:calc(13px + var(--ts)) !important; line-height:1 !important;
 }
-@media(pointer:coarse){
-  #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{ width:34px !important; height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 !important; }
+
+/* ── 3 · CTA fill colours (Diesel-matched, Mark-locked) ── */
+#btn-ai-review[style*="background"], #btn-ai-review, .hdr-ai-active{ background:#7B2D8E !important; color:#fff !important; }
+#btn-reports-parent[style*="background"], #btn-reports-parent{ background:#1A237E !important; color:#fff !important; }
+#btn-more-wrap > button, .app-header #btn-more-wrap > button{ background:#455A64 !important; color:#fff !important; border:1px solid #455A64 !important; }
+#btn-signout{ background:#2C7FB8 !important; color:#FFFFFF !important; border:1px solid #2C7FB8 !important; font-weight:600 !important; }
+#pb-inst{ background:#4A6580 !important; color:#fff !important; }
+@media(hover:hover){
+  #btn-ai-review:hover, .hdr-ai-active:hover,
+  #btn-reports-parent:hover, #btn-more-wrap > button:hover, #btn-signout:hover{ filter:brightness(1.10); }
 }
-/* ALL header buttons share ONE height = AI Review / Reports height (34px, the
-   base .hdr-btn height). No height:auto / padding-driven heights — that was the
-   inconsistency. text CTAs, Back, and undo/redo all line up. */
-.app-header .hdr-btn{ height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 12px !important; border-radius:6px !important; }
-@media(pointer:coarse){ .app-header .hdr-btn, #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn{ height:34px !important; max-height:34px !important; } .app-header .hdr-btn{ padding:0 12px !important; } }
-/* Back button → 34px, identical to the others */
-#back-btn{ height:34px !important; min-height:0 !important; max-height:34px !important; padding:0 14px !important; }
-@media(pointer:coarse){ #back-btn{ height:34px !important; max-height:34px !important; padding:0 14px !important; } }
-/* undo/redo (.hdr-sm) → proper shadow-box buttons at the shared 34px height
-   (were bare transparent icons, wrong style). */
+
+/* ── 4 · Back button (main header) + Back (drawing viewer) — IDENTICAL.
+        Chrome box, 34px height, shadow on all four sides. Lifted above the
+        header background layer so the top/left shadow is not covered. ── */
+#back-btn,
+.drawing-viewer-overlay .dv-toolbar #dv-close{
+  position:relative !important; z-index:1 !important;     /* render above header bg/blur */
+  display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:6px !important;
+  background:var(--b-chrome2) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  color:var(--b-chrome-fg) !important;
+  height:34px !important; min-height:0 !important; max-height:34px !important;
+  padding:0 14px !important; border-radius:6px !important;
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(13px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
+  box-shadow:var(--b-btn-shadow) !important;
+  transition:background .15s, box-shadow .15s, transform .08s !important;
+  white-space:nowrap !important; flex-shrink:0 !important; box-sizing:border-box !important;
+}
+@media(hover:hover){
+  #back-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-close:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; }
+}
+#back-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-close:active{ transform:translateY(1px) !important; box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
+
+/* ── 5 · Undo/redo (.hdr-sm) → matching chrome shadow-box, 34×34 ── */
 .app-header .hdr-sm{
   background:var(--b-chrome2) !important; color:var(--b-chrome-fg) !important;
   border:1px solid var(--b-chrome-rule) !important; box-shadow:var(--b-btn-shadow) !important;
@@ -9731,115 +9725,25 @@ body.dark-mode #back-btn{ background:var(--b-chrome2) !important; }
   padding:0 !important; font-size:calc(15px + var(--ts)) !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
 }
-@media(pointer:coarse){ .app-header .hdr-sm{ width:34px !important; height:34px !important; } }
 @media(hover:hover){ .app-header .hdr-sm:hover{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; } }
 .app-header .hdr-sm:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
-/* end S250 §14 ─────────────────────────────────────────────────────── */
 
-/* ════════════════════════════════════════════════════════════════════
-   S251f — Header buttons matched EXACTLY to Diesel (single clean block,
-   replaces the patchwork S251c/d/e). Copied property-for-property from
-   ARENCON_Diesel_Fire_Pump_Commissioning.html:
-     • Colored CTAs (AI Review/Reports/More/Sign Out) = Diesel .hdr-btn
-       (line 40): padding 5px 12px, radius 6, gap 4, font calc(12px+var(--ts))
-       600, border:none, color white, box-shadow var(--b-btn-shadow),
-       hover brightness(1.15), active dip. NATURAL height (no fixed px).
-     • Back (#back-btn) + viewer Back (#dv-close) = Diesel .back-btn (line 35):
-       chrome2 bg, 1px chrome-rule border, padding 5px 12px, radius 6, gap 6,
-       font calc(13px+var(--ts)) 600, box-shadow, hover rgba(255,255,255,.22).
-     • Sign Out fill = #0F766E (Diesel inline color).
-     • Mobile (<=1024): colored CTAs collapse into hamburger (matches Diesel
-       .header-actions .hdr-btn{display:none}); QR + day/night stay in header.
-   ════════════════════════════════════════════════════════════════════ */
-
-/* ── Colored CTAs: Diesel .hdr-btn geometry (natural height) ── */
-#btn-ai-review, .hdr-ai-active,
-#btn-reports-parent,
-#btn-more-wrap > button,
-#btn-signout{
-  display:inline-flex !important;
-  align-items:center !important;
-  gap:4px !important;
-  padding:5px 12px !important;
-  border-radius:6px !important;
-  font-family:Calibri,sans-serif !important;
-  font-size:calc(12px + var(--ts)) !important;
-  font-weight:600 !important;
-  line-height:normal !important;
-  height:auto !important;
-  min-height:0 !important;
-  max-height:none !important;
-  border:none !important;
-  color:#fff !important;
-  cursor:pointer !important;
-  white-space:nowrap !important;
-  box-shadow:var(--b-btn-shadow) !important;
-  transition:box-shadow .15s, transform .08s, filter .15s !important;
-  box-sizing:border-box !important;
+/* ── 6 · Touch (coarse) — keep the SAME 34px baseline (no diesel-small drift) ── */
+@media(pointer:coarse){
+  .app-header .hdr-btn, #back-btn, .drawing-viewer-overlay .dv-toolbar #dv-close,
+  #btn-qr, #dark-toggle, #btn-text-size, #mobile-menu-btn, .app-header .hdr-sm{
+    height:34px !important; max-height:34px !important;
+  }
 }
-@media(hover:hover){
-  #btn-ai-review:hover, .hdr-ai-active:hover,
-  #btn-reports-parent:hover,
-  #btn-more-wrap > button:hover,
-  #btn-signout:hover{ filter:brightness(1.15) !important; }
-}
-#btn-ai-review:active, .hdr-ai-active:active,
-#btn-reports-parent:active,
-#btn-more-wrap > button:active,
-#btn-signout:active{ transform:translateY(1px) !important; box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
 
-/* ── CTA fills (only thing that differs). Attr selector beats inline style ── */
-#btn-ai-review, #btn-ai-review[style*="background"], .hdr-ai-active{ background:#7B2D8E !important; }
-#btn-reports-parent, #btn-reports-parent[style*="background"]{ background:#1A237E !important; }
-#btn-more-wrap > button, #btn-more-wrap > button[style*="background"]{ background:#455A64 !important; }
-#btn-signout, #btn-signout[style*="background"]{ background:#0F766E !important; }
-
-/* ── Back + viewer Back: Diesel .back-btn (chrome box) ── */
-#back-btn, #back-btn[style*="background"],
-.drawing-viewer-overlay .dv-toolbar #dv-close{
-  display:inline-flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  gap:6px !important;
-  background:var(--b-chrome2) !important;
-  border:1px solid var(--b-chrome-rule) !important;
-  color:var(--b-chrome-fg) !important;
-  padding:5px 12px !important;
-  border-radius:6px !important;
-  font-family:Calibri,sans-serif !important;
-  font-size:calc(13px + var(--ts)) !important;
-  font-weight:600 !important;
-  line-height:normal !important;
-  height:auto !important; min-height:0 !important; max-height:none !important;
-  cursor:pointer !important;
-  box-shadow:var(--b-btn-shadow) !important;
-  transition:box-shadow .15s, transform .08s, background .15s !important;
-  white-space:nowrap !important;
-  flex-shrink:0 !important;
-  box-sizing:border-box !important;
-}
-@media(hover:hover){
-  #back-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-close:hover{ background:rgba(255,255,255,.22) !important; }
-}
-#back-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-close:active{ transform:translateY(1px) !important; box-shadow:0 1px 2px rgba(0,0,0,.22) !important; }
-
-/* dark mode: Diesel adds a stronger shadow on colored CTAs */
-body.dark-mode #btn-ai-review, body.dark-mode .hdr-ai-active,
-body.dark-mode #btn-reports-parent,
-body.dark-mode #btn-more-wrap > button,
-body.dark-mode #btn-signout{ box-shadow:0 1px 4px rgba(0,0,0,.4) !important; }
-
-/* mobile sign-out in drawer keeps the teal */
-.mobile-menu #mobile-signout-btn, .mobile-menu .mm-btn.mm-signout{ background:#0F766E !important; color:#fff !important; border-color:#0F766E !important; }
-
-/* ── Mobile header (<=1024px): QR + day/night OUTSIDE; CTAs + text-size + Sign Out in drawer ── */
+/* ── 7 · Mobile drawer (<=1024px): QR + day/night stay in header; CTAs go to drawer ── */
 @media(max-width:1024px){
   .header-actions > #btn-qr{ display:inline-flex !important; }
   .header-actions > #dark-toggle{ display:inline-flex !important; }
   .header-actions > #btn-text-size{ display:none !important; }
   .header-actions > #btn-signout{ display:none !important; }
+  #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:inline-flex !important; }
 }
-/* hamburger: desktop hide by width (touchscreen laptops report coarse) */
 @media(min-width:1025px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:none !important; } }
-@media(max-width:1024px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:inline-flex !important; } }
-/* end S251f ─────────────────────────────────────────────────────────── */
+.mobile-menu #mobile-signout-btn, .mobile-menu .mm-btn.mm-signout{ background:#2C7FB8 !important; color:#fff !important; border-color:#2C7FB8 !important; }
+/* ── end S259 header button system ──────────────────────────────────── */
