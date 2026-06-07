@@ -454,7 +454,8 @@ export var SyncEngine = {
    * If the network pull succeeds, the in-memory snapshot is overwritten
    * with the fresh cloud data and persisted back to IDB.
    */
-  pull: function(projectId, instanceId) {
+  pull: function(projectId, instanceId, opts) {
+    opts = opts || {};
     var path;
     if (instanceId) {
       path = '/rest/v1/tool_data?select=*&id=eq.' + instanceId;
@@ -482,6 +483,30 @@ export var SyncEngine = {
       _instanceId = row.id;
       _instanceNumber = row.instance_number || 1;
       _lastSeenUpdatedAt = row.updated_at || null;
+
+      // S263 STALE-OVERWRITE GUARD — the existing _guardEmptyArrays /
+      // _guardArrayShrinkage guards catch MISSING items, but NOT stale FIELD
+      // values inside existing items (e.g. an observation whose text the cloud
+      // copy hasn't received yet because the push timed out). Symptom: typed
+      // comments vanish when a silent pull replaces the project with a cloud
+      // copy older than the local edits. Gate: if the LOCAL in-memory project
+      // is strictly NEWER than this cloud row, skip the overwrite and keep
+      // local. The cloud's changes arrive on the next pull AFTER local has
+      // pushed. Explicit pulls (manual "Pull now", initial load) pass
+      // opts.allowStaleOverwrite=true to bypass — the user / first-load
+      // deliberately wants the cloud copy. Auto/silent pulls are gated.
+      if (!opts.allowStaleOverwrite) {
+        try {
+          var localProj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
+          var localMod = localProj && localProj.modified ? Date.parse(localProj.modified) : 0;
+          var cloudMod = row.updated_at ? Date.parse(row.updated_at) : 0;
+          if (localProj && localMod && cloudMod && localMod > cloudMod) {
+            console.warn('[Sync] STALE-OVERWRITE GUARD: local (' + localProj.modified +
+              ') is newer than cloud (' + row.updated_at + ') — skipping pull overwrite to protect unsynced local edits.');
+            return null;  // keep local; do NOT setProject the stale cloud copy
+          }
+        } catch (e) { /* on any doubt, fall through to normal pull */ }
+      }
 
       var data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
       if (data) {

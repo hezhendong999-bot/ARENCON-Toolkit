@@ -989,7 +989,9 @@ function _showRemoteUpdateBanner(remoteTs){
     // and the project standard is "no native confirm/alert/prompt".
     showConfirm('Pull from cloud?', 'Pulling will overwrite your unsaved local changes. Continue?').then(function(yes) {
       if (!yes) return;
-      SyncEngine.pull(_projectId, SyncEngine.instanceId).then(function(data){
+      // Explicit user choice — bypass the S263 stale-overwrite gate (the
+      // confirm above already warns this overwrites local).
+      SyncEngine.pull(_projectId, SyncEngine.instanceId, { allowStaleOverwrite: true }).then(function(data){
         if (data) { _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); }
         b.remove();
       });
@@ -2115,7 +2117,10 @@ function boot() {
       // S129: wait on fastPathDone so loadIDBSnapshot has set _lastSeen*
       // before pull() starts (lets pull() do a proper 3-way merge if needed).
       return fastPathDone.then(function() {
-        return SyncEngine.pull(_projectId, instanceId);
+        // Initial load — adopt cloud (S263 gate bypassed; the fast-path IDB
+        // snapshot sets _lastSeen* for the 3-way merge, and on first load there
+        // is no in-progress local edit to protect).
+        return SyncEngine.pull(_projectId, instanceId, { allowStaleOverwrite: true });
       });
     } else {
       // Standalone: load from IDB
