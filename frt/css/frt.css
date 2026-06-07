@@ -888,7 +888,12 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
   /* Cloud status: keep dot + last-sync timing, hide verbose label */
   #cloud-status-text{display:none!important;}
   #cloud-status{gap:0!important;padding:0!important;}
-  .app-title{display:none!important;}
+  /* S263: title stays visible at ≤1200px. Once the action row collapses into
+     the hamburger (above), there is ample free space, so hiding the title left
+     a near-empty header with no tool name (the 1187px "missing title" bug). The
+     span already has text-overflow:ellipsis + min-width:0, so it truncates
+     gracefully if space ever tightens. Title still hides at 600px/480px below,
+     where space is genuinely scarce. */
   .section-nav .nav-tab{padding:10px 14px;font-size:calc(13px + var(--ts));}
   .proj-grid{grid-template-columns:1fr;}
   .pin-panel{width:100%;right:0;}
