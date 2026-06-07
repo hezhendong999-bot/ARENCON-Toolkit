@@ -9182,15 +9182,9 @@ body .cv-row .dfx-obsrow{background:transparent;border:0;border-radius:0;margin-
 body .cv-row .dfx-obsrow:hover{box-shadow:none;border-color:transparent;}
 body .cv-row .dfx-obsrow.open{box-shadow:none;border-color:transparent;}
 
-/* S248: body-line category pill (demo .pill) — filled tint + category text.
-   Sits on the row meta line beside the contractor dot. Site Record = lavender,
-   Recommendation = amber. Tokens auto-switch per Bold mode. */
-.dfx-or-catpill{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 9px;
-  border-radius:12px;border:1px solid transparent;white-space:nowrap;margin-left:2px;}
-.dfx-or-catpill.cv-cat-active{background:var(--b-cat-active-bg);color:var(--b-cat-active-fg);border-color:color-mix(in srgb,var(--b-cat-active-fg) 30%,transparent);}
-.dfx-or-catpill.cv-cat-rec{background:var(--b-cat-rec-bg);color:var(--b-cat-rec-fg);border-color:color-mix(in srgb,var(--b-cat-rec-fg) 35%,transparent);}
-.dfx-or-catpill.cv-cat-site{background:var(--b-cat-site-bg);color:var(--b-cat-site-fg);border-color:color-mix(in srgb,var(--b-cat-site-fg) 35%,transparent);}
-.dfx-or-catpill.cv-cat-closed{background:var(--b-cat-closed-bg);color:var(--b-cat-closed-fg);border-color:color-mix(in srgb,var(--b-cat-closed-fg) 35%,transparent);}
+/* S263 cleanup: the S248 body-line category pill (.dfx-or-catpill + its
+   .cv-cat-* variants) is REMOVED — dead since the category pill was retired in
+   favour of the tappable status pill; zero JS references. */
 
 /* ════════ S263: TAPPABLE STATUS PILL → COLORED POPOVER ════════
    The four-segment category strip (.cv-catpill/.cv-catseg) is RETIRED. The
