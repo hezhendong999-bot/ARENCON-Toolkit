@@ -9545,6 +9545,9 @@ body.dark-mode{ --b-btn-shadow:0 2px 6px rgba(0,0,0,.40); }
 .cv-row .dfx-or-title{
   font-size:calc(13px + var(--ts)) !important; line-height:1.25 !important;
 }
+/* S263: empty-obs title (multi-obs pin, this obs has no text yet) — muted/italic
+   so it reads as "no description" instead of looking like borrowed content. */
+.cv-row .dfx-or-title.dfx-or-title-empty{ color:var(--b-pill-seg-fg,#928E9C) !important; font-style:italic !important; }
 .cv-row .dfx-or-chip{
   font-size:calc(10px + var(--ts)) !important; padding:2px 8px !important;
   border-radius:9px !important;

@@ -2150,7 +2150,14 @@ function _buildObsRow(d, oi, ctrId, opts) {
   // segment (per-obs, preserving _recHoldUntilNav mis-tap-undo).
   h += '<span class="dfx-or-id" style="background:' + esc(accent) + '">' + esc(label) + '</span>';
   h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
-  h += '<span class="dfx-or-mid"><span class="dfx-or-title">' + esc(o.text || deficDesc(d) || '\u2014') + '</span>';
+  // S263: collapsed-row title shows THIS observation's own text. For a SINGLE
+  // -obs pin, fall back to the pin description (deficDesc) when the obs text is
+  // empty — that's the pin's description and is meaningful. But for a MULTI-obs
+  // pin, deficDesc returns observations[0].text, so an empty obs B/C/… would
+  // borrow obs A's text (the "3B mirrors 3A" report — data was fine, only the
+  // title fell back). So multi-obs rows use a neutral placeholder when empty.
+  var _titleTxt = o.text || (multi ? '' : deficDesc(d)) || '\u2014';
+  h += '<span class="dfx-or-mid"><span class="dfx-or-title' + (o.text ? '' : ' dfx-or-title-empty') + '">' + esc(_titleTxt) + '</span>';
   // S248: under-text category pill REMOVED — it duplicated the far-right pill.
   // S248 §4: the contractor colour dot here is ALSO removed (band + pin badge
   // already carry the identity). The .dfx-or-meta span held only those two and
@@ -5543,10 +5550,17 @@ function _cvRefitDrawing(deficId) {
   var d = f.defic;
   // only when the desktop box is actually present (a row is open on desktop)
   if (!document.getElementById('cv-pe-location-thumb')) return;
-  try {
-    window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb');
-    window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb-mobile');
-  } catch (e) {}
+  // rAF so the render reads the box's SETTLED height — after the auto-grown
+  // textarea has reflowed the column. Without this the renderer occasionally
+  // read a stale (pre-reflow) height, so the drawing didn't update until a
+  // later event (the click-on-whitespace) forced a fresh render.
+  requestAnimationFrame(function() {
+    if (!document.getElementById('cv-pe-location-thumb')) return;
+    try {
+      window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb');
+      window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb-mobile');
+    } catch (e) {}
+  });
 }
 // Debounced wrapper: fires ~350ms after the last keystroke so the box has
 // settled at its new height, then re-fits once.
