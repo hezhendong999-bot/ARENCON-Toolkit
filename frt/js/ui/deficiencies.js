@@ -1797,13 +1797,17 @@ export var initDeficiencies = {
     allDefics.forEach(function(rec) {
       var d = rec.defic;
       var hasCtr = !!rec.contractorId;
-      var isRec = !!d.isRecommendation;
-      var isSite = !isRec && !hasCtr;
       (d.observations || []).forEach(function(o) {
+        // S262: count PER-OBSERVATION (mirrors the per-obs filter) so each
+        // segment badge equals exactly what that segment will SHOW. A split
+        // pin with a rec obs + a non-rec obs now contributes to BOTH the rec
+        // and outstanding/site counts independently, not the whole pin to rec.
+        var oIsRec = !!o.isRecommendation;
+        var oIsSite = !oIsRec && !hasCtr;
         if (o.addressed) { pcClosed++; ccClosed++; }
         else { pcActive++; }
-        if (isRec) ccRec++;
-        else if (isSite) ccSite++;
+        if (oIsRec) ccRec++;
+        else if (oIsSite) ccSite++;
         else if (!o.addressed) ccOutstanding++;
       });
     });
@@ -1857,9 +1861,20 @@ function _flatRows(proj, ignorePivot, ignoreRecMode) {
   //   deficiency     → non-rec AND has a contractor
   // 'def' now means deficiencies-WITH-a-contractor only (Site Records gets
   // its own segment, mirroring how 'def' already hides Recommendations).
-  // Returns true if the active _dfxRecMode filters this row OUT.
-  function _recModeDrops(d, hasCtr) {
-    var isRec = !!d.isRecommendation;
+  // S262: PER-OBSERVATION rec-mode filter. The previous version read
+  // PIN-LEVEL d.isRecommendation, which dragged an ENTIRE split pin into the
+  // Recommendations segment whenever ANY observation on it was a rec — so a
+  // non-rec observation (e.g. 2B) appeared under Recommendations carrying its
+  // own correct "Outstanding" pill (the S261-confirmed 2B contradiction).
+  // The filter now classifies the SAME per-observation nature the render path
+  // and the pill already use, so filter = grouping = pill, one source of
+  // truth (_deriveCategory). The pivot (_activeDlcTab) still owns the
+  // open/closed axis; here we test only the rec/site/def NATURE, so we read
+  // the obs's underlying category with addressed ignored.
+  //   o === null → legacy 0-obs pin: there is no per-obs flag, so fall back
+  //   to the pin-level rec flag for that single recoverable edge case.
+  function _recModeDrops(d, hasCtr, o) {
+    var isRec = (o && typeof o === 'object') ? !!o.isRecommendation : !!d.isRecommendation;
     var isSiteRec = !isRec && !hasCtr;
     var isDef = !isRec && hasCtr;
     if (_dfxRecMode === 'def') return !isDef;
@@ -1879,7 +1894,7 @@ function _flatRows(proj, ignorePivot, ignoreRecMode) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !closed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri) return;            // no obs → no priority to match
-      if (!ignoreRecMode && _recModeDrops(d, !!(rec.contractorId))) return;  // S150 4-state filter (S153: lane view passes all classes)
+      if (!ignoreRecMode && _recModeDrops(d, !!(rec.contractorId), null)) return;  // S262: per-obs filter; 0-obs pin falls back to pin-level rec flag
       if (q && (deficDesc(d) || '').toLowerCase().indexOf(q) < 0) return;
       rows.push({ d: d, o: null, oi: -1, ctrId: rec.contractorId || null, ctrName: ctrLabel(rec.contractorName) || SITE_RECORDS_LABEL });
       return;
@@ -1890,7 +1905,7 @@ function _flatRows(proj, ignorePivot, ignoreRecMode) {
       if (!ignorePivot && _activeDlcTab === 'closed' && !addressed) return;
       if (_dfxCtr && (rec.contractorId || '') !== _dfxCtr) return;
       if (_dfxPri && (o.priority || 'high') !== _dfxPri) return;
-      if (!ignoreRecMode && _recModeDrops(d, !!(rec.contractorId))) return;  // S150 4-state filter (S153: lane view passes all classes)
+      if (!ignoreRecMode && _recModeDrops(d, !!(rec.contractorId), o)) return;  // S262: per-obs filter — each obs lands in its own segment
       if (q && (o.text || '').toLowerCase().indexOf(q) < 0) return;
       rows.push({ d: d, o: o, oi: oi, ctrId: rec.contractorId || null, ctrName: ctrLabel(rec.contractorName) || SITE_RECORDS_LABEL });
     });
@@ -3693,7 +3708,18 @@ function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
     sel.value = _dfxCtr;
   }
   var pri = document.getElementById('dfx-pri');
-  if (pri && document.activeElement !== pri) pri.value = _dfxPri;
+  if (pri) {
+    // S262: priority (High/Low) only partitions the Outstanding working list.
+    // Under Recommendations / Site Records / Closed it is meaningless, so the
+    // control is FROZEN (disabled + dimmed) and any stale selection is cleared
+    // so it can't silently filter those segments. Re-enabled on Outstanding.
+    var _priLive = (_deriveCatFilter() === 'outstanding');
+    if (!_priLive && _dfxPri) _dfxPri = '';
+    pri.disabled = !_priLive;
+    pri.classList.toggle('dfx-pri-frozen', !_priLive);
+    pri.title = _priLive ? '' : 'Priority applies to Outstanding items only';
+    if (document.activeElement !== pri) pri.value = _dfxPri;
+  }
   var sb = document.getElementById('dfx-search');
   if (sb && document.activeElement !== sb) sb.value = _dfxSearch;
   // S150 (was S140 B2b): 4-state rec-mode segmented control (def / rec /

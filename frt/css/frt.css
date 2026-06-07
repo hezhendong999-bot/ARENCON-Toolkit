@@ -7463,6 +7463,20 @@ select.dfx-filter-input {
   text-overflow: ellipsis;
 }
 select.dfx-filter-input#dfx-pri { width: 150px; }
+/* S262: priority filter frozen outside the Outstanding segment. Priority
+   (High/Low) only partitions Outstanding items; under Recommendations /
+   Site Records / Closed it is meaningless, so the control dims + disables
+   rather than silently filtering those segments. Muted, not bright. */
+select.dfx-filter-input#dfx-pri.dfx-pri-frozen {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #ECEAEF;
+  color: #928E9C;
+}
+body.dark-mode select.dfx-filter-input#dfx-pri.dfx-pri-frozen {
+  background: #181E2B;
+  color: #6B7488;
+}
 body.dark-mode .dfx-filter-input {
   background: #1C2333;
   border-color: #3A4258;
