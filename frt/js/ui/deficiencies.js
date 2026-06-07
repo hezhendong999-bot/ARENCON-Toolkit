@@ -5532,6 +5532,29 @@ function _cvAutosizeAll(root) {
   scope.querySelectorAll('textarea.obs-text-input').forEach(_cvAutosizeTextarea);
 }
 
+// S263: re-fit the open row's drawing to its (possibly grown) box. Called on a
+// DEBOUNCED one-shot timer after typing pauses + on blur — NOT on a continuous
+// observer (that looped and flashed). One render per call, so it can't loop.
+var _cvRefitTimer = 0;
+function _cvRefitDrawing(deficId) {
+  if (!window._frtRenderPinMiniMap) return;
+  var f = Model.findDeficiency(deficId);
+  if (!f || !f.defic || !f.defic.drawingId) return;
+  var d = f.defic;
+  // only when the desktop box is actually present (a row is open on desktop)
+  if (!document.getElementById('cv-pe-location-thumb')) return;
+  try {
+    window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb');
+    window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb-mobile');
+  } catch (e) {}
+}
+// Debounced wrapper: fires ~350ms after the last keystroke so the box has
+// settled at its new height, then re-fits once.
+function _cvRefitDrawingDebounced(deficId) {
+  if (_cvRefitTimer) clearTimeout(_cvRefitTimer);
+  _cvRefitTimer = setTimeout(function() { _cvRefitDrawing(deficId); }, 350);
+}
+
 // Observation text editing with debounce
 var _noteDebounce = {};
 document.addEventListener('input', function(e) {
@@ -5543,6 +5566,9 @@ document.addEventListener('input', function(e) {
     // photo box growing when photos are added.
     _cvAutosizeTextarea(e.target);
     var deficId = e.target.getAttribute('data-defic-id');
+    // S263: the box grows with the comment, so re-fit the drawing once typing
+    // pauses (debounced one-shot — never a continuous observer, which looped).
+    _cvRefitDrawingDebounced(deficId);
     var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
     var text = e.target.value;
     // Clear AI review indicator on manual edit
