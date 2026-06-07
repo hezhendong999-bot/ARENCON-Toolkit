@@ -9729,11 +9729,12 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .app-header .hdr-btn, .app-header #btn-more-wrap > button{
     min-height:40px !important; height:auto !important; max-height:none !important; padding:8px 14px !important;
   }
-  #btn-qr, #dark-toggle{
-    min-height:40px !important; height:auto !important; max-height:none !important; padding:8px 14px !important;
-  }
-  #mobile-menu-btn{
-    width:36px !important; height:36px !important; min-height:36px !important; max-height:36px !important;
+  /* S260f: QR + day/night = SAME 36x36 square as the hamburger on coarse/mobile.
+     No big padding — match #mobile-menu-btn exactly. */
+  #btn-qr, #dark-toggle, #mobile-menu-btn{
+    width:36px !important; height:36px !important;
+    min-width:36px !important; min-height:36px !important; max-height:36px !important;
+    padding:0 !important; font-size:16px !important; line-height:1 !important;
   }
 }
 
