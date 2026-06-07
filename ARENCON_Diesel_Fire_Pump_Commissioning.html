@@ -764,9 +764,10 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .app-title{font-size:calc(13px + var(--ts))!important;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;line-height:1.2;max-width:none;min-width:0;}
   #build-stamp{display:none!important;}
   /* Cloud status: keep the light visible, never clipped behind the hamburger */
-  /* S272: push the cloud dot to the RIGHT so it sits beside the QR/day-night squares
-     instead of floating in the middle-left. margin-left:auto eats the free space. Matches FRT. */
-  #cloud-status{margin-left:auto!important;margin-right:2px!important;flex-shrink:0;}
+  /* S273: match FRT exactly (frt.css line 878/885) — cloud-status stays in the right cluster
+     by natural flow (the flex:1 title group pushes header-actions right). No margin-left:auto
+     (that was shoving the squares away from the dot). Tight gap, dot sits beside the squares. */
+  #cloud-status{gap:0!important;padding:0!important;flex-shrink:0;margin:0!important;}
   #cloud-status #cloud-status-text{display:none;}
   /* S267: also hide the last-sync text on mobile — it crowded the icon buttons against the
      edge. Keep only the green dot as the quiet status indicator (matches FRT mobile). */
@@ -12121,15 +12122,15 @@ body.dark-mode #dark-toggle, body.dark-mode #btn-qr, body.dark-mode .text-size-t
    than FRT. Font flat per FRT. */
 #dark-toggle, #btn-qr, .mobile-menu-btn{
   width:34px!important; height:34px!important;
-  min-width:34px!important; min-height:34px!important;
+  min-width:34px!important; min-height:34px!important; max-width:34px!important; max-height:34px!important;
   padding:0!important;
   font-size:calc(16px + var(--ts))!important;
   display:inline-flex!important; align-items:center!important; justify-content:center!important;
   line-height:1!important; border-radius:6px!important; flex-shrink:0!important;
 }
-#dark-toggle img{ width:18px!important; height:18px!important; }
+#dark-toggle img{ width:18px!important; height:18px!important; min-width:18px!important; min-height:18px!important; max-width:18px!important; max-height:18px!important; }
 @media(pointer:coarse){
-  #dark-toggle, #btn-qr, .mobile-menu-btn{ width:36px!important; height:36px!important; min-width:36px!important; min-height:36px!important; max-height:36px!important; font-size:16px!important; line-height:1!important; }
+  #dark-toggle, #btn-qr, .mobile-menu-btn{ width:36px!important; height:36px!important; min-width:36px!important; min-height:36px!important; max-width:36px!important; max-height:36px!important; font-size:16px!important; line-height:1!important; }
 }
 @media(hover:hover){
   #dark-toggle:hover, #btn-qr:hover, .text-size-toggle:hover{background:#9C2742!important;color:#fff!important;border-color:#9C2742!important;}
