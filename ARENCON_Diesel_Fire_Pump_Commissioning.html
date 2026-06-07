@@ -765,6 +765,12 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   /* Cloud status: keep the light visible, never clipped behind the hamburger */
   #cloud-status{margin-left:6px!important;flex-shrink:0;}
   #cloud-status #cloud-status-text{display:none;}
+  /* S267: also hide the last-sync text on mobile — it crowded the icon buttons against the
+     edge. Keep only the green dot as the quiet status indicator (matches FRT mobile). */
+  #cloud-status #last-sync-text{display:none!important;}
+  /* S267: breathing room — right margin off the edge + a slightly wider gap so QR / day-night /
+     hamburger read as separate buttons, not one crammed block (matches FRT margin-right:8px). */
+  .header-actions{gap:8px!important;margin-right:8px!important;}
   /* S252: day/night toggle stays in the header as a 34x34 chrome box (match FRT); hidden while the menu drawer is open */
   .header-actions #dark-toggle{justify-content:center;flex-shrink:0;margin-left:0;}
   .header-actions.mobile-open #dark-toggle{display:none!important;}
@@ -11997,6 +12003,13 @@ body.dark-mode .project-bar{background:var(--b-chrome2)!important;
 
 /* ---------- MOBILE PAGE NAV ---------- */
 #mobile-page-nav{background:var(--b-chrome-bg)!important;border-top:3px solid var(--arencon)!important;}
+/* S267: Prev/Next buttons had inline white text on a near-transparent white fill — invisible
+   once the Bold theme flipped the bar background to light. Restyle to readable Bold chrome:
+   Prev = neutral surface, Next = burgundy CTA, both with a clear disabled state. */
+#mobile-page-nav #nav-prev{background:var(--b-chrome2)!important;color:var(--b-chrome-fg)!important;border:1px solid var(--b-chrome-rule)!important;box-shadow:var(--b-btn-shadow)!important;}
+#mobile-page-nav #nav-next{background:var(--arencon)!important;color:#fff!important;border:1px solid var(--arencon)!important;box-shadow:var(--b-btn-shadow)!important;}
+#mobile-page-nav #nav-prev:disabled,#mobile-page-nav #nav-next:disabled{opacity:.4!important;cursor:default!important;box-shadow:none!important;}
+#mobile-page-nav #nav-label{color:var(--b-chrome-fg)!important;opacity:.7;}
 
 /* ---------- FLOW-CHART HEADER (.fig-hd) -> match the Bold black slab ---------- */
 /* It kept the old burgundy (var(--arencon)) bar while every .card-header became the
