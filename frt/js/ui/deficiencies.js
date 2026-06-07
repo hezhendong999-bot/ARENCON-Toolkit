@@ -1746,6 +1746,10 @@ function _showCtrEditDialog(ctr) {
 export var initDeficiencies = {
 
   render: function() {
+    // S263 (portal fix): close any open status popover before re-rendering. The
+    // open menu may be portaled onto document.body; a render rebuilds the list
+    // and would orphan it. Closing returns it home / clears refs first.
+    if (typeof _cvCloseStatusMenus === 'function') _cvCloseStatusMenus();
     _recHoldUntilNav = false;  // S150g: any deliberate render resettles the list
     // S248: combined-view delayed re-sort. A deliberate render (tab switch,
     // filter, project/photo load) resettles the list, so a stale ordering
@@ -3089,11 +3093,14 @@ function _cvSetStatus(deficId, obsIdx, choice) {
 
   if (typeof Model.saveNow === 'function') Model.saveNow();
 
-  // Mark PENDING (Option D) and patch the pill in place — no re-group. The full
+  // Mark PENDING (Option D). Close FIRST so the portaled menu is cleaned up,
+  // THEN patch the pill in place (rebuilds the anchor with a fresh closed menu).
+  // Order matters: patching first would replace the anchor while the old menu
+  // is still portaled on body, leaving it orphaned. No re-group — the full
   // resettle happens on the manual Re-sort button.
   _cvPendingKeys[_obsKey(deficId, obsIdx)] = true;
-  _cvPatchRowPill(deficId, obsIdx);
   _cvCloseStatusMenus();
+  _cvPatchRowPill(deficId, obsIdx);
   _cvSyncResortBtn();
 }
 
@@ -3126,19 +3133,29 @@ function _cvPatchRowPill(deficId, obsIdx) {
 }
 
 // Close any open status popover + reset the pills' aria-expanded + active cue.
+// S263 (portal fix): the open menu was MOVED to document.body to escape the
+// card's overflow:hidden clip. On close, return it to its home anchor so the
+// next render finds it where it expects (and so DOM stays tidy).
 function _cvCloseStatusMenus() {
+  if (_cvOpenMenu && _cvOpenMenuHome && _cvOpenMenu.parentElement === document.body) {
+    try { _cvOpenMenuHome.appendChild(_cvOpenMenu); } catch (e) {}
+    _cvOpenMenu.style.left = ''; _cvOpenMenu.style.top = '';
+  }
   document.querySelectorAll('.cv-statusmenu.open').forEach(function(m) { m.classList.remove('open'); });
   document.querySelectorAll('.cv-pill.cv-pill-active').forEach(function(p) { p.classList.remove('cv-pill-active'); });
   document.querySelectorAll('.cv-pill[aria-expanded="true"]').forEach(function(p) { p.setAttribute('aria-expanded', 'false'); });
   _cvOpenPill = null;
   _cvOpenMenu = null;
+  _cvOpenMenuHome = null;
 }
 
 // S263 (fix): the open pill + its menu, tracked module-side so scroll/resize
 // can REPOSITION (not close) — a fixed menu must follow its pill when the
-// layout reflows (F12 open, window resize, fullscreen). Cleared on close.
+// layout reflows. _cvOpenMenuHome remembers the anchor the menu was lifted
+// FROM (it lives on document.body while open) so close can put it back.
 var _cvOpenPill = null;
 var _cvOpenMenu = null;
+var _cvOpenMenuHome = null;
 
 // Position a fixed popover from its pill's LIVE rect, with flips so it never
 // runs off the right edge or below the fold. Called on open and on every
@@ -3165,10 +3182,11 @@ function _cvPositionMenu(menu, pill) {
 }
 
 // Toggle one row's popover open/closed (tap-to-open). Closes others first so
-// only one menu is ever open. The menu is position:fixed (escapes the card's
-// overflow:hidden); _cvPositionMenu anchors it to the pill and scroll/resize
-// re-anchors it. The open pill gets .cv-pill-active for a clear "working on
-// this one" cue.
+// only one menu is ever open. S263 (portal fix): the menu is MOVED to
+// document.body on open so the card's overflow:hidden (the border that was
+// clipping it) can't trap it — it renders at the top of the page, above
+// everything. position:fixed + _cvPositionMenu anchors it to the pill; on
+// close it's returned to its home anchor. The open pill gets .cv-pill-active.
 function _cvToggleStatusMenu(pillEl) {
   var anchor = pillEl.closest('.cv-pill-anchor');
   if (!anchor) return;
@@ -3177,6 +3195,11 @@ function _cvToggleStatusMenu(pillEl) {
   var wasOpen = menu.classList.contains('open');
   _cvCloseStatusMenus();
   if (wasOpen) return;
+
+  // Portal: lift the menu out of the clipping card and onto document.body.
+  // Remember its home so close can return it.
+  _cvOpenMenuHome = menu.parentElement;
+  document.body.appendChild(menu);
 
   // Open + measure off-screen so offsetWidth/Height are real, then position.
   menu.style.visibility = 'hidden';
