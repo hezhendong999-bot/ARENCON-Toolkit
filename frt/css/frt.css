@@ -9686,7 +9686,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
    L 38x38 font18 → calc(34px+ts) size, calc(14px+ts) font). Filled bg #EFEDF0,
    border 1px #D2CEDB, pad 0. .app-header prefix needed to beat the transparent
    light-mode rule. Hamburger keeps its own square. */
-.app-header #btn-qr, .app-header #dark-toggle{
+.app-header #btn-qr, .app-header #dark-toggle, .app-header #btn-text-size{
   width:calc(34px + var(--ts)) !important; height:calc(34px + var(--ts)) !important;
   min-width:calc(34px + var(--ts)) !important; min-height:calc(34px + var(--ts)) !important; max-height:none !important;
   padding:0 !important; border-radius:6px !important;
