@@ -1750,6 +1750,10 @@ export var initDeficiencies = {
     // open menu may be portaled onto document.body; a render rebuilds the list
     // and would orphan it. Closing returns it home / clears refs first.
     if (typeof _cvCloseStatusMenus === 'function') _cvCloseStatusMenus();
+    // S263: drop any stale drawing-box resize observer — the box it watched is
+    // about to be replaced by this render. _cvObserveDrawBox re-attaches if a
+    // row is open.
+    if (_cvDrawBoxObserver) { try { _cvDrawBoxObserver.disconnect(); } catch (e) {} _cvDrawBoxObserver = null; }
     _recHoldUntilNav = false;  // S150g: any deliberate render resettles the list
     // S248: combined-view delayed re-sort. A deliberate render (tab switch,
     // filter, project/photo load) resettles the list, so a stale ordering
@@ -2997,17 +3001,48 @@ function _renderCombinedView(proj, container) {
         requestAnimationFrame(function() {
           window._frtRenderPinMiniMap(_od, 'cv-pe-location-thumb');
           window._frtRenderPinMiniMap(_od, 'cv-pe-location-thumb-mobile');
+          // S263: re-fit the drawing whenever the box resizes — the box height
+          // tracks the left column, so as the comment box auto-grows or photos
+          // are added the box gets taller and the drawing re-fits to fill it
+          // (keeping the same even margin). The renderer reads the box's live
+          // size, so simply re-calling it on resize does the fit.
+          _cvObserveDrawBox(_od, 'cv-pe-location-thumb');
         });
       }
     } catch (e) {}
   }
+  // S263: size any open comment box to its pre-filled content so a long note
+  // opens at full height (no scrolled fixed box). rAF so layout is settled.
+  if (_openObsKey) requestAnimationFrame(function() { _cvAutosizeAll(container); });
 }
 
-// S263: _cvToggleLock RETIRED — the global Edit-categories lock is gone. The
-// row pill is always tappable; mis-pick safety is the pending set + manual
-// Re-sort, not a lock. _cvSuppressFlush is still honoured by render() so a
-// pick (which patches in place, no render) is never silently resettled until
-// Re-sort or a deliberate navigation.
+// S263: keep the drawing fitted to its box as the box resizes (comment grows,
+// photos added/removed). One observer at a time; it's torn down and recreated
+// per render so it always points at the current box element. Debounced via rAF
+// to coalesce rapid resize ticks while typing.
+var _cvDrawBoxObserver = null;
+var _cvDrawBoxRaf = 0;
+function _cvObserveDrawBox(d, boxId) {
+  if (typeof ResizeObserver === 'undefined') return;  // graceful no-op on old engines
+  var box = document.getElementById(boxId);
+  if (!box) return;
+  if (_cvDrawBoxObserver) { try { _cvDrawBoxObserver.disconnect(); } catch (e) {} _cvDrawBoxObserver = null; }
+  var lastH = box.clientHeight, lastW = box.clientWidth;
+  _cvDrawBoxObserver = new ResizeObserver(function() {
+    var b = document.getElementById(boxId);
+    if (!b) return;
+    // only re-fit on a real size change (avoids a feedback loop with the canvas)
+    if (b.clientHeight === lastH && b.clientWidth === lastW) return;
+    lastH = b.clientHeight; lastW = b.clientWidth;
+    if (_cvDrawBoxRaf) cancelAnimationFrame(_cvDrawBoxRaf);
+    _cvDrawBoxRaf = requestAnimationFrame(function() {
+      if (window._frtRenderPinMiniMap && document.getElementById(boxId)) {
+        try { window._frtRenderPinMiniMap(d, boxId); } catch (e) {}
+      }
+    });
+  });
+  _cvDrawBoxObserver.observe(box);
+}
 
 // S248: manual re-sort. Clears the pending set and re-renders, which lets the
 // existing pin/category ordering resettle the whole list. Flash + scroll the
@@ -5512,12 +5547,32 @@ document.addEventListener('change', function(e) {
   }
 });
 
+// S263: grow a textarea to fit its content (no internal scrollbar). Set height
+// to auto first so shrinking works too, then to the content's scrollHeight.
+function _cvAutosizeTextarea(ta) {
+  if (!ta) return;
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
+// S263: size all visible auto-grow textareas to their pre-filled content. Call
+// after an editor renders so an obs that already has a long note opens at full
+// height instead of a scrolled fixed box.
+function _cvAutosizeAll(root) {
+  var scope = root || document;
+  scope.querySelectorAll('textarea.obs-text-input').forEach(_cvAutosizeTextarea);
+}
+
 // Observation text editing with debounce
 var _noteDebounce = {};
 document.addEventListener('input', function(e) {
   var action = e.target.getAttribute && e.target.getAttribute('data-action');
 
   if (action === 'obs-text') {
+    // S263: auto-grow the comment box to fit its content — no internal scroll,
+    // no fixed height. The whole left column gets taller as you type, like the
+    // photo box growing when photos are added.
+    _cvAutosizeTextarea(e.target);
     var deficId = e.target.getAttribute('data-defic-id');
     var obsIdx = parseInt(e.target.getAttribute('data-obs-idx') || '0');
     var text = e.target.value;

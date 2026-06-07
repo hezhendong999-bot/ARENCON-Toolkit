@@ -9286,18 +9286,24 @@ body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.
    short elements (text, photos) share the left column.
    PHONE (<680px): single column — text → photos → drawing.
    ════════════════════════════════════════════════════════════════════ */
-/* S263: columns STRETCH to equal height (the taller side drives), so the
-   drawing box's bottom always aligns with the photo box's bottom and its top
-   with the textarea's top — no fixed-height slack. When the comment grows or
-   more photos are added, the left column gets taller and the drawing grows with
-   it. A min-height floor keeps the drawing draggable even when the left column
-   is short. */
-.cv-ed-body{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin:8px 0 4px;align-items:stretch;}
+/* S263 (corrected): the drawing box grows in HEIGHT with the left column
+   (comment + photos) and the drawing always re-fits to fill it with a small,
+   even margin — no big slack. align-items:stretch makes the right column's
+   height equal the left's (top aligns with comment, bottom with photo box). The
+   columns are balanced so a typical wide drawing fits with only a thin margin.
+   The canvas re-fits on box resize via a ResizeObserver (see _cvObserveDrawBox)
+   so the drawing tracks the box as the comment/photos grow. */
+.cv-ed-body{display:grid;grid-template-columns:1.15fr 1fr;gap:14px;margin:8px 0 4px;align-items:stretch;}
 .cv-ed-left{display:flex;flex-direction:column;gap:12px;min-width:0;}
 .cv-ed-right{display:flex;flex-direction:column;gap:7px;min-width:0;}
 /* in the card grid the textarea + media each take full width of the left col */
 .cv-ed-left .obs-text{width:100%;}
 .cv-ed-left .obs-media-col{width:100%;}
+/* S263: the combined-view comment box AUTO-GROWS to its content (JS sets height
+   from scrollHeight on input/open). No internal scrollbar, no manual drag
+   handle — the box just gets taller as you type, and the drawing box tracks it.
+   Scoped to the card editor so the on-drawing editor keeps its own behavior. */
+.cv-ed-left .obs-text-input{min-height:120px;height:auto;flex:0 0 auto;overflow:hidden;resize:none;}
 .cv-loc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .cv-loc-lbl{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--b-pill-seg-fg,#5E5B68);text-transform:uppercase;}
 .cv-loc-open{font-family:Calibri,sans-serif;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:7px;
@@ -9305,17 +9311,14 @@ body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.
 .cv-loc-open:hover{background:var(--b-cat-active-bg,#F3D9DE);border-color:var(--b-bar-accent,#9C2742);}
 @media(pointer:coarse){.cv-loc-open{padding:8px 12px;min-height:40px;}}
 body.dark-mode .cv-loc-open{border-color:rgba(255,255,255,.14);}
-/* the drawing panel — full height of the right column, big enough to drag the
-   pin. S250 §8: canvas centered + fills width to cut the wide side gaps; the
-   letterbox bg goes near-black in dark mode so the drawing never sits on a
-   white pad (was #2a2d35 grey showing as white-ish padding around the crop). */
-/* the drawing panel — FILLS the right column's height (flex:1) so it tracks the
-   left column instead of a fixed 300px that leaves slack. min-height keeps it
-   draggable when the left column is short. S250 §8: canvas centered + fills
-   width to cut the wide side gaps; the letterbox bg goes near-black in dark
-   mode so the drawing never sits on a white pad. */
-.cv-loc-thumb{width:100%;flex:1 1 auto;min-height:240px;background:var(--smoke,#f5f5f5);border:1px solid #dde1e7;border-radius:11px;overflow:hidden;position:relative;touch-action:none;display:flex;align-items:center;justify-content:center;}
-.cv-loc-thumb canvas{display:block;width:100%;height:100%;object-fit:contain;}
+/* the drawing panel — fills the right column's height (flex:1), with a small
+   even inner padding so the drawing never touches the border (the consistent
+   "tiny slack"). The renderer (_frtRenderPinMiniMap) fits the canvas inside the
+   box preserving aspect; flex-center keeps it centered so the residual margin
+   is even on all sides. min-height keeps it draggable when the column is short.
+   Dark letterbox bg only shows in that thin residual gap. */
+.cv-loc-thumb{width:100%;flex:1 1 auto;min-height:240px;box-sizing:border-box;padding:6px;background:var(--smoke,#f5f5f5);border:1px solid #dde1e7;border-radius:11px;overflow:hidden;position:relative;touch-action:none;display:flex;align-items:center;justify-content:center;}
+.cv-loc-thumb canvas{display:block;max-width:100%;max-height:100%;object-fit:contain;}
 body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
 .cv-loc-hint{font-size:11px;color:var(--b-pill-seg-fg,#928E9C);}
 /* desktop = interactive panel; ≤900px swaps to the static one */
