@@ -764,7 +764,9 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .app-title{font-size:calc(13px + var(--ts))!important;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;line-height:1.2;max-width:none;min-width:0;}
   #build-stamp{display:none!important;}
   /* Cloud status: keep the light visible, never clipped behind the hamburger */
-  #cloud-status{margin-left:6px!important;flex-shrink:0;}
+  /* S272: push the cloud dot to the RIGHT so it sits beside the QR/day-night squares
+     instead of floating in the middle-left. margin-left:auto eats the free space. Matches FRT. */
+  #cloud-status{margin-left:auto!important;margin-right:2px!important;flex-shrink:0;}
   #cloud-status #cloud-status-text{display:none;}
   /* S267: also hide the last-sync text on mobile — it crowded the icon buttons against the
      edge. Keep only the green dot as the quiet status indicator (matches FRT mobile). */
@@ -820,7 +822,11 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
 }
 @media(max-width:480px) {
   /* S257: match FRT phone logo size (22px) */
-  .header-logo,.header-top img{height:22px!important;padding:2px 5px!important;}
+  /* S272: logo no longer shrinks to 22px below 480 — Mark wants it to stay consistent on small
+     screens. Hold at the 28px (<=1024) size all the way down. (.header-top img kept at 22px for
+     any other inline header images, but the ARENCON logo holds.) */
+  .header-logo{height:28px!important;padding:3px 6px!important;}
+  .header-top img:not(.header-logo){height:22px!important;padding:2px 5px!important;}
   .nav-tab { padding:11px 13px; font-size:calc(12px + var(--ts)); }
   .tog { padding:6px 10px !important; font-size:calc(11px + var(--ts)) !important; }
   .item-num { min-width:30px !important; font-size:calc(12px + var(--ts)) !important; }
