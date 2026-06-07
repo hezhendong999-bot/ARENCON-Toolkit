@@ -732,6 +732,8 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
 
 /* ══ MOBILE RESPONSIVE ══ */
 @media(max-width:1024px) {
+  /* S271: match FRT — logo shrinks 34px→28px at ≤1024 (not ≤768). FRT frt.css line 1178. */
+  .header-logo{height:28px!important;padding:3px 6px!important;}
   /* Medium screens: use hamburger menu */
   .header-actions .hdr-btn{display:none!important;}
   /* S263: IDB storage meter hidden on mobile — matches FRT (frt.css .storage-bar mobile hide).
@@ -759,7 +761,6 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   /* ── Mobile header sizing (S251: match desktop, fix clipped cloud light + excess height) ── */
   .header-top{padding:9px 10px;flex-wrap:nowrap;overflow:visible;gap:6px;}
   .back-btn{padding:6px 12px;font-size:calc(13px + var(--ts));margin-right:4px;min-height:34px;}
-  .header-logo{height:28px!important;padding:3px 6px!important;}
   .app-title{font-size:calc(13px + var(--ts))!important;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;line-height:1.2;max-width:none;min-width:0;}
   #build-stamp{display:none!important;}
   /* Cloud status: keep the light visible, never clipped behind the hamburger */
@@ -12122,7 +12123,7 @@ body.dark-mode #dark-toggle, body.dark-mode #btn-qr, body.dark-mode .text-size-t
 }
 #dark-toggle img{ width:18px!important; height:18px!important; }
 @media(pointer:coarse){
-  #dark-toggle, #btn-qr, .mobile-menu-btn{ width:38px!important; height:38px!important; min-width:38px!important; min-height:38px!important; max-height:38px!important; font-size:16px!important; line-height:1!important; }
+  #dark-toggle, #btn-qr, .mobile-menu-btn{ width:36px!important; height:36px!important; min-width:36px!important; min-height:36px!important; max-height:36px!important; font-size:16px!important; line-height:1!important; }
 }
 @media(hover:hover){
   #dark-toggle:hover, #btn-qr:hover, .text-size-toggle:hover{background:#9C2742!important;color:#fff!important;border-color:#9C2742!important;}
