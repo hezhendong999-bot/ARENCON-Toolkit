@@ -1750,10 +1750,6 @@ export var initDeficiencies = {
     // open menu may be portaled onto document.body; a render rebuilds the list
     // and would orphan it. Closing returns it home / clears refs first.
     if (typeof _cvCloseStatusMenus === 'function') _cvCloseStatusMenus();
-    // S263: drop any stale drawing-box resize observer — the box it watched is
-    // about to be replaced by this render. _cvObserveDrawBox re-attaches if a
-    // row is open.
-    if (_cvDrawBoxObserver) { try { _cvDrawBoxObserver.disconnect(); } catch (e) {} _cvDrawBoxObserver = null; }
     _recHoldUntilNav = false;  // S150g: any deliberate render resettles the list
     // S248: combined-view delayed re-sort. A deliberate render (tab switch,
     // filter, project/photo load) resettles the list, so a stale ordering
@@ -3001,12 +2997,6 @@ function _renderCombinedView(proj, container) {
         requestAnimationFrame(function() {
           window._frtRenderPinMiniMap(_od, 'cv-pe-location-thumb');
           window._frtRenderPinMiniMap(_od, 'cv-pe-location-thumb-mobile');
-          // S263: re-fit the drawing whenever the box resizes — the box height
-          // tracks the left column, so as the comment box auto-grows or photos
-          // are added the box gets taller and the drawing re-fits to fill it
-          // (keeping the same even margin). The renderer reads the box's live
-          // size, so simply re-calling it on resize does the fit.
-          _cvObserveDrawBox(_od, 'cv-pe-location-thumb');
         });
       }
     } catch (e) {}
@@ -3016,33 +3006,12 @@ function _renderCombinedView(proj, container) {
   if (_openObsKey) requestAnimationFrame(function() { _cvAutosizeAll(container); });
 }
 
-// S263: keep the drawing fitted to its box as the box resizes (comment grows,
-// photos added/removed). One observer at a time; it's torn down and recreated
-// per render so it always points at the current box element. Debounced via rAF
-// to coalesce rapid resize ticks while typing.
-var _cvDrawBoxObserver = null;
-var _cvDrawBoxRaf = 0;
-function _cvObserveDrawBox(d, boxId) {
-  if (typeof ResizeObserver === 'undefined') return;  // graceful no-op on old engines
-  var box = document.getElementById(boxId);
-  if (!box) return;
-  if (_cvDrawBoxObserver) { try { _cvDrawBoxObserver.disconnect(); } catch (e) {} _cvDrawBoxObserver = null; }
-  var lastH = box.clientHeight, lastW = box.clientWidth;
-  _cvDrawBoxObserver = new ResizeObserver(function() {
-    var b = document.getElementById(boxId);
-    if (!b) return;
-    // only re-fit on a real size change (avoids a feedback loop with the canvas)
-    if (b.clientHeight === lastH && b.clientWidth === lastW) return;
-    lastH = b.clientHeight; lastW = b.clientWidth;
-    if (_cvDrawBoxRaf) cancelAnimationFrame(_cvDrawBoxRaf);
-    _cvDrawBoxRaf = requestAnimationFrame(function() {
-      if (window._frtRenderPinMiniMap && document.getElementById(boxId)) {
-        try { window._frtRenderPinMiniMap(d, boxId); } catch (e) {}
-      }
-    });
-  });
-  _cvDrawBoxObserver.observe(box);
-}
+// S263: a ResizeObserver-based drawing re-fit was tried here and REVERTED — it
+// caused a feedback loop (renderer sets a dpr-scaled canvas → nudges the box's
+// measured size → observer re-fires → constant flashing, drawing never
+// settles). The drawing now fits ONCE at open via the rAF render above. If the
+// box later grows (comment/photos), the canvas keeps its open-time size and
+// object-fit:contain letterboxes it — no loop, no flash.
 
 // S248: manual re-sort. Clears the pending set and re-renders, which lets the
 // existing pin/category ordering resettle the whole list. Flash + scroll the
