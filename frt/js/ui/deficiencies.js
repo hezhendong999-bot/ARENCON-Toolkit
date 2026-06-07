@@ -2040,6 +2040,51 @@ function _obsFarPill(o, isSite, d) {
   return { txt: 'Outstanding', cls: 'dfx-cs-high' };
 }
 
+// S263: the collapsed-row status pill is now TAPPABLE → opens a custom
+// colored popover (NOT native <select> — Android TWA can't colour <option>s).
+// One choice maps to one "choice" token below; the row pill shows the SAME
+// colour as the chosen menu item. Outstanding is COLOUR-coded high(red)/
+// low(amber) but the pill TEXT is always just "Outstanding" (Mark-locked).
+// The five choices, two groups (Outstanding · Other). cls = the dfx-cs-* class
+// shared by the row pill, the menu item, and the PDF report pill.
+var _CV_STATUS_CHOICES = [
+  { group: 'Outstanding', choice: 'high',   cls: 'dfx-cs-high',   menu: 'High priority',   pill: 'Outstanding' },
+  { group: 'Outstanding', choice: 'low',    cls: 'dfx-cs-low',    menu: 'Low priority',    pill: 'Outstanding' },
+  { group: 'Other',       choice: 'rec',    cls: 'dfx-cs-rec',    menu: 'Recommendation',  pill: 'Recommendation' },
+  { group: 'Other',       choice: 'site',   cls: 'dfx-cs-site',   menu: 'Site Record',     pill: 'Site Record' },
+  { group: 'Other',       choice: 'closed', cls: 'dfx-cs-closed', menu: 'Closed',          pill: 'Closed' }
+];
+
+// Which choice is the obs currently in? (drives the menu's selected highlight)
+function _obsCurrentChoice(o, isSite, d) {
+  if (o && o.addressed) return 'closed';
+  if (o && o.isRecommendation) return 'rec';
+  if (isSite) return 'site';
+  var pri = (o && o.priority) || (d && d.priority) || 'high';
+  return (pri === 'low' || pri === 'general') ? 'low' : 'high';
+}
+
+// Build the custom colored popover for one obs row. Hidden by default; the
+// pill toggles .open. Each item IS a pill in its own status colour (pick by
+// colour, not by reading). Tap-outside closes (document handler).
+function _cvStatusMenu(d, oi, cur) {
+  var h = '<div class="cv-statusmenu" data-menu role="menu" aria-label="Change status">';
+  var lastGroup = '';
+  _CV_STATUS_CHOICES.forEach(function(c) {
+    if (c.group !== lastGroup) {
+      h += '<div class="cv-statusmenu-label">' + esc(c.group) + '</div>';
+      lastGroup = c.group;
+    }
+    var on = (c.choice === cur);
+    h += '<button type="button" class="cv-statusmenu-item ' + c.cls + (on ? ' sel' : '') + '"'
+      + ' data-action="cv-setstatus" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-choice="' + c.choice + '"'
+      + ' role="menuitemradio" aria-checked="' + (on ? 'true' : 'false') + '">'
+      + '<span class="cv-statusmenu-dot"></span>' + esc(c.menu) + '</button>';
+  });
+  h += '</div>';
+  return h;
+}
+
 // The combined priority+status control (editor). One <select> replacing
 // the old separate priority select + Outstanding toggle. Writes both
 // obs.priority and obs.addressed via the obs-status change handler.
@@ -2107,13 +2152,26 @@ function _buildObsRow(d, oi, ctrId, opts) {
   // already carry the identity). The .dfx-or-meta span held only those two and
   // is now gone; the single status pill lives on the far right (below).
   h += '</span>';
-  // Single far-right pill: Outstanding(red/amber) · Recommendation(yellow) ·
-  // Site Record(purple) · Closed(green). No "Active" — outstanding implies it.
-  // S250 §8 (revised): the far-right pill is DISPLAY-ONLY. Status/category are
-  // changed via the Edit categories + Re-sort feature, not inline pills — so the
-  // old left-side status-cycle button is gone and this pill is just a label.
+  // Single far-right pill: Outstanding(red/amber) · Recommendation(teal) ·
+  // Site Record(lavender) · Closed(green). No "Active" — outstanding implies it.
+  // S263: the pill is now TAPPABLE → opens _cvStatusMenu to change the status in
+  // place. Picking writes through the Model setters and marks the row PENDING
+  // (Option-D: target-colour corner dot + "↻ moved" tag); the card holds its
+  // position until the manual "↻ Re-sort" button fires (mis-pick safety). The
+  // pill's own data-action takes precedence over the head's row-toggle (the
+  // dispatcher resolves via closest('[data-action]')), so a tap opens the menu
+  // without expanding the card.
   var _far = _obsFarPill(o, isSite, d);
-  h += '<span class="dfx-or-chip ' + _far.cls + '">' + _far.txt + '</span>';
+  var _cur = _obsCurrentChoice(o, isSite, d);
+  var _pendObs = !!_cvPendingKeys[_obsKey(d.id, oi)];
+  h += '<span class="cv-pill-anchor">';
+  if (_pendObs) h += '<span class="cv-moved-tag">\u21BB moved</span>';
+  h += '<button type="button" class="dfx-or-chip cv-pill ' + _far.cls + (_pendObs ? ' cv-pill-pending' : '') + '"'
+    + ' data-action="cv-statuspill" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"'
+    + ' aria-haspopup="true" aria-expanded="false" title="Tap to change status">'
+    + _far.txt + ' <span class="cv-pill-caret">\u25BC</span></button>';
+  h += _cvStatusMenu(d, oi, _cur);
+  h += '</span>';
   h += '<span class="dfx-or-caret">\u25BC</span>';
   h += '</div>'; // /head
   if (open) h += _buildObsEditor(d, oi, ctrId, opts);
@@ -2706,79 +2764,38 @@ function _renderDetailedView(proj, container) {
 // this view never changes structurally).
 // ════════════════════════════════════════════════════════════════════
 
-// Global lock state for category editing (module scope; transient, not
-// persisted — every review starts LOCKED = fat-finger-proof). When
-// unlocked, category taps mutate state immediately but the list does NOT
-// re-group; it re-sorts only on re-lock (_cvRelock). Mirrors the
-// _recHoldUntilNav delayed-resettle pattern.
-var _cvUnlocked = false;
-// Pending category mutations applied while unlocked but not yet re-sorted.
-// Keyed obsKey -> true; cleared on re-lock. Purely a render-suppression
-// marker (the model is already mutated); used so a tapped card keeps its
-// place until the global re-lock resettles the whole list.
-var _cvDirty = {};
+// S263: _cvUnlocked + _cvDirty REMOVED — the global Edit-categories lock is
+// gone. Status picks go straight to _cvPendingKeys (below). The list re-sorts
+// only on the manual Re-sort button or a deliberate navigation re-render.
 
-// S248: committed-but-not-yet-resorted set. When the list is re-locked we
-// PROMOTE _cvDirty into here instead of resettling immediately (decoupled
-// re-sort, per LOCKED_COMBINED_VIEW_MANUAL_RESORT). Keyed per obsKey so a
+// Committed-but-not-yet-resorted set. A status pick marks its obsKey here and
+// patches the pill in place (no re-group), so the card keeps its position until
+// the manual Re-sort button fires (mis-pick safety). Keyed per obsKey so a
 // multi-obs pin whose observations land in DIFFERENT categories (verified on
 // real Sprucewood data — pin 5: obsA=rec, obsB=active) tracks each obs
 // independently. Cleared by _cvResort() (manual button) or a deliberate
 // navigation re-render. Purely a render marker — the model is already mutated.
 var _cvPendingKeys = {};
-// S248: one-shot guard — when true, the next render() does NOT flush the
-// pending set. Set by _cvToggleLock on re-lock so committing categories does
-// not silently resettle the list (decoupled re-sort).
+// One-shot guard — when true, the next render() does NOT flush the pending set.
+// (Reserved; a pick patches in place without a render, so navigation/Re-sort
+// own the resettle. Kept for the render() flush contract.)
 var _cvSuppressFlush = false;
 
-// The four-category descriptor for the segmented pill. Lavender Site
-// Record per the lock (NOT grey, NOT the legacy FRT site green).
-function _cvCatMeta(cat) {
-  switch (cat) {
-    case 'active':  return { key: 'active', label: 'Active',         cls: 'cv-cat-active' };
-    case 'rec':     return { key: 'rec',    label: 'Recommendation', cls: 'cv-cat-rec' };
-    case 'site':    return { key: 'site',   label: 'Site Record',    cls: 'cv-cat-site' };
-    case 'closed':  return { key: 'closed', label: 'Closed',         cls: 'cv-cat-closed' };
-  }
-  return { key: 'active', label: 'Active', cls: 'cv-cat-active' };
-}
-
-// Build the four-segment category pill for one observation row. Selected
-// segment carries its colour; the rest are quiet. Faded + untappable when
-// the global lock is engaged (data-cv-locked on the container drives the
-// CSS; the handler also hard-guards on _cvUnlocked).
-function _cvCategoryPill(d, oi, cat) {
-  var cats = ['active', 'rec', 'site', 'closed'];
-  var h = '<span class="cv-catpill" role="group" aria-label="Category">';
-  cats.forEach(function(c) {
-    var m = _cvCatMeta(c);
-    var on = (c === cat);
-    h += '<button type="button" class="cv-catseg ' + m.cls + (on ? ' on' : '') + '"'
-      + ' data-action="cv-setcat" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-cat="' + c + '"'
-      + ' aria-pressed="' + (on ? 'true' : 'false') + '" title="' + esc(m.label) + '">'
-      + esc(m.label) + '</button>';
-  });
-  h += '</span>';
-  return h;
-}
+// S263: _cvCatMeta + _cvCategoryPill (the four-segment category bar) are
+// RETIRED. Status is now changed via the always-tappable row pill + colored
+// popover (_cvStatusMenu / _cvSetStatus). The segment bar and its global
+// Edit-categories lock are gone. Removed rather than kept inert — small,
+// single-purpose, no other callers.
 
 // One collapsed observation row for the combined view. Wraps the existing
-// _buildObsRow (which carries the thumb, title, status chip, and expands
-// into the real _buildObsEditor) and prepends the four-category pill so
-// the pill shows on the collapsed card AND — because _buildObsEditor is
-// reused verbatim — the same controls live in the expanded editor.
-// We do NOT re-implement the editor; the pill is the only added chrome.
+// _buildObsRow (which now carries the TAPPABLE status pill + its popover) and
+// flags the wrapper pending so the Option-D markers + delayed-resort machinery
+// work. S263: the old four-segment category bar + global Edit-categories lock
+// are GONE — the row pill is the single, always-tappable status control.
 function _cvObsRow(d, oi, ctrId, opts, cat) {
-  // S248 Option 1: the segment control moves to its OWN LINE BELOW the body
-  // (was a top strip). CSS hides it when the list is locked (data-cv-locked=1)
-  // and shows it only when unlocked — so while scanning the card shows just
-  // the single far-right status pill (compact), and the full segment control
-  // appears under the card only when editing. The single pill lives inside
-  // _buildObsRow (dfx-or-chip, the locked display).
-  var pill = '<div class="cv-row-catbar">' + _cvCategoryPill(d, oi, cat) + '</div>';
   var pend = _cvPendingKeys[_obsKey(d.id, oi)] ? ' cv-pending' : '';
   return '<div class="cv-row' + pend + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">'
-    + _buildObsRow(d, oi, ctrId, opts) + pill + '</div>';
+    + _buildObsRow(d, oi, ctrId, opts) + '</div>';
 }
 
 function _renderCombinedView(proj, container) {
@@ -2879,15 +2896,14 @@ function _renderCombinedView(proj, container) {
 
   var h = '';
 
-  // S250 §6 (Option A): Edit categories + Re-sort + Collapse all are no longer
-  // rendered ABOVE the list (wasted a row + left a big gap). They are built
-  // here as a right-aligned cluster and injected into #dfx-list-actions on the
-  // filter row after the list renders. _actionsHTML holds the cluster markup.
+  // S250 §6 (Option A): Re-sort + Collapse all are no longer rendered ABOVE the
+  // list. They are built here as a right-aligned cluster and injected into
+  // #dfx-list-actions on the filter row after the list renders. S263: the
+  // "Edit categories" lock button is GONE — status is changed by tapping the
+  // row pill directly (always-tappable; pending + Re-sort is the mis-pick
+  // safety, not a lock).
   var _pend = _cvPendingCount();
   var _actionsHTML = ''
-    + '<button type="button" class="cv-lock-btn' + (_cvUnlocked ? ' unlocked' : '') + '" data-action="cv-togglelock" aria-pressed="' + (_cvUnlocked ? 'true' : 'false') + '">'
-    + (_cvUnlocked ? '\uD83D\uDD13 Editing \u2014 tap to lock' : '\uD83D\uDD12 Edit categories')
-    + '</button>'
     + '<button type="button" class="cv-resort-btn' + (_pend ? ' has-pending' : '') + '" data-action="cv-resort"' + (_pend ? '' : ' disabled aria-disabled="true"') + ' title="Re-sort cards into their categories">'
     + '\u21BB Re-sort' + (_pend ? ' (' + _pend + ')' : '')
     + '</button>';
@@ -2943,11 +2959,9 @@ function _renderCombinedView(proj, container) {
     _actionsHTML = '<button class="dfx-foldall-btn" data-action="dfx-fold-all" data-all="'
       + (allCol ? '0' : '1') + '">' + (allCol ? '\u25BC Expand all' : '\u25B6 Collapse all') + '</button>' + _actionsHTML;
   }
-  // S250 §6: when unlocked, show the edit hint as a thin full-width line under
-  // the list-action row (kept out of the cluster so it doesn't break the row).
-  if (_cvUnlocked) {
-    _actionsHTML += '<span class="cv-lock-hint">Tap a category to change it. Cards stay put \u2014 lock, then Re-sort when ready.</span>';
-  }
+  // S263: the unlocked edit-hint line is removed with the lock. The tappable
+  // pill ("Tap to change status") is self-explanatory; Re-sort carries the
+  // pending count.
 
   if (!orderedTrades.length) {
     var hasAny = Model.getAllDeficiencies(proj).length > 0;
@@ -2958,12 +2972,11 @@ function _renderCombinedView(proj, container) {
   }
 
   container.innerHTML = h;
-  container.setAttribute('data-cv-locked', _cvUnlocked ? '0' : '1');
 
-  // S250 §6 (Option A): inject the list-action cluster (Collapse all · Edit
-  // categories · Re-sort [· hint]) into the filter-row placeholder. Falls back
-  // to prepending into the container if the placeholder isn't present (e.g.
-  // a context where the static control bar isn't mounted).
+  // S250 §6 (Option A): inject the list-action cluster (Collapse all · Re-sort)
+  // into the filter-row placeholder. Falls back to prepending into the
+  // container if the placeholder isn't present (e.g. a context where the
+  // static control bar isn't mounted).
   var _actEl = document.getElementById('dfx-list-actions');
   if (_actEl) { _actEl.innerHTML = _actionsHTML; }
   else if (_actionsHTML) { container.insertAdjacentHTML('afterbegin', '<div class="dfx-foldall-bar">' + _actionsHTML + '</div>'); }
@@ -2986,23 +2999,11 @@ function _renderCombinedView(proj, container) {
   }
 }
 
-// Flip the global lock. Locking triggers the DELAYED re-sort: clear the
-// dirty markers and re-render so cards resettle into their (already
-// mutated) categories. Unlocking just re-renders to enable the pills.
-function _cvToggleLock() {
-  _cvUnlocked = !_cvUnlocked;
-  if (!_cvUnlocked) {
-    // S248: re-lock COMMITS but no longer resettles. Promote this session's
-    // edits into the pending set and re-render so the pills go untappable —
-    // but cards HOLD position. The user resettles via the ↻ Re-sort button
-    // (or a deliberate navigation re-render). This stops cards jumping out
-    // from under the user the instant they lock.
-    Object.keys(_cvDirty).forEach(function(k) { _cvPendingKeys[k] = true; });
-    _cvDirty = {};
-    _cvSuppressFlush = true;   // this render commits but holds position
-  }
-  initDeficiencies.render();
-}
+// S263: _cvToggleLock RETIRED — the global Edit-categories lock is gone. The
+// row pill is always tappable; mis-pick safety is the pending set + manual
+// Re-sort, not a lock. _cvSuppressFlush is still honoured by render() so a
+// pick (which patches in place, no render) is never silently resettled until
+// Re-sort or a deliberate navigation.
 
 // S248: manual re-sort. Clears the pending set and re-renders, which lets the
 // existing pin/category ordering resettle the whole list. Flash + scroll the
@@ -3040,42 +3041,37 @@ function _cvPendingCount() {
   return Object.keys(_cvPendingKeys).length;
 }
 
-// Auto-relock backstop — called on tab-leave / card-close paths so the
-// list never lingers in the editable state. S248: also resettles any
-// pending rows on the way out, so a stale ordering never persists across
-// navigation (resort-on-view-change).
-function _cvAutoRelock() {
-  if (_cvUnlocked) {
-    Object.keys(_cvDirty).forEach(function(k) { _cvPendingKeys[k] = true; });
-    _cvUnlocked = false; _cvDirty = {};
-  }
-  _cvPendingKeys = {};
-}
+// S263: _cvAutoRelock RETIRED with the lock. Navigation resettle is handled
+// by render() clearing _cvPendingKeys (the _cvSuppressFlush contract).
 
-// Apply a category change for one observation, writing ONLY through
-// existing Model setters (no new model code; re-derives on next render).
-// Site Record auto-unassigns the contractor REVERSIBLY: the prior
-// contractor is remembered on the pin (d._cvPriorCtr) so flipping off Site
-// restores it. While unlocked, the card does NOT re-group (delayed
-// re-sort) — we mark it dirty and patch the pill in place.
-function _cvSetCategory(deficId, obsIdx, cat) {
-  if (!_cvUnlocked) return;                // hard guard — locked = untappable
+// S263: apply a STATUS change for one observation from the tappable pill's
+// popover. `choice` is one of high|low|rec|site|closed (Outstanding splits into
+// high/low; the row pill text stays "Outstanding", colour carries high/low).
+// Writes ONLY through existing Model setters (no new model code; re-derives on
+// next render). Site Record auto-unassigns the contractor REVERSIBLY
+// (d._cvPriorCtr remembers it). NO lock guard — always applies. The card does
+// NOT re-group on pick (delayed re-sort): we mark it PENDING and patch the pill
+// + Option-D markers in place. The list resettles only on the manual Re-sort
+// button or a deliberate navigation re-render (mis-pick safety).
+function _cvSetStatus(deficId, obsIdx, choice) {
   var find = Model.findDeficiency(deficId);
   if (!find) return;
   var d = find.defic;
   var o = (d.observations || [])[obsIdx] || null;
   var hasCtr = !!find.contractor;
-  var cur = _deriveCategory(d, o, hasCtr).cat;
-  if (cur === cat) return;
+  var curChoice = _obsCurrentChoice(o, hasCtr ? false : true, d);
+  if (curChoice === choice) { _cvCloseStatusMenus(); return; }  // no-op pick
 
-  switch (cat) {
-    case 'active':
+  switch (choice) {
+    case 'high':
+    case 'low':
+      // Outstanding (active): clear rec/closed, restore contractor if needed,
+      // then set the priority. updateObsPriority is the ONLY new branch vs the
+      // old four-category setter.
       if (o && o.isRecommendation) Model.setObsRecommendation(deficId, obsIdx, false);
       if (o && o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
-      // Active needs a contractor; if it has none, restore a remembered one
-      // (reversal of a prior Site move) — otherwise leave it (stays Site
-      // until a contractor is assigned via the ⇄ button).
       if (!hasCtr && d._cvPriorCtr) { Model.reassignDeficiency(deficId, d._cvPriorCtr); d._cvPriorCtr = null; }
+      if (typeof Model.updateObsPriority === 'function') Model.updateObsPriority(deficId, obsIdx, choice);
       break;
     case 'rec':
       if (o && o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
@@ -3084,8 +3080,7 @@ function _cvSetCategory(deficId, obsIdx, cat) {
     case 'site':
       if (o && o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
       if (o && o.isRecommendation) Model.setObsRecommendation(deficId, obsIdx, false);
-      // Reversible auto-unassign: remember the prior contractor.
-      if (hasCtr) { d._cvPriorCtr = find.contractor.id; Model.reassignDeficiency(deficId, null); }
+      if (hasCtr) { d._cvPriorCtr = find.contractor.id; Model.reassignDeficiency(deficId, null); }  // reversible
       break;
     case 'closed':
       if (o && !o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
@@ -3094,20 +3089,103 @@ function _cvSetCategory(deficId, obsIdx, cat) {
 
   if (typeof Model.saveNow === 'function') Model.saveNow();
 
-  // Delayed re-sort: while unlocked, patch the pill + status chip in place
-  // (no re-group). The full resettle happens on re-lock.
-  _cvDirty[_obsKey(deficId, obsIdx)] = true;
-  var rowEl = document.querySelector('.cv-row[data-defic-id="' + (window.CSS && CSS.escape ? CSS.escape(String(deficId)) : String(deficId)) + '"][data-obs-idx="' + obsIdx + '"]');
-  if (rowEl) {
-    var find2 = Model.findDeficiency(deficId);
-    var d2 = find2 ? find2.defic : d;
-    var o2 = find2 ? (d2.observations || [])[obsIdx] : o;
-    var hasCtr2 = !!(find2 && find2.contractor);
-    var newCat = _deriveCategory(d2, o2, hasCtr2).cat;
-    var bar = rowEl.querySelector('.cv-row-catbar');
-    if (bar) bar.innerHTML = _cvCategoryPill(d2, obsIdx, newCat);
-  }
+  // Mark PENDING (Option D) and patch the pill in place — no re-group. The full
+  // resettle happens on the manual Re-sort button.
+  _cvPendingKeys[_obsKey(deficId, obsIdx)] = true;
+  _cvPatchRowPill(deficId, obsIdx);
+  _cvCloseStatusMenus();
+  _cvSyncResortBtn();
 }
+
+// Re-render just one row's pill cluster (chip colour/text, Option-D dot +
+// "moved" tag, the popover's selected highlight) after a pick, without
+// re-rendering or re-grouping the whole list.
+function _cvPatchRowPill(deficId, obsIdx) {
+  var dsel = (window.CSS && CSS.escape) ? CSS.escape(String(deficId)) : String(deficId);
+  var rowEl = document.querySelector('.cv-row[data-defic-id="' + dsel + '"][data-obs-idx="' + obsIdx + '"]');
+  if (!rowEl) return;
+  var find = Model.findDeficiency(deficId);
+  if (!find) return;
+  var d = find.defic;
+  var o = (d.observations || [])[obsIdx] || null;
+  var hasCtr = !!find.contractor;
+  var isSite = !hasCtr;
+  var far = _obsFarPill(o, isSite, d);
+  var cur = _obsCurrentChoice(o, isSite, d);
+  var anchor = rowEl.querySelector('.cv-pill-anchor');
+  if (!anchor) return;
+  var pend = !!_cvPendingKeys[_obsKey(deficId, obsIdx)];
+  var html = '';
+  if (pend) html += '<span class="cv-moved-tag">\u21BB moved</span>';
+  html += '<button type="button" class="dfx-or-chip cv-pill ' + far.cls + (pend ? ' cv-pill-pending' : '') + '"'
+    + ' data-action="cv-statuspill" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + obsIdx + '"'
+    + ' aria-haspopup="true" aria-expanded="false" title="Tap to change status">'
+    + far.txt + ' <span class="cv-pill-caret">\u25BC</span></button>';
+  html += _cvStatusMenu(d, obsIdx, cur);
+  anchor.innerHTML = html;
+}
+
+// Close any open status popover + reset the pills' aria-expanded.
+function _cvCloseStatusMenus() {
+  document.querySelectorAll('.cv-statusmenu.open').forEach(function(m) { m.classList.remove('open'); });
+  document.querySelectorAll('.cv-pill[aria-expanded="true"]').forEach(function(p) { p.setAttribute('aria-expanded', 'false'); });
+}
+
+// Toggle one row's popover open/closed (tap-to-open). Closes others first so
+// only one menu is ever open. The menu is position:fixed (escapes the card's
+// overflow:hidden), so we set its coordinates here from the pill's rect, with
+// flips so it never runs off the right edge or below the fold on a tablet.
+function _cvToggleStatusMenu(pillEl) {
+  var anchor = pillEl.closest('.cv-pill-anchor');
+  if (!anchor) return;
+  var menu = anchor.querySelector('.cv-statusmenu');
+  if (!menu) return;
+  var wasOpen = menu.classList.contains('open');
+  _cvCloseStatusMenus();
+  if (wasOpen) return;
+
+  // Open + measure. Show it off-screen first so offsetWidth/Height are real.
+  menu.style.visibility = 'hidden';
+  menu.classList.add('open');
+  pillEl.setAttribute('aria-expanded', 'true');
+
+  var pr = pillEl.getBoundingClientRect();
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var mw = menu.offsetWidth || 200, mh = menu.offsetHeight || 240;
+  var pad = 8;
+
+  // Horizontal: right-align the menu to the pill's right edge; if that would
+  // push the LEFT edge off-screen, left-align to the pill instead; clamp.
+  var left = pr.right - mw;
+  if (left < pad) left = pr.left;
+  if (left + mw > vw - pad) left = vw - pad - mw;
+  if (left < pad) left = pad;
+
+  // Vertical: prefer below the pill; if it would overflow the bottom, flip
+  // above. Clamp to viewport.
+  var top = pr.bottom + 6;
+  if (top + mh > vh - pad) {
+    var above = pr.top - 6 - mh;
+    top = (above >= pad) ? above : Math.max(pad, vh - pad - mh);
+  }
+
+  menu.style.left = Math.round(left) + 'px';
+  menu.style.top = Math.round(top) + 'px';
+  menu.style.visibility = '';
+}
+
+// Update the Re-sort button's badge + enabled state in place (a pick patches
+// the pill without a full render, so the button must be synced separately).
+function _cvSyncResortBtn() {
+  var btn = document.querySelector('.cv-resort-btn');
+  if (!btn) return;
+  var n = _cvPendingCount();
+  btn.classList.toggle('has-pending', n > 0);
+  if (n > 0) { btn.removeAttribute('disabled'); btn.removeAttribute('aria-disabled'); }
+  else { btn.setAttribute('disabled', ''); btn.setAttribute('aria-disabled', 'true'); }
+  btn.innerHTML = '\u21BB Re-sort' + (n ? ' (' + n + ')' : '');
+}
+
 
 
 // ── S138 (in S137): shared helpers for Table + Board ─────────────
@@ -3737,8 +3815,26 @@ function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
   });
 }
 
+// ── S263: close any open status popover on scroll / resize. The menu is
+// position:fixed, so if the row scrolls it would otherwise float detached from
+// its pill. Capture-phase catches scrolls on the inner deficiencies container
+// too. Registered once at module load.
+(function _cvBindMenuDismiss() {
+  var close = function() { if (typeof _cvCloseStatusMenus === 'function' && document.querySelector('.cv-statusmenu.open')) _cvCloseStatusMenus(); };
+  window.addEventListener('scroll', close, true);
+  window.addEventListener('resize', close);
+})();
+
 // ── S137 Phase 2: control-bar interactions ───────────────
 document.addEventListener('click', function(e) {
+  // S263: tap-outside dismisses an open status popover. If the click is NOT on
+  // a status pill and NOT inside a menu, close any open menu. (A click ON a pill
+  // or menu item falls through to the cv-statuspill/cv-setstatus dispatch, which
+  // toggles/applies and manages its own open state.)
+  if (document.querySelector('.cv-statusmenu.open')) {
+    var _inPill = e.target.closest && (e.target.closest('[data-action="cv-statuspill"]') || e.target.closest('.cv-statusmenu'));
+    if (!_inPill) _cvCloseStatusMenus();
+  }
   // S150 (Mark): the Table/Board rows carry data-action="dfx-goto" to open
   // the pin on row click. The per-row Recommendation star (toggle-rec) is
   // nested INSIDE that row, so closest('[data-action="dfx-goto"]') would
@@ -3994,20 +4090,20 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // ── S232 FRT-CV: Combined-view category lock + per-obs category set ──
-  if (action === 'cv-togglelock') {
-    _cvToggleLock();
+  // ── S263 FRT-CV: tappable status pill → colored popover ──
+  if (action === 'cv-statuspill') {
+    _cvToggleStatusMenu(el);
     return;
   }
   if (action === 'cv-resort') {
     _cvResort();
     return;
   }
-  if (action === 'cv-setcat') {
+  if (action === 'cv-setstatus') {
     var _cvDid = el.getAttribute('data-defic-id');
     var _cvOi = parseInt(el.getAttribute('data-obs-idx'), 10);
-    var _cvCat = el.getAttribute('data-cat');
-    if (_cvDid != null && !isNaN(_cvOi) && _cvCat) _cvSetCategory(_cvDid, _cvOi, _cvCat);
+    var _cvChoice = el.getAttribute('data-choice');
+    if (_cvDid != null && !isNaN(_cvOi) && _cvChoice) _cvSetStatus(_cvDid, _cvOi, _cvChoice);
     return;
   }
 

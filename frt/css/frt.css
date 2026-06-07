@@ -7929,11 +7929,10 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
 .dfx-trade-section.dfx-collapsed > *:not(.dfx-trade-banner) { display: none !important; }
 .dfx-ctr-block.dfx-collapsed > .dfx-pingrp { display: none !important; }
 /* S250 §6 (Option A): list-action cluster on the filter row — Collapse all ·
-   Edit categories · Re-sort, right-aligned. The .cv-lock-hint (unlocked only)
-   drops to its own full-width line below so it never breaks the row. On narrow
-   screens the cluster wraps under the dropdowns (filter row is flex-wrap). */
+   Re-sort, right-aligned. On narrow screens the cluster wraps under the
+   dropdowns (filter row is flex-wrap). S263: the Edit-categories button +
+   .cv-lock-hint line are retired (status is changed via the tappable pill). */
 .dfx-list-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
-.dfx-list-actions .cv-lock-hint { flex: 1 1 100%; margin-left: 0; }
 @media (max-width: 560px) {
   .dfx-list-actions { margin-left: 0; width: 100%; }
 }
@@ -9126,11 +9125,9 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
 
 /* Global lock bar */
 .cv-lockbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 4px 10px;}
-.cv-lock-btn{font-family:Calibri,sans-serif;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;
-  border:1px solid var(--b-pill-bd);background:var(--b-pill-bg);color:var(--b-bar-fg);cursor:pointer;min-height:38px;transition:background .12s,border-color .12s;}
-.cv-lock-btn:hover{background:var(--b-pill-hover);}
-.cv-lock-btn.unlocked{background:var(--b-cat-active-bg);border-color:var(--b-bar-accent);color:var(--b-cat-active-fg);box-shadow:0 0 0 2px var(--b-pill-hover);}
-.cv-lock-hint{font-size:12px;color:var(--b-pill-seg-fg);}
+/* S263: .cv-lock-btn + .cv-lock-hint RETIRED — the Edit-categories lock is
+   gone. Status is changed via the always-tappable row pill (.cv-pill). */
+
 
 
 /* S248: manual Re-sort button — calm/disabled when nothing pending, accented
@@ -9143,27 +9140,22 @@ body.dark-mode .project-card,body.dark-mode .drawing-card{background:var(--b-car
   box-shadow:0 0 0 2px var(--b-pill-hover,rgba(156,39,66,.10));}
 .cv-resort-btn.has-pending:hover{background:var(--b-pill-hover,rgba(156,39,66,.14));}
 
-/* S248: pending marker — quiet tinted left edge on a row whose committed
-   category is waiting for the next Re-sort. Visible but not loud. */
+/* S263 Option D: pending marker = a corner dot in the TARGET status colour on
+   the pill + a small "↻ moved" tag beside it. The pill FILL stays muted (no
+   brightness/opacity jump — daylight-safe). Clears on Re-sort. The dot uses the
+   pill's own currentColor (its status fg), so it always reads as the
+   destination colour. (The old S248 left-edge bar is replaced by this.) */
 .cv-row.cv-pending{position:relative;}
-.cv-row.cv-pending::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:3px;
-  background:var(--b-bar-accent,#9C2742);opacity:.55;}
 
 /* S248: moved flash — brief highlight on rows that just resettled into place. */
 @keyframes cvJustMoved{0%{background:var(--b-cat-active-bg,#fdf5f7);}100%{background:transparent;}}
 .cv-row.cv-just-moved{animation:cvJustMoved 1.4s ease-out;border-radius:12px;}
 @media(prefers-reduced-motion:reduce){.cv-row.cv-just-moved{animation:none;}}
 
-/* Per-row category bar (above the reused obs row) */
 .cv-row{display:block;}
-/* S248 Option 1: the category segment strip is now BELOW the card body and
-   only shows when the list is UNLOCKED. While locked, the card shows just the
-   single far-right status pill (dfx-or-chip) — compact, no segment strip. */
-.cv-row-catbar{display:none;padding:0 13px 11px;justify-content:flex-end;}
-[data-cv-locked="0"] .cv-row-catbar{display:flex;}
-/* When unlocked, the segment control IS the status — hide the single
-   far-right display pill so the category isn't shown twice. */
-[data-cv-locked="0"] .cv-row .dfx-or-chip{display:none;}
+/* S263: .cv-row-catbar + the [data-cv-locked] show/hide rules RETIRED — the
+   four-segment category bar is gone. The status pill (.cv-pill) is always
+   visible and always tappable. */
 
 /* S248 FIX: the card BORDER must wrap the category pill AND the body, like the
    demo. The border lived on the inner .dfx-obsrow, leaving the catbar floating
@@ -9200,24 +9192,77 @@ body .cv-row .dfx-obsrow.open{box-shadow:none;border-color:transparent;}
 .dfx-or-catpill.cv-cat-site{background:var(--b-cat-site-bg);color:var(--b-cat-site-fg);border-color:color-mix(in srgb,var(--b-cat-site-fg) 35%,transparent);}
 .dfx-or-catpill.cv-cat-closed{background:var(--b-cat-closed-bg);color:var(--b-cat-closed-fg);border-color:color-mix(in srgb,var(--b-cat-closed-fg) 35%,transparent);}
 
-/* Four-segment category pill — matches FRT_manual_resort_demo .catpill:
-   top-left strip inside the card, faded+untappable when locked, lit when
-   unlocked. Selected segment = SOFT category tint with category-coloured text
-   (demo look — NOT a solid white-on-colour fill). */
-.cv-catpill{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--b-pill-bd);background:var(--b-pill-bg);}
-.cv-catseg{font-family:Calibri,sans-serif;font-size:10.5px;font-weight:600;line-height:1;padding:5px 9px;border:0;
-  border-right:1px solid var(--b-pill-seg-bd);background:transparent;color:var(--b-pill-seg-fg);white-space:nowrap;transition:.12s;
-  opacity:.5;pointer-events:none;cursor:default;}
-.cv-catseg:last-child{border-right:0;}
-[data-cv-locked="0"] .cv-catseg{opacity:1;pointer-events:auto;cursor:pointer;}
-[data-cv-locked="0"] .cv-catseg:hover{background:var(--b-pill-hover);}
-@media(pointer:coarse){.cv-catseg{padding:8px 10px;}}
+/* ════════ S263: TAPPABLE STATUS PILL → COLORED POPOVER ════════
+   The four-segment category strip (.cv-catpill/.cv-catseg) is RETIRED. The
+   collapsed-row status pill (.cv-pill) is now a tappable button that opens a
+   custom colored popover (.cv-statusmenu). Native <select> can't colour
+   <option>s on Android TWA, so the menu is hand-built — each item IS a pill in
+   its own status colour. Colours = the shared dfx-cs-* classes, so the row
+   pill, the menu item, and the PDF report pill all match. */
 
-/* Selected segment = soft category tint + category-coloured text (demo) */
-.cv-catseg.cv-cat-active.on{background:var(--b-cat-active-bg);color:var(--b-cat-active-fg);}
-.cv-catseg.cv-cat-rec.on{background:var(--b-cat-rec-bg);color:var(--b-cat-rec-fg);}
-.cv-catseg.cv-cat-site.on{background:var(--b-cat-site-bg);color:var(--b-cat-site-fg);}   /* LAVENDER */
-.cv-catseg.cv-cat-closed.on{background:var(--b-cat-closed-bg);color:var(--b-cat-closed-fg);}
+/* The pill itself: inherits dfx-cs-* fill/colour; adds the tappable affordance
+   (cursor, caret, generous target). The anchor positions the popover. */
+.cv-pill-anchor{position:relative;display:inline-flex;align-items:center;gap:6px;flex-shrink:0;}
+.dfx-or-chip.cv-pill{
+  display:inline-flex;align-items:center;gap:5px;cursor:pointer;border:1px solid transparent;
+  font-family:Calibri,sans-serif;user-select:none;transition:filter .12s,box-shadow .12s;
+}
+.dfx-or-chip.cv-pill:hover{filter:brightness(.98);}
+.dfx-or-chip.cv-pill:active{filter:brightness(.95);}
+.cv-pill-caret{font-size:8px;opacity:.6;margin-left:1px;line-height:1;}
+/* tinted hairline border in the pill's own colour for crisp daylight read */
+.dfx-or-chip.cv-pill.dfx-cs-high  {border-color:color-mix(in srgb,var(--b-high) 28%,transparent);}
+.dfx-or-chip.cv-pill.dfx-cs-low   {border-color:color-mix(in srgb,var(--b-low) 30%,transparent);}
+.dfx-or-chip.cv-pill.dfx-cs-rec   {border-color:color-mix(in srgb,var(--b-cat-rec-fg) 30%,transparent);}
+.dfx-or-chip.cv-pill.dfx-cs-site  {border-color:color-mix(in srgb,var(--b-cat-site-fg) 30%,transparent);}
+.dfx-or-chip.cv-pill.dfx-cs-closed{border-color:color-mix(in srgb,var(--b-cat-closed-fg) 30%,transparent);}
+/* coarse-pointer (gloves, daylight iPads): bigger tap target */
+@media(pointer:coarse){.dfx-or-chip.cv-pill{padding:7px 12px;}}
+
+/* Option D pending marker: corner dot in the pill's TARGET colour (its own
+   currentColor) + the "↻ moved" tag beside it. Fill stays muted. */
+.dfx-or-chip.cv-pill.cv-pill-pending{position:relative;overflow:visible;}
+.dfx-or-chip.cv-pill.cv-pill-pending::after{
+  content:"";position:absolute;top:-5px;right:-5px;width:11px;height:11px;border-radius:50%;
+  background:currentColor;border:2px solid var(--card,#fff);box-shadow:0 1px 2px rgba(0,0,0,.2);
+}
+body.dark-mode .dfx-or-chip.cv-pill.cv-pill-pending::after{border-color:#16151a;}
+.cv-moved-tag{
+  font-size:10px;font-weight:700;color:var(--b-bar-accent,#9C2742);
+  display:inline-flex;align-items:center;gap:2px;white-space:nowrap;letter-spacing:.2px;
+}
+
+/* The popover. position:FIXED so the card's overflow:hidden (needed for the
+   rounded-corner clip) can't clip it, and so it can't be trapped by any
+   ancestor overflow. Coordinates are set by JS (_cvToggleStatusMenu) on open
+   from the pill's rect, with an off-screen-right flip for narrow tablets.
+   Hidden until .open. */
+.cv-statusmenu{
+  position:fixed;z-index:9000;display:none;flex-direction:column;gap:4px;
+  min-width:188px;padding:6px;border-radius:12px;
+  background:var(--card,#fff);border:1px solid var(--b-pill-bd,#E4E2E9);
+  box-shadow:0 8px 28px rgba(27,26,34,.16);
+}
+body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.12);box-shadow:0 10px 32px rgba(0,0,0,.5);}
+.cv-statusmenu.open{display:flex;}
+.cv-statusmenu-label{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--b-pill-seg-fg,#928E9C);padding:3px 10px 1px;
+}
+.cv-statusmenu-item{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  font-family:Calibri,sans-serif;font-size:13px;font-weight:600;line-height:1.1;
+  padding:8px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;
+  transition:transform .08s,filter .12s;
+}
+.cv-statusmenu-item:hover{filter:brightness(.98);}
+.cv-statusmenu-item .cv-statusmenu-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:currentColor;}
+.cv-statusmenu-item.sel{outline:2px solid color-mix(in srgb,currentColor 45%,transparent);outline-offset:-2px;}
+/* coarse-pointer: taller items for gloved taps */
+@media(pointer:coarse){.cv-statusmenu-item{padding:11px 12px;}.cv-statusmenu{min-width:208px;}}
+/* the menu items reuse the dfx-cs-* fill/colour classes (set in markup), so the
+   item's text colour == the dot colour == the row pill colour for that status. */
+
 
 /* Unassigned contractor block (pinned to top of its trade) — lavender cue */
 .dfx-ctr-block.cv-unassigned .dfx-ctr-banner{font-style:italic;}
