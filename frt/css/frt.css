@@ -1179,8 +1179,12 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 /* ── MOBILE HEADER FIX ── */
 @media(max-width:600px){
   .header-top{padding:8px 10px;gap:5px;}
-  .logo-area{gap:5px;flex-shrink:0;}
-  .header-logo{height:28px;width:auto;padding:3px 6px;border-radius:6px;}
+  /* S262: logo-area must SHRINK at tiny widths (was flex-shrink:0, which let
+     the ARENCON wordmark overrun and overlap the right-side action buttons on
+     extreme-small screens). The wordmark now caps its width and clips; Back
+     stays fixed (small + always needed). Left group gives way before actions. */
+  .logo-area{gap:5px;flex-shrink:1;min-width:0;overflow:hidden;}
+  .header-logo{height:28px;width:auto;max-width:100%;padding:3px 6px;border-radius:6px;object-fit:contain;flex-shrink:1;min-width:0;}
   .logo-area img{height:28px;}
   .app-title{display:none!important;}
   /* Project name — truncate cleanly */
