@@ -746,7 +746,7 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
      text-size 'S' + Sign Out collapse into the hamburger menu (they're .hdr-btn, hidden by the rule above). */
   .header-actions #dark-toggle{display:inline-flex!important;}
   .header-actions #btn-qr{display:inline-flex!important;}
-  .header-actions.mobile-open{display:flex!important;position:fixed;top:0;right:0;bottom:0;z-index:9998;width:78%;max-width:320px;background:rgba(28,18,40,0.97);flex-direction:column;padding:60px 16px 20px;gap:8px;overflow-y:auto;align-items:stretch;}
+  .header-actions.mobile-open{display:flex!important;position:fixed;top:0;right:0;bottom:0;z-index:10002;width:78%;max-width:320px;background:rgba(28,18,40,0.97);flex-direction:column;padding:60px 16px 20px;gap:8px;overflow-y:auto;align-items:stretch;}
   .header-actions.mobile-open .hdr-btn{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   .header-actions.mobile-open .mobile-menu-btn{display:none!important;}
 }
@@ -1369,7 +1369,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
       <button class="mobile-menu-btn" id="mobile-hamburger" onclick="openMobileMenu()">☰</button>
     </div>
   </div>
-  <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,.55);"></div>
+  <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);"></div>
   <script>
 // S263: last-sync ticker — ported display from FRT ("last sync: Xm ago"), self-contained.
 var _lastSyncTs = 0, _lastSyncTimer = null;
@@ -1515,13 +1515,38 @@ function _aAlert(msg){
 }
 function _escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
-function openMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.add('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='block';}
+function openMobileMenu(){
+  var ha=document.querySelector('.header-actions');
+  var bd=document.getElementById('mobile-menu-backdrop');
+  // S266: the drawer lives inside .app-header, which has backdrop-filter:blur + z-index:10000.
+  // That ancestor creates a stacking context AND a containing block that traps the fixed-position
+  // drawer (rendering it BEHIND the body). Move the drawer to <body> on open so it escapes the
+  // trap and overlays everything; restore it on close so the desktop header is unchanged.
+  if(ha){
+    if(!ha._origParent){ ha._origParent=ha.parentNode; ha._origNext=ha.nextSibling; }
+    document.body.appendChild(ha);
+    ha.classList.add('mobile-open');
+  }
+  if(bd)bd.style.display='block';
+}
 function goBackToHub(){
   var pp=new URLSearchParams(window.location.search);
   var hubUrl='ARENCON_Project_Hub.html?project='+pp.get('project');
   window.location.href=hubUrl;
 }
-function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.remove('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='none';}
+function closeMobileMenu(){
+  var ha=document.querySelector('.header-actions');
+  var bd=document.getElementById('mobile-menu-backdrop');
+  if(ha){
+    ha.classList.remove('mobile-open');
+    // Restore the drawer to its original spot in the header (so desktop layout is unchanged).
+    if(ha._origParent){
+      if(ha._origNext) ha._origParent.insertBefore(ha, ha._origNext);
+      else ha._origParent.appendChild(ha);
+    }
+  }
+  if(bd)bd.style.display='none';
+}
   </script>
   <script>updateDarkToggleIcon();if(typeof _updateInspectorChip==='function')_updateInspectorChip();</script>
   <div class="project-bar" id="project-bar">
@@ -8287,17 +8312,24 @@ function _idbPut(key,val){return ADB.put('state',{k:key,v:val});}
 function _idbGet(key){return ADB.get('state',key).then(function(r){return r?r.v:null;});}
 function _idbDelete(key){return ADB.delete('state',key);}
 function updateIDBStorageBar(){
-  ADB.getAll('state').then(function(results){
-    var total=0;
-    (results||[]).forEach(function(r){total+=(r.v||'').length;});
-    var mb=(total/1024/1024).toFixed(1);
-    var pct=Math.min(100,Math.round(total/(5*1024*1024)*100));
+  // S266: measure REAL total browser storage via navigator.storage.estimate(), matching FRT.
+  // (The old ADB.getAll('state') sum read only one IDB store and ignored the CloudSync
+  //  database + photo/pdf stores — so it always showed ~0MB in Hub mode.)
+  if(!navigator.storage || !navigator.storage.estimate){
+    var lbl0=document.querySelector('#storage-display .storage-label');
+    if(lbl0)lbl0.textContent='IDB';
+    return;
+  }
+  navigator.storage.estimate().then(function(est){
+    var usedMB=Math.round((est.usage||0)/1024/1024);
+    var totalMB=Math.round((est.quota||0)/1024/1024);
+    var pct=totalMB>0?Math.round(usedMB/totalMB*100):0;
     var fill=document.getElementById('idb-bar-fill');
     if(fill)fill.style.width=pct+'%';
     var lbl=document.querySelector('#storage-display .storage-label');
-    if(lbl)lbl.textContent=mb+'MB';
+    if(lbl)lbl.textContent=usedMB+'MB / '+totalMB+'MB ('+pct+'%)';
     var disp=document.getElementById('storage-display');
-    if(disp)disp.title='IDB: '+mb+' MB used';
+    if(disp)disp.title='Browser storage: '+usedMB+' MB used of '+totalMB+' MB ('+pct+'%)';
   }).catch(function(){});
 }
 // ══ END ADB MODULE ══
