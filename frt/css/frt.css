@@ -9676,9 +9676,10 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 }
 
 /* ── 2 · Icon buttons (QR, day-night, hamburger) = diesel MEASURED 36×36 square, 16px font. (text-size "S" stays a normal .hdr-btn, matching diesel.) Flat 36px to win over coarse 38 + the old height:auto. ── */
-/* S260d: QR + day/night = plain .hdr-btn, IDENTICAL to Diesel (no square rule).
-   Diesel: padding 5px 12px, font calc(12px+var(--ts)), emoji content.
-   Only the hamburger keeps a square (no diesel desktop counterpart). */
+/* S260e: QR + day/night sized to match Diesel EXACTLY — diesel uses plain
+   .hdr-btn (padding 5px 12px, font calc(12px+var(--ts)), min-width 38px on
+   dark-toggle). PNG icon kept, scaled to 16px to match diesel's emoji size.
+   Hamburger keeps its own square (no diesel desktop counterpart). */
 #btn-qr, #dark-toggle{
   padding:5px 12px !important; border-radius:6px !important;
   width:auto !important; height:auto !important;
@@ -9686,6 +9687,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
   font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
 }
+#dark-toggle img{ width:16px !important; height:16px !important; }
 #mobile-menu-btn{
   width:36px !important; height:36px !important;
   min-width:36px !important; min-height:36px !important; max-height:36px !important;
