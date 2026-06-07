@@ -100,7 +100,7 @@ html{overflow-x:hidden;max-width:100vw;scrollbar-gutter:stable;}
 .logo-area img{height:32px;}
 .header-logo{height:34px;width:auto;background:#fff;padding:3px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.2);display:block;flex-shrink:0;}
 .app-title{font-weight:600;font-size:19px;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
-.header-actions{display:flex;gap:8px;align-items:center;flex-shrink:1;flex-wrap:wrap;justify-content:flex-end;min-width:0;position:relative;z-index:10;margin-right:8px;}
+.header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:nowrap;position:relative;z-index:10;margin-right:8px;}
 .header-save-ts{font-size:10.5px;color:rgba(255,255,255,.5);margin-right:4px;}
 .project-bar{display:none;align-items:center;gap:8px;padding:6px 14px;font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:var(--b-chrome2);border-top:1px solid rgba(255,255,255,.06);min-height:32px;flex-wrap:wrap;}
 .project-bar.visible{display:flex;}
@@ -866,8 +866,13 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 /* header-filename moved to project-bar */
 
 /* Mobile — hamburger ALWAYS visible; hides other btns ≤1024px */
-@media(max-width:1024px){
-  /* Hide header action buttons — keep dark toggle + hamburger + cloud status */
+@media(max-width:1200px){
+  /* Hide header action buttons — keep dark toggle + hamburger + cloud status.
+     S262: raised 1024->1200. The full action row is ~1137px wide; below ~1200px
+     it could no longer fit beside the left group and overflowed leftward onto
+     Back + the ARENCON wordmark (the stacked/overlapping green-dot bug). The
+     hamburger now engages BEFORE that overflow so buttons collapse into the
+     menu instead of wrapping or overlapping. */
   .header-actions>*{display:none!important;}
   .header-actions>#dark-toggle{display:inline-flex!important;}
   .header-actions>#mobile-menu-btn{display:inline-flex!important;}
