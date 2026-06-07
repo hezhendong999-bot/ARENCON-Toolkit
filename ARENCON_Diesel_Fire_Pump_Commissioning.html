@@ -739,6 +739,8 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .storage-bar{display:none!important;}
   /* S264: undo/redo arrows hidden on mobile — matches FRT (frt.css .header-nav-arrows line 882/1664). */
   .header-nav-arrows{display:none!important;}
+  /* S265: inspector chip hidden on mobile — matches FRT (frt.css .inspector-chip line 1666). */
+  .inspector-chip{display:none!important;}
   .mobile-menu-btn{display:block!important;}
   /* S260: match FRT mobile — only QR, day/night, hamburger stay outside.
      text-size 'S' + Sign Out collapse into the hamburger menu (they're .hdr-btn, hidden by the rule above). */
@@ -1124,6 +1126,17 @@ body.dark-mode .card[style*="border:1.5px solid #1A527622"]{border-color:#2a3848
 .storage-bar-fill{height:100%;background:#5F8068;border-radius:3px;transition:width .4s;}
 .storage-label{font-size:calc(9px + var(--ts));color:rgba(255,255,255,.45);white-space:nowrap;}
 body:not(.dark-mode) .storage-label{color:var(--steel)!important;}
+/* S265: inspector chip — ported verbatim from FRT (frt.css 1638-1641, 4592-4593, 9490-9493). */
+.inspector-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:16px;font-size:calc(11px + var(--ts));font-weight:600;color:rgba(255,255,255,.85);cursor:pointer;transition:all .15s;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;}
+.inspector-chip:hover{background:rgba(255,255,255,.25);}
+.inspector-chip .ic-icon{font-size:calc(13px + var(--ts));flex-shrink:0;}
+.inspector-chip .ic-name{overflow:hidden;text-overflow:ellipsis;}
+.inspector-chip.inspector-chip-locked{cursor:default;opacity:.95;}
+.inspector-chip.inspector-chip-locked:hover{filter:none;}
+body:not(.dark-mode) .inspector-chip,
+body:not(.dark-mode) .inspector-chip .ic-name,
+body:not(.dark-mode) .inspector-chip .ic-icon{color:#1B1A22!important;}
+body:not(.dark-mode) .inspector-chip{background:#FFFFFF!important;border:1px solid #D2CEDB!important;box-shadow:var(--b-btn-shadow);}
 
 /* ── DASHBOARD ── */
 /* Cloud sync status indicator — FRT-family: dot + text, pulsing halo when synced */
@@ -1314,6 +1327,9 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <div class="storage-bar-track"><div class="storage-bar-fill" id="idb-bar-fill" style="width:0%"></div></div>
         <span class="storage-label">IDB</span>
       </div>
+      <!-- S265: inspector chip ported from FRT — identity from signed-in user (profiles.full_name),
+           shared key ARENCON_FR_Inspector. Locked in Hub mode; free-form edit in standalone. -->
+      <div class="inspector-chip" id="inspector-chip" onclick="_showInspectorModal()" title="Change inspector"><span class="ic-icon">👤</span><span class="ic-name" id="inspector-chip-name">Set Name</span></div>
       <!-- ✨ AI Review — matches FRT exactly: Full Rewrite + Quick Fix (Shorten removed S226c) -->
       <div class="hdr-ai-wrap" id="ai-review-wrap">
         <button class="hdr-btn hdr-ai-active" id="btn-ai-review" onclick="AIAssist.toggleMenu(event)" title="AI text review of deficiencies, responses & notes">✨ AI Review ▾</button>
@@ -1377,6 +1393,54 @@ function _renderLastSync(){
 function _startLastSyncTicker(){
   if(_lastSyncTimer) return;
   _lastSyncTimer = setInterval(_renderLastSync, 30000);
+}
+// S265: inspector chip — ported from FRT. Identity = signed-in user (profiles.full_name),
+// shared localStorage key 'ARENCON_FR_Inspector' so FRT and diesel show the SAME name.
+var LS_INSPECTOR = 'ARENCON_FR_Inspector';
+function getInspectorName(){ return localStorage.getItem(LS_INSPECTOR) || ''; }
+function _updateInspectorChip(){
+  var chip = document.getElementById('inspector-chip-name');
+  if(chip) chip.textContent = getInspectorName() || 'Set Name';
+}
+function _lockInspectorChip(name){
+  var chip = document.getElementById('inspector-chip');
+  if(chip){ chip.classList.add('inspector-chip-locked'); chip.title = 'Inspector: ' + name + ' (signed in)'; }
+}
+// Hub mode: identity is auto-derived and locked. Standalone: free-form edit.
+function _showInspectorModal(){
+  var chip = document.getElementById('inspector-chip');
+  if(chip && chip.classList.contains('inspector-chip-locked')){
+    var cur = getInspectorName();
+    showToast('Inspector is set from your account: ' + (cur || 'unknown') + ' — sign out to change it', 2500);
+    return;
+  }
+  var current = getInspectorName();
+  var v = prompt('Inspector name:', current);
+  if(v !== null){
+    localStorage.setItem(LS_INSPECTOR, v.trim());
+    _updateInspectorChip();
+  }
+}
+// Derive the signed-in user's real name (profiles.full_name > user_metadata > email prefix),
+// write the shared key, update + lock the chip. Mirrors FRT app.js exactly.
+function _deriveInspectorIdentity(userId){
+  if(!userId) return;
+  CloudSync.request('/rest/v1/profiles?id=eq.' + userId + '&select=full_name').then(function(rows){
+    var fullName = (rows && rows[0] && rows[0].full_name) ? String(rows[0].full_name).trim() : '';
+    if(fullName){ _applyInspectorName(fullName); return; }
+    // Fallback: user_metadata.full_name, then email prefix
+    CloudSync.request('/auth/v1/user').then(function(user){
+      var meta = (user && user.user_metadata) || {};
+      var nm = (meta.full_name || '').trim();
+      if(!nm && user && user.email) nm = user.email.split('@')[0].toUpperCase();
+      if(nm) _applyInspectorName(nm);
+    }).catch(function(){});
+  }).catch(function(){});
+}
+function _applyInspectorName(name){
+  localStorage.setItem(LS_INSPECTOR, name);
+  _updateInspectorChip();
+  _lockInspectorChip(name);
 }
 function initDarkMode(){var s=localStorage.getItem('ARENCON_Dark');if(s==='1'||(s===null&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.body.classList.add('dark-mode');updateDarkToggleIcon();}
 function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStorage.setItem('ARENCON_Dark',document.body.classList.contains('dark-mode')?'1':'0');updateDarkToggleIcon();if(typeof applyChartDarkMode==='function')applyChartDarkMode();_refreshDarkButtons();}
@@ -1459,7 +1523,7 @@ function goBackToHub(){
 }
 function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(ha)ha.classList.remove('mobile-open');var bd=document.getElementById('mobile-menu-backdrop');if(bd)bd.style.display='none';}
   </script>
-  <script>updateDarkToggleIcon();</script>
+  <script>updateDarkToggleIcon();if(typeof _updateInspectorChip==='function')_updateInspectorChip();</script>
   <div class="project-bar" id="project-bar">
     <span class="pb-badge" id="pb-badge" onclick="issueReport()" title="Click to change status">DRAFT</span>
     <span class="pb-inst" id="pb-inst" title="Current DFP instance number" style="font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#2C4A6B;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;">DFP #1</span>
@@ -9018,6 +9082,8 @@ window.addEventListener('load', () => {
           if(status === 'synced' || status === 'saved'){ _lastSyncTs = Date.now(); _renderLastSync(); _startLastSyncTicker(); }
         }
       }).then(function(info){
+        // S265: derive + lock inspector identity from the signed-in user (shared key with FRT).
+        if(info && info.userId){ _updateInspectorChip(); _deriveInspectorIdentity(info.userId); }
         // Load data from cloud/IDB
         return CloudSync.load();
       }).then(function(result){
