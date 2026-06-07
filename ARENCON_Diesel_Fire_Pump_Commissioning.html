@@ -253,13 +253,14 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 @media(pointer:coarse){.ph-check{display:block;}}
 .ph-badges{position:absolute;top:6px;right:6px;display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:90px;z-index:2;}
 .ph-badge{padding:3px 9px;color:#fff;border-radius:11px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);line-height:1.3;background:#455A64;}
-.ph-badge-checklist{background:#5F8068;}
-.ph-badge-deficiency{background:#A85959;}
+.ph-badge-checklist{background:#5E7A8C;} /* S280: slate-blue (green now reserved for site/records to match FRT) */
+.ph-badge-deficiency{background:#A85959;} /* red — shared meaning with FRT */
 .ph-badge-general{background:#6E86B8;}
 .ph-badge-flow{background:#B07F5A;}
-.ph-badge-records{background:#7D6F9C;}
+.ph-badge-records{background:#5F8068;} /* S280: green — site/records, shared meaning with FRT */
 .ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .ph-cloud svg{display:block;}
+.ph-time{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);z-index:2;font-family:Calibri,sans-serif;font-size:10px;font-weight:600;color:#fff;background:rgba(0,0,0,.55);padding:1px 6px;border-radius:8px;letter-spacing:.3px;line-height:1.4;pointer-events:none;font-variant-numeric:tabular-nums;}
 .ph-dl-btn,.ph-del-btn{position:absolute;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);color:#fff;font-size:12px;line-height:1;}
 .ph-dl-btn{bottom:5px;left:6px;background:rgba(44,71,112,.92);}
 .ph-dl-btn:hover{background:#2C4770;}
@@ -1966,8 +1967,10 @@ function updatePhaseFlags(){
         </div>
       </div>
     </div>
-    <!-- S226c: 4.1 churn checklist now sits BELOW the 3-pt net pressure chart -->
-    <div id="cl-s4" style="margin-top:16px;padding:0 16px 16px;"></div>
+    <!-- S226c: 4.1 churn checklist sits BELOW the 3-pt net pressure chart.
+         S280: wrapped in the same .card/.card-body chrome as sections 1/2/3 so it
+         aligns (it was previously a bare div with ad-hoc inline padding). -->
+    <div class="card" style="margin-top:16px;"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>4. Performance Test</div><div class="card-body"><div id="cl-s4"></div></div></div>
     </div><!-- /#perf-std -->
 
     <!-- ════ 7-POINT PLD SECTION (shown when Test Type = 7-Point) ════ -->
@@ -2131,7 +2134,8 @@ function updatePhaseFlags(){
           <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
           <div class="fig-readout" id="figro-pldNetChart"></div>
         </div>
-        <div id="cl-s4pld" style="margin-top:16px;padding:0 16px 16px;"></div>
+        <!-- S280: same .card wrapping as cl-s4 so the PLD-view 4.1 card aligns too. -->
+        <div class="card" style="margin-top:16px;"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>4. Performance Test</div><div class="card-body"><div id="cl-s4pld"></div></div></div>
       </div>
     </div>
     </div><!-- /#perf-pld -->
@@ -3165,18 +3169,100 @@ function setStatus(id, status) {
 
 // ── PHOTO ──
 let currentPhotoId = null;
-function triggerPhoto(id) { currentPhotoId = id; const fi = document.getElementById('global-file-input'); fi.value=''; fi.click(); }
-function triggerCamera(id) { currentPhotoId = id; const fi = document.getElementById('global-file-input'); fi.value=''; fi.setAttribute('capture','environment'); fi.multiple=false; fi.click(); }
+// S280: every trigger clears ALL targets so a stale target from a prior
+// (possibly cancelled) action can never hijack a fresh upload.
+function _clearPhotoTargets(fi){
+  currentPhotoId = null;
+  deficPhotoTarget = null;
+  if(fi) fi._target = null;
+}
+function triggerPhoto(id) { const fi = document.getElementById('global-file-input'); _clearPhotoTargets(fi); currentPhotoId = id; fi.removeAttribute('capture'); fi.multiple=true; fi.value=''; fi.click(); }
+function triggerCamera(id) { const fi = document.getElementById('global-file-input'); _clearPhotoTargets(fi); currentPhotoId = id; fi.value=''; fi.setAttribute('capture','environment'); fi.multiple=false; fi.click(); }
+
+// S280: ONE authoritative change handler on #global-file-input.
+// Previously TWO change listeners were bound to this same input (this block +
+// a later "Patch global file handler" block). Both fired on a single change
+// event, so one upload produced TWO photos — and a timing race on the shared
+// currentPhotoId could auto-vivify a clState["null"] orphan. The second
+// listener is now deleted; this handler absorbs every routing branch.
+// A checklist key is only valid if it's a real, truthy, non-"null" string.
+function _validClKey(k){ return typeof k === 'string' && k && k !== 'null' && k !== 'undefined'; }
 document.getElementById('global-file-input').addEventListener('change', function(e){
-  if(this._target === '__flowtestpld') {
-    const f=e.target.files[0]; if(!f) return;
-    const r=new FileReader();
-    r.onload=ev=>{ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); };
-    r.readAsDataURL(f);
-    this._target=null; return;
+  const fi = this;
+  const wasCam = fi.hasAttribute('capture');
+  const reset = function(){
+    _clearPhotoTargets(fi);
+    fi.removeAttribute('capture'); fi.multiple = true;
+    if(wasCam){ setTimeout(function(){ fi.value=''; fi.setAttribute('capture','environment'); fi.multiple=false; fi.click(); }, 300); }
+  };
+  const files = e.target.files;
+  if(!files || !files.length){ reset(); return; }
+
+  // 1. Flow test photos (PLD) — flagged via fi._target
+  if(fi._target === '__flowtestpld') {
+    Array.from(files).forEach(function(f){
+      if(!f.type.startsWith('image/')) return;
+      const r=new FileReader();
+      r.onload=ev=>{ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); };
+      r.readAsDataURL(f);
+    });
+    reset(); return;
   }
-  if(currentPhotoId) handleFiles(currentPhotoId, e.target.files, false);
-  else if(deficPhotoCurrentId !== null) handleFiles(deficPhotoCurrentId, e.target.files, true);
+
+  // 2. Flow test photos (3-point) — flagged via currentPhotoId sentinel
+  if(currentPhotoId === '__flowtest') {
+    Array.from(files).forEach(function(f){
+      if(!f.type.startsWith('image/')) return;
+      const r=new FileReader();
+      r.onload=ev=>{ flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbs(); };
+      r.readAsDataURL(f);
+    });
+    reset(); return;
+  }
+
+  // 3. Deficiency photos — routed via the live deficPhotoTarget {name, idx, type}
+  if(deficPhotoTarget) {
+    const t = deficPhotoTarget;
+    if(t.type === 'response') {
+      const f = files[0];
+      if(f && f.type.startsWith('image/')) {
+        const r=new FileReader();
+        r.onload=ev=>{ deficiencies[t.name][t.idx].responsePhoto = ev.target.result; renderDeficGroup(t.name); };
+        r.readAsDataURL(f);
+      }
+    } else {
+      Array.from(files).forEach(function(f){
+        if(!f.type.startsWith('image/')) return;
+        const r=new FileReader();
+        r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
+          deficiencies[t.name][t.idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          renderDeficGroup(t.name);
+          if(typeof updateDeficSummary==='function') updateDeficSummary();
+        }); };
+        r.readAsDataURL(f);
+      });
+    }
+    reset(); return;
+  }
+
+  // 4. Checklist item photos — only for a real, validated key (guards the "null" orphan)
+  if(_validClKey(currentPhotoId)) {
+    const id = currentPhotoId;
+    Array.from(files).forEach(function(f){
+      if(!f.type.startsWith('image/')) return;
+      const r=new FileReader();
+      r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
+        if(!clState[id]) return; // never auto-vivify; a real item always exists before upload
+        clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+        var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
+        var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
+        var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
+        if(typeof refreshItemPhotoUI==='function') refreshItemPhotoUI(id);
+      }); };
+      r.readAsDataURL(f);
+    });
+  }
+  reset();
 });
 function handleFiles(id, files, isDefic) {
   Array.from(files).forEach(f => {
@@ -7318,7 +7404,7 @@ function clearSketchCanvas(idx) {
 function triggerSketchPhoto(idx) {
   sketchFileTarget = idx;
   currentPhotoId = null;
-  deficPhotoCurrentId = null;
+  deficPhotoTarget = null;
   const fi = document.getElementById('sketch-file-input');
   fi.value = ''; fi.click();
 }
@@ -8102,14 +8188,14 @@ function renderFlowTestThumbsPld() {
 }
 function triggerFlowTestPhoto() {
   currentPhotoId = '__flowtest';
-  deficPhotoCurrentId = null;
+  deficPhotoTarget = null;
   sketchFileTarget = null;
   const fi = document.getElementById('global-file-input');
   fi.value = ''; fi.click();
 }
 function triggerFlowTestCamera() {
   currentPhotoId = '__flowtest';
-  deficPhotoCurrentId = null;
+  deficPhotoTarget = null;
   sketchFileTarget = null;
   const fi = document.getElementById('global-file-input');
   fi.value = ''; fi.setAttribute('capture','environment'); fi.multiple=false; fi.click();
@@ -8138,39 +8224,11 @@ function renderFlowTestThumbs() {
     <button class="photo-remove" onclick="flowTestPhotos.splice(${i},1);renderFlowTestThumbs()">✕</button></div>`).join('');
 }
 
-// Patch global file handler to support flowtest
-document.getElementById('global-file-input').addEventListener('change', function(e) {
-  const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-  if (!files.length) { deficPhotoTarget = null; currentPhotoId = null; return; }
-  const read = (f, cb) => { const r = new FileReader(); r.onload = ev => cb(ev.target.result); r.readAsDataURL(f); };
-  if (currentPhotoId === '__flowtest') {
-    files.forEach(f => read(f, d => { flowTestPhotos.push((function(){var _ph={d:d,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderFlowTestThumbs(); }));
-    currentPhotoId = null;
-  } else if (deficPhotoTarget) {
-    const { name, idx, type } = deficPhotoTarget;
-    if (type === 'response') {
-      read(files[0], d => { deficiencies[name][idx].responsePhoto = d; renderDeficGroup(name); });
-    } else {
-      files.forEach(f => read(f, d => { deficiencies[name][idx].photos.push((function(){var _ph={d:d,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderDeficGroup(name); }));
-    }
-    deficPhotoTarget = null;
-  } else if (currentPhotoId) {
-    files.forEach(f => read(f, d => {
-      if (!clState[currentPhotoId]) clState[currentPhotoId] = { status: null, comment: '', photos: [], customText: '' };
-      clState[currentPhotoId].photos.push((function(){var _ph={d:d,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
-      const pg = document.getElementById('pg-' + currentPhotoId);
-      if (pg) pg.innerHTML = renderThumbs(currentPhotoId);
-    }));
-    currentPhotoId = null;
-  }
-  var _wasCam = this.hasAttribute('capture');
-  this.removeAttribute('capture'); this.multiple = true;
-  // Continuous camera: re-open camera after capture
-  if(_wasCam) {
-    var _fi = this;
-    setTimeout(function(){ _fi.value=''; _fi.setAttribute('capture','environment'); _fi.multiple=false; _fi.click(); }, 300);
-  }
-});
+// S280: second #global-file-input change listener REMOVED.
+// It was the duplicate that caused one upload to save two photos (and the
+// clState["null"] orphan via auto-vivify). All of its routing branches
+// (__flowtest, deficPhotoTarget response/evidence, checklist, continuous
+// camera) are now handled by the single authoritative listener defined above.
 
 // sketch photo file handler
 document.getElementById('sketch-file-input').addEventListener('change', function(e) {
@@ -9710,6 +9768,26 @@ function _skDeleteSelected(uid) {
 
 // ── Photo Gallery: collect all photos from all sections ──
 var _pgSelected = new Set();
+// S280: map a clState key (e.g. "s2_0") to the human item number (e.g. "2.1")
+// for the gallery badge. Falls back to the raw key if it can't resolve.
+function _clItemNum(id){
+  if(typeof id !== 'string' || id.indexOf('_') < 0) return id;
+  var us = id.lastIndexOf('_');
+  var sec = id.slice(0, us);
+  var idx = parseInt(id.slice(us+1), 10);
+  var srcMap = {
+    s1: (typeof S1!=='undefined'?S1:[]),
+    s2: (typeof S2!=='undefined'?S2:[]),
+    s3: (typeof S3!=='undefined'?S3:[]),
+    s4: (typeof S4_items!=='undefined'?S4_items:[]),
+    s4pld: (typeof S4_items!=='undefined'?S4_items:[]),
+    s5: (typeof S5!=='undefined'?S5:[]),
+    s5m: (typeof S5_mandatory!=='undefined'?S5_mandatory:[])
+  };
+  var arr = srcMap[sec];
+  if(arr && arr[idx] && arr[idx].num) return arr[idx].num;
+  return id;
+}
 function _collectAllPhotos(){
   var all = [];
   // 1. Flow test photos (3-point)
@@ -9725,7 +9803,7 @@ function _collectAllPhotos(){
     var st = clState[id];
     if(!st || !st.photos) return;
     st.photos.forEach(function(p,pi){
-      all.push({photo:p, type:'checklist', cat:'checklist', badge:id, label:'Checklist: '+id, section:'cl_'+id, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'checklist', cat:'checklist', badge:_clItemNum(id), label:'Checklist '+_clItemNum(id), section:'cl_'+id, idx:pi, src:p.r2Url||p.d});
     });
   });
   // 4. Deficiency photos (per contractor)
@@ -9800,6 +9878,19 @@ function _pgDayKey(p){
   else if(dd.getTime()===yest.getTime()) label='Yesterday';
   else label=dd.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
   return {key:dd.getTime()+'', label:label, ts:dd.getTime()};
+}
+
+// S280: per-photo time-of-day (HH:MM) for the gallery card, from the same
+// source _pgDayKey uses (addedDate/date, else the ms embedded in the id).
+function _pgPhotoTime(p){
+  var d = p.addedDate || p.date;
+  if(!d && p.id){ var m=(''+p.id).match(/_(\d{10,})_/); if(m) d = parseInt(m[1],10); }
+  if(!d) return '';
+  var dt = new Date(d);
+  if(isNaN(dt.getTime())) return '';
+  var hh = (''+dt.getHours()).padStart(2,'0');
+  var mm = (''+dt.getMinutes()).padStart(2,'0');
+  return hh+':'+mm;
 }
 
 function _pgSetFilter(mode){ _pgFilter=mode; _pgFilterOpen=false; _renderPhotoGallery(); }
@@ -9986,6 +10077,8 @@ function _renderPhotoGallery(){
       html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'">'+(item.badge||'?')+'</span></span>';
       if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox('+gidx+')">'; }
       else { html += '<div class="ph-noimg">\uD83D\uDCF7</div>'; }
+      var _ptime=_pgPhotoTime(p);
+      if(_ptime){ html += '<span class="ph-time">'+_ptime+'</span>'; }
       html += _pgCloudIcon(p);
       html += '<button class="ph-dl-btn" onclick="event.stopPropagation();_pgDownloadOne('+gidx+')" title="Download">\u2193</button>';
       html += '<button class="ph-del-btn" onclick="event.stopPropagation();_pgDeleteOne('+gidx+')" title="Delete">\u2715</button>';
