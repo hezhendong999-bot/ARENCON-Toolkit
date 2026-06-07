@@ -9286,7 +9286,13 @@ body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.
    short elements (text, photos) share the left column.
    PHONE (<680px): single column — text → photos → drawing.
    ════════════════════════════════════════════════════════════════════ */
-.cv-ed-body{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin:8px 0 4px;align-items:start;}
+/* S263: columns STRETCH to equal height (the taller side drives), so the
+   drawing box's bottom always aligns with the photo box's bottom and its top
+   with the textarea's top — no fixed-height slack. When the comment grows or
+   more photos are added, the left column gets taller and the drawing grows with
+   it. A min-height floor keeps the drawing draggable even when the left column
+   is short. */
+.cv-ed-body{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin:8px 0 4px;align-items:stretch;}
 .cv-ed-left{display:flex;flex-direction:column;gap:12px;min-width:0;}
 .cv-ed-right{display:flex;flex-direction:column;gap:7px;min-width:0;}
 /* in the card grid the textarea + media each take full width of the left col */
@@ -9303,17 +9309,23 @@ body.dark-mode .cv-loc-open{border-color:rgba(255,255,255,.14);}
    pin. S250 §8: canvas centered + fills width to cut the wide side gaps; the
    letterbox bg goes near-black in dark mode so the drawing never sits on a
    white pad (was #2a2d35 grey showing as white-ish padding around the crop). */
-.cv-loc-thumb{width:100%;height:300px;background:var(--smoke,#f5f5f5);border:1px solid #dde1e7;border-radius:11px;overflow:hidden;position:relative;touch-action:none;display:flex;align-items:center;justify-content:center;}
+/* the drawing panel — FILLS the right column's height (flex:1) so it tracks the
+   left column instead of a fixed 300px that leaves slack. min-height keeps it
+   draggable when the left column is short. S250 §8: canvas centered + fills
+   width to cut the wide side gaps; the letterbox bg goes near-black in dark
+   mode so the drawing never sits on a white pad. */
+.cv-loc-thumb{width:100%;flex:1 1 auto;min-height:240px;background:var(--smoke,#f5f5f5);border:1px solid #dde1e7;border-radius:11px;overflow:hidden;position:relative;touch-action:none;display:flex;align-items:center;justify-content:center;}
 .cv-loc-thumb canvas{display:block;width:100%;height:100%;object-fit:contain;}
 body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
 .cv-loc-hint{font-size:11px;color:var(--b-pill-seg-fg,#928E9C);}
 /* desktop = interactive panel; ≤900px swaps to the static one */
 .cv-loc-mobile{display:none;}
 @media(max-width:900px){.cv-loc-desktop{display:none;}.cv-loc-mobile{display:block;}}
-/* PHONE PORTRAIT: collapse the 2-col grid to a single stacked column */
+/* PHONE PORTRAIT: collapse the 2-col grid to a single stacked column. Stacked,
+   there's no left column to match, so the drawing gets a fixed-ish height. */
 @media(max-width:680px){
   .cv-ed-body{grid-template-columns:1fr;}
-  .cv-loc-thumb{height:240px;}
+  .cv-loc-thumb{flex:0 0 auto;height:240px;min-height:0;}
 }
 
 /* ═══════════════════════════════════════════════════════════════════
