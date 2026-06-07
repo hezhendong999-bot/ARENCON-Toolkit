@@ -736,6 +736,11 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .header-logo{height:28px!important;padding:3px 6px!important;}
   /* Medium screens: use hamburger menu */
   .header-actions .hdr-btn{display:none!important;}
+  /* S274: the AI Review / Reports / More buttons live inside WRAPPER divs (.hdr-ai-wrap /
+     .hdr-repair-wrap). Hiding .hdr-btn hid the buttons but the wrappers kept their width,
+     pushing the QR/day-night squares ~48px away from the cloud dot. FRT has no such wrappers,
+     so its dot sits tight to the squares. Hide the wrappers too → diesel now matches FRT. */
+  .header-actions .hdr-ai-wrap, .header-actions .hdr-repair-wrap{display:none!important;}
   /* S263: IDB storage meter hidden on mobile — matches FRT (frt.css .storage-bar mobile hide).
      It's a div (not .hdr-btn) so it would otherwise leak into the collapsed mobile header. */
   .storage-bar{display:none!important;}
@@ -774,7 +779,10 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   #cloud-status #last-sync-text{display:none!important;}
   /* S267: breathing room — right margin off the edge + a slightly wider gap so QR / day-night /
      hamburger read as separate buttons, not one crammed block (matches FRT margin-right:8px). */
-  .header-actions{gap:12px!important;margin-right:14px!important;}
+  /* S274: match FRT gap exactly (frt.css line 103: gap:8px, margin-right:8px). The earlier
+     "crammed" look was the unhidden wrapper divs, not the gap — now that they're hidden, FRT's
+     8px gap reads clean. */
+  .header-actions{gap:8px!important;margin-right:8px!important;}
   /* S252: day/night toggle stays in the header as a 34x34 chrome box (match FRT); hidden while the menu drawer is open */
   .header-actions #dark-toggle{justify-content:center;flex-shrink:0;margin-left:0;}
   .header-actions.mobile-open #dark-toggle{display:none!important;}
@@ -822,6 +830,8 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; }
 }
 @media(max-width:480px) {
+  /* S274: match FRT — tighter 3px gap on phones (frt.css line 1669). */
+  .header-actions{gap:3px!important;}
   /* S257: match FRT phone logo size (22px) */
   /* S272: logo no longer shrinks to 22px below 480 — Mark wants it to stay consistent on small
      screens. Hold at the 28px (<=1024) size all the way down. (.header-top img kept at 22px for
