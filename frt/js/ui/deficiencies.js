@@ -3181,20 +3181,23 @@ function _cvPositionMenu(menu, pill) {
   menu.style.top = Math.round(top) + 'px';
 }
 
-// Toggle one row's popover open/closed (tap-to-open). Closes others first so
-// only one menu is ever open. S263 (portal fix): the menu is MOVED to
-// document.body on open so the card's overflow:hidden (the border that was
-// clipping it) can't trap it — it renders at the top of the page, above
-// everything. position:fixed + _cvPositionMenu anchors it to the pill; on
-// close it's returned to its home anchor. The open pill gets .cv-pill-active.
+// Toggle one row's popover open/closed. Tapping a pill opens its menu; tapping
+// the SAME pill again closes it; tapping a different pill closes the first and
+// opens the new one. S263 (portal fix): while open the menu lives on
+// document.body (escapes the card's overflow:hidden clip), so we can't detect
+// "is this pill's menu open?" by querying the anchor — the menu isn't a child
+// of it anymore. We use the tracked _cvOpenPill reference instead.
 function _cvToggleStatusMenu(pillEl) {
+  // Re-tap on the already-open pill → close. (Checked BEFORE closing, via the
+  // tracked ref, because the open menu is portaled away from the anchor.)
+  var reTapSamePill = (_cvOpenPill === pillEl);
+  _cvCloseStatusMenus();
+  if (reTapSamePill) return;
+
   var anchor = pillEl.closest('.cv-pill-anchor');
   if (!anchor) return;
   var menu = anchor.querySelector('.cv-statusmenu');
   if (!menu) return;
-  var wasOpen = menu.classList.contains('open');
-  _cvCloseStatusMenus();
-  if (wasOpen) return;
 
   // Portal: lift the menu out of the clipping card and onto document.body.
   // Remember its home so close can return it.
