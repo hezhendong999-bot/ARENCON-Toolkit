@@ -3004,6 +3004,10 @@ function _renderCombinedView(proj, container) {
         requestAnimationFrame(function() {
           window._frtRenderPinMiniMap(_od, 'cv-pe-location-thumb');
           window._frtRenderPinMiniMap(_od, 'cv-pe-location-thumb-mobile');
+          // S263: seed the re-fit baseline with the box's open-time height so
+          // the first typing-driven re-fit compares against the right value.
+          var _b0 = document.getElementById('cv-pe-location-thumb');
+          _cvLastDrawBoxH = _b0 ? _b0.clientHeight : 0;
         });
       }
     } catch (e) {}
@@ -5540,20 +5544,26 @@ function _cvAutosizeAll(root) {
 }
 
 // S263: re-fit the open row's drawing to its (possibly grown) box. Called on a
-// DEBOUNCED one-shot timer after typing pauses + on blur — NOT on a continuous
-// observer (that looped and flashed). One render per call, so it can't loop.
+// DEBOUNCED one-shot timer after typing pauses — NOT a continuous observer
+// (that looped and flashed). Re-fits ONLY when the box height actually changed
+// since the last fit, so typing that doesn't grow the box (same line count)
+// causes NO re-render and NO flash.
 var _cvRefitTimer = 0;
+var _cvLastDrawBoxH = 0;
 function _cvRefitDrawing(deficId) {
   if (!window._frtRenderPinMiniMap) return;
   var f = Model.findDeficiency(deficId);
   if (!f || !f.defic || !f.defic.drawingId) return;
   var d = f.defic;
-  // only when the desktop box is actually present (a row is open on desktop)
-  if (!document.getElementById('cv-pe-location-thumb')) return;
-  // rAF so the render reads the box's SETTLED height — after the auto-grown
-  // textarea has reflowed the column. Without this the renderer occasionally
-  // read a stale (pre-reflow) height, so the drawing didn't update until a
-  // later event (the click-on-whitespace) forced a fresh render.
+  var box = document.getElementById('cv-pe-location-thumb');
+  if (!box) return;
+  // Only re-fit if the box height changed since the last fit — avoids a
+  // needless re-render (visible flash) on keystrokes that don't grow the box.
+  var h = box.clientHeight;
+  if (h === _cvLastDrawBoxH) return;
+  _cvLastDrawBoxH = h;
+  // rAF so the render reads the box's SETTLED height after the auto-grown
+  // textarea reflowed the column.
   requestAnimationFrame(function() {
     if (!document.getElementById('cv-pe-location-thumb')) return;
     try {
@@ -5563,7 +5573,7 @@ function _cvRefitDrawing(deficId) {
   });
 }
 // Debounced wrapper: fires ~350ms after the last keystroke so the box has
-// settled at its new height, then re-fits once.
+// settled at its new height, then re-fits once (if the height changed).
 function _cvRefitDrawingDebounced(deficId) {
   if (_cvRefitTimer) clearTimeout(_cvRefitTimer);
   _cvRefitTimer = setTimeout(function() { _cvRefitDrawing(deficId); }, 350);
@@ -5631,7 +5641,11 @@ Model.onChange('project', function() { initDeficiencies.render(); });
 Model.onChange('photo', function() {
   var ae = document.activeElement;
   if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) {
-    if (ae.closest('#tab-deficiencies, .defic-item, .defic-list')) return;
+    // S263 FIX: include the combined-view DOM (see the 'saved' guard below) so
+    // a photo finishing upload elsewhere doesn't rebuild the list out from
+    // under a user typing a comment in the combined view.
+    if (ae.classList && ae.classList.contains('obs-text-input')) return;
+    if (ae.closest('#tab-deficiencies, #deficiencies-container, .defic-item, .defic-list, .cv-row, .cv-ed-left')) return;
   }
   initDeficiencies.render();
 });
@@ -5656,9 +5670,20 @@ Model.onChange('saved', function() {
   _deficSavedDebounce = setTimeout(function() {
     if (_recHoldUntilNav) return;  // S150g: a rec star was just toggled — keep the
                                    // card put; the next deliberate render resettles it
+    // S263 FIX: the focus guard must cover the COMBINED-VIEW DOM. The combined
+    // view renders into #deficiencies-container with .cv-row / .cv-ed-left /
+    // .obs-text-input — NONE of which matched the old selector list
+    // (.defic-item/.defic-list/.defic-pin-group from the legacy detailed view).
+    // So when a user typed in a combined-view comment box, closest() returned
+    // null, the guard did NOT fire, and this 300ms-debounced render rebuilt the
+    // list mid-typing — destroying the textarea (focus loss → retype), re-
+    // rendering the drawing (flash), and occasionally restoring a just-deleted
+    // character (stale rebuild). Guarding on the editable element itself (plus
+    // the live container) is robust against container-class drift.
     var ae = document.activeElement;
     if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) {
-      var inDefic = !!ae.closest('#tab-deficiencies, .defic-item, .defic-list, .defic-pin-group');
+      if (ae.classList && ae.classList.contains('obs-text-input')) return;  // typing a comment
+      var inDefic = !!ae.closest('#tab-deficiencies, #deficiencies-container, .defic-item, .defic-list, .defic-pin-group, .cv-row, .cv-ed-left');
       if (inDefic) return;
     }
     initDeficiencies.render();
