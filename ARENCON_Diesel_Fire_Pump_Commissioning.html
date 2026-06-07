@@ -844,7 +844,10 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   /* Nav tabs: ensure 44px height on touch */
   .nav-tab{min-height:44px;display:inline-flex;align-items:center;}
   /* Header buttons */
-  .hdr-btn{min-height:40px!important;height:auto!important;max-height:none!important;padding:8px 14px!important;}
+  /* S269: text/CTA buttons get the 40px touch target, but NOT the icon squares
+     (QR / day-night) — they're sized as 36px squares elsewhere and the 40px min-height
+     + 8px/14px padding here was fighting that, making them render uneven/crammed. */
+  .hdr-btn:not(#btn-qr):not(#dark-toggle):not(#btn-text-size){min-height:40px!important;height:auto!important;max-height:none!important;padding:8px 14px!important;}
   .mobile-menu-btn{font-size:20px;}
   /* Photo zone buttons */
   .photo-zone-btns button{min-height:38px;padding:6px 12px!important;}
