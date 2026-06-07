@@ -9209,7 +9209,16 @@ body .cv-row .dfx-obsrow.open{box-shadow:none;border-color:transparent;}
 }
 .dfx-or-chip.cv-pill:hover{filter:brightness(.98);}
 .dfx-or-chip.cv-pill:active{filter:brightness(.95);}
-.cv-pill-caret{font-size:8px;opacity:.6;margin-left:1px;line-height:1;}
+.cv-pill-caret{font-size:8px;opacity:.6;margin-left:1px;line-height:1;transition:transform .14s;}
+/* S263 (fix): the OPEN pill gets a clear "working on this one" cue — a ring in
+   its own status colour + slight darken + flipped caret. Other pills are
+   untouched (so the contrast reads). */
+.dfx-or-chip.cv-pill.cv-pill-active{
+  filter:brightness(.94);
+  box-shadow:0 0 0 2px var(--card,#fff),0 0 0 4px currentColor;
+}
+body.dark-mode .dfx-or-chip.cv-pill.cv-pill-active{box-shadow:0 0 0 2px #16151a,0 0 0 4px currentColor;}
+.dfx-or-chip.cv-pill.cv-pill-active .cv-pill-caret{transform:rotate(180deg);opacity:.9;}
 /* tinted hairline border in the pill's own colour for crisp daylight read */
 .dfx-or-chip.cv-pill.dfx-cs-high  {border-color:color-mix(in srgb,var(--b-high) 28%,transparent);}
 .dfx-or-chip.cv-pill.dfx-cs-low   {border-color:color-mix(in srgb,var(--b-low) 30%,transparent);}
@@ -9250,7 +9259,7 @@ body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.
   color:var(--b-pill-seg-fg,#928E9C);padding:3px 10px 1px;
 }
 .cv-statusmenu-item{
-  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;white-space:nowrap;
   font-family:Calibri,sans-serif;font-size:13px;font-weight:600;line-height:1.1;
   padding:8px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;
   transition:transform .08s,filter .12s;

@@ -3125,16 +3125,50 @@ function _cvPatchRowPill(deficId, obsIdx) {
   anchor.innerHTML = html;
 }
 
-// Close any open status popover + reset the pills' aria-expanded.
+// Close any open status popover + reset the pills' aria-expanded + active cue.
 function _cvCloseStatusMenus() {
   document.querySelectorAll('.cv-statusmenu.open').forEach(function(m) { m.classList.remove('open'); });
+  document.querySelectorAll('.cv-pill.cv-pill-active').forEach(function(p) { p.classList.remove('cv-pill-active'); });
   document.querySelectorAll('.cv-pill[aria-expanded="true"]').forEach(function(p) { p.setAttribute('aria-expanded', 'false'); });
+  _cvOpenPill = null;
+  _cvOpenMenu = null;
+}
+
+// S263 (fix): the open pill + its menu, tracked module-side so scroll/resize
+// can REPOSITION (not close) — a fixed menu must follow its pill when the
+// layout reflows (F12 open, window resize, fullscreen). Cleared on close.
+var _cvOpenPill = null;
+var _cvOpenMenu = null;
+
+// Position a fixed popover from its pill's LIVE rect, with flips so it never
+// runs off the right edge or below the fold. Called on open and on every
+// scroll/resize while open. Keeps the menu visually anchored to the pill.
+function _cvPositionMenu(menu, pill) {
+  if (!menu || !pill) return;
+  var pr = pill.getBoundingClientRect();
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var mw = menu.offsetWidth || 200, mh = menu.offsetHeight || 240;
+  var pad = 8;
+  // Horizontal: right-align the menu's right edge to the pill's right edge so
+  // it reads as hanging off the pill. Clamp into the viewport on both sides.
+  var left = pr.right - mw;
+  if (left + mw > vw - pad) left = vw - pad - mw;
+  if (left < pad) left = pad;
+  // Vertical: prefer just below the pill; flip above if it would overflow.
+  var top = pr.bottom + 5;
+  if (top + mh > vh - pad) {
+    var above = pr.top - 5 - mh;
+    top = (above >= pad) ? above : Math.max(pad, vh - pad - mh);
+  }
+  menu.style.left = Math.round(left) + 'px';
+  menu.style.top = Math.round(top) + 'px';
 }
 
 // Toggle one row's popover open/closed (tap-to-open). Closes others first so
 // only one menu is ever open. The menu is position:fixed (escapes the card's
-// overflow:hidden), so we set its coordinates here from the pill's rect, with
-// flips so it never runs off the right edge or below the fold on a tablet.
+// overflow:hidden); _cvPositionMenu anchors it to the pill and scroll/resize
+// re-anchors it. The open pill gets .cv-pill-active for a clear "working on
+// this one" cue.
 function _cvToggleStatusMenu(pillEl) {
   var anchor = pillEl.closest('.cv-pill-anchor');
   if (!anchor) return;
@@ -3144,33 +3178,14 @@ function _cvToggleStatusMenu(pillEl) {
   _cvCloseStatusMenus();
   if (wasOpen) return;
 
-  // Open + measure. Show it off-screen first so offsetWidth/Height are real.
+  // Open + measure off-screen so offsetWidth/Height are real, then position.
   menu.style.visibility = 'hidden';
   menu.classList.add('open');
+  pillEl.classList.add('cv-pill-active');
   pillEl.setAttribute('aria-expanded', 'true');
-
-  var pr = pillEl.getBoundingClientRect();
-  var vw = window.innerWidth, vh = window.innerHeight;
-  var mw = menu.offsetWidth || 200, mh = menu.offsetHeight || 240;
-  var pad = 8;
-
-  // Horizontal: right-align the menu to the pill's right edge; if that would
-  // push the LEFT edge off-screen, left-align to the pill instead; clamp.
-  var left = pr.right - mw;
-  if (left < pad) left = pr.left;
-  if (left + mw > vw - pad) left = vw - pad - mw;
-  if (left < pad) left = pad;
-
-  // Vertical: prefer below the pill; if it would overflow the bottom, flip
-  // above. Clamp to viewport.
-  var top = pr.bottom + 6;
-  if (top + mh > vh - pad) {
-    var above = pr.top - 6 - mh;
-    top = (above >= pad) ? above : Math.max(pad, vh - pad - mh);
-  }
-
-  menu.style.left = Math.round(left) + 'px';
-  menu.style.top = Math.round(top) + 'px';
+  _cvOpenPill = pillEl;
+  _cvOpenMenu = menu;
+  _cvPositionMenu(menu, pillEl);
   menu.style.visibility = '';
 }
 
@@ -3815,14 +3830,25 @@ function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
   });
 }
 
-// ── S263: close any open status popover on scroll / resize. The menu is
-// position:fixed, so if the row scrolls it would otherwise float detached from
-// its pill. Capture-phase catches scrolls on the inner deficiencies container
+// ── S263: keep an open status popover GLUED to its pill on scroll / resize.
+// The menu is position:fixed, so on any reflow (page scroll, window resize,
+// F12 open, fullscreen) we recompute its coordinates from the pill's live rect
+// rather than letting it float detached. If the pill has scrolled out of view
+// entirely, close instead. Capture-phase catches the inner container's scroll
 // too. Registered once at module load.
-(function _cvBindMenuDismiss() {
-  var close = function() { if (typeof _cvCloseStatusMenus === 'function' && document.querySelector('.cv-statusmenu.open')) _cvCloseStatusMenus(); };
-  window.addEventListener('scroll', close, true);
-  window.addEventListener('resize', close);
+(function _cvBindMenuTracking() {
+  var track = function() {
+    if (!_cvOpenMenu || !_cvOpenPill) return;
+    var pr = _cvOpenPill.getBoundingClientRect();
+    // pill fully off-screen (scrolled past) → close; else re-anchor.
+    if (pr.bottom < 0 || pr.top > window.innerHeight || pr.right < 0 || pr.left > window.innerWidth) {
+      _cvCloseStatusMenus();
+    } else {
+      _cvPositionMenu(_cvOpenMenu, _cvOpenPill);
+    }
+  };
+  window.addEventListener('scroll', track, true);
+  window.addEventListener('resize', track);
 })();
 
 // ── S137 Phase 2: control-bar interactions ───────────────
