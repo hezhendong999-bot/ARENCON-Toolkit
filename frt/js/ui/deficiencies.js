@@ -2909,16 +2909,24 @@ function _renderCombinedView(proj, container) {
       h += '<div class="dfx-ctr-banner dfx-ctr-tinted" style="--cc:' + esc(_cpal.accent) + ';--csurf:' + esc(_cpal.surface) + ';--ctext:' + esc(_cpal.text) + ';" data-action="dfx-fold-ctr" data-ctr-key="' + esc(cKey) + '"><span class="dfx-ctr-dot"></span><span>' + _arrow(cCol) + esc(_cname) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
       _sortPins(C.pins).forEach(function(e) {
-        var _obs = e.d.observations || [];
         var hasCtr = !!C.ctrId;
-        if (!_obs.length) {
-          var cat0 = _deriveCategory(e.d, null, hasCtr).cat;
-          h += _cvObsRow(e.d, 0, C.ctrId, { ctrName: C.name }, cat0);
-          return;
-        }
-        _obs.forEach(function(o, oi) {
-          var cat = _deriveCategory(e.d, o, hasCtr).cat;
-          h += _cvObsRow(e.d, oi, C.ctrId, { ctrName: C.name }, cat);
+        // S262: emit ONLY the observations that SURVIVED the filter (e.rows),
+        // not every observation on the pin. Previously this looped over
+        // e.d.observations directly, so a split pin with one surviving obs
+        // (e.g. 2A=Recommendation) dragged its NON-surviving siblings (2B=
+        // Outstanding) back into view under the wrong tab — the count was
+        // right (filter dropped 2B) but the render re-added it. Each e.rows
+        // entry carries {o, oi}; a legacy 0-obs row carries oi:-1.
+        var survivors = e.rows || [];
+        if (!survivors.length) return;
+        survivors.forEach(function(r) {
+          if (r.oi < 0 || !r.o) {
+            var cat0 = _deriveCategory(e.d, null, hasCtr).cat;
+            h += _cvObsRow(e.d, 0, C.ctrId, { ctrName: C.name }, cat0);
+            return;
+          }
+          var cat = _deriveCategory(e.d, r.o, hasCtr).cat;
+          h += _cvObsRow(e.d, r.oi, C.ctrId, { ctrName: C.name }, cat);
         });
       });
       if (!C.unassigned) {
