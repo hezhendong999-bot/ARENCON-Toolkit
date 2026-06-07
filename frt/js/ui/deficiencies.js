@@ -2150,21 +2150,15 @@ function _buildObsRow(d, oi, ctrId, opts) {
   // segment (per-obs, preserving _recHoldUntilNav mis-tap-undo).
   h += '<span class="dfx-or-id" style="background:' + esc(accent) + '">' + esc(label) + '</span>';
   h += '<span class="dfx-or-thumb">' + (thumbSrc ? ('<img src="' + esc(thumbSrc) + '" loading="lazy" alt="">') : '\uD83D\uDCF7') + (pcount ? ('<span class="dfx-or-pc">' + pcount + '</span>') : '') + '</span>';
-  // S263: collapsed-row title shows THIS observation's own text. For a SINGLE
-  // -obs pin, fall back to the pin description (deficDesc) when the obs text is
-  // empty — that's the pin's description and is meaningful. But for a MULTI-obs
-  // pin, deficDesc returns observations[0].text, so an empty obs B/C/… would
-  // borrow obs A's text (the "3B mirrors 3A" report — data was fine, only the
-  // title fell back). So multi-obs rows use a neutral placeholder when empty.
-  // S263: the collapsed title is a PREVIEW — show only the FIRST line of the
-  // text. A multi-line comment was otherwise flattened (newlines → spaces) into
-  // a run-on wall of text across the 2-line clamp. First line + the CSS clamp
-  // keeps the collapsed row compact; the full text shows on expand.
-  var _rawTitle = o.text || (multi ? '' : deficDesc(d)) || '';
-  var _firstLine = _rawTitle.split('\n')[0].trim();
-  var _multiLine = _rawTitle.indexOf('\n') >= 0;
-  var _titleTxt = _firstLine || '\u2014';
-  if (_firstLine && _multiLine) _titleTxt = _firstLine + ' \u2026';   // hint there's more
+  // S263: collapsed-row title shows THIS observation's own text, in FULL. The
+  // CSS 2-line clamp (.dfx-or-title, -webkit-line-clamp:2) truncates with an
+  // ellipsis only when it's genuinely too long — so short/medium comments show
+  // completely and long paragraphs cut off gracefully. (Reverted the first-line
+  // -only preview, which was too short.) For a SINGLE-obs pin, fall back to the
+  // pin description when empty; for a MULTI-obs pin, deficDesc returns obs[0]'s
+  // text, so an empty obs B/C/… would borrow obs A's text — multi-obs rows use
+  // a neutral placeholder when empty instead.
+  var _titleTxt = o.text || (multi ? '' : deficDesc(d)) || '\u2014';
   h += '<span class="dfx-or-mid"><span class="dfx-or-title' + (o.text ? '' : ' dfx-or-title-empty') + '">' + esc(_titleTxt) + '</span>';
   // S248: under-text category pill REMOVED — it duplicated the far-right pill.
   // S248 §4: the contractor colour dot here is ALSO removed (band + pin badge
