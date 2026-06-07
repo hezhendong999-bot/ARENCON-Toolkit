@@ -1896,13 +1896,14 @@ body.dark-mode .tt-priority.general{background:#0d2a1a;color:#50c878;}
 body.dark-mode #tasks-search,body.dark-mode #tasks-filter-status,body.dark-mode #tasks-filter-priority,body.dark-mode #tasks-filter-contractor{background:#242c3a!important;border-color:#4a5570!important;color:#d4d8e8!important;}
 
 /* ═══ HEADER BUTTON AUTO-SIZING ═══ */
-#dark-toggle,#mobile-menu-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;padding:0;font-size:calc(16px + var(--ts));border-radius:6px;border:1px solid var(--b-chrome-rule);background:transparent;color:var(--b-chrome-fg);cursor:pointer;}
+/* S260: #dark-toggle removed here — it is now a plain .hdr-btn matching Diesel. */
+#mobile-menu-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;padding:0;font-size:calc(16px + var(--ts));border-radius:6px;border:1px solid var(--b-chrome-rule);background:transparent;color:var(--b-chrome-fg);cursor:pointer;}
 #mobile-menu-btn{display:none;}
 @media(max-width:1024px){#mobile-menu-btn{display:inline-flex!important;}}
 @media(hover:hover){#dark-toggle:hover,#mobile-menu-btn:hover{background:#9C2742;color:#fff;}}
 @media(max-width:1200px){.hdr-btn{padding:0 10px;font-size:calc(11px + var(--ts));}#btn-ai-usage{display:none!important;}}
 @media(max-width:900px){.hdr-btn{padding:0 8px;font-size:calc(11px + var(--ts));}.hdr-btn span{display:none;}}
-@media(pointer:coarse){.hdr-btn,#dark-toggle,#mobile-menu-btn{height:38px;min-height:38px;}#dark-toggle,#mobile-menu-btn{width:38px;}}
+@media(pointer:coarse){.hdr-btn,#mobile-menu-btn{height:38px;min-height:38px;}#mobile-menu-btn{width:38px;}}
 
 /* ═══ AI WRITING ASSISTANT ═══ */
 /* AI Field Selector Modal */
@@ -9675,8 +9676,20 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   box-sizing:border-box !important;
 }
 
-/* ── 2 · Icon buttons (QR, day-night, hamburger) = diesel MEASURED 36×36 square, 16px font. (text-size "S" stays a normal .hdr-btn, matching diesel.) Flat 36px to win over coarse 38 + the old height:auto. ── */
-#btn-qr, #dark-toggle, #mobile-menu-btn{
+/* ── 2 · S260: QR + day/night now match Diesel EXACTLY — they are plain
+   .hdr-btn buttons (padding 5px 12px, font calc(12px+var(--ts)), 6px radius,
+   600 weight, emoji glyph that scales with text size). No fixed square, no
+   flat font — diesel has no icon-square rule, so neither do we now.
+   The hamburger (☰ #mobile-menu-btn) keeps the square — diesel has no
+   desktop hamburger, so it has no diesel counterpart to match. ── */
+#btn-qr, #dark-toggle{
+  padding:5px 12px !important; border-radius:6px !important;
+  min-width:38px !important; width:auto !important; height:auto !important;
+  min-height:0 !important; max-height:none !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important;
+  font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1.1 !important;
+}
+#mobile-menu-btn{
   width:36px !important; height:36px !important;
   min-width:36px !important; min-height:36px !important; max-height:36px !important;
   padding:0 !important; border-radius:6px !important;
@@ -9717,7 +9730,11 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .app-header .hdr-btn, .app-header #btn-more-wrap > button{
     min-height:40px !important; height:auto !important; max-height:none !important; padding:8px 14px !important;
   }
-  #btn-qr, #dark-toggle, #mobile-menu-btn{
+  /* S260: QR + day/night are .hdr-btn now → diesel coarse sizing (min-height 40). */
+  #btn-qr, #dark-toggle{
+    min-height:40px !important; height:auto !important; max-height:none !important; padding:8px 14px !important;
+  }
+  #mobile-menu-btn{
     width:36px !important; height:36px !important; min-height:36px !important; max-height:36px !important;
   }
 }
