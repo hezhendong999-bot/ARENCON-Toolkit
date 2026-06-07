@@ -9676,18 +9676,18 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   box-sizing:border-box !important;
 }
 
-/* ── 2 · S260: QR + day/night now match Diesel EXACTLY — they are plain
-   .hdr-btn buttons (padding 5px 12px, font calc(12px+var(--ts)), 6px radius,
-   600 weight, emoji glyph that scales with text size). No fixed square, no
-   flat font — diesel has no icon-square rule, so neither do we now.
-   The hamburger (☰ #mobile-menu-btn) keeps the square — diesel has no
-   desktop hamburger, so it has no diesel counterpart to match. ── */
+/* ── 2 · S260b: QR + day/night = diesel-EXACT square. Measured diesel:
+   text-m H/W=36 font=16, text-l H/W=38 font=18 → size calc(36px+var(--ts)),
+   font calc(16px+var(--ts)), pad 0. (My S260 .hdr-btn stretch was WRONG —
+   it made them 40×49 padded rectangles. This is the verified fix.)
+   Hamburger keeps its own square (no diesel desktop counterpart). ── */
 #btn-qr, #dark-toggle{
-  padding:5px 12px !important; border-radius:6px !important;
-  min-width:38px !important; width:auto !important; height:auto !important;
-  min-height:0 !important; max-height:none !important;
+  width:calc(36px + var(--ts)) !important; height:calc(36px + var(--ts)) !important;
+  min-width:calc(36px + var(--ts)) !important; min-height:calc(36px + var(--ts)) !important;
+  max-height:none !important;
+  padding:0 !important; border-radius:6px !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
-  font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1.1 !important;
+  font-size:calc(16px + var(--ts)) !important; line-height:1 !important; font-weight:600 !important;
 }
 #mobile-menu-btn{
   width:36px !important; height:36px !important;
@@ -9730,12 +9730,10 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .app-header .hdr-btn, .app-header #btn-more-wrap > button{
     min-height:40px !important; height:auto !important; max-height:none !important; padding:8px 14px !important;
   }
-  /* S260: QR + day/night are .hdr-btn now → diesel coarse sizing (min-height 40). */
-  #btn-qr, #dark-toggle{
-    min-height:40px !important; height:auto !important; max-height:none !important; padding:8px 14px !important;
-  }
-  #mobile-menu-btn{
-    width:36px !important; height:36px !important; min-height:36px !important; max-height:36px !important;
+  /* S260b: QR + day/night stay diesel-square on touch too — NOT padded hdr-btn. */
+  #btn-qr, #dark-toggle, #mobile-menu-btn{
+    width:calc(36px + var(--ts)) !important; height:calc(36px + var(--ts)) !important;
+    min-height:calc(36px + var(--ts)) !important; max-height:none !important; padding:0 !important;
   }
 }
 
