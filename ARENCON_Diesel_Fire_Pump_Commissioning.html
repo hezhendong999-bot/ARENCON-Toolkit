@@ -390,7 +390,7 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 /* ══ Per-flow-point gauge-photo modal (.fpm-*) — fixed overlay, theme-aware ══ */
 #flow-photo-modal{position:fixed;inset:0;z-index:9000;display:none;}
 .fpm-backdrop{position:absolute;inset:0;background:rgba(20,24,30,.55);}
-body.fpm-open{overflow:hidden!important;}
+body.fpm-open{overflow:hidden!important;position:fixed!important;width:100%!important;}
 .fpm-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:86vh;overflow:auto;background:var(--card-bg,#fff);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:16px;}
 .fpm-head{display:flex;align-items:center;justify-content:space-between;font-size:calc(14px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:12px;}
 .fpm-x{background:none;border:none;cursor:pointer;color:var(--steel);font-size:18px;line-height:1;padding:4px 8px;border-radius:6px;}
@@ -3919,7 +3919,7 @@ function _flowPhotoIcon(tbl, i){
     + '</button>';
 }
 // Per-flow-point gauge photo capture (S222-Diesel) — mirrors _recAddFile pattern.
-var _flowPhotoTbl=null, _flowPhotoIdx=null, _flowPhotoActiveReading='suction';
+var _flowPhotoTbl=null, _flowPhotoIdx=null, _flowPhotoActiveReading='suction', _fpmScrollY=null;
 var _GAUGE_READINGS=[
   {k:'suction',  label:'Suction',  short:'S'},
   {k:'discharge',label:'Discharge',short:'D'},
@@ -4105,6 +4105,7 @@ function _renderFlowPhotoModal(){
   host.innerHTML=h;
   host.style.display='block';
   document.body.classList.add('fpm-open');
+  try{ _fpmScrollY=window.scrollY||0; document.body.style.top=(-_fpmScrollY)+'px'; }catch(e){}
 }
 function openFlowPhotos(tbl, i){
   _flowPhotoTbl=tbl; _flowPhotoIdx=i;
@@ -4118,6 +4119,7 @@ function closeFlowPhotos(){
   _flowPhotoCloseReassign();
   _flowPhotoCloseGallery();
   document.body.classList.remove('fpm-open');
+  try{ document.body.style.top=''; if(_fpmScrollY!=null){ window.scrollTo(0,_fpmScrollY); _fpmScrollY=null; } }catch(e){}
   var host=document.getElementById('flow-photo-modal'); if(host){ host.style.display='none'; host.innerHTML=''; }
   document.removeEventListener('keydown', _flowPhotoEsc);
   _flowPhotoTbl=null; _flowPhotoIdx=null;
@@ -8885,6 +8887,9 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''};});}
+  if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
+  if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
@@ -9110,6 +9115,22 @@ function loadAutosave() {
     if(val)_applyLoadedState(val);
   });
 }
+function _assignRowPreservePhotos(target, src){
+  if(!target || !src) return;
+  var localPhotos = Array.isArray(target.photos) ? target.photos.slice() : [];
+  Object.assign(target, src);
+  if(Array.isArray(target.photos) && localPhotos.length){
+    target.photos.forEach(function(np){
+      if(!np) return;
+      var lp = localPhotos.filter(function(x){return x && np.id && x.id===np.id;})[0];
+      if(lp){
+        if(!np.d && lp.d) np.d = lp.d;                                  // keep local blob
+        if(!np.r2Url && lp.r2Url){ np.r2Url=lp.r2Url; np.r2Key=lp.r2Key; }
+        if(!np.tag && lp.tag) np.tag = lp.tag;                          // keep reading assignment
+      }
+    });
+  }
+}
 function _applyLoadedState(raw) {
   try {
     var raw2 = null;
@@ -9143,12 +9164,12 @@ function _applyLoadedState(raw) {
       const r = document.querySelector(`input[name="pump-test-type"][value="${s.testType}"]`);
       if (r) { r.checked = true; setPumpTestType(s.testType); }
     }
-    // stdData
-    if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) Object.assign(stdData[i], r); });
+    // stdData — assign fields, but preserve any local photo binary the incoming copy lacks
+    if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) _assignRowPreservePhotos(stdData[i], r); });
     if (s.npshPsi !== undefined) { npshPsi = s.npshPsi; var _ne=document.getElementById('npsh-psi'); if(_ne) _ne.value = s.npshPsi||''; }
     if (s.npshPsiPld !== undefined) { npshPsiPld = s.npshPsiPld; var _nep=document.getElementById('npsh-psi-pld'); if(_nep) _nep.value = s.npshPsiPld||''; }
     // pldData
-    if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) Object.assign(pldData[i], r); });
+    if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) _assignRowPreservePhotos(pldData[i], r); });
     // safety margin per-chart state (on/off + chip offset)
     if (s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
     if (s.smCapVis){ Object.keys(smCapVis).forEach(function(k){ if(s.smCapVis[k]) Object.assign(smCapVis[k], s.smCapVis[k]); }); }
@@ -9782,6 +9803,24 @@ function _mergeCloudLocal(cloud, local){
     _preserveRows(cloud.pldData, local.pldData);
     _preserveRows(cloud.pumpCurvePoints, local.pumpCurvePoints);
     _preserveRows(cloud.pldPumpCurvePoints, local.pldPumpCurvePoints);
+    // Preserve gauge photo binaries on flow rows (cloud strips dataUrl; local owns the blob + R2 refs).
+    function _preserveRowPhotos(cloudArr, localArr){
+      if(!Array.isArray(cloudArr) || !Array.isArray(localArr)) return;
+      cloudArr.forEach(function(cr, i){
+        var lr = localArr[i];
+        if(!cr || !lr || !Array.isArray(cr.photos) || !Array.isArray(lr.photos)) return;
+        cr.photos.forEach(function(cp, pi){
+          // match by id when possible, else by index
+          var lp = lr.photos.filter(function(x){return x && cp && x.id && x.id===cp.id;})[0] || lr.photos[pi];
+          if(!lp) return;
+          if(!cp.d && lp.d) cp.d = lp.d;
+          if(!cp.r2Url && lp.r2Url){ cp.r2Url = lp.r2Url; cp.r2Key = lp.r2Key; }
+          if(!cp.tag && lp.tag) cp.tag = lp.tag;
+        });
+      });
+    }
+    _preserveRowPhotos(cloud.stdData, local.stdData);
+    _preserveRowPhotos(cloud.pldData, local.pldData);
     // Preserve sketch photos/drawings
     if(local.sketches && cloud.sketches){
       (cloud.sketches||[]).forEach(function(cs,si){
