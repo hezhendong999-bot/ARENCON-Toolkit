@@ -10281,6 +10281,12 @@ function _pgRemovePhoto(item){
   } else if(item.type==='general-defic'){
     var di = parseInt(item.section.replace('gdef_',''));
     if(generalDeficiencies[di]) generalDeficiencies[di].photos.splice(item.idx, 1);
+  } else if(item.type==='record'){
+    // S280: record/site photos live in recordPhotos[] — this branch was MISSING,
+    // so deleting a site/pump/placard photo from the gallery removed nothing and the
+    // photo re-appeared on re-render. item.idx is the direct recordPhotos index.
+    if(recordPhotos[item.idx]) recordPhotos.splice(item.idx, 1);
+    if(typeof _renderRecordZones==='function') _renderRecordZones();
   }
 }
 
