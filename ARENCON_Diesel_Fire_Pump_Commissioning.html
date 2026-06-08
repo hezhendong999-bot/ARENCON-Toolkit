@@ -96,19 +96,23 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 /* ── Completion overview (Summary tab) ── */
 .ov-card{background:#fff;border:1.5px solid var(--border);border-radius:11px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.06);margin-bottom:18px;}
 /* S255: summarized stats row — tiles use Bold tokens so they flip with mode automatically */
-.sum-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}
-.sum-stats .sstat{background:var(--b-fieldbg);border:1px solid var(--border);border-radius:12px;padding:13px 8px;text-align:center;box-shadow:0 1px 4px rgba(40,30,50,.06);}
-body.dark-mode .sum-stats .sstat{box-shadow:none;}
-.sum-stats .sstat .v{font-weight:800;font-size:calc(24px + var(--ts));font-variant-numeric:tabular-nums;line-height:1.05;}
-.sum-stats .sstat .l{font-size:calc(10.5px + var(--ts));font-weight:700;letter-spacing:.5px;color:var(--silver);text-transform:uppercase;margin-top:4px;}
-.sum-stats .sstat.total .v{color:var(--slate);}
-.sum-stats .sstat.pass .v{color:var(--yes);}
-.sum-stats .sstat.fail .v{color:var(--no);}
-.sum-stats .sstat.na .v{color:var(--na);}
-.sum-stats .sstat.ic .v{color:var(--warn);}
-
-@media(max-width:600px){ .sum-stats{grid-template-columns:repeat(3,1fr);} }
-@media(max-width:380px){ .sum-stats{grid-template-columns:repeat(2,1fr);} }
+/* S264: checklist-outcomes donut replaces the 5 stat boxes. Total in the ring,
+   Pass/Fail/N/A/I/C as four reconciling slices. Slices are drawn over the SUM of
+   the four shown values (not `total`) because Fail can include a +1 test-FAIL that
+   isn't a checklist item — so the ring always closes even when sum=total+1. */
+.sum-stats{display:flex;align-items:center;gap:30px;flex-wrap:wrap;margin-bottom:18px;}
+.oc-donut{position:relative;flex-shrink:0;width:148px;height:148px;}
+.oc-donut svg{transform:rotate(-90deg);display:block;}
+.oc-donut .oc-ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.oc-donut .oc-ctr .v{font-weight:800;color:var(--slate);line-height:1;font-size:calc(32px + var(--ts));font-variant-numeric:tabular-nums;}
+.oc-donut .oc-ctr .l{color:var(--silver);text-transform:uppercase;letter-spacing:.8px;margin-top:4px;font-size:calc(10px + var(--ts));}
+.oc-legend{display:flex;flex-direction:column;gap:11px;flex:1;min-width:220px;}
+.oc-leg{display:flex;align-items:center;gap:11px;font-size:calc(14px + var(--ts));}
+.oc-leg .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.oc-leg .nm{color:var(--steel);flex:1;}
+.oc-leg .val{font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;min-width:26px;text-align:right;}
+.oc-leg .pc{color:var(--silver);font-size:calc(12px + var(--ts));width:46px;text-align:right;font-variant-numeric:tabular-nums;}
+@media(max-width:480px){ .sum-stats{gap:18px;justify-content:center;} .oc-legend{min-width:180px;} }
 .ov-hd{background:var(--arencon);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:3px solid #2A3A5C;}
 .ov-hd .ov-t{font-weight:700;font-size:calc(14px + var(--ts));letter-spacing:.3px;}
 .ov-hd .ov-pct{margin-left:auto;font-weight:800;font-size:calc(17px + var(--ts));font-variant-numeric:tabular-nums;}
@@ -139,6 +143,14 @@ body.dark-mode .sum-stats .sstat{box-shadow:none;}
 .report-verdict.cond{background:#D08B3C;}
 .report-verdict.fail{background:#A85959;}
 .report-verdict.review{background:#78909C;}
+/* S264: day-mode verdict was solid fill + white text (≈4.95:1 on the fail red — washed
+   out under the bar's glow, unreadable on Mark's screen). Mirror the dark-mode tinted-
+   glass treatment instead: pale same-hue fill + deep same-hue text (6.3–8.3:1). */
+body:not(.dark-mode) .report-verdict{box-shadow:none;}
+body:not(.dark-mode) .report-verdict.pass{background:#E2F0E9;color:#1d5e42;border:1px solid rgba(46,158,114,.35);}
+body:not(.dark-mode) .report-verdict.cond{background:#F7ECD9;color:#7a4a14;border:1px solid rgba(217,138,30,.38);}
+body:not(.dark-mode) .report-verdict.fail{background:#F7E4E6;color:#7a1f2e;border:1px solid rgba(192,68,95,.38);}
+body:not(.dark-mode) .report-verdict.review{background:#ECEFF2;color:#3a4750;border:1px solid rgba(120,144,156,.35);}
 .ov-chev{color:#c9cfd8;font-size:15px;}
 .ov-attn-strip{padding:11px 16px;background:var(--no-bg);border-top:1px solid #ecd6d4;display:flex;align-items:center;gap:11px;cursor:pointer;}
 .ov-attn-strip .ov-ic{background:var(--no);}
@@ -1589,8 +1601,11 @@ function openMobileMenu(){
 }
 function goBackToHub(){
   var pp=new URLSearchParams(window.location.search);
-  var hubUrl='ARENCON_Project_Hub.html?project='+pp.get('project');
-  window.location.href=hubUrl;
+  var proj=pp.get('project');
+  var hubUrl='ARENCON_Project_Hub.html'+(proj?('?project='+proj):'');
+  // S264: Hub mode → force a full save then navigate (no prompt). Standalone → just go.
+  if(proj && typeof _saveThenLeave==='function'){ _saveThenLeave(hubUrl); }
+  else { window.location.href=hubUrl; }
 }
 function closeMobileMenu(){
   var ha=document.querySelector('.header-actions');
@@ -1729,12 +1744,27 @@ function updatePhaseFlags(){
     <!-- S256: summarized stats row — 4 tiles, all from the same checklist counts so they reconcile.
          Completion % removed (the Inspection Completion card below already shows it). -->
     <!-- S258: 5 tiles. Fail = No + test FAIL; N/A = not applicable (grey); I/C = incomplete (unanswered). Row reconciles: Pass+Fail+N/A+I/C = Checklist. -->
+    <!-- S264: checklist-outcomes donut. Total in centre, Pass/Fail/N/A/I/C slices.
+         Old 5 tiles retired (read as undifferentiated clutter). The four legend
+         values keep the original sstat-* ids so existing count code still feeds them;
+         renderOutcomeDonut() sizes the arcs each render. r=58, C≈364.4. -->
     <div class="sum-stats" id="sum-stats">
-      <div class="sstat total"><div class="v" id="sstat-total">0</div><div class="l">Checklist</div></div>
-      <div class="sstat pass"><div class="v" id="sstat-pass">0</div><div class="l">Pass</div></div>
-      <div class="sstat fail"><div class="v" id="sstat-defic">0</div><div class="l">Fail</div></div>
-      <div class="sstat na"><div class="v" id="sstat-na">0</div><div class="l">N/A</div></div>
-      <div class="sstat ic"><div class="v" id="sstat-ic">0</div><div class="l">I/C</div></div>
+      <div class="oc-donut">
+        <svg width="148" height="148" viewBox="0 0 148 148" id="oc-svg">
+          <circle cx="74" cy="74" r="58" fill="none" stroke="var(--na-bg)" stroke-width="20"/>
+          <circle id="oc-arc-pass" cx="74" cy="74" r="58" fill="none" stroke="var(--yes)"  stroke-width="20" stroke-dasharray="0 364.4" stroke-dashoffset="0"/>
+          <circle id="oc-arc-fail" cx="74" cy="74" r="58" fill="none" stroke="var(--no)"   stroke-width="20" stroke-dasharray="0 364.4" stroke-dashoffset="0"/>
+          <circle id="oc-arc-na"   cx="74" cy="74" r="58" fill="none" stroke="var(--na)"   stroke-width="20" stroke-dasharray="0 364.4" stroke-dashoffset="0"/>
+          <circle id="oc-arc-ic"   cx="74" cy="74" r="58" fill="none" stroke="var(--warn)" stroke-width="20" stroke-dasharray="0 364.4" stroke-dashoffset="0"/>
+        </svg>
+        <div class="oc-ctr"><div class="v" id="sstat-total">0</div><div class="l">Checklist</div></div>
+      </div>
+      <div class="oc-legend">
+        <div class="oc-leg"><span class="dot" style="background:var(--yes)"></span><span class="nm">Pass</span><span class="val" id="sstat-pass">0</span><span class="pc" id="ocpc-pass">0%</span></div>
+        <div class="oc-leg"><span class="dot" style="background:var(--no)"></span><span class="nm">Fail</span><span class="val" id="sstat-defic">0</span><span class="pc" id="ocpc-fail">0%</span></div>
+        <div class="oc-leg"><span class="dot" style="background:var(--na)"></span><span class="nm">N/A</span><span class="val" id="sstat-na">0</span><span class="pc" id="ocpc-na">0%</span></div>
+        <div class="oc-leg"><span class="dot" style="background:var(--warn)"></span><span class="nm">I/C &mdash; incomplete</span><span class="val" id="sstat-ic">0</span><span class="pc" id="ocpc-ic">0%</span></div>
+      </div>
     </div>
 
     <!-- Completion overview -->
@@ -2749,7 +2779,7 @@ function renderDeficThumbs(safe, itemIdx) {
   if(!el) return;
   const photos = deficiencies[safe]?.[itemIdx]?.photos||[];
   el.innerHTML = photos.map((p,j)=>`<div style="position:relative;display:inline-block;">
-    <img src="${p.r2Url||p.d}" onclick="openLightbox(deficiencies['${safe}'][${itemIdx}].photos,${j})" style="cursor:zoom-in;width:72px;height:72px;object-fit:cover;border-radius:4px;border:2px solid #eee;" title="Click to enlarge">
+    <img src="${p.d||p.r2Url}" onclick="openLightbox(deficiencies['${safe}'][${itemIdx}].photos,${j})" style="cursor:zoom-in;width:72px;height:72px;object-fit:cover;border-radius:4px;border:2px solid #eee;" title="Click to enlarge">
     <button onclick="event.stopPropagation();removeDeficPhoto('${safe}',${itemIdx},${j})" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;line-height:1;">✕</button>
     <button class="photo-markup-btn" onclick="event.stopPropagation();openDeficPhotoMarkup('${safe}',${itemIdx},${j})" title="Markup">✏</button>
   </div>`).join('');
@@ -3179,7 +3209,7 @@ function renderThumbs(id) {
   const photos = clState[id]?.photos||[];
   return photos.map((p,i)=>`
     <div class="photo-thumb" style="width:96px;height:96px;">
-      <img src="${p.r2Url||p.d}" onclick="openLightbox(clState['${id}'].photos,${i})" style="cursor:zoom-in;width:100%;height:100%;object-fit:cover;" title="Click to enlarge — full resolution">
+      <img src="${p.d||p.r2Url}" onclick="openLightbox(clState['${id}'].photos,${i})" style="cursor:zoom-in;width:100%;height:100%;object-fit:cover;" title="Click to enlarge — full resolution">
       <button class="photo-remove" onclick="removePhoto('${id}',${i})">✕</button>
       <button class="photo-markup-btn" onclick="event.stopPropagation();openPhotoMarkup('${id}',${i})" title="Markup this photo">✏</button>
     </div>`).join('');
@@ -3359,7 +3389,30 @@ function updateProgress() {
     if(tr && /fail/i.test(tr.value)) failN+=1;  // 3-Point / main test FAIL counts as a fail
     if(sD) sD.textContent=failN;
     var sIC=document.getElementById('sstat-ic');
-    if(sIC){ var inc=total-yes-no-na; if(inc<0) inc=0; sIC.textContent=inc; }
+    var inc=total-yes-no-na; if(inc<0) inc=0;
+    if(sIC){ sIC.textContent=inc; }
+    // S264: size the outcomes donut from the four shown values. Draw over their SUM
+    // (denom), not `total` — failN may carry the +1 test-FAIL that isn't a checklist
+    // item, so the ring closes exactly. Centre label stays `total` (set above).
+    (function(){
+      var C=364.4; // 2·π·58
+      var denom=yes+failN+na+inc;
+      var arcs=[
+        {arc:'oc-arc-pass',pc:'ocpc-pass',n:yes},
+        {arc:'oc-arc-fail',pc:'ocpc-fail',n:failN},
+        {arc:'oc-arc-na',  pc:'ocpc-na',  n:na},
+        {arc:'oc-arc-ic',  pc:'ocpc-ic',  n:inc}
+      ];
+      var off=0;
+      arcs.forEach(function(a){
+        var len = denom>0 ? (a.n/denom*C) : 0;
+        var el=document.getElementById(a.arc);
+        if(el){ el.setAttribute('stroke-dasharray', len.toFixed(1)+' '+C); el.setAttribute('stroke-dashoffset', (-off).toFixed(1)); }
+        var p=document.getElementById(a.pc);
+        if(p){ p.textContent = (denom>0 ? Math.round(a.n/denom*100) : 0)+'%'; }
+        off+=len;
+      });
+    })();
   })();
   // Update tab dots for sections with unselected items
   var secCounts = {};
@@ -3861,7 +3914,7 @@ function _renderFlowPhotoModal(){
   if(pts.length){
     h+='<div class="fpm-thumbs">';
     pts.forEach(function(p,j){
-      h+='<div class="fpm-thumb"><img src="'+(p.r2Url||p.d)+'" onclick="_flowPhotoLightbox('+j+')">'
+      h+='<div class="fpm-thumb"><img src="'+(p.d||p.r2Url)+'" onclick="_flowPhotoLightbox('+j+')">'
         +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button></div>';
     });
     h+='</div>';
@@ -5694,7 +5747,7 @@ function buildDeficItem(name, safe, d, i) {
   var thumbsHtml = '';
   (d.photos || []).forEach(function(p, j) {
     thumbsHtml += '<div class="photo-thumb">'
-      +'<img src="'+(p.r2Url||p.d)+'" onclick="openLightbox(deficiencies[\''+safe+'\']['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view">'
+      +'<img src="'+(p.d||p.r2Url)+'" onclick="openLightbox(deficiencies[\''+safe+'\']['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view">'
       +'<button class="photo-remove" onclick="removeDeficPhoto(\''+safe+'\','+i+','+j+')">✕</button></div>';
   });
 
@@ -5714,7 +5767,7 @@ function buildDeficItem(name, safe, d, i) {
     var crPhotosHtml = '';
     (cr.photos || []).forEach(function(rp, ri) {
       crPhotosHtml += '<div style="position:relative;display:inline-block;">'
-        +'<img src="'+(rp.r2Url||rp.d||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:zoom-in;">'
+        +'<img src="'+(rp.d||rp.r2Url||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:zoom-in;">'
         +'<button onclick="deficiencies[\''+safe+'\']['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderDeficGroup(\''+name+'\');" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">'
@@ -5914,7 +5967,7 @@ function buildGeneralDeficItem(d, i) {
   var scCol = sc==='resolved' ? '#5F8068' : sc==='in-progress' ? '#E67E22' : '#A85959';
   var thumbsHtml = '';
   (d.photos || []).forEach(function(p, j) {
-    thumbsHtml += '<div class="photo-thumb"><img src="'+(p.r2Url||p.d)+'" onclick="openLightbox(generalDeficiencies['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view"><button class="photo-remove" onclick="generalDeficiencies['+i+'].photos.splice('+j+',1);renderGeneralDeficGroup();">✕</button></div>';
+    thumbsHtml += '<div class="photo-thumb"><img src="'+(p.d||p.r2Url)+'" onclick="openLightbox(generalDeficiencies['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view"><button class="photo-remove" onclick="generalDeficiencies['+i+'].photos.splice('+j+',1);renderGeneralDeficGroup();">✕</button></div>';
   });
   var respHtml = '';
   (d.responses || []).forEach(function(cr, ci) {
@@ -5926,7 +5979,7 @@ function buildGeneralDeficItem(d, i) {
     var label = isContractor ? 'Contractor' : 'Consultant';
     var crPhotosHtml = '';
     (cr.photos || []).forEach(function(rp, ri) {
-      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.r2Url||rp.d||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="generalDeficiencies['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderGeneralDeficGroup();" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
+      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.d||rp.r2Url||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="generalDeficiencies['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderGeneralDeficGroup();" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">';
     respHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:'+accentCol+';text-transform:uppercase;letter-spacing:.5px;">'+(isContractor?'⚡':'🔍')+' '+label+' Response #'+(ci+1)+'</div><button onclick="generalDeficiencies['+i+'].responses.splice('+ci+',1);renderGeneralDeficGroup();" style="padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:white;color:#999;font-size:10px;cursor:pointer;">✕ Remove</button></div>';
@@ -8236,7 +8289,7 @@ function renderFlowTestThumbsPld() {
   if(!el) return;
   el.innerHTML = flowTestPhotosPld.map((p,i)=>`
     <div style="position:relative;">
-      <img src="${p.r2Url||p.d}" onclick="openLightbox(flowTestPhotosPld,${i})" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:2px solid #ddd;cursor:zoom-in;">
+      <img src="${p.d||p.r2Url}" onclick="openLightbox(flowTestPhotosPld,${i})" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:2px solid #ddd;cursor:zoom-in;">
       <button onclick="flowTestPhotosPld.splice(${i},1);renderFlowTestThumbsPld()" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;">✕</button>
     </div>`).join('');
 }
@@ -8274,7 +8327,7 @@ function renderFlowTestThumbs() {
   const el = document.getElementById('flow-test-thumbs');
   if(!el) return;
   el.innerHTML = flowTestPhotos.map((p,i)=>`
-    <div class="photo-thumb"><img src="${p.r2Url||p.d}">
+    <div class="photo-thumb"><img src="${p.d||p.r2Url}">
     <button class="photo-remove" onclick="flowTestPhotos.splice(${i},1);renderFlowTestThumbs()">✕</button></div>`).join('');
 }
 
@@ -8665,12 +8718,15 @@ function _r2EnqueuePhoto(photoObj){
   if(!photoObj || !photoObj.d) return;
   var blob = R2Photos.dataUrlToBlob(photoObj.d);
   if(!blob) return;
-  var fname = photoObj.n || R2Photos.generateFilename('photo');
-  // Sanitize filename
-  fname = fname.replace(/[^a-zA-Z0-9._-]/g,'_');
-  if(!fname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) fname += '.jpg';
-  var r2Key = 'photos/' + _r2FolderId + '/diesel/original/' + fname;
+  // S281 B1: key the R2 object by the photo's UNIQUE id, never by the human
+  // filename. Generic camera names (images.jpg, content.png) collided & overwrote
+  // each other in R2 (older record's key → clobbered object → 404); object-valued
+  // names stringified to "[object Object]". The id is guaranteed unique, so the
+  // stored object name is {id}.jpg. The human filename is kept only as display
+  // metadata on photoObj.n — it never enters the key/url again.
   photoObj.id = photoObj.id || ('ph_' + Date.now() + '_' + Math.random().toString(36).substr(2,6));
+  var fname = photoObj.id + '.jpg';
+  var r2Key = 'photos/' + _r2FolderId + '/diesel/original/' + fname;
   photoObj.r2Key = r2Key;
   photoObj.r2Status = 'pending';
   photoObj.r2Url = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', fname);
@@ -8873,9 +8929,20 @@ function _applyLoadedState(raw) {
     raw = raw_final; // use embedded if present (save-as HTML)
     const s = JSON.parse(raw);
     // Project fields
+    // S264 fix: when Hub-launched, the project IDENTITY fields (proj no / name /
+    // client / address) are authoritative from the URL params and were set readOnly
+    // at boot. A saved blob can carry a DIFFERENT project's stale values for these
+    // (observed: header showed 1490.04 from params while these fields showed 15230.01
+    // from an old blob). Never let saved state overwrite a Hub-locked field — params
+    // win. Once the correct values stand and the user saves, collectState() re-reads
+    // the DOM and the blob self-heals. Non-Hub (standalone) load is unaffected.
+    var _hubLockedIds = (typeof _csHubMode!=='undefined' && _csHubMode)
+      ? {'pi-projno':1,'pi-projname':1,'pi-client':1,'pi-addr':1} : {};
     Object.entries(s.proj||{}).forEach(([id,val]) => {
       const el = document.getElementById(id);
-      if (el) el.value = val;
+      if (!el) return;
+      if (_hubLockedIds[id] && el.readOnly) return; // params authoritative — do not clobber
+      el.value = val;
     });
     // Test type
     if (s.testType) {
@@ -9075,60 +9142,40 @@ function resetCurrentPage() {
 }
 
 
-// ═══ SAVE & LEAVE MODAL (Hub mode) ═══
-function _showSaveLeaveModal(destUrl) {
-  var ex = document.getElementById('save-leave-modal'); if(ex) ex.remove();
-  var ov = document.createElement('div');
-  ov.id = 'save-leave-modal';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(28,35,51,.85);z-index:20000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
-  var box = document.createElement('div');
-  box.style.cssText = 'background:var(--smoke);border-radius:12px;padding:28px;max-width:380px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.4);font-family:Calibri,sans-serif;';
-  box.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--slate);margin-bottom:8px;">Save before leaving?</div>'
-    + '<div style="font-size:13px;color:var(--silver);margin-bottom:20px;line-height:1.5;">Your report auto-saves every 30 seconds, but you may have recent changes that haven\'t synced yet.</div>'
-    + '<div style="display:flex;flex-direction:column;gap:8px;">'
-    + '<button id="sl-save-btn" style="width:100%;padding:11px;background:#5F8068;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">💾 Save & Leave</button>'
-    + '<button id="sl-leave-btn" style="width:100%;padding:11px;background:var(--smoke);color:var(--slate);border:1.5px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Leave without saving</button>'
-    + '<button id="sl-cancel-btn" style="width:100%;padding:9px;background:none;border:none;color:var(--silver);font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel — go back</button>'
-    + '</div>';
-  ov.appendChild(box);
-  document.body.appendChild(ov);
-  // Dark mode support
-  if(document.body.classList.contains('dark-mode')) {
-    box.style.background = '#1e2028';
-    box.querySelector('div').style.color = '#d4d4d4';
-  }
-  document.getElementById('sl-save-btn').onclick = async function() {
-    this.textContent = 'Saving...'; this.disabled = true;
-    try {
-      if(typeof CloudSync !== 'undefined' && CloudSync.projectId) {
-        await CloudSync.save(JSON.stringify(_collectCloudState()));
-      } else {
-        saveState();
-      }
-    } catch(e) { /* proceed anyway */ }
-    window.location.href = destUrl;
-  };
-  document.getElementById('sl-leave-btn').onclick = function() { window.location.href = destUrl; };
-  document.getElementById('sl-cancel-btn').onclick = function() { ov.remove(); };
-  ov.onclick = function(e) { if(e.target === ov) ov.remove(); };
-  ov.addEventListener('keydown', function(e) { if(e.key === 'Escape') ov.remove(); });
+// ═══ SAVE & LEAVE (Hub mode) ═══
+// S264: per Mark, no leave PROMPT — the tool auto-saves and a Back/logo tap forces a
+// full cloud save, then navigates. Mirrors FRT's auto-save (no Save button) model.
+// The old 3-button modal is retired; _showSaveLeaveModal now performs the save+go
+// directly so any existing caller keeps working without a dialog.
+function _showSaveLeaveModal(destUrl) { _saveThenLeave(destUrl); }
+async function _saveThenLeave(destUrl) {
+  // Brief, non-blocking indicator (subtle, not a toast-spam) while the forced save runs.
+  try {
+    var cs = document.getElementById('cloud-status');
+    var csTxt = document.getElementById('cloud-status-text');
+    if(cs){ cs.setAttribute('data-state','saving'); }
+    if(csTxt){ csTxt.textContent = 'Saving…'; }
+  } catch(e){}
+  try {
+    if(typeof CloudSync !== 'undefined' && CloudSync.projectId) {
+      await CloudSync.save(JSON.stringify(_collectCloudState())); // force a full cloud save
+    } else {
+      saveState();
+    }
+  } catch(e) { /* network/quota — proceed; autosave + outbox will reconcile */ }
+  window.location.href = destUrl;
 }
 
-// Intercept navigation links in Hub mode
+// Intercept navigation links in Hub mode — save then go, no prompt.
+// Back button uses its inline onclick=goBackToHub() (which now save-then-leaves);
+// only the logo link needs an intercept here (it has no inline handler).
 function _wireNavIntercepts() {
   if(typeof CloudSync === 'undefined' || !CloudSync.projectId) return;
-  var hubLink = document.getElementById('back-btn');
-  if(hubLink) {
-    hubLink.addEventListener('click', function(e) {
-      e.preventDefault();
-      _showSaveLeaveModal('ARENCON_Project_Hub.html?project='+CloudSync.projectId);
-    });
-  }
   var logoLink = document.getElementById('logo-link');
   if(logoLink) {
     logoLink.addEventListener('click', function(e) {
       e.preventDefault();
-      _showSaveLeaveModal(logoLink.href);
+      _saveThenLeave(logoLink.href);
     });
   }
 }
@@ -9269,7 +9316,21 @@ window.addEventListener('load', () => {
         return CloudSync.load();
       }).then(function(result){
         if(result && result.state){
-          _applyLoadedState(JSON.stringify(result.state));
+          // S281 B2: on the INITIAL cloud load, merge local IDB binaries into the
+          // cloud structure the same way the heartbeat does. Cloud strips photo
+          // data URLs (keeps only n/id/r2* metadata), so applying the raw cloud
+          // copy left recordPhotos/checklist photos with no local `d` — they only
+          // came back if R2 prefetch succeeded, which the B1 bad keys broke. By
+          // merging local-first here, a locally-captured photo survives a reload
+          // even before R2 confirms. Canon: cloud owns structure, local owns binary.
+          var _toApply = result.state;
+          if(result.source === 'cloud'){
+            try {
+              var _localNow = collectState();
+              _toApply = _mergeCloudLocal(result.state, _localNow);
+            } catch(e){ console.warn('[S281 B2] initial-load merge skipped:', e && e.message); _toApply = result.state; }
+          }
+          _applyLoadedState(JSON.stringify(_toApply));
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
         }
@@ -9486,9 +9547,13 @@ function _mergeCloudLocal(cloud, local){
       });
     }
     // Preserve checklist item photos
-    if(local.checklistDetails && cloud.checklistDetails){
-      Object.keys(cloud.checklistDetails).forEach(function(k){
-        var cc=cloud.checklistDetails[k], lc=local.checklistDetails[k];
+    // S281 B2: the checklist state object is `clState` (clState[id].photos),
+    // NOT `checklistDetails` — that key never existed in collectState() output,
+    // so this preserve pass was silently a no-op and checklist photo binaries
+    // were lost on every cloud apply. Keyed on clState now.
+    if(local.clState && cloud.clState){
+      Object.keys(cloud.clState).forEach(function(k){
+        var cc=cloud.clState[k], lc=local.clState[k];
         if(!lc||!cc) return;
         (cc.photos||[]).forEach(function(cp,pi){
           var lp=(lc.photos||[])[pi];
@@ -9846,30 +9911,30 @@ function _collectAllPhotos(){
   var all = [];
   // 1. Flow test photos (3-point)
   (flowTestPhotos||[]).forEach(function(p,i){
-    all.push({photo:p, type:'flowtest', cat:'flow', badge:'Flow-F', label:'Flow Test (3-pt)', section:'flowtest', idx:i, src:p.r2Url||p.d});
+    all.push({photo:p, type:'flowtest', cat:'flow', badge:'Flow-F', label:'Flow Test (3-pt)', section:'flowtest', idx:i, src:p.d||p.r2Url});
   });
   // 2. Flow test photos (PLD)
   (flowTestPhotosPld||[]).forEach(function(p,i){
-    all.push({photo:p, type:'flowtest-pld', cat:'flow', badge:'Flow-P', label:'Flow Test (PLD)', section:'flowtestpld', idx:i, src:p.r2Url||p.d});
+    all.push({photo:p, type:'flowtest-pld', cat:'flow', badge:'Flow-P', label:'Flow Test (PLD)', section:'flowtestpld', idx:i, src:p.d||p.r2Url});
   });
   // 3. Checklist item photos
   Object.keys(clState||{}).forEach(function(id){
     var st = clState[id];
     if(!st || !st.photos) return;
     st.photos.forEach(function(p,pi){
-      all.push({photo:p, type:'checklist', cat:'checklist', badge:_clItemNum(id), label:'Checklist '+_clItemNum(id), section:'cl_'+id, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'checklist', cat:'checklist', badge:_clItemNum(id), label:'Checklist '+_clItemNum(id), section:'cl_'+id, idx:pi, src:p.d||p.r2Url});
     });
   });
   // 4. Deficiency photos (per contractor)
   Object.keys(deficiencies||{}).forEach(function(ctr){
     (deficiencies[ctr]||[]).forEach(function(d,di){
       (d.photos||[]).forEach(function(p,pi){
-        all.push({photo:p, type:'deficiency', cat:'deficiency', badge:'D'+(di+1), label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi, src:p.r2Url||p.d});
+        all.push({photo:p, type:'deficiency', cat:'deficiency', badge:'D'+(di+1), label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi, src:p.d||p.r2Url});
       });
       // Response photos
       (d.responses||[]).forEach(function(r,ri){
         (r.photos||[]).forEach(function(p,pi){
-          all.push({photo:p, type:'response', cat:'deficiency', badge:'D'+(di+1)+'R', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi, src:p.r2Url||p.d});
+          all.push({photo:p, type:'response', cat:'deficiency', badge:'D'+(di+1)+'R', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi, src:p.d||p.r2Url});
         });
       });
     });
@@ -9877,23 +9942,23 @@ function _collectAllPhotos(){
   // 5. General deficiency photos
   (generalDeficiencies||[]).forEach(function(d,di){
     (d.photos||[]).forEach(function(p,pi){
-      all.push({photo:p, type:'general-defic', cat:'general', badge:'G'+(di+1), label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'general-defic', cat:'general', badge:'G'+(di+1), label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:p.d||p.r2Url});
     });
   });
   // 6. Site records (pump / placard / site)
   (typeof recordPhotos==='undefined'?[]:recordPhotos).forEach(function(p,i){
     var kl = p.kind==='pump'?'Pump':p.kind==='placard'?'Placard':'Site';
-    all.push({photo:p, type:'record', cat:'records', badge:kl, label:'Record: '+kl, section:'rec_'+(p.kind||'site'), idx:i, src:p.r2Url||p.d});
+    all.push({photo:p, type:'record', cat:'records', badge:kl, label:'Record: '+kl, section:'rec_'+(p.kind||'site'), idx:i, src:p.d||p.r2Url});
   });
   // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
   (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (3-pt) '+(row.pct||''), section:'gauge_std_'+ri, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'gauge', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (3-pt) '+(row.pct||''), section:'gauge_std_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (PLD) '+(row.pct||''), section:'gauge_pld_'+ri, idx:pi, src:p.r2Url||p.d});
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (PLD) '+(row.pct||''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   return all;
@@ -9972,7 +10037,7 @@ function _recZoneHtml(kind){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
     thumbs.forEach(function(o){
       html+='<div style="position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);">'
-        +'<img src="'+(o.p.r2Url||o.p.d)+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')">'
+        +'<img src="'+(o.p.d||o.p.r2Url||'')+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
         +'<button onclick="_recDelete('+o.i+')" title="Remove" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">✕</button>'
         +'</div>';
     });
@@ -9995,7 +10060,7 @@ function _evTileHtml(kind){
       var lp=fp[fp.length-1];
       return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
         +'<span class="badge">FLOW'+(fp.length>1?(' ·'+fp.length):'')+'</span>'
-        +'<img src="'+(lp.r2Url||lp.d)+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+(fp.length-1)+',{renderer:_renderRecordZones})">'
+        +'<img src="'+(lp.d||lp.r2Url||'')+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+(fp.length-1)+',{renderer:_renderRecordZones})" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
         +'<button class="recap" onclick="event.stopPropagation();'+trig+'">retake</button>'
         +'</div>';
     }
@@ -10007,7 +10072,7 @@ function _evTileHtml(kind){
     var o=thumbs[thumbs.length-1];
     return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
       +'<span class="badge">'+def[1].toUpperCase()+(thumbs.length>1?(' ·'+thumbs.length):'')+'</span>'
-      +'<img src="'+(o.p.r2Url||o.p.d)+'" onclick="_recLightbox('+o.i+')">'
+      +'<img src="'+(o.p.d||o.p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
       +'<button class="recap" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">retake</button>'
       +'</div>';
   }
@@ -10129,7 +10194,7 @@ function _renderPhotoGallery(){
       html += '<div class="ph-card'+sel+'" data-pg-id="'+pid+'">';
       html += '<input type="checkbox" class="ph-check"'+(sel?' checked':'')+' onclick="event.stopPropagation();_pgToggleSelect(event,\''+pid+'\')">';
       html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'">'+(item.badge||'?')+'</span></span>';
-      if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox('+gidx+')">'; }
+      if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox('+gidx+')" onerror="this.onerror=null;this.parentNode&&this.parentNode.insertBefore(Object.assign(document.createElement(\'div\'),{className:\'ph-noimg\',textContent:\'\uD83D\uDCF7\'}),this);this.remove();">'; }
       else { html += '<div class="ph-noimg">\uD83D\uDCF7</div>'; }
       var _ptime=_pgPhotoTime(p);
       if(_ptime){ html += '<span class="ph-time">'+_ptime+'</span>'; }
@@ -10190,7 +10255,7 @@ async function _pgBulkDownload(items){
     // Single photo — direct download
     var p = items[0].photo;
     var a = document.createElement('a');
-    a.href = p.r2Url || p.d;
+    a.href = p.d || p.r2Url;
     a.download = p.n || ('photo_'+Date.now()+'.jpg');
     document.body.appendChild(a); a.click(); a.remove();
     return;
@@ -10211,7 +10276,7 @@ async function _pgZipDownload(items){
     var zip = new JSZip();
     for(var i=0; i<items.length; i++){
       var p = items[i].photo;
-      var src = p.r2Url || p.d;
+      var src = p.d || p.r2Url;
       var name = (p.n || ('photo_'+(i+1)+'.jpg'));
       if(src.startsWith('data:')){
         var parts = src.split(',');
