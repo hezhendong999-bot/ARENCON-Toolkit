@@ -2129,8 +2129,8 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-cloud svg{display:block;}
 /* Hover action buttons (download + delete) — bottom-left cluster. */
 .ph-dl-btn,.ph-del-btn{position:absolute;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);}
-.ph-dl-btn{bottom:5px;left:6px;background:var(--b-pb-u,#5A6E80);}
-.ph-dl-btn:hover{background:var(--b-pb-u,#4A5A6E);filter:brightness(.92);}
+.ph-dl-btn{bottom:5px;left:6px;background:#5A6E80;}
+.ph-dl-btn:hover{background:#4A5A6E;filter:brightness(.92);}
 .ph-del-btn{bottom:5px;left:36px;background:rgba(192,57,43,.92);}
 .ph-del-btn:hover{background:#A85959;}
 .ph-card:hover .ph-dl-btn,.ph-card:hover .ph-del-btn{display:flex;}
@@ -2138,8 +2138,8 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 /* S216: gallery move/copy button (defic photos only). Same blue + shape as the
    download button; sits at left:36px (the site-only trash slot, free for defic
    photos) so it never overlaps the checkbox, badges, or download. */
-.ph-move-btn{position:absolute;bottom:5px;left:36px;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);background:var(--b-pb-u,#5A6E80);color:#fff;font-size:14px;line-height:1;}
-.ph-move-btn:hover{background:var(--b-pb-u,#4A5A6E);filter:brightness(.92);}
+.ph-move-btn{position:absolute;bottom:5px;left:36px;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);background:#5E8079;color:#fff;font-size:14px;line-height:1;}
+.ph-move-btn:hover{background:#4E6E67;filter:brightness(.92);}
 .ph-card:hover .ph-move-btn{display:flex;}
 @media(pointer:coarse){.ph-move-btn{display:flex;opacity:.85;}}
 /* S224: on SITE cards, download (6px) + delete (36px) already occupy the two
