@@ -19,6 +19,12 @@ function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 //   deficiency = defic photos where defic.priority is not 'general'
 //   general    = defic photos where defic.priority is 'general'
 var _filterMode = 'all';
+// S265 Photo-Trash Phase 1 (stage 1): top-level sub-tab within the Photos panel.
+//   'all'   = the live gallery (existing behaviour)
+//   'trash' = Recently Deleted — soft-deleted DEFIC pool photos (site photos
+//             join in stage 2). Display-only countdown; restore via restorePoolPhoto.
+var _photoTab = 'all';
+var _TRASH_RETENTION_DAYS = 30;
 var _selectedUids = new Set();
 var _filterPanelOpen = false;
 // S114 P1.3: anchor for shift-click range select. Stores the last toggled UID
@@ -48,6 +54,91 @@ function _scheduleRender() {
 function _photoUid(rec) {
   if (rec.type === 'site') return 'site:' + rec.siteIdx;
   return 'defic:' + rec.deficId + ':' + rec.obsIdx + ':' + rec.photoIdx;
+}
+
+// S265 Photo-Trash Phase 1: gather soft-deleted DEFIC pool photos for the
+// Recently Deleted view. Walks every deficiency's pool (NOT the effective/obs
+// lists, which already exclude deleted photos), collecting records with the
+// deleted flag. Site photos are NOT included this stage (they hard-delete).
+// Returns newest-deleted first.
+function _gatherDeletedRecords() {
+  var proj = Model.getProject();
+  if (!proj) return [];
+  var out = [];
+  var allDefics = Model.getAllDeficiencies(proj);
+  allDefics.forEach(function(d) {
+    var defic = d.defic;
+    (defic.photos || []).forEach(function(ph) {
+      if (ph && ph.deleted) {
+        out.push({
+          deficId: defic.id,
+          deficNum: defic.num,
+          photoId: ph.id,
+          ph: ph,
+          src: ph.thumb || ph.r2Url || ph.dataUrl || '',
+          deletedDate: ph.deletedDate || null,
+          label: 'Pin ' + defic.num
+        });
+      }
+    });
+  });
+  out.sort(function(a, b) {
+    var ta = a.deletedDate ? new Date(a.deletedDate).getTime() : 0;
+    var tb = b.deletedDate ? new Date(b.deletedDate).getTime() : 0;
+    return tb - ta; // newest deleted first
+  });
+  return out;
+}
+
+// Days remaining before 30-day auto-purge (display-only this stage). Returns
+// a whole number of days >= 0. No deletedDate → full retention (defensive).
+function _trashDaysRemaining(deletedDateIso) {
+  if (!deletedDateIso) return _TRASH_RETENTION_DAYS;
+  var deleted = new Date(deletedDateIso).getTime();
+  if (!deleted) return _TRASH_RETENTION_DAYS;
+  var elapsedMs = Date.now() - deleted;
+  var elapsedDays = Math.floor(elapsedMs / 86400000);
+  return Math.max(0, _TRASH_RETENTION_DAYS - elapsedDays);
+}
+
+// S265 Photo-Trash Phase 1: build the Recently Deleted list HTML. Each item:
+// thumbnail, pin label, deleted-date, days-remaining (amber, red when ≤5),
+// Restore button. Permanent delete + auto-purge are stage 2.
+function _renderTrashHtml(deletedRecords) {
+  var h = '';
+  if (!deletedRecords.length) {
+    h += '<p class="ph-empty">Nothing in Recently Deleted. Photos you delete from the gallery appear here and can be restored for ' + _TRASH_RETENTION_DAYS + ' days.</p>';
+    return h;
+  }
+  h += '<p class="ph-trash-note">Deleted photos are kept for ' + _TRASH_RETENTION_DAYS + ' days, then removed automatically. Restore brings a photo back into its pin.</p>';
+  h += '<div class="ph-trash-list">';
+  deletedRecords.forEach(function(r) {
+    var days = _trashDaysRemaining(r.deletedDate);
+    var dateLabel = '';
+    if (r.deletedDate) {
+      var dt = new Date(r.deletedDate);
+      if (dt.getTime()) {
+        dateLabel = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+          + ' ' + dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      }
+    }
+    var daysCls = days <= 5 ? 'ph-trash-days urgent' : 'ph-trash-days';
+    h += '<div class="ph-trash-item">';
+    if (r.src) {
+      h += '<div class="ph-trash-thumb"><img src="' + esc(r.src) + '" loading="lazy" onerror="this.style.display=\'none\'"></div>';
+    } else {
+      h += '<div class="ph-trash-thumb ph-trash-noimg">\uD83D\uDCF7</div>';
+    }
+    h += '<div class="ph-trash-meta">';
+    h += '<div class="ph-trash-label">' + esc(r.label) + '</div>';
+    if (dateLabel) h += '<div class="ph-trash-date">Deleted ' + esc(dateLabel) + '</div>';
+    h += '<div class="' + daysCls + '">' + days + ' day' + (days === 1 ? '' : 's') + ' left</div>';
+    h += '</div>';
+    h += '<button class="ph-trash-restore" data-action="ph-restore-photo" data-defic-id="' + esc(r.deficId) + '" data-photo-id="' + esc(r.photoId) + '">Restore</button>';
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
 }
 
 // Cloud-status icon. r2Status === 'uploaded' is the explicit win;
@@ -322,6 +413,23 @@ export var initPhotos = {
     // ── Build HTML ──
     var html = '';
 
+    // S265 Photo-Trash Phase 1: sub-tab row — All Photos (n) | Recently Deleted (n).
+    // A separate sub-tab (NOT a stacked section) keeps the page short. The trash
+    // count badge is always computed so the tab shows it even from the gallery.
+    var deletedRecords = _gatherDeletedRecords();
+    var trashCount = deletedRecords.length;
+    html += '<div class="ph-subtabs">';
+    html += '<button class="ph-subtab' + (_photoTab === 'all' ? ' active' : '') + '" data-action="ph-subtab" data-tab="all">All Photos <span class="ph-subtab-n">' + totalAll + '</span></button>';
+    html += '<button class="ph-subtab' + (_photoTab === 'trash' ? ' active' : '') + '" data-action="ph-subtab" data-tab="trash">\uD83D\uDDD1 Recently Deleted <span class="ph-subtab-n">' + trashCount + '</span></button>';
+    html += '</div>';
+
+    // ── Recently Deleted view (branches before the gallery toolbar) ──
+    if (_photoTab === 'trash') {
+      html += _renderTrashHtml(deletedRecords);
+      container.innerHTML = html;
+      return;
+    }
+
     // Toolbar
     var nSel = _selectedUids.size;
     var filterLabel = _filterMode === 'all' ? 'All photos'
@@ -443,9 +551,15 @@ export var initPhotos = {
         } else {
           html += '<button class="ph-move-btn" data-action="ph-move-site" data-photo-idx="' + r.siteIdx + '" title="Send to a pin">\u2934</button>';
         }
-        // S114 P1.3: trash button is SITE PHOTOS ONLY. Pin photos must be deleted via pin editor.
+        // S114 P1.3 / S265: trash button. Site photos delete via removeSitePhoto
+        // (hard, unchanged). DEFIC photos now soft-delete via removePoolPhoto —
+        // recoverable from the Recently Deleted sub-tab (Photo-Trash Phase 1).
         if (r.type === 'site') {
           html += '<button class="ph-del-btn" data-action="delete-site-photo" data-photo-idx="' + r.siteIdx + '" title="Delete site photo">'
+            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 7h12v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7zm3-3h6l1 2H8l1-2zM4 6h16v1H4V6z"/></svg>'
+            + '</button>';
+        } else {
+          html += '<button class="ph-del-btn" data-action="delete-defic-photo" data-defic-id="' + esc(r.deficId) + '" data-photo-id="' + esc((r.ph && r.ph.id) || '') + '" title="Delete photo (recoverable)">'
             + '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 7h12v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7zm3-3h6l1 2H8l1-2zM4 6h16v1H4V6z"/></svg>'
             + '</button>';
         }
@@ -575,6 +689,53 @@ document.addEventListener('click', function(e) {
         toast('Site photo removed');
       }
     });
+    return;
+  }
+
+  // S265 Photo-Trash Phase 1: soft-delete a DEFIC pool photo. Recoverable from
+  // Recently Deleted. Uses removePoolPhoto (sets deleted flag, keeps R2,
+  // cascades out of selections). The card vanishes from the live gallery.
+  var delD = e.target.closest && e.target.closest('[data-action="delete-defic-photo"]');
+  if (delD) {
+    e.stopPropagation();
+    var ddId = delD.getAttribute('data-defic-id');
+    var dpId = delD.getAttribute('data-photo-id');
+    showConfirm('Delete Photo', 'Delete this photo? You can restore it from Recently Deleted for ' + _TRASH_RETENTION_DAYS + ' days.').then(function(yes) {
+      if (yes && ddId && dpId) {
+        var ok = Model.removePoolPhoto(ddId, dpId);
+        _selectedUids.delete('defic:' + ddId); // defensive; uid prefix match not needed
+        initPhotos.render();
+        toast(ok ? 'Photo moved to Recently Deleted' : 'Could not delete photo');
+      }
+    });
+    return;
+  }
+
+  // S265 Photo-Trash Phase 1: switch sub-tab (All Photos <-> Recently Deleted).
+  var sub = e.target.closest && e.target.closest('[data-action="ph-subtab"]');
+  if (sub) {
+    e.stopPropagation();
+    var tab = sub.getAttribute('data-tab');
+    if (tab && tab !== _photoTab) {
+      _photoTab = tab;
+      initPhotos.render();
+    }
+    return;
+  }
+
+  // S265 Photo-Trash Phase 1: restore a soft-deleted defic photo back into its
+  // pin's pool (visible to default-state obs; does NOT force back into a custom
+  // selection it was removed from — restorePoolPhoto handles that policy).
+  var res = e.target.closest && e.target.closest('[data-action="ph-restore-photo"]');
+  if (res) {
+    e.stopPropagation();
+    var rdId = res.getAttribute('data-defic-id');
+    var rpId = res.getAttribute('data-photo-id');
+    if (rdId && rpId) {
+      var restored = Model.restorePoolPhoto(rdId, rpId);
+      initPhotos.render();
+      toast(restored ? 'Photo restored' : 'Could not restore photo');
+    }
     return;
   }
 

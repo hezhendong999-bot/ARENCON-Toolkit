@@ -2145,6 +2145,10 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 /* S224: on SITE cards, download (6px) + delete (36px) already occupy the two
    left slots — push the send-to-pin button to the third slot so nothing overlaps. */
 .ph-move-btn[data-action="ph-move-site"]{left:66px;}
+/* S265 Photo-Trash Phase 1: on DEFIC cards download(6) + move(36) take the first
+   two slots, so the new defic delete button goes to the third slot (66px). Site
+   cards keep delete at 36px (no move-defic button there). */
+.ph-del-btn[data-action="delete-defic-photo"]{left:66px;}
 /* S224: faded "just moved this session" state + per-card Undo overlay. The fade
    is a purely visual, in-memory marker (gone on reload). Undo sits centered,
    above the image, always visible on a faded card (no hover needed — must be
@@ -2154,6 +2158,26 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-undo-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;background:rgba(28,35,51,.94);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:6px;padding:6px 12px;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;cursor:pointer;min-height:34px;box-shadow:0 1px 4px rgba(0,0,0,.5);}
 .ph-undo-btn:hover{background:#1C2333;border-color:#fff;}
 @media(pointer:coarse){.ph-undo-btn{min-height:44px;padding:9px 16px;font-size:14px;}}
+/* S265 Photo-Trash Phase 1: Photos panel sub-tabs (All Photos | Recently Deleted) */
+.ph-subtabs{display:flex;gap:6px;margin:4px 0 6px;border-bottom:1px solid var(--border);}
+.ph-subtab{background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;color:var(--steel);padding:9px 14px;min-height:44px;display:flex;align-items:center;gap:7px;margin-bottom:-1px;-webkit-tap-highlight-color:transparent;}
+.ph-subtab:hover{color:var(--fg);}
+.ph-subtab.active{color:var(--arencon);border-bottom-color:var(--arencon);}
+.ph-subtab-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:19px;padding:0 6px;border-radius:99px;background:var(--border);color:var(--steel);font-size:calc(11px + var(--ts));font-weight:700;font-variant-numeric:tabular-nums;}
+.ph-subtab.active .ph-subtab-n{background:var(--arencon);color:#fff;}
+.ph-trash-note{font-size:calc(12px + var(--ts));color:var(--steel);margin:10px 0 14px;line-height:1.45;}
+.ph-trash-list{display:flex;flex-direction:column;gap:10px;}
+.ph-trash-item{display:flex;align-items:center;gap:13px;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface);}
+.ph-trash-thumb{width:64px;height:64px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--border);}
+.ph-trash-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.ph-trash-noimg{display:flex;align-items:center;justify-content:center;font-size:24px;}
+.ph-trash-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.ph-trash-label{font-size:calc(14px + var(--ts));font-weight:700;color:var(--fg);}
+.ph-trash-date{font-size:calc(12px + var(--ts));color:var(--steel);}
+.ph-trash-days{font-size:calc(12px + var(--ts));font-weight:600;color:#C98A4A;font-variant-numeric:tabular-nums;}
+.ph-trash-days.urgent{color:#C0445F;}
+.ph-trash-restore{flex-shrink:0;background:none;border:1px solid var(--arencon);color:var(--arencon);border-radius:8px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;padding:9px 18px;min-height:44px;-webkit-tap-highlight-color:transparent;}
+.ph-trash-restore:hover{background:var(--arencon);color:#fff;}
 /* S225: site-origin ghost strip — photos moved OUT of the gallery this session.
    A faded synthetic tile (snapshot, not live data) with Undo, so the undo lives
    at the origin where the user is still looking. Gone on reload. */
