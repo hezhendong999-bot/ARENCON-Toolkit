@@ -64,6 +64,12 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 .nav-tab .tab-dot.visible{display:inline-block;}
 .nav-tab .tab-count{display:inline-block;margin-left:6px;min-width:18px;padding:1px 6px;border-radius:9px;background:var(--no);color:#fff;font-size:calc(11px + var(--ts));font-weight:700;line-height:1.4;text-align:center;vertical-align:middle;}
 .nav-tab .tab-count.allclear{background:var(--yes);}
+/* S280: verdict status dot on the Summary tab — carries pass/fail globally now the bar is Summary-only */
+.nav-tab .verdict-dot{display:none;width:9px;height:9px;border-radius:50%;margin-left:7px;vertical-align:middle;box-shadow:0 0 0 2px rgba(255,255,255,.12);}
+.nav-tab .verdict-dot.show{display:inline-block;}
+.nav-tab .verdict-dot.pass{background:#5F8068;}
+.nav-tab .verdict-dot.cond{background:#D08B3C;}
+.nav-tab .verdict-dot.fail{background:#A85959;}
 
 /* ── MAIN ── */
 .main-wrap{max-width:1060px;margin:0 auto;padding:22px 18px 70px;}
@@ -125,6 +131,14 @@ body.dark-mode .sum-stats .sstat{box-shadow:none;}
 .ov-cnt.skip{color:var(--silver);font-style:italic;}
 .ov-cnt .ov-verdict{display:inline-block;background:var(--yes-bg);color:var(--yes);border:1px solid #c5d6c9;border-radius:5px;padding:2px 9px;font-size:calc(11px + var(--ts));font-weight:700;}
 .ov-cnt .ov-verdict.fail{background:var(--no-bg);color:var(--no);border-color:#e0c2c2;}
+/* S280: relocated overall verdict bar — contained (rounded + shadow), three solid states, Summary-only */
+.verdict-label{font-size:calc(11px + var(--ts));font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--silver);margin:18px 0 7px;}
+.report-verdict{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 22px;border-radius:14px;font-size:calc(14px + var(--ts));font-weight:700;letter-spacing:.4px;color:#fff;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,.12);line-height:1.35;}
+.report-verdict .vicon{font-size:calc(16px + var(--ts));line-height:1;flex:none;}
+.report-verdict.pass{background:#5F8068;}
+.report-verdict.cond{background:#D08B3C;}
+.report-verdict.fail{background:#A85959;}
+.report-verdict.review{background:#78909C;}
 .ov-chev{color:#c9cfd8;font-size:15px;}
 .ov-attn-strip{padding:11px 16px;background:var(--no-bg);border-top:1px solid #ecd6d4;display:flex;align-items:center;gap:11px;cursor:pointer;}
 .ov-attn-strip .ov-ic{background:var(--no);}
@@ -907,6 +921,12 @@ body.dark-mode .ov-attn-strip .ov-nm{color:#e0a8a8;}
 body.dark-mode .ov-attn-strip .ov-nm .ov-s{color:#b88;}
 body.dark-mode .ov-cnt .ov-verdict{background:rgba(63,208,138,.16);color:#7fae8a;border-color:#3a5042;}
 body.dark-mode .ov-cnt .ov-verdict.fail{background:rgba(226,96,118,.16);color:#e08080;border-color:#5a3a3a;}
+/* S280: dark-mode relocated verdict bar — tinted glass instead of solid fill */
+body.dark-mode .report-verdict{box-shadow:none;}
+body.dark-mode .report-verdict.pass{background:rgba(26,122,74,.22);color:#7ee0a8;border:1px solid rgba(26,122,74,.4);}
+body.dark-mode .report-verdict.cond{background:rgba(208,139,60,.22);color:#f0c483;border:1px solid rgba(208,139,60,.4);}
+body.dark-mode .report-verdict.fail{background:rgba(192,57,43,.22);color:#f0a0a0;border:1px solid rgba(192,57,43,.4);}
+body.dark-mode .report-verdict.review{background:rgba(120,144,156,.22);color:#aebac4;border:1px solid rgba(120,144,156,.35);}
 body.dark-mode .section-title{color:#fff;background:linear-gradient(135deg,#6b1a2e,#4a1020);margin-left:-18px;margin-right:-18px;padding:10px 18px;border-radius:6px;}
 body.dark-mode input,body.dark-mode select,body.dark-mode textarea{background:rgba(255,255,255,.02)!important;color:#d0d8f0!important;border:1.5px solid rgba(255,255,255,.10)!important;border-radius:6px!important;}
 body.dark-mode input:focus,body.dark-mode select:focus,body.dark-mode textarea:focus{background:rgba(255,255,255,.03)!important;border-color:#c13a58!important;box-shadow:0 0 0 2px rgba(193,58,88,.15)!important;}
@@ -1071,6 +1091,9 @@ body.dark-mode .defic-photo-btn{background:#2a3038!important;color:#c0c8d8!impor
 body.dark-mode .add-defic-btn{background:rgba(255,255,255,.06)!important;color:#c0d0e8!important;border:1.5px solid rgba(255,255,255,.2)!important;border-radius:20px!important;}
 body.dark-mode .defic-summary-wrap{background:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.10)!important;}
 body.dark-mode .nav-tab .tab-dot{background:#c87030!important;}
+body.dark-mode .nav-tab .verdict-dot.pass{background:#6fcaa0;box-shadow:0 0 7px #6fcaa0;}
+body.dark-mode .nav-tab .verdict-dot.cond{background:#e6b566;box-shadow:0 0 7px #e6b566;}
+body.dark-mode .nav-tab .verdict-dot.fail{background:#e89292;box-shadow:0 0 7px #e89292;}
 body.dark-mode td[id*="net-"]{background:#1a2a20!important;color:#4aba5a!important;}
 body.dark-mode .calc-cell{background:#1a2830!important;color:#80c0d0!important;}
 body.dark-mode select option{background:rgba(255,255,255,.06);color:#d4d4d4;}
@@ -1629,11 +1652,15 @@ function renderSubNav(phase){
     var inner = p.label;
     if(p.dot) inner += '<span class="tab-dot" id="dot-'+p.id+'"></span>';
     if(p.badge) inner += '<span class="tab-count" id="defic-tab-count" style="display:none;"></span>';
+    // S280: Summary tab carries the overall verdict status dot
+    if(p.id==='proj') inner += '<span class="verdict-dot" id="verdict-tab-dot"></span>';
     html += '<div class="'+cls+'" id="tab-'+p.id+'" onclick="switchPanel(\''+p.id+'\')">'+inner+'</div>';
   }); }
   nav.innerHTML = html;
   // refresh the dot/badge state now that elements were recreated
   if(typeof updateProgress==='function') { /* dots refreshed via updateProgress */ }
+  // S280: nav rebuild recreates #verdict-tab-dot empty — re-apply its state
+  if(typeof updateVerdict==='function') updateVerdict();
 }
 function switchPhase(phase){
   // Clicking a phase pill navigates to the FIRST panel of that phase so the sub-nav,
@@ -1667,7 +1694,9 @@ function updatePhaseFlags(){
   <span>📡 You are offline — data is auto-saved locally and will sync when you reconnect.</span>
 </div>
 
-<div id="report-verdict" style="display:none;padding:7px 20px;font-size:13px;font-weight:700;letter-spacing:.8px;text-align:center;"></div>
+<!-- S280: #report-verdict relocated into the Summary tab (bottom of #panel-proj).
+     It was a full-bleed band pinned above all content, distracting during data entry.
+     A small status dot on the Summary tab now carries pass/fail globally instead. -->
 
 <div class="main-wrap">
 
@@ -1746,6 +1775,11 @@ function updatePhaseFlags(){
         </div>
       </div>
     </div>
+
+    <!-- S280: Overall verdict — relocated here from page top. Same three-colour
+         solid bar, now contained (rounded + soft shadow) and only shown on Summary. -->
+    <div class="verdict-label" id="report-verdict-label" style="display:none;">Overall verdict</div>
+    <div id="report-verdict" class="report-verdict" style="display:none;"></div>
   </div>
 
   <!-- ══ SECTION 1: PRE-COMMISSIONING ══ -->
@@ -4098,7 +4132,10 @@ function updateVerdict() {
 
   // Don't show verdict if nothing entered
   if(!hasAnyResponse && perfResults.length === 0 && !hasDeficiencies) {
-    el.style.display = 'none'; return;
+    el.style.display = 'none';
+    var _lbl0 = document.getElementById('report-verdict-label'); if(_lbl0) _lbl0.style.display='none';
+    var _dot0 = document.getElementById('verdict-tab-dot'); if(_dot0) _dot0.className='verdict-dot';
+    return;
   }
 
   var resultText, bgCol;
@@ -4161,19 +4198,30 @@ function updateVerdict() {
     bgCol = '#5F8068';
   }
 
-  el.style.display = 'block';
-  var isDark = document.body.classList.contains('dark-mode');
-  if(isDark) {
-    var darkBg = bgCol==='#5F8068'?'rgba(26,122,74,.2)':bgCol==='#E67E22'?'rgba(230,126,34,.2)':bgCol==='#A85959'?'rgba(192,57,43,.2)':'rgba(120,144,156,.2)';
-    el.style.background = darkBg;
-    el.style.color = bgCol==='#5F8068'?'#4ade80':bgCol==='#E67E22'?'#fbbf24':bgCol==='#A85959'?'#f87171':'#94a3b8';
-    el.style.border = '1px solid ' + (bgCol==='#5F8068'?'rgba(26,122,74,.4)':bgCol==='#E67E22'?'rgba(230,126,34,.4)':bgCol==='#A85959'?'rgba(192,57,43,.4)':'rgba(120,144,156,.3)');
-  } else {
-    el.style.background = bgCol;
-    el.style.color = 'white';
-    el.style.border = 'none';
+  // S280: map bgCol -> semantic status class; CSS now owns all theming (light + dark),
+  // replacing the old inline colour juggling. Logic above is unchanged.
+  var statusCls = bgCol==='#5F8068' ? 'pass'
+                : bgCol==='#E67E22' ? 'cond'
+                : bgCol==='#A85959' ? 'fail'
+                : 'review';
+  // Split the leading glyph (icon) from the message text so the icon can be styled.
+  var icon = '', msg = resultText;
+  var m = resultText.match(/^(\S+)\s+(.*)$/);
+  if(m){ icon = m[1]; msg = m[2]; }
+
+  el.className = 'report-verdict ' + statusCls;
+  el.style.display = 'flex';
+  el.innerHTML = (icon ? '<span class="vicon">'+icon+'</span>' : '') + '<span>'+msg+'</span>';
+  var lbl = document.getElementById('report-verdict-label');
+  if(lbl) lbl.style.display = 'block';
+
+  // S280: drive the Summary-tab status dot (only PASS/CONDITIONAL/FAIL; 'review' shows no dot)
+  var tabDot = document.getElementById('verdict-tab-dot');
+  if(tabDot){
+    if(statusCls==='review'){ tabDot.className = 'verdict-dot'; }
+    else { tabDot.className = 'verdict-dot show ' + statusCls; }
   }
-  el.textContent = resultText;
+
   if(typeof updateCompletionOverview==='function') updateCompletionOverview();
 }
 
