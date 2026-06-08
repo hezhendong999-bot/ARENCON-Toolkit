@@ -1045,20 +1045,63 @@ function _renderDeficDashboard(total, outstanding, closed, rows) {
   d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--no)"></span><span class="nm">Outstanding</span><span class="val">' + outstanding + '</span></div>';
   d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--yes)"></span><span class="nm">Closed</span><span class="val">' + closed + '</span></div>';
   d += '</div></div></div>';
-  // ---- by contractor ----
+  // ---- by contractor: PIE (share of total) + collapsible mini-donuts ----
+  // S265: replaced the by-contractor BARS with a pie (who owns what share of
+  // the work) plus a collapsed <details> grid of per-contractor mini-donuts
+  // (each contractor's own resolution %). Same _dashRows data, no model touch.
   if (rows && rows.length) {
     d += '<div class="dlc-bc"><div class="dlc-bc-h">By contractor</div>';
-    rows.forEach(function(r, i) {
+    // --- pie: each slice sized by r.total, coloured by r.color ---
+    d += '<div class="dlc-pie-wrap">';
+    d += '<div class="dlc-pie"><svg width="132" height="132" viewBox="0 0 150 150" aria-hidden="true">';
+    // pie circle r=37 → circumference = 2*pi*37 ≈ 232.48 (its own, NOT the donut's C)
+    var pieC = 232.48;
+    var acc = 0;  // accumulated arc length (running offset)
+    rows.forEach(function(r) {
+      var col = r.color || '#6B7280';
+      var segLen = total ? (r.total / total) * pieC : 0;
+      if (segLen > 0) {
+        // full-radius pie via thick stroke (r=37, stroke-width=74 → solid disc)
+        d += '<circle cx="75" cy="75" r="37" fill="none" stroke="' + col + '" stroke-width="74" stroke-dasharray="' + segLen.toFixed(2) + ' ' + pieC.toFixed(2) + '" stroke-dashoffset="' + (-acc).toFixed(2) + '"/>';
+      }
+      acc += segLen;
+    });
+    d += '</svg></div>';
+    // --- pie legend: dot · name · total · share% ---
+    d += '<div class="dlc-pie-leg">';
+    rows.forEach(function(r) {
       var col = r.color || '#6B7280';
       var share = total ? Math.round((r.total / total) * 100) : 0;
-      d += '<div class="dlc-bc-row">';
+      d += '<div class="dlc-pl-row">';
       d += '<span class="dlc-dot" style="background:' + col + '"></span>';
       d += '<span class="nm">' + esc(r.name) + '</span>';
-      d += '<span class="mini"><i style="width:' + share + '%;background:' + col + '"></i></span>';
-      d += '<span class="ct">' + r.total + ' <small>\u00b7 ' + r.outstanding + ' open</small></span>';
+      d += '<span class="ct">' + r.total + '</span>';
+      d += '<span class="sh">' + share + '%</span>';
       d += '</div>';
     });
-    d += '</div>';
+    d += '</div></div>';  // /dlc-pie-leg /dlc-pie-wrap
+    // --- collapsible per-contractor mini-donuts (resolution % each) ---
+    d += '<details class="dlc-mini-det">';
+    d += '<summary class="dlc-mini-sum"><span class="dlc-mini-sum-t">Per-contractor resolution</span><span class="dlc-mini-chev" aria-hidden="true">\u203A</span></summary>';
+    d += '<div class="dlc-mini-grid">';
+    rows.forEach(function(r) {
+      var col = r.color || '#6B7280';
+      var cClosed = Math.max(0, r.total - r.outstanding);
+      var cPct = r.total ? Math.round((cClosed / r.total) * 100) : 0;
+      // mini donut geometry: r=26 → circumference ≈ 163.36
+      var mC = 163.36;
+      var doneLen = r.total ? (cClosed / r.total) * mC : 0;
+      d += '<div class="dlc-mini-cell">';
+      d += '<div class="dlc-mini-donut"><svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">';
+      d += '<circle cx="36" cy="36" r="26" fill="none" stroke="var(--border)" stroke-width="9"/>';
+      if (doneLen > 0) d += '<circle cx="36" cy="36" r="26" fill="none" stroke="' + col + '" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + doneLen.toFixed(2) + ' ' + mC.toFixed(2) + '" stroke-dashoffset="0"/>';
+      d += '</svg><div class="dlc-mini-pct">' + cPct + '<small>%</small></div></div>';
+      d += '<div class="dlc-mini-nm" style="color:' + col + '">' + esc(r.name) + '</div>';
+      d += '<div class="dlc-mini-sub">' + cClosed + '/' + r.total + ' closed</div>';
+      d += '</div>';
+    });
+    d += '</div></details>';
+    d += '</div>';  // /dlc-bc
   }
   d += '</div>';
   return d;
