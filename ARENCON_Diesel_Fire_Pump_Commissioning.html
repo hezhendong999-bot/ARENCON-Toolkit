@@ -12075,7 +12075,7 @@ body.dark-mode .ov-hd .ov-pct{color:#fff!important;}
   box-shadow:var(--shadow)!important;backdrop-filter:blur(8px);}
 .ov-hd{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;border-bottom:2px solid var(--arencon)!important;}
 .ov-hd svg{color:var(--arencon)!important;}
-.ov-hd .ov-pct{color:#fff!important;}
+.ov-hd .ov-pct{color:var(--arencon)!important;} /* S280: was #fff — white-on-light chip header made the % invisible; burgundy reads on the light bar */
 .ov-bar{background:color-mix(in srgb,var(--slate) 9%,transparent);height:10px;}
 .ov-bar > i{background:linear-gradient(90deg,var(--arencon),var(--b-info))!important;}
 .ov-row{border-bottom:1px solid var(--border);}
