@@ -1017,7 +1017,8 @@ function buildGroup(ctrId, name, items, totalCount) {
 // data, no model touch. Sits at the top of the Deficiency Log card body.
 // Colours come from live Bold tokens (--arencon/--no/--yes/--b-info/--warn)
 // so both skins are handled by the existing theme — see frt.css PART Bold.
-var _DASH_CTR_COLORS = ['var(--arencon)', 'var(--b-info)', 'var(--warn)', 'var(--yes)', 'var(--no)', 'var(--na)'];
+// S264b: contractor colours now come from each contractor's stored c.color
+// (resolved in _renderDeficLog), matching the Contractor Roster dots.
 function _renderDeficDashboard(total, outstanding, closed, rows) {
   if (!total) return '';
   var pct = Math.round((closed / total) * 100);
@@ -1048,7 +1049,7 @@ function _renderDeficDashboard(total, outstanding, closed, rows) {
   if (rows && rows.length) {
     d += '<div class="dlc-bc"><div class="dlc-bc-h">By contractor</div>';
     rows.forEach(function(r, i) {
-      var col = _DASH_CTR_COLORS[i % _DASH_CTR_COLORS.length];
+      var col = r.color || '#6B7280';
       var share = total ? Math.round((r.total / total) * 100) : 0;
       d += '<div class="dlc-bc-row">';
       d += '<span class="dlc-dot" style="background:' + col + '"></span>';
@@ -1082,17 +1083,24 @@ function _renderDeficLog(proj, allDefics) {
   h += '<th style="text-align:center;">Outstanding</th>';
   h += '<th style="text-align:center;">Closed</th></tr></thead><tbody>';
   var tTotal = 0, tNew = 0, tOut = 0, tClosed = 0;
-  var _dashRows = [];  // S264: per-contractor {name,total,outstanding} for the Bold dashboard
+  var _dashRows = [];  // S264: per-contractor {name,total,outstanding,color} for the Bold dashboard
+  // S264b: resolve each contractor's STORED colour (c.color) — same hex the
+  // roster dot uses — so dashboard + table match the Contractor Roster.
+  var _ctrColorByName = {};
+  (proj.contractors || []).forEach(function(c) {
+    if (c && c.name) _ctrColorByName[ctrLabel(c.name) || c.name] = c.color || '#6B7280';
+  });
   Object.keys(ctrGroups).forEach(function(name) {
     var gc = ctrGroups[name];
     var total = gc.length;
     var nw = gc.filter(function(d) { return (d.defic.notedOnInstance || 1) === _curInst; }).length;
     var outstanding = gc.filter(function(d) { return deficIsOpen(d.defic); }).length;
     var closed = gc.filter(function(d) { return deficIsClosed(d.defic); }).length;
+    var _col = _ctrColorByName[name] || '#6B7280';
     tTotal += total; tNew += nw; tOut += outstanding; tClosed += closed;
-    _dashRows.push({ name: name, total: total, outstanding: outstanding });
+    _dashRows.push({ name: name, total: total, outstanding: outstanding, color: _col });
     h += '<tr>';
-    h += '<td style="font-weight:600;">' + esc(name) + '</td>';
+    h += '<td style="font-weight:600;"><span class="dlc-tbl-dot" style="background:' + _col + '"></span>' + esc(name) + '</td>';
     h += '<td style="text-align:center;">' + total + '</td>';
     h += '<td style="text-align:center;font-weight:700;">' + nw + '</td>';
     h += '<td style="text-align:center;color:#A85959;font-weight:700;">' + outstanding + '</td>';

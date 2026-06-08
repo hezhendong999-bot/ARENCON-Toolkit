@@ -9895,4 +9895,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .dlc-bc-row .nm{width:104px;}
   .dlc-dash-top{gap:16px;}
 }
+/* S264b: contractor colour dot in the summary table's Contractor cell —
+   matches the dashboard by-contractor dots and the roster dots. */
+.defic-summary-table .dlc-tbl-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle;flex-shrink:0;}
 /* ── end S264 resolution dashboard ──────────────────────────────────── */
