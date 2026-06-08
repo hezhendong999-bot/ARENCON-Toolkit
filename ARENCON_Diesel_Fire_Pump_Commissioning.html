@@ -1720,6 +1720,12 @@ function updatePhaseFlags(){
   <!-- ══ SUMMARY (overview + project info) ══ -->
   <div class="panel active" id="panel-proj">
 
+    <!-- S280: Overall verdict at the TOP of Summary (just below the tab strip). Same
+         three-colour bar, contained (rounded + soft shadow), Summary-only. Moved here
+         from the bottom — bottom crowded the mobile Prev/Next bar and read poorly. -->
+    <div class="verdict-label" id="report-verdict-label" style="display:none;margin-top:0;">Overall verdict</div>
+    <div id="report-verdict" class="report-verdict" style="display:none;margin-bottom:18px;"></div>
+
     <!-- S256: summarized stats row — 4 tiles, all from the same checklist counts so they reconcile.
          Completion % removed (the Inspection Completion card below already shows it). -->
     <!-- S258: 5 tiles. Fail = No + test FAIL; N/A = not applicable (grey); I/C = incomplete (unanswered). Row reconciles: Pass+Fail+N/A+I/C = Checklist. -->
@@ -1780,11 +1786,6 @@ function updatePhaseFlags(){
         </div>
       </div>
     </div>
-
-    <!-- S280: Overall verdict — relocated here from page top. Same three-colour
-         solid bar, now contained (rounded + soft shadow) and only shown on Summary. -->
-    <div class="verdict-label" id="report-verdict-label" style="display:none;">Overall verdict</div>
-    <div id="report-verdict" class="report-verdict" style="display:none;"></div>
   </div>
 
   <!-- ══ SECTION 1: PRE-COMMISSIONING ══ -->
@@ -7961,7 +7962,7 @@ if(window.innerWidth <= 768) {
   var mnav = document.getElementById('mobile-page-nav');
   if(mnav) mnav.style.display = 'block';
   updateNavButtons();
-  document.body.style.paddingBottom = '84px';
+  document.body.style.paddingBottom = '52px';
 }
 
 // ══════════════════════════════════════════════════
@@ -10622,12 +10623,12 @@ document.addEventListener('mouseup', function() {
 
 </script>
 
-  <!-- Mobile page navigation -->
-  <div id="mobile-page-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#2C3E50;border-top:3px solid #9C2742;padding:16px;box-shadow:0 -4px 12px rgba(0,0,0,.15);pointer-events:none;">
+  <!-- Mobile page navigation (S280: slimmed down — was oversized 12x24 buttons / 16px pad) -->
+  <div id="mobile-page-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#2C3E50;border-top:2px solid #9C2742;padding:7px 12px;box-shadow:0 -3px 10px rgba(0,0,0,.15);pointer-events:none;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <button id="nav-prev" onclick="navPage(-1)" style="pointer-events:auto;padding:12px 24px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">◀ Prev</button>
-      <span id="nav-label" style="pointer-events:none;font-size:13px;font-weight:600;color:#555;"></span>
-      <button id="nav-next" onclick="navPage(1)" style="pointer-events:auto;padding:12px 24px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">Next ▶</button>
+      <button id="nav-prev" onclick="navPage(-1)" style="pointer-events:auto;padding:7px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">◀ Prev</button>
+      <span id="nav-label" style="pointer-events:none;font-size:12px;font-weight:600;color:rgba(255,255,255,.7);"></span>
+      <button id="nav-next" onclick="navPage(1)" style="pointer-events:auto;padding:7px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">Next ▶</button>
     </div>
   </div>
 
