@@ -8767,11 +8767,11 @@ function _r2EnqueuePhoto(photoObj){
       // Outbox write failed (private mode / quota) — fall back to in-memory queue
       console.warn('[Outbox] put failed, using in-memory queue:', e&&e.message);
       R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'original', filename:fname, blob:blob,
-        onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; } });
+        onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
     });
   } else {
     R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'original', filename:fname, blob:blob,
-      onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; } });
+      onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
   }
 }
 
@@ -9253,7 +9253,12 @@ window.addEventListener('load', () => {
       if(typeof R2Outbox!=='undefined'){
         R2Outbox.init();
         R2Outbox.setOnVerified(function(key){
-          _forEachLivePhoto(function(p){ if(p && p.r2Key===key && p.r2Status!=='uploaded') p.r2Status='uploaded'; });
+          var changed=false;
+          _forEachLivePhoto(function(p){ if(p && p.r2Key===key && p.r2Status!=='uploaded'){ p.r2Status='uploaded'; changed=true; } });
+          // S264: the status field was flipping silently — the cloud icon stayed on
+          // "pending" until the gallery was manually reopened. Debounce-repaint the
+          // gallery (only if it's open) so the inspector sees photos go green live.
+          if(changed) _pgRepaintCloudSoon();
         });
         setTimeout(function(){ R2Outbox.drive(); }, 2500);
       }
@@ -10007,6 +10012,20 @@ function _pgCloudIcon(p){
     + '<svg width="18" height="14" viewBox="0 0 24 18" fill="'+color+'">'
     + '<path d="M19 16H6a4.5 4.5 0 010-9 5.5 5.5 0 0110.5-1A4.5 4.5 0 0119 16z"/>'+glyph
     + '</svg></span>';
+}
+// S264: debounced repaint of the gallery when photo sync-status changes (e.g. an
+// outbox upload verifies). No-op unless the Photos panel is actually visible, so
+// background upload churn never triggers needless re-renders elsewhere.
+var _pgRepaintTimer = null;
+function _pgRepaintCloudSoon(){
+  if(_pgRepaintTimer) return;
+  _pgRepaintTimer = setTimeout(function(){
+    _pgRepaintTimer = null;
+    var pg = document.getElementById('panel-photos');
+    if(pg && pg.classList.contains('active') && typeof _renderPhotoGallery==='function'){
+      _renderPhotoGallery();
+    }
+  }, 600);
 }
 
 function _pgDayKey(p){
