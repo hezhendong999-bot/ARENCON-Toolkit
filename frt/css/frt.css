@@ -1037,6 +1037,10 @@ body.dark-mode #btn-reports-parent{background:#141a3a!important;color:#7898d0!im
 body.dark-mode #btn-reports-parent:hover{background:#1c2450!important;}
 body.dark-mode #btn-more-wrap > button{background:transparent!important;color:var(--b-chrome-fg)!important;border:1px solid var(--b-chrome-rule)!important;}
 body.dark-mode #btn-more-wrap > button:hover{background:#9C2742!important;}
+/* S265: Sign Out matches More in dark mode — muted transparent chrome, burgundy
+   hover (was solid teal #0F766E, which clashed with the muted header set). */
+body.dark-mode #btn-signout{background:transparent!important;color:var(--b-chrome-fg)!important;border:1px solid var(--b-chrome-rule)!important;}
+body.dark-mode #btn-signout:hover{background:#9C2742!important;border-color:#9C2742!important;}
 /* S77: muted dark mode for utility chips after More — same ID-targeted approach */
 body.dark-mode #btn-qr,body.dark-mode #btn-text-size,body.dark-mode #dark-toggle{background:transparent!important;color:var(--b-chrome-fg)!important;border:1px solid var(--b-chrome-rule)!important;}
 @media(hover:hover){body.dark-mode #btn-qr:hover,body.dark-mode #btn-text-size:hover,body.dark-mode #dark-toggle:hover{background:#9C2742!important;border-color:#9C2742!important;}}
@@ -9915,21 +9919,13 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 .dlc-leg .val{font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;}
 .dlc-bc{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
 .dlc-bc-h{font-size:11px;font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.6px;margin-bottom:13px;}
-/* S265: by-contractor PIE + legend */
+/* S265: by-contractor — pie (left) + full-width share bars as legend (right) */
 .dlc-pie-wrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap;}
 .dlc-pie{width:132px;height:132px;flex-shrink:0;}
 .dlc-pie svg{transform:rotate(-90deg);display:block;}
-.dlc-pie-leg{flex:1;min-width:220px;display:flex;flex-direction:column;gap:9px;}
-.dlc-pl-row{display:flex;align-items:center;gap:10px;font-size:13.5px;}
-.dlc-pl-row .dlc-dot{position:static;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:2px;}
-.dlc-pl-row .nm{flex:1;color:var(--fg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dlc-pl-row .ct{font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;width:34px;text-align:right;flex-shrink:0;}
-.dlc-pl-row .sh{font-weight:700;color:var(--steel);font-variant-numeric:tabular-nums;width:42px;text-align:right;flex-shrink:0;}
-/* S265: share-of-deficiencies bars below the pie */
-.dlc-share{margin-top:18px;border-top:1px solid var(--border);padding-top:16px;}
-.dlc-share-h{font-size:11px;font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;}
-.dlc-sb-row{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
-.dlc-sb-row:last-child{margin-bottom:0;}
+/* share bars are the right column AND the legend — numbers appear here only */
+.dlc-share{flex:1;min-width:240px;display:flex;flex-direction:column;gap:14px;}
+.dlc-sb-row{display:flex;flex-direction:column;gap:5px;}
 .dlc-sb-top{display:flex;align-items:center;gap:9px;font-size:13.5px;}
 .dlc-sb-top .dlc-dot{position:static;width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 .dlc-sb-top .nm{color:var(--fg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

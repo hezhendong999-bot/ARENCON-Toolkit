@@ -1045,11 +1045,11 @@ function _renderDeficDashboard(total, outstanding, closed, rows) {
   d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--no)"></span><span class="nm">Outstanding</span><span class="val">' + outstanding + '</span></div>';
   d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--yes)"></span><span class="nm">Closed</span><span class="val">' + closed + '</span></div>';
   d += '</div></div></div>';
-  // ---- by contractor: PIE (share, with in-slice %) + legend + share bars ----
-  // S265: pie shows each contractor's share with the % drawn INSIDE its slice
-  // (slices <8% omit the in-slice label — too thin to read — and rely on the
-  // legend/bar). Compact legend (name·count·%) sits beside the pie; share bars
-  // below give the precise scannable breakdown. Same _dashRows data, no model.
+  // ---- by contractor: PIE (left) + full-width share bars as the legend (right) ----
+  // S265: single row, numbers shown ONCE. The pie carries the visual share; the
+  // share bars beside it ARE the legend (dot · name · count · %, with a full-width
+  // proportional bar under each). The old separate compact legend + separate
+  // "Share of deficiencies" section duplicated the same count/% — removed.
   if (rows && rows.length) {
     d += '<div class="dlc-bc"><div class="dlc-bc-h">By contractor</div>';
     d += '<div class="dlc-pie-wrap">';
@@ -1066,21 +1066,8 @@ function _renderDeficDashboard(total, outstanding, closed, rows) {
       acc += segLen;
     });
     d += '</svg></div>';
-    // --- compact legend: dot · name · count · share% (numbers grouped right) ---
-    d += '<div class="dlc-pie-leg">';
-    rows.forEach(function(r) {
-      var col = r.color || '#6B7280';
-      var share = total ? Math.round((r.total / total) * 100) : 0;
-      d += '<div class="dlc-pl-row">';
-      d += '<span class="dlc-dot" style="background:' + col + '"></span>';
-      d += '<span class="nm">' + esc(r.name) + '</span>';
-      d += '<span class="ct">' + r.total + '</span>';
-      d += '<span class="sh">' + share + '%</span>';
-      d += '</div>';
-    });
-    d += '</div></div>';  // /dlc-pie-leg /dlc-pie-wrap
-    // --- share bars: name · count · % over a proportional fill bar ---
-    d += '<div class="dlc-share"><div class="dlc-share-h">Share of deficiencies</div>';
+    // --- share bars (right column) = the legend. Numbers appear here only. ---
+    d += '<div class="dlc-share">';
     rows.forEach(function(r) {
       var col = r.color || '#6B7280';
       var share = total ? Math.round((r.total / total) * 100) : 0;
@@ -1092,8 +1079,9 @@ function _renderDeficDashboard(total, outstanding, closed, rows) {
       d += '<div class="dlc-sb-track"><i style="width:' + share + '%;background:' + col + '"></i></div>';
       d += '</div>';
     });
-    d += '</div>';
-    d += '</div>';  // /dlc-bc
+    d += '</div>';      // /dlc-share
+    d += '</div>';      // /dlc-pie-wrap
+    d += '</div>';      // /dlc-bc
   }
   d += '</div>';
   return d;
@@ -3211,6 +3199,13 @@ function _cvSetStatus(deficId, obsIdx, choice) {
   // Order matters: patching first would replace the anchor while the old menu
   // is still portaled on body, leaving it orphaned. No re-group — the full
   // resettle happens on the manual Re-sort button.
+  // S265 FIX: saveNow() above fires 'saved', whose 300ms-debounced listener
+  // calls render() — which flushes _cvPendingKeys and resettles the list,
+  // defeating the manual Re-sort button. Hold that auto-render the same way a
+  // rec-star toggle does: the pill is already patched in place, so the card
+  // stays put until the user taps Re-sort or navigates (a deliberate render
+  // clears this flag at render() top, line ~1849).
+  _recHoldUntilNav = true;
   _cvPendingKeys[_obsKey(deficId, obsIdx)] = true;
   _cvCloseStatusMenus();
   _cvPatchRowPill(deficId, obsIdx);
