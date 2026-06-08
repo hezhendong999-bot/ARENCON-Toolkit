@@ -1769,11 +1769,27 @@ export var Model = {
     if (!f) return null;
     if (!Array.isArray(f.defic.photos)) f.defic.photos = [];
     opts = opts || {};
+    var _dataUrl = typeof photoData === 'string' ? photoData : (photoData && photoData.dataUrl) || null;
+    // S265 dedup: if this pin already has a LIVE pool entry for the same binary
+    // (by r2Key, or by image bytes when not yet uploaded), reuse it rather than
+    // creating a duplicate. opts.allowDuplicate bypasses (genuine re-capture of
+    // the same scene is the user's call — see note below). This is what stops
+    // markup/restore/re-add from minting redundant pool copies.
+    if (!opts.allowDuplicate) {
+      var probe = { r2Key: opts.r2Key || null, sourceR2Key: opts.sourceR2Key || opts.r2Key || null, dataUrl: _dataUrl, thumb: opts.thumb || null };
+      var probeKey = this._photoIdentityKey(probe);
+      if (probeKey) {
+        for (var di = 0; di < f.defic.photos.length; di++) {
+          var ex = f.defic.photos[di];
+          if (ex && !ex.deleted && this._photoIdentityKey(ex) === probeKey) return ex;
+        }
+      }
+    }
     var photo = {
       id: _uid('ph'),
       r2Key: opts.r2Key || null,
       sourceR2Key: opts.sourceR2Key || opts.r2Key || null,
-      dataUrl: typeof photoData === 'string' ? photoData : (photoData && photoData.dataUrl) || null,
+      dataUrl: _dataUrl,
       thumb: opts.thumb || null,
       filename: opts.filename || ('photo_' + Date.now() + '.jpg'),
       addedDate: new Date().toISOString().split('T')[0],
@@ -1999,9 +2015,24 @@ export var Model = {
 
   // Identity key for a pool photo (the shared binary). Prefer r2Key; fall
   // back to sourceR2Key for never-uploaded/legacy entries.
+  // S265: a photo's identity for dedup. PRIMARY key is the shared binary
+  // (r2Key/sourceR2Key). But a freshly-taken/attached photo that hasn't uploaded
+  // yet has NO r2Key — previously that made this return null, which SKIPPED every
+  // dedup guard and let the same physical image be added to a pool twice (the
+  // duplicate-pool-entry / pool-orphan bug). Fall back to the image bytes
+  // (dataUrl) or thumb so identical images dedup even before upload. Returns a
+  // short stable string, or null only when there's truly nothing to compare.
   _photoIdentityKey: function(photo) {
     if (!photo) return null;
-    return photo.r2Key || photo.sourceR2Key || null;
+    if (photo.r2Key) return 'r2:' + photo.r2Key;
+    if (photo.sourceR2Key) return 'r2:' + photo.sourceR2Key;
+    // pre-upload fallback: hash-ish of the local image bytes. dataUrl/thumb are
+    // identical for the same captured/attached file, so this catches same-image
+    // dupes that have no r2Key yet. Slice keeps the key bounded.
+    var bytes = photo.dataUrl || photo.thumb || null;
+    if (bytes && bytes.length > 64) return 'b:' + bytes.length + ':' + bytes.slice(0, 48) + bytes.slice(-16);
+    if (bytes) return 'b:' + bytes;
+    return null;
   },
 
   // Copy a pool photo from one defic to another, sharing the binary (r2Key).
