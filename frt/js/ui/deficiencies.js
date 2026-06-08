@@ -1041,8 +1041,8 @@ function _renderDeficDashboard(total, outstanding, closed, rows) {
   d += '<div class="dlc-bar-row"><span class="lbl">Resolved</span><span class="pct">' + pct + '%</span></div>';
   d += '<div class="dlc-track"><div class="dlc-fill" style="width:' + pct + '%"></div></div>';
   d += '<div class="dlc-legend">';
-  d += '<div class="dlc-leg"><span class="dot" style="background:var(--no)"></span><span class="nm">Outstanding</span><span class="val">' + outstanding + '</span></div>';
-  d += '<div class="dlc-leg"><span class="dot" style="background:var(--yes)"></span><span class="nm">Closed</span><span class="val">' + closed + '</span></div>';
+  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--no)"></span><span class="nm">Outstanding</span><span class="val">' + outstanding + '</span></div>';
+  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--yes)"></span><span class="nm">Closed</span><span class="val">' + closed + '</span></div>';
   d += '</div></div></div>';
   // ---- by contractor ----
   if (rows && rows.length) {
@@ -1051,7 +1051,7 @@ function _renderDeficDashboard(total, outstanding, closed, rows) {
       var col = _DASH_CTR_COLORS[i % _DASH_CTR_COLORS.length];
       var share = total ? Math.round((r.total / total) * 100) : 0;
       d += '<div class="dlc-bc-row">';
-      d += '<span class="dot" style="background:' + col + '"></span>';
+      d += '<span class="dlc-dot" style="background:' + col + '"></span>';
       d += '<span class="nm">' + esc(r.name) + '</span>';
       d += '<span class="mini"><i style="width:' + share + '%;background:' + col + '"></i></span>';
       d += '<span class="ct">' + r.total + ' <small>\u00b7 ' + r.outstanding + ' open</small></span>';
