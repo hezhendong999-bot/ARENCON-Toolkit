@@ -242,6 +242,12 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .photo-zone-compact .pz-upload:hover{background:white;border-color:var(--arencon);}
 .photo-zone-compact .pz-camera{background:#2C4770;color:white;border-color:#2C4770;}
 .photo-zone-compact .pz-camera:hover{background:#1f3556;}
+.fpm-zone{flex-direction:column;}
+.fpm-zone>span{width:100%;text-align:center;}
+.fpm-zone .pz-row{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;}
+.photo-zone-compact .pz-gallery{padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid var(--arencon);background:var(--arencon);color:#fff;transition:all .14s;}
+.photo-zone-compact .pz-gallery:hover{background:#812035;border-color:#812035;}
+body.dark-mode .photo-zone-compact .pz-gallery{background:var(--arencon)!important;border-color:var(--arencon)!important;color:#fff!important;}
 .photo-upload-btn{display:flex;align-items:center;gap:6px;background:var(--slate);color:white;padding:7px 12px;border-radius:5px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;border:none;font-family:Calibri,sans-serif;transition:background .14s;}
 .photo-upload-btn:hover{background:var(--red);}
 .photo-hint{font-size:calc(11.5px + var(--ts));color:var(--silver);}
@@ -384,6 +390,7 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 /* ══ Per-flow-point gauge-photo modal (.fpm-*) — fixed overlay, theme-aware ══ */
 #flow-photo-modal{position:fixed;inset:0;z-index:9000;display:none;}
 .fpm-backdrop{position:absolute;inset:0;background:rgba(20,24,30,.55);}
+body.fpm-open{overflow:hidden!important;}
 .fpm-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:86vh;overflow:auto;background:var(--card-bg,#fff);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:16px;}
 .fpm-head{display:flex;align-items:center;justify-content:space-between;font-size:calc(14px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:12px;}
 .fpm-x{background:none;border:none;cursor:pointer;color:var(--steel);font-size:18px;line-height:1;padding:4px 8px;border-radius:6px;}
@@ -411,6 +418,15 @@ body.dark-mode .fpm-reassign{background:#16151b;border-color:rgba(255,255,255,.1
 .fpm-reassign button:hover{background:var(--smoke);}
 body.dark-mode .fpm-reassign button:hover{background:rgba(255,255,255,.06);}
 .fpm-reassign button .rd-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
+.fpm-gallery{position:absolute;inset:0;background:var(--card,#fff);border-radius:12px;padding:16px;overflow:auto;z-index:9300;}
+body.dark-mode .fpm-gallery{background:#16151b;}
+.fpm-gal-head{display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:calc(14px + var(--ts));color:var(--slate);margin-bottom:12px;}
+.fpm-gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:9px;}
+.fpm-gal-cell{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;border:1.5px solid var(--border);}
+.fpm-gal-cell img{width:100%;height:100%;object-fit:cover;display:block;}
+.fpm-gal-cell:hover{border-color:var(--arencon);}
+.fpm-gal-badge{position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,.65);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;}
+@media(pointer:coarse){.fpm-gal-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));}}
 /* ══ Flow-test CARD layout (4a 3-point) — muted palette scoped locally (does NOT touch global :root tokens) ══ */
 .fp-banner{font-size:calc(11.5px + var(--ts));color:var(--steel);background:var(--smoke);border:1.5px solid var(--border);border-radius:8px;padding:9px 13px;margin-bottom:14px;line-height:1.5;}
 .fp-banner b{color:var(--slate);}
@@ -3939,6 +3955,64 @@ function _flowPhotoAddFile(file){
 function _flowPhotoUpload(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowPhotoAddFile); }; inp.click(); }
 function _flowPhotoCamera(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _flowPhotoAddFile(f); }; inp.click(); }
 function _flowPhotoDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
+// ── Gallery picker: attach a COPY of an existing report photo, tagged with the active reading ──
+function _flowPhotoAddFromSource(srcPhoto){
+  var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!srcPhoto) return;
+  if(!row.photos) row.photos=[];
+  function _commit(dataUrl){
+    var _ph={d:dataUrl, n:(srcPhoto.n||'gallery.jpg'), id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+             tag:_flowPhotoActiveReading||'suction',
+             caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
+    row.photos.push(_ph);
+    _r2EnqueuePhoto(_ph);               // own key — never borrow source R2 URL
+    if(typeof renderStdTable==='function') renderStdTable();
+    if(typeof renderPldTable==='function') renderPldTable();
+    _flowPhotoCloseGallery();
+    _renderFlowPhotoModal();
+    if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+    if(typeof debounceAutosave==='function') debounceAutosave();
+  }
+  if(srcPhoto.d){ _commit(srcPhoto.d); return; }
+  if(srcPhoto.r2Url){
+    // fetch the binary from R2 (GET is unauthenticated) → dataUrl → own copy
+    fetch(srcPhoto.r2Url).then(function(r){return r.blob();}).then(function(b){
+      var fr=new FileReader(); fr.onload=function(){ _commit(fr.result); }; fr.readAsDataURL(b);
+    }).catch(function(){ if(typeof showToast==='function') showToast('Could not load that photo'); });
+    return;
+  }
+}
+function _flowPhotoCloseGallery(){ var ex=document.getElementById('fpm-gallery'); if(ex) ex.remove(); }
+function _flowPhotoOpenGallery(){
+  _flowPhotoCloseGallery();
+  var card=document.querySelector('#flow-photo-modal .fpm-card'); if(!card) return;
+  var all=(typeof _collectAllPhotos==='function')?_collectAllPhotos():[];
+  // de-dupe by photo id; skip photos already on THIS row
+  var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx);
+  var here={}; (row&&row.photos||[]).forEach(function(p){ if(p.id) here[p.id]=1; });
+  var seen={}, items=[];
+  all.forEach(function(it){
+    var p=it.photo; if(!p) return; var key=p.id||it.src; if(!key||seen[key]) return; seen[key]=1;
+    if(p.id && here[p.id]) return;
+    if(!(p.d||p.r2Url)) return;
+    items.push(it);
+  });
+  var ov=document.createElement('div'); ov.id='fpm-gallery'; ov.className='fpm-gallery';
+  var h='<div class="fpm-gal-head"><span>Choose a photo from this report</span><button class="fpm-x" onclick="_flowPhotoCloseGallery()" title="Close">✕</button></div>';
+  if(!items.length){ h+='<div class="fpm-empty">No other photos in this report yet.</div>'; }
+  else {
+    h+='<div class="fpm-gal-grid">';
+    items.forEach(function(it,k){
+      h+='<div class="fpm-gal-cell" onclick="_flowPhotoPickIdx('+k+')"><img src="'+(it.photo.d||it.photo.r2Url||'')+'"><span class="fpm-gal-badge">'+(it.badge||'')+'</span></div>';
+    });
+    h+='</div>';
+  }
+  ov.innerHTML=h;
+  card.appendChild(ov);
+  // stash the resolved list for click handler
+  _flowPhotoGalleryItems=items;
+}
+var _flowPhotoGalleryItems=[];
+function _flowPhotoPickIdx(k){ var it=_flowPhotoGalleryItems[k]; if(it&&it.photo) _flowPhotoAddFromSource(it.photo); }
 function _flowPhotoDelete(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return; var p=row.photos[j]; if(p.id){ deletePhotoEverywhere({photoId:p.id}, function(){ _renderFlowPhotoModal(); }); return; } _aConfirm('Delete this photo? This cannot be undone.', function(){ row.photos.splice(j,1); if(typeof renderStdTable==='function') renderStdTable(); if(typeof renderPldTable==='function') renderPldTable(); _renderFlowPhotoModal(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); if(typeof debounceAutosave==='function') debounceAutosave(); },'Delete'); }
 function _flowPhotoLightbox(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos)return; openLightbox(row.photos, j, {renderer:_renderFlowPhotoModal}); }
 function _flowPhotoSetActiveReading(r){ _flowPhotoActiveReading=r; _renderFlowPhotoModal(); }
@@ -3953,16 +4027,18 @@ function _flowPhotoSetReading(j, reading){
 function _flowPhotoCloseReassign(){ var ex=document.getElementById('fpm-reassign'); if(ex) ex.remove(); }
 function _flowPhotoOpenReassign(j, btn){
   _flowPhotoCloseReassign();
+  var card=btn.closest('.fpm-card'); if(!card) return;
   var pop=document.createElement('div'); pop.id='fpm-reassign'; pop.className='fpm-reassign';
   var h='';
   _GAUGE_READINGS.forEach(function(rd){
     h+='<button onclick="_flowPhotoSetReading('+j+',\''+rd.k+'\')"><span class="rd-dot" style="background:'+_gaugeReadingColor(rd.k)+'"></span>'+rd.label+'</button>';
   });
   pop.innerHTML=h;
-  document.body.appendChild(pop);
-  var r=btn.getBoundingClientRect();
-  pop.style.top=(window.scrollY+r.bottom+4)+'px';
-  pop.style.left=(window.scrollX+Math.max(8,r.left-40))+'px';
+  card.appendChild(pop);
+  // position relative to the card using the button's offset within the card
+  var cr=card.getBoundingClientRect(), br=btn.getBoundingClientRect();
+  pop.style.top=(br.bottom - cr.top + card.scrollTop + 4)+'px';
+  pop.style.left=(Math.max(6, br.left - cr.left - 30))+'px';
   setTimeout(function(){ document.addEventListener('click', _flowPhotoReassignOutside, true); },0);
 }
 function _flowPhotoReassignOutside(e){ var p=document.getElementById('fpm-reassign'); if(p && !p.contains(e.target)){ _flowPhotoCloseReassign(); document.removeEventListener('click', _flowPhotoReassignOutside, true); } }
@@ -3972,7 +4048,7 @@ function _renderFlowPhotoModal(){
   if(!row){ host.style.display='none'; return; }
   var pts=row.photos||[];
   var ttl='Gauge &amp; RPM Photos'+(row.pct?(' — '+row.pct):'')+(row.flow?(' · '+row.flow+' gpm'):'');
-  var h='<div class="fpm-backdrop" onclick="closeFlowPhotos()"></div>';
+  var h='<div class="fpm-backdrop"></div>';
   h+='<div class="fpm-card" role="dialog" aria-label="Gauge and RPM photos">';
   h+='<div class="fpm-head"><span>'+ttl+'</span><button class="fpm-x" onclick="closeFlowPhotos()" title="Close">✕</button></div>';
   // reading selector
@@ -3984,11 +4060,14 @@ function _renderFlowPhotoModal(){
       +'<span class="rd-dot" style="background:'+(on?'#fff':col)+'"></span>'+rd.label+'</button>';
   });
   h+='</div>';
-  // shared capture zone
-  h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
+  // shared capture zone — caption row on top, button row below (Upload · Camera · Gallery)
+  h+='<div class="photo-zone-compact fpm-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
   h+='<span>Drag &amp; drop — tagged <b>'+(_GAUGE_TAG_LABEL[_flowPhotoActiveReading]||'Suction')+'</b></span>';
+  h+='<div class="pz-row">';
   h+='<button class="pz-upload" onclick="_flowPhotoUpload()">📎 Upload</button>';
   h+='<button class="pz-camera" onclick="_flowPhotoCamera()">📷 Camera</button>';
+  h+='<button class="pz-gallery" onclick="_flowPhotoOpenGallery()">🖼 Gallery</button>';
+  h+='</div>';
   h+='</div>';
   // grouped thumbs (by reading, in canonical order; legacy untagged → Unsorted)
   if(pts.length){
@@ -4025,6 +4104,7 @@ function _renderFlowPhotoModal(){
   h+='</div>';
   host.innerHTML=h;
   host.style.display='block';
+  document.body.classList.add('fpm-open');
 }
 function openFlowPhotos(tbl, i){
   _flowPhotoTbl=tbl; _flowPhotoIdx=i;
@@ -4036,6 +4116,8 @@ function openFlowPhotos(tbl, i){
 function _flowPhotoEsc(e){ if(e.key==='Escape'){ closeFlowPhotos(); } }
 function closeFlowPhotos(){
   _flowPhotoCloseReassign();
+  _flowPhotoCloseGallery();
+  document.body.classList.remove('fpm-open');
   var host=document.getElementById('flow-photo-modal'); if(host){ host.style.display='none'; host.innerHTML=''; }
   document.removeEventListener('keydown', _flowPhotoEsc);
   _flowPhotoTbl=null; _flowPhotoIdx=null;
@@ -4139,7 +4221,7 @@ function renderPldTable() {
           <span class="ri" style="font-weight:700;color:var(--slate);">${i===0?'0':''}${i===0?' gpm':''}</span>
           <span class="ri"><b>Flow</b><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="pld" ${i===0?'readonly style="background:#eef0f4;color:#555;width:58px;"':''}></span>
           <span class="ri"><b>Cutsheet</b><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="pld"></span>
-          <span class="ri"><b>Placard</b><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld"></span>
+          ${skipNoPLD ? '' : `<span class="ri"><b>Placard</b><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld"></span>`}
         </div>
         <div class="fp-grid">${header}${woLine}${wLine}</div>
         ${bfBlock}
