@@ -48,10 +48,42 @@ var _diag = {
   workerOK: false,
   lastError: null,
   callCount: 0,
-  fallbackCount: 0
+  fallbackCount: 0,
+  // S265 passive payload-size telemetry. High-water marks per op, in bytes.
+  // Readable any time from DevTools (window._frt_syncWorker._diag) — silent
+  // unless a payload crosses PAYLOAD_LOG_THRESHOLD_BYTES (then one warn).
+  lastSerializeBytes: 0,
+  maxSerializeBytes: 0,
+  lastParseBytes: 0,
+  maxParseBytes: 0
 };
 
 var RPC_TIMEOUT_MS = 30000;  // generous; serialize on huge projects can take seconds
+
+// S265 — only log loud when a payload is big enough to be a plausible cause of
+// the 30s RPC timeout. Below this, sizes are recorded in _diag but stay quiet
+// (background-operation logging discipline — no console spam on every save).
+var PAYLOAD_LOG_THRESHOLD_BYTES = 2 * 1024 * 1024;  // ~2MB
+
+/**
+ * Record a payload size against _diag and warn ONCE-LOUD only when it crosses
+ * the threshold. Passive — never throws, never affects the RPC outcome.
+ */
+function _logPayloadSize(op, bytes) {
+  if (typeof bytes !== 'number' || !isFinite(bytes) || bytes < 0) return;
+  var mb = (bytes / (1024 * 1024)).toFixed(2);
+  if (op === 'parseLarge') {
+    _diag.lastParseBytes = bytes;
+    if (bytes > _diag.maxParseBytes) _diag.maxParseBytes = bytes;
+  } else if (op === 'serializePush') {
+    _diag.lastSerializeBytes = bytes;
+    if (bytes > _diag.maxSerializeBytes) _diag.maxSerializeBytes = bytes;
+  }
+  if (bytes > PAYLOAD_LOG_THRESHOLD_BYTES) {
+    console.warn('[SyncWorker] large ' + op + ' payload: ' + mb + ' MB (' +
+      bytes + ' bytes) — RPC timeout is ' + RPC_TIMEOUT_MS + 'ms; watch for timeouts on this push.');
+  }
+}
 
 /**
  * Lazy-boot the worker on first use. Idempotent. Sets _worker to either a
@@ -166,6 +198,14 @@ export var SyncWorkerHost = {
         // Inline path runs synchronously but we keep the Promise interface
         // so callers see the same shape.
         return Promise.resolve(inlineSerializePush(proj));
+      })
+      .then(function(res) {
+        // S265 passive telemetry: size of the serialized push body (worker OR
+        // inline path — both resolve { strippedData, jsonBody }). Pass-through.
+        if (res && typeof res.jsonBody === 'string') {
+          _logPayloadSize('serializePush', res.jsonBody.length);
+        }
+        return res;
       });
   },
 
@@ -196,6 +236,10 @@ export var SyncWorkerHost = {
    */
   parseLarge: function(text) {
     _diag.callCount++;
+    // S265 passive telemetry: size of the response body we're about to parse.
+    // This is the op that produced 'parseLarge timeout after 30000ms' — record
+    // how big it was so the next timeout names its own cause.
+    _logPayloadSize('parseLarge', (typeof text === 'string') ? text.length : 0);
     return _rpc('parseLarge', { text: text })
       .catch(function(err) {
         _diag.fallbackCount++;
