@@ -1254,21 +1254,21 @@
         "so-title": "Licensed Engineering Technologist",
         "pi-client": "Iron Mountain Canada Corp.",
         "pi-prepby": "MH",
-        "pi-projno": "15230.01",
+        "pi-projno": "1490.04",
         "pm-relief": "175",
         "pm-prv-pld": "",
         "pm-rpm-pld": "",
         "so-company": "ARENCON Inc.",
         "ws-res-psi": "48",
         "dem-spr-psi": "60",
-        "pi-projname": "Building A Diesel Fire Pump",
+        "pi-projname": "Attic Space Sprinkler Upgrade",
         "pi-revision": "A01",
         "pm-reducing": "178",
         "test-result": "fail",
         "ws-res-flow": "1500",
         "dem-spr-flow": "750",
         "dem-hose-flow": "250",
-        "pi-contractor": "FireGuard Mechanical Ltd.",
+        "pi-contractor": "Classic Fire + Life Safety",
         "pm-rated-flow": "1000",
         "pm-relief-pld": "",
         "ws-static-psi": "65",
@@ -1278,7 +1278,7 @@
         "pld-dem-spr-psi": "60",
         "pld-ws-res-flow": "1500",
         "pm-reducing-pld": "",
-        "pi-date-modified": "2026-06-07 03:49",
+        "pi-date-modified": "2026-06-08 04:48",
         "pld-dem-spr-flow": "750",
         "pld-dem-hose-flow": "250",
         "pld-ws-static-psi": "65",
@@ -1304,6 +1304,12 @@
         ]
       },
       "clState": {
+        "null": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
         "s1_0": {
           "photos": [],
           "status": null,
@@ -1318,7 +1324,7 @@
         },
         "s1_2": {
           "photos": [],
-          "status": "no",
+          "status": null,
           "comment": "sdasdsdfsdf",
           "customText": ""
         },
@@ -2420,7 +2426,7 @@
         }
       ],
       "witnessSignRows": [],
-      "formDateModified": "2026-06-07 03:49",
+      "formDateModified": "2026-06-08 04:48",
       "flowTestPhotosPld": [],
       "contractorSignRows": [
         {
@@ -2443,7 +2449,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-20T17:18:44.857681+00:00",
-    "updated_at": "2026-06-07T07:50:28.920351+00:00"
+    "updated_at": "2026-06-08T08:49:26.705666+00:00"
   },
   {
     "id": "7499abdc-7d58-45f8-b9f5-392b69f37883",
@@ -2658,7 +2664,7 @@
           "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/7249121d-463e-416e-a3aa-643910f3f6a7/tiles/pdfbuf_1777867793077_vn6txi/manifest.json"
         }
       ],
-      "modified": "2026-06-07T06:07:55.912Z",
+      "modified": "2026-06-08T04:23:46.071Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -2833,6 +2839,7 @@
                   "thumb": null,
                   "filename": "photo_1780276876864.jpg",
                   "r2Status": "uploaded",
+                  "_ctxLabel": "Pin 1",
                   "addedDate": "2026-06-01",
                   "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
                   "sourceR2Key": "photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/defic_1773768664391_1hy18h.jpg"
@@ -2844,6 +2851,7 @@
                   "thumb": null,
                   "filename": "photo_1780259196012.jpg",
                   "r2Status": "uploaded",
+                  "_ctxLabel": "Pin 1",
                   "addedDate": "2026-05-31",
                   "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
                   "sourceR2Key": "photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg"
@@ -3041,7 +3049,7 @@
                   "tradeSource": "manual",
                   "photoMarkups": {},
                   "addressedDate": null,
-                  "photoSelection": [],
+                  "photoSelection": null,
                   "notedOnInstance": 1,
                   "isRecommendation": true,
                   "addressedOnInstance": null
@@ -3193,8 +3201,7 @@
                   "photoMarkups": {},
                   "photoSelection": [
                     "dp_1773768675316_wi72qs",
-                    "dp_1773768689770_2r43p0",
-                    "dp_1773768693136_4nvku8"
+                    "dp_1773768689770_2r43p0"
                   ],
                   "notedOnInstance": 1,
                   "isRecommendation": true
@@ -3204,6 +3211,7 @@
                   "trade": "Sprinkler",
                   "priority": "general",
                   "addressed": false,
+                  "aiReviewed": false,
                   "repeatCount": 1,
                   "tradeSource": "manual",
                   "isRecommendation": false
@@ -3324,7 +3332,7 @@
               "observations": [
                 {
                   "id": "obs_1774814268758_t9yp",
-                  "text": "Aisles with loads",
+                  "text": "Aisles with loads\n\n\n\n",
                   "trade": "Fire Alarm",
                   "photos": [
                     {
@@ -3361,6 +3369,7 @@
                   "priority": "high",
                   "addressed": false,
                   "notedDate": "2026-03-17",
+                  "aiReviewed": false,
                   "repeatCount": 1,
                   "tradeSource": "manual",
                   "photoMarkups": {},
@@ -3374,15 +3383,6 @@
                   "notedOnInstance": 1,
                   "isRecommendation": false,
                   "addressedOnInstance": null
-                },
-                {
-                  "text": "",
-                  "trade": "",
-                  "priority": "high",
-                  "addressed": false,
-                  "repeatCount": 1,
-                  "tradeSource": "ai",
-                  "isRecommendation": false
                 }
               ],
               "notedOnInstance": 1,
@@ -3849,7 +3849,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-16T20:00:36.555266+00:00",
-    "updated_at": "2026-06-07T06:08:00.962663+00:00"
+    "updated_at": "2026-06-08T05:19:14.02408+00:00"
   },
   {
     "id": "5c289941-1447-427c-ad41-ba617ba718c5",
@@ -4461,6 +4461,655 @@
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-04-01T14:19:51.338893+00:00",
     "updated_at": "2026-06-06T21:11:45.753726+00:00"
+  },
+  {
+    "id": "0d720134-3d3d-4a78-be73-1ede197d5801",
+    "project_id": "69ff8895-3fd5-48e4-87dc-751fc2ee6bd3",
+    "tool_key": "diesel",
+    "instance_number": 1,
+    "label": null,
+    "data": {
+      "proj": {
+        "pm-prv": "",
+        "pm-rpm": "",
+        "pi-addr": "1555 Clark Blvd, Brampton",
+        "pi-date": "2026-06-08",
+        "so-cert": "I hereby certify that the diesel fire pump system described in this report was inspected and tested in accordance with NFPA 20 (2025) and the applicable standards. The results recorded herein are accurate to the best of my knowledge.",
+        "so-date": "2026-06-08T05:04",
+        "so-name": "",
+        "so-title": "",
+        "pi-client": "G&G",
+        "pi-prepby": "",
+        "pi-projno": "7310.27",
+        "pm-relief": "",
+        "pm-prv-pld": "",
+        "pm-rpm-pld": "",
+        "so-company": "",
+        "ws-res-psi": "",
+        "dem-spr-psi": "",
+        "pi-projname": "1555 Clark",
+        "pi-revision": "",
+        "pm-reducing": "",
+        "test-result": "",
+        "ws-res-flow": "",
+        "dem-spr-flow": "",
+        "dem-hose-flow": "",
+        "pi-contractor": "",
+        "pm-rated-flow": "",
+        "pm-relief-pld": "",
+        "ws-static-psi": "",
+        "pld-ws-res-psi": "",
+        "pm-pld-setting": "",
+        "ws-static-flow": "0",
+        "pld-dem-spr-psi": "",
+        "pld-ws-res-flow": "",
+        "pm-reducing-pld": "",
+        "pi-date-modified": "2026-06-08 01:04",
+        "pld-dem-spr-flow": "",
+        "pld-dem-hose-flow": "",
+        "pld-ws-static-psi": "",
+        "pm-rated-flow-pld": "",
+        "pld-ws-static-flow": "0"
+      },
+      "batData": {
+        "b1": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "b2": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "clState": {
+        "s1_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_3": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_4": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_5": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_6": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_7": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_8": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_3": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_4": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_5": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_6": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_7": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_8": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_9": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_3": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_4": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_5": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_6": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s3_7": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s4_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_3": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_4": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_5": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_6": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_7": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_8": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_9": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_10": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_11": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_12": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_13": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_14": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_15": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_16": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_17": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_18": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_19": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_20": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_21": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_22": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_10": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_11": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_12": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5m_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5m_1": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5m_2": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s4pld_0": {
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        }
+      },
+      "npshPsi": "",
+      "pldData": [
+        {
+          "pct": "0%",
+          "bfUp": "",
+          "flow": 0,
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 0
+        },
+        {
+          "pct": "25%",
+          "bfUp": "",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 500
+        },
+        {
+          "pct": "50%",
+          "bfUp": "",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 1000
+        },
+        {
+          "pct": "75%",
+          "bfUp": "",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 1500
+        },
+        {
+          "pct": "100%",
+          "bfUp": "",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 2000
+        },
+        {
+          "pct": "125%",
+          "bfUp": "",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 2500
+        },
+        {
+          "pct": "150%",
+          "bfUp": "",
+          "flow": "",
+          "dis_w": "",
+          "rpm_w": "",
+          "suc_w": "",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "",
+          "cutsheet": "",
+          "defaultFlow": 3000
+        }
+      ],
+      "smState": {
+        "chart3pt": {
+          "x": 0,
+          "y": 0,
+          "on": true
+        },
+        "pldChart": {
+          "x": 0,
+          "y": 0,
+          "on": true
+        }
+      },
+      "stdData": [
+        {
+          "pct": "0%",
+          "rpm": "",
+          "bfUp": "",
+          "flow": 0,
+          "label": "Churn",
+          "bfDown": "",
+          "photos": [],
+          "placard": "",
+          "suction": "",
+          "cutsheet": "",
+          "discharge": ""
+        },
+        {
+          "pct": "100%",
+          "rpm": "",
+          "bfUp": "",
+          "flow": null,
+          "label": "Rated",
+          "bfDown": "",
+          "photos": [],
+          "placard": "",
+          "suction": "",
+          "cutsheet": "",
+          "discharge": ""
+        },
+        {
+          "pct": "150%",
+          "rpm": "",
+          "bfUp": "",
+          "flow": null,
+          "label": "Overload",
+          "bfDown": "",
+          "photos": [],
+          "placard": "",
+          "suction": "",
+          "cutsheet": "",
+          "discharge": ""
+        }
+      ],
+      "smCapVis": {
+        "chart3pt": {
+          "relief": true,
+          "reducing": true
+        },
+        "pldChart": {
+          "pld": true,
+          "relief": true,
+          "reducing": true
+        }
+      },
+      "testType": "std",
+      "annDsForce": {
+        "chart3pt": {},
+        "pldChart": {},
+        "netChart3pt": {},
+        "pldNetChart": {}
+      },
+      "npshPsiPld": "",
+      "sigStrokes": {
+        "sig-canvas": [],
+        "sig-canvas-c-2": []
+      },
+      "contractors": [],
+      "customItems": {},
+      "deficiencies": {},
+      "deletedItems": {},
+      "equipChecked": [],
+      "formRevision": "R00",
+      "recordPhotos": [],
+      "sketchEntries": [],
+      "flowTestPhotos": [],
+      "pumpCurvePoints": [
+        {
+          "psi": "",
+          "flow": ""
+        }
+      ],
+      "witnessSignRows": [],
+      "formDateModified": "2026-06-08 01:04",
+      "flowTestPhotosPld": [],
+      "contractorSignRows": [
+        {
+          "date": "",
+          "name": "",
+          "type": "contractor",
+          "title": "",
+          "company": ""
+        }
+      ],
+      "pldPumpCurvePoints": [
+        {
+          "psi": "",
+          "flow": ""
+        }
+      ],
+      "generalDeficiencies": []
+    },
+    "status": "draft",
+    "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "created_at": "2026-06-08T05:04:39.764141+00:00",
+    "updated_at": "2026-06-08T05:04:45.537003+00:00"
   },
   {
     "id": "e3bb4adc-4d3c-45f3-ba12-25aade3e056f",
