@@ -9856,3 +9856,43 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 @media(min-width:1025px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn, .app-header #mobile-menu-btn{ display:none !important; } }
 .mobile-menu #mobile-signout-btn, .mobile-menu .mm-btn.mm-signout{ background:#0F766E !important; color:#fff !important; border-color:#0F766E !important; }
 /* ── end S259 header button system ──────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   S264: Deficiency Log — Resolution Dashboard (Bold)
+   Pure presentation, injected by _renderDeficDashboard() above the summary
+   table inside #defic-log-container. Colours via live Bold tokens, so both
+   skins (Bold·Light / Bold·Dark) are handled automatically. No JS structure
+   change, no data touch. Reversible: delete this block + the JS helper.
+   ════════════════════════════════════════════════════════════════════ */
+.dlc-dash{padding:18px 18px 4px;font-family:Calibri,sans-serif;}
+.dlc-dash-top{display:flex;gap:26px;align-items:center;flex-wrap:wrap;}
+.dlc-donut{position:relative;width:132px;height:132px;flex-shrink:0;}
+.dlc-donut svg{transform:rotate(-90deg);display:block;}
+.dlc-donut-ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.dlc-donut-ctr .v{font-size:28px;font-weight:800;color:var(--fg);line-height:1;font-variant-numeric:tabular-nums;}
+.dlc-donut-ctr .l{font-size:10px;color:var(--silver);text-transform:uppercase;letter-spacing:.7px;margin-top:4px;}
+.dlc-dash-right{flex:1;min-width:220px;}
+.dlc-bar-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;}
+.dlc-bar-row .lbl{font-size:12px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;}
+.dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--arencon);}
+.dlc-track{height:11px;border-radius:99px;background:var(--border);overflow:hidden;margin-bottom:16px;}
+.dlc-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--arencon),var(--b-bar-b));transition:width .8s cubic-bezier(.2,.8,.2,1);}
+.dlc-legend{display:flex;flex-direction:column;gap:8px;}
+.dlc-leg{display:flex;align-items:center;gap:10px;font-size:13.5px;}
+.dlc-leg .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dlc-leg .nm{color:var(--steel);flex:1;}
+.dlc-leg .val{font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;}
+.dlc-bc{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+.dlc-bc-h{font-size:11px;font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.6px;margin-bottom:13px;}
+.dlc-bc-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.dlc-bc-row .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dlc-bc-row .nm{font-size:13.5px;color:var(--fg);font-weight:600;width:180px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dlc-bc-row .mini{flex:1;height:8px;border-radius:99px;background:var(--border);overflow:hidden;min-width:40px;}
+.dlc-bc-row .mini i{display:block;height:100%;border-radius:99px;}
+.dlc-bc-row .ct{font-size:13.5px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;width:74px;text-align:right;flex-shrink:0;}
+.dlc-bc-row .ct small{font-weight:400;color:var(--silver);font-size:11.5px;}
+@media(max-width:560px){
+  .dlc-bc-row .nm{width:104px;}
+  .dlc-dash-top{gap:16px;}
+}
+/* ── end S264 resolution dashboard ──────────────────────────────────── */

@@ -1012,6 +1012,57 @@ function buildGroup(ctrId, name, items, totalCount) {
   return h;
 }
 
+// ── S264: Resolution Dashboard (Bold) — donut + bar + by-contractor ──────
+// Pure presentation. Fed entirely by totals the log already computes; no new
+// data, no model touch. Sits at the top of the Deficiency Log card body.
+// Colours come from live Bold tokens (--arencon/--no/--yes/--b-info/--warn)
+// so both skins are handled by the existing theme — see frt.css PART Bold.
+var _DASH_CTR_COLORS = ['var(--arencon)', 'var(--b-info)', 'var(--warn)', 'var(--yes)', 'var(--no)', 'var(--na)'];
+function _renderDeficDashboard(total, outstanding, closed, rows) {
+  if (!total) return '';
+  var pct = Math.round((closed / total) * 100);
+  // donut geometry: r=57 → circumference ≈ 358.14
+  var C = 358.14;
+  var closedLen = total ? (closed / total) * C : 0;
+  var outLen = total ? (outstanding / total) * C : 0;
+  var d = '';
+  d += '<div class="dlc-dash">';
+  // ---- donut + bar row ----
+  d += '<div class="dlc-dash-top">';
+  d += '<div class="dlc-donut"><svg width="132" height="132" viewBox="0 0 150 150" aria-hidden="true">';
+  d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--border)" stroke-width="20"/>';
+  // outstanding arc (red), drawn first from 0
+  if (outLen > 0) d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--no)" stroke-width="20" stroke-dasharray="' + outLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="0"/>';
+  // closed arc (green), offset after outstanding
+  if (closedLen > 0) d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--yes)" stroke-width="20" stroke-dasharray="' + closedLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-outLen).toFixed(1) + '"/>';
+  d += '</svg><div class="dlc-donut-ctr"><div class="v">' + total + '</div><div class="l">total</div></div></div>';
+  // right: bar + legend
+  d += '<div class="dlc-dash-right">';
+  d += '<div class="dlc-bar-row"><span class="lbl">Resolved</span><span class="pct">' + pct + '%</span></div>';
+  d += '<div class="dlc-track"><div class="dlc-fill" style="width:' + pct + '%"></div></div>';
+  d += '<div class="dlc-legend">';
+  d += '<div class="dlc-leg"><span class="dot" style="background:var(--no)"></span><span class="nm">Outstanding</span><span class="val">' + outstanding + '</span></div>';
+  d += '<div class="dlc-leg"><span class="dot" style="background:var(--yes)"></span><span class="nm">Closed</span><span class="val">' + closed + '</span></div>';
+  d += '</div></div></div>';
+  // ---- by contractor ----
+  if (rows && rows.length) {
+    d += '<div class="dlc-bc"><div class="dlc-bc-h">By contractor</div>';
+    rows.forEach(function(r, i) {
+      var col = _DASH_CTR_COLORS[i % _DASH_CTR_COLORS.length];
+      var share = total ? Math.round((r.total / total) * 100) : 0;
+      d += '<div class="dlc-bc-row">';
+      d += '<span class="dot" style="background:' + col + '"></span>';
+      d += '<span class="nm">' + esc(r.name) + '</span>';
+      d += '<span class="mini"><i style="width:' + share + '%;background:' + col + '"></i></span>';
+      d += '<span class="ct">' + r.total + ' <small>\u00b7 ' + r.outstanding + ' open</small></span>';
+      d += '</div>';
+    });
+    d += '</div>';
+  }
+  d += '</div>';
+  return d;
+}
+
 // ── Deficiency Log Summary Table ─────────────────────────
 function _renderDeficLog(proj, allDefics) {
   var el = document.getElementById('defic-log-container');
@@ -1031,6 +1082,7 @@ function _renderDeficLog(proj, allDefics) {
   h += '<th style="text-align:center;">Outstanding</th>';
   h += '<th style="text-align:center;">Closed</th></tr></thead><tbody>';
   var tTotal = 0, tNew = 0, tOut = 0, tClosed = 0;
+  var _dashRows = [];  // S264: per-contractor {name,total,outstanding} for the Bold dashboard
   Object.keys(ctrGroups).forEach(function(name) {
     var gc = ctrGroups[name];
     var total = gc.length;
@@ -1038,6 +1090,7 @@ function _renderDeficLog(proj, allDefics) {
     var outstanding = gc.filter(function(d) { return deficIsOpen(d.defic); }).length;
     var closed = gc.filter(function(d) { return deficIsClosed(d.defic); }).length;
     tTotal += total; tNew += nw; tOut += outstanding; tClosed += closed;
+    _dashRows.push({ name: name, total: total, outstanding: outstanding });
     h += '<tr>';
     h += '<td style="font-weight:600;">' + esc(name) + '</td>';
     h += '<td style="text-align:center;">' + total + '</td>';
@@ -1052,7 +1105,7 @@ function _renderDeficLog(proj, allDefics) {
   h += '<td style="text-align:center;color:#A85959;">' + tOut + '</td>';
   h += '<td style="text-align:center;color:#5F8068;">' + tClosed + '</td></tr>';
   h += '</tbody></table>';
-  el.innerHTML = h;
+  el.innerHTML = _renderDeficDashboard(tTotal, tOut, tClosed, _dashRows) + h;
 
   // S154 §2.1 (Option A): keep the collapsed-state summary in sync with
   // the table. Single source of truth — tTotal/tOut/tClosed are already
