@@ -107,9 +107,9 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 .oc-donut .oc-ctr .v{font-weight:800;color:var(--slate);line-height:1;font-size:calc(32px + var(--ts));font-variant-numeric:tabular-nums;}
 .oc-donut .oc-ctr .l{color:var(--silver);text-transform:uppercase;letter-spacing:.8px;margin-top:4px;font-size:calc(10px + var(--ts));}
 .oc-legend{display:flex;flex-direction:column;gap:11px;flex:1;min-width:220px;}
-.oc-leg{display:flex;align-items:center;gap:11px;font-size:calc(14px + var(--ts));}
-.oc-leg .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
-.oc-leg .nm{color:var(--steel);flex:1;}
+.oc-leg{display:flex;align-items:center;gap:10px;font-size:calc(14px + var(--ts));line-height:1.2;}
+.oc-leg .dot{display:inline-block;width:11px;height:11px;border-radius:50%;flex:0 0 11px;margin-right:2px;}
+.oc-leg .nm{color:var(--steel);flex:1 1 auto;min-width:0;}
 .oc-leg .val{font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;min-width:26px;text-align:right;}
 .oc-leg .pc{color:var(--silver);font-size:calc(12px + var(--ts));width:46px;text-align:right;font-variant-numeric:tabular-nums;}
 @media(max-width:480px){ .sum-stats{gap:18px;justify-content:center;} .oc-legend{min-width:180px;} }
@@ -3356,7 +3356,23 @@ function handleFiles(id, files, isDefic) {
     r.readAsDataURL(f);
   });
 }
-function removePhoto(id,i){ clState[id].photos.splice(i,1); document.getElementById('pg-'+id).innerHTML=renderThumbs(id); refreshItemPhotoUI(id); }
+function removePhoto(id,i){
+  // S264: was an instant no-confirm splice that also left the gallery stale. Route
+  // through the authoritative delete (confirm + both surfaces + R2 + save) by id.
+  var p = clState[id] && clState[id].photos ? clState[id].photos[i] : null;
+  if(!p){ return; }
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else {
+    // legacy photo with no id — confirm then splice directly (can't route by id)
+    _aConfirm('Delete this photo? This cannot be undone.', function(){
+      clState[id].photos.splice(i,1);
+      var el=document.getElementById('pg-'+id); if(el) el.innerHTML=renderThumbs(id);
+      refreshItemPhotoUI(id);
+      if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+      if(typeof saveState==='function') saveState();
+    },'Delete');
+  }
+}
 function handleDragOver(e,id){ e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
 function handleDragLeave(e,id){ e.currentTarget.classList.remove('drag-over'); }
 function handleDrop(e,id){ e.preventDefault(); e.currentTarget.classList.remove('drag-over'); handleFiles(id,e.dataTransfer.files,false); }
@@ -3894,7 +3910,7 @@ function _flowPhotoAddFile(file){
 function _flowPhotoUpload(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowPhotoAddFile); }; inp.click(); }
 function _flowPhotoCamera(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _flowPhotoAddFile(f); }; inp.click(); }
 function _flowPhotoDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
-function _flowPhotoDelete(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return; row.photos.splice(j,1); if(typeof renderStdTable==='function') renderStdTable(); if(typeof renderPldTable==='function') renderPldTable(); _renderFlowPhotoModal(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); if(typeof debounceAutosave==='function') debounceAutosave(); }
+function _flowPhotoDelete(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return; var p=row.photos[j]; if(p.id){ deletePhotoEverywhere({photoId:p.id}, function(){ _renderFlowPhotoModal(); }); return; } _aConfirm('Delete this photo? This cannot be undone.', function(){ row.photos.splice(j,1); if(typeof renderStdTable==='function') renderStdTable(); if(typeof renderPldTable==='function') renderPldTable(); _renderFlowPhotoModal(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); if(typeof debounceAutosave==='function') debounceAutosave(); },'Delete'); }
 function _flowPhotoLightbox(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos)return; openLightbox(row.photos, j, {renderer:_renderFlowPhotoModal}); }
 function _renderFlowPhotoModal(){
   var host=document.getElementById('flow-photo-modal'); if(!host) return;
@@ -5768,7 +5784,7 @@ function buildDeficItem(name, safe, d, i) {
     (cr.photos || []).forEach(function(rp, ri) {
       crPhotosHtml += '<div style="position:relative;display:inline-block;">'
         +'<img src="'+(rp.d||rp.r2Url||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:zoom-in;">'
-        +'<button onclick="deficiencies[\''+safe+'\']['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderDeficGroup(\''+name+'\');" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
+        +'<button onclick="removeDeficRespPhoto(\''+safe+'\','+i+','+ci+','+ri+',\''+name+'\')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
@@ -5893,8 +5909,18 @@ function deficDrop(e, name, idx) {
   });
 }
 function removeDeficPhoto(name, idx, j) {
-  deficiencies[name][idx].photos.splice(j, 1);
-  renderDeficGroup(name);
+  // S264: confirm + authoritative delete (both surfaces + R2 + save) by id.
+  var p = (deficiencies[name] && deficiencies[name][idx] && deficiencies[name][idx].photos) ? deficiencies[name][idx].photos[j] : null;
+  if(!p){ return; }
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else {
+    _aConfirm('Delete this photo? This cannot be undone.', function(){
+      deficiencies[name][idx].photos.splice(j, 1);
+      renderDeficGroup(name);
+      if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+      if(typeof saveState==='function') saveState();
+    },'Delete');
+  }
 }
 
 function updateDeficSummary() {
@@ -5967,7 +5993,7 @@ function buildGeneralDeficItem(d, i) {
   var scCol = sc==='resolved' ? '#5F8068' : sc==='in-progress' ? '#E67E22' : '#A85959';
   var thumbsHtml = '';
   (d.photos || []).forEach(function(p, j) {
-    thumbsHtml += '<div class="photo-thumb"><img src="'+(p.d||p.r2Url)+'" onclick="openLightbox(generalDeficiencies['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view"><button class="photo-remove" onclick="generalDeficiencies['+i+'].photos.splice('+j+',1);renderGeneralDeficGroup();">✕</button></div>';
+    thumbsHtml += '<div class="photo-thumb"><img src="'+(p.d||p.r2Url)+'" onclick="openLightbox(generalDeficiencies['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view"><button class="photo-remove" onclick="removeGenDeficPhoto('+i+','+j+')">✕</button></div>';
   });
   var respHtml = '';
   (d.responses || []).forEach(function(cr, ci) {
@@ -5979,7 +6005,7 @@ function buildGeneralDeficItem(d, i) {
     var label = isContractor ? 'Contractor' : 'Consultant';
     var crPhotosHtml = '';
     (cr.photos || []).forEach(function(rp, ri) {
-      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.d||rp.r2Url||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="generalDeficiencies['+i+'].responses['+ci+'].photos.splice('+ri+',1);renderGeneralDeficGroup();" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
+      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.d||rp.r2Url||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="removeGenDeficRespPhoto('+i+','+ci+','+ri+')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">';
     respHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:'+accentCol+';text-transform:uppercase;letter-spacing:.5px;">'+(isContractor?'⚡':'🔍')+' '+label+' Response #'+(ci+1)+'</div><button onclick="generalDeficiencies['+i+'].responses.splice('+ci+',1);renderGeneralDeficGroup();" style="padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:white;color:#999;font-size:10px;cursor:pointer;">✕ Remove</button></div>';
@@ -10114,7 +10140,37 @@ function _recAddFile(file, kind){
 function _recDrop(e, kind){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(function(f){ _recAddFile(f,kind); }); }
 function _recUpload(kind){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(function(f){ _recAddFile(f,kind); }); }; inp.click(); }
 function _recCamera(kind){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _recAddFile(f,kind); }; inp.click(); }
-function _recDelete(i){ if(!recordPhotos[i]) return; recordPhotos.splice(i,1); _renderRecordZones(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); }
+function _recDelete(i){
+  // S264: confirm + authoritative delete by id (both surfaces + R2 + save).
+  var p = recordPhotos[i]; if(!p) return;
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else {
+    _aConfirm('Delete this photo? This cannot be undone.', function(){
+      recordPhotos.splice(i,1); _renderRecordZones();
+      if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+      if(typeof saveState==='function') saveState();
+    },'Delete');
+  }
+}
+// S264: confirm-delete helpers for the inline ✕ buttons that previously spliced with
+// no confirmation. Route through the authoritative path by id when possible.
+function removeDeficRespPhoto(safe, i, ci, ri, dispName){
+  var d=deficiencies[safe] && deficiencies[safe][i]; var r=d && d.responses && d.responses[ci];
+  var p=r && r.photos ? r.photos[ri] : null; if(!p) return;
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else { _aConfirm('Delete this photo? This cannot be undone.', function(){ r.photos.splice(ri,1); renderDeficGroup(dispName||safe); if(typeof _renderPhotoGallery==='function')_renderPhotoGallery(); if(typeof saveState==='function')saveState(); },'Delete'); }
+}
+function removeGenDeficPhoto(i, j){
+  var d=generalDeficiencies[i]; var p=d && d.photos ? d.photos[j] : null; if(!p) return;
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else { _aConfirm('Delete this photo? This cannot be undone.', function(){ d.photos.splice(j,1); renderGeneralDeficGroup(); if(typeof _renderPhotoGallery==='function')_renderPhotoGallery(); if(typeof saveState==='function')saveState(); },'Delete'); }
+}
+function removeGenDeficRespPhoto(i, ci, ri){
+  var d=generalDeficiencies[i]; var r=d && d.responses ? d.responses[ci] : null;
+  var p=r && r.photos ? r.photos[ri] : null; if(!p) return;
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else { _aConfirm('Delete this photo? This cannot be undone.', function(){ r.photos.splice(ri,1); renderGeneralDeficGroup(); if(typeof _renderPhotoGallery==='function')_renderPhotoGallery(); if(typeof saveState==='function')saveState(); },'Delete'); }
+}
 function _recLightbox(i){ openLightbox(recordPhotos, i, {renderer:_renderRecordZones}); }
 
 function _renderPhotoGallery(){
@@ -10307,22 +10363,33 @@ function _pgDeleteSelected(){
   var all = _collectAllPhotos();
   var selected = all.filter(function(a){ return _pgSelected.has(a.photo.id||''); });
   if(!selected.length){ showToast('No photos selected'); return; }
+  // S264: one confirm for the whole batch (not N prompts). Each item still gets the
+  // full treatment — source-array removal + surface re-render + R2 original cleanup.
   _aConfirm('Delete '+selected.length+' selected photo(s)? This cannot be undone.', function(){
-    selected.forEach(function(item){ _pgRemovePhoto(item); });
+    selected.forEach(function(item){
+      _pgRemovePhoto(item);
+      try {
+        var ph=item.photo;
+        if(_csHubMode && _r2FolderId && ph && ph.id && typeof R2Photos!=='undefined' && R2Photos.remove){
+          R2Photos.remove(_r2FolderId, 'diesel', 'original', ph.id + '.jpg').catch(function(e){
+            console.warn('[delete] R2 remove failed:', e && e.message);
+          });
+        }
+      } catch(e){ console.warn('[delete] R2 remove threw:', e && e.message); }
+    });
     _pgSelected.clear();
     _renderPhotoGallery();
     saveState();
+    if(typeof debounceAutosave==='function') debounceAutosave();
     showToast('Deleted '+selected.length+' photos');
   }, 'Delete');
 }
 function _pgDeleteOne(idx){
   var all = _collectAllPhotos();
   if(!all[idx]) return;
-  _aConfirm('Delete this photo?', function(){
-    _pgRemovePhoto(all[idx]);
-    _renderPhotoGallery();
-    saveState();
-  }, 'Delete');
+  // S264: route through the single authoritative delete (confirm + both-surface
+  // re-render + R2 cleanup + save). It re-renders the gallery itself.
+  deletePhotoEverywhere(all[idx]);
 }
 function _pgRemovePhoto(item){
   if(item.type==='flowtest'){
@@ -10334,18 +10401,33 @@ function _pgRemovePhoto(item){
   } else if(item.type==='checklist'){
     var id = item.section.replace('cl_','');
     if(clState[id] && clState[id].photos) clState[id].photos.splice(item.idx, 1);
+    // S264: re-render the checklist thumb surface too, so a gallery delete doesn't
+    // leave a ghost on the checklist item until the next heartbeat re-render.
+    if(typeof refreshItemPhotoUI==='function') refreshItemPhotoUI(id);
+    var _pgEl=document.getElementById('pg-'+id); if(_pgEl && typeof renderThumbs==='function') _pgEl.innerHTML=renderThumbs(id);
   } else if(item.type==='deficiency'){
     var parts = item.section.replace('def_','').split('_');
     var ctr = parts.slice(0,-1).join('_'), di = parseInt(parts[parts.length-1]);
     if(deficiencies[ctr] && deficiencies[ctr][di]) deficiencies[ctr][di].photos.splice(item.idx, 1);
+    if(typeof renderDeficGroup==='function') renderDeficGroup(ctr);
   } else if(item.type==='response'){
     var parts = item.section.replace('resp_','').split('_');
     var ri = parseInt(parts.pop()), di = parseInt(parts.pop()), ctr = parts.join('_');
     if(deficiencies[ctr] && deficiencies[ctr][di] && deficiencies[ctr][di].responses[ri])
       deficiencies[ctr][di].responses[ri].photos.splice(item.idx, 1);
+    if(typeof renderDeficGroup==='function') renderDeficGroup(ctr);
   } else if(item.type==='general-defic'){
     var di = parseInt(item.section.replace('gdef_',''));
     if(generalDeficiencies[di]) generalDeficiencies[di].photos.splice(item.idx, 1);
+    if(typeof renderGeneralDeficGroup==='function') renderGeneralDeficGroup();
+  } else if(item.type==='gauge'){
+    var ri=parseInt(item.section.replace('gauge_std_',''));
+    if(stdData[ri] && stdData[ri].photos) stdData[ri].photos.splice(item.idx,1);
+    if(typeof renderStdTable==='function') renderStdTable();
+  } else if(item.type==='gauge-pld'){
+    var ri=parseInt(item.section.replace('gauge_pld_',''));
+    if(pldData[ri] && pldData[ri].photos) pldData[ri].photos.splice(item.idx,1);
+    if(typeof renderPldTable==='function') renderPldTable();
   } else if(item.type==='record'){
     // S280: record/site photos live in recordPhotos[] — this branch was MISSING,
     // so deleting a site/pump/placard photo from the gallery removed nothing and the
@@ -10353,6 +10435,49 @@ function _pgRemovePhoto(item){
     if(recordPhotos[item.idx]) recordPhotos.splice(item.idx, 1);
     if(typeof _renderRecordZones==='function') _renderRecordZones();
   }
+}
+
+// ═══ S264: AUTHORITATIVE PHOTO DELETE — single path for EVERY ✕ ═══
+// Every photo-delete entry point (gallery tile, checklist thumb, deficiency/response/
+// general thumb, site-record tile, flow/gauge) routes through here. It (1) ALWAYS
+// confirms, (2) finds the photo by its unique id (not a fragile positional index),
+// (3) removes it from its source array AND re-renders both that surface and the gallery
+// (no 30s ghost), (4) deletes the R2 original so it doesn't orphan, (5) forces a save.
+// `target` may be a collected gallery item (has .type/.section/.idx/.photo) OR a
+// {photoId} locator we resolve against _collectAllPhotos by id.
+function deletePhotoEverywhere(target, afterFn){
+  var item = null;
+  var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
+  if(target && target.type && target.photo){
+    // Re-resolve by id against the live list so .idx is current (guards against a
+    // stale index if the arrays shifted since the click was wired).
+    var tid = target.photo.id;
+    item = tid ? all.filter(function(a){ return a.photo && a.photo.id===tid; })[0] : null;
+    if(!item) item = target; // fall back to the passed item if id-match fails
+  } else if(target && target.photoId){
+    item = all.filter(function(a){ return a.photo && a.photo.id===target.photoId; })[0];
+  }
+  if(!item){ showToast('Photo not found'); return; }
+  _aConfirm('Delete this photo? This cannot be undone.', function(){
+    var ph = item.photo;
+    // 1) remove from source array + re-render that surface
+    _pgRemovePhoto(item);
+    // 2) delete the R2 original (best-effort; auth required for DELETE). Keyed by id
+    //    per S281 B1 (filename = {id}.jpg). GET stays public; DELETE needs auth.
+    try {
+      if(_csHubMode && _r2FolderId && ph && ph.id && typeof R2Photos!=='undefined' && R2Photos.remove){
+        R2Photos.remove(_r2FolderId, 'diesel', 'original', ph.id + '.jpg').catch(function(e){
+          console.warn('[delete] R2 remove failed (will orphan until purge):', e && e.message);
+        });
+      }
+    } catch(e){ console.warn('[delete] R2 remove threw:', e && e.message); }
+    // 3) refresh the gallery so the tile is gone immediately (no heartbeat lag)
+    if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+    // 4) force a save so the deletion persists and the heartbeat can't resurrect it
+    if(typeof saveState==='function') saveState();
+    if(typeof debounceAutosave==='function') debounceAutosave();
+    if(afterFn) afterFn();
+  }, 'Delete');
 }
 
 // ── Photo reassign ──
