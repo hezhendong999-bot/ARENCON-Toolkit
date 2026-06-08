@@ -745,8 +745,13 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 
-/* ══ MOBILE RESPONSIVE ══ */
-@media(max-width:1024px) {
+/* ══ MOBILE / NARROW-DESKTOP RESPONSIVE ══ */
+/* S280: collapse breakpoint raised 1024 -> 1300. Between ~1025-1300 the full desktop
+   button row (AI Review, Reports, More, S, Sign Out + storage/inspector/undo-redo) ran
+   out of room and overlapped the logo/Back on the left. Folding the lower-priority
+   buttons into the hamburger in that range fixes it. Protected set stays out of the
+   menu: ARENCON logo, Back, green cloud dot, QR, day/night. */
+@media(max-width:1300px) {
   /* S271: match FRT — logo shrinks 34px→28px at ≤1024 (not ≤768). FRT frt.css line 1178. */
   .header-logo{height:28px!important;padding:3px 6px!important;}
   /* Medium screens: use hamburger menu */
@@ -772,8 +777,8 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .header-actions.mobile-open .hdr-btn{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   .header-actions.mobile-open .mobile-menu-btn{display:none!important;}
 }
-/* S259: desktop (>=1025px) force-hide hamburger to match FRT — it caused a black flash when clicked on PC and is only needed to house collapsed buttons on small screens */
-@media(min-width:1025px){ .mobile-menu-btn, #mobile-hamburger{ display:none!important; } }
+/* S259: wide-desktop (>=1301px) force-hide hamburger — it caused a black flash when clicked on PC and is only needed to house collapsed buttons on narrower screens. S280: bumped 1025->1301 to match the raised collapse breakpoint. */
+@media(min-width:1301px){ .mobile-menu-btn, #mobile-hamburger{ display:none!important; } }
 @media(max-width:768px) {
   /* Prevent blank right-side space on swipe */
   html,body{overflow-x:hidden!important;max-width:100vw!important;}
