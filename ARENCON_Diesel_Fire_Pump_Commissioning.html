@@ -23,6 +23,7 @@
   --no:#A85959;  --no-bg:#F3E0DE;
   --na:#5A6473;  --na-bg:#E8ECF0;
   --warn:#B7791F; --warn-bg:#FEFCBF;
+  --info:#2C7FB8; --gr-rpm:#6E5AA8;
   --shadow:0 2px 12px rgba(28,35,51,.10);
   --shadow-lg:0 8px 32px rgba(28,35,51,.14);
 }
@@ -101,17 +102,18 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
    the four shown values (not `total`) because Fail can include a +1 test-FAIL that
    isn't a checklist item — so the ring always closes even when sum=total+1. */
 .sum-stats{display:flex;align-items:center;gap:30px;flex-wrap:wrap;margin-bottom:18px;}
+#sum-stats{display:flex;align-items:center;gap:30px;flex-wrap:wrap;white-space:normal;}
 .oc-donut{position:relative;flex-shrink:0;width:148px;height:148px;}
 .oc-donut svg{transform:rotate(-90deg);display:block;}
 .oc-donut .oc-ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .oc-donut .oc-ctr .v{font-weight:800;color:var(--slate);line-height:1;font-size:calc(32px + var(--ts));font-variant-numeric:tabular-nums;}
 .oc-donut .oc-ctr .l{color:var(--silver);text-transform:uppercase;letter-spacing:.8px;margin-top:4px;font-size:calc(10px + var(--ts));}
-.oc-legend{display:flex;flex-direction:column;gap:11px;flex:1;min-width:220px;}
-.oc-leg{display:flex;align-items:center;gap:10px;font-size:calc(14px + var(--ts));line-height:1.2;}
-.oc-leg .dot{display:inline-block;width:11px;height:11px;border-radius:50%;flex:0 0 11px;margin-right:2px;}
-.oc-leg .nm{color:var(--steel);flex:1 1 auto;min-width:0;}
-.oc-leg .val{font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;min-width:26px;text-align:right;}
-.oc-leg .pc{color:var(--silver);font-size:calc(12px + var(--ts));width:46px;text-align:right;font-variant-numeric:tabular-nums;}
+.oc-legend{display:flex;flex-direction:column;gap:11px;}
+.oc-leg{display:flex;align-items:center;gap:9px;font-size:calc(14px + var(--ts));line-height:1.2;}
+.oc-leg .dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:0 0 10px;}
+.oc-leg .nm{color:var(--steel);flex:0 0 auto;width:148px;}
+.oc-leg .val{font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;width:32px;text-align:right;}
+.oc-leg .pc{color:var(--silver);font-size:calc(12px + var(--ts));width:44px;text-align:right;font-variant-numeric:tabular-nums;}
 @media(max-width:480px){ .sum-stats{gap:18px;justify-content:center;} .oc-legend{min-width:180px;} }
 .ov-hd{background:var(--arencon);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:3px solid #2A3A5C;}
 .ov-hd .ov-t{font-weight:700;font-size:calc(14px + var(--ts));letter-spacing:.3px;}
@@ -392,7 +394,23 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .fpm-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;padding:0;cursor:pointer;}
 .fpm-empty{margin-top:12px;font-size:calc(11.5px + var(--ts));color:var(--steel);text-align:center;}
 @media(pointer:coarse){.fpm-del{width:26px;height:26px;line-height:26px;font-size:13px;}.fpm-thumb{width:84px;height:84px;}}
-body.dark-mode .fpm-card{background:var(--b-fieldbg);border-color:var(--border);}
+body.dark-mode .fpm-card{background:#16151b;border-color:rgba(255,255,255,.12);}
+.fpm-rdrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.fpm-rd{padding:6px 12px;border-radius:16px;font-size:calc(12px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;border:1.5px solid var(--border);background:var(--smoke);color:var(--steel);display:flex;align-items:center;gap:6px;transition:all .13s;}
+.fpm-rd .rd-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
+.fpm-rd.active{color:#fff;border-color:transparent;}
+.fpm-grp{margin-top:14px;}
+.fpm-grp-hd{display:flex;align-items:center;gap:7px;font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;padding-left:9px;border-left:3px solid var(--border);}
+.fpm-grp-hd .gh-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
+.fpm-grp-empty{font-size:calc(11px + var(--ts));font-style:italic;color:var(--silver);padding-left:12px;}
+.fpm-thumb .fpm-move{position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:20px;padding:0;cursor:pointer;}
+@media(pointer:coarse){.fpm-move{width:26px;height:26px;line-height:26px;}.fpm-rd{padding:8px 14px;}}
+.fpm-reassign{position:absolute;z-index:9200;background:var(--card,#fff);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:6px;min-width:140px;}
+body.dark-mode .fpm-reassign{background:#16151b;border-color:rgba(255,255,255,.12);}
+.fpm-reassign button{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:none;background:none;text-align:left;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:600;color:var(--slate);cursor:pointer;border-radius:6px;}
+.fpm-reassign button:hover{background:var(--smoke);}
+body.dark-mode .fpm-reassign button:hover{background:rgba(255,255,255,.06);}
+.fpm-reassign button .rd-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
 /* ══ Flow-test CARD layout (4a 3-point) — muted palette scoped locally (does NOT touch global :root tokens) ══ */
 .fp-banner{font-size:calc(11.5px + var(--ts));color:var(--steel);background:var(--smoke);border:1.5px solid var(--border);border-radius:8px;padding:9px 13px;margin-bottom:14px;line-height:1.5;}
 .fp-banner b{color:var(--slate);}
@@ -1069,8 +1087,8 @@ body.dark-mode .btn-outline.btn-sm{background:rgba(255,255,255,.06)!important;bo
 body.dark-mode .btn-outline.btn-sm:hover{background:rgba(255,255,255,.12)!important;border-color:#9C2742!important;color:#f4a1b5!important;}
 body.dark-mode .btn-outline[style*="color:#A85959"]{color:#e07070!important;border-color:#5a2020!important;background:#2a1818!important;}
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
-body.dark-mode .hdr-repair-menu{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);}
-body.dark-mode .hdr-repair-menu button{background:rgba(255,255,255,.04);color:#d0d8f0;}
+body.dark-mode .hdr-repair-menu{background:#16151b;border:1px solid rgba(255,255,255,.12);}
+body.dark-mode .hdr-repair-menu button{background:#16151b;color:#d0d8f0;}
 body.dark-mode .hdr-repair-menu button:hover{background:var(--b-chrome2);}
 body.dark-mode .hdr-repair-menu button span{color:#8a94b0;}
 /* ══ DARK MODE — Inline-styled buttons (signature, deficiency, photo zones) ══ */
@@ -1254,7 +1272,7 @@ body.dark-mode .project-bar{background:rgba(255,255,255,.02);border-top-color:rg
 .ai-mode-menu button{display:block;width:100%;padding:10px 14px;border:none;background:none;text-align:left;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));cursor:pointer;color:var(--slate);}
 .ai-mode-menu button:hover{background:var(--smoke);}
 .ai-mode-menu button span{display:block;font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;}
-body.dark-mode .ai-mode-menu{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10);}
+body.dark-mode .ai-mode-menu{background:#16151b;border-color:rgba(255,255,255,.12);}
 body.dark-mode .ai-mode-menu button{color:#d0d8f0;}
 body.dark-mode .ai-mode-menu button:hover{background:var(--b-chrome2);}
 body.dark-mode .ai-mode-menu button span{color:#8a94b0;}
@@ -1262,7 +1280,7 @@ body.dark-mode .ai-mode-menu button span{color:#8a94b0;}
 .ai-fs-overlay{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .15s;}
 .ai-fs-overlay.open{opacity:1;}
 .ai-fs-modal{background:white;border-radius:14px;width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.25);font-family:Calibri,sans-serif;}
-body.dark-mode .ai-fs-modal{background:rgba(255,255,255,.04);color:#d4d8e8;}
+body.dark-mode .ai-fs-modal{background:#16151b;color:#d4d8e8;}
 .ai-fs-header{background:#9C2742;color:white;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .ai-fs-header h3{margin:0;font-size:calc(16px + var(--ts));font-weight:700;}
 .ai-fs-x{background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:0 4px;}
@@ -3177,7 +3195,7 @@ function lbKeyHandler(e) {
 function showLbPhoto() {
   const p = lbPhotos[lbIdx];
   if(!p) return;
-  const src = (typeof p === 'object') ? (p.d || p) : p;
+  const src = (typeof p === 'object') ? (p.d || p.r2Url || '') : p;
   const img = document.getElementById('lightbox-img');
   const canvas = document.getElementById('lb-markup-canvas');
   // Reset canvas while new image loads
@@ -3885,7 +3903,17 @@ function _flowPhotoIcon(tbl, i){
     + '</button>';
 }
 // Per-flow-point gauge photo capture (S222-Diesel) — mirrors _recAddFile pattern.
-var _flowPhotoTbl=null, _flowPhotoIdx=null;
+var _flowPhotoTbl=null, _flowPhotoIdx=null, _flowPhotoActiveReading='suction';
+var _GAUGE_READINGS=[
+  {k:'suction',  label:'Suction',  short:'S'},
+  {k:'discharge',label:'Discharge',short:'D'},
+  {k:'bf_in',    label:'BF-in',    short:'BFi'},
+  {k:'bf_out',   label:'BF-out',   short:'BFo'},
+  {k:'rpm',      label:'RPM',      short:'RPM'}
+];
+var _GAUGE_TAG_SHORT={suction:'S',discharge:'D',bf_in:'BFi',bf_out:'BFo',rpm:'RPM'};
+var _GAUGE_TAG_LABEL={suction:'Suction',discharge:'Discharge',bf_in:'BF-in',bf_out:'BF-out',rpm:'RPM'};
+function _gaugeReadingColor(k){ return k==='rpm' ? 'var(--gr-rpm)' : (k==='suction'?'var(--info)':k==='discharge'?'var(--no)':k==='bf_in'?'var(--warn)':k==='bf_out'?'var(--yes)':'var(--silver)'); }
 function _flowPhotoRow(tbl,i){ var src=(tbl==='std'?stdData:pldData); return (src&&src[i])?src[i]:null; }
 function _flowPhotoAddFile(file){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
@@ -3895,6 +3923,7 @@ function _flowPhotoAddFile(file){
   r.onload=function(ev){
     compressImage(ev.target.result, 1600, 0.85, function(c){
       var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+               tag:_flowPhotoActiveReading||'suction',
                caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
       row.photos.push(_ph);
       _r2EnqueuePhoto(_ph);
@@ -3912,28 +3941,84 @@ function _flowPhotoCamera(){ var inp=document.createElement('input'); inp.type='
 function _flowPhotoDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
 function _flowPhotoDelete(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return; var p=row.photos[j]; if(p.id){ deletePhotoEverywhere({photoId:p.id}, function(){ _renderFlowPhotoModal(); }); return; } _aConfirm('Delete this photo? This cannot be undone.', function(){ row.photos.splice(j,1); if(typeof renderStdTable==='function') renderStdTable(); if(typeof renderPldTable==='function') renderPldTable(); _renderFlowPhotoModal(); if(typeof _renderPhotoGallery==='function') _renderPhotoGallery(); if(typeof debounceAutosave==='function') debounceAutosave(); },'Delete'); }
 function _flowPhotoLightbox(j){ var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos)return; openLightbox(row.photos, j, {renderer:_renderFlowPhotoModal}); }
+function _flowPhotoSetActiveReading(r){ _flowPhotoActiveReading=r; _renderFlowPhotoModal(); }
+function _flowPhotoSetReading(j, reading){
+  var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!row.photos||!row.photos[j])return;
+  row.photos[j].tag=reading;
+  _flowPhotoCloseReassign();
+  _renderFlowPhotoModal();
+  if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+  if(typeof debounceAutosave==='function') debounceAutosave();
+}
+function _flowPhotoCloseReassign(){ var ex=document.getElementById('fpm-reassign'); if(ex) ex.remove(); }
+function _flowPhotoOpenReassign(j, btn){
+  _flowPhotoCloseReassign();
+  var pop=document.createElement('div'); pop.id='fpm-reassign'; pop.className='fpm-reassign';
+  var h='';
+  _GAUGE_READINGS.forEach(function(rd){
+    h+='<button onclick="_flowPhotoSetReading('+j+',\''+rd.k+'\')"><span class="rd-dot" style="background:'+_gaugeReadingColor(rd.k)+'"></span>'+rd.label+'</button>';
+  });
+  pop.innerHTML=h;
+  document.body.appendChild(pop);
+  var r=btn.getBoundingClientRect();
+  pop.style.top=(window.scrollY+r.bottom+4)+'px';
+  pop.style.left=(window.scrollX+Math.max(8,r.left-40))+'px';
+  setTimeout(function(){ document.addEventListener('click', _flowPhotoReassignOutside, true); },0);
+}
+function _flowPhotoReassignOutside(e){ var p=document.getElementById('fpm-reassign'); if(p && !p.contains(e.target)){ _flowPhotoCloseReassign(); document.removeEventListener('click', _flowPhotoReassignOutside, true); } }
 function _renderFlowPhotoModal(){
   var host=document.getElementById('flow-photo-modal'); if(!host) return;
   var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx);
   if(!row){ host.style.display='none'; return; }
   var pts=row.photos||[];
-  var pct=row.pct||((_flowPhotoTbl==='std'?stdData:pldData).indexOf(row)>=0?'':'');
-  var ttl='Gauge Photos'+(row.pct?(' — '+row.pct):'')+(row.flow?(' · '+row.flow+' gpm'):'');
+  var ttl='Gauge &amp; RPM Photos'+(row.pct?(' — '+row.pct):'')+(row.flow?(' · '+row.flow+' gpm'):'');
   var h='<div class="fpm-backdrop" onclick="closeFlowPhotos()"></div>';
-  h+='<div class="fpm-card" role="dialog" aria-label="Gauge photos">';
+  h+='<div class="fpm-card" role="dialog" aria-label="Gauge and RPM photos">';
   h+='<div class="fpm-head"><span>'+ttl+'</span><button class="fpm-x" onclick="closeFlowPhotos()" title="Close">✕</button></div>';
+  // reading selector
+  h+='<div class="fpm-rdrow">';
+  _GAUGE_READINGS.forEach(function(rd){
+    var on=(_flowPhotoActiveReading===rd.k);
+    var col=_gaugeReadingColor(rd.k);
+    h+='<button class="fpm-rd'+(on?' active':'')+'" '+(on?'style="background:'+col+'"':'')+' onclick="_flowPhotoSetActiveReading(\''+rd.k+'\')">'
+      +'<span class="rd-dot" style="background:'+(on?'#fff':col)+'"></span>'+rd.label+'</button>';
+  });
+  h+='</div>';
+  // shared capture zone
   h+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
-  h+='<span>Drag &amp; drop gauge photo(s)</span>';
+  h+='<span>Drag &amp; drop — tagged <b>'+(_GAUGE_TAG_LABEL[_flowPhotoActiveReading]||'Suction')+'</b></span>';
   h+='<button class="pz-upload" onclick="_flowPhotoUpload()">📎 Upload</button>';
   h+='<button class="pz-camera" onclick="_flowPhotoCamera()">📷 Camera</button>';
   h+='</div>';
+  // grouped thumbs (by reading, in canonical order; legacy untagged → Unsorted)
   if(pts.length){
-    h+='<div class="fpm-thumbs">';
-    pts.forEach(function(p,j){
-      h+='<div class="fpm-thumb"><img src="'+(p.d||p.r2Url)+'" onclick="_flowPhotoLightbox('+j+')">'
-        +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button></div>';
+    _GAUGE_READINGS.forEach(function(rd){
+      var col=_gaugeReadingColor(rd.k);
+      h+='<div class="fpm-grp"><div class="fpm-grp-hd" style="border-left-color:'+col+'"><span class="gh-dot" style="background:'+col+'"></span>'+rd.label+'</div>';
+      var any=false;
+      h+='<div class="fpm-thumbs">';
+      pts.forEach(function(p,j){
+        if((p.tag||'suction')!==rd.k) return;
+        any=true;
+        h+='<div class="fpm-thumb"><img src="'+(p.d||p.r2Url||'')+'" onclick="_flowPhotoLightbox('+j+')">'
+          +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button>'
+          +'<button class="fpm-move" onclick="event.stopPropagation();_flowPhotoOpenReassign('+j+',this)" title="Move to another reading">⇄</button></div>';
+      });
+      h+='</div>';
+      if(!any){ h+='<div class="fpm-grp-empty">— no photos</div>'; }
+      h+='</div>';
     });
-    h+='</div>';
+    // Unsorted: any photo whose tag is not a known reading
+    var unsorted=pts.map(function(p,j){return {p:p,j:j};}).filter(function(o){ return !_GAUGE_TAG_SHORT[o.p.tag||'suction']; });
+    if(unsorted.length){
+      h+='<div class="fpm-grp"><div class="fpm-grp-hd"><span class="gh-dot" style="background:var(--silver)"></span>Unsorted</div><div class="fpm-thumbs">';
+      unsorted.forEach(function(o){
+        h+='<div class="fpm-thumb"><img src="'+(o.p.d||o.p.r2Url||'')+'" onclick="_flowPhotoLightbox('+o.j+')">'
+          +'<button class="fpm-del" onclick="_flowPhotoDelete('+o.j+')" title="Remove">✕</button>'
+          +'<button class="fpm-move" onclick="event.stopPropagation();_flowPhotoOpenReassign('+o.j+',this)" title="Assign a reading">⇄</button></div>';
+      });
+      h+='</div></div>';
+    }
   } else {
     h+='<div class="fpm-empty">No gauge photos yet for this flow point.</div>';
   }
@@ -3950,6 +4035,7 @@ function openFlowPhotos(tbl, i){
 }
 function _flowPhotoEsc(e){ if(e.key==='Escape'){ closeFlowPhotos(); } }
 function closeFlowPhotos(){
+  _flowPhotoCloseReassign();
   var host=document.getElementById('flow-photo-modal'); if(host){ host.style.display='none'; host.innerHTML=''; }
   document.removeEventListener('keydown', _flowPhotoEsc);
   _flowPhotoTbl=null; _flowPhotoIdx=null;
@@ -9984,12 +10070,12 @@ function _collectAllPhotos(){
   // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
   (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (3-pt) '+(row.pct||''), section:'gauge_std_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge', cat:'flow', badge:((row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:'Gauge '+(row.pct||(ri+'')), label:'Gauge (PLD) '+(row.pct||''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:((row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   return all;
@@ -12206,6 +12292,7 @@ body.dark-mode{
   --yes:#3FD08A; --yes-bg:rgba(63,208,138,.15); --no:#E26076; --no-bg:rgba(226,96,118,.16);
   --na:#a09aa8; --na-bg:rgba(255,255,255,.08); --warn:#E6A23C; --warn-bg:rgba(230,162,60,.16);
   --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
+  --info:#46C5E8; --gr-rpm:#A593E0;
   --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px rgba(0,0,0,.4);
   --shadow-lg:0 24px 60px rgba(0,0,0,.55);
   --b-bar-a:#5BC0EB; --b-bar-b:#2C7FB8;
