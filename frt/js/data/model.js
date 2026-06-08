@@ -1839,6 +1839,43 @@ export var Model = {
     return photo;
   },
 
+  // S265 stage 2: Site-Records fallback (locked-spec Option 3). Restore is NEVER
+  // blocked and a photo is NEVER lost: if the parent deficiency still exists,
+  // restore in place (restorePoolPhoto). If the parent pin/deficiency is GONE,
+  // move the photo into the project-level Site Records pool (proj.photos) instead
+  // of failing. Returns { ok, fallback } where fallback=true means it landed in
+  // Site Records. In Phase 1 the trash only surfaces photos whose parent exists,
+  // so the fallback path is dormant until Phase 2 (whole-pin deletion) lands.
+  restorePoolPhotoOrSiteFallback: function(deficId, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (f) {
+      var restored = this.restorePoolPhoto(deficId, photoId);
+      return restored ? { ok: true, fallback: false, photo: restored } : { ok: false, fallback: false };
+    }
+    // Parent gone — search every pool for the orphaned photo, move to Site Records.
+    if (!_project) return { ok: false, fallback: false };
+    var found = null, srcPool = null;
+    var allDefics = this.getAllDeficiencies(_project);
+    for (var i = 0; i < allDefics.length; i++) {
+      var pool = allDefics[i].defic.photos || [];
+      var p = pool.find(function(x) { return x && x.id === photoId; });
+      if (p) { found = p; srcPool = pool; break; }
+    }
+    if (!found || !found.deleted) return { ok: false, fallback: false };
+    delete found.deleted;
+    delete found.deletedDate;
+    if (srcPool) {
+      var idx = srcPool.indexOf(found);
+      if (idx >= 0) srcPool.splice(idx, 1);
+    }
+    if (!Array.isArray(_project.photos)) _project.photos = [];
+    _project.photos.push(found);
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'restore-site-fallback', photoId: photoId });
+    return { ok: true, fallback: true, photo: found };
+  },
+
   // Set per-obs photo selection. null = reset to default (all pool photos
   // visible to this obs). Array = custom subset of pool photo IDs. IDs
   // that aren't in the live pool (or are tombstoned) are filtered out.
@@ -2374,14 +2411,101 @@ export var Model = {
     return true;
   },
 
+  // S265 Photo-Trash Phase 1 stage 2: site-photo delete is now SOFT (sets
+  // deleted/deletedDate, keeps R2 + array slot) so site photos join Recently
+  // Deleted alongside defic photos. The index does NOT shift, so any cached
+  // siteIdx stays valid. Idempotent: re-deleting a deleted photo is a no-op.
   removeSitePhoto: function(photoIdx) {
     if (!_project || !_project.photos) return null;
     if (photoIdx < 0 || photoIdx >= _project.photos.length) return null;
-    var removed = _project.photos.splice(photoIdx, 1)[0];
+    var photo = _project.photos[photoIdx];
+    if (!photo || photo.deleted) return null;
+    photo.deleted = true;
+    photo.deletedDate = new Date().toISOString();
     _dirty = true;
     _queueSave();
-    this._notify('photo', { action: 'remove-site', photo: removed });
-    return removed;
+    this._notify('photo', { action: 'remove-site', photoIdx: photoIdx });
+    return photo;
+  },
+
+  // S265 stage 2: restore a soft-deleted site photo (clears the flags).
+  // Idempotent: restoring a not-deleted photo returns false.
+  restoreSitePhoto: function(photoIdx) {
+    if (!_project || !_project.photos) return false;
+    if (photoIdx < 0 || photoIdx >= _project.photos.length) return false;
+    var photo = _project.photos[photoIdx];
+    if (!photo || !photo.deleted) return false;
+    delete photo.deleted;
+    delete photo.deletedDate;
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'restore-site', photoIdx: photoIdx });
+    return photo;
+  },
+
+  // S265 stage 2: PERMANENT delete of a soft-deleted SITE photo — removes the
+  // pool entry entirely (the array slot is spliced). Leaves the R2 object in
+  // place (a later sweep can reclaim; avoids R2 DELETE/auth complexity now).
+  // Only acts on photos already marked deleted (must go through trash first).
+  // Returns true on removal.
+  purgeSitePhoto: function(photoIdx) {
+    if (!_project || !_project.photos) return false;
+    if (photoIdx < 0 || photoIdx >= _project.photos.length) return false;
+    var photo = _project.photos[photoIdx];
+    if (!photo || !photo.deleted) return false;
+    _project.photos.splice(photoIdx, 1);
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'purge-site' });
+    return true;
+  },
+
+  // S265 stage 2: PERMANENT delete of a soft-deleted DEFIC pool photo. Removes
+  // the pool entry. Leaves R2 untouched (same rationale as purgeSitePhoto).
+  // Only acts on already-deleted photos. Returns true on removal.
+  purgePoolPhoto: function(deficId, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    var pool = f.defic.photos || [];
+    var i = pool.findIndex(function(p) { return p && p.id === photoId; });
+    if (i < 0) return false;
+    if (!pool[i].deleted) return false;
+    pool.splice(i, 1);
+    _dirty = true;
+    _queueSave();
+    this._notify('photo', { action: 'purge-pool', deficId: deficId, photoId: photoId });
+    return true;
+  },
+
+  // S265 stage 2: 30-day auto-purge. Permanently removes soft-deleted photos
+  // (both site + defic pool) whose deletedDate is older than retentionDays.
+  // Called once on project load. Returns the count purged. Leaves R2 in place.
+  purgeExpiredPhotos: function(retentionDays) {
+    if (!_project) return 0;
+    var cutoff = Date.now() - (retentionDays || 30) * 86400000;
+    var purged = 0;
+    var isExpired = function(p) {
+      if (!p || !p.deleted) return false;
+      var t = p.deletedDate ? new Date(p.deletedDate).getTime() : 0;
+      return t > 0 && t < cutoff;
+    };
+    // site photos
+    if (Array.isArray(_project.photos)) {
+      for (var i = _project.photos.length - 1; i >= 0; i--) {
+        if (isExpired(_project.photos[i])) { _project.photos.splice(i, 1); purged++; }
+      }
+    }
+    // defic pool photos
+    var allDefics = this.getAllDeficiencies(_project);
+    allDefics.forEach(function(d) {
+      var pool = d.defic.photos;
+      if (!Array.isArray(pool)) return;
+      for (var j = pool.length - 1; j >= 0; j--) {
+        if (isExpired(pool[j])) { pool.splice(j, 1); purged++; }
+      }
+    });
+    if (purged > 0) { _dirty = true; _queueSave(); this._notify('photo', { action: 'purge-expired', count: purged }); }
+    return purged;
   },
 
   reassignDeficiency: function(deficId, newCtrId) {

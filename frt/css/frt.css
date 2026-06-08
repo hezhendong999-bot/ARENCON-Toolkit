@@ -2178,6 +2178,13 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-trash-days.urgent{color:#C0445F;}
 .ph-trash-restore{flex-shrink:0;background:none;border:1px solid var(--arencon);color:var(--arencon);border-radius:8px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;padding:9px 18px;min-height:44px;-webkit-tap-highlight-color:transparent;}
 .ph-trash-restore:hover{background:var(--arencon);color:#fff;}
+/* S265 stage 2: trash actions column (Restore + admin-only Delete forever) */
+.ph-trash-actions{flex-shrink:0;display:flex;flex-direction:column;gap:7px;align-items:stretch;}
+.ph-trash-actions .ph-trash-restore{width:100%;text-align:center;}
+.ph-trash-purge{background:none;border:1px solid var(--no);color:var(--no);border-radius:8px;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;padding:8px 18px;min-height:40px;-webkit-tap-highlight-color:transparent;}
+.ph-trash-purge:hover{background:var(--no);color:#fff;}
+.ph-trash-purge.disabled,.ph-trash-purge:disabled{opacity:.4;cursor:not-allowed;border-color:var(--border);color:var(--steel);}
+.ph-trash-purge.disabled:hover,.ph-trash-purge:disabled:hover{background:none;color:var(--steel);}
 /* S225: site-origin ghost strip — photos moved OUT of the gallery this session.
    A faded synthetic tile (snapshot, not live data) with Undo, so the undo lives
    at the origin where the user is still looking. Gone on reload. */

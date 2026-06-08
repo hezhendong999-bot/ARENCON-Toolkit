@@ -7,6 +7,7 @@
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm, showAlert } from '../shared/dialogs.js';
+import { Auth } from '../shared/auth.js';
 import { R2 } from '../data/r2.js';
 import { IDB } from '../data/idb.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
@@ -25,6 +26,8 @@ var _filterMode = 'all';
 //             join in stage 2). Display-only countdown; restore via restorePoolPhoto.
 var _photoTab = 'all';
 var _TRASH_RETENTION_DAYS = 30;
+// S265 stage 2: project id this session has already auto-purged (run-once guard).
+var _purgedForProjectId = null;
 var _selectedUids = new Set();
 var _filterPanelOpen = false;
 // S114 P1.3: anchor for shift-click range select. Stores the last toggled UID
@@ -56,21 +59,37 @@ function _photoUid(rec) {
   return 'defic:' + rec.deficId + ':' + rec.obsIdx + ':' + rec.photoIdx;
 }
 
-// S265 Photo-Trash Phase 1: gather soft-deleted DEFIC pool photos for the
-// Recently Deleted view. Walks every deficiency's pool (NOT the effective/obs
-// lists, which already exclude deleted photos), collecting records with the
-// deleted flag. Site photos are NOT included this stage (they hard-delete).
-// Returns newest-deleted first.
+// S265 Photo-Trash: gather soft-deleted photos for the Recently Deleted view.
+// stage 1: DEFIC pool photos. stage 2: also SITE photos (proj.photos with the
+// deleted flag). Walks pools directly (NOT the effective/obs lists, which already
+// exclude deleted photos). Each record is tagged kind:'defic'|'site' so restore
+// and permanent-delete route to the right model call. Returns newest-deleted first.
 function _gatherDeletedRecords() {
   var proj = Model.getProject();
   if (!proj) return [];
   var out = [];
+  // site photos (stage 2)
+  (proj.photos || []).forEach(function(ph, i) {
+    if (ph && ph.deleted) {
+      out.push({
+        kind: 'site',
+        siteIdx: i,
+        photoId: ph.id,
+        ph: ph,
+        src: ph.thumb || ph.r2Url || ph.dataUrl || '',
+        deletedDate: ph.deletedDate || null,
+        label: 'Site photo'
+      });
+    }
+  });
+  // defic pool photos (stage 1)
   var allDefics = Model.getAllDeficiencies(proj);
   allDefics.forEach(function(d) {
     var defic = d.defic;
     (defic.photos || []).forEach(function(ph) {
       if (ph && ph.deleted) {
         out.push({
+          kind: 'defic',
           deficId: defic.id,
           deficNum: defic.num,
           photoId: ph.id,
@@ -101,16 +120,20 @@ function _trashDaysRemaining(deletedDateIso) {
   return Math.max(0, _TRASH_RETENTION_DAYS - elapsedDays);
 }
 
-// S265 Photo-Trash Phase 1: build the Recently Deleted list HTML. Each item:
-// thumbnail, pin label, deleted-date, days-remaining (amber, red when ≤5),
-// Restore button. Permanent delete + auto-purge are stage 2.
+// S265 Photo-Trash: build the Recently Deleted list HTML. Each item: thumbnail,
+// label, deleted-date, days-remaining (amber, red when ≤5), Restore. stage 2:
+// covers SITE + DEFIC photos (routed by r.kind) and adds an admin-gated
+// "Delete forever" button (inspectors see it disabled; principals/admins enabled).
 function _renderTrashHtml(deletedRecords) {
   var h = '';
   if (!deletedRecords.length) {
     h += '<p class="ph-empty">Nothing in Recently Deleted. Photos you delete from the gallery appear here and can be restored for ' + _TRASH_RETENTION_DAYS + ' days.</p>';
     return h;
   }
-  h += '<p class="ph-trash-note">Deleted photos are kept for ' + _TRASH_RETENTION_DAYS + ' days, then removed automatically. Restore brings a photo back into its pin.</p>';
+  var isAdmin = false;
+  try { isAdmin = !!(Auth && Auth.isAdmin && Auth.isAdmin()); } catch (e) { isAdmin = false; }
+  h += '<p class="ph-trash-note">Deleted photos are kept for ' + _TRASH_RETENTION_DAYS + ' days, then removed automatically. Restore brings a photo back where it was.'
+    + (isAdmin ? '' : ' Only a principal can delete a photo permanently.') + '</p>';
   h += '<div class="ph-trash-list">';
   deletedRecords.forEach(function(r) {
     var days = _trashDaysRemaining(r.deletedDate);
@@ -123,6 +146,10 @@ function _renderTrashHtml(deletedRecords) {
       }
     }
     var daysCls = days <= 5 ? 'ph-trash-days urgent' : 'ph-trash-days';
+    // route attributes by kind
+    var routeAttrs = (r.kind === 'site')
+      ? ' data-kind="site" data-site-idx="' + r.siteIdx + '"'
+      : ' data-kind="defic" data-defic-id="' + esc(r.deficId) + '" data-photo-id="' + esc(r.photoId) + '"';
     h += '<div class="ph-trash-item">';
     if (r.src) {
       h += '<div class="ph-trash-thumb"><img src="' + esc(r.src) + '" loading="lazy" onerror="this.style.display=\'none\'"></div>';
@@ -134,7 +161,14 @@ function _renderTrashHtml(deletedRecords) {
     if (dateLabel) h += '<div class="ph-trash-date">Deleted ' + esc(dateLabel) + '</div>';
     h += '<div class="' + daysCls + '">' + days + ' day' + (days === 1 ? '' : 's') + ' left</div>';
     h += '</div>';
-    h += '<button class="ph-trash-restore" data-action="ph-restore-photo" data-defic-id="' + esc(r.deficId) + '" data-photo-id="' + esc(r.photoId) + '">Restore</button>';
+    h += '<div class="ph-trash-actions">';
+    h += '<button class="ph-trash-restore" data-action="ph-restore-photo"' + routeAttrs + '>Restore</button>';
+    if (isAdmin) {
+      h += '<button class="ph-trash-purge" data-action="ph-purge-photo"' + routeAttrs + '>Delete forever</button>';
+    } else {
+      h += '<button class="ph-trash-purge disabled" disabled title="Only a principal can delete permanently">Delete forever</button>';
+    }
+    h += '</div>';
     h += '</div>';
   });
   h += '</div>';
@@ -260,12 +294,23 @@ export var initPhotos = {
     var proj = Model.getProject();
     if (!proj) { container.innerHTML = ''; return; }
 
+    // S265 stage 2: 30-day auto-purge of expired soft-deleted photos. Runs once
+    // per loaded project (guarded by id) the first time the Photos panel renders,
+    // so housekeeping happens without re-sequencing the project loader.
+    if (Model.purgeExpiredPhotos && _purgedForProjectId !== (proj.id || proj.projectId)) {
+      _purgedForProjectId = (proj.id || proj.projectId);
+      try { Model.purgeExpiredPhotos(_TRASH_RETENTION_DAYS); } catch (e) { /* defensive */ }
+    }
+
     var sitePhotos = proj.photos || [];
     var allDefics = Model.getAllDeficiencies(proj);
 
     // ── Build flat list of photo records (one per photo) ──
     var records = [];
     sitePhotos.forEach(function(p, i) {
+      // S265 stage 2: soft-deleted site photos live in Recently Deleted, not the
+      // gallery. Skip them here; siteIdx stays the true array index for actions.
+      if (p && p.deleted) return;
       var dk = _dayKey(p, null);
       records.push({
         type: 'site',
@@ -729,13 +774,46 @@ document.addEventListener('click', function(e) {
   var res = e.target.closest && e.target.closest('[data-action="ph-restore-photo"]');
   if (res) {
     e.stopPropagation();
-    var rdId = res.getAttribute('data-defic-id');
-    var rpId = res.getAttribute('data-photo-id');
-    if (rdId && rpId) {
-      var restored = Model.restorePoolPhoto(rdId, rpId);
+    var rKind = res.getAttribute('data-kind');
+    if (rKind === 'site') {
+      var rSiteIdx = parseInt(res.getAttribute('data-site-idx') || '-1', 10);
+      var okS = Model.restoreSitePhoto(rSiteIdx);
       initPhotos.render();
-      toast(restored ? 'Photo restored' : 'Could not restore photo');
+      toast(okS ? 'Photo restored to Site Records' : 'Could not restore photo');
+    } else {
+      var rdId = res.getAttribute('data-defic-id');
+      var rpId = res.getAttribute('data-photo-id');
+      if (rdId && rpId) {
+        // Site-Records fallback: if the parent pin is gone, lands in Site Records.
+        var r = Model.restorePoolPhotoOrSiteFallback(rdId, rpId);
+        initPhotos.render();
+        toast(r && r.ok ? (r.fallback ? 'Pin no longer exists — restored to Site Records' : 'Photo restored') : 'Could not restore photo');
+      }
     }
+    return;
+  }
+
+  // S265 stage 2: PERMANENT delete from Recently Deleted. Admin-only (the button
+  // is disabled for inspectors, but re-check here so it can't be forced). A
+  // distinct confirm makes clear this can't be undone. R2 object left in place.
+  var purge = e.target.closest && e.target.closest('[data-action="ph-purge-photo"]');
+  if (purge) {
+    e.stopPropagation();
+    var canPurge = false;
+    try { canPurge = !!(Auth && Auth.isAdmin && Auth.isAdmin()); } catch (ex) { canPurge = false; }
+    if (!canPurge) { toast('Only a principal can delete a photo permanently'); return; }
+    var pKind = purge.getAttribute('data-kind');
+    showConfirm('Delete Permanently', 'Permanently delete this photo? This cannot be undone — it will no longer be recoverable.').then(function(yes) {
+      if (!yes) return;
+      var done;
+      if (pKind === 'site') {
+        done = Model.purgeSitePhoto(parseInt(purge.getAttribute('data-site-idx') || '-1', 10));
+      } else {
+        done = Model.purgePoolPhoto(purge.getAttribute('data-defic-id'), purge.getAttribute('data-photo-id'));
+      }
+      initPhotos.render();
+      toast(done ? 'Photo permanently deleted' : 'Could not delete photo');
+    });
     return;
   }
 
