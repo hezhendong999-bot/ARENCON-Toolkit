@@ -4039,9 +4039,9 @@ function _flowPhotoOpenReassign(j, btn){
   var cr=card.getBoundingClientRect(), br=btn.getBoundingClientRect();
   pop.style.top=(br.bottom - cr.top + card.scrollTop + 4)+'px';
   pop.style.left=(Math.max(6, br.left - cr.left - 30))+'px';
-  setTimeout(function(){ document.addEventListener('click', _flowPhotoReassignOutside, true); },0);
+  setTimeout(function(){ document.addEventListener('click', _flowPhotoReassignOutside, true); document.addEventListener('touchstart', _flowPhotoReassignOutside, true); },0);
 }
-function _flowPhotoReassignOutside(e){ var p=document.getElementById('fpm-reassign'); if(p && !p.contains(e.target)){ _flowPhotoCloseReassign(); document.removeEventListener('click', _flowPhotoReassignOutside, true); } }
+function _flowPhotoReassignOutside(e){ var p=document.getElementById('fpm-reassign'); if(p && !p.contains(e.target)){ _flowPhotoCloseReassign(); document.removeEventListener('click', _flowPhotoReassignOutside, true); document.removeEventListener('touchstart', _flowPhotoReassignOutside, true); } }
 function _renderFlowPhotoModal(){
   var host=document.getElementById('flow-photo-modal'); if(!host) return;
   var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx);
@@ -10471,9 +10471,10 @@ function _renderPhotoGallery(){
       var sel=_pgSelected.has(pid)?' selected':'';
       var gidx = all.indexOf(item); // stable index into full list for lightbox
       var badgeCls='ph-badge-'+(item.cat||'checklist');
+      var badgeStyle = (p && p.tag && typeof _gaugeReadingColor==='function') ? (' style="background:'+_gaugeReadingColor(p.tag)+'"') : '';
       html += '<div class="ph-card'+sel+'" data-pg-id="'+pid+'">';
       html += '<input type="checkbox" class="ph-check"'+(sel?' checked':'')+' onclick="event.stopPropagation();_pgToggleSelect(event,\''+pid+'\')">';
-      html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'">'+(item.badge||'?')+'</span></span>';
+      html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'"'+badgeStyle+'>'+(item.badge||'?')+'</span></span>';
       if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox('+gidx+')" onerror="this.onerror=null;this.parentNode&&this.parentNode.insertBefore(Object.assign(document.createElement(\'div\'),{className:\'ph-noimg\',textContent:\'\uD83D\uDCF7\'}),this);this.remove();">'; }
       else { html += '<div class="ph-noimg">\uD83D\uDCF7</div>'; }
       var _ptime=_pgPhotoTime(p);
