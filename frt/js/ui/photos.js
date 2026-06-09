@@ -151,8 +151,10 @@ function _renderTrashHtml(deletedRecords) {
       ? ' data-kind="site" data-site-idx="' + r.siteIdx + '"'
       : ' data-kind="defic" data-defic-id="' + esc(r.deficId) + '" data-photo-id="' + esc(r.photoId) + '"';
     h += '<div class="ph-trash-item">';
+    // S266: thumbnail opens the photo in the lightbox (was static). Routed by
+    // kind so the click handler can re-find the live photo object to display.
     if (r.src) {
-      h += '<div class="ph-trash-thumb"><img src="' + esc(r.src) + '" loading="lazy" onerror="this.style.display=\'none\'"></div>';
+      h += '<div class="ph-trash-thumb ph-trash-zoom" data-action="ph-trash-lightbox"' + routeAttrs + ' title="View photo"><img src="' + esc(r.src) + '" loading="lazy" onerror="this.style.display=\'none\'"></div>';
     } else {
       h += '<div class="ph-trash-thumb ph-trash-noimg">\uD83D\uDCF7</div>';
     }
@@ -593,6 +595,9 @@ export var initPhotos = {
         // S224: SITE photos now get a send-to-pin button too (the inverse path).
         if (r.type !== 'site') {
           html += '<button class="ph-move-btn" data-action="ph-move-defic" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '" title="Move or copy to another pin">\u2934</button>';
+          // S266: jump to this photo's observation in the Deficiencies tab.
+          // Site photos have no observation, so defic-only.
+          html += '<button class="ph-goto-obs-btn" data-action="ph-goto-obs" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" title="Go to this observation">\u2197</button>';
         } else {
           html += '<button class="ph-move-btn" data-action="ph-move-site" data-photo-idx="' + r.siteIdx + '" title="Send to a pin">\u2934</button>';
         }
@@ -753,6 +758,60 @@ document.addEventListener('click', function(e) {
         toast(ok ? 'Photo moved to Recently Deleted' : 'Could not delete photo');
       }
     });
+    return;
+  }
+
+  // S266: jump from a gallery defic photo to its observation in the
+  // Deficiencies tab. Switches to that tab, opens the Detailed view with the
+  // target obs row expanded, scrolls it into view and flashes it (reuses the
+  // existing window._frtOpenDetailedRow nav path). Defic photos only — site
+  // photos carry no observation.
+  var goObs = e.target.closest && e.target.closest('[data-action="ph-goto-obs"]');
+  if (goObs) {
+    e.stopPropagation();
+    var goDefId = goObs.getAttribute('data-defic-id');
+    var goObsIdx = parseInt(goObs.getAttribute('data-obs-idx') || '0', 10);
+    if (goDefId) {
+      try { if (window._frt && window._frt.switchTab) window._frt.switchTab('deficiencies'); } catch (_g) {}
+      // Defer so the tab's panel is active before the detailed-row nav renders.
+      setTimeout(function() {
+        if (typeof window._frtOpenDetailedRow === 'function') {
+          window._frtOpenDetailedRow(goDefId, isNaN(goObsIdx) ? null : goObsIdx);
+        }
+      }, 30);
+    }
+    return;
+  }
+
+  // S266 Photo-Trash: open a Recently-Deleted photo in the lightbox. Re-finds
+  // the LIVE photo object (so markup/r2Key are intact) and opens a single-photo
+  // viewer. Read-only intent — the photo is still soft-deleted; viewing it does
+  // not restore it. Routed by kind.
+  var tlb = e.target.closest && e.target.closest('[data-action="ph-trash-lightbox"]');
+  if (tlb) {
+    e.stopPropagation();
+    var tKind = tlb.getAttribute('data-kind');
+    var tPhoto = null, tLabel = '';
+    if (tKind === 'site') {
+      var tSiteIdx = parseInt(tlb.getAttribute('data-site-idx') || '-1', 10);
+      var tProj = Model.getProject();
+      tPhoto = tProj && tProj.photos && tProj.photos[tSiteIdx];
+      tLabel = 'Site Photo \u00b7 deleted';
+    } else {
+      var tdId = tlb.getAttribute('data-defic-id');
+      var tpId = tlb.getAttribute('data-photo-id');
+      var tf = tdId && Model.findDeficiency(tdId);
+      if (tf && tf.defic && Array.isArray(tf.defic.photos)) {
+        tPhoto = tf.defic.photos.filter(function(p) { return p && p.id === tpId; })[0];
+      }
+      tLabel = (tf && tf.defic ? 'Pin #' + (tf.defic.num || '?') : 'Pin') + ' \u00b7 deleted';
+    }
+    if (tPhoto && window._frtLightbox) {
+      tPhoto._ctxLabel = tLabel;
+      window._frtLightbox.open([tPhoto], 0, {});
+    } else {
+      toast('Photo data not available');
+    }
     return;
   }
 

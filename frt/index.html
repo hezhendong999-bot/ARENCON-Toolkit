@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=563">
+<link rel="stylesheet" href="css/frt.css?v=564">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -939,7 +939,7 @@ function ensurePdfJs(cb){
 <!-- S120 P9 — Photo-pool integrity checker. Always-on (cheap, debounced).
      Runs after Model events and on project load; reports stale references,
      orphans, broken photos, and cascade failures. ?dbg=1 shows a badge. -->
-<script src="js/diag/integrity.js?v=2" async></script>
+<script src="js/diag/integrity.js?v=3" async></script>
 
 <!-- S120 P18 — Drawing migration tool (console-driven).
      Exposes window._drawingMigrate.{preview, plan, apply, undo}. Walks

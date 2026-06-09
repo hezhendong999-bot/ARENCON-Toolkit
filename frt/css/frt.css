@@ -2153,6 +2153,16 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
    two slots, so the new defic delete button goes to the third slot (66px). Site
    cards keep delete at 36px (no move-defic button there). */
 .ph-del-btn[data-action="delete-defic-photo"]{left:66px;}
+/* S266: "go to observation" button — jumps from a gallery defic photo to its
+   obs in the Deficiencies tab. Bottom-right corner (left column is full with
+   download/move/delete). Muted info-blue. Hover-reveal + touch fallback. */
+.ph-goto-obs-btn{position:absolute;bottom:5px;right:6px;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.4);background:#5A6E80;color:#fff;font-size:13px;line-height:1;}
+.ph-goto-obs-btn:hover{background:#4A5A6E;filter:brightness(.92);}
+.ph-card:hover .ph-goto-obs-btn{display:flex;}
+@media(pointer:coarse){.ph-goto-obs-btn{display:flex;opacity:.85;}}
+body.photos-select-mode #panel-photos .ph-card .ph-goto-obs-btn{display:none !important;}
+/* S266: Recently Deleted thumbnails are now tappable (open in lightbox). */
+.ph-trash-zoom{cursor:zoom-in;}
 /* S224: faded "just moved this session" state + per-card Undo overlay. The fade
    is a purely visual, in-memory marker (gone on reload). Undo sits centered,
    above the image, always visible on a faded card (no hover needed — must be

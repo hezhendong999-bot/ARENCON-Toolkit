@@ -61,8 +61,10 @@
       msg: msg
     };
     _findings.push(entry);
-    // console.warn so it's grep-able and filterable
-    console.warn('[Integrity:' + classDef.label + '] #' + defNum + (photoId ? ' photo=' + photoId : '') + ' — ' + msg);
+    // S266: no longer logs per-finding here — a burst of orphans used to emit
+    // one console.warn each (the S265 spam saga). Findings accumulate silently;
+    // runCheck() emits ONE summary line per class at the end of the walk. The
+    // full per-finding detail is still available via window._frtIntegrityReport().
   }
 
   function _checkDefic(d) {
@@ -139,6 +141,45 @@
     return (typeof window !== 'undefined' && window._frt && window._frt.Model) || null;
   }
 
+  // S266 — emit ONE digest line per class at the end of a check run, instead
+  // of one warn per finding. Counts both total findings and distinct pins
+  // affected so the message reads naturally ("5 pins have unreferenced pool
+  // photos"). Dedup'd against the previous run's digest so an idempotent
+  // re-render (no data change) doesn't re-log the same summary.
+  var _lastSummaryKey = null;
+  var _CLASS_PHRASE = {
+    'broken-photo':              'have broken photos (no source)',
+    'stale-selection':           'have stale photo selections',
+    'stale-markup':              'have stale photo markups',
+    'deleted-still-referenced':  'still reference deleted photos',
+    'pool-orphan':               'have unreferenced pool photos',
+    'id-collision':              'have duplicate photo ids',
+    'view-reset':                'hit a view-reset regression'
+  };
+  function _emitSummary() {
+    if (!_findings.length) { _lastSummaryKey = ''; return; }
+    var byClass = {};            // label -> { count, pins:{} }
+    _findings.forEach(function (f) {
+      var b = byClass[f.classLabel] || (byClass[f.classLabel] = { count: 0, pins: Object.create(null) });
+      b.count++;
+      if (f.deficId) b.pins[f.deficId] = true;
+    });
+    var parts = [];
+    Object.keys(byClass).forEach(function (label) {
+      var b = byClass[label];
+      var nPins = Object.keys(b.pins).length;
+      var phrase = _CLASS_PHRASE[label] || ('have ' + label + ' findings');
+      // "5 pins have unreferenced pool photos (8 photos)"
+      var seg = nPins + ' pin' + (nPins === 1 ? '' : 's') + ' ' + phrase;
+      if (b.count !== nPins) seg += ' (' + b.count + ' photo' + (b.count === 1 ? '' : 's') + ')';
+      parts.push(seg);
+    });
+    var key = parts.join('|');
+    if (key === _lastSummaryKey) return;   // nothing changed since last run
+    _lastSummaryKey = key;
+    console.warn('[Integrity] ' + parts.join('; ') + '. Run window._frtIntegrityReport() for detail.');
+  }
+
   function runCheck() {
     var Model = _getModel();
     if (!Model || !Model.getProject) return;
@@ -148,6 +189,7 @@
       (c.deficiencies || []).forEach(_checkDefic);
     });
     (proj.generalDeficiencies || []).forEach(_checkDefic);
+    _emitSummary();
     _refreshBadge();
   }
 
@@ -155,6 +197,10 @@
   function clear() {
     _findings = [];
     _seen = Object.create(null);
+    // NB: do NOT reset _lastSummaryKey here. _scheduleCheck() does clear()+
+    // runCheck() on every debounced event; if we reset the key the digest would
+    // re-log on every idempotent re-render. _emitSummary() compares the new
+    // finding-set key against the last and stays silent when nothing changed.
     _refreshBadge();
   }
 
