@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- ARENCON Diesel Fire Pump Commissioning — build S267 (mobile bugs A/B/C/E) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -465,6 +466,26 @@ body.dark-mode .fpm-gallery{background:#16151b;}
 .fig-legend .lg .lg-ann.aoff{color:var(--silver);background:transparent;}
 .fig-leghint{font-size:calc(10.5px + var(--ts));color:var(--silver);padding:0 16px 11px;background:var(--smoke);margin-top:-1px;}
 @media(pointer:coarse){.fig-legend .lg .lg-main{padding:8px 13px;} .fig-legend .lg .lg-ann{width:32px;}}
+/* S267(C): mobile "view larger" for the cramped flow charts. The button lives in .fig-hd and is
+   hidden on desktop/wide; on narrow/touch it appears. Tapping opens the whole .fig in a fixed
+   full-viewport landscape overlay (the chart is responsive:true so it resizes to fill). */
+.fig-fs{display:none;margin-left:8px;flex:none;background:rgba(255,255,255,.18);border:none;color:#fff;
+  border-radius:7px;padding:5px 9px;font-size:calc(13px + var(--ts));cursor:pointer;line-height:1;}
+.fig-fs:active{transform:translateY(1px);}
+@media(max-width:760px){ .fig-fs{display:inline-flex;align-items:center;} .fig-hd .fig-verdict{margin-left:8px;} .fig-hd .fig-t{flex:1;min-width:0;} }
+.fig-fs-overlay{display:none;position:fixed;inset:0;z-index:10050;background:#0b0a0d;}
+.fig-fs-overlay.open{display:block;}
+.fig-fs-overlay .fig-fs-close{position:fixed;top:env(safe-area-inset-top,8px);right:10px;z-index:10052;
+  background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:9px;padding:9px 14px;font-size:16px;
+  font-family:Calibri,sans-serif;font-weight:700;cursor:pointer;}
+/* the moved .fig fills the rotated landscape viewport; its canvas wrapper stretches to fill */
+.fig-fs-overlay .fig-fs-stage{position:fixed;inset:0;display:flex;flex-direction:column;background:#fff;}
+body.dark-mode .fig-fs-overlay .fig-fs-stage{background:#0b0a0d;}
+.fig-fs-overlay .fig-fs-stage .fig{flex:1;display:flex;flex-direction:column;min-height:0;border:none;border-radius:0;}
+.fig-fs-overlay .fig-fs-stage .fig-body{flex:1;min-height:0;padding:10px;}
+.fig-fs-overlay .fig-fs-stage .fig-body>div{height:100%!important;}
+.fig-fs-overlay .fig-fs-stage .fig-legend{max-height:30vh;overflow-y:auto;}
+.fig-fs-overlay .fig-fs-stage .fig-fs{display:none!important;}
 .fig-readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--border);border-top:1px solid var(--border);}
 .fig-readout .ro{background:#fff;padding:9px 6px;text-align:center;}
 .fig-readout .ro .pct{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);letter-spacing:.4px;text-transform:uppercase;}
@@ -554,19 +575,29 @@ body.dark-mode .fig-readout .ro .chip.na{background:var(--b-fieldbg);}
   .fp-refline .ri{display:flex;align-items:center;gap:5px;white-space:normal;}
   .fp-refline .ri b{margin-right:0;}
   .fp-refline .ri input{width:100%;min-width:0;}
-  /* segtag must not eat input width: cap it; inputs keep a real floor so SUCT can't collapse */
-  .fp-grid{grid-template-columns:5px 42px minmax(52px,1fr) minmax(52px,1fr) minmax(52px,1fr);row-gap:7px;column-gap:7px;}
-  .fp-grid .fp-segtag{font-size:calc(8.5px + var(--ts));}
-  .fp-grid .fp-hdr:last-child{display:none;}
-  .fp-grid .fp-hdr{grid-column:auto;}
-  /* end value / held pill drop to their OWN full-width row beneath the inputs, so the span
-     can't collapse the SUCT cell via auto-placement */
-  .fp-endval,.fp-held{grid-column:1 / -1;justify-content:flex-start;margin-top:1px;padding-left:47px;}
-  .fp-skip-note{grid-column:1 / -1;padding-left:47px;}
-  /* pin the three data inputs to columns 3,4,5 explicitly — kills any auto-placement shift */
+  /* S267(A): mobile flow grid — the old rule mis-placed the SUCT/DISCH/RPM headers (they sat
+     over the spine/segtag gap, not over their inputs) and the segtag's max-content width pushed
+     the whole row out of alignment. Fix: a fixed 5-col template (spine | segtag | 3 inputs) with
+     EXPLICIT column pins on the headers AND the inputs so the labels sit directly above their
+     boxes. Pins are COLUMN-only (no grid-row) so the 7-Point's two data lines (w/o PLD + w/ PLD,
+     6 inputs) still auto-flow onto two separate rows; the 3-Point single line stays one row. */
+  .fp-grid{grid-template-columns:5px 40px minmax(50px,1fr) minmax(50px,1fr) minmax(50px,1fr);row-gap:7px;column-gap:7px;}
+  .fp-grid .fp-segtag{font-size:calc(8.5px + var(--ts));white-space:normal;line-height:1.05;}
+  /* header row 1: drop the two empty leaders + trailing empty; pin the 3 labels over cols 3/4/5 */
+  .fp-grid .fp-hdr{grid-row:1;align-self:end;}
+  .fp-grid .fp-hdr:nth-child(1),.fp-grid .fp-hdr:nth-child(2),.fp-grid .fp-hdr:nth-child(6){display:none;}
+  .fp-grid .fp-hdr:nth-child(3){grid-column:3;}
+  .fp-grid .fp-hdr:nth-child(4){grid-column:4;}
+  .fp-grid .fp-hdr:nth-child(5){grid-column:5;}
+  /* data cells: column-only pins (rows auto-flow → multi-line 7-pt stacks correctly) */
+  .fp-grid .fp-spine{grid-column:1;}
+  .fp-grid .fp-segtag{grid-column:2;align-self:center;}
   .fp-grid input:nth-of-type(3n+1){grid-column:3;}
   .fp-grid input:nth-of-type(3n+2){grid-column:4;}
   .fp-grid input:nth-of-type(3n+3){grid-column:5;}
+  /* end value / held pill drop to their own full-width row beneath, aligned to the input block */
+  .fp-endval,.fp-held{grid-column:3 / -1;justify-content:flex-start;margin-top:1px;}
+  .fp-skip-note{grid-column:3 / -1;}
   .fp-bf{padding-left:0;}
 }
 /* flow-point photo popover */
@@ -824,6 +855,25 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .header-actions.mobile-open{display:flex!important;position:fixed;top:0;right:0;bottom:0;z-index:10002;width:78%;max-width:320px;background:rgba(28,18,40,0.97);flex-direction:column;padding:60px 16px 20px;gap:8px;overflow-y:auto;align-items:stretch;}
   .header-actions.mobile-open .hdr-btn{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   .header-actions.mobile-open .mobile-menu-btn{display:none!important;}
+  /* S267(B): the AI Review / Reports / More buttons live inside wrapper divs
+     (.hdr-ai-wrap / .hdr-repair-wrap) that the collapse rule above hides. Without these
+     overrides they never reappear inside the drawer — the three core actions were unreachable
+     on mobile. Re-show the wrappers as full-width drawer rows; their inner .hdr-btn already
+     stretches via the rule above. The dropdown menus they own (.ai-mode-menu / .hdr-repair-menu)
+     are position:fixed/absolute and open above the drawer, so a tap still works.
+     NOTE: #btn-reports-wrap carries inline display:none in standalone mode (JS clears it only in
+     Hub mode). We must NOT force it visible there, so the rule below excludes any wrapper still
+     bearing inline display:none — Reports appears in the drawer only when Hub mode has shown it. */
+  .header-actions.mobile-open .hdr-ai-wrap,
+  .header-actions.mobile-open .hdr-repair-wrap:not([style*="display:none"]){display:block!important;width:100%;}
+  .header-actions.mobile-open .hdr-ai-wrap .hdr-btn,
+  .header-actions.mobile-open .hdr-repair-wrap:not([style*="display:none"]) .hdr-btn{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
+  /* S267(B): inside the drawer the dropdown menus must NOT use absolute positioning — the drawer
+     is overflow-y:auto with z-index:10002, so a top:100% absolute menu (z 10000/10001) renders
+     behind the drawer bg and gets clipped. Force the OPEN menu into static flow so it expands
+     inline as a normal drawer block. Closed menus stay display:none (untouched). */
+  .header-actions.mobile-open .ai-mode-menu.open,
+  .header-actions.mobile-open .hdr-repair-menu.open{position:static!important;right:auto!important;top:auto!important;margin-top:4px!important;width:100%!important;min-width:0!important;box-shadow:none!important;border-radius:10px!important;}
 }
 /* S259: wide-desktop (>=1301px) force-hide hamburger — it caused a black flash when clicked on PC and is only needed to house collapsed buttons on narrower screens. S280: bumped 1025->1301 to match the raised collapse breakpoint. */
 @media(min-width:1301px){ .mobile-menu-btn, #mobile-hamburger{ display:none!important; } }
@@ -1474,6 +1524,12 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
     </div>
   </div>
   <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);"></div>
+  <!-- S267(C): fullscreen chart overlay. The selected .fig is MOVED into .fig-fs-stage on open
+       (reparent pattern, like the mobile drawer) and restored on close, so no chart is duplicated. -->
+  <div class="fig-fs-overlay" id="fig-fs-overlay">
+    <div class="fig-fs-stage" id="fig-fs-stage"></div>
+    <button type="button" class="fig-fs-close" onclick="_closeChartFS()" aria-label="Close fullscreen chart">✕ Close</button>
+  </div>
   <script>
 // S263: last-sync ticker — ported display from FRT ("last sync: Xm ago"), self-contained.
 var _lastSyncTs = 0, _lastSyncTimer = null;
@@ -1656,6 +1712,49 @@ function closeMobileMenu(){
   }
   if(bd)bd.style.display='none';
 }
+// S267(C): fullscreen chart viewer for cramped mobile flow charts. Moves the whole .fig into a
+// fixed full-viewport stage and resizes the (responsive) chart to fill it; restores on close.
+// chartVar is the chart's global var name ('chart3pt' | 'netChart3pt' | 'pldChart' | 'pldNetChart').
+var _figFsActive = null; // {fig, origParent, origNext}
+function _figChartByName(n){
+  try{
+    if(n==='chart3pt') return (typeof chart3pt!=='undefined')?chart3pt:null;
+    if(n==='netChart3pt') return (typeof netChart3pt!=='undefined')?netChart3pt:null;
+    if(n==='pldChart') return (typeof pldChart!=='undefined')?pldChart:null;
+    if(n==='pldNetChart') return (typeof pldNetChart!=='undefined')?pldNetChart:null;
+  }catch(e){}
+  return null;
+}
+function _openChartFS(figId, chartVar){
+  var fig=document.getElementById(figId);
+  var ov=document.getElementById('fig-fs-overlay');
+  var stage=document.getElementById('fig-fs-stage');
+  if(!fig||!ov||!stage) return;
+  if(_figFsActive) _closeChartFS(); // safety: only one at a time
+  _figFsActive={fig:fig, origParent:fig.parentNode, origNext:fig.nextSibling, chartVar:chartVar};
+  stage.appendChild(fig);
+  ov.classList.add('open');
+  // resize the responsive chart into its new (larger) container — twice, after layout settles
+  function _rs(){ var c=_figChartByName(chartVar); if(c){ try{ c.resize(); c.update('none'); c.render(); }catch(e){} } }
+  requestAnimationFrame(function(){ _rs(); setTimeout(_rs, 180); });
+}
+function _closeChartFS(){
+  var ov=document.getElementById('fig-fs-overlay');
+  if(ov) ov.classList.remove('open');
+  if(_figFsActive && _figFsActive.fig && _figFsActive.origParent){
+    var f=_figFsActive.fig;
+    if(_figFsActive.origNext) _figFsActive.origParent.insertBefore(f, _figFsActive.origNext);
+    else _figFsActive.origParent.appendChild(f);
+    var cv=_figFsActive.chartVar;
+    _figFsActive=null;
+    // resize back down to the in-page container
+    requestAnimationFrame(function(){ var c=_figChartByName(cv); if(c){ try{ c.resize(); c.update('none'); c.render(); }catch(e){} } });
+  } else {
+    _figFsActive=null;
+  }
+}
+// Escape closes the fullscreen chart (desktop debug / external keyboards)
+document.addEventListener('keydown', function(e){ if(e.key==='Escape' && _figFsActive) _closeChartFS(); });
   </script>
   <script>updateDarkToggleIcon();if(typeof _updateInspectorChip==='function')_updateInspectorChip();</script>
   <div class="project-bar" id="project-bar">
@@ -2035,6 +2134,7 @@ function updatePhaseFlags(){
           <div class="fig-hd">
             <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
             <span class="fig-t">3-Point Fire Pump Performance Test, Water Supply &amp; System Demand Curve</span>
+            <button class="fig-fs" type="button" onclick="_openChartFS('fig-chart3pt','chart3pt')" title="View larger" aria-label="View chart larger">⛶</button>
             <span class="fig-verdict na" id="figv-chart3pt">—</span>
           </div>
           <div class="fig-body">
@@ -2059,6 +2159,7 @@ function updatePhaseFlags(){
           <div class="fig-hd">
             <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
             <span class="fig-t">3-Point Fire Pump Net Pressure Curve</span>
+            <button class="fig-fs" type="button" onclick="_openChartFS('fig-netChart3pt','netChart3pt')" title="View larger" aria-label="View chart larger">⛶</button>
             <span class="fig-verdict na" id="figv-netChart3pt">—</span>
           </div>
           <div class="fig-body">
@@ -2204,6 +2305,7 @@ function updatePhaseFlags(){
           <div class="fig-hd">
             <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
             <span class="fig-t">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</span>
+            <button class="fig-fs" type="button" onclick="_openChartFS('fig-pldChart','pldChart')" title="View larger" aria-label="View chart larger">⛶</button>
             <span class="fig-verdict na" id="figv-pldChart">—</span>
           </div>
           <div class="fig-body">
@@ -2228,6 +2330,7 @@ function updatePhaseFlags(){
           <div class="fig-hd">
             <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
             <span class="fig-t">7-Point Fire Pump Net Pressure Curve</span>
+            <button class="fig-fs" type="button" onclick="_openChartFS('fig-pldNetChart','pldNetChart')" title="View larger" aria-label="View chart larger">⛶</button>
             <span class="fig-verdict na" id="figv-pldNetChart">—</span>
           </div>
           <div class="fig-body">
@@ -4897,7 +5000,7 @@ function renderFigLegendPldNet(){
   if(has(1)) defs.push({i:1, c:'#21D3ED', kind:'line', dash:[8,4,2,4],   t:'Adjusted Net (w/o PLD)'});
   if(has(2)) defs.push({i:2, c:'#A78BFA', kind:'line', dash:[2,3],       t:'Cutsheet'});
   if(has(3)) defs.push({i:3, c:'#7D6F9C', kind:'line', dash:[5,3],       t:'Placard'});
-  _buildFigLegend(host, pldNetChart, defs);
+  _buildFigLegend(host, pldNetChart, defs, 'pldNetChart'); // S267(E): chartKey enables the per-curve "A" annotation toggle (engine already supports this chart)
 }
 // Readout strip (per-point %/psi/gpm/rpm + verdict) — uses the REAL _calcFlowPoint
 function renderFigReadout3pt(){
@@ -4949,7 +5052,7 @@ function renderFigLegendNet3pt(){
   if(has(1)) defs.push({i:1, c:'#21D3ED', kind:'line', dash:[8,4,2,4],   t:'Adjusted Net (RPM-corrected)'});
   if(has(2)) defs.push({i:2, c:'#A78BFA', kind:'line', dash:[2,3],       t:'Cutsheet'});
   if(has(3)) defs.push({i:3, c:'#7D6F9C', kind:'line', dash:[5,3],       t:'Placard'});
-  _buildFigLegend(host, netChart3pt, defs);
+  _buildFigLegend(host, netChart3pt, defs, 'netChart3pt'); // S267(E): chartKey enables the per-curve "A" annotation toggle (engine already supports this chart)
 }
 function renderFigVerdictNet3pt(){
   var el=document.getElementById('figv-netChart3pt'); if(!el) return;
