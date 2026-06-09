@@ -11525,16 +11525,20 @@ function applyTextSize(size){
 </script>
 <!-- ══ END CLOUDSYNC MODULE ══ -->
 
-<!-- ══ SERVICE WORKER REGISTRATION (Session 53) ══ -->
+<!-- ══ SERVICE WORKER ══ Diesel intentionally has no service worker (no offline
+     caching). Registration removed: sw-diesel.js never existed, so registering it
+     only produced a recurring console 404. Do not re-add without shipping the file.
+     Also proactively clear any ghost SW registered by an older build. -->
 <script>
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw-diesel.js').then(function(r){
-    console.log('[SW] Registered:', r.scope);
-  }).catch(function(e){
-    // Service worker file not found — that's OK, tool still works without it
-    console.log('[SW] Not available (offline caching disabled)');
-  });
-}
+try{
+  if('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){ r.unregister(); });
+    }).catch(function(){});
+  }
+}catch(e){}
+</script>
+<script>
 // Wrap CloudSync.save to stamp _cloudSyncedAt for self-trigger prevention
 if(typeof _wrapCloudSyncSave==='function') setTimeout(_wrapCloudSyncSave, 2000);
 /* ============ AI Text Review (S219) — diesel-adapted port of FRT assistant.js ============ */
