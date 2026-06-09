@@ -11071,12 +11071,44 @@ function _authHeaders(){
   return h;
 }
 
+// Refresh the Supabase access token using the stored refresh token.
+// Returns the new access token, or null if refresh isn't possible.
+async function _refreshAccessToken(){
+  var rt=localStorage.getItem('sb-refresh-token');
+  if(!rt) return null;
+  var SB_URL='https://xsemvinxsyphjiaqgywv.supabase.co';
+  var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+  try{
+    var res=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SB_ANON,'Authorization':'Bearer '+SB_ANON},
+      body:JSON.stringify({refresh_token:rt})
+    });
+    if(!res.ok) return null;
+    var data=await res.json();
+    if(data && data.access_token){
+      localStorage.setItem('sb-access-token',data.access_token);
+      if(data.refresh_token) localStorage.setItem('sb-refresh-token',data.refresh_token);
+      return data.access_token;
+    }
+  }catch(e){}
+  return null;
+}
+
 /* ── Core API calls ── */
 async function upload(projectId,tool,type,filename,blob){
   var path='/photos/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type)+'/'+encodeURIComponent(filename);
   var headers=_authHeaders();
   headers['Content-Type']=blob.type||'image/jpeg';
   var res=await fetch(WORKER_URL+path,{method:'PUT',headers:headers,body:blob});
+  if(res.status===401 || res.status===403){
+    // Token missing/expired — refresh once and retry.
+    var nt=await _refreshAccessToken();
+    if(nt){
+      headers['Authorization']='Bearer '+nt;
+      res=await fetch(WORKER_URL+path,{method:'PUT',headers:headers,body:blob});
+    }
+  }
   if(!res.ok){var err;try{err=await res.json();}catch(e){err={error:res.statusText};}throw new Error(err.error||res.statusText);}
   return await res.json();
 }
