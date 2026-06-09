@@ -5142,16 +5142,30 @@ document.addEventListener('click', function(e) {
     //   Move to Site Records  → release to the gallery as a site photo, then
     //                           soft-delete the pool entry
     //   Cancel
-    // Shared photos: if another obs on this pin also shows the photo, deleting
-    // or moving it affects them too — we warn so it isn't a surprise.
+    // S266c (Mark's rule): a photo shared by 2+ observations on this pin is
+    // NEVER pool-deleted or sent to Site Records from the ✕ — it's only
+    // de-selected from THIS observation (brief confirm first). The other obs
+    // keeps it. Only when this obs is the photo's last home does the user get
+    // the 3-button choice (Delete / Move to Site Records / Cancel).
     var shared = (photoId && Model.isPoolPhotoSharedAcrossObs)
       ? Model.isPoolPhotoSharedAcrossObs(deficId, photoId) : false;
-    var msg = shared
-      ? 'This photo is shown on more than one observation of this pin. Deleting or moving it affects all of them. What would you like to do?'
-      : 'What would you like to do with this photo?';
+    if (shared) {
+      showConfirm('Remove from this observation', 'Remove this photo from this observation? Other observations that use it will keep it.').then(function(yes) {
+        if (!yes) return;
+        var ok = false;
+        if (photoId && Model.removePhotoFromObs) {
+          ok = Model.removePhotoFromObs(deficId, obsIdx, photoId);
+        }
+        initDeficiencies.render();
+        if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+        _frtRefreshPinFocusIf(deficId);
+        toast(ok ? 'Removed from this observation' : 'Could not remove photo');
+      });
+      return;
+    }
     showDialog({
       title: 'Photo',
-      message: msg,
+      message: 'What would you like to do with this photo?',
       buttons: [
         {
           label: 'Move to Site Records', color: '#9C2742',
