@@ -506,10 +506,8 @@ body.dark-mode .pg-tool-body{background:#151920;}
 .pg-thumb.selected{border-color:#9C2742;}
 .pg-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .pg-thumb-badge{position:absolute;top:4px;right:4px;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;color:white;pointer-events:none;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.pg-thumb-cb{position:absolute;top:4px;left:4px;accent-color:#9C2742;width:22px;height:22px;cursor:pointer;opacity:0;transition:opacity .15s;z-index:2;}
-.pg-thumb:hover .pg-thumb-cb{opacity:1;}
+.pg-thumb-cb{position:absolute;top:4px;left:4px;accent-color:#9C2742;width:22px;height:22px;cursor:pointer;transition:opacity .15s;}
 .pg-thumb.selected .pg-thumb-cb{opacity:1;}
-@media(pointer:coarse){.pg-thumb-cb{opacity:.85;}}
 .pg-r2-icon{position:absolute;bottom:4px;left:4px;font-size:calc(10px + var(--ts));filter:drop-shadow(0 0 2px rgba(0,0,0,.5));}
 .pg-thumb-del{position:absolute;top:4px;right:4px;background:rgba(220,38,38,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:13px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
 .pg-thumb-dl{position:absolute;bottom:4px;right:4px;background:rgba(26,122,74,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:12px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
@@ -731,14 +729,6 @@ body.text-l{--ts:4px;}
             <label>Full Name</label>
             <input type="text" id="new-user-name" placeholder="e.g. John Smith">
           </div>
-          <div class="form-group" style="min-width:120px">
-            <label>Project / User #</label>
-            <input type="text" id="new-user-num" placeholder="e.g. 1042">
-          </div>
-          <div class="form-group" style="min-width:90px">
-            <label>Initials</label>
-            <input type="text" id="new-user-init" placeholder="e.g. MH" maxlength="6">
-          </div>
           <div class="form-group" style="flex:1;min-width:200px">
             <label>Email (@arencon.com)</label>
             <input type="email" id="new-user-email" placeholder="jsmith@arencon.com">
@@ -768,8 +758,6 @@ body.text-l{--ts:4px;}
           <thead>
             <tr>
               <th>Name</th>
-              <th>User #</th>
-              <th>Initials</th>
               <th>Email</th>
               <th>Role</th>
               <th>Status</th>
@@ -933,34 +921,24 @@ body.text-l{--ts:4px;}
   </div>
 </div>
 
-<!-- ═══════════ EDIT USER # MODAL ═══════════ -->
-<div class="modal-overlay" id="edit-num-modal">
+<!-- ═══════════ RESET PASSWORD MODAL ═══════════ -->
+<div class="modal-overlay" id="reset-pw-modal">
   <div class="modal-card">
-    <h3>Set Project / User #</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-num-user"></p>
+    <h3>Reset Password</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="reset-pw-user"></p>
     <div class="modal-field">
-      <label>Project / User #</label>
-      <input type="text" id="edit-num-input" placeholder="e.g. 1042 (leave blank to clear)">
+      <label>Temporary Password</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="reset-pw-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="flex:1">
+        <button class="admin-act-btn" type="button" onclick="regenTempPw()" title="Generate a new one">↻ New</button>
+        <button class="admin-act-btn" type="button" onclick="copyTempPw()" title="Copy to clipboard">Copy</button>
+      </div>
     </div>
+    <p id="reset-pw-note" style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">Give this to the user. They sign in with it, then change it from their Profile.</p>
+    <div id="reset-pw-success" style="display:none;background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.35);color:var(--yes);padding:9px 11px;border-radius:8px;font-size:calc(12.5px + var(--ts));margin-top:8px;line-height:1.4">✓ Password updated. Copy it above and send it to the user.</div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditNumModal()">Cancel</button>
-      <button class="dash-btn primary" onclick="saveUserNum()">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════ EDIT INITIALS MODAL ═══════════ -->
-<div class="modal-overlay" id="edit-init-modal">
-  <div class="modal-card">
-    <h3>Set Initials</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-init-user"></p>
-    <div class="modal-field">
-      <label>Initials</label>
-      <input type="text" id="edit-init-input" placeholder="e.g. MH (leave blank to clear)" maxlength="6">
-    </div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditInitModal()">Cancel</button>
-      <button class="dash-btn primary" onclick="saveUserInit()">Save</button>
+      <button class="dash-btn secondary" id="reset-pw-cancel" onclick="closeResetPwModal()">Cancel</button>
+      <button class="dash-btn primary" id="reset-pw-go" onclick="resetPwPrimary()">Set Password</button>
     </div>
   </div>
 </div>
@@ -1042,7 +1020,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="pin-setup-section">
       <h3>🔑 Lock PIN</h3>
-      <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">A 4&ndash;8 digit PIN is required for all ARENCON accounts. Locks your session after inactivity; change it any time.</p>
+      <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">Set a 4–8 digit PIN for automatic screen lock after inactivity</p>
       <div class="pin-setup-row">
         <div class="pin-setup-status" id="pin-status-text"><span class="pin-none">No PIN set</span></div>
       </div>
@@ -1070,37 +1048,6 @@ body.text-l{--ts:4px;}
 <div class="toast" id="toast"></div>
 
 <!-- ═══════════ PIN LOCK SCREEN ═══════════ -->
-<!-- ═══════════ MANDATORY PIN SETUP OVERLAY (S154 Bug #3) ═══════════
-     Forced gate on first sign-in: if profile.pin_hash is null, this
-     overlay shows BEFORE the dashboard becomes interactive. User cannot
-     dismiss — they must set a 4–8 digit PIN to continue. Uses the same
-     full-screen .pin-lock backdrop pattern as the soft-lock screen so
-     the visual treatment matches. No "Sign Out" footer (would loop them
-     right back to this screen on next sign-in). -->
-<div class="pin-lock" id="pin-required">
-  <div class="pin-lock-card">
-    <img id="pin-required-logo" src="" alt="ARENCON">
-    <div class="pin-lock-title">Set up your PIN</div>
-    <div class="pin-lock-sub">A 4&ndash;8 digit PIN is required to use ARENCON</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin:18px 0 8px;">
-      <input type="password" id="pin-req-new" placeholder="New PIN (4&ndash;8 digits)"
-             maxlength="8" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
-             style="font-family:Calibri,sans-serif;font-size:calc(16px + var(--ts));padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;text-align:center;letter-spacing:.4em;background:var(--bg);color:var(--fg);">
-      <input type="password" id="pin-req-confirm" placeholder="Confirm PIN"
-             maxlength="8" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
-             style="font-family:Calibri,sans-serif;font-size:calc(16px + var(--ts));padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;text-align:center;letter-spacing:.4em;background:var(--bg);color:var(--fg);">
-    </div>
-    <div class="pin-error-msg" id="pin-req-error" style="min-height:1.2em;color:var(--red);font-size:calc(12px + var(--ts));"></div>
-    <button onclick="_pinRequiredSave()"
-            style="width:100%;margin-top:6px;padding:13px 16px;background:var(--arencon);color:white;border:none;border-radius:8px;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts));font-weight:700;cursor:pointer;letter-spacing:.3px;">
-      Save and continue
-    </button>
-    <div class="pin-lock-footer">
-      <span style="color:var(--steel);">Your PIN locks the session after 4 hours of inactivity. You can change it any time from your profile.</span>
-    </div>
-  </div>
-</div>
-
 <div class="pin-lock" id="pin-lock">
   <div class="pin-lock-card">
     <img id="pin-lock-logo" src="" alt="ARENCON">
@@ -1140,43 +1087,9 @@ body.text-l{--ts:4px;}
    ═══════════════════════════════════════════════════════ */
 
 // ── Supabase Config ──
-// Production credentials (active by default)
-const SUPABASE_URL_PROD = 'https://xsemvinxsyphjiaqgywv.supabase.co';
-const SUPABASE_ANON_KEY_PROD = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
-
-// Staging credentials — fill in once the arencon-frt-staging Supabase project exists.
-// Until both fields are non-empty, ?staging=1 falls back to PROD with a visible warning banner.
-// These values MUST stay in sync with the equivalent block in frt/js/shared/auth.js — when
-// you receive the staging URL + anon key, update both files in the same commit.
-const SUPABASE_URL_STAGING = 'https://wifvxmqgnkhzxxctqojp.supabase.co';
-const SUPABASE_ANON_KEY_STAGING = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpZnZ4bXFnbmtoenh4Y3Rxb2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NzI1MjQsImV4cCI6MjA5NTE0ODUyNH0.D8xYU20jri0FdMcOtU0wZnSvlrRRpl1ZnEcwjCWrans';
-
-// ── Environment Detection ──
-const STAGING_REQUESTED = new URLSearchParams(location.search).get('staging') === '1';
-const STAGING_ACTIVE = STAGING_REQUESTED && !!SUPABASE_URL_STAGING && !!SUPABASE_ANON_KEY_STAGING;
-const SUPABASE_URL = STAGING_ACTIVE ? SUPABASE_URL_STAGING : SUPABASE_URL_PROD;
-const SUPABASE_ANON_KEY = STAGING_ACTIVE ? SUPABASE_ANON_KEY_STAGING : SUPABASE_ANON_KEY_PROD;
-
-// ── Staging Banner ──
-// Visible top stripe whenever ?staging=1 is in the URL. Two visual states:
-//   - STAGING_ACTIVE = true  → "STAGING ENVIRONMENT" (informational)
-//   - STAGING_ACTIVE = false → "STAGING NOT CONFIGURED — RUNNING ON PRODUCTION" (warning)
-// The second state is critical: it tells the user their staging request was ignored,
-// preventing the dangerous scenario where they think they're on staging but are actually
-// reading and writing production data.
-if (STAGING_REQUESTED) {
-  document.addEventListener('DOMContentLoaded', function(){
-    var bar = document.createElement('div');
-    bar.id = 'staging-banner';
-    var msg = STAGING_ACTIVE
-      ? '\u26A0 STAGING ENVIRONMENT \u2014 Test data only'
-      : '\u26A0 STAGING REQUESTED BUT NOT CONFIGURED \u2014 RUNNING ON PRODUCTION';
-    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:#1A1A1A;color:#FFD600;text-align:center;padding:6px 10px;font-family:Calibri,sans-serif;font-weight:bold;font-size:13px;letter-spacing:1px;box-shadow:0 2px 6px rgba(0,0,0,.35);border-bottom:2px solid #FFD600;';
-    bar.textContent = msg;
-    document.body.insertBefore(bar, document.body.firstChild);
-    document.body.style.paddingTop = '32px';
-  });
-}
+const SUPABASE_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+const AUTH_WORKER_URL = 'https://arencon-auth-worker.hezhendong999.workers.dev';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
 
 // ── State ──
 let _sb = null;           // Supabase client
@@ -1189,6 +1102,8 @@ let _filterMode = 'my';   // 'my' or 'all' or 'starred'
 let _showArchived = false;
 let _showDeleted = false;
 let _editRoleUserId = null;
+let _resetPwUserId = null;
+let _resetPwDone = false;
 let _darkMode = localStorage.getItem('ARENCON_Dark') === '1';
 
 // ── Supabase Client (lightweight REST wrapper — no SDK needed) ──
@@ -2070,8 +1985,7 @@ function launchTool(key) {
     + '&pname=' + encodeURIComponent(proj.project_name || '')
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
-    + '&sfn=' + encodeURIComponent(sfn)
-    + (STAGING_REQUESTED ? '&staging=1' : '');
+    + '&sfn=' + encodeURIComponent(sfn);
   window.open(url, '_blank');
 }
 
@@ -2219,8 +2133,7 @@ function launchToolInstance(key, instanceId) {
     + '&pname=' + encodeURIComponent(proj.project_name || '')
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
-    + '&sfn=' + encodeURIComponent(sfn)
-    + (STAGING_REQUESTED ? '&staging=1' : '');
+    + '&sfn=' + encodeURIComponent(sfn);
   window.open(url, '_blank');
 }
 
@@ -2700,14 +2613,13 @@ function renderAdminUsers() {
 
     return '<tr>'
       + '<td>' + esc(u.full_name || '—') + (isSelf ? ' <span style="color:var(--arencon);font-size:calc(11px + var(--ts))">(you)</span>' : '') + '</td>'
-      + '<td>' + esc(u.user_number || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditNum(\'' + u.id + '\')">Set #</button>' : '') + '</td>'
-      + '<td>' + esc(u.initials || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditInit(\'' + u.id + '\')">Set</button>' : '') + '</td>'
       + '<td>' + esc(u.email || '—') + '</td>'
       + '<td><span class="admin-role-badge ' + roleClass(u.role) + statusClass + '">' + formatRole(u.role) + '</span></td>'
       + '<td>' + (u.is_active ? '<span style="color:var(--yes)">Active</span>' : '<span style="color:var(--no)">Deactivated</span>') + '</td>'
       + '<td style="font-size:calc(12px + var(--ts));color:var(--silver)">' + (u.last_login ? formatDate(u.last_login) : 'Never') + '</td>'
       + '<td><div class="admin-actions">'
       + (canEdit && !isSelf ? '<button class="admin-act-btn" onclick="openEditRole(\'' + u.id + '\')">Role</button>' : '')
+      + (canEdit && !isSelf ? '<button class="admin-act-btn" onclick="openResetPw(\'' + u.id + '\')">Reset PW</button>' : '')
       + (canEdit && !isSelf ? '<button class="admin-act-btn danger" onclick="toggleUserActive(\'' + u.id + '\')">' + (u.is_active ? 'Deactivate' : 'Activate') + '</button>' : '')
       + '</div></td>'
       + '</tr>';
@@ -2717,8 +2629,6 @@ function renderAdminUsers() {
 /* ═══ Create User ═══ */
 async function createUser() {
   const nameVal = document.getElementById('new-user-name').value.trim();
-  const numVal = document.getElementById('new-user-num').value.trim();
-  const initVal = document.getElementById('new-user-init').value.trim().toUpperCase();
   const emailVal = document.getElementById('new-user-email').value.trim().toLowerCase();
   const passVal = document.getElementById('new-user-pass').value;
   const roleVal = document.getElementById('new-user-role').value;
@@ -2757,8 +2667,6 @@ async function createUser() {
         full_name: nameVal,
         email: emailVal,
         role: roleVal,
-        user_number: numVal || null,
-        initials: initVal || null,
         is_active: true
       });
     } catch (profileErr) {
@@ -2766,8 +2674,6 @@ async function createUser() {
     }
     toast('User created: ' + nameVal + ' (' + emailVal + ')', 'success');
     document.getElementById('new-user-name').value = '';
-    document.getElementById('new-user-num').value = '';
-    document.getElementById('new-user-init').value = '';
     document.getElementById('new-user-email').value = '';
     document.getElementById('new-user-pass').value = '';
     await loadAdminUsers();
@@ -2809,62 +2715,94 @@ async function saveRoleChange() {
   }
 }
 
-/* ═══ Set Project / User # ═══ */
-let _editNumUserId = null;
-function openEditNum(userId) {
-  _editNumUserId = userId;
-  const u = _allUsers.find(x => x.id === userId);
+/* ═══ Reset Password (admin → temp password via arencon-auth-worker) ═══ */
+function genTempPassword() {
+  // 12 chars, mixed classes, ambiguous characters (0/O/1/l/I) removed for readability
+  var U = 'ABCDEFGHJKLMNPQRSTUVWXYZ', L = 'abcdefghijkmnpqrstuvwxyz', D = '23456789', S = '!@#$%&*';
+  var all = U + L + D + S;
+  function pick(set) { return set[Math.floor(Math.random() * set.length)]; }
+  var out = [pick(U), pick(L), pick(D), pick(S)];
+  for (var i = 0; i < 8; i++) out.push(pick(all));
+  for (var j = out.length - 1; j > 0; j--) { var k = Math.floor(Math.random() * (j + 1)); var t = out[j]; out[j] = out[k]; out[k] = t; }
+  return out.join('');
+}
+
+function openResetPw(userId) {
+  _resetPwUserId = userId;
+  _resetPwDone = false;
+  var u = _allUsers.find(function (x) { return x.id === userId; });
   if (!u) return;
-  document.getElementById('edit-num-user').textContent = u.full_name + ' (' + u.email + ')';
-  document.getElementById('edit-num-input').value = u.user_number || '';
-  document.getElementById('edit-num-modal').classList.add('show');
+  document.getElementById('reset-pw-user').textContent = u.full_name + ' (' + u.email + ')';
+  var inp = document.getElementById('reset-pw-input');
+  inp.value = genTempPassword();
+  inp.readOnly = false;
+  document.getElementById('reset-pw-success').style.display = 'none';
+  document.getElementById('reset-pw-note').style.display = 'block';
+  document.getElementById('reset-pw-cancel').style.display = '';
+  var go = document.getElementById('reset-pw-go');
+  go.textContent = 'Set Password';
+  go.disabled = false;
+  document.getElementById('reset-pw-modal').classList.add('show');
 }
 
-function closeEditNumModal() {
-  document.getElementById('edit-num-modal').classList.remove('show');
-  _editNumUserId = null;
+function closeResetPwModal() {
+  document.getElementById('reset-pw-modal').classList.remove('show');
+  _resetPwUserId = null;
+  _resetPwDone = false;
 }
 
-async function saveUserNum() {
-  if (!_editNumUserId) return;
-  const newNum = document.getElementById('edit-num-input').value.trim();
-  try {
-    await _sb.from('profiles').eq('id', _editNumUserId).update({ user_number: newNum || null });
-    toast(newNum ? 'User # set to ' + newNum : 'User # cleared', 'success');
-    closeEditNumModal();
-    await loadAdminUsers();
-  } catch (e) {
-    toast('Failed: ' + e.message, 'error');
+function regenTempPw() {
+  document.getElementById('reset-pw-input').value = genTempPassword();
+}
+
+function copyTempPw() {
+  var v = document.getElementById('reset-pw-input').value;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(v).then(function () { toast('Password copied', 'success'); })
+      .catch(function () { toast('Copy failed — select and copy manually', 'error'); });
+  } else {
+    var el = document.getElementById('reset-pw-input');
+    el.readOnly = false; el.select();
+    try { document.execCommand('copy'); toast('Password copied', 'success'); }
+    catch (e) { toast('Copy failed — select and copy manually', 'error'); }
   }
 }
 
-/* ═══ Set Initials ═══ */
-let _editInitUserId = null;
-function openEditInit(userId) {
-  _editInitUserId = userId;
-  const u = _allUsers.find(x => x.id === userId);
-  if (!u) return;
-  document.getElementById('edit-init-user').textContent = u.full_name + ' (' + u.email + ')';
-  document.getElementById('edit-init-input').value = u.initials || '';
-  document.getElementById('edit-init-modal').classList.add('show');
+function resetPwPrimary() {
+  if (_resetPwDone) { closeResetPwModal(); return; }
+  submitResetPw();
 }
 
-function closeEditInitModal() {
-  document.getElementById('edit-init-modal').classList.remove('show');
-  _editInitUserId = null;
-}
-
-async function saveUserInit() {
-  if (!_editInitUserId) return;
-  // Store uppercased, trimmed. Blank clears (falls back to name-derived initials).
-  const newInit = document.getElementById('edit-init-input').value.trim().toUpperCase();
+async function submitResetPw() {
+  if (!_resetPwUserId) return;
+  var pw = document.getElementById('reset-pw-input').value;
+  if (!pw || pw.length < 8) { toast('Password must be at least 8 characters', 'error'); return; }
+  var go = document.getElementById('reset-pw-go');
+  go.disabled = true;
+  var orig = go.textContent;
+  go.textContent = 'Setting…';
   try {
-    await _sb.from('profiles').eq('id', _editInitUserId).update({ initials: newInit || null });
-    toast(newInit ? 'Initials set to ' + newInit : 'Initials cleared', 'success');
-    closeEditInitModal();
-    await loadAdminUsers();
+    var token = localStorage.getItem('sb-access-token');
+    var res = await fetch(AUTH_WORKER_URL + '/admin/set-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ userId: _resetPwUserId, password: pw })
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok || !data.ok) { throw new Error(data.error || ('HTTP ' + res.status)); }
+    // Success — keep the password on screen so it can be copied/sent
+    _resetPwDone = true;
+    document.getElementById('reset-pw-input').readOnly = true;
+    document.getElementById('reset-pw-note').style.display = 'none';
+    document.getElementById('reset-pw-success').style.display = 'block';
+    document.getElementById('reset-pw-cancel').style.display = 'none';
+    go.disabled = false;
+    go.textContent = 'Done';
+    toast('Password reset', 'success');
   } catch (e) {
-    toast('Failed: ' + e.message, 'error');
+    go.disabled = false;
+    go.textContent = orig;
+    toast('Reset failed: ' + e.message, 'error');
   }
 }
 
@@ -3387,10 +3325,7 @@ function _downloadJSON(data, filename) {
 async function _fetchProjectToolData(projectId) {
   try {
     var rows = await _sb.from('tool_data').eq('project_id', projectId).execute();
-    // S127 PUSH E — Bug fix: the _sb wrapper's execute() returns rows as a
-    // flat array (see line 2024 for usage pattern), not wrapped in {data:...}.
-    // Previously returned rows.data which was always undefined → empty exports.
-    return Array.isArray(rows) ? rows : [];
+    return (rows && rows.data) ? rows.data : [];
   } catch (e) { return []; }
 }
 
@@ -3555,14 +3490,10 @@ async function r2RefreshStatus() {
   grid.innerHTML = '';
 
   var WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
-  // S130 — list by project UUID. FRT sends R2 PUTs to /photos/{UUID}/frt/...
-  // (the UUID comes from the ?project= URL param). The worker stores it as
-  // {UUID}/photos/frt/... — so the worker's /list/ endpoint, given
-  // /list/{UUID}/frt/{type}, builds the matching prefix internally. We just
-  // pass the UUID as the folder. (Legacy projects used a number+name slug;
-  // the worker's getR2Object has fallbacks for those, and the lazy-load 404
-  // retry below covers stragglers.)
-  var r2Folder = projId;
+  // Build slug folder for R2 list path (same logic as FRT _makeR2FolderSlug)
+  var proj = _projects ? _projects.find(function(p){ return p.id === projId; }) : null;
+  var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
+  var r2Folder = slug || projId;
 
   // Always refresh token before R2 calls to avoid 401/empty results
   try { await _sb.auth.refreshSession(); } catch(e) {}
@@ -3580,38 +3511,23 @@ async function r2RefreshStatus() {
     { key: 'electric-photos',label: '⚡ Electric Pump Photos',tool: 'electric', type: 'original', filter: null, color: '#F57C00' },
   ];
 
-  // S130 — legacy projects stored R2 objects under a number+name slug; new
-  // projects use the UUID. Build both candidate folders and try UUID first,
-  // slug second. The worker's /list/ transposes {folder}/{tool}/{type} into
-  // the {folder}/photos/{tool}/{type}/ prefix that matches the bucket.
-  var slugFolder = null;
-  try {
-    var _proj = _projects ? _projects.find(function(p){ return p.id === projId; }) : null;
-    if (_proj) slugFolder = _pgMakeR2FolderSlug(_proj.project_number, _proj.project_name);
-  } catch(e) {}
-
   // Fetch all R2 file lists in parallel
   var results = await Promise.all(types.map(async function(t) {
-    async function listFolder(folder) {
-      var path = '/list/' + encodeURIComponent(folder) + '/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
+    try {
+      var path = '/list/' + encodeURIComponent(r2Folder) + '/' + encodeURIComponent(t.tool) + '/' + encodeURIComponent(t.type);
       var res = await fetch(WORKER + path, { headers: headers });
       if (!res.ok) {
-        if (res.status === 404) return [];
-        throw new Error('HTTP ' + res.status);
+        if (res.status === 404) return { type: t, files: [], error: null };
+        return { type: t, files: [], error: 'HTTP ' + res.status };
       }
       var data = await res.json();
-      return Array.isArray(data) ? data : (data.objects || data.files || data.items || []);
-    }
-    try {
-      // Try UUID folder first; if empty, try the legacy slug folder.
-      var files = await listFolder(r2Folder);
-      if ((!files || !files.length) && slugFolder && slugFolder !== r2Folder) {
-        files = await listFolder(slugFolder);
-      }
+      // data may be [{key, size}, ...] or {objects:[...]} or {prefix, count, files:[...]}
+      var files = Array.isArray(data) ? data : (data.objects || data.files || data.items || []);
       // Apply filter for types that share the same R2 folder (original/)
       if (t.filter) {
         files = files.filter(function(f) {
           var name = typeof f === 'string' ? f : (f.key || f.name || '');
+          // Extract just the filename
           var parts = name.split('/');
           var fname = parts[parts.length - 1];
           return t.filter(fname);
@@ -3740,25 +3656,22 @@ function _pgMakeR2FolderSlug(pn, pname) {
   return raw.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '').substring(0, 80) || null;
 }
 
-// Resolve photo src from r2Key.
-//
-// ph.r2Key is the URL-shape path FRT records: `photos/{folder}/frt/{type}/
-// {filename}` (frt/js/data/r2.js line 57). The R2 worker's GET endpoint
-// expects exactly this URL shape and internally transposes it to the
-// stored key shape `{folder}/photos/frt/{type}/...` (see urlPathToR2Key in
-// arencon-r2-worker.js). So prefixing the worker origin onto r2Key as-is
-// produces a working URL — no path rewriting needed here.
-//
-// S130 — an earlier version of this function rewrote the folder segment
-// with a "slug" derived from project number+name. That was wrong for
-// current data (FRT passes the project UUID) and produced dead URLs.
-// Trust r2Key verbatim.
+// Resolve photo src from r2Key using project slug folder — ALWAYS rebuilds, never trusts stored r2Url
 function _pgResolveR2Src(ph, projectId) {
   if (!ph || typeof ph !== 'object') return (typeof ph === 'string') ? ph : '';
+  // Always rebuild from r2Key using slug (r2Url in Supabase may be stale)
   if (ph.r2Key) {
-    // r2Key is already the correct URL-shape path. Prefix the worker origin;
-    // encode each segment but preserve the slashes.
-    return R2_WORKER + '/' + ph.r2Key.split('/').map(encodeURIComponent).join('/');
+    var parts = ph.r2Key.split('/');
+    // Expected: ['photos', '{pid}', 'frt', '{type}', '{fname}']
+    if (parts.length >= 5 && parts[0] === 'photos') {
+      var proj = _projects ? _projects.find(function(p) { return p.id === projectId; }) : null;
+      var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
+      var folder = slug || parts[1];
+      var type = parts[3];
+      var fname = parts.slice(4).join('/');
+      return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/frt/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
+    }
+    return R2_WORKER + '/' + ph.r2Key;
   }
   // Fallback to r2Url if no r2Key
   if (ph.r2Url) return ph.r2Url;
@@ -3785,24 +3698,17 @@ function _pgExtractPhotos(row) {
   var instNum = row.instance_number || 1;
   var label = row.label || (toolLabel + ' #' + instNum);
 
-  function _makeRec(src, type, caption, date, extras) {
+  function _makeRec(src, type, caption, date) {
     if (!src) return null;
-    var rec = { src: src, type: type, caption: caption || '', tool: label, toolKey: toolKey,
+    return { src: src, type: type, caption: caption || '', tool: label, toolKey: toolKey,
              date: date || row.updated_at || '', id: 'pg_' + Math.random().toString(36).substr(2,9),
-             instanceNum: instNum, instanceId: row.id || null, projectId: projectId };
-    // S130 Proposal A — Optional FRT-only fields for deep-link to pin editor.
-    // extras = { deficId, obsIdx } when known.
-    if (extras && extras.deficId) rec.deficId = extras.deficId;
-    if (extras && typeof extras.obsIdx === 'number') rec.obsIdx = extras.obsIdx;
-    return rec;
+             instanceNum: instNum };
   }
 
   // ── FRT ──
   if (toolKey === 'frt') {
-    // Site photos. S130 fix: FRT v2 migrated `sitePhotos` → `photos` at
-    // project root (see frt/js/data/model.js _normalize). Read `data.photos`
-    // first; fall back to legacy `sitePhotos` for ancient unmigrated rows.
-    (data.photos || data.sitePhotos || []).forEach(function(ph) {
+    // Site photos
+    (data.sitePhotos || []).forEach(function(ph) {
       if (!ph) return;
       var src = _pgResolveR2Src(ph, projectId);
       if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
@@ -3837,7 +3743,7 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', { deficId: d.id, obsIdx: oi }));
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
                 emittedAtLeastOne = true;
               });
             });
@@ -3848,7 +3754,7 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', { deficId: d.id, obsIdx: oi }));
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
                 emittedAtLeastOne = true;
               });
             });
@@ -3867,7 +3773,7 @@ function _pgExtractPhotos(row) {
               if (seenIds[pid]) return;
               seenIds[pid] = true;
               var obsLabel = numEn > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + ei) : '';
-              photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', { deficId: d.id, obsIdx: ei }));
+              photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
               emittedAtLeastOne = true;
             });
           });
@@ -3877,7 +3783,7 @@ function _pgExtractPhotos(row) {
               if (ph && ph.deleted) return; // skip soft-deleted
               var src = _pgResolveR2Src(ph, projectId);
               if (!src) return;
-              photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || '', { deficId: d.id }));
+              photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
             });
           }
         }
@@ -4128,7 +4034,7 @@ function _pgRender() {
         var r2Icon = isR2 ? '<span class="pg-r2-icon" title="Stored in cloud">☁️</span>' : '';
 
         html += '<div class="pg-thumb' + (sel ? ' selected' : '') + '" data-pg-id="' + ph.id + '" '
-              + 'onclick="pgLbOpen(\'' + ph.id + '\')">';
+              + 'onclick="pgThumbClick(\'' + ph.id + '\',event)" ondblclick="pgLbOpen(\'' + ph.id + '\')">';
         html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\',event)">';
         html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" style="background:#ddd;">';
         html += '<div class="pg-thumb-badge" style="background:' + badgeColor + ';">' + _pgEscHtml(badgeLabel) + '</div>';
@@ -4586,32 +4492,6 @@ function _pgLbShow() {
   if (info) {
     info.textContent = ph.tool + ' · ' + ph.caption + (ph.date ? ' · ' + ph.date.substring(0,10) : '') + '  (' + (_pgLbIdx + 1) + '/' + _pgLbList.length + ')';
   }
-  // S130 Proposal A — show "Open in FRT" only for FRT defic photos that
-  // carry a deficId. Site photos and non-FRT photos hide the button.
-  var openBtn = document.getElementById('pg-lb-open-pin');
-  if (openBtn) {
-    openBtn.style.display = (ph.toolKey === 'frt' && ph.deficId) ? '' : 'none';
-  }
-}
-
-// S130 Proposal A — Deep-link jump from Hub photo lightbox into the FRT
-// pin editor for that specific deficiency on that specific FRT instance.
-// Pattern: frt/index.html?project=<pid>&instance=<instUuid>&pinFocus=<deficId>&from=hub
-// FRT side parses pinFocus and calls _frtNavigateToPin after boot. The
-// existing back button (already wired in detectHubMode) returns to the Hub.
-function pgLbOpenInFrt() {
-  var ph = _pgLbList[_pgLbIdx];
-  if (!ph || !ph.deficId) return;
-  var pid = ph.projectId;
-  if (!pid) return;
-  var url = 'frt/index.html?project=' + encodeURIComponent(pid)
-          + (ph.instanceId ? '&instance=' + encodeURIComponent(ph.instanceId) : '')
-          + '&pinFocus=' + encodeURIComponent(ph.deficId)
-          + '&from=hub'
-          + (STAGING_REQUESTED ? '&staging=1' : '');
-  // Close lightbox before navigating so it doesn't flash on back-nav.
-  pgLbClose();
-  window.location.href = url;
 }
 
 function pgLbNav(dir) {
@@ -4685,7 +4565,6 @@ function _pgEscHtml(s) {
   <button class="pg-lb-nav" id="pg-lb-next" onclick="pgLbNav(1)">›</button>
   <div id="pg-lb-info"></div>
   <div id="pg-lb-actions">
-    <button id="pg-lb-open-pin" onclick="pgLbOpenInFrt()" style="display:none;">📍 Open in FRT</button>
     <button onclick="pgLbDownload()">⬇ Download</button>
   </div>
 </div>
@@ -4750,22 +4629,16 @@ function _pgEscHtml(s) {
   }
 
   function checkInactivity() {
-    // S154 Bug #3: dropped _pinHash early-return so no-PIN users
-    // actually get signed out instead of staying in indefinitely.
-    // PIN users → soft pin-lock at SOFT_LOCK_MS; no-PIN users →
-    // full sign-out at SOFT_LOCK_MS (we have no screen-lock fallback
-    // without a PIN). HARD_LOCK_MS still forces full sign-out for
-    // everyone regardless of PIN state.
-    if (!_user || _locked) return;
+    // Only check if user is logged in and has a PIN set
+    if (!_user || !_pinHash || _locked) return;
     var elapsed = Date.now() - getLastActivity();
     if (elapsed >= HARD_LOCK_MS) {
-      // Full sign-out (everyone)
+      // Full sign-out — no PIN option
       doLogout();
       return;
     }
     if (elapsed >= SOFT_LOCK_MS) {
-      if (_pinHash) showPinLock();   // PIN users → soft lock
-      else doLogout();                // no-PIN users → full sign-out
+      showPinLock();
     }
   }
 
@@ -4890,12 +4763,7 @@ function _pgEscHtml(s) {
     }
     document.getElementById('pin-set-btn').style.display = hasPin ? 'none' : '';
     document.getElementById('pin-change-btn').style.display = hasPin ? '' : 'none';
-    // S154 Bug #3: PIN is now mandatory for all ARENCON accounts.
-    // The Remove button is permanently hidden \u2014 the only way to "remove"
-    // a PIN is to change it to a new one. Admin-side PIN reset (clearing
-    // pin_hash in Supabase) will re-trigger the forced-setup overlay
-    // on the user's next sign-in.
-    document.getElementById('pin-remove-btn').style.display = 'none';
+    document.getElementById('pin-remove-btn').style.display = hasPin ? '' : 'none';
     document.getElementById('pin-setup-form').style.display = 'none';
     document.getElementById('pin-setup-actions').style.display = '';
   }
@@ -4974,10 +4842,7 @@ function _pgEscHtml(s) {
   };
 
   /* ── Hook into existing auth flow ── */
-  // After login/restore, load PIN hash and start checker.
-  // S154 Bug #3: PIN is now MANDATORY. If profile has no pin_hash, the
-  // forced-setup overlay (#pin-required) is shown and blocks all
-  // dashboard interaction until the user creates a 4–8 digit PIN.
+  // After login/restore, load PIN hash and start checker
   var _origShowApp = window.showApp;
   window.showApp = function() {
     _origShowApp();
@@ -4986,63 +4851,14 @@ function _pgEscHtml(s) {
       _pinHash = _profile.pin_hash;
       var cached = localStorage.getItem(LS_PIN_LEN_KEY);
       _pinDigitCount = cached ? parseInt(cached, 10) : 6;
-      refreshPinUI();
-      stampActivity();
-      startInactivityChecker();
-      checkInactivity();
     } else {
       _pinHash = null;
-      refreshPinUI();
-      // S154 Bug #3: mandatory PIN gate. Open the forced-setup overlay
-      // BEFORE the inactivity checker starts (don't want a "session
-      // locked" race on a fresh login that hasn't set a PIN yet).
-      _showPinRequired();
     }
-  };
-
-  // S154 Bug #3: forced PIN-setup overlay control + save handler.
-  // Mirrors _pinSetupSave but writes to the dedicated #pin-required
-  // overlay (which has no Cancel path), then hides the overlay and
-  // starts the normal activity checker so the session can begin.
-  function _showPinRequired() {
-    try {
-      // Sync logo into the overlay's <img>
-      var hdrLogo = document.querySelector('.hdr img');
-      var reqLogo = document.getElementById('pin-required-logo');
-      if (hdrLogo && reqLogo && hdrLogo.src) reqLogo.src = hdrLogo.src;
-    } catch (_) {}
-    var overlay = document.getElementById('pin-required');
-    if (!overlay) return;
-    document.getElementById('pin-req-new').value = '';
-    document.getElementById('pin-req-confirm').value = '';
-    document.getElementById('pin-req-error').textContent = '';
-    overlay.classList.add('show');
-    setTimeout(function(){ try { document.getElementById('pin-req-new').focus(); } catch (_) {} }, 50);
-  }
-
-  window._pinRequiredSave = async function() {
-    var errEl = document.getElementById('pin-req-error');
-    var newVal = document.getElementById('pin-req-new').value.trim();
-    var confirmVal = document.getElementById('pin-req-confirm').value.trim();
-    errEl.textContent = '';
-    if (!/^\d{4,8}$/.test(newVal)) { errEl.textContent = 'PIN must be 4\u20138 digits, numbers only.'; return; }
-    if (newVal !== confirmVal)     { errEl.textContent = 'PINs do not match.'; return; }
-    var newHash = await hashPin(newVal);
-    try {
-      await _sb.from('profiles').eq('id', _user.id).update({ pin_hash: newHash });
-      _pinHash = newHash;
-      _pinDigitCount = newVal.length;
-      localStorage.setItem(LS_PIN_LEN_KEY, _pinDigitCount.toString());
-      if (_profile) _profile.pin_hash = newHash;
-      // Dismiss overlay, refresh the profile-modal PIN UI, start activity checker.
-      document.getElementById('pin-required').classList.remove('show');
-      refreshPinUI();
-      stampActivity();
-      startInactivityChecker();
-      toast('PIN saved \u2014 welcome to ARENCON', 'success');
-    } catch (e) {
-      errEl.textContent = 'Could not save PIN: ' + (e && e.message ? e.message : 'unknown error');
-    }
+    refreshPinUI();
+    stampActivity();
+    startInactivityChecker();
+    // Check immediately in case returning to a stale tab
+    checkInactivity();
   };
 
   // Refresh PIN UI when profile modal opens
@@ -5132,8 +4948,7 @@ function _pgEscHtml(s) {
       +'&pn='+encodeURIComponent(pn)
       +'&pname='+encodeURIComponent(pname)
       +'&client='+encodeURIComponent(client)
-      +'&addr='+encodeURIComponent(addr)
-      +(STAGING_REQUESTED ? '&staging=1' : '');
+      +'&addr='+encodeURIComponent(addr);
     var toolLabel=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].name:toolKey;
     openQRModal(url,'Open '+toolLabel,'Scan to open tool for: '+(pn+' '+pname).trim());
   };
