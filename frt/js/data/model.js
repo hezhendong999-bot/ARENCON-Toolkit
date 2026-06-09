@@ -1877,6 +1877,80 @@ export var Model = {
     return true;
   },
 
+  // S266 — release ONE live pool photo to Site Records, then soft-delete its
+  // pool entry. Extracted from removeDeficiency's per-photo release loop so the
+  // pin-editor ✕ ("Move to Site Records") and obs-delete ("Move photos to Site
+  // Records") share one proven path. Binary is never destroyed: the R2 object
+  // stays, and the photo reappears in the gallery as a site photo.
+  //   - If the same binary is ALREADY a live site photo, skip the copy (no dup)
+  //     but still soft-delete the pool entry (it's safely in Site Records).
+  //   - If another pin still references the same binary, we still release a site
+  //     copy here (the caller asked to move THIS pin's photo out) — the other
+  //     pin keeps its own pool entry untouched.
+  // Returns { ok, sited } — sited:true if a new site photo was created.
+  releasePoolPhotoToSite: function(deficId, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return { ok: false, sited: false };
+    var pool = f.defic.photos || [];
+    var p = pool.find(function(x) { return x && x.id === photoId; });
+    if (!p || p.deleted) return { ok: false, sited: false };
+    if (!_project) return { ok: false, sited: false };
+    if (!Array.isArray(_project.photos)) _project.photos = [];
+    var self = this;
+    var key = this._photoIdentityKey(p);
+    var alreadySite = key && _project.photos.some(function(sp) {
+      return sp && !sp.deleted && self._photoIdentityKey(sp) === key;
+    });
+    var sited = false;
+    if (!alreadySite) {
+      _project.photos.push({
+        id: _uid('ph'),
+        r2Key: p.r2Key || null,
+        sourceR2Key: p.sourceR2Key || p.r2Key || null,
+        r2Url: p.r2Url || null,
+        dataUrl: p.dataUrl || null,
+        thumb: p.thumb || null,
+        filename: p.filename || ('photo_' + Date.now() + '.jpg'),
+        addedDate: p.addedDate || new Date().toISOString().split('T')[0],
+        createdBy: p.createdBy || _currentUserId || null,
+        r2Status: p.r2Status || undefined,
+        _releasedFromPin: f.defic.num != null ? f.defic.num : true
+      });
+      sited = true;
+    }
+    // Soft-delete the pool entry (cascades out of selections + markups).
+    this.removePoolPhoto(deficId, photoId);
+    return { ok: true, sited: sited };
+  },
+
+  // S266 — true if a pool photo is shown by MORE THAN ONE observation on its
+  // pin (default-state obs count, since they show every pool photo). Used by
+  // obs-delete to leave shared photos alone (Mark's rule: only act on photos
+  // unique to the observation being deleted).
+  isPoolPhotoSharedAcrossObs: function(deficId, photoId) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return false;
+    return this.getObsIndicesUsingPoolPhoto(f.defic, photoId).length > 1;
+  },
+
+  // S266 — the pool photo ids that ONLY this observation shows (not any sibling
+  // obs on the same pin). Drives obs-delete's "act only on unique photos" path.
+  // Returns live (non-deleted) pool entries.
+  getPhotosUniqueToObs: function(deficId, obsIdx) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return [];
+    var defic = f.defic;
+    var obs = (defic.observations || [])[obsIdx];
+    if (!obs) return [];
+    var self = this;
+    var effective = this.getEffectivePhotos(defic, obsIdx) || [];
+    return effective.filter(function(p) {
+      if (!p || p.deleted) return false;
+      // shown by exactly one obs (this one) → unique
+      return self.getObsIndicesUsingPoolPhoto(defic, p.id).length <= 1;
+    });
+  },
+
   // S120 Push 10: restore a soft-deleted pool photo. Counterpart to
   // removePoolPhoto — clears the deleted/deletedDate flags so the photo
   // becomes visible again. Does NOT re-add the photo to any obs's

@@ -3463,6 +3463,70 @@ function _closePinFocus() {
   if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
   if (_pinFocusKeyH) { document.removeEventListener('keydown', _pinFocusKeyH); _pinFocusKeyH = null; }
 }
+// S266 — shared obs-deletion flow used by both the Active-tab "Remove obs"
+// button and the Detailed-view row delete. If the observation has photos that
+// NO sibling obs on the same pin shows ("unique" photos), offer three choices:
+//   Delete all          → soft-delete those unique photos, then remove the obs
+//   Move to Site Records → release those unique photos to the gallery, then
+//                          remove the obs
+//   Cancel
+// Photos that a sibling obs also shows are LEFT ALONE (Mark's rule). When the
+// obs has no unique photos, falls back to a plain confirm (nothing to decide).
+// afterFn runs after a successful removal (caller does render + editor refresh).
+function _confirmRemoveObsWithPhotos(deficId, obsIdx, afterFn) {
+  // Guard: removeObservation refuses to delete the last observation on a pin
+  // (returns without acting). If we proceeded we'd soft-delete photos for an
+  // obs that never gets removed. Callers that handle the last-obs case route to
+  // removeDeficiency instead (which releases photos to Site Records itself); a
+  // bare remove-obs on a single-obs pin simply does nothing here.
+  var _gf = Model.findDeficiency(deficId);
+  if (_gf && (_gf.defic.observations || []).length <= 1) {
+    toast('A pin must keep at least one observation');
+    return;
+  }
+  var unique = (Model.getPhotosUniqueToObs)
+    ? Model.getPhotosUniqueToObs(deficId, obsIdx) : [];
+  function _removeNow() {
+    Model.removeObservation(deficId, obsIdx);
+    if (typeof afterFn === 'function') afterFn();
+  }
+  if (!unique.length) {
+    showConfirm('Remove Observation', 'Remove this observation? This cannot be undone.').then(function(yes) {
+      if (yes) { _removeNow(); toast('Observation removed'); }
+    });
+    return;
+  }
+  var n = unique.length;
+  var noun = n === 1 ? 'photo' : 'photos';
+  showDialog({
+    title: 'Remove Observation',
+    message: 'This observation has ' + n + ' ' + noun + ' not used by any other observation on this pin. What should happen to ' + (n === 1 ? 'it' : 'them') + '?',
+    buttons: [
+      {
+        label: 'Move ' + noun + ' to Site Records', color: '#9C2742',
+        action: function() {
+          unique.forEach(function(p) {
+            if (p && p.id && Model.releasePoolPhotoToSite) Model.releasePoolPhotoToSite(deficId, p.id);
+          });
+          _removeNow();
+          toast('Observation removed \u00b7 ' + n + ' ' + noun + ' moved to Site Records');
+        }
+      },
+      {
+        label: 'Delete all', color: '#C0392B',
+        action: function() {
+          unique.forEach(function(p) {
+            if (p && p.id && Model.removePoolPhoto) Model.removePoolPhoto(deficId, p.id);
+          });
+          _removeNow();
+          toast('Observation removed \u00b7 ' + n + ' ' + noun + ' moved to Recently Deleted');
+        }
+      },
+      { label: 'Cancel', color: '#9C2742', outline: true, action: function() {} }
+    ]
+  });
+}
+
 function _openPinFocus(deficId, focusOi) {
   if (!deficId) return;
   var f = Model.findDeficiency(deficId);
@@ -4705,12 +4769,8 @@ document.addEventListener('click', function(e) {
   if (action === 'remove-obs') {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    showConfirm('Remove Observation', 'Remove this observation? This cannot be undone.').then(function(yes) {
-      if (yes) {
-        Model.removeObservation(deficId, obsIdx);
-        initDeficiencies.render();
-        toast('Observation removed');
-      }
+    _confirmRemoveObsWithPhotos(deficId, obsIdx, function() {
+      initDeficiencies.render();
     });
   }
 
@@ -4751,18 +4811,14 @@ document.addEventListener('click', function(e) {
         }
       });
     } else {
-      showConfirm('Remove Observation', 'Remove this observation? This cannot be undone.').then(function(yes) {
-        if (yes) {
-          Model.removeObservation(_rd, _ro);
-          if (_openObsKey === _obsKey(_rd, _ro)) _openObsKey = null;
-          initDeficiencies.render();
-          // S213: refresh the open pin editor onto a valid obs index.
-          if (window._frtPinEditorRemovedObs) window._frtPinEditorRemovedObs(_rd, _ro);
-          else if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
-          // S214: same for C (focused-pin modal), clamp toward removed slot.
-          _frtRefreshPinFocusIf(_rd, _ro);
-          toast('Observation removed');
-        }
+      _confirmRemoveObsWithPhotos(_rd, _ro, function() {
+        if (_openObsKey === _obsKey(_rd, _ro)) _openObsKey = null;
+        initDeficiencies.render();
+        // S213: refresh the open pin editor onto a valid obs index.
+        if (window._frtPinEditorRemovedObs) window._frtPinEditorRemovedObs(_rd, _ro);
+        else if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+        // S214: same for C (focused-pin modal), clamp toward removed slot.
+        _frtRefreshPinFocusIf(_rd, _ro);
       });
     }
   }
@@ -5081,21 +5137,56 @@ document.addEventListener('click', function(e) {
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
     var photoIdx = parseInt(el.getAttribute('data-photo-idx') || '0');
     var photoId = el.getAttribute('data-photo-id') || '';
-    // S120 Push 4: per-obs narrow via Model.removePhotoFromObs. The photo
-    // stays in the pool — any other obs that references it keeps showing
-    // it. To delete from the pool entirely, the inspector enters Manage
-    // photos in the pin editor and uses Delete from pool.
-    showConfirm('Remove from this observation', 'Remove this photo from this observation only? It will stay in the pin\u2019s pool and any other observations that include it will keep showing it.').then(function(yes) {
-      if (!yes) return;
-      var ok = false;
-      if (photoId && Model.removePhotoFromObs) {
-        ok = Model.removePhotoFromObs(deficId, obsIdx, photoId);
-      }
-      if (!ok) {
-        Model.removeObservationPhoto(deficId, obsIdx, photoIdx);
-      }
-      initDeficiencies.render();
-      toast('Photo removed from observation');
+    // S266: ✕ now offers three choices instead of an obs-only de-select.
+    //   Delete photo         → soft-delete from the pin's pool (Recently Deleted)
+    //   Move to Site Records  → release to the gallery as a site photo, then
+    //                           soft-delete the pool entry
+    //   Cancel
+    // Shared photos: if another obs on this pin also shows the photo, deleting
+    // or moving it affects them too — we warn so it isn't a surprise.
+    var shared = (photoId && Model.isPoolPhotoSharedAcrossObs)
+      ? Model.isPoolPhotoSharedAcrossObs(deficId, photoId) : false;
+    var msg = shared
+      ? 'This photo is shown on more than one observation of this pin. Deleting or moving it affects all of them. What would you like to do?'
+      : 'What would you like to do with this photo?';
+    showDialog({
+      title: 'Photo',
+      message: msg,
+      buttons: [
+        {
+          label: 'Move to Site Records', color: '#9C2742',
+          action: function() {
+            var ok = false;
+            if (photoId && Model.releasePoolPhotoToSite) {
+              var r = Model.releasePoolPhotoToSite(deficId, photoId);
+              ok = r && r.ok;
+            }
+            initDeficiencies.render();
+            if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+            _frtRefreshPinFocusIf(deficId);
+            toast(ok ? 'Photo moved to Site Records' : 'Could not move photo');
+          }
+        },
+        {
+          label: 'Delete photo', color: '#C0392B',
+          action: function() {
+            var ok = false;
+            if (photoId && Model.removePoolPhoto) {
+              ok = Model.removePoolPhoto(deficId, photoId);
+            }
+            if (!ok && Model.removeObservationPhoto) {
+              // legacy fallback (never-migrated obs.photos)
+              Model.removeObservationPhoto(deficId, obsIdx, photoIdx);
+              ok = true;
+            }
+            initDeficiencies.render();
+            if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+            _frtRefreshPinFocusIf(deficId);
+            toast(ok ? 'Photo moved to Recently Deleted' : 'Could not delete photo');
+          }
+        },
+        { label: 'Cancel', color: '#9C2742', outline: true, action: function() {} }
+      ]
     });
   }
 
