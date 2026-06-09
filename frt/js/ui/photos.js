@@ -595,9 +595,9 @@ export var initPhotos = {
         // S224: SITE photos now get a send-to-pin button too (the inverse path).
         if (r.type !== 'site') {
           html += '<button class="ph-move-btn" data-action="ph-move-defic" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-idx="' + r.photoIdx + '" title="Move or copy to another pin">\u2934</button>';
-          // S266: jump to this photo's observation in the Deficiencies tab.
-          // Site photos have no observation, so defic-only.
-          html += '<button class="ph-goto-obs-btn" data-action="ph-goto-obs" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" title="Go to this observation">\u2197</button>';
+          // S266: open this photo in the pin editor. Lists every obs (across all
+          // pins) that references the photo; if one, opens that obs directly.
+          html += '<button class="ph-goto-obs-btn" data-action="ph-goto-obs" data-defic-id="' + esc(r.deficId) + '" data-obs-idx="' + r.obsIdx + '" data-photo-id="' + esc((r.ph && r.ph.id) || '') + '" title="Open in pin editor">\u2197</button>';
         } else {
           html += '<button class="ph-move-btn" data-action="ph-move-site" data-photo-idx="' + r.siteIdx + '" title="Send to a pin">\u2934</button>';
         }
@@ -761,25 +761,34 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // S266: jump from a gallery defic photo to its observation in the
-  // Deficiencies tab. Switches to that tab, opens the Detailed view with the
-  // target obs row expanded, scrolls it into view and flashes it (reuses the
-  // existing window._frtOpenDetailedRow nav path). Defic photos only — site
-  // photos carry no observation.
+  // S266: open this gallery photo in the pin editor. Lists every observation
+  // (across ALL pins) that references the photo; one match opens that obs
+  // directly, multiple shows a picker first. Opens the same focused pin editor
+  // the drawing viewer uses (window._frtOpenPinFocus). Defic photos only.
   var goObs = e.target.closest && e.target.closest('[data-action="ph-goto-obs"]');
   if (goObs) {
     e.stopPropagation();
     var goDefId = goObs.getAttribute('data-defic-id');
-    var goObsIdx = parseInt(goObs.getAttribute('data-obs-idx') || '0', 10);
-    if (goDefId) {
-      try { if (window._frt && window._frt.switchTab) window._frt.switchTab('deficiencies'); } catch (_g) {}
-      // Defer so the tab's panel is active before the detailed-row nav renders.
-      setTimeout(function() {
-        if (typeof window._frtOpenDetailedRow === 'function') {
-          window._frtOpenDetailedRow(goDefId, isNaN(goObsIdx) ? null : goObsIdx);
-        }
-      }, 30);
+    var goPhotoId = goObs.getAttribute('data-photo-id');
+    var refs = (goDefId && goPhotoId && Model.getAllObsReferencesForPhoto)
+      ? Model.getAllObsReferencesForPhoto(goDefId, goPhotoId)
+      : [];
+    if (!refs.length) {
+      // Defensive fallback: open the card's own pin+obs even if reference
+      // enumeration came back empty (e.g. a transient model state).
+      var fbIdx = parseInt(goObs.getAttribute('data-obs-idx') || '0', 10);
+      if (goDefId && typeof window._frtOpenPinFocus === 'function') {
+        window._frtOpenPinFocus(goDefId, isNaN(fbIdx) ? undefined : fbIdx);
+      }
+      return;
     }
+    if (refs.length === 1) {
+      if (typeof window._frtOpenPinFocus === 'function') {
+        window._frtOpenPinFocus(refs[0].deficId, refs[0].obsIdx);
+      }
+      return;
+    }
+    _openObsPickerForPhoto(refs);
     return;
   }
 
@@ -1330,6 +1339,50 @@ function _openReassignModal(presetPinOnly) {
     if (!d || !d.value) { toast('Select a destination'); return; }
     _doReassign(d.value, sel);
     overlay.remove();
+  });
+}
+
+// S266: when a gallery photo is referenced by more than one observation, the
+// "open in pin editor" button shows this picker first. Lists every reference
+// (Pin N · Obs A) across all pins; choosing one opens the same focused pin
+// editor the drawing viewer uses, on that observation. Mirrors the
+// ph-reassign-overlay modal pattern (backdrop-click + data-ph-modal cancel).
+function _openObsPickerForPhoto(refs) {
+  if (!refs || !refs.length) return;
+  var rows = '';
+  refs.forEach(function(r, i) {
+    rows += '<button class="ph-obspick-row" data-ph-obspick="' + i + '">'
+      + '<span class="ph-obspick-dot"></span>'
+      + '<span class="ph-obspick-label">' + _phEsc(r.label) + '</span>'
+      + '<span class="ph-obspick-arrow">\u2197</span>'
+      + '</button>';
+  });
+  var overlay = document.createElement('div');
+  overlay.className = 'ph-reassign-overlay';
+  overlay.id = 'ph-obspick-overlay';
+  overlay.innerHTML =
+    '<div class="ph-reassign-card">'
+      + '<h3>Open in pin editor</h3>'
+      + '<p style="font-size:calc(12px + var(--ts));color:var(--steel);margin:0 0 12px;">This photo is used by ' + refs.length + ' observations. Choose which one to open.</p>'
+      + '<div class="ph-obspick-list">' + rows + '</div>'
+      + '<div class="btn-row">'
+        + '<button class="btn btn-outline btn-sm" data-ph-modal="cancel">Cancel</button>'
+      + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(ev) {
+    if (ev.target === overlay) { overlay.remove(); return; }
+    var cancel = ev.target.closest && ev.target.closest('[data-ph-modal="cancel"]');
+    if (cancel) { overlay.remove(); return; }
+    var pick = ev.target.closest && ev.target.closest('[data-ph-obspick]');
+    if (pick) {
+      var idx = parseInt(pick.getAttribute('data-ph-obspick'), 10);
+      var ref = refs[idx];
+      overlay.remove();
+      if (ref && typeof window._frtOpenPinFocus === 'function') {
+        window._frtOpenPinFocus(ref.deficId, ref.obsIdx);
+      }
+    }
   });
 }
 

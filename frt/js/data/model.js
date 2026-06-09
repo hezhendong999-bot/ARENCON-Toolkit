@@ -1635,6 +1635,52 @@ export var Model = {
     return out;
   },
 
+  // S266 — every observation, across EVERY pin, where a given photo appears.
+  // Used by the gallery "open in editor" jump: resolve the photo's binary
+  // identity, find all pins whose pool holds the same binary, and for each pin
+  // list the obs indices that show it (default-state obs included, since they
+  // show all pool photos). Returns ready-to-display entries:
+  //   { deficId, num, obsIdx, label }   label e.g. "Pin 12 · Obs A"
+  // Sorted by pin number then obs index. deficId/photoId identify the gallery
+  // card's own pin+pool entry as the starting point for identity resolution.
+  getAllObsReferencesForPhoto: function(deficId, photoId) {
+    var out = [];
+    if (!_project || !deficId || !photoId) return out;
+    var self = this;
+    var f = this.findDeficiency(deficId);
+    if (!f || !f.defic) return out;
+    // The binary identity of the card's photo (r2Key/sourceR2Key/byte-fallback).
+    var srcPhoto = (f.defic.photos || []).filter(function(p) { return p && p.id === photoId; })[0];
+    var key = srcPhoto ? this._photoIdentityKey(srcPhoto) : null;
+    // Walk every pin; a pin is in scope if its own card pin OR it holds a pool
+    // photo with the same binary identity. For each in-scope pin, find the pool
+    // entry matching the identity and list the obs indices that show it.
+    this.getAllDeficiencies(_project).forEach(function(d) {
+      var defic = d.defic;
+      var poolMatch = (defic.photos || []).filter(function(p) {
+        if (!p || p.deleted) return false;
+        if (defic.id === deficId && p.id === photoId) return true; // the card's own entry
+        return key && self._photoIdentityKey(p) === key;
+      })[0];
+      if (!poolMatch) return;
+      var obsIdxs = self.getObsIndicesUsingPoolPhoto(defic, poolMatch.id);
+      obsIdxs.forEach(function(oi) {
+        out.push({
+          deficId: defic.id,
+          num: defic.num,
+          obsIdx: oi,
+          label: 'Pin ' + (defic.num != null ? defic.num : '?') + ' \u00b7 Obs ' + String.fromCharCode(65 + oi)
+        });
+      });
+    });
+    out.sort(function(a, b) {
+      var na = (a.num != null) ? a.num : 1e9, nb = (b.num != null) ? b.num : 1e9;
+      if (na !== nb) return na - nb;
+      return a.obsIdx - b.obsIdx;
+    });
+    return out;
+  },
+
   addActivityEntry: function(deficId, label, text, obsRef) {
     var f = this.findDeficiency(deficId);
     if (!f) return null;

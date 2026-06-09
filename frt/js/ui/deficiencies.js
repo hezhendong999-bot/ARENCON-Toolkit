@@ -6409,7 +6409,11 @@ window._frtBuildObsEditor = function(d, oi, ctrId, opts) {
 // S151 (Mark): lets the drawing viewer's single-route "← Back to pin #N"
 // chip reopen the focused-pin modal the user jumped FROM. Pairs with
 // _frtSetReturnPin / _frtClearReturnPin in viewer.js. Not a nav-stack.
-window._frtOpenPinFocus = function(deficId) { _openPinFocus(deficId); };
+// S266: optional obsIdx — the gallery jump focuses a specific observation.
+// Existing single-arg callers (viewer.js) pass no obsIdx → whole pin (unchanged).
+window._frtOpenPinFocus = function(deficId, obsIdx) {
+  _openPinFocus(deficId, (obsIdx != null && !isNaN(obsIdx)) ? obsIdx : undefined);
+};
 // S216: expose the proven pin-to-pin photo mover so the gallery (photos.js) can
 // reuse it for defic photos. Same binary-sharing path (_createDeficPhotoFromSource);
 // no R2 re-upload, no URL copying.
