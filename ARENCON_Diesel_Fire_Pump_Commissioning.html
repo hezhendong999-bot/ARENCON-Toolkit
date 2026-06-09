@@ -8907,12 +8907,14 @@ var _r2FolderId = null; // set during Hub init
 // Walk every live photo object across all report photo arrays.
 function _forEachLivePhoto(cb){
   try{
-    if(Array.isArray(window.flowTestPhotos)) flowTestPhotos.forEach(cb);
-    if(Array.isArray(window.flowTestPhotosPld)) flowTestPhotosPld.forEach(cb);
-    if(Array.isArray(window.recordPhotos)) recordPhotos.forEach(cb);
+    if(typeof flowTestPhotos!=='undefined' && Array.isArray(flowTestPhotos)) flowTestPhotos.forEach(cb);
+    if(typeof flowTestPhotosPld!=='undefined' && Array.isArray(flowTestPhotosPld)) flowTestPhotosPld.forEach(cb);
+    if(typeof stdData!=='undefined' && Array.isArray(stdData)) stdData.forEach(function(r){ if(r&&Array.isArray(r.photos)) r.photos.forEach(cb); });
+    if(typeof pldData!=='undefined' && Array.isArray(pldData)) pldData.forEach(function(r){ if(r&&Array.isArray(r.photos)) r.photos.forEach(cb); });
+    if(typeof recordPhotos!=='undefined' && Array.isArray(recordPhotos)) recordPhotos.forEach(cb);
     if(clState && typeof clState==='object') Object.keys(clState).forEach(function(k){ var v=clState[k]; if(v&&Array.isArray(v.photos)) v.photos.forEach(cb); });
     if(deficiencies && typeof deficiencies==='object') Object.keys(deficiencies).forEach(function(ctr){ (deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))d.photos.forEach(cb); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))r.photos.forEach(cb); }); }); });
-    if(Array.isArray(window.generalDeficiencies)) generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))d.photos.forEach(cb); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))r.photos.forEach(cb); }); });
+    if(typeof generalDeficiencies!=='undefined' && Array.isArray(generalDeficiencies)) generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))d.photos.forEach(cb); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))r.photos.forEach(cb); }); });
   }catch(e){ console.warn('[Outbox] photo walk error', e); }
 }
 
