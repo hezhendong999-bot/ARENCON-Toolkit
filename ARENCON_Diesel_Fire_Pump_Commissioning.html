@@ -5,6 +5,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%239C2742'/%3E%3Ctext x='16' y='22' font-family='Calibri,sans-serif' font-size='16' font-weight='700' fill='%23fff' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ARENCON FP">
 <meta name="theme-color" content="#9C2742">
@@ -11525,20 +11527,16 @@ function applyTextSize(size){
 </script>
 <!-- ══ END CLOUDSYNC MODULE ══ -->
 
-<!-- ══ SERVICE WORKER ══ Diesel intentionally has no service worker (no offline
-     caching). Registration removed: sw-diesel.js never existed, so registering it
-     only produced a recurring console 404. Do not re-add without shipping the file.
-     Also proactively clear any ghost SW registered by an older build. -->
+<!-- ══ SERVICE WORKER REGISTRATION (Session 53) ══ -->
 <script>
-try{
-  if('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations){
-    navigator.serviceWorker.getRegistrations().then(function(regs){
-      regs.forEach(function(r){ r.unregister(); });
-    }).catch(function(){});
-  }
-}catch(e){}
-</script>
-<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw-diesel.js').then(function(r){
+    console.log('[SW] Registered:', r.scope);
+  }).catch(function(e){
+    // Service worker file not found — that's OK, tool still works without it
+    console.log('[SW] Not available (offline caching disabled)');
+  });
+}
 // Wrap CloudSync.save to stamp _cloudSyncedAt for self-trigger prevention
 if(typeof _wrapCloudSyncSave==='function') setTimeout(_wrapCloudSyncSave, 2000);
 /* ============ AI Text Review (S219) — diesel-adapted port of FRT assistant.js ============ */
