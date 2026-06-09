@@ -3579,7 +3579,7 @@ function _ovSignaturePresent(){
   var c = document.getElementById('sig-canvas');
   if(c){
     try{
-      var ctx = c.getContext('2d');
+      var ctx = c.getContext('2d', {willReadFrequently:true});
       var d = ctx.getImageData(0,0,c.width,c.height).data;
       for(var p=3; p<d.length; p+=4){ if(d[p]!==0) return true; }
     }catch(e){}
