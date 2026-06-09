@@ -10217,7 +10217,7 @@ function _pgCloudIcon(p){
   if(!_csHubMode) return '';
   var st = p.r2Status || (p.r2Url?'uploaded':'');
   var color, title, glyph='';
-  if(st==='uploaded'){ color='#5F8068'; title='Synced to cloud'; }
+  if(st==='uploaded'){ color='#5F8068'; title='Synced to cloud'; glyph='<path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'; }
   else if(st==='failed'){ color='#A85959'; title='Upload failed — will retry'; }
   else if(st==='pending'){ color='#B07F5A'; title='Awaiting cloud upload'; glyph='<circle cx="12" cy="12" r="1.6" fill="#fff"/>'; }
   else { color='#94A3B8'; title='Local only'; }
@@ -10482,8 +10482,7 @@ function _renderPhotoGallery(){
       html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'"'+badgeStyle+'>'+(item.badge||'?')+'</span></span>';
       if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox('+gidx+')" onerror="this.onerror=null;this.parentNode&&this.parentNode.insertBefore(Object.assign(document.createElement(\'div\'),{className:\'ph-noimg\',textContent:\'\uD83D\uDCF7\'}),this);this.remove();">'; }
       else { html += '<div class="ph-noimg">\uD83D\uDCF7</div>'; }
-      var _ptime=_pgPhotoTime(p);
-      if(_ptime){ html += '<span class="ph-time">'+_ptime+'</span>'; }
+      // (time badge removed — FRT gallery thumbnails carry no timestamp)
       html += _pgCloudIcon(p);
       html += '<button class="ph-dl-btn" onclick="event.stopPropagation();_pgDownloadOne('+gidx+')" title="Download">\u2193</button>';
       html += '<button class="ph-del-btn" onclick="event.stopPropagation();_pgDeleteOne('+gidx+')" title="Delete">\u2715</button>';
@@ -11258,16 +11257,10 @@ var R2Outbox=(function(){'use strict';
   // Confirm the object is actually retrievable on R2. HEAD first; fall back to
   // GET if the Worker doesn't support HEAD. 200 = present, 404 = absent.
   function _verify(url){
-    // Confirm the object is retrievable. Prefer HEAD, but many R2 Workers don't
-    // implement HEAD and return 404 for it even when the object exists — so a 404
-    // (or any non-OK) from HEAD must fall through to an authoritative GET, not be
-    // treated as "absent". GET is unauthenticated on the Worker.
-    return fetch(url,{method:'HEAD'}).then(function(h){
-      if(h.ok) return true;
-      return fetch(url,{method:'GET'}).then(function(g){return g.ok;}).catch(function(){return false;});
-    }).catch(function(){
-      return fetch(url,{method:'GET'}).then(function(g){return g.ok;}).catch(function(){return false;});
-    });
+    // This R2 Worker does not implement HEAD (returns 404 for HEAD even when the
+    // object exists), and every HEAD attempt floods the console with 404s. Use a
+    // direct GET — unauthenticated on the Worker and authoritative: 200 = present.
+    return fetch(url,{method:'GET'}).then(function(g){return g.ok;}).catch(function(){return false;});
   }
 
   // Upload + verify every pending entry. One bad entry never stalls the rest.
