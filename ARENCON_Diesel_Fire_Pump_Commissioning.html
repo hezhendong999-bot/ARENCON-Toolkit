@@ -182,6 +182,9 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
   --cl-btn-upload:#5A6E80;--cl-btn-camera:#5C7A65;--cl-btn-gallery:#7D3F4F;
   background:white;border-radius:10px;box-shadow:var(--shadow);margin-bottom:8px;overflow:hidden;border:1.5px solid var(--border);border-left:4px solid var(--border);transition:border-color .15s;}
 .chart-annotation-label:hover{box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:20 !important;}
+/* S267(D): on touch devices give the draggable annotation labels a larger hit area + a clear
+   "draggable" affordance, so a finger can grab and reposition them (was mouse-only before). */
+@media(pointer:coarse){.chart-annotation-label{padding:6px 9px !important;touch-action:none;}}
 .cl-item:not(.s-yes):not(.s-no):not(.s-na){border-left-color:var(--cl-todo);}
 .cl-item:not(.s-yes):not(.s-no):not(.s-na) .item-num{color:var(--arencon);font-weight:800;}
 .cl-item.s-yes{border-left-color:var(--cl-yes);}
@@ -8204,26 +8207,29 @@ function renderChartAnnotations(chartInstance, canvasId) {
       
       // Make draggable
       var dragState = {dragging:false, startX:0, startY:0, startOffX:offX, startOffY:offY};
-      label.onmousedown = function(ev) {
-        ev.preventDefault();
+      // S267(D): annotation labels were mouse-only (label.onmousedown + document mousemove/up),
+      // so on the field iPads they could not be repositioned — only the safety-factor chip, which
+      // already had touch handlers, worked. Factor the start/move/end into coordinate-based helpers
+      // and bind BOTH mouse and touch. Mouse path is unchanged; touch now mirrors it exactly.
+      function _annStart(cx, cy){
         dragState.dragging = true;
-        dragState.startX = ev.clientX;
-        dragState.startY = ev.clientY;
+        dragState.startX = cx;
+        dragState.startY = cy;
         dragState.startOffX = offX;
         dragState.startOffY = offY;
         label.style.cursor = 'grabbing';
         label.style.zIndex = '20';
-      };
-      document.addEventListener('mousemove', function(ev) {
+      }
+      function _annMove(cx, cy){
         if(!dragState.dragging) return;
-        var dx = ev.clientX - dragState.startX;
-        var dy = ev.clientY - dragState.startY;
+        var dx = cx - dragState.startX;
+        var dy = cy - dragState.startY;
         offX = dragState.startOffX + dx;
         offY = dragState.startOffY + dy;
         label.style.left = (px + offX) + 'px';
         label.style.top = (py + offY) + 'px';
-      });
-      document.addEventListener('mouseup', function() {
+      }
+      function _annEnd(){
         if(!dragState.dragging) return;
         dragState.dragging = false;
         label.style.cursor = 'grab';
@@ -8232,6 +8238,33 @@ function renderChartAnnotations(chartInstance, canvasId) {
         chartAnnotations[key] = {offX: offX, offY: offY};
         // Re-render to update leader line
         renderChartAnnotations(chartInstance, canvasId);
+      }
+      label.onmousedown = function(ev) {
+        ev.preventDefault();
+        _annStart(ev.clientX, ev.clientY);
+      };
+      label.addEventListener('touchstart', function(ev){
+        if(!ev.touches || !ev.touches[0]) return;
+        ev.preventDefault();   // stop the chart pan/scroll from stealing the gesture
+        _annStart(ev.touches[0].clientX, ev.touches[0].clientY);
+      }, {passive:false});
+      document.addEventListener('mousemove', function(ev) {
+        _annMove(ev.clientX, ev.clientY);
+      });
+      document.addEventListener('touchmove', function(ev) {
+        if(!dragState.dragging) return;
+        if(!ev.touches || !ev.touches[0]) return;
+        ev.preventDefault();   // we own the gesture while dragging an annotation
+        _annMove(ev.touches[0].clientX, ev.touches[0].clientY);
+      }, {passive:false});
+      document.addEventListener('mouseup', function() {
+        _annEnd();
+      });
+      document.addEventListener('touchend', function() {
+        _annEnd();
+      });
+      document.addEventListener('touchcancel', function() {
+        _annEnd();
       });
       
       // Double-click to delete individual annotation
