@@ -390,7 +390,7 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 /* ══ Per-flow-point gauge-photo modal (.fpm-*) — fixed overlay, theme-aware ══ */
 #flow-photo-modal{position:fixed;inset:0;z-index:9000;display:none;}
 .fpm-backdrop{position:absolute;inset:0;background:rgba(20,24,30,.55);touch-action:none;}
-body.fpm-open{overflow:hidden!important;}
+body.fpm-open{position:fixed!important;width:100%!important;overflow:hidden!important;}
 .fpm-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:86vh;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;background:var(--card-bg,#fff);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:16px;}
 .fpm-head{display:flex;align-items:center;justify-content:space-between;font-size:calc(14px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:12px;}
 .fpm-x{background:none;border:none;cursor:pointer;color:var(--steel);font-size:18px;line-height:1;padding:4px 8px;border-radius:6px;}
@@ -3919,7 +3919,7 @@ function _flowPhotoIcon(tbl, i){
     + '</button>';
 }
 // Per-flow-point gauge photo capture (S222-Diesel) — mirrors _recAddFile pattern.
-var _flowPhotoTbl=null, _flowPhotoIdx=null, _flowPhotoActiveReading='suction';
+var _flowPhotoTbl=null, _flowPhotoIdx=null, _flowPhotoActiveReading='suction', _fpmScrollY=0;
 var _GAUGE_READINGS=[
   {k:'suction',  label:'Suction',  short:'S'},
   {k:'discharge',label:'Discharge',short:'D'},
@@ -4110,6 +4110,10 @@ function openFlowPhotos(tbl, i){
   _flowPhotoTbl=tbl; _flowPhotoIdx=i;
   var host=document.getElementById('flow-photo-modal');
   if(!host){ host=document.createElement('div'); host.id='flow-photo-modal'; document.body.appendChild(host); }
+  if(!document.body.classList.contains('fpm-open')){
+    _fpmScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.top = (-_fpmScrollY) + 'px';
+  }
   _renderFlowPhotoModal();
   document.addEventListener('keydown', _flowPhotoEsc);
 }
@@ -4118,6 +4122,8 @@ function closeFlowPhotos(){
   _flowPhotoCloseReassign();
   _flowPhotoCloseGallery();
   document.body.classList.remove('fpm-open');
+  document.body.style.top = '';
+  window.scrollTo(0, _fpmScrollY||0);
   var host=document.getElementById('flow-photo-modal'); if(host){ host.style.display='none'; host.innerHTML=''; }
   document.removeEventListener('keydown', _flowPhotoEsc);
   _flowPhotoTbl=null; _flowPhotoIdx=null;
@@ -10242,10 +10248,7 @@ function _pgDayKey(p){
   var today=new Date(); today.setHours(0,0,0,0);
   var yest=new Date(today); yest.setDate(yest.getDate()-1);
   var dd=new Date(dt); dd.setHours(0,0,0,0);
-  var label;
-  if(dd.getTime()===today.getTime()) label='Today';
-  else if(dd.getTime()===yest.getTime()) label='Yesterday';
-  else label=dd.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+  var label = dd.toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   return {key:dd.getTime()+'', label:label, ts:dd.getTime()};
 }
 
