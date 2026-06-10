@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S268 (A refline fix, C fullscreen rework, AI Review = Full only) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S269 (C fullscreen always-landscape: rotate in portrait, button in all orientations, rotation-aware annotation drag) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -475,7 +475,11 @@ body.dark-mode .fpm-gallery{background:#16151b;}
 .fig-fs{display:none;margin-left:8px;flex:none;background:rgba(255,255,255,.18);border:none;color:#fff;
   border-radius:7px;padding:5px 9px;font-size:calc(13px + var(--ts));cursor:pointer;line-height:1;}
 .fig-fs:active{transform:translateY(1px);}
-@media(max-width:760px){ .fig-fs{display:inline-flex;align-items:center;} .fig-hd .fig-verdict{margin-left:8px;} .fig-hd .fig-t{flex:1;min-width:0;} }
+/* S267(C v3): show the ⛶ button on ANY touch device, regardless of orientation. The old
+   max-width:760px rule hid it in landscape (phone landscape width > 760px), so the button vanished
+   exactly when you turned the phone. Key off coarse pointer (touch) instead of viewport width. */
+@media(pointer:coarse){ .fig-fs{display:inline-flex;align-items:center;} }
+@media(max-width:760px){ .fig-hd .fig-verdict{margin-left:8px;} .fig-hd .fig-t{flex:1;min-width:0;} }
 .fig-fs-overlay{display:none;position:fixed;inset:0;z-index:10050;background:#fff;flex-direction:column;}
 body.dark-mode .fig-fs-overlay{background:#0b0a0d;}
 .fig-fs-overlay.open{display:flex;}
@@ -486,8 +490,9 @@ body.dark-mode .fig-fs-overlay{background:#0b0a0d;}
 .fig-fs-overlay .fig-fs-close{flex:none;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:9px;
   padding:9px 14px;font-size:15px;font-family:Calibri,sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;}
 .fig-fs-overlay .fig-fs-close:active{transform:translateY(1px);}
-/* the stage holds ONLY the moved chart canvas wrapper; it fills the remaining height */
-.fig-fs-overlay .fig-fs-stage{flex:1;min-height:0;display:flex;flex-direction:column;padding:8px;}
+/* the stage is a positioned container; the rotor inside it is absolutely placed and may be rotated */
+.fig-fs-overlay .fig-fs-stage{flex:1;min-height:0;position:relative;overflow:hidden;padding:0;}
+.fig-fs-overlay #fig-fs-rotor{background:transparent;}
 .fig-readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--border);border-top:1px solid var(--border);}
 .fig-readout .ro{background:#fff;padding:9px 6px;text-align:center;}
 .fig-readout .ro .pct{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);letter-spacing:.4px;text-transform:uppercase;}
@@ -1720,12 +1725,13 @@ function closeMobileMenu(){
   }
   if(bd)bd.style.display='none';
 }
-// S267(C) v2: fullscreen chart viewer. v1 moved the WHOLE .fig (chart + legend pills + the 7
-// readout cards) into a fixed-height stage and the layout collapsed/stuck. v2 moves ONLY the chart
-// canvas wrapper (the position:relative div holding the canvas, the sm-overlay and the annotation
-// overlay) so the chart alone fills the screen; the legend/readout stay in the page beneath the
-// overlay. chartVar is the global var name ('chart3pt'|'netChart3pt'|'pldChart'|'pldNetChart').
+// S267(C) v3: fullscreen chart viewer — ALWAYS landscape. The chart must never be shown in portrait,
+// so when the phone is held portrait we CSS-rotate the chart 90° to fill the screen sideways; when the
+// phone is already landscape we show it upright. We rotate an inner "rotor" (not the stage) and size it
+// so that after rotation it fills the stage. window._figFsRot (0|90) is read by the annotation drag math
+// (_annMove) so dragging labels still moves them the way the eye expects while rotated.
 var _figFsActive = null; // {wrap, origParent, origNext, origStyle, chartVar}
+window._figFsRot = 0;     // current fullscreen rotation in degrees (0 or 90)
 function _figChartByName(n){
   try{
     if(n==='chart3pt') return (typeof chart3pt!=='undefined')?chart3pt:null;
@@ -1735,6 +1741,32 @@ function _figChartByName(n){
   }catch(e){}
   return null;
 }
+// Lay out the rotor for the current viewport orientation. Portrait → rotate 90°, rotor sized
+// (stageH × stageW) so the rotated box fills the stage. Landscape → no rotation, rotor fills stage.
+function _figFsLayout(){
+  if(!_figFsActive) return;
+  var stage=document.getElementById('fig-fs-stage');
+  var rotor=document.getElementById('fig-fs-rotor');
+  if(!stage||!rotor) return;
+  var sw=stage.clientWidth, sh=stage.clientHeight;
+  var portrait = sh >= sw; // taller than wide → rotate the chart to landscape
+  if(portrait){
+    window._figFsRot = 90;
+    // rotor's pre-rotation size = swapped stage dims, centred, then rotated 90° clockwise
+    rotor.style.width = sh+'px';
+    rotor.style.height = sw+'px';
+    rotor.style.position='absolute';
+    rotor.style.left='50%'; rotor.style.top='50%';
+    rotor.style.transform='translate(-50%,-50%) rotate(90deg)';
+    rotor.style.transformOrigin='center center';
+  } else {
+    window._figFsRot = 0;
+    rotor.style.position='absolute';
+    rotor.style.width='100%'; rotor.style.height='100%';
+    rotor.style.left='0'; rotor.style.top='0';
+    rotor.style.transform='none';
+  }
+}
 function _openChartFS(figId, chartVar){
   var ov=document.getElementById('fig-fs-overlay');
   var stage=document.getElementById('fig-fs-stage');
@@ -1743,22 +1775,27 @@ function _openChartFS(figId, chartVar){
   var wrap=canvas.parentElement; // the position:relative;height:NNNpx wrapper
   if(!wrap) return;
   if(_figFsActive) _closeChartFS(); // only one at a time
-  // title from the fig header, if present
   var titleTxt='';
   var fig=document.getElementById(figId);
   if(fig){ var t=fig.querySelector('.fig-t'); if(t) titleTxt=t.textContent; }
   var titleEl=document.getElementById('fig-fs-title'); if(titleEl) titleEl.textContent=titleTxt;
   _figFsActive={wrap:wrap, origParent:wrap.parentNode, origNext:wrap.nextSibling, origStyle:wrap.getAttribute('style')||'', chartVar:chartVar};
-  // fill the stage; the inner canvas is inset:0 width/height:100% so it follows the wrapper
-  wrap.setAttribute('style','position:relative;flex:1;min-height:0;width:100%;');
-  stage.appendChild(wrap);
+  // build a fresh rotor inside the stage and move the chart wrapper into it
+  stage.innerHTML='';
+  var rotor=document.createElement('div');
+  rotor.id='fig-fs-rotor';
+  stage.appendChild(rotor);
+  wrap.setAttribute('style','position:absolute;inset:0;width:100%;height:100%;');
+  rotor.appendChild(wrap);
   ov.classList.add('open');
+  _figFsLayout();
   function _rs(){ var c=_figChartByName(chartVar); if(c){ try{ c.resize(); c.update('none'); c.render(); if(typeof renderChartAnnotations==='function') renderChartAnnotations(c, chartVar); }catch(e){} } }
-  requestAnimationFrame(function(){ _rs(); setTimeout(_rs, 200); });
+  requestAnimationFrame(function(){ _figFsLayout(); _rs(); setTimeout(function(){ _figFsLayout(); _rs(); }, 220); });
 }
 function _closeChartFS(){
   var ov=document.getElementById('fig-fs-overlay');
   if(ov) ov.classList.remove('open');
+  window._figFsRot = 0;
   if(_figFsActive && _figFsActive.wrap && _figFsActive.origParent){
     var w=_figFsActive.wrap;
     w.setAttribute('style', _figFsActive.origStyle); // restore original inline height
@@ -1766,11 +1803,21 @@ function _closeChartFS(){
     else _figFsActive.origParent.appendChild(w);
     var cv=_figFsActive.chartVar;
     _figFsActive=null;
+    var stage=document.getElementById('fig-fs-stage'); if(stage) stage.innerHTML='';
     requestAnimationFrame(function(){ var c=_figChartByName(cv); if(c){ try{ c.resize(); c.update('none'); c.render(); if(typeof renderChartAnnotations==='function') renderChartAnnotations(c, cv); }catch(e){} } });
   } else {
     _figFsActive=null;
   }
 }
+// Re-layout + resize when the phone is rotated or the window changes while fullscreen is open.
+function _figFsOnResize(){
+  if(!_figFsActive) return;
+  _figFsLayout();
+  var c=_figChartByName(_figFsActive.chartVar);
+  if(c){ try{ c.resize(); c.update('none'); c.render(); if(typeof renderChartAnnotations==='function') renderChartAnnotations(c, _figFsActive.chartVar); }catch(e){} }
+}
+window.addEventListener('resize', _figFsOnResize);
+window.addEventListener('orientationchange', function(){ setTimeout(_figFsOnResize, 250); });
 // Escape closes the fullscreen chart (desktop debug / external keyboards)
 document.addEventListener('keydown', function(e){ if(e.key==='Escape' && _figFsActive) _closeChartFS(); });
   </script>
@@ -8239,6 +8286,15 @@ function renderChartAnnotations(chartInstance, canvasId) {
         if(!dragState.dragging) return;
         var dx = cx - dragState.startX;
         var dy = cy - dragState.startY;
+        // S267(C v3): when the fullscreen view is rotated 90° (portrait phone showing a landscape
+        // chart), screen axes no longer match the chart's axes. Convert the screen delta into the
+        // chart's local delta so a finger-drag moves the label the way the eye expects.
+        // For CSS rotate(90deg): localDx = screenDy, localDy = -screenDx.
+        if(window._figFsRot === 90){
+          var ldx = dy;
+          var ldy = -dx;
+          dx = ldx; dy = ldy;
+        }
         offX = dragState.startOffX + dx;
         offY = dragState.startOffY + dy;
         label.style.left = (px + offX) + 'px';
