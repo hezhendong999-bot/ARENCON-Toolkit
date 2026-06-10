@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S270 (opaque modals throughout, gallery per-date selection box) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S271 (lightbox date format fix, gallery shift-click range selection) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10746,9 +10746,38 @@ function _pgToggleDate(k){
   _renderPhotoGallery();
 }
 
+// S271: ordered list of photo ids exactly as the gallery lays them out (date groups newest-first,
+// photos in group order). Used for shift-click range selection so "click A, shift-click B" selects
+// the contiguous run between them — like Google Photos.
+function _pgOrderedIds(){
+  var view = _pgFilter==='all' ? _collectAllPhotos() : _collectAllPhotos().filter(function(a){ return a.cat===_pgFilter; });
+  var groups = {};
+  view.forEach(function(a){ var g=_pgDayKey(a.photo); if(!groups[g.key]) groups[g.key]={ts:g.ts,items:[]}; groups[g.key].items.push(a); });
+  var keys = Object.keys(groups).sort(function(x,y){ return groups[y].ts - groups[x].ts; });
+  var ids=[];
+  keys.forEach(function(k){ groups[k].items.forEach(function(it){ var p=it.photo; ids.push(p.id||('pg_'+it.section+'_'+it.idx)); }); });
+  return ids;
+}
+var _pgAnchorPid = null; // last single-clicked photo, the anchor for a shift-range
 function _pgToggleSelect(e, pid){
+  // S271: shift-click selects the range between the anchor and this photo (in displayed order).
+  if(e && e.shiftKey && _pgAnchorPid && _pgAnchorPid!==pid){
+    var ids=_pgOrderedIds();
+    var a=ids.indexOf(_pgAnchorPid), b=ids.indexOf(pid);
+    if(a>-1 && b>-1){
+      var lo=Math.min(a,b), hi=Math.max(a,b);
+      // the anchor's current selected state decides whether the range is added or removed
+      var add = _pgSelected.has(_pgAnchorPid);
+      for(var i=lo;i<=hi;i++){ if(add) _pgSelected.add(ids[i]); else _pgSelected.delete(ids[i]); }
+      _pgAnchorPid = pid; // move the anchor to the end of the range
+      _renderPhotoGallery();
+      return;
+    }
+  }
+  // normal single toggle
   if(_pgSelected.has(pid)) _pgSelected.delete(pid);
   else _pgSelected.add(pid);
+  _pgAnchorPid = pid; // this becomes the new anchor for a subsequent shift-click
   var el = document.querySelector('[data-pg-id="'+pid+'"]');
   if(el){
     el.classList.toggle('selected', _pgSelected.has(pid));
@@ -11029,8 +11058,14 @@ function _enhancedOpenLightbox(photos, idx, ctx){
     var wrap = document.createElement('div');
     wrap.id = 'lb-caption-wrap';
     wrap.style.cssText = 'width:min(95vw,600px);margin:8px auto 0;display:flex;gap:8px;align-items:center;';
+    // S271: <input type="date"> ONLY accepts yyyy-MM-dd. Photo .date is stored as a full ISO
+    // timestamp (new Date().toISOString() → "2026-06-10T04:09:41.956Z"), which the input rejects
+    // (console warning + blank field). Normalize to the date portion for display; the onchange
+    // writes back this.value which is already yyyy-MM-dd, so stored dates self-correct over time.
+    var _lbDate = '';
+    if(p.date){ var _dm=(''+p.date).match(/^\d{4}-\d{2}-\d{2}/); _lbDate = _dm ? _dm[0] : ''; }
     wrap.innerHTML = '<input id="lb-caption" type="text" placeholder="Caption..." value="'+(p.caption||'').replace(/"/g,'&quot;')+'" style="flex:1;padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:13px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].caption=this.value">'
-      + '<input id="lb-date" type="date" value="'+(p.date||'')+'" style="padding:5px 8px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:12px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].date=this.value">';
+      + '<input id="lb-date" type="date" value="'+_lbDate+'" style="padding:5px 8px;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.1);color:white;font-family:Calibri,sans-serif;font-size:12px;" onchange="if(lbPhotos[lbIdx]&&typeof lbPhotos[lbIdx]===\'object\')lbPhotos[lbIdx].date=this.value">';
     var imgWrap = lb.querySelector('img[id=lightbox-img]') || lb.querySelector('img');
     if(imgWrap && imgWrap.parentNode) imgWrap.parentNode.insertAdjacentElement('afterend', wrap);
   }, 200);
