@@ -785,8 +785,6 @@ function _updateHeaderForProject() {
   // Show mobile AI buttons
   var mar = document.getElementById('mobile-ai-rewrite');
   if (mar) mar.style.display = '';
-  var maq = document.getElementById('mobile-ai-quickfix');
-  if (maq) maq.style.display = '';
   var mau = document.getElementById('mobile-ai-usage');
   if (mau) mau.style.display = '';
 
@@ -1921,17 +1919,13 @@ function wireEvents() {
     if (m) m.classList.remove('open');
     AIAssist.reviewAll('rewrite');
   });
-  var aiQuickfix = document.getElementById('ai-mode-quickfix');
-  if (aiQuickfix) aiQuickfix.addEventListener('click', function() {
-    var m = document.getElementById('ai-mode-menu');
-    if (m) m.classList.remove('open');
-    AIAssist.reviewAll('quickfix');
-  });
+  // S272: Quick Fix removed from the AI Review menu (Mark, S265). The desktop
+  // and mobile menu buttons are already gone from index.html; the click
+  // handlers that referenced #ai-mode-quickfix / #mobile-ai-quickfix are
+  // removed here so no dead lookups remain.
   // Mobile AI buttons
   var mobileAiR = document.getElementById('mobile-ai-rewrite');
   if (mobileAiR) mobileAiR.addEventListener('click', function() { closeMobileMenu(); AIAssist.reviewAll('rewrite'); });
-  var mobileAiQ = document.getElementById('mobile-ai-quickfix');
-  if (mobileAiQ) mobileAiQ.addEventListener('click', function() { closeMobileMenu(); AIAssist.reviewAll('quickfix'); });
   // AI Usage button
   var aiUsageBtn = document.getElementById('btn-ai-usage');
   if (aiUsageBtn) aiUsageBtn.addEventListener('click', function() { AIUsage.open(); });

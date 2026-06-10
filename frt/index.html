@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=566">
+<link rel="stylesheet" href="css/frt.css?v=567">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -209,7 +209,6 @@ function ensurePdfJs(cb){
     var ai=document.getElementById('btn-ai-review');
     var mAH=document.getElementById('mm-ai-header');
     var mAR=document.getElementById('mobile-ai-rewrite');
-    var mAQ=document.getElementById('mobile-ai-quickfix');
     var mAU=document.getElementById('mobile-ai-usage');
     var pdfShown=pdf&&getComputedStyle(pdf).display!=='none';
     var aiShown=ai&&getComputedStyle(ai).display!=='none';
@@ -218,7 +217,6 @@ function ensurePdfJs(cb){
     if(mRH)mRH.style.display=pdfShown?'flex':'none';
     if(mAH)mAH.style.display=aiShown?'flex':'none';
     if(mAR)mAR.style.display=aiShown?'flex':'none';
-    if(mAQ)mAQ.style.display=aiShown?'flex':'none';
     if(mAU)mAU.style.display=aiShown?'flex':'none';
   }
   setInterval(mmSync,800);
