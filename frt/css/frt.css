@@ -2392,6 +2392,32 @@ body.dark-mode .photos-sel-status { background: rgba(156,39,66,.25); color: #e8a
 }
 .ph-reassign-card .btn-row { display: flex; gap: 8px; justify-content: flex-end; }
 
+/* S269: roster-style contractor picker (Site Record → Outstanding). Cards with
+   a colored dot · name · trades, matching the Contractor Roster look — replaces
+   the old stretched dialog buttons. */
+.ctrpick-modal { max-width: 460px; }
+.ctrpick-sub { font-size: calc(12px + var(--ts)); color: var(--steel); margin: 0 0 14px; line-height: 1.4; }
+.ctrpick-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; }
+.ctrpick-card {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px 14px; min-height: 56px;
+  background: var(--smoke); border: 1.5px solid var(--border); border-radius: 10px;
+  font-family: Calibri, sans-serif; color: var(--fg); cursor: pointer; text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctrpick-card:hover { border-color: var(--ctr-accent, #9C2742); background: var(--card); }
+.ctrpick-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ctr-accent, #5A6E80); flex-shrink: 0; }
+.ctrpick-dot-new { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: #5A6E80; color: #fff; font-size: calc(15px + var(--ts)); font-weight: 700; line-height: 1; }
+.ctrpick-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ctrpick-name { font-size: calc(14px + var(--ts)); font-weight: 700; }
+.ctrpick-trades { font-size: calc(11px + var(--ts)); color: var(--steel); }
+@media(pointer:coarse){ .ctrpick-card { min-height: 60px; } }
+/* accent tokens for the picker dots — mirror the roster ctr-cN palette */
+.ctrpick-card.ctr-c0{ --ctr-accent:#3D8585; } .ctrpick-card.ctr-c1{ --ctr-accent:#7B8838; }
+.ctrpick-card.ctr-c2{ --ctr-accent:#9E6B40; } .ctrpick-card.ctr-c3{ --ctr-accent:#5F8068; }
+.ctrpick-card.ctr-c4{ --ctr-accent:#3D4D88; } .ctrpick-card.ctr-c5{ --ctr-accent:#7A3F65; }
+.ctrpick-card.ctr-c6{ --ctr-accent:#B85A45; } .ctrpick-card.ctr-c7{ --ctr-accent:#4A4F5A; }
+
 /* S266: observation picker rows inside the "open in pin editor" modal. Touch-
    friendly full-width rows; burgundy dot, name, trailing jump arrow. */
 .ph-obspick-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; }

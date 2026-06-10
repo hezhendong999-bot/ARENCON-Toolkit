@@ -1535,7 +1535,7 @@ export var Model = {
         var needsSuffix = distinctCtrs.length > 1;
         obs.forEach(function(o, oi) {
           var label = needsSuffix
-            ? (d.num + '-' + String.fromCharCode(65 + oi))
+            ? (d.num + String.fromCharCode(65 + oi))  // S269: 2B (no dash)
             : String(d.num || '?');
           rows.push({
             d: d,

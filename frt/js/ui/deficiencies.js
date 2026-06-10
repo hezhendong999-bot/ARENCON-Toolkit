@@ -3178,22 +3178,58 @@ function _promptContractorThenOutstanding(deficId, obsIdx, choice) {
     _frtRefreshPinFocusIf(deficId);
     toast('Moved to Outstanding');
   }
-  var buttons = ctrs.map(function(c) {
-    return { label: c.name, color: '#9C2742', action: function() { _finish(c.id); } };
+  // S269: roster-style contractor cards (colored dot · name · trades) instead of
+  // the stretched generic dialog buttons. One card per real contractor + a
+  // "New contractor" card; Cancel / backdrop / Esc keeps it a Site Record.
+  var rows = '';
+  ctrs.forEach(function(c, i) {
+    var cls = (typeof ctrColorClass === 'function') ? ctrColorClass(c.name) : 'ctr-c0';
+    var trades = (c.trades && c.trades.length) ? c.trades.join(' \u00b7 ') : 'No trade yet';
+    rows += '<button class="ctrpick-card ' + cls + '" data-ctrpick="' + i + '">'
+      + '<span class="ctrpick-dot"></span>'
+      + '<span class="ctrpick-body"><span class="ctrpick-name">' + esc(c.name) + '</span>'
+      + '<span class="ctrpick-trades">' + esc(trades) + '</span></span>'
+      + '</button>';
   });
-  buttons.push({ label: '+ New contractor\u2026', color: '#5A6E80', action: function() {
-    showPrompt('New Contractor', 'Contractor name').then(function(nm) {
-      var name = nm && nm.trim();
-      if (!name) return; // cancel — stays a Site Record
-      var ctr = Model.addContractor(name);
-      if (ctr) _finish(ctr.id);
-    });
-  }});
-  buttons.push({ label: 'Cancel', color: '#9C2742', outline: true, action: function() {} });
-  showDialog({
-    title: 'Assign a contractor',
-    message: 'To make this an Outstanding item it needs a contractor. Pick one, or it stays a Site Record.',
-    buttons: buttons
+  rows += '<button class="ctrpick-card ctrpick-new" data-ctrpick="new">'
+    + '<span class="ctrpick-dot ctrpick-dot-new">+</span>'
+    + '<span class="ctrpick-body"><span class="ctrpick-name">New contractor\u2026</span>'
+    + '<span class="ctrpick-trades">Create and assign</span></span>'
+    + '</button>';
+  var overlay = document.createElement('div');
+  overlay.className = 'ph-reassign-overlay';
+  overlay.id = 'ctrpick-overlay';
+  overlay.innerHTML =
+    '<div class="ph-reassign-card ctrpick-modal">'
+      + '<h3>Assign a contractor</h3>'
+      + '<p class="ctrpick-sub">To make this an Outstanding item it needs a contractor. Pick one, or it stays a Site Record.</p>'
+      + '<div class="ctrpick-list">' + rows + '</div>'
+      + '<div class="btn-row"><button class="btn btn-outline btn-sm" data-ph-modal="cancel">Cancel</button></div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  function _close() { overlay.remove(); document.removeEventListener('keydown', _esc); }
+  function _esc(ev) { if (ev.key === 'Escape') _close(); }
+  document.addEventListener('keydown', _esc);
+  overlay.addEventListener('click', function(ev) {
+    if (ev.target === overlay) { _close(); return; }
+    if (ev.target.closest && ev.target.closest('[data-ph-modal="cancel"]')) { _close(); return; }
+    var card = ev.target.closest && ev.target.closest('[data-ctrpick]');
+    if (!card) return;
+    var which = card.getAttribute('data-ctrpick');
+    if (which === 'new') {
+      _close();
+      showPrompt('New Contractor', 'Contractor name').then(function(nm) {
+        var name = nm && nm.trim();
+        if (!name) return; // cancel — stays a Site Record
+        var ctr = Model.addContractor(name);
+        if (ctr) _finish(ctr.id);
+      });
+      return;
+    }
+    var idx = parseInt(which, 10);
+    var c = ctrs[idx];
+    _close();
+    if (c) _finish(c.id);
   });
 }
 

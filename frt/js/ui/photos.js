@@ -346,12 +346,10 @@ export var initPhotos = {
         effective.forEach(function(ph, phi) {
           var mk = (Model.getObsPhotoMarkup) ? Model.getObsPhotoMarkup(defic, oi, ph.id) : null;
           var dk = _dayKey(ph, defic);
-          // S210 (Mark): compact gallery badge — a photo on several pins stacked
-          // the full "Pin N · Obs X" pills top-right and covered the image. Drop
-          // the words: number + thin-dot + obs letter (e.g. "12·A"); single-obs
-          // pins show just the number ("12"). Keeps every reference visible while
-          // the pills stay tiny. Site photos keep their "Site" text (set above).
-          var obsLetter = multiObs ? '\u00b7' + String.fromCharCode(65 + oi) : '';
+          // S269: photo badge = number + obs letter, no separator (e.g. "2A"),
+          // aligning with the card round-badge ("2A") and PDF item number ("#2B").
+          // Single-obs pins show just the number. Site photos keep "Site".
+          var obsLetter = multiObs ? String.fromCharCode(65 + oi) : '';
           records.push({
             type: 'defic',
             deficId: defic.id,
