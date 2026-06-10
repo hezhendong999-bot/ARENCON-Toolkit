@@ -382,7 +382,19 @@ export var initPhotos = {
     // available. ref* flags drive the (now reference-union) stats + filter.
     function _phIdKey(r) {
       var ph = r.ph || {};
-      return ph.r2Key || ph.sourceR2Key || ph.id || r.uid;
+      // S269 PERMANENT FIX: group by the model's binary-identity key, not raw
+      // r2Key. The same physical photo assigned/copied across pins gets its OWN
+      // r2Key per pin (hard rule: assign-to-pin uploads under the new defic's own
+      // key, never borrows URLs). So grouping by r2Key alone made one image render
+      // as MULTIPLE cards — each with a single pin/obs badge — which looked like
+      // badge "spam" (it was actually duplicate cards). Model._photoIdentityKey
+      // falls back to image bytes (dataUrl/thumb) when r2Keys differ, collapsing
+      // them to one card with one badge per real reference. This is the same
+      // identity used by the dedup guard, orphan checker, and move/copy paths —
+      // the gallery now shares that single source of truth so it can't drift
+      // back (the reason this regressed before: the gallery had its OWN key).
+      var idk = (Model && Model._photoIdentityKey) ? Model._photoIdentityKey(ph) : null;
+      return idk || ph.r2Key || ph.sourceR2Key || ph.id || r.uid;
     }
     var _phById = {};
     var _phRepOrder = [];

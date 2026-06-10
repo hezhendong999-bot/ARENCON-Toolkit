@@ -3158,6 +3158,45 @@ function _cvPendingCount() {
 // NOT re-group on pick (delayed re-sort): we mark it PENDING and patch the pill
 // + Option-D markers in place. The list resettles only on the manual Re-sort
 // button or a deliberate navigation re-render (mis-pick safety).
+// S269 — moving a Site Record to Outstanding requires a contractor (in this
+// model a no-contractor non-rec item IS a Site Record). Prompt for one; the
+// chosen contractor reassigns the pin and the priority is applied, landing it
+// in the Outstanding tab. Cancel leaves it a Site Record (no silent no-op).
+// Reuses showDialog's button list: one per real contractor + New + Cancel.
+function _promptContractorThenOutstanding(deficId, obsIdx, choice) {
+  var proj = Model.getProject();
+  var ctrs = realCtrs(proj && proj.contractors);
+  function _finish(ctrId) {
+    if (!ctrId) return; // cancel — stays a Site Record
+    Model.reassignDeficiency(deficId, ctrId);
+    if (typeof Model.updateObsPriority === 'function') Model.updateObsPriority(deficId, obsIdx, choice);
+    if (typeof Model.saveNow === 'function') Model.saveNow();
+    // Full render: the item changes category (Site Records → Outstanding), so a
+    // group resettle is required — the in-place pill patch isn't enough here.
+    initDeficiencies.render();
+    if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+    _frtRefreshPinFocusIf(deficId);
+    toast('Moved to Outstanding');
+  }
+  var buttons = ctrs.map(function(c) {
+    return { label: c.name, color: '#9C2742', action: function() { _finish(c.id); } };
+  });
+  buttons.push({ label: '+ New contractor\u2026', color: '#5A6E80', action: function() {
+    showPrompt('New Contractor', 'Contractor name').then(function(nm) {
+      var name = nm && nm.trim();
+      if (!name) return; // cancel — stays a Site Record
+      var ctr = Model.addContractor(name);
+      if (ctr) _finish(ctr.id);
+    });
+  }});
+  buttons.push({ label: 'Cancel', color: '#9C2742', outline: true, action: function() {} });
+  showDialog({
+    title: 'Assign a contractor',
+    message: 'To make this an Outstanding item it needs a contractor. Pick one, or it stays a Site Record.',
+    buttons: buttons
+  });
+}
+
 function _cvSetStatus(deficId, obsIdx, choice) {
   var find = Model.findDeficiency(deficId);
   if (!find) return;
@@ -3170,13 +3209,30 @@ function _cvSetStatus(deficId, obsIdx, choice) {
   switch (choice) {
     case 'high':
     case 'low':
-      // Outstanding (active): clear rec/closed, restore contractor if needed,
-      // then set the priority. updateObsPriority is the ONLY new branch vs the
-      // old four-category setter.
+      // Outstanding (active): clear rec/closed, then set priority. The item must
+      // have a contractor to live in the Outstanding tab — in this model a
+      // no-contractor non-rec item IS a Site Record, so "Outstanding with no
+      // contractor" cannot exist. If we're leaving Site Records and have no
+      // contractor to return to, prompt for one (S269 fix: the old code silently
+      // no-opped when _cvPriorCtr was absent — e.g. an item born a Site Record or
+      // reloaded from cloud — leaving it stuck in Site Records after Re-sort).
       if (o && o.isRecommendation) Model.setObsRecommendation(deficId, obsIdx, false);
       if (o && o.addressed) Model.toggleObsAddressed(deficId, obsIdx);
-      if (!hasCtr && d._cvPriorCtr) { Model.reassignDeficiency(deficId, d._cvPriorCtr); d._cvPriorCtr = null; }
-      if (typeof Model.updateObsPriority === 'function') Model.updateObsPriority(deficId, obsIdx, choice);
+      if (!hasCtr) {
+        if (d._cvPriorCtr) {
+          // Reversible round-trip: returning to the contractor it came from.
+          Model.reassignDeficiency(deficId, d._cvPriorCtr); d._cvPriorCtr = null;
+          if (typeof Model.updateObsPriority === 'function') Model.updateObsPriority(deficId, obsIdx, choice);
+        } else {
+          // No contractor to return to — prompt for one. Cancel leaves it a Site
+          // Record (honest: nowhere else for a no-contractor item to go yet).
+          _cvCloseStatusMenus();
+          _promptContractorThenOutstanding(deficId, obsIdx, choice);
+          return; // chooser callback finishes the apply + repaint
+        }
+      } else {
+        if (typeof Model.updateObsPriority === 'function') Model.updateObsPriority(deficId, obsIdx, choice);
+      }
       break;
     case 'rec':
       if (o && o.addressed) Model.toggleObsAddressed(deficId, obsIdx);

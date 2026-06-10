@@ -618,7 +618,21 @@ function _showInspectorModal() {
 function _updateFrtInstanceIndicator() {
   var proj = Model.getProject();
   if (!proj) return;
-  var inst = proj.currentFrtInstance || 1;
+  // S269: V2 never adopted the loaded tool_data row's instance_number into the
+  // project blob — Hub-created reports left blob.currentFrtInstance at 1, so
+  // FRT #2 (and beyond) showed "FRT #1" in the header. The row's instance_number
+  // is authoritative (mirrors V1's "always adopt cloud instance_number"). Prefer
+  // it for the label AND write it back into the blob so the N+1/N+0 lifecycle
+  // (carry-forward, "new this report", PDF main-vs-history split) computes
+  // against the correct instance. Only writes when it actually differs, and does
+  // NOT force a save — it rides the next normal save cycle. Per-row: reopening a
+  // different report re-adopts that row's own number.
+  var cloudInst = (typeof SyncEngine !== 'undefined' && SyncEngine.instanceNumber)
+    ? SyncEngine.instanceNumber : null;
+  var inst = cloudInst || proj.currentFrtInstance || 1;
+  if (cloudInst && proj.currentFrtInstance !== cloudInst) {
+    proj.currentFrtInstance = cloudInst;
+  }
   var badge = document.getElementById('pb-inst');
   if (badge) {
     badge.textContent = 'FRT #' + inst;
