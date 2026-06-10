@@ -866,18 +866,9 @@ body.text-l{--ts:4px;}
       <label>Project Name</label>
       <input type="text" id="np-name" placeholder="e.g. 100 King Street West">
     </div>
-    <div class="modal-field">
-      <label>Client</label>
-      <input type="text" id="np-client" placeholder="e.g. ABC Property Management">
-    </div>
-    <div class="modal-field">
-      <label>Address</label>
-      <input type="text" id="np-address" placeholder="e.g. 100 King St W, Toronto ON">
-    </div>
-    <div class="modal-field">
-      <label>Project Manager</label>
-      <select id="np-pm"><option value="">— Select —</option></select>
-    </div>
+    <!-- S270: Client / Address / Project Manager removed from the create
+         flow (Mark, S269 handoff). Project info is edited after creation in
+         the project's settings — creation asks only Number + Name. -->
     <div class="modal-actions">
       <button class="dash-btn secondary" onclick="closeNewProjectModal()">Cancel</button>
       <button class="dash-btn primary" id="np-create-btn" onclick="createProject()">Create Project</button>
@@ -2530,9 +2521,6 @@ function openNewProjectModal() {
   }
   document.getElementById('np-number').value = '';
   document.getElementById('np-name').value = '';
-  document.getElementById('np-client').value = '';
-  document.getElementById('np-address').value = '';
-  document.getElementById('np-pm').value = '';
   document.getElementById('new-project-modal').classList.add('show');
   setTimeout(() => document.getElementById('np-number').focus(), 100);
 }
@@ -2544,9 +2532,11 @@ function closeNewProjectModal() {
 async function createProject() {
   const number = document.getElementById('np-number').value.trim();
   const name = document.getElementById('np-name').value.trim();
-  const client = document.getElementById('np-client').value.trim();
-  const address = document.getElementById('np-address').value.trim();
-  const pm = document.getElementById('np-pm').value || null;
+  // S270: client/address/PM removed from the create modal — set later in
+  // project settings. Insert shape unchanged (columns stay, values null).
+  const client = '';
+  const address = '';
+  const pm = null;
 
   if (!number || !name) {
     toast('Project number and name are required', 'error');
