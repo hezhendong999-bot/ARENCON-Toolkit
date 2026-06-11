@@ -9973,9 +9973,9 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 .dlc-dash-right{flex:1;min-width:220px;}
 .dlc-bar-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;}
 .dlc-bar-row .lbl{font-size:12px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;}
-.dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--dv-grad-b);}
+.dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--yes);}
 .dlc-track{height:11px;border-radius:99px;background:var(--border);overflow:hidden;margin-bottom:16px;}
-.dlc-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--dv-grad-a),var(--dv-grad-b));transition:width .8s cubic-bezier(.2,.8,.2,1);}
+.dlc-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--yes) 78%, #000 6%),var(--yes));transition:width .8s cubic-bezier(.2,.8,.2,1);}
 .dlc-legend{display:flex;flex-direction:column;gap:8px;}
 .dlc-leg{display:flex;align-items:center;gap:10px;font-size:13.5px;}
 .dlc-leg .dlc-dot{position:static;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:2px;}
