@@ -1033,7 +1033,18 @@ function _flowBlock(block){
   if(block.type==='ctrHeader'||block.type==='recHeader'){
     // S118: use the pre-built (cont.) variant from the block — replaces the old "— continued" string concat
     _aCtrHtml=block.htmlCont||block.html;
-    if(avail<blockH+200){_finalizePage();_startPage();if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}}
+    // S284 keep-with-next: a contractor band must never sit ITEM-LESS at a
+    // page bottom (the "Vipond (cont.)" orphan — the band fit under the old
+    // fixed +200 lookahead, but its first card didn't, so the generic branch
+    // broke the page and _restamp re-emitted the band as "(cont.)" on the
+    // next page). _keepH (stamped by the pre-pass below) = measured height
+    // of the band's FIRST item block. Require band+first-item to fit here;
+    // otherwise break BEFORE the band. Items too tall for even a fresh page
+    // (they dc-split regardless) and band-with-no-item fall back to the old
+    // +200 heuristic so an unsatisfiable keep never wastes a page.
+    var _keepH=block._keepH||0,_keepCap=PAGE_H-COMPACT_HEADER_H;
+    var _need=(_keepH&&_keepH<=_keepCap)?_keepH:200;
+    if(avail<blockH+_need){_finalizePage();_startPage();if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
   if(blockH<=avail){curPageHtml+=block.html;curUsed+=blockH;}
@@ -1083,6 +1094,24 @@ function _flowBlock(block){
     contentBlocks[i]._secH=s;
   }
 })();
+// S284 keep-with-next pre-pass: stamp each ctrHeader/recHeader with the
+// measured height of its FIRST following item block (_keepH), so the band
+// branch above can refuse to start a band whose first card won't fit under
+// it. A band immediately followed by another header (empty band) gets no
+// stamp → falls back to the +200 heuristic. Pure measurement pass —
+// _flowBlock's own per-block measuring, the bin-pack, dc-split, go(pg)
+// are untouched (same discipline as the S148 _secH pass above).
+function _stampKeepWithNext(blocks){
+  for(var i=0;i<blocks.length;i++){
+    var t=blocks[i].type;
+    if(t!=='ctrHeader'&&t!=='recHeader')continue;
+    var nb=blocks[i+1];
+    if(nb&&nb.type!=='tradeHeader'&&nb.type!=='ctrHeader'&&nb.type!=='recHeader'){
+      blocks[i]._keepH=_measure(nb.html);
+    }
+  }
+}
+_stampKeepWithNext(contentBlocks);
 contentBlocks.forEach(_flowBlock);
 if(!isFinalComm&&mainBodyDefs.length&&_recsMode!=='only'){
   // S119 Push G: avoid orphaning the closing note onto a new page when the
@@ -1132,6 +1161,7 @@ if(showClosedSummary&&closedSummaryDefs.length&&_recsMode!=='only'){
 if(recBlocks.length){
   _aTradeHtml='';_aCtrHtml='';
   _startPage();
+  _stampKeepWithNext(recBlocks); // S284: rec bands get the same keep-with-next
   recBlocks.forEach(_flowBlock);
   _finalizePage();
 }
