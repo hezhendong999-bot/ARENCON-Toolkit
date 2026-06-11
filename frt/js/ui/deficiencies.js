@@ -1910,7 +1910,16 @@ export var initDeficiencies = {
     // already debounced by the resolver's _inspectorPending guard.
     if (!_inspChipSubscribed && Model.onChange) {
       _inspChipSubscribed = true;
-      Model.onChange('inspectors', function () { initDeficiencies.render(); });
+      Model.onChange('inspectors', function () {
+        // S284c: same typing guard as 'project' — inspector-profile fetches
+        // resolve in the background and must not rebuild the list mid-typing.
+        var ae = document.activeElement;
+        if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) {
+          if (ae.classList && ae.classList.contains('obs-text-input')) return;
+          if (ae.closest('#tab-deficiencies, #deficiencies-container, .defic-item, .defic-list, .defic-pin-group, .cv-row, .cv-ed-left')) return;
+        }
+        initDeficiencies.render();
+      });
     }
 
     var allDefics = Model.getAllDeficiencies(proj);
@@ -5975,7 +5984,20 @@ document.addEventListener('input', function(e) {
 });
 
 // Re-render when project loads
-Model.onChange('project', function() { initDeficiencies.render(); });
+// S284c (Mark): the returned typing-flash root cause. The S263 fix guarded
+// 'saved' and 'photo', but THIS listener stayed unguarded — and 'project'
+// now fires from background merge-applies (heartbeat pulls, multi-tab 412
+// merges), which land mid-keystroke and rebuild the list: flash + focus
+// loss + drawing redraw. Same guard as the listeners below; the dropped
+// render is recovered by the next 'saved' tick.
+Model.onChange('project', function() {
+  var ae = document.activeElement;
+  if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) {
+    if (ae.classList && ae.classList.contains('obs-text-input')) return;
+    if (ae.closest('#tab-deficiencies, #deficiencies-container, .defic-item, .defic-list, .defic-pin-group, .cv-row, .cv-ed-left')) return;
+  }
+  initDeficiencies.render();
+});
 // S115 P9: also re-render when photos change (e.g., markup save/revert mutates
 // r2Key/r2Url on defic photos — without this hook the defic tab keeps showing
 // the old image because the DOM never refreshes).
