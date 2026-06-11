@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S282 FRT-engine port complete (B3 identity-based gallery actions; B5 reconcile self-healer; B6 date stamped at every upload; B7 Site Records pinned gallery section; B8 non-destructive vector markup; B9 orphan report/purge/restore tooling) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S282b (hotfix: retired deferred _ndSaveLbMarkup override that clobbered the vector markup save; crossOrigin on lightbox img so cloud photos don't taint the canvas; taint-safe download) + S282 FRT-engine port (B3 identity-based gallery actions; B5 reconcile self-healer; B6 date stamped at every upload; B7 Site Records pinned gallery section; B8 non-destructive vector markup; B9 orphan report/purge/restore tooling) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3417,8 +3417,14 @@ function downloadLbPhoto(){
   cx.drawImage(img,0,0,c.width,c.height);
   // Composite live markup (engine strokes) over the original at natural res.
   if(window.DieselMarkup && DieselMarkup.canvas) DieselMarkup.compositeOnto(cx, c.width, c.height);
-  var a=document.createElement('a');
-  a.download='markup_'+Date.now()+'.png'; a.href=c.toDataURL('image/png'); a.click();
+  try {
+    var a=document.createElement('a');
+    a.download='markup_'+Date.now()+'.png'; a.href=c.toDataURL('image/png'); a.click();
+  } catch(e){
+    // Tainted canvas (cross-origin photo loaded before the crossOrigin fix was
+    // in place / cached without CORS). Reopen reloads with CORS and clears it.
+    showToast('Download blocked by browser security — close and reopen this photo, then retry');
+  }
 }
 
 // S282 B8: style adapter — reads the existing toolbar inputs at stroke time so
@@ -3695,6 +3701,11 @@ function showLbPhoto() {
   const canvas = document.getElementById('lb-markup-canvas');
   // Reset canvas while new image loads
   if(canvas) { canvas.width = 0; canvas.height = 0; }
+  // S282 hotfix: photos loaded from r2Url are cross-origin (Worker domain);
+  // without crossOrigin the canvas TAINTS and every composite/toDataURL throws
+  // SecurityError. The Worker sends Access-Control-Allow-Origin, so anonymous
+  // CORS loads cleanly. Harmless for data: URLs.
+  img.crossOrigin = 'anonymous';
   img.onload = function() {
     document.getElementById('lb-download').href = src;
     document.getElementById('lightbox-label').textContent = `Photo ${lbIdx+1} of ${lbPhotos.length} — use toolbar above to markup`;
@@ -11807,10 +11818,15 @@ var _ndSaveLbMarkup = function(){
   if(lbPhotoCtx && lbPhotoCtx.renderer) lbPhotoCtx.renderer();
   saveState();
 };
-// Replace the original saveLbMarkup — deferred
-setTimeout(function(){
-  if(typeof saveLbMarkup === 'function') saveLbMarkup = _ndSaveLbMarkup;
-}, 500);
+// S282 hotfix: this deferred reassignment silently CLOBBERED the real
+// saveLbMarkup 500ms after load — every "Save Markup" click ran this stale
+// half-port instead (markupObjects dataURL that nothing ever re-renders, so
+// markup vanished on reopen; toDataURL also threw SecurityError on cloud-loaded
+// photos via tainted canvas). _ndSaveLbMarkup stays defined-but-inert (S137);
+// the reassignment is retired. The live save is the S282 vector save (p.mk).
+// setTimeout(function(){
+//   if(typeof saveLbMarkup === 'function') saveLbMarkup = _ndSaveLbMarkup;
+// }, 500);
 
 </script>
 
