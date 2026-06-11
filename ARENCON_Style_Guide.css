@@ -1,6 +1,49 @@
 /* ═══════════════════════════════════════════════════════════════════════
    ARENCON FIRE PROTECTION TOOLKIT — STYLE GUIDE (CANONICAL, SELF-CONTAINED)
    ═══════════════════════════════════════════════════════════════════════
+
+   PART DV — ARENCON DATA-VIZ PALETTE (S283, Mark-approved)
+   ───────────────────────────────────────────────────────────────────────
+   Charts, pie/donut, progress bars, share bars, and chart legends ONLY.
+   This does NOT replace the muted report/PDF palette or the locked
+   deficiency status-colour logic (Outstanding red / Closed green / Rec
+   teal / Site purple stay exactly as locked). Brand stays burgundy #9C2742.
+
+   Adapted from the portfolio tool's palette Mark approved. Tuned per mode:
+   DEEPER in Light (so saturated colours don't vibrate on the off-white),
+   FULL-GLOW in Dark (the near-black look). Wire via these tokens; never
+   hardcode the hexes in components.
+
+     LIGHT                         DARK
+     --dv-indigo  #5B5FD6          #6366F1
+     --dv-cyan    #1AA3C4          #38BDF8
+     --dv-emerald #1E9E6F          #34D399
+     --dv-violet  #8B6FE0          #A78BFA
+     --dv-amber   #D98A1E          #F59E0B
+     --dv-rose    #D2415C          #F43F5E
+     --dv-green   #3E9E55          #22C55E
+     --dv-blue    #2C7FB8          #46C5E8
+     gradient (progress bars): linear-gradient(90deg,--dv-grad-a,--dv-grad-b)
+       = indigo→amber in both modes.
+     Progress/share % numbers use --dv-grad-b (amber end), NOT burgundy.
+
+   Contractor colours (model.js CONTRACTOR_COLOR_PALETTE) draw from this set
+   at mid-saturation so the by-contractor pie separates in both modes:
+     #5B5FD6 #1E9E6F #D98A1E #1AA3C4 #D2415C #8B6FE0 #3E9E55 #2C7FB8
+   NOTE: only NEW contractors get these; existing stored c.color is kept
+   until deliberately remapped.
+
+   :root{ --dv-indigo:#5B5FD6;--dv-cyan:#1AA3C4;--dv-emerald:#1E9E6F;--dv-violet:#8B6FE0;
+          --dv-amber:#D98A1E;--dv-rose:#D2415C;--dv-green:#3E9E55;--dv-blue:#2C7FB8;
+          --dv-grad-a:#5B5FD6;--dv-grad-b:#D98A1E; }
+   body.dark-mode{ --dv-indigo:#6366F1;--dv-cyan:#38BDF8;--dv-emerald:#34D399;--dv-violet:#A78BFA;
+          --dv-amber:#F59E0B;--dv-rose:#F43F5E;--dv-green:#22C55E;--dv-blue:#46C5E8;
+          --dv-grad-a:#6366F1;--dv-grad-b:#F59E0B; }
+   ═══════════════════════════════════════════════════════════════════════
+
+   ═══════════════════════════════════════════════════════════════════════
+   STYLE GUIDE BASE (below) — muted/report system, unchanged
+   ═══════════════════════════════════════════════════════════════════════
    S143 canon pass. THIS FILE IS NOW THE COMPLETE PACKAGE — no external
    style-guide / delta file is required. It contains, in order:
 

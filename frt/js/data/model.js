@@ -322,9 +322,16 @@ export function isSiteRecordsName(nm) {
  * PDF exports — Mark explicitly excluded visual color from external
  * deliverables.
  */
+// S283: brighter, separable contractor palette (replaces the desaturated set
+// that made the by-contractor pie blend into mud). Drawn from the approved
+// ARENCON Data-Viz palette (indigo/emerald/amber/cyan/rose/violet/green/blue).
+// These are STORED on each contractor (c.color) and used in BOTH modes, so the
+// values are mid-saturation: bright enough to separate on the light pie, not so
+// neon they vibrate. NOTE: only NEW contractors get these; existing contractors
+// keep their stored colour until deliberately remapped.
 export var CONTRACTOR_COLOR_PALETTE = [
-  '#5C7A6E', '#4A6B8C', '#7B6F5A', '#9C5070',
-  '#6B7280', '#5E2370', '#8B6F47', '#4A8089'
+  '#5B5FD6', '#1E9E6F', '#D98A1E', '#1AA3C4',
+  '#D2415C', '#8B6FE0', '#3E9E55', '#2C7FB8'
 ];
 
 /**

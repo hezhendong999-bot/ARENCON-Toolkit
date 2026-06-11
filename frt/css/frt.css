@@ -9066,6 +9066,12 @@ body.dark-mode{
   background:#0b0a0d; color:#f4f3f6;
 }
 :root{ --b-info:#2C7FB8; --b-info-bg:#DEEEF8; --b-rec:#D98A1E; --b-bar-a:#5BC0EB; --b-bar-b:#2C7FB8;
+  /* S283 ARENCON Data-Viz palette (Light) — charts/pie/progress/legends ONLY.
+     Does NOT replace the muted report/PDF/status palette. Deeper than the dark
+     variants so saturated colours don't vibrate on the off-white. */
+  --dv-indigo:#5B5FD6; --dv-cyan:#1AA3C4; --dv-emerald:#1E9E6F; --dv-violet:#8B6FE0;
+  --dv-amber:#D98A1E; --dv-rose:#D2415C; --dv-green:#3E9E55; --dv-blue:#2C7FB8;
+  --dv-grad-a:#5B5FD6; --dv-grad-b:#D98A1E;
   --b-chiphdr:#EFEDF0; --b-chipink:#1B1A22; --b-chipnum:#5E5B68;
   --b-glow1:radial-gradient(60% 50% at 8% 0%,rgba(156,39,66,.06),transparent 70%);
   --b-glow2:radial-gradient(55% 45% at 95% 4%,rgba(44,127,184,.06),transparent 70%);
@@ -9088,6 +9094,10 @@ body.dark-mode{
   --b-pb-u:#2C7FB8; --b-pb-u-bg:#DEEEF8; --b-pb-c:#2E9E72; --b-pb-c-bg:#D2EBDC; --b-pb-g:#7D3F4F; --b-pb-g-bg:#F3E0E4;
   --b-unassigned-dot:#6E6AA8; }
 body.dark-mode{ --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
+  /* S283 Data-Viz palette (Dark) — full-glow on near-black (the look Mark approved) */
+  --dv-indigo:#6366F1; --dv-cyan:#38BDF8; --dv-emerald:#34D399; --dv-violet:#A78BFA;
+  --dv-amber:#F59E0B; --dv-rose:#F43F5E; --dv-green:#22C55E; --dv-blue:#46C5E8;
+  --dv-grad-a:#6366F1; --dv-grad-b:#F59E0B;
   --b-chiphdr:rgba(255,255,255,.02); --b-chipink:#F4F3F6; --b-chipnum:#9A95A3;
   --b-glow1:radial-gradient(50% 45% at 6% 0%,rgba(156,39,66,.20),transparent 70%);
   --b-glow2:radial-gradient(48% 42% at 96% 4%,rgba(70,197,232,.13),transparent 70%);
@@ -9963,9 +9973,9 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 .dlc-dash-right{flex:1;min-width:220px;}
 .dlc-bar-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;}
 .dlc-bar-row .lbl{font-size:12px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;}
-.dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--arencon);}
+.dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--dv-grad-b);}
 .dlc-track{height:11px;border-radius:99px;background:var(--border);overflow:hidden;margin-bottom:16px;}
-.dlc-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--arencon),var(--b-bar-b));transition:width .8s cubic-bezier(.2,.8,.2,1);}
+.dlc-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--dv-grad-a),var(--dv-grad-b));transition:width .8s cubic-bezier(.2,.8,.2,1);}
 .dlc-legend{display:flex;flex-direction:column;gap:8px;}
 .dlc-leg{display:flex;align-items:center;gap:10px;font-size:13.5px;}
 .dlc-leg .dlc-dot{position:static;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:2px;}
