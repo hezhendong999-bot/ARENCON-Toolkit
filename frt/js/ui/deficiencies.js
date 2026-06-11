@@ -2369,6 +2369,21 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     if (opts.onDrawingLink && opts.onDrawingLink.label) {
       h += '<button type="button" class="dfx-ed-dlink" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Open on drawing">on ' + esc(opts.onDrawingLink.label) + ' \u2197</button>';
     }
+    // S284c (Mark): the modal hosts (drawing-viewer pin editor + focused
+    // modal) carry the SAME tappable status pill as the deficiency card.
+    // data-instant on the menu items makes picks FINAL — no pending dot, no
+    // Re-sort button needed; the list re-renders sorted immediately (the
+    // list isn't under the user's finger in a modal). Locked colours/menu
+    // reused verbatim from the S263 component.
+    var _hFar = _obsFarPill(o, isSite, d);
+    var _hCur = _obsCurrentChoice(o, isSite, d);
+    h += '<span class="cv-pill-anchor" style="margin-left:auto;">';
+    h += '<button type="button" class="dfx-or-chip cv-pill ' + _hFar.cls + '"'
+      + ' data-action="cv-statuspill" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"'
+      + ' aria-haspopup="true" aria-expanded="false" title="Tap to change status">'
+      + _hFar.txt + ' <span class="cv-pill-caret">\u25BC</span></button>';
+    h += _cvStatusMenu(d, oi, _hCur).replace(/data-action="cv-setstatus"/g, 'data-action="cv-setstatus" data-instant="1"');
+    h += '</span>';
     h += '</div>'; // /dfx-ed-header
 
     // observation tab strip [Obs A ⋮ ✕][Obs B][+ Add observation]
@@ -3296,7 +3311,7 @@ function _promptContractorThenOutstanding(deficId, obsIdx, choice) {
   });
 }
 
-function _cvSetStatus(deficId, obsIdx, choice) {
+function _cvSetStatus(deficId, obsIdx, choice, instant) {
   var find = Model.findDeficiency(deficId);
   if (!find) return;
   var d = find.defic;
@@ -3348,6 +3363,17 @@ function _cvSetStatus(deficId, obsIdx, choice) {
   }
 
   if (typeof Model.saveNow === 'function') Model.saveNow();
+
+  // S284c (Mark): INSTANT mode — picks made from a modal host (drawing-viewer
+  // pin editor / focused modal) are FINAL. The list isn't under the user's
+  // finger there, so the mis-pick-safety pending/Re-sort machinery doesn't
+  // apply: close the menu and re-render the list fully (sorted) right away.
+  // The modal itself refreshes via its own Model.onChange subscription.
+  if (instant) {
+    _cvCloseStatusMenus();
+    initDeficiencies.render();
+    return;
+  }
 
   // Mark PENDING (Option D). Close FIRST so the portaled menu is cleaned up,
   // THEN patch the pill in place (rebuilds the anchor with a fresh closed menu).
@@ -4482,7 +4508,7 @@ document.addEventListener('click', function(e) {
     var _cvDid = el.getAttribute('data-defic-id');
     var _cvOi = parseInt(el.getAttribute('data-obs-idx'), 10);
     var _cvChoice = el.getAttribute('data-choice');
-    if (_cvDid != null && !isNaN(_cvOi) && _cvChoice) _cvSetStatus(_cvDid, _cvOi, _cvChoice);
+    if (_cvDid != null && !isNaN(_cvOi) && _cvChoice) _cvSetStatus(_cvDid, _cvOi, _cvChoice, el.getAttribute('data-instant') === '1');
     return;
   }
 
