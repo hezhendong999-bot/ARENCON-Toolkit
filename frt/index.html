@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=578">
+<link rel="stylesheet" href="css/frt.css?v=579">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -128,7 +128,7 @@ function ensurePdfJs(cb){
           <!-- S161 P3: surface the existing _showCloudDiagnostic modal via a dedicated
                button so field inspectors can review system state (cloud auth, sync
                instance, photo subsystem health, memory) without needing dev console access. -->
-          <button id="btn-diagnostics">🩺 Diagnostics <span>Check cloud, sync, photo subsystem state</span></button>
+          <button id="btn-diagnostics" style="display:none;">🩺 Diagnostics <span>Check cloud, sync, photo subsystem state</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;"></div>
           <button id="btn-reset-current-tab">🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
           <button style="color:#C62828;">⚠️ Reset Entire Project <span>Delete all project data</span></button>

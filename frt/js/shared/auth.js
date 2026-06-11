@@ -295,6 +295,15 @@ export var Auth = {
     return _role === 'admin' || _role === 'super_admin';
   },
 
+  // S284: super-admin = Mark only. Role 'super_admin' in the profiles table is
+  // the clean forward path; the email fallback guarantees this gate can never
+  // lock Mark out if his profile row still reads 'admin'. Gates the Repair
+  // tools and the Diagnostics button (destructive/recovery surfaces).
+  isSuperAdmin: function() {
+    if (_role === 'super_admin') return true;
+    return ((_user && _user.email) || '').toLowerCase() === 'mhe@arencon.com';
+  },
+
   getSession: function() { return _user; },
 
   signOut: function() {

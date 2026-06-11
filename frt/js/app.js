@@ -426,8 +426,8 @@ function _resetCurrentTab() {
 // re-home > delete for unique orphans). Field-verify gated — runs against the
 // live project, saves via the model's normal cycle (push rides next sync).
 function _repairPhotos() {
-  if (!(Auth && Auth.isAdmin && Auth.isAdmin())) {
-    showAlert('Admin only', 'Photo Repair is restricted to administrators.');
+  if (!(Auth && Auth.isSuperAdmin && Auth.isSuperAdmin())) {
+    showAlert('Restricted', 'Photo Repair is restricted to the administrator.');
     return;
   }
   var proj = Model.getProject();
@@ -875,15 +875,19 @@ function _updateHeaderForProject() {
   var mau = document.getElementById('mobile-ai-usage');
   if (mau) mau.style.display = '';
 
-  // Show repair section for admins only. The HTML defaults both sections to
-  // display:none, so non-admins simply never see them — protecting field users
-  // from destructive recovery actions (R2 Cleanup, Repair R2 Links, etc.).
-  // Admins (role admin/super_admin in profiles) still get full access.
-  if (Auth && Auth.isAdmin && Auth.isAdmin()) {
+  // S284: Repair tools + Diagnostics are SUPER-ADMIN (Mark) only — was
+  // admin-wide for repair, everyone for Diagnostics. The HTML defaults all
+  // three (desktop repair section, mobile repair section, Diagnostics button)
+  // to display:none, so everyone else simply never sees them — protecting
+  // field users from destructive recovery actions (R2 Cleanup, Repair R2
+  // Links, Photo Pool Repair) and state-heavy diagnostic surfaces.
+  if (Auth && Auth.isSuperAdmin && Auth.isSuperAdmin()) {
     var repairSec = document.getElementById('more-repair-section');
     if (repairSec) repairSec.style.display = '';
     var mobileRepair = document.getElementById('mobile-repair-section');
     if (mobileRepair) mobileRepair.style.display = '';
+    var diagBtnSA = document.getElementById('btn-diagnostics');
+    if (diagBtnSA) diagBtnSA.style.display = '';
   }
 
   // Update page title
