@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S282b (hotfix: retired deferred _ndSaveLbMarkup override that clobbered the vector markup save; crossOrigin on lightbox img so cloud photos don't taint the canvas; taint-safe download) + S282 FRT-engine port (B3 identity-based gallery actions; B5 reconcile self-healer; B6 date stamped at every upload; B7 Site Records pinned gallery section; B8 non-destructive vector markup; B9 orphan report/purge/restore tooling) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S283 (FRT lightbox ported wholesale: DslLightbox replaces all legacy lightbox generations; pan/zoom/pinch/swipe/rotate, FRT markup pill bar driving vector engine, native caption+date, iOS scroll lock; legacy lightbox + wrappers retired inert) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3392,6 +3392,492 @@ var DieselMarkup = (function(){
 })();
 if(typeof window!=='undefined') window.DieselMarkup = DieselMarkup;
 
+// ═══ S283: DslLightbox — the FRT lightbox, ported wholesale ═══
+// Replaces ALL prior Diesel lightbox generations (basic lightbox + bitmap
+// markup + zoom wrapper + caption wrapper + nd-override), which are retired
+// inert below. Architecture is FRT's frt/js/ui/lightbox.js adapted to Diesel:
+//   - own DOM built once, re-parented to <body> (root stacking context),
+//     z-index 10000, ids dlb-* so the inert legacy DOM can't collide
+//   - VIEW mode: pan/zoom (wheel + pinch), swipe prev/next, double-tap/click
+//     zoom, rotate, keyboard, counter, caption + date row (Diesel-specific)
+//   - MARKUP mode: FRT pill toolbar (pen/highlight/line/rect/oval/arrow/text/
+//     eraser, undo/redo, swatches, size, Save/Clear/Revert/Exit) driving the
+//     DieselMarkup vector engine; saved markup persists as p.mk (non-
+//     destructive) and is composited in view mode
+//   - iOS body scroll lock (position:fixed pattern from the gauge-modal fix)
+//   - crossOrigin before src (S282b) so cloud photos never taint the canvas
+var DslLightbox = (function(){
+  'use strict';
+  var _photos=[], _idx=0, _ctx=null, _isOpen=false, _built=false;
+  var _scale=1, _fitScale=1, _panX=0, _panY=0, _rotations={};
+  var _dragging=false, _lastX=0, _lastY=0;
+  var _tDist=0, _tScale=1, _tMidX=0, _tMidY=0, _tPanX=0, _tPanY=0;
+  var _sX=0, _sY=0, _lastTap=0, _swX=0, _swY=0, _swiping=false;
+  var _markupActive=false;
+  var _mkTool='pen', _mkColor='#FF0000', _mkSize=4;
+  var _scrollLockY=0;
+
+  function _el(id){ return document.getElementById(id); }
+  function _photoObj(i){ var p=_photos[i]; return (p && typeof p==='object') ? p : {d:(typeof p==='string'?p:'')}; }
+  function _rot(){ return _rotations[_idx]||0; }
+  function _sideways(){ var r=_rot(); return r===90||r===270; }
+
+  // ── DOM (built once) ──
+  function _build(){
+    if(_built) return;
+    var ov=document.createElement('div');
+    ov.id='dlb-overlay';
+    ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(8,8,12,.96);z-index:10000;flex-direction:column;font-family:Calibri,sans-serif;';
+    ov.innerHTML =
+      '<div id="dlb-area" style="flex:1;position:relative;overflow:hidden;touch-action:none;cursor:grab;">'
+      + '<div id="dlb-wrap" style="position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;">'
+      +   '<img id="dlb-image" draggable="false" style="display:block;user-select:none;-webkit-user-drag:none;">'
+      +   '<canvas id="dlb-canvas" style="position:absolute;top:0;left:0;background:transparent;pointer-events:none;"></canvas>'
+      + '</div>'
+      + '<button id="dlb-prev" title="Previous" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.55);color:#fff;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;z-index:9;">\u2039</button>'
+      + '<button id="dlb-next" title="Next" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.55);color:#fff;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;z-index:9;">\u203A</button>'
+      + '</div>';
+    // ── Top bar (FRT layout: counter | zoom% | markup/download/rotate/close) ──
+    var top=document.createElement('div');
+    top.id='dlb-topbar';
+    top.style.cssText='position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;'
+      +'padding:calc(10px + env(safe-area-inset-top,0px)) calc(14px + env(safe-area-inset-right,0px)) 10px calc(14px + env(safe-area-inset-left,0px));'
+      +'background:linear-gradient(180deg,rgba(0,0,0,.65),rgba(0,0,0,0));z-index:10;pointer-events:none;';
+    function rb(id,label,title){
+      var b=document.createElement('button');
+      b.id=id; b.title=title; b.innerHTML=label;
+      b.style.cssText='background:rgba(0,0,0,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .15s;';
+      b.addEventListener('mouseenter',function(){b.style.background='rgba(156,39,66,.85)';});
+      b.addEventListener('mouseleave',function(){b.style.background='rgba(0,0,0,.55)';});
+      return b;
+    }
+    var left=document.createElement('div'); left.style.cssText='flex:1;display:flex;align-items:center;gap:10px;pointer-events:auto;';
+    var counter=document.createElement('div'); counter.id='dlb-counter';
+    counter.style.cssText='color:#fff;font-size:14px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.6);';
+    left.appendChild(counter);
+    var center=document.createElement('div'); center.style.cssText='flex:1;display:flex;justify-content:center;pointer-events:auto;';
+    var zoom=document.createElement('div'); zoom.id='dlb-zoom'; zoom.textContent='100%';
+    zoom.style.cssText='background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:14px;';
+    center.appendChild(zoom);
+    var right=document.createElement('div'); right.style.cssText='flex:1;display:flex;justify-content:flex-end;gap:8px;pointer-events:auto;';
+    var bMk=rb('dlb-markup','\u270E','Markup'), bDl=rb('dlb-download','\u2B07','Download'),
+        bRo=rb('dlb-rotate','\u21BB','Rotate 90\u00B0'), bCl=rb('dlb-close','\u2715','Close');
+    right.appendChild(bMk); right.appendChild(bDl); right.appendChild(bRo); right.appendChild(bCl);
+    top.appendChild(left); top.appendChild(center); top.appendChild(right);
+    ov.appendChild(top);
+    // ── Caption + date row (Diesel-specific, view mode only) ──
+    var cap=document.createElement('div');
+    cap.id='dlb-caprow';
+    cap.style.cssText='position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:8px;align-items:center;width:min(95vw,640px);z-index:10;';
+    cap.innerHTML =
+      '<input id="dlb-caption" type="text" placeholder="Caption..." style="flex:1;padding:7px 10px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(20,20,28,.85);color:#fff;font-family:Calibri,sans-serif;font-size:13px;outline:none;">'
+      + '<input id="dlb-date" type="date" style="padding:6px 8px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(20,20,28,.85);color:#fff;font-family:Calibri,sans-serif;font-size:12px;outline:none;">';
+    ov.appendChild(cap);
+    // ── FRT markup pill bar ──
+    var bar=document.createElement('div');
+    bar.id='dlb-markupbar';
+    bar.style.cssText='position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:8px 12px;background:rgba(20,20,28,.92);border-radius:24px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:96vw;overflow-x:auto;';
+    function tb(id,label,title){
+      var b=document.createElement('button');
+      b.id=id; b.title=title; b.textContent=label;
+      b.style.cssText='background:rgba(255,255,255,.12);color:#fff;border:none;min-width:46px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;flex:0 0 auto;';
+      return b;
+    }
+    var tools=[['dlb-mk-pen','Pen','pen'],['dlb-mk-hi','Highlight','highlight'],['dlb-mk-line','Line','line'],
+               ['dlb-mk-rect','Rect','square'],['dlb-mk-circ','Oval','circle'],['dlb-mk-arr','Arrow','arrow'],
+               ['dlb-mk-text','Text','text'],['dlb-mk-er','Eraser','erase']];
+    var toolBtns={};
+    tools.forEach(function(t){ var b=tb(t[0],t[1],t[1]); toolBtns[t[2]]=b; bar.appendChild(b); });
+    function sep(){ var s=document.createElement('div'); s.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;flex:0 0 auto;'; return s; }
+    bar.appendChild(sep());
+    var bUn=tb('dlb-mk-undo','\u21B6','Undo (Ctrl+Z)'), bRd=tb('dlb-mk-redo','\u21B7','Redo (Ctrl+Y)');
+    bar.appendChild(bUn); bar.appendChild(bRd); bar.appendChild(sep());
+    var swatches=[];
+    ['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'].forEach(function(col){
+      var s=document.createElement('button');
+      s.dataset.col=col;
+      s.style.cssText='width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:'+col+';cursor:pointer;padding:0;flex:0 0 auto;';
+      swatches.push(s); bar.appendChild(s);
+    });
+    var sizeWrap=document.createElement('div'); sizeWrap.style.cssText='display:flex;align-items:center;gap:6px;padding:0 8px;flex:0 0 auto;';
+    sizeWrap.innerHTML='<span style="color:#fff;font:600 12px Calibri,sans-serif;">Size</span>';
+    var sizeSld=document.createElement('input'); sizeSld.type='range'; sizeSld.min='1'; sizeSld.max='20'; sizeSld.value='4';
+    sizeSld.style.cssText='width:80px;accent-color:#9C2742;';
+    sizeWrap.appendChild(sizeSld); bar.appendChild(sizeWrap); bar.appendChild(sep());
+    var bSv=tb('dlb-mk-save','Save','Save markup'); bSv.style.background='#5F8068';
+    var bCr=tb('dlb-mk-clear','Clear','Clear all strokes');
+    var bRv=tb('dlb-mk-revert','Revert','Remove saved markup');
+    var bX =tb('dlb-mk-exit','\u2715','Exit markup'); bX.style.background='#9C2742';
+    bar.appendChild(bSv); bar.appendChild(bCr); bar.appendChild(bRv); bar.appendChild(bX);
+    ov.appendChild(bar);
+    document.body.appendChild(ov);
+    _built=true;
+
+    // ── Wiring ──
+    function setActiveTool(tool){
+      _mkTool=tool;
+      Object.keys(toolBtns).forEach(function(k){ toolBtns[k].style.background = (k===tool)?'#9C2742':'rgba(255,255,255,.12)'; });
+    }
+    function setSwatch(col){
+      _mkColor=col;
+      swatches.forEach(function(s){ s.style.borderColor=(s.dataset.col===col)?'#fff':'rgba(255,255,255,.4)'; s.style.boxShadow=(s.dataset.col===col)?'0 0 0 2px #9C2742':'none'; });
+    }
+    Object.keys(toolBtns).forEach(function(k){ toolBtns[k].addEventListener('click',function(){ setActiveTool(k); }); });
+    swatches.forEach(function(s){ s.addEventListener('click',function(){ setSwatch(s.dataset.col); }); });
+    sizeSld.addEventListener('input',function(){ _mkSize=parseInt(sizeSld.value,10)||4; });
+    bUn.addEventListener('click',function(){ DieselMarkup.undo(); });
+    bRd.addEventListener('click',function(){ DieselMarkup.redoOp(); });
+    bSv.addEventListener('click',_saveMk);
+    bCr.addEventListener('click',function(){ DieselMarkup.clear(); });
+    bRv.addEventListener('click',_revertMk);
+    bX .addEventListener('click',_toggleMarkup);
+    bMk.addEventListener('click',_toggleMarkup);
+    bDl.addEventListener('click',_download);
+    bRo.addEventListener('click',function(){
+      _rotations[_idx]=(_rot()+90)%360;
+      _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _apply();
+    });
+    bCl.addEventListener('click',_close);
+    _el('dlb-prev').addEventListener('click',function(){ _nav(-1); });
+    _el('dlb-next').addEventListener('click',function(){ _nav(1); });
+    setActiveTool('pen'); setSwatch('#FF0000');
+    // caption/date persistence
+    _el('dlb-caption').addEventListener('change',function(){
+      var p=_photos[_idx]; if(p&&typeof p==='object'){ p.caption=this.value; if(typeof debounceAutosave==='function') debounceAutosave(); }
+    });
+    _el('dlb-date').addEventListener('change',function(){
+      var p=_photos[_idx]; if(p&&typeof p==='object'){ p.date=this.value; if(typeof debounceAutosave==='function') debounceAutosave(); }
+    });
+    // stop lightbox keys hijacking the inputs
+    ['dlb-caption','dlb-date'].forEach(function(id){
+      _el(id).addEventListener('keydown',function(ev){ ev.stopPropagation(); });
+    });
+    _wireViewEvents();
+  }
+
+  // ── Transform / view math (FRT) ──
+  function _clampPan(){
+    var img=_el('dlb-image'), area=_el('dlb-area');
+    if(!img||!area||!img.naturalWidth) return;
+    var aw=area.clientWidth, ah=area.clientHeight;
+    var nw=_sideways()?img.naturalHeight:img.naturalWidth;
+    var nh=_sideways()?img.naturalWidth:img.naturalHeight;
+    var sw=nw*_scale, sh=nh*_scale;
+    if(sw<=aw) _panX=(aw-sw)/2; else _panX=Math.min(0,Math.max(aw-sw,_panX));
+    if(sh<=ah) _panY=(ah-sh)/2; else _panY=Math.min(0,Math.max(ah-sh,_panY));
+  }
+  function _apply(){
+    _clampPan();
+    var wrap=_el('dlb-wrap'), img=_el('dlb-image');
+    if(!wrap) return;
+    var rot=_rot(), offX=0, offY=0;
+    if(img&&img.naturalWidth){
+      var nw=img.naturalWidth, nh=img.naturalHeight;
+      if(rot===90){ offX=nh*_scale; }
+      else if(rot===180){ offX=nw*_scale; offY=nh*_scale; }
+      else if(rot===270){ offY=nw*_scale; }
+    }
+    wrap.style.transform='translate3d('+(_panX+offX)+'px,'+(_panY+offY)+'px,0) rotate('+rot+'deg) scale('+_scale+')';
+    var z=_el('dlb-zoom');
+    if(z&&_fitScale) z.textContent=Math.round((_scale/_fitScale)*100)+'%';
+  }
+  function _calcFit(){
+    var img=_el('dlb-image'), area=_el('dlb-area');
+    if(!img||!area||!img.naturalWidth){ _fitScale=1; return; }
+    var nw=_sideways()?img.naturalHeight:img.naturalWidth;
+    var nh=_sideways()?img.naturalWidth:img.naturalHeight;
+    _fitScale=Math.min(area.clientWidth/nw, area.clientHeight/nh);
+    if(_fitScale>1) _fitScale=1;
+  }
+  function _resetView(){ _scale=_fitScale; _panX=0; _panY=0; _apply(); }
+
+  // ── View-mode composite of saved markup ──
+  function _paintSavedMk(){
+    var img=_el('dlb-image'), cv=_el('dlb-canvas');
+    if(!img||!cv||!img.naturalWidth) return;
+    cv.width=img.naturalWidth; cv.height=img.naturalHeight;
+    cv.style.width=img.naturalWidth+'px'; cv.style.height=img.naturalHeight+'px';
+    var p=_photoObj(_idx);
+    var ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    if(p.mk && window.DieselMarkup) DieselMarkup.composite(ctx, p.mk, cv.width, cv.height);
+  }
+
+  // ── Show photo ──
+  function _showPhoto(i){
+    if(i<0||i>=_photos.length) return;
+    if(_markupActive) _exitMarkup(false);
+    _idx=i;
+    if(typeof lbIdx!=='undefined') lbIdx=i; // keep legacy globals coherent
+    var p=_photoObj(i);
+    var img=_el('dlb-image');
+    var src=p.d||p.r2Url||'';
+    img.onload=function(){
+      _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _apply();
+      _paintSavedMk();
+    };
+    img.onerror=function(){ if(typeof showToast==='function') showToast('Photo failed to load'); };
+    img.crossOrigin='anonymous';   // S282b: cloud photos must not taint the canvas
+    img.src=src;
+    var c=_el('dlb-counter');
+    if(c) c.textContent=(_photos.length>1)?((i+1)+' / '+_photos.length):'';
+    _el('dlb-prev').style.display=(i>0&&_photos.length>1)?'':'none';
+    _el('dlb-next').style.display=(i<_photos.length-1&&_photos.length>1)?'':'none';
+    // caption + date (date input needs yyyy-MM-dd)
+    var ci=_el('dlb-caption'), di=_el('dlb-date');
+    if(ci) ci.value=p.caption||'';
+    if(di){ var m=(''+(p.date||'')).match(/^\d{4}-\d{2}-\d{2}/); di.value=m?m[0]:''; }
+  }
+  function _nav(dir){ var n=_idx+dir; if(n>=0&&n<_photos.length) _showPhoto(n); }
+
+  // ── Markup mode ──
+  function _toggleMarkup(){
+    if(_markupActive){ _exitMarkup(false); return; }
+    if(!window.DieselMarkup){ if(typeof showToast==='function') showToast('Markup engine not loaded'); return; }
+    var img=_el('dlb-image'), cv=_el('dlb-canvas');
+    if(!img||!img.naturalWidth) return;
+    _resetView();                       // markup at fit scale, no pan (FRT rule)
+    var p=_photoObj(_idx);
+    cv.style.pointerEvents='auto';
+    DieselMarkup.attach(cv, img, p.mk||null, function(){
+      return {tool:_mkTool, color:_mkColor, size:_mkSize*3, alpha:1, fontSize:Math.max(18,_mkSize*8)};
+    }, null);
+    // attach() sizes canvas CSS to img.offsetWidth; inside the transform wrapper
+    // the img renders at NATURAL size (scaled by the wrapper), so re-pin CSS px
+    // to natural dims for exact 1:1 coord mapping.
+    cv.style.width=img.naturalWidth+'px'; cv.style.height=img.naturalHeight+'px';
+    _el('dlb-markupbar').style.display='flex';
+    _el('dlb-caprow').style.display='none';
+    _el('dlb-area').style.cursor='crosshair';
+    _markupActive=true;
+  }
+  function _exitMarkup(keepStrokes){
+    if(window.DieselMarkup && !keepStrokes) DieselMarkup.detach();
+    var cv=_el('dlb-canvas');
+    if(cv) cv.style.pointerEvents='none';
+    _el('dlb-markupbar').style.display='none';
+    _el('dlb-caprow').style.display='flex';
+    _el('dlb-area').style.cursor='grab';
+    _markupActive=false;
+    _paintSavedMk();                    // restore saved-state composite
+  }
+  function _saveMk(){
+    var p=_photos[_idx];
+    if(!p||typeof p!=='object'){ if(typeof showToast==='function') showToast('Cannot save markup on this photo'); return; }
+    var mk=DieselMarkup.toMk();
+    if(mk) p.mk=mk; else delete p.mk;
+    _exitMarkup(false);
+    if(typeof showToast==='function') showToast(mk?'\u2713 Markup saved \u2014 original preserved':'\u2713 Markup cleared');
+    if(typeof debounceAutosave==='function') debounceAutosave();
+    if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
+      try{ CloudSync.save(_collectCloudState()); }catch(_){}
+    }
+    if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(_){} }
+  }
+  function _revertMk(){
+    var p=_photos[_idx];
+    if(!p||typeof p!=='object') return;
+    if(!p.mk && !(window.DieselMarkup&&DieselMarkup.isDirty())) return;
+    var doIt=function(){
+      delete p.mk;
+      if(window.DieselMarkup) DieselMarkup.clear();
+      _exitMarkup(false);
+      if(typeof showToast==='function') showToast('Markup removed \u2014 original intact');
+      if(typeof debounceAutosave==='function') debounceAutosave();
+      if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
+        try{ CloudSync.save(_collectCloudState()); }catch(_){}
+      }
+      if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(_){} }
+    };
+    if(p.mk && typeof _aConfirm==='function'){ _aConfirm('Remove all saved markup from this photo? The original photo is untouched.', doIt, 'Remove markup'); }
+    else doIt();
+  }
+
+  // ── Download (composite original + markup at natural res) ──
+  function _download(){
+    var img=_el('dlb-image');
+    var p=_photoObj(_idx);
+    if(!img||!img.naturalWidth) return;
+    try{
+      var c=document.createElement('canvas');
+      c.width=img.naturalWidth; c.height=img.naturalHeight;
+      var cx=c.getContext('2d');
+      cx.drawImage(img,0,0,c.width,c.height);
+      if(_markupActive && window.DieselMarkup && DieselMarkup.canvas) DieselMarkup.compositeOnto(cx,c.width,c.height);
+      else if(p.mk && window.DieselMarkup) DieselMarkup.composite(cx,p.mk,c.width,c.height);
+      c.toBlob(function(blob){
+        if(!blob){ throw new Error('no blob'); }
+        var url=URL.createObjectURL(blob);
+        var a=document.createElement('a');
+        a.href=url; a.download=(p.n&&/\.(jpe?g|png|webp)$/i.test(p.n))?p.n:('photo_'+Date.now()+'.jpg');
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+      },'image/jpeg',0.95);
+    }catch(e){
+      var src=p.d||p.r2Url||'';
+      if(src) window.open(src,'_blank');
+    }
+  }
+
+  // ── View-mode events (FRT pan/zoom/swipe, scoped to dlb-area) ──
+  function _wireViewEvents(){
+    var area=_el('dlb-area');
+    area.addEventListener('wheel',function(e){
+      if(!_isOpen||_markupActive) return;
+      e.preventDefault();
+      var rect=area.getBoundingClientRect();
+      var mx=e.clientX-rect.left, my=e.clientY-rect.top;
+      var ix=(mx-_panX)/_scale, iy=(my-_panY)/_scale;
+      var delta=e.deltaY>0?0.9:1.1;
+      var ns=Math.max(_fitScale,Math.min(8,_scale*delta));
+      if(ns<=_fitScale){ _scale=_fitScale; _panX=0; _panY=0; _apply(); return; }
+      _panX=mx-ix*ns; _panY=my-iy*ns; _scale=ns; _apply();
+    },{passive:false});
+    area.addEventListener('mousedown',function(e){
+      if(!_isOpen||_markupActive) return;
+      if(e.target.closest&&(e.target.closest('button')||e.target.closest('#dlb-caprow'))) return;
+      _dragging=true; _lastX=e.clientX; _lastY=e.clientY; area.style.cursor='grabbing'; e.preventDefault();
+    });
+    window.addEventListener('mousemove',function(e){
+      if(!_isOpen||!_dragging||_markupActive) return;
+      if(_scale<=_fitScale) return;
+      _panX+=e.clientX-_lastX; _panY+=e.clientY-_lastY;
+      _lastX=e.clientX; _lastY=e.clientY; _apply();
+    });
+    window.addEventListener('mouseup',function(){ if(_isOpen){ _dragging=false; var a=_el('dlb-area'); if(a&&!_markupActive)a.style.cursor='grab'; } });
+    area.addEventListener('dblclick',function(e){
+      if(!_isOpen||_markupActive) return;
+      e.preventDefault();
+      if(_scale>_fitScale*1.05){ _resetView(); return; }
+      var rect=area.getBoundingClientRect();
+      var mx=e.clientX-rect.left, my=e.clientY-rect.top;
+      var ix=(mx-_panX)/_scale, iy=(my-_panY)/_scale;
+      _scale=Math.min(8,_fitScale*2.5);
+      _panX=mx-ix*_scale; _panY=my-iy*_scale; _apply();
+    });
+    area.addEventListener('touchstart',function(e){
+      if(!_isOpen||_markupActive) return;
+      if(e.target.closest&&(e.target.closest('button')||e.target.closest('#dlb-caprow'))) return;
+      if(e.touches.length===2){
+        e.preventDefault();
+        var dx=e.touches[1].clientX-e.touches[0].clientX, dy=e.touches[1].clientY-e.touches[0].clientY;
+        _tDist=Math.sqrt(dx*dx+dy*dy); _tScale=_scale;
+        var rect=area.getBoundingClientRect();
+        _tMidX=(e.touches[0].clientX+e.touches[1].clientX)/2-rect.left;
+        _tMidY=(e.touches[0].clientY+e.touches[1].clientY)/2-rect.top;
+        _tPanX=_panX; _tPanY=_panY; _swiping=false;
+      } else if(e.touches.length===1){
+        _sX=e.touches[0].clientX; _sY=e.touches[0].clientY;
+        _swX=_sX; _swY=_sY;
+        _swiping=(_scale<=_fitScale*1.05);
+        var now=Date.now();
+        if(now-_lastTap<350){
+          e.preventDefault();
+          if(_scale>_fitScale*1.5){ _resetView(); }
+          else {
+            var rect2=area.getBoundingClientRect();
+            var mx=e.touches[0].clientX-rect2.left, my=e.touches[0].clientY-rect2.top;
+            var ix=(mx-_panX)/_scale, iy=(my-_panY)/_scale;
+            _scale=Math.min(8,_fitScale*3);
+            _panX=mx-ix*_scale; _panY=my-iy*_scale; _apply();
+          }
+          _lastTap=0; _swiping=false;
+        } else _lastTap=now;
+      }
+    },{passive:false});
+    area.addEventListener('touchmove',function(e){
+      if(!_isOpen||_markupActive) return;
+      if(e.touches.length===2){
+        e.preventDefault(); _swiping=false;
+        var dx=e.touches[1].clientX-e.touches[0].clientX, dy=e.touches[1].clientY-e.touches[0].clientY;
+        var dist=Math.sqrt(dx*dx+dy*dy);
+        if(!_tDist) return;
+        var ns=Math.max(_fitScale,Math.min(8,_tScale*(dist/_tDist)));
+        var ix=(_tMidX-_tPanX)/_tScale, iy=(_tMidY-_tPanY)/_tScale;
+        _scale=ns; _panX=_tMidX-ix*ns; _panY=_tMidY-iy*ns; _apply();
+      } else if(e.touches.length===1){
+        if(_swiping){
+          var dX=e.touches[0].clientX-_swX, dY=e.touches[0].clientY-_swY;
+          if(Math.abs(dY)>Math.abs(dX)*1.5 && Math.abs(dX)<30) _swiping=false;
+        } else if(_scale>_fitScale){
+          e.preventDefault();
+          _panX+=e.touches[0].clientX-_sX; _panY+=e.touches[0].clientY-_sY; _apply();
+        }
+        _sX=e.touches[0].clientX; _sY=e.touches[0].clientY;
+      }
+    },{passive:false});
+    area.addEventListener('touchend',function(e){
+      if(!_isOpen) return;
+      if(e.touches.length<2) _tDist=0;
+      if(e.touches.length===1){ _sX=e.touches[0].clientX; _sY=e.touches[0].clientY; }
+      if(_swiping && e.touches.length===0 && e.changedTouches && e.changedTouches.length){
+        var diff=e.changedTouches[0].clientX-_swX;
+        if(Math.abs(diff)>60){ if(diff>0) _nav(-1); else _nav(1); }
+        _swiping=false;
+      }
+    });
+    document.addEventListener('keydown',function(e){
+      if(!_isOpen) return;
+      if(e.key==='Escape'){ if(_markupActive){ _exitMarkup(false); } else { _close(); } e.preventDefault(); return; }
+      if(_markupActive&&(e.ctrlKey||e.metaKey)){
+        if(e.key==='z'||e.key==='Z'){ DieselMarkup.undo(); e.preventDefault(); return; }
+        if(e.key==='y'||e.key==='Y'){ DieselMarkup.redoOp(); e.preventDefault(); return; }
+      }
+      if(_markupActive) return;
+      if(e.key==='ArrowLeft'){ _nav(-1); e.preventDefault(); }
+      if(e.key==='ArrowRight'){ _nav(1); e.preventDefault(); }
+      if(e.key==='+'||e.key==='='){ _scale=Math.min(8,_scale*1.2); _apply(); }
+      if(e.key==='-'){ _scale=Math.max(_fitScale,_scale/1.2); if(_scale<=_fitScale){_panX=0;_panY=0;} _apply(); }
+      if(e.key==='0'){ _resetView(); }
+      if(e.key==='r'||e.key==='R'){ _rotations[_idx]=(_rot()+90)%360; _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _apply(); }
+    });
+  }
+
+  // ── iOS-safe scroll lock (gauge-modal pattern) ──
+  function _lockScroll(){
+    _scrollLockY=window.scrollY||document.documentElement.scrollTop||0;
+    document.body.style.position='fixed';
+    document.body.style.top=(-_scrollLockY)+'px';
+    document.body.style.left='0'; document.body.style.right='0';
+    document.body.style.overflow='hidden';
+  }
+  function _unlockScroll(){
+    document.body.style.position='';
+    document.body.style.top=''; document.body.style.left=''; document.body.style.right='';
+    document.body.style.overflow='';
+    window.scrollTo(0,_scrollLockY);
+  }
+
+  // ── Open / close ──
+  function _open(photos, idx, ctx){
+    if(!photos||!photos.length) return;
+    _build();
+    _photos=photos; _idx=(typeof idx==='number')?idx:0; _ctx=ctx||null;
+    if(typeof lbPhotos!=='undefined') lbPhotos=photos;
+    if(typeof lbPhotoCtx!=='undefined') lbPhotoCtx=ctx||null;
+    _rotations={}; _isOpen=true;
+    var ov=_el('dlb-overlay');
+    // FRT S205: re-parent to be last child of <body> — escapes any ancestor
+    // stacking context so the lightbox always paints on top.
+    if(ov.parentNode!==document.body || ov!==document.body.lastElementChild) document.body.appendChild(ov);
+    ov.style.display='flex';
+    _lockScroll();
+    _showPhoto(_idx);
+  }
+  function _close(){
+    if(_markupActive) _exitMarkup(false);
+    _isOpen=false; _photos=[]; _rotations={}; _ctx=null;
+    var ov=_el('dlb-overlay');
+    if(ov) ov.style.display='none';
+    var img=_el('dlb-image'); if(img) img.src='';
+    _unlockScroll();
+  }
+
+  return { open:_open, close:_close, isOpen:function(){return _isOpen;} };
+})();
+if(typeof window!=='undefined') window.DslLightbox = DslLightbox;
+
+
 // ── Lightbox markup state (LEGACY — retained defined-but-inert per S137) ──
 let lbTool = 'pen';
 let lbDrawing = false;
@@ -3677,14 +4163,13 @@ function _saveLbMarkup_LEGACY() {
 let lbPhotoCtx = null; // context for re-rendering after save
 
 function openLightbox(photos, idx, ctx) {
+  // S283: delegates to DslLightbox — the FRT lightbox ported wholesale. The
+  // old #photo-lightbox DOM and its showLbPhoto/initLbMarkup chain are retired
+  // inert (S137). Same signature, so every existing caller works unchanged.
   lbPhotos = photos;
   lbIdx = typeof idx === 'number' ? idx : 0;
   lbPhotoCtx = ctx || null;
-  const lb = document.getElementById('photo-lightbox');
-  lb.style.display = 'flex';
-  lbEventsInit = false; // re-init events each open (canvas may have changed)
-  showLbPhoto();
-  document.addEventListener('keydown', lbKeyHandler);
+  DslLightbox.open(photos, lbIdx, ctx || null);
 }
 
 function lbKeyHandler(e) {
@@ -3723,8 +4208,10 @@ function lightboxNav(dir) {
 }
 
 function closeLightbox() {
-  document.getElementById('photo-lightbox').style.display='none';
-  document.removeEventListener('keydown', lbKeyHandler);
+  // S283: delegates to DslLightbox; legacy DOM stays hidden/inert.
+  if(typeof DslLightbox!=='undefined') DslLightbox.close();
+  var _olb=document.getElementById('photo-lightbox');
+  if(_olb) _olb.style.display='none';
   lbDrawing=false; lbMarkupCtx=null; lbEventsInit=false;
 }
 // Backdrop click handled in window.load
@@ -11591,12 +12078,14 @@ function _enhancedOpenLightbox(photos, idx, ctx){
   }, 200);
 }
 // Override openLightbox — deferred to ensure original is defined
-setTimeout(function(){
-  if(typeof openLightbox === 'function' && openLightbox !== _enhancedOpenLightbox){
-    _origOpenLightbox = openLightbox;
-    openLightbox = _enhancedOpenLightbox;
-  }
-}, 500);
+// S283: retired (S137 inert) — caption/date editing is native in DslLightbox.
+// This deferred override would have hijacked the new lightbox delegate.
+// setTimeout(function(){
+//   if(typeof openLightbox === 'function' && openLightbox !== _enhancedOpenLightbox){
+//     _origOpenLightbox = openLightbox;
+//     openLightbox = _enhancedOpenLightbox;
+//   }
+// }, 500);
 
 // Ensure new photos get date stamp automatically
 var _origCompressImage = typeof compressImage === 'function' ? compressImage : null;
