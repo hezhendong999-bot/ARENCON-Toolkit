@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S300 (markup-save regression fix: bake composites from a taint-free source — local dataURL or cache-busted blob fetch — never the displayed img; persist is async with explicit failure toast; crossOrigin removed from lightbox img, killing the 'Photo failed to load' CORS-cache toast; download uses the same safe loader; sibling-stamp no longer matches undefined ids) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S301 (annotation merge race fix: _mkTs timestamp arbitrates the annotation field-group so stale heartbeat merges can no longer revert a fresh markup save; '(original)' backup records reconciled into merged state; close no longer fires the armed onerror — 'Photo failed to load' toast on close eliminated; all photo surfaces incl. checklist thumbs refresh on save/revert) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3792,7 +3792,11 @@ var DslLightbox = (function(){
     var img=_el('dlb-image');
     var src=p.d||p.r2Url||'';
     img.onload=function(){ _scheduleFit(); };
-    img.onerror=function(ev){ console.warn('[DLB] photo load error', {idx:i, id:p.id||null, src:(img.currentSrc||img.src||'').slice(0,160), ev:ev&&ev.type}); if(typeof showToast==='function') showToast('Photo failed to load'); };
+    img.onerror=function(ev){
+      if(!img.getAttribute('src')) return;   // S301: src cleared (close/reset) — not a load failure
+      console.warn('[DLB] photo load error', {idx:i, id:p.id||null, src:(img.currentSrc||img.src||'').slice(0,160), ev:ev&&ev.type});
+      if(typeof showToast==='function') showToast('Photo failed to load');
+    };
     // S300: crossOrigin removed — the displayed img is never a toDataURL source
     // anymore (safe bake loader), and crossOrigin loads fail outright on Chrome
     // cache entries first fetched without CORS (the 'Photo failed to load' toast).
@@ -3887,8 +3891,7 @@ var DslLightbox = (function(){
         try{ CloudSync.save(_collectCloudState()); }catch(e){ console.warn('[DLB] saveMk cloud push failed', e); }
       }
       if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] saveMk renderer failed', e); } }
-      if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(e){ console.warn('[DLB] saveMk gallery render failed', e); }
-      if(typeof _renderRecordZones==='function') try{ _renderRecordZones(); }catch(e){ console.warn('[DLB] saveMk records render failed', e); }
+      _dslRefreshPhotoSurfaces();   // S301: checklist/defic/flow thumbs too, not just gallery
     }).catch(function(e){
       console.warn('[DLB] saveMk persist failed', e);
       if(typeof showToast==='function') showToast('Markup save failed \u2014 '+((e&&e.message)||e)+'. Your strokes are still here.');
@@ -3914,8 +3917,7 @@ var DslLightbox = (function(){
         try{ CloudSync.save(_collectCloudState()); }catch(e){ console.warn('[DLB] revertMk cloud push failed', e); }
       }
       if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] revertMk renderer failed', e); } }
-      if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(e){ console.warn('[DLB] revertMk gallery render failed', e); }
-      if(typeof _renderRecordZones==='function') try{ _renderRecordZones(); }catch(e){ console.warn('[DLB] revertMk records render failed', e); }
+      _dslRefreshPhotoSurfaces();   // S301: checklist/defic/flow thumbs too, not just gallery
     };
     if(hasBaked){
       // S292: FRT semantics — restore original, remove the "(original)" backup
@@ -4138,7 +4140,9 @@ var DslLightbox = (function(){
     _isOpen=false; _photos=[]; _rotations={}; _ctx=null;
     var ov=_el('dlb-overlay');
     if(ov) ov.style.display='none';
-    var img=_el('dlb-image'); if(img) img.src='';
+    // S301: clearing src fires the armed onerror ('Photo failed to load' on
+    // every close) — drop the handlers first.
+    var img=_el('dlb-image'); if(img){ img.onerror=null; img.onload=null; img.removeAttribute('src'); }
     _unlockScroll();
   }
 
@@ -9909,7 +9913,7 @@ function collectState() {
     flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,mk:p.mk||null})),
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
     flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,mk:p.mk||null})),
-    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false})),
+    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0})),
     sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
@@ -9926,7 +9930,7 @@ function collectState() {
 function _collectCloudState(){
   var s=collectState();
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
-  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||''};});}
+  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
   if(s.deficiencies){Object.keys(s.deficiencies).forEach(function(k){if(Array.isArray(s.deficiencies[k]))s.deficiencies[k].forEach(function(d){
     if(d.photos)d.photos=_stripPhotos(d.photos);
@@ -9938,10 +9942,10 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||''};});}
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0};});}
   if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
-  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false};});
+  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
@@ -10118,9 +10122,11 @@ async function _dslMarkupPersist(p, mk){
 
   // ── Stamp the photo (and any same-id references) ──
   var todayIso = new Date().toISOString();
+  var mkTs = Date.now();   // S301: annotation-state timestamp — merge arbitration
   var stamp = function(sp){
     sp.d = markedD;
     sp._annotated = true;
+    sp._mkTs = mkTs;
     if(backupId) sp._origBackupId = backupId;
     sp.date = todayIso;                  // FRT: save bumps the photo to today
     delete sp.mk;                        // strokes are baked now (FRT parity)
@@ -10147,6 +10153,26 @@ async function _dslMarkupPersist(p, mk){
     }
   }
   return { backupId: backupId, markedKey: markedKey };
+}
+
+// S301: re-render every surface that shows photo thumbnails. The checklist
+// opens the lightbox without a renderer ctx, so its thumbs never refreshed
+// after a markup save ("takes a bit to show up").
+function _dslRefreshPhotoSurfaces(){
+  try{
+    if(typeof renderChecklist==='function'){
+      if(typeof S1!=='undefined') renderChecklist(S1,'cl-s1','s1');
+      if(typeof S2!=='undefined') renderChecklist(S2,'cl-s2','s2');
+      if(typeof S3!=='undefined') renderChecklist(S3,'cl-s3','s3');
+      if(typeof S4_items!=='undefined'){ renderChecklist(S4_items,'cl-s4','s4'); renderChecklist(S4_items,'cl-s4pld','s4pld'); }
+      if(typeof S5_mandatory!=='undefined') renderChecklist(S5_mandatory,'cl-s5-mandatory','s5m');
+      if(typeof S5!=='undefined') renderChecklist(S5,'cl-s5','s5');
+    }
+    if(typeof renderDeficGroups==='function') renderDeficGroups();
+    if(typeof renderGeneralDeficGroup==='function') renderGeneralDeficGroup();
+    if(typeof _renderRecordZones==='function') _renderRecordZones();
+    if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+  }catch(e){ console.warn('[DLB] surface refresh failed', e); }
 }
 
 // S292: FRT-semantics revert (port of FRT frt-markup-reverted handler).
@@ -10177,7 +10203,9 @@ function _dslMarkupRevert(p){
   }
   console.info('[DLB] revert', {id:p.id, backupId:backup.id, origKey:origKey?origKey.slice(-40):''});
   // ── Restore the photo (and same-id references) to the original ──
+  var rvTs = Date.now();   // S301: revert is also an annotation-state change
   var restore = function(sp){
+    sp._mkTs = rvTs;
     if(backup.d) sp.d = backup.d; else delete sp.d;
     sp.r2Key = origKey; sp.r2Url = backup.r2Url || '';
     sp.r2Status = origKey ? 'uploaded' : '';
@@ -11152,11 +11180,28 @@ function _mergeCloudLocal(cloud, local){
     // cloud carries the key (incl. null from a cross-device revert), cloud wins.
     // 'in' test (not truthy) so an explicit cloud null correctly clears markup.
     function _preserveMk(cp, lp){ if(cp && lp && !('mk' in cp) && lp.mk) cp.mk = lp.mk;
-      // S292: annotation flags ride the same legacy-cloud preservation rule
       if(cp && lp){
-        if(!('_annotated' in cp) && lp._annotated) cp._annotated = lp._annotated;
-        if(!('_origBackupId' in cp) && lp._origBackupId) cp._origBackupId = lp._origBackupId;
         if(!('_isOrigBackup' in cp) && lp._isOrigBackup) cp._isOrigBackup = lp._isOrigBackup;
+        // S301: the annotation field-group {_annotated,_origBackupId,r2Key,r2Url,d}
+        // is arbitrated by _mkTs. S292's key-presence guard never fired because the
+        // strip mappers always emit the keys — so a stale cloud row (heartbeat
+        // racing a save) silently reverted local annotation while keeping the
+        // marked dataURL as the thumbnail. Newer timestamp wins, both directions.
+        var lts = lp._mkTs||0, cts = cp._mkTs||0;
+        if(lts > cts){
+          // local annotation state is newer — carry the whole group forward
+          cp._annotated = !!lp._annotated;
+          cp._origBackupId = lp._origBackupId || '';
+          cp._mkTs = lts;
+          if(lp.r2Key) cp.r2Key = lp.r2Key;
+          if(lp.r2Url) cp.r2Url = lp.r2Url;
+          if(lp.r2Status) cp.r2Status = lp.r2Status;
+          if(lp.d) cp.d = lp.d;
+        } else if(cts > lts && !cp._annotated && lp._annotated){
+          // cloud has a newer revert (other device): the local d is the marked
+          // composite — drop it so the photo falls back to the restored original.
+          if(cp.d && cp.d === lp.d) delete cp.d;
+        }
       }
     }
     // Preserve flow test photos
@@ -11272,6 +11317,33 @@ function _mergeCloudLocal(cloud, local){
         if(!cs.markupPhotoSrc && ls.markupPhotoSrc) cs.markupPhotoSrc = ls.markupPhotoSrc;
       });
     }
+    // S301: "(original)" backup reconciliation — after the timestamp-arbitrated
+    // photo passes, any merged photo that is annotated needs its backup record;
+    // a stale cloud row won't have backups created locally moments ago. Union
+    // them back in from local, keyed by _origBackupId. Gated on the MERGED
+    // annotation state, so a genuine cross-device revert (photo no longer
+    // annotated, backup removed from cloud) is NOT resurrected.
+    (function _reconcileOrigBackups(){
+      var needed = {};
+      function scanArr(arr){ (arr||[]).forEach(function(p){ if(p && p._annotated && p._origBackupId) needed[p._origBackupId]=true; }); }
+      Object.keys(cloud.clState||{}).forEach(function(k){ scanArr((cloud.clState[k]||{}).photos); });
+      (cloud.stdData||[]).forEach(function(r){ scanArr(r&&r.photos); });
+      (cloud.pldData||[]).forEach(function(r){ scanArr(r&&r.photos); });
+      scanArr(cloud.flowTestPhotos); scanArr(cloud.flowTestPhotosPld);
+      Object.keys(cloud.deficiencies||{}).forEach(function(ctr){
+        (cloud.deficiencies[ctr]||[]).forEach(function(dd){ scanArr(dd&&dd.photos); (dd&&dd.responses||[]).forEach(function(r){ scanArr(r&&r.photos); }); });
+      });
+      (cloud.generalDeficiencies||[]).forEach(function(dd){ scanArr(dd&&dd.photos); (dd&&dd.responses||[]).forEach(function(r){ scanArr(r&&r.photos); }); });
+      var have = {};
+      cloud.recordPhotos = cloud.recordPhotos || [];
+      cloud.recordPhotos.forEach(function(b){ if(b&&b.id) have[b.id]=true; });
+      Object.keys(needed).forEach(function(bid){
+        if(have[bid]) return;
+        var lb = (local.recordPhotos||[]).filter(function(b){ return b && b.id===bid; })[0];
+        if(lb){ cloud.recordPhotos.push(lb); console.info('[merge] restored (original) backup record', bid); }
+        else console.warn('[merge] annotated photo references missing backup record', bid);
+      });
+    })();
   }
   return cloud || local;
 }
