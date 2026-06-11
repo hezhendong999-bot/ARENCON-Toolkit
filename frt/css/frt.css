@@ -9974,15 +9974,15 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 .dlc-bar-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;}
 .dlc-bar-row .lbl{font-size:12px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;}
 .dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--yes);}
-.dlc-track{height:11px;border-radius:99px;background:var(--border);overflow:hidden;margin-bottom:16px;position:relative;}
-/* S283: red→amber→green resolved bar (bad→good). The full-width gradient lives
-   on the track via ::before; the fill is an opaque mask that COVERS the unmet
-   portion from the right, so what shows is the gradient revealed up to %. As
-   the report resolves, the revealed segment extends into the amber→green end —
-   the colour "moves toward green" with progress. Pure CSS, width-agnostic. */
-.dlc-track::before{content:'';position:absolute;inset:0;border-radius:99px;
+.dlc-track{height:11px;border-radius:99px;overflow:hidden;margin-bottom:16px;position:relative;
   background:linear-gradient(90deg,var(--no) 0%,var(--warn) 50%,var(--yes) 100%);}
-.dlc-fill{position:absolute;top:0;bottom:0;right:0;border-radius:99px;
+/* S283: red→amber→green resolved bar (bad→good). Gradient lives on the track
+   itself; .dlc-fill is an opaque grey mask anchored to the RIGHT that covers
+   the UNMET portion. Inline style sets left:<pct>%, so the gradient shows from
+   0→pct and grey from pct→100. As % climbs the reveal extends into green.
+   z-index keeps the mask above the gradient. FIX (was full-bar bug): the prior
+   ::before gradient painted over the mask; gradient now on the base layer. */
+.dlc-fill{position:absolute;top:0;bottom:0;right:0;left:0;z-index:1;border-radius:0 99px 99px 0;
   background:var(--border);transition:left .8s cubic-bezier(.2,.8,.2,1);}
 .dlc-legend{display:flex;flex-direction:column;gap:8px;}
 .dlc-leg{display:flex;align-items:center;gap:10px;font-size:13.5px;}
