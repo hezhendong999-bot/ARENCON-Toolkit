@@ -422,10 +422,16 @@ export var initPhotos = {
         r.refRec = isRecRef;
         r.refObsHigh = isObsHigh;
         r.refObsLow = isObsLow;
+        // S284 (mutual exclusivity): remember the first DEFIC reference seen for
+        // this binary so the exclusivity post-pass below can re-point a
+        // site-typed representative at real defic context (deficId/obsIdx/...)
+        // when obs references exist. In-memory only, never persisted.
+        if (r.type === 'defic') r._firstDefic = r;
         _phById[k] = r;
         _phRepOrder.push(r);
         return;
       }
+      if (r.type === 'defic' && !rep._firstDefic) rep._firstDefic = r;
       var dup = rep.badges.some(function(b) { return b.text === r.badgeText && b.cls === r.badgeClass; });
       if (!dup) rep.badges.push({ text: r.badgeText, cls: r.badgeClass });
       rep.refSite = rep.refSite || (r.type === 'site');
@@ -443,7 +449,47 @@ export var initPhotos = {
     });
     records = _phRepOrder;
 
-    // ── Stats: distinct-photo totals (reference union per photo) ──
+    // ── S284: SITE/OBS MUTUAL EXCLUSIVITY (Mark's locked rule, S265) ──
+    // A photo is EITHER a Site Record OR an obs/finding photo — never both.
+    // Derivation-only: any live obs/rec reference suppresses the Site identity
+    // (badge, stats bucket, filter). The site pool entry in proj.photos is NEVER
+    // touched, so when the last obs reference disappears (de-select, obs delete,
+    // pool soft-delete) the photo automatically falls back to Site on the next
+    // render. No data mutation, no migration, fully reversible.
+    // If the representative record was the SITE reference (site records are
+    // built first / promoted), re-point it at the stashed first DEFIC reference
+    // so the card's actions (lightbox, ⤴ move, ↗ open-in-editor, recoverable
+    // soft-delete) are the obs actions, not the site hard-delete.
+    records.forEach(function(rep) {
+      if (!(rep.refObs || rep.refRec)) return; // pure Site (or no refs) — unchanged
+      if (rep.refSite) {
+        rep.refSite = false;
+        rep.badges = (rep.badges || []).filter(function(b) { return b.cls !== 'ph-badge-site'; });
+      }
+      if (rep.type === 'site' && rep._firstDefic) {
+        var fd = rep._firstDefic;
+        rep.type = 'defic';
+        rep.deficId = fd.deficId;
+        rep.deficNum = fd.deficNum;
+        rep.isGeneralPriority = fd.isGeneralPriority;
+        rep.isRec = fd.isRec;
+        rep.obsPriority = fd.obsPriority;
+        rep.obsIdx = fd.obsIdx;
+        rep.photoIdx = fd.photoIdx;
+        rep.ph = fd.ph;
+        rep.src = fd.src || rep.src;
+        rep.sortGroup = fd.sortGroup;
+        // Re-stamp the uid from the new defic context — the uid was stamped
+        // pre-collapse from the site record, and bulk select/delete parses the
+        // 'site:'/'defic:' prefix to route the action. A stale 'site:' uid here
+        // would hard-delete the hidden site entry from a card presenting as an
+        // obs photo.
+        rep.uid = _photoUid(rep);
+      }
+    });
+
+    // ── Stats: distinct-photo totals (S284: Site is now EXCLUSIVE — a photo
+    // with any obs/rec reference never counts as a Site Record) ──
     var totalAll = records.length;
     var totalSite = records.filter(function(r) { return r.refSite; }).length;
     var totalObs = records.filter(function(r) { return r.refObs; }).length;
