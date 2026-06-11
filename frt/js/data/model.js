@@ -47,6 +47,119 @@ var _inspectorPending = {};      // userId -> true while a fetch is in flight
 // no new colors enter the system; stable per id across sessions).
 
 var SAVE_DEBOUNCE_MS = 800;
+
+// ═══════════════════════════════════════════════════════════════════════
+// S284b (Mark) — PERMANENT FIX for photo-reference resurrection.
+//
+// Root cause of the recurring "deleted references come back" incidents:
+// obs.photoSelection is a plain ID array. De-selecting removed the ID and
+// left NO record of the deletion, so a stale client's 3-way merge could not
+// distinguish "Mark deleted this" from "this device hasn't seen the add
+// yet" — and the merge's delete-vs-modify default ("don't silently lose
+// work") resurrected the deletion. Third recurrence as of 2026-06-11.
+//
+// Fix: a per-obs Last-Writer-Wins register stamped by EXPLICIT user intent:
+//
+//   obs.photoSelTs = { [photoId]: { s: 0|1, t: epoch_ms } }
+//     s:0 = de-selected (tombstone)   s:1 = selected (re-add override)
+//
+// Writers stamp it alongside the legacy photoSelection mutation (legacy
+// array stays for back-compat — old clients keep working off it).
+// _reconcilePhotoSelectionsFn derives the effective selection from
+// legacy-array + register at load and after every merge apply; merge.js
+// resolves register conflicts per-photo by greater t (tie → s:0, the safe
+// side) and unions both-changed photoSelection arrays WITHOUT conflict —
+// reconcile prunes the union via tombstones immediately after.
+//
+// Hygiene rewrites (repairPhotoPool remap, load pruning) deliberately do
+// NOT stamp — only user actions express intent. Register entries for
+// photos gone from the pool are GC'd after ~60 days.
+// ═══════════════════════════════════════════════════════════════════════
+var SELTS_GC_MS = 60 * 24 * 3600 * 1000;  // 60 days
+
+function _stampSelTs(obs, photoId, selected) {
+  if (!obs || !photoId) return;
+  if (!obs.photoSelTs) obs.photoSelTs = {};
+  obs.photoSelTs[photoId] = { s: selected ? 1 : 0, t: Date.now() };
+}
+
+// S284b: observations historically had NO id field, so merge.js treated the
+// whole observations array as an opaque scalar — any both-sides-changed merge
+// CONFLICTED and defaulted to the stale side wholesale. That was the widest
+// resurrection path of all (selections, text, status — everything rode it).
+// Fix: every obs gets an id. New obs mint _uid('o') at creation; existing
+// id-less obs get a DETERMINISTIC migration id ('o_' + defic.id + '_m' + idx)
+// so two devices migrating the same base state mint IDENTICAL ids and
+// converge under sync (a random id here would make _merge3IdArray see two
+// different observations and duplicate them). Runs at load and after every
+// merge apply (merged output can contain id-less obs from old clients).
+function _ensureObsIdsFn(proj) {
+  if (!proj) return 0;
+  var assigned = 0;
+  function walk(defics) {
+    (defics || []).forEach(function(d) {
+      if (!d) return;
+      (d.observations || []).forEach(function(o, idx) {
+        if (o && typeof o === 'object' && !o.id) {
+          o.id = 'o_' + (d.id || 'd') + '_m' + idx;
+          assigned++;
+        }
+      });
+    });
+  }
+  (proj.contractors || []).forEach(function(c) { walk(c && c.deficiencies); });
+  walk(proj.generalDeficiencies);
+  if (assigned > 0) console.log('[Model] S284b: assigned deterministic ids to ' + assigned + ' observation(s)');
+  return assigned;
+}
+
+function _reconcilePhotoSelectionsFn(proj) {
+  if (!proj) return 0;
+  var changed = 0;
+  function walk(defics) {
+    (defics || []).forEach(function(d) {
+      if (!d) return;
+      var liveIds = {};
+      var liveList = [];
+      (d.photos || []).forEach(function(p) {
+        if (p && !p.deleted && p.id) { liveIds[p.id] = true; liveList.push(p.id); }
+      });
+      (d.observations || []).forEach(function(o) {
+        if (!o || !o.photoSelTs) return;
+        var ts = o.photoSelTs;
+        var ids = Object.keys(ts);
+        if (!ids.length) return;
+        var wasNull = !Array.isArray(o.photoSelection);
+        // base = current effective selection (null means the whole live pool)
+        var base = wasNull ? liveList.slice() : o.photoSelection.slice();
+        var next = base.filter(function(id) { return !(ts[id] && ts[id].s === 0); });
+        ids.forEach(function(id) {
+          if (ts[id].s === 1 && liveIds[id] && next.indexOf(id) === -1) next.push(id);
+        });
+        // GC: register entries for photos no longer in the pool, older than 60d
+        var now = Date.now();
+        ids.forEach(function(id) {
+          if (!liveIds[id] && (now - (ts[id].t || 0)) > SELTS_GC_MS) delete ts[id];
+        });
+        if (Object.keys(ts).length === 0) delete o.photoSelTs;
+        // Write back only on real change. A null (default-all) obs stays null
+        // only if the derived set is exactly the full live pool AND no
+        // tombstone exists (an exclusion can't be expressed by null).
+        var hasTomb = ids.some(function(id) { return ts[id] && ts[id].s === 0 && liveIds[id]; });
+        if (wasNull && !hasTomb && next.length === liveList.length) return;
+        var same = Array.isArray(o.photoSelection)
+          && o.photoSelection.length === next.length
+          && o.photoSelection.every(function(id, i) { return id === next[i]; });
+        if (!same) { o.photoSelection = next; changed++; }
+      });
+    });
+  }
+  (proj.contractors || []).forEach(function(c) { walk(c && c.deficiencies); });
+  walk(proj.generalDeficiencies);
+  if (changed > 0) console.log('[Model] S284b: reconciled ' + changed + ' photo selection(s) from LWW register');
+  return changed;
+}
+
 var AUTO_SAVE_MS = 15000;
 
 // S120 Push 22: collision-resistant ID generator.
@@ -546,6 +659,12 @@ export var Model = {
       });
       if (_remapped > 0) console.log('[Model] S284: remapped ' + _remapped + ' contractor colour(s) to the locked palette');
     })();
+    // S284b (Mark: permanent fix for photo-reference resurrection): reconcile
+    // every obs photoSelection against its per-photo LWW register
+    // (obs.photoSelTs) so tombstoned de-selects stay deleted no matter what a
+    // stale client pushed. Runs at load AND after every merge apply.
+    _ensureObsIdsFn(proj);
+    _reconcilePhotoSelectionsFn(proj);
     // S143: surface the IAR-clear count to the console (no UI toast — this
     // is a background normalization). Only logs when something changed;
     // re-loads of an already-cleared project stay silent.
@@ -736,6 +855,12 @@ export var Model = {
     if (!mergedProj) return null;
     _project = mergedProj;
     _dirty = true;
+    // S284b: a merge is exactly when stale-client resurrection happens —
+    // re-derive every photoSelection from the LWW register before the UI
+    // sees the merged state. Obs ids first — merged output can contain
+    // id-less observations from not-yet-updated clients.
+    _ensureObsIdsFn(mergedProj);
+    _reconcilePhotoSelectionsFn(mergedProj);
     console.log('[Model] applyMerged: replaced project state from merge result',
                 '| contractors:', (mergedProj.contractors || []).length,
                 '| drawings:', (mergedProj.drawings || []).length,
@@ -1012,6 +1137,7 @@ export var Model = {
       // photos to it deliberately. Existing obs are unaffected (their stored
       // selection is untouched).
       photoSelection: [],
+      id: _uid('o'),                       // S284b: obs are id-keyed for merge
       notedOnInstance: inst,
       notedDate: today,
       addressed: false,
@@ -1792,6 +1918,7 @@ export var Model = {
     if (!photo) return null;
     if (Array.isArray(obs.photoSelection)) {
       obs.photoSelection.push(photo.id);
+      _stampSelTs(obs, photo.id, true);  // S284b: explicit add → LWW select
     }
     // Notify under the legacy "add" event so the existing UI listeners (which
     // don't know about "add-pool" yet) keep firing renders. addPoolPhoto
@@ -1898,7 +2025,10 @@ export var Model = {
     photo.deletedDate = new Date().toISOString();
     (f.defic.observations || []).forEach(function(o) {
       if (Array.isArray(o.photoSelection)) {
-        o.photoSelection = o.photoSelection.filter(function(id) { return id !== photoId; });
+        if (o.photoSelection.indexOf(photoId) !== -1) {
+          o.photoSelection = o.photoSelection.filter(function(id) { return id !== photoId; });
+          _stampSelTs(o, photoId, false);  // S284b: pool delete tombstones each selection too
+        }
       }
       if (o.photoMarkups && o.photoMarkups[photoId]) {
         delete o.photoMarkups[photoId];
@@ -2053,14 +2183,30 @@ export var Model = {
     if (!f) return false;
     var obs = (f.defic.observations || [])[obsIdx];
     if (!obs) return false;
+    var _livePool = [];
+    (f.defic.photos || []).forEach(function(p) { if (p && !p.deleted) _livePool.push(p.id); });
     if (photoIds === null || photoIds === undefined) {
+      // S284b: explicit reset to dynamic default-all. LWW can't express
+      // "all, including future pool additions", so the user's choice of
+      // default clears the register for this obs (deliberate intent wins
+      // over any stale tombstones).
       obs.photoSelection = null;
+      delete obs.photoSelTs;
     } else if (Array.isArray(photoIds)) {
       var poolIds = {};
-      (f.defic.photos || []).forEach(function(p) {
-        if (p && !p.deleted) poolIds[p.id] = true;
-      });
-      obs.photoSelection = photoIds.filter(function(id) { return poolIds[id]; });
+      _livePool.forEach(function(id) { poolIds[id] = true; });
+      // S284b: diff the new selection against the PREVIOUS effective
+      // selection (null = whole live pool) and stamp every change — the
+      // bulk picker is pure user intent.
+      var _prev = Array.isArray(obs.photoSelection) ? obs.photoSelection : _livePool;
+      var _prevSet = {};
+      _prev.forEach(function(id) { _prevSet[id] = true; });
+      var _next = photoIds.filter(function(id) { return poolIds[id]; });
+      var _nextSet = {};
+      _next.forEach(function(id) { _nextSet[id] = true; });
+      _next.forEach(function(id) { if (!_prevSet[id]) _stampSelTs(obs, id, true); });
+      _prev.forEach(function(id) { if (!_nextSet[id]) _stampSelTs(obs, id, false); });
+      obs.photoSelection = _next;
     } else {
       return false;
     }
@@ -2115,6 +2261,8 @@ export var Model = {
         var others = (d.photos || []).filter(function(p) { return p && !p.deleted && p.id !== photoId; });
         obs.photoSelection = others.map(function(p) { return p.id; });
       }
+      // S284b: tombstone — this de-select must survive any stale-client merge.
+      _stampSelTs(obs, photoId, false);
       _dirty = true;
       _queueSave();
       this._notify('photo', { action: 'unselect', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
@@ -2138,9 +2286,22 @@ export var Model = {
     if (!f) return false;
     var obs = (f.defic.observations || [])[obsIdx];
     if (!obs) return false;
-    if (!Array.isArray(obs.photoSelection)) return false; // default shows all
+    if (!Array.isArray(obs.photoSelection)) {
+      // Default-state shows the whole pool — normally a no-op, BUT an old
+      // s:0 tombstone would hide the photo at reconcile; an explicit add
+      // must override it (S284b).
+      if (obs.photoSelTs && obs.photoSelTs[photoId] && obs.photoSelTs[photoId].s === 0) {
+        _stampSelTs(obs, photoId, true);
+        _dirty = true;
+        _queueSave();
+        this._notify('photo', { action: 'select', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
+        return true;
+      }
+      return false; // default shows all
+    }
     if (obs.photoSelection.indexOf(photoId) === -1) {
       obs.photoSelection.push(photoId);
+      _stampSelTs(obs, photoId, true);  // S284b: re-add outvotes any older tombstone
       _dirty = true;
       _queueSave();
       this._notify('photo', { action: 'select', deficId: deficId, obsIdx: obsIdx, photoId: photoId });
@@ -2412,6 +2573,7 @@ export var Model = {
             var dobs = (df.defic.observations || [])[d.dest.obsIdx];
             if (dobs && Array.isArray(dobs.photoSelection)) {
               dobs.photoSelection = dobs.photoSelection.filter(function(id) { return id !== d.dest.photoId; });
+              _stampSelTs(dobs, d.dest.photoId, false);  // S284b
             }
           }
         }
@@ -2451,6 +2613,7 @@ export var Model = {
             var oobs = (of.defic.observations || [])[d.origin.obsIdx];
             if (oobs && Array.isArray(oobs.photoSelection) && oobs.photoSelection.indexOf(d.snapshot.id) === -1) {
               oobs.photoSelection.push(d.snapshot.id);
+              _stampSelTs(oobs, d.snapshot.id, true);  // S284b
             }
           }
         }
@@ -2537,6 +2700,18 @@ export var Model = {
               if (next.indexOf(to) === -1) next.push(to);
             });
             o.photoSelection = next;
+            // S284b: carry LWW register entries across the remap so prior
+            // user intent follows the surviving id (no new stamps — this is
+            // hygiene, not intent; on collision the survivor's entry wins).
+            if (o.photoSelTs) {
+              Object.keys(o.photoSelTs).forEach(function(pid) {
+                if (remap[pid]) {
+                  var to = remap[pid];
+                  if (!o.photoSelTs[to]) o.photoSelTs[to] = o.photoSelTs[pid];
+                  delete o.photoSelTs[pid];
+                }
+              });
+            }
             // Carry markup across the merge if the survivor lacks it
             if (o.photoMarkups) {
               Object.keys(o.photoMarkups).forEach(function(pid) {

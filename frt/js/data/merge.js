@@ -228,6 +228,8 @@ function _merge3Value(base, mine, theirs, pathStr) {
  *
  * Keys deleted from one side that the other modified: conflict.
  */
+function mineHasKey(obj, key) { return !!(obj && Object.prototype.hasOwnProperty.call(obj, key)); }
+
 function _merge3Object(base, mine, theirs, pathStr) {
   var result = {};
   var conflicts = [];
@@ -242,6 +244,54 @@ function _merge3Object(base, mine, theirs, pathStr) {
     var mv = mine ? mine[key] : undefined;
     var tv = theirs ? theirs[key] : undefined;
     var subPath = pathStr ? pathStr + '.' + key : key;
+
+    // ── S284b (Mark): photo-selection resurrection fix — two key-specific
+    // rules, both deterministic, both conflict-free. They run BEFORE the
+    // deletion handling: a register/selection present on only one side is an
+    // ADDITION to preserve, never a delete-vs-modify conflict (the generic
+    // path below conflates base-absent additions with deletions).
+    // 1) photoSelTs: per-photo LWW. Greater t wins; exact tie → s:0 (the safe
+    //    side — a wrongly-hidden photo is recoverable from the pool, a
+    //    wrongly-resurrected one re-opens the incident).
+    if (key === 'photoSelTs' && (mv || tv)) {
+      var _ma = (mv && typeof mv === 'object') ? mv : {};
+      var _ta = (tv && typeof tv === 'object') ? tv : {};
+      var _reg = {};
+      var _ids = {};
+      Object.keys(_ma).forEach(function(id) { _ids[id] = true; });
+      Object.keys(_ta).forEach(function(id) { _ids[id] = true; });
+      Object.keys(_ids).forEach(function(id) {
+        var a = _ma[id], b = _ta[id];
+        if (a && !b) { _reg[id] = _clone(a); return; }
+        if (b && !a) { _reg[id] = _clone(b); return; }
+        var ta2 = (a && a.t) || 0, tb2 = (b && b.t) || 0;
+        if (ta2 > tb2) _reg[id] = _clone(a);
+        else if (tb2 > ta2) _reg[id] = _clone(b);
+        else _reg[id] = _clone((a.s === 0) ? a : b);  // tie → the s:0 side
+      });
+      if (Object.keys(_reg).length) result[key] = _reg;
+      return;
+    }
+    // 2) photoSelection: the legacy ID array. Never emit a conflict here —
+    //    the old delete-vs-modify default WAS the resurrection mechanism.
+    //    One side changed → that side wins; both changed → union (theirs'
+    //    order, mine's extras appended); _reconcilePhotoSelectionsFn prunes
+    //    the union via the register right after applyMerged. null means
+    //    "default = whole pool"; a null colliding with a custom array loses
+    //    to the array (narrowing carries intent the register arbitrates).
+    if (key === 'photoSelection' && (mineHasKey(mine, key) || mineHasKey(theirs, key))) {
+      if (_deepEq(mv, tv)) { if (mv !== undefined) result[key] = _clone(mv); return; }
+      if (_deepEq(mv, bv)) { if (tv !== undefined) result[key] = _clone(tv); return; }
+      if (_deepEq(tv, bv)) { if (mv !== undefined) result[key] = _clone(mv); return; }
+      if (!Array.isArray(mv) || !Array.isArray(tv)) {
+        result[key] = _clone(Array.isArray(mv) ? mv : (Array.isArray(tv) ? tv : mv));
+        return;
+      }
+      var _u = tv.slice();
+      mv.forEach(function(id) { if (_u.indexOf(id) === -1) _u.push(id); });
+      result[key] = _u;
+      return;
+    }
 
     // Key deletion handling.
     var mineHas = mine && mine.hasOwnProperty(key);
@@ -389,8 +439,16 @@ function _merge3IdArray(base, mine, theirs, pathStr) {
 
   // 4. Items without stable ids — append both sides' lists.
   // (These can't be merged; safest is to keep all, even if duplicated.)
+  // S284b: dedupe EXACT duplicates across the two lists — when mine and
+  // theirs both carry the same untouched id-less item (the common case:
+  // an old client added one item and neither side edited it), appending
+  // both duplicated it. Deep-equal items appear once; genuinely different
+  // id-less items still both survive (old behavior).
   mineIdx.withoutId.forEach(function(item) { result.push(_clone(item)); });
-  theirsIdx.withoutId.forEach(function(item) { result.push(_clone(item)); });
+  theirsIdx.withoutId.forEach(function(item) {
+    var dup = mineIdx.withoutId.some(function(m) { return _deepEq(m, item); });
+    if (!dup) result.push(_clone(item));
+  });
 
   return { value: result, conflicts: conflicts };
 }
