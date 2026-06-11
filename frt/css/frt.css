@@ -10013,3 +10013,21 @@ body.dark-mode .dlc-fill{background:#2a2833;}
    matches the dashboard by-contractor dots and the roster dots. */
 .defic-summary-table .dlc-tbl-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle;flex-shrink:0;}
 /* ── end S264 resolution dashboard ──────────────────────────────────── */
+
+/* ═══ S284c (Mark): COMPACT PHONE LAYOUT — Drawings tab ═══
+   On phones the full-width stacked cards (135px thumb + footer each) plus the
+   tall dropzone made the page enormously long (reported on Samsung + iPhone).
+   ≤600px: each drawing card becomes a horizontal LIST ROW — thumb left
+   (110×70, cover), name right (2-line clamp) — and the master dropzone
+   collapses to a slim strip. Desktop/tablet (>600px) untouched. */
+@media(max-width:600px){
+  .drawing-card{display:flex;align-items:stretch;width:100% !important;}
+  .drawing-card .card-thumb{width:110px;height:70px !important;flex:none;}
+  .drawing-card .card-footer{flex:1;border-top:none;border-left:1px solid var(--border);min-height:0;align-items:center;padding:6px 10px;}
+  .drawing-card .card-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;}
+  .dwg-card-row{grid-template-columns:1fr;gap:8px;}
+  #dwg-upload-zone > div{padding:8px 12px !important;}
+  #dwg-upload-zone > div > div:first-child{display:none;}            /* the 📐 glyph */
+  #dwg-upload-zone > div > div:nth-child(3){display:inline;margin:0 8px 0 0;} /* "or" inline */
+  #dwg-upload-zone > div > div:nth-child(2){display:inline;margin:0 8px 0 0;font-size:calc(12px + var(--ts));}
+}
