@@ -590,21 +590,76 @@ function _rowClosed(r){
 // pre-S143 rec double-count where recs were tallied on both tables.
 var summaryDefs=reportDefs.filter(function(r){return !(r.d&&r.d.isRecommendation);});
 var _deficSummaryHtml='';
+var _dashHtmlFull='',_dashHtmlCompact='';
 if(summaryDefs.length){
   var ctrG={};summaryDefs.forEach(function(r){if(!ctrG[r.ctr])ctrG[r.ctr]=[];ctrG[r.ctr].push(r);});
-  _deficSummaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:16px;overflow:hidden;"><table class="st"><thead><tr><th>Deficiency Summary</th><th style="text-align:center;">Total</th><th style="text-align:center;">New This Report</th><th style="text-align:center;">Outstanding</th><th style="text-align:center;">Closed</th></tr></thead><tbody>';
+  // S284 (Mark-approved rev C): COMPACT summary table — 10pt cells, 4px
+  // vertical padding, 10px top gap (was default .st sizing + 16px). Inline
+  // so the rec-summary table (shared .st class) keeps its original sizing.
+  var _cTd='padding:4px 10px;font-size:10pt;';
+  _deficSummaryHtml+='<div style="border:1px solid #DDE1E7;border-radius:6px;margin-top:10px;overflow:hidden;"><table class="st" style="font-size:10pt;"><thead><tr><th style="'+_cTd+'">Deficiency Summary</th><th style="'+_cTd+'text-align:center;">Total</th><th style="'+_cTd+'text-align:center;">New This Report</th><th style="'+_cTd+'text-align:center;">Outstanding</th><th style="'+_cTd+'text-align:center;">Closed</th></tr></thead><tbody>';
   Object.keys(ctrG).forEach(function(ctr){
     var gc=ctrG[ctr];
-    _deficSummaryHtml+='<tr><td><strong>'+esc(ctr)+'</strong></td><td style="text-align:center;">'+gc.length+'</td>';
-    _deficSummaryHtml+='<td style="text-align:center;color:#1565C0;font-weight:700;">'+gc.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
-    _deficSummaryHtml+='<td style="text-align:center;color:#A85959;font-weight:700;">'+gc.filter(_rowOpen).length+'</td>';
-    _deficSummaryHtml+='<td style="text-align:center;color:#5F8068;font-weight:700;">'+gc.filter(_rowClosed).length+'</td></tr>';
+    _deficSummaryHtml+='<tr><td style="'+_cTd+'"><strong>'+esc(ctr)+'</strong></td><td style="'+_cTd+'text-align:center;">'+gc.length+'</td>';
+    _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#1565C0;font-weight:700;">'+gc.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
+    _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#A85959;font-weight:700;">'+gc.filter(_rowOpen).length+'</td>';
+    _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#5F8068;font-weight:700;">'+gc.filter(_rowClosed).length+'</td></tr>';
   });
-  _deficSummaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td>Total</td><td style="text-align:center;">'+summaryDefs.length+'</td>';
-  _deficSummaryHtml+='<td style="text-align:center;color:#1565C0;">'+summaryDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
-  _deficSummaryHtml+='<td style="text-align:center;color:#A85959;">'+summaryDefs.filter(_rowOpen).length+'</td>';
-  _deficSummaryHtml+='<td style="text-align:center;color:#5F8068;">'+summaryDefs.filter(_rowClosed).length+'</td></tr>';
+  _deficSummaryHtml+='<tr style="border-top:2px solid #9C2742;font-weight:700;"><td style="'+_cTd+'">Total</td><td style="'+_cTd+'text-align:center;">'+summaryDefs.length+'</td>';
+  _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#1565C0;">'+summaryDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length+'</td>';
+  _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#A85959;">'+summaryDefs.filter(_rowOpen).length+'</td>';
+  _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#5F8068;">'+summaryDefs.filter(_rowClosed).length+'</td></tr>';
   _deficSummaryHtml+='</tbody></table></div>';
+  // ── S284 (Mark-approved rev C): page-1 dashboard — Status Overview two-ring
+  // donut + Resolution Progress bars. Pure SVG (prints crisp, no canvas).
+  // Numbers come from the SAME predicates as the summary table above
+  // (notedOnInstance/_rowOpen/_rowClosed), so chart and table can never
+  // disagree. Outer ring = status (red high / amber low / green closed);
+  // inner thin ring = new-this-report (blue) vs carried-over (grey) — a 4th
+  // outer slice would double-count, since a new item is also high/low/closed.
+  // _dashHtmlCompact (overall bar only, no per-contractor rows) is the
+  // auto-compact fallback applied at measure time when page 1 would overflow.
+  (function(){
+    var T=summaryDefs.length;
+    var N=summaryDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length;
+    var CLn=summaryDefs.filter(_rowClosed).length;
+    var _openRows=summaryDefs.filter(_rowOpen);
+    var HIn=_openRows.filter(function(r){return(((r.obs&&r.obs.priority)||r.d.priority||'high')==='high');}).length;
+    var LOn=_openRows.length-HIn;
+    var pct=T?Math.round(CLn/T*100):0;
+    var CH='#A85959',CW='#C98A4A',CC='#5F8068',CN='#1565C0',CG='#C9CDD4';
+    function _ring(r,sw,track,segs){
+      var circ=2*Math.PI*r,off=0,s='<circle cx="50" cy="50" r="'+r+'" fill="none" stroke="'+track+'" stroke-width="'+sw+'"/>';
+      segs.forEach(function(g){if(g.v<=0)return;var len=g.v/T*circ;
+        s+='<circle cx="50" cy="50" r="'+r+'" fill="none" stroke="'+g.c+'" stroke-width="'+sw+'" stroke-dasharray="'+len.toFixed(1)+' '+circ.toFixed(1)+'" stroke-dashoffset="'+(-off).toFixed(1)+'"/>';off+=len;});
+      return s;
+    }
+    var _donut='<svg width="100" height="100" viewBox="0 0 100 100" style="transform:rotate(-90deg);flex:none;">'
+      +_ring(43,12,'#EDEAF0',[{v:HIn,c:CH},{v:LOn,c:CW},{v:CLn,c:CC}])
+      +_ring(29,5,'#EDEAF0',[{v:N,c:CN},{v:T-N,c:CG}])
+      +'</svg>';
+    var _ctrLbl='<div style="position:relative;width:100px;height:100px;flex:none;">'+_donut
+      +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><div style="font-size:17pt;font-weight:700;color:#1C2333;line-height:1;font-variant-numeric:tabular-nums;">'+T+'</div><div style="font-size:7.5pt;color:#607D8B;letter-spacing:1px;margin-top:1px;">ITEMS</div></div></div>';
+    function _leg(sw,nm,v){return '<div style="display:flex;align-items:center;gap:8px;font-size:9.5pt;color:#4A5568;margin:3px 0;">'+sw+'<span>'+nm+'</span><span style="margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;color:#1C2333;">'+v+' \u00b7 '+(T?Math.round(v/T*100):0)+'%</span></div>';}
+    var _dot=function(c){return '<span style="width:9px;height:9px;border-radius:50%;background:'+c+';flex:none;display:inline-block;"></span>';};
+    var _rg='<span style="width:9px;height:9px;border-radius:50%;border:2.5px solid '+CN+';box-sizing:border-box;flex:none;display:inline-block;"></span>';
+    var _legHtml=_leg(_dot(CH),'Outstanding \u2014 high',HIn)+_leg(_dot(CW),'Outstanding \u2014 low',LOn)+_leg(_dot(CC),'Closed',CLn)+_leg(_rg,'New this report',N);
+    function _hbar(p,c){return '<div style="flex:1;height:7px;border-radius:4px;background:#E9E6EC;overflow:hidden;"><div style="width:'+p+'%;height:100%;border-radius:4px;background:'+c+';"></div></div>';}
+    var _ovr='<div style="display:flex;align-items:center;gap:8px;font-size:9pt;color:#4A5568;margin-bottom:6px;"><span style="width:84px;font-weight:700;color:#1C2333;flex:none;">Overall</span>'+_hbar(pct,'#9C2742')+'<span style="width:30px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:#1C2333;flex:none;">'+pct+'%</span></div>';
+    var _CAP=6,_ctrKeys=Object.keys(ctrG),_bars='';
+    _ctrKeys.slice(0,_CAP).forEach(function(ctr){
+      var gc=ctrG[ctr],cl=gc.filter(_rowClosed).length,tt=gc.length,pp=tt?Math.round(cl/tt*100):0;
+      _bars+='<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:9pt;color:#4A5568;"><span style="width:84px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;">'+esc(ctr)+'</span>'+_hbar(pp,CC)+'<span style="width:30px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:#1C2333;flex:none;">'+cl+'/'+tt+'</span></div>';
+    });
+    if(_ctrKeys.length>_CAP)_bars+='<div style="font-size:8.5pt;color:#90A0AC;margin-top:2px;">\u2026 and '+(_ctrKeys.length-_CAP)+' more \u2014 see Deficiency Summary below</div>';
+    function _wrap(rightInner){
+      return '<div style="display:flex;gap:14px;margin-top:12px;align-items:stretch;">'
+        +'<div style="flex:1.05;border:1px solid #DDE1E7;border-radius:6px;padding:7px 11px;display:flex;flex-direction:column;"><div style="font-size:9.5pt;font-weight:700;color:#2A3A5C;">Status Overview</div><div style="flex:1;display:flex;align-items:center;gap:12px;">'+_ctrLbl+'<div style="flex:1;">'+_legHtml+'</div></div></div>'
+        +'<div style="flex:1.1;border:1px solid #DDE1E7;border-radius:6px;padding:7px 11px;display:flex;flex-direction:column;"><div style="font-size:9.5pt;font-weight:700;color:#2A3A5C;margin-bottom:4px;">Resolution Progress</div>'+rightInner+'</div></div>';
+    }
+    _dashHtmlFull=_wrap(_ovr+_bars);
+    _dashHtmlCompact=_wrap(_ovr+'<div style="font-size:8.5pt;color:#90A0AC;margin-top:4px;">Per-contractor breakdown \u2014 see Deficiency Summary below</div>');
+  })();
 }
 // S143/S144 Report Legend (corrected). Navy-filled title bar, 4 entries,
 // 2-col grid. Emit order high, Closed, low, REC ⇒ LEFT col Outstanding
@@ -958,14 +1013,16 @@ if(pooledRecs.length){
   recBlocks.push({type:'recFoot',html:_recFootHtml});
 }
 
-// S144 §1/§4 + S145 P1: assemble the page-1 summary block. Full mode =
-// Deficiency Summary + Legend (+ hi-rec note); recs-only = Recommendation
-// Summary + Legend (no Deficiency table, no hi-rec note — there the recs
-// ARE the report; the rec body then flows on page 1+, no Option C card).
+// S144 §1/§4 + S145 P1 + S284 rev C: assemble the page-1 summary block.
+// Full mode = Dashboard (donut + bars) + Legend + COMPACT Deficiency Summary
+// (+ hi-rec note). Legend sits ABOVE the table (S284, Mark): the table is the
+// only block that can grow with contractor count, so this ordering structurally
+// guarantees the legend can never be pushed off page 1. Recs-only mode is
+// unchanged (Recommendation Summary + Legend; rec body flows on page 1+).
 // _startPage() injects this on the first page; FULL_HEADER_H measures it.
 summaryHtml=(_recsMode==='only')
   ? (_recSummaryHtml+_legendHtml)
-  : (_deficSummaryHtml+_legendHtml+_hiRecNoteHtml);
+  : (_dashHtmlFull+_legendHtml+_deficSummaryHtml+_hiRecNoteHtml);
 
 // Open popup
 var w=window.open('','_blank');
@@ -997,11 +1054,24 @@ try{
 var PAGE_H=912;var measureZone=w.document.getElementById('measure-zone');var pagesContainer=w.document.getElementById('pages-container');
 function _measure(html){measureZone.innerHTML=html;var h=measureZone.offsetHeight;measureZone.innerHTML='';return h;}
 var FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
+// S284 auto-compact cascade: if the dashboard page would overflow the page
+// budget (many contractors), swap in the compact dashboard (overall bar only,
+// per-contractor rows deferred to the table) and re-measure. Deterministic —
+// measured, never guessed.
+if(_recsMode!=='only'&&_dashHtmlFull&&FULL_HEADER_H>PAGE_H){
+  summaryHtml=_dashHtmlCompact+_legendHtml+_deficSummaryHtml+_hiRecNoteHtml;
+  FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
+}
 var COMPACT_HEADER_H=_measure(_compactHeader(2));
 var pages=[];var curPageHtml='';var curUsed=0;var curPageNum=1;var isFirstPage=true;
 function _startPage(){curPageHtml='';curUsed=0;if(isFirstPage){curPageHtml+=fullHeader+infoGrid+summaryHtml;curUsed+=FULL_HEADER_H;isFirstPage=false;}}
 function _finalizePage(){if(curPageHtml.trim()){pages.push({html:curPageHtml,pageNum:curPageNum});curPageNum++;}}
 _startPage();
+// S284 (Mark-approved): page 1 is the summary dashboard; deficiency items
+// ALWAYS start fresh on page 2 (compact header attaches at render for pn>1).
+// Kills the page-1 gap problem outright — any card size fits a fresh page.
+// Recs-only mode keeps its existing flow (rec body rides page 1).
+if(_recsMode!=='only'&&_dashHtmlFull){_finalizePage();_startPage();}
 var _aCtrHtml='';var _aTradeHtml='';
 // S139 Phase 3: re-stamp the active Trade band (then Contractor/Rec band)
 // at the top of a continued page so a section spanning pages keeps its
