@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S285 (lightbox fit-bug fix: photos no longer paint at natural size clipped/white; multi-trigger self-healing fit on load/decode/rAF/resize + oversized@1 guard) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S286 (lightbox white-paint fix: plain 2D transform, no will-change/translate3d — GPU compositor layer was painting blank white on GPU-starved machines) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3430,7 +3430,7 @@ var DslLightbox = (function(){
     ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(8,8,12,.96);z-index:10000;flex-direction:column;font-family:Calibri,sans-serif;';
     ov.innerHTML =
       '<div id="dlb-area" style="flex:1;position:relative;overflow:hidden;touch-action:none;cursor:grab;">'
-      + '<div id="dlb-wrap" style="position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;">'
+      + '<div id="dlb-wrap" style="position:absolute;top:0;left:0;transform-origin:0 0;">'
       +   '<img id="dlb-image" draggable="false" style="display:block;user-select:none;-webkit-user-drag:none;">'
       +   '<canvas id="dlb-canvas" style="position:absolute;top:0;left:0;background:transparent;pointer-events:none;"></canvas>'
       + '</div>'
@@ -3570,7 +3570,13 @@ var DslLightbox = (function(){
       else if(rot===180){ offX=nw*_scale; offY=nh*_scale; }
       else if(rot===270){ offY=nw*_scale; }
     }
-    wrap.style.transform='translate3d('+(_panX+offX)+'px,'+(_panY+offY)+'px,0) rotate('+rot+'deg) scale('+_scale+')';
+    // S286: plain 2D transform, no translate3d / will-change. The 3d variant
+    // forces the photo into a GPU compositor layer; on GPU-starved machines
+    // (many tabs / stale Chrome) that texture upload silently fails and the
+    // layer paints BLANK WHITE while the bitmap itself is perfectly good —
+    // field-diagnosed: thumbnails (no layer) rendered, lightbox (layered)
+    // painted white, drawImage (CPU path) read full content.
+    wrap.style.transform='translate('+(_panX+offX)+'px,'+(_panY+offY)+'px) rotate('+rot+'deg) scale('+_scale+')';
     var z=_el('dlb-zoom');
     if(z&&_fitScale) z.textContent=Math.round((_scale/_fitScale)*100)+'%';
   }
