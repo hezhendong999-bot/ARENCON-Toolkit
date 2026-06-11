@@ -623,6 +623,17 @@ function _buildPinGroupCard(d, ctrId) {
     // showing "[N]" + drawing pill — visually inconsistent. Now both
     // single and multi-obs cards read "[N] · Pin" at the pin level.
     h += '<span class="obs-pill-text">\u00B7 Pin</span>';
+    // N+1 carry-forward marker (V1 parity, V1 ~L9303): a pin noted on a
+    // PRIOR instance shows "Noted FRT #N" so the inspector sees it's a
+    // carried-over item, not new this report. Distinct from the per-obs
+    // .frt-inst-chip below (S122: obs added LATER than its pin) — same CSS
+    // class, different condition. Strict < so a fresh pin never chips.
+    var _cfProj = Model.getProject();
+    var _cfCur = (_cfProj && _cfProj.currentFrtInstance) || 1;
+    var _cfNoted = d.notedOnInstance || 1;
+    if (_cfNoted < _cfCur) {
+      h += '<span class="frt-inst-chip" title="Carried forward \u2014 noted in FRT #' + _cfNoted + (d.notedDate ? ' on ' + esc(d.notedDate) : '') + '">Noted FRT #' + _cfNoted + '</span>';
+    }
     if (d.drawingId) {
       var _dwgs = Model.getDrawings();
       var _dwgName = '';

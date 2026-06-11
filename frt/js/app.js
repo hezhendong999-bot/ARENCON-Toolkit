@@ -645,6 +645,18 @@ function _showNewInstanceDialog() {
   if (!proj) return;
   var cur = proj.currentFrtInstance || 1;
   var next = cur + 1;
+  // Hub mode: the report number IS the cloud row's instance_number, which
+  // _updateFrtInstanceIndicator re-adopts on every load/pull — a local bump
+  // here would be silently overwritten (an untruthful dialog). New instances
+  // in Hub mode are created from the Project Hub ("+ New Report"), which
+  // seeds the new row from this one so open items carry forward (N+1 rule).
+  if (_hubMode) {
+    showAlert('New FRT Report',
+      'This report is FRT #' + cur + ', managed by the Project Hub. To start FRT #' + next +
+      ', use \u201C\uFF0B New Report\u201D on this project in the Hub \u2014 open items will carry forward automatically.'
+    );
+    return;
+  }
   showConfirm('New FRT Instance',
     'Create FRT #' + next + '? This starts a new visit. Existing deficiencies carry forward. New deficiencies will be marked as noted on FRT #' + next + '.'
   ).then(function(yes) {

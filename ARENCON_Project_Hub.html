@@ -2146,10 +2146,50 @@ async function createNewReport(key) {
 
   // Find next instance number
   var nextNum = 1;
+  var latestRow = null;
   try {
     var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).order('instance_number', {ascending:false}).execute();
-    if (existing && existing.length > 0) nextNum = existing[0].instance_number + 1;
+    if (existing && existing.length > 0) { nextNum = existing[0].instance_number + 1; latestRow = existing[0]; }
   } catch(e) {}
+
+  // ═══ N+1 CARRY-FORWARD (FRT only) ═══
+  // V1 lifecycle rule ported to the Hub's row-per-instance model: a new FRT
+  // report starts as a full copy of the latest instance's data blob, so open
+  // items carry forward automatically still tagged with their original
+  // notedOnInstance. The FRT's PDF main-vs-history split + "New This Report"
+  // counts (already live in frt/js) do the per-instance display filtering —
+  // the seed itself copies EVERYTHING (V1 semantics: closed items stay in the
+  // blob; the PDF drops prior-instance closures from the main body).
+  // R2 binaries are NOT copied — photo/drawing r2Keys are project-scoped
+  // (photos/{pid}/frt/{type}/...) so both instances reference the same
+  // objects, matching the established share-the-binary photo model.
+  // If seeding fails we create the report EMPTY and SAY SO (no silent
+  // fallback — truthful-messaging rule).
+  var seedData = {};
+  var carriedOpen = 0;
+  var seedFailed = false;
+  if (key === 'frt' && latestRow && latestRow.data) {
+    try {
+      var _raw = latestRow.data;
+      seedData = (typeof _raw === 'string') ? JSON.parse(_raw) : JSON.parse(JSON.stringify(_raw));
+      if (seedData && typeof seedData === 'object' && !Array.isArray(seedData)) {
+        seedData.currentFrtInstance = nextNum;
+        if (seedData.info && typeof seedData.info === 'object') {
+          seedData.info.visitDate = new Date().toISOString().split('T')[0];
+        }
+        var _carryAll = [];
+        (seedData.contractors || []).forEach(function(c) { (c.deficiencies || []).forEach(function(df) { _carryAll.push(df); }); });
+        (seedData.generalDeficiencies || []).forEach(function(df) { _carryAll.push(df); });
+        carriedOpen = _carryAll.filter(function(df) { return df.status !== 'closed' && df.status !== 'Addressed & Closed'; }).length;
+      } else {
+        seedData = {};
+      }
+    } catch(e) {
+      seedData = {};
+      carriedOpen = 0;
+      seedFailed = true;
+    }
+  }
 
   // Create the row
   try {
@@ -2158,13 +2198,19 @@ async function createNewReport(key) {
       project_id: proj.id,
       tool_key: key,
       instance_number: nextNum,
-      data: {},
+      data: seedData,
       status: 'draft',
       created_by: userId,
       updated_by: userId
     });
     if (rows && rows.length > 0) {
-      toast(t.name + ' report created', 'success');
+      if (seedFailed) {
+        toast(t.name + ' #' + nextNum + ' created EMPTY — carry-forward from #' + (nextNum - 1) + ' failed', 'error');
+      } else if (key === 'frt' && nextNum > 1) {
+        toast(t.name + ' #' + nextNum + ' created — ' + carriedOpen + ' open item' + (carriedOpen === 1 ? '' : 's') + ' carried forward', 'success');
+      } else {
+        toast(t.name + ' report created', 'success');
+      }
       // Launch it
       launchToolInstance(key, rows[0].id);
       // Refresh instances
