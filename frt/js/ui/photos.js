@@ -341,6 +341,11 @@ export var initPhotos = {
       // Legacy fallback inside getEffectivePhotos handles never-migrated edge cases.
       var multiObs = (defic.observations || []).length > 1;
       (defic.observations || []).forEach(function(o, oi) {
+        // S283: Recommendation photos get a blue badge (per Mark). Rec is a
+        // per-obs flag (o.isRecommendation), so the class is chosen per obs,
+        // not per pin. Rec wins over the priority colour — a rec photo reads
+        // as a rec regardless of the pin's underlying priority.
+        var obsBadgeCls = (o && o.isRecommendation) ? 'ph-badge-pin-rec' : badgeCls;
         var effective = (typeof Model !== 'undefined' && Model.getEffectivePhotos)
           ? Model.getEffectivePhotos(defic, oi) : (o.photos || []);
         effective.forEach(function(ph, phi) {
@@ -355,12 +360,13 @@ export var initPhotos = {
             deficId: defic.id,
             deficNum: defic.num,
             isGeneralPriority: isGeneral,
+            isRec: !!(o && o.isRecommendation),
             obsIdx: oi,
             photoIdx: phi,
             ph: ph,
             src: (mk && mk.markedR2Key) || ph.r2Url || ph.dataUrl || '',
             badgeText: '' + defic.num + obsLetter,
-            badgeClass: badgeCls,
+            badgeClass: obsBadgeCls,
             dateKey: dk.key, dateLabel: dk.label,
             sortGroup: [1, defic.num, oi, phi]
           });
@@ -398,14 +404,19 @@ export var initPhotos = {
     var _phRepOrder = [];
     records.forEach(function(r) {
       var k = _phIdKey(r);
-      var isFinding = (r.type === 'defic' && !r.isGeneralPriority);
-      var isNote = (r.type === 'defic' && r.isGeneralPriority);
+      // S283 gallery buckets: Observations | Recommendations | Site.
+      // A defic photo is a Recommendation if its obs is flagged rec, else an
+      // Observation. "Notes" (general-priority) folds into Observations — the
+      // general/note distinction is retired from the gallery (Mark). A photo
+      // can carry multiple references (e.g. obs on two pins), so flags union.
+      var isRecRef = (r.type === 'defic' && r.isRec);
+      var isObsRef = (r.type === 'defic' && !r.isRec);
       var rep = _phById[k];
       if (!rep) {
         r.badges = [{ text: r.badgeText, cls: r.badgeClass }];
         r.refSite = (r.type === 'site');
-        r.refFinding = isFinding;
-        r.refNote = isNote;
+        r.refObs = isObsRef;
+        r.refRec = isRecRef;
         _phById[k] = r;
         _phRepOrder.push(r);
         return;
@@ -413,8 +424,8 @@ export var initPhotos = {
       var dup = rep.badges.some(function(b) { return b.text === r.badgeText && b.cls === r.badgeClass; });
       if (!dup) rep.badges.push({ text: r.badgeText, cls: r.badgeClass });
       rep.refSite = rep.refSite || (r.type === 'site');
-      rep.refFinding = rep.refFinding || isFinding;
-      rep.refNote = rep.refNote || isNote;
+      rep.refObs = rep.refObs || isObsRef;
+      rep.refRec = rep.refRec || isRecRef;
       // Promote a SITE reference to representative so the trash button (site
       // only) stays reachable; adopt its site context for card actions.
       if (r.type === 'site' && rep.type !== 'site') {
@@ -428,16 +439,15 @@ export var initPhotos = {
     // ── Stats: distinct-photo totals (reference union per photo) ──
     var totalAll = records.length;
     var totalSite = records.filter(function(r) { return r.refSite; }).length;
-    var totalDefic = records.filter(function(r) { return r.refFinding; }).length;
-    var totalGeneral = records.filter(function(r) { return r.refNote; }).length;
+    var totalObs = records.filter(function(r) { return r.refObs; }).length;
+    var totalRec = records.filter(function(r) { return r.refRec; }).length;
 
     // ── Apply filter (a photo matches if ANY of its references match) ──
     var filtered = records.filter(function(r) {
       if (_filterMode === 'all') return true;
       if (_filterMode === 'site') return r.refSite;
-      // S114 P1.3 rename: deficiency→findings, general→notes (label-only; semantics unchanged)
-      if (_filterMode === 'findings') return r.refFinding;
-      if (_filterMode === 'notes') return r.refNote;
+      if (_filterMode === 'observations') return r.refObs;
+      if (_filterMode === 'recommendations') return r.refRec;
       return true;
     });
 
@@ -490,15 +500,16 @@ export var initPhotos = {
     // Toolbar
     var nSel = _selectedUids.size;
     var filterLabel = _filterMode === 'all' ? 'All photos'
-      : _filterMode === 'site' ? 'Site only'
-      : _filterMode === 'findings' ? 'Findings'
-      : 'Notes';
+      : _filterMode === 'site' ? 'Site Records'
+      : _filterMode === 'observations' ? 'Observation photos'
+      : _filterMode === 'recommendations' ? 'Recommendation photos'
+      : 'All photos';
     html += '<div class="ph-toolbar">';
     html += '<div class="ph-toolbar-left">';
     html += '<div class="ph-stat"><div class="ph-stat-num">' + totalAll + '</div><div class="ph-stat-lbl">Total</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalSite + '</div><div class="ph-stat-lbl">Site</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalDefic + '</div><div class="ph-stat-lbl">Findings</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalGeneral + '</div><div class="ph-stat-lbl">Notes</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalObs + '</div><div class="ph-stat-lbl">Observations</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalRec + '</div><div class="ph-stat-lbl">Recommendations</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalSite + '</div><div class="ph-stat-lbl">Site Records</div></div>';
     html += '</div>';
     html += '<div class="ph-toolbar-right">';
     if (nSel > 0) {
@@ -512,9 +523,9 @@ export var initPhotos = {
       html += '<div class="ph-filter-menu">';
       [
         ['all', 'All photos'],
-        ['site', 'Site only'],
-        ['findings', 'Findings'],
-        ['notes', 'Notes']
+        ['observations', 'Observation photos'],
+        ['recommendations', 'Recommendation photos'],
+        ['site', 'Site Records']
       ].forEach(function(pair) {
         var cls = pair[0] === _filterMode ? 'active' : '';
         html += '<button class="' + cls + '" data-action="ph-set-filter" data-mode="' + pair[0] + '">' + pair[1] + '</button>';

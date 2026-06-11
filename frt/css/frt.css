@@ -2127,7 +2127,8 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-badge-pin-high{background:#A85959;}
 .ph-badge-pin-low{background:#B07F5A;}
 .ph-badge-pin-gen{background:#5F8068;}
-.ph-badge-site{background:#5F8068;}
+.ph-badge-site{background:#6E6AA8;}
+.ph-badge-pin-rec{background:#2C7FB8;}
 /* Cloud sync icon (bottom-right, always visible) */
 .ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .ph-cloud svg{display:block;}
