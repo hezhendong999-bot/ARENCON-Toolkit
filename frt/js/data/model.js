@@ -520,6 +520,32 @@ export var Model = {
     }
     (proj.contractors || []).forEach(function(c) { _migrateDeficArr(c.deficiencies); });
     _migrateDeficArr(proj.generalDeficiencies);
+    // S284 (Mark: "remap them all", option B — silent auto-migration): contractor
+    // colours predating the S283 palette lock are remapped to the locked
+    // CONTRACTOR_COLOR_PALETTE at load. Rule: any contractor whose stored colour
+    // is NOT a member of the locked palette (old desaturated set, customs,
+    // missing) gets the first palette colour not already used — walked in roster
+    // order, so two devices migrating the same project concurrently converge to
+    // identical results (safe under sync). Contractors already on a locked
+    // palette colour are untouched, so re-loads are a no-op. Persists via the
+    // normal save path like the other load-time normalizations (no forced save).
+    (function _remapLegacyContractorColors() {
+      var _ctrs = proj.contractors || [];
+      var _inPal = {};
+      CONTRACTOR_COLOR_PALETTE.forEach(function(c) { _inPal[c] = true; });
+      var _used = [];
+      _ctrs.forEach(function(c) { if (c && c.color && _inPal[c.color]) _used.push(c.color); });
+      var _remapped = 0;
+      _ctrs.forEach(function(c) {
+        if (!c) return;
+        if (c.color && _inPal[c.color]) return;
+        var _col = nextContractorColor(_used);
+        c.color = _col;
+        _used.push(_col);
+        _remapped++;
+      });
+      if (_remapped > 0) console.log('[Model] S284: remapped ' + _remapped + ' contractor colour(s) to the locked palette');
+    })();
     // S143: surface the IAR-clear count to the console (no UI toast — this
     // is a background normalization). Only logs when something changed;
     // re-loads of an already-cleared project stay silent.
