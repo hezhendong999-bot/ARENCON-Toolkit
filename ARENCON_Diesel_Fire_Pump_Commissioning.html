@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S299 (Checklist Findings roll-up at top of Deficiencies tab: every item marked NO with number, text, comment, photo count, View-> tap-through that switches panel and highlights the source item; derived read-only, checklist stays system of record) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S300 (markup-save regression fix: bake composites from a taint-free source — local dataURL or cache-busted blob fetch — never the displayed img; persist is async with explicit failure toast; crossOrigin removed from lightbox img, killing the 'Photo failed to load' CORS-cache toast; download uses the same safe loader; sibling-stamp no longer matches undefined ids) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3512,7 +3512,8 @@ if(typeof window!=='undefined') window.DieselMarkup = DieselMarkup;
 //     DieselMarkup vector engine; saved markup persists as p.mk (non-
 //     destructive) and is composited in view mode
 //   - iOS body scroll lock (position:fixed pattern from the gauge-modal fix)
-//   - crossOrigin before src (S282b) so cloud photos never taint the canvas
+//   - S300: bake/download composite from a taint-free loader (local dataURL
+//     or fetched blob); the displayed img loads plain, no crossOrigin
 var DslLightbox = (function(){
   'use strict';
   var _photos=[], _idx=0, _ctx=null, _isOpen=false, _built=false;
@@ -3792,7 +3793,10 @@ var DslLightbox = (function(){
     var src=p.d||p.r2Url||'';
     img.onload=function(){ _scheduleFit(); };
     img.onerror=function(ev){ console.warn('[DLB] photo load error', {idx:i, id:p.id||null, src:(img.currentSrc||img.src||'').slice(0,160), ev:ev&&ev.type}); if(typeof showToast==='function') showToast('Photo failed to load'); };
-    img.crossOrigin='anonymous';   // S282b: cloud photos must not taint the canvas
+    // S300: crossOrigin removed — the displayed img is never a toDataURL source
+    // anymore (safe bake loader), and crossOrigin loads fail outright on Chrome
+    // cache entries first fetched without CORS (the 'Photo failed to load' toast).
+    img.removeAttribute('crossorigin');   // S282b: cloud photos must not taint the canvas
     img.src=src;
     // cached/same-URL loads may never fire onload — schedule regardless, and
     // use decode() as a third independent trigger where supported.
@@ -3867,28 +3871,29 @@ var DslLightbox = (function(){
       if(typeof showToast==='function') showToast(p._annotated?'No new markup to save':'No markup to save');
       return;
     }
-    // S292: FRT persistence semantics — bake original+strokes, swap display/R2
-    // to the marked version, keep a clean "(original)" duplicate in Site Records.
-    var img=_el('dlb-image');
-    try{
-      _dslMarkupPersist(p, mk, img);
-    }catch(e){
+    // S292/S300: FRT persistence semantics — bake original+strokes (from a
+    // taint-free source, async), swap display/R2 to the marked version, keep a
+    // clean "(original)" duplicate in Site Records. Markup mode stays open and
+    // strokes stay live until persist actually succeeds.
+    if(typeof showToast==='function') showToast('Saving markup\u2026');
+    _dslMarkupPersist(p, mk).then(function(){
+      _exitMarkup(false);
+      delete _mkDraft[p.id];   // strokes are baked into the photo — drop the session draft
+      _showPhoto(_idx);        // reload — photo now displays the baked marked version
+      if(typeof showToast==='function') showToast('\u2713 Markup saved \u2014 original kept in Site Records');
+      if(typeof saveState==='function') try{ saveState(); }catch(e){ console.warn('[DLB] saveMk saveState failed', e); }
+      if(typeof debounceAutosave==='function') debounceAutosave();
+      if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
+        try{ CloudSync.save(_collectCloudState()); }catch(e){ console.warn('[DLB] saveMk cloud push failed', e); }
+      }
+      if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] saveMk renderer failed', e); } }
+      if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(e){ console.warn('[DLB] saveMk gallery render failed', e); }
+      if(typeof _renderRecordZones==='function') try{ _renderRecordZones(); }catch(e){ console.warn('[DLB] saveMk records render failed', e); }
+    }).catch(function(e){
       console.warn('[DLB] saveMk persist failed', e);
-      if(typeof showToast==='function') showToast('Save failed: '+((e&&e.message)||e));
-      return;   // stay in markup mode so the strokes aren't lost
-    }
-    _exitMarkup(false);
-    delete _mkDraft[p.id];   // S295: strokes are baked into the photo — drop the session draft
-    _showPhoto(_idx);   // reload — photo now displays the baked marked version
-    if(typeof showToast==='function') showToast('\u2713 Markup saved \u2014 original kept in Site Records');
-    if(typeof saveState==='function') try{ saveState(); }catch(e){ console.warn('[DLB] saveMk saveState failed', e); }
-    if(typeof debounceAutosave==='function') debounceAutosave();
-    if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
-      try{ CloudSync.save(_collectCloudState()); }catch(e){ console.warn('[DLB] saveMk cloud push failed', e); }
-    }
-    if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] saveMk renderer failed', e); } }
-    if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(e){ console.warn('[DLB] saveMk gallery render failed', e); }
-    if(typeof _renderRecordZones==='function') try{ _renderRecordZones(); }catch(e){ console.warn('[DLB] saveMk records render failed', e); }
+      if(typeof showToast==='function') showToast('Markup save failed \u2014 '+((e&&e.message)||e)+'. Your strokes are still here.');
+      // stay in markup mode so the strokes aren't lost
+    });
   }
   function _revertMk(){
     var p=_photos[_idx];
@@ -3936,29 +3941,33 @@ var DslLightbox = (function(){
 
   // ── Download (composite original + markup at natural res) ──
   function _download(){
-    var img=_el('dlb-image');
     var p=_photoObj(_idx);
-    if(!img||!img.naturalWidth) return;
-    try{
+    if(!p) return;
+    // S300: composite from the taint-free bake loader, not the displayed img —
+    // toBlob throws on a tainted canvas exactly like toDataURL did in persist.
+    var mkLive = (_markupActive && window.DieselMarkup && DieselMarkup.canvas) ? DieselMarkup.toMk() : null;
+    var mkV = mkLive || (p.id&&_mkDraft[p.id]) || p.mk || null;
+    _dslLoadBakeImage(p).then(function(bake){
+      var img=bake.img;
       var c=document.createElement('canvas');
       c.width=img.naturalWidth; c.height=img.naturalHeight;
       var cx=c.getContext('2d');
       cx.drawImage(img,0,0,c.width,c.height);
-      if(_markupActive && window.DieselMarkup && DieselMarkup.canvas) DieselMarkup.compositeOnto(cx,c.width,c.height);
-      else if(p.mk && window.DieselMarkup) DieselMarkup.composite(cx,p.mk,c.width,c.height);
+      if(mkV && window.DieselMarkup) DieselMarkup.composite(cx,mkV,c.width,c.height);
+      bake.revoke();
       c.toBlob(function(blob){
-        if(!blob){ throw new Error('no blob'); }
+        if(!blob){ console.warn('[DLB] download: toBlob returned null'); return; }
         var url=URL.createObjectURL(blob);
         var a=document.createElement('a');
         a.href=url; a.download=(p.n&&/\.(jpe?g|png|webp)$/i.test(p.n))?p.n:('photo_'+Date.now()+'.jpg');
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         setTimeout(function(){ URL.revokeObjectURL(url); },1000);
       },'image/jpeg',0.95);
-    }catch(e){
+    }).catch(function(e){
       console.warn('[DLB] download composite failed, falling back to open', e);
       var src=p.d||p.r2Url||'';
       if(src) window.open(src,'_blank');
-    }
+    });
   }
 
   // ── View-mode events (FRT pan/zoom/swipe, scoped to dlb-area) ──
@@ -10000,27 +10009,65 @@ function _r2EnqueuePhoto(photoObj){
 // original everywhere, and the marked R2 object is deleted. Matches FRT
 // photos.js frt-markup-saved / frt-markup-reverted behavior exactly; the only
 // internal difference is that the in-session editor stays the vector engine.
-function _dslStampSiblings(photoId, stampFn){
+function _dslStampSiblings(photo, stampFn){
   // Diesel photos are single objects, but defensively stamp every reference
-  // sharing the id (FRT sibling-stamping analog).
-  var seen = false;
-  if(typeof _collectAllPhotos==='function'){
+  // sharing the id (FRT sibling-stamping analog). S300: always stamp the
+  // passed photo itself, and never id-match on a falsy id (undefined===undefined
+  // would have stamped every id-less photo in the project).
+  stampFn(photo);
+  if(photo.id && typeof _collectAllPhotos==='function'){
     _collectAllPhotos().forEach(function(a){
-      if(a.photo && a.photo.id===photoId){ stampFn(a.photo); seen = true; }
+      if(a.photo && a.photo!==photo && a.photo.id===photo.id) stampFn(a.photo);
     });
   }
-  return seen;
 }
-function _dslMarkupPersist(p, mk, img){
-  if(!p || !mk || !img || !img.naturalWidth) throw new Error('nothing to persist');
+// S300: load a guaranteed-taint-free Image for baking. Local dataURL first
+// (never taints); else fetch the R2 object as a blob with a cache-buster
+// (fresh CORS response, sidestepping Chrome's cache-poisoned non-CORS entries)
+// and decode via an object URL (same-origin, never taints). The displayed
+// lightbox <img> is NEVER used as a bake source again — that was the S292
+// regression: a tainted canvas made toDataURL throw before anything persisted.
+function _dslLoadBakeImage(p){
+  return new Promise(function(res, rej){
+    var local = p.d || '';
+    if(local){
+      var im = new Image();
+      im.onload = function(){ res({img:im, revoke:function(){}}); };
+      im.onerror = function(){ rej(new Error('local image decode failed')); };
+      im.src = local;
+      return;
+    }
+    var url = p.r2Url || '';
+    if(!url) return rej(new Error('photo has no local data and no cloud URL'));
+    var busted = url + (url.indexOf('?')>=0 ? '&' : '?') + 'cb=' + Date.now();
+    fetch(busted, {cache:'no-store'}).then(function(r){
+      if(!r.ok) throw new Error('cloud fetch failed: HTTP '+r.status);
+      return r.blob();
+    }).then(function(b){
+      var u = URL.createObjectURL(b), im = new Image();
+      im.onload = function(){ res({img:im, revoke:function(){ try{URL.revokeObjectURL(u);}catch(_e){} }}); };
+      im.onerror = function(){ try{URL.revokeObjectURL(u);}catch(_e){} rej(new Error('cloud image decode failed')); };
+      im.src = u;
+    }).catch(rej);
+  });
+}
+
+async function _dslMarkupPersist(p, mk){
+  if(!p || !mk) throw new Error('nothing to persist');
+  if(!p.id) p.id = 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);   // S300: deterministic keys need an id
+  var bake = await _dslLoadBakeImage(p);   // taint-free source (S300)
+  var img = bake.img;
   var nw = img.naturalWidth, nh = img.naturalHeight;
+  if(!nw || !nh){ bake.revoke(); throw new Error('bake image has no dimensions'); }
+  console.info('[DLB] persist: bake source', p.d ? 'local dataURL' : 'cloud blob fetch', nw+'x'+nh);
   // ── Bake composite (offscreen, CPU — machine-safe) ──
   var c = document.createElement('canvas');
   c.width = nw; c.height = nh;
   var cx = c.getContext('2d');
   cx.drawImage(img, 0, 0, nw, nh);
   DieselMarkup.composite(cx, mk, nw, nh);
-  var markedD = c.toDataURL('image/jpeg', 0.9);   // throws if canvas tainted — caught by caller
+  var markedD = c.toDataURL('image/jpeg', 0.9);
+  bake.revoke();
 
   // ── Capture pre-markup state ──
   var preD = p.d || '', preKey = p.r2Key || '', preUrl = p.r2Url || '';
@@ -10079,7 +10126,7 @@ function _dslMarkupPersist(p, mk, img){
     delete sp.mk;                        // strokes are baked now (FRT parity)
     if(hub){ sp.r2Key = markedKey; sp.r2Url = markedUrl; sp.r2Status = 'pending'; }
   };
-  if(!_dslStampSiblings(p.id, stamp)) stamp(p);
+  _dslStampSiblings(p, stamp);
 
   // ── Upload marked blob (durable outbox, same pattern as _r2EnqueuePhoto) ──
   if(hub && typeof R2Photos!=='undefined'){
@@ -10137,7 +10184,7 @@ function _dslMarkupRevert(p){
     if(backup.date) sp.date = backup.date;   // FRT P9: roll date back so it regroups correctly
     delete sp._annotated; delete sp._origBackupId; delete sp.mk;
   };
-  if(!_dslStampSiblings(p.id, restore)) restore(p);
+  _dslStampSiblings(p, restore);
   // ── Remove the backup record from Site Records ──
   var bi = recordPhotos.indexOf(backup); if(bi>=0) recordPhotos.splice(bi,1);
   // ── Delete the marked R2 object (background, orphan-safe) ──
