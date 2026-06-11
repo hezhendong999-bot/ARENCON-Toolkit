@@ -81,6 +81,10 @@ function _styleOnce() {
     '.exv-c.on .role{opacity:.85;}',
     '.exv-c .tk{width:16px;height:16px;border-radius:50%;border:1.5px solid #BCC4D0;display:inline-flex;align-items:center;justify-content:center;font-size:calc(11px + var(--ts,0px));color:transparent;flex-shrink:0;}',
     '.exv-c.on .tk{background:#fff;border-color:#fff;color:var(--c,#6B7280);}',
+    '.exv-c .exv-x{margin-left:2px;width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:calc(14px + var(--ts,0px));line-height:1;opacity:.55;flex-shrink:0;cursor:pointer;transition:opacity .12s,background .12s;}',
+    '.exv-c .exv-x:hover{opacity:1;background:rgba(138,74,74,.18);}',
+    '.exv-c.on .exv-x:hover{background:rgba(255,255,255,.28);}',
+    '@media(pointer:coarse){.exv-c .exv-x{width:30px;height:30px;opacity:.8;}}',
     '.exv-add{display:flex;gap:8px;margin-top:14px;}',
     '.exv-add input{flex:1;padding:7px 10px;border:1.5px dashed #C5CEDB;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts,0px));background:var(--card,#fff);color:var(--fg,#1C2333);}',
     '.exv-add button{padding:7px 14px;border:1px solid #4F6788;background:var(--bg,#fff);color:#33506B;border-radius:6px;font-size:calc(13px + var(--ts,0px));font-weight:600;cursor:pointer;}',
@@ -146,8 +150,15 @@ export var initExportView = {
       return true; // no saved set yet -> owner + contractors pre-selected
     }
     function cardHtml(name, role, color, on) {
+      // 'added' recipients (manually pooled, not owner/contractor) get an ×
+      // to remove them from the pool entirely — distinct from tapping the card
+      // to select/deselect. Owner/contractor cards have no × (they come from
+      // the roster, not the pool, so removal there would be meaningless).
+      var x = (role === 'added')
+        ? '<span class="exv-x" title="Remove recipient" data-x="' + _esc(name) + '">&#215;</span>'
+        : '';
       return '<div class="exv-c' + (on ? ' on' : '') + '" data-n="' + _esc(name) + '" style="--c:' + color + ';">'
-        + '<span class="tk">&#10003;</span>' + _esc(name) + ' <span class="role">' + _esc(role) + '</span></div>';
+        + '<span class="tk">&#10003;</span>' + _esc(name) + ' <span class="role">' + _esc(role) + '</span>' + x + '</div>';
     }
     function grpHtml(label, color, cardsHtml) {
       return '<div class="exv-grp"><div class="exv-gh"><span class="exv-sw" style="background:' + color + ';"></span>'
@@ -255,6 +266,20 @@ export var initExportView = {
         + (on.length ? _esc(on.join(', ')) : '<i style="color:#9aa5b5;">(none selected)</i>');
     }
     groupsEl.addEventListener('click', function(e) {
+      // × on an added recipient removes the whole card (and so it won't be
+      // saved back into proj.distribution on export). Handle BEFORE the
+      // select-toggle so clicking × never also toggles selection.
+      var x = e.target.closest('.exv-x');
+      if (x) {
+        e.stopPropagation();
+        var card = x.closest('.exv-c');
+        var grp = card ? card.closest('.exv-grp') : null;
+        if (card) card.remove();
+        // If that emptied the Other-recipients group, drop the now-empty group.
+        if (grp && grp.hasAttribute('data-added') && !grp.querySelector('.exv-c')) grp.remove();
+        refreshPrev();
+        return;
+      }
       var c = e.target.closest('.exv-c');
       if (c) { c.classList.toggle('on'); refreshPrev(); }
     });
