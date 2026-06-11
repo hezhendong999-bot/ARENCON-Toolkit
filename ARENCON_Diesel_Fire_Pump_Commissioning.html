@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S294 (gallery: date-only grouping, pinned Site Records section removed; dropzone consolidated to single Import from Camera Roll button) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S295 (ESC step-down: deselect/deactivate tool only, never exits markup or wipes strokes; unsaved strokes stash per-photo and survive exit/nav, reload on re-entry, composite in view) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3145,6 +3145,7 @@ var DieselMarkup = (function(){
       function down(ev){
         ev.preventDefault();
         var st=self._styleFn(); var p=self._pt(ev);
+        if(!st.tool) return;   // S295: no active tool (ESC-deactivated) — clicks draw nothing
         if(st.tool==='text'){ self._promptText(p, st); return; }
         if(st.tool==='erase'){ self._drawing=true; self._eraseAt(p); return; }
         self._drawing=true; self.redo=[];
@@ -3364,6 +3365,8 @@ var DslLightbox = (function(){
   var _sX=0, _sY=0, _lastTap=0, _swX=0, _swY=0, _swiping=false;
   var _markupActive=false;
   var _mkTool='pen', _mkColor='#FF0000', _mkSize=4;
+  var _setTool=null;        // S295: module handle to the bar's setActiveTool (ESC deactivates tool)
+  var _mkDraft={};          // S295: per-photo unsaved-stroke stash — strokes survive markup exit/nav until saved or cleared
   var _scrollLockY=0;
 
   function _el(id){ return document.getElementById(id); }
@@ -3470,6 +3473,7 @@ var DslLightbox = (function(){
       _mkColor=col;
       swatches.forEach(function(s){ s.style.borderColor=(s.dataset.col===col)?'#fff':'rgba(255,255,255,.4)'; s.style.boxShadow=(s.dataset.col===col)?'0 0 0 2px #9C2742':'none'; });
     }
+    _setTool = setActiveTool;   // S295: ESC handler needs to deactivate the tool
     Object.keys(toolBtns).forEach(function(k){ toolBtns[k].addEventListener('click',function(){ setActiveTool(k); }); });
     swatches.forEach(function(s){ s.addEventListener('click',function(){ setSwatch(s.dataset.col); }); });
     sizeSld.addEventListener('input',function(){ _mkSize=parseInt(sizeSld.value,10)||4; });
@@ -3550,8 +3554,9 @@ var DslLightbox = (function(){
     try{ ctx.drawImage(img,0,0); }catch(e){ console.warn('[DLB] stage drawImage failed', e); }
     // saved markup composited over the photo (image natural coords)
     var p=_photoObj(_idx);
-    if(p.mk && window.DieselMarkup && !_markupActive){
-      try{ DieselMarkup.composite(ctx, p.mk, nw, nh); }catch(e){ console.warn('[DLB] saved-mk composite failed', e); }
+    var mkV=(p.id&&_mkDraft[p.id])||p.mk;   // S295: unsaved draft composites too — exiting markup never *looks* like lost work
+    if(mkV && window.DieselMarkup && !_markupActive){
+      try{ DieselMarkup.composite(ctx, mkV, nw, nh); }catch(e){ console.warn('[DLB] saved-mk composite failed', e); }
     }
     var z=_el('dlb-zoom');
     if(z&&_fitScale) z.textContent=Math.round((_scale/_fitScale)*100)+'%';
@@ -3650,7 +3655,7 @@ var DslLightbox = (function(){
     // WHITE on the affected machine.
     try{ cv.getContext('2d',{alpha:false}); }catch(e){ console.warn('[DLB] opaque markup ctx pre-create failed', e); }
     DieselMarkup.opaqueBase=true;
-    DieselMarkup.attach(cv, img, p.mk||null, function(){
+    DieselMarkup.attach(cv, img, (p.id&&_mkDraft[p.id])||p.mk||null, function(){
       return {tool:_mkTool, color:_mkColor, size:_mkSize*3, alpha:1, fontSize:Math.max(18,_mkSize*8)};
     }, null);
     // S287: the decode <img> is hidden (offsetWidth 0) — pin the engine canvas
@@ -3663,7 +3668,16 @@ var DslLightbox = (function(){
     _el('dlb-area').style.cursor='crosshair';
   }
   function _exitMarkup(keepStrokes){
-    if(window.DieselMarkup && !keepStrokes) DieselMarkup.detach();
+    if(window.DieselMarkup && !keepStrokes){
+      // S295: stash unsaved strokes so leaving markup mode (toggle/nav/close)
+      // never loses work — they reload on re-entry and composite in view mode.
+      var sp=_photoObj(_idx);
+      if(sp && sp.id){
+        var draft=DieselMarkup.toMk();
+        if(draft) _mkDraft[sp.id]=draft; else delete _mkDraft[sp.id];
+      }
+      DieselMarkup.detach();
+    }
     var cv=_el('dlb-canvas');
     if(cv){ cv.style.pointerEvents='none'; cv.style.display='none'; }
     _el('dlb-markupbar').style.display='none';
@@ -3693,6 +3707,7 @@ var DslLightbox = (function(){
       return;   // stay in markup mode so the strokes aren't lost
     }
     _exitMarkup(false);
+    delete _mkDraft[p.id];   // S295: strokes are baked into the photo — drop the session draft
     _showPhoto(_idx);   // reload — photo now displays the baked marked version
     if(typeof showToast==='function') showToast('\u2713 Markup saved \u2014 original kept in Site Records');
     if(typeof saveState==='function') try{ saveState(); }catch(e){ console.warn('[DLB] saveMk saveState failed', e); }
@@ -3714,6 +3729,7 @@ var DslLightbox = (function(){
     var finish = function(msg){
       if(window.DieselMarkup) DieselMarkup.clear();
       _exitMarkup(false);
+      if(p && p.id) delete _mkDraft[p.id];   // S295: revert discards the session draft as well
       _showPhoto(_idx);   // reload restored original
       if(msg && typeof showToast==='function') showToast(msg);
       if(typeof saveState==='function') try{ saveState(); }catch(e){ console.warn('[DLB] revertMk saveState failed', e); }
@@ -3873,7 +3889,19 @@ var DslLightbox = (function(){
     });
     document.addEventListener('keydown',function(e){
       if(!_isOpen) return;
-      if(e.key==='Escape'){ if(_markupActive){ _exitMarkup(false); } else { _close(); } e.preventDefault(); return; }
+      if(e.key==='Escape'){
+        // S295 (Mark): ESC steps down, NEVER destroys work. Markup mode:
+        // modal open -> modal owns it; selection -> deselect; tool active ->
+        // deactivate tool; else nothing. Exit is only via the pencil toggle
+        // or Save; strokes survive exit via the session draft stash.
+        if(document.querySelector('._a-modal-ov')) return;
+        if(_markupActive){
+          if(window.DieselMarkup && DieselMarkup.selection && typeof DieselMarkup.deselect==='function'){ DieselMarkup.deselect(); }
+          else if(_mkTool && _setTool){ _setTool(null); }
+          e.preventDefault(); return;
+        }
+        _close(); e.preventDefault(); return;
+      }
       if(_markupActive&&(e.ctrlKey||e.metaKey)){
         if(e.key==='z'||e.key==='Z'){ DieselMarkup.undo(); e.preventDefault(); return; }
         if(e.key==='y'||e.key==='Y'){ DieselMarkup.redoOp(); e.preventDefault(); return; }
