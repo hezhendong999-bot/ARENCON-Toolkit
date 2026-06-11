@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S296 (markup: Select tool with move/rotate/resize handles, opacity slider, op-log undo/redo covering add/erase/transform/clear, Delete key removes selected stroke; highlight opaque-at-alpha-1 regression fixed; s.rot honored in all composites) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S297 (FRT priority system on deficiencies: High/Low/General/Recommendation pills with FRT semantic colors incl. rec-amber #D98A1E; item number circle carries the priority color; additive schema d.priority default high) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6779,9 +6779,31 @@ function renderContractorTags() {
   }).join('');
 }
 
+// ═══ S297: FRT priority system (High/Low/General/Recommendation) ═══
+// Colors are the FRT semantic set — same meaning across all tools; Recommendation
+// uses the sanctioned rec-amber #D98A1E. Additive schema: d.priority, default 'high'.
+function _deficPriColor(p){ return ({high:'#C0445F',low:'#C98A4A',general:'#3E8E6E',recommendation:'#D98A1E'})[p]||'#C0445F'; }
+function _deficPriRow(cur, handlerPrefix){
+  var L=[['high','High'],['low','Low'],['general','General'],['recommendation','Recommendation']];
+  var h='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">'
+       +'<span style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-right:2px;">Priority</span>';
+  L.forEach(function(x){
+    var on=(cur===x[0]), col=_deficPriColor(x[0]);
+    h+='<button onclick="'+handlerPrefix+'\''+x[0]+'\')" style="padding:4px 12px;border-radius:14px;font-size:calc(11.5px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;cursor:pointer;border:1.5px solid '+col+';'
+      +(on?('background:'+col+';color:#fff;'):('background:transparent;color:'+col+';'))+'">'+x[1]+'</button>';
+  });
+  return h+'</div>';
+}
+function setDeficPriority(name,i,pri){
+  if(deficiencies[name]&&deficiencies[name][i]){ deficiencies[name][i].priority=pri; renderDeficGroup(name); if(typeof updateDeficSummary==='function') updateDeficSummary(); if(typeof debounceAutosave==='function') debounceAutosave(); }
+}
+function setGenDeficPriority(i,pri){
+  if(generalDeficiencies[i]){ generalDeficiencies[i].priority=pri; renderGeneralDeficGroup(); if(typeof updateDeficSummary==='function') updateDeficSummary(); if(typeof debounceAutosave==='function') debounceAutosave(); }
+}
+
 function addDeficiencyForContractor(name) {
   if (!deficiencies[name]) deficiencies[name] = [];
-  deficiencies[name].push({ description:'', date:'', iarStatus:false, status:'open', photos:[], responses:[] });
+  deficiencies[name].push({ description:'', date:'', iarStatus:false, status:'open', priority:'high', photos:[], responses:[] });
   renderDeficGroup(name);
   updateDeficSummary();
 }
@@ -6896,8 +6918,9 @@ function buildDeficItem(name, safe, d, i) {
 
   return '<div style="border-top:1px solid var(--border);padding:14px 16px;">'
     +'<div style="display:flex;gap:10px;align-items:flex-start;">'
-    +'<div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:#A85959;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">'+(i+1)+'</div>'
+    +'<div title="'+(d.priority||'high')+' priority" style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">'+(i+1)+'</div>'
     +'<div style="flex:1;min-width:0;">'
+    +_deficPriRow(d.priority||'high', 'setDeficPriority(\''+safe+'\','+i+',')
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
     +'<div>'
     +'<div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div>'
@@ -7039,7 +7062,7 @@ function updateDeficSummary() {
 var generalDeficiencies = [];
 
 function addGeneralDeficiency() {
-  generalDeficiencies.push({ description:'', date:'', iarStatus:false, status:'open', photos:[], responses:[] });
+  generalDeficiencies.push({ description:'', date:'', iarStatus:false, status:'open', priority:'high', photos:[], responses:[] });
   renderGeneralDeficGroup();
   updateDeficSummary();
 }
@@ -7094,7 +7117,7 @@ function buildGeneralDeficItem(d, i) {
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'contractor\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #E67E22;border-radius:5px;background:#fffbf0;color:#E67E22;font-size:12px;cursor:pointer;font-weight:600;">+ Add Contractor Response</button>';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'consultant\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #1565C0;border-radius:5px;background:#f0f4ff;color:#1565C0;font-size:12px;cursor:pointer;font-weight:600;">+ Add Consultant Response</button></div>';
 
-  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:#455A64;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">G'+(i+1)+'</div><div style="flex:1;min-width:0;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="generalDeficiencies['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="generalDeficiencies['+i+'].status=this.value;updateDeficSummary();renderGeneralDeficGroup();"><option value="open" '+(sc==='open'?'selected':'')+'>● Outstanding</option><option value="in-progress" '+(sc==='in-progress'?'selected':'')+'>● In Progress</option><option value="resolved" '+(sc==='resolved'?'selected':'')+'>● Addressed & Closed</option></select></div>'
