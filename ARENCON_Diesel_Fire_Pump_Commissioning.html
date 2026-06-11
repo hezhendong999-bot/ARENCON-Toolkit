@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S298 (contractor roster trade designation: optional trade input with suggestions, trade chip on roster pill + deficiency group header; additive contractorTrades map rides local+cloud persistence, deficiencies stay keyed by name) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S299 (Checklist Findings roll-up at top of Deficiencies tab: every item marked NO with number, text, comment, photo count, View-> tap-through that switches panel and highlights the source item; derived read-only, checklist stays system of record) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2465,6 +2465,7 @@ function updatePhaseFlags(){
         <!-- BY CONTRACTOR VIEW -->
         <div id="defic-view-contractor">
           <div style="padding:12px;background:var(--smoke);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;">
+            <div id="checklist-findings" style="margin-bottom:14px;"></div>
             <div class="detail-label" style="margin-bottom:8px;">Contractors on Site</div>
             <div id="contractor-tags" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;"></div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -7035,8 +7036,66 @@ function removeDeficPhoto(name, idx, j) {
   }
 }
 
+// ═══ S299: Checklist Findings — auto-aggregated view of every checklist item
+// marked NO, shown at the top of the Deficiencies tab. The checklist stays the
+// system of record (numbered NFPA 20 anchoring is the audit trail); this is a
+// read-only roll-up with tap-through. No schema, purely derived. ═══
+function _checklistFindings(){
+  var srcMap = { s1:(typeof S1!=='undefined')?S1:null, s2:(typeof S2!=='undefined')?S2:null,
+                 s3:(typeof S3!=='undefined')?S3:null, s5:(typeof S5!=='undefined')?S5:null };
+  var out=[];
+  Object.keys(clState||{}).forEach(function(id){
+    var st=clState[id]; if(!st || st.status!=='no') return;
+    var m=id.match(/^([a-z0-9]+)_(\d+)$/); if(!m) return;
+    var sec=m[1], idx=parseInt(m[2],10);
+    var base=srcMap[sec]||[];
+    var all = base.concat((typeof customItems!=='undefined' && customItems[sec])||[]);
+    var item = all[idx];
+    var num = (item&&item.num) ? item.num : (sec.replace('s4pld','4b').replace('s5m','5').replace('s','')+'.'+(idx+1));
+    var text = (item&&item.text) ? item.text : (st.customText||'(custom item)');
+    out.push({id:id, num:num, text:text, photos:(st.photos||[]).length, comment:st.comment||''});
+  });
+  out.sort(function(a,b){ return a.id<b.id?-1:1; });
+  return out;
+}
+function _jumpToChecklistItem(id){
+  var sec=(id.match(/^([a-z0-9]+)_/)||[])[1]||'';
+  var panel = sec.indexOf('s4')===0 ? 's4' : sec.indexOf('s5')===0 ? 's5' : sec;
+  if(typeof switchPanel==='function') switchPanel(panel);
+  setTimeout(function(){
+    var el=document.getElementById('ci-'+id);
+    if(el){ el.scrollIntoView({behavior:'smooth',block:'center'});
+      el.style.outline='2px solid #9C2742'; el.style.outlineOffset='2px';
+      setTimeout(function(){ el.style.outline=''; el.style.outlineOffset=''; }, 2200); }
+  }, 280);
+}
+function _renderChecklistFindings(){
+  var el=document.getElementById('checklist-findings');
+  if(!el) return;
+  var rows=_checklistFindings();
+  if(!rows.length){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='';
+  var h='<div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;">'
+      +'<div style="background:#A85959;color:white;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-family:Calibri,sans-serif;font-weight:700;font-size:14px;">\u2717 Checklist Findings</span>'
+      +'<span style="font-size:11.5px;opacity:.8;">auto \u2014 items marked NO \u00b7 '+rows.length+'</span></div>';
+  rows.forEach(function(r){
+    var txt=(r.text||'').length>150 ? (r.text.slice(0,150)+'\u2026') : (r.text||'');
+    h+='<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 16px;border-top:1px solid var(--border);font-size:13px;">'
+      +'<span style="background:#A85959;color:#fff;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px;">'+r.num+'</span>'
+      +'<span style="flex:1;min-width:0;color:var(--fg,#1C2333);">'+txt
+      +(r.comment?('<div style="font-size:11.5px;color:var(--steel);margin-top:2px;">\u270E '+(r.comment.length>120?r.comment.slice(0,120)+'\u2026':r.comment)+'</div>'):'')
+      +'</span>'
+      +(r.photos?('<span style="font-size:11.5px;color:var(--steel);flex-shrink:0;margin-top:2px;">\uD83D\uDCF7 '+r.photos+'</span>'):'')
+      +'<button onclick="_jumpToChecklistItem(\''+r.id+'\')" style="flex-shrink:0;padding:3px 10px;border:1.5px solid var(--border);border-radius:6px;background:var(--smoke);color:var(--steel);font-size:11.5px;font-weight:600;font-family:Calibri,sans-serif;cursor:pointer;">View \u2192</button>'
+      +'</div>';
+  });
+  el.innerHTML=h+'</div>';
+}
+
 function updateDeficSummary() {
   if(typeof updateDeficTabBadge==='function') updateDeficTabBadge();
+  if(typeof _renderChecklistFindings==='function') _renderChecklistFindings();   // S299
   const el = document.getElementById('defic-summary-table');
   if (!el) return;
   if (contractors.length === 0 && generalDeficiencies.length === 0) { el.innerHTML = '<p style="color:var(--silver);font-size:13px;">No contractors added yet.</p>'; return; }
