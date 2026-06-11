@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S291 (logging retrofit: no silent catches in DslLightbox paths; photo-load onerror instrumented with id/src) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S292 (FRT markup-persistence semantics: save bakes marked composite into photo display + R2 'marked', clean "(original)" duplicate kept in Site Records, Revert removes the duplicate + marked R2 object and restores the unmarked original) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3736,33 +3736,76 @@ var DslLightbox = (function(){
     var p=_photos[_idx];
     if(!p||typeof p!=='object'){ if(typeof showToast==='function') showToast('Cannot save markup on this photo'); return; }
     var mk=DieselMarkup.toMk();
-    console.info('[DLB] saveMk', {id:p.id||null, strokes:(mk&&mk.o)?mk.o.length:0});
-    if(mk) p.mk=mk; else delete p.mk;
+    console.info('[DLB] saveMk', {id:p.id||null, strokes:(mk&&mk.o)?mk.o.length:0, annotated:!!p._annotated});
+    if(!mk){
+      // No strokes drawn this session — nothing new to bake.
+      _exitMarkup(false);
+      if(typeof showToast==='function') showToast(p._annotated?'No new markup to save':'No markup to save');
+      return;
+    }
+    // S292: FRT persistence semantics — bake original+strokes, swap display/R2
+    // to the marked version, keep a clean "(original)" duplicate in Site Records.
+    var img=_el('dlb-image');
+    try{
+      _dslMarkupPersist(p, mk, img);
+    }catch(e){
+      console.warn('[DLB] saveMk persist failed', e);
+      if(typeof showToast==='function') showToast('Save failed: '+((e&&e.message)||e));
+      return;   // stay in markup mode so the strokes aren't lost
+    }
     _exitMarkup(false);
-    if(typeof showToast==='function') showToast(mk?'\u2713 Markup saved \u2014 original preserved':'\u2713 Markup cleared');
+    _showPhoto(_idx);   // reload — photo now displays the baked marked version
+    if(typeof showToast==='function') showToast('\u2713 Markup saved \u2014 original kept in Site Records');
+    if(typeof saveState==='function') try{ saveState(); }catch(e){ console.warn('[DLB] saveMk saveState failed', e); }
     if(typeof debounceAutosave==='function') debounceAutosave();
     if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
       try{ CloudSync.save(_collectCloudState()); }catch(e){ console.warn('[DLB] saveMk cloud push failed', e); }
     }
     if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] saveMk renderer failed', e); } }
+    if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(e){ console.warn('[DLB] saveMk gallery render failed', e); }
+    if(typeof _renderRecordZones==='function') try{ _renderRecordZones(); }catch(e){ console.warn('[DLB] saveMk records render failed', e); }
   }
   function _revertMk(){
     var p=_photos[_idx];
     if(!p||typeof p!=='object') return;
-    if(!p.mk && !(window.DieselMarkup&&DieselMarkup.isDirty())) return;
-    var doIt=function(){
-      delete p.mk;
+    var dirty = !!(window.DieselMarkup && DieselMarkup.isDirty());
+    var hasBaked = !!p._origBackupId;
+    var hasVector = !!p.mk;                       // legacy vector-only save (pre-S292)
+    if(!hasBaked && !hasVector && !dirty) return;
+    var finish = function(msg){
       if(window.DieselMarkup) DieselMarkup.clear();
       _exitMarkup(false);
-      if(typeof showToast==='function') showToast('Markup removed \u2014 original intact');
+      _showPhoto(_idx);   // reload restored original
+      if(msg && typeof showToast==='function') showToast(msg);
+      if(typeof saveState==='function') try{ saveState(); }catch(e){ console.warn('[DLB] revertMk saveState failed', e); }
       if(typeof debounceAutosave==='function') debounceAutosave();
       if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
         try{ CloudSync.save(_collectCloudState()); }catch(e){ console.warn('[DLB] revertMk cloud push failed', e); }
       }
       if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] revertMk renderer failed', e); } }
+      if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(e){ console.warn('[DLB] revertMk gallery render failed', e); }
+      if(typeof _renderRecordZones==='function') try{ _renderRecordZones(); }catch(e){ console.warn('[DLB] revertMk records render failed', e); }
     };
-    if(p.mk && typeof _aConfirm==='function'){ _aConfirm('Remove all saved markup from this photo? The original photo is untouched.', doIt, 'Remove markup'); }
-    else doIt();
+    if(hasBaked){
+      // S292: FRT semantics — restore original, remove the "(original)" backup
+      // record, delete the marked R2 object.
+      var doIt=function(){
+        try{ _dslMarkupRevert(p); }catch(e){ console.warn('[DLB] revertMk failed', e); if(typeof showToast==='function') showToast('Revert failed: '+((e&&e.message)||e)); return; }
+        finish('\u2713 Reverted to original');
+      };
+      if(typeof _aConfirm==='function') _aConfirm('All markup will be removed and the (original) backup will also be deleted. This cannot be undone.', doIt, 'Revert to original');
+      else doIt();
+      return;
+    }
+    if(hasVector){
+      // Legacy vector markup (saved before S292) — deleting p.mk restores the view.
+      var doIt2=function(){ delete p.mk; finish('Markup removed \u2014 original intact'); };
+      if(typeof _aConfirm==='function') _aConfirm('Remove all saved markup from this photo? The original photo is untouched.', doIt2, 'Remove markup');
+      else doIt2();
+      return;
+    }
+    // Only unsaved strokes from this session — just clear them.
+    finish(null);
   }
 
   // ── Download (composite original + markup at natural res) ──
@@ -9951,7 +9994,7 @@ function collectState() {
     flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,mk:p.mk||null})),
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
     flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,mk:p.mk||null})),
-    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null})),
+    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false})),
     sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
@@ -9968,7 +10011,7 @@ function collectState() {
 function _collectCloudState(){
   var s=collectState();
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
-  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null};});}
+  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||''};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
   if(s.deficiencies){Object.keys(s.deficiencies).forEach(function(k){if(Array.isArray(s.deficiencies[k]))s.deficiencies[k].forEach(function(d){
     if(d.photos)d.photos=_stripPhotos(d.photos);
@@ -9980,10 +10023,10 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null};});}
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||''};});}
   if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
-  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null};});
+  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
@@ -10041,6 +10084,166 @@ function _r2EnqueuePhoto(photoObj){
     R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'original', filename:fname, blob:blob,
       onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
   }
+}
+
+// ═══ S292: FRT markup-persistence semantics (port of FRT S115 _origBackupId flow) ═══
+// On save: bake the original + strokes into a composite (CPU offscreen canvas —
+// NEVER a displayed transparent canvas), swap the photo's display + R2 pointer to
+// the marked version, and keep a clean "(original)" duplicate in Site Records.
+// On revert: the duplicate is removed, the photo is restored to the unmarked
+// original everywhere, and the marked R2 object is deleted. Matches FRT
+// photos.js frt-markup-saved / frt-markup-reverted behavior exactly; the only
+// internal difference is that the in-session editor stays the vector engine.
+function _dslStampSiblings(photoId, stampFn){
+  // Diesel photos are single objects, but defensively stamp every reference
+  // sharing the id (FRT sibling-stamping analog).
+  var seen = false;
+  if(typeof _collectAllPhotos==='function'){
+    _collectAllPhotos().forEach(function(a){
+      if(a.photo && a.photo.id===photoId){ stampFn(a.photo); seen = true; }
+    });
+  }
+  return seen;
+}
+function _dslMarkupPersist(p, mk, img){
+  if(!p || !mk || !img || !img.naturalWidth) throw new Error('nothing to persist');
+  var nw = img.naturalWidth, nh = img.naturalHeight;
+  // ── Bake composite (offscreen, CPU — machine-safe) ──
+  var c = document.createElement('canvas');
+  c.width = nw; c.height = nh;
+  var cx = c.getContext('2d');
+  cx.drawImage(img, 0, 0, nw, nh);
+  DieselMarkup.composite(cx, mk, nw, nh);
+  var markedD = c.toDataURL('image/jpeg', 0.9);   // throws if canvas tainted — caught by caller
+
+  // ── Capture pre-markup state ──
+  var preD = p.d || '', preKey = p.r2Key || '', preUrl = p.r2Url || '';
+  var preStatus = p.r2Status || '', preDate = p.date || '';
+  // FRT S115 P8: corrupted-state recovery — preKey already points at /marked/
+  // (backup flags were lost earlier). Treat as no preKey so we don't back up a
+  // marked file as the "original".
+  if(preKey.indexOf('/marked/') >= 0){
+    console.warn('[DLB] persist: preKey is /marked/ — corrupted-state recovery, treating as no preKey:', preKey);
+    preKey = ''; preUrl = ''; preStatus = '';
+  }
+  var isReSave = !!p._origBackupId;
+  console.info('[DLB] persist', {id:p.id, isReSave:isReSave, preKey:preKey?preKey.slice(-40):'', hasPreD:!!preD});
+
+  // ── Backup creation (first markup only) ──
+  var backupId = p._origBackupId || null;
+  if(!isReSave){
+    if(preD || preKey){
+      var backup = {
+        d: preD, n: p.n || 'photo.jpg',
+        id: 'ph_orig_' + Date.now() + '_' + Math.random().toString(36).substr(2,6),
+        kind: 'site',
+        caption: (p.caption ? (p.caption + ' (original)') : 'Original'),
+        date: preDate || new Date().toISOString(),
+        r2Key: preKey, r2Url: preUrl, r2Status: preKey ? (preStatus || 'uploaded') : '',
+        _isOrigBackup: true
+      };
+      if(typeof recordPhotos !== 'undefined') recordPhotos.push(backup);
+      backupId = backup.id;
+      // FRT CASE 3: original was never uploaded — upload it under the backup's
+      // own key so revert works from any device. (_r2EnqueuePhoto keys by id,
+      // type 'original', durable outbox.)
+      if(!preKey && preD && typeof _csHubMode!=='undefined' && _csHubMode){
+        try { _r2EnqueuePhoto(backup); } catch(e){ console.warn('[DLB] persist: original backup upload enqueue failed', e); }
+      }
+      console.info('[DLB] persist: backup created', {backupId:backupId, r2Key:backup.r2Key?backup.r2Key.slice(-40):''});
+    } else {
+      // FRT CASE 4: no original binary anywhere — markup persists but cannot revert.
+      console.warn('[DLB] persist: no preKey and no local binary — markup will not be revertible');
+    }
+  }
+
+  // ── Marked R2 location (deterministic key — stable across re-saves) ──
+  var hub = (typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2FolderId!=='undefined' && _r2FolderId);
+  var markedFname = 'marked_' + p.id + '.jpg';
+  var markedKey = hub ? ('photos/' + _r2FolderId + '/diesel/marked/' + markedFname) : '';
+  var markedUrl = (hub && typeof R2Photos!=='undefined') ? R2Photos.getUrl(_r2FolderId, 'diesel', 'marked', markedFname) : '';
+
+  // ── Stamp the photo (and any same-id references) ──
+  var todayIso = new Date().toISOString();
+  var stamp = function(sp){
+    sp.d = markedD;
+    sp._annotated = true;
+    if(backupId) sp._origBackupId = backupId;
+    sp.date = todayIso;                  // FRT: save bumps the photo to today
+    delete sp.mk;                        // strokes are baked now (FRT parity)
+    if(hub){ sp.r2Key = markedKey; sp.r2Url = markedUrl; sp.r2Status = 'pending'; }
+  };
+  if(!_dslStampSiblings(p.id, stamp)) stamp(p);
+
+  // ── Upload marked blob (durable outbox, same pattern as _r2EnqueuePhoto) ──
+  if(hub && typeof R2Photos!=='undefined'){
+    var blob = R2Photos.dataUrlToBlob(markedD);
+    if(blob){
+      if(typeof R2Outbox!=='undefined'){
+        R2Outbox.put({ key: markedKey, projectId:_r2FolderId, tool:'diesel', type:'marked', filename:markedFname,
+                       blob: blob, status:'pending', attempts:0, createdAt:Date.now()
+        }).then(function(){ R2Outbox.drive(); }).catch(function(e){
+          console.warn('[DLB] persist: marked outbox put failed, in-memory queue:', e&&e.message);
+          R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'marked', filename:markedFname, blob:blob,
+            onComplete:function(err){ if(p.r2Key===markedKey) p.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
+        });
+      } else {
+        R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'marked', filename:markedFname, blob:blob,
+          onComplete:function(err){ if(p.r2Key===markedKey) p.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
+      }
+    }
+  }
+  return { backupId: backupId, markedKey: markedKey };
+}
+
+// S292: FRT-semantics revert (port of FRT frt-markup-reverted handler).
+function _dslMarkupRevert(p){
+  if(!p || !p._origBackupId) return false;
+  var backup = (typeof recordPhotos!=='undefined') ?
+    recordPhotos.filter(function(b){ return b && b.id === p._origBackupId; })[0] : null;
+  if(!backup){
+    console.warn('[DLB] revert: backup record not found — clearing flags only');
+    delete p._origBackupId; delete p._annotated;
+    return true;
+  }
+  var origKey = backup.r2Key || '', markedKey = p.r2Key || '';
+  // FRT S115 P8 corruption guards — never delete the only remaining copy.
+  if(origKey.indexOf('/marked/') >= 0){
+    console.error('[DLB] revert: CORRUPTED BACKUP — backup r2Key is /marked/. Keeping marked version.');
+    if(typeof showToast==='function') showToast('Cannot revert: the original backup is corrupted. Keeping the marked version.');
+    delete p._origBackupId; delete p._annotated;
+    var bi0 = recordPhotos.indexOf(backup); if(bi0>=0) recordPhotos.splice(bi0,1);
+    return true;
+  }
+  if(markedKey && markedKey === origKey){
+    console.error('[DLB] revert: CORRUPTED STATE — photo and backup share r2Key. Refusing.');
+    if(typeof showToast==='function') showToast('Cannot revert: photo and backup share the same cloud file.');
+    delete p._origBackupId; delete p._annotated;
+    var bi1 = recordPhotos.indexOf(backup); if(bi1>=0) recordPhotos.splice(bi1,1);
+    return true;
+  }
+  console.info('[DLB] revert', {id:p.id, backupId:backup.id, origKey:origKey?origKey.slice(-40):''});
+  // ── Restore the photo (and same-id references) to the original ──
+  var restore = function(sp){
+    if(backup.d) sp.d = backup.d; else delete sp.d;
+    sp.r2Key = origKey; sp.r2Url = backup.r2Url || '';
+    sp.r2Status = origKey ? 'uploaded' : '';
+    if(backup.date) sp.date = backup.date;   // FRT P9: roll date back so it regroups correctly
+    delete sp._annotated; delete sp._origBackupId; delete sp.mk;
+  };
+  if(!_dslStampSiblings(p.id, restore)) restore(p);
+  // ── Remove the backup record from Site Records ──
+  var bi = recordPhotos.indexOf(backup); if(bi>=0) recordPhotos.splice(bi,1);
+  // ── Delete the marked R2 object (background, orphan-safe) ──
+  if(markedKey && markedKey !== origKey && markedKey.indexOf('/marked/')>=0 &&
+     typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2FolderId!=='undefined' && _r2FolderId &&
+     typeof R2Photos!=='undefined' && R2Photos.remove){
+    var fname = markedKey.split('/').pop();
+    try { R2Photos.remove(_r2FolderId, 'diesel', 'marked', decodeURIComponent(fname)).catch(function(e){
+      console.warn('[DLB] revert: marked R2 delete failed (orphan until purge):', e&&e.message);
+    }); } catch(e){ console.warn('[DLB] revert: marked R2 delete threw:', e&&e.message); }
+  }
+  return true;
 }
 
 // S282 B5: reconcile self-healer — Diesel port of FRT's reconcileFailedAgainstR2
@@ -10995,7 +11198,14 @@ function _mergeCloudLocal(cloud, local){
     // those, preserve local markup so a legacy cloud apply can't wipe it. Once
     // cloud carries the key (incl. null from a cross-device revert), cloud wins.
     // 'in' test (not truthy) so an explicit cloud null correctly clears markup.
-    function _preserveMk(cp, lp){ if(cp && lp && !('mk' in cp) && lp.mk) cp.mk = lp.mk; }
+    function _preserveMk(cp, lp){ if(cp && lp && !('mk' in cp) && lp.mk) cp.mk = lp.mk;
+      // S292: annotation flags ride the same legacy-cloud preservation rule
+      if(cp && lp){
+        if(!('_annotated' in cp) && lp._annotated) cp._annotated = lp._annotated;
+        if(!('_origBackupId' in cp) && lp._origBackupId) cp._origBackupId = lp._origBackupId;
+        if(!('_isOrigBackup' in cp) && lp._isOrigBackup) cp._isOrigBackup = lp._isOrigBackup;
+      }
+    }
     // Preserve flow test photos
     if(local.flowTestPhotos && cloud.flowTestPhotos){
       cloud.flowTestPhotos.forEach(function(cp,i){
@@ -11770,7 +11980,7 @@ function _renderPhotoGallery(){
       var badgeStyle = (p && p.tag && typeof _gaugeReadingColor==='function') ? (' style="background:'+_gaugeReadingColor(p.tag)+'"') : '';
       html += '<div class="ph-card'+sel+'" data-pg-id="'+pid+'">';
       html += '<input type="checkbox" class="ph-check"'+(sel?' checked':'')+' onclick="event.stopPropagation();_pgToggleSelect(event,\''+pid+'\')">';
-      html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'"'+badgeStyle+'>'+(item.badge||'?')+'</span></span>';
+      html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'"'+badgeStyle+'>'+(item.badge||'?')+'</span>'+(p._annotated?'<span class="ph-badge" style="background:#5E5B68" title="Marked up — original kept in Site Records">\u270E</span>':'')+'</span>';
       if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox(\''+_pgJsq(pid)+'\')" onerror="this.onerror=null;console.warn(\'[gallery] thumb failed\',this.src&&this.src.slice(0,160));this.parentNode&&this.parentNode.insertBefore(Object.assign(document.createElement(\'div\'),{className:\'ph-noimg\',textContent:\'\uD83D\uDCF7\'}),this);this.remove();">'; }
       else { html += '<div class="ph-noimg">\uD83D\uDCF7</div>'; }
       // (time badge removed — FRT gallery thumbnails carry no timestamp)
@@ -12056,7 +12266,12 @@ function deletePhotoEverywhere(target, afterFn){
     //    per S281 B1 (filename = {id}.jpg). GET stays public; DELETE needs auth.
     try {
       if(_csHubMode && _r2FolderId && ph && ph.id && typeof R2Photos!=='undefined' && R2Photos.remove){
-        R2Photos.remove(_r2FolderId, 'diesel', 'original', ph.id + '.jpg').catch(function(e){
+        // S292: annotated photos point at /marked/ — derive type+filename from the
+        // live r2Key so we delete the right object (fallback: original/{id}.jpg).
+        var _dm = (ph.r2Key||'').match(/\/diesel\/([^/]+)\/([^/]+)$/);
+        var _dtype = _dm ? _dm[1] : 'original';
+        var _dfname = _dm ? decodeURIComponent(_dm[2]) : (ph.id + '.jpg');
+        R2Photos.remove(_r2FolderId, 'diesel', _dtype, _dfname).catch(function(e){
           console.warn('[delete] R2 remove failed (will orphan until purge):', e && e.message);
         });
       }
