@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S297 (FRT priority system on deficiencies: High/Low/General/Recommendation pills with FRT semantic colors incl. rec-amber #D98A1E; item number circle carries the priority color; additive schema d.priority default high) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S298 (contractor roster trade designation: optional trade input with suggestions, trade chip on roster pill + deficiency group header; additive contractorTrades map rides local+cloud persistence, deficiencies stay keyed by name) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2471,6 +2471,15 @@ function updatePhaseFlags(){
               <input type="text" id="new-contractor-input" placeholder="e.g. ABC Sprinklers"
                 style="flex:1;max-width:240px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;"
                 onkeydown="if(event.key==='Enter'){addContractorTag();event.preventDefault();}">
+              <input type="text" id="new-contractor-trade" list="trade-suggestions" placeholder="Trade (optional)"
+                style="flex:1;max-width:180px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;"
+                onkeydown="if(event.key==='Enter'){addContractorTag();event.preventDefault();}">
+              <datalist id="trade-suggestions">
+                <option value="Sprinkler"></option><option value="Fire Alarm"></option>
+                <option value="Electrical"></option><option value="Mechanical"></option>
+                <option value="Plumbing"></option><option value="General Contractor"></option>
+                <option value="Fire Pump Supplier"></option><option value="Controller / TSSA Agent"></option>
+              </datalist>
               <button class="btn btn-outline btn-sm" onclick="addContractorTag()">+ Add Contractor</button>
               <button class="btn btn-sm" onclick="addGeneralDeficiency()" style="background:#455A64;color:white;border:none;" title="Add deficiency not tied to a contractor">+ General Deficiency</button>
             </div>
@@ -6741,6 +6750,7 @@ function applyChartDarkMode() {
 // DEFICIENCY TABLE (contractor-grouped)
 // ══════════════════════════════════════════════════
 const contractors = [];
+let contractorTrades = {};   // S298: roster trade designation, name -> trade (additive; deficiencies stay keyed by name)
 const deficiencies = {}; // { name: [{description,drawing,iarStatus,status,response,responseDate,responsePhoto,photos}] }
 let deficPhotoTarget = null; // { name, idx, type }
 
@@ -6748,10 +6758,13 @@ function addContractorTag() {
   const inp = document.getElementById('new-contractor-input');
   const name = (inp.value || '').trim();
   if (!name) return;
-  if (contractors.find(c => c === name)) { inp.value = ''; return; }
+  const tradeInp = document.getElementById('new-contractor-trade');
+  const trade = tradeInp ? (tradeInp.value || '').trim() : '';
+  if (contractors.find(c => c === name)) { inp.value = ''; if(trade) contractorTrades[name] = trade; if(tradeInp) tradeInp.value=''; renderContractorTags(); renderDeficGroups(); return; }
   contractors.push(name);
+  if (trade) contractorTrades[name] = trade;
   deficiencies[name] = [];
-  inp.value = '';
+  inp.value = ''; if (tradeInp) tradeInp.value = '';
   renderContractorTags();
   renderDeficGroups();
   updateDeficSummary();
@@ -6761,6 +6774,7 @@ function removeContractorTag(name) {
   const i = contractors.indexOf(name);
   if (i >= 0) contractors.splice(i, 1);
   delete deficiencies[name];
+  delete contractorTrades[name];
   renderContractorTags();
   renderDeficGroups();
   updateDeficSummary();
@@ -6773,7 +6787,7 @@ function renderContractorTags() {
     const safe = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return `<div style="display:inline-flex;align-items:center;gap:6px;background:#1C2333;color:white;border-radius:20px;padding:4px 12px;font-size:12.5px;font-weight:600;">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      ${name}
+      ${name}${contractorTrades[name] ? `<span style="background:rgba(255,255,255,.18);border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:600;">${contractorTrades[name]}</span>` : ''}
       <button onclick="removeContractorTag('${safe}')" style="background:rgba(255,255,255,.25);border:none;color:white;width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:10px;padding:0;">✕</button>
     </div>`;
   }).join('');
@@ -6837,7 +6851,7 @@ function renderDeficGroup(name) {
   const safe = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   let html = `<div style="border:1.5px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden;">
     <div style="background:#1C2333;color:white;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-family:Calibri,sans-serif;font-weight:700;font-size:15px;">👷 ${name}</span>
+      <span style="font-family:Calibri,sans-serif;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;">👷 ${name}${contractorTrades[name] ? `<span style="background:rgba(255,255,255,.18);border-radius:10px;padding:2px 9px;font-size:11px;font-weight:600;">${contractorTrades[name]}</span>` : ''}</span>
       <span style="font-size:12px;opacity:.7;">${items.length} item${items.length!==1?'s':''}</span>
     </div>`;
   if (items.length === 0) {
@@ -9289,6 +9303,7 @@ function _applyStateInPlace(jsonStr) {
     if(s.clState) { Object.keys(clState).forEach(function(k){delete clState[k];}); Object.assign(clState,s.clState); Object.keys(clState).forEach(function(k){ if(clState[k]) delete clState[k].timestamp; }); }
     if(s.customItems) { Object.keys(customItems).forEach(function(k){delete customItems[k];}); Object.assign(customItems,s.customItems); }
     if(s.contractors) { contractors.length=0; s.contractors.forEach(function(c){contractors.push(c);}); }
+    if(s.contractorTrades) { contractorTrades = JSON.parse(JSON.stringify(s.contractorTrades)); }
     if(s.deficiencies) { Object.keys(deficiencies).forEach(function(k){delete deficiencies[k];}); Object.assign(deficiencies,s.deficiencies); }
     if(s.generalDeficiencies) { generalDeficiencies.length=0; s.generalDeficiencies.forEach(function(d){generalDeficiencies.push(d);}); }
     if(s.contractorSignRows) { contractorSignRows.length=0; s.contractorSignRows.forEach(function(r){contractorSignRows.push(r);}); }
@@ -9815,6 +9830,7 @@ function collectState() {
     clState: JSON.parse(JSON.stringify(clState)),
     customItems: JSON.parse(JSON.stringify(customItems)),
     contractors: [...contractors],
+    contractorTrades: JSON.parse(JSON.stringify(contractorTrades)),
     deficiencies: JSON.parse(JSON.stringify(deficiencies)),
     generalDeficiencies: JSON.parse(JSON.stringify(generalDeficiencies)),
     contractorSignRows: contractorSignRows.map(r=>({...r})),
@@ -10487,6 +10503,7 @@ function _applyLoadedState(raw) {
       contractors.length = 0;
       s.contractors.forEach(c => contractors.push(c));
     }
+    if (s.contractorTrades) contractorTrades = JSON.parse(JSON.stringify(s.contractorTrades));
     if (s.deficiencies) {
       Object.keys(deficiencies).forEach(k => delete deficiencies[k]);
       Object.assign(deficiencies, s.deficiencies);
@@ -10624,6 +10641,7 @@ function resetCurrentPage() {
     calcTotalDemand3pt(); calcTotalDemandPld(); refreshAllCharts();
   } else if (active === 'defic') {
     contractors.length = 0;
+    contractorTrades = {};
     Object.keys(deficiencies).forEach(k => delete deficiencies[k]);
     generalDeficiencies.length = 0;
     renderContractorTags(); renderDeficGroups(); renderGeneralDeficGroup(); updateDeficSummary();
