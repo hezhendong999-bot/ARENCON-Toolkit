@@ -2123,10 +2123,10 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-card.selected .ph-check{display:block;}
 @media(pointer:coarse){.ph-check{display:block;}}
 /* P1.5: badge color = priority. Pin (high)=red, Pin (low)=orange, Pin (general)=green. Site=green. */
-.ph-badge{position:absolute;top:6px;right:6px;padding:2px 7px;color:white;border-radius:9px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);z-index:2;line-height:1.25;background:#A85959;}
-.ph-badge-pin-high{background:#A85959;}
-.ph-badge-pin-low{background:#B07F5A;}
-.ph-badge-pin-gen{background:#5F8068;}
+.ph-badge{position:absolute;top:6px;right:6px;padding:2px 7px;color:white;border-radius:9px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);z-index:2;line-height:1.25;background:var(--no);}
+.ph-badge-pin-high{background:var(--no);}
+.ph-badge-pin-low{background:var(--warn);}
+.ph-badge-pin-gen{background:var(--yes);}
 .ph-badge-site{background:#6E6AA8;}
 .ph-badge-pin-rec{background:#2C7FB8;}
 /* Cloud sync icon (bottom-right, always visible) */
@@ -9974,8 +9974,16 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 .dlc-bar-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;}
 .dlc-bar-row .lbl{font-size:12px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;}
 .dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--yes);}
-.dlc-track{height:11px;border-radius:99px;background:var(--border);overflow:hidden;margin-bottom:16px;}
-.dlc-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--yes) 78%, #000 6%),var(--yes));transition:width .8s cubic-bezier(.2,.8,.2,1);}
+.dlc-track{height:11px;border-radius:99px;background:var(--border);overflow:hidden;margin-bottom:16px;position:relative;}
+/* S283: red→amber→green resolved bar (bad→good). The full-width gradient lives
+   on the track via ::before; the fill is an opaque mask that COVERS the unmet
+   portion from the right, so what shows is the gradient revealed up to %. As
+   the report resolves, the revealed segment extends into the amber→green end —
+   the colour "moves toward green" with progress. Pure CSS, width-agnostic. */
+.dlc-track::before{content:'';position:absolute;inset:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--no) 0%,var(--warn) 50%,var(--yes) 100%);}
+.dlc-fill{position:absolute;top:0;bottom:0;right:0;border-radius:99px;
+  background:var(--border);transition:left .8s cubic-bezier(.2,.8,.2,1);}
 .dlc-legend{display:flex;flex-direction:column;gap:8px;}
 .dlc-leg{display:flex;align-items:center;gap:10px;font-size:13.5px;}
 .dlc-leg .dlc-dot{position:static;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:2px;}

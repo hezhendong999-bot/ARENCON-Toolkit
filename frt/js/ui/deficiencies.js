@@ -1030,30 +1030,39 @@ function buildGroup(ctrId, name, items, totalCount) {
 // so both skins are handled by the existing theme — see frt.css PART Bold.
 // S264b: contractor colours now come from each contractor's stored c.color
 // (resolved in _renderDeficLog), matching the Contractor Roster dots.
-function _renderDeficDashboard(total, outstanding, closed, rows) {
+function _renderDeficDashboard(total, outHigh, outLow, closed, rows) {
   if (!total) return '';
+  var outstanding = outHigh + outLow;
   var pct = Math.round((closed / total) * 100);
   // donut geometry: r=57 → circumference ≈ 358.14
   var C = 358.14;
+  // S283: three semantic arcs — high-Outstanding (red --no), low-Outstanding
+  // (amber --warn), Closed (green --yes). Same three colours the status pills,
+  // photo badges, and table now share (one red, one amber, one green canon).
+  var highLen = total ? (outHigh / total) * C : 0;
+  var lowLen = total ? (outLow / total) * C : 0;
   var closedLen = total ? (closed / total) * C : 0;
-  var outLen = total ? (outstanding / total) * C : 0;
   var d = '';
   d += '<div class="dlc-dash">';
-  // ---- donut + bar row ----
   d += '<div class="dlc-dash-top">';
   d += '<div class="dlc-donut"><svg width="132" height="132" viewBox="0 0 150 150" aria-hidden="true">';
   d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--border)" stroke-width="20"/>';
-  // outstanding arc (red), drawn first from 0
-  if (outLen > 0) d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--no)" stroke-width="20" stroke-dasharray="' + outLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="0"/>';
-  // closed arc (green), offset after outstanding
-  if (closedLen > 0) d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--yes)" stroke-width="20" stroke-dasharray="' + closedLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-outLen).toFixed(1) + '"/>';
+  var _off = 0;
+  if (highLen > 0)   { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--no)" stroke-width="20" stroke-dasharray="' + highLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; _off += highLen; }
+  if (lowLen > 0)    { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--warn)" stroke-width="20" stroke-dasharray="' + lowLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; _off += lowLen; }
+  if (closedLen > 0) { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--yes)" stroke-width="20" stroke-dasharray="' + closedLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; }
   d += '</svg><div class="dlc-donut-ctr"><div class="v">' + total + '</div><div class="l">total</div></div></div>';
-  // right: bar + legend
   d += '<div class="dlc-dash-right">';
   d += '<div class="dlc-bar-row"><span class="lbl">Resolved</span><span class="pct">' + pct + '%</span></div>';
-  d += '<div class="dlc-track"><div class="dlc-fill" style="width:' + pct + '%"></div></div>';
+  // S283: resolved bar is a fixed red→amber→green gradient (bad→good). The
+  // FILL width tracks % closed, so as items resolve the visible bar grows
+  // rightward into the green end — the colour "moves toward green" as you
+  // resolve, exactly the bad-to-good read. (The gradient is on the fill,
+  // sized to the full track so the stops stay anchored to 0/50/100%.)
+  d += '<div class="dlc-track"><div class="dlc-fill" style="left:' + pct + '%"></div></div>';
   d += '<div class="dlc-legend">';
-  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--no)"></span><span class="nm">Outstanding</span><span class="val">' + outstanding + '</span></div>';
+  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--no)"></span><span class="nm">Outstanding \u2014 high</span><span class="val">' + outHigh + '</span></div>';
+  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--warn)"></span><span class="nm">Outstanding \u2014 low</span><span class="val">' + outLow + '</span></div>';
   d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--yes)"></span><span class="nm">Closed</span><span class="val">' + closed + '</span></div>';
   d += '</div></div></div>';
   // ---- by contractor: PIE (left) + full-width share bars as the legend (right) ----
@@ -1116,7 +1125,7 @@ function _renderDeficLog(proj, allDefics) {
   h += '<th style="text-align:center;">New This Report</th>';
   h += '<th style="text-align:center;">Outstanding</th>';
   h += '<th style="text-align:center;">Closed</th></tr></thead><tbody>';
-  var tTotal = 0, tNew = 0, tOut = 0, tClosed = 0;
+  var tTotal = 0, tNew = 0, tOut = 0, tClosed = 0, tOutHigh = 0, tOutLow = 0;
   var _dashRows = [];  // S264: per-contractor {name,total,outstanding,color} for the Bold dashboard
   // S264b: resolve each contractor's STORED colour (c.color) — same hex the
   // roster dot uses — so dashboard + table match the Contractor Roster.
@@ -1130,24 +1139,29 @@ function _renderDeficLog(proj, allDefics) {
     var nw = gc.filter(function(d) { return (d.defic.notedOnInstance || 1) === _curInst; }).length;
     var outstanding = gc.filter(function(d) { return deficIsOpen(d.defic); }).length;
     var closed = gc.filter(function(d) { return deficIsClosed(d.defic); }).length;
+    // S283: split outstanding by priority for the 3-slice dashboard. low =
+    // priority 'low'; everything else open (high/general/unset) reads high.
+    var outHigh = gc.filter(function(d) { return deficIsOpen(d.defic) && (d.defic.priority || 'high') !== 'low'; }).length;
+    var outLow = gc.filter(function(d) { return deficIsOpen(d.defic) && (d.defic.priority || 'high') === 'low'; }).length;
     var _col = _ctrColorByName[name] || '#6B7280';
     tTotal += total; tNew += nw; tOut += outstanding; tClosed += closed;
+    tOutHigh += outHigh; tOutLow += outLow;
     _dashRows.push({ name: name, total: total, outstanding: outstanding, color: _col });
     h += '<tr>';
     h += '<td style="font-weight:600;"><span class="dlc-tbl-dot" style="background:' + _col + '"></span>' + esc(name) + '</td>';
     h += '<td style="text-align:center;">' + total + '</td>';
     h += '<td style="text-align:center;font-weight:700;">' + nw + '</td>';
-    h += '<td style="text-align:center;color:#A85959;font-weight:700;">' + outstanding + '</td>';
-    h += '<td style="text-align:center;color:#5F8068;font-weight:700;">' + closed + '</td></tr>';
+    h += '<td style="text-align:center;color:var(--no);font-weight:700;">' + outstanding + '</td>';
+    h += '<td style="text-align:center;color:var(--yes);font-weight:700;">' + closed + '</td></tr>';
   });
   h += '<tr style="font-weight:700;">';
   h += '<td>TOTAL</td>';
   h += '<td style="text-align:center;">' + tTotal + '</td>';
   h += '<td style="text-align:center;">' + tNew + '</td>';
-  h += '<td style="text-align:center;color:#A85959;">' + tOut + '</td>';
-  h += '<td style="text-align:center;color:#5F8068;">' + tClosed + '</td></tr>';
+  h += '<td style="text-align:center;color:var(--no);">' + tOut + '</td>';
+  h += '<td style="text-align:center;color:var(--yes);">' + tClosed + '</td></tr>';
   h += '</tbody></table>';
-  el.innerHTML = _renderDeficDashboard(tTotal, tOut, tClosed, _dashRows) + h;
+  el.innerHTML = _renderDeficDashboard(tTotal, tOutHigh, tOutLow, tClosed, _dashRows) + h;
 
   // S154 §2.1 (Option A): keep the collapsed-state summary in sync with
   // the table. Single source of truth — tTotal/tOut/tClosed are already

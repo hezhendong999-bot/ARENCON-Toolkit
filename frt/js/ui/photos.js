@@ -361,6 +361,7 @@ export var initPhotos = {
             deficNum: defic.num,
             isGeneralPriority: isGeneral,
             isRec: !!(o && o.isRecommendation),
+            obsPriority: (o && o.priority) || defic.priority || 'high',
             obsIdx: oi,
             photoIdx: phi,
             ph: ph,
@@ -411,12 +412,16 @@ export var initPhotos = {
       // can carry multiple references (e.g. obs on two pins), so flags union.
       var isRecRef = (r.type === 'defic' && r.isRec);
       var isObsRef = (r.type === 'defic' && !r.isRec);
+      var isObsLow = isObsRef && r.obsPriority === 'low';
+      var isObsHigh = isObsRef && !isObsLow;
       var rep = _phById[k];
       if (!rep) {
         r.badges = [{ text: r.badgeText, cls: r.badgeClass }];
         r.refSite = (r.type === 'site');
         r.refObs = isObsRef;
         r.refRec = isRecRef;
+        r.refObsHigh = isObsHigh;
+        r.refObsLow = isObsLow;
         _phById[k] = r;
         _phRepOrder.push(r);
         return;
@@ -426,6 +431,8 @@ export var initPhotos = {
       rep.refSite = rep.refSite || (r.type === 'site');
       rep.refObs = rep.refObs || isObsRef;
       rep.refRec = rep.refRec || isRecRef;
+      rep.refObsHigh = rep.refObsHigh || isObsHigh;
+      rep.refObsLow = rep.refObsLow || isObsLow;
       // Promote a SITE reference to representative so the trash button (site
       // only) stays reachable; adopt its site context for card actions.
       if (r.type === 'site' && rep.type !== 'site') {
@@ -440,6 +447,8 @@ export var initPhotos = {
     var totalAll = records.length;
     var totalSite = records.filter(function(r) { return r.refSite; }).length;
     var totalObs = records.filter(function(r) { return r.refObs; }).length;
+    var totalObsHigh = records.filter(function(r) { return r.refObsHigh; }).length;
+    var totalObsLow = records.filter(function(r) { return r.refObsLow; }).length;
     var totalRec = records.filter(function(r) { return r.refRec; }).length;
 
     // ── Apply filter (a photo matches if ANY of its references match) ──
@@ -507,9 +516,10 @@ export var initPhotos = {
     html += '<div class="ph-toolbar">';
     html += '<div class="ph-toolbar-left">';
     html += '<div class="ph-stat"><div class="ph-stat-num">' + totalAll + '</div><div class="ph-stat-lbl">Total</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalObs + '</div><div class="ph-stat-lbl">Observations</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalRec + '</div><div class="ph-stat-lbl">Recommendations</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalSite + '</div><div class="ph-stat-lbl">Site Records</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:var(--no)">' + totalObsHigh + '</div><div class="ph-stat-lbl">Outstanding \u2014 High</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:var(--warn)">' + totalObsLow + '</div><div class="ph-stat-lbl">Outstanding \u2014 Low</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:#2C7FB8">' + totalRec + '</div><div class="ph-stat-lbl">Recommendations</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:#6E6AA8">' + totalSite + '</div><div class="ph-stat-lbl">Site Records</div></div>';
     html += '</div>';
     html += '<div class="ph-toolbar-right">';
     if (nSel > 0) {
