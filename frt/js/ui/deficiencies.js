@@ -1030,12 +1030,18 @@ function buildGroup(ctrId, name, items, totalCount) {
 // so both skins are handled by the existing theme — see frt.css PART Bold.
 // S264b: contractor colours now come from each contractor's stored c.color
 // (resolved in _renderDeficLog), matching the Contractor Roster dots.
-function _renderDeficDashboard(total, outHigh, outLow, closed, rows) {
+function _renderDeficDashboard(total, outHigh, outLow, closed, rows, newCount) {
   if (!total) return '';
   var outstanding = outHigh + outLow;
   var pct = Math.round((closed / total) * 100);
   // donut geometry: r=57 → circumference ≈ 358.14
   var C = 358.14;
+  // S284: inner "new this report" ring — r=40 → circumference ≈ 251.33.
+  // A 4th outer slice would double-count (a new item is ALSO high/low/closed),
+  // so "new" is a second partition of the same total drawn as a thin inner
+  // ring: blue arc = new, the rest of the inner track = carried-over.
+  var C2 = 251.33;
+  var newLen = total ? ((newCount || 0) / total) * C2 : 0;
   // S283: three semantic arcs — high-Outstanding (red --no), low-Outstanding
   // (amber --warn), Closed (green --yes). Same three colours the status pills,
   // photo badges, and table now share (one red, one amber, one green canon).
@@ -1051,6 +1057,10 @@ function _renderDeficDashboard(total, outHigh, outLow, closed, rows) {
   if (highLen > 0)   { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--no)" stroke-width="20" stroke-dasharray="' + highLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; _off += highLen; }
   if (lowLen > 0)    { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--warn)" stroke-width="20" stroke-dasharray="' + lowLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; _off += lowLen; }
   if (closedLen > 0) { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--yes)" stroke-width="20" stroke-dasharray="' + closedLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; }
+  // S284: thin inner ring — track always drawn (a fully grey inner ring reads
+  // as "none new"), blue arc sized to new-this-report share of the same total.
+  d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--border)" stroke-width="6"/>';
+  if (newLen > 0) { d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--dv-blue)" stroke-width="6" stroke-dasharray="' + newLen.toFixed(1) + ' ' + C2.toFixed(1) + '"/>'; }
   d += '</svg><div class="dlc-donut-ctr"><div class="v">' + total + '</div><div class="l">total</div></div></div>';
   d += '<div class="dlc-dash-right">';
   d += '<div class="dlc-bar-row"><span class="lbl">Resolved</span><span class="pct">' + pct + '%</span></div>';
@@ -1064,6 +1074,9 @@ function _renderDeficDashboard(total, outHigh, outLow, closed, rows) {
   d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--no)"></span><span class="nm">Outstanding \u2014 high</span><span class="val">' + outHigh + '</span></div>';
   d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--warn)"></span><span class="nm">Outstanding \u2014 low</span><span class="val">' + outLow + '</span></div>';
   d += '<div class="dlc-leg"><span class="dlc-dot" style="background:var(--yes)"></span><span class="nm">Closed</span><span class="val">' + closed + '</span></div>';
+  // S284: matching legend row for the inner ring — hollow ring swatch so it
+  // reads as the ring, not a 4th slice.
+  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:transparent;border:3px solid var(--dv-blue);box-sizing:border-box;"></span><span class="nm">New this report</span><span class="val">' + (newCount || 0) + '</span></div>';
   d += '</div></div></div>';
   // ---- by contractor: PIE (left) + full-width share bars as the legend (right) ----
   // S265: single row, numbers shown ONCE. The pie carries the visual share; the
@@ -1161,7 +1174,7 @@ function _renderDeficLog(proj, allDefics) {
   h += '<td style="text-align:center;color:var(--no);">' + tOut + '</td>';
   h += '<td style="text-align:center;color:var(--yes);">' + tClosed + '</td></tr>';
   h += '</tbody></table>';
-  el.innerHTML = _renderDeficDashboard(tTotal, tOutHigh, tOutLow, tClosed, _dashRows) + h;
+  el.innerHTML = _renderDeficDashboard(tTotal, tOutHigh, tOutLow, tClosed, _dashRows, tNew) + h;
 
   // S154 §2.1 (Option A): keep the collapsed-state summary in sync with
   // the table. Single source of truth — tTotal/tOut/tClosed are already
