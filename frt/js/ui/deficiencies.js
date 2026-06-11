@@ -1030,18 +1030,23 @@ function buildGroup(ctrId, name, items, totalCount) {
 // so both skins are handled by the existing theme — see frt.css PART Bold.
 // S264b: contractor colours now come from each contractor's stored c.color
 // (resolved in _renderDeficLog), matching the Contractor Roster dots.
-function _renderDeficDashboard(total, outHigh, outLow, closed, rows, newCount) {
+function _renderDeficDashboard(total, outHigh, outLow, closed, rows, newCount, newHigh, newLow) {
   if (!total) return '';
   var outstanding = outHigh + outLow;
   var pct = Math.round((closed / total) * 100);
   // donut geometry: r=57 → circumference ≈ 358.14
   var C = 358.14;
-  // S284: inner "new this report" ring — r=40 → circumference ≈ 251.33.
-  // A 4th outer slice would double-count (a new item is ALSO high/low/closed),
-  // so "new" is a second partition of the same total drawn as a thin inner
-  // ring: blue arc = new, the rest of the inner track = carried-over.
+  // S284 A3 (Mark-locked): inner "new this report" arcs — r=40 → circ ≈ 251.33.
+  // Each blue arc is ALIGNED under its outer status segment and sized to the
+  // NEW count within that status: new-high anchored at the start of the red
+  // segment, new-low at the start of the amber. Butt caps, NO splitter — the
+  // carried-over remainder of each segment is the separation; when every high
+  // is new the arcs touch and the red/amber boundary above marks the divide.
+  // One visit per report ⇒ new items are never closed, so no arc under green.
+  // Ring hidden entirely when ALL items are new (report #1 — a full circle
+  // says nothing) and when nothing is new; the legend count always shows.
   var C2 = 251.33;
-  var newLen = total ? ((newCount || 0) / total) * C2 : 0;
+  var _nH = newHigh || 0, _nL = newLow || 0;
   // S283: three semantic arcs — high-Outstanding (red --no), low-Outstanding
   // (amber --warn), Closed (green --yes). Same three colours the status pills,
   // photo badges, and table now share (one red, one amber, one green canon).
@@ -1057,10 +1062,15 @@ function _renderDeficDashboard(total, outHigh, outLow, closed, rows, newCount) {
   if (highLen > 0)   { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--no)" stroke-width="20" stroke-dasharray="' + highLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; _off += highLen; }
   if (lowLen > 0)    { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--warn)" stroke-width="20" stroke-dasharray="' + lowLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; _off += lowLen; }
   if (closedLen > 0) { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--yes)" stroke-width="20" stroke-dasharray="' + closedLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; }
-  // S284: thin inner ring — track always drawn (a fully grey inner ring reads
-  // as "none new"), blue arc sized to new-this-report share of the same total.
-  d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--border)" stroke-width="6"/>';
-  if (newLen > 0) { d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--dv-blue)" stroke-width="6" stroke-dasharray="' + newLen.toFixed(1) + ' ' + C2.toFixed(1) + '"/>'; }
+  // S284 A3: thin inner ring — drawn only when there is at least one new AND
+  // at least one carried-over item (0 < new < total).
+  if ((_nH + _nL) > 0 && (newCount || 0) < total) {
+    d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--border)" stroke-width="6"/>';
+    var _segStart = 0;
+    if (_nH > 0) { d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--dv-blue)" stroke-width="6" stroke-dasharray="' + ((_nH / total) * C2).toFixed(1) + ' ' + C2.toFixed(1) + '"/>'; }
+    _segStart = (outHigh / total) * C2;
+    if (_nL > 0) { d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--dv-blue)" stroke-width="6" stroke-dasharray="' + ((_nL / total) * C2).toFixed(1) + ' ' + C2.toFixed(1) + '" stroke-dashoffset="' + (-_segStart).toFixed(1) + '"/>'; }
+  }
   d += '</svg><div class="dlc-donut-ctr"><div class="v">' + total + '</div><div class="l">total</div></div></div>';
   d += '<div class="dlc-dash-right">';
   d += '<div class="dlc-bar-row"><span class="lbl">Resolved</span><span class="pct">' + pct + '%</span></div>';
@@ -1138,7 +1148,7 @@ function _renderDeficLog(proj, allDefics) {
   h += '<th style="text-align:center;">New This Report</th>';
   h += '<th style="text-align:center;">Outstanding</th>';
   h += '<th style="text-align:center;">Closed</th></tr></thead><tbody>';
-  var tTotal = 0, tNew = 0, tOut = 0, tClosed = 0, tOutHigh = 0, tOutLow = 0;
+  var tTotal = 0, tNew = 0, tOut = 0, tClosed = 0, tOutHigh = 0, tOutLow = 0, tNewHigh = 0, tNewLow = 0;
   var _dashRows = [];  // S264: per-contractor {name,total,outstanding,color} for the Bold dashboard
   // S264b: resolve each contractor's STORED colour (c.color) — same hex the
   // roster dot uses — so dashboard + table match the Contractor Roster.
@@ -1156,9 +1166,14 @@ function _renderDeficLog(proj, allDefics) {
     // priority 'low'; everything else open (high/general/unset) reads high.
     var outHigh = gc.filter(function(d) { return deficIsOpen(d.defic) && (d.defic.priority || 'high') !== 'low'; }).length;
     var outLow = gc.filter(function(d) { return deficIsOpen(d.defic) && (d.defic.priority || 'high') === 'low'; }).length;
+    // S284 A3: new-this-report split by priority, OPEN only (one visit per
+    // report ⇒ a new item is never closed on the report where it's new — a
+    // same-instance closure would be user error and simply draws no arc).
+    var newHigh = gc.filter(function(d) { return (d.defic.notedOnInstance || 1) === _curInst && deficIsOpen(d.defic) && (d.defic.priority || 'high') !== 'low'; }).length;
+    var newLow = gc.filter(function(d) { return (d.defic.notedOnInstance || 1) === _curInst && deficIsOpen(d.defic) && (d.defic.priority || 'high') === 'low'; }).length;
     var _col = _ctrColorByName[name] || '#6B7280';
     tTotal += total; tNew += nw; tOut += outstanding; tClosed += closed;
-    tOutHigh += outHigh; tOutLow += outLow;
+    tOutHigh += outHigh; tOutLow += outLow; tNewHigh += newHigh; tNewLow += newLow;
     _dashRows.push({ name: name, total: total, outstanding: outstanding, color: _col });
     h += '<tr>';
     h += '<td style="font-weight:600;"><span class="dlc-tbl-dot" style="background:' + _col + '"></span>' + esc(name) + '</td>';
@@ -1174,7 +1189,7 @@ function _renderDeficLog(proj, allDefics) {
   h += '<td style="text-align:center;color:var(--no);">' + tOut + '</td>';
   h += '<td style="text-align:center;color:var(--yes);">' + tClosed + '</td></tr>';
   h += '</tbody></table>';
-  el.innerHTML = _renderDeficDashboard(tTotal, tOutHigh, tOutLow, tClosed, _dashRows, tNew) + h;
+  el.innerHTML = _renderDeficDashboard(tTotal, tOutHigh, tOutLow, tClosed, _dashRows, tNew, tNewHigh, tNewLow) + h;
 
   // S154 §2.1 (Option A): keep the collapsed-state summary in sync with
   // the table. Single source of truth — tTotal/tOut/tClosed are already

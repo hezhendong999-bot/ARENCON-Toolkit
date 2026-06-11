@@ -621,11 +621,20 @@ if(summaryDefs.length){
   // auto-compact fallback applied at measure time when page 1 would overflow.
   (function(){
     var T=summaryDefs.length;
-    var N=summaryDefs.filter(function(r){return(r.d.notedOnInstance||1)===_curInst;}).length;
+    var _isNewRow=function(r){return(r.d.notedOnInstance||1)===_curInst;};
+    var N=summaryDefs.filter(_isNewRow).length;
     var CLn=summaryDefs.filter(_rowClosed).length;
     var _openRows=summaryDefs.filter(_rowOpen);
-    var HIn=_openRows.filter(function(r){return(((r.obs&&r.obs.priority)||r.d.priority||'high')==='high');}).length;
+    var _isHighRow=function(r){return(((r.obs&&r.obs.priority)||r.d.priority||'high')==='high');};
+    var HIn=_openRows.filter(_isHighRow).length;
     var LOn=_openRows.length-HIn;
+    // S284 A3 (Mark-locked): new split by priority, OPEN rows only — one visit
+    // per report means a new item is never closed on its own report (a
+    // same-instance closure would be user error: it still counts in N and the
+    // table, but draws no arc).
+    var _newOpen=_openRows.filter(_isNewRow);
+    var nHI=_newOpen.filter(_isHighRow).length;
+    var nLO=_newOpen.length-nHI;
     var pct=T?Math.round(CLn/T*100):0;
     var CH='#A85959',CW='#C98A4A',CC='#5F8068',CN='#1565C0',CG='#C9CDD4';
     function _ring(r,sw,track,segs){
@@ -634,9 +643,21 @@ if(summaryDefs.length){
         s+='<circle cx="50" cy="50" r="'+r+'" fill="none" stroke="'+g.c+'" stroke-width="'+sw+'" stroke-dasharray="'+len.toFixed(1)+' '+circ.toFixed(1)+'" stroke-dashoffset="'+(-off).toFixed(1)+'"/>';off+=len;});
       return s;
     }
+    // S284 A3 inner ring: blue arcs ALIGNED under the red/amber segments,
+    // butt caps, no splitter (the carried remainder of each segment is the
+    // separation). Hidden when nothing is new or when ALL items are new
+    // (report #1 — a full circle says nothing). No arc under green, ever.
+    function _innerA3(){
+      var circ=2*Math.PI*29;
+      if((nHI+nLO)<=0||N>=T)return '';
+      var s='<circle cx="50" cy="50" r="29" fill="none" stroke="#EDEAF0" stroke-width="5"/>';
+      if(nHI>0)s+='<circle cx="50" cy="50" r="29" fill="none" stroke="'+CN+'" stroke-width="5" stroke-dasharray="'+((nHI/T)*circ).toFixed(1)+' '+circ.toFixed(1)+'"/>';
+      if(nLO>0)s+='<circle cx="50" cy="50" r="29" fill="none" stroke="'+CN+'" stroke-width="5" stroke-dasharray="'+((nLO/T)*circ).toFixed(1)+' '+circ.toFixed(1)+'" stroke-dashoffset="'+(-((HIn/T)*circ)).toFixed(1)+'"/>';
+      return s;
+    }
     var _donut='<svg width="100" height="100" viewBox="0 0 100 100" style="transform:rotate(-90deg);flex:none;">'
       +_ring(43,12,'#EDEAF0',[{v:HIn,c:CH},{v:LOn,c:CW},{v:CLn,c:CC}])
-      +_ring(29,5,'#EDEAF0',[{v:N,c:CN},{v:T-N,c:CG}])
+      +_innerA3()
       +'</svg>';
     var _ctrLbl='<div style="position:relative;width:100px;height:100px;flex:none;">'+_donut
       +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><div style="font-size:17pt;font-weight:700;color:#1C2333;line-height:1;font-variant-numeric:tabular-nums;">'+T+'</div><div style="font-size:7.5pt;color:#607D8B;letter-spacing:1px;margin-top:1px;">ITEMS</div></div></div>';
