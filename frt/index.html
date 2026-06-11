@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=568">
+<link rel="stylesheet" href="css/frt.css?v=569">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -119,6 +119,7 @@ function ensurePdfJs(cb){
             <div id="more-repair-items" class="more-repair-collapsed">
             <button>☁️ Re-upload All <span>Push all drawings &amp; photos to R2</span></button>
             <button>📄 Fix Blurry <span>Re-upload PDFs at full resolution</span></button>
+            <button class="admin-only">🖼️ Repair Photos <span>Remove duplicate pool photos &amp; re-home orphans</span></button>
             <button class="admin-only">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
             <button class="admin-only">🔗 Repair R2 Links <span>Fix photo/drawing filename mismatches</span></button>
             </div>
@@ -332,6 +333,7 @@ function ensurePdfJs(cb){
         <div id="mobile-repair-tools" style="display:none;padding-left:8px;">
           <button class="btn mm-btn mm-sub">☁️ Re-upload All</button>
           <button class="btn mm-btn mm-sub">📄 Fix Blurry</button>
+          <button class="btn mm-btn mm-sub admin-only">🖼️ Repair Photos</button>
           <button class="btn mm-btn mm-sub admin-only">🧹 R2 Cleanup</button>
           <button class="btn mm-btn mm-sub admin-only">🔗 Repair R2 Links</button>
         </div>

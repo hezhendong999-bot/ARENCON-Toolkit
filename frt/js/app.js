@@ -22,7 +22,7 @@ import { Presence } from './data/presence.js';
 import { BinaryOutbox } from './data/photoOutbox.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
-import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal } from './shared/dialogs.js';
+import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js';
 import { initProjectInfo } from './ui/projectInfo.js';
 import { initDeficiencies } from './ui/deficiencies.js';
 import { initDrawings } from './ui/drawings.js';
@@ -357,8 +357,20 @@ function wireLoadExport() {
         var text = btn.textContent || '';
         closeMoreMenu();
         if (text.indexOf('Re-upload') >= 0) _reuploadAll();
+        else if (text.indexOf('Repair Photos') >= 0) _repairPhotos();
         else if (text.indexOf('Reset Current') >= 0) _resetCurrentTab();
         else if (text.indexOf('Reset Entire') >= 0) _resetProject();
+      });
+    });
+  }
+
+  // Mobile repair-tools delegate (Repair Photos lives here on mobile)
+  var mobileRepairTools = document.getElementById('mobile-repair-tools');
+  if (mobileRepairTools) {
+    mobileRepairTools.querySelectorAll('button').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var text = btn.textContent || '';
+        if (text.indexOf('Repair Photos') >= 0) { closeMobileMenu(); _repairPhotos(); }
       });
     });
   }
@@ -403,6 +415,69 @@ function _resetCurrentTab() {
       Model._notify('project', proj);
       toast(tab + ' data cleared');
     }
+  });
+}
+
+// ── S283: Photo Pool Repair (admin) ─────────────────────
+// One-tap cleanup wrapping Model.repairPhotoPool. Flow: admin-gate → dry-run
+// to preview counts → if nothing to fix, say so → else present the orphan
+// choice (Re-home / Delete orphans / Cancel) with re-home as the safe default.
+// Dedup always runs (always safe). Re-home is the recommended path (S265:
+// re-home > delete for unique orphans). Field-verify gated — runs against the
+// live project, saves via the model's normal cycle (push rides next sync).
+function _repairPhotos() {
+  if (!(Auth && Auth.isAdmin && Auth.isAdmin())) {
+    showAlert('Admin only', 'Photo Repair is restricted to administrators.');
+    return;
+  }
+  var proj = Model.getProject();
+  if (!proj) { showAlert('No project', 'Open a project first.'); return; }
+
+  // Dry-run preview (counts only, no mutation)
+  var preview = Model.repairPhotoPool({ dryRun: true, orphanMode: 'rehome' });
+  var dupes = preview.dupesRemoved;
+  var orphans = preview.orphansRehomed + preview.orphansDeleted;
+
+  if (!dupes && !orphans) {
+    showAlert('Nothing to repair', 'No duplicate pool photos or orphaned photos were found. The photo pool is clean.');
+    return;
+  }
+
+  var lines = [];
+  if (dupes) lines.push('\u2022 ' + dupes + ' duplicate pool photo' + (dupes === 1 ? '' : 's') + ' \u2014 will be merged (an identical copy is kept; no photo is lost).');
+  if (orphans) lines.push('\u2022 ' + orphans + ' orphaned photo' + (orphans === 1 ? '' : 's') + ' \u2014 referenced by no observation.');
+  var msg = 'Found across ' + preview.pinsTouched + ' pin' + (preview.pinsTouched === 1 ? '' : 's') + ':\n\n' + lines.join('\n');
+  if (orphans) {
+    msg += '\n\nWhat should happen to the orphaned photos?\n\u2022 Re-home: attach each to its pin\u2019s first observation (keeps the image).\n\u2022 Delete orphans: soft-delete them (the cloud file is not touched).';
+  }
+
+  function _run(orphanMode) {
+    var r = Model.repairPhotoPool({ dryRun: false, orphanMode: orphanMode });
+    var done = [];
+    if (r.dupesRemoved) done.push(r.dupesRemoved + ' duplicate' + (r.dupesRemoved === 1 ? '' : 's') + ' merged');
+    if (r.orphansRehomed) done.push(r.orphansRehomed + ' orphan' + (r.orphansRehomed === 1 ? '' : 's') + ' re-homed');
+    if (r.orphansDeleted) done.push(r.orphansDeleted + ' orphan' + (r.orphansDeleted === 1 ? '' : 's') + ' deleted');
+    toast(done.length ? ('Repaired: ' + done.join(', ')) : 'Nothing changed');
+    // repairPhotoPool fires Model._notify('project') on success; the photos +
+    // deficiencies views are subscribed to that, so they re-render on their own.
+  }
+
+  if (!orphans) {
+    // Only dupes — single safe confirm, no orphan choice needed.
+    showConfirm('Repair Photos', msg + '\n\nMerge the duplicates now?').then(function(yes) {
+      if (yes) _run('rehome');
+    });
+    return;
+  }
+
+  showDialog({
+    title: 'Repair Photos',
+    message: msg,
+    buttons: [
+      { label: 'Re-home orphans', color: '#3E8E6E', action: function() { _run('rehome'); } },
+      { label: 'Delete orphans', color: '#C0445F', outline: true, action: function() { _run('delete'); } },
+      { label: 'Cancel', outline: true, action: function() {} }
+    ]
   });
 }
 

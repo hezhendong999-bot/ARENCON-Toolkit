@@ -2448,6 +2448,135 @@ export var Model = {
     return out;
   },
 
+  // ── S283: Photo pool Repair (admin). Wraps the integrity-check classes into
+  // a one-tap cleanup. Two problems, two treatments (S265 learning — they are
+  // distinct):
+  //   DUPLICATES: two+ live pool entries on the SAME pin sharing one identity
+  //     key (_photoIdentityKey). Always safe to collapse to one — an identical
+  //     live sibling survives. Any obs.photoSelection pointing at a removed
+  //     duplicate id is repointed to the survivor's id (no obs loses its photo).
+  //   ORPHANS: a live pool entry referenced by ZERO obs (integrity CLASS 5).
+  //     Unique image with no home. Default = RE-HOME to the pin's first obs
+  //     (add to its photoSelection; flip a default-mode obs to a custom array
+  //     first so the attach sticks). Opt = DELETE (soft-delete; binary in R2 is
+  //     untouched, matching the never-destroy-binary rule).
+  // opts.orphanMode: 'rehome' (default) | 'delete'. opts.dryRun: count only.
+  // Returns {dupesRemoved, orphansRehomed, orphansDeleted, pinsTouched}. Does
+  // NOT push to cloud itself — caller saves; field-verify gated.
+  repairPhotoPool: function(opts) {
+    opts = opts || {};
+    var orphanMode = opts.orphanMode === 'delete' ? 'delete' : 'rehome';
+    var dryRun = !!opts.dryRun;
+    var self = this;
+    var res = { dupesRemoved: 0, orphansRehomed: 0, orphansDeleted: 0, pinsTouched: 0 };
+    if (!_project) return res;
+
+    this.getAllDeficiencies(_project).forEach(function(entry) {
+      var d = entry.defic;
+      var pool = d.photos || [];
+      if (!pool.length) return;
+      var touched = false;
+
+      // ── Pass 1: collapse duplicate live pool entries (same identity key) ──
+      var seenByKey = Object.create(null);   // identityKey → survivor id
+      var remap = Object.create(null);       // removed id → survivor id
+      pool.forEach(function(p) {
+        if (!p || p.deleted || !p.id) return;
+        var key = self._photoIdentityKey(p);
+        if (!key) return;                    // can't compare — leave alone
+        if (seenByKey[key] === undefined) {
+          seenByKey[key] = p.id;             // first occurrence = survivor
+        } else if (seenByKey[key] !== p.id) {
+          remap[p.id] = seenByKey[key];      // mark this one for removal
+        }
+      });
+      var dupIds = Object.keys(remap);
+      if (dupIds.length) {
+        res.dupesRemoved += dupIds.length;
+        touched = true;
+        if (!dryRun) {
+          // Repoint any obs custom-selection referencing a removed dup → survivor
+          (d.observations || []).forEach(function(o) {
+            if (!o || !Array.isArray(o.photoSelection)) return;
+            var next = [];
+            o.photoSelection.forEach(function(pid) {
+              var to = remap[pid] || pid;
+              if (next.indexOf(to) === -1) next.push(to);
+            });
+            o.photoSelection = next;
+            // Carry markup across the merge if the survivor lacks it
+            if (o.photoMarkups) {
+              Object.keys(o.photoMarkups).forEach(function(pid) {
+                if (remap[pid] && !o.photoMarkups[remap[pid]]) {
+                  o.photoMarkups[remap[pid]] = o.photoMarkups[pid];
+                }
+                if (remap[pid]) delete o.photoMarkups[pid];
+              });
+            }
+          });
+          // Drop the duplicate pool entries
+          d.photos = pool.filter(function(p) { return !(p && remap[p.id]); });
+          pool = d.photos;
+        }
+      }
+
+      // ── Pass 2: orphans — live pool entries referenced by zero obs ──
+      var refd = Object.create(null);
+      (d.observations || []).forEach(function(o) {
+        if (!o) return;
+        if (Array.isArray(o.photoSelection)) {
+          o.photoSelection.forEach(function(pid) { refd[pid] = true; });
+        } else {
+          // default-mode obs implicitly references every live pool photo
+          pool.forEach(function(p) { if (p && !p.deleted) refd[p.id] = true; });
+        }
+      });
+      var orphans = pool.filter(function(p) { return p && !p.deleted && !refd[p.id]; });
+      if (orphans.length) {
+        touched = true;
+        if (orphanMode === 'delete') {
+          res.orphansDeleted += orphans.length;
+          if (!dryRun) orphans.forEach(function(p) { p.deleted = true; });
+        } else {
+          // RE-HOME to the pin's first obs. If that obs is default-mode
+          // (photoSelection == null), it already shows the whole pool — so the
+          // orphan is only orphaned because EVERY obs is custom-mode. Flip the
+          // first obs to a custom array seeded with the current effective set,
+          // then add the orphan, so nothing else visually changes.
+          var obs0 = (d.observations || [])[0];
+          if (obs0) {
+            res.orphansRehomed += orphans.length;
+            if (!dryRun) {
+              if (!Array.isArray(obs0.photoSelection)) {
+                // seed with everything obs0 currently shows (the live pool)
+                obs0.photoSelection = pool
+                  .filter(function(p) { return p && !p.deleted; })
+                  .map(function(p) { return p.id; });
+              }
+              orphans.forEach(function(p) {
+                if (obs0.photoSelection.indexOf(p.id) === -1) obs0.photoSelection.push(p.id);
+              });
+            }
+          } else {
+            // No obs at all (legacy 0-obs pin) — can't re-home; soft-delete so
+            // it stops tripping the orphan check. Counted as deleted, truthful.
+            res.orphansDeleted += orphans.length;
+            if (!dryRun) orphans.forEach(function(p) { p.deleted = true; });
+          }
+        }
+      }
+
+      if (touched) res.pinsTouched++;
+    });
+
+    if (!dryRun && (res.dupesRemoved || res.orphansRehomed || res.orphansDeleted)) {
+      _dirty = true;
+      _queueSave();
+      this._notify('project', _project);
+    }
+    return res;
+  },
+
   removeDeficiency: function(deficId) {
     var f = this.findDeficiency(deficId);
     if (!f) return false;
