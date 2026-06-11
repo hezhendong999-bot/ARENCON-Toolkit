@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S289 (lightbox stage canvas opaque {alpha:false} + backdrop painted in-canvas — transparent canvas pixels composited WHITE on the affected machine) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S290 (no displayed transparent canvases: stage shrinks to photo rect with FRT translucent div backdrop around it; markup canvas opaque with photo painted as engine base layer) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3362,7 +3362,15 @@ var DieselMarkup = (function(){
 
     render:function(){
       if(!this.ctx) return;
-      this.ctx.clearRect(0,0,this.nw,this.nh);
+      // S290: opaqueBase mode — the markup canvas is created {alpha:false}
+      // (machines that composite transparent canvases as white) and the photo
+      // is painted as the base layer under the strokes instead of clearRect.
+      if(this.opaqueBase && this.img && this.img.naturalWidth){
+        try{ this.ctx.drawImage(this.img, 0, 0, this.nw, this.nh); }
+        catch(_){ this.ctx.clearRect(0,0,this.nw,this.nh); }
+      } else {
+        this.ctx.clearRect(0,0,this.nw,this.nh);
+      }
       this._renderTo(this.ctx, 1, 1);
     },
 
@@ -3574,24 +3582,29 @@ var DslLightbox = (function(){
     var aw=area.clientWidth, ah=area.clientHeight;
     if(!aw||!ah) return;
     var dpr=Math.min(window.devicePixelRatio||1, 2);
-    if(st.width!==Math.round(aw*dpr)||st.height!==Math.round(ah*dpr)){
-      st.width=Math.round(aw*dpr); st.height=Math.round(ah*dpr);
-      st.style.width=aw+'px'; st.style.height=ah+'px';
-    }
-    // S289: OPAQUE canvas + painted backdrop. On Mark's machine the compositor
-    // renders the canvas's TRANSPARENT pixels as WHITE (broken alpha blend) —
-    // photo pixels (opaque) composite fine, empty region doesn't. So the stage
-    // never exposes alpha: context created {alpha:false} and the dark backdrop
-    // is painted inside the canvas instead of showing the overlay through it.
-    var ctx=st._ctx || (st._ctx=st.getContext('2d',{alpha:false}));
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.fillStyle='#0b0b0d';
-    ctx.fillRect(0,0,st.width,st.height);
+    // S290: the stage canvas is OPAQUE ({alpha:false} — transparent canvas
+    // pixels composite WHITE on the affected machine) and is sized/positioned
+    // to ONLY the photo's visible bounding box. The overlay div's
+    // rgba(0,0,0,.95) shows around it — the FRT translucent backdrop (div
+    // alpha compositing is proven good on the same machine by FRT itself).
     var rot=_rot(), nw=img.naturalWidth, nh=img.naturalHeight, offX=0, offY=0;
     if(rot===90){ offX=nh*_scale; }
     else if(rot===180){ offX=nw*_scale; offY=nh*_scale; }
     else if(rot===270){ offY=nw*_scale; }
-    ctx.setTransform(dpr,0,0,dpr,(_panX+offX)*dpr,(_panY+offY)*dpr);
+    var bw=(_sideways()?nh:nw)*_scale, bh=(_sideways()?nw:nh)*_scale; // photo bbox
+    var cx=Math.max(Math.floor(_panX),0), cy=Math.max(Math.floor(_panY),0);
+    var cw=Math.max(1, Math.min(Math.ceil(_panX+bw),aw)-cx);
+    var ch=Math.max(1, Math.min(Math.ceil(_panY+bh),ah)-cy);
+    st.style.left=cx+'px'; st.style.top=cy+'px';
+    if(st.width!==Math.round(cw*dpr)||st.height!==Math.round(ch*dpr)){
+      st.width=Math.round(cw*dpr); st.height=Math.round(ch*dpr);
+      st.style.width=cw+'px'; st.style.height=ch+'px';
+    }
+    var ctx=st._ctx || (st._ctx=st.getContext('2d',{alpha:false}));
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle='#0b0b0d';
+    ctx.fillRect(0,0,st.width,st.height);
+    ctx.setTransform(dpr,0,0,dpr,(_panX+offX-cx)*dpr,(_panY+offY-cy)*dpr);
     ctx.rotate(rot*Math.PI/180);
     ctx.scale(_scale,_scale);
     try{ ctx.drawImage(img,0,0); }catch(_){ }
@@ -3692,6 +3705,12 @@ var DslLightbox = (function(){
     var p=_photoObj(_idx);
     cv.style.display='block';
     cv.style.pointerEvents='auto';
+    // S290: create the markup canvas context OPAQUE before the engine's own
+    // getContext (same context object is returned) and have the engine paint
+    // the photo as its base layer — a displayed transparent canvas composites
+    // WHITE on the affected machine.
+    try{ cv.getContext('2d',{alpha:false}); }catch(_){}
+    DieselMarkup.opaqueBase=true;
     DieselMarkup.attach(cv, img, p.mk||null, function(){
       return {tool:_mkTool, color:_mkColor, size:_mkSize*3, alpha:1, fontSize:Math.max(18,_mkSize*8)};
     }, null);
@@ -3700,6 +3719,7 @@ var DslLightbox = (function(){
     _markupActive=true;
     _apply();                            // repaints stage WITHOUT baked mk + places canvas
     _placeMarkupCanvas();
+    try{ DieselMarkup.render(); }catch(_){}  // paint base photo + loaded strokes
     _el('dlb-markupbar').style.display='flex';
     _el('dlb-area').style.cursor='crosshair';
   }
