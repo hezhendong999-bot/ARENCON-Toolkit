@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S284 (lightbox caption/date row removed per Mark; photo-only view) + S283 FRT lightbox port -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S285 (lightbox fit-bug fix: photos no longer paint at natural size clipped/white; multi-trigger self-healing fit on load/decode/rAF/resize + oversized@1 guard) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3535,6 +3535,9 @@ var DslLightbox = (function(){
     _el('dlb-next').addEventListener('click',function(){ _nav(1); });
     setActiveTool('pen'); setSwatch('#FF0000');
     _wireViewEvents();
+    // S285: viewport changes (devtools open/close, rotation, window resize)
+    // invalidate the fit — recalc while open.
+    window.addEventListener('resize', function(){ if(_isOpen && !_markupActive) _scheduleFit(); });
   }
 
   // ── Transform / view math (FRT) ──
@@ -3549,6 +3552,14 @@ var DslLightbox = (function(){
     if(sh<=ah) _panY=(ah-sh)/2; else _panY=Math.min(0,Math.max(ah-sh,_panY));
   }
   function _apply(){
+    // S285 sanity guard: an oversized image must never sit at fitScale 1 —
+    // that's the stuck-fit signature. Recalculate before painting.
+    var gimg=_el('dlb-image'), garea=_el('dlb-area');
+    if(_fitScale===1 && gimg && garea && gimg.naturalWidth &&
+       (gimg.naturalWidth>garea.clientWidth || gimg.naturalHeight>garea.clientHeight)){
+      _calcFit();
+      if(_scale>0.999 && _scale<1.001) _scale=_fitScale;
+    }
     _clampPan();
     var wrap=_el('dlb-wrap'), img=_el('dlb-image');
     if(!wrap) return;
@@ -3586,6 +3597,34 @@ var DslLightbox = (function(){
   }
 
   // ── Show photo ──
+  // S285 fit-bug fix (field-found): the original single onload→_calcFit tick
+  // could run before naturalWidth/layout settled, or never run at all for a
+  // cached/same-URL src (no load event) — leaving _fitScale stuck at 1 and the
+  // photo painted at NATURAL size, clipped by the area, which on white-paper
+  // photos looks like a blank white field. _fitNow() is now idempotent and
+  // fired from every signal that geometry may have changed: onload, decode(),
+  // two rAF ticks after src set, and window resize — plus a sanity guard that
+  // refits whenever an oversized image is somehow sitting at fitScale 1.
+  var _fitToken=0;
+  function _fitNow(){
+    var img=_el('dlb-image'), area=_el('dlb-area');
+    if(!img||!area||!img.naturalWidth||!area.clientWidth||!area.clientHeight) return false;
+    _calcFit();
+    _scale=_fitScale; _panX=0; _panY=0;
+    _apply();
+    _paintSavedMk();
+    return true;
+  }
+  function _scheduleFit(){
+    var tok=++_fitToken;
+    var tries=0;
+    function attempt(){
+      if(tok!==_fitToken) return;            // a newer photo superseded this one
+      if(_fitNow()) return;
+      if(++tries<30) requestAnimationFrame(attempt);  // wait out decode/layout
+    }
+    requestAnimationFrame(attempt);
+  }
   function _showPhoto(i){
     if(i<0||i>=_photos.length) return;
     if(_markupActive) _exitMarkup(false);
@@ -3594,13 +3633,14 @@ var DslLightbox = (function(){
     var p=_photoObj(i);
     var img=_el('dlb-image');
     var src=p.d||p.r2Url||'';
-    img.onload=function(){
-      _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _apply();
-      _paintSavedMk();
-    };
+    img.onload=function(){ _scheduleFit(); };
     img.onerror=function(){ if(typeof showToast==='function') showToast('Photo failed to load'); };
     img.crossOrigin='anonymous';   // S282b: cloud photos must not taint the canvas
     img.src=src;
+    // cached/same-URL loads may never fire onload — schedule regardless, and
+    // use decode() as a third independent trigger where supported.
+    _scheduleFit();
+    if(img.decode){ img.decode().then(function(){ _scheduleFit(); }).catch(function(){}); }
     var c=_el('dlb-counter');
     if(c) c.textContent=(_photos.length>1)?((i+1)+' / '+_photos.length):'';
     _el('dlb-prev').style.display=(i>0&&_photos.length>1)?'':'none';
