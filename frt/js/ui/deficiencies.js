@@ -14,6 +14,7 @@ import { Model, TRADE_LIST, SITE_RECORDS_LABEL, isSiteRecordsName } from '../dat
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
 import { FrtPhotoPicker } from './photoPicker.js'; // S215: shared photo-selection picker (B + C)
+import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark)
 import { R2 } from '../data/r2.js';
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
@@ -6171,17 +6172,39 @@ document.addEventListener('click', function(e) {
     _photoTargetDeficId = deficId;
     _photoTargetObsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
 
+    // S284 (Mark): the Camera button now opens the continuous in-app burst
+    // camera — shoot any number of photos, Done adds them all at once. This
+    // replaces the single-shot capture-input round-trip documented as the
+    // S159 limitation below. Because the pin editor and the focused modal
+    // host the SAME _buildObsEditor markup handled by this delegate (S213),
+    // every camera button in the app gets burst capture from this one hook.
+    // Contract: File[] → feed the normal pipeline; [] → user cancelled,
+    // no-op; null → camera unsupported/denied → tell the user (we must NOT
+    // auto-click a capture input here: the user gesture is gone by then and
+    // gesture-gated capture clicks are silently blocked — S159 V-7 lesson).
+    if (action === 'photo-camera') {
+      (function(tgtDefic, tgtObs) {
+        openCameraBurst().then(function(files) {
+          if (files === null) { toast('Camera unavailable \u2014 use the Upload button instead'); return; }
+          for (var i = 0; i < files.length; i++) {
+            _compressAndAdd(files[i], tgtDefic, tgtObs);
+          }
+        });
+      })(_photoTargetDeficId, _photoTargetObsIdx);
+      return;
+    }
+
     // S159: native HTML5 <input type=file capture> is single-shot by design.
     // The S159 V-7 attempt to re-fire via setTimeout was blocked by browser
     // user-gesture security policies (Android Chrome / iOS Safari both
     // require input.click() to happen during a real user-gesture event).
-    // True multi-shot needs a custom getUserMedia + <video> camera, which
-    // is a larger feature build — tracked separately.
+    // True multi-shot needs a custom getUserMedia + <video> camera — which
+    // is now cameraBurst.js (S284) on the photo-camera branch above; this
+    // input path remains for photo-upload (file picker).
     var inp = document.createElement('input');
     inp.type = 'file';
     inp.accept = 'image/*';
     inp.multiple = true;
-    if (action === 'photo-camera') inp.capture = 'environment';
     inp.onchange = function() {
       if (!inp.files || !inp.files.length) return;
       for (var i = 0; i < inp.files.length; i++) {

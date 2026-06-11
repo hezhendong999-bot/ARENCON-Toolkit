@@ -11,6 +11,7 @@ import { Auth } from '../shared/auth.js';
 import { R2 } from '../data/r2.js';
 import { IDB } from '../data/idb.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
+import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark)
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -1618,8 +1619,15 @@ document.addEventListener('click', function(e) {
     var fi = document.getElementById('site-photo-input');
     if (fi) fi.click();
   } else if (t.id === 'site-photo-camera-btn') {
-    var ci = document.getElementById('site-photo-camera');
-    if (ci) ci.click();
+    // S284 (Mark): continuous in-app burst camera — shoot any number, Done
+    // adds all through the normal site-photo pipeline. null = unsupported/
+    // denied → inform; [] = user cancelled → no-op. The legacy
+    // #site-photo-camera capture input stays in the DOM as dead fallback
+    // (defined-but-inert, S137 discipline) but is no longer clicked.
+    openCameraBurst().then(function(files) {
+      if (files === null) { toast('Camera unavailable \u2014 use Upload instead'); return; }
+      if (files.length) _handleSitePhotoFiles(files);
+    });
   } else if (t.id === 'photo-actions-btn') {
     var ex = document.getElementById('photo-actions-pop');
     if (ex) { ex.remove(); return; }
