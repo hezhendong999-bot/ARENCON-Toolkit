@@ -9976,14 +9976,15 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 .dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--yes);}
 .dlc-track{height:11px;border-radius:99px;overflow:hidden;margin-bottom:16px;position:relative;
   background:linear-gradient(90deg,var(--no) 0%,var(--warn) 50%,var(--yes) 100%);}
-/* S283: red→amber→green resolved bar (bad→good). Gradient lives on the track
-   itself; .dlc-fill is an opaque grey mask anchored to the RIGHT that covers
-   the UNMET portion. Inline style sets left:<pct>%, so the gradient shows from
-   0→pct and grey from pct→100. As % climbs the reveal extends into green.
-   z-index keeps the mask above the gradient. FIX (was full-bar bug): the prior
-   ::before gradient painted over the mask; gradient now on the base layer. */
+/* S283: red→amber→green resolved bar (bad→good). Gradient lives on the track;
+   .dlc-fill is an OPAQUE mask anchored right that covers the unmet portion.
+   inline left:<pct>% reveals gradient 0→pct. CRITICAL: the mask MUST be opaque
+   — an earlier version used var(--border), which the Bold dark card overrides
+   to rgba(255,255,255,.1) (a hairline), so the gradient showed straight through
+   and the bar looked 100% full. Hardcoded opaque empty-track colour per mode. */
 .dlc-fill{position:absolute;top:0;bottom:0;right:0;left:0;z-index:1;border-radius:0 99px 99px 0;
-  background:var(--border);transition:left .8s cubic-bezier(.2,.8,.2,1);}
+  background:#E6E4EC;transition:left .8s cubic-bezier(.2,.8,.2,1);}
+body.dark-mode .dlc-fill{background:#2a2833;}
 .dlc-legend{display:flex;flex-direction:column;gap:8px;}
 .dlc-leg{display:flex;align-items:center;gap:10px;font-size:13.5px;}
 .dlc-leg .dlc-dot{position:static;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:2px;}
