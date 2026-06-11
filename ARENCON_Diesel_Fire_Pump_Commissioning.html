@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S288 (FRT visual parity: lightbox backdrop rgba(0,0,0,.95) exact match; ARENCON favicon arencon-icon-192.png replaces inline letter-A placeholder) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S289 (lightbox stage canvas opaque {alpha:false} + backdrop painted in-canvas — transparent canvas pixels composited WHITE on the affected machine) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3578,9 +3578,15 @@ var DslLightbox = (function(){
       st.width=Math.round(aw*dpr); st.height=Math.round(ah*dpr);
       st.style.width=aw+'px'; st.style.height=ah+'px';
     }
-    var ctx=st.getContext('2d');
+    // S289: OPAQUE canvas + painted backdrop. On Mark's machine the compositor
+    // renders the canvas's TRANSPARENT pixels as WHITE (broken alpha blend) —
+    // photo pixels (opaque) composite fine, empty region doesn't. So the stage
+    // never exposes alpha: context created {alpha:false} and the dark backdrop
+    // is painted inside the canvas instead of showing the overlay through it.
+    var ctx=st._ctx || (st._ctx=st.getContext('2d',{alpha:false}));
     ctx.setTransform(1,0,0,1,0,0);
-    ctx.clearRect(0,0,st.width,st.height);
+    ctx.fillStyle='#0b0b0d';
+    ctx.fillRect(0,0,st.width,st.height);
     var rot=_rot(), nw=img.naturalWidth, nh=img.naturalHeight, offX=0, offY=0;
     if(rot===90){ offX=nh*_scale; }
     else if(rot===180){ offX=nw*_scale; offY=nh*_scale; }
