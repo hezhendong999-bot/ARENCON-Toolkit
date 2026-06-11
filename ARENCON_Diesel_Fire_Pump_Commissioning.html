@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S302 (console build banner + _build tag stamped into every cloud save, so stale-tab/CDN-lag situations are diagnosable in seconds) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S303 (markup bar WRAPS instead of horizontal scroll — Save was unreachable off-bar on narrow viewports, the root cause of saves that never fired; Save shows busy state and exit/toggle is blocked while a persist is in flight; FRT-style cloud lifecycle logging) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3526,6 +3526,7 @@ var DslLightbox = (function(){
   var _setTool=null;        // S295: module handle to the bar's setActiveTool (ESC deactivates tool)
   var _mkAlpha=100;         // S296: stroke opacity %, driven by the bar's opacity slider
   var _mkDraft={};          // S295: per-photo unsaved-stroke stash — strokes survive markup exit/nav until saved or cleared
+  var _persistBusy=false;   // S303: a save is persisting — exit/toggle/close blocked until it settles
   var _scrollLockY=0;
 
   function _el(id){ return document.getElementById(id); }
@@ -3586,7 +3587,7 @@ var DslLightbox = (function(){
     // ── FRT markup pill bar ──
     var bar=document.createElement('div');
     bar.id='dlb-markupbar';
-    bar.style.cssText='position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:8px 12px;background:rgba(20,20,28,.92);border-radius:24px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:96vw;overflow-x:auto;';
+    bar.style.cssText='position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:rgba(20,20,28,.92);border-radius:24px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:96vw;flex-wrap:wrap;';   // S303: WRAP, never scroll — Save was off-screen on narrow viewports (root cause of "saves" that never fired)
     function tb(id,label,title){
       var b=document.createElement('button');
       b.id=id; b.title=title; b.textContent=label;
@@ -3847,6 +3848,7 @@ var DslLightbox = (function(){
     _el('dlb-area').style.cursor='crosshair';
   }
   function _exitMarkup(keepStrokes){
+    if(_persistBusy){ if(typeof showToast==='function') showToast('Still saving \u2014 one moment\u2026'); return; }   // S303
     if(window.DieselMarkup && !keepStrokes){
       // S295: stash unsaved strokes so leaving markup mode (toggle/nav/close)
       // never loses work — they reload on re-entry and composite in view mode.
@@ -3867,6 +3869,7 @@ var DslLightbox = (function(){
   function _saveMk(){
     var p=_photos[_idx];
     if(!p||typeof p!=='object'){ if(typeof showToast==='function') showToast('Cannot save markup on this photo'); return; }
+    if(_persistBusy){ console.info('[DLB] saveMk ignored — persist already in flight'); return; }
     var mk=DieselMarkup.toMk();
     console.info('[DLB] saveMk', {id:p.id||null, strokes:(mk&&mk.o)?mk.o.length:0, annotated:!!p._annotated});
     if(!mk){
@@ -3880,7 +3883,11 @@ var DslLightbox = (function(){
     // clean "(original)" duplicate in Site Records. Markup mode stays open and
     // strokes stay live until persist actually succeeds.
     if(typeof showToast==='function') showToast('Saving markup\u2026');
+    _persistBusy=true;
+    var _sb=_el('dlb-mk-save'); if(_sb){ _sb.disabled=true; _sb.textContent='Saving\u2026'; _sb.style.opacity='.6'; }
+    var _sbDone=function(){ _persistBusy=false; if(_sb){ _sb.disabled=false; _sb.textContent='Save'; _sb.style.opacity='1'; } };
     _dslMarkupPersist(p, mk).then(function(){
+      _sbDone();
       _exitMarkup(false);
       delete _mkDraft[p.id];   // strokes are baked into the photo — drop the session draft
       _showPhoto(_idx);        // reload — photo now displays the baked marked version
@@ -3893,6 +3900,7 @@ var DslLightbox = (function(){
       if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] saveMk renderer failed', e); } }
       _dslRefreshPhotoSurfaces();   // S301: checklist/defic/flow thumbs too, not just gallery
     }).catch(function(e){
+      _sbDone();
       console.warn('[DLB] saveMk persist failed', e);
       if(typeof showToast==='function') showToast('Markup save failed \u2014 '+((e&&e.message)||e)+'. Your strokes are still here.');
       // stay in markup mode so the strokes aren't lost
@@ -9930,6 +9938,7 @@ function collectState() {
 function _collectCloudState(){
   var s=collectState();
   s._build=(typeof DIESEL_BUILD!=='undefined')?DIESEL_BUILD:'unknown';   // S302: which build wrote this row
+  console.info('[CloudSync] collecting state for push (build '+s._build+')');   // S303: FRT-style lifecycle log
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
   function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
@@ -10153,6 +10162,7 @@ async function _dslMarkupPersist(p, mk){
       }
     }
   }
+  console.info('[DLB] persist OK', {id:p.id, backup:backupId||'(re-save)', markedKey:markedKey?markedKey.slice(-44):'(standalone)'});
   return { backupId: backupId, markedKey: markedKey };
 }
 
@@ -11346,6 +11356,7 @@ function _mergeCloudLocal(cloud, local){
       });
     })();
   }
+  if(cloud && local) console.info('[CloudSync] merged cloud+local (timestamp-arbitrated)');   // S303
   return cloud || local;
 }
 // Stamp _cloudSyncedAt before pushing to prevent self-triggering
@@ -12887,7 +12898,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S302';
+var DIESEL_BUILD = 'S303';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
