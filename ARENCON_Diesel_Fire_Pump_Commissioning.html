@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S283 (FRT lightbox ported wholesale: DslLightbox replaces all legacy lightbox generations; pan/zoom/pinch/swipe/rotate, FRT markup pill bar driving vector engine, native caption+date, iOS scroll lock; legacy lightbox + wrappers retired inert) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S284 (lightbox caption/date row removed per Mark; photo-only view) + S283 FRT lightbox port -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3465,14 +3465,7 @@ var DslLightbox = (function(){
     right.appendChild(bMk); right.appendChild(bDl); right.appendChild(bRo); right.appendChild(bCl);
     top.appendChild(left); top.appendChild(center); top.appendChild(right);
     ov.appendChild(top);
-    // ── Caption + date row (Diesel-specific, view mode only) ──
-    var cap=document.createElement('div');
-    cap.id='dlb-caprow';
-    cap.style.cssText='position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:8px;align-items:center;width:min(95vw,640px);z-index:10;';
-    cap.innerHTML =
-      '<input id="dlb-caption" type="text" placeholder="Caption..." style="flex:1;padding:7px 10px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(20,20,28,.85);color:#fff;font-family:Calibri,sans-serif;font-size:13px;outline:none;">'
-      + '<input id="dlb-date" type="date" style="padding:6px 8px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(20,20,28,.85);color:#fff;font-family:Calibri,sans-serif;font-size:12px;outline:none;">';
-    ov.appendChild(cap);
+    // S284: caption + date row removed per Mark — view is photo-only.
     // ── FRT markup pill bar ──
     var bar=document.createElement('div');
     bar.id='dlb-markupbar';
@@ -3541,17 +3534,6 @@ var DslLightbox = (function(){
     _el('dlb-prev').addEventListener('click',function(){ _nav(-1); });
     _el('dlb-next').addEventListener('click',function(){ _nav(1); });
     setActiveTool('pen'); setSwatch('#FF0000');
-    // caption/date persistence
-    _el('dlb-caption').addEventListener('change',function(){
-      var p=_photos[_idx]; if(p&&typeof p==='object'){ p.caption=this.value; if(typeof debounceAutosave==='function') debounceAutosave(); }
-    });
-    _el('dlb-date').addEventListener('change',function(){
-      var p=_photos[_idx]; if(p&&typeof p==='object'){ p.date=this.value; if(typeof debounceAutosave==='function') debounceAutosave(); }
-    });
-    // stop lightbox keys hijacking the inputs
-    ['dlb-caption','dlb-date'].forEach(function(id){
-      _el(id).addEventListener('keydown',function(ev){ ev.stopPropagation(); });
-    });
     _wireViewEvents();
   }
 
@@ -3623,10 +3605,6 @@ var DslLightbox = (function(){
     if(c) c.textContent=(_photos.length>1)?((i+1)+' / '+_photos.length):'';
     _el('dlb-prev').style.display=(i>0&&_photos.length>1)?'':'none';
     _el('dlb-next').style.display=(i<_photos.length-1&&_photos.length>1)?'':'none';
-    // caption + date (date input needs yyyy-MM-dd)
-    var ci=_el('dlb-caption'), di=_el('dlb-date');
-    if(ci) ci.value=p.caption||'';
-    if(di){ var m=(''+(p.date||'')).match(/^\d{4}-\d{2}-\d{2}/); di.value=m?m[0]:''; }
   }
   function _nav(dir){ var n=_idx+dir; if(n>=0&&n<_photos.length) _showPhoto(n); }
 
@@ -3647,7 +3625,6 @@ var DslLightbox = (function(){
     // to natural dims for exact 1:1 coord mapping.
     cv.style.width=img.naturalWidth+'px'; cv.style.height=img.naturalHeight+'px';
     _el('dlb-markupbar').style.display='flex';
-    _el('dlb-caprow').style.display='none';
     _el('dlb-area').style.cursor='crosshair';
     _markupActive=true;
   }
@@ -3656,7 +3633,6 @@ var DslLightbox = (function(){
     var cv=_el('dlb-canvas');
     if(cv) cv.style.pointerEvents='none';
     _el('dlb-markupbar').style.display='none';
-    _el('dlb-caprow').style.display='flex';
     _el('dlb-area').style.cursor='grab';
     _markupActive=false;
     _paintSavedMk();                    // restore saved-state composite
@@ -3735,7 +3711,7 @@ var DslLightbox = (function(){
     },{passive:false});
     area.addEventListener('mousedown',function(e){
       if(!_isOpen||_markupActive) return;
-      if(e.target.closest&&(e.target.closest('button')||e.target.closest('#dlb-caprow'))) return;
+      if(e.target.closest&&e.target.closest('button')) return;
       _dragging=true; _lastX=e.clientX; _lastY=e.clientY; area.style.cursor='grabbing'; e.preventDefault();
     });
     window.addEventListener('mousemove',function(e){
@@ -3757,7 +3733,7 @@ var DslLightbox = (function(){
     });
     area.addEventListener('touchstart',function(e){
       if(!_isOpen||_markupActive) return;
-      if(e.target.closest&&(e.target.closest('button')||e.target.closest('#dlb-caprow'))) return;
+      if(e.target.closest&&e.target.closest('button')) return;
       if(e.touches.length===2){
         e.preventDefault();
         var dx=e.touches[1].clientX-e.touches[0].clientX, dy=e.touches[1].clientY-e.touches[0].clientY;
