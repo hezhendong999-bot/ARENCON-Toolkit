@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S301 (annotation merge race fix: _mkTs timestamp arbitrates the annotation field-group so stale heartbeat merges can no longer revert a fresh markup save; '(original)' backup records reconciled into merged state; close no longer fires the armed onerror — 'Photo failed to load' toast on close eliminated; all photo surfaces incl. checklist thumbs refresh on save/revert) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S302 (console build banner + _build tag stamped into every cloud save, so stale-tab/CDN-lag situations are diagnosable in seconds) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -9929,6 +9929,7 @@ function collectState() {
 // ═══ CLOUD STATE — strips base64 photos from CloudSync payload ═══
 function _collectCloudState(){
   var s=collectState();
+  s._build=(typeof DIESEL_BUILD!=='undefined')?DIESEL_BUILD:'unknown';   // S302: which build wrote this row
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
   function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
@@ -12883,6 +12884,11 @@ try{
     }).catch(function(){});
   }
 }catch(e){}
+</script>
+<script>
+// S302: build banner — first thing to check when behavior looks stale.
+var DIESEL_BUILD = 'S302';
+console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
 // Wrap CloudSync.save to stamp _cloudSyncedAt for self-trigger prevention
