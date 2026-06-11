@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S282 (B5 reconcile self-healer: pending/failed photos settle against R2 truth, sync badge goes green) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S282 FRT-engine port complete (B3 identity-based gallery actions; B5 reconcile self-healer; B6 date stamped at every upload; B7 Site Records pinned gallery section; B8 non-destructive vector markup; B9 orphan report/purge/restore tooling) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2799,7 +2799,7 @@ function deficRespTimelineDrop(ev, name, idx, ci) {
   Array.from(files).forEach(function(f) {
     if(!f.type.startsWith('image/')) return;
     var r = new FileReader();
-    r.onload = function(ev2) { compressImage(ev2.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
+    r.onload = function(ev2) { compressImage(ev2.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
     r.readAsDataURL(f);
   });
 }
@@ -2809,7 +2809,7 @@ function deficRespTimelineUpload(name, idx, ci) {
     if(!deficiencies[name][idx].responses[ci].photos) deficiencies[name][idx].responses[ci].photos=[];
     Array.from(inp.files).forEach(function(f) {
       var r = new FileReader();
-      r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
+      r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
       r.readAsDataURL(f);
     });
   }; inp.click();
@@ -2820,7 +2820,7 @@ function deficRespTimelineCamera(name, idx, ci) {
     if(!deficiencies[name][idx].responses[ci].photos) deficiencies[name][idx].responses[ci].photos=[];
     var f = inp.files[0]; if(!f) return;
     var r = new FileReader();
-    r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); setTimeout(function(){inp.value='';inp.click();},300); }); };
+    r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); setTimeout(function(){inp.value='';inp.click();},300); }); };
     r.readAsDataURL(f);
   }; inp.click();
 }
@@ -3131,7 +3131,268 @@ function refreshItemPhotoUI(id){
 let lbPhotos = [];
 let lbIdx = 0;
 
-// ── Lightbox markup state ──
+// ═══ S282 B8: DieselMarkup — non-destructive vector markup engine ═══
+// Port of FRT's MarkupEngine, extended for Diesel's toolbar (square, triangle,
+// per-stroke opacity, explicit font size). REPLACES the destructive bitmap
+// markup (saveLbMarkup baked strokes into p.d with no original backup / no
+// revert / no cloud copy). Strokes are stored as VECTORS on the photo
+// (p.mk = {w,h,o:[...]}), coords in natural-image pixels, so the original
+// binary (p.d / R2 original) is never touched and markup is fully reversible.
+// Locked rules honoured: lineTo only (no quadraticCurveTo); no OffscreenCanvas
+// (iPad/Safari); highlighter via per-stroke offscreen composite (no opacity
+// stacking); tool stays active after a shape (no auto-select).
+var DieselMarkup = (function(){
+  'use strict';
+  var E = {
+    canvas:null, ctx:null, img:null,
+    nw:0, nh:0,                       // natural pixel size (canvas backing store)
+    strokes:[], redo:[],
+    _drawing:false, _curr:null,
+    _styleFn:null, _onDirty:null, _bound:null,
+
+    attach:function(canvasEl, imgEl, existingMk, styleFn, onDirty){
+      this.detach();
+      this.canvas = canvasEl; this.img = imgEl;
+      this._styleFn = styleFn || function(){return {tool:'pen',color:'#FF0000',size:6,alpha:1,fontSize:24};};
+      this._onDirty = onDirty || null;
+      this.nw = imgEl.naturalWidth || imgEl.offsetWidth || 1;
+      this.nh = imgEl.naturalHeight || imgEl.offsetHeight || 1;
+      canvasEl.width = this.nw; canvasEl.height = this.nh;
+      canvasEl.style.width = imgEl.offsetWidth + 'px';
+      canvasEl.style.height = imgEl.offsetHeight + 'px';
+      this.ctx = canvasEl.getContext('2d');
+      this.strokes = []; this.redo = [];
+      // Load existing markup (rescale if it was authored at a different natural size)
+      if(existingMk && Array.isArray(existingMk.o)){
+        var sx = (existingMk.w ? this.nw/existingMk.w : 1);
+        var sy = (existingMk.h ? this.nh/existingMk.h : 1);
+        this.strokes = existingMk.o.map(function(s){
+          var c = JSON.parse(JSON.stringify(s));
+          if(c.pts) c.pts = c.pts.map(function(p){return {x:p.x*sx, y:p.y*sy};});
+          if(c.size) c.size = c.size*((sx+sy)/2);
+          if(c.fontSize) c.fontSize = c.fontSize*((sx+sy)/2);
+          return c;
+        });
+      }
+      this._bind();
+      this.render();
+    },
+
+    detach:function(){
+      if(this._bound && this.canvas){
+        var c=this.canvas, b=this._bound;
+        c.removeEventListener('mousedown', b.down); c.removeEventListener('mousemove', b.move);
+        window.removeEventListener('mouseup', b.up);
+        c.removeEventListener('touchstart', b.ts); c.removeEventListener('touchmove', b.tm);
+        window.removeEventListener('touchend', b.te);
+      }
+      this._bound=null; this.canvas=null; this.ctx=null; this.img=null;
+      this.strokes=[]; this.redo=[]; this._drawing=false; this._curr=null;
+    },
+
+    _pt:function(ev){
+      var r=this.canvas.getBoundingClientRect();
+      var sx=this.nw/r.width, sy=this.nh/r.height;
+      var t=ev.touches?ev.touches[0]:ev;
+      return {x:(t.clientX-r.left)*sx, y:(t.clientY-r.top)*sy};
+    },
+
+    _isShape:function(t){return t==='line'||t==='arrow'||t==='circle'||t==='square'||t==='triangle';},
+
+    _bind:function(){
+      var self=this, c=this.canvas;
+      function down(ev){
+        ev.preventDefault();
+        var st=self._styleFn(); var p=self._pt(ev);
+        if(st.tool==='text'){ self._promptText(p, st); return; }
+        if(st.tool==='erase'){ self._drawing=true; self._eraseAt(p); return; }
+        self._drawing=true; self.redo=[];
+        self._curr={tool:st.tool, color:st.color, size:st.size, alpha:st.alpha,
+                    pts: self._isShape(st.tool) ? [p,{x:p.x,y:p.y}] : [p]};
+      }
+      function move(ev){
+        if(!self._drawing) return;
+        ev.preventDefault();
+        var p=self._pt(ev);
+        var st=self._styleFn();
+        if(st.tool==='erase'){ self._eraseAt(p); return; }
+        if(!self._curr) return;
+        if(self._isShape(self._curr.tool)){ self._curr.pts[1]=p; self.render(); return; }
+        var last=self._curr.pts[self._curr.pts.length-1];
+        if(Math.abs(p.x-last.x)+Math.abs(p.y-last.y) < 1) return;
+        self._curr.pts.push(p); self.render();
+      }
+      function up(){
+        if(!self._drawing) return;
+        self._drawing=false;
+        if(self._curr){
+          var ok;
+          if(self._isShape(self._curr.tool)){
+            var a=self._curr.pts[0], b=self._curr.pts[1];
+            ok=(Math.abs(a.x-b.x)+Math.abs(a.y-b.y))>4;
+          } else ok=self._curr.pts.length>1;
+          if(ok){ self.strokes.push(self._curr); if(self._onDirty) self._onDirty(); }
+        }
+        self._curr=null; self.render();
+      }
+      function ts(ev){ down(ev); }
+      function tm(ev){ move(ev); }
+      function te(){ up(); }
+      c.addEventListener('mousedown', down); c.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+      c.addEventListener('touchstart', ts, {passive:false});
+      c.addEventListener('touchmove', tm, {passive:false});
+      window.addEventListener('touchend', te);
+      this._bound={down:down, move:move, up:up, ts:ts, tm:tm, te:te};
+    },
+
+    _promptText:function(p, st){
+      var self=this;
+      if(typeof _aPrompt!=='function'){ return; }
+      _aPrompt('Enter text:', '', function(txt){
+        if(!txt) return;
+        self.strokes.push({tool:'text', pts:[{x:p.x,y:p.y}], text:txt,
+                           color:st.color, fontSize:st.fontSize||24, alpha:st.alpha});
+        self.redo=[]; if(self._onDirty) self._onDirty(); self.render();
+      });
+    },
+
+    _eraseAt:function(p){
+      var R=24, R2=R*R;
+      function d2(px,py,ax,ay,bx,by){
+        var dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+        if(l2===0){var ex=px-ax,ey=py-ay;return ex*ex+ey*ey;}
+        var t=((px-ax)*dx+(py-ay)*dy)/l2; t=Math.max(0,Math.min(1,t));
+        var qx=ax+t*dx,qy=ay+t*dy,fx=px-qx,fy=py-qy; return fx*fx+fy*fy;
+      }
+      var hit=-1;
+      for(var i=this.strokes.length-1;i>=0;i--){
+        var s=this.strokes[i], t=s.tool;
+        if(t==='pen'||t==='highlight'){
+          for(var j=0;j<s.pts.length-1;j++){ if(d2(p.x,p.y,s.pts[j].x,s.pts[j].y,s.pts[j+1].x,s.pts[j+1].y)<=R2){hit=i;break;} }
+        } else if(t==='line'||t==='arrow'){
+          if(d2(p.x,p.y,s.pts[0].x,s.pts[0].y,s.pts[1].x,s.pts[1].y)<=R2) hit=i;
+        } else if(t==='square'){
+          var x1=Math.min(s.pts[0].x,s.pts[1].x),y1=Math.min(s.pts[0].y,s.pts[1].y),
+              x2=Math.max(s.pts[0].x,s.pts[1].x),y2=Math.max(s.pts[0].y,s.pts[1].y);
+          if(d2(p.x,p.y,x1,y1,x2,y1)<=R2||d2(p.x,p.y,x2,y1,x2,y2)<=R2||
+             d2(p.x,p.y,x2,y2,x1,y2)<=R2||d2(p.x,p.y,x1,y2,x1,y1)<=R2) hit=i;
+        } else if(t==='triangle'){
+          var ax=(s.pts[0].x+s.pts[1].x)/2, ay=s.pts[0].y, bx=s.pts[0].x, by=s.pts[1].y, cx2=s.pts[1].x, cy2=s.pts[1].y;
+          if(d2(p.x,p.y,ax,ay,bx,by)<=R2||d2(p.x,p.y,bx,by,cx2,cy2)<=R2||d2(p.x,p.y,cx2,cy2,ax,ay)<=R2) hit=i;
+        } else if(t==='circle'){
+          var cx=(s.pts[0].x+s.pts[1].x)/2, cy=(s.pts[0].y+s.pts[1].y)/2,
+              rx=Math.abs(s.pts[1].x-s.pts[0].x)/2, ry=Math.abs(s.pts[1].y-s.pts[0].y)/2;
+          if(rx>0&&ry>0){ var nx=(p.x-cx)/rx,ny=(p.y-cy)/ry; if(Math.abs(Math.sqrt(nx*nx+ny*ny)-1)*Math.min(rx,ry)<=R) hit=i; }
+        } else if(t==='text'){
+          var tp=s.pts[0], fp=s.fontSize||24, w=(s.text||'').length*fp*0.55;
+          if(p.x>=tp.x-6&&p.x<=tp.x+w+6&&p.y>=tp.y-fp-2&&p.y<=tp.y+6) hit=i;
+        }
+        if(hit>=0) break;
+      }
+      if(hit>=0){ this.redo.push(this.strokes.splice(hit,1)[0]); if(this._onDirty) this._onDirty(); this.render(); }
+    },
+
+    // Draw one stroke onto ctx at given scale (sx,sy from natural -> target px)
+    _drawStroke:function(ctx, s, sx, sy){
+      sx=sx||1; sy=sy||1;
+      ctx.save();
+      ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.globalAlpha = (s.alpha==null?1:s.alpha);
+      ctx.strokeStyle=s.color; ctx.fillStyle=s.color; ctx.lineWidth=(s.size||6)*((sx+sy)/2);
+      if(s.tool==='pen'){
+        if(s.pts.length>=2){ ctx.beginPath(); ctx.moveTo(s.pts[0].x*sx,s.pts[0].y*sy);
+          for(var i=1;i<s.pts.length;i++) ctx.lineTo(s.pts[i].x*sx,s.pts[i].y*sy); ctx.stroke(); }
+      } else if(s.tool==='line'){
+        ctx.beginPath(); ctx.moveTo(s.pts[0].x*sx,s.pts[0].y*sy); ctx.lineTo(s.pts[1].x*sx,s.pts[1].y*sy); ctx.stroke();
+      } else if(s.tool==='arrow'){
+        var x1=s.pts[0].x*sx,y1=s.pts[0].y*sy,x2=s.pts[1].x*sx,y2=s.pts[1].y*sy;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        var ang=Math.atan2(y2-y1,x2-x1), hd=Math.max(10,(s.size||6)*2)*((sx+sy)/2);
+        ctx.beginPath(); ctx.moveTo(x2,y2);
+        ctx.lineTo(x2-hd*Math.cos(ang-0.4), y2-hd*Math.sin(ang-0.4));
+        ctx.lineTo(x2-hd*Math.cos(ang+0.4), y2-hd*Math.sin(ang+0.4));
+        ctx.closePath(); ctx.fill();
+      } else if(s.tool==='square'){
+        var qx=Math.min(s.pts[0].x,s.pts[1].x)*sx, qy=Math.min(s.pts[0].y,s.pts[1].y)*sy;
+        ctx.strokeRect(qx, qy, Math.abs(s.pts[1].x-s.pts[0].x)*sx, Math.abs(s.pts[1].y-s.pts[0].y)*sy);
+      } else if(s.tool==='circle'){
+        var ccx=(s.pts[0].x+s.pts[1].x)/2*sx, ccy=(s.pts[0].y+s.pts[1].y)/2*sy,
+            crx=Math.abs(s.pts[1].x-s.pts[0].x)/2*sx||1, cry=Math.abs(s.pts[1].y-s.pts[0].y)/2*sy||1;
+        ctx.beginPath();
+        if(ctx.ellipse) ctx.ellipse(ccx,ccy,crx,cry,0,0,Math.PI*2); else ctx.arc(ccx,ccy,Math.max(crx,cry),0,Math.PI*2);
+        ctx.stroke();
+      } else if(s.tool==='triangle'){
+        var tx1=s.pts[0].x*sx,ty1=s.pts[0].y*sy,tx2=s.pts[1].x*sx,ty2=s.pts[1].y*sy;
+        ctx.beginPath(); ctx.moveTo((tx1+tx2)/2,ty1); ctx.lineTo(tx1,ty2); ctx.lineTo(tx2,ty2); ctx.closePath(); ctx.stroke();
+      } else if(s.tool==='text'){
+        var fp=(s.fontSize||24)*((sx+sy)/2);
+        ctx.font='bold '+fp+'px Calibri,Arial,sans-serif'; ctx.textBaseline='alphabetic';
+        ctx.lineWidth=Math.max(1,fp/12); ctx.strokeStyle='#fff';
+        ctx.strokeText(s.text||'', s.pts[0].x*sx, s.pts[0].y*sy);
+        ctx.fillStyle=s.color; ctx.fillText(s.text||'', s.pts[0].x*sx, s.pts[0].y*sy);
+      }
+      ctx.restore();
+    },
+
+    // Highlight stroke: own offscreen layer composited once (no opacity stacking)
+    _drawHighlight:function(ctx, s, sx, sy){
+      sx=sx||1; sy=sy||1;
+      if(!s.pts||s.pts.length<2){ return; }
+      var off=document.createElement('canvas');
+      off.width=ctx.canvas.width; off.height=ctx.canvas.height;
+      var oc=off.getContext('2d');
+      oc.lineCap='round'; oc.lineJoin='round';
+      oc.strokeStyle=s.color; oc.lineWidth=(s.size||6)*3*((sx+sy)/2); oc.globalAlpha=1;
+      oc.beginPath(); oc.moveTo(s.pts[0].x*sx,s.pts[0].y*sy);
+      for(var i=1;i<s.pts.length;i++) oc.lineTo(s.pts[i].x*sx,s.pts[i].y*sy);
+      oc.stroke();
+      ctx.save(); ctx.globalAlpha=(s.alpha==null?0.35:s.alpha); ctx.drawImage(off,0,0); ctx.restore();
+    },
+
+    _renderTo:function(ctx, sx, sy){
+      var self=this;
+      var all = this.strokes.concat(this._curr?[this._curr]:[]);
+      // Pass 1: highlights (under)
+      all.forEach(function(s){ if(s.tool==='highlight') self._drawHighlight(ctx,s,sx,sy); });
+      // Pass 2: everything else on top
+      all.forEach(function(s){ if(s.tool!=='highlight') self._drawStroke(ctx,s,sx,sy); });
+    },
+
+    render:function(){
+      if(!this.ctx) return;
+      this.ctx.clearRect(0,0,this.nw,this.nh);
+      this._renderTo(this.ctx, 1, 1);
+    },
+
+    // Composite saved markup onto an arbitrary ctx whose canvas is dw x dh px.
+    compositeOnto:function(ctx, dw, dh){
+      var sx=dw/this.nw, sy=dh/this.nh;
+      this._renderTo(ctx, sx, sy);
+    },
+
+    isDirty:function(){return this.strokes.length>0;},
+    undo:function(){ if(this.strokes.length){ this.redo.push(this.strokes.pop()); this.render(); if(this._onDirty) this._onDirty(); } },
+    redoOp:function(){ if(this.redo.length){ this.strokes.push(this.redo.pop()); this.render(); if(this._onDirty) this._onDirty(); } },
+    clear:function(){ this.strokes=[]; this.redo=[]; this.render(); if(this._onDirty) this._onDirty(); },
+
+    toMk:function(){
+      if(!this.strokes.length) return null;
+      return { w:this.nw, h:this.nh, o: JSON.parse(JSON.stringify(this.strokes)) };
+    }
+  };
+  // Static compositor for thumbnails / display where no live attach exists.
+  E.composite = function(ctx, mk, dw, dh){
+    if(!mk || !Array.isArray(mk.o) || !mk.o.length) return;
+    var tmp = Object.create(E);
+    tmp.strokes = mk.o; tmp._curr = null;
+    tmp._renderTo(ctx, dw/(mk.w||dw), dh/(mk.h||dh));
+  };
+  return E;
+})();
+if(typeof window!=='undefined') window.DieselMarkup = DieselMarkup;
+
+// ── Lightbox markup state (LEGACY — retained defined-but-inert per S137) ──
 let lbTool = 'pen';
 let lbDrawing = false;
 let lbMarkupCtx = null;
@@ -3149,35 +3410,42 @@ function setLbTool(t) {
 }
 function downloadLbPhoto(){
   var img=document.getElementById('lightbox-img');
-  var mk=document.getElementById('lb-markup-canvas');
-  if(!img||!mk) return;
+  if(!img) return;
   var c=document.createElement('canvas');
-  c.width=img.naturalWidth||mk.width; c.height=img.naturalHeight||mk.height;
+  c.width=img.naturalWidth||img.offsetWidth; c.height=img.naturalHeight||img.offsetHeight;
   var cx=c.getContext('2d');
   cx.drawImage(img,0,0,c.width,c.height);
-  cx.drawImage(mk,0,0,c.width,c.height);
+  // Composite live markup (engine strokes) over the original at natural res.
+  if(window.DieselMarkup && DieselMarkup.canvas) DieselMarkup.compositeOnto(cx, c.width, c.height);
   var a=document.createElement('a');
   a.download='markup_'+Date.now()+'.png'; a.href=c.toDataURL('image/png'); a.click();
+}
+
+// S282 B8: style adapter — reads the existing toolbar inputs at stroke time so
+// no toolbar HTML/handlers change. setLbTool still drives `lbTool` + button bg.
+function _lbStyle(){
+  return {
+    tool: lbTool,
+    color: (document.getElementById('lbt-color')||{}).value || '#FF0000',
+    size: parseInt((document.getElementById('lbt-size')||{}).value,10) || 6,
+    alpha: ((parseInt((document.getElementById('lbt-opacity')||{}).value,10)||100)/100),
+    fontSize: parseInt((document.getElementById('lbt-fontsize')||{}).value,10) || 24
+  };
 }
 
 function initLbMarkup() {
   const img = document.getElementById('lightbox-img');
   const canvas = document.getElementById('lb-markup-canvas');
-  if(!canvas || !img) return;
-  // Wait for image to be laid out
-  const setSize = () => {
-    const w = img.offsetWidth, h = img.offsetHeight;
-    if(!w || !h) { requestAnimationFrame(setSize); return; }
-    canvas.width = img.naturalWidth || w;
-    canvas.height = img.naturalHeight || h;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    lbMarkupCtx = canvas.getContext('2d');
-    lbMarkupCtx.clearRect(0,0,canvas.width,canvas.height);
-    lbMarkupUndo = [];
-    initLbEvents(canvas);
+  if(!canvas || !img || !window.DieselMarkup) return;
+  const go = () => {
+    if(!img.offsetWidth || !img.offsetHeight){ requestAnimationFrame(go); return; }
+    const p = lbPhotos[lbIdx];
+    const mk = (p && typeof p==='object') ? p.mk : null;
+    // Attach the vector engine. Existing markup (p.mk) loads as editable strokes;
+    // the original p.d / R2 binary is never modified.
+    DieselMarkup.attach(canvas, img, mk || null, _lbStyle, null);
   };
-  if(img.complete) setSize(); else img.onload = setSize;
+  if(img.complete) go(); else img.onload = go;
 }
 
 let lbEventsInit = false;
@@ -3336,24 +3604,48 @@ function drawArrow(ctx, x1,y1,x2,y2,size) {
 }
 
 function undoLbMarkup() {
-  if(!lbMarkupCtx || !lbMarkupUndo.length) return;
-  const snap = lbMarkupUndo.pop();
-  const c = document.getElementById('lb-markup-canvas');
-  lbMarkupCtx.putImageData(snap,0,0);
+  if(window.DieselMarkup && DieselMarkup.canvas) DieselMarkup.undo();
 }
 
 function clearLbMarkup() {
-  if(!lbMarkupCtx) return;
-  const c = document.getElementById('lb-markup-canvas');
-  lbMarkupUndo.push(lbMarkupCtx.getImageData(0,0,c.width,c.height));
-  lbMarkupCtx.clearRect(0,0,c.width,c.height);
+  if(window.DieselMarkup && DieselMarkup.canvas) DieselMarkup.clear();
 }
 
 function saveLbMarkup() {
+  // S282 B8: NON-DESTRUCTIVE save. Markup is stored as vectors on the photo
+  // (p.mk); the original binary (p.d / R2 original) is NEVER overwritten, so it
+  // stays fully reversible. Replaces the old destructive bake into p.d.
+  if(!window.DieselMarkup || !DieselMarkup.canvas) return;
+  const p = lbPhotos[lbIdx];
+  if(!p || typeof p !== 'object'){ showToast('Cannot save markup on this photo'); return; }
+  const mk = DieselMarkup.toMk();   // null when no strokes
+  if(mk) p.mk = mk; else delete p.mk;
+  // Update the Save (download) link to the composited result for convenience.
+  try {
+    const img = document.getElementById('lightbox-img');
+    const out = document.createElement('canvas');
+    out.width = img.naturalWidth || DieselMarkup.nw;
+    out.height = img.naturalHeight || DieselMarkup.nh;
+    const oc = out.getContext('2d');
+    oc.drawImage(img, 0, 0, out.width, out.height);
+    if(mk) DieselMarkup.compositeOnto(oc, out.width, out.height);
+    document.getElementById('lb-download').href = out.toDataURL('image/jpeg', 0.95);
+  } catch(_){}
+  showToast(mk ? '✓ Markup saved (original preserved)' : '✓ Markup cleared');
+  // Re-render thumbnails so the ✎ badge reflects markup state.
+  if(lbPhotoCtx && typeof lbPhotoCtx.renderer === 'function') lbPhotoCtx.renderer();
+  // Persist: local autosave (collectState carries p.mk) fires on its own timer;
+  // nudge an immediate cloud save in Hub mode so markup isn't lost on a crash.
+  if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
+    try { CloudSync.save(_collectCloudState()); } catch(_){}
+  }
+}
+
+// Legacy destructive bake — retired, kept defined-but-inert (S137).
+function _saveLbMarkup_LEGACY() {
   const img = document.getElementById('lightbox-img');
   const mkCanvas = document.getElementById('lb-markup-canvas');
   if(!img || !mkCanvas) return;
-  // Flatten image + markup onto a new canvas at ORIGINAL resolution
   const out = document.createElement('canvas');
   out.width = img.naturalWidth || mkCanvas.width;
   out.height = img.naturalHeight || mkCanvas.height;
@@ -3494,7 +3786,7 @@ document.getElementById('global-file-input').addEventListener('change', function
     Array.from(files).forEach(function(f){
       if(!f.type.startsWith('image/')) return;
       const r=new FileReader();
-      r.onload=ev=>{ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); };
+      r.onload=ev=>{ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); };
       r.readAsDataURL(f);
     });
     reset(); return;
@@ -3505,7 +3797,7 @@ document.getElementById('global-file-input').addEventListener('change', function
     Array.from(files).forEach(function(f){
       if(!f.type.startsWith('image/')) return;
       const r=new FileReader();
-      r.onload=ev=>{ flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbs(); };
+      r.onload=ev=>{ flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbs(); };
       r.readAsDataURL(f);
     });
     reset(); return;
@@ -3526,7 +3818,7 @@ document.getElementById('global-file-input').addEventListener('change', function
         if(!f.type.startsWith('image/')) return;
         const r=new FileReader();
         r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
-          deficiencies[t.name][t.idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          deficiencies[t.name][t.idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
           renderDeficGroup(t.name);
           if(typeof updateDeficSummary==='function') updateDeficSummary();
         }); };
@@ -3544,7 +3836,7 @@ document.getElementById('global-file-input').addEventListener('change', function
       const r=new FileReader();
       r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
         if(!clState[id]) return; // never auto-vivify; a real item always exists before upload
-        clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+        clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
         var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
         var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
         var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
@@ -3562,11 +3854,11 @@ function handleFiles(id, files, isDefic) {
     r.onload = e => {
       compressImage(e.target.result, 1600, 0.85, function(compressed){
         if(isDefic) {
-          deficiencies[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          deficiencies[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
           renderDeficThumbs(id);
           updateDeficSummary();
         } else {
-          clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
           document.getElementById('pg-'+id).innerHTML = renderThumbs(id);
           document.getElementById('id-'+id).classList.add('open');
           var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
@@ -6265,7 +6557,7 @@ function deficDrop(e, name, idx) {
   e.preventDefault(); e.stopPropagation();
   Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).forEach(f => {
     const r = new FileReader();
-    r.onload = ev => { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
+    r.onload = ev => { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
     r.readAsDataURL(f);
   });
 }
@@ -6389,12 +6681,12 @@ function buildGeneralDeficItem(d, i) {
 }
 
 // General deficiency photo handlers
-function genDeficDrop(e, idx) { e.preventDefault(); Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){ var r=new FileReader(); r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f); }); }
-function genDeficUpload(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){Array.from(inp.files).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});};inp.click(); }
-function genDeficCamera(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();setTimeout(function(){inp.value='';inp.click();},300);});}; r.readAsDataURL(f);};inp.click(); }
-function genDeficRespDrop(e,idx,ci) { e.preventDefault(); if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[]; Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }
-function genDeficRespUpload(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];Array.from(inp.files).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});};inp.click(); }
-function genDeficRespCamera(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);};inp.click(); }
+function genDeficDrop(e, idx) { e.preventDefault(); Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){ var r=new FileReader(); r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f); }); }
+function genDeficUpload(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){Array.from(inp.files).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});};inp.click(); }
+function genDeficCamera(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();setTimeout(function(){inp.value='';inp.click();},300);});}; r.readAsDataURL(f);};inp.click(); }
+function genDeficRespDrop(e,idx,ci) { e.preventDefault(); if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[]; Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }
+function genDeficRespUpload(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];Array.from(inp.files).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});};inp.click(); }
+function genDeficRespCamera(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);};inp.click(); }
 
 // ═══ DEFICIENCY VIEW TOGGLE ═══
 var _deficViewMode = 'contractor';
@@ -8705,7 +8997,7 @@ function handleFlowTestDropPld(e) {
   e.preventDefault();
   Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/')).forEach(f=>{
     const r=new FileReader();
-    r.onload=ev=>{ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); };
+    r.onload=ev=>{ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); };
     r.readAsDataURL(f);
   });
 }
@@ -8740,7 +9032,7 @@ function handleFlowTestDrop(e) {
     if(!f.type.startsWith('image/')) return;
     const r = new FileReader();
     r.onload = ev => {
-      flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+      flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
       renderFlowTestThumbs();
     };
     r.readAsDataURL(f);
@@ -9085,10 +9377,10 @@ function collectState() {
     sigStrokes: (typeof _sigStrokes!=='undefined') ? JSON.parse(JSON.stringify(_sigStrokes)) : {},
     // Photos stored separately to keep main state lean
     batData: {b1:[...batData.b1], b2:[...batData.b2]},
-    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n})),
+    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,mk:p.mk||null})),
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
-    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n})),
-    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''})),
+    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,mk:p.mk||null})),
+    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null})),
     sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
@@ -9105,7 +9397,7 @@ function collectState() {
 function _collectCloudState(){
   var s=collectState();
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
-  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''};});}
+  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
   if(s.deficiencies){Object.keys(s.deficiencies).forEach(function(k){if(Array.isArray(s.deficiencies[k]))s.deficiencies[k].forEach(function(d){
     if(d.photos)d.photos=_stripPhotos(d.photos);
@@ -9117,10 +9409,10 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''};});}
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null};});}
   if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
-  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''};});
+  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
@@ -9245,6 +9537,106 @@ function _r2ReconcilePhotos(){
 }
 // Console handle for device verification + future B9 reporting.
 if(typeof window!=='undefined') window._dieselReconcile = _r2ReconcilePhotos;
+
+// ═══ S282 B9: orphan report / purge / restore (report-first, reversible) ═══
+// Console-driven, Mark-watching by design. _dieselOrphanReport() only inspects.
+// _dieselOrphanPurge() without `true` is a DRY RUN; with `true` it first
+// downloads a JSON backup of everything it is about to remove, then removes,
+// then saves. _dieselOrphanRestore(backupObj) best-effort re-inserts.
+// Orphan = photo record with no usable image anywhere (no local binary AND no
+// cloud URL), or corrupt legacy records ([object Object] names/keys), or junk
+// clState buckets keyed 'null'/'undefined'/''.
+function _dieselOrphanReport(){
+  var rep = {photos:[], clJunkKeys:[], total:0};
+  var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
+  all.forEach(function(a){
+    var p=a.photo||{}, reasons=[];
+    if(!p.d && !p.r2Url) reasons.push('no local binary and no cloud URL');
+    if(!p.d && p.r2Status==='failed') reasons.push('cloud object missing (reconcile-confirmed) and local binary gone');
+    if(((''+(p.n||'')).indexOf('[object')>=0) || ((''+(p.r2Key||'')).indexOf('[object')>=0)) reasons.push('corrupt name/key ([object Object])');
+    if(reasons.length) rep.photos.push({pid:p.id||('pg_'+a.section+'_'+a.idx), label:a.label, section:a.section, idx:a.idx, n:''+(p.n||''), r2Key:p.r2Key||'', r2Status:p.r2Status||'', reasons:reasons.join('; ')});
+  });
+  Object.keys(typeof clState==='undefined'?{}:clState).forEach(function(k){
+    if(k==='null'||k==='undefined'||k===''){ rep.clJunkKeys.push(k); }
+  });
+  rep.total = rep.photos.length + rep.clJunkKeys.length;
+  if(rep.photos.length && console.table) console.table(rep.photos);
+  console.log('[Orphans] dead photo records: '+rep.photos.length+' | junk clState keys: '+JSON.stringify(rep.clJunkKeys));
+  console.log('[Orphans] purge: _dieselOrphanPurge(true)  (dry run without true; backup JSON downloads first; restore: _dieselOrphanRestore(backupObj))');
+  return rep;
+}
+function _dieselOrphanPurge(confirmFlag){
+  var rep = _dieselOrphanReport();
+  if(!rep.total){ console.log('[Orphans] nothing to purge'); return rep; }
+  if(confirmFlag!==true){ console.warn('[Orphans] DRY RUN ONLY — call _dieselOrphanPurge(true) to execute'); return rep; }
+  // 1. Backup everything we are about to remove, and download it.
+  var backup = {ts:new Date().toISOString(), tool:'diesel', photos:[], clState:{}};
+  rep.photos.forEach(function(r){
+    var res = _pgResolveByPid(r.pid);
+    if(res && res.item && res.item.photo) backup.photos.push({section:res.item.section, type:res.item.type, photo:JSON.parse(JSON.stringify(res.item.photo))});
+  });
+  rep.clJunkKeys.forEach(function(k){ backup.clState[k] = JSON.parse(JSON.stringify(clState[k]||null)); });
+  try {
+    var a=document.createElement('a');
+    a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(backup,null,1));
+    a.download='diesel_orphan_backup_'+Date.now()+'.json'; a.click();
+  } catch(e){ console.error('[Orphans] backup download failed — ABORTING purge:', e); return rep; }
+  // 2. Remove photos one at a time, re-resolving after each splice so indices
+  //    stay valid (uses the same per-section remover the gallery delete uses,
+  //    but WITHOUT R2 deletion — these records have no live cloud object).
+  var removed=0;
+  rep.photos.forEach(function(r){
+    var res = _pgResolveByPid(r.pid);
+    if(res && res.item && typeof _pgRemovePhoto==='function'){ try{ _pgRemovePhoto(res.item); removed++; }catch(e){ console.warn('[Orphans] remove failed for', r.pid, e); } }
+  });
+  // 3. Junk clState buckets.
+  rep.clJunkKeys.forEach(function(k){ try{ delete clState[k]; }catch(_){} });
+  // 4. Persist + repaint.
+  if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(_){}
+  if(typeof debounceAutosave==='function') try{ debounceAutosave(); }catch(_){}
+  if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
+    try { CloudSync.save(_collectCloudState()); } catch(_){}
+  }
+  console.log('[Orphans] purged '+removed+' photo records + '+rep.clJunkKeys.length+' clState keys. Backup JSON downloaded — keep it until field-verified.');
+  return {purged:removed, clKeys:rep.clJunkKeys.length, backup:backup};
+}
+function _dieselOrphanRestore(backup){
+  if(!backup || !Array.isArray(backup.photos)){ console.warn('[Orphans] pass the parsed backup JSON object'); return; }
+  var n=0;
+  backup.photos.forEach(function(b){
+    try{
+      var s=b.section||'', p=b.photo; if(!p) return;
+      if(s==='flowtest') flowTestPhotos.push(p);
+      else if(s==='flowtestpld') flowTestPhotosPld.push(p);
+      else if(s.indexOf('cl_')===0){ var id=s.slice(3); if(!clState[id]) clState[id]={photos:[]}; if(!clState[id].photos) clState[id].photos=[]; clState[id].photos.push(p); }
+      else if(s.indexOf('rec_')===0) recordPhotos.push(p);
+      else if(s.indexOf('gauge_std_')===0){ var ri=parseInt(s.slice(10),10); if(stdData[ri]){ if(!stdData[ri].photos) stdData[ri].photos=[]; stdData[ri].photos.push(p); } }
+      else if(s.indexOf('gauge_pld_')===0){ var rj=parseInt(s.slice(10),10); if(pldData[rj]){ if(!pldData[rj].photos) pldData[rj].photos=[]; pldData[rj].photos.push(p); } }
+      else if(s.indexOf('gdef_')===0){ var gi=parseInt(s.slice(5),10); if(generalDeficiencies[gi]){ if(!generalDeficiencies[gi].photos) generalDeficiencies[gi].photos=[]; generalDeficiencies[gi].photos.push(p); } }
+      else if(s.indexOf('def_')===0 || s.indexOf('resp_')===0){
+        // def_<ctr>_<di> / resp_<ctr>_<di>_<ri> — contractor names may contain '_',
+        // so parse from the right.
+        var parts=s.split('_'); var isResp=(parts[0]==='resp');
+        var di=parseInt(isResp?parts[parts.length-2]:parts[parts.length-1],10);
+        var ri2=isResp?parseInt(parts[parts.length-1],10):null;
+        var ctr=parts.slice(1, isResp?parts.length-2:parts.length-1).join('_');
+        var d=(deficiencies[ctr]||[])[di];
+        if(d){ if(isResp){ var rr=(d.responses||[])[ri2]; if(rr){ if(!rr.photos) rr.photos=[]; rr.photos.push(p); } } else { if(!d.photos) d.photos=[]; d.photos.push(p); } }
+      }
+      else return;
+      n++;
+    }catch(e){ console.warn('[Orphans] restore skip:', e); }
+  });
+  Object.keys(backup.clState||{}).forEach(function(k){ clState[k]=backup.clState[k]; });
+  if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(_){}
+  if(typeof debounceAutosave==='function') try{ debounceAutosave(); }catch(_){}
+  console.log('[Orphans] restored '+n+' photo records (appended at end of their sections).');
+}
+if(typeof window!=='undefined'){
+  window._dieselOrphanReport = _dieselOrphanReport;
+  window._dieselOrphanPurge = _dieselOrphanPurge;
+  window._dieselOrphanRestore = _dieselOrphanRestore;
+}
 
 function _r2ReuploadAll(){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined'){ showToast('Must be in Hub mode', 2000); return; }
@@ -10027,6 +10419,12 @@ function _mergeCloudLocal(cloud, local){
   // For pump tools: cloud is authoritative for all fields except photo blobs
   // Preserve local photo data URLs that cloud may have stripped
   if(cloud && local){
+    // S282 B8: markup vectors (p.mk) are STRUCTURE — cloud is authoritative.
+    // But cloud rows saved BEFORE this build lack the 'mk' key entirely; for
+    // those, preserve local markup so a legacy cloud apply can't wipe it. Once
+    // cloud carries the key (incl. null from a cross-device revert), cloud wins.
+    // 'in' test (not truthy) so an explicit cloud null correctly clears markup.
+    function _preserveMk(cp, lp){ if(cp && lp && !('mk' in cp) && lp.mk) cp.mk = lp.mk; }
     // Preserve flow test photos
     if(local.flowTestPhotos && cloud.flowTestPhotos){
       cloud.flowTestPhotos.forEach(function(cp,i){
@@ -10034,6 +10432,7 @@ function _mergeCloudLocal(cloud, local){
         if(lp && !cp.d && lp.d) cp.d = lp.d;
         if(lp && !cp.r2Url && lp.r2Url) cp.r2Url = lp.r2Url;
         if(lp && !cp.r2Key && lp.r2Key) cp.r2Key = lp.r2Key;
+        _preserveMk(cp, lp);
       });
     }
     // Preserve site record photos (match by id, fall back to index)
@@ -10042,6 +10441,7 @@ function _mergeCloudLocal(cloud, local){
         var lp = (cp.id && local.recordPhotos.filter(function(x){return x.id===cp.id;})[0]) || local.recordPhotos[i];
         if(lp && !cp.d && lp.d) cp.d = lp.d;
         if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
+        _preserveMk(cp, lp);
       });
     }
     // Preserve deficiency photos
@@ -10055,6 +10455,7 @@ function _mergeCloudLocal(cloud, local){
             var lp = (ld.photos||[])[pi];
             if(lp && !cp.d && lp.d) cp.d = lp.d;
             if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
+            _preserveMk(cp, lp);
           });
           // Preserve response photos
           (cd.responses||[]).forEach(function(cr,ri){
@@ -10064,6 +10465,7 @@ function _mergeCloudLocal(cloud, local){
               var lp = (lr.photos||[])[pi];
               if(lp && !cp.d && lp.d) cp.d = lp.d;
               if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
+              _preserveMk(cp, lp);
             });
           });
         });
@@ -10082,6 +10484,7 @@ function _mergeCloudLocal(cloud, local){
           var lp=(lc.photos||[])[pi];
           if(lp && !cp.d && lp.d) cp.d = lp.d;
           if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
+          _preserveMk(cp, lp);
         });
       });
     }
@@ -10119,6 +10522,7 @@ function _mergeCloudLocal(cloud, local){
           if(!cp.d && lp.d) cp.d = lp.d;
           if(!cp.r2Url && lp.r2Url){ cp.r2Url = lp.r2Url; cp.r2Key = lp.r2Key; }
           if(!cp.tag && lp.tag) cp.tag = lp.tag;
+          _preserveMk(cp, lp);
         });
       });
     }
@@ -10567,6 +10971,24 @@ function _pgPhotoTime(p){
 function _pgSetFilter(mode){ _pgFilter=mode; _pgFilterOpen=false; _renderPhotoGallery(); }
 function _pgToggleFilterMenu(){ _pgFilterOpen=!_pgFilterOpen; _renderPhotoGallery(); }
 
+// S282 B7: single source of truth for gallery grouping, shared by the renderer,
+// the per-group select-all checkbox, and shift-click range selection so the
+// three can never disagree about layout order. In the "All photos" view, Site
+// Records get their own pinned section at the top (ts 9e15 sorts first); when
+// the Records filter itself is active they fall back to normal date grouping.
+function _pgGroupView(view){
+  var groups={};
+  view.forEach(function(a){
+    var key,label,ts;
+    if(_pgFilter==='all' && a.cat==='records'){ key='__records'; label='Site Records'; ts=9e15; }
+    else { var g=_pgDayKey(a.photo); key=g.key; label=g.label; ts=g.ts; }
+    if(!groups[key]) groups[key]={key:key,label:label,ts:ts,items:[]};
+    groups[key].items.push(a);
+  });
+  return Object.keys(groups).map(function(k){return groups[k];})
+    .sort(function(x,y){ return y.ts - x.ts; });
+}
+
 // ── Site Records capture (pump / placard / site) ──
 var _REC_KINDS = [
   ['pump','Pump Photo','📷','Photo of the fire pump unit'],
@@ -10753,17 +11175,11 @@ function _renderPhotoGallery(){
     return;
   }
 
-  // ── group by date (newest first) ──
-  var groups = {};
-  view.forEach(function(a){
-    var g=_pgDayKey(a.photo);
-    if(!groups[g.key]) groups[g.key]={label:g.label, ts:g.ts, items:[]};
-    groups[g.key].items.push(a);
-  });
-  var keys = Object.keys(groups).sort(function(x,y){ return groups[y].ts - groups[x].ts; });
+  // ── group via shared grouping (S282 B7: Site Records pinned section + date groups) ──
+  var grouped = _pgGroupView(view);
 
-  keys.forEach(function(k){
-    var g=groups[k];
+  grouped.forEach(function(g){
+    var k = g.key;
     // S270: per-date "folder" select box — selects/deselects every photo in this day group.
     // Compute checked/indeterminate from how many of this group's photos are currently selected.
     var grpIds = g.items.map(function(it){ var p=it.photo; return p.id||('pg_'+it.section+'_'+it.idx); });
@@ -10779,18 +11195,17 @@ function _renderPhotoGallery(){
       var p=item.photo;
       var pid=p.id||('pg_'+item.section+'_'+item.idx);
       var sel=_pgSelected.has(pid)?' selected':'';
-      var gidx = all.indexOf(item); // stable index into full list for lightbox
       var badgeCls='ph-badge-'+(item.cat||'checklist');
       var badgeStyle = (p && p.tag && typeof _gaugeReadingColor==='function') ? (' style="background:'+_gaugeReadingColor(p.tag)+'"') : '';
       html += '<div class="ph-card'+sel+'" data-pg-id="'+pid+'">';
       html += '<input type="checkbox" class="ph-check"'+(sel?' checked':'')+' onclick="event.stopPropagation();_pgToggleSelect(event,\''+pid+'\')">';
       html += '<span class="ph-badges"><span class="ph-badge '+badgeCls+'"'+badgeStyle+'>'+(item.badge||'?')+'</span></span>';
-      if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox('+gidx+')" onerror="this.onerror=null;this.parentNode&&this.parentNode.insertBefore(Object.assign(document.createElement(\'div\'),{className:\'ph-noimg\',textContent:\'\uD83D\uDCF7\'}),this);this.remove();">'; }
+      if(item.src){ html += '<img src="'+item.src+'" loading="lazy" onclick="_pgOpenLightbox(\''+_pgJsq(pid)+'\')" onerror="this.onerror=null;this.parentNode&&this.parentNode.insertBefore(Object.assign(document.createElement(\'div\'),{className:\'ph-noimg\',textContent:\'\uD83D\uDCF7\'}),this);this.remove();">'; }
       else { html += '<div class="ph-noimg">\uD83D\uDCF7</div>'; }
       // (time badge removed — FRT gallery thumbnails carry no timestamp)
       html += _pgCloudIcon(p);
-      html += '<button class="ph-dl-btn" onclick="event.stopPropagation();_pgDownloadOne('+gidx+')" title="Download">\u2193</button>';
-      html += '<button class="ph-del-btn" onclick="event.stopPropagation();_pgDeleteOne('+gidx+')" title="Delete">\u2715</button>';
+      html += '<button class="ph-dl-btn" onclick="event.stopPropagation();_pgDownloadOne(\''+_pgJsq(pid)+'\')" title="Download">\u2193</button>';
+      html += '<button class="ph-del-btn" onclick="event.stopPropagation();_pgDeleteOne(\''+_pgJsq(pid)+'\')" title="Delete">\u2715</button>';
       html += '</div>';
     });
     html += '</div>';
@@ -10798,11 +11213,10 @@ function _renderPhotoGallery(){
 
   container.innerHTML = html;
   // set indeterminate state on any partially-selected date checkboxes (can't be done via HTML attr)
-  keys.forEach(function(k){
-    var g=groups[k];
+  grouped.forEach(function(g){
     var grpIds = g.items.map(function(it){ var p=it.photo; return p.id||('pg_'+it.section+'_'+it.idx); });
     var c = grpIds.filter(function(id){ return _pgSelected.has(id); }).length;
-    var cb = document.getElementById('phdc-'+k);
+    var cb = document.getElementById('phdc-'+g.key);
     if(cb) cb.indeterminate = (c>0 && c<grpIds.length);
   });
 }
@@ -10810,8 +11224,8 @@ function _renderPhotoGallery(){
 // clicking clears them; otherwise it selects them all.
 function _pgToggleDate(k){
   var view = _pgFilter==='all' ? _collectAllPhotos() : _collectAllPhotos().filter(function(a){ return a.cat===_pgFilter; });
-  var grpIds = view.filter(function(a){ return _pgDayKey(a.photo).key===k; })
-                   .map(function(it){ var p=it.photo; return p.id||('pg_'+it.section+'_'+it.idx); });
+  var grp = _pgGroupView(view).filter(function(g){ return g.key===k; })[0];
+  var grpIds = grp ? grp.items.map(function(it){ var p=it.photo; return p.id||('pg_'+it.section+'_'+it.idx); }) : [];
   var allSel = grpIds.length>0 && grpIds.every(function(id){ return _pgSelected.has(id); });
   grpIds.forEach(function(id){ if(allSel) _pgSelected.delete(id); else _pgSelected.add(id); });
   _renderPhotoGallery();
@@ -10822,11 +11236,8 @@ function _pgToggleDate(k){
 // the contiguous run between them — like Google Photos.
 function _pgOrderedIds(){
   var view = _pgFilter==='all' ? _collectAllPhotos() : _collectAllPhotos().filter(function(a){ return a.cat===_pgFilter; });
-  var groups = {};
-  view.forEach(function(a){ var g=_pgDayKey(a.photo); if(!groups[g.key]) groups[g.key]={ts:g.ts,items:[]}; groups[g.key].items.push(a); });
-  var keys = Object.keys(groups).sort(function(x,y){ return groups[y].ts - groups[x].ts; });
   var ids=[];
-  keys.forEach(function(k){ groups[k].items.forEach(function(it){ var p=it.photo; ids.push(p.id||('pg_'+it.section+'_'+it.idx)); }); });
+  _pgGroupView(view).forEach(function(g){ g.items.forEach(function(it){ var p=it.photo; ids.push(p.id||('pg_'+it.section+'_'+it.idx)); }); });
   return ids;
 }
 var _pgAnchorPid = null; // last single-clicked photo, the anchor for a shift-range
@@ -10869,10 +11280,34 @@ function _pgDeselectAll(){
 }
 
 // ── Gallery lightbox ──
-function _pgOpenLightbox(idx){
+// S282 B3: cards used to bake a numeric index into onclick at RENDER time, but
+// the photo list was rebuilt at CLICK time — any background cloud merge between
+// render and tap shifted the list and the index opened (or DELETED) the wrong
+// photo. All card actions now pass the photo's identity (id, or the synthetic
+// section+idx pid for legacy id-less photos) and resolve it against the live
+// collection at action time. Numeric refs still accepted for back-compat.
+function _pgJsq(s){ return (''+s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function _pgResolveByPid(pid){
   var all = _collectAllPhotos();
-  var photos = all.map(function(a){ return a.photo; });
-  openLightbox(photos, idx, {renderer: _renderPhotoGallery});
+  for(var i=0;i<all.length;i++){
+    var it = all[i];
+    var ipid = (it.photo && it.photo.id) || ('pg_'+it.section+'_'+it.idx);
+    if(ipid===pid) return {item:it, idx:i, all:all};
+  }
+  return null;
+}
+function _pgResolveRef(ref){
+  if(typeof ref==='number'){
+    var all=_collectAllPhotos();
+    return all[ref] ? {item:all[ref], idx:ref, all:all} : null;
+  }
+  return _pgResolveByPid(ref);
+}
+function _pgOpenLightbox(ref){
+  var r = _pgResolveRef(ref);
+  if(!r){ showToast('Photo not found — it may have just been moved or deleted'); return; }
+  var photos = r.all.map(function(a){ return a.photo; });
+  openLightbox(photos, r.idx, {renderer: _renderPhotoGallery});
 }
 
 // ── Bulk download with JSZip ──
@@ -10882,10 +11317,10 @@ function _pgDownloadSelected(){
   if(!selected.length){ showToast('No photos selected'); return; }
   _pgBulkDownload(selected);
 }
-function _pgDownloadOne(idx){
-  var all = _collectAllPhotos();
-  if(!all[idx]) return;
-  _pgBulkDownload([all[idx]]);
+function _pgDownloadOne(ref){
+  var r = _pgResolveRef(ref);
+  if(!r){ showToast('Photo not found'); return; }
+  _pgBulkDownload([r.item]);
 }
 async function _pgBulkDownload(items){
   if(items.length === 1){
@@ -10965,12 +11400,15 @@ function _pgDeleteSelected(){
     showToast('Deleted '+selected.length+' photos');
   }, 'Delete');
 }
-function _pgDeleteOne(idx){
-  var all = _collectAllPhotos();
-  if(!all[idx]) return;
+function _pgDeleteOne(ref){
+  // S282 B3: resolve by identity at click time — a stale render-time index here
+  // could hand deletePhotoEverywhere the WRONG photo (its id-recheck would then
+  // "correctly" delete the wrong one).
+  var r = _pgResolveRef(ref);
+  if(!r){ showToast('Photo not found'); return; }
   // S264: route through the single authoritative delete (confirm + both-surface
   // re-render + R2 cleanup + save). It re-renders the gallery itself.
-  deletePhotoEverywhere(all[idx]);
+  deletePhotoEverywhere(r.item);
 }
 function _pgRemovePhoto(item){
   if(item.type==='flowtest'){
