@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S287 (lightbox photo painted via canvas stage — zero CSS transforms; routes around machine-level Chrome compositor fault that painted transformed images blank white; pan/zoom/rotate redrawn with drawImage) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S288 (FRT visual parity: lightbox backdrop rgba(0,0,0,.95) exact match; ARENCON favicon arencon-icon-192.png replaces inline letter-A placeholder) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -7,7 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%239C2742'/%3E%3Ctext x='16' y='22' font-family='Calibri,sans-serif' font-size='16' font-weight='700' fill='%23fff' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" sizes="192x192" href="arencon-icon-192.png">
+<link rel="apple-touch-icon" href="arencon-icon-192.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ARENCON FP">
 <meta name="theme-color" content="#9C2742">
@@ -3427,7 +3428,7 @@ var DslLightbox = (function(){
     if(_built) return;
     var ov=document.createElement('div');
     ov.id='dlb-overlay';
-    ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(8,8,12,.96);z-index:10000;flex-direction:column;font-family:Calibri,sans-serif;';
+    ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:10000;flex-direction:column;font-family:Calibri,sans-serif;'; // S288: exact FRT .lightbox-overlay backdrop
     ov.innerHTML =
       '<div id="dlb-area" style="flex:1;position:relative;overflow:hidden;touch-action:none;cursor:grab;">'
       // S287: the photo is PAINTED ONTO A CANVAS, not displayed via a
