@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S293 (dead-code cleanup, Mark-directed: legacy #photo-lightbox DOM + showLbPhoto/initLbMarkup/initLbEvents/saveLbMarkup chain, caption wrapper, zoom wrapper, _ndSaveLbMarkup, and the orphaned S220 MarkupEngine IIFE removed outright; openLightbox/closeLightbox are pure DslLightbox delegates) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S294 (gallery: date-only grouping, pinned Site Records section removed; dropzone consolidated to single Import from Camera Roll button) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2611,7 +2611,7 @@ function updatePhaseFlags(){
             <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;">Select multiple at once</div>
             <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
               <button class="pz-upload" onclick="_recUpload('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid var(--border);background:var(--smoke);color:var(--steel);">📥 Import from Camera Roll</button>
-              <button class="pz-camera" onclick="_recCamera('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #2C4770;background:#2C4770;color:white;">📷 Camera</button>
+              <!-- S294 (Mark): Camera button removed — the native picker behind Import already offers Take Photo on mobile; one button only. -->
             </div>
           </div>
         </div>
@@ -11363,15 +11363,13 @@ function _pgToggleFilterMenu(){ _pgFilterOpen=!_pgFilterOpen; _renderPhotoGaller
 
 // S282 B7: single source of truth for gallery grouping, shared by the renderer,
 // the per-group select-all checkbox, and shift-click range selection so the
-// three can never disagree about layout order. In the "All photos" view, Site
-// Records get their own pinned section at the top (ts 9e15 sorts first); when
-// the Records filter itself is active they fall back to normal date grouping.
+// three can never disagree about layout order. S294 (Mark): date grouping ONLY —
+// the pinned Site Records section is gone; record photos (incl. "(original)"
+// markup backups) land in the same date folder as everything else from that day.
 function _pgGroupView(view){
   var groups={};
   view.forEach(function(a){
-    var key,label,ts;
-    if(_pgFilter==='all' && a.cat==='records'){ key='__records'; label='Site Records'; ts=9e15; }
-    else { var g=_pgDayKey(a.photo); key=g.key; label=g.label; ts=g.ts; }
+    var g=_pgDayKey(a.photo); var key=g.key, label=g.label, ts=g.ts;
     if(!groups[key]) groups[key]={key:key,label:label,ts:ts,items:[]};
     groups[key].items.push(a);
   });
