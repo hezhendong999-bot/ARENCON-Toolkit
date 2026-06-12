@@ -1684,7 +1684,7 @@ function _aConfirm(msg,onOk,okText){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
   h+='</div></div>';
   ov.innerHTML=h;
-  /* backdrop close disabled (accidental dismiss) */
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
   ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
   document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
@@ -1702,7 +1702,7 @@ function _aPrompt(msg,defVal,onOk){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;var inp=ov.querySelector('._ap-input');
-  /* backdrop close disabled (accidental dismiss) */
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
   ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;ov.remove();if(onOk)onOk(v);};
   inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')ov.remove();});
@@ -1719,7 +1719,7 @@ function _aAlert(msg){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;
-  /* backdrop close disabled (accidental dismiss) */
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.querySelector('._ac-ok').onclick=function(){ov.remove();};
   document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
 }
@@ -3128,7 +3128,8 @@ var DieselMarkup = (function(){
     strokes:[], redo:[],
     // S296: op-log undo/redo (add/del/mod/clear all undoable, LIFO-exact) + selection state
     ops:[], redoOps:[],
-    selection:null, _selMode:null, _selStart:null, _selOrig:null, _selCenter:null, _selHandles:null,
+    selection:null, _selMode:null, _selStart:null, _selOrig:null, _selCenter:null, _selHandles:null,   // S296 single-select — INERT since S314
+    selIds:[], _dragState:null, _rubberBand:null, _selDrag:false,   // S314 group selection (FRT port)
     _drawing:false, _curr:null,
     _styleFn:null, _onDirty:null, _bound:null,
 
@@ -3145,6 +3146,7 @@ var DieselMarkup = (function(){
       this.ctx = canvasEl.getContext('2d');
       this.strokes = []; this.redo = [];
       this.ops = []; this.redoOps = []; this.selection = null; this._selMode = null; this._selHandles = null;
+      this.selIds = []; this._dragState = null; this._rubberBand = null; this._selDrag = false;   // S314
       // Load existing markup (rescale if it was authored at a different natural size)
       if(existingMk && Array.isArray(existingMk.o)){
         var sx = (existingMk.w ? this.nw/existingMk.w : 1);
@@ -3157,6 +3159,7 @@ var DieselMarkup = (function(){
           return c;
         });
       }
+      this._ensureIds();   // S314: legacy saved strokes get ids lazily
       this._bind();
       this.render();
     },
@@ -3172,6 +3175,7 @@ var DieselMarkup = (function(){
       this._bound=null; this.canvas=null; this.ctx=null; this.img=null;
       this.strokes=[]; this.redo=[]; this._drawing=false; this._curr=null;
       this.ops=[]; this.redoOps=[]; this.selection=null; this._selMode=null; this._selHandles=null;
+      this.selIds=[]; this._dragState=null; this._rubberBand=null; this._selDrag=false;   // S314
     },
 
     _pt:function(ev){
@@ -3189,20 +3193,20 @@ var DieselMarkup = (function(){
         ev.preventDefault();
         var st=self._styleFn(); var p=self._pt(ev);
         if(!st.tool) return;   // S295: no active tool (ESC-deactivated) — clicks draw nothing
-        if(st.tool==='select'){ self._drawing=true; self._selDown(p); return; }   // S296
-        if(self.selection!=null) self.deselect();   // S296: drawing with any other tool drops the selection
+        if(st.tool==='select'){ self._drawing=true; self._selDrag=true; self._selDown(p, ev); return; }   // S314 group select
+        if(self.hasSel()) self.deselect();   // S314: drawing with any other tool drops the selection
         if(st.tool==='text'){ self._promptText(p, st); return; }
         if(st.tool==='erase'){ self._drawing=true; self._eraseAt(p); return; }
         self._drawing=true; self.redo=[];
-        self._curr={tool:st.tool, color:st.color, size:st.size, alpha:st.alpha,
-                    pts: self._isShape(st.tool) ? [p,{x:p.x,y:p.y}] : [p]};
+        self._curr={id:self._uid(), tool:st.tool, color:st.color, size:st.size, alpha:st.alpha,
+                    pts: self._isShape(st.tool) ? [p,{x:p.x,y:p.y}] : [p]};   // S314: id at creation
       }
       function move(ev){
         if(!self._drawing) return;
         ev.preventDefault();
         var p=self._pt(ev);
         var st=self._styleFn();
-        if(st.tool==='select'){ if(self._selMode){ self._selApply(p); self.render(); } return; }   // S296
+        if(st.tool==='select'){ self._selMove(p); return; }   // S314: group move/resize/rotate/rubber-band
         if(st.tool==='erase'){ self._eraseAt(p); return; }
         if(!self._curr) return;
         if(self._isShape(self._curr.tool)){ self._curr.pts[1]=p; self.render(); return; }
@@ -3213,7 +3217,7 @@ var DieselMarkup = (function(){
       function up(){
         if(!self._drawing) return;
         self._drawing=false;
-        if(self._selMode){ self._selUp(); return; }   // S296: finalize move/scale/rotate (op-logged)
+        if(self._selDrag){ self._selDrag=false; self._selUp(); return; }   // S314: finalize group op (op-logged)
         if(self._curr){
           var ok;
           if(self._isShape(self._curr.tool)){
@@ -3254,94 +3258,225 @@ var DieselMarkup = (function(){
     _rotPt:function(q,c,a){ var dx=q.x-c.x, dy=q.y-c.y, ca=Math.cos(a), sa=Math.sin(a);
       return {x:c.x+dx*ca-dy*sa, y:c.y+dx*sa+dy*ca}; },
 
-    // ── S296: selection API ──
-    deselect:function(){ this.selection=null; this._selMode=null; this._selHandles=null; if(this.ctx) this.render(); },
+    // ── S314: GROUP selection API (FRT markupEngine port — multi-select, rubber-band,
+    //          delete handle, group move/resize/rotate, per-object style via applySel).
+    //          Diesel op-log undo + s.rot render model RETAINED; FRT group semantics adopted. ──
+    _uid:function(){ return 'mk'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); },
+    _ensureIds:function(){ var self=this; this.strokes.forEach(function(s){ if(!s.id) s.id=self._uid(); }); },
+    _findStroke:function(id){ for(var i=0;i<this.strokes.length;i++){ if(this.strokes[i].id===id) return this.strokes[i]; } return null; },
+    _snapSel:function(){ var self=this; return this.selIds.map(function(id){ return JSON.stringify(self._findStroke(id)); }); },
+    // Visual AABB of one stroke (rotation-aware: rotate bbox corners by s.rot about stroke center)
+    _strokeAABB:function(s){
+      var b=this._strokeBBox(s); if(!s.rot) return b;
+      var c={x:(b.x1+b.x2)/2,y:(b.y1+b.y2)/2}, self=this;
+      var x1=1e15,y1=1e15,x2=-1e15,y2=-1e15;
+      [{x:b.x1,y:b.y1},{x:b.x2,y:b.y1},{x:b.x2,y:b.y2},{x:b.x1,y:b.y2}].forEach(function(q){
+        var r=self._rotPt(q,c,s.rot);
+        if(r.x<x1)x1=r.x; if(r.y<y1)y1=r.y; if(r.x>x2)x2=r.x; if(r.y>y2)y2=r.y; });
+      return {x1:x1,y1:y1,x2:x2,y2:y2};
+    },
+    _groupBounds:function(){
+      var x1=1e15,y1=1e15,x2=-1e15,y2=-1e15, self=this, any=false;
+      this.selIds.forEach(function(id){
+        var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s); any=true;
+        if(b.x1<x1)x1=b.x1; if(b.y1<y1)y1=b.y1; if(b.x2>x2)x2=b.x2; if(b.y2>y2)y2=b.y2; });
+      if(!any) return null;
+      return {x1:x1,y1:y1,x2:x2,y2:y2};
+    },
+    // Shared geometry for handles — ONE source for both hit-test and chrome draw (always aligned)
+    _selGeom:function(){
+      var b=this._groupBounds(); if(!b||!this.canvas) return null;
+      var rect=this.canvas.getBoundingClientRect();
+      var k=this.nw/Math.max(1,rect.width);                 // natural px per screen px
+      var pad=8*k, hs=11*k;
+      var bx1=b.x1-pad, by1=b.y1-pad, bx2=b.x2+pad, by2=b.y2+pad;
+      return { k:k, pad:pad, hs:hs, b:{x1:bx1,y1:by1,x2:bx2,y2:by2},
+        corners:[{x:bx1,y:by1},{x:bx2,y:by1},{x:bx2,y:by2},{x:bx1,y:by2}],
+        rot:{x:(bx1+bx2)/2, y:by1-24*k, r:9*k},
+        del:{x:bx2+14*k, y:by1-14*k, r:9*k} };
+    },
+    hasSel:function(){ return !!(this.selIds&&this.selIds.length); },
+    deselect:function(){ this.selIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); },
     deleteSelected:function(){
-      if(this.selection==null) return;
-      var idx=this.selection, removed=this.strokes.splice(idx,1)[0];
-      this._pushOp({t:'del', idx:idx, stroke:removed});
-      this.selection=null; this._selMode=null; this._selHandles=null;
+      if(!this.hasSel()) return;
+      var sel=this.selIds, items=[];
+      for(var i=this.strokes.length-1;i>=0;i--){
+        if(sel.indexOf(this.strokes[i].id)!==-1) items.unshift({idx:i, stroke:this.strokes.splice(i,1)[0]});
+      }
+      this._pushOp({t:'gdel', items:items});
+      this.selIds=[]; this._dragState=null; this._rubberBand=null;
       if(this._onDirty) this._onDirty(); this.render();
     },
-    _selDown:function(p){
-      var rect=this.canvas.getBoundingClientRect();
-      var hr=14*(this.nw/Math.max(1,rect.width));   // handle hit radius, screen-constant
-      var mode=null, self=this;
-      function d(a,b){ var dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy); }
-      if(this.selection!=null && this._selHandles){
-        var H=this._selHandles;
-        if(d(p,H.rot)<=hr) mode='rotate';
-        else { for(var k=0;k<H.corners.length;k++){ if(d(p,H.corners[k])<=hr){ mode='scale'; break; } } }
-        if(!mode){
-          var lp=this._rotPt(p,{x:H.center.x,y:H.center.y},-(H.rotv||0)), B=H.bbox;
-          if(lp.x>=B.x1-hr/2&&lp.x<=B.x2+hr/2&&lp.y>=B.y1-hr/2&&lp.y<=B.y2+hr/2) mode='move';
-        }
+    // Apply a style field to the current selection. log=false → live preview (slider input);
+    // commitSel(snap) pushes one gmod for the whole gesture. Swatch clicks pass log=true.
+    applySel:function(field, val, log){
+      if(!this.hasSel()) return false;
+      var self=this, ids=this.selIds.slice();
+      var before=log?this._snapSel():null;
+      ids.forEach(function(id){ var s=self._findStroke(id); if(!s) return;
+        s[field]=(typeof val==='function')?val(s):val; });
+      if(log){
+        var after=this._snapSel();
+        if(after.join('\u0001')!==before.join('\u0001')) this._pushOp({t:'gmod', ids:ids, before:before, after:after});
       }
-      if(!mode){
-        // hit-test topmost stroke (bbox containment, glove-friendly)
-        var found=null;
-        for(var i=this.strokes.length-1;i>=0;i--){
-          var s=this.strokes[i], c=this._strokeCenter(s);
-          var lq=this._rotPt(p,c,-(s.rot||0)), B2=this._strokeBBox(s);
-          if(lq.x>=B2.x1-hr/2&&lq.x<=B2.x2+hr/2&&lq.y>=B2.y1-hr/2&&lq.y<=B2.y2+hr/2){ found=i; break; }
-        }
-        this.selection=found;
-        if(found!=null) mode='move';
-      }
-      if(mode && this.selection!=null){
-        this._selMode=mode; this._selStart=p;
-        this._selOrig=JSON.stringify(this.strokes[this.selection]);
-        this._selCenter=this._strokeCenter(this.strokes[this.selection]);
-      } else { this._selMode=null; }
-      this.render();
+      if(this._onDirty) this._onDirty(); this.render(); return true;
     },
-    _selApply:function(p){
-      if(this.selection==null||!this._selMode) return;
-      var s=this.strokes[this.selection], o=JSON.parse(this._selOrig), c=this._selCenter, st=this._selStart;
-      if(this._selMode==='move'){
-        var dx=p.x-st.x, dy=p.y-st.y;
-        s.pts=o.pts.map(function(q){return {x:q.x+dx,y:q.y+dy};});
-      } else if(this._selMode==='scale'){
-        function d(a,b){ var ax=a.x-b.x, ay=a.y-b.y; return Math.sqrt(ax*ax+ay*ay); }
-        var f=d(p,c)/Math.max(1,d(st,c)); f=Math.max(0.1,Math.min(10,f));
-        s.pts=o.pts.map(function(q){return {x:c.x+(q.x-c.x)*f, y:c.y+(q.y-c.y)*f};});
-        if(o.size) s.size=o.size*f;
-        if(o.fontSize) s.fontSize=o.fontSize*f;
-      } else if(this._selMode==='rotate'){
-        s.rot=(o.rot||0)+Math.atan2(p.y-c.y,p.x-c.x)-Math.atan2(st.y-c.y,st.x-c.x);
+    snapSel:function(){ return this.hasSel()?{ids:this.selIds.slice(), before:this._snapSel()}:null; },
+    commitSel:function(snap){
+      if(!snap||!snap.ids||!snap.ids.length) return;
+      var self=this;
+      var after=snap.ids.map(function(id){ return JSON.stringify(self._findStroke(id)); });
+      if(after.join('\u0001')!==snap.before.join('\u0001')) this._pushOp({t:'gmod', ids:snap.ids, before:snap.before, after:after});
+    },
+    _hitStrokeSel:function(p){
+      var rect=this.canvas.getBoundingClientRect();
+      var hr=14*(this.nw/Math.max(1,rect.width));          // glove-friendly, screen-constant
+      for(var i=this.strokes.length-1;i>=0;i--){
+        var b=this._strokeAABB(this.strokes[i]);
+        if(p.x>=b.x1-hr/2&&p.x<=b.x2+hr/2&&p.y>=b.y1-hr/2&&p.y<=b.y2+hr/2) return this.strokes[i];
+      }
+      return null;
+    },
+    _selDown:function(p, ev){
+      var g=this.hasSel()?this._selGeom():null;
+      function d(a,bx,by){ var dx=a.x-bx, dy=a.y-by; return Math.sqrt(dx*dx+dy*dy); }
+      if(g){
+        // delete handle (✕)
+        if(d(p,g.del.x,g.del.y)<=g.del.r+5*g.k){ this.deleteSelected(); return; }
+        // corner scale handles — anchor is the OPPOSITE corner (FRT model)
+        for(var ci=0;ci<4;ci++){
+          if(Math.abs(p.x-g.corners[ci].x)<=g.hs&&Math.abs(p.y-g.corners[ci].y)<=g.hs){
+            var anchors=[[g.b.x2,g.b.y2],[g.b.x1,g.b.y2],[g.b.x2,g.b.y1],[g.b.x1,g.b.y1]];
+            this._dragState={type:'resize', anchorX:anchors[ci][0], anchorY:anchors[ci][1],
+              origBounds:{x1:g.b.x1,y1:g.b.y1,x2:g.b.x2,y2:g.b.y2}, orig:this._snapSel()};
+            return;
+          }
+        }
+        // rotate handle
+        if(d(p,g.rot.x,g.rot.y)<=g.rot.r+5*g.k){
+          var cx=(g.b.x1+g.b.x2)/2, cy=(g.b.y1+g.b.y2)/2;
+          this._dragState={type:'rotate', centerX:cx, centerY:cy,
+            startAngle:Math.atan2(p.y-cy,p.x-cx), orig:this._snapSel()};
+          return;
+        }
+      }
+      var hit=this._hitStrokeSel(p);
+      var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
+      // Press inside a multi-selection's bounds (even empty space between strokes)
+      // starts a group move, not a rubber-band (FRT lesson).
+      if(!multi && this.selIds.length>1 && g){
+        if(p.x>=g.b.x1&&p.x<=g.b.x2&&p.y>=g.b.y1&&p.y<=g.b.y2){
+          this._dragState={type:'move', startX:p.x, startY:p.y, moved:false, orig:this._snapSel()};
+          return;
+        }
+      }
+      if(hit){
+        if(multi){
+          var ix=this.selIds.indexOf(hit.id);
+          if(ix!==-1) this.selIds.splice(ix,1); else this.selIds.push(hit.id);
+          this._dragState=null; this.render(); return;
+        }
+        if(this.selIds.indexOf(hit.id)===-1) this.selIds=[hit.id];
+        this._dragState={type:'move', startX:p.x, startY:p.y, moved:false, orig:this._snapSel()};
+        this.render();
+      } else {
+        this.selIds=[]; this._rubberBand={x1:p.x,y1:p.y,x2:p.x,y2:p.y};
+        this._dragState={type:'rubberband'}; this.render();
+      }
+    },
+    _selMove:function(p){
+      var ds=this._dragState; if(!ds) return; var self=this;
+      if(ds.type==='rubberband'){ this._rubberBand.x2=p.x; this._rubberBand.y2=p.y; this.render(); return; }
+      if(ds.type==='move'){
+        var dx=p.x-ds.startX, dy=p.y-ds.startY;
+        if(Math.abs(dx)<2&&Math.abs(dy)<2&&!ds.moved) return;
+        ds.moved=true;
+        for(var i=0;i<this.selIds.length;i++){
+          var s=this._findStroke(this.selIds[i]); if(!s) continue;
+          var o=JSON.parse(ds.orig[i]);
+          s.pts=o.pts.map(function(q){return {x:q.x+dx, y:q.y+dy};});
+        }
+        this.render(); return;
+      }
+      if(ds.type==='resize'){
+        var ob=ds.origBounds, ax=ds.anchorX, ay=ds.anchorY, ow=ob.x2-ob.x1, oh=ob.y2-ob.y1;
+        if(ow<1||oh<1) return;
+        var fx=Math.abs(p.x-ax)/ow, fy=Math.abs(p.y-ay)/oh, f=Math.max(0.1,Math.min(10,(fx+fy)/2));
+        ds.moved=true;
+        for(var ri=0;ri<this.selIds.length;ri++){
+          var rs=this._findStroke(this.selIds[ri]); if(!rs) continue;
+          var ro=JSON.parse(ds.orig[ri]);
+          rs.pts=ro.pts.map(function(q){return {x:ax+(q.x-ax)*f, y:ay+(q.y-ay)*f};});
+          if(ro.size) rs.size=Math.max(1, ro.size*f);
+          if(ro.fontSize) rs.fontSize=Math.max(8, ro.fontSize*f);
+        }
+        this.render(); return;
+      }
+      if(ds.type==='rotate'){
+        var cx=ds.centerX, cy=ds.centerY, cur=Math.atan2(p.y-cy,p.x-cx), dA=cur-ds.startAngle;
+        ds.moved=true;
+        for(var ti=0;ti<this.selIds.length;ti++){
+          var ts=this._findStroke(this.selIds[ti]); if(!ts) continue;
+          var to=JSON.parse(ds.orig[ti]);
+          var oc=this._strokeCenter(to);                      // center of ORIGINAL stroke
+          var nc=this._rotPt(oc,{x:cx,y:cy},dA);
+          var mdx=nc.x-oc.x, mdy=nc.y-oc.y;
+          ts.pts=to.pts.map(function(q){return {x:q.x+mdx, y:q.y+mdy};});
+          ts.rot=(to.rot||0)+dA;                              // Diesel render model: rotate at draw time
+        }
+        this.render(); return;
       }
     },
     _selUp:function(){
-      if(this.selection!=null && this._selMode){
-        var after=JSON.stringify(this.strokes[this.selection]);
-        if(after!==this._selOrig) this._pushOp({t:'mod', idx:this.selection, before:this._selOrig, after:after});
-        if(this._onDirty) this._onDirty();
+      var ds=this._dragState; var self=this;
+      if(ds && ds.type==='rubberband' && this._rubberBand){
+        var r=this._rubberBand, rx1=Math.min(r.x1,r.x2), ry1=Math.min(r.y1,r.y2),
+            rx2=Math.max(r.x1,r.x2), ry2=Math.max(r.y1,r.y2);
+        if(Math.abs(rx2-rx1)>4||Math.abs(ry2-ry1)>4){
+          var hits=[];
+          this.strokes.forEach(function(s){
+            var b=self._strokeAABB(s);
+            if(b.x2>=rx1&&b.x1<=rx2&&b.y2>=ry1&&b.y1<=ry2) hits.push(s.id);
+          });
+          this.selIds=hits;
+        }
+        this._rubberBand=null;
       }
-      this._selMode=null; this.render();
+      if(ds && (ds.type==='move'||ds.type==='resize'||ds.type==='rotate') && ds.moved && ds.orig){
+        var after=this._snapSel();
+        if(after.join('\u0001')!==ds.orig.join('\u0001')){
+          this._pushOp({t:'gmod', ids:this.selIds.slice(), before:ds.orig, after:after});
+          if(this._onDirty) this._onDirty();
+        }
+      }
+      this._dragState=null; this.render();
     },
     _drawSelChrome:function(ctx){
-      if(this.selection==null||!this.strokes[this.selection]){ this._selHandles=null; return; }
-      var s=this.strokes[this.selection], B=this._strokeBBox(s), rot=s.rot||0;
-      var c={x:(B.x1+B.x2)/2, y:(B.y1+B.y2)/2};
-      var rect=this.canvas.getBoundingClientRect();
-      var k=this.nw/Math.max(1,rect.width);            // natural px per screen px
-      var lw=Math.max(1.5, 1.5*k), hs=11*k;
-      var corners=[{x:B.x1,y:B.y1},{x:B.x2,y:B.y1},{x:B.x2,y:B.y2},{x:B.x1,y:B.y2}];
-      var rotH={x:c.x, y:B.y1-hs*2.4};
-      ctx.save();
-      ctx.translate(c.x,c.y); ctx.rotate(rot); ctx.translate(-c.x,-c.y);
-      ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=lw; ctx.setLineDash([lw*3,lw*2]);
-      ctx.strokeRect(B.x1,B.y1,B.x2-B.x1,B.y2-B.y1);
-      ctx.setLineDash([]);
-      ctx.beginPath(); ctx.moveTo(c.x,B.y1); ctx.lineTo(rotH.x,rotH.y); ctx.stroke();
-      ctx.fillStyle='#fff';
-      corners.forEach(function(q){ ctx.fillRect(q.x-hs/2,q.y-hs/2,hs,hs); ctx.strokeRect(q.x-hs/2,q.y-hs/2,hs,hs); });
-      ctx.beginPath(); ctx.arc(rotH.x,rotH.y,hs*0.65,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      if(this._rubberBand){
+        var rb=this._rubberBand, rk=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width);
+        ctx.save(); ctx.setLineDash([4*rk,3*rk]); ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=Math.max(1,1*rk); ctx.globalAlpha=1;
+        ctx.strokeRect(Math.min(rb.x1,rb.x2),Math.min(rb.y1,rb.y2),Math.abs(rb.x2-rb.x1),Math.abs(rb.y2-rb.y1));
+        ctx.setLineDash([]); ctx.restore();
+      }
+      if(!this.hasSel()) return;
+      var g=this._selGeom(); if(!g) return;
+      var lw=Math.max(1.5,1.5*g.k);
+      ctx.save(); ctx.globalAlpha=1;
+      // dashed group box
+      ctx.setLineDash([lw*3,lw*2]); ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=lw;
+      ctx.strokeRect(g.b.x1,g.b.y1,g.b.x2-g.b.x1,g.b.y2-g.b.y1); ctx.setLineDash([]);
+      // corner scale handles
+      ctx.fillStyle='#fff'; ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=lw;
+      g.corners.forEach(function(q){ ctx.fillRect(q.x-g.hs/2,q.y-g.hs/2,g.hs,g.hs); ctx.strokeRect(q.x-g.hs/2,q.y-g.hs/2,g.hs,g.hs); });
+      // rotate handle (stem + circle)
+      ctx.beginPath(); ctx.moveTo((g.b.x1+g.b.x2)/2,g.b.y1); ctx.lineTo(g.rot.x,g.rot.y+g.rot.r); ctx.stroke();
+      ctx.beginPath(); ctx.arc(g.rot.x,g.rot.y,g.rot.r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(g.rot.x,g.rot.y,g.rot.r*0.55,-0.3,Math.PI*1.4); ctx.stroke();
+      // delete handle (muted red ✕)
+      ctx.beginPath(); ctx.arc(g.del.x,g.del.y,g.del.r,0,Math.PI*2); ctx.fillStyle='#C0445F'; ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='bold '+Math.round(g.del.r*1.15)+'px Calibri,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('\u2715',g.del.x,g.del.y+g.k*0.5);
       ctx.restore();
-      var self=this;
-      this._selHandles={ rot:self._rotPt(rotH,c,rot),
-                         corners:corners.map(function(q){return self._rotPt(q,c,rot);}),
-                         center:c, bbox:B, rotv:rot };
     },
 
     _promptText:function(p, st){
@@ -3349,8 +3484,8 @@ var DieselMarkup = (function(){
       if(typeof _aPrompt!=='function'){ return; }
       _aPrompt('Enter text:', '', function(txt){
         if(!txt) return;
-        self.strokes.push({tool:'text', pts:[{x:p.x,y:p.y}], text:txt,
-                           color:st.color, fontSize:st.fontSize||24, alpha:st.alpha});
+        self.strokes.push({id:self._uid(), tool:'text', pts:[{x:p.x,y:p.y}], text:txt,
+                           color:st.color, fontSize:st.fontSize||24, alpha:st.alpha});   // S314: id
         self._pushOp({t:'add'}); if(self._onDirty) self._onDirty(); self.render();
       });
     },
@@ -3485,29 +3620,38 @@ var DieselMarkup = (function(){
     undo:function(){
       if(!this.ops.length) return;
       var op=this.ops.pop();
+      var self=this;
       if(op.t==='add'){ op.stroke=this.strokes.pop(); }
       else if(op.t==='del'){ this.strokes.splice(op.idx,0,op.stroke); }
       else if(op.t==='mod'){ this.strokes[op.idx]=JSON.parse(op.before); }
+      else if(op.t==='gmod'){ op.ids.forEach(function(id,i){ var j=self.strokes.findIndex(function(s){return s.id===id;}); if(j>=0) self.strokes[j]=JSON.parse(op.before[i]); }); }   // S314
+      else if(op.t==='gdel'){ op.items.forEach(function(it){ self.strokes.splice(Math.min(it.idx,self.strokes.length),0,it.stroke); }); }   // S314 (items stored ascending)
       else if(op.t==='clear'){ this.strokes=JSON.parse(op.all); }
       this.redoOps.push(op);
       this.selection=null; this._selMode=null; this._selHandles=null;
+      this.selIds=[]; this._dragState=null; this._rubberBand=null;
       this.render(); if(this._onDirty) this._onDirty();
     },
     redoOp:function(){
       if(!this.redoOps.length) return;
       var op=this.redoOps.pop();
+      var self=this;
       if(op.t==='add'){ this.strokes.push(op.stroke); }
       else if(op.t==='del'){ this.strokes.splice(op.idx,1); }
       else if(op.t==='mod'){ this.strokes[op.idx]=JSON.parse(op.after); }
+      else if(op.t==='gmod'){ op.ids.forEach(function(id,i){ var j=self.strokes.findIndex(function(s){return s.id===id;}); if(j>=0) self.strokes[j]=JSON.parse(op.after[i]); }); }   // S314
+      else if(op.t==='gdel'){ var rmIds=op.items.map(function(it){return it.stroke.id;}); this.strokes=this.strokes.filter(function(s){return rmIds.indexOf(s.id)===-1;}); }   // S314
       else if(op.t==='clear'){ this.strokes=[]; }
       this.ops.push(op);
       this.selection=null; this._selMode=null; this._selHandles=null;
+      this.selIds=[]; this._dragState=null; this._rubberBand=null;
       this.render(); if(this._onDirty) this._onDirty();
     },
     clear:function(){
       if(this.strokes.length) this._pushOp({t:'clear', all:JSON.stringify(this.strokes)});
       this.strokes=[]; this.redo=[];
       this.selection=null; this._selMode=null; this._selHandles=null;
+      this.selIds=[]; this._dragState=null; this._rubberBand=null;   // S314
       this.render(); if(this._onDirty) this._onDirty();
     },
 
@@ -3695,18 +3839,45 @@ var DslLightbox = (function(){
     // ── Wiring ──
     function setActiveTool(tool){
       _mkTool=tool;
-      if(tool!=='select' && window.DieselMarkup && DieselMarkup.selection!=null) DieselMarkup.deselect();   // S296
+      if(tool!=='select' && window.DieselMarkup && DieselMarkup.hasSel && DieselMarkup.hasSel()) DieselMarkup.deselect();   // S314
       Object.keys(toolBtns).forEach(function(k){ toolBtns[k].style.background = (k===tool)?'#9C2742':'rgba(255,255,255,.12)'; });
     }
+    // S314: live-apply style changes to the current selection (FRT _applyToSelection port).
+    // Sliders: live preview on 'input', ONE gmod op committed on 'change'. Swatch: one op per click.
+    var _selGest=null;
+    function _selLive(fn){
+      if(!(window.DieselMarkup&&DieselMarkup.hasSel&&DieselMarkup.hasSel())) return;
+      if(!_selGest) _selGest=DieselMarkup.snapSel();
+      fn();
+    }
+    function _selCommit(){ if(_selGest){ DieselMarkup.commitSel(_selGest); _selGest=null; } }
     function setSwatch(col){
       _mkColor=col;
       swatches.forEach(function(s){ s.style.borderColor=(s.dataset.col===col)?'#fff':'rgba(255,255,255,.4)'; s.style.boxShadow=(s.dataset.col===col)?'0 0 0 2px #9C2742':'none'; });
+      if(window.DieselMarkup&&DieselMarkup.hasSel&&DieselMarkup.hasSel()){
+        var snap=DieselMarkup.snapSel();
+        DieselMarkup.applySel('color',col,false);
+        DieselMarkup.commitSel(snap);
+      }
     }
     _setTool = setActiveTool;   // S295: ESC handler needs to deactivate the tool
     Object.keys(toolBtns).forEach(function(k){ toolBtns[k].addEventListener('click',function(){ setActiveTool(k); }); });
     swatches.forEach(function(s){ s.addEventListener('click',function(){ setSwatch(s.dataset.col); }); });
-    sizeSld.addEventListener('input',function(){ _mkSize=parseInt(sizeSld.value,10)||4; });
-    opSld.addEventListener('input',function(){ _mkAlpha=parseInt(opSld.value,10)||100; });
+    sizeSld.addEventListener('input',function(){
+      _mkSize=parseInt(sizeSld.value,10)||4;
+      _selLive(function(){
+        DieselMarkup.applySel('size',function(s){ return s.tool==='text'?s.size:_mkSize*3; },false);
+        DieselMarkup.applySel('fontSize',function(s){ return s.tool==='text'?Math.max(18,_mkSize*8):s.fontSize; },false);
+      });
+    });
+    sizeSld.addEventListener('change',_selCommit);
+    opSld.addEventListener('input',function(){
+      _mkAlpha=parseInt(opSld.value,10)||100;
+      _selLive(function(){
+        DieselMarkup.applySel('alpha',function(s){ var a=_mkAlpha/100; return s.tool==='highlight'?0.35*a:a; },false);
+      });
+    });
+    opSld.addEventListener('change',_selCommit);
     bUn.addEventListener('click',function(){ DieselMarkup.undo(); });
     bRd.addEventListener('click',function(){ DieselMarkup.redoOp(); });
     bCr.addEventListener('click',function(){ DieselMarkup.clear(); });
@@ -4167,7 +4338,7 @@ var DslLightbox = (function(){
         // or Save; strokes survive exit via the session draft stash.
         if(document.querySelector('._a-modal-ov')) return;
         if(_markupActive){
-          if(window.DieselMarkup && DieselMarkup.selection!=null && typeof DieselMarkup.deselect==='function'){ DieselMarkup.deselect(); }
+          if(window.DieselMarkup && DieselMarkup.hasSel && DieselMarkup.hasSel()){ DieselMarkup.deselect(); }   // S314
           else if(_mkTool && _setTool){ _setTool(null); }
           e.preventDefault(); return;
         }
@@ -4181,7 +4352,7 @@ var DslLightbox = (function(){
       if(_markupActive&&(e.key==='Delete'||e.key==='Backspace')){
         var ae=document.activeElement;
         if(!(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')) &&
-           window.DieselMarkup && DieselMarkup.selection!=null && typeof DieselMarkup.deleteSelected==='function'){
+           window.DieselMarkup && DieselMarkup.hasSel && DieselMarkup.hasSel()){   // S314
           DieselMarkup.deleteSelected(); e.preventDefault(); return;
         }
       }
@@ -11623,7 +11794,7 @@ function _openToolQR(){
       + '<button onclick="document.getElementById(\'tool-qr-overlay\').style.display=\'none\';_toolQrLastUrl=null;" style="padding:8px 24px;border-radius:8px;border:none;background:#455A64;color:white;font-weight:600;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Close</button>'
       + '</div>';
     document.body.appendChild(ov);
-    /* backdrop close disabled */
+    ov.addEventListener('click', function(e){ if(e.target===ov){ ov.style.display='none'; _toolQrLastUrl=null; }});
     document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&ov.style.display!=='none'){ ov.style.display='none'; _toolQrLastUrl=null; }});
   }
   ov.style.display = 'flex';
@@ -13884,7 +14055,7 @@ function _ensureOverlay() {
   if (_overlay) return;
   _overlay = document.createElement('div');
   _overlay.className = 'ai-usage-overlay';
-  /* backdrop close disabled */
+  _overlay.addEventListener('click', function(e) { if (e.target === _overlay) close(); });
   var adm = _isAdmin();
   _overlay.innerHTML = '<div class="ai-usage-modal" onclick="event.stopPropagation()">'
     + '<div class="ai-usage-hdr"><h3>\uD83D\uDCCA AI Usage Tracking</h3><div class="ai-usage-hdr-btns">'
