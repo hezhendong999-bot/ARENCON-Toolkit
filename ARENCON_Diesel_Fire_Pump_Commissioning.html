@@ -10297,6 +10297,45 @@ function _forEachLivePhoto(cb){
   }catch(e){ console.warn('[Outbox] photo walk error', e); }
 }
 
+// ════ S315 B5: reconcile self-healer ════
+// Photos stuck on 'pending'/'failed' (or legacy: r2Key but no status) are
+// GET-verified against R2 in the background; confirmed ones flip to 'uploaded'
+// so the cloud badge turns green and tells the truth. GET-only verify (S266/S290
+// proven pattern — never HEAD). 404 is deliberately left alone: the outbox drive
+// owns re-upload and the dead-ref report owns true ghosts — this loop ONLY
+// promotes to green, it never demotes.
+var _reconBusy=false;
+function _r2ReconcileSweep(){
+  if(!_csHubMode || !_r2FolderId || !navigator.onLine || _reconBusy) return;
+  var todo=[];
+  _forEachLivePhoto(function(p){
+    if(!p || !p.r2Url) return;
+    var st=p.r2Status||'';
+    if(st==='pending'||st==='failed'||(!st&&p.r2Key)) todo.push(p);
+  });
+  if(!todo.length) return;
+  _reconBusy=true;
+  var batch=todo.slice(0,6), changed=0, seq=Promise.resolve();   // throttle: 6/sweep
+  batch.forEach(function(p){
+    seq=seq.then(function(){
+      return fetch(p.r2Url,{method:'GET'}).then(function(r){
+        if(r.ok){ p.r2Status='uploaded'; changed++; }
+      }).catch(function(){ /* network blip — next sweep retries */ });
+    });
+  });
+  seq.then(function(){
+    _reconBusy=false;
+    if(changed){
+      console.info('[reconcile] '+changed+' photo(s) verified in R2 \u2192 uploaded');
+      if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon();
+      saveState();
+      if(typeof debounceAutosave==='function') debounceAutosave();
+    }
+  });
+}
+setInterval(_r2ReconcileSweep, 60000);   // no-op until Hub mode + folder ready
+setTimeout(_r2ReconcileSweep, 8000);     // first sweep shortly after load
+
 function _r2EnqueuePhoto(photoObj){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return;
   if(!photoObj || !photoObj.d) return;
