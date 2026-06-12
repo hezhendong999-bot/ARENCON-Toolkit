@@ -362,6 +362,7 @@ export var initPhotos = {
             deficNum: defic.num,
             isGeneralPriority: isGeneral,
             isRec: !!(o && o.isRecommendation),
+            obsClosed: !!(o && o.addressed),   // S284c (Mark): Closed photo tracker
             obsPriority: (o && o.priority) || defic.priority || 'high',
             obsIdx: oi,
             photoIdx: phi,
@@ -413,8 +414,12 @@ export var initPhotos = {
       // can carry multiple references (e.g. obs on two pins), so flags union.
       var isRecRef = (r.type === 'defic' && r.isRec);
       var isObsRef = (r.type === 'defic' && !r.isRec);
-      var isObsLow = isObsRef && r.obsPriority === 'low';
-      var isObsHigh = isObsRef && !isObsLow;
+      // S284c (Mark): Closed tracker — a closed obs's photos count as Closed,
+      // NOT Outstanding (mutually exclusive, same semantics as the deficiency
+      // log donut). Rec photos stay Rec regardless of addressed state.
+      var isObsClosed = isObsRef && r.obsClosed;
+      var isObsLow = isObsRef && !isObsClosed && r.obsPriority === 'low';
+      var isObsHigh = isObsRef && !isObsClosed && !isObsLow;
       var rep = _phById[k];
       if (!rep) {
         r.badges = [{ text: r.badgeText, cls: r.badgeClass }];
@@ -423,6 +428,7 @@ export var initPhotos = {
         r.refRec = isRecRef;
         r.refObsHigh = isObsHigh;
         r.refObsLow = isObsLow;
+        r.refClosed = isObsClosed;
         // S284 (mutual exclusivity): remember the first DEFIC reference seen for
         // this binary so the exclusivity post-pass below can re-point a
         // site-typed representative at real defic context (deficId/obsIdx/...)
@@ -440,6 +446,7 @@ export var initPhotos = {
       rep.refRec = rep.refRec || isRecRef;
       rep.refObsHigh = rep.refObsHigh || isObsHigh;
       rep.refObsLow = rep.refObsLow || isObsLow;
+      rep.refClosed = rep.refClosed || isObsClosed;
       // Promote a SITE reference to representative so the trash button (site
       // only) stays reachable; adopt its site context for card actions.
       if (r.type === 'site' && rep.type !== 'site') {
@@ -497,6 +504,7 @@ export var initPhotos = {
     var totalObsHigh = records.filter(function(r) { return r.refObsHigh; }).length;
     var totalObsLow = records.filter(function(r) { return r.refObsLow; }).length;
     var totalRec = records.filter(function(r) { return r.refRec; }).length;
+    var totalClosed = records.filter(function(r) { return r.refClosed; }).length;  // S284c
 
     // ── Apply filter (a photo matches if ANY of its references match) ──
     var filtered = records.filter(function(r) {
@@ -566,6 +574,7 @@ export var initPhotos = {
     html += '<div class="ph-stat"><div class="ph-stat-num" style="color:var(--no)">' + totalObsHigh + '</div><div class="ph-stat-lbl">Outstanding \u2014 High</div></div>';
     html += '<div class="ph-stat"><div class="ph-stat-num" style="color:var(--warn)">' + totalObsLow + '</div><div class="ph-stat-lbl">Outstanding \u2014 Low</div></div>';
     html += '<div class="ph-stat"><div class="ph-stat-num" style="color:#2C7FB8">' + totalRec + '</div><div class="ph-stat-lbl">Recommendations</div></div>';
+    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:var(--yes)">' + totalClosed + '</div><div class="ph-stat-lbl">Closed</div></div>';
     html += '<div class="ph-stat"><div class="ph-stat-num" style="color:#6E6AA8">' + totalSite + '</div><div class="ph-stat-lbl">Site Records</div></div>';
     html += '</div>';
     html += '<div class="ph-toolbar-right">';
