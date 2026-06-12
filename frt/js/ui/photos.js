@@ -512,6 +512,9 @@ export var initPhotos = {
       if (_filterMode === 'site') return r.refSite;
       if (_filterMode === 'observations') return r.refObs;
       if (_filterMode === 'recommendations') return r.refRec;
+      if (_filterMode === 'high') return r.refObsHigh;
+      if (_filterMode === 'low') return r.refObsLow;
+      if (_filterMode === 'closed') return r.refClosed;
       return true;
     });
 
@@ -566,16 +569,28 @@ export var initPhotos = {
     var filterLabel = _filterMode === 'all' ? 'All photos'
       : _filterMode === 'site' ? 'Site Records'
       : _filterMode === 'observations' ? 'Observation photos'
+      : _filterMode === 'high' ? 'Outstanding \u2014 High'
+      : _filterMode === 'low' ? 'Outstanding \u2014 Low'
+      : _filterMode === 'closed' ? 'Closed'
       : _filterMode === 'recommendations' ? 'Recommendation photos'
       : 'All photos';
     html += '<div class="ph-toolbar">';
     html += '<div class="ph-toolbar-left">';
-    html += '<div class="ph-stat"><div class="ph-stat-num">' + totalAll + '</div><div class="ph-stat-lbl">Total</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:var(--no)">' + totalObsHigh + '</div><div class="ph-stat-lbl">Outstanding \u2014 High</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:var(--warn)">' + totalObsLow + '</div><div class="ph-stat-lbl">Outstanding \u2014 Low</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:#2C7FB8">' + totalRec + '</div><div class="ph-stat-lbl">Recommendations</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:var(--yes)">' + totalClosed + '</div><div class="ph-stat-lbl">Closed</div></div>';
-    html += '<div class="ph-stat"><div class="ph-stat-num" style="color:#6E6AA8">' + totalSite + '</div><div class="ph-stat-lbl">Site Records</div></div>';
+    // Stat tiles are now CLICKABLE filters (Diesel parity) — each filters the
+    // gallery; colour per category preserved. Active tile highlighted.
+    function _statTile(mode, num, color, lbl){
+      var act = (_filterMode === mode) ? ' ph-stat-active' : '';
+      var col = color ? (' style="color:' + color + '"') : '';
+      return '<div class="ph-stat ph-stat-clickable' + act + '" data-action="ph-set-filter" data-mode="' + mode + '">'
+        + '<div class="ph-stat-num"' + col + '>' + num + '</div>'
+        + '<div class="ph-stat-lbl">' + lbl + '</div></div>';
+    }
+    html += _statTile('all', totalAll, '', 'Total');
+    html += _statTile('high', totalObsHigh, 'var(--no)', 'Outstanding \u2014 High');
+    html += _statTile('low', totalObsLow, 'var(--warn)', 'Outstanding \u2014 Low');
+    html += _statTile('recommendations', totalRec, '#2C7FB8', 'Recommendations');
+    html += _statTile('closed', totalClosed, 'var(--yes)', 'Closed');
+    html += _statTile('site', totalSite, '#6E6AA8', 'Site Records');
     html += '</div>';
     html += '<div class="ph-toolbar-right">';
     if (nSel > 0) {
@@ -583,18 +598,24 @@ export var initPhotos = {
       html += '<button class="ph-btn ph-btn-danger" data-action="ph-delete-selected">Delete ' + nSel + '</button>';
       html += '<button class="ph-btn" data-action="ph-clear-selection">Clear</button>';
     }
+    // Select all (Diesel parity) — selects all photos currently in view (filtered)
+    html += '<button class="ph-btn" data-action="ph-select-all-visible">Select all</button>';
     html += '<div class="ph-filter-wrap">';
     html += '<button class="ph-btn ph-filter-btn" data-action="ph-toggle-filter">\u2699 ' + esc(filterLabel) + '</button>';
     if (_filterPanelOpen) {
       html += '<div class="ph-filter-menu">';
+      // Full category set — mirrors the clickable stat tiles, colour dot per row.
       [
-        ['all', 'All photos'],
-        ['observations', 'Observation photos'],
-        ['recommendations', 'Recommendation photos'],
-        ['site', 'Site Records']
+        ['all', 'All photos', ''],
+        ['high', 'Outstanding \u2014 High', 'var(--no)'],
+        ['low', 'Outstanding \u2014 Low', 'var(--warn)'],
+        ['recommendations', 'Recommendations', '#2C7FB8'],
+        ['closed', 'Closed', 'var(--yes)'],
+        ['site', 'Site Records', '#6E6AA8']
       ].forEach(function(pair) {
         var cls = pair[0] === _filterMode ? 'active' : '';
-        html += '<button class="' + cls + '" data-action="ph-set-filter" data-mode="' + pair[0] + '">' + pair[1] + '</button>';
+        var dot = pair[2] ? '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + pair[2] + ';margin-right:7px;vertical-align:middle;"></span>' : '';
+        html += '<button class="' + cls + '" data-action="ph-set-filter" data-mode="' + pair[0] + '">' + dot + pair[1] + '</button>';
       });
       html += '</div>';
     }
@@ -1113,6 +1134,22 @@ document.addEventListener('click', function(e) {
   if (clr) {
     e.stopPropagation();
     _selectedUids.clear();
+    initPhotos.render();
+    return;
+  }
+
+  // Select all currently-visible (filtered) photos — Diesel parity
+  var sav = e.target.closest && e.target.closest('[data-action="ph-select-all-visible"]');
+  if (sav) {
+    e.stopPropagation();
+    // _renderOrderUids holds the in-view photo uids in display order. If every
+    // visible photo is already selected, toggle to clear (acts as Select all / none).
+    var allSelectedNow = _renderOrderUids.length > 0 && _renderOrderUids.every(function(u){ return _selectedUids.has(u); });
+    if (allSelectedNow) {
+      _renderOrderUids.forEach(function(u){ _selectedUids.delete(u); });
+    } else {
+      _renderOrderUids.forEach(function(u){ _selectedUids.add(u); });
+    }
     initPhotos.render();
     return;
   }

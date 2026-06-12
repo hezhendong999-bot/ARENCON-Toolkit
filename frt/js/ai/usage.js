@@ -116,7 +116,7 @@ function _ensureOverlay() {
   if (_overlay) return;
   _overlay = document.createElement('div');
   _overlay.className = 'ai-usage-overlay';
-  _overlay.addEventListener('click', function(e) { if (e.target === _overlay) close(); });
+  /* backdrop-click close disabled (accidental dismiss) */
   var adm = _isAdmin();
   _overlay.innerHTML = '<div class="ai-usage-modal" onclick="event.stopPropagation()">'
     + '<div class="ai-usage-hdr"><h3>\uD83D\uDCCA AI Usage Tracking</h3><div class="ai-usage-hdr-btns">'

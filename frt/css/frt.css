@@ -2090,6 +2090,10 @@ body.dark-mode .ai-usage-filters button{background:#37474F;}
 .ph-toolbar-left{display:flex;gap:18px;align-items:center;flex-wrap:wrap;}
 .ph-toolbar-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .ph-stat{display:flex;flex-direction:column;align-items:flex-start;}
+.ph-stat-clickable{cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid transparent;transition:background .12s,border-color .12s;}
+.ph-stat-clickable:hover{background:rgba(127,127,127,.10);}
+.ph-stat-clickable.ph-stat-active{background:rgba(156,39,66,.10);border-color:rgba(156,39,66,.45);}
+@media(pointer:coarse){.ph-stat-clickable{padding:8px 10px;}}
 .ph-stat-num{font-size:calc(18px + var(--ts));font-weight:700;color:var(--fg);line-height:1.1;}
 .ph-stat-lbl{font-size:calc(10px + var(--ts));color:var(--steel);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
 .ph-sel-count{color:var(--arencon);font-size:calc(12px + var(--ts));font-weight:600;}

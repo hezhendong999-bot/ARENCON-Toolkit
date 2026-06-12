@@ -120,7 +120,7 @@ function _ensurePanel() {
   if (_panel) return;
   _overlay = document.createElement('div');
   _overlay.className = 'ai-panel-overlay';
-  _overlay.addEventListener('click', function() { _closePanel(); });
+  /* backdrop-click close disabled */
   document.body.appendChild(_overlay);
 
   _panel = document.createElement('div');

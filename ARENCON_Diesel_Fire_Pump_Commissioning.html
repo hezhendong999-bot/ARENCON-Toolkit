@@ -1684,7 +1684,7 @@ function _aConfirm(msg,onOk,okText){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
   h+='</div></div>';
   ov.innerHTML=h;
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  /* backdrop close disabled (accidental dismiss) */
   ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
   ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
   document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
@@ -1702,7 +1702,7 @@ function _aPrompt(msg,defVal,onOk){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;var inp=ov.querySelector('._ap-input');
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  /* backdrop close disabled (accidental dismiss) */
   ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
   ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;ov.remove();if(onOk)onOk(v);};
   inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')ov.remove();});
@@ -1719,7 +1719,7 @@ function _aAlert(msg){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  /* backdrop close disabled (accidental dismiss) */
   ov.querySelector('._ac-ok').onclick=function(){ov.remove();};
   document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
 }
@@ -11623,7 +11623,7 @@ function _openToolQR(){
       + '<button onclick="document.getElementById(\'tool-qr-overlay\').style.display=\'none\';_toolQrLastUrl=null;" style="padding:8px 24px;border-radius:8px;border:none;background:#455A64;color:white;font-weight:600;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Close</button>'
       + '</div>';
     document.body.appendChild(ov);
-    ov.addEventListener('click', function(e){ if(e.target===ov){ ov.style.display='none'; _toolQrLastUrl=null; }});
+    /* backdrop close disabled */
     document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&ov.style.display!=='none'){ ov.style.display='none'; _toolQrLastUrl=null; }});
   }
   ov.style.display = 'flex';
@@ -13884,7 +13884,7 @@ function _ensureOverlay() {
   if (_overlay) return;
   _overlay = document.createElement('div');
   _overlay.className = 'ai-usage-overlay';
-  _overlay.addEventListener('click', function(e) { if (e.target === _overlay) close(); });
+  /* backdrop close disabled */
   var adm = _isAdmin();
   _overlay.innerHTML = '<div class="ai-usage-modal" onclick="event.stopPropagation()">'
     + '<div class="ai-usage-hdr"><h3>\uD83D\uDCCA AI Usage Tracking</h3><div class="ai-usage-hdr-btns">'

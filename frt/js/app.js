@@ -1886,7 +1886,7 @@ function wireEvents() {
   if (mmBtn) mmBtn.addEventListener('click', openMobileMenu);
   var mmOverlay = document.getElementById('mobile-menu-overlay');
   if (mmOverlay) mmOverlay.addEventListener('click', function(e) {
-    if (e.target === mmOverlay) closeMobileMenu();
+    /* backdrop close disabled */ if(false){ closeMobileMenu(); }
   });
   var mmClose = document.getElementById('mobile-menu-close');
   if (mmClose) mmClose.addEventListener('click', closeMobileMenu);
