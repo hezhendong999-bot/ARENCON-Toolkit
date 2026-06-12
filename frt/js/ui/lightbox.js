@@ -279,8 +279,9 @@ function _saveMarkup(){
     // R2 upload hook — defer to host app via custom event
     try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:blob,index:_idx}})); } catch(e){}
     _exitMarkupNoSave();
-    if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); }   // close was the trigger
-  }).catch(function(e){ _closeAfterPersist = false; toast('Save failed: '+e.message, 'error'); /* stay in markup so strokes aren't lost */ });
+    if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
+    if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
+  }).catch(function(e){ _closeAfterPersist = false; _navAfterPersist = null; toast('Save failed: '+e.message, 'error'); /* stay in markup so strokes aren't lost */ });
 }
 
 function _revertMarkup(){
@@ -495,8 +496,24 @@ function _finishClose() {
   if (img) img.src = '';
 }
 
-function _next() { if (_idx < _photos.length - 1) _showPhoto(_idx + 1); }
-function _prev() { if (_idx > 0) _showPhoto(_idx - 1); }
+// #3 (Mark): markup is "locked in" — navigating away never deletes it. If you
+// page prev/next while marking with unsaved strokes, commit the current photo's
+// markup FIRST (bake+persist), then navigate once the save resolves. Mirrors
+// Diesel: leaving a photo mid-markup persists rather than discards.
+var _navAfterPersist = null;   // target index to show after a nav-triggered commit
+function _navCommitThen(targetIdx){
+  if (targetIdx < 0 || targetIdx >= _photos.length) return;
+  if (_markupActive && window.MarkupEngine && window.MarkupEngine.isDirty()){
+    _navAfterPersist = targetIdx;
+    _saveMarkup();   // bakes+persists; its .then navigates via _navAfterPersist
+    return;
+  }
+  // Not marking (or nothing drawn) — if markup is open but clean, exit it cleanly first.
+  if (_markupActive) _exitMarkupNoSave();
+  _showPhoto(targetIdx);
+}
+function _next() { _navCommitThen(_idx + 1); }
+function _prev() { _navCommitThen(_idx - 1); }
 
 // ── Event Wiring ─────────────────────────────────────────
 
