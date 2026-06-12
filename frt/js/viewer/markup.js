@@ -2092,21 +2092,33 @@ function _handleTextPlace(e) {
     return;
   }
 
-  // Get screen position of click
-  var screenX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 200);
-  var screenY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 200);
+  // Get screen position of click — derive from the logical click pos and the
+  // canvas rect so the input sits EXACTLY where the committed text will render,
+  // at the current zoom. (Old code used raw e.clientX/Y, which diverged from the
+  // logical anchor whenever the canvas was panned/zoomed — the "not where I
+  // clicked" bug.)
+  var rectMc = mc.getBoundingClientRect();
+  var lwMc = mc._logicalW || mc.width;
+  var zoom = rectMc.width / lwMc;                 // CSS px per logical unit
+  var screenFontPx = _fontSize * zoom;
+  // Committed anchor: x1 = pos.x, y1 = pos.y + _fontSize (baseline one line below
+  // the click). Input top-left aligns so its text baseline lands on that anchor.
+  var screenX = rectMc.left + pos.x * zoom;
+  var screenY = rectMc.top + pos.y * zoom;        // top of the text box
 
   var input = document.createElement('textarea');
-  input.className = 'mk-text-input-live editing';
-  // S126 #7 — Transparent default. Edit chrome (dashed border + faint
-  // backdrop) is applied via the .editing class so the user only sees it
-  // while focus is in the input; blur strips .editing and committed text
-  // renders bare on the markup canvas.
-  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:transparent;color:' + _color + ';font-family:Calibri,sans-serif;resize:both;outline:none;padding:6px 8px;min-width:120px;min-height:32px;overflow:hidden;border:1px dashed ' + _color + ';border-radius:4px;';
-  input.style.fontSize = _fontSize + 'px';
+  input.className = 'mk-text-input-live mk-text-paint';
+  // MS-Paint style: transparent, no border box, no resize chrome, no hatch.
+  // What you type IS the live preview, in the current colour and the on-screen
+  // font size at this zoom. A faint 1px colour tick marks an empty field.
+  input.style.cssText = 'position:fixed;z-index:99999;display:block;margin:0;padding:0;'+
+    'background:transparent;border:none;outline:none;resize:none;overflow:hidden;'+
+    'white-space:pre;color:' + _color + ';caret-color:' + _color + ';'+
+    'font:' + '400 ' + screenFontPx + 'px/1 Calibri,sans-serif;'+
+    'min-width:8px;width:8px;height:' + (screenFontPx * 1.25) + 'px;'+
+    'box-shadow:-1px 0 0 0 ' + _color + ';';
   input.style.left = screenX + 'px';
   input.style.top = screenY + 'px';
-  input.placeholder = 'Type here...';
 
   // Append inside the viewer overlay for z-index compatibility
   var overlay = document.getElementById('drawing-viewer-overlay');
@@ -2115,14 +2127,22 @@ function _handleTextPlace(e) {
   input._mkX = pos.x;
   input._mkY = pos.y + _fontSize;
 
+  // Auto-grow width so the caret tracks the end of the typed text
+  var _meas = document.createElement('span');
+  _meas.style.cssText = 'position:fixed;visibility:hidden;white-space:pre;font:' + '400 ' + screenFontPx + 'px/1 Calibri,sans-serif;';
+  (overlay || document.body).appendChild(_meas);
+  function _grow(){ _meas.textContent = input.value || ''; input.style.width = (_meas.offsetWidth + 4) + 'px'; }
+
   setTimeout(function() { input.focus(); }, 80);
 
   var committed = false;
+  function _cleanupMeas(){ if (_meas.parentNode) _meas.parentNode.removeChild(_meas); }
   function _commit() {
     if (committed) return;
     committed = true;
     var txt = input.value.trim();
     if (input.parentNode) input.parentNode.removeChild(input);
+    _cleanupMeas();
     if (txt) {
       _objects.push({
         id: _newId(), type: 'text', text: txt,
@@ -2136,10 +2156,11 @@ function _handleTextPlace(e) {
       console.log('[Markup] Text committed:', txt);
     }
   }
+  input.addEventListener('input', _grow);
   input.addEventListener('blur', function() { setTimeout(_commit, 150); });
   input.addEventListener('keydown', function(ev) {
     if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); _commit(); }
-    if (ev.key === 'Escape') { if (input.parentNode) input.parentNode.removeChild(input); committed = true; }
+    if (ev.key === 'Escape') { if (input.parentNode) input.parentNode.removeChild(input); _cleanupMeas(); committed = true; }
     ev.stopPropagation(); // Prevent viewer keyboard shortcuts
   });
 }
@@ -3405,7 +3426,12 @@ function _wireEvents() {
         // Adjust live text size without closing it
         if (action === 'size-up') _fontSize = Math.min(72, _fontSize + 2);
         else _fontSize = Math.max(8, _fontSize - 2);
-        liveText.style.fontSize = _fontSize + 'px';
+        // Scale the on-screen preview by current zoom so it matches how the
+        // committed text will render (logical fontSize × CSS-px-per-logical-unit).
+        var _mcLT = _getCanvas();
+        var _zoomLT = 1;
+        if (_mcLT) { var _rLT = _mcLT.getBoundingClientRect(); var _lwLT = _mcLT._logicalW || _mcLT.width; if (_lwLT) _zoomLT = _rLT.width / _lwLT; }
+        liveText.style.fontSize = (_fontSize * _zoomLT) + 'px';
         _updateSizeLabels();
         e.stopPropagation();
         return;

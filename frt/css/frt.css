@@ -6716,7 +6716,16 @@ body.dark-mode .ctx-text-toggle.active {
 /* Live text input — transparent baseline. Chrome only while .editing. */
 .mk-text-input-live {
   background: transparent !important;
+}
+.mk-text-input-live:not(.mk-text-paint) {
   box-shadow: none !important;
+}
+/* MS-Paint create variant: fully bare — the typed text IS the preview. The
+   faint 1px colour tick (inline box-shadow in markup.js) marks an empty field;
+   no border, no glow rect, no hatch. */
+.mk-text-paint {
+  border: none !important;
+  background: transparent !important;
 }
 
 .mk-text-input-live.editing {
