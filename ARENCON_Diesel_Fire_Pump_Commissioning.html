@@ -10336,6 +10336,43 @@ function _r2ReconcileSweep(){
 setInterval(_r2ReconcileSweep, 60000);   // no-op until Hub mode + folder ready
 setTimeout(_r2ReconcileSweep, 8000);     // first sweep shortly after load
 
+// ════ S315 N1: outbox visibility ════
+// The 4-ghost loss died silently because nothing on screen said "photos are still
+// waiting to upload". Two surfaces, both quiet (no toasts for background churn —
+// canon): a small amber count pill beside the cloud-status dot whenever the
+// durable outbox holds blobs, and ONE toast shortly after load if any outbox
+// entry is older than 10 minutes (a genuinely stuck upload, not normal churn).
+// Extends §S114-16 cloud-status visibility — never replaces it.
+function _outboxPillUpdate(){
+  if(typeof R2Outbox==='undefined') return;
+  R2Outbox.getAll().then(function(es){
+    var n=(es||[]).length;
+    var cs=document.getElementById('cloud-status');
+    var pill=document.getElementById('outbox-pill');
+    if(!n){ if(pill) pill.style.display='none'; return; }
+    if(!cs) return;
+    if(!pill){
+      pill=document.createElement('span'); pill.id='outbox-pill';
+      pill.style.cssText='display:inline-flex;align-items:center;margin-left:5px;background:#B07F5A;color:#fff;font:700 10px Calibri,sans-serif;border-radius:9px;padding:2px 7px;vertical-align:middle;line-height:1.3;';
+      cs.parentNode.insertBefore(pill, cs.nextSibling);
+    }
+    pill.style.display='inline-flex';
+    pill.textContent=n+' \u2B06';
+    pill.title=n+' photo'+(n>1?'s':'')+' awaiting cloud upload \u2014 keep the app open until the cloud icon is green';
+  }).catch(function(){});
+}
+setInterval(_outboxPillUpdate, 15000);
+setTimeout(_outboxPillUpdate, 4000);
+setTimeout(function(){
+  if(typeof R2Outbox==='undefined') return;
+  R2Outbox.getAll().then(function(es){
+    var stale=(es||[]).filter(function(e){ return e && e.createdAt && (Date.now()-e.createdAt) > 600000; });
+    if(stale.length && typeof showToast==='function'){
+      showToast(stale.length+' photo'+(stale.length>1?'s':'')+' still awaiting cloud upload \u2014 keep the app open');
+    }
+  }).catch(function(){});
+}, 12000);
+
 function _r2EnqueuePhoto(photoObj){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return;
   if(!photoObj || !photoObj.d) return;
