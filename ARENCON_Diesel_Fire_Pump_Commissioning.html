@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S313 (B9 dead-reference repair: _dieselDeadRefReport() GET-verifies photo records that have no local binary + an r2Url that 404s + no outbox blob = confirmed-dead refs causing the placeholder tiles <!-- ARENCON Diesel Fire Pump Commissioning — build S312 (jump-back: jumping from the Deficiencies Checklist-Findings roll-up to a checklist item now surfaces a floating Back-to-Deficiencies pill that returns to the origin panel; auto-dismisses on any other panel switch or after 12s) --> 404 storm; report-only by default. _dieselDeadRefRepair(true) backs up to JSON then clears them via the authoritative remove path. Restore via _dieselOrphanRestore) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S316. Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -319,6 +319,14 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 /* ══ Pump Nameplate panel (4a) — grouped data + compact photo tiles ══ */
 .np-panel{border:1.5px solid var(--border);border-radius:10px;background:var(--smoke);overflow:hidden;}
 .np-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#eef0f4;border-bottom:1.5px solid var(--border);flex-wrap:wrap;}
+.ps-tbl{border-collapse:collapse;width:100%;max-width:560px;font-size:calc(13px + var(--ts));margin-top:4px;}
+.ps-tbl th{background:#eef0f4;color:var(--slate);font-weight:700;padding:8px 12px;border:1px solid var(--border);text-align:center;font-size:calc(12px + var(--ts));}
+.ps-tbl td{border:1px solid var(--border);padding:0;}
+.ps-tbl td.lb{padding:8px 12px;font-weight:600;white-space:nowrap;background:#FBFAFC;}
+.ps-tbl input{width:100%;border:none;background:transparent;padding:9px 12px;font:inherit;color:inherit;text-align:center;box-sizing:border-box;}
+.ps-tbl input:focus{outline:2px solid #9C2742;outline-offset:-2px;}
+body.dark-mode .ps-tbl th{background:rgba(255,255,255,.05)!important;}
+body.dark-mode .ps-tbl td.lb{background:rgba(255,255,255,.03)!important;}
 .np-head .np-t{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);letter-spacing:.3px;display:flex;align-items:center;gap:7px;}
 .np-scan{display:inline-flex;align-items:center;gap:6px;background:rgba(156,39,66,.10);color:var(--arencon);border:1.5px solid rgba(156,39,66,.40);border-radius:7px;padding:7px 13px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;transition:all .14s;}
 .np-scan:hover{background:var(--arencon);color:#fff;border-color:var(--arencon);}
@@ -2146,6 +2154,9 @@ function updatePhaseFlags(){
           <div id="placard-ocr-host"></div>
         </div>
 
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pressure Settings</span></div>
+        <table class="ps-tbl"><thead><tr><th style="width:34%"></th><th>Designed Pressure (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="lb">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f" oninput="debounceAutosave()"></td></tr></tbody></table>
+
         <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
         <div id="equip-grid-3a" class="ts-eq">
           <label><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
@@ -2309,6 +2320,9 @@ function updatePhaseFlags(){
             <div class="np-hint" style="margin-top:9px;">The placard photo feeds the rated values above. All three back up to the photo gallery.</div>
           </div>
         </div>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pressure Settings</span></div>
+        <table class="ps-tbl"><thead><tr><th style="width:34%"></th><th>Designed Pressure (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="lb">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f-pld" oninput="debounceAutosave()"></td></tr></tbody></table>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
         <div id="equip-grid-4b" class="ts-eq">
@@ -8322,6 +8336,53 @@ function _realExportPDF() {
   var _pdfInstNum = 1; try{if(typeof CloudSync!=='undefined'&&CloudSync.instanceNumber)_pdfInstNum=CloudSync.instanceNumber;}catch(e){}
   var _pdfTitle = _pdfSfn.trim() + ' Diesel Pump Commissioning Report' + (_pdfInstNum>1?' #'+_pdfInstNum:'') + ' ' + _pdfRev;
 
+  // ════ S317: cover Status Overview + Inspection Completion (approved demo).
+  //      Donut = checklist outcomes across sections 1/2/3/5 incl. custom items;
+  //      bars = answered/total overall and per section. Report palette only. ════
+  var _ovHtml='';
+  try{
+    var _ovSecs=[[S1,'s1','1. Pre-Commissioning'],[S2,'s2','2. Visual Inspection'],[S3,'s3','3. Controller Tests'],[S5,'s5','5. FA & Signaling']];
+    var _ovC={yes:0,no:0,na:0,ic:0,total:0}, _ovPer=[];
+    _ovSecs.forEach(function(cfg){
+      var items=cfg[0].concat(customItems[cfg[1]]||[]), ans=0;
+      items.forEach(function(it,idx){
+        var st=clState[cid(cfg[1],idx)], sc=st&&st.status;
+        _ovC.total++;
+        if(sc==='yes'){_ovC.yes++;ans++;}
+        else if(sc==='no'){_ovC.no++;ans++;}
+        else if(sc==='na'){_ovC.na++;ans++;}
+        else _ovC.ic++;
+      });
+      _ovPer.push({name:cfg[2],ans:ans,tot:items.length});
+    });
+    var _C=2*Math.PI*44, _off=0, _arcs='';
+    [['yes','#5F8068'],['no','#A85959'],['na','#888888'],['ic','#B08948']].forEach(function(seg){
+      var n=_ovC[seg[0]]; if(!n||!_ovC.total) return;
+      var len=_C*n/_ovC.total;
+      _arcs+='<circle cx="60" cy="60" r="44" fill="none" stroke="'+seg[1]+'" stroke-width="17" stroke-dasharray="'+len.toFixed(2)+' '+(_C-len).toFixed(2)+'" stroke-dashoffset="'+(-_off).toFixed(2)+'" transform="rotate(-90 60 60)"/>';
+      _off+=len;
+    });
+    function _leg(lbl,col,n){ var p=_ovC.total?Math.round(100*n/_ovC.total):0;
+      return '<div style="display:flex;align-items:center;gap:7px;font-size:9pt;padding:2px 0;"><span style="width:9px;height:9px;border-radius:50%;background:'+col+';"></span><span style="flex:1;">'+lbl+'</span><b>'+n+'</b><span style="color:#888;width:34px;text-align:right;">'+p+'%</span></div>'; }
+    var _ans=_ovC.yes+_ovC.no+_ovC.na, _ovPct=_ovC.total?Math.round(100*_ans/_ovC.total):0;
+    function _bar(name,a,t){ var p=t?Math.round(100*a/t):0;
+      return '<div style="display:flex;align-items:center;gap:9px;font-size:9pt;padding:3px 0;"><span style="flex:0 0 1.5in;">'+name+'</span><span style="flex:1;height:7px;border-radius:4px;background:#E8E6EC;overflow:hidden;"><span style="display:block;height:100%;width:'+p+'%;background:#9C2742;"></span></span><b style="width:44px;text-align:right;">'+a+'/'+t+'</b></div>'; }
+    _ovHtml='<div style="display:flex;gap:14px;margin:4px 22px 0;">'
+      +'<div style="flex:1;border:1px solid #D8D5DE;border-radius:8px;padding:11px 14px;">'
+        +'<div style="font-size:9.5pt;font-weight:700;margin-bottom:6px;">Status Overview</div>'
+        +'<div style="display:flex;align-items:center;gap:14px;">'
+          +'<svg width="106" height="106" viewBox="0 0 120 120">'+_arcs
+            +'<text x="60" y="58" text-anchor="middle" font-size="26" font-weight="700" font-family="Calibri">'+_ovC.total+'</text>'
+            +'<text x="60" y="74" text-anchor="middle" font-size="8.5" fill="#888" font-family="Calibri">CHECKLIST</text></svg>'
+          +'<div style="flex:1;">'+_leg('Pass','#5F8068',_ovC.yes)+_leg('Fail','#A85959',_ovC.no)+_leg('N/A','#888888',_ovC.na)+_leg('Incomplete','#B08948',_ovC.ic)+'</div>'
+        +'</div></div>'
+      +'<div style="flex:1;border:1px solid #D8D5DE;border-radius:8px;padding:11px 14px;">'
+        +'<div style="display:flex;font-size:9.5pt;font-weight:700;margin-bottom:6px;"><span style="flex:1;">Inspection Completion</span><span style="color:#9C2742;">'+_ovPct+'%</span></div>'
+        +_bar('Overall',_ans,_ovC.total)
+        +_ovPer.map(function(s){return _bar(s.name,s.ans,s.tot);}).join('')
+      +'</div></div>';
+  }catch(e){ console.warn('[pdf] overview build failed', e); }
+
   let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${_pdfTitle.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</title>
   <style>
@@ -8386,20 +8447,22 @@ function _realExportPDF() {
         <div>E: ${'mail'+'@'+'arencon.com'}</div>
       </div>
     </div>
-    <div style="margin-top:4px;">
-      <div>
-        <!-- firm div replaced by logo above -->
-        <div style="font-size:8.5pt;color:#888;margin-top:1px;">1551 Caterpillar Rd #206., Mississauga, ON L4X 2Z6</div>
-      </div>
+    <!-- S317: FRT header language (approved demo) — spaced small-caps title,
+         hairline-ruled info rows, no boxed tables, no Form/Rev line.
+         Project No. prints WITHOUT revision (Mark). -->
+    <div style="text-align:center;font-variant:small-caps;letter-spacing:3px;font-size:17pt;font-weight:700;margin:26px 0 2px;line-height:1.25;">Diesel Fire Pump<br>Commissioning Report #${_pdfInstNum}</div>
+    <div style="text-align:center;font-size:11pt;font-weight:700;margin-bottom:2px;">${(proj.client||'—').replace(/</g,'&lt;')} — ${(proj.addr||'—').replace(/</g,'&lt;')}</div>
+    <div style="text-align:center;font-size:10.5pt;color:#444;margin-bottom:14px;">${(proj.projname||'').replace(/</g,'&lt;')}</div>
+    <hr style="border:none;border-top:1.6px solid #1B1A22;margin:12px 0;">
+    <div style="margin:0 22px;font-size:10pt;">
+      <div style="display:flex;padding:2.5px 0;"><span style="width:1.7in;font-weight:700;">Date of Issue:</span><span>${new Date().toLocaleDateString('en-CA')}</span></div>
+      <div style="display:flex;padding:2.5px 0;"><span style="width:1.7in;font-weight:700;">Date of Test:</span><span>${proj.date||'—'}</span></div>
+      <div style="display:flex;padding:2.5px 0;"><span style="width:1.7in;font-weight:700;">Contractor:</span><span>${(proj.contractor||'—').replace(/</g,'&lt;')}</span></div>
+      <div style="display:flex;padding:2.5px 0;"><span style="width:1.7in;font-weight:700;">Prepared By:</span><span>${(proj.prepby||'—').replace(/</g,'&lt;')}</span></div>
+      <div style="display:flex;padding:2.5px 0;"><span style="width:1.7in;font-weight:700;">Project No.:</span><span>${proj.projno||'—'}</span></div>
     </div>
-    <div class="rpt-title">Diesel Fire Pump Commissioning Report</div>
-    <div style="color:#666;font-size:8.5pt;margin-top:3px;">Form: ${proj.version||''} &nbsp;|&nbsp; Rev: ${proj.revision||formRevision} &nbsp;|&nbsp; Modified: ${proj.dateModified||''}</div>
-    <table class="proj-tbl">
-      <tr><td class="lbl">Project No.</td><td>${proj.projno||'—'}</td><td class="lbl">Client</td><td>${proj.client||'—'}</td></tr>
-      <tr><td class="lbl">Project Name</td><td>${proj.projname||'—'}</td><td class="lbl">Address</td><td>${proj.addr||'—'}</td></tr>
-      <tr><td class="lbl">Prepared By</td><td>${proj.prepby||'—'}</td><td class="lbl">Date of Inspection</td><td>${proj.date||'—'}</td></tr>
-      <tr><td class="lbl">Contractor</td><td colspan="3">${proj.contractor||'—'}</td></tr>
-    </table>
+    <hr style="border:none;border-top:1.6px solid #1B1A22;margin:12px 0 4px;">
+    ${_ovHtml}
   </div>
 
   <h2>1. Prior to Commissioning Date</h2>
@@ -8443,6 +8506,16 @@ function _realExportPDF() {
     out+='<tr><td style="text-align:left">Equipment Used</td><td>'+(function(){var sel='input[name=equip3a]:checked';if(testType==='pld')sel='input[name=equip4b]:checked';var r=[];document.querySelectorAll(sel).forEach(function(c){var t=c.parentElement.textContent.trim();if(r.indexOf(t)<0)r.push(t)});return r.length?r.join(', '):'—'})()+'</td></tr>';
     out+='<tr><td style="text-align:left">Total Test Flow (US gpm)</td><td>'+(document.getElementById('pitot-total-3a')?.textContent||document.getElementById('pitot-total-4b')?.textContent||'—')+'</td></tr>';
     out+='</tbody></table>';
+    // S317: Pressure Settings (jockey/fire pump cut-in/out) — per test type
+    (function(){
+      var sfx = _isPld ? '-pld' : '';
+      function pv(id){ var el=document.getElementById(id+sfx); return (el&&el.value)?el.value:'\u2014'; }
+      out+='<table class="dt" style="max-width:400px;margin-top:12px;"><thead><tr><th class="left" style="text-align:left">Pressure Settings</th><th>Designed (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody>';
+      [['Jockey Pump Cut-in','jci'],['Jockey Pump Cut-out','jco'],['Fire Pump Cut-in','fci'],['Fire Pump Cut-out','fco']].forEach(function(r){
+        out+='<tr><td style="text-align:left">'+r[0]+'</td><td>'+pv('ps-'+r[1]+'-d')+'</td><td>'+pv('ps-'+r[1]+'-f')+'</td></tr>';
+      });
+      out+='</tbody></table>';
+    })();
 
     // Standard 3-Point table (only if std)
     if(testType==='std'){
@@ -10432,6 +10505,7 @@ function collectState() {
    'pld-ws-static-flow','pld-ws-static-psi','pld-ws-res-flow','pld-ws-res-psi',
    'pld-dem-spr-flow','pld-dem-spr-psi','pld-dem-hose-flow',
    'pm-prv-pld','pm-pld-setting','pm-rpm-pld',
+   'ps-jci-d','ps-jci-f','ps-jco-d','ps-jco-f','ps-fci-d','ps-fci-f','ps-fco-d','ps-fco-f','ps-jci-d-pld','ps-jci-f-pld','ps-jco-d-pld','ps-jco-f-pld','ps-fci-d-pld','ps-fci-f-pld','ps-fco-d-pld','ps-fco-f-pld',
    'so-name','so-title','so-company','so-date','so-cert','test-result',
   ].forEach(id => {
     const el = document.getElementById(id);
