@@ -1042,7 +1042,9 @@ if(pooledRecs.length){
   }
   // (5) Footer note — ALWAYS (S144: no toggle; recFooter positional arg
   //     retained in the signature but no longer gates this).
-  recBlocks.push({type:'recFoot',html:_recFootHtml});
+  // S316 (Mark): rec footer removed — the same disclaimer already appears in the
+  // Recommendations section header subtitle (_recSecTtlHtml). No duplicate footer.
+  // recBlocks.push({type:'recFoot',html:_recFootHtml});
 }
 
 // S144 §1/§4 + S145 P1 + S284 rev C: assemble the page-1 summary block.
@@ -1080,6 +1082,30 @@ try{
   cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
   cb.onclick=function(){w.close();};bar.appendChild(cb);
   w.document.body.insertBefore(bar,w.document.body.firstChild);w.document.body.style.paddingTop='56px';
+  // S316 (Mark): keep the export bar a CONSTANT on-screen size even when the user
+  // zooms into the drawing in the preview window. Browser zoom scales fixed
+  // elements too, so we counter-scale the bar by the inverse of the page zoom
+  // (visualViewport.scale) from the top-centre, and re-fit on every zoom/resize.
+  try{
+    var _fitBar=function(){
+      var vv=w.visualViewport;
+      var sc=(vv&&vv.scale)?vv.scale:1;
+      var inv=sc>0?(1/sc):1;
+      bar.style.transformOrigin='top center';
+      bar.style.transform='scale('+inv+')';
+      // width grows inversely so it still spans the viewport after counter-scale
+      bar.style.width=(100*sc)+'%';
+      bar.style.left='50%';
+      bar.style.right='auto';
+      bar.style.marginLeft=(-(50*sc))+'%';
+    };
+    if(w.visualViewport){
+      w.visualViewport.addEventListener('resize',_fitBar);
+      w.visualViewport.addEventListener('scroll',_fitBar);
+    }
+    w.addEventListener('resize',_fitBar);
+    _fitBar();
+  }catch(_ze){}
 }catch(e){}
 
 // Pagination
