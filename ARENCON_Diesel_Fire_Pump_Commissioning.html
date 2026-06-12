@@ -7606,7 +7606,7 @@ function renderAllDeficTable() {
       (q ? 'No deficiencies match "'+q+'"' : 'No deficiencies recorded yet. Switch to "By Contractor" to add deficiencies.') +'</p>';
     return;
   }
-  var html = '<table class="all-defic-tbl"><thead><tr><th style="width:30px;">#</th><th>Contractor</th><th>Description</th><th>Date</th><th>Status</th><th>IAR</th><th>Response</th></tr></thead><tbody>';
+  var html = '<table class="all-defic-tbl"><thead><tr><th style="width:30px;">#</th><th>Contractor</th><th>Description</th><th>Date</th><th>Status</th><th>IAR</th><th>Response</th><th>Photos</th></tr></thead><tbody>';
   all.forEach(function(r) {
     var d = r.d;
     var scLbl = (d.status==='resolved')?'Closed':(d.status==='in-progress')?'In Progress':'Outstanding';
@@ -8388,11 +8388,11 @@ function _realExportPDF() {
   </div>
 
   <h2>1. Prior to Commissioning Date</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
   <tbody>${clSection(S1,'s1')}</tbody></table>
 
   <h2>2. Visual Inspection</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
   <tbody>${clSection(S2,'s2')}</tbody></table>
 
   <h2>3. Pump / Controller / Louver Tests</h2>
@@ -8402,7 +8402,7 @@ function _realExportPDF() {
   <tr style="background:#EFF2F7;font-weight:700;"><td colspan="2">Battery #1 Subtotal: ${b1tot.toFixed(2)} s</td><td colspan="2">Battery #2 Subtotal: ${b2tot.toFixed(2)} s</td></tr>
   <tr style="background:${cumTot<=45?'#E8EFE7':'#F3E0DE'};font-weight:700;"><td colspan="4">Combined Total: ${cumTot.toFixed(2)} s — ${cumTot<=45?'✓ PASS (≤ 45s)':'✗ FAIL (> 45s) — Engine to run 5 min at full speed'}</td></tr>
   </tbody></table>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
   <tbody>${clSection(S3,'s3')}</tbody></table>
 
   <h2>4. Fire Pump Test Results</h2>
@@ -8476,11 +8476,11 @@ function _realExportPDF() {
     }
     return out;
   })()}
-  <table class="cl" style="margin-top:14px;"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl" style="margin-top:14px;"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
   <tbody>${clSection(S4_items,'s4')}</tbody></table>
 
   <h2>5. Fire Alarm &amp; Controller Signaling Tests</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:44%">Item</th><th style="width:8%">Status</th><th style="width:16%">Comments</th><th style="width:28%;text-align:center;">Photos</th></tr></thead>
+  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
   <tbody>${clSection(S5_mandatory,'s5m')}${clSection(S5,'s5')}</tbody></table>
 
   <h2>Deficiency Summary</h2>
