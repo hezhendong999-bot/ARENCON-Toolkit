@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S304 (markup bar rebuilt as compact in-flow 3-row bottom sheet: stage can structurally never overlap the buttons — elementFromPoint proved #dlb-area was eating Save taps; bar shown before fit calc and stage re-fits on exit; mobile-portrait friendly; saveMk press logged before any guard) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S305 (auto-commit on markup exit: leaving via pencil toggle, X, or closing the lightbox bakes strokes + creates the Site original + refreshes thumbs, no Save click needed; desktop gets the original floating pill back while narrow viewports keep the S304 bottom sheet; CloudSync heartbeat console spam removed) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3527,6 +3527,8 @@ var DslLightbox = (function(){
   var _mkAlpha=100;         // S296: stroke opacity %, driven by the bar's opacity slider
   var _mkDraft={};          // S295: per-photo unsaved-stroke stash — strokes survive markup exit/nav until saved or cleared
   var _persistBusy=false;   // S303: a save is persisting — exit/toggle/close blocked until it settles
+  var _layoutBar=null;      // S305: responsive markup-bar layout (desktop pill vs mobile sheet)
+  var _closeAfterPersist=false;   // S305: auto-commit triggered by closing the lightbox
   var _scrollLockY=0;
 
   function _el(id){ return document.getElementById(id); }
@@ -3592,13 +3594,32 @@ var DslLightbox = (function(){
     // Three rows: tools (scrollable) / style (scrollable) / actions (always visible).
     var bar=document.createElement('div');
     bar.id='dlb-markupbar';
-    bar.style.cssText='position:static;flex:0 0 auto;width:100%;display:none;flex-direction:column;gap:6px;padding:8px 10px calc(10px + env(safe-area-inset-bottom,0px));background:rgba(20,20,28,.97);box-shadow:0 -4px 16px rgba(0,0,0,.5);box-sizing:border-box;';
+    // S305 (Mark): desktop keeps the original centered floating pill (it was
+    // never the problem there and looked right); narrow viewports get the
+    // compact in-flow bottom sheet so the stage can never cover the buttons
+    // and the bar stays portrait-friendly. display:contents flattens the rows
+    // into one pill line in desktop mode.
+    var _rowScrollCss='display:flex;align-items:center;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;';
+    var _rowActionCss='display:flex;align-items:center;gap:6px;justify-content:center;';
     function mkRow(scroll){
       var r=document.createElement('div');
-      r.style.cssText='display:flex;align-items:center;gap:6px;'+(scroll?'overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;':'justify-content:center;');
+      r.style.cssText = scroll ? _rowScrollCss : _rowActionCss;
       return r;
     }
     var rowTools=mkRow(true), rowStyle=mkRow(true), rowActions=mkRow(false);
+    function _layoutMarkupBar(){
+      var keep = bar.style.display;   // preserve shown/hidden state
+      if(window.innerWidth < 700){
+        bar.style.cssText='position:static;flex:0 0 auto;width:100%;display:none;flex-direction:column;gap:6px;padding:8px 10px calc(10px + env(safe-area-inset-bottom,0px));background:rgba(20,20,28,.97);box-shadow:0 -4px 16px rgba(0,0,0,.5);box-sizing:border-box;';
+        rowTools.style.cssText=_rowScrollCss; rowStyle.style.cssText=_rowScrollCss; rowActions.style.cssText=_rowActionCss;
+      } else {
+        bar.style.cssText='position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:rgba(20,20,28,.92);border-radius:24px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:96vw;flex-wrap:wrap;';
+        rowTools.style.cssText='display:contents;'; rowStyle.style.cssText='display:contents;'; rowActions.style.cssText='display:contents;';
+      }
+      bar.style.display = keep || 'none';
+    }
+    _layoutBar = _layoutMarkupBar;
+    _layoutMarkupBar();
     function tb(id,label,title){
       var b=document.createElement('button');
       b.id=id; b.title=title; b.textContent=label;
@@ -3676,7 +3697,10 @@ var DslLightbox = (function(){
     _wireViewEvents();
     // S285: viewport changes (devtools open/close, rotation, window resize)
     // invalidate the fit — recalc while open.
-    window.addEventListener('resize', function(){ if(_isOpen && !_markupActive) _scheduleFit(); });
+    window.addEventListener('resize', function(){
+      if(_isOpen && _layoutBar) _layoutBar();   // S305: pill<->sheet on viewport change
+      if(_isOpen && !_markupActive) _scheduleFit();
+    });
   }
 
   // ── Transform / view math (FRT) ──
@@ -3827,13 +3851,23 @@ var DslLightbox = (function(){
   function _nav(dir){ var n=_idx+dir; if(n>=0&&n<_photos.length) _showPhoto(n); }
 
   // ── Markup mode ──
+  // S305 (Mark): leaving markup with strokes on the canvas COMMITS them — no
+  // explicit Save click required. ✎ toggle, the ✕ button, and closing the
+  // lightbox all bake + create the Site "(original)" + refresh thumbs. Exiting
+  // with an empty canvas just exits. Save button kept for explicit mid-session
+  // commits. Prev/Next nav still stashes (resume on return, commit on exit).
+  function _maybeCommitOnExit(){
+    if(window.DieselMarkup && DieselMarkup.strokes && DieselMarkup.strokes.length){ _saveMk(); }
+    else { _exitMarkup(false); }
+  }
   function _toggleMarkup(){
-    if(_markupActive){ _exitMarkup(false); return; }
+    if(_markupActive){ _maybeCommitOnExit(); return; }
     if(!window.DieselMarkup){ if(typeof showToast==='function') showToast('Markup engine not loaded'); return; }
     var img=_el('dlb-image'), cv=_el('dlb-canvas');
     if(!img||!img.naturalWidth) return;
-    // S304: bar is in-flow — show it BEFORE computing the fit so the stage
-    // sizes itself to the remaining area (no overlap, no stale fit).
+    // S304/S305: lay out the bar for this viewport, then show it BEFORE the fit
+    // calc so a sheet-mode stage sizes itself to the remaining area.
+    if(_layoutBar) _layoutBar();
     var _mb=_el('dlb-markupbar'); _mb.style.display='flex'; void _mb.offsetHeight;
     _resetView();                       // markup at fit scale, no pan (FRT rule)
     var p=_photoObj(_idx);
@@ -3891,6 +3925,7 @@ var DslLightbox = (function(){
     if(!mk){
       // No strokes drawn this session — nothing new to bake.
       _exitMarkup(false);
+      if(_closeAfterPersist){ _closeAfterPersist=false; _close(); return; }
       if(typeof showToast==='function') showToast(p._annotated?'No new markup to save':'No markup to save');
       return;
     }
@@ -3915,8 +3950,10 @@ var DslLightbox = (function(){
       }
       if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] saveMk renderer failed', e); } }
       _dslRefreshPhotoSurfaces();   // S301: checklist/defic/flow thumbs too, not just gallery
+      if(_closeAfterPersist){ _closeAfterPersist=false; _close(); }   // S305: commit was triggered by closing the lightbox
     }).catch(function(e){
       _sbDone();
+      _closeAfterPersist=false;   // S305: stay open on failure so the strokes are visible
       console.warn('[DLB] saveMk persist failed', e);
       if(typeof showToast==='function') showToast('Markup save failed \u2014 '+((e&&e.message)||e)+'. Your strokes are still here.');
       // stay in markup mode so the strokes aren't lost
@@ -4160,6 +4197,11 @@ var DslLightbox = (function(){
     _showPhoto(_idx);
   }
   function _close(){
+    if(_markupActive && window.DieselMarkup && DieselMarkup.strokes && DieselMarkup.strokes.length && !_persistBusy){
+      _closeAfterPersist=true;   // S305: auto-commit, then finish closing in the save's success path
+      _saveMk();
+      return;
+    }
     if(_markupActive) _exitMarkup(false);
     _isOpen=false; _photos=[]; _rotations={}; _ctx=null;
     var ov=_el('dlb-overlay');
@@ -9954,7 +9996,8 @@ function collectState() {
 function _collectCloudState(){
   var s=collectState();
   s._build=(typeof DIESEL_BUILD!=='undefined')?DIESEL_BUILD:'unknown';   // S302: which build wrote this row
-  console.info('[CloudSync] collecting state for push (build '+s._build+')');   // S303: FRT-style lifecycle log
+  // S305: heartbeat log removed — pushes run every 15s and were flooding the
+  // console (Mark). Event logs ([DLB], merge backup-restores, errors) remain.
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
   function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
@@ -11372,7 +11415,8 @@ function _mergeCloudLocal(cloud, local){
       });
     })();
   }
-  if(cloud && local) console.info('[CloudSync] merged cloud+local (timestamp-arbitrated)');   // S303
+  // S305: per-pull merge log removed (30s heartbeat spam); backup-restore and
+  // error logs inside the merge still fire when something actually happens.
   return cloud || local;
 }
 // Stamp _cloudSyncedAt before pushing to prevent self-triggering
@@ -12914,7 +12958,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S304';
+var DIESEL_BUILD = 'S305';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
