@@ -3348,6 +3348,7 @@ var DieselMarkup = (function(){
           if(Math.abs(p.x-g.corners[ci].x)<=g.hs&&Math.abs(p.y-g.corners[ci].y)<=g.hs){
             var anchors=[[g.b.x2,g.b.y2],[g.b.x1,g.b.y2],[g.b.x2,g.b.y1],[g.b.x1,g.b.y1]];
             this._dragState={type:'resize', anchorX:anchors[ci][0], anchorY:anchors[ci][1],
+              startX:p.x, startY:p.y,   // S314b: scale is ratioed to the PRESS point, not the bounds corner
               origBounds:{x1:g.b.x1,y1:g.b.y1,x2:g.b.x2,y2:g.b.y2}, orig:this._snapSel()};
             return;
           }
@@ -3399,9 +3400,14 @@ var DieselMarkup = (function(){
         this.render(); return;
       }
       if(ds.type==='resize'){
-        var ob=ds.origBounds, ax=ds.anchorX, ay=ds.anchorY, ow=ob.x2-ob.x1, oh=ob.y2-ob.y1;
-        if(ow<1||oh<1) return;
-        var fx=Math.abs(p.x-ax)/ow, fy=Math.abs(p.y-ay)/oh, f=Math.max(0.1,Math.min(10,(fx+fy)/2));
+        // S314b FIX (field report): the corner handle has a ±11px hit zone; the old
+        // factor |p-anchor|/boundsWidth started <1 when the press landed inside the
+        // zone, so the markup visibly shrank ON CONTACT before any drag. Ratio the
+        // scale to the press point instead — exactly 1.0 at the moment of touch.
+        var ax=ds.anchorX, ay=ds.anchorY;
+        function _dA(x,y){ var dx=x-ax, dy=y-ay; return Math.sqrt(dx*dx+dy*dy); }
+        var f=Math.max(0.1,Math.min(10,_dA(p.x,p.y)/Math.max(1,_dA(ds.startX,ds.startY))));
+        if(Math.abs(f-1)<0.01 && !ds.moved) return;   // dead-zone: ignore press jitter
         ds.moved=true;
         for(var ri=0;ri<this.selIds.length;ri++){
           var rs=this._findStroke(this.selIds[ri]); if(!rs) continue;
@@ -12540,12 +12546,12 @@ function _collectAllPhotos(){
   // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
   (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge', cat:'flow', badge:((row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge', cat:'flow', badge:('3pt '+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:((row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:('7pt '+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   return all;
