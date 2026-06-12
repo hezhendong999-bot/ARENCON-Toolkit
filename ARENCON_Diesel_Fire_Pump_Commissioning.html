@@ -3653,11 +3653,12 @@ var DslLightbox = (function(){
     var opSld=document.createElement('input'); opSld.type='range'; opSld.min='10'; opSld.max='100'; opSld.value='100';
     opSld.id='dlb-mk-opacity'; opSld.style.cssText='width:70px;accent-color:#9C2742;';
     opWrap.appendChild(opLbl); opWrap.appendChild(opSld); rowStyle.appendChild(opWrap);
-    var bSv=tb('dlb-mk-save','Save','Save markup'); bSv.style.background='#5F8068'; bSv.style.flex='1 1 auto'; bSv.style.maxWidth='180px'; bSv.style.height='38px'; bSv.style.font='700 14px Calibri,sans-serif';
+    // S306 (1c): Save button removed — auto-commit on markup exit (✎/✕/close)
+    // makes it redundant. _saveMk remains the commit path called by exit/close.
     var bCr=tb('dlb-mk-clear','Clear','Clear all strokes');
     var bRv=tb('dlb-mk-revert','Revert','Remove saved markup');
     var bX =tb('dlb-mk-exit','\u2715','Exit markup'); bX.style.background='#9C2742';
-    rowActions.appendChild(bSv); rowActions.appendChild(bCr); rowActions.appendChild(bRv); rowActions.appendChild(bX);
+    rowActions.appendChild(bCr); rowActions.appendChild(bRv); rowActions.appendChild(bX);
     bar.appendChild(rowTools); bar.appendChild(rowStyle); bar.appendChild(rowActions);
     ov.appendChild(bar);
     document.body.appendChild(ov);
@@ -3680,7 +3681,6 @@ var DslLightbox = (function(){
     opSld.addEventListener('input',function(){ _mkAlpha=parseInt(opSld.value,10)||100; });
     bUn.addEventListener('click',function(){ DieselMarkup.undo(); });
     bRd.addEventListener('click',function(){ DieselMarkup.redoOp(); });
-    bSv.addEventListener('click',_saveMk);
     bCr.addEventListener('click',function(){ DieselMarkup.clear(); });
     bRv.addEventListener('click',_revertMk);
     bX .addEventListener('click',_toggleMarkup);
@@ -10153,11 +10153,25 @@ async function _dslMarkupPersist(p, mk){
     preKey = ''; preUrl = ''; preStatus = '';
   }
   var isReSave = !!p._origBackupId;
-  console.info('[DLB] persist', {id:p.id, isReSave:isReSave, preKey:preKey?preKey.slice(-40):'', hasPreD:!!preD});
+  // S306 (1a): annotated-but-backupless is a CORRUPTED state, not a first markup.
+  // A sync race (heartbeat captured p.d=marked composite before _origBackupId/_mkTs
+  // landed) leaves the photo annotated with an empty _origBackupId. Re-marking it
+  // used to mint a fresh "(original)" — but preD is now the MARKED composite, so the
+  // backup was a copy of the marked image (and repeated on every re-mark → the 3×
+  // STAIR duplicates). Treat it as a re-save: bake the new strokes in place, create
+  // NO backup. The true original for such a legacy photo was already lost in the
+  // race; revert falls back to clear-flags-only. New photos are unaffected. The
+  // preKey /marked/ test above only caught the cloud-key case; _annotated catches
+  // the local-dataURL case it missed.
+  var isCorruptReSave = !isReSave && (p._annotated || (preD && preD.length > 0 && !preKey && (typeof p.r2Url==='string' && p.r2Url.indexOf('/marked/')>=0)));
+  if(isCorruptReSave){
+    console.warn('[DLB] persist: annotated photo with no _origBackupId — corrupted-state re-save, suppressing backup (original unrecoverable for this legacy photo)', {id:p.id});
+  }
+  console.info('[DLB] persist', {id:p.id, isReSave:isReSave, isCorruptReSave:isCorruptReSave, preKey:preKey?preKey.slice(-40):'', hasPreD:!!preD});
 
   // ── Backup creation (first markup only) ──
   var backupId = p._origBackupId || null;
-  if(!isReSave){
+  if(!isReSave && !isCorruptReSave){
     if(preD || preKey){
       var backup = {
         d: preD, n: p.n || 'photo.jpg',
@@ -10297,6 +10311,69 @@ function _dslMarkupRevert(p){
   return true;
 }
 
+// S306 (1a cleanup): one-shot collapse of duplicate "(original)" Site backups.
+// The pre-S306 persist path minted a fresh "(original)" record on every re-mark of
+// an annotated-but-backupless photo (sync-race corruption), so a single photo could
+// accumulate 3+ identical Site backups (the STAIR case: 3 copies / 8 photos / 4
+// records reported S305). This folds same-source duplicates down to one survivor and
+// re-points any annotated photos at it. Conservative: only _isOrigBackup records are
+// touched; grouping is by caption + source signature so distinct originals are never
+// merged. Idempotent — re-running after a clean state is a no-op.
+function _dedupeOrigBackups(){
+  if(typeof recordPhotos==='undefined' || !Array.isArray(recordPhotos)) return 0;
+  // signature that identifies the SAME original content
+  function _sig(b){
+    var src = b.r2Key || b.r2Url || (b.d ? ('d:'+b.d.length+':'+b.d.slice(0,48)) : '');
+    return (b.caption||'') + '|' + src;
+  }
+  var groups = {};
+  recordPhotos.forEach(function(b){
+    if(!b || !b._isOrigBackup) return;
+    var k = _sig(b);
+    (groups[k] = groups[k] || []).push(b);
+  });
+  // which backup ids are referenced by a live annotated photo
+  var referenced = {};
+  if(typeof _forEachLivePhoto==='function'){
+    _forEachLivePhoto(function(p){ if(p && p._annotated && p._origBackupId) referenced[p._origBackupId]=true; });
+  }
+  var removeIds = {}, remap = {}, collapsed = 0;
+  Object.keys(groups).forEach(function(k){
+    var g = groups[k];
+    if(g.length < 2) return;
+    // survivor: prefer one already referenced by a photo, else the first
+    var survivor = g.filter(function(b){ return referenced[b.id]; })[0] || g[0];
+    g.forEach(function(b){
+      if(b.id === survivor.id) return;
+      removeIds[b.id] = true;
+      remap[b.id] = survivor.id;   // re-point any photo that pointed at the dropped copy
+      collapsed++;
+    });
+  });
+  if(!collapsed) return 0;
+  // re-point annotated photos whose backup was dropped
+  if(typeof _forEachLivePhoto==='function'){
+    _forEachLivePhoto(function(p){
+      if(p && p._origBackupId && remap[p._origBackupId]) p._origBackupId = remap[p._origBackupId];
+    });
+  }
+  // remove the dropped backup records
+  for(var i=recordPhotos.length-1; i>=0; i--){
+    if(recordPhotos[i] && removeIds[recordPhotos[i].id]) recordPhotos.splice(i,1);
+  }
+  console.info('[DLB] dedupeOrigBackups: collapsed '+collapsed+' duplicate (original) record(s)');
+  try{
+    if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces();
+    if(typeof saveState==='function') saveState();
+    if(typeof debounceAutosave==='function') debounceAutosave();
+    if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save && typeof _collectCloudState==='function'){
+      CloudSync.save(_collectCloudState());
+    }
+  }catch(e){ console.warn('[DLB] dedupeOrigBackups: post-cleanup refresh/save failed', e); }
+  return collapsed;
+}
+if(typeof window!=='undefined') window._dedupeOrigBackups = _dedupeOrigBackups;
+
 // S282 B5: reconcile self-healer — Diesel port of FRT's reconcileFailedAgainstR2
 // (the mechanism that closed silent photo loss in FRT since S173). The outbox
 // only heals entries still IN the outbox; photos stuck at pending/failed in live
@@ -10311,6 +10388,24 @@ function _dslMarkupRevert(p){
 // Serialized GETs (Worker has no HEAD; body cancelled after headers), Hub-mode
 // only, offline-safe, never runs concurrently.
 var _r2ReconcileRunning = false;
+// S306 (1b): re-hydrate a photo's local display data (p.d) from its surviving
+// outbox blob. A failed R2 upload (e.g. the Worker 503 this session) leaves the
+// blob durably in the outbox while cloud strips p.d on push — on reload the photo
+// has r2Url pointing at a non-existent object and an empty p.d, so the gallery
+// renders the camera-icon placeholder (the 2.2-photo symptom). INVARIANT R1/R6:
+// the local binary is the permanent backup; a failed cloud upload must NEVER leave
+// a photo without local display data. This restores it from the blob we still hold.
+function _rehydratePhotoFromOutbox(p, entry){
+  return new Promise(function(resolve){
+    if(!p || p.d || !entry || !entry.blob){ resolve(false); return; }
+    try{
+      var fr = new FileReader();
+      fr.onload = function(){ if(fr.result){ p.d = fr.result; resolve(true); } else resolve(false); };
+      fr.onerror = function(){ resolve(false); };
+      fr.readAsDataURL(entry.blob);
+    }catch(e){ resolve(false); }
+  });
+}
 function _r2ReconcilePhotos(){
   if(_r2ReconcileRunning) return Promise.resolve();
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return Promise.resolve();
@@ -10325,9 +10420,9 @@ function _r2ReconcilePhotos(){
       return g.ok;
     }).catch(function(){ return false; });
   }
-  var outboxKeys = {};
+  var outboxKeys = {}, outboxByKey = {};
   var pre = (typeof R2Outbox!=='undefined')
-    ? R2Outbox.getAll().then(function(es){ es.forEach(function(e){ if(e&&e.key) outboxKeys[e.key]=1; }); }).catch(function(){})
+    ? R2Outbox.getAll().then(function(es){ es.forEach(function(e){ if(e&&e.key){ outboxKeys[e.key]=1; outboxByKey[e.key]=e; } }); }).catch(function(){})
     : Promise.resolve();
   var nGreen=0, nRequeued=0, nOrphan=0, nSkipped=0, changed=false;
   return pre.then(function(){
@@ -10335,7 +10430,15 @@ function _r2ReconcilePhotos(){
     targets.forEach(function(p){
       chain = chain.then(function(){
         if(typeof navigator!=='undefined' && !navigator.onLine) return;
-        if(p.r2Key && outboxKeys[p.r2Key]){ nSkipped++; return; }      // outbox owns it
+        if(p.r2Key && outboxKeys[p.r2Key]){
+          // outbox owns the upload — but if cloud stripped p.d on reload, the
+          // thumbnail is broken until the (possibly failing) upload verifies.
+          // Restore display data from the blob we already hold. (S306 1b)
+          if(!p.d && outboxByKey[p.r2Key]){
+            return _rehydratePhotoFromOutbox(p, outboxByKey[p.r2Key]).then(function(did){ if(did) changed=true; nSkipped++; });
+          }
+          nSkipped++; return;
+        }
         if(!p.r2Url){
           if(p.d){ _r2EnqueuePhoto(p); nRequeued++; changed=true; }     // never keyed — enqueue fresh
           else { nOrphan++; }                                           // no key, no binary — B9 territory
@@ -10343,8 +10446,19 @@ function _r2ReconcilePhotos(){
         }
         return _present(p.r2Url).then(function(ok){
           if(ok){ p.r2Status='uploaded'; nGreen++; changed=true; return; }
-          if(p.d){ _r2EnqueuePhoto(p); nRequeued++; changed=true; }     // re-keys legacy names to {id}.jpg
-          else if(p.r2Status!=='failed'){ p.r2Status='failed'; nOrphan++; changed=true; }
+          if(p.d){ _r2EnqueuePhoto(p); nRequeued++; changed=true; return; }     // re-keys legacy names to {id}.jpg
+          // R2 object absent AND no local data — try the outbox blob before
+          // giving up (S306 1b: a failed PUT must not strand the photo without
+          // display data). If we recover it, re-enqueue the upload too.
+          var ob = p.r2Key && outboxByKey[p.r2Key];
+          if(ob){
+            return _rehydratePhotoFromOutbox(p, ob).then(function(did){
+              if(did){ _r2EnqueuePhoto(p); nRequeued++; changed=true; }
+              else if(p.r2Status!=='failed'){ p.r2Status='failed'; nOrphan++; changed=true; }
+              else { nOrphan++; }
+            });
+          }
+          if(p.r2Status!=='failed'){ p.r2Status='failed'; nOrphan++; changed=true; }
           else { nOrphan++; }
         });
       });
@@ -10969,6 +11083,9 @@ window.addEventListener('load', () => {
         // merge finishes populating live photo arrays — re-run once after settle,
         // and on every reconnect (after the outbox's own online-drive at 1.2s).
         setTimeout(function(){ if(typeof _r2ReconcilePhotos==='function') _r2ReconcilePhotos(); }, 12000);
+        // S306 (1a): one-shot duplicate-(original) cleanup after the cloud load +
+        // binary merge has settled, so recordPhotos reflects merged truth.
+        setTimeout(function(){ if(typeof _dedupeOrigBackups==='function') try{ _dedupeOrigBackups(); }catch(e){ console.warn('[DLB] dedupe pass failed', e); } }, 13000);
         window.addEventListener('online', function(){ setTimeout(function(){ if(typeof _r2ReconcilePhotos==='function') _r2ReconcilePhotos(); }, 4000); });
       }
       _csInstanceId = params.instanceId;
