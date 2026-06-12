@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S312 (jump-back: jumping from the Deficiencies Checklist-Findings roll-up to a checklist item now surfaces a floating Back-to-Deficiencies pill that returns to the origin panel; auto-dismisses on any other panel switch or after 12s) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S313 (B9 dead-reference repair: _dieselDeadRefReport() GET-verifies photo records that have no local binary + an r2Url that 404s + no outbox blob = confirmed-dead refs causing the placeholder tiles <!-- ARENCON Diesel Fire Pump Commissioning — build S312 (jump-back: jumping from the Deficiencies Checklist-Findings roll-up to a checklist item now surfaces a floating Back-to-Deficiencies pill that returns to the origin panel; auto-dismisses on any other panel switch or after 12s) --> 404 storm; report-only by default. _dieselDeadRefRepair(true) backs up to JSON then clears them via the authoritative remove path. Restore via _dieselOrphanRestore) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1684,7 +1684,7 @@ function _aConfirm(msg,onOk,okText){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
   h+='</div></div>';
   ov.innerHTML=h;
-  /* backdrop close disabled (accidental dismiss) */
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
   ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
   document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
@@ -1702,7 +1702,7 @@ function _aPrompt(msg,defVal,onOk){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;var inp=ov.querySelector('._ap-input');
-  /* backdrop close disabled (accidental dismiss) */
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
   ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;ov.remove();if(onOk)onOk(v);};
   inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')ov.remove();});
@@ -1719,7 +1719,7 @@ function _aAlert(msg){
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;
-  /* backdrop close disabled (accidental dismiss) */
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.querySelector('._ac-ok').onclick=function(){ov.remove();};
   document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
 }
@@ -10890,6 +10890,68 @@ async function _dieselR2OrphanReport(){
 }
 if(typeof window!=='undefined') window._dieselR2OrphanReport = _dieselR2OrphanReport;
 
+// ═══ S313 B9 REPAIR: clear DEAD photo references (report-then-confirm) ═══
+// A "dead reference" = a photo record with NO local binary (.d) whose r2Url
+// returns 404 (object genuinely gone) AND no recoverable blob in the outbox.
+// These show the camera-placeholder tile and spam 404s on every gallery render
+// (confirmed via outbox entries:0 + R2 404 on device). The existing orphan report
+// missed them because it tested "no r2Url" — these HAVE an r2Url, it just 404s.
+// _dieselDeadRefReport() GET-verifies each candidate (R2 GET is public, no auth)
+// and PRINTS the confirmed-dead list. _dieselDeadRefRepair(true) backs the records
+// up to JSON, then removes them via the authoritative _pgRemovePhoto path. Dry run
+// without true. Restore: _dieselOrphanRestore(backupObj).
+async function _dieselDeadRefReport(){
+  var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
+  // candidates: no local binary, but a record that still claims an r2Url
+  var cands = all.filter(function(a){ var p=a.photo||{}; return !p.d && p.r2Url; });
+  // also include outbox keys so we never flag a record whose blob is still queued
+  var outboxKeys = {};
+  try { if(typeof R2Outbox!=='undefined'){ var es=await R2Outbox.getAll(); (es||[]).forEach(function(e){ if(e&&e.key) outboxKeys[e.key]=1; }); } } catch(e){}
+  var dead = [];
+  for(var i=0;i<cands.length;i++){
+    var a=cands[i], p=a.photo;
+    if(p.r2Key && outboxKeys[p.r2Key]) continue;   // blob still queued — recoverable, skip
+    var ok=false;
+    try{ var r=await fetch(p.r2Url,{method:'GET'}); try{ if(r.body&&r.body.cancel) r.body.cancel(); }catch(_){}; ok=r.ok; }catch(e){ ok=false; }
+    if(!ok) dead.push({pid:p.id||'', label:a.label, section:a.section, idx:a.idx, type:a.type, r2Key:p.r2Key||'', n:p.n||''});
+  }
+  console.log('%c[DeadRef] REPORT ONLY \u2014 nothing removed','font-weight:bold');
+  console.log('[DeadRef] candidates (no local binary, has r2Url): '+cands.length+' | confirmed DEAD (r2Url 404, not in outbox): '+dead.length);
+  if(dead.length && console.table) console.table(dead); else if(dead.length) console.log(dead);
+  console.log('[DeadRef] to clear: _dieselDeadRefRepair(true)  (dry run without true; backup JSON downloads first; restore via _dieselOrphanRestore)');
+  return dead;
+}
+async function _dieselDeadRefRepair(confirmFlag){
+  var dead = await _dieselDeadRefReport();
+  if(!dead.length){ console.log('[DeadRef] nothing to repair'); return dead; }
+  if(confirmFlag!==true){ console.warn('[DeadRef] DRY RUN ONLY \u2014 call _dieselDeadRefRepair(true) to execute'); return dead; }
+  // 1. Backup the dead records (re-resolve live so indices are current).
+  var backup = {ts:new Date().toISOString(), tool:'diesel', photos:[], clState:{}};
+  dead.forEach(function(d){
+    var res = (typeof _pgResolveByPid==='function') ? _pgResolveByPid(d.pid) : null;
+    if(res && res.item && res.item.photo) backup.photos.push({section:res.item.section, type:res.item.type, photo:JSON.parse(JSON.stringify(res.item.photo))});
+  });
+  try{
+    var a=document.createElement('a');
+    a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(backup,null,1));
+    a.download='diesel_deadref_backup_'+Date.now()+'.json'; a.click();
+  }catch(e){ console.error('[DeadRef] backup download failed \u2014 ABORTING:', e); return dead; }
+  // 2. Remove each dead record via the authoritative per-section remover,
+  //    re-resolving by id each time so splices keep indices valid.
+  var removed=0;
+  dead.forEach(function(d){
+    var res = (typeof _pgResolveByPid==='function') ? _pgResolveByPid(d.pid) : null;
+    if(res && res.item && typeof _pgRemovePhoto==='function'){ try{ _pgRemovePhoto(res.item); removed++; }catch(e){ console.warn('[DeadRef] remove failed for', d.pid, e); } }
+  });
+  // 3. Persist + repaint.
+  if(typeof _renderPhotoGallery==='function') try{ _renderPhotoGallery(); }catch(_){}
+  if(typeof saveState==='function') try{ saveState(); }catch(_){}
+  if(typeof debounceAutosave==='function') try{ debounceAutosave(); }catch(_){}
+  console.log('[DeadRef] cleared '+removed+' dead photo reference(s). Backup JSON downloaded \u2014 keep until field-verified. 404 storm should stop on next render.');
+  return {cleared:removed, backup:backup};
+}
+if(typeof window!=='undefined'){ window._dieselDeadRefReport = _dieselDeadRefReport; window._dieselDeadRefRepair = _dieselDeadRefRepair; }
+
 function _r2ReuploadAll(){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined'){ showToast('Must be in Hub mode', 2000); return; }
   var count = 0;
@@ -11561,7 +11623,7 @@ function _openToolQR(){
       + '<button onclick="document.getElementById(\'tool-qr-overlay\').style.display=\'none\';_toolQrLastUrl=null;" style="padding:8px 24px;border-radius:8px;border:none;background:#455A64;color:white;font-weight:600;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Close</button>'
       + '</div>';
     document.body.appendChild(ov);
-    /* backdrop close disabled */
+    ov.addEventListener('click', function(e){ if(e.target===ov){ ov.style.display='none'; _toolQrLastUrl=null; }});
     document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&ov.style.display!=='none'){ ov.style.display='none'; _toolQrLastUrl=null; }});
   }
   ov.style.display = 'flex';
@@ -13403,7 +13465,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S312';
+var DIESEL_BUILD = 'S313';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
@@ -13822,7 +13884,7 @@ function _ensureOverlay() {
   if (_overlay) return;
   _overlay = document.createElement('div');
   _overlay.className = 'ai-usage-overlay';
-  /* backdrop close disabled */
+  _overlay.addEventListener('click', function(e) { if (e.target === _overlay) close(); });
   var adm = _isAdmin();
   _overlay.innerHTML = '<div class="ai-usage-modal" onclick="event.stopPropagation()">'
     + '<div class="ai-usage-hdr"><h3>\uD83D\uDCCA AI Usage Tracking</h3><div class="ai-usage-hdr-btns">'
