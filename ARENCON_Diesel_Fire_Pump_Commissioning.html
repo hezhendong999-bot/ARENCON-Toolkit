@@ -13188,6 +13188,16 @@ function _pgDeleteSelected(){
   // S264: one confirm for the whole batch (not N prompts). Each item still gets the
   // full treatment — source-array removal + surface re-render + R2 original cleanup.
   _aConfirm('Delete '+selected.length+' selected photo(s)? This cannot be undone.', function(){
+    // S315: _pgRemovePhoto splices its source array by item.idx — after the first
+    // splice, the captured indices of OTHER selections in the SAME array are stale,
+    // so the 2nd+ deletions landed on neighbouring photos. type+section identifies
+    // the array; deleting in DESCENDING idx order within each keeps every captured
+    // index valid. Different arrays don't interact.
+    selected.sort(function(a,b){
+      var ka=(a.type||'')+'|'+(a.section||''), kb=(b.type||'')+'|'+(b.section||'');
+      if(ka!==kb) return ka<kb?-1:1;
+      return (b.idx||0)-(a.idx||0);
+    });
     selected.forEach(function(item){
       _pgRemovePhoto(item);
       try {
