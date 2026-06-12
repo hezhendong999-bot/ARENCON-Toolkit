@@ -13115,17 +13115,24 @@ function _placardPhotoData(p, cb){
   cb(null);
 }
 function _placardScan(btn){
+  // S318: placards glare — inspectors shoot SEVERAL angles. Send up to the 4 most
+  // recent placard photos in ONE request; the model cross-references angles and
+  // returns null (never a guess) when angles disagree.
   var list=(typeof recordPhotos==='undefined'?[]:recordPhotos).filter(function(p){return (p.kind||'')==='placard';});
   if(!list.length){ showToast('Capture a placard photo first'); return; }
-  var p=list[list.length-1];   // most recent placard photo
+  var take=list.slice(-4);
   var token=localStorage.getItem('sb-access-token');
   if(!token){ showToast('Sign in (Hub mode) to use AI scan'); return; }
-  var origTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Reading placard\u2026'; }
+  var origTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Reading '+take.length+' placard photo'+(take.length>1?'s':'')+'\u2026'; }
   function done(){ if(btn){ btn.disabled=false; btn.textContent=origTxt; } }
-  _placardPhotoData(p, function(img){
-    if(!img){ done(); showToast('Could not load the placard photo'); return; }
+  var imgs=[], chain=Promise.resolve();
+  take.forEach(function(p){
+    chain=chain.then(function(){ return new Promise(function(res){ _placardPhotoData(p,function(img){ if(img) imgs.push(img); res(); }); }); });
+  });
+  chain.then(function(){
+    if(!imgs.length){ done(); showToast('Could not load the placard photo(s)'); return; }
     var up=(typeof readUrlParams==='function')?readUrlParams():{};
-    var body=JSON.stringify({ mode:'placard_read', photos:[img],
+    var body=JSON.stringify({ mode:'placard_read', photos:imgs,
       context:{ tool:'diesel_pump', projectNumber:up.projectNumber||null, projectName:up.projectName||null } });
     function call(tok){
       return fetch(AI_WORKER_URL,{ method:'POST',
@@ -13140,18 +13147,44 @@ function _placardScan(btn){
       if(!res.ok) return res.json().then(function(e){ throw new Error(e.error||'AI error '+res.status); });
       return res.json();
     }).then(function(d){
-      done(); _placardPreview(btn, d);
+      done(); _placardPreview(btn, d, imgs.length);
     }).catch(function(err){
       done(); showToast('Placard scan failed: '+(err.message||'connection error'));
     });
   });
 }
-function _placardPreview(btn, d){
+function _psPlacardCur(pct){
+  var r=(typeof stdData!=='undefined'?stdData:[]).filter(function(x){return x.pct===pct;})[0];
+  if(r&&r.placard!=='') return r.placard;
+  var q=(typeof pldData!=='undefined'?pldData:[]).filter(function(x){return x.pct===pct;})[0];
+  return (q&&q.placard!=='')?q.placard:'';
+}
+function _psSetPlacard(pct, v){
+  [(typeof stdData!=='undefined'?stdData:[]),(typeof pldData!=='undefined'?pldData:[])].forEach(function(arr){
+    arr.forEach(function(r){ if(r.pct===pct) r.placard=String(v); });
+  });
+}
+function _placardPreview(btn, d, nPhotos){
   var old=document.getElementById('placard-scan-card'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+  function inputCur(id){ var el=document.getElementById(id); return el?el.value:''; }
+  // S318 field map. Three target kinds:
+  //   inputs  -> nameplate inputs in BOTH tabs
+  //   placard -> the Placard (psi) column at the matching flow-% row, BOTH tables
+  //   npsh    -> NPSH inputs via their setters
   var fields=[
-    { key:'flow', label:'Rated Flow (gpm)',    val:d.rated_flow_gpm,     ids:['pm-rated-flow','pm-rated-flow-pld'] },
-    { key:'prv',  label:'Rated Press. (psi)',  val:d.rated_pressure_psi, ids:['pm-prv','pm-prv-pld'] },
-    { key:'rpm',  label:'Rated Speed (RPM)',   val:d.rated_speed_rpm,    ids:['pm-rpm','pm-rpm-pld'] }
+    { key:'flow',  label:'Rated Flow (gpm)',          val:d.rated_flow_gpm,     cur:inputCur('pm-rated-flow'),
+      apply:function(v){ ['pm-rated-flow','pm-rated-flow-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; }); } },
+    { key:'prv',   label:'Rated Pressure (psi)',      val:d.rated_pressure_psi, cur:inputCur('pm-prv'),
+      apply:function(v){ ['pm-prv','pm-prv-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; }); _psSetPlacard('100%',v); } },
+    { key:'rpm',   label:'Rated Speed (RPM)',         val:d.rated_speed_rpm,    cur:inputCur('pm-rpm'),
+      apply:function(v){ ['pm-rpm','pm-rpm-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; }); } },
+    { key:'churn', label:'Churn Pressure (psi @ 0%)', val:d.churn_pressure_psi, cur:_psPlacardCur('0%'),
+      apply:function(v){ _psSetPlacard('0%',v); } },
+    { key:'p150',  label:'Pressure @ 150% (psi)',     val:d.pressure_at_150_psi,cur:_psPlacardCur('150%'),
+      apply:function(v){ _psSetPlacard('150%',v); } },
+    { key:'npsh',  label:'NPSH (psi)',                val:d.npsh_psi,           cur:inputCur('npsh-psi'),
+      apply:function(v){ ['npsh-psi','npsh-psi-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; });
+        if(typeof setNpsh==='function') setNpsh(v); if(typeof setNpshPld==='function') setNpshPld(v); } }
   ];
   var any=fields.some(function(f){return f.val!=null;});
   var card=document.createElement('div'); card.id='placard-scan-card';
@@ -13159,22 +13192,33 @@ function _placardPreview(btn, d){
   var confCol=d.confidence==='high'?'#5F8068':(d.confidence==='low'?'#A85959':'#B08948');
   var html='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
     +'<b style="font-size:13.5px;">\u2726 Placard read</b>'
+    +'<span style="font-size:11px;color:#5E5B68;">'+(nPhotos||1)+' photo'+((nPhotos||1)>1?'s':'')+' cross-referenced</span>'
     +'<span style="font-weight:700;color:'+confCol+';text-transform:uppercase;font-size:11px;letter-spacing:.4px;">'+_escHtml(d.confidence||'medium')+' confidence</span></div>';
   if(!any){
-    html+='<div style="color:#A85959;">No rated values could be read from the photo.</div>';
+    html+='<div style="color:#A85959;">No values could be read from the photo(s).</div>';
   } else {
     html+='<div style="display:flex;flex-direction:column;gap:6px;">';
     fields.forEach(function(f){
-      var cur=document.getElementById(f.ids[0]); var curV=cur?cur.value:'';
       if(f.val==null){
-        html+='<label style="display:flex;align-items:center;gap:8px;opacity:.55;"><input type="checkbox" disabled> '
+        html+='<label style="display:flex;align-items:center;gap:8px;opacity:.5;"><input type="checkbox" disabled> '
           +f.label+': <i>not readable</i></label>';
+        return;
+      }
+      var same = (f.cur!=='' && parseFloat(f.cur)===parseFloat(f.val));
+      // S318 (Mark): never churn existing values for no reason — a matching value
+      // is shown as confirmation, unchecked and disabled; only DIFFERENT or empty
+      // fields arrive checked.
+      if(same){
+        html+='<label style="display:flex;align-items:center;gap:8px;opacity:.65;"><input type="checkbox" disabled> '
+          +f.label+': <b>'+f.val+'</b> <span style="color:#5F8068;">matches current \u2014 no change</span></label>';
+      } else if(f.cur===''){
+        html+='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
+          +'<input type="checkbox" checked data-pscan="'+f.key+'"> '
+          +f.label+': <b>'+f.val+'</b> <span style="color:#5F8068;">(empty \u2014 will be filled)</span></label>';
       } else {
         html+='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
-          +'<input type="checkbox" checked data-pscan="'+f.key+'" data-pval="'+f.val+'" data-pids="'+f.ids.join(',')+'"> '
-          +f.label+': <b>'+f.val+'</b>'
-          +(curV!==''?' <span style="color:#928E9C;">(currently '+_escHtml(curV)+' \u2014 will be replaced)</span>':' <span style="color:#5F8068;">(empty \u2014 will be filled)</span>')
-          +'</label>';
+          +'<input type="checkbox" checked data-pscan="'+f.key+'"> '
+          +f.label+': <b>'+f.val+'</b> <span style="color:#B08948;font-weight:600;">(currently '+_escHtml(f.cur)+' \u2014 will replace)</span></label>';
       }
     });
     html+='</div>';
@@ -13184,9 +13228,8 @@ function _placardPreview(btn, d){
   html+='<div style="display:flex;gap:8px;margin-top:10px;">';
   if(any) html+='<button id="pscan-apply" style="background:#9C2742;color:#fff;border:none;border-radius:7px;padding:7px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;">Apply selected</button>';
   html+='<button id="pscan-cancel" style="background:#455A64;color:#fff;border:none;border-radius:7px;padding:7px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;">'+(any?'Cancel':'Close')+'</button></div>'
-    +'<div style="margin-top:7px;color:#928E9C;font-size:11px;">AI-read values \u2014 verify against the physical placard before applying. Fills both 3-pt and 7-pt rated fields.</div>';
+    +'<div style="margin-top:7px;color:#928E9C;font-size:11px;">AI-read values \u2014 verify against the physical placard before applying. Fills both 3-pt and 7-pt; churn/150% land in the Placard column rows.</div>';
   card.innerHTML=html;
-  // Mount inside the np-panel the button lives in (works for both 3pt and 7pt sections)
   var panel=btn?btn.closest('.np-panel'):null;
   var host=document.getElementById('placard-ocr-host');
   if(panel){ panel.appendChild(card); }
@@ -13198,24 +13241,24 @@ function _placardPreview(btn, d){
   if(bA) bA.addEventListener('click',function(){
     var n=0;
     card.querySelectorAll('input[data-pscan]:checked').forEach(function(cb){
-      var v=cb.getAttribute('data-pval');
-      cb.getAttribute('data-pids').split(',').forEach(function(id){
-        var el=document.getElementById(id); if(el){ el.value=v; n++; }
-      });
+      var key=cb.getAttribute('data-pscan');
+      var f=fields.filter(function(x){return x.key===key;})[0];
+      if(f&&f.val!=null){ f.apply(f.val); n++; }
     });
-    // Fire the same cascades the manual oninput handlers run (3pt + 7pt)
     if(typeof autoFillStdFlows==='function') autoFillStdFlows();
     if(typeof autoFillPldFlows==='function') autoFillPldFlows();
     if(typeof updateChart==='function') updateChart();
+    if(typeof updateNetChart3pt==='function') updateNetChart3pt();
     if(typeof updatePldChart==='function') updatePldChart();
     if(typeof updatePldNetChart==='function') updatePldNetChart();
     if(typeof renderStdTable==='function') renderStdTable();
     if(typeof renderPldTable==='function') renderPldTable();
     if(typeof saveState==='function') saveState();
     card.parentNode.removeChild(card);
-    showToast(n?'Rated values applied \u2014 verify the charts':'Nothing selected');
+    showToast(n?(n+' value'+(n>1?'s':'')+' applied \u2014 verify the tables & charts'):'Nothing selected');
   });
 }
+
 function _recAddFile(file, kind){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
   var r=new FileReader();
@@ -14239,7 +14282,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S317';
+var DIESEL_BUILD = 'S318';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>

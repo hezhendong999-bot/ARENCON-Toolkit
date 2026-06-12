@@ -139,10 +139,18 @@ Respond with ONLY valid JSON — no markdown, no backticks:
 // data, they don't certify it).
 const PROMPT_PLACARD_READ = `You are a data-extraction assistant reading FIRE PUMP nameplates/placards for commissioning flow tests at ARENCON Inc. in Ontario, Canada.
 
-Extract ONLY the pump's RATED values exactly as printed on the placard:
+You may receive SEVERAL photos of the SAME placard taken from different angles
+because of glare/reflection — cross-reference all of them; a value readable in
+any one photo counts. If two photos disagree on the same value, return null for
+that value and explain the conflict in "notes" — NEVER pick one arbitrarily.
+
+Extract ONLY the pump's values exactly as printed on the placard:
 - Rated flow / rated capacity in US gpm
-- Rated pressure / rated head in psi
+- Rated pressure / rated head in psi (the 100% rated point)
 - Rated speed in RPM
+- Churn / shutoff pressure in psi (the 0%-flow pressure), if printed
+- Pressure at 150% rated flow (overload / maximum-flow pressure), if printed
+- NPSH in psi, if printed (convert from ft x 0.433 if given in feet; note it)
 
 RULES:
 - Report only values you can clearly read on the placard. If a value is missing, unreadable, or ambiguous, return null for it — NEVER guess.
@@ -156,6 +164,9 @@ Respond with ONLY valid JSON — no markdown, no backticks:
   "rated_flow_gpm": number or null,
   "rated_pressure_psi": number or null,
   "rated_speed_rpm": number or null,
+  "churn_pressure_psi": number or null,
+  "pressure_at_150_psi": number or null,
+  "npsh_psi": number or null,
   "confidence": "high|medium|low",
   "notes": "What you read, any conversions, any caveats"
 }`;
@@ -371,8 +382,8 @@ export default {
         if (!photos || !Array.isArray(photos) || photos.length === 0) {
           return jsonResponse({ error: 'No photos provided' }, 400, headers);
         }
-        if (photos.length > 2) {
-          return jsonResponse({ error: 'Too many photos (max 2 per request)' }, 400, headers);
+        if (photos.length > 4) {
+          return jsonResponse({ error: 'Too many photos (max 4 per request)' }, 400, headers);
         }
         const pBlocks = [];
         for (const ph of photos) {
@@ -381,7 +392,7 @@ export default {
           }
           pBlocks.push({ type: 'image', source: { type: 'base64', media_type: ph.media_type, data: ph.data } });
         }
-        pBlocks.push({ type: 'text', text: 'Read the fire pump placard in the photo(s) above and extract the rated values.' });
+        pBlocks.push({ type: 'text', text: 'The photo(s) above show the SAME fire pump placard, possibly from different angles. Cross-reference them and extract the values.' });
 
         const pModel = MODELS.rewrite; // Sonnet — vision
         const pRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -436,10 +447,14 @@ export default {
           }).catch(err => console.error('Usage log failed:', err));
           ctx.waitUntil(pLog);
         }
+        const pNum = (v) => (typeof v === 'number') ? v : null;
         return jsonResponse({
-          rated_flow_gpm: (typeof pParsed.rated_flow_gpm === 'number') ? pParsed.rated_flow_gpm : null,
-          rated_pressure_psi: (typeof pParsed.rated_pressure_psi === 'number') ? pParsed.rated_pressure_psi : null,
-          rated_speed_rpm: (typeof pParsed.rated_speed_rpm === 'number') ? pParsed.rated_speed_rpm : null,
+          rated_flow_gpm: pNum(pParsed.rated_flow_gpm),
+          rated_pressure_psi: pNum(pParsed.rated_pressure_psi),
+          rated_speed_rpm: pNum(pParsed.rated_speed_rpm),
+          churn_pressure_psi: pNum(pParsed.churn_pressure_psi),
+          pressure_at_150_psi: pNum(pParsed.pressure_at_150_psi),
+          npsh_psi: pNum(pParsed.npsh_psi),
           confidence: pParsed.confidence || 'medium',
           notes: pParsed.notes || '',
           usage: { input_tokens: pIn, output_tokens: pOut, cost_usd: Math.round(pCost * 1000000) / 1000000 }
