@@ -479,8 +479,8 @@ document.addEventListener('click', function(e) {
   if (e.target.id === 'lb-close' || (e.target.closest && e.target.closest('#lb-close'))) { _close(); return; }
   if (e.target.id === 'lb-prev' || (e.target.closest && e.target.closest('#lb-prev'))) { _prev(); return; }
   if (e.target.id === 'lb-next' || (e.target.closest && e.target.closest('#lb-next'))) { _next(); return; }
-  // Click on dark backdrop closes
-  if (e.target.id === 'lb-canvas' && _scale <= _fitScale * 1.05) { _close(); }
+  // Backdrop-click close disabled (accidental dismiss). Lightbox closes only
+  // via the × button or Escape. (Was: click on lb-canvas at fit-scale closed.)
 });
 
 // Keyboard

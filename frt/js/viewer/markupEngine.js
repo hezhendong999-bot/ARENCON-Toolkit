@@ -89,10 +89,10 @@
       }
       function isShape(t){ return t==='arrow'||t==='rect'||t==='circle'||t==='line'; }
       function down(ev){
-        ev.preventDefault();
         var p = pt(ev);
+        if (self.tool === 'text'){ self._textPrompt(p, ev); return; }  // no preventDefault — let focus land
+        ev.preventDefault();
         if (self.tool === 'select'){ self._selectDown(p, ev); return; }
-        if (self.tool === 'text'){ self._textPrompt(p); return; }
         if (self.tool === 'eraser'){ self._eraseAt(p); self._drawing = true; return; }
         self._drawing = true;
         self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size, opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
@@ -231,7 +231,7 @@
     // MS-Paint style text tool: editable text at the EXACT click point, live
     // preview in current colour/size, transparent background (no hatch, no box
     // fill), Enter or click-outside commits, Escape cancels, draggable while active.
-    _textPrompt: function(p){
+    _textPrompt: function(p, _createEv){
       var self = this;
       if (self._textInput) { try { self._textInput.parentNode.removeChild(self._textInput); } catch(_){} self._textInput=null; }
       var fontPx = (self.size||3) * 4;                 // logical px font size
@@ -292,12 +292,22 @@
       }
       function cancel(){ if (committed) return; committed = true; cleanup(); self._render(); }
 
-      // Click/tap outside the field commits (MS-Paint behaviour)
-      function outside(ev){ if (ev.target !== inp){ commit(); } }
+      // Click/tap outside the field commits (MS-Paint behaviour). Guard against
+      // the creating gesture's own pointerup/click instantly committing the empty
+      // field: (a) arm on a real delay (after the gesture settles), (b) ignore
+      // events on the markup canvas itself for a short window, (c) never commit
+      // an empty field via outside-click (only Enter/Escape resolve an empty one).
+      var armed = false;
+      function outside(ev){
+        if (!armed) return;
+        if (ev.target === inp) return;
+        commit();
+      }
       setTimeout(function(){
+        armed = true;
         document.addEventListener('mousedown', outside, true);
         document.addEventListener('touchstart', outside, true);
-      }, 0);
+      }, 350);
 
       inp.addEventListener('input', grow);
       inp.addEventListener('keydown', function(e){
@@ -471,13 +481,26 @@
         }
       }
       var hit=this._hitStroke(p);
+      var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
+      // If a (multi-)selection exists and the press is INSIDE the group bounds —
+      // even in empty space between strokes — start a group move rather than
+      // clearing and rubber-banding. Without this, dragging a rubber-band group
+      // only worked when you pressed exactly on one stroke's tight hit-box.
+      if (!multi && this._selectedIds.length > 1){
+        var gbm=this._groupBounds();
+        if (gbm && p.x>=gbm.x1-6 && p.x<=gbm.x2+6 && p.y>=gbm.y1-6 && p.y<=gbm.y2+6){
+          this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false };
+          return;
+        }
+      }
       if (hit){
-        var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
         if (multi){
           var ix=this._selectedIds.indexOf(hit.id);
           if (ix!==-1) this._selectedIds.splice(ix,1); else this._selectedIds.push(hit.id);
           this._dragState=null; this._render(); return;
         }
+        // Clicking a stroke already in the selection keeps the whole group (move
+        // it); clicking an unselected stroke selects just that one.
         if (this._selectedIds.indexOf(hit.id)===-1) this._selectedIds=[hit.id];
         this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false };
         this._render();

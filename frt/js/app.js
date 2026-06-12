@@ -538,7 +538,7 @@ function _showQR() {
   var div = document.createElement('div'); div.innerHTML = h;
   var overlay = div.firstChild; document.body.appendChild(overlay);
   overlay.querySelector('#qr-close').addEventListener('click', function() { overlay.remove(); });
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', function(e) { /* backdrop-click close disabled (accidental dismiss) */ if(false){} });
 
   // Load qrcodejs if not already loaded
   if (typeof window.QRCode !== 'undefined') {
@@ -665,7 +665,7 @@ function _showInspectorModal() {
   }
   overlay.querySelector('#insp-ok').addEventListener('click', _applyInspector);
   overlay.querySelector('#insp-cancel').addEventListener('click', function() { overlay.remove(); });
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', function(e) { /* backdrop-click close disabled (accidental dismiss) */ if(false){} });
   input.addEventListener('keydown', function(e) { if (e.key === 'Enter') _applyInspector(); if (e.key === 'Escape') overlay.remove(); });
   overlay.querySelectorAll('.insp-hist-item').forEach(function(el) {
     el.addEventListener('click', function(e) {
@@ -805,7 +805,7 @@ function _showLeaveDialog(destUrl) {
   overlay.querySelector('#leave-cancel').addEventListener('click', function() {
     overlay.remove();
   });
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', function(e) { /* backdrop-click close disabled (accidental dismiss) */ if(false){} });
 }
 function handleBeforeUnload(e) {
   // S125 hotfix 8 — Flush in-progress markup to Model+IDB before unload
@@ -1677,7 +1677,7 @@ function _showOutboxModal() {
   overlay.querySelector('#outbox-close').addEventListener('click', _close);
   // Click backdrop (overlay itself, not the inner card) → close
   overlay.addEventListener('click', function(e) {
-    if (e.target === overlay) _close();
+    /* backdrop close disabled */ if(false){ _close() }
   });
 }
 
@@ -1843,7 +1843,7 @@ function _showCloudDiagnostic() {
   panel.innerHTML = closeHtml + hdr + body + signInBtn;
   ov.appendChild(panel);
   document.body.appendChild(ov);
-  ov.addEventListener('click', function(e){ if (e.target === ov) ov.parentNode.removeChild(ov); });
+  ov.addEventListener('click', function(e){ /* backdrop-click close disabled */ if(false){} });
   panel.querySelector('#cloud-diag-close').addEventListener('click', function(){ ov.parentNode.removeChild(ov); });
   var signIn = panel.querySelector('#cloud-diag-signin');
   if (signIn) signIn.addEventListener('click', function(){ window.location.href = _hubUrl(); });
@@ -2529,7 +2529,7 @@ function _issueReport() {
 
   // Delegated click handler
   modal.addEventListener('click', function(e) {
-    if (e.target === modal) { modal.remove(); return; }
+    /* backdrop close disabled */ if(false){ modal.remove(); return; }
     var btn = e.target.closest('[data-issue-action]');
     if (!btn) return;
     var act = btn.getAttribute('data-issue-action');

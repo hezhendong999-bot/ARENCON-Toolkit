@@ -290,7 +290,7 @@ function _showGalleryPicker(deficId, obsIdx) {
   }
 
   ov.addEventListener('click', function(e) {
-    if (e.target.matches('[data-gp-x]') || e.target === ov) { close(); return; }
+    if (e.target.matches('[data-gp-x]')) { close(); return; } /* backdrop close disabled */
     if (e.target.matches('.gp-check')) { updateCount(); return; }
     if (e.target.id === 'gp-attach') {
       var checks = ov.querySelectorAll('.gp-check:checked');
@@ -1364,7 +1364,7 @@ function _openCtrPicker(trade) {
   ov.id = 'ctr-picker-overlay';
   // Backdrop click closes (only if click hits overlay itself, not picker inner)
   ov.addEventListener('click', function(e) {
-    if (e.target === ov) _closeCtrPicker();
+    /* backdrop close disabled */ if(false){ _closeCtrPicker() }
   });
   var p = document.createElement('div');
   p.className = 'picker';
@@ -1446,7 +1446,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
   var ov = document.createElement('div');
   ov.className = 'picker-overlay show';
   ov.id = 'pinphoto-picker-overlay';
-  ov.addEventListener('click', function(e) { if (e.target === ov) _closePinPhotoPicker(); });
+  ov.addEventListener('click', function(e) { /* backdrop close disabled */ if(false){ _closePinPhotoPicker() } });
 
   var p = document.createElement('div');
   p.className = 'picker pinphoto-picker';
@@ -3046,7 +3046,7 @@ function _promptContractorThenOutstanding(deficId, obsIdx, choice) {
   function _esc(ev) { if (ev.key === 'Escape') _close(); }
   document.addEventListener('keydown', _esc);
   overlay.addEventListener('click', function(ev) {
-    if (ev.target === overlay) { _close(); return; }
+    /* backdrop close disabled */ if(false){ _close(); return; }
     if (ev.target.closest && ev.target.closest('[data-ph-modal="cancel"]')) { _close(); return; }
     var card = ev.target.closest && ev.target.closest('[data-ctrpick]');
     if (!card) return;
@@ -3495,10 +3495,11 @@ function _openPinFocus(deficId, focusOi) {
   ov.appendChild(panel);
   ov.addEventListener('click', function(e) {
     if (e.target === ov) {
-      // S215: if the shared picker is open inside C, the backdrop click exits
-      // the picker (and rebuilds C) rather than closing the whole modal.
+      // Backdrop-click close disabled (accidental dismiss / data loss). The
+      // picker-exit-on-backdrop is kept so a misfire inside the picker still
+      // backs out of the picker, but the modal itself only closes via × / Escape.
       if (FrtPhotoPicker.isActive()) { FrtPhotoPicker.exit(); return; }
-      _pfFlushTextarea(); _closePinFocus();
+      /* modal close on backdrop disabled */
     }
   });
   panel.querySelector('#pinfocus-close').addEventListener('click', function() {
@@ -3729,7 +3730,7 @@ function _openAddDeficModal(prefillCtrId, prefillTrade) {
   }
 
   ov.addEventListener('click', function(e) {
-    if (e.target === ov || e.target.id === 'adf-cancel') { _closeAddDeficModal(); return; }
+    if (e.target.id === 'adf-cancel') { _closeAddDeficModal(); return; } /* backdrop close disabled */
     if (e.target.id === 'adf-add') { doCreate(); return; }
     var recRow = e.target.closest && e.target.closest('#adf-recrow');
     if (recRow && e.target.id !== 'adf-rec') {

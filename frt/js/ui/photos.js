@@ -1201,7 +1201,7 @@ document.addEventListener('click', function(e) {
         });
       });
       modal.querySelector('#lockout-cancel').addEventListener('click', function() { ov.remove(); });
-      ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+      ov.addEventListener('click', function(e) { /* backdrop-click close disabled (accidental dismiss) */ if(false){} });
       document.body.appendChild(ov);
       return;
     }
@@ -1418,7 +1418,7 @@ function _openReassignModal(presetPinOnly) {
     + '</div>';
   document.body.appendChild(overlay);
   overlay.addEventListener('click', function(ev){
-    if (ev.target === overlay) overlay.remove();
+    /* backdrop close disabled */ if(false){}
     var act = ev.target.closest && ev.target.closest('[data-ph-modal]');
     if (!act) return;
     if (act.getAttribute('data-ph-modal') === 'cancel') { overlay.remove(); return; }
@@ -1458,7 +1458,7 @@ function _openObsPickerForPhoto(refs) {
     + '</div>';
   document.body.appendChild(overlay);
   overlay.addEventListener('click', function(ev) {
-    if (ev.target === overlay) { overlay.remove(); return; }
+    /* backdrop close disabled */ if(false){ overlay.remove(); return; }
     var cancel = ev.target.closest && ev.target.closest('[data-ph-modal="cancel"]');
     if (cancel) { overlay.remove(); return; }
     var pick = ev.target.closest && ev.target.closest('[data-ph-obspick]');

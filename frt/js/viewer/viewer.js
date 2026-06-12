@@ -2857,10 +2857,10 @@ function _peMovePinToDrawing() {
     + '</div>';
   document.body.appendChild(ov);
   ov.addEventListener('click', function(ev) {
-    if (ev.target === ov || (ev.target.closest && ev.target.closest('#pe-move-dwg-cancel'))) {
+    if (ev.target.closest && ev.target.closest('#pe-move-dwg-cancel')) {
       ov.remove();
       return;
-    }
+    } /* backdrop-click close disabled */
     var row = ev.target.closest && ev.target.closest('.pe-move-dwg-row');
     if (row) {
       var newId = row.getAttribute('data-dwg-id');
