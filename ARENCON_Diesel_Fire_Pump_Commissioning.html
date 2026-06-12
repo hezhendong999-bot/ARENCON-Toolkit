@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S310 (Burst camera foundation: cameraBurst module ported VERBATIM from FRT S284, inlined as window.openCameraBurst + reusable window._camBurst wrapper encoding FRT's exact null/[]/length contract; wired into the Records camera button first for field-verify before universal rollout to the other 9 sections. Legacy single-shot _recCameraLegacy kept defined-but-inert) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S311 (Burst camera UNIVERSAL rollout: _camBurst now wired into ALL 10 camera sections — checklist/pin/gauge, contractor deficiency + response, general deficiency + response, flow photo, flow-test 3pt/7pt, sketch (last-shot base), records. Each feeds its existing per-file pipeline; legacy single-shot handlers kept defined-but-inert. PLUS 3 mobile fixes: checklist-findings text colour (undefined --fg -> --slate, dark-mode visible); .photo-markup-btn CSS added so it no longer overlaps the checklist photo delete button; gallery thumb delete/download forced visible on touch (were hover-only opacity:0)) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -675,7 +675,9 @@ body.dark-mode .fig-readout .ro .chip.na{background:var(--b-fieldbg);}
 .rounded-tbl tbody tr:last-child td{border-bottom:none;}
 .photo-thumb{position:relative;width:86px;height:86px;border-radius:6px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--border);}
 .photo-thumb img{width:100%;height:100%;object-fit:cover;}
-.photo-remove{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:19px;height:19px;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.photo-remove{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:19px;height:19px;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+.photo-markup-btn{position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:19px;height:19px;font-size:calc(11px + var(--ts));cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;line-height:1;}
+.photo-markup-btn:hover{background:var(--arencon);}
 .photo-remove:hover{background:var(--red);}
 /* ── PHOTO THUMB GRID — Style Guide §62 (Session 53) ── */
 .photo-thumb-grid{display:flex;flex-wrap:wrap;gap:6px;}
@@ -1009,9 +1011,16 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
    All interactive elements ≥44px tap zones on touch screens.
    Uses pointer:coarse to target touch devices only. */
 @media(pointer:coarse){
-  /* Photo remove buttons: expand tap zone */
-  .photo-thumb .photo-remove{position:relative;}
+  /* Photo remove buttons: expand tap zone without losing the corner placement.
+     (Previously this set position:relative, which pulled the button out of its
+     top-right corner on touch and made it look missing — keep it absolute and
+     just add the larger invisible hit area via ::after.) */
   .photo-thumb .photo-remove::after{content:'';position:absolute;inset:-13px;border-radius:50%;}
+  /* Touch has no hover — gallery thumb delete/download are opacity:0 until :hover,
+     so they're invisible on tablets. Force them visible on coarse pointers. */
+  .photo-thumb-grid .photo-thumb-del,.photo-thumb-grid .photo-thumb-dl{opacity:1!important;}
+  /* Checklist thumb buttons: keep both corners tappable and never overlapping */
+  .photo-thumb .photo-remove,.photo-thumb .photo-markup-btn{width:24px;height:24px;font-size:13px;}
   /* Checklist buttons — ensure 44px height */
   .tog{min-height:40px;min-width:40px;}
   /* Nav tabs: ensure 44px height on touch */
@@ -2777,7 +2786,18 @@ function deficRespTimelineUpload(name, idx, ci) {
     });
   }; inp.click();
 }
+function _pfDeficResp(name, idx, ci, f){
+  if(!deficiencies[name][idx].responses[ci].photos) deficiencies[name][idx].responses[ci].photos=[];
+  if(!f || !f.type || f.type.indexOf('image/')!==0) return;
+  var r = new FileReader();
+  r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
+  r.readAsDataURL(f);
+}
 function deficRespTimelineCamera(name, idx, ci) {
+  if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfDeficResp(name, idx, ci, f); }); return; }
+  deficRespTimelineCameraLegacy(name, idx, ci);
+}
+function deficRespTimelineCameraLegacy(name, idx, ci) {
   var inp = document.createElement('input'); inp.type='file'; inp.accept='image/*,.pdf'; inp.setAttribute('capture','environment');
   inp.onchange = function() {
     if(!deficiencies[name][idx].responses[ci].photos) deficiencies[name][idx].responses[ci].photos=[];
@@ -4279,7 +4299,8 @@ function _clearPhotoTargets(fi){
   if(fi) fi._target = null;
 }
 function triggerPhoto(id) { const fi = document.getElementById('global-file-input'); _clearPhotoTargets(fi); currentPhotoId = id; fi.removeAttribute('capture'); fi.multiple=true; fi.value=''; fi.click(); }
-function triggerCamera(id) { const fi = document.getElementById('global-file-input'); _clearPhotoTargets(fi); currentPhotoId = id; fi.value=''; fi.setAttribute('capture','environment'); fi.multiple=false; fi.click(); }
+function triggerCamera(id) { if(typeof _camBurst==='function'){ _camBurst(function(f){ handleFiles(id, [f], false); }); return; } triggerCameraLegacy(id); }
+function triggerCameraLegacy(id) { const fi = document.getElementById('global-file-input'); _clearPhotoTargets(fi); currentPhotoId = id; fi.value=''; fi.setAttribute('capture','environment'); fi.multiple=false; fi.click(); }
 
 // S280: ONE authoritative change handler on #global-file-input.
 // Previously TWO change listeners were bound to this same input (this block +
@@ -4951,7 +4972,8 @@ function _flowPhotoAddFile(file){
   r.readAsDataURL(file);
 }
 function _flowPhotoUpload(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowPhotoAddFile); }; inp.click(); }
-function _flowPhotoCamera(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _flowPhotoAddFile(f); }; inp.click(); }
+function _flowPhotoCamera(){ if(typeof _camBurst==='function'){ _camBurst(function(f){ _flowPhotoAddFile(f); }); return; } _flowPhotoCameraLegacy(); }
+function _flowPhotoCameraLegacy(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _flowPhotoAddFile(f); }; inp.click(); }
 function _flowPhotoDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowPhotoAddFile); }
 // ── Gallery picker: attach a COPY of an existing report photo, tagged with the active reading ──
 function _flowPhotoAddFromSource(srcPhoto){
@@ -7096,6 +7118,10 @@ function deficUpload(name, idx) {
   fi.accept = 'image/*'; fi.multiple = true; fi.removeAttribute('capture'); fi.value = ''; fi.click();
 }
 function deficCamera(name, idx) {
+  if(typeof _camBurst==='function'){ _camBurst(function(f){ handleFiles(name, [f], true); }); return; }
+  deficCameraLegacy(name, idx);
+}
+function deficCameraLegacy(name, idx) {
   deficPhotoTarget = { name, idx, type: 'evidence' };
   const fi = document.getElementById('global-file-input');
   fi.accept = 'image/*'; fi.setAttribute('capture', 'environment'); fi.multiple = false; fi.value = ''; fi.click();
@@ -7170,7 +7196,7 @@ function _renderChecklistFindings(){
     var txt=(r.text||'').length>150 ? (r.text.slice(0,150)+'\u2026') : (r.text||'');
     h+='<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 16px;border-top:1px solid var(--border);font-size:13px;">'
       +'<span style="background:#A85959;color:#fff;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px;">'+r.num+'</span>'
-      +'<span style="flex:1;min-width:0;color:var(--fg,#1C2333);">'+txt
+      +'<span style="flex:1;min-width:0;color:var(--slate);">'+txt
       +(r.comment?('<div style="font-size:11.5px;color:var(--steel);margin-top:2px;">\u270E '+(r.comment.length>120?r.comment.slice(0,120)+'\u2026':r.comment)+'</div>'):'')
       +'</span>'
       +(r.photos?('<span style="font-size:11.5px;color:var(--steel);flex-shrink:0;margin-top:2px;">\uD83D\uDCF7 '+r.photos+'</span>'):'')
@@ -7288,10 +7314,14 @@ function buildGeneralDeficItem(d, i) {
 // General deficiency photo handlers
 function genDeficDrop(e, idx) { e.preventDefault(); Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){ var r=new FileReader(); r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f); }); }
 function genDeficUpload(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){Array.from(inp.files).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});};inp.click(); }
-function genDeficCamera(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();setTimeout(function(){inp.value='';inp.click();},300);});}; r.readAsDataURL(f);};inp.click(); }
+function _pfGenDefic(idx, f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f); }
+function genDeficCamera(idx) { if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfGenDefic(idx, f); }); return; } genDeficCameraLegacy(idx); }
+function genDeficCameraLegacy(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();setTimeout(function(){inp.value='';inp.click();},300);});}; r.readAsDataURL(f);};inp.click(); }
 function genDeficRespDrop(e,idx,ci) { e.preventDefault(); if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[]; Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }
 function genDeficRespUpload(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];Array.from(inp.files).forEach(function(f){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});};inp.click(); }
-function genDeficRespCamera(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);};inp.click(); }
+function _pfGenDeficResp(idx, ci, f){ if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[]; if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f); }
+function genDeficRespCamera(idx,ci) { if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfGenDeficResp(idx, ci, f); }); return; } genDeficRespCameraLegacy(idx,ci); }
+function genDeficRespCameraLegacy(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);};inp.click(); }
 
 // ═══ DEFICIENCY VIEW TOGGLE ═══
 var _deficViewMode = 'contractor';
@@ -9594,7 +9624,9 @@ function triggerFlowTestPhotoPld() {
   fi.value = '';
   fi.click();
 }
+function _pfFlowTestPld(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); }; r.readAsDataURL(f); }
 function triggerFlowTestCameraPld() {
+  if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfFlowTestPld(f); }); return; }
   const fi = document.getElementById('global-file-input');
   fi._target = '__flowtestpld';
   fi.value = ''; fi.setAttribute('capture','environment'); fi.multiple=false; fi.click();
@@ -9624,7 +9656,9 @@ function triggerFlowTestPhoto() {
   const fi = document.getElementById('global-file-input');
   fi.value = ''; fi.click();
 }
+function _pfFlowTest(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbs(); }; r.readAsDataURL(f); }
 function triggerFlowTestCamera() {
+  if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfFlowTest(f); }); return; }
   currentPhotoId = '__flowtest';
   deficPhotoTarget = null;
   sketchFileTarget = null;
@@ -11913,6 +11947,20 @@ function _sketchPhotoDrop(ev, uid) {
   r.readAsDataURL(f);
 }
 function _sketchPhotoCamera(uid) {
+  if(typeof _camBurst==='function'){
+    // Sketch markup holds ONE base image. Burst still opens for a consistent
+    // camera UX; the LAST shot taken becomes the markup base (what the user settled on).
+    openCameraBurst().then(function(files){
+      if(files===null){ if(typeof showToast==='function') showToast('Camera unavailable \u2014 use Upload instead',2500); return; }
+      if(!files || !files.length) return;
+      var f = files[files.length-1];
+      var r=new FileReader(); r.onload=function(e){ _loadSketchMarkupImg(uid, e.target.result); }; r.readAsDataURL(f);
+    });
+    return;
+  }
+  _sketchPhotoCameraLegacy(uid);
+}
+function _sketchPhotoCameraLegacy(uid) {
   var inp=document.createElement('input');
   inp.type='file'; inp.accept='image/*,.pdf'; inp.setAttribute('capture','environment');
   inp.onchange=function(){
@@ -13315,7 +13363,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S310';
+var DIESEL_BUILD = 'S311';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
