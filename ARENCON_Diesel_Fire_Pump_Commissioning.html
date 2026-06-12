@@ -11947,6 +11947,18 @@ function _mergeCloudLocal(cloud, local){
         _preserveMk(cp, lp);
       });
     }
+    // S314 Gap A: flowTestPhotosPld had NO preserve pass — every cloud apply wiped
+    // live 7-pt flow chart photo binaries (cloud strips .d by design). Mirror of
+    // the flowTestPhotos pass above.
+    if(local.flowTestPhotosPld && cloud.flowTestPhotosPld){
+      cloud.flowTestPhotosPld.forEach(function(cp,i){
+        var lp = local.flowTestPhotosPld[i];
+        if(lp && !cp.d && lp.d) cp.d = lp.d;
+        if(lp && !cp.r2Url && lp.r2Url) cp.r2Url = lp.r2Url;
+        if(lp && !cp.r2Key && lp.r2Key) cp.r2Key = lp.r2Key;
+        _preserveMk(cp, lp);
+      });
+    }
     // Preserve site record photos (match by id, fall back to index)
     if(local.recordPhotos && cloud.recordPhotos){
       cloud.recordPhotos.forEach(function(cp,i){
@@ -11979,6 +11991,31 @@ function _mergeCloudLocal(cloud, local){
               if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
               _preserveMk(cp, lp);
             });
+          });
+        });
+      });
+    }
+    // S314 Gap B: generalDeficiencies photos had NO preserve pass — every cloud
+    // apply wiped live general-deficiency photo binaries. Mirror of the
+    // contractor deficiencies pass above.
+    if(local.generalDeficiencies && cloud.generalDeficiencies){
+      (cloud.generalDeficiencies||[]).forEach(function(cd,di){
+        var ld = (local.generalDeficiencies||[])[di];
+        if(!cd||!ld) return;
+        (cd.photos||[]).forEach(function(cp,pi){
+          var lp = (ld.photos||[])[pi];
+          if(lp && !cp.d && lp.d) cp.d = lp.d;
+          if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
+          _preserveMk(cp, lp);
+        });
+        (cd.responses||[]).forEach(function(cr,ri){
+          var lr = (ld.responses||[])[ri];
+          if(!lr) return;
+          (cr.photos||[]).forEach(function(cp,pi){
+            var lp = (lr.photos||[])[pi];
+            if(lp && !cp.d && lp.d) cp.d = lp.d;
+            if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
+            _preserveMk(cp, lp);
           });
         });
       });
@@ -12040,8 +12077,18 @@ function _mergeCloudLocal(cloud, local){
     }
     _preserveRowPhotos(cloud.stdData, local.stdData);
     _preserveRowPhotos(cloud.pldData, local.pldData);
-    // Preserve sketch photos/drawings
-    if(local.sketches && cloud.sketches){
+    // Preserve sketch images. S314 Gap C: this pass was keyed on 'sketches', a key
+    // that never existed in collectState() output (the key is 'sketchEntries') —
+    // silent no-op, same class as the S281 B2 checklistDetails bug. Cloud strips
+    // markupImg to null on save; restore it from local. Legacy keys kept inert.
+    if(local.sketchEntries && cloud.sketchEntries){
+      (cloud.sketchEntries||[]).forEach(function(cs,si){
+        var ls=(local.sketchEntries||[])[si];
+        if(!ls) return;
+        if(!cs.markupImg && ls.markupImg) cs.markupImg = ls.markupImg;
+      });
+    }
+    if(local.sketches && cloud.sketches){   // legacy key — defined-but-inert (S137)
       (cloud.sketches||[]).forEach(function(cs,si){
         var ls=(local.sketches||[])[si];
         if(!ls) return;
@@ -12076,6 +12123,46 @@ function _mergeCloudLocal(cloud, local){
         if(lb){ cloud.recordPhotos.push(lb); console.info('[merge] restored (original) backup record', bid); }
         else console.warn('[merge] annotated photo references missing backup record', bid);
       });
+    })();
+    // ════ S314 MERGE INVARIANT: a local photo binary must never be lost through
+    // a cloud merge. Cloud rows strip .d by design; whatever the targeted passes
+    // above missed (or any future photo array added without its own pass), this
+    // final walk restores .d from local BY ID. Id-keyed only — index-matching
+    // id-less photos could attach the wrong binary, so the targeted passes stay
+    // primary for those. Single exclusion: the S301 cross-device revert (newer
+    // cloud _mkTs, annotation removed) where dropping the marked composite is
+    // intentional. ════
+    (function _s314BinaryInvariant(){
+      function walk(s, cb){
+        if(!s) return;
+        (Array.isArray(s.flowTestPhotos)?s.flowTestPhotos:[]).forEach(cb);
+        (Array.isArray(s.flowTestPhotosPld)?s.flowTestPhotosPld:[]).forEach(cb);
+        (Array.isArray(s.recordPhotos)?s.recordPhotos:[]).forEach(cb);
+        (Array.isArray(s.stdData)?s.stdData:[]).forEach(function(r){ ((r&&r.photos)||[]).forEach(cb); });
+        (Array.isArray(s.pldData)?s.pldData:[]).forEach(function(r){ ((r&&r.photos)||[]).forEach(cb); });
+        Object.keys(s.clState||{}).forEach(function(k){ var v=s.clState[k]; ((v&&v.photos)||[]).forEach(cb); });
+        Object.keys(s.deficiencies||{}).forEach(function(ctr){ (s.deficiencies[ctr]||[]).forEach(function(d){
+          if(!d) return; (d.photos||[]).forEach(cb);
+          (d.responses||[]).forEach(function(r){ ((r&&r.photos)||[]).forEach(cb); });
+        });});
+        (Array.isArray(s.generalDeficiencies)?s.generalDeficiencies:[]).forEach(function(d){
+          if(!d) return; (d.photos||[]).forEach(cb);
+          (d.responses||[]).forEach(function(r){ ((r&&r.photos)||[]).forEach(cb); });
+        });
+      }
+      try{
+        var localById={};
+        walk(local, function(p){ if(p && p.id && p.d) localById[p.id]=p; });
+        var n=0;
+        walk(cloud, function(cp){
+          if(!cp || !cp.id || cp.d) return;
+          var lp=localById[cp.id]; if(!lp) return;
+          var lts=lp._mkTs||0, cts=cp._mkTs||0;
+          if(cts>lts && !cp._annotated && lp._annotated) return;   // S301 revert — intentional
+          cp.d=lp.d; n++;
+        });
+        if(n) console.info('[merge] S314 invariant restored '+n+' photo binaries');
+      }catch(e){ console.warn('[merge] S314 invariant error', e); }
     })();
   }
   // S305: per-pull merge log removed (30s heartbeat spam); backup-restore and
