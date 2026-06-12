@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S307 (P9 date rule dropped for Diesel: saving markup no longer bumps the photo to today's gallery group — it keeps its original date so it stays put; revert date-restore kept as a no-op for new photos / legacy-compat for photos saved before this change. Builds on S306: 1a duplicate-(original) guard + dedup, 1b outbox re-hydrate, 1c Save-button removal) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S308 (7-pt flow card, mobile only: the leading flow-tag span no longer pushes PLACARD onto its own wasted second row — Flow/Cutsheet/Placard now sit on one row like the 3-pt card; PC/desktop and 3-pt unchanged) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -604,6 +604,14 @@ body.dark-mode .fig-readout .ro .chip.na{background:var(--b-fieldbg);}
   .fp-refline .ri{display:flex;flex-direction:column;align-items:stretch;gap:3px;white-space:normal;}
   .fp-refline .ri b{margin-right:0;}
   .fp-refline .ri input{width:100%;min-width:0;}
+  /* S308: 7-pt ref-line has a leading flow-tag span ("0 gpm" on the first point,
+     empty on the rest) that the 3-pt line doesn't. In the 3-col mobile grid that
+     tag ate column 1, pushing Placard to wrap onto its own second row (wasted
+     vertical space). Collapse the tag on mobile so Flow/Cutsheet/Placard fill the
+     three columns as a single row — matching the 3-pt card. The first point's
+     "0 gpm" is redundant on mobile (the card header already shows the flow %).
+     PC/desktop keeps the tag (flex layout there, no wrap issue). */
+  .fp-refline .ri-flowtag{display:none;}
   /* S267(A): mobile flow grid — the old rule mis-placed the SUCT/DISCH/RPM headers (they sat
      over the spine/segtag gap, not over their inputs) and the segtag's max-content width pushed
      the whole row out of alignment. Fix: a fixed 5-col template (spine | segtag | 3 inputs) with
@@ -5214,7 +5222,7 @@ function renderPldTable() {
       </div>
       <div class="fp-strip">
         <div class="fp-refline">
-          <span class="ri" style="font-weight:700;color:var(--slate);">${i===0?'0':''}${i===0?' gpm':''}</span>
+          <span class="ri ri-flowtag" style="font-weight:700;color:var(--slate);">${i===0?'0':''}${i===0?' gpm':''}</span>
           <span class="ri"><b>Flow</b><input type="number" value="${i===0?'0':(row.flow||'')}" placeholder="gpm" data-field="flow" data-idx="${i}" data-tbl="pld" ${i===0?'readonly style="background:#eef0f4;color:#555;width:58px;"':''}></span>
           <span class="ri"><b>Cutsheet</b><input type="number" value="${row.cutsheet||''}" placeholder="psi" data-field="cutsheet" data-idx="${i}" data-tbl="pld"></span>
           ${skipNoPLD ? '' : `<span class="ri"><b>Placard</b><input type="number" value="${row.placard||''}" placeholder="psi" data-field="placard" data-idx="${i}" data-tbl="pld"></span>`}
@@ -13076,7 +13084,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S307';
+var DIESEL_BUILD = 'S308';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
