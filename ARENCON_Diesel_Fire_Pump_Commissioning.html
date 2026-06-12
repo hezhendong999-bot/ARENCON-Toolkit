@@ -7606,7 +7606,7 @@ function renderAllDeficTable() {
       (q ? 'No deficiencies match "'+q+'"' : 'No deficiencies recorded yet. Switch to "By Contractor" to add deficiencies.') +'</p>';
     return;
   }
-  var html = '<table class="all-defic-tbl"><thead><tr><th style="width:30px;">#</th><th>Contractor</th><th>Description</th><th>Date</th><th>Status</th><th>IAR</th><th>Response</th><th>Photos</th></tr></thead><tbody>';
+  var html = '<table class="all-defic-tbl"><thead><tr><th style="width:30px;">#</th><th>Contractor</th><th>Description</th><th>Date</th><th>Status</th><th>IAR</th><th>Response</th></tr></thead><tbody>';
   all.forEach(function(r) {
     var d = r.d;
     var scLbl = (d.status==='resolved')?'Closed':(d.status==='in-progress')?'In Progress':'Outstanding';
@@ -8060,98 +8060,98 @@ function _ppxKey(item){ return (item.photo&&item.photo.id) ? item.photo.id : ('p
    so the Session-53 bin-pack paginates them; tiles are FIXED-size so heights are
    deterministic before images finish loading. Inline styles only — the report
    window has its own stylesheet. */
+function _appendixEligible(it){
+  // S316 scope (Mark): gauge & RPM photos, pump photos, flow chart photos,
+  // placard + PLD placard photos ONLY. No site records, checklist, deficiencies.
+  if(!it||!it.photo) return false;
+  if(it.type==='gauge'||it.type==='gauge-pld') return true;
+  if(it.type==='flowtest'||it.type==='flowtest-pld') return true;
+  if(it.type==='record'){ var k=(it.photo.kind||''); return k==='pump'||k.indexOf('placard')!==-1||k==='flow'||k==='flow-pld'; }
+  return false;
+}
 function _appendixHTML(){
   try{
     if(typeof _collectAllPhotos!=='function') return '';
     var inc = _collectAllPhotos().filter(function(it){
-      return it && it.src && !_appendixExcl.has(_ppxKey(it));
+      return _appendixEligible(it) && it.src && !_appendixExcl.has(_ppxKey(it));
     });
     if(!inc.length) return '';
     function esc(t){ return (''+(t==null?'':t)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
     function chunk(a,n){ var o=[]; for(var i=0;i<a.length;i+=n) o.push(a.slice(i,i+n)); return o; }
     function head(t){ return '<div style="font:700 16px Calibri,sans-serif;color:#1C2333;border-bottom:2px solid #2C4770;padding:18px 0 5px;margin-bottom:10px;">'+esc(t)+'</div>'; }
     function sub(t){ return '<div style="font:700 12.5px Calibri,sans-serif;color:#2C4770;padding:8px 0 4px;">'+esc(t)+'</div>'; }
-    function grid(items, size){
-      return chunk(items, size===320?2:3).map(function(row){
+    function rows(items,size){
+      // returns ARRAY of row strings (each row = one bin-pack block)
+      return chunk(items, size>=300?2:3).map(function(row){
         return '<div style="display:flex;gap:12px;margin-bottom:12px;">'+row.map(function(it){
           return '<div style="width:'+size+'px;height:'+size+'px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
-            +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;">'+'</div>';
+            +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>';
         }).join('')+'</div>';
-      }).join('');
+      });
     }
-    var out='', any=false;
-    function section(title, items, size){
+    // KEEP-WITH-NEXT (S316): the Session-53 bin-pack paginates by top-level block,
+    // so a heading emitted alone can strand at a page bottom (field report). Every
+    // heading/sub-label is therefore WRAPPED IN THE SAME BLOCK as its first photo
+    // row; remaining rows follow as separate blocks and may break freely.
+    var out='';
+    function emit(label, items, size, labelFn){
       if(!items.length) return;
-      any=true; out+=head(title)+grid(items, size||228);
+      var rs=rows(items,size);
+      out+='<div>'+labelFn(label)+rs[0]+'</div>';
+      for(var i=1;i<rs.length;i++) out+=rs[i];
     }
-    // 1. Pump & installation — 3-up, no labels (locked)
-    section('Pump & Installation', inc.filter(function(it){ return it.type==='record' && it.photo && it.photo.kind==='pump'; }));
-    // 2. Placards — two cards per page (locked)
-    var plc = inc.filter(function(it){ return it.type==='record' && it.photo && it.photo.kind==='placard'; });
+    var first=true;
+    function sect(title, items, size){
+      if(!items.length) return;
+      var t=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':'');
+      first=false;
+      emit(title, items, size, function(l){ return t+head(l); });
+    }
+    // 1. Pump photos — 3-up, no labels (locked)
+    sect('Pump & Installation', inc.filter(function(it){ return it.type==='record'&&it.photo.kind==='pump'; }), 228);
+    // 2. Placards (incl. PLD placard) — two large cards per page (locked)
+    var plc=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind||'').indexOf('placard')!==-1; });
     if(plc.length){
-      any=true; out+=head('Pump Placard');
-      plc.forEach(function(it){
-        var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){ }
-        out+='<div style="width:480px;margin:0 auto 22px;">'
+      var t2=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
+      plc.forEach(function(it,i){
+        var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){}
+        var card='<div style="width:480px;margin:0 auto 22px;">'
           +'<div style="width:480px;height:340px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
           +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:contain;display:block;"></div>'
           +(d?'<div style="font:11px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(d)+'</div>':'')
           +'</div>';
+        out+=(i===0)?('<div>'+t2+head('Pump Placard')+card+'</div>'):card;
       });
     }
-    // 3. Gauge & RPM photos — active test type, grouped by flow point, one
-    //    reading per row, 2-up; empty readings OMITTED (locked + Mark's rule)
+    // 3. Gauge & RPM — active test type, by flow point, one reading per row, 2-up;
+    //    each "0% — Suction" label travels with its first photo row (keep-with-next)
     var ptype='std';
-    try{ document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) ptype=b.dataset.ptype||'std'; }); }catch(_){ }
+    try{ document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) ptype=b.dataset.ptype||'std'; }); }catch(_){}
     var gType=(ptype==='pld')?'gauge-pld':'gauge';
     var gRows=(ptype==='pld')?(typeof pldData!=='undefined'?pldData:[]):(typeof stdData!=='undefined'?stdData:[]);
     var gItems=inc.filter(function(it){ return it.type===gType; });
     if(gItems.length){
-      any=true; out+=head('Flow Test \u2014 Gauge & RPM Photos ('+(ptype==='pld'?'7-Point':'3-Point')+')');
-      var prefix=(ptype==='pld')?'gauge_pld_':'gauge_std_';
+      var hdrDone=false, prefix=(ptype==='pld')?'gauge_pld_':'gauge_std_';
+      var gh=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
       gRows.forEach(function(row,ri){
         var rowItems=gItems.filter(function(it){ return it.section===prefix+ri; });
         if(!rowItems.length) return;
         (typeof _GAUGE_READINGS!=='undefined'?_GAUGE_READINGS:[]).forEach(function(rd){
           var ph=rowItems.filter(function(it){ return (it.photo.tag||'suction')===rd.k; });
-          if(!ph.length) return;   // reading with no photos — omitted
-          out+=sub((row.pct||('Point '+(ri+1)))+' \u2014 '+rd.label)+grid(ph,320);
+          if(!ph.length) return;
+          var rs=rows(ph,320);
+          var lbl=sub((row.pct||('Point '+(ri+1)))+' \u2014 '+rd.label);
+          if(!hdrDone){ out+='<div>'+gh+head('Flow Test \u2014 Gauge & RPM Photos ('+(ptype==='pld'?'7-Point':'3-Point')+')')+lbl+rs[0]+'</div>'; hdrDone=true; }
+          else out+='<div>'+lbl+rs[0]+'</div>';
+          for(var i=1;i<rs.length;i++) out+=rs[i];
         });
       });
     }
     // 4. Flow test charts (Hose Monster) — 3-up
-    section('Flow Test Charts', inc.filter(function(it){
-      return it.type==='flowtest'||it.type==='flowtest-pld'||(it.type==='record'&&it.photo&&(it.photo.kind==='flow'||it.photo.kind==='flow-pld'));
-    }));
-    // 5. Other site records — 3-up
-    section('Site Records', inc.filter(function(it){
-      return it.type==='record' && it.photo && ['pump','placard','flow','flow-pld'].indexOf(it.photo.kind||'')===-1;
-    }));
-    // 6. Checklist — grouped per item
-    var clIts=inc.filter(function(it){ return it.type==='checklist'; });
-    if(clIts.length){
-      any=true; out+=head('Checklist Photos');
-      var seen={};
-      clIts.forEach(function(it){
-        if(seen[it.section]) return; seen[it.section]=1;
-        var grp=clIts.filter(function(x){ return x.section===it.section; });
-        out+=sub(it.label)+grid(grp,228);
-      });
-    }
-    // 7+8. Deficiency photos (contractor incl. responses, then general)
-    [['deficiency','response','Contractor Deficiency Photos'],['general-defic','general-resp','General Deficiency Photos']].forEach(function(cfg){
-      var its=inc.filter(function(it){ return it.type===cfg[0]||it.type===cfg[1]; });
-      if(!its.length) return;
-      any=true; out+=head(cfg[2]);
-      var seen2={};
-      its.forEach(function(it){
-        if(seen2[it.section]) return; seen2[it.section]=1;
-        var grp=its.filter(function(x){ return x.section===it.section; });
-        out+=sub(it.label)+grid(grp,228);
-      });
-    });
-    if(!any) return '';
-    return '<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>'+out;
+    sect('Flow Test Charts', inc.filter(function(it){
+      return it.type==='flowtest'||it.type==='flowtest-pld'||(it.type==='record'&&(it.photo.kind==='flow'||it.photo.kind==='flow-pld'));
+    }), 228);
+    return out;
   }catch(e){ console.warn('[appendix] build error', e); return ''; }
 }
 function exportPDF(){
@@ -8227,7 +8227,34 @@ function _ppxGenerate(){
   if(typeof saveState==='function') saveState();
   _exportPDFGo();
 }
+/* S316: the pump curves were MISSING from exported reports whenever the
+   Performance tab hadn't been opened that session — chart3pt etc. are only
+   instantiated when #panel-s4 first shows, and toBase64Image() of a chart in a
+   display:none panel is blank anyway. Fix: make the panel measurable off-screen,
+   force-init + resize + sync-render all four charts, snapshot, then restore. */
+function _ensureChartsForExport(){
+  var panel=document.getElementById('panel-s4'), restored=null;
+  try{
+    if(panel && getComputedStyle(panel).display==='none'){
+      restored=panel.getAttribute('style')||'';
+      panel.setAttribute('style',(restored?restored+';':'')+'display:block;position:absolute;left:-12000px;top:0;width:1100px;');
+    }
+    if(!chart3pt && typeof initChart3pt==='function') initChart3pt();
+    if(!netChart3pt && typeof initNetChart3pt==='function') initNetChart3pt();
+    if(!pldChart && typeof initPldChart==='function') initPldChart();
+    if(!pldNetChart && typeof initPldNetChart==='function') initPldNetChart();
+    [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(c){ try{ if(c){ c.resize(); c.update('none'); } }catch(_){} });
+    if(typeof refreshAllCharts==='function') refreshAllCharts();
+  }catch(e){ console.warn('[export] chart ensure failed', e); }
+  return function(){
+    try{
+      if(panel && restored!==null){ if(restored) panel.setAttribute('style',restored); else panel.removeAttribute('style'); }
+      [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(c){ try{ if(c) c.resize(); }catch(_){} });
+    }catch(_){}
+  };
+}
 function _exportPDFGo() {
+  var _chartRestore=_ensureChartsForExport();   // S316
   [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
   setTimeout(function(){
     _realExportPDF();
@@ -8236,6 +8263,7 @@ function _exportPDFGo() {
       [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(ci){
         if(ci) { var origUpd = ci.__origUpdate || ci.update; origUpd.call(ci,'none'); }
       });
+      _chartRestore();   // S316: hide the panel again if we revealed it
     }, 300);
   }, 100);
 }
@@ -8257,14 +8285,16 @@ function _realExportPDF() {
     const txt = (st?.customText || item.text).replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const rowStyle = sc==='no'?'background:#FFF5F5;':sc==='na'?'background:#F9F9F9;':(!sc?'background:#FFF3E0;border-left:3px solid #E65100;':'');
     const photos = (st?.photos||[]);
-    const photosHtml = photos.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${photos.map(p=>`<img src="${p.r2Url||p.d}" style="width:100%;max-width:250px;height:auto;object-fit:contain;border:1px solid #ddd;border-radius:3px;margin:2px 0;">`).join('')}</div>` : '';
+    // S316 (Mark): photos sit BELOW the comments in a spanning row (FRT-style),
+    // 2 per row and smaller, instead of a dedicated Photos column — saves a
+    // column of width on every section table and reads cleaner.
+    const photosRow = photos.length ? `<tr style="${rowStyle}"><td></td><td colspan="3" style="padding:2px 8px 7px;"><div style="display:flex;flex-wrap:wrap;gap:8px;">${photos.map(p=>`<img src="${p.r2Url||p.d}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:3px;">`).join('')}</div></td></tr>` : '';
     return `<tr style="${rowStyle}">
       <td style="padding:5px 8px;font-weight:600;color:#666;white-space:nowrap;font-size:9pt;">${item.num}</td>
       <td style="padding:5px 8px;font-size:9pt;">${txt}</td>
       <td style="padding:5px 8px;font-weight:700;color:${statusColor(sc)};white-space:nowrap;font-size:9pt;">${statusLabel(sc)}</td>
       <td style="padding:5px 8px;font-size:8.5pt;font-style:italic;color:#555;">${cm}</td>
-      <td style="padding:5px 8px;text-align:center;">${photosHtml}</td>
-    </tr>`;
+    </tr>${photosRow}`;
     }).join('');
   };
   const chartImgA = chart3pt ? chart3pt.toBase64Image() : '';
