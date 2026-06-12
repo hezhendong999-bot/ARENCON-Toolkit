@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S308 (7-pt flow card, mobile only: the leading flow-tag span no longer pushes PLACARD onto its own wasted second row — Flow/Cutsheet/Placard now sit on one row like the 3-pt card; PC/desktop and 3-pt unchanged) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S309 (B9 Option A: report-only reverse R2 sweep _dieselR2OrphanReport() — lists stranded objects across ALL FOUR type folders, builds a complete protected-key set that includes each annotated photo's still-needed original, prints to console, DELETES NOTHING. Legacy one-folder _r2CleanupOrphans delete left defined-but-inert; menu button repointed to the safe reporter) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1549,7 +1549,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
           <button onclick="resetAllPages();closeMoreMenu()" style="color:#C62828;">⚠️ Reset All Pages <span>Delete all project data</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;" id="menu-r2-divider" class="hub-only-menu" hidden></div>
           <button onclick="_r2ReuploadAll();closeMoreMenu()" id="menu-reupload" class="hub-only-menu" hidden>☁️ Re-upload All Photos <span>Push all local photos to R2</span></button>
-          <button onclick="_r2CleanupOrphans();closeMoreMenu()" id="menu-r2cleanup" class="hub-only-menu" hidden>🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
+          <button onclick="_dieselR2OrphanReport();closeMoreMenu()" id="menu-r2cleanup" class="hub-only-menu" hidden>🧹 R2 Orphan Report <span>List stranded cloud files (console — no delete)</span></button>
         </div>
       </div>
       <button class="hdr-btn" id="btn-qr" onclick="_openToolQR()" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
@@ -10586,6 +10586,87 @@ if(typeof window!=='undefined'){
   window._dieselOrphanRestore = _dieselOrphanRestore;
 }
 
+// ═══ S309 B9 (Option A): REVERSE R2 sweep — REPORT ONLY, deletes nothing ═══
+// The legacy _r2CleanupOrphans() (a) listed only the 'original/' folder so it
+// could never see stranded 'marked/' objects, and (b) deleted on a confirm-by-
+// count with no visibility of which keys, AND (c) its local-key set did not
+// account for the fact that persisting markup OVERWRITES a record's r2Key with
+// the marked key (line ~10225) — leaving each annotated photo's ORIGINAL object
+// unreferenced. Run as-is it would have flagged every still-needed original as
+// an orphan. This reporter fixes all three: lists all four type folders, builds
+// a COMPLETE protected-key set (each record's stored r2Key PLUS the derived
+// original AND marked keys for every photo id, plus drawings/markup), and only
+// PRINTS the diff. No delete path here by design — verify on-device first.
+async function _dieselR2OrphanReport(){
+  if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined'){
+    console.warn('[R2Orphan] Hub mode + R2 folder required (open from the Hub).'); return null;
+  }
+  var pid=_r2FolderId, TYPES=['original','marked','drawings','markup'];
+  // 1. Protected keys = everything any live record could legitimately own.
+  var keep={};
+  var keepDerived=function(id){ if(!id) return;
+    keep['photos/'+pid+'/diesel/original/'+id+'.jpg']=true;          // base original
+    keep['photos/'+pid+'/diesel/marked/marked_'+id+'.jpg']=true;     // annotated variant
+  };
+  var scan=function(arr){ if(!arr) return;
+    arr.forEach(function(p){ if(!p) return;
+      if(p.r2Key) keep[p.r2Key]=true;        // whatever the record points at now
+      keepDerived(p.id);                      // + both deterministic variants
+    });
+  };
+  if(typeof clState!=='undefined') Object.keys(clState).forEach(function(k){ scan(clState[k].photos); });
+  if(typeof deficiencies!=='undefined') Object.keys(deficiencies).forEach(function(k){
+    (deficiencies[k]||[]).forEach(function(d){ scan(d.photos); if(d.responses) d.responses.forEach(function(r){ scan(r.photos); }); });
+  });
+  if(typeof generalDeficiencies!=='undefined') generalDeficiencies.forEach(function(d){
+    scan(d.photos); if(d.responses) d.responses.forEach(function(r){ scan(r.photos); });
+  });
+  if(typeof flowTestPhotos!=='undefined') scan(flowTestPhotos);
+  if(typeof flowTestPhotosPld!=='undefined') scan(flowTestPhotosPld);
+  if(typeof recordPhotos!=='undefined') scan(recordPhotos);
+  if(typeof stdData!=='undefined') stdData.forEach(function(r){ if(r) scan(r.photos); });
+  if(typeof pldData!=='undefined') pldData.forEach(function(r){ if(r) scan(r.photos); });
+  // drawings / markup keys live on sketch entries
+  if(typeof sketchEntries!=='undefined') sketchEntries.forEach(function(e){
+    if(e&&e.r2Key) keep[e.r2Key]=true;
+    if(e&&e.markupKey) keep[e.markupKey]=true;
+  });
+  // 2. List every type folder and diff.
+  var bucket=[], orphans=[], missing=[];
+  for(var t=0;t<TYPES.length;t++){
+    try{
+      var data=await R2Photos.list(pid,'diesel',TYPES[t]);
+      (data.objects||[]).forEach(function(o){
+        bucket.push({key:o.key, folder:TYPES[t], size:o.size||o.Size||''});
+        if(!keep[o.key]) orphans.push({key:o.key, folder:TYPES[t], size:o.size||o.Size||''});
+      });
+    }catch(e){ console.warn('[R2Orphan] list '+TYPES[t]+' failed:', e&&e.message); }
+  }
+  // 3. Inverse check: records pointing at a key that is NOT in the bucket.
+  var bucketKeys={}; bucket.forEach(function(b){ bucketKeys[b.key]=true; });
+  Object.keys(keep).forEach(function(k){
+    // only flag keys a record actually stores (not the speculative derived ones)
+  });
+  var liveKeys={};
+  var noteLive=function(arr){ if(!arr) return; arr.forEach(function(p){ if(p&&p.r2Key) liveKeys[p.r2Key]=true; }); };
+  if(typeof clState!=='undefined') Object.keys(clState).forEach(function(k){ noteLive(clState[k].photos); });
+  if(typeof deficiencies!=='undefined') Object.keys(deficiencies).forEach(function(k){ (deficiencies[k]||[]).forEach(function(d){ noteLive(d.photos); if(d.responses) d.responses.forEach(function(r){ noteLive(r.photos); }); }); });
+  if(typeof generalDeficiencies!=='undefined') generalDeficiencies.forEach(function(d){ noteLive(d.photos); if(d.responses) d.responses.forEach(function(r){ noteLive(r.photos); }); });
+  if(typeof flowTestPhotos!=='undefined') noteLive(flowTestPhotos);
+  if(typeof flowTestPhotosPld!=='undefined') noteLive(flowTestPhotosPld);
+  Object.keys(liveKeys).forEach(function(k){ if(!bucketKeys[k]) missing.push({key:k}); });
+  // 4. Print only — NO deletes.
+  console.log('%c[R2Orphan] REPORT ONLY — nothing deleted','font-weight:bold');
+  console.log('[R2Orphan] bucket objects: '+bucket.length+' | protected keys: '+Object.keys(keep).length);
+  console.log('[R2Orphan] STRANDED bucket objects (no record owns them): '+orphans.length);
+  if(orphans.length && console.table) console.table(orphans); else if(orphans.length) console.log(orphans);
+  console.log('[R2Orphan] records pointing at a MISSING bucket object (failed uploads): '+missing.length);
+  if(missing.length && console.table) console.table(missing); else if(missing.length) console.log(missing);
+  console.log('[R2Orphan] To delete the stranded objects, we will add a gated path AFTER you confirm this list is correct.');
+  return {bucket:bucket, orphans:orphans, missing:missing};
+}
+if(typeof window!=='undefined') window._dieselR2OrphanReport = _dieselR2OrphanReport;
+
 function _r2ReuploadAll(){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined'){ showToast('Must be in Hub mode', 2000); return; }
   var count = 0;
@@ -13084,7 +13165,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S308';
+var DIESEL_BUILD = 'S309';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
