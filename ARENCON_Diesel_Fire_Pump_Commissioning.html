@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S311 (Burst camera UNIVERSAL rollout: _camBurst now wired into ALL 10 camera sections — checklist/pin/gauge, contractor deficiency + response, general deficiency + response, flow photo, flow-test 3pt/7pt, sketch (last-shot base), records. Each feeds its existing per-file pipeline; legacy single-shot handlers kept defined-but-inert. PLUS 3 mobile fixes: checklist-findings text colour (undefined --fg -> --slate, dark-mode visible); .photo-markup-btn CSS added so it no longer overlaps the checklist photo delete button; gallery thumb delete/download forced visible on touch (were hover-only opacity:0)) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S312 (jump-back: jumping from the Deficiencies Checklist-Findings roll-up to a checklist item now surfaces a floating Back-to-Deficiencies pill that returns to the origin panel; auto-dismisses on any other panel switch or after 12s) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -7172,15 +7172,52 @@ function _checklistFindings(){
   return out;
 }
 function _jumpToChecklistItem(id){
+  // S312: capture where we jumped FROM so the user can get back. The findings
+  // roll-up lives on the Deficiencies panel; jumping to a checklist item navigated
+  // away with no return path. Remember the origin panel and surface a Back pill.
+  var origin = (typeof _currentActivePanel==='function') ? _currentActivePanel() : 'defic';
   var sec=(id.match(/^([a-z0-9]+)_/)||[])[1]||'';
   var panel = sec.indexOf('s4')===0 ? 's4' : sec.indexOf('s5')===0 ? 's5' : sec;
+  window._jumpInProgress = true;
   if(typeof switchPanel==='function') switchPanel(panel);
+  window._jumpInProgress = false;
   setTimeout(function(){
     var el=document.getElementById('ci-'+id);
     if(el){ el.scrollIntoView({behavior:'smooth',block:'center'});
       el.style.outline='2px solid #9C2742'; el.style.outlineOffset='2px';
       setTimeout(function(){ el.style.outline=''; el.style.outlineOffset=''; }, 2200); }
+    _showJumpBackPill(origin);
   }, 280);
+}
+// Returns the id of the currently-active panel (the one we're leaving).
+function _currentActivePanel(){
+  var found='defic';
+  (typeof PANELS!=='undefined'?PANELS:[]).forEach(function(p){
+    var el=document.getElementById('panel-'+p);
+    if(el && el.classList.contains('active')) found=p;
+  });
+  return found;
+}
+// Floating "Back" pill that returns to the origin panel. One at a time; auto-
+// dismisses on its own click, on any other panel switch, or after 12s.
+var _jumpBackTimer=null;
+function _showJumpBackPill(originPanel){
+  _removeJumpBackPill();
+  var label = originPanel==='defic' ? 'Back to Deficiencies' : 'Back';
+  var b=document.createElement('button');
+  b.id='jump-back-pill';
+  b.textContent='\u2190 '+label;
+  b.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(70px + env(safe-area-inset-bottom,0px));z-index:10040;'
+    +'background:#9C2742;color:#fff;border:none;border-radius:22px;padding:11px 20px;font-family:Calibri,sans-serif;'
+    +'font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);min-height:44px;';
+  b.onclick=function(){ if(typeof switchPanel==='function') switchPanel(originPanel); _removeJumpBackPill(); };
+  document.body.appendChild(b);
+  if(_jumpBackTimer) clearTimeout(_jumpBackTimer);
+  _jumpBackTimer=setTimeout(_removeJumpBackPill, 12000);
+}
+function _removeJumpBackPill(){
+  var ex=document.getElementById('jump-back-pill'); if(ex) ex.remove();
+  if(_jumpBackTimer){ clearTimeout(_jumpBackTimer); _jumpBackTimer=null; }
 }
 function _renderChecklistFindings(){
   var el=document.getElementById('checklist-findings');
@@ -7728,6 +7765,9 @@ function clearGenericSig(idx) {
 const PANELS = ['proj','s1','s2','s3','s4','s5','defic','sign','sketch','photos'];
 let _tabRendered = {};
 function switchPanel(id) {
+  // S312: a user-initiated panel switch dismisses any lingering jump-back pill,
+  // but NOT the switch that is part of the jump itself (guarded by _jumpInProgress).
+  if(typeof _removeJumpBackPill==='function' && !window._jumpInProgress) _removeJumpBackPill();
   PANELS.forEach(p => {
     document.getElementById('panel-'+p)?.classList.remove('active');
   });
@@ -13363,7 +13403,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S311';
+var DIESEL_BUILD = 'S312';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
