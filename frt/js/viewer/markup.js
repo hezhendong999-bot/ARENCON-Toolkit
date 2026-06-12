@@ -2375,10 +2375,11 @@ function _editTextObject(obj, e) {
   var prev = document.querySelectorAll('.mk-text-input-live');
   prev.forEach(function(el) { if (el.parentNode) el.parentNode.removeChild(el); });
 
-  // Calculate screen position from logical coords
+  // Calculate screen position from logical coords (zoom-aware)
   var r = mc.getBoundingClientRect();
   var lw = mc._logicalW || mc.width;
   var lh = mc._logicalH || mc.height;
+  var zoomE = r.width / lw;                         // CSS px per logical unit
   var screenX = r.left + (obj.x1 / lw) * r.width;
   var screenY = r.top + ((obj.y1 - (obj.fontSize || 20)) / lh) * r.height;
 
@@ -2388,16 +2389,31 @@ function _editTextObject(obj, e) {
   _updateColorSwatch();
   _updateSizeLabels();
 
+  var screenFontPxE = _fontSize * zoomE;
   var input = document.createElement('textarea');
-  input.className = 'mk-text-input-live editing';
-  input.style.cssText = 'position:fixed;z-index:99999;display:block;background:transparent;color:' + _color + ';font-family:Calibri,sans-serif;resize:both;outline:none;padding:6px 8px;min-width:120px;min-height:32px;overflow:hidden;border:1px dashed ' + _color + ';border-radius:4px;';
-  input.style.fontSize = _fontSize + 'px';
+  input.className = 'mk-text-input-live mk-text-paint';
+  // MS-Paint style: bare, transparent, no border/box/hatch — matches the create
+  // flow (_handleTextPlace). On-screen font scaled to current zoom so the edit
+  // preview matches how the text renders.
+  input.style.cssText = 'position:fixed;z-index:99999;display:block;margin:0;padding:0;'+
+    'background:transparent;border:none;outline:none;resize:none;overflow:hidden;'+
+    'white-space:pre;color:' + _color + ';caret-color:' + _color + ';'+
+    'font:400 ' + screenFontPxE + 'px/1 Calibri,sans-serif;'+
+    'min-width:8px;height:' + (screenFontPxE * 1.25) + 'px;'+
+    'box-shadow:-1px 0 0 0 ' + _color + ';';
   input.style.left = screenX + 'px';
   input.style.top = screenY + 'px';
   input.value = obj.text || '';
 
   var overlay = document.getElementById('drawing-viewer-overlay');
   (overlay || document.body).appendChild(input);
+
+  // Auto-grow width to the text so the box hugs the content (no fixed 120px box)
+  var _measE = document.createElement('span');
+  _measE.style.cssText = 'position:fixed;visibility:hidden;white-space:pre;font:400 ' + screenFontPxE + 'px/1 Calibri,sans-serif;';
+  (overlay || document.body).appendChild(_measE);
+  function _growE(){ _measE.textContent = input.value || ''; input.style.width = (_measE.offsetWidth + 4) + 'px'; }
+  _growE();
 
   input._mkX = obj.x1;
   input._mkY = obj.y1;
@@ -2406,11 +2422,13 @@ function _editTextObject(obj, e) {
   setTimeout(function() { input.focus(); input.select(); }, 80);
 
   var committed = false;
+  function _cleanupMeasE(){ if (_measE.parentNode) _measE.parentNode.removeChild(_measE); }
   function _commit() {
     if (committed) return;
     committed = true;
     var txt = input.value.trim();
     if (input.parentNode) input.parentNode.removeChild(input);
+    _cleanupMeasE();
     if (txt) {
       obj.text = txt;
       obj.fontSize = _fontSize;
@@ -2428,10 +2446,11 @@ function _editTextObject(obj, e) {
       _markDirty();
     }
   }
+  input.addEventListener('input', _growE);
   input.addEventListener('blur', function() { setTimeout(_commit, 150); });
   input.addEventListener('keydown', function(ev) {
     if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); _commit(); }
-    if (ev.key === 'Escape') { if (input.parentNode) input.parentNode.removeChild(input); committed = true; _renderAll(); }
+    if (ev.key === 'Escape') { if (input.parentNode) input.parentNode.removeChild(input); _cleanupMeasE(); committed = true; _renderAll(); }
     ev.stopPropagation();
   });
 }

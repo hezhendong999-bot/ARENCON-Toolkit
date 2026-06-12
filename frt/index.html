@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=594">
+<link rel="stylesheet" href="css/frt.css?v=595">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -576,6 +576,10 @@ function ensurePdfJs(cb){
         <label class="dv-layer-row"><input type="checkbox" id="layer-all" checked> All layers</label>
         <label class="dv-layer-row"><input type="checkbox" id="layer-tasks" checked> <span style="color:#A85959;">📌</span> Tasks</label>
         <label class="dv-layer-row"><input type="checkbox" id="layer-markups" checked> <span style="color:#2196F3;">✏️</span> Markups</label>
+        <div id="dv-ctr-highlight-group" style="display:none;border-top:1px solid var(--hairline,rgba(0,0,0,.12));margin-top:8px;padding-top:8px;">
+          <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:6px;">HIGHLIGHT CONTRACTOR</div>
+          <div id="dv-ctr-highlight-rows"></div>
+        </div>
       </div>
     </div>
     <!-- Tasks -->
@@ -922,7 +926,7 @@ function ensurePdfJs(cb){
 <!-- ═══ MODULE ENTRY POINT ═══ -->
 <script src="js/viewer/markupEngine.js?v=6"></script>
 <script src="js/viewer/webglMarkup.js?v=8"></script>
-<script src="js/ui/pinsGL.js?v=10"></script>
+<script src="js/ui/pinsGL.js?v=11"></script>
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
      showCalibrationPrompt, renderObject). Loaded as plain JS before app.js
      so it's ready by the time markup.js dispatches a 'dimension' object. -->

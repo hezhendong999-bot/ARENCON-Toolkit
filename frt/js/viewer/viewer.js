@@ -780,6 +780,7 @@ export var initViewer = {
   close: function() {
     if (TiledPdf.isActive()) TiledPdf.close();
     Markup.destroy();
+    if (window._frtResetCtrHighlight) window._frtResetCtrHighlight(); // reset highlight lens
     var overlay = document.getElementById('drawing-viewer-overlay');
     if (overlay) overlay.classList.remove('open');
     document.body.classList.remove('dv-open');
@@ -1536,6 +1537,7 @@ function _renderPins() {
         // S154 PIN-COLOUR-OVERHAUL: pass Site Record flag through to
         // PinsGL so the on-canvas pin gets indigo when null-contractor.
         isSiteRecord: !d.contractorId,
+        contractorId: d.contractorId || null,   // highlight lens (per-session)
         inspectorColor: ic,                    // S83
         _showRing: _showRings && !hidden && !!ic  // S83
       };
@@ -4265,7 +4267,11 @@ document.addEventListener('click', function(e) {
 document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('#dv-layers-btn')) {
     var menu = document.getElementById('dv-layers-menu');
-    if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    if (menu) {
+      var opening = menu.style.display === 'none';
+      menu.style.display = opening ? 'block' : 'none';
+      if (opening) _populateCtrHighlight();   // refresh roster each open
+    }
     e.stopPropagation();
     return;
   }
@@ -4306,9 +4312,42 @@ document.addEventListener('change', function(e) {
     var mwgl = document.getElementById('markup-webgl-canvas');
     if (mwgl) mwgl.style.display = on2 ? '' : 'none';
   }
+  if (e.target.name === 'dv-ctr-highlight') {
+    var cid = e.target.value === '__all__' ? null : e.target.value;
+    if (window.PinsGL && window.PinsGL.setHighlightContractor) window.PinsGL.setHighlightContractor(cid);
+  }
 });
 
-// ── Heights Panel ───────────────────────────────────────
+// Contractor Highlight Mode — populate radio rows from the LIVE roster each time
+// the SHOW popover opens (handles mid-session roster edits). Selection is a
+// per-session view lens held in PinsGL; never persisted/synced. Resets to "All
+// pins" when the viewer closes (see _resetCtrHighlight).
+function _populateCtrHighlight() {
+  var group = document.getElementById('dv-ctr-highlight-group');
+  var rows = document.getElementById('dv-ctr-highlight-rows');
+  if (!group || !rows) return;
+  var proj = Model.getProject() || {};
+  var ctrs = (proj.contractors || []).filter(function(c){ return c && c.id && c.name; });
+  if (!ctrs.length) { group.style.display = 'none'; rows.innerHTML = ''; return; }
+  group.style.display = '';
+  var cur = (window.PinsGL && window.PinsGL.getHighlightContractor) ? window.PinsGL.getHighlightContractor() : null;
+  var html = '<label class="dv-layer-row" style="min-height:44px;">'
+    + '<input type="radio" name="dv-ctr-highlight" value="__all__"' + (cur == null ? ' checked' : '') + '> All pins</label>';
+  ctrs.forEach(function(c){
+    var col = c.color || '#888';
+    html += '<label class="dv-layer-row" style="min-height:44px;">'
+      + '<input type="radio" name="dv-ctr-highlight" value="' + c.id + '"' + (cur === c.id ? ' checked' : '') + '> '
+      + '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:' + col + ';margin-right:6px;vertical-align:middle;"></span>'
+      + (c.name || '') + '</label>';
+  });
+  rows.innerHTML = html;
+}
+
+// Reset the highlight lens to "all pins" (called on viewer close).
+function _resetCtrHighlight() {
+  if (window.PinsGL && window.PinsGL.setHighlightContractor) window.PinsGL.setHighlightContractor(null);
+}
+window._frtResetCtrHighlight = _resetCtrHighlight;
 document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('[data-dv-action="heights"]')) {
     _openHeights();

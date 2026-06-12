@@ -111,6 +111,20 @@ reference. The MS-Paint text tool (§3) should also replace Diesel's `_aPrompt`-
 text (prompt dialog → inline at click point). This is NOT an FRT task.
 
 ## ALSO PENDING (not built here)
-- Port the MS-Paint text tool (§3) into the DRAWING VIEWER `markup.js` text tool,
-  replacing its current text input — Mark flagged the viewer text box as equally bad.
-  (markup.js already has Select; only its text input needs the §3 treatment.)
+- Port the MS-Paint text tool (§3) into the DRAWING VIEWER `markup.js` text tool —
+  **DONE (S310):** both `_handleTextPlace` (create) and `_editTextObject` (edit) now use
+  the bare zoom-aware MS-Paint input (`.mk-text-paint`, transparent, no box/hatch,
+  position+font scaled to current viewer zoom). CSS `.mk-text-paint` variant added.
+- Diesel Select port — still pending (Diesel engine needs an object model first).
+
+## CONTRACTOR HIGHLIGHT MODE — BUILT (S310)
+Per `LOCKED_CTR_HIGHLIGHT_LAYERS_S284.md`. Radio group "HIGHLIGHT CONTRACTOR" in the
+SHOW popover (`#dv-layers-menu`), populated from the LIVE roster each time the popover
+opens. Selecting a contractor dims non-matching pins to 0.22 (× base alpha; reduced
+shadow `drop-shadow(0 1px 2px rgba(0,0,0,.2))`); "All pins" resets. Per-session view
+lens in `pinsGL.js` (`_highlightCtrId`, `setHighlightContractor`/`getHighlightContractor`),
+NEVER persisted/synced. Resets to all on viewer close (`initViewer.close` →
+`_frtResetCtrHighlight`); kept across drawing switches. Pins carry `contractorId`
+(threaded onto glPin in viewer.js `_renderPins`).
+**Green closed pins CONFIRMED & BUILT:** `GREEN_CLOSED=true` → closed pins fill
+`#5F8068` (isClosed check first in `_priorityFillHex`). To revert, flip `GREEN_CLOSED=false`.

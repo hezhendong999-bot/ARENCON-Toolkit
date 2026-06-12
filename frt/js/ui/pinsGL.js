@@ -66,11 +66,22 @@
   var _pins = [];             // last rendered pin list (for hit testing)
   var _pinScreenPos = {};     // deficId -> {x,y,w,h,sx,sy,pin} in canvas-local CSS px
 
+  // S(this) Contractor Highlight Mode — per-session view lens (NOT persisted).
+  // null = all pins full colour; otherwise pins whose contractorId !== this id
+  // dim to CTR_DIM_ALPHA with reduced shadow. Pure view state.
+  var _highlightCtrId = null;
+  var CTR_DIM_ALPHA = 0.22;
+  var _lastOpts = null;       // cached render opts (for highlight-toggle re-render)
+  // Solid muted-green closed pins (Mark-confirmed at build). Closed pins fill
+  // #5F8068 instead of priority colour so they read as resolved on busy linework.
+  var GREEN_CLOSED = true;
+
   // ─── Priority color lookups (match HTML V1) ─────────────────────────────
   // S154: Site Record check takes precedence over IAR and priority so
   // a Site Record pin reads as "internal documentation" first and
   // foremost. Indigo #6B6FA8 matches the on-screen card + PDF teardrop.
   function _priorityFillHex(pin){
+    if (GREEN_CLOSED && pin.isClosed) return '#5F8068';  // resolved → muted green
     if (pin.isSiteRecord) return '#6B6FA8';
     if (pin.isIAR) return '#E91E8C';
     if (pin.priority === 'general') return '#5F8068';
@@ -133,7 +144,7 @@
 
   // Draw one pin at native 32×42 coords, anchored at tip (16, 40).
   // Caller handles translate + scale to place at screen position.
-  function _drawPinAtNative(ctx, pin, state){
+  function _drawPinAtNative(ctx, pin, state, dimmed){
     var isOutstanding = !pin.isClosed && !pin.isIAR;
     var fillHex = _priorityFillHex(pin);
 
@@ -141,7 +152,9 @@
     // The filter applies to the teardrop's alpha mask, producing a sharp pin
     // with a softly-blurred halo/shadow behind it — no fuzzy edge on the pin.
     if (_supportsFilter){
-      ctx.filter = _buildFilterString(fillHex, isOutstanding, state);
+      // Dimmed (contractor-highlight lens): reduced shadow, no glow.
+      ctx.filter = dimmed ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))'
+                          : _buildFilterString(fillHex, isOutstanding, state);
     }
 
     // S83: Inspector ring — outer teardrop in inspector color, inner teardrop
@@ -240,6 +253,7 @@
     _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
 
     _pins = pins || [];
+    _lastOpts = opts || {};
     _pinScreenPos = {};
     if (!_pins.length) return;
 
@@ -296,10 +310,14 @@
       var totalScale = nativeScale * feedbackScale;
 
       _ctx.save();
-      _ctx.globalAlpha = o.pin.isClosed ? 0.5 : 1;
+      // Contractor Highlight lens: dim pins not matching the highlighted
+      // contractor (per-session view state). Stacks with closed-0.5.
+      var _dimmed = (_highlightCtrId != null) && (o.pin.contractorId !== _highlightCtrId);
+      var _baseAlpha = o.pin.isClosed ? 0.5 : 1;
+      _ctx.globalAlpha = _dimmed ? (_baseAlpha * CTR_DIM_ALPHA) : _baseAlpha;
       _ctx.translate(o.sx - 16 * totalScale, o.sy - 40 * totalScale);
       _ctx.scale(totalScale, totalScale);
-      _drawPinAtNative(_ctx, o.pin, o.state);
+      _drawPinAtNative(_ctx, o.pin, o.state, _dimmed);
       _ctx.restore();
     }
   }
@@ -352,6 +370,13 @@
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────
+  // Contractor Highlight lens. id=null resets to all-pins. Re-renders if pins exist.
+  function setHighlightContractor(id){
+    _highlightCtrId = (id == null ? null : id);
+    if (_pins && _pins.length) render(_pins, _lastOpts || {});
+  }
+  function getHighlightContractor(){ return _highlightCtrId; }
+
   window.PinsGL = {
     isSupported:      isSupported,
     init:             init,
@@ -360,6 +385,8 @@
     hitTest:          hitTest,
     hitTestAll:       hitTestAll,
     getPinScreenRect: getPinScreenRect,
+    setHighlightContractor: setHighlightContractor,
+    getHighlightContractor: getHighlightContractor,
     destroy:          destroy,
     version:          '2.0-canvas2d'
   };
