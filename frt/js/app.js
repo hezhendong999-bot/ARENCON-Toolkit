@@ -2737,6 +2737,16 @@ if ('serviceWorker' in navigator && navigator.serviceWorker.addEventListener) {
       })
       .catch(function(){})
       .then(function() {
+        // S284c (Mark): banner fatigue fix — many concurrent build sessions
+        // bump the SW several times a day, and the top banner interrupted on
+        // every load. Policy: the interrupting banner shows at most ONCE per
+        // browser session; later updates in the same session surface only the
+        // small bottom-right indicator and apply naturally on the next reload.
+        // Model.saveNow() above still runs every time (S162 safety primitive).
+        var _seen = false;
+        try { _seen = sessionStorage.getItem('frt-upd-banner-shown') === '1'; } catch(_) {}
+        if (_seen) { _showUpdateReadyIndicator(); return; }
+        try { sessionStorage.setItem('frt-upd-banner-shown', '1'); } catch(_) {}
         _showUpdateReadyBanner();
       });
   });
