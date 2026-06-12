@@ -610,6 +610,10 @@ if(summaryDefs.length){
   _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#A85959;">'+summaryDefs.filter(_rowOpen).length+'</td>';
   _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#5F8068;">'+summaryDefs.filter(_rowClosed).length+'</td></tr>';
   _deficSummaryHtml+='</tbody></table></div>';
+  // S316 (Mark): clarify that New This Report is a NON-ADDITIVE overlay column —
+  // Total = Outstanding + Closed, while a new item is ALSO outstanding or closed,
+  // so the four columns intentionally do not sum. Mirrors the pin-number gaps note.
+  _deficSummaryHtml+='<div style="font-size:8pt;color:#90A0AC;font-style:italic;margin-top:4px;">New This Report counts items first logged on this report; it overlaps Outstanding and Closed and is not additive (Total = Outstanding + Closed).</div>';
   // S316 (Mark): clarify that New This Report is a non-additive OVERLAY column —
   // Total = Outstanding + Closed, while New overlaps both (a new item is also
   // open or closed). Prevents readers expecting the four columns to sum.
