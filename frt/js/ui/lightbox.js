@@ -151,6 +151,7 @@ function _buildMarkupBar(overlay){
   var bAr =tb('mk-arr','Arrow','Arrow');
   var bTx =tb('mk-text','Text','Text label');
   var bEr =tb('mk-er','Eraser','Eraser');
+  var bSel=tb('mk-select','Select','Select / move / resize / rotate');
   var sep0=document.createElement('div'); sep0.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
   var bUn =tb('mk-undo','\u21B6','Undo (Ctrl+Z)');
   var bRd =tb('mk-redo','\u21B7','Redo (Ctrl+Y)');
@@ -169,19 +170,29 @@ function _buildMarkupBar(overlay){
   var sizeSld = document.createElement('input'); sizeSld.type='range'; sizeSld.min='1'; sizeSld.max='20'; sizeSld.value='3';
   sizeSld.style.cssText='width:80px;accent-color:#9C2742;';
   sizeWrap.appendChild(sizeLbl); sizeWrap.appendChild(sizeSld);
+  // Opacity stepper (Diesel-style: − value + , 10% steps, 10–100%)
+  var opWrap = document.createElement('div'); opWrap.style.cssText='display:flex;align-items:center;gap:4px;padding:0 6px;';
+  var opLbl = document.createElement('span'); opLbl.textContent='Opacity'; opLbl.style.cssText='color:#fff;font:600 12px Calibri,sans-serif;';
+  function opStepBtn(txt){ var b=document.createElement('button'); b.textContent=txt;
+    b.style.cssText='background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;padding:0;'; return b; }
+  var opMinus = opStepBtn('\u2212');
+  var opVal = document.createElement('span'); opVal.id='mk-op-val'; opVal.textContent='100%';
+  opVal.style.cssText='color:white;min-width:36px;text-align:center;font:600 12px Calibri,sans-serif;display:inline-block;';
+  var opPlus = opStepBtn('+');
+  opWrap.appendChild(opLbl); opWrap.appendChild(opMinus); opWrap.appendChild(opVal); opWrap.appendChild(opPlus);
   var sep2=document.createElement('div'); sep2.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
   var bSv =tb('mk-save','Save','Save annotated copy'); bSv.style.background='#5F8068';
   var bCl =tb('mk-clear','Clear','Clear all edits');
   var bRv =tb('mk-revert','Revert','Discard edits');
   var bX  =tb('mk-cancel','\u2715','Exit markup'); bX.style.background='#9C2742';
-  var arr = [bPen,bHi,bLn,bRc,bCi,bAr,bTx,bEr,sep0,bUn,bRd,sep1];
+  var arr = [bPen,bHi,bLn,bRc,bCi,bAr,bTx,bEr,bSel,sep0,bUn,bRd,sep1];
   swatches.forEach(function(s){arr.push(s);});
-  arr.push(sizeWrap, sep2, bSv,bCl,bRv,bX);
+  arr.push(sizeWrap, opWrap, sep2, bSv,bCl,bRv,bX);
   arr.forEach(function(e){bar.appendChild(e);});
   overlay.appendChild(bar);
   _markupBar = bar;
   function setActive(btn){
-    [bPen,bHi,bLn,bRc,bCi,bAr,bTx,bEr].forEach(function(b){b.style.background='rgba(255,255,255,.12)';});
+    [bPen,bHi,bLn,bRc,bCi,bAr,bTx,bEr,bSel].forEach(function(b){b.style.background='rgba(255,255,255,.12)';});
     btn.style.background='#9C2742';
   }
   function setSwatch(col){
@@ -195,6 +206,7 @@ function _buildMarkupBar(overlay){
   bAr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('arrow');setActive(bAr);});
   bTx .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('text');setActive(bTx);});
   bEr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('eraser');setActive(bEr);});
+  bSel.addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('select');setActive(bSel);});
   bUn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.undo();});
   bRd .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.redo();});
   swatches.forEach(function(s){
@@ -206,6 +218,11 @@ function _buildMarkupBar(overlay){
   sizeSld.addEventListener('input',function(){
     if (window.MarkupEngine) window.MarkupEngine.setSize(parseInt(sizeSld.value,10));
   });
+  // Opacity stepper — 10% steps, clamp 10–100%; updates current draw opacity + any selection
+  var _opPct = 100;
+  function _applyOp(){ opVal.textContent=_opPct+'%'; if (window.MarkupEngine) window.MarkupEngine.setOpacity(_opPct/100); }
+  opMinus.addEventListener('click',function(){ _opPct=Math.max(10,_opPct-10); _applyOp(); });
+  opPlus .addEventListener('click',function(){ _opPct=Math.min(100,_opPct+10); _applyOp(); });
   bCl .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.clear();});
   bRv .addEventListener('click',_revertMarkup);
   bSv .addEventListener('click',_saveMarkup);
@@ -474,6 +491,11 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'z' || e.key === 'Z') { window.MarkupEngine && window.MarkupEngine.undo(); e.preventDefault(); return; }
     if (e.key === 'y' || e.key === 'Y') { window.MarkupEngine && window.MarkupEngine.redo(); e.preventDefault(); return; }
   }
+  if (_markupActive && (e.key === 'Delete' || e.key === 'Backspace')) {
+    window.MarkupEngine && window.MarkupEngine.deleteSelection(); e.preventDefault(); return;
+  }
+  // During markup, suppress photo-nav and image-rotate shortcuts (they'd disrupt annotating)
+  if (_markupActive && ['ArrowLeft','ArrowRight','r','R'].indexOf(e.key) !== -1) { return; }
   if (e.key === 'ArrowLeft') { _prev(); e.preventDefault(); }
   if (e.key === 'ArrowRight') { _next(); e.preventDefault(); }
   if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }

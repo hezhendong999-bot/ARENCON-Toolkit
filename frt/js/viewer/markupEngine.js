@@ -7,13 +7,20 @@
   var MarkupEngine = {
     canvas: null, ctx: null, host: null, img: null,
     dpr: 1, w: 0, h: 0,                  // logical (CSS px) size
-    tool: 'pen',                          // 'pen' | 'highlight' | 'eraser'
+    tool: 'pen',                          // 'pen' | 'highlight' | 'eraser' | 'select' | shapes | 'text'
     color: '#FF0000', size: 3, hlAlpha: 0.35,
+    opacity: 1,                           // current draw opacity (0.1–1) — Diesel-style, stamped per stroke at commit
     strokes: [],                          // committed strokes
     redoStack: [],
     _drawing: false, _curr: null,
     _origBlob: null,                      // pristine source for Revert
     _onDirty: null,
+    // ── Select-mode state (ported from drawing viewer markup.js) ──
+    _selectedIds: [],                     // ids of selected strokes (group model)
+    _dragState: null,                     // {type:'move'|'resize'|'rotate'|'rubberband', ...}
+    _rubberBand: null,                    // {x1,y1,x2,y2} during drag-select
+
+    _uid: function(){ return 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); },
 
     // Mount onto an <img> inside a host element. Creates an absolutely-positioned canvas overlay.
     attach: function(hostEl, imgEl, origBlob, onDirty){
@@ -37,6 +44,7 @@
       if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
       this.canvas = null; this.ctx = null; this.host = null; this.img = null;
       this.strokes = []; this.redoStack = []; this._drawing = false; this._curr = null;
+      this._selectedIds = []; this._dragState = null; this._rubberBand = null;
     },
 
     // Match overlay canvas to img's rendered box (CSS px) at device pixel resolution
@@ -56,9 +64,20 @@
       this._render();
     },
 
-    setTool:  function(t){ this.tool = t; },
-    setColor: function(c){ this.color = c; },
+    setTool:  function(t){ this.tool = t; if (t !== 'select'){ this._selectedIds = []; this._dragState = null; this._rubberBand = null; if (this.ctx) this._render(); } },
+    setColor: function(c){ this.color = c; this._applyToSelection('color', c); },
     setSize:  function(s){ this.size = s; },
+    setOpacity: function(v){ v = Math.max(0.1, Math.min(1, v)); this.opacity = v; this._applyToSelection('opacity', v); },
+
+    // Live-apply colour/opacity to the current selection (so the bar edits selected strokes)
+    _applyToSelection: function(field, val){
+      if (!this._selectedIds || !this._selectedIds.length) return;
+      var changed = false;
+      for (var i=0;i<this.strokes.length;i++){
+        if (this._selectedIds.indexOf(this.strokes[i].id) !== -1){ this.strokes[i][field] = val; changed = true; }
+      }
+      if (changed){ this._render(); if (this._onDirty) this._onDirty(); }
+    },
 
     _bind: function(){
       var self = this, c = this.canvas;
@@ -72,14 +91,16 @@
       function down(ev){
         ev.preventDefault();
         var p = pt(ev);
+        if (self.tool === 'select'){ self._selectDown(p, ev); return; }
         if (self.tool === 'text'){ self._textPrompt(p); return; }
         if (self.tool === 'eraser'){ self._eraseAt(p); self._drawing = true; return; }
         self._drawing = true;
-        self._curr = { tool:self.tool, color:self.color, size:self.size, pts:[p, {x:p.x,y:p.y}] };
+        self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size, opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
         if (!isShape(self.tool)) self._curr.pts = [p]; // freehand uses growing array
         self.redoStack = [];
       }
       function move(ev){
+        if (self.tool === 'select'){ if (self._dragState){ ev.preventDefault(); self._selectMove(pt(ev)); } return; }
         if (!self._drawing) return;
         ev.preventDefault();
         var p = pt(ev);
@@ -96,6 +117,7 @@
         self._render();
       }
       function up(){
+        if (self.tool === 'select'){ if (self._dragState) self._selectUp(); return; }
         if (!self._drawing) return;
         self._drawing = false;
         if (self._curr){
@@ -227,7 +249,7 @@
       function commit(){
         var v = inp.value.trim();
         if (v){
-          self.strokes.push({ tool:'text', pts:[{x:p.x,y:p.y}], text:v, color:self.color, size:self.size });
+          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:p.x,y:p.y}], text:v, color:self.color, size:self.size, opacity:self.opacity });
           self.redoStack = [];
           if (self._onDirty) self._onDirty();
           self._render();
@@ -263,50 +285,309 @@
       ctx.stroke();
     },
 
+    // ════════════════════════════════════════════════════════════════
+    // SELECT ENGINE — ported from drawing viewer (markup.js ~1470-2570),
+    // adapted to this engine's stroke model (pts[]/tool). Behaviour, handle
+    // sizes, hit tolerances, and transform math are identical to the viewer.
+    //   - pen/highlight: rotation BAKED into pts (points are the visual AABB)
+    //   - shapes (line/rect/circle/arrow): store pts[0],pts[1] + rotation; render rotates around bbox center
+    //   - text: store pts[0] + rotation; render rotates around visual center
+    // ════════════════════════════════════════════════════════════════
+    _findStroke: function(id){ for (var i=0;i<this.strokes.length;i++){ if (this.strokes[i].id===id) return this.strokes[i]; } return null; },
+
+    _strokeBounds: function(s){
+      if (s.tool === 'text'){
+        var fs = (s.size||3) * 4;
+        var estW = (s.text||'').length * fs * 0.55;
+        var p = s.pts[0];
+        var bx1=p.x, by1=p.y - fs, bx2=p.x + estW, by2=p.y + 4;
+        var rot = s.rotation || 0;
+        if (rot){
+          var cxT=p.x + estW/2, cyT=p.y - fs/2, ct=Math.cos(rot), stt=Math.sin(rot);
+          var cs=[[bx1,by1],[bx2,by1],[bx2,by2],[bx1,by2]], xmn=Infinity,ymn=Infinity,xmx=-Infinity,ymx=-Infinity;
+          for (var t=0;t<4;t++){ var dx=cs[t][0]-cxT, dy=cs[t][1]-cyT, rx=cxT+dx*ct-dy*stt, ry=cyT+dx*stt+dy*ct;
+            if(rx<xmn)xmn=rx; if(ry<ymn)ymn=ry; if(rx>xmx)xmx=rx; if(ry>ymx)ymx=ry; }
+          return {x1:xmn,y1:ymn,x2:xmx,y2:ymx};
+        }
+        return {x1:bx1,y1:by1,x2:bx2,y2:by2};
+      }
+      // pen/highlight: rotation baked into points → AABB of points is visual AABB
+      if (s.tool === 'pen' || s.tool === 'highlight'){
+        var xs=s.pts.map(function(p){return p.x;}), ys=s.pts.map(function(p){return p.y;});
+        return {x1:Math.min.apply(null,xs),y1:Math.min.apply(null,ys),x2:Math.max.apply(null,xs),y2:Math.max.apply(null,ys)};
+      }
+      // shapes: pts[0],pts[1] un-rotated + rotation angle
+      var a=s.pts[0], b=s.pts[1]; if (!a||!b) return null;
+      var x1=Math.min(a.x,b.x), y1=Math.min(a.y,b.y), x2=Math.max(a.x,b.x), y2=Math.max(a.y,b.y);
+      var r=s.rotation||0;
+      if (r){
+        var cx=(x1+x2)/2, cy=(y1+y2)/2, c=Math.cos(r), sn=Math.sin(r);
+        var cor=[[x1,y1],[x2,y1],[x2,y2],[x1,y2]], mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
+        for (var i=0;i<4;i++){ var ddx=cor[i][0]-cx, ddy=cor[i][1]-cy, rrx=cx+ddx*c-ddy*sn, rry=cy+ddx*sn+ddy*c;
+          if(rrx<mnx)mnx=rrx; if(rry<mny)mny=rry; if(rrx>mxx)mxx=rrx; if(rry>mxy)mxy=rry; }
+        return {x1:mnx,y1:mny,x2:mxx,y2:mxy};
+      }
+      return {x1:x1,y1:y1,x2:x2,y2:y2};
+    },
+
+    _groupBounds: function(){
+      var x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity, self=this;
+      this._selectedIds.forEach(function(id){
+        var s=self._findStroke(id); if(!s) return; var b=self._strokeBounds(s); if(!b) return;
+        if(b.x1<x1)x1=b.x1; if(b.y1<y1)y1=b.y1; if(b.x2>x2)x2=b.x2; if(b.y2>y2)y2=b.y2;
+      });
+      if (x1===Infinity) return null;
+      return {x1:x1,y1:y1,x2:x2,y2:y2};
+    },
+
+    _hitStroke: function(p){
+      for (var i=this.strokes.length-1;i>=0;i--){
+        var b=this._strokeBounds(this.strokes[i]);
+        if (b && p.x>=b.x1-6 && p.x<=b.x2+6 && p.y>=b.y1-6 && p.y<=b.y2+6) return this.strokes[i];
+      }
+      return null;
+    },
+
+    _hitResize: function(p){
+      var b=this._groupBounds(); if(!b) return -1;
+      var pad=6, bx=b.x1-pad, by=b.y1-pad, bw=b.x2-b.x1+pad*2, bh=b.y2-b.y1+pad*2;
+      var cor=[[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]];
+      for (var i=0;i<4;i++){ if (Math.abs(p.x-cor[i][0])<=11 && Math.abs(p.y-cor[i][1])<=11) return i; }
+      return -1;
+    },
+    _hitRotate: function(p){
+      var b=this._groupBounds(); if(!b) return false;
+      var pad=6, rcx=(b.x1+b.x2)/2, rcy=b.y1-pad-24;
+      return Math.sqrt((p.x-rcx)*(p.x-rcx)+(p.y-rcy)*(p.y-rcy)) <= 14;
+    },
+    _hitDelete: function(p){
+      var b=this._groupBounds(); if(!b) return false;
+      var pad=6, dx=b.x2+pad+4+8, dy=b.y1-pad-14+8;
+      return Math.sqrt((p.x-dx)*(p.x-dx)+(p.y-dy)*(p.y-dy)) <= 12;
+    },
+
+    _selectDown: function(p, ev){
+      // delete button
+      if (this._selectedIds.length && this._hitDelete(p)){
+        var sel=this._selectedIds; this.strokes=this.strokes.filter(function(s){return sel.indexOf(s.id)===-1;});
+        this._selectedIds=[]; this.redoStack=[]; this._render(); if(this._onDirty)this._onDirty(); return;
+      }
+      // resize corner
+      if (this._selectedIds.length){
+        var corner=this._hitResize(p);
+        if (corner>=0){
+          var gb=this._groupBounds();
+          var anchors=[[gb.x2,gb.y2],[gb.x1,gb.y2],[gb.x2,gb.y1],[gb.x1,gb.y1]];
+          this._dragState={ type:'resize', anchorX:anchors[corner][0], anchorY:anchors[corner][1],
+            origBounds:{x1:gb.x1,y1:gb.y1,x2:gb.x2,y2:gb.y2},
+            orig:JSON.parse(JSON.stringify(this._selectedIds.map(this._findStroke.bind(this)).filter(Boolean))) };
+          return;
+        }
+        // rotate handle
+        if (this._hitRotate(p)){
+          var gb2=this._groupBounds(), cx=(gb2.x1+gb2.x2)/2, cy=(gb2.y1+gb2.y2)/2;
+          this._dragState={ type:'rotate', centerX:cx, centerY:cy, startAngle:Math.atan2(p.y-cy,p.x-cx),
+            orig:JSON.parse(JSON.stringify(this._selectedIds.map(this._findStroke.bind(this)).filter(Boolean))) };
+          return;
+        }
+      }
+      var hit=this._hitStroke(p);
+      if (hit){
+        var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
+        if (multi){
+          var ix=this._selectedIds.indexOf(hit.id);
+          if (ix!==-1) this._selectedIds.splice(ix,1); else this._selectedIds.push(hit.id);
+          this._dragState=null; this._render(); return;
+        }
+        if (this._selectedIds.indexOf(hit.id)===-1) this._selectedIds=[hit.id];
+        this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false };
+        this._render();
+      } else {
+        this._selectedIds=[]; this._rubberBand={x1:p.x,y1:p.y,x2:p.x,y2:p.y};
+        this._dragState={type:'rubberband'}; this._render();
+      }
+    },
+
+    _selectMove: function(p){
+      var ds=this._dragState; if(!ds) return; var self=this;
+      if (ds.type==='rubberband'){ this._rubberBand.x2=p.x; this._rubberBand.y2=p.y; this._render(); return; }
+      if (ds.type==='move'){
+        var dx=p.x-ds.startX, dy=p.y-ds.startY;
+        if (Math.abs(dx)<2 && Math.abs(dy)<2 && !ds.moved) return;
+        ds.moved=true;
+        this._selectedIds.forEach(function(id){ var s=self._findStroke(id); if(!s)return;
+          s.pts.forEach(function(pt){ pt.x+=dx; pt.y+=dy; }); });
+        ds.startX=p.x; ds.startY=p.y; this._render(); return;
+      }
+      if (ds.type==='resize'){
+        var ob=ds.origBounds, ax=ds.anchorX, ay=ds.anchorY, ow=ob.x2-ob.x1, oh=ob.y2-ob.y1;
+        if (ow<1||oh<1) return;
+        var sx=Math.abs(p.x-ax)/ow, sy=Math.abs(p.y-ay)/oh, s=Math.max(0.1,(sx+sy)/2);
+        ds.orig.forEach(function(o){ var st=self._findStroke(o.id); if(!st)return;
+          st.pts=o.pts.map(function(pt){ return {x:ax+(pt.x-ax)*s, y:ay+(pt.y-ay)*s}; });
+          if (o.size) st.size=Math.max(1, o.size*s);
+        });
+        this._render(); return;
+      }
+      if (ds.type==='rotate'){
+        var cx=ds.centerX, cy=ds.centerY, cur=Math.atan2(p.y-cy,p.x-cx), dA=cur-ds.startAngle;
+        var cs=Math.cos(dA), sn=Math.sin(dA);
+        function rot(px,py){ return {x:cx+(px-cx)*cs-(py-cy)*sn, y:cy+(px-cx)*sn+(py-cy)*cs}; }
+        ds.orig.forEach(function(o){ var st=self._findStroke(o.id); if(!st)return;
+          if (o.tool==='pen'||o.tool==='highlight'){
+            st.pts=o.pts.map(function(pt){ return rot(pt.x,pt.y); });          // bake into points
+          } else if (o.tool==='text'){
+            var fs=(o.size||3)*4, estW=(o.text||'').length*fs*0.55;
+            var ocx=o.pts[0].x+estW/2, ocy=o.pts[0].y-fs/2, nc=rot(ocx,ocy);
+            st.pts[0]={x:nc.x-estW/2, y:nc.y+fs/2};
+            st.rotation=(o.rotation||0)+dA;
+          } else {
+            var a=o.pts[0], b=o.pts[1];
+            var ocxs=(a.x+b.x)/2, ocys=(a.y+b.y)/2, ncs=rot(ocxs,ocys);
+            var hw=Math.abs(b.x-a.x)/2, hh=Math.abs(b.y-a.y)/2;
+            st.pts[0]={x:ncs.x-hw, y:ncs.y-hh}; st.pts[1]={x:ncs.x+hw, y:ncs.y+hh};
+            st.rotation=(o.rotation||0)+dA;
+          }
+        });
+        this._render(); return;
+      }
+    },
+
+    _selectUp: function(){
+      var ds=this._dragState; if(!ds) return; var self=this;
+      if (ds.type==='rubberband' && this._rubberBand){
+        var r=this._rubberBand, rx1=Math.min(r.x1,r.x2), ry1=Math.min(r.y1,r.y2), rx2=Math.max(r.x1,r.x2), ry2=Math.max(r.y1,r.y2);
+        if (Math.abs(rx2-rx1)>4 || Math.abs(ry2-ry1)>4){
+          var hits=[]; this.strokes.forEach(function(s){ var b=self._strokeBounds(s); if(!b)return;
+            if (b.x2>=rx1 && b.x1<=rx2 && b.y2>=ry1 && b.y1<=ry2) hits.push(s.id); });
+          this._selectedIds=hits;
+        }
+        this._rubberBand=null;
+      }
+      if ((ds.type==='move'||ds.type==='resize'||ds.type==='rotate') && (ds.moved!==false)){
+        if (this._onDirty) this._onDirty();
+      }
+      this._dragState=null; this._render();
+    },
+
+    // Selection overlay: dashed box, corner handles, rotate circle, delete X (drawn each _render in select mode)
+    _drawSelection: function(ctx){
+      if (this._rubberBand){
+        var r=this._rubberBand;
+        ctx.save(); ctx.setLineDash([4,3]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1; ctx.globalAlpha=1;
+        ctx.strokeRect(Math.min(r.x1,r.x2),Math.min(r.y1,r.y2),Math.abs(r.x2-r.x1),Math.abs(r.y2-r.y1));
+        ctx.setLineDash([]); ctx.restore();
+      }
+      var b=this._groupBounds(); if(!b) return;
+      var pad=6, bx=b.x1-pad, by=b.y1-pad, bw=b.x2-b.x1+pad*2, bh=b.y2-b.y1+pad*2;
+      ctx.save();
+      ctx.setLineDash([5,4]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=2; ctx.globalAlpha=1;
+      ctx.strokeRect(bx,by,bw,bh); ctx.setLineDash([]);
+      var hs=11; ctx.fillStyle='white'; ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.5;
+      [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]].forEach(function(p){
+        ctx.fillRect(p[0]-hs/2,p[1]-hs/2,hs,hs); ctx.strokeRect(p[0]-hs/2,p[1]-hs/2,hs,hs); });
+      var rcx=bx+bw/2, rcy=by-24;
+      ctx.beginPath(); ctx.moveTo(bx+bw/2,by); ctx.lineTo(rcx,rcy+9); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.arc(rcx,rcy,9,0,Math.PI*2); ctx.fillStyle='white'; ctx.fill(); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(rcx,rcy,5,-0.3,Math.PI*1.4); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.2; ctx.stroke();
+      var dx=bx+bw+4, dy=by-14;
+      ctx.fillStyle='#E53E3E'; ctx.beginPath(); ctx.arc(dx+8,dy+8,9,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='white'; ctx.font='bold 12px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('\u2715', dx+8, dy+8);
+      ctx.restore();
+    },
+
+    // Public: delete current selection (Delete key from lightbox)
+    deleteSelection: function(){
+      if (!this._selectedIds || !this._selectedIds.length) return;
+      var sel = this._selectedIds;
+      this.strokes = this.strokes.filter(function(s){ return sel.indexOf(s.id) === -1; });
+      this._selectedIds = []; this.redoStack = [];
+      this._render(); if (this._onDirty) this._onDirty();
+    },
+
     _render: function(){
       if (!this.ctx) return;
       var ctx = this.ctx;
       ctx.clearRect(0,0,this.w,this.h);
-      // Pass 1: highlights via offscreen composite (no opacity stacking)
+      // Pass 1: highlights via offscreen composite, GROUPED by opacity so each
+      // group composites once at hlAlpha*opacity (never stack — Diesel/markup.js rule).
       var hi = this.strokes.filter(function(s){return s.tool==='highlight';});
       if (this._curr && this._curr.tool==='highlight') hi = hi.concat([this._curr]);
       if (hi.length){
-        var off = document.createElement('canvas');
-        off.width = Math.max(1, Math.round(this.w*this.dpr));
-        off.height= Math.max(1, Math.round(this.h*this.dpr));
-        var oc = off.getContext('2d');
-        oc.setTransform(this.dpr,0,0,this.dpr,0,0);
-        for (var i=0;i<hi.length;i++){
-          var s = hi[i];
-          oc.lineCap='round'; oc.lineJoin='round';
-          oc.strokeStyle = s.color; oc.lineWidth = (s.size||3)*4;
-          oc.beginPath(); oc.moveTo(s.pts[0].x,s.pts[0].y);
-          for (var j=1;j<s.pts.length;j++) oc.lineTo(s.pts[j].x,s.pts[j].y);
-          oc.stroke();
+        var groups = {};
+        for (var gi=0; gi<hi.length; gi++){
+          var op = (hi[gi].opacity!=null)?hi[gi].opacity:1;
+          var key = String(op);
+          (groups[key] || (groups[key] = {opacity:op, list:[]})).list.push(hi[gi]);
         }
-        ctx.save(); ctx.globalAlpha = this.hlAlpha;
-        ctx.setTransform(1,0,0,1,0,0);
-        ctx.drawImage(off,0,0);
-        ctx.setTransform(this.dpr,0,0,this.dpr,0,0);
-        ctx.restore();
+        for (var gk in groups){
+          if (!groups.hasOwnProperty(gk)) continue;
+          var grp = groups[gk];
+          var off = document.createElement('canvas');
+          off.width = Math.max(1, Math.round(this.w*this.dpr));
+          off.height= Math.max(1, Math.round(this.h*this.dpr));
+          var oc = off.getContext('2d');
+          oc.setTransform(this.dpr,0,0,this.dpr,0,0);
+          for (var i=0;i<grp.list.length;i++){
+            var s = grp.list[i];
+            oc.lineCap='round'; oc.lineJoin='round';
+            oc.strokeStyle = s.color; oc.lineWidth = (s.size||3)*4;
+            oc.beginPath(); oc.moveTo(s.pts[0].x,s.pts[0].y);
+            for (var j=1;j<s.pts.length;j++) oc.lineTo(s.pts[j].x,s.pts[j].y);
+            oc.stroke();
+          }
+          ctx.save(); ctx.globalAlpha = this.hlAlpha * grp.opacity;
+          ctx.setTransform(1,0,0,1,0,0);
+          ctx.drawImage(off,0,0);
+          ctx.setTransform(this.dpr,0,0,this.dpr,0,0);
+          ctx.restore();
+        }
       }
-      // Pass 2: pen strokes on top
+      // Pass 2: pen strokes on top (per-object opacity)
       for (var k=0;k<this.strokes.length;k++){
         var st = this.strokes[k];
-        if (st.tool==='pen') this._strokePath(ctx, st);
+        if (st.tool==='pen'){ ctx.save(); ctx.globalAlpha = (st.opacity!=null)?st.opacity:1; this._strokePath(ctx, st); ctx.restore(); }
       }
-      if (this._curr && this._curr.tool==='pen') this._strokePath(ctx, this._curr);
-      // Pass 3: shapes (line, rect, circle, arrow) on top of everything
+      if (this._curr && this._curr.tool==='pen'){ ctx.save(); ctx.globalAlpha=(this._curr.opacity!=null)?this._curr.opacity:1; this._strokePath(ctx, this._curr); ctx.restore(); }
+      // Pass 3: shapes (per-object opacity + rotation)
       for (var m=0;m<this.strokes.length;m++){
         var sh = this.strokes[m];
-        if (sh.tool==='line'||sh.tool==='rect'||sh.tool==='circle'||sh.tool==='arrow') this._drawShape(ctx, sh);
+        if (sh.tool==='line'||sh.tool==='rect'||sh.tool==='circle'||sh.tool==='arrow') this._drawShapeR(ctx, sh);
       }
-      if (this._curr && (this._curr.tool==='line'||this._curr.tool==='rect'||this._curr.tool==='circle'||this._curr.tool==='arrow')) this._drawShape(ctx, this._curr);
-      // Pass 4: text labels on top of everything
+      if (this._curr && (this._curr.tool==='line'||this._curr.tool==='rect'||this._curr.tool==='circle'||this._curr.tool==='arrow')) this._drawShapeR(ctx, this._curr);
+      // Pass 4: text labels (per-object opacity + rotation)
       for (var n=0;n<this.strokes.length;n++){
         var tx = this.strokes[n];
-        if (tx.tool==='text') this._drawText(ctx, tx);
+        if (tx.tool==='text') this._drawTextR(ctx, tx);
       }
+      // Pass 5: selection overlay (select mode only)
+      if (this.tool === 'select') this._drawSelection(ctx);
+    },
+
+    // Wrap shape draw with opacity + rotation about bbox center (screen render only, sx=sy=1)
+    _drawShapeR: function(ctx, s){
+      ctx.save();
+      ctx.globalAlpha = (s.opacity!=null)?s.opacity:1;
+      if (s.rotation){
+        var a=s.pts[0], b=s.pts[1];
+        var cx=((a.x+b.x)/2), cy=((a.y+b.y)/2);
+        ctx.translate(cx,cy); ctx.rotate(s.rotation); ctx.translate(-cx,-cy);
+      }
+      this._drawShape(ctx, s);
+      ctx.restore();
+    },
+    // Wrap text draw with opacity + rotation about visual center
+    _drawTextR: function(ctx, s){
+      ctx.save();
+      ctx.globalAlpha = (s.opacity!=null)?s.opacity:1;
+      if (s.rotation){
+        var fs=(s.size||3)*4, estW=(s.text||'').length*fs*0.55;
+        var cx=s.pts[0].x+estW/2, cy=s.pts[0].y-fs/2;
+        ctx.translate(cx,cy); ctx.rotate(s.rotation); ctx.translate(-cx,-cy);
+      }
+      this._drawText(ctx, s);
+      ctx.restore();
     },
 
     isDirty: function(){ return this.strokes.length > 0; },
@@ -345,35 +626,47 @@
           oc.drawImage(img, 0, 0, nw, nh);
           // Scale logical coords -> natural pixels
           var sx = nw / self.w, sy = nh / self.h;
-          // Highlights composite at natural size
+          var savg = (sx+sy)/2;
+          // Highlights composite at natural size, GROUPED by opacity (never stack)
           var hi = self.strokes.filter(function(s){return s.tool==='highlight';});
           if (hi.length){
-            var off = document.createElement('canvas'); off.width=nw; off.height=nh;
-            var hctx = off.getContext('2d');
-            hctx.lineCap='round'; hctx.lineJoin='round';
-            hi.forEach(function(s){
-              hctx.strokeStyle=s.color; hctx.lineWidth=(s.size||3)*4*((sx+sy)/2);
-              hctx.beginPath(); hctx.moveTo(s.pts[0].x*sx, s.pts[0].y*sy);
-              for (var j=1;j<s.pts.length;j++) hctx.lineTo(s.pts[j].x*sx, s.pts[j].y*sy);
-              hctx.stroke();
-            });
-            oc.save(); oc.globalAlpha = self.hlAlpha; oc.drawImage(off,0,0); oc.restore();
+            var hgroups = {};
+            hi.forEach(function(s){ var op=(s.opacity!=null)?s.opacity:1; (hgroups[String(op)]||(hgroups[String(op)]={opacity:op,list:[]})).list.push(s); });
+            for (var hk in hgroups){ if(!hgroups.hasOwnProperty(hk)) continue; var hg=hgroups[hk];
+              var off = document.createElement('canvas'); off.width=nw; off.height=nh;
+              var hctx = off.getContext('2d'); hctx.lineCap='round'; hctx.lineJoin='round';
+              hg.list.forEach(function(s){
+                hctx.strokeStyle=s.color; hctx.lineWidth=(s.size||3)*4*savg;
+                hctx.beginPath(); hctx.moveTo(s.pts[0].x*sx, s.pts[0].y*sy);
+                for (var j=1;j<s.pts.length;j++) hctx.lineTo(s.pts[j].x*sx, s.pts[j].y*sy);
+                hctx.stroke();
+              });
+              oc.save(); oc.globalAlpha = self.hlAlpha * hg.opacity; oc.drawImage(off,0,0); oc.restore();
+            }
           }
-          // Pen on top
+          // Pen on top (per-object opacity)
           oc.lineCap='round'; oc.lineJoin='round';
           self.strokes.filter(function(s){return s.tool==='pen';}).forEach(function(s){
-            oc.strokeStyle=s.color; oc.lineWidth=s.size*((sx+sy)/2);
+            oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+            oc.strokeStyle=s.color; oc.lineWidth=s.size*savg;
             oc.beginPath(); oc.moveTo(s.pts[0].x*sx, s.pts[0].y*sy);
             for (var j=1;j<s.pts.length;j++) oc.lineTo(s.pts[j].x*sx, s.pts[j].y*sy);
-            oc.stroke();
+            oc.stroke(); oc.restore();
           });
-          // Shapes on top
+          // Shapes on top (per-object opacity + rotation about scaled bbox center)
           self.strokes.filter(function(s){return s.tool==='line'||s.tool==='rect'||s.tool==='circle'||s.tool==='arrow';}).forEach(function(s){
-            self._drawShape(oc, s, sx, sy);
+            oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+            if (s.rotation){ var a=s.pts[0],b=s.pts[1], cx=((a.x+b.x)/2)*sx, cy=((a.y+b.y)/2)*sy;
+              oc.translate(cx,cy); oc.rotate(s.rotation); oc.translate(-cx,-cy); }
+            self._drawShape(oc, s, sx, sy); oc.restore();
           });
-          // Text labels on top
+          // Text labels on top (per-object opacity + rotation about scaled visual center)
           self.strokes.filter(function(s){return s.tool==='text';}).forEach(function(s){
-            self._drawText(oc, s, sx, sy);
+            oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+            if (s.rotation){ var fs=(s.size||3)*4, estW=(s.text||'').length*fs*0.55;
+              var cx=(s.pts[0].x+estW/2)*sx, cy=(s.pts[0].y-fs/2)*sy;
+              oc.translate(cx,cy); oc.rotate(s.rotation); oc.translate(-cx,-cy); }
+            self._drawText(oc, s, sx, sy); oc.restore();
           });
           out.toBlob(function(b){ b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/jpeg', 0.92);
         } catch(e){ reject(e); }
