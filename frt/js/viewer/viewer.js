@@ -4184,26 +4184,51 @@ function _renderTasks() {
     filtered = allDefics.filter(function(d) { return d.defic.drawingId === currentDwgId && d.defic.pinX != null; });
   }
 
+  // Status/priority → dot fill (matches pin colours; closed → muted green).
+  function _obsFill(def, obs) {
+    if (def.iar) return '#E91E8C';
+    // Per-obs status when present, else fall back to the deficiency's effective state.
+    var closed = obs ? (obs.addressed === true || obs.status === 'closed')
+                     : (Model.getEffectiveStatus(def) === 'closed');
+    if (closed) return '#5F8068';
+    var pri = (obs && obs.priority) ? obs.priority : Model.getEffectivePriority(def);
+    return pri === 'general' ? '#5F8068' : pri === 'low' ? '#B07F5A' : '#A85959';
+  }
+
   var html = '';
+  var rowCount = 0;
   if (!filtered.length) {
     html = '<div style="padding:16px;color:#8a94b0;text-align:center;font-size:calc(12px + var(--ts));">No ' + (_tasksFilter === 'pinned' ? 'pins on this drawing' : 'deficiencies') + '</div>';
   }
   filtered.forEach(function(d) {
     var def = d.defic;
-    var desc = (def.observations && def.observations.length && def.observations[0].text) ? def.observations[0].text : '';
-    if (desc.length > 60) desc = desc.substring(0, 60) + '\u2026';
-    // S119: effective priority + status
-    var effPri = Model.getEffectivePriority(def);
-    var isClosed = Model.getEffectiveStatus(def) === 'closed';
-    var fill = def.iar ? '#E91E8C' : (effPri === 'general' ? '#5F8068' : effPri === 'low' ? '#B07F5A' : '#A85959');
-    if (isClosed) fill = '#5F8068';
     var isPinned = def.drawingId && def.pinX != null;
-    html += '<div class="dv-task-item" data-task-defic-id="' + def.id + '">';
-    html += '<div class="dv-task-dot" style="background:' + fill + ';">' + def.num + '</div>';
-    html += '<div class="dv-task-desc">' + (desc || '\u2014') + '</div>';
-    html += '<button class="dv-task-pin-btn" data-task-pin="' + def.id + '" title="' + (isPinned ? 'Move pin' : 'Place pin') + '">' + (isPinned ? '📌' : '📍') + '</button>';
-    html += '<button class="dv-task-del-btn" data-task-del="' + def.id + '" title="Delete deficiency">\u2715</button>';
-    html += '</div>';
+    var obsArr = (def.observations && def.observations.length) ? def.observations : null;
+
+    // Emit one row PER OBSERVATION. Multi-obs pins show #2A / #2B …; a single-obs
+    // (or obs-less) pin shows just #2. Pin/delete actions stay deficiency-level
+    // (they operate on the whole pin); the row carries data-task-defic-id so
+    // tap-to-navigate still works.
+    var obsList = obsArr || [null];
+    obsList.forEach(function(obs, oi) {
+      var label = def.num + (obsArr && obsArr.length > 1 ? _peObsLetter(oi) : '');
+      var desc = (obs && obs.text) ? obs.text : '';
+      if (desc.length > 60) desc = desc.substring(0, 60) + '\u2026';
+      var fill = _obsFill(def, obs);
+      html += '<div class="dv-task-item" data-task-defic-id="' + def.id + '" data-task-obs-idx="' + oi + '">';
+      html += '<div class="dv-task-dot" style="background:' + fill + ';">' + label + '</div>';
+      html += '<div class="dv-task-desc">' + (desc || '\u2014') + '</div>';
+      // Pin + delete buttons only on the FIRST row of a pin (they're pin-level,
+      // not obs-level — avoids N duplicate place-pin / delete buttons per pin).
+      if (oi === 0) {
+        html += '<button class="dv-task-pin-btn" data-task-pin="' + def.id + '" title="' + (isPinned ? 'Move pin' : 'Place pin') + '">' + (isPinned ? '\uD83D\uDCCC' : '\uD83D\uDCCD') + '</button>';
+        html += '<button class="dv-task-del-btn" data-task-del="' + def.id + '" title="Delete deficiency">\u2715</button>';
+      } else {
+        html += '<span class="dv-task-obs-spacer"></span>';
+      }
+      html += '</div>';
+      rowCount++;
+    });
   });
   list.innerHTML = html;
   var countEl = document.getElementById('dv-tasks-count');

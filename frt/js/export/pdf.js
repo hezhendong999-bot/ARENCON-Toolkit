@@ -697,6 +697,7 @@ _legendHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span c
 _legendHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 low priority</span></div>';
 _legendHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendations - do not hold off sign-off</span></div>';
 if(inspTag==='initials')_legendHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#4A5568;border-color:#4A5568;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
+_legendHtml+='<div class="rep-key-row"><span class="dc-itemnum" style="font-size:11px;">#N</span><span class="rep-key-gloss">Item numbers are pin numbers from the drawing \u2014 the sequence may contain gaps (e.g. a removed pin).</span></div>';
 _legendHtml+='</div></div>';
 // S139 Phase 3 (D): italic high-priority-recommendation note. Full mode
 // only (suppressed for 'only' — there the recs ARE the report).

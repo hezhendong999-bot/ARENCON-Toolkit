@@ -335,6 +335,10 @@ body.dark-mode .dv-task-item{color:#ccc;}body.dark-mode .dv-task-item:hover{back
 .dv-task-pin-btn{background:none;border:none;color:#607D8B;cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;}.dv-task-pin-btn:hover{color:#2196F3;background:rgba(33,150,243,.1);}
 body.dark-mode .dv-task-pin-btn{color:#8a94b0;}
 .dv-task-del-btn{background:none;border:none;color:#999;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;opacity:.5;}.dv-task-del-btn:hover{color:#E53E3E;background:rgba(229,62,62,.1);opacity:1;}@media(pointer:coarse){.dv-task-del-btn{opacity:.7;}}
+/* Obs-row spacer reserves the pin+delete button column so a multi-obs pin's
+   secondary rows (#2B, #2C…) align their text under the first row. */
+.dv-task-obs-spacer{flex-shrink:0;width:44px;}
+.dv-task-item[data-task-obs-idx]:not([data-task-obs-idx="0"]) .dv-task-dot{transform:scale(.85);opacity:.92;}
 body.dark-mode .dv-task-del-btn{color:#555;}
 .dv-new-task-btn{padding:10px;border:none;background:transparent;color:var(--arencon,#9C2742);font-weight:700;font-size:calc(12px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;text-align:left;border-top:1px solid #dde1e7;}.dv-new-task-btn:hover{background:rgba(156,39,66,.06);}
 body.dark-mode .dv-new-task-btn{border-top-color:#3a3e48;}
@@ -8550,34 +8554,6 @@ body.dark-mode .dfx-bv-rec { color: #D0A064; background: rgba(208,160,100,.18); 
 body.dark-mode .pin-rec-toggle.is-rec { background: rgba(208,160,100,.18); color: #D0A064; }
 body.dark-mode .pin-rec-toggle.is-rec:hover { background: rgba(208,160,100,.26); color: #DCB47E; }
 
-/* ── Table-view clickable rec star (new leading column) ───────────────
-   Hollow ☆ on deficiency/site-record rows, solid amber ★ on
-   recommendation rows. data-action="toggle-rec" reuses the existing
-   S150 handler (Model.setRecommendation + re-render). Compact, centred,
-   touch-enlarged for field tablets. */
-.dfx-tbl-star {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: calc(15px + var(--ts));
-  line-height: 1;
-  padding: 4px 6px;
-  border-radius: 5px;
-  color: #B0B6BF;
-  font-family: inherit;
-  transition: color .12s, background .12s;
-}
-.dfx-tbl-star:hover { background: rgba(188,115,39,.12); color: #9A5E1C; }
-.dfx-tbl-star.is-rec { color: #BC7327; }
-.dfx-tbl-star.is-rec:hover { background: rgba(188,115,39,.16); color: #7E4D14; }
-body.dark-mode .dfx-tbl-star { color: #5A6473; }
-body.dark-mode .dfx-tbl-star:hover { background: rgba(208,160,100,.16); color: #D0A064; }
-body.dark-mode .dfx-tbl-star.is-rec { color: #D0A064; }
-body.dark-mode .dfx-tbl-star.is-rec:hover { background: rgba(208,160,100,.22); color: #DCB47E; }
-@media (pointer: coarse) {
-  .dfx-tbl-star { font-size: calc(17px + var(--ts)); padding: 8px 10px; }
-}
-/* End S150 ──────────────────────────────────────────────────────────── */
 
 /* ════════════════════════════════════════════════════════════════════
    S150g (Mark) — "changed, not yet resettled" card cue
