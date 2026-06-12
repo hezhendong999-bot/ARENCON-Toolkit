@@ -131,6 +131,7 @@ function _buildToolbar() {
 }
 
 var _markupActive = false;
+var _closeAfterPersist = false;   // S305-style: commit triggered by closing the lightbox
 var _markupBar = null;
 function _buildMarkupBar(overlay){
   if (_markupBar) return;
@@ -231,6 +232,23 @@ function _buildMarkupBar(overlay){
   setSwatch('#FF0000');
 }
 
+function _exitMarkupNoSave(){
+  if (!window.MarkupEngine) return;
+  window.MarkupEngine.detach();
+  if (_markupBar) _markupBar.style.display='none';
+  _markupActive = false;
+}
+// Copied from Diesel S305/S306: leaving markup mode COMMITS any drawn strokes —
+// no explicit Save click required. The pencil toggle (✎), the ✕ button, Escape,
+// and closing the lightbox all bake + persist (via _saveMarkup, which dispatches
+// frt-markup-saved and then exits). Exiting with a clean/undirty canvas just exits.
+function _maybeCommitOnExit(){
+  if (window.MarkupEngine && window.MarkupEngine.isDirty()){
+    _saveMarkup();        // bakes, dispatches frt-markup-saved, then exits markup
+  } else {
+    _exitMarkupNoSave();
+  }
+}
 function _toggleMarkup(){
   // S120 Push 14: native alert → toast for transient infrastructure errors.
   if (!window.MarkupEngine){ toast('Markup engine not loaded', 'error'); return; }
@@ -238,9 +256,7 @@ function _toggleMarkup(){
   var canvas = document.getElementById('lb-canvas');
   if (!img || !canvas) return;
   if (_markupActive){
-    window.MarkupEngine.detach();
-    if (_markupBar) _markupBar.style.display='none';
-    _markupActive = false;
+    _maybeCommitOnExit();   // exiting now auto-commits (was: silent detach/discard)
   } else {
     // Markup requires fit-scale (no zoom/pan during markup, simpler coord math)
     _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
@@ -252,9 +268,9 @@ function _toggleMarkup(){
 }
 
 function _saveMarkup(){
-  if (!window.MarkupEngine || !window.MarkupEngine.isDirty()){ _toggleMarkup(); return; }
+  if (!window.MarkupEngine || !window.MarkupEngine.isDirty()){ _exitMarkupNoSave(); return; }
   window.MarkupEngine.saveBlob().then(function(blob){
-    var p = _photos[_idx]; if (!p) return;
+    var p = _photos[_idx]; if (!p){ _exitMarkupNoSave(); return; }
     if (!p._origBlob && p.dataUrl) p._origBlob = p.dataUrl;
     var url = URL.createObjectURL(blob);
     p.dataUrl = url; p._annotated = true;
@@ -262,8 +278,9 @@ function _saveMarkup(){
     if (img) img.src = url;
     // R2 upload hook — defer to host app via custom event
     try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:blob,index:_idx}})); } catch(e){}
-    _toggleMarkup();
-  }).catch(function(e){ toast('Save failed: '+e.message, 'error'); });
+    _exitMarkupNoSave();
+    if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); }   // close was the trigger
+  }).catch(function(e){ _closeAfterPersist = false; toast('Save failed: '+e.message, 'error'); /* stay in markup so strokes aren't lost */ });
 }
 
 function _revertMarkup(){
@@ -454,6 +471,16 @@ function _open(photos, startIdx, opts) {
 }
 
 function _close() {
+  // Copy Diesel S305: closing the lightbox with unsaved strokes COMMITS them
+  // first (bake + persist), then tears down — no silent discard. If clean, just close.
+  if (_markupActive && window.MarkupEngine && window.MarkupEngine.isDirty()){
+    _closeAfterPersist = true;
+    _saveMarkup();   // on success its .then exits markup; _finishClose runs after
+    return;
+  }
+  _finishClose();
+}
+function _finishClose() {
   if (_markupActive && window.MarkupEngine) { window.MarkupEngine.detach(); _markupActive = false; if (_markupBar) _markupBar.style.display='none'; }
   _isOpen = false;
   _photos = [];

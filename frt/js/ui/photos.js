@@ -1627,19 +1627,25 @@ document.addEventListener('click', function(e) {
 // Wire upload buttons
 // Photo Gallery toolbar — delegated wiring (S78 fix: top-level getElementById ran before DOM existed)
 document.addEventListener('click', function(e) {
+  // Upload link (anchor, not a button) — opens the file picker
+  if (e.target && e.target.id === 'site-photo-upload-link') {
+    e.preventDefault();
+    var fiL = document.getElementById('site-photo-input');
+    if (fiL) fiL.click();
+    return;
+  }
   var t = e.target.closest && e.target.closest('button');
   if (!t || !t.id) return;
-  if (t.id === 'site-photo-upload-btn') {
-    var fi = document.getElementById('site-photo-input');
-    if (fi) fi.click();
-  } else if (t.id === 'site-photo-camera-btn') {
-    // S284 (Mark): continuous in-app burst camera — shoot any number, Done
-    // adds all through the normal site-photo pipeline. null = unsupported/
-    // denied → inform; [] = user cancelled → no-op. The legacy
-    // #site-photo-camera capture input stays in the DOM as dead fallback
-    // (defined-but-inert, S137 discipline) but is no longer clicked.
+  if (t.id === 'site-photo-add-btn') {
+    // Merged Add Photos: burst camera is the primary path (all camera = burst,
+    // S314 Mark). If no camera (desktop) or denied, fall back to the file picker
+    // so the single button still always lets you add photos.
     openCameraBurst().then(function(files) {
-      if (files === null) { toast('Camera unavailable \u2014 use Upload instead'); return; }
+      if (files === null) {           // unsupported/denied → upload fallback
+        var fi2 = document.getElementById('site-photo-input');
+        if (fi2) fi2.click();
+        return;
+      }
       if (files.length) _handleSitePhotoFiles(files);
     });
   } else if (t.id === 'photo-actions-btn') {
