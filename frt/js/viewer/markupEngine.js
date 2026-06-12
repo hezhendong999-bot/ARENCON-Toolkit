@@ -228,40 +228,119 @@
     },
 
     // Inline text input overlay — commits on Enter/blur, cancels on Escape
+    // MS-Paint style text tool: editable text at the EXACT click point, live
+    // preview in current colour/size, transparent background (no hatch, no box
+    // fill), Enter or click-outside commits, Escape cancels, draggable while active.
     _textPrompt: function(p){
       var self = this;
       if (self._textInput) { try { self._textInput.parentNode.removeChild(self._textInput); } catch(_){} self._textInput=null; }
+      var fontPx = (self.size||3) * 4;                 // logical px font size
+      // Map logical canvas coords -> on-screen (fixed) coords so the input sits
+      // exactly where the user clicked, regardless of DPR/scale/host offset.
+      var r = self.canvas.getBoundingClientRect();
+      var scaleX = r.width  / self.w;                  // CSS px per logical unit
+      var scaleY = r.height / self.h;
+      var screenFont = fontPx * scaleY;
+      var screenX = r.left + p.x * scaleX;
+      var screenY = r.top  + p.y * scaleY;             // baseline anchor (matches render)
+
       var inp = document.createElement('input');
       inp.type = 'text';
-      inp.placeholder = 'Type, Enter to commit';
-      var fontPx = (self.size||3) * 4;
-      inp.style.cssText = 'position:absolute;left:'+p.x+'px;top:'+(p.y - fontPx)+'px;'+
-        'background:rgba(255,255,255,.95);color:'+self.color+';border:2px dashed '+self.color+';'+
-        'border-radius:3px;padding:2px 6px;font:600 '+fontPx+'px Calibri,sans-serif;'+
-        'min-width:120px;outline:none;z-index:6;pointer-events:auto;';
-      self.canvas.parentNode.appendChild(inp);
+      inp.className = 'mk-text-live';
+      // Transparent field — what you type IS the preview. Top positioned so the
+      // text baseline lands on the click point (font drawn alphabetic baseline).
+      inp.style.cssText =
+        'position:fixed;left:'+screenX+'px;top:'+(screenY - screenFont)+'px;'+
+        'margin:0;padding:0;background:transparent;border:none;outline:none;'+
+        'color:'+self.color+';font:600 '+screenFont+'px/1 Calibri,sans-serif;'+
+        'caret-color:'+self.color+';white-space:pre;min-width:8px;width:8px;'+
+        'z-index:9999;pointer-events:auto;cursor:move;'+
+        // faint click-point tick so an empty field is still locatable, no box
+        'box-shadow:-1px 0 0 0 '+self.color+';';
+      document.body.appendChild(inp);
       self._textInput = inp;
+
+      // Auto-grow width to the typed text so the caret tracks the end
+      var meas = document.createElement('span');
+      meas.style.cssText = 'position:fixed;visibility:hidden;white-space:pre;font:600 '+screenFont+'px/1 Calibri,sans-serif;';
+      document.body.appendChild(meas);
+      function grow(){ meas.textContent = inp.value || ''; inp.style.width = (meas.offsetWidth + 4) + 'px'; }
+
       setTimeout(function(){ inp.focus(); }, 0);
+
+      // logical anchor (may change if dragged)
+      var anchor = { x: p.x, y: p.y };
+      var committed = false;
+
       function cleanup(){
         if (inp.parentNode) inp.parentNode.removeChild(inp);
+        if (meas.parentNode) meas.parentNode.removeChild(meas);
         if (self._textInput === inp) self._textInput = null;
+        document.removeEventListener('mousedown', outside, true);
+        document.removeEventListener('touchstart', outside, true);
       }
       function commit(){
+        if (committed) return; committed = true;
         var v = inp.value.trim();
         if (v){
-          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:p.x,y:p.y}], text:v, color:self.color, size:self.size, opacity:self.opacity });
+          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:anchor.x,y:anchor.y}], text:v, color:self.color, size:self.size, opacity:self.opacity });
           self.redoStack = [];
           if (self._onDirty) self._onDirty();
           self._render();
         }
         cleanup();
       }
+      function cancel(){ if (committed) return; committed = true; cleanup(); self._render(); }
+
+      // Click/tap outside the field commits (MS-Paint behaviour)
+      function outside(ev){ if (ev.target !== inp){ commit(); } }
+      setTimeout(function(){
+        document.addEventListener('mousedown', outside, true);
+        document.addEventListener('touchstart', outside, true);
+      }, 0);
+
+      inp.addEventListener('input', grow);
       inp.addEventListener('keydown', function(e){
         if (e.key === 'Enter'){ e.preventDefault(); commit(); }
-        else if (e.key === 'Escape'){ e.preventDefault(); cleanup(); }
+        else if (e.key === 'Escape'){ e.preventDefault(); cancel(); }
         e.stopPropagation();
       });
-      inp.addEventListener('blur', commit);
+
+      // Drag the field while active (grab anywhere; typing still works between drags)
+      var dragging = false, dsx = 0, dsy = 0, dox = 0, doy = 0, dMoved = false;
+      function dStart(ev){
+        // Only start a drag from a press-hold on the left edge / when caret would
+        // not otherwise move — simplest robust rule: drag when modifier or when
+        // pressing the box-shadow tick area. Use shiftKey OR press near left.
+        var cx = (ev.touches?ev.touches[0].clientX:ev.clientX);
+        var cy = (ev.touches?ev.touches[0].clientY:ev.clientY);
+        var br = inp.getBoundingClientRect();
+        var nearLeftEdge = (cx - br.left) <= 10;
+        if (!(ev.shiftKey || nearLeftEdge)) return;   // let normal clicks set caret
+        dragging = true; dMoved = false;
+        dsx = cx; dsy = cy; dox = parseFloat(inp.style.left); doy = parseFloat(inp.style.top);
+        ev.preventDefault();
+      }
+      function dMove(ev){
+        if (!dragging) return;
+        var cx = (ev.touches?ev.touches[0].clientX:ev.clientX);
+        var cy = (ev.touches?ev.touches[0].clientY:ev.clientY);
+        var nx = dox + (cx - dsx), ny = doy + (cy - dsy);
+        inp.style.left = nx + 'px'; inp.style.top = ny + 'px';
+        dMoved = true;
+        // recompute logical anchor from new screen pos
+        var r2 = self.canvas.getBoundingClientRect();
+        anchor.x = (nx - r2.left) / (r2.width / self.w);
+        anchor.y = (ny + screenFont - r2.top) / (r2.height / self.h);
+        ev.preventDefault();
+      }
+      function dEnd(){ dragging = false; }
+      inp.addEventListener('mousedown', dStart);
+      document.addEventListener('mousemove', dMove);
+      document.addEventListener('mouseup', dEnd);
+      inp.addEventListener('touchstart', dStart, {passive:false});
+      document.addEventListener('touchmove', dMove, {passive:false});
+      document.addEventListener('touchend', dEnd);
     },
 
     _drawText: function(ctx, s, sx, sy){
