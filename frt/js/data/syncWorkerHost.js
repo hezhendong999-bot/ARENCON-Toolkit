@@ -55,10 +55,29 @@ var _diag = {
   lastSerializeBytes: 0,
   maxSerializeBytes: 0,
   lastParseBytes: 0,
-  maxParseBytes: 0
+  maxParseBytes: 0,
+  // Bug-fix telemetry: RPC timeouts vs late replies (worker was slow, not hung).
+  timeoutCount: 0,
+  lastTimeoutOp: null,
+  lastTimeoutMs: 0,
+  lateReplyCount: 0
 };
 
-var RPC_TIMEOUT_MS = 30000;  // generous; serialize on huge projects can take seconds
+var RPC_TIMEOUT_MS = 30000;  // base; scaled up for large payloads (see _rpcTimeoutFor)
+// Large projects legitimately take longer than 30s to serialize/merge in the
+// worker. A flat 30s ceiling caused the "cloud-push timeout" symptom: the RPC
+// would abandon a still-running worker and re-run the SAME serialize INLINE on
+// the main thread (double work + UI freeze, after already waiting 30s). Scale
+// the ceiling to the last-known serialize size so big projects get the time
+// they need, capped so a genuinely hung worker still eventually fails.
+var RPC_TIMEOUT_MAX_MS = 120000;  // hard ceiling — a truly hung worker fails by 2 min
+function _rpcTimeoutFor(op){
+  // ~10s per MB over the base, using the high-water serialize size as the proxy
+  // for "how big is this project".
+  var mb = (_diag.maxSerializeBytes || 0) / (1024 * 1024);
+  var scaled = RPC_TIMEOUT_MS + Math.round(mb * 10000);
+  return Math.min(RPC_TIMEOUT_MAX_MS, Math.max(RPC_TIMEOUT_MS, scaled));
+}
 
 // S265 — only log loud when a payload is big enough to be a plausible cause of
 // the 30s RPC timeout. Below this, sizes are recorded in _diag but stay quiet
@@ -109,7 +128,13 @@ function _bootWorker() {
     _worker.addEventListener('message', function(e) {
       var msg = e.data || {};
       var pending = _pending[msg.id];
-      if (!pending) return;
+      if (!pending) {
+        // Reply arrived after we already timed out and abandoned this RPC.
+        // Record it — proves the worker was merely SLOW (the adaptive timeout
+        // should now cover it) rather than hung.
+        _diag.lateReplyCount = (_diag.lateReplyCount || 0) + 1;
+        return;
+      }
       clearTimeout(pending.timer);
       delete _pending[msg.id];
       if (msg.ok) pending.resolve(msg.result);
@@ -152,13 +177,20 @@ function _rpc(op, payload) {
   }
   var id = 'rpc-' + (++_rpcCounter);
   return new Promise(function(resolve, reject) {
+    var timeoutMs = _rpcTimeoutFor(op);
     _pending[id] = {
       resolve: resolve,
       reject: reject,
+      op: op,
       timer: setTimeout(function() {
         delete _pending[id];
-        reject(new Error('RPC ' + op + ' timeout after ' + RPC_TIMEOUT_MS + 'ms'));
-      }, RPC_TIMEOUT_MS)
+        _diag.timeoutCount = (_diag.timeoutCount || 0) + 1;
+        _diag.lastTimeoutOp = op;
+        _diag.lastTimeoutMs = timeoutMs;
+        var e = new Error('RPC ' + op + ' timeout after ' + timeoutMs + 'ms');
+        e._rpcTimeout = true;   // distinguishes slow-worker from crashed-worker
+        reject(e);
+      }, timeoutMs)
     };
     try {
       _worker.postMessage({ id: id, op: op, payload: payload });

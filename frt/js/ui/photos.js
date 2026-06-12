@@ -1581,18 +1581,23 @@ function _doReassign(destVal, selItems) {
   }
 
   // ---- SITE SOURCES ----------------------------------------------------------
-  // Sort descending by idx so splices don't shift earlier indices.
-  var siteItems = selItems.filter(function(s){ return s.type === 'site'; })
-    .sort(function(a,b){ return b.idx - a.idx; });
-  siteItems.forEach(function(s) {
+  // Delegate to the canonical Model.moveSitePhotoToPin (S224): copies to the pin
+  // sharing the binary via _photoIdentityKey dedup, mints a new pool ref with its
+  // own id, then removes the site entry by re-resolving its index defensively
+  // (indexOf, NOT the captured s.idx). The previous hand-rolled path spliced by
+  // the stale s.idx and deduped on r2Key||sourceR2Key instead of the byte-aware
+  // _photoIdentityKey — the "misaligned pool write" (site→pin) bug.
+  // Resolve to live photo references FIRST (so batch removals can't shift indices
+  // out from under us), then move each.
+  var siteRefs = selItems.filter(function(s){ return s.type === 'site'; })
+    .map(function(s){ return (proj.photos || [])[s.idx]; })
+    .filter(function(p){ return p && !p.deleted; });
+  siteRefs.forEach(function(src) {
     if (destVal === '__site__') { skipped++; return; } // no-op
-    var src = (proj.photos || [])[s.idx];
-    if (!src) { skipped++; return; }
-    var df = Model.findDeficiency(destVal);
-    if (!df) { skipped++; return; }
-    var rec = proj.photos.splice(s.idx, 1)[0];
-    _dedupPushToPool(df.defic, rec);
-    moved++;
+    var idx = (proj.photos || []).indexOf(src);
+    if (idx < 0) { skipped++; return; }
+    var res = Model.moveSitePhotoToPin(idx, destVal);
+    if (res && res.copy) moved++; else skipped++;
   });
 
   Model.saveNow();
