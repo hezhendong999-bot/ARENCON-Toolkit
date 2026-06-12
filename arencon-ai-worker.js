@@ -132,6 +132,34 @@ Respond with ONLY valid JSON — no markdown, no backticks:
   "notes": "Brief reasoning or caveats"
 }`;
 
+// S314 — placard_read mode. Reads a fire pump nameplate/placard photo and
+// extracts the RATED values for the commissioning flow-test charts. Output
+// space is strictly numeric+null so the frontend can preview-then-confirm
+// (the technologist verifies before anything is written — tools capture
+// data, they don't certify it).
+const PROMPT_PLACARD_READ = `You are a data-extraction assistant reading FIRE PUMP nameplates/placards for commissioning flow tests at ARENCON Inc. in Ontario, Canada.
+
+Extract ONLY the pump's RATED values exactly as printed on the placard:
+- Rated flow / rated capacity in US gpm
+- Rated pressure / rated head in psi
+- Rated speed in RPM
+
+RULES:
+- Report only values you can clearly read on the placard. If a value is missing, unreadable, or ambiguous, return null for it — NEVER guess.
+- If rated head is printed in FEET (ft), convert to psi (ft × 0.433), round to 1 decimal, and state the conversion in "notes".
+- If flow is printed in L/min or m³/h, convert to US gpm (L/min × 0.2642; m³/h × 4.403) and state the conversion in "notes".
+- Ignore motor/engine nameplates, relief valve tags, and controller labels — only the PUMP rated point.
+- If the photo is not a pump placard or is unreadable, return all nulls with confidence "low" and explain in "notes".
+
+Respond with ONLY valid JSON — no markdown, no backticks:
+{
+  "rated_flow_gpm": number or null,
+  "rated_pressure_psi": number or null,
+  "rated_speed_rpm": number or null,
+  "confidence": "high|medium|low",
+  "notes": "What you read, any conversions, any caveats"
+}`;
+
 
 // S130 — auto_group mode. Takes observations (id + description) and a
 // fixed group catalog. Classifies each observation into one of the allowed
@@ -335,6 +363,86 @@ export default {
             output_tokens: vOutputTokens,
             cost_usd: Math.round(vCostUsd * 1000000) / 1000000
           }
+        }, 200, headers);
+      }
+
+      // S314 — Branch: placard read mode (Diesel/Electric commissioning rated values)
+      if (mode === 'placard_read') {
+        if (!photos || !Array.isArray(photos) || photos.length === 0) {
+          return jsonResponse({ error: 'No photos provided' }, 400, headers);
+        }
+        if (photos.length > 2) {
+          return jsonResponse({ error: 'Too many photos (max 2 per request)' }, 400, headers);
+        }
+        const pBlocks = [];
+        for (const ph of photos) {
+          if (!ph.data || !ph.media_type) {
+            return jsonResponse({ error: 'Each photo must have {data, media_type}' }, 400, headers);
+          }
+          pBlocks.push({ type: 'image', source: { type: 'base64', media_type: ph.media_type, data: ph.data } });
+        }
+        pBlocks.push({ type: 'text', text: 'Read the fire pump placard in the photo(s) above and extract the rated values.' });
+
+        const pModel = MODELS.rewrite; // Sonnet — vision
+        const pRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: pModel.id,
+            max_tokens: 512,
+            system: PROMPT_PLACARD_READ,
+            messages: [{ role: 'user', content: pBlocks }]
+          })
+        });
+        if (!pRes.ok) {
+          const errText = await pRes.text();
+          console.error('Anthropic placard vision error:', pRes.status, errText);
+          return jsonResponse({ error: 'AI vision service error', detail: pRes.status }, 502, headers);
+        }
+        const pData = await pRes.json();
+        const pText = pData.content.filter(c => c.type === 'text').map(c => c.text).join('');
+        let pParsed;
+        try {
+          pParsed = JSON.parse(pText.replace(/```json|```/g, '').trim());
+        } catch (e) {
+          console.error('Failed to parse placard response:', pText);
+          return jsonResponse({ error: 'AI returned invalid format', raw: pText }, 500, headers);
+        }
+        const pUsage = pData.usage || {};
+        const pIn = pUsage.input_tokens || 0, pOut = pUsage.output_tokens || 0;
+        const pCost = (pIn * pModel.inputRate) + (pOut * pModel.outputRate);
+        if (env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY) {
+          const pLog = fetch(`${env.SUPABASE_URL}/rest/v1/ai_usage_log`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': env.SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              user_id: userId, user_email: userEmail,
+              tool: context?.tool || 'diesel_pump',
+              project_number: context?.projectNumber || null,
+              project_name: context?.projectName || null,
+              action: 'placard_read', model: pModel.id,
+              input_tokens: pIn, output_tokens: pOut, cost_usd: pCost,
+              field_count: photos.length, accepted_count: null
+            })
+          }).catch(err => console.error('Usage log failed:', err));
+          ctx.waitUntil(pLog);
+        }
+        return jsonResponse({
+          rated_flow_gpm: (typeof pParsed.rated_flow_gpm === 'number') ? pParsed.rated_flow_gpm : null,
+          rated_pressure_psi: (typeof pParsed.rated_pressure_psi === 'number') ? pParsed.rated_pressure_psi : null,
+          rated_speed_rpm: (typeof pParsed.rated_speed_rpm === 'number') ? pParsed.rated_speed_rpm : null,
+          confidence: pParsed.confidence || 'medium',
+          notes: pParsed.notes || '',
+          usage: { input_tokens: pIn, output_tokens: pOut, cost_usd: Math.round(pCost * 1000000) / 1000000 }
         }, 200, headers);
       }
 

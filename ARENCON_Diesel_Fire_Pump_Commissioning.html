@@ -2127,7 +2127,7 @@ function updatePhaseFlags(){
         <div class="np-panel">
           <div class="np-head">
             <div class="np-t">⚙ Rated values read from the placard</div>
-            <button class="np-scan" id="np-scan-btn" onclick="_placardScan()" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
+            <button class="np-scan" id="np-scan-btn" onclick="_placardScan(this)" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
           </div>
           <div style="padding:16px;">
             <div class="ts-rated">
@@ -2291,7 +2291,7 @@ function updatePhaseFlags(){
         <div class="np-panel">
           <div class="np-head">
             <div class="np-t">⚙ Rated values read from the placard</div>
-            <button class="np-scan" onclick="_placardScan()" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
+            <button class="np-scan" onclick="_placardScan(this)" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
           </div>
           <div style="padding:16px;">
             <div class="ts-rated ts-rated-7">
@@ -12618,10 +12618,130 @@ function _renderRecordZones(){
   if(pp2) pp2.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('flow-pld');
 }
 // Placard OCR — wired in the next build. Placeholder keeps the button honest.
-function _placardScan(){
-  var has=(typeof recordPhotos==='undefined'?[]:recordPhotos).some(function(p){return (p.kind||'')==='placard';});
-  if(!has){ showToast('Capture a placard photo first'); return; }
-  showToast('Placard scanning is coming in the next update');
+/* ════ S314: AI Placard Scan → rated-value autofill (preview-then-confirm) ════
+   Calls arencon-ai-worker mode:'placard_read' (Sonnet vision, logs to ai_usage_log).
+   NEVER writes silently: a preview card shows read vs current values with per-field
+   checkboxes; only Apply (the technologist's explicit confirm) writes the fields.
+   Applies to BOTH 3pt and 7pt rated fields — one pump, one rated point. */
+var AI_WORKER_URL='https://arencon-ai-worker.hezhendong999.workers.dev';
+function _placardPhotoData(p, cb){
+  // Resolve the placard photo to {data(base64), media_type}. Local .d preferred;
+  // else fetch the public R2 GET url (R2 GETs never require auth — canon).
+  function fromDataUrl(du){
+    var m=/^data:([^;]+);base64,(.*)$/.exec(du||'');
+    if(!m){ cb(null); return; }
+    cb({ data:m[2], media_type:m[1] });
+  }
+  if(p.d){ fromDataUrl(p.d); return; }
+  if(p.r2Url){
+    fetch(p.r2Url).then(function(r){ if(!r.ok) throw new Error('R2 '+r.status); return r.blob(); })
+      .then(function(b){ var fr=new FileReader(); fr.onload=function(){ fromDataUrl(fr.result); }; fr.onerror=function(){ cb(null); }; fr.readAsDataURL(b); })
+      .catch(function(){ cb(null); });
+    return;
+  }
+  cb(null);
+}
+function _placardScan(btn){
+  var list=(typeof recordPhotos==='undefined'?[]:recordPhotos).filter(function(p){return (p.kind||'')==='placard';});
+  if(!list.length){ showToast('Capture a placard photo first'); return; }
+  var p=list[list.length-1];   // most recent placard photo
+  var token=localStorage.getItem('sb-access-token');
+  if(!token){ showToast('Sign in (Hub mode) to use AI scan'); return; }
+  var origTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Reading placard\u2026'; }
+  function done(){ if(btn){ btn.disabled=false; btn.textContent=origTxt; } }
+  _placardPhotoData(p, function(img){
+    if(!img){ done(); showToast('Could not load the placard photo'); return; }
+    var up=(typeof readUrlParams==='function')?readUrlParams():{};
+    var body=JSON.stringify({ mode:'placard_read', photos:[img],
+      context:{ tool:'diesel_pump', projectNumber:up.projectNumber||null, projectName:up.projectName||null } });
+    function call(tok){
+      return fetch(AI_WORKER_URL,{ method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body:body });
+    }
+    call(token).then(function(res){
+      if((res.status===401||res.status===403)&&typeof _refreshAccessToken==='function'){
+        return _refreshAccessToken().then(function(nt){ if(!nt) return res; return call(nt); });
+      }
+      return res;
+    }).then(function(res){
+      if(!res.ok) return res.json().then(function(e){ throw new Error(e.error||'AI error '+res.status); });
+      return res.json();
+    }).then(function(d){
+      done(); _placardPreview(btn, d);
+    }).catch(function(err){
+      done(); showToast('Placard scan failed: '+(err.message||'connection error'));
+    });
+  });
+}
+function _placardPreview(btn, d){
+  var old=document.getElementById('placard-scan-card'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+  var fields=[
+    { key:'flow', label:'Rated Flow (gpm)',    val:d.rated_flow_gpm,     ids:['pm-rated-flow','pm-rated-flow-pld'] },
+    { key:'prv',  label:'Rated Press. (psi)',  val:d.rated_pressure_psi, ids:['pm-prv','pm-prv-pld'] },
+    { key:'rpm',  label:'Rated Speed (RPM)',   val:d.rated_speed_rpm,    ids:['pm-rpm','pm-rpm-pld'] }
+  ];
+  var any=fields.some(function(f){return f.val!=null;});
+  var card=document.createElement('div'); card.id='placard-scan-card';
+  card.style.cssText='margin:10px 16px 14px;border:1px solid #C9CDD4;border-radius:10px;background:rgba(63,110,156,.06);padding:12px 14px;font:13px Calibri,sans-serif;';
+  var confCol=d.confidence==='high'?'#5F8068':(d.confidence==='low'?'#A85959':'#B08948');
+  var html='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+    +'<b style="font-size:13.5px;">\u2726 Placard read</b>'
+    +'<span style="font-weight:700;color:'+confCol+';text-transform:uppercase;font-size:11px;letter-spacing:.4px;">'+_escHtml(d.confidence||'medium')+' confidence</span></div>';
+  if(!any){
+    html+='<div style="color:#A85959;">No rated values could be read from the photo.</div>';
+  } else {
+    html+='<div style="display:flex;flex-direction:column;gap:6px;">';
+    fields.forEach(function(f){
+      var cur=document.getElementById(f.ids[0]); var curV=cur?cur.value:'';
+      if(f.val==null){
+        html+='<label style="display:flex;align-items:center;gap:8px;opacity:.55;"><input type="checkbox" disabled> '
+          +f.label+': <i>not readable</i></label>';
+      } else {
+        html+='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
+          +'<input type="checkbox" checked data-pscan="'+f.key+'" data-pval="'+f.val+'" data-pids="'+f.ids.join(',')+'"> '
+          +f.label+': <b>'+f.val+'</b>'
+          +(curV!==''?' <span style="color:#928E9C;">(currently '+_escHtml(curV)+' \u2014 will be replaced)</span>':' <span style="color:#5F8068;">(empty \u2014 will be filled)</span>')
+          +'</label>';
+      }
+    });
+    html+='</div>';
+  }
+  if(d.notes) html+='<div style="margin-top:8px;color:#5E5B68;font-size:12px;">'+_escHtml(d.notes)+'</div>';
+  if(d.usage&&d.usage.cost_usd!=null) html+='<div style="margin-top:4px;color:#928E9C;font-size:11px;">Cost: $'+Number(d.usage.cost_usd).toFixed(4)+'</div>';
+  html+='<div style="display:flex;gap:8px;margin-top:10px;">';
+  if(any) html+='<button id="pscan-apply" style="background:#9C2742;color:#fff;border:none;border-radius:7px;padding:7px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;">Apply selected</button>';
+  html+='<button id="pscan-cancel" style="background:#455A64;color:#fff;border:none;border-radius:7px;padding:7px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;">'+(any?'Cancel':'Close')+'</button></div>'
+    +'<div style="margin-top:7px;color:#928E9C;font-size:11px;">AI-read values \u2014 verify against the physical placard before applying. Fills both 3-pt and 7-pt rated fields.</div>';
+  card.innerHTML=html;
+  // Mount inside the np-panel the button lives in (works for both 3pt and 7pt sections)
+  var panel=btn?btn.closest('.np-panel'):null;
+  var host=document.getElementById('placard-ocr-host');
+  if(panel){ panel.appendChild(card); }
+  else if(host){ host.appendChild(card); }
+  else { document.body.appendChild(card); }
+  card.scrollIntoView({behavior:'smooth', block:'nearest'});
+  var bC=card.querySelector('#pscan-cancel'); if(bC) bC.addEventListener('click',function(){ card.parentNode.removeChild(card); });
+  var bA=card.querySelector('#pscan-apply');
+  if(bA) bA.addEventListener('click',function(){
+    var n=0;
+    card.querySelectorAll('input[data-pscan]:checked').forEach(function(cb){
+      var v=cb.getAttribute('data-pval');
+      cb.getAttribute('data-pids').split(',').forEach(function(id){
+        var el=document.getElementById(id); if(el){ el.value=v; n++; }
+      });
+    });
+    // Fire the same cascades the manual oninput handlers run (3pt + 7pt)
+    if(typeof autoFillStdFlows==='function') autoFillStdFlows();
+    if(typeof autoFillPldFlows==='function') autoFillPldFlows();
+    if(typeof updateChart==='function') updateChart();
+    if(typeof updatePldChart==='function') updatePldChart();
+    if(typeof updatePldNetChart==='function') updatePldNetChart();
+    if(typeof renderStdTable==='function') renderStdTable();
+    if(typeof renderPldTable==='function') renderPldTable();
+    if(typeof saveState==='function') saveState();
+    card.parentNode.removeChild(card);
+    showToast(n?'Rated values applied \u2014 verify the charts':'Nothing selected');
+  });
 }
 function _recAddFile(file, kind){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
