@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S306 (1a: annotated-but-backupless photos no longer mint duplicate "(original)" Site backups on re-mark — corrupted-state re-save guard + one-shot _dedupeOrigBackups cleanup at load settle; 1b: reconcile re-hydrates a photo's stripped local data from its surviving outbox blob so a failed R2 upload never strands a photo without display data; 1c: redundant lightbox Save button removed — auto-commit on exit makes it unnecessary, _saveMk stays as the commit path) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S307 (P9 date rule dropped for Diesel: saving markup no longer bumps the photo to today's gallery group — it keeps its original date so it stays put; revert date-restore kept as a no-op for new photos / legacy-compat for photos saved before this change. Builds on S306: 1a duplicate-(original) guard + dedup, 1b outbox re-hydrate, 1c Save-button removal) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10204,14 +10204,15 @@ async function _dslMarkupPersist(p, mk){
   var markedUrl = (hub && typeof R2Photos!=='undefined') ? R2Photos.getUrl(_r2FolderId, 'diesel', 'marked', markedFname) : '';
 
   // ── Stamp the photo (and any same-id references) ──
-  var todayIso = new Date().toISOString();
   var mkTs = Date.now();   // S301: annotation-state timestamp — merge arbitration
   var stamp = function(sp){
     sp.d = markedD;
     sp._annotated = true;
     sp._mkTs = mkTs;
     if(backupId) sp._origBackupId = backupId;
-    sp.date = todayIso;                  // FRT: save bumps the photo to today
+    // S306 (Mark): P9 date-bump dropped for Diesel — saving markup keeps the
+    // photo's original date so it stays in its existing gallery group (the jump
+    // to today's group was confusing). _mkTs still drives merge arbitration.
     delete sp.mk;                        // strokes are baked now (FRT parity)
     if(hub){ sp.r2Key = markedKey; sp.r2Url = markedUrl; sp.r2Status = 'pending'; }
   };
@@ -10293,7 +10294,7 @@ function _dslMarkupRevert(p){
     if(backup.d) sp.d = backup.d; else delete sp.d;
     sp.r2Key = origKey; sp.r2Url = backup.r2Url || '';
     sp.r2Status = origKey ? 'uploaded' : '';
-    if(backup.date) sp.date = backup.date;   // FRT P9: roll date back so it regroups correctly
+    if(backup.date) sp.date = backup.date;   // S306: save no longer bumps the date, so this is a no-op for new photos; kept for legacy photos saved before the P9 drop (restores their original group)
     delete sp._annotated; delete sp._origBackupId; delete sp.mk;
   };
   _dslStampSiblings(p, restore);
@@ -13075,7 +13076,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S306';
+var DIESEL_BUILD = 'S307';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
