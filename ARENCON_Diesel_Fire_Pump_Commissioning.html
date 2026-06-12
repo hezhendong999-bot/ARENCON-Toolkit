@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S309 (B9 Option A: report-only reverse R2 sweep _dieselR2OrphanReport() — lists stranded objects across ALL FOUR type folders, builds a complete protected-key set that includes each annotated photo's still-needed original, prints to console, DELETES NOTHING. Legacy one-folder _r2CleanupOrphans delete left defined-but-inert; menu button repointed to the safe reporter) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S310 (Burst camera foundation: cameraBurst module ported VERBATIM from FRT S284, inlined as window.openCameraBurst + reusable window._camBurst wrapper encoding FRT's exact null/[]/length contract; wired into the Records camera button first for field-verify before universal rollout to the other 9 sections. Legacy single-shot _recCameraLegacy kept defined-but-inert) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10586,6 +10586,155 @@ if(typeof window!=='undefined'){
   window._dieselOrphanRestore = _dieselOrphanRestore;
 }
 
+/* ═══ S310: BURST CAMERA — ported VERBATIM from FRT frt/js/ui/cameraBurst.js (S284, Mark) ═══
+ * Continuous in-app camera: shoot → shoot → shoot → Done, all photos returned
+ * together. Replaces the single-shot <input type=file capture> round-trip that
+ * forced re-opening the camera per photo. FRT is modular ES6 (export); Diesel is
+ * single-file shared-scope, so the ONLY change from the FRT original is: the
+ * `export function` becomes a global `window.openCameraBurst`. Body is byte-faithful.
+ * Contract — openCameraBurst() resolves with:
+ *   File[] (len>=1) photos taken → caller feeds its normal photo pipeline
+ *   []              cancelled / Done with zero shots → caller no-ops
+ *   null            unsupported / permission denied → caller informs the user
+ * Capture: ImageCapture.takePhoto() w/ <canvas> frame-grab fallback. Plain canvas
+ * only (OffscreenCanvas prohibited). Tracks always stopped on close. One overlay.
+ *
+ * _camBurst(perFileFn) is the REUSABLE standard every camera button uses: it
+ * encodes FRT's exact null/[]/length handling ONCE, then runs each returned File
+ * through that section's existing per-file processor. Any future camera feature in
+ * any tool should call _camBurst(itsPerFileProcessor) — never a raw capture input. */
+(function(){
+  var _open = false;
+  function openCameraBurst() {
+    return new Promise(function(resolve) {
+      if (_open) { resolve([]); return; }
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { resolve(null); return; }
+      _open = true;
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 3072 } },
+        audio: false
+      }).then(function(stream) {
+        _openUI(stream, function(r) { _open = false; resolve(r); });
+      }).catch(function() {
+        _open = false;
+        resolve(null);
+      });
+    });
+  }
+  function _openUI(stream, done) {
+    var shots = [];
+    var urls = [];
+    var overlay = document.createElement('div');
+    overlay.id = 'cam-burst-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0b0a0d;display:flex;flex-direction:column;font-family:Calibri,sans-serif;';
+    var vidWrap = document.createElement('div');
+    vidWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000;min-height:0;';
+    var video = document.createElement('video');
+    video.autoplay = true; video.muted = true; video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+    video.srcObject = stream;
+    vidWrap.appendChild(video);
+    var counter = document.createElement('div');
+    counter.style.cssText = 'position:absolute;top:14px;right:14px;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:6px 14px;font-size:15px;font-weight:700;display:none;';
+    vidWrap.appendChild(counter);
+    var flash = document.createElement('div');
+    flash.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s;';
+    vidWrap.appendChild(flash);
+    overlay.appendChild(vidWrap);
+    var strip = document.createElement('div');
+    strip.style.cssText = 'display:flex;gap:8px;overflow-x:auto;padding:8px 12px;background:#16141b;flex:none;';
+    overlay.appendChild(strip);
+    var bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 22px calc(14px + env(safe-area-inset-bottom,0px));background:#16141b;border-top:1px solid rgba(255,255,255,.08);flex:none;';
+    var btnCancel = document.createElement('button');
+    btnCancel.id = 'cam-burst-cancel';
+    btnCancel.textContent = 'Cancel';
+    btnCancel.style.cssText = 'min-width:96px;min-height:52px;background:transparent;color:#a09aa8;border:1px solid rgba(255,255,255,.2);border-radius:12px;font-size:16px;font-family:Calibri,sans-serif;cursor:pointer;';
+    var shutter = document.createElement('button');
+    shutter.id = 'cam-burst-shutter';
+    shutter.setAttribute('aria-label', 'Take photo');
+    shutter.style.cssText = 'width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.35);cursor:pointer;flex:none;';
+    var btnDone = document.createElement('button');
+    btnDone.id = 'cam-burst-done';
+    btnDone.textContent = 'Done';
+    btnDone.style.cssText = 'min-width:96px;min-height:52px;background:#2E9E72;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;opacity:.45;';
+    bar.appendChild(btnCancel); bar.appendChild(shutter); bar.appendChild(btnDone);
+    overlay.appendChild(bar);
+    document.body.appendChild(overlay);
+    var prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    var track = stream.getVideoTracks()[0];
+    var imgCap = (typeof window.ImageCapture === 'function' && track) ? new window.ImageCapture(track) : null;
+    var busy = false;
+    function _updateUI() {
+      counter.textContent = shots.length + (shots.length === 1 ? ' photo' : ' photos');
+      counter.style.display = shots.length ? 'block' : 'none';
+      btnDone.textContent = 'Done' + (shots.length ? ' (' + shots.length + ')' : '');
+      btnDone.style.opacity = shots.length ? '1' : '.45';
+    }
+    function _addShot(blob) {
+      var f = new File([blob], 'camera_' + Date.now() + '_' + (shots.length + 1) + '.jpg', { type: blob.type || 'image/jpeg' });
+      shots.push(f);
+      var u = URL.createObjectURL(blob);
+      urls.push(u);
+      var th = document.createElement('img');
+      th.src = u;
+      th.style.cssText = 'height:56px;border-radius:8px;flex:none;';
+      strip.appendChild(th);
+      strip.scrollLeft = strip.scrollWidth;
+      flash.style.opacity = '.7';
+      setTimeout(function() { flash.style.opacity = '0'; }, 90);
+      _updateUI();
+    }
+    function _grabFrame() {
+      var cw = video.videoWidth || 1280, ch = video.videoHeight || 720;
+      var cv = document.createElement('canvas');
+      cv.width = cw; cv.height = ch;
+      cv.getContext('2d').drawImage(video, 0, 0, cw, ch);
+      cv.toBlob(function(b) { if (b) _addShot(b); busy = false; }, 'image/jpeg', 0.92);
+    }
+    shutter.addEventListener('click', function() {
+      if (busy) return;
+      busy = true;
+      if (imgCap && imgCap.takePhoto) {
+        var settled = false;
+        var timer = setTimeout(function() { if (settled) return; settled = true; _grabFrame(); }, 1500);
+        imgCap.takePhoto().then(function(b) {
+          if (settled) return; settled = true; clearTimeout(timer);
+          _addShot(b); busy = false;
+        }).catch(function() {
+          if (settled) return; settled = true; clearTimeout(timer);
+          _grabFrame();
+        });
+      } else {
+        _grabFrame();
+      }
+    });
+    function _close(result) {
+      try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
+      urls.forEach(function(u) { try { URL.revokeObjectURL(u); } catch (e) {} });
+      document.body.style.overflow = prevOverflow;
+      overlay.remove();
+      document.removeEventListener('keydown', _esc);
+      done(result);
+    }
+    function _esc(e) { if (e.key === 'Escape') _close([]); }
+    document.addEventListener('keydown', _esc);
+    btnCancel.addEventListener('click', function() { _close([]); });
+    btnDone.addEventListener('click', function() { _close(shots.slice()); });
+  }
+  // Reusable standard — FRT's exact null/[]/length contract, applied once.
+  // perFileFn receives one File at a time and runs the caller's normal pipeline.
+  function _camBurst(perFileFn) {
+    openCameraBurst().then(function(files) {
+      if (files === null) { if (typeof showToast === 'function') showToast('Camera unavailable \u2014 use Upload instead', 2500); return; }
+      if (files && files.length) files.forEach(function(f) { try { perFileFn(f); } catch (e) { console.warn('[burst] perFile failed:', e); } });
+    });
+  }
+  if (typeof window !== 'undefined') { window.openCameraBurst = openCameraBurst; window._camBurst = _camBurst; }
+})();
+
 // ═══ S309 B9 (Option A): REVERSE R2 sweep — REPORT ONLY, deletes nothing ═══
 // The legacy _r2CleanupOrphans() (a) listed only the 'original/' folder so it
 // could never see stranded 'marked/' objects, and (b) deleted on a confirm-by-
@@ -12170,7 +12319,8 @@ function _recAddFile(file, kind){
 }
 function _recDrop(e, kind){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(function(f){ _recAddFile(f,kind); }); }
 function _recUpload(kind){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(function(f){ _recAddFile(f,kind); }); }; inp.click(); }
-function _recCamera(kind){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _recAddFile(f,kind); }; inp.click(); }
+function _recCamera(kind){ if(typeof _camBurst==='function'){ _camBurst(function(f){ _recAddFile(f,kind); }); return; } _recCameraLegacy(kind); }
+function _recCameraLegacy(kind){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.onchange=function(){ var f=inp.files[0]; if(f) _recAddFile(f,kind); }; inp.click(); }
 function _recDelete(i){
   // S264: confirm + authoritative delete by id (both surfaces + R2 + save).
   var p = recordPhotos[i]; if(!p) return;
@@ -13165,7 +13315,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S309';
+var DIESEL_BUILD = 'S310';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
