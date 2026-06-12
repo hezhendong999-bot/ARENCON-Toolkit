@@ -1543,8 +1543,9 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
       <div class="hdr-repair-wrap" id="btn-reports-wrap" style="display:none;">
         <button class="hdr-btn" id="btn-reports-parent" style="background:#1A237E;" onclick="toggleReportsMenu(event)" title="Reports">📄 Reports ▾</button>
         <div class="hdr-repair-menu" id="reports-menu">
-          <button onclick="exportPDF();closeReportsMenu()">📄 Export PDF <span>Generate commissioning report</span></button>
           <button onclick="issueReport();closeReportsMenu()">📋 Issue <span>Bump revision &amp; mark issued</span></button>
+          <button onclick="exportPDF();closeReportsMenu()">📄 Export PDF <span>Generate commissioning report</span></button>
+          <button onclick="_prePrintFromMenu();closeReportsMenu()">🖼 Report Photos <span>Choose photos for the appendix</span></button>
         </div>
       </div>
       <!-- ⚙️ More dropdown -->
@@ -8154,50 +8155,68 @@ function _appendixHTML(){
     return out;
   }catch(e){ console.warn('[appendix] build error', e); return ''; }
 }
-function exportPDF(){
-  var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
-  if(!all.length){ _exportPDFGo(); return; }   // no photos — nothing to choose
+function exportPDF(){ _exportPDFGo(); }   // S316: photo review is opt-in via Reports menu
+function _prePrintFromMenu(){
+  var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos().filter(_appendixEligible) : [];
+  if(!all.length){ showToast('No report photos yet'); return; }
   _prePrintOpen(all);
 }
 function _prePrintOpen(all){
-  var old=document.getElementById('ppx-ov'); if(old) old.remove();
-  var CATS=[['records','Site Records \u00B7 Pump & Placard'],['flow','Flow Test \u2014 Gauges & Charts'],['checklist','Checklist Items'],['deficiency','Contractor Deficiencies'],['general','General Deficiencies']];
+  // S316 (field report): full-screen overlay sat UNDER the sticky app header
+  // ("header floating mid air"), thumbs too small, light text lost on light skin.
+  // Rebuilt as a centered MODAL: explicit light card, dark backdrop above
+  // everything, internal scroll, body scroll locked while open.
+  _ppxClose();
+  var CATS=[['records','Pump \u00B7 Placard \u00B7 Flow Charts'],['flow','Flow Test \u2014 Gauges & RPM']];
   var byCat={}; all.forEach(function(it){ (byCat[it.cat]||(byCat[it.cat]=[])).push(it); });
   var ov=document.createElement('div'); ov.id='ppx-ov';
-  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:#1C2333;display:flex;flex-direction:column;font-family:Calibri,sans-serif;';
-  var h='<div style="padding:14px 18px 10px;color:#fff;flex:0 0 auto;">'
-    +'<div style="font-size:18px;font-weight:700;">Report Photos</div>'
-    +'<div style="font-size:12.5px;color:rgba(255,255,255,.65);margin-top:2px;">All photos print by default \u2014 tap a photo to exclude it. Your choices are saved with the report.</div></div>'
-    +'<div id="ppx-body" style="flex:1 1 auto;overflow-y:auto;padding:0 18px 18px;">';
+  ov.style.cssText='position:fixed;inset:0;z-index:99990;background:rgba(16,20,30,.62);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Calibri,sans-serif;';
+  var h='<div style="background:#FBFAFC;color:#1B1A22;border-radius:14px;max-width:1040px;width:100%;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.45);overflow:hidden;">'
+    +'<div style="padding:16px 20px 10px;border-bottom:1px solid #E3E1E8;flex:0 0 auto;">'
+    +'<div style="font-size:17px;font-weight:700;">Report Photos</div>'
+    +'<div style="font-size:12.5px;color:#5E5B68;margin-top:2px;">Everything below prints in the Photo Appendix by default \u2014 tap a photo to exclude it. Saved with the report.</div></div>'
+    +'<div id="ppx-body" style="flex:1 1 auto;overflow-y:auto;padding:4px 20px 16px;">';
   CATS.forEach(function(c){
     var items=byCat[c[0]]||[]; if(!items.length) return;
     h+='<div style="margin-top:14px;">'
-      +'<div style="display:flex;align-items:center;gap:10px;color:#fff;margin-bottom:8px;">'
-      +'<span style="font-weight:700;font-size:14px;">'+c[1]+'</span>'
-      +'<span style="font-size:11.5px;color:rgba(255,255,255,.5);" id="ppx-cnt-'+c[0]+'"></span>'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+      +'<span style="font-weight:700;font-size:14px;color:#1B1A22;">'+c[1]+'</span>'
+      +'<span style="font-size:11.5px;color:#928E9C;" id="ppx-cnt-'+c[0]+'"></span>'
       +'<span style="flex:1;"></span>'
-      +'<button onclick="_ppxCat(\''+c[0]+'\',true)" style="background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:6px;padding:5px 12px;font:600 12px Calibri,sans-serif;cursor:pointer;">All</button>'
-      +'<button onclick="_ppxCat(\''+c[0]+'\',false)" style="background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:6px;padding:5px 12px;font:600 12px Calibri,sans-serif;cursor:pointer;">None</button>'
-      +'</div><div style="display:flex;flex-wrap:wrap;gap:8px;">';
+      +'<button onclick="_ppxCat(\''+c[0]+'\',true)" style="background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:6px;padding:5px 12px;font:600 12px Calibri,sans-serif;cursor:pointer;">All</button>'
+      +'<button onclick="_ppxCat(\''+c[0]+'\',false)" style="background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:6px;padding:5px 12px;font:600 12px Calibri,sans-serif;cursor:pointer;">None</button>'
+      +'</div><div style="display:flex;flex-wrap:wrap;gap:9px;">';
     items.forEach(function(it){
       var k=_ppxKey(it), ex=_appendixExcl.has(k), s2=it.src||'';
       h+='<div class="ppx-t" data-k="'+k+'" data-cat="'+(it.cat||'')+'" onclick="_ppxToggle(this)" '
-        +'style="position:relative;width:88px;height:88px;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;border:2px solid '+(ex?'rgba(255,255,255,.15)':'#5F8068')+';opacity:'+(ex?'.35':'1')+';">'
+        +'style="position:relative;width:112px;height:112px;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;border:2px solid '+(ex?'#D8D5DE':'#5F8068')+';opacity:'+(ex?'.35':'1')+';">'
         +(s2?'<img src="'+s2+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">':'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#777;font-size:10px;">no preview</div>')
-        +'<span style="position:absolute;top:3px;right:3px;background:rgba(28,35,51,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(it.badge||'')+'</span>'
-        +'<span class="ppx-x" style="position:absolute;inset:0;display:'+(ex?'flex':'none')+';align-items:center;justify-content:center;color:#fff;font-size:26px;font-weight:700;background:rgba(0,0,0,.35);">\u2715</span>'
+        +'<span style="position:absolute;top:3px;right:3px;background:rgba(28,35,51,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(it.badge||'')+'</span>'
+        +'<span class="ppx-x" style="position:absolute;inset:0;display:'+(ex?'flex':'none')+';align-items:center;justify-content:center;color:#fff;font-size:30px;font-weight:700;background:rgba(0,0,0,.38);">\u2715</span>'
         +'</div>';
     });
     h+='</div></div>';
   });
   h+='</div>'
-    +'<div style="flex:0 0 auto;display:flex;gap:10px;padding:12px 18px;background:#141a26;border-top:1px solid rgba(255,255,255,.1);">'
-    +'<button onclick="document.getElementById(\'ppx-ov\').remove()" style="background:#455A64;color:#fff;border:none;border-radius:8px;padding:12px 22px;font:700 14px Calibri,sans-serif;cursor:pointer;">Cancel</button>'
-    +'<span style="flex:1;display:flex;align-items:center;color:rgba(255,255,255,.55);font-size:12px;" id="ppx-total"></span>'
-    +'<button onclick="_ppxGenerate()" style="background:#9C2742;color:#fff;border:none;border-radius:8px;padding:12px 26px;font:700 14px Calibri,sans-serif;cursor:pointer;">Generate Report</button></div>';
+    +'<div style="flex:0 0 auto;display:flex;gap:10px;padding:12px 20px;background:#F2F0F5;border-top:1px solid #E3E1E8;">'
+    +'<button onclick="_ppxClose()" style="background:#455A64;color:#fff;border:none;border-radius:8px;padding:11px 22px;font:700 14px Calibri,sans-serif;cursor:pointer;">Cancel</button>'
+    +'<span style="flex:1;display:flex;align-items:center;color:#5E5B68;font-size:12px;" id="ppx-total"></span>'
+    +'<button onclick="_ppxDone()" style="background:#9C2742;color:#fff;border:none;border-radius:8px;padding:11px 26px;font:700 14px Calibri,sans-serif;cursor:pointer;">Done</button></div></div>';
   ov.innerHTML=h;
   document.body.appendChild(ov);
+  ov._prevOverflow=document.body.style.overflow;
+  document.body.style.overflow='hidden';
   _ppxCounts();
+}
+function _ppxClose(){
+  var ov=document.getElementById('ppx-ov');
+  if(ov){ document.body.style.overflow=ov._prevOverflow||''; ov.remove(); }
+}
+function _ppxDone(){
+  if(typeof saveState==='function') saveState();
+  if(typeof debounceAutosave==='function') debounceAutosave();
+  _ppxClose();
+  showToast('Report photo selection saved');
 }
 function _ppxToggle(el){
   var k=el.getAttribute('data-k');
@@ -8222,11 +8241,7 @@ function _ppxCounts(){
     var s=document.getElementById('ppx-cnt-'+c); if(s) s.textContent=n+'/'+m;
   });
 }
-function _ppxGenerate(){
-  var ov=document.getElementById('ppx-ov'); if(ov) ov.remove();
-  if(typeof saveState==='function') saveState();
-  _exportPDFGo();
-}
+function _ppxGenerate(){ _ppxDone(); }   // S296-era entry — INERT since S316, kept per S137
 /* S316: the pump curves were MISSING from exported reports whenever the
    Performance tab hadn't been opened that session — chart3pt etc. are only
    instantiated when #panel-s4 first shows, and toBase64Image() of a chart in a
