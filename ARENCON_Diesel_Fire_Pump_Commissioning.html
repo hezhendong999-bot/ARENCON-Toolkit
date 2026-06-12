@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S305 (auto-commit on markup exit: leaving via pencil toggle, X, or closing the lightbox bakes strokes + creates the Site original + refreshes thumbs, no Save click needed; desktop gets the original floating pill back while narrow viewports keep the S304 bottom sheet; CloudSync heartbeat console spam removed) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S306 (1a: annotated-but-backupless photos no longer mint duplicate "(original)" Site backups on re-mark — corrupted-state re-save guard + one-shot _dedupeOrigBackups cleanup at load settle; 1b: reconcile re-hydrates a photo's stripped local data from its surviving outbox blob so a failed R2 upload never strands a photo without display data; 1c: redundant lightbox Save button removed — auto-commit on exit makes it unnecessary, _saveMk stays as the commit path) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -13075,7 +13075,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S305';
+var DIESEL_BUILD = 'S306';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
