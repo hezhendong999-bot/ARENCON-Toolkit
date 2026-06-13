@@ -75,6 +75,15 @@ function _hubUrl(extraQuery) {
   var url = '../ARENCON_Project_Hub.html';
   var parts = [];
   if (extraQuery) parts.push(extraQuery);
+  // S331: carry the current project id back so the Hub re-opens THIS project's
+  // detail page instead of the top-level dashboard (the long-standing "Back
+  // goes to main Hub" bug). Only add if not already in extraQuery.
+  try {
+    var _pid = new URLSearchParams(location.search).get('project');
+    if (_pid && !(extraQuery && extraQuery.indexOf('project=') !== -1)) {
+      parts.push('project=' + encodeURIComponent(_pid));
+    }
+  } catch(_) {}
   try {
     if (new URLSearchParams(location.search).get('staging') === '1') {
       parts.push('staging=1');

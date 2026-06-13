@@ -1541,10 +1541,14 @@ function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
 
-  // Capture ?open= BEFORE replaceState strips query string
+  // Capture ?open= or ?project= BEFORE replaceState strips query string.
+  // Field tools (Diesel, FRT, …) navigate Back to ARENCON_Project_Hub.html?project=<id>;
+  // QR/share links use ?open=<id>. Honor both so Back lands on the project's
+  // detail page, not the top-level dashboard. (S331 — fixes the long-standing
+  // "Back goes to main Hub" bug across all tools at once.)
   try {
     var _urlP = new URLSearchParams(window.location.search);
-    _pendingOpenId = _urlP.get('open') || null;
+    _pendingOpenId = _urlP.get('open') || _urlP.get('project') || null;
   } catch(e) { _pendingOpenId = null; }
 
   // Update header user info
