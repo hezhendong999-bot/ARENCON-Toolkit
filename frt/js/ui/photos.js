@@ -329,15 +329,19 @@ export var initPhotos = {
     });
     allDefics.forEach(function(d) {
       var defic = d.defic;
-      // S317: "general" priority is RETIRED (legacy data only — replaced by Site
-      // Records long ago). A legacy general-priority defic photo now READS as a
-      // Site Record (purple "Site" badge, buckets under Site Records) — derivation
-      // only, the photo's pin linkage/actions are untouched. Green is no longer a
-      // priority colour: green now means CLOSED exclusively.
-      var isGeneral = defic.priority === 'general';
-      // Badge colour signals priority: high=red, low=amber. (general handled above.)
+      // S317: "general" priority is RETIRED (legacy data only). The tool-wide rule
+      // (model.js S217) migrates general → LOW, so a legacy general obs READS as Low
+      // here (amber), NOT Site. Green is Closed-only.
+      // SITE RECORD is determined by NO CONTRACTOR (d.contractorId == null — the
+      // generalDeficiencies pool), NEVER by priority. A pin under a real contractor
+      // (e.g. Vipond) is an Observation regardless of its priority. (The S317 bug
+      // routed general→site and ignored the contractor, so a Low Vipond pin showed
+      // purple Site.)
+      var _isSiteRecordPin = (d.contractorId == null);
+      // Badge colour signals priority: high=red, low=amber. (Closed/rec/site handled
+      // per-obs below.)
       var badgeCls = 'ph-badge-pin-high';
-      if (defic.priority === 'low') badgeCls = 'ph-badge-pin-low';
+      if (defic.priority === 'low' || defic.priority === 'general') badgeCls = 'ph-badge-pin-low';
       // S120 Push 1: pool-aware enumeration — for each obs, walk the
       // EFFECTIVE photo list (pool ∩ obs.photoSelection, with markup overlays).
       // A photo shared by Obs A + Obs B emits two records, each tagged with
@@ -352,18 +356,16 @@ export var initPhotos = {
         // (a card in the High view shows ONLY its high badge, not its other badges).
         var _obsClosed = !!(o && o.addressed);
         var _obsRec = !!(o && o.isRecommendation);
-        // S317 BUGFIX: priority is PER-OBSERVATION (o.priority), not pin-level.
-        // Reading defic.priority here made a Low obs on a High-default pin (Pin #3)
-        // render a red 'high' badge and bucket under Outstanding-High. Use the
-        // obs's own priority (falling back to pin-level only when the obs lacks one,
-        // and treating legacy 'general' as Site per the rule above).
+        // Priority is PER-OBSERVATION (o.priority), not pin-level. Legacy 'general'
+        // reads as Low (retirement rule). Site is by NO-CONTRACTOR, not priority.
         var _obsPri = (o && o.priority) || defic.priority || 'high';
+        var _obsLow = (_obsPri === 'low' || _obsPri === 'general');
         var obsBadgeCls, _badgeCat;
-        if (_obsClosed)      { obsBadgeCls = 'ph-badge-pin-closed'; _badgeCat = 'closed'; }
-        else if (_obsRec)    { obsBadgeCls = 'ph-badge-pin-rec';    _badgeCat = 'recommendations'; }
-        else if (isGeneral || _obsPri === 'general') { obsBadgeCls = 'ph-badge-site'; _badgeCat = 'site'; }
-        else if (_obsPri === 'low') { obsBadgeCls = 'ph-badge-pin-low'; _badgeCat = 'low'; }
-        else                 { obsBadgeCls = 'ph-badge-pin-high';   _badgeCat = 'high'; }
+        if (_obsClosed)            { obsBadgeCls = 'ph-badge-pin-closed'; _badgeCat = 'closed'; }
+        else if (_obsRec)          { obsBadgeCls = 'ph-badge-pin-rec';    _badgeCat = 'recommendations'; }
+        else if (_isSiteRecordPin) { obsBadgeCls = 'ph-badge-site';       _badgeCat = 'site'; }
+        else if (_obsLow)          { obsBadgeCls = 'ph-badge-pin-low';    _badgeCat = 'low'; }
+        else                       { obsBadgeCls = 'ph-badge-pin-high';   _badgeCat = 'high'; }
         var effective = (typeof Model !== 'undefined' && Model.getEffectivePhotos)
           ? Model.getEffectivePhotos(defic, oi) : (o.photos || []);
         effective.forEach(function(ph, phi) {
@@ -377,7 +379,7 @@ export var initPhotos = {
             type: 'defic',
             deficId: defic.id,
             deficNum: defic.num,
-            isGeneralPriority: isGeneral,
+            isGeneralPriority: (defic.priority === 'general'),
             isRec: !!(o && o.isRecommendation),
             obsClosed: !!(o && o.addressed),   // S284c (Mark): Closed photo tracker
             obsPriority: (o && o.priority) || defic.priority || 'high',
