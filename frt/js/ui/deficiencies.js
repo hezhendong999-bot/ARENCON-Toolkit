@@ -658,8 +658,10 @@ function _buildPinGroupCard(d, ctrId) {
   //          (Spinoff/Remove obs hidden when single-obs)
   //   Row 3: textarea | media zone (icon-only Upload/Camera/Gallery)
   obs.forEach(function(o, oi) {
-    // S122 Push 1: label uses NO DASH (3A not 3-A). Single-obs uses just N.
-    var label = needsSuffix ? (d.num + String.fromCharCode(65 + oi)) : String(d.num || '?');
+    // S122 Push 1: label uses NO DASH (3A not 3-A).
+    // S324 (Mark): always suffix the obs letter, even single-obs ("1A","2A"),
+    // for consistency with the photo badges and a uniform round-badge.
+    var label = (d.num != null ? d.num : '?') + String.fromCharCode(65 + oi);
     var addrCls = o.addressed ? ' addressed' : '';
 
     h += '<div class="defic-obs-card' + addrCls + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">';
@@ -2277,7 +2279,8 @@ function _buildObsRow(d, oi, ctrId, opts) {
   var obs = d.observations || [];
   var o = obs[oi] || {};
   var multi = obs.length > 1;
-  var label = multi ? ((d.num != null ? d.num : '?') + String.fromCharCode(65 + oi)) : String(d.num != null ? d.num : '?');
+  // S324 (Mark): always suffix the obs letter ("1A","2A") for badge consistency.
+  var label = (d.num != null ? d.num : '?') + String.fromCharCode(65 + oi);
   var ctrName = opts.ctrName || '';
   var isSite = !ctrId;
 

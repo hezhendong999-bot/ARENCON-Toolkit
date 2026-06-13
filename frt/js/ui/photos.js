@@ -374,7 +374,10 @@ export var initPhotos = {
           // S269: photo badge = number + obs letter, no separator (e.g. "2A"),
           // aligning with the card round-badge ("2A") and PDF item number ("#2B").
           // Single-obs pins show just the number. Site photos keep "Site".
-          var obsLetter = multiObs ? String.fromCharCode(65 + oi) : '';
+          // S324 (Mark): always show the obs letter, even on single-obs pins,
+          // so every badge is two chars ("1A","2A") and the grid reads uniform
+          // (was: letter dropped for single-obs → ragged mix of "2" and "2A").
+          var obsLetter = String.fromCharCode(65 + oi);
           records.push({
             type: 'defic',
             deficId: defic.id,

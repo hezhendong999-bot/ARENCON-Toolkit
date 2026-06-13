@@ -2405,7 +2405,7 @@ function _renderPinMiniMap(d, thumbId) {
   }
 
   // Try each candidate in order; first one that loads wins.
-  thumb.innerHTML = '<canvas style="width:100%;border-radius:8px;background:#f5f5f5;display:block;"></canvas>';
+  thumb.innerHTML = '<canvas style="width:100%;border-radius:8px;background:transparent;display:block;"></canvas>';
   var canvas = thumb.querySelector('canvas');
   if (!canvas) return;
 
