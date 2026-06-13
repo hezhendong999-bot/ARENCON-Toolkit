@@ -320,21 +320,7 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 /* ══ Pump Nameplate panel (4a) — grouped data + compact photo tiles ══ */
 .np-panel{border:1.5px solid var(--border);border-radius:10px;background:var(--smoke);overflow:hidden;}
 .np-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#eef0f4;border-bottom:1.5px solid var(--border);flex-wrap:wrap;}
-.ps-tbl{border-collapse:separate;border-spacing:0;width:100%;max-width:560px;font-size:calc(13px + var(--ts));margin-top:6px;
-  border:1px solid var(--border);border-radius:10px;overflow:hidden;background:transparent;}
-.ps-tbl th{background:var(--smoke);color:var(--steel);font-weight:700;padding:8px 12px;text-align:center;font-size:calc(11.5px + var(--ts));letter-spacing:.2px;
-  border-bottom:1px solid var(--border);}
-.ps-tbl th:not(:last-child){border-right:1px solid var(--border);}
-.ps-tbl td{padding:0;border-bottom:1px solid var(--border);}
-.ps-tbl td:not(:last-child){border-right:1px solid var(--border);}
-.ps-tbl tr:last-child td{border-bottom:none;}
-.ps-tbl td.lb{padding:9px 14px;font-weight:600;white-space:nowrap;background:var(--smoke);color:var(--steel);}
-.ps-tbl input{width:100%;border:none;background:transparent;padding:10px 12px;font:inherit;color:inherit;text-align:center;box-sizing:border-box;}
-.ps-tbl input:focus{outline:2px solid var(--arencon);outline-offset:-3px;border-radius:6px;}
-body.dark-mode .ps-tbl{background:var(--b-fieldbg)!important;border-color:var(--border)!important;}
-body.dark-mode .ps-tbl th{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;border-bottom-color:var(--border)!important;}
-body.dark-mode .ps-tbl td.lb{background:rgba(255,255,255,.04)!important;color:#cfd5e4!important;}
-body.dark-mode .ps-tbl td,body.dark-mode .ps-tbl th:not(:last-child),body.dark-mode .ps-tbl td:not(:last-child){border-color:rgba(255,255,255,.10)!important;}
+/* S324: jockey table now reuses .data-table.rounded-tbl (matches supply table) */
 .np-extra{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 10px;margin-bottom:4px;}
 .np-extra label{display:block;font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
 .np-extra input{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:calc(12.5px + var(--ts));background:#fff;}
@@ -601,7 +587,8 @@ body.dark-mode .fp-endval .ea-adj.fail{color:#E26076!important;}
   .fig-body{padding:8px 2px;}                                       /* S323: chart spans full width */
   /* S323: the chart .fig sits inside .card>.card-body — strip that nesting on
      phones so the plot reaches both page edges instead of crowding center. */
-  #panel-s4 .card-body{padding:8px 2px!important;}
+  #panel-s4 .card-body{padding:8px 0!important;}
+  #panel-s4 .card{margin-left:-2px;margin-right:-2px;}
   .fig{border-left:none;border-right:none;border-radius:0;}
   .fig-legend{padding:8px 6px;gap:5px;}
   /* S323: legend chips were oversized on mobile (a pointer:coarse rule ENLARGED
@@ -2194,7 +2181,7 @@ function updatePhaseFlags(){
         </div>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Pressure Settings</span></div>
-        <table class="ps-tbl"><thead><tr><th style="width:34%"></th><th>Designed Pressure (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="lb">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f" oninput="debounceAutosave()"></td></tr></tbody></table>
+        <table class="data-table rounded-tbl"><thead><tr><th class="left" style="width:34%"></th><th>Designed Pressure (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="left">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f" oninput="debounceAutosave()"></td></tr></tbody></table>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
         <div id="equip-grid-3a" class="ts-eq">
@@ -2362,7 +2349,7 @@ function updatePhaseFlags(){
         </div>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Pressure Settings</span></div>
-        <table class="ps-tbl"><thead><tr><th style="width:34%"></th><th>Designed Pressure (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="lb">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="lb">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f-pld" oninput="debounceAutosave()"></td></tr></tbody></table>
+        <table class="data-table rounded-tbl"><thead><tr><th class="left" style="width:34%"></th><th>Designed Pressure (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="left">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f-pld" oninput="debounceAutosave()"></td></tr></tbody></table>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
         <div id="equip-grid-4b" class="ts-eq">
@@ -6599,7 +6586,7 @@ function initChart3pt() {
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
-      layout:{ padding:{ top:26, right:window.innerWidth<=768?60:72, bottom:6, left:window.innerWidth<=768?6:10 } },
+      layout:{ padding:{ top:26, right:window.innerWidth<=520?18:(window.innerWidth<=768?60:72), bottom:6, left:window.innerWidth<=520?4:(window.innerWidth<=768?6:10) } },
       plugins:{
         legend:{ display:false },
         datalabels:{clip:false},
@@ -6720,7 +6707,7 @@ function initNetChart3pt() {
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
-      layout:{ padding:{ top:26, right:window.innerWidth<=768?60:72, bottom:6, left:window.innerWidth<=768?6:10 } },
+      layout:{ padding:{ top:26, right:window.innerWidth<=520?18:(window.innerWidth<=768?60:72), bottom:6, left:window.innerWidth<=520?4:(window.innerWidth<=768?6:10) } },
       plugins:{
         legend:{ display:false },
         datalabels:{clip:false},
@@ -6814,7 +6801,7 @@ function initPldChart() {
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
-      layout:{ padding:{ top:26, right:window.innerWidth<=768?60:72, bottom:6, left:window.innerWidth<=768?6:10 } },
+      layout:{ padding:{ top:26, right:window.innerWidth<=520?18:(window.innerWidth<=768?60:72), bottom:6, left:window.innerWidth<=520?4:(window.innerWidth<=768?6:10) } },
       plugins:{
         legend:{ display:false },
         datalabels:{clip:false}
@@ -6916,7 +6903,7 @@ function initPldNetChart() {
     ]},
     options:{
       responsive:true, maintainAspectRatio:false, animation:false,
-      layout:{ padding:{ top:26, right:window.innerWidth<=768?60:72, bottom:6, left:window.innerWidth<=768?6:10 } },
+      layout:{ padding:{ top:26, right:window.innerWidth<=520?18:(window.innerWidth<=768?60:72), bottom:6, left:window.innerWidth<=520?4:(window.innerWidth<=768?6:10) } },
       plugins:{
         legend:{ display:false },
         datalabels:{clip:false}
@@ -14501,7 +14488,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S323';
+var DIESEL_BUILD = 'S324';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
