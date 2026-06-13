@@ -552,6 +552,41 @@ window._frtZoomFit = function() {
   _resetView();
 };
 
+// S321: tool-wide background scroll-lock for modals. iOS/TWA bleeds scroll
+// through fixed overlays unless the body itself is frozen. On lock we pin the
+// body at its current scroll offset (position:fixed + negative top) so the page
+// behind a modal cannot move; on unlock we restore the offset. Reference-counted
+// so nested modals (pin editor → lightbox) don't unlock prematurely. Exposed on
+// window so every module (deficiencies, lightbox, gallery) can share one impl.
+var _scrollLockCount = 0;
+var _scrollLockY = 0;
+window._frtScrollLock = function(on) {
+  var b = document.body;
+  if (on) {
+    if (_scrollLockCount === 0) {
+      _scrollLockY = window.scrollY || window.pageYOffset || 0;
+      b.style.position = 'fixed';
+      b.style.top = (-_scrollLockY) + 'px';
+      b.style.left = '0';
+      b.style.right = '0';
+      b.style.width = '100%';
+      b.style.overflow = 'hidden';
+    }
+    _scrollLockCount++;
+  } else {
+    _scrollLockCount = Math.max(0, _scrollLockCount - 1);
+    if (_scrollLockCount === 0) {
+      b.style.position = '';
+      b.style.top = '';
+      b.style.left = '';
+      b.style.right = '';
+      b.style.width = '';
+      b.style.overflow = '';
+      window.scrollTo(0, _scrollLockY);
+    }
+  }
+};
+
 function _calcFitScale() {
   var img = document.getElementById('dv-image');
   var area = document.getElementById('dv-canvas-area');
@@ -1850,6 +1885,9 @@ function _peObsLetter(i) { return String.fromCharCode(65 + ((i || 0) % 26)); }
 function _openPinEditor(deficId) {
   var f = Model.findDeficiency(deficId);
   if (!f) return;
+  // Lock only on a genuine closed→open transition; re-opens (obs add/remove,
+  // live refresh) keep the single existing lock so the refcount can't drift.
+  if (!_peDeficId && typeof window._frtScrollLock === 'function') window._frtScrollLock(true);
   _peDeficId = deficId;
   _peObsIdx = 0;
   // Always start out of selection mode when opening a pin
@@ -2199,6 +2237,7 @@ function _peRenderObsContentLegacy(d, idx) {
 function _closePinEditor() {
   var overlay = document.getElementById('pin-editor-overlay');
   if (overlay) overlay.style.display = 'none';
+  if (_peDeficId && typeof window._frtScrollLock === 'function') window._frtScrollLock(false);
   _peDeficId = null;
   _peSelectionMode = false;
   _peSelectionPending = null;
@@ -2414,7 +2453,12 @@ function _drawPinMiniMap(canvas, img, d) {
   // TABLET/mobile panel uses cv-pe-location-thumb-mobile and stays static
   // (the unverified-on-tablet drag stays gated to the existing surface).
   var host = canvas && canvas.parentElement;
-  if (host && (host.id === 'pe-location-thumb' || host.id === 'cv-pe-location-thumb')) {
+  // S321: include the mobile portrait thumb (pe-location-thumb-mobile) so PORTRAIT
+  // gets pinch-zoom + drag (was static = no zoom at all, per Mark's report). Same
+  // field-proven _PinPan path as the landscape/desktop panel; the new pinch
+  // handlers are isolated to two-finger gestures. cv-pe-location-thumb-mobile
+  // (card editor's tablet crop) stays static — not in scope this session.
+  if (host && (host.id === 'pe-location-thumb' || host.id === 'cv-pe-location-thumb' || host.id === 'pe-location-thumb-mobile')) {
     _PinPan.mount(canvas, img, d);
     return;
   }
@@ -2486,28 +2530,36 @@ function _drawPinMiniMapStatic(canvas, img, d) {
       : _peSite ? '#6B6FA8'
       : d.iar ? '#FF69B4'
       : (effPri === 'general' ? '#5F8068' : (effPri === 'low' ? '#B07F5A' : '#A85959'));
-    var r0 = 6;
+    // S321: render the SAME teardrop as the on-drawing pin (and the interactive
+    // _PinPan SVG) so the card-editor mobile minimap is identical to the drawing.
+    // Canonical geometry: 32×42 viewBox, path tip at (16,40), head centre (16,14),
+    // white circle r=11, number at (16,14). Drawn via Path2D scaled to PIN_W so the
+    // curve is pixel-faithful (the old arc+bezier blob read as a different marker).
+    var PIN_W = 26;                       // displayed pin width in CSS px
+    var PIN_H = Math.round(PIN_W * 42 / 32);
+    var s = PIN_W / 32;                    // path is authored at 32 wide
     ctx.save();
-    ctx.translate(px, py - r0 * 2.2);
-    ctx.beginPath();
-    ctx.arc(0, 0, r0, Math.PI, 0, false);
-    ctx.bezierCurveTo(r0, r0 * 0.8, r0 * 0.3, r0 * 2.2, 0, r0 * 2.2);
-    ctx.bezierCurveTo(-r0 * 0.3, r0 * 2.2, -r0, r0 * 0.8, -r0, 0);
-    ctx.closePath();
+    // translate so the tip (path y=40) lands exactly on the pin location
+    ctx.translate(px - PIN_W / 2, py - PIN_H);
+    ctx.scale(s, s);
+    var tear = new Path2D('M16 1C8.3 1 2 7.3 2 15C2 25.5 16 40 16 40C16 40 30 25.5 30 15C30 7.3 23.7 1 16 1Z');
+    // soft drop shadow to match the drawing pin's depth
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 3; ctx.shadowOffsetY = 1;
     ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.fill(tear);
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    // white number disc
     ctx.beginPath();
-    ctx.arc(0, 0, r0 * 0.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'white';
+    ctx.arc(16, 14, 11, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.fill();
+    // pin number in priority colour
     ctx.fillStyle = fill;
-    ctx.font = 'bold ' + Math.round(r0 * 1.1) + 'px Calibri,sans-serif';
+    ctx.font = '900 15px Calibri,Arial,sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(d.num != null ? d.num : '?'), 0, 0);
+    ctx.fillText(String(d.num != null ? d.num : '?'), 16, 14.5);
     ctx.restore();
   }
 }
@@ -2651,8 +2703,30 @@ var _PinPan = (function() {
     return { x: t.clientX - rect.left, y: t.clientY - rect.top };
   }
 
+  // S321: two-finger pinch metrics in canvas-local px (distance + midpoint).
+  function pinchInfo(e) {
+    var rect = st.canvas.getBoundingClientRect();
+    var a = e.touches[0], b = e.touches[1];
+    var dx = b.clientX - a.clientX, dy = b.clientY - a.clientY;
+    return {
+      dist: Math.hypot(dx, dy),
+      mx: (a.clientX + b.clientX) / 2 - rect.left,
+      my: (a.clientY + b.clientY) / 2 - rect.top
+    };
+  }
+
   function onDown(e) {
     if (!st) return;
+    // S321: pinch start — two fingers begin a zoom gesture; suppress pin/pan.
+    if (e.touches && e.touches.length === 2) {
+      var pi = pinchInfo(e);
+      st.mode = 'pinch';
+      st.pinchDist = pi.dist;
+      st.pinchMidX = pi.mx;
+      st.pinchMidY = pi.my;
+      e.preventDefault();
+      return;
+    }
     var p = localXY(e);
     st.moved = false;
     if (nearPin(p.x, p.y)) {
@@ -2669,7 +2743,22 @@ var _PinPan = (function() {
     if (st.mode) e.preventDefault();
   }
   function onMove(e) {
-    if (!st || !st.mode) return;
+    if (!st) return;
+    // S321: pinch move — zoom around the live midpoint. zoomAt keeps the focal
+    // point stable; clampView (called inside) holds the floor at Fit.
+    if (st.mode === 'pinch' && e.touches && e.touches.length === 2) {
+      var pi = pinchInfo(e);
+      if (st.pinchDist > 0) {
+        var factor = pi.dist / st.pinchDist;
+        zoomAt(pi.mx, pi.my, factor);
+      }
+      st.pinchDist = pi.dist;
+      st.pinchMidX = pi.mx;
+      st.pinchMidY = pi.my;
+      e.preventDefault();
+      return;
+    }
+    if (!st.mode) return;
     var p = localXY(e);
     st.moved = true;
     if (st.mode === 'pin') {
@@ -2680,8 +2769,22 @@ var _PinPan = (function() {
     else if (st.mode === 'pan' && st.scale > 1) { st.ox += p.x - st.last.x; st.oy += p.y - st.last.y; st.last = p; clampView(); draw(); }
     e.preventDefault();
   }
-  function onUp() {
+  function onUp(e) {
     if (!st) return;
+    // S321: pinch end — if one finger remains, hand off to a fresh single-touch
+    // (pan if zoomed) so the gesture transitions smoothly; if none, clear.
+    if (st.mode === 'pinch') {
+      if (e && e.touches && e.touches.length === 1) {
+        var rect = st.canvas.getBoundingClientRect();
+        st.mode = st.scale > 1 ? 'pan' : null;
+        st.last = { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+        if (st.mode === 'pan') st.canvas.parentElement.classList.add('dragging');
+      } else {
+        st.mode = null;
+        st.canvas.parentElement.classList.remove('dragging');
+      }
+      return;
+    }
     if (st.mode === 'pin' && st.moved) {
       // Persist the new real pin location.
       Model.saveNow();
@@ -2716,22 +2819,19 @@ var _PinPan = (function() {
 
   function mount(canvas, img, d) {
     var host = canvas.parentElement;
+    // S320/S321: column-context pin boxes (drawing-pin editor desktop + mobile
+    // portrait thumb) get a height cap so a wide drawing fills width and the box
+    // hugs it vertically. The card editor's #cv-pe-location-thumb (stretch-grid)
+    // is excluded — a cap there would gap the row.
+    var _isColBox = host && (host.id === 'pe-location-thumb' || host.id === 'pe-location-thumb-mobile');
     // S320: clear any cap from a previous mount (different drawing aspect) so
     // boxH is read fresh from the CSS-default box, then re-capped below.
-    if (host && host.id === 'pe-location-thumb') { host.style.height = ''; host.style.flex = ''; }
+    if (_isColBox) { host.style.height = ''; host.style.flex = ''; }
     var boxW = host ? host.clientWidth : 360;
     var boxH = host ? host.clientHeight : 320;
     if (!boxW || boxW < 20) boxW = 360;
     if (!boxH || boxH < 20) boxH = 320;
-    // S320: drawing-pin editor only (#pe-location-thumb) — its panel is a
-    // COLUMN (.pe-drawing-panel), so capping the box height to the fitted
-    // drawing height makes a wide drawing fill the panel WIDTH while the box
-    // hugs it vertically; the panel's leftover space falls BELOW the box (no
-    // mid-layout gap). This removes the vertical letterbox that made the
-    // drawing read small. The card editor's #cv-pe-location-thumb lives in a
-    // stretch-GRID (.cv-ed-body) where a height cap would gap the row — so it
-    // is deliberately excluded and keeps filling its stretched cell.
-    if (host && host.id === 'pe-location-thumb' && img.width && img.height) {
+    if (_isColBox && img.width && img.height) {
       var _fitH = Math.round(boxW * (img.height / img.width));
       if (_fitH > 40 && _fitH < boxH) {
         host.style.height = _fitH + 'px';
@@ -2751,7 +2851,8 @@ var _PinPan = (function() {
     st = {
       canvas: canvas, ctx: canvas.getContext('2d'), img: img, d: d, dpr: dpr,
       boxW: boxW, boxH: boxH, baseW: 0, baseH: 0, scale: 1, ox: 0, oy: 0,
-      PW: 30, mode: null, last: null, moved: false, grabDX: 0, grabDY: 0
+      PW: 30, mode: null, last: null, moved: false, grabDX: 0, grabDY: 0,
+      pinchDist: 0, pinchMidX: 0, pinchMidY: 0
     };
     // Fresh listeners each mount (clone-replace the canvas to drop old ones).
     var fresh = canvas.cloneNode(false);
