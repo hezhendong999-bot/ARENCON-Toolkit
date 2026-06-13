@@ -93,7 +93,8 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 .btn-danger:hover{background:var(--red-dark);}
 
 /* ── CARDS ── */
-.card{background:white;border-radius:11px;box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;}
+.card{background:white;border-radius:11px;box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;
+  transform:translateZ(0);backface-visibility:hidden;}   /* S323: stable paint layer — stops scroll-evict flicker */
 .card-header{background:var(--arencon);color:white;padding:12px 18px;font-family:Calibri,sans-serif;font-weight:700;font-size:calc(15px + var(--ts));letter-spacing:.3px;display:flex;align-items:center;gap:10px;border-bottom:3px solid #2A3A5C;}
 .card-header.red{background:var(--red);}
 .card-header.mid{background:var(--arencon);}
@@ -320,9 +321,9 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .np-panel{border:1.5px solid var(--border);border-radius:10px;background:var(--smoke);overflow:hidden;}
 .np-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#eef0f4;border-bottom:1.5px solid var(--border);flex-wrap:wrap;}
 .ps-tbl{border-collapse:separate;border-spacing:0;width:100%;max-width:560px;font-size:calc(13px + var(--ts));margin-top:6px;
-  border:1.5px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);background:#fff;}
-.ps-tbl th{background:var(--smoke);color:var(--slate);font-weight:700;padding:9px 12px;text-align:center;font-size:calc(12px + var(--ts));
-  border-bottom:1.5px solid var(--border);}
+  border:1px solid var(--border);border-radius:10px;overflow:hidden;background:transparent;}
+.ps-tbl th{background:var(--smoke);color:var(--steel);font-weight:700;padding:8px 12px;text-align:center;font-size:calc(11.5px + var(--ts));letter-spacing:.2px;
+  border-bottom:1px solid var(--border);}
 .ps-tbl th:not(:last-child){border-right:1px solid var(--border);}
 .ps-tbl td{padding:0;border-bottom:1px solid var(--border);}
 .ps-tbl td:not(:last-child){border-right:1px solid var(--border);}
@@ -488,7 +489,7 @@ body.dark-mode .fpm-gallery{background:#16151b;}
 .fig{background:#fff;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);}
 .fig-hd{background:var(--arencon);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:3px solid #2A3A5C;}
 .fig-hd .fig-ic{flex:none;opacity:.92;}
-.fig-hd .fig-t{font-weight:700;font-size:calc(13px + var(--ts));letter-spacing:.3px;line-height:1.2;}
+.fig-hd .fig-t{font-weight:700;font-size:calc(15px + var(--ts));letter-spacing:.3px;line-height:1.2;}
 .fig-verdict{margin-left:auto;font-size:calc(11px + var(--ts));font-weight:800;letter-spacing:.4px;padding:4px 12px;border-radius:11px;white-space:nowrap;}
 .fig-verdict.pass{background:#E8EFE7;color:#5F8068;}
 .fig-verdict.fail{background:#F3E0DE;color:#A85959;}
@@ -507,7 +508,7 @@ body.dark-mode .fpm-gallery{background:#16151b;}
 .fig-legend .lg .lg-ann:hover{background:rgba(63,110,156,.22);}
 .fig-legend .lg .lg-ann.aoff{color:var(--silver);background:transparent;}
 .fig-leghint{font-size:calc(10.5px + var(--ts));color:var(--silver);padding:0 16px 11px;background:var(--smoke);margin-top:-1px;}
-@media(pointer:coarse){.fig-legend .lg .lg-main{padding:8px 13px;} .fig-legend .lg .lg-ann{width:32px;}}
+@media(pointer:coarse) and (min-width:521px){.fig-legend .lg .lg-main{padding:8px 13px;} .fig-legend .lg .lg-ann{width:32px;}}
 /* S267(C): mobile "view larger" for the cramped flow charts. The button lives in .fig-hd and is
    hidden on desktop/wide; on narrow/touch it appears. Tapping opens the whole .fig in a fixed
    full-viewport landscape overlay (the chart is responsive:true so it resizes to fill). */
@@ -596,8 +597,18 @@ body.dark-mode .fp-endval .ea-adj.fail{color:#E26076!important;}
 .fig-stage.tall500{height:500px;}
 .fig-stage.tall480{height:480px;}
 @media (max-width:520px){
-  .fig-stage,.fig-stage.tall500,.fig-stage.tall480{height:300px;}   /* S319: portrait phones */
-  .fig-body{padding:10px 8px;}
+  .fig-stage,.fig-stage.tall500,.fig-stage.tall480{height:340px;}   /* S319/S323: portrait phones */
+  .fig-body{padding:8px 2px;}                                       /* S323: chart spans full width */
+  /* S323: the chart .fig sits inside .card>.card-body — strip that nesting on
+     phones so the plot reaches both page edges instead of crowding center. */
+  #panel-s4 .card-body{padding:8px 2px!important;}
+  .fig{border-left:none;border-right:none;border-radius:0;}
+  .fig-legend{padding:8px 6px;gap:5px;}
+  /* S323: legend chips were oversized on mobile (a pointer:coarse rule ENLARGED
+     them). Shrink the chip body, swatch, and the "A" toggle to ~70% footprint. */
+  .fig-legend .lg .lg-main{padding:4px 8px;font-size:calc(9.5px + var(--ts));gap:5px;}
+  .fig-legend .lg .swc{width:18px;height:10px;}
+  .fig-legend .lg .lg-ann{width:18px;font-size:10px;}
 }
 .fp-endval.gov .el{color:var(--arencon);}
 .fp-endval.gov .ev{color:var(--arencon);}
@@ -637,7 +648,7 @@ body.dark-mode .fp-endval .ea-adj.fail{color:#E26076!important;}
   .fp-refline{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 10px;align-items:start;}
   .fp-refline .ri{display:flex;flex-direction:column;align-items:stretch;gap:3px;white-space:normal;}
   .fp-refline .ri b{margin-right:0;}
-  .fp-refline .ri input{width:100%;min-width:0;}
+  .fp-refline .ri input{width:100%;min-width:0;max-width:none;flex:initial;height:38px;padding:6px 8px;box-sizing:border-box;}
   /* S308: 7-pt ref-line has a leading flow-tag span ("0 gpm" on the first point,
      empty on the rest) that the 3-pt line doesn't. In the 3-col mobile grid that
      tag ate column 1, pushing Placard to wrap onto its own second row (wasted
@@ -652,7 +663,8 @@ body.dark-mode .fp-endval .ea-adj.fail{color:#E26076!important;}
      EXPLICIT column pins on the headers AND the inputs so the labels sit directly above their
      boxes. Pins are COLUMN-only (no grid-row) so the 7-Point's two data lines (w/o PLD + w/ PLD,
      6 inputs) still auto-flow onto two separate rows; the 3-Point single line stays one row. */
-  .fp-grid{grid-template-columns:5px 40px minmax(50px,1fr) minmax(50px,1fr) minmax(50px,1fr);row-gap:7px;column-gap:7px;}
+  .fp-grid{grid-template-columns:5px 40px minmax(56px,1fr) minmax(56px,1fr) minmax(56px,1fr);row-gap:7px;column-gap:7px;}
+  .fp-grid input{height:38px;box-sizing:border-box;padding:6px 6px;}
   .fp-grid .fp-segtag{font-size:calc(8.5px + var(--ts));white-space:normal;line-height:1.05;}
   /* header row 1: drop the two empty leaders + trailing empty; pin the 3 labels over cols 3/4/5 */
   .fp-grid .fp-hdr{grid-row:1;align-self:end;}
@@ -14489,7 +14501,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S322';
+var DIESEL_BUILD = 'S323';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
