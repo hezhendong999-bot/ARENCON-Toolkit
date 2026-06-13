@@ -2331,20 +2331,9 @@ function _peDeleteSelectedFromPool() { /* S215 inert — see FrtPhotoPicker.dele
 // behaviour. Loads the drawing's source image (dataUrl → r2Url → L0 tile
 // fallback for tile-mode-only PDFs) into a fit-to-width canvas, draws a
 // priority-coloured teardrop with the pin number inside.
-function _mmAspectUnlock(host) {
-  if (!host) return;
-  host.classList.remove('mm-aspect');
-  host.style.aspectRatio = '';
-}
-
 function _renderPinMiniMap(d, thumbId) {
   var thumb = document.getElementById(thumbId);
   if (!thumb) return;
-  // S319: clear any aspect-lock from a prior render of this host BEFORE branching.
-  // The image-load path re-applies it for the new drawing; placeholders (no
-  // drawing / not found / unavailable) keep the normal box so they're not
-  // squeezed into a stale aspect.
-  _mmAspectUnlock(thumb);
   if (!d.drawingId) {
     thumb.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px;">Pin not placed on a drawing</div>';
     return;
@@ -2432,28 +2421,10 @@ function _drawPinMiniMap(canvas, img, d) {
   _drawPinMiniMapStatic(canvas, img, d);
 }
 
-// S319 (A-full): aspect-lock the minimap container to the drawing's aspect so
-// the box hugs the drawing — no letterbox/dead-space. Called on BOTH render
-// paths before container dimensions are read, so the host resizes first and the
-// subsequent measurement is of the hugged box. Idempotent. The host keeps its
-// width (flex/100%); aspect-ratio derives the height. .mm-aspect CSS neutralises
-// flex/min-height so the inline ratio governs.
-function _mmAspectLock(host, img) {
-  if (!host || !img || !img.width || !img.height) return;
-  host.classList.add('mm-aspect');
-  host.style.aspectRatio = (img.width / img.height).toFixed(4);
-}
-
 function _drawPinMiniMapStatic(canvas, img, d) {
   if (!canvas || !img || !img.width || !img.height) return;
   var aspect = img.height / img.width;
   var dpr = Math.min(window.devicePixelRatio || 1, 3);
-
-  // S319: hug the container to the drawing BEFORE measuring it (the resize must
-  // settle so clientWidth/Height reflect the aspect box). With box ≈ drawing
-  // aspect, the fit branch below yields a canvas that fills the box edge-to-edge.
-  var parent0 = canvas.parentElement;
-  _mmAspectLock(parent0, img);
 
   // S116 Push 12: fit to BOTH dimensions, picking the size that maximizes
   // canvas area while staying inside both bounds. P11 only invoked the
@@ -2745,15 +2716,29 @@ var _PinPan = (function() {
 
   function mount(canvas, img, d) {
     var host = canvas.parentElement;
-    // S319 (A-full): hug the interactive box to the drawing BEFORE measuring it,
-    // so boxW/boxH match the drawing aspect and computeFit yields ~zero letterbox
-    // (the drawing fills the box). All drag/zoom/pan math is box-relative, so it
-    // stays consistent — only the dead letterbox space is removed.
-    _mmAspectLock(host, img);
+    // S320: clear any cap from a previous mount (different drawing aspect) so
+    // boxH is read fresh from the CSS-default box, then re-capped below.
+    if (host && host.id === 'pe-location-thumb') { host.style.height = ''; host.style.flex = ''; }
     var boxW = host ? host.clientWidth : 360;
     var boxH = host ? host.clientHeight : 320;
     if (!boxW || boxW < 20) boxW = 360;
     if (!boxH || boxH < 20) boxH = 320;
+    // S320: drawing-pin editor only (#pe-location-thumb) — its panel is a
+    // COLUMN (.pe-drawing-panel), so capping the box height to the fitted
+    // drawing height makes a wide drawing fill the panel WIDTH while the box
+    // hugs it vertically; the panel's leftover space falls BELOW the box (no
+    // mid-layout gap). This removes the vertical letterbox that made the
+    // drawing read small. The card editor's #cv-pe-location-thumb lives in a
+    // stretch-GRID (.cv-ed-body) where a height cap would gap the row — so it
+    // is deliberately excluded and keeps filling its stretched cell.
+    if (host && host.id === 'pe-location-thumb' && img.width && img.height) {
+      var _fitH = Math.round(boxW * (img.height / img.width));
+      if (_fitH > 40 && _fitH < boxH) {
+        host.style.height = _fitH + 'px';
+        host.style.flex = 'none';
+        boxH = _fitH;
+      }
+    }
     var dpr = Math.min(window.devicePixelRatio || 1, 3);
     // Canvas fills the whole panel (absolute), unlike the static fit-canvas.
     canvas.width = Math.round(boxW * dpr);
