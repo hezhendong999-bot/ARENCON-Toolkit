@@ -254,7 +254,7 @@ Respond with ONLY valid JSON — no markdown, no backticks:
 
 
 const MODELS = {
-  rewrite: { id: 'claude-sonnet-4-20250514', inputRate: 0.000003, outputRate: 0.000015 },
+  rewrite: { id: 'claude-sonnet-4-6', inputRate: 0.000003, outputRate: 0.000015 },
   quickfix: { id: 'claude-haiku-4-5-20251001', inputRate: 0.00000025, outputRate: 0.00000125 }
 };
 
