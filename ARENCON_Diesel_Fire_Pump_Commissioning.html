@@ -1810,6 +1810,57 @@ function goBackToHub(){
   if(proj && typeof _saveThenLeave==='function'){ _saveThenLeave(hubUrl); }
   else { window.location.href=hubUrl; }
 }
+
+/* ═══ S332: TIERED BACK — swipe/back gesture peels one layer, never throws you out ═══
+   The TWA/browser edge-swipe fires history-back, which used to unload the tool.
+   We trap it: a guard history entry sits in front of the page, so the gesture
+   pops the guard instead of leaving. _tieredBack() then closes the topmost open
+   layer (modal → viewer → menu) and we re-push the guard. Only when nothing is
+   open does back behave like the ← Back button (save → project detail).
+   Layers are peeled outermost-priority first; each call closes exactly one. */
+function _tieredBack(){
+  // 1. Photo-selection modal (sits above export modal)
+  var ppx=document.getElementById('ppx-ov');
+  if(ppx){ if(typeof _ppxClose==='function')_ppxClose(); else ppx.remove(); return true; }
+  // 2. Annotation/generic _a-modal-ov modals (close topmost)
+  var am=document.querySelectorAll('._a-modal-ov');
+  if(am.length){ am[am.length-1].remove(); return true; }
+  // 3. Export modal
+  var exm=document.getElementById('exm-ov');
+  if(exm){ if(typeof _exportModalClose==='function')_exportModalClose(); else exm.remove(); return true; }
+  // 4. Flow-photo gallery
+  var fpm=document.getElementById('fpm-gallery');
+  if(fpm){ if(typeof _flowPhotoCloseGallery==='function')_flowPhotoCloseGallery(); else fpm.remove(); return true; }
+  // 5. Lightbox / drawing viewer (owns its own internal tiering)
+  try{ if(window.DslLightbox && DslLightbox.isOpen && DslLightbox.isOpen()){ return DslLightbox.handleBack(); } }catch(e){}
+  // 6. Fullscreen chart
+  if(typeof _figFsActive!=='undefined' && _figFsActive){ _closeChartFS(); return true; }
+  // 7. Reports dropdown menu
+  var rm=document.getElementById('reports-menu');
+  if(rm && rm.classList.contains('open')){ if(typeof closeReportsMenu==='function')closeReportsMenu(); else rm.classList.remove('open'); return true; }
+  // 8. Mobile hamburger drawer
+  var ha=document.querySelector('.header-actions.mobile-open');
+  if(ha){ if(typeof closeMobileMenu==='function')closeMobileMenu(); else ha.classList.remove('mobile-open'); return true; }
+  return false; // nothing open
+}
+function _installBackTrap(){
+  try{
+    // Guard entry: the gesture pops THIS, not the page.
+    history.pushState({_dslGuard:1}, '');
+    window.addEventListener('popstate', function(e){
+      var handled=_tieredBack();
+      if(handled){
+        // re-arm the guard so the next swipe is trapped too
+        history.pushState({_dslGuard:1}, '');
+      } else {
+        // nothing open → behave exactly like the ← Back button
+        goBackToHub();
+      }
+    });
+  }catch(e){}
+}
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', _installBackTrap); }
+else { _installBackTrap(); }
 function closeMobileMenu(){
   var ha=document.querySelector('.header-actions');
   var bd=document.getElementById('mobile-menu-backdrop');
@@ -4485,7 +4536,17 @@ var DslLightbox = (function(){
     _unlockScroll();
   }
 
-  return { open:_open, close:_close, isOpen:function(){return _isOpen;} };
+  function _handleBack(){
+     if(!_isOpen) return false;
+     if(document.querySelector('._a-modal-ov')) return true;
+     if(_markupActive){
+       if(window.DieselMarkup && DieselMarkup.hasSel && DieselMarkup.hasSel()){ DieselMarkup.deselect(); return true; }
+       if(_mkTool && _setTool){ _setTool(null); return true; }
+       _close(); return true;
+     }
+     _close(); return true;
+  }
+  return { open:_open, close:_close, isOpen:function(){return _isOpen;}, handleBack:_handleBack };
 })();
 if(typeof window!=='undefined') window.DslLightbox = DslLightbox;
 
@@ -14682,7 +14743,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S329';
+var DIESEL_BUILD = 'S332';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
