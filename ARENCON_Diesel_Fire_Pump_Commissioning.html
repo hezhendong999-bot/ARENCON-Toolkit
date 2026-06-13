@@ -319,12 +319,21 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 /* ══ Pump Nameplate panel (4a) — grouped data + compact photo tiles ══ */
 .np-panel{border:1.5px solid var(--border);border-radius:10px;background:var(--smoke);overflow:hidden;}
 .np-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#eef0f4;border-bottom:1.5px solid var(--border);flex-wrap:wrap;}
-.ps-tbl{border-collapse:collapse;width:100%;max-width:560px;font-size:calc(13px + var(--ts));margin-top:4px;}
-.ps-tbl th{background:#eef0f4;color:var(--slate);font-weight:700;padding:8px 12px;border:1px solid var(--border);text-align:center;font-size:calc(12px + var(--ts));}
-.ps-tbl td{border:1px solid var(--border);padding:0;}
-.ps-tbl td.lb{padding:8px 12px;font-weight:600;white-space:nowrap;background:#FBFAFC;}
-.ps-tbl input{width:100%;border:none;background:transparent;padding:9px 12px;font:inherit;color:inherit;text-align:center;box-sizing:border-box;}
-.ps-tbl input:focus{outline:2px solid #9C2742;outline-offset:-2px;}
+.ps-tbl{border-collapse:separate;border-spacing:0;width:100%;max-width:560px;font-size:calc(13px + var(--ts));margin-top:6px;
+  border:1.5px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);background:#fff;}
+.ps-tbl th{background:var(--smoke);color:var(--slate);font-weight:700;padding:9px 12px;text-align:center;font-size:calc(12px + var(--ts));
+  border-bottom:1.5px solid var(--border);}
+.ps-tbl th:not(:last-child){border-right:1px solid var(--border);}
+.ps-tbl td{padding:0;border-bottom:1px solid var(--border);}
+.ps-tbl td:not(:last-child){border-right:1px solid var(--border);}
+.ps-tbl tr:last-child td{border-bottom:none;}
+.ps-tbl td.lb{padding:9px 14px;font-weight:600;white-space:nowrap;background:var(--smoke);color:var(--steel);}
+.ps-tbl input{width:100%;border:none;background:transparent;padding:10px 12px;font:inherit;color:inherit;text-align:center;box-sizing:border-box;}
+.ps-tbl input:focus{outline:2px solid var(--arencon);outline-offset:-3px;border-radius:6px;}
+body.dark-mode .ps-tbl{background:var(--b-fieldbg)!important;border-color:var(--border)!important;}
+body.dark-mode .ps-tbl th{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;border-bottom-color:var(--border)!important;}
+body.dark-mode .ps-tbl td.lb{background:rgba(255,255,255,.04)!important;color:#cfd5e4!important;}
+body.dark-mode .ps-tbl td,body.dark-mode .ps-tbl th:not(:last-child),body.dark-mode .ps-tbl td:not(:last-child){border-color:rgba(255,255,255,.10)!important;}
 .np-extra{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 10px;margin-bottom:4px;}
 .np-extra label{display:block;font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
 .np-extra input{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:calc(12.5px + var(--ts));background:#fff;}
@@ -555,10 +564,10 @@ body.dark-mode .fig-readout .ro .chip.na{background:var(--b-fieldbg);}
 .fp-refline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
 .fp-refline .ri{font-size:calc(11.5px + var(--ts));color:var(--steel);white-space:nowrap;}
 .fp-refline .ri b{color:var(--silver);font-weight:600;font-size:calc(9.5px + var(--ts));text-transform:uppercase;letter-spacing:.3px;margin-right:3px;}
-.fp-refline .ri input{width:74px;padding:4px 6px;border-radius:6px;border:1.5px solid var(--border);
+.fp-refline .ri input{width:74px;min-width:74px;max-width:74px;flex:0 0 74px;box-sizing:border-box;padding:4px 6px;border-radius:6px;border:1.5px solid var(--border);
   font-family:inherit;font-size:calc(12.5px + var(--ts));text-align:center;color:var(--slate);background:#fff;}
 .fp-refline .ri input:focus{outline:none;border-color:#A85959;}
-.fp-grid{display:grid;grid-template-columns:5px max-content repeat(3,minmax(46px,1fr)) max-content;
+.fp-grid{display:grid;grid-template-columns:5px max-content repeat(3,minmax(64px,1fr)) max-content;
   gap:4px 9px;align-items:center;}
 .fp-grid .fp-hdr{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.4px;
   color:var(--silver);text-align:center;}
@@ -2587,10 +2596,7 @@ function updatePhaseFlags(){
           <div class="field-group"><label>Title / Designation</label><input type="text" id="so-title" placeholder="e.g. P.Eng., EIT"></div>
           <div class="field-group"><label>Company / Organization</label><input type="text" id="so-company" placeholder="Company or organization"></div>
           <div class="field-group"><label>Date &amp; Time</label><input type="datetime-local" id="so-date"></div>
-          <div class="field-group" style="grid-column:span 3"><label>Certification Statement</label>
-            <textarea id="so-cert" rows="3">I hereby certify that the diesel fire pump system described in this report was inspected and tested in accordance with NFPA 20 (2025) and the applicable standards. The results recorded herein are accurate to the best of my knowledge.</textarea>
-          </div>
-        </div>
+        </div><!-- S322: Certification Statement removed (liability) -->
 
         <div class="detail-label" style="margin-bottom:8px;">Consultant Signature</div>
         <div class="sig-wrap" id="sig-wrap-1">
@@ -8722,7 +8728,6 @@ function _realExportPDF() {
       <tr><td style="font-weight:bold;color:#666;padding:3px 6px;">Consultant Name</td><td id="so-name-pdf"></td><td style="font-weight:bold;color:#666;padding:3px 6px;">Title</td><td id="so-title-pdf"></td></tr>
       <tr><td style="font-weight:bold;color:#666;padding:3px 6px;">Company</td><td id="so-company-pdf"></td><td style="font-weight:bold;color:#666;padding:3px 6px;">Date</td><td id="so-date-pdf"></td></tr>
     </table>
-    <div id="so-cert-pdf" style="margin:8px 0;font-size:8.5pt;font-style:italic;color:#444;padding:6px;background:#fafafa;border:1px solid #eee;border-radius:4px;"></div>
     <div id="sig-print-1"></div>
   </div>
   <div id="contractor-sigs-print"></div>
@@ -8755,7 +8760,6 @@ function _realExportPDF() {
       setT('so-company-pdf', document.getElementById('so-company')?.value||'—');
       setT('so-title-pdf', document.getElementById('so-title')?.value||'—');
       setT('so-date-pdf', document.getElementById('so-date')?.value||'—');
-      setT('so-cert-pdf', document.getElementById('so-cert')?.value||'');
       // Inspector signature
       const sigEl = wd.getElementById('sig-print-1');
       if (sigEl) {
@@ -10645,7 +10649,7 @@ function collectState() {
    'pm-prv-pld','pm-pld-setting','pm-rpm-pld',
    'ps-jci-d','ps-jci-f','ps-jco-d','ps-jco-f','ps-fci-d','ps-fci-f','ps-fco-d','ps-fco-f','ps-jci-d-pld','ps-jci-f-pld','ps-jco-d-pld','ps-jco-f-pld','ps-fci-d-pld','ps-fci-f-pld','ps-fco-d-pld','ps-fco-f-pld',
    'np-mfr','np-model','np-serial','np-size','np-stages','np-impeller','np-maxdis','np-bhp','np-maxbhp','np-drvmfg','np-drvsn','np-ctlmfg','np-ctlsn','np-mfr-pld','np-model-pld','np-serial-pld','np-size-pld','np-stages-pld','np-impeller-pld','np-maxdis-pld','np-bhp-pld','np-maxbhp-pld','np-drvmfg-pld','np-drvsn-pld','np-ctlmfg-pld','np-ctlsn-pld',
-   'so-name','so-title','so-company','so-date','so-cert','test-result',
+   'so-name','so-title','so-company','so-date','test-result',
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) proj[id] = el.value;
@@ -12062,7 +12066,7 @@ function resetCurrentPage() {
     generalDeficiencies.length = 0;
     renderContractorTags(); renderDeficGroups(); renderGeneralDeficGroup(); updateDeficSummary();
   } else if (active === 'sign') {
-    ['so-name','so-title','so-company','so-date','so-cert'].forEach(id => { const el=document.getElementById(id);if(el)el.value=''; });
+    ['so-name','so-title','so-company','so-date'].forEach(id => { const el=document.getElementById(id);if(el)el.value=''; });
     contractorSignRows.length = 0; renderAllSignRows(); addContractorSignRow();
   } else if (active === 'sketch') {
     sketchEntries.length = 0;
@@ -14485,7 +14489,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S321';
+var DIESEL_BUILD = 'S322';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
