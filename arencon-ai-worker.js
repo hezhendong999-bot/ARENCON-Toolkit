@@ -144,13 +144,23 @@ because of glare/reflection — cross-reference all of them; a value readable in
 any one photo counts. If two photos disagree on the same value, return null for
 that value and explain the conflict in "notes" — NEVER pick one arbitrarily.
 
-Extract ONLY the pump's values exactly as printed on the placard:
-- Rated flow / rated capacity in US gpm
-- Rated pressure / rated head in psi (the 100% rated point)
-- Rated speed in RPM
-- Churn / shutoff pressure in psi (the 0%-flow pressure), if printed
-- Pressure at 150% rated flow (overload / maximum-flow pressure), if printed
-- NPSH in psi, if printed (convert from ft x 0.433 if given in feet; note it)
+DOMAIN FACTS (from ARENCON's technologist):
+- A fire pump placard prints exactly THREE pressure points regardless of PLD/VFD:
+  churn/shutoff at 0% flow, rated pressure at 100%, and the 150% (max flow /
+  minimum pressure) point. It NEVER prints 25/50/75/125% values — do not invent them.
+- The photos may include a SECOND, separate placard: the engine / pressure-limiting
+  device placard (e.g. Clark engine plate on diesels; "VFD" on electrics, often a
+  darker plate). Its CONTROL PRESSURE (sometimes "control pressure setting") is a
+  distinct value — report it as pld_control_pressure_psi. Never confuse it with the
+  pump placard's rated pressure.
+
+Extract ONLY:
+- Rated flow / rated capacity in US gpm (pump placard)
+- Rated pressure / rated head in psi (the 100% point, pump placard)
+- Rated speed in RPM (pump placard)
+- Churn / shutoff pressure in psi (0% point, pump placard), if printed
+- Pressure at 150% rated flow in psi (pump placard), if printed
+- Control pressure in psi from the engine/PLD/VFD placard, if such a placard is present
 
 RULES:
 - Report only values you can clearly read on the placard. If a value is missing, unreadable, or ambiguous, return null for it — NEVER guess.
@@ -166,7 +176,7 @@ Respond with ONLY valid JSON — no markdown, no backticks:
   "rated_speed_rpm": number or null,
   "churn_pressure_psi": number or null,
   "pressure_at_150_psi": number or null,
-  "npsh_psi": number or null,
+  "pld_control_pressure_psi": number or null,
   "confidence": "high|medium|low",
   "notes": "What you read, any conversions, any caveats"
 }`;
@@ -382,8 +392,8 @@ export default {
         if (!photos || !Array.isArray(photos) || photos.length === 0) {
           return jsonResponse({ error: 'No photos provided' }, 400, headers);
         }
-        if (photos.length > 4) {
-          return jsonResponse({ error: 'Too many photos (max 4 per request)' }, 400, headers);
+        if (photos.length > 6) {
+          return jsonResponse({ error: 'Too many photos (max 6 per request)' }, 400, headers);
         }
         const pBlocks = [];
         for (const ph of photos) {
@@ -454,7 +464,7 @@ export default {
           rated_speed_rpm: pNum(pParsed.rated_speed_rpm),
           churn_pressure_psi: pNum(pParsed.churn_pressure_psi),
           pressure_at_150_psi: pNum(pParsed.pressure_at_150_psi),
-          npsh_psi: pNum(pParsed.npsh_psi),
+          pld_control_pressure_psi: pNum(pParsed.pld_control_pressure_psi),
           confidence: pParsed.confidence || 'medium',
           notes: pParsed.notes || '',
           usage: { input_tokens: pIn, output_tokens: pOut, cost_usd: Math.round(pCost * 1000000) / 1000000 }
