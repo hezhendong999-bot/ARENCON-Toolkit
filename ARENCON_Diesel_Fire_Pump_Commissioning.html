@@ -6112,8 +6112,8 @@ function renderFigLegend3pt(){
   if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge', primary:true});
   if(has(1)) defs.push({i:1, c:'#9C2742', kind:'line', dash:[10,5],      t:'Pump Curve'});
   if(has(0)) defs.push({i:0, c:'#6E86B8', kind:'line', dash:[],          t:'Available Supply'});
-  if(has(6)) defs.push({i:6, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Sprinkler Demand'});
-  if(has(8)) defs.push({i:8, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4],   t:'Outside Hose'});
+  if(has(6)) defs.push({i:6, c:_chartLabelColor('#E67E22'), kind:'line', dash:[],   t:'Sprinkler Demand'});
+  if(has(8)) defs.push({i:8, c:_chartLabelColor('#805AD5'), kind:'line', dash:[],   t:'Outside Hose'});
   if(has(13)) defs.push({i:13,c:'#4A8C8C', kind:'line', dash:[6,4],      t:'Pressure Reducing', cap:'reducing'});
   if(has(14)) defs.push({i:14,c:'#B05A7A', kind:'line', dash:[6,4],      t:'Pressure Relief', cap:'relief'});
   // S227: Cutsheet/Placard moved to net chart; Rated Press. (ref) removed. Chips dropped here.
@@ -6228,8 +6228,8 @@ function renderFigLegendPld(){
   if(has(2)) defs.push({i:2, c:'#5F8068', kind:'line', dash:[],          t:'Measured Discharge (w/ PLD)', primary:true});
   if(has(1)) defs.push({i:1, c:'#9C2742', kind:'line', dash:[10,5],      t:'Pump Curve'});
   if(has(0)) defs.push({i:0, c:'#6E86B8', kind:'line', dash:[],          t:'Available Supply'});
-  if(has(3)) defs.push({i:3, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4], t:'Sprinkler Demand'});
-  if(has(5)) defs.push({i:5, c:_chartLabelColor('#E67E22'), kind:'line', dash:[8,4,2,4], t:'Outside Hose'});
+  if(has(3)) defs.push({i:3, c:_chartLabelColor('#E67E22'), kind:'line', dash:[], t:'Sprinkler Demand'});
+  if(has(5)) defs.push({i:5, c:_chartLabelColor('#805AD5'), kind:'line', dash:[], t:'Outside Hose'});
   if(has(10))defs.push({i:10,c:'#7D6F9C', kind:'line', dash:[2,3],       t:'PLD Setting', cap:'pld'});
   if(has(11))defs.push({i:11,c:'#4A8C8C', kind:'line', dash:[6,4],       t:'Pressure Reducing', cap:'reducing'});
   if(has(12))defs.push({i:12,c:'#B05A7A', kind:'line', dash:[6,4],       t:'Pressure Relief', cap:'relief'});
@@ -6657,15 +6657,15 @@ function initChart3pt() {
       // 5: Residual supply point
       { label:'_residualPt', data:[], borderColor:'#6E86B8', backgroundColor:'#fff',
         pointStyle:'triangle', pointRadius:6, pointBorderColor:'#6E86B8', pointBorderWidth:2, showLine:false, datalabels:labelOff},
-      // 6: SD diagonal — orange, matches 4b (muted in dark via _chartLabelColor)
+      // 6: SD diagonal — orange, SOLID (Mark S335, matches 7-pt)
       { label:'Sprinkler Demand Line (SD)', data:[], borderColor:_chartLabelColor('#E67E22'), backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.8, borderDash:[8,4,2,4], datalabels:labelOff},
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:1.8, datalabels:labelOff},
       // 7: SD point
       { label:'_sprDemPt', data:[], borderColor:_chartLabelColor('#E67E22'), backgroundColor:_chartLabelColor('#E67E22'),
         pointStyle:'circle', pointRadius:6, showLine:false, datalabels:labelOff},
-      // 8: OHL — orange, matches 4b
+      // 8: OHL — purple (matches Total Demand diamond), SOLID (Mark S335)
       { label:'Outside Hose Allow. (OHL)', data:[], borderColor:_chartLabelColor('#805AD5'), backgroundColor:'transparent',
-        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:2, borderDash:[8,4,2,4], datalabels:labelOff},
+        showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:2, datalabels:labelOff},
       // 9: Total demand diamond — purple, matches 4b (#805AD5)
       { label:'Total System Demand', data:[], borderColor:_chartLabelColor('#805AD5'), backgroundColor:_chartLabelColor('#805AD5'),
         pointStyle:'rectRot', pointRadius:9, showLine:false, datalabels:labelOff},
@@ -6880,12 +6880,12 @@ function initPldChart() {
       // 2: Measured Discharge w/ PLD — sage, solid bold (Scheme A measured)
       {label:'Measured Discharge (w/ PLD)',data:[],borderColor:'#5F8068',backgroundColor:'transparent',
         showLine:true,fill:false,tension:0,pointRadius:6,pointBorderColor:'#5F8068',pointBorderWidth:2.5,pointBackgroundColor:'#fff',borderWidth:2.6,datalabels:labelOff},
-      // 3: SD line — orange (day) / muted (dark), dash-dot (Scheme A)
-      {label:'Sprinkler Demand (SD)',data:[],borderColor:_chartLabelColor('#E67E22'),backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.8,borderDash:[8,4,2,4],datalabels:labelOff},
+      // 3: SD line — orange (day) / muted (dark), SOLID (Mark S335)
+      {label:'Sprinkler Demand (SD)',data:[],borderColor:_chartLabelColor('#E67E22'),backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:1.8,datalabels:labelOff},
       // 4: SD point — orange
       {label:'_sprDemPtPld',data:[],borderColor:_chartLabelColor('#E67E22'),backgroundColor:_chartLabelColor('#E67E22'),pointStyle:'circle',pointRadius:6,showLine:false,datalabels:labelOff},
-      // 5: OHL — orange, dash-dot (Scheme A)
-      {label:'Outside Hose Allow. (OHL)',data:[],borderColor:_chartLabelColor('#E67E22'),backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:2,borderDash:[8,4,2,4],datalabels:labelOff},
+      // 5: OHL — purple (matches Total System Demand diamond), SOLID (Mark S335)
+      {label:'Outside Hose Allow. (OHL)',data:[],borderColor:_chartLabelColor('#805AD5'),backgroundColor:'transparent',showLine:true,fill:false,tension:0,pointRadius:0,borderWidth:2,datalabels:labelOff},
       // 6: Total System Demand diamond — purple (day) / muted (dark)
       {label:'Total System Demand',data:[],borderColor:_chartLabelColor('#805AD5'),backgroundColor:_chartLabelColor('#805AD5'),pointStyle:'rectRot',pointRadius:9,showLine:false,datalabels:labelOff},
       // 7: Static supply point — steel-blue
@@ -14842,7 +14842,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S335';
+var DIESEL_BUILD = 'S335b';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
