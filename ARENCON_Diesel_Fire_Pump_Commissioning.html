@@ -6565,7 +6565,7 @@ function initChart3pt() {
       { label:'_sprDemPt', data:[], borderColor:_chartLabelColor('#E67E22'), backgroundColor:_chartLabelColor('#E67E22'),
         pointStyle:'circle', pointRadius:6, showLine:false, datalabels:labelOff},
       // 8: OHL — orange, matches 4b
-      { label:'Outside Hose Allow. (OHL)', data:[], borderColor:_chartLabelColor('#E67E22'), backgroundColor:'transparent',
+      { label:'Outside Hose Allow. (OHL)', data:[], borderColor:_chartLabelColor('#805AD5'), backgroundColor:'transparent',
         showLine:true, fill:false, tension:0, pointRadius:0, borderWidth:2, borderDash:[8,4,2,4], datalabels:labelOff},
       // 9: Total demand diamond — purple, matches 4b (#805AD5)
       { label:'Total System Demand', data:[], borderColor:_chartLabelColor('#805AD5'), backgroundColor:_chartLabelColor('#805AD5'),
@@ -9688,10 +9688,22 @@ function renderChartAnnotations(chartInstance, canvasId) {
       // (Cutsheet, Placard, PRV, PLD, Net-pressure overlays, Available Supply line) are drawn
       // but un-labelled. This is robust to label wording, unlike the prior regex/pointRadius mix.
       var _lbl = ds.label || '';
+      // S327 AUDIT: previously only the (blue) primary curves were labelled, which
+      // is why Cutsheet/Sprinkler/Placard labels "didn't work" — they weren't in
+      // the allowlist at all. Every meaningful curve now carries endpoint labels in
+      // its OWN color. Marker datasets stay single-point.
       var _ANNOTATE_PRIMARY = {
-        'Discharge Pressure (Measured)':1,   // 3-Point primary
+        'Discharge Pressure (Measured)':1,   // 3-Point discharge primary
+        'Actual Output (w/ limiters)':1,     // 3-Point actual-output curve
         'Measured Discharge (w/ PLD)':1,     // 7-Point discharge primary
-        'Net Pressure (w/ PLD)':1            // 7-Point net primary
+        'Net Pressure (w/ PLD)':1,           // 7-Point net primary
+        'Net Pressure (Discharge \u2212 Suction)':1, // 3-Point net
+        'Measured Net':1,                    // 3-Point net-curve view primary
+        'Adjusted Net (RPM-corrected)':1,    // net-curve adjusted
+        'Cutsheet (Design)':1,               // S327: now labelled (was broken)
+        'Placard':1,                         // S327: now labelled
+        'Sprinkler Demand Line (SD)':1,      // S327: now labelled (was broken)
+        'Available Supply':1
       };
       var _ANNOTATE_POINTS = {               // marker datasets — single points, no stacking
         'Total System Demand':1, '_sprDemPt':1, '_sprDemPtPld':1,
@@ -9714,14 +9726,25 @@ function renderChartAnnotations(chartInstance, canvasId) {
       if(pt.x === 0 && pt.y === 0) return;
       // S226: cap lines (PRV/PRdV/PLD) — device+setpoint label only (no flow), right endpoint only.
       // Cap extends to 150% rated flow; the right end is where the label reads cleanly.
+      // S327: OHL gets a bespoke right-end label (total demand incl. OHL).
       var _CAP_LABEL = { 'Pressure Relief':'PRV', 'Pressure Reducing':'PRdV', 'PLD Setting':'PLD' };
-      var _capText = '';
-      if(_CAP_LABEL[_lbl]){
+      var text = '';   // single per-point text var (no hoisted leakage)
+      if(_lbl==='Outside Hose Allow. (OHL)'){
+        if(ptIdx !== (ds.data.length - 1)) return;   // right end only
+        var _ohlTot=null, _ohlPsi=NaN, _ohlAdd=0;
+        try{
+          var _td=(canvasId.indexOf('pld')>=0)?'pld-':'';
+          var _sd=parseFloat(document.getElementById(_td+'dem-spr-flow')?.value)||0;
+          var _oh=parseFloat(document.getElementById(_td+'dem-hose-flow')?.value)||0;
+          _ohlTot=_sd+_oh; _ohlAdd=_oh; _ohlPsi=parseFloat(document.getElementById(_td+'dem-spr-psi')?.value);
+        }catch(e){}
+        text=(_ohlTot!=null?_ohlTot.toLocaleString():Math.round(pt.x).toLocaleString())+' gpm @ '+(isNaN(_ohlPsi)?Math.round(pt.y):_ohlPsi)+' psi';
+        if(_ohlAdd) text+='\n(+'+_ohlAdd.toLocaleString()+' gpm OHL)';
+      } else if(_CAP_LABEL[_lbl]){
         if(ptIdx !== (ds.data.length - 1)) return;     // right endpoint only
         if(typeof pt.y === 'undefined') return;
-        _capText = _CAP_LABEL[_lbl] + ' @ ' + Math.round(pt.y) + ' psi';
+        text = _CAP_LABEL[_lbl] + ' @ ' + Math.round(pt.y) + ' psi';
       }
-      var text = _capText;
       try {
         if(!text && typeof fmt === 'function') {
           text = fmt(pt, {dataIndex:ptIdx, dataset:ds, chart:chart, datasetIndex:dsIdx});
@@ -9760,29 +9783,43 @@ function renderChartAnnotations(chartInstance, canvasId) {
         }
         return null;
       }
+      // ════ S327 LOCKED annotation layout (annotation_engine_demo, approved) ════
+      // RULES: (1) default anchor sits just above the point — NO vertical fanning
+      // unless a collision forces it. (2) Never overlap: if a label would hit one
+      // already placed, the NEW/moved label dodges; existing labels never move.
+      // (3) Dodge prefers the SMALLEST displacement and stays in-bounds + near the
+      // curve (spiral of growing offsets, all directions, not vertical-only).
+      // (4) Manual drags (stored offsets) are honored, but still dodge others.
+      // (5) Duplicate identical text on the same anchor is suppressed.
+      var _cw=(chart.chartArea&&chart.chartArea.right)||overlay.clientWidth||600;
+      var _cl=(chart.chartArea&&chart.chartArea.left)||0;
+      var _ct=(chart.chartArea&&chart.chartArea.top)||0;
+      var _cb=(chart.chartArea&&chart.chartArea.bottom)||overlay.clientHeight||400;
+      function _clampXY(cx,cy){ return [ Math.min(Math.max(cx,_cl+_w/2+2),_cw-_w/2-2), Math.min(Math.max(cy,_ct+_h+2),_cb-2) ]; }
       if(!stored){
-        // (a) duplicate-text suppression
-        var _dup=false;
+        // (5) duplicate suppression
         for(var _dk in _annotationPositions){
           var _d=_annotationPositions[_dk];
-          if(_d.text===text && Math.abs(_d.ax-px)<14 && Math.abs(_d.ay-py)<14){ _dup=true; break; }
+          if(_d.text===text && Math.abs(_d.ax-px)<14 && Math.abs(_d.ay-py)<14){ return; }
         }
-        if(_dup) return;
-        // (c) candidate positions
-        var _cw=(chart.chartArea&&chart.chartArea.right)||overlay.clientWidth||600;
-        var _ct=(chart.chartArea&&chart.chartArea.top)||0;
-        var _cb=(chart.chartArea&&chart.chartArea.bottom)||overlay.clientHeight||400;
-        var _cands=[[0,-30],[0,34+_h],[_w/2+26,-2],[-_w/2-26,-2]];
-        for(var _f=1;_f<=8;_f++){ _cands.push([0,-30-_f*(_h+6)]); _cands.push([0,34+_h+_f*(_h+6)]); }
-        var _placed=false;
-        for(var _ci2=0;_ci2<_cands.length;_ci2++){
-          var _cx=px+_cands[_ci2][0], _cy=py+_cands[_ci2][1];
-          _cx=Math.min(Math.max(_cx,_w/2+2), _cw-_w/2-2);
-          _cy=Math.min(Math.max(_cy,_ct+_h+2), _cb-2);
-          if(!_hits(_rect(_cx,_cy))){ labelX=_cx; labelY=_cy; offX=_cx-px; offY=_cy-py; _placed=true; break; }
-        }
-        if(!_placed){ labelX=px; labelY=py-30; offX=0; offY=-30; }   // dense worst-case: default
       }
+      // start position: manual offset if present, else just above the point
+      var _cx0 = stored ? (px+offX) : px;
+      var _cy0 = stored ? (py+offY) : (py-18);
+      var _cc=_clampXY(_cx0,_cy0); var _cx=_cc[0], _cy=_cc[1];
+      if(_hits(_rect(_cx,_cy))){
+        // (3) spiral dodge — minimal first, widening; 8 directions per ring
+        var _dirs=[[0,-1],[0.7,-0.7],[1,0],[0.7,0.7],[0,1],[-0.7,0.7],[-1,0],[-0.7,-0.7]];
+        var _done=false;
+        for(var _r=16;_r<=140 && !_done;_r+=16){
+          for(var _di=0;_di<_dirs.length;_di++){
+            var _t=_clampXY(_cx0+_dirs[_di][0]*_r, _cy0+_dirs[_di][1]*_r);
+            if(!_hits(_rect(_t[0],_t[1]))){ _cx=_t[0]; _cy=_t[1]; _done=true; break; }
+          }
+        }
+        // if still nothing free (very dense), keep clamped start — overlap is last resort
+      }
+      labelX=_cx; labelY=_cy; offX=_cx-px; offY=_cy-py;
       var _fr=_rect(labelX,labelY);
       _annotationPositions[key] = {k:key, x:labelX, y:labelY, l:_fr.l, r:_fr.r, t:_fr.t, b:_fr.b, text:text, ax:px, ay:py};
 
@@ -14493,7 +14530,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S326';
+var DIESEL_BUILD = 'S327';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
