@@ -352,12 +352,18 @@ export var initPhotos = {
         // (a card in the High view shows ONLY its high badge, not its other badges).
         var _obsClosed = !!(o && o.addressed);
         var _obsRec = !!(o && o.isRecommendation);
+        // S317 BUGFIX: priority is PER-OBSERVATION (o.priority), not pin-level.
+        // Reading defic.priority here made a Low obs on a High-default pin (Pin #3)
+        // render a red 'high' badge and bucket under Outstanding-High. Use the
+        // obs's own priority (falling back to pin-level only when the obs lacks one,
+        // and treating legacy 'general' as Site per the rule above).
+        var _obsPri = (o && o.priority) || defic.priority || 'high';
         var obsBadgeCls, _badgeCat;
         if (_obsClosed)      { obsBadgeCls = 'ph-badge-pin-closed'; _badgeCat = 'closed'; }
         else if (_obsRec)    { obsBadgeCls = 'ph-badge-pin-rec';    _badgeCat = 'recommendations'; }
-        else if (isGeneral)  { obsBadgeCls = 'ph-badge-site';       _badgeCat = 'site'; }
-        else if (badgeCls === 'ph-badge-pin-low') { obsBadgeCls = badgeCls; _badgeCat = 'low'; }
-        else                 { obsBadgeCls = badgeCls;              _badgeCat = 'high'; }
+        else if (isGeneral || _obsPri === 'general') { obsBadgeCls = 'ph-badge-site'; _badgeCat = 'site'; }
+        else if (_obsPri === 'low') { obsBadgeCls = 'ph-badge-pin-low'; _badgeCat = 'low'; }
+        else                 { obsBadgeCls = 'ph-badge-pin-high';   _badgeCat = 'high'; }
         var effective = (typeof Model !== 'undefined' && Model.getEffectivePhotos)
           ? Model.getEffectivePhotos(defic, oi) : (o.photos || []);
         effective.forEach(function(ph, phi) {

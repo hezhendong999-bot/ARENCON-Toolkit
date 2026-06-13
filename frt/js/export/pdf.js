@@ -284,7 +284,7 @@ function _buildCSS(fontB64){
   c+='.dc-hdr-l{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}';
   c+='.dc-hdr-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}';
   c+='.dc-itemnum{color:#9C2742;font-size:11pt;font-weight:700;line-height:1;}';
-  c+='.item-sep{color:#B8BCC6;font-weight:400;margin:0 3px;font-size:11pt;line-height:1;}';/* S317 Option E middot — tighter (Mark: pin# closer to item#) */
+  c+='.item-sep{color:#B8BCC6;font-weight:400;margin:0 1px;font-size:11pt;line-height:1;}';/* S317 Option E middot — tightest (Mark: pin# closer to item#) */
   c+='.pinref-dark{color:#4A5568;font-size:9.5pt;font-weight:600;line-height:1;}';/* S317 Option E "Pin 3A" */
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';

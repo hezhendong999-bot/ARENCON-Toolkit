@@ -1817,7 +1817,16 @@ function _peOnModelChange(type, data) {
   if (_peTypingInMount()) return;
   // Refresh — the grid + observation content render off the live defic.
   var f2 = Model.findDeficiency(_peDeficId);
-  if (f2) _peRenderObsContent(f2.defic, _peObsIdx);
+  if (f2) {
+    _peRenderObsContent(f2.defic, _peObsIdx);
+    // S317 (Mark): also re-render the location minimap so a priority/status change
+    // recolors the pin teardrop IMMEDIATELY (was stale until close+reopen). Guarded
+    // against an active pin-drag so a live drag isn't interrupted mid-move.
+    if (!_pinDragging && !_pinMouseDragging) {
+      _renderPinMiniMap(f2.defic, 'pe-location-thumb');
+      _renderPinMiniMap(f2.defic, 'pe-location-thumb-mobile');
+    }
+  }
 }
 
 // ── S120 Push 4: photo pool selection mode (pin editor) ─────────
