@@ -325,6 +325,10 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ps-tbl td.lb{padding:8px 12px;font-weight:600;white-space:nowrap;background:#FBFAFC;}
 .ps-tbl input{width:100%;border:none;background:transparent;padding:9px 12px;font:inherit;color:inherit;text-align:center;box-sizing:border-box;}
 .ps-tbl input:focus{outline:2px solid #9C2742;outline-offset:-2px;}
+.np-extra{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 10px;margin-bottom:4px;}
+.np-extra label{display:block;font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+.np-extra input{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:calc(12.5px + var(--ts));background:#fff;}
+body.dark-mode .np-extra input{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.14)!important;color:#e6e9f2!important;}
 body.dark-mode .ps-tbl th{background:rgba(255,255,255,.05)!important;}
 body.dark-mode .ps-tbl td.lb{background:rgba(255,255,255,.03)!important;}
 .np-head .np-t{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);letter-spacing:.3px;display:flex;align-items:center;gap:7px;}
@@ -551,7 +555,7 @@ body.dark-mode .fig-readout .ro .chip.na{background:var(--b-fieldbg);}
 .fp-refline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
 .fp-refline .ri{font-size:calc(11.5px + var(--ts));color:var(--steel);white-space:nowrap;}
 .fp-refline .ri b{color:var(--silver);font-weight:600;font-size:calc(9.5px + var(--ts));text-transform:uppercase;letter-spacing:.3px;margin-right:3px;}
-.fp-refline .ri input{width:58px;padding:4px 6px;border-radius:6px;border:1.5px solid var(--border);
+.fp-refline .ri input{width:74px;padding:4px 6px;border-radius:6px;border:1.5px solid var(--border);
   font-family:inherit;font-size:calc(12.5px + var(--ts));text-align:center;color:var(--slate);background:#fff;}
 .fp-refline .ri input:focus{outline:none;border-color:#A85959;}
 .fp-grid{display:grid;grid-template-columns:5px max-content repeat(3,minmax(46px,1fr)) max-content;
@@ -2160,6 +2164,7 @@ function updatePhaseFlags(){
               <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing" placeholder="e.g. 165" oninput="updateChart()" title="Pressure reducing valve set pressure — caps the actual output curve"></div>
               <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpsh(this.value)"></div>
             </div>
+            <div class="ev-lbl" style="margin-top:12px;">Nameplate Details <span style="font-weight:400;color:var(--silver);text-transform:none;letter-spacing:0;">· filled by the placard scan, editable</span></div><div class="np-extra"><div><label>Manufacturer</label><input type="text" id="np-mfr" oninput="debounceAutosave()"></div><div><label>Model No.</label><input type="text" id="np-model" oninput="debounceAutosave()"></div><div><label>Pump Serial No.</label><input type="text" id="np-serial" oninput="debounceAutosave()"></div><div><label>Size</label><input type="text" id="np-size" oninput="debounceAutosave()"></div><div><label>No. of Stages</label><input type="text" id="np-stages" oninput="debounceAutosave()"></div><div><label>Impeller Dia. (in)</label><input type="text" id="np-impeller" oninput="debounceAutosave()"></div><div><label>Max Allow. Discharge (psi)</label><input type="text" id="np-maxdis" oninput="debounceAutosave()"></div><div><label>BHP @ Rated</label><input type="text" id="np-bhp" oninput="debounceAutosave()"></div><div><label>Max BHP</label><input type="text" id="np-maxbhp" oninput="debounceAutosave()"></div><div><label>Driver MFG</label><input type="text" id="np-drvmfg" oninput="debounceAutosave()"></div><div><label>Driver S/N</label><input type="text" id="np-drvsn" oninput="debounceAutosave()"></div><div><label>Controller MFG</label><input type="text" id="np-ctlmfg" oninput="debounceAutosave()"></div><div><label>Controller S/N</label><input type="text" id="np-ctlsn" oninput="debounceAutosave()"></div></div>
             <div class="ev-lbl">Photo Evidence</div>
             <div class="ev-tiles" id="pump-placard-zones"></div>
             <div class="np-hint" style="margin-top:9px;">The placard photo feeds the rated values above. All three back up to the photo gallery.</div>
@@ -2328,6 +2333,7 @@ function updatePhaseFlags(){
               <div class="meta-field"><label>PLD Setting (psi)</label><input type="number" id="pm-pld-setting" placeholder="175" oninput="updatePldChart()"></div>
               <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi-pld" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpshPld(this.value)"></div>
             </div>
+            <div class="ev-lbl" style="margin-top:12px;">Nameplate Details <span style="font-weight:400;color:var(--silver);text-transform:none;letter-spacing:0;">· filled by the placard scan, editable</span></div><div class="np-extra"><div><label>Manufacturer</label><input type="text" id="np-mfr-pld" oninput="debounceAutosave()"></div><div><label>Model No.</label><input type="text" id="np-model-pld" oninput="debounceAutosave()"></div><div><label>Pump Serial No.</label><input type="text" id="np-serial-pld" oninput="debounceAutosave()"></div><div><label>Size</label><input type="text" id="np-size-pld" oninput="debounceAutosave()"></div><div><label>No. of Stages</label><input type="text" id="np-stages-pld" oninput="debounceAutosave()"></div><div><label>Impeller Dia. (in)</label><input type="text" id="np-impeller-pld" oninput="debounceAutosave()"></div><div><label>Max Allow. Discharge (psi)</label><input type="text" id="np-maxdis-pld" oninput="debounceAutosave()"></div><div><label>BHP @ Rated</label><input type="text" id="np-bhp-pld" oninput="debounceAutosave()"></div><div><label>Max BHP</label><input type="text" id="np-maxbhp-pld" oninput="debounceAutosave()"></div><div><label>Driver MFG</label><input type="text" id="np-drvmfg-pld" oninput="debounceAutosave()"></div><div><label>Driver S/N</label><input type="text" id="np-drvsn-pld" oninput="debounceAutosave()"></div><div><label>Controller MFG</label><input type="text" id="np-ctlmfg-pld" oninput="debounceAutosave()"></div><div><label>Controller S/N</label><input type="text" id="np-ctlsn-pld" oninput="debounceAutosave()"></div></div>
             <div class="ev-lbl">Photo Evidence</div>
             <div class="ev-tiles" id="pump-placard-zones-4b"></div>
             <div class="np-hint" style="margin-top:9px;">The placard photo feeds the rated values above. All three back up to the photo gallery.</div>
@@ -8533,6 +8539,18 @@ function _realExportPDF() {
       });
       out+='</tbody></table>';
     })();
+    // S320: Pump Nameplate Data — only rows that are filled; omitted entirely if empty
+    (function(){
+      var sfx = _isPld ? '-pld' : '';
+      var rows=[['Manufacturer','np-mfr'],['Model No.','np-model'],['Pump Serial No.','np-serial'],['Size','np-size'],['No. of Stages','np-stages'],['Impeller Dia. (in)','np-impeller'],['Max Allowable Discharge (psi)','np-maxdis'],['BHP @ Rated','np-bhp'],['Max BHP','np-maxbhp'],['Driver MFG','np-drvmfg'],['Driver Serial No.','np-drvsn'],['Controller MFG','np-ctlmfg'],['Controller Serial No.','np-ctlsn']];
+      var body='';
+      rows.forEach(function(r){
+        var el=document.getElementById(r[1]+sfx);
+        var v=(el&&el.value)?(''+el.value).replace(/</g,'&lt;'):'';
+        if(v) body+='<tr><td style="text-align:left">'+r[0]+'</td><td>'+v+'</td></tr>';
+      });
+      if(body) out+='<table class="dt" style="max-width:400px;margin-top:12px;"><thead><tr><th class="left" style="text-align:left">Pump Nameplate Data</th><th>Value</th></tr></thead><tbody>'+body+'</tbody></table>';
+    })();
 
     // Standard 3-Point table (only if std)
     if(testType==='std'){
@@ -10525,6 +10543,7 @@ function collectState() {
    'pld-dem-spr-flow','pld-dem-spr-psi','pld-dem-hose-flow',
    'pm-prv-pld','pm-pld-setting','pm-rpm-pld',
    'ps-jci-d','ps-jci-f','ps-jco-d','ps-jco-f','ps-fci-d','ps-fci-f','ps-fco-d','ps-fco-f','ps-jci-d-pld','ps-jci-f-pld','ps-jco-d-pld','ps-jco-f-pld','ps-fci-d-pld','ps-fci-f-pld','ps-fco-d-pld','ps-fco-f-pld',
+   'np-mfr','np-model','np-serial','np-size','np-stages','np-impeller','np-maxdis','np-bhp','np-maxbhp','np-drvmfg','np-drvsn','np-ctlmfg','np-ctlsn','np-mfr-pld','np-model-pld','np-serial-pld','np-size-pld','np-stages-pld','np-impeller-pld','np-maxdis-pld','np-bhp-pld','np-maxbhp-pld','np-drvmfg-pld','np-drvsn-pld','np-ctlmfg-pld','np-ctlsn-pld',
    'so-name','so-title','so-company','so-date','so-cert','test-result',
   ].forEach(id => {
     const el = document.getElementById(id);
@@ -13185,6 +13204,18 @@ function _psSetPlacard(pct, v){
     arr.forEach(function(r){ if(r.pct===pct) r.placard=String(v); });
   });
 }
+function _npApplyNameplate(np){
+  // S320: write every non-empty nameplate string into BOTH tabs' fields
+  if(!np||typeof np!=='object') return 0;
+  var m={manufacturer:'np-mfr',model_no:'np-model',pump_serial_no:'np-serial',size:'np-size',no_of_stages:'np-stages',impeller_dia_in:'np-impeller',max_allowable_discharge_psi:'np-maxdis',rated_bhp:'np-bhp',max_bhp:'np-maxbhp',driver_mfg:'np-drvmfg',driver_serial_no:'np-drvsn',controller_mfg:'np-ctlmfg',controller_serial_no:'np-ctlsn'};
+  var n=0;
+  Object.keys(m).forEach(function(k){
+    var v=np[k]; if(v==null||v==='') return;
+    [m[k], m[k]+'-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; });
+    n++;
+  });
+  return n;
+}
 function _placardPreview(btn, d, nPhotos){
   var old=document.getElementById('placard-scan-card'); if(old&&old.parentNode) old.parentNode.removeChild(old);
   function inputCur(id){ var el=document.getElementById(id); return el?el.value:''; }
@@ -13243,6 +13274,20 @@ function _placardPreview(btn, d, nPhotos){
     });
     html+='</div>';
   }
+  // S320: nameplate details — one group row (model/serial/impeller/etc.)
+  var npd=d.nameplate||{};
+  var npKeys=Object.keys(npd).filter(function(k){ return npd[k]!=null && npd[k]!==''; });
+  if(npKeys.length){
+    var npSum=[];
+    if(npd.model_no) npSum.push('Model '+npd.model_no);
+    if(npd.pump_serial_no) npSum.push('S/N '+npd.pump_serial_no);
+    if(npd.impeller_dia_in) npSum.push('Impeller '+npd.impeller_dia_in+'\u2033');
+    var more=npKeys.length-npSum.length;
+    html+='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;">'
+      +'<input type="checkbox" checked data-pscan="nameplate"> '
+      +'Nameplate details: <b>'+_escHtml(npSum.join(' \u00b7 ')||npKeys.length+' fields')+'</b>'
+      +(more>0?' <span style="color:#5E5B68;">+'+more+' more</span>':'')+'</label>';
+  }
   if(d.notes) html+='<div style="margin-top:8px;color:#5E5B68;font-size:12px;">'+_escHtml(d.notes)+'</div>';
   if(d.usage&&d.usage.cost_usd!=null) html+='<div style="margin-top:4px;color:#928E9C;font-size:11px;">Cost: $'+Number(d.usage.cost_usd).toFixed(4)+'</div>';
   html+='<div style="display:flex;gap:8px;margin-top:10px;">';
@@ -13262,6 +13307,7 @@ function _placardPreview(btn, d, nPhotos){
     var n=0;
     card.querySelectorAll('input[data-pscan]:checked').forEach(function(cb){
       var key=cb.getAttribute('data-pscan');
+      if(key==='nameplate'){ n+=_npApplyNameplate(d.nameplate); return; }   // S320
       var f=fields.filter(function(x){return x.key===key;})[0];
       if(f&&f.val!=null){ f.apply(f.val); n++; }
     });
@@ -14302,7 +14348,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S319';
+var DIESEL_BUILD = 'S320';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>

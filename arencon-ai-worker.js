@@ -167,6 +167,12 @@ Extract ONLY:
 - Churn / shutoff pressure in psi (0% point, pump placard), if printed
 - Pressure at 150% rated flow in psi (pump placard), if printed
 - Control pressure in psi from the engine/PLD/VFD placard, if such a placard is present
+- ALL other nameplate details printed on the plates, as a "nameplate" object:
+  manufacturer, model no., pump serial no., size (e.g. "8x6"), no. of stages,
+  impeller diameter in inches, maximum allowable discharge pressure in psi,
+  brake horsepower at rated condition and maximum, driver manufacturer and driver
+  serial no. (from the engine placard), controller manufacturer and controller
+  serial no. Strings exactly as printed; null for anything not visible.
 
 RULES:
 - Report only values you can clearly read on the placard. If a value is missing, unreadable, or ambiguous, return null for it — NEVER guess.
@@ -183,6 +189,21 @@ Respond with ONLY valid JSON — no markdown, no backticks:
   "churn_pressure_psi": number or null,
   "pressure_at_150_psi": number or null,
   "pld_control_pressure_psi": number or null,
+  "nameplate": {
+    "manufacturer": string or null,
+    "model_no": string or null,
+    "pump_serial_no": string or null,
+    "size": string or null,
+    "no_of_stages": string or null,
+    "impeller_dia_in": string or null,
+    "max_allowable_discharge_psi": string or null,
+    "rated_bhp": string or null,
+    "max_bhp": string or null,
+    "driver_mfg": string or null,
+    "driver_serial_no": string or null,
+    "controller_mfg": string or null,
+    "controller_serial_no": string or null
+  },
   "confidence": "high|medium|low",
   "notes": "What you read, any conversions, any caveats"
 }`;
@@ -471,6 +492,17 @@ export default {
           churn_pressure_psi: pNum(pParsed.churn_pressure_psi),
           pressure_at_150_psi: pNum(pParsed.pressure_at_150_psi),
           pld_control_pressure_psi: pNum(pParsed.pld_control_pressure_psi),
+          nameplate: (function(){
+            const o = pParsed.nameplate;
+            if (!o || typeof o !== 'object') return null;
+            const pStr = (v) => (typeof v === 'string' && v.trim()) ? v.trim().slice(0, 80)
+                             : (typeof v === 'number' ? String(v) : null);
+            const keys = ['manufacturer','model_no','pump_serial_no','size','no_of_stages','impeller_dia_in','max_allowable_discharge_psi','rated_bhp','max_bhp','driver_mfg','driver_serial_no','controller_mfg','controller_serial_no'];
+            const out = {};
+            let any = false;
+            for (const k of keys) { const v = pStr(o[k]); out[k] = v; if (v) any = true; }
+            return any ? out : null;
+          })(),
           confidence: pParsed.confidence || 'medium',
           notes: pParsed.notes || '',
           usage: { input_tokens: pIn, output_tokens: pOut, cost_usd: Math.round(pCost * 1000000) / 1000000 }
