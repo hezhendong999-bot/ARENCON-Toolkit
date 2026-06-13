@@ -2122,26 +2122,6 @@ function _flatRows(proj, ignorePivot, ignoreRecMode) {
 var _openObsKey = null;
 function _obsKey(deficId, oi) { return String(deficId) + ':' + oi; }
 
-// ── S323-DBG (TEMPORARY — remove after re-sort diagnosis) ──────────────────
-// Read-only instrumentation to find why a re-sort closes the open card. Exposes
-// the live open key + a DOM snapshot, and logs around render/resort. No behaviour
-// change. Removed in the follow-up fix commit.
-window.__cvDbg = function() {
-  var openRow = document.querySelector('.cv-row.cv-row-open') ||
-                document.querySelector('.cv-row[data-open="1"]') ||
-                document.querySelector('.cv-obs-body:not([style*="display:none"])');
-  var rows = Array.prototype.slice.call(document.querySelectorAll('.cv-row')).slice(0, 12).map(function(r) {
-    return r.getAttribute('data-defic-id') + ':' + r.getAttribute('data-obs-idx');
-  });
-  return {
-    _openObsKey: _openObsKey,
-    pendingKeys: (typeof _cvPendingKeys === 'object') ? Object.keys(_cvPendingKeys) : '(n/a)',
-    domOpenRow: openRow ? (openRow.getAttribute('data-defic-id') + ':' + openRow.getAttribute('data-obs-idx')) : '(no open row in DOM)',
-    firstRowsInOrder: rows,
-    keyMatchesARow: rows.indexOf(_openObsKey) >= 0
-  };
-};
-
 // S213: format an auto-stamped observed date for the quiet "Noted" line.
 // EXPLICIT parse — never new Date("YYYY-MM-DD") (UTC-parse off-by-one). Accepts
 // "YYYY-MM-DD" (date input value) or a full ISO string; returns "M/D/YYYY".
@@ -2986,10 +2966,8 @@ function _renderCombinedView(proj, container) {
 function _cvResort() {
   var keys = Object.keys(_cvPendingKeys);
   if (!keys.length) return;
-  try { console.log('[S323-DBG] resort BEFORE:', JSON.parse(JSON.stringify(window.__cvDbg()))); } catch(e){}
   _cvPendingKeys = {};
   initDeficiencies.render();
-  try { console.log('[S323-DBG] resort AFTER :', JSON.parse(JSON.stringify(window.__cvDbg()))); } catch(e){}
   // Post-render: flash every row that was pending; scroll the first into view.
   try {
     function rowFor(k) {
