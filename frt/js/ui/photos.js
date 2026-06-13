@@ -1687,8 +1687,12 @@ function _doReassign(destVal, selItems) {
 
 function _phEsc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// Click delegation: toggle .selected on ph-card while in photos-select-mode.
-// Capture phase + return before lightbox handlers so click selects instead of opening.
+// Click delegation: in photos-select-mode, a click anywhere on a ph-card toggles
+// that photo's REAL selection state (_selectedUids), with shift-click range parity
+// to the checkbox path. Capture phase + stop so it pre-empts the lightbox open.
+// S327 (B5): previously this only toggled the .selected CSS class and never touched
+// _selectedUids — so the count, Delete-N, Select-all and Clear all read empty in
+// select mode. Now it drives the same selection set the checkboxes do.
 document.addEventListener('click', function(e) {
   if (!document.body.classList.contains('photos-select-mode')) return;
   var card = e.target.closest && e.target.closest('#panel-photos .ph-card');
@@ -1697,10 +1701,36 @@ document.addEventListener('click', function(e) {
   if (e.target.closest('.ph-hover-btn')) return;
   // S224: never swallow the Undo button — it must work regardless of select mode.
   if (e.target.closest('.ph-undo-btn')) return;
+  // Let a direct checkbox click fall through to the normal ph-toggle-photo handler
+  // (otherwise we'd toggle twice and cancel out).
+  if (e.target.closest('[data-action="ph-toggle-photo"]')) return;
+  var cb = card.querySelector('.ph-check[data-uid]');
+  if (!cb) return;
+  var uid = cb.getAttribute('data-uid');
+  if (!uid) return;
   e.preventDefault();
   e.stopPropagation();
   e.stopImmediatePropagation();
-  card.classList.toggle('selected');
+  // Shift-click range — mirrors the checkbox handler (S114 P1.3).
+  if (e.shiftKey && _lastSelectedUid && _lastSelectedUid !== uid && _renderOrderUids.length) {
+    var anchor = _renderOrderUids.indexOf(_lastSelectedUid);
+    var target = _renderOrderUids.indexOf(uid);
+    if (anchor >= 0 && target >= 0) {
+      var lo = Math.min(anchor, target), hi = Math.max(anchor, target);
+      var becomingSelected = !_selectedUids.has(uid);
+      for (var ri = lo; ri <= hi; ri++) {
+        if (becomingSelected) _selectedUids.add(_renderOrderUids[ri]);
+        else _selectedUids.delete(_renderOrderUids[ri]);
+      }
+      _lastSelectedUid = uid;
+      initPhotos.render();
+      return;
+    }
+  }
+  if (_selectedUids.has(uid)) _selectedUids.delete(uid);
+  else _selectedUids.add(uid);
+  _lastSelectedUid = uid;
+  initPhotos.render();
 }, true);
 
 // Wire upload buttons

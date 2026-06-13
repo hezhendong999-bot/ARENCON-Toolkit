@@ -1390,6 +1390,14 @@ if(isField&&p.drawings&&p.drawings.length){
     var _firstDrawingOfAppendix=true;
     dwP.forEach(function(dw){
       var dPins=reportDefs.filter(function(r){return def.pred(r)&&r.d.drawingId===dw.id&&r.d.pinX!=null;});
+      // S327 (B4): appendix rows read in ascending body Item # order. reportDefs
+      // is body render order (grouped by section/priority), so within one drawing
+      // the _itemNo values can be non-monotonic — sort here so the Item column is
+      // top-to-bottom. null/em-dash rows (prior-closed; shouldn't occur) sort last.
+      dPins.sort(function(a,b){
+        var ai=(a._itemNo!=null)?a._itemNo:Infinity, bi=(b._itemNo!=null)?b._itemNo:Infinity;
+        return ai-bi;
+      });
       // Appendix title band only on the FIRST drawing of the appendix; later
       // drawings stay under the same letter with an "(cont.)" band (S316 §5).
       var aH='';
