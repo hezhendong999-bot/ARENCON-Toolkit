@@ -4932,12 +4932,22 @@ function updateBatTotals() {
 }
 
 // ── GLOBAL TABLE INPUT DELEGATION (prevents re-render / focus loss bug) ──
+document.addEventListener('change', function(e){
+  // S321: checkbox/select commits also autosave (input doesn't cover every case)
+  var el=e.target;
+  if(el && (el.tagName==='INPUT'||el.tagName==='SELECT'||el.tagName==='TEXTAREA') && typeof debounceAutosave==='function') debounceAutosave();
+});
 document.addEventListener('input', function(e) {
   const el = e.target;
   // Remove leading zeros from number inputs globally
   if(el.type==='number' && el.value.length>1 && el.value[0]==='0' && el.value[1]!=='.') {
     el.value = el.value.replace(/^0+(?=\d)/, '');
   }
+  // S321: EVERY edit autosaves — a typed value must never live only in the DOM.
+  // (Field regression: residual supply flow typed 3000, visibly reverted to the
+  // stale cloud 1500. Root causes: fields with no save hook + heartbeat merges
+  // applying stale cloud scalars over live edits. This is fix half #1.)
+  if(el && (el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT') && typeof debounceAutosave==='function') debounceAutosave();
   const tbl = el.dataset.tbl;
   const idx = parseInt(el.dataset.idx);
   const field = el.dataset.field;
@@ -10021,11 +10031,48 @@ function _applyStateInPlace(jsonStr) {
     if(s.testType) {
       setPumpTestType(s.testType);
     }
+    // S321: rebuild custom equipment rows BEFORE index-based checkbox restore
+    // (saved indexes include custom rows in DOM order). Idempotent: clear first.
+    if(s.customEquip){
+      ['3a','4b'].forEach(function(tab){
+        var c=document.getElementById('equip-custom-'+tab);
+        if(c){ c.innerHTML=''; if(typeof _customEquipCount!=='undefined') _customEquipCount['_'+tab.replace('-','')]=0; }
+        (s.customEquip[tab]||[]).forEach(function(r){
+          if(typeof addCustomEquip==='function') addCustomEquip(tab);
+          var rows=c?c.querySelectorAll('label'):[];
+          var w=rows[rows.length-1]; if(!w) return;
+          var tx=w.querySelector('input[type=text]'); if(tx) tx.value=r.t||'';
+          var cb=w.querySelector('input[type=checkbox]'); if(cb) cb.checked=(r.c!==false);
+        });
+      });
+    }
     // Restore equipment checkboxes
     if(s.equipChecked) {
       var cbs = document.querySelectorAll('input[name="equip3a"]');
       cbs.forEach(function(cb){ cb.checked = false; });
       s.equipChecked.forEach(function(i){ if(cbs[i]) cbs[i].checked = true; });
+    }
+    if(s.equipChecked4b) {   // S321
+      var cbs4 = document.querySelectorAll('input[name="equip4b"]');
+      cbs4.forEach(function(cb){ cb.checked = false; });
+      s.equipChecked4b.forEach(function(i){ if(cbs4[i]) cbs4[i].checked = true; });
+    }
+    // S321: rebuild pitot rows (idempotent — clear containers + counts first)
+    if(s.pitotRows){
+      ['3a','4b'].forEach(function(tab){
+        var c=document.getElementById('pitot-'+tab);
+        if(c) c.innerHTML='';
+        if(typeof pitotCounts!=='undefined') pitotCounts[tab]=0;
+        (s.pitotRows[tab]||[]).forEach(function(r){
+          if(typeof addPitotRow!=='function') return;
+          addPitotRow(tab);
+          var n=pitotCounts[tab];
+          var pp=document.getElementById('pp-'+tab+'-'+n); if(pp) pp.value=r.p||'';
+          var pf=document.getElementById('pf-'+tab+'-'+n); if(pf) pf.value=r.f||'';
+          var po=document.getElementById('po-'+tab+'-'+n); if(po) po.value=r.o||'1';
+        });
+        if((s.pitotRows[tab]||[]).length && typeof calcPitotTotal==='function') calcPitotTotal(tab);
+      });
     }
     if(s.stdData) s.stdData.forEach(function(r,i){ if(stdData[i]) Object.assign(stdData[i],r); });
     if(s.pldData) s.pldData.forEach(function(r,i){ if(pldData[i]) Object.assign(pldData[i],r); });
@@ -10486,6 +10533,7 @@ var _autosaveTimer = null;
 function debounceAutosave() {
   clearTimeout(_autosaveTimer);
   _autosaveTimer = setTimeout(() => {
+    _autosaveTimer = null;   // S321: pending-edit detection for the heartbeat guard
     touchRevision(); saveState();
     // S239: also push to cloud during normal editing (debounced), so the cloud row
     // stays current and a refresh never reloads a stale value. Slightly longer delay
@@ -10554,12 +10602,39 @@ function collectState() {
   // Equipment checkboxes
   const equipChecked = [];
   document.querySelectorAll('input[name="equip3a"]').forEach(function(cb,i){ if(cb.checked) equipChecked.push(i); });
+  // S321: the 7-pt tab's equipment was NEVER persisted
+  const equipChecked4b = [];
+  document.querySelectorAll('input[name="equip4b"]').forEach(function(cb,i){ if(cb.checked) equipChecked4b.push(i); });
+  // S321: pitot rows were NEVER persisted — readings lived only in the DOM
+  const pitotRows = {};
+  ['3a','4b'].forEach(function(tab){
+    var rows=[];
+    for(var n=1;n<=((typeof pitotCounts!=='undefined'&&pitotCounts[tab])||0);n++){
+      var pp=document.getElementById('pp-'+tab+'-'+n), pf=document.getElementById('pf-'+tab+'-'+n), po=document.getElementById('po-'+tab+'-'+n);
+      if(!pp&&!pf&&!po) continue;   // removed row
+      rows.push({p:pp?pp.value:'', f:pf?pf.value:'', o:po?po.value:'1'});
+    }
+    pitotRows[tab]=rows;
+  });
+  // S321: custom equipment TEXT was never persisted (only its checkbox index)
+  const customEquip = {};
+  ['3a','4b'].forEach(function(tab){
+    var arr=[];
+    document.querySelectorAll('#equip-custom-'+tab+' label').forEach(function(w){
+      var cb=w.querySelector('input[type=checkbox]'), tx=w.querySelector('input[type=text]');
+      arr.push({t:tx?tx.value:'', c:cb?cb.checked:true});
+    });
+    customEquip[tab]=arr;
+  });
   return {
     proj,
     testType,
     npshPsi,
     npshPsiPld,
     equipChecked,
+    equipChecked4b,
+    pitotRows,
+    customEquip,
     stdData: stdData.map(r=>({...r})),
     pldData: pldData.map(r=>({...r})),
     pumpCurvePoints: pumpCurvePoints.map(p=>({...p})),
@@ -12268,6 +12343,15 @@ async function _syncHeartbeat(){
     var localTime = localSyncedAt ? new Date(localSyncedAt).getTime() : 0;
     // Only apply if cloud is >5s newer than last known sync
     if(cloudTime > localTime + 5000){
+      // S321: never merge-apply over a live edit — a stale cloud scalar would
+      // visibly revert what the user just typed. Defer to the next beat; with
+      // global autosave the edit will have saved and pushed by then.
+      var _ae=document.activeElement;
+      var _editing=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');
+      if(_editing || _autosaveTimer){
+        console.info('[Heartbeat] deferred — edit in progress');
+        _heartbeatRunning = false; return;
+      }
       _syncLock = true;
       // Merge: cloud owns structure, local owns binary data (R2 fields)
       var cloudState = typeof row.row.data === 'string' ? JSON.parse(row.row.data) : row.row.data;
@@ -14348,7 +14432,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S320';
+var DIESEL_BUILD = 'S321';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
