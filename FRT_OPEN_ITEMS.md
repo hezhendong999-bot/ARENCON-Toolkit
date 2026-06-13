@@ -8,10 +8,9 @@ Maintenance rule: before adding anything here as "open," grep the live repo to c
 ## OPEN — ready / in progress
 | # | Item | Type | Gate | Effort | What's left |
 |---|------|------|------|--------|-------------|
-| 1 | Combined View filter-row | Feature | Inspect first | S | Filter/sort row ported as-is; flagged possibly cramped on mobile, UNVERIFIED. Tidy or confirm-fine-and-drop. |
-| 2 | Hub Bold rollout | Feature | Own session | L | Project Hub still on older look; bring onto ARENCON Bold light/dark. Big standalone. |
-| 3 | Safe-area: remaining tools | Polish | Ready (proven pattern) | M | S322 covered FRT/Diesel/Hub/Electric. Still: IST, OBC, DD Checklist, Training Center, Training Admin, Resource Planner, Intranet Portal, Org Chart, Trapeze Calc, Onboarding Quiz + toolkit portal (BLOCKED on repo path — root index.html is the Tablet Rescue diagnostic, not the portal). |
-| 4 | PK / docs consolidation | Docs | Scope unconfirmed | M | Regenerate one ARENCON_FRT_PK.md from scattered PK + deltas. |
+| 1 | Hub Bold rollout | Feature | Own session | L | Project Hub still on older look; bring onto ARENCON Bold light/dark. Big standalone. |
+| 2 | Safe-area: remaining tools | Polish | Ready (proven pattern) | M | S322 covered FRT/Diesel/Hub/Electric. Still: IST, OBC, DD Checklist, Training Center, Training Admin, Resource Planner, Intranet Portal, Org Chart, Trapeze Calc, Onboarding Quiz + toolkit portal (BLOCKED on repo path — root index.html is the Tablet Rescue diagnostic, not the portal). |
+| 3 | PK / docs consolidation | Docs | Scope unconfirmed | M | Regenerate one ARENCON_FRT_PK.md from scattered PK + deltas. |
 
 ## SHIPPED since last doc update (S316–S325) — do NOT re-add
 - S316: Markup nav lock-in; Deficiency Summary footnote (later REMOVED by Mark S317); rec footer disclaimer removed; export-bar counter-scales vs zoom.
@@ -24,6 +23,7 @@ Maintenance rule: before adding anything here as "open," grep the live repo to c
 - S325: removed S323-DBG re-sort instrumentation (re-sort confirmed FIXED by Mark).
 
 ## DECIDED / REMOVED — do not re-add as open
+- Combined View filter-row — INSPECTED (S325), confirmed fine. Responsive handling already present: ≤560px = search own row + dropdowns share next row; general mobile = width:100% flex-wrap; desktop = deterministic fixed widths (S137, prevents pivot-switch re-wrap). Nothing to build.
 - Donut "new this report" inner ring — LOCKED S284 (`f4830bd`, LOCKED_FRT_PAGE1_DASHBOARD_A3_S284.md): blue arcs aligned under red/amber, butt caps, no splitter, INTENTIONALLY hidden when 0 new OR all-new. Working as designed — NOT a bug, NOT an open A/B choice.
 - "New This Report not-additive footnote" — Mark REMOVED it (S317, reads as clutter). Decided.
 - Rec item-# numbering — LOCKED Option A (restart at 1), S317. Decided.
