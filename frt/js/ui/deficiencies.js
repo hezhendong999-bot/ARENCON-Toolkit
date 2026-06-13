@@ -2579,11 +2579,12 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + (opts.withHeader ? '' : '') + '</div>';
   h += '<div class="obs-media-btns">';
   var _icl = opts.withHeader ? '' : ' icon-only';
-  var _ul = opts.withHeader ? ' Upload' : '';
-  var _cl = opts.withHeader ? ' Camera' : '';
+  var _al = opts.withHeader ? ' Add Photos' : '';
   var _gl = opts.withHeader ? ' Gallery' : '';
-  h += '<button class="obs-drop-btn is-upload' + _icl + '" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE' + _ul + '</button>';
-  h += '<button class="obs-drop-btn is-camera' + _icl + '" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7' + _cl + '</button>';
+  // S317 (Mark): Upload + Camera consolidated into ONE "Add Photos" button
+  // (matches the Photo Gallery). Burst camera primary, file-picker fallback —
+  // see the photo-add handler. Gallery (pick from existing pool) stays separate.
+  h += '<button class="obs-drop-btn is-addphotos' + _icl + '" data-action="photo-add" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Add photos — camera or upload">\uD83D\uDCF7' + _al + '</button>';
   h += '<button class="obs-drop-btn is-gallery' + _icl + '" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F' + _gl + '</button>';
   h += '</div>';
   h += '</div></div>'; // /obs-media-zone /obs-media-col
@@ -5853,6 +5854,32 @@ document.addEventListener('click', function(e) {
     if (!action) return;
   }
 
+  // S317 (Mark): merged "Add Photos" button — one button for both upload AND
+  // camera, matching the Photo Gallery's single Add Photos. Burst camera is the
+  // primary path; if unsupported/denied (desktop), fall back to the file picker so
+  // the single button always lets you add photos. Mirrors photos.js site-photo-add-btn.
+  if (action === 'photo-add') {
+    var addDeficId = el.getAttribute('data-defic-id');
+    if (!addDeficId) return;
+    _photoTargetDeficId = addDeficId;
+    _photoTargetObsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
+    (function(tgtDefic, tgtObs) {
+      function _filePick() {
+        var inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+        inp.onchange = function() {
+          if (!inp.files || !inp.files.length) return;
+          for (var i = 0; i < inp.files.length; i++) _compressAndAdd(inp.files[i], tgtDefic, tgtObs);
+        };
+        inp.click();
+      }
+      openCameraBurst().then(function(files) {
+        if (files === null) { _filePick(); return; } // unsupported/denied → upload fallback
+        for (var i = 0; i < files.length; i++) _compressAndAdd(files[i], tgtDefic, tgtObs);
+      }).catch(function(){ _filePick(); });
+    })(_photoTargetDeficId, _photoTargetObsIdx);
+    return;
+  }
   if (action === 'photo-upload' || action === 'photo-camera') {
     var deficId = el.getAttribute('data-defic-id');
     if (!deficId) return;

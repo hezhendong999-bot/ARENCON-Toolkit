@@ -2290,6 +2290,7 @@ body.dark-mode .obs-drop-col.drag-over .obs-drop-zone{background:rgba(156,39,66,
 /* Muted palette per Mark's color rule */
 .obs-drop-btn.is-upload{background:var(--b-pb-u,#5A6E80);}
 .obs-drop-btn.is-camera{background:var(--b-pb-c,#5C7A65);}
+.obs-drop-btn.is-addphotos{background:var(--b-pb-c,#5C7A65);}/* S317: merged Add Photos — green, matches gallery */
 .obs-drop-btn.is-gallery{background:var(--b-pb-g,#7D3F4F);}
 body.dark-mode .obs-drop-btn{color:white;}
 
@@ -5200,6 +5201,7 @@ body.dark-mode {
      Light mode keeps existing #5A6E80/#5C7A65/#7D3F4F (Mark likes them). ── */
 body.dark-mode .obs-drop-btn.is-upload  { background: var(--b-pb-u-bg)  !important; color: var(--b-pb-u) !important; }
 body.dark-mode .obs-drop-btn.is-camera  { background: var(--b-pb-c-bg)  !important; color: var(--b-pb-c) !important; }
+body.dark-mode .obs-drop-btn.is-addphotos { background: var(--b-pb-c-bg) !important; color: var(--b-pb-c) !important; }/* S317 */
 body.dark-mode .obs-drop-btn.is-gallery { background: var(--b-pb-g-bg) !important; color: var(--b-pb-g) !important; }
 
 /* End S121 Push 6 ─────────────────────────────────────────────────── */
