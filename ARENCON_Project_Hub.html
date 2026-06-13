@@ -231,6 +231,9 @@ body.dark-mode .tlc-qr:hover{border-color:var(--arencon);background:rgba(156,39,
 .ri-new{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:1.5px dashed var(--border);border-radius:8px;font-weight:600;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;color:var(--arencon);cursor:pointer;background:none;margin-top:8px;transition:all .2s;}
 .ri-new:hover{border-color:var(--arencon);background:var(--arencon-light)}
 .ri-loading{font-size:calc(11px + var(--ts));color:var(--steel);padding:8px 14px;font-style:italic;}
+.ri-track-hdr{font-size:calc(11px + var(--ts));font-weight:700;color:var(--steel,#5A6478);letter-spacing:.3px;margin:10px 0 3px;padding:0 4px;display:flex;align-items:center;gap:5px;border-left:3px solid var(--arencon);padding-left:8px;}
+.ri-new-track{font-size:calc(10.5px + var(--ts));margin-top:4px;margin-bottom:4px;opacity:.85;}
+body.dark-mode .ri-track-hdr{color:#a8b0c0;}
 body.dark-mode .ri-row:hover{background:var(--card);}
 body.dark-mode .ri-new{color:#f4a1b5;border-color:#3a4050;}body.dark-mode .ri-new:hover{border-color:var(--arencon);background:rgba(156,39,66,.15);}
 body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-meta{color:var(--steel);}
@@ -2067,48 +2070,77 @@ async function _loadAndRenderInstances(proj) {
 
     if (instances.length > 0) {
       var sfn = buildSmartFilename(proj);
-      instances.forEach(function(inst) {
-        var prefix = _TOOL_PREFIXES[key] || key.toUpperCase();
-        var defaultTitle = sfn ? (sfn + ' ' + prefix + ' #' + inst.instance_number) : (shortName + ' Report #' + inst.instance_number);
-        var title = inst.label || defaultTitle;
-        var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
-        var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';
-        var status = inst.status || 'draft';
-        // Deficiency counts for FRT instances
-        var deficBadge = '';
-        if (key === 'frt' && inst.data) {
-          var _d = typeof inst.data === 'string' ? JSON.parse(inst.data) : inst.data;
-          var _allD = [];
-          (_d.contractors || []).forEach(function(c) { (_d && c.deficiencies || []).forEach(function(df) { _allD.push(df); }); });
-          (_d.generalDeficiencies || []).forEach(function(df) { _allD.push(df); });
-          var _open = _allD.filter(function(df) { return df.status === 'open' || df.status === 'Outstanding'; }).length;
-          var _closed = _allD.filter(function(df) { return df.status === 'closed' || df.status === 'Addressed & Closed'; }).length;
-          var _noted = _allD.filter(function(df) { return (df.notedOnInstance || 1) === inst.instance_number; }).length;
-          if (_allD.length > 0) {
-            deficBadge = '<span style="font-size:calc(10px + var(--ts));color:rgba(255,255,255,.6);margin-left:4px;">(' + _noted + ' noted, ' + _open + ' open, ' + _closed + ' closed)</span>';
-          }
+      // S330: group reports into per-person tracks by owner_label. NULL/empty =
+      // the default "shared" group (renders exactly as pre-S330). Within each
+      // track, reports show a per-owner sequence number (Leslie #1, #2, …)
+      // computed independently of the global instance_number (which stays the
+      // true row key). Untracked reports keep their plain instance_number label.
+      var _groups = {};       // ownerKey -> [instances]
+      var _groupOrder = [];   // preserve first-seen order; '' (shared) anchored first
+      instances.forEach(function(inst){
+        var ok = (inst.owner_label && String(inst.owner_label).trim()) || '';
+        if (!(ok in _groups)) { _groups[ok] = []; _groupOrder.push(ok); }
+        _groups[ok].push(inst);
+      });
+      // shared group first, then named tracks in first-seen order
+      _groupOrder.sort(function(a,b){ if(a==='') return -1; if(b==='') return 1; return 0; });
+
+      _groupOrder.forEach(function(ownerKey){
+        var groupInsts = _groups[ownerKey];
+        if (ownerKey !== '') {
+          html += '<div class="ri-track-hdr">\uD83D\uDC64 ' + esc(ownerKey) + '</div>';
         }
-        var isViewer = _profile && _profile.role === 'viewer';
-        var actionsHtml = isViewer ? '' :
-          '<span class="ri-actions">'
-          + '<select class="ri-status-sel" onclick="event.stopPropagation()" onchange="changeInstanceStatus(\'' + inst.id + '\',this.value)">'
-          + '<option value="draft"' + (status === 'draft' ? ' selected' : '') + '>Draft</option>'
-          + '<option value="review"' + (status === 'review' ? ' selected' : '') + '>Review</option>'
-          + '<option value="issued"' + (status === 'issued' ? ' selected' : '') + '>Issued</option>'
-          + '</select>'
-          + '<button class="ri-act-btn" onclick="event.stopPropagation();renameInstance(\'' + inst.id + '\')" title="Rename">✏️</button>'
-          + '<button class="ri-act-btn danger" onclick="event.stopPropagation();deleteInstance(\'' + inst.id + '\',\'' + esc(title).replace(/'/g, "\\'") + '\')" title="Delete">🗑️</button>'
-          + '</span>';
-        html += '<div class="ri-row" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\')" title="Open ' + esc(title) + '">'
-          + '<span class="ri-icon">→</span>'
-          + '<span class="ri-title">' + esc(title) + deficBadge + '</span>'
-          + '<span class="ri-meta">'
-          + '<span>' + date + '</span>'
-          + '<span>' + esc(by) + '</span>'
-          + '<span class="ri-status ' + status + '">' + status + '</span>'
-          + actionsHtml
-          + '</span>'
-          + '</div>';
+        groupInsts.forEach(function(inst, _gi) {
+          var prefix = _TOOL_PREFIXES[key] || key.toUpperCase();
+          // per-owner display number for tracked reports; global # for shared
+          var dispNum = (ownerKey === '') ? inst.instance_number : (_gi + 1);
+          var defaultTitle = (ownerKey !== '')
+            ? (esc(ownerKey) + ' \u00B7 ' + prefix + ' #' + dispNum)
+            : (sfn ? (sfn + ' ' + prefix + ' #' + dispNum) : (shortName + ' Report #' + dispNum));
+          var title = inst.label || defaultTitle;
+          var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
+          var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';
+          var status = inst.status || 'draft';
+          // Deficiency counts for FRT instances
+          var deficBadge = '';
+          if (key === 'frt' && inst.data) {
+            var _d = typeof inst.data === 'string' ? JSON.parse(inst.data) : inst.data;
+            var _allD = [];
+            (_d.contractors || []).forEach(function(c) { (_d && c.deficiencies || []).forEach(function(df) { _allD.push(df); }); });
+            (_d.generalDeficiencies || []).forEach(function(df) { _allD.push(df); });
+            var _open = _allD.filter(function(df) { return df.status === 'open' || df.status === 'Outstanding'; }).length;
+            var _closed = _allD.filter(function(df) { return df.status === 'closed' || df.status === 'Addressed & Closed'; }).length;
+            var _noted = _allD.filter(function(df) { return (df.notedOnInstance || 1) === inst.instance_number; }).length;
+            if (_allD.length > 0) {
+              deficBadge = '<span style="font-size:calc(10px + var(--ts));color:rgba(255,255,255,.6);margin-left:4px;">(' + _noted + ' noted, ' + _open + ' open, ' + _closed + ' closed)</span>';
+            }
+          }
+          var isViewer = _profile && _profile.role === 'viewer';
+          var actionsHtml = isViewer ? '' :
+            '<span class="ri-actions">'
+            + '<select class="ri-status-sel" onclick="event.stopPropagation()" onchange="changeInstanceStatus(\'' + inst.id + '\',this.value)">'
+            + '<option value="draft"' + (status === 'draft' ? ' selected' : '') + '>Draft</option>'
+            + '<option value="review"' + (status === 'review' ? ' selected' : '') + '>Review</option>'
+            + '<option value="issued"' + (status === 'issued' ? ' selected' : '') + '>Issued</option>'
+            + '</select>'
+            + '<button class="ri-act-btn" onclick="event.stopPropagation();renameInstance(\'' + inst.id + '\')" title="Rename">\u270F\uFE0F</button>'
+            + '<button class="ri-act-btn danger" onclick="event.stopPropagation();deleteInstance(\'' + inst.id + '\',\'' + esc(title).replace(/'/g, "\\'") + '\')" title="Delete">\uD83D\uDDD1\uFE0F</button>'
+            + '</span>';
+          html += '<div class="ri-row" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\')" title="Open ' + esc(title) + '">'
+            + '<span class="ri-icon">\u2192</span>'
+            + '<span class="ri-title">' + esc(title) + deficBadge + '</span>'
+            + '<span class="ri-meta">'
+            + '<span>' + date + '</span>'
+            + '<span>' + esc(by) + '</span>'
+            + '<span class="ri-status ' + status + '">' + status + '</span>'
+            + actionsHtml
+            + '</span>'
+            + '</div>';
+        });
+        // per-track "new report for this person" button
+        if (ownerKey !== '' && !(_profile && _profile.role === 'viewer')) {
+          html += '<button class="ri-new ri-new-track" onclick="createNewReport(\'' + key + '\',\'' + esc(ownerKey).replace(/'/g, "\\'") + '\')">\uFF0B New report for ' + esc(ownerKey) + '</button>';
+        }
       });
     }
 
@@ -2137,14 +2169,27 @@ function launchToolInstance(key, instanceId) {
   window.open(url, '_blank');
 }
 
-async function createNewReport(key) {
+async function createNewReport(key, ownerLabel) {
   if (!_detailProjectId) return;
   var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
   if (!proj) return;
   var t = AVAILABLE_TOOLS[key];
   if (!t) return;
 
-  // Find next instance number
+  // S330: per-person tracks. If no ownerLabel passed (the generic "+ New
+  // Report" button), ask who it's for — blank = a shared/untracked report
+  // (exactly pre-S330 behavior). The per-track "+ New report for X" button
+  // passes ownerLabel directly and skips the prompt.
+  var owner = (typeof ownerLabel === 'string') ? ownerLabel.trim() : null;
+  if (owner === null) {
+    var ans = prompt("Whose report is this? (leave blank for a shared/unnamed report)", "");
+    if (ans === null) return;   // cancelled
+    owner = ans.trim();
+  }
+
+  // Find next instance number — ALWAYS globally unique under the project+tool
+  // (instance_number stays the true row key; per-person display numbers are
+  // computed at render time, not stored).
   var nextNum = 1;
   var latestRow = null;
   try {
@@ -2168,9 +2213,23 @@ async function createNewReport(key) {
   var seedData = {};
   var carriedOpen = 0;
   var seedFailed = false;
-  if (key === 'frt' && latestRow && latestRow.data) {
+  // S330: carry forward from the latest row OF THE SAME OWNER TRACK, not the
+  // globally-latest row — otherwise a new tracked report would inherit a
+  // different person's data. Shared (blank owner) carries from the latest
+  // shared row. (FRT only; Diesel/others always start blank.)
+  var _seedRow = latestRow;
+  if (key === 'frt') {
     try {
-      var _raw = latestRow.data;
+      var _ownerRows = (existing || []).filter(function(r){
+        var ro = (r.owner_label && String(r.owner_label).trim()) || '';
+        return ro === owner;
+      });
+      _seedRow = _ownerRows.length ? _ownerRows[0] : null;   // existing already ordered desc by instance_number
+    } catch(e) { _seedRow = null; }
+  }
+  if (key === 'frt' && _seedRow && _seedRow.data) {
+    try {
+      var _raw = _seedRow.data;
       seedData = (typeof _raw === 'string') ? JSON.parse(_raw) : JSON.parse(JSON.stringify(_raw));
       if (seedData && typeof seedData === 'object' && !Array.isArray(seedData)) {
         seedData.currentFrtInstance = nextNum;
@@ -2198,6 +2257,7 @@ async function createNewReport(key) {
       project_id: proj.id,
       tool_key: key,
       instance_number: nextNum,
+      owner_label: owner || null,
       data: seedData,
       status: 'draft',
       created_by: userId,
