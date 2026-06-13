@@ -2134,7 +2134,7 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-badge{position:absolute;top:6px;right:6px;padding:2px 7px;color:white;border-radius:9px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);z-index:2;line-height:1.25;background:var(--no);}
 .ph-badge-pin-high{background:var(--no);}
 .ph-badge-pin-low{background:var(--warn);}
-.ph-badge-pin-gen{background:var(--yes);}
+.ph-badge-pin-closed{background:var(--yes);}/* S317: green = Closed */
 .ph-badge-site{background:#6E6AA8;}
 .ph-badge-pin-rec{background:#2C7FB8;}
 /* Cloud sync icon (bottom-right, always visible) */

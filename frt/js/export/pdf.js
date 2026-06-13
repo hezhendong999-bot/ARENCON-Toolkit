@@ -284,7 +284,7 @@ function _buildCSS(fontB64){
   c+='.dc-hdr-l{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}';
   c+='.dc-hdr-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}';
   c+='.dc-itemnum{color:#9C2742;font-size:11pt;font-weight:700;line-height:1;}';
-  c+='.item-sep{color:#B8BCC6;font-weight:400;margin:0 5px;font-size:11pt;line-height:1;}';/* S317 Option E middot */
+  c+='.item-sep{color:#B8BCC6;font-weight:400;margin:0 3px;font-size:11pt;line-height:1;}';/* S317 Option E middot — tighter (Mark: pin# closer to item#) */
   c+='.pinref-dark{color:#4A5568;font-size:9.5pt;font-weight:600;line-height:1;}';/* S317 Option E "Pin 3A" */
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
@@ -614,14 +614,9 @@ if(summaryDefs.length){
   _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#A85959;">'+summaryDefs.filter(_rowOpen).length+'</td>';
   _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#5F8068;">'+summaryDefs.filter(_rowClosed).length+'</td></tr>';
   _deficSummaryHtml+='</tbody></table></div>';
-  // S316 (Mark): clarify that New This Report is a NON-ADDITIVE overlay column —
-  // Total = Outstanding + Closed, while a new item is ALSO outstanding or closed,
-  // so the four columns intentionally do not sum. Mirrors the pin-number gaps note.
-  _deficSummaryHtml+='<div style="font-size:8pt;color:#90A0AC;font-style:italic;margin-top:4px;">New This Report counts items first logged on this report; it overlaps Outstanding and Closed and is not additive (Total = Outstanding + Closed).</div>';
-  // S316 (Mark): clarify that New This Report is a non-additive OVERLAY column —
-  // Total = Outstanding + Closed, while New overlaps both (a new item is also
-  // open or closed). Prevents readers expecting the four columns to sum.
-  _deficSummaryHtml+='<div style="font-size:8pt;color:#90A0AC;font-style:italic;margin-top:4px;">New This Report counts items first logged on this report; it overlaps Outstanding and Closed and is not additive (Total = Outstanding + Closed).</div>';
+  // S317 (Mark): the "New This Report counts items… not additive" footnote rows
+  // are removed from the client report (Mark marked them off — they read as clutter
+  // under the table). The summary table speaks for itself.
   // ── S284 (Mark-approved rev C): page-1 dashboard — Status Overview two-ring
   // donut + Resolution Progress bars. Pure SVG (prints crisp, no canvas).
   // Numbers come from the SAME predicates as the summary table above
@@ -709,11 +704,16 @@ _legendHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span c
 _legendHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 low priority</span></div>';
 _legendHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendations - do not hold off sign-off</span></div>';
 if(inspTag==='initials')_legendHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#4A5568;border-color:#4A5568;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
-_legendHtml+='<div class="rep-key-row"><span class="dc-itemnum" style="font-size:11px;">1</span><span class="item-sep" style="font-size:11px;">\u00b7</span><span class="pinref-dark">Pin N</span><span class="rep-key-gloss">Item number (report sequence, 1\u20132\u20133\u2026) \u00b7 the pin number marked on the drawing.</span></div>';
+// S317 (Mark): the "1 · Pin N — Item number…" legend row is removed (Mark marked
+// it off). The item#·Pin label is self-explanatory in the body; the legend row was
+// redundant. (Other legend rows — Outstanding/Closed/REC — stay.)
 _legendHtml+='</div></div>';
 // S139 Phase 3 (D): italic high-priority-recommendation note. Full mode
 // only (suppressed for 'only' — there the recs ARE the report).
-var _hiRecNoteHtml=(_hiRecCount>0&&_recsMode!=='only')?'<div class="hirec-note">This report includes '+_hiRecCount+' high-priority recommendation'+(_hiRecCount!==1?'s':'')+' \u2014 see Recommendations section.</div>':'';
+// S317 (Mark): the "This report includes N high-priority recommendation(s)" note
+// is removed — the tool has no high-priority-recommendation feature, so the note
+// was misleading. Kept as an empty string so downstream assembly is untouched.
+var _hiRecNoteHtml='';
 // Assembled mode-aware just before pagination (after the Recommendation
 // Summary is built — see _recSummaryHtml). Placeholder for now.
 var summaryHtml='';

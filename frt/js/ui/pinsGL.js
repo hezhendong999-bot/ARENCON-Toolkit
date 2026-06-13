@@ -82,6 +82,7 @@
   // foremost. Indigo #6B6FA8 matches the on-screen card + PDF teardrop.
   function _priorityFillHex(pin){
     if (GREEN_CLOSED && pin.isClosed) return '#5F8068';  // resolved → muted green
+    if (pin.isRecommendation) return '#2C7FB8';          // S317: rec → blue (rec wins over site/priority; closed above still wins)
     if (pin.isSiteRecord) return '#6B6FA8';
     if (pin.isIAR) return '#E91E8C';
     if (pin.priority === 'general') return '#5F8068';

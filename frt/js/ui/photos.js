@@ -329,12 +329,15 @@ export var initPhotos = {
     });
     allDefics.forEach(function(d) {
       var defic = d.defic;
+      // S317: "general" priority is RETIRED (legacy data only — replaced by Site
+      // Records long ago). A legacy general-priority defic photo now READS as a
+      // Site Record (purple "Site" badge, buckets under Site Records) — derivation
+      // only, the photo's pin linkage/actions are untouched. Green is no longer a
+      // priority colour: green now means CLOSED exclusively.
       var isGeneral = defic.priority === 'general';
-      // S114 P1.5: badge color signals priority (per Mark — frames don't, badges do).
-      // high=red, low=orange, general=green. Same as v1 priority palette.
+      // Badge colour signals priority: high=red, low=amber. (general handled above.)
       var badgeCls = 'ph-badge-pin-high';
-      if (isGeneral) badgeCls = 'ph-badge-pin-gen';
-      else if (defic.priority === 'low') badgeCls = 'ph-badge-pin-low';
+      if (defic.priority === 'low') badgeCls = 'ph-badge-pin-low';
       // S120 Push 1: pool-aware enumeration — for each obs, walk the
       // EFFECTIVE photo list (pool ∩ obs.photoSelection, with markup overlays).
       // A photo shared by Obs A + Obs B emits two records, each tagged with
@@ -342,11 +345,19 @@ export var initPhotos = {
       // Legacy fallback inside getEffectivePhotos handles never-migrated edge cases.
       var multiObs = (defic.observations || []).length > 1;
       (defic.observations || []).forEach(function(o, oi) {
-        // S283: Recommendation photos get a blue badge (per Mark). Rec is a
-        // per-obs flag (o.isRecommendation), so the class is chosen per obs,
-        // not per pin. Rec wins over the priority colour — a rec photo reads
-        // as a rec regardless of the pin's underlying priority.
-        var obsBadgeCls = (o && o.isRecommendation) ? 'ph-badge-pin-rec' : badgeCls;
+        // S317 badge precedence (matches the card-pill terminal-state rule):
+        //   closed (terminal) > recommendation > priority(high/low) > general→site.
+        // A CLOSED obs photo gets the green Closed badge (not its priority colour),
+        // so it stops leaking into High/Low. badgeCat drives filter-aware rendering
+        // (a card in the High view shows ONLY its high badge, not its other badges).
+        var _obsClosed = !!(o && o.addressed);
+        var _obsRec = !!(o && o.isRecommendation);
+        var obsBadgeCls, _badgeCat;
+        if (_obsClosed)      { obsBadgeCls = 'ph-badge-pin-closed'; _badgeCat = 'closed'; }
+        else if (_obsRec)    { obsBadgeCls = 'ph-badge-pin-rec';    _badgeCat = 'recommendations'; }
+        else if (isGeneral)  { obsBadgeCls = 'ph-badge-site';       _badgeCat = 'site'; }
+        else if (badgeCls === 'ph-badge-pin-low') { obsBadgeCls = badgeCls; _badgeCat = 'low'; }
+        else                 { obsBadgeCls = badgeCls;              _badgeCat = 'high'; }
         var effective = (typeof Model !== 'undefined' && Model.getEffectivePhotos)
           ? Model.getEffectivePhotos(defic, oi) : (o.photos || []);
         effective.forEach(function(ph, phi) {
@@ -370,6 +381,7 @@ export var initPhotos = {
             src: (mk && mk.markedR2Key) || ph.r2Url || ph.dataUrl || '',
             badgeText: '' + defic.num + obsLetter,
             badgeClass: obsBadgeCls,
+            badgeCat: _badgeCat,
             dateKey: dk.key, dateLabel: dk.label,
             sortGroup: [1, defic.num, oi, phi]
           });
@@ -412,18 +424,25 @@ export var initPhotos = {
       // Observation. "Notes" (general-priority) folds into Observations — the
       // general/note distinction is retired from the gallery (Mark). A photo
       // can carry multiple references (e.g. obs on two pins), so flags union.
-      var isRecRef = (r.type === 'defic' && r.isRec);
-      var isObsRef = (r.type === 'defic' && !r.isRec);
-      // S284c (Mark): Closed tracker — a closed obs's photos count as Closed,
-      // NOT Outstanding (mutually exclusive, same semantics as the deficiency
-      // log donut). Rec photos stay Rec regardless of addressed state.
-      var isObsClosed = isObsRef && r.obsClosed;
-      var isObsLow = isObsRef && !isObsClosed && r.obsPriority === 'low';
-      var isObsHigh = isObsRef && !isObsClosed && !isObsLow;
+      // S317: badgeCat (stamped per-obs above) is the single source of truth for
+      // bucketing. closed > rec > high/low > site (general folds to site). A site-
+      // type record has no badgeCat → treated as site. A photo with multiple refs
+      // unions its categories (so it appears under each matching filter, with the
+      // matching badge only — see the filter-aware badge render below).
+      var _cat = (r.type === 'defic') ? r.badgeCat : 'site';
+      var isRecRef   = (_cat === 'recommendations');
+      var isObsClosed = (_cat === 'closed');
+      var isObsLow   = (_cat === 'low');
+      var isObsHigh  = (_cat === 'high');
+      // "Observation photos" bucket = any non-rec, non-site defic reference
+      // (high/low/closed). Kept for the legacy 'observations' filter mode.
+      var isObsRef = (r.type === 'defic') && (_cat === 'high' || _cat === 'low' || _cat === 'closed');
+      // general (now 'site') and explicit site both count toward Site Records.
+      var isSiteRef = (r.type === 'site') || (_cat === 'site');
       var rep = _phById[k];
       if (!rep) {
-        r.badges = [{ text: r.badgeText, cls: r.badgeClass }];
-        r.refSite = (r.type === 'site');
+        r.badges = [{ text: r.badgeText, cls: r.badgeClass, cat: _cat }];
+        r.refSite = isSiteRef;
         r.refObs = isObsRef;
         r.refRec = isRecRef;
         r.refObsHigh = isObsHigh;
@@ -440,8 +459,8 @@ export var initPhotos = {
       }
       if (r.type === 'defic' && !rep._firstDefic) rep._firstDefic = r;
       var dup = rep.badges.some(function(b) { return b.text === r.badgeText && b.cls === r.badgeClass; });
-      if (!dup) rep.badges.push({ text: r.badgeText, cls: r.badgeClass });
-      rep.refSite = rep.refSite || (r.type === 'site');
+      if (!dup) rep.badges.push({ text: r.badgeText, cls: r.badgeClass, cat: _cat });
+      rep.refSite = rep.refSite || isSiteRef;
       rep.refObs = rep.refObs || isObsRef;
       rep.refRec = rep.refRec || isRecRef;
       rep.refObsHigh = rep.refObsHigh || isObsHigh;
@@ -605,8 +624,9 @@ export var initPhotos = {
     if (_filterPanelOpen) {
       html += '<div class="ph-filter-menu">';
       // Full category set — mirrors the clickable stat tiles, colour dot per row.
+      // S317: "All photos" removed from this menu — the clickable TOTAL stat tile
+      // is now the canonical "show all" control (the menu row was redundant).
       [
-        ['all', 'All photos', ''],
         ['high', 'Outstanding \u2014 High', 'var(--no)'],
         ['low', 'Outstanding \u2014 Low', 'var(--warn)'],
         ['recommendations', 'Recommendations', '#2C7FB8'],
@@ -673,8 +693,19 @@ export var initPhotos = {
         html += '<input type="checkbox" class="ph-check"' + (sel ? ' checked' : '') + ' data-action="ph-toggle-photo" data-uid="' + esc(r.uid) + '">';
         // S205: render a pill per reference (Site / Pin N / Pin N · Obs X).
         // A photo on multiple pins shows multiple pills, top-right, wrapping.
+        // S317: in a CATEGORY view (any filter other than 'all'/'observations'),
+        // show ONLY the badge(s) for that category — a photo shared between an
+        // open-high obs and a closed obs shows just its red badge under High and
+        // just its green badge under Closed (no more red+green mixing). The 'all'
+        // and legacy 'observations' views still show every badge.
+        var _allBadges = (r.badges || [{ text: r.badgeText, cls: r.badgeClass, cat: r.badgeCat }]);
+        var _showBadges = _allBadges;
+        if (_filterMode !== 'all' && _filterMode !== 'observations') {
+          var _m = _allBadges.filter(function(b) { return b.cat === _filterMode; });
+          if (_m.length) _showBadges = _m; // fall back to all if none tagged (legacy safety)
+        }
         html += '<span class="ph-badges">';
-        (r.badges || [{ text: r.badgeText, cls: r.badgeClass }]).forEach(function(b) {
+        _showBadges.forEach(function(b) {
           html += '<span class="ph-badge ' + b.cls + '">' + esc(b.text) + '</span>';
         });
         html += '</span>';
@@ -1435,7 +1466,7 @@ function _openReassignModal(presetPinOnly) {
   allDefics.forEach(function(r) {
     var desc = ((r.defic.observations && r.defic.observations[0] && r.defic.observations[0].text) || r.defic.description || '(no description)');
     if (desc.length > 40) desc = desc.substring(0,37) + '...';
-    var pr = r.defic.priority === 'general' ? ' [General]' : r.defic.priority === 'low' ? ' [Low]' : '';
+    var pr = r.defic.priority === 'general' ? ' [Site]' : r.defic.priority === 'low' ? ' [Low]' : '';
     opts += '<option value="' + r.defic.id + '">Pin #' + r.defic.num + pr + ' \u2014 ' + _phEsc(desc) + '</option>';
   });
   opts += '</optgroup>';

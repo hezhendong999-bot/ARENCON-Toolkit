@@ -2375,15 +2375,9 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     // Re-sort button needed; the list re-renders sorted immediately (the
     // list isn't under the user's finger in a modal). Locked colours/menu
     // reused verbatim from the S263 component.
-    var _hFar = _obsFarPill(o, isSite, d);
-    var _hCur = _obsCurrentChoice(o, isSite, d);
-    h += '<span class="cv-pill-anchor" style="margin-left:auto;">';
-    h += '<button type="button" class="dfx-or-chip cv-pill ' + _hFar.cls + '"'
-      + ' data-action="cv-statuspill" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"'
-      + ' aria-haspopup="true" aria-expanded="false" title="Tap to change status">'
-      + _hFar.txt + ' <span class="cv-pill-caret">\u25BC</span></button>';
-    h += _cvStatusMenu(d, oi, _hCur).replace(/data-action="cv-setstatus"/g, 'data-action="cv-setstatus" data-instant="1"');
-    h += '</span>';
+    // S317 (Mark): the status pill is RELOCATED out of the header into the
+    // controls row, sitting immediately beside the trade pill (they group as a
+    // pair). The header row is now just star · Pin # · on-drawing link.
     h += '</div>'; // /dfx-ed-header
 
     // observation tab strip [Obs A ⋮ ✕][Obs B][+ Add observation]
@@ -2461,6 +2455,22 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     } else {
       h += '<button type="button" class="cv-loc-open" data-action="place-pin" data-defic-id="' + esc(d.id) + '" title="Place this pin on a drawing">Place on a drawing</button>';
     }
+    h += '</span>';
+  }
+  // S317 (Mark): relocated status pill — sits immediately AFTER the trade pill
+  // (side by side, no spacer) in the withHeader editors (on-drawing pin editor +
+  // focused modal). Moved here from the header row. data-instant makes picks final
+  // (modal context — no pending dot / Re-sort needed). Combined-view card (no
+  // withHeader) is unchanged: its status pill lives on the collapsed row.
+  if (opts.withHeader) {
+    var _cFar = _obsFarPill(o, isSite, d);
+    var _cCur = _obsCurrentChoice(o, isSite, d);
+    h += '<span class="cv-pill-anchor dfx-ed-statuspill">';
+    h += '<button type="button" class="dfx-or-chip cv-pill ' + _cFar.cls + '"'
+      + ' data-action="cv-statuspill" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"'
+      + ' aria-haspopup="true" aria-expanded="false" title="Tap to change status">'
+      + _cFar.txt + ' <span class="cv-pill-caret">\u25BC</span></button>';
+    h += _cvStatusMenu(d, oi, _cCur).replace(/data-action="cv-setstatus"/g, 'data-action="cv-setstatus" data-instant="1"');
     h += '</span>';
   }
   h += '</div>'; // /dfx-ed-ctrls

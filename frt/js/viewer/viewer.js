@@ -1537,6 +1537,10 @@ function _renderPins() {
         // S154 PIN-COLOUR-OVERHAUL: pass Site Record flag through to
         // PinsGL so the on-canvas pin gets indigo when null-contractor.
         isSiteRecord: !d.contractorId,
+        // S317: forward the rec rollup so the on-canvas teardrop renders blue
+        // for recommendations (rec wins over priority/site, but closed still wins
+        // over rec — a closed rec reads green, matching the report two-state).
+        isRecommendation: !!d.defic.isRecommendation,
         contractorId: d.contractorId || null,   // highlight lens (per-session)
         inspectorColor: ic,                    // S83
         _showRing: _showRings && !hidden && !!ic  // S83
@@ -2462,8 +2466,16 @@ function _drawPinMiniMapStatic(canvas, img, d) {
     var px = d.pinX * displayW, py = d.pinY * displayH;
     // S119: effective priority (pin-as-a-whole color)
     var effPri = Model.getEffectivePriority(d);
-    var fill = d.iar
-      ? '#FF69B4'
+    // S317: match the on-drawing teardrop precedence so the editor minimap
+    // agrees with the canvas — closed(green) > rec(blue) > site(indigo) >
+    // IAR(pink) > priority(low/high). Previously only IAR/priority were handled,
+    // so a recommendation pin showed red here while the rest of the tool said blue.
+    var _peClosed = Model.getEffectiveStatus(d) === 'closed';
+    var _peSite = !(d.contractorId || d.contractor);
+    var fill = _peClosed ? '#5F8068'
+      : d.isRecommendation ? '#2C7FB8'
+      : _peSite ? '#6B6FA8'
+      : d.iar ? '#FF69B4'
       : (effPri === 'general' ? '#5F8068' : (effPri === 'low' ? '#B07F5A' : '#A85959'));
     var r0 = 6;
     ctx.save();
