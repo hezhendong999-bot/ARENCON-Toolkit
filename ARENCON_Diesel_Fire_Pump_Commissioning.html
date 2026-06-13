@@ -1621,7 +1621,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
           <button onclick="resetAllPages();closeMoreMenu()" style="color:#C62828;">⚠️ Reset All Pages <span>Delete all project data</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;" id="menu-r2-divider" class="hub-only-menu" hidden></div>
           <button onclick="_r2ReuploadAll();closeMoreMenu()" id="menu-reupload" class="hub-only-menu" hidden>☁️ Re-upload All Photos <span>Push all local photos to R2</span></button>
-          <button onclick="_dieselR2OrphanReport();closeMoreMenu()" id="menu-r2cleanup" class="hub-only-menu" hidden>🧹 R2 Orphan Report <span>List stranded cloud files (console — no delete)</span></button>
+          <button onclick="_dieselR2OrphanReport();closeMoreMenu()" id="menu-r2cleanup" class="hub-only-menu" hidden>🧹 R2 Orphan Report <span>List stranded cloud files (console). Purge: _dieselR2OrphanPurge(true)</span></button>
         </div>
       </div>
       <button class="hdr-btn" id="btn-qr" onclick="_openToolQR()" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
@@ -11915,10 +11915,59 @@ async function _dieselR2OrphanReport(){
   if(orphans.length && console.table) console.table(orphans); else if(orphans.length) console.log(orphans);
   console.log('[R2Orphan] records pointing at a MISSING bucket object (failed uploads): '+missing.length);
   if(missing.length && console.table) console.table(missing); else if(missing.length) console.log(missing);
-  console.log('[R2Orphan] To delete the stranded objects, we will add a gated path AFTER you confirm this list is correct.');
+  console.log('[R2Orphan] To delete the stranded objects after verifying this list: _dieselR2OrphanPurge(true)  (dry run without true; NOT reversible).');
   return {bucket:bucket, orphans:orphans, missing:missing};
 }
 if(typeof window!=='undefined') window._dieselR2OrphanReport = _dieselR2OrphanReport;
+
+// ═══ S335 B9: gated purge of STRANDED R2 objects (report-confirmed) ═══
+// Deletes bucket objects that no live record owns (the `orphans` set from the
+// report above). Console-driven + Hub-gated by design.
+//   _dieselR2OrphanPurge()       → DRY RUN: re-reports, prints what WOULD delete.
+//   _dieselR2OrphanPurge(true)    → downloads a manifest of the doomed keys FIRST,
+//                                   then DELETEs each via the same R2 path the rest
+//                                   of the tool uses. 404 counts as already-gone.
+// IMPORTANT: R2 bytes cannot be restored from the manifest — this is a record of
+// WHAT was deleted, not a reversible backup. Stated plainly so nobody trusts a
+// false undo. Run the report and eyeball the list before passing true.
+async function _dieselR2OrphanPurge(confirmFlag){
+  if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined' || !R2Photos.remove){
+    console.warn('[R2OrphanPurge] Hub mode + R2 folder required (open from the Hub).'); return null;
+  }
+  var rep = await _dieselR2OrphanReport();
+  if(!rep) return null;
+  var orphans = rep.orphans || [];
+  if(!orphans.length){ console.log('[R2OrphanPurge] Nothing stranded — bucket is clean.'); return rep; }
+  if(confirmFlag!==true){
+    console.warn('[R2OrphanPurge] DRY RUN ONLY — '+orphans.length+' object'+(orphans.length===1?'':'s')+' would be deleted. Call _dieselR2OrphanPurge(true) to execute (NOT reversible).');
+    return rep;
+  }
+  // Manifest download first (record of what we delete — not a restore point).
+  try{
+    var manifest={ when:new Date().toISOString(), project:_r2FolderId, tool:'diesel', deleted:orphans };
+    var blob=new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='diesel_r2_orphan_purge_'+Date.now()+'.json'; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+  }catch(e){ console.warn('[R2OrphanPurge] manifest download failed (continuing):', e&&e.message); }
+  var ok=0, gone=0, fail=0, failures=[];
+  for(var i=0;i<orphans.length;i++){
+    var o=orphans[i];
+    var fname=String(o.key).split('/').pop();
+    try{
+      await R2Photos.remove(_r2FolderId,'diesel',o.folder,decodeURIComponent(fname));
+      ok++;
+    }catch(e){
+      // remove() already swallows 404 as success; a throw here is a real failure.
+      fail++; failures.push({key:o.key, err:(e&&e.message)||String(e)});
+    }
+  }
+  console.log('%c[R2OrphanPurge] DONE','font-weight:bold');
+  console.log('[R2OrphanPurge] deleted: '+ok+' | failed: '+fail+' / '+orphans.length+' attempted');
+  if(failures.length){ console.warn('[R2OrphanPurge] failures (left in bucket — safe to re-run):'); if(console.table) console.table(failures); else console.log(failures); }
+  return {attempted:orphans.length, deleted:ok, failed:fail, failures:failures};
+}
+if(typeof window!=='undefined') window._dieselR2OrphanPurge = _dieselR2OrphanPurge;
 
 // ═══ S313 B9 REPAIR: clear DEAD photo references (report-then-confirm) ═══
 // A "dead reference" = a photo record with NO local binary (.d) whose r2Url
@@ -14793,7 +14842,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S334';
+var DIESEL_BUILD = 'S335';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>

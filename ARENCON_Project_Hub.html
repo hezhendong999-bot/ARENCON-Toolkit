@@ -924,6 +924,23 @@ body.text-l{--ts:4px;}
   </div>
 </div>
 
+<!-- ═══════════ OWNER-TRACK PICKER MODAL (S335) ═══════════ -->
+<div class="modal-overlay" id="owner-track-modal">
+  <div class="modal-card">
+    <h3>New Report</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="owner-track-tool"></p>
+    <div class="modal-field">
+      <label>Whose report is this?</label>
+      <select id="owner-track-select"></select>
+    </div>
+    <p style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">A shared report isn't tied to a person — anyone's reports list it under "Shared".</p>
+    <div class="modal-actions">
+      <button class="dash-btn secondary" onclick="closeOwnerTrackModal()">Cancel</button>
+      <button class="dash-btn primary" onclick="confirmOwnerTrack()">Create</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ RESET PASSWORD MODAL ═══════════ -->
 <div class="modal-overlay" id="reset-pw-modal">
   <div class="modal-card">
@@ -2173,23 +2190,72 @@ function launchToolInstance(key, instanceId) {
   window.open(url, '_blank');
 }
 
-async function createNewReport(key, ownerLabel) {
+// S335: staff-picker modal replaces the old prompt(). The generic "+ New
+// Report" button has no ownerLabel → open the picker. The per-track
+// "+ New report for X" button passes ownerLabel directly and skips straight
+// to creation (no picker). The picker's Create button calls _doCreateReport
+// with the chosen owner.
+var _ownerTrackPending = null;   // { key } while the modal is open
+
+function createNewReport(key, ownerLabel) {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
+  if (!proj) return;
+  if (!AVAILABLE_TOOLS[key]) return;
+
+  // Per-track button passes a concrete ownerLabel → create directly.
+  if (typeof ownerLabel === 'string') {
+    _doCreateReport(key, ownerLabel.trim());
+    return;
+  }
+
+  // Generic button → open the staff picker.
+  openOwnerTrackModal(key);
+}
+
+function openOwnerTrackModal(key) {
+  var t = AVAILABLE_TOOLS[key];
+  if (!t) return;
+  _ownerTrackPending = { key: key };
+  document.getElementById('owner-track-tool').textContent = t.name;
+  var sel = document.getElementById('owner-track-select');
+  // Build options from the live profile map already loaded for all roles.
+  var entries = Object.entries(_userMap || {}).sort(function(a, b){ return String(a[1]).localeCompare(String(b[1])); });
+  var html = '<option value="">— Shared / unnamed —</option>';
+  // Pre-select the signed-in user if they're in the map (most common case:
+  // a person creating their own report).
+  var meName = (_profile && (_profile.full_name || _profile.email)) || '';
+  entries.forEach(function(pair){
+    var name = pair[1] || '';
+    if (!name) return;
+    var selAttr = (name === meName) ? ' selected' : '';
+    html += '<option value="' + esc(name).replace(/"/g, '&quot;') + '"' + selAttr + '>' + esc(name) + '</option>';
+  });
+  sel.innerHTML = html;
+  document.getElementById('owner-track-modal').classList.add('show');
+}
+
+function closeOwnerTrackModal() {
+  document.getElementById('owner-track-modal').classList.remove('show');
+  _ownerTrackPending = null;
+}
+
+function confirmOwnerTrack() {
+  if (!_ownerTrackPending) return;
+  var key = _ownerTrackPending.key;
+  var owner = (document.getElementById('owner-track-select').value || '').trim();
+  closeOwnerTrackModal();
+  _doCreateReport(key, owner);
+}
+
+async function _doCreateReport(key, owner) {
   if (!_detailProjectId) return;
   var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
   if (!proj) return;
   var t = AVAILABLE_TOOLS[key];
   if (!t) return;
 
-  // S330: per-person tracks. If no ownerLabel passed (the generic "+ New
-  // Report" button), ask who it's for — blank = a shared/untracked report
-  // (exactly pre-S330 behavior). The per-track "+ New report for X" button
-  // passes ownerLabel directly and skips the prompt.
-  var owner = (typeof ownerLabel === 'string') ? ownerLabel.trim() : null;
-  if (owner === null) {
-    var ans = prompt("Whose report is this? (leave blank for a shared/unnamed report)", "");
-    if (ans === null) return;   // cancelled
-    owner = ans.trim();
-  }
+  // owner: '' = shared/untracked (pre-S330 behavior); a name = tracked.
 
   // Find next instance number — ALWAYS globally unique under the project+tool
   // (instance_number stays the true row key; per-person display numbers are
