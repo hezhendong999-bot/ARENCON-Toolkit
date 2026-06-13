@@ -284,6 +284,8 @@ function _buildCSS(fontB64){
   c+='.dc-hdr-l{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}';
   c+='.dc-hdr-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}';
   c+='.dc-itemnum{color:#9C2742;font-size:11pt;font-weight:700;line-height:1;}';
+  c+='.item-sep{color:#B8BCC6;font-weight:400;margin:0 5px;font-size:11pt;line-height:1;}';/* S317 Option E middot */
+  c+='.pinref-dark{color:#4A5568;font-size:9.5pt;font-weight:600;line-height:1;}';/* S317 Option E "Pin 3A" */
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
   // S118 status pills — color encodes priority (red=Outstanding High, orange=Outstanding Low, green=Closed)
@@ -344,8 +346,10 @@ function _buildCSS(fontB64){
      their content (width:1% + nowrap on auto table-layout); Description is
      the only unconstrained column so it absorbs the remaining width and the
      "#1-A" label can never break at the hyphen. */
-  c+='.app-pin-table th:first-child,.app-pin-table td:first-child{white-space:nowrap;width:1%;}';
-  c+='.app-pin-table th:nth-child(3),.app-pin-table td:nth-child(3),.app-pin-table th:nth-child(4),.app-pin-table td:nth-child(4){white-space:nowrap;width:1%;}';
+  /* S317: cols are now Item|Pin|Description|Status|Contractor. Item(1) Pin(2)
+     Status(4) Contractor(5) shrink-to-fit nowrap; Description(3) takes the slack. */
+  c+='.app-pin-table th:nth-child(1),.app-pin-table td:nth-child(1),.app-pin-table th:nth-child(2),.app-pin-table td:nth-child(2){white-space:nowrap;width:1%;}';
+  c+='.app-pin-table th:nth-child(4),.app-pin-table td:nth-child(4),.app-pin-table th:nth-child(5),.app-pin-table td:nth-child(5){white-space:nowrap;width:1%;}';
   c+='.title-block{text-align:center;margin:12px 0 0;padding:14px 0 12px;line-height:0.85;}';
   c+='.title-block .tb-line1{font-family:'+blairFam+';font-size:12pt;font-weight:400;color:#1C2333;letter-spacing:1px;margin-bottom:1px;}';
   c+='.title-block .tb-line2{font-family:'+blairFam+';font-size:12pt;font-weight:400;color:#1C2333;margin-bottom:10px;}';
@@ -705,7 +709,7 @@ _legendHtml+='<div class="rep-key-row"><span class="pill-c">Closed</span><span c
 _legendHtml+='<div class="rep-key-row"><span class="pill-l">Outstanding</span><span class="rep-key-gloss">Outstanding \u2014 low priority</span></div>';
 _legendHtml+='<div class="rep-key-row"><span class="rec-chip">REC</span><span class="rep-key-gloss">Recommendations - do not hold off sign-off</span></div>';
 if(inspTag==='initials')_legendHtml+='<div class="rep-key-row"><span class="dc-insp" style="color:#4A5568;border-color:#4A5568;">AB</span><span class="rep-key-gloss">Inspector initials \u2014 who logged the item</span></div>';
-_legendHtml+='<div class="rep-key-row"><span class="dc-itemnum" style="font-size:11px;">#N</span><span class="rep-key-gloss">Item numbers are pin numbers from the drawing \u2014 the sequence may contain gaps (e.g. a removed pin).</span></div>';
+_legendHtml+='<div class="rep-key-row"><span class="dc-itemnum" style="font-size:11px;">1</span><span class="item-sep" style="font-size:11px;">\u00b7</span><span class="pinref-dark">Pin N</span><span class="rep-key-gloss">Item number (report sequence, 1\u20132\u20133\u2026) \u00b7 the pin number marked on the drawing.</span></div>';
 _legendHtml+='</div></div>';
 // S139 Phase 3 (D): italic high-priority-recommendation note. Full mode
 // only (suppressed for 'only' — there the recs ARE the report).
@@ -722,7 +726,17 @@ function _compactHeader(pgNum){
   return '<div class="ph-compact"><div class="ph-compact-left">'+l1+'<br>'+l2+'<br>'+l3+'</div><div class="ph-compact-right">'+r1+'<br>&nbsp;<br>'+esc(date)+'</div></div>';
 }
 
+// S317: report-sequential Item # (Option E, LOCKED). Gapless running counter
+// over RENDERED rows in body render order. Stamped on r as r._itemNo inside
+// _buildDefCard (called exactly once per rendered row, in order). Reset to 0
+// before the deficiency body and AGAIN before the rec section (recs restart at
+// 1 — Mark-locked Option A: recs are an outside-scope separate document concern).
+// The appendix Item column reads the same r._itemNo back off each row.
+var _itemNo=0;
+function _nextItem(){return ++_itemNo;}
 function _buildDefCard(r,hdrExtra){
+  // S317: assign this rendered row its report-sequential item number.
+  r._itemNo=_nextItem();
   // S118: each r is now a single observation item (flattened). r.obs is the
   // observation object (or null for legacy single-obs deficiencies).
   // r.obsIdx is the observation index within the parent pin (used for unique
@@ -806,7 +820,10 @@ function _buildDefCard(r,hdrExtra){
       _inspChip='<span class="dc-insp" style="color:#9CA3AF;border-color:#9CA3AF;opacity:.55;font-style:italic;" title="Logged by another inspector">?</span>';
     }
   }
-  h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">#'+(r.numLabel||r.rn)+'</span></span><span class="dc-hdr-r">'+_inspChip+(hdrExtra||'')+(_showRecChip?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
+  // S317 (Option E, LOCKED): "1 · Pin 3A" — report-sequential item # (burgundy
+  // bold) · the word "Pin" + pin#/obs# (dark slate). Pin#/obs# is NOT dropped.
+  var _pinRef='Pin '+esc(r.numLabel||r.rn);
+  h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">'+r._itemNo+'</span><span class="item-sep">\u00b7</span><span class="pinref-dark">'+_pinRef+'</span></span><span class="dc-hdr-r">'+_inspChip+(hdrExtra||'')+(_showRecChip?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
@@ -880,6 +897,7 @@ var _ctrIdxByName={};(p.contractors||[]).forEach(function(c,i){if(c&&c.name&&_ct
 function _newTrade(nm){return{name:nm,total:0,real:{},realOrder:[],noctr:[]};}
 function _pushReal(T,cn,r){if(!T.real[cn]){T.real[cn]=[];T.realOrder.push(cn);}T.real[cn].push(r);T.total++;}
 var contentBlocks=[];
+_itemNo=0; // S317: deficiency item #s start at 1 (render order, gapless)
 // S142 Batch 3-2 (Model 2 §4.4): recommendations are pulled OUT of the
 // trade/contractor/Other-Trade-Items sections entirely. Deficiency
 // sections are deficiencies-only. Recs are pooled into recBlocks and
@@ -959,6 +977,7 @@ var _recSummaryHtml='';
 var _recPrevClosedHtml='';
 var _recFootHtml='<div class="rec-foot">Recommendation items noted during this review fall outside the contracted scope of work, and are not held against the engineer sign-off letter.</div>';
 var _recSecTtlHtml='<div class="rec-secttl"><div class="rec-secttl-ttl">Recommendations</div><div class="rec-secttl-sub">The following items were noted during this review and fall outside the contracted scope of work. They are provided for information and are not held against the engineer sign-off letter.</div></div>';
+_itemNo=0; // S317 Option A (LOCKED): recommendation item #s RESTART at 1
 if(pooledRecs.length){
   function _recPrevClosed(r){return _deficIsClosed(r.d)&&((r.d.closedOnInstance||_curInst)<_curInst);}
   var _activeRecs=[],_prevClosedRecs=[];
@@ -1294,37 +1313,84 @@ if(recBlocks.length){
   _finalizePage();
 }
 
-// Appendix
+// Appendix — S317: split into lettered Appendix A (deficiency pins) and
+// Appendix B (recommendation pins). Each appendix shows ONLY its own pin type
+// (legal separation — rec pins never land on deficiency drawings). Lettering:
+// A = deficiencies (always, when defic pins on drawings exist); B = recs (only
+// when recs are included AND rec pins exist on drawings). Pin table gains a
+// leading Item column reading r._itemNo (body-order item #). LOCKED S316 spec.
 if(isField&&p.drawings&&p.drawings.length){
-  var dwP=p.drawings.filter(function(dw){return reportDefs.some(function(r){return r.d.drawingId===dw.id&&r.d.pinX!=null;});});
-  if(dwP.length){dwP.forEach(function(dw){
-    var dPins=reportDefs.filter(function(r){return r.d.drawingId===dw.id&&r.d.pinX!=null;});
-    var aH='<div class="sh" style="margin-top:0;">Appendix \u2014 Drawings with Pins</div><div class="sb" style="padding:8px;"><div class="app-dwg">';
-    aH+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
-    aH+='<img class="app-dwg" id="app-dwg-'+dw.id+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
-    aH+='<table class="app-pin-table"><thead><tr><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
-    dPins.forEach(function(r){var d=r.d;
-      // S119 hotfix: per-obs status + description. Previously every row of
-      // a multi-obs pin pulled obs[0].text and the pin-level open-status,
-      // duplicating identical content (Mark report — appendix showed
-      // "Pipe penetration at middle wall / Outstanding / Vipond" twice
-      // when one obs was closed and one was open with a different contractor).
-      // r.ctr is already per-obs (baked in by _pushItems).
-      var rowOpen=_itemIsOpen(r);
-      // S119 hotfix #2: IAR overrides the Outstanding/Closed status text
-      // (Mark request — match the first item's IAR badge style instead of
-      // showing "Outstanding" in the status column for IAR rows).
-      var statusTxt,statusCol;
-      if(d.iar){statusTxt='IAR';statusCol='#E91E8C';}
-      else if(rowOpen){statusTxt='Outstanding';statusCol='#A85959';} // S154: forbidden #C0392B → muted maroon
-      else{statusTxt='Closed';statusCol='#5F8068';} // S154: forbidden #1A7A4A → muted sage
-      // The IAR badge under the pin# is now redundant when the status column
-      // already says IAR — drop it.
-      aH+='<tr><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+esc(_itemDesc(r)||'\u2014')+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
+  // S317 prior-closed predicate (mirrors the rec section's _recPrevClosed and
+  // the deficiency Previously-Closed split): an item closed in a PRIOR instance
+  // leaves the active flow → it must NOT appear in its appendix (it lives in the
+  // Previously Closed section instead). Closed THIS instance stays (shown Closed).
+  function _appPrevClosed(r){return _deficIsClosed(r.d)&&((r.d.closedOnInstance||_curInst)<_curInst);}
+  // Build the lettered list of appendices to emit, in order.
+  var _appendixDefs=[];
+  // Appendix A — deficiency drawings (non-rec pins). Suppressed in recs-only
+  // mode (there are no deficiencies in the report, so no deficiency appendix).
+  // Scope unchanged from pre-S317: ALL deficiency pins on the drawing show,
+  // including prior-closed pins (which carry an em-dash Item #). The body's
+  // "Previously Closed Items" table handles them in the narrative separately.
+  if(_recsMode!=='only'){
+    _appendixDefs.push({kind:'deficiency',
+      pred:function(r){return !(r.d&&r.d.isRecommendation);}});
+  }
+  // Recommendation appendix — gated on recs-included + active rec pins exist.
+  // Takes the NEXT free letter: 'A' when it's the only appendix (recs-only or
+  // no deficiency drawings), 'B' when it follows the deficiency appendix.
+  if(_recsMode!=='exclude'){
+    var _hasRecPin=reportDefs.some(function(r){return r.d&&r.d.isRecommendation&&!_appPrevClosed(r)&&r.d.drawingId!=null&&r.d.pinX!=null;});
+    if(_hasRecPin)_appendixDefs.push({kind:'recommendation',
+      pred:function(r){return !!(r.d&&r.d.isRecommendation)&&!_appPrevClosed(r);}});
+  }
+  var _appLetters='ABCDEFGH';
+  var _appIdx=0;
+  _appendixDefs.forEach(function(def){
+    // Drawings that carry at least one pin matching this appendix's predicate.
+    var dwP=p.drawings.filter(function(dw){return reportDefs.some(function(r){return def.pred(r)&&r.d.drawingId===dw.id&&r.d.pinX!=null;});});
+    if(!dwP.length)return; // nothing to emit for this letter
+    var _isRecAppendix=(def.kind==='recommendation');
+    var _letter=_appLetters.charAt(_appIdx);_appIdx++;
+    var _appTitle='Appendix '+_letter+' \u2014 Drawings with Pins ('+(_isRecAppendix?'Recommendations':'Deficiencies')+')';
+    var _firstDrawingOfAppendix=true;
+    dwP.forEach(function(dw){
+      var dPins=reportDefs.filter(function(r){return def.pred(r)&&r.d.drawingId===dw.id&&r.d.pinX!=null;});
+      // Appendix title band only on the FIRST drawing of the appendix; later
+      // drawings stay under the same letter with an "(cont.)" band (S316 §5).
+      var aH='';
+      if(_firstDrawingOfAppendix){aH+='<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div>';_firstDrawingOfAppendix=false;}
+      else{aH+='<div class="sh" style="margin-top:0;color:#6B7B8C;font-size:11pt;">'+esc('Appendix '+_letter+' (cont.)')+'</div>';}
+      aH+='<div class="sb" style="padding:8px;"><div class="app-dwg">';
+      aH+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
+      aH+='<img class="app-dwg" id="app-dwg-'+dw.id+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+      aH+='<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
+      dPins.forEach(function(r){var d=r.d;
+        // S119 hotfix: per-obs status + description (r.ctr is already per-obs).
+        var rowOpen=_itemIsOpen(r);
+        var statusTxt,statusCol;
+        // S317 correction: the recommendation appendix is two-state ONLY —
+        // an OPEN rec is "Recommendation" (never "Outstanding"), a CLOSED-this-
+        // instance rec is "Closed". Deficiency appendix keeps IAR/Outstanding/Closed.
+        if(_isRecAppendix){
+          if(rowOpen){statusTxt='Recommendation';statusCol='#5E5440';} // muted tan (rec family)
+          else{statusTxt='Closed';statusCol='#5F8068';}                // muted sage
+        }else if(d.iar){statusTxt='IAR';statusCol='#E91E8C';}
+        else if(rowOpen){statusTxt='Outstanding';statusCol='#A85959';} // S154 muted maroon
+        else{statusTxt='Closed';statusCol='#5F8068';}                  // S154 muted sage
+        // S317: Item # is the body item number; rows with no body card (shouldn't
+        // occur now that prior-closed are filtered out) show an em-dash, safe.
+        var _itm=(r._itemNo!=null)?('<strong style="color:#9C2742;">'+r._itemNo+'</strong>'):'<span style="color:#B8BCC6;">\u2014</span>';
+        aH+='<tr><td>'+_itm+'</td><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+esc(_itemDesc(r)||'\u2014')+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
+      });
+      aH+='</tbody></table></div></div>';
+      // S317 correction: the recommendation appendix always starts its OWN page
+      // (matches the Recommendations section living on its own page today). The
+      // per-page model already forces a page break per appendix entry; the rec
+      // appendix's first drawing therefore opens a fresh page after Appendix A.
+      pages.push({html:aH,pageNum:curPageNum,isAppendix:true});curPageNum++;
     });
-    aH+='</tbody></table></div></div>';
-    pages.push({html:aH,pageNum:curPageNum,isAppendix:true});curPageNum++;
-  });}
+  });
 }
 
 // Render pages
