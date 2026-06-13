@@ -42,7 +42,7 @@ body.dark-mode{
 }
 
 /* ═══ HEADER ═══ */
-.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);display:flex;align-items:center;padding:max(10px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);min-width:0;}
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);display:flex;align-items:center;padding:10px 16px;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);min-width:0;}
 .hdr img{height:32px;width:auto;background:#fff;padding:4px 8px;border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.1);display:block;transition:transform .2s;flex-shrink:0;}
 .hdr img:hover{transform:scale(1.03)}
 .hdr-title{font-size:17px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-.2px;flex-shrink:0;}
@@ -547,15 +547,6 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:calc(13px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
-/* ====== S322 — tool-wide safe-area (parity with FRT/Diesel/Electric) ======
-   Main .hdr carries the top inset (above). Utilities = convention for new modals;
-   .mobile-menu drawer + any future top-reaching header get the inset on mobile. */
-@media(max-width:768px){
-  .safe-top{padding-top:max(12px,env(safe-area-inset-top,0px)) !important;}
-  .safe-bottom{padding-bottom:max(14px,env(safe-area-inset-bottom,0px)) !important;}
-  .safe-x{padding-left:max(14px,env(safe-area-inset-left,0px)) !important;padding-right:max(14px,env(safe-area-inset-right,0px)) !important;}
-  .mobile-menu{padding-top:max(20px,env(safe-area-inset-top,0px));}
-}
 </style>
 </head>
 <body>
@@ -3781,14 +3772,15 @@ function _pgResolveR2Src(ph, projectId) {
   // Always rebuild from r2Key using slug (r2Url in Supabase may be stale)
   if (ph.r2Key) {
     var parts = ph.r2Key.split('/');
-    // Expected: ['photos', '{pid}', 'frt', '{type}', '{fname}']
+    // Expected: ['photos', '{pid}', '{tool}', '{type}', '{fname}']
     if (parts.length >= 5 && parts[0] === 'photos') {
       var proj = _projects ? _projects.find(function(p) { return p.id === projectId; }) : null;
       var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
       var folder = slug || parts[1];
+      var tool = parts[2] || 'frt';   // S332: honor the photo's real tool (was hardcoded frt → diesel/electric photos got wrong URLs)
       var type = parts[3];
       var fname = parts.slice(4).join('/');
-      return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/frt/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
+      return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/' + encodeURIComponent(tool) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
     }
     return R2_WORKER + '/' + ph.r2Key;
   }
@@ -3923,19 +3915,19 @@ function _pgExtractPhotos(row) {
 
   // ── Diesel / Electric pump tools ──
   if (toolKey === 'diesel' || toolKey === 'electric') {
-    // deficiencies: { [name]: [ {photos:[{d,n}], responses:[{photos:[]}] } ] }
+    // Diesel/Electric photo sources (S332 fix: was using wrong keys + missing
+    // recordPhotos/flowTest, so the detail page showed no pump photos).
+    function _pumpSrc(ph){ if(!ph) return ''; return _pgResolveR2Src(ph, projectId) || ph.d || ph.dataUrl || ''; }
     function _pumpDefics(obj) {
       if (!obj || typeof obj !== 'object') return;
       Object.values(obj).forEach(function(arr) {
         (arr || []).forEach(function(d) {
           (d.photos || []).forEach(function(ph) {
-            var src = ph.d || ph.dataUrl || '';
-            if (src) photos.push(_makeRec(src, 'deficiency', 'Deficiency', ''));
+            var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'deficiency', 'Deficiency', ph.date||''));
           });
           (d.responses || []).forEach(function(resp) {
             (resp.photos || []).forEach(function(ph) {
-              var src = ph.d || ph.dataUrl || '';
-              if (src) photos.push(_makeRec(src, 'response', 'Response', ''));
+              var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'response', 'Response', ph.date||''));
             });
           });
         });
@@ -3945,22 +3937,32 @@ function _pgExtractPhotos(row) {
     // general deficiencies array
     (data.generalDeficiencies || []).forEach(function(d) {
       (d.photos || []).forEach(function(ph) {
-        var src = ph.d || ph.dataUrl || '';
-        if (src) photos.push(_makeRec(src, 'deficiency', 'General Defic', ''));
+        var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'deficiency', 'General Defic', ph.date||''));
       });
       (d.responses || []).forEach(function(resp) {
         (resp.photos || []).forEach(function(ph) {
-          var src = ph.d || ph.dataUrl || '';
-          if (src) photos.push(_makeRec(src, 'response', 'Gen Resp', ''));
+          var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'response', 'Gen Resp', ph.date||''));
         });
       });
     });
-    // checklist photos
-    (data.checklistState ? Object.values(data.checklistState) : []).forEach(function(item) {
+    // checklist photos — Diesel stores these under clState (NOT checklistState)
+    var _cls = data.clState || data.checklistState || {};
+    Object.keys(_cls).forEach(function(k){
+      var item = _cls[k]; if(!item) return;
       (item.photos || []).forEach(function(ph) {
-        var src = ph.d || ph.dataUrl || '';
-        if (src) photos.push(_makeRec(src, 'site', item.label || 'Checklist', ''));
+        var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', item.label || 'Checklist', ph.date||''));
       });
+    });
+    // record photos (pump / placard / flow chart) — key field captures, were missing
+    (data.recordPhotos || []).forEach(function(ph) {
+      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', ph.caption || ph.kind || 'Record', ph.date||''));
+    });
+    // flow-test gauge photos (standard + PLD)
+    (data.flowTestPhotos || []).forEach(function(ph) {
+      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Flow Test', ph.date||''));
+    });
+    (data.flowTestPhotosPld || []).forEach(function(ph) {
+      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Flow Test (PLD)', ph.date||''));
     });
   }
 
