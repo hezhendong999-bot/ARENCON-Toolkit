@@ -1843,20 +1843,36 @@ function _tieredBack(){
   if(ha){ if(typeof closeMobileMenu==='function')closeMobileMenu(); else ha.classList.remove('mobile-open'); return true; }
   return false; // nothing open
 }
+/* ═══ S332/S333: TIERED BACK — swipe/back gesture peels one layer, never throws you out ═══
+   The TWA/browser edge-swipe fires history-back, which used to unload the tool.
+   We trap it with a *buffer* of guard history entries: back pops a guard instead
+   of leaving, _tieredBack() closes the topmost open layer, and we top the buffer
+   back up. A single guard was not enough on the Android TWA — when the tool is the
+   app's entry page, one back can reach the bottom of the stack where the TWA closes
+   the app. So we keep a depth-3 buffer and re-arm after every pop. Only when nothing
+   is open does back behave like the ← Back button (save → project detail). */
+var _DSL_BACK_DEPTH = 3;
+function _backTopUp(){
+  try{
+    // ensure at least _DSL_BACK_DEPTH guard entries sit in front of the page
+    var have = (history.state && history.state._dslGuard) ? history.state._dslGuard : 0;
+    while(have < _DSL_BACK_DEPTH){ have++; history.pushState({_dslGuard:have}, ''); }
+  }catch(e){}
+}
+var _dslLeaving=false;
 function _installBackTrap(){
   try{
-    // Guard entry: the gesture pops THIS, not the page.
-    history.pushState({_dslGuard:1}, '');
+    _backTopUp();
     window.addEventListener('popstate', function(e){
       var handled=_tieredBack();
-      if(handled){
-        // re-arm the guard so the next swipe is trapped too
-        history.pushState({_dslGuard:1}, '');
-      } else {
-        // nothing open → behave exactly like the ← Back button
+      _backTopUp();
+      if(!handled){
+        if(_dslLeaving) return;      // S333: a leave is already in flight (async save) — don't double-navigate
+        _dslLeaving=true;
         goBackToHub();
       }
     });
+    window.addEventListener('pageshow', function(){ _backTopUp(); });
   }catch(e){}
 }
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', _installBackTrap); }
@@ -3192,8 +3208,7 @@ function buildItem(id, item, section, idx, isCustom) {
           <div class="pm-foot">
             <span class="pm-hint">${_nPhotos>0?'Drop more photos to add':'Drop photos here or use a button'}</span>
             <span class="pm-btns">
-              <button class="pm-b up" onclick="triggerPhoto('${id}')">📎 Upload</button>
-              <button class="pm-b cam" onclick="triggerCamera('${id}')">📷 Camera</button>
+              <button class="pm-b cam" onclick="triggerCamera('${id}')">📷 Upload Photos</button>
             </span>
           </div>
         </div>
@@ -5400,7 +5415,7 @@ function _renderFlowPhotoModal(){
   h+='<div class="photo-zone-compact fpm-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
   h+='<span>Drag &amp; drop — tagged <b>'+(_GAUGE_TAG_LABEL[_flowPhotoActiveReading]||'Suction')+'</b></span>';
   h+='<div class="pz-row">';
-  h+='<button class="pz-upload" onclick="_flowPhotoUpload()">🖼 Add Photos</button>';
+  h+='<button class="pz-upload" onclick="_flowPhotoCamera()">📷 Upload Photos</button>';
   h+='<button class="pz-gallery" onclick="_flowPhotoOpenGallery()">🖼 Gallery</button>';
   h+='</div>';
   h+='</div>';
@@ -7351,8 +7366,7 @@ function buildDeficItem(name, safe, d, i) {
       +'<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';deficRespTimelineDrop(event,\''+safe+'\','+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">'
       +'<span>Drag & drop photos</span>'
       +'<div style="display:flex;gap:5px;">'
-      +'<button onclick="deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button>'
-      +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
+      +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Upload Photos</button>'
       +'</div></div></div></div></div>';
   });
 
@@ -7377,8 +7391,7 @@ function buildDeficItem(name, safe, d, i) {
     +'<div class="photo-zone" ondragover="handleDragOver(event,\'_d_'+safe+'_'+i+'\')" ondragleave="handleDragLeave(event,\'_d_'+safe+'_'+i+'\')" ondrop="deficDrop(event,\''+safe+'\','+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;" onclick="deficUpload(\''+safe+'\','+i+')">'
     +'<span>Drag & drop photos here</span>'
     +'<div style="display:flex;gap:5px;">'
-    +'<button onclick="event.stopPropagation();deficUpload(\''+safe+'\','+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button>'
-    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Upload Photos</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="deficiencies[\''+safe+'\']['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="deficiencies[\''+safe+'\']['+i+'].status=this.value;_checkDeficStatusChange(\''+safe+'\','+i+');updateDeficSummary();">'
@@ -7656,13 +7669,13 @@ function buildGeneralDeficItem(d, i) {
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Comment</div><textarea placeholder="'+label+' response..." style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].responses['+ci+'].comment=this.value">'+(cr.comment||'')+'</textarea></div>';
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+crPhotosHtml+'</div>';
     respHtml += '<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';genDeficRespDrop(event,'+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">';
-    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div></div>';
+    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Upload Photos</button></div></div></div></div></div>';
   });
   respHtml += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'contractor\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #E67E22;border-radius:5px;background:#fffbf0;color:#E67E22;font-size:12px;cursor:pointer;font-weight:600;">+ Add Contractor Response</button>';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'consultant\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #1565C0;border-radius:5px;background:#f0f4ff;color:#1565C0;font-size:12px;cursor:pointer;font-weight:600;">+ Add Consultant Response</button></div>';
 
-  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--smoke);color:var(--steel);font-size:calc(12.5px + var(--ts));cursor:pointer;">📎 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5F8068;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Upload Photos</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="generalDeficiencies['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="generalDeficiencies['+i+'].status=this.value;updateDeficSummary();renderGeneralDeficGroup();"><option value="open" '+(sc==='open'?'selected':'')+'>● Outstanding</option><option value="in-progress" '+(sc==='in-progress'?'selected':'')+'>● In Progress</option><option value="resolved" '+(sc==='resolved'?'selected':'')+'>● Addressed & Closed</option></select></div>'
@@ -9269,8 +9282,7 @@ function addSketchEntry() {
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="13" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
             <div style="font-size:13px;color:#888;">Drag & drop a site photo here to annotate</div>
             <div style="display:flex;gap:6px;">
-              <button class="btn btn-outline btn-sm" onclick="triggerSketchPhoto(${uid})">📎 Upload Photo</button>
-              <button class="btn btn-sm" style="background:#5F8068;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
+              <button class="btn btn-sm" style="background:#5F8068;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Upload Photos</button>
             </div>
           </div>
         </div>
@@ -11714,6 +11726,32 @@ if(typeof window!=='undefined'){
     btnDone.style.cssText = 'min-width:96px;min-height:52px;background:#2E9E72;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;opacity:.45;';
     bar.appendChild(btnCancel); bar.appendChild(shutter); bar.appendChild(btnDone);
     overlay.appendChild(bar);
+    // S333: Library/files option INSIDE the burst UI, so the single "Upload
+    // Photos" button still reaches existing photos (req A). Picked files merge
+    // into the same shots[] and flow out the identical perFileFn path. This
+    // also serves as the graceful path on devices where the camera frame is
+    // unavailable. One hidden input, reused.
+    var libInput = document.createElement('input');
+    libInput.type = 'file'; libInput.accept = 'image/*'; libInput.multiple = true;
+    libInput.style.display = 'none';
+    overlay.appendChild(libInput);
+    var btnLib = document.createElement('button');
+    btnLib.id = 'cam-burst-library';
+    btnLib.textContent = '\uD83D\uDDBC Library';
+    btnLib.style.cssText = 'position:absolute;top:14px;left:14px;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:8px 16px;font-size:14px;font-family:Calibri,sans-serif;cursor:pointer;z-index:2;';
+    vidWrap.appendChild(btnLib);
+    btnLib.addEventListener('click', function(){ libInput.value=''; libInput.click(); });
+    libInput.addEventListener('change', function(){
+      var fs = Array.prototype.slice.call(libInput.files||[]);
+      fs.forEach(function(file){
+        shots.push(file);
+        var u = URL.createObjectURL(file); urls.push(u);
+        var th = document.createElement('img'); th.src=u; th.style.cssText='height:56px;border-radius:8px;flex:none;';
+        strip.appendChild(th);
+      });
+      strip.scrollLeft = strip.scrollWidth;
+      _updateUI();
+    });
     document.body.appendChild(overlay);
     var prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -11781,7 +11819,20 @@ if(typeof window!=='undefined'){
   // perFileFn receives one File at a time and runs the caller's normal pipeline.
   function _camBurst(perFileFn) {
     openCameraBurst().then(function(files) {
-      if (files === null) { if (typeof showToast === 'function') showToast('Camera unavailable \u2014 use Upload instead', 2500); return; }
+      if (files === null) {
+        // S333: no camera (desktop / permission denied) — fall back to a direct
+        // library/files picker so the single "Upload Photos" button still works.
+        var fb = document.createElement('input');
+        fb.type='file'; fb.accept='image/*'; fb.multiple=true; fb.style.display='none';
+        document.body.appendChild(fb);
+        fb.addEventListener('change', function(){
+          var fs = Array.prototype.slice.call(fb.files||[]);
+          fs.forEach(function(f){ try { perFileFn(f); } catch(e){ console.warn('[burst-fallback] perFile failed:', e); } });
+          fb.remove();
+        });
+        fb.click();
+        return;
+      }
       if (files && files.length) files.forEach(function(f) { try { perFileFn(f); } catch (e) { console.warn('[burst] perFile failed:', e); } });
     });
   }
@@ -13463,8 +13514,7 @@ function _recZoneHtml(kind){
   html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
   html+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
   html+='<span>Drag &amp; drop · '+hint+'</span>';
-  html+='<button class="pz-upload" onclick="_recUpload(\''+kind+'\')">📎 Upload</button>';
-  html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')">📷 Camera</button>';
+  html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')">📷 Upload Photos</button>';
   html+='</div>';
   if(thumbs.length){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
@@ -14743,7 +14793,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S332';
+var DIESEL_BUILD = 'S333';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
