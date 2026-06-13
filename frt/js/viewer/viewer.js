@@ -2482,7 +2482,7 @@ function _drawPinMiniMapStatic(canvas, img, d) {
     var _peClosed = Model.getEffectiveStatus(d) === 'closed';
     var _peSite = !(d.contractorId || d.contractor);
     var fill = _peClosed ? '#5F8068'
-      : d.isRecommendation ? '#2C7FB8'
+      : d.isRecommendation ? '#5E5440'
       : _peSite ? '#6B6FA8'
       : d.iar ? '#FF69B4'
       : (effPri === 'general' ? '#5F8068' : (effPri === 'low' ? '#B07F5A' : '#A85959'));

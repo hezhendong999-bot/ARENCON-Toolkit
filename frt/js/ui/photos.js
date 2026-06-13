@@ -613,7 +613,7 @@ export var initPhotos = {
     html += _statTile('all', totalAll, '', 'Total');
     html += _statTile('high', totalObsHigh, 'var(--no)', 'Outstanding \u2014 High');
     html += _statTile('low', totalObsLow, 'var(--warn)', 'Outstanding \u2014 Low');
-    html += _statTile('recommendations', totalRec, '#2C7FB8', 'Recommendations');
+    html += _statTile('recommendations', totalRec, '#5E5440', 'Recommendations');
     html += _statTile('closed', totalClosed, 'var(--yes)', 'Closed');
     html += _statTile('site', totalSite, '#6E6AA8', 'Site Records');
     html += '</div>';
@@ -635,7 +635,7 @@ export var initPhotos = {
       [
         ['high', 'Outstanding \u2014 High', 'var(--no)'],
         ['low', 'Outstanding \u2014 Low', 'var(--warn)'],
-        ['recommendations', 'Recommendations', '#2C7FB8'],
+        ['recommendations', 'Recommendations', '#5E5440'],
         ['closed', 'Closed', 'var(--yes)'],
         ['site', 'Site Records', '#6E6AA8']
       ].forEach(function(pair) {

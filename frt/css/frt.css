@@ -2136,7 +2136,7 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-badge-pin-low{background:var(--warn);}
 .ph-badge-pin-closed{background:var(--yes);}/* S317: green = Closed */
 .ph-badge-site{background:#6E6AA8;}
-.ph-badge-pin-rec{background:#2C7FB8;}
+.ph-badge-pin-rec{background:#5E5440;}/* S317: rec brown (matches PDF .rec-chip family) */
 /* Cloud sync icon (bottom-right, always visible) */
 .ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .ph-cloud svg{display:block;}
@@ -9068,7 +9068,7 @@ body.dark-mode{
   --b-fieldbg:#FFFFFF;
   /* S233 cv category tokens (Bold·Light) — selected-pill fill + ink, per category */
   --b-cat-active-bg:#F3D9DE; --b-cat-active-fg:#9C2742;
-  --b-cat-rec-bg:#DCEFF6;    --b-cat-rec-fg:#1E7FA8;   /* S248 §3: teal Recommendation (was amber #FBEDD3/#8E6240) — distinct from amber low-Outstanding */
+  --b-cat-rec-bg:#DDD8CB;    --b-cat-rec-fg:#5E5440;   /* S317: rec brown (matches PDF .rec-chip / .pill-rec) — unified rec colour, was teal */
   --b-cat-site-bg:#DEDDEF;   --b-cat-site-fg:#3F4470;   /* lavender Site Record */
   --b-cat-closed-bg:#D2EBDC; --b-cat-closed-fg:#426B4F;
   /* segmented-pill chrome */
@@ -9094,7 +9094,7 @@ body.dark-mode{ --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A
   --b-fieldbg:rgba(255,255,255,.05);
   /* S233 cv category tokens (Bold·Dark) — muted fills, bright ink (glow in text, not fill) */
   --b-cat-active-bg:#3a1b22; --b-cat-active-fg:#E08DA1;
-  --b-cat-rec-bg:rgba(63,194,224,.16);    --b-cat-rec-fg:#3FC2E0;   /* S248 §3: teal Recommendation (was amber #2f2310/#E0A36A) — glow in ink, low-alpha fill */
+  --b-cat-rec-bg:rgba(157,138,90,.18);    --b-cat-rec-fg:#C9B68A;   /* S317: rec brown (dark-mode tan ink + low-alpha brown fill) — unified rec colour, was teal */
   --b-cat-site-bg:#22203a;   --b-cat-site-fg:#A9A4E0;   /* lavender Site Record */
   --b-cat-closed-bg:#0d2a1a; --b-cat-closed-fg:#6FCF97;
   --b-pill-bg:#1b212c; --b-pill-bd:#39414f; --b-pill-seg-bd:#2a313c; --b-pill-seg-fg:#7c8498;

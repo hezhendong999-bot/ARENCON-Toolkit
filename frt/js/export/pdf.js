@@ -93,11 +93,16 @@ function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d,isSiteRecord){
   // Anchor point in SVG is (16, 40). Map to (anchorX, anchorY).
   function P(svgX,svgY){return{x:anchorX+(svgX-16)*s,y:anchorY+(svgY-40)*s};}
 
-  // Color resolution — Site Record > IAR > priority. Muted canon palette
-  // matches viewer.js _renderPins exactly.
+  // Color resolution — Recommendation > Site Record > IAR > priority. Muted canon
+  // palette matches viewer.js _renderPins / pinsGL.js exactly. S317: a rec pin
+  // (d.isRecommendation) draws BROWN #5E5440 (matches the PDF .rec-chip family and
+  // the on-screen/gallery rec colour — unified). Without this branch an Appendix B
+  // rec pin fell through to priority and drew red.
   var pr=d.priority||'high';
   var fill;
-  if(isSiteRecord){
+  if(d.isRecommendation){
+    fill='#5E5440'; // brown — Recommendation (S317, unified rec colour)
+  }else if(isSiteRecord){
     fill='#6B6FA8'; // indigo — Site Records (S154)
   }else if(d.iar){
     fill='#E91E8C'; // pink — IAR (unchanged canon)
