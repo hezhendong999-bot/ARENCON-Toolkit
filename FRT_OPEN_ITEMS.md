@@ -8,6 +8,11 @@ Maintenance rule: before adding anything here as "open," grep the live repo to c
 ## OPEN — ready / in progress
 | # | Item | Type | Gate | Effort | What's left |
 |---|------|------|------|--------|-------------|
+| B1 | Rec pin teardrop still RED, should be brown #5E5440 | Bug | Trace data model | S | viewer.js ~L2536 + pinsGL.js L85 already use brown for `d.isRecommendation` → rec flag is NOT there for these pins (likely per-observation status). Trace before patching; wrong guess mis-colours other pins. |
+| B2 | Markup on photos drags the photo (should draw) | Bug | Inspect | S | Touch/pointer conflict — markup tool not suppressing photo drag/pan. |
+| B3 | Deficiency card flashes when dragging pin in minimap | Bug | Inspect | S | Pin-drag triggers full card re-render (innerHTML swap) per move/up. Patch-in-place / throttle instead. |
+| B4 | Appendix item numbers out of order (PDF) | Bug | Inspect | S | pdf.js appendix A/B Item column not sorted by item# before render. |
+| B5 | Photo lightbox selection doesn't work | Bug | Inspect | S | Lightbox multi-select handler not wiring / state not applied. |
 | 1 | Hub Bold rollout | Feature | Own session | L | Project Hub still on older look; bring onto ARENCON Bold light/dark. Big standalone. |
 | 2 | Safe-area: remaining tools | Polish | Ready (proven pattern) | M | S322 covered FRT/Diesel/Hub/Electric. Still: IST, OBC, DD Checklist, Training Center, Training Admin, Resource Planner, Intranet Portal, Org Chart, Trapeze Calc, Onboarding Quiz + toolkit portal (BLOCKED on repo path — root index.html is the Tablet Rescue diagnostic, not the portal). |
 | 3 | PK / docs consolidation | Docs | Scope unconfirmed | M | Regenerate one ARENCON_FRT_PK.md from scattered PK + deltas. |
