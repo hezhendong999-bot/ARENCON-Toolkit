@@ -402,7 +402,22 @@ export var initPins = {
       h += '</tr>';
     });
     h += '</tbody></table></div>';
+    // S327: the filter bar (incl. #tasks-search) is rebuilt by this innerHTML
+    // swap, so on every keystroke the search input was destroyed and focus/caret
+    // lost — you could only type one character before having to click back in.
+    // Capture focus + caret on the search box and restore after the swap.
+    var _wasSearch = (document.activeElement && document.activeElement.id === 'tasks-search');
+    var _selS = _wasSearch ? document.activeElement.selectionStart : null;
+    var _selE = _wasSearch ? document.activeElement.selectionEnd : null;
     container.innerHTML = h;
+    if (_wasSearch) {
+      var _ns = document.getElementById('tasks-search');
+      if (_ns) {
+        _ns.focus();
+        try { if (_selS != null) _ns.setSelectionRange(_selS, _selE); }
+        catch (_) { /* setSelectionRange not valid on some input states */ }
+      }
+    }
   }
 };
 
@@ -418,6 +433,11 @@ var _summaryDebounce = null;
 Model.onChange('saved', function() {
   if (_summaryDebounce) clearTimeout(_summaryDebounce);
   _summaryDebounce = setTimeout(function() {
+    // S327: don't rebuild the board/table out from under a user typing in the
+    // Tasks search box (background 'saved' ticks otherwise destroy the input
+    // mid-keystroke). The render the user's own typing schedules still runs.
+    var ae = document.activeElement;
+    if (ae && ae.id === 'tasks-search') return;
     if (_viewMode === 'board') _renderBoard(); else initPins.render();
   }, 300);
 });

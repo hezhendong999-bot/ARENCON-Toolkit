@@ -1417,9 +1417,17 @@ function _collectSelected() {
 }
 
 function _clearSelection() {
+  // S327: clear the SELECTION SET (source of truth for count, Delete-N, reassign),
+  // not just the .selected CSS class. Previously this cleared only the class, so
+  // after "Clear" / exiting select mode the Set still held stale uids — the toolbar
+  // kept showing "N selected" and a subsequent Delete targeted the supposedly-cleared
+  // photos. Re-render so the cleared state is reflected.
+  _selectedUids.clear();
+  _lastSelectedUid = null;
   document.querySelectorAll('#panel-photos .ph-card.selected').forEach(function(c) {
     c.classList.remove('selected');
   });
+  if (initPhotos && initPhotos.render) initPhotos.render();
 }
 
 function _toggleSelectMode(on) {
@@ -1788,8 +1796,13 @@ document.addEventListener('click', function(e) {
           _toggleSelectMode();
         } else if (a === 'sel-all') {
           if (!document.body.classList.contains('photos-select-mode')) _toggleSelectMode(true);
-          document.querySelectorAll('#panel-photos .ph-card').forEach(function(c){ c.classList.add('selected'); });
-          var n = document.querySelectorAll('#panel-photos .ph-card.selected').length;
+          // S327: select all VISIBLE photos into the selection SET (source of
+          // truth), not just the CSS class — otherwise Delete/Reassign (which
+          // read _selectedUids) saw nothing selected. Mirrors the toolbar's
+          // ph-select-all-visible path.
+          _renderOrderUids.forEach(function(u){ _selectedUids.add(u); });
+          var n = _selectedUids.size;
+          if (initPhotos && initPhotos.render) initPhotos.render();
           toast(n + ' photo' + (n!==1?'s':'') + ' selected');
         } else if (a === 'desel-all') {
           _clearSelection();

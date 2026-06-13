@@ -5679,12 +5679,17 @@ Model.onChange('project', function() {
 // uploading in some other card.
 Model.onChange('photo', function() {
   var ae = document.activeElement;
-  if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) {
+  // S327: guard brought to PARITY with the project/saved/inspectors guards.
+  // Previously this omitted SELECT and the .defic-pin-group container, so a
+  // photo event landing while the user typed a comment inside a pin-group card
+  // (or had a priority/contractor SELECT open) rebuilt the list mid-interaction
+  // → flash + focus loss. Same drop-and-recover policy as the others.
+  if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) {
     // S263 FIX: include the combined-view DOM (see the 'saved' guard below) so
     // a photo finishing upload elsewhere doesn't rebuild the list out from
     // under a user typing a comment in the combined view.
     if (ae.classList && ae.classList.contains('obs-text-input')) return;
-    if (ae.closest('#tab-deficiencies, #deficiencies-container, .defic-item, .defic-list, .cv-row, .cv-ed-left')) return;
+    if (ae.closest('#tab-deficiencies, #deficiencies-container, .defic-item, .defic-list, .defic-pin-group, .cv-row, .cv-ed-left')) return;
   }
   initDeficiencies.render();
 });
