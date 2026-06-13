@@ -1831,6 +1831,9 @@ var _peObsIdx = 0;
 // registration when reopening without close (defense in depth — the open
 // path always closes first, but cheap insurance).
 var _peSubscribed = false;
+// S327 (B3): set true when a pin drag moved the pin; consumed by _closePinEditor
+// to do exactly one list re-render on close (avoids per-drop full-list flash).
+var _peListDirtyFromPinDrag = false;
 function _peOnModelChange(type, data) {
   if (!_peDeficId) return;
   // If a photo picker is open, don't auto-rerender — that would clobber the
@@ -2249,6 +2252,12 @@ function _closePinEditor() {
   _peSelectionMode = false;
   _peSelectionPending = null;
   _peShowDeletedMode = false;
+  // S327 (B3): if a pin drag relocated a pin while the editor was open, the list
+  // behind it is stale. Render it once now (editor is closing → no visible flash).
+  if (_peListDirtyFromPinDrag) {
+    _peListDirtyFromPinDrag = false;
+    if (window._frtRenderDefic) window._frtRenderDefic();
+  }
 }
 
 // ── S120 Push 4: pin editor photo zone — pool-aware + selection mode ──
@@ -2532,8 +2541,15 @@ function _drawPinMiniMapStatic(canvas, img, d) {
     // so a recommendation pin showed red here while the rest of the tool said blue.
     var _peClosed = Model.getEffectiveStatus(d) === 'closed';
     var _peSite = !(d.contractorId || d.contractor);
+    // S327 (B1): rec from "any obs is rec" (fallback rollup) — the pin-level
+    // d.isRecommendation rollup can be stale (e.g. the add-deficiency modal sets
+    // only d.isRecommendation, never obs[0]), so reading it alone showed red here
+    // while the card derived rec from obs and showed brown. Derive the same way
+    // the card does so the minimap teardrop agrees.
+    var _peObs = (d.observations && d.observations.length) ? d.observations : null;
+    var _peRec = _peObs ? _peObs.some(function(o){ return o && o.isRecommendation; }) : !!d.isRecommendation;
     var fill = _peClosed ? '#5F8068'
-      : d.isRecommendation ? '#5E5440'
+      : _peRec ? '#5E5440'
       : _peSite ? '#6B6FA8'
       : d.iar ? '#FF69B4'
       : (effPri === 'general' ? '#5F8068' : (effPri === 'low' ? '#B07F5A' : '#A85959'));
@@ -2795,7 +2811,12 @@ var _PinPan = (function() {
     if (st.mode === 'pin' && st.moved) {
       // Persist the new real pin location.
       Model.saveNow();
-      if (window._frtRenderDefic) window._frtRenderDefic();
+      // S327 (B3): do NOT full-render the deficiency list here — that innerHTML
+      // swap flashes the whole list under the open modal editor on every drop.
+      // The editor's own minimap already tracks the pin live via draw(). Mark the
+      // list dirty and let _closePinEditor do ONE clean render on close (when the
+      // list becomes visible again), so dragging the pin no longer flashes.
+      _peListDirtyFromPinDrag = true;
       // keep the other (mobile) thumb in sync if present
       var mob = document.getElementById('pe-location-thumb-mobile');
       if (mob) _renderPinMiniMap(st.d, 'pe-location-thumb-mobile');

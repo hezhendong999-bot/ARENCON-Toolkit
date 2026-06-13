@@ -589,6 +589,7 @@ document.addEventListener('wheel', function(e) {
 // Mouse drag pan
 document.addEventListener('mousedown', function(e) {
   if (!_isOpen) return;
+  if (_markupActive) return;  // S327 (B2): during markup the engine owns the pointer — no pan
   var area = _el('lb-canvas');
   if (!area || !area.contains(e.target)) return;
   if (e.target.closest && (e.target.closest('#lb-prev') || e.target.closest('#lb-next') || e.target.closest('#lb-close') || e.target.closest('#lb-topbar'))) return;
@@ -615,6 +616,7 @@ document.addEventListener('mouseup', function() {
 // Touch: pinch-to-zoom + swipe + double-tap
 document.addEventListener('touchstart', function(e) {
   if (!_isOpen) return;
+  if (_markupActive) return;  // S327 (B2): markup owns single-finger drag — don't swipe/pan/zoom the photo
   var area = _el('lb-canvas');
   if (!area || !area.contains(e.target)) return;
   if (e.target.closest && (e.target.closest('#lb-prev') || e.target.closest('#lb-next') || e.target.closest('#lb-close') || e.target.closest('#lb-topbar'))) return;
@@ -664,6 +666,7 @@ document.addEventListener('touchstart', function(e) {
 
 document.addEventListener('touchmove', function(e) {
   if (!_isOpen) return;
+  if (_markupActive) return;  // S327 (B2): markup stroke in progress — don't pan/swipe the photo under it
   var area = _el('lb-canvas');
   if (!area || !area.contains(e.target)) return;
 
@@ -702,6 +705,7 @@ document.addEventListener('touchmove', function(e) {
 
 document.addEventListener('touchend', function(e) {
   if (!_isOpen) return;
+  if (_markupActive) return;  // S327 (B2): no swipe-to-next on markup stroke release
   if (e.touches.length < 2) _touchStartDist = 0;
   if (e.touches.length === 1) {
     _singleTouchX = e.touches[0].clientX;

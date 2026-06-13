@@ -3731,7 +3731,11 @@ function _openAddDeficModal(prefillCtrId, prefillTrade) {
     var tr = ov.querySelector('#adf-trade').value || '';
     Model.updateObsTrade(d.id, 0, tr, 'manual');
     // Additive fields — set on the returned live defic (spin-off precedent).
-    d.isRecommendation = !!ov.querySelector('#adf-rec').checked;
+    // S327 (B1 root cause): route rec through setRecommendation so obs[0] AND the
+    // pin-level rollup are both written. Setting d.isRecommendation directly left
+    // obs[0].isRecommendation=false, so the card filter (obs-level) and the minimap
+    // teardrop (rollup) disagreed on whether the new pin was a recommendation.
+    if (ov.querySelector('#adf-rec').checked) Model.setRecommendation(d.id, true);
     var pin = ov.querySelector('#adf-pin').value;
     if (pin) d.drawingId = pin;   // pinX/pinY stay null — placed later on the drawing
     Model.saveNow();
