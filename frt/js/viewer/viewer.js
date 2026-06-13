@@ -980,6 +980,13 @@ document.addEventListener('keydown', function(e) {
   var overlay = document.getElementById('drawing-viewer-overlay');
   if (!overlay || !overlay.classList.contains('open')) return;
 
+  // S326: don't hijack keys while the user is typing. ArrowLeft/Right (page
+  // prev/next), +/-/0 (zoom) must yield to text editing — previously left-arrow
+  // in a comment textarea flipped the drawing page (looked like a "refresh" and
+  // lost the caret position). Skip when focus is in any editable field.
+  var t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+
   if (e.key === 'ArrowLeft') { initViewer.prev(); e.preventDefault(); }
   if (e.key === 'ArrowRight') { initViewer.next(); e.preventDefault(); }
   if (e.key === '+' || e.key === '=') { _scale = Math.min(_MAX_ZOOM, _scale * 1.2); _applyTransform(); }
@@ -2866,10 +2873,16 @@ var _PinPan = (function() {
     fresh.addEventListener('touchmove', onMove, { passive: false });
     fresh.addEventListener('touchend', onUp);
     fresh.addEventListener('wheel', onWheel, { passive: false });
-    // window-level move/up so a drag that leaves the canvas still tracks
+    // S326 FIX: window-level move/up must call the CURRENT mount's handlers.
+    // Previously they were bound once to the FIRST mount's onMove/onUp closures
+    // (stale `st`), so mouse drag/zoom silently died after the first time the
+    // pin editor was opened. Store the live handlers and bind stable delegating
+    // wrappers exactly once; the wrappers always invoke the current pair.
+    _PinPan._onMove = onMove;
+    _PinPan._onUp = onUp;
     if (!_PinPan._winBound) {
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
+      window.addEventListener('mousemove', function(ev) { if (_PinPan._onMove) _PinPan._onMove(ev); });
+      window.addEventListener('mouseup', function(ev) { if (_PinPan._onUp) _PinPan._onUp(ev); });
       _PinPan._winBound = true;
     }
     computeFit();
@@ -2883,7 +2896,7 @@ var _PinPan = (function() {
     draw();
   }
 
-  return { mount: mount, _winBound: false };
+  return { mount: mount, _winBound: false, _onMove: null, _onUp: null };
 })();
 
 // S116 Push 1: expose pin editor opener for Summary tab + other modules
