@@ -88,6 +88,31 @@ function _openUI(stream, done) {
   bar.appendChild(btnCancel); bar.appendChild(shutter); bar.appendChild(btnDone);
   overlay.appendChild(bar);
 
+  // S332: Library/files option INSIDE the burst UI, so the single "Add Photos"
+  // button still reaches existing photos. Picked files merge into shots[] and
+  // flow out the identical Done path. (Ported from Diesel S333.)
+  var libInput = document.createElement('input');
+  libInput.type = 'file'; libInput.accept = 'image/*'; libInput.multiple = true;
+  libInput.style.display = 'none';
+  overlay.appendChild(libInput);
+  var btnLib = document.createElement('button');
+  btnLib.id = 'cam-burst-library';
+  btnLib.textContent = '\uD83D\uDDBC Library';
+  btnLib.style.cssText = 'position:absolute;top:14px;left:14px;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:8px 16px;font-size:14px;font-family:Calibri,sans-serif;cursor:pointer;z-index:2;';
+  vidWrap.appendChild(btnLib);
+  btnLib.addEventListener('click', function(){ libInput.value=''; libInput.click(); });
+  libInput.addEventListener('change', function(){
+    var fs = Array.prototype.slice.call(libInput.files||[]);
+    fs.forEach(function(file){
+      shots.push(file);
+      var u = URL.createObjectURL(file); urls.push(u);
+      var th = document.createElement('img'); th.src=u; th.style.cssText='height:56px;border-radius:8px;flex:none;';
+      strip.appendChild(th);
+    });
+    strip.scrollLeft = strip.scrollWidth;
+    _updateUI();
+  });
+
   document.body.appendChild(overlay);
   var prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
