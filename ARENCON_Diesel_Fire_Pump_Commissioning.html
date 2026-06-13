@@ -573,6 +573,19 @@ body.dark-mode .fig-readout .ro .chip.na{background:var(--b-fieldbg);}
 .fp-endval .el{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--silver);}
 .fp-endval .ev{font-size:calc(15px + var(--ts));font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
 .fp-endval .ea{font-size:calc(9px + var(--ts));color:var(--silver);}
+.fp-endval .ea-adj{font-weight:700;margin-right:5px;}
+.fp-endval .ea-adj.pass{color:#2E9E72;}
+.fp-endval .ea-adj.fail{color:#C0445F;}
+.fp-endval .ea-req{color:var(--silver);}
+body.dark-mode .fp-endval .ea-adj.pass{color:#3FD08A!important;}
+body.dark-mode .fp-endval .ea-adj.fail{color:#E26076!important;}
+.fig-stage{position:relative;height:460px;}
+.fig-stage.tall500{height:500px;}
+.fig-stage.tall480{height:480px;}
+@media (max-width:520px){
+  .fig-stage,.fig-stage.tall500,.fig-stage.tall480{height:300px;}   /* S319: portrait phones */
+  .fig-body{padding:10px 8px;}
+}
 .fp-endval.gov .el{color:var(--arencon);}
 .fp-endval.gov .ev{color:var(--arencon);}
 .fp-held{position:relative;display:flex;align-items:baseline;gap:7px;justify-content:flex-end;white-space:nowrap;
@@ -2250,7 +2263,7 @@ function updatePhaseFlags(){
             <span class="fig-verdict na" id="figv-chart3pt">—</span>
           </div>
           <div class="fig-body">
-            <div style="position:relative;height:460px;">
+            <div class="fig-stage">
               <canvas id="chart3pt" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
               <div class="sm-overlay" id="smov-chart3pt" style="position:absolute;inset:0;pointer-events:none;"></div>
             </div>
@@ -2275,7 +2288,7 @@ function updatePhaseFlags(){
             <span class="fig-verdict na" id="figv-netChart3pt">—</span>
           </div>
           <div class="fig-body">
-            <div style="position:relative;height:460px;">
+            <div class="fig-stage">
               <canvas id="netChart3pt" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
             </div>
             <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('netChart3pt')" id="ann-toggle-netChart3pt" style="font-size:11px;">🏷 Hide Annotations</button></div>
@@ -2424,7 +2437,7 @@ function updatePhaseFlags(){
             <span class="fig-verdict na" id="figv-pldChart">—</span>
           </div>
           <div class="fig-body">
-            <div style="position:relative;height:500px;">
+            <div class="fig-stage tall500">
               <canvas id="pldChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
               <div class="sm-overlay" id="smov-pldChart" style="position:absolute;inset:0;pointer-events:none;"></div>
             </div>
@@ -2449,7 +2462,7 @@ function updatePhaseFlags(){
             <span class="fig-verdict na" id="figv-pldNetChart">—</span>
           </div>
           <div class="fig-body">
-            <div style="position:relative;height:480px;">
+            <div class="fig-stage tall480">
               <canvas id="pldNetChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
             </div>
             <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('pldNetChart')" id="ann-toggle-pldNetChart" style="font-size:11px;">🏷 Hide Annotations</button></div>
@@ -5363,8 +5376,10 @@ function updateStdCalcCells(i) {
     var netTxt = r.net!=null ? r.net.toFixed(0) : '\u2014';
     var adjTxt = r.adj!=null ? r.adj.toFixed(0) : '\u2014';
     var thrTxt = r.thresh!=null ? r.thresh.toFixed(0) : '\u2014';
+    var okStd = (r.adj!=null && r.thresh!=null && r.adj >= r.thresh);
     endEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
-      '<span class="ea">adj '+adjTxt+' \u00b7 \u2265'+thrTxt+'</span>';
+      '<span class="ea" title="Adjusted net (speed-corrected) vs required (95% of placard)">'+
+      '<span class="ea-adj '+(okStd?'pass':'fail')+'">adj '+adjTxt+'</span><span class="ea-req">req '+thrTxt+'</span></span>';
   }
   if(vEl){
     vEl.className = 'fp-verdict '+r.verdict;
@@ -5505,8 +5520,10 @@ function updatePldCalcCells(i) {
     var netTxt = v.netNo ? v.netNo.toFixed(1) : '\u2014';
     var adjTxt = (v.adjNet!=null && !isNaN(v.adjNet)) ? v.adjNet.toFixed(1) : '\u2014';
     var thrTxt = (v.thresh!=null) ? v.thresh.toFixed(1) : '\u2014';
+    var okPld = (v.adjNet!=null && !isNaN(v.adjNet) && v.thresh!=null && v.adjNet >= v.thresh);
     noEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
-      '<span class="ea">adj '+adjTxt+' \u00b7 \u2265'+thrTxt+'</span>';
+      '<span class="ea" title="Adjusted net (speed-corrected) vs required (95% of placard)">'+
+      '<span class="ea-adj '+(okPld?'pass':'fail')+'">adj '+adjTxt+'</span><span class="ea-req">req '+thrTxt+'</span></span>';
   }
   // w/ PLD held pill: device tag + recorded Net (controlled — not scored)
   if(wEl){
@@ -8802,10 +8819,12 @@ function _realExportPDF() {
         skPrint.innerHTML = skHtml;
       }
     } catch(err) { console.error('PDF fill error:', err); }
-    // Add orange highlight style for unselected items
-    var pdfStyle = wd.createElement('style');
+    // S319 FIX (field console): `const wd` above is BLOCK-scoped inside the try —
+    // referencing it here threw "wd is not defined" on every export, killing the
+    // style injection + image-decode wait below. Use w.document directly.
+    var pdfStyle = w.document.createElement('style');
     pdfStyle.textContent = '.cl-unselected { background: #FFF3E0 !important; border-left: 4px solid #E65100 !important; } [id^=ann-toggle] { display:none !important; }';
-    wd.head.appendChild(pdfStyle);
+    w.document.head.appendChild(pdfStyle);
     // Wait for all images (especially photos) to fully decode before printing
     const imgs = w.document.images;
     let toLoad = imgs.length;
@@ -13048,7 +13067,7 @@ function _recZoneHtml(kind){
 }
 function _evTileHtml(kind){
   // kind: pump | placard | flow (3-pt) | flow-pld (7-pt)
-  var map={pump:['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],flow:['📊','Flow Chart','Hose Monster chart'],'flow-pld':['📊','Flow Chart','Hose Monster chart']};
+  var map={pump:['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],'placard-pld':['🏷','PLD Placard','engine placard · control pressure'],flow:['📊','Flow Chart','Hose Monster chart'],'flow-pld':['📊','Flow Chart','Hose Monster chart']};
   var def=map[kind]; if(!def) return '';
   if(kind==='flow' || kind==='flow-pld'){
     var isPld = kind==='flow-pld';
@@ -13088,7 +13107,7 @@ function _renderRecordZones(){
   var pp=document.getElementById('pump-placard-zones');
   if(pp) pp.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('flow');
   var pp2=document.getElementById('pump-placard-zones-4b');
-  if(pp2) pp2.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('flow-pld');
+  if(pp2) pp2.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('placard-pld')+_evTileHtml('flow-pld');
 }
 // Placard OCR — wired in the next build. Placeholder keeps the button honest.
 /* ════ S314: AI Placard Scan → rated-value autofill (preview-then-confirm) ════
@@ -13118,9 +13137,11 @@ function _placardScan(btn){
   // S318: placards glare — inspectors shoot SEVERAL angles. Send up to the 4 most
   // recent placard photos in ONE request; the model cross-references angles and
   // returns null (never a guess) when angles disagree.
-  var list=(typeof recordPhotos==='undefined'?[]:recordPhotos).filter(function(p){return (p.kind||'')==='placard';});
-  if(!list.length){ showToast('Capture a placard photo first'); return; }
-  var take=list.slice(-4);
+  var rp=(typeof recordPhotos==='undefined'?[]:recordPhotos);
+  var list=rp.filter(function(p){return (p.kind||'')==='placard';});
+  var pldList=rp.filter(function(p){return (p.kind||'')==='placard-pld';});   // S319: engine/PLD placard
+  if(!list.length && !pldList.length){ showToast('Capture a placard photo first'); return; }
+  var take=list.slice(-4).concat(pldList.slice(-2));
   var token=localStorage.getItem('sb-access-token');
   if(!token){ showToast('Sign in (Hub mode) to use AI scan'); return; }
   var origTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Reading '+take.length+' placard photo'+(take.length>1?'s':'')+'\u2026'; }
@@ -13182,9 +13203,8 @@ function _placardPreview(btn, d, nPhotos){
       apply:function(v){ _psSetPlacard('0%',v); } },
     { key:'p150',  label:'Pressure @ 150% (psi)',     val:d.pressure_at_150_psi,cur:_psPlacardCur('150%'),
       apply:function(v){ _psSetPlacard('150%',v); } },
-    { key:'npsh',  label:'NPSH (psi)',                val:d.npsh_psi,           cur:inputCur('npsh-psi'),
-      apply:function(v){ ['npsh-psi','npsh-psi-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; });
-        if(typeof setNpsh==='function') setNpsh(v); if(typeof setNpshPld==='function') setNpshPld(v); } }
+    { key:'pldcp', label:'PLD Control Pressure (psi)',val:d.pld_control_pressure_psi, cur:inputCur('pm-pld-setting'),
+      apply:function(v){ var el=document.getElementById('pm-pld-setting'); if(el) el.value=v; } }
   ];
   var any=fields.some(function(f){return f.val!=null;});
   var card=document.createElement('div'); card.id='placard-scan-card';
@@ -13228,7 +13248,7 @@ function _placardPreview(btn, d, nPhotos){
   html+='<div style="display:flex;gap:8px;margin-top:10px;">';
   if(any) html+='<button id="pscan-apply" style="background:#9C2742;color:#fff;border:none;border-radius:7px;padding:7px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;">Apply selected</button>';
   html+='<button id="pscan-cancel" style="background:#455A64;color:#fff;border:none;border-radius:7px;padding:7px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;">'+(any?'Cancel':'Close')+'</button></div>'
-    +'<div style="margin-top:7px;color:#928E9C;font-size:11px;">AI-read values \u2014 verify against the physical placard before applying. Fills both 3-pt and 7-pt; churn/150% land in the Placard column rows.</div>';
+    +'<div style="margin-top:7px;color:#928E9C;font-size:11px;">AI-read values \u2014 verify against the physical placard before applying. Fills both 3-pt and 7-pt; churn/100%/150% land in the Placard column rows; PLD control pressure comes from the engine placard.</div>';
   card.innerHTML=html;
   var panel=btn?btn.closest('.np-panel'):null;
   var host=document.getElementById('placard-ocr-host');
@@ -13794,9 +13814,9 @@ document.addEventListener('mouseup', function() {
   <!-- Mobile page navigation (S280: slimmed down — was oversized 12x24 buttons / 16px pad) -->
   <div id="mobile-page-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#2C3E50;border-top:2px solid #9C2742;padding:7px 12px;box-shadow:0 -3px 10px rgba(0,0,0,.15);pointer-events:none;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <button id="nav-prev" onclick="navPage(-1)" style="pointer-events:auto;padding:7px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">◀ Prev</button>
+      <button id="nav-prev" onclick="navPage(-1)" style="pointer-events:auto;padding:9px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">◀ Prev</button>
       <span id="nav-label" style="pointer-events:none;font-size:12px;font-weight:600;color:rgba(255,255,255,.7);"></span>
-      <button id="nav-next" onclick="navPage(1)" style="pointer-events:auto;padding:7px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">Next ▶</button>
+      <button id="nav-next" onclick="navPage(1)" style="pointer-events:auto;padding:9px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">Next ▶</button>
     </div>
   </div>
 
@@ -14282,7 +14302,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S318';
+var DIESEL_BUILD = 'S319';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
