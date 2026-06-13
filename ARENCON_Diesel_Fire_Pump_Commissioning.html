@@ -21,7 +21,7 @@
 
 :root {
   --red:#A85959; --red-dark:#8A4A4A; --red-light:#F3E0DE;
-  --slate:#1C2333; --slate-mid:#2C3E50; --arencon:#9C2742; --arencon-mid:#7d1f35; --steel:#4A5568;
+  --slate:#1C2333; --slate-mid:#2C3E50; --arencon:#9C2742; --arencon-mid:#7d1f35; --steel:#4A5568; --steel-line:#c4cbd6;
   --silver:#A0AEC0; --smoke:#F7F8FA; --border:#DDE1E7;
   --yes:#5F8068; --yes-bg:#E8EFE7;
   --no:#A85959;  --no-bg:#F3E0DE;
@@ -702,7 +702,7 @@ body.dark-mode .fp-endval .ea-adj.fail{color:#E26076!important;}
 .fp-chip.on{background:var(--arencon);color:#fff;border-color:var(--arencon);}
 .fp-chip.custom{border-style:dashed;}
 /* rounded inner data-tables (Supply/Demand) — soften the navy header corners */
-.rounded-tbl{border-collapse:separate;border-spacing:0;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;}
+.rounded-tbl{border-collapse:separate;border-spacing:0;border:1.5px solid var(--steel-line,#c4cbd6);border-radius:9px;overflow:hidden;background:var(--smoke);}
 .rounded-tbl th{border:none;}
 .rounded-tbl td{border-bottom:1px solid var(--border);}
 .rounded-tbl tbody tr:last-child td{border-bottom:none;}
@@ -733,7 +733,13 @@ body.dark-mode .photo-thumb-grid .photo-thumb.selected{border-color:#9C2742;}
 .data-table{width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts));}
 .data-table th{background:var(--slate-mid);color:white;padding:8px 10px;text-align:center;font-size:calc(12px + var(--ts));font-weight:600;letter-spacing:.3px;}
 .data-table th.left{text-align:left;}
-.data-table td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;}
+.data-table td{padding:6px 8px;border-bottom:1px solid var(--steel-line,#d4dae3);border-right:1px solid var(--steel-line,#e2e7ee);text-align:center;vertical-align:middle;}
+.data-table td:last-child{border-right:none;}
+.ps-jockey td{padding:3px 8px;}
+.ps-jockey td.left{font-size:calc(12px + var(--ts));}
+.ps-jockey input{padding:4px 7px!important;}
+.data-table th{border-right:1px solid rgba(255,255,255,.12);}
+.data-table th:last-child{border-right:none;}
 .data-table td.left{text-align:left;font-weight:500;}
 .data-table tr:last-child td{border-bottom:none;}
 .data-table tr:nth-child(even) td{background:#FAFBFC;}
@@ -1116,7 +1122,7 @@ body.dark-mode input::placeholder,body.dark-mode textarea::placeholder{color:#60
 body.dark-mode input[readonly]{background:var(--b-fieldbg)!important;color:var(--silver)!important;}
 body.dark-mode .field-group label{color:#8a90a0;}
 body.dark-mode .summary-bar{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.10);}body.dark-mode .sum-bar-bg{background:rgba(255,255,255,.06);}
-body.dark-mode .data-table th{background:rgba(255,255,255,.10);color:#b0b8c8;}
+body.dark-mode .data-table th{background:#1B2230!important;color:#c2c9d6;}   /* S325: solid near-black, never maroon */
 body.dark-mode .data-table td{border-color:var(--border);color:var(--slate);}
 body.dark-mode .data-table input{background:var(--b-fieldbg)!important;color:var(--slate)!important;border-color:var(--border)!important;}
 body.dark-mode .data-table tbody tr{background:rgba(255,255,255,.03)!important;}
@@ -2181,7 +2187,7 @@ function updatePhaseFlags(){
         </div>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Pressure Settings</span></div>
-        <table class="data-table rounded-tbl"><thead><tr><th class="left" style="width:34%"></th><th>Designed Pressure (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="left">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f" oninput="debounceAutosave()"></td></tr></tbody></table>
+        <table class="data-table rounded-tbl ps-jockey" style="max-width:560px;"><thead><tr><th class="left" style="width:34%"></th><th>Designed (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="left">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f" oninput="debounceAutosave()"></td></tr></tbody></table>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
         <div id="equip-grid-3a" class="ts-eq">
@@ -2349,7 +2355,7 @@ function updatePhaseFlags(){
         </div>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Pressure Settings</span></div>
-        <table class="data-table rounded-tbl"><thead><tr><th class="left" style="width:34%"></th><th>Designed Pressure (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="left">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f-pld" oninput="debounceAutosave()"></td></tr></tbody></table>
+        <table class="data-table rounded-tbl ps-jockey" style="max-width:560px;"><thead><tr><th class="left" style="width:34%"></th><th>Designed (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="left">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f-pld" oninput="debounceAutosave()"></td></tr></tbody></table>
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
         <div id="equip-grid-4b" class="ts-eq">
@@ -5310,8 +5316,7 @@ function _renderFlowPhotoModal(){
   h+='<div class="photo-zone-compact fpm-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
   h+='<span>Drag &amp; drop — tagged <b>'+(_GAUGE_TAG_LABEL[_flowPhotoActiveReading]||'Suction')+'</b></span>';
   h+='<div class="pz-row">';
-  h+='<button class="pz-upload" onclick="_flowPhotoUpload()">📎 Upload</button>';
-  h+='<button class="pz-camera" onclick="_flowPhotoCamera()">📷 Camera</button>';
+  h+='<button class="pz-upload" onclick="_flowPhotoUpload()">🖼 Add Photos</button>';
   h+='<button class="pz-gallery" onclick="_flowPhotoOpenGallery()">🖼 Gallery</button>';
   h+='</div>';
   h+='</div>';
@@ -14488,7 +14493,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S324';
+var DIESEL_BUILD = 'S325';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
