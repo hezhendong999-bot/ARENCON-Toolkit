@@ -308,6 +308,18 @@ function _buildCSS(fontB64){
   // "Outstanding" pill on open recommendations so a rec is never labelled
   // Outstanding (mutually-exclusive categories).
   c+='.pill-rec{display:inline-block;background:#DDD8CB;color:#5E5440;font-size:9.5pt;font-weight:800;padding:4px 14px;border-radius:10px;letter-spacing:.5px;flex-shrink:0;}';
+  // S318: page-1 dashboard Report Legend (replaces Resolution Progress in the
+  // right dashboard box — Mark-approved demo page1_dashboard_demo.html). Scoped
+  // compact pills: same canon colours as .pill-h/.pill-l/.pill-c/.rec-chip but
+  // slightly smaller (8.5pt, min-width 74px, centred) to fit the narrower column.
+  // Scoped so the full-size standalone .pill-* (body cards) are untouched.
+  c+='.dash-key{flex:1;display:flex;flex-direction:column;justify-content:center;}';
+  c+='.dash-key-row{display:flex;align-items:center;gap:9px;margin:4px 0;font-size:9pt;color:#4A5568;}';
+  c+='.dash-key .dk-pill{border-radius:11px;padding:2px 11px;font-size:8.5pt;font-weight:700;flex:none;min-width:74px;text-align:center;letter-spacing:.3px;}';
+  c+='.dash-key .dk-h{background:#F4D6D6;color:#8E4444;}';
+  c+='.dash-key .dk-l{background:#F5E2C8;color:#8E6240;}';
+  c+='.dash-key .dk-c{background:#D2EBDC;color:#426B4F;}';
+  c+='.dash-key .dk-rec{background:#DDD8CB;color:#5E5440;}';
   // Legacy IAR badge + .so/.sc kept — used by summary tables / appendix / older code paths
   c+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
   c+='.so{color:#A85959;font-weight:700;font-size:11pt;}.sc{color:#5F8068;font-weight:700;font-size:11pt;}';
@@ -685,13 +697,26 @@ if(summaryDefs.length){
       _bars+='<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:9pt;color:#4A5568;"><span style="width:84px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;">'+esc(ctr)+'</span>'+_hbar(pp,CC)+'<span style="width:30px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:#1C2333;flex:none;">'+cl+'/'+tt+'</span></div>';
     });
     if(_ctrKeys.length>_CAP)_bars+='<div style="font-size:8.5pt;color:#90A0AC;margin-top:2px;">\u2026 and '+(_ctrKeys.length-_CAP)+' more \u2014 see Deficiency Summary below</div>';
-    function _wrap(rightInner){
+    // S318: right dashboard box = compact Report Legend (replaces Resolution
+    // Progress — Mark-approved demo). One pill per row, four rows, vertically
+    // centred. Numbers lived in the summary table already; the bars duplicated
+    // them, so they're gone. The standalone .rep-key band is now dropped from
+    // full/compact assembly (still used in recs-'only' mode) to avoid a dup legend.
+    var _dashKeyHtml='<div class="dash-key">'
+      +'<div class="dash-key-row"><span class="dk-pill dk-h">Outstanding</span>Outstanding \u2014 high priority</div>'
+      +'<div class="dash-key-row"><span class="dk-pill dk-l">Outstanding</span>Outstanding \u2014 low priority</div>'
+      +'<div class="dash-key-row"><span class="dk-pill dk-c">Closed</span>Addressed &amp; closed</div>'
+      +'<div class="dash-key-row"><span class="dk-pill dk-rec">REC</span>Recommendation \u2014 does not hold off sign-off</div>'
+      +'</div>';
+    function _wrap(){
       return '<div style="display:flex;gap:14px;margin-top:12px;align-items:stretch;">'
         +'<div style="flex:1.05;border:1px solid #DDE1E7;border-radius:6px;padding:7px 11px;display:flex;flex-direction:column;"><div style="font-size:9.5pt;font-weight:700;color:#2A3A5C;">Status Overview</div><div style="flex:1;display:flex;align-items:center;gap:12px;">'+_ctrLbl+'<div style="flex:1;">'+_legHtml+'</div></div></div>'
-        +'<div style="flex:1.1;border:1px solid #DDE1E7;border-radius:6px;padding:7px 11px;display:flex;flex-direction:column;"><div style="font-size:9.5pt;font-weight:700;color:#2A3A5C;margin-bottom:4px;">Resolution Progress</div>'+rightInner+'</div></div>';
+        +'<div style="flex:1.1;border:1px solid #DDE1E7;border-radius:6px;padding:7px 11px;display:flex;flex-direction:column;"><div style="font-size:9.5pt;font-weight:700;color:#2A3A5C;margin-bottom:4px;">Report Legend</div>'+_dashKeyHtml+'</div></div>';
     }
-    _dashHtmlFull=_wrap(_ovr+_bars);
-    _dashHtmlCompact=_wrap(_ovr+'<div style="font-size:8.5pt;color:#90A0AC;margin-top:4px;">Per-contractor breakdown \u2014 see Deficiency Summary below</div>');
+    // Full and compact now render the SAME right box (the legend); the
+    // per-contractor bars and _ovr/_bars are retired from page 1.
+    _dashHtmlFull=_wrap();
+    _dashHtmlCompact=_wrap();
   })();
 }
 // S143/S144 Report Legend (corrected). Navy-filled title bar, 4 entries,
@@ -1080,7 +1105,7 @@ if(pooledRecs.length){
 // _startPage() injects this on the first page; FULL_HEADER_H measures it.
 summaryHtml=(_recsMode==='only')
   ? (_recSummaryHtml+_legendHtml)
-  : (_dashHtmlFull+_legendHtml+_deficSummaryHtml+_hiRecNoteHtml);
+  : (_dashHtmlFull+_deficSummaryHtml+_hiRecNoteHtml);
 
 // Open popup
 var w=window.open('','_blank');
@@ -1141,7 +1166,7 @@ var FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
 // per-contractor rows deferred to the table) and re-measure. Deterministic —
 // measured, never guessed.
 if(_recsMode!=='only'&&_dashHtmlFull&&FULL_HEADER_H>PAGE_H){
-  summaryHtml=_dashHtmlCompact+_legendHtml+_deficSummaryHtml+_hiRecNoteHtml;
+  summaryHtml=_dashHtmlCompact+_deficSummaryHtml+_hiRecNoteHtml;
   FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
 }
 var COMPACT_HEADER_H=_measure(_compactHeader(2));
