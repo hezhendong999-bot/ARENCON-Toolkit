@@ -1313,6 +1313,9 @@ if(recBlocks.length){
   _finalizePage();
 }
 
+// S317 BUGFIX: appendix image render jobs, shared between the assembly block
+// (below) and the drawing-render pass further down. Declared here so both see it.
+var _appendixImgJobs=[]; // { imgId, drawingId, pins:[r,...] }
 // Appendix — S317: split into lettered Appendix A (deficiency pins) and
 // Appendix B (recommendation pins). Each appendix shows ONLY its own pin type
 // (legal separation — rec pins never land on deficiency drawings). Lettering:
@@ -1346,6 +1349,7 @@ if(isField&&p.drawings&&p.drawings.length){
   }
   var _appLetters='ABCDEFGH';
   var _appIdx=0;
+  // (img-render jobs collected into the hoisted _appendixImgJobs above)
   _appendixDefs.forEach(function(def){
     // Drawings that carry at least one pin matching this appendix's predicate.
     var dwP=p.drawings.filter(function(dw){return reportDefs.some(function(r){return def.pred(r)&&r.d.drawingId===dw.id&&r.d.pinX!=null;});});
@@ -1363,7 +1367,9 @@ if(isField&&p.drawings&&p.drawings.length){
       else{aH+='<div class="sh" style="margin-top:0;color:#6B7B8C;font-size:11pt;">'+esc('Appendix '+_letter+' (cont.)')+'</div>';}
       aH+='<div class="sb" style="padding:8px;"><div class="app-dwg">';
       aH+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
-      aH+='<img class="app-dwg" id="app-dwg-'+dw.id+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+      var _imgId='app-dwg-'+_letter+'-'+dw.id; // S317: appendix-scoped unique id
+      aH+='<img class="app-dwg" id="'+_imgId+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+      _appendixImgJobs.push({imgId:_imgId,drawingId:dw.id,pins:dPins});
       aH+='<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
       dPins.forEach(function(r){var d=r.d;
         // S119 hotfix: per-obs status + description (r.ctr is already per-obs).
@@ -1404,12 +1410,21 @@ pagesContainer.innerHTML=allH;
 
 // Drawing rendering
 if(isField){
+  // Load each drawing's dataUrl ONCE (keyed by drawing id), then render each
+  // APPENDIX IMG JOB separately — a drawing in both A and B gets two images, each
+  // with only its appendix's pins. The minimap teardrops (mm-*) are rendered from
+  // the union of pins (each card's own minimap, appendix-agnostic).
   var dwgMap={};
-  reportDefs.forEach(function(r){var d=r.d;if(!d.drawingId||d.pinX==null)return;
-    if(!dwgMap[d.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===d.drawingId;});
-      if(dObj)dwgMap[d.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null,pins:[]};}
-    if(dwgMap[d.drawingId])dwgMap[d.drawingId].pins.push(r);
+  _appendixImgJobs.forEach(function(job){
+    if(!dwgMap[job.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===job.drawingId;});
+      if(dObj)dwgMap[job.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null};}
   });
+  // Also collect per-card minimap pins from ALL report rows (every body card with
+  // a drawing pin has an mm-* image), independent of appendix membership.
+  var _mmPins=[];
+  reportDefs.forEach(function(r){if(r.d&&r.d.drawingId&&r.d.pinX!=null)_mmPins.push(r);});
+  // Ensure every minimap drawing's dataUrl is loaded too (not just appendix drawings).
+  _mmPins.forEach(function(r){if(!dwgMap[r.d.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===r.d.drawingId;});if(dObj)dwgMap[r.d.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null};}});
   var dIds=Object.keys(dwgMap);
   if(dIds.length){
     var fp=[];
@@ -1420,20 +1435,33 @@ if(isField){
       }).catch(function(){}));
     });
     Promise.all(fp).then(function(){
-      dIds=dIds.filter(function(id){return dwgMap[id].dataUrl;});if(!dIds.length)return;
+      // Render each appendix-img job with its own filtered pins.
+      var jobs=_appendixImgJobs.filter(function(j){return dwgMap[j.drawingId]&&dwgMap[j.drawingId].dataUrl;});
       var qi=0;
-      function next(){if(qi>=dIds.length)return;var id=dIds[qi];var info=dwgMap[id];
-        _renderDrawingWithPins(info.dataUrl,info.pins,function(du){
-          try{var ae=w.document.getElementById('app-dwg-'+id);if(ae)ae.src=du;}catch(x){}
-          var pd=0;var tp=info.pins.length;if(!tp){qi++;setTimeout(next,50);return;}
-          info.pins.forEach(function(r){try{var el=w.document.getElementById('mm-'+r.d.id+'-'+r.obsIdx);
-            // S154 PIN-COLOUR-OVERHAUL: each card's individual minimap also gets per-pin isSiteRecord.
-            var _isSr=isSiteRecordsName(r.ctr);
-            if(el){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{el.src=su;}catch(x){}pd++;if(pd>=tp){qi++;setTimeout(next,50);}},_isSr);}
-            else{pd++;if(pd>=tp){qi++;setTimeout(next,50);}}}catch(x){pd++;if(pd>=tp){qi++;setTimeout(next,50);}}});
+      function nextJob(){
+        if(qi>=jobs.length){_renderMinimaps();return;}
+        var job=jobs[qi];var du=dwgMap[job.drawingId].dataUrl;
+        _renderDrawingWithPins(du,job.pins,function(rendered){
+          try{var ae=w.document.getElementById(job.imgId);if(ae)ae.src=rendered;}catch(x){}
+          qi++;setTimeout(nextJob,50);
         });
       }
-      setTimeout(next,200);
+      // Per-card minimap teardrops (one image per obs row across the report body).
+      function _renderMinimaps(){
+        var mi=0;
+        function nextMm(){
+          if(mi>=_mmPins.length)return;var r=_mmPins[mi];
+          var info=dwgMap[r.d.drawingId];
+          if(!info||!info.dataUrl){mi++;setTimeout(nextMm,5);return;}
+          try{var el=w.document.getElementById('mm-'+r.d.id+'-'+r.obsIdx);
+            var _isSr=isSiteRecordsName(r.ctr);
+            if(el){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{el.src=su;}catch(x){}mi++;setTimeout(nextMm,5);},_isSr);}
+            else{mi++;setTimeout(nextMm,5);}
+          }catch(x){mi++;setTimeout(nextMm,5);}
+        }
+        nextMm();
+      }
+      setTimeout(nextJob,200);
     });
   }
 }
