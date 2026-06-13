@@ -153,6 +153,12 @@ DOMAIN FACTS (from ARENCON's technologist):
   darker plate). Its CONTROL PRESSURE (sometimes "control pressure setting") is a
   distinct value — report it as pld_control_pressure_psi. Never confuse it with the
   pump placard's rated pressure.
+- CRITICAL: the engine/PLD placard ALSO prints its own "Rated Speed" (the ENGINE
+  speed, e.g. 1760 RPM on a Clarke plate). That is NOT the pump rated speed.
+  rated_speed_rpm must come ONLY from the pump placard. If only an engine placard
+  is visible, return null for rated_speed_rpm.
+- Pump placards often appear in PAIRS (e.g. an FM silver plate and a ULC brass
+  plate) with the same values — agreement between them raises confidence.
 
 Extract ONLY:
 - Rated flow / rated capacity in US gpm (pump placard)
