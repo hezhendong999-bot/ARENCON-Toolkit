@@ -42,7 +42,7 @@ body.dark-mode{
 }
 
 /* ═══ HEADER ═══ */
-.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);display:flex;align-items:center;padding:10px 16px;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);min-width:0;}
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);display:flex;align-items:center;padding:max(10px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);min-width:0;}
 .hdr img{height:32px;width:auto;background:#fff;padding:4px 8px;border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.1);display:block;transition:transform .2s;flex-shrink:0;}
 .hdr img:hover{transform:scale(1.03)}
 .hdr-title{font-size:17px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-.2px;flex-shrink:0;}
@@ -547,6 +547,15 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:calc(13px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
+/* ====== S322 — tool-wide safe-area (parity with FRT/Diesel/Electric) ======
+   Main .hdr carries the top inset (above). Utilities = convention for new modals;
+   .mobile-menu drawer + any future top-reaching header get the inset on mobile. */
+@media(max-width:768px){
+  .safe-top{padding-top:max(12px,env(safe-area-inset-top,0px)) !important;}
+  .safe-bottom{padding-bottom:max(14px,env(safe-area-inset-bottom,0px)) !important;}
+  .safe-x{padding-left:max(14px,env(safe-area-inset-left,0px)) !important;padding-right:max(14px,env(safe-area-inset-right,0px)) !important;}
+  .mobile-menu{padding-top:max(20px,env(safe-area-inset-top,0px));}
+}
 </style>
 </head>
 <body>

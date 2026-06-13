@@ -30,7 +30,7 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
 
 /* ── HEADER ── */
 .app-header{background:linear-gradient(135deg,#1B2438 0%,#243048 100%);color:white;position:sticky;top:0;z-index:1000;box-shadow:0 2px 12px rgba(27,36,56,.4);width:100%;box-sizing:border-box;}
-.header-top{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.07);gap:8px;overflow:visible;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:max(10px,env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) 10px max(20px,env(safe-area-inset-left,0px));border-bottom:1px solid rgba(255,255,255,.07);gap:8px;overflow:visible;}
 .back-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:none;color:white;padding:6px 14px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;transition:background .15s;margin-right:10px;}.back-btn:hover{background:rgba(255,255,255,.22);}
 .header-logo{height:34px;width:auto;background:#fff;padding:3px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.2);display:block;}
 .app-title{font-family:Calibri,sans-serif;font-weight:600;font-size:19px;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
@@ -624,6 +624,15 @@ body.text-xl{--ts:6px;}
 .project-bar .pb-badge:hover{filter:brightness(1.15);transform:scale(1.04);}
 body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255,.04);}
 @media(max-width:600px){.project-bar .pb-filename{white-space:normal;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;}}
+/* ====== S322 — tool-wide safe-area (parity with FRT/Diesel) ======
+   Main .header-top carries the top inset (above). Utilities = convention for new
+   modals; rules pad overlay headers/footers that reach the edge on mobile. */
+@media(max-width:768px){
+  .safe-top{padding-top:max(12px,env(safe-area-inset-top,0px)) !important;}
+  .safe-bottom{padding-bottom:max(14px,env(safe-area-inset-bottom,0px)) !important;}
+  .safe-x{padding-left:max(14px,env(safe-area-inset-left,0px)) !important;padding-right:max(14px,env(safe-area-inset-right,0px)) !important;}
+  .sketch-entry-header,.sketch-toolbar{padding-top:max(14px,env(safe-area-inset-top,0px));}
+}
 </style>
 </head>
 <body>
