@@ -13083,6 +13083,98 @@ function _mergeCloudLocal(cloud, local){
         if(n) console.info('[merge] S314 invariant restored '+n+' photo binaries');
       }catch(e){ console.warn('[merge] S314 invariant error', e); }
     })();
+    // ════ S335 NEW-PHOTO UNION: the targeted passes and the S314 invariant only
+    // ever ENRICH cloud rows that already exist by id — none of them ADD a local
+    // photo the cloud copy lacks. So a photo captured locally and merged against a
+    // cloud snapshot taken before its upload finished (classic: add placard →
+    // AI scan/heartbeat pulls cloud → merge) was silently DROPPED. This pass unions
+    // such photos back in.
+    // SAFETY GATE: only rescue a FRESH capture — it must still hold its binary (.d)
+    // AND not be a completed upload (r2Status !== 'uploaded'). A photo deleted on
+    // another device was, by definition, an 'uploaded' photo before it could sync;
+    // excluding 'uploaded' means we never resurrect a deliberate cross-device delete.
+    // Matched by id only (id-less rows can't be safely de-duped).
+    (function _s335NewPhotoUnion(){
+      function isFresh(p){
+        return p && p.id && p.d && p.r2Status !== 'uploaded';
+      }
+      // Union local-only fresh photos from a local array into the matching cloud array.
+      function unionArr(cloudArr, localArr, label){
+        if(!Array.isArray(localArr)) return 0;
+        if(!Array.isArray(cloudArr)) return 0;
+        var have={}; cloudArr.forEach(function(p){ if(p&&p.id) have[p.id]=true; });
+        var added=0;
+        localArr.forEach(function(lp){
+          if(!isFresh(lp) || have[lp.id]) return;
+          cloudArr.push(lp); have[lp.id]=true; added++;
+        });
+        if(added) console.info('[merge] S335 union rescued '+added+' fresh photo(s) in '+label);
+        return added;
+      }
+      try{
+        var total=0;
+        // Top-level photo arrays — ensure the cloud array exists so a wholly-new
+        // local array (cloud had none) is still rescued.
+        ['flowTestPhotos','flowTestPhotosPld','recordPhotos'].forEach(function(key){
+          if(Array.isArray(local[key]) && local[key].some(isFresh)){
+            if(!Array.isArray(cloud[key])) cloud[key]=[];
+            total+=unionArr(cloud[key], local[key], key);
+          }
+        });
+        // Per-row photo arrays (flow rows): match rows by index, union their photos.
+        ['stdData','pldData'].forEach(function(key){
+          var ca=cloud[key], la=local[key];
+          if(!Array.isArray(ca)||!Array.isArray(la)) return;
+          ca.forEach(function(cr,i){
+            var lr=la[i];
+            if(!cr||!lr||!Array.isArray(lr.photos)) return;
+            if(!Array.isArray(cr.photos)) cr.photos=[];
+            total+=unionArr(cr.photos, lr.photos, key+'['+i+']');
+          });
+        });
+        // Checklist item photos (clState keyed by id).
+        if(local.clState && cloud.clState){
+          Object.keys(local.clState).forEach(function(k){
+            var lc=local.clState[k], cc=cloud.clState[k];
+            if(!lc||!cc||!Array.isArray(lc.photos)) return;
+            if(!Array.isArray(cc.photos)) cc.photos=[];
+            total+=unionArr(cc.photos, lc.photos, 'clState['+k+']');
+          });
+        }
+        // Contractor deficiency photos + response photos (keyed by counter, then index).
+        if(local.deficiencies && cloud.deficiencies){
+          Object.keys(local.deficiencies).forEach(function(ctr){
+            if(!cloud.deficiencies[ctr]) return;
+            (cloud.deficiencies[ctr]||[]).forEach(function(cd,di){
+              var ld=(local.deficiencies[ctr]||[])[di];
+              if(!cd||!ld) return;
+              if(Array.isArray(ld.photos)){ if(!Array.isArray(cd.photos)) cd.photos=[]; total+=unionArr(cd.photos, ld.photos, 'defic['+ctr+']['+di+']'); }
+              (cd.responses||[]).forEach(function(cr,ri){
+                var lr=(ld.responses||[])[ri];
+                if(!cr||!lr||!Array.isArray(lr.photos)) return;
+                if(!Array.isArray(cr.photos)) cr.photos=[];
+                total+=unionArr(cr.photos, lr.photos, 'defic['+ctr+']['+di+'].resp['+ri+']');
+              });
+            });
+          });
+        }
+        // General deficiency photos + response photos (index-matched).
+        if(local.generalDeficiencies && cloud.generalDeficiencies){
+          (cloud.generalDeficiencies||[]).forEach(function(cd,di){
+            var ld=(local.generalDeficiencies||[])[di];
+            if(!cd||!ld) return;
+            if(Array.isArray(ld.photos)){ if(!Array.isArray(cd.photos)) cd.photos=[]; total+=unionArr(cd.photos, ld.photos, 'genDefic['+di+']'); }
+            (cd.responses||[]).forEach(function(cr,ri){
+              var lr=(ld.responses||[])[ri];
+              if(!cr||!lr||!Array.isArray(lr.photos)) return;
+              if(!Array.isArray(cr.photos)) cr.photos=[];
+              total+=unionArr(cr.photos, lr.photos, 'genDefic['+di+'].resp['+ri+']');
+            });
+          });
+        }
+        if(total) console.info('[merge] S335 union rescued '+total+' fresh photo(s) total');
+      }catch(e){ console.warn('[merge] S335 union error', e); }
+    })();
   }
   // S305: per-pull merge log removed (30s heartbeat spam); backup-restore and
   // error logs inside the merge still fire when something actually happens.
@@ -14842,7 +14934,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S335b';
+var DIESEL_BUILD = 'S335c';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
