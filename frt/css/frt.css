@@ -10026,3 +10026,53 @@ body.dark-mode .dlc-fill{background:#2a2833;}
   #dwg-upload-zone > div > div:nth-child(3){display:inline;margin:0 8px 0 0;} /* "or" inline */
   #dwg-upload-zone > div > div:nth-child(2){display:inline;margin:0 8px 0 0;font-size:calc(12px + var(--ts));}
 }
+
+/* ============================================================================
+   S322 — TOOL-WIDE SAFE-AREA (notch / status-bar / home-indicator)
+   Root fix so the top inset is a GUARANTEE, not a per-modal patch that keeps
+   regressing. Two mechanisms:
+     1) Grouped rule below pads every top-anchored header/overlay/panel that
+        can reach the screen top on mobile, so existing surfaces are covered.
+     2) .safe-top / .safe-bottom / .safe-x utilities = the standing CONVENTION:
+        any NEW full-screen modal/page just adds .safe-top and never regresses.
+   Mobile-only: env(safe-area-inset-*) is 0 on desktop, but scoping to the
+   breakpoint keeps desktop layout math untouched. Each rule uses max(<base>,
+   inset) so the surface's existing padding is preserved, never shrunk.
+   ========================================================================== */
+@media(max-width:768px){
+  /* --- Utilities (use these on any new modal) --- */
+  .safe-top    { padding-top:max(12px,env(safe-area-inset-top,0px)) !important; }
+  .safe-bottom { padding-bottom:max(14px,env(safe-area-inset-bottom,0px)) !important; }
+  .safe-x      { padding-left:max(14px,env(safe-area-inset-left,0px)) !important;
+                 padding-right:max(14px,env(safe-area-inset-right,0px)) !important; }
+
+  /* --- Top-anchored headers / bars that touch the screen top --- */
+  .pin-panel-header,
+  .gp-header,
+  .defic-template-header{
+    padding-top:max(14px,env(safe-area-inset-top,0px));
+  }
+
+  /* --- Side drawers anchored at top:0 (slide in from the edge) --- */
+  .mobile-menu{ padding-top:max(16px,env(safe-area-inset-top,0px)); }
+
+  /* --- Full-screen overlays whose FIRST child is the top bar.
+         When the overlay has no dedicated header element, pad the overlay so
+         its content clears the notch. Centered modals are unaffected (their
+         content floats mid-screen). --- */
+  .lightbox-overlay,
+  .photo-lightbox-overlay{
+    padding-top:max(8px,env(safe-area-inset-top,0px));
+    padding-bottom:max(8px,env(safe-area-inset-bottom,0px));
+    box-sizing:border-box;
+  }
+
+  /* --- Portrait BOTTOM buffer: footers / action rows clear the home
+         indicator with a little breathing room (Mark's request). --- */
+  .pin-editor-footer,
+  .pin-panel-footer,
+  .gp-footer,
+  .defic-template-footer{
+    padding-bottom:max(14px,env(safe-area-inset-bottom,0px));
+  }
+}
