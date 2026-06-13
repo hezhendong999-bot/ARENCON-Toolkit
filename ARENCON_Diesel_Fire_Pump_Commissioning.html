@@ -6435,10 +6435,12 @@ function renderSafetyConnector(chartKey, chartObj, pfx){
     +(placeLeft?'right:'+(baseRight-st.x)+'px;':'left:'+(baseLeft+st.x)+'px;')
     +'display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;'
     +'background:'+col.bg+';border:1.5px solid '+col.c+';'
-    +'border-radius:10px;padding:6px 11px;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.35);'
+    +'border-radius:9px;padding:4px 9px;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.35);'
     +'cursor:grab;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:none;z-index:5;';
-  chip.innerHTML='<div style="font-size:calc(13px + var(--ts));font-weight:800;color:'+col.c+';letter-spacing:.2px;">'+sign+m.psi.toFixed(1)+' psi</div>'
-    +'<div style="font-size:calc(10px + var(--ts));font-weight:700;color:'+col.c+';letter-spacing:.4px;margin-top:1px;">'+pctTxt+' · '+col.word+'</div>';
+  // S321 (staff feedback): single-row chip — psi and % together, word beneath
+  // only when it fits the same row budget. ~20% smaller overall.
+  chip.innerHTML='<div style="font-size:calc(11.5px + var(--ts));font-weight:800;color:'+col.c+';letter-spacing:.2px;">'+sign+m.psi.toFixed(1)+' psi \u00b7 '+pctTxt+'</div>'
+    +'<div style="font-size:calc(9px + var(--ts));font-weight:700;color:'+col.c+';letter-spacing:.5px;">'+col.word+'</div>';
   ov.appendChild(chip);
   // position leader after chip is laid out
   function updateLeader(){
@@ -9729,24 +9731,52 @@ function renderChartAnnotations(chartInstance, canvasId) {
       //     stepping the vertical offset so they stack apart instead of overprinting.
       var labelX = px + offX;
       var labelY = py + offY;
-      if(!stored){
-        var _fanStep = 30;            // two-line label height (~26-30px); was 17 and labels still overlapped
-        var _near = 30;               // px radius treated as "same cluster" (was 22)
-        var _guard = 0;
-        while(_guard < 14){
-          var _collision = false;
-          for(var _pk in _annotationPositions){
-            var _p = _annotationPositions[_pk];
-            if(_p.k === key) continue;
-            if(Math.abs(_p.x - labelX) < _near && Math.abs(_p.y - labelY) < _fanStep){ _collision = true; break; }
-          }
-          if(!_collision) break;
-          labelY -= _fanStep;          // fan upward
-          offY  -= _fanStep;
-          _guard++;
+      // S321 SMART LAYOUT v2 (field request: labels must NEVER overlap unless
+      // manually placed). Three upgrades over the S223 fan:
+      //  (a) identical text anchored within 14px of an already-placed identical
+      //      label is a DUPLICATE (overlapping marker datasets) — skip it;
+      //  (b) collision test uses real estimated label rectangles (width from
+      //      longest line, height from line count), not a fixed radius;
+      //  (c) candidate search tries above, below, right, left, then expanding
+      //      vertical fan in both directions, and clamps inside the chart area.
+      // Manually-dragged labels (stored offsets) are always respected verbatim.
+      var _lines = (''+text).split('\n');
+      var _w = 12 + 5.4*Math.max.apply(null,_lines.map(function(l){return l.length;}));
+      var _h = 6 + 13*_lines.length;
+      function _rect(cx, cy){ return {l:cx-_w/2, r:cx+_w/2, t:cy-_h, b:cy}; }   // translate(-50%,-100%)
+      function _hits(rc){
+        for(var _pk in _annotationPositions){
+          var _p=_annotationPositions[_pk];
+          if(_p.k===key) continue;
+          if(rc.l < _p.r+3 && rc.r > _p.l-3 && rc.t < _p.b+3 && rc.b > _p.t-3) return _p;
         }
+        return null;
       }
-      _annotationPositions[key] = {k:key, x:labelX, y:labelY};
+      if(!stored){
+        // (a) duplicate-text suppression
+        var _dup=false;
+        for(var _dk in _annotationPositions){
+          var _d=_annotationPositions[_dk];
+          if(_d.text===text && Math.abs(_d.ax-px)<14 && Math.abs(_d.ay-py)<14){ _dup=true; break; }
+        }
+        if(_dup) return;
+        // (c) candidate positions
+        var _cw=(chart.chartArea&&chart.chartArea.right)||overlay.clientWidth||600;
+        var _ct=(chart.chartArea&&chart.chartArea.top)||0;
+        var _cb=(chart.chartArea&&chart.chartArea.bottom)||overlay.clientHeight||400;
+        var _cands=[[0,-30],[0,34+_h],[_w/2+26,-2],[-_w/2-26,-2]];
+        for(var _f=1;_f<=8;_f++){ _cands.push([0,-30-_f*(_h+6)]); _cands.push([0,34+_h+_f*(_h+6)]); }
+        var _placed=false;
+        for(var _ci2=0;_ci2<_cands.length;_ci2++){
+          var _cx=px+_cands[_ci2][0], _cy=py+_cands[_ci2][1];
+          _cx=Math.min(Math.max(_cx,_w/2+2), _cw-_w/2-2);
+          _cy=Math.min(Math.max(_cy,_ct+_h+2), _cb-2);
+          if(!_hits(_rect(_cx,_cy))){ labelX=_cx; labelY=_cy; offX=_cx-px; offY=_cy-py; _placed=true; break; }
+        }
+        if(!_placed){ labelX=px; labelY=py-30; offX=0; offY=-30; }   // dense worst-case: default
+      }
+      var _fr=_rect(labelX,labelY);
+      _annotationPositions[key] = {k:key, x:labelX, y:labelY, l:_fr.l, r:_fr.r, t:_fr.t, b:_fr.b, text:text, ax:px, ay:py};
 
       // Create label div
       var label = document.createElement('div');
@@ -9861,12 +9891,35 @@ var _origUpdate3pt = null;
 var _origUpdatePld = null;
 var _origUpdateNet = null;
 
+/* S321: no two labelled curves on one chart may share a color (field request).
+   Curated muted palette; marker datasets (labels starting '_') keep their family
+   color. _storedColors is refreshed so annotation text matches the final color. */
+var _DISTINCT_PALETTE=['#E0B341','#5FA777','#6F8FD6','#C0445F','#9C6FD6','#46A5C5','#C98A4A','#7FA35C','#B5719C','#8A8F5C','#5C8F8A','#A87B5C'];
+function _distinctifyChartColors(ci){
+  try{
+    var used={}, pi=0;
+    function norm(c){ return (''+(c||'')).toLowerCase().replace(/\s/g,''); }
+    function next(){ while(pi<_DISTINCT_PALETTE.length && used[norm(_DISTINCT_PALETTE[pi])]) pi++; return _DISTINCT_PALETTE[pi]||'#888'; }
+    ci.data.datasets.forEach(function(ds, di){
+      var lbl=ds.label||'';
+      if(lbl.charAt(0)==='_') return;                 // marker/family datasets
+      var c=norm(ds.borderColor);
+      if(c && !used[c]){ used[c]=1; return; }         // first user of this color keeps it
+      var nc=next(); used[norm(nc)]=1;
+      ds.borderColor=nc;
+      if(ds.pointBorderColor) ds.pointBorderColor=nc;
+      if(ds.pointBackgroundColor && typeof ds.pointBackgroundColor==='string') ds.pointBackgroundColor=nc;
+      if(ci._storedColors) ci._storedColors[di]=nc;   // annotations follow the curve
+    });
+  }catch(e){ console.warn('[charts] distinctify failed', e); }
+}
 function hookChartAnnotations() {
   // Hook into each chart to render draggable annotations after update.
   // S214: chart3pt (4a) re-added — it uses the draggable overlay to match 4b (7-point).
   [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(pair){
     var cid=pair[0], ci=pair[1];
     if(!ci) return;
+    _distinctifyChartColors(ci);   // S321: unique curve colors before labels snapshot them
     initChartAnnotationOverlay(ci, cid);
     // Store formatters then disable built-in datalabels
     ci.data.datasets.forEach(function(ds, di){
