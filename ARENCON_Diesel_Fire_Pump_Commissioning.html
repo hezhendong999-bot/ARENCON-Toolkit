@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S337. Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S337b. Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -13797,10 +13797,17 @@ function _pgRestorePhoto(pid){
   _renderPhotoGallery();
   showToast('Photo restored');
 }
+// S337 fix: local admin check — the global _isAdmin lives inside the AIUsage IIFE
+// and is NOT in this block's scope (caused a ReferenceError when opening Recently
+// Deleted). Read the role directly, identical logic.
+function _pgIsAdmin(){
+  try{ var role = localStorage.getItem('ARENCON_role') || ''; return role==='super_admin' || role==='admin'; }
+  catch(e){ return false; }
+}
 // Delete forever: the REAL removal — splice the source array + delete the R2 object.
 // Admin-gated (super_admin / admin). Only acts on already-soft-deleted photos.
 function _pgPurgePhoto(pid){
-  if(!_isAdmin()){ showToast('\u26A0 Only a principal can delete a photo permanently'); return; }
+  if(!_pgIsAdmin()){ showToast('\u26A0 Only a principal can delete a photo permanently'); return; }
   var hit = _collectAllPhotos().filter(function(a){ return (a.photo.id||'')===pid; })[0];
   if(!hit || !hit.photo.deleted){ showToast('Photo not found'); return; }
   _aConfirm('Permanently delete this photo? This cannot be undone and removes it from cloud storage.', function(){
@@ -13861,7 +13868,7 @@ function _pgRenderTrashHtml(deleted){
   if(!deleted.length){
     return '<p class="ph-empty">Nothing in Recently Deleted. Photos you delete from the gallery appear here and can be restored for '+_TRASH_RETENTION_DAYS+' days.</p>';
   }
-  var adm = _isAdmin();
+  var adm = _pgIsAdmin();
   h += '<p class="ph-trash-note">Deleted photos are kept for '+_TRASH_RETENTION_DAYS+' days, then removed automatically. Restore brings a photo back where it was.'
     + (adm ? '' : ' Only a principal can delete a photo permanently.') + '</p>';
   h += '<div class="ph-trash-list">';
@@ -15231,7 +15238,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S337';
+var DIESEL_BUILD = 'S337b';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
