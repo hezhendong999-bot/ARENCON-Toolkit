@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S343 (swipe A-ladder + leave confirm). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S344 (evidence thumbnail grids + lightbox wiring). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -426,6 +426,20 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .ev-lbl{font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);margin-bottom:9px;}
 .ev-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 @media(max-width:560px){.ev-tiles{grid-template-columns:1fr;}}
+/* S344: evidence boxes as thumbnail grids (checklist-style) */
+.ev-grid-card{border:1.5px solid var(--border);border-radius:10px;background:var(--card-bg,#fff);padding:10px 11px;transition:all .14s;}
+.ev-grid-card.drag-over{border-color:var(--arencon);background:rgba(156,39,66,.05);}
+body.dark-mode .ev-grid-card{background:var(--b-fieldbg,rgba(255,255,255,.04));}
+.ev-grid-head{font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.ev-grid-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:9px;background:var(--smoke);color:var(--steel);font-size:calc(10.5px + var(--ts));font-weight:700;text-align:center;}
+body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
+.ev-grid{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;}
+.ev-thumb{position:relative;width:84px;height:84px;border-radius:7px;overflow:hidden;border:1px solid var(--border);background:var(--smoke);flex:0 0 auto;}
+.ev-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;}
+.ev-thumb-del{position:absolute;top:3px;right:3px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:rgba(168,89,89,.95);border:none;border-radius:50%;color:#fff;font-size:11px;line-height:1;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.3);z-index:2;}
+.ev-thumb-del:hover{background:#A85959;}
+.ev-add-tile{width:84px;height:84px;border-radius:7px;border:2px dashed var(--border);background:transparent;color:var(--steel);font-size:30px;font-weight:300;line-height:1;cursor:pointer;flex:0 0 auto;transition:all .14s;display:flex;align-items:center;justify-content:center;}
+.ev-add-tile:hover{border-color:var(--arencon);color:var(--arencon);}
 .ev-tile{border:2px dashed var(--border);border-radius:10px;background:#fff;min-height:128px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
 .ev-tile:hover,.ev-tile.drag-over{border-color:var(--arencon);background:#fdf6f8;}
 .ev-tile .i{font-size:30px;opacity:.6;}
@@ -7440,8 +7454,8 @@ function buildDeficItem(name, safe, d, i) {
     (cr.photos || []).forEach(function(rp, ri) {
       if(rp&&rp.deleted) return;   // S337
       crPhotosHtml += '<div style="position:relative;display:inline-block;">'
-        +'<img src="'+(rp.d||rp.r2Url||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:zoom-in;">'
-        +'<button onclick="removeDeficRespPhoto(\''+safe+'\','+i+','+ci+','+ri+',\''+name+'\')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
+        +'<img src="'+(rp.d||rp.r2Url||rp)+'" onclick="if(typeof openLightbox===\'function\')openLightbox(deficiencies[\''+safe+'\']['+i+'].responses['+ci+'].photos,'+ri+',{renderer:function(){renderDeficGroup(\''+name+'\');}})" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:zoom-in;">'
+        +'<button onclick="event.stopPropagation();removeDeficRespPhoto(\''+safe+'\','+i+','+ci+','+ri+',\''+name+'\')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
@@ -7762,7 +7776,7 @@ function buildGeneralDeficItem(d, i) {
     var crPhotosHtml = '';
     (cr.photos || []).forEach(function(rp, ri) {
       if(rp&&rp.deleted) return;   // S337
-      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.d||rp.r2Url||rp)+'" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="removeGenDeficRespPhoto('+i+','+ci+','+ri+')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
+      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.d||rp.r2Url||rp)+'" onclick="if(typeof openLightbox===\'function\')openLightbox(generalDeficiencies['+i+'].responses['+ci+'].photos,'+ri+',{renderer:function(){renderGeneralDeficGroup();}})" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="event.stopPropagation();removeGenDeficRespPhoto('+i+','+ci+','+ri+')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">';
     respHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:'+accentCol+';text-transform:uppercase;letter-spacing:.5px;">'+(isContractor?'⚡':'🔍')+' '+label+' Response #'+(ci+1)+'</div><button onclick="generalDeficiencies['+i+'].responses.splice('+ci+',1);renderGeneralDeficGroup();" style="padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:white;color:#999;font-size:10px;cursor:pointer;">✕ Remove</button></div>';
@@ -14035,9 +14049,13 @@ function _recZoneHtml(kind){
   return html;
 }
 function _evTileHtml(kind){
-  // kind: pump | placard | flow (3-pt) | flow-pld (7-pt)
+  // S344: evidence boxes now render as a thumbnail GRID (checklist-style) instead
+  // of a single "latest photo" tile — you see EVERY photo, tap any to open the
+  // shared lightbox, and X-delete any one. An "+ Add" tile sits at the end of the
+  // grid. Empty state keeps the dashed upload zone.
   var map={pump:['📷','Pump','tap / drop · camera'],'pump-pld':['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],'placard-pld':['🏷','PLD Placard','engine placard · control pressure'],flow:['📊','Flow Chart','Hose Monster chart'],'flow-pld':['📊','Flow Chart','Hose Monster chart']};
   var def=map[kind]; if(!def) return '';
+
   if(kind==='flow' || kind==='flow-pld'){
     var isPld = kind==='flow-pld';
     var fpAll=(isPld ? (flowTestPhotosPld||[]) : (flowTestPhotos||[]));
@@ -14045,29 +14063,44 @@ function _evTileHtml(kind){
     var arrName = isPld ? 'flowTestPhotosPld' : 'flowTestPhotos';
     var trig = isPld ? 'triggerFlowTestPhotoPld()' : 'triggerFlowTestPhoto()';
     var drop = isPld ? 'handleFlowTestDropPld(event)' : 'handleFlowTestDrop(event)';
-    if(fp.length){
-      var _last=fp[fp.length-1]; var lp=_last.p; var lpIdx=_last.i;
-      return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
-        +'<span class="badge">FLOW'+(fp.length>1?(' ·'+fp.length):'')+'</span>'
-        +'<img src="'+(lp.d||lp.r2Url||'')+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+lpIdx+',{renderer:_renderRecordZones})" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
-        +'<button class="recap" onclick="event.stopPropagation();'+trig+'">retake</button>'
-        +'</div>';
+    if(!fp.length){
+      return '<div class="ev-tile" onclick="'+trig+'" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
+        +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
     }
-    return '<div class="ev-tile" onclick="'+trig+'" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
+    var fhtml='<div class="ev-grid-card" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">';
+    fhtml+='<div class="ev-grid-head">'+def[0]+' '+def[1]+'<span class="ev-grid-n">'+fp.length+'</span></div>';
+    fhtml+='<div class="ev-grid">';
+    fp.forEach(function(o){
+      var p=o.p;
+      fhtml+='<div class="ev-thumb">'
+        +'<img src="'+(p.d||p.r2Url||'')+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+o.i+',{renderer:_renderRecordZones})" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+        +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
+        +'</div>';
+    });
+    fhtml+='<button class="ev-add-tile" onclick="'+trig+'" title="Add photo">+</button>';
+    fhtml+='</div></div>';
+    return fhtml;
+  }
+
+  // record-backed kinds (pump / pump-pld / placard / placard-pld)
+  var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !(o.p&&o.p.deleted) && (o.p.kind||'site')===kind;});
+  if(!thumbs.length){
+    return '<div class="ev-tile" onclick="_recUpload(\''+kind+'\')" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
       +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
   }
-  var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !(o.p&&o.p.deleted) && (o.p.kind||'site')===kind;});
-  if(thumbs.length){
-    var o=thumbs[thumbs.length-1];
-    return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
-      +'<span class="badge">'+def[1].toUpperCase()+(thumbs.length>1?(' ·'+thumbs.length):'')+'</span>'
-      +'<img src="'+(o.p.d||o.p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
-      +'<button class="ev-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(o.p.id||'')+'\')">✕</button>'
-      +'<button class="recap" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">retake</button>'
+  var html='<div class="ev-grid-card" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
+  html+='<div class="ev-grid-head">'+def[0]+' '+def[1]+'<span class="ev-grid-n">'+thumbs.length+'</span></div>';
+  html+='<div class="ev-grid">';
+  thumbs.forEach(function(o){
+    var p=o.p;
+    html+='<div class="ev-thumb">'
+      +'<img src="'+(p.d||p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+      +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
       +'</div>';
-  }
-  return '<div class="ev-tile" onclick="_recUpload(\''+kind+'\')" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
-    +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
+  });
+  html+='<button class="ev-add-tile" onclick="_recUpload(\''+kind+'\')" title="Add photo">+</button>';
+  html+='</div></div>';
+  return html;
 }
 function _recTileHtml(kind){ return _evTileHtml(kind); }
 // S339: X-delete on an evidence tile — soft-deletes the photo (→ Recently Deleted,
@@ -15366,7 +15399,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S343';
+var DIESEL_BUILD = 'S344';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
