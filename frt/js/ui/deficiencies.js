@@ -1894,6 +1894,9 @@ export var initDeficiencies = {
     _cvPinDragHold = false;    // S328: a deliberate render already resettled the
                                // card; drop any pending pin-drag hold so it can't
                                // wedge and suppress a later legitimate render.
+    _cvDeferredBgRender = false; // S328 (#19): this deliberate render reconciles
+                                 // any background merge we skipped while a card
+                                 // was open — clear the deferred flag.
     // S248: combined-view delayed re-sort. A deliberate render (tab switch,
     // filter, project/photo load) resettles the list, so a stale ordering
     // never persists across navigation. The ONE exception is the re-lock
@@ -2750,6 +2753,15 @@ var _cvSuppressFlush = false;
 // navigation resettles the list. Transient, never persisted.
 var _cvPinDragHold = false;
 window._frtHoldCardRenderOnce = function() { _cvPinDragHold = true; };
+
+// S328 (#19): set true when a BACKGROUND event (cloud heartbeat merge → 'project',
+// or a deferred 'photo' load tick) wanted to rebuild the list while a card was
+// expanded and idle (no editable field focused). We skip that destructive full
+// re-render — it was tearing down + reopening the card the user is simply reading
+// (the intermittent "flash with no input"). The model is already updated; the
+// next DELIBERATE render (card toggle / nav / filter, which clears this at
+// render() top) reconciles the merged data. Never set for 'saved' (user-driven).
+var _cvDeferredBgRender = false;
 
 // S263: _cvCatMeta + _cvCategoryPill (the four-segment category bar) are
 // RETIRED. Status is now changed via the always-tappable row pill + colored
@@ -5767,6 +5779,10 @@ Model.onChange('project', function() {
     if (ae.classList && ae.classList.contains('obs-text-input')) return;
     if (ae.closest('#tab-deficiencies, #deficiencies-container, .defic-item, .defic-list, .defic-pin-group, .cv-row, .cv-ed-left')) return;
   }
+  // S328 (#19): a background cloud-heartbeat merge fires 'project'. If the user
+  // has a card expanded and isn't editing, don't tear the list down + rebuild it
+  // (the "flash with no input"). Defer; the next deliberate render reconciles.
+  if (_openObsKey) { _cvDeferredBgRender = true; return; }
   initDeficiencies.render();
 });
 // S115 P9: also re-render when photos change (e.g., markup save/revert mutates
