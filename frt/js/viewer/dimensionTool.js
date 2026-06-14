@@ -681,10 +681,16 @@
    * calls pushHistory, renderAll, markDirty, and spawns the always-edit
    * label input. Chain logic (next-state) is handled internally.
    */
-  function handleClick(pos, drawing) {
+  function handleClick(pos, drawing, objects) {
     if (!pos) return { committed: false, action: 'noop' };
     var cal = getCalibration(drawing);
     _curCal = cal;
+    // Gentle snap to a nearby existing vertex so chains close cleanly
+    // (locked spec §3). Only the start/end points snap, not the offset.
+    if (objects && _state !== 'awaitOffset') {
+      var snap = nearestVertex(pos, objects, 12);
+      if (snap) pos = { x: snap.x, y: snap.y };
+    }
     if (_state === 'idle') {
       _pA = { x: pos.x, y: pos.y };
       _state = 'awaitB';

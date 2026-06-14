@@ -2028,7 +2028,7 @@ function _startDraw(e) {
     if (_dimKpOpen()) _dimKpCommit(true);
 
     if (TiledPdf.isActive()) TiledPdf.pause();
-    var res = dim.handleClick(posD, drNow);
+    var res = dim.handleClick(posD, drNow, _objects);
     if (res.action === 'lockedA' || res.action === 'lockedB') {
       // Show / refresh the overlay preview
       _renderDimensionPreview();
