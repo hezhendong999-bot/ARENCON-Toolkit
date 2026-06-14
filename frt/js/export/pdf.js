@@ -254,7 +254,7 @@ function _buildCSS(fontB64){
   // navy trade bands); .rec-cap = the advisory caption row directly under
   // it; .rec-ctrchip = inline contractor chip shown ONLY on the rare
   // paid-to-contractor rec (muted, same family as the REC .rec-chip).
-  // Replaces the removed S139 .th-band.sgr (the deleted "Site General ·
+  // Replaces the removed S139 .th-band.sgr (the deleted "Site Records ·
   // Recommendations" band) — same colour, repurposed.
   c+='.th-band.recs{background:#6B7280;}';
   c+='.rec-cap{border:1px solid #DDE1E7;border-top:none;padding:9px 13px;font-size:9.5pt;color:#5A6473;background:#fff;line-height:1.35;}';
@@ -439,7 +439,7 @@ function _itemIsOpen(r){
 // than one effective contractor, every obs of that pin gets a letter
 // suffix on its display label (#4-A, #4-B, ...). Cross-references between
 // the per-section cards and the appendix table stay unambiguous: the
-// reader can find #4-A as a Vipond card and #4-B as a Site General card,
+// reader can find #4-A as a Vipond card and #4-B as a Site Records card,
 // both pointing to the same physical pin teardrop on the drawing image.
 // When all obs share one contractor, no suffix — labels stay as plain #N.
 function _pushItems(d,ctrName){
@@ -485,7 +485,7 @@ if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
   // that is NOT a recommendation is a Site Record — informational,
   // internal-only, EXCLUDED from external reports by default. It enters
   // the report only when the modal's "Include Site Records (internal)"
-  // is on, OR the user explicitly filtered the export to Site General
+  // is on, OR the user explicitly filtered the export to Site Records
   // (in which case excluding everything would yield a confusing blank
   // report). Recommendations among the general defics are NEVER Site
   // Records — they always flow through to the pooled Recommendations
@@ -523,7 +523,7 @@ var mainBodyDefs=reportDefs.filter(function(r){
 // body. For 'bottom' the rec rows stay in mainBodyDefs and the grouping
 // loop diverts them into the pooled Recommendations section instead of
 // the trade/contractor bands (disjoint — no in-place rec sub-bands, no
-// "Site General · Recommendations" band).
+// "Site Records · Recommendations" band).
 if(_recsMode==='exclude'){mainBodyDefs=mainBodyDefs.filter(function(r){return !(r.d&&r.d.isRecommendation);});}
 // S118: renumber items sequentially after filter so r.rn is 1,2,3... with no gaps
 mainBodyDefs.forEach(function(r,i){r.rn=i+1;});
@@ -886,7 +886,7 @@ function _buildDefCard(r,hdrExtra){
 // Mirrors the Detailed view's grouping (deficiencies.js _renderDetailedView):
 // a pin's trade = its FIRST observation's trade (Option 1, S137). Trade
 // order = declared projectTrades first, then any extras seen, then the
-// "Other Trade Items" band (untagged), then "Site General · Recommendations"
+// "Other Trade Items" band (untagged), then "Site Records · Recommendations"
 // (untagged + no-contractor recs). Within a trade: real contractors in
 // proj.contractors order (taupe sub-band) → no-contractor non-rec items
 // directly under the trade band → no-contractor recs under a grey

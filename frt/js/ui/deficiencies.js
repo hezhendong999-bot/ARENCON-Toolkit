@@ -7,7 +7,7 @@
  *   - Add deficiencies per contractor or general
  *   - Edit observation text (two-way binding)
  *   - Change status/priority
- *   - Lifecycle tabs (Active / Site General / Closed)
+ *   - Lifecycle tabs (Active / Site Records / Closed)
  */
 
 import { Model, TRADE_LIST, SITE_RECORDS_LABEL, isSiteRecordsName } from '../data/model.js';
@@ -89,26 +89,25 @@ function deficIsOpen(d) {
 }
 // S150 (Mark): display-time relabel. The S146 B2 rename converted all FIXED
 // UI strings, but anywhere the app prints a contractor's SAVED name verbatim
-// an old project that still carries the legacy "Site General" contractor
+// an old project that still carries the pre-rename legacy contractor name
 // shows the stale label. Per the canon "never migrate stored data" rule we
 // do NOT rewrite the data — every contractor-name display site funnels
 // through this so the user always sees the canonical SITE_RECORDS_LABEL.
-// isSiteRecordsName() already matches both the new label and the legacy
-// 'Site General' string (model.js, permanent back-compat predicate).
+// isSiteRecordsName() already matches both the new label and the pre-rename
+// legacy name (the predicate is defined in model.js, permanent back-compat).
 function ctrLabel(name) {
   return isSiteRecordsName(name) ? SITE_RECORDS_LABEL : (name || '');
 }
-// S150 (Mark, screenshot follow-up): the legacy "Site General"/"Site
-// Records" record is NOT a real contractor — Site Records is the
-// NO-contractor bucket. It must never appear in a CONTRACTOR surface
-// (roster, contractor filter dropdown, trade-assign / reassign menus)
-// where it would show a meaningless "Unassigned / needs a trade" golden
-// state. The correct path into Site Records is the hardcoded "None
-// (Site Records · internal)" option (value="" = no contractor) + the
-// dedicated Site Records filter segment — both preserved. This filters
-// the placeholder out of contractor-entity lists ONLY; stored data is
-// untouched (canon "never migrate" rule), so any items historically
-// stuck on it still exist and still render in the deficiency list.
+// S150 (Mark, screenshot follow-up): the Site Records placeholder is NOT a
+// real contractor — Site Records is the NO-contractor bucket. It must never
+// appear in a CONTRACTOR surface (roster, contractor filter dropdown,
+// trade-assign / reassign menus) where it would show a meaningless
+// "Unassigned / needs a trade" golden state. The correct path into Site
+// Records is the hardcoded "None (Site Records · internal)" option (value=""
+// = no contractor) + the dedicated Site Records filter segment — both
+// preserved. This filters the placeholder out of contractor-entity lists
+// ONLY; stored data is untouched (canon "never migrate" rule), so any items
+// historically stuck on it still exist and still render in the deficiency list.
 function realCtrs(arr) {
   return (arr || []).filter(function(c) { return c && !isSiteRecordsName(c.name); });
 }
@@ -155,7 +154,7 @@ export function ctrColorClass(name) {
 //   text    — readable on `surface` (light mode)
 // S123 P5: New categorical palette — every slot distinct from the
 // status reservation (red/amber/forest/pink/purple/blue/burgundy/slate).
-// Slot c3 stays forest because Site General is a special semantic slot.
+// Slot c3 stays forest because Site Records is a special semantic slot.
 // `surfDark` and `textDark` added for dark-mode support; the CSS reads
 // these via the .ctr-c* compound selector, but they're documented here
 // so the JS palette and CSS palette stay in lockstep.
@@ -163,7 +162,7 @@ var _CTR_PALETTE = {
   'ctr-c0': { accent: '#3D8585', surface: '#E0F0F0', text: '#176987', surfDark: '#102A2A', textDark: '#7AC4C4' }, // teal
   'ctr-c1': { accent: '#7B8838', surface: '#F2F4E0', text: '#5A6829', surfDark: '#1F2410', textDark: '#B8C870' }, // olive
   'ctr-c2': { accent: '#9E6B40', surface: '#F5EBE0', text: '#7A4F2D', surfDark: '#2A1D10', textDark: '#D6A572' }, // bronze
-  'ctr-c3': { accent: '#5F8068', surface: '#E8EFE7', text: '#5F8068', surfDark: '#0D2818', textDark: '#80C8A0' }, // forest / Site General (kept)
+  'ctr-c3': { accent: '#5F8068', surface: '#E8EFE7', text: '#5F8068', surfDark: '#0D2818', textDark: '#80C8A0' }, // forest / Site Records (kept)
   'ctr-c4': { accent: '#3D4D88', surface: '#E8ECF8', text: '#2E3F8C', surfDark: '#15192C', textDark: '#8FA0E0' }, // indigo
   'ctr-c5': { accent: '#7A3F65', surface: '#F2E0EA', text: '#5C2A4A', surfDark: '#2A1424', textDark: '#D0A0B8' }, // mulberry
   'ctr-c6': { accent: '#B85A45', surface: '#F8E6E0', text: '#8B3F2D', surfDark: '#2C1810', textDark: '#E89A7E' }, // coral
@@ -539,7 +538,7 @@ function _amRenderThumbs() {
 // ── Deficiency Card (interactive) ────────────────────────
 function buildDeficCard(d, ctrId) {
   // S121 Push 8: ALL pins (single-obs and multi-obs) now render through
-  // _buildPinGroupCard. Mark feedback: Active and Site General tabs
+  // _buildPinGroupCard. Mark feedback: Active and Site Records tabs
   // looked different — single-obs used the old compact layout while
   // multi-obs used pin-group. Now they're visually identical: minimal
   // strip on top, one obs sub-card per observation, footer at bottom.
@@ -1000,7 +999,7 @@ function buildGroup(ctrId, name, items, totalCount) {
   // S136: source the accent from the contractor's Phase-1a color so the
   // group header matches the trade board card EXACTLY (one color per
   // contractor across both surfaces). Falls back to neutral grey for
-  // Site General / unknown contractor.
+  // Site Records / unknown contractor.
   var accentCol = '#6B7280';
   if (ctrId) {
     var _gp = Model.getProject();
@@ -2086,7 +2085,7 @@ function _flatRows(proj, ignorePivot, ignoreRecMode) {
 //      — never a contractor sub-band. Header reads "Recommendations
 //      (Closed)" under the Closed pivot.
 //   3. Site Records — the reserved no-contractor informational bucket
-//      (proj.generalDeficiencies, renamed from "Site General"; NEVER a
+//      (proj.generalDeficiencies = the Site Records bucket; NEVER a
 //      recommendation). Muted-slate band + persistent INTERNAL pill +
 //      dimmed cards so it visibly recedes and can't be mistaken for an
 //      actionable item. Excluded from external reports by default
@@ -2094,7 +2093,7 @@ function _flatRows(proj, ignorePivot, ignoreRecMode) {
 //
 // ⚑ MODEL INTERPRETATION (flagged for Mark — deliberately not silent):
 //   The schema has NO separate "is a Site Record" flag. Per S139
-//   handoff §4.1/§4.6 ("Site Records = RENAME of Site General; no new
+//   handoff §4.1/§4.6 ("Site Records bucket; no new
 //   flag; no migration"), a NON-recommendation pin with NO contractor
 //   (i.e. it lives in proj.generalDeficiencies) IS a Site Record,
 //   regardless of any trade on it. A pin with a contractor is a
@@ -5326,8 +5325,8 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var _rf = Model.findDeficiency(deficId);
     Model.updateDeficStatus(deficId, 'open');
-    // S135: Site General tab retired — always route to active view, which
-    // renders both contractor groups AND the Site General bottom section.
+    // S135: Site Records tab retired — always route to active view, which
+    // renders both contractor groups AND the Site Records bottom section.
     _activeDlcTab = 'active';
     document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
       t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);
@@ -5474,8 +5473,8 @@ document.addEventListener('change', function(e) {
     // happens via Model.updateDeficStatus's status mirror.
     if (newStatus === 'closed' && _sf && _sf.defic && _sf.defic.iar) _sf.defic.iar = false;
     Model.updateDeficStatus(deficId, newStatus);
-    // S135: Site General tab retired — non-closed routes to active view
-    // (which renders the Site General bottom section).
+    // S135: Site Records tab retired — non-closed routes to active view
+    // (which renders the Site Records bottom section).
     _activeDlcTab = (newStatus === 'closed') ? 'closed' : 'active';
     document.querySelectorAll('#defic-lifecycle-tabs .dlc-tab').forEach(function(t) {
       t.classList.toggle('active', t.getAttribute('data-dlc') === _activeDlcTab);

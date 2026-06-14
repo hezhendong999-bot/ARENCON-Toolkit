@@ -269,7 +269,7 @@ export var initPins = {
     var rows = [];
     all.forEach(function(d) {
       var dd = d.defic;
-      var parentCtr = d.contractorName || 'Site General';
+      var parentCtr = d.contractorName || 'Site Records';
       function _rowFor(oi, o, multi) {
         // Per-obs effective contractor (mirrors _buildPinGroupCard).
         var ctrName = parentCtr;
@@ -303,7 +303,7 @@ export var initPins = {
     // Build contractor dropdown options (from flattened rows so per-obs
     // contractors are represented).
     var ctrSet = {};
-    rows.forEach(function(r) { ctrSet[r.ctrName || 'Site General'] = true; });
+    rows.forEach(function(r) { ctrSet[r.ctrName || 'Site Records'] = true; });
     var ctrOpts = '<option value="all">All Contractors</option>';
     Object.keys(ctrSet).sort().forEach(function(n) { ctrOpts += '<option value="' + esc(n) + '"' + (f.contractor === n ? ' selected' : '') + '>' + esc(n) + '</option>'; });
 
@@ -313,7 +313,7 @@ export var initPins = {
       if (f.status === 'Closed' && !r.isAddressed) return false;
       if (f.status === 'IAR' && !r.isIAR) return false;
       if (f.priority !== 'all' && r.obsPri !== f.priority) return false;
-      if (f.contractor !== 'all' && (r.ctrName || 'Site General') !== f.contractor) return false;
+      if (f.contractor !== 'all' && (r.ctrName || 'Site Records') !== f.contractor) return false;
       if (f.search) {
         var text = ('#' + r.numLabel + ' ' + r.desc + ' ' + (r.ctrName || '')).toLowerCase();
         if (text.indexOf(f.search) < 0) return false;

@@ -2046,7 +2046,7 @@ function wireEvents() {
 // band (untagged = first-obs trade empty). Contractor defics always count
 // (incl. recs — they show with a REC chip in the band). General defics
 // count only when NOT a recommendation; untagged no-contractor recs route
-// to "Site General · Recommendations" instead, governed by the recs gate.
+// to "Site Records · Recommendations" instead, governed by the recs gate.
 // Pin-granularity approximation — fine for the modal hint.
 function _countUntaggedForBand(proj) {
   var n = 0;

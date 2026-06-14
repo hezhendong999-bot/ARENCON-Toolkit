@@ -59,9 +59,9 @@ function _collectFields() {
     });
   });
 
-  // General deficiencies
+  // Site Records deficiencies (no-contractor bucket)
   (p.generalDeficiencies || []).forEach(function(d, di) {
-    var dLabel = 'Site General \u2192 #' + (d.num || '?');
+    var dLabel = 'Site Records \u2192 #' + (d.num || '?');
     (d.observations || []).forEach(function(o, oi) {
       if (o.text && o.text.trim().length >= minLen) {
         var fid = 'g' + di + '_o' + oi;

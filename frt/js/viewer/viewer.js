@@ -1958,7 +1958,7 @@ function _openPinEditor(deficId) {
 //
 // Three states managed here:
 //   - 'idle' (default)  — show ✏️ Edit / 🗑️ Delete buttons when a real
-//                         contractor is selected; hide them for Site General.
+//                         contractor is selected; hide them for Site Records (no-contractor).
 //   - 'new'             — show inline name input + ✓/✕ buttons. Picked from
 //                         the "+ New Contractor…" dropdown option.
 //   - 'edit'            — show inline name input pre-filled with the current
@@ -3161,7 +3161,7 @@ function _savePinEditor() {
   // bucket without being re-added anywhere.
   if (cSel != null && cSel.value !== '__new__') {
     var proj = Model.getProject();
-    var newCtrId = cSel.value || null; // empty string = Site General = null
+    var newCtrId = cSel.value || null; // empty string = Site Records (no contractor) = null
     var oldCtrId = f.contractor ? f.contractor.id : null;
     if (newCtrId !== oldCtrId) {
       // Remove from old location
@@ -3184,7 +3184,7 @@ function _savePinEditor() {
           newCtr.deficiencies.push(d);
         }
       } else {
-        // Moving to Site General
+        // Moving to Site Records (no contractor)
         if (!proj.generalDeficiencies) proj.generalDeficiencies = [];
         proj.generalDeficiencies.push(d);
       }
@@ -3392,7 +3392,7 @@ document.addEventListener('change', function(e) {
     _pinAutoSave();
     // S116 Push 5: real contractor change — refresh the CRUD row so the
     // edit/delete buttons reflect the new selection (visible only for real
-    // contractors, hidden for Site General).
+    // contractors, hidden for Site Records (no-contractor).
     if (t.id === 'pe-contractor') {
       _ctrCrudMode = 'idle';
       _peRenderCtrCrudRow(t.value || '');
@@ -3519,7 +3519,7 @@ document.addEventListener('click', function(e) {
     _peRenderCtrCrudRow(fE.contractor.id);
     return;
   }
-  // Delete → confirm + reassign deficiencies to Site General + remove.
+  // Delete → confirm + reassign deficiencies to Site Records + remove.
   if (e.target.closest && e.target.closest('#pe-ctr-del')) {
     if (!_peDeficId) return;
     var fD = Model.findDeficiency(_peDeficId);
@@ -3528,9 +3528,9 @@ document.addEventListener('click', function(e) {
     var ctrNameDel = fD.contractor.name || 'this contractor';
     var deficCount = (fD.contractor.deficiencies || []).length;
     var msg = deficCount > 1
-      ? 'Delete "' + ctrNameDel + '"? Its ' + deficCount + ' deficiencies will be moved to Site General.'
+      ? 'Delete "' + ctrNameDel + '"? Its ' + deficCount + ' deficiencies will be moved to Site Records.'
       : (deficCount === 1
-        ? 'Delete "' + ctrNameDel + '"? Its 1 deficiency will be moved to Site General.'
+        ? 'Delete "' + ctrNameDel + '"? Its 1 deficiency will be moved to Site Records.'
         : 'Delete "' + ctrNameDel + '"?');
     showConfirm('Delete contractor', msg).then(function(yes) {
       if (!yes) return;
@@ -3544,7 +3544,7 @@ document.addEventListener('click', function(e) {
         _openPinEditor(stillId);
         if (window._frtRenderTasks) window._frtRenderTasks();
       }, 50);
-      toast(moved > 0 ? '\u2713 Deleted, moved ' + moved + ' deficiencies to Site General' : '\u2713 Contractor deleted');
+      toast(moved > 0 ? '\u2713 Deleted, moved ' + moved + ' deficiencies to Site Records' : '\u2713 Contractor deleted');
     });
     return;
   }
@@ -4569,7 +4569,7 @@ document.addEventListener('click', function(e) {
   // S116 Push 14: removed dv-new-task button + handler. Mark: "doesn't work,
   // and I don't think it's useful at all. remove it. All tasks shall be
   // added from the drawings or deficiency tab page." The button was hooked
-  // up to create a Site General defic + enter place-pin mode, but Mark
+  // up to create a Site Records defic + enter place-pin mode, but Mark
   // reported it didn't work in field testing. The toolbar Pin button +
   // Deficiencies tab + Pin from defic card already cover the same intent.
 

@@ -400,28 +400,32 @@ export var TRADE_LIST = [
 
 /**
  * S140 Batch 1 (Model 2 §4.1) — canonical label for the reserved
- * informational-only scope, RENAMED from the legacy "Site General".
- * Under Model 2 this bucket is "Site Records": site documentation
- * (photos/notes), excluded from external reports by default and NEVER a
- * recommendation. No data migration (the tool was never in real use) —
- * the rename is direct. Every module must reference this constant
- * instead of hardcoding the string, so the label can never drift
- * between the Detailed view, the PDF and the data model.
+ * informational-only scope. This bucket is "Site Records": site
+ * documentation (photos/notes), excluded from external reports by default
+ * and NEVER a recommendation. Every module must reference this constant
+ * instead of hardcoding the string, so the label can never drift between
+ * the Detailed view, the PDF and the data model.
  */
 export var SITE_RECORDS_LABEL = 'Site Records';
 
+// Frozen back-compat token — the ONE place the pre-S140 bucket name is
+// written. Old cloud snapshots / test JSON may still carry it as a saved
+// contractor name; isSiteRecordsName() matches it so they keep grouping as
+// Site Records with no data migration ("never migrate stored data" canon).
+// Nothing else in the toolkit should spell this literal — reference the
+// constant if you ever need it.
+var _LEGACY_SITE_BUCKET_NAME = 'Site General';
+
 /**
  * S140 Batch 1 — recognizes the reserved-scope bucket by display name.
- * Matches the canonical SITE_RECORDS_LABEL AND the legacy 'Site General'
- * string, so any test JSON / cloud snapshot still carrying the pre-S140
- * label keeps grouping correctly with no data migration. Batches 2/3
- * replace every `=== 'Site General'` sentinel check with this.
+ * Matches the canonical SITE_RECORDS_LABEL AND the frozen legacy token, so
+ * any pre-S140 snapshot keeps grouping correctly with no data migration.
  *
  * @param {string} nm  A contractor/bucket display name.
  * @returns {boolean}
  */
 export function isSiteRecordsName(nm) {
-  return nm === SITE_RECORDS_LABEL || nm === 'Site General';
+  return nm === SITE_RECORDS_LABEL || nm === _LEGACY_SITE_BUCKET_NAME;
 }
 
 /**

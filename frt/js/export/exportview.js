@@ -132,7 +132,7 @@ export var initExportView = {
 
     // ── Distribution model ────────────────────────────────────────
     // Recipients in their roles. Owner = info.client. Contractors =
-    // proj.contractors minus Site General. saved = proj.distribution[]
+    // proj.contractors minus Site Records. saved = proj.distribution[]
     // (the persisted selection); default selection when none saved =
     // owner + every contractor.
     var saved = Array.isArray(proj.distribution) ? proj.distribution.slice() : null;
