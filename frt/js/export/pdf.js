@@ -1121,7 +1121,15 @@ w.document.write(docHtml);w.document.close();w.document.title=_pdfTitle;
 // Export bar
 try{
   var bar=w.document.createElement('div');bar.id='pdf-btn-bar';
-  bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+  // S329 (#32, Mark): IN-FLOW bar, NOT position:fixed. A fixed banner scales with
+  // Chrome PAGE zoom (250/500%) and grew to cover the report — page zoom scales
+  // every fixed px element, so no counter-scale or unit trick fixes a fixed bar
+  // reliably. Making the bar a normal in-flow block means it sits ABOVE the report
+  // and pushes it down; at any zoom it scales uniformly WITH the report and can
+  // never overlap it. Trade-off (Mark-accepted): it scrolls off the top as you
+  // scroll down — Export/Close are right there on open, and print() is the real
+  // save path. No body padding-top compensation needed (nothing is overlaid).
+  bar.style.cssText='background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);';
   var pb=w.document.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
   pb.style.cssText='padding:8px 24px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
   pb.onclick=function(){w.print();};bar.appendChild(pb);
@@ -1130,14 +1138,7 @@ try{
   var cb=w.document.createElement('button');cb.innerHTML='\u2715 Close';
   cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
   cb.onclick=function(){w.close();};bar.appendChild(cb);
-  w.document.body.insertBefore(bar,w.document.body.firstChild);w.document.body.style.paddingTop='56px';
-  // S329 (#32, Mark): plain fixed banner — counter-scale removed. The S316/S328
-  // visual-viewport counter-scale only corrected PINCH zoom (vv.scale); Chrome
-  // PAGE zoom (the 100/250/500% control) does NOT move vv.scale, so the bar still
-  // grew with page zoom and covered the report. JS can't reliably read page zoom,
-  // so counter-scaling was the wrong strategy. The bar's base cssText already pins
-  // it position:fixed;top0;left0;right0 — a predictable banner at every zoom level
-  // that always carries Cancel. No transform, no resize listeners.
+  w.document.body.insertBefore(bar,w.document.body.firstChild);
 }catch(e){}
 
 // Pagination
