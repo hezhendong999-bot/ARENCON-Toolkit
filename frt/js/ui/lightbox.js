@@ -279,10 +279,19 @@ function _toggleMarkup(){
   if (_markupActive){
     _maybeCommitOnExit();   // exiting now auto-commits (was: silent detach/discard)
   } else {
-    // Markup requires fit-scale (no zoom/pan during markup, simpler coord math)
-    _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
+    // S329 (#20/#21/#22, Mark): markup now works while zoomed. The canvas stays attached
+    // to lb-canvas (outer container, untransformed) and keeps the engine's original
+    // coordinate space (so line widths, fonts, and saveBlob() output are all unchanged).
+    // To make markup zoom/pan WITH the photo, _applyTransform mirrors the wrap's transform
+    // onto the markup canvas (see _applyMarkupTransform). We sync the canvas to the photo's
+    // FIT box once at attach (baseline), then the shared transform scales/pans both together.
+    // We no longer force fit-scale on entry, so the current zoom carries into markup.
+    var prevScale = _scale, prevPanX = _panX, prevPanY = _panY;
+    _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();  // baseline so _sync captures fit box
     var p = _photos[_idx] || {};
     window.MarkupEngine.attach(canvas, img, p._origBlob || null, null);
+    // restore the zoom the user had, now mirrored onto the freshly-synced canvas
+    _scale = prevScale; _panX = prevPanX; _panY = prevPanY; _applyTransform();
     if (_markupBar) _markupBar.style.display='flex';
     _markupActive = true;
   }
@@ -412,6 +421,16 @@ function _applyTransform() {
   // then rotate pivots the scaled image around (0,0), then translate moves
   // it into place.
   wrap.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY) + 'px,0) rotate(' + rot + 'deg) scale(' + _scale + ')';
+  // S329 (#20/#21/#22, Mark): mirror the SAME transform onto the markup canvas so markup
+  // zooms/pans WITH the photo. The canvas was synced to the fit-display box (engine's
+  // original coord space — untouched), so its relative scale is k = _scale/_fitScale; the
+  // pan/rotate/offset terms are identical to the wrap. Proven aligned at all zoom/pan/fit.
+  if (_markupActive && window.MarkupEngine && window.MarkupEngine.canvas) {
+    var mc = window.MarkupEngine.canvas;
+    var k = (_fitScale ? (_scale / _fitScale) : 1);
+    mc.style.transformOrigin = '0 0';
+    mc.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY) + 'px,0) rotate(' + rot + 'deg) scale(' + k + ')';
+  }
   _updateZoomIndicator();
 }
 
@@ -637,7 +656,11 @@ document.addEventListener('mouseup', function() {
 // Touch: pinch-to-zoom + swipe + double-tap
 document.addEventListener('touchstart', function(e) {
   if (!_isOpen) return;
-  if (_markupActive) return;  // S327 (B2): markup owns single-finger drag — don't swipe/pan/zoom the photo
+  // S329 (#20/#21/#22, Mark): two-finger gestures ALWAYS pinch-zoom/pan, even with a
+  // markup tool active (so you never deactivate the tool to reposition). One finger is
+  // blocked here only when markup is active (the engine owns single-finger draw/select);
+  // with no tool active, one finger pans as before.
+  if (_markupActive && e.touches.length < 2) return;
   var area = _el('lb-canvas');
   if (!area || !area.contains(e.target)) return;
   if (e.target.closest && (e.target.closest('#lb-prev') || e.target.closest('#lb-next') || e.target.closest('#lb-close') || e.target.closest('#lb-topbar'))) return;
@@ -687,7 +710,7 @@ document.addEventListener('touchstart', function(e) {
 
 document.addEventListener('touchmove', function(e) {
   if (!_isOpen) return;
-  if (_markupActive) return;  // S327 (B2): markup stroke in progress — don't pan/swipe the photo under it
+  if (_markupActive && e.touches.length < 2) return;  // S329: 2-finger pinch/pan ok during markup; 1-finger = draw
   var area = _el('lb-canvas');
   if (!area || !area.contains(e.target)) return;
 
@@ -726,7 +749,9 @@ document.addEventListener('touchmove', function(e) {
 
 document.addEventListener('touchend', function(e) {
   if (!_isOpen) return;
-  if (_markupActive) return;  // S327 (B2): no swipe-to-next on markup stroke release
+  // S329: no blanket markup bail here. _swiping is only set by single-finger viewing
+  // touchstart, which is now blocked during markup — so swipe-to-next can't fire in
+  // markup mode anyway. The pinch/finger bookkeeping below is harmless to run.
   if (e.touches.length < 2) _touchStartDist = 0;
   if (e.touches.length === 1) {
     _singleTouchX = e.touches[0].clientX;

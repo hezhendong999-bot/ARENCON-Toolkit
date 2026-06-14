@@ -85,9 +85,16 @@
       var self = this, c = this.canvas;
       function pt(ev){
         var r = c.getBoundingClientRect();
-        var x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
-        var y = (ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top;
-        return { x: x, y: y };
+        var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX);
+        var cy = (ev.touches ? ev.touches[0].clientY : ev.clientY);
+        // S329 (#20/#21/#22): during markup the canvas may carry a CSS scale (zoom), so
+        // its on-screen rect is larger/smaller than its logical size. Map the screen point
+        // back into the canvas's LOGICAL (fit) coordinate space — the same space strokes
+        // were always stored in — so saveBlob() and line widths are unaffected. At fit
+        // (no scale) r.width === self.w, so this reduces to the original (cx - r.left).
+        var sx = (r.width  && self.w) ? (self.w / r.width)  : 1;
+        var sy = (r.height && self.h) ? (self.h / r.height) : 1;
+        return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
       }
       function isShape(t){ return t==='arrow'||t==='rect'||t==='circle'||t==='line'; }
       // S329 (#23, Mark): shapes (arrow/rect/circle/line) place via TWO CLICKS
@@ -96,6 +103,17 @@
       // click-to-draw state machine. `_shapePending` holds the in-progress shape
       // between the two clicks; a move updates its live rubber-band preview (mouse).
       function down(ev){
+        // S329 (#20/#21/#22, Mark): TWO+ fingers = pinch-zoom/pan, never draw. Bail
+        // WITHOUT preventDefault so the gesture bubbles to the lightbox's pinch handler.
+        // Also cancel any stroke/shape that a first finger had started, so dropping a
+        // 2nd finger to zoom never leaves a stray mark (Procreate-style behaviour).
+        if (ev.touches && ev.touches.length >= 2){
+          if (self._drawing || self._curr || self._shapePending){
+            self._drawing = false; self._curr = null; self._shapePending = null;
+            if (self.ctx) self._render();
+          }
+          return;
+        }
         var p = pt(ev);
         if (self.tool === 'text'){ self._textPrompt(p, ev); return; }  // no preventDefault — let focus land
         ev.preventDefault();
@@ -130,6 +148,14 @@
         self.redoStack = [];
       }
       function move(ev){
+        // S329: 2+ fingers — stop drawing, let the pinch/pan move bubble to lightbox.
+        if (ev.touches && ev.touches.length >= 2){
+          if (self._drawing || self._curr || self._shapePending){
+            self._drawing = false; self._curr = null; self._shapePending = null;
+            if (self.ctx) self._render();
+          }
+          return;
+        }
         if (self.tool === 'select'){ if (self._dragState){ ev.preventDefault(); self._selectMove(pt(ev)); } return; }
         // Two-click shape: live rubber-band preview between the two clicks (mouse).
         if (self._shapePending){
