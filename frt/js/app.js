@@ -214,11 +214,23 @@ function _restoreView() {
 }
 
 // ── Dark Mode ────────────────────────────────────────────
+// S329 (Mark): the iOS status-bar background follows the theme-color meta. Keep it
+// matching the header per mode — dark header (#1d1b24) in dark, light header
+// (#E6E3E9) in light — so the status-bar strip is never a stray white/black bar.
+function _setThemeColor() {
+  var isDark = document.body.classList.contains('dark-mode');
+  var c = isDark ? '#1d1b24' : '#E6E3E9';
+  var m = document.querySelector('meta[name="theme-color"]');
+  if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
+  m.setAttribute('content', c);
+}
+
 function toggleDarkMode() {
   document.body.classList.toggle('dark-mode');
   var isDark = document.body.classList.contains('dark-mode');
   localStorage.setItem(LS_DARK, isDark ? '1' : '0');
   updateDarkToggleIcon();
+  _setThemeColor();
 }
 
 // S251b: REVERTED to Mark's original custom PNG sun/moon icons (S82 set),
@@ -242,6 +254,7 @@ function updateDarkToggleIcon() {
 function restoreDarkMode() {
   if (localStorage.getItem(LS_DARK) === '1') document.body.classList.add('dark-mode');
   updateDarkToggleIcon();
+  _setThemeColor();
 }
 
 // ── Text Size ────────────────────────────────────────────
