@@ -1195,7 +1195,7 @@ body.dark-mode #create-project-overlay input:focus{border-color:#c13a58!importan
 
 /* ── MOBILE HEADER FIX ── */
 @media(max-width:600px){
-  .header-top{padding:8px 10px;gap:5px;}
+  .header-top{padding:max(8px,env(safe-area-inset-top,0px)) 10px 8px;gap:5px;}
   /* S262: logo-area must SHRINK at tiny widths (was flex-shrink:0, which let
      the ARENCON wordmark overrun and overlap the right-side action buttons on
      extreme-small screens). The wordmark now caps its width and clips; Back
@@ -1684,7 +1684,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .project-card{min-width:0!important;}
   .dashboard{padding:16px 10px 60px;}
   /* Header — taller, one line, no overflow */
-  .header-top{padding:10px 12px;gap:6px;}
+  .header-top{padding:max(10px,env(safe-area-inset-top,0px)) 12px 10px;gap:6px;}
   .logo-area img,.header-logo{height:22px!important;padding:2px 5px!important;}
   .app-title{display:none!important;}
   .header-nav-arrows{display:none!important;}
@@ -8941,7 +8941,7 @@ body.dark-mode .dfx-obs-scope-bar:hover { border-color: #E0A0B0; color: #E0A0B0;
   /* Screen E — header tightening */
   .header-logo     { height: 28px; padding: 2px 5px; }
   .app-title       { font-size: 16px; }
-  .header-top      { padding: 8px 10px; gap: 6px; }
+  .header-top      { padding: max(8px,env(safe-area-inset-top,0px)) 10px 8px; gap: 6px; }
   .header-save-ts  { display: none; }
 }
 /* End S189 ─────────────────────────────────────────────────────────────── */
