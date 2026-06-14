@@ -13,6 +13,7 @@
     strokes: [],                          // committed strokes
     redoStack: [],
     _drawing: false, _curr: null,
+    _shapePending: null,                  // S329 #23 — in-progress two-click shape
     _origBlob: null,                      // pristine source for Revert
     _onDirty: null,
     // ── Select-mode state (ported from drawing viewer markup.js) ──
@@ -44,6 +45,7 @@
       if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
       this.canvas = null; this.ctx = null; this.host = null; this.img = null;
       this.strokes = []; this.redoStack = []; this._drawing = false; this._curr = null;
+      this._shapePending = null;
       this._selectedIds = []; this._dragState = null; this._rubberBand = null;
     },
 
@@ -64,7 +66,7 @@
       this._render();
     },
 
-    setTool:  function(t){ this.tool = t; if (t !== 'select'){ this._selectedIds = []; this._dragState = null; this._rubberBand = null; if (this.ctx) this._render(); } },
+    setTool:  function(t){ this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this._selectedIds = []; this._dragState = null; this._rubberBand = null; if (this.ctx) this._render(); } },
     setColor: function(c){ this.color = c; this._applyToSelection('color', c); },
     setSize:  function(s){ this.size = s; },
     setOpacity: function(v){ v = Math.max(0.1, Math.min(1, v)); this.opacity = v; this._applyToSelection('opacity', v); },
@@ -88,26 +90,61 @@
         return { x: x, y: y };
       }
       function isShape(t){ return t==='arrow'||t==='rect'||t==='circle'||t==='line'; }
+      // S329 (#23, Mark): shapes (arrow/rect/circle/line) place via TWO CLICKS
+      // (click start -> click finish), NOT click-drag-hold. Freehand (pen/highlight)
+      // and eraser keep the drag flow. Mirrors the drawing-viewer engine's
+      // click-to-draw state machine. `_shapePending` holds the in-progress shape
+      // between the two clicks; a move updates its live rubber-band preview (mouse).
       function down(ev){
         var p = pt(ev);
         if (self.tool === 'text'){ self._textPrompt(p, ev); return; }  // no preventDefault — let focus land
         ev.preventDefault();
         if (self.tool === 'select'){ self._selectDown(p, ev); return; }
         if (self.tool === 'eraser'){ self._eraseAt(p); self._drawing = true; return; }
+        if (isShape(self.tool)){
+          // Two-click shape flow.
+          if (!self._shapePending){
+            // First click — drop start point, begin pending shape.
+            self._shapePending = { id:self._uid(), tool:self.tool, color:self.color, size:self.size, opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
+            self._curr = self._shapePending;
+            self.redoStack = [];
+            self._render();
+          } else {
+            // Second click — finalize at this point.
+            self._shapePending.pts[1] = p;
+            var a=self._shapePending.pts[0], b=self._shapePending.pts[1];
+            if ((Math.abs(a.x-b.x) + Math.abs(a.y-b.y)) > 4){
+              self.strokes.push(self._shapePending);
+              if (self._onDirty) self._onDirty();
+            }
+            self._shapePending = null;
+            self._curr = null;
+            self._render();
+          }
+          return;
+        }
+        // Freehand (pen/highlight) — drag flow.
         self._drawing = true;
         self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size, opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
-        if (!isShape(self.tool)) self._curr.pts = [p]; // freehand uses growing array
+        self._curr.pts = [p]; // freehand uses growing array
         self.redoStack = [];
       }
       function move(ev){
         if (self.tool === 'select'){ if (self._dragState){ ev.preventDefault(); self._selectMove(pt(ev)); } return; }
+        // Two-click shape: live rubber-band preview between the two clicks (mouse).
+        if (self._shapePending){
+          ev.preventDefault();
+          self._shapePending.pts[1] = pt(ev);
+          self._render();
+          return;
+        }
         if (!self._drawing) return;
         ev.preventDefault();
         var p = pt(ev);
         if (self.tool === 'eraser'){ self._eraseAt(p); return; }
         if (!self._curr) return;
         if (isShape(self._curr.tool)){
-          self._curr.pts[1] = p; // rubber-band
+          self._curr.pts[1] = p; // (legacy path — unused for shapes now, kept defensive)
           self._render();
           return;
         }
@@ -118,6 +155,8 @@
       }
       function up(){
         if (self.tool === 'select'){ if (self._dragState) self._selectUp(); return; }
+        // Two-click shapes do NOT commit on pointerup — they commit on the 2nd click.
+        if (self._shapePending) return;
         if (!self._drawing) return;
         self._drawing = false;
         if (self._curr){
@@ -695,6 +734,7 @@
     isDirty: function(){ return this.strokes.length > 0; },
 
     undo: function(){
+      if (this._shapePending){ this._shapePending = null; this._curr = null; this._render(); return; }
       if (!this.strokes.length) return;
       this.redoStack.push(this.strokes.pop());
       this._render();
@@ -708,7 +748,7 @@
     },
 
     clear: function(){
-      this.strokes = []; this.redoStack = []; this._render();
+      this.strokes = []; this.redoStack = []; this._shapePending = null; this._curr = null; this._render();
       if (this._onDirty) this._onDirty();
     },
 
