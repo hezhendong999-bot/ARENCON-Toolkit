@@ -6694,6 +6694,247 @@ body.dark-mode .dim-mode-btn.active {
 /* End S126 #6 ─────────────────────────────────────────────────────── */
 
 /* ═══════════════════════════════════════════════════════════════════════
+   S330 #37 — Dimension engine v4: unit toggle, keypad, finish chip,
+   pickup + recalibrate modals. Muted palette, Calibri, burgundy primary.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Unit toggle pill in the dim sub-toolbar (mirrors .dim-mode-pill) */
+.dim-unit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: #EDE5D3;
+  border-radius: 6px;
+  padding: 3px;
+}
+.dim-unit-btn {
+  font-family: Calibri, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6a5a3a;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  min-height: 30px;
+}
+.dim-unit-btn.active { background: #fff; color: #444; }
+body.dark-mode .dim-unit-pill { background: #2a2530; }
+body.dark-mode .dim-unit-btn { color: #b6a9c0; }
+body.dark-mode .dim-unit-btn.active { background: #463c52; color: #f4f3f6; }
+
+/* ── Dimension value keypad ── floating (desktop) / bottom-dock (touch) ── */
+.dim-kp {
+  position: fixed;
+  z-index: 99999;
+  background: #fff;
+  border: 1px solid #E2DFE8;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28);
+  padding: 8px;
+  width: 200px;
+  display: none;
+  font-family: Calibri, sans-serif;
+}
+.dim-kp.show { display: block; }
+.dim-kp-disp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid #9C2742;
+  border-radius: 9px;
+  padding: 6px 8px 6px 12px;
+  margin-bottom: 6px;
+  background: #fff;
+}
+.dim-kp-disp input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1B1A22;
+  background: transparent;
+  min-width: 0;
+  padding: 4px 0;
+}
+.dim-kp-flag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  padding: 3px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.dim-kp-flag.imp { background: #2C7FB8; }
+.dim-kp-flag.met { background: #2E9E72; }
+.dim-kp-close {
+  border: none;
+  background: #EFEDF0;
+  color: #5E5B68;
+  font-size: 15px;
+  font-weight: 700;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.dim-kp-close:active { background: #e2dfe8; }
+.dim-kp-interp {
+  font-size: 11.5px;
+  color: #5E5B68;
+  min-height: 15px;
+  margin-bottom: 8px;
+}
+.dim-kp-interp.note { color: #9C2742; font-style: italic; }
+.dim-kp-keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.dim-kp-keys button {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid #E2DFE8;
+  background: #EFEDF0;
+  border-radius: 8px;
+  min-height: 38px;
+  cursor: pointer;
+  color: #1B1A22;
+}
+.dim-kp-keys button:active { background: #e2dfe8; }
+.dim-kp-keys .k-sym { color: #9C2742; }
+.dim-kp-keys .k-act { background: #9C2742; color: #fff; border-color: #9C2742; }
+.dim-kp-keys .k-rev { background: #fff; color: #5E5B68; font-size: 12px; }
+.dim-kp-keys .span2 { grid-column: span 2; }
+.dim-kp-tip { font-size: 10.5px; color: #928E9C; margin-top: 7px; line-height: 1.4; }
+/* metric mode hides feet/inch keys */
+.dim-kp.metric .k-imponly { display: none; }
+body.dark-mode .dim-kp { background: #211d27; border-color: #38323f; }
+body.dark-mode .dim-kp-disp input { color: #f4f3f6; }
+body.dark-mode .dim-kp-keys button { background: #2a2530; border-color: #38323f; color: #f4f3f6; }
+body.dark-mode .dim-kp-keys .k-rev { background: #211d27; color: #b6a9c0; }
+body.dark-mode .dim-kp-close { background: #2a2530; color: #b6a9c0; }
+
+/* Bottom-dock on touch / narrow screens */
+@media (pointer: coarse), (max-width: 600px) {
+  .dim-kp.show {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 520px;
+    margin: 0 auto;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 24px rgba(0,0,0,.3);
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .dim-kp-keys { gap: 5px; }
+  .dim-kp-keys button { min-height: 46px; font-size: 18px; }
+  .dim-kp-tip { display: none; }
+  .dim-kp-interp { margin-bottom: 5px; }
+  .dim-kp-disp { margin-bottom: 5px; }
+}
+
+/* ── Finish ✕ chip — appears between dims in continuous/running ── */
+.dim-finchip {
+  position: fixed;
+  z-index: 99998;
+  display: none;
+  align-items: center;
+}
+.dim-finchip.show { display: flex; }
+.dim-finchip button {
+  font-family: Calibri, sans-serif;
+  font-weight: 700;
+  border: none;
+  border-radius: 22px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  font-size: 18px;
+  background: #C0445F;
+  color: #fff;
+}
+
+/* ── Pickup picker + recalibrate modals (shared .dim-modal chrome) ── */
+.dim-modal-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,12,18,.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99998;
+  padding: 18px;
+}
+.dim-modal-back.show { display: flex; }
+.dim-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.3);
+  width: min(420px, 100%);
+  overflow: hidden;
+  font-family: Calibri, sans-serif;
+}
+.dim-modal-head {
+  position: relative;
+  padding: 14px 18px;
+  background: #EFEDF0;
+  border-bottom: 1px solid #E2DFE8;
+  border-left: 4px solid #9C2742;
+}
+.dim-modal-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #1B1A22; }
+.dim-modal-head p { margin: 3px 0 0; font-size: 12px; color: #5E5B68; }
+.dim-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  color: #5E5B68;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  line-height: 1;
+}
+.dim-modal-close:hover { background: rgba(0,0,0,.06); color: #1B1A22; }
+.dim-modal-body { padding: 16px 18px; }
+.dim-choice { display: flex; flex-direction: column; gap: 10px; }
+.dim-choice button {
+  text-align: left;
+  border: 1.5px solid #E2DFE8;
+  background: #fff;
+  border-radius: 11px;
+  padding: 13px 15px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.dim-choice button:hover { border-color: #9C2742; }
+.dim-choice button b { display: block; font-size: 14px; color: #1B1A22; margin-bottom: 2px; }
+.dim-choice button span { font-size: 12px; color: #5E5B68; }
+.dim-choice button.def { border-color: #9C2742; background: #fbf2f4; }
+body.dark-mode .dim-modal { background: #211d27; }
+body.dark-mode .dim-modal-head { background: #2a2530; border-bottom-color: #38323f; }
+body.dark-mode .dim-modal-head h3 { color: #f4f3f6; }
+body.dark-mode .dim-choice button { background: #2a2530; border-color: #38323f; }
+body.dark-mode .dim-choice button b { color: #f4f3f6; }
+body.dark-mode .dim-choice button.def { background: #3a2530; }
+
+/* End S330 #37 ─────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
    S126 #7 — Text Decoration Toggles + Transparent Edit Chrome
    ═══════════════════════════════════════════════════════════════════════
    Mobile context bar gains a third group (#ctx-text-deco-group) with two

@@ -11,7 +11,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=649">
+<link rel="stylesheet" href="css/frt.css?v=650">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -772,7 +772,50 @@ function ensurePdfJs(cb){
           <button class="dim-mode-btn" data-dim-mode="continuous">Continuous</button>
           <button class="dim-mode-btn" data-dim-mode="running">Running</button>
         </div>
+        <div class="dim-unit-pill">
+          <button class="dim-unit-btn active" data-dim-unit="imperial">Imperial</button>
+          <button class="dim-unit-btn" data-dim-unit="metric">Metric</button>
+        </div>
       </div>
+      <!-- S330 #37 — Dimension value keypad (units OUTSIDE; metric hides
+           feet/inch keys). Floating on desktop, bottom-dock on touch. -->
+      <div id="dim-kp" class="dim-kp">
+        <div class="dim-kp-disp">
+          <input id="dim-kp-input" type="text" inputmode="text" autocomplete="off" placeholder="enter length" />
+          <span class="dim-kp-flag imp" id="dim-kp-flag">IMP</span>
+          <button class="dim-kp-close" id="dim-kp-close" title="Close" aria-label="Close">✕</button>
+        </div>
+        <div class="dim-kp-interp" id="dim-kp-interp">&nbsp;</div>
+        <div class="dim-kp-keys">
+          <button data-dk="7">7</button><button data-dk="8">8</button><button data-dk="9">9</button><button class="k-sym k-imponly" data-dk="'">&#39;</button>
+          <button data-dk="4">4</button><button data-dk="5">5</button><button data-dk="6">6</button><button class="k-sym k-imponly" data-dk="&quot;">&quot;</button>
+          <button data-dk="1">1</button><button data-dk="2">2</button><button data-dk="3">3</button><button class="k-sym k-imponly" data-dk="-">-</button>
+          <button data-dk="0">0</button><button class="k-sym" data-dk=".">.</button><button class="k-sym k-imponly" data-dk="/">/</button><button class="k-act" data-dk="BK">⌫</button>
+          <button class="k-rev span2" data-dk="REV">↺ revert to measured</button>
+          <button class="k-act span2" data-dk="OK">✓ Done</button>
+        </div>
+        <div class="dim-kp-tip" id="dim-kp-tip">Type here or tap keys. Start the next dimension and this locks in automatically. Non-numbers (TYP., EQ) are kept as a note.</div>
+      </div>
+      <!-- S330 #37 — Finish chip (between dims in continuous/running) -->
+      <div id="dim-finchip" class="dim-finchip"><button id="dim-fin-x" title="Done — stop here">✕</button></div>
+      <!-- S330 #37 — Pickup picker modal -->
+      <div id="dim-pick-back" class="dim-modal-back"><div class="dim-modal">
+        <div class="dim-modal-head"><button class="dim-modal-close" data-dim-close="dim-pick-back">✕</button><h3 id="dim-pick-title">Continuous dimension</h3><p>Where should this chain begin?</p></div>
+        <div class="dim-modal-body"><div class="dim-choice">
+          <button id="dim-pick-prev" class="def"><b>Continue from previous</b><span>Pick up from where the last dimension ended.</span></button>
+          <button id="dim-pick-point"><b>Pick a point</b><span>Tap any existing dimension point to start from there — then draw in any direction.</span></button>
+          <button id="dim-pick-fresh"><b>Start fresh</b><span>Begin a brand-new dimension with two new clicks.</span></button>
+        </div></div>
+      </div></div>
+      <!-- S330 #37 — Recalibrate choice modal -->
+      <div id="dim-recal-back" class="dim-modal-back"><div class="dim-modal">
+        <div class="dim-modal-head"><button class="dim-modal-close" data-dim-close="dim-recal-back">✕</button><h3>Drawing already calibrated</h3><p>You set a new scale. Update existing dimensions?</p></div>
+        <div class="dim-modal-body"><div class="dim-choice">
+          <button id="dim-recal-measured" class="def"><b>Update measured dimensions only</b><span>Rescale measured dims; manual overrides keep their values. (Default)</span></button>
+          <button id="dim-recal-all"><b>Update all dimensions</b><span>Rescale everything, including numeric overrides, to the new measured value.</span></button>
+          <button id="dim-recal-none"><b>Don’t update existing</b><span>New scale applies only to dimensions drawn from now on.</span></button>
+        </div></div>
+      </div></div>
       <!-- Inline text input for text tool -->
       <textarea id="mk-text-input" class="mk-text-input" style="display:none;" placeholder="Type here..."></textarea>
       <div class="dv-nav-controls" id="dv-nav-controls">

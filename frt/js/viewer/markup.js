@@ -200,6 +200,10 @@ function _resetDimensionFlow() {
   _dimCalibrateP1 = null;
   _dimVertexEditId = null;
   _dimVertexDragHandle = null;
+  // S330 #37 — clear the finish chip and close any open value keypad
+  if (typeof _dimKpOpen === 'function' && _dimKpOpen()) _dimKpCommit(true);
+  var _fc = document.getElementById('dim-finchip');
+  if (_fc) _fc.classList.remove('show');
   var ov = _getOverlay();
   if (ov) {
     ov.style.display = 'none';
@@ -230,82 +234,303 @@ function _renderDimensionPreview() {
   dim.renderPreview(ctx, _color, _lineWidth, _opacity);
 }
 
-// S126 #6 — Always-edit on commit. Spawns an inline text input centered on
-// the dimension's label position so the user can type an override
-// immediately after committing the dimension. Enter or blur commits;
-// Escape discards the override entry without deleting the dimension.
+// S330 #37 — Dimension value keypad controller. Replaces the old inline
+// single-input. Units live OUTSIDE the keypad (the toolbar Imperial/Metric
+// toggle governs). The display is a real <input> — type on a keyboard, tap
+// keys, or tap the field for the OS keyboard. Auto-commits when the next
+// dimension begins (so chains stay fluid). Revert clears an override back
+// to the measured value. Non-numeric text is kept as a frozen note.
+var _dimKpObj = null;       // the dimension object being edited
+var _dimKpCommitted = false;
+
+function _dimKpEls() {
+  return {
+    kp: document.getElementById('dim-kp'),
+    input: document.getElementById('dim-kp-input'),
+    flag: document.getElementById('dim-kp-flag'),
+    interp: document.getElementById('dim-kp-interp')
+  };
+}
+function _dimKpOpen() {
+  var kp = document.getElementById('dim-kp');
+  return !!(kp && kp.classList.contains('show'));
+}
 function _editDimensionLabel(obj) {
-  var mc = _getCanvas();
-  if (!mc || !obj) return;
-  var ax, ay, bx, by, offset;
-  if (obj.mx1 != null) {
-    ax = obj.mx1; ay = obj.my1; bx = obj.mx2; by = obj.my2; offset = obj.offset || 0;
+  var dim = window._dimTool;
+  var els = _dimKpEls();
+  if (!dim || !els.kp || !els.input || !obj) return;
+  _dimKpObj = obj;
+  _dimKpCommitted = false;
+
+  // Seed the field: numeric override -> its typed form; note -> the note;
+  // otherwise blank (placeholder shows the measured value).
+  var seed = '';
+  if (obj.overrideNote != null && obj.overrideNote !== '') seed = obj.overrideNote;
+  else if (typeof obj.ovrM === 'number') {
+    seed = (dim.getDisplayUnit() === 'metric')
+      ? Math.round(obj.ovrM * 1000) + 'mm'
+      : dim.formatMeters(obj.ovrM).replace(/[^0-9'"\-\/. ]/g, '').trim();
+  }
+  els.input.value = seed;
+
+  // metric/imperial key visibility follows the display unit
+  els.kp.classList.toggle('metric', dim.getDisplayUnit() === 'metric');
+
+  // Position: floating near the dim label on desktop; CSS docks on touch.
+  var isTouch = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+  if (!isTouch) {
+    var mc = _getCanvas();
+    if (mc) {
+      var ax, ay, bx, by, offset;
+      if (obj.mx1 != null) { ax = obj.mx1; ay = obj.my1; bx = obj.mx2; by = obj.my2; offset = obj.offset || 0; }
+      else { ax = obj.x1; ay = obj.y1; bx = obj.x2; by = obj.y2; offset = 0; }
+      var dx = bx - ax, dy = by - ay, len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var px = -dy / len, py = dx / len;
+      var midX = (ax + bx) / 2 + px * offset, midY = (ay + by) / 2 + py * offset;
+      var r = mc.getBoundingClientRect();
+      var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
+      var sx = r.left + (midX / lw) * r.width;
+      var sy = r.top + (midY / lh) * r.height;
+      els.kp.style.left = Math.min(Math.max(8, sx - 100), window.innerWidth - 208) + 'px';
+      els.kp.style.top = Math.min(Math.max(8, sy + 14), window.innerHeight - 270) + 'px';
+    }
+  }
+
+  els.kp.classList.add('show');
+  _dimKpRender();
+  if (!isTouch) setTimeout(function () { try { els.input.focus(); els.input.select(); } catch (e) {} }, 40);
+}
+function _dimKpRender() {
+  var dim = window._dimTool;
+  var els = _dimKpEls();
+  if (!dim || !els.input) return;
+  var res = dim.parseLength(els.input.value);
+  if (els.flag) {
+    els.flag.textContent = res.system === 'metric' ? 'MET' : 'IMP';
+    els.flag.className = 'dim-kp-flag ' + (res.system === 'metric' ? 'met' : 'imp');
+  }
+  if (els.interp) {
+    if (!els.input.value) { els.interp.innerHTML = '&nbsp;'; els.interp.className = 'dim-kp-interp'; }
+    else if (res.isNote) { els.interp.textContent = 'Note (kept as text): ' + res.label; els.interp.className = 'dim-kp-interp note'; }
+    else { els.interp.textContent = '= ' + res.label + (res.confidence === 'guess' ? ' (assumed ft)' : ''); els.interp.className = 'dim-kp-interp'; }
+  }
+}
+function _dimKpApply() {
+  var dim = window._dimTool;
+  if (!dim || !_dimKpObj) return;
+  var els = _dimKpEls();
+  var v = (els.input.value || '').trim();
+  if (v === '') {
+    // empty -> revert to measured (clears any override)
+    _dimKpObj.ovrM = undefined;
+    _dimKpObj.overrideNote = null;
+    _dimKpObj.overrideLabel = null;
   } else {
-    ax = obj.x1; ay = obj.y1; bx = obj.x2; by = obj.y2; offset = 0;
+    var res = dim.parseLength(v);
+    if (res.isNote) { _dimKpObj.overrideNote = v; _dimKpObj.ovrM = undefined; _dimKpObj.overrideLabel = null; }
+    else { _dimKpObj.ovrM = res.meters; _dimKpObj.overrideNote = null; _dimKpObj.overrideLabel = null; }
   }
-  var dx = bx - ax, dy = by - ay;
-  var len = Math.sqrt(dx * dx + dy * dy);
-  if (len < 1) return;
-  var ux = dx / len, uy = dy / len;
-  var px = -uy, py = ux;
-  var dax = ax + px * offset, day = ay + py * offset;
-  var dbx = bx + px * offset, dby = by + py * offset;
-  var midX = (dax + dbx) / 2, midY = (day + dby) / 2;
-  var labelOffsetD = 14;
-  var labelX = midX + px * labelOffsetD;
-  var labelY = midY + py * labelOffsetD;
+  _renderAll();
+}
+function _dimKpCommit(silent) {
+  if (_dimKpCommitted) return;
+  _dimKpCommitted = true;
+  _dimKpApply();
+  var els = _dimKpEls();
+  if (els.kp) els.kp.classList.remove('show');
+  _dimKpObj = null;
+  if (!silent) { _pushHistory(); _markDirty(); }
+  else { _markDirty(); }
+}
+function _dimKpClose() { if (_dimKpOpen()) _dimKpCommit(false); }
 
+// S330 #37 — Finish ✕ chip. Shown between dimensions in continuous/running
+// (state 'awaitB' with an anchor), never during the offset stage, so
+// reaching for it can't drag the offset. Tapping it ends the chain.
+function _updateDimFinChip() {
+  var chip = document.getElementById('dim-finchip');
+  var dim = window._dimTool;
+  if (!chip || !dim) return;
+  var anchor = dim.chainFinishAnchor ? dim.chainFinishAnchor() : null;
+  var mode = dim.getMode ? dim.getMode() : 'single';
+  if (!anchor || mode === 'single' || _tool !== 'dimension') { chip.classList.remove('show'); return; }
+  var mc = _getCanvas();
+  if (!mc) { chip.classList.remove('show'); return; }
   var r = mc.getBoundingClientRect();
-  var lw = mc._logicalW || mc.width;
-  var lh = mc._logicalH || mc.height;
-  var screenX = r.left + (labelX / lw) * r.width;
-  var screenY = r.top + (labelY / lh) * r.height;
+  var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
+  var sx = r.left + (anchor.x / lw) * r.width;
+  var sy = r.top + (anchor.y / lh) * r.height;
+  var x = Math.min(Math.max(8, sx + 16), window.innerWidth - 56);
+  var y = Math.min(Math.max(8, sy - 22), window.innerHeight - 56);
+  chip.style.left = x + 'px';
+  chip.style.top = y + 'px';
+  chip.classList.add('show');
+}
+function _dimFinChipEnd() {
+  var dim = window._dimTool;
+  if (_dimKpOpen()) _dimKpCommit(true);
+  if (dim && dim.endChain) dim.endChain();
+  var chip = document.getElementById('dim-finchip');
+  if (chip) chip.classList.remove('show');
+  var ov = _getOverlay();
+  if (ov) {
+    ov.style.display = 'none';
+    var c = ov.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, ov.width, ov.height);
+  }
+  if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive()) {
+    TiledPdf.resume(); TiledPdf.scheduleRender();
+  }
+  _renderAll();
+}
 
-  // Tear down any prior label input
-  var prev = document.querySelectorAll('.mk-dim-label-input');
-  for (var i = 0; i < prev.length; i++) {
-    if (prev[i].parentNode) prev[i].parentNode.removeChild(prev[i]);
+// S330 #37 — Wire keypad keys, unit toggle, finish chip, pickup &
+// recalibrate modals. Idempotent; called once after DOM is ready.
+var _dimWired = false;
+function _wireDimensionV4() {
+  if (_dimWired) return;
+  _dimWired = true;
+  var dim = window._dimTool;
+
+  // keypad keys
+  var kp = document.getElementById('dim-kp');
+  var kpInput = document.getElementById('dim-kp-input');
+  if (kp) {
+    kp.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    kp.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
+    var keyBtns = kp.querySelectorAll('[data-dk]');
+    for (var i = 0; i < keyBtns.length; i++) {
+      keyBtns[i].addEventListener('click', (function (k) {
+        return function (e) { e.stopPropagation(); _dimKpKey(k); };
+      })(keyBtns[i].getAttribute('data-dk')));
+    }
+  }
+  if (kpInput) {
+    kpInput.addEventListener('input', function () { _dimKpRender(); _dimKpApply(); });
+    kpInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); _dimKpCommit(false); }
+      e.stopPropagation();
+    });
+  }
+  var kpClose = document.getElementById('dim-kp-close');
+  if (kpClose) kpClose.addEventListener('click', function (e) { e.stopPropagation(); _dimKpCommit(false); });
+
+  // finish chip
+  var finX = document.getElementById('dim-fin-x');
+  if (finX) finX.addEventListener('click', function (e) { e.stopPropagation(); _dimFinChipEnd(); });
+  var finChip = document.getElementById('dim-finchip');
+  if (finChip) {
+    finChip.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    finChip.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
   }
 
-  var input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'mk-dim-label-input';
-  input.style.cssText = 'position:fixed;z-index:99999;font-family:Calibri,sans-serif;background:#fff;color:' + (obj.color || '#9C2742') + ';border:2px solid ' + (obj.color || '#9C2742') + ';border-radius:4px;padding:4px 8px;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3);min-width:140px;text-align:center;outline:none;';
-  input.style.left = (screenX - 70) + 'px';
-  input.style.top = (screenY - 16) + 'px';
-  var raw = obj.rawLabel || '';
-  var rawDisplay = obj.isGuess && raw ? '~' + raw : raw;
-  input.value = obj.overrideLabel != null ? obj.overrideLabel : rawDisplay;
-  input.placeholder = rawDisplay || 'label';
-
-  document.body.appendChild(input);
-  setTimeout(function () { input.focus(); input.select(); }, 30);
-
-  var committed = false;
-  function _commit() {
-    if (committed) return;
-    committed = true;
-    if (input.parentNode) input.parentNode.removeChild(input);
-    var v = input.value.trim();
-    // Empty OR matches auto-label (with/without ~) → no override
-    if (!v || v === raw || v === rawDisplay) {
-      obj.overrideLabel = null;
-    } else {
-      obj.overrideLabel = v;
-    }
-    _pushHistory();
-    _renderAll();
-    _markDirty();
+  // modal close buttons (universal ✕)
+  var closers = document.querySelectorAll('[data-dim-close]');
+  for (var c = 0; c < closers.length; c++) {
+    closers[c].addEventListener('click', function (e) {
+      e.stopPropagation();
+      var id = this.getAttribute('data-dim-close');
+      var m = document.getElementById(id);
+      if (m) m.classList.remove('show');
+    });
   }
-  input.addEventListener('blur', function () { setTimeout(_commit, 100); });
-  input.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Enter') { ev.preventDefault(); _commit(); }
-    if (ev.key === 'Escape') {
-      if (input.parentNode) input.parentNode.removeChild(input);
-      committed = true;
-    }
-    ev.stopPropagation();
+
+  // pickup picker choices
+  var pickPrev = document.getElementById('dim-pick-prev');
+  var pickPoint = document.getElementById('dim-pick-point');
+  var pickFresh = document.getElementById('dim-pick-fresh');
+  if (pickPrev) pickPrev.addEventListener('click', function (e) {
+    e.stopPropagation();
+    document.getElementById('dim-pick-back').classList.remove('show');
+    if (dim.startContinueFromPrevious) dim.startContinueFromPrevious(_objects);
+    _renderDimensionPreview(); _updateDimFinChip();
   });
+  if (pickPoint) pickPoint.addEventListener('click', function (e) {
+    e.stopPropagation();
+    document.getElementById('dim-pick-back').classList.remove('show');
+    if (dim.startPickPoint) dim.startPickPoint();
+    _renderAll();
+  });
+  if (pickFresh) pickFresh.addEventListener('click', function (e) {
+    e.stopPropagation();
+    document.getElementById('dim-pick-back').classList.remove('show');
+    if (dim.startFresh) dim.startFresh();
+    _updateDimFinChip();
+  });
+
+  // recalibrate choices
+  var recM = document.getElementById('dim-recal-measured');
+  var recA = document.getElementById('dim-recal-all');
+  var recN = document.getElementById('dim-recal-none');
+  function _doRecal(mode) {
+    if (_pendingRecalCal) {
+      dim.recalibrateAll(_objects, _pendingRecalCal, mode);
+      _pendingRecalCal = null;
+    }
+    document.getElementById('dim-recal-back').classList.remove('show');
+    _pushHistory(); _renderAll(); _markDirty();
+    try { var M = (window._frt && window._frt.Model) || null; if (M && M.saveNow) M.saveNow(); } catch (e) {}
+  }
+  if (recM) recM.addEventListener('click', function (e) { e.stopPropagation(); _doRecal('measured'); });
+  if (recA) recA.addEventListener('click', function (e) { e.stopPropagation(); _doRecal('all'); });
+  if (recN) recN.addEventListener('click', function (e) { e.stopPropagation(); _doRecal('none'); });
+
+  // unit toggle
+  var unitBtns = document.querySelectorAll('[data-dim-unit]');
+  for (var u = 0; u < unitBtns.length; u++) {
+    unitBtns[u].addEventListener('click', function (e) {
+      e.stopPropagation();
+      var unit = this.getAttribute('data-dim-unit');
+      if (dim.setDisplayUnit) dim.setDisplayUnit(unit);
+      _dimSaveUnitPref(unit);
+      var sibs = document.querySelectorAll('[data-dim-unit]');
+      for (var s = 0; s < sibs.length; s++) sibs[s].classList.toggle('active', sibs[s] === this);
+      if (kp) kp.classList.toggle('metric', unit === 'metric');
+      if (_dimKpOpen()) _dimKpRender();
+      _renderAll();
+    });
+  }
+
+  // restore persisted unit preference
+  var saved = _dimLoadUnitPref();
+  if (saved && dim.setDisplayUnit) {
+    dim.setDisplayUnit(saved);
+    var sb = document.querySelectorAll('[data-dim-unit]');
+    for (var k = 0; k < sb.length; k++) sb[k].classList.toggle('active', sb[k].getAttribute('data-dim-unit') === saved);
+    if (kp) kp.classList.toggle('metric', saved === 'metric');
+  }
+}
+var _pendingRecalCal = null;
+
+function _dimKpKey(k) {
+  var els = _dimKpEls();
+  if (!els.input) return;
+  if (k === 'BK') { els.input.value = els.input.value.slice(0, -1); }
+  else if (k === 'OK') { _dimKpCommit(false); return; }
+  else if (k === 'REV') {
+    els.input.value = '';
+    if (_dimKpObj) { _dimKpObj.ovrM = undefined; _dimKpObj.overrideNote = null; _dimKpObj.overrideLabel = null; }
+    _dimKpRender(); _renderAll(); return;
+  }
+  else { els.input.value += k; }
+  _dimKpRender(); _dimKpApply();
+}
+
+// Unit preference persistence via FRT's model (NOT artifact localStorage).
+function _dimSaveUnitPref(unit) {
+  try {
+    var M = (window._frt && window._frt.Model) || null;
+    if (M && typeof M.setPref === 'function') { M.setPref('dimUnit', unit); return; }
+  } catch (e) {}
+  try { localStorage.setItem('arencon_frt_dim_unit', unit); } catch (e) {}
+}
+function _dimLoadUnitPref() {
+  try {
+    var M = (window._frt && window._frt.Model) || null;
+    if (M && typeof M.getPref === 'function') { var v = M.getPref('dimUnit'); if (v) return v; }
+  } catch (e) {}
+  try { return localStorage.getItem('arencon_frt_dim_unit') || null; } catch (e) { return null; }
 }
 
 // ── Canvas Allocation ───────────────────────────────────
@@ -952,6 +1177,23 @@ function _renderAll() {
     } else {
       _dimVertexEditId = null;
     }
+  }
+
+  // S330 #37 — pickup picker "pick a point" highlights: burgundy rings on
+  // every existing dimension vertex, so the user can tap one to start.
+  if (window._dimTool && window._dimTool.isPickAwaiting && window._dimTool.isPickAwaiting()) {
+    var verts = window._dimTool.allVertices ? window._dimTool.allVertices(_objects) : [];
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#9C2742';
+    ctx.fillStyle = 'rgba(156,39,66,.18)';
+    for (var pv = 0; pv < verts.length; pv++) {
+      ctx.beginPath();
+      ctx.arc(verts[pv].x, verts[pv].y, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 }
 
@@ -1731,11 +1973,17 @@ function _startDraw(e) {
       var drCal = _getCurrentDrawing();
       dim.showCalibrationPrompt(drCal, p1c.x, p1c.y, p2c.x, p2c.y, function (result) {
         if (!result) return;
-        // Recalibration walker: refresh every existing dimension's
-        // rawValue/rawLabel + drop isGuess flag. Overridden dimensions
-        // keep their displayed override but their underlying raw values
-        // still update silently.
-        dim.recalibrateAll(_objects, result.calibration);
+        // Count existing dims. If any exist, ask how to apply the new scale
+        // (measured-only / all / none) via the recalibrate choice modal.
+        // Otherwise apply straight away.
+        var dimCount = 0;
+        for (var dc = 0; dc < _objects.length; dc++) { if (_objects[dc] && _objects[dc].type === 'dimension') dimCount++; }
+        if (dimCount > 0) {
+          _pendingRecalCal = result.calibration;
+          var rb = document.getElementById('dim-recal-back');
+          if (rb) { rb.classList.add('show'); return; }
+        }
+        dim.recalibrateAll(_objects, result.calibration, 'measured');
         _pushHistory();
         _renderAll();
         _markDirty();
@@ -1759,23 +2007,32 @@ function _startDraw(e) {
       }
     }
 
-    // (4) Normal chain click. Auto-apply guessed calibration if the
-    //     drawing has none yet — we never block on a calibration prompt
-    //     here. The user can refine via the Calibrate button at any time.
-    var drNow = _getCurrentDrawing();
-    if (drNow && !dim.isCalibrated(drNow)) {
-      var mc0 = _getCanvas();
-      var canvasW = mc0 ? (mc0._logicalW || mc0.width || 0) : 0;
-      if (canvasW > 0) {
-        dim.applyGuessedCalibration(drNow, canvasW);
-      }
+    // (3.5) Pickup picker "pick a point" — awaiting a vertex tap. Snap to
+    //       the nearest existing dimension vertex and seed the chain there.
+    if (dim.isPickAwaiting && dim.isPickAwaiting()) {
+      var snap = dim.nearestVertex ? dim.nearestVertex(posD, _objects, 28) : null;
+      var seedPt = snap || posD;
+      if (dim.seedFromPoint) dim.seedFromPoint(seedPt);
+      _renderDimensionPreview();
+      _updateDimFinChip();
+      return;
     }
+
+    // (4) Normal chain click. Per locked spec, an uncalibrated drawing is
+    //     NOT auto-scaled — it stays "not to scale" and the user types each
+    //     value via the keypad. Calibration is optional, never a gate.
+    var drNow = _getCurrentDrawing();
+
+    // If the value keypad is open from a previous dimension, starting the
+    // next one auto-commits it (locks, never flattens) so chains stay fluid.
+    if (_dimKpOpen()) _dimKpCommit(true);
 
     if (TiledPdf.isActive()) TiledPdf.pause();
     var res = dim.handleClick(posD, drNow);
     if (res.action === 'lockedA' || res.action === 'lockedB') {
       // Show / refresh the overlay preview
       _renderDimensionPreview();
+      _updateDimFinChip();
       return;
     }
     if (res.committed) {
@@ -1788,8 +2045,11 @@ function _startDraw(e) {
       _pushHistory();
       _renderAll();
       _markDirty();
-      // Always-edit on commit
-      _editDimensionLabel(newObj);
+      // Calibrated → measured value drops in, no keypad. Uncalibrated →
+      // auto-open the keypad so the user types the value for this dim.
+      if (!dim.isCalibrated(drNow)) {
+        _editDimensionLabel(newObj);
+      }
       // Refresh preview for the next chain link, or tear down if chain ended
       var stAfter = dim.getState();
       if (stAfter.state === 'idle') {
@@ -1804,6 +2064,7 @@ function _startDraw(e) {
       } else {
         _renderDimensionPreview();
       }
+      _updateDimFinChip();
     }
     return;
   }
@@ -3401,7 +3662,8 @@ function _wireEvents() {
     var dimModeBtn = e.target.closest && e.target.closest('[data-dim-mode]');
     if (dimModeBtn) {
       var mode = dimModeBtn.getAttribute('data-dim-mode');
-      if (window._dimTool && window._dimTool.setMode) window._dimTool.setMode(mode);
+      var dimM = window._dimTool;
+      if (dimM && dimM.setMode) dimM.setMode(mode);
       // Update active class on the three mode buttons
       var pillContainer = dimModeBtn.parentNode;
       if (pillContainer) {
@@ -3418,6 +3680,17 @@ function _wireEvents() {
         cMode.setTransform(1, 0, 0, 1, 0, 0);
         cMode.clearRect(0, 0, ovMode.width, ovMode.height);
       }
+      // S330 #37 — switching INTO continuous/running with existing dims
+      // offers the pickup picker (continue / pick a point / fresh).
+      var hasDims = false;
+      for (var hd = 0; hd < _objects.length; hd++) { if (_objects[hd] && _objects[hd].type === 'dimension') { hasDims = true; break; } }
+      if ((mode === 'continuous' || mode === 'running') && hasDims) {
+        var pt = document.getElementById('dim-pick-title');
+        if (pt) pt.textContent = (mode === 'running' ? 'Running' : 'Continuous') + ' dimension';
+        var pb = document.getElementById('dim-pick-back');
+        if (pb) pb.classList.add('show');
+      }
+      _updateDimFinChip();
       _renderAll();
       e.stopPropagation();
       return;
@@ -3762,14 +4035,21 @@ function _wireEvents() {
       _finishPolyline();
       return;
     }
-    // S126 #6 — End any active dimension chain on dbl-click
+    // S330 #37 — dbl-click no longer FINISHES a chain (that ate placement
+    // clicks — locked spec §9). Instead: dbl-click on an existing dimension
+    // opens its value keypad; dbl-click on empty space does nothing.
     if (_tool === 'dimension') {
       var dimDbl = window._dimTool;
-      if (dimDbl && dimDbl.getState && dimDbl.getState().state !== 'idle') {
-        _resetDimensionFlow();
-        _renderAll();
-        return;
+      if (dimDbl && dimDbl.hitTestDimension) {
+        var posDbl = _getPos(e);
+        var hitDbl = dimDbl.hitTestDimension(posDbl, _objects);
+        if (hitDbl) {
+          _dimVertexEditId = hitDbl.id;
+          _renderAll();
+          _editDimensionLabel(hitDbl);
+        }
       }
+      return;
     }
     // Double-click on text object with selector → edit it
     if (_tool === 'select') {
@@ -3986,6 +4266,7 @@ export var Markup = {
     _allocateCanvas();
     _buildToolbar();
     _wireEvents();
+    _wireDimensionV4();   // S330 #37 — keypad/unit-toggle/finish-chip/modals
     _loadMarkup(drawingId);
     // Default to pan mode (no tool active)
     _setActiveTool(null);
