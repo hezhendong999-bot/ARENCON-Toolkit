@@ -70,7 +70,7 @@
   // null = all pins full colour; otherwise pins whose contractorId !== this id
   // dim to CTR_DIM_ALPHA with reduced shadow. Pure view state.
   var _highlightCtrId = null;
-  var CTR_DIM_ALPHA = 0.22;
+  var CTR_DIM_ALPHA = 0.10;
   var _lastOpts = null;       // cached render opts (for highlight-toggle re-render)
   // Solid muted-green closed pins (Mark-confirmed at build). Closed pins fill
   // #5F8068 instead of priority colour so they read as resolved on busy linework.
@@ -145,9 +145,11 @@
 
   // Draw one pin at native 32×42 coords, anchored at tip (16, 40).
   // Caller handles translate + scale to place at screen position.
-  function _drawPinAtNative(ctx, pin, state, dimmed){
+  function _drawPinAtNative(ctx, pin, state, dimmed, highlightColor){
     var isOutstanding = !pin.isClosed && !pin.isIAR;
-    var fillHex = _priorityFillHex(pin);
+    // Contractor-highlight lens recolours a matching pin to its contractor's
+    // colour (passed in); otherwise the normal priority/status fill applies.
+    var fillHex = highlightColor || _priorityFillHex(pin);
 
     // Layer 0: teardrop silhouette with V1 filter (glow + drop shadow)
     // The filter applies to the teardrop's alpha mask, producing a sharp pin
@@ -311,14 +313,23 @@
       var totalScale = nativeScale * feedbackScale;
 
       _ctx.save();
-      // Contractor Highlight lens: dim pins not matching the highlighted
-      // contractor (per-session view state). Stacks with closed-0.5.
-      var _dimmed = (_highlightCtrId != null) && (o.pin.contractorId !== _highlightCtrId);
+      // Contractor Highlight lens (per-session view state, NOT persisted):
+      // when a contractor is selected, pins under that contractor RECOLOUR to
+      // the contractor's colour and everything else dims to ~10% (near-
+      // invisible). Mark's rule: you only ever view ONE contractor at a time,
+      // so a pin shared across contractors simply takes whichever colour is
+      // selected — no mixing. Stacks with closed-0.5.
+      var _isHL = (_highlightCtrId != null);
+      var _match = _isHL && (o.pin.contractorId === _highlightCtrId);
+      var _dimmed = _isHL && !_match;
       var _baseAlpha = o.pin.isClosed ? 0.5 : 1;
       _ctx.globalAlpha = _dimmed ? (_baseAlpha * CTR_DIM_ALPHA) : _baseAlpha;
       _ctx.translate(o.sx - 16 * totalScale, o.sy - 40 * totalScale);
       _ctx.scale(totalScale, totalScale);
-      _drawPinAtNative(_ctx, o.pin, o.state, _dimmed);
+      // Matching pin (and not closed — closed stays green so resolved still
+      // reads as resolved) draws in the contractor colour passed from viewer.
+      var _hlCol = (_match && !o.pin.isClosed && o.pin.contractorColor) ? o.pin.contractorColor : null;
+      _drawPinAtNative(_ctx, o.pin, o.state, _dimmed, _hlCol);
       _ctx.restore();
     }
   }

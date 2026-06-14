@@ -1561,6 +1561,15 @@ function _renderPins() {
     // viewer consults a shared global if set. Default: none hidden.
     var _hiddenInspectors = (window._frtHiddenInspectors && window._frtHiddenInspectors.slice) ? window._frtHiddenInspectors : [];
 
+    // Contractor colour lookup (id → stored c.color) so the highlight lens can
+    // RECOLOUR a matching pin to its contractor's colour in PinsGL. Built once
+    // per render. Site Records / no contractor has none (stays priority-coloured
+    // and just dims under any highlight).
+    var _ctrColorById = {};
+    (((Model.getProject() || {}).contractors) || []).forEach(function(c){
+      if (c && c.id) _ctrColorById[c.id] = c.color || null;
+    });
+
     var glPins = pins.map(function(d){
       var cb = d.defic.createdBy || null;
       var ic = cb ? (_inspectorColors[cb] || null) : null;
@@ -1584,6 +1593,7 @@ function _renderPins() {
         // over rec — a closed rec reads green, matching the report two-state).
         isRecommendation: !!d.defic.isRecommendation,
         contractorId: d.contractorId || null,   // highlight lens (per-session)
+        contractorColor: (d.contractorId && _ctrColorById[d.contractorId]) || null, // highlight recolour
         inspectorColor: ic,                    // S83
         _showRing: _showRings && !hidden && !!ic  // S83
       };
