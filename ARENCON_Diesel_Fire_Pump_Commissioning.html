@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S337b. Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S338. Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -413,11 +413,13 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .ts-pitot .pcard input,.ts-pitot .pcard select{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font-size:calc(11.5px + var(--ts));font-family:Calibri,sans-serif;background:#fff;margin-bottom:5px;}
 .ts-pitot .pcard select{margin-bottom:0;}
 /* rated values — compact inline */
-.ts-rated{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px;align-items:end;}
+.ts-rated{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px;align-items:stretch;}
 .ts-rated-7{grid-template-columns:repeat(7,1fr);}
-.ts-rated .meta-field{width:auto;min-width:0;justify-content:flex-end;}
+.ts-rated .meta-field{width:auto;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;}
 .ts-rated .meta-field input{text-align:right;}
-.ts-rated .meta-field label{line-height:1.2;}
+/* S338: reserve a uniform 2-line label height so a wrapping "(PSI)" never pushes
+   its input box up/down out of alignment with the rest of the row. */
+.ts-rated .meta-field label{line-height:1.2;min-height:calc((11px + var(--ts)) * 1.2 * 2);display:flex;align-items:flex-end;}
 @media(max-width:1100px){.ts-rated,.ts-rated-7{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:680px){.ts-rated,.ts-rated-7{grid-template-columns:repeat(2,1fr);}}
 /* evidence tiles — prominent 3-up */
@@ -2293,7 +2295,7 @@ function updatePhaseFlags(){
         <div class="np-panel">
           <div class="np-head">
             <div class="np-t">⚙ Rated values read from the placard</div>
-            <button class="np-scan" id="np-scan-btn" onclick="_placardScan(this)" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
+            <button class="np-scan" id="np-scan-btn" onclick="_placardScan(this,'std')" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
           </div>
           <div style="padding:16px;">
             <div class="ts-rated">
@@ -2461,7 +2463,7 @@ function updatePhaseFlags(){
         <div class="np-panel">
           <div class="np-head">
             <div class="np-t">⚙ Rated values read from the placard</div>
-            <button class="np-scan" onclick="_placardScan(this)" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
+            <button class="np-scan" onclick="_placardScan(this,'pld')" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
           </div>
           <div style="padding:16px;">
             <div class="ts-rated ts-rated-7">
@@ -14023,15 +14025,19 @@ function _placardPhotoData(p, cb){
   }
   cb(null);
 }
-function _placardScan(btn){
-  // S318: placards glare — inspectors shoot SEVERAL angles. Send up to the 4 most
-  // recent placard photos in ONE request; the model cross-references angles and
-  // returns null (never a guess) when angles disagree.
+function _placardScan(btn, mode){
+  // S338: 3-pt and 7-pt are SEPARATE PUMPS (3-pt=constant-speed, 7-pt=PLD/variable).
+  // A scan launched from one tab reads ONLY that tab's placard photo(s) and writes
+  // ONLY that tab's fields. mode: 'std' (3-pt) | 'pld' (7-pt). Default 'std' for
+  // safety if an old caller omits it.
+  mode = (mode==='pld') ? 'pld' : 'std';
   var rp=(typeof recordPhotos==='undefined'?[]:recordPhotos);
-  var list=rp.filter(function(p){return (p.kind||'')==='placard';});
-  var pldList=rp.filter(function(p){return (p.kind||'')==='placard-pld';});   // S319: engine/PLD placard
-  if(!list.length && !pldList.length){ showToast('Capture a placard photo first'); return; }
-  var take=list.slice(-4).concat(pldList.slice(-2));
+  // S338: 'placard' = the 3-pt (constant-speed) pump placard; 'placard-pld' = the
+  // 7-pt engine/PLD placard. Each tab scans ONLY its own kind.
+  var take = (mode==='pld')
+    ? rp.filter(function(p){return (p.kind||'')==='placard-pld';}).slice(-4)
+    : rp.filter(function(p){return (p.kind||'')==='placard';}).slice(-4);
+  if(!take.length){ showToast(mode==='pld' ? 'Capture a PLD/engine placard photo first' : 'Capture a placard photo first'); return; }
   var token=localStorage.getItem('sb-access-token');
   if(!token){ showToast('Sign in (Hub mode) to use AI scan'); return; }
   var origTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Reading '+take.length+' placard photo'+(take.length>1?'s':'')+'\u2026'; }
@@ -14042,7 +14048,10 @@ function _placardScan(btn){
   });
   chain.then(function(){
     if(!imgs.length){ done(); showToast('Could not load the placard photo(s)'); return; }
-    var up=(typeof readUrlParams==='function')?readUrlParams():{};
+    // S338: readUrlParams lives inside the CloudSync IIFE — call it via CloudSync so
+    // projectNumber is actually populated (was bare readUrlParams() → undefined →
+    // AI usage log showed '-' for project #).
+    var up=(typeof CloudSync!=='undefined' && CloudSync.readUrlParams)?CloudSync.readUrlParams():{};
     var body=JSON.stringify({ mode:'placard_read', photos:imgs,
       context:{ tool:'diesel_pump', projectNumber:up.projectNumber||null, projectName:up.projectName||null } });
     function call(tok){
@@ -14058,7 +14067,7 @@ function _placardScan(btn){
       if(!res.ok) return res.json().then(function(e){ throw new Error(e.error||'AI error '+res.status); });
       return res.json();
     }).then(function(d){
-      done(); _placardPreview(btn, d, imgs.length);
+      done(); _placardPreview(btn, d, imgs.length, mode);
     }).catch(function(err){
       done(); showToast('Placard scan failed: '+(err.message||'connection error'));
     });
@@ -14070,44 +14079,51 @@ function _psPlacardCur(pct){
   var q=(typeof pldData!=='undefined'?pldData:[]).filter(function(x){return x.pct===pct;})[0];
   return (q&&q.placard!=='')?q.placard:'';
 }
-function _psSetPlacard(pct, v){
-  [(typeof stdData!=='undefined'?stdData:[]),(typeof pldData!=='undefined'?pldData:[])].forEach(function(arr){
-    arr.forEach(function(r){ if(r.pct===pct) r.placard=String(v); });
-  });
+function _psSetPlacard(pct, v, mode){
+  // S338: write the Placard (psi) column ONLY into the calling tab's flow table.
+  var arr = (mode==='pld') ? (typeof pldData!=='undefined'?pldData:[]) : (typeof stdData!=='undefined'?stdData:[]);
+  arr.forEach(function(r){ if(r.pct===pct) r.placard=String(v); });
 }
-function _npApplyNameplate(np){
-  // S320: write every non-empty nameplate string into BOTH tabs' fields
+function _npApplyNameplate(np, mode){
+  // S338: write every non-empty nameplate string into ONLY the calling tab's fields.
   if(!np||typeof np!=='object') return 0;
+  var sfx = (mode==='pld') ? '-pld' : '';
   var m={manufacturer:'np-mfr',model_no:'np-model',pump_serial_no:'np-serial',size:'np-size',no_of_stages:'np-stages',impeller_dia_in:'np-impeller',max_allowable_discharge_psi:'np-maxdis',rated_bhp:'np-bhp',max_bhp:'np-maxbhp',driver_mfg:'np-drvmfg',driver_serial_no:'np-drvsn',controller_mfg:'np-ctlmfg',controller_serial_no:'np-ctlsn'};
   var n=0;
   Object.keys(m).forEach(function(k){
     var v=np[k]; if(v==null||v==='') return;
-    [m[k], m[k]+'-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; });
-    n++;
+    var el=document.getElementById(m[k]+sfx); if(el){ el.value=v; n++; }
   });
   return n;
 }
-function _placardPreview(btn, d, nPhotos){
+function _placardPreview(btn, d, nPhotos, mode){
+  mode = (mode==='pld') ? 'pld' : 'std';
+  var sfx = (mode==='pld') ? '-pld' : '';
   var old=document.getElementById('placard-scan-card'); if(old&&old.parentNode) old.parentNode.removeChild(old);
   function inputCur(id){ var el=document.getElementById(id); return el?el.value:''; }
-  // S318 field map. Three target kinds:
-  //   inputs  -> nameplate inputs in BOTH tabs
-  //   placard -> the Placard (psi) column at the matching flow-% row, BOTH tables
-  //   npsh    -> NPSH inputs via their setters
+  function curPlacard(pct){
+    // S338: current Placard-column value from ONLY the calling tab's table.
+    var arr = (mode==='pld') ? (typeof pldData!=='undefined'?pldData:[]) : (typeof stdData!=='undefined'?stdData:[]);
+    var r=arr.filter(function(x){return x.pct===pct;})[0];
+    return (r&&r.placard!=='')?r.placard:'';
+  }
+  // S338 field map — writes ONLY the calling tab (suffix sfx, table by mode).
   var fields=[
-    { key:'flow',  label:'Rated Flow (gpm)',          val:d.rated_flow_gpm,     cur:inputCur('pm-rated-flow'),
-      apply:function(v){ ['pm-rated-flow','pm-rated-flow-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; }); } },
-    { key:'prv',   label:'Rated Pressure (psi)',      val:d.rated_pressure_psi, cur:inputCur('pm-prv'),
-      apply:function(v){ ['pm-prv','pm-prv-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; }); _psSetPlacard('100%',v); } },
-    { key:'rpm',   label:'Rated Speed (RPM)',         val:d.rated_speed_rpm,    cur:inputCur('pm-rpm'),
-      apply:function(v){ ['pm-rpm','pm-rpm-pld'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=v; }); } },
-    { key:'churn', label:'Churn Pressure (psi @ 0%)', val:d.churn_pressure_psi, cur:_psPlacardCur('0%'),
-      apply:function(v){ _psSetPlacard('0%',v); } },
-    { key:'p150',  label:'Pressure @ 150% (psi)',     val:d.pressure_at_150_psi,cur:_psPlacardCur('150%'),
-      apply:function(v){ _psSetPlacard('150%',v); } },
+    { key:'flow',  label:'Rated Flow (gpm)',          val:d.rated_flow_gpm,     cur:inputCur('pm-rated-flow'+sfx),
+      apply:function(v){ var el=document.getElementById('pm-rated-flow'+sfx); if(el) el.value=v; } },
+    { key:'prv',   label:'Rated Pressure (psi)',      val:d.rated_pressure_psi, cur:inputCur('pm-prv'+sfx),
+      apply:function(v){ var el=document.getElementById('pm-prv'+sfx); if(el) el.value=v; _psSetPlacard('100%',v,mode); } },
+    { key:'rpm',   label:'Rated Speed (RPM)',         val:d.rated_speed_rpm,    cur:inputCur('pm-rpm'+sfx),
+      apply:function(v){ var el=document.getElementById('pm-rpm'+sfx); if(el) el.value=v; } },
+    { key:'churn', label:'Churn Pressure (psi @ 0%)', val:d.churn_pressure_psi, cur:curPlacard('0%'),
+      apply:function(v){ _psSetPlacard('0%',v,mode); } },
+    { key:'p150',  label:'Pressure @ 150% (psi)',     val:d.pressure_at_150_psi,cur:curPlacard('150%'),
+      apply:function(v){ _psSetPlacard('150%',v,mode); } },
     { key:'pldcp', label:'PLD Control Pressure (psi)',val:d.pld_control_pressure_psi, cur:inputCur('pm-pld-setting'),
       apply:function(v){ var el=document.getElementById('pm-pld-setting'); if(el) el.value=v; } }
   ];
+  // S338: PLD control pressure is a 7-pt-only concept — hide it on a 3-pt scan.
+  if(mode!=='pld') fields=fields.filter(function(f){ return f.key!=='pldcp'; });
   var any=fields.some(function(f){return f.val!=null;});
   var card=document.createElement('div'); card.id='placard-scan-card';
   card.style.cssText='margin:10px 16px 14px;border:1px solid #C9CDD4;border-radius:10px;background:rgba(63,110,156,.06);padding:12px 14px;font:13px Calibri,sans-serif;';
@@ -14164,7 +14180,7 @@ function _placardPreview(btn, d, nPhotos){
   html+='<div style="display:flex;gap:8px;margin-top:10px;">';
   if(any) html+='<button id="pscan-apply" style="background:#9C2742;color:#fff;border:none;border-radius:7px;padding:7px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;">Apply selected</button>';
   html+='<button id="pscan-cancel" style="background:#455A64;color:#fff;border:none;border-radius:7px;padding:7px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;">'+(any?'Cancel':'Close')+'</button></div>'
-    +'<div style="margin-top:7px;color:#928E9C;font-size:11px;">AI-read values \u2014 verify against the physical placard before applying. Fills both 3-pt and 7-pt; churn/100%/150% land in the Placard column rows; PLD control pressure comes from the engine placard.</div>';
+    +'<div style="margin-top:7px;color:#928E9C;font-size:11px;">AI-read values \u2014 verify against the physical placard before applying. Fills only the '+(mode==='pld'?'7-pt (PLD)':'3-pt')+' tab; churn/100%/150% land in this tab\u2019s Placard column rows.</div>';
   card.innerHTML=html;
   var panel=btn?btn.closest('.np-panel'):null;
   var host=document.getElementById('placard-ocr-host');
@@ -14178,7 +14194,7 @@ function _placardPreview(btn, d, nPhotos){
     var n=0;
     card.querySelectorAll('input[data-pscan]:checked').forEach(function(cb){
       var key=cb.getAttribute('data-pscan');
-      if(key==='nameplate'){ n+=_npApplyNameplate(d.nameplate); return; }   // S320
+      if(key==='nameplate'){ n+=_npApplyNameplate(d.nameplate, mode); return; }   // S338
       var f=fields.filter(function(x){return x.key===key;})[0];
       if(f&&f.val!=null){ f.apply(f.val); n++; }
     });
@@ -15238,7 +15254,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S337b';
+var DIESEL_BUILD = 'S338';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
