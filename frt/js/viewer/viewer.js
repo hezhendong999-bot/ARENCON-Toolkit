@@ -2952,7 +2952,47 @@ var _PinPan = (function() {
     draw();
   }
 
-  return { mount: mount, _winBound: false, _onMove: null, _onUp: null };
+  // S328 (#16): smooth in-place resize. When the card editor's comment box grows
+  // or shrinks, the drawing box changes height. Previously the refit re-ran the
+  // FULL _renderPinMiniMap → new Image() → onload decode (and a ThumbCache/IDB
+  // round-trip for tile-only drawings) on every settle — chunky and delayed.
+  // This reuses the ALREADY-DECODED st.img: re-measure the host, resize the
+  // canvas, recompute the fit, redraw. Pure synchronous canvas work → butter
+  // smooth. Only valid when this _PinPan instance is currently mounted into the
+  // requested host AND already holds the right drawing's image; the caller
+  // checks that and falls back to a full render otherwise.
+  function resizeInPlace(hostId, d) {
+    if (!st || !st.img || !st.img.width) return false;
+    var host = st.canvas && st.canvas.parentElement;
+    if (!host || host.id !== hostId) return false;
+    // Must be the same deficiency/drawing already loaded — never silently draw
+    // the wrong pin into a resized box.
+    if (d && st.d && d.id !== st.d.id) return false;
+    var _isColBox = (host.id === 'pe-location-thumb' || host.id === 'pe-location-thumb-mobile');
+    if (_isColBox) { host.style.height = ''; host.style.flex = ''; }
+    var boxW = host.clientWidth, boxH = host.clientHeight;
+    if (!boxW || boxW < 20) boxW = 360;
+    if (!boxH || boxH < 20) boxH = 320;
+    if (_isColBox && st.img.width && st.img.height) {
+      var _fitH = Math.round(boxW * (st.img.height / st.img.width));
+      if (_fitH > 40 && _fitH < boxH) { host.style.height = _fitH + 'px'; host.style.flex = 'none'; boxH = _fitH; }
+    }
+    // No box change → nothing to do (skips redundant redraws on no-op settles).
+    if (boxW === st.boxW && boxH === st.boxH) { draw(); return true; }
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    st.boxW = boxW; st.boxH = boxH; st.dpr = dpr;
+    st.canvas.width = Math.round(boxW * dpr);
+    st.canvas.height = Math.round(boxH * dpr);
+    st.canvas.style.width = boxW + 'px';
+    st.canvas.style.height = boxH + 'px';
+    // Re-fit at the new size. The pin is stored as normalized 0..1 coords, so
+    // computeFit + the overlay reposition it correctly without any reload.
+    computeFit();
+    draw();
+    return true;
+  }
+
+  return { mount: mount, resizeInPlace: resizeInPlace, _winBound: false, _onMove: null, _onUp: null };
 })();
 
 // S116 Push 1: expose pin editor opener for Summary tab + other modules
@@ -2968,6 +3008,15 @@ window._frtRenderPinMiniMap = function(d, thumbId) {
   try { _renderPinMiniMap(d, thumbId); } catch (e) {
     try { console.warn('[S248] _frtRenderPinMiniMap failed:', e && e.message); } catch (_) {}
   }
+};
+
+// S328 (#16): smooth in-place resize hook for the card editor's drawing box.
+// Returns true if the live _PinPan instance handled it without re-decoding the
+// image (the fast path); false if it couldn't (not mounted / wrong drawing /
+// static thumb) so the caller can fall back to the full _frtRenderPinMiniMap.
+window._frtResizePinMiniMap = function(d, thumbId) {
+  try { return !!(_PinPan && _PinPan.resizeInPlace && _PinPan.resizeInPlace(thumbId, d)); }
+  catch (e) { return false; }
 };
 
 // ── S213: cross-module hooks used by deficiencies.js handlers ──────────

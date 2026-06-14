@@ -5646,7 +5646,14 @@ function _cvRefitDrawing(deficId) {
   requestAnimationFrame(function() {
     if (!document.getElementById('cv-pe-location-thumb')) return;
     try {
-      window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb');
+      // S328 (#16): fast path — ask the live _PinPan instance to resize in place
+      // using its already-decoded image (synchronous canvas redraw, no reload).
+      // Only fall back to the full re-decode render if the fast path declines
+      // (not mounted / different drawing). The mobile thumb is a static crop, so
+      // it always takes the full path — but only one thumb is visible per
+      // breakpoint, so the user never sees the slow one.
+      var _fast = window._frtResizePinMiniMap && window._frtResizePinMiniMap(d, 'cv-pe-location-thumb');
+      if (!_fast) window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb');
       window._frtRenderPinMiniMap(d, 'cv-pe-location-thumb-mobile');
     } catch (e) {}
   });
@@ -5669,6 +5676,23 @@ document.addEventListener('input', function(e) {
     // photo box growing when photos are added.
     _cvAutosizeTextarea(e.target);
     var deficId = e.target.getAttribute('data-defic-id');
+    // S328 (#16): smoothly track the drawing to the box as the comment box grows
+    // or shrinks. _cvAutosizeTextarea just reflowed the column, so the drawing box
+    // has a new height THIS frame. Ask _PinPan to resize in place (synchronous,
+    // no image reload) on the next animation frame — this makes expand/contract
+    // butter-smooth instead of waiting ~350ms for the debounced full refit. The
+    // resizeInPlace short-circuits when the box didn't actually change, so this is
+    // free on keystrokes that don't grow the box. The debounced _cvRefitDrawing
+    // below still runs once on settle as the authoritative fit / static-thumb path.
+    if (window._frtResizePinMiniMap) {
+      var _rfd = Model.findDeficiency(deficId);
+      if (_rfd && _rfd.defic) {
+        var _rfDefic = _rfd.defic;
+        requestAnimationFrame(function() {
+          try { window._frtResizePinMiniMap(_rfDefic, 'cv-pe-location-thumb'); } catch (_) {}
+        });
+      }
+    }
     // S263: the box grows with the comment, so re-fit the drawing once typing
     // pauses (debounced one-shot — never a continuous observer, which looped).
     _cvRefitDrawingDebounced(deficId);
