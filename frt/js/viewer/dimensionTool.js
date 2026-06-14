@@ -64,39 +64,127 @@
 (function () {
   'use strict';
 
-  // ── Formatting ───────────────────────────────────────────────────────
+  // ── Units & display-unit state (S330 #37) ────────────────────────────
+  // DISPLAY_UNIT is the engine-wide render choice ('imperial' | 'metric').
+  // It is display-only: dimension geometry + calibration are NEVER mutated
+  // by toggling it. Persisted by the host (markup.js) via FRT's own
+  // mechanism, NOT artifact localStorage. Calibration.units still records
+  // the unit the scale was entered in (used to turn pixels into metres).
+  var DISPLAY_UNIT = 'imperial';
+  function getDisplayUnit() { return DISPLAY_UNIT; }
+  function setDisplayUnit(u) { DISPLAY_UNIT = (u === 'metric') ? 'metric' : 'imperial'; }
 
-  function _formatFeetArch(value) {
-    var sign = value < 0 ? '-' : '';
-    var v = Math.abs(value);
-    var feet = Math.floor(v);
-    var remInch = (v - feet) * 12;
-    var sixteenths = Math.round(remInch * 16);
-    if (sixteenths === 192) { feet += 1; sixteenths = 0; }
-    var wholeInch = Math.floor(sixteenths / 16);
-    var fracSix = sixteenths - wholeInch * 16;
-    var label = sign + feet + "'-";
-    if (fracSix === 0) {
-      label += wholeInch + '"';
-    } else {
-      function gcd(a, b) { return b ? gcd(b, a % b) : a; }
-      var g = gcd(fracSix, 16);
-      var num = fracSix / g, den = 16 / g;
-      if (wholeInch === 0) label += num + '/' + den + '"';
-      else label += wholeInch + ' ' + num + '/' + den + '"';
-    }
-    return label;
+  var FT_PER_M = 1 / 0.3048;
+
+  // ── Formatting (S330: feet-inches to nearest 1/2", metric mm/m) ───────
+
+  function _roundHalfInch(totalInches) { return Math.round(totalInches * 2) / 2; }
+
+  function _formatFeetArch(valueFt) {
+    // valueFt: real-world length expressed in FEET. Rounds to nearest 1/2".
+    var sign = valueFt < 0 ? '-' : '';
+    var v = Math.abs(valueFt);
+    var totalInches = _roundHalfInch(v * 12);
+    var feet = Math.floor(totalInches / 12);
+    var inchRem = totalInches - feet * 12;
+    var wholeInch = Math.floor(inchRem);
+    var half = (inchRem - wholeInch) >= 0.5 ? '\u00BD' : '';
+    var inchPart = (wholeInch || half) ? (wholeInch + half + '"') : '0"';
+    return sign + feet + "'-" + inchPart;
   }
 
-  function _formatMeters(value) { return value.toFixed(2) + ' m'; }
+  function _formatMetric(meters) {
+    var mm = Math.round(meters * 1000);
+    if (Math.abs(mm) >= 10000) {
+      return (mm / 1000).toFixed(3).replace(/0+$/, '').replace(/\.$/, '') + ' m';
+    }
+    return mm + ' mm';
+  }
 
+  // formatLabel(value, units): legacy signature kept for back-compat.
+  // value is in the given units ('ft' => feet, 'm' => metres).
   function formatLabel(value, units) {
-    if (units === 'm') return _formatMeters(value);
+    if (units === 'm') return _formatMetric(value);
     return _formatFeetArch(value);
   }
 
-  // ── Smart number parser (S125, reusable) ─────────────────────────────
+  // Format a true length (in METRES) according to the current DISPLAY_UNIT.
+  function formatMeters(meters) {
+    if (DISPLAY_UNIT === 'metric') return _formatMetric(meters);
+    return _formatFeetArch(meters * FT_PER_M);
+  }
 
+  // ── Smart length parser (S330 #37) ───────────────────────────────────
+  // Returns { meters, system, confidence, label, isNote }.
+  //   meters: real length in metres, or null when unparseable / a note.
+  //   system: 'imperial' | 'metric' (best guess for the input).
+  //   confidence: 'ok' | 'guess' | 'note' | 'bad'.
+  //   label: formatted interpretation for the live preview.
+  //   isNote: true when the text is a frozen note (TYP., EQ, VERIFY...).
+  // Rules: dash = feet-inches separator (8-4 => 8'-4", never 84);
+  //        bare number with no units => imperial FEET (flagged guess);
+  //        explicit mm/cm/m/km => metric; ', ", ft, in => imperial.
+  function parseLength(raw) {
+    var s = (raw == null ? '' : String(raw)).trim();
+    if (!s) return { meters: null, system: DISPLAY_UNIT, confidence: 'bad', label: '\u2014', isNote: false };
+    var low = s.toLowerCase().replace(/[, ]+/g, ' ').trim();
+
+    // explicit metric
+    var mMet = low.match(/^([\d]*\.?[\d]+)\s*(mm|cm|m|km)$/);
+    if (mMet) {
+      var v = parseFloat(mMet[1]), u = mMet[2];
+      var meters = u === 'mm' ? v / 1000 : u === 'cm' ? v / 100 : u === 'km' ? v * 1000 : v;
+      return { meters: meters, system: 'metric', confidence: 'ok', label: _formatMetric(meters), isNote: false };
+    }
+
+    var feet = 0, inches = 0, matched = false;
+    var hasMetricTok = /(mm|cm|km|\bm\b)/.test(low);
+    // dash form: feet - inches (optionally with a fraction)
+    var dash = low.match(/^(\d+)\s*-\s*(\d+(?:\s+\d+\/\d+)?(?:\.\d+)?)\s*(?:"|in|inch|inches)?$/);
+    if (dash && !hasMetricTok) {
+      feet = parseInt(dash[1], 10); inches = _parseInchToken(dash[2]); matched = true;
+    } else {
+      var fM = low.match(/(\d+(?:\.\d+)?)\s*(?:'|ft|feet|foot)/);
+      if (fM) { feet = parseFloat(fM[1]); matched = true; }
+      var iM = low.match(/(?:'|ft|feet|foot)\s*(\d+(?:\s+\d+\/\d+)?(?:\.\d+)?)\s*(?:"|in|inch|inches)?/);
+      if (iM) { inches = _parseInchToken(iM[1]); matched = true; }
+      else {
+        var iOnly = low.match(/^(\d+(?:\s+\d+\/\d+)?(?:\.\d+)?)\s*(?:"|in|inch|inches)$/);
+        if (iOnly) { inches = _parseInchToken(iOnly[1]); feet = 0; matched = true; }
+      }
+    }
+    if (matched) {
+      var m2 = (feet * 12 + inches) * 0.0254;
+      return { meters: m2, system: 'imperial', confidence: 'ok', label: _formatFeetArch(m2 * FT_PER_M), isNote: false };
+    }
+
+    // bare number => assume imperial feet
+    var bare = low.match(/^(\d+(?:\.\d+)?)$/);
+    if (bare) {
+      var ft = parseFloat(bare[1]);
+      var m3 = ft * 0.3048;
+      return { meters: m3, system: 'imperial', confidence: 'guess', label: _formatFeetArch(ft), isNote: false };
+    }
+
+    // non-numeric => frozen text note
+    return { meters: null, system: DISPLAY_UNIT, confidence: 'note', label: s, isNote: true };
+  }
+
+  function _parseInchToken(t) {
+    t = String(t).trim();
+    var whole = 0, frac = 0;
+    var fr = t.match(/(\d+)\s+(\d+)\/(\d+)/);
+    if (fr) { whole = parseInt(fr[1], 10); frac = parseInt(fr[2], 10) / parseInt(fr[3], 10); }
+    else {
+      var fr2 = t.match(/^(\d+)\/(\d+)$/);
+      if (fr2) { frac = parseInt(fr2[1], 10) / parseInt(fr2[2], 10); }
+      else { whole = parseFloat(t) || 0; }
+    }
+    return whole + frac;
+  }
+
+  // Legacy numeric parser kept for the calibration modal (returns a plain
+  // number in the field's own unit). Unchanged behaviour.
   function _parseDimNumber(raw) {
     if (raw == null) return 0;
     var s = String(raw).trim();
@@ -172,9 +260,53 @@
   function computeLabel(x1, y1, x2, y2, calibration) {
     if (!calibration || !calibration.scaleRatio) return null;
     var px = _pixelDist(x1, y1, x2, y2);
-    var rawValue = px * calibration.scaleRatio;
-    var rawLabel = formatLabel(rawValue, calibration.units || 'ft');
-    return { rawValue: rawValue, rawLabel: rawLabel };
+    var rawValue = px * calibration.scaleRatio;            // in calibration.units
+    var units = calibration.units || 'ft';
+    var trueM = units === 'm' ? rawValue : rawValue * 0.3048; // store metres
+    var rawLabel = formatLabel(rawValue, units);
+    return { rawValue: rawValue, rawLabel: rawLabel, trueM: trueM };
+  }
+
+  // True length of a dimension object in METRES, or null if uncalibrated
+  // and never given a value. Prefers the stored trueM; falls back to
+  // recomputing from rawValue when an older object predates trueM.
+  function dimTrueMeters(obj) {
+    if (!obj) return null;
+    if (typeof obj.trueM === 'number') return obj.trueM;
+    if (typeof obj.rawValue === 'number' && obj.rawValue) {
+      // legacy: rawValue stored in the calibration unit at draw time.
+      // Assume feet unless the stored rawLabel looks metric.
+      var metric = /\bm(m)?\b/.test(obj.rawLabel || '');
+      return metric ? obj.rawValue : obj.rawValue * 0.3048;
+    }
+    return null;
+  }
+
+  // Resolve the on-screen label for a dimension, honouring DISPLAY_UNIT.
+  // Returns { txt, isOverride }.
+  //   - override note (non-numeric)  -> frozen text, shown as-is.
+  //   - numeric override (ovrM set)  -> converts with the unit toggle.
+  //   - measured                     -> formatted from trueM.
+  //   - uncalibrated, no value yet   -> em-dash placeholder.
+  function resolveLabel(obj) {
+    if (!obj) return { txt: '', isOverride: false };
+    // Frozen text note override
+    if (obj.overrideNote != null && obj.overrideNote !== '') {
+      return { txt: obj.overrideNote, isOverride: true };
+    }
+    // Numeric override (true length in metres)
+    if (typeof obj.ovrM === 'number') {
+      return { txt: formatMeters(obj.ovrM), isOverride: true };
+    }
+    // Legacy string override with no parsed length — keep showing it
+    if (obj.overrideLabel != null && obj.overrideLabel !== '') {
+      var p = parseLength(obj.overrideLabel);
+      if (p.meters != null) return { txt: formatMeters(p.meters), isOverride: true };
+      return { txt: obj.overrideLabel, isOverride: true };
+    }
+    var tm = dimTrueMeters(obj);
+    if (tm == null) return { txt: '\u2014 set \u2014', isOverride: false };
+    return { txt: formatMeters(tm), isOverride: false };
   }
 
   // ── Best-guess scale (S126 #6c) ──────────────────────────────────────
@@ -280,9 +412,14 @@
    * they see the current-scale value, not the stale one. Sets
    * isGuess=false on all dims (real calibration replaces a guess).
    */
-  function recalibrateAll(objects, newCalibration) {
+  function recalibrateAll(objects, newCalibration, mode) {
     if (!objects || !objects.length) return 0;
     if (!newCalibration || !newCalibration.scaleRatio) return 0;
+    // mode: 'measured' (default) recomputes measured dims, keeps overrides;
+    //       'all' also clears numeric overrides so everything shows measured;
+    //       'none' leaves existing dims, only future dims use the new scale.
+    mode = mode || 'measured';
+    if (mode === 'none') return 0;
     var n = 0;
     for (var i = 0; i < objects.length; i++) {
       var obj = objects[i];
@@ -294,7 +431,9 @@
       if (lab) {
         obj.rawValue = lab.rawValue;
         obj.rawLabel = lab.rawLabel;
+        obj.trueM = lab.trueM;
       }
+      if (mode === 'all') { obj.ovrM = undefined; obj.overrideNote = null; obj.overrideLabel = null; }
       if (obj.isGuess) obj.isGuess = false;
       n++;
     }
@@ -442,6 +581,8 @@
   var _pB = null;             // {x,y}: measured point B of current dim
   var _chainAnchor = null;    // running mode: fixed origin; continuous: rolling
   var _cursor = null;         // last cursor pos for live preview
+  var _curCal = null;         // last calibration seen (for live preview labels)
+  var _pickAwait = false;     // pickup picker: awaiting a vertex tap
 
   function setMode(m) {
     if (m !== 'single' && m !== 'continuous' && m !== 'running') return;
@@ -459,10 +600,74 @@
     };
   }
   function resetState() {
-    _state = 'idle'; _pA = null; _pB = null; _chainAnchor = null; _cursor = null;
+    _state = 'idle'; _pA = null; _pB = null; _chainAnchor = null; _cursor = null; _pickAwait = false;
   }
   function cancel() { resetState(); }
   function endChain() { resetState(); }
+
+  // ── Pickup picker support (S330 #37) ─────────────────────────────────
+  // Resume a continuous/running chain from the previous dim's endpoint /
+  // origin. setTool-equivalent (resetState) must run BEFORE seeding _pA,
+  // because resetState clears it — order matters (locked-spec note §3).
+  function startContinueFromPrevious(objects) {
+    resetState();
+    var last = _lastDim(objects);
+    if (!last) { return false; }
+    var a = (last.mx1 != null) ? { x: last.mx1, y: last.my1 } : { x: last.x1, y: last.y1 };
+    var b = (last.mx1 != null) ? { x: last.mx2, y: last.my2 } : { x: last.x2, y: last.y2 };
+    if (_mode === 'running') { _chainAnchor = { x: a.x, y: a.y }; _pA = { x: a.x, y: a.y }; }
+    else { _pA = { x: b.x, y: b.y }; _chainAnchor = null; }
+    _state = 'awaitB';
+    return true;
+  }
+  function startPickPoint() { resetState(); _pickAwait = true; }
+  function startFresh() { resetState(); }
+  function isPickAwaiting() { return _pickAwait; }
+  // Seed the chain from an explicitly tapped vertex.
+  function seedFromPoint(p) {
+    _pickAwait = false;
+    if (_mode === 'running') { _chainAnchor = { x: p.x, y: p.y }; _pA = { x: p.x, y: p.y }; }
+    else { _pA = { x: p.x, y: p.y }; _chainAnchor = null; }
+    _state = 'awaitB';
+  }
+  function _lastDim(objects) {
+    if (!objects) return null;
+    for (var i = objects.length - 1; i >= 0; i--) {
+      if (objects[i] && objects[i].type === 'dimension') return objects[i];
+    }
+    return null;
+  }
+  // All vertices (start/end) of every dimension — for the pickup highlight
+  // + snapping. Returns [{x,y}].
+  function allVertices(objects) {
+    var vs = [];
+    if (!objects) return vs;
+    for (var i = 0; i < objects.length; i++) {
+      var o = objects[i];
+      if (!o || o.type !== 'dimension') continue;
+      if (o.mx1 != null) { vs.push({ x: o.mx1, y: o.my1 }); vs.push({ x: o.mx2, y: o.my2 }); }
+      else { vs.push({ x: o.x1, y: o.y1 }); vs.push({ x: o.x2, y: o.y2 }); }
+    }
+    return vs;
+  }
+  // Nearest vertex within `maxDist` logical px of p, else null.
+  function nearestVertex(p, objects, maxDist) {
+    var best = null, bd = (maxDist || 12) * (maxDist || 12);
+    var vs = allVertices(objects);
+    for (var i = 0; i < vs.length; i++) {
+      var dx = vs[i].x - p.x, dy = vs[i].y - p.y, d = dx * dx + dy * dy;
+      if (d <= bd) { bd = d; best = vs[i]; }
+    }
+    return best;
+  }
+  // Is the chain waiting between dimensions (so the finish ✕ chip shows)?
+  // Anchor point for the chip is returned, or null when not waiting.
+  function chainFinishAnchor() {
+    if (_state !== 'awaitB') return null;
+    if (_mode === 'continuous' && _pA) return { x: _pA.x, y: _pA.y };
+    if (_mode === 'running' && _chainAnchor) return { x: _chainAnchor.x, y: _chainAnchor.y };
+    return null;
+  }
 
   /**
    * Process a click in dimension tool mode. Caller passes the click
@@ -479,6 +684,7 @@
   function handleClick(pos, drawing) {
     if (!pos) return { committed: false, action: 'noop' };
     var cal = getCalibration(drawing);
+    _curCal = cal;
     if (_state === 'idle') {
       _pA = { x: pos.x, y: pos.y };
       _state = 'awaitB';
@@ -509,7 +715,10 @@
         offset: offset,
         rawValue: lab ? lab.rawValue : 0,
         rawLabel: lab ? lab.rawLabel : '',
-        overrideLabel: null,
+        trueM: lab ? lab.trueM : null,   // true length in metres (null = uncalibrated)
+        overrideLabel: null,              // legacy display string (kept for back-compat)
+        ovrM: undefined,                  // numeric override, true metres (converts on toggle)
+        overrideNote: null,               // frozen text note (never converts)
         isGuess: isGuess
       };
       // Compute chain-next state
@@ -576,14 +785,17 @@
       ctx.stroke();
       ctx.restore();
       ctx.restore();
-      // Render the would-be dimension as a real object preview
+      // Render the would-be dimension as a real object preview, with a
+      // live measured label so the value forms as you set the offset.
+      var liveLab = _curCal ? computeLabel(_pA.x, _pA.y, _pB.x, _pB.y, _curCal) : null;
       var prev = {
         type: 'dimension',
         mx1: _pA.x, my1: _pA.y, mx2: _pB.x, my2: _pB.y,
         offset: offset,
         color: color, size: lineWidth, opacity: opacity,
-        rawLabel: '\u2026',
-        overrideLabel: null
+        trueM: liveLab ? liveLab.trueM : null,
+        rawLabel: liveLab ? liveLab.rawLabel : '\u2026',
+        overrideLabel: null, ovrM: undefined, overrideNote: null
       };
       renderObject(ctx, prev);
       return;
@@ -753,9 +965,11 @@
     ctx.stroke();
 
     // 5. Label — perpendicular-offset above the dimension line midpoint
-    var override = obj.overrideLabel;
-    var raw = obj.rawLabel || '';
-    var label = override != null ? override : (obj.isGuess && raw ? '~' + raw : raw);
+    var resolved = resolveLabel(obj);
+    var override = resolved.isOverride ? resolved.txt : null;
+    var label = resolved.isOverride
+      ? resolved.txt
+      : (obj.isGuess && resolved.txt && resolved.txt.charAt(0) !== '\u2014' ? '~' + resolved.txt : resolved.txt);
     if (label) {
       var mx = (dax + dbx) / 2, my = (day + dby) / 2;
       var labelOffset = 14;
@@ -819,12 +1033,19 @@
       isCalibrated: isCalibrated,
       getCalibration: getCalibration,
       formatLabel: formatLabel,
+      formatMeters: formatMeters,
       computeLabel: computeLabel,
+      resolveLabel: resolveLabel,
+      dimTrueMeters: dimTrueMeters,
+      parseLength: parseLength,
       showCalibrationPrompt: showCalibrationPrompt,
       renderObject: renderObject,
       renderPreview: renderPreview,
       renderVertexHandles: renderVertexHandles,
       parseDimNumber: _parseDimNumber,
+      // Display unit (display-only; persisted by host)
+      getDisplayUnit: getDisplayUnit,
+      setDisplayUnit: setDisplayUnit,
       // Chain controller
       setMode: setMode,
       getMode: getMode,
@@ -834,6 +1055,15 @@
       cancel: cancel,
       endChain: endChain,
       resetState: resetState,
+      // Pickup picker
+      startContinueFromPrevious: startContinueFromPrevious,
+      startPickPoint: startPickPoint,
+      startFresh: startFresh,
+      isPickAwaiting: isPickAwaiting,
+      seedFromPoint: seedFromPoint,
+      allVertices: allVertices,
+      nearestVertex: nearestVertex,
+      chainFinishAnchor: chainFinishAnchor,
       // Hit testing
       hitTestDimension: hitTestDimension,
       hitTestVertex: hitTestVertex,
