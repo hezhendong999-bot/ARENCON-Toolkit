@@ -2662,13 +2662,17 @@ var _PinPan = (function() {
     var isIAR = !!st.d.iar;
     // Colors copied verbatim from pinsGL.js _priorityFillHex (the ACTUAL pin
     // renderer — the on-drawing pin is PinsGL canvas, not the dead HTML SVG).
-    var fill = _isSr ? '#6B6FA8' : (isIAR ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959'));
+    // S328 (#3): a CLOSED pin must read as solid green, not its old priority
+    // colour dimmed to 50% (which looked like a faded amber/red ghost). Closed
+    // wins the fill outright and renders at full opacity.
+    var fill = isClosed ? '#5F8068' : (_isSr ? '#6B6FA8' : (isIAR ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959')));
     var isOutstanding = !isClosed && !isIAR;
     var numStr = String(st.d.num != null ? st.d.num : '?');
     // Font sizes from _drawPinAtNative: 17 / 13 / 11 by digit count.
     var fs = numStr.length <= 2 ? '17' : numStr.length === 3 ? '13' : '11';
     var pw = st.PW, ph = Math.round(pw * 42 / 32);
-    var alpha = isClosed ? '0.5' : '1';
+    // S328 (#3): closed pins are no longer dimmed — solid green, full opacity.
+    var alpha = '1';
     // Outstanding glow + shadow, matching _buildFilterString (resting state).
     var shadow = isOutstanding
       ? 'drop-shadow(0 0 2px ' + fill + ') drop-shadow(0 1px 3px rgba(0,0,0,0.4))'
@@ -2847,6 +2851,23 @@ var _PinPan = (function() {
 
   function mount(canvas, img, d) {
     var host = canvas.parentElement;
+    // S328 (#1/#2): the drawing-viewer pin editor renders BOTH thumbs on open
+    // (pe-location-thumb desktop + pe-location-thumb-mobile portrait); only one
+    // is visible per orientation, the other is display:none. Both images load
+    // async, so whichever resolves last calls mount() last and clobbers the
+    // shared module-level `st` + rebinds the toolbar to ITS canvas. When the
+    // hidden thumb wins, its host has no layout box (offsetParent null /
+    // clientWidth 0) → the box falls back to 360x320 and `st` points at an
+    // off-screen canvas: pin drag and +/−/Fit silently freeze on the visible
+    // one. Guard: never mount into a hidden host — keep st + toolbar bound to
+    // the thumb the user can actually see and touch.
+    if (host && host.offsetParent === null && host.id !== 'cv-pe-location-thumb') {
+      // offsetParent is null for display:none (the hidden orientation's thumb).
+      // cv-pe-location-thumb (combined-view card editor) can legitimately have a
+      // null offsetParent under position:fixed ancestors, so it's excluded from
+      // this guard and falls through to mount as before.
+      return;
+    }
     // S320/S321: column-context pin boxes (drawing-pin editor desktop + mobile
     // portrait thumb) get a height cap so a wide drawing fills width and the box
     // hugs it vertically. The card editor's #cv-pe-location-thumb (stretch-grid)
