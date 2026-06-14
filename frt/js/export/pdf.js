@@ -1127,10 +1127,17 @@ docHtml+='<div id="measure-zone" style="position:absolute;left:-9999px;top:0;wid
 w.document.open();w.document.write(docHtml);w.document.close();w.document.title=_pdfTitle;
 var D=w.document;
 
-// Export bar (single document, counter-scaled against page zoom)
+// Export bar — S329 (#32, Mark): FIXED WRAPPER + SCALED INNER.
+// A CSS transform on a position:fixed element breaks `fixed` on mobile (it scrolls
+// like absolute). So the OUTER wrapper is position:fixed with NO transform (stays
+// genuinely pinned on phone + desktop), and the INNER child carries the zoom
+// counter-scale. Wrapper height is set to the inner's scaled height so the blue
+// strip is the right thickness. Verified on Mark's phone (holds size, stays pinned).
 try{
-  var bar=D.createElement('div');bar.id='pdf-btn-bar';
-  bar.style.cssText='position:fixed;top:0;left:0;transform-origin:top left;z-index:9999;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);will-change:transform,width;';
+  var barFix=D.createElement('div');barFix.id='pdf-btn-bar';
+  barFix.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;overflow:hidden;background:#2C4770;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+  var bar=D.createElement('div');bar.id='pdf-btn-bar-inner';
+  bar.style.cssText='transform-origin:top left;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;will-change:transform,width;';
   var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
   pb.style.cssText='padding:8px 24px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
   pb.onclick=function(){w.print();};bar.appendChild(pb);
@@ -1139,15 +1146,17 @@ try{
   var cb=D.createElement('button');cb.innerHTML='\u2715 Close';
   cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
   cb.onclick=function(){w.close();};bar.appendChild(cb);
-  D.body.insertBefore(bar,D.body.firstChild);D.body.style.paddingTop='56px';
-  // Counter-scale the bar against page zoom. Baseline DPR captured at open (the
-  // user's current zoom = 1x reference); zoom factor = current DPR / base DPR.
+  barFix.appendChild(bar);
+  D.body.insertBefore(barFix,D.body.firstChild);D.body.style.paddingTop='56px';
+  // Counter-scale the inner against page zoom; size the wrapper to the scaled height.
   var _baseDPR=w.devicePixelRatio||1;
   var _fitBar=function(){
     try{
       var z=(w.devicePixelRatio||1)/_baseDPR; if(!isFinite(z)||z<=0)z=1;
-      bar.style.transform='scale('+(1/z)+')';
-      bar.style.width=((w.innerWidth||document.documentElement.clientWidth)*z)+'px';
+      var inv=1/z;
+      bar.style.transform='scale('+inv+')';
+      bar.style.width=((w.innerWidth||D.documentElement.clientWidth)*z)+'px';
+      var nh=bar.offsetHeight; if(nh) barFix.style.height=Math.round(nh*inv)+'px';
     }catch(_x){}
   };
   w.addEventListener('resize',_fitBar);

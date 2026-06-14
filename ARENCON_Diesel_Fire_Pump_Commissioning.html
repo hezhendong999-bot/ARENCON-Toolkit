@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S339 (S329 export-bar zoom counter-scale). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S340 (S329 export-bar sticky wrapper+inner). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -436,8 +436,6 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .ev-tile .badge{position:absolute;top:6px;left:6px;background:rgba(28,35,51,.78);color:#fff;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:9px;letter-spacing:.3px;}
 .ev-tile .recap{position:absolute;bottom:6px;right:6px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:10px;font-weight:600;color:var(--steel);padding:3px 8px;cursor:pointer;}
 .ev-tile .recap:hover{color:var(--arencon);}
-.ev-tile .ev-del{position:absolute;top:6px;right:6px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;background:rgba(168,89,89,.92);border:none;border-radius:50%;color:#fff;font-size:12px;line-height:1;cursor:pointer;padding:0;}
-.ev-tile .ev-del:hover{background:#A85959;}
 /* ══ Flow-point photo icon + warning flag ══ */
 .flow-warn{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);margin-top:3px;line-height:1.25;}
 .ph-cell{text-align:center;}
@@ -8280,7 +8278,7 @@ function _appendixEligible(it){
   if(!it||!it.photo) return false;
   if(it.type==='gauge'||it.type==='gauge-pld') return true;
   if(it.type==='flowtest'||it.type==='flowtest-pld') return true;
-  if(it.type==='record'){ var k=(it.photo.kind||''); return k==='pump'||k==='pump-pld'||k.indexOf('placard')!==-1||k==='flow'||k==='flow-pld'; }
+  if(it.type==='record'){ var k=(it.photo.kind||''); return k==='pump'||k.indexOf('placard')!==-1||k==='flow'||k==='flow-pld'; }
   return false;
 }
 function _appendixHTML(){
@@ -8322,7 +8320,7 @@ function _appendixHTML(){
       emit(title, items, size, function(l){ return t+head(l); });
     }
     // 1. Pump photos — 3-up, no labels (locked)
-    sect('Pump & Installation', inc.filter(function(it){ return it.type==='record'&&(it.photo.kind==='pump'||it.photo.kind==='pump-pld'); }), 228);
+    sect('Pump & Installation', inc.filter(function(it){ return it.type==='record'&&it.photo.kind==='pump'; }), 228);
     // 2. Placards (incl. PLD placard) — two large cards per page (locked)
     var plc=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind||'').indexOf('placard')!==-1; });
     if(plc.length){
@@ -9148,13 +9146,15 @@ function _realExportPDF() {
   }, 600);
   // Add Export PDF toolbar IMMEDIATELY (outside setTimeout so it always shows)
   try {
+    // S329 (#32, Mark): FIXED WRAPPER + SCALED INNER. A transform on a fixed element
+    // breaks `fixed` on mobile (scrolls like absolute); outer wrapper stays fixed with
+    // NO transform, inner child carries the zoom counter-scale. Verified on Mark's phone.
+    var btnFix = w.document.createElement('div');
+    btnFix.id = 'pdf-btn-bar';
+    btnFix.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;overflow:hidden;background:#2C4770;box-shadow:0 2px 8px rgba(0,0,0,.3);';
     var btnBar = w.document.createElement('div');
-    btnBar.id = 'pdf-btn-bar';
-    // S329 (#32, Mark): keep the bar a CONSTANT on-screen size under Chrome PAGE zoom
-    // by measuring the zoom via devicePixelRatio and applying an inverse transform:scale.
-    // Verified on Mark's Chrome. position:fixed + transform-origin top-left + width set
-    // explicitly to (innerWidth * zoom) so after the inverse scale it reads full-width.
-    btnBar.style.cssText = 'position:fixed;top:0;left:0;transform-origin:top left;z-index:9999;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);will-change:transform,width;';
+    btnBar.id = 'pdf-btn-bar-inner';
+    btnBar.style.cssText = 'transform-origin:top left;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;will-change:transform,width;';
     var printBtn = w.document.createElement('button');
     printBtn.textContent = '\uD83D\uDCC4 Export PDF';
     printBtn.style.cssText = 'padding:8px 24px;background:#5F8068;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
@@ -9169,18 +9169,21 @@ function _realExportPDF() {
     closeBtn.style.cssText = 'padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
     closeBtn.onclick = function(){ w.close(); };
     btnBar.appendChild(closeBtn);
-    w.document.body.insertBefore(btnBar, w.document.body.firstChild);
+    btnFix.appendChild(btnBar);
+    w.document.body.insertBefore(btnFix, w.document.body.firstChild);
     var hideStyle = w.document.createElement('style');
     hideStyle.textContent = '@media print { #pdf-btn-bar { display:none !important; } body { padding-top:0 !important; } }';
     w.document.head.appendChild(hideStyle);
-    // Counter-scale against page zoom (verified mechanism).
+    // Counter-scale inner against page zoom; size wrapper to scaled height.
     try {
       var _dBaseDPR = w.devicePixelRatio || 1;
       var _dFitBar = function(){
         try {
           var z = (w.devicePixelRatio || 1) / _dBaseDPR; if(!isFinite(z) || z<=0) z=1;
-          btnBar.style.transform = 'scale(' + (1/z) + ')';
+          var inv = 1/z;
+          btnBar.style.transform = 'scale(' + inv + ')';
           btnBar.style.width = ((w.innerWidth || w.document.documentElement.clientWidth) * z) + 'px';
+          var nh = btnBar.offsetHeight; if(nh) btnFix.style.height = Math.round(nh*inv) + 'px';
         } catch(_zx){}
       };
       w.addEventListener('resize', _dFitBar);
@@ -13679,8 +13682,7 @@ function _collectAllPhotos(){
   });
   // 6. Site records (pump / placard / site)
   (typeof recordPhotos==='undefined'?[]:recordPhotos).forEach(function(p,i){
-    var _k=p.kind||'site';
-    var kl = (_k==='pump'||_k==='pump-pld')?'Pump':(_k==='placard'||_k==='placard-pld')?'Placard':'Site';
+    var kl = p.kind==='pump'?'Pump':p.kind==='placard'?'Placard':'Site';
     all.push({photo:p, type:'record', cat:'records', badge:kl, label:'Record: '+kl, section:'rec_'+(p.kind||'site'), idx:i, src:p.d||p.r2Url});
   });
   // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
@@ -13980,7 +13982,7 @@ function _recZoneHtml(kind){
 }
 function _evTileHtml(kind){
   // kind: pump | placard | flow (3-pt) | flow-pld (7-pt)
-  var map={pump:['📷','Pump','tap / drop · camera'],'pump-pld':['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],'placard-pld':['🏷','PLD Placard','engine placard · control pressure'],flow:['📊','Flow Chart','Hose Monster chart'],'flow-pld':['📊','Flow Chart','Hose Monster chart']};
+  var map={pump:['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],'placard-pld':['🏷','PLD Placard','engine placard · control pressure'],flow:['📊','Flow Chart','Hose Monster chart'],'flow-pld':['📊','Flow Chart','Hose Monster chart']};
   var def=map[kind]; if(!def) return '';
   if(kind==='flow' || kind==='flow-pld'){
     var isPld = kind==='flow-pld';
@@ -14006,7 +14008,6 @@ function _evTileHtml(kind){
     return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
       +'<span class="badge">'+def[1].toUpperCase()+(thumbs.length>1?(' ·'+thumbs.length):'')+'</span>'
       +'<img src="'+(o.p.d||o.p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
-      +'<button class="ev-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(o.p.id||'')+'\')">✕</button>'
       +'<button class="recap" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">retake</button>'
       +'</div>';
   }
@@ -14014,17 +14015,6 @@ function _evTileHtml(kind){
     +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
 }
 function _recTileHtml(kind){ return _evTileHtml(kind); }
-// S339: X-delete on an evidence tile — soft-deletes the photo (→ Recently Deleted,
-// restorable for 30 days) then refreshes the evidence zones. Routes through the
-// shared delete path so it behaves exactly like deleting from the gallery.
-function _recDeletePhotoById(pid){
-  if(!pid){ showToast('Photo not found'); return; }
-  if(typeof deletePhotoEverywhere==='function'){
-    deletePhotoEverywhere({photoId:pid}, function(){
-      if(typeof _renderRecordZones==='function') _renderRecordZones();
-    });
-  }
-}
 function _renderRecordZones(){
   // Photos tab: general site records only (full zone style)
   var host=document.getElementById('record-zones');
@@ -14033,7 +14023,7 @@ function _renderRecordZones(){
   var pp=document.getElementById('pump-placard-zones');
   if(pp) pp.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('flow');
   var pp2=document.getElementById('pump-placard-zones-4b');
-  if(pp2) pp2.innerHTML=_evTileHtml('pump-pld')+_evTileHtml('placard-pld')+_evTileHtml('flow-pld');
+  if(pp2) pp2.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('placard-pld')+_evTileHtml('flow-pld');
 }
 // Placard OCR — wired in the next build. Placeholder keeps the button honest.
 /* ════ S314: AI Placard Scan → rated-value autofill (preview-then-confirm) ════
@@ -15288,7 +15278,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S339';
+var DIESEL_BUILD = 'S338';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
@@ -15845,8 +15835,9 @@ function exportPDF() {
 
   var w = window.open('', '_blank', 'width=850,height=700');
   w.document.write('<!DOCTYPE html><html><head><title>ARENCON AI Usage Report</title><style>');
-  // Export bar styles
-  w.document.write('.export-bar{position:fixed;top:0;left:0;transform-origin:top left;box-sizing:border-box;height:48px;background:#2C4770;display:flex;align-items:center;padding:0 16px;gap:10px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);will-change:transform,width;}');
+  // Export bar styles — S329: fixed wrapper (no transform) + scaled inner.
+  w.document.write('.export-fix{position:fixed;top:0;left:0;right:0;z-index:100;overflow:hidden;background:#2C4770;box-shadow:0 2px 8px rgba(0,0,0,.3);}');
+  w.document.write('.export-bar{transform-origin:top left;box-sizing:border-box;height:48px;background:#2C4770;display:flex;align-items:center;padding:0 16px;gap:10px;will-change:transform,width;}');
   w.document.write('.export-bar button{border:none;border-radius:6px;padding:8px 18px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;}');
   w.document.write('.export-bar .btn-export{background:#1A7A4A;color:white;}.export-bar .btn-export:hover{background:#15693f;}');
   w.document.write('.export-bar .btn-close{background:#455A64;color:white;}.export-bar .btn-close:hover{background:#37474F;}');
@@ -15857,11 +15848,11 @@ function exportPDF() {
   w.document.write('h1{color:#9C2742;font-size:20px;margin:0 0 4px;}h2{color:#9C2742;font-size:15px;border-bottom:2px solid #9C2742;padding-bottom:4px;margin:20px 0 8px;}');
   w.document.write('table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}th{background:#f5f5f5;padding:6px 8px;text-align:left;border-bottom:2px solid #ccc;font-weight:700;}td{padding:5px 8px;border-bottom:1px solid #eee;}');
   w.document.write('.r{text-align:right;}.cost{text-align:right;font-family:Courier New,monospace;}.total td{font-weight:700;border-top:2px solid #999;background:#f5f5f5;}.meta{font-size:12px;color:#666;margin-bottom:16px;}');
-  w.document.write('@media print{.export-bar{display:none!important;}.page{margin:0;padding:0.5in;box-shadow:none;min-height:auto;}}');
+  w.document.write('@media print{.export-fix{display:none!important;}.page{margin:0;padding:0.5in;box-shadow:none;min-height:auto;}}');
   w.document.write('</style></head><body>');
 
-  // Export bar
-  w.document.write('<div class="export-bar"><button class="btn-export" onclick="window.print()">\uD83D\uDCC4 Export PDF</button><span class="hint">Preview \u2014 click Export to save as PDF</span><button class="btn-close" onclick="window.close()">\u2715 Close</button></div>');
+  // Export bar (wrapper + inner)
+  w.document.write('<div class="export-fix"><div class="export-bar"><button class="btn-export" onclick="window.print()">\uD83D\uDCC4 Export PDF</button><span class="hint">Preview \u2014 click Export to save as PDF</span><button class="btn-close" onclick="window.close()">\u2715 Close</button></div></div>');
 
   // Page content
   w.document.write('<div class="page">');
@@ -15873,16 +15864,19 @@ function exportPDF() {
   fd.forEach(function(r) { var ru = _resolveUser(r.user_email); w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + ru.num + '</td><td>' + ru.init + '</td><td>' + (r.project_number || '') + '</td><td>' + (r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'); });
   w.document.write('</table></div></body></html>');
   w.document.close();
-  // S329 (#32, Mark): counter-scale the export bar against Chrome page zoom (verified mechanism).
+  // S329 (#32, Mark): counter-scale the inner bar; size the fixed wrapper to scaled height.
   try {
+    var _aFix = w.document.querySelector('.export-fix');
     var _aBar = w.document.querySelector('.export-bar');
-    if (_aBar) {
+    if (_aBar && _aFix) {
       var _aBaseDPR = w.devicePixelRatio || 1;
       var _aFit = function(){
         try {
           var z = (w.devicePixelRatio || 1) / _aBaseDPR; if(!isFinite(z) || z<=0) z=1;
-          _aBar.style.transform = 'scale(' + (1/z) + ')';
+          var inv = 1/z;
+          _aBar.style.transform = 'scale(' + inv + ')';
           _aBar.style.width = ((w.innerWidth || w.document.documentElement.clientWidth) * z) + 'px';
+          var nh = _aBar.offsetHeight; if(nh) _aFix.style.height = Math.round(nh*inv) + 'px';
         } catch(_zx){}
       };
       w.addEventListener('resize', _aFit);
