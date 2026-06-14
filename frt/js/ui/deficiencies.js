@@ -3574,9 +3574,10 @@ function _confirmDeleteObsOrPin(deficId, obsIdx, afterFn, afterPinDeleteFn) {
   showDialog({
     title: titleWord,
     message: lead + n + tail,
+    vertical: true,
     buttons: [
       {
-        label: 'Move ' + noun + ' to Site Records', color: '#9C2742',
+        label: 'Move to Site Records', color: '#9C2742',
         action: function() {
           unique.forEach(function(p) {
             if (p && p.id && Model.releasePoolPhotoToSite) Model.releasePoolPhotoToSite(deficId, p.id);
@@ -3586,7 +3587,7 @@ function _confirmDeleteObsOrPin(deficId, obsIdx, afterFn, afterPinDeleteFn) {
         }
       },
       {
-        label: 'Delete ' + noun, color: '#C0392B',
+        label: n === 1 ? 'Delete photo' : 'Delete photos', color: '#C0392B',
         action: function() {
           unique.forEach(function(p) {
             if (p && p.id && Model.removePoolPhoto) Model.removePoolPhoto(deficId, p.id);

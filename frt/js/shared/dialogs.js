@@ -99,7 +99,7 @@ export function showDialog(config) {
       }
     };
   });
-  var modal = _createModal(config.title || '', config.message || '', buttons);
+  var modal = _createModal(config.title || '', config.message || '', buttons, !!config.vertical);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   return overlay;
@@ -285,7 +285,7 @@ function _createOverlay() {
   return overlay;
 }
 
-function _createModal(title, message, buttons) {
+function _createModal(title, message, buttons, vertical) {
   var isDark = document.body.classList.contains('dark-mode');
   var modal = document.createElement('div');
   modal.style.cssText = [
@@ -315,24 +315,26 @@ function _createModal(title, message, buttons) {
 
   if (buttons && buttons.length) {
     var btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+    // S328 (Mark): opt-in vertical stack — full-width, one-line buttons that read
+    // cleanly when labels differ in length (e.g. the obs-delete photo-fate
+    // choices). Default stays the horizontal wrap-row for every existing caller.
+    btnRow.style.cssText = vertical
+      ? 'display:flex;flex-direction:column;gap:8px;'
+      : 'display:flex;gap:8px;flex-wrap:wrap;';
     buttons.forEach(function(b) {
       var btn = document.createElement('button');
       btn.textContent = b.label;
-      // S113 Push 17: detect Yes/OK/Confirm by green color, Cancel/No by
-      // red color, and apply the .btn-muted-ok / .btn-muted-cancel CSS
-      // classes from frt.css. Both dark and light modes are handled
-      // entirely by the CSS class — no inline color logic needed here.
-      // Buttons with other colors (e.g., burgundy for showAlert OK) fall
-      // through to the prior dark/light branches below.
+      // In a vertical stack, buttons fill the width (flex:none) and size to one
+      // text line; horizontally they share the row equally (flex:1).
+      var _grow = vertical ? 'width:100%;' : 'flex:1;';
       if (b.color === '#1A7A4A') {
         btn.className = 'btn-muted-ok';
-        btn.style.cssText = 'flex:1;';
+        btn.style.cssText = _grow;
       } else if (b.color === '#C0392B') {
         btn.className = 'btn-muted-cancel';
-        btn.style.cssText = 'flex:1;';
+        btn.style.cssText = _grow;
       } else {
-        var baseStyle = 'flex:1;padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;';
+        var baseStyle = _grow + 'padding:10px;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;';
         if (b.outline) {
           btn.style.cssText = baseStyle + 'background:transparent;color:' + b.color + ';border:1.5px solid ' + b.color + ';';
         } else if (isDark) {
