@@ -214,15 +214,23 @@ function _restoreView() {
 }
 
 // ── Dark Mode ────────────────────────────────────────────
-// S329 (Mark): the iOS status-bar background follows the theme-color meta. Keep it
-// matching the header per mode — dark header (#1d1b24) in dark, light header
-// (#E6E3E9) in light — so the status-bar strip is never a stray white/black bar.
+// S329 (Mark): with apple-mobile-web-app-status-bar-style=black-translucent, the
+// iOS status-bar strip shows the ROOT (<html>) background, NOT the theme-color and
+// NOT body's background. FRT painted body but left <html> unpainted, so the strip
+// was white. Mirror body's ACTUAL computed background onto <html> (and theme-color)
+// so the strip always matches the page in both modes — no hardcoded color guess,
+// it follows whatever tokens are live (base or Bold overlay).
 function _setThemeColor() {
-  var isDark = document.body.classList.contains('dark-mode');
-  var c = isDark ? '#1d1b24' : '#E6E3E9';
-  var m = document.querySelector('meta[name="theme-color"]');
-  if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
-  m.setAttribute('content', c);
+  try {
+    var bg = getComputedStyle(document.body).backgroundColor;
+    if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
+      bg = document.body.classList.contains('dark-mode') ? '#0b0a0d' : '#EFEDF0';
+    }
+    document.documentElement.style.background = bg;
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
+    m.setAttribute('content', bg);
+  } catch (e) {}
 }
 
 function toggleDarkMode() {
