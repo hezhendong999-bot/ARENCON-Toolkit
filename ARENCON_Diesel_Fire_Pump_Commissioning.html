@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S342 (placard scan error detail). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S343 (swipe A-ladder + leave confirm). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1881,21 +1881,23 @@ function _tieredBack(){
   // 8. Mobile hamburger drawer
   var ha=document.querySelector('.header-actions.mobile-open');
   if(ha){ if(typeof closeMobileMenu==='function')closeMobileMenu(); else ha.classList.remove('mobile-open'); return true; }
-  // 9. S341: PAGE TIER — if not on the first page, peel back ONE page (e.g. 5→4→…→1)
-  //    instead of leaving the tool. Only when already on page 1 (proj detail) does
-  //    back fall through to goBackToHub(). Mirrors FRT's tiered-Escape model: most
-  //    specific layers first, navigation last, never skip straight to the dashboard.
+  // 9. S343: SUMMARY TIER — A-ladder (modal → Summary → Hub). If NOT already on the
+  //    Summary (proj) tab, jump straight there in ONE step. No sideways tab-walking
+  //    (the old S341 navPage(-1) marched through every sub-tab, which felt wrong).
+  //    Only when already on Summary does back fall through to the leave-confirm.
   try{
-    if(typeof PANELS!=='undefined' && typeof navPage==='function'){
-      var _cur = PANELS.findIndex(function(p){
-        var el=document.getElementById('panel-'+p);
-        return el && el.classList.contains('active');
-      });
-      if(_cur > 0){ navPage(-1); return true; }   // peel one page toward page 1
-      // _cur === 0 (first page) → fall through to leave
+    var _summaryActive = (function(){
+      var el=document.getElementById('panel-proj');
+      return el && el.classList.contains('active');
+    })();
+    if(!_summaryActive && typeof switchPanel==='function'){
+      switchPanel('proj');   // collapse straight up to Summary
+      return true;
     }
+    // already on Summary → fall through to leave (handled in the popstate trap,
+    // which now asks for confirmation before actually leaving the report)
   }catch(e){}
-  return false; // nothing open AND on first page → leave to hub
+  return false; // nothing open AND already on Summary → leave (with confirm)
 }
 /* ═══ S332/S333: TIERED BACK — swipe/back gesture peels one layer, never throws you out ═══
    The TWA/browser edge-swipe fires history-back, which used to unload the tool.
@@ -1922,8 +1924,20 @@ function _installBackTrap(){
       _backTopUp();
       if(!handled){
         if(_dslLeaving) return;      // S333: a leave is already in flight (async save) — don't double-navigate
-        _dslLeaving=true;
-        goBackToHub();
+        // S343: on Summary with nothing open → a swipe-back wants to LEAVE the
+        // report. Confirm first so a fat-finger gesture can't yank you out of a
+        // half-filled form (the OS swipe can't be distance-gated, so the confirm
+        // is the deliberate-intent guard). Data is auto-saved either way.
+        if(typeof _aConfirm==='function'){
+          _aConfirm('Leave this report and return to the project hub? Your work is saved.', function(){
+            _dslLeaving=true;
+            goBackToHub();
+          }, 'Leave');
+          // user may cancel — stay put; guard buffer already re-armed above
+        } else {
+          _dslLeaving=true;
+          goBackToHub();
+        }
       }
     });
     window.addEventListener('pageshow', function(){ _backTopUp(); });
@@ -15352,7 +15366,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S342';
+var DIESEL_BUILD = 'S343';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
