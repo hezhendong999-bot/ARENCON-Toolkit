@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S340 (S329 export-bar sticky wrapper+inner). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S341 (tiered page-back + placard scan retry). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1881,7 +1881,21 @@ function _tieredBack(){
   // 8. Mobile hamburger drawer
   var ha=document.querySelector('.header-actions.mobile-open');
   if(ha){ if(typeof closeMobileMenu==='function')closeMobileMenu(); else ha.classList.remove('mobile-open'); return true; }
-  return false; // nothing open
+  // 9. S341: PAGE TIER — if not on the first page, peel back ONE page (e.g. 5→4→…→1)
+  //    instead of leaving the tool. Only when already on page 1 (proj detail) does
+  //    back fall through to goBackToHub(). Mirrors FRT's tiered-Escape model: most
+  //    specific layers first, navigation last, never skip straight to the dashboard.
+  try{
+    if(typeof PANELS!=='undefined' && typeof navPage==='function'){
+      var _cur = PANELS.findIndex(function(p){
+        var el=document.getElementById('panel-'+p);
+        return el && el.classList.contains('active');
+      });
+      if(_cur > 0){ navPage(-1); return true; }   // peel one page toward page 1
+      // _cur === 0 (first page) → fall through to leave
+    }
+  }catch(e){}
+  return false; // nothing open AND on first page → leave to hub
 }
 /* ═══ S332/S333: TIERED BACK — swipe/back gesture peels one layer, never throws you out ═══
    The TWA/browser edge-swipe fires history-back, which used to unload the tool.
@@ -14120,18 +14134,31 @@ function _placardScan(btn, mode){
       return fetch(AI_WORKER_URL,{ method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body:body });
     }
-    call(token).then(function(res){
-      if((res.status===401||res.status===403)&&typeof _refreshAccessToken==='function'){
-        return _refreshAccessToken().then(function(nt){ if(!nt) return res; return call(nt); });
-      }
-      return res;
-    }).then(function(res){
-      if(!res.ok) return res.json().then(function(e){ throw new Error(e.error||'AI error '+res.status); });
-      return res.json();
+    // S341: one attempt = auth-aware fetch → parse. The AI worker occasionally
+    // returns a malformed response ("invalid format"); a single retry almost
+    // always succeeds, so we attempt twice before surfacing the error.
+    function attempt(){
+      return call(token).then(function(res){
+        if((res.status===401||res.status===403)&&typeof _refreshAccessToken==='function'){
+          return _refreshAccessToken().then(function(nt){ if(!nt) return res; return call(nt); });
+        }
+        return res;
+      }).then(function(res){
+        if(!res.ok) return res.json().then(function(e){ throw new Error(e.error||'AI error '+res.status); });
+        return res.json();
+      });
+    }
+    attempt().catch(function(err1){
+      // retry once after a short delay on ANY failure (transient worker/model issue)
+      if(btn){ btn.textContent='Retrying\u2026'; }
+      return new Promise(function(r){ setTimeout(r, 900); }).then(attempt).catch(function(err2){
+        throw err2;   // both attempts failed → surface the second error
+      });
     }).then(function(d){
+      if(!d) return;   // (retry path resolved with no data — already handled)
       done(); _placardPreview(btn, d, imgs.length, mode);
     }).catch(function(err){
-      done(); showToast('Placard scan failed: '+(err.message||'connection error'));
+      done(); showToast('Placard scan failed: '+(err.message||'connection error')+' \u2014 check the photo is clear & try again');
     });
   });
 }
@@ -15316,7 +15343,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S340';
+var DIESEL_BUILD = 'S341';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
