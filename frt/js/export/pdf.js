@@ -1131,22 +1131,29 @@ try{
   cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
   cb.onclick=function(){w.close();};bar.appendChild(cb);
   w.document.body.insertBefore(bar,w.document.body.firstChild);w.document.body.style.paddingTop='56px';
-  // S316 (Mark): keep the export bar a CONSTANT on-screen size even when the user
-  // zooms into the drawing in the preview window. Browser zoom scales fixed
-  // elements too, so we counter-scale the bar by the inverse of the page zoom
-  // (visualViewport.scale) from the top-centre, and re-fit on every zoom/resize.
+  // S316 / S328 (#32, Mark): keep the export bar a CONSTANT on-screen size and
+  // position even when the user pinch-zooms the report in the preview window.
+  // Pinch-zoom shrinks the visual viewport and scales fixed elements with it, so
+  // the bar appeared to "grow" and cover the report. We pin the bar to the
+  // visual viewport: anchor it to the viewport's current offset/top, counter the
+  // zoom with an inverse scale from the TOP-LEFT, and size it to exactly the
+  // visible viewport width. Re-fit on every zoom/scroll/resize.
   try{
     var _fitBar=function(){
       var vv=w.visualViewport;
-      var sc=(vv&&vv.scale)?vv.scale:1;
-      var inv=sc>0?(1/sc):1;
-      bar.style.transformOrigin='top center';
-      bar.style.transform='scale('+inv+')';
-      // width grows inversely so it still spans the viewport after counter-scale
-      bar.style.width=(100*sc)+'%';
-      bar.style.left='50%';
+      if(!vv){ bar.style.transform='none'; bar.style.left='0'; bar.style.right='0'; bar.style.width='auto'; return; }
+      var sc=vv.scale>0?vv.scale:1;
+      var inv=1/sc;
+      // Anchor to the visual viewport's top-left in LAYOUT pixels.
       bar.style.right='auto';
-      bar.style.marginLeft=(-(50*sc))+'%';
+      bar.style.left=(vv.offsetLeft||0)+'px';
+      bar.style.top=(vv.offsetTop||0)+'px';
+      // Width = exactly one visible screen-width, expressed in layout px so that
+      // after the inverse scale it reads as the full viewport width on screen.
+      bar.style.width=(vv.width*sc)+'px';
+      bar.style.transformOrigin='top left';
+      bar.style.transform='scale('+inv+')';
+      bar.style.marginLeft='0';
     };
     if(w.visualViewport){
       w.visualViewport.addEventListener('resize',_fitBar);

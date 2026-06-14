@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=629">
+<link rel="stylesheet" href="css/frt.css?v=630">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -399,7 +399,8 @@ function ensurePdfJs(cb){
               <button class="btn btn-outline btn-sm" id="btn-dwg-actions">Actions ▾</button>
             </div>
             <div class="dwg-btn-cluster dwg-btn-cluster-right">
-              <button class="btn btn-outline btn-sm" id="btn-dwg-compact" title="Compact card view">☷ Compact</button>
+              <!-- S328 (#36): "Compact" button removed — phones now show a clean
+                   2-per-row vertical card grid, so the compact toggle is moot. -->
               <!-- S159: 'Purge Old' button removed entirely. Orphan-detection
                    was unsafe — it would delete any drawing no deficiency
                    pointed at, including freshly-uploaded plans not yet
