@@ -441,7 +441,7 @@ export default {
           },
           body: JSON.stringify({
             model: pModel.id,
-            max_tokens: 512,
+            max_tokens: 2048,
             system: PROMPT_PLACARD_READ,
             messages: [{ role: 'user', content: pBlocks }]
           })
@@ -457,8 +457,8 @@ export default {
         try {
           pParsed = JSON.parse(pText.replace(/```json|```/g, '').trim());
         } catch (e) {
-          console.error('Failed to parse placard response:', pText);
-          return jsonResponse({ error: 'AI returned invalid format', raw: pText }, 500, headers);
+          console.error('Failed to parse placard response:', pText, 'stop_reason:', pData.stop_reason);
+          return jsonResponse({ error: 'AI returned invalid format', raw: pText, stop_reason: pData.stop_reason || null }, 500, headers);
         }
         const pUsage = pData.usage || {};
         const pIn = pUsage.input_tokens || 0, pOut = pUsage.output_tokens || 0;
