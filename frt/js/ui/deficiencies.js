@@ -558,7 +558,7 @@ function _buildActEntryHtml(a, deficId) {
   // (light-only) → dark mode left a light box with invisible body text.
   var clsMod = isCtr ? 'act-ctr' : 'act-con';
   var actId = a.id || '';
-  var h = '<div class="act-entry ' + clsMod + '" style="margin-bottom:3px;padding:4px 6px;border-radius:4px;font-size:calc(11px + var(--ts));display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">';
+  var h = '<div class="act-entry ' + clsMod + '" data-act-entry-id="' + esc(actId) + '" data-act-entry-defic="' + esc(deficId) + '" style="margin-bottom:3px;padding:4px 6px;border-radius:4px;font-size:calc(11px + var(--ts));display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">';
   h += '<div style="flex:1;min-width:0;">';
   h += '<span class="act-ent-lbl" style="font-weight:600;">' + esc(a.label || 'Note') + '</span> <span style="color:var(--silver);font-size:calc(10px + var(--ts));">' + esc(a.date || '') + '</span>';
   h += '<div class="act-ent-txt" style="margin-top:2px;">' + esc(a.text || '\u2014') + '</div>';
@@ -5144,6 +5144,12 @@ document.addEventListener('click', function(e) {
   }
 
   // S122 Push 5 — delete activity entry with confirmation.
+  // S328 (#15): deleting a comment used to call initDeficiencies.render(), which
+  // swaps the entire list innerHTML and visibly tears down + rebuilds the open
+  // card (the collapse→reopen flash). Now we remove ONLY that entry's DOM node
+  // and fix the thread's "(n)" count in place — no full render, no flash. The
+  // model is the source of truth; the next deliberate render reconciles anything
+  // derived elsewhere.
   if (action === 'delete-activity') {
     var deficId = el.getAttribute('data-defic-id');
     var actId = el.getAttribute('data-act-id');
@@ -5151,8 +5157,31 @@ document.addEventListener('click', function(e) {
     showConfirm('Delete activity entry?', 'This cannot be undone.').then(function(ok) {
       if (!ok) return;
       Model.removeActivityEntry(deficId, actId);
+      // S328 (#15): saveNow() fires 'saved', whose 300ms-debounced listener calls
+      // render() — which would re-flash the card we just surgically updated. Hold
+      // that one render (same one-shot contract as the pin-drag fix).
+      _cvPinDragHold = true;
       Model.saveNow();
-      initDeficiencies.render();
+      // Surgical DOM removal of the deleted entry + count fix-up.
+      var _node = document.querySelector('.act-entry[data-act-entry-id="' + (window.CSS && CSS.escape ? CSS.escape(actId) : actId) + '"]');
+      var _didSurgical = false;
+      if (_node) {
+        var _thread = _node.closest('.defic-obs-act-thread');
+        _node.parentNode.removeChild(_node);
+        if (_thread) {
+          // Recount remaining real entries in this thread and update the "(n)".
+          var _remaining = _thread.querySelectorAll('.act-entry').length;
+          // Header is the thread's first child div; its first <span> holds the count.
+          var _hdr = _thread.querySelector(':scope > div');
+          var _hdrSpan = _hdr ? _hdr.querySelector(':scope > span') : null;
+          if (_hdrSpan) {
+            var _base = (_hdrSpan.textContent || '').replace(/\s*\(\d+\)\s*$/, '');
+            _hdrSpan.textContent = _base + (_remaining ? ' (' + _remaining + ')' : '');
+          }
+        }
+        _didSurgical = true;
+      }
+      if (!_didSurgical) initDeficiencies.render(); // fallback if node not found
       toast('Activity entry deleted');
     });
   }
@@ -5658,6 +5687,27 @@ document.addEventListener('input', function(e) {
     _obsDebounce[deficId] = setTimeout(function() {
       Model.updateObservation(deficId, obsIdx, text);
     }, 500);
+    // S328 (#18): live-update the collapsed-row title for THIS obs as the user
+    // types — previously it only refreshed on the next full render (blur / click
+    // outside), so the card summary visibly lagged. Targeted in-place text swap,
+    // no render, no save (the 500ms debounce above still persists to the model).
+    try {
+      var _row = document.querySelector('.dfx-obsrow[data-defic-id="' +
+        (window.CSS && CSS.escape ? CSS.escape(deficId) : deficId) +
+        '"][data-obs-idx="' + obsIdx + '"]');
+      if (_row) {
+        var _title = _row.querySelector('.dfx-or-title');
+        if (_title) {
+          if (text) {
+            _title.textContent = text;
+            _title.classList.remove('dfx-or-title-empty');
+          } else {
+            _title.textContent = '\u2014';
+            _title.classList.add('dfx-or-title-empty');
+          }
+        }
+      }
+    } catch (_e) { /* cosmetic only — never block typing */ }
   }
 
   if (action === 'closed-note') {
