@@ -1891,6 +1891,9 @@ export var initDeficiencies = {
     // and would orphan it. Closing returns it home / clears refs first.
     if (typeof _cvCloseStatusMenus === 'function') _cvCloseStatusMenus();
     _recHoldUntilNav = false;  // S150g: any deliberate render resettles the list
+    _cvPinDragHold = false;    // S328: a deliberate render already resettled the
+                               // card; drop any pending pin-drag hold so it can't
+                               // wedge and suppress a later legitimate render.
     // S248: combined-view delayed re-sort. A deliberate render (tab switch,
     // filter, project/photo load) resettles the list, so a stale ordering
     // never persists across navigation. The ONE exception is the re-lock
@@ -2726,6 +2729,16 @@ var _cvPendingKeys = {};
 // (Reserved; a pick patches in place without a render, so navigation/Re-sort
 // own the resettle. Kept for the render() flush contract.)
 var _cvSuppressFlush = false;
+
+// S328 (card-flash): set true by the card-editor pin-drag onUp (via the
+// window._frtHoldCardRenderOnce hook in viewer.js) to suppress exactly ONE
+// post-save debounced render — otherwise dragging the pin in the expanded
+// card's minimap fires 'saved' → render() → the card collapses and reopens
+// (the flash). Same lifecycle as _recHoldUntilNav: consumed by the 'saved'
+// listener and cleared at the top of render() so the next deliberate
+// navigation resettles the list. Transient, never persisted.
+var _cvPinDragHold = false;
+window._frtHoldCardRenderOnce = function() { _cvPinDragHold = true; };
 
 // S263: _cvCatMeta + _cvCategoryPill (the four-segment category bar) are
 // RETIRED. Status is now changed via the always-tappable row pill + colored
@@ -5714,6 +5727,10 @@ Model.onChange('saved', function() {
   _deficSavedDebounce = setTimeout(function() {
     if (_recHoldUntilNav) return;  // S150g: a rec star was just toggled — keep the
                                    // card put; the next deliberate render resettles it
+    if (_cvPinDragHold) {          // S328: a card-editor pin drag just saved — skip
+      _cvPinDragHold = false;      // this one render so the expanded card doesn't
+      return;                      // flash (collapse→reopen). One-shot.
+    }
     // S263 FIX: the focus guard must cover the COMBINED-VIEW DOM. The combined
     // view renders into #deficiencies-container with .cv-row / .cv-ed-left /
     // .obs-text-input — NONE of which matched the old selector list

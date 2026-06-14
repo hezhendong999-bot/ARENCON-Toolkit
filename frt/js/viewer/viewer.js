@@ -2821,9 +2821,23 @@ var _PinPan = (function() {
       // list dirty and let _closePinEditor do ONE clean render on close (when the
       // list becomes visible again), so dragging the pin no longer flashes.
       _peListDirtyFromPinDrag = true;
-      // keep the other (mobile) thumb in sync if present
-      var mob = document.getElementById('pe-location-thumb-mobile');
-      if (mob) _renderPinMiniMap(st.d, 'pe-location-thumb-mobile');
+      // S328 (card-flash): the COMBINED-VIEW card editor (cv-pe-location-thumb)
+      // IS the list — there's no modal hiding the rebuild. saveNow() above fires
+      // 'saved', whose 300ms-debounced listener in deficiencies.js calls render()
+      // and collapses→reopens the expanded card (the flash). The drawing-viewer
+      // editor is a modal OVER the list so its rebuild was invisible; the card
+      // editor's is not. Tell deficiencies.js to suppress exactly that one
+      // post-save render (same contract as the rec-star hold), so the dragged
+      // card stays put. Scoped to the card surface so the drawing-viewer path is
+      // unchanged.
+      var _hostId = st.canvas.parentElement && st.canvas.parentElement.id;
+      if (_hostId === 'cv-pe-location-thumb' || _hostId === 'cv-pe-location-thumb-mobile') {
+        if (window._frtHoldCardRenderOnce) window._frtHoldCardRenderOnce();
+      } else {
+        // Drawing-viewer editor only: keep the other (mobile) thumb in sync.
+        var mob = document.getElementById('pe-location-thumb-mobile');
+        if (mob) _renderPinMiniMap(st.d, 'pe-location-thumb-mobile');
+      }
     }
     if (st.mode === 'pan') st.canvas.parentElement.classList.remove('dragging');
     st.mode = null;
