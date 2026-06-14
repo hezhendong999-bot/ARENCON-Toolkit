@@ -266,6 +266,12 @@ body.dark-mode .photo-zone-compact .pz-gallery{background:var(--arencon)!importa
 .ph-stat{display:flex;flex-direction:column;align-items:flex-start;cursor:pointer;}
 .ph-stat-num{font-size:calc(18px + var(--ts));font-weight:700;color:var(--slate);line-height:1.1;}
 .ph-stat-lbl{font-size:calc(10px + var(--ts));color:var(--steel);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+/* S336: stat tiles act as the filters (FRT parity). Active tile gets a tinted
+   underline + the number stays its category colour set inline. */
+.ph-stat{padding:2px 4px 4px;border-radius:7px;transition:background .12s;border-bottom:2px solid transparent;}
+.ph-stat:hover{background:var(--smoke);}
+.ph-stat.ph-stat-active{background:var(--smoke);border-bottom-color:currentColor;}
+body.dark-mode .ph-stat:hover,body.dark-mode .ph-stat.ph-stat-active{background:rgba(255,255,255,.07);}
 .ph-sel-count{color:var(--arencon);font-size:calc(12px + var(--ts));font-weight:600;}
 .ph-btn{padding:7px 14px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--slate);cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;transition:all .15s;}
 .ph-btn:hover{border-color:var(--arencon);color:var(--arencon);}
@@ -302,7 +308,7 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ph-badge-deficiency{background:#A85959;} /* red — shared meaning with FRT */
 .ph-badge-general{background:#6E86B8;}
 .ph-badge-flow{background:#B07F5A;}
-.ph-badge-records{background:#5F8068;} /* S280: green — site/records, shared meaning with FRT */
+.ph-badge-records{background:#6E6AA8;} /* S336: purple — Site Records, matches FRT */
 .ph-cloud{position:absolute;bottom:5px;right:6px;z-index:2;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .ph-cloud svg{display:block;}
 .ph-time{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);z-index:2;font-family:Calibri,sans-serif;font-size:10px;font-weight:600;color:#fff;background:rgba(0,0,0,.55);padding:1px 6px;border-radius:8px;letter-spacing:.3px;line-height:1.4;pointer-events:none;font-variant-numeric:tabular-nums;}
@@ -13621,8 +13627,13 @@ function _pgPhotoTime(p){
   return hh+':'+mm;
 }
 
-function _pgSetFilter(mode){ _pgFilter=mode; _pgFilterOpen=false; _renderPhotoGallery(); }
-function _pgToggleFilterMenu(){ _pgFilterOpen=!_pgFilterOpen; _renderPhotoGallery(); }
+function _pgSetFilter(mode){
+  // S336: 'general' tile removed — map any stale/unknown filter to 'all'.
+  var valid = {all:1,checklist:1,deficiency:1,flow:1,records:1};
+  _pgFilter = valid[mode] ? mode : 'all';
+  _pgFilterOpen=false; _renderPhotoGallery();
+}
+function _pgToggleFilterMenu(){ _pgFilterOpen=false; _renderPhotoGallery(); } /* S336: dropdown retired; tiles are the filter */
 
 // S282 B7: single source of truth for gallery grouping, shared by the renderer,
 // the per-group select-all checkbox, and shift-click range selection so the
@@ -13969,25 +13980,37 @@ function _renderPhotoGallery(){
   var all = _collectAllPhotos();
 
   // stat counts (always over ALL photos, not the filtered view)
+  // S336: 'general' tile dropped — fold general-deficiency photos into Records
+  // (Site Records) so they stay reachable; their G# badge still distinguishes them.
   var counts = {all:all.length, checklist:0, deficiency:0, general:0, flow:0, records:0};
   all.forEach(function(a){ if(counts[a.cat]!=null) counts[a.cat]++; });
+  counts.records += counts.general;
 
   // stale selection cleanup
   var validIds = new Set(all.map(function(a){return a.photo.id||'';}));
   _pgSelected.forEach(function(id){ if(!validIds.has(id)) _pgSelected.delete(id); });
 
-  // apply filter
-  var view = _pgFilter==='all' ? all : all.filter(function(a){ return a.cat===_pgFilter; });
+  // apply filter (S336: 'records' also catches folded-in 'general' photos)
+  var view = _pgFilter==='all' ? all
+    : _pgFilter==='records' ? all.filter(function(a){ return a.cat==='records' || a.cat==='general'; })
+    : all.filter(function(a){ return a.cat===_pgFilter; });
 
-  var html = '';
-  // ── Toolbar ──
+  // ── Toolbar (S336: tiles ARE the filter — FRT parity. Coloured numbers match
+  //    badge colours; active tile highlighted; "General" dropped (Site Records
+  //    covers it); gear/dropdown filter removed entirely). ──
+  function _statTile(mode, num, color, lbl){
+    var act = (_pgFilter===mode) ? ' ph-stat-active' : '';
+    var col = color ? (' style="color:'+color+'"') : '';
+    return '<div class="ph-stat'+act+'" onclick="_pgSetFilter(\''+mode+'\')">'
+      + '<div class="ph-stat-num"'+col+'>'+num+'</div>'
+      + '<div class="ph-stat-lbl">'+lbl+'</div></div>';
+  }
   html += '<div class="ph-toolbar"><div class="ph-toolbar-left">';
-  html += '<div class="ph-stat" onclick="_pgSetFilter(\'all\')"><div class="ph-stat-num">'+counts.all+'</div><div class="ph-stat-lbl">Total</div></div>';
-  html += '<div class="ph-stat" onclick="_pgSetFilter(\'checklist\')"><div class="ph-stat-num">'+counts.checklist+'</div><div class="ph-stat-lbl">Checklist</div></div>';
-  html += '<div class="ph-stat" onclick="_pgSetFilter(\'deficiency\')"><div class="ph-stat-num">'+counts.deficiency+'</div><div class="ph-stat-lbl">Deficiencies</div></div>';
-  html += '<div class="ph-stat" onclick="_pgSetFilter(\'general\')"><div class="ph-stat-num">'+counts.general+'</div><div class="ph-stat-lbl">General</div></div>';
-  html += '<div class="ph-stat" onclick="_pgSetFilter(\'flow\')"><div class="ph-stat-num">'+counts.flow+'</div><div class="ph-stat-lbl">Flow test</div></div>';
-  html += '<div class="ph-stat" onclick="_pgSetFilter(\'records\')"><div class="ph-stat-num">'+counts.records+'</div><div class="ph-stat-lbl">Records</div></div>';
+  html += _statTile('all', counts.all, '', 'Total');
+  html += _statTile('checklist', counts.checklist, '#5E7A8C', 'Checklist');
+  html += _statTile('deficiency', counts.deficiency, 'var(--no)', 'Deficiencies');
+  html += _statTile('flow', counts.flow, '#B07F5A', 'Flow test');
+  html += _statTile('records', counts.records, '#6E6AA8', 'Site Records');
   html += '</div><div class="ph-toolbar-right">';
   var nSel = _pgSelected.size;
   if(nSel>0){
@@ -13999,17 +14022,7 @@ function _renderPhotoGallery(){
   } else {
     html += '<button class="ph-btn" onclick="_pgSelectAll()">Select all</button>';
   }
-  // filter dropdown
-  var fLabel = (_PG_CATS.filter(function(c){return c[0]===_pgFilter;})[0]||_PG_CATS[0])[1];
-  html += '<div class="ph-filter-wrap"><button class="ph-btn" onclick="_pgToggleFilterMenu()">\u2699 '+fLabel+'</button>';
-  if(_pgFilterOpen){
-    html += '<div class="ph-filter-menu">';
-    _PG_CATS.forEach(function(c){
-      html += '<button class="'+(c[0]===_pgFilter?'active':'')+'" onclick="_pgSetFilter(\''+c[0]+'\')">'+c[1]+'</button>';
-    });
-    html += '</div>';
-  }
-  html += '</div></div></div>';
+  html += '</div></div>';
 
   if(!view.length){
     html += '<p class="ph-empty">'+(all.length?'No photos in this category.':'No photos yet. Photos from checklists, flow tests, deficiencies, and general items appear here.')+'</p>';
@@ -14065,7 +14078,9 @@ function _renderPhotoGallery(){
 // S270: select/deselect every photo in a date group. If all in the group are already selected,
 // clicking clears them; otherwise it selects them all.
 function _pgToggleDate(k){
-  var view = _pgFilter==='all' ? _collectAllPhotos() : _collectAllPhotos().filter(function(a){ return a.cat===_pgFilter; });
+  var view = _pgFilter==='all' ? _collectAllPhotos()
+    : _pgFilter==='records' ? _collectAllPhotos().filter(function(a){ return a.cat==='records' || a.cat==='general'; })
+    : _collectAllPhotos().filter(function(a){ return a.cat===_pgFilter; });
   var grp = _pgGroupView(view).filter(function(g){ return g.key===k; })[0];
   var grpIds = grp ? grp.items.map(function(it){ var p=it.photo; return p.id||('pg_'+it.section+'_'+it.idx); }) : [];
   var allSel = grpIds.length>0 && grpIds.every(function(id){ return _pgSelected.has(id); });
@@ -14934,7 +14949,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S335c';
+var DIESEL_BUILD = 'S336';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
