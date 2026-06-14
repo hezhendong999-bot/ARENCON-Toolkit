@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S341 (tiered page-back + placard scan retry). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S342 (placard scan error detail). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -14144,7 +14144,16 @@ function _placardScan(btn, mode){
         }
         return res;
       }).then(function(res){
-        if(!res.ok) return res.json().then(function(e){ throw new Error(e.error||'AI error '+res.status); });
+        if(!res.ok) return res.json().then(function(e){
+          // S342: capture the FULL worker error payload so we can see WHY the
+          // model output was rejected (raw text, detail, etc.) instead of a
+          // generic "invalid format". Logged to console for field diagnosis.
+          console.warn('[placard scan] worker error payload:', e);
+          var detail = e.detail || e.raw || e.message || '';
+          var msg = e.error || ('AI error '+res.status);
+          if(detail && String(detail).length < 240) msg += ' \u2014 ' + detail;
+          var _err = new Error(msg); _err._payload = e; throw _err;
+        });
         return res.json();
       });
     }
@@ -15343,7 +15352,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S341';
+var DIESEL_BUILD = 'S342';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
