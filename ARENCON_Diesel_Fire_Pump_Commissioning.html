@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S344 (evidence thumbnail grids + lightbox wiring). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S345 (PLD gauge-photo mode toggle). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -489,6 +489,13 @@ body.dark-mode ._a-modal-card{background:#16151b!important;}
 /* light mode: same guard, force solid white modal surfaces */
 .fpm-card,.fpm-gallery,.fpm-reassign{background:#fff;}
 .fpm-rdrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+/* S345: PLD mode toggle (modeled on the Pump Test Type toggle) */
+.fpm-modetoggle{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:#000;margin-bottom:6px;}
+.fpm-modetoggle .fpm-mode{flex:1;appearance:none;border:none;background:transparent;color:var(--steel);font-family:Calibri,sans-serif;font-size:calc(13.5px + var(--ts));font-weight:700;padding:10px 8px;cursor:pointer;transition:all .14s;}
+.fpm-modetoggle .fpm-mode.on{background:var(--arencon);color:#fff;}
+.fpm-modetoggle .fpm-mode.direct.on{background:#7d8794;color:#10141a;}
+.fpm-modehint{color:var(--silver);font-size:calc(11.5px + var(--ts));margin:0 2px 12px;}
+.fpm-modehint b{color:var(--steel);}
 .fpm-rd{padding:6px 12px;border-radius:16px;font-size:calc(12px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;border:1.5px solid var(--border);background:var(--smoke);color:var(--steel);display:flex;align-items:center;gap:6px;transition:all .13s;}
 .fpm-rd .rd-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
 .fpm-rd.active{color:#fff;border-color:transparent;}
@@ -5379,6 +5386,11 @@ function _flowPhotoIcon(tbl, i){
 }
 // Per-flow-point gauge photo capture (S222-Diesel) — mirrors _recAddFile pattern.
 var _flowPhotoTbl=null, _flowPhotoIdx=null, _flowPhotoActiveReading='suction', _fpmScrollY=0;
+// S345: 7-pt gauge photos are taken TWO ways at each flow point — With PLD and
+// Without PLD (run direct). The mode is a SEPARATE field on each photo so the two
+// never mix. 3-pt (std table) has no PLD dimension → mode stays null. Default 'pld'.
+var _flowPhotoActiveMode='pld';
+function _flowPhotoSetActiveMode(m){ _flowPhotoActiveMode=(m==='direct')?'direct':'pld'; _renderFlowPhotoModal(); }
 var _GAUGE_READINGS=[
   {k:'suction',  label:'Suction',  short:'S'},
   {k:'discharge',label:'Discharge',short:'D'},
@@ -5399,6 +5411,7 @@ function _flowPhotoAddFile(file){
     compressImage(ev.target.result, 1600, 0.85, function(c){
       var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
                tag:_flowPhotoActiveReading||'suction',
+               mode:(_flowPhotoTbl==='pld'?_flowPhotoActiveMode:null),
                caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
       row.photos.push(_ph);
       _r2EnqueuePhoto(_ph);
@@ -5422,6 +5435,7 @@ function _flowPhotoAddFromSource(srcPhoto){
   function _commit(dataUrl){
     var _ph={d:dataUrl, n:(srcPhoto.n||'gallery.jpg'), id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
              tag:_flowPhotoActiveReading||'suction',
+             mode:(_flowPhotoTbl==='pld'?_flowPhotoActiveMode:null),
              caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
     row.photos.push(_ph);
     _r2EnqueuePhoto(_ph);               // own key — never borrow source R2 URL
@@ -5511,6 +5525,17 @@ function _renderFlowPhotoModal(){
   var h='<div class="fpm-backdrop"></div>';
   h+='<div class="fpm-card" role="dialog" aria-label="Gauge and RPM photos">';
   h+='<div class="fpm-head"><span>'+ttl+'</span><button class="fpm-x" onclick="closeFlowPhotos()" title="Close">✕</button></div>';
+  // S345: PLD mode toggle — only for the 7-pt (pld) table. A 3-pt test has no
+  // PLD dimension, so the toggle is hidden and photos are captured unmoded.
+  if(_flowPhotoTbl==='pld'){
+    h+='<div class="fpm-modetoggle">'
+      +'<button class="fpm-mode'+(_flowPhotoActiveMode==='pld'?' on':'')+'" onclick="_flowPhotoSetActiveMode(\'pld\')">With PLD</button>'
+      +'<button class="fpm-mode direct'+(_flowPhotoActiveMode==='direct'?' on':'')+'" onclick="_flowPhotoSetActiveMode(\'direct\')">Without PLD</button>'
+      +'</div>';
+    h+='<div class="fpm-modehint">'+(_flowPhotoActiveMode==='pld'
+        ? 'Tagging <b>With PLD</b> — readings with the pressure-limiting driver enabled.'
+        : 'Tagging <b>Without PLD</b> — PLD disconnected, pump run direct.')+'</div>';
+  }
   // reading selector
   h+='<div class="fpm-rdrow">';
   _GAUGE_READINGS.forEach(function(rd){
@@ -5539,6 +5564,10 @@ function _renderFlowPhotoModal(){
       pts.forEach(function(p,j){
         if(p&&p.deleted) return;   // S337: soft-deleted photos never render
         if((p.tag||'suction')!==rd.k) return;
+        // S345: on the 7-pt (pld) table, show ONLY the active mode's photos so
+        // With-PLD and Without-PLD never mix. Legacy unmoded photos default to
+        // 'pld' so they don't disappear. The std (3-pt) table has no mode filter.
+        if(_flowPhotoTbl==='pld' && (p.mode||'pld')!==_flowPhotoActiveMode) return;
         any=true;
         h+='<div class="fpm-thumb"><img src="'+(p.d||p.r2Url||'')+'" onclick="_flowPhotoLightbox('+j+')">'
           +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button>'
@@ -11147,7 +11176,7 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||''};});}
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||''};});}
   if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||''};});
@@ -13761,7 +13790,7 @@ function _collectAllPhotos(){
   });
   (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:('7pt '+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:('7pt '+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')+(p.mode==='direct'?' · w/o':p.mode==='pld'?' · w/PLD':'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):'')+(p.mode==='direct'?' · without PLD':p.mode==='pld'?' · with PLD':''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   return all;
@@ -15399,7 +15428,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S344';
+var DIESEL_BUILD = 'S345';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
