@@ -1996,21 +1996,36 @@ function _renderDetailTools(proj) {
   grid.innerHTML = html;
 }
 
-function launchTool(key) {
+async function launchTool(key) {
   if (!_detailProjectId) return;
   var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
   if (!proj) return;
   var t = AVAILABLE_TOOLS[key];
   if (!t) return;
   var sfn = buildSmartFilename(proj);
-  var url = t.file
+  var baseUrl = t.file
     + '?project=' + encodeURIComponent(proj.id)
     + '&pn=' + encodeURIComponent(proj.project_number || '')
     + '&pname=' + encodeURIComponent(proj.project_name || '')
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
     + '&sfn=' + encodeURIComponent(sfn);
-  window.open(url, '_blank');
+  // S341 (Hub): the tile must NEVER open the tool without an instance — that let
+  // the tool fall back to "load latest/blank" and land on the WRONG instance,
+  // which looked like data loss (real data was safe in another row). We open the
+  // tab SYNCHRONOUSLY (so iOS doesn't block the popup), then resolve the correct
+  // instance and point the tab at it. If instances exist → open the most recent
+  // by explicit id; if none → open blank to create the first.
+  var win = window.open('about:blank', '_blank');
+  var finalUrl = baseUrl;   // default: blank (no instance) — first report
+  try {
+    var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).order('instance_number', {ascending:false}).execute();
+    if (existing && existing.length > 0) {
+      finalUrl = baseUrl + '&instance=' + encodeURIComponent(existing[0].id);
+    }
+  } catch(e) { /* query failed — fall back to blank open */ }
+  if (win) { win.location.href = finalUrl; }
+  else { window.open(finalUrl, '_blank'); }   // popup was blocked — try direct
 }
 
 async function toggleTool(key) {
