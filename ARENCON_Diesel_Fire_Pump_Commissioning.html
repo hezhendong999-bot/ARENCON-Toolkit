@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S338. Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S339 (S329 export-bar zoom counter-scale). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -9148,7 +9148,11 @@ function _realExportPDF() {
   try {
     var btnBar = w.document.createElement('div');
     btnBar.id = 'pdf-btn-bar';
-    btnBar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+    // S329 (#32, Mark): keep the bar a CONSTANT on-screen size under Chrome PAGE zoom
+    // by measuring the zoom via devicePixelRatio and applying an inverse transform:scale.
+    // Verified on Mark's Chrome. position:fixed + transform-origin top-left + width set
+    // explicitly to (innerWidth * zoom) so after the inverse scale it reads full-width.
+    btnBar.style.cssText = 'position:fixed;top:0;left:0;transform-origin:top left;z-index:9999;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);will-change:transform,width;';
     var printBtn = w.document.createElement('button');
     printBtn.textContent = '\uD83D\uDCC4 Export PDF';
     printBtn.style.cssText = 'padding:8px 24px;background:#5F8068;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
@@ -9167,6 +9171,21 @@ function _realExportPDF() {
     var hideStyle = w.document.createElement('style');
     hideStyle.textContent = '@media print { #pdf-btn-bar { display:none !important; } body { padding-top:0 !important; } }';
     w.document.head.appendChild(hideStyle);
+    // Counter-scale against page zoom (verified mechanism).
+    try {
+      var _dBaseDPR = w.devicePixelRatio || 1;
+      var _dFitBar = function(){
+        try {
+          var z = (w.devicePixelRatio || 1) / _dBaseDPR; if(!isFinite(z) || z<=0) z=1;
+          btnBar.style.transform = 'scale(' + (1/z) + ')';
+          btnBar.style.width = ((w.innerWidth || w.document.documentElement.clientWidth) * z) + 'px';
+        } catch(_zx){}
+      };
+      w.addEventListener('resize', _dFitBar);
+      var _dFitIv = w.setInterval(_dFitBar, 400);
+      try { w.addEventListener('beforeunload', function(){ try{ w.clearInterval(_dFitIv); }catch(_c){} }); } catch(_b){}
+      _dFitBar();
+    } catch(_zerr){}
   } catch(btnErr) { console.error('PDF btn error:', btnErr); }
   // ── PAGINATION ENGINE (Session 53) ──
   // After images load, paginate content into pages with compact headers
@@ -15812,7 +15831,7 @@ function exportPDF() {
   var w = window.open('', '_blank', 'width=850,height=700');
   w.document.write('<!DOCTYPE html><html><head><title>ARENCON AI Usage Report</title><style>');
   // Export bar styles
-  w.document.write('.export-bar{position:fixed;top:0;left:0;right:0;height:48px;background:#2C4770;display:flex;align-items:center;padding:0 16px;gap:10px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}');
+  w.document.write('.export-bar{position:fixed;top:0;left:0;transform-origin:top left;box-sizing:border-box;height:48px;background:#2C4770;display:flex;align-items:center;padding:0 16px;gap:10px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);will-change:transform,width;}');
   w.document.write('.export-bar button{border:none;border-radius:6px;padding:8px 18px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;}');
   w.document.write('.export-bar .btn-export{background:#1A7A4A;color:white;}.export-bar .btn-export:hover{background:#15693f;}');
   w.document.write('.export-bar .btn-close{background:#455A64;color:white;}.export-bar .btn-close:hover{background:#37474F;}');
@@ -15839,6 +15858,24 @@ function exportPDF() {
   fd.forEach(function(r) { var ru = _resolveUser(r.user_email); w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + ru.num + '</td><td>' + ru.init + '</td><td>' + (r.project_number || '') + '</td><td>' + (r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'); });
   w.document.write('</table></div></body></html>');
   w.document.close();
+  // S329 (#32, Mark): counter-scale the export bar against Chrome page zoom (verified mechanism).
+  try {
+    var _aBar = w.document.querySelector('.export-bar');
+    if (_aBar) {
+      var _aBaseDPR = w.devicePixelRatio || 1;
+      var _aFit = function(){
+        try {
+          var z = (w.devicePixelRatio || 1) / _aBaseDPR; if(!isFinite(z) || z<=0) z=1;
+          _aBar.style.transform = 'scale(' + (1/z) + ')';
+          _aBar.style.width = ((w.innerWidth || w.document.documentElement.clientWidth) * z) + 'px';
+        } catch(_zx){}
+      };
+      w.addEventListener('resize', _aFit);
+      var _aIv = w.setInterval(_aFit, 400);
+      try { w.addEventListener('beforeunload', function(){ try{ w.clearInterval(_aIv); }catch(_c){} }); } catch(_b){}
+      _aFit();
+    }
+  } catch(_aerr){}
 }
 
 

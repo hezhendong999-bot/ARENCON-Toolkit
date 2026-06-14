@@ -1114,44 +1114,46 @@ var _pdfSN=Model.getSmartFilename();
 var _pdfSB=_pdfSN.replace(/\s+[A-Z]\d{2}([A-Z]\d{2})?$/,'');
 var _pdfCS=(_ctrFilterId!=='__all__'&&_ctrFilterName)?' - '+_ctrFilterName:'';
 var _pdfTitle=_pdfSB+' FPE Field Rvw'+_pdfCS+' #'+_rptNum+' '+_rptRev;
-// S329 (#32, Mark): the report lives in an IFRAME; the Export/Close bar lives in
-// the OUTER popup document. Chrome PAGE zoom (Ctrl-+/the 250/500% control) zooms
-// the document under the pointer — when the user zooms the report they zoom the
-// IFRAME's document, and the outer doc (the bar) stays at 100%. The bar therefore
-// CANNOT scale with the report at any zoom. Three earlier attempts kept the bar in
-// the same document as the report (fixed, then in-flow) — page zoom scales the
-// whole document either way, so only a separate document (the iframe) isolates it.
-// Print targets the iframe's window so only the report prints (the bar is not in it).
-var outerHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+esc(_pdfTitle)+'</title>'
-  +'<style>html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:Calibri,sans-serif;background:#525659;}'
-  +'#pdf-btn-bar{box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);}'
-  +'#pdf-btn-bar button{font-family:Calibri,sans-serif;border:none;border-radius:6px;cursor:pointer;color:white;}'
-  +'#pdf-export-btn{padding:8px 24px;background:#1A7A4A;font-size:14px;font-weight:700;}'
-  +'#pdf-close-btn{padding:8px 20px;background:#455A64;font-size:14px;font-weight:600;}'
-  +'#pdf-bar-hint{color:rgba(255,255,255,.7);font-size:13px;flex:1;}'
-  +'#rpt-frame{display:block;border:0;width:100%;height:calc(100% - 56px);background:#525659;}'
-  +'@media print{#pdf-btn-bar{display:none!important;}}'
-  +'</style></head><body>'
-  +'<div id="pdf-btn-bar"><button id="pdf-export-btn">\uD83D\uDCC4 Export PDF</button>'
-  +'<span id="pdf-bar-hint">Click to save as PDF via your browser print dialog.</span>'
-  +'<button id="pdf-close-btn">\u2715 Close</button></div>'
-  +'<iframe id="rpt-frame"></iframe>'
-  +'</body></html>';
-w.document.open();w.document.write(outerHtml);w.document.close();w.document.title=_pdfTitle;
-
-// Report document goes INSIDE the iframe (its own zoomable document).
-var _frame=w.document.getElementById('rpt-frame');
-var D=_frame.contentDocument||_frame.contentWindow.document;
+// S329 (#32, Mark): the report and the Export/Close bar share ONE document again.
+// The bar is position:fixed at the top and is kept at a CONSTANT on-screen size
+// under Chrome PAGE zoom (the 250/500% control) by measuring the zoom factor via
+// devicePixelRatio and applying an inverse transform:scale to the bar. Verified on
+// Mark's Chrome (zoom 1.75/5.0 -> inverse 0.571/0.20, bar holds size). Prior attempts
+// (fixed, in-flow, iframe) all failed because page zoom scales the whole tab; the
+// ONLY fix that holds is to measure the zoom and counter it. Re-fit on resize (page
+// zoom fires resize) + a 400ms safety interval, cleared when the window closes.
 var docHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+esc(_pdfTitle)+'</title><style>'+css+'</style></head><body>';
 docHtml+='<div id="measure-zone" style="position:absolute;left:-9999px;top:0;width:7.3in;visibility:hidden;"></div><div id="pages-container"></div></body></html>';
-D.open();D.write(docHtml);D.close();
+w.document.open();w.document.write(docHtml);w.document.close();w.document.title=_pdfTitle;
+var D=w.document;
 
-// Wire the outer-document bar buttons (bar can never scale with report zoom — it's a separate document).
+// Export bar (single document, counter-scaled against page zoom)
 try{
-  var pb=w.document.getElementById('pdf-export-btn');
-  if(pb)pb.onclick=function(){try{(_frame.contentWindow||w).focus();}catch(_f){}(_frame.contentWindow||w).print();};
-  var cb=w.document.getElementById('pdf-close-btn');
-  if(cb)cb.onclick=function(){w.close();};
+  var bar=D.createElement('div');bar.id='pdf-btn-bar';
+  bar.style.cssText='position:fixed;top:0;left:0;transform-origin:top left;z-index:9999;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);will-change:transform,width;';
+  var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
+  pb.style.cssText='padding:8px 24px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
+  pb.onclick=function(){w.print();};bar.appendChild(pb);
+  var ht=D.createElement('span');ht.textContent='Click to save as PDF via your browser print dialog.';
+  ht.style.cssText='color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';bar.appendChild(ht);
+  var cb=D.createElement('button');cb.innerHTML='\u2715 Close';
+  cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
+  cb.onclick=function(){w.close();};bar.appendChild(cb);
+  D.body.insertBefore(bar,D.body.firstChild);D.body.style.paddingTop='56px';
+  // Counter-scale the bar against page zoom. Baseline DPR captured at open (the
+  // user's current zoom = 1x reference); zoom factor = current DPR / base DPR.
+  var _baseDPR=w.devicePixelRatio||1;
+  var _fitBar=function(){
+    try{
+      var z=(w.devicePixelRatio||1)/_baseDPR; if(!isFinite(z)||z<=0)z=1;
+      bar.style.transform='scale('+(1/z)+')';
+      bar.style.width=((w.innerWidth||document.documentElement.clientWidth)*z)+'px';
+    }catch(_x){}
+  };
+  w.addEventListener('resize',_fitBar);
+  var _fitIv=w.setInterval(_fitBar,400);
+  try{w.addEventListener('beforeunload',function(){try{w.clearInterval(_fitIv);}catch(_c){}});}catch(_b){}
+  _fitBar();
 }catch(e){}
 
 // Pagination
