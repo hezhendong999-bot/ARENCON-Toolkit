@@ -7,7 +7,7 @@
  * Phase 4+5 will add tile-based rendering and WebGL markup.
  */
 
-import { Model } from '../data/model.js';
+import { Model, isSiteRecordsName } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { R2 } from '../data/r2.js';
 import { ThumbCache } from '../data/thumbCache.js';
@@ -4635,7 +4635,12 @@ function _populateCtrHighlight() {
   var rows = document.getElementById('dv-ctr-highlight-rows');
   if (!group || !rows) return;
   var proj = Model.getProject() || {};
-  var ctrs = (proj.contractors || []).filter(function(c){ return c && c.id && c.name; });
+  // Exclude the reserved Site Records / legacy "Site General" placeholder the
+  // same way every other contractor list does (realCtrs / isSiteRecordsName) —
+  // it is NOT a real contractor, just the no-contractor bucket. Without this
+  // the highlight popover was the one place the legacy placeholder leaked
+  // through (the roster card already filters it). Stored data untouched.
+  var ctrs = (proj.contractors || []).filter(function(c){ return c && c.id && c.name && !isSiteRecordsName(c.name); });
   if (!ctrs.length) { group.style.display = 'none'; rows.innerHTML = ''; return; }
   group.style.display = '';
   var cur = (window.PinsGL && window.PinsGL.getHighlightContractor) ? window.PinsGL.getHighlightContractor() : null;
