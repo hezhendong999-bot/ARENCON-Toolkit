@@ -2399,7 +2399,9 @@ function _buildObsEditor(d, oi, ctrId, opts) {
         if (obs.length > 1) {
           h += '<button type="button" class="dfx-ed-tab-split" data-action="dfx-ed-tab-split" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '" title="Split this observation to its own pin">\u22EE</button>';
         }
-        h += '<button type="button" class="dfx-ed-tab-x" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '" title="' + (obs.length <= 1 ? 'Remove pin (last observation)' : 'Remove this observation') + '">\u2715</button>';
+        // S328 (#9): the "\u2715" delete button beside the observation title is
+        // removed to declutter the tab. Remove-obs / Remove-pin is still available
+        // in the \u22EF More menu (dfx-remove-obsrow), so no capability is lost.
       }
       h += '</span>';
     });
@@ -2584,9 +2586,14 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   }
   h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + (opts.withHeader ? '' : '') + '</div>';
   h += '<div class="obs-media-btns">';
-  var _icl = opts.withHeader ? '' : ' icon-only';
-  var _al = opts.withHeader ? ' Add Photos' : '';
-  var _gl = opts.withHeader ? ' Gallery' : '';
+  // S328 (#17): the combined-view card editor (withHeader false) previously
+  // rendered these as cramped icon-only buttons to save space. Mark wants them
+  // to MATCH every other Add Photos / Gallery button (full icon + label, same
+  // shape/size) for consistency. Force the labelled, non-icon-only variant on
+  // all surfaces — the space-saving branch is retired.
+  var _icl = '';
+  var _al = ' Add Photos';
+  var _gl = ' Gallery';
   // S317 (Mark): Upload + Camera consolidated into ONE "Add Photos" button
   // (matches the Photo Gallery). Burst camera primary, file-picker fallback —
   // see the photo-add handler. Gallery (pick from existing pool) stays separate.
@@ -2647,8 +2654,12 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '<div class="dfx-or-more-wrap" style="position:relative;margin-left:auto;">';
     h += '<button class="dfx-or-act" data-action="toggle-more" data-defic-id="' + esc(d.id) + '" title="More">\u22EF More</button>';
     h += '<div class="defic-more-popup" id="more-' + esc(d.id) + '">';
-    h += '<button data-action="reassign-defic" data-defic-id="' + esc(d.id) + '">\u21C4 Move pin</button>';
-    if (d.drawingId) h += '<button data-action="dfx-ed-move-drawing" data-defic-id="' + esc(d.id) + '">\uD83D\uDCD0 Move pin to another drawing</button>';
+    // S328 (#7): the standalone "\u21C4 Move pin" (reassign-defic = move to another
+    // section/contractor) is removed here — redundant in this editor because the
+    // contractor + status pills directly above already reassign inline.
+    // S328 (#10): with that clash gone, "Move pin to another drawing" is renamed
+    // to simply "\uD83D\uDCD0 Move pin".
+    if (d.drawingId) h += '<button data-action="dfx-ed-move-drawing" data-defic-id="' + esc(d.id) + '">\uD83D\uDCD0 Move pin</button>';
     h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '">\u29C9 Duplicate</button>';
     h += '<button class="danger" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\u2715 ' + (last ? 'Remove pin' : 'Remove obs') + '</button>';
     h += '</div></div>';

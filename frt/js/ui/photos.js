@@ -596,14 +596,6 @@ export var initPhotos = {
 
     // Toolbar
     var nSel = _selectedUids.size;
-    var filterLabel = _filterMode === 'all' ? 'All photos'
-      : _filterMode === 'site' ? 'Site Records'
-      : _filterMode === 'observations' ? 'Observation photos'
-      : _filterMode === 'high' ? 'Outstanding \u2014 High'
-      : _filterMode === 'low' ? 'Outstanding \u2014 Low'
-      : _filterMode === 'closed' ? 'Closed'
-      : _filterMode === 'recommendations' ? 'Recommendation photos'
-      : 'All photos';
     html += '<div class="ph-toolbar">';
     html += '<div class="ph-toolbar-left">';
     // Stat tiles are now CLICKABLE filters (Diesel parity) — each filters the
@@ -630,26 +622,11 @@ export var initPhotos = {
     }
     // Select all (Diesel parity) — selects all photos currently in view (filtered)
     html += '<button class="ph-btn" data-action="ph-select-all-visible">Select all</button>';
-    html += '<div class="ph-filter-wrap">';
-    html += '<button class="ph-btn ph-filter-btn" data-action="ph-toggle-filter">\u2699 ' + esc(filterLabel) + '</button>';
-    if (_filterPanelOpen) {
-      html += '<div class="ph-filter-menu">';
-      // Full category set — mirrors the clickable stat tiles, colour dot per row.
-      // S317: "All photos" removed from this menu — the clickable TOTAL stat tile
-      // is now the canonical "show all" control (the menu row was redundant).
-      [
-        ['high', 'Outstanding \u2014 High', 'var(--no)'],
-        ['low', 'Outstanding \u2014 Low', 'var(--warn)'],
-        ['recommendations', 'Recommendations', '#5E5440'],
-        ['closed', 'Closed', 'var(--yes)'],
-        ['site', 'Site Records', '#6E6AA8']
-      ].forEach(function(pair) {
-        var cls = pair[0] === _filterMode ? 'active' : '';
-        var dot = pair[2] ? '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + pair[2] + ';margin-right:7px;vertical-align:middle;"></span>' : '';
-        html += '<button class="' + cls + '" data-action="ph-set-filter" data-mode="' + pair[0] + '">' + dot + pair[1] + '</button>';
-      });
-      html += '</div>';
-    }
+    // S328 (#34): the gear "All photos" filter button + its dropdown menu are
+    // removed. The clickable stat tiles above (Total / High / Low / Recommendations
+    // / Closed / Site Records) already perform every filter the menu offered, so
+    // the gear control was redundant. _filterMode is still driven entirely by the
+    // tiles; _filterPanelOpen / ph-toggle-filter are now unused (left harmless).
     html += '</div>';
     html += '</div>';
     html += '</div>';
