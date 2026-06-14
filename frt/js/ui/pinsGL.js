@@ -145,18 +145,21 @@
 
   // Draw one pin at native 32×42 coords, anchored at tip (16, 40).
   // Caller handles translate + scale to place at screen position.
-  function _drawPinAtNative(ctx, pin, state, dimmed, highlightColor){
+  function _drawPinAtNative(ctx, pin, state, dimmed, highlightColor, pinAlpha){
     var isOutstanding = !pin.isClosed && !pin.isIAR;
     // Contractor-highlight lens recolours a matching pin to its contractor's
     // colour (passed in); otherwise the normal priority/status fill applies.
     var fillHex = highlightColor || _priorityFillHex(pin);
+    // Effective per-pin opacity (contractor-highlight dim, closed 0.5, etc.).
+    // Every layer below multiplies its own alpha by this so the dim actually
+    // reaches the paint — otherwise the internal globalAlpha resets wiped it.
+    var _pa = (typeof pinAlpha === 'number') ? pinAlpha : 1;
 
-    // Layer 0: teardrop silhouette with V1 filter (glow + drop shadow)
-    // The filter applies to the teardrop's alpha mask, producing a sharp pin
-    // with a softly-blurred halo/shadow behind it — no fuzzy edge on the pin.
+    // Layer 0: teardrop silhouette with V1 filter (glow + drop shadow).
+    // KEEP the full drop-shadow on dimmed pins (Mark: keep the shadow, just make
+    // the pin transparent) — only drop the bright glow, not the shadow.
     if (_supportsFilter){
-      // Dimmed (contractor-highlight lens): reduced shadow, no glow.
-      ctx.filter = dimmed ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))'
+      ctx.filter = dimmed ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.45))'
                           : _buildFilterString(fillHex, isOutstanding, state);
     }
 
@@ -168,7 +171,7 @@
     if (hasRing){
       // Outer teardrop at full size in inspector color
       ctx.fillStyle = pin.inspectorColor;
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = _pa;
       _teardropPath(ctx, 0, 0, 1);
       ctx.fill();
       // Inner teardrop at 0.88 scale in priority color — ring thickness ~3px at 32×42
@@ -179,7 +182,7 @@
       ctx.fill();
     } else {
       ctx.fillStyle = fillHex;
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = _pa;
       _teardropPath(ctx, 0, 0, 1);
       ctx.fill();
       if (_supportsFilter) ctx.filter = 'none';
@@ -188,21 +191,23 @@
     // Layer 1: inner white circle at (16, 14), r=11, α=0.95
     // (Enlarged S81 from r=9 so numbers can render bigger without fattening the teardrop.)
     ctx.fillStyle = '#FFFFFF';
-    ctx.globalAlpha = 0.95;
+    ctx.globalAlpha = 0.95 * _pa;
     ctx.beginPath();
     ctx.arc(16, 14, 11, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = _pa;
 
     // Layer 2: priority-colored number, centered at (16, 14)
     // Font sizes bumped to take advantage of larger inner circle.
     var numStr = String(pin.num);
     var fs = numStr.length <= 2 ? 17 : numStr.length === 3 ? 13 : 11;
     ctx.fillStyle = fillHex;
+    ctx.globalAlpha = _pa;
     ctx.font = '900 ' + fs + 'px Calibri, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(numStr, 16, 14);
+    ctx.globalAlpha = 1;
   }
 
   // ─── Init ───────────────────────────────────────────────────────────────
@@ -323,13 +328,18 @@
       var _match = _isHL && (o.pin.contractorId === _highlightCtrId);
       var _dimmed = _isHL && !_match;
       var _baseAlpha = o.pin.isClosed ? 0.5 : 1;
-      _ctx.globalAlpha = _dimmed ? (_baseAlpha * CTR_DIM_ALPHA) : _baseAlpha;
+      // Effective opacity for the WHOLE pin. _drawPinAtNative resets globalAlpha
+      // internally per layer (teardrop/circle/number), so the outer globalAlpha
+      // alone never reached the paint — the dim must be threaded INTO the draw
+      // and multiplied onto each layer. Outer alpha kept for non-filter fallback.
+      var _effAlpha = _dimmed ? (_baseAlpha * CTR_DIM_ALPHA) : _baseAlpha;
+      _ctx.globalAlpha = _effAlpha;
       _ctx.translate(o.sx - 16 * totalScale, o.sy - 40 * totalScale);
       _ctx.scale(totalScale, totalScale);
       // Matching pin (and not closed — closed stays green so resolved still
       // reads as resolved) draws in the contractor colour passed from viewer.
       var _hlCol = (_match && !o.pin.isClosed && o.pin.contractorColor) ? o.pin.contractorColor : null;
-      _drawPinAtNative(_ctx, o.pin, o.state, _dimmed, _hlCol);
+      _drawPinAtNative(_ctx, o.pin, o.state, _dimmed, _hlCol, _effAlpha);
       _ctx.restore();
     }
   }
