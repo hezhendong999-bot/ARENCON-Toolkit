@@ -1236,18 +1236,18 @@
     "label": null,
     "data": {
       "proj": {
-        "np-bhp": "",
-        "np-mfr": "",
-        "pm-prv": "175",
-        "pm-rpm": "1760",
-        "np-size": "",
+        "np-bhp": "191.3",
+        "np-mfr": "S.A. Armstrong Limited",
+        "pm-prv": "125",
+        "pm-rpm": "2350",
+        "np-size": "8x6",
         "pi-addr": "610 Sprucewood Ave., Windsor, ON",
         "pi-date": "2026-03-22",
         "so-date": "",
         "so-name": "Mark He, L.E.T.",
-        "np-ctlsn": "",
-        "np-drvsn": "",
-        "np-model": "",
+        "np-ctlsn": "WZ1130372",
+        "np-drvsn": "90213222R",
+        "np-model": "8x6x15NF",
         "ps-fci-d": "",
         "ps-fci-f": "",
         "ps-fco-d": "",
@@ -1257,34 +1257,34 @@
         "ps-jco-d": "",
         "ps-jco-f": "",
         "so-title": "Licensed Engineering Technologist",
-        "np-ctlmfg": "",
-        "np-drvmfg": "",
-        "np-maxbhp": "",
-        "np-maxdis": "",
-        "np-serial": "",
-        "np-stages": "",
+        "np-ctlmfg": "Ronvtest",
+        "np-drvmfg": "Clarke",
+        "np-maxbhp": "199.4",
+        "np-maxdis": "275",
+        "np-serial": "1025260180",
+        "np-stages": "1",
         "pi-client": "Iron Mountain Canada Corp.",
         "pi-prepby": "MH",
         "pi-projno": "1490.04",
         "pm-relief": "175",
-        "np-bhp-pld": "",
-        "np-mfr-pld": "",
-        "pm-prv-pld": "",
+        "np-bhp-pld": "191.3",
+        "np-mfr-pld": "S.A. Armstrong Limited",
+        "pm-prv-pld": "125",
         "pm-rpm-pld": "1350",
         "so-company": "ARENCON Inc.",
         "ws-res-psi": "48",
-        "dem-spr-psi": "60",
-        "np-impeller": "",
-        "np-size-pld": "",
+        "dem-spr-psi": "160",
+        "np-impeller": "14.540",
+        "np-size-pld": "8x6",
         "pi-projname": "Attic Space Sprinkler Upgrade",
         "pi-revision": "A01",
-        "pm-reducing": "178",
+        "pm-reducing": "165",
         "test-result": "fail",
         "ws-res-flow": "3200",
-        "dem-spr-flow": "750",
-        "np-ctlsn-pld": "",
-        "np-drvsn-pld": "",
-        "np-model-pld": "",
+        "dem-spr-flow": "1500",
+        "np-ctlsn-pld": "WZ1130372",
+        "np-drvsn-pld": "90213222R",
+        "np-model-pld": "8x6x15NF",
         "ps-fci-d-pld": "",
         "ps-fci-f-pld": "",
         "ps-fco-d-pld": "",
@@ -1294,12 +1294,12 @@
         "ps-jco-d-pld": "",
         "ps-jco-f-pld": "",
         "dem-hose-flow": "250",
-        "np-ctlmfg-pld": "",
-        "np-drvmfg-pld": "",
-        "np-maxbhp-pld": "",
-        "np-maxdis-pld": "",
-        "np-serial-pld": "",
-        "np-stages-pld": "",
+        "np-ctlmfg-pld": "Ronvtest",
+        "np-drvmfg-pld": "Clarke",
+        "np-maxbhp-pld": "199.4",
+        "np-maxdis-pld": "275",
+        "np-serial-pld": "1025260180",
+        "np-stages-pld": "1",
         "pi-contractor": "Classic Fire + Life Safety",
         "pm-rated-flow": "2000",
         "pm-relief-pld": "",
@@ -1307,25 +1307,25 @@
         "pld-ws-res-psi": "48",
         "pm-pld-setting": "165",
         "ws-static-flow": "0",
-        "np-impeller-pld": "",
-        "pld-dem-spr-psi": "60",
+        "np-impeller-pld": "14.540",
+        "pld-dem-spr-psi": "160",
         "pld-ws-res-flow": "3200",
         "pm-reducing-pld": "",
-        "pi-date-modified": "2026-06-13 03:40",
-        "pld-dem-spr-flow": "750",
+        "pi-date-modified": "2026-06-14 04:06",
+        "pld-dem-spr-flow": "1500",
         "pld-dem-hose-flow": "250",
         "pld-ws-static-psi": "65",
         "pm-rated-flow-pld": "2000",
         "pld-ws-static-flow": "0"
       },
-      "_build": "S329",
+      "_build": "S337b",
       "batData": {
         "b1": [
           1,
-          1,
+          5,
           2,
           4,
-          4,
+          1,
           1
         ],
         "b2": [
@@ -1357,7 +1357,21 @@
           "customText": ""
         },
         "s1_2": {
-          "photos": [],
+          "photos": [
+            {
+              "n": "image1.png",
+              "id": "ph_1781378318909_9txkc5",
+              "mk": null,
+              "_mkTs": 1781378325600,
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781378318909_9txkc5.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781378318909_9txkc5.jpg",
+              "deleted": false,
+              "r2Status": "uploaded",
+              "_annotated": true,
+              "deletedDate": "",
+              "_origBackupId": "ph_orig_1781378325600_dzmy91"
+            }
+          ],
           "status": "no",
           "comment": "sdasdsdfsdf",
           "customText": ""
@@ -1689,8 +1703,10 @@
               "_mkTs": 1781266665299,
               "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781065669134_s5rba0.jpg",
               "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781065669134_s5rba0.jpg",
+              "deleted": false,
               "r2Status": "uploaded",
               "_annotated": true,
+              "deletedDate": "",
               "_origBackupId": "ph_orig_1781266665299_86n7nl"
             }
           ],
@@ -1727,14 +1743,16 @@
               "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
               "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
               "caption": "",
+              "deleted": false,
               "r2Status": "uploaded",
               "_annotated": false,
+              "deletedDate": "",
               "_origBackupId": ""
             }
           ],
           "rpm_no": "1350",
           "suc_no": "50",
-          "placard": "170",
+          "placard": "164.4",
           "cutsheet": "170",
           "defaultFlow": 0
         },
@@ -1798,7 +1816,7 @@
           "photos": [],
           "rpm_no": "1320",
           "suc_no": "16",
-          "placard": "132",
+          "placard": "125",
           "cutsheet": "135",
           "defaultFlow": 2000
         },
@@ -1830,27 +1848,27 @@
           "photos": [],
           "rpm_no": "1760",
           "suc_no": "9",
-          "placard": "92",
+          "placard": "86.4",
           "cutsheet": "95",
           "defaultFlow": 3000
         }
       ],
       "smState": {
         "chart3pt": {
-          "x": 30,
-          "y": -14,
-          "on": false
+          "x": -71,
+          "y": 71,
+          "on": true
         },
         "pldChart": {
-          "x": 23.33333333333337,
-          "y": -18.333333333333485,
+          "x": 45.33333333333337,
+          "y": 51.666666666666515,
           "on": true
         }
       },
       "stdData": [
         {
           "pct": "0%",
-          "rpm": "1760",
+          "rpm": "2360",
           "bfUp": "",
           "flow": 0,
           "label": "Churn",
@@ -1860,52 +1878,54 @@
               "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
               "id": "ph_1781064581956_5m82th",
               "mk": null,
-              "tag": "suction",
+              "tag": "discharge",
               "date": "2026-06-10T04:09:41.956Z",
               "_mkTs": 1781266701632,
               "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781064581956_5m82th.jpg",
               "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781064581956_5m82th.jpg",
               "caption": "",
+              "deleted": false,
               "r2Status": "uploaded",
               "_annotated": true,
+              "deletedDate": "",
               "_origBackupId": "ph_orig_1781266477764_n1n3ti"
             }
           ],
-          "placard": "150",
-          "suction": "20",
+          "placard": "164.4",
+          "suction": "50",
           "cutsheet": "150",
-          "discharge": "188"
+          "discharge": "240"
         },
         {
           "pct": "100%",
-          "rpm": "1760",
+          "rpm": "2350",
           "bfUp": "",
           "flow": 2000,
           "label": "Rated",
           "bfDown": "",
           "photos": [],
-          "placard": "122",
-          "suction": "15",
+          "placard": "125",
+          "suction": "40",
           "cutsheet": "125",
-          "discharge": "165"
+          "discharge": "250"
         },
         {
           "pct": "150%",
-          "rpm": "2000",
+          "rpm": "2350",
           "bfUp": "",
           "flow": 3000,
           "label": "Overload",
           "bfDown": "",
           "photos": [],
-          "placard": "79",
-          "suction": "8",
+          "placard": "86.4",
+          "suction": "30",
           "cutsheet": "81",
           "discharge": "89"
         }
       ],
       "smCapVis": {
         "chart3pt": {
-          "relief": true,
+          "relief": false,
           "reducing": true
         },
         "pldChart": {
@@ -1930,9 +1950,9 @@
           "10": true,
           "11": true,
           "12": true,
-          "13": false,
-          "14": false,
-          "15": false
+          "13": true,
+          "14": true,
+          "15": true
         },
         "pldChart": {
           "0": true,
@@ -2483,6 +2503,274 @@
                 "y": 50
               }
             ]
+          },
+          {
+            "pts": [
+              {
+                "x": 376.10526315789474,
+                "y": 28
+              },
+              {
+                "x": 375.1578947368421,
+                "y": 37
+              },
+              {
+                "x": 375.1578947368421,
+                "y": 65
+              },
+              {
+                "x": 378.9473684210526,
+                "y": 95
+              },
+              {
+                "x": 387.4736842105263,
+                "y": 116
+              },
+              {
+                "x": 396,
+                "y": 124
+              },
+              {
+                "x": 399.7894736842105,
+                "y": 124
+              },
+              {
+                "x": 400.7368421052631,
+                "y": 117
+              },
+              {
+                "x": 401.6842105263158,
+                "y": 105
+              },
+              {
+                "x": 400.7368421052631,
+                "y": 90
+              },
+              {
+                "x": 397.89473684210526,
+                "y": 79
+              },
+              {
+                "x": 396,
+                "y": 77
+              },
+              {
+                "x": 403.57894736842104,
+                "y": 86
+              },
+              {
+                "x": 414.9473684210526,
+                "y": 96
+              },
+              {
+                "x": 424.4210526315789,
+                "y": 100
+              },
+              {
+                "x": 434.84210526315786,
+                "y": 96
+              },
+              {
+                "x": 445.2631578947368,
+                "y": 80
+              },
+              {
+                "x": 454.7368421052631,
+                "y": 60
+              },
+              {
+                "x": 459.4736842105263,
+                "y": 46
+              },
+              {
+                "x": 460.4210526315789,
+                "y": 46
+              },
+              {
+                "x": 464.2105263157894,
+                "y": 49
+              },
+              {
+                "x": 470.84210526315786,
+                "y": 61
+              },
+              {
+                "x": 477.4736842105263,
+                "y": 70
+              },
+              {
+                "x": 481.2631578947368,
+                "y": 72
+              },
+              {
+                "x": 486.9473684210526,
+                "y": 69
+              },
+              {
+                "x": 494.52631578947364,
+                "y": 55
+              },
+              {
+                "x": 504.9473684210526,
+                "y": 41
+              },
+              {
+                "x": 518.2105263157895,
+                "y": 34
+              },
+              {
+                "x": 528.6315789473684,
+                "y": 37
+              },
+              {
+                "x": 537.1578947368421,
+                "y": 50
+              },
+              {
+                "x": 545.6842105263157,
+                "y": 63
+              },
+              {
+                "x": 550.421052631579,
+                "y": 67
+              },
+              {
+                "x": 552.3157894736842,
+                "y": 67
+              },
+              {
+                "x": 558.9473684210526,
+                "y": 61
+              },
+              {
+                "x": 579.7894736842105,
+                "y": 47
+              },
+              {
+                "x": 602.5263157894736,
+                "y": 33
+              },
+              {
+                "x": 620.5263157894736,
+                "y": 28
+              },
+              {
+                "x": 626.2105263157895,
+                "y": 30
+              },
+              {
+                "x": 630,
+                "y": 39
+              },
+              {
+                "x": 630.9473684210526,
+                "y": 44
+              },
+              {
+                "x": 630,
+                "y": 44
+              },
+              {
+                "x": 623.3684210526316,
+                "y": 39
+              },
+              {
+                "x": 619.578947368421,
+                "y": 38
+              },
+              {
+                "x": 616.7368421052631,
+                "y": 41
+              },
+              {
+                "x": 609.1578947368421,
+                "y": 57
+              },
+              {
+                "x": 592.1052631578947,
+                "y": 79
+              },
+              {
+                "x": 577.8947368421052,
+                "y": 85
+              },
+              {
+                "x": 567.4736842105262,
+                "y": 85
+              },
+              {
+                "x": 558,
+                "y": 78
+              },
+              {
+                "x": 545.6842105263157,
+                "y": 67
+              },
+              {
+                "x": 528.6315789473684,
+                "y": 51
+              },
+              {
+                "x": 512.5263157894736,
+                "y": 41
+              },
+              {
+                "x": 507.7894736842105,
+                "y": 40
+              },
+              {
+                "x": 504,
+                "y": 41
+              },
+              {
+                "x": 503.05263157894734,
+                "y": 47
+              },
+              {
+                "x": 503.05263157894734,
+                "y": 54
+              },
+              {
+                "x": 510.6315789473684,
+                "y": 64
+              },
+              {
+                "x": 529.578947368421,
+                "y": 85
+              },
+              {
+                "x": 559.8947368421052,
+                "y": 107
+              },
+              {
+                "x": 592.1052631578947,
+                "y": 118
+              },
+              {
+                "x": 613.8947368421052,
+                "y": 115
+              },
+              {
+                "x": 630,
+                "y": 104
+              },
+              {
+                "x": 638.5263157894736,
+                "y": 88
+              },
+              {
+                "x": 638.5263157894736,
+                "y": 76
+              },
+              {
+                "x": 634.7368421052631,
+                "y": 69
+              },
+              {
+                "x": 631.8947368421052,
+                "y": 67
+              }
+            ]
           }
         ]
       },
@@ -2494,7 +2782,10 @@
       "customItems": {},
       "deficiencies": {},
       "deletedItems": {},
-      "distribution": [],
+      "distribution": [
+        "Iron Mountain Canada Corp.",
+        "Classic Fire + Life Safety"
+      ],
       "equipChecked": [],
       "formRevision": "R00",
       "recordPhotos": [
@@ -2508,8 +2799,10 @@
           "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781101762978_gyo11o.jpg",
           "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781101762978_gyo11o.jpg",
           "caption": "Original",
+          "deleted": false,
           "r2Status": "uploaded",
           "_annotated": false,
+          "deletedDate": "",
           "_isOrigBackup": true,
           "_origBackupId": ""
         },
@@ -2523,8 +2816,10 @@
           "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
           "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
           "caption": "Original",
+          "deleted": false,
           "r2Status": "uploaded",
           "_annotated": false,
+          "deletedDate": "",
           "_isOrigBackup": true,
           "_origBackupId": ""
         },
@@ -2538,8 +2833,10 @@
           "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781064581956_5m82th.jpg",
           "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781064581956_5m82th.jpg",
           "caption": "Original",
+          "deleted": false,
           "r2Status": "uploaded",
           "_annotated": false,
+          "deletedDate": "",
           "_isOrigBackup": true,
           "_origBackupId": ""
         },
@@ -2553,9 +2850,45 @@
           "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065669134_s5rba0.jpg",
           "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065669134_s5rba0.jpg",
           "caption": "Original",
+          "deleted": false,
           "r2Status": "uploaded",
           "_annotated": false,
+          "deletedDate": "",
           "_isOrigBackup": true,
+          "_origBackupId": ""
+        },
+        {
+          "n": "image1.png",
+          "id": "ph_orig_1781378325600_dzmy91",
+          "mk": null,
+          "date": "2026-06-13T19:18:45.600Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781378318909_9txkc5.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781378318909_9txkc5.jpg",
+          "caption": "Original",
+          "deleted": false,
+          "r2Status": "uploaded",
+          "_annotated": false,
+          "deletedDate": "",
+          "_isOrigBackup": true,
+          "_origBackupId": ""
+        },
+        {
+          "n": "Screenshot_20260612_202451_Outlook.jpg",
+          "id": "ph_1781410885540_sm2vzf",
+          "mk": null,
+          "date": "2026-06-14T04:21:25.540Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781410885540_sm2vzf.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781410885540_sm2vzf.jpg",
+          "caption": "",
+          "deleted": false,
+          "r2Status": "uploaded",
+          "_annotated": false,
+          "deletedDate": "",
+          "_isOrigBackup": false,
           "_origBackupId": ""
         }
       ],
@@ -2584,7 +2917,7 @@
       "witnessSignRows": [],
       "appendixExcluded": [],
       "contractorTrades": {},
-      "formDateModified": "2026-06-13 03:40",
+      "formDateModified": "2026-06-14 04:06",
       "flowTestPhotosPld": [],
       "contractorSignRows": [
         {
@@ -2607,7 +2940,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-20T17:18:44.857681+00:00",
-    "updated_at": "2026-06-13T07:42:22.073915+00:00",
+    "updated_at": "2026-06-14T08:09:20.357121+00:00",
     "owner_label": null
   },
   {
@@ -3377,6 +3710,32 @@
           "addedDate": "2026-03-17",
           "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
           "sourceR2Key": "photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/defic_1773768693142_gti1x0.jpg"
+        },
+        {
+          "id": "ph_1781413077882_5_ztfof4cg",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413039443_3_iwx2p19x.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413039443_3_iwx2p19x.jpg",
+          "thumb": null,
+          "deleted": true,
+          "filename": "photo_1781413039443.jpg",
+          "addedDate": "2026-06-14",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "deletedDate": "2026-06-14T04:58:11.589Z",
+          "sourceR2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413039443_3_iwx2p19x.jpg",
+          "_releasedFromPin": 1
+        },
+        {
+          "id": "ph_1781413077885_6_2gk6hj4w",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413069453_4_o72ni0ix.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413069453_4_o72ni0ix.jpg",
+          "thumb": null,
+          "deleted": true,
+          "filename": "photo_1781413069453.jpg",
+          "addedDate": "2026-06-14",
+          "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+          "deletedDate": "2026-06-14T04:58:11.588Z",
+          "sourceR2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413069453_4_o72ni0ix.jpg",
+          "_releasedFromPin": 1
         }
       ],
       "status": "issued",
@@ -3425,13 +3784,13 @@
           "heights": null,
           "pdfPage": 2,
           "markupR2": {
-            "bytes": 2180,
-            "count": 1,
+            "bytes": 5870,
+            "count": 9,
             "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/markup/dwg_1773988491597_pg2_uj25.json",
             "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/markup/dwg_1773988491597_pg2_uj25.json",
-            "updatedAt": "2026-06-09T19:01:56.112Z",
+            "updatedAt": "2026-06-14T01:36:07.737Z",
             "inspectorId": null,
-            "deletedCount": 1
+            "deletedCount": 30
           },
           "naturalH": 0,
           "naturalW": 0,
@@ -3442,13 +3801,28 @@
           "isOriginal": false,
           "tileServer": "https://arencon-r2-worker.hezhendong999.workers.dev",
           "tileStatus": "ready",
+          "calibration": {
+            "p1": {
+              "x": 2106.4226858612733,
+              "y": 481.09231803210093
+            },
+            "p2": {
+              "x": 2255.802751272213,
+              "y": 482.3582508149787
+            },
+            "units": "ft",
+            "_guessed": false,
+            "createdAt": "2026-06-14T00:11:57.706Z",
+            "scaleRatio": 0.05578411070448109,
+            "realDistance": 8.333333333333334
+          },
           "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/pdfbufs/pdfbuf_1777867793077_vn6txi.pdf",
           "markupCleared": false,
           "markupR2Saved": false,
           "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/7249121d-463e-416e-a3aa-643910f3f6a7/tiles/pdfbuf_1777867793077_vn6txi/manifest.json"
         }
       ],
-      "modified": "2026-06-13T05:13:33.389Z",
+      "modified": "2026-06-14T06:52:13.283Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -3484,8 +3858,8 @@
               "iar": false,
               "num": 1,
               "date": "2026-03-17",
-              "pinX": 0.078978309972462,
-              "pinY": 0.11480089111668058,
+              "pinX": 0.0817217941974277,
+              "pinY": 0.11531529440886165,
               "photos": [
                 {
                   "id": "dp_1774751677732_8dp5pw",
@@ -3662,6 +4036,32 @@
                   "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
                   "deletedDate": "2026-06-11T23:19:55.658Z",
                   "sourceR2Key": "photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/defic_1773768693142_gti1x0.jpg"
+                },
+                {
+                  "id": "ph_1781413039443_3_iwx2p19x",
+                  "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413039443_3_iwx2p19x.jpg",
+                  "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413039443_3_iwx2p19x.jpg",
+                  "thumb": null,
+                  "deleted": true,
+                  "filename": "photo_1781413039443.jpg",
+                  "addedDate": "2026-06-14",
+                  "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+                  "deletedDate": "2026-06-14T04:57:57.882Z",
+                  "sourceR2Key": null,
+                  "uploadStatus": "r2_confirmed"
+                },
+                {
+                  "id": "ph_1781413069453_4_o72ni0ix",
+                  "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413069453_4_o72ni0ix.jpg",
+                  "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/original/defic_ph_1781413069453_4_o72ni0ix.jpg",
+                  "thumb": null,
+                  "deleted": true,
+                  "filename": "photo_1781413069453.jpg",
+                  "addedDate": "2026-06-14",
+                  "createdBy": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+                  "deletedDate": "2026-06-14T04:57:57.885Z",
+                  "sourceR2Key": null,
+                  "uploadStatus": "r2_confirmed"
                 }
               ],
               "status": "closed",
@@ -3680,7 +4080,7 @@
               "priority": "high",
               "drawingId": "dwg_1773988491597_pg2_uj25",
               "notedDate": "2026-03-17",
-              "closedDate": "2026-06-11",
+              "closedDate": "2026-06-14",
               "closedNote": "",
               "activeEntry": 0,
               "observations": [
@@ -3835,14 +4235,14 @@
                     }
                   ],
                   "aiGroup": null,
-                  "priority": "low",
+                  "priority": "high",
                   "addressed": true,
                   "notedDate": "2026-03-17",
                   "aiReviewed": false,
                   "repeatCount": 1,
                   "tradeSource": "manual",
                   "photoMarkups": {},
-                  "addressedDate": "2026-06-11",
+                  "addressedDate": "2026-06-14",
                   "photoSelection": [
                     "ph_1780284721824_5_g3wmkyip",
                     "dp_1774751677732_8dp5pw"
@@ -3862,8 +4262,8 @@
               "iar": false,
               "num": 2,
               "date": "2026-03-17",
-              "pinX": 0.3703577174287459,
-              "pinY": 0.3141032725264245,
+              "pinX": 0.331318165010668,
+              "pinY": 0.26559012228237827,
               "photos": [
                 {
                   "id": "dp_1773768594284_6nzoot",
@@ -3931,7 +4331,7 @@
               "observations": [
                 {
                   "id": "obs_1774814268758_puik",
-                  "text": "Pipe penetration at the middle wall has not been sealed.\n",
+                  "text": "Pipe penetration at the middle wall has not been sealed.\n\n",
                   "trade": "Sprinkler",
                   "photos": [
                     {
@@ -4107,8 +4507,8 @@
               "iar": false,
               "num": 3,
               "date": "2026-03-17",
-              "pinX": 0.6619536323024658,
-              "pinY": 0.34522557120371483,
+              "pinX": 0.652590336422316,
+              "pinY": 0.3424165824396699,
               "photos": [
                 {
                   "id": "dp_1773768664384_ykz6wz",
@@ -4191,7 +4591,7 @@
                   "id": "o_def_1773768660486_hv08_m0",
                   "text": "Test",
                   "trade": "Sprinkler",
-                  "priority": "high",
+                  "priority": "low",
                   "addressed": false,
                   "aiReviewed": false,
                   "repeatCount": 1,
@@ -4217,7 +4617,7 @@
               "iar": false,
               "num": 4,
               "date": "2026-03-17",
-              "pinX": 0.27344081822511024,
+              "pinX": 0.26726797871893737,
               "pinY": 0.26102102749008504,
               "photos": [
                 {
@@ -4611,7 +5011,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-16T20:00:36.555266+00:00",
-    "updated_at": "2026-06-13T05:13:38.419128+00:00",
+    "updated_at": "2026-06-14T06:52:34.271218+00:00",
     "owner_label": null
   },
   {
@@ -8328,14 +8728,14 @@
         "pld-dem-spr-psi": "",
         "pld-ws-res-flow": "",
         "pm-reducing-pld": "",
-        "pi-date-modified": "2026-06-13 01:18",
+        "pi-date-modified": "2026-06-13 12:43",
         "pld-dem-spr-flow": "",
         "pld-dem-hose-flow": "",
         "pld-ws-static-psi": "",
         "pm-rated-flow-pld": "",
         "pld-ws-static-flow": "0"
       },
-      "_build": "S329",
+      "_build": "S332",
       "batData": {
         "b1": [
           0,
@@ -8375,13 +8775,13 @@
         },
         "s1_3": {
           "photos": [],
-          "status": null,
+          "status": "no",
           "comment": "",
           "customText": ""
         },
         "s1_4": {
           "photos": [],
-          "status": null,
+          "status": "yes",
           "comment": "",
           "customText": ""
         },
@@ -8393,13 +8793,13 @@
         },
         "s1_6": {
           "photos": [],
-          "status": null,
+          "status": "yes",
           "comment": "",
           "customText": ""
         },
         "s1_7": {
           "photos": [],
-          "status": null,
+          "status": "no",
           "comment": "",
           "customText": ""
         },
@@ -8923,7 +9323,7 @@
       "witnessSignRows": [],
       "appendixExcluded": [],
       "contractorTrades": {},
-      "formDateModified": "2026-06-13 01:18",
+      "formDateModified": "2026-06-13 12:43",
       "flowTestPhotosPld": [],
       "contractorSignRows": [
         {
@@ -8946,7 +9346,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-06-13T05:17:50.018793+00:00",
-    "updated_at": "2026-06-13T05:18:02.263283+00:00",
+    "updated_at": "2026-06-13T16:43:54.695342+00:00",
     "owner_label": "Test1"
   },
   {
