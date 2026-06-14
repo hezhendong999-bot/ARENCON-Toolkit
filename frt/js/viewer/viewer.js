@@ -3677,28 +3677,52 @@ document.addEventListener('click', function(e) {
 
   if (e.target.closest && e.target.closest('#pe-delete')) {
     var delId = _peDeficId;
-    console.log('[Viewer] Delete pin clicked — deficId:', delId);
-    // S116 Push 9: button labeled "Delete Pin" in the editor footer was
-    // only nulling drawingId/pinX/pinY (unpinning, not deleting). Mark
-    // hit this from the Summary tab — clicked Delete Pin expecting the
-    // entry to be removed and instead the deficiency stayed in the
-    // project, just unpinned. The "Remove" button on the defic card
-    // already does full delete; keep that semantics consistent. Confirm
-    // copy is now explicit about what happens.
+    // S328 (Mark): the footer Delete now removes only the CURRENT observation,
+    // unless it's the pin's last obs (then the whole pin is deleted). In both
+    // cases the inspector chooses what happens to that obs's unique photos
+    // (move to Site Records / delete / cancel). Logic lives in deficiencies.js
+    // (_confirmDeleteObsOrPin) so it shares the exact release/delete primitives
+    // the rest of the photo engine uses. Falls back to the old whole-pin delete
+    // only if the bridge isn't present.
+    if (window._frtConfirmDeleteObsOrPin) {
+      var _delObsIdx = _peObsIdx || 0;
+      window._frtConfirmDeleteObsOrPin(
+        delId,
+        _delObsIdx,
+        function() {
+          // obs removed (pin survives) → save, repaint, refresh editor onto a
+          // valid obs index.
+          Model.saveNow();
+          _renderPins();
+          if (_tasksVisible) _renderTasks();
+          if (window._frtRenderDefic) window._frtRenderDefic();
+          if (window._frtRenderTasks) window._frtRenderTasks();
+          if (window._frtPinEditorRemovedObs) window._frtPinEditorRemovedObs(delId, _delObsIdx);
+        },
+        function() {
+          // whole pin deleted (was the last obs) → save, repaint, close editor.
+          Model.saveNow();
+          _renderPins();
+          if (_tasksVisible) _renderTasks();
+          if (window._frtRenderDefic) window._frtRenderDefic();
+          if (window._frtRenderTasks) window._frtRenderTasks();
+          _closePinEditor();
+        }
+      );
+      return;
+    }
+    // Fallback (bridge missing): legacy whole-pin delete.
     showConfirm('Delete Deficiency', 'Permanently delete this deficiency and its pin? This cannot be undone.').then(function(yes) {
       if (!yes) return;
       var f2 = Model.findDeficiency(delId);
-      console.log('[Viewer] Delete defic — found:', !!f2);
       if (f2) {
         Model.removeDeficiency(delId);
         if (Model.renumberDeficiencies) Model.renumberDeficiencies();
         Model.saveNow();
         _renderPins();
         if (_tasksVisible) _renderTasks();
-        // Notify defic tab to re-render
         if (window._frtRenderDefic) window._frtRenderDefic();
         if (window._frtRenderTasks) window._frtRenderTasks();
-        console.log('[Viewer] Deficiency deleted', delId);
       }
       _closePinEditor();
     });

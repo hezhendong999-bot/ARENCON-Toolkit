@@ -2399,12 +2399,10 @@ function _buildObsEditor(d, oi, ctrId, opts) {
       h += '<span class="dfx-ed-tab' + (_tactive ? ' active' : '') + '">';
       h += '<button type="button" class="dfx-ed-tab-btn" data-action="dfx-ed-tab" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '">Obs ' + _tletter + (_tcustom ? ' <span class="dfx-ed-tab-cust" title="Custom photo selection">\u2022</span>' : '') + '</button>';
       if (_tactive) {
-        if (obs.length > 1) {
-          h += '<button type="button" class="dfx-ed-tab-split" data-action="dfx-ed-tab-split" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + _ti + '" title="Split this observation to its own pin">\u22EE</button>';
-        }
-        // S328 (#9): the "\u2715" delete button beside the observation title is
-        // removed to declutter the tab. Remove-obs / Remove-pin is still available
-        // in the \u22EF More menu (dfx-remove-obsrow), so no capability is lost.
+        // S328 (#6): the "\u22EE" three-dot (Split to its own pin) is removed from
+        // the obs tab — the action now lives in the \u22EF More menu with a clear
+        // label. S328 (#9): the "\u2715" delete beside the title was already removed;
+        // delete is the footer Delete button. The active tab is now just its label.
       }
       h += '</span>';
     });
@@ -2657,6 +2655,10 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '<div class="dfx-or-more-wrap" style="position:relative;margin-left:auto;">';
     h += '<button class="dfx-or-act" data-action="toggle-more" data-defic-id="' + esc(d.id) + '" title="More">\u22EF More</button>';
     h += '<div class="defic-more-popup" id="more-' + esc(d.id) + '">';
+    // S328 (#6): "Split to its own pin" moved here from the obs-tab \u22EE three-dot
+    // (clearer location; the cryptic dot is gone). Multi-obs only — a single-obs
+    // pin has nothing to split off.
+    if (!last) h += '<button data-action="dfx-ed-tab-split" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\u2702 Split to its own pin</button>';
     // S328 (#7): the standalone "\u21C4 Move pin" (reassign-defic = move to another
     // section/contractor) is removed here — redundant in this editor because the
     // contractor + status pills directly above already reassign inline.
@@ -2664,7 +2666,10 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     // to simply "\uD83D\uDCD0 Move pin".
     if (d.drawingId) h += '<button data-action="dfx-ed-move-drawing" data-defic-id="' + esc(d.id) + '">\uD83D\uDCD0 Move pin</button>';
     h += '<button data-action="dup-defic" data-defic-id="' + esc(d.id) + '">\u29C9 Duplicate</button>';
-    h += '<button class="danger" data-action="dfx-remove-obsrow" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">\u2715 ' + (last ? 'Remove pin' : 'Remove obs') + '</button>';
+    // S328 (Mark): the duplicate "Remove obs/pin" item is removed from More — the
+    // pin-editor FOOTER Delete button is now the single delete control (deletes
+    // the current obs, or the whole pin when it's the last obs, with the
+    // photo-fate modal). One delete, not two.
     h += '</div></div>';
     h += '</div>'; // /dfx-or-actions
     h += '</div>'; // /dfx-or-editor
@@ -3508,6 +3513,86 @@ function _confirmRemoveObsWithPhotos(deficId, obsIdx, afterFn) {
           });
           _removeNow();
           toast('Observation removed \u00b7 ' + n + ' ' + noun + ' moved to Recently Deleted');
+        }
+      },
+      { label: 'Cancel', color: '#9C2742', outline: true, action: function() {} }
+    ]
+  });
+}
+
+// S328 (Mark): unified delete used by the pin-editor FOOTER Delete button.
+// Deletes ONLY the current observation — unless it's the pin's LAST observation,
+// in which case the whole pin is deleted. In BOTH cases the inspector chooses
+// what happens to the photos unique to that observation: move them to Site
+// Records (independent binary via releasePoolPhotoToSite), delete them (→
+// Recently Deleted via removePoolPhoto), or cancel. afterFn runs after a real
+// deletion (never on cancel) so the caller can refresh / close the editor.
+function _confirmDeleteObsOrPin(deficId, obsIdx, afterFn, afterPinDeleteFn) {
+  var f = Model.findDeficiency(deficId);
+  if (!f) { toast('Item not found'); return; }
+  var obsArr = f.defic.observations || [];
+  var isLast = obsArr.length <= 1;
+  var pinNum = f.defic.num != null ? f.defic.num : '?';
+  // Photos unique to THIS obs (multi-obs) or, for the last obs, the whole pin's
+  // pool (since deleting the pin removes every photo on it).
+  var unique;
+  if (isLast) {
+    var pool = (Model.getEffectivePhotos ? Model.getEffectivePhotos(f.defic, obsIdx) : (obsArr[0] && obsArr[0].photos) || []) || [];
+    unique = pool.slice();
+  } else {
+    unique = (Model.getPhotosUniqueToObs) ? Model.getPhotosUniqueToObs(deficId, obsIdx) : [];
+  }
+  function _doDelete() {
+    if (isLast) {
+      Model.removeDeficiency(deficId);
+      if (Model.renumberDeficiencies) Model.renumberDeficiencies();
+      if (typeof afterPinDeleteFn === 'function') afterPinDeleteFn();
+    } else {
+      Model.removeObservation(deficId, obsIdx);
+      if (typeof afterFn === 'function') afterFn();
+    }
+  }
+  var titleWord = isLast ? ('Delete Pin #' + pinNum) : 'Remove Observation';
+  // No unique photos → a single plain confirm (no photo choice needed).
+  if (!unique.length) {
+    var msg = isLast
+      ? 'This is the only observation, so the whole pin will be deleted. This cannot be undone.'
+      : 'Remove this observation? This cannot be undone.';
+    showConfirm(titleWord, msg).then(function(yes) {
+      if (yes) { _doDelete(); toast(isLast ? ('Pin #' + pinNum + ' deleted') : 'Observation removed'); }
+    });
+    return;
+  }
+  var n = unique.length;
+  var noun = n === 1 ? 'photo' : 'photos';
+  var lead = isLast
+    ? 'This is the only observation, so deleting it removes the whole pin. It has '
+    : 'This observation has ';
+  var tail = isLast
+    ? (n === 1 ? ' photo' : ' photos') + '. What should happen to ' + (n === 1 ? 'it' : 'them') + '?'
+    : ' ' + noun + ' not used by any other observation on this pin. What should happen to ' + (n === 1 ? 'it' : 'them') + '?';
+  showDialog({
+    title: titleWord,
+    message: lead + n + tail,
+    buttons: [
+      {
+        label: 'Move ' + noun + ' to Site Records', color: '#9C2742',
+        action: function() {
+          unique.forEach(function(p) {
+            if (p && p.id && Model.releasePoolPhotoToSite) Model.releasePoolPhotoToSite(deficId, p.id);
+          });
+          _doDelete();
+          toast((isLast ? ('Pin #' + pinNum + ' deleted') : 'Observation removed') + ' \u00b7 ' + n + ' ' + noun + ' moved to Site Records');
+        }
+      },
+      {
+        label: 'Delete ' + noun, color: '#C0392B',
+        action: function() {
+          unique.forEach(function(p) {
+            if (p && p.id && Model.removePoolPhoto) Model.removePoolPhoto(deficId, p.id);
+          });
+          _doDelete();
+          toast((isLast ? ('Pin #' + pinNum + ' deleted') : 'Observation removed') + ' \u00b7 ' + n + ' ' + noun + ' moved to Recently Deleted');
         }
       },
       { label: 'Cancel', color: '#9C2742', outline: true, action: function() {} }
@@ -6521,6 +6606,16 @@ window._frtRenderDefic = function() { initDeficiencies.render(); };
 // persists identically wherever it is mounted (no per-host re-binding).
 window._frtBuildObsEditor = function(d, oi, ctrId, opts) {
   return _buildObsEditor(d, oi, ctrId, opts || {});
+};
+
+// S328 (Mark): the pin-editor FOOTER Delete button (viewer.js #pe-delete) routes
+// here. Deletes only the current obs (or the whole pin if it's the last obs),
+// always letting the inspector choose the fate of that obs's unique photos
+// (move to Site Records / delete / cancel). afterFn = refresh editor onto a
+// valid obs after an obs removal; afterPinDeleteFn = close the editor + repaint
+// pins/tasks after a whole-pin delete.
+window._frtConfirmDeleteObsOrPin = function(deficId, obsIdx, afterFn, afterPinDeleteFn) {
+  _confirmDeleteObsOrPin(deficId, obsIdx, afterFn, afterPinDeleteFn);
 };
 
 // S151 (Mark): lets the drawing viewer's single-route "← Back to pin #N"

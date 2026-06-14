@@ -7999,7 +7999,10 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
 .dfx-ed-mode .obs-media-divider { display: none; }
 .dfx-ed-mode .obs-media-hint { order: 2; min-height: 0; margin: 9px 0 8px; flex: 0 0 auto; }
 .dfx-ed-mode .obs-media-btns { order: 3; gap: 7px; flex: 0 0 auto; }
-.dfx-ed-mode .obs-drop-btn { width: auto; min-width: 0; padding: 7px 14px; border-radius: 7px; }
+/* S328 (#4, Mark): these were oversized vs the status pills / "Choose for this
+   obs" / thread buttons around them. Bring them down to a proportionate size so
+   the photo controls read as peers, not the loudest thing in the editor. */
+.dfx-ed-mode .obs-drop-btn { width: auto; min-width: 0; padding: 5px 12px; border-radius: 6px; font-size: calc(11px + var(--ts)); font-weight: 600; }
 /* photo label badge (only rendered when the photo has a real label) */
 .obs-photo-label {
   position: absolute; bottom: 2px; left: 2px; font-size: 7px; font-weight: 700;
@@ -8010,7 +8013,7 @@ body.dark-mode .dfx-ed-tab-btn { color: #C8CDD6; }
   .dfx-ed-mode .obs-media-photos { grid-template-columns: repeat(4, 1fr); }
 }
 @media (pointer: coarse) {
-  .dfx-ed-mode .obs-drop-btn { padding: 10px 16px; }
+  .dfx-ed-mode .obs-drop-btn { padding: 8px 14px; }
 }
 
 /* move-pin-to-drawing chooser rows hover */
