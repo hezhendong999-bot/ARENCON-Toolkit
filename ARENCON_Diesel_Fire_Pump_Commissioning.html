@@ -436,6 +436,8 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .ev-tile .badge{position:absolute;top:6px;left:6px;background:rgba(28,35,51,.78);color:#fff;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:9px;letter-spacing:.3px;}
 .ev-tile .recap{position:absolute;bottom:6px;right:6px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:10px;font-weight:600;color:var(--steel);padding:3px 8px;cursor:pointer;}
 .ev-tile .recap:hover{color:var(--arencon);}
+.ev-tile .ev-del{position:absolute;top:6px;right:6px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;background:rgba(168,89,89,.92);border:none;border-radius:50%;color:#fff;font-size:12px;line-height:1;cursor:pointer;padding:0;}
+.ev-tile .ev-del:hover{background:#A85959;}
 /* ══ Flow-point photo icon + warning flag ══ */
 .flow-warn{font-size:calc(10px + var(--ts));font-weight:700;color:var(--warn);margin-top:3px;line-height:1.25;}
 .ph-cell{text-align:center;}
@@ -8278,7 +8280,7 @@ function _appendixEligible(it){
   if(!it||!it.photo) return false;
   if(it.type==='gauge'||it.type==='gauge-pld') return true;
   if(it.type==='flowtest'||it.type==='flowtest-pld') return true;
-  if(it.type==='record'){ var k=(it.photo.kind||''); return k==='pump'||k.indexOf('placard')!==-1||k==='flow'||k==='flow-pld'; }
+  if(it.type==='record'){ var k=(it.photo.kind||''); return k==='pump'||k==='pump-pld'||k.indexOf('placard')!==-1||k==='flow'||k==='flow-pld'; }
   return false;
 }
 function _appendixHTML(){
@@ -8320,7 +8322,7 @@ function _appendixHTML(){
       emit(title, items, size, function(l){ return t+head(l); });
     }
     // 1. Pump photos — 3-up, no labels (locked)
-    sect('Pump & Installation', inc.filter(function(it){ return it.type==='record'&&it.photo.kind==='pump'; }), 228);
+    sect('Pump & Installation', inc.filter(function(it){ return it.type==='record'&&(it.photo.kind==='pump'||it.photo.kind==='pump-pld'); }), 228);
     // 2. Placards (incl. PLD placard) — two large cards per page (locked)
     var plc=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind||'').indexOf('placard')!==-1; });
     if(plc.length){
@@ -13677,7 +13679,8 @@ function _collectAllPhotos(){
   });
   // 6. Site records (pump / placard / site)
   (typeof recordPhotos==='undefined'?[]:recordPhotos).forEach(function(p,i){
-    var kl = p.kind==='pump'?'Pump':p.kind==='placard'?'Placard':'Site';
+    var _k=p.kind||'site';
+    var kl = (_k==='pump'||_k==='pump-pld')?'Pump':(_k==='placard'||_k==='placard-pld')?'Placard':'Site';
     all.push({photo:p, type:'record', cat:'records', badge:kl, label:'Record: '+kl, section:'rec_'+(p.kind||'site'), idx:i, src:p.d||p.r2Url});
   });
   // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
@@ -13977,7 +13980,7 @@ function _recZoneHtml(kind){
 }
 function _evTileHtml(kind){
   // kind: pump | placard | flow (3-pt) | flow-pld (7-pt)
-  var map={pump:['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],'placard-pld':['🏷','PLD Placard','engine placard · control pressure'],flow:['📊','Flow Chart','Hose Monster chart'],'flow-pld':['📊','Flow Chart','Hose Monster chart']};
+  var map={pump:['📷','Pump','tap / drop · camera'],'pump-pld':['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],'placard-pld':['🏷','PLD Placard','engine placard · control pressure'],flow:['📊','Flow Chart','Hose Monster chart'],'flow-pld':['📊','Flow Chart','Hose Monster chart']};
   var def=map[kind]; if(!def) return '';
   if(kind==='flow' || kind==='flow-pld'){
     var isPld = kind==='flow-pld';
@@ -14003,6 +14006,7 @@ function _evTileHtml(kind){
     return '<div class="ev-tile has-img" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
       +'<span class="badge">'+def[1].toUpperCase()+(thumbs.length>1?(' ·'+thumbs.length):'')+'</span>'
       +'<img src="'+(o.p.d||o.p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+      +'<button class="ev-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(o.p.id||'')+'\')">✕</button>'
       +'<button class="recap" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">retake</button>'
       +'</div>';
   }
@@ -14010,6 +14014,17 @@ function _evTileHtml(kind){
     +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
 }
 function _recTileHtml(kind){ return _evTileHtml(kind); }
+// S339: X-delete on an evidence tile — soft-deletes the photo (→ Recently Deleted,
+// restorable for 30 days) then refreshes the evidence zones. Routes through the
+// shared delete path so it behaves exactly like deleting from the gallery.
+function _recDeletePhotoById(pid){
+  if(!pid){ showToast('Photo not found'); return; }
+  if(typeof deletePhotoEverywhere==='function'){
+    deletePhotoEverywhere({photoId:pid}, function(){
+      if(typeof _renderRecordZones==='function') _renderRecordZones();
+    });
+  }
+}
 function _renderRecordZones(){
   // Photos tab: general site records only (full zone style)
   var host=document.getElementById('record-zones');
@@ -14018,7 +14033,7 @@ function _renderRecordZones(){
   var pp=document.getElementById('pump-placard-zones');
   if(pp) pp.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('flow');
   var pp2=document.getElementById('pump-placard-zones-4b');
-  if(pp2) pp2.innerHTML=_evTileHtml('pump')+_evTileHtml('placard')+_evTileHtml('placard-pld')+_evTileHtml('flow-pld');
+  if(pp2) pp2.innerHTML=_evTileHtml('pump-pld')+_evTileHtml('placard-pld')+_evTileHtml('flow-pld');
 }
 // Placard OCR — wired in the next build. Placeholder keeps the button honest.
 /* ════ S314: AI Placard Scan → rated-value autofill (preview-then-confirm) ════
@@ -15273,7 +15288,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S338';
+var DIESEL_BUILD = 'S339';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
