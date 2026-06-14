@@ -44,7 +44,7 @@ Captured from Mark's field testing (drawing project 1490.04 IMCC Sprucewood Atti
 23. **Shape markups → TWO-CLICK placement** (click start, click finish), not click-drag-hold. Applies to shapes (circle/oval/rect/line). See also #37 (dimension) which has its own two-click semantics.
 24. **Opacity %: CLICK-TO-TYPE** everywhere opacity appears — drawing markup toolbar, photo lightbox markup (from drawings, defic card, AND photo gallery). Keep +/− as 10% steps. Clicking the "100%" label → editable number input, clamp 10–100.
 
-25. **NEW FEATURE — Copy markup (Mark priority; design-first, demo for sign-off):**
+25. **NEW FEATURE — Copy markup (Mark priority) — DESIGN LOCKED (S327): see `LOCKED_COPY_MARKUP_DESIGN.md`.** Summary: copy handle on the selection box; offset-drag model for BOTH PC + touch (Mark chose one mode after demo); duplicate appears offset+selected, drag-and-lift to place, repeat; group copy supported; build AFTER/with the #20/#22 zoom fix so coordinates are correct.**
     - **Trigger = a small button ON the selection box** (like the rotate handle), NOT a separate toolbar button. Select item/group → tap the copy handle → a duplicate attaches to the cursor → click/tap to drop. Repeatable for fast identical sprinkler circles, then a line for branchline, then group-select + copy to replicate whole branches.
     - Must work on **mobile (phone/tablet) AND PC** — design touch + mouse from the start (the copy handle needs a coarse-pointer-friendly hit size).
     - **Check v1's implementation** — Mark unsure it was complete/correct; port the good parts, fix the rest.
