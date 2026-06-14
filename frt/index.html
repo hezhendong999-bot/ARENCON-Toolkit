@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=641">
+<link rel="stylesheet" href="css/frt.css?v=642">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -613,7 +613,7 @@ function ensurePdfJs(cb){
     <div class="ctx-group" id="ctx-opacity-group">
       <span class="ctx-label">α</span>
       <button class="ctx-btn" data-ctx="opacity-down">−</button>
-      <span class="ctx-val" id="ctx-opacity-val">100</span>
+      <span class="ctx-val" id="ctx-opacity-val" title="Click to type (10–100)" style="cursor:text;">100</span>
       <button class="ctx-btn" data-ctx="opacity-up">+</button>
     </div>
     <div class="ctx-group" id="ctx-text-group" style="display:none;">
@@ -721,7 +721,7 @@ function ensurePdfJs(cb){
       <div class="tool-stepper-wrap" data-tip="Opacity">
         <span style="font-size:8px;color:#888;letter-spacing:.5px;">OPAC</span>
         <button class="tool-step-btn" data-ctx="opacity-up">+</button>
-        <span id="mk-opacity-val" style="font-size:11px;color:var(--steel);min-width:22px;text-align:center;">100</span>
+        <span id="mk-opacity-val" title="Click to type (10–100)" style="font-size:11px;color:var(--steel);min-width:22px;text-align:center;cursor:text;">100</span>
         <button class="tool-step-btn" data-ctx="opacity-down">−</button>
       </div>
       <div class="tool-sep"></div>

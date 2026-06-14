@@ -3010,6 +3010,25 @@ function _updateSizeLabels() {
   if (co) co.textContent = Math.round(_opacity * 100);
 }
 
+// S329 (#24, Mark): apply a typed opacity percentage (10–100) through the same
+// path as the +/- steppers — mutate selected objects if any, else the module
+// default. Used by the click-to-type opacity inputs.
+function _setOpacityPct(pct) {
+  pct = Math.max(10, Math.min(100, Math.round(pct)));
+  var frac = pct / 100;
+  if (_selectedIds.length) {
+    _selectedIds.forEach(function(id) {
+      var obj = _findObj(id);
+      if (obj) obj.opacity = frac;
+    });
+    _renderAll();
+    _markDirty();
+  } else {
+    _opacity = frac;
+  }
+  _updateSizeLabels();
+}
+
 function _updateColorSwatch() {
   var sw = document.getElementById('mk-color-swatch');
   if (sw) sw.style.background = _color;
@@ -3432,6 +3451,43 @@ function _wireEvents() {
         if (!isOpen) _positionSubmenu(cm, e.target.closest('#mk-color-btn') || e.target.closest('#ctx-color-dot'));
       }
       e.stopPropagation();
+      return;
+    }
+
+    // S329 (#24, Mark): CLICK-TO-TYPE opacity on both opacity value labels
+    // (#ctx-opacity-val compact bar, #mk-opacity-val desktop toolbar). Click the
+    // number -> inline editable input; type 10–100; Enter/blur commits clamped,
+    // Esc cancels. +/- steppers untouched (still 10% steps via the data-ctx path).
+    var _opTypeTarget = e.target && e.target.closest && e.target.closest('#ctx-opacity-val,#mk-opacity-val');
+    if (_opTypeTarget && !_opTypeTarget._opEditing) {
+      _opTypeTarget._opEditing = true;
+      var _cur = Math.round(_opacity * 100);
+      var _span = _opTypeTarget;
+      var _inp = document.createElement('input');
+      _inp.type = 'number'; _inp.min = '10'; _inp.max = '100'; _inp.value = String(_cur);
+      _inp.className = _span.className;
+      _inp.style.cssText = 'width:40px;text-align:center;font:inherit;border:1px solid #9C2742;border-radius:3px;padding:0;background:#fff;color:#1B1A22;';
+      var _commit = function(apply){
+        if (!_span._opEditing) return; _span._opEditing = false;
+        if (apply) { var v = parseInt(_inp.value, 10); if (!isNaN(v)) _setOpacityPct(v); }
+        _inp.removeAttribute('id');
+        if (_inp.parentNode) _inp.parentNode.replaceChild(_span, _inp);
+        _span.id = _opTypeTarget._opIdRestore;  // restore original id on the span
+        _updateSizeLabels();
+      };
+      _inp.addEventListener('keydown', function(ev){
+        if (ev.key === 'Enter') { ev.preventDefault(); _commit(true); }
+        else if (ev.key === 'Escape') { ev.preventDefault(); _commit(false); }
+      });
+      _inp.addEventListener('blur', function(){ _commit(true); });
+      _inp.addEventListener('click', function(ev){ ev.stopPropagation(); });
+      if (_span.parentNode) {
+        _opTypeTarget._opIdRestore = _span.id;   // save original id
+        _span.removeAttribute('id');             // free the id
+        _inp.id = _opTypeTarget._opIdRestore;    // input takes the id during edit
+        _span.parentNode.replaceChild(_inp, _span); _inp.focus(); _inp.select();
+      }
+      else { _span._opEditing = false; }
       return;
     }
 

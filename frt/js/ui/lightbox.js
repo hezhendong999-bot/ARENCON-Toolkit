@@ -178,7 +178,8 @@ function _buildMarkupBar(overlay){
     b.style.cssText='background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;padding:0;'; return b; }
   var opMinus = opStepBtn('\u2212');
   var opVal = document.createElement('span'); opVal.id='mk-op-val'; opVal.textContent='100%';
-  opVal.style.cssText='color:white;min-width:36px;text-align:center;font:600 12px Calibri,sans-serif;display:inline-block;';
+  opVal.title='Click to type a value (10–100)';
+  opVal.style.cssText='color:white;min-width:36px;text-align:center;font:600 12px Calibri,sans-serif;display:inline-block;cursor:text;border-radius:4px;';
   var opPlus = opStepBtn('+');
   opWrap.appendChild(opLbl); opWrap.appendChild(opMinus); opWrap.appendChild(opVal); opWrap.appendChild(opPlus);
   var sep2=document.createElement('div'); sep2.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
@@ -224,6 +225,26 @@ function _buildMarkupBar(overlay){
   function _applyOp(){ opVal.textContent=_opPct+'%'; if (window.MarkupEngine) window.MarkupEngine.setOpacity(_opPct/100); }
   opMinus.addEventListener('click',function(){ _opPct=Math.max(10,_opPct-10); _applyOp(); });
   opPlus .addEventListener('click',function(){ _opPct=Math.min(100,_opPct+10); _applyOp(); });
+  // S329 (#24, Mark): CLICK-TO-TYPE opacity. Click the % value -> editable number
+  // input; type 10–100; Enter/blur commits (clamped). Esc cancels. +/- still step 10%.
+  var _opEditing=false;
+  opVal.addEventListener('click',function(){
+    if(_opEditing) return; _opEditing=true;
+    var inp=document.createElement('input');
+    inp.type='number'; inp.min='10'; inp.max='100'; inp.value=String(_opPct);
+    inp.style.cssText='width:44px;text-align:center;font:600 12px Calibri,sans-serif;border:1px solid #9C2742;border-radius:4px;padding:2px 0;background:#fff;color:#1B1A22;';
+    opVal.replaceWith(inp); inp.focus(); inp.select();
+    function commit(apply){
+      if(!_opEditing) return; _opEditing=false;
+      if(apply){ var v=parseInt(inp.value,10); if(isNaN(v)) v=_opPct; _opPct=Math.max(10,Math.min(100,v)); }
+      inp.replaceWith(opVal); _applyOp();
+    }
+    inp.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'){ ev.preventDefault(); commit(true); }
+      else if(ev.key==='Escape'){ ev.preventDefault(); commit(false); }
+    });
+    inp.addEventListener('blur',function(){ commit(true); });
+  });
   bCl .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.clear();});
   bRv .addEventListener('click',_revertMarkup);
   bSv .addEventListener('click',_saveMarkup);
