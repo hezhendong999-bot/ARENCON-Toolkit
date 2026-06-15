@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S345 (PLD gauge-photo mode toggle). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S346 (PRV/PRdV pills, badge redesign, toggle+zone shrink). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -27,7 +27,7 @@
   --no:#A85959;  --no-bg:#F3E0DE;
   --na:#5A6473;  --na-bg:#E8ECF0;
   --warn:#B7791F; --warn-bg:#FEFCBF;
-  --info:#2C7FB8; --gr-rpm:#6E5AA8;
+  --info:#2C7FB8; --gr-rpm:#6E5AA8; --gr-prv:#3F7E78; --gr-prdv:#9C6FA0;
   --shadow:0 2px 12px rgba(28,35,51,.10);
   --shadow-lg:0 8px 32px rgba(28,35,51,.14);
 }
@@ -250,9 +250,10 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .photo-zone-compact .pz-upload:hover{background:#15693f;border-color:#15693f;}
 .photo-zone-compact .pz-camera{background:#2C4770;color:white;border-color:#2C4770;}
 .photo-zone-compact .pz-camera:hover{background:#1f3556;}
-.fpm-zone{flex-direction:column;}
-.fpm-zone>span{width:100%;text-align:center;}
-.fpm-zone .pz-row{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;}
+.fpm-zone{flex-direction:column;padding:9px 10px;min-height:0;gap:6px;margin-bottom:8px;}
+.fpm-zone>span{width:100%;text-align:center;font-size:calc(11px + var(--ts));}
+.fpm-zone .pz-row{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;}
+.fpm-zone .pz-upload,.fpm-zone .pz-gallery{padding:6px 12px;font-size:calc(11.5px + var(--ts));border-radius:6px;}
 .photo-zone-compact .pz-gallery{padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid var(--arencon);background:var(--arencon);color:#fff;transition:all .14s;}
 .photo-zone-compact .pz-gallery:hover{background:#812035;border-color:#812035;}
 body.dark-mode .photo-zone-compact .pz-gallery{background:var(--arencon)!important;border-color:var(--arencon)!important;color:#fff!important;}
@@ -302,8 +303,8 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ph-card:hover .ph-check{display:block;}
 .ph-card.selected .ph-check{display:block;}
 @media(pointer:coarse){.ph-check{display:block;}}
-.ph-badges{position:absolute;top:6px;right:6px;display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:90px;z-index:2;}
-.ph-badge{padding:3px 9px;color:#fff;border-radius:11px;font-size:11px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.45);line-height:1.3;background:#455A64;}
+.ph-badges{position:absolute;top:6px;right:6px;display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:110px;z-index:2;}
+.ph-badge{padding:2px 7px;color:#fff;border-radius:10px;font-size:10.5px;font-weight:700;font-family:Calibri,sans-serif;letter-spacing:.1px;box-shadow:0 1px 4px rgba(0,0,0,.45);line-height:1.25;background:#455A64;white-space:nowrap;max-width:104px;overflow:hidden;text-overflow:ellipsis;}
 .ph-badge-checklist{background:#5E7A8C;} /* S280: slate-blue (green now reserved for site/records to match FRT) */
 .ph-badge-deficiency{background:#A85959;} /* red — shared meaning with FRT */
 .ph-badge-general{background:#6E86B8;}
@@ -490,11 +491,10 @@ body.dark-mode ._a-modal-card{background:#16151b!important;}
 .fpm-card,.fpm-gallery,.fpm-reassign{background:#fff;}
 .fpm-rdrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
 /* S345: PLD mode toggle (modeled on the Pump Test Type toggle) */
-.fpm-modetoggle{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:#000;margin-bottom:6px;}
-.fpm-modetoggle .fpm-mode{flex:1;appearance:none;border:none;background:transparent;color:var(--steel);font-family:Calibri,sans-serif;font-size:calc(13.5px + var(--ts));font-weight:700;padding:10px 8px;cursor:pointer;transition:all .14s;}
+.fpm-modetoggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#000;margin-bottom:5px;}
+.fpm-modetoggle .fpm-mode{flex:1;appearance:none;border:none;background:transparent;color:var(--steel);font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:700;padding:6px 8px;cursor:pointer;transition:all .14s;}
 .fpm-modetoggle .fpm-mode.on{background:var(--arencon);color:#fff;}
-.fpm-modetoggle .fpm-mode.direct.on{background:#7d8794;color:#10141a;}
-.fpm-modehint{color:var(--silver);font-size:calc(11.5px + var(--ts));margin:0 2px 12px;}
+.fpm-modehint{color:var(--silver);font-size:calc(10.5px + var(--ts));margin:0 2px 9px;}
 .fpm-modehint b{color:var(--steel);}
 .fpm-rd{padding:6px 12px;border-radius:16px;font-size:calc(12px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;border:1.5px solid var(--border);background:var(--smoke);color:var(--steel);display:flex;align-items:center;gap:6px;transition:all .13s;}
 .fpm-rd .rd-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
@@ -5396,11 +5396,20 @@ var _GAUGE_READINGS=[
   {k:'discharge',label:'Discharge',short:'D'},
   {k:'bf_in',    label:'BF-in',    short:'BFi'},
   {k:'bf_out',   label:'BF-out',   short:'BFo'},
-  {k:'rpm',      label:'RPM',      short:'RPM'}
+  {k:'rpm',      label:'RPM',      short:'RPM'},
+  {k:'prv',      label:'PRV',      short:'PRV'},
+  {k:'prdv',     label:'PRdV',     short:'PRdV'}
 ];
-var _GAUGE_TAG_SHORT={suction:'S',discharge:'D',bf_in:'BFi',bf_out:'BFo',rpm:'RPM'};
-var _GAUGE_TAG_LABEL={suction:'Suction',discharge:'Discharge',bf_in:'BF-in',bf_out:'BF-out',rpm:'RPM'};
-function _gaugeReadingColor(k){ return k==='rpm' ? 'var(--gr-rpm)' : (k==='suction'?'var(--info)':k==='discharge'?'var(--no)':k==='bf_in'?'var(--warn)':k==='bf_out'?'var(--yes)':'var(--silver)'); }
+// S346: PRV (pressure-RELIEF valve, set at churn so discharge reads ~175) and
+// PRdV (pressure-REDUCING valve) gauge photos. Available on every flow point of
+// both 3-pt and 7-pt. Typically captured at 0% (max pressure) only, but not
+// enforced. ALWAYS UNMODED on the 7-pt table — they document a valve setpoint,
+// not a PLD-vs-direct flow reading, so they stay visible under both PLD modes.
+var _GAUGE_TAG_SHORT={suction:'S',discharge:'D',bf_in:'BFi',bf_out:'BFo',rpm:'RPM',prv:'PRV',prdv:'PRdV'};
+var _GAUGE_TAG_LABEL={suction:'Suction',discharge:'Discharge',bf_in:'BF-in',bf_out:'BF-out',rpm:'RPM',prv:'PRV',prdv:'PRdV'};
+// S346: readings exempt from the With-PLD/Without-PLD mode filter (always shown).
+var _GAUGE_MODE_EXEMPT={prv:true,prdv:true};
+function _gaugeReadingColor(k){ return k==='rpm' ? 'var(--gr-rpm)' : (k==='suction'?'var(--info)':k==='discharge'?'var(--no)':k==='bf_in'?'var(--warn)':k==='bf_out'?'var(--yes)':k==='prv'?'var(--gr-prv)':k==='prdv'?'var(--gr-prdv)':'var(--silver)'); }
 function _flowPhotoRow(tbl,i){ var src=(tbl==='std'?stdData:pldData); return (src&&src[i])?src[i]:null; }
 function _flowPhotoAddFile(file){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
@@ -5411,7 +5420,7 @@ function _flowPhotoAddFile(file){
     compressImage(ev.target.result, 1600, 0.85, function(c){
       var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
                tag:_flowPhotoActiveReading||'suction',
-               mode:(_flowPhotoTbl==='pld'?_flowPhotoActiveMode:null),
+               mode:(_flowPhotoTbl==='pld'&&!_GAUGE_MODE_EXEMPT[_flowPhotoActiveReading]?_flowPhotoActiveMode:null),
                caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
       row.photos.push(_ph);
       _r2EnqueuePhoto(_ph);
@@ -5435,7 +5444,7 @@ function _flowPhotoAddFromSource(srcPhoto){
   function _commit(dataUrl){
     var _ph={d:dataUrl, n:(srcPhoto.n||'gallery.jpg'), id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
              tag:_flowPhotoActiveReading||'suction',
-             mode:(_flowPhotoTbl==='pld'?_flowPhotoActiveMode:null),
+             mode:(_flowPhotoTbl==='pld'&&!_GAUGE_MODE_EXEMPT[_flowPhotoActiveReading]?_flowPhotoActiveMode:null),
              caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
     row.photos.push(_ph);
     _r2EnqueuePhoto(_ph);               // own key — never borrow source R2 URL
@@ -5567,7 +5576,8 @@ function _renderFlowPhotoModal(){
         // S345: on the 7-pt (pld) table, show ONLY the active mode's photos so
         // With-PLD and Without-PLD never mix. Legacy unmoded photos default to
         // 'pld' so they don't disappear. The std (3-pt) table has no mode filter.
-        if(_flowPhotoTbl==='pld' && (p.mode||'pld')!==_flowPhotoActiveMode) return;
+        // S346: PRV/PRdV are valve-setpoint photos — always visible, never mode-filtered.
+        if(_flowPhotoTbl==='pld' && !_GAUGE_MODE_EXEMPT[p.tag] && (p.mode||'pld')!==_flowPhotoActiveMode) return;
         any=true;
         h+='<div class="fpm-thumb"><img src="'+(p.d||p.r2Url||'')+'" onclick="_flowPhotoLightbox('+j+')">'
           +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button>'
@@ -13785,12 +13795,12 @@ function _collectAllPhotos(){
   // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
   (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge', cat:'flow', badge:('3pt '+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge', cat:'flow', badge:('3·'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('·'+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:('7pt '+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?(' '+_GAUGE_TAG_SHORT[p.tag]):'')+(p.mode==='direct'?' · w/o':p.mode==='pld'?' · w/PLD':'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):'')+(p.mode==='direct'?' · without PLD':p.mode==='pld'?' · with PLD':''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:('7·'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('·'+_GAUGE_TAG_SHORT[p.tag]):'')+(p.mode==='pld'?'·PLD':'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):'')+(p.mode==='direct'?' · without PLD':p.mode==='pld'?' · with PLD':''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
     });
   });
   return all;
@@ -15428,7 +15438,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S345';
+var DIESEL_BUILD = 'S346';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
