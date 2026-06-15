@@ -454,21 +454,38 @@
     var modal = document.createElement('div');
     modal.className = 'dim-cal-modal';
     modal.innerHTML =
-      '<button class="dim-cal-x" aria-label="Close" style="position:absolute;top:12px;right:12px;width:28px;height:28px;border:none;background:#f1ece1;border-radius:7px;color:#8a8073;font-size:15px;cursor:pointer;font-family:Calibri,sans-serif;">\u2715</button>' +
-      '<h3 style="margin:0 0 8px;font-family:Calibri,sans-serif;font-size:18px;color:#9C2742;">Calibrate this drawing</h3>' +
-      '<p style="margin:0 0 14px;font-family:Calibri,sans-serif;font-size:14px;line-height:1.4;color:#6a6253;">' +
-      'You drew across a known distance. Enter how long it really is so this drawing knows its scale.</p>' +
-      '<input type="text" class="dim-cal-val" inputmode="text" autocomplete="off" placeholder="e.g. 8-4  (8 ft 4 in)  \u00b7  or 2.5m" ' +
-      'style="width:100%;box-sizing:border-box;padding:11px 13px;border:1.5px solid #d8d0bf;border-radius:9px;font-family:Calibri,sans-serif;font-size:20px;font-weight:700;color:#3a352c;outline:none;">' +
-      '<div class="dim-cal-interp" style="margin-top:10px;padding:11px 13px;border-radius:9px;border:1px solid #e3ddd0;background:#f7f4ee;">' +
-      '<div class="dci-big" style="font-family:Calibri,sans-serif;font-size:18px;font-weight:700;color:#7a7264;">\u2014</div>' +
-      '<div class="dci-sub" style="font-family:Calibri,sans-serif;font-size:13px;color:#7a7264;margin-top:3px;">Type a length to see how it reads. Dash means feet-inches (8-4 = 8\u2032-4\u2033).</div>' +
+      // ── header band: burgundy left accent + ruler glyph + title ──
+      '<div style="display:flex;align-items:center;gap:11px;padding:18px 20px 16px;border-bottom:1px solid #efe9dc;position:relative;">' +
+        '<div style="width:38px;height:38px;border-radius:10px;background:#f3d9de;color:#9C2742;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;">\ud83d\udccf</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-family:Calibri,sans-serif;font-size:17px;font-weight:700;color:#9C2742;line-height:1.15;">Set the drawing scale</div>' +
+          '<div style="font-family:Calibri,sans-serif;font-size:13px;color:#8a8073;margin-top:1px;">How long is the line you just drew?</div>' +
+        '</div>' +
+        '<button class="dim-cal-x" aria-label="Close" style="width:30px;height:30px;border:none;background:#f4f1ea;border-radius:8px;color:#8a8073;font-size:15px;cursor:pointer;font-family:Calibri,sans-serif;flex-shrink:0;">\u2715</button>' +
       '</div>' +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">' +
-      '<button class="dim-cal-cancel" style="font-family:Calibri,sans-serif;font-size:14px;padding:9px 16px;background:#e8e3da;color:#5a5247;border:none;border-radius:8px;cursor:pointer;">Cancel</button>' +
-      '<button class="dim-cal-ok" disabled style="font-family:Calibri,sans-serif;font-size:14px;font-weight:700;padding:9px 18px;background:#9C2742;color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:.45;">Save calibration</button>' +
+      // ── body ──
+      '<div style="padding:18px 20px 20px;">' +
+        '<label style="display:block;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;color:#9a8e74;text-transform:uppercase;margin-bottom:6px;">Real length</label>' +
+        '<div style="position:relative;">' +
+          '<input type="text" class="dim-cal-val" inputmode="text" autocomplete="off" placeholder="8-4" ' +
+            'style="width:100%;box-sizing:border-box;padding:13px 15px;border:2px solid #d8d0bf;border-radius:11px;font-family:Calibri,sans-serif;font-size:24px;font-weight:700;color:#3a352c;outline:none;transition:border-color .12s;">' +
+        '</div>' +
+        '<div style="font-family:Calibri,sans-serif;font-size:12px;color:#a89c82;margin-top:6px;">Type <b style="color:#7a6f5a;">8-4</b> for 8\u2032-4\u2033, <b style="color:#7a6f5a;">12</b> for 12 ft, or <b style="color:#7a6f5a;">2.5m</b> for metric.</div>' +
+        // interpretation card
+        '<div class="dim-cal-interp" style="margin-top:14px;padding:13px 15px;border-radius:11px;border:1px solid #e3ddd0;background:#f7f4ee;display:flex;align-items:center;gap:11px;">' +
+          '<div class="dci-icon" style="width:26px;height:26px;border-radius:50%;background:#e3ddd0;color:#9a8e74;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">=</div>' +
+          '<div style="min-width:0;">' +
+            '<div class="dci-big" style="font-family:Calibri,sans-serif;font-size:19px;font-weight:700;color:#7a7264;line-height:1.1;">\u2014</div>' +
+            '<div class="dci-sub" style="font-family:Calibri,sans-serif;font-size:12px;color:#7a7264;margin-top:2px;">Reads your length as you type.</div>' +
+          '</div>' +
+        '</div>' +
+        // footer
+        '<div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px;">' +
+          '<button class="dim-cal-cancel" style="font-family:Calibri,sans-serif;font-size:14px;font-weight:600;padding:10px 18px;background:#f0ece3;color:#6a6253;border:none;border-radius:9px;cursor:pointer;">Cancel</button>' +
+          '<button class="dim-cal-ok" disabled style="font-family:Calibri,sans-serif;font-size:14px;font-weight:700;padding:10px 22px;background:#9C2742;color:#fff;border:none;border-radius:9px;cursor:pointer;opacity:.4;box-shadow:0 2px 8px rgba(156,39,66,.28);">Save scale</button>' +
+        '</div>' +
       '</div>';
-    modal.style.cssText = 'position:relative;background:#fff;border-radius:14px;padding:20px 22px;min-width:360px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.4);';
+    modal.style.cssText = 'position:relative;background:#fff;border-radius:16px;min-width:380px;max-width:92vw;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;';
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
@@ -476,6 +493,7 @@
     var interpBox = modal.querySelector('.dim-cal-interp');
     var interpBig = modal.querySelector('.dci-big');
     var interpSub = modal.querySelector('.dci-sub');
+    var interpIcon = modal.querySelector('.dci-icon');
     var okBtn = modal.querySelector('.dim-cal-ok');
     var cancelBtn = modal.querySelector('.dim-cal-cancel');
     var xBtn = modal.querySelector('.dim-cal-x');
@@ -488,16 +506,18 @@
       var ok = res.meters != null && res.meters > 0;
       if (!valInput.value.trim()) {
         interpBig.textContent = '\u2014';
-        interpSub.textContent = 'Type a length to see how it reads. Dash means feet-inches (8-4 = 8\u2032-4\u2033).';
+        interpSub.textContent = 'Reads your length as you type.';
         interpBox.style.background = '#f7f4ee'; interpBox.style.borderColor = '#e3ddd0';
         interpBig.style.color = '#7a7264'; interpSub.style.color = '#7a7264';
+        interpIcon.textContent = '='; interpIcon.style.background = '#e3ddd0'; interpIcon.style.color = '#9a8e74';
       } else if (res.isNote || !ok) {
         interpBig.textContent = 'Not a length';
         interpSub.textContent = 'Try a number, like 8-4, 12, or 2.5m.';
         interpBox.style.background = '#FBE3E9'; interpBox.style.borderColor = '#f0c6d0';
         interpBig.style.color = '#8a2740'; interpSub.style.color = '#8a2740';
+        interpIcon.textContent = '!'; interpIcon.style.background = '#f3c6d0'; interpIcon.style.color = '#8a2740';
       } else {
-        interpBig.textContent = '= ' + res.label;
+        interpBig.textContent = res.label;
         var guess = res.confidence === 'guess';
         interpSub.textContent = guess
           ? 'No units given \u2014 assumed feet. Add \u2032 or m to be explicit.'
@@ -505,6 +525,9 @@
         interpBox.style.background = guess ? '#FBF1E0' : '#EAF4EC';
         interpBox.style.borderColor = guess ? '#f0dcbb' : '#cfe7d6';
         interpBig.style.color = guess ? '#7a5414' : '#1d5b39';
+        interpIcon.textContent = guess ? '\u2248' : '\u2713';
+        interpIcon.style.background = guess ? '#f0dcbb' : '#cfe7d6';
+        interpIcon.style.color = guess ? '#7a5414' : '#1d5b39';
         interpSub.style.color = guess ? '#7a5414' : '#1d5b39';
       }
       okBtn.disabled = !ok;
@@ -512,6 +535,8 @@
       okBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
     }
     valInput.addEventListener('input', _updateInterp);
+    valInput.addEventListener('focus', function () { valInput.style.borderColor = '#9C2742'; });
+    valInput.addEventListener('blur', function () { valInput.style.borderColor = '#d8d0bf'; });
 
     function _close(result) {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -692,7 +717,15 @@
       }
       _pB = { x: pos.x, y: pos.y };
       _state = 'awaitOffset';
-      _cursor = { x: pos.x, y: pos.y };
+      // Seed the cursor with a DEFAULT perpendicular offset (not _pB itself)
+      // so the offset-stage preview is immediately visible as a real,
+      // staggered dimension line — otherwise offset is 0 and the preview
+      // collapses onto the measured segment and looks like nothing happened.
+      var _f = _abFrame(_pA.x, _pA.y, _pB.x, _pB.y);
+      var _seedOff = 28; // px, comfortable default stagger above the line
+      _cursor = _f
+        ? { x: (_pA.x + _pB.x) / 2 + _f.px * _seedOff, y: (_pA.y + _pB.y) / 2 + _f.py * _seedOff }
+        : { x: pos.x, y: pos.y };
       return { committed: false, action: 'lockedB' };
     }
     if (_state === 'awaitOffset') {

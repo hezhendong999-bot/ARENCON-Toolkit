@@ -269,8 +269,18 @@ function _renderCalibratePreview(p1, cursor) {
   var ang = Math.atan2(cursor.y - p1.y, cursor.x - p1.x);
   _calArrow(ctx, cursor.x, cursor.y, ang, COL);
   _calArrow(ctx, p1.x, p1.y, ang + Math.PI, COL);
-  // "set length…" chip at midpoint
-  var mx = (p1.x + cursor.x) / 2, my = (p1.y + cursor.y) / 2;
+  // "set length…" chip — OFFSET perpendicular off the line so it doesn't
+  // cover what's being measured (the pipe). Sits 26px to one side at midpoint.
+  var perpX = Math.sin(ang), perpY = -Math.cos(ang); // perpendicular unit
+  var CHIP_OFF = 26;
+  var mx = (p1.x + cursor.x) / 2 + perpX * CHIP_OFF;
+  var my = (p1.y + cursor.y) / 2 + perpY * CHIP_OFF;
+  // thin leader from the line midpoint to the chip
+  var lmx = (p1.x + cursor.x) / 2, lmy = (p1.y + cursor.y) / 2;
+  ctx.save();
+  ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.strokeStyle = COL;
+  ctx.beginPath(); ctx.moveTo(lmx, lmy); ctx.lineTo(mx, my); ctx.stroke();
+  ctx.restore();
   var txt = 'set length\u2026';
   ctx.font = 'bold 14px Calibri, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
