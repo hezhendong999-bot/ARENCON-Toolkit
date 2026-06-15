@@ -443,113 +443,100 @@
   // ── Calibration prompt UI (unchanged structurally from S125) ─────────
 
   function showCalibrationPrompt(drawing, x1, y1, x2, y2, onComplete) {
+    // S331 #37 — Clean single-field calibration modal with smart parse + live
+    // interpretation (spec §28). One input accepts 8-4, 8' 4 1/2", 12, 2.5m,
+    // 1905mm — the unit is inferred and shown live. The split feet/inches
+    // fields are gone. Imperial rounds to the nearest half-inch.
     var overlay = document.createElement('div');
     overlay.id = 'dim-cal-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,18,24,.55);z-index:99998;display:flex;align-items:center;justify-content:center;';
 
     var modal = document.createElement('div');
     modal.className = 'dim-cal-modal';
     modal.innerHTML =
-      '<h3 style="margin:0 0 10px;font-family:Calibri,sans-serif;color:#9C2742;">Calibrate this drawing</h3>' +
-      '<p style="margin:0 0 14px;font-family:Calibri,sans-serif;font-size:14px;line-height:1.4;color:#333;">' +
-      'You\u2019ve marked two points. Enter the real-world distance between them so this drawing knows its scale.</p>' +
-      '<div style="display:flex;gap:6px;margin-bottom:14px;background:#EDE5D3;border-radius:6px;padding:3px;width:fit-content;">' +
-      '<button class="dim-cal-unit" data-u="ft" style="font-family:Calibri,sans-serif;font-size:13px;font-weight:600;background:#fff;color:#444;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;">Feet + Inches</button>' +
-      '<button class="dim-cal-unit" data-u="m" style="font-family:Calibri,sans-serif;font-size:13px;font-weight:600;background:transparent;color:#6a5a3a;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;">Meters</button>' +
+      '<button class="dim-cal-x" aria-label="Close" style="position:absolute;top:12px;right:12px;width:28px;height:28px;border:none;background:#f1ece1;border-radius:7px;color:#8a8073;font-size:15px;cursor:pointer;font-family:Calibri,sans-serif;">\u2715</button>' +
+      '<h3 style="margin:0 0 8px;font-family:Calibri,sans-serif;font-size:18px;color:#9C2742;">Calibrate this drawing</h3>' +
+      '<p style="margin:0 0 14px;font-family:Calibri,sans-serif;font-size:14px;line-height:1.4;color:#6a6253;">' +
+      'You drew across a known distance. Enter how long it really is so this drawing knows its scale.</p>' +
+      '<input type="text" class="dim-cal-val" inputmode="text" autocomplete="off" placeholder="e.g. 8-4  (8 ft 4 in)  \u00b7  or 2.5m" ' +
+      'style="width:100%;box-sizing:border-box;padding:11px 13px;border:1.5px solid #d8d0bf;border-radius:9px;font-family:Calibri,sans-serif;font-size:20px;font-weight:700;color:#3a352c;outline:none;">' +
+      '<div class="dim-cal-interp" style="margin-top:10px;padding:11px 13px;border-radius:9px;border:1px solid #e3ddd0;background:#f7f4ee;">' +
+      '<div class="dci-big" style="font-family:Calibri,sans-serif;font-size:18px;font-weight:700;color:#7a7264;">\u2014</div>' +
+      '<div class="dci-sub" style="font-family:Calibri,sans-serif;font-size:13px;color:#7a7264;margin-top:3px;">Type a length to see how it reads. Dash means feet-inches (8-4 = 8\u2032-4\u2033).</div>' +
       '</div>' +
-      '<div class="dim-cal-imperial" style="display:flex;gap:8px;margin-bottom:8px;">' +
-      '<div style="flex:1;"><label style="display:block;font-family:Calibri,sans-serif;font-size:12px;color:#555;margin-bottom:3px;">Feet</label>' +
-      '<input type="text" inputmode="decimal" class="dim-cal-ft" placeholder="12" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #B0A89C;border-radius:4px;font-family:Calibri,sans-serif;font-size:15px;"></div>' +
-      '<div style="flex:1.4;"><label style="display:block;font-family:Calibri,sans-serif;font-size:12px;color:#555;margin-bottom:3px;">Inches (1.5 or 1-1/2 or 1 1/2)</label>' +
-      '<input type="text" class="dim-cal-in" placeholder="3 1/2" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #B0A89C;border-radius:4px;font-family:Calibri,sans-serif;font-size:15px;"></div>' +
-      '</div>' +
-      '<div class="dim-cal-metric" style="display:none;margin-bottom:8px;">' +
-      '<label style="display:block;font-family:Calibri,sans-serif;font-size:12px;color:#555;margin-bottom:3px;">Meters</label>' +
-      '<input type="text" inputmode="decimal" class="dim-cal-m" placeholder="3.74" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #B0A89C;border-radius:4px;font-family:Calibri,sans-serif;font-size:15px;"></div>' +
-      '<div class="dim-cal-hint" style="font-family:Calibri,sans-serif;font-size:12px;color:#888;min-height:16px;margin-bottom:14px;"></div>' +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
-      '<button class="dim-cal-cancel" style="font-family:Calibri,sans-serif;font-size:14px;padding:8px 14px;background:#eee;color:#444;border:none;border-radius:4px;cursor:pointer;">Cancel</button>' +
-      '<button class="dim-cal-ok" style="font-family:Calibri,sans-serif;font-size:14px;font-weight:600;padding:8px 18px;background:#9C2742;color:#fff;border:none;border-radius:4px;cursor:pointer;">Save Calibration</button>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">' +
+      '<button class="dim-cal-cancel" style="font-family:Calibri,sans-serif;font-size:14px;padding:9px 16px;background:#e8e3da;color:#5a5247;border:none;border-radius:8px;cursor:pointer;">Cancel</button>' +
+      '<button class="dim-cal-ok" disabled style="font-family:Calibri,sans-serif;font-size:14px;font-weight:700;padding:9px 18px;background:#9C2742;color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:.45;">Save calibration</button>' +
       '</div>';
-    modal.style.cssText = 'background:#fff;border-radius:8px;padding:20px 24px;min-width:380px;max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,.3);';
+    modal.style.cssText = 'position:relative;background:#fff;border-radius:14px;padding:20px 22px;min-width:360px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.4);';
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    var ftInput = modal.querySelector('.dim-cal-ft');
-    var inInput = modal.querySelector('.dim-cal-in');
-    var mInput = modal.querySelector('.dim-cal-m');
-    var hint = modal.querySelector('.dim-cal-hint');
-    var imperialDiv = modal.querySelector('.dim-cal-imperial');
-    var metricDiv = modal.querySelector('.dim-cal-metric');
-    var unitFtBtn = modal.querySelector('.dim-cal-unit[data-u="ft"]');
-    var unitMBtn = modal.querySelector('.dim-cal-unit[data-u="m"]');
+    var valInput = modal.querySelector('.dim-cal-val');
+    var interpBox = modal.querySelector('.dim-cal-interp');
+    var interpBig = modal.querySelector('.dci-big');
+    var interpSub = modal.querySelector('.dci-sub');
     var okBtn = modal.querySelector('.dim-cal-ok');
     var cancelBtn = modal.querySelector('.dim-cal-cancel');
-    var currentUnit = 'ft';
-    setTimeout(function () { ftInput.focus(); }, 60);
+    var xBtn = modal.querySelector('.dim-cal-x');
+    var lastParsed = null;
+    setTimeout(function () { valInput.focus(); }, 60);
 
-    function _setUnit(u) {
-      currentUnit = u;
-      if (u === 'ft') {
-        imperialDiv.style.display = 'flex'; metricDiv.style.display = 'none';
-        unitFtBtn.style.background = '#fff'; unitFtBtn.style.color = '#444';
-        unitMBtn.style.background = 'transparent'; unitMBtn.style.color = '#6a5a3a';
-        setTimeout(function () { ftInput.focus(); }, 30);
+    function _updateInterp() {
+      var res = parseLength(valInput.value);
+      lastParsed = res;
+      var ok = res.meters != null && res.meters > 0;
+      if (!valInput.value.trim()) {
+        interpBig.textContent = '\u2014';
+        interpSub.textContent = 'Type a length to see how it reads. Dash means feet-inches (8-4 = 8\u2032-4\u2033).';
+        interpBox.style.background = '#f7f4ee'; interpBox.style.borderColor = '#e3ddd0';
+        interpBig.style.color = '#7a7264'; interpSub.style.color = '#7a7264';
+      } else if (res.isNote || !ok) {
+        interpBig.textContent = 'Not a length';
+        interpSub.textContent = 'Try a number, like 8-4, 12, or 2.5m.';
+        interpBox.style.background = '#FBE3E9'; interpBox.style.borderColor = '#f0c6d0';
+        interpBig.style.color = '#8a2740'; interpSub.style.color = '#8a2740';
       } else {
-        imperialDiv.style.display = 'none'; metricDiv.style.display = 'block';
-        unitMBtn.style.background = '#fff'; unitMBtn.style.color = '#444';
-        unitFtBtn.style.background = 'transparent'; unitFtBtn.style.color = '#6a5a3a';
-        setTimeout(function () { mInput.focus(); }, 30);
+        interpBig.textContent = '= ' + res.label;
+        var guess = res.confidence === 'guess';
+        interpSub.textContent = guess
+          ? 'No units given \u2014 assumed feet. Add \u2032 or m to be explicit.'
+          : (res.system === 'metric' ? 'Metric.' : 'Imperial, rounded to the nearest half-inch.');
+        interpBox.style.background = guess ? '#FBF1E0' : '#EAF4EC';
+        interpBox.style.borderColor = guess ? '#f0dcbb' : '#cfe7d6';
+        interpBig.style.color = guess ? '#7a5414' : '#1d5b39';
+        interpSub.style.color = guess ? '#7a5414' : '#1d5b39';
       }
-      _updateHint();
+      okBtn.disabled = !ok;
+      okBtn.style.opacity = ok ? '1' : '.45';
+      okBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
     }
-    unitFtBtn.addEventListener('click', function () { _setUnit('ft'); });
-    unitMBtn.addEventListener('click', function () { _setUnit('m'); });
-
-    function _updateHint() {
-      if (currentUnit === 'ft') {
-        var ft = _parseDimNumber(ftInput.value);
-        var inch = _parseDimNumber(inInput.value);
-        if (ft === 0 && inch === 0) { hint.textContent = ''; return; }
-        var totalFt = ft + inch / 12;
-        hint.textContent = '\u2192 ' + formatLabel(totalFt, 'ft') + '  (' + totalFt.toFixed(4) + ' ft)';
-      } else {
-        var m = _parseDimNumber(mInput.value);
-        if (m === 0) { hint.textContent = ''; return; }
-        hint.textContent = '\u2192 ' + formatLabel(m, 'm');
-      }
-    }
-    ftInput.addEventListener('input', _updateHint);
-    inInput.addEventListener('input', _updateHint);
-    mInput.addEventListener('input', _updateHint);
+    valInput.addEventListener('input', _updateInterp);
 
     function _close(result) {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
       if (onComplete) onComplete(result);
     }
     cancelBtn.addEventListener('click', function () { _close(null); });
+    xBtn.addEventListener('click', function () { _close(null); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) _close(null); });
+
     okBtn.addEventListener('click', function () {
-      var realDist;
-      if (currentUnit === 'ft') {
-        var ft = _parseDimNumber(ftInput.value);
-        var inch = _parseDimNumber(inInput.value);
-        realDist = ft + inch / 12;
-      } else {
-        realDist = _parseDimNumber(mInput.value);
+      var res = lastParsed || parseLength(valInput.value);
+      if (!(res && res.meters != null && res.meters > 0)) {
+        valInput.style.borderColor = '#A85959'; valInput.focus(); return;
       }
-      if (!(realDist > 0)) {
-        var target = currentUnit === 'ft' ? ftInput : mInput;
-        target.style.borderColor = '#A85959';
-        target.focus();
-        return;
-      }
+      // Store in the unit the user expressed it in (ft or m), matching the
+      // existing calibration object contract.
+      var units = res.system === 'metric' ? 'm' : 'ft';
+      var realDist = units === 'm' ? res.meters : (res.meters * FT_PER_M); // metres → feet
       var px = _pixelDist(x1, y1, x2, y2);
       if (!(px > 0)) { _close(null); return; }
       var calibration = {
         p1: { x: x1, y: y1 },
         p2: { x: x2, y: y2 },
         realDistance: realDist,
-        units: currentUnit,
+        units: units,
         scaleRatio: realDist / px,
         createdAt: new Date().toISOString(),
         _guessed: false
@@ -564,13 +551,11 @@
         }
       });
     });
-    function _handleKey(e) {
-      if (e.key === 'Enter') { e.preventDefault(); okBtn.click(); }
-      if (e.key === 'Escape') { e.preventDefault(); cancelBtn.click(); }
-    }
-    ftInput.addEventListener('keydown', _handleKey);
-    inInput.addEventListener('keydown', _handleKey);
-    mInput.addEventListener('keydown', _handleKey);
+    valInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); if (!okBtn.disabled) okBtn.click(); }
+      if (e.key === 'Escape') { e.preventDefault(); _close(null); }
+    });
+    _updateInterp();
   }
 
   // ── Chain state machine (S126 #6) ────────────────────────────────────

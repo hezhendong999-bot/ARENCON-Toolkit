@@ -6586,6 +6586,96 @@ body.dark-mode #mk-dimension.tool-btn.active {
   -webkit-user-select: none;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   S331 #37 — Dimension sub-toolbar REDESIGN (three priority zones).
+   Zone 1 = Dimension primary (burgundy). Zone 2 = modes. Zone 3 = optional
+   Calibrate + unit toggle. Cleaner, clearer than the flat v1 strip.
+   Muted palette · Calibri · burgundy #9C2742 primary only.
+   ═══════════════════════════════════════════════════════════════════════ */
+.dim-sub-toolbar.dim-sub-v2 {
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #C8C0B0;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.20);
+  max-width: calc(100% - 16px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+/* zone divider */
+.dim-sub-v2 .dim-zone-div {
+  width: 1px; align-self: stretch; background: #ddd5c4; margin: 0 1px;
+}
+/* zone 1 — primary Dimension button */
+.dim-sub-v2 .dim-primary-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #efe9dc; color: #6a5a3a;
+  border: 1px solid #d8cdb6; border-radius: 8px;
+  padding: 8px 14px; font-family: Calibri, sans-serif;
+  font-size: 13px; font-weight: 700; cursor: pointer; min-height: 40px;
+  transition: filter .12s, transform .05s, background .12s, color .12s, border-color .12s;
+}
+.dim-sub-v2 .dim-primary-btn:hover { background: #e7dfcd; }
+.dim-sub-v2 .dim-primary-btn:active { transform: translateY(1px); }
+.dim-sub-v2 .dim-primary-btn.active {
+  background: #9C2742; color: #fff; border-color: #9C2742;
+  box-shadow: 0 2px 7px rgba(156, 39, 66, .30);
+}
+.dim-sub-v2 .dim-primary-btn .dp-ic { font-size: 15px; }
+.dim-sub-v2 .dim-primary-btn .dp-tag {
+  font-size: 9px; font-weight: 600; letter-spacing: .5px;
+  background: rgba(255, 255, 255, .2); padding: 1px 5px; border-radius: 4px; display: none;
+}
+.dim-sub-v2 .dim-primary-btn.active .dp-tag { display: inline-block; }
+/* zone 2 — modes */
+.dim-sub-v2 .dim-mode-zone { display: inline-flex; align-items: center; gap: 5px; }
+.dim-sub-v2 .dim-zone-lbl {
+  font-size: 10px; font-weight: 600; color: #9a8e74; letter-spacing: .4px;
+}
+.dim-sub-v2 .dim-mode-pill { margin-left: 0; background: #ede5d3; border-radius: 7px; padding: 2px; }
+.dim-sub-v2 .dim-mode-btn { padding: 6px 11px; border-radius: 5px; min-height: 30px; }
+.dim-sub-v2 .dim-mode-btn.active { background: #fff; color: #3a352c; box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+/* zone 3 — optional cluster */
+.dim-sub-v2 .dim-opt-zone { display: inline-flex; align-items: center; gap: 7px; }
+.dim-sub-v2 .dim-cal-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent; color: #7a6f5a;
+  border: 1px solid #d8cdb6; border-radius: 7px;
+  padding: 7px 11px; font-family: Calibri, sans-serif;
+  font-size: 12px; font-weight: 600; cursor: pointer; min-height: 36px;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.dim-sub-v2 .dim-cal-btn:hover { background: #f2ead8; }
+.dim-sub-v2 .dim-cal-btn.active { background: #5a4f68; color: #fff; border-color: #5a4f68; }
+.dim-sub-v2 .dim-cal-btn .dim-opt-tag { font-size: 10px; font-weight: 400; color: #a89c82; }
+.dim-sub-v2 .dim-cal-btn.active .dim-opt-tag { color: #d6c8e0; }
+.dim-sub-v2 .dim-unit-pill { background: #ede5d3; border-radius: 7px; padding: 2px; }
+.dim-sub-v2 .dim-unit-btn { padding: 6px 10px; border-radius: 5px; min-height: 30px; }
+.dim-sub-v2 .dim-unit-btn.active { background: #fff; color: #3a352c; box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+/* dark mode for v2 */
+body.dark-mode .dim-sub-toolbar.dim-sub-v2 { background: rgba(46,38,32,.97); border-color: #5A4D3E; }
+body.dark-mode .dim-sub-v2 .dim-zone-div { background: #5A4D3E; }
+body.dark-mode .dim-sub-v2 .dim-primary-btn { background: #3a3027; color: #e6dcc6; border-color: #5a4d3e; }
+body.dark-mode .dim-sub-v2 .dim-primary-btn:hover { background: #463a2d; }
+body.dark-mode .dim-sub-v2 .dim-primary-btn.active { background: #9C2742; color: #fff; border-color: #9C2742; }
+body.dark-mode .dim-sub-v2 .dim-zone-lbl { color: #b6a88c; }
+body.dark-mode .dim-sub-v2 .dim-mode-pill,
+body.dark-mode .dim-sub-v2 .dim-unit-pill { background: #2a2520; }
+body.dark-mode .dim-sub-v2 .dim-mode-btn { color: #c7b89d; }
+body.dark-mode .dim-sub-v2 .dim-mode-btn.active,
+body.dark-mode .dim-sub-v2 .dim-unit-btn.active { background: #5c4e3e; color: #fff; }
+body.dark-mode .dim-sub-v2 .dim-cal-btn { color: #c9bda6; border-color: #5a4d3e; }
+body.dark-mode .dim-sub-v2 .dim-cal-btn:hover { background: #463a2d; }
+body.dark-mode .dim-sub-v2 .dim-unit-btn { color: #c7b89d; }
+/* mobile: tighten so the 3 zones still fit ~380px (wraps if needed) */
+@media (max-width: 600px) {
+  .dim-sub-toolbar.dim-sub-v2 { top: 8px; gap: 6px; padding: 5px 6px; }
+  .dim-sub-v2 .dim-primary-btn { padding: 7px 11px; font-size: 12px; }
+  .dim-sub-v2 .dim-mode-btn, .dim-sub-v2 .dim-unit-btn { padding: 6px 9px; font-size: 11px; }
+  .dim-sub-v2 .dim-cal-btn { padding: 6px 9px; font-size: 11px; }
+}
+
 .dim-tb-btn {
   display: inline-flex;
   align-items: center;

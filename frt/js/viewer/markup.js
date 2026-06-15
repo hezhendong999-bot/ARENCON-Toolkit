@@ -234,6 +234,72 @@ function _renderDimensionPreview() {
   dim.renderPreview(ctx, _color, _lineWidth, _opacity);
 }
 
+// S331 #37 — Live calibration preview. After the first calibration point is
+// placed, draw a dimension-style rubber-band line to the cursor (dashed axis,
+// endpoint dots, a "set length…" chip) so calibrating looks/feels like drawing
+// a real dimension instead of clicking two bare dots. Drawing-space coords on
+// the overlay (same transform as _renderDimensionPreview). Display-only.
+function _renderCalibratePreview(p1, cursor) {
+  var ov = _ensureOverlay();
+  if (!ov) return;
+  ov.style.display = 'block';
+  ov.style.opacity = '1';
+  var ctx = ov.getContext('2d');
+  var d = ov._dpr || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.save();
+  var COL = '#9C2742';
+  ctx.strokeStyle = COL; ctx.fillStyle = COL;
+  ctx.lineWidth = Math.max(2, _lineWidth || 2);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // dashed measure axis
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(cursor.x, cursor.y);
+  ctx.stroke();
+  ctx.restore();
+  // endpoint dots
+  ctx.beginPath(); ctx.arc(p1.x, p1.y, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cursor.x, cursor.y, 5, 0, Math.PI * 2); ctx.fill();
+  // arrowheads at both ends
+  var ang = Math.atan2(cursor.y - p1.y, cursor.x - p1.x);
+  _calArrow(ctx, cursor.x, cursor.y, ang, COL);
+  _calArrow(ctx, p1.x, p1.y, ang + Math.PI, COL);
+  // "set length…" chip at midpoint
+  var mx = (p1.x + cursor.x) / 2, my = (p1.y + cursor.y) / 2;
+  var txt = 'set length\u2026';
+  ctx.font = 'bold 14px Calibri, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  var tw = ctx.measureText(txt).width;
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = COL; ctx.lineWidth = 1;
+  _calRoundRect(ctx, mx - tw / 2 - 7, my - 12, tw + 14, 24, 6);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = COL; ctx.fillText(txt, mx, my);
+  ctx.restore();
+}
+function _calArrow(ctx, x, y, ang, col) {
+  var s = 8;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - Math.cos(ang - 0.4) * s, y - Math.sin(ang - 0.4) * s);
+  ctx.lineTo(x - Math.cos(ang + 0.4) * s, y - Math.sin(ang + 0.4) * s);
+  ctx.closePath();
+  ctx.fillStyle = col; ctx.fill();
+}
+function _calRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 // S330 #37 — Dimension value keypad controller. Replaces the old inline
 // single-input. Units live OUTSIDE the keypad (the toolbar Imperial/Metric
 // toggle governs). The display is a real <input> — type on a keyboard, tap
@@ -2145,6 +2211,14 @@ function _moveDraw(e) {
     var posDM = _getPos(e);
     var dim = window._dimTool;
     if (!dim) return;
+    // (a0) Calibration in progress — after the FIRST calibration point, draw a
+    //      live rubber-band dimension line to the cursor so calibration looks
+    //      and feels like drawing a real dimension (S331 #37, locked spec §29),
+    //      not clicking two bare dots. Display-only; nothing stored until save.
+    if (_dimCalibrateMode && _dimCalibrateP1) {
+      _renderCalibratePreview(_dimCalibrateP1, posDM);
+      return;
+    }
     // (a) Vertex drag
     if (_dimVertexEditId != null && _dimVertexDragHandle != null && _isDrawing) {
       var dragObj = _findObj(_dimVertexEditId);
