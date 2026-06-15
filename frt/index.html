@@ -11,7 +11,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=652">
+<link rel="stylesheet" href="css/frt.css?v=653">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -592,7 +592,7 @@ function ensurePdfJs(cb){
       <button id="dv-more-btn" title="More options">⋯</button>
       <div id="dv-more-menu" class="dv-more-menu" style="display:none;">
         <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
-        <button data-dv-action="heights" class="dv-menu-item">📐 Heights / Dimensions</button>
+        <button data-dv-action="heights" class="dv-menu-item">📐 Field Heights</button>
       </div>
     </div>
     <span id="dv-spacer-v75"></span>
@@ -741,10 +741,9 @@ function ensurePdfJs(cb){
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-pen-btn" title="Pen">✎</button>
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-shapes-btn" title="Rectangle">▢</button>
       <button class="dv-tr-btn dv-tr-sq dv-tr-serif" data-mk-target="mk-text" title="Text">T</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-dimension" title="Dimension">📐</button>
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-eraser" title="Eraser">⌫</button>
-      <!-- S79: color swatch + undo + redo (PC-parity) — proxied via data-mk-target -->
-      <span class="dv-tr-sep" aria-hidden="true"></span>
-      <button class="dv-tr-btn dv-tr-color" data-mk-target="mk-color-btn" title="Color"><span class="dv-tr-color-dot" id="dv-tr-color-dot"></span></button>
+      <!-- S79: color moved to style strip (S331) to free a slot for dimension -->
       <span class="dv-tr-sep" aria-hidden="true"></span>
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-undo" title="Undo">↶</button>
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-redo" title="Redo">↷</button>
@@ -752,6 +751,7 @@ function ensurePdfJs(cb){
     <div id="dv-stylestrip-v75">
       <span class="dv-ss-group"><span class="dv-ss-lbl">SIZE</span><button class="dv-ss-step" data-ss="size" data-d="-1">−</button><span id="dv-ss-size-v75" class="dv-ss-val">3</span><button class="dv-ss-step" data-ss="size" data-d="1">+</button></span>
       <span class="dv-ss-group"><span class="dv-ss-lbl">OPAC</span><button class="dv-ss-step" data-ss="opacity" data-d="-1">−</button><span id="dv-ss-op-v75" class="dv-ss-val">100</span><button class="dv-ss-step" data-ss="opacity" data-d="1">+</button></span>
+      <span class="dv-ss-group"><span class="dv-ss-lbl">COLOR</span><button class="dv-tr-btn dv-tr-color dv-ss-color" data-mk-target="mk-color-btn" title="Color"><span class="dv-tr-color-dot" id="dv-tr-color-dot"></span></button></span>
     </div>
     <!-- DRAWING CANVAS -->
     <div class="dv-canvas-area" id="dv-canvas-area">
@@ -847,7 +847,7 @@ function ensurePdfJs(cb){
   <!-- HEIGHTS PANEL (overlay) -->
   <div id="dv-heights-panel" class="dv-heights-panel" style="display:none;">
     <div class="dv-heights-header">
-      <span>📐 Field Heights / Dimensions</span>
+      <span>📐 Field Heights</span>
       <button id="dv-heights-close" style="background:none;border:none;color:inherit;cursor:pointer;font-size:18px;">✕</button>
     </div>
     <div class="dv-heights-copy">
@@ -1017,7 +1017,7 @@ function ensurePdfJs(cb){
     r.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-redo');if(t)t.click();});
     a.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var t=document.getElementById('dv-more-btn');if(t)t.click();});
     /* Push 3.2: copy legacy button innerHTML into new tool row buttons */
-    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn').forEach(function(b){
+    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
       var leg=document.getElementById(b.dataset.mkTarget);
       if(leg&&leg.innerHTML.trim()){
         b.innerHTML=leg.innerHTML;
@@ -1031,7 +1031,7 @@ function ensurePdfJs(cb){
       'mk-shapes-btn':'shapes-submenu',
       'mk-color-btn':'color-submenu'
     };
-    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn').forEach(function(b){
+    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
       if(b.dataset.wired)return;b.dataset.wired='1';
       b.addEventListener('click',function(e){
         e.preventDefault();
@@ -1074,7 +1074,7 @@ function ensurePdfJs(cb){
     /* Push 3: active-state mirror via MutationObserver on legacy tool buttons */
     var legacyMap={'mk-pin':0,'mk-select':0,'mk-pen-btn':0,'mk-shapes-btn':0,'mk-text':0,'mk-eraser':0};
     function syncActive(){
-      document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn').forEach(function(b){
+      document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
         var leg=document.getElementById(b.dataset.mkTarget);
         if(!leg)return;
         var act=leg.classList.contains('active')||leg.getAttribute('aria-pressed')==='true';

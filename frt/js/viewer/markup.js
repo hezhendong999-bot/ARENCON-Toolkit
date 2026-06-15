@@ -1128,6 +1128,24 @@ function _renderAll() {
     }
   }
 
+  // S331d #37 — Dimension objects are NOT rendered by the WebGL path
+  // (WebGLMarkupRenderer has no 'dimension' case and dims use mx1/my1, not
+  // x1/y1, so they were created + saved but never painted — the long-standing
+  // "dimension won't show" bug). When WebGL is active, draw dimensions here on
+  // the 2D markup canvas (which sits above the WebGL canvas) so they appear.
+  // They also carry text labels, which the 2D path renders correctly.
+  if (useWebGLNow){
+    for (var _di = 0; _di < _objects.length; _di++){
+      var _dobj = _objects[_di];
+      if (_dobj && _dobj.type === 'dimension' &&
+          window._dimTool && typeof window._dimTool.renderObject === 'function'){
+        ctx.save();
+        window._dimTool.renderObject(ctx, _dobj);
+        ctx.restore();
+      }
+    }
+  }
+
   if (!useWebGLNow){
     // ── Canvas 2D path (original) ─────────────────────────
     // Also clear the WebGL canvas if we have one but aren't using it this pass

@@ -2935,6 +2935,18 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   body.dark-mode .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-color .dv-tr-color-dot{
     border-color:#2a2d35;box-shadow:0 0 0 1px rgba(255,255,255,.2);
   }
+  /* S331 — color button relocated into the style strip (next to OPAC) */
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-color{
+    padding:0 !important;border:none !important;background:transparent !important;
+    width:28px;height:28px;display:inline-flex !important;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-color .dv-tr-color-dot{
+    display:block;width:22px;height:22px;border-radius:50%;background:#A85959;
+    border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);
+  }
+  body.dark-mode .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-color .dv-tr-color-dot{
+    border-color:#2a2d35;box-shadow:0 0 0 1px rgba(255,255,255,.2);
+  }
 }
 
 /* === Session 75 Push 5a — toolbar navy in day mode (match header) === */
