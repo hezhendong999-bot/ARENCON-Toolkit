@@ -6676,6 +6676,85 @@ body.dark-mode .dim-sub-v2 .dim-unit-btn { color: #c7b89d; }
   .dim-sub-v2 .dim-cal-btn { padding: 6px 9px; font-size: 11px; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   S331c #37 — Dimension sub-toolbar SLIM v3. One compact light row that
+   doesn't dominate the canvas (the v2 dark slab was too big). Activated by
+   the 📐 tool button. Dimension = burgundy primary; modes + unit + calibrate
+   are small inline controls. No wrap, light panel, small footprint.
+   ═══════════════════════════════════════════════════════════════════════ */
+.dim-sub-toolbar.dim-sub-v3 {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #C8C0B0;
+  border-radius: 9px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  max-width: calc(100% - 12px);
+}
+.dim-sub-v3 .dim-v3-primary {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #efe9dc; color: #6a5a3a;
+  border: 1px solid #d8cdb6; border-radius: 7px;
+  padding: 6px 11px; font-family: Calibri, sans-serif;
+  font-size: 13px; font-weight: 700; cursor: pointer; min-height: 34px;
+  transition: filter .12s, transform .05s, background .12s, color .12s, border-color .12s;
+}
+.dim-sub-v3 .dim-v3-primary:hover { background: #e7dfcd; }
+.dim-sub-v3 .dim-v3-primary:active { transform: translateY(1px); }
+.dim-sub-v3 .dim-v3-primary.active {
+  background: #9C2742; color: #fff; border-color: #9C2742;
+  box-shadow: 0 1px 5px rgba(156, 39, 66, .30);
+}
+.dim-sub-v3 .dim-v3-primary .dim-v3-ic { font-size: 14px; }
+.dim-sub-v3 .dim-v3-pill { margin-left: 0; background: #ede5d3; border-radius: 7px; padding: 2px; display: inline-flex; }
+.dim-sub-v3 .dim-mode-btn {
+  background: transparent; border: none; color: #6a5a3a;
+  font-family: Calibri, sans-serif; font-size: 12px; font-weight: 600;
+  padding: 5px 9px; border-radius: 5px; cursor: pointer; min-height: 28px;
+}
+.dim-sub-v3 .dim-mode-btn.active { background: #fff; color: #3a352c; box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+.dim-sub-v3 .dim-unit-btn {
+  background: transparent; border: none; color: #6a5a3a;
+  font-family: Calibri, sans-serif; font-size: 12px; font-weight: 700;
+  padding: 5px 9px; border-radius: 5px; cursor: pointer; min-height: 28px; min-width: 26px;
+}
+.dim-sub-v3 .dim-unit-btn.active { background: #fff; color: #3a352c; box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+.dim-sub-v3 .dim-v3-cal {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: #7a6f5a;
+  border: 1px solid #d8cdb6; border-radius: 7px;
+  width: 34px; height: 34px; font-size: 15px; cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.dim-sub-v3 .dim-v3-cal:hover { background: #f2ead8; }
+.dim-sub-v3 .dim-v3-cal.active { background: #5a4f68; color: #fff; border-color: #5a4f68; }
+/* dark mode */
+body.dark-mode .dim-sub-toolbar.dim-sub-v3 { background: rgba(46,38,32,.97); border-color: #5A4D3E; }
+body.dark-mode .dim-sub-v3 .dim-v3-primary { background: #3a3027; color: #e6dcc6; border-color: #5a4d3e; }
+body.dark-mode .dim-sub-v3 .dim-v3-primary.active { background: #9C2742; color: #fff; border-color: #9C2742; }
+body.dark-mode .dim-sub-v3 .dim-v3-pill { background: #2a2520; }
+body.dark-mode .dim-sub-v3 .dim-mode-btn, body.dark-mode .dim-sub-v3 .dim-unit-btn { color: #c7b89d; }
+body.dark-mode .dim-sub-v3 .dim-mode-btn.active, body.dark-mode .dim-sub-v3 .dim-unit-btn.active { background: #5c4e3e; color: #fff; }
+body.dark-mode .dim-sub-v3 .dim-v3-cal { color: #c9bda6; border-color: #5a4d3e; }
+body.dark-mode .dim-sub-v3 .dim-v3-cal:hover { background: #463a2d; }
+/* mobile: even tighter so it fits ~380px without wrapping */
+@media (max-width: 600px) {
+  .dim-sub-toolbar.dim-sub-v3 { top: 8px; gap: 4px; padding: 3px 5px; }
+  .dim-sub-v3 .dim-v3-primary { padding: 6px 9px; font-size: 12px; min-height: 32px; }
+  .dim-sub-v3 .dim-v3-primary .dim-v3-txt { display: inline; }
+  .dim-sub-v3 .dim-mode-btn { padding: 5px 7px; font-size: 11px; }
+  .dim-sub-v3 .dim-unit-btn { padding: 5px 7px; font-size: 11px; min-width: 22px; }
+  .dim-sub-v3 .dim-v3-cal { width: 32px; height: 32px; font-size: 14px; }
+}
+/* very narrow (≤400px portrait): drop the Dimension word, keep the icon, so
+   the whole bar stays on one line */
+@media (max-width: 400px) {
+  .dim-sub-v3 .dim-v3-primary .dim-v3-txt { display: none; }
+  .dim-sub-v3 .dim-v3-primary { padding: 6px 8px; }
+}
+
 .dim-tb-btn {
   display: inline-flex;
   align-items: center;

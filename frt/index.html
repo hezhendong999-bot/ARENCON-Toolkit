@@ -11,7 +11,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=651">
+<link rel="stylesheet" href="css/frt.css?v=652">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -764,31 +764,21 @@ function ensurePdfJs(cb){
            dimension tool is active. Calibrate triggers 2-click calibration
            flow; Add returns to draw mode; chain pill switches between
            Single / Continuous / Running modes. -->
-      <div id="dim-sub-toolbar" class="dim-sub-toolbar dim-sub-v2" style="display:none;">
-        <!-- zone 1: PRIMARY action — Dimension is THE button. dim-add-btn id kept
-             for wiring back-compat; it now reads "Dimension" and is the burgundy primary. -->
-        <button id="dim-add-btn" class="dim-primary-btn active" data-tip="Draw a dimension: click start → end → offset">
-          <span class="dp-ic">📐</span><span class="dp-label">Dimension</span><span class="dp-tag">DRAW</span>
+      <div id="dim-sub-toolbar" class="dim-sub-toolbar dim-sub-v3" style="display:none;">
+        <!-- Dimension = primary (burgundy when active). dim-add-btn id kept for wiring. -->
+        <button id="dim-add-btn" class="dim-v3-primary active" data-tip="Draw a dimension: click start → end → offset">
+          <span class="dim-v3-ic">📐</span><span class="dim-v3-txt">Dimension</span>
         </button>
-        <div class="dim-zone-div"></div>
-        <!-- zone 2: modes — dim until the tool is active -->
-        <div class="dim-mode-zone" id="dim-mode-zone">
-          <span class="dim-zone-lbl">MODE</span>
-          <div class="dim-mode-pill">
-            <button class="dim-mode-btn active" data-dim-mode="single">Single</button>
-            <button class="dim-mode-btn" data-dim-mode="continuous">Continuous</button>
-            <button class="dim-mode-btn" data-dim-mode="running">Running</button>
-          </div>
+        <div class="dim-mode-pill dim-v3-pill">
+          <button class="dim-mode-btn active" data-dim-mode="single" data-tip="Single">Single</button>
+          <button class="dim-mode-btn" data-dim-mode="continuous" data-tip="Continuous">Cont.</button>
+          <button class="dim-mode-btn" data-dim-mode="running" data-tip="Running">Run</button>
         </div>
-        <div class="dim-zone-div"></div>
-        <!-- zone 3: optional cluster — Calibrate (optional) + unit toggle, pushed right -->
-        <div class="dim-opt-zone">
-          <button id="dim-calibrate-btn" class="dim-cal-btn" data-tip="Optional — draw across a known distance to set scale">📏 Calibrate <span class="dim-opt-tag">optional</span></button>
-          <div class="dim-unit-pill">
-            <button class="dim-unit-btn active" data-dim-unit="imperial">Imperial</button>
-            <button class="dim-unit-btn" data-dim-unit="metric">Metric</button>
-          </div>
+        <div class="dim-unit-pill dim-v3-pill">
+          <button class="dim-unit-btn active" data-dim-unit="imperial">ft</button>
+          <button class="dim-unit-btn" data-dim-unit="metric">m</button>
         </div>
+        <button id="dim-calibrate-btn" class="dim-v3-cal" data-tip="Optional — draw across a known distance to set scale">📏</button>
       </div>
       <!-- S330 #37 — Dimension value keypad (units OUTSIDE; metric hides
            feet/inch keys). Floating on desktop, bottom-dock on touch. -->
