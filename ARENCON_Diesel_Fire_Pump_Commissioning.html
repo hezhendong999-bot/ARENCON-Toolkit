@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S346 (PRV/PRdV pills, badge redesign, toggle+zone shrink). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S347 (PRV/PRdV bound to without-PLD condition only). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -5390,7 +5390,7 @@ var _flowPhotoTbl=null, _flowPhotoIdx=null, _flowPhotoActiveReading='suction', _
 // Without PLD (run direct). The mode is a SEPARATE field on each photo so the two
 // never mix. 3-pt (std table) has no PLD dimension → mode stays null. Default 'pld'.
 var _flowPhotoActiveMode='pld';
-function _flowPhotoSetActiveMode(m){ _flowPhotoActiveMode=(m==='direct')?'direct':'pld'; _renderFlowPhotoModal(); }
+function _flowPhotoSetActiveMode(m){ _flowPhotoActiveMode=(m==='direct')?'direct':'pld'; if(_flowPhotoActiveMode==='pld' && _GAUGE_DIRECT_ONLY[_flowPhotoActiveReading]) _flowPhotoActiveReading='suction'; /* S347: PRV/PRdV vanish under With-PLD — fall back to a visible reading */ _renderFlowPhotoModal(); }
 var _GAUGE_READINGS=[
   {k:'suction',  label:'Suction',  short:'S'},
   {k:'discharge',label:'Discharge',short:'D'},
@@ -5400,15 +5400,19 @@ var _GAUGE_READINGS=[
   {k:'prv',      label:'PRV',      short:'PRV'},
   {k:'prdv',     label:'PRdV',     short:'PRdV'}
 ];
-// S346: PRV (pressure-RELIEF valve, set at churn so discharge reads ~175) and
-// PRdV (pressure-REDUCING valve) gauge photos. Available on every flow point of
-// both 3-pt and 7-pt. Typically captured at 0% (max pressure) only, but not
-// enforced. ALWAYS UNMODED on the 7-pt table — they document a valve setpoint,
-// not a PLD-vs-direct flow reading, so they stay visible under both PLD modes.
+// S346/S347: PRV (pressure-RELIEF valve, set at churn so discharge reads ~175)
+// and PRdV (pressure-REDUCING valve) gauge photos. Available on every 3-pt flow
+// point, and on 7-pt ONLY in the Without-PLD (direct-run) condition — you set the
+// relief valve with PLD disconnected, never while PLD is actively limiting
+// pressure. Typically captured at 0% (max pressure) only, but not enforced.
 var _GAUGE_TAG_SHORT={suction:'S',discharge:'D',bf_in:'BFi',bf_out:'BFo',rpm:'RPM',prv:'PRV',prdv:'PRdV'};
 var _GAUGE_TAG_LABEL={suction:'Suction',discharge:'Discharge',bf_in:'BF-in',bf_out:'BF-out',rpm:'RPM',prv:'PRV',prdv:'PRdV'};
-// S346: readings exempt from the With-PLD/Without-PLD mode filter (always shown).
-var _GAUGE_MODE_EXEMPT={prv:true,prdv:true};
+// S347: readings that exist ONLY in the without-PLD (direct) condition. On the
+// 7-pt table their pills hide under With-PLD, their photos are tagged mode:'direct',
+// and they only render under the Without-PLD toggle.
+var _GAUGE_DIRECT_ONLY={prv:true,prdv:true};
+// S347: a direct-only reading is hidden when the 7-pt table is in With-PLD mode.
+function _gaugeReadingVisible(k){ return !(_GAUGE_DIRECT_ONLY[k] && _flowPhotoTbl==='pld' && _flowPhotoActiveMode==='pld'); }
 function _gaugeReadingColor(k){ return k==='rpm' ? 'var(--gr-rpm)' : (k==='suction'?'var(--info)':k==='discharge'?'var(--no)':k==='bf_in'?'var(--warn)':k==='bf_out'?'var(--yes)':k==='prv'?'var(--gr-prv)':k==='prdv'?'var(--gr-prdv)':'var(--silver)'); }
 function _flowPhotoRow(tbl,i){ var src=(tbl==='std'?stdData:pldData); return (src&&src[i])?src[i]:null; }
 function _flowPhotoAddFile(file){
@@ -5420,7 +5424,7 @@ function _flowPhotoAddFile(file){
     compressImage(ev.target.result, 1600, 0.85, function(c){
       var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
                tag:_flowPhotoActiveReading||'suction',
-               mode:(_flowPhotoTbl==='pld'&&!_GAUGE_MODE_EXEMPT[_flowPhotoActiveReading]?_flowPhotoActiveMode:null),
+               mode:(_flowPhotoTbl==='pld'?(_GAUGE_DIRECT_ONLY[_flowPhotoActiveReading]?'direct':_flowPhotoActiveMode):null),
                caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
       row.photos.push(_ph);
       _r2EnqueuePhoto(_ph);
@@ -5444,7 +5448,7 @@ function _flowPhotoAddFromSource(srcPhoto){
   function _commit(dataUrl){
     var _ph={d:dataUrl, n:(srcPhoto.n||'gallery.jpg'), id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
              tag:_flowPhotoActiveReading||'suction',
-             mode:(_flowPhotoTbl==='pld'&&!_GAUGE_MODE_EXEMPT[_flowPhotoActiveReading]?_flowPhotoActiveMode:null),
+             mode:(_flowPhotoTbl==='pld'?(_GAUGE_DIRECT_ONLY[_flowPhotoActiveReading]?'direct':_flowPhotoActiveMode):null),
              caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
     row.photos.push(_ph);
     _r2EnqueuePhoto(_ph);               // own key — never borrow source R2 URL
@@ -5514,6 +5518,7 @@ function _flowPhotoOpenReassign(j, btn){
   var pop=document.createElement('div'); pop.id='fpm-reassign'; pop.className='fpm-reassign';
   var h='';
   _GAUGE_READINGS.forEach(function(rd){
+    if(!_gaugeReadingVisible(rd.k)) return;
     h+='<button onclick="_flowPhotoSetReading('+j+',\''+rd.k+'\')"><span class="rd-dot" style="background:'+_gaugeReadingColor(rd.k)+'"></span>'+rd.label+'</button>';
   });
   pop.innerHTML=h;
@@ -5548,6 +5553,7 @@ function _renderFlowPhotoModal(){
   // reading selector
   h+='<div class="fpm-rdrow">';
   _GAUGE_READINGS.forEach(function(rd){
+    if(!_gaugeReadingVisible(rd.k)) return;
     var on=(_flowPhotoActiveReading===rd.k);
     var col=_gaugeReadingColor(rd.k);
     h+='<button class="fpm-rd'+(on?' active':'')+'" '+(on?'style="background:'+col+'"':'')+' onclick="_flowPhotoSetActiveReading(\''+rd.k+'\')">'
@@ -5566,6 +5572,7 @@ function _renderFlowPhotoModal(){
   var ptsLive = pts.filter(function(p){return !(p&&p.deleted);});
   if(ptsLive.length){
     _GAUGE_READINGS.forEach(function(rd){
+      if(!_gaugeReadingVisible(rd.k)) return;
       var col=_gaugeReadingColor(rd.k);
       h+='<div class="fpm-grp"><div class="fpm-grp-hd" style="border-left-color:'+col+'"><span class="gh-dot" style="background:'+col+'"></span>'+rd.label+'</div>';
       var any=false;
@@ -5576,8 +5583,9 @@ function _renderFlowPhotoModal(){
         // S345: on the 7-pt (pld) table, show ONLY the active mode's photos so
         // With-PLD and Without-PLD never mix. Legacy unmoded photos default to
         // 'pld' so they don't disappear. The std (3-pt) table has no mode filter.
-        // S346: PRV/PRdV are valve-setpoint photos — always visible, never mode-filtered.
-        if(_flowPhotoTbl==='pld' && !_GAUGE_MODE_EXEMPT[p.tag] && (p.mode||'pld')!==_flowPhotoActiveMode) return;
+        // S347: PRV/PRdV are tagged mode:'direct', so the normal filter already
+        // shows them under Without-PLD and hides them under With-PLD.
+        if(_flowPhotoTbl==='pld' && (p.mode||'pld')!==_flowPhotoActiveMode) return;
         any=true;
         h+='<div class="fpm-thumb"><img src="'+(p.d||p.r2Url||'')+'" onclick="_flowPhotoLightbox('+j+')">'
           +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button>'
@@ -15438,7 +15446,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S346';
+var DIESEL_BUILD = 'S347';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
