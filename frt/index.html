@@ -979,7 +979,7 @@ function ensurePdfJs(cb){
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
      showCalibrationPrompt, renderObject). Loaded as plain JS before app.js
      so it's ready by the time markup.js dispatches a 'dimension' object. -->
-<script src="js/viewer/dimensionTool.js?v=9"></script>
+<script src="js/viewer/dimensionTool.js?v=10"></script>
 <script type="module" src="js/app.js"></script>
 
 <!-- S97 — Session recorder. Self-gates on ?dbg=1 or localStorage._frtDbg='1'.
@@ -1103,7 +1103,36 @@ function ensurePdfJs(cb){
         }
       });
     });
-    var sc=document.getElementById('dv-ss-color-v75');
+    /* S331 — click the SIZE/OPAC number to type a value directly (not just +/-). */
+    [['dv-ss-size-v75','mk-size-val','size',1,50],['dv-ss-op-v75','mk-opacity-val','opacity',1,100]].forEach(function(cfg){
+      var span=document.getElementById(cfg[0]);
+      if(!span||span.dataset.editWired)return;span.dataset.editWired='1';
+      span.style.cursor='text';
+      span.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        if(span.querySelector('input'))return;
+        var cur=parseInt(span.textContent,10)||0;
+        var inp=document.createElement('input');
+        inp.type='text';inp.inputMode='numeric';inp.value=cur;
+        inp.style.cssText='width:40px;font:inherit;text-align:center;border:1px solid #9C2742;border-radius:4px;padding:1px 2px;background:#fff;color:#222;';
+        span.textContent='';span.appendChild(inp);
+        inp.focus();inp.select();
+        function commit(){
+          var n=parseInt(inp.value,10);
+          var min=cfg[3],max=cfg[4];
+          if(isNaN(n))n=cur;
+          n=Math.max(min,Math.min(max,n));
+          span.textContent=n;
+          var legVal=document.getElementById(cfg[1]);
+          if(legVal){legVal.textContent=n;legVal.dispatchEvent(new Event('change',{bubbles:true}));}
+        }
+        inp.addEventListener('blur',commit);
+        inp.addEventListener('keydown',function(ev){
+          if(ev.key==='Enter'){ev.preventDefault();inp.blur();}
+          else if(ev.key==='Escape'){ev.preventDefault();span.textContent=cur;}
+        });
+      });
+    });
     if(sc&&!sc.dataset.wired){sc.dataset.wired='1';sc.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-color-btn')||document.getElementById('mk-color-swatch');if(t)t.click();});}
     /* S79: sync mobile toolrow color dot with PC mk-color-swatch */
     (function syncMobileColor(){

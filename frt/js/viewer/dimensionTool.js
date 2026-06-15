@@ -443,52 +443,60 @@
   // ── Calibration prompt UI (unchanged structurally from S125) ─────────
 
   function showCalibrationPrompt(drawing, x1, y1, x2, y2, onComplete) {
-    // S331 #37 — Clean single-field calibration modal with smart parse + live
-    // interpretation (spec §28). One input accepts 8-4, 8' 4 1/2", 12, 2.5m,
-    // 1905mm — the unit is inferred and shown live. The split feet/inches
-    // fields are gone. Imperial rounds to the nearest half-inch.
+    // S331e #37 — Compact, theme-aware calibration modal. Reads body.dark-mode
+    // and switches the whole palette; smaller footprint than the prior build.
+    var DARK = false;
+    try { DARK = document.body.classList.contains('dark-mode'); } catch (e) {}
+    var P = DARK ? {
+      ov:'rgba(0,0,0,.6)', card:'#231f29', rule:'#3a3340', ink:'#f4f3f6',
+      ink2:'#a79fb0', ink3:'#8a8194', badge:'#3a2030', accent:'#E26076',
+      xbg:'#332d3a', xink:'#b6acc2', inBg:'#1b1820', inBd:'#4a4356',
+      cardBg:'#2a2530', cardBd:'#3a3340', icoBg:'#3a3340', icoInk:'#a79fb0',
+      cancelBg:'#332d3a', cancelInk:'#cfc7d6'
+    } : {
+      ov:'rgba(20,18,24,.5)', card:'#fff', rule:'#efe9dc', ink:'#3a352c',
+      ink2:'#8a8073', ink3:'#9a8e74', badge:'#f3d9de', accent:'#9C2742',
+      xbg:'#f4f1ea', xink:'#8a8073', inBg:'#fff', inBd:'#d8d0bf',
+      cardBg:'#f7f4ee', cardBd:'#e3ddd0', icoBg:'#e3ddd0', icoInk:'#9a8e74',
+      cancelBg:'#f0ece3', cancelInk:'#6a6253'
+    };
     var overlay = document.createElement('div');
     overlay.id = 'dim-cal-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,18,24,.55);z-index:99998;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:' + P.ov + ';z-index:99998;display:flex;align-items:center;justify-content:center;padding:16px;';
 
     var modal = document.createElement('div');
     modal.className = 'dim-cal-modal';
     modal.innerHTML =
-      // ── header band: burgundy left accent + ruler glyph + title ──
-      '<div style="display:flex;align-items:center;gap:11px;padding:18px 20px 16px;border-bottom:1px solid #efe9dc;position:relative;">' +
-        '<div style="width:38px;height:38px;border-radius:10px;background:#f3d9de;color:#9C2742;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;">\ud83d\udccf</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;padding:14px 16px 12px;border-bottom:1px solid ' + P.rule + ';">' +
+        '<div style="width:32px;height:32px;border-radius:9px;background:' + P.badge + ';color:' + P.accent + ';display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">\ud83d\udccf</div>' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-family:Calibri,sans-serif;font-size:17px;font-weight:700;color:#9C2742;line-height:1.15;">Set the drawing scale</div>' +
-          '<div style="font-family:Calibri,sans-serif;font-size:13px;color:#8a8073;margin-top:1px;">How long is the line you just drew?</div>' +
+          '<div style="font-family:Calibri,sans-serif;font-size:15px;font-weight:700;color:' + P.accent + ';line-height:1.15;">Set the drawing scale</div>' +
+          '<div style="font-family:Calibri,sans-serif;font-size:12px;color:' + P.ink2 + ';margin-top:1px;">How long is the line you just drew?</div>' +
         '</div>' +
-        '<button class="dim-cal-x" aria-label="Close" style="width:30px;height:30px;border:none;background:#f4f1ea;border-radius:8px;color:#8a8073;font-size:15px;cursor:pointer;font-family:Calibri,sans-serif;flex-shrink:0;">\u2715</button>' +
+        '<button class="dim-cal-x" aria-label="Close" style="width:28px;height:28px;border:none;background:' + P.xbg + ';border-radius:7px;color:' + P.xink + ';font-size:14px;cursor:pointer;font-family:Calibri,sans-serif;flex-shrink:0;">\u2715</button>' +
       '</div>' +
-      // ── body ──
-      '<div style="padding:18px 20px 20px;">' +
-        '<label style="display:block;font-family:Calibri,sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;color:#9a8e74;text-transform:uppercase;margin-bottom:6px;">Real length</label>' +
-        '<div style="position:relative;">' +
-          '<input type="text" class="dim-cal-val" inputmode="text" autocomplete="off" placeholder="8-4" ' +
-            'style="width:100%;box-sizing:border-box;padding:13px 15px;border:2px solid #d8d0bf;border-radius:11px;font-family:Calibri,sans-serif;font-size:24px;font-weight:700;color:#3a352c;outline:none;transition:border-color .12s;">' +
-        '</div>' +
-        '<div style="font-family:Calibri,sans-serif;font-size:12px;color:#a89c82;margin-top:6px;">Type <b style="color:#7a6f5a;">8-4</b> for 8\u2032-4\u2033, <b style="color:#7a6f5a;">12</b> for 12 ft, or <b style="color:#7a6f5a;">2.5m</b> for metric.</div>' +
-        // interpretation card
-        '<div class="dim-cal-interp" style="margin-top:14px;padding:13px 15px;border-radius:11px;border:1px solid #e3ddd0;background:#f7f4ee;display:flex;align-items:center;gap:11px;">' +
-          '<div class="dci-icon" style="width:26px;height:26px;border-radius:50%;background:#e3ddd0;color:#9a8e74;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">=</div>' +
-          '<div style="min-width:0;">' +
-            '<div class="dci-big" style="font-family:Calibri,sans-serif;font-size:19px;font-weight:700;color:#7a7264;line-height:1.1;">\u2014</div>' +
-            '<div class="dci-sub" style="font-family:Calibri,sans-serif;font-size:12px;color:#7a7264;margin-top:2px;">Reads your length as you type.</div>' +
+      '<div style="padding:14px 16px 16px;">' +
+        '<input type="text" class="dim-cal-val" inputmode="text" autocomplete="off" placeholder="e.g. 8-4" ' +
+          'style="width:100%;box-sizing:border-box;padding:11px 13px;border:2px solid ' + P.inBd + ';border-radius:9px;font-family:Calibri,sans-serif;font-size:20px;font-weight:700;color:' + P.ink + ';background:' + P.inBg + ';outline:none;transition:border-color .12s;">' +
+        '<div style="font-family:Calibri,sans-serif;font-size:11px;color:' + P.ink3 + ';margin-top:5px;">8-4 → 8\u2032-4\u2033 \u00b7 12 → 12 ft \u00b7 2.5m → metric</div>' +
+        '<div class="dim-cal-interp" style="margin-top:11px;padding:10px 12px;border-radius:9px;border:1px solid ' + P.cardBd + ';background:' + P.cardBg + ';display:flex;align-items:center;gap:9px;">' +
+          '<div class="dci-icon" style="width:22px;height:22px;border-radius:50%;background:' + P.icoBg + ';color:' + P.icoInk + ';display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">=</div>' +
+          '<div style="min-width:0;flex:1;">' +
+            '<div class="dci-big" style="font-family:Calibri,sans-serif;font-size:17px;font-weight:700;color:' + P.ink2 + ';line-height:1.1;">\u2014</div>' +
+            '<div class="dci-sub" style="font-family:Calibri,sans-serif;font-size:11px;color:' + P.ink2 + ';margin-top:1px;">Reads your length as you type.</div>' +
           '</div>' +
         '</div>' +
-        // footer
-        '<div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px;">' +
-          '<button class="dim-cal-cancel" style="font-family:Calibri,sans-serif;font-size:14px;font-weight:600;padding:10px 18px;background:#f0ece3;color:#6a6253;border:none;border-radius:9px;cursor:pointer;">Cancel</button>' +
-          '<button class="dim-cal-ok" disabled style="font-family:Calibri,sans-serif;font-size:14px;font-weight:700;padding:10px 22px;background:#9C2742;color:#fff;border:none;border-radius:9px;cursor:pointer;opacity:.4;box-shadow:0 2px 8px rgba(156,39,66,.28);">Save scale</button>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
+          '<button class="dim-cal-cancel" style="font-family:Calibri,sans-serif;font-size:13px;font-weight:600;padding:9px 16px;background:' + P.cancelBg + ';color:' + P.cancelInk + ';border:none;border-radius:8px;cursor:pointer;">Cancel</button>' +
+          '<button class="dim-cal-ok" disabled style="font-family:Calibri,sans-serif;font-size:13px;font-weight:700;padding:9px 20px;background:#9C2742;color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:.4;">Save scale</button>' +
         '</div>' +
       '</div>';
-    modal.style.cssText = 'position:relative;background:#fff;border-radius:16px;min-width:380px;max-width:92vw;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;';
+    modal.style.cssText = 'position:relative;background:' + P.card + ';border-radius:14px;width:340px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden;';
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
+    // theme palette reused by _updateInterp for state colors
+    var _P = P;
     var valInput = modal.querySelector('.dim-cal-val');
     var interpBox = modal.querySelector('.dim-cal-interp');
     var interpBig = modal.querySelector('.dci-big');
@@ -507,9 +515,9 @@
       if (!valInput.value.trim()) {
         interpBig.textContent = '\u2014';
         interpSub.textContent = 'Reads your length as you type.';
-        interpBox.style.background = '#f7f4ee'; interpBox.style.borderColor = '#e3ddd0';
-        interpBig.style.color = '#7a7264'; interpSub.style.color = '#7a7264';
-        interpIcon.textContent = '='; interpIcon.style.background = '#e3ddd0'; interpIcon.style.color = '#9a8e74';
+        interpBox.style.background = _P.cardBg; interpBox.style.borderColor = _P.cardBd;
+        interpBig.style.color = _P.ink2; interpSub.style.color = _P.ink2;
+        interpIcon.textContent = '='; interpIcon.style.background = _P.icoBg; interpIcon.style.color = _P.icoInk;
       } else if (res.isNote || !ok) {
         interpBig.textContent = 'Not a length';
         interpSub.textContent = 'Try a number, like 8-4, 12, or 2.5m.';
@@ -536,7 +544,7 @@
     }
     valInput.addEventListener('input', _updateInterp);
     valInput.addEventListener('focus', function () { valInput.style.borderColor = '#9C2742'; });
-    valInput.addEventListener('blur', function () { valInput.style.borderColor = '#d8d0bf'; });
+    valInput.addEventListener('blur', function () { valInput.style.borderColor = _P.inBd; });
 
     function _close(result) {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -932,122 +940,92 @@
     var dax = ax + f.px * offset, day = ay + f.py * offset;
     var dbx = bx + f.px * offset, dby = by + f.py * offset;
     var ddx = dbx - dax, ddy = dby - day;
+    var ang = Math.atan2(ddy, ddx);
+    var col = obj.color || '#9C2742';
 
+    // Clean look matched to the signed-off demo: thin fixed line weight (not
+    // driven by the SIZE stepper), small fixed arrowheads, NO perpendicular
+    // tick stubs, and a horizontal white label chip with a colored border
+    // (not rotated, not white-outlined text). Override = underline beneath.
     ctx.save();
-    ctx.strokeStyle = obj.color || '#9C2742';
-    ctx.fillStyle = obj.color || '#9C2742';
-    ctx.lineWidth = obj.size || 2;
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.globalAlpha = obj.opacity != null ? obj.opacity : 1;
 
-    // 1. Extension lines from measured points to dimension line endpoints
-    //    (only when offset is meaningful)
+    // 1. Extension lines from measured points out to (slightly past) the dim line
     if (hasOffset) {
-      var stubGap = Math.min(4, Math.abs(offset) * 0.15);
-      var sgn = offset >= 0 ? 1 : -1;
-      var stubAx = ax + f.px * sgn * stubGap;
-      var stubAy = ay + f.py * sgn * stubGap;
-      var stubBx = bx + f.px * sgn * stubGap;
-      var stubBy = by + f.py * sgn * stubGap;
       ctx.beginPath();
-      ctx.moveTo(stubAx, stubAy); ctx.lineTo(dax, day);
-      ctx.moveTo(stubBx, stubBy); ctx.lineTo(dbx, dby);
+      ctx.moveTo(ax, ay); ctx.lineTo(dax + f.px * (offset >= 0 ? 3 : -3), day + f.py * (offset >= 0 ? 3 : -3));
+      ctx.moveTo(bx, by); ctx.lineTo(dbx + f.px * (offset >= 0 ? 3 : -3), dby + f.py * (offset >= 0 ? 3 : -3));
       ctx.stroke();
     }
 
-    // 2. Dimension line itself
+    // 2. Dimension line
     ctx.beginPath();
     ctx.moveTo(dax, day);
     ctx.lineTo(dbx, dby);
     ctx.stroke();
 
-    // 3. Arrowheads at both ends of dimension line
-    var ahLen = 10 + (ctx.lineWidth || 2) * 1.5;
-    var ahAngle = Math.PI / 8;
-    var a2 = Math.atan2(ddy, ddx);
-    ctx.beginPath();
-    ctx.moveTo(dbx, dby);
-    ctx.lineTo(dbx - ahLen * Math.cos(a2 - ahAngle), dby - ahLen * Math.sin(a2 - ahAngle));
-    ctx.lineTo(dbx - ahLen * Math.cos(a2 + ahAngle), dby - ahLen * Math.sin(a2 + ahAngle));
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(dax, day);
-    ctx.lineTo(dax + ahLen * Math.cos(a2 - ahAngle), day + ahLen * Math.sin(a2 - ahAngle));
-    ctx.lineTo(dax + ahLen * Math.cos(a2 + ahAngle), day + ahLen * Math.sin(a2 + ahAngle));
-    ctx.closePath();
-    ctx.fill();
+    // 3. Small fixed arrowheads (filled triangles), demo proportions (s=8)
+    _dimArrow(ctx, dbx, dby, ang, col);
+    _dimArrow(ctx, dax, day, ang + Math.PI, col);
 
-    // 4. Perpendicular tick stubs at each dim endpoint
-    var tickHalf = 6;
-    ctx.beginPath();
-    ctx.moveTo(dax + f.px * tickHalf, day + f.py * tickHalf);
-    ctx.lineTo(dax - f.px * tickHalf, day - f.py * tickHalf);
-    ctx.moveTo(dbx + f.px * tickHalf, dby + f.py * tickHalf);
-    ctx.lineTo(dbx - f.px * tickHalf, dby - f.py * tickHalf);
-    ctx.stroke();
-
-    // 5. Label — perpendicular-offset above the dimension line midpoint
+    // 4. Label — horizontal white chip with colored border at the dim midpoint
     var resolved = resolveLabel(obj);
-    var override = resolved.isOverride ? resolved.txt : null;
-    var label = resolved.isOverride
+    var isOverride = resolved.isOverride;
+    var label = isOverride
       ? resolved.txt
       : (obj.isGuess && resolved.txt && resolved.txt.charAt(0) !== '\u2014' ? '~' + resolved.txt : resolved.txt);
     if (label) {
       var mx = (dax + dbx) / 2, my = (day + dby) / 2;
-      var labelOffset = 14;
-      var lx = mx + f.px * labelOffset;
-      var ly = my + f.py * labelOffset;
-      var rot = a2;
-      if (rot > Math.PI / 2) rot -= Math.PI;
-      else if (rot < -Math.PI / 2) rot += Math.PI;
-      ctx.save();
-      ctx.translate(lx, ly);
-      ctx.rotate(rot);
-      var fontPx = Math.max(11, (obj.size || 2) * 5);
-      ctx.font = '600 ' + fontPx + 'px Calibri, sans-serif';
+      ctx.font = 'bold 14px Calibri, sans-serif';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-
-      // Option-D override pill: faint colored background behind the label
-      // text when overrideLabel is set. Sits in the same local coord space
-      // as the label (already translated + rotated). Padding 4 px h, 1 px v.
-      if (override != null) {
-        var tw = ctx.measureText(label).width;
-        var padH = 4, padV = 1;
-        var pillX = -tw / 2 - padH;
-        var pillY = -fontPx - padV;
-        var pillW = tw + padH * 2;
-        var pillH = fontPx + padV * 2;
-        ctx.save();
-        ctx.globalAlpha = 0.10 * (obj.opacity != null ? obj.opacity : 1);
-        ctx.fillStyle = obj.color || '#9C2742';
-        var r = 3;
+      ctx.textBaseline = 'middle';
+      var tw = ctx.measureText(label).width;
+      var chipW = tw + 14, chipH = 22, r = 6;
+      var cx = mx - chipW / 2, cy = my - chipH / 2;
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.25;
+      ctx.beginPath();
+      ctx.moveTo(cx + r, cy);
+      ctx.arcTo(cx + chipW, cy, cx + chipW, cy + chipH, r);
+      ctx.arcTo(cx + chipW, cy + chipH, cx, cy + chipH, r);
+      ctx.arcTo(cx, cy + chipH, cx, cy, r);
+      ctx.arcTo(cx, cy, cx + chipW, cy, r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.fillText(label, mx, my + 0.5);
+      // override underline
+      if (isOverride) {
         ctx.beginPath();
-        ctx.moveTo(pillX + r, pillY);
-        ctx.lineTo(pillX + pillW - r, pillY);
-        ctx.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + r);
-        ctx.lineTo(pillX + pillW, pillY + pillH - r);
-        ctx.quadraticCurveTo(pillX + pillW, pillY + pillH, pillX + pillW - r, pillY + pillH);
-        ctx.lineTo(pillX + r, pillY + pillH);
-        ctx.quadraticCurveTo(pillX, pillY + pillH, pillX, pillY + pillH - r);
-        ctx.lineTo(pillX, pillY + r);
-        ctx.quadraticCurveTo(pillX, pillY, pillX + r, pillY);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        ctx.moveTo(mx - tw / 2, my + 8);
+        ctx.lineTo(mx + tw / 2, my + 8);
+        ctx.lineWidth = 1.25;
+        ctx.strokeStyle = col;
+        ctx.stroke();
       }
-
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.strokeText(label, 0, 0);
-      ctx.fillStyle = obj.color || '#9C2742';
-      ctx.fillText(label, 0, 0);
-      ctx.restore();
+      obj._labelBox = { x: cx, y: cy, w: chipW, h: chipH };
     }
 
     ctx.restore();
+  }
+
+  // Small filled-triangle arrowhead, demo proportions (constant size).
+  function _dimArrow(ctx, x, y, ang, col) {
+    var s = 8;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - Math.cos(ang - 0.4) * s, y - Math.sin(ang - 0.4) * s);
+    ctx.lineTo(x - Math.cos(ang + 0.4) * s, y - Math.sin(ang + 0.4) * s);
+    ctx.closePath();
+    ctx.fillStyle = col;
+    ctx.fill();
   }
 
   // ── Public API ───────────────────────────────────────────────────────
