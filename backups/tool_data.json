@@ -1257,7 +1257,7 @@
         "ps-jco-d": "",
         "ps-jco-f": "",
         "so-title": "Licensed Engineering Technologist",
-        "np-ctlmfg": "Ronvtest",
+        "np-ctlmfg": "Ronnitest",
         "np-drvmfg": "Clarke",
         "np-maxbhp": "199.4",
         "np-maxdis": "275",
@@ -1270,7 +1270,7 @@
         "np-bhp-pld": "191.3",
         "np-mfr-pld": "S.A. Armstrong Limited",
         "pm-prv-pld": "125",
-        "pm-rpm-pld": "1350",
+        "pm-rpm-pld": "2350",
         "so-company": "ARENCON Inc.",
         "ws-res-psi": "48",
         "dem-spr-psi": "160",
@@ -1278,7 +1278,7 @@
         "np-size-pld": "8x6",
         "pi-projname": "Attic Space Sprinkler Upgrade",
         "pi-revision": "A01",
-        "pm-reducing": "165",
+        "pm-reducing": "144",
         "test-result": "fail",
         "ws-res-flow": "3200",
         "dem-spr-flow": "1500",
@@ -1311,14 +1311,14 @@
         "pld-dem-spr-psi": "160",
         "pld-ws-res-flow": "3200",
         "pm-reducing-pld": "",
-        "pi-date-modified": "2026-06-14 04:06",
+        "pi-date-modified": "2026-06-15 05:38",
         "pld-dem-spr-flow": "1500",
         "pld-dem-hose-flow": "250",
         "pld-ws-static-psi": "65",
         "pm-rated-flow-pld": "2000",
         "pld-ws-static-flow": "0"
       },
-      "_build": "S337b",
+      "_build": "S345",
       "batData": {
         "b1": [
           1,
@@ -1739,6 +1739,7 @@
               "mk": null,
               "tag": "bf_in",
               "date": "2026-06-12T01:23:37.496Z",
+              "mode": null,
               "_mkTs": 1781266454751,
               "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
               "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
@@ -1765,7 +1766,42 @@
           "suc_w": "21",
           "bfDown": "",
           "dis_no": "",
-          "photos": [],
+          "photos": [
+            {
+              "n": "content.png",
+              "id": "ph_1781496532618_eozdfk",
+              "mk": null,
+              "tag": "suction",
+              "date": "2026-06-15T04:08:52.618Z",
+              "mode": "pld",
+              "_mkTs": 0,
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781496532618_eozdfk.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781496532618_eozdfk.jpg",
+              "caption": "",
+              "deleted": false,
+              "r2Status": "uploaded",
+              "_annotated": false,
+              "deletedDate": "",
+              "_origBackupId": ""
+            },
+            {
+              "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_4_5.jpeg",
+              "id": "ph_1781496539489_gegz97",
+              "mk": null,
+              "tag": "suction",
+              "date": "2026-06-15T04:08:59.489Z",
+              "mode": "direct",
+              "_mkTs": 0,
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781496539489_gegz97.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781496539489_gegz97.jpg",
+              "caption": "",
+              "deleted": false,
+              "r2Status": "uploaded",
+              "_annotated": false,
+              "deletedDate": "",
+              "_origBackupId": ""
+            }
+          ],
           "rpm_no": "",
           "suc_no": "",
           "placard": "163",
@@ -1880,6 +1916,7 @@
               "mk": null,
               "tag": "discharge",
               "date": "2026-06-10T04:09:41.956Z",
+              "mode": null,
               "_mkTs": 1781266701632,
               "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781064581956_5m82th.jpg",
               "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781064581956_5m82th.jpg",
@@ -1934,7 +1971,7 @@
           "reducing": true
         }
       },
-      "testType": "std",
+      "testType": "pld",
       "pitotRows": {
         "3a": [],
         "4b": []
@@ -2890,6 +2927,108 @@
           "deletedDate": "",
           "_isOrigBackup": false,
           "_origBackupId": ""
+        },
+        {
+          "n": "IMG_3706.jpeg",
+          "id": "ph_1781447244739_zcfmz6",
+          "mk": null,
+          "date": "2026-06-14T14:27:24.739Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781447244739_zcfmz6.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781447244739_zcfmz6.jpg",
+          "caption": "",
+          "deleted": true,
+          "r2Status": "uploaded",
+          "_annotated": false,
+          "deletedDate": "2026-06-14T17:54:30.785Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "n": "IMG_3719.png",
+          "id": "ph_1781449044607_ejxtqk",
+          "mk": null,
+          "date": "2026-06-14T14:57:24.607Z",
+          "kind": "placard-pld",
+          "_mkTs": 0,
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781449044607_ejxtqk.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781449044607_ejxtqk.jpg",
+          "caption": "",
+          "deleted": true,
+          "r2Status": "uploaded",
+          "_annotated": false,
+          "deletedDate": "2026-06-14T16:39:09.815Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "n": "IMG_3719.png",
+          "id": "ph_1781455159378_bazvp0",
+          "mk": null,
+          "date": "2026-06-14T16:39:19.378Z",
+          "kind": "placard-pld",
+          "_mkTs": 0,
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455159378_bazvp0.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455159378_bazvp0.jpg",
+          "caption": "",
+          "deleted": true,
+          "r2Status": "uploaded",
+          "_annotated": false,
+          "deletedDate": "2026-06-14T16:39:29.770Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "n": "IMG_3706.jpeg",
+          "id": "ph_1781455177653_u5kiee",
+          "mk": null,
+          "date": "2026-06-14T16:39:37.653Z",
+          "kind": "placard-pld",
+          "_mkTs": 0,
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455177653_u5kiee.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455177653_u5kiee.jpg",
+          "caption": "",
+          "deleted": false,
+          "r2Status": "uploaded",
+          "_annotated": false,
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "n": "content.png",
+          "id": "ph_1781459679565_jt7dnu",
+          "mk": null,
+          "date": "2026-06-14T17:54:39.565Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459679565_jt7dnu.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459679565_jt7dnu.jpg",
+          "caption": "",
+          "deleted": true,
+          "r2Status": "uploaded",
+          "_annotated": false,
+          "deletedDate": "2026-06-14T17:54:46.149Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+          "id": "ph_1781459682309_4j1pok",
+          "mk": null,
+          "date": "2026-06-14T17:54:42.309Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459682309_4j1pok.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459682309_4j1pok.jpg",
+          "caption": "",
+          "deleted": true,
+          "r2Status": "uploaded",
+          "_annotated": false,
+          "deletedDate": "2026-06-14T17:54:44.598Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
         }
       ],
       "sketchEntries": [
@@ -2907,7 +3046,21 @@
         }
       ],
       "equipChecked4b": [],
-      "flowTestPhotos": [],
+      "flowTestPhotos": [
+        {
+          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+          "id": "ph_1781459689702_4uarpq",
+          "mk": null,
+          "_mkTs": 0,
+          "r2Key": "",
+          "r2Url": "",
+          "deleted": true,
+          "r2Status": "",
+          "_annotated": false,
+          "deletedDate": "2026-06-14T17:54:51.832Z",
+          "_origBackupId": ""
+        }
+      ],
       "pumpCurvePoints": [
         {
           "psi": "",
@@ -2917,7 +3070,7 @@
       "witnessSignRows": [],
       "appendixExcluded": [],
       "contractorTrades": {},
-      "formDateModified": "2026-06-14 04:06",
+      "formDateModified": "2026-06-15 05:38",
       "flowTestPhotosPld": [],
       "contractorSignRows": [
         {
@@ -2940,7 +3093,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-20T17:18:44.857681+00:00",
-    "updated_at": "2026-06-14T08:09:20.357121+00:00",
+    "updated_at": "2026-06-15T09:49:01.663739+00:00",
     "owner_label": null
   },
   {
@@ -3784,13 +3937,13 @@
           "heights": null,
           "pdfPage": 2,
           "markupR2": {
-            "bytes": 5870,
-            "count": 9,
+            "bytes": 6236,
+            "count": 14,
             "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/markup/dwg_1773988491597_pg2_uj25.json",
             "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/markup/dwg_1773988491597_pg2_uj25.json",
-            "updatedAt": "2026-06-14T01:36:07.737Z",
+            "updatedAt": "2026-06-15T04:15:22.217Z",
             "inspectorId": null,
-            "deletedCount": 30
+            "deletedCount": 31
           },
           "naturalH": 0,
           "naturalW": 0,
@@ -3803,18 +3956,18 @@
           "tileStatus": "ready",
           "calibration": {
             "p1": {
-              "x": 2106.4226858612733,
-              "y": 481.09231803210093
+              "x": 1811.4401674752592,
+              "y": 482.72925134640866
             },
             "p2": {
-              "x": 2255.802751272213,
-              "y": 482.3582508149787
+              "x": 1963.1975284661723,
+              "y": 480.1999620969872
             },
             "units": "ft",
             "_guessed": false,
-            "createdAt": "2026-06-14T00:11:57.706Z",
-            "scaleRatio": 0.05578411070448109,
-            "realDistance": 8.333333333333334
+            "createdAt": "2026-06-15T03:56:41.546Z",
+            "scaleRatio": 0.0549045931787615,
+            "realDistance": 8.333333333333332
           },
           "pdfBufR2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/frt/pdfbufs/pdfbuf_1777867793077_vn6txi.pdf",
           "markupCleared": false,
@@ -3822,7 +3975,7 @@
           "tileManifestUrl": "https://arencon-r2-worker.hezhendong999.workers.dev/7249121d-463e-416e-a3aa-643910f3f6a7/tiles/pdfbuf_1777867793077_vn6txi/manifest.json"
         }
       ],
-      "modified": "2026-06-14T06:52:13.283Z",
+      "modified": "2026-06-15T04:15:22.217Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -5011,7 +5164,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-16T20:00:36.555266+00:00",
-    "updated_at": "2026-06-14T06:52:34.271218+00:00",
+    "updated_at": "2026-06-15T04:15:27.25009+00:00",
     "owner_label": null
   },
   {
@@ -6205,14 +6358,14 @@
         "pld-dem-spr-psi": "",
         "pld-ws-res-flow": "",
         "pm-reducing-pld": "",
-        "pi-date-modified": "2026-06-12 22:32",
+        "pi-date-modified": "2026-06-14 23:40",
         "pld-dem-spr-flow": "",
         "pld-dem-hose-flow": "",
         "pld-ws-static-psi": "",
         "pm-rated-flow-pld": "",
         "pld-ws-static-flow": "0"
       },
-      "_build": "S322",
+      "_build": "S345",
       "batData": {
         "b1": [
           0,
@@ -6723,12 +6876,15 @@
               "mk": null,
               "tag": "",
               "date": "2026-06-03T13:39:52.512Z",
+              "mode": null,
               "_mkTs": 0,
               "r2Key": "photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/diesel/original/56HCPF_gage.webp",
               "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb/diesel/original/56HCPF_gage.webp",
               "caption": "",
+              "deleted": false,
               "r2Status": "uploaded",
               "_annotated": false,
+              "deletedDate": "",
               "_origBackupId": ""
             }
           ],
@@ -6816,6 +6972,7 @@
       "customItems": {},
       "deficiencies": {},
       "deletedItems": {},
+      "distribution": [],
       "equipChecked": [],
       "formRevision": "R00",
       "recordPhotos": [],
@@ -6831,7 +6988,7 @@
       "witnessSignRows": [],
       "appendixExcluded": [],
       "contractorTrades": {},
-      "formDateModified": "2026-06-12 22:32",
+      "formDateModified": "2026-06-14 23:40",
       "flowTestPhotosPld": [],
       "contractorSignRows": [
         {
@@ -6852,9 +7009,9 @@
     },
     "status": "draft",
     "created_by": "fabd6ba0-77ba-4c7a-a49c-9f81902d7d71",
-    "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "updated_by": "fabd6ba0-77ba-4c7a-a49c-9f81902d7d71",
     "created_at": "2026-06-03T13:38:22.85162+00:00",
-    "updated_at": "2026-06-13T02:32:47.9362+00:00",
+    "updated_at": "2026-06-15T03:39:59.623055+00:00",
     "owner_label": null
   },
   {
@@ -10637,6 +10794,20 @@
     "created_at": "2026-06-11T19:24:44.038028+00:00",
     "updated_at": "2026-06-11T19:38:04.332939+00:00",
     "owner_label": null
+  },
+  {
+    "id": "e2822a6c-2cb4-4aea-94df-5b286c71c818",
+    "project_id": "b5327093-2a57-4780-a402-05174f814863",
+    "tool_key": "ist",
+    "instance_number": 1,
+    "label": null,
+    "data": {},
+    "status": "draft",
+    "created_by": "a9f11baf-8b55-4145-b0d2-3212dee204a8",
+    "updated_by": "a9f11baf-8b55-4145-b0d2-3212dee204a8",
+    "created_at": "2026-06-14T23:31:01.190594+00:00",
+    "updated_at": "2026-06-14T23:31:01.190594+00:00",
+    "owner_label": "Franz Porka"
   },
   {
     "id": "7c2f6dab-ca81-4579-b1d3-e6bea3d21c9a",
