@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S348 (record photo badges → 3·/7· convention: Placard, Pump, Flow). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S349 (export modal CSS un-trapped from mobile media query — now styles on desktop; image icon → SVG). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -969,6 +969,30 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
    out of room and overlapped the logo/Back on the left. Folding the lower-priority
    buttons into the hamburger in that range fixes it. Protected set stays out of the
    menu: ARENCON logo, Back, green cloud dot, QR, day/night. */
+  /* ════ S328/S349: Export Report modal — GLOBAL scope (was trapped in @media 768px → unstyled on desktop) ════ */
+  #exm-ov .exm-sec-lbl{font-size:11px;font-weight:700;letter-spacing:1.1px;color:#928E9C;text-transform:uppercase;margin:14px 0 8px;}
+  #exm-ov .exm-grp{margin-bottom:10px;}
+  #exm-ov .exm-glbl{font-size:10.5px;font-weight:700;letter-spacing:1px;color:#928E9C;text-transform:uppercase;margin-bottom:6px;}
+  #exm-ov .exm-chips{display:flex;flex-wrap:wrap;gap:8px;}
+  #exm-ov .exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #D8D5DE;background:#fff;color:#1B1A22;transition:background .12s,border-color .12s;}
+  #exm-ov .exm-chip.on{background:#E7EEF5;border-color:#9DB6CC;}
+  #exm-ov .exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid #C2BEC8;display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
+  #exm-ov .exm-chip.on .exm-dot{background:#5F8068;border-color:#5F8068;}
+  #exm-ov .exm-chip .exm-rm{margin-left:3px;color:#928E9C;font-weight:700;font-size:15px;line-height:1;padding:0 2px;border-radius:4px;}
+  #exm-ov .exm-chip .exm-rm:hover{color:#A85959;background:#F4E3E3;}
+  #exm-ov .exm-addrow{display:flex;gap:8px;margin:10px 0 8px;}
+  #exm-ov .exm-addrow input{flex:1;background:#fff;border:1px solid #D8D5DE;border-radius:8px;color:#1B1A22;padding:10px 13px;font:14px Calibri,sans-serif;-webkit-appearance:none;appearance:none;}
+  #exm-ov .exm-addrow input::placeholder{color:#928E9C;opacity:1;}
+  #exm-ov .exm-addrow input:focus{outline:none;border-color:#9DB6CC;}
+  #exm-ov .exm-addrow button{background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:8px;padding:0 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;}
+  #exm-ov .exm-dline{background:#F4F2F7;border:1px solid #E3E1E8;border-radius:9px;padding:11px 14px;}
+  #exm-ov .exm-dl-l{font-size:10.5px;font-weight:700;letter-spacing:1px;color:#928E9C;text-transform:uppercase;margin-bottom:4px;}
+  #exm-ov .exm-dl-v{font-size:13.5px;line-height:1.4;}
+  #exm-ov .exm-photos{display:flex;align-items:center;gap:14px;background:#F4F2F7;border:1px solid #E3E1E8;border-radius:9px;padding:13px 14px;}
+  #exm-ov .exm-photos button{background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:8px;padding:9px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;}
+  #exm-ov .exm-btn{border:none;border-radius:9px;padding:12px 24px;font:700 14px Calibri,sans-serif;cursor:pointer;}
+  #exm-ov .exm-cancel{background:#455A64;color:#fff;}
+  #exm-ov .exm-go{background:#1A7A4A;color:#fff;}
 @media(max-width:1300px) {
   /* S271: match FRT — logo shrinks 34px→28px at ≤1024 (not ≤768). FRT frt.css line 1178. */
   .header-logo{height:28px!important;padding:3px 6px!important;}
@@ -1025,30 +1049,6 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .back-btn{padding:6px 12px;font-size:calc(13px + var(--ts));margin-right:4px;min-height:34px;}
   .app-title{font-size:calc(13px + var(--ts))!important;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;line-height:1.2;max-width:none;min-width:0;}
   #build-stamp{display:none!important;}
-  /* ════ S328: Export Report modal (light skin, scoped) ════ */
-  #exm-ov .exm-sec-lbl{font-size:11px;font-weight:700;letter-spacing:1.1px;color:#928E9C;text-transform:uppercase;margin:14px 0 8px;}
-  #exm-ov .exm-grp{margin-bottom:10px;}
-  #exm-ov .exm-glbl{font-size:10.5px;font-weight:700;letter-spacing:1px;color:#928E9C;text-transform:uppercase;margin-bottom:6px;}
-  #exm-ov .exm-chips{display:flex;flex-wrap:wrap;gap:8px;}
-  #exm-ov .exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #D8D5DE;background:#fff;color:#1B1A22;transition:background .12s,border-color .12s;}
-  #exm-ov .exm-chip.on{background:#E7EEF5;border-color:#9DB6CC;}
-  #exm-ov .exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid #C2BEC8;display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
-  #exm-ov .exm-chip.on .exm-dot{background:#5F8068;border-color:#5F8068;}
-  #exm-ov .exm-chip .exm-rm{margin-left:3px;color:#928E9C;font-weight:700;font-size:15px;line-height:1;padding:0 2px;border-radius:4px;}
-  #exm-ov .exm-chip .exm-rm:hover{color:#A85959;background:#F4E3E3;}
-  #exm-ov .exm-addrow{display:flex;gap:8px;margin:10px 0 8px;}
-  #exm-ov .exm-addrow input{flex:1;background:#fff;border:1px solid #D8D5DE;border-radius:8px;color:#1B1A22;padding:10px 13px;font:14px Calibri,sans-serif;-webkit-appearance:none;appearance:none;}
-  #exm-ov .exm-addrow input::placeholder{color:#928E9C;opacity:1;}
-  #exm-ov .exm-addrow input:focus{outline:none;border-color:#9DB6CC;}
-  #exm-ov .exm-addrow button{background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:8px;padding:0 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;}
-  #exm-ov .exm-dline{background:#F4F2F7;border:1px solid #E3E1E8;border-radius:9px;padding:11px 14px;}
-  #exm-ov .exm-dl-l{font-size:10.5px;font-weight:700;letter-spacing:1px;color:#928E9C;text-transform:uppercase;margin-bottom:4px;}
-  #exm-ov .exm-dl-v{font-size:13.5px;line-height:1.4;}
-  #exm-ov .exm-photos{display:flex;align-items:center;gap:14px;background:#F4F2F7;border:1px solid #E3E1E8;border-radius:9px;padding:13px 14px;}
-  #exm-ov .exm-photos button{background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:8px;padding:9px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;}
-  #exm-ov .exm-btn{border:none;border-radius:9px;padding:12px 24px;font:700 14px Calibri,sans-serif;cursor:pointer;}
-  #exm-ov .exm-cancel{background:#455A64;color:#fff;}
-  #exm-ov .exm-go{background:#1A7A4A;color:#fff;}
   /* Cloud status: keep the light visible, never clipped behind the hamburger */
   /* S273: match FRT exactly (frt.css line 878/885) — cloud-status stays in the right cluster
      by natural flow (the flex:1 title group pushes header-actions right). No margin-left:auto
@@ -8564,7 +8564,7 @@ function _exportModalOpen(){
       +'<div class="exm-addrow"><input type="text" id="exm-newrec" placeholder="Add a recipient \u2014 e.g. base-building service contractor, construction PM\u2026" onkeydown="if(event.key===\'Enter\'){_exportAddRecipient();event.preventDefault();}"><button onclick="_exportAddRecipient()">+ Add to pool</button></div>'
       +'<div class="exm-dline"><div class="exm-dl-l">Distribution line</div><div class="exm-dl-v" id="exm-dl"></div></div>'
       +'<div class="exm-sec-lbl" style="margin-top:14px;">Report Photos</div>'
-      +'<div class="exm-photos"><span style="font-size:22px;">\uD83D\uDDBC</span>'
+      +'<div class="exm-photos"><span style="flex:0 0 auto;display:inline-flex;color:#5E5B68;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
         +'<span style="flex:1;"><b id="exm-photo-count" style="display:block;font-size:13.5px;">'+(ptot?(incl===ptot?('All '+ptot+' photo'+(ptot===1?'':'s')+' will print'):(incl+' of '+ptot+' photos will print')):'No report photos yet')+'</b>'
         +'<span style="font-size:12px;color:#5E5B68;">Included by default \u2014 review only if you want to exclude some</span></span>'
         +(ptot?'<button onclick="_prePrintFromMenu()">Review photos\u2026</button>':'')+'</div>'
@@ -15446,7 +15446,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S348';
+var DIESEL_BUILD = 'S349';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
