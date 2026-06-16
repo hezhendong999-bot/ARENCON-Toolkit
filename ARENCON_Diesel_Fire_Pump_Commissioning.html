@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S347 (PRV/PRdV bound to without-PLD condition only). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S348 (record photo badges → 3·/7· convention: Placard, Pump, Flow). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -13754,11 +13754,11 @@ function _collectAllPhotos(){
   var all = [];
   // 1. Flow test photos (3-point)
   (flowTestPhotos||[]).forEach(function(p,i){
-    all.push({photo:p, type:'flowtest', cat:'flow', badge:'Flow-F', label:'Flow Test (3-pt)', section:'flowtest', idx:i, src:p.d||p.r2Url});
+    all.push({photo:p, type:'flowtest', cat:'flow', badge:'3·Flow', label:'Flow Test (3-pt)', section:'flowtest', idx:i, src:p.d||p.r2Url});
   });
   // 2. Flow test photos (PLD)
   (flowTestPhotosPld||[]).forEach(function(p,i){
-    all.push({photo:p, type:'flowtest-pld', cat:'flow', badge:'Flow-P', label:'Flow Test (PLD)', section:'flowtestpld', idx:i, src:p.d||p.r2Url});
+    all.push({photo:p, type:'flowtest-pld', cat:'flow', badge:'7·Flow', label:'Flow Test (PLD)', section:'flowtestpld', idx:i, src:p.d||p.r2Url});
   });
   // 3. Checklist item photos
   Object.keys(clState||{}).forEach(function(id){
@@ -13793,10 +13793,10 @@ function _collectAllPhotos(){
     // S339: short, distinct badges — 3-pt photos are plain; 7-pt (PLD) photos
     // carry a "PLD" tag so the gallery tells the two pumps apart at a glance.
     var _k=p.kind||'site', kl, badge;
-    if(_k==='pump'){ kl='Pump'; badge='Pump'; }
-    else if(_k==='pump-pld'){ kl='Pump (PLD)'; badge='Pump·PLD'; }
-    else if(_k==='placard'){ kl='Placard'; badge='Placard'; }
-    else if(_k==='placard-pld'){ kl='PLD Placard'; badge='PLD'; }
+    if(_k==='pump'){ kl='Pump'; badge='3·Pump'; }
+    else if(_k==='pump-pld'){ kl='Pump (PLD)'; badge='7·Pump'; }
+    else if(_k==='placard'){ kl='Placard'; badge='3·Placard'; }
+    else if(_k==='placard-pld'){ kl='PLD Placard'; badge='7·Placard'; }
     else { kl='Site'; badge='Site'; }
     all.push({photo:p, type:'record', cat:'records', badge:badge, label:'Record: '+kl, section:'rec_'+_k, idx:i, src:p.d||p.r2Url});
   });
@@ -15446,7 +15446,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S347';
+var DIESEL_BUILD = 'S348';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
