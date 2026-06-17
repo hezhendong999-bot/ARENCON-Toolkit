@@ -443,6 +443,12 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;}
 .ev-thumb-del{position:absolute;top:3px;right:3px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:rgba(168,89,89,.95);border:none;border-radius:50%;color:#fff;font-size:11px;line-height:1;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.3);z-index:2;}
 .ev-thumb-del:hover{background:#A85959;}
+/* S366: download button on evidence tiles — hover-reveal on desktop, always-on for touch (match photo gallery .ph-dl-btn). Delete also hover-gated here for parity. */
+.ev-thumb-dl{position:absolute;bottom:3px;left:3px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:rgba(44,71,112,.92);border:none;border-radius:50%;color:#fff;font-size:12px;line-height:1;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:2;opacity:0;transition:opacity .12s;}
+.ev-thumb-dl:hover{background:#2C4770;}
+.ev-thumb .ev-thumb-del{opacity:0;transition:opacity .12s;}
+.ev-thumb:hover .ev-thumb-dl,.ev-thumb:hover .ev-thumb-del{opacity:1;}
+@media(pointer:coarse){.ev-thumb .ev-thumb-dl,.ev-thumb .ev-thumb-del{opacity:.9;}}
 .ev-add-tile{width:84px;height:84px;border-radius:7px;border:2px dashed var(--border);background:transparent;color:var(--steel);font-size:30px;font-weight:300;line-height:1;cursor:pointer;flex:0 0 auto;transition:all .14s;display:flex;align-items:center;justify-content:center;}
 .ev-add-tile:hover{border-color:var(--arencon);color:var(--arencon);}
 .ev-tile{border:2px dashed var(--border);border-radius:10px;background:#fff;min-height:128px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
@@ -1938,6 +1944,9 @@ function _tieredBack(){
   // 3. Export modal
   var exm=document.getElementById('exm-ov');
   if(exm){ if(typeof _exportModalClose==='function')_exportModalClose(); else exm.remove(); return true; }
+  // 3b. Issue/Report-Status modal (S366)
+  var ism=document.getElementById('issue-modal-overlay');
+  if(ism){ ism.remove(); return true; }
   // 4. Flow-photo gallery
   var fpm=document.getElementById('fpm-gallery');
   if(fpm){ if(typeof _flowPhotoCloseGallery==='function')_flowPhotoCloseGallery(); else fpm.remove(); return true; }
@@ -11460,11 +11469,44 @@ async function _isRealImageBlob(blob){
 // lightbox fallback). Resolves src via _photoSrc, fetches the bytes to a blob,
 // validates it's a real image (R2 content-type is unreliable), and saves a real
 // file — never window.open / cross-origin href (which just navigates to a page).
+// ════ S366: badge-prefixed download filenames ════
+// Every download (tiles, lightbox, flow-equip, gallery single + bulk) routes its
+// filename through here so the saved file leads with the SAME short badge shown on
+// the photo in the UI, then the original name. e.g. "3·Placard·(originalname).jpg",
+// "7·25%·D·PLD·(originalname).jpg". The badge is read from _collectAllPhotos() — the
+// single source of truth for on-screen badges — so filename ≡ what you see.
+// Separator is "·" (middle dot, legal on Windows/macOS/Linux); "*" is NOT a legal
+// filename char and was explicitly avoided. Any illegal chars are sanitized.
+function _dslSanitizeFilePart(s){
+  // Strip path separators and Windows-illegal chars; collapse whitespace.
+  return String(s||'').replace(/[\/\\:*?"<>|\u0000-\u001F]/g,'-').replace(/\s+/g,' ').trim();
+}
+// Look a photo up in the gallery's photo list by identity (object ref first, then
+// id) and return its computed badge string, or '' if not found.
+function _dslPhotoBadge(p){
+  if(!p) return '';
+  try{
+    var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
+    var hit = null;
+    for(var i=0;i<all.length;i++){ if(all[i].photo===p){ hit=all[i]; break; } }
+    if(!hit && p.id){ for(var j=0;j<all.length;j++){ if(all[j].photo && all[j].photo.id===p.id){ hit=all[j]; break; } } }
+    return hit && hit.badge ? hit.badge : '';
+  }catch(e){ return ''; }
+}
+// Build the final download filename: "<badge>·<original>.<ext>" (badge omitted if
+// unknown). Preserves/ensures an image extension.
+function _dslBadgeFilename(p){
+  var orig = (p && p.n) ? p.n : ('photo_'+Date.now()+'.jpg');
+  if(!/\.(jpe?g|png|webp|gif|bmp)$/i.test(orig)) orig += '.jpg';
+  var badge = _dslSanitizeFilePart(_dslPhotoBadge(p));
+  if(!badge) return _dslSanitizeFilePart(orig);
+  return badge + '·' + _dslSanitizeFilePart(orig);
+}
+
 async function _dslDownloadPhoto(p){
   try{
     var src = _photoSrc(p);
-    var name = (p && p.n) ? p.n : ('photo_'+Date.now()+'.jpg');
-    if(!/\.(jpe?g|png|webp|gif|bmp)$/i.test(name)) name += '.jpg';
+    var name = _dslBadgeFilename(p);
     if(!src){ if(typeof showToast==='function') showToast('Photo not available'); return; }
     if(src.startsWith('data:')){
       var a0=document.createElement('a'); a0.href=src; a0.download=name;
@@ -12593,40 +12635,147 @@ async function _r2CleanupOrphans(){
   }catch(e){ showToast('R2 cleanup error: '+e.message,3000); console.error('[R2Cleanup]',e); }
 }
 
-// ── Issue Report ──
-async function issueReport() {
+// ── Issue Report — S366: ported from FRT revision state machine ──
+// Revision grammar (matches FRT exactly):
+//   A##        = draft         e.g. A01, A02
+//   B##        = issued        e.g. B01, B02
+//   B##A##     = revision of an issued report  e.g. B01A01
+// Any non-conforming legacy free-text value (e.g. R00/R01) is treated as an
+// unissued draft, so the first Issue takes it to B01 — agreed S366, no migration.
+function _dslParseRevision(rev){
+  var m;
+  m = rev.match(/^([B-Z])(\d{2,})A(\d{2,})$/);   // B##A## (revision of issued)
+  if(m) return { issued:true, hasSuffix:true, letter:m[1], major:parseInt(m[2],10), suffixNum:parseInt(m[3],10) };
+  m = rev.match(/^([B-Z])(\d{2,})$/);             // B## (issued)
+  if(m) return { issued:true, hasSuffix:false, letter:m[1], major:parseInt(m[2],10), suffixNum:0 };
+  m = rev.match(/^A(\d{2,})$/);                    // A## (draft)
+  if(m) return { issued:false, hasSuffix:false, letter:'A', major:parseInt(m[1],10), suffixNum:0 };
+  return { issued:false, hasSuffix:false, letter:'A', major:1, suffixNum:0 };  // legacy/unknown → draft
+}
+function _dslCalcIssueRevision(parsed){
+  if(!parsed.issued) return 'B01';
+  var next = parsed.major + 1;
+  return parsed.letter + (next < 10 ? '0' : '') + next;
+}
+function _dslCalcRevertDraft(){
+  var highest = 0;
+  if(window._dslLastDraftNum) highest = window._dslLastDraftNum;
+  else { var m = (_dslCurrentRevision()||'').match(/^A(\d+)$/); if(m) highest = parseInt(m[1],10); }
+  var next = highest + 1;
+  return 'A' + (next < 10 ? '0' : '') + next;
+}
+function _dslCurrentRevision(){
+  var revEl = document.getElementById('pi-revision');
+  var v = revEl && revEl.value ? revEl.value.trim() : '';
+  if(v) return v;
+  if(typeof formRevision === 'string' && formRevision.trim()) return formRevision.trim();
+  return 'A01';
+}
+function _dslSetRevision(newRev){
+  var revEl = document.getElementById('pi-revision');
+  if(revEl) revEl.value = newRev;
+  try { formRevision = newRev; } catch(e){}
+}
+function _dslSetStatusBadges(label, bg){
+  var badge = document.getElementById('issue-status-badge');
+  if(badge){ badge.textContent = label; badge.style.background = bg; badge.style.display = 'inline-block'; }
+  var pbb = document.getElementById('pb-badge');
+  if(pbb){ pbb.textContent = label; pbb.style.background = bg; }
+}
+
+function issueReport(){
   if(!_csHubMode || typeof CloudSync === 'undefined' || !CloudSync.isInitialized){
     showToast('Issue is only available when launched from the Hub', 3000);
     return;
   }
-  _aConfirm('Issue this report? This will mark it as officially issued (B01) and save to cloud.',async function(){
+  var rev = _dslCurrentRevision();
+  var parsed = _dslParseRevision(rev);
+  var isDark = document.body.classList.contains('dark-mode');
+  var bg  = isDark ? '#161420' : '#fff';
+  var fg  = isDark ? '#f4f3f6' : '#1B1A22';
+  var fg2 = isDark ? '#a09aa8' : '#5E5B68';
 
-  // Set revision to B01 if not already set
-  var revEl = document.getElementById('pi-revision');
-  if(revEl && (!revEl.value || revEl.value.trim() === '')) revEl.value = 'B01';
+  var ov = document.createElement('div');
+  ov.id = 'issue-modal-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(16,20,30,.62);z-index:99993;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;padding:18px;';
 
-  // Save state
-  try {
-    var state = _collectCloudState();
-    await CloudSync.save(state);
-    // Update status to issued
-    if(CloudSync.instanceId){
-      await CloudSync.request('/rest/v1/tool_data?id=eq.' + CloudSync.instanceId, {
-        method: 'PATCH',
-        body: { status: 'issued', updated_at: new Date().toISOString() }
-      });
-    }
-    showToast('✓ Report issued as B01', 3000);
-    // Update header badge
-    var badge = document.getElementById('issue-status-badge');
-    if(badge){ badge.textContent = 'ISSUED'; badge.style.background = '#5F8068'; badge.style.display = 'inline-block'; }
-    // Update project bar badge
-    var pbb = document.getElementById('pb-badge');
-    if(pbb){ pbb.textContent = 'ISSUED'; pbb.style.background = '#5F8068'; }
-  } catch(e) {
-    showToast('Failed to issue: ' + e.message, 3000);
+  // Muted semantic colours (no btn-muted-* classes in Diesel — inline to match FRT meaning).
+  var okBg   = isDark ? 'rgba(63,208,138,.14)' : '#E2F0E9', okBd  = isDark ? 'rgba(63,208,138,.45)' : 'rgba(46,158,114,.4)', okTx = isDark ? '#3FD08A' : '#1d5e42';
+  var wnBg   = isDark ? 'rgba(224,163,106,.14)' : '#F7ECD9', wnBd  = isDark ? 'rgba(224,163,106,.45)' : 'rgba(217,138,30,.4)', wnTx = isDark ? '#E0A36A' : '#7a4a14';
+  var nuBg   = isDark ? 'rgba(70,197,232,.13)'  : '#E7EEF5', nuBd  = isDark ? 'rgba(70,197,232,.4)'  : 'rgba(44,127,184,.38)', nuTx = isDark ? '#46C5E8' : '#27506e';
+  function rowBtn(act,target,icon,text,b,bd,tx){
+    return '<button data-issue-action="'+act+'" data-rev="'+target+'" style="width:100%;margin-bottom:10px;text-align:left;padding:12px 16px;font-size:calc(14px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;border:1px solid '+bd+';background:'+b+';color:'+tx+';border-radius:9px;cursor:pointer;">'
+      + icon+' '+text+'<span style="float:right;font-weight:400;opacity:.85;">'+rev+' \u2192 <b>'+target+'</b></span></button>';
   }
-  },'Issue');
+  var html = '<div style="background:'+bg+';border-radius:14px;padding:26px 30px;max-width:430px;width:100%;box-shadow:0 18px 60px rgba(0,0,0,.45);color:'+fg+';">';
+  html += '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">\uD83D\uDCCB Report Status</div>';
+  html += '<div style="font-size:calc(13px + var(--ts));color:'+fg2+';margin-bottom:20px;">Current revision: <b style="color:'+fg+';">'+rev+'</b></div>';
+
+  // Option 1: Issue (always available)
+  html += rowBtn('issue', _dslCalcIssueRevision(parsed), '\uD83D\uDCCB', 'Issue Report', okBg, okBd, okTx);
+  // Option 2: Revise issued (only if issued B## with no A suffix)
+  if(parsed.issued && !parsed.hasSuffix){
+    html += rowBtn('revise', rev + 'A01', '\u270F\uFE0F', 'Revise Issued Report', wnBg, wnBd, wnTx);
+  }
+  // Option 3: Revert to draft (only if currently issued)
+  if(parsed.issued){
+    html += rowBtn('revert', _dslCalcRevertDraft(), '\u21A9\uFE0F', 'Revert to Draft', nuBg, nuBd, nuTx);
+  }
+  // Cancel
+  html += '<button data-issue-action="cancel" style="width:100%;margin-top:4px;padding:11px 16px;font-size:calc(14px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;border:1px solid '+(isDark?'rgba(255,255,255,.14)':'#D8D5DE')+';background:'+(isDark?'rgba(255,255,255,.05)':'#F2F0F5')+';color:'+fg2+';border-radius:9px;cursor:pointer;">Cancel</button>';
+  html += '</div>';
+  ov.innerHTML = html;
+
+  ov.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-issue-action]');
+    if(!btn) return;
+    var act = btn.getAttribute('data-issue-action');
+    var newRev = btn.getAttribute('data-rev') || '';
+    ov.remove();
+    if(act === 'issue') _dslDoIssue(newRev);
+    else if(act === 'revise') _dslDoRevise(newRev);
+    else if(act === 'revert') _dslDoRevertDraft(newRev);
+  });
+  document.body.appendChild(ov);
+}
+
+async function _dslPatchStatus(status){
+  if(CloudSync.instanceId){
+    await CloudSync.request('/rest/v1/tool_data?id=eq.' + CloudSync.instanceId, {
+      method: 'PATCH',
+      body: { status: status, updated_at: new Date().toISOString() }
+    });
+  }
+}
+async function _dslDoIssue(newRev){
+  // Remember the draft number we're leaving, so a later Revert resumes the A-series.
+  var curMatch = _dslCurrentRevision().match(/^A(\d+)$/);
+  if(curMatch) window._dslLastDraftNum = parseInt(curMatch[1],10);
+  _dslSetRevision(newRev);
+  try {
+    await CloudSync.save(_collectCloudState());
+    await _dslPatchStatus('issued');
+    _dslSetStatusBadges('ISSUED', '#5F8068');
+    showToast('\u2713 Report issued as ' + newRev, 3000);
+  } catch(e){ showToast('Failed to issue: ' + e.message, 3000); }
+}
+async function _dslDoRevise(newRev){
+  _dslSetRevision(newRev);
+  try {
+    await CloudSync.save(_collectCloudState());
+    await _dslPatchStatus('draft');
+    _dslSetStatusBadges('DRAFT', '#E65100');
+    showToast('Revision started: ' + newRev, 3000);
+  } catch(e){ showToast('Failed to start revision: ' + e.message, 3000); }
+}
+async function _dslDoRevertDraft(newRev){
+  _dslSetRevision(newRev);
+  try {
+    await CloudSync.save(_collectCloudState());
+    await _dslPatchStatus('draft');
+    _dslSetStatusBadges('DRAFT', '#E65100');
+    showToast('Reverted to draft: ' + newRev, 3000);
+  } catch(e){ showToast('Failed to revert: ' + e.message, 3000); }
 }
 
 function showSaveToast(msg, color) {
@@ -14469,6 +14618,7 @@ function _recZoneHtml(kind){
     thumbs.forEach(function(o){
       html+='<div style="position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);">'
         +'<img src="'+(o.p.d||o.p.r2Url||'')+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+        +'<button onclick="event.stopPropagation();_recDownloadById(\''+(o.p.id||'')+'\')" title="Download" style="position:absolute;bottom:2px;left:2px;background:rgba(44,71,112,.92);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">\u2193</button>'
         +'<button onclick="_recDelete('+o.i+')" title="Remove" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">✕</button>'
         +'</div>';
     });
@@ -14503,6 +14653,7 @@ function _evTileHtml(kind){
       var p=o.p;
       fhtml+='<div class="ev-thumb">'
         +'<img src="'+_photoSrc(p)+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+o.i+',{renderer:_renderRecordZones})" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+        +'<button class="ev-thumb-dl" title="Download this photo" onclick="event.stopPropagation();_recDownloadById(\''+(p.id||'')+'\')">\u2193</button>'
         +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
         +'</div>';
     });
@@ -14524,6 +14675,7 @@ function _evTileHtml(kind){
     var p=o.p;
     html+='<div class="ev-thumb">'
       +'<img src="'+(p.d||p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+      +'<button class="ev-thumb-dl" title="Download this photo" onclick="event.stopPropagation();_recDownloadById(\''+(p.id||'')+'\')">\u2193</button>'
       +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
       +'</div>';
   });
@@ -14542,6 +14694,18 @@ function _recDeletePhotoById(pid){
       if(typeof _renderRecordZones==='function') _renderRecordZones();
     });
   }
+}
+// S366: download an evidence-tile photo by id (records + flow-equip). Resolves the
+// live photo object across all arrays, then routes through _dslDownloadPhoto so the
+// saved file carries the badge-prefixed name like every other download path.
+function _recDownloadById(pid){
+  if(!pid){ showToast('Photo not found'); return; }
+  var found=null;
+  if(typeof _forEachLivePhoto==='function'){
+    _forEachLivePhoto(function(p){ if(!found && p && p.id===pid) found=p; });
+  }
+  if(!found){ showToast('Photo not available'); return; }
+  if(typeof _dslDownloadPhoto==='function') _dslDownloadPhoto(found);
 }
 function _renderRecordZones(){
   // Photos tab: general site records only (full zone style)
@@ -15124,7 +15288,7 @@ async function _pgBulkDownload(items){
     // instead of saving it. Fetching to a blob + object URL downloads reliably.
     var p = items[0].photo;
     var src = _photoSrc(p);
-    var name = p.n || ('photo_'+Date.now()+'.jpg');
+    var name = _dslBadgeFilename(p);
     if(!src){ showToast('Photo not available'); return; }
     try{
       if(src.startsWith('data:')){
@@ -15170,7 +15334,9 @@ async function _pgZipDownload(items){
     for(var i=0; i<items.length; i++){
       var p = items[i].photo;
       var src = _photoSrc(p);
-      var name = (p.n || ('photo_'+(i+1)+'.jpg'));
+      // S366: badge-prefixed name. items[i].badge is already computed, but go
+      // through the shared helper so zip names match single-download names exactly.
+      var name = _dslBadgeFilename(p);
       // de-dupe filenames so generic camera names don't overwrite in the zip
       if(used[name]){ var dot=name.lastIndexOf('.'); name = (dot>0?name.slice(0,dot):name)+'_'+(i+1)+(dot>0?name.slice(dot):'.jpg'); }
       used[name]=1;
