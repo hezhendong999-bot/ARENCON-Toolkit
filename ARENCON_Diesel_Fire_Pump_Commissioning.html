@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S358 (FIX: flow-equip photos could strand local-only when enqueue ran before R2 folder id was set — records synced but no binary, blank thumbnails on other devices. Reconcile now re-enqueues any photo with a blob but no R2 key; add path retries. Recovers stranded photos on next tablet load). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S359 (REVERT S358: the photo re-enqueue sweep broke tablet thumbnail display — reverted to S357 behavior to restore working state before re-attempting the upload fix safely). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -5672,9 +5672,6 @@ function _flowEqAddPhotoObj(dataUrl, name){
            r2Key:'', r2Status:'', r2Url:''};
   arr.push(_ph);
   if(typeof _r2EnqueuePhoto==='function') _r2EnqueuePhoto(_ph);
-  // S358: if enqueue bailed at its guard (no r2Key assigned — e.g. _r2FolderId not
-  // yet set), schedule a reconcile to pick it up so it never strands as local-only.
-  if(!_ph.r2Key && typeof _r2ReconcilePhotos==='function'){ setTimeout(function(){ try{ _r2ReconcilePhotos(); }catch(_e){} }, 1500); }
   if(typeof _renderRecordZones==='function') _renderRecordZones();
   _renderFlowEquipModal();
   if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
@@ -11823,16 +11820,6 @@ function _r2ReconcilePhotos(){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return Promise.resolve();
   if(typeof navigator!=='undefined' && !navigator.onLine) return Promise.resolve();
   _r2ReconcileRunning = true;
-  // S358: first, rescue any photo that has a local blob (.d) but never received an
-  // R2 key — this happens when _r2EnqueuePhoto ran before _r2FolderId was set (a
-  // timing gap that stranded flow-equip photos as local-only: records synced but
-  // no binary anywhere, so other devices saw blank thumbnails). Re-enqueue assigns
-  // the key + drives the upload. Self-healing on every load/sync.
-  _forEachLivePhoto(function(p){
-    if(p && p.d && (!p.r2Key || p.r2Status==='' || p.r2Status==='failed')){
-      try{ _r2EnqueuePhoto(p); }catch(_e){}
-    }
-  });
   var targets = [];
   _forEachLivePhoto(function(p){ if(p && p.r2Status!=='uploaded') targets.push(p); });
   if(!targets.length){ _r2ReconcileRunning=false; console.log('[Reconcile] nothing to settle'); return Promise.resolve(); }
@@ -15771,7 +15758,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S358';
+var DIESEL_BUILD = 'S359';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
