@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S351 (DATA-SAFETY: photo deletes now require proof-of-intent marker — phantom/stale-sync deletes ignored; user deletes still propagate). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S352 (AI scan tolerant of prose-wrapped JSON — salvages result instead of 500; nameplate field alignment fix). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -358,8 +358,9 @@ body.dark-mode .ph-trash-purge.disabled{background:rgba(255,255,255,.04);}
 .np-panel{border:1.5px solid var(--border);border-radius:10px;background:var(--smoke);overflow:hidden;}
 .np-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#eef0f4;border-bottom:1.5px solid var(--border);flex-wrap:wrap;}
 /* S324: jockey table now reuses .data-table.rounded-tbl (matches supply table) */
-.np-extra{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 10px;margin-bottom:4px;}
-.np-extra label{display:block;font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+.np-extra{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 10px;margin-bottom:4px;align-items:end;}
+.np-extra>div{display:flex;flex-direction:column;justify-content:flex-end;}
+.np-extra label{display:flex;align-items:flex-end;min-height:calc(2.4em + var(--ts));font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;line-height:1.15;}
 .np-extra input{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit;font-size:calc(12.5px + var(--ts));background:#fff;}
 body.dark-mode .np-extra input{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.14)!important;color:#e6e9f2!important;}
 body.dark-mode .ps-tbl th{background:rgba(255,255,255,.05)!important;}
@@ -14234,6 +14235,39 @@ function _placardPhotoData(p, cb){
   }
   cb(null);
 }
+// S352: salvage a placard-read result from a prose-wrapped model response. The AI
+// worker returns 500 "AI returned invalid format" when the model answers with
+// reasoning text + a ```json ... ``` block instead of bare JSON. The raw text is
+// handed back in the error payload (e.raw / e.detail), so we pull the JSON object
+// out of it client-side and proceed — no worker change needed. Returns the parsed
+// object (with at least a nameplate or a rated field), or null if nothing usable.
+function _salvagePlacardJson(payload){
+  if(!payload) return null;
+  var raw = (typeof payload === 'string') ? payload : (payload.raw || payload.detail || payload.message || '');
+  if(!raw || typeof raw !== 'string') return null;
+  var candidates = [];
+  // 1) fenced ```json ... ``` (or plain ``` ... ```) block — take the LAST one,
+  //    since the model often shows a draft then a final.
+  var fence = /```(?:json)?\s*([\s\S]*?)```/gi, m;
+  while((m = fence.exec(raw))) candidates.push(m[1]);
+  // 2) fallback: the widest {...} span in the text.
+  if(!candidates.length){
+    var a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+    if(a >= 0 && b > a) candidates.push(raw.slice(a, b+1));
+  }
+  for(var i = candidates.length - 1; i >= 0; i--){
+    var txt = candidates[i].trim();
+    try{
+      var obj = JSON.parse(txt);
+      // sanity: must look like a placard result
+      if(obj && typeof obj === 'object' &&
+         ('nameplate' in obj || 'rated_flow_gpm' in obj || 'rated_pressure_psi' in obj || 'rated_speed_rpm' in obj)){
+        return obj;
+      }
+    }catch(_e){ /* try the next candidate */ }
+  }
+  return null;
+}
 function _placardScan(btn, mode){
   // S338: 3-pt and 7-pt are SEPARATE PUMPS (3-pt=constant-speed, 7-pt=PLD/variable).
   // A scan launched from one tab reads ONLY that tab's placard photo(s) and writes
@@ -14300,6 +14334,13 @@ function _placardScan(btn, mode){
       if(!d) return;   // (retry path resolved with no data — already handled)
       done(); _placardPreview(btn, d, imgs.length, mode);
     }).catch(function(err){
+      // S352: before surfacing the error, try to salvage a JSON result the model
+      // wrapped in prose (the worker 500s on that, but the raw text is usable).
+      var salvaged = _salvagePlacardJson(err && err._payload);
+      if(salvaged){
+        try{ console.info('[placard scan] S352 salvaged JSON from prose-wrapped model output'); }catch(_e){}
+        done(); _placardPreview(btn, salvaged, imgs.length, mode); return;
+      }
       done(); showToast('Placard scan failed: '+(err.message||'connection error')+' \u2014 check the photo is clear & try again');
     });
   });
@@ -15485,7 +15526,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S351';
+var DIESEL_BUILD = 'S352';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
