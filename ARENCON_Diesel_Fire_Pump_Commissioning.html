@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S362 (Photo Gallery thumbnails: route _pgCollect src through _photoSrc so gallery photos with lost R2 pointers also reconstruct from id — gallery was bypassing the S360 fix) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S363 (photo download fix: per-photo + bulk download fetch-as-blob via _photoSrc instead of cross-origin href navigate; validate fetched content is a real image before zip/save so corrupt files can't be produced; per-photo download/delete buttons always visible on touch tablets via pointer:coarse) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -319,6 +319,9 @@ body.dark-mode .ph-filter-menu button{color:#ddd;}
 .ph-del-btn{bottom:5px;left:36px;background:rgba(168,89,89,.92);}
 .ph-del-btn:hover{background:#A85959;}
 .ph-card:hover .ph-dl-btn,.ph-card:hover .ph-del-btn{display:flex;}
+/* Touch devices (field tablets) have no hover — always show the per-photo
+   download/delete buttons so they're reachable. Matches FRT. */
+@media(pointer:coarse){.ph-dl-btn,.ph-del-btn{display:flex;}}
 @media(pointer:coarse){.ph-dl-btn,.ph-del-btn{display:flex;opacity:.85;}}
 .ph-empty{color:var(--silver);font-size:calc(13px + var(--ts));text-align:center;padding:32px 16px;}
 /* ── S337 Recently Deleted (soft-delete UI) ── */
@@ -15008,12 +15011,38 @@ function _pgDownloadOne(ref){
 }
 async function _pgBulkDownload(items){
   if(items.length === 1){
-    // Single photo — direct download
+    // Single photo — fetch as a blob and download a real file. We must NOT just
+    // set a.href to a cross-origin R2 URL: the `download` attribute is ignored
+    // cross-origin, so the browser navigates to the image (opening a webpage)
+    // instead of saving it. Fetching to a blob + object URL downloads reliably.
     var p = items[0].photo;
-    var a = document.createElement('a');
-    a.href = p.d || p.r2Url;
-    a.download = p.n || ('photo_'+Date.now()+'.jpg');
-    document.body.appendChild(a); a.click(); a.remove();
+    var src = _photoSrc(p);
+    var name = p.n || ('photo_'+Date.now()+'.jpg');
+    if(!src){ showToast('Photo not available'); return; }
+    try{
+      if(src.startsWith('data:')){
+        var a0 = document.createElement('a');
+        a0.href = src; a0.download = name;
+        document.body.appendChild(a0); a0.click(); a0.remove();
+        return;
+      }
+      var resp = await fetch(src);
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      var blob = await resp.blob();
+      // Guard: a failed R2 fetch can return a JSON/HTML error body. Only download
+      // if it actually looks like an image, else we'd save a corrupt "jpg".
+      if(blob.type && blob.type.indexOf('image/')!==0 && blob.size < 1024){
+        throw new Error('not an image ('+blob.type+')');
+      }
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    }catch(e){
+      console.warn('[download] single failed', e);
+      showToast('Download failed — photo not available');
+    }
     return;
   }
   // Multiple — use JSZip
@@ -15030,28 +15059,43 @@ async function _pgBulkDownload(items){
 async function _pgZipDownload(items){
   try {
     var zip = new JSZip();
+    var added = 0, skipped = 0, used = {};
     for(var i=0; i<items.length; i++){
       var p = items[i].photo;
-      var src = p.d || p.r2Url;
+      var src = _photoSrc(p);
       var name = (p.n || ('photo_'+(i+1)+'.jpg'));
+      // de-dupe filenames so generic camera names don't overwrite in the zip
+      if(used[name]){ var dot=name.lastIndexOf('.'); name = (dot>0?name.slice(0,dot):name)+'_'+(i+1)+(dot>0?name.slice(dot):'.jpg'); }
+      used[name]=1;
+      if(!src){ skipped++; console.warn('[zip] no src for', p.id); continue; }
       if(src.startsWith('data:')){
         var parts = src.split(',');
         zip.file(name, parts[1], {base64:true});
+        added++;
       } else {
         try {
           var resp = await fetch(src);
+          if(!resp.ok) throw new Error('HTTP '+resp.status);
           var blob = await resp.blob();
+          // Only zip real images — a failed R2 fetch returns a JSON/HTML error
+          // body; zipping that produced the corrupt, un-openable "jpg" files.
+          if(blob.type && blob.type.indexOf('image/')!==0 && blob.size < 1024){
+            throw new Error('not an image ('+blob.type+')');
+          }
           zip.file(name, blob);
-        } catch(e){ console.warn('Skip fetch:', name); }
+          added++;
+        } catch(e){ skipped++; console.warn('[zip] skip', name, e&&e.message); }
       }
     }
-    var blob = await zip.generateAsync({type:'blob'});
+    if(added === 0){ showToast('No downloadable photos (files unavailable)'); return; }
+    var zblob = await zip.generateAsync({type:'blob'});
+    var url = URL.createObjectURL(zblob);
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = 'photos_export_'+new Date().toISOString().substring(0,10)+'.zip';
     document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(a.href);
-    showToast('Downloaded '+items.length+' photos');
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    showToast(skipped ? ('Downloaded '+added+' photos ('+skipped+' unavailable, skipped)') : ('Downloaded '+added+' photos'));
   } catch(e){
     console.error('Zip error:', e);
     showToast('Download error: '+e.message);
@@ -15776,7 +15820,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S362';
+var DIESEL_BUILD = 'S363';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
