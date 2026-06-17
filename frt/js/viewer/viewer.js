@@ -1830,6 +1830,21 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
   area.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
 })();
 
+// S331q — Stronger guard for the Android image long-press menu (Download /
+// Share / Print). Some WebView builds fire contextmenu on the <img> and the
+// per-element listener above can miss it depending on timing, so we also block
+// it at the DOCUMENT level in the capture phase whenever the target is inside
+// the drawing viewer. Capture phase runs before any element-level handling, so
+// the OS menu can't slip through. Scoped to the viewer so the rest of the app
+// keeps normal right-click/long-press behavior.
+document.addEventListener('contextmenu', function(e){
+  var t = e.target;
+  if (t && t.closest && t.closest('.drawing-viewer-overlay, #dv-canvas-area, #dv-img-wrap, #dv-image, #markup-canvas, #dv-pins-layer')) {
+    e.preventDefault();
+    return false;
+  }
+}, true);
+
 // Pin marker click — open pin editor. Allowed in pan mode AND when any
 // markup tool is active. ONLY blocked when pin-drop mode is active.
 var _pinDragEndTime = 0;
