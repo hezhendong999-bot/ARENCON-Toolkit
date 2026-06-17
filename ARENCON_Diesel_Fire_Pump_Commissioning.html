@@ -988,10 +988,11 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   #exm-ov .exm-grp{margin-bottom:10px;}
   #exm-ov .exm-glbl{font-size:10.5px;font-weight:700;letter-spacing:1px;color:#928E9C;text-transform:uppercase;margin-bottom:6px;}
   #exm-ov .exm-chips{display:flex;flex-wrap:wrap;gap:8px;}
-  #exm-ov .exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #D8D5DE;background:#fff;color:#1B1A22;transition:background .12s,border-color .12s;}
-  #exm-ov .exm-chip.on{background:#E7EEF5;border-color:#9DB6CC;}
-  #exm-ov .exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid #C2BEC8;display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
-  #exm-ov .exm-chip.on .exm-dot{background:#5F8068;border-color:#5F8068;}
+  #exm-ov .exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #D8D5DE;background:#fff;color:#1B1A22;transition:background .12s,border-color .12s,color .12s;}
+  /* S366: each recipient carries its own --c (owner steel, contractors distinct muted hues). On = filled with that colour, matching FRT exportview .exv-c.on. */
+  #exm-ov .exm-chip.on{background:var(--c,#5F8068);border-color:var(--c,#5F8068);color:#fff;}
+  #exm-ov .exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid var(--c,#C2BEC8);display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:transparent;}
+  #exm-ov .exm-chip.on .exm-dot{background:#fff;border-color:#fff;color:var(--c,#5F8068);}
   #exm-ov .exm-chip .exm-rm{margin-left:3px;color:#928E9C;font-weight:700;font-size:15px;line-height:1;padding:0 2px;border-radius:4px;}
   #exm-ov .exm-chip .exm-rm:hover{color:#A85959;background:#F4E3E3;}
   #exm-ov .exm-addrow{display:flex;gap:8px;margin:10px 0 8px;}
@@ -1025,9 +1026,9 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   body.dark-mode #exm-ov .exm-glbl,
   body.dark-mode #exm-ov .exm-dl-l{color:#8a8492;}
   body.dark-mode #exm-ov .exm-chip{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
-  body.dark-mode #exm-ov .exm-chip.on{background:rgba(70,197,232,.13);border-color:rgba(70,197,232,.45);}
-  body.dark-mode #exm-ov .exm-chip .exm-dot{border-color:rgba(255,255,255,.3);}
-  body.dark-mode #exm-ov .exm-chip.on .exm-dot{background:#3FD08A;border-color:#3FD08A;}
+  body.dark-mode #exm-ov .exm-chip.on{background:var(--c,#3FD08A);border-color:var(--c,#3FD08A);color:#fff;}
+  body.dark-mode #exm-ov .exm-chip .exm-dot{border-color:var(--c,rgba(255,255,255,.3));}
+  body.dark-mode #exm-ov .exm-chip.on .exm-dot{background:#fff;border-color:#fff;color:var(--c,#3FD08A);}
   body.dark-mode #exm-ov .exm-chip .exm-rm{color:#8a8492;}
   body.dark-mode #exm-ov .exm-chip .exm-rm:hover{color:#E26076;background:rgba(226,96,118,.16);}
   body.dark-mode #exm-ov .exm-addrow input{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.14);color:#f4f3f6;}
@@ -8751,9 +8752,23 @@ function _exportAddRecipient(){
   inp.value='';
   _exportModalLine();
 }
-function _exmChip(name,state,removable){
+// S366: per-recipient colours in the export modal — each owner/contractor gets a
+// distinct, STABLE colour (same name → same colour every time), matching FRT's
+// per-recipient colour treatment. Diesel stores contractors as plain name strings
+// (no roster colour like FRT), so we assign deterministically by name hash from a
+// MUTED palette (no bright saturated hues — per ARENCON colour rule).
+var _EXM_OWNER_C = '#3E4C66';   // steel — owner (mirrors FRT OWNER_C)
+var _EXM_OTHER_C = '#6B7280';   // neutral grey — manually-pooled recipients (FRT ADDED_C)
+var _EXM_CTR_PALETTE = ['#2C6E8F','#5B7A52','#8A5A7A','#9C6B3E','#4A6B8A','#6E5A8A','#5A7D6E','#8A6B4A','#436B6B','#7A5A5A'];
+function _exmColorFor(name){
+  var s = String(name||''); var h = 0;
+  for(var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) & 0x7fffffff; }
+  return _EXM_CTR_PALETTE[h % _EXM_CTR_PALETTE.length];
+}
+function _exmChip(name,state,removable,color){
   var on=(state==='on');
-  return '<span class="exm-chip'+(on?' on':'')+'" data-name="'+_exmEsc(name)+'" onclick="if(event.target.classList.contains(\'exm-rm\'))return;_exportModalToggle(this)">'
+  var c = color || _EXM_OTHER_C;
+  return '<span class="exm-chip'+(on?' on':'')+'" data-name="'+_exmEsc(name)+'" style="--c:'+c+';" onclick="if(event.target.classList.contains(\'exm-rm\'))return;_exportModalToggle(this)">'
     +'<span class="exm-dot">'+(on?'\u2713':'')+'</span>'+_exmEsc(name)
     +(removable?'<span class="exm-rm" title="Remove recipient" onclick="this.parentNode.remove();_exportModalLine();">\u00D7</span>':'')
     +'</span>';
@@ -8779,14 +8794,14 @@ function _exportModalOpen(){
   var subtitle=((proj.projno?proj.projno+' ':'')+(proj.projname||'')).trim()+' \u00B7 Diesel Fire Pump Commissioning Report';
 
   var ownerHtml = owner
-    ? '<div class="exm-grp"><div class="exm-glbl">Owner</div><div class="exm-chips">'+_exmChip(owner,on(owner)?'on':'',false)+'</div></div>'
+    ? '<div class="exm-grp"><div class="exm-glbl">Owner</div><div class="exm-chips">'+_exmChip(owner,on(owner)?'on':'',false,_EXM_OWNER_C)+'</div></div>'
     : '';
   var ctrHtml = ctrs.length
-    ? '<div class="exm-grp"><div class="exm-glbl">Contractors</div><div class="exm-chips">'+ctrs.map(function(c){return _exmChip(c,on(c)?'on':'',false);}).join('')+'</div></div>'
+    ? '<div class="exm-grp"><div class="exm-glbl">Contractors</div><div class="exm-chips">'+ctrs.map(function(c){return _exmChip(c,on(c)?'on':'',false,_exmColorFor(c));}).join('')+'</div></div>'
     : '';
   var otherHtml = '<div class="exm-grp" id="exm-other-grp"'+(others.length?'':' style="display:none;"')+'>'
     +'<div class="exm-glbl">Other recipients</div><div class="exm-chips" id="exm-other">'
-    +others.map(function(n){return _exmChip(n,'on',true);}).join('')+'</div></div>';
+    +others.map(function(n){return _exmChip(n,'on',true,_EXM_OTHER_C);}).join('')+'</div></div>';
 
   var ov=document.createElement('div'); ov.id='exm-ov';
   ov.style.cssText='position:fixed;inset:0;z-index:99992;background:rgba(16,20,30,.62);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Calibri,sans-serif;';
@@ -12682,6 +12697,18 @@ function _dslSetStatusBadges(label, bg){
   var pbb = document.getElementById('pb-badge');
   if(pbb){ pbb.textContent = label; pbb.style.background = bg; }
 }
+// S366: derive badge label+colour from the revision string, matching FRT exactly
+// (frt_app.js line 877-880). DRAFT/REVISION = amber #E67E22, ISSUED = green #1A7A4A.
+function _dslBadgeFromRevision(rev){
+  var parsed = _dslParseRevision(rev || _dslCurrentRevision());
+  var st = parsed.issued ? (parsed.hasSuffix ? 'REVISION' : 'ISSUED') : 'DRAFT';
+  var colors = { DRAFT:'#E67E22', ISSUED:'#1A7A4A', REVISION:'#E67E22' };
+  return { label: st, color: colors[st] || '#E67E22' };
+}
+function _dslSyncStatusBadges(){
+  var b = _dslBadgeFromRevision();
+  _dslSetStatusBadges(b.label, b.color);
+}
 
 function issueReport(){
   if(!_csHubMode || typeof CloudSync === 'undefined' || !CloudSync.isInitialized){
@@ -12755,7 +12782,7 @@ async function _dslDoIssue(newRev){
   try {
     await CloudSync.save(_collectCloudState());
     await _dslPatchStatus('issued');
-    _dslSetStatusBadges('ISSUED', '#5F8068');
+    _dslSyncStatusBadges();
     showToast('\u2713 Report issued as ' + newRev, 3000);
   } catch(e){ showToast('Failed to issue: ' + e.message, 3000); }
 }
@@ -12764,7 +12791,7 @@ async function _dslDoRevise(newRev){
   try {
     await CloudSync.save(_collectCloudState());
     await _dslPatchStatus('draft');
-    _dslSetStatusBadges('DRAFT', '#E65100');
+    _dslSyncStatusBadges();
     showToast('Revision started: ' + newRev, 3000);
   } catch(e){ showToast('Failed to start revision: ' + e.message, 3000); }
 }
@@ -12773,7 +12800,7 @@ async function _dslDoRevertDraft(newRev){
   try {
     await CloudSync.save(_collectCloudState());
     await _dslPatchStatus('draft');
-    _dslSetStatusBadges('DRAFT', '#E65100');
+    _dslSyncStatusBadges();
     showToast('Reverted to draft: ' + newRev, 3000);
   } catch(e){ showToast('Failed to revert: ' + e.message, 3000); }
 }
@@ -13260,12 +13287,19 @@ window.addEventListener('load', () => {
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
         }
-        // Show status badge
+        // Show status badge — S366: derive from the restored revision string with
+        // FRT colours (ISSUED green #1A7A4A, DRAFT/REVISION amber #E67E22), matching
+        // FRT exactly. Falls back to the Supabase status only if no revision parses
+        // as issued (keeps the 'review' state, which has no revision-grammar equivalent).
         var badge = document.getElementById('issue-status-badge');
-        if(badge && result && result.row){
-          var st = result.row.status || 'draft';
-          badge.textContent = st.toUpperCase();
-          badge.style.background = st === 'issued' ? '#5F8068' : st === 'review' ? '#1565C0' : '#E65100';
+        if(badge){
+          var _rowSt = (result && result.row && result.row.status) || 'draft';
+          if(_rowSt === 'review'){
+            badge.textContent = 'REVIEW'; badge.style.background = '#1565C0';
+            var _pbR=document.getElementById('pb-badge'); if(_pbR){ _pbR.textContent='REVIEW'; _pbR.style.background='#1565C0'; }
+          } else {
+            _dslSyncStatusBadges();
+          }
           badge.style.display = 'inline-block';
         }
         // Start auto-save (30s)
