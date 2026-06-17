@@ -986,7 +986,7 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- ═══════════ NEW PROJECT MODAL ═══════════ -->
-<div class="modal-overlay" id="new-project-modal">
+<div class="modal-overlay" id="new-project-modal" data-backdrop-close-disabled="1">
   <div class="modal-card">
     <h3>New Project</h3>
     <div class="modal-field">
@@ -1124,7 +1124,7 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- ═══════════ EDIT PROJECT MODAL ═══════════ -->
-<div class="modal-overlay" id="edit-project-modal">
+<div class="modal-overlay" id="edit-project-modal" data-backdrop-close-disabled="1">
   <div class="modal-card">
     <h3>Edit Project</h3>
     <div class="modal-field">
@@ -3890,9 +3890,10 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-CA');
 }
 
-/* ═══ Close modals on outside click ═══ */
+/* ═══ Close modals on outside click (except those that opt out) ═══ */
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-overlay')) {
+  if (e.target.classList.contains('modal-overlay')
+      && e.target.getAttribute('data-backdrop-close-disabled') !== '1') {
     e.target.classList.remove('show');
   }
 });
