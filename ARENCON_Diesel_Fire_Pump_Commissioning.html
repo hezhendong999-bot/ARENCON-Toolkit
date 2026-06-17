@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S359 (REVERT S358: the photo re-enqueue sweep broke tablet thumbnail display — reverted to S357 behavior to restore working state before re-attempting the upload fix safely). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S360 (FIX thumbnails: _photoSrc() reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1068,8 +1068,8 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .header-actions{gap:8px!important;margin-right:8px!important;}
   /* S252: day/night toggle stays in the header as a 34x34 chrome box (match FRT); hidden while the menu drawer is open */
   .header-actions #dark-toggle{justify-content:center;flex-shrink:0;margin-left:0;}
-  .header-actions.mobile-open #dark-toggle{display:none!important;}
-  .header-actions.mobile-open #btn-qr{display:none!important;}
+  .header-actions.mobile-open #dark-toggle{display:flex!important;width:100%;justify-content:center;padding:14px;border-radius:10px;}
+  .header-actions.mobile-open #btn-qr{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   /* Project link: compact */
   /* Data tables: allow horizontal scroll inside card */
   .tbl-wrap,.defic-table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch;}
@@ -4258,7 +4258,7 @@ var DslLightbox = (function(){
     _idx=i;
     var p=_photoObj(i);
     var img=_el('dlb-image');
-    var src=p.d||p.r2Url||'';
+    var src=_photoSrc(p);
     img.onload=function(){ _scheduleFit(); };
     img.onerror=function(ev){
       if(!img.getAttribute('src')) return;   // S301: src cleared (close/reset) — not a load failure
@@ -4459,7 +4459,7 @@ var DslLightbox = (function(){
       },'image/jpeg',0.95);
     }).catch(function(e){
       console.warn('[DLB] download composite failed, falling back to open', e);
-      var src=p.d||p.r2Url||'';
+      var src=_photoSrc(p);
       if(src) window.open(src,'_blank');
     });
   }
@@ -5758,7 +5758,7 @@ function _renderFlowEquipModal(){
         if(_isPhotoDeleted(p)) return;
         if(_floweqTag(p)!==c.k) return;
         any=true;
-        h+='<div class="fpm-thumb"><img src="'+(p.d||p.r2Url||'')+'" onclick="_flowEqLightbox('+j+')">'
+        h+='<div class="fpm-thumb"><img src="'+_photoSrc(p)+'" onclick="_flowEqLightbox('+j+')">'
           +'<button class="fpm-del" onclick="_flowEqDelete('+j+')" title="Remove">✕</button>'
           +'<button class="fpm-move" onclick="event.stopPropagation();_flowEqOpenReassign('+j+',this)" title="Move to another category">⇄</button></div>';
       });
@@ -11355,6 +11355,23 @@ function _collectCloudState(){
 
 // ═══ R2 PHOTO HELPERS ═══
 var _r2FolderId = null; // set during Hub init
+// S360: resolve the best image source for a photo, READ-ONLY (never mutates the
+// photo). Order: local blob (.d) → saved r2Url → reconstruct from the photo id.
+// The R2 object key is deterministic — photos/{projectId}/diesel/original/{id}.jpg
+// — so even if a record lost its r2Key/r2Url (an upload whose pointer-write
+// failed), we can still locate the file that's actually sitting in R2. This is
+// pure string computation: worst case it returns '' exactly like before, so it
+// cannot break the display. It also can't be clobbered by a stale device, because
+// it derives the URL fresh each render instead of trusting the stored field.
+function _photoSrc(p){
+  if(!p) return '';
+  if(p.d) return p.d;
+  if(p.r2Url) return p.r2Url;
+  if(p.id && _r2FolderId && typeof R2Photos!=='undefined' && R2Photos.getUrl){
+    try{ return R2Photos.getUrl(_r2FolderId, 'diesel', 'original', p.id + '.jpg'); }catch(_e){}
+  }
+  return '';
+}
 
 // Walk every live photo object across all report photo arrays.
 function _forEachLivePhoto(cb){
@@ -14374,7 +14391,7 @@ function _evTileHtml(kind){
     fp.forEach(function(o){
       var p=o.p;
       fhtml+='<div class="ev-thumb">'
-        +'<img src="'+(p.d||p.r2Url||'')+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+o.i+',{renderer:_renderRecordZones})" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+        +'<img src="'+_photoSrc(p)+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+o.i+',{renderer:_renderRecordZones})" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
         +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
         +'</div>';
     });
@@ -15758,7 +15775,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S359';
+var DIESEL_BUILD = 'S360';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
