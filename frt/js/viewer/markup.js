@@ -239,6 +239,34 @@ function _renderDimensionPreview() {
 // endpoint dots, a "set length…" chip) so calibrating looks/feels like drawing
 // a real dimension instead of clicking two bare dots. Drawing-space coords on
 // the overlay (same transform as _renderDimensionPreview). Display-only.
+// S331j — Green ortho guide for endpoint re-drag. Drawn on the overlay (same
+// coordinate space as the main markup canvas) along the anchor→moved ray,
+// extended far past both ends like AutoCAD polar tracking. Cleared on drag end.
+function _drawOrthoGuide(anchor, moved) {
+  var ov = _ensureOverlay();
+  if (!ov) return;
+  ov.style.display = 'block';
+  ov.style.opacity = '1';
+  var ctx = ov.getContext('2d');
+  var d = ov._dpr || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  var gdx = moved.x - anchor.x, gdy = moved.y - anchor.y;
+  var glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1;
+  var gux = gdx / glen, guy = gdy / glen;
+  var ext = 9999;
+  ctx.save();
+  ctx.setLineDash([8, 6]);
+  ctx.strokeStyle = 'rgba(46, 158, 114, 0.7)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(anchor.x - gux * ext, anchor.y - guy * ext);
+  ctx.lineTo(anchor.x + gux * ext, anchor.y + guy * ext);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function _renderCalibratePreview(p1, cursor) {
   var ov = _ensureOverlay();
   if (!ov) return;
@@ -2284,6 +2312,7 @@ function _moveDraw(e) {
         var _oldTrueM = (window._dimTool && window._dimTool.dimTrueMeters)
           ? window._dimTool.dimTrueMeters(dragObj) : (typeof dragObj.trueM === 'number' ? dragObj.trueM : null);
 
+        var _orthoAnchor = null;
         if (_dimVertexDragHandle === 0) {
           // dragging endpoint A — snap relative to the fixed endpoint B
           var _anchorB = { x: (dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2),
@@ -2291,6 +2320,7 @@ function _moveDraw(e) {
           var _sp0 = (dim.applyOrtho ? dim.applyOrtho(_anchorB, { x: posDM.x, y: posDM.y }) : posDM);
           if (dragObj.mx1 != null) { dragObj.mx1 = _sp0.x; dragObj.my1 = _sp0.y; }
           else { dragObj.x1 = _sp0.x; dragObj.y1 = _sp0.y; }
+          _orthoAnchor = _anchorB;
         } else {
           // dragging endpoint B — snap relative to the fixed endpoint A
           var _anchorA = { x: (dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1),
@@ -2298,6 +2328,7 @@ function _moveDraw(e) {
           var _sp1 = (dim.applyOrtho ? dim.applyOrtho(_anchorA, { x: posDM.x, y: posDM.y }) : posDM);
           if (dragObj.mx1 != null) { dragObj.mx2 = _sp1.x; dragObj.my2 = _sp1.y; }
           else { dragObj.x2 = _sp1.x; dragObj.y2 = _sp1.y; }
+          _orthoAnchor = _anchorA;
         }
 
         // Re-measure rule (locked with Mark, S331h):
@@ -2335,6 +2366,15 @@ function _moveDraw(e) {
           }
         }
         _renderAll();
+        // S331j — green ortho guide during endpoint re-drag (matches the
+        // new-dimension preview). Drawn on the overlay AFTER _renderAll so it
+        // sits on top; only when the snap is actually engaged.
+        if (dim.isOrthoActive && dim.isOrthoActive() && _orthoAnchor) {
+          var movedPt = (_dimVertexDragHandle === 0)
+            ? { x: (dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1), y: (dragObj.mx1 != null ? dragObj.my1 : dragObj.y1) }
+            : { x: (dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2), y: (dragObj.mx1 != null ? dragObj.my2 : dragObj.y2) };
+          _drawOrthoGuide(_orthoAnchor, movedPt);
+        }
       }
       return;
     }
@@ -2446,6 +2486,14 @@ function _endDraw(e) {
       _pushHistory();
       _markDirty();
       if (TiledPdf.isActive()) { TiledPdf.resume(); TiledPdf.scheduleRender(); }
+      // S331j — clear the green ortho guide drawn during the re-drag.
+      var ovD = _getOverlay();
+      if (ovD) {
+        ovD.style.display = 'none';
+        var cD = ovD.getContext('2d');
+        cD.setTransform(1, 0, 0, 1, 0, 0);
+        cD.clearRect(0, 0, ovD.width, ovD.height);
+      }
     }
     return;
   }

@@ -239,12 +239,16 @@
     var dx = p.x - a.x, dy = p.y - a.y;
     var len = Math.sqrt(dx * dx + dy * dy);
     if (len < 1) return p;
-    var ang = Math.atan2(dy, dx);                 // -PI..PI
-    var step = Math.PI / 4;                        // 45°
-    var snapAng = Math.round(ang / step) * step;
-    var diff = Math.abs(ang - snapAng);
-    if (diff > Math.PI) diff = 2 * Math.PI - diff;
-    if (diff <= ORTHO_TOL_DEG * Math.PI / 180) {
+    var ang = Math.atan2(dy, dx);                 // (-PI, PI]
+    var step = Math.PI / 4;                        // 45° increments
+    var snapAng = Math.round(ang / step) * step;   // nearest 45° ray
+    // Wrapped angular difference in (-PI, PI] — symmetric in every direction,
+    // including the ±180° boundary where the previous version failed (a back-
+    // drag flipped the sign and fell outside the tolerance window).
+    var d = ang - snapAng;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    if (Math.abs(d) <= ORTHO_TOL_DEG * Math.PI / 180) {
       _orthoActive = true;
       return { x: a.x + Math.cos(snapAng) * len, y: a.y + Math.sin(snapAng) * len };
     }
