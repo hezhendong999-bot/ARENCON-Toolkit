@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S364 (download validation by magic bytes not content-type — R2 worker fakes image/jpeg even for HTML error bodies; _isRealImageBlob checks FFD8FF/PNG/WEBP/etc so corrupt files are never saved/zipped) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S365 (lightbox download fetch-as-blob instead of window.open new-page; download button on flow-equip tiles via _dslDownloadPhoto; admin role cached from profile so Delete forever works for principals) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -509,6 +509,9 @@ body.dark-mode ._a-modal-card{background:#16151b!important;}
 .fpm-grp-hd .gh-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
 .fpm-grp-empty{font-size:calc(11px + var(--ts));font-style:italic;color:var(--silver);padding-left:12px;}
 .fpm-thumb .fpm-move{position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:20px;padding:0;cursor:pointer;}
+.fpm-thumb .fpm-dl{position:absolute;bottom:3px;right:3px;background:rgba(44,71,112,.85);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;padding:0;cursor:pointer;display:none;}
+.fpm-thumb:hover .fpm-dl{display:block;}
+@media(pointer:coarse){.fpm-thumb .fpm-dl{display:block;width:26px;height:26px;line-height:26px;font-size:13px;}}
 @media(pointer:coarse){.fpm-move{width:26px;height:26px;line-height:26px;}.fpm-rd{padding:8px 14px;}}
 .fpm-reassign{position:absolute;z-index:9200;background:var(--card,#fff);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:6px;min-width:140px;}
 body.dark-mode .fpm-reassign{background:#16151b;border-color:rgba(255,255,255,.12);}
@@ -1763,7 +1766,15 @@ function _showInspectorModal(){
 // write the shared key, update + lock the chip. Mirrors FRT app.js exactly.
 function _deriveInspectorIdentity(userId){
   if(!userId) return;
-  CloudSync.request('/rest/v1/profiles?id=eq.' + userId + '&select=full_name').then(function(rows){
+  CloudSync.request('/rest/v1/profiles?id=eq.' + userId + '&select=full_name,role').then(function(rows){
+    // S365: also cache the role so the admin-gated "Delete forever" works. The
+    // gate reads localStorage.ARENCON_role, which the Hub doesn't always write
+    // on every device — so principals were wrongly blocked. Source it from the
+    // logged-in user's own profile here.
+    try{
+      var role = (rows && rows[0] && rows[0].role) ? String(rows[0].role).trim() : '';
+      if(role) localStorage.setItem('ARENCON_role', role);
+    }catch(_e){}
     var fullName = (rows && rows[0] && rows[0].full_name) ? String(rows[0].full_name).trim() : '';
     if(fullName){ _applyInspectorName(fullName); return; }
     // Fallback: user_metadata.full_name, then email prefix
@@ -4462,9 +4473,27 @@ var DslLightbox = (function(){
         setTimeout(function(){ URL.revokeObjectURL(url); },1000);
       },'image/jpeg',0.95);
     }).catch(function(e){
-      console.warn('[DLB] download composite failed, falling back to open', e);
+      console.warn('[DLB] download composite failed, fetching original to save', e);
+      // S365: do NOT window.open (that just navigates to the image = "opens a
+      // webpage"). Fetch the bytes and save a real file, validating it's an image.
       var src=_photoSrc(p);
-      if(src) window.open(src,'_blank');
+      if(!src){ if(typeof showToast==='function') showToast('Photo not available'); return; }
+      fetch(src).then(function(resp){
+        if(!resp.ok) throw new Error('HTTP '+resp.status);
+        return resp.blob();
+      }).then(function(blob){
+        return (typeof _isRealImageBlob==='function' ? _isRealImageBlob(blob) : Promise.resolve(true)).then(function(ok){
+          if(!ok) throw new Error('fetched content is not a valid image');
+          var url=URL.createObjectURL(blob);
+          var a=document.createElement('a');
+          a.href=url; a.download=(p.n&&/\.(jpe?g|png|webp)$/i.test(p.n))?p.n:('photo_'+Date.now()+'.jpg');
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(function(){ URL.revokeObjectURL(url); },2000);
+        });
+      }).catch(function(err){
+        console.warn('[DLB] download fallback failed', err);
+        if(typeof showToast==='function') showToast('Download failed — photo not available');
+      });
     });
   }
 
@@ -5704,6 +5733,7 @@ function _flowEqDelete(j){
   },'Delete');
 }
 function _flowEqLightbox(j){ var arr=_flowEqArr(); if(!arr)return; openLightbox(arr, j, {renderer:_renderFlowEquipModal}); }
+function _flowEqDownload(j){ var arr=_flowEqArr(); if(!arr||!arr[j])return; _dslDownloadPhoto(arr[j]); }
 // ── reassign a photo to a different category ──
 function _flowEqCloseReassign(){ var ex=document.getElementById('fpm-reassign'); if(ex) ex.remove(); }
 function _flowEqSetTag(j, cat){
@@ -5764,6 +5794,7 @@ function _renderFlowEquipModal(){
         any=true;
         h+='<div class="fpm-thumb"><img src="'+_photoSrc(p)+'" onclick="_flowEqLightbox('+j+')">'
           +'<button class="fpm-del" onclick="_flowEqDelete('+j+')" title="Remove">✕</button>'
+          +'<button class="fpm-dl" onclick="event.stopPropagation();_flowEqDownload('+j+')" title="Download">⬇</button>'
           +'<button class="fpm-move" onclick="event.stopPropagation();_flowEqOpenReassign('+j+',this)" title="Move to another category">⇄</button></div>';
       });
       h+='</div>';
@@ -11393,6 +11424,33 @@ async function _isRealImageBlob(blob){
     return false;
   }catch(_e){ return false; }
 }
+// S365: ONE download helper for any photo, anywhere (gallery, flow-equip tiles,
+// lightbox fallback). Resolves src via _photoSrc, fetches the bytes to a blob,
+// validates it's a real image (R2 content-type is unreliable), and saves a real
+// file — never window.open / cross-origin href (which just navigates to a page).
+async function _dslDownloadPhoto(p){
+  try{
+    var src = _photoSrc(p);
+    var name = (p && p.n) ? p.n : ('photo_'+Date.now()+'.jpg');
+    if(!/\.(jpe?g|png|webp|gif|bmp)$/i.test(name)) name += '.jpg';
+    if(!src){ if(typeof showToast==='function') showToast('Photo not available'); return; }
+    if(src.startsWith('data:')){
+      var a0=document.createElement('a'); a0.href=src; a0.download=name;
+      document.body.appendChild(a0); a0.click(); a0.remove(); return;
+    }
+    var resp = await fetch(src);
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    var blob = await resp.blob();
+    if(!(await _isRealImageBlob(blob))) throw new Error('not a valid image');
+    var url = URL.createObjectURL(blob);
+    var a=document.createElement('a'); a.href=url; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
+  }catch(e){
+    console.warn('[download] failed', e);
+    if(typeof showToast==='function') showToast('Download failed — photo not available');
+  }
+}
 
 // Walk every live photo object across all report photo arrays.
 function _forEachLivePhoto(cb){
@@ -15838,7 +15896,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S364';
+var DIESEL_BUILD = 'S365';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
