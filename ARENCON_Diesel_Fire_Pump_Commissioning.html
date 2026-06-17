@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S352 (AI scan tolerant of prose-wrapped JSON — salvages result instead of 500; nameplate field alignment fix). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S353 (ROOT FIX: photo merge matches strictly by id never index — kills placard-as-pump + deleted-flag bleed; quiet non-looping delete gate; _isPhotoDeleted single source of truth). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -4620,7 +4620,7 @@ var DslLightbox = (function(){
     // photo. Centralized here so every call site (cards, gallery, flow) is
     // automatically consistent without per-surface array juggling.
     var _want = photos[(typeof idx==='number')?idx:0];
-    var _live = photos.filter(function(p){ return !(p && p.deleted); });
+    var _live = photos.filter(function(p){ return !_isPhotoDeleted(p); });
     if(!_live.length) return;   // everything in this set is deleted — nothing to show
     var _ni = _live.indexOf(_want);
     if(_ni < 0) _ni = 0;        // requested photo was deleted — fall back to first live
@@ -4697,7 +4697,7 @@ function closeLightbox() {
 
 function renderThumbs(id) {
   const photos = clState[id]?.photos||[];
-  return photos.map((p,i)=>({p:p,i:i})).filter(o=>!(o.p&&o.p.deleted)).map(({p,i})=>`
+  return photos.map((p,i)=>({p:p,i:i})).filter(o=>!_isPhotoDeleted(o.p)).map(({p,i})=>`
     <div class="photo-thumb" style="width:96px;height:96px;">
       <img src="${p.d||p.r2Url}" onclick="openLightbox(clState['${id}'].photos,${i})" style="cursor:zoom-in;width:100%;height:100%;object-fit:cover;" title="Click to enlarge — full resolution">
       <button class="photo-remove" onclick="removePhoto('${id}',${i})">✕</button>
@@ -5379,7 +5379,7 @@ window.addEventListener('resize',function(){setTimeout(fixStickyColumns,100);set
 // Per-flow-point photo icon (opens bucket popover — Step 2 wires the popover)
 function _flowPhotoIcon(tbl, i){
   var arr = (tbl==='std'?stdData:pldData)[i];
-  var n = (arr && arr.photos) ? arr.photos.filter(function(p){return !(p&&p.deleted);}).length : 0;
+  var n = (arr && arr.photos) ? arr.photos.filter(function(p){return !_isPhotoDeleted(p);}).length : 0;
   return '<button class="ph-icon '+(n?'has':'')+'" onclick="openFlowPhotos(\''+tbl+'\','+i+')" title="'+(n?n+' photo(s)':'Add gauge photos')+'">'
     + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
     + (n?'<span class="cnt">'+n+'</span>':'')
@@ -5570,7 +5570,7 @@ function _renderFlowPhotoModal(){
   h+='</div>';
   h+='</div>';
   // grouped thumbs (by reading, in canonical order; legacy untagged → Unsorted)
-  var ptsLive = pts.filter(function(p){return !(p&&p.deleted);});
+  var ptsLive = pts.filter(function(p){return !_isPhotoDeleted(p);});
   if(ptsLive.length){
     _GAUGE_READINGS.forEach(function(rd){
       if(!_gaugeReadingVisible(rd.k)) return;
@@ -5597,7 +5597,7 @@ function _renderFlowPhotoModal(){
       h+='</div>';
     });
     // Unsorted: any photo whose tag is not a known reading
-    var unsorted=pts.map(function(p,j){return {p:p,j:j};}).filter(function(o){ return !(o.p&&o.p.deleted) && !_GAUGE_TAG_SHORT[o.p.tag||'suction']; });
+    var unsorted=pts.map(function(p,j){return {p:p,j:j};}).filter(function(o){ return !_isPhotoDeleted(o.p) && !_GAUGE_TAG_SHORT[o.p.tag||'suction']; });
     if(unsorted.length){
       h+='<div class="fpm-grp"><div class="fpm-grp-hd"><span class="gh-dot" style="background:var(--silver)"></span>Unsorted</div><div class="fpm-thumbs">';
       unsorted.forEach(function(o){
@@ -10753,7 +10753,7 @@ function renderFlowTestThumbsPld() {
   if(typeof _renderRecordZones==='function') _renderRecordZones();
   const el=document.getElementById('flow-test-thumbs-pld');
   if(!el) return;
-  el.innerHTML = flowTestPhotosPld.map((p,i)=>({p:p,i:i})).filter(o=>!(o.p&&o.p.deleted)).map(({p,i})=>`
+  el.innerHTML = flowTestPhotosPld.map((p,i)=>({p:p,i:i})).filter(o=>!_isPhotoDeleted(o.p)).map(({p,i})=>`
     <div style="position:relative;">
       <img src="${p.d||p.r2Url}" onclick="openLightbox(flowTestPhotosPld,${i})" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:2px solid #ddd;cursor:zoom-in;">
       <button onclick="flowTestPhotosPld.splice(${i},1);renderFlowTestThumbsPld()" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;">✕</button>
@@ -10794,7 +10794,7 @@ function renderFlowTestThumbs() {
   // legacy thumbs container (if ever present)
   const el = document.getElementById('flow-test-thumbs');
   if(!el) return;
-  el.innerHTML = flowTestPhotos.map((p,i)=>({p:p,i:i})).filter(o=>!(o.p&&o.p.deleted)).map(({p,i})=>`
+  el.innerHTML = flowTestPhotos.map((p,i)=>({p:p,i:i})).filter(o=>!_isPhotoDeleted(o.p)).map(({p,i})=>`
     <div class="photo-thumb"><img src="${p.d||p.r2Url}">
     <button class="photo-remove" onclick="flowTestPhotos.splice(${i},1);renderFlowTestThumbs()">✕</button></div>`).join('');
 }
@@ -13043,10 +13043,13 @@ function _mergeCloudLocal(cloud, local){
         }
       }
     }
-    // Preserve flow test photos
+    // Preserve flow test photos (S353: match strictly by id — never by array
+    // index. Index pairing copied one photo's binary/markup onto another when the
+    // two devices held the arrays in different orders.)
     if(local.flowTestPhotos && cloud.flowTestPhotos){
-      cloud.flowTestPhotos.forEach(function(cp,i){
-        var lp = local.flowTestPhotos[i];
+      var _lmFT={}; local.flowTestPhotos.forEach(function(p){ if(p&&p.id) _lmFT[p.id]=p; });
+      cloud.flowTestPhotos.forEach(function(cp){
+        var lp = cp && cp.id ? _lmFT[cp.id] : null;
         if(lp && !cp.d && lp.d) cp.d = lp.d;
         if(lp && !cp.r2Url && lp.r2Url) cp.r2Url = lp.r2Url;
         if(lp && !cp.r2Key && lp.r2Key) cp.r2Key = lp.r2Key;
@@ -13057,39 +13060,29 @@ function _mergeCloudLocal(cloud, local){
     // live 7-pt flow chart photo binaries (cloud strips .d by design). Mirror of
     // the flowTestPhotos pass above.
     if(local.flowTestPhotosPld && cloud.flowTestPhotosPld){
-      cloud.flowTestPhotosPld.forEach(function(cp,i){
-        var lp = local.flowTestPhotosPld[i];
+      var _lmFTP={}; local.flowTestPhotosPld.forEach(function(p){ if(p&&p.id) _lmFTP[p.id]=p; });
+      cloud.flowTestPhotosPld.forEach(function(cp){
+        var lp = cp && cp.id ? _lmFTP[cp.id] : null;
         if(lp && !cp.d && lp.d) cp.d = lp.d;
         if(lp && !cp.r2Url && lp.r2Url) cp.r2Url = lp.r2Url;
         if(lp && !cp.r2Key && lp.r2Key) cp.r2Key = lp.r2Key;
         _preserveMk(cp, lp);
       });
     }
-    // Preserve site record photos (match by id, fall back to index)
+    // Preserve site record photos — S353 ROOT FIX: match STRICTLY by id, never by
+    // array index. The old index fallback copied one photo's identity (kind, .d,
+    // deleted flag) onto a different photo's slot whenever the two devices held
+    // recordPhotos in different orders — this is why a 7-pt placard kept showing
+    // up as a Pump photo, and why deleted flags bled between photos. A cloud photo
+    // with no id-match is simply a different photo and is left untouched.
     if(local.recordPhotos && cloud.recordPhotos){
-      cloud.recordPhotos.forEach(function(cp,i){
-        var idMatch = cp.id && local.recordPhotos.filter(function(x){return x.id===cp.id;})[0];
-        var lp = idMatch || local.recordPhotos[i];
-        // S350 TRACE: positional fallback is the suspect for kind/identity collision.
-        // Warn when we pair by INDEX (no id match) and the slot's ids differ.
-        if(!idMatch && lp && lp.id && cp.id && lp.id!==cp.id){
-          try{ console.warn('[S350 merge mispair trace] recordPhotos paired by INDEX (ids differ):', {
-            slot:i, cloudId:cp.id, cloudKind:cp.kind||'', cloudDeleted:!!cp.deleted,
-            localId:lp.id, localKind:lp.kind||'', localDeleted:!!lp.deleted
-          }); }catch(_e){}
-        }
+      var _lmRP={}; local.recordPhotos.forEach(function(p){ if(p&&p.id) _lmRP[p.id]=p; });
+      cloud.recordPhotos.forEach(function(cp){
+        var lp = cp && cp.id ? _lmRP[cp.id] : null;
         if(lp && !cp.d && lp.d) cp.d = lp.d;
         if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
         _preserveMk(cp, lp);
       });
-      // S350 TRACE: list any LOCAL recordPhoto that is NOT present in cloud at all
-      // (these are the ones the union's isFresh gate may be dropping → data loss).
-      try{
-        var cloudIds={}; cloud.recordPhotos.forEach(function(p){ if(p&&p.id) cloudIds[p.id]=true; });
-        var orphans=local.recordPhotos.filter(function(p){ return p&&p.id&&!cloudIds[p.id]; });
-        if(orphans.length) console.warn('[S350 orphan trace] local recordPhotos missing from cloud:',
-          orphans.map(function(p){ return {id:p.id, kind:p.kind||'', deleted:!!p.deleted, r2Status:p.r2Status||'', hasD:!!p.d}; }));
-      }catch(_e){}
     }
     // Preserve deficiency photos
     if(local.deficiencies && cloud.deficiencies){
@@ -13187,9 +13180,10 @@ function _mergeCloudLocal(cloud, local){
       cloudArr.forEach(function(cr, i){
         var lr = localArr[i];
         if(!cr || !lr || !Array.isArray(cr.photos) || !Array.isArray(lr.photos)) return;
-        cr.photos.forEach(function(cp, pi){
-          // match by id when possible, else by index
-          var lp = lr.photos.filter(function(x){return x && cp && x.id && x.id===cp.id;})[0] || lr.photos[pi];
+        var _lmRow={}; lr.photos.forEach(function(x){ if(x&&x.id) _lmRow[x.id]=x; });
+        cr.photos.forEach(function(cp){
+          // S353: match strictly by id — never by index.
+          var lp = cp && cp.id ? _lmRow[cp.id] : null;
           if(!lp) return;
           if(!cp.d && lp.d) cp.d = lp.d;
           if(!cp.r2Url && lp.r2Url){ cp.r2Url = lp.r2Url; cp.r2Key = lp.r2Key; }
@@ -13419,19 +13413,21 @@ function _mergeCloudLocal(cloud, local){
         var cloudDeleted = !!p.deleted;
         var localDeleted = ls ? ls.deleted : false;
         if(cloudDeleted || localDeleted){
-          // ── S351 PROOF-OF-INTENT GATE (data-safety) ─────────────────────────
+          // ── S351/S353 PROOF-OF-INTENT GATE (data-safety) ────────────────────
           // A delete only propagates if SOME side carries deletedBy:'user' — the
           // marker that ONLY the confirm-gated user delete sets. A bare `deleted`
-          // flag with no marker is a phantom (stale/half-loaded snapshot, glitched
-          // merge) and must NEVER delete a photo the user didn't choose to delete.
+          // flag with no marker is a phantom (stale snapshot, glitched merge) and
+          // must NEVER delete a photo the user didn't choose to delete.
           var cloudIntent = (p.deletedBy === 'user');
           var localIntent = !!(ls && ls.deletedBy === 'user');
           if(!cloudIntent && !localIntent){
-            try{ console.warn('[S351 intent gate] ignored phantom delete (no user marker), keeping photo LIVE:', {
-              id:p.id, kind:p.kind||'(none)', cloudDeleted:cloudDeleted, localDeleted:localDeleted
-            }); }catch(_e){}
-            // scrub the stray flag so the photo stays visible everywhere
-            if(p.deleted){ delete p.deleted; delete p.deletedDate; }
+            // S353: keep the photo LIVE, but do NOT mutate it here. The earlier
+            // build scrubbed p.deleted on every load, which re-saved every sync and
+            // produced an endless console-warn loop + cloud tug-of-war. Leaving the
+            // object untouched means no state change → no re-save → no loop. The
+            // gallery/origin renderers treat a markerless `deleted` flag as live, so
+            // the photo shows regardless. (A one-time decisive cloud cleanup of the
+            // legacy markerless flags is done out-of-band.)
             return;
           }
           // ────────────────────────────────────────────────────────────────────
@@ -13932,13 +13928,19 @@ var _pgPurgedForProject = null;   // run-once auto-purge guard (per project id)
 // Live (non-deleted) photos for the gallery/filters. _collectAllPhotos stays the
 // full walk (restore/purge/merge need to see deleted rows); everything user-facing
 // filters through here.
+// S353: a photo counts as DELETED only if it was deleted by an actual user action
+// (deletedBy:'user'). A bare `deleted` flag with no marker is a phantom from a
+// stale/glitched sync and is treated as LIVE everywhere — so the gallery, evidence
+// tiles, Recently Deleted, counts, and the merge all agree. This is the single
+// source of truth for deletion across the whole tool.
+function _isPhotoDeleted(p){ return !!(p && p.deleted && p.deletedBy === 'user'); }
 function _pgVisible(){
-  return _collectAllPhotos().filter(function(a){ return !(a.photo && a.photo.deleted); });
+  return _collectAllPhotos().filter(function(a){ return !_isPhotoDeleted(a.photo); });
 }
 // Deleted photos for the trash view — same collected records, only the deleted ones,
 // newest-deleted first.
 function _pgGatherDeleted(){
-  return _collectAllPhotos().filter(function(a){ return a.photo && a.photo.deleted; })
+  return _collectAllPhotos().filter(function(a){ return _isPhotoDeleted(a.photo); })
     .sort(function(x,y){
       var tx = x.photo.deletedDate ? new Date(x.photo.deletedDate).getTime() : 0;
       var ty = y.photo.deletedDate ? new Date(y.photo.deletedDate).getTime() : 0;
@@ -14115,7 +14117,7 @@ function _recZoneHtml(kind){
   var def=null; _REC_KINDS.forEach(function(k){ if(k[0]===kind) def=k; });
   if(!def) return '';
   var title=def[1], icon=def[2], hint=def[3];
-  var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !(o.p&&o.p.deleted) && (o.p.kind||'site')===kind;});
+  var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !_isPhotoDeleted(o.p) && (o.p.kind||'site')===kind;});
   var html='<div class="rec-zone-card" style="border:1.5px solid var(--border);border-radius:9px;padding:11px;background:var(--card-bg,var(--smoke));">';
   html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
   html+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
@@ -14146,7 +14148,7 @@ function _evTileHtml(kind){
   if(kind==='flow' || kind==='flow-pld'){
     var isPld = kind==='flow-pld';
     var fpAll=(isPld ? (flowTestPhotosPld||[]) : (flowTestPhotos||[]));
-    var fp=fpAll.map(function(p,i){return {p:p,i:i};}).filter(function(o){return !(o.p&&o.p.deleted);});
+    var fp=fpAll.map(function(p,i){return {p:p,i:i};}).filter(function(o){return !_isPhotoDeleted(o.p);});
     var arrName = isPld ? 'flowTestPhotosPld' : 'flowTestPhotos';
     var trig = isPld ? 'triggerFlowTestPhotoPld()' : 'triggerFlowTestPhoto()';
     var drop = isPld ? 'handleFlowTestDropPld(event)' : 'handleFlowTestDrop(event)';
@@ -14170,7 +14172,7 @@ function _evTileHtml(kind){
   }
 
   // record-backed kinds (pump / pump-pld / placard / placard-pld)
-  var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !(o.p&&o.p.deleted) && (o.p.kind||'site')===kind;});
+  var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !_isPhotoDeleted(o.p) && (o.p.kind||'site')===kind;});
   if(!thumbs.length){
     return '<div class="ev-tile" onclick="_recUpload(\''+kind+'\')" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
       +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
@@ -15526,7 +15528,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S352';
+var DIESEL_BUILD = 'S353';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
