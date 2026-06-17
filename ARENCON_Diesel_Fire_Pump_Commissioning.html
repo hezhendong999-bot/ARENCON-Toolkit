@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S350 (DIAGNOSTIC: non-destructive traces for phantom placard-photo deletion — no data/behavior change). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S351 (DATA-SAFETY: photo deletes now require proof-of-intent marker — phantom/stale-sync deletes ignored; user deletes still propagate). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -11157,10 +11157,10 @@ function collectState() {
     sigStrokes: (typeof _sigStrokes!=='undefined') ? JSON.parse(JSON.stringify(_sigStrokes)) : {},
     // Photos stored separately to keep main state lean
     batData: {b1:[...batData.b1], b2:[...batData.b2]},
-    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,id:p.id||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||''})),
+    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,id:p.id||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''})),
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
-    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,id:p.id||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||''})),
-    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||''})),
+    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,id:p.id||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''})),
+    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''})),
     sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
@@ -11182,7 +11182,7 @@ function _collectCloudState(){
   // S305: heartbeat log removed — pushes run every 15s and were flooding the
   // console (Mark). Event logs ([DLB], merge backup-restores, errors) remain.
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
-  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||''};});}
+  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
   if(s.deficiencies){Object.keys(s.deficiencies).forEach(function(k){if(Array.isArray(s.deficiencies[k]))s.deficiencies[k].forEach(function(d){
     if(d.photos)d.photos=_stripPhotos(d.photos);
@@ -11194,10 +11194,10 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||''};});}
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''};});}
   if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
-  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||''};});
+  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
@@ -13399,10 +13399,10 @@ function _mergeCloudLocal(cloud, local){
   (function _s337PropagateDeleted(){
     try{
       if(!cloud || !local) return;
-      // Build id → deletion state from the LOCAL side (the device that just acted).
+      // S351: capture intent markers from the local side too.
       var localState = {};
       (function walk(state){
-        function visit(p){ if(p && p.id) localState[p.id] = { deleted: !!p.deleted, deletedDate: p.deletedDate||'' }; }
+        function visit(p){ if(p && p.id) localState[p.id] = { deleted: !!p.deleted, deletedDate: p.deletedDate||'', deletedBy: p.deletedBy||'' }; }
         function arr(a){ if(Array.isArray(a)) a.forEach(visit); }
         arr(state.flowTestPhotos); arr(state.flowTestPhotosPld); arr(state.recordPhotos);
         if(Array.isArray(state.stdData)) state.stdData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arr(r.photos); });
@@ -13411,7 +13411,6 @@ function _mergeCloudLocal(cloud, local){
         if(state.deficiencies) Object.keys(state.deficiencies).forEach(function(ctr){ (state.deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); }); });
         if(Array.isArray(state.generalDeficiencies)) state.generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); });
       })(local);
-      // Apply onto every photo in the CLOUD result: delete-wins across both sides.
       var n=0;
       function reconcile(p){
         if(!p || !p.id) return;
@@ -13419,18 +13418,24 @@ function _mergeCloudLocal(cloud, local){
         var cloudDeleted = !!p.deleted;
         var localDeleted = ls ? ls.deleted : false;
         if(cloudDeleted || localDeleted){
-          if(!p.deleted){
-            // S350 TRACE (non-destructive): a photo is being flagged deleted by the
-            // merge. Log WHO carried the flag so we can pin the phantom-delete bug.
-            try{ console.warn('[S350 phantom-delete trace] flagging deleted:', {
-              id:p.id, kind:p.kind||'(none)',
-              cloudDeleted:cloudDeleted, localDeleted:localDeleted,
-              localSnapshotPresent:!!ls,
-              cloudDeletedDate:p.deletedDate||'', localDeletedDate:ls?ls.deletedDate:'',
-              r2Status:p.r2Status||'', hasLocalBlob:!!p.d
+          // ── S351 PROOF-OF-INTENT GATE (data-safety) ─────────────────────────
+          // A delete only propagates if SOME side carries deletedBy:'user' — the
+          // marker that ONLY the confirm-gated user delete sets. A bare `deleted`
+          // flag with no marker is a phantom (stale/half-loaded snapshot, glitched
+          // merge) and must NEVER delete a photo the user didn't choose to delete.
+          var cloudIntent = (p.deletedBy === 'user');
+          var localIntent = !!(ls && ls.deletedBy === 'user');
+          if(!cloudIntent && !localIntent){
+            try{ console.warn('[S351 intent gate] ignored phantom delete (no user marker), keeping photo LIVE:', {
+              id:p.id, kind:p.kind||'(none)', cloudDeleted:cloudDeleted, localDeleted:localDeleted
             }); }catch(_e){}
-            p.deleted = true; n++;
+            // scrub the stray flag so the photo stays visible everywhere
+            if(p.deleted){ delete p.deleted; delete p.deletedDate; }
+            return;
           }
+          // ────────────────────────────────────────────────────────────────────
+          if(!p.deleted){ p.deleted = true; n++; }
+          p.deletedBy = 'user'; // carry the proof forward so it survives future merges
           // keep the earliest known deletedDate so the 30-day countdown is honest
           var cd = p.deletedDate || '';
           var ld = ls ? ls.deletedDate : '';
@@ -13953,6 +13958,12 @@ function _pgSoftDelete(ph){
   if(!ph || ph.deleted) return false;
   ph.deleted = true;
   ph.deletedDate = new Date().toISOString();
+  // S351: proof-of-intent marker. This function is ONLY reached from the two
+  // user delete paths, both behind a confirm dialog. The merge will propagate a
+  // delete across devices ONLY when this marker is present — so a stray `deleted`
+  // flag from a stale/half-loaded sync snapshot (no marker) can never delete a
+  // photo the user never chose to delete.
+  ph.deletedBy = 'user';
   return true;
 }
 // Restore: clear the flags in place. Routed by pid through the full collected list.
@@ -15474,7 +15485,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S350';
+var DIESEL_BUILD = 'S351';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
