@@ -254,6 +254,53 @@ body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-met
 
 /* ═══ ADMIN PANEL ═══ */
 .admin-panel{display:none;padding:24px}
+.usage-panel{display:none;padding:24px}
+.aiu-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.aiu-metric{background:var(--card,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.1));border-radius:12px;padding:11px 14px}
+.aiu-metric .l{font-size:calc(11px + var(--ts));color:var(--silver);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.aiu-metric .v{font-size:calc(21px + var(--ts));font-weight:700;font-variant-numeric:tabular-nums}
+.aiu-metric .v.cost{color:#E6A23C}.aiu-metric .v.unbilled{color:#E0A36A}.aiu-metric .v.billed{color:#3FD08A}
+.aiu-metric.click{cursor:pointer;transition:border-color .15s}.aiu-metric.click:hover{border-color:#9C2742}
+.aiu-filterbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.aiu-seg{display:inline-flex;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:9px;overflow:hidden}
+.aiu-seg button{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(12.5px + var(--ts));font-weight:600;padding:6px 12px;border:none;background:transparent;color:var(--silver);cursor:pointer;border-right:1px solid var(--border,rgba(255,255,255,.12))}
+.aiu-seg button:last-child{border-right:none}.aiu-seg button.on{background:#3FD08A;color:#06241a}
+.aiu-seg.bill button.on{background:#46C5E8;color:#04243a}
+.aiu-search{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(12.5px + var(--ts));padding:7px 11px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.12));background:var(--bg,#0b0a0d);color:var(--fg);min-width:200px;flex:1;max-width:340px}
+.aiu-exp{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(12px + var(--ts));font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.12));background:var(--card,rgba(255,255,255,.05));color:var(--fg);cursor:pointer}
+.aiu-exp.pdf{border-color:rgba(192,68,95,.4);color:#E26076}
+.aiu-table{width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts))}
+.aiu-table thead th{text-align:left;padding:9px 11px;color:var(--silver);font-weight:700;font-size:calc(11px + var(--ts));text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border,rgba(255,255,255,.12));white-space:nowrap}
+.aiu-table th.num,.aiu-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.aiu-table td{padding:8px 11px;border-bottom:1px solid var(--border,rgba(255,255,255,.08))}
+.aiu-table td.dim{color:var(--silver)}.aiu-table td.tnum{font-variant-numeric:tabular-nums}
+.aiu-table tbody tr:hover td{background:var(--smoke,rgba(255,255,255,.04))}
+.aiu-table tr.aiu-group td{background:var(--smoke,rgba(255,255,255,.05));font-weight:700;font-size:calc(12.5px + var(--ts))}
+.aiu-group .gp-num{font-variant-numeric:tabular-nums}.aiu-group .gp-meta{color:var(--silver);font-weight:600}
+.aiu-group .gp-right{float:right;display:flex;gap:10px;align-items:center}
+.aiu-group .gp-cost{color:#E6A23C;font-variant-numeric:tabular-nums}
+.aiu-group .gp-btn{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(11.5px + var(--ts));font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid var(--border,rgba(255,255,255,.15));background:var(--card,rgba(255,255,255,.06));color:var(--fg);cursor:pointer}
+.aiu-group .gp-btn:hover{border-color:#3FD08A}.aiu-group .gp-btn.ghost{color:var(--silver)}
+.aiu-pill{display:inline-flex;align-items:center;gap:5px;font-size:calc(11.5px + var(--ts));font-weight:700;padding:2px 9px;border-radius:18px;border:1px solid;white-space:nowrap}
+.aiu-pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.aiu-pill.init{color:var(--fg);border-color:var(--border,rgba(255,255,255,.2));background:var(--card,rgba(255,255,255,.04))}
+.aiu-pill.init .dot{background:var(--silver)}
+.aiu-pill.t-diesel{color:#46C5E8;border-color:#46c5e855;background:#46c5e81f}
+.aiu-pill.t-frt{color:#3FD08A;border-color:#3fd08a55;background:#3fd08a1f}
+.aiu-pill.t-train{color:#B89AE6;border-color:#b89ae655;background:#b89ae61f}
+.aiu-pill.t-ist{color:#E08AB0;border-color:#e08ab055;background:#e08ab01f}
+.aiu-pill.t-obc{color:#E6A23C;border-color:#e6a23c55;background:#e6a23c1f}
+.aiu-pill.t-dd{color:#5BC0EB;border-color:#5bc0eb55;background:#5bc0eb1f}
+.aiu-pill.t-elec{color:#7FD1B0;border-color:#7fd1b055;background:#7fd1b01f}
+.aiu-pill.t-default{color:var(--silver);border-color:var(--border,rgba(255,255,255,.2));background:var(--card,rgba(255,255,255,.04))}
+.aiu-bchip{font-size:calc(11px + var(--ts));font-weight:700;padding:2px 9px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;border:1px solid}
+.aiu-bchip.unbilled{color:#E0A36A;border-color:rgba(224,163,106,.45);background:rgba(224,163,106,.12)}
+.aiu-bchip.billed{color:#3FD08A;border-color:rgba(63,208,138,.45);background:rgba(63,208,138,.12)}
+.aiu-empty{text-align:center;padding:40px;color:var(--silver)}
+.cost{color:#E6A23C}.billed{color:#3FD08A}.unbilled{color:#E0A36A}
+.aiu-toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#9C2742;color:#fff;font-size:calc(13px + var(--ts));font-weight:600;padding:9px 16px;border-radius:9px;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none}
+.aiu-toast.show{opacity:1}.aiu-toast.bad{background:#C0445F}
+
 .admin-section{background:var(--card);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);margin-bottom:20px;overflow:hidden;border:1px solid var(--border)}
 .admin-section-header{background:linear-gradient(135deg,var(--navy),var(--navy-mid));color:#fff;padding:14px 22px;font-size:calc(14px + var(--ts));font-weight:700;letter-spacing:-.1px}
 .admin-section-body{padding:22px}
@@ -561,6 +608,7 @@ body.text-l{--ts:4px;}
     <span class="user-role" id="hdr-user-role"></span>
   </div>
   <button class="hdr-btn desktop-only" id="btn-admin" style="display:none" onclick="showAdmin()">👤 Admin</button>
+  <button class="hdr-btn desktop-only" id="btn-usage" style="display:none" onclick="showUsage()">💲 Usage</button>
   <button class="hdr-btn desktop-only" id="btn-profile" style="display:none" onclick="openProfileModal()">⚙️ Profile</button>
   <button class="hdr-btn desktop-only" id="btn-tools" onclick="window.location.href='index.html'" title="All Tools">🧰 Tools</button>
   <button class="hdr-btn desktop-only" id="btn-dark" onclick="toggleDark()">☀️</button>
@@ -581,6 +629,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="mobile-menu-divider" id="mob-div-user" style="display:none"></div>
     <button class="mobile-menu-item" id="mob-admin" style="display:none" onclick="showAdmin();closeMobileMenu()">👤 Admin Panel</button>
+    <button class="mobile-menu-item" id="mob-usage" style="display:none" onclick="showUsage();closeMobileMenu()">💲 AI Usage &amp; Costs</button>
     <button class="mobile-menu-item" id="mob-profile" style="display:none" onclick="openProfileModal();closeMobileMenu()">⚙️ Profile</button>
     <button class="mobile-menu-item" onclick="window.location.href='index.html'">🧰 All Tools</button>
     <button class="mobile-menu-item" onclick="toggleDark();closeMobileMenu()"><span id="mob-dark-label">☀️ Dark Mode</span></button>
@@ -786,6 +835,75 @@ body.text-l{--ts:4px;}
       </div>
     </div>
   </div>
+
+
+  <!-- ═══════════ AI USAGE & COSTS PANEL ═══════════ -->
+  <div class="usage-panel" id="usage-panel" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="dash-btn secondary" onclick="showDashboard()">← Back to Dashboard</button>
+      <h2 style="font-size:calc(19px + var(--ts));font-weight:700;margin:0">AI Usage &amp; Costs</h2>
+      <span style="color:var(--silver);font-size:calc(12.5px + var(--ts))" id="aiu-billing-note"></span>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="aiu-exp pdf" onclick="AIUsageUI.exportPDF()">⬇ PDF</button>
+        <button class="aiu-exp" onclick="AIUsageUI.exportCSV()">⬇ CSV</button>
+      </div>
+    </div>
+
+    <div id="aiu-metrics-host"></div>
+
+    <div class="aiu-filterbar">
+      <div class="aiu-seg" id="aiu-cycleseg">
+        <button class="on" data-c="this" onclick="AIUsageUI_cycle('this',this)">This Cycle</button>
+        <button data-c="last" onclick="AIUsageUI_cycle('last',this)">Last Cycle</button>
+        <button data-c="month" onclick="AIUsageUI_cycle('month',this)">This Month</button>
+        <button data-c="all" onclick="AIUsageUI_cycle('all',this)">All Time</button>
+      </div>
+      <div class="aiu-seg bill" id="aiu-billseg">
+        <button class="on" data-b="all" onclick="AIUsage.setBillFilter('all');AIUsageUI.refresh()">All</button>
+        <button data-b="unbilled" onclick="AIUsage.setBillFilter('unbilled');AIUsageUI.refresh()">Unbilled</button>
+        <button data-b="billed" onclick="AIUsage.setBillFilter('billed');AIUsageUI.refresh()">Billed</button>
+      </div>
+      <input type="search" class="aiu-search" placeholder="🔎 Search project, client, user, tool…" oninput="AIUsage.setSearch(this.value);AIUsageUI.refresh()">
+    </div>
+
+    <div class="dash-card" style="padding:0;overflow:hidden">
+      <div id="aiu-log-host"></div>
+    </div>
+  </div>
+
+  <!-- AIU MARK MODAL -->
+  <div class="modal-overlay" id="aiu-mark-modal">
+    <div class="modal-card">
+      <h3>Mark billed</h3>
+      <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:6px" id="aiu-mark-proj"></p>
+      <p style="font-size:calc(12px + var(--ts));color:var(--silver);margin-bottom:14px">Default is a single month. To bill several months on one invoice, set <b>From</b> to the earliest and <b>To</b> to the latest.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="modal-field" style="flex:1;min-width:140px"><label>From period</label><select id="aiu-mark-from"></select></div>
+        <div class="modal-field" style="flex:1;min-width:140px"><label>To period</label><select id="aiu-mark-to"></select></div>
+      </div>
+      <div class="modal-actions">
+        <button class="dash-btn secondary" onclick="AIUsageUI.closeMark()">Cancel</button>
+        <button class="dash-btn primary" onclick="AIUsageUI.confirmMark()">Mark billed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AIU LEDGER MODAL -->
+  <div class="modal-overlay" id="aiu-ledger-modal">
+    <div class="modal-card" style="max-width:680px">
+      <h3 id="aiu-ledger-title">Billing ledger</h3>
+      <p style="font-size:calc(12.5px + var(--ts));color:var(--steel);margin-bottom:12px" id="aiu-ledger-sum"></p>
+      <div style="max-height:50vh;overflow:auto">
+        <table class="aiu-table"><thead><tr><th>Period</th><th>Range</th><th class="num">Fields</th><th class="num">Cost</th><th>Status</th><th></th></tr></thead>
+        <tbody id="aiu-ledger-body"></tbody></table>
+      </div>
+      <div class="modal-actions">
+        <button class="dash-btn secondary" onclick="AIUsageUI.closeLedger()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="aiu-toast" id="aiu-toast"></div>
 
   <!-- ═══ PROJECT DETAIL VIEW ═══ -->
   <div id="project-detail">
@@ -1627,6 +1745,8 @@ function showApp() {
   const isAdmin = _profile && (_profile.role === 'super_admin' || _profile.role === 'admin');
   document.getElementById('btn-admin').style.display = isAdmin ? '' : 'none';
   document.getElementById('mob-admin').style.display = isAdmin ? '' : 'none';
+  document.getElementById('btn-usage').style.display = isAdmin ? '' : 'none';
+  document.getElementById('mob-usage').style.display = isAdmin ? '' : 'none';
 
   // Show profile and bulk buttons for all logged-in users
   document.getElementById('btn-profile').style.display = '';
@@ -1683,6 +1803,7 @@ function showDashboard() {
   document.getElementById('dash-view').style.display = 'block';
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('project-detail').style.display = 'none';
+  var _up = document.getElementById('usage-panel'); if (_up) _up.style.display = 'none';
   _detailProjectId = null;
   // Restore persisted sort preference
   var savedSort = localStorage.getItem('arencon-hub-sort');
@@ -1696,8 +1817,29 @@ function showAdmin() {
   document.getElementById('dash-view').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'block';
   document.getElementById('project-detail').style.display = 'none';
+  var _up = document.getElementById('usage-panel'); if (_up) _up.style.display = 'none';
   _detailProjectId = null;
   loadAdminUsers();
+}
+
+/* ═══ AI Usage & Costs view ═══ */
+async function showUsage() {
+  document.getElementById('dash-view').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('project-detail').style.display = 'none';
+  document.getElementById('usage-panel').style.display = 'block';
+  _detailProjectId = null;
+  document.getElementById('aiu-log-host').innerHTML = '<div class="aiu-empty">Loading usage…</div>';
+  await AIUsage.load();
+  document.getElementById('aiu-billing-note').textContent = 'Billing day ' + AIUsage.getBillingDay() + ' · periods labeled by closing month';
+  AIUsageUI.refresh();
+}
+function AIUsageUI_cycle(c, btn) {
+  AIUsage.setCycle(c);
+  var seg = document.getElementById('aiu-cycleseg');
+  seg.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  AIUsageUI.refresh();
 }
 
 /* ═══ Load Projects ═══ */
@@ -5274,6 +5416,425 @@ function _pgEscHtml(s) {
     navigator.serviceWorker.register('sw.js').catch(function(){});
   }
 })();
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   AI USAGE & COSTS MODULE  (Hub-internal, admin-gated)
+   - Reads ai_usage_log, joins profiles (User#/Initials) + projects (client)
+   - Billing status computed from ai_invoice_marks (project + period range)
+   - Periods run (billingDay+1) → billingDay, labeled by END month
+   - Mark billed = insert ai_invoice_marks row spanning a period range
+   - Per-project ledger across whole project life
+   - PDF (paginated print) + CSV export
+   Depends on Hub globals: _sb, _profile, showDashboard()
+   ═══════════════════════════════════════════════════════════════════ */
+
+var AIUsage = (function () {
+  var _rows = [];          // raw usage rows joined with profile+client
+  var _marks = [];         // ai_invoice_marks rows
+  var _billingDay = 22;    // from app_settings.billing_day
+  var _profilesById = {};
+  var _clientByProj = {};
+  var _billFilter = 'all'; // all | unbilled | billed
+  var _cycleFilter = 'this'; // this | last | month | all
+  var _search = '';
+
+  /* ── tool color classes (each tool unique; none on names) ── */
+  var TOOL_CLASS = {
+    diesel_pump: 't-diesel', frt: 't-frt', training: 't-train',
+    ist: 't-ist', obc: 't-obc', dd: 't-dd',
+    electric_pump: 't-elec', spatial: 't-obc'
+  };
+  function toolClass(t) { return TOOL_CLASS[t] || 't-default'; }
+
+  /* ── period math: a date → its period {start,end,label} ──
+     Period ends on billingDay; the period CLOSING on billingDay of month M
+     is labeled by month M. e.g. billingDay 22: May23–Jun22 = "June". ── */
+  function periodFor(dateIso) {
+    var d = new Date(dateIso);
+    var y = d.getUTCFullYear(), m = d.getUTCMonth(), day = d.getUTCDate();
+    // if day <= billingDay, period closes this month; else closes next month
+    var endY = y, endM = m;
+    if (day > _billingDay) { endM = m + 1; if (endM > 11) { endM = 0; endY++; } }
+    var end = new Date(Date.UTC(endY, endM, _billingDay, 23, 59, 59));
+    var startM = endM - 1, startY = endY;
+    if (startM < 0) { startM = 11; startY--; }
+    var start = new Date(Date.UTC(startY, startM, _billingDay + 1, 0, 0, 0));
+    var label = end.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    var key = endY + '-' + String(endM + 1).padStart(2, '0');
+    return { start: start, end: end, label: label, key: key };
+  }
+
+  /* ── is a usage row billed? true if a mark covers its project+date ── */
+  function isBilled(row) {
+    if (!row.project_number) return false; // untagged can't be invoiced
+    var t = new Date(row.created_at).getTime();
+    for (var i = 0; i < _marks.length; i++) {
+      var mk = _marks[i];
+      if (mk.project_number !== row.project_number) continue;
+      var ps = new Date(mk.period_start).getTime();
+      var pe = new Date(mk.period_end + 'T23:59:59Z').getTime();
+      if (t >= ps && t <= pe) return true;
+    }
+    return false;
+  }
+
+  /* ── cycle filter: does row pass the current cycle selector? ── */
+  function inCycle(row) {
+    if (_cycleFilter === 'all') return true;
+    var now = new Date();
+    var cur = periodFor(now.toISOString());
+    if (_cycleFilter === 'this') {
+      var t = new Date(row.created_at).getTime();
+      return t >= cur.start.getTime() && t <= cur.end.getTime();
+    }
+    if (_cycleFilter === 'last') {
+      var lastEnd = new Date(cur.start.getTime() - 1);
+      var last = periodFor(lastEnd.toISOString());
+      var t2 = new Date(row.created_at).getTime();
+      return t2 >= last.start.getTime() && t2 <= last.end.getTime();
+    }
+    if (_cycleFilter === 'month') {
+      var d = new Date(row.created_at);
+      return d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth();
+    }
+    return true;
+  }
+
+  function passesFilters(row) {
+    if (!inCycle(row)) return false;
+    if (_billFilter === 'billed' && !isBilled(row)) return false;
+    if (_billFilter === 'unbilled' && isBilled(row)) return false;
+    if (_search) {
+      var s = _search.toLowerCase();
+      var hay = [row.project_number, row.client, row.project_name, row.user_number,
+                 row.initials, row.tool].join(' ').toLowerCase();
+      if (hay.indexOf(s) === -1) return false;
+    }
+    return true;
+  }
+
+  /* ── LOAD ──────────────────────────────────────────────────────── */
+  async function load() {
+    // billing day from settings
+    try {
+      var bs = await _sb.from('app_settings').select('value').eq('key', 'billing_day').execute();
+      if (bs && bs[0] && bs[0].value != null) _billingDay = parseInt(bs[0].value, 10) || 22;
+    } catch (e) { _billingDay = 22; }
+
+    // profiles map (User#/Initials)
+    try {
+      var profs = await _sb.from('profiles').select('id,full_name,user_number,initials').execute() || [];
+      _profilesById = {};
+      profs.forEach(function (p) { _profilesById[p.id] = p; });
+    } catch (e) { _profilesById = {}; }
+
+    // projects map (client by project_number)
+    try {
+      var projs = await _sb.from('projects').select('project_number,client,project_name').execute() || [];
+      _clientByProj = {};
+      projs.forEach(function (p) { _clientByProj[p.project_number] = p; });
+    } catch (e) { _clientByProj = {}; }
+
+    // usage rows
+    try {
+      var logs = await _sb.from('ai_usage_log').select('*').order('created_at', { ascending: false }).execute() || [];
+      _rows = logs.map(function (l) {
+        var prof = _profilesById[l.user_id] || {};
+        var proj = _clientByProj[l.project_number] || {};
+        return {
+          id: l.id, created_at: l.created_at, tool: l.tool,
+          project_number: l.project_number, project_name: l.project_name || (proj.project_name || ''),
+          client: proj.client || '', user_number: prof.user_number || '—',
+          initials: prof.initials || (prof.full_name ? prof.full_name.split(' ').map(function(x){return x[0];}).join('').toUpperCase() : '—'),
+          full_name: prof.full_name || l.user_email || '—',
+          field_count: l.field_count || 0, cost_usd: parseFloat(l.cost_usd) || 0
+        };
+      });
+    } catch (e) { _rows = []; }
+
+    // marks
+    try {
+      _marks = await _sb.from('ai_invoice_marks').select('*').execute() || [];
+    } catch (e) { _marks = []; }
+  }
+
+  /* ── group passing rows by project_number ──────────────────────── */
+  function groupRows() {
+    var groups = {};
+    _rows.filter(passesFilters).forEach(function (r) {
+      var k = r.project_number || '__none__';
+      if (!groups[k]) groups[k] = { pn: r.project_number || '—', client: r.client || '(unassigned)',
+        name: r.project_name || (r.project_number ? '' : 'No project tagged'), rows: [] };
+      groups[k].rows.push(r);
+    });
+    // sort: real projects first by number, untagged last
+    return Object.keys(groups).sort(function (a, b) {
+      if (a === '__none__') return 1; if (b === '__none__') return -1;
+      return a.localeCompare(b);
+    }).map(function (k) { return groups[k]; });
+  }
+
+  /* ── metrics for the strip ── */
+  function metrics() {
+    var passing = _rows.filter(inCycle);
+    var total = 0, billed = 0, unbilled = 0, fields = 0, projs = {};
+    passing.forEach(function (r) {
+      total += r.cost_usd; fields += r.field_count;
+      if (r.project_number) projs[r.project_number] = 1;
+      if (isBilled(r)) billed += r.cost_usd; else unbilled += r.cost_usd;
+    });
+    return { total: total, billed: billed, unbilled: unbilled, fields: fields, projects: Object.keys(projs).length };
+  }
+
+  return {
+    load: load, groupRows: groupRows, metrics: metrics, periodFor: periodFor,
+    isBilled: isBilled, toolClass: toolClass,
+    setBillFilter: function (b) { _billFilter = b; }, getBillFilter: function(){return _billFilter;},
+    setCycle: function (c) { _cycleFilter = c; }, getCycle: function(){return _cycleFilter;},
+    setSearch: function (s) { _search = s; },
+    getBillingDay: function () { return _billingDay; },
+    getRows: function () { return _rows; }, getMarks: function () { return _marks; },
+    reloadMarks: async function () { try { _marks = await _sb.from('ai_invoice_marks').select('*').execute() || []; } catch(e){ _marks=[]; } }
+  };
+})();
+
+/* ═══════════════════════════════════════════════════════════════════
+   AI USAGE — UI LAYER (render, mark/unmark, ledger, exports)
+   ═══════════════════════════════════════════════════════════════════ */
+var AIUsageUI = (function () {
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function money(n){return '$'+(Number(n)||0).toFixed(4);}
+
+  /* list of distinct periods present in data, newest first — for range pickers */
+  function periodsInData(){
+    var seen={};var out=[];
+    AIUsage.getRows().forEach(function(r){
+      if(!r.project_number)return;
+      var p=AIUsage.periodFor(r.created_at);
+      if(!seen[p.key]){seen[p.key]=1;out.push({key:p.key,label:p.label,start:p.start,end:p.end});}
+    });
+    out.sort(function(a,b){return b.key.localeCompare(a.key);});
+    return out;
+  }
+
+  /* periods for a single project (for its ledger), newest first */
+  function periodsForProject(pn){
+    var seen={};var out=[];
+    AIUsage.getRows().forEach(function(r){
+      if(r.project_number!==pn)return;
+      var p=AIUsage.periodFor(r.created_at);
+      if(!seen[p.key]){seen[p.key]={key:p.key,label:p.label,start:p.start,end:p.end,cost:0,fields:0};out.push(seen[p.key]);}
+      seen[p.key].cost+=r.cost_usd;seen[p.key].fields+=r.field_count;
+    });
+    out.sort(function(a,b){return b.key.localeCompare(a.key);});
+    // attach billed state per period (a period is billed if a mark covers its end date)
+    out.forEach(function(pp){
+      pp.billed=false;pp.mark=null;
+      AIUsage.getMarks().forEach(function(mk){
+        if(mk.project_number!==pn)return;
+        var ps=new Date(mk.period_start).getTime(),pe=new Date(mk.period_end+'T23:59:59Z').getTime();
+        var mid=new Date(pp.end+'T12:00:00Z').getTime();
+        if(mid>=ps&&mid<=pe){pp.billed=true;pp.mark=mk;}
+      });
+    });
+    return out;
+  }
+
+  /* ── render metric strip ── */
+  function renderMetrics(){
+    var m=AIUsage.metrics();
+    return '<div class="aiu-metrics">'
+      +'<div class="aiu-metric"><div class="l">Total this cycle</div><div class="v cost">'+money(m.total)+'</div></div>'
+      +'<div class="aiu-metric click" onclick="AIUsageUI.quickBill(\'unbilled\')"><div class="l">Unbilled</div><div class="v unbilled">'+money(m.unbilled)+'</div></div>'
+      +'<div class="aiu-metric click" onclick="AIUsageUI.quickBill(\'billed\')"><div class="l">Billed</div><div class="v billed">'+money(m.billed)+'</div></div>'
+      +'<div class="aiu-metric"><div class="l">Fields</div><div class="v">'+m.fields+'</div></div>'
+      +'<div class="aiu-metric"><div class="l">Projects</div><div class="v">'+m.projects+'</div></div>'
+      +'</div>';
+  }
+
+  /* ── render the grouped detail log ── */
+  function renderLog(){
+    var groups=AIUsage.groupRows();
+    if(!groups.length)return '<div class="aiu-empty">No usage matches the current filters.</div>';
+    var html='<table class="aiu-table"><thead><tr>'
+      +'<th>Date</th><th>Project #</th><th>Client</th><th>Project Name</th>'
+      +'<th>User #</th><th>Initials</th><th>Tool</th><th class="num">Fields</th><th class="num">Cost</th><th>Status</th>'
+      +'</tr></thead><tbody>';
+    groups.forEach(function(g,gi){
+      var sub=g.rows.reduce(function(s,r){return s+r.cost_usd;},0);
+      var pnDisp=esc(g.pn);
+      var canMark=g.pn!=='—';
+      html+='<tr class="aiu-group"><td colspan="10">'
+        +'<span class="gp-num">'+pnDisp+'</span> <span class="gp-meta">'+esc(g.client)+(g.name?' · '+esc(g.name):'')+'</span>'
+        +'<span class="gp-right"><span class="gp-cost">'+money(sub)+'</span>'
+        +(canMark?'<button class="gp-btn" onclick="AIUsageUI.openMark(\''+esc(g.pn)+'\')">Mark billed…</button>'
+                 +'<button class="gp-btn ghost" onclick="AIUsageUI.openLedger(\''+esc(g.pn)+'\')">Ledger</button>':'')
+        +'</span></td></tr>';
+      g.rows.forEach(function(r){
+        var billed=AIUsage.isBilled(r);
+        var d=new Date(r.created_at);var ds=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+d.getUTCFullYear();
+        html+='<tr>'
+          +'<td class="dim">'+ds+'</td>'
+          +'<td class="tnum">'+esc(r.project_number||'—')+'</td>'
+          +'<td>'+esc(r.client||'—')+'</td><td class="dim">'+esc(r.project_name||'—')+'</td>'
+          +'<td class="tnum">'+esc(r.user_number)+'</td>'
+          +'<td><span class="aiu-pill init"><span class="dot"></span>'+esc(r.initials)+'</span></td>'
+          +'<td><span class="aiu-pill '+AIUsage.toolClass(r.tool)+'"><span class="dot"></span>'+esc(r.tool)+'</span></td>'
+          +'<td class="num">'+r.field_count+'</td><td class="num cost">'+money(r.cost_usd)+'</td>'
+          +'<td><span class="aiu-bchip '+(billed?'billed':'unbilled')+'">'+(billed?'✓ Billed':'Unbilled')+'</span></td>'
+          +'</tr>';
+      });
+    });
+    html+='</tbody></table>';
+    return html;
+  }
+
+  function refresh(){
+    document.getElementById('aiu-metrics-host').innerHTML=renderMetrics();
+    document.getElementById('aiu-log-host').innerHTML=renderLog();
+    // sync bill filter segment
+    document.querySelectorAll('#aiu-billseg button').forEach(function(b){b.classList.toggle('on',b.dataset.b===AIUsage.getBillFilter());});
+  }
+
+  function quickBill(b){AIUsage.setBillFilter(b);refresh();}
+
+  /* ── MARK modal: project + from-period→to-period (default single month) ── */
+  var _markPn=null;
+  function openMark(pn){
+    _markPn=pn;
+    var periods=periodsForProject(pn);
+    var opts=periods.map(function(p){return '<option value="'+p.key+'" data-start="'+p.start+'" data-end="'+p.end+'">'+esc(p.label)+(p.billed?' (already billed)':'')+'</option>';}).join('');
+    document.getElementById('aiu-mark-proj').textContent='Project '+pn;
+    document.getElementById('aiu-mark-from').innerHTML=opts;
+    document.getElementById('aiu-mark-to').innerHTML=opts;
+    // default: newest period, single month (from==to)
+    document.getElementById('aiu-mark-modal').classList.add('show');
+  }
+  function closeMark(){document.getElementById('aiu-mark-modal').classList.remove('show');_markPn=null;}
+
+  async function confirmMark(){
+    if(!_markPn)return;
+    var fromSel=document.getElementById('aiu-mark-from');
+    var toSel=document.getElementById('aiu-mark-to');
+    var fromOpt=fromSel.options[fromSel.selectedIndex];
+    var toOpt=toSel.options[toSel.selectedIndex];
+    // periods listed newest-first; ensure start<=end chronologically
+    var s1=fromOpt.dataset.start, e1=toOpt.dataset.end;
+    var s2=toOpt.dataset.start, e2=fromOpt.dataset.end;
+    var periodStart = s1<=s2 ? s1 : s2;
+    var periodEnd   = e1>=e2 ? e1 : e2;
+    try{
+      await _sb.from('ai_invoice_marks').insert({
+        project_number:_markPn, period_start:periodStart, period_end:periodEnd,
+        marked_by:_profile?_profile.id:null, marked_by_email:_profile?_profile.email:null
+      });
+      await AIUsage.reloadMarks();
+      closeMark();refresh();
+      AIUsageUI.toast('Marked billed: '+_pnLabel(periodStart,periodEnd));
+    }catch(e){AIUsageUI.toast('Failed: '+(e.message||e),true);}
+  }
+  function _pnLabel(s,e){return s.slice(0,7)+' → '+e.slice(0,7);}
+
+  /* ── LEDGER modal: every period for a project, billed/unbilled, whole life ── */
+  var _ledgerPn=null;
+  function openLedger(pn){
+    _ledgerPn=pn;
+    var periods=periodsForProject(pn);
+    var totC=periods.reduce(function(s,p){return s+p.cost;},0);
+    var billedC=periods.filter(function(p){return p.billed;}).reduce(function(s,p){return s+p.cost;},0);
+    var rows=periods.map(function(p){
+      return '<tr>'
+        +'<td>'+esc(p.label)+'</td>'
+        +'<td class="dim">'+p.start+' → '+p.end+'</td>'
+        +'<td class="num">'+p.fields+'</td>'
+        +'<td class="num cost">'+money(p.cost)+'</td>'
+        +'<td><span class="aiu-bchip '+(p.billed?'billed':'unbilled')+'">'+(p.billed?'✓ Billed':'Unbilled')+'</span></td>'
+        +'<td>'+(p.billed
+            ?'<button class="gp-btn ghost" onclick="AIUsageUI.unmark(\''+esc(p.mark.id)+'\')">Un-mark</button>'
+            :'<button class="gp-btn" onclick="AIUsageUI.markSingle(\''+esc(pn)+'\',\''+p.start+'\',\''+p.end+'\')">Mark</button>')+'</td>'
+        +'</tr>';
+    }).join('');
+    document.getElementById('aiu-ledger-title').textContent='Billing ledger — Project '+pn;
+    document.getElementById('aiu-ledger-sum').innerHTML='Whole project: <b class="cost">'+money(totC)+'</b> total · <b class="billed">'+money(billedC)+'</b> billed · <b class="unbilled">'+money(totC-billedC)+'</b> unbilled';
+    document.getElementById('aiu-ledger-body').innerHTML=rows||'<tr><td colspan="6" class="dim">No usage for this project.</td></tr>';
+    document.getElementById('aiu-ledger-modal').classList.add('show');
+  }
+  function closeLedger(){document.getElementById('aiu-ledger-modal').classList.remove('show');_ledgerPn=null;}
+
+  async function markSingle(pn,start,end){
+    try{
+      await _sb.from('ai_invoice_marks').insert({project_number:pn,period_start:start,period_end:end,
+        marked_by:_profile?_profile.id:null,marked_by_email:_profile?_profile.email:null});
+      await AIUsage.reloadMarks();refresh();openLedger(pn);AIUsageUI.toast('Marked billed');
+    }catch(e){AIUsageUI.toast('Failed: '+(e.message||e),true);}
+  }
+  async function unmark(markId){
+    var pn=_ledgerPn;
+    try{
+      await _sb.from('ai_invoice_marks').eq('id',markId).delete();
+      await AIUsage.reloadMarks();refresh();if(pn)openLedger(pn);AIUsageUI.toast('Un-marked (now unbilled)');
+    }catch(e){AIUsageUI.toast('Failed: '+(e.message||e),true);}
+  }
+
+  /* ── CSV export (current filtered view) ── */
+  function exportCSV(){
+    var groups=AIUsage.groupRows();
+    var lines=[['Date','Project #','Client','Project Name','User #','Initials','Tool','Fields','Cost USD','Status'].join(',')];
+    groups.forEach(function(g){g.rows.forEach(function(r){
+      var billed=AIUsage.isBilled(r);
+      var d=new Date(r.created_at);var ds=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+d.getUTCFullYear();
+      lines.push([ds,r.project_number||'',csv(r.client),csv(r.project_name),r.user_number,r.initials,r.tool,r.field_count,r.cost_usd.toFixed(6),billed?'Billed':'Unbilled'].join(','));
+    });});
+    var blob=new Blob([lines.join('\n')],{type:'text/csv'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ai_usage_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+    AIUsageUI.toast('CSV exported');
+  }
+  function csv(s){s=String(s==null?'':s);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+
+  /* ── PDF export (paginated paper-like print window — Hub standard) ── */
+  function exportPDF(){
+    var groups=AIUsage.groupRows();
+    var m=AIUsage.metrics();
+    var rowsHtml='';
+    groups.forEach(function(g){
+      var sub=g.rows.reduce(function(s,r){return s+r.cost_usd;},0);
+      rowsHtml+='<tr class="grp"><td colspan="9">'+esc(g.pn)+' — '+esc(g.client)+(g.name?' · '+esc(g.name):'')+' <span style="float:right">'+money(sub)+'</span></td></tr>';
+      g.rows.forEach(function(r){
+        var billed=AIUsage.isBilled(r);var d=new Date(r.created_at);var ds=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+d.getUTCFullYear();
+        rowsHtml+='<tr><td>'+ds+'</td><td>'+esc(r.project_number||'—')+'</td><td>'+esc(r.client||'—')+'</td><td>'+esc(r.user_number)+'</td><td>'+esc(r.initials)+'</td><td>'+esc(r.tool)+'</td><td style="text-align:right">'+r.field_count+'</td><td style="text-align:right">'+money(r.cost_usd)+'</td><td>'+(billed?'Billed':'Unbilled')+'</td></tr>';
+      });
+    });
+    var w=window.open('','_blank');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>AI Usage &amp; Costs</title>'
+      +'<style>body{font-family:Calibri,sans-serif;margin:0;background:#525659;color:#1a1a1a}'
+      +'.bar{position:fixed;top:0;left:0;right:0;background:#2C4770;display:flex;gap:10px;align-items:center;padding:8px 14px;z-index:9}'
+      +'.bar button{font-family:Calibri;font-size:13px;font-weight:700;padding:7px 13px;border:none;border-radius:6px;cursor:pointer}'
+      +'.bar .pdf{background:#1A7A4A;color:#fff}.bar .cl{background:#455A64;color:#fff}.bar .hint{flex:1;color:#cfd8e3;font-size:12px}'
+      +'.page{background:#fff;width:8.5in;min-height:11in;margin:54px auto 20px;padding:0.6in;box-shadow:0 2px 12px rgba(0,0,0,.4)}'
+      +'h1{font-size:18px;margin:0 0 2px}.sub{color:#555;font-size:12px;margin-bottom:14px}'
+      +'table{width:100%;border-collapse:collapse;font-size:11px}th{text-align:left;border-bottom:2px solid #2C4770;padding:5px 6px;font-size:10px;text-transform:uppercase;color:#2C4770}'
+      +'td{padding:4px 6px;border-bottom:1px solid #e3e3e3}tr.grp td{background:#eef1f6;font-weight:700;border-bottom:1px solid #c8d0de}'
+      +'.tot{margin-top:14px;font-size:13px;font-weight:700}'
+      +'@media print{.bar{display:none}.page{box-shadow:none;margin:0 auto}body{background:#fff}}</style></head><body>'
+      +'<div class="bar"><button class="pdf" onclick="window.print()">📄 Export PDF</button><span class="hint">Use your browser’s “Save as PDF” in the print dialog.</span><button class="cl" onclick="window.close()">✕ Close</button></div>'
+      +'<div class="page"><h1>AI Usage &amp; Costs</h1><div class="sub">Generated '+new Date().toLocaleString()+' · Total '+money(m.total)+' · Unbilled '+money(m.unbilled)+' · Billed '+money(m.billed)+'</div>'
+      +'<table><thead><tr><th>Date</th><th>Project #</th><th>Client</th><th>User #</th><th>Init</th><th>Tool</th><th style="text-align:right">Fields</th><th style="text-align:right">Cost</th><th>Status</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
+      +'<div class="tot">Total: '+money(m.total)+'</div></div></body></html>');
+    w.document.close();
+  }
+
+  /* ── toast ── */
+  var _tt;
+  function toast(msg,bad){var t=document.getElementById('aiu-toast');if(!t)return;t.textContent=msg;t.className='aiu-toast show'+(bad?' bad':'');clearTimeout(_tt);_tt=setTimeout(function(){t.className='aiu-toast';},1800);}
+
+  return {refresh:refresh,quickBill:quickBill,openMark:openMark,closeMark:closeMark,confirmMark:confirmMark,
+    openLedger:openLedger,closeLedger:closeLedger,markSingle:markSingle,unmark:unmark,
+    exportCSV:exportCSV,exportPDF:exportPDF,toast:toast,periodsInData:periodsInData};
+})();
+
 </script>
 </body>
 </html>
