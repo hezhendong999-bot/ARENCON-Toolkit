@@ -47,6 +47,8 @@ if (_stagingRequested && typeof document !== 'undefined' && document.body) {
 
 var _user = null;
 var _role = null;
+var _initials = null;   // S331n — from profiles.initials (Admin panel)
+var _fullName = null;   // S331n — from profiles.full_name (for fallback derivation)
 var _autoRefreshTimer = null;
 var _refreshPromise = null;  // S91: dedup concurrent refresh calls
 
@@ -280,9 +282,31 @@ export var Auth = {
    * Load user role from profiles table.
    */
   _loadRole: function(userId) {
-    return this.request('/rest/v1/profiles?id=eq.' + userId + '&select=role').then(function(rows) {
-      if (rows && rows.length > 0) _role = rows[0].role;
+    // S331n — pull role, initials, and full_name in one go. Initials are the
+    // Admin-panel-set value (profiles.initials); full_name drives the fallback
+    // when initials are blank (mirrors the Hub's name-derived rule).
+    return this.request('/rest/v1/profiles?id=eq.' + userId + '&select=role,initials,full_name').then(function(rows) {
+      if (rows && rows.length > 0) {
+        _role = rows[0].role;
+        _initials = rows[0].initials || null;
+        _fullName = rows[0].full_name || null;
+      }
     }).catch(function() { _role = 'inspector'; });
+  },
+
+  // S331n — current user's initials for auto-filling "Prepared By".
+  // Priority: Admin-panel initials (profiles.initials) → derived from full_name
+  // → derived from email local-part. Returns '' if nothing usable.
+  getInitials: function() {
+    if (_initials && _initials.trim()) return _initials.trim().toUpperCase();
+    var name = (_fullName && _fullName.trim())
+      || ((_user && _user.email) ? _user.email.split('@')[0].replace(/[._]/g, ' ') : '');
+    if (!name) return '';
+    var parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    // First initial + first two letters of last name (e.g. "Mark He" → "MHe")
+    return (parts[0][0] + parts[parts.length - 1].slice(0, 2)).toUpperCase();
   },
 
   getToken: function() {
@@ -309,6 +333,8 @@ export var Auth = {
   signOut: function() {
     _user = null;
     _role = null;
+    _initials = null;
+    _fullName = null;
     if (_autoRefreshTimer) { clearTimeout(_autoRefreshTimer); _autoRefreshTimer = null; }
     _refreshPromise = null;
     localStorage.removeItem('sb-access-token');

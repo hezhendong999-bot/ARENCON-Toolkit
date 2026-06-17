@@ -2314,9 +2314,17 @@ async function _loadAndRenderInstances(proj) {
           var prefix = _TOOL_PREFIXES[key] || key.toUpperCase();
           // per-owner display number for tracked reports; global # for shared
           var dispNum = (ownerKey === '') ? inst.instance_number : (_gi + 1);
-          var defaultTitle = (ownerKey !== '')
-            ? (esc(ownerKey) + ' \u00B7 ' + prefix + ' #' + dispNum)
-            : (sfn ? (sfn + ' ' + prefix + ' #' + dispNum) : (shortName + ' Report #' + dispNum));
+          // S331n — tracked reports now show the project AUTONAME (sfn) too,
+          // matching shared reports, instead of the bare "Owner · FRT #n". The
+          // inspector is still identified by the 👤 track header above, so the
+          // row carries the meaningful project name. Falls back to the owner
+          // label only if no autoname/shortName is available.
+          var _autoBase = sfn ? (sfn + ' ' + prefix + ' #' + dispNum)
+                               : (shortName ? (shortName + ' ' + prefix + ' #' + dispNum) : null);
+          var defaultTitle = _autoBase
+            ? _autoBase
+            : (ownerKey !== '' ? (esc(ownerKey) + ' \u00B7 ' + prefix + ' #' + dispNum)
+                               : (prefix + ' #' + dispNum));
           var title = inst.label || defaultTitle;
           var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
           var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';

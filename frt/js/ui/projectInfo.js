@@ -7,6 +7,7 @@
  */
 
 import { Model } from '../data/model.js';
+import { Auth } from '../shared/auth.js';
 
 var _wired = false;
 
@@ -30,6 +31,24 @@ export var initProjectInfo = {
         el.value = val;
       }
     });
+
+    // S331n — "Prepared By" (inspectorName) defaults to the current inspector's
+    // initials per the Admin panel (profiles.initials, else name-derived). Only
+    // fills when the field is genuinely empty, so it never overwrites a value
+    // the user typed or one already saved on the project.
+    try {
+      var saved = proj.info.inspectorName;
+      if ((saved === undefined || saved === null || String(saved).trim() === '') && Auth && Auth.getInitials) {
+        var inits = Auth.getInitials();
+        if (inits) {
+          var prepEl = panel.querySelector('[data-field="inspectorName"]');
+          if (prepEl && String(prepEl.value || '').trim() === '') {
+            prepEl.value = inits;
+            Model.updateField('inspectorName', inits);
+          }
+        }
+      }
+    } catch (e) { /* non-fatal — leave Prepared By blank if anything goes wrong */ }
 
     // Update date modified display
     var dm = document.getElementById('field-date-modified');
