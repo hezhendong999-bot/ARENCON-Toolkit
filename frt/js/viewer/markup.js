@@ -1912,6 +1912,28 @@ function _hitDeleteButton(pos) {
 }
 
 function _getBounds(obj) {
+  // S331g — Dimension objects use mx1/my1/mx2/my2 (+ offset), not x1/x2, so
+  // none of the generic branches below matched them and _hitTestObjects could
+  // never select them — they appeared "frozen" (can't select/move/delete) once
+  // the WebGL render fix made them visible. Give them a real AABB covering the
+  // offset dimension line and the label chip so the Select tool can hit them.
+  if (obj.type === 'dimension' && obj.mx1 != null) {
+    var dox = obj.mx2 - obj.mx1, doy = obj.my2 - obj.my1;
+    var dlen = Math.sqrt(dox * dox + doy * doy) || 1;
+    var dpx = -doy / dlen, dpy = dox / dlen; // perpendicular unit
+    var doff = obj.offset || 0;
+    // four points: both measured endpoints AND both offset (dim-line) endpoints
+    var pxs = [obj.mx1, obj.mx2, obj.mx1 + dpx * doff, obj.mx2 + dpx * doff];
+    var pys = [obj.my1, obj.my2, obj.my1 + dpy * doff, obj.my2 + dpy * doff];
+    // include the label chip midpoint with a little padding so the number is grabbable
+    var mlx = (obj.mx1 + obj.mx2) / 2 + dpx * doff;
+    var mly = (obj.my1 + obj.my2) / 2 + dpy * doff;
+    pxs.push(mlx - 28, mlx + 28); pys.push(mly - 14, mly + 14);
+    return {
+      x1: Math.min.apply(null, pxs), y1: Math.min.apply(null, pys),
+      x2: Math.max.apply(null, pxs), y2: Math.max.apply(null, pys)
+    };
+  }
   if (obj.type === 'text') {
     var fs = obj.fontSize || 20;
     var txtLen = (obj.text || '').length;
@@ -2843,6 +2865,11 @@ function _handleSelectMove(e) {
         obj.points.forEach(function(p) { p.x += dx; p.y += dy; });
       }
       if (obj.x1 != null) { obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy; }
+      // S331g — dimensions store mx1/my1/mx2/my2; translate those too so a
+      // selected dimension moves with the group (offset is relative, unchanged).
+      if (obj.type === 'dimension' && obj.mx1 != null) {
+        obj.mx1 += dx; obj.my1 += dy; obj.mx2 += dx; obj.my2 += dy;
+      }
       // Eraser masks travel with the object (holes stay in the same spot on the shape)
       if (obj.eraserMask && obj.eraserMask.length) {
         obj.eraserMask.forEach(function(m) {
