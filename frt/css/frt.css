@@ -225,6 +225,13 @@ body.dark-mode .dv-toolbar .dv-title{color:white;}
 .dv-close-btn{background:none!important;border:none;color:var(--b-bar-fg);font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;padding:5px 10px;border-radius:6px;font-family:Calibri,sans-serif;white-space:nowrap;flex-shrink:0;}.dv-close-btn:hover{background:var(--b-pill-hover)!important;}
 body.dark-mode .dv-close-btn{color:white;}body.dark-mode .dv-close-btn:hover{background:rgba(255,255,255,.12)!important;}
 .dv-tasks-toggle.active{background:#d0d4d8!important;color:#1C2333!important;}
+/* S331i — red notification dot on the Field Heights toolbar button */
+.dv-heights-dot{
+  position:absolute; top:4px; right:4px; width:9px; height:9px;
+  border-radius:50%; background:#A8443A; border:1.5px solid var(--b-chrome-bg, #E6E3E9);
+  box-shadow:0 0 0 1px rgba(0,0,0,.12); pointer-events:none;
+}
+body.dark-mode .dv-heights-dot{ border-color:#221f29; }
 body.dark-mode .dv-tasks-toggle.active{background:rgba(255,255,255,.22)!important;color:white!important;}
 .dv-nav-group{display:flex;align-items:center;gap:0;background:rgba(0,0,0,.04);border-radius:7px;overflow:hidden;}
 body.dark-mode .dv-nav-group{background:rgba(0,0,0,.25);}
@@ -2644,6 +2651,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   /* Layers / Tasks / More / Dark — trim on mobile (keep emoji+icon glyphs) */
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-heights-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
     padding:0 10px !important;min-width:44px !important;min-height:40px !important;
@@ -2653,6 +2661,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   /* JS sets textContent to icon-only on mobile (see inline script setMobileTopbarIcons).
      No max-width crop needed since content is already short — bigger buttons get bigger emoji. */
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
+  .drawing-viewer-overlay .dv-toolbar #dv-heights-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
     font-size:calc(16px + var(--ts)) !important;
   }

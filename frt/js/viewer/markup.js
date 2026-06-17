@@ -2285,11 +2285,19 @@ function _moveDraw(e) {
           ? window._dimTool.dimTrueMeters(dragObj) : (typeof dragObj.trueM === 'number' ? dragObj.trueM : null);
 
         if (_dimVertexDragHandle === 0) {
-          if (dragObj.mx1 != null) { dragObj.mx1 = posDM.x; dragObj.my1 = posDM.y; }
-          else { dragObj.x1 = posDM.x; dragObj.y1 = posDM.y; }
+          // dragging endpoint A — snap relative to the fixed endpoint B
+          var _anchorB = { x: (dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2),
+                           y: (dragObj.mx1 != null ? dragObj.my2 : dragObj.y2) };
+          var _sp0 = (dim.applyOrtho ? dim.applyOrtho(_anchorB, { x: posDM.x, y: posDM.y }) : posDM);
+          if (dragObj.mx1 != null) { dragObj.mx1 = _sp0.x; dragObj.my1 = _sp0.y; }
+          else { dragObj.x1 = _sp0.x; dragObj.y1 = _sp0.y; }
         } else {
-          if (dragObj.mx1 != null) { dragObj.mx2 = posDM.x; dragObj.my2 = posDM.y; }
-          else { dragObj.x2 = posDM.x; dragObj.y2 = posDM.y; }
+          // dragging endpoint B — snap relative to the fixed endpoint A
+          var _anchorA = { x: (dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1),
+                           y: (dragObj.mx1 != null ? dragObj.my1 : dragObj.y1) };
+          var _sp1 = (dim.applyOrtho ? dim.applyOrtho(_anchorA, { x: posDM.x, y: posDM.y }) : posDM);
+          if (dragObj.mx1 != null) { dragObj.mx2 = _sp1.x; dragObj.my2 = _sp1.y; }
+          else { dragObj.x2 = _sp1.x; dragObj.y2 = _sp1.y; }
         }
 
         // Re-measure rule (locked with Mark, S331h):

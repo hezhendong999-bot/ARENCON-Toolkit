@@ -11,7 +11,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=654">
+<link rel="stylesheet" href="css/frt.css?v=655">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -585,14 +585,15 @@ function ensurePdfJs(cb){
         </div>
       </div>
     </div>
-    <!-- Tasks -->
-    <button id="dv-tasks-btn" class="dv-tasks-toggle" title="Show/hide tasks panel">📌</button>
+    <!-- Field Heights (promoted to toolbar — used often in field reviews).
+         The red dot appears when this drawing has non-default heights. -->
+    <button id="dv-heights-btn" class="dv-heights-toggle" data-dv-action="heights" title="Field Heights" style="position:relative;">📐<span id="dv-heights-dot" class="dv-heights-dot" style="display:none;"></span></button>
     <!-- More menu -->
     <div style="position:relative;display:inline-block;">
       <button id="dv-more-btn" title="More options">⋯</button>
       <div id="dv-more-menu" class="dv-more-menu" style="display:none;">
         <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
-        <button data-dv-action="heights" class="dv-menu-item">📐 Field Heights</button>
+        <button data-dv-action="tasks" class="dv-menu-item">📌 Tasks</button>
       </div>
     </div>
     <span id="dv-spacer-v75"></span>
@@ -979,7 +980,7 @@ function ensurePdfJs(cb){
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
      showCalibrationPrompt, renderObject). Loaded as plain JS before app.js
      so it's ready by the time markup.js dispatches a 'dimension' object. -->
-<script src="js/viewer/dimensionTool.js?v=11"></script>
+<script src="js/viewer/dimensionTool.js?v=12"></script>
 <script type="module" src="js/app.js"></script>
 
 <!-- S97 — Session recorder. Self-gates on ?dbg=1 or localStorage._frtDbg='1'.

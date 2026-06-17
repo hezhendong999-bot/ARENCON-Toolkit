@@ -227,7 +227,7 @@
   // tells the preview to draw a faint guide line.
   var _orthoSnap = true;       // feature enabled
   var _orthoActive = false;    // currently snapping (drives the guide)
-  var ORTHO_TOL_DEG = 6;       // within ±6° of a snap angle → snap
+  var ORTHO_TOL_DEG = 1.5;     // within ±1.5° of a snap angle → snap (near-perfect only)
   function setOrthoSnap(on) { _orthoSnap = !!on; }
   function isOrthoSnap() { return _orthoSnap; }
   function isOrthoActive() { return _orthoActive; }
@@ -1105,6 +1105,7 @@
       setOrthoSnap: setOrthoSnap,
       isOrthoSnap: isOrthoSnap,
       isOrthoActive: isOrthoActive,
+      applyOrtho: function(a, p) { return _applyOrtho(a, p); },
       renderVertexHandles: renderVertexHandles,
       parseDimNumber: _parseDimNumber,
       // Display unit (display-only; persisted by host)

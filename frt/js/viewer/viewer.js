@@ -626,6 +626,8 @@ function _showDrawing(idx) {
   if (idx < 0 || idx >= _drawings.length) return;
   _currentDrawingIdx = idx;
   var d = _drawings[idx];
+  // S331i — refresh the Field Heights red dot for this drawing.
+  setTimeout(_updateHeightsDot, 0);
 
   var overlay = document.getElementById('drawing-viewer-overlay');
   var img = document.getElementById('dv-image');
@@ -4672,6 +4674,12 @@ function _resetCtrHighlight() {
 }
 window._frtResetCtrHighlight = _resetCtrHighlight;
 document.addEventListener('click', function(e) {
+  if (e.target.closest && e.target.closest('[data-dv-action="tasks"]')) {
+    _toggleTasks();
+    var mmT = document.getElementById('dv-more-menu');
+    if (mmT) mmT.style.display = 'none';
+    return;
+  }
   if (e.target.closest && e.target.closest('[data-dv-action="heights"]')) {
     _openHeights();
     var mm = document.getElementById('dv-more-menu');
@@ -4706,12 +4714,12 @@ function _openHeights() {
   if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) return;
   var dwg = drawings[_currentDrawingIdx];
   var heights = (dwg.heights && dwg.heights.length) ? dwg.heights : [
-    { label: 'U/S Ceiling Deck', value: "5'-0\"", unit: 'A.F.F.' },
-    { label: 'U/S Branchline', value: "5'-0\"", unit: 'A.F.F.' },
-    { label: 'U/S Sprinkler Deflectors', value: "5'-0\"", unit: 'A.F.F.' },
-    { label: 'U/S Cross Main', value: "5'-0\"", unit: 'A.F.F.' },
-    { label: 'U/S Feed Main', value: "5'-0\"", unit: 'A.F.F.' },
-    { label: 'Top of Storage', value: "5'-0\"", unit: 'A.F.F.' }
+    { label: 'U/S Ceiling Deck', value: "0'-0\"", unit: 'A.F.F.' },
+    { label: 'U/S Branchline', value: "0'-0\"", unit: 'A.F.F.' },
+    { label: 'U/S Sprinkler Deflectors', value: "0'-0\"", unit: 'A.F.F.' },
+    { label: 'U/S Cross Main', value: "0'-0\"", unit: 'A.F.F.' },
+    { label: 'U/S Feed Main', value: "0'-0\"", unit: 'A.F.F.' },
+    { label: 'Top of Storage', value: "0'-0\"", unit: 'A.F.F.' }
   ];
   var rows = document.getElementById('dv-heights-rows');
   if (rows) {
@@ -4763,10 +4771,39 @@ function _saveHeights() {
   });
   dwg.heights = heights;
   Model.saveNow();
+  _updateHeightsDot();
   var panel = document.getElementById('dv-heights-panel');
   if (panel) panel.style.display = 'none';
   console.log('[Viewer] Heights saved:', heights.length, 'rows');
 }
+
+// S331i — Red notification dot on the Field Heights button. Shows when the
+// current drawing has any height value that differs from the default 0'-0"
+// (i.e. the inspector has actually recorded a measurement). A height row
+// counts as "set" if its value is non-empty and not a zero value.
+function _isHeightSet(v) {
+  if (v == null) return false;
+  var s = String(v).trim();
+  if (!s) return false;
+  // normalize: treat 0'-0", 0'0", 0, 0.0, 0m, 0mm etc. as unset
+  var digits = s.replace(/[^0-9]/g, '');
+  return /[1-9]/.test(digits);
+}
+function _drawingHasSetHeights(dwg) {
+  if (!dwg || !dwg.heights || !dwg.heights.length) return false;
+  for (var i = 0; i < dwg.heights.length; i++) {
+    if (_isHeightSet(dwg.heights[i] && dwg.heights[i].value)) return true;
+  }
+  return false;
+}
+function _updateHeightsDot() {
+  var dot = document.getElementById('dv-heights-dot');
+  if (!dot) return;
+  var drawings = _getDrawingsList();
+  var dwg = (_currentDrawingIdx >= 0 && _currentDrawingIdx < drawings.length) ? drawings[_currentDrawingIdx] : null;
+  dot.style.display = _drawingHasSetHeights(dwg) ? 'block' : 'none';
+}
+window._frtUpdateHeightsDot = _updateHeightsDot;
 
 
 // S115 P10: Re-render the pin editor's photo strip when photos change
