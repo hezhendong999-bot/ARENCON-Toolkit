@@ -36,6 +36,12 @@ SENTINELS = {
         "new-user-init",          # Create User: Initials field
         "owner-track-modal",      # S335 owner-track picker
         "reset-pw-modal",         # Admin reset password
+        "usage-panel",            # AI Usage & Costs view
+        "showUsage",              # Usage view-switch fn
+        "AIUsage",                # Usage module
+        "ai_invoice_marks",       # billing marks table ref
+        "aiu-mark-modal",         # mark-billed modal
+        "exportPDF",              # usage PDF export
     ],
 }
 
