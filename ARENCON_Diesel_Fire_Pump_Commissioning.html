@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S361 (drawer button uniformity: the S text-size button now full-width too, matching QR/day-night/AI Review/Reports/More/Sign Out) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S362 (Photo Gallery thumbnails: route _pgCollect src through _photoSrc so gallery photos with lost R2 pointers also reconstruct from id — gallery was bypassing the S360 fix) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -13961,31 +13961,31 @@ function _collectAllPhotos(){
   // 1. Flow test photos (3-point) — S355: badge by category tag
   (flowTestPhotos||[]).forEach(function(p,i){
     var sh=(typeof _floweqShort==='function')?_floweqShort((typeof _floweqTag==='function')?_floweqTag(p):'flow_chart'):'Flow';
-    all.push({photo:p, type:'flowtest', cat:'flow', badge:'3·'+sh, label:_floweqLabel?_floweqLabel(_floweqTag(p)):'Flow Test (3-pt)', section:'flowtest', idx:i, src:p.d||p.r2Url});
+    all.push({photo:p, type:'flowtest', cat:'flow', badge:'3·'+sh, label:_floweqLabel?_floweqLabel(_floweqTag(p)):'Flow Test (3-pt)', section:'flowtest', idx:i, src:_photoSrc(p)});
   });
   // 2. Flow test photos (PLD) — S355: badge by category tag
   (flowTestPhotosPld||[]).forEach(function(p,i){
     var sh=(typeof _floweqShort==='function')?_floweqShort((typeof _floweqTag==='function')?_floweqTag(p):'flow_chart'):'Flow';
-    all.push({photo:p, type:'flowtest-pld', cat:'flow', badge:'7·'+sh, label:_floweqLabel?_floweqLabel(_floweqTag(p)):'Flow Test (PLD)', section:'flowtestpld', idx:i, src:p.d||p.r2Url});
+    all.push({photo:p, type:'flowtest-pld', cat:'flow', badge:'7·'+sh, label:_floweqLabel?_floweqLabel(_floweqTag(p)):'Flow Test (PLD)', section:'flowtestpld', idx:i, src:_photoSrc(p)});
   });
   // 3. Checklist item photos
   Object.keys(clState||{}).forEach(function(id){
     var st = clState[id];
     if(!st || !st.photos) return;
     st.photos.forEach(function(p,pi){
-      all.push({photo:p, type:'checklist', cat:'checklist', badge:_clItemNum(id), label:'Checklist '+_clItemNum(id), section:'cl_'+id, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'checklist', cat:'checklist', badge:_clItemNum(id), label:'Checklist '+_clItemNum(id), section:'cl_'+id, idx:pi, src:_photoSrc(p)});
     });
   });
   // 4. Deficiency photos (per contractor)
   Object.keys(deficiencies||{}).forEach(function(ctr){
     (deficiencies[ctr]||[]).forEach(function(d,di){
       (d.photos||[]).forEach(function(p,pi){
-        all.push({photo:p, type:'deficiency', cat:'deficiency', badge:'D'+(di+1), label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi, src:p.d||p.r2Url});
+        all.push({photo:p, type:'deficiency', cat:'deficiency', badge:'D'+(di+1), label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi, src:_photoSrc(p)});
       });
       // Response photos
       (d.responses||[]).forEach(function(r,ri){
         (r.photos||[]).forEach(function(p,pi){
-          all.push({photo:p, type:'response', cat:'deficiency', badge:'D'+(di+1)+'R', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi, src:p.d||p.r2Url});
+          all.push({photo:p, type:'response', cat:'deficiency', badge:'D'+(di+1)+'R', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi, src:_photoSrc(p)});
         });
       });
     });
@@ -13993,7 +13993,7 @@ function _collectAllPhotos(){
   // 5. General deficiency photos
   (generalDeficiencies||[]).forEach(function(d,di){
     (d.photos||[]).forEach(function(p,pi){
-      all.push({photo:p, type:'general-defic', cat:'general', badge:'G'+(di+1), label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'general-defic', cat:'general', badge:'G'+(di+1), label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:_photoSrc(p)});
     });
   });
   // 6. Site records (pump / placard / site)
@@ -14006,17 +14006,17 @@ function _collectAllPhotos(){
     else if(_k==='placard'){ kl='Placard'; badge='3·Placard'; }
     else if(_k==='placard-pld'){ kl='PLD Placard'; badge='7·Placard'; }
     else { kl='Site'; badge='Site'; }
-    all.push({photo:p, type:'record', cat:'records', badge:badge, label:'Record: '+kl, section:'rec_'+_k, idx:i, src:p.d||p.r2Url});
+    all.push({photo:p, type:'record', cat:'records', badge:badge, label:'Record: '+kl, section:'rec_'+_k, idx:i, src:_photoSrc(p)});
   });
   // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
   (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge', cat:'flow', badge:('3·'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('·'+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge', cat:'flow', badge:('3·'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('·'+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi, src:_photoSrc(p)});
     });
   });
   (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
     (row && row.photos ? row.photos : []).forEach(function(p,pi){
-      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:('7·'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('·'+_GAUGE_TAG_SHORT[p.tag]):'')+(p.mode==='pld'?'·PLD':'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):'')+(p.mode==='direct'?' · without PLD':p.mode==='pld'?' · with PLD':''), section:'gauge_pld_'+ri, idx:pi, src:p.d||p.r2Url});
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:('7·'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('·'+_GAUGE_TAG_SHORT[p.tag]):'')+(p.mode==='pld'?'·PLD':'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):'')+(p.mode==='direct'?' · without PLD':p.mode==='pld'?' · with PLD':''), section:'gauge_pld_'+ri, idx:pi, src:_photoSrc(p)});
     });
   });
   return all;
@@ -15776,7 +15776,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S361';
+var DIESEL_BUILD = 'S362';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
