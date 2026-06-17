@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S360 (FIX thumbnails: _photoSrc() reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S361 (drawer button uniformity: the S text-size button now full-width too, matching QR/day-night/AI Review/Reports/More/Sign Out) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1070,6 +1070,7 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .header-actions #dark-toggle{justify-content:center;flex-shrink:0;margin-left:0;}
   .header-actions.mobile-open #dark-toggle{display:flex!important;width:100%;justify-content:center;padding:14px;border-radius:10px;}
   .header-actions.mobile-open #btn-qr{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
+  .header-actions.mobile-open #btn-text-size{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   /* Project link: compact */
   /* Data tables: allow horizontal scroll inside card */
   .tbl-wrap,.defic-table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch;}
@@ -15775,7 +15776,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S360';
+var DIESEL_BUILD = 'S361';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
