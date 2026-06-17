@@ -394,8 +394,17 @@ export default {
             return new Response('Not Found', { status: 404, headers: cors });
           }
           const headers = new Headers(cors);
-          headers.set('Content-Type', object.httpMetadata?.contentType || 'image/jpeg');
-          headers.set('Cache-Control', 'public, max-age=31536000');
+          const ct = object.httpMetadata?.contentType || 'image/jpeg';
+          headers.set('Content-Type', ct);
+          // S331f — mutable markup/data JSON must NOT be long-cached. A one-year
+          // cache made the conditional-PUT ETag go stale, so every markup save
+          // after the first 412'd (S205 Bug B) and fell back to an unconditional
+          // write (race protection skipped). Serve JSON uncached so each read
+          // returns R2's live ETag; binaries (photos/drawings) stay immutable.
+          const isMutableJson = rawPath.endsWith('.json') || ct === 'application/json';
+          headers.set('Cache-Control', isMutableJson
+            ? 'no-cache, no-store, must-revalidate'
+            : 'public, max-age=31536000');
           headers.set('ETag', object.httpEtag || '');
           return new Response(object.body, { status: 200, headers });
         } catch (e) {
