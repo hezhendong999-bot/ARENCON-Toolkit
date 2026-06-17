@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S349 (export modal CSS un-trapped from mobile media query — now styles on desktop; image icon → SVG). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S350 (DIAGNOSTIC: non-destructive traces for phantom placard-photo deletion — no data/behavior change). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -13067,11 +13067,28 @@ function _mergeCloudLocal(cloud, local){
     // Preserve site record photos (match by id, fall back to index)
     if(local.recordPhotos && cloud.recordPhotos){
       cloud.recordPhotos.forEach(function(cp,i){
-        var lp = (cp.id && local.recordPhotos.filter(function(x){return x.id===cp.id;})[0]) || local.recordPhotos[i];
+        var idMatch = cp.id && local.recordPhotos.filter(function(x){return x.id===cp.id;})[0];
+        var lp = idMatch || local.recordPhotos[i];
+        // S350 TRACE: positional fallback is the suspect for kind/identity collision.
+        // Warn when we pair by INDEX (no id match) and the slot's ids differ.
+        if(!idMatch && lp && lp.id && cp.id && lp.id!==cp.id){
+          try{ console.warn('[S350 merge mispair trace] recordPhotos paired by INDEX (ids differ):', {
+            slot:i, cloudId:cp.id, cloudKind:cp.kind||'', cloudDeleted:!!cp.deleted,
+            localId:lp.id, localKind:lp.kind||'', localDeleted:!!lp.deleted
+          }); }catch(_e){}
+        }
         if(lp && !cp.d && lp.d) cp.d = lp.d;
         if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
         _preserveMk(cp, lp);
       });
+      // S350 TRACE: list any LOCAL recordPhoto that is NOT present in cloud at all
+      // (these are the ones the union's isFresh gate may be dropping → data loss).
+      try{
+        var cloudIds={}; cloud.recordPhotos.forEach(function(p){ if(p&&p.id) cloudIds[p.id]=true; });
+        var orphans=local.recordPhotos.filter(function(p){ return p&&p.id&&!cloudIds[p.id]; });
+        if(orphans.length) console.warn('[S350 orphan trace] local recordPhotos missing from cloud:',
+          orphans.map(function(p){ return {id:p.id, kind:p.kind||'', deleted:!!p.deleted, r2Status:p.r2Status||'', hasD:!!p.d}; }));
+      }catch(_e){}
     }
     // Preserve deficiency photos
     if(local.deficiencies && cloud.deficiencies){
@@ -13402,7 +13419,18 @@ function _mergeCloudLocal(cloud, local){
         var cloudDeleted = !!p.deleted;
         var localDeleted = ls ? ls.deleted : false;
         if(cloudDeleted || localDeleted){
-          if(!p.deleted){ p.deleted = true; n++; }
+          if(!p.deleted){
+            // S350 TRACE (non-destructive): a photo is being flagged deleted by the
+            // merge. Log WHO carried the flag so we can pin the phantom-delete bug.
+            try{ console.warn('[S350 phantom-delete trace] flagging deleted:', {
+              id:p.id, kind:p.kind||'(none)',
+              cloudDeleted:cloudDeleted, localDeleted:localDeleted,
+              localSnapshotPresent:!!ls,
+              cloudDeletedDate:p.deletedDate||'', localDeletedDate:ls?ls.deletedDate:'',
+              r2Status:p.r2Status||'', hasLocalBlob:!!p.d
+            }); }catch(_e){}
+            p.deleted = true; n++;
+          }
           // keep the earliest known deletedDate so the 30-day countdown is honest
           var cd = p.deletedDate || '';
           var ld = ls ? ls.deletedDate : '';
@@ -15446,7 +15474,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S349';
+var DIESEL_BUILD = 'S350';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
