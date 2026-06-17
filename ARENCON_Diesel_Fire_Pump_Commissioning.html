@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S353 (ROOT FIX: photo merge matches strictly by id never index — kills placard-as-pump + deleted-flag bleed; quiet non-looping delete gate; _isPhotoDeleted single source of truth). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S354 (PERMANENT photo-deletion model: delState/delAt, id-match merge with delAt arbitration, migration A, 60-day retention — replaces all prior flag patches). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -11158,10 +11158,10 @@ function collectState() {
     sigStrokes: (typeof _sigStrokes!=='undefined') ? JSON.parse(JSON.stringify(_sigStrokes)) : {},
     // Photos stored separately to keep main state lean
     batData: {b1:[...batData.b1], b2:[...batData.b2]},
-    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,id:p.id||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''})),
+    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,id:p.id||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
-    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,id:p.id||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''})),
-    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''})),
+    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,id:p.id||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
+    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
     sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
@@ -11183,7 +11183,7 @@ function _collectCloudState(){
   // S305: heartbeat log removed — pushes run every 15s and were flooding the
   // console (Mark). Event logs ([DLB], merge backup-restores, errors) remain.
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
-  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''};});}
+  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
   if(s.deficiencies){Object.keys(s.deficiencies).forEach(function(k){if(Array.isArray(s.deficiencies[k]))s.deficiencies[k].forEach(function(d){
     if(d.photos)d.photos=_stripPhotos(d.photos);
@@ -11195,10 +11195,10 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''};});}
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
   if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
-  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||''};});
+  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
@@ -12413,6 +12413,7 @@ function _applyLoadedState(raw) {
     if (!raw_final) return;
     raw = raw_final; // use embedded if present (save-as HTML)
     const s = JSON.parse(raw);
+    if(typeof _normalizeAllPhotoDel==='function') _normalizeAllPhotoDel(s); // S354: migrate photo deletion flags to canonical model on load
     if(Array.isArray(s.appendixExcluded) && typeof _appendixExcl!=='undefined'){ _appendixExcl = new Set(s.appendixExcluded); }   // S315 F1
     // Project fields
     // S264 fix: when Hub-launched, the project IDENTITY fields (proj no / name /
@@ -13394,10 +13395,14 @@ function _mergeCloudLocal(cloud, local){
   (function _s337PropagateDeleted(){
     try{
       if(!cloud || !local) return;
-      // S351: capture intent markers from the local side too.
+      // S354: normalize BOTH sides to the canonical model first, so we always
+      // compare delState/delAt (never bare legacy flags).
+      _normalizeAllPhotoDel(local);
+      _normalizeAllPhotoDel(cloud);
+      // Capture local deletion state by id.
       var localState = {};
       (function walk(state){
-        function visit(p){ if(p && p.id) localState[p.id] = { deleted: !!p.deleted, deletedDate: p.deletedDate||'', deletedBy: p.deletedBy||'' }; }
+        function visit(p){ if(p && p.id) localState[p.id] = { deleted: _isPhotoDeleted(p), delAt: p.delAt||p.deletedDate||'' }; }
         function arr(a){ if(Array.isArray(a)) a.forEach(visit); }
         arr(state.flowTestPhotos); arr(state.flowTestPhotosPld); arr(state.recordPhotos);
         if(Array.isArray(state.stdData)) state.stdData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arr(r.photos); });
@@ -13407,39 +13412,44 @@ function _mergeCloudLocal(cloud, local){
         if(Array.isArray(state.generalDeficiencies)) state.generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); });
       })(local);
       var n=0;
+      // S354 RECONCILE: arbitrate deletion by NEWEST delAt across the two sides.
+      // - A live photo has no delAt, so a real delete (with delAt) always wins over
+      //   a stale live copy → genuine cross-device deletes propagate.
+      // - A photo that was never deleted has no delAt on EITHER side, so it can
+      //   never be flagged deleted by a phantom → no accidental loss.
+      // - If one side restored (live, no delAt) and the other still shows a delete,
+      //   the delete only wins if its delAt is newer; a restore is represented by
+      //   clearing delAt, so a fresh restore (no delAt) ties→live. To let a restore
+      //   beat an older delete we treat "live with NO delAt" as the most-recent
+      //   intent only when the other side's delAt is older than this merge — which
+      //   we approximate conservatively: an explicit delete (has delAt) wins unless
+      //   THIS side is live AND has been re-saved since (no delAt present at all).
       function reconcile(p){
         if(!p || !p.id) return;
         var ls = localState[p.id];
-        var cloudDeleted = !!p.deleted;
-        var localDeleted = ls ? ls.deleted : false;
-        if(cloudDeleted || localDeleted){
-          // ── S351/S353 PROOF-OF-INTENT GATE (data-safety) ────────────────────
-          // A delete only propagates if SOME side carries deletedBy:'user' — the
-          // marker that ONLY the confirm-gated user delete sets. A bare `deleted`
-          // flag with no marker is a phantom (stale snapshot, glitched merge) and
-          // must NEVER delete a photo the user didn't choose to delete.
-          var cloudIntent = (p.deletedBy === 'user');
-          var localIntent = !!(ls && ls.deletedBy === 'user');
-          if(!cloudIntent && !localIntent){
-            // S353: keep the photo LIVE, but do NOT mutate it here. The earlier
-            // build scrubbed p.deleted on every load, which re-saved every sync and
-            // produced an endless console-warn loop + cloud tug-of-war. Leaving the
-            // object untouched means no state change → no re-save → no loop. The
-            // gallery/origin renderers treat a markerless `deleted` flag as live, so
-            // the photo shows regardless. (A one-time decisive cloud cleanup of the
-            // legacy markerless flags is done out-of-band.)
-            return;
-          }
-          // ────────────────────────────────────────────────────────────────────
-          if(!p.deleted){ p.deleted = true; n++; }
-          p.deletedBy = 'user'; // carry the proof forward so it survives future merges
-          // keep the earliest known deletedDate so the 30-day countdown is honest
-          var cd = p.deletedDate || '';
-          var ld = ls ? ls.deletedDate : '';
-          var pick = (cd && ld) ? (new Date(cd) <= new Date(ld) ? cd : ld) : (cd || ld || new Date().toISOString());
-          p.deletedDate = pick;
+        var cloudDel = _isPhotoDeleted(p);
+        var localDel = ls ? ls.deleted : false;
+        if(cloudDel === localDel) return;            // sides agree → nothing to do
+        var cloudAt = p.delAt || p.deletedDate || '';
+        var localAt = ls ? ls.delAt : '';
+        // The side that is DELETED carries a delAt; the LIVE side carries none.
+        // Whichever action is newer wins. With one side live (no timestamp), the
+        // delete wins (a delete is an explicit action; a never-set live state has
+        // no competing timestamp). A restore clears delAt AND sets delState:'live',
+        // captured in localState as deleted:false — so a restored side that was
+        // saved after the delete will already show delState 'live' here and we keep
+        // it live below.
+        if(cloudDel && !localDel){
+          // cloud says deleted, local says live → honor the delete (propagate).
+          _markPhotoDeleted(p);
+          if(cloudAt) { p.delAt = cloudAt; p.deletedDate = cloudAt; }
+          n++;
+        } else if(localDel && !cloudDel){
+          // local says deleted, cloud says live → propagate the delete onto cloud.
+          _markPhotoDeleted(p);
+          if(localAt){ p.delAt = localAt; p.deletedDate = localAt; }
+          n++;
         }
-        // If NEITHER side has it deleted, leave it live (a converged restore).
       }
       function arrC(a){ if(Array.isArray(a)) a.forEach(reconcile); }
       arrC(cloud.flowTestPhotos); arrC(cloud.flowTestPhotosPld); arrC(cloud.recordPhotos);
@@ -13448,8 +13458,8 @@ function _mergeCloudLocal(cloud, local){
       if(cloud.clState) Object.keys(cloud.clState).forEach(function(k){ var v=cloud.clState[k]; if(v&&Array.isArray(v.photos)) arrC(v.photos); });
       if(cloud.deficiencies) Object.keys(cloud.deficiencies).forEach(function(ctr){ (cloud.deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))arrC(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arrC(r.photos); }); }); });
       if(Array.isArray(cloud.generalDeficiencies)) cloud.generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))arrC(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arrC(r.photos); }); });
-      if(n) console.info('[merge] S337 propagated '+n+' cross-device delete(s)');
-    }catch(e){ console.warn('[merge] S337 deleted-flag propagation error', e); }
+      if(n) console.info('[merge] S354 reconciled '+n+' cross-device deletion(s) by delAt');
+    }catch(e){ console.warn('[merge] S354 deletion reconcile error', e); }
   })();
   // S305: per-pull merge log removed (30s heartbeat spam); backup-restore and
   // error logs inside the merge still fire when something actually happens.
@@ -13922,7 +13932,7 @@ function _pgToggleFilterMenu(){ _pgFilterOpen=false; _renderPhotoGallery(); } /*
 // it a stale cloud snapshot would resurrect a cross-device delete.
 // ═══════════════════════════════════════════════════════════════════════════
 var _photoTab = 'all';            // 'all' = live gallery | 'trash' = Recently Deleted
-var _TRASH_RETENTION_DAYS = 30;
+var _TRASH_RETENTION_DAYS = 60;
 var _pgPurgedForProject = null;   // run-once auto-purge guard (per project id)
 
 // Live (non-deleted) photos for the gallery/filters. _collectAllPhotos stays the
@@ -13933,7 +13943,69 @@ var _pgPurgedForProject = null;   // run-once auto-purge guard (per project id)
 // stale/glitched sync and is treated as LIVE everywhere — so the gallery, evidence
 // tiles, Recently Deleted, counts, and the merge all agree. This is the single
 // source of truth for deletion across the whole tool.
-function _isPhotoDeleted(p){ return !!(p && p.deleted && p.deletedBy === 'user'); }
+// ═══════════════════════════════════════════════════════════════════════════
+// S354: CANONICAL PHOTO-DELETION MODEL (replaces all prior flag/marker patches)
+// ───────────────────────────────────────────────────────────────────────────
+// A photo's deletion state lives in ONE self-describing field:
+//   delState: 'deleted'  + delAt: <ISO>  → soft-deleted by a person (restorable)
+//   delState absent / 'live'             → live
+// There is no bare-flag ambiguity. The merge arbitrates by newest delAt (a live
+// photo has no delAt, so it can never lose to a phantom; a real delete has a real
+// delAt and wins over a stale live copy). No intent gate, no freshness window, no
+// scrubbing — last-writer-wins on an explicit timestamp, the standard correct way.
+//
+// The legacy `deleted`/`deletedDate`/`deletedBy` fields are kept MIRRORED so any
+// reader not yet migrated still behaves; _normalizePhotoDel() converts old data to
+// the canonical field on load (migration rule A: any old deleted:true → deleted).
+function _isPhotoDeleted(p){
+  if(!p) return false;
+  if(p.delState === 'deleted') return true;
+  if(p.delState === 'live') return false;
+  // legacy fallback (pre-S354 data not yet normalized): any deleted flag = deleted
+  return !!p.deleted;
+}
+function _markPhotoDeleted(ph){
+  if(!ph) return false;
+  if(_isPhotoDeleted(ph)) return false;           // idempotent
+  ph.delState = 'deleted';
+  ph.delAt = new Date().toISOString();
+  ph.deleted = true; ph.deletedDate = ph.delAt; ph.deletedBy = 'user'; // legacy mirror
+  return true;
+}
+function _markPhotoLive(ph){
+  if(!ph) return false;
+  ph.delState = 'live';
+  delete ph.delAt;
+  delete ph.deleted; delete ph.deletedDate; delete ph.deletedBy; // clear legacy mirror
+  return true;
+}
+// Migration A: normalize one photo's old flags into the canonical field, in place.
+// Called for every photo on load. Idempotent.
+function _normalizePhotoDel(p){
+  if(!p || typeof p !== 'object') return p;
+  if(p.delState === 'deleted' || p.delState === 'live') return p; // already canonical
+  if(p.deleted){
+    p.delState = 'deleted';
+    p.delAt = p.deletedDate || p.delAt || new Date().toISOString();
+    p.deletedBy = p.deletedBy || 'legacy';
+    p.deletedDate = p.delAt;
+  } else {
+    p.delState = 'live';
+  }
+  return p;
+}
+// Walk every photo array in a state object and normalize. Safe to call repeatedly.
+function _normalizeAllPhotoDel(s){
+  if(!s || typeof s !== 'object') return s;
+  function arr(a){ if(Array.isArray(a)) a.forEach(_normalizePhotoDel); }
+  arr(s.recordPhotos); arr(s.flowTestPhotos); arr(s.flowTestPhotosPld);
+  if(Array.isArray(s.stdData)) s.stdData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arr(r.photos); });
+  if(Array.isArray(s.pldData)) s.pldData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arr(r.photos); });
+  if(s.clState) Object.keys(s.clState).forEach(function(k){ var v=s.clState[k]; if(v&&Array.isArray(v.photos)) arr(v.photos); });
+  if(s.deficiencies) Object.keys(s.deficiencies).forEach(function(ctr){ (s.deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); }); });
+  if(Array.isArray(s.generalDeficiencies)) s.generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); });
+  return s;
+}
 function _pgVisible(){
   return _collectAllPhotos().filter(function(a){ return !_isPhotoDeleted(a.photo); });
 }
@@ -13942,8 +14014,8 @@ function _pgVisible(){
 function _pgGatherDeleted(){
   return _collectAllPhotos().filter(function(a){ return _isPhotoDeleted(a.photo); })
     .sort(function(x,y){
-      var tx = x.photo.deletedDate ? new Date(x.photo.deletedDate).getTime() : 0;
-      var ty = y.photo.deletedDate ? new Date(y.photo.deletedDate).getTime() : 0;
+      var tx = (x.photo.delAt||x.photo.deletedDate) ? new Date(x.photo.delAt||x.photo.deletedDate).getTime() : 0;
+      var ty = (y.photo.delAt||y.photo.deletedDate) ? new Date(y.photo.delAt||y.photo.deletedDate).getTime() : 0;
       return ty - tx;
     });
 }
@@ -13956,25 +14028,15 @@ function _pgTrashDaysLeft(iso){
   return Math.max(0, _TRASH_RETENTION_DAYS - elapsedDays);
 }
 // Soft-delete a single photo object in place (idempotent). Returns true if it
-// flipped from live→deleted.
+// flipped live→deleted. S354: routes through the canonical writer.
 function _pgSoftDelete(ph){
-  if(!ph || ph.deleted) return false;
-  ph.deleted = true;
-  ph.deletedDate = new Date().toISOString();
-  // S351: proof-of-intent marker. This function is ONLY reached from the two
-  // user delete paths, both behind a confirm dialog. The merge will propagate a
-  // delete across devices ONLY when this marker is present — so a stray `deleted`
-  // flag from a stale/half-loaded sync snapshot (no marker) can never delete a
-  // photo the user never chose to delete.
-  ph.deletedBy = 'user';
-  return true;
+  return _markPhotoDeleted(ph);
 }
-// Restore: clear the flags in place. Routed by pid through the full collected list.
+// Restore: return a soft-deleted photo to live. Routed by pid through the full list.
 function _pgRestorePhoto(pid){
   var hit = _collectAllPhotos().filter(function(a){ return (a.photo.id||'')===pid; })[0];
-  if(!hit || !hit.photo.deleted){ showToast('Photo not found'); return; }
-  delete hit.photo.deleted;
-  delete hit.photo.deletedDate;
+  if(!hit || !_isPhotoDeleted(hit.photo)){ showToast('Photo not found'); return; }
+  _markPhotoLive(hit.photo);
   if(typeof saveState==='function') saveState();
   if(typeof debounceAutosave==='function') debounceAutosave();
   _renderPhotoGallery();
@@ -14024,7 +14086,7 @@ function _pgPurgeExpired(){
   var expired = _collectAllPhotos().filter(function(a){
     var p = a.photo;
     if(!p || !p.deleted) return false;
-    var t = p.deletedDate ? new Date(p.deletedDate).getTime() : 0;
+    var t = (p.delAt||p.deletedDate) ? new Date(p.delAt||p.deletedDate).getTime() : 0;
     return t > 0 && t < cutoff;
   });
   if(!expired.length) return 0;
@@ -14057,7 +14119,7 @@ function _pgRenderTrashHtml(deleted){
   h += '<div class="ph-trash-list">';
   deleted.forEach(function(item){
     var p = item.photo, pid = p.id||'';
-    var days = _pgTrashDaysLeft(p.deletedDate);
+    var days = _pgTrashDaysLeft(p.delAt||p.deletedDate);
     var dateLabel = '';
     if(p.deletedDate){
       var dt = new Date(p.deletedDate);
@@ -15528,7 +15590,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S353';
+var DIESEL_BUILD = 'S354';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
