@@ -270,28 +270,7 @@ function _drawOrthoGuide(anchor, moved) {
 // S331k — Green ortho guide for the CALIBRATION draw. Unlike _drawOrthoGuide,
 // this does NOT clear the overlay (the calibration preview was just drawn into
 // it); it composites the guide on top. Same coordinate space as the preview.
-function _drawCalibrateGuideOverlay(anchor, moved) {
-  var ov = _ensureOverlay();
-  if (!ov) return;
-  var ctx = ov.getContext('2d');
-  var d = ov._dpr || 1;
-  ctx.setTransform(d, 0, 0, d, 0, 0);
-  var gdx = moved.x - anchor.x, gdy = moved.y - anchor.y;
-  var glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1;
-  var gux = gdx / glen, guy = gdy / glen;
-  var ext = 9999;
-  ctx.save();
-  ctx.setLineDash([8, 6]);
-  ctx.strokeStyle = 'rgba(46, 158, 114, 0.7)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(anchor.x - gux * ext, anchor.y - guy * ext);
-  ctx.lineTo(anchor.x + gux * ext, anchor.y + guy * ext);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function _renderCalibratePreview(p1, cursor) {
+function _renderCalibratePreview(p1, cursor, showGuide) {
   var ov = _ensureOverlay();
   if (!ov) return;
   ov.style.display = 'block';
@@ -301,6 +280,23 @@ function _renderCalibratePreview(p1, cursor) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ov.width, ov.height);
   ctx.setTransform(d, 0, 0, d, 0, 0);
+  // S331k — green ortho guide drawn FIRST (under the preview) when snapped, in
+  // the SAME overlay pass. (Drawing it in a separate function re-ran
+  // _ensureOverlay, which resets canvas width and wiped the preview.)
+  if (showGuide) {
+    var ggx = cursor.x - p1.x, ggy = cursor.y - p1.y;
+    var gglen = Math.sqrt(ggx * ggx + ggy * ggy) || 1;
+    var ggux = ggx / gglen, gguy = ggy / gglen;
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = 'rgba(46, 158, 114, 0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p1.x - ggux * 9999, p1.y - gguy * 9999);
+    ctx.lineTo(p1.x + ggux * 9999, p1.y + gguy * 9999);
+    ctx.stroke();
+    ctx.restore();
+  }
   ctx.save();
   var COL = '#9C2742';
   ctx.strokeStyle = COL; ctx.fillStyle = COL;
@@ -2325,12 +2321,10 @@ function _moveDraw(e) {
     //      not clicking two bare dots. Display-only; nothing stored until save.
     if (_dimCalibrateMode && _dimCalibrateP1) {
       // S331k — calibration draw gets the same ortho snap + green guide as
-      // dimensions, so a calibration line locks dead-straight near H/V/45.
+      // dimensions. Guide is drawn inside the preview (single overlay pass).
       var _calPt = (dim.applyOrtho ? dim.applyOrtho(_dimCalibrateP1, { x: posDM.x, y: posDM.y }) : posDM);
-      _renderCalibratePreview(_dimCalibrateP1, _calPt);
-      if (dim.isOrthoActive && dim.isOrthoActive()) {
-        _drawCalibrateGuideOverlay(_dimCalibrateP1, _calPt);
-      }
+      var _calSnapped = !!(dim.isOrthoActive && dim.isOrthoActive());
+      _renderCalibratePreview(_dimCalibrateP1, _calPt, _calSnapped);
       return;
     }
     // (a) Vertex drag
