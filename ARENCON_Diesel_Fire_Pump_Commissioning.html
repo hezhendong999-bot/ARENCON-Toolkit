@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S355 (Flow Chart & Calibrated Equipment 4-pill photo modal: Gauges/Calibration/Equipment/Flow Chart tags, no PLD toggle, both 3-pt/7-pt; section-3 renumber + 4a text fix; removed 01/02/03 section chips). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S356 (Rated Press. live-links to 100% flow-row Placard, 3-pt+7-pt; flow-test Suct/Disch/RPM columns locked to constant width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -616,8 +616,8 @@ body.dark-mode .fig-readout .ro .chip.na{background:var(--b-fieldbg);}
 .fp-refline .ri input{width:74px;min-width:74px;max-width:74px;flex:0 0 74px;box-sizing:border-box;padding:4px 6px;border-radius:6px;border:1.5px solid var(--border);
   font-family:inherit;font-size:calc(12.5px + var(--ts));text-align:center;color:var(--slate);background:#fff;}
 .fp-refline .ri input:focus{outline:none;border-color:#A85959;}
-.fp-grid{display:grid;grid-template-columns:5px max-content repeat(3,minmax(64px,1fr)) max-content;
-  gap:4px 9px;align-items:center;}
+.fp-grid{display:grid;grid-template-columns:5px max-content repeat(3,132px) max-content;
+  gap:4px 9px;align-items:center;justify-content:start;}
 .fp-grid .fp-hdr{font-size:calc(9px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.4px;
   color:var(--silver);text-align:center;}
 .fp-spine{width:5px;align-self:stretch;min-height:28px;border-radius:3px;}
@@ -2352,7 +2352,7 @@ function updatePhaseFlags(){
           <div style="padding:16px;">
             <div class="ts-rated">
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow" placeholder="2000" oninput="autoFillStdFlows()"></div>
-              <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv" placeholder="175" oninput="updateChart()"></div>
+              <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv" placeholder="175" oninput="updateChart();_linkRatedPressToPlacard('std',this.value)"></div>
               <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart();if(typeof renderStdTable==='function')renderStdTable();if(typeof renderPldTable==='function')renderPldTable();"></div>
               <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief" placeholder="e.g. 185" oninput="updateChart()" title="Circulation/main pressure relief valve set pressure — caps the actual output curve"></div>
               <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing" placeholder="e.g. 165" oninput="updateChart()" title="Pressure reducing valve set pressure — caps the actual output curve"></div>
@@ -2520,7 +2520,7 @@ function updatePhaseFlags(){
           <div style="padding:16px;">
             <div class="ts-rated ts-rated-7">
               <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow-pld" placeholder="2000" oninput="autoFillPldFlows()"></div>
-              <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart()"></div>
+              <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart();_linkRatedPressToPlacard('pld',this.value)"></div>
               <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760" oninput="if(typeof renderPldTable==='function')renderPldTable();"></div>
               <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief-pld" placeholder="e.g. 185" oninput="updatePldChart()" title="Circulation/main pressure relief valve set pressure — caps the actual output curve"></div>
               <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing-pld" placeholder="e.g. 165" oninput="updatePldChart()" title="Pressure reducing valve set pressure — caps the actual output curve"></div>
@@ -14569,6 +14569,24 @@ function _psSetPlacard(pct, v, mode){
   var arr = (mode==='pld') ? (typeof pldData!=='undefined'?pldData:[]) : (typeof stdData!=='undefined'?stdData:[]);
   arr.forEach(function(r){ if(r.pct===pct) r.placard=String(v); });
 }
+// S356: live link — when the inspector types in "Rated Press. (psi)" (the placard
+// rated value), mirror it into the 100% flow row's Placard (psi) field so the two
+// stay in sync. One-way only (Rated Press -> 100% Placard): the per-row Placard
+// column can legitimately be overridden per point, so we never write back the
+// other direction and clobber the nameplate value.
+function _linkRatedPressToPlacard(mode, val){
+  var arr = (mode==='pld') ? (typeof pldData!=='undefined'?pldData:[]) : (typeof stdData!=='undefined'?stdData:[]);
+  var idx = -1;
+  arr.forEach(function(r,i){ if(r.pct==='100%') { r.placard = (val==null?'':String(val)); idx=i; } });
+  if(idx>=0){
+    // update the visible 100% Placard input in place (no full re-render = no focus loss)
+    var inp = document.querySelector('input[data-tbl="'+mode+'"][data-field="placard"][data-idx="'+idx+'"]');
+    if(inp) inp.value = (val==null?'':String(val));
+    if(mode==='pld'){ if(typeof updatePldCalcCells==='function') updatePldCalcCells(idx); }
+    else { if(typeof updateStdCalcCells==='function') updateStdCalcCells(idx); }
+  }
+  if(typeof debounceAutosave==='function') debounceAutosave();
+}
 function _npApplyNameplate(np, mode){
   // S338: write every non-empty nameplate string into ONLY the calling tab's fields.
   if(!np||typeof np!=='object') return 0;
@@ -15739,7 +15757,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S355';
+var DIESEL_BUILD = 'S356';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
