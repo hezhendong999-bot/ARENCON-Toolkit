@@ -1042,6 +1042,7 @@ function _pushHistory() {
   if (_undoStack.length > _maxUndo) _undoStack.shift();
   _redoStack = [];
   _updateUndoButtons();
+  try { console.log('[UndoDiag] pushHistory — undoStack=' + _undoStack.length + ' objects=' + _objects.length + ' tombstones=' + _tombstones.length); } catch(e){}
 }
 
 // S129 Item 1.1 — accept old-shape (plain JSON-stringified array) snapshots
@@ -1063,7 +1064,8 @@ function _decodeHistorySnapshot(s) {
 }
 
 function _undo() {
-  if (!_undoStack.length) return;
+  try { console.log('[UndoDiag] _undo CALLED — undoStack=' + _undoStack.length + ' redoStack=' + _redoStack.length + ' objectsBefore=' + _objects.length); } catch(e){}
+  if (!_undoStack.length) { try { console.log('[UndoDiag] _undo NOOP — empty undoStack'); } catch(e){} return; }
   _redoStack.push(JSON.stringify({ objects: _objects, tombstones: _tombstones }));
   var snap = _decodeHistorySnapshot(_undoStack.pop());
   _objects = snap.objects;
@@ -1072,10 +1074,12 @@ function _undo() {
   _renderAll();
   _markDirty();
   _updateUndoButtons();
+  try { console.log('[UndoDiag] _undo DONE — objectsAfter=' + _objects.length + ' undoStack=' + _undoStack.length + ' redoStack=' + _redoStack.length + ' webgl=' + (typeof _useWebGL!=='undefined'?_useWebGL:'?')); } catch(e){}
 }
 
 function _redo() {
-  if (!_redoStack.length) return;
+  try { console.log('[UndoDiag] _redo CALLED — redoStack=' + _redoStack.length + ' objectsBefore=' + _objects.length); } catch(e){}
+  if (!_redoStack.length) { try { console.log('[UndoDiag] _redo NOOP — empty redoStack'); } catch(e){} return; }
   _undoStack.push(JSON.stringify({ objects: _objects, tombstones: _tombstones }));
   var snap = _decodeHistorySnapshot(_redoStack.pop());
   _objects = snap.objects;
@@ -1084,6 +1088,7 @@ function _redo() {
   _renderAll();
   _markDirty();
   _updateUndoButtons();
+  try { console.log('[UndoDiag] _redo DONE — objectsAfter=' + _objects.length); } catch(e){}
 }
 
 // S129 Item 1.1 — Record erased stroke ids as tombstones. Call BEFORE
