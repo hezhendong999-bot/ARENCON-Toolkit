@@ -6997,6 +6997,13 @@ body.dark-mode .dim-unit-btn.active { background: #463c52; color: #f4f3f6; }
 /* metric mode hides feet/inch keys */
 .dim-kp.metric .k-imponly { display: none; }
 body.dark-mode .dim-kp { background: #211d27; border-color: #38323f; }
+body.dark-mode .dim-kp-disp { background: #2a2530; border-color: #C9476A; }
+body.dark-mode .dim-kp-disp input { color: #f4f3f6; }
+body.dark-mode .dim-kp-disp input::placeholder { color: #8a8194; }
+body.dark-mode .dim-kp-interp { color: #a09aa8; }
+body.dark-mode .dim-kp-tip { color: #8a8194; }
+body.dark-mode .dim-kp-keys .k-sym { color: #E0779A; }
+body.dark-mode .dim-kp-keys button:active { background: #38323f; }
 body.dark-mode .dim-kp-disp input { color: #f4f3f6; }
 body.dark-mode .dim-kp-keys button { background: #2a2530; border-color: #38323f; color: #f4f3f6; }
 body.dark-mode .dim-kp-keys .k-rev { background: #211d27; color: #b6a9c0; }

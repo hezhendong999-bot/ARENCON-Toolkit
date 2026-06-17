@@ -219,6 +219,38 @@
 
   // Returns { ux, uy, px, py, len } for vector A→B. Perp is rotated +90°
   // (right-hand of direction). Returns null if A=B.
+  // ── S331h — Ortho / angle snapping (AutoCAD-style F8 ortho + polar) ──
+  // When the in-progress A→B line is within a small angular threshold of a
+  // cardinal (0/90/180/270) or 45° diagonal, snap B to lie exactly on that
+  // ray from A. Past the threshold the line is fully free (true diagonals
+  // work normally). Default ON; a flag lets the UI toggle it. _orthoActive
+  // tells the preview to draw a faint guide line.
+  var _orthoSnap = true;       // feature enabled
+  var _orthoActive = false;    // currently snapping (drives the guide)
+  var ORTHO_TOL_DEG = 6;       // within ±6° of a snap angle → snap
+  function setOrthoSnap(on) { _orthoSnap = !!on; }
+  function isOrthoSnap() { return _orthoSnap; }
+  function isOrthoActive() { return _orthoActive; }
+  // Snap a moving point `p` relative to anchor `a`. Returns the (possibly
+  // adjusted) point and sets _orthoActive. Snap angles: every 45°.
+  function _applyOrtho(a, p) {
+    _orthoActive = false;
+    if (!_orthoSnap || !a) return p;
+    var dx = p.x - a.x, dy = p.y - a.y;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) return p;
+    var ang = Math.atan2(dy, dx);                 // -PI..PI
+    var step = Math.PI / 4;                        // 45°
+    var snapAng = Math.round(ang / step) * step;
+    var diff = Math.abs(ang - snapAng);
+    if (diff > Math.PI) diff = 2 * Math.PI - diff;
+    if (diff <= ORTHO_TOL_DEG * Math.PI / 180) {
+      _orthoActive = true;
+      return { x: a.x + Math.cos(snapAng) * len, y: a.y + Math.sin(snapAng) * len };
+    }
+    return p;
+  }
+
   function _abFrame(ax, ay, bx, by) {
     var dx = bx - ax, dy = by - ay;
     var len = Math.sqrt(dx * dx + dy * dy);
@@ -705,9 +737,10 @@
     _curCal = cal;
     // Gentle snap to a nearby existing vertex so chains close cleanly
     // (locked spec §3). Only the start/end points snap, not the offset.
+    var _vertexSnapped = false;
     if (objects && _state !== 'awaitOffset') {
       var snap = nearestVertex(pos, objects, 12);
-      if (snap) pos = { x: snap.x, y: snap.y };
+      if (snap) { pos = { x: snap.x, y: snap.y }; _vertexSnapped = true; }
     }
     if (_state === 'idle') {
       _pA = { x: pos.x, y: pos.y };
@@ -719,12 +752,15 @@
       return { committed: false, action: 'lockedA' };
     }
     if (_state === 'awaitB') {
+      // S331h — snap B to ortho/45 (unless it locked onto an existing vertex).
+      if (!_vertexSnapped) pos = _applyOrtho(_pA, pos);
       // Don't allow zero-length AB (accidental double-tap)
       if (_pA && _pixelDist(_pA.x, _pA.y, pos.x, pos.y) < 4) {
         return { committed: false, action: 'noop' };
       }
       _pB = { x: pos.x, y: pos.y };
       _state = 'awaitOffset';
+      _orthoActive = false;
       // Seed the cursor with a DEFAULT perpendicular offset (not _pB itself)
       // so the offset-stage preview is immediately visible as a real,
       // staggered dimension line — otherwise offset is 0 and the preview
@@ -771,7 +807,13 @@
 
   function handleMove(pos) {
     if (!pos) return;
-    _cursor = { x: pos.x, y: pos.y };
+    // S331h — during the A→B stage, snap near-straight lines to H/V/45.
+    if (_state === 'awaitB' && _pA) {
+      _cursor = _applyOrtho(_pA, { x: pos.x, y: pos.y });
+    } else {
+      _orthoActive = false;
+      _cursor = { x: pos.x, y: pos.y };
+    }
   }
 
   /**
@@ -793,6 +835,23 @@
     ctx.globalAlpha = opacity != null ? opacity : 1;
 
     if (_state === 'awaitB' && _cursor) {
+      // S331h — when ortho-snapped, extend a faint green guide beyond the
+      // segment so it reads like AutoCAD's polar/ortho tracking line.
+      if (_orthoActive) {
+        var gdx = _cursor.x - _pA.x, gdy = _cursor.y - _pA.y;
+        var glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1;
+        var gux = gdx / glen, guy = gdy / glen;
+        var ext = 9999;
+        ctx.save();
+        ctx.setLineDash([8, 6]);
+        ctx.strokeStyle = 'rgba(46, 158, 114, 0.7)'; // muted green guide
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(_pA.x - gux * ext, _pA.y - guy * ext);
+        ctx.lineTo(_pA.x + gux * ext, _pA.y + guy * ext);
+        ctx.stroke();
+        ctx.restore();
+      }
       ctx.save();
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
@@ -1043,6 +1102,9 @@
       showCalibrationPrompt: showCalibrationPrompt,
       renderObject: renderObject,
       renderPreview: renderPreview,
+      setOrthoSnap: setOrthoSnap,
+      isOrthoSnap: isOrthoSnap,
+      isOrthoActive: isOrthoActive,
       renderVertexHandles: renderVertexHandles,
       parseDimNumber: _parseDimNumber,
       // Display unit (display-only; persisted by host)

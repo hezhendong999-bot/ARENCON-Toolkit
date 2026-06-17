@@ -2273,6 +2273,17 @@ function _moveDraw(e) {
     if (_dimVertexEditId != null && _dimVertexDragHandle != null && _isDrawing) {
       var dragObj = _findObj(_dimVertexEditId);
       if (dragObj) {
+        // Capture the OLD pixel length before we move the handle — needed to
+        // back out the implied scale for a not-to-scale (uncalibrated) measured
+        // dimension so dragging still re-measures proportionally (S331h).
+        var _oax = dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1;
+        var _oay = dragObj.mx1 != null ? dragObj.my1 : dragObj.y1;
+        var _obx = dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2;
+        var _oby = dragObj.mx1 != null ? dragObj.my2 : dragObj.y2;
+        var _oldPx = Math.sqrt((_obx - _oax) * (_obx - _oax) + (_oby - _oay) * (_oby - _oay));
+        var _oldTrueM = (window._dimTool && window._dimTool.dimTrueMeters)
+          ? window._dimTool.dimTrueMeters(dragObj) : (typeof dragObj.trueM === 'number' ? dragObj.trueM : null);
+
         if (_dimVertexDragHandle === 0) {
           if (dragObj.mx1 != null) { dragObj.mx1 = posDM.x; dragObj.my1 = posDM.y; }
           else { dragObj.x1 = posDM.x; dragObj.y1 = posDM.y; }
@@ -2280,18 +2291,39 @@ function _moveDraw(e) {
           if (dragObj.mx1 != null) { dragObj.mx2 = posDM.x; dragObj.my2 = posDM.y; }
           else { dragObj.x2 = posDM.x; dragObj.y2 = posDM.y; }
         }
-        // Live label recompute (overrideLabel preserved per spec)
-        var drDM = _getCurrentDrawing();
-        var calDM = dim.getCalibration(drDM);
-        if (calDM) {
+
+        // Re-measure rule (locked with Mark, S331h):
+        //   • Typed override (overrideNote / ovrM / overrideLabel) → FROZEN.
+        //   • Measured dimension → value follows the new geometry, whether the
+        //     drawing is calibrated (recompute from scale) or not-to-scale
+        //     (recompute proportionally from the dim's own implied scale).
+        var _hasOverride = (dragObj.overrideNote != null && dragObj.overrideNote !== '') ||
+                           (typeof dragObj.ovrM === 'number') ||
+                           (dragObj.overrideLabel != null && dragObj.overrideLabel !== '');
+        if (!_hasOverride) {
           var aax = dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1;
           var aay = dragObj.mx1 != null ? dragObj.my1 : dragObj.y1;
           var bbx = dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2;
           var bby = dragObj.mx1 != null ? dragObj.my2 : dragObj.y2;
-          var labDM = dim.computeLabel(aax, aay, bbx, bby, calDM);
-          if (labDM) {
-            dragObj.rawValue = labDM.rawValue;
-            dragObj.rawLabel = labDM.rawLabel;
+          var newPx = Math.sqrt((bbx - aax) * (bbx - aax) + (bby - aay) * (bby - aay));
+          var drDM = _getCurrentDrawing();
+          var calDM = dim.getCalibration(drDM);
+          if (calDM) {
+            // Calibrated → authoritative recompute from scale.
+            var labDM = dim.computeLabel(aax, aay, bbx, bby, calDM);
+            if (labDM) {
+              dragObj.rawValue = labDM.rawValue;
+              dragObj.rawLabel = labDM.rawLabel;
+              dragObj.trueM = labDM.trueM;
+            }
+          } else if (_oldTrueM != null && _oldPx > 0.0001) {
+            // Not-to-scale but the dim already has a measured length → scale it
+            // proportionally so the number tracks the drag. metres-per-pixel is
+            // implied by the existing value, so the ratio stays self-consistent.
+            var mPerPx = _oldTrueM / _oldPx;
+            dragObj.trueM = mPerPx * newPx;
+            dragObj.rawValue = dragObj.trueM / 0.3048; // feet, display path reformats
+            if (dragObj.rawLabel != null) delete dragObj.rawLabel; // force reformat from trueM
           }
         }
         _renderAll();
