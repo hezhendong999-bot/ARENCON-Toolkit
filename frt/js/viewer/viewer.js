@@ -16,6 +16,7 @@ import { TiledPdf } from './tiledPdf.js';
 import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { FrtPhotoPicker } from '../ui/photoPicker.js'; // S215: shared photo-selection picker (B + C)
+import { Auth } from '../shared/auth.js'; // S331o: gate the perf HUD to super-admin (Mark) only
 
 // ── WebGL pins (Phase 5 polish → S81 Option B: now Canvas 2D) ────────────
 // Name kept for API compatibility; pinsGL.js is Canvas 2D as of v2.0.
@@ -5455,7 +5456,19 @@ var _longAnimFrames = [];
     }
   }
 
+  // S331o — Mark-only gate. The perf HUD is a diagnostic surface; no other
+  // user (or shared field tablet logged into another account) should ever see
+  // it. Auth.isSuperAdmin() is the same "Mark only" gate used for the Repair
+  // tools. _start() is the single chokepoint every activation path funnels
+  // through (boot localStorage flag, ?perf=1 URL, long-press gesture, toggle),
+  // so gating it here disables the HUD everywhere for everyone but Mark.
+  function _allowed() {
+    try { return !!(Auth && Auth.isSuperAdmin && Auth.isSuperAdmin()); }
+    catch (_e) { return false; }
+  }
+
   function _start() {
+    if (!_allowed()) return;   // non-super-admin: never show the HUD
     if (_active) return;
     _active = true;
     _createEl();
@@ -5487,6 +5500,7 @@ var _longAnimFrames = [];
   }
 
   function _toggle(persist) {
+    if (!_allowed()) return;   // S331o — gesture is inert for non-super-admins
     if (_active) {
       _stop();
       if (persist) {
@@ -5508,7 +5522,16 @@ var _longAnimFrames = [];
     var fromUrl = false;
     try { fromStorage = (localStorage.getItem(STORAGE_KEY) === '1'); } catch (_e) {}
     try { fromUrl = /[?&]perf=1\b/.test(window.location.search || ''); } catch (_e) {}
-    if (fromStorage || fromUrl) _start();
+    if (!(fromStorage || fromUrl)) return;
+    // Auth restore is async; if the session isn't resolved yet, _allowed() is
+    // false and _start() no-ops. Retry briefly so Mark's saved HUD still
+    // auto-shows once the session lands. Non-super-admins never pass _allowed,
+    // so this retry can never reveal the HUD to them.
+    var tries = 0;
+    (function attempt() {
+      if (_allowed()) { _start(); return; }
+      if (++tries <= 20) setTimeout(attempt, 250); // up to ~5s for auth restore
+    })();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _boot);
