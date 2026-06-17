@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S363 (photo download fix: per-photo + bulk download fetch-as-blob via _photoSrc instead of cross-origin href navigate; validate fetched content is a real image before zip/save so corrupt files can't be produced; per-photo download/delete buttons always visible on touch tablets via pointer:coarse) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S364 (download validation by magic bytes not content-type — R2 worker fakes image/jpeg even for HTML error bodies; _isRealImageBlob checks FFD8FF/PNG/WEBP/etc so corrupt files are never saved/zipped) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -11376,6 +11376,23 @@ function _photoSrc(p){
   }
   return '';
 }
+// S364: validate a fetched blob is a REAL image by its magic bytes — the R2 worker
+// serves everything with content-type image/jpeg even when the stored object is an
+// HTML error page (that's how corrupt "jpg" files got produced and re-uploaded).
+// JPEG=FFD8FF, PNG=89504E47, GIF=474946, WEBP=52494646…WEBP, BMP=424D.
+async function _isRealImageBlob(blob){
+  try{
+    if(!blob || blob.size < 4) return false;
+    var buf = new Uint8Array(await blob.slice(0,16).arrayBuffer());
+    if(buf[0]===0xFF && buf[1]===0xD8 && buf[2]===0xFF) return true;            // JPEG
+    if(buf[0]===0x89 && buf[1]===0x50 && buf[2]===0x4E && buf[3]===0x47) return true; // PNG
+    if(buf[0]===0x47 && buf[1]===0x49 && buf[2]===0x46) return true;            // GIF
+    if(buf[0]===0x52 && buf[1]===0x49 && buf[2]===0x46 && buf[3]===0x46 &&
+       buf[8]===0x57 && buf[9]===0x45 && buf[10]===0x42 && buf[11]===0x50) return true; // WEBP
+    if(buf[0]===0x42 && buf[1]===0x4D) return true;                            // BMP
+    return false;
+  }catch(_e){ return false; }
+}
 
 // Walk every live photo object across all report photo arrays.
 function _forEachLivePhoto(cb){
@@ -15029,10 +15046,10 @@ async function _pgBulkDownload(items){
       var resp = await fetch(src);
       if(!resp.ok) throw new Error('HTTP '+resp.status);
       var blob = await resp.blob();
-      // Guard: a failed R2 fetch can return a JSON/HTML error body. Only download
-      // if it actually looks like an image, else we'd save a corrupt "jpg".
-      if(blob.type && blob.type.indexOf('image/')!==0 && blob.size < 1024){
-        throw new Error('not an image ('+blob.type+')');
+      // Validate by magic bytes — content-type from R2 is unreliable (always says
+      // image/jpeg). If it's not a real image, don't save a corrupt file.
+      if(!(await _isRealImageBlob(blob))){
+        throw new Error('fetched content is not a valid image');
       }
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
@@ -15077,10 +15094,11 @@ async function _pgZipDownload(items){
           var resp = await fetch(src);
           if(!resp.ok) throw new Error('HTTP '+resp.status);
           var blob = await resp.blob();
-          // Only zip real images — a failed R2 fetch returns a JSON/HTML error
-          // body; zipping that produced the corrupt, un-openable "jpg" files.
-          if(blob.type && blob.type.indexOf('image/')!==0 && blob.size < 1024){
-            throw new Error('not an image ('+blob.type+')');
+          // Validate by magic bytes (R2 content-type is unreliable — always
+          // image/jpeg). A failed fetch returns an HTML/JSON error body; zipping
+          // that produced the corrupt, un-openable "jpg" files.
+          if(!(await _isRealImageBlob(blob))){
+            throw new Error('not a valid image');
           }
           zip.file(name, blob);
           added++;
@@ -15820,7 +15838,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S363';
+var DIESEL_BUILD = 'S364';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
