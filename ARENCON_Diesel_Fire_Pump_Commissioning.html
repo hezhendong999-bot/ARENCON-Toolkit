@@ -1001,6 +1001,38 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   #exm-ov .exm-btn{border:none;border-radius:9px;padding:12px 24px;font:700 14px Calibri,sans-serif;cursor:pointer;}
   #exm-ov .exm-cancel{background:#455A64;color:#fff;}
   #exm-ov .exm-go{background:#1A7A4A;color:#fff;}
+  /* ════ S366: Export modal chrome moved off inline hex onto classes so dark-mode can re-skin it (match FRT exportview). Light values below are the defaults; body.dark-mode block overrides. ════ */
+  #exm-ov .exm-card{background:#FBFAFC;color:#1B1A22;}
+  #exm-ov .exm-head{padding:18px 24px 12px;border-bottom:1px solid #E3E1E8;flex:0 0 auto;}
+  #exm-ov .exm-head .exm-title{font-size:18px;font-weight:700;}
+  #exm-ov .exm-head .exm-sub{font-size:12.5px;color:#5E5B68;margin-top:2px;}
+  #exm-ov .exm-foot{flex:0 0 auto;display:flex;gap:10px;padding:14px 24px;background:#F2F0F5;border-top:1px solid #E3E1E8;}
+  #exm-ov .exm-photos .exm-ph-icon{flex:0 0 auto;display:inline-flex;color:#5E5B68;}
+  #exm-ov .exm-photos .exm-ph-sub{font-size:12px;color:#5E5B68;}
+  /* ── dark-mode skin: matches FRT exportview (fixed dark header gradient + glassy dark body) ── */
+  body.dark-mode #exm-ov .exm-card{background:#161420;color:#f4f3f6;box-shadow:0 18px 60px rgba(0,0,0,.6);}
+  body.dark-mode #exm-ov .exm-head{background:linear-gradient(135deg,#1B2438,#243048);border-bottom:1px solid rgba(255,255,255,.08);}
+  body.dark-mode #exm-ov .exm-head .exm-title{color:#f4f3f6;}
+  body.dark-mode #exm-ov .exm-head .exm-sub{color:#a09aa8;}
+  body.dark-mode #exm-ov .exm-foot{background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.08);}
+  body.dark-mode #exm-ov .exm-sec-lbl,
+  body.dark-mode #exm-ov .exm-glbl,
+  body.dark-mode #exm-ov .exm-dl-l{color:#8a8492;}
+  body.dark-mode #exm-ov .exm-chip{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
+  body.dark-mode #exm-ov .exm-chip.on{background:rgba(70,197,232,.13);border-color:rgba(70,197,232,.45);}
+  body.dark-mode #exm-ov .exm-chip .exm-dot{border-color:rgba(255,255,255,.3);}
+  body.dark-mode #exm-ov .exm-chip.on .exm-dot{background:#3FD08A;border-color:#3FD08A;}
+  body.dark-mode #exm-ov .exm-chip .exm-rm{color:#8a8492;}
+  body.dark-mode #exm-ov .exm-chip .exm-rm:hover{color:#E26076;background:rgba(226,96,118,.16);}
+  body.dark-mode #exm-ov .exm-addrow input{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.14);color:#f4f3f6;}
+  body.dark-mode #exm-ov .exm-addrow input::placeholder{color:#6b6674;}
+  body.dark-mode #exm-ov .exm-addrow input:focus{border-color:rgba(70,197,232,.5);}
+  body.dark-mode #exm-ov .exm-addrow button{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
+  body.dark-mode #exm-ov .exm-dline,
+  body.dark-mode #exm-ov .exm-photos{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.1);}
+  body.dark-mode #exm-ov .exm-photos button{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
+  body.dark-mode #exm-ov .exm-photos .exm-ph-icon,
+  body.dark-mode #exm-ov .exm-photos .exm-ph-sub{color:#a09aa8;}
 @media(max-width:1300px) {
   /* S271: match FRT — logo shrinks 34px→28px at ≤1024 (not ≤768). FRT frt.css line 1178. */
   .header-logo{height:28px!important;padding:3px 6px!important;}
@@ -8750,22 +8782,22 @@ function _exportModalOpen(){
   var ov=document.createElement('div'); ov.id='exm-ov';
   ov.style.cssText='position:fixed;inset:0;z-index:99992;background:rgba(16,20,30,.62);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Calibri,sans-serif;';
   ov.innerHTML=
-    '<div style="background:#FBFAFC;color:#1B1A22;border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.45);overflow:hidden;">'
-    +'<div style="padding:18px 24px 12px;border-bottom:1px solid #E3E1E8;flex:0 0 auto;">'
-      +'<div style="font-size:18px;font-weight:700;">Export Report</div>'
-      +'<div style="font-size:12.5px;color:#5E5B68;margin-top:2px;">'+_exmEsc(subtitle)+'</div></div>'
+    '<div class="exm-card" style="border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">'
+    +'<div class="exm-head">'
+      +'<div class="exm-title">Export Report</div>'
+      +'<div class="exm-sub">'+_exmEsc(subtitle)+'</div></div>'
     +'<div style="flex:1 1 auto;overflow-y:auto;padding:6px 24px 8px;">'
       +'<div class="exm-sec-lbl">Distribution</div>'
       +ownerHtml+ctrHtml+otherHtml
       +'<div class="exm-addrow"><input type="text" id="exm-newrec" placeholder="Add a recipient \u2014 e.g. base-building service contractor, construction PM\u2026" onkeydown="if(event.key===\'Enter\'){_exportAddRecipient();event.preventDefault();}"><button onclick="_exportAddRecipient()">+ Add to pool</button></div>'
       +'<div class="exm-dline"><div class="exm-dl-l">Distribution line</div><div class="exm-dl-v" id="exm-dl"></div></div>'
       +'<div class="exm-sec-lbl" style="margin-top:14px;">Report Photos</div>'
-      +'<div class="exm-photos"><span style="flex:0 0 auto;display:inline-flex;color:#5E5B68;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
+      +'<div class="exm-photos"><span class="exm-ph-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
         +'<span style="flex:1;"><b id="exm-photo-count" style="display:block;font-size:13.5px;">'+(ptot?(incl===ptot?('All '+ptot+' photo'+(ptot===1?'':'s')+' will print'):(incl+' of '+ptot+' photos will print')):'No report photos yet')+'</b>'
-        +'<span style="font-size:12px;color:#5E5B68;">Included by default \u2014 review only if you want to exclude some</span></span>'
+        +'<span class="exm-ph-sub">Included by default \u2014 review only if you want to exclude some</span></span>'
         +(ptot?'<button onclick="_prePrintFromMenu()">Review photos\u2026</button>':'')+'</div>'
     +'</div>'
-    +'<div style="flex:0 0 auto;display:flex;gap:10px;padding:14px 24px;background:#F2F0F5;border-top:1px solid #E3E1E8;">'
+    +'<div class="exm-foot">'
       +'<button class="exm-btn exm-cancel" onclick="_exportModalClose()">Cancel</button><span style="flex:1;"></span>'
       +'<button class="exm-btn exm-go" onclick="_exportModalGenerate()">\uD83D\uDCC4 Generate PDF</button></div>'
     +'</div>';
