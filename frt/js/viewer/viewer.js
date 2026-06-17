@@ -1816,6 +1816,20 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
   }
 }, true);
 
+// S331p — Kill the Android/Chrome system long-press context menu on the
+// drawing surface. Press-and-hold on a pin (or the drawing) was popping the OS
+// "Open in Chrome / Copy / Select" menu at ~500ms, stealing the gesture right
+// when the press-and-hold pin-drag was meant to engage. The CSS already sets
+// -webkit-touch-callout/user-select:none on .dv-canvas-area, but some Chrome/
+// Android-WebView builds still fire contextmenu, so we preventDefault it here.
+// (Same belt-and-suspenders pattern used on the toolkit logo long-press.)
+(function _suppressCanvasContextMenu(){
+  var area = document.getElementById('dv-canvas-area');
+  if (!area || area.dataset.ctxSuppressed) return;
+  area.dataset.ctxSuppressed = '1';
+  area.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
+})();
+
 // Pin marker click — open pin editor. Allowed in pan mode AND when any
 // markup tool is active. ONLY blocked when pin-drop mode is active.
 var _pinDragEndTime = 0;

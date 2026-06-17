@@ -242,10 +242,11 @@ body.dark-mode .dv-nav-group .dv-nav-btn:hover{background:rgba(255,255,255,.2);}
 .dv-toolbar button{background:rgba(255,255,255,.08);border:1px solid var(--b-chrome-rule);color:var(--b-chrome-fg);padding:0 10px;border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;min-width:44px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:5px;}.dv-toolbar button:hover{border-color:var(--b-bar-accent);background:rgba(255,255,255,.16);}.dv-toolbar button.active{background:var(--b-bar-accent);color:#fff;}
 body.dark-mode .dv-toolbar button{background:rgba(255,255,255,.12);color:white;}body.dark-mode .dv-toolbar button:hover{background:rgba(255,255,255,.25);}
 .dv-main{display:flex;flex:1;overflow:hidden;position:relative;}
-.dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none;}.dv-canvas-area.panning{cursor:grabbing;}
+.dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}.dv-canvas-area.panning{cursor:grabbing;}
 @media(max-width:900px){.dv-canvas-area{padding-bottom:0;}}
-.dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
-.dv-img-wrap img{display:block;image-rendering:auto;}
+.dv-img-wrap{position:absolute;transform-origin:0 0;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+.dv-img-wrap img{display:block;image-rendering:auto;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+#dv-pins-layer,#dv-pins-layer .pin-marker{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
 #markup-canvas{position:absolute;top:0;left:0;pointer-events:none;cursor:crosshair;touch-action:none;}
 #dv-image:not([src]),#dv-image[src=""]{display:none!important;}
 #markup-canvas.drawing-active{pointer-events:auto;}
