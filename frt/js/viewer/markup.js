@@ -267,6 +267,30 @@ function _drawOrthoGuide(anchor, moved) {
   ctx.restore();
 }
 
+// S331k — Green ortho guide for the CALIBRATION draw. Unlike _drawOrthoGuide,
+// this does NOT clear the overlay (the calibration preview was just drawn into
+// it); it composites the guide on top. Same coordinate space as the preview.
+function _drawCalibrateGuideOverlay(anchor, moved) {
+  var ov = _ensureOverlay();
+  if (!ov) return;
+  var ctx = ov.getContext('2d');
+  var d = ov._dpr || 1;
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  var gdx = moved.x - anchor.x, gdy = moved.y - anchor.y;
+  var glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1;
+  var gux = gdx / glen, guy = gdy / glen;
+  var ext = 9999;
+  ctx.save();
+  ctx.setLineDash([8, 6]);
+  ctx.strokeStyle = 'rgba(46, 158, 114, 0.7)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(anchor.x - gux * ext, anchor.y - guy * ext);
+  ctx.lineTo(anchor.x + gux * ext, anchor.y + guy * ext);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function _renderCalibratePreview(p1, cursor) {
   var ov = _ensureOverlay();
   if (!ov) return;
@@ -2097,8 +2121,14 @@ function _startDraw(e) {
         }
         return;
       }
-      // Second calibration click — open the prompt
-      var p1c = _dimCalibrateP1, p2c = { x: posD.x, y: posD.y };
+      // Second calibration click — open the prompt. S331k: snap p2 to ortho
+      // relative to p1 so the saved calibration line is dead-straight when
+      // near H/V/45 (matches the live green guide the user just saw).
+      var p1c = _dimCalibrateP1;
+      var dimCal = window._dimTool;
+      var p2c = (dimCal && dimCal.applyOrtho)
+        ? dimCal.applyOrtho(p1c, { x: posD.x, y: posD.y })
+        : { x: posD.x, y: posD.y };
       _dimCalibrateP1 = null;
       _dimCalibrateMode = false;
       // Reset toolbar state on the Calibrate button
@@ -2294,7 +2324,13 @@ function _moveDraw(e) {
     //      and feels like drawing a real dimension (S331 #37, locked spec §29),
     //      not clicking two bare dots. Display-only; nothing stored until save.
     if (_dimCalibrateMode && _dimCalibrateP1) {
-      _renderCalibratePreview(_dimCalibrateP1, posDM);
+      // S331k — calibration draw gets the same ortho snap + green guide as
+      // dimensions, so a calibration line locks dead-straight near H/V/45.
+      var _calPt = (dim.applyOrtho ? dim.applyOrtho(_dimCalibrateP1, { x: posDM.x, y: posDM.y }) : posDM);
+      _renderCalibratePreview(_dimCalibrateP1, _calPt);
+      if (dim.isOrthoActive && dim.isOrthoActive()) {
+        _drawCalibrateGuideOverlay(_dimCalibrateP1, _calPt);
+      }
       return;
     }
     // (a) Vertex drag
