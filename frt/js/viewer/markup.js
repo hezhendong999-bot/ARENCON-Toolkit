@@ -43,7 +43,7 @@ var _objects = [];
 var _tombstones = [];
 var _undoStack = [];
 var _redoStack = [];
-var _maxUndo = 40;
+var _maxUndo = 30;
 var _selectedIds = [];
 var _penPoints = [];
 var _polyPoints = [];
@@ -1788,7 +1788,12 @@ function _pushMask(obj, eraserPts, lineWidth) {
 // - polyline / highlight / shapes / text: append mask path; render time applies destination-out
 //   so the eraser's EXACT path is carved from the object's pixels, regardless of stroke width
 function _applyEraser(eraserPts, lineWidth) {
-  if (!eraserPts || eraserPts.length < 2) return;
+  if (!eraserPts || eraserPts.length < 2) return false;
+  // S331 (C1): remember pre-erase state so we can tell the caller whether the
+  // eraser actually changed anything. A stroke that passes through empty space
+  // must NOT push a history entry (no-op snapshots are what made undo feel
+  // broken — you had to tap undo several times to get past empty snapshots).
+  var _beforeSig = JSON.stringify(_objects);
   // Eraser hit radius matches the visual line in 2D: (size||2)*3 / 2
   var eraserR = ((lineWidth || 2) * 3) / 2;
   var eraserR2 = eraserR * eraserR;
@@ -1847,6 +1852,8 @@ function _applyEraser(eraserPts, lineWidth) {
     for (var k = 0; k < _objects.length; k++) alive[_objects[k].id] = true;
     _selectedIds = _selectedIds.filter(function(id) { return alive[id]; });
   }
+  // S331 (C1): true only if the erase actually altered the drawing.
+  return JSON.stringify(_objects) !== _beforeSig;
 }
 
 // Did the eraser come within eraserR of any part of the stroke polyline?
@@ -2574,11 +2581,17 @@ function _endDraw(e) {
   }
 
   var type = _tool;
+  // S331 (C1): track whether this pointer-up actually mutated the drawing.
+  // Previously _pushHistory() fired unconditionally here, so taps, aborted
+  // drags, and erases over empty space all pushed no-op snapshots — undo then
+  // appeared to "do nothing" until you'd tapped past the duplicates. Now we
+  // only record history when something really changed.
+  var _changed = false;
   if (type === 'eraser') {
     // Destructive eraser: split/remove underlying strokes permanently.
     // Eraser itself is NEVER added to _objects — it's a one-shot editing operation.
     if (_penPoints.length > 1) {
-      _applyEraser(_penPoints.slice(), _lineWidth);
+      _changed = _applyEraser(_penPoints.slice(), _lineWidth);
     }
   } else if (type === 'pen' || type === 'highlight') {
     if (_penPoints.length > 1) {
@@ -2586,20 +2599,28 @@ function _endDraw(e) {
         id: _newId(), type: type, points: _penPoints.slice(),
         color: _color, size: _lineWidth, opacity: _opacity
       });
+      _changed = true;
     }
   }
   // S126 #6 — dimension commit/calibration NO longer drag-based. The new
   // flow lives in _startDraw (handleClick state machine) so we don't push
   // anything here for type === 'dimension'.
   else if (type && type !== 'polyline' && type !== 'select' && type !== 'text' && type !== 'dimension') {
-    _objects.push({
-      id: _newId(), type: type,
-      x1: _startX, y1: _startY, x2: _endX || _startX, y2: _endY || _startY,
-      color: _color, size: _lineWidth, opacity: _opacity
-    });
+    // A shape only counts as drawn if it has real extent — a click that didn't
+    // drag (x2/y2 still equal to start) is a tap, not a shape.
+    var _hasExtent = (typeof _endX === 'number' && typeof _endY === 'number') &&
+                     (_endX !== _startX || _endY !== _startY);
+    if (_hasExtent) {
+      _objects.push({
+        id: _newId(), type: type,
+        x1: _startX, y1: _startY, x2: _endX, y2: _endY,
+        color: _color, size: _lineWidth, opacity: _opacity
+      });
+      _changed = true;
+    }
   }
 
-  _pushHistory();
+  if (_changed) _pushHistory();
   _penPoints = [];
   _renderAll();
   _markDirty();
@@ -4395,11 +4416,18 @@ function _wireEvents() {
       }
     }
 
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    // S331 (C1): if focus is in a text field, Ctrl+Z/Y must do NATIVE
+    // per-keystroke text undo — never hijack it into markup undo. (This was a
+    // real "sometimes undo does the wrong thing" cause: typing in a comment over
+    // the open viewer, Ctrl+Z would undo a pen stroke instead of your text.)
+    var _ae = document.activeElement;
+    var _typing = _ae && (_ae.tagName === 'TEXTAREA' || _ae.tagName === 'INPUT' || _ae.isContentEditable);
+
+    if (!_typing && (e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
       if (_undoStack.length) { e.preventDefault(); _undo(); return; }
       // Fall through to project-level undo
     }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+    if (!_typing && (e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
       if (_redoStack.length) { e.preventDefault(); _redo(); return; }
     }
 
