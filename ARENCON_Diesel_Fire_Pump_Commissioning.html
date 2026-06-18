@@ -677,11 +677,15 @@ body.dark-mode .fp-endval .ea-adj.fail{color:#E26076!important;}
 .fp-endval.gov .el{color:var(--arencon);}
 .fp-endval.gov .ev{color:var(--arencon);}
 .fp-held{position:relative;display:flex;align-items:baseline;gap:7px;justify-content:flex-end;white-space:nowrap;
-  padding:4px 10px;border-radius:7px;background:#eef3f4;border:1.5px solid #bcd2d6;}
+  padding:4px 10px;border-radius:7px;background:#eef3f4;border:1.5px solid #bcd2d6;
+  /* S366: fixed footprint so the pill doesn't resize/jump as the held value width changes across the 7 flow cards */
+  min-width:184px;box-sizing:border-box;}
 .fp-held::before{content:"";position:absolute;top:0;left:8px;right:8px;height:2px;border-radius:2px;background:#4A8C8C;}
 .fp-held .ht{font-size:calc(8.5px + var(--ts));font-weight:700;color:#3d7373;letter-spacing:.3px;}
 .fp-held .hl{font-size:calc(8.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#3d7373;}
-.fp-held .hv{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;}
+.fp-held .hv{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;
+  /* S366: fixed value slot, right-aligned, so differing digit counts keep the pill stable */
+  min-width:58px;text-align:right;display:inline-block;}
 .fp-bf{display:flex;align-items:center;gap:7px;margin-top:6px;padding-left:60px;flex-wrap:wrap;}
 .fp-bf .bfcell{display:flex;align-items:center;gap:5px;position:relative;}
 .fp-bf label{font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);white-space:nowrap;}
@@ -10368,8 +10372,11 @@ function renderChartAnnotations(chartInstance, canvasId) {
         'Adjusted Net (RPM-corrected)':1,    // net-curve adjusted
         'Cutsheet (Design)':1,               // S327: now labelled (was broken)
         'Placard':1,                         // S327: now labelled
-        'Sprinkler Demand Line (SD)':1,      // S327: now labelled (was broken)
-        'Available Supply':1
+        'Sprinkler Demand Line (SD)':1       // S327: now labelled (was broken)
+        // S366: 'Available Supply' REMOVED from PRIMARY. As a primary it was labelling all
+        // 25 interpolated hydraulic-curve points (the label smear in the 7-pt chart). It now
+        // falls through to the endpoint-only branch below → labels ONLY the first + last
+        // points = static and residual. The curve itself still draws through all 25 points.
       };
       var _ANNOTATE_POINTS = {               // marker datasets — single points, no stacking
         'Total System Demand':1, '_sprDemPt':1, '_sprDemPtPld':1,
