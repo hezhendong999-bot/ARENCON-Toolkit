@@ -402,7 +402,7 @@ body.dark-mode .np-scan:hover{background:var(--arencon);color:#fff;border-color:
 .ts-subsec .t{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);letter-spacing:.3px;}
 .ts-subsec .hint{font-size:calc(11px + var(--ts));color:var(--silver);font-weight:400;}
 .ts-seg{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:var(--smoke);flex-wrap:wrap;}
-.ts-seg button{border:none;background:transparent;padding:9px 18px;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);cursor:pointer;border-right:1.5px solid var(--border);transition:all .14s;}
+.ts-seg button{border:none;background:transparent;padding:9px 18px;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);cursor:pointer;border-right:1.5px solid var(--border);transition:background .14s,color .14s;}
 .ts-seg button:last-child{border-right:none;}
 .ts-seg button.on{background:var(--arencon)!important;color:#fff!important;}
 .ts-seg button:not(.on){background:transparent!important;color:var(--steel)!important;}
@@ -436,7 +436,7 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .ev-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 @media(max-width:560px){.ev-tiles{grid-template-columns:1fr;}}
 /* S344: evidence boxes as thumbnail grids (checklist-style) */
-.ev-grid-card{border:1.5px solid var(--border);border-radius:10px;background:var(--card-bg,#fff);padding:10px 11px;transition:all .14s;}
+.ev-grid-card{border:1.5px solid var(--border);border-radius:10px;background:var(--card-bg,#fff);padding:10px 11px;transition:border-color .14s,background .14s;}
 .ev-grid-card.drag-over{border-color:var(--arencon);background:rgba(156,39,66,.05);}
 body.dark-mode .ev-grid-card{background:var(--b-fieldbg,rgba(255,255,255,.04));}
 .ev-grid-head{font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
@@ -2008,6 +2008,25 @@ function _tieredBack(){
    the app. So we keep a depth-3 buffer and re-arm after every pop. Only when nothing
    is open does back behave like the ← Back button (save → project detail). */
 var _DSL_BACK_DEPTH = 3;
+// S331 (iOS back): the guard-buffer + leave-confirm below was tuned for the
+// Android TWA, where a single OS back at the stack bottom closes the app. On
+// iOS Safari (staff open report LINKS in a browser tab, not the TWA) that same
+// machinery made every back peel to Summary and then bounce out to the Hub
+// dashboard — the "keeps sending them to the dashboard" report. Detect the TWA;
+// on plain iOS Safari, run a LIGHTER model: still peel open layers (modals,
+// viewer, menus) so back closes those first, but once nothing is open let the
+// browser's own back behave normally instead of forcing a leave-to-Hub. The
+// explicit "← Back" button still does the deliberate save→Hub navigation.
+var _DSL_IS_TWA = (function(){
+  try{
+    var standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+    var androidRef = (document.referrer || '').indexOf('android-app://') === 0;
+    var iosHome    = (navigator.standalone === true); // iOS "Add to Home Screen"
+    // TWA = Android standalone launch. iOS home-screen PWA is NOT a TWA and
+    // should also use the lighter model (its back/edge-swipe is browser-like).
+    return (standalone && !iosHome) || androidRef;
+  }catch(e){ return false; }
+})();
 function _backTopUp(){
   try{
     // ensure at least _DSL_BACK_DEPTH guard entries sit in front of the page
@@ -2018,29 +2037,38 @@ function _backTopUp(){
 var _dslLeaving=false;
 function _installBackTrap(){
   try{
-    _backTopUp();
+    // Only arm the guard buffer on the TWA. On iOS/desktop Safari we still
+    // listen for popstate to peel open layers, but we do NOT stack guards or
+    // re-push after a clean back, so the browser back works as users expect.
+    if(_DSL_IS_TWA) _backTopUp();
     window.addEventListener('popstate', function(e){
       var handled=_tieredBack();
-      _backTopUp();
-      if(!handled){
-        if(_dslLeaving) return;      // S333: a leave is already in flight (async save) — don't double-navigate
-        // S343: on Summary with nothing open → a swipe-back wants to LEAVE the
-        // report. Confirm first so a fat-finger gesture can't yank you out of a
-        // half-filled form (the OS swipe can't be distance-gated, so the confirm
-        // is the deliberate-intent guard). Data is auto-saved either way.
-        if(typeof _aConfirm==='function'){
-          _aConfirm('Leave this report and return to the project hub? Your work is saved.', function(){
+      if(_DSL_IS_TWA){
+        _backTopUp();
+        if(!handled){
+          if(_dslLeaving) return;      // S333: a leave is already in flight (async save) — don't double-navigate
+          // S343 (TWA only): on Summary with nothing open → a swipe-back wants to
+          // LEAVE. Confirm first so a fat-finger gesture can't yank you out of a
+          // half-filled form. Data is auto-saved either way.
+          if(typeof _aConfirm==='function'){
+            _aConfirm('Leave this report and return to the project hub? Your work is saved.', function(){
+              _dslLeaving=true;
+              goBackToHub();
+            }, 'Leave');
+          } else {
             _dslLeaving=true;
             goBackToHub();
-          }, 'Leave');
-          // user may cancel — stay put; guard buffer already re-armed above
-        } else {
-          _dslLeaving=true;
-          goBackToHub();
+          }
         }
+      } else {
+        // iOS/desktop Safari: if we peeled a layer, swallow this back by pushing
+        // ONE state so the layer-close doesn't also navigate the page. If nothing
+        // was open, let the browser back proceed naturally (no guard, no bounce).
+        if(handled){ try{ history.pushState({_dslGuard:1}, ''); }catch(_e){} }
+        // not handled → do nothing; the browser already navigated back.
       }
     });
-    window.addEventListener('pageshow', function(){ _backTopUp(); });
+    if(_DSL_IS_TWA) window.addEventListener('pageshow', function(){ _backTopUp(); });
   }catch(e){}
 }
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', _installBackTrap); }
