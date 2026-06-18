@@ -1036,22 +1036,18 @@ document.addEventListener('touchstart', function(e) {
     // diagnostic toggle that hiding pins recovered FP-1 sprinkler to 60 FPS.
     _activatePinsGesture();
   } else if (e.touches.length === 1) {
-    // Skip single-touch when markup tool is active or pin mode
+    // S331w — One-finger pan REMOVED. Pan now requires TWO fingers so a single
+    // finger is free for pin press-drag and markup. This is what lets the
+    // pin-drag handler own a one-finger gesture without competing with pan.
+    // (Two-finger pan is handled in the pinch branch via _touchStartPan below.)
+    // We still record the touch point for any one-finger consumers, but we do
+    // NOT start a pan here.
     if (Markup.isActive()) return;
     if (_pinModeDeficId) return;
     if (Markup.getTool() === 'pin') return;
     _singleTouchX = e.touches[0].clientX;
     _singleTouchY = e.touches[0].clientY;
-    // S185: single-finger pan also defers pin rendering. Only reached when
-    // the markup/pin-mode early-returns above don't trip — i.e. this touch
-    // is for panning the drawing, which is where the lag was.
     _activatePinsGesture();
-    // S184a: double-tap-to-zoom removed. Date.now()-based detection
-    // misfired during main-thread lag (>350ms blocks queued touch events
-    // that then fired back-to-back in the same flush, reading as a
-    // double-tap and triggering _resetView() → "page resets to fit"). The
-    // feature was unused in the field. Pinch-zoom and toolbar zoom buttons
-    // remain the canonical zoom controls.
   }
 }, { passive: false });
 
@@ -1060,7 +1056,8 @@ document.addEventListener('touchmove', function(e) {
   if (!area || !area.contains(e.target)) return;
 
   if (e.touches.length === 2) {
-    // Pinch zoom
+    // Pinch zoom + two-finger PAN (S331w). The midpoint movement pans; the
+    // pinch ratio zooms. Both in one gesture, like every map/PDF app.
     e.preventDefault();
     var dx = e.touches[1].clientX - e.touches[0].clientX;
     var dy = e.touches[1].clientY - e.touches[0].clientY;
@@ -1070,28 +1067,19 @@ document.addEventListener('touchmove', function(e) {
     var ratio = dist / _touchStartDist;
     var newScale = Math.max(_fitScale, Math.min(_MAX_ZOOM, _touchStartScale * ratio));
 
-    // Zoom centered on pinch midpoint
+    var rect2 = area.getBoundingClientRect();
+    var midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect2.left;
+    var midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect2.top;
+
+    // Zoom centered on the ORIGINAL pinch midpoint, then add the midpoint
+    // travel so dragging two fingers also slides the drawing.
     var imgX = (_touchStartMidX - _touchStartPanX) / _touchStartScale;
     var imgY = (_touchStartMidY - _touchStartPanY) / _touchStartScale;
     _scale = newScale;
-    _panX = _touchStartMidX - imgX * newScale;
-    _panY = _touchStartMidY - imgY * newScale;
+    _panX = midX - imgX * newScale;
+    _panY = midY - imgY * newScale;
     _applyTransform();
 
-  } else if (e.touches.length === 1 && _scale > _fitScale) {
-    // S127 — Restored single-finger pan after Push 7 regression. Guards below
-    // mirror the touchstart guards (lines 942-946) so pan never fires while a
-    // markup tool or pin-placement mode is active. Edge-clamping is handled
-    // by _applyTransform() → _clampPan().
-    if (Markup.isActive()) return;
-    if (_pinModeDeficId) return;
-    if (Markup.getTool() === 'pin') return;
-    e.preventDefault();
-    _panX += e.touches[0].clientX - _singleTouchX;
-    _panY += e.touches[0].clientY - _singleTouchY;
-    _singleTouchX = e.touches[0].clientX;
-    _singleTouchY = e.touches[0].clientY;
-    _applyTransform();
   }
 }, { passive: false });
 
@@ -1548,7 +1536,7 @@ function _renderPins() {
       if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive() && TiledPdf.stats) {
         var _tps = TiledPdf.stats();
         if (_tps && (_tps.activeLevel === 3 || _tps.activeLevel === 4)) {
-          pinScale = pinScale * 1.15;
+          pinScale = pinScale * 1.265; // S331v — was 1.15; +10% per Mark for L3/L4 visibility
         }
       }
     } catch (_e_l34) {}
@@ -4013,10 +4001,16 @@ var _pinTouchStartX = 0;
 var _pinTouchStartY = 0;
 
 document.addEventListener('touchstart', function(e) {
+  if (e.touches.length > 1) return;  // S331w — multi-touch is pan/pinch
   var touch = e.touches[0];
   if (!touch || _pinModeDeficId) return;
   var deficId = _resolvePinAt(touch.clientX, touch.clientY, e.target);
   if (!deficId) return;
+  // S331w — claim this one-finger gesture for the pin drag: non-passive +
+  // preventDefault stops Samsung's selection/blue-flash and any residual
+  // scroll, so press-and-drag actually moves the pin. Pan needs two fingers
+  // now, so a one-finger press on a pin is unambiguously a drag candidate.
+  try { e.preventDefault(); } catch(_e){}
   _pinTouchStartX = touch.clientX;
   _pinTouchStartY = touch.clientY;
   // Pre-calculate offset so pin doesn't jump on first drag frame.
@@ -4046,31 +4040,26 @@ document.addEventListener('touchstart', function(e) {
     _renderPinsWithState();   // show blue glow
     _pinLongPressTimer = null;
   }, 500);
-}, { passive: true });
+}, { passive: false });
 
 document.addEventListener('touchmove', function(e) {
   var touch = e.touches[0];
-  // Cancel hold if finger moves >5px before 500ms
-  if (_pinLongPressTimer && !_pinDragging && !_lastReadyId && touch) {
-    if (Math.abs(touch.clientX - _pinTouchStartX) > 5 || Math.abs(touch.clientY - _pinTouchStartY) > 5) {
-      clearTimeout(_pinLongPressTimer);
-      _pinLongPressTimer = null;
-      _pinDragDeficId = null;
-    }
-  }
-  // Transition ready → active drag on any movement
-  if (!_pinDragging && _lastReadyId && _pinDragDeficId && touch) {
-    var moved = Math.abs(touch.clientX - _pinTouchStartX) > 2 || Math.abs(touch.clientY - _pinTouchStartY) > 2;
-    if (moved) {
+  // S331w — pan is two-finger now, so a one-finger move on a grabbed pin is
+  // ALWAYS a drag (no 500ms wait, no pan fallback). Promote to active drag on
+  // the first >3px move. A release with no move still opens the editor (tap).
+  if (!_pinDragging && _pinDragDeficId && touch && e.touches.length === 1) {
+    var movedNow = Math.abs(touch.clientX - _pinTouchStartX) > 3 || Math.abs(touch.clientY - _pinTouchStartY) > 3;
+    if (movedNow) {
+      if (_pinLongPressTimer) { clearTimeout(_pinLongPressTimer); _pinLongPressTimer = null; }
       _pinDragging = true;
-      _lastActiveId = _lastReadyId;
+      _lastActiveId = _lastReadyId || _pinDragDeficId;
       _lastReadyId = null;
       if (!_useGLPins){
         _pinDragMarker = document.querySelector('.pin-marker[data-defic-id="' + _pinDragDeficId + '"]');
         if (_pinDragMarker) _pinDragMarker.classList.add('dragging');
       }
-      var area = document.getElementById('dv-canvas-area');
-      if (area) area.classList.add('pin-drag-mode');
+      var areaD = document.getElementById('dv-canvas-area');
+      if (areaD) areaD.classList.add('pin-drag-mode');
     }
   }
   if (!_pinDragging || !_pinDragDeficId) return;
