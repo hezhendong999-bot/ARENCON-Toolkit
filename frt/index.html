@@ -11,7 +11,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
 <link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <title>ARENCON — Field Review Tool</title>
-<link rel="stylesheet" href="css/frt.css?v=656">
+<link rel="stylesheet" href="css/frt.css?v=657">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -801,7 +801,7 @@ function ensurePdfJs(cb){
         <div class="dim-kp-tip" id="dim-kp-tip">Type here or tap keys. Start the next dimension and this locks in automatically. Non-numbers (TYP., EQ) are kept as a note.</div>
       </div>
       <!-- S330 #37 — Finish chip (between dims in continuous/running) -->
-      <div id="dim-finchip" class="dim-finchip"><button id="dim-fin-x" title="Done — stop here">✕</button></div>
+      <div id="dim-finchip" class="dim-finchip"><button id="dim-fin-x" title="Done — stop here"><span class="dim-fin-ic">✕</span><span class="dim-fin-lbl">Done</span></button></div>
       <!-- S330 #37 — Pickup picker modal -->
       <div id="dim-pick-back" class="dim-modal-back"><div class="dim-modal">
         <div class="dim-modal-head"><button class="dim-modal-close" data-dim-close="dim-pick-back">✕</button><h3 id="dim-pick-title">Continuous dimension</h3><p>Where should this chain begin?</p></div>
@@ -980,7 +980,7 @@ function ensurePdfJs(cb){
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
      showCalibrationPrompt, renderObject). Loaded as plain JS before app.js
      so it's ready by the time markup.js dispatches a 'dimension' object. -->
-<script src="js/viewer/dimensionTool.js?v=14"></script>
+<script src="js/viewer/dimensionTool.js?v=15"></script>
 <script type="module" src="js/app.js"></script>
 
 <!-- S97 — Session recorder. Self-gates on ?dbg=1 or localStorage._frtDbg='1'.

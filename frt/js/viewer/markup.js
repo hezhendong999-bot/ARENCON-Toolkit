@@ -79,6 +79,7 @@ var _textBorderDefault = false;
 var _textHatchDefault = false;
 
 var _tool = null;
+var _dimFinChipWasShowing = false;  // S331 #37 — gate one-time finish-chip pulse
 var _color = '#A85959';
 var _lineWidth = 3;
 var _fontSize = 20;
@@ -484,18 +485,32 @@ function _updateDimFinChip() {
   if (!chip || !dim) return;
   var anchor = dim.chainFinishAnchor ? dim.chainFinishAnchor() : null;
   var mode = dim.getMode ? dim.getMode() : 'single';
-  if (!anchor || mode === 'single' || _tool !== 'dimension') { chip.classList.remove('show'); return; }
+  if (!anchor || mode === 'single' || _tool !== 'dimension') {
+    chip.classList.remove('show', 'pulse');
+    _dimFinChipWasShowing = false;
+    return;
+  }
   var mc = _getCanvas();
-  if (!mc) { chip.classList.remove('show'); return; }
+  if (!mc) { chip.classList.remove('show', 'pulse'); _dimFinChipWasShowing = false; return; }
   var r = mc.getBoundingClientRect();
   var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
   var sx = r.left + (anchor.x / lw) * r.width;
   var sy = r.top + (anchor.y / lh) * r.height;
-  var x = Math.min(Math.max(8, sx + 16), window.innerWidth - 56);
-  var y = Math.min(Math.max(8, sy - 22), window.innerHeight - 56);
+  // Pill is wider than the old circle — clamp with a generous right margin
+  // so the "Done" label never hangs off-screen.
+  var x = Math.min(Math.max(8, sx + 16), window.innerWidth - 132);
+  var y = Math.min(Math.max(8, sy - 24), window.innerHeight - 60);
   chip.style.left = x + 'px';
   chip.style.top = y + 'px';
   chip.classList.add('show');
+  // S331 #37 — pulse once when a chain FIRST starts waiting (discoverability),
+  // not on every render while it sits there.
+  if (!_dimFinChipWasShowing) {
+    chip.classList.remove('pulse');
+    void chip.offsetWidth;          // reflow so the animation can restart
+    chip.classList.add('pulse');
+    _dimFinChipWasShowing = true;
+  }
 }
 function _dimFinChipEnd() {
   var dim = window._dimTool;

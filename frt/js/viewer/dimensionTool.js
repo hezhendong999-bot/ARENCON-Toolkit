@@ -656,6 +656,24 @@
   var _cursor = null;         // last cursor pos for live preview
   var _curCal = null;         // last calibration seen (for live preview labels)
   var _pickAwait = false;     // pickup picker: awaiting a vertex tap
+  var _lastOffset = null;     // S331 #37 — last committed signed offset, for align-snap
+  var _offsetSnapOn = false;  // S331 #37 — true when the offset preview is snapped to _lastOffset
+  var OFFSET_SNAP_PX = 10;    // S331 #37 — catch distance for offset-alignment snap
+
+  // S331 #37 — Offset-alignment snap. If the live signed offset is within
+  // OFFSET_SNAP_PX of the LAST committed dimension's offset, snap to it
+  // exactly so consecutive dimension lines sit on ONE row (not a staircase).
+  // Last-dim-only by design. Returns the (possibly snapped) signed offset and
+  // sets _offsetSnapOn for the green guide.
+  function _snapOffset(rawOffset) {
+    _offsetSnapOn = false;
+    if (_lastOffset == null) return rawOffset;
+    if (Math.abs(rawOffset - _lastOffset) <= OFFSET_SNAP_PX) {
+      _offsetSnapOn = true;
+      return _lastOffset;
+    }
+    return rawOffset;
+  }
 
   function setMode(m) {
     if (m !== 'single' && m !== 'continuous' && m !== 'running') return;
@@ -674,6 +692,7 @@
   }
   function resetState() {
     _state = 'idle'; _pA = null; _pB = null; _chainAnchor = null; _cursor = null; _pickAwait = false;
+    _lastOffset = null; _offsetSnapOn = false;  // S331 #37 — align-snap resets with the chain
   }
   function cancel() { resetState(); }
   function endChain() { resetState(); }
@@ -798,6 +817,7 @@
     if (_state === 'awaitOffset') {
       var ax = _pA.x, ay = _pA.y, bx = _pB.x, by = _pB.y;
       var offset = _projectOffset(ax, ay, bx, by, pos.x, pos.y);
+      offset = _snapOffset(offset);   // S331 #37 — align consecutive dims onto one row
       var lab = computeLabel(ax, ay, bx, by, cal);
       var isGuess = !!(cal && cal._guessed);
       var obj = {
@@ -813,6 +833,7 @@
         isGuess: isGuess
       };
       // Compute chain-next state
+      _lastOffset = offset;  // S331 #37 — remember this row for the next dim's align-snap
       if (_mode === 'continuous') {
         _pA = { x: bx, y: by };
         _pB = null; _cursor = null; _state = 'awaitB';
@@ -821,7 +842,7 @@
         _pB = null; _cursor = null;
         _state = _pA ? 'awaitB' : 'idle';
       } else {
-        resetState();
+        resetState();  // single: clears _lastOffset (nothing to align to)
       }
       return { committed: true, action: 'committed', obj: obj };
     }
@@ -886,6 +907,7 @@
       _drawTick(ctx, _pA.x, _pA.y, _cursor.x, _cursor.y);
     } else if (_state === 'awaitOffset' && _pB) {
       var offset = _cursor ? _projectOffset(_pA.x, _pA.y, _pB.x, _pB.y, _cursor.x, _cursor.y) : 0;
+      offset = _snapOffset(offset);   // S331 #37 — preview snaps just like the commit
       var ends = _offsetEndpoints(_pA.x, _pA.y, _pB.x, _pB.y, offset);
       if (!ends) { ctx.restore(); return; }
       // Measure axis (dashed, thin) — visible reminder of what's being measured
@@ -897,6 +919,21 @@
       ctx.lineTo(_pB.x, _pB.y);
       ctx.stroke();
       ctx.restore();
+      // S331 #37 — green alignment guide along the snapped offset row, so it's
+      // clear the new dim is landing on the previous dim's line.
+      if (_offsetSnapOn) {
+        var gdx = ends.extB.x - ends.extA.x, gdy = ends.extB.y - ends.extA.y;
+        var gl = Math.hypot(gdx, gdy) || 1, gux = gdx / gl, guy = gdy / gl, ge = 9999;
+        ctx.save();
+        ctx.setLineDash([8, 6]);
+        ctx.strokeStyle = '#2E9E72';
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        ctx.moveTo(ends.extA.x - gux * ge, ends.extA.y - guy * ge);
+        ctx.lineTo(ends.extB.x + gux * ge, ends.extB.y + guy * ge);
+        ctx.stroke();
+        ctx.restore();
+      }
       ctx.restore();
       // Render the would-be dimension as a real object preview, with a
       // live measured label so the value forms as you set the offset.
