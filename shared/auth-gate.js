@@ -119,10 +119,70 @@
   function stampNow()   { try { localStorage.setItem(STAMP_KEY, String(Date.now())); } catch (e) {} }
   function lastStamp()  { try { return parseInt(localStorage.getItem(STAMP_KEY) || '0', 10) || 0; } catch (e) { return 0; } }
 
-  function reveal() {
+  function reveal(user) {
     // Remove the gate; let the tool boot exactly as it would have.
     if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
     window.__arenconAuthOK = true;
+    // Persist the display name so the badge can show it even offline next time.
+    var nm = '';
+    if (user) { nm = displayName(user); try { localStorage.setItem(NAME_KEY, nm); } catch (e) {} }
+    else { try { nm = localStorage.getItem(NAME_KEY) || ''; } catch (e) {} }
+    window.__arenconUser = nm;
+    mountBadge(nm);
+  }
+
+  // ── Persistent "signed in as X · Sign out" badge ────────────────────────
+  // Injected into every gated tool after auth. Makes WHOSE session you're in
+  // visible (the "logged in as Mark" incident would have been caught at a
+  // glance) and gives a one-tap sign-out to switch accounts.
+  function mountBadge(name) {
+    try {
+      if (document.getElementById('arencon-auth-badge')) return;
+      var dark = DARK;
+      var b = document.createElement('div');
+      b.id = 'arencon-auth-badge';
+      b.style.cssText = [
+        'position:fixed', 'z-index:2147483500',
+        'bottom:max(10px,env(safe-area-inset-bottom))',
+        'right:max(10px,env(safe-area-inset-right))',
+        'display:flex', 'align-items:center', 'gap:7px',
+        'padding:6px 10px 6px 11px', 'border-radius:18px',
+        'font-family:Calibri,"Segoe UI",system-ui,sans-serif', 'font-size:12.5px', 'font-weight:600',
+        'background:' + (dark ? 'rgba(27,25,34,.92)' : 'rgba(255,255,255,.94)'),
+        'color:' + (dark ? '#f4f3f6' : '#1B1A22'),
+        'box-shadow:0 3px 12px rgba(0,0,0,.22),0 0 0 1px ' + (dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)'),
+        'backdrop-filter:blur(8px)', '-webkit-backdrop-filter:blur(8px)',
+        'cursor:default', 'user-select:none', 'max-width:60vw'
+      ].join(';');
+      b.innerHTML =
+        '<span style="width:8px;height:8px;border-radius:50%;background:#3FD08A;flex:0 0 auto;' +
+          'box-shadow:0 0 0 3px rgba(63,208,138,.18);"></span>' +
+        '<span id="ag-badge-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+          (name ? esc(name) : 'Signed in') + '</span>' +
+        '<button id="ag-signout" title="Sign out" style="margin-left:4px;border:none;background:transparent;' +
+          'color:' + (dark ? '#E0A36A' : '#9C2742') + ';font-family:inherit;font-size:12.5px;font-weight:700;' +
+          'cursor:pointer;padding:2px 4px;white-space:nowrap;">Sign out</button>';
+      (document.body || document.documentElement).appendChild(b);
+      var so = b.querySelector('#ag-signout');
+      if (so) so.addEventListener('click', signOut);
+    } catch (e) {}
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function signOut() {
+    try {
+      localStorage.removeItem(TOK_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+      localStorage.removeItem(STAMP_KEY);
+      localStorage.removeItem(NAME_KEY);
+    } catch (e) {}
+    // Reload → the gate runs again with no session → shows the login card.
+    location.reload();
   }
 
   function showForm(msg) {
@@ -144,6 +204,16 @@
   function setBusy(b) {
     var btn = card.querySelector('#ag-btn');
     if (btn) { btn.disabled = b; btn.textContent = b ? 'Signing in\u2026' : 'Sign In'; }
+  }
+
+  var NAME_KEY = 'arencon-auth-name';   // cached display name (for offline badge)
+
+  function displayName(user) {
+    if (!user) return '';
+    var meta = user.user_metadata || {};
+    if (meta.full_name) return meta.full_name;
+    if (user.email) return user.email.split('@')[0];
+    return 'Signed in';
   }
 
   // GET /auth/v1/user with a token → returns user object or null.
@@ -230,12 +300,12 @@
     // Online: validate, refresh if needed.
     if (!t) { showForm('Sign in with your ARENCON account'); return; }
     validate(t).then(function (user) {
-      if (user && user.id) { stampNow(); reveal(); return; }
+      if (user && user.id) { stampNow(); reveal(user); return; }
       // Token rejected → try refresh once.
       tryRefresh().then(function (nt) {
         if (!nt) { showForm('Your session expired — please sign in again.'); return; }
         validate(nt).then(function (u2) {
-          if (u2 && u2.id) { stampNow(); reveal(); }
+          if (u2 && u2.id) { stampNow(); reveal(u2); }
           else { showForm('Your session expired — please sign in again.'); }
         });
       });
