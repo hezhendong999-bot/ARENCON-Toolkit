@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v837';
+var CACHE_NAME = 'arencon-frt-v838';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -21,6 +21,10 @@ var APP_FILES = [
   'ARENCON_Field_Review_Tool.html',
   'ARENCON_Project_Hub.html',
   'index.html',
+  // S331 #auth — universal sign-in gate (loaded first by frt/index.html as
+  // ../shared/auth-gate.js). Precache so a cold-offline boot still has the gate
+  // and a previously-validated session can pass it within the grace window.
+  'shared/auth-gate.js',
   // FRT v2 modular files
   'frt/index.html',
   'frt/css/frt.css',
