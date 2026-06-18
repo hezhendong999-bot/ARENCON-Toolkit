@@ -13,8 +13,6 @@
 <meta name="apple-mobile-web-app-title" content="ARENCON FP">
 <meta name="theme-color" content="#9C2742">
 <title>ARENCON — Diesel Fire Pump Commissioning Report</title>
-<!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
-<script src="shared/auth-gate.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link rel="stylesheet" href="aiusage_panel.css">
 <script src="aiusage_panel.js" defer></script>
@@ -402,7 +400,7 @@ body.dark-mode .np-scan:hover{background:var(--arencon);color:#fff;border-color:
 .ts-subsec .t{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);letter-spacing:.3px;}
 .ts-subsec .hint{font-size:calc(11px + var(--ts));color:var(--silver);font-weight:400;}
 .ts-seg{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:var(--smoke);flex-wrap:wrap;}
-.ts-seg button{border:none;background:transparent;padding:9px 18px;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);cursor:pointer;border-right:1.5px solid var(--border);transition:background .14s,color .14s;}
+.ts-seg button{border:none;background:transparent;padding:9px 18px;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);cursor:pointer;border-right:1.5px solid var(--border);transition:all .14s;}
 .ts-seg button:last-child{border-right:none;}
 .ts-seg button.on{background:var(--arencon)!important;color:#fff!important;}
 .ts-seg button:not(.on){background:transparent!important;color:var(--steel)!important;}
@@ -436,7 +434,7 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .ev-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 @media(max-width:560px){.ev-tiles{grid-template-columns:1fr;}}
 /* S344: evidence boxes as thumbnail grids (checklist-style) */
-.ev-grid-card{border:1.5px solid var(--border);border-radius:10px;background:var(--card-bg,#fff);padding:10px 11px;transition:border-color .14s,background .14s;}
+.ev-grid-card{border:1.5px solid var(--border);border-radius:10px;background:var(--card-bg,#fff);padding:10px 11px;transition:all .14s;}
 .ev-grid-card.drag-over{border-color:var(--arencon);background:rgba(156,39,66,.05);}
 body.dark-mode .ev-grid-card{background:var(--b-fieldbg,rgba(255,255,255,.04));}
 .ev-grid-head{font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
@@ -1968,6 +1966,9 @@ function _tieredBack(){
   // 3b. Issue/Report-Status modal (S366)
   var ism=document.getElementById('issue-modal-overlay');
   if(ism){ ism.remove(); return true; }
+  // 3c. Photo reuse-picker (S366)
+  var rpk=document.getElementById('reuse-picker-ov');
+  if(rpk){ if(typeof _closePhotoReusePicker==='function')_closePhotoReusePicker(); else rpk.remove(); return true; }
   // 4. Flow-photo gallery
   var fpm=document.getElementById('fpm-gallery');
   if(fpm){ if(typeof _flowPhotoCloseGallery==='function')_flowPhotoCloseGallery(); else fpm.remove(); return true; }
@@ -2008,25 +2009,6 @@ function _tieredBack(){
    the app. So we keep a depth-3 buffer and re-arm after every pop. Only when nothing
    is open does back behave like the ← Back button (save → project detail). */
 var _DSL_BACK_DEPTH = 3;
-// S331 (iOS back): the guard-buffer + leave-confirm below was tuned for the
-// Android TWA, where a single OS back at the stack bottom closes the app. On
-// iOS Safari (staff open report LINKS in a browser tab, not the TWA) that same
-// machinery made every back peel to Summary and then bounce out to the Hub
-// dashboard — the "keeps sending them to the dashboard" report. Detect the TWA;
-// on plain iOS Safari, run a LIGHTER model: still peel open layers (modals,
-// viewer, menus) so back closes those first, but once nothing is open let the
-// browser's own back behave normally instead of forcing a leave-to-Hub. The
-// explicit "← Back" button still does the deliberate save→Hub navigation.
-var _DSL_IS_TWA = (function(){
-  try{
-    var standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-    var androidRef = (document.referrer || '').indexOf('android-app://') === 0;
-    var iosHome    = (navigator.standalone === true); // iOS "Add to Home Screen"
-    // TWA = Android standalone launch. iOS home-screen PWA is NOT a TWA and
-    // should also use the lighter model (its back/edge-swipe is browser-like).
-    return (standalone && !iosHome) || androidRef;
-  }catch(e){ return false; }
-})();
 function _backTopUp(){
   try{
     // ensure at least _DSL_BACK_DEPTH guard entries sit in front of the page
@@ -2037,38 +2019,29 @@ function _backTopUp(){
 var _dslLeaving=false;
 function _installBackTrap(){
   try{
-    // Only arm the guard buffer on the TWA. On iOS/desktop Safari we still
-    // listen for popstate to peel open layers, but we do NOT stack guards or
-    // re-push after a clean back, so the browser back works as users expect.
-    if(_DSL_IS_TWA) _backTopUp();
+    _backTopUp();
     window.addEventListener('popstate', function(e){
       var handled=_tieredBack();
-      if(_DSL_IS_TWA){
-        _backTopUp();
-        if(!handled){
-          if(_dslLeaving) return;      // S333: a leave is already in flight (async save) — don't double-navigate
-          // S343 (TWA only): on Summary with nothing open → a swipe-back wants to
-          // LEAVE. Confirm first so a fat-finger gesture can't yank you out of a
-          // half-filled form. Data is auto-saved either way.
-          if(typeof _aConfirm==='function'){
-            _aConfirm('Leave this report and return to the project hub? Your work is saved.', function(){
-              _dslLeaving=true;
-              goBackToHub();
-            }, 'Leave');
-          } else {
+      _backTopUp();
+      if(!handled){
+        if(_dslLeaving) return;      // S333: a leave is already in flight (async save) — don't double-navigate
+        // S343: on Summary with nothing open → a swipe-back wants to LEAVE the
+        // report. Confirm first so a fat-finger gesture can't yank you out of a
+        // half-filled form (the OS swipe can't be distance-gated, so the confirm
+        // is the deliberate-intent guard). Data is auto-saved either way.
+        if(typeof _aConfirm==='function'){
+          _aConfirm('Leave this report and return to the project hub? Your work is saved.', function(){
             _dslLeaving=true;
             goBackToHub();
-          }
+          }, 'Leave');
+          // user may cancel — stay put; guard buffer already re-armed above
+        } else {
+          _dslLeaving=true;
+          goBackToHub();
         }
-      } else {
-        // iOS/desktop Safari: if we peeled a layer, swallow this back by pushing
-        // ONE state so the layer-close doesn't also navigate the page. If nothing
-        // was open, let the browser back proceed naturally (no guard, no bounce).
-        if(handled){ try{ history.pushState({_dslGuard:1}, ''); }catch(_e){} }
-        // not handled → do nothing; the browser already navigated back.
       }
     });
-    if(_DSL_IS_TWA) window.addEventListener('pageshow', function(){ _backTopUp(); });
+    window.addEventListener('pageshow', function(){ _backTopUp(); });
   }catch(e){}
 }
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', _installBackTrap); }
@@ -2971,6 +2944,7 @@ function updatePhaseFlags(){
               <button class="pz-upload" onclick="_recUpload('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #1A7A4A;background:#1A7A4A;color:#fff;">📥 Upload</button>
               <!-- S366 (Mark): camera re-added per "all 3 buttons everywhere" — supersedes S294's one-button decision. -->
               <button class="pz-camera" onclick="_recCamera('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #2C4770;background:#2C4770;color:#fff;">📷 Camera</button>
+              <button class="pz-gallery" onclick="_galleryReuseRecord('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid var(--arencon);background:var(--arencon);color:#fff;">🖼 Gallery</button>
             </div>
           </div>
         </div>
@@ -3407,6 +3381,7 @@ function buildItem(id, item, section, idx, isCustom) {
             <span class="pm-btns">
               <button class="pm-b" onclick="triggerPhoto('${id}')">📥 Upload</button>
               <button class="pm-b cam" onclick="triggerCamera('${id}')">📷 Camera</button>
+              <button class="pm-b" onclick="_galleryReuseChecklist('${id}')">🖼 Gallery</button>
             </span>
           </div>
         </div>
@@ -5685,7 +5660,132 @@ function _flowPhotoAddFromSource(srcPhoto){
     return;
   }
 }
-function _flowPhotoCloseGallery(){ var ex=document.getElementById('fpm-gallery'); if(ex) ex.remove(); }
+// ════════════════════════════════════════════════════════════════════════════
+// S366: SHARED "reuse an existing photo" picker — usable from ANY photo surface.
+// Renders the report's photos in a standalone overlay; on pick, resolves the source
+// photo's BYTES into a File (fetching from R2 if needed — GET is unauthenticated) and
+// hands that File to the caller. The caller routes it through the surface's OWN existing
+// add-file path (handleFiles / _recAddFile / ...), so the new photo gets its OWN id +
+// OWN R2 key + IDB save via proven code — never borrows the source R2 URL (S155 rule).
+// ════════════════════════════════════════════════════════════════════════════
+function _photoBytesToFile(srcPhoto, cb){
+  if(!srcPhoto){ cb(null); return; }
+  function _toFile(dataUrl){
+    try{
+      var parts=dataUrl.split(','); var mime=(parts[0].match(/:(.*?);/)||[])[1]||'image/jpeg';
+      var bin=atob(parts[1]); var n=bin.length; var u8=new Uint8Array(n);
+      while(n--) u8[n]=bin.charCodeAt(n);
+      var name=srcPhoto.n||('gallery_'+Date.now()+'.jpg');
+      cb(new File([u8], name, {type:mime}));
+    }catch(e){ cb(null); }
+  }
+  if(srcPhoto.d){ _toFile(srcPhoto.d); return; }
+  if(srcPhoto.r2Url){
+    fetch(srcPhoto.r2Url).then(function(r){return r.blob();}).then(function(b){
+      var fr=new FileReader(); fr.onload=function(){ _toFile(fr.result); }; fr.readAsDataURL(b);
+    }).catch(function(){ if(typeof showToast==='function') showToast('Could not load that photo'); cb(null); });
+    return;
+  }
+  cb(null);
+}
+var _reusePickerCb=null, _reusePickerItems=[];
+function _openPhotoReusePicker(onPickFile, opts){
+  opts=opts||{};
+  _closePhotoReusePicker();
+  var all=(typeof _collectAllPhotos==='function')?_collectAllPhotos():[];
+  // de-dupe by id; skip ids already on the excluded list (the target's current photos)
+  var excl={}; (opts.excludeIds||[]).forEach(function(id){ if(id) excl[id]=1; });
+  var seen={}, items=[];
+  all.forEach(function(it){
+    var p=it.photo; if(!p) return; var key=p.id||it.src; if(!key||seen[key]) return; seen[key]=1;
+    if(p.id && excl[p.id]) return;
+    if(!(p.d||p.r2Url)) return;
+    items.push(it);
+  });
+  _reusePickerItems=items; _reusePickerCb=onPickFile;
+  var ov=document.createElement('div'); ov.id='reuse-picker-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(16,20,30,.62);z-index:99994;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;padding:18px;';
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#161420':'#fff', fg=isDark?'#f4f3f6':'#1B1A22', fg2=isDark?'#a09aa8':'#5E5B68';
+  var h='<div style="background:'+bg+';color:'+fg+';border-radius:14px;max-width:720px;width:100%;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.45);overflow:hidden;">';
+  h+='<div style="padding:16px 22px;border-bottom:1px solid '+(isDark?'rgba(255,255,255,.1)':'#E3E1E8')+';display:flex;align-items:center;gap:10px;">'
+    +'<b style="font-size:16px;">Reuse a photo from this report</b>'
+    +'<span style="flex:1;"></span>'
+    +'<button onclick="_closePhotoReusePicker()" style="background:none;border:none;font-size:20px;cursor:pointer;color:'+fg2+';">✕</button></div>';
+  h+='<div style="flex:1 1 auto;overflow-y:auto;padding:16px 22px;">';
+  if(!items.length){ h+='<div style="text-align:center;color:'+fg2+';padding:40px 0;">No other photos in this report yet.</div>'; }
+  else {
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">';
+    items.forEach(function(it,k){
+      h+='<div onclick="_pickReusePhoto('+k+')" style="position:relative;cursor:pointer;border-radius:8px;overflow:hidden;border:1.5px solid '+(isDark?'rgba(255,255,255,.14)':'#D8D5DE')+';aspect-ratio:4/3;">'
+        +'<img src="'+(it.photo.d||it.photo.r2Url||'')+'" style="width:100%;height:100%;object-fit:cover;display:block;">'
+        +(it.badge?'<span style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.62);color:#fff;font-size:10px;font-weight:700;padding:2px 5px;">'+it.badge+'</span>':'')
+        +'</div>';
+    });
+    h+='</div>';
+  }
+  h+='</div></div>';
+  ov.innerHTML=h;
+  document.body.appendChild(ov);
+}
+function _closePhotoReusePicker(){ var ex=document.getElementById('reuse-picker-ov'); if(ex) ex.remove(); _reusePickerCb=null; _reusePickerItems=[]; }
+function _pickReusePhoto(k){
+  var it=_reusePickerItems[k]; var cb=_reusePickerCb;
+  if(!it||!it.photo||!cb){ _closePhotoReusePicker(); return; }
+  _photoBytesToFile(it.photo, function(file){
+    _closePhotoReusePicker();
+    if(file && typeof cb==='function') cb(file);
+    else if(typeof showToast==='function') showToast('Could not copy that photo');
+  });
+}
+// ── Per-surface "reuse from gallery" entry points — route a picked File through each
+//    surface's EXISTING add path so copy/compress/own-id/own-R2-key all stay proven. ──
+function _galleryReuseChecklist(id){
+  var cur=(clState[id]&&clState[id].photos)||[];
+  _openPhotoReusePicker(function(file){ handleFiles(id, [file], false); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseRecord(kind){
+  var cur=(typeof recordPhotos!=='undefined'?recordPhotos:[]).filter(function(p){return p&&p.kind===kind;});
+  _openPhotoReusePicker(function(file){ _recAddFile(file, kind); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseDefic(name, idx){
+  var cur=(deficiencies[name]&&deficiencies[name][idx]&&deficiencies[name][idx].photos)||[];
+  _openPhotoReusePicker(function(file){ handleFiles(name, [file], true); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseDeficResp(name, idx, ci){
+  var cur=(deficiencies[name]&&deficiencies[name][idx]&&deficiencies[name][idx].responses&&deficiencies[name][idx].responses[ci]&&deficiencies[name][idx].responses[ci].photos)||[];
+  _openPhotoReusePicker(function(file){
+    var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
+      deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      renderDeficGroup(name); if(typeof debounceAutosave==='function')debounceAutosave();
+    }); }; r.readAsDataURL(file);
+  }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseGenDefic(idx){
+  var cur=(generalDeficiencies[idx]&&generalDeficiencies[idx].photos)||[];
+  _openPhotoReusePicker(function(file){
+    var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
+      if(!generalDeficiencies[idx].photos)generalDeficiencies[idx].photos=[];
+      generalDeficiencies[idx].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      if(typeof renderDeficGroups==='function')renderDeficGroups(); if(typeof debounceAutosave==='function')debounceAutosave();
+    }); }; r.readAsDataURL(file);
+  }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseGenDeficResp(idx, ci){
+  var cur=(generalDeficiencies[idx]&&generalDeficiencies[idx].responses&&generalDeficiencies[idx].responses[ci]&&generalDeficiencies[idx].responses[ci].photos)||[];
+  _openPhotoReusePicker(function(file){
+    var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
+      if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];
+      generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      if(typeof renderDeficGroups==='function')renderDeficGroups(); if(typeof debounceAutosave==='function')debounceAutosave();
+    }); }; r.readAsDataURL(file);
+  }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseSketch(uid){
+  _openPhotoReusePicker(function(file){
+    var r=new FileReader(); r.onload=function(e){ _loadSketchMarkupImg(uid, e.target.result); }; r.readAsDataURL(file);
+  }, {});
+}
 function _flowPhotoOpenGallery(){
   _flowPhotoCloseGallery();
   var card=document.querySelector('#flow-photo-modal .fpm-card'); if(!card) return;
@@ -5904,6 +6004,7 @@ function _flowEqReadFile(file){
 }
 function _flowEqCamera(){ if(typeof _camBurst==='function'){ _camBurst(function(f){ _flowEqReadFile(f); }); return; } var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowEqReadFile); }; inp.click(); }
 function _flowEqUpload(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowEqReadFile); }; inp.click(); }
+function _flowEqGalleryReuse(){ _openPhotoReusePicker(function(file){ _flowEqReadFile(file); }, {}); }
 function _flowEqDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowEqReadFile); }
 function _flowEqDelete(j){
   var arr=_flowEqArr(); if(!arr||!arr[j])return; var p=arr[j];
@@ -5963,7 +6064,7 @@ function _renderFlowEquipModal(){
   var activeHint=''; _FLOWEQ_CATS.forEach(function(c){ if(c.k===_flowEqActiveCat) activeHint=c.hint; });
   h+='<div class="photo-zone-compact fpm-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowEqDrop(event)">';
   h+='<span>Drag &amp; drop — tagged <b>'+_floweqLabel(_flowEqActiveCat)+'</b>'+(activeHint?(' · '+activeHint):'')+'</span>';
-  h+='<div class="pz-row"><button class="pz-upload" onclick="_flowEqUpload()">📥 Upload</button><button class="pz-camera" onclick="_flowEqCamera()">📷 Camera</button></div>';
+  h+='<div class="pz-row"><button class="pz-upload" onclick="_flowEqUpload()">📥 Upload</button><button class="pz-camera" onclick="_flowEqCamera()">📷 Camera</button><button class="pz-gallery" onclick="_flowEqGalleryReuse()">🖼 Gallery</button></div>';
   h+='</div>';
   // grouped thumbs by category
   var live=arr.filter(function(p){return !_isPhotoDeleted(p);});
@@ -7947,6 +8048,7 @@ function buildDeficItem(name, safe, d, i) {
       +'<div style="display:flex;gap:5px;">'
       +'<button onclick="deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button>'
       +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
+      +'<button onclick="_galleryReuseDeficResp(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:var(--arencon);color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button>'
       +'</div></div></div></div></div>';
   });
 
@@ -7972,7 +8074,8 @@ function buildDeficItem(name, safe, d, i) {
     +'<span>Drag & drop photos here</span>'
     +'<div style="display:flex;gap:5px;">'
     +'<button onclick="event.stopPropagation();deficUpload(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button>'
-    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
+    +'<button onclick="event.stopPropagation();_galleryReuseDefic(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:var(--arencon);color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="deficiencies[\''+safe+'\']['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="deficiencies[\''+safe+'\']['+i+'].status=this.value;_checkDeficStatusChange(\''+safe+'\','+i+');updateDeficSummary();">'
@@ -8252,13 +8355,13 @@ function buildGeneralDeficItem(d, i) {
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Comment</div><textarea placeholder="'+label+' response..." style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].responses['+ci+'].comment=this.value">'+(cr.comment||'')+'</textarea></div>';
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+crPhotosHtml+'</div>';
     respHtml += '<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';genDeficRespDrop(event,'+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">';
-    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div></div>';
+    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="_galleryReuseGenDeficResp('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:var(--arencon);color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div></div>';
   });
   respHtml += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'contractor\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #E67E22;border-radius:5px;background:#fffbf0;color:#E67E22;font-size:12px;cursor:pointer;font-weight:600;">+ Add Contractor Response</button>';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'consultant\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #1565C0;border-radius:5px;background:#f0f4ff;color:#1565C0;font-size:12px;cursor:pointer;font-weight:600;">+ Add Consultant Response</button></div>';
 
-  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="event.stopPropagation();_galleryReuseGenDefic('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:var(--arencon);color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="generalDeficiencies['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="generalDeficiencies['+i+'].status=this.value;updateDeficSummary();renderGeneralDeficGroup();"><option value="open" '+(sc==='open'?'selected':'')+'>● Outstanding</option><option value="in-progress" '+(sc==='in-progress'?'selected':'')+'>● In Progress</option><option value="resolved" '+(sc==='resolved'?'selected':'')+'>● Addressed & Closed</option></select></div>'
@@ -9177,17 +9280,18 @@ function _realExportPDF() {
     const id=cid(section,idx), st=clState[id];
     const sc=st?.status, cm=st?.comment||'';
     const txt = (st?.customText || item.text).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const rowStyle = sc==='no'?'background:#FFF5F5;':sc==='na'?'background:#F9F9F9;':(!sc?'background:#FFF3E0;border-left:3px solid #E65100;':'');
     const photos = (st?.photos||[]);
-    // S316 (Mark): photos sit BELOW the comments in a spanning row (FRT-style),
-    // 2 per row and smaller, instead of a dedicated Photos column — saves a
-    // column of width on every section table and reads cleaner.
-    const photosRow = photos.length ? `<tr style="${rowStyle}"><td></td><td colspan="3" style="padding:2px 8px 7px;"><div style="display:flex;flex-wrap:wrap;gap:8px;">${photos.map(p=>`<img src="${p.r2Url||p.d}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:3px;">`).join('')}</div></td></tr>` : '';
-    return `<tr style="${rowStyle}">
-      <td style="padding:5px 8px;font-weight:600;color:#666;white-space:nowrap;font-size:9pt;">${item.num}</td>
-      <td style="padding:5px 8px;font-size:9pt;">${txt}</td>
-      <td style="padding:5px 8px;font-weight:700;color:${statusColor(sc)};white-space:nowrap;font-size:9pt;">${statusLabel(sc)}</td>
-      <td style="padding:5px 8px;font-size:8.5pt;font-style:italic;color:#555;">${cm}</td>
+    // S366: pill status + comments inline; photos sit in a spanning row below.
+    const pillCls = sc==='yes'?'yes':sc==='no'?'no':sc==='na'?'na':'';
+    const pillTxt = sc==='yes'?'Yes':sc==='no'?'No':sc==='na'?'N/A':'—';
+    const pill = pillCls ? `<span class="pill ${pillCls}">${pillTxt}</span>` : `<span style="color:#B08948;font-weight:700;">—</span>`;
+    const rowCls = sc==='no'?' class="nd-flag"':'';
+    const cmHtml = cm ? `<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:3px;">${cm}</div>` : '';
+    const photosRow = photos.length ? `<tr class="${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`<img src="${p.r2Url||p.d}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`).join('')}</div></td></tr>` : '';
+    return `<tr${rowCls}>
+      <td class="ctr" style="font-weight:600;color:#666;white-space:nowrap;font-size:9pt;width:34px;">${item.num}</td>
+      <td>${txt}${cmHtml}</td>
+      <td class="ctr" style="white-space:nowrap;width:90px;">${pill}</td>
     </tr>${photosRow}`;
     }).join('');
   };
@@ -9271,7 +9375,7 @@ function _realExportPDF() {
     table.cl td{vertical-align:top;border-bottom:1px solid #EEE;}
     table.cl tr{page-break-inside:avoid;}
     table.dt{width:100%;border-collapse:collapse;margin-bottom:12px;}
-    table.dt th{background:#7d1f35;color:white;padding:5px 8px;text-align:center;font-size:8pt;}
+    table.dt th{background:#EEF1F5;color:#2C3E50;border-bottom:2px solid #2C3E50;padding:5px 8px;text-align:center;font-size:8pt;font-weight:700;}
     table.dt td{padding:5px 8px;text-align:center;border-bottom:1px solid #EEE;font-size:8.5pt;}
     .defic{border-left:3px solid #C0392B;padding:8px 10px;margin-bottom:8px;background:#FFF9F9;page-break-inside:avoid;}
     .defic-lbl{font-size:7.5pt;color:#C0392B;font-weight:bold;text-transform:uppercase;}
@@ -9294,6 +9398,45 @@ function _realExportPDF() {
       .page-label{display:block;}
     }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    /* ════════ S366 PDF REDESIGN — Bold report layer (demo classes, slate #2C3E50) ════════ */
+    .sh{background:#2C3E50;color:#fff;padding:7px 14px;font-weight:700;font-size:11pt;border-radius:6px 6px 0 0;margin:20px 0 0;display:flex;justify-content:space-between;align-items:center;page-break-inside:avoid;page-break-after:avoid;letter-spacing:.3px;}
+    .sh .sh-note{font-weight:400;font-size:8.5pt;opacity:.85;}
+    .sb{border:1px solid #DDE1E7;border-top:none;border-radius:0 0 6px 6px;padding:12px 14px;margin-bottom:14px;page-break-inside:avoid;}
+    .sb.flush{padding:0;}
+    /* sub-grouping INSIDE a section: light tinted header, NOT another filled box */
+    .subhd{font-size:9.5pt;font-weight:700;color:#2C3E50;border-bottom:1.5px solid #2C3E50;padding:0 0 4px;margin:16px 0 8px;letter-spacing:.2px;}
+    .subhd.lite{color:#54657A;border-bottom-color:#C3CAD4;font-size:9pt;margin-top:14px;}
+    .sh3{font-size:9.5pt;font-weight:700;border-left:3px solid #2C3E50;padding-left:8px;margin:0 0 8px;color:#2C3E50;page-break-inside:avoid;page-break-after:avoid;}
+    table.st{width:100%;border-collapse:collapse;}
+    /* table column header is LIGHTER than the section band so the two don't blend */
+    table.st th{background:#EEF1F5;color:#2C3E50;padding:5px 8px;text-align:left;font-size:8.5pt;font-weight:700;border-bottom:2px solid #2C3E50;}
+    table.st th.ctr{text-align:center;}
+    table.st td{vertical-align:top;border-bottom:1px solid #EEE;padding:5px 8px;font-size:9pt;}
+    table.st td.ctr{text-align:center;}
+    table.st tr{page-break-inside:avoid;}
+    table.st .grp td{background:#F1EEE8;font-weight:700;color:#2C3E50;font-size:9.5pt;text-transform:uppercase;letter-spacing:.4px;}
+    .pill{display:inline-block;font-size:8.5pt;font-weight:800;padding:2px 10px;border-radius:10px;border:1px solid;white-space:nowrap;}
+    .pill.yes{background:#E7F0EA;color:#3E6B4F;border-color:#BcD3C2;}
+    .pill.no{background:#F5E3E3;color:#A23A3A;border-color:#E0BcBc;}
+    .pill.na{background:#ECEEF1;color:#5A6473;border-color:#CDD2DA;}
+    .no-detail td{background:#FBF6F0;border-bottom:1px solid #EADfcf;}
+    .nd-wrap{display:flex;gap:12px;align-items:flex-start;padding:2px 0 6px;}
+    .nd-note{flex:1;font-size:8.5pt;line-height:1.45;}
+    .nd-tag{display:inline-block;font-size:7.5pt;font-weight:800;color:#A23A3A;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+    .nd-photos{display:flex;flex-wrap:wrap;gap:6px;}
+    .res-banner{margin:24px 0;padding:20px;border:3px solid;border-radius:10px;text-align:center;page-break-inside:avoid;}
+    .res-banner .rb-label{font-size:22pt;font-weight:900;letter-spacing:3px;}
+    .res-banner .rb-desc{font-size:9pt;margin-top:6px;color:#555;}
+    .def-card{border:1px solid #DDE1E7;border-radius:6px;margin-bottom:10px;overflow:hidden;page-break-inside:avoid;}
+    .def-head{background:#2C3E50;color:#fff;padding:6px 12px;font-weight:700;font-size:9pt;}
+    .def-body{padding:9px 12px;}
+    .def-title{font-size:9pt;font-weight:700;margin-bottom:2px;}
+    .def-meta{font-size:8pt;color:#6B7B8C;}
+    .resp-card{margin-top:8px;padding:8px;border-radius:5px;border:1px solid;border-left:3px solid;page-break-inside:avoid;}
+    .resp-lbl{font-size:7.5pt;font-weight:800;margin-bottom:4px;}
+    .curve-panel{border:1px solid #DDE1E7;border-radius:6px;padding:12px;margin-top:14px;text-align:center;page-break-inside:avoid;}
+    .curve-tag{display:inline-block;font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:4px 12px;border-radius:5px;background:#2C3E50;color:#fff;margin-bottom:8px;}
+    .cert-box{font-size:9.5pt;color:#5A6473;line-height:1.5;margin-bottom:14px;padding:11px 13px;background:#F7F8FA;border-radius:6px;border-left:3px solid #2C3E50;}
   </style></head><body>
   <div class="running-header">
     <div><div style="font-weight:700;">${(proj.client||'—').replace(/</g,'&lt;')}</div><div>${(proj.addr||'—').replace(/</g,'&lt;')}</div><div>Diesel Fire Pump Commissioning Report</div></div>
@@ -9330,25 +9473,26 @@ function _realExportPDF() {
     ${_ovHtml}
   </div>
 
-  <h2>1. Prior to Commissioning Date</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
-  <tbody>${clSection(S1,'s1')}</tbody></table>
+  <div class="sh">1. Prior to Commissioning Date</div>
+  <div class="sb flush"><table class="st"><thead><tr><th class="ctr" style="width:34px">#</th><th>Item</th><th class="ctr" style="width:90px">Status</th></tr></thead>
+  <tbody>${clSection(S1,'s1')}</tbody></table></div>
 
-  <h2>2. Visual Inspection</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
-  <tbody>${clSection(S2,'s2')}</tbody></table>
+  <div class="sh">2. Visual Inspection</div>
+  <div class="sb flush"><table class="st"><thead><tr><th class="ctr" style="width:34px">#</th><th>Item</th><th class="ctr" style="width:90px">Status</th></tr></thead>
+  <tbody>${clSection(S2,'s2')}</tbody></table></div>
 
-  <h2>3. Pump / Controller / Louver Tests</h2>
-  <h3>Battery Start-Up Time Test</h3>
+  <div class="sh">3. Pump / Controller / Louver Tests</div>
+  <div class="sb"><div class="sh3">Battery Start-Up Time Test</div>
   <table class="dt"><thead><tr><th>Battery #1 Test</th><th>Duration (s)</th><th>Battery #2 Test</th><th>Duration (s)</th></tr></thead>
   <tbody>${BAT_TESTS.map((t,i)=>`<tr><td class="left" style="text-align:left">${t}</td><td>${batData.b1[i].toFixed(2)}</td><td style="text-align:left">${t}</td><td>${batData.b2[i].toFixed(2)}</td></tr>`).join('')}
   <tr style="background:#EFF2F7;font-weight:700;"><td colspan="2">Battery #1 Subtotal: ${b1tot.toFixed(2)} s</td><td colspan="2">Battery #2 Subtotal: ${b2tot.toFixed(2)} s</td></tr>
   <tr style="background:${cumTot<=45?'#E8EFE7':'#F3E0DE'};font-weight:700;"><td colspan="4">Combined Total: ${cumTot.toFixed(2)} s — ${cumTot<=45?'✓ PASS (≤ 45s)':'✗ FAIL (> 45s) — Engine to run 5 min at full speed'}</td></tr>
   </tbody></table>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
-  <tbody>${clSection(S3,'s3')}</tbody></table>
+  <table class="st" style="margin-top:10px;"><thead><tr><th class="ctr" style="width:34px">#</th><th>Item</th><th class="ctr" style="width:90px">Status</th></tr></thead>
+  <tbody>${clSection(S3,'s3')}</tbody></table></div>
 
-  <h2>4. Fire Pump Test Results</h2>
+  <div class="sh">4. Fire Pump Test Results</div>
+  <div class="sb">
   ${(function(){
     var testType = 'std';
     var _ri = document.querySelector('input[name="pump-test-type"]:checked');
@@ -9396,12 +9540,12 @@ function _realExportPDF() {
 
     // Standard 3-Point table (only if std)
     if(testType==='std'){
-      out+='<div style="font-size:10pt;font-weight:bold;background:#2C4770;color:white;padding:5px 12px;margin:16px 0 8px;letter-spacing:.3px;border-radius:3px;">Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>';
+      out+='<div class="subhd">Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>';
       out+='<table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th>Suction (psi)</th><th>Discharge (psi)</th><th>Net (psi)</th><th>RPM</th><th>Result</th></tr></thead><tbody>';
       stdData.forEach(function(r){var c=_calcFlowPoint(r),net=c.net,pf=c.verdict==='na'?'—':(c.verdict==='pass'?'PASS':'FAIL');out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(r.suction||'—')+'</td><td>'+(r.discharge||'—')+'</td><td>'+(net!=null?net.toFixed(1):'—')+'</td><td>'+(r.rpm||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#5F8068':pf==='FAIL'?'#A85959':'#999')+'">'+pf+'</td></tr>';});
       out+='</tbody></table>';
       // Water Supply & Demand — 3-Point
-      out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:white;padding:4px 12px;margin:14px 0 6px;border-radius:3px;">Water Supply &amp; Demand Data (3-Point)</div>';
+      out+='<div class="subhd lite">Water Supply &amp; Demand Data (3-Point)</div>';
       out+='<table class="dt" style="max-width:500px;"><thead><tr><th style="text-align:left">Point</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead><tbody>';
       out+='<tr><td style="text-align:left">Static</td><td>'+gv('ws-static-flow')+'</td><td>'+gv('ws-static-psi')+'</td></tr>';
       out+='<tr><td style="text-align:left">Residual</td><td>'+gv('ws-res-flow')+'</td><td>'+gv('ws-res-psi')+'</td></tr>';
@@ -9413,18 +9557,18 @@ function _realExportPDF() {
       out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+totalDemF.toLocaleString()+' gpm</td><td>'+gv('dem-spr-psi')+' psi</td></tr>';
       out+='</tbody></table>';
       // Chart
-      if(chartImgA) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_buildReadoutStripHtml3pt()+_safetyMarginPdf('')+'</div>';
-      if(chartImgD) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">3-Point Fire Pump Net Pressure Curve</div><img src="'+chartImgD+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
+      if(chartImgA) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C3E50;margin-bottom:4px;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_buildReadoutStripHtml3pt()+_safetyMarginPdf('')+'</div>';
+      if(chartImgD) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C3E50;margin-bottom:4px;">3-Point Fire Pump Net Pressure Curve</div><img src="'+chartImgD+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
     }
 
     // PLD 7-Point table (only if pld)
     if(testType==='pld'){
-      out+='<div style="font-size:10pt;font-weight:bold;background:#2C4770;color:white;padding:5px 12px;margin:16px 0 8px;letter-spacing:.3px;border-radius:3px;">7-Point Performance Test — Fire Pump with PLD</div>';
+      out+='<div class="subhd">7-Point Performance Test — Fire Pump with PLD</div>';
       out+='<table class="dt"><thead><tr><th>Flow %</th><th>Flow (gpm)</th><th>Cutsheet (psi)</th><th>Placard (psi)</th><th colspan="2">w/o PRV &amp; PLD</th><th>RPM</th><th colspan="2">w/ PLD Enabled</th><th>RPM</th><th>Pass/Fail</th></tr><tr><th></th><th></th><th></th><th></th><th>Suction</th><th>Discharge</th><th></th><th>Suction</th><th>Discharge</th><th></th><th></th></tr></thead><tbody>';
       (typeof pldData!=='undefined'?pldData:[]).forEach(function(r,ri){var skip=(typeof PLD_NO_SKIP!=='undefined'&&PLD_NO_SKIP.has(ri));var c=updatePldVerdictObj?updatePldVerdictObj(r,ri):null;var pf=c?(c.verdict==='na'?'—':(c.verdict==='pass'?'PASS':'FAIL')):'—';out+='<tr><td>'+r.pct+'</td><td>'+(r.flow||'—')+'</td><td>'+(r.cutsheet||'—')+'</td><td>'+(r.placard||'—')+'</td><td>'+(skip?'—':(r.suc_no||'—'))+'</td><td>'+(skip?'—':(r.dis_no||'—'))+'</td><td>'+(skip?'—':(r.rpm_no||'—'))+'</td><td>'+(r.suc_w||'—')+'</td><td>'+(r.dis_w||'—')+'</td><td>'+(r.rpm_w||'—')+'</td><td style="font-weight:700;color:'+(pf==='PASS'?'#5F8068':pf==='FAIL'?'#A85959':'#999')+'">'+pf+'</td></tr>';});
       out+='</tbody></table>';
       // Water Supply & Demand — PLD
-      out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:white;padding:4px 12px;margin:14px 0 6px;border-radius:3px;">Water Supply &amp; Demand Data (7-Point PLD)</div>';
+      out+='<div class="subhd lite">Water Supply &amp; Demand Data (7-Point PLD)</div>';
       out+='<table class="dt" style="max-width:500px;"><thead><tr><th style="text-align:left">Point</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead><tbody>';
       out+='<tr><td style="text-align:left">Static</td><td>'+gv('pld-ws-static-flow')+'</td><td>'+gv('pld-ws-static-psi')+'</td></tr>';
       out+='<tr><td style="text-align:left">Residual</td><td>'+gv('pld-ws-res-flow')+'</td><td>'+gv('pld-ws-res-psi')+'</td></tr>';
@@ -9436,26 +9580,28 @@ function _realExportPDF() {
       out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+totalDemPld.toLocaleString()+' gpm</td><td>'+gv('pld-dem-spr-psi')+' psi</td></tr>';
       out+='</tbody></table>';
       // Charts
-      if(chartImgB) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</div><img src="'+chartImgB+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_safetyMarginPdf('pld-','pldChart')+'</div>';
-      if(chartImgC) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:4px;">7-Point Fire Pump Net Pressure Curve</div><img src="'+chartImgC+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
+      if(chartImgB) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C3E50;margin-bottom:4px;">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</div><img src="'+chartImgB+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_safetyMarginPdf('pld-','pldChart')+'</div>';
+      if(chartImgC) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C3E50;margin-bottom:4px;">7-Point Fire Pump Net Pressure Curve</div><img src="'+chartImgC+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;"></div>';
     }
     return out;
   })()}
-  <table class="cl" style="margin-top:14px;"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
+  <table class="st" style="margin-top:14px;"><thead><tr><th class="ctr" style="width:34px">#</th><th>Item</th><th class="ctr" style="width:90px">Status</th></tr></thead>
   <tbody>${clSection(S4_items,'s4')}</tbody></table>
+  </div>
 
-  <h2>5. Fire Alarm &amp; Controller Signaling Tests</h2>
-  <table class="cl"><thead><tr><th style="width:4%">#</th><th style="width:50%">Item</th><th style="width:9%">Status</th><th style="width:37%">Comments</th></tr></thead>
-  <tbody>${clSection(S5_mandatory,'s5m')}${clSection(S5,'s5')}</tbody></table>
+  <div class="sh">5. Fire Alarm &amp; Controller Signaling Tests</div>
+  <div class="sb flush"><table class="st"><thead><tr><th class="ctr" style="width:34px">#</th><th>Item</th><th class="ctr" style="width:90px">Status</th></tr></thead>
+  <tbody>${clSection(S5_mandatory,'s5m')}${clSection(S5,'s5')}</tbody></table></div>
 
-  <h2>Deficiency Summary</h2>
+  <div class="sh">Deficiency Summary</div>
+  <div class="sb">
   ${(()=>{
     const allItems = contractors.flatMap(n => (deficiencies[n]||[]).map(d => ({...d, _name:n})));
     if (allItems.length === 0) return '<div style="background:#E8EFE7;border:1px solid #5F8068;padding:10px;border-radius:4px;color:#5F8068;font-weight:bold;">No deficiencies recorded.</div>';
     return contractors.map(n => {
       const items = deficiencies[n]||[];
       if (!items.length) return '';
-      let out = '<div style="margin-bottom:18px;"><div style="background:#1C2333;color:white;padding:6px 12px;font-weight:700;font-size:9pt;border-radius:4px 4px 0 0;">' + n + '</div>';
+      let out = '<div style="margin-bottom:18px;"><div style="background:#2C3E50;color:white;padding:6px 12px;font-weight:700;font-size:9pt;border-radius:4px 4px 0 0;">' + n + '</div>';
       items.forEach((d,i) => {
         const sc = d.status||'open', scCol = sc==='resolved'?'#5F8068':sc==='in-progress'?'#E67E22':'#A85959';
         out += '<div class="defic" style="border-top:1px solid #eee;">';
@@ -9496,6 +9642,7 @@ function _realExportPDF() {
       return out;
     }).join('');
   })()}
+  </div>
   ${(()=>{
     const results = stdData.map(r => {
       const c=_calcFlowPoint(r);
@@ -9544,9 +9691,10 @@ function _realExportPDF() {
       +'<div style="font-size:9pt;margin-top:6px;color:#555;">'+resultDesc+'</div>'
       +'</div>';
   })()}
-  <h2>Signature</h2>
+  <div class="sh">Signature</div>
+  <div class="sb">
   <div style="padding:12px;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;">
-    <div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Consultant Signature</div>
+    <div style="font-size:9pt;font-weight:700;color:#2C3E50;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Consultant Signature</div>
     <table style="width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:8px;table-layout:fixed;">
       <colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>
       <tr><td style="font-weight:bold;color:#666;padding:3px 6px;">Consultant Name</td><td id="so-name-pdf"></td><td style="font-weight:bold;color:#666;padding:3px 6px;">Title</td><td id="so-title-pdf"></td></tr>
@@ -9559,6 +9707,7 @@ function _realExportPDF() {
   <div id="flow-test-photos-print"></div>
   <!-- photos are rendered inline at each checklist item -->
   <div id="sketches-print"></div>
+  </div>
   ${typeof _appendixHTML==='function' ? _appendixHTML() : ''}
   </div><!-- end .page -->
   
@@ -9905,6 +10054,7 @@ function addSketchEntry() {
             <div style="display:flex;gap:6px;">
               <button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoUpload(${uid})">📥 Upload</button>
               <button class="btn btn-sm" style="background:#2C4770;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
+              <button class="btn btn-sm" style="background:var(--arencon);color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_galleryReuseSketch(${uid})">🖼 Gallery</button>
             </div>
           </div>
         </div>
@@ -14836,6 +14986,7 @@ function _recZoneHtml(kind){
   html+='<span>Drag &amp; drop · '+hint+'</span>';
   html+='<button class="pz-upload" onclick="_recUpload(\''+kind+'\')">📥 Upload</button>';
   html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')">📷 Camera</button>';
+  html+='<button class="pz-gallery" onclick="_galleryReuseRecord(\''+kind+'\')">🖼 Gallery</button>';
   html+='</div>';
   if(thumbs.length){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
