@@ -27,6 +27,10 @@ PAT = os.environ.get("ARENCON_PAT", "")
 # Add to this registry whenever a feature is restored/added that has been
 # (or could be) clobbered by a stale-base push.
 SENTINELS = {
+    "ARENCON_Diesel_Fire_Pump_Commissioning.html": [
+        "aiusage_panel.js",       # shared usage panel include
+        "thin Diesel host for the SHARED panel",  # host IIFE marker
+    ],
     "ARENCON_Project_Hub.html": [
         "edit-num-modal",         # Admin: Set User # modal
         "edit-init-modal",        # Admin: Set Initials modal
