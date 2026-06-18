@@ -1113,8 +1113,12 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .header-actions{gap:8px!important;margin-right:8px!important;}
   /* S252: day/night toggle stays in the header as a 34x34 chrome box (match FRT); hidden while the menu drawer is open */
   .header-actions #dark-toggle{justify-content:center;flex-shrink:0;margin-left:0;}
-  .header-actions.mobile-open #dark-toggle{display:flex!important;width:100%;justify-content:center;padding:14px;border-radius:10px;}
-  .header-actions.mobile-open #btn-qr{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
+  /* S366: inside the open hamburger drawer these two must be full-width rows like every
+     other drawer button. The base square-icon rule (#dark-toggle,#btn-qr{width/max-width:34px
+     !important}) + its pointer:coarse variant were clamping them back to a 34/36px square in
+     the drawer. Higher-specificity .mobile-open selector + !important releases the clamp. */
+  .header-actions.mobile-open #dark-toggle{display:flex!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;justify-content:center;padding:14px!important;border-radius:10px!important;}
+  .header-actions.mobile-open #btn-qr{display:flex!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;justify-content:center;padding:14px!important;font-size:calc(15px + var(--ts));border-radius:10px!important;}
   .header-actions.mobile-open #btn-text-size{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   /* Project link: compact */
   /* Data tables: allow horizontal scroll inside card */
