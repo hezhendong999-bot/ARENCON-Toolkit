@@ -1,0 +1,669 @@
+<!-- @dsCard group="Reports" viewport="816x1056" name="Diesel Fire Pump Report (redesign)" subtitle="NFPA 20 acceptance — FRT-matched header, clean layout, density options" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diesel Fire Pump Commissioning Report — ARENCON</title>
+<style>
+@font-face{
+  font-family:'BlairMdITC TT';
+  src:url('../../assets/fonts/BlairITC-Medium.ttf') format('truetype');
+  font-weight:normal;font-style:normal;font-display:swap;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+
+/* density variables (toggled via body class) */
+body{
+  --base-fs:11pt; --sec-pad:13px; --row-pad:6px 10px; --sec-gap:16px; --tile-pad:14px;
+  font-family:Calibri,'Carlito','Segoe UI',sans-serif;color:#1C2333;font-size:var(--base-fs);
+  line-height:1.23;background:#525659;margin:0;padding:20px 20px 40px;
+}
+body.d-compact{ --base-fs:10pt; --sec-pad:9px; --row-pad:4px 8px; --sec-gap:11px; --tile-pad:10px; }
+body.d-spacious{ --base-fs:11.5pt; --sec-pad:17px; --row-pad:9px 13px; --sec-gap:22px; --tile-pad:18px; }
+
+.page{width:8.5in;min-height:11in;background:#fff;margin:0 auto 24px;padding:0.5in 0.6in;
+  box-shadow:0 2px 14px rgba(0,0,0,.32);position:relative;overflow:hidden;}
+
+/* ── FRT-matched page-1 header ── */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:10px;margin-bottom:0;}
+.ph img{height:40px;}
+.ph-addr{text-align:left;font-family:Arial,sans-serif;font-size:6pt;color:#1C2333;line-height:1.26;
+  border-left:2px solid #9C2742;padding-left:10px;}
+.title-block{text-align:center;margin:12px 0 0;padding:14px 0 12px;line-height:.9;}
+.tb-line1{font-family:'BlairMdITC TT','Times New Roman',serif;font-size:12pt;color:#1C2333;letter-spacing:1px;margin-bottom:3px;}
+.tb-line2{font-family:'BlairMdITC TT','Times New Roman',serif;font-size:12pt;color:#1C2333;margin-bottom:9px;}
+.tb-line4{font-family:Calibri,sans-serif;font-size:12pt;font-weight:700;color:#333;line-height:1.23;margin-bottom:2px;}
+
+/* project info list — matches FRT report exactly (single column) */
+.pi-list{margin-top:6px;padding:11px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}
+.pi-row{display:flex;gap:10px;margin-bottom:3px;font-size:11pt;line-height:1.25;}
+.pi-row:last-child{margin-bottom:0;}
+.pi-label{min-width:145px;font-weight:400;color:#1C2333;}
+.pi-value{font-weight:400;color:#1C2333;}
+
+/* ── continuation header ── */
+.ph-compact{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #000;
+  padding-bottom:4px;margin-bottom:14px;}
+.ph-compact-left{font-size:10pt;color:#000;line-height:1.25;}
+.ph-compact-right{font-size:10pt;color:#000;line-height:1.25;text-align:right;}
+.ph-compact-left b{font-weight:700;}
+
+/* ── section bands ── */
+.sh{background:#2A3A5C;color:#fff;padding:7px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;
+  margin-top:var(--sec-gap);letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}
+.sh:first-of-type{margin-top:0;}
+.sh .sh-note{font-weight:400;font-size:9.5pt;opacity:.85;}
+.sb{border:1px solid #DDE1E7;border-top:none;padding:var(--sec-pad);border-radius:0 0 6px 6px;margin-bottom:0;}
+
+/* ── status overview ── */
+.result-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  border-radius:6px;padding:13px 18px;margin-bottom:13px;}
+.result-banner.pass{background:#E8EFE9;border:1px solid #B8D2BF;}
+.rb-l{display:flex;align-items:center;gap:13px;}
+.rb-badge{font-size:13pt;font-weight:800;letter-spacing:.5px;padding:6px 18px;border-radius:5px;color:#fff;}
+.rb-badge.pass{background:#5F8068;}
+.rb-title{font-size:12.5pt;font-weight:700;color:#1C2333;}
+.rb-sub{font-size:9.5pt;color:#5A6473;margin-top:2px;}
+.rb-date{text-align:right;font-size:9.5pt;color:#5A6473;}
+.rb-date b{display:block;font-size:11pt;color:#1C2333;}
+
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.tile{border:1px solid #DDE1E7;border-top:3px solid #2A3A5C;border-radius:5px;padding:var(--tile-pad);text-align:center;}
+.tile.ok{border-top-color:#5F8068;}
+.tile.warn{border-top-color:#A85959;}
+.tile-num{font-size:21pt;font-weight:800;line-height:1;color:#2A3A5C;}
+.tile.ok .tile-num{color:#5F8068;}
+.tile.warn .tile-num{color:#A85959;}
+.tile-lbl{font-size:8.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#5A6473;margin-top:5px;}
+
+/* ── completion grid + progress ── */
+.kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 26px;}
+.kv{display:flex;gap:10px;font-size:10.5pt;padding:3px 0;border-bottom:1px dotted #E5E7EB;}
+.kv-k{min-width:120px;font-weight:700;color:#5A6473;}
+.kv-v{color:#1C2333;}
+.progress-wrap{margin-top:11px;}
+.progress-top{display:flex;justify-content:space-between;font-size:9.5pt;font-weight:700;color:#5A6473;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}
+.progress{height:14px;background:#EDEAE3;border-radius:7px;overflow:hidden;}
+.progress-fill{height:100%;background:#5F8068;border-radius:7px;}
+
+/* ── tables ── */
+.st{width:100%;border-collapse:collapse;font-size:var(--base-fs);}
+.st th{background:#2A3A5C;color:#fff;padding:var(--row-pad);text-align:left;font-size:10.5pt;font-weight:700;}
+.st td{padding:var(--row-pad);border-bottom:1px solid #DDE1E7;font-size:10.5pt;vertical-align:top;}
+.st tr:nth-child(even) td{background:#FAF9F6;}
+.st td.num,.st th.num{text-align:right;font-variant-numeric:tabular-nums;}
+.st td.ctr,.st th.ctr{text-align:center;}
+.st .grp td{background:#F1EEE8;font-weight:700;color:#2A3A5C;font-size:9.5pt;text-transform:uppercase;letter-spacing:.4px;}
+.st tr.key td{font-weight:700;}
+
+/* result pills */
+.pill{display:inline-block;font-size:9pt;font-weight:800;padding:3px 11px;border-radius:10px;letter-spacing:.4px;white-space:nowrap;}
+.pill.yes{background:#D2EBDC;color:#426B4F;}
+.pill.no{background:#F4D6D6;color:#8E4444;}
+.pill.na{background:#E6E3DC;color:#6B6457;}
+.pill.pass{background:#D2EBDC;color:#426B4F;}
+.pill.rec{background:#DDD8CB;color:#5E5440;}
+
+/* checklist no-detail row */
+.no-detail{background:#FBF3F3!important;}
+.no-detail td{border-bottom:1px solid #EAD9D9;}
+.nd-wrap{display:flex;flex-direction:column;gap:9px;}
+.nd-note{flex:1;}
+.nd-note .nd-tag{font-size:8.5pt;font-weight:800;color:#8E4444;text-transform:uppercase;letter-spacing:.5px;}
+.nd-note p{font-size:10pt;color:#1C2333;margin-top:3px;line-height:1.4;}
+.nd-photos-lbl{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8E7B7B;margin-bottom:5px;}
+.nd-photos{display:flex;flex-wrap:wrap;gap:6px;}
+.nd-photos .ph-slot{width:96px;height:72px;border-radius:4px;border:1px solid #DDE1E7;
+  background:#F1EEE8;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#9A958C;font-size:8pt;gap:3px;}
+
+/* photo documentation */
+.pd-cat{margin-bottom:13px;}
+.pd-cat:last-child{margin-bottom:0;}
+.pd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.pd-slot{height:118px;border-radius:4px;border:1px solid #DDE1E7;background:#F1EEE8;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;padding:8px;color:#9A958C;}
+.pd-slot svg{width:22px;height:22px;opacity:.5;}
+.pd-slot .cap{font-size:8.5pt;font-weight:700;color:#6B6457;}
+.pd-slot .sub{font-size:7.5pt;color:#9A958C;}
+.ph-slot svg{width:22px;height:22px;opacity:.5;}
+
+/* sub heading */
+.subttl{font-weight:700;font-size:11pt;color:#1C2333;margin:0 0 7px;padding:5px 10px;background:#F7F8FA;
+  border-radius:4px;border-left:3px solid #9C2742;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:var(--sec-gap);}
+
+/* acceptance criteria mini-rows */
+.crit{font-size:9pt;color:#5A6473;}
+.crit b{color:#1C2333;}
+
+/* ── performance curves (2 large stacked panels) ── */
+.curve-meta{display:flex;align-items:center;gap:9px;margin-bottom:13px;flex-wrap:wrap;}
+.curve-meta .cm-lbl{font-size:9pt;font-weight:700;color:#5A6473;text-transform:uppercase;letter-spacing:.5px;}
+.curve-tag{font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:4px 12px;border-radius:5px;background:#2A3A5C;color:#fff;}
+.curve-tag.off{background:#EDEAE3;color:#9A958C;}
+.curve-panel{border:1px solid #DDE1E7;border-radius:5px;padding:12px 14px 10px;margin-bottom:13px;}
+.curve-panel:last-child{margin-bottom:0;}
+.cp-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;gap:12px;}
+.cp-title{font-size:10.5pt;font-weight:700;color:#1C2333;}
+.cp-legend{display:flex;gap:16px;font-size:8.5pt;color:#5A6473;}
+.cp-legend .lg{display:flex;align-items:center;gap:6px;}
+.cp-legend .sw{width:20px;border-top:2.5px solid #9C2742;}
+.cp-legend .sw.ref{border-top:2px dashed #2A3A5C;}
+.cp-legend .sw.dot{width:9px;height:9px;border-radius:50%;border:none;background:#9C2742;}
+
+/* deficiencies */
+.def{border:1px solid #DDE1E7;border-radius:5px;padding:11px 13px;margin-bottom:10px;}
+.def:last-child{margin-bottom:0;}
+.def-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.def-num{background:#9C2742;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10pt;flex-shrink:0;}
+.def-title{font-weight:700;font-size:10.5pt;color:#1C2333;flex:1;}
+.def-body{font-size:10pt;color:#1C2333;line-height:1.45;}
+.def-meta{font-size:9pt;color:#6B7B8C;margin-top:5px;}
+
+/* signatures */
+.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px 40px;margin-top:6px;}
+.sig{padding-top:30px;}
+.sig-line{border-top:1.5px solid #1C2333;padding-top:5px;}
+.sig-name{font-weight:700;font-size:10.5pt;color:#1C2333;}
+.sig-role{font-size:9pt;color:#5A6473;}
+.cert{font-size:9.5pt;color:#5A6473;line-height:1.5;margin-bottom:14px;padding:11px 13px;background:#F7F8FA;border-radius:5px;border-left:3px solid #2A3A5C;}
+
+.footnote{font-size:8pt;color:#9A958C;text-align:center;margin-top:14px;padding-top:8px;border-top:1px solid #EDEAE3;}
+
+/* ── control bar (screen only) ── */
+#bar{position:fixed;top:0;left:0;right:0;height:48px;background:#2C4770;display:flex;align-items:center;
+  justify-content:space-between;padding:0 18px;z-index:999;box-shadow:0 2px 10px rgba(0,0,0,.3);}
+#bar .grp{display:flex;align-items:center;gap:8px;}
+#bar .lbl{color:rgba(255,255,255,.7);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;font-family:Calibri,sans-serif;}
+.seg{display:flex;border:1px solid rgba(255,255,255,.25);border-radius:6px;overflow:hidden;}
+.seg button{background:transparent;border:none;color:rgba(255,255,255,.8);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;}
+.seg button.on{background:#fff;color:#2C4770;}
+#bar .print{background:#5F8068;border:none;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;}
+#bar .print:hover{background:#52705A;}
+body{padding-top:68px;}
+
+@media print{
+  body{background:#fff!important;padding:0!important;margin:0!important;}
+  .page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;
+    box-shadow:none!important;page-break-after:always;}
+  .page:last-child{page-break-after:auto;}
+  #bar{display:none!important;}
+}
+@page{size:letter;margin:0;}
+</style>
+</head>
+<body class="d-balanced">
+
+<div id="bar">
+  <div class="grp">
+    <span class="lbl">Density</span>
+    <div class="seg" id="seg">
+      <button data-d="d-compact">Compact</button>
+      <button data-d="d-balanced" class="on">Balanced</button>
+      <button data-d="d-spacious">Spacious</button>
+    </div>
+  </div>
+  <div class="grp">
+    <span class="lbl" style="opacity:.6">Diesel Fire Pump Commissioning Report</span>
+  </div>
+  <button class="print" onclick="window.print()">⎙ Print / Save PDF</button>
+</div>
+
+<!-- ══════════════ PAGE 1 ══════════════ -->
+<section class="page" data-screen-label="Page 1">
+  <div class="ph">
+    <div><img src="../../assets/arencon-logo.png" alt="ARENCON"></div>
+    <div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp;&nbsp; L4X 2Z6<br>CANADA<br><br>P: 905 615 1774<br>F: 905 615 9351<br>E: mail@arencon.com</div>
+  </div>
+
+  <div class="title-block">
+    <div class="tb-line1">Fire Protection Engineering</div>
+    <div class="tb-line2">Diesel Fire Pump Commissioning Report &nbsp;#1</div>
+    <div class="tb-line4">York University &ndash; 4700 Keele Street, Toronto, ON</div>
+    <div class="tb-line4">Central Utilities Plant &mdash; Fire Pump Acceptance Test</div>
+  </div>
+
+  <div class="pi-list">
+    <div class="pi-row"><span class="pi-label">Date of Issue:</span><span class="pi-value">June 12, 2026</span></div>
+    <div class="pi-row"><span class="pi-label">Date of Site Review:</span><span class="pi-value">June 12, 2026</span></div>
+    <div class="pi-row"><span class="pi-label">Distribution:</span><span class="pi-value">York University, Toronto Fire Services, Vipond Fire Protection</span></div>
+    <div class="pi-row"><span class="pi-label">Prepared By:</span><span class="pi-value">Leslie Sims, P.Eng.</span></div>
+    <div class="pi-row"><span class="pi-label">Project No.:</span><span class="pi-value">P2026-014</span></div>
+  </div>
+
+  <!-- STATUS OVERVIEW (kept) -->
+  <div class="sh">Status Overview</div>
+  <div class="sb">
+    <div class="result-banner pass">
+      <div class="rb-l">
+        <span class="rb-badge pass">PASS</span>
+        <div>
+          <div class="rb-title">Pump meets NFPA 20 acceptance criteria</div>
+          <div class="rb-sub">All flow-test points within tolerance &middot; 2 deficiencies noted for follow-up</div>
+        </div>
+      </div>
+      <div class="rb-date">Witnessed<b>June 12, 2026</b></div>
+    </div>
+    <div class="tiles">
+      <div class="tile ok"><div class="tile-num">42</div><div class="tile-lbl">Checks Passed</div></div>
+      <div class="tile warn"><div class="tile-num">2</div><div class="tile-lbl">Deficiencies</div></div>
+      <div class="tile"><div class="tile-num">3</div><div class="tile-lbl">N/A Items</div></div>
+      <div class="tile ok"><div class="tile-num">100%</div><div class="tile-lbl">Flow Test</div></div>
+    </div>
+  </div>
+
+  <!-- INSPECTION COMPLETION (kept) -->
+  <div class="sh">Inspection Completion</div>
+  <div class="sb">
+    <div class="kv-grid">
+      <div class="kv"><span class="kv-k">Test Performed By</span><span class="kv-v">Leslie Sims, P.Eng.</span></div>
+      <div class="kv"><span class="kv-k">Date / Time</span><span class="kv-v">June 12, 2026 &middot; 09:15&ndash;12:40</span></div>
+      <div class="kv"><span class="kv-k">Witnessed By</span><span class="kv-v">M. Carrera, Toronto Fire Services</span></div>
+      <div class="kv"><span class="kv-k">Contractor</span><span class="kv-v">Vipond Fire Protection</span></div>
+      <div class="kv"><span class="kv-k">Weather</span><span class="kv-v">Clear, 22&deg;C</span></div>
+      <div class="kv"><span class="kv-k">Test Duration</span><span class="kv-v">3 h 25 min</span></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-top"><span>Checklist Completion</span><span>47 of 47 items recorded</span></div>
+      <div class="progress"><div class="progress-fill" style="width:100%"></div></div>
+    </div>
+  </div>
+
+  <div class="footnote">ARENCON Inc. &middot; Fire Protection Engineering &middot; Diesel Fire Pump Commissioning Report #1 &middot; P2026-014 &middot; Page 1 of 7</div>
+</section>
+
+<!-- ══════════════ PAGE 2 ══════════════ -->
+<section class="page" data-screen-label="Page 2">
+  <div class="ph-compact">
+    <div class="ph-compact-left"><b>York University</b><br>4700 Keele Street, Toronto, ON<br>Diesel Fire Pump Commissioning Report #1 &ndash; Central Utilities Plant</div>
+    <div class="ph-compact-right">P2026-014 &nbsp; Rev 0 &nbsp;&nbsp; Page 2<br>&nbsp;<br>June 12, 2026</div>
+  </div>
+
+  <div class="sh">Pump &amp; Nameplate Data</div>
+  <div class="sb">
+    <div class="two-col">
+      <div>
+        <div class="subttl">Fire Pump</div>
+        <div class="kv-grid" style="grid-template-columns:1fr;">
+          <div class="kv"><span class="kv-k">Manufacturer</span><span class="kv-v">Aurora Pump</span></div>
+          <div class="kv"><span class="kv-k">Model</span><span class="kv-v">481 Series 6&times;5&times;15</span></div>
+          <div class="kv"><span class="kv-k">Serial No.</span><span class="kv-v">A-448217</span></div>
+          <div class="kv"><span class="kv-k">Type</span><span class="kv-v">Horizontal split-case</span></div>
+          <div class="kv"><span class="kv-k">Rated Capacity</span><span class="kv-v">1500 GPM</span></div>
+          <div class="kv"><span class="kv-k">Rated Pressure</span><span class="kv-v">125 psi</span></div>
+          <div class="kv"><span class="kv-k">Rated Speed</span><span class="kv-v">2350 RPM</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="subttl">Diesel Driver</div>
+        <div class="kv-grid" style="grid-template-columns:1fr;">
+          <div class="kv"><span class="kv-k">Engine Make</span><span class="kv-v">Clarke</span></div>
+          <div class="kv"><span class="kv-k">Model</span><span class="kv-v">JU6H-UF58</span></div>
+          <div class="kv"><span class="kv-k">Serial No.</span><span class="kv-v">CL-99214</span></div>
+          <div class="kv"><span class="kv-k">Rated Power</span><span class="kv-v">285 BHP @ 2350 RPM</span></div>
+          <div class="kv"><span class="kv-k">Cylinders</span><span class="kv-v">6 &middot; Turbocharged</span></div>
+          <div class="kv"><span class="kv-k">Fuel Tank</span><span class="kv-v">300 gal &middot; 71% full</span></div>
+          <div class="kv"><span class="kv-k">Batteries</span><span class="kv-v">2 banks, 12 V (dual)</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:13px">
+      <div class="subttl">Controller &amp; Transfer Switch</div>
+      <table class="st">
+        <thead><tr><th>Component</th><th>Manufacturer</th><th>Model</th><th>Serial</th><th class="ctr">Listing</th></tr></thead>
+        <tbody>
+          <tr><td>Diesel Controller</td><td>Firetrol</td><td>FTA1100</td><td>FT-99211</td><td class="ctr">ULC</td></tr>
+          <tr><td>Transfer Switch (ATS)</td><td>Firetrol</td><td>FTA950</td><td>FT-95044</td><td class="ctr">ULC</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sh">Pre-Start Checklist <span class="sh-note">Yes / No / N/A &middot; photos attached to non-conforming items</span></div>
+  <div class="sb" style="padding:0;">
+    <table class="st">
+      <thead><tr><th style="width:34px" class="ctr">#</th><th>Inspection Item</th><th style="width:90px" class="ctr">Result</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="3">Pump Room &amp; Mechanical</td></tr>
+        <tr><td class="ctr">1</td><td>Pump room clear, heated, and lighted; min. 40&deg;F maintained</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td class="ctr">2</td><td>Suction &amp; discharge gauges installed and reading zero at rest</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td class="ctr">3</td><td>Suction supply valve open and supervised</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td class="ctr">4</td><td>Relief valve discharge piped to a visible point of observation</td><td class="ctr"><span class="pill no">No</span></td></tr>
+        <tr class="no-detail"><td></td><td colspan="2">
+          <div class="nd-wrap">
+            <div class="nd-note"><span class="nd-tag">Deficiency &middot; Item 4</span><p>Relief valve discharge terminates inside the pump room above the cone without piping to a visible drain. Re-pipe discharge to a floor cone visible from the pump controller per NFPA 20 &sect;4.20.</p></div>
+            <div>
+              <div class="nd-photos-lbl">Photos (8)</div>
+              <div class="nd-photos">
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>1</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>2</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>3</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>4</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>5</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>6</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>7</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>8</div>
+              </div>
+            </div>
+          </div>
+        </td></tr>
+        <tr><td class="ctr">5</td><td>Pump coupling guard in place and secure</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr class="grp"><td colspan="3">Diesel Engine &amp; Fuel</td></tr>
+        <tr><td class="ctr">6</td><td>Engine oil and coolant at proper levels</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td class="ctr">7</td><td>Fuel tank &ge; 2/3 full; level gauge functional</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td class="ctr">8</td><td>Battery charger AC-failure alarm functional</td><td class="ctr"><span class="pill no">No</span></td></tr>
+        <tr class="no-detail"><td></td><td colspan="2">
+          <div class="nd-wrap">
+            <div class="nd-note"><span class="nd-tag">Deficiency &middot; Item 8</span><p>AC-failure supervisory alarm did not annunciate at the controller when battery-charger AC power was interrupted during test. Charger to be serviced and alarm contact verified.</p></div>
+            <div>
+              <div class="nd-photos-lbl">Photos (3)</div>
+              <div class="nd-photos">
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>1</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>2</div>
+                <div class="ph-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>3</div>
+              </div>
+            </div>
+          </div>
+        </td></tr>
+        <tr><td class="ctr">9</td><td>Block heater operational; jacket water 120&ndash;140&deg;F</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td class="ctr">10</td><td>Exhaust system tight; no leaks at manifold or muffler</td><td class="ctr"><span class="pill na">N/A</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footnote">ARENCON Inc. &middot; Fire Protection Engineering &middot; Diesel Fire Pump Commissioning Report #1 &middot; P2026-014 &middot; Page 2 of 7</div>
+</section>
+
+<!-- ══════════════ PAGE 3 ══════════════ -->
+<section class="page" data-screen-label="Page 3">
+  <div class="ph-compact">
+    <div class="ph-compact-left"><b>York University</b><br>4700 Keele Street, Toronto, ON<br>Diesel Fire Pump Commissioning Report #1 &ndash; Central Utilities Plant</div>
+    <div class="ph-compact-right">P2026-014 &nbsp; Rev 0 &nbsp;&nbsp; Page 3<br>&nbsp;<br>June 12, 2026</div>
+  </div>
+
+  <div class="sh">Flow Test Readings <span class="sh-note">7-point test &middot; without PLD</span></div>
+  <div class="sb" style="padding:0;">
+    <table class="st">
+      <thead>
+        <tr>
+          <th>Test Point</th>
+          <th class="num">Flow (GPM)</th>
+          <th class="num">Suction (psi)</th>
+          <th class="num">Discharge (psi)</th>
+          <th class="num">Net (psi)</th>
+          <th class="num">Speed (RPM)</th>
+          <th class="num">% Rated Net</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="key"><td>Churn (0%)</td><td class="num">0</td><td class="num">52</td><td class="num">192</td><td class="num">140</td><td class="num">2350</td><td class="num">112%</td></tr>
+        <tr><td>25%</td><td class="num">375</td><td class="num">51</td><td class="num">189</td><td class="num">138</td><td class="num">2350</td><td class="num">110%</td></tr>
+        <tr><td>50%</td><td class="num">750</td><td class="num">50</td><td class="num">184</td><td class="num">134</td><td class="num">2350</td><td class="num">107%</td></tr>
+        <tr><td>75%</td><td class="num">1125</td><td class="num">49</td><td class="num">179</td><td class="num">130</td><td class="num">2350</td><td class="num">104%</td></tr>
+        <tr class="key"><td>Rated (100%)</td><td class="num">1500</td><td class="num">50</td><td class="num">175</td><td class="num">125</td><td class="num">2350</td><td class="num">100%</td></tr>
+        <tr><td>125%</td><td class="num">1875</td><td class="num">46</td><td class="num">152</td><td class="num">106</td><td class="num">2350</td><td class="num">85%</td></tr>
+        <tr class="key"><td>Peak (150%)</td><td class="num">2250</td><td class="num">44</td><td class="num">126</td><td class="num">82</td><td class="num">2350</td><td class="num">66%</td></tr>
+      </tbody>
+    </table>
+    <div style="padding:11px 13px;border-top:1px solid #DDE1E7">
+      <div class="crit">
+        <b>Acceptance criteria (NFPA 20):</b> &nbsp;
+        Churn &le; 140% of rated net (<b>140 &le; 175 psi &check;</b>) &middot;
+        100% point &ge; rated (<b>125 &ge; 125 psi &check;</b>) &middot;
+        150% point &ge; 65% of rated net (<b>82 &ge; 81 psi &check;</b>).
+      </div>
+    </div>
+  </div>
+
+  <div class="sh">Churn / No-Flow Data</div>
+  <div class="sb">
+    <div class="kv-grid">
+      <div class="kv"><span class="kv-k">Churn Pressure</span><span class="kv-v">140 psi</span></div>
+      <div class="kv"><span class="kv-k">Churn Duration</span><span class="kv-v">30 min (continuous)</span></div>
+      <div class="kv"><span class="kv-k">Max Engine Speed</span><span class="kv-v">2470 RPM (overspeed trip)</span></div>
+      <div class="kv"><span class="kv-k">Relief Valve Set</span><span class="kv-v">Opens @ 168 psi</span></div>
+    </div>
+  </div>
+
+  <div class="footnote">ARENCON Inc. &middot; Fire Protection Engineering &middot; Diesel Fire Pump Commissioning Report #1 &middot; P2026-014 &middot; Page 3 of 7</div>
+</section>
+
+<!-- ══════════════ PAGE 4 ══════════════ -->
+<section class="page" data-screen-label="Page 4">
+  <div class="ph-compact">
+    <div class="ph-compact-left"><b>York University</b><br>4700 Keele Street, Toronto, ON<br>Diesel Fire Pump Commissioning Report #1 &ndash; Central Utilities Plant</div>
+    <div class="ph-compact-right">P2026-014 &nbsp; Rev 0 &nbsp;&nbsp; Page 4<br>&nbsp;<br>June 12, 2026</div>
+  </div>
+
+  <div class="sh">Start-Up Tests <span class="sh-note">12 sequential start &amp; shutdown tests</span></div>
+  <div class="sb" style="padding:0;">
+    <table class="st">
+      <thead><tr><th style="width:34px" class="ctr">#</th><th>Test</th><th style="width:120px" class="ctr">Result</th></tr></thead>
+      <tbody>
+        <tr><td class="ctr">1</td><td>Automatic start on system pressure drop</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">2</td><td>Manual start at controller (start pushbutton)</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">3</td><td>Emergency manual start at the engine</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">4</td><td>Start on battery bank No. 1 (bank 2 isolated)</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">5</td><td>Start on battery bank No. 2 (bank 1 isolated)</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">6</td><td>Six consecutive automatic starts &mdash; no failure</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">7</td><td>Time to reach rated speed</td><td class="ctr">8 s</td></tr>
+        <tr><td class="ctr">8</td><td>30-minute run at churn &mdash; no overheat</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">9</td><td>Overspeed shutdown &mdash; trip &amp; manual reset</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">10</td><td>Low oil-pressure alarm (visual &amp; audible)</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">11</td><td>High coolant-temperature alarm</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+        <tr><td class="ctr">12</td><td>Engine stops by manual reset only (no auto-stop)</td><td class="ctr"><span class="pill yes">Pass</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sh">Controller &amp; Transfer-Switch Checks</div>
+  <div class="sb" style="padding:0">
+    <table class="st">
+      <thead><tr><th>Check</th><th>Reading / Note</th><th style="width:90px" class="ctr">Result</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="3">Diesel Controller (Firetrol FTA1100)</td></tr>
+        <tr><td>Audible &amp; visual alarms operational</td><td>All segments tested</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td>Weekly auto test timer set &amp; logged</td><td>Tue 10:00, 30 min</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td>Engine running / pump-on-demand signal</td><td>Confirmed at BMS</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td>Low fuel / low battery supervisory</td><td>Annunciated</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr class="grp"><td colspan="3">Automatic Transfer Switch</td></tr>
+        <tr><td>Normal-to-emergency transfer time</td><td>&mdash;</td><td class="ctr">7 s</td></tr>
+        <tr><td>Emergency-to-normal re-transfer time</td><td>5 min delay</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+        <tr><td>Phase-loss / phase-reversal trip</td><td>Simulated &mdash; OK</td><td class="ctr"><span class="pill yes">Yes</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footnote">ARENCON Inc. &middot; Fire Protection Engineering &middot; Diesel Fire Pump Commissioning Report #1 &middot; P2026-014 &middot; Page 4 of 7</div>
+</section>
+
+<!-- ══════════════ PAGE 5 ══════════════ -->
+<section class="page" data-screen-label="Page 5">
+  <div class="ph-compact">
+    <div class="ph-compact-left"><b>York University</b><br>4700 Keele Street, Toronto, ON<br>Diesel Fire Pump Commissioning Report #1 &ndash; Central Utilities Plant</div>
+    <div class="ph-compact-right">P2026-014 &nbsp; Rev 0 &nbsp;&nbsp; Page 5<br>&nbsp;<br>June 12, 2026</div>
+  </div>
+
+  <div class="sh">Pump Performance Curves</div>
+  <div class="sb">
+    <div class="curve-meta">
+      <span class="cm-lbl">Test method</span>
+      <span class="curve-tag off">3-Point</span>
+      <span class="curve-tag">7-Point</span>
+      <span class="curve-tag">Without PLD</span>
+      <span class="curve-tag off">With PLD</span>
+    </div>
+
+    <!-- NET PRESSURE CURVE -->
+    <div class="curve-panel">
+      <div class="cp-head">
+        <div class="cp-title">Net Pressure vs Flow</div>
+        <div class="cp-legend">
+          <span class="lg"><span class="sw"></span> Field test</span>
+          <span class="lg"><span class="sw ref"></span> Certified</span>
+          <span class="lg"><span class="sw dot"></span> Test points</span>
+        </div>
+      </div>
+      <svg viewBox="0 0 700 250" width="100%" height="auto">
+        <g stroke="#EDEAE3" stroke-width="1">
+          <line x1="52" y1="167" x2="682" y2="167"/><line x1="52" y1="116" x2="682" y2="116"/><line x1="52" y1="65" x2="682" y2="65"/>
+          <line x1="262" y1="14" x2="262" y2="218"/><line x1="472" y1="14" x2="472" y2="218"/>
+        </g>
+        <line x1="52" y1="14" x2="52" y2="218" stroke="#1C2333" stroke-width="1.2"/>
+        <line x1="52" y1="218" x2="682" y2="218" stroke="#1C2333" stroke-width="1.2"/>
+        <g font-family="Calibri,sans-serif" font-size="9" fill="#5A6473">
+          <text x="44" y="221" text-anchor="end">0</text><text x="44" y="170" text-anchor="end">40</text>
+          <text x="44" y="119" text-anchor="end">80</text><text x="44" y="68" text-anchor="end">120</text><text x="44" y="18" text-anchor="end">160</text>
+          <text x="52" y="232" text-anchor="middle">0</text><text x="262" y="232" text-anchor="middle">750</text>
+          <text x="472" y="232" text-anchor="middle">1500</text><text x="682" y="232" text-anchor="middle">2250</text>
+          <text x="367" y="246" text-anchor="middle" font-weight="700" fill="#1C2333">Flow (GPM)</text>
+          <text x="14" y="116" text-anchor="middle" font-weight="700" fill="#1C2333" transform="rotate(-90 14 116)">Net Pressure (psi)</text>
+        </g>
+        <polyline points="52,46 157,48 262,53 367,58 472,65 577,89 682,120" fill="none" stroke="#2A3A5C" stroke-width="2" stroke-dasharray="5 4"/>
+        <polyline points="52,39.5 157,42 262,47 367,52 472,59 577,83 682,113" fill="none" stroke="#9C2742" stroke-width="2.6"/>
+        <g fill="#9C2742">
+          <circle cx="52" cy="39.5" r="4"/><circle cx="157" cy="42" r="4"/><circle cx="262" cy="47" r="4"/><circle cx="367" cy="52" r="4"/><circle cx="472" cy="59" r="4"/><circle cx="577" cy="83" r="4"/><circle cx="682" cy="113" r="4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- DISCHARGE (GROSS) PRESSURE CURVE -->
+    <div class="curve-panel">
+      <div class="cp-head">
+        <div class="cp-title">Discharge (Gross) Pressure vs Flow</div>
+        <div class="cp-legend">
+          <span class="lg"><span class="sw"></span> Field test</span>
+          <span class="lg"><span class="sw ref"></span> Certified</span>
+          <span class="lg"><span class="sw dot"></span> Test points</span>
+        </div>
+      </div>
+      <svg viewBox="0 0 700 250" width="100%" height="auto">
+        <g stroke="#EDEAE3" stroke-width="1">
+          <line x1="52" y1="167" x2="682" y2="167"/><line x1="52" y1="116" x2="682" y2="116"/><line x1="52" y1="65" x2="682" y2="65"/>
+          <line x1="262" y1="14" x2="262" y2="218"/><line x1="472" y1="14" x2="472" y2="218"/>
+        </g>
+        <line x1="52" y1="14" x2="52" y2="218" stroke="#1C2333" stroke-width="1.2"/>
+        <line x1="52" y1="218" x2="682" y2="218" stroke="#1C2333" stroke-width="1.2"/>
+        <g font-family="Calibri,sans-serif" font-size="9" fill="#5A6473">
+          <text x="44" y="221" text-anchor="end">0</text><text x="44" y="170" text-anchor="end">50</text>
+          <text x="44" y="119" text-anchor="end">100</text><text x="44" y="68" text-anchor="end">150</text><text x="44" y="18" text-anchor="end">200</text>
+          <text x="52" y="232" text-anchor="middle">0</text><text x="262" y="232" text-anchor="middle">750</text>
+          <text x="472" y="232" text-anchor="middle">1500</text><text x="682" y="232" text-anchor="middle">2250</text>
+          <text x="367" y="246" text-anchor="middle" font-weight="700" fill="#1C2333">Flow (GPM)</text>
+          <text x="14" y="116" text-anchor="middle" font-weight="700" fill="#1C2333" transform="rotate(-90 14 116)">Discharge (psi)</text>
+        </g>
+        <polyline points="52,28 157,31 262,36 367,41 472,46 577,69 682,95" fill="none" stroke="#2A3A5C" stroke-width="2" stroke-dasharray="5 4"/>
+        <polyline points="52,22 157,25 262,30 367,35 472,40 577,63 682,89" fill="none" stroke="#9C2742" stroke-width="2.6"/>
+        <g fill="#9C2742">
+          <circle cx="52" cy="22" r="4"/><circle cx="157" cy="25" r="4"/><circle cx="262" cy="30" r="4"/><circle cx="367" cy="35" r="4"/><circle cx="472" cy="40" r="4"/><circle cx="577" cy="63" r="4"/><circle cx="682" cy="89" r="4"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="footnote">ARENCON Inc. &middot; Fire Protection Engineering &middot; Diesel Fire Pump Commissioning Report #1 &middot; P2026-014 &middot; Page 5 of 7</div>
+</section>
+
+<!-- ══════════════ PAGE 6 ══════════════ -->
+<section class="page" data-screen-label="Page 6">
+  <div class="ph-compact">
+    <div class="ph-compact-left"><b>York University</b><br>4700 Keele Street, Toronto, ON<br>Diesel Fire Pump Commissioning Report #1 &ndash; Central Utilities Plant</div>
+    <div class="ph-compact-right">P2026-014 &nbsp; Rev 0 &nbsp;&nbsp; Page 6<br>&nbsp;<br>June 12, 2026</div>
+  </div>
+
+  <div class="sh">Deficiencies &amp; Recommendations <span class="sh-note">2 deficiencies &middot; 1 recommendation</span></div>
+  <div class="sb">
+    <div class="def">
+      <div class="def-head"><span class="def-num">1</span><span class="def-title">Relief valve discharge not piped to a visible point</span><span class="pill no">Outstanding</span></div>
+      <div class="def-body">Re-pipe the relief-valve discharge to a floor cone visible from the controller per NFPA 20 &sect;4.20. Until corrected, relief flow cannot be visually confirmed during the weekly test. <span class="def-meta">Ref. checklist item 4 &middot; Contractor: Vipond Fire Protection</span></div>
+    </div>
+    <div class="def">
+      <div class="def-head"><span class="def-num">2</span><span class="def-title">Battery-charger AC-failure alarm inoperative</span><span class="pill no">Outstanding</span></div>
+      <div class="def-body">Service battery charger and verify the AC-failure supervisory contact annunciates at the controller. <span class="def-meta">Ref. checklist item 8 &middot; Contractor: Vipond Fire Protection</span></div>
+    </div>
+    <div class="def">
+      <div class="def-head"><span class="def-num">3</span><span class="def-title">Label fuel-tank shut-off valve</span><span class="pill rec">Recommendation</span></div>
+      <div class="def-body">Add a durable identification tag to the fuel-supply shut-off valve to aid operators during maintenance. Does not affect acceptance.</div>
+    </div>
+  </div>
+
+  <div class="sh">Photo Documentation <span class="sh-note">Pump &middot; driver &middot; controller &middot; nameplates &middot; relief valve</span></div>
+  <div class="sb">
+    <div class="pd-cat">
+      <div class="subttl">Pump, Driver &amp; Controller</div>
+      <div class="pd-grid">
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Pump &amp; coupling</span><span class="sub">Aurora 481 split-case</span></div>
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Diesel driver</span><span class="sub">Clarke JU6H-UF58</span></div>
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Diesel controller</span><span class="sub">Firetrol FTA1100</span></div>
+      </div>
+    </div>
+    <div class="pd-cat">
+      <div class="subttl">Nameplates &amp; Placards</div>
+      <div class="pd-grid">
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Pump nameplate</span><span class="sub">Serial A-448217</span></div>
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Driver nameplate</span><span class="sub">285 BHP @ 2350 RPM</span></div>
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Hydraulic placard</span><span class="sub">1500 GPM @ 125 psi</span></div>
+      </div>
+    </div>
+    <div class="pd-cat">
+      <div class="subttl">Flow Test &amp; Relief Valve</div>
+      <div class="pd-grid">
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Flow test setup</span><span class="sub">Pitot / flow meter</span></div>
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Test header</span><span class="sub">Hose-valve manifold</span></div>
+        <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">Relief valve discharge</span><span class="sub">Ref. deficiency #1</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">ARENCON Inc. &middot; Fire Protection Engineering &middot; Diesel Fire Pump Commissioning Report #1 &middot; P2026-014 &middot; Page 6 of 7</div>
+</section>
+
+<!-- ══════════════ PAGE 7 ══════════════ -->
+<section class="page" data-screen-label="Page 7">
+  <div class="ph-compact">
+    <div class="ph-compact-left"><b>York University</b><br>4700 Keele Street, Toronto, ON<br>Diesel Fire Pump Commissioning Report #1 &ndash; Central Utilities Plant</div>
+    <div class="ph-compact-right">P2026-014 &nbsp; Rev 0 &nbsp;&nbsp; Page 7<br>&nbsp;<br>June 12, 2026</div>
+  </div>
+
+  <div class="sh">Test Readings &mdash; Gauges &amp; RPM <span class="sh-note">photographed at each flow point</span></div>
+  <div class="sb">
+    <div class="pd-grid">
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">0% Suction</span><span class="sub">0 GPM &middot; 52 psi</span></div>
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">0% Discharge</span><span class="sub">0 GPM &middot; 192 psi</span></div>
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">0% Tachometer</span><span class="sub">2350 RPM</span></div>
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">100% Suction</span><span class="sub">1500 GPM &middot; 50 psi</span></div>
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">100% Discharge</span><span class="sub">1500 GPM &middot; 175 psi</span></div>
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">100% Backflow Intake</span><span class="sub">intake / flow meter</span></div>
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">150% Suction</span><span class="sub">2250 GPM &middot; 44 psi</span></div>
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">150% Discharge</span><span class="sub">2250 GPM &middot; 126 psi</span></div>
+      <div class="pd-slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="cap">150% Backflow Intake</span><span class="sub">intake / flow meter</span></div>
+    </div>
+  </div>
+
+  <div class="sh">Certification &amp; Signatures</div>
+  <div class="sb">
+    <div class="cert">
+      The fire pump and associated equipment described in this report were tested in general accordance with NFPA 20 (2022) acceptance-test requirements. The results recorded herein reflect the as-found and as-tested condition on the date of test.
+    </div>
+    <div class="sig-grid">
+      <div class="sig"><div class="sig-line"><div class="sig-name">Leslie Sims, P.Eng.</div><div class="sig-role">ARENCON Inc. &mdash; Test Engineer of Record</div></div></div>
+      <div class="sig"><div class="sig-line"><div class="sig-name">M. Carrera</div><div class="sig-role">Toronto Fire Services &mdash; Witness (AHJ)</div></div></div>
+      <div class="sig"><div class="sig-line"><div class="sig-name">Vipond Fire Protection</div><div class="sig-role">Installing Contractor</div></div></div>
+      <div class="sig"><div class="sig-line"><div class="sig-name">York University</div><div class="sig-role">Owner&rsquo;s Representative</div></div></div>
+    </div>
+  </div>
+
+  <div class="footnote">ARENCON Inc. &middot; 1551 Caterpillar Road, Suite 206, Mississauga, ON L4X 2Z6 &middot; Diesel Fire Pump Commissioning Report #1 &middot; P2026-014 &middot; Page 7 of 7</div>
+</section>
+
+<script>
+  document.getElementById('seg').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#seg button').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    document.body.className = b.dataset.d;
+  });
+</script>
+</body>
+</html>
