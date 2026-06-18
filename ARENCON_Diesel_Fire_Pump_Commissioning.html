@@ -14,6 +14,8 @@
 <meta name="theme-color" content="#9C2742">
 <title>ARENCON — Diesel Fire Pump Commissioning Report</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="aiusage_panel.css">
+<script src="aiusage_panel.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
 <style>
@@ -443,12 +445,6 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;}
 .ev-thumb-del{position:absolute;top:3px;right:3px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:rgba(168,89,89,.95);border:none;border-radius:50%;color:#fff;font-size:11px;line-height:1;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.3);z-index:2;}
 .ev-thumb-del:hover{background:#A85959;}
-/* S366: download button on evidence tiles — hover-reveal on desktop, always-on for touch (match photo gallery .ph-dl-btn). Delete also hover-gated here for parity. */
-.ev-thumb-dl{position:absolute;bottom:3px;left:3px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:rgba(44,71,112,.92);border:none;border-radius:50%;color:#fff;font-size:12px;line-height:1;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:2;opacity:0;transition:opacity .12s;}
-.ev-thumb-dl:hover{background:#2C4770;}
-.ev-thumb .ev-thumb-del{opacity:0;transition:opacity .12s;}
-.ev-thumb:hover .ev-thumb-dl,.ev-thumb:hover .ev-thumb-del{opacity:1;}
-@media(pointer:coarse){.ev-thumb .ev-thumb-dl,.ev-thumb .ev-thumb-del{opacity:.9;}}
 .ev-add-tile{width:84px;height:84px;border-radius:7px;border:2px dashed var(--border);background:transparent;color:var(--steel);font-size:30px;font-weight:300;line-height:1;cursor:pointer;flex:0 0 auto;transition:all .14s;display:flex;align-items:center;justify-content:center;}
 .ev-add-tile:hover{border-color:var(--arencon);color:var(--arencon);}
 .ev-tile{border:2px dashed var(--border);border-radius:10px;background:#fff;min-height:128px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
@@ -988,11 +984,10 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   #exm-ov .exm-grp{margin-bottom:10px;}
   #exm-ov .exm-glbl{font-size:10.5px;font-weight:700;letter-spacing:1px;color:#928E9C;text-transform:uppercase;margin-bottom:6px;}
   #exm-ov .exm-chips{display:flex;flex-wrap:wrap;gap:8px;}
-  #exm-ov .exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #D8D5DE;background:#fff;color:#1B1A22;transition:background .12s,border-color .12s,color .12s;}
-  /* S366: each recipient carries its own --c (owner steel, contractors distinct muted hues). On = filled with that colour, matching FRT exportview .exv-c.on. */
-  #exm-ov .exm-chip.on{background:var(--c,#5F8068);border-color:var(--c,#5F8068);color:#fff;}
-  #exm-ov .exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid var(--c,#C2BEC8);display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:transparent;}
-  #exm-ov .exm-chip.on .exm-dot{background:#fff;border-color:#fff;color:var(--c,#5F8068);}
+  #exm-ov .exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #D8D5DE;background:#fff;color:#1B1A22;transition:background .12s,border-color .12s;}
+  #exm-ov .exm-chip.on{background:#E7EEF5;border-color:#9DB6CC;}
+  #exm-ov .exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid #C2BEC8;display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
+  #exm-ov .exm-chip.on .exm-dot{background:#5F8068;border-color:#5F8068;}
   #exm-ov .exm-chip .exm-rm{margin-left:3px;color:#928E9C;font-weight:700;font-size:15px;line-height:1;padding:0 2px;border-radius:4px;}
   #exm-ov .exm-chip .exm-rm:hover{color:#A85959;background:#F4E3E3;}
   #exm-ov .exm-addrow{display:flex;gap:8px;margin:10px 0 8px;}
@@ -1008,38 +1003,6 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   #exm-ov .exm-btn{border:none;border-radius:9px;padding:12px 24px;font:700 14px Calibri,sans-serif;cursor:pointer;}
   #exm-ov .exm-cancel{background:#455A64;color:#fff;}
   #exm-ov .exm-go{background:#1A7A4A;color:#fff;}
-  /* ════ S366: Export modal chrome moved off inline hex onto classes so dark-mode can re-skin it (match FRT exportview). Light values below are the defaults; body.dark-mode block overrides. ════ */
-  #exm-ov .exm-card{background:#FBFAFC;color:#1B1A22;}
-  #exm-ov .exm-head{padding:18px 24px 12px;border-bottom:1px solid #E3E1E8;flex:0 0 auto;}
-  #exm-ov .exm-head .exm-title{font-size:18px;font-weight:700;}
-  #exm-ov .exm-head .exm-sub{font-size:12.5px;color:#5E5B68;margin-top:2px;}
-  #exm-ov .exm-foot{flex:0 0 auto;display:flex;gap:10px;padding:14px 24px;background:#F2F0F5;border-top:1px solid #E3E1E8;}
-  #exm-ov .exm-photos .exm-ph-icon{flex:0 0 auto;display:inline-flex;color:#5E5B68;}
-  #exm-ov .exm-photos .exm-ph-sub{font-size:12px;color:#5E5B68;}
-  /* ── dark-mode skin: matches FRT exportview (fixed dark header gradient + glassy dark body) ── */
-  body.dark-mode #exm-ov .exm-card{background:#161420;color:#f4f3f6;box-shadow:0 18px 60px rgba(0,0,0,.6);}
-  body.dark-mode #exm-ov .exm-head{background:linear-gradient(135deg,#1B2438,#243048);border-bottom:1px solid rgba(255,255,255,.08);}
-  body.dark-mode #exm-ov .exm-head .exm-title{color:#f4f3f6;}
-  body.dark-mode #exm-ov .exm-head .exm-sub{color:#a09aa8;}
-  body.dark-mode #exm-ov .exm-foot{background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.08);}
-  body.dark-mode #exm-ov .exm-sec-lbl,
-  body.dark-mode #exm-ov .exm-glbl,
-  body.dark-mode #exm-ov .exm-dl-l{color:#8a8492;}
-  body.dark-mode #exm-ov .exm-chip{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
-  body.dark-mode #exm-ov .exm-chip.on{background:var(--c,#3FD08A);border-color:var(--c,#3FD08A);color:#fff;}
-  body.dark-mode #exm-ov .exm-chip .exm-dot{border-color:var(--c,rgba(255,255,255,.3));}
-  body.dark-mode #exm-ov .exm-chip.on .exm-dot{background:#fff;border-color:#fff;color:var(--c,#3FD08A);}
-  body.dark-mode #exm-ov .exm-chip .exm-rm{color:#8a8492;}
-  body.dark-mode #exm-ov .exm-chip .exm-rm:hover{color:#E26076;background:rgba(226,96,118,.16);}
-  body.dark-mode #exm-ov .exm-addrow input{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.14);color:#f4f3f6;}
-  body.dark-mode #exm-ov .exm-addrow input::placeholder{color:#6b6674;}
-  body.dark-mode #exm-ov .exm-addrow input:focus{border-color:rgba(70,197,232,.5);}
-  body.dark-mode #exm-ov .exm-addrow button{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
-  body.dark-mode #exm-ov .exm-dline,
-  body.dark-mode #exm-ov .exm-photos{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.1);}
-  body.dark-mode #exm-ov .exm-photos button{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
-  body.dark-mode #exm-ov .exm-photos .exm-ph-icon,
-  body.dark-mode #exm-ov .exm-photos .exm-ph-sub{color:#a09aa8;}
 @media(max-width:1300px) {
   /* S271: match FRT — logo shrinks 34px→28px at ≤1024 (not ≤768). FRT frt.css line 1178. */
   .header-logo{height:28px!important;padding:3px 6px!important;}
@@ -1113,12 +1076,8 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .header-actions{gap:8px!important;margin-right:8px!important;}
   /* S252: day/night toggle stays in the header as a 34x34 chrome box (match FRT); hidden while the menu drawer is open */
   .header-actions #dark-toggle{justify-content:center;flex-shrink:0;margin-left:0;}
-  /* S366: inside the open hamburger drawer these two must be full-width rows like every
-     other drawer button. The base square-icon rule (#dark-toggle,#btn-qr{width/max-width:34px
-     !important}) + its pointer:coarse variant were clamping them back to a 34/36px square in
-     the drawer. Higher-specificity .mobile-open selector + !important releases the clamp. */
-  .header-actions.mobile-open #dark-toggle{display:flex!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;justify-content:center;padding:14px!important;border-radius:10px!important;}
-  .header-actions.mobile-open #btn-qr{display:flex!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;justify-content:center;padding:14px!important;font-size:calc(15px + var(--ts));border-radius:10px!important;}
+  .header-actions.mobile-open #dark-toggle{display:flex!important;width:100%;justify-content:center;padding:14px;border-radius:10px;}
+  .header-actions.mobile-open #btn-qr{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   .header-actions.mobile-open #btn-text-size{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   /* Project link: compact */
   /* Data tables: allow horizontal scroll inside card */
@@ -1949,9 +1908,6 @@ function _tieredBack(){
   // 3. Export modal
   var exm=document.getElementById('exm-ov');
   if(exm){ if(typeof _exportModalClose==='function')_exportModalClose(); else exm.remove(); return true; }
-  // 3b. Issue/Report-Status modal (S366)
-  var ism=document.getElementById('issue-modal-overlay');
-  if(ism){ ism.remove(); return true; }
   // 4. Flow-photo gallery
   var fpm=document.getElementById('fpm-gallery');
   if(fpm){ if(typeof _flowPhotoCloseGallery==='function')_flowPhotoCloseGallery(); else fpm.remove(); return true; }
@@ -8756,23 +8712,9 @@ function _exportAddRecipient(){
   inp.value='';
   _exportModalLine();
 }
-// S366: per-recipient colours in the export modal — each owner/contractor gets a
-// distinct, STABLE colour (same name → same colour every time), matching FRT's
-// per-recipient colour treatment. Diesel stores contractors as plain name strings
-// (no roster colour like FRT), so we assign deterministically by name hash from a
-// MUTED palette (no bright saturated hues — per ARENCON colour rule).
-var _EXM_OWNER_C = '#3E4C66';   // steel — owner (mirrors FRT OWNER_C)
-var _EXM_OTHER_C = '#6B7280';   // neutral grey — manually-pooled recipients (FRT ADDED_C)
-var _EXM_CTR_PALETTE = ['#2C6E8F','#5B7A52','#8A5A7A','#9C6B3E','#4A6B8A','#6E5A8A','#5A7D6E','#8A6B4A','#436B6B','#7A5A5A'];
-function _exmColorFor(name){
-  var s = String(name||''); var h = 0;
-  for(var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) & 0x7fffffff; }
-  return _EXM_CTR_PALETTE[h % _EXM_CTR_PALETTE.length];
-}
-function _exmChip(name,state,removable,color){
+function _exmChip(name,state,removable){
   var on=(state==='on');
-  var c = color || _EXM_OTHER_C;
-  return '<span class="exm-chip'+(on?' on':'')+'" data-name="'+_exmEsc(name)+'" style="--c:'+c+';" onclick="if(event.target.classList.contains(\'exm-rm\'))return;_exportModalToggle(this)">'
+  return '<span class="exm-chip'+(on?' on':'')+'" data-name="'+_exmEsc(name)+'" onclick="if(event.target.classList.contains(\'exm-rm\'))return;_exportModalToggle(this)">'
     +'<span class="exm-dot">'+(on?'\u2713':'')+'</span>'+_exmEsc(name)
     +(removable?'<span class="exm-rm" title="Remove recipient" onclick="this.parentNode.remove();_exportModalLine();">\u00D7</span>':'')
     +'</span>';
@@ -8798,34 +8740,34 @@ function _exportModalOpen(){
   var subtitle=((proj.projno?proj.projno+' ':'')+(proj.projname||'')).trim()+' \u00B7 Diesel Fire Pump Commissioning Report';
 
   var ownerHtml = owner
-    ? '<div class="exm-grp"><div class="exm-glbl">Owner</div><div class="exm-chips">'+_exmChip(owner,on(owner)?'on':'',false,_EXM_OWNER_C)+'</div></div>'
+    ? '<div class="exm-grp"><div class="exm-glbl">Owner</div><div class="exm-chips">'+_exmChip(owner,on(owner)?'on':'',false)+'</div></div>'
     : '';
   var ctrHtml = ctrs.length
-    ? '<div class="exm-grp"><div class="exm-glbl">Contractors</div><div class="exm-chips">'+ctrs.map(function(c){return _exmChip(c,on(c)?'on':'',false,_exmColorFor(c));}).join('')+'</div></div>'
+    ? '<div class="exm-grp"><div class="exm-glbl">Contractors</div><div class="exm-chips">'+ctrs.map(function(c){return _exmChip(c,on(c)?'on':'',false);}).join('')+'</div></div>'
     : '';
   var otherHtml = '<div class="exm-grp" id="exm-other-grp"'+(others.length?'':' style="display:none;"')+'>'
     +'<div class="exm-glbl">Other recipients</div><div class="exm-chips" id="exm-other">'
-    +others.map(function(n){return _exmChip(n,'on',true,_EXM_OTHER_C);}).join('')+'</div></div>';
+    +others.map(function(n){return _exmChip(n,'on',true);}).join('')+'</div></div>';
 
   var ov=document.createElement('div'); ov.id='exm-ov';
   ov.style.cssText='position:fixed;inset:0;z-index:99992;background:rgba(16,20,30,.62);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Calibri,sans-serif;';
   ov.innerHTML=
-    '<div class="exm-card" style="border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">'
-    +'<div class="exm-head">'
-      +'<div class="exm-title">Export Report</div>'
-      +'<div class="exm-sub">'+_exmEsc(subtitle)+'</div></div>'
+    '<div style="background:#FBFAFC;color:#1B1A22;border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.45);overflow:hidden;">'
+    +'<div style="padding:18px 24px 12px;border-bottom:1px solid #E3E1E8;flex:0 0 auto;">'
+      +'<div style="font-size:18px;font-weight:700;">Export Report</div>'
+      +'<div style="font-size:12.5px;color:#5E5B68;margin-top:2px;">'+_exmEsc(subtitle)+'</div></div>'
     +'<div style="flex:1 1 auto;overflow-y:auto;padding:6px 24px 8px;">'
       +'<div class="exm-sec-lbl">Distribution</div>'
       +ownerHtml+ctrHtml+otherHtml
       +'<div class="exm-addrow"><input type="text" id="exm-newrec" placeholder="Add a recipient \u2014 e.g. base-building service contractor, construction PM\u2026" onkeydown="if(event.key===\'Enter\'){_exportAddRecipient();event.preventDefault();}"><button onclick="_exportAddRecipient()">+ Add to pool</button></div>'
       +'<div class="exm-dline"><div class="exm-dl-l">Distribution line</div><div class="exm-dl-v" id="exm-dl"></div></div>'
       +'<div class="exm-sec-lbl" style="margin-top:14px;">Report Photos</div>'
-      +'<div class="exm-photos"><span class="exm-ph-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
+      +'<div class="exm-photos"><span style="flex:0 0 auto;display:inline-flex;color:#5E5B68;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
         +'<span style="flex:1;"><b id="exm-photo-count" style="display:block;font-size:13.5px;">'+(ptot?(incl===ptot?('All '+ptot+' photo'+(ptot===1?'':'s')+' will print'):(incl+' of '+ptot+' photos will print')):'No report photos yet')+'</b>'
-        +'<span class="exm-ph-sub">Included by default \u2014 review only if you want to exclude some</span></span>'
+        +'<span style="font-size:12px;color:#5E5B68;">Included by default \u2014 review only if you want to exclude some</span></span>'
         +(ptot?'<button onclick="_prePrintFromMenu()">Review photos\u2026</button>':'')+'</div>'
     +'</div>'
-    +'<div class="exm-foot">'
+    +'<div style="flex:0 0 auto;display:flex;gap:10px;padding:14px 24px;background:#F2F0F5;border-top:1px solid #E3E1E8;">'
       +'<button class="exm-btn exm-cancel" onclick="_exportModalClose()">Cancel</button><span style="flex:1;"></span>'
       +'<button class="exm-btn exm-go" onclick="_exportModalGenerate()">\uD83D\uDCC4 Generate PDF</button></div>'
     +'</div>';
@@ -11488,44 +11430,11 @@ async function _isRealImageBlob(blob){
 // lightbox fallback). Resolves src via _photoSrc, fetches the bytes to a blob,
 // validates it's a real image (R2 content-type is unreliable), and saves a real
 // file — never window.open / cross-origin href (which just navigates to a page).
-// ════ S366: badge-prefixed download filenames ════
-// Every download (tiles, lightbox, flow-equip, gallery single + bulk) routes its
-// filename through here so the saved file leads with the SAME short badge shown on
-// the photo in the UI, then the original name. e.g. "3·Placard·(originalname).jpg",
-// "7·25%·D·PLD·(originalname).jpg". The badge is read from _collectAllPhotos() — the
-// single source of truth for on-screen badges — so filename ≡ what you see.
-// Separator is "·" (middle dot, legal on Windows/macOS/Linux); "*" is NOT a legal
-// filename char and was explicitly avoided. Any illegal chars are sanitized.
-function _dslSanitizeFilePart(s){
-  // Strip path separators and Windows-illegal chars; collapse whitespace.
-  return String(s||'').replace(/[\/\\:*?"<>|\u0000-\u001F]/g,'-').replace(/\s+/g,' ').trim();
-}
-// Look a photo up in the gallery's photo list by identity (object ref first, then
-// id) and return its computed badge string, or '' if not found.
-function _dslPhotoBadge(p){
-  if(!p) return '';
-  try{
-    var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
-    var hit = null;
-    for(var i=0;i<all.length;i++){ if(all[i].photo===p){ hit=all[i]; break; } }
-    if(!hit && p.id){ for(var j=0;j<all.length;j++){ if(all[j].photo && all[j].photo.id===p.id){ hit=all[j]; break; } } }
-    return hit && hit.badge ? hit.badge : '';
-  }catch(e){ return ''; }
-}
-// Build the final download filename: "<badge>·<original>.<ext>" (badge omitted if
-// unknown). Preserves/ensures an image extension.
-function _dslBadgeFilename(p){
-  var orig = (p && p.n) ? p.n : ('photo_'+Date.now()+'.jpg');
-  if(!/\.(jpe?g|png|webp|gif|bmp)$/i.test(orig)) orig += '.jpg';
-  var badge = _dslSanitizeFilePart(_dslPhotoBadge(p));
-  if(!badge) return _dslSanitizeFilePart(orig);
-  return badge + '·' + _dslSanitizeFilePart(orig);
-}
-
 async function _dslDownloadPhoto(p){
   try{
     var src = _photoSrc(p);
-    var name = _dslBadgeFilename(p);
+    var name = (p && p.n) ? p.n : ('photo_'+Date.now()+'.jpg');
+    if(!/\.(jpe?g|png|webp|gif|bmp)$/i.test(name)) name += '.jpg';
     if(!src){ if(typeof showToast==='function') showToast('Photo not available'); return; }
     if(src.startsWith('data:')){
       var a0=document.createElement('a'); a0.href=src; a0.download=name;
@@ -12654,159 +12563,40 @@ async function _r2CleanupOrphans(){
   }catch(e){ showToast('R2 cleanup error: '+e.message,3000); console.error('[R2Cleanup]',e); }
 }
 
-// ── Issue Report — S366: ported from FRT revision state machine ──
-// Revision grammar (matches FRT exactly):
-//   A##        = draft         e.g. A01, A02
-//   B##        = issued        e.g. B01, B02
-//   B##A##     = revision of an issued report  e.g. B01A01
-// Any non-conforming legacy free-text value (e.g. R00/R01) is treated as an
-// unissued draft, so the first Issue takes it to B01 — agreed S366, no migration.
-function _dslParseRevision(rev){
-  var m;
-  m = rev.match(/^([B-Z])(\d{2,})A(\d{2,})$/);   // B##A## (revision of issued)
-  if(m) return { issued:true, hasSuffix:true, letter:m[1], major:parseInt(m[2],10), suffixNum:parseInt(m[3],10) };
-  m = rev.match(/^([B-Z])(\d{2,})$/);             // B## (issued)
-  if(m) return { issued:true, hasSuffix:false, letter:m[1], major:parseInt(m[2],10), suffixNum:0 };
-  m = rev.match(/^A(\d{2,})$/);                    // A## (draft)
-  if(m) return { issued:false, hasSuffix:false, letter:'A', major:parseInt(m[1],10), suffixNum:0 };
-  return { issued:false, hasSuffix:false, letter:'A', major:1, suffixNum:0 };  // legacy/unknown → draft
-}
-function _dslCalcIssueRevision(parsed){
-  if(!parsed.issued) return 'B01';
-  var next = parsed.major + 1;
-  return parsed.letter + (next < 10 ? '0' : '') + next;
-}
-function _dslCalcRevertDraft(){
-  var highest = 0;
-  if(window._dslLastDraftNum) highest = window._dslLastDraftNum;
-  else { var m = (_dslCurrentRevision()||'').match(/^A(\d+)$/); if(m) highest = parseInt(m[1],10); }
-  var next = highest + 1;
-  return 'A' + (next < 10 ? '0' : '') + next;
-}
-function _dslCurrentRevision(){
-  var revEl = document.getElementById('pi-revision');
-  var v = revEl && revEl.value ? revEl.value.trim() : '';
-  if(v) return v;
-  if(typeof formRevision === 'string' && formRevision.trim()) return formRevision.trim();
-  return 'A01';
-}
-function _dslSetRevision(newRev){
-  var revEl = document.getElementById('pi-revision');
-  if(revEl) revEl.value = newRev;
-  try { formRevision = newRev; } catch(e){}
-}
-function _dslSetStatusBadges(label, bg){
-  var badge = document.getElementById('issue-status-badge');
-  if(badge){ badge.textContent = label; badge.style.background = bg; badge.style.display = 'inline-block'; }
-  var pbb = document.getElementById('pb-badge');
-  if(pbb){ pbb.textContent = label; pbb.style.background = bg; }
-}
-// S366: derive badge label+colour from the revision string, matching FRT exactly
-// (frt_app.js line 877-880). DRAFT/REVISION = amber #E67E22, ISSUED = green #1A7A4A.
-function _dslBadgeFromRevision(rev){
-  var parsed = _dslParseRevision(rev || _dslCurrentRevision());
-  var st = parsed.issued ? (parsed.hasSuffix ? 'REVISION' : 'ISSUED') : 'DRAFT';
-  var colors = { DRAFT:'#E67E22', ISSUED:'#1A7A4A', REVISION:'#E67E22' };
-  return { label: st, color: colors[st] || '#E67E22' };
-}
-function _dslSyncStatusBadges(){
-  var b = _dslBadgeFromRevision();
-  _dslSetStatusBadges(b.label, b.color);
-}
-
-function issueReport(){
+// ── Issue Report ──
+async function issueReport() {
   if(!_csHubMode || typeof CloudSync === 'undefined' || !CloudSync.isInitialized){
     showToast('Issue is only available when launched from the Hub', 3000);
     return;
   }
-  var rev = _dslCurrentRevision();
-  var parsed = _dslParseRevision(rev);
-  var isDark = document.body.classList.contains('dark-mode');
-  var bg  = isDark ? '#161420' : '#fff';
-  var fg  = isDark ? '#f4f3f6' : '#1B1A22';
-  var fg2 = isDark ? '#a09aa8' : '#5E5B68';
+  _aConfirm('Issue this report? This will mark it as officially issued (B01) and save to cloud.',async function(){
 
-  var ov = document.createElement('div');
-  ov.id = 'issue-modal-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(16,20,30,.62);z-index:99993;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;padding:18px;';
+  // Set revision to B01 if not already set
+  var revEl = document.getElementById('pi-revision');
+  if(revEl && (!revEl.value || revEl.value.trim() === '')) revEl.value = 'B01';
 
-  // Muted semantic colours (no btn-muted-* classes in Diesel — inline to match FRT meaning).
-  var okBg   = isDark ? 'rgba(63,208,138,.14)' : '#E2F0E9', okBd  = isDark ? 'rgba(63,208,138,.45)' : 'rgba(46,158,114,.4)', okTx = isDark ? '#3FD08A' : '#1d5e42';
-  var wnBg   = isDark ? 'rgba(224,163,106,.14)' : '#F7ECD9', wnBd  = isDark ? 'rgba(224,163,106,.45)' : 'rgba(217,138,30,.4)', wnTx = isDark ? '#E0A36A' : '#7a4a14';
-  var nuBg   = isDark ? 'rgba(70,197,232,.13)'  : '#E7EEF5', nuBd  = isDark ? 'rgba(70,197,232,.4)'  : 'rgba(44,127,184,.38)', nuTx = isDark ? '#46C5E8' : '#27506e';
-  function rowBtn(act,target,icon,text,b,bd,tx){
-    return '<button data-issue-action="'+act+'" data-rev="'+target+'" style="width:100%;margin-bottom:10px;text-align:left;padding:12px 16px;font-size:calc(14px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;border:1px solid '+bd+';background:'+b+';color:'+tx+';border-radius:9px;cursor:pointer;">'
-      + icon+' '+text+'<span style="float:right;font-weight:400;opacity:.85;">'+rev+' \u2192 <b>'+target+'</b></span></button>';
-  }
-  var html = '<div style="background:'+bg+';border-radius:14px;padding:26px 30px;max-width:430px;width:100%;box-shadow:0 18px 60px rgba(0,0,0,.45);color:'+fg+';">';
-  html += '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">\uD83D\uDCCB Report Status</div>';
-  html += '<div style="font-size:calc(13px + var(--ts));color:'+fg2+';margin-bottom:20px;">Current revision: <b style="color:'+fg+';">'+rev+'</b></div>';
-
-  // Option 1: Issue (always available)
-  html += rowBtn('issue', _dslCalcIssueRevision(parsed), '\uD83D\uDCCB', 'Issue Report', okBg, okBd, okTx);
-  // Option 2: Revise issued (only if issued B## with no A suffix)
-  if(parsed.issued && !parsed.hasSuffix){
-    html += rowBtn('revise', rev + 'A01', '\u270F\uFE0F', 'Revise Issued Report', wnBg, wnBd, wnTx);
-  }
-  // Option 3: Revert to draft (only if currently issued)
-  if(parsed.issued){
-    html += rowBtn('revert', _dslCalcRevertDraft(), '\u21A9\uFE0F', 'Revert to Draft', nuBg, nuBd, nuTx);
-  }
-  // Cancel
-  html += '<button data-issue-action="cancel" style="width:100%;margin-top:4px;padding:11px 16px;font-size:calc(14px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;border:1px solid '+(isDark?'rgba(255,255,255,.14)':'#D8D5DE')+';background:'+(isDark?'rgba(255,255,255,.05)':'#F2F0F5')+';color:'+fg2+';border-radius:9px;cursor:pointer;">Cancel</button>';
-  html += '</div>';
-  ov.innerHTML = html;
-
-  ov.addEventListener('click', function(e){
-    var btn = e.target.closest('[data-issue-action]');
-    if(!btn) return;
-    var act = btn.getAttribute('data-issue-action');
-    var newRev = btn.getAttribute('data-rev') || '';
-    ov.remove();
-    if(act === 'issue') _dslDoIssue(newRev);
-    else if(act === 'revise') _dslDoRevise(newRev);
-    else if(act === 'revert') _dslDoRevertDraft(newRev);
-  });
-  document.body.appendChild(ov);
-}
-
-async function _dslPatchStatus(status){
-  if(CloudSync.instanceId){
-    await CloudSync.request('/rest/v1/tool_data?id=eq.' + CloudSync.instanceId, {
-      method: 'PATCH',
-      body: { status: status, updated_at: new Date().toISOString() }
-    });
-  }
-}
-async function _dslDoIssue(newRev){
-  // Remember the draft number we're leaving, so a later Revert resumes the A-series.
-  var curMatch = _dslCurrentRevision().match(/^A(\d+)$/);
-  if(curMatch) window._dslLastDraftNum = parseInt(curMatch[1],10);
-  _dslSetRevision(newRev);
+  // Save state
   try {
-    await CloudSync.save(_collectCloudState());
-    await _dslPatchStatus('issued');
-    _dslSyncStatusBadges();
-    showToast('\u2713 Report issued as ' + newRev, 3000);
-  } catch(e){ showToast('Failed to issue: ' + e.message, 3000); }
-}
-async function _dslDoRevise(newRev){
-  _dslSetRevision(newRev);
-  try {
-    await CloudSync.save(_collectCloudState());
-    await _dslPatchStatus('draft');
-    _dslSyncStatusBadges();
-    showToast('Revision started: ' + newRev, 3000);
-  } catch(e){ showToast('Failed to start revision: ' + e.message, 3000); }
-}
-async function _dslDoRevertDraft(newRev){
-  _dslSetRevision(newRev);
-  try {
-    await CloudSync.save(_collectCloudState());
-    await _dslPatchStatus('draft');
-    _dslSyncStatusBadges();
-    showToast('Reverted to draft: ' + newRev, 3000);
-  } catch(e){ showToast('Failed to revert: ' + e.message, 3000); }
+    var state = _collectCloudState();
+    await CloudSync.save(state);
+    // Update status to issued
+    if(CloudSync.instanceId){
+      await CloudSync.request('/rest/v1/tool_data?id=eq.' + CloudSync.instanceId, {
+        method: 'PATCH',
+        body: { status: 'issued', updated_at: new Date().toISOString() }
+      });
+    }
+    showToast('✓ Report issued as B01', 3000);
+    // Update header badge
+    var badge = document.getElementById('issue-status-badge');
+    if(badge){ badge.textContent = 'ISSUED'; badge.style.background = '#5F8068'; badge.style.display = 'inline-block'; }
+    // Update project bar badge
+    var pbb = document.getElementById('pb-badge');
+    if(pbb){ pbb.textContent = 'ISSUED'; pbb.style.background = '#5F8068'; }
+  } catch(e) {
+    showToast('Failed to issue: ' + e.message, 3000);
+  }
+  },'Issue');
 }
 
 function showSaveToast(msg, color) {
@@ -13291,19 +13081,12 @@ window.addEventListener('load', () => {
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
         }
-        // Show status badge — S366: derive from the restored revision string with
-        // FRT colours (ISSUED green #1A7A4A, DRAFT/REVISION amber #E67E22), matching
-        // FRT exactly. Falls back to the Supabase status only if no revision parses
-        // as issued (keeps the 'review' state, which has no revision-grammar equivalent).
+        // Show status badge
         var badge = document.getElementById('issue-status-badge');
-        if(badge){
-          var _rowSt = (result && result.row && result.row.status) || 'draft';
-          if(_rowSt === 'review'){
-            badge.textContent = 'REVIEW'; badge.style.background = '#1565C0';
-            var _pbR=document.getElementById('pb-badge'); if(_pbR){ _pbR.textContent='REVIEW'; _pbR.style.background='#1565C0'; }
-          } else {
-            _dslSyncStatusBadges();
-          }
+        if(badge && result && result.row){
+          var st = result.row.status || 'draft';
+          badge.textContent = st.toUpperCase();
+          badge.style.background = st === 'issued' ? '#5F8068' : st === 'review' ? '#1565C0' : '#E65100';
           badge.style.display = 'inline-block';
         }
         // Start auto-save (30s)
@@ -14656,7 +14439,6 @@ function _recZoneHtml(kind){
     thumbs.forEach(function(o){
       html+='<div style="position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);">'
         +'<img src="'+(o.p.d||o.p.r2Url||'')+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
-        +'<button onclick="event.stopPropagation();_recDownloadById(\''+(o.p.id||'')+'\')" title="Download" style="position:absolute;bottom:2px;left:2px;background:rgba(44,71,112,.92);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">\u2193</button>'
         +'<button onclick="_recDelete('+o.i+')" title="Remove" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">✕</button>'
         +'</div>';
     });
@@ -14691,7 +14473,6 @@ function _evTileHtml(kind){
       var p=o.p;
       fhtml+='<div class="ev-thumb">'
         +'<img src="'+_photoSrc(p)+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+o.i+',{renderer:_renderRecordZones})" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
-        +'<button class="ev-thumb-dl" title="Download this photo" onclick="event.stopPropagation();_recDownloadById(\''+(p.id||'')+'\')">\u2193</button>'
         +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
         +'</div>';
     });
@@ -14713,7 +14494,6 @@ function _evTileHtml(kind){
     var p=o.p;
     html+='<div class="ev-thumb">'
       +'<img src="'+(p.d||p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
-      +'<button class="ev-thumb-dl" title="Download this photo" onclick="event.stopPropagation();_recDownloadById(\''+(p.id||'')+'\')">\u2193</button>'
       +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
       +'</div>';
   });
@@ -14732,18 +14512,6 @@ function _recDeletePhotoById(pid){
       if(typeof _renderRecordZones==='function') _renderRecordZones();
     });
   }
-}
-// S366: download an evidence-tile photo by id (records + flow-equip). Resolves the
-// live photo object across all arrays, then routes through _dslDownloadPhoto so the
-// saved file carries the badge-prefixed name like every other download path.
-function _recDownloadById(pid){
-  if(!pid){ showToast('Photo not found'); return; }
-  var found=null;
-  if(typeof _forEachLivePhoto==='function'){
-    _forEachLivePhoto(function(p){ if(!found && p && p.id===pid) found=p; });
-  }
-  if(!found){ showToast('Photo not available'); return; }
-  if(typeof _dslDownloadPhoto==='function') _dslDownloadPhoto(found);
 }
 function _renderRecordZones(){
   // Photos tab: general site records only (full zone style)
@@ -15326,7 +15094,7 @@ async function _pgBulkDownload(items){
     // instead of saving it. Fetching to a blob + object URL downloads reliably.
     var p = items[0].photo;
     var src = _photoSrc(p);
-    var name = _dslBadgeFilename(p);
+    var name = p.n || ('photo_'+Date.now()+'.jpg');
     if(!src){ showToast('Photo not available'); return; }
     try{
       if(src.startsWith('data:')){
@@ -15372,9 +15140,7 @@ async function _pgZipDownload(items){
     for(var i=0; i<items.length; i++){
       var p = items[i].photo;
       var src = _photoSrc(p);
-      // S366: badge-prefixed name. items[i].badge is already computed, but go
-      // through the shared helper so zip names match single-download names exactly.
-      var name = _dslBadgeFilename(p);
+      var name = (p.n || ('photo_'+(i+1)+'.jpg'));
       // de-dupe filenames so generic camera names don't overwrite in the zip
       if(used[name]){ var dot=name.lastIndexOf('.'); name = (dot>0?name.slice(0,dot):name)+'_'+(i+1)+(dot>0?name.slice(dot):'.jpg'); }
       used[name]=1;
@@ -16434,315 +16200,85 @@ var AIAssist = (function(){
 /* ============ AI Usage Tracking (ported verbatim from FRT ai/usage.js, S226d) ============ */
 /* Read-only dashboard over Supabase ai_usage_log. toast()->showToast(), --fg->--slate remaps. */
 var AIUsage=(function(){'use strict';
-/**
- * ARENCON FRT v2 — AI Usage Tracking Dashboard
- * All users can view. Billing day editable by admin only.
- * Filter by PM, project, date range. CSV + PDF export.
- */
+/* ARENCON AI Usage — thin Diesel host for the SHARED panel (aiusage_panel.js).
+   Keeps public open()/close(); mounts shared panel scoped to current project. */
+var SB_URL='https://xsemvinxsyphjiaqgywv.supabase.co';
+var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+var _overlay=null, _inited=false;
 
+function _sbHeaders(){ var h={'apikey':SB_ANON,'Content-Type':'application/json'}; var t=localStorage.getItem('sb-access-token'); if(t)h['Authorization']='Bearer '+t; return h; }
+function _isAdmin(){ var role=localStorage.getItem('ARENCON_role')||''; return role==='super_admin'||role==='admin'; }
 
-var SB_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
-var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
-var _overlay = null;
-var _data = [];
-var _billingDay = 20;
-var _profileMap = {};   // lower(email) -> { num, init }
-
-function _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
-// Resolve an ai_usage_log row's user_email to { num, init } for display.
-// Falls back gracefully when a profile has no number/initials set yet:
-//  - num  : profiles.user_number, else '—'
-//  - init : profiles.initials, else derived from the email prefix, else '—'
-function _resolveUser(email) {
-  var key = String(email || '').trim().toLowerCase();
-  var p = _profileMap[key];
-  var num = (p && p.num) ? p.num : '\u2014';
-  var init = (p && p.init) ? p.init : _deriveInit(key);
-  return { num: num, init: init };
-}
-function _deriveInit(email) {
-  // Best-effort from the email local-part (e.g. "mhe" -> "MH" first+last char,
-  // single char -> that char). Only used when no canonical initials are set.
-  var local = String(email || '').split('@')[0].replace(/[^a-z]/gi, '');
-  if (!local) return '\u2014';
-  if (local.length >= 2) return (local.charAt(0) + local.charAt(local.length - 1)).toUpperCase();
-  return local.toUpperCase();
-}
-function _loadProfiles(cb) {
-  fetch(SB_URL + '/rest/v1/profiles?select=email,user_number,initials', { headers: _sbHeaders() })
-  .then(function(r) { return r.ok ? r.json() : []; })
-  .then(function(rows) {
-    _profileMap = {};
-    (rows || []).forEach(function(p) {
-      if (!p || !p.email) return;
-      _profileMap[String(p.email).trim().toLowerCase()] = { num: p.user_number || '', init: p.initials || '' };
-    });
-    if (cb) cb();
-  })
-  .catch(function() { if (cb) cb(); });  // non-fatal: fall back to derived
-}
-function _sbHeaders() {
-  var h = { 'apikey': SB_ANON, 'Content-Type': 'application/json' };
-  var t = localStorage.getItem('sb-access-token');
-  if (t) h['Authorization'] = 'Bearer ' + t;
-  return h;
-}
-function _isAdmin() {
-  var role = localStorage.getItem('ARENCON_role') || '';
-  return role === 'super_admin' || role === 'admin';
+/* Map shared-module adapter contract -> raw PostgREST fetch */
+function _adapter(){
+  return {
+    query:function(table,opts){ opts=opts||{};
+      var q='/rest/v1/'+table+'?select=*';
+      if(opts.eq){ for(var k in opts.eq){ q+='&'+encodeURIComponent(k)+'=eq.'+encodeURIComponent(opts.eq[k]); } }
+      if(opts.order){ q+='&order='+opts.order; }
+      return fetch(SB_URL+q,{headers:_sbHeaders()}).then(function(r){ return r.ok?r.json():[]; });
+    },
+    insert:function(table,obj){
+      return fetch(SB_URL+'/rest/v1/'+table,{method:'POST',headers:Object.assign({'Prefer':'return=minimal'},_sbHeaders()),body:JSON.stringify(obj)})
+        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); });
+    },
+    remove:function(table,match){
+      var q='/rest/v1/'+table+'?'; var parts=[];
+      for(var k in match){ parts.push(encodeURIComponent(k)+'=eq.'+encodeURIComponent(match[k])); }
+      return fetch(SB_URL+q+parts.join('&'),{method:'DELETE',headers:_sbHeaders()})
+        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); });
+    }
+  };
 }
 
-function open() {
+function _resolveUser(cb){
+  var token=localStorage.getItem('sb-access-token');
+  if(!token){ cb({id:null,email:null}); return; }
+  fetch(SB_URL+'/auth/v1/user',{headers:{'apikey':SB_ANON,'Authorization':'Bearer '+token}})
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(u){ cb(u?{id:u.id||null,email:u.email||null}:{id:null,email:null}); })
+    .catch(function(){ cb({id:null,email:null}); });
+}
+function _currentProjectNumber(){
+  try{ var p=new URLSearchParams(window.location.search); return p.get('pn')||null; }catch(e){ return null; }
+}
+
+function _ensureOverlay(){
+  if(_overlay) return;
+  _overlay=document.createElement('div');
+  _overlay.className='ai-usage-overlay';
+  _overlay.innerHTML='<div class="ai-usage-modal" style="max-width:1100px;width:94%;" onclick="event.stopPropagation()">'
+    +'<div class="ai-usage-hdr"><h3>📊 AI Usage &amp; Costs</h3><div class="ai-usage-hdr-btns">'
+    +'<button id="aiu-host-close" style="font-size:16px;">✕</button></div></div>'
+    +'<div class="ai-usage-body" id="aiu-host-mount" style="padding:18px;overflow:auto;"></div></div>';
+  document.body.appendChild(_overlay);
+  _overlay.addEventListener('click', function(e){ if(e.target===_overlay) close(); });
+  _overlay.querySelector('#aiu-host-close').addEventListener('click', close);
+}
+
+function open(){
   _ensureOverlay();
   _overlay.classList.add('open');
-  _loadBillingDay(function() { _setBillingCycleDates('current'); _fetchData(); });
-}
-function close() { if (_overlay) _overlay.classList.remove('open'); }
-
-function _loadBillingDay(cb) {
-  fetch(SB_URL + '/rest/v1/app_settings?key=eq.billing_day&select=value', { headers: _sbHeaders() })
-  .then(function(r) { return r.json(); })
-  .then(function(rows) {
-    if (rows && rows.length > 0) _billingDay = parseInt(rows[0].value) || 20;
-    var el = document.getElementById('ai-usage-bday');
-    if (el) { el.value = _billingDay; el.disabled = !_isAdmin(); }
-    if (cb) cb();
-  }).catch(function() { if (cb) cb(); });
-}
-
-function _saveBillingDay(d) {
-  if (!_isAdmin()) { showToast('\u26A0 Only admins can change billing day'); return; }
-  d = Math.max(1, Math.min(28, parseInt(d) || 20));
-  _billingDay = d;
-  fetch(SB_URL + '/rest/v1/app_settings?key=eq.billing_day', {
-    method: 'PATCH', headers: _sbHeaders(),
-    body: JSON.stringify({ value: String(d), updated_at: new Date().toISOString() })
-  }).then(function(r) {
-    showToast(r.ok ? '\u2714 Billing day: ' + d + 'th' : '\u26A0 Failed');
-  }).catch(function() { showToast('\u26A0 Failed'); });
-}
-
-function _billingCycleRange(offset) {
-  var day = _billingDay, now = new Date();
-  var y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-  var sM, sY, eM, eY;
-  if (d >= day) { sM = m + offset; sY = y; eM = m + 1 + offset; eY = y; }
-  else { sM = m - 1 + offset; sY = y; eM = m + offset; eY = y; }
-  while (sM < 0) { sM += 12; sY--; } while (sM > 11) { sM -= 12; sY++; }
-  while (eM < 0) { eM += 12; eY--; } while (eM > 11) { eM -= 12; eY++; }
-  return { from: new Date(sY, sM, day), to: new Date(eY, eM, day - 1) };
-}
-
-function _setBillingCycleDates(period) {
-  var fE = document.getElementById('ai-usage-from'), tE = document.getElementById('ai-usage-to');
-  if (!fE || !tE) return;
-  var now = new Date(), from, to;
-  if (period === 'current' || period === 'last') { var r = _billingCycleRange(period === 'last' ? -1 : 0); from = r.from; to = r.to; }
-  else if (period === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
-  else if (period === 'week') { from = new Date(now); from.setDate(now.getDate() - now.getDay()); to = new Date(now); }
-  else if (period === 'today') { from = new Date(now); to = new Date(now); }
-  else if (period === 'all') { from = new Date(2024, 0, 1); to = new Date(now); }
-  if (from) fE.value = from.toISOString().split('T')[0];
-  if (to) tE.value = to.toISOString().split('T')[0];
-}
-
-function _ensureOverlay() {
-  if (_overlay) return;
-  _overlay = document.createElement('div');
-  _overlay.className = 'ai-usage-overlay';
-  _overlay.addEventListener('click', function(e) { if (e.target === _overlay) close(); });
-  var adm = _isAdmin();
-  _overlay.innerHTML = '<div class="ai-usage-modal" onclick="event.stopPropagation()">'
-    + '<div class="ai-usage-hdr"><h3>\uD83D\uDCCA AI Usage Tracking</h3><div class="ai-usage-hdr-btns">'
-    + '<button id="aiu-csv">\uD83D\uDCC4 CSV</button><button id="aiu-pdf">\uD83D\uDCC4 PDF</button><button id="aiu-close" style="font-size:16px;">\u2715</button></div></div>'
-    + '<div class="ai-usage-filters" id="aiu-period-btns"></div>'
-    + '<div class="ai-usage-filters" style="border-bottom:1px solid var(--border);flex-wrap:wrap;">'
-    + '<label>From</label><input type="date" id="ai-usage-from">'
-    + '<label>To</label><input type="date" id="ai-usage-to">'
-    + '<button id="aiu-filter-btn">Apply</button>'
-    + '</div>'
-    + '<div class="ai-usage-filters" style="border-bottom:1px solid var(--border);flex-wrap:wrap;">'
-    + '<label>PM</label><select id="ai-usage-user" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));min-width:140px;"><option value="all">All Users</option></select>'
-    + '<label>Project</label><select id="ai-usage-project" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));min-width:140px;"><option value="all">All Projects</option></select>'
-    + '<label>Tool</label><select id="ai-usage-tool" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));min-width:120px;"><option value="all">All Tools</option></select>'
-    + '<span style="margin-left:auto;font-size:calc(11px + var(--ts));color:var(--steel);">Billing day: <input type="number" id="ai-usage-bday" value="' + _billingDay + '" min="1" max="28"' + (adm ? '' : ' disabled') + ' style="width:40px;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));padding:2px 4px;border:1px solid var(--border);border-radius:4px;"> of month' + (adm ? '' : ' \uD83D\uDD12') + '</span>'
-    + '</div>'
-    + '<div class="ai-usage-body" id="ai-usage-body"><div class="ai-usage-loading">Loading...</div></div></div>';
-  document.body.appendChild(_overlay);
-  _overlay.querySelector('#aiu-close').addEventListener('click', close);
-  _overlay.querySelector('#aiu-csv').addEventListener('click', exportCSV);
-  _overlay.querySelector('#aiu-pdf').addEventListener('click', exportPDF);
-  _overlay.querySelector('#aiu-filter-btn').addEventListener('click', function() { _render(); });
-  var bday = _overlay.querySelector('#ai-usage-bday');
-  if (bday) bday.addEventListener('change', function() { _saveBillingDay(this.value); });
-  // User/project dropdown changes trigger re-render
-  _overlay.querySelector('#ai-usage-user').addEventListener('change', function() { _render(); });
-  _overlay.querySelector('#ai-usage-project').addEventListener('change', function() { _render(); });
-  _overlay.querySelector('#ai-usage-tool').addEventListener('change', function() { _render(); });
-  // Period buttons
-  [{ l: 'This Cycle', v: 'current', bg: '#1A7A4A' }, { l: 'Last Cycle', v: 'last' }, { l: 'This Month', v: 'month' }, { l: 'This Week', v: 'week' }, { l: 'Today', v: 'today' }, { l: 'All Time', v: 'all' }].forEach(function(p) {
-    var btn = document.createElement('button');
-    btn.textContent = p.l;
-    if (p.bg) btn.style.background = p.bg;
-    btn.addEventListener('click', function() { _setBillingCycleDates(p.v); _fetchData(); });
-    _overlay.querySelector('#aiu-period-btns').appendChild(btn);
+  if(!window.AIUsagePanel){
+    document.getElementById('aiu-host-mount').innerHTML='<div style="padding:30px;color:var(--steel);">⚠ Usage panel module not loaded. Check aiusage_panel.js include.</div>';
+    return;
+  }
+  // (re)initialize each open so data is fresh; resolve real user first
+  _resolveUser(function(user){
+    window.AIUsagePanel.init({
+      adapter:_adapter(),
+      isAdmin:_isAdmin,
+      toast:function(m,bad){ if(typeof showToast==='function') showToast((bad?'⚠ ':'✔ ')+m); },
+      scopeProjectNumber:_currentProjectNumber(),
+      mountInto:document.getElementById('aiu-host-mount'),
+      currentUser:user
+    });
   });
+  _inited=true;
 }
+function close(){ if(_overlay) _overlay.classList.remove('open'); }
 
-function _fetchData() {
-  var body = document.getElementById('ai-usage-body');
-  if (body) body.innerHTML = '<div class="ai-usage-loading"><div class="ai-spinner" style="display:inline-block;width:20px;height:20px;border:3px solid #ddd;border-top-color:#9C2742;border-radius:50%;animation:ai-spin .6s linear infinite;"></div><br>Loading\u2026</div>';
-  var from = document.getElementById('ai-usage-from').value;
-  var to = document.getElementById('ai-usage-to').value;
-  var q = '/rest/v1/ai_usage_log?select=*&order=created_at.desc';
-  if (from) q += '&created_at=gte.' + from + 'T00:00:00Z';
-  if (to) q += '&created_at=lte.' + to + 'T23:59:59Z';
-  fetch(SB_URL + q, { headers: _sbHeaders() })
-  .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-  .then(function(rows) { _data = rows || []; _loadProfiles(function() { _populateDropdowns(); _render(); }); })
-  .catch(function(err) { if (body) body.innerHTML = '<div class="ai-usage-loading" style="color:#C62828;">\u26A0 ' + _esc(err.message) + '</div>'; });
-}
-
-function _populateDropdowns() {
-  var users = {}, projs = {}, tools = {};
-  _data.forEach(function(r) {
-    if (r.user_email) users[r.user_email] = true;
-    if (r.project_number) projs[r.project_number] = r.project_name || '';
-    if (r.tool) tools[r.tool] = true;
-  });
-  var uSel = document.getElementById('ai-usage-user'), pSel = document.getElementById('ai-usage-project'), tSel = document.getElementById('ai-usage-tool');
-  if (uSel) { var cv = uSel.value; uSel.innerHTML = '<option value="all">All Users</option>'; Object.keys(users).sort().forEach(function(e) { var ru = _resolveUser(e); uSel.innerHTML += '<option value="' + _esc(e) + '"' + (cv === e ? ' selected' : '') + '>' + _esc(ru.num + ' ' + ru.init) + '</option>'; }); }
-  if (pSel) { var cv2 = pSel.value; pSel.innerHTML = '<option value="all">All Projects</option>'; Object.keys(projs).sort().forEach(function(n) { pSel.innerHTML += '<option value="' + _esc(n) + '"' + (cv2 === n ? ' selected' : '') + '>' + _esc(n + ' \u2014 ' + projs[n]) + '</option>'; }); }
-  if (tSel) { var cv3 = tSel.value; tSel.innerHTML = '<option value="all">All Tools</option>'; Object.keys(tools).sort().forEach(function(t) { tSel.innerHTML += '<option value="' + _esc(t) + '"' + (cv3 === t ? ' selected' : '') + '>' + _esc(t) + '</option>'; }); }
-}
-
-function _filtered() {
-  var uf = (document.getElementById('ai-usage-user') || {}).value || 'all';
-  var pf = (document.getElementById('ai-usage-project') || {}).value || 'all';
-  var tf = (document.getElementById('ai-usage-tool') || {}).value || 'all';
-  return _data.filter(function(r) {
-    if (uf !== 'all' && r.user_email !== uf) return false;
-    if (pf !== 'all' && r.project_number !== pf) return false;
-    if (tf !== 'all' && r.tool !== tf) return false;
-    return true;
-  });
-}
-
-function _render() {
-  var body = document.getElementById('ai-usage-body');
-  if (!body) return;
-  var fd = _filtered();
-  var from = (document.getElementById('ai-usage-from') || {}).value || '';
-  var to = (document.getElementById('ai-usage-to') || {}).value || '';
-  if (!fd.length) { body.innerHTML = '<div class="ai-usage-loading">No records found.</div>'; return; }
-
-  var byProj = {}, byUser = {}, tCost = 0, tRev = 0, tFld = 0;
-  fd.forEach(function(r) {
-    var pk = (r.project_number || '(none)') + '|' + (r.project_name || '');
-    if (!byProj[pk]) byProj[pk] = { num: r.project_number || '(none)', client: r.client_name || r.client || '', name: r.project_name || '', rev: 0, fld: 0, cost: 0, tools: {} };
-    byProj[pk].rev++; byProj[pk].fld += (r.field_count || 0); byProj[pk].cost += (parseFloat(r.cost_usd) || 0); byProj[pk].tools[r.tool || '?'] = true;
-    var uk = r.user_email || '?';
-    if (!byUser[uk]) byUser[uk] = { email: uk, rev: 0, fld: 0, cost: 0 };
-    byUser[uk].rev++; byUser[uk].fld += (r.field_count || 0); byUser[uk].cost += (parseFloat(r.cost_usd) || 0);
-    tCost += (parseFloat(r.cost_usd) || 0); tRev++; tFld += (r.field_count || 0);
-  });
-
-  var h = '<div style="padding:8px 0;font-size:calc(12px + var(--ts));color:var(--steel);">' + fd.length + ' records \u00B7 ' + from + ' to ' + to + ' \u00B7 Total: <strong style="color:var(--slate);">$' + tCost.toFixed(4) + '</strong></div>';
-  // Project table
-  h += '<div class="ai-usage-section"><h4>Summary by Project</h4><table class="ai-usage-table"><tr><th style="min-width:80px;">Project #</th><th>Client</th><th>Project Name</th><th style="width:70px;">Tool(s)</th><th style="width:60px;text-align:right;">Reviews</th><th style="width:50px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
-  Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; h += '<tr><td>' + _esc(p.num) + '</td><td>' + _esc(p.client) + '</td><td>' + _esc(p.name) + '</td><td>' + _esc(Object.keys(p.tools).join(', ')) + '</td><td style="text-align:right;">' + p.rev + '</td><td style="text-align:right;">' + p.fld + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + p.cost.toFixed(4) + '</td></tr>'; });
-  h += '<tr class="total-row"><td colspan="4"><strong>TOTAL</strong></td><td style="text-align:right;"><strong>' + tRev + '</strong></td><td style="text-align:right;"><strong>' + tFld + '</strong></td><td style="text-align:right;font-family:Courier New,monospace;"><strong>$' + tCost.toFixed(4) + '</strong></td></tr></table></div>';
-  // User table
-  h += '<div class="ai-usage-section"><h4>Summary by User</h4><table class="ai-usage-table"><tr><th style="width:90px;">User #</th><th style="width:60px;">Initials</th><th style="width:60px;text-align:right;">Reviews</th><th style="width:50px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
-  Object.keys(byUser).sort().forEach(function(k) { var u = byUser[k]; var ru = _resolveUser(u.email); h += '<tr><td>' + _esc(ru.num) + '</td><td>' + _esc(ru.init) + '</td><td style="text-align:right;">' + u.rev + '</td><td style="text-align:right;">' + u.fld + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + u.cost.toFixed(4) + '</td></tr>'; });
-  h += '</table></div>';
-  // Detail log
-  h += '<div class="ai-usage-section"><h4>Detail Log</h4><table class="ai-usage-table"><tr><th style="width:80px;">Date</th><th style="width:80px;">User #</th><th style="width:55px;">Initials</th><th style="width:80px;">Project #</th><th style="width:45px;">Tool</th><th style="width:45px;text-align:right;">Fields</th><th style="width:80px;text-align:right;">Cost</th></tr>';
-  fd.forEach(function(r) { var ru = _resolveUser(r.user_email); h += '<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '?') + '</td><td>' + _esc(ru.num) + '</td><td>' + _esc(ru.init) + '</td><td>' + _esc(r.project_number || '-') + '</td><td>' + _esc(r.tool || '?') + '</td><td style="text-align:right;">' + (r.field_count || 0) + '</td><td style="text-align:right;font-family:Courier New,monospace;">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'; });
-  h += '</table></div>';
-  body.innerHTML = h;
-}
-
-function exportCSV() {
-  var fd = _filtered();
-  if (!fd.length) { showToast('No data'); return; }
-  var lines = ['Date,User #,Initials,Project Number,Project Name,Tool,Model,Fields,Cost USD'];
-  fd.forEach(function(r) { var ru = _resolveUser(r.user_email); lines.push([r.created_at ? new Date(r.created_at).toISOString() : '', '"' + ru.num + '"', '"' + ru.init + '"', '"' + (r.project_number || '') + '"', '"' + (r.project_name || '') + '"', r.tool || '', r.model || '', r.field_count || 0, (parseFloat(r.cost_usd) || 0).toFixed(6)].join(',')); });
-  var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ARENCON_AI_Usage.csv'; a.click(); URL.revokeObjectURL(a.href);
-  showToast('\uD83D\uDCC4 CSV downloaded');
-}
-
-function exportPDF() {
-  var fd = _filtered();
-  if (!fd.length) { showToast('No data'); return; }
-  var from = (document.getElementById('ai-usage-from') || {}).value || '';
-  var to = (document.getElementById('ai-usage-to') || {}).value || '';
-  var uf = (document.getElementById('ai-usage-user') || {}).value || 'all';
-  var pf = (document.getElementById('ai-usage-project') || {}).value || 'all';
-  var byProj = {}, tCost = 0, tRev = 0;
-  fd.forEach(function(r) { var pk = r.project_number || '(none)'; if (!byProj[pk]) byProj[pk] = { num: pk, name: r.project_name || '', rev: 0, fld: 0, cost: 0 }; byProj[pk].rev++; byProj[pk].fld += (r.field_count || 0); byProj[pk].cost += (parseFloat(r.cost_usd) || 0); tCost += (parseFloat(r.cost_usd) || 0); tRev++; });
-  var desc = 'Billing cycle: ' + (from || '?') + ' to ' + (to || '?');
-  if (uf !== 'all') { var ruf = _resolveUser(uf); desc += ' \u00B7 User: ' + ruf.num + ' ' + ruf.init; }
-  if (pf !== 'all') desc += ' \u00B7 Project: ' + pf;
-
-  var w = window.open('', '_blank', 'width=850,height=700');
-  w.document.write('<!DOCTYPE html><html><head><title>ARENCON AI Usage Report</title><style>');
-  // Export bar styles — S329: fixed wrapper (no transform) + scaled inner.
-  w.document.write('.export-fix{position:fixed;top:0;left:0;right:0;z-index:100;overflow:hidden;background:#2C4770;box-shadow:0 2px 8px rgba(0,0,0,.3);}');
-  w.document.write('.export-bar{transform-origin:top left;box-sizing:border-box;height:48px;background:#2C4770;display:flex;align-items:center;padding:0 16px;gap:10px;will-change:transform,width;}');
-  w.document.write('.export-bar button{border:none;border-radius:6px;padding:8px 18px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;}');
-  w.document.write('.export-bar .btn-export{background:#1A7A4A;color:white;}.export-bar .btn-export:hover{background:#15693f;}');
-  w.document.write('.export-bar .btn-close{background:#455A64;color:white;}.export-bar .btn-close:hover{background:#37474F;}');
-  w.document.write('.export-bar .hint{flex:1;color:rgba(255,255,255,.6);font-size:12px;font-family:Calibri,sans-serif;}');
-  // Page styles
-  w.document.write('body{margin:0;padding:0;background:#525659;font-family:Calibri,sans-serif;}');
-  w.document.write('.page{width:8.5in;min-height:11in;margin:60px auto 20px;padding:0.75in;background:white;box-shadow:0 2px 12px rgba(0,0,0,.3);box-sizing:border-box;color:#333;}');
-  w.document.write('h1{color:#9C2742;font-size:20px;margin:0 0 4px;}h2{color:#9C2742;font-size:15px;border-bottom:2px solid #9C2742;padding-bottom:4px;margin:20px 0 8px;}');
-  w.document.write('table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}th{background:#f5f5f5;padding:6px 8px;text-align:left;border-bottom:2px solid #ccc;font-weight:700;}td{padding:5px 8px;border-bottom:1px solid #eee;}');
-  w.document.write('.r{text-align:right;}.cost{text-align:right;font-family:Courier New,monospace;}.total td{font-weight:700;border-top:2px solid #999;background:#f5f5f5;}.meta{font-size:12px;color:#666;margin-bottom:16px;}');
-  w.document.write('@media print{.export-fix{display:none!important;}.page{margin:0;padding:0.5in;box-shadow:none;min-height:auto;}}');
-  w.document.write('</style></head><body>');
-
-  // Export bar (wrapper + inner)
-  w.document.write('<div class="export-fix"><div class="export-bar"><button class="btn-export" onclick="window.print()">\uD83D\uDCC4 Export PDF</button><span class="hint">Preview \u2014 click Export to save as PDF</span><button class="btn-close" onclick="window.close()">\u2715 Close</button></div></div>');
-
-  // Page content
-  w.document.write('<div class="page">');
-  w.document.write('<h1>ARENCON Inc. \u2014 AI Usage Report</h1><div class="meta">' + desc + '<br>Generated: ' + new Date().toLocaleDateString() + '</div>');
-  w.document.write('<h2>Summary by Project</h2><table><tr><th>Project #</th><th>Client</th><th>Project Name</th><th class="r">Reviews</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
-  Object.keys(byProj).sort().forEach(function(k) { var p = byProj[k]; w.document.write('<tr><td>' + p.num + '</td><td>' + (p.client || '') + '</td><td>' + p.name + '</td><td class="r">' + p.rev + '</td><td class="r">' + p.fld + '</td><td class="cost">$' + p.cost.toFixed(4) + '</td></tr>'); });
-  w.document.write('<tr class="total"><td colspan="3">TOTAL</td><td class="r">' + tRev + '</td><td></td><td class="cost">$' + tCost.toFixed(4) + '</td></tr></table>');
-  w.document.write('<h2>Detail Log</h2><table><tr><th>Date</th><th>User #</th><th>Initials</th><th>Project #</th><th>Tool</th><th class="r">Fields</th><th class="cost">Cost</th></tr>');
-  fd.forEach(function(r) { var ru = _resolveUser(r.user_email); w.document.write('<tr><td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td><td>' + ru.num + '</td><td>' + ru.init + '</td><td>' + (r.project_number || '') + '</td><td>' + (r.tool || '') + '</td><td class="r">' + (r.field_count || 0) + '</td><td class="cost">$' + (parseFloat(r.cost_usd) || 0).toFixed(4) + '</td></tr>'); });
-  w.document.write('</table></div></body></html>');
-  w.document.close();
-  // S329 (#32, Mark): counter-scale the inner bar; size the fixed wrapper to scaled height.
-  try {
-    var _aFix = w.document.querySelector('.export-fix');
-    var _aBar = w.document.querySelector('.export-bar');
-    if (_aBar && _aFix) {
-      var _aBaseDPR = w.devicePixelRatio || 1;
-      var _aFit = function(){
-        try {
-          var z = (w.devicePixelRatio || 1) / _aBaseDPR; if(!isFinite(z) || z<=0) z=1;
-          var inv = 1/z;
-          _aBar.style.transform = 'scale(' + inv + ')';
-          _aBar.style.width = ((w.innerWidth || w.document.documentElement.clientWidth) * z) + 'px';
-          var nh = _aBar.offsetHeight; if(nh) _aFix.style.height = Math.round(nh*inv) + 'px';
-        } catch(_zx){}
-      };
-      w.addEventListener('resize', _aFit);
-      var _aIv = w.setInterval(_aFit, 400);
-      try { w.addEventListener('beforeunload', function(){ try{ w.clearInterval(_aIv); }catch(_c){} }); } catch(_b){}
-      _aFit();
-    }
-  } catch(_aerr){}
-}
-
-
-return { open: open, close: close, exportCSV: exportCSV, exportPDF: exportPDF };
+return { open:open, close:close };
 })();
 window.AIUsage = AIUsage;
 /* ============ end AI Usage Tracking ============ */
