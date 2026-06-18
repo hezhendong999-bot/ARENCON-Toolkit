@@ -1730,6 +1730,12 @@ document.addEventListener('click', function(e) {
   }
   var t = e.target.closest && e.target.closest('button');
   if (!t || !t.id) return;
+  if (t.id === 'site-photo-upload-btn') {
+    // S331 #photo-buttons — explicit Upload (file picker, no camera capture).
+    var fiU = document.getElementById('site-photo-input');
+    if (fiU) fiU.click();
+    return;
+  }
   if (t.id === 'site-photo-add-btn') {
     // Merged Add Photos: burst camera is the primary path (all camera = burst,
     // S314 Mark). If no camera (desktop) or denied, fall back to the file picker

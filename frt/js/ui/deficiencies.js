@@ -422,6 +422,7 @@ function _showActivityModal(deficId, label, editActId, preObsRef) {
   h += '<div id="am-photo-zone" class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')">';
   h += '<span style="font-size:calc(11px + var(--ts));color:var(--silver);">Drop photos or</span>';
   h += '<button class="pz-upload" id="am-upload-btn">\uD83D\uDCCE Upload</button>';
+  h += '<button class="pz-camera" id="am-camera-btn">\uD83D\uDCF7 Camera</button>';
   h += '</div></div>';
   // Footer buttons (v1 style: right-aligned, Cancel + Add Entry)
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">';
@@ -454,6 +455,9 @@ function _showActivityModal(deficId, label, editActId, preObsRef) {
   }
 
   ov.querySelector('#am-upload-btn').addEventListener('click', function(ev) { ev.stopPropagation(); _amFileInput(false); });
+  // S331 #photo-buttons — expose Camera alongside Upload (capture=environment).
+  var _amCam = ov.querySelector('#am-camera-btn');
+  if (_amCam) _amCam.addEventListener('click', function(ev) { ev.stopPropagation(); _amFileInput(true); });
 
   ov.querySelector('#am-cancel').addEventListener('click', function() { _activityModalPhotos = []; ov.remove(); });
 
@@ -854,11 +858,12 @@ function _buildPinGroupCard(d, ctrId) {
     }
     h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + '</div>';
     h += '<div class="obs-media-btns">';
-    // Push 8: icon-only photo buttons. Original dusty colors preserved
-    // via .is-upload/.is-camera/.is-gallery classes (set elsewhere in CSS).
-    h += '<button class="obs-drop-btn is-upload icon-only" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE</button>';
-    h += '<button class="obs-drop-btn is-camera icon-only" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7</button>';
-    h += '<button class="obs-drop-btn is-gallery icon-only" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F</button>';
+    // S331 #photo-buttons — Upload/Camera/Gallery exposed as labeled buttons
+    // (was icon-only; team found the camera affordance unclear). Same actions,
+    // dusty .is-* colors preserved.
+    h += '<button class="obs-drop-btn is-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE Upload</button>';
+    h += '<button class="obs-drop-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7 Camera</button>';
+    h += '<button class="obs-drop-btn is-gallery" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F Gallery</button>';
     h += '</div>';
     h += '</div></div>';
     h += '</div>'; // /obs-layout-merged
