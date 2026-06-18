@@ -27,6 +27,17 @@ PAT = os.environ.get("ARENCON_PAT", "")
 # Add to this registry whenever a feature is restored/added that has been
 # (or could be) clobbered by a stale-base push.
 SENTINELS = {
+    "aiusage_panel.js": [
+        "billStatus",             # snapshot-aware billed/unbilled/added_after
+        "markHasLateActivity",    # stale-mark detection
+        "rangeTotals",            # snapshot-at-marking totals
+        "exportInvoiceBackup",    # per-period invoice backup export
+        "clientRollup",           # per-client unbilled roll-up
+        "untaggedTotal",          # untagged usage callout
+        "_whoMarked",             # who-marked-it in ledger
+        "ledgerUnmark",           # un-mark (billed->unbilled)
+        "sortRows",               # in-group sort
+    ],
     "ARENCON_Diesel_Fire_Pump_Commissioning.html": [
         "aiusage_panel.js",       # shared usage panel include
         "thin Diesel host for the SHARED panel",  # host IIFE marker
