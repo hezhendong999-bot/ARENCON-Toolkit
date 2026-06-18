@@ -1966,6 +1966,9 @@ function _tieredBack(){
   // 3b. Issue/Report-Status modal (S366)
   var ism=document.getElementById('issue-modal-overlay');
   if(ism){ ism.remove(); return true; }
+  // 3c. Photo reuse-picker (S366)
+  var rpk=document.getElementById('reuse-picker-ov');
+  if(rpk){ if(typeof _closePhotoReusePicker==='function')_closePhotoReusePicker(); else rpk.remove(); return true; }
   // 4. Flow-photo gallery
   var fpm=document.getElementById('fpm-gallery');
   if(fpm){ if(typeof _flowPhotoCloseGallery==='function')_flowPhotoCloseGallery(); else fpm.remove(); return true; }
@@ -2941,6 +2944,7 @@ function updatePhaseFlags(){
               <button class="pz-upload" onclick="_recUpload('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #1A7A4A;background:#1A7A4A;color:#fff;">📥 Upload</button>
               <!-- S366 (Mark): camera re-added per "all 3 buttons everywhere" — supersedes S294's one-button decision. -->
               <button class="pz-camera" onclick="_recCamera('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #2C4770;background:#2C4770;color:#fff;">📷 Camera</button>
+              <button class="pz-gallery" onclick="_galleryReuseRecord('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid var(--arencon);background:var(--arencon);color:#fff;">🖼 Gallery</button>
             </div>
           </div>
         </div>
@@ -3377,6 +3381,7 @@ function buildItem(id, item, section, idx, isCustom) {
             <span class="pm-btns">
               <button class="pm-b" onclick="triggerPhoto('${id}')">📥 Upload</button>
               <button class="pm-b cam" onclick="triggerCamera('${id}')">📷 Camera</button>
+              <button class="pm-b" onclick="_galleryReuseChecklist('${id}')">🖼 Gallery</button>
             </span>
           </div>
         </div>
@@ -5655,7 +5660,132 @@ function _flowPhotoAddFromSource(srcPhoto){
     return;
   }
 }
-function _flowPhotoCloseGallery(){ var ex=document.getElementById('fpm-gallery'); if(ex) ex.remove(); }
+// ════════════════════════════════════════════════════════════════════════════
+// S366: SHARED "reuse an existing photo" picker — usable from ANY photo surface.
+// Renders the report's photos in a standalone overlay; on pick, resolves the source
+// photo's BYTES into a File (fetching from R2 if needed — GET is unauthenticated) and
+// hands that File to the caller. The caller routes it through the surface's OWN existing
+// add-file path (handleFiles / _recAddFile / ...), so the new photo gets its OWN id +
+// OWN R2 key + IDB save via proven code — never borrows the source R2 URL (S155 rule).
+// ════════════════════════════════════════════════════════════════════════════
+function _photoBytesToFile(srcPhoto, cb){
+  if(!srcPhoto){ cb(null); return; }
+  function _toFile(dataUrl){
+    try{
+      var parts=dataUrl.split(','); var mime=(parts[0].match(/:(.*?);/)||[])[1]||'image/jpeg';
+      var bin=atob(parts[1]); var n=bin.length; var u8=new Uint8Array(n);
+      while(n--) u8[n]=bin.charCodeAt(n);
+      var name=srcPhoto.n||('gallery_'+Date.now()+'.jpg');
+      cb(new File([u8], name, {type:mime}));
+    }catch(e){ cb(null); }
+  }
+  if(srcPhoto.d){ _toFile(srcPhoto.d); return; }
+  if(srcPhoto.r2Url){
+    fetch(srcPhoto.r2Url).then(function(r){return r.blob();}).then(function(b){
+      var fr=new FileReader(); fr.onload=function(){ _toFile(fr.result); }; fr.readAsDataURL(b);
+    }).catch(function(){ if(typeof showToast==='function') showToast('Could not load that photo'); cb(null); });
+    return;
+  }
+  cb(null);
+}
+var _reusePickerCb=null, _reusePickerItems=[];
+function _openPhotoReusePicker(onPickFile, opts){
+  opts=opts||{};
+  _closePhotoReusePicker();
+  var all=(typeof _collectAllPhotos==='function')?_collectAllPhotos():[];
+  // de-dupe by id; skip ids already on the excluded list (the target's current photos)
+  var excl={}; (opts.excludeIds||[]).forEach(function(id){ if(id) excl[id]=1; });
+  var seen={}, items=[];
+  all.forEach(function(it){
+    var p=it.photo; if(!p) return; var key=p.id||it.src; if(!key||seen[key]) return; seen[key]=1;
+    if(p.id && excl[p.id]) return;
+    if(!(p.d||p.r2Url)) return;
+    items.push(it);
+  });
+  _reusePickerItems=items; _reusePickerCb=onPickFile;
+  var ov=document.createElement('div'); ov.id='reuse-picker-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(16,20,30,.62);z-index:99994;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;padding:18px;';
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#161420':'#fff', fg=isDark?'#f4f3f6':'#1B1A22', fg2=isDark?'#a09aa8':'#5E5B68';
+  var h='<div style="background:'+bg+';color:'+fg+';border-radius:14px;max-width:720px;width:100%;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.45);overflow:hidden;">';
+  h+='<div style="padding:16px 22px;border-bottom:1px solid '+(isDark?'rgba(255,255,255,.1)':'#E3E1E8')+';display:flex;align-items:center;gap:10px;">'
+    +'<b style="font-size:16px;">Reuse a photo from this report</b>'
+    +'<span style="flex:1;"></span>'
+    +'<button onclick="_closePhotoReusePicker()" style="background:none;border:none;font-size:20px;cursor:pointer;color:'+fg2+';">✕</button></div>';
+  h+='<div style="flex:1 1 auto;overflow-y:auto;padding:16px 22px;">';
+  if(!items.length){ h+='<div style="text-align:center;color:'+fg2+';padding:40px 0;">No other photos in this report yet.</div>'; }
+  else {
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">';
+    items.forEach(function(it,k){
+      h+='<div onclick="_pickReusePhoto('+k+')" style="position:relative;cursor:pointer;border-radius:8px;overflow:hidden;border:1.5px solid '+(isDark?'rgba(255,255,255,.14)':'#D8D5DE')+';aspect-ratio:4/3;">'
+        +'<img src="'+(it.photo.d||it.photo.r2Url||'')+'" style="width:100%;height:100%;object-fit:cover;display:block;">'
+        +(it.badge?'<span style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.62);color:#fff;font-size:10px;font-weight:700;padding:2px 5px;">'+it.badge+'</span>':'')
+        +'</div>';
+    });
+    h+='</div>';
+  }
+  h+='</div></div>';
+  ov.innerHTML=h;
+  document.body.appendChild(ov);
+}
+function _closePhotoReusePicker(){ var ex=document.getElementById('reuse-picker-ov'); if(ex) ex.remove(); _reusePickerCb=null; _reusePickerItems=[]; }
+function _pickReusePhoto(k){
+  var it=_reusePickerItems[k]; var cb=_reusePickerCb;
+  if(!it||!it.photo||!cb){ _closePhotoReusePicker(); return; }
+  _photoBytesToFile(it.photo, function(file){
+    _closePhotoReusePicker();
+    if(file && typeof cb==='function') cb(file);
+    else if(typeof showToast==='function') showToast('Could not copy that photo');
+  });
+}
+// ── Per-surface "reuse from gallery" entry points — route a picked File through each
+//    surface's EXISTING add path so copy/compress/own-id/own-R2-key all stay proven. ──
+function _galleryReuseChecklist(id){
+  var cur=(clState[id]&&clState[id].photos)||[];
+  _openPhotoReusePicker(function(file){ handleFiles(id, [file], false); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseRecord(kind){
+  var cur=(typeof recordPhotos!=='undefined'?recordPhotos:[]).filter(function(p){return p&&p.kind===kind;});
+  _openPhotoReusePicker(function(file){ _recAddFile(file, kind); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseDefic(name, idx){
+  var cur=(deficiencies[name]&&deficiencies[name][idx]&&deficiencies[name][idx].photos)||[];
+  _openPhotoReusePicker(function(file){ handleFiles(name, [file], true); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseDeficResp(name, idx, ci){
+  var cur=(deficiencies[name]&&deficiencies[name][idx]&&deficiencies[name][idx].responses&&deficiencies[name][idx].responses[ci]&&deficiencies[name][idx].responses[ci].photos)||[];
+  _openPhotoReusePicker(function(file){
+    var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
+      deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      renderDeficGroup(name); if(typeof debounceAutosave==='function')debounceAutosave();
+    }); }; r.readAsDataURL(file);
+  }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseGenDefic(idx){
+  var cur=(generalDeficiencies[idx]&&generalDeficiencies[idx].photos)||[];
+  _openPhotoReusePicker(function(file){
+    var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
+      if(!generalDeficiencies[idx].photos)generalDeficiencies[idx].photos=[];
+      generalDeficiencies[idx].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      if(typeof renderDeficGroups==='function')renderDeficGroups(); if(typeof debounceAutosave==='function')debounceAutosave();
+    }); }; r.readAsDataURL(file);
+  }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseGenDeficResp(idx, ci){
+  var cur=(generalDeficiencies[idx]&&generalDeficiencies[idx].responses&&generalDeficiencies[idx].responses[ci]&&generalDeficiencies[idx].responses[ci].photos)||[];
+  _openPhotoReusePicker(function(file){
+    var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
+      if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];
+      generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      if(typeof renderDeficGroups==='function')renderDeficGroups(); if(typeof debounceAutosave==='function')debounceAutosave();
+    }); }; r.readAsDataURL(file);
+  }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+function _galleryReuseSketch(uid){
+  _openPhotoReusePicker(function(file){
+    var r=new FileReader(); r.onload=function(e){ _loadSketchMarkupImg(uid, e.target.result); }; r.readAsDataURL(file);
+  }, {});
+}
 function _flowPhotoOpenGallery(){
   _flowPhotoCloseGallery();
   var card=document.querySelector('#flow-photo-modal .fpm-card'); if(!card) return;
@@ -5874,6 +6004,7 @@ function _flowEqReadFile(file){
 }
 function _flowEqCamera(){ if(typeof _camBurst==='function'){ _camBurst(function(f){ _flowEqReadFile(f); }); return; } var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowEqReadFile); }; inp.click(); }
 function _flowEqUpload(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(_flowEqReadFile); }; inp.click(); }
+function _flowEqGalleryReuse(){ _openPhotoReusePicker(function(file){ _flowEqReadFile(file); }, {}); }
 function _flowEqDrop(e){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(_flowEqReadFile); }
 function _flowEqDelete(j){
   var arr=_flowEqArr(); if(!arr||!arr[j])return; var p=arr[j];
@@ -5933,7 +6064,7 @@ function _renderFlowEquipModal(){
   var activeHint=''; _FLOWEQ_CATS.forEach(function(c){ if(c.k===_flowEqActiveCat) activeHint=c.hint; });
   h+='<div class="photo-zone-compact fpm-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowEqDrop(event)">';
   h+='<span>Drag &amp; drop — tagged <b>'+_floweqLabel(_flowEqActiveCat)+'</b>'+(activeHint?(' · '+activeHint):'')+'</span>';
-  h+='<div class="pz-row"><button class="pz-upload" onclick="_flowEqUpload()">📥 Upload</button><button class="pz-camera" onclick="_flowEqCamera()">📷 Camera</button></div>';
+  h+='<div class="pz-row"><button class="pz-upload" onclick="_flowEqUpload()">📥 Upload</button><button class="pz-camera" onclick="_flowEqCamera()">📷 Camera</button><button class="pz-gallery" onclick="_flowEqGalleryReuse()">🖼 Gallery</button></div>';
   h+='</div>';
   // grouped thumbs by category
   var live=arr.filter(function(p){return !_isPhotoDeleted(p);});
@@ -7917,6 +8048,7 @@ function buildDeficItem(name, safe, d, i) {
       +'<div style="display:flex;gap:5px;">'
       +'<button onclick="deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button>'
       +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
+      +'<button onclick="_galleryReuseDeficResp(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:var(--arencon);color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button>'
       +'</div></div></div></div></div>';
   });
 
@@ -7942,7 +8074,8 @@ function buildDeficItem(name, safe, d, i) {
     +'<span>Drag & drop photos here</span>'
     +'<div style="display:flex;gap:5px;">'
     +'<button onclick="event.stopPropagation();deficUpload(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button>'
-    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
+    +'<button onclick="event.stopPropagation();_galleryReuseDefic(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:var(--arencon);color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="deficiencies[\''+safe+'\']['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="deficiencies[\''+safe+'\']['+i+'].status=this.value;_checkDeficStatusChange(\''+safe+'\','+i+');updateDeficSummary();">'
@@ -8222,13 +8355,13 @@ function buildGeneralDeficItem(d, i) {
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Comment</div><textarea placeholder="'+label+' response..." style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].responses['+ci+'].comment=this.value">'+(cr.comment||'')+'</textarea></div>';
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+crPhotosHtml+'</div>';
     respHtml += '<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';genDeficRespDrop(event,'+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">';
-    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div></div>';
+    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="_galleryReuseGenDeficResp('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:var(--arencon);color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div></div>';
   });
   respHtml += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'contractor\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #E67E22;border-radius:5px;background:#fffbf0;color:#E67E22;font-size:12px;cursor:pointer;font-weight:600;">+ Add Contractor Response</button>';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'consultant\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #1565C0;border-radius:5px;background:#f0f4ff;color:#1565C0;font-size:12px;cursor:pointer;font-weight:600;">+ Add Consultant Response</button></div>';
 
-  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button></div></div></div></div>'
+  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#1A7A4A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#2C4770;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="event.stopPropagation();_galleryReuseGenDefic('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:var(--arencon);color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="generalDeficiencies['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="generalDeficiencies['+i+'].status=this.value;updateDeficSummary();renderGeneralDeficGroup();"><option value="open" '+(sc==='open'?'selected':'')+'>● Outstanding</option><option value="in-progress" '+(sc==='in-progress'?'selected':'')+'>● In Progress</option><option value="resolved" '+(sc==='resolved'?'selected':'')+'>● Addressed & Closed</option></select></div>'
@@ -9875,6 +10008,7 @@ function addSketchEntry() {
             <div style="display:flex;gap:6px;">
               <button class="btn btn-sm" style="background:#1A7A4A;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoUpload(${uid})">📥 Upload</button>
               <button class="btn btn-sm" style="background:#2C4770;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
+              <button class="btn btn-sm" style="background:var(--arencon);color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_galleryReuseSketch(${uid})">🖼 Gallery</button>
             </div>
           </div>
         </div>
@@ -14806,6 +14940,7 @@ function _recZoneHtml(kind){
   html+='<span>Drag &amp; drop · '+hint+'</span>';
   html+='<button class="pz-upload" onclick="_recUpload(\''+kind+'\')">📥 Upload</button>';
   html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')">📷 Camera</button>';
+  html+='<button class="pz-gallery" onclick="_galleryReuseRecord(\''+kind+'\')">🖼 Gallery</button>';
   html+='</div>';
   if(thumbs.length){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
