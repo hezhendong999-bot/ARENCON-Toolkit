@@ -1358,7 +1358,7 @@ body.dark-mode .fp-bf .bftoggle:hover{color:#E26076!important;border-color:#9C27
 body.dark-mode .fp-bf .bfremove:hover{color:#fff!important;background:#9C2742!important;border-color:#9C2742!important;}
 body.dark-mode .fp-skip-note{color:#8a90a0!important;}
 body.dark-mode .fig{background:rgba(255,255,255,.04)!important;border-color:rgba(255,255,255,.10)!important;}
-body.dark-mode .chart-annotation-label{background:none!important;border:none!important;box-shadow:none!important;color:#aebfe0!important;text-shadow:0 0 6px rgba(34,37,45,.95),0 0 12px rgba(34,37,45,.85),0 1px 2px rgba(0,0,0,.9);}
+body.dark-mode .chart-annotation-label{background:none!important;border:none!important;box-shadow:none!important;text-shadow:0 0 6px rgba(11,10,13,.98),0 0 12px rgba(11,10,13,.95),0 0 3px rgba(11,10,13,1),0 1px 2px rgba(0,0,0,.95);}
 body.dark-mode .app-footer{background:#0b0a0d;color:rgba(255,255,255,.4);}
 body.dark-mode .tool-btn{background:rgba(255,255,255,.06)!important;color:#d0d8f0!important;border-color:rgba(255,255,255,.2)!important;}
 body.dark-mode .sketch-entry{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.10);}
@@ -10397,6 +10397,17 @@ function renderChartAnnotations(chartInstance, canvasId) {
       }
       // Skip annotations for zero-value points (0 gpm @ 0 psi)
       if(pt.x === 0 && pt.y === 0) return;
+      // S366: the Total System Demand diamond and the OHL line END at the SAME coordinate
+      // (sprinkler+hose flow @ sprinkler psi). When OHL exists it carries the richer label
+      // ("1,750 gpm @ 100 psi (+250 gpm OHL)"), so the diamond's plain "1,750 gpm @ 100 psi"
+      // is a redundant duplicate — suppress it. (If there's no OHL, the diamond keeps its label.)
+      if(_lbl === 'Total System Demand'){
+        try{
+          var _tdp=(canvasId.indexOf('pld')>=0)?'pld-':'';
+          var _ohf=parseFloat(document.getElementById(_tdp+'dem-hose-flow')?.value)||0;
+          if(_ohf>0) return;   // OHL present → its endpoint label covers this point
+        }catch(e){}
+      }
       // S226: cap lines (PRV/PRdV/PLD) — device+setpoint label only (no flow), right endpoint only.
       // Cap extends to 150% rated flow; the right end is where the label reads cleanly.
       // S327: OHL gets a bespoke right-end label (total demand incl. OHL).
