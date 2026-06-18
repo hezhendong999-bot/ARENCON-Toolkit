@@ -310,9 +310,16 @@ function _renderCalibratePreview(p1, cursor, showGuide) {
   ctx.lineTo(cursor.x, cursor.y);
   ctx.stroke();
   ctx.restore();
-  // endpoint dots
-  ctx.beginPath(); ctx.arc(p1.x, p1.y, 5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(cursor.x, cursor.y, 5, 0, Math.PI * 2); ctx.fill();
+  // S331x — endpoints as perpendicular TICK lines, not dots (matches the
+  // dimension tool; circles only appear while actively picking a point).
+  (function(){
+    var dx = cursor.x - p1.x, dy = cursor.y - p1.y, len = Math.sqrt(dx*dx + dy*dy);
+    var ux = len < 1 ? 1 : -dy/len, uy = len < 1 ? 0 : dx/len, h = 6;
+    ctx.save(); ctx.setLineDash([]); ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(p1.x - ux*h, p1.y - uy*h); ctx.lineTo(p1.x + ux*h, p1.y + uy*h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cursor.x - ux*h, cursor.y - uy*h); ctx.lineTo(cursor.x + ux*h, cursor.y + uy*h); ctx.stroke();
+    ctx.restore();
+  })();
   // arrowheads at both ends
   var ang = Math.atan2(cursor.y - p1.y, cursor.x - p1.x);
   _calArrow(ctx, cursor.x, cursor.y, ang, COL);

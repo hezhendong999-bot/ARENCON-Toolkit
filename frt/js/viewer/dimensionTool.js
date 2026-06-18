@@ -255,6 +255,25 @@
     return p;
   }
 
+  // S331x — draw a short perpendicular tick at point (px,py), oriented across
+  // the dimension direction (ax,ay)→(bx,by). Used for in-progress endpoints so
+  // they read as dimension ticks (lines) rather than big dots.
+  function _drawTick(ctx, px, py, ox, oy) {
+    var dx = ox - px, dy = oy - py, len = Math.sqrt(dx*dx + dy*dy);
+    var ux, uy;
+    if (len < 1) { ux = 1; uy = 0; } else { ux = -dy/len; uy = dx/len; } // perpendicular
+    var h = 6; // half-length of tick in px
+    ctx.save();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(px - ux*h, py - uy*h);
+    ctx.lineTo(px + ux*h, py + uy*h);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function _abFrame(ax, ay, bx, by) {
     var dx = bx - ax, dy = by - ay;
     var len = Math.sqrt(dx * dx + dy * dy);
@@ -863,9 +882,8 @@
       ctx.lineTo(_cursor.x, _cursor.y);
       ctx.stroke();
       ctx.restore();
-      ctx.beginPath();
-      ctx.arc(_pA.x, _pA.y, Math.max(2.5, (lineWidth || 2)), 0, Math.PI * 2);
-      ctx.fill();
+      // S331x — endpoint as a perpendicular TICK line, not a filled dot.
+      _drawTick(ctx, _pA.x, _pA.y, _cursor.x, _cursor.y);
     } else if (_state === 'awaitOffset' && _pB) {
       var offset = _cursor ? _projectOffset(_pA.x, _pA.y, _pB.x, _pB.y, _cursor.x, _cursor.y) : 0;
       var ends = _offsetEndpoints(_pA.x, _pA.y, _pB.x, _pB.y, offset);
