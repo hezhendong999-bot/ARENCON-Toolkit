@@ -1579,10 +1579,15 @@ function _renderPins() {
         // S154 PIN-COLOUR-OVERHAUL: pass Site Record flag through to
         // PinsGL so the on-canvas pin gets indigo when null-contractor.
         isSiteRecord: !d.contractorId,
-        // S317: forward the rec rollup so the on-canvas teardrop renders blue
-        // for recommendations (rec wins over priority/site, but closed still wins
-        // over rec — a closed rec reads green, matching the report two-state).
-        isRecommendation: !!d.defic.isRecommendation,
+        // S317/S331 (B1): forward the rec rollup so the on-canvas teardrop
+        // renders brown for recommendations (rec wins over priority/site; closed
+        // still wins over rec — a closed rec reads green). The bare
+        // d.defic.isRecommendation rollup can be STALE (the add-deficiency modal
+        // sets only the pin-level flag, never obs[0]; per-obs can disagree), so
+        // derive "any obs is rec" the same way the card + minimap do (S327).
+        isRecommendation: (d.defic.observations && d.defic.observations.length)
+          ? d.defic.observations.some(function(o){ return o && o.isRecommendation; })
+          : !!d.defic.isRecommendation,
         contractorId: d.contractorId || null,   // highlight lens (per-session)
         contractorColor: (d.contractorId && _ctrColorById[d.contractorId]) || null, // highlight recolour
         inspectorColor: ic,                    // S83
@@ -1634,7 +1639,14 @@ function _renderPins() {
     // S154 PIN-COLOUR-OVERHAUL: Site Record indigo takes precedence over
     // IAR/priority — matches PinsGL canvas and PDF teardrop palette.
     var _isSr = !d.contractorId;
-    var fill = _isSr ? '#6B6FA8' : (d.defic.iar ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959'));
+    // S331 (B1): rec branch was missing on the HTML fallback path — a rec pin
+    // rendered red here while WebGL/minimap showed brown. Derive rec per-obs
+    // (rollup can be stale, S327) and match canonical precedence:
+    // rec(brown) > site(indigo) > IAR(pink) > priority. (Closed handled below via alpha.)
+    var _htmlRec = (d.defic.observations && d.defic.observations.length)
+      ? d.defic.observations.some(function(o){ return o && o.isRecommendation; })
+      : !!d.defic.isRecommendation;
+    var fill = _htmlRec ? '#5E5440' : (_isSr ? '#6B6FA8' : (d.defic.iar ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959')));
     var isOutstanding = !isClosed && !d.defic.iar;
     var shadow = isOutstanding ? 'drop-shadow(0 0 3px ' + fill + ') drop-shadow(0 2px 5px rgba(0,0,0,.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,.45))';
     var alpha = isClosed ? '0.5' : '1';
@@ -2695,7 +2707,12 @@ var _PinPan = (function() {
     // S328 (#3): a CLOSED pin must read as solid green, not its old priority
     // colour dimmed to 50% (which looked like a faded amber/red ghost). Closed
     // wins the fill outright and renders at full opacity.
-    var fill = isClosed ? '#5F8068' : (_isSr ? '#6B6FA8' : (isIAR ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959')));
+    // S331 (B1): rec branch was missing here too — match canonical precedence
+    // closed(green) > rec(brown) > site(indigo) > IAR(pink) > priority. Derive
+    // rec per-obs (rollup can be stale, S327).
+    var _ppObs = (st.d.observations && st.d.observations.length) ? st.d.observations : null;
+    var _ppRec = _ppObs ? _ppObs.some(function(o){ return o && o.isRecommendation; }) : !!st.d.isRecommendation;
+    var fill = isClosed ? '#5F8068' : (_ppRec ? '#5E5440' : (_isSr ? '#6B6FA8' : (isIAR ? '#E91E8C' : (pr === 'general' ? '#5F8068' : pr === 'low' ? '#B07F5A' : '#A85959'))));
     var isOutstanding = !isClosed && !isIAR;
     var numStr = String(st.d.num != null ? st.d.num : '?');
     // Font sizes from _drawPinAtNative: 17 / 13 / 11 by digit count.
