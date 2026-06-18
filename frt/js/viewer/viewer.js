@@ -5491,9 +5491,9 @@ var _longAnimFrames = [];
   // tools. _start() is the single chokepoint every activation path funnels
   // through (boot localStorage flag, ?perf=1 URL, long-press gesture, toggle),
   // so gating it here disables the HUD everywhere for everyone but Mark.
+  // S331t — Perf/ImgBmp diagnostic HUD DISABLED ENTIRELY (Mark's request).
   function _allowed() {
-    try { return !!(Auth && Auth.isSuperAdmin && Auth.isSuperAdmin()); }
-    catch (_e) { return false; }
+    return false;
   }
 
   function _start() {
