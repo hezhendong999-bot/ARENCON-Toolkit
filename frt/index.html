@@ -755,10 +755,10 @@ function ensurePdfJs(cb){
       <span class="dv-ss-group"><span class="dv-ss-lbl">COLOR</span><button class="dv-tr-btn dv-tr-color dv-ss-color" data-mk-target="mk-color-btn" title="Color"><span class="dv-tr-color-dot" id="dv-tr-color-dot"></span></button></span>
     </div>
     <!-- DRAWING CANVAS -->
-    <div class="dv-canvas-area" id="dv-canvas-area">
-      <div class="dv-img-wrap" id="dv-img-wrap">
-        <img id="dv-image" alt="" draggable="false" style="display:block;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;">
-        <canvas id="markup-canvas"></canvas>
+    <div class="dv-canvas-area" id="dv-canvas-area" oncontextmenu="return false;">
+      <div class="dv-img-wrap" id="dv-img-wrap" oncontextmenu="return false;">
+        <img id="dv-image" alt="" draggable="false" oncontextmenu="return false;" style="display:block;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;pointer-events:none;">
+        <canvas id="markup-canvas" oncontextmenu="return false;"></canvas>
         <div id="dv-pins-layer"></div>
       </div>
       <!-- S126 #6 — Dimension sub-toolbar. Hidden by default; shown when
