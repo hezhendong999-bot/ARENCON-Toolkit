@@ -37,6 +37,7 @@ window.AIUsagePanel = (function () {
   var _search = '';
   var _scope = null;       // project_number to lock to, or null
   var _scopeAll = false;   // when scoped, user toggled "all projects"
+  var _sortKey = 'date';   // in-group sort: date|date_asc|cost|cost_asc|user
 
   var TOOL_CLASS = { diesel_pump:'t-diesel', frt:'t-frt', training:'t-train',
     ist:'t-ist', obc:'t-obc', dd:'t-dd', electric_pump:'t-elec', spatial:'t-obc' };
@@ -56,16 +57,50 @@ window.AIUsagePanel = (function () {
     var key=endY+'-'+String(endM+1).padStart(2,'0');
     return {start:start,end:end,label:label,key:key};
   }
-  function isBilled(row){
-    if(!row.project_number) return false;
+  function isBilled(row){ return billStatus(row)==='billed'; }
+  /* snapshot-aware: a row in a billed period that was created AFTER the mark
+     AND lands beyond the snapshot totals is 'added_after' (billed but not on
+     that invoice). Marks with no snapshot (pre-feature) fall back to plain
+     range billing so old data still reads correctly. */
+  function billStatus(row){
+    if(!row.project_number) return 'unbilled';
     var t=new Date(row.created_at).getTime();
     for(var i=0;i<_marks.length;i++){
       var mk=_marks[i];
       if(mk.project_number!==row.project_number) continue;
       var ps=new Date(mk.period_start).getTime(), pe=new Date(mk.period_end+'T23:59:59Z').getTime();
-      if(t>=ps&&t<=pe) return true;
+      if(t>=ps&&t<=pe){
+        var markedAt=mk.marked_at?new Date(mk.marked_at).getTime():null;
+        // created after the invoice was marked, and the mark carries a snapshot → added after
+        if(markedAt!=null && mk.billed_cost_snapshot!=null && t>markedAt) return 'added_after';
+        return 'billed';
+      }
+    }
+    return 'unbilled';
+  }
+  /* does a billed period have activity added after it was marked? (for stale badge) */
+  function markHasLateActivity(mk){
+    if(!mk || mk.billed_cost_snapshot==null || !mk.marked_at) return false;
+    var ps=new Date(mk.period_start).getTime(), pe=new Date(mk.period_end+'T23:59:59Z').getTime();
+    var markedAt=new Date(mk.marked_at).getTime();
+    for(var i=0;i<_rows.length;i++){
+      var r=_rows[i];
+      if(r.project_number!==mk.project_number) continue;
+      var t=new Date(r.created_at).getTime();
+      if(t>=ps&&t<=pe&&t>markedAt) return true;
     }
     return false;
+  }
+  /* totals for a project+date-range right now (used to snapshot at marking) */
+  function rangeTotals(pn, startIso, endIso){
+    var ps=new Date(startIso).getTime(), pe=new Date(endIso+'T23:59:59Z').getTime();
+    var cost=0, fields=0;
+    _rows.forEach(function(r){
+      if(r.project_number!==pn) return;
+      var t=new Date(r.created_at).getTime();
+      if(t>=ps&&t<=pe){ cost+=r.cost_usd; fields+=r.field_count; }
+    });
+    return {cost:cost, fields:fields};
   }
   function activeScope(){ return (_scope && !_scopeAll) ? _scope : null; }
 
@@ -83,12 +118,25 @@ window.AIUsagePanel = (function () {
     var sc=activeScope();
     if(sc && row.project_number!==sc) return false;
     if(!inCycle(row)) return false;
-    if(_billFilter==='billed'&&!isBilled(row)) return false;
-    if(_billFilter==='unbilled'&&isBilled(row)) return false;
+    var bs=billStatus(row);
+    if(_billFilter==='billed'&&bs!=='billed') return false;
+    if(_billFilter==='unbilled'&&bs==='billed') return false; // unbilled view includes added_after
     if(_search){ var s=_search.toLowerCase();
       var hay=[row.project_number,row.client,row.project_name,row.user_number,row.initials,row.tool].join(' ').toLowerCase();
       if(hay.indexOf(s)===-1) return false; }
     return true;
+  }
+  function sortRows(rows){
+    var k=_sortKey;
+    var arr=rows.slice();
+    arr.sort(function(a,b){
+      if(k==='cost') return b.cost_usd-a.cost_usd;
+      if(k==='cost_asc') return a.cost_usd-b.cost_usd;
+      if(k==='user') return String(a.initials).localeCompare(String(b.initials));
+      if(k==='date_asc') return new Date(a.created_at)-new Date(b.created_at);
+      return new Date(b.created_at)-new Date(a.created_at); // date desc default
+    });
+    return arr;
   }
 
   /* ── load via host adapter ── */
@@ -118,7 +166,29 @@ window.AIUsagePanel = (function () {
     _rows.filter(passes).forEach(function(r){ var k=r.project_number||'__none__';
       if(!g[k]) g[k]={pn:r.project_number||'—',client:r.client||'(unassigned)',name:r.project_name||(r.project_number?'':'No project tagged'),rows:[]};
       g[k].rows.push(r); });
-    return Object.keys(g).sort(function(a,b){ if(a==='__none__')return 1; if(b==='__none__')return -1; return a.localeCompare(b); }).map(function(k){return g[k];});
+    return Object.keys(g).sort(function(a,b){ if(a==='__none__')return 1; if(b==='__none__')return -1; return a.localeCompare(b); }).map(function(k){ var grp=g[k]; grp.rows=sortRows(grp.rows); return grp; });
+  }
+  /* per-client unbilled roll-up across ALL that client's projects (ignores scope/cycle except cycle) */
+  function clientRollup(){
+    var by={};
+    _rows.forEach(function(r){
+      if(!inCycle(r)) return;
+      if(!r.project_number) return;
+      var bs=billStatus(r);
+      var cl=r.client||'(unassigned)';
+      if(!by[cl]) by[cl]={client:cl, unbilled:0, billed:0, projects:{}};
+      by[cl].projects[r.project_number]=1;
+      if(bs==='billed') by[cl].billed+=r.cost_usd; else by[cl].unbilled+=r.cost_usd;
+    });
+    return Object.keys(by).map(function(c){ var o=by[c]; o.projectCount=Object.keys(o.projects).length; return o; })
+      .filter(function(o){ return o.unbilled>0.0000005; })
+      .sort(function(a,b){ return b.unbilled-a.unbilled; });
+  }
+  /* untagged usage (null project_number) within the current cycle — surfaced, not editable */
+  function untaggedTotal(){
+    var cost=0, n=0;
+    _rows.forEach(function(r){ if(r.project_number) return; if(!inCycle(r)) return; cost+=r.cost_usd; n++; });
+    return {cost:cost, count:n};
   }
   function metrics(){
     var p=_rows.filter(function(r){ var sc=activeScope(); if(sc&&r.project_number!==sc)return false; return inCycle(r); });
@@ -129,11 +199,14 @@ window.AIUsagePanel = (function () {
 
   return {
     _state: function(){ return {rows:_rows,marks:_marks,billingDay:_billingDay}; },
-    periodFor:periodFor, isBilled:isBilled, toolClass:toolClass, esc:esc, money:money,
+    periodFor:periodFor, isBilled:isBilled, billStatus:billStatus, markHasLateActivity:markHasLateActivity,
+    rangeTotals:rangeTotals, clientRollup:clientRollup, untaggedTotal:untaggedTotal,
+    toolClass:toolClass, esc:esc, money:money,
     groupRows:groupRows, metrics:metrics, load:load, reloadMarks:reloadMarks,
     setBillFilter:function(b){_billFilter=b;}, getBillFilter:function(){return _billFilter;},
     setCycle:function(c){_cycleFilter=c;}, getCycle:function(){return _cycleFilter;},
     setSearch:function(s){_search=s;}, getBillingDay:function(){return _billingDay;},
+    setSortKey:function(k){_sortKey=k;}, getSortKey:function(){return _sortKey;},
     getRows:function(){return _rows;}, getMarks:function(){return _marks;},
     getScope:function(){return _scope;}, isScopedAll:function(){return _scopeAll;},
     setScopeAll:function(v){_scopeAll=v;}, _setScope:function(pn){_scope=pn;},
@@ -168,11 +241,11 @@ window.AIUsagePanel = (function () {
       seen[p.key].cost+=r.cost_usd; seen[p.key].fields+=r.field_count;
     });
     out.sort(function(a,b){return b.key.localeCompare(a.key);});
-    out.forEach(function(pp){ pp.billed=false; pp.mark=null;
+    out.forEach(function(pp){ pp.billed=false; pp.mark=null; pp.stale=false;
       P.getMarks().forEach(function(mk){ if(mk.project_number!==pn) return;
         var ps=new Date(mk.period_start).getTime(), pe=new Date(mk.period_end+'T23:59:59Z').getTime();
         var mid=new Date(pp.end+'T12:00:00Z').getTime();
-        if(mid>=ps&&mid<=pe){ pp.billed=true; pp.mark=mk; } });
+        if(mid>=ps&&mid<=pe){ pp.billed=true; pp.mark=mk; pp.stale=P.markHasLateActivity(mk); } });
     });
     return out;
   }
@@ -200,17 +273,39 @@ window.AIUsagePanel = (function () {
         +(canMark?'<button class="gp-btn" data-act="mark" data-pn="'+E(g.pn)+'">Mark billed…</button><button class="gp-btn ghost" data-act="ledger" data-pn="'+E(g.pn)+'">Ledger</button>':'')
         +'</span></td></tr>';
       g.rows.forEach(function(r){
-        var b=P.isBilled(r), d=new Date(r.created_at), ds=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+d.getUTCFullYear();
+        var bs=P.billStatus(r), d=new Date(r.created_at), ds=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+d.getUTCFullYear();
+        var chip = bs==='billed' ? '<span class="aiu-bchip billed">✓ Billed</span>'
+                 : bs==='added_after' ? '<span class="aiu-bchip after" title="Logged after this period was invoiced — not on that invoice">⚠ Added after invoice</span>'
+                 : '<span class="aiu-bchip unbilled">Unbilled</span>';
         h+='<tr><td class="dim">'+ds+'</td><td class="tnum">'+E(r.project_number||'—')+'</td><td>'+E(r.client||'—')+'</td><td class="dim">'+E(r.project_name||'—')+'</td>'
           +'<td class="tnum">'+E(r.user_number)+'</td><td><span class="aiu-pill init"><span class="dot"></span>'+E(r.initials)+'</span></td>'
           +'<td><span class="aiu-pill '+P.toolClass(r.tool)+'"><span class="dot"></span>'+E(r.tool)+'</span></td>'
           +'<td class="num">'+r.field_count+'</td><td class="num cost">'+M(r.cost_usd)+'</td>'
-          +'<td><span class="aiu-bchip '+(b?'billed':'unbilled')+'">'+(b?'✓ Billed':'Unbilled')+'</span></td></tr>';
+          +'<td>'+chip+'</td></tr>';
       });
     });
     return h+'</tbody></table>';
   }
 
+  function renderCallouts(){
+    var html='';
+    var ut=P.untaggedTotal();
+    if(ut.count>0){
+      html+='<div class="aiu-callout warn"><span class="ico">⚠</span>'
+        +'<div class="txt"><b>'+M(ut.cost)+' untagged</b> — '+ut.count+' AI '+(ut.count===1?'call has':'calls have')+' no project number, so '+(ut.count===1?'it is':'they are')+' not billable. Fix the tagging where the tool logs usage.</div></div>';
+    }
+    if(!(P.getScope() && !P.isScopedAll())){
+      var cr=P.clientRollup();
+      if(cr.length){
+        html+='<div class="aiu-rollup"><div class="aiu-rollup-hd">Outstanding unbilled by client · this view</div><div class="aiu-rollup-rows">';
+        cr.slice(0,8).forEach(function(o){
+          html+='<div class="aiu-rollup-row"><span class="cl">'+E(o.client)+'</span><span class="pj">'+o.projectCount+' project'+(o.projectCount===1?'':'s')+'</span><span class="amt">'+M(o.unbilled)+'</span></div>';
+        });
+        html+='</div></div>';
+      }
+    }
+    return html;
+  }
   function renderShell(){
     var scoped = P.getScope() && !P.isScopedAll();
     var scopeBtn = P.getScope() ? '<button class="aiu-exp" data-act="togglescope">'+(P.isScopedAll()?'Show only this project':'Show all projects')+'</button>' : '';
@@ -224,6 +319,7 @@ window.AIUsagePanel = (function () {
       +'</div>'
       +'<div class="aiu-billing-note">Billing day '+P.getBillingDay()+' · periods labeled by closing month</div>'
       +'<div id="aiu-metrics-host"></div>'
+      +'<div id="aiu-callout-host"></div>'
       +'<div class="aiu-filterbar">'
         +'<div class="aiu-seg" id="aiu-cycleseg">'
           +'<button class="on" data-cyc="this">This Cycle</button><button data-cyc="last">Last Cycle</button><button data-cyc="month">This Month</button><button data-cyc="all">All Time</button>'
@@ -231,6 +327,9 @@ window.AIUsagePanel = (function () {
         +'<div class="aiu-seg bill" id="aiu-billseg">'
           +'<button class="on" data-bf="all">All</button><button data-bf="unbilled">Unbilled</button><button data-bf="billed">Billed</button>'
         +'</div>'
+        +'<select class="aiu-sort" id="aiu-sort" title="Sort within each project">'
+          +'<option value="date">Newest first</option><option value="date_asc">Oldest first</option><option value="cost">Cost high\u2192low</option><option value="cost_asc">Cost low\u2192high</option><option value="user">By user</option>'
+        +'</select>'
         +'<input type="search" class="aiu-search" placeholder="🔎 Search project, client, user, tool…">'
       +'</div>'
       +'<div class="aiu-logcard"><div id="aiu-log-host"></div></div>';
@@ -238,9 +337,11 @@ window.AIUsagePanel = (function () {
 
   function refresh(){
     var mh=mount().querySelector('#aiu-metrics-host'); if(mh) mh.innerHTML=renderMetrics();
+    var ch=mount().querySelector('#aiu-callout-host'); if(ch) ch.innerHTML=renderCallouts();
     var lh=mount().querySelector('#aiu-log-host'); if(lh) lh.innerHTML=renderLog();
     var bs=mount().querySelector('#aiu-billseg');
     if(bs) bs.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.dataset.bf===P.getBillFilter()); });
+    var sk=mount().querySelector('#aiu-sort'); if(sk) sk.value=P.getSortKey();
   }
 
   /* ── delegated click handling within the mount ── */
@@ -266,6 +367,9 @@ window.AIUsagePanel = (function () {
     });
     root.addEventListener('input', function(e){
       if(e.target.classList.contains('aiu-search')){ P.setSearch(e.target.value); refresh(); }
+    });
+    root.addEventListener('change', function(e){
+      if(e.target.id==='aiu-sort'){ P.setSortKey(e.target.value); refresh(); }
     });
   }
 
@@ -311,19 +415,41 @@ window.AIUsagePanel = (function () {
     var s1=fo.dataset.start,e1=to.dataset.end,s2=to.dataset.start,e2=fo.dataset.end;
     var ps=s1<=s2?s1:s2, pe=e1>=e2?e1:e2;
     var u=host().currentUser||{};
-    try{ await host().adapter.insert('ai_invoice_marks',{project_number:_markPn,period_start:ps,period_end:pe,marked_by:u.id||null,marked_by_email:u.email||null});
+    var snap=P.rangeTotals(_markPn, ps, pe);
+    try{ await host().adapter.insert('ai_invoice_marks',{project_number:_markPn,period_start:ps,period_end:pe,marked_by:u.id||null,marked_by_email:u.email||null,marked_at:new Date().toISOString(),billed_cost_snapshot:snap.cost,billed_field_snapshot:snap.fields});
       await P.reloadMarks(); closeMark(); refresh(); toast('Marked billed: '+ps.slice(0,7)+' → '+pe.slice(0,7));
     }catch(err){ toast('Failed: '+(err.message||err),true); }
   }
 
   var _ledgerPn=null;
+  function _whoMarked(mk){
+    if(!mk) return '';
+    var who = mk.marked_by_email ? String(mk.marked_by_email).split('@')[0] : 'unknown';
+    var when = mk.marked_at ? new Date(mk.marked_at) : null;
+    var ws = when ? ((when.getUTCMonth()+1)+'/'+when.getUTCDate()+'/'+when.getUTCFullYear()) : '';
+    return '<div class="aiu-ledger-who">marked by <b>'+E(who)+'</b>'+(ws?(' · '+ws):'')+'</div>';
+  }
   function openLedger(pn){ ensureModals(); _ledgerPn=pn;
     var periods=periodsForProject(pn);
     var tot=periods.reduce(function(s,p){return s+p.cost;},0), bil=periods.filter(function(p){return p.billed;}).reduce(function(s,p){return s+p.cost;},0);
     var rows=periods.map(function(p){
+      var statusCell;
+      if(p.billed){
+        statusCell='<span class="aiu-bchip billed">✓ Billed</span>'
+          + (p.stale?'<span class="aiu-bchip stale" title="New usage logged in this period since it was marked billed">⚠ New activity</span>':'')
+          + _whoMarked(p.mark);
+      } else {
+        statusCell='<span class="aiu-bchip unbilled">Unbilled</span>';
+      }
+      var actions;
+      if(p.billed){
+        actions='<button class="gp-btn ghost" data-led-backup="'+p.start+'|'+p.end+'" title="Export the exact rows this invoice covers">⬇ Backup</button>'
+              + '<button class="gp-btn ghost" data-led-unmark="'+E(p.mark.id)+'">Un-mark</button>';
+      } else {
+        actions='<button class="gp-btn" data-led-mark="'+p.start+'|'+p.end+'">Mark</button>';
+      }
       return '<tr><td>'+E(p.label)+'</td><td class="dim">'+p.start+' → '+p.end+'</td><td class="num">'+p.fields+'</td><td class="num cost">'+M(p.cost)+'</td>'
-        +'<td><span class="aiu-bchip '+(p.billed?'billed':'unbilled')+'">'+(p.billed?'✓ Billed':'Unbilled')+'</span></td>'
-        +'<td>'+(p.billed?'<button class="gp-btn ghost" data-led-unmark="'+E(p.mark.id)+'">Un-mark</button>':'<button class="gp-btn" data-led-mark="'+p.start+'|'+p.end+'">Mark</button>')+'</td></tr>';
+        +'<td>'+statusCell+'</td><td class="aiu-led-actions">'+actions+'</td></tr>';
     }).join('');
     document.getElementById('aiu-ledger-title').textContent='Billing ledger — Project '+pn;
     document.getElementById('aiu-ledger-sum').innerHTML='Whole project: <b class="cost">'+M(tot)+'</b> total · <b class="billed">'+M(bil)+'</b> billed · <b class="unbilled">'+M(tot-bil)+'</b> unbilled';
@@ -332,15 +458,23 @@ window.AIUsagePanel = (function () {
     body.onclick=function(e){
       var um=e.target.closest('[data-led-unmark]'); if(um){ ledgerUnmark(um.getAttribute('data-led-unmark')); return; }
       var mk=e.target.closest('[data-led-mark]'); if(mk){ var sp=mk.getAttribute('data-led-mark').split('|'); ledgerMark(sp[0],sp[1]); return; }
+      var bk=e.target.closest('[data-led-backup]'); if(bk){ var bp=bk.getAttribute('data-led-backup').split('|'); exportInvoiceBackup(_ledgerPn,bp[0],bp[1]); return; }
     };
     document.getElementById('aiu-ledger-modal').classList.add('show');
   }
   function closeLedger(){ var m=document.getElementById('aiu-ledger-modal'); if(m)m.classList.remove('show'); _ledgerPn=null; }
   async function ledgerMark(s,e){ var u=host().currentUser||{};
-    try{ await host().adapter.insert('ai_invoice_marks',{project_number:_ledgerPn,period_start:s,period_end:e,marked_by:u.id||null,marked_by_email:u.email||null});
+    var snap=P.rangeTotals(_ledgerPn, s, e);
+    try{ await host().adapter.insert('ai_invoice_marks',{project_number:_ledgerPn,period_start:s,period_end:e,marked_by:u.id||null,marked_by_email:u.email||null,marked_at:new Date().toISOString(),billed_cost_snapshot:snap.cost,billed_field_snapshot:snap.fields});
       await P.reloadMarks(); refresh(); openLedger(_ledgerPn); toast('Marked billed'); }catch(err){ toast('Failed: '+(err.message||err),true); } }
-  async function ledgerUnmark(id){ var pn=_ledgerPn;
-    try{ await host().adapter.remove('ai_invoice_marks',{id:id}); await P.reloadMarks(); refresh(); if(pn)openLedger(pn); toast('Un-marked (now unbilled)'); }catch(err){ toast('Failed: '+(err.message||err),true); } }
+  async function _doUnmark(id){ var pn=_ledgerPn;
+    try{ await host().adapter.remove('ai_invoice_marks',{id:id}); await P.reloadMarks(); refresh(); if(pn)openLedger(pn); toast('Un-marked — now unbilled'); }catch(err){ toast('Failed: '+(err.message||err),true); } }
+  function ledgerUnmark(id){
+    var msg='Change this period back to UNBILLED? Use this only if it was marked billed by mistake — it removes the invoice record for this period.';
+    if(host().confirm){ host().confirm(msg, function(){ _doUnmark(id); }); }
+    else if(typeof window!=='undefined' && window.confirm){ if(window.confirm(msg)) _doUnmark(id); }
+    else { _doUnmark(id); }
+  }
 
   function exportCSV(){
     var groups=P.groupRows();
@@ -362,7 +496,36 @@ window.AIUsagePanel = (function () {
     w.document.close();
   }
 
-  /* ── public init: host calls this once ── */
+  /* invoice backup: exact rows a single project+period mark covers → CSV + print PDF */
+  function _rowsInRange(pn, sIso, eIso){
+    var ps=new Date(sIso).getTime(), pe=new Date(eIso+'T23:59:59Z').getTime();
+    return P.getRows().filter(function(r){ if(r.project_number!==pn) return false;
+      var t=new Date(r.created_at).getTime(); return t>=ps&&t<=pe; })
+      .sort(function(a,b){ return new Date(a.created_at)-new Date(b.created_at); });
+  }
+  function exportInvoiceBackup(pn, sIso, eIso){
+    var rows=_rowsInRange(pn, sIso, eIso);
+    var meta=(P.getRows().filter(function(r){return r.project_number===pn;})[0])||{};
+    var client=meta.client||'', name=meta.project_name||'';
+    var total=rows.reduce(function(s,r){return s+r.cost_usd;},0);
+    var fields=rows.reduce(function(s,r){return s+r.field_count;},0);
+    // CSV
+    function c(s){s=String(s==null?'':s);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+    var lines=[['Date','Project #','Client','Project Name','User #','Initials','Tool','Fields','Cost USD'].join(',')];
+    rows.forEach(function(r){ var d=new Date(r.created_at),ds=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+d.getUTCFullYear();
+      lines.push([ds,r.project_number||'',c(r.client),c(r.project_name),r.user_number,r.initials,r.tool,r.field_count,r.cost_usd.toFixed(6)].join(',')); });
+    lines.push(['','','','','','','TOTAL',fields,total.toFixed(6)].join(','));
+    var blob=new Blob([lines.join('\n')],{type:'text/csv'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='invoice_backup_'+pn+'_'+sIso.slice(0,7)+'.csv'; a.click();
+    // print PDF window
+    var rowHtml='';
+    rows.forEach(function(r){ var d=new Date(r.created_at),ds=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+d.getUTCFullYear();
+      rowHtml+='<tr><td>'+ds+'</td><td>'+E(r.user_number)+'</td><td>'+E(r.initials)+'</td><td>'+E(r.tool)+'</td><td style="text-align:right">'+r.field_count+'</td><td style="text-align:right">'+M(r.cost_usd)+'</td></tr>'; });
+    var w=window.open('','_blank');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice Backup '+E(pn)+'</title><style>body{font-family:Calibri,sans-serif;margin:0;background:#525659;color:#1a1a1a}.bar{position:fixed;top:0;left:0;right:0;background:#2C4770;display:flex;gap:10px;align-items:center;padding:8px 14px;z-index:9}.bar button{font-family:Calibri;font-size:13px;font-weight:700;padding:7px 13px;border:none;border-radius:6px;cursor:pointer}.bar .pdf{background:#1A7A4A;color:#fff}.bar .cl{background:#455A64;color:#fff}.bar .hint{flex:1;color:#cfd8e3;font-size:12px}.page{background:#fff;width:8.5in;min-height:11in;margin:54px auto 20px;padding:.6in;box-shadow:0 2px 12px rgba(0,0,0,.4)}h1{font-size:18px;margin:0 0 2px}.sub{color:#555;font-size:12px;margin-bottom:14px}table{width:100%;border-collapse:collapse;font-size:11px}th{text-align:left;border-bottom:2px solid #2C4770;padding:5px 6px;font-size:10px;text-transform:uppercase;color:#2C4770}td{padding:4px 6px;border-bottom:1px solid #e3e3e3}@media print{.bar{display:none}.page{box-shadow:none;margin:0 auto}body{background:#fff}}</style></head><body><div class="bar"><button class="pdf" onclick="window.print()">\uD83D\uDCC4 Export PDF</button><span class="hint">Invoice backup \u2014 the AI usage this billing covers.</span><button class="cl" onclick="window.close()">\u2715 Close</button></div><div class="page"><h1>AI Usage \u2014 Invoice Backup</h1><div class="sub">Project '+E(pn)+(client?(' \u00b7 '+E(client)):'')+(name?(' \u00b7 '+E(name)):'')+'<br>Period '+sIso+' \u2192 '+eIso+' \u00b7 '+rows.length+' entries \u00b7 '+fields+' fields \u00b7 Total '+M(total)+'</div><table><thead><tr><th>Date</th><th>User #</th><th>Init</th><th>Tool</th><th style="text-align:right">Fields</th><th style="text-align:right">Cost</th></tr></thead><tbody>'+rowHtml+'</tbody><tfoot><tr><td colspan="4" style="font-weight:700;border-top:2px solid #2C4770">TOTAL</td><td style="text-align:right;font-weight:700;border-top:2px solid #2C4770">'+fields+'</td><td style="text-align:right;font-weight:700;border-top:2px solid #2C4770">'+M(total)+'</td></tr></tfoot></table></div></body></html>');
+    w.document.close();
+    toast('Invoice backup exported (CSV + PDF)');
+  }
   P.init = async function(cfg){
     P._setHost(cfg);
     if(cfg.scopeProjectNumber){ P._setScope(cfg.scopeProjectNumber); P.setScopeAll(false); }
