@@ -445,6 +445,12 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;}
 .ev-thumb-del{position:absolute;top:3px;right:3px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:rgba(168,89,89,.95);border:none;border-radius:50%;color:#fff;font-size:11px;line-height:1;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.3);z-index:2;}
 .ev-thumb-del:hover{background:#A85959;}
+/* S366: download button on evidence tiles — hover-reveal on desktop, always-on for touch (match photo gallery .ph-dl-btn). Delete also hover-gated here for parity. */
+.ev-thumb-dl{position:absolute;bottom:3px;left:3px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:rgba(44,71,112,.92);border:none;border-radius:50%;color:#fff;font-size:12px;line-height:1;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:2;opacity:0;transition:opacity .12s;}
+.ev-thumb-dl:hover{background:#2C4770;}
+.ev-thumb .ev-thumb-del{opacity:0;transition:opacity .12s;}
+.ev-thumb:hover .ev-thumb-dl,.ev-thumb:hover .ev-thumb-del{opacity:1;}
+@media(pointer:coarse){.ev-thumb .ev-thumb-dl,.ev-thumb .ev-thumb-del{opacity:.9;}}
 .ev-add-tile{width:84px;height:84px;border-radius:7px;border:2px dashed var(--border);background:transparent;color:var(--steel);font-size:30px;font-weight:300;line-height:1;cursor:pointer;flex:0 0 auto;transition:all .14s;display:flex;align-items:center;justify-content:center;}
 .ev-add-tile:hover{border-color:var(--arencon);color:var(--arencon);}
 .ev-tile{border:2px dashed var(--border);border-radius:10px;background:#fff;min-height:128px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
@@ -538,10 +544,18 @@ body.dark-mode .fpm-gallery{background:#16151b;}
 .fp-head .pt{font-size:calc(13.5px + var(--ts));font-weight:700;color:var(--slate);}
 .fp-head .pt small{font-weight:600;color:var(--silver);font-size:calc(11px + var(--ts));margin-left:6px;}
 .fp-head .right{display:flex;align-items:center;gap:10px;}
-.fp-verdict{font-size:calc(11.5px + var(--ts));font-weight:700;padding:3px 12px;border-radius:14px;white-space:nowrap;}
+.fp-verdict{font-size:calc(11.5px + var(--ts));font-weight:700;padding:3px 12px;border-radius:14px;white-space:nowrap;display:inline-flex;align-items:center;gap:7px;}
 .fp-verdict.pass{background:#E8EFE7;color:#5F8068;}
 .fp-verdict.fail{background:#F3E0DE;color:#A85959;}
+.fp-verdict.flag{background:#F6ECDA;color:#BC7327;}
 .fp-verdict.na{background:#eef0f4;color:var(--silver);}
+/* S366: a manually-overridden verdict gets a visible marker (left dot) so report reviewers can tell it was set by judgment, not computed. */
+.fp-verdict.manual{box-shadow:inset 3px 0 0 0 currentColor;padding-left:14px;}
+.fp-verdict.manual .fp-v-txt::before{content:"✎ ";font-size:.85em;opacity:.8;}
+/* S366: per-point verdict override dropdown */
+.fp-override{font-family:Calibri,sans-serif;font-size:calc(10.5px + var(--ts));font-weight:700;border:1px solid var(--border);border-radius:8px;padding:2px 5px;background:var(--smoke);color:var(--slate);cursor:pointer;}
+body.dark-mode .fp-override{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#e8e6ec;}
+body.dark-mode .fp-verdict.flag{background:rgba(224,163,106,.16);color:#E0A36A;}
 /* ── S213 framed chart figure (FRT family) ── */
 .fig{background:#fff;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);}
 .fig-hd{background:var(--arencon);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:3px solid #2A3A5C;}
@@ -671,11 +685,15 @@ body.dark-mode .fp-endval .ea-adj.fail{color:#E26076!important;}
 .fp-endval.gov .el{color:var(--arencon);}
 .fp-endval.gov .ev{color:var(--arencon);}
 .fp-held{position:relative;display:flex;align-items:baseline;gap:7px;justify-content:flex-end;white-space:nowrap;
-  padding:4px 10px;border-radius:7px;background:#eef3f4;border:1.5px solid #bcd2d6;}
+  padding:4px 10px;border-radius:7px;background:#eef3f4;border:1.5px solid #bcd2d6;
+  /* S366: fixed footprint so the pill doesn't resize/jump as the held value width changes across the 7 flow cards */
+  min-width:184px;box-sizing:border-box;}
 .fp-held::before{content:"";position:absolute;top:0;left:8px;right:8px;height:2px;border-radius:2px;background:#4A8C8C;}
 .fp-held .ht{font-size:calc(8.5px + var(--ts));font-weight:700;color:#3d7373;letter-spacing:.3px;}
 .fp-held .hl{font-size:calc(8.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#3d7373;}
-.fp-held .hv{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;}
+.fp-held .hv{font-size:calc(13px + var(--ts));font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;
+  /* S366: fixed value slot, right-aligned, so differing digit counts keep the pill stable */
+  min-width:58px;text-align:right;display:inline-block;}
 .fp-bf{display:flex;align-items:center;gap:7px;margin-top:6px;padding-left:60px;flex-wrap:wrap;}
 .fp-bf .bfcell{display:flex;align-items:center;gap:5px;position:relative;}
 .fp-bf label{font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);white-space:nowrap;}
@@ -984,10 +1002,11 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   #exm-ov .exm-grp{margin-bottom:10px;}
   #exm-ov .exm-glbl{font-size:10.5px;font-weight:700;letter-spacing:1px;color:#928E9C;text-transform:uppercase;margin-bottom:6px;}
   #exm-ov .exm-chips{display:flex;flex-wrap:wrap;gap:8px;}
-  #exm-ov .exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #D8D5DE;background:#fff;color:#1B1A22;transition:background .12s,border-color .12s;}
-  #exm-ov .exm-chip.on{background:#E7EEF5;border-color:#9DB6CC;}
-  #exm-ov .exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid #C2BEC8;display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;}
-  #exm-ov .exm-chip.on .exm-dot{background:#5F8068;border-color:#5F8068;}
+  #exm-ov .exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid #D8D5DE;background:#fff;color:#1B1A22;transition:background .12s,border-color .12s,color .12s;}
+  /* S366: each recipient carries its own --c (owner steel, contractors distinct muted hues). On = filled with that colour, matching FRT exportview .exv-c.on. */
+  #exm-ov .exm-chip.on{background:var(--c,#5F8068);border-color:var(--c,#5F8068);color:#fff;}
+  #exm-ov .exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid var(--c,#C2BEC8);display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:transparent;}
+  #exm-ov .exm-chip.on .exm-dot{background:#fff;border-color:#fff;color:var(--c,#5F8068);}
   #exm-ov .exm-chip .exm-rm{margin-left:3px;color:#928E9C;font-weight:700;font-size:15px;line-height:1;padding:0 2px;border-radius:4px;}
   #exm-ov .exm-chip .exm-rm:hover{color:#A85959;background:#F4E3E3;}
   #exm-ov .exm-addrow{display:flex;gap:8px;margin:10px 0 8px;}
@@ -1003,6 +1022,38 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   #exm-ov .exm-btn{border:none;border-radius:9px;padding:12px 24px;font:700 14px Calibri,sans-serif;cursor:pointer;}
   #exm-ov .exm-cancel{background:#455A64;color:#fff;}
   #exm-ov .exm-go{background:#1A7A4A;color:#fff;}
+  /* ════ S366: Export modal chrome moved off inline hex onto classes so dark-mode can re-skin it (match FRT exportview). Light values below are the defaults; body.dark-mode block overrides. ════ */
+  #exm-ov .exm-card{background:#FBFAFC;color:#1B1A22;}
+  #exm-ov .exm-head{padding:18px 24px 12px;border-bottom:1px solid #E3E1E8;flex:0 0 auto;}
+  #exm-ov .exm-head .exm-title{font-size:18px;font-weight:700;}
+  #exm-ov .exm-head .exm-sub{font-size:12.5px;color:#5E5B68;margin-top:2px;}
+  #exm-ov .exm-foot{flex:0 0 auto;display:flex;gap:10px;padding:14px 24px;background:#F2F0F5;border-top:1px solid #E3E1E8;}
+  #exm-ov .exm-photos .exm-ph-icon{flex:0 0 auto;display:inline-flex;color:#5E5B68;}
+  #exm-ov .exm-photos .exm-ph-sub{font-size:12px;color:#5E5B68;}
+  /* ── dark-mode skin: matches FRT exportview (fixed dark header gradient + glassy dark body) ── */
+  body.dark-mode #exm-ov .exm-card{background:#161420;color:#f4f3f6;box-shadow:0 18px 60px rgba(0,0,0,.6);}
+  body.dark-mode #exm-ov .exm-head{background:linear-gradient(135deg,#1B2438,#243048);border-bottom:1px solid rgba(255,255,255,.08);}
+  body.dark-mode #exm-ov .exm-head .exm-title{color:#f4f3f6;}
+  body.dark-mode #exm-ov .exm-head .exm-sub{color:#a09aa8;}
+  body.dark-mode #exm-ov .exm-foot{background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.08);}
+  body.dark-mode #exm-ov .exm-sec-lbl,
+  body.dark-mode #exm-ov .exm-glbl,
+  body.dark-mode #exm-ov .exm-dl-l{color:#8a8492;}
+  body.dark-mode #exm-ov .exm-chip{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
+  body.dark-mode #exm-ov .exm-chip.on{background:var(--c,#3FD08A);border-color:var(--c,#3FD08A);color:#fff;}
+  body.dark-mode #exm-ov .exm-chip .exm-dot{border-color:var(--c,rgba(255,255,255,.3));}
+  body.dark-mode #exm-ov .exm-chip.on .exm-dot{background:#fff;border-color:#fff;color:var(--c,#3FD08A);}
+  body.dark-mode #exm-ov .exm-chip .exm-rm{color:#8a8492;}
+  body.dark-mode #exm-ov .exm-chip .exm-rm:hover{color:#E26076;background:rgba(226,96,118,.16);}
+  body.dark-mode #exm-ov .exm-addrow input{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.14);color:#f4f3f6;}
+  body.dark-mode #exm-ov .exm-addrow input::placeholder{color:#6b6674;}
+  body.dark-mode #exm-ov .exm-addrow input:focus{border-color:rgba(70,197,232,.5);}
+  body.dark-mode #exm-ov .exm-addrow button{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
+  body.dark-mode #exm-ov .exm-dline,
+  body.dark-mode #exm-ov .exm-photos{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.1);}
+  body.dark-mode #exm-ov .exm-photos button{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#e8e6ec;}
+  body.dark-mode #exm-ov .exm-photos .exm-ph-icon,
+  body.dark-mode #exm-ov .exm-photos .exm-ph-sub{color:#a09aa8;}
 @media(max-width:1300px) {
   /* S271: match FRT — logo shrinks 34px→28px at ≤1024 (not ≤768). FRT frt.css line 1178. */
   .header-logo{height:28px!important;padding:3px 6px!important;}
@@ -1076,8 +1127,12 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   .header-actions{gap:8px!important;margin-right:8px!important;}
   /* S252: day/night toggle stays in the header as a 34x34 chrome box (match FRT); hidden while the menu drawer is open */
   .header-actions #dark-toggle{justify-content:center;flex-shrink:0;margin-left:0;}
-  .header-actions.mobile-open #dark-toggle{display:flex!important;width:100%;justify-content:center;padding:14px;border-radius:10px;}
-  .header-actions.mobile-open #btn-qr{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
+  /* S366: inside the open hamburger drawer these two must be full-width rows like every
+     other drawer button. The base square-icon rule (#dark-toggle,#btn-qr{width/max-width:34px
+     !important}) + its pointer:coarse variant were clamping them back to a 34/36px square in
+     the drawer. Higher-specificity .mobile-open selector + !important releases the clamp. */
+  .header-actions.mobile-open #dark-toggle{display:flex!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;justify-content:center;padding:14px!important;border-radius:10px!important;}
+  .header-actions.mobile-open #btn-qr{display:flex!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;justify-content:center;padding:14px!important;font-size:calc(15px + var(--ts));border-radius:10px!important;}
   .header-actions.mobile-open #btn-text-size{display:flex!important;width:100%;justify-content:center;padding:14px;font-size:calc(15px + var(--ts));border-radius:10px;}
   /* Project link: compact */
   /* Data tables: allow horizontal scroll inside card */
@@ -1311,7 +1366,7 @@ body.dark-mode .fp-bf .bftoggle:hover{color:#E26076!important;border-color:#9C27
 body.dark-mode .fp-bf .bfremove:hover{color:#fff!important;background:#9C2742!important;border-color:#9C2742!important;}
 body.dark-mode .fp-skip-note{color:#8a90a0!important;}
 body.dark-mode .fig{background:rgba(255,255,255,.04)!important;border-color:rgba(255,255,255,.10)!important;}
-body.dark-mode .chart-annotation-label{background:none!important;border:none!important;box-shadow:none!important;color:#aebfe0!important;text-shadow:0 0 6px rgba(34,37,45,.95),0 0 12px rgba(34,37,45,.85),0 1px 2px rgba(0,0,0,.9);}
+body.dark-mode .chart-annotation-label{background:none!important;border:none!important;box-shadow:none!important;text-shadow:0 0 6px rgba(11,10,13,.98),0 0 12px rgba(11,10,13,.95),0 0 3px rgba(11,10,13,1),0 1px 2px rgba(0,0,0,.95);}
 body.dark-mode .app-footer{background:#0b0a0d;color:rgba(255,255,255,.4);}
 body.dark-mode .tool-btn{background:rgba(255,255,255,.06)!important;color:#d0d8f0!important;border-color:rgba(255,255,255,.2)!important;}
 body.dark-mode .sketch-entry{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.10);}
@@ -1606,7 +1661,7 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
 @media(max-width:600px){.ai-panel{top:auto;bottom:0;left:0;right:0;width:100%;height:75vh;border-left:none;border-top:3px solid #9C2742;transform:translateY(100%);border-radius:16px 16px 0 0;}.ai-panel.open{transform:translateY(0);}}
 /* ============ end AI Text Review ============ */
 /* ============ AI Usage Tracking panel (ported from FRT usage.js, S226d) ============ */
-.ai-usage-overlay{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
+.ai-usage-overlay{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;}
 .ai-usage-overlay.open{display:flex;}
 .ai-usage-modal{background:var(--smoke);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%;max-width:800px;max-height:85vh;display:flex;flex-direction:column;font-family:Calibri,sans-serif;color:var(--slate);}
 .ai-usage-hdr{background:#455A64;color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;}
@@ -1908,6 +1963,9 @@ function _tieredBack(){
   // 3. Export modal
   var exm=document.getElementById('exm-ov');
   if(exm){ if(typeof _exportModalClose==='function')_exportModalClose(); else exm.remove(); return true; }
+  // 3b. Issue/Report-Status modal (S366)
+  var ism=document.getElementById('issue-modal-overlay');
+  if(ism){ ism.remove(); return true; }
   // 4. Flow-photo gallery
   var fpm=document.getElementById('fpm-gallery');
   if(fpm){ if(typeof _flowPhotoCloseGallery==='function')_flowPhotoCloseGallery(); else fpm.remove(); return true; }
@@ -5303,29 +5361,115 @@ function autoFillPldFlows() {
 function _ratedRpm(){ var v=parseFloat(document.getElementById('pm-rpm') && document.getElementById('pm-rpm').value); return (!isNaN(v)&&v>0)?v:null; }
 function _ratedRpmPld(){ var e=document.getElementById('pm-rpm-pld'); var v=e?parseFloat(e.value):NaN; if(!isNaN(v)&&v>0) return v; return _ratedRpm(); }
 function _sysRating(){ var v=parseFloat(document.getElementById('pm-sysrating') && document.getElementById('pm-sysrating').value); return (!isNaN(v)&&v>0)?v:null; }
+// ════════════════════════════════════════════════════════════════════════════
+// S366: FLOW-CHART PASS/FAIL — NFPA 20 ACCEPTANCE CRITERIA (replaces NFPA 25 95%-placard)
+// Locked with Mark:
+//  • Drop the old 95%-of-placard rule and the placard<cutsheet hard-fail entirely
+//    (those were NFPA 25 periodic-ITM, not applicable to a commissioning/acceptance test).
+//  • Verdict driven by three NFPA 20 numeric gates, on adjusted (rated-speed) net vs the
+//    RATED net = placard pressure at the 100% row:
+//        0%  churn : adj net ≤ 140% of rated  (else FAIL)
+//        100% rated: adj net ≥ 100% of rated  (else FAIL)
+//        150% peak : adj net ≥  65% of rated  (else FAIL)
+//    25/50/75/125% are informational (no gate).
+//  • §14.2.4.2 certified-curve check (ALL points): |adj net − that point's placard| within
+//    ±1% (calibrated-gauge accuracy) → OK; outside ±1% → ⚑ FLAG ONLY (does NOT drive verdict).
+//  • PLD device check (7-pt, points with a w/PLD discharge): dis_w vs PLD setting (pm-pld-setting):
+//        ≤ setpoint → OK ; setpoint..+3 psi → ⚑ flag ; > setpoint+3 → FAIL (PLD not holding).
+//  • 7-pt scores the w/o-PLD net (true pump capability); held w/PLD net is NOT scored.
+//  • Manual override (dropdown per point): 'auto' (default), 'pass', 'fail', 'flag'. Effective
+//    status = override if set else auto. Override is sticky + stored on the row (overStd/overPld),
+//    persists through save/load/sync/PDF. Manual 'flag' counts as NOT-a-fail in rollup.
+//  • Rollup: any EFFECTIVE-fail gated point → chart FAIL; all effective-pass → PASS; else N/A.
+// ════════════════════════════════════════════════════════════════════════════
+
+// Rated net = placard pressure on the 100% row of the given dataset.
+function _ratedNetFrom(rows){
+  if(!Array.isArray(rows)) return null;
+  for(var i=0;i<rows.length;i++){ if(rows[i] && rows[i].pct==='100%'){ var p=parseFloat(rows[i].placard); return (!isNaN(p))?p:null; } }
+  return null;
+}
+// Which points are the NFPA 20 acceptance gates.
+function _isGatePct(pct){ return pct==='0%' || pct==='100%' || pct==='150%'; }
+// Evaluate the NFPA 20 gate for one point. Returns 'pass'|'fail'|'na' (na = not a gate, or no data).
+function _nfpa20Gate(pct, adjNet, ratedNet){
+  if(!_isGatePct(pct)) return 'na';
+  if(adjNet==null || isNaN(adjNet) || ratedNet==null || isNaN(ratedNet) || ratedNet<=0) return 'na';
+  if(pct==='0%')   return (adjNet <= ratedNet*1.40) ? 'pass' : 'fail';   // churn ≤ 140% rated
+  if(pct==='100%') return (adjNet >= ratedNet*1.00) ? 'pass' : 'fail';   // rated ≥ 100% rated
+  if(pct==='150%') return (adjNet >= ratedNet*0.65) ? 'pass' : 'fail';   // peak  ≥  65% rated
+  return 'na';
+}
+// §14.2.4.2 ±1% certified-curve deviation flag for one point (vs that point's OWN placard).
+// Returns true if the point is OUTSIDE the ±1% calibrated-gauge band (→ ⚑ flag).
+function _curveDevOver1pct(adjNet, pointPlacard){
+  if(adjNet==null || isNaN(adjNet) || isNaN(pointPlacard) || pointPlacard<=0) return false;
+  return Math.abs(adjNet - pointPlacard) > pointPlacard*0.01;
+}
+// PLD device check. Returns {state:'ok'|'flag'|'fail', over:Number} for a w/PLD discharge vs setpoint.
+function _pldDeviceCheck(disW, setpoint){
+  if(isNaN(disW) || isNaN(setpoint) || setpoint<=0) return {state:'ok', over:0};
+  var over = disW - setpoint;
+  if(over <= 0)  return {state:'ok',   over:over};
+  if(over <= 3)  return {state:'flag', over:over};
+  return {state:'fail', over:over};
+}
+function _pldSetting(){ var e=document.getElementById('pm-pld-setting'); var v=e?parseFloat(e.value):NaN; return (!isNaN(v)&&v>0)?v:null; }
+// Effective verdict = manual override if set, else the computed auto verdict.
+// override values: undefined/'' /'auto' → use auto ; 'pass'|'fail'|'flag' → use override.
+// For ROLLUP, 'flag' is treated as not-a-fail (neutral pass).
+function _effVerdict(autoV, override){
+  if(override==='pass') return 'pass';
+  if(override==='fail') return 'fail';
+  if(override==='flag') return 'flag';
+  return autoV;
+}
+// Build the per-point override dropdown. canvasKey 'std'|'pld', idx = row index.
+function _overrideDropdown(scope, idx, current){
+  var cur = current||'auto';
+  return '<select class="fp-override" data-scope="'+scope+'" data-idx="'+idx+'" onchange="_setVerdictOverride(\''+scope+'\','+idx+',this.value)" '
+    + 'title="Auto = computed NFPA 20 verdict. Override to set this point by judgment (sticky).">'
+    + '<option value="auto"'+(cur==='auto'?' selected':'')+'>Auto</option>'
+    + '<option value="pass"'+(cur==='pass'?' selected':'')+'>PASS</option>'
+    + '<option value="fail"'+(cur==='fail'?' selected':'')+'>FAIL</option>'
+    + '<option value="flag"'+(cur==='flag'?' selected':'')+'>⚑ Flag</option>'
+    + '</select>';
+}
+function _setVerdictOverride(scope, idx, val){
+  var rows = (scope==='pld') ? pldData : stdData;
+  if(!rows[idx]) return;
+  rows[idx][scope==='pld'?'overPld':'overStd'] = (val==='auto'?'':val);
+  if(scope==='pld'){ if(typeof updatePldCalcCells==='function') updatePldCalcCells(idx); if(typeof refreshFigPld==='function') refreshFigPld(); if(typeof refreshFigPldNet==='function') refreshFigPldNet(); }
+  else { if(typeof updateStdCalcCells==='function') updateStdCalcCells(idx); if(typeof refreshFig3pt==='function') refreshFig3pt(); if(typeof refreshFigNet3pt==='function') refreshFigNet3pt(); }
+  if(typeof debounceAutosave==='function') debounceAutosave();
+}
+
 function _calcFlowPoint(row){
   var suc=parseFloat(row.suction), dis=parseFloat(row.discharge), rpm=parseFloat(row.rpm);
-  var cut=parseFloat(row.cutsheet), plac=parseFloat(row.placard), bf=parseFloat(row.bfUp);
+  var plac=parseFloat(row.placard), bf=parseFloat(row.bfUp);
   var rated=_ratedRpm();
   var net=(!isNaN(suc)&&!isNaN(dis))?(dis-suc):null;
   // adjusted net needs recorded rpm AND rated rpm; if no rpm pair, adjusted falls back to recorded
   var adj=(net!=null&&!isNaN(rpm)&&rpm>0&&rated)?net*Math.pow(rated/rpm,2):net;
-  var thresh=(!isNaN(plac))?plac*0.95:null;
-  var fail=false;
-  if(!isNaN(plac)&&!isNaN(cut)&&plac<cut) fail=true;           // hard: placard below cutsheet
-  if(adj!=null&&thresh!=null&&adj<thresh) fail=true;           // hard: adjusted net below 95% placard
+  // NFPA 20 gate (0/100/150% only), vs rated net = placard@100%
+  var ratedNet=_ratedNetFrom(stdData);
+  var gate=_nfpa20Gate(row.pct, adj, ratedNet);
+  var autoVerdict = gate;   // 'pass'|'fail'|'na' (na on non-gate points or missing data)
+  var effVerdict = _effVerdict(autoVerdict, row.overStd);
+  // §14.2.4.2 ±1% certified-curve flag (all points, vs own placard) — flag only
+  var curveFlag = _curveDevOver1pct(adj, plac);
   // advisory flags (do NOT drive verdict)
   var flags=[];
+  if(curveFlag && adj!=null && !isNaN(plac)) flags.push('Curve match: adj net '+adj.toFixed(0)+' psi vs placard '+plac.toFixed(0)+' psi — outside \u00B11% gauge accuracy (NFPA 20 \u00A714.2.4.2)');
   var npsh=parseFloat(npshPsi);
   if(!isNaN(suc)&&!isNaN(npsh)&&npsh>0&&suc<npsh) flags.push('Suction &lt; NPSH ('+npsh+' psi) — supply/cavitation concern');
   if(!isNaN(bf)&&bf<20) flags.push('Backflow upstream &lt; 20 psi');
-  // NFPA 20 §4.7.7.1 churn over-pressure advisory: net churn (this point's net) + max static suction ≤ system rating
   var sr=_sysRating();
   if((row.pct==='0%')&&net!=null&&!isNaN(suc)&&sr&&(net+suc)>sr){
-    flags.push('Churn over-pressure: net churn + suction ('+(net+suc).toFixed(0)+' psi) &gt; system rating ('+sr+' psi) — NFPA 20 §4.7.7.1');
+    flags.push('Churn over-pressure: net churn + suction ('+(net+suc).toFixed(0)+' psi) &gt; system rating ('+sr+' psi) — NFPA 20 \u00A74.7.7.1');
   }
-  var enough=(net!=null&&!isNaN(plac)&&!isNaN(cut));
-  return {net:net, adj:adj, thresh:thresh, fail:fail, flags:flags, verdict:enough?(fail?'fail':'pass'):'na'};
+  return {net:net, adj:adj, ratedNet:ratedNet, gate:gate, curveFlag:curveFlag,
+          flags:flags, override:row.overStd||'', autoVerdict:autoVerdict, verdict:effVerdict};
 }
 
 function renderStdTable() {
@@ -5335,12 +5479,16 @@ function renderStdTable() {
   var rated=_ratedRpm();
   var bn=document.getElementById('std-fp-banner');
   if(bn) bn.innerHTML = '<b>Rated speed: '+(rated?rated+' RPM':'set rated RPM above')+'</b> &nbsp;·&nbsp; '
-    + 'Adjusted net = recorded net × (rated ÷ recorded RPM)² &nbsp;·&nbsp; passes when adjusted net ≥ 95% of placard (NFPA 25). '
-    + 'Placard &lt; cutsheet is a hard fail. Suction &lt; NPSH, backflow &lt; 20 psi, and churn over-pressure are advisory flags.';
+    + 'Adjusted net = recorded net × (rated ÷ recorded RPM)² (NFPA affinity). '
+    + 'NFPA 20 acceptance: churn (0%) \u2264 140% rated · rated (100%) \u2265 100% · peak (150%) \u2265 65% rated, vs placard net @ 100%. '
+    + 'Each point also flagged (\u2691) if outside \u00B11% of its placard (\u00A714.2.4.2 gauge accuracy). '
+    + 'Use the per-point dropdown to override a verdict by judgment.';
   host.innerHTML='';
   stdData.forEach((row, i) => {
     const r=_calcFlowPoint(row);
-    const vtxt=r.verdict==='pass'?'✓ PASS':r.verdict==='fail'?'✗ FAIL':'—';
+    const _eff=r.verdict;
+    const vtxt=_eff==='pass'?'✓ PASS':_eff==='fail'?'✗ FAIL':_eff==='flag'?'⚑ FLAG':'—';
+    const _manual=(r.override==='pass'||r.override==='fail'||r.override==='flag');
     const hasBF = (row.bfUp!==''&&row.bfUp!=null) || (row.bfDown!==''&&row.bfDown!=null);
     const flagsHtml='<div class="fp-flags" id="std-flags-'+i+'"'+(r.flags.length?'':' style="display:none;"')+'>'+
       (r.flags.length?r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join(''):'')+'</div>';
@@ -5365,7 +5513,7 @@ function renderStdTable() {
         <div class="pt">${row.pct} Flow <small>${row.label} · ${row.flow!==null&&row.flow!==''?row.flow+' gpm':'— gpm'}</small></div>
         <div class="right">
           ${_flowPhotoIcon('std',i)}
-          <span class="fp-verdict ${r.verdict}" id="std-verdict-${i}">${vtxt}</span>
+          <span class="fp-verdict ${_eff}${_manual?' manual':''}" id="std-verdict-${i}"><span class="fp-v-txt">${vtxt}</span>${_overrideDropdown('std', i, r.override||'auto')}</span>
         </div>
       </div>
       <div class="fp-strip">
@@ -5856,15 +6004,25 @@ function updateStdCalcCells(i) {
   if(endEl){
     var netTxt = r.net!=null ? r.net.toFixed(0) : '\u2014';
     var adjTxt = r.adj!=null ? r.adj.toFixed(0) : '\u2014';
-    var thrTxt = r.thresh!=null ? r.thresh.toFixed(0) : '\u2014';
-    var okStd = (r.adj!=null && r.thresh!=null && r.adj >= r.thresh);
+    // Readout now shows adjusted net vs the NFPA 20 gate target for this point (if it's a gate),
+    // or just the adjusted net for informational points.
+    var gateTxt='', okStd=true;
+    if(r.ratedNet!=null && _isGatePct(row.pct)){
+      if(row.pct==='0%'){ gateTxt='\u2264 '+(r.ratedNet*1.40).toFixed(0)+' (140%)'; okStd=(r.adj!=null&&r.adj<=r.ratedNet*1.40); }
+      else if(row.pct==='100%'){ gateTxt='\u2265 '+(r.ratedNet*1.00).toFixed(0)+' (100%)'; okStd=(r.adj!=null&&r.adj>=r.ratedNet*1.00); }
+      else if(row.pct==='150%'){ gateTxt='\u2265 '+(r.ratedNet*0.65).toFixed(0)+' (65%)'; okStd=(r.adj!=null&&r.adj>=r.ratedNet*0.65); }
+    }
     endEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
-      '<span class="ea" title="Adjusted net (speed-corrected) vs required (95% of placard)">'+
-      '<span class="ea-adj '+(okStd?'pass':'fail')+'">adj '+adjTxt+'</span><span class="ea-req">req '+thrTxt+'</span></span>';
+      '<span class="ea" title="Adjusted net (speed-corrected) vs NFPA 20 acceptance gate">'+
+      '<span class="ea-adj '+(okStd?'pass':'fail')+'">adj '+adjTxt+'</span>'+(gateTxt?'<span class="ea-req">req '+gateTxt+'</span>':'')+'</span>';
   }
   if(vEl){
-    vEl.className = 'fp-verdict '+r.verdict;
-    vEl.textContent = r.verdict==='pass'?'✓ PASS':r.verdict==='fail'?'✗ FAIL':'—';
+    // verdict chip shows EFFECTIVE status + the override dropdown for manual control
+    var eff=r.verdict;
+    var vtxt = eff==='pass'?'\u2713 PASS':eff==='fail'?'\u2717 FAIL':eff==='flag'?'\u2691 FLAG':'\u2014';
+    var manual = (r.override==='pass'||r.override==='fail'||r.override==='flag');
+    vEl.className = 'fp-verdict '+eff+(manual?' manual':'');
+    vEl.innerHTML = '<span class="fp-v-txt">'+vtxt+'</span>'+_overrideDropdown('std', i, r.override||'auto');
   }
   if(flEl){
     if(r.flags.length){ flEl.style.display=''; flEl.innerHTML = r.flags.map(f=>'<div class="fp-flag">⚠ '+f+'</div>').join(''); }
@@ -5886,14 +6044,17 @@ function renderPldTable() {
   var ratedB=_ratedRpmPld();
   var bn=document.getElementById('pld-fp-banner');
   if(bn) bn.innerHTML = '<b>Rated speed: '+(ratedB?ratedB+' RPM':'set rated RPM above')+'</b> &nbsp;·&nbsp; '
-    + 'Adjusted net = recorded net × (rated ÷ recorded RPM)² &nbsp;·&nbsp; passes when adjusted net ≥ 95% of placard (NFPA 25). '
-    + 'Placard &lt; cutsheet is a hard fail. Suction &lt; NPSH and backflow &lt; 20 psi are advisory flags. '
+    + 'NFPA 20 acceptance on w/o-PLD adjusted net: churn (0%) \u2264 140% rated · rated (100%) \u2265 100% · peak (150%) \u2265 65% rated, vs placard net @ 100%. '
+    + 'PLD device check: w/PLD discharge \u2264 PLD setting (\u2264+3 psi flagged, &gt;+3 psi fails). '
+    + 'Each point flagged (\u2691) if outside \u00B11% of placard (\u00A714.2.4.2). Per-point dropdown overrides verdict. '
     + '<b>w/o PRV &amp; PLD</b> tested at 0%, 100%, 150% only; <b>w/ PLD</b> at all 7 points.';
   host.innerHTML='';
   pldData.forEach((row, i) => {
     const skipNoPLD = PLD_NO_SKIP.has(i); // skipped rows: no w/o PLD segment (25/50/75/125%)
     const v = updatePldVerdictObj(row, i);
-    const vtxt = v.verdict==='pass'?'✓ PASS':v.verdict==='fail'?'✗ FAIL':'—';
+    const _peff=v.verdict;
+    const vtxt = _peff==='pass'?'✓ PASS':_peff==='fail'?'✗ FAIL':_peff==='flag'?'⚑ FLAG':'—';
+    const _pmanual=(v.override==='pass'||v.override==='fail'||v.override==='flag');
     const labelTxt = i===0?'Churn':(row.pct==='150%'?'Peak':(row.pct==='100%'?'Rated':''));
     const flowTxt = (i===0)?'0 gpm':(row.flow!==''&&row.flow!=null?row.flow+' gpm':'— gpm');
     const hasBF = (row.bfUp!==''&&row.bfUp!=null) || (row.bfDown!==''&&row.bfDown!=null);
@@ -5927,7 +6088,7 @@ function renderPldTable() {
         <div class="pt">${row.pct} Flow <small>${labelTxt?labelTxt+' · ':''}${flowTxt}</small></div>
         <div class="right">
           ${_flowPhotoIcon('pld',i)}
-          <span class="fp-verdict ${v.verdict}" id="pld-verdict-${i}">${vtxt}</span>
+          <span class="fp-verdict ${_peff}${_pmanual?' manual':''}" id="pld-verdict-${i}"><span class="fp-v-txt">${vtxt}</span>${_overrideDropdown('pld', i, v.override||'auto')}</span>
         </div>
       </div>
       <div class="fp-strip">
@@ -5975,19 +6136,32 @@ function updatePldVerdictObj(row, i){
   const skipNoPLD = (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i);
   const netNo = skipNoPLD ? null : (parseFloat(row.dis_no)||0)-(parseFloat(row.suc_no)||0);
   const netW  = (parseFloat(row.dis_w)||0)-(parseFloat(row.suc_w)||0);
-  const cutsheet = parseFloat(row.cutsheet);
   const placard  = parseFloat(row.placard);
-  const checkNet = skipNoPLD ? netW : netNo;
-  const checkRpm = parseFloat(skipNoPLD ? row.rpm_w : row.rpm_no);
   const rated = _ratedRpmPld();
-  const adjNet = (checkNet && !isNaN(checkRpm) && checkRpm>0 && rated) ? checkNet*Math.pow(rated/checkRpm,2) : checkNet;
-  const thresh = (!isNaN(placard)) ? placard*0.95 : null;
-  var verdict='na';
-  if(!isNaN(cutsheet) && checkNet){
-    if(!isNaN(placard) && placard < cutsheet) verdict='fail';
-    else if(thresh!=null && adjNet!=null) verdict = adjNet>=thresh ? 'pass' : 'fail';
-  }
-  return {netNo:netNo, netW:netW, adjNet:adjNet, thresh:thresh, verdict:verdict};
+  // SCORED net = w/o-PLD (true pump capability). Skipped rows (25/50/75/125%) have no w/o-PLD
+  // reading; they're informational only (not NFPA 20 gates anyway).
+  const checkNet = skipNoPLD ? null : netNo;
+  const checkRpm = parseFloat(row.rpm_no);
+  const adjNet = (checkNet!=null && checkNet && !isNaN(checkRpm) && checkRpm>0 && rated) ? checkNet*Math.pow(rated/checkRpm,2) : checkNet;
+  const ratedNet = _ratedNetFrom(pldData);
+  // NFPA 20 gate (0/100/150% only) on the w/o-PLD adjusted net
+  const gate = _nfpa20Gate(row.pct, adjNet, ratedNet);
+  // PLD device check: w/PLD discharge vs PLD setting (every row that has a w/PLD discharge)
+  const disW = parseFloat(row.dis_w);
+  const pldSet = _pldSetting();
+  const pldDev = (!isNaN(disW) && pldSet!=null) ? _pldDeviceCheck(disW, pldSet) : {state:'ok', over:0};
+  // §14.2.4.2 ±1% certified-curve flag (vs this row's placard), on the scored adj net
+  const curveFlag = _curveDevOver1pct(adjNet, placard);
+  // AUTO verdict: gate fail OR PLD device fail → fail; gate pass → pass; else na.
+  var autoVerdict = 'na';
+  if(pldDev.state==='fail') autoVerdict='fail';
+  else if(gate==='fail') autoVerdict='fail';
+  else if(gate==='pass') autoVerdict='pass';
+  // EFFECTIVE verdict via manual override (sticky, stored on row.overPld)
+  var verdict = _effVerdict(autoVerdict, row.overPld);
+  return {netNo:netNo, netW:netW, adjNet:adjNet, ratedNet:ratedNet, gate:gate,
+          pldDev:pldDev, curveFlag:curveFlag, override:row.overPld||'',
+          autoVerdict:autoVerdict, verdict:verdict};
 }
 function updatePldCalcCells(i) {
   const row = pldData[i];
@@ -5996,15 +6170,19 @@ function updatePldCalcCells(i) {
   const wEl = document.getElementById('pld-end-w-'+i);
   const pfEl = document.getElementById('pld-pf-'+i);
   const vchip = document.getElementById('pld-verdict-'+i);
-  // w/o PLD governing chip: Net (recorded) + adjusted + 95% threshold footnote
+  // w/o PLD governing chip: Net (recorded) + adjusted + NFPA 20 gate target
   if(noEl && v.netNo !== null){
     var netTxt = v.netNo ? v.netNo.toFixed(1) : '\u2014';
     var adjTxt = (v.adjNet!=null && !isNaN(v.adjNet)) ? v.adjNet.toFixed(1) : '\u2014';
-    var thrTxt = (v.thresh!=null) ? v.thresh.toFixed(1) : '\u2014';
-    var okPld = (v.adjNet!=null && !isNaN(v.adjNet) && v.thresh!=null && v.adjNet >= v.thresh);
+    var gTxt='', okPld=true;
+    if(v.ratedNet!=null && _isGatePct(row.pct)){
+      if(row.pct==='0%'){ gTxt='\u2264 '+(v.ratedNet*1.40).toFixed(0)+' (140%)'; okPld=(v.adjNet!=null&&v.adjNet<=v.ratedNet*1.40); }
+      else if(row.pct==='100%'){ gTxt='\u2265 '+(v.ratedNet*1.00).toFixed(0)+' (100%)'; okPld=(v.adjNet!=null&&v.adjNet>=v.ratedNet*1.00); }
+      else if(row.pct==='150%'){ gTxt='\u2265 '+(v.ratedNet*0.65).toFixed(0)+' (65%)'; okPld=(v.adjNet!=null&&v.adjNet>=v.ratedNet*0.65); }
+    }
     noEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
-      '<span class="ea" title="Adjusted net (speed-corrected) vs required (95% of placard)">'+
-      '<span class="ea-adj '+(okPld?'pass':'fail')+'">adj '+adjTxt+'</span><span class="ea-req">req '+thrTxt+'</span></span>';
+      '<span class="ea" title="w/o-PLD adjusted net (speed-corrected) vs NFPA 20 acceptance gate">'+
+      '<span class="ea-adj '+(okPld?'pass':'fail')+'">adj '+adjTxt+'</span>'+(gTxt?'<span class="ea-req">req '+gTxt+'</span>':'')+'</span>';
   }
   // w/ PLD held pill: device tag + recorded Net (controlled — not scored)
   if(wEl){
@@ -6012,13 +6190,21 @@ function updatePldCalcCells(i) {
     var dev = _pldCapDevice ? _pldCapDevice() : 'PLD';
     wEl.innerHTML = '<span class="ht">'+dev+'</span><span class="hl">Net held</span><span class="hv">'+heldTxt+'</span>';
   }
-  // Card-head verdict chip (Option B)
+  // Card-head verdict chip + manual override dropdown (effective status)
   if(vchip){
-    vchip.className = 'fp-verdict '+v.verdict;
-    vchip.textContent = v.verdict==='pass'?'\u2713 PASS':v.verdict==='fail'?'\u2717 FAIL':'\u2014';
+    var eff=v.verdict;
+    var manual=(v.override==='pass'||v.override==='fail'||v.override==='flag');
+    var vtx = eff==='pass'?'\u2713 PASS':eff==='fail'?'\u2717 FAIL':eff==='flag'?'\u2691 FLAG':'\u2014';
+    vchip.className = 'fp-verdict '+eff+(manual?' manual':'');
+    vchip.innerHTML = '<span class="fp-v-txt">'+vtx+'</span>'+_overrideDropdown('pld', i, v.override||'auto');
   }
   // Advisory warnings (do NOT affect pass/fail) — shown in the flags row beneath the card
   var warns = [];
+  // PLD device check result (flag at +1..3 psi over setpoint; >+3 is a FAIL handled by verdict)
+  if(v.pldDev && v.pldDev.state==='flag') warns.push('PLD discharge '+v.pldDev.over.toFixed(1)+' psi over setpoint (within +3 psi tolerance) — verify PLD');
+  if(v.pldDev && v.pldDev.state==='fail') warns.push('PLD discharge '+v.pldDev.over.toFixed(1)+' psi over setpoint (&gt; +3 psi) — PLD not holding');
+  // §14.2.4.2 ±1% certified-curve flag
+  if(v.curveFlag && v.adjNet!=null && !isNaN(parseFloat(row.placard))) warns.push('Curve match: adj net '+v.adjNet.toFixed(0)+' psi vs placard '+parseFloat(row.placard).toFixed(0)+' psi — outside \u00B11% gauge accuracy (\u00A714.2.4.2)');
   var bfUp = parseFloat(row.bfUp);
   if(!isNaN(bfUp) && bfUp < 20) warns.push('Backflow &lt; 20 psi');
   var skipNoPLD = (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i);
@@ -6641,6 +6827,7 @@ function renderFigSupply3pt(){
 function renderFigVerdict3pt(){
   var el=document.getElementById('figv-chart3pt'); if(!el) return;
   var verds=stdData.map(function(r){return _calcFlowPoint(r).verdict;});
+  // effective verdicts: 'fail' fails the chart; 'flag' is NOT a fail; need ≥1 'pass' to assert PASS
   if(verds.some(function(v){return v==='fail';})){el.className='fig-verdict fail';el.textContent='✗ FAIL';}
   else if(verds.some(function(v){return v==='pass';})){el.className='fig-verdict pass';el.textContent='✓ PASS';}
   else {el.className='fig-verdict na';el.textContent='—';}
@@ -8712,9 +8899,23 @@ function _exportAddRecipient(){
   inp.value='';
   _exportModalLine();
 }
-function _exmChip(name,state,removable){
+// S366: per-recipient colours in the export modal — each owner/contractor gets a
+// distinct, STABLE colour (same name → same colour every time), matching FRT's
+// per-recipient colour treatment. Diesel stores contractors as plain name strings
+// (no roster colour like FRT), so assign deterministically by name hash from a
+// MUTED palette (no bright saturated hues — per ARENCON colour rule).
+var _EXM_OWNER_C = '#3E4C66';   // steel — owner (mirrors FRT OWNER_C)
+var _EXM_OTHER_C = '#6B7280';   // neutral grey — manually-pooled recipients (FRT ADDED_C)
+var _EXM_CTR_PALETTE = ['#2C6E8F','#5B7A52','#8A5A7A','#9C6B3E','#4A6B8A','#6E5A8A','#5A7D6E','#8A6B4A','#436B6B','#7A5A5A'];
+function _exmColorFor(name){
+  var s = String(name||''); var h = 0;
+  for(var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) & 0x7fffffff; }
+  return _EXM_CTR_PALETTE[h % _EXM_CTR_PALETTE.length];
+}
+function _exmChip(name,state,removable,color){
   var on=(state==='on');
-  return '<span class="exm-chip'+(on?' on':'')+'" data-name="'+_exmEsc(name)+'" onclick="if(event.target.classList.contains(\'exm-rm\'))return;_exportModalToggle(this)">'
+  var c = color || _EXM_OTHER_C;
+  return '<span class="exm-chip'+(on?' on':'')+'" data-name="'+_exmEsc(name)+'" style="--c:'+c+';" onclick="if(event.target.classList.contains(\'exm-rm\'))return;_exportModalToggle(this)">'
     +'<span class="exm-dot">'+(on?'\u2713':'')+'</span>'+_exmEsc(name)
     +(removable?'<span class="exm-rm" title="Remove recipient" onclick="this.parentNode.remove();_exportModalLine();">\u00D7</span>':'')
     +'</span>';
@@ -8740,34 +8941,34 @@ function _exportModalOpen(){
   var subtitle=((proj.projno?proj.projno+' ':'')+(proj.projname||'')).trim()+' \u00B7 Diesel Fire Pump Commissioning Report';
 
   var ownerHtml = owner
-    ? '<div class="exm-grp"><div class="exm-glbl">Owner</div><div class="exm-chips">'+_exmChip(owner,on(owner)?'on':'',false)+'</div></div>'
+    ? '<div class="exm-grp"><div class="exm-glbl">Owner</div><div class="exm-chips">'+_exmChip(owner,on(owner)?'on':'',false,_EXM_OWNER_C)+'</div></div>'
     : '';
   var ctrHtml = ctrs.length
-    ? '<div class="exm-grp"><div class="exm-glbl">Contractors</div><div class="exm-chips">'+ctrs.map(function(c){return _exmChip(c,on(c)?'on':'',false);}).join('')+'</div></div>'
+    ? '<div class="exm-grp"><div class="exm-glbl">Contractors</div><div class="exm-chips">'+ctrs.map(function(c){return _exmChip(c,on(c)?'on':'',false,_exmColorFor(c));}).join('')+'</div></div>'
     : '';
   var otherHtml = '<div class="exm-grp" id="exm-other-grp"'+(others.length?'':' style="display:none;"')+'>'
     +'<div class="exm-glbl">Other recipients</div><div class="exm-chips" id="exm-other">'
-    +others.map(function(n){return _exmChip(n,'on',true);}).join('')+'</div></div>';
+    +others.map(function(n){return _exmChip(n,'on',true,_EXM_OTHER_C);}).join('')+'</div></div>';
 
   var ov=document.createElement('div'); ov.id='exm-ov';
   ov.style.cssText='position:fixed;inset:0;z-index:99992;background:rgba(16,20,30,.62);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Calibri,sans-serif;';
   ov.innerHTML=
-    '<div style="background:#FBFAFC;color:#1B1A22;border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.45);overflow:hidden;">'
-    +'<div style="padding:18px 24px 12px;border-bottom:1px solid #E3E1E8;flex:0 0 auto;">'
-      +'<div style="font-size:18px;font-weight:700;">Export Report</div>'
-      +'<div style="font-size:12.5px;color:#5E5B68;margin-top:2px;">'+_exmEsc(subtitle)+'</div></div>'
+    '<div class="exm-card" style="border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">'
+    +'<div class="exm-head">'
+      +'<div class="exm-title">Export Report</div>'
+      +'<div class="exm-sub">'+_exmEsc(subtitle)+'</div></div>'
     +'<div style="flex:1 1 auto;overflow-y:auto;padding:6px 24px 8px;">'
       +'<div class="exm-sec-lbl">Distribution</div>'
       +ownerHtml+ctrHtml+otherHtml
       +'<div class="exm-addrow"><input type="text" id="exm-newrec" placeholder="Add a recipient \u2014 e.g. base-building service contractor, construction PM\u2026" onkeydown="if(event.key===\'Enter\'){_exportAddRecipient();event.preventDefault();}"><button onclick="_exportAddRecipient()">+ Add to pool</button></div>'
       +'<div class="exm-dline"><div class="exm-dl-l">Distribution line</div><div class="exm-dl-v" id="exm-dl"></div></div>'
       +'<div class="exm-sec-lbl" style="margin-top:14px;">Report Photos</div>'
-      +'<div class="exm-photos"><span style="flex:0 0 auto;display:inline-flex;color:#5E5B68;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
+      +'<div class="exm-photos"><span class="exm-ph-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
         +'<span style="flex:1;"><b id="exm-photo-count" style="display:block;font-size:13.5px;">'+(ptot?(incl===ptot?('All '+ptot+' photo'+(ptot===1?'':'s')+' will print'):(incl+' of '+ptot+' photos will print')):'No report photos yet')+'</b>'
-        +'<span style="font-size:12px;color:#5E5B68;">Included by default \u2014 review only if you want to exclude some</span></span>'
+        +'<span class="exm-ph-sub">Included by default \u2014 review only if you want to exclude some</span></span>'
         +(ptot?'<button onclick="_prePrintFromMenu()">Review photos\u2026</button>':'')+'</div>'
     +'</div>'
-    +'<div style="flex:0 0 auto;display:flex;gap:10px;padding:14px 24px;background:#F2F0F5;border-top:1px solid #E3E1E8;">'
+    +'<div class="exm-foot">'
       +'<button class="exm-btn exm-cancel" onclick="_exportModalClose()">Cancel</button><span style="flex:1;"></span>'
       +'<button class="exm-btn exm-go" onclick="_exportModalGenerate()">\uD83D\uDCC4 Generate PDF</button></div>'
     +'</div>';
@@ -10308,8 +10509,11 @@ function renderChartAnnotations(chartInstance, canvasId) {
         'Adjusted Net (RPM-corrected)':1,    // net-curve adjusted
         'Cutsheet (Design)':1,               // S327: now labelled (was broken)
         'Placard':1,                         // S327: now labelled
-        'Sprinkler Demand Line (SD)':1,      // S327: now labelled (was broken)
-        'Available Supply':1
+        'Sprinkler Demand Line (SD)':1       // S327: now labelled (was broken)
+        // S366: 'Available Supply' REMOVED from PRIMARY. As a primary it was labelling all
+        // 25 interpolated hydraulic-curve points (the label smear in the 7-pt chart). It now
+        // falls through to the endpoint-only branch below → labels ONLY the first + last
+        // points = static and residual. The curve itself still draws through all 25 points.
       };
       var _ANNOTATE_POINTS = {               // marker datasets — single points, no stacking
         'Total System Demand':1, '_sprDemPt':1, '_sprDemPtPld':1,
@@ -10330,6 +10534,17 @@ function renderChartAnnotations(chartInstance, canvasId) {
       }
       // Skip annotations for zero-value points (0 gpm @ 0 psi)
       if(pt.x === 0 && pt.y === 0) return;
+      // S366: the Total System Demand diamond and the OHL line END at the SAME coordinate
+      // (sprinkler+hose flow @ sprinkler psi). When OHL exists it carries the richer label
+      // ("1,750 gpm @ 100 psi (+250 gpm OHL)"), so the diamond's plain "1,750 gpm @ 100 psi"
+      // is a redundant duplicate — suppress it. (If there's no OHL, the diamond keeps its label.)
+      if(_lbl === 'Total System Demand'){
+        try{
+          var _tdp=(canvasId.indexOf('pld')>=0)?'pld-':'';
+          var _ohf=parseFloat(document.getElementById(_tdp+'dem-hose-flow')?.value)||0;
+          if(_ohf>0) return;   // OHL present → its endpoint label covers this point
+        }catch(e){}
+      }
       // S226: cap lines (PRV/PRdV/PLD) — device+setpoint label only (no flow), right endpoint only.
       // Cap extends to 150% rated flow; the right end is where the label reads cleanly.
       // S327: OHL gets a bespoke right-end label (total demand incl. OHL).
@@ -11430,11 +11645,38 @@ async function _isRealImageBlob(blob){
 // lightbox fallback). Resolves src via _photoSrc, fetches the bytes to a blob,
 // validates it's a real image (R2 content-type is unreliable), and saves a real
 // file — never window.open / cross-origin href (which just navigates to a page).
+// ════ S366: badge-prefixed download filenames ════
+// Every download (tiles, lightbox, flow-equip, gallery single + bulk) routes its
+// filename through here so the saved file leads with the SAME short badge shown on
+// the photo in the UI, then the original name. e.g. "3·Placard·(originalname).jpg",
+// "7·25%·D·PLD·(originalname).jpg". Badge read from _collectAllPhotos() — single
+// source of truth for on-screen badges — so filename ≡ what you see. Separator "·"
+// (legal on Windows/macOS/Linux); "*" is NOT a legal filename char and was avoided.
+function _dslSanitizeFilePart(s){
+  return String(s||'').replace(/[\/\\:*?"<>|\u0000-\u001F]/g,'-').replace(/\s+/g,' ').trim();
+}
+function _dslPhotoBadge(p){
+  if(!p) return '';
+  try{
+    var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
+    var hit = null;
+    for(var i=0;i<all.length;i++){ if(all[i].photo===p){ hit=all[i]; break; } }
+    if(!hit && p.id){ for(var j=0;j<all.length;j++){ if(all[j].photo && all[j].photo.id===p.id){ hit=all[j]; break; } } }
+    return hit && hit.badge ? hit.badge : '';
+  }catch(e){ return ''; }
+}
+function _dslBadgeFilename(p){
+  var orig = (p && p.n) ? p.n : ('photo_'+Date.now()+'.jpg');
+  if(!/\.(jpe?g|png|webp|gif|bmp)$/i.test(orig)) orig += '.jpg';
+  var badge = _dslSanitizeFilePart(_dslPhotoBadge(p));
+  if(!badge) return _dslSanitizeFilePart(orig);
+  return badge + '·' + _dslSanitizeFilePart(orig);
+}
+
 async function _dslDownloadPhoto(p){
   try{
     var src = _photoSrc(p);
-    var name = (p && p.n) ? p.n : ('photo_'+Date.now()+'.jpg');
-    if(!/\.(jpe?g|png|webp|gif|bmp)$/i.test(name)) name += '.jpg';
+    var name = _dslBadgeFilename(p);
     if(!src){ if(typeof showToast==='function') showToast('Photo not available'); return; }
     if(src.startsWith('data:')){
       var a0=document.createElement('a'); a0.href=src; a0.download=name;
@@ -12563,40 +12805,152 @@ async function _r2CleanupOrphans(){
   }catch(e){ showToast('R2 cleanup error: '+e.message,3000); console.error('[R2Cleanup]',e); }
 }
 
-// ── Issue Report ──
-async function issueReport() {
+// ── Issue Report — S366: ported from FRT revision state machine ──
+// Revision grammar (matches FRT exactly):
+//   A##        = draft         e.g. A01, A02
+//   B##        = issued        e.g. B01, B02
+//   B##A##     = revision of an issued report  e.g. B01A01
+// Any non-conforming legacy free-text value (e.g. R00/R01) is treated as an
+// unissued draft, so the first Issue takes it to B01 — agreed S366, no migration.
+function _dslParseRevision(rev){
+  var m;
+  m = rev.match(/^([B-Z])(\d{2,})A(\d{2,})$/);   // B##A## (revision of issued)
+  if(m) return { issued:true, hasSuffix:true, letter:m[1], major:parseInt(m[2],10), suffixNum:parseInt(m[3],10) };
+  m = rev.match(/^([B-Z])(\d{2,})$/);             // B## (issued)
+  if(m) return { issued:true, hasSuffix:false, letter:m[1], major:parseInt(m[2],10), suffixNum:0 };
+  m = rev.match(/^A(\d{2,})$/);                    // A## (draft)
+  if(m) return { issued:false, hasSuffix:false, letter:'A', major:parseInt(m[1],10), suffixNum:0 };
+  return { issued:false, hasSuffix:false, letter:'A', major:1, suffixNum:0 };  // legacy/unknown → draft
+}
+function _dslCalcIssueRevision(parsed){
+  if(!parsed.issued) return 'B01';
+  var next = parsed.major + 1;
+  return parsed.letter + (next < 10 ? '0' : '') + next;
+}
+function _dslCalcRevertDraft(){
+  var highest = 0;
+  if(window._dslLastDraftNum) highest = window._dslLastDraftNum;
+  else { var m = (_dslCurrentRevision()||'').match(/^A(\d+)$/); if(m) highest = parseInt(m[1],10); }
+  var next = highest + 1;
+  return 'A' + (next < 10 ? '0' : '') + next;
+}
+function _dslCurrentRevision(){
+  var revEl = document.getElementById('pi-revision');
+  var v = revEl && revEl.value ? revEl.value.trim() : '';
+  if(v) return v;
+  if(typeof formRevision === 'string' && formRevision.trim()) return formRevision.trim();
+  return 'A01';
+}
+function _dslSetRevision(newRev){
+  var revEl = document.getElementById('pi-revision');
+  if(revEl) revEl.value = newRev;
+  try { formRevision = newRev; } catch(e){}
+}
+function _dslSetStatusBadges(label, bg){
+  var badge = document.getElementById('issue-status-badge');
+  if(badge){ badge.textContent = label; badge.style.background = bg; badge.style.display = 'inline-block'; }
+  var pbb = document.getElementById('pb-badge');
+  if(pbb){ pbb.textContent = label; pbb.style.background = bg; }
+}
+// S366: derive badge label+colour from the revision string, matching FRT exactly
+// (frt_app.js). DRAFT/REVISION = amber #E67E22, ISSUED = green #1A7A4A.
+function _dslBadgeFromRevision(rev){
+  var parsed = _dslParseRevision(rev || _dslCurrentRevision());
+  var st = parsed.issued ? (parsed.hasSuffix ? 'REVISION' : 'ISSUED') : 'DRAFT';
+  var colors = { DRAFT:'#E67E22', ISSUED:'#1A7A4A', REVISION:'#E67E22' };
+  return { label: st, color: colors[st] || '#E67E22' };
+}
+function _dslSyncStatusBadges(){
+  var b = _dslBadgeFromRevision();
+  _dslSetStatusBadges(b.label, b.color);
+}
+
+function issueReport(){
   if(!_csHubMode || typeof CloudSync === 'undefined' || !CloudSync.isInitialized){
     showToast('Issue is only available when launched from the Hub', 3000);
     return;
   }
-  _aConfirm('Issue this report? This will mark it as officially issued (B01) and save to cloud.',async function(){
+  var rev = _dslCurrentRevision();
+  var parsed = _dslParseRevision(rev);
+  var isDark = document.body.classList.contains('dark-mode');
+  var bg  = isDark ? '#161420' : '#fff';
+  var fg  = isDark ? '#f4f3f6' : '#1B1A22';
+  var fg2 = isDark ? '#a09aa8' : '#5E5B68';
 
-  // Set revision to B01 if not already set
-  var revEl = document.getElementById('pi-revision');
-  if(revEl && (!revEl.value || revEl.value.trim() === '')) revEl.value = 'B01';
+  var ov = document.createElement('div');
+  ov.id = 'issue-modal-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(16,20,30,.62);z-index:99993;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;padding:18px;';
 
-  // Save state
-  try {
-    var state = _collectCloudState();
-    await CloudSync.save(state);
-    // Update status to issued
-    if(CloudSync.instanceId){
-      await CloudSync.request('/rest/v1/tool_data?id=eq.' + CloudSync.instanceId, {
-        method: 'PATCH',
-        body: { status: 'issued', updated_at: new Date().toISOString() }
-      });
-    }
-    showToast('✓ Report issued as B01', 3000);
-    // Update header badge
-    var badge = document.getElementById('issue-status-badge');
-    if(badge){ badge.textContent = 'ISSUED'; badge.style.background = '#5F8068'; badge.style.display = 'inline-block'; }
-    // Update project bar badge
-    var pbb = document.getElementById('pb-badge');
-    if(pbb){ pbb.textContent = 'ISSUED'; pbb.style.background = '#5F8068'; }
-  } catch(e) {
-    showToast('Failed to issue: ' + e.message, 3000);
+  var okBg   = isDark ? 'rgba(63,208,138,.14)' : '#E2F0E9', okBd  = isDark ? 'rgba(63,208,138,.45)' : 'rgba(46,158,114,.4)', okTx = isDark ? '#3FD08A' : '#1d5e42';
+  var wnBg   = isDark ? 'rgba(224,163,106,.14)' : '#F7ECD9', wnBd  = isDark ? 'rgba(224,163,106,.45)' : 'rgba(217,138,30,.4)', wnTx = isDark ? '#E0A36A' : '#7a4a14';
+  var nuBg   = isDark ? 'rgba(70,197,232,.13)'  : '#E7EEF5', nuBd  = isDark ? 'rgba(70,197,232,.4)'  : 'rgba(44,127,184,.38)', nuTx = isDark ? '#46C5E8' : '#27506e';
+  function rowBtn(act,target,icon,text,b,bd,tx){
+    return '<button data-issue-action="'+act+'" data-rev="'+target+'" style="width:100%;margin-bottom:10px;text-align:left;padding:12px 16px;font-size:calc(14px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;border:1px solid '+bd+';background:'+b+';color:'+tx+';border-radius:9px;cursor:pointer;">'
+      + icon+' '+text+'<span style="float:right;font-weight:400;opacity:.85;">'+rev+' \u2192 <b>'+target+'</b></span></button>';
   }
-  },'Issue');
+  var html = '<div style="background:'+bg+';border-radius:14px;padding:26px 30px;max-width:430px;width:100%;box-shadow:0 18px 60px rgba(0,0,0,.45);color:'+fg+';">';
+  html += '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">\uD83D\uDCCB Report Status</div>';
+  html += '<div style="font-size:calc(13px + var(--ts));color:'+fg2+';margin-bottom:20px;">Current revision: <b style="color:'+fg+';">'+rev+'</b></div>';
+  html += rowBtn('issue', _dslCalcIssueRevision(parsed), '\uD83D\uDCCB', 'Issue Report', okBg, okBd, okTx);
+  if(parsed.issued && !parsed.hasSuffix){
+    html += rowBtn('revise', rev + 'A01', '\u270F\uFE0F', 'Revise Issued Report', wnBg, wnBd, wnTx);
+  }
+  if(parsed.issued){
+    html += rowBtn('revert', _dslCalcRevertDraft(), '\u21A9\uFE0F', 'Revert to Draft', nuBg, nuBd, nuTx);
+  }
+  html += '<button data-issue-action="cancel" style="width:100%;margin-top:4px;padding:11px 16px;font-size:calc(14px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;border:1px solid '+(isDark?'rgba(255,255,255,.14)':'#D8D5DE')+';background:'+(isDark?'rgba(255,255,255,.05)':'#F2F0F5')+';color:'+fg2+';border-radius:9px;cursor:pointer;">Cancel</button>';
+  html += '</div>';
+  ov.innerHTML = html;
+
+  ov.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-issue-action]');
+    if(!btn) return;
+    var act = btn.getAttribute('data-issue-action');
+    var newRev = btn.getAttribute('data-rev') || '';
+    ov.remove();
+    if(act === 'issue') _dslDoIssue(newRev);
+    else if(act === 'revise') _dslDoRevise(newRev);
+    else if(act === 'revert') _dslDoRevertDraft(newRev);
+  });
+  document.body.appendChild(ov);
+}
+
+async function _dslPatchStatus(status){
+  if(CloudSync.instanceId){
+    await CloudSync.request('/rest/v1/tool_data?id=eq.' + CloudSync.instanceId, {
+      method: 'PATCH',
+      body: { status: status, updated_at: new Date().toISOString() }
+    });
+  }
+}
+async function _dslDoIssue(newRev){
+  var curMatch = _dslCurrentRevision().match(/^A(\d+)$/);
+  if(curMatch) window._dslLastDraftNum = parseInt(curMatch[1],10);
+  _dslSetRevision(newRev);
+  try {
+    await CloudSync.save(_collectCloudState());
+    await _dslPatchStatus('issued');
+    _dslSyncStatusBadges();
+    showToast('\u2713 Report issued as ' + newRev, 3000);
+  } catch(e){ showToast('Failed to issue: ' + e.message, 3000); }
+}
+async function _dslDoRevise(newRev){
+  _dslSetRevision(newRev);
+  try {
+    await CloudSync.save(_collectCloudState());
+    await _dslPatchStatus('draft');
+    _dslSyncStatusBadges();
+    showToast('Revision started: ' + newRev, 3000);
+  } catch(e){ showToast('Failed to start revision: ' + e.message, 3000); }
+}
+async function _dslDoRevertDraft(newRev){
+  _dslSetRevision(newRev);
+  try {
+    await CloudSync.save(_collectCloudState());
+    await _dslPatchStatus('draft');
+    _dslSyncStatusBadges();
+    showToast('Reverted to draft: ' + newRev, 3000);
+  } catch(e){ showToast('Failed to revert: ' + e.message, 3000); }
 }
 
 function showSaveToast(msg, color) {
@@ -13081,12 +13435,18 @@ window.addEventListener('load', () => {
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
         }
-        // Show status badge
+        // Show status badge — S366: derive from the restored revision string with
+        // FRT colours (ISSUED green #1A7A4A, DRAFT/REVISION amber #E67E22). Falls back to
+        // the Supabase status only for 'review' (no revision-grammar equivalent).
         var badge = document.getElementById('issue-status-badge');
-        if(badge && result && result.row){
-          var st = result.row.status || 'draft';
-          badge.textContent = st.toUpperCase();
-          badge.style.background = st === 'issued' ? '#5F8068' : st === 'review' ? '#1565C0' : '#E65100';
+        if(badge){
+          var _rowSt = (result && result.row && result.row.status) || 'draft';
+          if(_rowSt === 'review'){
+            badge.textContent = 'REVIEW'; badge.style.background = '#1565C0';
+            var _pbR=document.getElementById('pb-badge'); if(_pbR){ _pbR.textContent='REVIEW'; _pbR.style.background='#1565C0'; }
+          } else {
+            _dslSyncStatusBadges();
+          }
           badge.style.display = 'inline-block';
         }
         // Start auto-save (30s)
@@ -14439,6 +14799,7 @@ function _recZoneHtml(kind){
     thumbs.forEach(function(o){
       html+='<div style="position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);">'
         +'<img src="'+(o.p.d||o.p.r2Url||'')+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+        +'<button onclick="event.stopPropagation();_recDownloadById(\''+(o.p.id||'')+'\')" title="Download" style="position:absolute;bottom:2px;left:2px;background:rgba(44,71,112,.92);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">\u2193</button>'
         +'<button onclick="_recDelete('+o.i+')" title="Remove" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">✕</button>'
         +'</div>';
     });
@@ -14473,6 +14834,7 @@ function _evTileHtml(kind){
       var p=o.p;
       fhtml+='<div class="ev-thumb">'
         +'<img src="'+_photoSrc(p)+'" onclick="if(typeof openLightbox===\'function\')openLightbox('+arrName+','+o.i+',{renderer:_renderRecordZones})" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+        +'<button class="ev-thumb-dl" title="Download this photo" onclick="event.stopPropagation();_recDownloadById(\''+(p.id||'')+'\')">\u2193</button>'
         +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
         +'</div>';
     });
@@ -14494,6 +14856,7 @@ function _evTileHtml(kind){
     var p=o.p;
     html+='<div class="ev-thumb">'
       +'<img src="'+(p.d||p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+      +'<button class="ev-thumb-dl" title="Download this photo" onclick="event.stopPropagation();_recDownloadById(\''+(p.id||'')+'\')">\u2193</button>'
       +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
       +'</div>';
   });
@@ -14512,6 +14875,18 @@ function _recDeletePhotoById(pid){
       if(typeof _renderRecordZones==='function') _renderRecordZones();
     });
   }
+}
+// S366: download an evidence-tile photo by id (records + flow-equip). Resolves the
+// live photo object across all arrays, then routes through _dslDownloadPhoto so the
+// saved file carries the badge-prefixed name like every other download path.
+function _recDownloadById(pid){
+  if(!pid){ showToast('Photo not found'); return; }
+  var found=null;
+  if(typeof _forEachLivePhoto==='function'){
+    _forEachLivePhoto(function(p){ if(!found && p && p.id===pid) found=p; });
+  }
+  if(!found){ showToast('Photo not available'); return; }
+  if(typeof _dslDownloadPhoto==='function') _dslDownloadPhoto(found);
 }
 function _renderRecordZones(){
   // Photos tab: general site records only (full zone style)
@@ -15094,7 +15469,7 @@ async function _pgBulkDownload(items){
     // instead of saving it. Fetching to a blob + object URL downloads reliably.
     var p = items[0].photo;
     var src = _photoSrc(p);
-    var name = p.n || ('photo_'+Date.now()+'.jpg');
+    var name = _dslBadgeFilename(p);
     if(!src){ showToast('Photo not available'); return; }
     try{
       if(src.startsWith('data:')){
@@ -15140,7 +15515,8 @@ async function _pgZipDownload(items){
     for(var i=0; i<items.length; i++){
       var p = items[i].photo;
       var src = _photoSrc(p);
-      var name = (p.n || ('photo_'+(i+1)+'.jpg'));
+      // S366: badge-prefixed name, same helper as single-download for consistency.
+      var name = _dslBadgeFilename(p);
       // de-dupe filenames so generic camera names don't overwrite in the zip
       if(used[name]){ var dot=name.lastIndexOf('.'); name = (dot>0?name.slice(0,dot):name)+'_'+(i+1)+(dot>0?name.slice(dot):'.jpg'); }
       used[name]=1;
