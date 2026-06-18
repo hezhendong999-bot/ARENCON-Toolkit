@@ -13035,9 +13035,9 @@ function _dslSetRevision(newRev){
 }
 function _dslSetStatusBadges(label, bg){
   var badge = document.getElementById('issue-status-badge');
-  if(badge){ badge.textContent = label; badge.style.background = bg; badge.style.display = 'inline-block'; }
+  if(badge){ badge.textContent = label; badge.style.setProperty('background', bg, 'important'); badge.style.display = 'inline-block'; }
   var pbb = document.getElementById('pb-badge');
-  if(pbb){ pbb.textContent = label; pbb.style.background = bg; }
+  if(pbb){ pbb.textContent = label; pbb.style.setProperty('background', bg, 'important'); }
 }
 // S366: derive badge label+colour from the revision string, matching FRT exactly
 // (frt_app.js). DRAFT/REVISION = amber #E67E22, ISSUED = green #1A7A4A.
@@ -13629,8 +13629,8 @@ window.addEventListener('load', () => {
         if(badge){
           var _rowSt = (result && result.row && result.row.status) || 'draft';
           if(_rowSt === 'review'){
-            badge.textContent = 'REVIEW'; badge.style.background = '#1565C0';
-            var _pbR=document.getElementById('pb-badge'); if(_pbR){ _pbR.textContent='REVIEW'; _pbR.style.background='#1565C0'; }
+            badge.textContent = 'REVIEW'; badge.style.setProperty('background','#1565C0','important');
+            var _pbR=document.getElementById('pb-badge'); if(_pbR){ _pbR.textContent='REVIEW'; _pbR.style.setProperty('background','#1565C0','important'); }
           } else {
             _dslSyncStatusBadges();
           }
@@ -17143,7 +17143,7 @@ body.dark-mode .phase-bar{background:rgba(0,0,0,.30)!important;}
 .project-bar{background:var(--b-chrome2)!important;border-top:1px solid var(--b-chrome-rule)!important;}
 body.dark-mode .project-bar{background:var(--b-chrome2)!important;border-top-color:var(--b-chrome-rule)!important;}
 .project-bar .pb-filename{color:var(--b-chrome-fg)!important;}
-.project-bar .pb-badge{background:#E67E22!important;color:#fff!important;}
+.project-bar .pb-badge{background:#E67E22;color:#fff!important;}
 
 /* sub-tabs = S245 Slice 1 Bold two-skin chrome (source-order winner) */
 .section-nav{width:100%!important;}
