@@ -10010,7 +10010,10 @@ function _realExportPDF() {
           }
         });
       }
-      // Split a non-table tall body at its direct children.
+      // Split a non-table tall body at its direct children. If a child is
+      // itself a table taller than a page, recurse into _splitTable for it so
+      // big tables (e.g. the 7-point PLD table) split row-by-row instead of
+      // being dropped or overflowing.
       function _splitGeneric(block, head){
         var kids = Array.from(block.children);
         function _wrap(cont){
@@ -10021,10 +10024,28 @@ function _realExportPDF() {
         var w = _wrap(false);
         kids.forEach(function(k){
           w.appendChild(k);
-          if(_overflow() && w.children.length > 1){
+          if(!_overflow()) return;                 // fits — keep it
+          if(w.children.length > 1){               // not alone on this wrapper
             w.removeChild(k);
-            w = _wrap(true);
-            w.appendChild(k);
+            // If k (or its inner table) is a splittable table, split it; else
+            // move it whole to a fresh wrapper.
+            var kt = (k.matches && k.matches('table')) ? k : (k.querySelector ? k.querySelector('table') : null);
+            if(kt && kt.tBodies && kt.tBodies.length && kt.tBodies[0].rows.length > 2){
+              _splitTable(k, kt, head);
+              w = curPage.lastChild;               // continue appending into the last wrapper _splitTable left
+              if(!w || w === block) { w = _wrap(true); }
+            } else {
+              w = _wrap(true);
+              w.appendChild(k);
+            }
+          } else {
+            // k is alone and still overflows → it's an oversized single block
+            // (e.g. a chart image taller than a page). Try to split if it's a
+            // table; otherwise leave it (rides its own page, can't split a img).
+            var kt2 = (k.matches && k.matches('table')) ? k : (k.querySelector ? k.querySelector('table') : null);
+            if(kt2 && kt2.tBodies && kt2.tBodies.length && kt2.tBodies[0].rows.length > 2){
+              w.removeChild(k); _splitTable(k, kt2, head); w = curPage.lastChild || _wrap(true);
+            }
           }
         });
       }
@@ -10057,8 +10078,11 @@ function _realExportPDF() {
           curPage.appendChild(bn);
           if(!_overflow()) return;            // fit whole
           curPage.removeChild(bn);            // too tall → split it
+          // .sb.flush = a single checklist table → split rows. Plain .sb =
+          // mixed content (tables + charts + headings) → split at children.
+          var isFlush = bn.classList && bn.classList.contains('flush');
           var table = (bn.matches && bn.matches('table')) ? bn : (bn.querySelector ? bn.querySelector('table') : null);
-          if(table && table.tBodies && table.tBodies.length){ _splitTable(bn, table, head); }
+          if(isFlush && table && table.tBodies && table.tBodies.length){ _splitTable(bn, table, head); }
           else { _splitGeneric(bn, head); }
         });
       });
