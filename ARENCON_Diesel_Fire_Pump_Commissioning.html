@@ -9933,6 +9933,7 @@ function _realExportPDF() {
         var pg = wd.createElement('div');
         pg.className = 'page';
         pg.style.cssText = origPage.style.cssText;   // full .page styling on EVERY page
+        pg.style.minHeight = '0';                    // so offscreen measurement reflects real content height (print CSS restores letter sizing)
         if(withHeader){
           var h = _makeCompactHeaderNode(pageNum);
           if(h) pg.appendChild(h);
@@ -9940,11 +9941,16 @@ function _realExportPDF() {
         return pg;
       }
 
-      // Offscreen measuring host, same content width as a real page.
-      var measHost = wd.createElement('div');
-      measHost.style.cssText = 'position:absolute;left:-9999px;top:0;width:'+(origPage.clientWidth||816)+'px;padding:0 0.6in;box-sizing:border-box;visibility:hidden;';
-      wd.body.appendChild(measHost);
-      function _h(node){ measHost.appendChild(node); var hh=node.offsetHeight||0; measHost.removeChild(node); return hh; }
+      // Live offscreen build stage. Pages are measured WHILE in the document so
+      // table rows (which have no height when detached) measure correctly.
+      // PAGE_LIMIT = printable content height inside the 11in sheet minus the
+      // 0.5in top+bottom padding (~96px) — the height at which a .page overflows
+      // onto a second physical sheet.
+      var stage = wd.createElement('div');
+      stage.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;';
+      wd.body.appendChild(stage);
+      var PAGE_LIMIT = (11 - 1.0) * 96;   // 11in − (0.5in top + 0.5in bottom) ≈ 960px
+      function _overflow(){ return curPage.offsetHeight > PAGE_LIMIT; }
 
       // Find first section band; everything before it = cover/dashboard (page 1).
       var firstSectionIdx = children.findIndex(function(c){ return c.classList && c.classList.contains('sh'); });
@@ -9965,11 +9971,13 @@ function _realExportPDF() {
       }
       if(u) units.push(u);
 
-      // ── Flow units onto pages 2+ ──
+      // ── Flow units onto pages 2+ (live-measured) ──
       var curPage = _newPage(true, 2);
-      var headerH = _h(_makeCompactHeaderNode(2));
-      var curH = headerH;
-      function _push(){ pages.push(curPage); curPage = _newPage(true, pages.length+1); curH = headerH; }
+      stage.appendChild(curPage);
+      function _push(){ pages.push(curPage); curPage = _newPage(true, pages.length+1); stage.appendChild(curPage); }
+      // A page is "full enough" that the next section should start fresh rather
+      // than cram a band at the very bottom. Empty-ish page (header only) → not full.
+      function _pageFull(){ return curPage.offsetHeight > PAGE_LIMIT * 0.55 && curPage.children.length > 1; }
       function _bandClone(headEl, cont){
         if(!headEl) return null;
         var b = headEl.cloneNode(true);
@@ -9983,62 +9991,80 @@ function _realExportPDF() {
         var tbody = table.tBodies[0];
         var rows = Array.from(tbody.rows);
         function _shell(cont){
-          if(curH > headerH + 30){ _push(); }
-          if(cont && head){ var b=_bandClone(head,true); curPage.appendChild(b); curH += _h(b); }
+          if(_pageFull()){ _push(); }
+          if(cont && head){ curPage.appendChild(_bandClone(head,true)); }
           var w = wrapper.cloneNode(false);
           var t = table.cloneNode(false);
           if(thead) t.appendChild(thead.cloneNode(true));
           var tb = wd.createElement('tbody'); t.appendChild(tb); w.appendChild(t);
-          curPage.appendChild(w); curH += _h(w);
+          curPage.appendChild(w);
           return tb;
         }
         var tb = _shell(false);
         rows.forEach(function(r){
-          var rH = _h(r);
-          if(curH + rH > PAGE_H && tb.rows.length > 0){ tb = _shell(true); }
-          tb.appendChild(r); curH += rH;
+          tb.appendChild(r);                 // place row, then measure the LIVE page
+          if(_overflow() && tb.rows.length > 1){
+            tb.removeChild(r);               // pull it back
+            tb = _shell(true);               // continue on a fresh page
+            tb.appendChild(r);
+          }
         });
       }
       // Split a non-table tall body at its direct children.
       function _splitGeneric(block, head){
         var kids = Array.from(block.children);
         function _wrap(cont){
-          if(curH > headerH + 30){ _push(); }
-          if(cont && head){ var b=_bandClone(head,true); curPage.appendChild(b); curH += _h(b); }
+          if(_pageFull()){ _push(); }
+          if(cont && head){ curPage.appendChild(_bandClone(head,true)); }
           var w = block.cloneNode(false); curPage.appendChild(w); return w;
         }
         var w = _wrap(false);
         kids.forEach(function(k){
-          var kH = _h(k);
-          if(curH + kH > PAGE_H && w.children.length > 0){ w = _wrap(true); }
-          w.appendChild(k); curH += kH;
+          w.appendChild(k);
+          if(_overflow() && w.children.length > 1){
+            w.removeChild(k);
+            w = _wrap(true);
+            w.appendChild(k);
+          }
         });
       }
 
       units.forEach(function(unit){
         var head = unit.head, bodyNodes = unit.body;
-        var headH = head ? _h(_bandClone(head,false)) : 0;
-        // Whole unit fits in remaining space → drop it whole.
-        var unitH = headH; bodyNodes.forEach(function(n){ unitH += _h(n); });
-        if(curH + unitH <= PAGE_H){
-          if(head){ curPage.appendChild(_bandClone(head,false)); curH += headH; }
-          bodyNodes.forEach(function(n){ curPage.appendChild(n); curH += _h(n); });
-          return;
+
+        // Try the whole unit on the current page first.
+        var band = head ? _bandClone(head,false) : null;
+        var startLen = curPage.children.length;
+        if(band) curPage.appendChild(band);
+        var placed = [];
+        var overflowed = false;
+        for(var bi=0; bi<bodyNodes.length; bi++){
+          curPage.appendChild(bodyNodes[bi]); placed.push(bodyNodes[bi]);
+          if(_overflow()){ overflowed = true; break; }
         }
-        // Keep-with-next: don't strand a band at the bottom — start fresh.
-        if(curH > headerH + 30){ _push(); }
-        if(head){ curPage.appendChild(_bandClone(head,false)); curH += headH; }
+        if(!overflowed) return;   // whole unit fit — done
+
+        // It overflowed. Roll back everything we just tentatively placed.
+        placed.forEach(function(n){ if(n.parentNode===curPage) curPage.removeChild(n); });
+        if(band && band.parentNode===curPage) curPage.removeChild(band);
+
+        // Keep-with-next: if the page already had content, start the section
+        // on a fresh page so the band isn't stranded at the bottom.
+        if(curPage.children.length > 1){ _push(); }
+        if(head){ curPage.appendChild(_bandClone(head,false)); }
+
         bodyNodes.forEach(function(bn){
-          var bnH = _h(bn);
-          if(curH + bnH <= PAGE_H){ curPage.appendChild(bn); curH += bnH; return; }
+          curPage.appendChild(bn);
+          if(!_overflow()) return;            // fit whole
+          curPage.removeChild(bn);            // too tall → split it
           var table = (bn.matches && bn.matches('table')) ? bn : (bn.querySelector ? bn.querySelector('table') : null);
           if(table && table.tBodies && table.tBodies.length){ _splitTable(bn, table, head); }
           else { _splitGeneric(bn, head); }
         });
       });
 
-      if(curPage.children.length > (curPage.querySelector('.compact-header')?1:0)) pages.push(curPage);
-      if(measHost.parentNode) measHost.parentNode.removeChild(measHost);
+      if(curPage.children.length > 1) pages.push(curPage);
+      if(stage.parentNode) stage.parentNode.removeChild(stage);
 
       // Replace original page with paginated pages. NO "Page X of Y" footer.
       var parent = origPage.parentNode;
