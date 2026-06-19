@@ -43,6 +43,8 @@ SENTINELS = {
         "thin Diesel host for the SHARED panel",  # host IIFE marker
     ],
     "ARENCON_Project_Hub.html": [
+        "edit-name-modal",        # Admin: Edit Name modal
+        "saveUserName",           # Admin: name save fn
         "edit-num-modal",         # Admin: Set User # modal
         "edit-init-modal",        # Admin: Set Initials modal
         "openEditNum",            # Admin: User # edit fn
