@@ -9975,9 +9975,10 @@ function _realExportPDF() {
       var curPage = _newPage(true, 2);
       stage.appendChild(curPage);
       function _push(){ pages.push(curPage); curPage = _newPage(true, pages.length+1); stage.appendChild(curPage); }
-      // A page is "full enough" that the next section should start fresh rather
-      // than cram a band at the very bottom. Empty-ish page (header only) → not full.
-      function _pageFull(){ return curPage.offsetHeight > PAGE_LIMIT * 0.55 && curPage.children.length > 1; }
+      // A page is "too full" to start more content only when it's near the
+      // limit. Higher threshold = tighter packing (fewer gaps). The hard
+      // overflow guard (_overflow) is what actually prevents spillover.
+      function _pageFull(){ return curPage.offsetHeight > PAGE_LIMIT * 0.92 && curPage.children.length > 1; }
       function _bandClone(headEl, cont){
         if(!headEl) return null;
         var b = headEl.cloneNode(true);
@@ -10053,9 +10054,8 @@ function _realExportPDF() {
       units.forEach(function(unit){
         var head = unit.head, bodyNodes = unit.body;
 
-        // Try the whole unit on the current page first.
+        // 1) Try the whole unit on the current page (greedy bin-pack).
         var band = head ? _bandClone(head,false) : null;
-        var startLen = curPage.children.length;
         if(band) curPage.appendChild(band);
         var placed = [];
         var overflowed = false;
@@ -10063,20 +10063,33 @@ function _realExportPDF() {
           curPage.appendChild(bodyNodes[bi]); placed.push(bodyNodes[bi]);
           if(_overflow()){ overflowed = true; break; }
         }
-        if(!overflowed) return;   // whole unit fit — done
+        if(!overflowed) return;   // whole unit fit on the current page — done
 
-        // It overflowed. Roll back everything we just tentatively placed.
+        // 2) It overflowed. Roll back the tentative placement.
         placed.forEach(function(n){ if(n.parentNode===curPage) curPage.removeChild(n); });
         if(band && band.parentNode===curPage) curPage.removeChild(band);
 
-        // Keep-with-next: if the page already had content, start the section
-        // on a fresh page so the band isn't stranded at the bottom.
-        if(curPage.children.length > 1){ _push(); }
-        if(head){ curPage.appendChild(_bandClone(head,false)); }
+        // 3) Decide whether to start the section HERE or on a fresh page.
+        //    Keep-with-next: only break to a new page if the current page can't
+        //    even hold the band + a token of content (band would be orphaned).
+        //    Otherwise pack the section onto the current page and let it split.
+        if(head){
+          var testBand = _bandClone(head,false);
+          curPage.appendChild(testBand);
+          var bandOrphaned = _overflow();          // band alone already overflows?
+          // also treat "almost no room under the band" as orphaned
+          if(!bandOrphaned && (PAGE_LIMIT - curPage.offsetHeight) < 70){ bandOrphaned = true; }
+          curPage.removeChild(testBand);
+          if(bandOrphaned && curPage.children.length > 1){ _push(); }
+          curPage.appendChild(_bandClone(head,false));
+        } else if(curPage.children.length > 1 && (PAGE_LIMIT - curPage.offsetHeight) < 70){
+          _push();
+        }
 
+        // 4) Flow the body, splitting any block that doesn't fit the room left.
         bodyNodes.forEach(function(bn){
           curPage.appendChild(bn);
-          if(!_overflow()) return;            // fit whole
+          if(!_overflow()) return;            // fit whole in the remaining room
           curPage.removeChild(bn);            // too tall → split it
           // .sb.flush = a single checklist table → split rows. Plain .sb =
           // mixed content (tables + charts + headings) → split at children.
