@@ -4148,7 +4148,15 @@ function _pgExtractPhotos(row) {
   }[toolKey] || toolKey;
 
   var instNum = row.instance_number || 1;
-  var label = row.label || (toolLabel + ' #' + instNum);
+  // S367: per-inspector photo grouping. Each owner-track report is independent,
+  // so its photos must group under the INSPECTOR, not a shared global #N.
+  // `_pgOwnerDispNum` is precomputed in the loader (per tool_key + owner_label).
+  // Untracked (shared) reports keep the plain global instance number.
+  var _ownerLbl = (row.owner_label && String(row.owner_label).trim()) || '';
+  var _dispNum = (typeof row._pgDispNum === 'number') ? row._pgDispNum : instNum;
+  var label = row.label || (_ownerLbl
+    ? (toolLabel + ' \u2014 ' + _ownerLbl + ' #' + _dispNum)
+    : (toolLabel + ' #' + instNum));
 
   function _makeRec(src, type, caption, date) {
     if (!src) return null;
@@ -4384,6 +4392,19 @@ async function pgLoad(projectId) {
   try {
     var rows = await _sb.from('tool_data').eq('project_id', projectId).order('tool_key').order('instance_number').execute();
     if (rows) {
+      // S367: assign each row a per-inspector display number so Project Photos
+      // group headers read "<Tool> — <Inspector> #<n>" instead of a shared
+      // global #N. Sequence is per (tool_key + owner_label), ascending by
+      // instance_number (rows already ordered above). Untracked rows are left
+      // alone (fall back to global instance_number in _pgExtractPhotos).
+      var _pgSeq = {};
+      rows.forEach(function(row) {
+        var ol = (row.owner_label && String(row.owner_label).trim()) || '';
+        if (!ol) return;                       // shared/untracked → keep global #
+        var gk = (row.tool_key || '') + '\u0000' + ol;
+        _pgSeq[gk] = (_pgSeq[gk] || 0) + 1;
+        row._pgDispNum = _pgSeq[gk];
+      });
       rows.forEach(function(row) {
         var extracted = _pgExtractPhotos(row);
         extracted.forEach(function(ph) { ph.id = 'pg_' + Date.now() + '_' + Math.random().toString(36).substr(2,6); });
@@ -5847,4 +5868,5 @@ var AIUsageUI = (function () {
 </script>
 </body>
 </html>
+
 
