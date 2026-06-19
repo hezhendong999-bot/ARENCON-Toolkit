@@ -9952,14 +9952,9 @@ function _realExportPDF() {
       var PAGE_LIMIT = (11 - 1.0) * 96;   // 11in − (0.5in top + 0.5in bottom) ≈ 960px
       function _overflow(){ return curPage.offsetHeight > PAGE_LIMIT; }
 
-      // Find first section band; everything before it = cover/dashboard (page 1).
+      // Find first section band; everything before it = cover/dashboard.
       var firstSectionIdx = children.findIndex(function(c){ return c.classList && c.classList.contains('sh'); });
       if(firstSectionIdx < 0) firstSectionIdx = children.length;
-
-      // ── Page 1: cover + dashboard, no compact header (it has the full header) ──
-      var page1 = _newPage(false, 1);
-      for(var i=0;i<firstSectionIdx;i++) page1.appendChild(children[i]);
-      pages.push(page1);
 
       // ── Group remaining children into section units: { head:.sh, body:[...] } ──
       var units = []; var u = null;
@@ -9971,8 +9966,12 @@ function _realExportPDF() {
       }
       if(u) units.push(u);
 
-      // ── Flow units onto pages 2+ (live-measured) ──
-      var curPage = _newPage(true, 2);
+      // ── Page 1 starts with the cover + dashboard, then sections flow onto it
+      //    to fill the page (no clean-cover gap). Page 1 has the FULL header
+      //    built into the cover, so it gets no compact header. Continuation
+      //    pages get the compact running header.
+      var curPage = _newPage(false, 1);
+      for(var i=0;i<firstSectionIdx;i++) curPage.appendChild(children[i]);
       stage.appendChild(curPage);
       function _push(){ pages.push(curPage); curPage = _newPage(true, pages.length+1); stage.appendChild(curPage); }
       // A page is "too full" to start more content only when it's near the
@@ -10013,8 +10012,9 @@ function _realExportPDF() {
       }
       // Split a non-table tall body at its direct children. If a child is
       // itself a table taller than a page, recurse into _splitTable for it so
-      // big tables (e.g. the 7-point PLD table) split row-by-row instead of
-      // being dropped or overflowing.
+      // big tables (e.g. the 7-point PLD table) split row-by-row. A child that
+      // can't be split (e.g. a chart image) and overflows is moved WHOLE to a
+      // fresh page so it never bleeds across a page boundary.
       function _splitGeneric(block, head){
         var kids = Array.from(block.children);
         function _wrap(cont){
@@ -10026,28 +10026,25 @@ function _realExportPDF() {
         kids.forEach(function(k){
           w.appendChild(k);
           if(!_overflow()) return;                 // fits — keep it
-          if(w.children.length > 1){               // not alone on this wrapper
-            w.removeChild(k);
-            // If k (or its inner table) is a splittable table, split it; else
-            // move it whole to a fresh wrapper.
-            var kt = (k.matches && k.matches('table')) ? k : (k.querySelector ? k.querySelector('table') : null);
-            if(kt && kt.tBodies && kt.tBodies.length && kt.tBodies[0].rows.length > 2){
-              _splitTable(k, kt, head);
-              w = curPage.lastChild;               // continue appending into the last wrapper _splitTable left
-              if(!w || w === block) { w = _wrap(true); }
-            } else {
-              w = _wrap(true);
-              w.appendChild(k);
-            }
-          } else {
-            // k is alone and still overflows → it's an oversized single block
-            // (e.g. a chart image taller than a page). Try to split if it's a
-            // table; otherwise leave it (rides its own page, can't split a img).
-            var kt2 = (k.matches && k.matches('table')) ? k : (k.querySelector ? k.querySelector('table') : null);
-            if(kt2 && kt2.tBodies && kt2.tBodies.length && kt2.tBodies[0].rows.length > 2){
-              w.removeChild(k); _splitTable(k, kt2, head); w = curPage.lastChild || _wrap(true);
-            }
+          w.removeChild(k);
+          var kt = (k.matches && k.matches('table')) ? k : (k.querySelector ? k.querySelector('table') : null);
+          var splittable = kt && kt.tBodies && kt.tBodies.length && kt.tBodies[0].rows.length > 2;
+          if(splittable){
+            _splitTable(k, kt, head);
+            w = curPage.lastChild; if(!w || w === block) { w = _wrap(true); }
+            return;
           }
+          // Non-splittable (chart/image/short block). If the wrapper already has
+          // siblings, force a FRESH PAGE so this block rides one page whole and
+          // never crosses the boundary. If it was alone and STILL overflows it's
+          // taller than a page (rare) — leave it on its own page; can't cut an img.
+          if(w.children.length > 0){
+            _push();
+            w = block.cloneNode(false);
+            if(head){ curPage.appendChild(_bandClone(head,true)); }
+            curPage.appendChild(w);
+          }
+          w.appendChild(k);
         });
       }
 
