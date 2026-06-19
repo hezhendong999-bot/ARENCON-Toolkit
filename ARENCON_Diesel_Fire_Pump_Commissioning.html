@@ -8956,47 +8956,85 @@ function _appendixHTML(){
       first=false;
       emit(title, items, size, function(l){ return t+head(l); });
     }
-    // 1. Pump photos — 3-up, no labels (locked)
-    sect('Pump & Installation'+ptSuffix, inc.filter(function(it){ return it.type==='record'&&(it.photo.kind==='pump'||it.photo.kind==='pump-pld'); }), 228);
-    // 2. Placards (incl. PLD placard) — TWO cards per row (was one centered card)
+    // 1. Pump & Installation — TWO per row at 230x185, left-aligned
+    var pmp=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind==='pump'||it.photo.kind==='pump-pld'); });
+    if(pmp.length){
+      var tp=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
+      function _pmpCard(it){
+        var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){}
+        return '<div style="width:230px;">'
+          +'<div style="width:230px;height:185px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
+          +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
+          +(d?'<div style="font:11px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(d)+'</div>':'')
+          +'</div>';
+      }
+      var pmpRows=chunk(pmp,2).map(function(pair){
+        return '<div style="display:flex;gap:14px;justify-content:flex-start;margin-bottom:14px;">'+pair.map(_pmpCard).join('')+'</div>';
+      });
+      out+='<div>'+tp+head('Pump & Installation'+ptSuffix)+pmpRows[0]+'</div>';
+      for(var pm=1;pm<pmpRows.length;pm++) out+=pmpRows[pm];
+    }
+    // 2. Placards (incl. PLD placard) — TWO cards per row at 285x300, left-aligned
     var plc=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind||'').indexOf('placard')!==-1; });
     if(plc.length){
       var t2=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
       var plcHdr=(plc[0].photo.kind==='placard-pld'?'PLD Placard (7-Point)':'Pump Placard (3-Point)');
       function _plcCard(it){
         var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){}
-        return '<div style="width:330px;">'
-          +'<div style="width:330px;height:260px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
+        return '<div style="width:285px;">'
+          +'<div style="width:285px;height:300px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
           +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:contain;display:block;"></div>'
           +(d?'<div style="font:11px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(d)+'</div>':'')
           +'</div>';
       }
       var plcRows=chunk(plc,2).map(function(pair){
-        return '<div style="display:flex;gap:14px;justify-content:center;margin-bottom:16px;">'+pair.map(_plcCard).join('')+'</div>';
+        return '<div style="display:flex;gap:14px;justify-content:flex-start;margin-bottom:16px;">'+pair.map(_plcCard).join('')+'</div>';
       });
       out+='<div>'+t2+head(plcHdr)+plcRows[0]+'</div>';
       for(var pr=1;pr<plcRows.length;pr++) out+=plcRows[pr];
     }
-    // 3. Gauge & RPM — active test type, by flow point, one reading per row, 2-up;
-    //    each "0% — Suction" label travels with its first photo row (keep-with-next)
+    // 3. Gauge & RPM — Option C: ONE row per flow point. All readings for that
+    //    point flow left-to-right (fixed order S·D·BFi·BFo·RPM·PRV·PRdV) and wrap
+    //    when the line is full; each photo captioned with its reading. For 7-Point
+    //    (PLD) the caption also notes without/with PLD. The flow-point sub-header
+    //    travels with its first photos (keep-with-next).
     var gType=(ptype==='pld')?'gauge-pld':'gauge';
     var gRows=(ptype==='pld')?(typeof pldData!=='undefined'?pldData:[]):(typeof stdData!=='undefined'?stdData:[]);
     var gItems=inc.filter(function(it){ return it.type===gType; });
     if(gItems.length){
       var hdrDone=false, prefix=(ptype==='pld')?'gauge_pld_':'gauge_std_';
       var gh=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
+      var _rdOrder=(typeof _GAUGE_READINGS!=='undefined'?_GAUGE_READINGS:[]);
+      function _gCard(it){
+        var rd=_rdOrder.filter(function(r){ return r.k===(it.photo.tag||'suction'); })[0];
+        var cap=rd?rd.label:(it.photo.tag||'');
+        if(ptype==='pld' && it.photo.mode){ cap+= (it.photo.mode==='pld'?' · w/PLD':it.photo.mode==='direct'?' · w/o PLD':''); }
+        return '<div style="width:120px;">'
+          +'<div style="width:120px;height:150px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
+          +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
+          +'<div style="font:10px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(cap)+'</div>'
+          +'</div>';
+      }
       gRows.forEach(function(row,ri){
         var rowItems=gItems.filter(function(it){ return it.section===prefix+ri; });
         if(!rowItems.length) return;
-        (typeof _GAUGE_READINGS!=='undefined'?_GAUGE_READINGS:[]).forEach(function(rd){
-          var ph=rowItems.filter(function(it){ return (it.photo.tag||'suction')===rd.k; });
-          if(!ph.length) return;
-          var rs=rows(ph,320);
-          var lbl=sub((row.pct||('Point '+(ri+1)))+' \u2014 '+rd.label);
-          if(!hdrDone){ out+='<div>'+gh+head('Flow Test \u2014 Gauge & RPM Photos ('+(ptype==='pld'?'7-Point':'3-Point')+')')+lbl+rs[0]+'</div>'; hdrDone=true; }
-          else out+='<div>'+lbl+rs[0]+'</div>';
-          for(var i=1;i<rs.length;i++) out+=rs[i];
+        // Order photos by reading sequence (and PLD mode: without before with).
+        rowItems.sort(function(a,b){
+          var ia=_rdOrder.findIndex(function(r){ return r.k===(a.photo.tag||'suction'); });
+          var ib=_rdOrder.findIndex(function(r){ return r.k===(b.photo.tag||'suction'); });
+          if(ia!==ib) return ia-ib;
+          var ma=(a.photo.mode==='pld')?1:0, mb=(b.photo.mode==='pld')?1:0;
+          return ma-mb;
         });
+        var lbl=sub(row.pct||('Point '+(ri+1)));
+        // 5 cards per wrapped line fit a letter page (5*120 + gaps ≈ 660px).
+        var lineGroups=chunk(rowItems,5);
+        var lines=lineGroups.map(function(g){
+          return '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start;margin-bottom:10px;">'+g.map(_gCard).join('')+'</div>';
+        });
+        if(!hdrDone){ out+='<div>'+gh+head('Flow Test \u2014 Gauge & RPM Photos ('+(ptype==='pld'?'7-Point':'3-Point')+')')+lbl+lines[0]+'</div>'; hdrDone=true; }
+        else out+='<div>'+lbl+lines[0]+'</div>';
+        for(var li=1;li<lines.length;li++) out+=lines[li];
       });
     }
     // 4. Flow test charts (Hose Monster) — 3-up
