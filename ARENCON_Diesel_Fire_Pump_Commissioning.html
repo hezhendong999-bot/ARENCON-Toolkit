@@ -9911,69 +9911,139 @@ function _realExportPDF() {
           +'<div class="ch-compact-right">'+right+'<br>&nbsp;<br>'+_chDate+'</div>'
           +'</div>';
       }
+      function _makeCompactHeaderNode(pageNum){
+        var d = wd.createElement('div');
+        d.innerHTML = _makeCompactHeader(pageNum, 0);
+        return d.firstChild;
+      }
       
       // Collect all direct children of .page as content blocks
       var children = Array.from(origPage.children);
       var pages = [];
 
-      // S367: match FRT pagination strategy. The cover block (logo/title/info/
-      // dashboard — everything BEFORE the first section band ".sh") owns page 1
-      // alone; the checklist ALWAYS starts fresh on page 2. This kills the
-      // page-1 bottom-gap problem outright (any section fits a fresh page) and
-      // guarantees a styled compact header on every continued page.
+      // ════════════════════════════════════════════════════════════════
+      // S367 v2 — section-aware DOM pagination (FRT-grade).
+      // Goals (Mark-locked): letter-size EVERY page, NEVER a long page,
+      // NEVER a section band orphaned at a page bottom, NEVER a section
+      // cut mid-row. Tall sections SPLIT across pages, re-stamping the
+      // section band "(cont.)" + the table's own header on each new page.
+      // No "Page X of Y" footer (running header already carries the page #).
+      // ════════════════════════════════════════════════════════════════
       function _newPage(withHeader, pageNum){
         var pg = wd.createElement('div');
         pg.className = 'page';
-        pg.style.cssText = origPage.style.cssText;   // carry full .page styling to EVERY page
+        pg.style.cssText = origPage.style.cssText;   // full .page styling on EVERY page
         if(withHeader){
-          var hdr = wd.createElement('div');
-          hdr.innerHTML = _makeCompactHeader(pageNum, 0);
-          if(hdr.firstChild) pg.appendChild(hdr.firstChild);
+          var h = _makeCompactHeaderNode(pageNum);
+          if(h) pg.appendChild(h);
         }
         return pg;
       }
 
-      // Find the first section band — everything before it is the cover/dashboard.
-      var firstSectionIdx = children.findIndex(function(c){
-        return c.classList && c.classList.contains('sh');
-      });
-      if(firstSectionIdx < 0) firstSectionIdx = children.length; // no sections → all on page 1
+      // Offscreen measuring host, same content width as a real page.
+      var measHost = wd.createElement('div');
+      measHost.style.cssText = 'position:absolute;left:-9999px;top:0;width:'+(origPage.clientWidth||816)+'px;padding:0 0.6in;box-sizing:border-box;visibility:hidden;';
+      wd.body.appendChild(measHost);
+      function _h(node){ measHost.appendChild(node); var hh=node.offsetHeight||0; measHost.removeChild(node); return hh; }
 
-      // ── Page 1: cover + dashboard (no compact header; it has the full header) ──
+      // Find first section band; everything before it = cover/dashboard (page 1).
+      var firstSectionIdx = children.findIndex(function(c){ return c.classList && c.classList.contains('sh'); });
+      if(firstSectionIdx < 0) firstSectionIdx = children.length;
+
+      // ── Page 1: cover + dashboard, no compact header (it has the full header) ──
       var page1 = _newPage(false, 1);
       for(var i=0;i<firstSectionIdx;i++) page1.appendChild(children[i]);
       pages.push(page1);
 
-      // ── Page 2+: checklist sections, FRT-style bin-pack with compact header ──
-      var COMPACT_H = 60;                 // measured compact-header height budget
-      var currentPage = _newPage(true, 2);
-      var currentH = COMPACT_H;
+      // ── Group remaining children into section units: { head:.sh, body:[...] } ──
+      var units = []; var u = null;
       for(var j=firstSectionIdx;j<children.length;j++){
-        var child = children[j];
-        var h = child.offsetHeight || 0;
-        // Break to a fresh page when this block would overflow (but never on a
-        // near-empty page, so an over-tall single block still rides one page).
-        if(currentH + h > PAGE_H && currentH > COMPACT_H + 40){
-          pages.push(currentPage);
-          currentPage = _newPage(true, pages.length+1);
-          currentH = COMPACT_H;
-        }
-        currentPage.appendChild(child);
-        currentH += h;
+        var c = children[j];
+        if(c.classList && c.classList.contains('sh')){ if(u) units.push(u); u = { head:c, body:[] }; }
+        else if(u){ u.body.push(c); }
+        else { u = { head:null, body:[c] }; }
       }
-      if(currentPage.children.length > (currentPage.querySelector('.compact-header')?1:0)) pages.push(currentPage);
-      
-      // Replace original page with paginated pages
+      if(u) units.push(u);
+
+      // ── Flow units onto pages 2+ ──
+      var curPage = _newPage(true, 2);
+      var headerH = _h(_makeCompactHeaderNode(2));
+      var curH = headerH;
+      function _push(){ pages.push(curPage); curPage = _newPage(true, pages.length+1); curH = headerH; }
+      function _bandClone(headEl, cont){
+        if(!headEl) return null;
+        var b = headEl.cloneNode(true);
+        if(cont) b.textContent = headEl.textContent + ' (cont.)';
+        return b;
+      }
+
+      // Split a body that wraps/IS a table — row by row, re-stamping band+thead.
+      function _splitTable(wrapper, table, head){
+        var thead = table.querySelector('thead');
+        var tbody = table.tBodies[0];
+        var rows = Array.from(tbody.rows);
+        function _shell(cont){
+          if(curH > headerH + 30){ _push(); }
+          if(cont && head){ var b=_bandClone(head,true); curPage.appendChild(b); curH += _h(b); }
+          var w = wrapper.cloneNode(false);
+          var t = table.cloneNode(false);
+          if(thead) t.appendChild(thead.cloneNode(true));
+          var tb = wd.createElement('tbody'); t.appendChild(tb); w.appendChild(t);
+          curPage.appendChild(w); curH += _h(w);
+          return tb;
+        }
+        var tb = _shell(false);
+        rows.forEach(function(r){
+          var rH = _h(r);
+          if(curH + rH > PAGE_H && tb.rows.length > 0){ tb = _shell(true); }
+          tb.appendChild(r); curH += rH;
+        });
+      }
+      // Split a non-table tall body at its direct children.
+      function _splitGeneric(block, head){
+        var kids = Array.from(block.children);
+        function _wrap(cont){
+          if(curH > headerH + 30){ _push(); }
+          if(cont && head){ var b=_bandClone(head,true); curPage.appendChild(b); curH += _h(b); }
+          var w = block.cloneNode(false); curPage.appendChild(w); return w;
+        }
+        var w = _wrap(false);
+        kids.forEach(function(k){
+          var kH = _h(k);
+          if(curH + kH > PAGE_H && w.children.length > 0){ w = _wrap(true); }
+          w.appendChild(k); curH += kH;
+        });
+      }
+
+      units.forEach(function(unit){
+        var head = unit.head, bodyNodes = unit.body;
+        var headH = head ? _h(_bandClone(head,false)) : 0;
+        // Whole unit fits in remaining space → drop it whole.
+        var unitH = headH; bodyNodes.forEach(function(n){ unitH += _h(n); });
+        if(curH + unitH <= PAGE_H){
+          if(head){ curPage.appendChild(_bandClone(head,false)); curH += headH; }
+          bodyNodes.forEach(function(n){ curPage.appendChild(n); curH += _h(n); });
+          return;
+        }
+        // Keep-with-next: don't strand a band at the bottom — start fresh.
+        if(curH > headerH + 30){ _push(); }
+        if(head){ curPage.appendChild(_bandClone(head,false)); curH += headH; }
+        bodyNodes.forEach(function(bn){
+          var bnH = _h(bn);
+          if(curH + bnH <= PAGE_H){ curPage.appendChild(bn); curH += bnH; return; }
+          var table = (bn.matches && bn.matches('table')) ? bn : (bn.querySelector ? bn.querySelector('table') : null);
+          if(table && table.tBodies && table.tBodies.length){ _splitTable(bn, table, head); }
+          else { _splitGeneric(bn, head); }
+        });
+      });
+
+      if(curPage.children.length > (curPage.querySelector('.compact-header')?1:0)) pages.push(curPage);
+      if(measHost.parentNode) measHost.parentNode.removeChild(measHost);
+
+      // Replace original page with paginated pages. NO "Page X of Y" footer.
       var parent = origPage.parentNode;
       origPage.remove();
-      pages.forEach(function(pg, idx){
-        // Add page label
-        var label = wd.createElement('div');
-        label.className = 'page-label';
-        label.textContent = 'Page '+(idx+1)+' of '+pages.length;
-        pg.appendChild(label);
-        parent.insertBefore(pg, wd.getElementById('mobile-page-nav'));
-      });
+      pages.forEach(function(pg){ parent.insertBefore(pg, wd.getElementById('mobile-page-nav')); });
     } catch(pgErr){ console.warn('Pagination error:', pgErr); }
   }, 1200);
   } catch(err) { console.error('PDF error:', err); showToast('PDF error: '+err.message, 5000); }
