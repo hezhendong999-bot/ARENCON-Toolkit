@@ -664,7 +664,7 @@ if(summaryDefs.length){
         +'<div class="p1-bt"><span>This Visit (FRT #'+_curInst+')</span></div>'
         +'<div class="p1-delta">'
           +'<div class="p1-dstat"><span class="p1-v p1-up">+'+_newThis+'</span><span class="p1-k">new found</span></div>'
-          +'<div class="p1-dstat"><span class="p1-v p1-dn">\\u2212'+_priorClosed+'</span><span class="p1-k">prior closed</span></div>'
+          +'<div class="p1-dstat"><span class="p1-v p1-dn">−'+_priorClosed+'</span><span class="p1-k">prior closed</span></div>'
         +'</div>'
         +'<div class="p1-subline">Activity recorded during this site review</div>'
       +'</div>'
