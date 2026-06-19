@@ -8958,19 +8958,24 @@ function _appendixHTML(){
     }
     // 1. Pump photos — 3-up, no labels (locked)
     sect('Pump & Installation'+ptSuffix, inc.filter(function(it){ return it.type==='record'&&(it.photo.kind==='pump'||it.photo.kind==='pump-pld'); }), 228);
-    // 2. Placards (incl. PLD placard) — two large cards per page (locked)
+    // 2. Placards (incl. PLD placard) — TWO cards per row (was one centered card)
     var plc=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind||'').indexOf('placard')!==-1; });
     if(plc.length){
       var t2=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
-      plc.forEach(function(it,i){
+      var plcHdr=(plc[0].photo.kind==='placard-pld'?'PLD Placard (7-Point)':'Pump Placard (3-Point)');
+      function _plcCard(it){
         var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){}
-        var card='<div style="width:480px;margin:0 auto 22px;">'
-          +'<div style="width:480px;height:340px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
+        return '<div style="width:330px;">'
+          +'<div style="width:330px;height:260px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
           +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:contain;display:block;"></div>'
           +(d?'<div style="font:11px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(d)+'</div>':'')
           +'</div>';
-        out+=(i===0)?('<div>'+t2+head((it.photo.kind==='placard-pld'?'PLD Placard (7-Point)':'Pump Placard (3-Point)'))+card+'</div>'):card;
+      }
+      var plcRows=chunk(plc,2).map(function(pair){
+        return '<div style="display:flex;gap:14px;justify-content:center;margin-bottom:16px;">'+pair.map(_plcCard).join('')+'</div>';
       });
+      out+='<div>'+t2+head(plcHdr)+plcRows[0]+'</div>';
+      for(var pr=1;pr<plcRows.length;pr++) out+=plcRows[pr];
     }
     // 3. Gauge & RPM — active test type, by flow point, one reading per row, 2-up;
     //    each "0% — Suction" label travels with its first photo row (keep-with-next)
