@@ -4149,13 +4149,22 @@ function _pgExtractPhotos(row) {
 
   var instNum = row.instance_number || 1;
   // S367: per-inspector photo grouping. Each owner-track report is independent,
-  // so its photos must group under the INSPECTOR, not a shared global #N.
-  // `_pgOwnerDispNum` is precomputed in the loader (per tool_key + owner_label).
-  // Untracked (shared) reports keep the plain global instance number.
+  // so its photos must group under the INSPECTOR (by initials), not a shared
+  // global #N. `_pgDispNum` is precomputed in the loader (per tool_key +
+  // owner_label). Untracked (shared) reports keep the plain global number.
   var _ownerLbl = (row.owner_label && String(row.owner_label).trim()) || '';
+  // Initials from the owner label: "Thomas Knill" -> "TK", "Mark He" -> "MH".
+  // Falls back to the first 2 uppercased chars for single-word labels.
+  function _pgInitials(name){
+    var parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if(parts.length >= 2) return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+    if(parts.length === 1) return parts[0].substring(0,2).toUpperCase();
+    return '';
+  }
   var _dispNum = (typeof row._pgDispNum === 'number') ? row._pgDispNum : instNum;
+  var _init = _ownerLbl ? _pgInitials(_ownerLbl) : '';
   var label = row.label || (_ownerLbl
-    ? (toolLabel + ' \u2014 ' + _ownerLbl + ' #' + _dispNum)
+    ? (toolLabel + ' #' + _dispNum + (_init ? ' (' + _init + ')' : ''))
     : (toolLabel + ' #' + instNum));
 
   function _makeRec(src, type, caption, date) {
