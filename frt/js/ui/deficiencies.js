@@ -1956,11 +1956,15 @@ export var initDeficiencies = {
     // An addressed rec/site-record legitimately counts under BOTH its category
     // segment AND Closed — they are different filters.
     var pcActive = 0, pcClosed = 0;
-    var ccOutstanding = 0, ccRec = 0, ccSite = 0, ccClosed = 0;
+    var ccOutstanding = 0, ccRec = 0, ccSite = 0, ccClosed = 0, ccAll = 0;
     allDefics.forEach(function(rec) {
       var d = rec.defic;
       var hasCtr = !!rec.contractorId;
       (d.observations || []).forEach(function(o) {
+        // S336: the 'All' segment count = every observation, once, regardless
+        // of category or status (it's the "show everything" view Mark wanted
+        // back). Counted here so it tracks the same per-obs basis as the rest.
+        ccAll++;
         // S262: count PER-OBSERVATION (mirrors the per-obs filter) so each
         // segment badge equals exactly what that segment will SHOW. A split
         // pin with a rec obs + a non-rec obs now contributes to BOTH the rec
@@ -1974,7 +1978,7 @@ export var initDeficiencies = {
         else if (!o.addressed) ccOutstanding++;
       });
     });
-    _syncDfxControls(pcActive, pcClosed, proj, {outstanding: ccOutstanding, rec: ccRec, siterec: ccSite, closed: ccClosed});
+    _syncDfxControls(pcActive, pcClosed, proj, {all: ccAll, outstanding: ccOutstanding, rec: ccRec, siterec: ccSite, closed: ccClosed});
 
     // S232 FRT-CV: Detailed + Board MERGE into the single Combined view.
     // The view toggle is gone; _renderDetailedView / _renderBoardView are
@@ -2956,9 +2960,13 @@ function _renderCombinedView(proj, container) {
 
   if (!orderedTrades.length) {
     var hasAny = Model.getAllDeficiencies(proj).length > 0;
-    var _catLbl = { outstanding: 'Outstanding', rec: 'Recommendations', siterec: 'Site Records', closed: 'Closed' }[_deriveCatFilter()] || '';
-    h += '<div class="dfx-empty">' + (hasAny
+    var _catLbl = { all: '', outstanding: 'Outstanding', rec: 'Recommendations', siterec: 'Site Records', closed: 'Closed' }[_deriveCatFilter()];
+    if (_catLbl == null) _catLbl = '';
+    var _emptyMsg = _catLbl
       ? ('No ' + _catLbl + ' items match the current filters.')
+      : 'No items match the current filters.';
+    h += '<div class="dfx-empty">' + (hasAny
+      ? _emptyMsg
       : 'No deficiencies yet. Add a contractor in the Trade Board, then add deficiencies here.') + '</div>';
   }
 
@@ -3897,7 +3905,8 @@ function _openAddDeficModal(prefillCtrId, prefillTrade) {
 function _setCatFilter(cat) {
   if (!cat || cat === _deriveCatFilter()) { _catFilter = cat || _catFilter; return; }
   _catFilter = cat;
-  if (cat === 'closed') { _activeDlcTab = 'closed'; _dfxRecMode = 'all'; }
+  if (cat === 'all') { _activeDlcTab = 'any'; _dfxRecMode = 'all'; }
+  else if (cat === 'closed') { _activeDlcTab = 'closed'; _dfxRecMode = 'all'; }
   else if (cat === 'outstanding') { _activeDlcTab = 'active'; _dfxRecMode = 'def'; }
   else if (cat === 'rec') { _activeDlcTab = 'any'; _dfxRecMode = 'rec'; }
   else if (cat === 'siterec') { _activeDlcTab = 'any'; _dfxRecMode = 'siterec'; }
@@ -3911,6 +3920,10 @@ function _setCatFilter(cat) {
 // everything else (incl. 'def' on active) → 'outstanding'.
 function _deriveCatFilter() {
   if (_activeDlcTab === 'closed') return 'closed';
+  // S336: 'All' = neutral pivot + 'all' recmode. Must be tested before the
+  // rec/siterec checks (those set specific recmodes) and after 'closed'
+  // (which also uses 'all' recmode but is pinned by the 'closed' pivot above).
+  if (_activeDlcTab === 'any' && _dfxRecMode === 'all') return 'all';
   if (_dfxRecMode === 'rec') return 'rec';
   if (_dfxRecMode === 'siterec') return 'siterec';
   return 'outstanding';
@@ -3927,11 +3940,13 @@ function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
   // S250 §4: populate the four category-segment counts + active state.
   if (catCounts) {
     var _cc = {
+      all: document.getElementById('dfx-cc-all'),
       outstanding: document.getElementById('dfx-cc-outstanding'),
       rec: document.getElementById('dfx-cc-rec'),
       siterec: document.getElementById('dfx-cc-siterec'),
       closed: document.getElementById('dfx-cc-closed')
     };
+    if (_cc.all) _cc.all.textContent = catCounts.all;
     if (_cc.outstanding) _cc.outstanding.textContent = catCounts.outstanding;
     if (_cc.rec) _cc.rec.textContent = catCounts.rec;
     if (_cc.siterec) _cc.siterec.textContent = catCounts.siterec;

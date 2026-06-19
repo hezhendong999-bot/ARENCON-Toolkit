@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=657">
+<link rel="stylesheet" href="css/frt.css?v=658">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -481,16 +481,20 @@ function ensurePdfJs(cb){
           <!-- Unified control bar — lifecycle pivot + filters + view toggle.
                Replaces #defic-lifecycle-tabs (dlc-tabs) and the old toolbar search. -->
           <div class="defic-control-bar" id="defic-control-bar" style="display:none;">
-            <!-- S250 §4: single 4-segment category filter row (Outstanding ·
+            <!-- S250 §4 / S336: single category filter row (All · Outstanding ·
                  Recommendations · Site Records · Closed) with live counts.
                  Replaces BOTH the old Active/Closed pivot AND the old
-                 Deficiencies/Recommendations/Site Records/All row. The .row
-                 wrapper is one flat strip on desktop and a clean 2x2 grid on
-                 phone portrait (CSS @media 560px). data-catfilter maps to the
-                 (pivot + recmode) axes in _setCatFilter. No "All" segment —
-                 clearing/Outstanding covers it; four divides evenly 2x2. -->
+                 Deficiencies/Recommendations/Site Records/All row. S336 (Mark):
+                 restored the "All" segment so a user can see EVERYTHING in one
+                 view, while each of the other four still shows only its own
+                 category (separate tabs, plus an All escape hatch). The .row
+                 wrapper is one flat strip on desktop and wraps cleanly on phone
+                 portrait (CSS @media 560px). data-catfilter maps to the
+                 (pivot + recmode) axes in _setCatFilter; 'all' = neutral pivot
+                 + 'all' recmode (every item, any status). -->
             <div class="dfx-catfilter" role="group" aria-label="Filter by category">
               <div class="row">
+                <button class="dfx-cat-btn" data-catfilter="all">All <span class="dfx-cat-count" id="dfx-cc-all">0</span></button>
                 <button class="dfx-cat-btn active" data-catfilter="outstanding">Outstanding <span class="dfx-cat-count" id="dfx-cc-outstanding">0</span></button>
                 <button class="dfx-cat-btn" data-catfilter="rec">Recommendations <span class="dfx-cat-count" id="dfx-cc-rec">0</span></button>
                 <button class="dfx-cat-btn" data-catfilter="siterec">Site Records <span class="dfx-cat-count" id="dfx-cc-siterec">0</span></button>

@@ -7957,14 +7957,17 @@ body.dark-mode .picker-cancel-btn:hover { background: #2A3247; color: #E0E5F0; }
   color: inherit;
 }
 /* active segment — per-category colour (locked semantics, both modes) */
+.dfx-cat-btn[data-catfilter="all"].active         { background: var(--b-pill-active-bg, var(--b-chrome-bg)); color: var(--b-chrome-fg); border-color: color-mix(in srgb, var(--b-chrome-fg) 32%, transparent); }
 .dfx-cat-btn[data-catfilter="outstanding"].active { background: var(--b-high-bg); color: var(--b-high); border-color: color-mix(in srgb, var(--b-high) 40%, transparent); }
 .dfx-cat-btn[data-catfilter="rec"].active          { background: var(--b-cat-rec-bg); color: var(--b-cat-rec-fg); border-color: color-mix(in srgb, var(--b-cat-rec-fg) 40%, transparent); }
 .dfx-cat-btn[data-catfilter="siterec"].active      { background: var(--b-cat-site-bg); color: var(--b-cat-site-fg); border-color: color-mix(in srgb, var(--b-cat-site-fg) 40%, transparent); }
 .dfx-cat-btn[data-catfilter="closed"].active       { background: var(--b-cat-closed-bg); color: var(--b-cat-closed-fg); border-color: color-mix(in srgb, var(--b-cat-closed-fg) 40%, transparent); }
-/* phone portrait: 2x2 grid + tightened filters (search own row, dropdowns share next) */
+/* phone portrait: All spans the full top row; the four category segments sit
+   2x2 below it (5 segments don't divide evenly, so All gets its own row). */
 @media (max-width: 560px) {
   .dfx-catfilter .row { display: grid; grid-template-columns: 1fr 1fr; }
   .dfx-cat-btn { flex: none; }
+  .dfx-cat-btn[data-catfilter="all"] { grid-column: 1 / -1; }
   .defic-filters .dfx-filter-input[type="text"] { flex: 1 1 100%; }
   .defic-filters select.dfx-filter-input { flex: 1 1 0; min-width: 0; }
 }
