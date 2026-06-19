@@ -1069,9 +1069,12 @@ function _renderDeficDashboard(total, outHigh, outLow, closed, rows, newCount, n
   if (highLen > 0)   { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--no)" stroke-width="20" stroke-dasharray="' + highLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; _off += highLen; }
   if (lowLen > 0)    { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--warn)" stroke-width="20" stroke-dasharray="' + lowLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; _off += lowLen; }
   if (closedLen > 0) { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--yes)" stroke-width="20" stroke-dasharray="' + closedLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; }
-  // S284 A3: thin inner ring — drawn only when there is at least one new AND
-  // at least one carried-over item (0 < new < total).
-  if ((_nH + _nL) > 0 && (newCount || 0) < total) {
+  // S284 A3 / S336: thin inner ring — drawn when there is at least one new
+  // OUTSTANDING item. The old "(newCount < total)" clause hid the ring on
+  // report #1 (all new), but the arcs sit under the high/low segments — on a
+  // first report they correctly show every outstanding item is a new find — so
+  // that suppression was removed. Still hidden when no new outstanding items.
+  if ((_nH + _nL) > 0) {
     d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--border)" stroke-width="6"/>';
     var _segStart = 0;
     if (_nH > 0) { d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--dv-blue)" stroke-width="6" stroke-dasharray="' + ((_nH / total) * C2).toFixed(1) + ' ' + C2.toFixed(1) + '"/>'; }

@@ -32,8 +32,11 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
     // "20% smaller than the v11 mockup, still legible" target = ~24px display
     // size on the 160px-wide dc-mini box. Canvas-to-display ratio is 5×, so
     // canvas pinW≈120 hits the target (was Math.max(28, outW*0.07)=56).
-    var cropFrac=0.22;
-    var cropW=Math.max(img.width*cropFrac,400);var cropH=Math.max(img.height*cropFrac,300);
+    // S118 design lock + S336: crop fraction sets the minimap zoom. Mark asked
+    // to zoom OUT ~15% (more context around the pin), so 0.22 -> 0.253 and the
+    // minimum crop floors scale up proportionally (400->460, 300->345).
+    var cropFrac=0.253;
+    var cropW=Math.max(img.width*cropFrac,460);var cropH=Math.max(img.height*cropFrac,345);
     var px=(pinData.pinX||0.5)*img.width;var py=(pinData.pinY||0.5)*img.height;
     cropW=Math.min(cropW,img.width);cropH=Math.min(cropH,img.height);
     var sx=Math.max(0,Math.min(px-cropW/2,img.width-cropW));
@@ -42,9 +45,10 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
-    // S118: bumped from outW*0.07 (56px on 800-wide crop, ~11px display) to
-    // outW*0.15 (120px on 800-wide crop, ~24px display). Floor 60 for tiny crops.
-    var pinW=Math.max(60,outW*0.15);
+    // S118: outW*0.15 ≈ 24px display. S336: Mark asked to reduce the pin ~10%
+    // -> outW*0.135, floor 60->54. Keeps the teardrop legible but less dominant
+    // now that the crop is zoomed out a touch.
+    var pinW=Math.max(54,outW*0.135);
     _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData,isSiteRecord);
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
@@ -729,11 +733,15 @@ if(summaryDefs.length){
     }
     // S284 A3 inner ring: blue arcs ALIGNED under the red/amber segments,
     // butt caps, no splitter (the carried remainder of each segment is the
-    // separation). Hidden when nothing is new or when ALL items are new
-    // (report #1 — a full circle says nothing). No arc under green, ever.
+    // separation). S336 (Mark): the old "hide when ALL items are new" guard was
+    // wrong — on report #1 every outstanding item IS new, and the arcs sit under
+    // the high/low segments (not as one full circle), so they correctly read
+    // "these outstanding items are all new finds." Removed the N>=T suppression;
+    // kept the (nHI+nLO)<=0 guard (no new OUTSTANDING items -> nothing to mark;
+    // arcs never sit under green).
     function _innerA3(){
       var circ=2*Math.PI*29;
-      if((nHI+nLO)<=0||N>=T)return '';
+      if((nHI+nLO)<=0)return '';
       var s='<circle cx="50" cy="50" r="29" fill="none" stroke="#EDEAF0" stroke-width="5"/>';
       if(nHI>0)s+='<circle cx="50" cy="50" r="29" fill="none" stroke="'+CN+'" stroke-width="5" stroke-dasharray="'+((nHI/T)*circ).toFixed(1)+' '+circ.toFixed(1)+'"/>';
       if(nLO>0)s+='<circle cx="50" cy="50" r="29" fill="none" stroke="'+CN+'" stroke-width="5" stroke-dasharray="'+((nLO/T)*circ).toFixed(1)+' '+circ.toFixed(1)+'" stroke-dashoffset="'+(-((HIn/T)*circ)).toFixed(1)+'"/>';
