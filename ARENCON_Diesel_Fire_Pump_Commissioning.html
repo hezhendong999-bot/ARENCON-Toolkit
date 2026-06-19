@@ -9287,7 +9287,7 @@ function _realExportPDF() {
     const pill = pillCls ? `<span class="pill ${pillCls}">${pillTxt}</span>` : `<span style="color:#B08948;font-weight:700;">—</span>`;
     const rowCls = sc==='no'?' class="nd-flag"':'';
     const cmHtml = cm ? `<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:3px;">${cm}</div>` : '';
-    const photosRow = photos.length ? `<tr class="${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`<img src="${p.r2Url||p.d}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`).join('')}</div></td></tr>` : '';
+    const photosRow = photos.length ? `<tr class="ph-keep ${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`<img src="${p.r2Url||p.d}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`).join('')}</div></td></tr>` : '';
     return `<tr${rowCls}>
       <td class="ctr" style="font-weight:600;color:#666;white-space:nowrap;font-size:9pt;width:34px;">${item.num}</td>
       <td>${txt}${cmHtml}</td>
@@ -9986,10 +9986,19 @@ function _realExportPDF() {
       }
 
       // Split a body that wraps/IS a table — row by row, re-stamping band+thead.
+      // Item rows and their trailing photo rows (.ph-keep) are kept together as a
+      // unit so a photo never gets orphaned from its checklist item by a break.
       function _splitTable(wrapper, table, head){
         var thead = table.querySelector('thead');
         var tbody = table.tBodies[0];
         var rows = Array.from(tbody.rows);
+        // Group rows: each item row absorbs any immediately-following ph-keep rows.
+        var groups = []; var g = null;
+        rows.forEach(function(r){
+          var isPhoto = r.classList && r.classList.contains('ph-keep');
+          if(isPhoto && g){ g.push(r); }       // attach photo row to current item group
+          else { g = [r]; groups.push(g); }    // start a new group on an item row
+        });
         function _shell(cont){
           if(_pageFull()){ _push(); }
           if(cont && head){ curPage.appendChild(_bandClone(head,true)); }
@@ -10001,12 +10010,13 @@ function _realExportPDF() {
           return tb;
         }
         var tb = _shell(false);
-        rows.forEach(function(r){
-          tb.appendChild(r);                 // place row, then measure the LIVE page
-          if(_overflow() && tb.rows.length > 1){
-            tb.removeChild(r);               // pull it back
-            tb = _shell(true);               // continue on a fresh page
-            tb.appendChild(r);
+        groups.forEach(function(grp){
+          var firstOnPage = (tb.rows.length === 0);
+          grp.forEach(function(r){ tb.appendChild(r); });   // place the whole group
+          if(_overflow() && !firstOnPage){
+            grp.forEach(function(r){ if(r.parentNode) r.parentNode.removeChild(r); }); // pull back the group
+            tb = _shell(true);                                // continue on a fresh page
+            grp.forEach(function(r){ tb.appendChild(r); });
           }
         });
       }
