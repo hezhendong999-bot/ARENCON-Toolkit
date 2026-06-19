@@ -9900,7 +9900,7 @@ function _realExportPDF() {
       var _chTitle = 'Diesel Fire Pump Commissioning Report #' + _pdfInstNum + (_chProjName ? ' - ' + _chProjName : '');
       var _chProjNo = proj.projno||'';
       var _chRev = (proj.revision||formRevision||'');
-      var _chDate = proj.date || new Date().toLocaleDateString('en-CA');
+      var _chDate = new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 
       // FRT-matched running header (frt/js/export/pdf.js _compactHeader):
       // left = client / address / title-line ; right = "projNo rev Page N" / blank / date
@@ -9915,31 +9915,53 @@ function _realExportPDF() {
       // Collect all direct children of .page as content blocks
       var children = Array.from(origPage.children);
       var pages = [];
-      var currentPage = wd.createElement('div');
-      currentPage.className = 'page';
-      currentPage.style.cssText = origPage.style.cssText;
-      var currentH = 0;
-      var isFirstPage = true;
-      
-      children.forEach(function(child){
-        var h = child.offsetHeight || 0;
-        // If adding this child would overflow, start a new page
-        if(!isFirstPage && currentH + h > PAGE_H && currentH > 100){
-          pages.push(currentPage);
-          currentPage = wd.createElement('div');
-          currentPage.className = 'page';
-          currentH = 0;
-          // Add compact header
+
+      // S367: match FRT pagination strategy. The cover block (logo/title/info/
+      // dashboard — everything BEFORE the first section band ".sh") owns page 1
+      // alone; the checklist ALWAYS starts fresh on page 2. This kills the
+      // page-1 bottom-gap problem outright (any section fits a fresh page) and
+      // guarantees a styled compact header on every continued page.
+      function _newPage(withHeader, pageNum){
+        var pg = wd.createElement('div');
+        pg.className = 'page';
+        pg.style.cssText = origPage.style.cssText;   // carry full .page styling to EVERY page
+        if(withHeader){
           var hdr = wd.createElement('div');
-          hdr.innerHTML = _makeCompactHeader(pages.length+1, 0);
-          currentPage.appendChild(hdr.firstChild);
-          currentH += 45; // approximate header height
+          hdr.innerHTML = _makeCompactHeader(pageNum, 0);
+          if(hdr.firstChild) pg.appendChild(hdr.firstChild);
+        }
+        return pg;
+      }
+
+      // Find the first section band — everything before it is the cover/dashboard.
+      var firstSectionIdx = children.findIndex(function(c){
+        return c.classList && c.classList.contains('sh');
+      });
+      if(firstSectionIdx < 0) firstSectionIdx = children.length; // no sections → all on page 1
+
+      // ── Page 1: cover + dashboard (no compact header; it has the full header) ──
+      var page1 = _newPage(false, 1);
+      for(var i=0;i<firstSectionIdx;i++) page1.appendChild(children[i]);
+      pages.push(page1);
+
+      // ── Page 2+: checklist sections, FRT-style bin-pack with compact header ──
+      var COMPACT_H = 60;                 // measured compact-header height budget
+      var currentPage = _newPage(true, 2);
+      var currentH = COMPACT_H;
+      for(var j=firstSectionIdx;j<children.length;j++){
+        var child = children[j];
+        var h = child.offsetHeight || 0;
+        // Break to a fresh page when this block would overflow (but never on a
+        // near-empty page, so an over-tall single block still rides one page).
+        if(currentH + h > PAGE_H && currentH > COMPACT_H + 40){
+          pages.push(currentPage);
+          currentPage = _newPage(true, pages.length+1);
+          currentH = COMPACT_H;
         }
         currentPage.appendChild(child);
         currentH += h;
-        if(isFirstPage && currentH > PAGE_H) isFirstPage = false;
-      });
-      if(currentPage.children.length > 0) pages.push(currentPage);
+      }
+      if(currentPage.children.length > (currentPage.querySelector('.compact-header')?1:0)) pages.push(currentPage);
       
       // Replace original page with paginated pages
       var parent = origPage.parentNode;
