@@ -8945,6 +8945,11 @@ function _appendixHTML(){
       for(var i=1;i<rs.length;i++) out+=rs[i];
     }
     var first=true;
+    // S367: active test type drives the "(3-Point)" / "(7-Point)" suffix on
+    // appendix section headers so placards/charts/pump photos are unambiguous.
+    var ptype='std';
+    try{ document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) ptype=b.dataset.ptype||'std'; }); }catch(_){}
+    var ptSuffix = (ptype==='pld') ? ' (7-Point)' : ' (3-Point)';
     function sect(title, items, size){
       if(!items.length) return;
       var t=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':'');
@@ -8952,7 +8957,7 @@ function _appendixHTML(){
       emit(title, items, size, function(l){ return t+head(l); });
     }
     // 1. Pump photos — 3-up, no labels (locked)
-    sect('Pump & Installation', inc.filter(function(it){ return it.type==='record'&&(it.photo.kind==='pump'||it.photo.kind==='pump-pld'); }), 228);
+    sect('Pump & Installation'+ptSuffix, inc.filter(function(it){ return it.type==='record'&&(it.photo.kind==='pump'||it.photo.kind==='pump-pld'); }), 228);
     // 2. Placards (incl. PLD placard) — two large cards per page (locked)
     var plc=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind||'').indexOf('placard')!==-1; });
     if(plc.length){
@@ -8964,13 +8969,11 @@ function _appendixHTML(){
           +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:contain;display:block;"></div>'
           +(d?'<div style="font:11px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(d)+'</div>':'')
           +'</div>';
-        out+=(i===0)?('<div>'+t2+head('Pump Placard')+card+'</div>'):card;
+        out+=(i===0)?('<div>'+t2+head((it.photo.kind==='placard-pld'?'PLD Placard (7-Point)':'Pump Placard (3-Point)'))+card+'</div>'):card;
       });
     }
     // 3. Gauge & RPM — active test type, by flow point, one reading per row, 2-up;
     //    each "0% — Suction" label travels with its first photo row (keep-with-next)
-    var ptype='std';
-    try{ document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) ptype=b.dataset.ptype||'std'; }); }catch(_){}
     var gType=(ptype==='pld')?'gauge-pld':'gauge';
     var gRows=(ptype==='pld')?(typeof pldData!=='undefined'?pldData:[]):(typeof stdData!=='undefined'?stdData:[]);
     var gItems=inc.filter(function(it){ return it.type===gType; });
@@ -8992,7 +8995,7 @@ function _appendixHTML(){
       });
     }
     // 4. Flow test charts (Hose Monster) — 3-up
-    sect('Flow Test Charts', inc.filter(function(it){
+    sect('Flow Test Charts'+ptSuffix, inc.filter(function(it){
       return it.type==='flowtest'||it.type==='flowtest-pld'||(it.type==='record'&&(it.photo.kind==='flow'||it.photo.kind==='flow-pld'));
     }), 228);
     return out;
