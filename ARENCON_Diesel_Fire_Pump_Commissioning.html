@@ -10067,9 +10067,16 @@ function _realExportPDF() {
       if(stage.parentNode) stage.parentNode.removeChild(stage);
 
       // Replace original page with paginated pages. NO "Page X of Y" footer.
+      // Force every final page to EXACTLY letter height (11in) so all pages are
+      // uniform letter-size sheets — never content-height, never taller.
+      // (Measurement used min-height:0; here we lock the display height.)
       var parent = origPage.parentNode;
       origPage.remove();
-      pages.forEach(function(pg){ parent.insertBefore(pg, wd.getElementById('mobile-page-nav')); });
+      pages.forEach(function(pg){
+        pg.style.minHeight = '11in';
+        pg.style.height = '11in';
+        parent.insertBefore(pg, wd.getElementById('mobile-page-nav'));
+      });
     } catch(pgErr){ console.warn('Pagination error:', pgErr); }
   }, 1200);
   } catch(err) { console.error('PDF error:', err); showToast('PDF error: '+err.message, 5000); }
