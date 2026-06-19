@@ -1084,6 +1084,23 @@ body.text-l{--ts:4px;}
   </div>
 </div>
 
+<!-- ═══════════ EDIT NAME MODAL ═══════════ -->
+<div class="modal-overlay" id="edit-name-modal">
+  <div class="modal-card">
+    <h3>Edit Name</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-name-user"></p>
+    <div class="modal-field">
+      <label>Full Name</label>
+      <input type="text" id="edit-name-input" placeholder="e.g. Stacy Goindhan">
+    </div>
+    <p style="font-size:calc(11.5px + var(--ts));color:var(--silver);margin:-4px 0 14px">Updates the name shown across all ARENCON tools. Login email is managed in the Authentication tab.</p>
+    <div class="modal-actions">
+      <button class="dash-btn secondary" onclick="closeEditNameModal()">Cancel</button>
+      <button class="dash-btn primary" onclick="saveUserName()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ OWNER-TRACK PICKER MODAL (S335) ═══════════ -->
 <div class="modal-overlay" id="owner-track-modal">
   <div class="modal-card">
@@ -2995,7 +3012,7 @@ function renderAdminUsers() {
     const statusClass = u.is_active ? '' : ' role-deactivated';
 
     return '<tr>'
-      + '<td>' + esc(u.full_name || '—') + (isSelf ? ' <span style="color:var(--arencon);font-size:calc(11px + var(--ts))">(you)</span>' : '') + '</td>'
+      + '<td>' + esc(u.full_name || '—') + (isSelf ? ' <span style="color:var(--arencon);font-size:calc(11px + var(--ts))">(you)</span>' : '') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditName(\'' + u.id + '\')">Edit</button>' : '') + '</td>'
       + '<td>' + esc(u.user_number || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditNum(\'' + u.id + '\')">Set #</button>' : '') + '</td>'
       + '<td>' + esc(u.initials || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditInit(\'' + u.id + '\')">Set</button>' : '') + '</td>'
       + '<td>' + esc(u.email || '—') + '</td>'
@@ -3159,6 +3176,38 @@ async function saveUserInit() {
     await _sb.from('profiles').eq('id', _editInitUserId).update({ initials: newInit || null });
     toast(newInit ? 'Initials set to ' + newInit : 'Initials cleared', 'success');
     closeEditInitModal();
+    await loadAdminUsers();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+/* ═══ Edit Name ═══ */
+let _editNameUserId = null;
+function openEditName(userId) {
+  _editNameUserId = userId;
+  const u = _allUsers.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('edit-name-user').textContent = u.email || '';
+  document.getElementById('edit-name-input').value = u.full_name || '';
+  document.getElementById('edit-name-modal').classList.add('show');
+}
+
+function closeEditNameModal() {
+  document.getElementById('edit-name-modal').classList.remove('show');
+  _editNameUserId = null;
+}
+
+async function saveUserName() {
+  if (!_editNameUserId) return;
+  const newName = document.getElementById('edit-name-input').value.trim();
+  if (!newName) { toast('Name cannot be blank', 'error'); return; }
+  try {
+    await _sb.from('profiles').eq('id', _editNameUserId).update({ full_name: newName });
+    // keep the in-memory name map in sync so other Hub views update without a full reload
+    if (typeof _userMap === 'object' && _userMap) _userMap[_editNameUserId] = newName;
+    toast('Name updated to ' + newName, 'success');
+    closeEditNameModal();
     await loadAdminUsers();
   } catch (e) {
     toast('Failed: ' + e.message, 'error');
