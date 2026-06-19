@@ -315,6 +315,22 @@ function _buildCSS(fontB64){
   // Scoped so the full-size standalone .pill-* (body cards) are untouched.
   c+='.dash-key{flex:1;display:flex;flex-direction:column;justify-content:center;}';
   c+='.dash-key-row{display:flex;align-items:center;gap:9px;margin:4px 0;font-size:9pt;color:#4A5568;}';
+  // S336 (Mark-LOCKED): page-1 two-bar row (Project Resolution + This Visit).
+  // Muted palette — green fill #5F8068 (closed/pass semantic), no bright tones.
+  // Sized to match the live dashboard (no scale-up; bars are the only addition).
+  c+='.p1-bars{display:flex;gap:14px;margin-top:12px;}';
+  c+='.p1-barbox{flex:1;border:1px solid #DDE1E7;border-radius:6px;padding:9px 13px;}';
+  c+='.p1-bt{font-size:9.5pt;font-weight:700;color:#2A3A5C;margin-bottom:7px;display:flex;justify-content:space-between;align-items:baseline;}';
+  c+='.p1-bt-sub{font-weight:500;color:#8A90A0;font-size:8.5pt;}';
+  c+='.p1-big{font-size:12pt;font-weight:800;color:#5F8068;}';
+  c+='.p1-track{height:10px;border-radius:6px;background:#EDEAF0;overflow:hidden;}';
+  c+='.p1-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,#5F8068,#7BA98C);}';
+  c+='.p1-subline{font-size:8.5pt;color:#6B7B8C;margin-top:6px;}';
+  c+='.p1-delta{display:flex;gap:18px;align-items:center;}';
+  c+='.p1-dstat{display:flex;align-items:baseline;gap:6px;}';
+  c+='.p1-v{font-size:14pt;font-weight:800;}';
+  c+='.p1-up{color:#A85959;}.p1-dn{color:#5F8068;}';
+  c+='.p1-k{font-size:9pt;color:#4A5568;}';
   c+='.dash-key .dk-pill{border-radius:11px;padding:2px 11px;font-size:8.5pt;font-weight:700;flex:none;min-width:74px;text-align:center;letter-spacing:.3px;}';
   c+='.dash-key .dk-h{background:#F4D6D6;color:#8E4444;}';
   c+='.dash-key .dk-l{background:#F5E2C8;color:#8E6240;}';
@@ -610,6 +626,50 @@ function _rowClosed(r){
 // filtered out (they get their own Recommendation Summary). Resolves the
 // pre-S143 rec double-count where recs were tallied on both tables.
 var summaryDefs=reportDefs.filter(function(r){return !(r.d&&r.d.isRecommendation);});
+
+// S336 (Mark-LOCKED, page1_twobar_livesize_demo): two summary bars on page 1,
+// inserted between the dashboard and the Deficiency Summary table. They add
+// information the table does NOT carry, so they are not redundant:
+//   Bar 1 — Project Resolution (CUMULATIVE, all visits): closedEver / totalEver
+//     as a %. summaryDefs already spans every visit (reportDefs is built from
+//     p.contractors[].deficiencies, not instance-filtered), so totalEver and
+//     closedEver equal the summary table's Total and Closed columns exactly.
+//   Bar 2 — This Visit (FRT #_curInst): "+N new found · -M prior closed" counts.
+//     new      = notedOnInstance === _curInst (same basis as "New This Report")
+//     priorCls = closed AND closedOnInstance === _curInst AND noted on an
+//                EARLIER instance (items closed THIS visit that were raised in
+//                a previous report — the genuinely new info the table omits).
+// Deficiencies only (recs excluded, mirroring the summary table). Rendered only
+// in full/deficiency mode; recs-'only' mode keeps its own summary untouched.
+var _progressBarsHtml='';
+if(summaryDefs.length){
+  var _totalEver=summaryDefs.length;
+  var _closedEver=summaryDefs.filter(_rowClosed).length;
+  var _resPct=_totalEver?Math.round((_closedEver/_totalEver)*100):0;
+  var _newThis=summaryDefs.filter(function(r){return (r.d.notedOnInstance||1)===_curInst;}).length;
+  var _priorClosed=summaryDefs.filter(function(r){
+    if(!_rowClosed(r))return false;
+    var ci=(r.obs&&r.obs.addressed!==undefined)?(r.obs.addressedOnInstance||r.d.closedOnInstance||1):(r.d.closedOnInstance||1);
+    var ni=(r.d.notedOnInstance||1);
+    return ci===_curInst && ni<_curInst;
+  }).length;
+  _progressBarsHtml=''
+    +'<div class="p1-bars">'
+      +'<div class="p1-barbox">'
+        +'<div class="p1-bt"><span>Project Resolution <span class="p1-bt-sub">(all visits)</span></span><span class="p1-big">'+_resPct+'%</span></div>'
+        +'<div class="p1-track"><div class="p1-fill" style="width:'+_resPct+'%;"></div></div>'
+        +'<div class="p1-subline">'+_closedEver+' of '+_totalEver+' deficiencies closed since project start</div>'
+      +'</div>'
+      +'<div class="p1-barbox">'
+        +'<div class="p1-bt"><span>This Visit (FRT #'+_curInst+')</span></div>'
+        +'<div class="p1-delta">'
+          +'<div class="p1-dstat"><span class="p1-v p1-up">+'+_newThis+'</span><span class="p1-k">new found</span></div>'
+          +'<div class="p1-dstat"><span class="p1-v p1-dn">\\u2212'+_priorClosed+'</span><span class="p1-k">prior closed</span></div>'
+        +'</div>'
+        +'<div class="p1-subline">Activity recorded during this site review</div>'
+      +'</div>'
+    +'</div>';
+}
 var _deficSummaryHtml='';
 var _dashHtmlFull='',_dashHtmlCompact='';
 if(summaryDefs.length){
@@ -1105,7 +1165,7 @@ if(pooledRecs.length){
 // _startPage() injects this on the first page; FULL_HEADER_H measures it.
 summaryHtml=(_recsMode==='only')
   ? (_recSummaryHtml+_legendHtml)
-  : (_dashHtmlFull+_deficSummaryHtml+_hiRecNoteHtml);
+  : (_dashHtmlFull+_progressBarsHtml+_deficSummaryHtml+_hiRecNoteHtml);
 
 // Open popup
 var w=window.open('','_blank');
@@ -1174,7 +1234,7 @@ var FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
 // per-contractor rows deferred to the table) and re-measure. Deterministic —
 // measured, never guessed.
 if(_recsMode!=='only'&&_dashHtmlFull&&FULL_HEADER_H>PAGE_H){
-  summaryHtml=_dashHtmlCompact+_deficSummaryHtml+_hiRecNoteHtml;
+  summaryHtml=_dashHtmlCompact+_progressBarsHtml+_deficSummaryHtml+_hiRecNoteHtml;
   FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
 }
 var COMPACT_HEADER_H=_measure(_compactHeader(2));
