@@ -32,11 +32,11 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
     // "20% smaller than the v11 mockup, still legible" target = ~24px display
     // size on the 160px-wide dc-mini box. Canvas-to-display ratio is 5×, so
     // canvas pinW≈120 hits the target (was Math.max(28, outW*0.07)=56).
-    // S118 design lock + S336: crop fraction sets the minimap zoom. Mark asked
-    // to zoom OUT ~15% (more context around the pin), so 0.22 -> 0.253 and the
-    // minimum crop floors scale up proportionally (400->460, 300->345).
-    var cropFrac=0.253;
-    var cropW=Math.max(img.width*cropFrac,460);var cropH=Math.max(img.height*cropFrac,345);
+    // S118 design lock + S336: crop fraction sets the minimap zoom. Zoomed out
+    // ~15% (0.22->0.253), then another ~15% (->0.291) per Mark; floors scaled to
+    // match (460->529, 345->397). Net ~32% more context around the pin than S118.
+    var cropFrac=0.291;
+    var cropW=Math.max(img.width*cropFrac,529);var cropH=Math.max(img.height*cropFrac,397);
     var px=(pinData.pinX||0.5)*img.width;var py=(pinData.pinY||0.5)*img.height;
     cropW=Math.min(cropW,img.width);cropH=Math.min(cropH,img.height);
     var sx=Math.max(0,Math.min(px-cropW/2,img.width-cropW));
@@ -45,10 +45,9 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
-    // S118: outW*0.15 ≈ 24px display. S336: Mark asked to reduce the pin ~10%
-    // -> outW*0.135, floor 60->54. Keeps the teardrop legible but less dominant
-    // now that the crop is zoomed out a touch.
-    var pinW=Math.max(54,outW*0.135);
+    // S118: outW*0.15 ≈ 24px. S336: reduced ~10% (->0.135), then another ~10%
+    // (->0.1215) per Mark; floor 60->54->49. Net ~19% smaller than S118.
+    var pinW=Math.max(49,outW*0.1215);
     _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData,isSiteRecord);
     callback(canvas.toDataURL('image/jpeg',0.92));
   };
