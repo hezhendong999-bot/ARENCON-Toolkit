@@ -129,7 +129,6 @@ body.dark-mode .band-chip{background:var(--card)}
 .band-label{font-size:calc(10.5px + var(--ts));color:var(--silver);text-transform:uppercase;letter-spacing:1px}
 .band-rule{flex:1;height:1px;background:var(--border)}
 .band-count{font-size:calc(10.5px + var(--ts));color:var(--silver)}
-.band-body.hidden{display:none}
 /* Banded container: vertical stack of bands; each band-body holds the card grid */
 .project-grid-banded{display:block}
 .band-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
@@ -672,15 +671,16 @@ body.bold #dash-view,body.bold #admin-panel,body.bold #project-detail,body.bold 
 body.bold .project-card,
 body.bold.dark-mode .project-card{
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+/* Glass cards — light (demo --card-grad) */
 body.bold .project-card{
-  background:linear-gradient(160deg,rgba(255,255,255,.97),rgba(247,245,249,.90)) !important;
-  border:1px solid rgba(27,26,34,.10) !important;
-  box-shadow:0 2px 6px rgba(40,30,50,.07),0 12px 32px rgba(40,30,50,.09) !important;}
-/* Glass cards — dark */
+  background:linear-gradient(160deg,rgba(255,255,255,.96),rgba(247,245,249,.88)) !important;
+  border:1px solid rgba(27,26,34,.10) !important;border-radius:14px !important;
+  box-shadow:0 2px 6px rgba(40,30,50,.07),0 10px 30px rgba(40,30,50,.08) !important;}
+/* Glass cards — dark (demo --card-grad) */
 body.bold.dark-mode .project-card{
-  background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.025)) !important;
-  border:1px solid rgba(255,255,255,.11) !important;
-  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 14px 36px rgba(0,0,0,.45) !important;}
+  background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02)) !important;
+  border:1px solid rgba(255,255,255,.10) !important;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px rgba(0,0,0,.4) !important;}
 /* Accent edge */
 body.bold .project-card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
   background:linear-gradient(180deg,var(--arencon),#46C5E8);opacity:.55;border-radius:var(--radius) 0 0 var(--radius);}
@@ -688,13 +688,23 @@ body.bold .project-card:hover{box-shadow:0 18px 50px rgba(40,30,50,.16) !importa
 body.bold.dark-mode .project-card:hover{
   box-shadow:0 24px 56px rgba(0,0,0,.6) !important;border-color:color-mix(in srgb,var(--arencon) 40%,rgba(255,255,255,.11)) !important;}
 
-/* Glass header */
+/* Header — transparent, sits on page bg like the demo (no navy box) */
 body.bold .hdr{
-  background:linear-gradient(135deg,rgba(27,36,56,.92),rgba(36,48,72,.86)) !important;
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);}
+  background:transparent !important;
+  box-shadow:none !important;
+  border-bottom:1px solid var(--border);
+  -webkit-backdrop-filter:none;backdrop-filter:none;}
 body.bold.dark-mode .hdr{
-  background:linear-gradient(135deg,rgba(15,19,24,.82),rgba(30,37,51,.74)) !important;
-  border-bottom:1px solid rgba(255,255,255,.06);}
+  background:transparent !important;
+  border-bottom:1px solid rgba(255,255,255,.08);}
+/* Header text/buttons adapt to transparent header */
+body.bold .hdr-title{color:var(--fg) !important;}
+body.bold .hdr-user,body.bold .hdr-user *{color:var(--fg) !important;}
+body.bold .hdr-btn{
+  background:var(--card) !important;border:1px solid var(--border) !important;color:var(--fg) !important;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+body.bold .hdr-btn:hover{border-color:var(--arencon) !important;}
+body.bold .hdr img{background:#fff !important;}
 
 /* Glass toolbar surfaces */
 body.bold .dash-search,body.bold .dash-sort,body.bold .hub-view-toggle,
@@ -710,6 +720,9 @@ body.bold .view-list .band-body,body.bold .view-list .project-grid-inner{
   -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
 body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .project-grid-inner{
   background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02)) !important;}
+/* Band collapse must win over every view-mode display rule */
+.band-body.hidden,
+.view-cards .band-body.hidden,.view-compact .band-body.hidden,.view-list .band-body.hidden{display:none !important;}
 </style>
 </head>
 <body>
