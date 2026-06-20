@@ -519,8 +519,22 @@
       var pad=6, dx=b.x2+pad+4+8, dy=b.y1-pad-14+8;
       return Math.sqrt((p.x-dx)*(p.x-dx)+(p.y-dy)*(p.y-dy)) <= 12;
     },
+    // S339 — copy handle: filled circle centered below the bottom edge, mirroring
+    // the rotate handle's top-center stem. Generous radius on coarse pointers.
+    _hitCopy: function(p){
+      var b=this._groupBounds(); if(!b) return false;
+      var pad=6, ccx=(b.x1+b.x2)/2, ccy=b.y2+pad+34;
+      var coarse=(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+      var rad=coarse?20:14;
+      return Math.sqrt((p.x-ccx)*(p.x-ccx)+(p.y-ccy)*(p.y-ccy)) <= rad;
+    },
 
     _selectDown: function(p, ev){
+      // copy handle (bottom-center) — must be tested BEFORE delete/resize/rotate/move
+      // so tapping it duplicates the selection instead of starting a drag. S339.
+      if (this._selectedIds.length && this._hitCopy(p)){
+        this._cloneSelection(); return;
+      }
       // delete button
       if (this._selectedIds.length && this._hitDelete(p)){
         var sel=this._selectedIds; this.strokes=this.strokes.filter(function(s){return sel.indexOf(s.id)===-1;});
@@ -637,7 +651,33 @@
       this._dragState=null; this._render();
     },
 
-    // Selection overlay: dashed box, corner handles, rotate circle, delete X (drawn each _render in select mode)
+    // S339 — duplicate the current selection. Each clone gets a fresh id, a deep
+    // copy of its pts[] (no aliasing), every coord offset by (+28,+28), and all
+    // visual fields copied verbatim. The new strokes become the active selection
+    // so the user can immediately drag-to-place and chain another copy.
+    // NOTE: this engine's undo is a per-stroke LIFO (strokes.pop()), so a
+    // multi-select copy that pushes N strokes undoes one stroke per Undo press.
+    // Single-object copy (the common case) undoes cleanly in one press.
+    _cloneSelection: function(){
+      if (!this._selectedIds || !this._selectedIds.length) return;
+      var self=this, OFF=28, newIds=[];
+      this._selectedIds.forEach(function(id){
+        var s=self._findStroke(id); if(!s) return;
+        var c={ id:self._uid(), tool:s.tool, color:s.color, size:s.size,
+                opacity:s.opacity, text:s.text, rotation:s.rotation };
+        // deep-copy + offset the only coordinate array this engine uses
+        c.pts = (s.pts||[]).map(function(pt){ return { x:pt.x+OFF, y:pt.y+OFF }; });
+        // drop undefined optional fields so cloned objects stay clean
+        if (c.text===undefined) delete c.text;
+        if (c.rotation===undefined) delete c.rotation;
+        self.strokes.push(c); newIds.push(c.id);
+      });
+      if (!newIds.length) return;
+      this._selectedIds = newIds;
+      this.redoStack = [];           // a new action invalidates redo (engine canon)
+      this._render();
+      if (this._onDirty) this._onDirty();
+    },
     _drawSelection: function(ctx){
       if (this._rubberBand){
         var r=this._rubberBand;
@@ -661,6 +701,16 @@
       ctx.fillStyle='#E53E3E'; ctx.beginPath(); ctx.arc(dx+8,dy+8,9,0,Math.PI*2); ctx.fill();
       ctx.fillStyle='white'; ctx.font='bold 12px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('\u2715', dx+8, dy+8);
+      // S339 — copy handle: bottom-center, stem mirrors the rotate handle's stem
+      var ccx=bx+bw/2, ccy=by+bh+34;
+      ctx.beginPath(); ctx.moveTo(bx+bw/2,by+bh); ctx.lineTo(ccx,ccy-9); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.arc(ccx,ccy,9,0,Math.PI*2); ctx.fillStyle='#1565C0'; ctx.fill();
+      ctx.strokeStyle='#1565C0'; ctx.lineWidth=1.5; ctx.stroke();
+      // two-rect copy glyph (white): back rect offset up-left, front rect down-right
+      ctx.strokeStyle='white'; ctx.lineWidth=1.3;
+      ctx.strokeRect(ccx-4, ccy-4, 5, 6);
+      ctx.fillStyle='#1565C0'; ctx.fillRect(ccx-1, ccy-1, 5, 6);
+      ctx.strokeRect(ccx-1, ccy-1, 5, 6);
       ctx.restore();
     },
 
