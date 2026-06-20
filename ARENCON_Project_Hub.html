@@ -184,7 +184,7 @@ body.dark-mode .band-chip{background:var(--card)}
 /* progress chip + backup share the 7th fixed column, single line, no wrap */
 .view-list .project-card .project-card-bottom .progress-chip{grid-column:7;grid-row:1;margin:0;justify-self:start;white-space:nowrap;font-size:calc(10.5px + var(--ts))}
 .view-list .project-card .project-card-bottom .backup-status{grid-column:7;grid-row:1;margin:0;justify-self:start;white-space:nowrap;font-size:calc(11px + var(--ts))}
-.view-list .project-card-bottom>span[style]{display:none}/* hide the "No tools" placeholder */
+.view-list .project-card-bottom>span[style]:not(.tool-pill):not(.progress-chip):not(.backup-status){display:none}/* hide only the "No tools" placeholder */
 /* list view: compress the long "Not backed up" to an icon to save width */
 .view-list .backup-status.not-backed{font-size:0 !important}
 .view-list .backup-status.not-backed::before{content:'⚠';font-size:calc(13px + var(--ts));color:var(--warn,#E0A36A)}
@@ -224,10 +224,12 @@ body.bold .view-list .project-card::after{display:none !important}
     margin:0;max-width:100%;white-space:normal;overflow:visible;
     font-size:calc(12.5px + var(--ts));color:var(--fg);font-weight:600}
   .view-list .project-card-bottom{grid-row:3;grid-column:1 / -1;display:flex !important;flex-wrap:wrap;align-items:center;gap:6px;margin:0}
-  .view-list .project-card-bottom .tool-pill{width:auto;grid-column:auto;font-size:calc(11px + var(--ts))}
-  .view-list .project-card .project-card-bottom .progress-chip{grid-column:auto;grid-row:auto;margin:0}
-  .view-list .project-card .project-card-bottom .backup-status{grid-column:auto;grid-row:auto;margin-left:auto}
-  .view-list .backup-status.not-backed{font-size:0 !important}
+  .view-list .project-card-bottom .tool-pill{display:inline-flex !important;width:auto;grid-column:auto;font-size:calc(11px + var(--ts))}
+  /* mobile list: keep TOOL pills, drop Draft/Issued counts + date, backup = icon only */
+  .view-list .project-card .project-card-bottom .progress-chip{display:none !important}
+  .view-list .project-card .project-card-bottom .backup-status{grid-column:auto;grid-row:auto;margin-left:auto;font-size:0 !important}
+  .view-list .project-card-bottom .backup-status::before{content:'📥';font-size:calc(13px + var(--ts));}
+  .view-list .project-card-bottom .backup-status.not-backed::before{content:'⚠';color:var(--warn);}
   .view-list .project-card-date{display:none !important}
   /* Mobile Cards view (incl. starred-on-top): compact — drop Draft/Issued counts, date→icon, keep tools */
   .view-cards .project-card-bottom{flex-wrap:wrap;gap:6px}
