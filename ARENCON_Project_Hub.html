@@ -994,6 +994,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       <button class="dash-btn secondary" id="hub-clear-filters" onclick="clearHubFilters()" style="display:none">Clear all filters</button>
       <div class="bulk-select-wrap" id="bulk-select-wrap">
         <button class="dash-btn secondary" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Select</button>
+        <button class="dash-btn secondary" id="btn-archived-toolbar" onclick="toggleArchived()">📦 Archived</button>
         <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
           <span class="bulk-count" id="bulk-count">0</span>
           <button id="bulk-btn-pin" onclick="bulkPin(true)" title="Pin" style="display:none">📌</button>
@@ -1016,7 +1017,6 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       <div class="dash-more-wrap" style="position:relative;display:inline-flex;">
         <button class="dash-btn secondary" onclick="toggleDashMore(event)">⚙️ More ▾</button>
         <div class="dash-more-menu" id="dash-more-menu">
-          <button id="btn-archived" onclick="toggleArchived();closeDashMore()">📦 Archived</button>
           <button id="btn-deleted" onclick="toggleDeleted();closeDashMore()">🗑️ Deleted</button>
           <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
           <button onclick="exportAllProjects();closeDashMore()">📥 Export All</button>
@@ -1312,6 +1312,19 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
     <div class="modal-actions">
       <button class="dash-btn secondary" onclick="closeDeleteModal()">Cancel</button>
       <button class="dash-btn" style="background:linear-gradient(135deg,#DC2626,#B91C1C);color:white;" onclick="executeDeleteProject()">Move to Trash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ARCHIVE CONFIRM MODAL ═══════════ -->
+<div class="modal-overlay" id="arch-modal">
+  <div class="modal-card">
+    <h3>📦 Archive Project</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin:8px 0 16px;line-height:1.5;">Archiving <strong id="arch-proj-num">—</strong> moves it out of your active list. You can restore it anytime from the Archived view. We recommend downloading a JSON backup first.</p>
+    <div class="modal-actions" style="flex-direction:column;align-items:stretch;gap:9px;">
+      <button class="dash-btn primary" onclick="_archiveWithDownload()">📥 Download JSON &amp; Archive</button>
+      <button class="dash-btn secondary" onclick="_archiveNoDownload()">Archive without downloading</button>
+      <button class="dash-btn secondary" onclick="closeArchiveModal()" style="border:none;background:none;color:var(--steel);">Cancel</button>
     </div>
   </div>
 </div>
@@ -2542,16 +2555,17 @@ document.addEventListener('click',function(e){
 function toggleArchived() {
   _showArchived = !_showArchived;
   if (_showArchived) _showDeleted = false;
-  document.getElementById('btn-archived').textContent = _showArchived ? '📋 Active' : '📦 Archived';
-  document.getElementById('btn-deleted').textContent = '🗑️ Deleted';
+  var ab = document.getElementById('btn-archived-toolbar');
+  if (ab) { ab.textContent = _showArchived ? '📋 Active' : '📦 Archived'; ab.classList.toggle('filter-active', _showArchived); }
+  var db = document.getElementById('btn-deleted'); if (db) db.textContent = '🗑️ Deleted';
   renderProjects();
 }
 
 function toggleDeleted() {
   _showDeleted = !_showDeleted;
   if (_showDeleted) _showArchived = false;
-  document.getElementById('btn-deleted').textContent = _showDeleted ? '📋 Active' : '🗑️ Deleted';
-  document.getElementById('btn-archived').textContent = '📦 Archived';
+  var db = document.getElementById('btn-deleted'); if (db) db.textContent = _showDeleted ? '📋 Active' : '🗑️ Deleted';
+  var ab = document.getElementById('btn-archived-toolbar'); if (ab) { ab.textContent = '📦 Archived'; ab.classList.remove('filter-active'); }
   renderProjects();
 }
 
@@ -3201,12 +3215,38 @@ async function toggleArchiveProject() {
   }
   var newStatus = proj.status === 'archived' ? 'active' : 'archived';
   var action = newStatus === 'archived' ? 'archive' : 'unarchive';
-  if (!confirm('Are you sure you want to ' + action + ' project ' + (proj.project_number || '') + '?')) return;
+  // Unarchiving: simple confirm. Archiving: dialog offering a JSON backup first.
+  if (newStatus === 'active') {
+    if (!confirm('Restore project ' + (proj.project_number || '') + ' to active?')) return;
+    return _applyArchiveStatus(proj, 'active');
+  }
+  // Archiving — open the confirm-with-download modal
+  _archiveTargetId = proj.id;
+  document.getElementById('arch-proj-num').textContent = proj.project_number || '—';
+  document.getElementById('arch-modal').classList.add('show');
+}
+
+var _archiveTargetId = null;
+function closeArchiveModal(){ document.getElementById('arch-modal').classList.remove('show'); _archiveTargetId = null; }
+async function _archiveWithDownload(){
+  var id = _archiveTargetId; if (!id) return;
+  var proj = _projects.find(function(p){ return p.id === id; }); if (!proj) return;
+  closeArchiveModal();
+  try { await exportSingleProject(id); } catch(e){ toast('Backup failed — not archived', 'error'); return; }
+  await _applyArchiveStatus(proj, 'archived');
+}
+async function _archiveNoDownload(){
+  var id = _archiveTargetId; if (!id) return;
+  var proj = _projects.find(function(p){ return p.id === id; }); if (!proj) return;
+  closeArchiveModal();
+  await _applyArchiveStatus(proj, 'archived');
+}
+async function _applyArchiveStatus(proj, newStatus){
+  var action = newStatus === 'archived' ? 'archive' : 'unarchive';
   try {
     await _sb.from('projects').eq('id', proj.id).update({ status: newStatus });
     proj.status = newStatus;
     toast('Project ' + (newStatus === 'archived' ? 'archived' : 'restored to active'), 'success');
-    // Refresh detail
     openProject(proj.id);
   } catch (e) {
     toast('Failed to ' + action + ': ' + e.message, 'error');
