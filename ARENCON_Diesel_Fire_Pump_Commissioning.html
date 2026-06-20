@@ -8919,8 +8919,13 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
   // force-toggled curves). Reading the overlay DOM is drift-proof: the overlay IS the
   // source of truth, produced by renderChartAnnotations.
   if(!ci) return;
+  var _bakeWasDark = document.body.classList.contains('dark-mode');
   try {
-    // 1) Make sure the overlay reflects current toggles + export-size layout.
+    // 1) The PDF body is light/printable, so labels must be captured with the
+    //    LIGHT-mode look (white pill + dark-readable per-curve text), never the
+    //    dark chip. Temporarily drop dark-mode and RE-RENDER the overlay so the
+    //    label colours resolve to their light-mode (un-brightened) curve colours.
+    if(_bakeWasDark) document.body.classList.remove('dark-mode');
     if(typeof renderChartAnnotations === 'function' &&
        (typeof chartAnnotationsVisible==='undefined' || chartAnnotationsVisible[canvasId]!==false)){
       renderChartAnnotations(ci, canvasId);
@@ -8971,13 +8976,14 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
       var text = el.textContent || '';
       if(!text) return;
       var lines = text.split('\n');
-      // Font scaled to bitmap space; overlay uses 10px 600 Calibri.
-      var fpx = 10 * sy;
+      // S368: bigger than the 10px on-screen overlay so labels stay legible at the
+      // PDF's reduced chart width. 12.5px base + matching line height.
+      var fpx = 12.5 * sy;
       ctx.font = '600 ' + fpx.toFixed(1) + 'px Calibri, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      var lineH = 13 * sy;            // matches overlay line-height
-      var padX = 5 * sx, padY = 2 * sy;
+      var lineH = 15.5 * sy;          // matches the larger font
+      var padX = 6 * sx, padY = 3 * sy;
       var maxW = 0;
       lines.forEach(function(l){ var w=ctx.measureText(l).width; if(w>maxW) maxW=w; });
       // anchor (bottom-centre) in bitmap space
@@ -9002,6 +9008,13 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
 
     ctx.restore();
   } catch(e){ try{ console.warn('[bakeAnn] failed for '+canvasId, e); }catch(_){} }
+  finally {
+    // restore the inspector's mode + repaint the overlay for the screen
+    if(_bakeWasDark){
+      document.body.classList.add('dark-mode');
+      try{ if(typeof renderChartAnnotations==='function') renderChartAnnotations(ci, canvasId); }catch(_){}
+    }
+  }
 }
 /* ════ S315 F1: PRE-PRINT PHOTO SELECTION (LOCKED design, Diesel PK) ════
    Full-screen, one category per row, select-all + per-category, default
