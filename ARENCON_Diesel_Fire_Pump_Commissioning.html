@@ -10173,7 +10173,11 @@ function _realExportPDF() {
           else { g = [r]; groups.push(g); }    // start a new group on an item row
         });
         function _shell(cont){
-          if(_pageFull()){ _push(); }
+          // A continuation is BY DEFINITION the top of a new page — always push,
+          // so a "(cont.)" band can never appear mid-page with content under it.
+          // (For the first shell, only push if the current page is genuinely full.)
+          if(cont){ if(curPage.children.length > 1) _push(); }
+          else if(_pageFull()){ _push(); }
           if(cont && head){ curPage.appendChild(_bandClone(head,true)); }
           var w = wrapper.cloneNode(false);
           var t = table.cloneNode(false);
@@ -10201,7 +10205,8 @@ function _realExportPDF() {
       function _splitGeneric(block, head){
         var kids = Array.from(block.children);
         function _wrap(cont){
-          if(_pageFull()){ _push(); }
+          if(cont){ if(curPage.children.length > 1) _push(); }
+          else if(_pageFull()){ _push(); }
           if(cont && head){ curPage.appendChild(_bandClone(head,true)); }
           var w = block.cloneNode(false); curPage.appendChild(w); return w;
         }
