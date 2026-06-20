@@ -3354,8 +3354,27 @@ function _cvReopen(deficId, obsIdx, instant) {
   var crossReport = (closedAt != null && closedAt < curInst);
 
   var doReopen = function() {
-    // Reopen to high priority (safe default for a now-unresolved item).
-    _cvSetStatus(deficId, obsIdx, 'high', instant);
+    // S338 FIX: reopen by UN-CLOSING, not by forcing a status. Closure is
+    // non-destructive — o.priority and o.isRecommendation survive a close, and a
+    // Site Record's no-contractor state survives too. updateDeficStatus(id,
+    // 'open') clears `addressed` on every obs (and runs the reopen stamp) WITHOUT
+    // touching priority/rec, so the item falls back to exactly what it was: a low
+    // item stays low, a recommendation stays a recommendation, a site record
+    // stays a site record. (The previous _cvSetStatus(...,'high') was the bug —
+    // it explicitly set priority to high, flattening every reopened item.)
+    Model.updateDeficStatus(deficId, 'open');
+    if (Model.saveNow) Model.saveNow();
+    if (instant) { _cvCloseStatusMenus(); initDeficiencies.render(); }
+    else {
+      // Match the in-list flow used elsewhere: hold the auto-render so the card
+      // doesn't jump, mark pending + patch the pill in place, sync Re-sort.
+      _recHoldUntilNav = true;
+      _cvPendingKeys[_obsKey(deficId, obsIdx)] = true;
+      _cvCloseStatusMenus();
+      _cvPatchRowPill(deficId, obsIdx);
+      _cvSyncResortBtn();
+    }
+    if (window._frtRenderTasks) window._frtRenderTasks();
   };
 
   if (crossReport) {
