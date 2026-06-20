@@ -15701,7 +15701,19 @@ function _placardScan(btn, mode){
         try{ console.info('[placard scan] S352 salvaged JSON from prose-wrapped model output'); }catch(_e){}
         done(); _placardPreview(btn, salvaged, imgs.length, mode); return;
       }
-      done(); showToast('Placard scan failed: '+(err.message||'connection error')+' \u2014 check the photo is clear & try again');
+      done();
+      // S369: surface the worker's REAL reason on-screen (no desktop console on
+      // field tablets). Include image count + per-image KB so a payload problem is
+      // distinguishable from a worker-side/model error at a glance.
+      var _p = err && err._payload;
+      var _why = '';
+      try{
+        if(_p){ _why = _p.detail || _p.raw || _p.error || _p.message || ''; }
+        if(!_why) _why = err.message || 'connection error';
+      }catch(_e){ _why = err.message || 'connection error'; }
+      var _sizes = imgs.map(function(im){ return Math.round((im.data?im.data.length:0)*0.75/1024)+'KB'; }).join(', ');
+      try{ console.warn('[placard scan] FAIL', {mode:mode, nImgs:imgs.length, sizes:_sizes, why:_why, payload:_p}); }catch(_e){}
+      showToast('Scan failed ('+imgs.length+' img · '+_sizes+'): '+String(_why).slice(0,300));
     });
   });
 }
