@@ -111,9 +111,20 @@ body.dark-mode{
 .project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
 /* ── Hub view toggle ── */
 .hub-view-toggle{display:inline-flex;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:2px;gap:1px}
-.hub-view-toggle button{border:none;background:none;color:var(--steel);font-size:calc(14px + var(--ts));padding:5px 10px;border-radius:6px;cursor:pointer;line-height:1}
-.hub-view-toggle button.active{background:var(--arencon);color:#fff}
+.hub-view-toggle button{border:none;background:none;color:var(--steel);font-size:calc(12.5px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;padding:6px 12px;border-radius:6px;cursor:pointer;line-height:1;white-space:nowrap}
+.hub-view-toggle button.active{background:var(--info,#2C7FB8);color:#fff}
 body.dark-mode .hub-view-toggle{background:var(--card)}
+/* Hub filter menu */
+.hub-filter-badge{background:var(--arencon);color:#fff;border-radius:999px;font-size:calc(10px + var(--ts));font-weight:700;padding:1px 6px;margin-left:4px}
+.dash-btn.secondary.filter-active{border-color:var(--arencon);color:var(--arencon)}
+.hub-filter-menu{position:absolute;z-index:70;top:100%;margin-top:7px;right:0;width:240px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:13px;box-shadow:var(--shadow-lg);display:none}
+.hub-filter-menu.open{display:block}
+.hfg{margin-bottom:12px}.hfg:last-child{margin-bottom:0}
+.hfg label{display:block;font-size:calc(10px + var(--ts));text-transform:uppercase;letter-spacing:.7px;color:var(--silver);font-weight:700;margin-bottom:6px}
+.hfopts{display:flex;flex-wrap:wrap;gap:6px}
+.hfopt{background:var(--bg);border:1.5px solid var(--border);color:var(--steel);border-radius:999px;padding:5px 11px;font:600 calc(11.5px + var(--ts)) Calibri,sans-serif;cursor:pointer}
+.hfopt.on{background:var(--arencon);color:#fff;border-color:var(--arencon)}
+body.dark-mode .hfopt{background:var(--card)}
 /* ── Band filter chips ── */
 .band-filter{display:flex;flex-wrap:wrap;gap:7px;padding:0 24px 6px}
 .band-chip{background:var(--bg);border:1.5px solid var(--border);color:var(--steel);border-radius:999px;padding:5px 13px;font-family:'Cascadia Code',Consolas,monospace;font-size:calc(11.5px + var(--ts));font-weight:600;cursor:pointer;transition:all .12s}
@@ -723,6 +734,33 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
 /* Band collapse must win over every view-mode display rule */
 .band-body.hidden,
 .view-cards .band-body.hidden,.view-compact .band-body.hidden,.view-list .band-body.hidden{display:none !important;}
+
+/* ── Demo tinted pills (tool pills + progress chips) ── */
+/* Demo semantic colours */
+body.bold{--d-frt:#9C2742;--d-dfp:#D98A1E;--d-efp:#2C7FB8;--d-ist:#C0445F;--d-obc:#3E8E6E;--d-dd:#6E4FA0;
+  --d-draft:#2C7FB8;--d-review:#C98A4A;--d-issued:#3E8E6E;}
+body.bold.dark-mode{--d-frt:#C9476A;--d-dfp:#E6A23C;--d-efp:#46C5E8;--d-ist:#E26076;--d-obc:#48C896;--d-dd:#9B7BD4;
+  --d-draft:#46C5E8;--d-review:#E0A36A;--d-issued:#48C896;}
+/* Base tinted tool-pill shell (override solid inline bg) */
+body.bold .tool-pill{
+  background:transparent !important;border:1px solid;border-radius:999px;
+  padding:3px 10px 3px 9px;gap:5px;font-weight:700;letter-spacing:.2px;}
+body.bold .tool-pill svg{display:none;} /* demo uses a dot, not the icon glyph */
+body.bold .tool-pill::before{content:'';width:6px;height:6px;border-radius:50%;display:inline-block;background:currentColor;}
+/* Per-tool tints — matched by the inline colour the JS sets, via attribute would be ideal;
+   instead we colour all tool-pills with a data hook added in JS (see tool-pill class additions). */
+body.bold .tool-pill.tp-frt{color:var(--d-frt);background:color-mix(in srgb,var(--d-frt) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-frt) 35%,transparent);}
+body.bold .tool-pill.tp-diesel{color:var(--d-dfp);background:color-mix(in srgb,var(--d-dfp) 14%,transparent) !important;border-color:color-mix(in srgb,var(--d-dfp) 36%,transparent);}
+body.bold .tool-pill.tp-electric{color:var(--d-efp);background:color-mix(in srgb,var(--d-efp) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-efp) 34%,transparent);}
+body.bold .tool-pill.tp-ist{color:var(--d-ist);background:color-mix(in srgb,var(--d-ist) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-ist) 35%,transparent);}
+body.bold .tool-pill.tp-obc{color:var(--d-obc);background:color-mix(in srgb,var(--d-obc) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-obc) 34%,transparent);}
+body.bold .tool-pill.tp-dd{color:var(--d-dd);background:color-mix(in srgb,var(--d-dd) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-dd) 35%,transparent);}
+/* Progress chips → demo tints with dot */
+body.bold .progress-chip{border:1px solid;border-radius:999px;padding:3px 10px 3px 9px;display:inline-flex;align-items:center;gap:5px;font-weight:700;}
+body.bold .progress-chip::before{content:'';width:6px;height:6px;border-radius:50%;display:inline-block;background:currentColor;}
+body.bold .progress-chip.draft{color:var(--d-draft);background:color-mix(in srgb,var(--d-draft) 13%,transparent);border-color:color-mix(in srgb,var(--d-draft) 34%,transparent);}
+body.bold .progress-chip.review{color:var(--d-review);background:color-mix(in srgb,var(--d-review) 13%,transparent);border-color:color-mix(in srgb,var(--d-review) 34%,transparent);}
+body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in srgb,var(--d-issued) 13%,transparent);border-color:color-mix(in srgb,var(--d-issued) 34%,transparent);}
 </style>
 </head>
 <body>
@@ -838,10 +876,19 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
         <option value="name">Sort: Name</option>
       </select>
       <div class="hub-view-toggle" id="hub-view-toggle">
-        <button data-view="cards" onclick="setHubView('cards')" title="Cards view">▤</button>
-        <button data-view="compact" onclick="setHubView('compact')" title="Compact view">▦</button>
-        <button data-view="list" onclick="setHubView('list')" title="List view">☰</button>
+        <button data-view="cards" onclick="setHubView('cards')" title="Cards view">▤ Cards</button>
+        <button data-view="compact" onclick="setHubView('compact')" title="Compact view">▦ Compact</button>
+        <button data-view="list" onclick="setHubView('list')" title="List view">☰ List</button>
       </div>
+      <div class="hub-filter-wrap" style="position:relative;display:inline-flex;">
+        <button class="dash-btn secondary" id="hub-filter-btn" onclick="toggleHubFilter(event)">⚙ Filters <span class="hub-filter-badge" id="hub-filter-badge" style="display:none">0</span></button>
+        <div class="hub-filter-menu" id="hub-filter-menu">
+          <div class="hfg"><label>Status</label><div class="hfopts" id="hfopt-status"></div></div>
+          <div class="hfg"><label>Tool</label><div class="hfopts" id="hfopt-tool"></div></div>
+          <div class="hfg"><label>Backup</label><div class="hfopts" id="hfopt-backup"></div></div>
+        </div>
+      </div>
+      <button class="dash-btn secondary" id="hub-clear-filters" onclick="clearHubFilters()" style="display:none">Clear all filters</button>
       <div class="bulk-select-wrap" id="bulk-select-wrap">
         <button class="dash-btn secondary" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Select</button>
         <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
@@ -1454,6 +1501,8 @@ let _hubView = (function(){ try { var v = localStorage.getItem('arencon-hub-view
 let _activeBand = 'all';
 let _nbOnly = false;
 let _bandCollapsed = {};
+// Hub filters (reset each visit)
+let _hubFilters = { status:'active', tool:'any', backup:'any' };
 let _showDeleted = false;
 let _editRoleUserId = null;
 let _resetPwUserId = null;
@@ -2063,6 +2112,14 @@ function renderProjects() {
       var _mine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
       if (!_mine) return false;
     }
+    // Hub filter menu
+    if (!_showDeleted && !_showArchived) {
+      if (_hubFilters.status === 'active' && p.status === 'archived') return false;
+      if (_hubFilters.status === 'archived' && p.status !== 'archived') return false;
+      if (_hubFilters.tool !== 'any' && (p.enabled_tools || []).indexOf(_hubFilters.tool) < 0) return false;
+      if (_hubFilters.backup === 'not' && p.last_exported_at) return false;
+      if (_hubFilters.backup === 'done' && !p.last_exported_at) return false;
+    }
     if (search) {
       var haystack = ((p.project_number || '') + ' ' + (p.project_name || '') + ' ' + (p.client || '') + ' ' + (p.address || '') + ' ' + (_userMap[p.project_manager] || '')).toLowerCase();
       if (haystack.indexOf(search) < 0) return false;
@@ -2172,6 +2229,7 @@ function renderProjects() {
     }).join('');
   }
   _renderBandFilter();
+  _renderHubFilterMenu();
   _renderStatsStrip();
 }
 
@@ -2184,6 +2242,39 @@ function _bandLo(num) {
 function toggleBand(lo) {
   _bandCollapsed[lo] = !_bandCollapsed[lo];
   renderProjects();
+}
+// ── Hub filter menu ──
+function toggleHubFilter(e) {
+  e.stopPropagation();
+  document.getElementById('hub-filter-menu').classList.toggle('open');
+}
+function setHubFilter(key, val) {
+  _hubFilters[key] = val;
+  _activeBand = 'all';
+  renderProjects();
+}
+function clearHubFilters() {
+  _hubFilters = { status:'active', tool:'any', backup:'any' };
+  _activeBand = 'all';
+  renderProjects();
+}
+function _renderHubFilterMenu() {
+  function opts(id, arr, cur, key) {
+    var el = document.getElementById(id); if (!el) return;
+    el.innerHTML = arr.map(function(o){ return '<span class="hfopt' + (cur === o.v ? ' on' : '') + '" onclick="setHubFilter(\'' + key + '\',\'' + o.v + '\')">' + o.l + '</span>'; }).join('');
+  }
+  opts('hfopt-status', [{v:'active',l:'Active'},{v:'archived',l:'Archived'},{v:'all',l:'All'}], _hubFilters.status, 'status');
+  var toolOpts = [{v:'any',l:'Any'}];
+  Object.keys(AVAILABLE_TOOLS).forEach(function(k){ toolOpts.push({v:k,l:AVAILABLE_TOOLS[k].short}); });
+  opts('hfopt-tool', toolOpts, _hubFilters.tool, 'tool');
+  opts('hfopt-backup', [{v:'any',l:'Any'},{v:'not',l:'Not backed up'},{v:'done',l:'Backed up'}], _hubFilters.backup, 'backup');
+  var n = (_hubFilters.status !== 'active' ? 1 : 0) + (_hubFilters.tool !== 'any' ? 1 : 0) + (_hubFilters.backup !== 'any' ? 1 : 0);
+  var badge = document.getElementById('hub-filter-badge');
+  var clearBtn = document.getElementById('hub-clear-filters');
+  var fbtn = document.getElementById('hub-filter-btn');
+  if (badge) { badge.style.display = n ? 'inline-block' : 'none'; badge.textContent = n; }
+  if (clearBtn) clearBtn.style.display = n ? '' : 'none';
+  if (fbtn) fbtn.classList.toggle('filter-active', n > 0);
 }
 function setBand(b) {
   _activeBand = b;
@@ -2259,7 +2350,7 @@ function _renderProjectCard(p, myId) {
   // Tool icons (hover for name)
   var tools = (p.enabled_tools || []);
   var toolIcons = tools.length > 0
-    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-pill" style="background:' + ti.color + '" title="' + esc(ti.name) + '">' + ti.svg + ti.short + '</span>' : ''; }).join('')
+    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-pill tp-' + t + '" style="background:' + ti.color + '" title="' + esc(ti.name) + '">' + ti.svg + ti.short + '</span>' : ''; }).join('')
     : '<span style="font-size:calc(10px + var(--ts));color:var(--silver)">No tools</span>';
 
   // Progress chips
@@ -2331,6 +2422,11 @@ function closeDashMore(){
   var m=document.getElementById('dash-more-menu');if(m)m.classList.remove('open');
 }
 document.addEventListener('click',function(){closeDashMore();});
+document.addEventListener('click',function(e){
+  var m=document.getElementById('hub-filter-menu');
+  var b=document.getElementById('hub-filter-btn');
+  if(m&&m.classList.contains('open')&&!m.contains(e.target)&&e.target!==b&&!b.contains(e.target))m.classList.remove('open');
+});
 
 function toggleArchived() {
   _showArchived = !_showArchived;
