@@ -153,32 +153,50 @@ body.dark-mode .band-chip{background:var(--card)}
 .view-compact .project-card-client{font-size:calc(10.5px + var(--ts));margin-bottom:6px}
 .view-compact .project-card-row{margin-bottom:6px}
 .view-compact .pm-avatar{width:21px;height:21px;font-size:calc(9px + var(--ts))}
-/* ── LIST view ── */
-.view-list .band-body,.view-list .project-grid-inner{display:flex;flex-direction:column;gap:0;border:1.5px solid var(--border);border-radius:12px;overflow:hidden}
-.view-list .project-card{display:flex;align-items:center;gap:14px;padding:10px 16px;border-radius:0;border:none;border-bottom:1px solid var(--border)}
+/* ── LIST view (desktop/tablet) — scan order: ★ · #### · Client · Name · [pills] [avatar] ── */
+/* Container: no outer grey box; rows separated by hairlines only. */
+.view-list .band-body,.view-list .project-grid-inner{display:flex;flex-direction:column;gap:0;border:none;border-radius:0;overflow:visible}
+.view-list .project-card{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:0;border:none;border-bottom:1px solid var(--border)}
 .view-list .project-card:hover{transform:none}
 .view-list .project-card:last-child{border-bottom:none}
 .view-list .project-card::after{display:none}
-.view-list .project-card-top{display:flex;align-items:center;gap:8px;margin:0;flex:0 0 auto}
-.view-list .project-card-name{max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.view-list .project-card-client{margin:0;flex:1;min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px + var(--ts))}
-.view-list .project-card-row{margin:0;flex:0 0 auto}
+/* star first, pulled out of card-top to the very front */
+.view-list .project-card-star{order:1;flex:none;font-size:calc(15px + var(--ts));margin:0}
+/* number + client + name read left-to-right */
+.view-list .project-card-top{display:contents}
+.view-list .project-card-number{order:2;flex:none;min-width:74px;font-size:calc(14px + var(--ts))}
+.view-list .project-card-client{order:3;margin:0;flex:none;min-width:120px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13px + var(--ts));color:var(--fg);font-weight:600}
+.view-list .project-card-name{order:4;flex:1;min-width:140px;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13.5px + var(--ts))}
 .view-list .project-card-date{display:none}
-/* Fixed-slot tool columns: each tool keeps a reserved column so pills line up vertically across rows. */
-.view-list .project-card-bottom{margin:0;flex:0 0 auto;display:grid;grid-template-columns:repeat(6,52px);gap:6px;align-items:center;flex-wrap:nowrap}
-.view-list .project-card-bottom .tool-pill{width:100%;justify-content:center;margin:0}
+/* status strip → just the avatar (no Active pill, no date) */
+.view-list .project-card-row{order:8;margin:0;flex:none;display:flex;align-items:center;gap:0;background:none;padding:0}
+.view-list .project-card-row .project-badge,.view-list .project-card-row .project-card-date,.view-list .project-card-row .project-card-pm{display:none}
+.view-list .pm-avatar{width:30px;height:30px;font-size:calc(11px + var(--ts));font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);border-color:rgba(255,255,255,.28)}
+/* Fixed-slot tool columns: each tool keeps a reserved column so pills line up vertically. */
+.view-list .project-card-bottom{order:7;margin:0;flex:none;display:grid;grid-template-columns:repeat(6,54px) 92px;gap:6px;align-items:center}
+.view-list .project-card-bottom .tool-pill{width:100%;justify-content:center;margin:0;font-size:calc(11px + var(--ts))}
 .view-list .project-card-bottom .tool-pill.tp-frt{grid-column:1}
 .view-list .project-card-bottom .tool-pill.tp-diesel{grid-column:2}
 .view-list .project-card-bottom .tool-pill.tp-electric{grid-column:3}
 .view-list .project-card-bottom .tool-pill.tp-ist{grid-column:4}
 .view-list .project-card-bottom .tool-pill.tp-obc{grid-column:5}
 .view-list .project-card-bottom .tool-pill.tp-dd{grid-column:6}
-/* progress chip + backup pinned after the tool grid, not inside it */
-.view-list .project-card .project-card-bottom .progress-chip{grid-column:7;margin:0 0 0 4px;justify-self:start}
-.view-list .project-card .project-card-bottom .backup-status{grid-column:7;margin:0 0 0 4px;justify-self:start}
-.view-list .project-card-bottom>span[style]{display:none}/* hide the "No tools" placeholder in list rows */
-/* avatar legibility: white initials must hold on light AND mid-tone fills */
-.view-list .pm-avatar{font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);border-color:rgba(255,255,255,.28)}
+/* progress chip + backup share the 7th fixed column, single line, no wrap */
+.view-list .project-card .project-card-bottom .progress-chip{grid-column:7;grid-row:1;margin:0;justify-self:start;white-space:nowrap;font-size:calc(10.5px + var(--ts))}
+.view-list .project-card .project-card-bottom .backup-status{grid-column:7;grid-row:1;margin:0;justify-self:start;white-space:nowrap;font-size:calc(11px + var(--ts))}
+.view-list .project-card-bottom>span[style]{display:none}/* hide the "No tools" placeholder */
+/* list view: compress the long "Not backed up" to an icon to save width */
+.view-list .backup-status.not-backed{font-size:0 !important}
+.view-list .backup-status.not-backed::before{content:'⚠';font-size:calc(13px + var(--ts));color:var(--warn,#E0A36A)}
+.view-list .backup-status{color:var(--silver)}
+/* demo-black list surface (override the greyish card fill) */
+body.bold.dark-mode .view-list .project-card{background:transparent !important;border:none !important;border-bottom:1px solid rgba(255,255,255,.07) !important;box-shadow:none !important;border-radius:0 !important}
+body.bold.dark-mode .view-list .band-body{background:rgba(255,255,255,.015) !important;border:none !important;border-radius:12px !important;overflow:hidden !important}
+body.bold:not(.dark-mode) .view-list .project-card{background:transparent !important;border:none !important;border-bottom:1px solid var(--border) !important;box-shadow:none !important;border-radius:0 !important}
+body.bold:not(.dark-mode) .view-list .band-body{background:rgba(0,0,0,.02) !important;border:none !important;border-radius:12px !important;overflow:hidden !important}
+body.bold .view-list .project-card::after{display:none !important}
+.view-list .project-card-export{display:none}
+.view-list .project-card-check{top:50%;transform:translateY(-50%)}
 /* ── Phone portrait: true single-line list rows. Number + name + avatar only; tap opens project. ── */
 @media(max-width:560px){
   /* flat rows, no card surface, hairline divider only */
@@ -748,15 +766,16 @@ body.bold .project-card:hover{box-shadow:0 18px 50px rgba(40,30,50,.16) !importa
 body.bold.dark-mode .project-card:hover{
   box-shadow:0 24px 56px rgba(0,0,0,.6) !important;border-color:color-mix(in srgb,var(--arencon) 40%,rgba(255,255,255,.11)) !important;}
 
-/* Header — transparent, sits on page bg like the demo (no navy box) */
+/* Header — opaque page surface so sticky header doesn't leak cards through on scroll */
 body.bold .hdr{
-  background:transparent !important;
-  box-shadow:none !important;
+  background:var(--bg) !important;
+  box-shadow:0 2px 12px rgba(0,0,0,.18) !important;
   border-bottom:1px solid var(--border);
-  -webkit-backdrop-filter:none;backdrop-filter:none;}
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);}
 body.bold.dark-mode .hdr{
-  background:transparent !important;
-  border-bottom:1px solid rgba(255,255,255,.08);}
+  background:#0b0a0d !important;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  box-shadow:0 2px 16px rgba(0,0,0,.5) !important;}
 /* Header text/buttons adapt to transparent header */
 body.bold .hdr-title{color:var(--fg) !important;}
 body.bold .hdr-user,body.bold .hdr-user *{color:var(--fg) !important;}
@@ -926,7 +945,6 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       </select>
       <div class="hub-view-toggle" id="hub-view-toggle">
         <button data-view="cards" onclick="setHubView('cards')" title="Cards view">▤ Cards</button>
-        <button data-view="compact" onclick="setHubView('compact')" title="Compact view">▦ Compact</button>
         <button data-view="list" onclick="setHubView('list')" title="List view">☰ List</button>
       </div>
       <div class="hub-filter-wrap" style="position:relative;display:inline-flex;">
@@ -979,7 +997,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       <div class="project-grid-inner" id="pinned-grid-inner"></div>
     </div>
     <!-- Starred section — per-viewer private (visible only to who starred) -->
-    <div class="starred-section" id="starred-section" style="display:none">
+    <div class="starred-section view-cards" id="starred-section" style="display:none">
       <div class="starred-section-header">⭐ Starred Projects</div>
       <div class="project-grid-inner" id="starred-grid-inner"></div>
     </div>
@@ -1546,7 +1564,7 @@ function _pmAvatar(userId) {
 let _filterMode = 'my';   // 'my' or 'all' or 'starred'
 let _showArchived = false;
 // ── Band grouping + view mode state (view persists; band/NB reset each visit) ──
-let _hubView = (function(){ try { var v = localStorage.getItem('arencon-hub-view'); return (v === 'cards' || v === 'compact' || v === 'list') ? v : 'cards'; } catch(e){ return 'cards'; } })();
+let _hubView = (function(){ try { var v = localStorage.getItem('arencon-hub-view'); return (v === 'cards' || v === 'list') ? v : 'cards'; } catch(e){ return 'cards'; } })();
 let _activeBand = 'all';
 let _nbOnly = false;
 let _bandCollapsed = {};
@@ -2248,6 +2266,8 @@ function renderProjects() {
   var gridOuter = document.getElementById('project-grid');
   if (gridOuter) gridOuter.className = 'project-grid view-' + _hubView;
   var regForBands = regular.slice();
+  // List view: starred projects also appear in their file band (duplicated below the top cards)
+  if (_hubView === 'list') { regForBands = regForBands.concat(starred); }
   if (_nbOnly) regForBands = regForBands.filter(function(p){ return !p.last_exported_at; });
   if (_activeBand !== 'all') regForBands = regForBands.filter(function(p){ return _bandLo(p.project_number) === _activeBand; });
 
@@ -2262,6 +2282,8 @@ function renderProjects() {
       bands[lo].push(p);
     });
     order.sort(function(a, b){ return a - b; });
+    // sort within each band by project number (keeps duplicated starred rows in numeric order)
+    Object.keys(bands).forEach(function(lo){ bands[lo].sort(function(a,b){ return (a.project_number||'').localeCompare(b.project_number||''); }); });
     // Outer container is a plain vertical block; each band-body carries the card grid.
     grid.className = 'project-grid-banded';
     grid.innerHTML = order.map(function(lo) {
