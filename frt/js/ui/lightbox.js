@@ -235,17 +235,16 @@ function _buildMarkupBar(overlay){
   bAr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('arrow');setActive(bAr);closeFly();_refreshConfirmBar();});
   bTx .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('text');setActive(bTx);closeFly();_refreshConfirmBar();});
   bEr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('eraser');setActive(bEr);closeFly();_refreshConfirmBar();});
-  // S339 — tapping Select toggles the sub-tool flyout instead of arming immediately.
-  function positionFly(){
-    var br=bSel.getBoundingClientRect();
-    subFly.style.left=Math.max(8, br.left+br.width/2-100)+'px';
-    subFly.style.bottom=(window.innerHeight - br.top + 8)+'px';
-  }
+  // S339 — tapping Select toggles the sub-tool flyout. Positioned overlay-relative
+  // (centered, just above the toolbar) like the bar/confirm-bar — NOT via viewport
+  // rect math, which mis-anchored against the overlay's positioning context.
+  subFly.style.left='50%'; subFly.style.transform='translateX(-50%)'; subFly.style.bottom='72px';
+  function positionFly(){ /* fixed overlay-relative anchor; no per-open recompute needed */ }
   function closeFly(){ subFly.style.display='none'; }
   bSel.addEventListener('click',function(e){
     e.stopPropagation();
     if (subFly.style.display==='flex'){ closeFly(); }
-    else { positionFly(); subFly.style.display='flex'; }
+    else { subFly.style.display='flex'; }
   });
   function markSub(sub){
     [subSingle,subRubber,subTap].forEach(function(b){ b.style.background = (b.dataset.sub===sub)?'#9C2742':'rgba(255,255,255,.06)'; });
