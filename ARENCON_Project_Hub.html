@@ -648,6 +648,17 @@ body.text-l{--ts:4px;}
    rules at equal specificity. Additive on top of light/dark; base tokens
    untouched. Toggle via body.bold (default on). */
 body.bold{position:relative;}
+/* Bold token overrides — replace navy/flat base with demo dark-glass values.
+   This is what makes the WHOLE chrome match the demo, not just a glass coat. */
+body.bold.dark-mode{
+  --navy:#0b0a0d;--navy-mid:#14121a;--navy-light:#1c1924;
+  --bg:#0b0a0d;--card:#141119;--border:rgba(255,255,255,.10);
+  --fg:#f4f3f6;--steel:#a09aa8;--silver:#6b6674;--slate:#f4f3f6;
+}
+body.bold:not(.dark-mode){
+  --navy:#1B2438;--navy-mid:#243048;
+  --bg:#EFEDF0;--card:#FFFFFF;--border:rgba(27,26,34,.10);
+}
 /* Corner glows — fixed, behind content */
 body.bold::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:radial-gradient(720px 520px at 0% 0%, rgba(156,39,66,.07), transparent 60%),
@@ -822,8 +833,8 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
         <button class="dash-btn secondary" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Select</button>
         <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
           <span class="bulk-count" id="bulk-count">0</span>
-          <button id="bulk-btn-pin" onclick="bulkPin(true)" title="Pin">📌</button>
-          <button id="bulk-btn-unpin" onclick="bulkPin(false)" title="Unpin">📍</button>
+          <button id="bulk-btn-pin" onclick="bulkPin(true)" title="Pin" style="display:none">📌</button>
+          <button id="bulk-btn-unpin" onclick="bulkPin(false)" title="Unpin" style="display:none">📍</button>
           <button id="bulk-btn-star" onclick="bulkStar(true)" title="Star">⭐</button>
           <button id="bulk-btn-unstar" onclick="bulkStar(false)" title="Unstar">☆</button>
           <button id="bulk-btn-archive" onclick="bulkArchive()" title="Archive">📦</button>
@@ -835,7 +846,7 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
         </div>
         <div class="bulk-quick-select" id="bulk-quick-select" style="display:none">
           <button class="dash-btn secondary" onclick="selectAllVisible()" title="Select all visible">All</button>
-          <button class="dash-btn secondary" onclick="selectAllPinned()" title="Select pinned">📌 Pinned</button>
+          
           <button class="dash-btn secondary" onclick="selectAllStarred()" title="Select starred">⭐ Starred</button>
         </div>
       </div>
@@ -853,12 +864,12 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
     <!-- Stats strip -->
     <div class="stats-strip" id="stats-strip"></div>
     <div class="band-filter" id="band-filter" style="display:none"></div>
-    <!-- Pinned section — shared, everyone sees -->
+    <!-- Pinned section removed — starred only, per-viewer private -->
     <div class="pinned-section" id="pinned-section" style="display:none">
       <div class="pinned-section-header">📌 Pinned Projects</div>
       <div class="project-grid-inner" id="pinned-grid-inner"></div>
     </div>
-    <!-- Starred section — always visible if starred projects exist -->
+    <!-- Starred section — per-viewer private (visible only to who starred) -->
     <div class="starred-section" id="starred-section" style="display:none">
       <div class="starred-section-header">⭐ Starred Projects</div>
       <div class="project-grid-inner" id="starred-grid-inner"></div>
@@ -1022,7 +1033,7 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
     <div class="detail-header">
       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
         <h2 id="detail-title" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">—</h2>
-        <button class="project-card-pin" id="detail-pin-btn" onclick="togglePinFromDetail()" title="Pin for everyone">📍</button>
+        
         <button class="project-card-star" id="detail-star-btn" onclick="toggleStarFromDetail()" title="Star this project">☆</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
@@ -2063,7 +2074,7 @@ function renderProjects() {
   var starred = [];
   var regular = [];
   baseFiltered.forEach(function(p) {
-    var isPinned = !!p.is_pinned;
+    var isPinned = false; // global pinned disabled — starred only
     var isStarred = myId && (p.starred_by || []).indexOf(myId) >= 0;
     if (isPinned) pinned.push(p);
     else if (isStarred) starred.push(p);
@@ -2271,7 +2282,6 @@ function _renderProjectCard(p, myId) {
     + bulkCheckHtml
     + exportBtnHtml
     + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span>'
-    + '<button class="project-card-pin' + pinClass + '" onclick="event.stopPropagation();togglePin(\'' + esc(p.id) + '\')" title="' + (isPinned ? 'Unpin' : 'Pin for everyone') + '">' + pinIcon + '</button>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
     + '</div>'
     + (client ? '<div class="project-card-client">' + client + '</div>' : '')
@@ -3629,8 +3639,8 @@ function _syncBulkVisuals() {
   bar.style.display = hasSelection ? 'flex' : 'none';
   if (hasSelection) {
     var inTrash = _showDeleted;
-    document.getElementById('bulk-btn-pin').style.display = inTrash ? 'none' : '';
-    document.getElementById('bulk-btn-unpin').style.display = inTrash ? 'none' : '';
+    document.getElementById('bulk-btn-pin').style.display = 'none';
+    document.getElementById('bulk-btn-unpin').style.display = 'none';
     document.getElementById('bulk-btn-star').style.display = inTrash ? 'none' : '';
     document.getElementById('bulk-btn-unstar').style.display = inTrash ? 'none' : '';
     document.getElementById('bulk-btn-archive').style.display = inTrash ? 'none' : '';
