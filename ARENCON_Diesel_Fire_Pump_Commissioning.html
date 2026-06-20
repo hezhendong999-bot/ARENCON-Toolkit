@@ -15500,21 +15500,62 @@ function _renderRecordZones(){
    Applies to BOTH 3pt and 7pt rated fields — one pump, one rated point. */
 var AI_WORKER_URL='https://arencon-ai-worker.hezhendong999.workers.dev';
 function _placardPhotoData(p, cb){
-  // Resolve the placard photo to {data(base64), media_type}. Local .d preferred;
-  // else fetch the public R2 GET url (R2 GETs never require auth — canon).
+  // Resolve the placard photo to {data(base64), media_type}. Order:
+  //   1) in-memory local .d  (freshly captured this session — never fails)
+  //   2) recover .d from the full-state IDB backup  (in-memory copy was stripped
+  //      on a cloud reload, but the permanent IDB backup keeps the bytes)
+  //   3) R2 public GET, iOS-safe: cache-buster + cache:'no-store' so Safari
+  //      doesn't surface a cache-poisoned non-CORS entry as "Load failed".
+  // This is why a freshly-shot 7pt placard scanned fine but a reloaded 3pt one
+  // (bytes already stripped from memory) hit the bare R2 fetch and failed. (S369)
   function fromDataUrl(du){
     var m=/^data:([^;]+);base64,(.*)$/.exec(du||'');
-    if(!m){ cb(null); return; }
-    cb({ data:m[2], media_type:m[1] });
+    if(!m){ return false; }
+    cb({ data:m[2], media_type:m[1] }); return true;
   }
-  if(p.d){ fromDataUrl(p.d); return; }
-  if(p.r2Url){
-    fetch(p.r2Url).then(function(r){ if(!r.ok) throw new Error('R2 '+r.status); return r.blob(); })
-      .then(function(b){ var fr=new FileReader(); fr.onload=function(){ fromDataUrl(fr.result); }; fr.onerror=function(){ cb(null); }; fr.readAsDataURL(b); })
+  // 1) in-memory bytes
+  if(p.d){ if(fromDataUrl(p.d)) return; }
+  // 2) recover bytes from the permanent full-state IDB backup
+  function tryR2(){
+    var url = p.r2Url || _photoSrc(p) || '';
+    if(!url){ cb(null); return; }
+    var busted = url + (url.indexOf('?')>=0 ? '&' : '?') + 'cb=' + Date.now();
+    fetch(busted, {cache:'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('R2 '+r.status); return r.blob(); })
+      .then(function(b){ var fr=new FileReader(); fr.onload=function(){ if(!fromDataUrl(fr.result)) cb(null); }; fr.onerror=function(){ cb(null); }; fr.readAsDataURL(b); })
       .catch(function(){ cb(null); });
+  }
+  if(!p.d && (p.id || p.r2Key)){
+    var stKey = (typeof getProjectSaveKey==='function' ? getProjectSaveKey() : null);
+    var recovered=false;
+    function _scan(stObj){
+      try{
+        var arr = stObj && stObj.recordPhotos;
+        if(!Array.isArray(arr)) return false;
+        for(var i=0;i<arr.length;i++){
+          var q=arr[i];
+          if(q && q.d && ((p.id && q.id===p.id) || (p.r2Key && q.r2Key===p.r2Key))){
+            return fromDataUrl(q.d);
+          }
+        }
+      }catch(_e){}
+      return false;
+    }
+    function _parse(v){
+      if(!v) return null;
+      try{ return (typeof v==='string') ? JSON.parse(v) : (v.state ? (typeof v.state==='string'?JSON.parse(v.state):v.state) : v); }catch(_e){ return null; }
+    }
+    Promise.resolve(stKey ? _idbGet(stKey) : null).then(function(v){
+      if(_scan(_parse(v))){ recovered=true; return; }
+      // CloudSync layer (Hub mode) stores under a different key/store
+      if(typeof _idbKey==='function' && typeof _idbGet2==='function'){
+        return _idbGet2(_idbKey()).then(function(v2){ if(_scan(_parse(v2))) recovered=true; });
+      }
+    }).then(function(){ if(!recovered) tryR2(); }).catch(function(){ tryR2(); });
     return;
   }
-  cb(null);
+  // 3) no local bytes, no id to recover — go straight to R2
+  tryR2();
 }
 // S352: salvage a placard-read result from a prose-wrapped model response. The AI
 // worker returns 500 "AI returned invalid format" when the model answers with
