@@ -9525,6 +9525,58 @@ function _realExportPDF() {
       +'</div></div>';
   }catch(e){ console.warn('[pdf] overview build failed', e); }
 
+  // ════ S368: page-1 Report Legend + Deficiency Summary table (demo styling).
+  //      ADDED below the existing Status Overview / Inspection Completion blocks —
+  //      those are kept verbatim. The legend explains the priority pills; the
+  //      table rolls up per-contractor deficiency counts (Total / Outstanding /
+  //      Closed). No "New This Report" column (the data model has no per-report
+  //      new-flag, so we don't fabricate one). ════
+  var _legendSummaryHtml='';
+  try{
+    var _allDefs = contractors.flatMap(function(n){ return (deficiencies[n]||[]).map(function(d){ return {d:d, n:n}; }); });
+    // include general deficiencies under an "Unassigned" bucket if any exist
+    var _genDefs = (typeof generalDeficiencies!=='undefined' ? generalDeficiencies : []) || [];
+    var _rows = [], _tot=0, _totOut=0, _totClosed=0;
+    function _isClosed(d){ return (d.status||'open')==='resolved'; }
+    contractors.forEach(function(n){
+      var items = deficiencies[n]||[]; if(!items.length) return;
+      var out=0, closed=0;
+      items.forEach(function(d){ if(_isClosed(d)) closed++; else out++; });
+      _rows.push({name:n, total:items.length, out:out, closed:closed});
+      _tot+=items.length; _totOut+=out; _totClosed+=closed;
+    });
+    if(_genDefs.length){
+      var go=0, gc=0;
+      _genDefs.forEach(function(d){ if(_isClosed(d)) gc++; else go++; });
+      _rows.push({name:'General', total:_genDefs.length, out:go, closed:gc});
+      _tot+=_genDefs.length; _totOut+=go; _totClosed+=gc;
+    }
+    var _legendBox =
+      '<div class="ds-box"><div class="ds-box-ttl">Report Legend</div>'
+      +'<div class="ds-legend">'
+        +'<div class="ds-rk"><span class="ds-pill ds-pill-h">Outstanding</span>Outstanding — high priority</div>'
+        +'<div class="ds-rk"><span class="ds-pill ds-pill-l">Outstanding</span>Outstanding — low priority</div>'
+        +'<div class="ds-rk"><span class="ds-pill ds-pill-c">Closed</span>Addressed &amp; closed</div>'
+        +'<div class="ds-rk"><span class="ds-rec-chip">REC</span>Recommendation — does not hold off sign-off</div>'
+      +'</div></div>';
+    var _tableRows = _rows.length
+      ? _rows.map(function(r){
+          return '<tr><td><b>'+(''+r.name).replace(/</g,'&lt;')+'</b></td>'
+            +'<td class="c">'+r.total+'</td>'
+            +'<td class="c" style="color:#A85959;font-weight:700;">'+r.out+'</td>'
+            +'<td class="c" style="color:#5F8068;font-weight:700;">'+r.closed+'</td></tr>';
+        }).join('')
+        +'<tr class="ds-tot"><td>Total</td><td class="c">'+_tot+'</td>'
+          +'<td class="c" style="color:#A85959;">'+_totOut+'</td>'
+          +'<td class="c" style="color:#5F8068;">'+_totClosed+'</td></tr>'
+      : '<tr><td colspan="4" style="text-align:center;color:#5F8068;padding:10px;">No deficiencies recorded.</td></tr>';
+    _legendSummaryHtml =
+      '<div class="ds-dash">'+_legendBox+'</div>'
+      +'<table class="ds-st"><thead><tr><th>Deficiency Summary</th>'
+        +'<th class="c">Total</th><th class="c">Outstanding</th><th class="c">Closed</th></tr></thead>'
+      +'<tbody>'+_tableRows+'</tbody></table>';
+  }catch(e){ console.warn('[pdf] legend/summary build failed', e); }
+
   let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${_pdfTitle.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</title>
   <style>
@@ -9551,6 +9603,23 @@ function _realExportPDF() {
     table.dt th{background:#EEF1F5;color:#2C3E50;border-bottom:2px solid #2C3E50;padding:5px 8px;text-align:center;font-size:8pt;font-weight:700;}
     table.dt td{padding:5px 8px;text-align:center;border-bottom:1px solid #EEE;font-size:8.5pt;}
     .defic{border-left:3px solid #C0392B;padding:8px 10px;margin-bottom:8px;background:#FFF9F9;page-break-inside:avoid;}
+    /* S368: page-1 Report Legend + Deficiency Summary (demo styling) */
+    .ds-dash{display:flex;gap:14px;margin-top:12px;align-items:stretch;page-break-inside:avoid;}
+    .ds-box{flex:1;border:1px solid #DDE1E7;border-radius:6px;padding:9px 13px;display:flex;flex-direction:column;}
+    .ds-box-ttl{font-size:9.5pt;font-weight:700;color:#2A3A5C;margin-bottom:6px;}
+    .ds-legend{flex:1;display:flex;flex-direction:column;justify-content:center;gap:3px;}
+    .ds-rk{display:flex;align-items:center;gap:9px;font-size:9pt;color:#4A5568;}
+    .ds-pill{border-radius:11px;padding:2px 11px;font-size:8.5pt;font-weight:700;flex:none;min-width:74px;text-align:center;}
+    .ds-pill-h{background:#F6DCE0;color:#9C2742;}
+    .ds-pill-l{background:#F3E4CC;color:#8A5A1E;}
+    .ds-pill-c{background:#DCEEE2;color:#3F6E55;}
+    .ds-rec-chip{background:#E2DED2;color:#5E5440;border-radius:11px;padding:2px 11px;font-size:8.5pt;font-weight:700;flex:none;min-width:74px;text-align:center;}
+    .ds-st{width:100%;border-collapse:collapse;font-size:10pt;margin-top:12px;page-break-inside:avoid;}
+    .ds-st th{background:#2A3A5C;color:#fff;padding:6px 10px;text-align:left;}
+    .ds-st th.c{text-align:center;}
+    .ds-st td{padding:5px 10px;border-bottom:1px solid #EEE;}
+    .ds-st td.c{text-align:center;}
+    .ds-st tr.ds-tot td{border-top:2px solid #9C2742;font-weight:700;}
     .defic-lbl{font-size:7.5pt;color:#C0392B;font-weight:bold;text-transform:uppercase;}
     .iat{color:#C0392B;font-weight:bold;}
     .running-header{display:none;}
@@ -9645,6 +9714,7 @@ function _realExportPDF() {
       <div class="pi-row"><span class="pi-label">Project No.:</span><span class="pi-value">${proj.projno||'—'}</span></div>
     </div>
     ${_ovHtml}
+    ${_legendSummaryHtml}
   </div>
 
   <div class="sh">1. Prior to Commissioning Date</div>
