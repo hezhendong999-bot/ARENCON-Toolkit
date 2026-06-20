@@ -161,10 +161,35 @@ body.dark-mode .band-chip{background:var(--card)}
 .view-list .project-card::after{display:none}
 .view-list .project-card-top{display:flex;align-items:center;gap:8px;margin:0;flex:0 0 auto}
 .view-list .project-card-name{max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.view-list .project-card-client{margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px + var(--ts))}
+.view-list .project-card-client{margin:0;flex:1;min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px + var(--ts))}
 .view-list .project-card-row{margin:0;flex:0 0 auto}
-.view-list .project-card-bottom{margin:0;flex:0 0 auto}
 .view-list .project-card-date{display:none}
+/* Fixed-slot tool columns: each tool keeps a reserved column so pills line up vertically across rows. */
+.view-list .project-card-bottom{margin:0;flex:0 0 auto;display:grid;grid-template-columns:repeat(6,52px);gap:6px;align-items:center;flex-wrap:nowrap}
+.view-list .project-card-bottom .tool-pill{width:100%;justify-content:center;margin:0}
+.view-list .project-card-bottom .tool-pill.tp-frt{grid-column:1}
+.view-list .project-card-bottom .tool-pill.tp-diesel{grid-column:2}
+.view-list .project-card-bottom .tool-pill.tp-electric{grid-column:3}
+.view-list .project-card-bottom .tool-pill.tp-ist{grid-column:4}
+.view-list .project-card-bottom .tool-pill.tp-obc{grid-column:5}
+.view-list .project-card-bottom .tool-pill.tp-dd{grid-column:6}
+/* progress chip + backup pinned after the tool grid, not inside it */
+.view-list .project-card .project-card-bottom .progress-chip{grid-column:7;margin:0 0 0 4px;justify-self:start}
+.view-list .project-card .project-card-bottom .backup-status{grid-column:7;margin:0 0 0 4px;justify-self:start}
+.view-list .project-card-bottom>span[style]{display:none}/* hide the "No tools" placeholder in list rows */
+/* avatar legibility: white initials must hold on light AND mid-tone fills */
+.view-list .pm-avatar{font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);border-color:rgba(255,255,255,.28)}
+/* ── Phone portrait: columns can't fit. Keep number+name on top line; let tools wrap below. ── */
+@media(max-width:560px){
+  .view-list .project-card{flex-wrap:wrap;gap:8px 12px;padding:11px 14px}
+  .view-list .project-card-top{flex:1 1 100%;min-width:0}
+  .view-list .project-card-name{max-width:none;flex:1;min-width:0}
+  .view-list .project-card-client{flex:1 1 100%;order:2}
+  .view-list .project-card-row{order:3}
+  .view-list .project-card-bottom{order:4;flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px}
+  .view-list .project-card-bottom .tool-pill{width:auto;grid-column:auto}
+  .view-list .project-card-bottom .progress-chip,.view-list .project-card-bottom .backup-status{grid-column:auto;margin-left:auto}
+}
 .project-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;overflow:hidden;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.06);-webkit-user-select:none;user-select:none;padding:16px 18px 14px}
 .project-card:hover{border-color:var(--arencon);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
 /* Card top row: number + name */
