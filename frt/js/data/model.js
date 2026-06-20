@@ -1064,8 +1064,35 @@ export var Model = {
     // If reopening, clear closure metadata
     if ((newStatus === 'open' || newStatus === 'Outstanding') &&
         (oldStatus === 'closed' || oldStatus === 'Addressed & Closed')) {
+      // S338: reopen stamp. Capture the closing instance (M) BEFORE clearing it,
+      // then decide same-report vs cross-report:
+      //   same-report  (closedOnInstance === currentFrtInstance) → misclick
+      //     undo; reopen is SILENT — clear all reopen stamps, no marker.
+      //   cross-report (closedOnInstance <  currentFrtInstance) → a prior
+      //     report's closure is being undone; stamp reopenedOnInstance = current
+      //     and reopenedFromInstance = M so the always-shown blue marker can read
+      //     "Reopened FRT #N · was closed FRT #M". No hide toggle (Mark, S337):
+      //     the marker documents a contractor's false closure → protects ARENCON.
+      var _curInst = (_project && _project.currentFrtInstance) || 1;
+      var _closedAt = f.defic.closedOnInstance;
+      if (_closedAt != null && _closedAt < _curInst) {
+        f.defic.reopenedOnInstance = _curInst;
+        f.defic.reopenedFromInstance = _closedAt;
+      } else {
+        // same-report (or unknown closing instance) → silent, no marker
+        f.defic.reopenedOnInstance = null;
+        f.defic.reopenedFromInstance = null;
+      }
       f.defic.closedDate = null;
       f.defic.closedOnInstance = null;
+    }
+    // S338: any move BACK to a closed state clears the reopen marker (the item
+    // is closed again, so "Reopened" no longer applies). A subsequent reopen
+    // re-derives the marker fresh from the new closing instance.
+    if ((newStatus === 'closed' || newStatus === 'Addressed & Closed') &&
+        oldStatus !== 'closed' && oldStatus !== 'Addressed & Closed') {
+      f.defic.reopenedOnInstance = null;
+      f.defic.reopenedFromInstance = null;
     }
 
     // S119: pin-level status change is a "bulk" action — propagate to every
@@ -1091,6 +1118,29 @@ export var Model = {
     _dirty = true;
     _queueSave();
     this._notify('deficiency', { action: 'status', deficId: deficId, status: newStatus });
+  },
+
+  // S338: batch reopen. Each id routes through updateDeficStatus(id,'open') so
+  // the per-item reopen stamp / same-vs-cross-report logic fires identically to
+  // a single reopen. Returns the count actually reopened (skips items that
+  // weren't closed). One _queueSave covers them all (updateDeficStatus marks
+  // _dirty + queues; we save once more at the end to be safe).
+  reopenDeficiencies: function(ids) {
+    if (!Array.isArray(ids) || !ids.length) return 0;
+    var n = 0;
+    var self = this;
+    ids.forEach(function(id) {
+      var f = self.findDeficiency(id);
+      if (!f) return;
+      var st = f.defic.status;
+      if (st === 'closed' || st === 'Addressed & Closed' ||
+          self.getEffectiveStatus(f.defic) === 'closed') {
+        self.updateDeficStatus(id, 'open');
+        n++;
+      }
+    });
+    if (n) { _dirty = true; _queueSave(); }
+    return n;
   },
 
   updateDeficPriority: function(deficId, priority) {
@@ -1247,7 +1297,21 @@ export var Model = {
       f.defic.status = 'closed';
       f.defic.closedDate = today;
       f.defic.closedOnInstance = inst;
+      // S338: re-closing clears any stale reopen marker (item is closed again).
+      f.defic.reopenedOnInstance = null;
+      f.defic.reopenedFromInstance = null;
     } else if (eff === 'open' && (f.defic.status === 'closed' || f.defic.status === 'Addressed & Closed')) {
+      // S338: mirror the reopen stamp logic from updateDeficStatus. Capture the
+      // closing instance before clearing; cross-report reopen gets the marker,
+      // same-report (misclick) is silent.
+      var _closedAt = f.defic.closedOnInstance;
+      if (_closedAt != null && _closedAt < inst) {
+        f.defic.reopenedOnInstance = inst;
+        f.defic.reopenedFromInstance = _closedAt;
+      } else {
+        f.defic.reopenedOnInstance = null;
+        f.defic.reopenedFromInstance = null;
+      }
       f.defic.status = 'open';
       f.defic.closedDate = null;
       f.defic.closedOnInstance = null;

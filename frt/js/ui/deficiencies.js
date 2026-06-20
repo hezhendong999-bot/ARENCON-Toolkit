@@ -649,6 +649,14 @@ function _buildPinGroupCard(d, ctrId) {
         : '';
       h += '<span class="frt-inst-chip frt-rd-chip ' + _rCls + '" title="Outstanding for ' + _rounds + ' report' + (_rounds === 1 ? '' : 's') + ' \u2014 first noted FRT #' + _cfNoted + (d.notedDate ? ' on ' + esc(d.notedDate) : '') + '">' + _rFlag + _rOrd + ' rd</span>';
     }
+    // S338: blue "Reopened" marker — ALWAYS shown when set (no hide toggle,
+    // Mark's call: it documents that a prior closure was undone, which protects
+    // ARENCON if a contractor reported a false fix). Set by the model only on a
+    // CROSS-report reopen (same-report misclick undo leaves it null). Reads
+    // "Reopened FRT #N · was closed FRT #M".
+    if (d.reopenedOnInstance != null) {
+      h += '<span class="frt-inst-chip frt-reopen-chip" title="This item was closed in FRT #' + d.reopenedFromInstance + ' and reopened in FRT #' + d.reopenedOnInstance + '">\u21A9 Reopened FRT #' + d.reopenedOnInstance + (d.reopenedFromInstance != null ? ' \u00B7 was closed FRT #' + d.reopenedFromInstance : '') + '</span>';
+    }
     if (d.drawingId) {
       var _dwgs = Model.getDrawings();
       var _dwgName = '';
@@ -1908,6 +1916,15 @@ export var initDeficiencies = {
     // open menu may be portaled onto document.body; a render rebuilds the list
     // and would orphan it. Closing returns it home / clears refs first.
     if (typeof _cvCloseStatusMenus === 'function') _cvCloseStatusMenus();
+    // S338: multi-select reopen lives ONLY in the Closed filter. If a deliberate
+    // render is happening under any other filter, exit select mode and drop the
+    // selection so the floating bar can't linger on a non-closed view.
+    if (_cvSelMode && (typeof _deriveCatFilter !== 'function' || _deriveCatFilter() !== 'closed')) {
+      _cvSelMode = false;
+      _cvSelIds = {};
+      var _stale = document.getElementById('cv-selbar');
+      if (_stale) _stale.remove();
+    }
     _recHoldUntilNav = false;  // S150g: any deliberate render resettles the list
     _cvPinDragHold = false;    // S328: a deliberate render already resettled the
                                // card; drop any pending pin-drag hold so it can't
@@ -2263,10 +2280,21 @@ function _cvStatusMenu(d, oi, cur) {
       + '<span class="cv-statusmenu-dot"></span>' + esc(c.menu) + '</button>';
   });
   h += '</div>';
+  // S338: explicit blue "Reopen" action — shown ONLY when the item is currently
+  // closed. Re-opening from a different status is just picking that status; this
+  // is the discoverable "un-close" entry point Mark wanted. It restores the item
+  // to active at HIGH priority (closed items carry no priority; high is the safe
+  // default for something now known to be unresolved). The handler decides
+  // same-report (silent) vs cross-report (confirm + blue marker).
+  if (cur === 'closed') {
+    h += '<div class="cv-statusmenu-sep"></div>';
+    h += '<button type="button" class="cv-statusmenu-item dfx-cs-reopen"'
+      + ' data-action="cv-reopen" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"'
+      + ' role="menuitem">'
+      + '<span class="cv-statusmenu-dot"></span>\u21A9 Reopen</button>';
+  }
   return h;
 }
-
-// The combined priority+status control (editor). One <select> replacing
 // the old separate priority select + Outstanding toggle. Writes both
 // obs.priority and obs.addressed via the obs-status change handler.
 function _obsStatusSelect(d, oi, o) {
@@ -2766,6 +2794,12 @@ function _renderDetailedView(proj, container) {
 // independently. Cleared by _cvResort() (manual button) or a deliberate
 // navigation re-render. Purely a render marker — the model is already mutated.
 var _cvPendingKeys = {};
+// S338: Closed-view multi-select reopen. _cvSelMode toggles the checkbox layer
+// (only offered in the Closed filter). _cvSelIds is the chosen pin id set.
+// Both are transient (never persisted); cleared on leaving the Closed filter
+// or finishing a batch.
+var _cvSelMode = false;
+var _cvSelIds = {};
 // One-shot guard — when true, the next render() does NOT flush the pending set.
 // (Reserved; a pick patches in place without a render, so navigation/Re-sort
 // own the resettle. Kept for the render() flush contract.)
@@ -2802,9 +2836,18 @@ var _cvDeferredBgRender = false;
 // work. S263: the old four-segment category bar + global Edit-categories lock
 // are GONE — the row pill is the single, always-tappable status control.
 function _cvObsRow(d, oi, ctrId, opts, cat) {
+  opts = opts || {};
   var pend = _cvPendingKeys[_obsKey(d.id, oi)] ? ' cv-pending' : '';
-  return '<div class="cv-row' + pend + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">'
-    + _buildObsRow(d, oi, ctrId, opts) + '</div>';
+  // S338: in Closed-view multi-select mode, the FIRST emitted row of each pin
+  // carries a checkbox (selection is per-pin, so multi-obs pins get one box).
+  var sel = '';
+  if (_cvSelMode && opts.firstOfPin) {
+    var on = !!_cvSelIds[d.id];
+    sel = '<label class="cv-selbox" data-action="cv-selbox" data-defic-id="' + esc(d.id) + '">'
+        + '<input type="checkbox"' + (on ? ' checked' : '') + ' tabindex="-1" aria-label="Select for reopen"></label>';
+  }
+  return '<div class="cv-row' + pend + (_cvSelMode ? ' cv-selmode' : '') + (_cvSelIds[d.id] ? ' cv-selected' : '') + '" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '">'
+    + sel + _buildObsRow(d, oi, ctrId, opts) + '</div>';
 }
 
 function _renderCombinedView(proj, container) {
@@ -2945,14 +2988,20 @@ function _renderCombinedView(proj, container) {
         // entry carries {o, oi}; a legacy 0-obs row carries oi:-1.
         var survivors = e.rows || [];
         if (!survivors.length) return;
+        var _firstEmitted = true;
         survivors.forEach(function(r) {
+          var _opts;
           if (r.oi < 0 || !r.o) {
             var cat0 = _deriveCategory(e.d, null, hasCtr).cat;
-            h += _cvObsRow(e.d, 0, C.ctrId, { ctrName: C.name }, cat0);
+            _opts = { ctrName: C.name, firstOfPin: _firstEmitted };
+            h += _cvObsRow(e.d, 0, C.ctrId, _opts, cat0);
+            _firstEmitted = false;
             return;
           }
           var cat = _deriveCategory(e.d, r.o, hasCtr).cat;
-          h += _cvObsRow(e.d, r.oi, C.ctrId, { ctrName: C.name }, cat);
+          _opts = { ctrName: C.name, firstOfPin: _firstEmitted };
+          h += _cvObsRow(e.d, r.oi, C.ctrId, _opts, cat);
+          _firstEmitted = false;
         });
       };
       var _sortedPins = _sortPins(C.pins);
@@ -2972,7 +3021,15 @@ function _renderCombinedView(proj, container) {
           _thisRep.forEach(_emitPin);
         }
         if (_prevRep.length) {
-          h += '<div class="dfx-closed-subsec prev"><span>Previously closed</span><span class="dfx-closed-subcount">' + _prevRep.length + '</span></div>';
+          // S338: "Previously closed" = items closed in an EARLIER report. A
+          // batch "Reopen all" lives here (the meaningful batch case: undo a
+          // report's worth of false closures). Button is suppressed while the
+          // multi-select bar is active (the bar owns batch actions then).
+          var _prevIds = _prevRep.map(function(e) { return e.d.id; });
+          h += '<div class="dfx-closed-subsec prev"><span>Previously closed</span>'
+            + '<span class="dfx-closed-subcount">' + _prevRep.length + '</span>'
+            + (_cvSelMode ? '' : '<button type="button" class="dfx-reopen-all" data-action="cv-reopen-all" data-ids="' + esc(_prevIds.join(',')) + '" title="Reopen every item in this group">\u21A9 Reopen all</button>')
+            + '</div>';
           _prevRep.forEach(_emitPin);
         }
       } else {
@@ -2991,6 +3048,12 @@ function _renderCombinedView(proj, container) {
     // S250 §6: Collapse all joins the action cluster (was its own bar above list)
     _actionsHTML = '<button class="dfx-foldall-btn" data-action="dfx-fold-all" data-all="'
       + (allCol ? '0' : '1') + '">' + (allCol ? '\u25BC Expand all' : '\u25B6 Collapse all') + '</button>' + _actionsHTML;
+    // S338: multi-select reopen toggle — only in the Closed filter (reopen only
+    // applies to closed items). Enters/exits the checkbox layer.
+    if (_deriveCatFilter() === 'closed') {
+      _actionsHTML = '<button class="dfx-foldall-btn dfx-seltoggle' + (_cvSelMode ? ' on' : '') + '" data-action="cv-sel-toggle">'
+        + (_cvSelMode ? '\u2715 Done' : '\u2611 Select') + '</button>' + _actionsHTML;
+    }
   }
   // S263: the unlocked edit-hint line is removed with the lock. The tappable
   // pill ("Tap to change status") is self-explanatory; Re-sort carries the
@@ -3017,6 +3080,23 @@ function _renderCombinedView(proj, container) {
   var _actEl = document.getElementById('dfx-list-actions');
   if (_actEl) { _actEl.innerHTML = _actionsHTML; }
   else if (_actionsHTML) { container.insertAdjacentHTML('afterbegin', '<div class="dfx-foldall-bar">' + _actionsHTML + '</div>'); }
+
+  // S338: floating multi-select reopen bar. Mounted on body (fixed) so it
+  // survives container scroll; rebuilt each render. Only when select mode is on.
+  (function() {
+    var bar = document.getElementById('cv-selbar');
+    if (bar) bar.remove();
+    if (!_cvSelMode) return;
+    var cnt = Object.keys(_cvSelIds).filter(function(k){ return _cvSelIds[k]; }).length;
+    var el = document.createElement('div');
+    el.id = 'cv-selbar';
+    el.className = 'cv-selbar';
+    el.innerHTML =
+      '<span class="cv-selbar-count">' + cnt + ' selected</span>'
+      + '<button type="button" class="cv-selbar-cancel" data-action="cv-sel-cancel">Cancel</button>'
+      + '<button type="button" class="cv-selbar-reopen" data-action="cv-sel-reopen"' + (cnt ? '' : ' disabled') + '>\u21A9 Reopen ' + (cnt || '') + '</button>';
+    document.body.appendChild(el);
+  })();
   // Single-expand accordion → the cv-pe-location-thumb ids exist at most once.
   // rAF so the canvas is in the DOM. Guarded: only when a row is open, it has
   // a drawingId, and the cross-module hook is present (viewer.js loaded).
@@ -3253,6 +3333,42 @@ function _cvSetStatus(deficId, obsIdx, choice, instant) {
   _cvCloseStatusMenus();
   _cvPatchRowPill(deficId, obsIdx);
   _cvSyncResortBtn();
+}
+
+// S338: explicit reopen entry point (per-item, from the status menu's blue
+// "Reopen"). Decides same-report vs cross-report BEFORE writing:
+//   same-report  (closedOnInstance === currentFrtInstance) → a misclick within
+//     this same visit; reopen SILENTLY (no confirm, no marker).
+//   cross-report (closedOnInstance <  currentFrtInstance) → undoing a prior
+//     report's closure; CONFIRM first ("this will mark the item as reopened"),
+//     then reopen — the model stamps reopenedOnInstance so the always-shown blue
+//     marker appears. The actual reopen routes through _cvSetStatus(...,'high')
+//     so all the contractor-return / Site-Record round-trip logic is reused and
+//     the model's reopen stamp fires exactly once.
+function _cvReopen(deficId, obsIdx, instant) {
+  var find = Model.findDeficiency(deficId);
+  if (!find) return;
+  var d = find.defic;
+  var curInst = (Model.getProject && Model.getProject().currentFrtInstance) || 1;
+  var closedAt = d.closedOnInstance;
+  var crossReport = (closedAt != null && closedAt < curInst);
+
+  var doReopen = function() {
+    // Reopen to high priority (safe default for a now-unresolved item).
+    _cvSetStatus(deficId, obsIdx, 'high', instant);
+  };
+
+  if (crossReport) {
+    _cvCloseStatusMenus();
+    showConfirm(
+      'Reopen deficiency',
+      'This item was closed in a previous report (FRT #' + closedAt + '). Reopening it will ' +
+      'mark it as reopened in this report and show a "Reopened" note on the item. Continue?'
+    ).then(function(yes) { if (yes) doReopen(); });
+  } else {
+    // Same-report (or unknown closing instance) → silent misclick undo.
+    doReopen();
+  }
 }
 
 // Re-render just one row's pill cluster (chip colour/text, Option-D dot +
@@ -4335,6 +4451,81 @@ document.addEventListener('click', function(e) {
     var _cvOi = parseInt(el.getAttribute('data-obs-idx'), 10);
     var _cvChoice = el.getAttribute('data-choice');
     if (_cvDid != null && !isNaN(_cvOi) && _cvChoice) _cvSetStatus(_cvDid, _cvOi, _cvChoice, el.getAttribute('data-instant') === '1');
+    return;
+  }
+
+  if (action === 'cv-reopen') {
+    var _roDid = el.getAttribute('data-defic-id');
+    var _roOi = parseInt(el.getAttribute('data-obs-idx'), 10);
+    if (_roDid == null || isNaN(_roOi)) return;
+    var _roInstant = el.getAttribute('data-instant') === '1';
+    _cvReopen(_roDid, _roOi, _roInstant);
+    return;
+  }
+
+  if (action === 'cv-reopen-all') {
+    var _raIds = (el.getAttribute('data-ids') || '').split(',').filter(Boolean);
+    if (!_raIds.length) return;
+    showConfirm(
+      'Reopen all',
+      'Reopen ' + _raIds.length + ' item' + (_raIds.length === 1 ? '' : 's') +
+      ' closed in a previous report? Each will be marked as reopened and returned to the active report.'
+    ).then(function(yes) {
+      if (!yes) return;
+      var n = Model.reopenDeficiencies(_raIds);
+      if (Model.saveNow) Model.saveNow();
+      initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
+      toast(n + ' deficienc' + (n === 1 ? 'y' : 'ies') + ' reopened');
+    });
+    return;
+  }
+
+  // S338: enter/exit Closed-view multi-select mode.
+  if (action === 'cv-sel-toggle') {
+    _cvSelMode = !_cvSelMode;
+    if (!_cvSelMode) _cvSelIds = {};
+    initDeficiencies.render();
+    return;
+  }
+  // S338: toggle one pin's selection (checkbox). Stop the tap from also
+  // expanding the row.
+  if (action === 'cv-selbox') {
+    if (e.preventDefault) e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
+    var _sbId = el.getAttribute('data-defic-id');
+    if (_sbId) {
+      if (_cvSelIds[_sbId]) delete _cvSelIds[_sbId]; else _cvSelIds[_sbId] = true;
+      initDeficiencies.render();
+    }
+    return;
+  }
+  // S338: cancel selection → leave select mode.
+  if (action === 'cv-sel-cancel') {
+    _cvSelMode = false;
+    _cvSelIds = {};
+    initDeficiencies.render();
+    return;
+  }
+  // S338: reopen the selected set. Each routes through the model batch reopen,
+  // which applies the same/cross-report stamp per item. Confirm with the count.
+  if (action === 'cv-sel-reopen') {
+    var _srIds = Object.keys(_cvSelIds).filter(function(k){ return _cvSelIds[k]; });
+    if (!_srIds.length) return;
+    showConfirm(
+      'Reopen selected',
+      'Reopen ' + _srIds.length + ' selected item' + (_srIds.length === 1 ? '' : 's') + '? ' +
+      'Items closed in an earlier report will be marked as reopened and returned to the active report.'
+    ).then(function(yes) {
+      if (!yes) return;
+      var n = Model.reopenDeficiencies(_srIds);
+      if (Model.saveNow) Model.saveNow();
+      _cvSelMode = false;
+      _cvSelIds = {};
+      initDeficiencies.render();
+      if (window._frtRenderTasks) window._frtRenderTasks();
+      toast(n + ' deficienc' + (n === 1 ? 'y' : 'ies') + ' reopened');
+    });
     return;
   }
 

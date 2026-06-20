@@ -10628,3 +10628,83 @@ body.dark-mode .dfx-closed-subsec{ color:#3FD08A; }
 body.dark-mode .dfx-closed-subsec.prev{ color:#a09aa8; }
 body.dark-mode .dfx-closed-subcount{ background:rgba(63,208,138,.14); color:#3FD08A; }
 body.dark-mode .dfx-closed-subsec.prev .dfx-closed-subcount{ background:rgba(160,154,168,.14); color:#a09aa8; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   S338 — Reopen deficiency (per-item + batch). Blue is the reopen accent
+   (info/accent-2 role: #2C7FB8 light / #46C5E8 dark). The blue "Reopened"
+   marker is ALWAYS shown when set — it documents an undone prior closure.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Blue "Reopen" item in the status menu (shown only when item is closed). */
+.cv-statusmenu-item.dfx-cs-reopen{ color:#2C7FB8; background:rgba(44,127,184,.08); }
+body.dark-mode .cv-statusmenu-item.dfx-cs-reopen{ color:#46C5E8; background:rgba(70,197,232,.10); }
+.cv-statusmenu-sep{ height:1px; background:var(--b-pill-bd,#E4E2E9); margin:4px 6px; }
+body.dark-mode .cv-statusmenu-sep{ background:rgba(255,255,255,.12); }
+
+/* Blue "Reopened FRT #N" marker chip in the pin strip (reuses .frt-inst-chip
+   base; only the colour role changes). */
+.frt-reopen-chip{ color:#2C7FB8; background:rgba(44,127,184,.10); border-color:rgba(44,127,184,.30); font-weight:700; }
+body.dark-mode .frt-reopen-chip{ color:#46C5E8; background:rgba(70,197,232,.12); border-color:rgba(70,197,232,.34); }
+
+/* "Reopen all" button on the Previously-closed sub-header. */
+.dfx-reopen-all{
+  order:3; margin-left:2px;
+  background:rgba(44,127,184,.08); border:1px solid rgba(44,127,184,.30);
+  color:#2C7FB8; border-radius:6px; padding:2px 9px;
+  font-family:Calibri,sans-serif; font-size:calc(10.5px + var(--ts)); font-weight:700;
+  letter-spacing:.2px; cursor:pointer; white-space:nowrap;
+  transition:background .12s,border-color .12s;
+}
+.dfx-reopen-all:hover{ background:rgba(44,127,184,.16); border-color:rgba(44,127,184,.5); }
+body.dark-mode .dfx-reopen-all{ color:#46C5E8; background:rgba(70,197,232,.10); border-color:rgba(70,197,232,.32); }
+body.dark-mode .dfx-reopen-all:hover{ background:rgba(70,197,232,.18); border-color:rgba(70,197,232,.5); }
+@media (pointer: coarse){ .dfx-reopen-all{ padding:5px 12px; } }
+
+/* Select-mode toggle (reuses .dfx-foldall-btn base; .on = active blue). */
+.dfx-seltoggle.on{ color:#2C7FB8; border-color:rgba(44,127,184,.5); background:rgba(44,127,184,.08); }
+body.dark-mode .dfx-seltoggle.on{ color:#46C5E8; border-color:rgba(70,197,232,.5); background:rgba(70,197,232,.10); }
+
+/* Per-pin selection checkbox + selected-row highlight. */
+.cv-selbox{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:0 8px 0 4px; cursor:pointer; flex-shrink:0;
+}
+.cv-selbox input{ width:18px; height:18px; accent-color:#2C7FB8; cursor:pointer; }
+body.dark-mode .cv-selbox input{ accent-color:#46C5E8; }
+.cv-row.cv-selmode .dfx-obsrow-head{ /* keep row tap area working alongside the box */ }
+.cv-row.cv-selected{ background:rgba(44,127,184,.06); border-radius:10px; }
+body.dark-mode .cv-row.cv-selected{ background:rgba(70,197,232,.08); }
+@media (pointer: coarse){ .cv-selbox input{ width:22px; height:22px; } }
+
+/* Floating multi-select action bar (fixed, body-mounted). */
+.cv-selbar{
+  position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+  z-index:9000; display:flex; align-items:center; gap:12px;
+  background:var(--card,#fff); border:1px solid var(--b-pill-bd,#E4E2E9);
+  box-shadow:0 10px 32px rgba(27,26,34,.20);
+  border-radius:14px; padding:9px 12px 9px 16px;
+  font-family:Calibri,sans-serif;
+}
+body.dark-mode .cv-selbar{ background:#1c1b21; border-color:rgba(255,255,255,.12); box-shadow:0 12px 36px rgba(0,0,0,.55); }
+.cv-selbar-count{ font-size:calc(12.5px + var(--ts)); font-weight:700; color:var(--ink,#1B1A22); }
+body.dark-mode .cv-selbar-count{ color:#f4f3f6; }
+.cv-selbar-cancel{
+  background:transparent; border:1px solid var(--border,#DDE1E7); color:var(--steel,#4A5568);
+  border-radius:8px; padding:6px 14px; font-family:Calibri,sans-serif;
+  font-size:calc(12px + var(--ts)); font-weight:600; cursor:pointer;
+}
+.cv-selbar-cancel:hover{ background:rgba(0,0,0,.04); }
+body.dark-mode .cv-selbar-cancel{ color:#8A94B0; border-color:#2A3040; }
+.cv-selbar-reopen{
+  background:#2C7FB8; border:1px solid #2C7FB8; color:#fff;
+  border-radius:8px; padding:6px 16px; font-family:Calibri,sans-serif;
+  font-size:calc(12px + var(--ts)); font-weight:700; cursor:pointer;
+  transition:filter .12s;
+}
+.cv-selbar-reopen:hover{ filter:brightness(1.06); }
+.cv-selbar-reopen:disabled{ opacity:.45; cursor:default; }
+body.dark-mode .cv-selbar-reopen{ background:#46C5E8; border-color:#46C5E8; color:#0b0a0d; }
+@media (pointer: coarse){
+  .cv-selbar{ padding:11px 14px 11px 18px; }
+  .cv-selbar-cancel,.cv-selbar-reopen{ padding:9px 18px; }
+}
