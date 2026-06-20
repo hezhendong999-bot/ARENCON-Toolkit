@@ -20,6 +20,13 @@
     _selectedIds: [],                     // ids of selected strokes (group model)
     _dragState: null,                     // {type:'move'|'resize'|'rotate'|'rubberband', ...}
     _rubberBand: null,                    // {x1,y1,x2,y2} during drag-select
+    // S339 — Select sub-tool model (LOCKED_SELECT_DRAW_MODEL_S339). Select is a
+    // tool GROUP: 'single' (default, tap one), 'rubber' (drag-box group), 'tap'
+    // (two-phase pick → ✓ to group). Selection is STICKY in all modes — empty-area
+    // taps/pans never clear; only the ✗ cancel (or picking different marks) clears.
+    _selectSub: 'single',                 // 'single' | 'rubber' | 'tap'
+    _pickIds: [],                         // tap-mode individual picks (pre-✓ group)
+    _onSelChange: null,                   // lightbox callback to refresh ✓/✗ bar chrome
 
     _uid: function(){ return 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); },
 
@@ -47,6 +54,7 @@
       this.strokes = []; this.redoStack = []; this._drawing = false; this._curr = null;
       this._shapePending = null;
       this._selectedIds = []; this._dragState = null; this._rubberBand = null;
+      this._pickIds = [];
     },
 
     // Match overlay canvas to img's rendered box (CSS px) at device pixel resolution
@@ -66,7 +74,39 @@
       this._render();
     },
 
-    setTool:  function(t){ this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this._selectedIds = []; this._dragState = null; this._rubberBand = null; if (this.ctx) this._render(); } },
+    setTool:  function(t){ this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this._selectedIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
+
+    // S339 — arm a Select sub-tool. Keeps any committed selection; resets an
+    // in-progress tap pick / rubber band / drag (changing sub-tool mid-pick).
+    setSelectSub: function(sub){
+      if (sub!=='single' && sub!=='rubber' && sub!=='tap') return;
+      this._selectSub = sub; this.tool = 'select';
+      this._pickIds = []; this._dragState = null; this._rubberBand = null;
+      if (this.ctx) this._render(); this._emitSel();
+    },
+    getSelectSub: function(){ return this._selectSub; },
+
+    // S339 — tap-mode ✓: collapse individual picks into ONE committed group.
+    confirmPick: function(){
+      if (!this._pickIds.length) return;
+      this._selectedIds = this._pickIds.slice();
+      this._pickIds = [];
+      if (this.ctx) this._render(); this._emitSel();
+    },
+    // S339 — ✗ cancel (all modes): clear committed selection AND any in-progress
+    // pick / rubber band. The only deliberate clear (empty taps are sticky).
+    cancelSelect: function(){
+      this._selectedIds = []; this._pickIds = [];
+      this._dragState = null; this._rubberBand = null;
+      if (this.ctx) this._render(); this._emitSel();
+    },
+    // True whenever the ✗ (and, in tap mode, ✓) bar should be visible.
+    hasActiveSelection: function(){ return (this._selectedIds && this._selectedIds.length>0) || (this._pickIds && this._pickIds.length>0); },
+    isPicking: function(){ return this._selectSub==='tap' && this._pickIds && this._pickIds.length>0; },
+    pickCount: function(){ return this._pickIds ? this._pickIds.length : 0; },
+    selectionCount: function(){ return this._selectedIds ? this._selectedIds.length : 0; },
+    onSelChange: function(fn){ this._onSelChange = fn || null; },
+    _emitSel: function(){ if (this._onSelChange){ try{ this._onSelChange(); }catch(_){} } },
     setColor: function(c){ this.color = c; this._applyToSelection('color', c); },
     setSize:  function(s){ this.size = s; },
     setOpacity: function(v){ v = Math.max(0.1, Math.min(1, v)); this.opacity = v; this._applyToSelection('opacity', v); },
@@ -538,7 +578,7 @@
       // delete button
       if (this._selectedIds.length && this._hitDelete(p)){
         var sel=this._selectedIds; this.strokes=this.strokes.filter(function(s){return sel.indexOf(s.id)===-1;});
-        this._selectedIds=[]; this.redoStack=[]; this._render(); if(this._onDirty)this._onDirty(); return;
+        this._selectedIds=[]; this.redoStack=[]; this._render(); if(this._onDirty)this._onDirty(); this._emitSel(); return;
       }
       // resize corner
       if (this._selectedIds.length){
@@ -561,6 +601,18 @@
       }
       var hit=this._hitStroke(p);
       var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
+      // S339 — TAP-SELECT sub-mode: each tap toggles an individual pick (own box);
+      // committed selection stays empty until ✓. Empty taps ignored (sticky).
+      if (this._selectSub==='tap'){
+        if (hit){
+          var pix=this._pickIds.indexOf(hit.id);
+          if (pix!==-1) this._pickIds.splice(pix,1); else this._pickIds.push(hit.id);
+          this._selectedIds=[];           // tap builds pick, not committed group, until ✓
+          this._dragState=null; this._render(); this._emitSel();
+        }
+        // empty tap → sticky, do nothing
+        return;
+      }
       // If a (multi-)selection exists and the press is INSIDE the group bounds —
       // even in empty space between strokes — start a group move rather than
       // clearing and rubber-banding. Without this, dragging a rubber-band group
@@ -572,21 +624,38 @@
           return;
         }
       }
+      // S339 — RUBBER-BAND sub-mode: hit-in-selection = move; press on empty arms a
+      // rubber band that only commits if it MOVES past threshold (sticky tap).
+      if (this._selectSub==='rubber'){
+        if (multi && hit){
+          var rix=this._selectedIds.indexOf(hit.id);
+          if (rix!==-1) this._selectedIds.splice(rix,1); else this._selectedIds.push(hit.id);
+          this._dragState=null; this._render(); this._emitSel(); return;
+        }
+        if (hit && this._selectedIds.indexOf(hit.id)!==-1){
+          this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false }; return;
+        }
+        if (hit){
+          this._selectedIds=[hit.id];
+          this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false };
+          this._render(); this._emitSel(); return;
+        }
+        // empty press → arm rubber band; a stationary tap = sticky (no clear in _selectUp)
+        this._rubberBand={x1:p.x,y1:p.y,x2:p.x,y2:p.y};
+        this._dragState={type:'rubberband'}; this._render(); return;
+      }
+      // S339 — SINGLE sub-mode (default): tap a mark = select just it; empty = sticky.
       if (hit){
         if (multi){
           var ix=this._selectedIds.indexOf(hit.id);
           if (ix!==-1) this._selectedIds.splice(ix,1); else this._selectedIds.push(hit.id);
-          this._dragState=null; this._render(); return;
+          this._dragState=null; this._render(); this._emitSel(); return;
         }
-        // Clicking a stroke already in the selection keeps the whole group (move
-        // it); clicking an unselected stroke selects just that one.
         if (this._selectedIds.indexOf(hit.id)===-1) this._selectedIds=[hit.id];
         this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false };
-        this._render();
-      } else {
-        this._selectedIds=[]; this._rubberBand={x1:p.x,y1:p.y,x2:p.x,y2:p.y};
-        this._dragState={type:'rubberband'}; this._render();
+        this._render(); this._emitSel();
       }
+      // empty tap in single → sticky, do nothing
     },
 
     _selectMove: function(p){
@@ -638,17 +707,19 @@
       var ds=this._dragState; if(!ds) return; var self=this;
       if (ds.type==='rubberband' && this._rubberBand){
         var r=this._rubberBand, rx1=Math.min(r.x1,r.x2), ry1=Math.min(r.y1,r.y2), rx2=Math.max(r.x1,r.x2), ry2=Math.max(r.y1,r.y2);
+        // S339 — only a REAL drag (>4px) selects; a stationary empty tap is sticky
+        // (selection unchanged), never clears. Removes the old clear-on-empty bug.
         if (Math.abs(rx2-rx1)>4 || Math.abs(ry2-ry1)>4){
           var hits=[]; this.strokes.forEach(function(s){ var b=self._strokeBounds(s); if(!b)return;
             if (b.x2>=rx1 && b.x1<=rx2 && b.y2>=ry1 && b.y1<=ry2) hits.push(s.id); });
-          this._selectedIds=hits;
+          if (hits.length) this._selectedIds=hits;
         }
         this._rubberBand=null;
       }
       if ((ds.type==='move'||ds.type==='resize'||ds.type==='rotate') && (ds.moved!==false)){
         if (this._onDirty) this._onDirty();
       }
-      this._dragState=null; this._render();
+      this._dragState=null; this._render(); this._emitSel();
     },
 
     // S339 — duplicate the current selection. Each clone gets a fresh id, a deep
@@ -677,8 +748,25 @@
       this.redoStack = [];           // a new action invalidates redo (engine canon)
       this._render();
       if (this._onDirty) this._onDirty();
+      this._emitSel();
     },
     _drawSelection: function(ctx){
+      // S339 — tap-mode individual pick boxes (pre-✓ group): green dashed + ✓ badge.
+      if (this._pickIds && this._pickIds.length){
+        var self=this;
+        this._pickIds.forEach(function(id){
+          var s=self._findStroke(id); if(!s) return;
+          var b=self._strokeBounds(s); if(!b) return;
+          ctx.save();
+          ctx.setLineDash([4,3]); ctx.strokeStyle='#3FD08A'; ctx.lineWidth=2; ctx.globalAlpha=1;
+          ctx.strokeRect(b.x1-5,b.y1-5,b.x2-b.x1+10,b.y2-b.y1+10);
+          ctx.setLineDash([]);
+          ctx.fillStyle='#3FD08A'; ctx.beginPath(); ctx.arc(b.x2+5,b.y1-5,7,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='#0b2018'; ctx.font='bold 10px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText('\u2713', b.x2+5, b.y1-4);
+          ctx.restore();
+        });
+      }
       if (this._rubberBand){
         var r=this._rubberBand;
         ctx.save(); ctx.setLineDash([4,3]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1; ctx.globalAlpha=1;
@@ -720,7 +808,7 @@
       var sel = this._selectedIds;
       this.strokes = this.strokes.filter(function(s){ return sel.indexOf(s.id) === -1; });
       this._selectedIds = []; this.redoStack = [];
-      this._render(); if (this._onDirty) this._onDirty();
+      this._render(); if (this._onDirty) this._onDirty(); this._emitSel();
     },
 
     _render: function(){

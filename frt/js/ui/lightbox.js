@@ -152,7 +152,34 @@ function _buildMarkupBar(overlay){
   var bAr =tb('mk-arr','Arrow','Arrow');
   var bTx =tb('mk-text','Text','Text label');
   var bEr =tb('mk-er','Eraser','Eraser');
-  var bSel=tb('mk-select','Select','Select / move / resize / rotate');
+  var bSel=tb('mk-select','Select \u25BE','Select \u2014 tap for Single / Rubber-band / Tap modes');
+  // S339 — Select sub-tool flyout (tap-to-open, finger-friendly; LOCKED_SELECT_DRAW_MODEL_S339)
+  var subFly=document.createElement('div'); subFly.id='lb-mk-subfly';
+  subFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:column;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:200px;';
+  function subBtn(sub,glyph,name,desc){
+    var b=document.createElement('button'); b.dataset.sub=sub;
+    b.style.cssText='display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,255,255,.06);color:#fff;border:none;height:48px;padding:0 12px;border-radius:10px;cursor:pointer;font:600 14px Calibri,sans-serif;';
+    b.innerHTML='<span style="width:22px;text-align:center;font-size:16px;">'+glyph+'</span>'+
+      '<span style="line-height:1.05;">'+name+'<span style="display:block;font-weight:400;font-size:11px;color:#a9a4b2;margin-top:1px;">'+desc+'</span></span>';
+    return b;
+  }
+  var subSingle=subBtn('single','\u25CE','Single','Tap one mark = select just it');
+  var subRubber=subBtn('rubber','\u25C9','Rubber-band','Drag a box around marks');
+  var subTap   =subBtn('tap','\u2713','Tap select','Tap to pick, then confirm');
+  subFly.appendChild(subSingle); subFly.appendChild(subRubber); subFly.appendChild(subTap);
+  overlay.appendChild(subFly);
+  // S339 — ✓/✗ confirm bar. ✗ present in ALL select modes when a selection/pick is
+  // active (deliberate clear, since empty taps are now sticky); ✓ only in tap mode
+  // while picking (collapses individual picks into one group).
+  var cBar=document.createElement('div'); cBar.id='lb-mk-confirm';
+  cBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+  var cCnt=document.createElement('span'); cCnt.style.cssText='font:600 13px Calibri,sans-serif;color:#cfcad6;';
+  var cOk=document.createElement('button'); cOk.innerHTML='\u2713'; cOk.title='Confirm \u2014 group these';
+  cOk.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
+  var cNo=document.createElement('button'); cNo.innerHTML='\u2715'; cNo.title='Cancel \u2014 clear selection';
+  cNo.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  cBar.appendChild(cCnt); cBar.appendChild(cOk); cBar.appendChild(cNo);
+  overlay.appendChild(cBar);
   var sep0=document.createElement('div'); sep0.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
   var bUn =tb('mk-undo','\u21B6','Undo (Ctrl+Z)');
   var bRd =tb('mk-redo','\u21B7','Redo (Ctrl+Y)');
@@ -200,15 +227,54 @@ function _buildMarkupBar(overlay){
   function setSwatch(col){
     swatches.forEach(function(s){ s.style.borderColor = (s.dataset.col===col)?'#fff':'rgba(255,255,255,.4)'; s.style.boxShadow = (s.dataset.col===col)?'0 0 0 2px #9C2742':'none';});
   }
-  bPen.addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('pen');setActive(bPen);});
-  bHi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('highlight');setActive(bHi);});
-  bLn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('line');setActive(bLn);});
-  bRc .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('rect');setActive(bRc);});
-  bCi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('circle');setActive(bCi);});
-  bAr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('arrow');setActive(bAr);});
-  bTx .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('text');setActive(bTx);});
-  bEr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('eraser');setActive(bEr);});
-  bSel.addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('select');setActive(bSel);});
+  bPen.addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('pen');setActive(bPen);closeFly();_refreshConfirmBar();});
+  bHi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('highlight');setActive(bHi);closeFly();_refreshConfirmBar();});
+  bLn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('line');setActive(bLn);closeFly();_refreshConfirmBar();});
+  bRc .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('rect');setActive(bRc);closeFly();_refreshConfirmBar();});
+  bCi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('circle');setActive(bCi);closeFly();_refreshConfirmBar();});
+  bAr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('arrow');setActive(bAr);closeFly();_refreshConfirmBar();});
+  bTx .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('text');setActive(bTx);closeFly();_refreshConfirmBar();});
+  bEr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('eraser');setActive(bEr);closeFly();_refreshConfirmBar();});
+  // S339 — tapping Select toggles the sub-tool flyout instead of arming immediately.
+  function positionFly(){
+    var br=bSel.getBoundingClientRect();
+    subFly.style.left=Math.max(8, br.left+br.width/2-100)+'px';
+    subFly.style.bottom=(window.innerHeight - br.top + 8)+'px';
+  }
+  function closeFly(){ subFly.style.display='none'; }
+  bSel.addEventListener('click',function(e){
+    e.stopPropagation();
+    if (subFly.style.display==='flex'){ closeFly(); }
+    else { positionFly(); subFly.style.display='flex'; }
+  });
+  function markSub(sub){
+    [subSingle,subRubber,subTap].forEach(function(b){ b.style.background = (b.dataset.sub===sub)?'#9C2742':'rgba(255,255,255,.06)'; });
+  }
+  [subSingle,subRubber,subTap].forEach(function(b){
+    b.addEventListener('click',function(e){
+      e.stopPropagation();
+      if (window.MarkupEngine) window.MarkupEngine.setSelectSub(b.dataset.sub);
+      setActive(bSel); markSub(b.dataset.sub);
+      closeFly(); _refreshConfirmBar();
+    });
+  });
+  markSub('single');
+  // close flyout on any outside tap (mouse + touch)
+  function _flyOutside(ev){ if (subFly.style.display==='flex' && !subFly.contains(ev.target) && ev.target!==bSel && !bSel.contains(ev.target)) closeFly(); }
+  document.addEventListener('mousedown',_flyOutside);
+  document.addEventListener('touchstart',_flyOutside,{passive:true});
+  // S339 — confirm bar: ✗ whenever a selection/pick is active; ✓ added in tap mode while picking.
+  function _refreshConfirmBar(){
+    var E=window.MarkupEngine;
+    if (!E || E.tool!=='select' || !E.hasActiveSelection()){ cBar.style.display='none'; return; }
+    cBar.style.display='flex';
+    var picking = E.isPicking && E.isPicking();
+    if (picking){ cOk.style.display='flex'; cCnt.textContent=E.pickCount()+' picked'; }
+    else { cOk.style.display='none'; cCnt.textContent=E.selectionCount()+' selected'; }
+  }
+  cOk.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.confirmPick(); } _refreshConfirmBar(); });
+  cNo.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.cancelSelect(); } _refreshConfirmBar(); });
+  if (window.MarkupEngine) window.MarkupEngine.onSelChange(_refreshConfirmBar);
   bUn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.undo();});
   bRd .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.redo();});
   swatches.forEach(function(s){
@@ -257,6 +323,9 @@ function _exitMarkupNoSave(){
   if (!window.MarkupEngine) return;
   window.MarkupEngine.detach();
   if (_markupBar) _markupBar.style.display='none';
+  // S339 — hide the select confirm bar + sub-tool flyout on markup exit
+  var _cb=document.getElementById('lb-mk-confirm'); if(_cb) _cb.style.display='none';
+  var _sf=document.getElementById('lb-mk-subfly'); if(_sf) _sf.style.display='none';
   _markupActive = false;
 }
 // Copied from Diesel S305/S306: leaving markup mode COMMITS any drawn strokes —
