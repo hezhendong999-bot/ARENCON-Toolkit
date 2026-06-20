@@ -1367,7 +1367,7 @@ body.dark-mode .fp-bf .bftoggle:hover{color:#E26076!important;border-color:#9C27
 body.dark-mode .fp-bf .bfremove:hover{color:#fff!important;background:#9C2742!important;border-color:#9C2742!important;}
 body.dark-mode .fp-skip-note{color:#8a90a0!important;}
 body.dark-mode .fig{background:rgba(255,255,255,.04)!important;border-color:rgba(255,255,255,.10)!important;}
-body.dark-mode .chart-annotation-label{background:none!important;border:none!important;box-shadow:none!important;text-shadow:0 0 6px rgba(11,10,13,.98),0 0 12px rgba(11,10,13,.95),0 0 3px rgba(11,10,13,1),0 1px 2px rgba(0,0,0,.95);}
+body.dark-mode .chart-annotation-label{background:rgba(11,10,13,.72)!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:4px!important;box-shadow:none!important;text-shadow:0 1px 2px rgba(0,0,0,.9)!important;}
 body.dark-mode .app-footer{background:#0b0a0d;color:rgba(255,255,255,.4);}
 body.dark-mode .tool-btn{background:rgba(255,255,255,.06)!important;color:#d0d8f0!important;border-color:rgba(255,255,255,.2)!important;}
 body.dark-mode .sketch-entry{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.10);}
@@ -1438,7 +1438,7 @@ body.dark-mode td[id*="net-"]{background:#1a2a20!important;color:#4aba5a!importa
 body.dark-mode .calc-cell{background:#1a2830!important;color:#80c0d0!important;}
 body.dark-mode select option{background:rgba(255,255,255,.06);color:#d4d4d4;}
 .dark-toggle{background:rgba(255,255,255,.12);border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:calc(16px + var(--ts));margin-left:4px;transition:background .15s;}.dark-toggle:hover{background:rgba(255,255,255,.22);}
-.chart-annotation-label{background:rgba(255,255,255,.88)!important;border:1px solid rgba(0,0,0,.12)!important;border-radius:4px!important;padding:1px 5px!important;box-shadow:0 1px 3px rgba(0,0,0,.1)!important;font-weight:700!important;color:#1a3a5c!important;text-shadow:none!important;}
+body:not(.dark-mode) .chart-annotation-label{background:rgba(255,255,255,.92)!important;border:1px solid rgba(0,0,0,.12)!important;border-radius:4px!important;padding:1px 5px!important;box-shadow:0 1px 3px rgba(0,0,0,.1)!important;font-weight:700!important;text-shadow:none!important;}
 
 /* ══ DARK MODE — Deficiency Section Inline Style Overrides ══ */
 body.dark-mode [style*="background:#fffbf0"]{background:#2a2820!important;color:#c8b880!important;}
@@ -6658,7 +6658,32 @@ function _chartGrid() { return document.body.classList.contains('dark-mode') ? '
 function _chartLabelColor(lightCol) {
   if(!document.body.classList.contains('dark-mode')) return lightCol;
   var map = {'#5F8068':'#5aca7a','#A85959':'#e08080','#0D47A1':'#60a0e0','#1565C0':'#60a0e0','#D35400':'#e8a050','#5B2D8E':'#b080e0','#E53935':'#f07070','#2C4770':'#7a9fc8','#9C27B0':'#c070d0','#E67E22':'#e8a050','#805AD5':'#b59ae0'};
-  return map[lightCol] || lightCol;
+  if(map[lightCol]) return map[lightCol];
+  // S368: any curve colour not in the map still needs to be readable on the
+  // dark (#0b0a0d) chart background. Brighten toward white until it clears a
+  // luminance floor, preserving hue so the label still reads as "that curve".
+  return _brightenForDark(lightCol);
+}
+// S368: hue-preserving brightener. Mixes the colour toward white until its
+// perceived luminance is high enough to read on near-black. Returns the input
+// unchanged if it can't be parsed.
+function _brightenForDark(hex){
+  try{
+    var m = /^#?([0-9a-f]{6})$/i.exec((hex||'').trim());
+    if(!m) return hex;
+    var n = parseInt(m[1],16);
+    var r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+    function lum(rr,gg,bb){ return (0.2126*rr + 0.7152*gg + 0.0722*bb)/255; }
+    var L = lum(r,g,b);
+    var FLOOR = 0.62;               // target perceived brightness on black
+    if(L >= FLOOR) return hex;      // already light enough
+    // mix toward white by the amount needed to reach the floor
+    var t = Math.min(0.85, (FLOOR - L) / (1 - L));
+    r = Math.round(r + (255-r)*t);
+    g = Math.round(g + (255-g)*t);
+    b = Math.round(b + (255-b)*t);
+    return '#' + [r,g,b].map(function(v){ return ('0'+v.toString(16)).slice(-2); }).join('');
+  }catch(e){ return hex; }
 }
 
 // PLD row indices that are skipped in w/o PRV & PLD (only 0%,100%,150% = indices 0,4,6)
@@ -8887,43 +8912,96 @@ function getProjInfo() {
 }
 
 function _bakeAnnotationsOntoCanvas(ci, canvasId) {
+  // S368: bake the LIVE annotation overlay onto the chart canvas so toBase64Image()
+  // captures exactly what the inspector sees on screen. The prior version re-derived
+  // labels from stored formatters only, which silently dropped every label drawn by
+  // the S327 allow-list (Cutsheet / Placard / Sprinkler Demand / CAP lines / OHL /
+  // force-toggled curves). Reading the overlay DOM is drift-proof: the overlay IS the
+  // source of truth, produced by renderChartAnnotations.
   if(!ci) return;
-  var ctx = ci.ctx;
-  ctx.save();
-  ci.data.datasets.forEach(function(ds, dsIdx) {
-    var fmt = (ci._storedFormatters && ci._storedFormatters[dsIdx]);
-    if(!fmt) return;
-    var color = (ci._storedColors && ci._storedColors[dsIdx]) || ds.borderColor || '#333';
-    ds.data.forEach(function(pt, ptIdx) {
-      if(!pt) return;
-      var key = canvasId + '_' + dsIdx + '_' + ptIdx;
-      if(chartAnnotationsDeleted[key]) return;
-      if(pt.x === 0 && pt.y === 0) return;
-      if(ptIdx === 0 && ds.data.length > 1 && ds.showLine && ds.pointRadius === 0) return;
-      if(ds.label && ds.label.startsWith('_') && !ds.label.startsWith('_sprDem')) return;
-      var meta = ci.getDatasetMeta(dsIdx);
-      if(!meta || !meta.data[ptIdx]) return;
-      var px = meta.data[ptIdx].x, py = meta.data[ptIdx].y;
-      var stored = chartAnnotations[key];
-      var offX = stored ? stored.offX : 0, offY = stored ? stored.offY : -25;
-      var text = '';
-      try { text = fmt(pt, {dataIndex:ptIdx, dataset:ds, chart:ci, datasetIndex:dsIdx}); } catch(e){}
-      if(!text) return;
-      var lx = px+offX, ly = py+offY;
-      if(Math.sqrt(offX*offX+offY*offY) > 35) {
-        ctx.strokeStyle = ds.borderColor||'#999'; ctx.lineWidth=1; ctx.setLineDash([3,2]);
-        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
-      }
-      var lines = text.split('\n');
-      ctx.font = '600 10px Calibri, sans-serif';
-      var maxW=0; lines.forEach(function(l){var w=ctx.measureText(l).width;if(w>maxW)maxW=w;});
-      ctx.fillStyle='rgba(255,255,255,0.85)';
-      ctx.fillRect(lx-maxW/2-3, ly-lines.length*13-2, maxW+6, lines.length*13+4);
-      ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='bottom';
-      lines.forEach(function(l,li){ ctx.fillText(l, lx, ly-(lines.length-1-li)*13); });
+  try {
+    // 1) Make sure the overlay reflects current toggles + export-size layout.
+    if(typeof renderChartAnnotations === 'function' &&
+       (typeof chartAnnotationsVisible==='undefined' || chartAnnotationsVisible[canvasId]!==false)){
+      renderChartAnnotations(ci, canvasId);
+    }
+    var canvas = (typeof ci.canvas!=='undefined' && ci.canvas) || document.getElementById(canvasId);
+    var overlay = document.getElementById(canvasId + '-annotations');
+    if(!canvas || !overlay) return;
+    var ctx = ci.ctx || canvas.getContext('2d');
+
+    // Overlay is positioned inset:0 over the canvas, so its client box and the canvas
+    // client box share an origin. Map overlay-pixel coords → canvas-bitmap coords using
+    // the canvas' own client→bitmap scale (handles devicePixelRatio / CSS sizing).
+    var cR = canvas.getBoundingClientRect();
+    var oR = overlay.getBoundingClientRect();
+    var sx = canvas.width  / (cR.width  || canvas.width);
+    var sy = canvas.height / (cR.height || canvas.height);
+    var dx = (oR.left - cR.left);   // overlay offset within canvas client box (≈0)
+    var dy = (oR.top  - cR.top);
+
+    ctx.save();
+
+    // 2) Leader lines first (SVG <line> children), so labels paint over them.
+    overlay.querySelectorAll('svg line').forEach(function(ln){
+      var x1=parseFloat(ln.getAttribute('x1')), y1=parseFloat(ln.getAttribute('y1'));
+      var x2=parseFloat(ln.getAttribute('x2')), y2=parseFloat(ln.getAttribute('y2'));
+      if([x1,y1,x2,y2].some(isNaN)) return;
+      ctx.strokeStyle = ln.getAttribute('stroke') || '#999';
+      ctx.lineWidth = (parseFloat(ln.getAttribute('stroke-width'))||1) * Math.max(sx,sy);
+      var da = (ln.getAttribute('stroke-dasharray')||'').split(/[ ,]+/).map(parseFloat).filter(function(n){return !isNaN(n);});
+      ctx.setLineDash(da.length?da.map(function(n){return n*Math.max(sx,sy);}):[]);
+      ctx.beginPath();
+      ctx.moveTo((x1+dx)*sx, (y1+dy)*sy);
+      ctx.lineTo((x2+dx)*sx, (y2+dy)*sy);
+      ctx.stroke();
     });
-  });
-  ctx.restore();
+    ctx.setLineDash([]);
+
+    // 3) Each label div. Position is its left/top with transform translate(-50%,-100%)
+    //    → anchor = bottom-centre. Read color + text straight off the element.
+    overlay.querySelectorAll('.chart-annotation-label').forEach(function(el){
+      var lx = parseFloat(el.style.left), ly = parseFloat(el.style.top);
+      if(isNaN(lx) || isNaN(ly)) return;
+      var cs = getComputedStyle(el);
+      var color = el.style.color || cs.color || '#333';
+      var bg = cs.backgroundColor || 'rgba(255,255,255,0.9)';
+      var hasBorder = cs.borderTopWidth && parseFloat(cs.borderTopWidth) > 0;
+      var borderCol = cs.borderTopColor || 'rgba(0,0,0,0.12)';
+      var text = el.textContent || '';
+      if(!text) return;
+      var lines = text.split('\n');
+      // Font scaled to bitmap space; overlay uses 10px 600 Calibri.
+      var fpx = 10 * sy;
+      ctx.font = '600 ' + fpx.toFixed(1) + 'px Calibri, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      var lineH = 13 * sy;            // matches overlay line-height
+      var padX = 5 * sx, padY = 2 * sy;
+      var maxW = 0;
+      lines.forEach(function(l){ var w=ctx.measureText(l).width; if(w>maxW) maxW=w; });
+      // anchor (bottom-centre) in bitmap space
+      var ax = (lx + dx) * sx;
+      var ay = (ly + dy) * sy;
+      var boxW = maxW + padX*2;
+      var boxH = lines.length*lineH + padY*2;
+      var boxL = ax - boxW/2;
+      var boxT = ay - boxH;          // grows upward from the anchor
+      // background pill (matches the live label's computed background per mode)
+      ctx.fillStyle = bg;
+      var rr = 3*Math.min(sx,sy);
+      if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(boxL, boxT, boxW, boxH, rr); ctx.fill(); if(hasBorder){ ctx.strokeStyle=borderCol; ctx.lineWidth=Math.max(sx,sy); ctx.stroke(); } }
+      else { ctx.fillRect(boxL, boxT, boxW, boxH); }
+      // text
+      ctx.fillStyle = color;
+      lines.forEach(function(l, li){
+        var baseY = boxT + padY + (li+1)*lineH - (lineH - fpx)/2 - 1;
+        ctx.fillText(l, ax, baseY);
+      });
+    });
+
+    ctx.restore();
+  } catch(e){ try{ console.warn('[bakeAnn] failed for '+canvasId, e); }catch(_){} }
 }
 /* ════ S315 F1: PRE-PRINT PHOTO SELECTION (LOCKED design, Diesel PK) ════
    Full-screen, one category per row, select-all + per-category, default
@@ -9677,7 +9755,7 @@ function _realExportPDF() {
   <tbody>${clSection(S5_mandatory,'s5m')}${clSection(S5,'s5')}</tbody></table></div>
 
   <div class="sh">Deficiency Summary</div>
-  <div class="sb">
+  <div class="sb defic-summary-sb">
   ${(()=>{
     const allItems = contractors.flatMap(n => (deficiencies[n]||[]).map(d => ({...d, _name:n})));
     if (allItems.length === 0) return '<div style="background:#E8EFE7;border:1px solid #5F8068;padding:10px;border-radius:4px;color:#5F8068;font-weight:bold;">No deficiencies recorded.</div>';
@@ -9769,7 +9847,7 @@ function _realExportPDF() {
       resultDesc=perfPass?'All pump performance points meet cutsheet criteria.':'One or more performance points did not meet cutsheet criteria or test result not confirmed.';
       col=perfPass?'#5F8068':'#A85959';
     }
-    return '<div style="margin:24px 0;padding:20px;border:3px solid '+col+';border-radius:8px;background:'+(col==='#5F8068'?'#F0FFF4':col==='#E67E22'?'#FFF8F0':'#FFF5F5')+';text-align:center;page-break-inside:avoid;">'
+    return '<div class="nosplit keep-prev" style="margin:24px 0;padding:20px;border:3px solid '+col+';border-radius:8px;background:'+(col==='#5F8068'?'#F0FFF4':col==='#E67E22'?'#FFF8F0':'#FFF5F5')+';text-align:center;page-break-inside:avoid;">'
       +'<div style="font-size:22pt;font-weight:900;color:'+col+';letter-spacing:3px;">'+resultLabel+'</div>'
       +'<div style="font-size:9pt;margin-top:6px;color:#555;">'+resultDesc+'</div>'
       +'</div>';
@@ -10179,7 +10257,34 @@ function _realExportPDF() {
         bodyNodes.forEach(function(bn){
           curPage.appendChild(bn);
           if(!_overflow()) return;            // fit whole in the remaining room
-          curPage.removeChild(bn);            // too tall → split it
+          curPage.removeChild(bn);            // too tall → handle by type
+          // nosplit = atomic block (e.g. verdict box) → must ride a page WHOLE,
+          // never split. If it has keep-prev, try to pull its immediately-
+          // preceding sibling (e.g. the Deficiency Summary .sb) onto the fresh
+          // page with it so the two are never separated by a page break.
+          var isNoSplit = bn.classList && bn.classList.contains('nosplit');
+          if(isNoSplit){
+            var prevNode = null;
+            if(bn.classList.contains('keep-prev')){
+              var lc = curPage.lastElementChild;
+              // only pull a preceding content block, never the section band
+              if(lc && !(lc.classList && lc.classList.contains('sh')) && curPage.children.length > 1){
+                prevNode = lc; curPage.removeChild(prevNode);
+              }
+            }
+            if(curPage.children.length > 1) _push();
+            if(prevNode) curPage.appendChild(prevNode);
+            curPage.appendChild(bn);
+            // if the pair STILL overflows the fresh page, the sb is genuinely
+            // oversized — release it back to splitting, keep verdict atomic after.
+            if(prevNode && _overflow()){
+              curPage.removeChild(bn); curPage.removeChild(prevNode);
+              _splitGeneric(prevNode, head);
+              if(_overflow() && curPage.children.length > 1) _push();
+              curPage.appendChild(bn);
+            }
+            return;
+          }
           // .sb.flush = a single checklist table → split rows. Plain .sb =
           // mixed content (tables + charts + headings) → split at children.
           var isFlush = bn.classList && bn.classList.contains('flush');
@@ -10917,6 +11022,10 @@ function renderChartAnnotations(chartInstance, canvasId) {
     // through and synthesize a label below. Without a force-on, keep the original fast bail.
     if(!fmt && annDsForce[canvasId] && annDsForce[canvasId][dsIdx]!==true) return;
     var dsColor = (chart._storedColors && chart._storedColors[dsIdx]) || (ds.datalabels && ds.datalabels.color) || ds.borderColor || '#333';
+    // S368: ensure the label colour is readable on the dark chart background while
+    // still matching its curve's hue. In light mode this is a no-op; in dark mode any
+    // dark curve colour (Cutsheet navy, Pump-curve burgundy, etc.) is brightened.
+    if(typeof _chartLabelColor === 'function') dsColor = _chartLabelColor(dsColor);
     ds.data.forEach(function(pt, ptIdx) {
       if(!pt) return;
       var meta = chart.getDatasetMeta(dsIdx);
