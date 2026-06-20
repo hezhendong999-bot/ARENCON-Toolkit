@@ -137,11 +137,11 @@ function _buildMarkupBar(overlay){
   if (_markupBar) return;
   var bar = document.createElement('div');
   bar.id = 'lb-markupbar';
-  bar.style.cssText = 'position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:8px 12px;background:rgba(20,20,28,.92);border-radius:24px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:96vw;overflow-x:auto;';
+  bar.style.cssText = 'position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:none;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;padding:10px 12px;background:rgba(20,20,28,.92);border-radius:20px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);width:calc(100vw - 24px);max-width:760px;box-sizing:border-box;';
   function tb(id, label, title){
     var b = document.createElement('button');
     b.id = id; b.title = title; b.textContent = label;
-    b.style.cssText = 'background:rgba(255,255,255,.12);color:#fff;border:none;min-width:48px;height:40px;padding:0 12px;border-radius:20px;cursor:pointer;font:600 13px Calibri,sans-serif;';
+    b.style.cssText = 'flex:0 0 auto;white-space:nowrap;background:rgba(255,255,255,.12);color:#fff;border:none;min-width:52px;height:42px;padding:0 14px;border-radius:21px;cursor:pointer;font:600 13px Calibri,sans-serif;';
     return b;
   }
   var bPen=tb('mk-pen','Pen','Pen tool');
@@ -220,31 +220,46 @@ function _buildMarkupBar(overlay){
   arr.forEach(function(e){bar.appendChild(e);});
   overlay.appendChild(bar);
   _markupBar = bar;
-  function setActive(btn){
+  function clearActive(){
     [bPen,bHi,bLn,bRc,bCi,bAr,bTx,bEr,bSel].forEach(function(b){b.style.background='rgba(255,255,255,.12)';});
+  }
+  function setActive(btn){
+    clearActive();
     btn.style.background='#9C2742';
+  }
+  // S339 — tap a tool to arm it; tap the SAME tool again to deactivate (no tool armed,
+  // taps inert) per Mark. _activeBtn tracks which is lit so the second tap toggles off.
+  var _activeBtn=null;
+  function toggleTool(btn, toolName){
+    var E=window.MarkupEngine; if(!E) return;
+    closeFly();
+    if (_activeBtn===btn){            // tapping the active tool → turn it off
+      E.setTool(''); clearActive(); _activeBtn=null; _refreshConfirmBar(); return;
+    }
+    E.setTool(toolName); setActive(btn); _activeBtn=btn; _refreshConfirmBar();
   }
   function setSwatch(col){
     swatches.forEach(function(s){ s.style.borderColor = (s.dataset.col===col)?'#fff':'rgba(255,255,255,.4)'; s.style.boxShadow = (s.dataset.col===col)?'0 0 0 2px #9C2742':'none';});
   }
-  bPen.addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('pen');setActive(bPen);closeFly();_refreshConfirmBar();});
-  bHi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('highlight');setActive(bHi);closeFly();_refreshConfirmBar();});
-  bLn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('line');setActive(bLn);closeFly();_refreshConfirmBar();});
-  bRc .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('rect');setActive(bRc);closeFly();_refreshConfirmBar();});
-  bCi .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('circle');setActive(bCi);closeFly();_refreshConfirmBar();});
-  bAr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('arrow');setActive(bAr);closeFly();_refreshConfirmBar();});
-  bTx .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('text');setActive(bTx);closeFly();_refreshConfirmBar();});
-  bEr .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.setTool('eraser');setActive(bEr);closeFly();_refreshConfirmBar();});
-  // S339 — tapping Select toggles the sub-tool flyout. Positioned overlay-relative
-  // (centered, just above the toolbar) like the bar/confirm-bar — NOT via viewport
-  // rect math, which mis-anchored against the overlay's positioning context.
-  subFly.style.left='50%'; subFly.style.transform='translateX(-50%)'; subFly.style.bottom='72px';
-  function positionFly(){ /* fixed overlay-relative anchor; no per-open recompute needed */ }
+  bPen.addEventListener('click',function(){toggleTool(bPen,'pen');});
+  bHi .addEventListener('click',function(){toggleTool(bHi,'highlight');});
+  bLn .addEventListener('click',function(){toggleTool(bLn,'line');});
+  bRc .addEventListener('click',function(){toggleTool(bRc,'rect');});
+  bCi .addEventListener('click',function(){toggleTool(bCi,'circle');});
+  bAr .addEventListener('click',function(){toggleTool(bAr,'arrow');});
+  bTx .addEventListener('click',function(){toggleTool(bTx,'text');});
+  bEr .addEventListener('click',function(){toggleTool(bEr,'eraser');});
+  // S339 — tapping Select toggles the sub-tool flyout. Anchored just above the
+  // toolbar; the bar now wraps to multiple rows so we measure its height on open
+  // rather than using a fixed offset.
+  subFly.style.left='50%'; subFly.style.transform='translateX(-50%)';
+  function _barClearance(){ var bh = bar.offsetHeight || 56; return (16 + bh + 10); }
+  function positionFly(){ subFly.style.bottom=_barClearance()+'px'; }
   function closeFly(){ subFly.style.display='none'; }
   bSel.addEventListener('click',function(e){
     e.stopPropagation();
     if (subFly.style.display==='flex'){ closeFly(); }
-    else { subFly.style.display='flex'; }
+    else { positionFly(); subFly.style.display='flex'; }
   });
   function markSub(sub){
     [subSingle,subRubber,subTap].forEach(function(b){ b.style.background = (b.dataset.sub===sub)?'#9C2742':'rgba(255,255,255,.06)'; });
@@ -253,7 +268,7 @@ function _buildMarkupBar(overlay){
     b.addEventListener('click',function(e){
       e.stopPropagation();
       if (window.MarkupEngine) window.MarkupEngine.setSelectSub(b.dataset.sub);
-      setActive(bSel); markSub(b.dataset.sub);
+      setActive(bSel); _activeBtn=bSel; markSub(b.dataset.sub);
       closeFly(); _refreshConfirmBar();
     });
   });
@@ -266,6 +281,7 @@ function _buildMarkupBar(overlay){
   function _refreshConfirmBar(){
     var E=window.MarkupEngine;
     if (!E || E.tool!=='select' || !E.hasActiveSelection()){ cBar.style.display='none'; return; }
+    cBar.style.bottom=_barClearance()+'px';
     cBar.style.display='flex';
     var picking = E.isPicking && E.isPicking();
     if (picking){ cOk.style.display='flex'; cCnt.textContent=E.pickCount()+' picked'; }

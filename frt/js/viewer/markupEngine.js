@@ -155,6 +155,10 @@
           return;
         }
         var p = pt(ev);
+        // S339 — no tool armed (tapped active tool to deactivate): swallow the press
+        // so a stray tap never draws or selects. Returns before preventDefault, so the
+        // gesture stays inert; with no tool there's nothing to draw anyway.
+        if (!self.tool){ return; }
         if (self.tool === 'text'){ self._textPrompt(p, ev); return; }  // no preventDefault — let focus land
         ev.preventDefault();
         if (self.tool === 'select'){ self._selectDown(p, ev); return; }
