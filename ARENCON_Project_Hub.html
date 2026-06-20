@@ -738,7 +738,7 @@ body.bold.dark-mode{
   --navy:#0b0a0d;--navy-mid:#14121a;--navy-light:#1c1924;
   --bg:#0b0a0d;--card:#141119;--border:rgba(255,255,255,.10);
   --fg:#f4f3f6;--steel:#a09aa8;--silver:#6b6674;--slate:#f4f3f6;
-  --arencon:#E8758F;--arencon-mid:#C9476A;
+  --arencon:#CE5470;--arencon-mid:#9C2742;
 }
 body.bold:not(.dark-mode){
   --navy:#1B2438;--navy-mid:#243048;
@@ -803,6 +803,10 @@ body.bold .hdr-btn{
   background:var(--card) !important;border:1px solid var(--border) !important;color:var(--fg) !important;
   -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
 body.bold .hdr-btn:hover{border-color:var(--arencon) !important;}
+/* White-on-white fixes: hamburger + text-size toggle must follow header ink in bold mode */
+body.bold .mobile-menu-btn{color:var(--fg) !important;}
+body.bold .text-size-toggle{background:var(--card) !important;border:1.5px solid var(--border) !important;color:var(--fg) !important;}
+body.bold .text-size-toggle:hover{border-color:var(--arencon) !important;}
 body.bold .hdr img{background:#fff !important;}
 
 /* Glass toolbar surfaces */
