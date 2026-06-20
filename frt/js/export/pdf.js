@@ -148,22 +148,27 @@ function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d,isSiteRecord){
   ctx.strokeStyle='#fff';
   ctx.stroke();
 
-  // Layer 2: colored fill (slightly inset, matches viewer's inner path)
-  // Inner path uses (4,15)/(28,15) shoulders instead of (2,15)/(30,15)
-  // and goes to (16,37) instead of (16,40). Approximation: re-fill at
-  // 92% scale around the same anchor — visually identical at print sizes.
+  // Layer 2: colored fill — EXACT viewer inner path (viewer.js line ~1658):
+  //   M16 3 C9.4 3 4 8.4 4 15 c0 9.5 12 22 12 22 s12-12.5 12-22 C28 8.4 22.6 3 16 3 z
+  // Start (16,3); left shoulder (4,15); tip (16,37); right shoulder (28,15).
+  // Uses the SAME P() anchor mapping as the outer path so the inner fill sits
+  // inside the white outline at every scale — no more 92%-scale approximation
+  // (which mis-seated the tip and shoulders at large print sizes). This is the
+  // S338 "match the viewer teardrop EXACTLY" fix.
   ctx.beginPath();
-  var sInner=s*0.93;
-  function PI(svgX,svgY){return{x:anchorX+(svgX-16)*sInner,y:anchorY+(svgY-40)*sInner+s*1};}
-  var ip0=PI(16,1);ctx.moveTo(ip0.x,ip0.y);
-  var ic1a=PI(8.3,1),ic2a=PI(2,7.3),ie1=PI(2,15);
-  ctx.bezierCurveTo(ic1a.x,ic1a.y,ic2a.x,ic2a.y,ie1.x,ie1.y);
-  var ic1b=PI(2,25.5),ic2b=PI(16,40),ie2=PI(16,40);
-  ctx.bezierCurveTo(ic1b.x,ic1b.y,ic2b.x,ic2b.y,ie2.x,ie2.y);
-  var ic1c=PI(16,40),ic2c=PI(30,25.5),ie3=PI(30,15);
-  ctx.bezierCurveTo(ic1c.x,ic1c.y,ic2c.x,ic2c.y,ie3.x,ie3.y);
-  var ic1d=PI(30,7.3),ic2d=PI(23.7,1),ie4=PI(16,1);
-  ctx.bezierCurveTo(ic1d.x,ic1d.y,ic2d.x,ic2d.y,ie4.x,ie4.y);
+  var jp0=P(16,3);ctx.moveTo(jp0.x,jp0.y);
+  // C 9.4 3, 4 8.4, 4 15
+  var jc1a=P(9.4,3),jc2a=P(4,8.4),je1=P(4,15);
+  ctx.bezierCurveTo(jc1a.x,jc1a.y,jc2a.x,jc2a.y,je1.x,je1.y);
+  // c 0 9.5 12 22 12 22  (relative; from (4,15) to (16,37))
+  var jc1b=P(4,24.5),jc2b=P(16,37),je2=P(16,37);
+  ctx.bezierCurveTo(jc1b.x,jc1b.y,jc2b.x,jc2b.y,je2.x,je2.y);
+  // s 12 -12.5 12 -22  (smooth; from (16,37) to (28,15); cp1 = reflection = (16,37))
+  var jc1c=P(16,37),jc2c=P(28,24.5),je3=P(28,15);
+  ctx.bezierCurveTo(jc1c.x,jc1c.y,jc2c.x,jc2c.y,je3.x,je3.y);
+  // C 28 8.4, 22.6 3, 16 3
+  var jc1d=P(28,8.4),jc2d=P(22.6,3),je4=P(16,3);
+  ctx.bezierCurveTo(jc1d.x,jc1d.y,jc2d.x,jc2d.y,je4.x,je4.y);
   ctx.closePath();
   ctx.fillStyle=fill;
   ctx.fill();
@@ -1206,7 +1211,7 @@ try{
   var bar=D.createElement('div');bar.id='pdf-btn-bar-inner';
   bar.style.cssText='transform-origin:top left;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;will-change:transform,width;';
   var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
-  pb.style.cssText='padding:8px 24px;background:#1A7A4A;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
+  pb.style.cssText='padding:8px 24px;background:#2E9E72;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
   pb.onclick=function(){w.print();};bar.appendChild(pb);
   var ht=D.createElement('span');ht.textContent='Click to save as PDF via your browser print dialog.';
   ht.style.cssText='color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';bar.appendChild(ht);
@@ -1215,21 +1220,15 @@ try{
   cb.onclick=function(){w.close();};bar.appendChild(cb);
   barFix.appendChild(bar);
   D.body.insertBefore(barFix,D.body.firstChild);D.body.style.paddingTop='56px';
-  // Counter-scale the inner against page zoom; size the wrapper to the scaled height.
-  var _baseDPR=w.devicePixelRatio||1;
-  var _fitBar=function(){
-    try{
-      var z=(w.devicePixelRatio||1)/_baseDPR; if(!isFinite(z)||z<=0)z=1;
-      var inv=1/z;
-      bar.style.transform='scale('+inv+')';
-      bar.style.width=((w.innerWidth||D.documentElement.clientWidth)*z)+'px';
-      var nh=bar.offsetHeight; if(nh) barFix.style.height=Math.round(nh*inv)+'px';
-    }catch(_x){}
-  };
-  w.addEventListener('resize',_fitBar);
-  var _fitIv=w.setInterval(_fitBar,400);
-  try{w.addEventListener('beforeunload',function(){try{w.clearInterval(_fitIv);}catch(_c){}});}catch(_b){}
-  _fitBar();
+  // S338 (#32): the page-zoom counter-scale is REMOVED. It tried to invert the
+  // bar against zoom via devicePixelRatio, but Chrome's page-zoom control does
+  // NOT move visualViewport.scale / devicePixelRatio in a way JS can read, so the
+  // counter-scale never countered page zoom — it only added a 400ms interval +
+  // transform/width thrash for no benefit (and could itself mis-size the strip).
+  // Mark is fine with a consistent full-width banner (it carries Close, so a
+  // compact cluster has nowhere to put it). Now a plain fixed banner: it scales
+  // with page zoom like all page content, which is predictable. The bar never
+  // appears in the actual PDF (@media print hides #pdf-btn-bar).
 }catch(e){}
 
 // Pagination
@@ -1586,7 +1585,7 @@ export const initPDFExport={
     var opts=options||{};var isField=(type==='field');
     var pfOv=document.createElement('div');pfOv.id='pdf-prefetch-overlay';
     pfOv.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-    pfOv.innerHTML='<div style="background:white;border-radius:12px;padding:28px 36px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;min-width:320px;"><div style="font-size:16px;font-weight:700;color:#1C2333;margin-bottom:12px;">Preparing PDF Export</div><div id="pf-label" style="font-size:13px;color:#4A5568;margin-bottom:10px;">Fetching photos... 0/0</div><div style="width:100%;height:8px;background:#EDF2F7;border-radius:4px;overflow:hidden;"><div id="pf-bar" style="width:0%;height:100%;background:#1A7A4A;border-radius:4px;transition:width .15s;"></div></div><div style="margin-top:12px;font-size:11px;color:#A0AEC0;">This may take a moment for large reports</div></div>';
+    pfOv.innerHTML='<div style="background:white;border-radius:12px;padding:28px 36px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;min-width:320px;"><div style="font-size:16px;font-weight:700;color:#1C2333;margin-bottom:12px;">Preparing PDF Export</div><div id="pf-label" style="font-size:13px;color:#4A5568;margin-bottom:10px;">Fetching photos... 0/0</div><div style="width:100%;height:8px;background:#EDF2F7;border-radius:4px;overflow:hidden;"><div id="pf-bar" style="width:0%;height:100%;background:#2E9E72;border-radius:4px;transition:width .15s;"></div></div><div style="margin-top:12px;font-size:11px;color:#A0AEC0;">This may take a moment for large reports</div></div>';
     document.body.appendChild(pfOv);
     Promise.all([
       fetch('../logo_base64.txt').then(function(r){return r.ok?r.text():'';}).catch(function(){return '';}),
