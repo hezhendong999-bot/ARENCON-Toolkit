@@ -179,16 +179,31 @@ body.dark-mode .band-chip{background:var(--card)}
 .view-list .project-card-bottom>span[style]{display:none}/* hide the "No tools" placeholder in list rows */
 /* avatar legibility: white initials must hold on light AND mid-tone fills */
 .view-list .pm-avatar{font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);border-color:rgba(255,255,255,.28)}
-/* ── Phone portrait: columns can't fit. Keep number+name on top line; let tools wrap below. ── */
+/* ── Phone portrait: true single-line list rows. Number + name + avatar only; tap opens project. ── */
 @media(max-width:560px){
-  .view-list .project-card{flex-wrap:wrap;gap:8px 12px;padding:11px 14px}
-  .view-list .project-card-top{flex:1 1 100%;min-width:0}
-  .view-list .project-card-name{max-width:none;flex:1;min-width:0}
-  .view-list .project-card-client{flex:1 1 100%;order:2}
-  .view-list .project-card-row{order:3}
-  .view-list .project-card-bottom{order:4;flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px}
-  .view-list .project-card-bottom .tool-pill{width:auto;grid-column:auto}
-  .view-list .project-card-bottom .progress-chip,.view-list .project-card-bottom .backup-status{grid-column:auto;margin-left:auto}
+  /* flat rows, no card surface, hairline divider only */
+  .view-list .band-body,.view-list .project-grid-inner{grid-template-columns:1fr !important;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .view-list .project-card{display:flex !important;align-items:center;gap:10px;flex-wrap:nowrap;
+    padding:11px 14px;min-height:0;border:none;border-bottom:1px solid var(--border);border-radius:0;
+    background:transparent !important;box-shadow:none !important}
+  .view-list .project-card:last-child{border-bottom:none}
+  .view-list .project-card::after{display:none !important}
+  /* line 1 content: number + name, name ellipsised */
+  .view-list .project-card-top{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;margin:0}
+  .view-list .project-card-name{max-width:none;flex:1;min-width:0;-webkit-line-clamp:1;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .view-list .project-card-number{flex:none}
+  /* hide the descriptive lines on the single row */
+  .view-list .project-card-client,
+  .view-list .project-card-bottom,
+  .view-list .project-card-date{display:none !important}
+  /* the status/pm strip collapses to just the avatar, pinned right */
+  .view-list .project-card-row{display:flex !important;flex:none;align-items:center;margin:0;padding:0;background:none}
+  .view-list .project-card-row .project-badge,
+  .view-list .project-card-row .project-card-date,
+  .view-list .project-card-row .project-card-pm{display:none !important}
+  .view-list .project-card-row .project-card-pm-av{margin:0}
+  /* star button stays tappable at the end */
+  .view-list .project-card-star{flex:none}
 }
 .project-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;overflow:hidden;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.06);-webkit-user-select:none;user-select:none;padding:16px 18px 14px}
 .project-card:hover{border-color:var(--arencon);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
@@ -494,8 +509,17 @@ body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-met
   .hdr img{height:26px;padding:3px 6px;}
   .hdr-title{display:none;}
   .project-grid-inner,.band-body{grid-template-columns:1fr}
-  .dash-toolbar{flex-direction:column;align-items:stretch}
-  .dash-search{min-width:unset}
+  /* toolbar: search + sort full-width, action buttons flow inline (no more one-per-row) */
+  .dash-toolbar{flex-direction:row;flex-wrap:wrap;align-items:stretch;gap:8px}
+  .dash-search{flex:1 1 100%;min-width:unset}
+  .dash-sort{flex:1 1 100%}
+  .hub-view-toggle{flex:1 1 100%;justify-content:space-between}
+  .hub-view-toggle button{flex:1}
+  .dash-toolbar .dash-btn.secondary,
+  .dash-toolbar .hub-filter-wrap,
+  .dash-toolbar .bulk-select-wrap,
+  .dash-toolbar .dash-more-wrap{flex:0 1 auto}
+  .dash-toolbar .dash-btn.primary{flex:1 1 100%;justify-content:center}
   .create-user-form{flex-direction:column}
   .admin-table{font-size:calc(12px + var(--ts))}
   .admin-table th,.admin-table td{padding:8px 6px}
