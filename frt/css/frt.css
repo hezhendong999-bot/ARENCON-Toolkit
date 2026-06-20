@@ -5483,6 +5483,15 @@ body.dark-mode .frt-inst-chip{
   background:rgba(143,176,202,.10);
   border-color:rgba(143,176,202,.30);
 }
+/* S337 rounds-escalation chip (Mark-locked). Ordinal "Nth rd" replaces the old
+   "Noted FRT #N". Two tiers: r-g grey (2nd round), r-r maroon + flag (3rd+).
+   Colour does the urgency; the inline flag SVG appears only at r-r. */
+.frt-rd-chip{ display:inline-flex; align-items:center; gap:3px; font-weight:700; }
+.frt-rd-chip .frt-rd-flag{ display:block; }
+.frt-rd-chip.r-g{ color:#5E5B68; background:rgba(94,91,104,.10); border-color:rgba(94,91,104,.24); }
+body.dark-mode .frt-rd-chip.r-g{ color:#a09aa8; background:rgba(160,154,168,.10); border-color:rgba(160,154,168,.26); }
+.frt-rd-chip.r-r{ color:#A85959; background:rgba(168,89,89,.14); border-color:rgba(168,89,89,.42); }
+body.dark-mode .frt-rd-chip.r-r{ color:#E26076; background:rgba(226,96,118,.16); border-color:rgba(226,96,118,.44); }
 
 /* Dark-mode tuning */
 body.dark-mode .obs-pill-text{ color:#d4d8e8; }
@@ -10596,3 +10605,26 @@ body.dark-mode .dfx-trade-section > .dfx-trade-banner {
 .dfx-trade-section .dfx-ctr-block > .dfx-pingrp:last-child {
   padding-bottom: 9px;
 }
+
+/* ===== S337 closed-split sub-headers (Mark-locked, Approach A). Inside the
+   Closed filter only, a contractor's closed items split into "Closed this
+   report" and "Previously closed". Quiet labelled divider, not a heavy band. */
+.dfx-closed-subsec{
+  display:flex; align-items:center; gap:8px;
+  font-size:calc(10px + var(--ts)); font-weight:800;
+  text-transform:uppercase; letter-spacing:.5px;
+  color:#5F8068;                       /* sage — closed-this-report */
+  margin:10px 2px 6px;
+}
+.dfx-closed-subsec::after{ content:""; flex:1; height:1px; background:var(--b-bar-rule, rgba(20,18,30,.10)); }
+.dfx-closed-subsec.prev{ color:#928E9C; }   /* muted — previously closed */
+.dfx-closed-subcount{
+  font-weight:700; font-size:calc(9.5px + var(--ts));
+  background:rgba(95,128,104,.12); color:#5F8068;
+  border-radius:8px; padding:0 7px; order:2;
+}
+.dfx-closed-subsec.prev .dfx-closed-subcount{ background:rgba(146,142,156,.14); color:#928E9C; }
+body.dark-mode .dfx-closed-subsec{ color:#3FD08A; }
+body.dark-mode .dfx-closed-subsec.prev{ color:#a09aa8; }
+body.dark-mode .dfx-closed-subcount{ background:rgba(63,208,138,.14); color:#3FD08A; }
+body.dark-mode .dfx-closed-subsec.prev .dfx-closed-subcount{ background:rgba(160,154,168,.14); color:#a09aa8; }

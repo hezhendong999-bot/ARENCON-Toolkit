@@ -636,7 +636,18 @@ function _buildPinGroupCard(d, ctrId) {
     var _cfCur = (_cfProj && _cfProj.currentFrtInstance) || 1;
     var _cfNoted = d.notedOnInstance || 1;
     if (_cfNoted < _cfCur) {
-      h += '<span class="frt-inst-chip" title="Carried forward \u2014 noted in FRT #' + _cfNoted + (d.notedDate ? ' on ' + esc(d.notedDate) : '') + '">Noted FRT #' + _cfNoted + '</span>';
+      // S337: rounds-escalation chip (Mark-locked). The carried-forward chip now
+      // shows WHICH round the item is on (ordinal), not just "Noted FRT #N", and
+      // escalates colour as it ages. _rounds = how many reports it has appeared
+      // in = (current - noted) + 1: an item noted FRT#1 seen again in FRT#2 is on
+      // its 2nd round. Tiers: 2nd = grey (.r-g), 3rd+ = maroon + flag (.r-r).
+      var _rounds = (_cfCur - _cfNoted) + 1;
+      var _rOrd = _rounds + (_rounds === 1 ? 'st' : _rounds === 2 ? 'nd' : _rounds === 3 ? 'rd' : 'th');
+      var _rCls = (_rounds >= 3) ? 'r-r' : 'r-g';
+      var _rFlag = (_rounds >= 3)
+        ? '<svg class="frt-rd-flag" width="9" height="11" viewBox="0 0 11 13" fill="none" aria-hidden="true"><path d="M2 12V1.5M2 2h7.5l-1.8 2.4L9.5 7H2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        : '';
+      h += '<span class="frt-inst-chip frt-rd-chip ' + _rCls + '" title="Outstanding for ' + _rounds + ' report' + (_rounds === 1 ? '' : 's') + ' \u2014 first noted FRT #' + _cfNoted + (d.notedDate ? ' on ' + esc(d.notedDate) : '') + '">' + _rFlag + _rOrd + ' rd</span>';
     }
     if (d.drawingId) {
       var _dwgs = Model.getDrawings();
@@ -2922,7 +2933,8 @@ function _renderCombinedView(proj, container) {
       var _cname = C.unassigned ? 'Unassigned' : C.name;
       h += '<div class="dfx-ctr-banner dfx-ctr-tinted" style="--cc:' + esc(_cpal.accent) + ';--csurf:' + esc(_cpal.surface) + ';--ctext:' + esc(_cpal.text) + ';" data-action="dfx-fold-ctr" data-ctr-key="' + esc(cKey) + '"><span class="dfx-ctr-dot"></span><span>' + _arrow(cCol) + esc(_cname) + '</span><span class="dfx-ctr-count">' + C.count + '</span></div>';
       h += '<div class="dfx-pingrp">';
-      _sortPins(C.pins).forEach(function(e) {
+      // S337: emit one pin's surviving observation rows.
+      var _emitPin = function(e) {
         var hasCtr = !!C.ctrId;
         // S262: emit ONLY the observations that SURVIVED the filter (e.rows),
         // not every observation on the pin. Previously this looped over
@@ -2942,7 +2954,30 @@ function _renderCombinedView(proj, container) {
           var cat = _deriveCategory(e.d, r.o, hasCtr).cat;
           h += _cvObsRow(e.d, r.oi, C.ctrId, { ctrName: C.name }, cat);
         });
-      });
+      };
+      var _sortedPins = _sortPins(C.pins);
+      // S337 closed-split (Mark-locked, Approach A): when viewing the Closed
+      // filter, separate items CLOSED THIS REPORT from those closed in an
+      // EARLIER report, each under its own sub-header. Read-only partition by
+      // closedOnInstance vs currentFrtInstance; empty groups render nothing.
+      if (_deriveCatFilter() === 'closed') {
+        var _csCur = (Model.getProject() && Model.getProject().currentFrtInstance) || 1;
+        var _thisRep = [], _prevRep = [];
+        _sortedPins.forEach(function(e) {
+          var _ci = e.d.closedOnInstance;
+          if (_ci != null && _ci >= _csCur) _thisRep.push(e); else _prevRep.push(e);
+        });
+        if (_thisRep.length) {
+          h += '<div class="dfx-closed-subsec"><span>Closed this report</span><span class="dfx-closed-subcount">' + _thisRep.length + '</span></div>';
+          _thisRep.forEach(_emitPin);
+        }
+        if (_prevRep.length) {
+          h += '<div class="dfx-closed-subsec prev"><span>Previously closed</span><span class="dfx-closed-subcount">' + _prevRep.length + '</span></div>';
+          _prevRep.forEach(_emitPin);
+        }
+      } else {
+        _sortedPins.forEach(_emitPin);
+      }
       if (!C.unassigned) {
         h += _addDeficTriggerHTML({ scoped: true, ctrId: C.ctrId, ctrName: C.name, trade: (isOther ? '' : T.name) });
       }
