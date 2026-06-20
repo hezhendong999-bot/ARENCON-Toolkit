@@ -227,16 +227,18 @@ body.bold .view-list .project-card::after{display:none !important}
   .view-list .project-card-bottom .tool-pill{display:inline-flex !important;width:auto;grid-column:auto;font-size:calc(11px + var(--ts))}
   /* mobile list: keep TOOL pills, drop Draft/Issued counts + date, backup = icon only */
   .view-list .project-card .project-card-bottom .progress-chip{display:none !important}
-  .view-list .project-card .project-card-bottom .backup-status{grid-column:auto;grid-row:auto;margin-left:auto;font-size:0 !important}
-  .view-list .project-card-bottom .backup-status::before{content:'📥';font-size:calc(13px + var(--ts));}
+  .view-list .project-card .project-card-bottom .backup-status{grid-column:auto;grid-row:auto;margin-left:auto;font-size:0 !important;display:inline-flex;align-items:center;line-height:1}
+  .view-list .project-card-bottom .backup-status::before{content:'📥';font-size:calc(13px + var(--ts));line-height:1;display:inline-flex;align-items:center;}
   .view-list .project-card-bottom .backup-status.not-backed::before{content:'⚠';color:var(--warn);}
   .view-list .project-card-date{display:none !important}
   /* Mobile Cards view (incl. starred-on-top): compact — drop Draft/Issued counts, date→icon, keep tools */
   .view-cards .project-card-bottom{flex-wrap:wrap;gap:6px}
   .view-cards .project-card-bottom .progress-chip{display:none !important}
   .view-cards .project-card-row .project-card-date{display:none !important}
-  .view-cards .project-card-bottom .backup-status{margin-left:auto;font-size:0 !important}
-  .view-cards .project-card-bottom .backup-status::before{content:'📥';font-size:calc(13px + var(--ts));}
+  .view-cards .project-card-export{display:none !important}/* kill duplicate absolute export icon on mobile */
+  .view-cards .project-card-bottom{align-items:center}
+  .view-cards .project-card-bottom .backup-status{margin-left:auto;font-size:0 !important;display:inline-flex;align-items:center;line-height:1}
+  .view-cards .project-card-bottom .backup-status::before{content:'📥';font-size:calc(13px + var(--ts));line-height:1;display:inline-flex;align-items:center;}
   .view-cards .project-card-bottom .backup-status.not-backed::before{content:'⚠';color:var(--warn);}
 }
 .project-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;overflow:hidden;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.06);-webkit-user-select:none;user-select:none;padding:16px 18px 14px}
