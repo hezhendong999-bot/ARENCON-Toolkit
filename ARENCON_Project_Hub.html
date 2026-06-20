@@ -229,6 +229,13 @@ body.bold .view-list .project-card::after{display:none !important}
   .view-list .project-card .project-card-bottom .backup-status{grid-column:auto;grid-row:auto;margin-left:auto}
   .view-list .backup-status.not-backed{font-size:0 !important}
   .view-list .project-card-date{display:none !important}
+  /* Mobile Cards view (incl. starred-on-top): compact — drop Draft/Issued counts, date→icon, keep tools */
+  .view-cards .project-card-bottom{flex-wrap:wrap;gap:6px}
+  .view-cards .project-card-bottom .progress-chip{display:none !important}
+  .view-cards .project-card-row .project-card-date{display:none !important}
+  .view-cards .project-card-bottom .backup-status{margin-left:auto;font-size:0 !important}
+  .view-cards .project-card-bottom .backup-status::before{content:'📥';font-size:calc(13px + var(--ts));}
+  .view-cards .project-card-bottom .backup-status.not-backed::before{content:'⚠';color:var(--warn);}
 }
 .project-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;overflow:hidden;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.06);-webkit-user-select:none;user-select:none;padding:16px 18px 14px}
 .project-card:hover{border-color:var(--arencon);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
@@ -256,6 +263,11 @@ body.bold .view-list .project-card::after{display:none !important}
 .project-card-bottom .progress-chip{margin-left:auto}
 .backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto}
 .backup-status.not-backed{color:var(--warn)}
+/* Cards view: tidy bottom — backup follows the pills inline instead of being pushed to its own row */
+.view-cards .project-card-bottom{flex-wrap:wrap}
+.view-cards .project-card-bottom .progress-chip{margin-left:0}
+.view-cards .project-card-bottom .progress-chip:first-of-type{margin-left:auto}
+.view-cards .project-card-bottom .backup-status{margin-left:8px;white-space:nowrap}
 /* ── R2 Storage Status Panel ── */
 .r2-row{margin-bottom:14px;}
 .r2-row-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
