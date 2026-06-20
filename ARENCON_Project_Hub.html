@@ -109,6 +109,48 @@ body.dark-mode{
 /* Project grid */
 .project-grid{padding:4px 24px 24px}
 .project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+/* ── Hub view toggle ── */
+.hub-view-toggle{display:inline-flex;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:2px;gap:1px}
+.hub-view-toggle button{border:none;background:none;color:var(--steel);font-size:calc(14px + var(--ts));padding:5px 10px;border-radius:6px;cursor:pointer;line-height:1}
+.hub-view-toggle button.active{background:var(--arencon);color:#fff}
+body.dark-mode .hub-view-toggle{background:var(--card)}
+/* ── Band filter chips ── */
+.band-filter{display:flex;flex-wrap:wrap;gap:7px;padding:0 24px 6px}
+.band-chip{background:var(--bg);border:1.5px solid var(--border);color:var(--steel);border-radius:999px;padding:5px 13px;font-family:'Cascadia Code',Consolas,monospace;font-size:calc(11.5px + var(--ts));font-weight:600;cursor:pointer;transition:all .12s}
+.band-chip:hover{border-color:var(--arencon)}
+.band-chip.active{background:var(--arencon);color:#fff;border-color:var(--arencon)}
+.band-chip-all{font-family:Calibri,sans-serif;font-weight:700}
+body.dark-mode .band-chip{background:var(--card)}
+/* ── Band headers (collapsible) ── */
+.band-header{display:flex;align-items:center;gap:10px;margin:14px 0 10px;cursor:pointer;user-select:none;padding:0 24px}
+.band-caret{font-size:calc(10px + var(--ts));color:var(--silver);transition:transform .15s;width:12px;flex:none}
+.band-header.collapsed .band-caret{transform:rotate(-90deg)}
+.band-num{font-family:'Cascadia Code',Consolas,monospace;font-size:calc(11.5px + var(--ts));font-weight:700;color:var(--arencon);border:1.5px solid var(--arencon);border-radius:7px;padding:3px 9px;background:var(--arencon-glow)}
+.band-label{font-size:calc(10.5px + var(--ts));color:var(--silver);text-transform:uppercase;letter-spacing:1px}
+.band-rule{flex:1;height:1px;background:var(--border)}
+.band-count{font-size:calc(10.5px + var(--ts));color:var(--silver)}
+.band-body.hidden{display:none}
+/* ── Clickable not-backed-up stat ── */
+.stat-clickable{cursor:pointer;border-radius:999px;padding:2px 10px;border:1.5px solid transparent;transition:all .12s}
+.stat-clickable:hover{border-color:#C98A4A}
+.stat-clickable.active{background:#C98A4A;color:#fff}
+/* ── COMPACT view ── */
+.view-compact .project-grid-inner{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:11px}
+.view-compact .project-card{padding:11px 13px}
+.view-compact .project-card-client{font-size:calc(10.5px + var(--ts));margin-bottom:6px}
+.view-compact .project-card-row{margin-bottom:6px}
+.view-compact .pm-avatar{width:21px;height:21px;font-size:calc(9px + var(--ts))}
+/* ── LIST view ── */
+.view-list .project-grid-inner{display:flex;flex-direction:column;gap:0;border:1.5px solid var(--border);border-radius:12px;overflow:hidden}
+.view-list .project-card{display:flex;align-items:center;gap:14px;padding:10px 16px;border-radius:0;border:none;border-bottom:1px solid var(--border)}
+.view-list .project-card:hover{transform:none}
+.view-list .project-card:last-child{border-bottom:none}
+.view-list .project-card-top{display:flex;align-items:center;gap:8px;margin:0;flex:0 0 auto}
+.view-list .project-card-name{max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.view-list .project-card-client{margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px + var(--ts))}
+.view-list .project-card-row{margin:0;flex:0 0 auto}
+.view-list .project-card-bottom{margin:0;flex:0 0 auto}
+.view-list .project-card-date{display:none}
 .project-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;overflow:hidden;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.06);-webkit-user-select:none;user-select:none;padding:16px 18px 14px}
 .project-card:hover{border-color:var(--arencon);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
 /* Card top row: number + name */
@@ -124,6 +166,8 @@ body.dark-mode{
 .badge-role{background:#DBEAFE;color:#1D4ED8}
 .project-card-date{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:500}
 .project-card-pm{font-size:calc(10px + var(--ts));color:var(--steel);font-weight:500;margin-left:auto}
+.project-card-pm-av{margin-left:auto;display:inline-flex}
+.pm-avatar{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:calc(9.5px + var(--ts));font-weight:700;color:#fff;letter-spacing:.2px;border:1.5px solid rgba(255,255,255,.2);box-shadow:0 1px 3px rgba(0,0,0,.2);flex:none}
 /* Card bottom: tool icons + progress + backup */
 .project-card-bottom{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .tool-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 7px 2px 4px;border-radius:10px;font-size:calc(10px + var(--ts));font-weight:700;color:white;letter-spacing:.3px;line-height:1.5;cursor:default}
@@ -708,6 +752,11 @@ body.text-l{--ts:4px;}
         <option value="pm">Sort: Project Manager</option>
         <option value="name">Sort: Name</option>
       </select>
+      <div class="hub-view-toggle" id="hub-view-toggle">
+        <button data-view="cards" onclick="setHubView('cards')" title="Cards view">▤</button>
+        <button data-view="compact" onclick="setHubView('compact')" title="Compact view">▦</button>
+        <button data-view="list" onclick="setHubView('list')" title="List view">☰</button>
+      </div>
       <div class="bulk-select-wrap" id="bulk-select-wrap">
         <button class="dash-btn secondary" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Select</button>
         <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
@@ -742,6 +791,7 @@ body.text-l{--ts:4px;}
     </div>
     <!-- Stats strip -->
     <div class="stats-strip" id="stats-strip"></div>
+    <div class="band-filter" id="band-filter" style="display:none"></div>
     <!-- Pinned section — shared, everyone sees -->
     <div class="pinned-section" id="pinned-section" style="display:none">
       <div class="pinned-section-header">📌 Pinned Projects</div>
@@ -1295,8 +1345,30 @@ let _profile = null;       // Current user profile {id,full_name,email,role,is_a
 let _projects = [];        // Loaded projects
 let _allUsers = [];        // Admin: all user profiles
 let _userMap = {};         // {userId: full_name} — loaded for all users on init
+let _userInitials = {};    // {userId: initials} — from profiles.initials (Admin-set)
+// ── PM avatar colours — system-assigned, palette A (muted) ──
+// Active PMs get a curated muted colour; everyone else neutral grey.
+// Colour is keyed off the user's INITIALS so it's stable regardless of name edits.
+var _PM_PALETTE = ['#9C2742','#2C7FB8','#3E8E6E','#C98A4A','#6E4FA0','#347B7B','#B5694E','#4F7AA0'];
+function _pmColour(userId) {
+  var ini = _userInitials[userId];
+  if (!ini) return 'var(--silver)';
+  var h = 0;
+  for (var i = 0; i < ini.length; i++) h = (h * 31 + ini.charCodeAt(i)) >>> 0;
+  return _PM_PALETTE[h % _PM_PALETTE.length];
+}
+function _pmAvatar(userId) {
+  var ini = _userInitials[userId];
+  if (!ini) return '';
+  return '<span class="pm-avatar" style="background:' + _pmColour(userId) + '" title="' + esc(_userMap[userId] || '') + '">' + esc(ini) + '</span>';
+}
 let _filterMode = 'my';   // 'my' or 'all' or 'starred'
 let _showArchived = false;
+// ── Band grouping + view mode state (view persists; band/NB reset each visit) ──
+let _hubView = (function(){ try { var v = localStorage.getItem('arencon-hub-view'); return (v === 'cards' || v === 'compact' || v === 'list') ? v : 'cards'; } catch(e){ return 'cards'; } })();
+let _activeBand = 'all';
+let _nbOnly = false;
+let _bandCollapsed = {};
 let _showDeleted = false;
 let _editRoleUserId = null;
 let _resetPwUserId = null;
@@ -1694,11 +1766,13 @@ async function loadProfile() {
 // ── Load lightweight user map (for all roles, not just admin) ──
 async function loadUserMap() {
   try {
-    var rows = await _sb.from('profiles').select('id,full_name,email').execute();
+    var rows = await _sb.from('profiles').select('id,full_name,email,initials').execute();
     _userMap = {};
+    _userInitials = {};
     if (rows && rows.length) {
       rows.forEach(function(u) {
         _userMap[u.id] = u.full_name || u.email || '—';
+        if (u.initials) _userInitials[u.id] = u.initials;
       });
     }
   } catch (e) {
@@ -1828,6 +1902,11 @@ function showDashboard() {
     var sel = document.getElementById('dash-sort');
     if (sel) sel.value = savedSort;
   }
+  // Restore persisted view mode (band/NB reset each visit)
+  _activeBand = 'all';
+  _nbOnly = false;
+  var _vbtns = document.querySelectorAll('#hub-view-toggle button');
+  _vbtns.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-view') === _hubView); });
 }
 
 function showAdmin() {
@@ -1893,7 +1972,10 @@ function renderProjects() {
     else { if (isDeleted) return false; }
     if (!_showDeleted && !_showArchived && p.status === 'archived') return false;
     if (!_showDeleted && _showArchived && p.status !== 'archived') return false;
-    if (_filterMode === 'my' && _profile && p.created_by !== _profile.id) return false;
+    if (_filterMode === 'my' && _profile) {
+      var _mine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
+      if (!_mine) return false;
+    }
     if (search) {
       var haystack = ((p.project_number || '') + ' ' + (p.project_name || '') + ' ' + (p.client || '') + ' ' + (p.address || '') + ' ' + (_userMap[p.project_manager] || '')).toLowerCase();
       if (haystack.indexOf(search) < 0) return false;
@@ -1969,12 +2051,88 @@ function renderProjects() {
   }
 
   empty.style.display = 'none';
-  if (regular.length === 0) {
+  // ── Banded regular grid: group by 1000-series, collapsible, view-mode aware ──
+  var gridOuter = document.getElementById('project-grid');
+  if (gridOuter) gridOuter.className = 'project-grid view-' + _hubView;
+  var regForBands = regular.slice();
+  if (_nbOnly) regForBands = regForBands.filter(function(p){ return !p.last_exported_at; });
+  if (_activeBand !== 'all') regForBands = regForBands.filter(function(p){ return _bandLo(p.project_number) === _activeBand; });
+
+  if (regForBands.length === 0) {
     grid.innerHTML = '';
   } else {
-    grid.innerHTML = regular.map(function(p) { return _renderProjectCard(p, myId); }).join('');
+    var bands = {}, order = [];
+    regForBands.forEach(function(p) {
+      var lo = _bandLo(p.project_number);
+      if (!bands[lo]) { bands[lo] = []; order.push(lo); }
+      bands[lo].push(p);
+    });
+    order.sort(function(a, b){ return a - b; });
+    grid.innerHTML = order.map(function(lo) {
+      var isC = !!_bandCollapsed[lo];
+      var head = '<div class="band-header' + (isC ? ' collapsed' : '') + '" onclick="toggleBand(' + lo + ')">'
+        + '<span class="band-caret">▼</span>'
+        + '<span class="band-num">' + lo + '–' + (lo + 999) + '</span>'
+        + '<span class="band-label">file band</span>'
+        + '<span class="band-rule"></span>'
+        + '<span class="band-count">' + bands[lo].length + '</span></div>';
+      var body = '<div class="project-grid-inner band-body' + (isC ? ' hidden' : '') + '">'
+        + bands[lo].map(function(p){ return _renderProjectCard(p, myId); }).join('') + '</div>';
+      return head + body;
+    }).join('');
   }
+  _renderBandFilter();
   _renderStatsStrip();
+}
+
+// ── Band helpers ──
+function _bandLo(num) {
+  var n = parseInt(num, 10);
+  if (isNaN(n)) return 0;
+  return Math.floor(n / 1000) * 1000;
+}
+function toggleBand(lo) {
+  _bandCollapsed[lo] = !_bandCollapsed[lo];
+  renderProjects();
+}
+function setBand(b) {
+  _activeBand = b;
+  renderProjects();
+}
+function toggleNB() {
+  _nbOnly = !_nbOnly;
+  renderProjects();
+}
+function setHubView(v) {
+  _hubView = v;
+  try { localStorage.setItem('arencon-hub-view', v); } catch (e) {}
+  var btns = document.querySelectorAll('#hub-view-toggle button');
+  btns.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-view') === v); });
+  renderProjects();
+}
+function _renderBandFilter() {
+  var wrap = document.getElementById('band-filter');
+  if (!wrap) return;
+  // Build band buttons only from bands present in the current My/All + search scope (regular+pinned+starred)
+  var sourceList = _projects.filter(function(p) {
+    if (p.deleted_at) return false;
+    if (!_showDeleted && !_showArchived && p.status === 'archived') return false;
+    if (_filterMode === 'my' && _profile) {
+      var mine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
+      if (!mine) return false;
+    }
+    return true;
+  });
+  var present = {};
+  sourceList.forEach(function(p){ present[_bandLo(p.project_number)] = true; });
+  var keys = Object.keys(present).map(Number).sort(function(a,b){ return a-b; });
+  if (keys.length <= 1) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  var html = '<button class="band-chip band-chip-all' + (_activeBand === 'all' ? ' active' : '') + '" onclick="setBand(\'all\')">All bands</button>';
+  html += keys.map(function(lo){
+    return '<button class="band-chip' + (_activeBand === lo ? ' active' : '') + '" onclick="setBand(' + lo + ')">' + lo + '–' + (lo + 999) + '</button>';
+  }).join('');
+  wrap.innerHTML = html;
 }
 
 function _renderStatsStrip() {
@@ -1984,7 +2142,7 @@ function _renderStatsStrip() {
   var notBacked = active.filter(function(p) { return !p.last_exported_at; });
   var html = '<span class="stat-item"><span class="stat-num">' + active.length + '</span> active project' + (active.length !== 1 ? 's' : '') + '</span>';
   if (notBacked.length > 0) {
-    html += '<span class="stat-item stat-warn">⚠ ' + notBacked.length + ' not backed up</span>';
+    html += '<span class="stat-item stat-warn stat-clickable' + (_nbOnly ? ' active' : '') + '" onclick="toggleNB()" title="Show only not-backed-up">⚠ ' + notBacked.length + ' not backed up</span>';
   }
   strip.innerHTML = html;
   strip.style.display = (_showDeleted || _showArchived) ? 'none' : 'flex';
@@ -2051,7 +2209,7 @@ function _renderProjectCard(p, myId) {
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
     + '</div>'
     + (client ? '<div class="project-card-client">' + client + '</div>' : '')
-    + '<div class="project-card-row">' + statusBadge + '<span class="project-card-date">' + date + '</span>' + (pmName ? '<span class="project-card-pm">' + esc(pmName) + '</span>' : '') + '</div>'
+    + '<div class="project-card-row">' + statusBadge + '<span class="project-card-date">' + date + '</span>' + (p.project_manager && _userInitials[p.project_manager] ? '<span class="project-card-pm-av">' + _pmAvatar(p.project_manager) + '</span>' : (pmName ? '<span class="project-card-pm">' + esc(pmName) + '</span>' : '')) + '</div>'
     + '<div class="project-card-bottom">' + toolIcons + progressHtml + backupHtml + '</div>'
     + '</div>';
 }
