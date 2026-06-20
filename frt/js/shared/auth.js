@@ -250,9 +250,15 @@ export var Auth = {
   _refreshToken: function() {
     var rt = localStorage.getItem('sb-refresh-token');
     if (!rt) {
+      // S338 — token genuinely gone (expired/cleared). This is unrecoverable
+      // without a fresh sign-in; every sync/R2 call will 401 until the user
+      // re-logs. Flag it once so the diagnostic + any status UI can show
+      // "session expired — sign in again" instead of silently 401-looping.
+      try { window._authSessionExpired = true; } catch(e){}
       console.log('[Auth] No refresh token');
       return Promise.resolve(null);
     }
+    try { window._authSessionExpired = false; } catch(e){}
 
     var self = this;
     return this.request('/auth/v1/token?grant_type=refresh_token', {
@@ -262,7 +268,16 @@ export var Auth = {
     }).then(function(data) {
       if (data && data.access_token) {
         localStorage.setItem('sb-access-token', data.access_token);
-        localStorage.setItem('sb-refresh-token', data.refresh_token);
+        // S338 — Supabase rotates the refresh token on every refresh, BUT a
+        // response can occasionally omit it. The old code wrote it blindly, so a
+        // missing/undefined value CLOBBERED the good token in localStorage →
+        // the NEXT refresh read an empty value → "No refresh token" → every
+        // sync/R2 call 401-looped forever (the "Saved locally, never Synced"
+        // bug). Only overwrite when the new token is actually present; otherwise
+        // keep the existing one so the session survives a partial response.
+        if (data.refresh_token) {
+          localStorage.setItem('sb-refresh-token', data.refresh_token);
+        }
         console.log('[Auth] Token refreshed');
         return self.request('/auth/v1/user', {
           headers: { 'Authorization': 'Bearer ' + data.access_token }
