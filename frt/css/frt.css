@@ -10540,3 +10540,59 @@ body.dark-mode .dlc-fill{background:#2a2833;}
     padding-bottom:max(14px,env(safe-area-inset-bottom,0px));
   }
 }
+
+/* ===== S337 R1 — "Connected card" band reskin (Mark-approved demo
+   frt_band_reskins.html, option R1). Both bands KEPT; trade+contractor+cards
+   read as ONE bordered unit. Pure restyle of existing elements — no DOM or
+   fold-logic change. Collapse selectors (.dfx-trade-section.dfx-collapsed,
+   .dfx-ctr-block.dfx-collapsed) are untouched and keep working. ===== */
+.dfx-trade-section {
+  border: 1px solid var(--b-bar-rule);
+  border-radius: 11px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(20,18,30,.05);
+  background: var(--card, #fff);
+}
+body.dark-mode .dfx-trade-section {
+  background: rgba(255,255,255,.025);
+  box-shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+/* Trade banner becomes the connected top header of the card */
+.dfx-trade-section > .dfx-trade-banner {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arencon) 9%, var(--card, #fff)), var(--card, #fff));
+  border-left: 0;
+  border-bottom: 1px solid var(--b-bar-rule);
+  border-radius: 0;
+  padding: 8px 13px;
+}
+body.dark-mode .dfx-trade-section > .dfx-trade-banner {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arencon) 16%, #1b1e25), rgba(255,255,255,.02));
+}
+/* thin burgundy accent tick before the trade name (was the left border) */
+.dfx-trade-section > .dfx-trade-banner > span:first-child::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--b-bar-accent);
+  margin-right: 8px;
+  vertical-align: -2px;
+}
+/* Contractor banner attaches directly under the trade header — no gap, square */
+.dfx-trade-section .dfx-ctr-banner {
+  margin-top: 0;
+  border-radius: 0;
+}
+/* keep a hairline between stacked contractor blocks under one trade */
+.dfx-trade-section .dfx-ctr-block + .dfx-ctr-block .dfx-ctr-banner {
+  border-top: 1px solid var(--b-bar-rule);
+}
+/* Cards indented inside the connected card */
+.dfx-trade-section .dfx-pingrp {
+  padding: 7px 9px;
+}
+/* the inline +deficiency trigger sits inside the card padding too */
+.dfx-trade-section .dfx-ctr-block > .dfx-pingrp:last-child {
+  padding-bottom: 9px;
+}
