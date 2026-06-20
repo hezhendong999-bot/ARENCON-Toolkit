@@ -41,56 +41,6 @@ body.dark-mode{
   --arencon-light:#2D1520;--arencon-glow:rgba(156,39,66,.15);
 }
 
-/* ═══════════ ARENCON BOLD — GLASS THEME LAYER (additive, body.bold) ═══════════
-   Sits on top of the existing light/dark token system. Enhances chrome with
-   corner glows, glass blur, translucency. Base tokens stay intact so all
-   functional components keep working. */
-body.bold{position:relative;}
-body.bold::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(720px 520px at 0% 0%, rgba(156,39,66,.07), transparent 60%),
-             radial-gradient(720px 520px at 100% 0%, rgba(70,160,200,.06), transparent 60%);}
-body.bold.dark-mode::before{
-  background:radial-gradient(760px 560px at 0% 0%, rgba(156,39,66,.20), transparent 62%),
-             radial-gradient(760px 560px at 100% 0%, rgba(70,160,200,.15), transparent 62%);}
-body.bold #dash-view,body.bold #admin-panel,body.bold #project-detail,body.bold #usage-panel{position:relative;z-index:1;}
-
-/* Glass cards */
-body.bold .project-card{
-  background:linear-gradient(160deg,rgba(255,255,255,.96),rgba(247,245,249,.88));
-  border:1px solid rgba(27,26,34,.10);
-  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-  box-shadow:0 2px 6px rgba(40,30,50,.07),0 10px 30px rgba(40,30,50,.08);}
-body.bold.dark-mode .project-card{
-  background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
-  border:1px solid rgba(255,255,255,.10);
-  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px rgba(0,0,0,.4);}
-body.bold .project-card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
-  background:linear-gradient(180deg,var(--arencon),#46C5E8);opacity:.5;}
-body.bold .project-card:hover{box-shadow:0 18px 50px rgba(40,30,50,.16);}
-body.bold.dark-mode .project-card:hover{box-shadow:0 22px 54px rgba(0,0,0,.55);}
-
-/* Glass header */
-body.bold .hdr{
-  background:linear-gradient(135deg,rgba(27,36,56,.92),rgba(36,48,72,.86));
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);}
-body.bold.dark-mode .hdr{
-  background:linear-gradient(135deg,rgba(15,19,24,.85),rgba(30,37,51,.78));}
-
-/* Glass toolbar surfaces */
-body.bold .dash-search,body.bold .dash-sort,body.bold .hub-view-toggle,
-body.bold .band-chip,body.bold .dash-btn.secondary{
-  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
-
-/* Glass sections (pinned/starred panels stay as section headers, cards carry glass) */
-body.bold .stats-strip .stat-num{color:var(--arencon);}
-
-/* List view container glass */
-body.bold .view-list .project-grid-inner{
-  background:linear-gradient(160deg,rgba(255,255,255,.5),rgba(247,245,249,.4));
-  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
-body.bold.dark-mode .view-list .project-grid-inner{
-  background:linear-gradient(160deg,rgba(255,255,255,.04),rgba(255,255,255,.015));}
-
 /* ═══ HEADER ═══ */
 .hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);display:flex;align-items:center;padding:10px 16px;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);min-width:0;}
 .hdr img{height:32px;width:auto;background:#fff;padding:4px 8px;border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.1);display:block;transition:transform .2s;flex-shrink:0;}
@@ -688,6 +638,63 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:calc(13px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
+
+/* ═══════════════════ ARENCON BOLD — GLASS THEME LAYER ═══════════════════
+   Placed last in the stylesheet so it wins source-order over base/dark card
+   rules at equal specificity. Additive on top of light/dark; base tokens
+   untouched. Toggle via body.bold (default on). */
+body.bold{position:relative;}
+/* Corner glows — fixed, behind content */
+body.bold::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(720px 520px at 0% 0%, rgba(156,39,66,.07), transparent 60%),
+             radial-gradient(720px 520px at 100% 0%, rgba(70,160,200,.06), transparent 60%);}
+body.bold.dark-mode::before{
+  background:radial-gradient(820px 600px at -5% -5%, rgba(156,39,66,.22), transparent 60%),
+             radial-gradient(820px 600px at 105% -5%, rgba(70,160,200,.16), transparent 60%);}
+body.bold #dash-view,body.bold #admin-panel,body.bold #project-detail,body.bold #usage-panel{position:relative;z-index:1;}
+
+/* Glass cards — light */
+body.bold .project-card,
+body.bold.dark-mode .project-card{
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+body.bold .project-card{
+  background:linear-gradient(160deg,rgba(255,255,255,.97),rgba(247,245,249,.90)) !important;
+  border:1px solid rgba(27,26,34,.10) !important;
+  box-shadow:0 2px 6px rgba(40,30,50,.07),0 12px 32px rgba(40,30,50,.09) !important;}
+/* Glass cards — dark */
+body.bold.dark-mode .project-card{
+  background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.025)) !important;
+  border:1px solid rgba(255,255,255,.11) !important;
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 14px 36px rgba(0,0,0,.45) !important;}
+/* Accent edge */
+body.bold .project-card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--arencon),#46C5E8);opacity:.55;border-radius:var(--radius) 0 0 var(--radius);}
+body.bold .project-card:hover{box-shadow:0 18px 50px rgba(40,30,50,.16) !important;transform:translateY(-2px);}
+body.bold.dark-mode .project-card:hover{
+  box-shadow:0 24px 56px rgba(0,0,0,.6) !important;border-color:color-mix(in srgb,var(--arencon) 40%,rgba(255,255,255,.11)) !important;}
+
+/* Glass header */
+body.bold .hdr{
+  background:linear-gradient(135deg,rgba(27,36,56,.92),rgba(36,48,72,.86)) !important;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);}
+body.bold.dark-mode .hdr{
+  background:linear-gradient(135deg,rgba(15,19,24,.82),rgba(30,37,51,.74)) !important;
+  border-bottom:1px solid rgba(255,255,255,.06);}
+
+/* Glass toolbar surfaces */
+body.bold .dash-search,body.bold .dash-sort,body.bold .hub-view-toggle,
+body.bold .band-chip,body.bold .dash-btn.secondary{
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+
+/* Stat accent */
+body.bold .stats-strip .stat-num{color:var(--arencon);}
+
+/* List view container glass */
+body.bold .view-list .project-grid-inner{
+  background:linear-gradient(160deg,rgba(255,255,255,.55),rgba(247,245,249,.42)) !important;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+body.bold.dark-mode .view-list .project-grid-inner{
+  background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02)) !important;}
 </style>
 </head>
 <body>
