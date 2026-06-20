@@ -130,21 +130,25 @@ body.dark-mode .band-chip{background:var(--card)}
 .band-rule{flex:1;height:1px;background:var(--border)}
 .band-count{font-size:calc(10.5px + var(--ts));color:var(--silver)}
 .band-body.hidden{display:none}
+/* Banded container: vertical stack of bands; each band-body holds the card grid */
+.project-grid-banded{display:block}
+.band-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
 /* ── Clickable not-backed-up stat ── */
 .stat-clickable{cursor:pointer;border-radius:999px;padding:2px 10px;border:1.5px solid transparent;transition:all .12s}
 .stat-clickable:hover{border-color:#C98A4A}
 .stat-clickable.active{background:#C98A4A;color:#fff}
 /* ── COMPACT view ── */
-.view-compact .project-grid-inner{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:11px}
+.view-compact .band-body,.view-compact .project-grid-inner{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:11px}
 .view-compact .project-card{padding:11px 13px}
 .view-compact .project-card-client{font-size:calc(10.5px + var(--ts));margin-bottom:6px}
 .view-compact .project-card-row{margin-bottom:6px}
 .view-compact .pm-avatar{width:21px;height:21px;font-size:calc(9px + var(--ts))}
 /* ── LIST view ── */
-.view-list .project-grid-inner{display:flex;flex-direction:column;gap:0;border:1.5px solid var(--border);border-radius:12px;overflow:hidden}
+.view-list .band-body,.view-list .project-grid-inner{display:flex;flex-direction:column;gap:0;border:1.5px solid var(--border);border-radius:12px;overflow:hidden}
 .view-list .project-card{display:flex;align-items:center;gap:14px;padding:10px 16px;border-radius:0;border:none;border-bottom:1px solid var(--border)}
 .view-list .project-card:hover{transform:none}
 .view-list .project-card:last-child{border-bottom:none}
+.view-list .project-card::after{display:none}
 .view-list .project-card-top{display:flex;align-items:center;gap:8px;margin:0;flex:0 0 auto}
 .view-list .project-card-name{max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .view-list .project-card-client{margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px + var(--ts))}
@@ -454,7 +458,7 @@ body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-met
   .hdr{padding:8px 10px;gap:6px;}
   .hdr img{height:26px;padding:3px 6px;}
   .hdr-title{display:none;}
-  .project-grid-inner{grid-template-columns:1fr}
+  .project-grid-inner,.band-body{grid-template-columns:1fr}
   .dash-toolbar{flex-direction:column;align-items:stretch}
   .dash-search{min-width:unset}
   .create-user-form{flex-direction:column}
@@ -690,10 +694,10 @@ body.bold .band-chip,body.bold .dash-btn.secondary{
 body.bold .stats-strip .stat-num{color:var(--arencon);}
 
 /* List view container glass */
-body.bold .view-list .project-grid-inner{
+body.bold .view-list .band-body,body.bold .view-list .project-grid-inner{
   background:linear-gradient(160deg,rgba(255,255,255,.55),rgba(247,245,249,.42)) !important;
   -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
-body.bold.dark-mode .view-list .project-grid-inner{
+body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .project-grid-inner{
   background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02)) !important;}
 </style>
 </head>
@@ -2118,6 +2122,7 @@ function renderProjects() {
   if (_activeBand !== 'all') regForBands = regForBands.filter(function(p){ return _bandLo(p.project_number) === _activeBand; });
 
   if (regForBands.length === 0) {
+    grid.className = 'project-grid-inner';
     grid.innerHTML = '';
   } else {
     var bands = {}, order = [];
@@ -2127,6 +2132,8 @@ function renderProjects() {
       bands[lo].push(p);
     });
     order.sort(function(a, b){ return a - b; });
+    // Outer container is a plain vertical block; each band-body carries the card grid.
+    grid.className = 'project-grid-banded';
     grid.innerHTML = order.map(function(lo) {
       var isC = !!_bandCollapsed[lo];
       var head = '<div class="band-header' + (isC ? ' collapsed' : '') + '" onclick="toggleBand(' + lo + ')">'
@@ -2135,7 +2142,7 @@ function renderProjects() {
         + '<span class="band-label">file band</span>'
         + '<span class="band-rule"></span>'
         + '<span class="band-count">' + bands[lo].length + '</span></div>';
-      var body = '<div class="project-grid-inner band-body' + (isC ? ' hidden' : '') + '">'
+      var body = '<div class="band-body' + (isC ? ' hidden' : '') + '">'
         + bands[lo].map(function(p){ return _renderProjectCard(p, myId); }).join('') + '</div>';
       return head + body;
     }).join('');
