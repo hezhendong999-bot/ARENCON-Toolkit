@@ -15632,9 +15632,17 @@ function _placardScan(btn, mode){
   var rp=(typeof recordPhotos==='undefined'?[]:recordPhotos);
   // S338: 'placard' = the 3-pt (constant-speed) pump placard; 'placard-pld' = the
   // 7-pt engine/PLD placard. Each tab scans ONLY its own kind.
+  // S369 ROOT CAUSE: scan sent the last FOUR placard photos in one request via
+  // .slice(-4). When a tab held several placard shots, that meant 3–4 full images
+  // in a single vision call — which the API rejects with HTTP 400 (too many /
+  // payload too large). The 7pt tab usually held ONE photo, so it sent one image
+  // and worked; the 3pt tab held several, so it 400'd. A placard read only needs
+  // the single clearest placard — take the most recent one. Identical 1-image
+  // request for both pumps now. (If a multi-photo placard is ever needed, cap at 1
+  // here and revisit the worker's image limit deliberately.)
   var take = (mode==='pld')
-    ? rp.filter(function(p){return (p.kind||'')==='placard-pld';}).slice(-4)
-    : rp.filter(function(p){return (p.kind||'')==='placard';}).slice(-4);
+    ? rp.filter(function(p){return (p.kind||'')==='placard-pld';}).slice(-1)
+    : rp.filter(function(p){return (p.kind||'')==='placard';}).slice(-1);
   if(!take.length){ showToast(mode==='pld' ? 'Capture a PLD/engine placard photo first' : 'Capture a placard photo first'); return; }
   var token=localStorage.getItem('sb-access-token');
   if(!token){ showToast('Sign in (Hub mode) to use AI scan'); return; }
