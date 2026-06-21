@@ -1765,6 +1765,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
           <div style="height:1px;background:#eee;margin:2px 0;" id="menu-r2-divider" class="hub-only-menu" hidden></div>
           <button onclick="_r2ReuploadAll();closeMoreMenu()" id="menu-reupload" class="hub-only-menu" hidden>☁️ Re-upload All Photos <span>Push all local photos to R2</span></button>
           <button onclick="_dieselR2OrphanReport();closeMoreMenu()" id="menu-r2cleanup" class="hub-only-menu" hidden>🧹 R2 Orphan Report <span>List stranded cloud files (console). Purge: _dieselR2OrphanPurge(true)</span></button>
+          <button onclick="dslDiag();closeMoreMenu()" id="menu-deldiag">🔎 Photo Delete Log <span>Recent photo deletions + what triggered them (Bug 1 diag)</span></button>
         </div>
       </div>
       <button class="hdr-btn" id="btn-qr" onclick="_openToolQR()" style="display:none;background:rgba(255,255,255,.15);" title="QR Code for this tool">📱</button>
@@ -15107,14 +15108,23 @@ function _clItemNum(id){
   if(arr && arr[idx] && arr[idx].num) return arr[idx].num;
   return id;
 }
-function _collectAllPhotos(){
+function _collectAllPhotos(opts){
   var all = [];
+  // S341 (Bug 2 fix): by DEFAULT this returns LIVE photos only — ~28 callers
+  // (gallery view, badge filenames, reassign, counts, PDF appendix) rely on that.
+  // The deletion-management consumers (Recently Deleted list, Restore, Purge,
+  // auto-purge) pass {includeDeleted:true} to get the FULL walk including
+  // soft-deleted + original-backup rows. S367 had hard-coded the live-only filter
+  // here, which silently starved the trash gatherer → Recently Deleted was always
+  // empty and Restore could never find a photo. The flag restores the S354
+  // contract ("_collectAllPhotos stays the full walk") for the consumers that need it.
+  var _includeDeleted = !!(opts && opts.includeDeleted);
   // S367: a photo is "live" (eligible to appear in the gallery/appendix) only
   // if it is NOT soft-deleted (S337 `deleted` flag) and NOT an internal
   // original-backup placeholder (`_isOrigBackup`, kept only to restore markup).
   // Every on-screen renderer already skips these; the appendix must too, or
   // deleted placards and backup duplicates leak into the client PDF.
-  function _live(p){ return p && !p.deleted && !p._isOrigBackup; }
+  function _live(p){ return _includeDeleted ? !!p : (p && !p.deleted && !p._isOrigBackup); }
   // 1. Flow test photos (3-point) — S355: badge by category tag
   (flowTestPhotos||[]).forEach(function(p,i){
     if(!_live(p)) return;
@@ -15298,14 +15308,71 @@ function _isPhotoDeleted(p){
   // legacy fallback (pre-S354 data not yet normalized): any deleted flag = deleted
   return !!p.deleted;
 }
+// S341 (Bug 1 diag): ring buffer of recent soft-deletes, readable in-app via the
+// diagnostics gesture — no desktop console needed (TWA can't open one). Each entry
+// records the photo id, its creation→delete age, and the call stack that fired the
+// delete. A delete within 10s of CREATION is the "phantom" signature (a fresh
+// capture being deleted without a real user action) — it raises a loud, distinct
+// toast so it's caught the moment it happens, with the firing caller captured.
+window._dslDelDiag = window._dslDelDiag || [];
+function _photoCreatedTs(ph){
+  // id pattern: ph_<ms-timestamp>_<rand>. Fall back to 0 if unparseable.
+  try{ var m=String(ph&&ph.id||'').match(/^ph_(\d{10,})_/); return m?parseInt(m[1],10):0; }catch(e){ return 0; }
+}
 function _markPhotoDeleted(ph){
   if(!ph) return false;
   if(_isPhotoDeleted(ph)) return false;           // idempotent
+  // ── diagnostic capture (before flags are written) ──
+  try{
+    var created=_photoCreatedTs(ph), now=Date.now();
+    var ageMs=created?(now-created):-1;
+    var stack='';
+    try{ stack=(new Error('del')).stack||''; }catch(_e){}
+    // trim stack to the 3 frames after this function for readability
+    var caller=stack.split('\n').slice(2,5).join(' « ').replace(/https?:\/\/[^ )]+\//g,'');
+    var entry={ id:ph.id||'(no id)', name:ph.n||'', ageMs:ageMs, at:new Date(now).toISOString(), caller:caller };
+    window._dslDelDiag.push(entry);
+    if(window._dslDelDiag.length>50) window._dslDelDiag.shift();
+    console.warn('[del-diag]', entry);
+    if(ageMs>=0 && ageMs<10000){
+      // PHANTOM: a photo deleted within 10s of being created.
+      console.error('[del-diag] PHANTOM DELETE — fresh photo removed', entry);
+      if(typeof showToast==='function') showToast('\u26A0 Phantom delete caught: '+(ph.n||ph.id||'photo')+' removed '+(ageMs/1000).toFixed(1)+'s after capture. Diagnostics saved.', 6000);
+    }
+  }catch(_e){}
+  // ── canonical soft-delete ──
   ph.delState = 'deleted';
   ph.delAt = new Date().toISOString();
   ph.deleted = true; ph.deletedDate = ph.delAt; ph.deletedBy = 'user'; // legacy mirror
   return true;
 }
+// S341 (Bug 1 diag): in-app viewer for the photo-delete ring buffer. Newest-first;
+// phantom deletes (age < 10s) flagged red. Reachable from More ▸ Photo Delete Log
+// so it works in the TWA with no console.
+function dslDiag(){
+  var buf=(window._dslDelDiag||[]).slice().reverse();
+  var rows;
+  if(!buf.length){
+    rows='<div style="padding:10px;color:var(--silver);">No photo deletions recorded this session. Take/delete a photo and check again — or wait for a phantom toast.</div>';
+  } else {
+    rows=buf.map(function(e){
+      var phantom=(e.ageMs>=0 && e.ageMs<10000);
+      var age=e.ageMs<0?'unknown':(e.ageMs<60000?(e.ageMs/1000).toFixed(1)+'s':(e.ageMs/60000).toFixed(1)+'m');
+      return '<div style="border-bottom:1px solid var(--border);padding:8px 4px;'+(phantom?'background:rgba(168,89,89,.14);':'')+'">'
+        +'<div style="font-weight:700;font-size:12.5px;'+(phantom?'color:#C0445F;':'')+'">'+(phantom?'\u26A0 PHANTOM \u00b7 ':'')+_ddEsc(e.name||e.id)+'</div>'
+        +'<div style="font-size:11px;color:var(--silver);">deleted '+age+' after capture \u00b7 '+(e.at||'').replace('T',' ').slice(0,19)+'</div>'
+        +'<div style="font-size:10.5px;color:var(--silver);word-break:break-all;margin-top:2px;">'+_ddEsc(e.caller||'(no caller)')+'</div>'
+        +'</div>';
+    }).join('');
+  }
+  var html='<div style="max-width:520px;max-height:60vh;overflow:auto;text-align:left;">'
+    +'<div style="font-weight:700;font-size:15px;margin-bottom:6px;">Photo Delete Log</div>'
+    +'<div style="font-size:11.5px;color:var(--silver);margin-bottom:8px;">Last '+buf.length+' soft-delete(s) this session, newest first. A delete &lt;10s after capture is a PHANTOM. Show this to the developer.</div>'
+    +rows+'</div>';
+  if(typeof _aConfirm==='function') _aConfirm(html, function(){}, 'Close');
+  else alert(JSON.stringify(buf,null,2));
+}
+function _ddEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function _markPhotoLive(ph){
   if(!ph) return false;
   ph.delState = 'live';
@@ -15346,7 +15413,7 @@ function _pgVisible(){
 // Deleted photos for the trash view — same collected records, only the deleted ones,
 // newest-deleted first.
 function _pgGatherDeleted(){
-  return _collectAllPhotos().filter(function(a){ return _isPhotoDeleted(a.photo); })
+  return _collectAllPhotos({includeDeleted:true}).filter(function(a){ return _isPhotoDeleted(a.photo); })
     .sort(function(x,y){
       var tx = (x.photo.delAt||x.photo.deletedDate) ? new Date(x.photo.delAt||x.photo.deletedDate).getTime() : 0;
       var ty = (y.photo.delAt||y.photo.deletedDate) ? new Date(y.photo.delAt||y.photo.deletedDate).getTime() : 0;
@@ -15368,7 +15435,7 @@ function _pgSoftDelete(ph){
 }
 // Restore: return a soft-deleted photo to live. Routed by pid through the full list.
 function _pgRestorePhoto(pid){
-  var hit = _collectAllPhotos().filter(function(a){ return (a.photo.id||'')===pid; })[0];
+  var hit = _collectAllPhotos({includeDeleted:true}).filter(function(a){ return (a.photo.id||'')===pid; })[0];
   if(!hit || !_isPhotoDeleted(hit.photo)){ showToast('Photo not found'); return; }
   _markPhotoLive(hit.photo);
   if(typeof saveState==='function') saveState();
@@ -15387,7 +15454,7 @@ function _pgIsAdmin(){
 // Admin-gated (super_admin / admin). Only acts on already-soft-deleted photos.
 function _pgPurgePhoto(pid){
   if(!_pgIsAdmin()){ showToast('\u26A0 Only a principal can delete a photo permanently'); return; }
-  var hit = _collectAllPhotos().filter(function(a){ return (a.photo.id||'')===pid; })[0];
+  var hit = _collectAllPhotos({includeDeleted:true}).filter(function(a){ return (a.photo.id||'')===pid; })[0];
   if(!hit || !hit.photo.deleted){ showToast('Photo not found'); return; }
   _aConfirm('Permanently delete this photo? This cannot be undone and removes it from cloud storage.', function(){
     var ph = hit.photo;
@@ -15417,7 +15484,7 @@ function _pgPurgeExpired(){
   if(_pgPurgedForProject === pid) return 0;
   _pgPurgedForProject = pid;
   var cutoff = Date.now() - _TRASH_RETENTION_DAYS * 86400000;
-  var expired = _collectAllPhotos().filter(function(a){
+  var expired = _collectAllPhotos({includeDeleted:true}).filter(function(a){
     var p = a.photo;
     if(!p || !p.deleted) return false;
     var t = (p.delAt||p.deletedDate) ? new Date(p.delAt||p.deletedDate).getTime() : 0;
