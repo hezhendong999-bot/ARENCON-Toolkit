@@ -5132,19 +5132,19 @@ function _pgRender() {
 
       photos.forEach(function(ph) {
         var sel = _pgSelected.has(ph.id);
-        // B1 (S339+): if the source tool stamped a badge, READ it verbatim.
-        // Map the semantic type token to a Hub-theme color (high/low/site/closed/rec).
-        // Fall back to the legacy derived badge for photos saved before B1.
+        // B1 (S339+): read tool-stamped badge verbatim. Colors EXACTLY match
+        // FRT's badge palette (frt.css bold-dark): high=--no #E26076, low=--warn
+        // #E6A23C, closed=--yes #3FD08A, site #6E6AA8, rec #5E5440. No invention.
         var _badgeTypeColor = {
-          high: '#C0445F', low: '#C98A4A', site: '#6E6AA8',
-          closed: '#2E8B57', recommendations: '#5E5440', response: '#3A5470'
+          high: '#E26076', low: '#E6A23C', site: '#6E6AA8',
+          closed: '#3FD08A', recommendations: '#5E5440', response: '#6E6AA8'
         };
         var badgeLabel, badgeHue;
         if (ph.badgeText) {
           badgeLabel = ph.badgeText;
           badgeHue = _badgeTypeColor[ph.badgeType] || '#6E6AA8';
         } else {
-          badgeHue = ph.type === 'site' ? '#2E8B57' : ph.type === 'response' ? '#3A5470' : '#8E44AD';
+          badgeHue = ph.type === 'site' ? '#6E6AA8' : ph.type === 'response' ? '#6E6AA8' : '#E26076';
           badgeLabel = ph.type === 'site' ? 'Site' : (ph.caption || ('Obs ' + (ph.deficNum || '?')));
         }
         var isR2 = ph.src && ph.src.indexOf(R2_WORKER) === 0;
@@ -5154,7 +5154,7 @@ function _pgRender() {
               + 'onclick="pgThumbClick(\'' + ph.id + '\',event)" ondblclick="pgLbOpen(\'' + ph.id + '\')">';
         html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\',event)">';
         html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" style="background:#ddd;">';
-        html += '<div class="pg-thumb-badge" style="color:' + badgeHue + ';background:color-mix(in srgb,' + badgeHue + ' 22%, #1a1a1a 78%);border-color:color-mix(in srgb,' + badgeHue + ' 55%, transparent);">' + _pgEscHtml(badgeLabel) + '</div>';
+        html += '<div class="pg-thumb-badge" style="color:#fff;background:' + badgeHue + ';border-color:' + badgeHue + ';">' + _pgEscHtml(badgeLabel) + '</div>';
         html += '<button class="pg-thumb-del" onclick="event.stopPropagation();pgDeleteOne(\'' + ph.id + '\')" title="Delete">🗑</button>';
         html += '<button class="pg-thumb-dl" onclick="event.stopPropagation();pgDownloadOne(\'' + ph.id + '\')" title="Download">⬇</button>';
         html += r2Icon;
