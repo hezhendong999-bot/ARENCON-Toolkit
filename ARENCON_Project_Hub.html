@@ -4948,7 +4948,13 @@ function _pgExtractPhotos(row) {
   if (toolKey === 'diesel' || toolKey === 'electric') {
     // Diesel/Electric photo sources (S332 fix: was using wrong keys + missing
     // recordPhotos/flowTest, so the detail page showed no pump photos).
-    function _pumpSrc(ph){ if(!ph) return ''; return _pgResolveR2Src(ph, projectId) || ph.d || ph.dataUrl || ''; }
+    // S341: a Diesel photo is "live" only if NOT soft-deleted and NOT an internal
+    // original-backup placeholder — mirrors Diesel's own _live() in
+    // _collectAllPhotos(). Without this, deleted/backup photos leaked into the Hub
+    // gallery (e.g. a deleted checklist 1.1 photo that the tool correctly hid).
+    // Every Diesel path routes through _pumpSrc, so returning '' here (call sites
+    // already guard `if (src)`) skips the photo everywhere at once.
+    function _pumpSrc(ph){ if(!ph) return ''; if(ph.deleted || ph._isOrigBackup) return ''; return _pgResolveR2Src(ph, projectId) || ph.d || ph.dataUrl || ''; }
     function _pumpDefics(obj) {
       if (!obj || typeof obj !== 'object') return;
       Object.values(obj).forEach(function(arr) {
