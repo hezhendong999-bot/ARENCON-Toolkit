@@ -239,11 +239,11 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .pm-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:42px;}
 .pm-hint{font-size:calc(12px + var(--ts));color:var(--silver);font-weight:500;flex:1 1 140px;min-width:0;}
 .pm-btns{display:flex;gap:7px;flex:1 1 100%;flex-wrap:nowrap;justify-content:stretch;min-width:0;margin-top:8px;}
-.pm-b{flex:1 1 0;min-width:0;padding:8px 10px;border-radius:7px;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;border:none;color:#fff;transition:filter .15s,transform .1s;font-family:Calibri,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#4F6B8A;white-space:nowrap;line-height:1.2;overflow:hidden;}
+.pm-b{flex:0 1 auto;min-width:0;padding:5px 11px;border-radius:6px;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;border:none;color:#fff;transition:filter .15s,transform .1s;font-family:Calibri,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#4F6B8A;white-space:nowrap;line-height:1.2;overflow:hidden;}
 .pm-b:active{transform:translateY(1px);}
 .pm-b-txt{overflow:hidden;text-overflow:ellipsis;}
 /* narrow widths: keep all three on one row, drop the labels, keep the icons */
-@media(max-width:520px){.pm-b-txt{display:none;}.pm-b{padding:9px 6px;gap:0;}}
+@media(max-width:520px){.pm-b-txt{display:none;}.pm-b{padding:6px 9px;gap:0;}}
 .pm-b:hover{filter:brightness(1.08);}
 .pm-b.up{background:#4F6B8A;}
 .pm-b.cam{background:#5C7A65;}
