@@ -45,7 +45,8 @@
       this._onDirty = onDirty || null;
       var c = document.createElement('canvas');
       c.id = 'markup-canvas';
-      c.style.cssText = 'position:absolute;left:0;top:0;pointer-events:auto;touch-action:none;z-index:5;';
+      c.style.cssText = 'position:absolute;left:0;top:0;pointer-events:auto;touch-action:none;z-index:5;'+
+        '-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;';
       hostEl.appendChild(c);
       this.canvas = c; this.ctx = c.getContext('2d');
       this.strokes = []; this.redoStack = [];
@@ -163,26 +164,19 @@
           return;
         }
         var p = pt(ev);
-        // S339 (Mark): if a text chip is already open, swallow ALL canvas presses —
-        // tapping empty space must NOT drop a second chip or discard the text in the
-        // open one (fat-finger fix). The only ways out are the chip's ✓ (commit) or
-        // ✕ (discard). This also lets the user pan/zoom while the chip stays alive.
+        // S339 (Mark): if a text box is already open, swallow ALL canvas presses —
+        // tapping empty space must NOT drop a second box or discard the text in the
+        // open one (fat-finger fix). Only the bar's ✓ (commit) / ✕ (discard) exit.
         if (self._textInput){ ev.preventDefault(); return; }
-        // S339 (Mark): double-tap (touch) / double-click (mouse) on a text mark opens
-        // it in the edit chip — change words, size, reposition. Works regardless of the
-        // armed tool. Detect a 2nd press near the 1st within 320ms, hit-test text marks
-        // top-down, re-open _textPrompt with that id.
-        var _now = Date.now();
-        if (self._lastTapT && (_now - self._lastTapT) < 320 &&
-            Math.abs(p.x - self._lastTapX) < 6 && Math.abs(p.y - self._lastTapY) < 6){
+        // S339 (Mark): SINGLE-TAP to edit existing text when NO tool is armed. (Was
+        // double-tap, which lost the race to the OS double-tap/text-selection gesture
+        // on iOS+Android — the native Copy/Look-Up menu kept hijacking it.) With no
+        // tool armed, a tap that lands on a text mark re-opens it in the editor.
+        if (!self.tool){
           var hitTextId = self._hitTextAt(p);
-          if (hitTextId){ self._lastTapT = 0; ev.preventDefault(); self._textPrompt(p, ev, hitTextId); return; }
+          if (hitTextId){ ev.preventDefault(); self._textPrompt(p, ev, hitTextId); return; }
+          return;   // no tool, no text hit → inert tap
         }
-        self._lastTapT = _now; self._lastTapX = p.x; self._lastTapY = p.y;
-        // S339 — no tool armed (tapped active tool to deactivate): swallow the press
-        // so a stray tap never draws or selects. Returns before preventDefault, so the
-        // gesture stays inert; with no tool there's nothing to draw anyway.
-        if (!self.tool){ return; }
         if (self.tool === 'text'){ self._textPrompt(p, ev); return; }  // no preventDefault — let focus land
         ev.preventDefault();
         if (self.tool === 'select'){ self._selectDown(p, ev); return; }

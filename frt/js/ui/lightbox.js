@@ -62,7 +62,7 @@ import { showConfirm } from '../shared/dialogs.js';
     // editing (readability); committed bg is drawn on the canvas stroke instead.
     '.mk-text-box{position:fixed;z-index:10000;min-width:12px;font-weight:600;font-family:Calibri,sans-serif;'+
       'line-height:1.25;white-space:pre;color:#fff;background:rgba(20,18,24,.55);padding:2px 6px;border-radius:5px;'+
-      'outline:1.5px solid #C9476A;caret-color:#C9476A;-webkit-user-select:text;user-select:text;}'+
+      'outline:1.5px solid #C9476A;caret-color:#C9476A;-webkit-user-select:text;user-select:text;-webkit-touch-callout:none;}'+
     '.mk-text-box:empty::before{content:attr(data-empty-placeholder);color:#a09aa8;font-weight:400;}'+
     // S339 (Mark): while the lightbox is open, hide the header inspector chip +
     // sign-out so the green "mhe / Sign out" badge stops overlapping the markup
