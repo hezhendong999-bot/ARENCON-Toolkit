@@ -154,6 +154,10 @@ function _stampPhotoBadges(data) {
     (c.deficiencies || []).forEach(function(d) { _stampDefic(d, c.id); });
   });
   (data.generalDeficiencies || []).forEach(function(d) { _stampDefic(d, null); });
+  // Site pool: FRT stores it in data.photos (top-level); legacy used sitePhotos.
+  (data.photos || []).forEach(function(ph) {
+    if (ph && !ph.badgeText) { ph.badgeText = 'Site'; ph.badgeType = 'site'; }
+  });
   (data.sitePhotos || []).forEach(function(ph) {
     if (ph) { ph.badgeText = 'Site'; ph.badgeType = 'site'; }
   });

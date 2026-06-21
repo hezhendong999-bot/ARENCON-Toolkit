@@ -4788,11 +4788,15 @@ function _pgExtractPhotos(row) {
 
   // ── FRT ──
   if (toolKey === 'frt') {
-    // Site photos
-    (data.sitePhotos || []).forEach(function(ph) {
+    // Site photos. FRT stores the site pool in data.photos (top-level);
+    // legacy/alt shape used data.sitePhotos. Read whichever is populated.
+    var _frtSitePool = (Array.isArray(data.photos) && data.photos.length) ? data.photos
+                       : (data.sitePhotos || []);
+    _frtSitePool.forEach(function(ph) {
       if (!ph) return;
+      if (ph.deleted) return;
       var src = _pgResolveR2Src(ph, projectId);
-      if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || '', ph));
+      if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ph.addedDate || '', ph));
     });
     // ── S120: V1 corner-badge model ──
     // Each photo appears ONCE PER (obs that uses it). If a pool photo X
