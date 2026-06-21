@@ -317,7 +317,7 @@ function _buildMarkupBar(overlay){
   var _OK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6"/></svg>';
   var _NONEX='<svg viewBox="0 0 24 24" width="100%" height="100%"><line x1="4" y1="20" x2="20" y2="4" stroke="#e23" stroke-width="2.6"/></svg>';
   var textBar=document.createElement('div'); textBar.id='lb-text-bar';
-  textBar.style.cssText='position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:none;'+
+  textBar.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;'+
     'align-items:center;gap:4px;padding:7px 9px;background:rgba(20,20,28,.96);border:1.5px solid #C9476A;'+
     'border-radius:14px;z-index:13;box-shadow:0 6px 20px rgba(0,0,0,.55);max-width:calc(100vw - 16px);'+
     'box-sizing:border-box;flex-wrap:nowrap;';
@@ -352,6 +352,26 @@ function _buildMarkupBar(overlay){
     pop.style.left=Math.max(6,(br.left-o.left)+br.width/2-80)+'px'; pop.style.bottom=(o.bottom-textBar.getBoundingClientRect().top+8)+'px'; pop.style.right='auto'; }
 
   var _tc=null; // current text controller
+  // S339 (Mark): lift the docked text bar above the on-screen keyboard. Keyboard
+  // height varies by device/OS/keyboard app, so we use visualViewport (the area NOT
+  // covered by the keyboard) instead of a hard-coded offset. When the keyboard opens,
+  // vv.height shrinks; we set the bar's bottom to sit just above the keyboard top.
+  function _liftTextBar(){
+    if (textBar.style.display==='none') return;
+    var vv = window.visualViewport;
+    if (vv){
+      var keyboardGap = window.innerHeight - vv.height - vv.offsetTop;
+      if (keyboardGap < 0) keyboardGap = 0;
+      textBar.style.bottom = (keyboardGap + 12) + 'px';
+    } else {
+      textBar.style.bottom = '16px';
+    }
+  }
+  if (window.visualViewport){
+    window.visualViewport.addEventListener('resize', _liftTextBar);
+    window.visualViewport.addEventListener('scroll', _liftTextBar);
+  }
+
   function _refreshTextBarGlyphs(){
     if(!_tc) return;
     var col=_tc.getColor(), bg=_tc.getBg();
@@ -401,6 +421,12 @@ function _buildMarkupBar(overlay){
       _tc=controller; _refreshTextBarGlyphs();
       if(_markupBar) _markupBar.style.display='none';
       textBar.style.display='flex';
+      // lift above keyboard; the keyboard opens slightly after focus, so re-lift on a
+      // couple of frames + a short timeout to catch the viewport resize.
+      _liftTextBar();
+      requestAnimationFrame(_liftTextBar);
+      setTimeout(_liftTextBar, 150);
+      setTimeout(_liftTextBar, 400);
     };
     window.MarkupEngine._onTextEnd=function(){
       _tc=null; _tcloseTextPops(); textBar.style.display='none';
