@@ -852,17 +852,18 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
 .view-cards .band-body.hidden,.view-compact .band-body.hidden,.view-list .band-body.hidden{display:none !important;}
 /* starred cards: no status badge (always active, redundant on the top shortcut) */
 #starred-section .project-badge{display:none !important;}
-/* Compact starred card matching the demo: tight padding, avatar pinned top-right,
-   pills row + backup line at the bottom. Avatar is absolute so pills never push it. */
-#starred-section .project-card{display:flex;flex-direction:column;gap:6px;padding:13px 15px 12px;position:relative;}
-#starred-section .project-card-client{order:2;margin:0;}
-#starred-section .project-card-row{position:absolute;top:13px;right:15px;margin:0;padding:0;background:none;min-height:0;}
+/* Compact starred card (matches demo). Grid: name · client · [pills | avatar] · backup.
+   Pills and avatar share one row (avatar locked right); backup on its own line; nothing pushes the avatar. */
+#starred-section .project-card{display:grid;grid-template-columns:1fr auto;grid-auto-rows:min-content;gap:6px 8px;padding:13px 15px 12px;position:relative;align-content:start;}
+#starred-section .project-card-top{grid-column:1 / -1;}
+#starred-section .project-card-client{grid-column:1 / -1;margin:0;color:var(--steel);font-weight:500;text-transform:none;font-size:calc(12px + var(--ts));}
+#starred-section .project-card-bottom{grid-column:1;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;align-self:center;}
+#starred-section .project-card-bottom .backup-status{flex-basis:100%;margin:3px 0 0;font-size:calc(10.5px + var(--ts));}
+#starred-section .project-card-row{grid-column:2;grid-row:3;align-self:start;justify-self:end;margin:0;padding:0;background:none;min-height:0;}
 #starred-section .project-card-row .project-badge,
 #starred-section .project-card-row .project-card-date,
 #starred-section .project-card-row .project-card-pm{display:none !important;}
 #starred-section .project-card-row .project-card-pm-av{margin:0;}
-#starred-section .project-card-bottom{order:4;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;}
-#starred-section .project-card-bottom .backup-status{flex-basis:100%;margin:2px 0 0;font-size:calc(10.5px + var(--ts));}
 
 /* ── Demo tinted pills (tool pills + progress chips) ── */
 /* Demo semantic colours */
