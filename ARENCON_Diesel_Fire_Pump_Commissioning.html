@@ -4969,13 +4969,26 @@ function handleFiles(id, files, isDefic) {
     r.onload = e => {
       compressImage(e.target.result, 1600, 0.85, function(compressed){
         if(isDefic) {
+          // S369: guard the photos array — if deficiencies[id] exists but .photos
+          // is undefined, the .push below throws silently inside this compress
+          // callback and the captured photo vanishes (camera opened, shot taken,
+          // nothing saved). Same guard the restore path at _restore already uses.
+          if(!deficiencies[id]) return;
+          if(!Array.isArray(deficiencies[id].photos)) deficiencies[id].photos=[];
           deficiencies[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
           renderDeficThumbs(id);
           updateDeficSummary();
         } else {
+          // S369: same guard for checklist items. clState[id] may exist (item was
+          // answered / loaded from cloud) without a .photos array, or the camera
+          // may fire before toggleItemDetail initialized it. Without this, the
+          // push throws silently and the photo never appears. (This is the exact
+          // "camera opens, photo taken, nothing saves" bug.)
+          if(!clState[id]) clState[id] = { status:null, comment:'', photos:[], customText:'' };
+          if(!Array.isArray(clState[id].photos)) clState[id].photos=[];
           clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
-          document.getElementById('pg-'+id).innerHTML = renderThumbs(id);
-          document.getElementById('id-'+id).classList.add('open');
+          var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
+          var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
           var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
           refreshItemPhotoUI(id);
         }
