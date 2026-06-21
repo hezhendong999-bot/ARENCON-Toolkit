@@ -4798,7 +4798,7 @@ function _pgExtractPhotos(row) {
     // semantics). Inspectors who narrowed an obs see only that subset.
     function _extractDefics(defics) {
       (defics || []).forEach(function(d) {
-        var pinLabel = 'Pin ' + (d.num || '?');
+        var pinLabel = 'Obs ' + (d.num || '?');
         var observations = d.observations || [];
         var numObs = observations.length;
         var emittedAtLeastOne = false;
@@ -4819,7 +4819,7 @@ function _pgExtractPhotos(row) {
                 if (!includes(ph.id)) return;
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
-                var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
+                var obsLabel = numObs > 1 ? String.fromCharCode(65 + oi) : '';
                 photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
                 emittedAtLeastOne = true;
               });
@@ -4830,7 +4830,7 @@ function _pgExtractPhotos(row) {
               (o.photos || []).forEach(function(ph) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
-                var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
+                var obsLabel = numObs > 1 ? String.fromCharCode(65 + oi) : '';
                 photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
                 emittedAtLeastOne = true;
               });
@@ -4849,7 +4849,7 @@ function _pgExtractPhotos(row) {
               var pid = (typeof ph === 'object' && ph.id) ? ph.id : src;
               if (seenIds[pid]) return;
               seenIds[pid] = true;
-              var obsLabel = numEn > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + ei) : '';
+              var obsLabel = numEn > 1 ? String.fromCharCode(65 + ei) : '';
               photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
               emittedAtLeastOne = true;
             });
@@ -5128,8 +5128,8 @@ function _pgRender() {
 
       photos.forEach(function(ph) {
         var sel = _pgSelected.has(ph.id);
-        var badgeHue = ph.type === 'site' ? '#2E8B57' : ph.type === 'response' ? '#3A5470' : '#8E44AD';
-        var badgeLabel = ph.type === 'site' ? 'Site' : (ph.caption || ('Pin ' + (ph.deficNum || '?')));
+        var badgeHue = ph.type === 'site' ? '#1A7A4A' : ph.type === 'response' ? '#3A5470' : '#9C2742';
+        var badgeLabel = ph.type === 'site' ? 'Site' : (ph.caption || ('Obs ' + (ph.deficNum || '?')));
         var isR2 = ph.src && ph.src.indexOf(R2_WORKER) === 0;
         var r2Icon = isR2 ? '<span class="pg-r2-icon" title="Stored in cloud">☁️</span>' : '';
 
