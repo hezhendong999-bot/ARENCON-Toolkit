@@ -312,10 +312,10 @@ function _buildMarkupBar(overlay){
   // bg-colour glyph w/ none, ↵, ✕, ✓). Full drawing-viewer palette. Auto-unarms text
   // after a box is finished. Sticky colours live on the engine (_lastTextColor/Bg).
   var TEXT_PALETTE = ['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'];
-  var _RET='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
-  var _XS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-  var _OK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6"/></svg>';
-  var _NONEX='<svg viewBox="0 0 24 24" width="100%" height="100%"><line x1="4" y1="20" x2="20" y2="4" stroke="#e23" stroke-width="2.6"/></svg>';
+  var _RET='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+  var _XS='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  var _OK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6"/></svg>';
+  var _NONEX='<svg width="100%" height="100%" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="#e23" stroke-width="2.6"/></svg>';
   var textBar=document.createElement('div'); textBar.id='lb-text-bar';
   textBar.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;'+
     'align-items:center;gap:4px;padding:7px 9px;background:rgba(20,20,28,.96);border:1.5px solid #C9476A;'+
