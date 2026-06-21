@@ -162,10 +162,11 @@ function _buildMarkupBar(overlay){
     trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>',
     revert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/><path d="M9 21h8"/></svg>'
   };
+  function _sized(svg){ return svg.replace('<svg ', '<svg width="21" height="21" '); }
   function iconBtn(id,key,title,caret){
     var b=document.createElement('button'); b.id=id; b.title=title;
     b.style.cssText='flex:0 0 auto;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#cfd2d6;border-radius:8px;cursor:pointer;padding:0;position:relative;';
-    b.innerHTML=SVG[key]+(caret?'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#aaa;line-height:1;">\u25B8</span>':'');
+    b.innerHTML=_sized(SVG[key])+(caret?'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#aaa;line-height:1;">\u25B8</span>':'');
     return b;
   }
   // Row 1 buttons
@@ -237,7 +238,7 @@ function _buildMarkupBar(overlay){
   // action icons (Option B)
   function actBtn(id,key,title,color){ var b=document.createElement('button'); b.id=id; b.title=title;
     b.style.cssText='flex:0 0 auto;width:40px;height:40px;border:none;background:transparent;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:'+(color||'#cfd2d6')+';';
-    b.innerHTML=SVG[key]; return b; }
+    b.innerHTML=_sized(SVG[key]); return b; }
   var bSv=actBtn('mk-save','check','Save annotated copy','#7fd0a0');
   var bCl=actBtn('mk-clear','trash','Clear all edits','#e88');
   var bRv=actBtn('mk-revert','revert','Discard edits',null);
@@ -252,7 +253,7 @@ function _buildMarkupBar(overlay){
     var f=document.createElement('div'); f.style.cssText='position:absolute;z-index:25;display:none;flex-wrap:wrap;gap:4px;padding:6px;background:rgba(34,34,44,.99);border:1px solid rgba(255,255,255,.16);border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.6);max-width:170px;';
     items.forEach(function(it){ var b=document.createElement('button'); b.dataset.tool=it[0]; b.title=it[1];
       b.style.cssText='width:46px;height:46px;border:none;border-radius:9px;background:rgba(255,255,255,.07);color:#dfe;display:flex;align-items:center;justify-content:center;cursor:pointer;';
-      b.innerHTML=SVG[it[0]];
+      b.innerHTML=_sized(SVG[it[0]]);
       b.addEventListener('click',function(e){ e.stopPropagation(); pickGroupTool(anchor, it[0]); });
       f.appendChild(b); });
     overlay.appendChild(f); return f;
@@ -286,7 +287,7 @@ function _buildMarkupBar(overlay){
     var E=window.MarkupEngine; if(!E) return;
     E.setTool(toolName); groupBtn.dataset.tool=toolName;
     var sv=SVG[toolName]; if(sv){ var caret=groupBtn.querySelector('.mk-caret');
-      groupBtn.innerHTML=sv+(caret?caret.outerHTML:''); }
+      groupBtn.innerHTML=_sized(sv)+(caret?caret.outerHTML:''); }
     setActive(groupBtn); _activeBtn=groupBtn; closeAllFlys(); _refreshConfirmBar();
   }
   // Tapping an armed group toggles it OFF (no tool); otherwise opens its flyout.
