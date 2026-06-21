@@ -464,8 +464,9 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-tile .l{font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);}
 .ev-tile .s{font-size:calc(10px + var(--ts));color:var(--silver);}
 .ev-tile.has-img{border-style:solid;}
-.ev-tile-btns{display:flex;flex-wrap:nowrap;gap:6px;justify-content:stretch;margin-top:10px;padding:0 8px;width:100%;}
-.ev-tile-btns .pm-b{flex:1 1 0;min-width:0;}
+.ev-tile-btns{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;margin-top:10px;padding:0 8px;width:100%;}
+.ev-tile-btns .pm-b{flex:0 0 auto;min-width:0;padding:5px 10px;}
+.ev-tile-btns .pm-b-txt{overflow:visible;}
 .np-tile-btns{display:flex;flex-wrap:nowrap;gap:6px;justify-content:stretch;margin-top:9px;padding:0 6px;width:100%;}
 .ev-tile.has-img img{width:100%;height:128px;object-fit:cover;display:block;cursor:zoom-in;}
 .ev-tile .badge{position:absolute;top:6px;left:6px;background:rgba(28,35,51,.78);color:#fff;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:9px;letter-spacing:.3px;}
@@ -15522,8 +15523,12 @@ function _evTileHtml(kind){
         +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
         +'</div>';
     });
-    fhtml+='<button class="ev-add-tile" onclick="'+trig+'" title="Add photo">+</button>';
-    fhtml+='</div></div>';
+    fhtml+='</div>';
+    fhtml+='<div class="ev-tile-btns">'
+      +'<button class="pm-b cam" onclick="event.stopPropagation();'+camFn+'">📷<span class="pm-b-txt">Camera</span></button>'
+      +'<button class="pm-b up" onclick="event.stopPropagation();'+trig+'">📥<span class="pm-b-txt">Upload</span></button>'
+    +'</div>';
+    fhtml+='</div>';
     return fhtml;
   }
 
@@ -15549,8 +15554,13 @@ function _evTileHtml(kind){
       +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
       +'</div>';
   });
-  html+='<button class="ev-add-tile" onclick="_recUpload(\''+kind+'\')" title="Add photo">+</button>';
-  html+='</div></div>';
+  html+='</div>';
+  html+='<div class="ev-tile-btns">'
+    +'<button class="pm-b cam" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷<span class="pm-b-txt">Camera</span></button>'
+    +'<button class="pm-b up" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">📥<span class="pm-b-txt">Upload</span></button>'
+    +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼<span class="pm-b-txt">Gallery</span></button>'
+  +'</div>';
+  html+='</div>';
   return html;
 }
 function _recTileHtml(kind){ return _evTileHtml(kind); }
