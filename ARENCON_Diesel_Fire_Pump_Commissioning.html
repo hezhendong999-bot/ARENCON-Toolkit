@@ -1757,6 +1757,7 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         <button class="hdr-btn" style="background:#455A64;" onclick="toggleMoreMenu(event)" title="More options">⚙️ More ▾</button>
         <div class="hdr-repair-menu" id="more-menu">
           <button onclick="downloadJSON();closeMoreMenu()">💾 Download JSON <span>Save project data to file</span></button>
+          <button onclick="exportProjectDocs();closeMoreMenu()">📦 Export Project Docs <span>ZIP: photos + JSON + README</span></button>
           <button onclick="importJSON();closeMoreMenu()">📂 Import JSON <span>Load project data from file</span></button>
           <div style="height:1px;background:#eee;margin:2px 0;"></div>
           <button onclick="resetCurrentPage();closeMoreMenu()">🗑️ Reset Current Page <span>Clear this page's data</span></button>
@@ -4789,7 +4790,7 @@ var DslLightbox = (function(){
   }
   // S339: unified delete from the lightbox — works from ANY surface that opens it
   // (gallery, evidence tiles, deficiency thumbs, flow). Soft-deletes the current
-  // photo (→ Recently Deleted, 30-day restore), closes, and re-renders the host
+  // photo (→ Recently Deleted, 90-day restore), closes, and re-renders the host
   // surface via the ctx renderer so the thumbnail disappears immediately.
   function _deleteCurrent(){
     var p = _photos[_idx];
@@ -15212,13 +15213,13 @@ function _pgToggleFilterMenu(){ _pgFilterOpen=false; _renderPhotoGallery(); } /*
 // to Diesel's flat-array model (no pin/pool system, so no orphan-rehoming —
 // restore is always in-place). Delete sets deleted:true + deletedDate and LEAVES
 // the array slot + R2 object intact. The live gallery hides deleted photos; a
-// "Recently Deleted" sub-tab surfaces them with a 30-day countdown, Restore, and
+// "Recently Deleted" sub-tab surfaces them with a 90-day countdown, Restore, and
 // an admin-gated "Delete forever". An auto-purge runs once per project on load.
 // Merge-layer propagation (delete-wins) lives in _propagateDeletedFlag — without
 // it a stale cloud snapshot would resurrect a cross-device delete.
 // ═══════════════════════════════════════════════════════════════════════════
 var _photoTab = 'all';            // 'all' = live gallery | 'trash' = Recently Deleted
-var _TRASH_RETENTION_DAYS = 60;
+var _TRASH_RETENTION_DAYS = 90;   // S371: raised 60→90 to match all-tools 90-day backup plan
 var _pgPurgedForProject = null;   // run-once auto-purge guard (per project id)
 
 // Live (non-deleted) photos for the gallery/filters. _collectAllPhotos stays the
@@ -15360,7 +15361,7 @@ function _pgPurgePhoto(pid){
     showToast('Photo permanently deleted');
   }, 'Delete forever');
 }
-// 30-day auto-purge — run once per project on load. Permanently removes soft-deleted
+// 90-day auto-purge — run once per project on load. Permanently removes soft-deleted
 // photos whose deletedDate is older than retention. Walks _collectAllPhotos in
 // DESCENDING idx per source array so splices stay index-valid (same discipline as
 // _pgDeleteSelected). Leaves R2 in place (the orphan purge / sweep reclaims later).
@@ -15565,7 +15566,7 @@ function _evTileHtml(kind){
 }
 function _recTileHtml(kind){ return _evTileHtml(kind); }
 // S339: X-delete on an evidence tile — soft-deletes the photo (→ Recently Deleted,
-// restorable for 30 days) then refreshes the evidence zones. Routes through the
+// restorable for 90 days) then refreshes the evidence zones. Routes through the
 // shared delete path so it behaves exactly like deleting from the gallery.
 function _recDeletePhotoById(pid){
   if(!pid){ showToast('Photo not found'); return; }
@@ -16358,6 +16359,203 @@ async function _pgZipDownload(items){
   } catch(e){
     console.error('Zip error:', e);
     showToast('Download error: '+e.message);
+  }
+}
+
+// ═════════════════════════════════════════════════
+// S371: EXPORT PROJECT DOCS (Fieldwire-parity, read-only)
+// Spec: DESIGN_EXPORT_AND_SAFE_LOAD.md PART 1 (export half only).
+// Builds a client-side ZIP: date-bucketed photos (original + -marked variant),
+// the full re-loadable JSON (redundant by design), and a README that decodes
+// the filename scheme + stamps export date/version. Reuses the proven gallery
+// download machinery (_photoSrc / _isRealImageBlob / JSZip). Read-only: touches
+// no live state, no save, no R2 writes. The 3-door safe-LOAD half is gated to a
+// Mark-present session and is NOT built here.
+// ─────────────────────────────────────────────────
+var _EXPORT_TOOLCODE = 'DFP';              // Diesel Fire Pump
+var _EXPORT_VERSION   = 'S371';            // stamped into README + JSON wrapper
+
+function _expSanitize(s){
+  // Deterministic, Windows/Mac-safe. Same input → same output (collision-stable).
+  return String(s||'').replace(/[\/\\:*?"<>|\u0000-\u001F]/g,'-').replace(/\s+/g,'_').replace(/-+/g,'-').replace(/^[-_.]+|[-_.]+$/g,'').trim();
+}
+function _expClientShort(){
+  // ~8 char abbreviation of the client name. "Iron Mountain Canada Corp" → "IronMtn".
+  var raw=''; try{ var el=document.getElementById('pi-client'); raw=el?el.value||'':''; }catch(e){}
+  if(!raw) return 'Client';
+  // Take first letters of words, cap 8; fall back to first 8 chars if it collapses.
+  var words=raw.replace(/[^A-Za-z0-9 ]/g,' ').split(/\s+/).filter(Boolean);
+  var abbr='';
+  if(words.length>=2){ abbr=words[0].slice(0,4); for(var i=1;i<words.length && abbr.length<8;i++){ abbr+=words[i].slice(0,2); } }
+  else { abbr=raw.replace(/[^A-Za-z0-9]/g,''); }
+  abbr=_expSanitize(abbr).slice(0,8);
+  return abbr||'Client';
+}
+function _expProjNum(){ try{ var el=document.getElementById('pi-projno'); return _expSanitize(el?el.value||'':'')||'Project'; }catch(e){ return 'Project'; } }
+function _expInstance(){ try{ return (typeof CloudSync!=='undefined' && CloudSync.instanceNumber) ? CloudSync.instanceNumber : 1; }catch(e){ return 1; } }
+function _expDateISO(d){ try{ return (d?new Date(d):new Date()).toISOString().substring(0,10); }catch(e){ return new Date().toISOString().substring(0,10); } }
+function _expFolderName(){
+  return _expProjNum()+'_'+_expClientShort()+'_'+_EXPORT_TOOLCODE+'-'+_expInstance()+'_'+_expDateISO();
+}
+function _expItemRef(item){
+  // Prefer the gallery badge (Obs-1A, Checklist-1.3, etc.) — already the report
+  // location. Fall back to the raw type so nothing is unlabeled.
+  var ref = (item && item.badge) ? item.badge
+          : (item && item.type) ? ({flowtest:'FlowTest','flowtest-pld':'FlowTest-PLD',checklist:'Checklist',deficiency:'Obs',response:'Response',placard:'Placard',pump:'Pump'}[item.type]||item.type)
+          : 'Photo';
+  return _expSanitize(ref).slice(0,24)||'Photo';
+}
+function _expPhotoBucket(p){
+  // Capture-date bucket. Photo .date is an editable ISO-ish field; bad/missing → undated.
+  var raw=(p && p.date) ? String(p.date).trim() : '';
+  if(!raw) return 'undated';
+  var t=new Date(raw).getTime();
+  if(!t || isNaN(t)) return 'undated';
+  return new Date(t).toISOString().substring(0,10);
+}
+// Marked variant URL for a photo (S366 model: marked baked into p.d when annotated,
+// else R2 marked/marked_{id}.jpg in Hub mode). Returns '' if no distinct marked file.
+function _expMarkedSrc(p){
+  if(!p) return '';
+  if(p._annotated && p.d) return p.d;   // strokes baked into the live data URL
+  try{
+    if(p.id && typeof _r2FolderId!=='undefined' && _r2FolderId && typeof R2Photos!=='undefined' && R2Photos.getUrl){
+      return R2Photos.getUrl(_r2FolderId,'diesel','marked','marked_'+p.id+'.jpg');
+    }
+  }catch(_e){}
+  return '';
+}
+async function _expAddImage(folder, src, name, usedNames){
+  // De-dupe within the folder; fetch+validate the same way the gallery does so we
+  // never zip a corrupt R2 error body as a fake .jpg.
+  if(!src) return false;
+  var base=name, n=1;
+  while(usedNames[folder.root+'/'+name]){ var dot=base.lastIndexOf('.'); name=(dot>0?base.slice(0,dot):base)+'_'+(n++)+(dot>0?base.slice(dot):'.jpg'); }
+  usedNames[folder.root+'/'+name]=1;
+  try{
+    if(src.startsWith('data:')){
+      var parts=src.split(','); folder.zf.file(name, parts[1], {base64:true}); return true;
+    }
+    var resp=await fetch(src); if(!resp.ok) throw new Error('HTTP '+resp.status);
+    var blob=await resp.blob();
+    if(!(await _isRealImageBlob(blob))) throw new Error('not a valid image');
+    folder.zf.file(name, blob); return true;
+  }catch(e){ console.warn('[export] skip', name, e&&e.message); return false; }
+}
+function _expReadme(stats){
+  var L=[];
+  L.push('ARENCON — Diesel Fire Pump Commissioning — Project Export');
+  L.push('========================================================');
+  L.push('');
+  L.push('Project #: '+_expProjNum());
+  try{ var pn=document.getElementById('pi-projname'); if(pn&&pn.value) L.push('Project:   '+pn.value); }catch(e){}
+  try{ var cl=document.getElementById('pi-client'); if(cl&&cl.value) L.push('Client:    '+cl.value); }catch(e){}
+  L.push('Tool:      Diesel Fire Pump Commissioning (code DFP), instance '+_expInstance());
+  L.push('Exported:  '+new Date().toLocaleString());
+  L.push('Tool ver:  '+_EXPORT_VERSION);
+  L.push('');
+  L.push('CONTENTS');
+  L.push('--------');
+  L.push('  '+_expProjNum()+'_..._data.json   Full re-loadable report data (photos embedded).');
+  L.push('                              Load it back via ⚙️ More → Import JSON.');
+  L.push('  photos/<date>/              Photos grouped by capture date.');
+  L.push('  photos/undated/             Photos with no/odd capture date.');
+  L.push('');
+  L.push('PHOTO FILE NAMES');
+  L.push('----------------');
+  L.push('  <ItemRef>_NN.jpg            original photo (NN = counter for that item)');
+  L.push('  <ItemRef>_NN-marked.jpg     same photo with on-site markup baked in');
+  L.push('  ItemRef = where it lives in the report, e.g. Obs-1A (observation/deficiency),');
+  L.push('            Checklist-1.3, Placard, Pump, FlowTest.');
+  L.push('');
+  L.push('TOOL CODES (across the ARENCON toolkit)');
+  L.push('---------------------------------------');
+  L.push('  FRT Field Review · DFP Diesel Fire Pump · EFP Electric Fire Pump');
+  L.push('  IST Integrated Systems Test · OBC OBC Report · DDC DD Checklist');
+  L.push('');
+  L.push('SUMMARY');
+  L.push('-------');
+  L.push('  Photos written:  '+stats.added+(stats.skipped?(' (+'+stats.skipped+' unavailable, skipped)'):''));
+  L.push('  JSON included:   yes');
+  L.push('');
+  L.push('Note: this is a snapshot. The JSON is the authoritative re-loadable copy;');
+  L.push('the loose photos are a human-browsable convenience copy of the same data.');
+  return L.join('\n');
+}
+function exportProjectDocs(){
+  _aConfirm('Export this report as a ZIP (photos + JSON + README)? Nothing in your current work is changed.', function(){
+    if(typeof JSZip==='undefined'){
+      showToast('Loading exporter...');
+      var sc=document.createElement('script');
+      sc.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      sc.onload=function(){ _expGo(); };
+      sc.onerror=function(){ showToast('Could not load exporter (offline?)'); };
+      document.head.appendChild(sc);
+    } else { _expGo(); }
+  }, 'Export');
+}
+async function _expGo(){
+  try{
+    showToast('Building export…');
+    var zip=new JSZip();
+    var root=_expFolderName();
+    var top=zip.folder(root);
+    var used={};
+    var stats={added:0, skipped:0};
+
+    // 1) Photos — live only (deleted excluded), date-bucketed, original + marked.
+    // Counter is keyed on the item's SECTION (globally unique: def_<ctr>_<di>,
+    // cl_<id>, etc.) — NOT the badge, which can repeat (two groups both showing
+    // "D1"). This keeps each item's photos numbered independently and prevents
+    // two different items collapsing onto the same filename (spec 1.4).
+    var all=(typeof _collectAllPhotos==='function')? _collectAllPhotos() : [];
+    var live=all.filter(function(a){ return !(typeof _isPhotoDeleted==='function' && _isPhotoDeleted(a.photo)); });
+    var itemCount={};   // section → running NN
+    for(var i=0;i<live.length;i++){
+      var item=live[i], p=item.photo;
+      var bucket=_expPhotoBucket(p);
+      var ref=_expItemRef(item);
+      var sectionKey=(item.section||ref)+'';
+      var nn=(itemCount[sectionKey]=(itemCount[sectionKey]||0)+1);
+      var nnStr=(nn<10?'0':'')+nn;
+      var folderPath=root+'/photos/'+bucket;
+      var folder={ zf: top.folder('photos').folder(bucket), root: folderPath };
+      // original
+      var origSrc=_photoSrc(p);
+      if(await _expAddImage(folder, origSrc, ref+'_'+nnStr+'.jpg', used)) stats.added++; else stats.skipped++;
+      // marked variant (only if distinct from original)
+      var mkSrc=_expMarkedSrc(p);
+      if(mkSrc && mkSrc!==origSrc){
+        if(await _expAddImage(folder, mkSrc, ref+'_'+nnStr+'-marked.jpg', used)) stats.added++;
+      }
+    }
+
+    // 2) Full JSON (redundant by design — the machine-reloadable copy).
+    try{
+      var state=collectState();
+      var wrapped={ _arenconExport:{ tool:'diesel', toolCode:_EXPORT_TOOLCODE, version:_EXPORT_VERSION,
+                     exportedAt:new Date().toISOString(), project:_expProjNum(), instance:_expInstance() },
+                    data: state };
+      top.file(_expProjNum()+'_'+_EXPORT_TOOLCODE+'-'+_expInstance()+'_data.json', JSON.stringify(wrapped,null,2));
+    }catch(e){ console.warn('[export] JSON failed', e&&e.message); top.file('JSON_EXPORT_FAILED.txt','collectState() failed: '+(e&&e.message)); }
+
+    // 3) README.
+    top.file('README.txt', _expReadme(stats));
+
+    if(stats.added===0 && stats.skipped===0){
+      // No photos at all — still a valid export (JSON + README), just note it.
+    }
+
+    var zblob=await zip.generateAsync({type:'blob'});
+    var url=URL.createObjectURL(zblob);
+    var a=document.createElement('a');
+    a.href=url; a.download=root+'.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+    showToast(stats.skipped ? ('Exported — '+stats.added+' photos ('+stats.skipped+' unavailable)') : ('Exported — '+stats.added+' photos + JSON'));
+  }catch(e){
+    console.error('[export] failed', e);
+    showToast('Export failed: '+(e&&e.message||e));
   }
 }
 
