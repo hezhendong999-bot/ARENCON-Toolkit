@@ -419,6 +419,20 @@ body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-met
 .aiu-seg button:last-child{border-right:none}.aiu-seg button.on{background:#3E7A5E;color:#fff}
 .aiu-seg.bill button.on{background:#3A5470;color:#fff}
 .aiu-search{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(12.5px + var(--ts));padding:7px 11px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.12));background:var(--bg,#0b0a0d);color:var(--fg);min-width:200px;flex:1;max-width:340px}
+.aiu-fsel{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(12px + var(--ts));padding:6px 10px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.12));background:var(--bg,#0b0a0d);color:var(--fg);cursor:pointer;max-width:220px}
+.aiu-fsel.on{border-color:#9C2742;color:#C9476A;font-weight:600}
+.aiu-fclear{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(12px + var(--ts));padding:6px 11px;border-radius:8px;border:1px solid rgba(192,68,95,.4);background:transparent;color:#E26076;cursor:pointer}
+.aiu-fclear:hover{background:rgba(192,68,95,.12)}
+.aiu-callout{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(12.5px + var(--ts));color:#E6A23C;background:rgba(230,162,60,.1);border:1px solid rgba(230,162,60,.35);border-radius:8px;padding:8px 12px;margin-bottom:10px}
+.aiu-rollup{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:10px}
+.aiu-rollup .rl-h{font-size:calc(11.5px + var(--ts));color:var(--silver);text-transform:uppercase;letter-spacing:.4px;margin-right:4px}
+.aiu-rollup .rl-chip{font-size:calc(12px + var(--ts));color:var(--fg);background:rgba(224,163,106,.12);border:1px solid rgba(224,163,106,.3);border-radius:20px;padding:3px 10px}
+.aiu-rollup .rl-chip b{color:#E0A36A;font-variant-numeric:tabular-nums}
+.aiu-sortbar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.aiu-sortbar label{font-size:calc(11.5px + var(--ts));color:var(--silver)}
+.aiu-stale{font-size:calc(10.5px + var(--ts));color:#E6A23C;background:rgba(230,162,60,.12);border:1px solid rgba(230,162,60,.35);border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
+.aiu-mkby{font-size:calc(10.5px + var(--ts));color:var(--silver);margin-top:3px}
+.gp-btn.danger{color:#E26076;border-color:rgba(226,96,118,.5)}
 .aiu-exp{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(12px + var(--ts));font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.12));background:var(--card,rgba(255,255,255,.05));color:var(--fg);cursor:pointer}
 .aiu-exp.pdf{border-color:rgba(192,68,95,.4);color:#E26076}
 .aiu-table{width:100%;border-collapse:collapse;font-size:calc(13px + var(--ts))}
@@ -1161,6 +1175,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       <div style="margin-left:auto;display:flex;gap:8px">
         <button class="aiu-exp pdf" onclick="AIUsageUI.exportPDF()">⬇ PDF</button>
         <button class="aiu-exp" onclick="AIUsageUI.exportCSV()">⬇ CSV</button>
+        <button class="aiu-exp" onclick="AIUsageUI.exportMarks()" title="Backup all billing marks + snapshots as JSON">⬇ Backup</button>
       </div>
     </div>
 
@@ -1180,6 +1195,8 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       </div>
       <input type="search" class="aiu-search" placeholder="🔎 Search project, client, user, tool…" oninput="AIUsage.setSearch(this.value);AIUsageUI.refresh()">
     </div>
+
+    <div class="aiu-filterbar" id="aiu-facets-host"></div>
 
     <div class="dash-card" style="padding:0;overflow:hidden">
       <div id="aiu-log-host"></div>
@@ -4817,7 +4834,12 @@ function _pgExtractPhotos(row) {
              instanceNum: instNum };
     // B1 (S339+): carry the tool-stamped badge through verbatim if present.
     // The Hub READS these; it never derives them.
-    if (srcPh && srcPh.badgeText) { rec.badgeText = srcPh.badgeText; rec.badgeType = srcPh.badgeType || ''; }
+    if (srcPh && srcPh.badgeText) {
+      rec.badgeText = srcPh.badgeText; rec.badgeType = srcPh.badgeType || '';
+      // B1 exact-match (S341): if the tool resolved a hex (Diesel stamps badgeColor),
+      // carry it verbatim and paint it directly — no token mapping.
+      if (srcPh.badgeColor) rec.badgeColor = srcPh.badgeColor;
+    }
     return rec;
   }
 
@@ -4932,11 +4954,11 @@ function _pgExtractPhotos(row) {
       Object.values(obj).forEach(function(arr) {
         (arr || []).forEach(function(d) {
           (d.photos || []).forEach(function(ph) {
-            var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'deficiency', 'Deficiency', ph.date||''));
+            var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'deficiency', 'Deficiency', ph.date||'', ph));
           });
           (d.responses || []).forEach(function(resp) {
             (resp.photos || []).forEach(function(ph) {
-              var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'response', 'Response', ph.date||''));
+              var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'response', 'Response', ph.date||'', ph));
             });
           });
         });
@@ -4946,11 +4968,11 @@ function _pgExtractPhotos(row) {
     // general deficiencies array
     (data.generalDeficiencies || []).forEach(function(d) {
       (d.photos || []).forEach(function(ph) {
-        var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'deficiency', 'General Defic', ph.date||''));
+        var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'deficiency', 'General Defic', ph.date||'', ph));
       });
       (d.responses || []).forEach(function(resp) {
         (resp.photos || []).forEach(function(ph) {
-          var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'response', 'Gen Resp', ph.date||''));
+          var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'response', 'Gen Resp', ph.date||'', ph));
         });
       });
     });
@@ -4959,19 +4981,19 @@ function _pgExtractPhotos(row) {
     Object.keys(_cls).forEach(function(k){
       var item = _cls[k]; if(!item) return;
       (item.photos || []).forEach(function(ph) {
-        var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', item.label || 'Checklist', ph.date||''));
+        var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', item.label || 'Checklist', ph.date||'', ph));
       });
     });
     // record photos (pump / placard / flow chart) — key field captures, were missing
     (data.recordPhotos || []).forEach(function(ph) {
-      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', ph.caption || ph.kind || 'Record', ph.date||''));
+      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', ph.caption || ph.kind || 'Record', ph.date||'', ph));
     });
     // flow-test gauge photos (standard + PLD)
     (data.flowTestPhotos || []).forEach(function(ph) {
-      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Flow Test', ph.date||''));
+      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Flow Test', ph.date||'', ph));
     });
     (data.flowTestPhotosPld || []).forEach(function(ph) {
-      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Flow Test (PLD)', ph.date||''));
+      var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Flow Test (PLD)', ph.date||'', ph));
     });
   }
 
@@ -5181,7 +5203,8 @@ function _pgRender() {
         var badgeLabel, badgeHue;
         if (ph.badgeText) {
           badgeLabel = ph.badgeText;
-          badgeHue = _badgeTypeColor[ph.badgeType] || '#6E6AA8';
+          // Exact-match: a tool-resolved hex (Diesel) wins; else map the token (FRT).
+          badgeHue = ph.badgeColor || _badgeTypeColor[ph.badgeType] || '#6E6AA8';
         } else {
           badgeHue = ph.type === 'site' ? '#6E6AA8' : ph.type === 'response' ? '#6E6AA8' : '#E26076';
           badgeLabel = ph.type === 'site' ? 'Site' : (ph.caption || ('Obs ' + (ph.deficNum || '?')));
@@ -6138,6 +6161,9 @@ var AIUsage = (function () {
   var _billFilter = 'all'; // all | unbilled | billed
   var _cycleFilter = 'this'; // this | last | month | all
   var _search = '';
+  // B (S341): structured multi-filter — each '' = no constraint, AND-combined
+  // with cycle + bill + search. Values are exact-match on the row field.
+  var _facets = { project_number: '', client: '', user_number: '', tool: '' };
 
   /* ── tool color classes (each tool unique; none on names) ── */
   var TOOL_CLASS = {
@@ -6205,6 +6231,12 @@ var AIUsage = (function () {
     if (!inCycle(row)) return false;
     if (_billFilter === 'billed' && !isBilled(row)) return false;
     if (_billFilter === 'unbilled' && isBilled(row)) return false;
+    // B: structured facets (AND). '' means unconstrained. user_number/tool/pn
+    // compared as strings; client/pn fall back gracefully when row is untagged.
+    if (_facets.project_number && String(row.project_number||'') !== _facets.project_number) return false;
+    if (_facets.client && String(row.client||'') !== _facets.client) return false;
+    if (_facets.user_number && String(row.user_number||'') !== _facets.user_number) return false;
+    if (_facets.tool && String(row.tool||'') !== _facets.tool) return false;
     if (_search) {
       var s = _search.toLowerCase();
       var hay = [row.project_number, row.client, row.project_name, row.user_number,
@@ -6259,6 +6291,61 @@ var AIUsage = (function () {
     } catch (e) { _marks = []; }
   }
 
+  /* ── distinct facet values present within the current CYCLE (not gated by the
+        facets themselves, so every dropdown lists what's selectable). Each entry
+        {v,label} sorted; client/pn skip blanks. ── */
+  function facetValues() {
+    var pn = {}, cl = {}, un = {}, tl = {};
+    _rows.filter(inCycle).forEach(function (r) {
+      if (r.project_number) pn[r.project_number] = 1;
+      if (r.client) cl[r.client] = 1;
+      if (r.user_number && r.user_number !== '—') un[r.user_number] = (r.initials || r.user_number);
+      if (r.tool) tl[r.tool] = 1;
+    });
+    function keys(o){ return Object.keys(o).sort(function(a,b){return String(a).localeCompare(String(b));}); }
+    return {
+      project_number: keys(pn).map(function(k){return {v:k,label:k};}),
+      client: keys(cl).map(function(k){return {v:k,label:k};}),
+      user_number: keys(un).map(function(k){return {v:k,label:k+' · '+un[k]};}),
+      tool: keys(tl).map(function(k){return {v:k,label:k};})
+    };
+  }
+
+  /* ── C1: sum cost+fields for a project across a date range [start,end]
+        (inclusive dates), used to snapshot what was billed at mark time. ── */
+  function rangeTotals(pn, startDate, endDate) {
+    var s = new Date(startDate + 'T00:00:00Z').getTime();
+    var e = new Date(endDate + 'T23:59:59Z').getTime();
+    var cost = 0, fields = 0;
+    _rows.forEach(function (r) {
+      if (r.project_number !== pn) return;
+      var t = new Date(r.created_at).getTime();
+      if (t >= s && t <= e) { cost += r.cost_usd; fields += r.field_count; }
+    });
+    return { cost: cost, fields: fields };
+  }
+
+  /* ── C4: unbilled totals grouped by client (current cycle/filters) ── */
+  function unbilledByClient() {
+    var byc = {};
+    _rows.filter(passesFilters).forEach(function (r) {
+      if (isBilled(r)) return;
+      var c = r.client || '(unassigned)';
+      if (!byc[c]) byc[c] = { client: c, cost: 0, fields: 0 };
+      byc[c].cost += r.cost_usd; byc[c].fields += r.field_count;
+    });
+    return Object.keys(byc).sort(function(a,b){return byc[b].cost-byc[a].cost;}).map(function(k){return byc[k];});
+  }
+
+  /* ── C6: untagged usage present in current view? (surface only) ── */
+  function untaggedSummary() {
+    var cost = 0, n = 0;
+    _rows.filter(passesFilters).forEach(function (r) {
+      if (!r.project_number) { cost += r.cost_usd; n++; }
+    });
+    return { count: n, cost: cost };
+  }
+
   /* ── group passing rows by project_number ──────────────────────── */
   function groupRows() {
     var groups = {};
@@ -6293,6 +6380,15 @@ var AIUsage = (function () {
     setBillFilter: function (b) { _billFilter = b; }, getBillFilter: function(){return _billFilter;},
     setCycle: function (c) { _cycleFilter = c; }, getCycle: function(){return _cycleFilter;},
     setSearch: function (s) { _search = s; },
+    setFacet: function (k, v) { if (_facets.hasOwnProperty(k)) _facets[k] = v || ''; },
+    getFacet: function (k) { return _facets[k] || ''; },
+    getFacets: function () { return _facets; },
+    clearFacets: function () { _facets = { project_number:'', client:'', user_number:'', tool:'' }; },
+    anyFacet: function () { return !!(_facets.project_number||_facets.client||_facets.user_number||_facets.tool); },
+    facetValues: facetValues,
+    rangeTotals: rangeTotals,
+    unbilledByClient: unbilledByClient,
+    untaggedSummary: untaggedSummary,
     getBillingDay: function () { return _billingDay; },
     getRows: function () { return _rows; }, getMarks: function () { return _marks; },
     reloadMarks: async function () { try { _marks = await _sb.from('ai_invoice_marks').select('*').execute() || []; } catch(e){ _marks=[]; } }
@@ -6306,6 +6402,22 @@ var AIUsageUI = (function () {
 
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function money(n){return '$'+(Number(n)||0).toFixed(4);}
+
+  // C5: in-group row sort (applies within every project group).
+  var _sort = 'date-desc'; // date-desc | date-asc | cost-desc | cost-asc | user
+  function _sortRows(rows){
+    var a=rows.slice();
+    a.sort(function(x,y){
+      if(_sort==='date-asc') return new Date(x.created_at)-new Date(y.created_at);
+      if(_sort==='date-desc') return new Date(y.created_at)-new Date(x.created_at);
+      if(_sort==='cost-desc') return y.cost_usd-x.cost_usd;
+      if(_sort==='cost-asc') return x.cost_usd-y.cost_usd;
+      if(_sort==='user') return String(x.user_number).localeCompare(String(y.user_number));
+      return 0;
+    });
+    return a;
+  }
+  function setSort(v){_sort=v;refresh();}
 
   /* list of distinct periods present in data, newest first — for range pickers */
   function periodsInData(){
@@ -6357,8 +6469,27 @@ var AIUsageUI = (function () {
   /* ── render the grouped detail log ── */
   function renderLog(){
     var groups=AIUsage.groupRows();
-    if(!groups.length)return '<div class="aiu-empty">No usage matches the current filters.</div>';
-    var html='<table class="aiu-table"><thead><tr>'
+    // C6: untagged usage callout (surface only — no action). Shown above the table.
+    var ut=AIUsage.untaggedSummary();
+    var calloutHtml = ut.count
+      ? '<div class="aiu-callout">⚠ '+ut.count+' usage record'+(ut.count>1?'s':'')+' ('+money(ut.cost)+') not tagged to a project — can\'t be invoiced.</div>'
+      : '';
+    // C4: per-client unbilled roll-up (collapsed summary above the log).
+    var ubc=AIUsage.unbilledByClient();
+    var rollHtml='';
+    if(ubc.length){
+      rollHtml='<div class="aiu-rollup"><span class="rl-h">Unbilled by client</span>'
+        +ubc.map(function(c){return '<span class="rl-chip">'+esc(c.client)+' <b>'+money(c.cost)+'</b></span>';}).join('')
+        +'</div>';
+    }
+    // C5: sort control
+    var sortHtml='<div class="aiu-sortbar"><label>Sort within project</label>'
+      +'<select class="aiu-fsel" onchange="AIUsageUI.setSort(this.value)">'
+      +['date-desc::Newest first','date-asc::Oldest first','cost-desc::Cost high→low','cost-asc::Cost low→high','user::User #']
+        .map(function(o){var p=o.split('::');return '<option value="'+p[0]+'"'+(p[0]===_sort?' selected':'')+'>'+esc(p[1])+'</option>';}).join('')
+      +'</select></div>';
+    if(!groups.length)return calloutHtml+rollHtml+'<div class="aiu-empty">No usage matches the current filters.</div>';
+    var html=calloutHtml+rollHtml+sortHtml+'<table class="aiu-table"><thead><tr>'
       +'<th>Date</th><th>Project #</th><th>Client</th><th>Project Name</th>'
       +'<th>User #</th><th>Initials</th><th>Tool</th><th class="num">Fields</th><th class="num">Cost</th><th>Status</th>'
       +'</tr></thead><tbody>';
@@ -6372,7 +6503,7 @@ var AIUsageUI = (function () {
         +(canMark?'<button class="gp-btn" onclick="AIUsageUI.openMark(\''+esc(g.pn)+'\')">Mark billed…</button>'
                  +'<button class="gp-btn ghost" onclick="AIUsageUI.openLedger(\''+esc(g.pn)+'\')">Ledger</button>':'')
         +'</span></td></tr>';
-      g.rows.forEach(function(r){
+      _sortRows(g.rows).forEach(function(r){
         var billed=AIUsage.isBilled(r);
         var d=new Date(r.created_at);var ds=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+d.getUTCFullYear();
         html+='<tr>'
@@ -6391,8 +6522,29 @@ var AIUsageUI = (function () {
     return html;
   }
 
+  /* ── B: structured facet dropdowns (project/client/user/tool) ── */
+  function _sel(key, label){
+    var vals = AIUsage.facetValues()[key] || [];
+    var cur = AIUsage.getFacet(key);
+    var opts = '<option value="">'+esc(label)+'</option>';
+    vals.forEach(function(o){ opts += '<option value="'+esc(o.v)+'"'+(o.v===cur?' selected':'')+'>'+esc(o.label)+'</option>'; });
+    return '<select class="aiu-fsel'+(cur?' on':'')+'" onchange="AIUsageUI.setFacet(\''+key+'\',this.value)">'+opts+'</select>';
+  }
+  function renderFacets(){
+    var host = document.getElementById('aiu-facets-host'); if(!host) return;
+    host.innerHTML =
+        _sel('project_number','All projects')
+      + _sel('client','All clients')
+      + _sel('user_number','All users')
+      + _sel('tool','All tools')
+      + (AIUsage.anyFacet() ? '<button class="aiu-fclear" onclick="AIUsageUI.clearFacets()">✕ Clear</button>' : '');
+  }
+  function setFacet(k,v){ AIUsage.setFacet(k,v); refresh(); }
+  function clearFacets(){ AIUsage.clearFacets(); refresh(); }
+
   function refresh(){
     document.getElementById('aiu-metrics-host').innerHTML=renderMetrics();
+    renderFacets();
     document.getElementById('aiu-log-host').innerHTML=renderLog();
     // sync bill filter segment
     document.querySelectorAll('#aiu-billseg button').forEach(function(b){b.classList.toggle('on',b.dataset.b===AIUsage.getBillFilter());});
@@ -6426,9 +6578,12 @@ var AIUsageUI = (function () {
     var periodStart = s1<=s2 ? s1 : s2;
     var periodEnd   = e1>=e2 ? e1 : e2;
     try{
+      // C1: snapshot what's billed at mark time (cost + fields for this range).
+      var _snap = AIUsage.rangeTotals(_markPn, periodStart, periodEnd);
       await _sb.from('ai_invoice_marks').insert({
         project_number:_markPn, period_start:periodStart, period_end:periodEnd,
-        marked_by:_profile?_profile.id:null, marked_by_email:_profile?_profile.email:null
+        marked_by:_profile?_profile.id:null, marked_by_email:_profile?_profile.email:null,
+        billed_cost_snapshot:_snap.cost, billed_field_snapshot:_snap.fields
       });
       await AIUsage.reloadMarks();
       closeMark();refresh();
@@ -6445,12 +6600,30 @@ var AIUsageUI = (function () {
     var totC=periods.reduce(function(s,p){return s+p.cost;},0);
     var billedC=periods.filter(function(p){return p.billed;}).reduce(function(s,p){return s+p.cost;},0);
     var rows=periods.map(function(p){
+      // C2: a mark is "stale" if usage changed since it was taken (current range
+      // total ≠ snapshot stored at mark time). Only meaningful for billed periods
+      // that actually carry a snapshot.
+      var staleChip='', whoLine='';
+      if(p.billed && p.mark){
+        var mk=p.mark;
+        if(mk.billed_cost_snapshot!=null){
+          var nowC=AIUsage.rangeTotals(pn,p.start,p.end).cost;
+          var drift=nowC-(Number(mk.billed_cost_snapshot)||0);
+          if(Math.abs(drift)>0.000001){
+            staleChip=' <span class="aiu-stale" title="Usage changed since billed: was '+money(Number(mk.billed_cost_snapshot))+', now '+money(nowC)+'">⚠ stale '+(drift>0?'+':'')+money(drift)+'</span>';
+          }
+        }
+        // C7: who marked it + when
+        var who=mk.marked_by_email||'—';
+        var when=mk.marked_at?new Date(mk.marked_at).toLocaleDateString():'';
+        whoLine='<div class="aiu-mkby">billed by '+esc(who)+(when?' · '+esc(when):'')+'</div>';
+      }
       return '<tr>'
-        +'<td>'+esc(p.label)+'</td>'
+        +'<td>'+esc(p.label)+staleChip+'</td>'
         +'<td class="dim">'+p.start+' → '+p.end+'</td>'
         +'<td class="num">'+p.fields+'</td>'
         +'<td class="num cost">'+money(p.cost)+'</td>'
-        +'<td><span class="aiu-bchip '+(p.billed?'billed':'unbilled')+'">'+(p.billed?'✓ Billed':'Unbilled')+'</span></td>'
+        +'<td><span class="aiu-bchip '+(p.billed?'billed':'unbilled')+'">'+(p.billed?'✓ Billed':'Unbilled')+'</span>'+whoLine+'</td>'
         +'<td>'+(p.billed
             ?'<button class="gp-btn ghost" onclick="AIUsageUI.unmark(\''+esc(p.mark.id)+'\')">Un-mark</button>'
             :'<button class="gp-btn" onclick="AIUsageUI.markSingle(\''+esc(pn)+'\',\''+p.start+'\',\''+p.end+'\')">Mark</button>')+'</td>'
@@ -6465,17 +6638,56 @@ var AIUsageUI = (function () {
 
   async function markSingle(pn,start,end){
     try{
+      var _snap=AIUsage.rangeTotals(pn,start,end);
       await _sb.from('ai_invoice_marks').insert({project_number:pn,period_start:start,period_end:end,
-        marked_by:_profile?_profile.id:null,marked_by_email:_profile?_profile.email:null});
+        marked_by:_profile?_profile.id:null,marked_by_email:_profile?_profile.email:null,
+        billed_cost_snapshot:_snap.cost,billed_field_snapshot:_snap.fields});
       await AIUsage.reloadMarks();refresh();openLedger(pn);AIUsageUI.toast('Marked billed');
     }catch(e){AIUsageUI.toast('Failed: '+(e.message||e),true);}
   }
-  async function unmark(markId){
+  // C8: un-mark requires an explicit confirm (reverses a billing record). First
+  // click arms the button in-place; second click within the same ledger commits.
+  var _unmarkArmed=null;
+  function unmark(markId){
+    if(_unmarkArmed!==markId){
+      _unmarkArmed=markId;
+      var btn=document.querySelector('#aiu-ledger-body button[onclick*="'+markId+'"]');
+      if(btn){btn.textContent='Confirm un-mark?';btn.classList.add('danger');}
+      clearTimeout(_unmarkT);_unmarkT=setTimeout(function(){_unmarkArmed=null;if(_ledgerPn)openLedger(_ledgerPn);},4000);
+      return;
+    }
+    _commitUnmark(markId);
+  }
+  var _unmarkT;
+  async function _commitUnmark(markId){
+    _unmarkArmed=null;clearTimeout(_unmarkT);
     var pn=_ledgerPn;
     try{
       await _sb.from('ai_invoice_marks').eq('id',markId).delete();
       await AIUsage.reloadMarks();refresh();if(pn)openLedger(pn);AIUsageUI.toast('Un-marked (now unbilled)');
     }catch(e){AIUsageUI.toast('Failed: '+(e.message||e),true);}
+  }
+
+  /* ── C3: invoice backup — the canonical billing record (all marks +
+        snapshots) as JSON, so a mark can be audited/restored independent of
+        live usage drift. ── */
+  function exportMarks(){
+    var marks=AIUsage.getMarks()||[];
+    var payload={
+      exported_at:new Date().toISOString(),
+      billing_day:AIUsage.getBillingDay(),
+      mark_count:marks.length,
+      marks:marks.map(function(m){return {
+        id:m.id, project_number:m.project_number,
+        period_start:m.period_start, period_end:m.period_end,
+        billed_cost_snapshot:m.billed_cost_snapshot, billed_field_snapshot:m.billed_field_snapshot,
+        marked_by_email:m.marked_by_email, marked_at:m.marked_at, notes:m.notes||''
+      };})
+    };
+    var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='ai_invoice_marks_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+    AIUsageUI.toast('Invoice backup exported ('+marks.length+' marks)');
   }
 
   /* ── CSV export (current filtered view) ── */
@@ -6530,6 +6742,7 @@ var AIUsageUI = (function () {
   function toast(msg,bad){var t=document.getElementById('aiu-toast');if(!t)return;t.textContent=msg;t.className='aiu-toast show'+(bad?' bad':'');clearTimeout(_tt);_tt=setTimeout(function(){t.className='aiu-toast';},1800);}
 
   return {refresh:refresh,quickBill:quickBill,openMark:openMark,closeMark:closeMark,confirmMark:confirmMark,
+    setFacet:setFacet,clearFacets:clearFacets,renderFacets:renderFacets,setSort:setSort,exportMarks:exportMarks,
     openLedger:openLedger,closeLedger:closeLedger,markSingle:markSingle,unmark:unmark,
     exportCSV:exportCSV,exportPDF:exportPDF,toast:toast,periodsInData:periodsInData};
 })();

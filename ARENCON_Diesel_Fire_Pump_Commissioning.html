@@ -12261,6 +12261,8 @@ function _collectCloudState(){
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
+  // B1 (S341): stamp badgeText + badgeColor so the Hub reads, never derives.
+  try{ _stampDieselBadges(s); }catch(e){ /* never break a push */ }
   return s;
 }
 
@@ -12323,6 +12325,51 @@ function _dslPhotoBadge(p){
     if(!hit && p.id){ for(var j=0;j<all.length;j++){ if(all[j].photo && all[j].photo.id===p.id){ hit=all[j]; break; } } }
     return hit && hit.badge ? hit.badge : '';
   }catch(e){ return ''; }
+}
+// ════ B1: badge pass-through to the Hub (S341) ════
+// The Hub photo gallery shows the EXACT badge text + colour the SOURCE tool
+// assigns — it never derives. Diesel stamps badgeText + badgeColor (resolved
+// HEX, not a CSS var — the Hub has its own stylesheet) onto each pushed photo,
+// using _collectAllPhotos() as the single source of truth for badge text/cat
+// (identical to the download-filename path). Theme-dependent colours are pinned
+// to Diesel's DARK values because the Hub gallery renders Bold·Dark.
+// cat → hex mirrors the .ph-badge-* CSS rules; gauge `tag` photos take the same
+// per-reading colour the gallery paints inline via _gaugeReadingColor().
+var _DSL_CAT_HEX = { checklist:'#5E7A8C', deficiency:'#A85959', general:'#6E86B8', flow:'#B07F5A', records:'#6E6AA8' };
+var _DSL_GAUGE_HEX = { rpm:'#A593E0', suction:'#46C5E8', discharge:'#E26076', bf_in:'#E6A23C', bf_out:'#3FD08A', prv:'#3F7E78', prdv:'#9C6FA0' };
+function _dslBadgeColorHex(item){
+  try{
+    var p = item && item.photo;
+    if(p && p.tag && _DSL_GAUGE_HEX[p.tag]) return _DSL_GAUGE_HEX[p.tag];
+    return _DSL_CAT_HEX[item && item.cat] || '#6E6AA8';
+  }catch(e){ return '#6E6AA8'; }
+}
+// Build an id → {badgeText, badgeColor} index from the gallery's own walker,
+// then stamp the matching (already-stripped) photo records in the push clone.
+// Additive only; never throws into the push (caller try/catch-guards too).
+function _stampDieselBadges(s){
+  if(!s) return s;
+  var idx = {};
+  var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
+  all.forEach(function(item){
+    var p = item && item.photo; if(!p || !p.id) return;
+    idx[p.id] = { badgeText: item.badge || '', badgeColor: _dslBadgeColorHex(item) };
+  });
+  function stampArr(arr){
+    if(!Array.isArray(arr)) return;
+    arr.forEach(function(p){
+      if(!p || !p.id) return;
+      var b = idx[p.id]; if(!b) return;
+      p.badgeText = b.badgeText; p.badgeColor = b.badgeColor;
+    });
+  }
+  stampArr(s.flowTestPhotos); stampArr(s.flowTestPhotosPld); stampArr(s.recordPhotos);
+  if(s.clState) Object.keys(s.clState).forEach(function(k){ if(s.clState[k]) stampArr(s.clState[k].photos); });
+  if(s.deficiencies) Object.keys(s.deficiencies).forEach(function(k){ if(Array.isArray(s.deficiencies[k])) s.deficiencies[k].forEach(function(d){ stampArr(d.photos); if(d.responses) d.responses.forEach(function(r){ stampArr(r.photos); }); }); });
+  if(Array.isArray(s.generalDeficiencies)) s.generalDeficiencies.forEach(function(d){ stampArr(d.photos); if(d.responses) d.responses.forEach(function(r){ stampArr(r.photos); }); });
+  if(Array.isArray(s.stdData)) s.stdData.forEach(function(r){ if(r) stampArr(r.photos); });
+  if(Array.isArray(s.pldData)) s.pldData.forEach(function(r){ if(r) stampArr(r.photos); });
+  return s;
 }
 function _dslBadgeFilename(p){
   var orig = (p && p.n) ? p.n : ('photo_'+Date.now()+'.jpg');
