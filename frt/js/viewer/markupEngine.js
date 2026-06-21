@@ -406,194 +406,130 @@
     // was invisible in daylight — "text appeared at random"). Now a visible compact
     // editor: fixed top control row (grab · − size + · ↵ newline · ✕ · ✓) over an
     // auto-expanding multi-line textarea. ✓ is the only commit (Enter/↵ = newline).
-    // Pass editId to re-open an existing text stroke and update it in place.
-    _SIZE_STEPS: [12,14,16,20,24,28,32,40,48],   // logical px sizes; stored as size = px/4
+    // S339 (Mark): TEXT — on-photo editable box driven by a docked bar (lightbox owns
+    // the bar). The box sits in screen space over the canvas; controls (size, text
+    // colour, bg colour, newline, ✓/✕) live in the bar so nothing floats/covers the
+    // photo on mobile. Backing pill shows ONLY while editing; committed text shows the
+    // CHOSEN bg colour (default 'none' = clean). Sticky colours persist via
+    // self._lastTextColor / self._lastTextBg. editId re-opens an existing text stroke.
+    // Returns a controller object so the lightbox bar can drive it.
+    _SIZE_STEPS: [12,14,16,20,24,28,32,40,48],
+    _PALETTE: ['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'],
     _textPrompt: function(p, _createEv, editId){
       var self = this;
       if (self._textInput) { try { self._textInput.parentNode.removeChild(self._textInput); } catch(_){} self._textInput=null; }
 
-      // If editing an existing stroke, hydrate from it and hide it while editing.
       var editStroke = editId ? self._findStroke(editId) : null;
-      var startText = editStroke ? (editStroke.text||'') : '';
-      var startSizePx = (editStroke ? (editStroke.size||3) : (self.size||3)) * 4;
-      var startColor = editStroke ? (editStroke.color||self.color) : self.color;
+      var startText  = editStroke ? (editStroke.text||'') : '';
+      var startSizePx= (editStroke ? (editStroke.size||3) : (self.size||3)) * 4;
+      var startColor = editStroke ? (editStroke.color||self._lastTextColor||self.color) : (self._lastTextColor||self.color);
+      var startBg    = editStroke ? (editStroke.bg||'none') : (self._lastTextBg||'none');
       if (editStroke){ editStroke._editing = true; self._render(); }
 
-      // Map logical canvas coords -> on-screen (fixed) coords (proven mapping, kept).
       var r = self.canvas.getBoundingClientRect();
       var scaleX = r.width  / self.w, scaleY = r.height / self.h;
       var anchor = editStroke ? { x: editStroke.pts[0].x, y: editStroke.pts[0].y } : { x: p.x, y: p.y };
-      var screenX = r.left + anchor.x * scaleX;
-      var screenY = r.top  + anchor.y * scaleY;   // first-line baseline on screen
-      var sizePx = startSizePx;                    // current logical font px
+      var sizePx = startSizePx;
+      var curColor = startColor, curBg = startBg;
 
-      // ---- build chip ----
-      var chip = document.createElement('div');
-      chip.className = 'mk-text-chip';
-      // place chip so the textarea's first text line sits on the baseline anchor:
-      // bar is 40px, textarea has ~9px top pad + ascent (~sizePx*scaleY). Put the
-      // chip top a little above the click so the first glyph lands near the tap.
-      var chipScreenFont = sizePx * scaleY;
-      var chipTop = screenY - chipScreenFont - 40 - 9;
-      chip.style.left = Math.max(6, screenX) + 'px';
-      chip.style.top  = Math.max(6, chipTop) + 'px';
+      // on-photo editable box (no toolbar; the lightbox docked bar drives it)
+      var box = document.createElement('div');
+      box.className = 'mk-text-box';
+      box.contentEditable = 'true';
+      box.spellcheck = false;
+      box.setAttribute('data-empty-placeholder','Type\u2026');
+      document.body.appendChild(box);
+      self._textInput = box;
+      if (startText){ box.textContent = startText; }
 
-      var RET='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
-      var XS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-      var OK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6"/></svg>';
-      chip.innerHTML =
-        '<div class="mk-tc-bar">'+
-          '<div class="mk-tc-grab"><span></span></div>'+
-          '<div class="mk-tc-size"><button type="button" class="mk-dec">\u2212</button>'+
-            '<div class="mk-tc-sizeval"></div><button type="button" class="mk-inc">+</button></div>'+
-          '<div class="mk-tc-sep"></div>'+
-          '<button type="button" class="mk-tc-btn mk-tc-ret" title="New line">'+RET+'</button>'+
-          '<button type="button" class="mk-tc-btn mk-tc-color" title="Text colour"><span class="mk-tc-dot"></span></button>'+
-          '<div class="mk-tc-spacer"></div>'+
-          '<button type="button" class="mk-tc-btn mk-tc-x" title="Discard">'+XS+'</button>'+
-          '<button type="button" class="mk-tc-btn mk-tc-ok" title="Place">'+OK+'</button>'+
-        '</div>'+
-        '<textarea class="mk-text-area" placeholder="Type label\u2026" rows="1" spellcheck="false"></textarea>';
-      document.body.appendChild(chip);
-      self._textInput = chip;
-
-      var ta  = chip.querySelector('.mk-text-area');
-      var val = chip.querySelector('.mk-tc-sizeval');
-      ta.value = startText;
-      var curColor = startColor;
-      ta.style.color = startColor;
-      // colour dot reflects current colour
-      var _dot = chip.querySelector('.mk-tc-dot');
-      if (_dot) _dot.style.background = curColor;
-
-      function autoGrow(){
-        ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px';
-        ta.style.width='auto';
-        var maxW = Math.min(window.innerWidth*0.7, 520);
-        ta.style.width = Math.min(maxW, Math.max(210, ta.scrollWidth)) + 'px';
+      function screenFont(){ return sizePx * scaleY; }
+      function positionBox(){
+        // place box so its first text line baseline ~ anchor point
+        var sf = screenFont();
+        var sx = r.left + anchor.x * scaleX;
+        var sy = r.top  + anchor.y * scaleY;
+        box.style.left = Math.max(2, sx - 4) + 'px';
+        box.style.top  = Math.max(2, sy - sf) + 'px';
       }
-      function applySize(){
-        var px = sizePx * scaleY;                 // show on-screen size ~ rendered size
-        ta.style.fontSize = px + 'px';
-        val.textContent = Math.round(sizePx);
-        autoGrow();
+      function applyStyle(){
+        box.style.fontSize = screenFont() + 'px';
+        box.style.color = curColor;
+        // editing backing: always a faint dark pill while typing (readability),
+        // regardless of chosen bg. The chosen bg shows on the COMMITTED stroke.
+        box.style.background = 'rgba(20,18,24,.55)';
+        positionBox();
       }
-      applySize();
-      ta.focus();
-      requestAnimationFrame(function(){ try{ ta.focus(); }catch(_){} });
-      ta.addEventListener('input', autoGrow);
-
-      // size stepper — snap to nearest step, move along _SIZE_STEPS
-      function stepSize(dir){
-        var steps=self._SIZE_STEPS, i=0, best=1e9;
-        for (var k=0;k<steps.length;k++){ var d=Math.abs(steps[k]-sizePx); if(d<best){best=d;i=k;} }
-        i = Math.max(0, Math.min(steps.length-1, i+dir));
-        sizePx = steps[i]; applySize(); ta.focus();
-      }
-      chip.querySelector('.mk-dec').addEventListener('click', function(e){ e.preventDefault(); stepSize(-1); });
-      chip.querySelector('.mk-inc').addEventListener('click', function(e){ e.preventDefault(); stepSize(1); });
-
-      // return button: insert newline at caret
-      chip.querySelector('.mk-tc-ret').addEventListener('click', function(e){
-        e.preventDefault();
-        var s=ta.selectionStart, en=ta.selectionEnd, v=ta.value;
-        ta.value = v.slice(0,s) + '\n' + v.slice(en);
-        ta.selectionStart = ta.selectionEnd = s+1;
-        autoGrow(); ta.focus();
-      });
-
-      // colour button: tap → small swatch popup → recolour the live text + dot.
-      // Same palette as the markup toolbar. Applies to this text on commit.
-      var COLORS = ['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'];
-      var colorBtn = chip.querySelector('.mk-tc-color');
-      var colorPop = null;
-      function closeColorPop(){ if (colorPop && colorPop.parentNode){ colorPop.parentNode.removeChild(colorPop); } colorPop=null; }
-      colorBtn.addEventListener('click', function(e){
-        e.preventDefault(); e.stopPropagation();
-        if (colorPop){ closeColorPop(); return; }
-        colorPop = document.createElement('div');
-        colorPop.className = 'mk-tc-colorpop';
-        COLORS.forEach(function(c){
-          var sw = document.createElement('button'); sw.type='button'; sw.className='mk-tc-sw';
-          sw.style.background = c;
-          if (c === curColor) sw.classList.add('sel');
-          sw.addEventListener('click', function(ev){
-            ev.preventDefault(); ev.stopPropagation();
-            curColor = c; ta.style.color = c; if (_dot) _dot.style.background = c;
-            closeColorPop(); ta.focus();
-          });
-          colorPop.appendChild(sw);
-        });
-        chip.appendChild(colorPop);
-      });
+      applyStyle();
+      box.focus();
+      requestAnimationFrame(function(){ try{ box.focus(); placeCaretEnd(); }catch(_){} });
+      function placeCaretEnd(){ try{ var rg=document.createRange(); rg.selectNodeContents(box); rg.collapse(false);
+        var s=window.getSelection(); s.removeAllRanges(); s.addRange(rg);}catch(_){} }
 
       var resolved = false;
       function cleanup(){
-        if (typeof closeColorPop==='function') closeColorPop();
-        if (chip.parentNode) chip.parentNode.removeChild(chip);
-        if (self._textInput === chip) self._textInput = null;
+        if (box.parentNode) box.parentNode.removeChild(box);
+        if (self._textInput === box) self._textInput = null;
         if (editStroke){ delete editStroke._editing; }
+        if (self._onTextEnd) self._onTextEnd();   // tell lightbox to restore tool row
       }
       function commit(){
         if (resolved) return; resolved = true;
-        // recompute logical anchor from the textarea's current screen pos (it may
-        // have been dragged). The textarea's text origin = first-line baseline.
         var r2 = self.canvas.getBoundingClientRect();
-        var tr = ta.getBoundingClientRect();
+        var br = box.getBoundingClientRect();
         var sx2 = r2.width/self.w, sy2 = r2.height/self.h;
-        var padL = 11, padT = 9;
-        var ascent = sizePx * sy2;   // approx first-line ascent in screen px
-        var lx = (tr.left + padL - r2.left) / sx2;
-        var ly = (tr.top  + padT - r2.top  + ascent) / sy2;
-        var v = ta.value.replace(/[ \t]+$/,'').replace(/\n+$/,'');
+        var ascent = sizePx * sy2;
+        var lx = (br.left + 4 - r2.left) / sx2;
+        var ly = (br.top  + 0 - r2.top + ascent) / sy2;
+        var v = (box.innerText || box.textContent || '').replace(/[ \t]+$/,'').replace(/\n+$/,'');
         var newSize = sizePx/4;
+        // persist sticky colours
+        self._lastTextColor = curColor; self._lastTextBg = curBg;
         if (editStroke){
-          if (!v.trim()){ // emptied → delete the stroke
-            var ix=self.strokes.indexOf(editStroke); if(ix>=0) self.strokes.splice(ix,1);
-          } else {
-            editStroke.text=v; editStroke.size=newSize; editStroke.color=curColor;
-            editStroke.pts[0]={x:lx,y:ly};
-          }
+          if (!v.trim()){ var ix=self.strokes.indexOf(editStroke); if(ix>=0) self.strokes.splice(ix,1); }
+          else { editStroke.text=v; editStroke.size=newSize; editStroke.color=curColor; editStroke.bg=curBg; editStroke.pts[0]={x:lx,y:ly}; }
           delete editStroke._editing;
           self.redoStack=[]; if(self._onDirty) self._onDirty(); self._render(); cleanup(); return;
         }
         if (v.trim()){
-          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, size:newSize, opacity:self.opacity });
+          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, bg:curBg, size:newSize, opacity:self.opacity });
           self.redoStack=[]; if(self._onDirty) self._onDirty();
         }
         self._render(); cleanup();
       }
       function cancel(){ if (resolved) return; resolved = true; self._render(); cleanup(); }
-      chip.querySelector('.mk-tc-ok').addEventListener('click', function(e){ e.preventDefault(); commit(); });
-      chip.querySelector('.mk-tc-x').addEventListener('click', function(e){ e.preventDefault(); cancel(); });
-      ta.addEventListener('keydown', function(e){
-        if (e.key === 'Escape'){ e.preventDefault(); cancel(); }
-        e.stopPropagation();   // Enter falls through = newline (textarea default)
-      });
 
-      // drag the chip by the grab rail (typing unaffected)
-      var grab = chip.querySelector('.mk-tc-grab');
-      var dragging=false, dsx=0, dsy=0, dox=0, doy=0;
-      function dStart(ev){ dragging=true; var t=ev.touches?ev.touches[0]:ev;
-        dsx=t.clientX; dsy=t.clientY; dox=parseFloat(chip.style.left); doy=parseFloat(chip.style.top); ev.preventDefault(); }
-      function dMove(ev){ if(!dragging) return; var t=ev.touches?ev.touches[0]:ev;
-        chip.style.left=(dox+t.clientX-dsx)+'px'; chip.style.top=(doy+t.clientY-dsy)+'px'; ev.preventDefault(); }
-      function dEnd(){ dragging=false; }
-      grab.addEventListener('mousedown', dStart);
-      grab.addEventListener('touchstart', dStart, {passive:false});
-      document.addEventListener('mousemove', dMove);
-      document.addEventListener('touchmove', dMove, {passive:false});
-      document.addEventListener('mouseup', dEnd);
-      document.addEventListener('touchend', dEnd);
-      // store removers so cleanup pulls the document-level drag listeners too
-      var _origCleanup = cleanup;
-      cleanup = function(){
-        document.removeEventListener('mousemove', dMove);
-        document.removeEventListener('touchmove', dMove, {passive:false});
-        document.removeEventListener('mouseup', dEnd);
-        document.removeEventListener('touchend', dEnd);
-        _origCleanup();
+      box.addEventListener('keydown', function(e){
+        if (e.key === 'Escape'){ e.preventDefault(); cancel(); }
+        e.stopPropagation();   // Enter = newline (contentEditable default)
+      });
+      box.addEventListener('input', positionBox);
+
+      // controller the lightbox docked bar drives
+      var controller = {
+        isActive: function(){ return !resolved; },
+        getSize: function(){ return sizePx; },
+        getColor: function(){ return curColor; },
+        getBg: function(){ return curBg; },
+        palette: self._PALETTE,
+        stepSize: function(dir){
+          var steps=self._SIZE_STEPS, i=0, best=1e9;
+          for (var k=0;k<steps.length;k++){ var d=Math.abs(steps[k]-sizePx); if(d<best){best=d;i=k;} }
+          i=Math.max(0,Math.min(steps.length-1,i+dir)); sizePx=steps[i]; applyStyle(); box.focus();
+          return sizePx;
+        },
+        setColor: function(c){ curColor=c; self._lastTextColor=c; box.style.color=c; box.focus(); },
+        setBg: function(c){ curBg=c; self._lastTextBg=c; box.focus(); },   // bg shows on commit
+        insertNewline: function(){
+          box.focus();
+          try{ document.execCommand('insertLineBreak'); }catch(_){ document.execCommand('insertText',false,'\n'); }
+          positionBox();
+        },
+        commit: commit,
+        cancel: cancel
       };
+      self._textController = controller;
+      if (self._onTextStart) self._onTextStart(controller);
+      return controller;
     },
 
     // S339 (Mark): MULTI-LINE TEXT. Text may contain '\n'. One shared metric helper
@@ -625,32 +561,46 @@
       // in. Draw a fixed dark translucent rounded rect (~70%) behind the text so the
       // ink stays legible regardless of what's underneath or the chosen text colour.
       ctx.font = '600 ' + fontPx + 'px Calibri, sans-serif';
-      var padX = fontPx*0.28, padY = fontPx*0.20;
-      var maxW = 0;
-      for (var w=0; w<lines.length; w++){ var lw = ctx.measureText(lines[w]).width; if (lw>maxW) maxW=lw; }
-      var bx = p.x*sx - padX;
-      var by = p.y*sy - fontPx - padY;                 // top above first baseline
-      var bw = maxW + padX*2;
-      var bh = (lines.length*lineHpx) + padY*2 - (lineHpx - fontPx);
-      var rad = Math.min(8*avg, bh/2);
-      ctx.save();
-      ctx.fillStyle = 'rgba(20,18,24,0.70)';
-      ctx.beginPath();
-      if (ctx.roundRect){ ctx.roundRect(bx, by, bw, bh, rad); }
-      else {
-        ctx.moveTo(bx+rad,by); ctx.lineTo(bx+bw-rad,by); ctx.arcTo(bx+bw,by,bx+bw,by+rad,rad);
-        ctx.lineTo(bx+bw,by+bh-rad); ctx.arcTo(bx+bw,by+bh,bx+bw-rad,by+bh,rad);
-        ctx.lineTo(bx+rad,by+bh); ctx.arcTo(bx,by+bh,bx,by+bh-rad,rad);
-        ctx.lineTo(bx,by+rad); ctx.arcTo(bx,by,bx+rad,by,rad);
+      // S339 (Mark): per-text BACKGROUND. Committed text shows its chosen bg colour.
+      // Default 'none' (or legacy undefined) → no pill (clean text). A colour → a
+      // translucent rounded backing for readability over busy drawings.
+      var bg = s.bg;
+      if (bg && bg !== 'none'){
+        var padX = fontPx*0.28, padY = fontPx*0.20;
+        var maxW = 0;
+        for (var w=0; w<lines.length; w++){ var lw = ctx.measureText(lines[w]).width; if (lw>maxW) maxW=lw; }
+        var bx = p.x*sx - padX;
+        var by = p.y*sy - fontPx - padY;
+        var bw = maxW + padX*2;
+        var bh = (lines.length*lineHpx) + padY*2 - (lineHpx - fontPx);
+        var rad = Math.min(8*avg, bh/2);
+        ctx.save();
+        ctx.fillStyle = this._bgFill(bg);
+        ctx.beginPath();
+        if (ctx.roundRect){ ctx.roundRect(bx, by, bw, bh, rad); }
+        else {
+          ctx.moveTo(bx+rad,by); ctx.lineTo(bx+bw-rad,by); ctx.arcTo(bx+bw,by,bx+bw,by+rad,rad);
+          ctx.lineTo(bx+bw,by+bh-rad); ctx.arcTo(bx+bw,by+bh,bx+bw-rad,by+bh,rad);
+          ctx.lineTo(bx+rad,by+bh); ctx.arcTo(bx,by+bh,bx,by+bh-rad,rad);
+          ctx.lineTo(bx,by+rad); ctx.arcTo(bx,by,bx+rad,by,rad);
+        }
+        ctx.fill();
+        ctx.restore();
       }
-      ctx.fill();
-      ctx.restore();
       // text on top
       ctx.fillStyle = s.color;
       ctx.textBaseline = 'alphabetic';
       for (var i=0;i<lines.length;i++){
         ctx.fillText(lines[i], p.x*sx, p.y*sy + i*lineHpx);
       }
+    },
+    // translucent fill for a bg swatch colour (hex → rgba ~0.72)
+    _bgFill: function(hex){
+      if (!hex || hex==='none') return 'rgba(0,0,0,0)';
+      var h=hex.replace('#',''); if(h.length===3){h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];}
+      var rr=parseInt(h.slice(0,2),16), gg=parseInt(h.slice(2,4),16), bb=parseInt(h.slice(4,6),16);
+      if (isNaN(rr)) return 'rgba(20,18,24,0.72)';
+      return 'rgba('+rr+','+gg+','+bb+',0.78)';
     },
 
 

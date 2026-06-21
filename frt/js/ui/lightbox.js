@@ -57,6 +57,13 @@ import { showConfirm } from '../shared/dialogs.js';
       'overflow:hidden;font-weight:600;font-family:Calibri,sans-serif;line-height:1.25;padding:9px 11px;'+
       'min-width:210px;width:210px;caret-color:#C9476A;border-radius:0 0 8px 8px;}'+
     '.mk-text-chip .mk-text-area::placeholder{color:#a09aa8;font-weight:400;}'+
+    // S339 (Mark): on-photo editable text box (replaces the floating chip). Sits over
+    // the canvas; controls live in the docked text bar. Faint dark backing while
+    // editing (readability); committed bg is drawn on the canvas stroke instead.
+    '.mk-text-box{position:fixed;z-index:10000;min-width:12px;font-weight:600;font-family:Calibri,sans-serif;'+
+      'line-height:1.25;white-space:pre;color:#fff;background:rgba(20,18,24,.55);padding:2px 6px;border-radius:5px;'+
+      'outline:1.5px solid #C9476A;caret-color:#C9476A;-webkit-user-select:text;user-select:text;}'+
+    '.mk-text-box:empty::before{content:attr(data-empty-placeholder);color:#a09aa8;font-weight:400;}'+
     // S339 (Mark): while the lightbox is open, hide the header inspector chip +
     // sign-out so the green "mhe / Sign out" badge stops overlapping the markup
     // ✓/✗ confirm bar. Auto-restores on close (body.lb-open is removed there).
@@ -299,6 +306,113 @@ function _buildMarkupBar(overlay){
   bar.appendChild(row1); bar.appendChild(rdiv); bar.appendChild(row2);
   overlay.appendChild(bar);
   _markupBar = bar;
+
+  // ===== S339 (Mark): docked TEXT bar — swaps in over the tool bar while editing a
+  // text mark. On-photo box (engine) + this bar (size − N +, text-colour A glyph,
+  // bg-colour glyph w/ none, ↵, ✕, ✓). Full drawing-viewer palette. Auto-unarms text
+  // after a box is finished. Sticky colours live on the engine (_lastTextColor/Bg).
+  var TEXT_PALETTE = ['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'];
+  var _RET='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+  var _XS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  var _OK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6"/></svg>';
+  var _NONEX='<svg viewBox="0 0 24 24" width="100%" height="100%"><line x1="4" y1="20" x2="20" y2="4" stroke="#e23" stroke-width="2.6"/></svg>';
+  var textBar=document.createElement('div'); textBar.id='lb-text-bar';
+  textBar.style.cssText='position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:none;'+
+    'align-items:center;gap:4px;padding:7px 9px;background:rgba(20,20,28,.96);border:1.5px solid #C9476A;'+
+    'border-radius:14px;z-index:13;box-shadow:0 6px 20px rgba(0,0,0,.55);max-width:calc(100vw - 16px);'+
+    'box-sizing:border-box;flex-wrap:nowrap;';
+  textBar.innerHTML=
+    '<button type="button" class="tb-dec" style="width:34px;height:40px;border:none;background:transparent;color:#f4f3f6;font:700 20px Calibri;border-radius:8px;cursor:pointer;">\u2212</button>'+
+    '<div class="tb-sizeval" style="min-width:26px;text-align:center;font:13px Calibri;color:#a09aa8;font-variant-numeric:tabular-nums;">20</div>'+
+    '<button type="button" class="tb-inc" style="width:34px;height:40px;border:none;background:transparent;color:#f4f3f6;font:700 20px Calibri;border-radius:8px;cursor:pointer;">+</button>'+
+    '<div style="width:1px;height:28px;background:rgba(255,255,255,.14);margin:0 2px;"></div>'+
+    '<button type="button" class="tb-textcol" title="Text colour" style="width:40px;height:40px;border:none;background:transparent;border-radius:8px;cursor:pointer;position:relative;">'+
+      '<span style="font:800 19px Calibri;color:#A85959;" class="tb-A">A</span>'+
+      '<span class="tb-Ustrip" style="position:absolute;bottom:5px;left:9px;right:9px;height:3px;border-radius:2px;background:#A85959;"></span></button>'+
+    '<button type="button" class="tb-bgcol" title="Background colour" style="width:40px;height:40px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">'+
+      '<span class="tb-bgglyph" style="width:22px;height:18px;border-radius:3px;border:1.5px solid rgba(255,255,255,.5);position:relative;overflow:hidden;display:block;"></span></button>'+
+    '<button type="button" class="tb-ret" title="New line" style="width:44px;height:40px;border:none;background:transparent;color:#f4f3f6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">'+_RET+'</button>'+
+    '<div style="width:1px;height:28px;background:rgba(255,255,255,.14);margin:0 2px;"></div>'+
+    '<button type="button" class="tb-x" title="Discard" style="width:46px;height:40px;border:none;background:transparent;color:#a09aa8;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">'+_XS+'</button>'+
+    '<button type="button" class="tb-ok" title="Place" style="width:46px;height:40px;border:none;background:#3FD08A;color:#fff;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">'+_OK+'</button>';
+  overlay.appendChild(textBar);
+  // colour popups (built once)
+  function _mkPop(){ var p=document.createElement('div');
+    p.style.cssText='position:absolute;display:none;flex-wrap:wrap;gap:6px;width:160px;padding:8px;'+
+      'background:rgba(34,34,44,.99);border:1px solid rgba(255,255,255,.16);border-radius:12px;'+
+      'box-shadow:0 8px 26px rgba(0,0,0,.6);z-index:27;';
+    overlay.appendChild(p); return p; }
+  var textPop=_mkPop(), bgPop=_mkPop();
+  function _swatch(c,isNone){ var s=document.createElement('button'); s.type='button';
+    s.style.cssText='width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.4);cursor:pointer;padding:0;overflow:hidden;';
+    if(isNone){ s.style.background='#2a2a32'; s.innerHTML=_NONEX; } else { s.style.background=c; }
+    return s; }
+  function _tcloseTextPops(){ textPop.style.display='none'; bgPop.style.display='none'; }
+  function _posPop(pop, btn){ var br=btn.getBoundingClientRect(), o=overlay.getBoundingClientRect();
+    pop.style.left=Math.max(6,(br.left-o.left)+br.width/2-80)+'px'; pop.style.bottom=(o.bottom-textBar.getBoundingClientRect().top+8)+'px'; pop.style.right='auto'; }
+
+  var _tc=null; // current text controller
+  function _refreshTextBarGlyphs(){
+    if(!_tc) return;
+    var col=_tc.getColor(), bg=_tc.getBg();
+    textBar.querySelector('.tb-A').style.color=col;
+    textBar.querySelector('.tb-Ustrip').style.background=col;
+    var g=textBar.querySelector('.tb-bgglyph');
+    if(!bg||bg==='none'){ g.style.background='transparent'; g.innerHTML=_NONEX; }
+    else { g.style.background=bg; g.innerHTML=''; }
+    textBar.querySelector('.tb-sizeval').textContent=Math.round(_tc.getSize());
+  }
+  // build palettes
+  TEXT_PALETTE.forEach(function(c){ var s=_swatch(c,false);
+    s.addEventListener('click',function(e){ e.stopPropagation(); if(_tc){_tc.setColor(c); _refreshTextBarGlyphs();} _tcloseTextPops(); });
+    textPop.appendChild(s); });
+  // custom text colour
+  var txCustom=document.createElement('input'); txCustom.type='color'; txCustom.value='#A85959';
+  txCustom.style.cssText='width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;';
+  txCustom.addEventListener('input',function(){ if(_tc){_tc.setColor(txCustom.value); _refreshTextBarGlyphs();} });
+  textPop.appendChild(txCustom);
+  // bg palette: none + full palette + custom
+  var bgNone=_swatch(null,true);
+  bgNone.addEventListener('click',function(e){ e.stopPropagation(); if(_tc){_tc.setBg('none'); _refreshTextBarGlyphs();} _tcloseTextPops(); });
+  bgPop.appendChild(bgNone);
+  TEXT_PALETTE.forEach(function(c){ var s=_swatch(c,false);
+    s.addEventListener('click',function(e){ e.stopPropagation(); if(_tc){_tc.setBg(c); _refreshTextBarGlyphs();} _tcloseTextPops(); });
+    bgPop.appendChild(s); });
+  var bgCustom=document.createElement('input'); bgCustom.type='color'; bgCustom.value='#1C2333';
+  bgCustom.style.cssText='width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;';
+  bgCustom.addEventListener('input',function(){ if(_tc){_tc.setBg(bgCustom.value); _refreshTextBarGlyphs();} });
+  bgPop.appendChild(bgCustom);
+
+  textBar.querySelector('.tb-dec').addEventListener('click',function(e){e.preventDefault(); if(_tc){_tc.stepSize(-1); _refreshTextBarGlyphs();}});
+  textBar.querySelector('.tb-inc').addEventListener('click',function(e){e.preventDefault(); if(_tc){_tc.stepSize(1); _refreshTextBarGlyphs();}});
+  textBar.querySelector('.tb-ret').addEventListener('click',function(e){e.preventDefault(); if(_tc)_tc.insertNewline();});
+  textBar.querySelector('.tb-ok').addEventListener('click',function(e){e.preventDefault(); if(_tc)_tc.commit();});
+  textBar.querySelector('.tb-x').addEventListener('click',function(e){e.preventDefault(); if(_tc)_tc.cancel();});
+  textBar.querySelector('.tb-textcol').addEventListener('click',function(e){e.stopPropagation();
+    var on=textPop.style.display==='flex'; _tcloseTextPops(); if(!on){ _posPop(textPop,this); textPop.style.display='flex'; }});
+  textBar.querySelector('.tb-bgcol').addEventListener('click',function(e){e.stopPropagation();
+    var on=bgPop.style.display==='flex'; _tcloseTextPops(); if(!on){ _posPop(bgPop,this); bgPop.style.display='flex'; }});
+  overlay.addEventListener('click',function(ev){ if(!textBar.contains(ev.target)) _tcloseTextPops(); });
+
+  // engine hooks: show the text bar (hide tool bar) on text start; reverse on end.
+  function _wireTextHooks(){
+    if(!window.MarkupEngine) return;
+    window.MarkupEngine._onTextStart=function(controller){
+      _tc=controller; _refreshTextBarGlyphs();
+      if(_markupBar) _markupBar.style.display='none';
+      textBar.style.display='flex';
+    };
+    window.MarkupEngine._onTextEnd=function(){
+      _tc=null; _tcloseTextPops(); textBar.style.display='none';
+      if(_markupActive && _markupBar) _markupBar.style.display='flex';
+      // S339 auto-unarm: after a text box is finished, drop the Text tool so the
+      // next tap doesn't drop another box. User re-taps T for the next label.
+      if(window.MarkupEngine){ window.MarkupEngine.setTool(''); }
+      clearActive(); _activeBtn=null; _refreshConfirmBar();
+    };
+  }
+  _wireTextHooks();
+
 
   // ===== Pen-group & Shapes-group flyouts =====
   function groupFly(items, anchor){
@@ -881,6 +995,10 @@ document.addEventListener('mouseup', function() {
 // Touch: pinch-to-zoom + swipe + double-tap
 document.addEventListener('touchstart', function(e) {
   if (!_isOpen) return;
+  // S339 (Mark): while a text box is open, freeze pan/zoom — the on-photo box is
+  // screen-fixed, so panning the photo under it would make it drift. Reposition the
+  // photo before or after editing, not during.
+  if (window.MarkupEngine && window.MarkupEngine._textInput) return;
   // S329 (#20/#21/#22, Mark): two-finger gestures ALWAYS pinch-zoom/pan, even with a
   // markup tool active (so you never deactivate the tool to reposition). One finger is
   // blocked here only when markup is active (the engine owns single-finger draw/select);
@@ -935,6 +1053,7 @@ document.addEventListener('touchstart', function(e) {
 
 document.addEventListener('touchmove', function(e) {
   if (!_isOpen) return;
+  if (window.MarkupEngine && window.MarkupEngine._textInput) return;  // S339: freeze pan/zoom while text box open
   if (_markupActive && e.touches.length < 2) return;  // S329: 2-finger pinch/pan ok during markup; 1-finger = draw
   var area = _el('lb-canvas');
   if (!area || !area.contains(e.target)) return;
