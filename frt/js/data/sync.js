@@ -111,6 +111,55 @@ var _emptyArrayGuardFires = 0;
 var _emptyArrayGuardLog = [];
 var _GUARDED_ARRAY_FIELDS = ['drawings', 'photos', 'contractors', 'sitePhotos'];
 
+// ── B1 (S339+): photo badge stamp for Hub read-through ──────────────
+// Stamps each photo with badgeText + badgeType so the Hub can render the
+// SAME badge FRT shows, by reading these fields verbatim (Hub never derives).
+// Logic ported from photos.js gallery records builder. Runs on the push
+// CLONE only. Pool+selection model: photos live in d.photos; each obs has
+// photoSelection (id array) or null (= whole pool).
+function _stampPhotoBadges(data) {
+  if (!data) return;
+  function _typeFromCtx(defic, o, isSiteRecordPin) {
+    if (o && o.addressed) return 'closed';
+    if (o && o.isRecommendation) return 'recommendations';
+    if (isSiteRecordPin) return 'site';
+    var pri = (o && o.priority) || (defic && defic.priority) || 'high';
+    return (pri === 'low' || pri === 'general') ? 'low' : 'high';
+  }
+  function _stampDefic(defic, contractorId) {
+    if (!defic) return;
+    var isSiteRecordPin = (contractorId == null);
+    var pool = Array.isArray(defic.photos) ? defic.photos : [];
+    var byId = {};
+    pool.forEach(function(p) { if (p && p.id != null) byId[p.id] = p; });
+    var allIds = pool.map(function(p) { return p && p.id; });
+    (defic.observations || []).forEach(function(o, oi) {
+      var btype = _typeFromCtx(defic, o, isSiteRecordPin);
+      var label = 'Obs ' + defic.num + String.fromCharCode(65 + oi);
+      var ids = Array.isArray(o.photoSelection) ? o.photoSelection : allIds;
+      ids.forEach(function(id) {
+        var ph = byId[id];
+        if (ph) { ph.badgeText = label; ph.badgeType = btype; }
+      });
+    });
+    // Pool photos not referenced by any obs (rare) — give a defic-level badge.
+    pool.forEach(function(ph) {
+      if (ph && !ph.badgeText) {
+        ph.badgeText = 'Obs ' + defic.num;
+        ph.badgeType = _typeFromCtx(defic, null, isSiteRecordPin);
+      }
+    });
+  }
+  (data.contractors || []).forEach(function(c) {
+    (c.deficiencies || []).forEach(function(d) { _stampDefic(d, c.id); });
+  });
+  (data.generalDeficiencies || []).forEach(function(d) { _stampDefic(d, null); });
+  (data.sitePhotos || []).forEach(function(ph) {
+    if (ph) { ph.badgeText = 'Site'; ph.badgeType = 'site'; }
+  });
+}
+
+
 // S189 V-2 — Array-shrinkage clobber guard. Extends the S126 Phase C empty-
 // array guard to catch the cloud-shorter-than-local case: cloud delivers an
 // array that is a STRICT SUBSET (by id) of the local array.
@@ -633,6 +682,13 @@ export var SyncEngine = {
     // initial Promise rather than a sync prelude.
     return SyncWorkerHost.serializePush(proj).then(function(serialized) {
       var data = serialized.strippedData;
+
+      // ── B1 (S339+): stamp photo badges for Hub read-through ──
+      // The Hub renders badges by READING these fields verbatim (it never
+      // derives). We stamp on the push clone only — never the live model.
+      // Ported from photos.js gallery badge logic (pool+selection model).
+      // Additive + guarded so it can never break a push.
+      try { _stampPhotoBadges(data); } catch (e) { console.warn('[Sync] photo badge stamp skipped:', e); }
 
       // ── S171 Fix A: strip outbox-originated photos that aren't ready ──
       // Per D7: only strip photos that originated in the LOCAL outbox.
