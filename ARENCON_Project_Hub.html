@@ -852,15 +852,15 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
 .view-cards .band-body.hidden,.view-compact .band-body.hidden,.view-list .band-body.hidden{display:none !important;}
 /* starred cards: no status badge (always active, redundant on the top shortcut) */
 #starred-section .project-badge{display:none !important;}
-/* starred card footer — three stable rows so nothing gets pushed:
-   client · [avatar pinned right] · pills · backup. Avatar never moves when pills grow. */
-#starred-section .project-card{display:flex;flex-direction:column;gap:6px;}
-#starred-section .project-card-client{order:2;}
-#starred-section .project-card-row{order:3;display:flex;align-items:center;margin:0;padding:0;background:none;min-height:0;}
+/* Compact starred card matching the demo: tight padding, avatar pinned top-right,
+   pills row + backup line at the bottom. Avatar is absolute so pills never push it. */
+#starred-section .project-card{display:flex;flex-direction:column;gap:6px;padding:13px 15px 12px;position:relative;}
+#starred-section .project-card-client{order:2;margin:0;}
+#starred-section .project-card-row{position:absolute;top:13px;right:15px;margin:0;padding:0;background:none;min-height:0;}
 #starred-section .project-card-row .project-badge,
 #starred-section .project-card-row .project-card-date,
-#starred-section .project-card-row .project-card-pm{display:none;}
-#starred-section .project-card-row .project-card-pm-av{margin-left:auto;}
+#starred-section .project-card-row .project-card-pm{display:none !important;}
+#starred-section .project-card-row .project-card-pm-av{margin:0;}
 #starred-section .project-card-bottom{order:4;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;}
 #starred-section .project-card-bottom .backup-status{flex-basis:100%;margin:2px 0 0;font-size:calc(10.5px + var(--ts));}
 
@@ -1622,21 +1622,42 @@ let _userInitials = {};    // {userId: initials} — from profiles.initials (Adm
 // ── PM avatar colours — system-assigned, palette A (muted) ──
 // Active PMs get a curated muted colour; everyone else neutral grey.
 // Colour is keyed off the user's INITIALS so it's stable regardless of name edits.
-// Avatar palette — NO red/rose/magenta/orange (red reserved for deficiencies); none match the 6 tool hues.
-// 18 distinct [light, dark] pairs. Dark variants are bright for legibility.
+// Avatar palette — NO red/orange (reserved); kept clear of the 6 tool hues
+// (FRT indigo, DFP amber, EFP cyan, IST teal, OBC green, DD violet).
+// Hues used: brown, slate, navy, pink-free berry-free... using earthy/cool tones distinct from tools.
+// 18 distinct [light, dark] pairs; dark variants bright for legibility.
 var _PM_PALETTE = [
-  ['#00695C','#5FD0BE'],['#1565C0','#74C0FF'],['#5D4037','#BBA296'],['#455A64','#A7BCC6'],
-  ['#2E7D32','#92D996'],['#00838F','#5FDCE8'],['#283593','#90A0E0'],['#827717','#D2DC55'],
-  ['#4E342E','#A98D81'],['#006064','#46D6E6'],['#33691E','#AEDC7C'],['#1A237E','#7C8BE0'],
-  ['#00897B','#56D0C0'],['#37474F','#90A4AE'],['#558B2F','#BCE095'],['#0277BD','#62CBFA'],
-  ['#5E35B1','#B49CE0'],['#616161','#C8C8C8']
+  ['#5D4037','#C5A697'], // brown
+  ['#455A64','#A7BCC6'], // slate
+  ['#4527A0','#9A86E0'], // deep purple-blue (distinct from FRT indigo + DD violet)
+  ['#827717','#D2DC55'], // olive-lime
+  ['#4E342E','#B59A8F'], // espresso
+  ['#37474F','#8FA6B2'], // gunmetal
+  ['#1A237E','#8C9BEB'], // navy (darker/bluer than FRT)
+  ['#33691E','#A8D77C'], // moss (yellow-green, distinct from OBC forest)
+  ['#3E2723','#A98274'], // dark cocoa
+  ['#546E7A','#B0C4CE'], // steel blue-grey
+  ['#6A4C93','#C0A0E8'], // grape (distinct from DD violet by being redder-purple... keep cool)
+  ['#264653','#7FA8B5'], // dark slate teal-grey
+  ['#5D4E6D','#B6A4C9'], // mauve-grey
+  ['#616161','#C8C8C8'], // graphite
+  ['#795548','#C8A99B'], // taupe-brown
+  ['#283593','#8E9CE6'], // indigo-navy
+  ['#424242','#ABABAB'], // charcoal
+  ['#4A6572','#9DB2BC']  // payne grey
 ];
+var _pmIndexMap = null;
+function _buildPmIndex(){
+  _pmIndexMap = {};
+  var ids = Object.keys(_userInitials).sort();
+  ids.forEach(function(id, i){ _pmIndexMap[id] = i % _PM_PALETTE.length; });
+}
 function _pmColour(userId) {
   var ini = _userInitials[userId];
   if (!ini) return ['#888','#aaa'];
-  var h = 0;
-  for (var i = 0; i < ini.length; i++) h = (h * 31 + ini.charCodeAt(i)) >>> 0;
-  return _PM_PALETTE[h % _PM_PALETTE.length];
+  if (!_pmIndexMap || !(userId in _pmIndexMap)) _buildPmIndex();
+  var idx = (userId in _pmIndexMap) ? _pmIndexMap[userId] : 0;
+  return _PM_PALETTE[idx];
 }
 function _pmAvatar(userId) {
   var ini = _userInitials[userId];
@@ -2057,6 +2078,7 @@ async function loadUserMap() {
     var rows = await _sb.from('profiles').select('id,full_name,email,initials').execute();
     _userMap = {};
     _userInitials = {};
+    _pmIndexMap = null;
     if (rows && rows.length) {
       rows.forEach(function(u) {
         _userMap[u.id] = u.full_name || u.email || '—';
