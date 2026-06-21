@@ -4708,6 +4708,42 @@ var _pgLbList = [];         // lightbox-visible photo list
 
 var R2_WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
 
+// Shared R2 fetch with UUID↔slug folder-swap fallback. Returns a Promise that
+// resolves to an object-URL string, or rejects if the photo truly can't load.
+// Used by BOTH the thumbnail loader and the lightbox so they behave identically
+// (the lightbox previously lacked the 404 fallback → Diesel R2 photos failed).
+function _pgFetchR2Blob(src) {
+  if (!src) return Promise.reject(new Error('no src'));
+  if (src.indexOf(R2_WORKER) !== 0) {
+    // data: URL or other direct src — usable as-is
+    return Promise.resolve(src);
+  }
+  return fetch(src).then(function(r) {
+    if (!r.ok) {
+      if (r.status === 404) {
+        var pathAfter = src.substring(R2_WORKER.length);
+        var parts = pathAfter.split('/'); // ['','photos','{folder}','{tool}','{type}','{fname}']
+        if (parts.length >= 6 && parts[1] === 'photos' && _detailProjectId) {
+          var usedFolder = decodeURIComponent(parts[2]);
+          var proj = _projects ? _projects.find(function(p){ return p.id === _detailProjectId; }) : null;
+          var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
+          var tryFolder = (usedFolder === slug) ? _detailProjectId
+                          : (usedFolder === _detailProjectId && slug) ? slug : null;
+          if (tryFolder && tryFolder !== usedFolder) {
+            parts[2] = encodeURIComponent(tryFolder);
+            var altUrl = R2_WORKER + parts.join('/');
+            return fetch(altUrl).then(function(r2){ if (!r2.ok) throw new Error(r2.status); return r2.blob(); });
+          }
+        }
+      }
+      throw new Error(r.status);
+    }
+    return r.blob();
+  }).then(function(blob){
+    return (typeof blob === 'string') ? blob : URL.createObjectURL(blob);
+  });
+}
+
 function _pgMakeR2FolderSlug(pn, pname) {
   var raw = ((pn || '') + (pname ? ' ' + pname : '')).trim();
   if (!raw) return null;
@@ -5600,14 +5636,11 @@ function _pgLbShow() {
   var info = document.getElementById('pg-lb-info');
   if (!img) return;
   img.src = '';
-  if (ph.src.indexOf(R2_WORKER) === 0) {
-    fetch(ph.src)
-      .then(function(r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
-      .then(function(blob) { img.src = URL.createObjectURL(blob); })
-      .catch(function() { img.alt = 'Photo not found'; });
-  } else {
-    img.src = ph.src;
-  }
+  img.alt = '';
+  var _wantIdx = _pgLbIdx;
+  _pgFetchR2Blob(ph.src)
+    .then(function(url){ if (_pgLbIdx === _wantIdx) img.src = url; })
+    .catch(function(){ if (_pgLbIdx === _wantIdx) img.alt = 'Photo not found'; });
   if (info) {
     info.textContent = ph.tool + ' · ' + ph.caption + (ph.date ? ' · ' + ph.date.substring(0,10) : '') + '  (' + (_pgLbIdx + 1) + '/' + _pgLbList.length + ')';
   }
