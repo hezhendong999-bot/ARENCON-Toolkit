@@ -170,25 +170,13 @@
         if (self.tool === 'select'){ self._selectDown(p, ev); return; }
         if (self.tool === 'eraser'){ self._eraseAt(p); self._drawing = true; return; }
         if (isShape(self.tool)){
-          // Two-click shape flow.
-          if (!self._shapePending){
-            // First click — drop start point, begin pending shape.
-            self._shapePending = { id:self._uid(), tool:self.tool, color:self.color, size:self.size, opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
-            self._curr = self._shapePending;
-            self.redoStack = [];
-            self._render();
-          } else {
-            // Second click — finalize at this point.
-            self._shapePending.pts[1] = p;
-            var a=self._shapePending.pts[0], b=self._shapePending.pts[1];
-            if ((Math.abs(a.x-b.x) + Math.abs(a.y-b.y)) > 4){
-              self.strokes.push(self._shapePending);
-              if (self._onDirty) self._onDirty();
-            }
-            self._shapePending = null;
-            self._curr = null;
-            self._render();
-          }
+          // S339 — press-drag-release flow (was two-click). Start point on press;
+          // pts[1] tracks the pointer during move; commit on up if dragged past
+          // threshold. Matches pen/freehand and the signed-off demo.
+          self._drawing = true;
+          self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size, opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
+          self.redoStack = [];
+          self._render();
           return;
         }
         // Freehand (pen/highlight) — drag flow.
@@ -207,20 +195,14 @@
           return;
         }
         if (self.tool === 'select'){ if (self._dragState){ ev.preventDefault(); self._selectMove(pt(ev)); } return; }
-        // Two-click shape: live rubber-band preview between the two clicks (mouse).
-        if (self._shapePending){
-          ev.preventDefault();
-          self._shapePending.pts[1] = pt(ev);
-          self._render();
-          return;
-        }
         if (!self._drawing) return;
         ev.preventDefault();
         var p = pt(ev);
         if (self.tool === 'eraser'){ self._eraseAt(p); return; }
         if (!self._curr) return;
         if (isShape(self._curr.tool)){
-          self._curr.pts[1] = p; // (legacy path — unused for shapes now, kept defensive)
+          // S339 — drag updates the second corner; render live rubber-band preview.
+          self._curr.pts[1] = p;
           self._render();
           return;
         }
@@ -231,8 +213,6 @@
       }
       function up(){
         if (self.tool === 'select'){ if (self._dragState) self._selectUp(); return; }
-        // Two-click shapes do NOT commit on pointerup — they commit on the 2nd click.
-        if (self._shapePending) return;
         if (!self._drawing) return;
         self._drawing = false;
         if (self._curr){
