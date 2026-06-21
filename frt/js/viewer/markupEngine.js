@@ -163,6 +163,11 @@
           return;
         }
         var p = pt(ev);
+        // S339 (Mark): if a text chip is already open, swallow ALL canvas presses —
+        // tapping empty space must NOT drop a second chip or discard the text in the
+        // open one (fat-finger fix). The only ways out are the chip's ✓ (commit) or
+        // ✕ (discard). This also lets the user pan/zoom while the chip stays alive.
+        if (self._textInput){ ev.preventDefault(); return; }
         // S339 (Mark): double-tap (touch) / double-click (mouse) on a text mark opens
         // it in the edit chip — change words, size, reposition. Works regardless of the
         // armed tool. Detect a 2nd press near the 1st within 320ms, hit-test text marks
