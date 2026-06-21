@@ -137,7 +137,8 @@ body.dark-mode .band-chip{background:var(--card)}
 .band-header{display:flex;align-items:center;gap:10px;margin:14px 0 10px;cursor:pointer;user-select:none;padding:0 24px}
 .band-caret{font-size:calc(10px + var(--ts));color:var(--silver);transition:transform .15s;width:12px;flex:none}
 .band-header.collapsed .band-caret{transform:rotate(-90deg)}
-.band-num{font-family:'Cascadia Code',Consolas,monospace;font-size:calc(11.5px + var(--ts));font-weight:700;color:var(--arencon);border:1.5px solid var(--arencon);border-radius:7px;padding:3px 9px;background:var(--arencon-glow)}
+.band-num{font-family:'Cascadia Code',Consolas,monospace;font-size:calc(11.5px + var(--ts));font-weight:700;color:var(--steel);border:none;border-radius:0;padding:0;background:none;display:inline-flex;align-items:center;gap:8px}
+.band-num::before{content:'';width:3px;height:14px;border-radius:2px;background:var(--arencon);flex:none}
 .band-label{font-size:calc(10.5px + var(--ts));color:var(--silver);text-transform:uppercase;letter-spacing:1px}
 .band-rule{flex:1;height:1px;background:var(--border)}
 .band-count{font-size:calc(10.5px + var(--ts));color:var(--silver)}
@@ -166,13 +167,14 @@ body.dark-mode .band-chip{background:var(--card)}
 /* number + client + name read left-to-right */
 .view-list .project-card-top{display:contents}
 .view-list .project-card-number{order:2;flex:none;min-width:74px;font-size:calc(14px + var(--ts))}
-.view-list .project-card-client{order:3;margin:0;flex:none;min-width:120px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13px + var(--ts));color:var(--fg);font-weight:600}
-.view-list .project-card-name{order:4;flex:1;min-width:140px;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13.5px + var(--ts))}
+.view-list .project-card-client{order:3;margin:0;flex:none;width:200px;min-width:200px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11.5px + var(--ts));color:var(--steel);font-weight:500;text-transform:uppercase;letter-spacing:.3px}
+.view-list .project-card-number{order:2;flex:none;width:74px;min-width:74px;font-size:calc(14px + var(--ts))}
+.view-list .project-card-name{order:4;flex:1;min-width:140px;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13.5px + var(--ts));font-weight:700;color:var(--fg)}
 .view-list .project-card-date{display:none}
 /* status strip → just the avatar (no Active pill, no date) */
-.view-list .project-card-row{order:8;margin:0;flex:none;display:flex;align-items:center;gap:0;background:none;padding:0}
+.view-list .project-card-row{order:8;margin:0;flex:none;width:36px;min-width:36px;display:flex;align-items:center;justify-content:flex-end;gap:0;background:none;padding:0}
 .view-list .project-card-row .project-badge,.view-list .project-card-row .project-card-date,.view-list .project-card-row .project-card-pm{display:none}
-.view-list .pm-avatar{width:30px;height:30px;font-size:calc(11px + var(--ts));font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);border-color:rgba(255,255,255,.28)}
+.view-list .pm-avatar{width:30px;height:30px;font-size:calc(11px + var(--ts))}
 /* Fixed-slot tool columns: each tool keeps a reserved column so pills line up vertically. */
 .view-list .project-card-bottom{order:7;margin:0;flex:none;display:grid;grid-template-columns:repeat(6,54px) 92px;gap:6px;align-items:center}
 .view-list .project-card-bottom .tool-pill{width:100%;justify-content:center;margin:0;font-size:calc(11px + var(--ts))}
@@ -260,7 +262,10 @@ body.bold .view-list .project-card::after{display:none !important}
 .project-card-date{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:500}
 .project-card-pm{font-size:calc(10px + var(--ts));color:var(--steel);font-weight:500;margin-left:auto}
 .project-card-pm-av{margin-left:auto;display:inline-flex}
-.pm-avatar{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:calc(9.5px + var(--ts));font-weight:700;color:#fff;letter-spacing:.2px;border:1.5px solid rgba(255,255,255,.2);box-shadow:0 1px 3px rgba(0,0,0,.2);flex:none}
+.pm-avatar{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:calc(9.5px + var(--ts));font-weight:800;letter-spacing:-.2px;flex:none;
+  color:var(--avc,#888);
+  background:color-mix(in srgb,var(--avc,#888) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--avc,#888) 38%,transparent)}
 /* Card bottom: tool icons + progress + backup */
 .project-card-bottom{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .tool-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 7px 2px 4px;border-radius:10px;font-size:calc(10px + var(--ts));font-weight:700;color:white;letter-spacing:.3px;line-height:1.5;cursor:default}
@@ -847,6 +852,17 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
 .view-cards .band-body.hidden,.view-compact .band-body.hidden,.view-list .band-body.hidden{display:none !important;}
 /* starred cards: no status badge (always active, redundant on the top shortcut) */
 #starred-section .project-badge{display:none !important;}
+/* starred card footer — three stable rows so nothing gets pushed:
+   client · [avatar pinned right] · pills · backup. Avatar never moves when pills grow. */
+#starred-section .project-card{display:flex;flex-direction:column;gap:6px;}
+#starred-section .project-card-client{order:2;}
+#starred-section .project-card-row{order:3;display:flex;align-items:center;margin:0;padding:0;background:none;min-height:0;}
+#starred-section .project-card-row .project-badge,
+#starred-section .project-card-row .project-card-date,
+#starred-section .project-card-row .project-card-pm{display:none;}
+#starred-section .project-card-row .project-card-pm-av{margin-left:auto;}
+#starred-section .project-card-bottom{order:4;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;}
+#starred-section .project-card-bottom .backup-status{flex-basis:100%;margin:2px 0 0;font-size:calc(10.5px + var(--ts));}
 
 /* ── Demo tinted pills (tool pills + progress chips) ── */
 /* Demo semantic colours */
@@ -1606,10 +1622,18 @@ let _userInitials = {};    // {userId: initials} — from profiles.initials (Adm
 // ── PM avatar colours — system-assigned, palette A (muted) ──
 // Active PMs get a curated muted colour; everyone else neutral grey.
 // Colour is keyed off the user's INITIALS so it's stable regardless of name edits.
-var _PM_PALETTE = ['#9C2742','#2C7FB8','#3E8E6E','#C98A4A','#6E4FA0','#347B7B','#B5694E','#4F7AA0'];
+// Avatar palette — NO red/rose/magenta/orange (red reserved for deficiencies); none match the 6 tool hues.
+// 18 distinct [light, dark] pairs. Dark variants are bright for legibility.
+var _PM_PALETTE = [
+  ['#00695C','#5FD0BE'],['#1565C0','#74C0FF'],['#5D4037','#BBA296'],['#455A64','#A7BCC6'],
+  ['#2E7D32','#92D996'],['#00838F','#5FDCE8'],['#283593','#90A0E0'],['#827717','#D2DC55'],
+  ['#4E342E','#A98D81'],['#006064','#46D6E6'],['#33691E','#AEDC7C'],['#1A237E','#7C8BE0'],
+  ['#00897B','#56D0C0'],['#37474F','#90A4AE'],['#558B2F','#BCE095'],['#0277BD','#62CBFA'],
+  ['#5E35B1','#B49CE0'],['#616161','#C8C8C8']
+];
 function _pmColour(userId) {
   var ini = _userInitials[userId];
-  if (!ini) return 'var(--silver)';
+  if (!ini) return ['#888','#aaa'];
   var h = 0;
   for (var i = 0; i < ini.length; i++) h = (h * 31 + ini.charCodeAt(i)) >>> 0;
   return _PM_PALETTE[h % _PM_PALETTE.length];
@@ -1617,7 +1641,10 @@ function _pmColour(userId) {
 function _pmAvatar(userId) {
   var ini = _userInitials[userId];
   if (!ini) return '';
-  return '<span class="pm-avatar" style="background:' + _pmColour(userId) + '" title="' + esc(_userMap[userId] || '') + '">' + esc(ini) + '</span>';
+  var pair = _pmColour(userId);
+  var dark = document.body.classList.contains('dark-mode');
+  var c = dark ? pair[1] : pair[0];
+  return '<span class="pm-avatar" style="--avc:' + c + '" title="' + esc(_userMap[userId] || '') + '">' + esc(ini) + '</span>';
 }
 let _filterMode = 'my';   // 'my' or 'all' or 'starred'
 let _showArchived = false;
@@ -4385,6 +4412,7 @@ function applyDark(on) {
   if (btnDark) btnDark.textContent = label;
   const mobLabel = document.getElementById('mob-dark-label');
   if (mobLabel) mobLabel.textContent = (on ? '🌙' : '☀️') + ' Dark Mode';
+  if (typeof renderProjects === 'function' && _projects && _projects.length) { try { renderProjects(); } catch(e){} }
 }
 
 /* ═══ Text Size Toggle — S/M/L ═══ */
