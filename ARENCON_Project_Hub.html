@@ -720,10 +720,9 @@ body.dark-mode .pg-tool-body{background:#151920;}
 .pg-thumb-cb{position:absolute;top:4px;left:4px;accent-color:#9C2742;width:22px;height:22px;cursor:pointer;transition:opacity .15s;}
 .pg-thumb.selected .pg-thumb-cb{opacity:1;}
 .pg-r2-icon{position:absolute;bottom:4px;left:4px;font-size:calc(10px + var(--ts));filter:drop-shadow(0 0 2px rgba(0,0,0,.5));}
-.pg-thumb-del{position:absolute;top:4px;right:4px;background:rgba(220,38,38,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:13px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
 .pg-thumb-dl{position:absolute;bottom:4px;right:4px;background:rgba(26,122,74,.85);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:12px;line-height:26px;text-align:center;cursor:pointer;z-index:3;opacity:0;transition:opacity .15s;padding:0;}
-.pg-thumb:hover .pg-thumb-del,.pg-thumb:hover .pg-thumb-dl{opacity:1;}
-.pg-thumb-del:hover{background:#DC2626;transform:scale(1.1);}
+.pg-thumb:hover .pg-thumb-dl{opacity:1;}
+@media (pointer:coarse){.pg-thumb-dl{opacity:1;}}
 .pg-thumb-dl:hover{background:#1A7A4A;transform:scale(1.1);}
 /* Lightbox */
 #pg-lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:20000;flex-direction:column;align-items:center;justify-content:center;}
@@ -5155,11 +5154,10 @@ function _pgRender() {
         var r2Icon = isR2 ? '<span class="pg-r2-icon" title="Stored in cloud">☁️</span>' : '';
 
         html += '<div class="pg-thumb' + (sel ? ' selected' : '') + '" data-pg-id="' + ph.id + '" '
-              + 'onclick="pgThumbClick(\'' + ph.id + '\',event)" ondblclick="pgLbOpen(\'' + ph.id + '\')">';
+              + 'onclick="pgLbOpen(\'' + ph.id + '\')">';
         html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\',event)">';
         html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" style="background:#ddd;">';
         html += '<div class="pg-thumb-badge" style="color:#fff;background:' + badgeHue + ';border-color:' + badgeHue + ';">' + _pgEscHtml(badgeLabel) + '</div>';
-        html += '<button class="pg-thumb-del" onclick="event.stopPropagation();pgDeleteOne(\'' + ph.id + '\')" title="Delete">🗑</button>';
         html += '<button class="pg-thumb-dl" onclick="event.stopPropagation();pgDownloadOne(\'' + ph.id + '\')" title="Download">⬇</button>';
         html += r2Icon;
         html += '</div>';
