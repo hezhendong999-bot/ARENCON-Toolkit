@@ -587,7 +587,15 @@ function _applyTransform() {
     var mc = window.MarkupEngine.canvas;
     var k = (_fitScale ? (_scale / _fitScale) : 1);
     mc.style.transformOrigin = '0 0';
-    mc.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY) + 'px,0) rotate(' + rot + 'deg) scale(' + k + ')';
+    // S339 FIX (mobile drift): the canvas carries its own CSS left/top from _sync
+    // (the image's letterbox offset within the host). The wrap has no such CSS offset
+    // (left:0/top:0) and positions purely via transform. Mirroring the SAME translate
+    // onto the canvas double-counts that offset (a constant ~106px on letterboxed
+    // portrait photos; ~0 on desktop, which is why it only showed on mobile). Subtract
+    // the canvas's own CSS left/top so the two align at every zoom.
+    var _cl = parseFloat(mc.style.left) || 0;
+    var _ct = parseFloat(mc.style.top) || 0;
+    mc.style.transform = 'translate3d(' + (_panX + offX - _cl) + 'px,' + (_panY + offY - _ct) + 'px,0) rotate(' + rot + 'deg) scale(' + k + ')';
     // S339 [ZoomDiag] — temporary: mobile-only markup drift on zoom. Logs the numbers
     // needed to locate the divergence (DPR, fit box, wrap vs canvas rects, transforms).
     if (window._ZOOMDIAG){
