@@ -15597,6 +15597,13 @@ function _salvagePlacardJson(payload){
 // payload is within limits. Resolves to a {data,media_type} object; on any
 // failure it returns the original unchanged (never blocks the scan).
 function _downscaleForVision(img){
+  // Vision API accepts ONLY image/jpeg|png|gif|webp. A photo whose media_type is
+  // 'image/jpg' (note: NOT a real MIME type) or 'application/octet-stream' — which
+  // is exactly what an R2-fetched blob can resolve to — is rejected by the worker
+  // with a bare HTTP 400. This is why a reloaded 3pt placard (bytes from R2, bad
+  // media_type) 400'd at 1 image / 90KB while a freshly-captured 7pt (clean
+  // image/jpeg from the camera) passed. Normalize the type; re-encode if needed.
+  function _validType(t){ return /^image\/(jpeg|png|gif|webp)$/i.test(t||''); }
   return new Promise(function(resolve){
     try{
       if(!img || !img.data){ resolve(img); return; }
@@ -15607,8 +15614,8 @@ function _downscaleForVision(img){
           var w=im.naturalWidth||im.width, h=im.naturalHeight||im.height;
           if(!w||!h){ resolve(img); return; }
           var scale=Math.min(1, MAX/Math.max(w,h));
-          // if it's already small enough AND already jpeg, skip re-encoding
-          if(scale>=1 && /jpe?g/i.test(img.media_type||'')){ resolve(img); return; }
+          // skip re-encoding ONLY if already small AND already a VALID image type
+          if(scale>=1 && _validType(img.media_type)){ resolve(img); return; }
           var cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
           var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
           var cx=cv.getContext('2d'); cx.drawImage(im,0,0,cw,ch);
@@ -15619,7 +15626,7 @@ function _downscaleForVision(img){
         }catch(_e){ resolve(img); }
       };
       im.onerror=function(){ resolve(img); };
-      im.src='data:'+(img.media_type||'image/jpeg')+';base64,'+img.data;
+      im.src='data:'+(_validType(img.media_type)?img.media_type:'image/jpeg')+';base64,'+img.data;
     }catch(_e){ resolve(img); }
   });
 }
@@ -15719,7 +15726,7 @@ function _placardScan(btn, mode){
         if(_p){ _why = _p.detail || _p.raw || _p.error || _p.message || ''; }
         if(!_why) _why = err.message || 'connection error';
       }catch(_e){ _why = err.message || 'connection error'; }
-      var _sizes = imgs.map(function(im){ return Math.round((im.data?im.data.length:0)*0.75/1024)+'KB'; }).join(', ');
+      var _sizes = imgs.map(function(im){ return Math.round((im.data?im.data.length:0)*0.75/1024)+'KB/'+(im.media_type||'?'); }).join(', ');
       try{ console.warn('[placard scan] FAIL', {mode:mode, nImgs:imgs.length, sizes:_sizes, why:_why, payload:_p}); }catch(_e){}
       showToast('Scan failed ('+imgs.length+' img · '+_sizes+'): '+String(_why).slice(0,300));
     });
