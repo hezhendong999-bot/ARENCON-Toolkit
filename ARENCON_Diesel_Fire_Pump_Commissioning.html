@@ -460,6 +460,9 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-tile .l{font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);}
 .ev-tile .s{font-size:calc(10px + var(--ts));color:var(--silver);}
 .ev-tile.has-img{border-style:solid;}
+.ev-tile-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:9px;width:100%;padding:0 8px;}
+.ev-tile-btns .pm-b{flex:1 1 auto;min-width:88px;justify-content:center;}
+.np-tile-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;width:100%;padding:0 6px;}
 .ev-tile.has-img img{width:100%;height:128px;object-fit:cover;display:block;cursor:zoom-in;}
 .ev-tile .badge{position:absolute;top:6px;left:6px;background:rgba(28,35,51,.78);color:#fff;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:9px;letter-spacing:.3px;}
 .ev-tile .recap{position:absolute;bottom:6px;right:6px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:10px;font-weight:600;color:var(--steel);padding:3px 8px;cursor:pointer;z-index:8;}
@@ -1325,6 +1328,12 @@ body.dark-mode .photo-zone-compact .pz-upload{background:#4F6B8A!important;color
 body.dark-mode .rec-zone-card{background:var(--b-fieldbg)!important;border-color:var(--border)!important;}
 body.dark-mode .photo-zone-compact .pz-camera{background:#5C7A65!important;border-color:#5C7A65!important;}
 body.dark-mode .ev-tile{background:#1e2028!important;border-color:rgba(255,255,255,.14)!important;}
+/* S369: checklist/ev-tile photo buttons on dark — brighten the three identity
+   colours so they read as deliberate buttons, not muddy blocks on near-black. */
+body.dark-mode .pm-b{box-shadow:0 1px 3px rgba(0,0,0,.4);}
+body.dark-mode .pm-b.cam{background:#6E9178!important;color:#fff!important;}
+body.dark-mode .pm-b.up{background:#6489AE!important;color:#fff!important;}
+body.dark-mode .pm-b.gal{background:#A693A4!important;color:#fff!important;}
 body.dark-mode .ev-tile:hover,body.dark-mode .ev-tile.drag-over{border-color:var(--arencon)!important;background:#241c20!important;}
 body.dark-mode .ev-tile .l{color:#c0c8d8!important;}
 body.dark-mode .ev-tile .s{color:#6a7080!important;}
@@ -15460,8 +15469,13 @@ function _evTileHtml(kind){
     var trig = isPld ? 'triggerFlowTestPhotoPld()' : 'triggerFlowTestPhoto()';
     var drop = isPld ? 'handleFlowTestDropPld(event)' : 'handleFlowTestDrop(event)';
     if(!fp.length){
-      return '<div class="ev-tile" onclick="'+trig+'" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
-        +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
+      var camFn = isPld ? 'triggerFlowTestCameraPld()' : 'triggerFlowTestCamera()';
+      return '<div class="ev-tile" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
+        +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span>'
+        +'<div class="ev-tile-btns">'
+          +'<button class="pm-b cam" onclick="event.stopPropagation();'+camFn+'">📷 Camera</button>'
+          +'<button class="pm-b up" onclick="event.stopPropagation();'+trig+'">📥 Upload</button>'
+        +'</div></div>';
     }
     var fhtml='<div class="ev-grid-card" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">';
     fhtml+='<div class="ev-grid-head">'+def[0]+' '+def[1]+'<span class="ev-grid-n">'+fp.length+'</span></div>';
@@ -15482,8 +15496,13 @@ function _evTileHtml(kind){
   // record-backed kinds (pump / pump-pld / placard / placard-pld)
   var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !_isPhotoDeleted(o.p) && (o.p.kind||'site')===kind;});
   if(!thumbs.length){
-    return '<div class="ev-tile" onclick="_recUpload(\''+kind+'\')" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
-      +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span></div>';
+    return '<div class="ev-tile" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
+      +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span>'
+      +'<div class="ev-tile-btns">'
+        +'<button class="pm-b cam" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷 Camera</button>'
+        +'<button class="pm-b up" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">📥 Upload</button>'
+        +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼 Gallery</button>'
+      +'</div></div>';
   }
   var html='<div class="ev-grid-card" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
   html+='<div class="ev-grid-head">'+def[0]+' '+def[1]+'<span class="ev-grid-n">'+thumbs.length+'</span></div>';
