@@ -237,9 +237,10 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 .pm-divider{height:1px;background:var(--border);margin:10px 0;}
 .pm-divider.hide{display:none;}
 .pm-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:42px;}
-.pm-hint{font-size:calc(12px + var(--ts));color:var(--silver);font-weight:500;flex:1 1 100%;}
-.pm-btns{display:flex;gap:6px;flex:1 1 auto;flex-wrap:wrap;justify-content:flex-end;min-width:0;}
-.pm-b{padding:6px 12px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;border:none;color:#fff;transition:filter .15s;font-family:Calibri,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:5px;background:#4F6B8A;flex:1 1 auto;min-width:96px;white-space:nowrap;}
+.pm-hint{font-size:calc(12px + var(--ts));color:var(--silver);font-weight:500;flex:1 1 140px;min-width:0;}
+.pm-btns{display:flex;gap:7px;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;min-width:0;}
+.pm-b{padding:7px 14px;border-radius:7px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;border:none;color:#fff;transition:filter .15s,transform .1s;font-family:Calibri,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#4F6B8A;white-space:nowrap;line-height:1.2;}
+.pm-b:active{transform:translateY(1px);}
 .pm-b:hover{filter:brightness(1.08);}
 .pm-b.up{background:#4F6B8A;}
 .pm-b.cam{background:#5C7A65;}
@@ -460,9 +461,9 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-tile .l{font-size:calc(12.5px + var(--ts));font-weight:700;color:var(--steel);}
 .ev-tile .s{font-size:calc(10px + var(--ts));color:var(--silver);}
 .ev-tile.has-img{border-style:solid;}
-.ev-tile-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:9px;width:100%;padding:0 8px;}
-.ev-tile-btns .pm-b{flex:1 1 auto;min-width:88px;justify-content:center;}
-.np-tile-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;width:100%;padding:0 6px;}
+.ev-tile-btns{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:11px;padding:0 8px;}
+.ev-tile-btns .pm-b{flex:0 1 auto;}
+.np-tile-btns{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:9px;padding:0 6px;}
 .ev-tile.has-img img{width:100%;height:128px;object-fit:cover;display:block;cursor:zoom-in;}
 .ev-tile .badge{position:absolute;top:6px;left:6px;background:rgba(28,35,51,.78);color:#fff;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:9px;letter-spacing:.3px;}
 .ev-tile .recap{position:absolute;bottom:6px;right:6px;background:rgba(255,255,255,.92);border:none;border-radius:6px;font-size:10px;font-weight:600;color:var(--steel);padding:3px 8px;cursor:pointer;z-index:8;}
@@ -11076,9 +11077,39 @@ function renderChartAnnotations(chartInstance, canvasId) {
   var overlay = document.getElementById(canvasId + '-annotations');
   if(!overlay) return;
   if(!chartAnnotationsVisible[canvasId]) return;
-  overlay.innerHTML = '';
   var chart = chartInstance;
   if(!chart) return;
+  // S369 SELF-HEAL: the PLD (7-point) charts can finish initialising AFTER
+  // hookChartAnnotations() ran, so their update() was never monkey-patched and
+  // their _storedFormatters were never captured — which is why 7pt annotations
+  // silently stopped showing while 3pt (hooked in time) kept working. If this
+  // chart is unhooked, hook it once here so both paths are truly identical.
+  if(!chart._storedFormatters){
+    try{
+      _distinctifyChartColors(chart);
+      chart._storedColors = chart._storedColors || {};
+      chart._storedFormatters = {};
+      chart.data.datasets.forEach(function(ds, di){
+        chart._storedColors[di] = (ds.datalabels && ds.datalabels.color) || ds.borderColor || '#333';
+        chart._storedFormatters[di] = (function(origFmt){
+          return function(val, ctx){
+            if(!val) return '';
+            var t=''; if(origFmt) try{ t=origFmt(val,ctx); }catch(e){}
+            if(t) return t;
+            if(val.x !== undefined && val.y !== undefined) return val.x.toLocaleString()+' gpm\n@ '+val.y+' psi';
+            return val.y ? val.y+' psi' : '';
+          };
+        })(ds.datalabels && ds.datalabels.formatter);
+        if(ds.datalabels) ds.datalabels.display=false;
+      });
+      if(!chart.__origUpdate){
+        var origUpdate = chart.update.bind(chart);
+        chart.__origUpdate = origUpdate;
+        chart.update = function(mode){ origUpdate(mode); setTimeout(function(){ renderChartAnnotations(chart, canvasId); }, 80); };
+      }
+    }catch(_e){}
+  }
+  overlay.innerHTML = '';
   var _annotationPositions = {}; // dedup tracker
   var svgLines = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svgLines.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
