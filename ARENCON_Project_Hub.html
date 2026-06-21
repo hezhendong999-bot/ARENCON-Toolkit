@@ -167,7 +167,7 @@ body.dark-mode .band-chip{background:var(--card)}
 /* number + client + name read left-to-right */
 .view-list .project-card-top{display:contents}
 .view-list .project-card-number{order:2;flex:none;min-width:74px;font-size:calc(14px + var(--ts))}
-.view-list .project-card-client{order:3;margin:0;flex:none;width:200px;min-width:200px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11.5px + var(--ts));color:var(--steel);font-weight:500;text-transform:uppercase;letter-spacing:.3px}
+.view-list .project-card-client{order:3;margin:0;flex:none;width:200px;min-width:200px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11.5px + var(--ts));color:var(--steel);font-weight:500;text-transform:none}
 .view-list .project-card-number{order:2;flex:none;width:74px;min-width:74px;font-size:calc(14px + var(--ts))}
 .view-list .project-card-name{order:4;flex:1;min-width:140px;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13.5px + var(--ts));font-weight:700;color:var(--fg)}
 .view-list .project-card-date{display:none}
@@ -858,7 +858,7 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
 #starred-section .project-card-top{grid-column:1 / -1;}
 #starred-section .project-card-client{grid-column:1 / -1;margin:0;color:var(--steel);font-weight:500;text-transform:none;font-size:calc(12px + var(--ts));}
 #starred-section .project-card-bottom{grid-column:1;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;align-self:center;}
-#starred-section .project-card-bottom .backup-status{flex-basis:100%;margin:3px 0 0;font-size:calc(10.5px + var(--ts));}
+#starred-section .project-card-bottom .backup-status{flex-basis:100%;margin:4px 0 0;padding:0;font-size:calc(10.5px + var(--ts));text-align:left;justify-self:start;}
 #starred-section .project-card-row{grid-column:2;grid-row:3;align-self:start;justify-self:end;margin:0;padding:0;background:none;min-height:0;}
 #starred-section .project-card-row .project-badge,
 #starred-section .project-card-row .project-card-date,
