@@ -190,10 +190,11 @@ function _buildMarkupBar(overlay){
       '<span style="line-height:1.05;">'+name+'<span style="display:block;font-weight:400;font-size:11px;color:#a9a4b2;margin-top:1px;">'+desc+'</span></span>';
     return b;
   }
-  var subSingle=subBtn('single','\u25CE','Single','Tap one mark = select just it');
-  var subRubber=subBtn('rubber','\u25C9','Rubber-band','Drag a box around marks');
+  // S339 (Mark): Single mode removed — Rubber-band already does tap-one-to-select
+  // PLUS drag-a-box, so Single was redundant. Default sub-tool is now Rubber-band.
+  var subRubber=subBtn('rubber','\u25C9','Rubber-band','Tap a mark, or drag a box');
   var subTap   =subBtn('tap','\u2713','Tap select','Tap to pick, then confirm');
-  subFly.appendChild(subSingle); subFly.appendChild(subRubber); subFly.appendChild(subTap);
+  subFly.appendChild(subRubber); subFly.appendChild(subTap);
   overlay.appendChild(subFly);
   // S339 — ✓/✗ confirm bar. ✗ present in ALL select modes when a selection/pick is
   // active (deliberate clear, since empty taps are now sticky); ✓ only in tap mode
@@ -326,9 +327,9 @@ function _buildMarkupBar(overlay){
     else { closeAllFlys(); positionFlyAt(colorFly, colorBtn); colorFly.style.display='flex'; }
   });
   function markSub(sub){
-    [subSingle,subRubber,subTap].forEach(function(b){ b.style.background = (b.dataset.sub===sub)?'#9C2742':'rgba(255,255,255,.06)'; });
+    [subRubber,subTap].forEach(function(b){ b.style.background = (b.dataset.sub===sub)?'#9C2742':'rgba(255,255,255,.06)'; });
   }
-  [subSingle,subRubber,subTap].forEach(function(b){
+  [subRubber,subTap].forEach(function(b){
     b.addEventListener('click',function(e){
       e.stopPropagation();
       if (window.MarkupEngine) window.MarkupEngine.setSelectSub(b.dataset.sub);
@@ -336,7 +337,7 @@ function _buildMarkupBar(overlay){
       closeFly(); _refreshConfirmBar();
     });
   });
-  markSub('single');
+  markSub('rubber');
   // close any flyout on outside tap (mouse + touch)
   function _anyFlyOpen(){ return subFly.style.display==='flex'||penFly.style.display==='flex'||shapeFly.style.display==='flex'||colorFly.style.display==='flex'; }
   function _flyOutside(ev){
@@ -400,7 +401,14 @@ function _buildMarkupBar(overlay){
     });
     inp.addEventListener('blur',function(){ commit(true); });
   });
-  bCl .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.clear();});
+  bCl .addEventListener('click',function(){
+    // S339 (Mark): clear-all is destructive + easy to fat-finger — gate behind the
+    // standard confirm modal (same as Revert), not a bare immediate wipe.
+    if(!window.MarkupEngine) return;
+    showConfirm('Clear all markups?', 'This removes every mark on this photo. This cannot be undone.').then(function(yes){
+      if(yes && window.MarkupEngine){ window.MarkupEngine.clear(); _refreshConfirmBar(); }
+    });
+  });
   bRv .addEventListener('click',_revertMarkup);
   bSv .addEventListener('click',_saveMarkup);
   // default: arm Pen via the Pen-group (shows pen icon, lights group)
@@ -889,11 +897,20 @@ document.addEventListener('touchmove', function(e) {
     if (_touchStartDist === 0) return;
     var ratio = dist / _touchStartDist;
     var newScale = Math.max(_fitScale, Math.min(8, _touchStartScale * ratio));
+    // S339 (Mark): TWO-FINGER PAN FIX. The pan anchor was frozen to the START
+    // midpoint (_touchStartMidX/Y), so dragging both fingers only re-centred the
+    // ZOOM — never translated the view (zoom worked, pan didn't). Use the LIVE
+    // midpoint as the focal point: the image-space point under the start midpoint
+    // (imgX/imgY) is held under the CURRENT midpoint, so moving the fingers moves
+    // the view. Zoom stays centred under the fingers; pan now tracks finger drag.
+    var _r2 = area.getBoundingClientRect();
+    var curMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - _r2.left;
+    var curMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - _r2.top;
     var imgX = (_touchStartMidX - _touchStartPanX) / _touchStartScale;
     var imgY = (_touchStartMidY - _touchStartPanY) / _touchStartScale;
     _scale = newScale;
-    _panX = _touchStartMidX - imgX * newScale;
-    _panY = _touchStartMidY - imgY * newScale;
+    _panX = curMidX - imgX * newScale;
+    _panY = curMidY - imgY * newScale;
     _applyTransform();
   } else if (e.touches.length === 1) {
     if (_swiping) {

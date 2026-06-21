@@ -27,10 +27,12 @@
     _dragState: null,                     // {type:'move'|'resize'|'rotate'|'rubberband', ...}
     _rubberBand: null,                    // {x1,y1,x2,y2} during drag-select
     // S339 — Select sub-tool model (LOCKED_SELECT_DRAW_MODEL_S339). Select is a
-    // tool GROUP: 'single' (default, tap one), 'rubber' (drag-box group), 'tap'
-    // (two-phase pick → ✓ to group). Selection is STICKY in all modes — empty-area
-    // taps/pans never clear; only the ✗ cancel (or picking different marks) clears.
-    _selectSub: 'single',                 // 'single' | 'rubber' | 'tap'
+    // tool GROUP: 'rubber' (default — tap one OR drag-box group), 'tap' (two-phase
+    // pick → ✓ to group). Selection is STICKY in all modes — empty-area taps/pans
+    // never clear; only the ✗ cancel (or picking different marks) clears.
+    // S339 (Mark): 'single' retired from the UI — rubber covers tap-one + drag-box.
+    // Still accepted by setSelectSub for back-compat, but never the default.
+    _selectSub: 'rubber',                 // 'rubber' | 'tap' (legacy: 'single')
     _pickIds: [],                         // tap-mode individual picks (pre-✓ group)
     _onSelChange: null,                   // lightbox callback to refresh ✓/✗ bar chrome
 
@@ -421,7 +423,13 @@
       document.body.appendChild(meas);
       function grow(){ meas.textContent = inp.value || ''; inp.style.width = (meas.offsetWidth + 4) + 'px'; }
 
-      setTimeout(function(){ inp.focus(); }, 0);
+      // S339 (Mark): TEXT TOOL FIX. On iOS the keyboard only rises if .focus() runs
+      // SYNCHRONOUSLY inside the user-gesture handler. The old setTimeout(0) broke
+      // that chain, so the field appeared but stayed un-editable / no keyboard — i.e.
+      // "text does nothing". Focus now fires synchronously; a 2nd focus on the next
+      // frame covers the rare case the field isn't laid out yet on the first call.
+      inp.focus();
+      requestAnimationFrame(function(){ try{ inp.focus(); }catch(_){} });
 
       // logical anchor (may change if dragged)
       var anchor = { x: p.x, y: p.y };

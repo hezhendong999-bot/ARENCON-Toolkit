@@ -19,7 +19,14 @@
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('../sw.js').then(function(reg){
-      setInterval(function(){reg.update();},30*60*1000);
+      setInterval(function(){
+        // reg.update() throws InvalidStateError if the SW is mid-install/activate
+        // (e.g. a new CACHE_NAME still settling). Guard + swallow so a transient
+        // state never surfaces as an uncaught promise rejection. Benign — the next
+        // 30-min tick retries once the worker has settled.
+        try{ var p=reg.update(); if(p&&p.catch){ p.catch(function(){}); } }
+        catch(e){ /* SW not in a state to update yet; ignore */ }
+      },30*60*1000);
     }).catch(function(err){console.warn('[SW] Registration failed:',err);});
   });
 }
@@ -983,7 +990,7 @@ function ensurePdfJs(cb){
 </div>
 
 <!-- ═══ MODULE ENTRY POINT ═══ -->
-<script src="js/viewer/markupEngine.js?v=11"></script>
+<script src="js/viewer/markupEngine.js?v=12"></script>
 <script src="js/viewer/webglMarkup.js?v=8"></script>
 <script src="js/ui/pinsGL.js?v=13"></script>
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,

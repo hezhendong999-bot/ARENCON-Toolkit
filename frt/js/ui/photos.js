@@ -377,6 +377,9 @@ export var initPhotos = {
           // S324 (Mark): always show the obs letter, even on single-obs pins,
           // so every badge is two chars ("1A","2A") and the grid reads uniform
           // (was: letter dropped for single-obs → ragged mix of "2" and "2A").
+          // S339 (Mark): prefix "Obs " so the badge reads "Obs 3A" / "Obs 1B"
+          // rather than a bare "3A". Site badge ("Site") is unchanged; this only
+          // relabels deficiency/observation photos.
           var obsLetter = String.fromCharCode(65 + oi);
           records.push({
             type: 'defic',
@@ -390,7 +393,7 @@ export var initPhotos = {
             photoIdx: phi,
             ph: ph,
             src: (mk && mk.markedR2Key) || ph.r2Url || ph.dataUrl || '',
-            badgeText: '' + defic.num + obsLetter,
+            badgeText: 'Obs ' + defic.num + obsLetter,
             badgeClass: obsBadgeCls,
             badgeCat: _badgeCat,
             dateKey: dk.key, dateLabel: dk.label,
