@@ -259,7 +259,7 @@ function _buildMarkupBar(overlay){
     overlay.appendChild(f); return f;
   }
   var penFly=groupFly([['pen','Pen'],['highlight','Highlighter'],['line','Line'],['arrow','Arrow']], bPenGrp);
-  var shapeFly=groupFly([['rect','Rectangle'],['rect-fill','Filled Rect'],['circle','Circle'],['circle-fill','Filled Circle'],['triangle','Triangle'],['cloud','Cloud']], bShapeGrp);
+  var shapeFly=groupFly([['rect','Rectangle'],['rect-fill','Filled Rect'],['circle','Circle'],['circle-fill','Filled Circle'],['triangle','Triangle']], bShapeGrp);
 
   function setActive(btn){
     [bSel,bPenGrp,bShapeGrp,bTx,bEr].forEach(function(b){ b.style.background='transparent'; b.style.color='#cfd2d6'; });

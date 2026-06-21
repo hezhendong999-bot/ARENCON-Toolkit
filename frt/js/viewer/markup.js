@@ -56,6 +56,7 @@ var _dirty = false;
 // switch, pinch-zoom, or commit. Cursor moves between clicks (mouse only)
 // update a live preview on the overlay canvas.
 var _clickFirstPt = null;
+var _shapeDrag = false;   // S339 — true while a shape is being press-drag-drawn
 
 // S126 #6 — Dimension vertex-edit state. When user taps a committed
 // dimension while NOT in select tool, _dimVertexEditId holds the obj id;
@@ -165,6 +166,7 @@ function _isClickToDrawShape(t) {
 // S126 #5 — Tear down click-to-draw state and clear the overlay preview.
 // Called on Esc, tool-switch, pinch-zoom-start, and after a successful commit.
 function _cancelClickToDraw() {
+  _shapeDrag = false;
   if (!_clickFirstPt) return;
   _clickFirstPt = null;
   var ov = _getOverlay();
@@ -2278,49 +2280,31 @@ function _startDraw(e) {
   // second click commits the shape from A to current cursor.
   if (_isClickToDrawShape(_tool)) {
     var posC = _getPos(e);
-    if (!_clickFirstPt) {
-      // First click — lock A, show dot preview
-      _clickFirstPt = posC;
-      _startX = posC.x; _startY = posC.y;
-      _endX = posC.x; _endY = posC.y;
-      if (TiledPdf.isActive()) TiledPdf.pause();
-      var ovC = _ensureOverlay();
-      if (ovC) {
-        ovC.style.display = 'block';
-        ovC.style.opacity = '1';
-        var cxC = ovC.getContext('2d');
-        var dC = ovC._dpr || 1;
-        cxC.setTransform(1, 0, 0, 1, 0, 0);
-        cxC.clearRect(0, 0, ovC.width, ovC.height);
-        cxC.setTransform(dC, 0, 0, dC, 0, 0);
-        cxC.save();
-        cxC.fillStyle = _color;
-        cxC.globalAlpha = _opacity;
-        cxC.beginPath();
-        cxC.arc(posC.x, posC.y, Math.max(2, _lineWidth / 2), 0, Math.PI * 2);
-        cxC.fill();
-        cxC.restore();
-      }
-      return;
+    // S339 — press-drag-release (was S126 two-click). Down locks point A and arms
+    // a drag; move previews; up commits if dragged past threshold. _shapeDrag tells
+    // the up handler to finalize. Matches the photo engine + the signed-off demo.
+    _clickFirstPt = posC;
+    _shapeDrag = true;
+    _startX = posC.x; _startY = posC.y;
+    _endX = posC.x; _endY = posC.y;
+    if (TiledPdf.isActive()) TiledPdf.pause();
+    var ovC = _ensureOverlay();
+    if (ovC) {
+      ovC.style.display = 'block';
+      ovC.style.opacity = '1';
+      var cxC = ovC.getContext('2d');
+      var dC = ovC._dpr || 1;
+      cxC.setTransform(1, 0, 0, 1, 0, 0);
+      cxC.clearRect(0, 0, ovC.width, ovC.height);
+      cxC.setTransform(dC, 0, 0, dC, 0, 0);
+      cxC.save();
+      cxC.fillStyle = _color;
+      cxC.globalAlpha = _opacity;
+      cxC.beginPath();
+      cxC.arc(posC.x, posC.y, Math.max(2, _lineWidth / 2), 0, Math.PI * 2);
+      cxC.fill();
+      cxC.restore();
     }
-    // Second click — commit shape from A to current cursor
-    var ax = _clickFirstPt.x, ay = _clickFirstPt.y;
-    var bx = posC.x, by = posC.y;
-    // Reject zero-area shapes (accidental double-tap on same spot)
-    var ddx = bx - ax, ddy = by - ay;
-    if (Math.sqrt(ddx * ddx + ddy * ddy) < 3) {
-      _cancelClickToDraw();
-      return;
-    }
-    _objects.push({
-      id: _newId(), type: _tool,
-      x1: ax, y1: ay, x2: bx, y2: by,
-      color: _color, size: _lineWidth, opacity: _opacity
-    });
-    _pushHistory();
-    _cancelClickToDraw();
-    _renderAll();
-    _markDirty();
     return;
   }
 
@@ -2566,7 +2550,25 @@ function _endDraw(e) {
   // commit happens on the SECOND mousedown/touchstart. Just bail. Pen,
   // highlight, and eraser still use drag and continue through the original
   // path below.
-  if (_isClickToDrawShape(_tool)) return;
+  // S339 — press-drag-release shape commit (was: two-click, which returned here).
+  // Down armed _shapeDrag + locked A in _startX/_startY; move tracked _endX/_endY.
+  // Commit on up if the drag has real extent; a stationary tap is ignored (no shape,
+  // no stray marks). Mirrors the photo engine fix.
+  if (_isClickToDrawShape(_tool)) {
+    if (_shapeDrag) {
+      var _sov = _getOverlay();
+      if (_sov) { _sov.style.display='none'; var _sc=_sov.getContext('2d'); _sc.setTransform(1,0,0,1,0,0); _sc.clearRect(0,0,_sov.width,_sov.height); }
+      if (TiledPdf.isActive()) { TiledPdf.resume(); TiledPdf.scheduleRender(); }
+      var _sdx=(typeof _endX==='number')?(_endX-_startX):0, _sdy=(typeof _endY==='number')?(_endY-_startY):0;
+      if (Math.sqrt(_sdx*_sdx + _sdy*_sdy) >= 3) {
+        _objects.push({ id:_newId(), type:_tool, x1:_startX, y1:_startY, x2:_endX, y2:_endY,
+          color:_color, size:_lineWidth, opacity:_opacity });
+        _pushHistory(); _markDirty();
+      }
+      _clickFirstPt = null; _shapeDrag = false; _renderAll();
+    }
+    return;
+  }
 
   if (!_isDrawing) return;
   _isDrawing = false;
