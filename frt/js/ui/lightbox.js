@@ -588,6 +588,28 @@ function _applyTransform() {
     var k = (_fitScale ? (_scale / _fitScale) : 1);
     mc.style.transformOrigin = '0 0';
     mc.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY) + 'px,0) rotate(' + rot + 'deg) scale(' + k + ')';
+    // S339 [ZoomDiag] — temporary: mobile-only markup drift on zoom. Logs the numbers
+    // needed to locate the divergence (DPR, fit box, wrap vs canvas rects, transforms).
+    if (window._ZOOMDIAG){
+      try{
+        var _wrap=document.getElementById('lb-img-wrap')||document.querySelector('.lb-img-wrap');
+        var _img=_wrap?_wrap.querySelector('img'):null;
+        var wr=_wrap?_wrap.getBoundingClientRect():null, ir=_img?_img.getBoundingClientRect():null, cr=mc.getBoundingClientRect();
+        console.log('[ZoomDiag]', JSON.stringify({
+          dpr: window.devicePixelRatio,
+          _scale: _scale, _fitScale: _fitScale, k: k, panX:_panX, panY:_panY, offX:offX, offY:offY, rot:rot,
+          engW: window.MarkupEngine.w, engH: window.MarkupEngine.h,
+          canvasAttrW: mc.width, canvasAttrH: mc.height,
+          canvasCssW: mc.style.width, canvasCssH: mc.style.height,
+          canvasLeft: mc.style.left, canvasTop: mc.style.top,
+          wrapRect: wr?{l:Math.round(wr.left),t:Math.round(wr.top),w:Math.round(wr.width),h:Math.round(wr.height)}:null,
+          imgRect: ir?{l:Math.round(ir.left),t:Math.round(ir.top),w:Math.round(ir.width),h:Math.round(ir.height)}:null,
+          canvasRect: {l:Math.round(cr.left),t:Math.round(cr.top),w:Math.round(cr.width),h:Math.round(cr.height)},
+          wrapTransform: _wrap?_wrap.style.transform:null,
+          canvasTransform: mc.style.transform
+        }));
+      }catch(_e){ console.log('[ZoomDiag] err', _e.message); }
+    }
   }
   _updateZoomIndicator();
 }
