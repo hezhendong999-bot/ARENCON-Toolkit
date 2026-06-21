@@ -163,6 +163,17 @@
           return;
         }
         var p = pt(ev);
+        // S339 (Mark): double-tap (touch) / double-click (mouse) on a text mark opens
+        // it in the edit chip — change words, size, reposition. Works regardless of the
+        // armed tool. Detect a 2nd press near the 1st within 320ms, hit-test text marks
+        // top-down, re-open _textPrompt with that id.
+        var _now = Date.now();
+        if (self._lastTapT && (_now - self._lastTapT) < 320 &&
+            Math.abs(p.x - self._lastTapX) < 6 && Math.abs(p.y - self._lastTapY) < 6){
+          var hitTextId = self._hitTextAt(p);
+          if (hitTextId){ self._lastTapT = 0; ev.preventDefault(); self._textPrompt(p, ev, hitTextId); return; }
+        }
+        self._lastTapT = _now; self._lastTapX = p.x; self._lastTapY = p.y;
         // S339 — no tool armed (tapped active tool to deactivate): swallow the press
         // so a stray tap never draws or selects. Returns before preventDefault, so the
         // gesture stays inert; with no tool there's nothing to draw anyway.
@@ -295,9 +306,10 @@
           if (!(hasNeg&&hasPos)) hit=i;
         } else if (tool === 'text'){
           var tp=s.pts[0];
-          var fontPx=(s.size||3)*4;
-          var w=(s.text||'').length*fontPx*0.55; // rough char width estimate
-          if (p.x >= tp.x-4 && p.x <= tp.x+w+4 && p.y >= tp.y-fontPx-2 && p.y <= tp.y+4) hit=i;
+          var _hm=this._textMetrics(s);
+          var fontPx=_hm.fs;
+          var w=_hm.w; // widest line
+          if (p.x >= tp.x-4 && p.x <= tp.x+w+4 && p.y >= tp.y-fontPx-2 && p.y <= tp.y-fontPx+_hm.h+4) hit=i;
         }
         if (hit >= 0) break;
       }
@@ -385,145 +397,201 @@
     },
 
     // Inline text input overlay — commits on Enter/blur, cancels on Escape
-    // MS-Paint style text tool: editable text at the EXACT click point, live
-    // preview in current colour/size, transparent background (no hatch, no box
-    // fill), Enter or click-outside commits, Escape cancels, draggable while active.
-    _textPrompt: function(p, _createEv){
+    // S339 (Mark): TEXT CHIP. Replaces the old transparent borderless field (which
+    // was invisible in daylight — "text appeared at random"). Now a visible compact
+    // editor: fixed top control row (grab · − size + · ↵ newline · ✕ · ✓) over an
+    // auto-expanding multi-line textarea. ✓ is the only commit (Enter/↵ = newline).
+    // Pass editId to re-open an existing text stroke and update it in place.
+    _SIZE_STEPS: [12,14,16,20,24,28,32,40,48],   // logical px sizes; stored as size = px/4
+    _textPrompt: function(p, _createEv, editId){
       var self = this;
       if (self._textInput) { try { self._textInput.parentNode.removeChild(self._textInput); } catch(_){} self._textInput=null; }
-      var fontPx = (self.size||3) * 4;                 // logical px font size
-      // Map logical canvas coords -> on-screen (fixed) coords so the input sits
-      // exactly where the user clicked, regardless of DPR/scale/host offset.
+
+      // If editing an existing stroke, hydrate from it and hide it while editing.
+      var editStroke = editId ? self._findStroke(editId) : null;
+      var startText = editStroke ? (editStroke.text||'') : '';
+      var startSizePx = (editStroke ? (editStroke.size||3) : (self.size||3)) * 4;
+      var startColor = editStroke ? (editStroke.color||self.color) : self.color;
+      if (editStroke){ editStroke._editing = true; self._render(); }
+
+      // Map logical canvas coords -> on-screen (fixed) coords (proven mapping, kept).
       var r = self.canvas.getBoundingClientRect();
-      var scaleX = r.width  / self.w;                  // CSS px per logical unit
-      var scaleY = r.height / self.h;
-      var screenFont = fontPx * scaleY;
-      var screenX = r.left + p.x * scaleX;
-      var screenY = r.top  + p.y * scaleY;             // baseline anchor (matches render)
+      var scaleX = r.width  / self.w, scaleY = r.height / self.h;
+      var anchor = editStroke ? { x: editStroke.pts[0].x, y: editStroke.pts[0].y } : { x: p.x, y: p.y };
+      var screenX = r.left + anchor.x * scaleX;
+      var screenY = r.top  + anchor.y * scaleY;   // first-line baseline on screen
+      var sizePx = startSizePx;                    // current logical font px
 
-      var inp = document.createElement('input');
-      inp.type = 'text';
-      inp.className = 'mk-text-live';
-      // Transparent field — what you type IS the preview. Top positioned so the
-      // text baseline lands on the click point (font drawn alphabetic baseline).
-      inp.style.cssText =
-        'position:fixed;left:'+screenX+'px;top:'+(screenY - screenFont)+'px;'+
-        'margin:0;padding:0;background:transparent;border:none;outline:none;'+
-        'color:'+self.color+';font:600 '+screenFont+'px/1 Calibri,sans-serif;'+
-        'caret-color:'+self.color+';white-space:pre;min-width:8px;width:8px;'+
-        'z-index:9999;pointer-events:auto;cursor:move;'+
-        // faint click-point tick so an empty field is still locatable, no box
-        'box-shadow:-1px 0 0 0 '+self.color+';';
-      document.body.appendChild(inp);
-      self._textInput = inp;
+      // ---- build chip ----
+      var chip = document.createElement('div');
+      chip.className = 'mk-text-chip';
+      // place chip so the textarea's first text line sits on the baseline anchor:
+      // bar is 40px, textarea has ~9px top pad + ascent (~sizePx*scaleY). Put the
+      // chip top a little above the click so the first glyph lands near the tap.
+      var chipScreenFont = sizePx * scaleY;
+      var chipTop = screenY - chipScreenFont - 40 - 9;
+      chip.style.left = Math.max(6, screenX) + 'px';
+      chip.style.top  = Math.max(6, chipTop) + 'px';
 
-      // Auto-grow width to the typed text so the caret tracks the end
-      var meas = document.createElement('span');
-      meas.style.cssText = 'position:fixed;visibility:hidden;white-space:pre;font:600 '+screenFont+'px/1 Calibri,sans-serif;';
-      document.body.appendChild(meas);
-      function grow(){ meas.textContent = inp.value || ''; inp.style.width = (meas.offsetWidth + 4) + 'px'; }
+      var RET='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+      var XS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      var OK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6"/></svg>';
+      chip.innerHTML =
+        '<div class="mk-tc-bar">'+
+          '<div class="mk-tc-grab"><span></span></div>'+
+          '<div class="mk-tc-size"><button type="button" class="mk-dec">\u2212</button>'+
+            '<div class="mk-tc-sizeval"></div><button type="button" class="mk-inc">+</button></div>'+
+          '<div class="mk-tc-sep"></div>'+
+          '<button type="button" class="mk-tc-btn mk-tc-ret" title="New line">'+RET+'</button>'+
+          '<div class="mk-tc-spacer"></div>'+
+          '<button type="button" class="mk-tc-btn mk-tc-x" title="Discard">'+XS+'</button>'+
+          '<button type="button" class="mk-tc-btn mk-tc-ok" title="Place">'+OK+'</button>'+
+        '</div>'+
+        '<textarea class="mk-text-area" placeholder="Type label\u2026" rows="1" spellcheck="false"></textarea>';
+      document.body.appendChild(chip);
+      self._textInput = chip;
 
-      // S339 (Mark): TEXT TOOL FIX. On iOS the keyboard only rises if .focus() runs
-      // SYNCHRONOUSLY inside the user-gesture handler. The old setTimeout(0) broke
-      // that chain, so the field appeared but stayed un-editable / no keyboard — i.e.
-      // "text does nothing". Focus now fires synchronously; a 2nd focus on the next
-      // frame covers the rare case the field isn't laid out yet on the first call.
-      inp.focus();
-      requestAnimationFrame(function(){ try{ inp.focus(); }catch(_){} });
+      var ta  = chip.querySelector('.mk-text-area');
+      var val = chip.querySelector('.mk-tc-sizeval');
+      ta.value = startText;
+      ta.style.color = startColor;
 
-      // logical anchor (may change if dragged)
-      var anchor = { x: p.x, y: p.y };
-      var committed = false;
-
-      function cleanup(){
-        if (inp.parentNode) inp.parentNode.removeChild(inp);
-        if (meas.parentNode) meas.parentNode.removeChild(meas);
-        if (self._textInput === inp) self._textInput = null;
-        document.removeEventListener('mousedown', outside, true);
-        document.removeEventListener('touchstart', outside, true);
+      function autoGrow(){
+        ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px';
+        ta.style.width='auto';
+        var maxW = Math.min(window.innerWidth*0.7, 520);
+        ta.style.width = Math.min(maxW, Math.max(210, ta.scrollWidth)) + 'px';
       }
-      function commit(){
-        if (committed) return; committed = true;
-        var v = inp.value.trim();
-        if (v){
-          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:anchor.x,y:anchor.y}], text:v, color:self.color, size:self.size, opacity:self.opacity });
-          self.redoStack = [];
-          if (self._onDirty) self._onDirty();
-          self._render();
-        }
-        cleanup();
+      function applySize(){
+        var px = sizePx * scaleY;                 // show on-screen size ~ rendered size
+        ta.style.fontSize = px + 'px';
+        val.textContent = Math.round(sizePx);
+        autoGrow();
       }
-      function cancel(){ if (committed) return; committed = true; cleanup(); self._render(); }
+      applySize();
+      ta.focus();
+      requestAnimationFrame(function(){ try{ ta.focus(); }catch(_){} });
+      ta.addEventListener('input', autoGrow);
 
-      // Click/tap outside the field commits (MS-Paint behaviour). Guard against
-      // the creating gesture's own pointerup/click instantly committing the empty
-      // field: (a) arm on a real delay (after the gesture settles), (b) ignore
-      // events on the markup canvas itself for a short window, (c) never commit
-      // an empty field via outside-click (only Enter/Escape resolve an empty one).
-      var armed = false;
-      function outside(ev){
-        if (!armed) return;
-        if (ev.target === inp) return;
-        commit();
+      // size stepper — snap to nearest step, move along _SIZE_STEPS
+      function stepSize(dir){
+        var steps=self._SIZE_STEPS, i=0, best=1e9;
+        for (var k=0;k<steps.length;k++){ var d=Math.abs(steps[k]-sizePx); if(d<best){best=d;i=k;} }
+        i = Math.max(0, Math.min(steps.length-1, i+dir));
+        sizePx = steps[i]; applySize(); ta.focus();
       }
-      setTimeout(function(){
-        armed = true;
-        document.addEventListener('mousedown', outside, true);
-        document.addEventListener('touchstart', outside, true);
-      }, 350);
+      chip.querySelector('.mk-dec').addEventListener('click', function(e){ e.preventDefault(); stepSize(-1); });
+      chip.querySelector('.mk-inc').addEventListener('click', function(e){ e.preventDefault(); stepSize(1); });
 
-      inp.addEventListener('input', grow);
-      inp.addEventListener('keydown', function(e){
-        if (e.key === 'Enter'){ e.preventDefault(); commit(); }
-        else if (e.key === 'Escape'){ e.preventDefault(); cancel(); }
-        e.stopPropagation();
+      // return button: insert newline at caret
+      chip.querySelector('.mk-tc-ret').addEventListener('click', function(e){
+        e.preventDefault();
+        var s=ta.selectionStart, en=ta.selectionEnd, v=ta.value;
+        ta.value = v.slice(0,s) + '\n' + v.slice(en);
+        ta.selectionStart = ta.selectionEnd = s+1;
+        autoGrow(); ta.focus();
       });
 
-      // Drag the field while active (grab anywhere; typing still works between drags)
-      var dragging = false, dsx = 0, dsy = 0, dox = 0, doy = 0, dMoved = false;
-      function dStart(ev){
-        // Only start a drag from a press-hold on the left edge / when caret would
-        // not otherwise move — simplest robust rule: drag when modifier or when
-        // pressing the box-shadow tick area. Use shiftKey OR press near left.
-        var cx = (ev.touches?ev.touches[0].clientX:ev.clientX);
-        var cy = (ev.touches?ev.touches[0].clientY:ev.clientY);
-        var br = inp.getBoundingClientRect();
-        var nearLeftEdge = (cx - br.left) <= 10;
-        if (!(ev.shiftKey || nearLeftEdge)) return;   // let normal clicks set caret
-        dragging = true; dMoved = false;
-        dsx = cx; dsy = cy; dox = parseFloat(inp.style.left); doy = parseFloat(inp.style.top);
-        ev.preventDefault();
+      var resolved = false;
+      function cleanup(){
+        if (chip.parentNode) chip.parentNode.removeChild(chip);
+        if (self._textInput === chip) self._textInput = null;
+        if (editStroke){ delete editStroke._editing; }
       }
-      function dMove(ev){
-        if (!dragging) return;
-        var cx = (ev.touches?ev.touches[0].clientX:ev.clientX);
-        var cy = (ev.touches?ev.touches[0].clientY:ev.clientY);
-        var nx = dox + (cx - dsx), ny = doy + (cy - dsy);
-        inp.style.left = nx + 'px'; inp.style.top = ny + 'px';
-        dMoved = true;
-        // recompute logical anchor from new screen pos
+      function commit(){
+        if (resolved) return; resolved = true;
+        // recompute logical anchor from the textarea's current screen pos (it may
+        // have been dragged). The textarea's text origin = first-line baseline.
         var r2 = self.canvas.getBoundingClientRect();
-        anchor.x = (nx - r2.left) / (r2.width / self.w);
-        anchor.y = (ny + screenFont - r2.top) / (r2.height / self.h);
-        ev.preventDefault();
+        var tr = ta.getBoundingClientRect();
+        var sx2 = r2.width/self.w, sy2 = r2.height/self.h;
+        var padL = 11, padT = 9;
+        var ascent = sizePx * sy2;   // approx first-line ascent in screen px
+        var lx = (tr.left + padL - r2.left) / sx2;
+        var ly = (tr.top  + padT - r2.top  + ascent) / sy2;
+        var v = ta.value.replace(/[ \t]+$/,'').replace(/\n+$/,'');
+        var newSize = sizePx/4;
+        if (editStroke){
+          if (!v.trim()){ // emptied → delete the stroke
+            var ix=self.strokes.indexOf(editStroke); if(ix>=0) self.strokes.splice(ix,1);
+          } else {
+            editStroke.text=v; editStroke.size=newSize;
+            editStroke.pts[0]={x:lx,y:ly};
+          }
+          delete editStroke._editing;
+          self.redoStack=[]; if(self._onDirty) self._onDirty(); self._render(); cleanup(); return;
+        }
+        if (v.trim()){
+          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:self.color, size:newSize, opacity:self.opacity });
+          self.redoStack=[]; if(self._onDirty) self._onDirty();
+        }
+        self._render(); cleanup();
       }
-      function dEnd(){ dragging = false; }
-      inp.addEventListener('mousedown', dStart);
+      function cancel(){ if (resolved) return; resolved = true; self._render(); cleanup(); }
+      chip.querySelector('.mk-tc-ok').addEventListener('click', function(e){ e.preventDefault(); commit(); });
+      chip.querySelector('.mk-tc-x').addEventListener('click', function(e){ e.preventDefault(); cancel(); });
+      ta.addEventListener('keydown', function(e){
+        if (e.key === 'Escape'){ e.preventDefault(); cancel(); }
+        e.stopPropagation();   // Enter falls through = newline (textarea default)
+      });
+
+      // drag the chip by the grab rail (typing unaffected)
+      var grab = chip.querySelector('.mk-tc-grab');
+      var dragging=false, dsx=0, dsy=0, dox=0, doy=0;
+      function dStart(ev){ dragging=true; var t=ev.touches?ev.touches[0]:ev;
+        dsx=t.clientX; dsy=t.clientY; dox=parseFloat(chip.style.left); doy=parseFloat(chip.style.top); ev.preventDefault(); }
+      function dMove(ev){ if(!dragging) return; var t=ev.touches?ev.touches[0]:ev;
+        chip.style.left=(dox+t.clientX-dsx)+'px'; chip.style.top=(doy+t.clientY-dsy)+'px'; ev.preventDefault(); }
+      function dEnd(){ dragging=false; }
+      grab.addEventListener('mousedown', dStart);
+      grab.addEventListener('touchstart', dStart, {passive:false});
       document.addEventListener('mousemove', dMove);
-      document.addEventListener('mouseup', dEnd);
-      inp.addEventListener('touchstart', dStart, {passive:false});
       document.addEventListener('touchmove', dMove, {passive:false});
+      document.addEventListener('mouseup', dEnd);
       document.addEventListener('touchend', dEnd);
+      // store removers so cleanup pulls the document-level drag listeners too
+      var _origCleanup = cleanup;
+      cleanup = function(){
+        document.removeEventListener('mousemove', dMove);
+        document.removeEventListener('touchmove', dMove, {passive:false});
+        document.removeEventListener('mouseup', dEnd);
+        document.removeEventListener('touchend', dEnd);
+        _origCleanup();
+      };
+    },
+
+    // S339 (Mark): MULTI-LINE TEXT. Text may contain '\n'. One shared metric helper
+    // so every bounds/hit/rotation site agrees on the box. Width = widest line,
+    // height = lineCount * lineHeight. Returned in LOGICAL units (font = size*4).
+    //   lineH = fontPx * 1.25 (matches the editor textarea line-height).
+    // anchor pts[0] is the FIRST line's alphabetic baseline (unchanged from before),
+    // so a single-line text measures identically to the old code.
+    _LINE_H_FACTOR: 1.25,
+    _textMetrics: function(s){
+      var fs = (s.size||3) * 4;
+      var lines = String(s.text||'').split('\n');
+      var maxLen = 0;
+      for (var i=0;i<lines.length;i++){ if (lines[i].length>maxLen) maxLen=lines[i].length; }
+      var w = maxLen * fs * 0.55;
+      var lineH = fs * this._LINE_H_FACTOR;
+      var totalH = (lines.length>0 ? lines.length : 1) * lineH;
+      return { fs:fs, lines:lines, w:w, lineH:lineH, h:totalH };
     },
 
     _drawText: function(ctx, s, sx, sy){
       sx = sx || 1; sy = sy || 1;
       var p = s.pts[0]; if (!p) return;
-      var fontPx = (s.size||3) * 4 * ((sx+sy)/2);
+      var avg = (sx+sy)/2;
+      var fontPx = (s.size||3) * 4 * avg;
+      var lineHpx = fontPx * this._LINE_H_FACTOR;
       ctx.font = '600 ' + fontPx + 'px Calibri, sans-serif';
       ctx.fillStyle = s.color;
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(s.text || '', p.x*sx, p.y*sy);
+      var lines = String(s.text||'').split('\n');
+      // pts[0] is the first line's baseline; each subsequent line drops by lineH.
+      for (var i=0;i<lines.length;i++){
+        ctx.fillText(lines[i], p.x*sx, p.y*sy + i*lineHpx);
+      }
     },
 
 
@@ -547,15 +615,30 @@
     // ════════════════════════════════════════════════════════════════
     _findStroke: function(id){ for (var i=0;i<this.strokes.length;i++){ if (this.strokes[i].id===id) return this.strokes[i]; } return null; },
 
+    // S339 — top-down hit-test for text marks (for double-tap-to-edit). Returns id or null.
+    _hitTextAt: function(p){
+      for (var i=this.strokes.length-1; i>=0; i--){
+        var s=this.strokes[i]; if (s.tool!=='text') continue;
+        var tp=s.pts[0]; if(!tp) continue;
+        var m=this._textMetrics(s);
+        var x1=tp.x-4, x2=tp.x+m.w+4, y1=tp.y-m.fs-2, y2=tp.y-m.fs+m.h+4;
+        if (p.x>=x1 && p.x<=x2 && p.y>=y1 && p.y<=y2) return s.id;
+      }
+      return null;
+    },
+
     _strokeBounds: function(s){
       if (s.tool === 'text'){
-        var fs = (s.size||3) * 4;
-        var estW = (s.text||'').length * fs * 0.55;
+        var _m = this._textMetrics(s);
+        var fs = _m.fs;
+        var estW = _m.w;
         var p = s.pts[0];
-        var bx1=p.x, by1=p.y - fs, bx2=p.x + estW, by2=p.y + 4;
+        // pts[0] = first-line baseline. Box top sits one ascent above it (~fs),
+        // box bottom drops by the remaining lines' height plus descent.
+        var bx1=p.x, by1=p.y - fs, bx2=p.x + estW, by2=p.y - fs + _m.h + 4;
         var rot = s.rotation || 0;
         if (rot){
-          var cxT=p.x + estW/2, cyT=p.y - fs/2, ct=Math.cos(rot), stt=Math.sin(rot);
+          var cxT=p.x + estW/2, cyT=(by1+by2)/2, ct=Math.cos(rot), stt=Math.sin(rot);
           var cs=[[bx1,by1],[bx2,by1],[bx2,by2],[bx1,by2]], xmn=Infinity,ymn=Infinity,xmx=-Infinity,ymx=-Infinity;
           for (var t=0;t<4;t++){ var dx=cs[t][0]-cxT, dy=cs[t][1]-cyT, rx=cxT+dx*ct-dy*stt, ry=cyT+dx*stt+dy*ct;
             if(rx<xmn)xmn=rx; if(ry<ymn)ymn=ry; if(rx>xmx)xmx=rx; if(ry>ymx)ymx=ry; }
@@ -745,9 +828,9 @@
           if (o.tool==='pen'||o.tool==='highlight'){
             st.pts=o.pts.map(function(pt){ return rot(pt.x,pt.y); });          // bake into points
           } else if (o.tool==='text'){
-            var fs=(o.size||3)*4, estW=(o.text||'').length*fs*0.55;
-            var ocx=o.pts[0].x+estW/2, ocy=o.pts[0].y-fs/2, nc=rot(ocx,ocy);
-            st.pts[0]={x:nc.x-estW/2, y:nc.y+fs/2};
+            var _rm=this._textMetrics(o), fs=_rm.fs, estW=_rm.w;
+            var ocx=o.pts[0].x+estW/2, ocy=o.pts[0].y-fs+_rm.h/2, nc=rot(ocx,ocy);
+            st.pts[0]={x:nc.x-estW/2, y:nc.y-_rm.h/2+fs};
             st.rotation=(o.rotation||0)+dA;
           } else {
             var a=o.pts[0], b=o.pts[1];
@@ -942,11 +1025,12 @@
     },
     // Wrap text draw with opacity + rotation about visual center
     _drawTextR: function(ctx, s){
+      if (s._editing) return;   // S339: hidden on canvas while open in the edit chip
       ctx.save();
       ctx.globalAlpha = (s.opacity!=null)?s.opacity:1;
       if (s.rotation){
-        var fs=(s.size||3)*4, estW=(s.text||'').length*fs*0.55;
-        var cx=s.pts[0].x+estW/2, cy=s.pts[0].y-fs/2;
+        var _sm=this._textMetrics(s), fs=_sm.fs, estW=_sm.w;
+        var cx=s.pts[0].x+estW/2, cy=s.pts[0].y-fs+_sm.h/2;
         ctx.translate(cx,cy); ctx.rotate(s.rotation); ctx.translate(-cx,-cy);
       }
       this._drawText(ctx, s);
@@ -1027,8 +1111,8 @@
           // Text labels on top (per-object opacity + rotation about scaled visual center)
           self.strokes.filter(function(s){return s.tool==='text';}).forEach(function(s){
             oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
-            if (s.rotation){ var fs=(s.size||3)*4, estW=(s.text||'').length*fs*0.55;
-              var cx=(s.pts[0].x+estW/2)*sx, cy=(s.pts[0].y-fs/2)*sy;
+            if (s.rotation){ var _bm=this._textMetrics(s), fs=_bm.fs, estW=_bm.w;
+              var cx=(s.pts[0].x+estW/2)*sx, cy=(s.pts[0].y-fs+_bm.h/2)*sy;
               oc.translate(cx,cy); oc.rotate(s.rotation); oc.translate(-cx,-cy); }
             self._drawText(oc, s, sx, sy); oc.restore();
           });

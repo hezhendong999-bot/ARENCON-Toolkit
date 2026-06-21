@@ -14,6 +14,50 @@
 import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 
+// S339 (Mark): text-edit chip styles. Injected once. Fixed top control row
+// (grab · − size + · ↵ · ✕ · ✓) over an auto-expanding multi-line textarea.
+// Calibri only; burgundy/dark per the design system. Lives here so the photo
+// markup text tool is self-contained (no separate CSS-file push needed).
+(function _injectTextChipCSS(){
+  if (document.getElementById('mk-text-chip-css')) return;
+  var st = document.createElement('style'); st.id = 'mk-text-chip-css';
+  st.textContent =
+    '.mk-text-chip{position:fixed;display:flex;flex-direction:column;background:rgba(20,18,24,.94);'+
+      '-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1.5px solid #C9476A;'+
+      'border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.5);overflow:hidden;z-index:10000;'+
+      'min-width:230px;max-width:92vw;font-family:Calibri,sans-serif;}'+
+    '.mk-text-chip .mk-tc-bar{display:flex;align-items:stretch;height:40px;flex:0 0 40px;'+
+      'border-bottom:1px solid rgba(255,255,255,.10);}'+
+    '.mk-text-chip .mk-tc-grab{width:18px;flex:0 0 auto;cursor:move;display:flex;align-items:center;'+
+      'justify-content:center;background:rgba(255,255,255,.05);touch-action:none;}'+
+    '.mk-text-chip .mk-tc-grab span{width:3px;height:16px;border-radius:2px;'+
+      'background:repeating-linear-gradient(transparent 0 2px,#a09aa8 2px 4px);}'+
+    '.mk-text-chip .mk-tc-size{display:flex;align-items:center;flex:0 0 auto;}'+
+    '.mk-text-chip .mk-tc-size button{width:32px;align-self:stretch;border:none;background:transparent;'+
+      'color:#f4f3f6;font-size:18px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;}'+
+    '.mk-text-chip .mk-tc-size button:active{background:rgba(255,255,255,.10);}'+
+    '.mk-text-chip .mk-tc-sizeval{display:flex;align-items:center;justify-content:center;min-width:28px;'+
+      'font-size:12px;color:#a09aa8;font-variant-numeric:tabular-nums;}'+
+    '.mk-text-chip .mk-tc-sep{width:1px;align-self:stretch;background:rgba(255,255,255,.10);margin:0 2px;}'+
+    '.mk-text-chip .mk-tc-btn{width:42px;flex:0 0 auto;border:none;cursor:pointer;display:flex;'+
+      'align-items:center;justify-content:center;color:#f4f3f6;background:transparent;}'+
+    '.mk-text-chip .mk-tc-btn svg{width:18px;height:18px;}'+
+    '.mk-text-chip .mk-tc-ret:active{background:rgba(255,255,255,.10);}'+
+    '.mk-text-chip .mk-tc-x{color:#a09aa8;}.mk-text-chip .mk-tc-x:active{background:rgba(255,255,255,.10);}'+
+    '.mk-text-chip .mk-tc-ok{background:#3FD08A;color:#fff;}.mk-text-chip .mk-tc-ok:active{filter:brightness(.9);}'+
+    '.mk-text-chip .mk-tc-spacer{flex:1 1 auto;}'+
+    '.mk-text-chip .mk-text-area{border:none;outline:none;background:transparent;color:#f4f3f6;resize:none;'+
+      'overflow:hidden;font-weight:600;font-family:Calibri,sans-serif;line-height:1.25;padding:9px 11px;'+
+      'min-width:210px;width:210px;caret-color:#C9476A;}'+
+    '.mk-text-chip .mk-text-area::placeholder{color:#a09aa8;font-weight:400;}'+
+    // S339 (Mark): while the lightbox is open, hide the header inspector chip +
+    // sign-out so the green "mhe / Sign out" badge stops overlapping the markup
+    // ✓/✗ confirm bar. Auto-restores on close (body.lb-open is removed there).
+    'body.lb-open #inspector-chip,body.lb-open #btn-signout,body.lb-open #presence-chip{display:none!important;}';
+  (document.head||document.documentElement).appendChild(st);
+})();
+
+
 var _photos = [];
 var _idx = 0;
 var _scale = 1;
