@@ -137,22 +137,48 @@ function _buildMarkupBar(overlay){
   if (_markupBar) return;
   var bar = document.createElement('div');
   bar.id = 'lb-markupbar';
-  bar.style.cssText = 'position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:none;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;padding:10px 12px;background:rgba(20,20,28,.92);border-radius:20px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);width:calc(100vw - 24px);max-width:760px;box-sizing:border-box;';
-  function tb(id, label, title){
-    var b = document.createElement('button');
-    b.id = id; b.title = title; b.textContent = label;
-    b.style.cssText = 'flex:0 0 auto;white-space:nowrap;background:rgba(255,255,255,.12);color:#fff;border:none;min-width:52px;height:42px;padding:0 14px;border-radius:21px;cursor:pointer;font:600 13px Calibri,sans-serif;';
+  bar.style.cssText = 'position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:none;flex-direction:column;gap:6px;padding:9px 10px;background:rgba(20,20,28,.94);border-radius:16px;z-index:11;box-shadow:0 6px 20px rgba(0,0,0,.5);max-width:calc(100vw - 16px);box-sizing:border-box;';
+  var row1=document.createElement('div'); row1.style.cssText='display:flex;flex-wrap:nowrap;justify-content:center;align-items:center;gap:4px;';
+  var rdiv=document.createElement('div'); rdiv.style.cssText='height:1px;background:rgba(255,255,255,.10);margin:1px 4px;';
+  var row2=document.createElement('div'); row2.style.cssText='display:flex;flex-wrap:nowrap;justify-content:center;align-items:center;gap:4px;';
+  // S339 — drawing-viewer icon set (copied verbatim) for the compact photo toolbar
+  var SVG={
+    select:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>',
+    pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+    highlight:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>',
+    line:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4"/></svg>',
+    arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>',
+    rect:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>',
+    'rect-fill':'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>',
+    circle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>',
+    'circle-fill':'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>',
+    triangle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3L22 21H2z"/></svg>',
+    cloud:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 1 0 0-9h-.1A5.5 5.5 0 0 0 7 13.5 3.5 3.5 0 0 0 3.5 17 3.5 3.5 0 0 0 7 20.5h10.5"/></svg>',
+    text:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>',
+    eraser:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/></svg>',
+    undo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>',
+    redo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>',
+    check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 6"/></svg>',
+    trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>',
+    revert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/><path d="M9 21h8"/></svg>'
+  };
+  function iconBtn(id,key,title,caret){
+    var b=document.createElement('button'); b.id=id; b.title=title;
+    b.style.cssText='flex:0 0 auto;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#cfd2d6;border-radius:8px;cursor:pointer;padding:0;position:relative;';
+    b.innerHTML=SVG[key]+(caret?'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#aaa;line-height:1;">\u25B8</span>':'');
     return b;
   }
-  var bPen=tb('mk-pen','Pen','Pen tool');
-  var bHi =tb('mk-hi','Highlight','Highlighter');
-  var bLn =tb('mk-line','Line','Line');
-  var bRc =tb('mk-rect','Rect','Rectangle');
-  var bCi =tb('mk-circ','Oval','Ellipse');
-  var bAr =tb('mk-arr','Arrow','Arrow');
-  var bTx =tb('mk-text','Text','Text label');
-  var bEr =tb('mk-er','Eraser','Eraser');
-  var bSel=tb('mk-select','Select \u25BE','Select \u2014 tap for Single / Rubber-band / Tap modes');
+  // Row 1 buttons
+  var bSel=iconBtn('mk-select','select','Select \u2014 tap for Single / Rubber-band / Tap',false);
+  bSel.querySelector('svg').insertAdjacentHTML('afterend','<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#aaa;line-height:1;">\u25BE</span>');
+  var bPenGrp=iconBtn('mk-pengrp','pen','Pen group',true);   bPenGrp.dataset.tool='pen';
+  var bShapeGrp=iconBtn('mk-shapegrp','rect','Shapes group',true); bShapeGrp.dataset.tool='rect';
+  var bTx=iconBtn('mk-text','text','Text label',false);
+  var bEr=iconBtn('mk-er','eraser','Eraser',false);
+  var sepU=document.createElement('div'); sepU.style.cssText='width:1px;height:26px;background:rgba(255,255,255,.18);margin:0 2px;flex:0 0 auto;';
+  var bUn=iconBtn('mk-undo','undo','Undo (Ctrl+Z)',false);
+  var bRd=iconBtn('mk-redo','redo','Redo (Ctrl+Y)',false);
+  [bSel,bPenGrp,bShapeGrp,bTx,bEr,sepU,bUn,bRd].forEach(function(e){row1.appendChild(e);});
   // S339 — Select sub-tool flyout (tap-to-open, finger-friendly; LOCKED_SELECT_DRAW_MODEL_S339)
   var subFly=document.createElement('div'); subFly.id='lb-mk-subfly';
   subFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:column;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:200px;';
@@ -180,53 +206,65 @@ function _buildMarkupBar(overlay){
   cNo.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
   cBar.appendChild(cCnt); cBar.appendChild(cOk); cBar.appendChild(cNo);
   overlay.appendChild(cBar);
-  var sep0=document.createElement('div'); sep0.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
-  var bUn =tb('mk-undo','\u21B6','Undo (Ctrl+Z)');
-  var bRd =tb('mk-redo','\u21B7','Redo (Ctrl+Y)');
-  var sep1=document.createElement('div'); sep1.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
-  // Color swatches
-  var colors = ['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'];
-  var swatches = colors.map(function(col){
-    var s = document.createElement('button');
-    s.className = 'mk-swatch'; s.dataset.col = col;
-    s.style.cssText = 'width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:'+col+';cursor:pointer;padding:0;';
-    return s;
-  });
-  // Size slider
-  var sizeWrap = document.createElement('div'); sizeWrap.style.cssText='display:flex;align-items:center;gap:6px;padding:0 8px;';
-  var sizeLbl = document.createElement('span'); sizeLbl.textContent='Size'; sizeLbl.style.cssText='color:#fff;font:600 12px Calibri,sans-serif;';
-  var sizeSld = document.createElement('input'); sizeSld.type='range'; sizeSld.min='1'; sizeSld.max='20'; sizeSld.value='3';
-  sizeSld.style.cssText='width:80px;accent-color:#9C2742;';
-  sizeWrap.appendChild(sizeLbl); sizeWrap.appendChild(sizeSld);
-  // Opacity stepper (Diesel-style: − value + , 10% steps, 10–100%)
-  var opWrap = document.createElement('div'); opWrap.style.cssText='display:flex;align-items:center;gap:4px;padding:0 6px;';
-  var opLbl = document.createElement('span'); opLbl.textContent='Opacity'; opLbl.style.cssText='color:#fff;font:600 12px Calibri,sans-serif;';
-  function opStepBtn(txt){ var b=document.createElement('button'); b.textContent=txt;
-    b.style.cssText='background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;padding:0;'; return b; }
-  var opMinus = opStepBtn('\u2212');
-  var opVal = document.createElement('span'); opVal.id='mk-op-val'; opVal.textContent='100%';
-  opVal.title='Click to type a value (10–100)';
-  opVal.style.cssText='color:white;min-width:36px;text-align:center;font:600 12px Calibri,sans-serif;display:inline-block;cursor:text;border-radius:4px;';
-  var opPlus = opStepBtn('+');
-  opWrap.appendChild(opLbl); opWrap.appendChild(opMinus); opWrap.appendChild(opVal); opWrap.appendChild(opPlus);
-  var sep2=document.createElement('div'); sep2.style.cssText='width:1px;height:24px;background:rgba(255,255,255,.25);margin:0 4px;';
-  var bSv =tb('mk-save','Save','Save annotated copy'); bSv.style.background='#5F8068';
-  var bCl =tb('mk-clear','Clear','Clear all edits');
-  var bRv =tb('mk-revert','Revert','Discard edits');
-  var bX  =tb('mk-cancel','\u2715','Exit markup'); bX.style.background='#9C2742';
-  var arr = [bPen,bHi,bLn,bRc,bCi,bAr,bTx,bEr,bSel,sep0,bUn,bRd,sep1];
-  swatches.forEach(function(s){arr.push(s);});
-  arr.push(sizeWrap, opWrap, sep2, bSv,bCl,bRv,bX);
-  arr.forEach(function(e){bar.appendChild(e);});
+  // ===== Row 2: size · opacity · color · | · save/clear/revert (Option B icons) =====
+  function sep2px(){ var d=document.createElement('div'); d.style.cssText='width:1px;height:26px;background:rgba(255,255,255,.18);margin:0 2px;flex:0 0 auto;'; return d; }
+  // compact horizontal SIZE stepper (glyph + − [v] +)
+  var sizeWrap=document.createElement('div'); sizeWrap.style.cssText='display:flex;flex-direction:row;align-items:center;gap:2px;flex:0 0 auto;';
+  sizeWrap.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#9a96a2" stroke-width="2" style="width:15px;height:15px;margin-right:1px;"><path d="M3 6h18M5 12h14M7 18h10"/></svg>';
+  function stepBtn(txt){ var b=document.createElement('button'); b.textContent=txt; b.style.cssText='width:26px;height:30px;border:none;border-radius:6px;background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-weight:700;cursor:pointer;flex:0 0 auto;'; return b; }
+  var szMinus=stepBtn('\u2212'); var szVal=document.createElement('span'); szVal.id='mk-size-val'; szVal.textContent='3';
+  szVal.style.cssText='font-size:12.5px;color:#dfe;min-width:20px;text-align:center;font-weight:600;';
+  var szPlus=stepBtn('+');
+  sizeWrap.appendChild(szMinus); sizeWrap.appendChild(szVal); sizeWrap.appendChild(szPlus);
+  // compact horizontal OPACITY stepper (glyph + − [v] +) — keeps click-to-type
+  var opWrap=document.createElement('div'); opWrap.style.cssText='display:flex;flex-direction:row;align-items:center;gap:2px;flex:0 0 auto;';
+  opWrap.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#9a96a2" stroke-width="2" style="width:15px;height:15px;margin-right:1px;"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="#9a96a2"/></svg>';
+  var opMinus=stepBtn('\u2212');
+  var opVal=document.createElement('span'); opVal.id='mk-op-val'; opVal.textContent='100'; opVal.title='Click to type a value (10\u2013100)';
+  opVal.style.cssText='font-size:12.5px;color:#dfe;min-width:30px;text-align:center;font-weight:600;cursor:text;border-radius:4px;';
+  var opPlus=stepBtn('+');
+  opWrap.appendChild(opMinus); opWrap.appendChild(opVal); opWrap.appendChild(opPlus);
+  // single COLOR swatch that opens a color grid flyout
+  var colors=['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'];
+  var colorBtn=document.createElement('button'); colorBtn.id='mk-color'; colorBtn.title='Colour';
+  colorBtn.style.cssText='flex:0 0 auto;width:40px;height:40px;border:none;background:transparent;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+  var colorDot=document.createElement('div'); colorDot.style.cssText='width:22px;height:22px;border-radius:50%;background:#FF0000;border:2px solid #fff;'; colorBtn.appendChild(colorDot);
+  var colorFly=document.createElement('div'); colorFly.id='lb-mk-colorfly';
+  colorFly.style.cssText='position:absolute;z-index:26;display:none;flex-wrap:wrap;gap:6px;width:118px;padding:8px;background:rgba(34,34,44,.99);border:1px solid rgba(255,255,255,.16);border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.6);';
+  var swatches=colors.map(function(col){ var s=document.createElement('button'); s.className='mk-swatch'; s.dataset.col=col;
+    s.style.cssText='width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:'+col+';cursor:pointer;padding:0;'; return s; });
+  swatches.forEach(function(s){colorFly.appendChild(s);}); overlay.appendChild(colorFly);
+  // action icons (Option B)
+  function actBtn(id,key,title,color){ var b=document.createElement('button'); b.id=id; b.title=title;
+    b.style.cssText='flex:0 0 auto;width:40px;height:40px;border:none;background:transparent;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:'+(color||'#cfd2d6')+';';
+    b.innerHTML=SVG[key]; return b; }
+  var bSv=actBtn('mk-save','check','Save annotated copy','#7fd0a0');
+  var bCl=actBtn('mk-clear','trash','Clear all edits','#e88');
+  var bRv=actBtn('mk-revert','revert','Discard edits',null);
+  [sizeWrap,opWrap,sep2px(),colorBtn,sep2px(),bSv,bCl,bRv].forEach(function(e){row2.appendChild(e);});
+
+  bar.appendChild(row1); bar.appendChild(rdiv); bar.appendChild(row2);
   overlay.appendChild(bar);
   _markupBar = bar;
-  function clearActive(){
-    [bPen,bHi,bLn,bRc,bCi,bAr,bTx,bEr,bSel].forEach(function(b){b.style.background='rgba(255,255,255,.12)';});
+
+  // ===== Pen-group & Shapes-group flyouts =====
+  function groupFly(items, anchor){
+    var f=document.createElement('div'); f.style.cssText='position:absolute;z-index:25;display:none;flex-wrap:wrap;gap:4px;padding:6px;background:rgba(34,34,44,.99);border:1px solid rgba(255,255,255,.16);border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.6);max-width:170px;';
+    items.forEach(function(it){ var b=document.createElement('button'); b.dataset.tool=it[0]; b.title=it[1];
+      b.style.cssText='width:46px;height:46px;border:none;border-radius:9px;background:rgba(255,255,255,.07);color:#dfe;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+      b.innerHTML=SVG[it[0]];
+      b.addEventListener('click',function(e){ e.stopPropagation(); pickGroupTool(anchor, it[0]); });
+      f.appendChild(b); });
+    overlay.appendChild(f); return f;
   }
+  var penFly=groupFly([['pen','Pen'],['highlight','Highlighter'],['line','Line'],['arrow','Arrow']], bPenGrp);
+  var shapeFly=groupFly([['rect','Rectangle'],['rect-fill','Filled Rect'],['circle','Circle'],['circle-fill','Filled Circle'],['triangle','Triangle'],['cloud','Cloud']], bShapeGrp);
+
   function setActive(btn){
-    clearActive();
-    btn.style.background='#9C2742';
+    [bSel,bPenGrp,bShapeGrp,bTx,bEr].forEach(function(b){ b.style.background='transparent'; b.style.color='#cfd2d6'; });
+    if (btn){ btn.style.background='#9C2742'; btn.style.color='#fff'; }
   }
+  function clearActive(){ setActive(null); }
   // S339 — tap a tool to arm it; tap the SAME tool again to deactivate (no tool armed,
   // taps inert) per Mark. _activeBtn tracks which is lit so the second tap toggles off.
   var _activeBtn=null;
@@ -239,27 +277,52 @@ function _buildMarkupBar(overlay){
     E.setTool(toolName); setActive(btn); _activeBtn=btn; _refreshConfirmBar();
   }
   function setSwatch(col){
+    colorDot.style.background=col;
     swatches.forEach(function(s){ s.style.borderColor = (s.dataset.col===col)?'#fff':'rgba(255,255,255,.4)'; s.style.boxShadow = (s.dataset.col===col)?'0 0 0 2px #9C2742':'none';});
   }
-  bPen.addEventListener('click',function(){toggleTool(bPen,'pen');});
-  bHi .addEventListener('click',function(){toggleTool(bHi,'highlight');});
-  bLn .addEventListener('click',function(){toggleTool(bLn,'line');});
-  bRc .addEventListener('click',function(){toggleTool(bRc,'rect');});
-  bCi .addEventListener('click',function(){toggleTool(bCi,'circle');});
-  bAr .addEventListener('click',function(){toggleTool(bAr,'arrow');});
-  bTx .addEventListener('click',function(){toggleTool(bTx,'text');});
-  bEr .addEventListener('click',function(){toggleTool(bEr,'eraser');});
-  // S339 — tapping Select toggles the sub-tool flyout. Anchored just above the
-  // toolbar; the bar now wraps to multiple rows so we measure its height on open
-  // rather than using a fixed offset.
+  // S339 — Pen-group / Shapes-group: tap group button toggles its flyout; picking a
+  // sub-tool arms it, shows its icon on the group button, lights the group burgundy.
+  function pickGroupTool(groupBtn, toolName){
+    var E=window.MarkupEngine; if(!E) return;
+    E.setTool(toolName); groupBtn.dataset.tool=toolName;
+    var sv=SVG[toolName]; if(sv){ var caret=groupBtn.querySelector('.mk-caret');
+      groupBtn.innerHTML=sv+(caret?caret.outerHTML:''); }
+    setActive(groupBtn); _activeBtn=groupBtn; closeAllFlys(); _refreshConfirmBar();
+  }
+  // Tapping an armed group toggles it OFF (no tool); otherwise opens its flyout.
+  function toggleGroup(groupBtn, fly){
+    var open=fly.style.display==='flex'; closeAllFlys();
+    if(open) return;
+    if(_activeBtn===groupBtn){ window.MarkupEngine&&window.MarkupEngine.setTool(''); clearActive(); _activeBtn=null; _refreshConfirmBar(); return; }
+    positionFlyAt(fly, groupBtn); fly.style.display='flex';
+  }
+  bPenGrp.addEventListener('click',function(e){ e.stopPropagation(); toggleGroup(bPenGrp, penFly); });
+  bShapeGrp.addEventListener('click',function(e){ e.stopPropagation(); toggleGroup(bShapeGrp, shapeFly); });
+  bTx.addEventListener('click',function(){toggleTool(bTx,'text');});
+  bEr.addEventListener('click',function(){toggleTool(bEr,'eraser');});
+  // S339 — all flyouts (Select sub-modes, Pen-group, Shapes-group, Colour) anchor
+  // just above the toolbar, left-aligned to their button. Measured per-open so they
+  // sit correctly above the two-row bar.
   subFly.style.left='50%'; subFly.style.transform='translateX(-50%)';
   function _barClearance(){ var bh = bar.offsetHeight || 56; return (16 + bh + 10); }
+  function positionFlyAt(fly, anchor){
+    var br=anchor.getBoundingClientRect();
+    fly.style.left=Math.max(6, br.left + br.width/2 - 80)+'px';
+    fly.style.right='auto'; fly.style.transform='none';
+    fly.style.bottom=_barClearance()+'px';
+  }
   function positionFly(){ subFly.style.bottom=_barClearance()+'px'; }
-  function closeFly(){ subFly.style.display='none'; }
+  function closeAllFlys(){ [subFly,penFly,shapeFly,colorFly].forEach(function(f){ f.style.display='none'; }); }
+  function closeFly(){ closeAllFlys(); }
   bSel.addEventListener('click',function(e){
     e.stopPropagation();
-    if (subFly.style.display==='flex'){ closeFly(); }
-    else { positionFly(); subFly.style.display='flex'; }
+    if (subFly.style.display==='flex'){ closeAllFlys(); }
+    else { closeAllFlys(); positionFly(); subFly.style.display='flex'; }
+  });
+  colorBtn.addEventListener('click',function(e){
+    e.stopPropagation();
+    if (colorFly.style.display==='flex'){ closeAllFlys(); }
+    else { closeAllFlys(); positionFlyAt(colorFly, colorBtn); colorFly.style.display='flex'; }
   });
   function markSub(sub){
     [subSingle,subRubber,subTap].forEach(function(b){ b.style.background = (b.dataset.sub===sub)?'#9C2742':'rgba(255,255,255,.06)'; });
@@ -273,8 +336,15 @@ function _buildMarkupBar(overlay){
     });
   });
   markSub('single');
-  // close flyout on any outside tap (mouse + touch)
-  function _flyOutside(ev){ if (subFly.style.display==='flex' && !subFly.contains(ev.target) && ev.target!==bSel && !bSel.contains(ev.target)) closeFly(); }
+  // close any flyout on outside tap (mouse + touch)
+  function _anyFlyOpen(){ return subFly.style.display==='flex'||penFly.style.display==='flex'||shapeFly.style.display==='flex'||colorFly.style.display==='flex'; }
+  function _flyOutside(ev){
+    if(!_anyFlyOpen()) return;
+    var t=ev.target;
+    var inside = subFly.contains(t)||penFly.contains(t)||shapeFly.contains(t)||colorFly.contains(t)||
+      bSel.contains(t)||bPenGrp.contains(t)||bShapeGrp.contains(t)||colorBtn.contains(t);
+    if(!inside) closeAllFlys();
+  }
   document.addEventListener('mousedown',_flyOutside);
   document.addEventListener('touchstart',_flyOutside,{passive:true});
   // S339 — confirm bar: ✗ whenever a selection/pick is active; ✓ added in tap mode while picking.
@@ -293,17 +363,20 @@ function _buildMarkupBar(overlay){
   bUn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.undo();});
   bRd .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.redo();});
   swatches.forEach(function(s){
-    s.addEventListener('click',function(){
+    s.addEventListener('click',function(e){
+      e.stopPropagation();
       if (window.MarkupEngine) window.MarkupEngine.setColor(s.dataset.col);
-      setSwatch(s.dataset.col);
+      setSwatch(s.dataset.col); closeAllFlys();
     });
   });
-  sizeSld.addEventListener('input',function(){
-    if (window.MarkupEngine) window.MarkupEngine.setSize(parseInt(sizeSld.value,10));
-  });
+  // SIZE stepper — 1..20, clamp; updates current draw size
+  var _size=3;
+  function _applySize(){ szVal.textContent=String(_size); if(window.MarkupEngine) window.MarkupEngine.setSize(_size); }
+  szMinus.addEventListener('click',function(){ _size=Math.max(1,_size-1); _applySize(); });
+  szPlus .addEventListener('click',function(){ _size=Math.min(20,_size+1); _applySize(); });
   // Opacity stepper — 10% steps, clamp 10–100%; updates current draw opacity + any selection
   var _opPct = 100;
-  function _applyOp(){ opVal.textContent=_opPct+'%'; if (window.MarkupEngine) window.MarkupEngine.setOpacity(_opPct/100); }
+  function _applyOp(){ opVal.textContent=String(_opPct); if (window.MarkupEngine) window.MarkupEngine.setOpacity(_opPct/100); }
   opMinus.addEventListener('click',function(){ _opPct=Math.max(10,_opPct-10); _applyOp(); });
   opPlus .addEventListener('click',function(){ _opPct=Math.min(100,_opPct+10); _applyOp(); });
   // S329 (#24, Mark): CLICK-TO-TYPE opacity. Click the % value -> editable number
@@ -329,8 +402,8 @@ function _buildMarkupBar(overlay){
   bCl .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.clear();});
   bRv .addEventListener('click',_revertMarkup);
   bSv .addEventListener('click',_saveMarkup);
-  bX  .addEventListener('click',_toggleMarkup);
-  bPen.click();
+  // default: arm Pen via the Pen-group (shows pen icon, lights group)
+  pickGroupTool(bPenGrp,'pen');
   setSwatch('#FF0000');
 }
 
@@ -338,9 +411,9 @@ function _exitMarkupNoSave(){
   if (!window.MarkupEngine) return;
   window.MarkupEngine.detach();
   if (_markupBar) _markupBar.style.display='none';
-  // S339 — hide the select confirm bar + sub-tool flyout on markup exit
+  // S339 — hide the select confirm bar + all flyouts on markup exit
   var _cb=document.getElementById('lb-mk-confirm'); if(_cb) _cb.style.display='none';
-  var _sf=document.getElementById('lb-mk-subfly'); if(_sf) _sf.style.display='none';
+  ['lb-mk-subfly','lb-mk-colorfly'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
   _markupActive = false;
 }
 // Copied from Diesel S305/S306: leaving markup mode COMMITS any drawn strokes —

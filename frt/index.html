@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=661">
+<link rel="stylesheet" href="css/frt.css?v=662">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -761,7 +761,7 @@ function ensurePdfJs(cb){
     <div id="dv-stylestrip-v75">
       <span class="dv-ss-group"><span class="dv-ss-lbl">SIZE</span><button class="dv-ss-step" data-ss="size" data-d="-1">−</button><span id="dv-ss-size-v75" class="dv-ss-val">3</span><button class="dv-ss-step" data-ss="size" data-d="1">+</button></span>
       <span class="dv-ss-group"><span class="dv-ss-lbl">OPAC</span><button class="dv-ss-step" data-ss="opacity" data-d="-1">−</button><span id="dv-ss-op-v75" class="dv-ss-val">100</span><button class="dv-ss-step" data-ss="opacity" data-d="1">+</button></span>
-      <span class="dv-ss-group"><span class="dv-ss-lbl">COLOR</span><button class="dv-tr-btn dv-tr-color dv-ss-color" data-mk-target="mk-color-btn" title="Color"><span class="dv-tr-color-dot" id="dv-tr-color-dot"></span></button></span>
+      <span class="dv-ss-group"><span class="dv-ss-lbl dv-ss-lbl-color">COLOR</span><button class="dv-tr-btn dv-tr-color dv-ss-color" data-mk-target="mk-color-btn" title="Color"><span class="dv-tr-color-dot" id="dv-tr-color-dot"></span></button></span>
     </div>
     <!-- DRAWING CANVAS -->
     <div class="dv-canvas-area" id="dv-canvas-area" oncontextmenu="return false;">
@@ -983,7 +983,7 @@ function ensurePdfJs(cb){
 </div>
 
 <!-- ═══ MODULE ENTRY POINT ═══ -->
-<script src="js/viewer/markupEngine.js?v=9"></script>
+<script src="js/viewer/markupEngine.js?v=10"></script>
 <script src="js/viewer/webglMarkup.js?v=8"></script>
 <script src="js/ui/pinsGL.js?v=13"></script>
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,

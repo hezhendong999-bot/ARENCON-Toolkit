@@ -4,6 +4,12 @@
 (function(){
   'use strict';
 
+  // S339 — single source of truth for "is this stroke a two-point shape?". Used by
+  // the retained-draw pass, the bake pass, and hit-testing so adding a shape only
+  // touches the per-shape draw/hit code, not four scattered tool-name lists.
+  var SHAPE_TOOLS = { line:1, arrow:1, rect:1, circle:1, 'rect-fill':1, 'circle-fill':1, triangle:1, cloud:1 };
+  function isShapeTool(t){ return !!SHAPE_TOOLS[t]; }
+
   var MarkupEngine = {
     canvas: null, ctx: null, host: null, img: null,
     dpr: 1, w: 0, h: 0,                  // logical (CSS px) size
@@ -136,7 +142,7 @@
         var sy = (r.height && self.h) ? (self.h / r.height) : 1;
         return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
       }
-      function isShape(t){ return t==='arrow'||t==='rect'||t==='circle'||t==='line'; }
+      function isShape(t){ return t==='arrow'||t==='rect'||t==='circle'||t==='line'||t==='rect-fill'||t==='circle-fill'||t==='triangle'||t==='cloud'; }
       // S329 (#23, Mark): shapes (arrow/rect/circle/line) place via TWO CLICKS
       // (click start -> click finish), NOT click-drag-hold. Freehand (pen/highlight)
       // and eraser keep the drag flow. Mirrors the drawing-viewer engine's
@@ -287,6 +293,24 @@
             var d = Math.abs(Math.sqrt(nx*nx+ny*ny) - 1) * Math.min(rx,ry);
             if (d <= r) hit=i;
           }
+        } else if (tool === 'rect-fill' || tool === 'cloud'){
+          // filled rect & cloud: hit anywhere inside the bounding box
+          var bx1=Math.min(s.pts[0].x,s.pts[1].x), by1=Math.min(s.pts[0].y,s.pts[1].y);
+          var bx2=Math.max(s.pts[0].x,s.pts[1].x), by2=Math.max(s.pts[0].y,s.pts[1].y);
+          if (p.x>=bx1-r && p.x<=bx2+r && p.y>=by1-r && p.y<=by2+r) hit=i;
+        } else if (tool === 'circle-fill'){
+          var fcx=(s.pts[0].x+s.pts[1].x)/2, fcy=(s.pts[0].y+s.pts[1].y)/2;
+          var frx=Math.abs(s.pts[1].x-s.pts[0].x)/2, fry=Math.abs(s.pts[1].y-s.pts[0].y)/2;
+          if (frx>0 && fry>0){ var fnx=(p.x-fcx)/frx, fny=(p.y-fcy)/fry; if (fnx*fnx+fny*fny <= 1.0) hit=i; }
+        } else if (tool === 'triangle'){
+          var trl=Math.min(s.pts[0].x,s.pts[1].x), trr=Math.max(s.pts[0].x,s.pts[1].x);
+          var trt=Math.min(s.pts[0].y,s.pts[1].y), trb=Math.max(s.pts[0].y,s.pts[1].y);
+          // point-in-triangle (apex top-center, base bottom) via edge sign test
+          var A={x:(trl+trr)/2,y:trt}, B={x:trr,y:trb}, C={x:trl,y:trb};
+          function sign(p1,p2,p3){ return (p1.x-p3.x)*(p2.y-p3.y)-(p2.x-p3.x)*(p1.y-p3.y); }
+          var d1=sign(p,A,B), d2=sign(p,B,C), d3=sign(p,C,A);
+          var hasNeg=(d1<0)||(d2<0)||(d3<0), hasPos=(d1>0)||(d2>0)||(d3>0);
+          if (!(hasNeg&&hasPos)) hit=i;
         } else if (tool === 'text'){
           var tp=s.pts[0];
           var fontPx=(s.size||3)*4;
@@ -315,12 +339,33 @@
         ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       } else if (s.tool==='rect'){
         ctx.strokeRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
+      } else if (s.tool==='rect-fill'){
+        ctx.fillStyle = s.color;
+        ctx.fillRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
       } else if (s.tool==='circle'){
         var cx=(x1+x2)/2, cy=(y1+y2)/2;
         var rx=Math.abs(x2-x1)/2, ry=Math.abs(y2-y1)/2;
         // ellipse via canvas API; fall back to circle if not supported
         if (ctx.ellipse){ ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); }
         else { ctx.arc(cx,cy,Math.max(rx,ry),0,Math.PI*2); }
+        ctx.stroke();
+      } else if (s.tool==='circle-fill'){
+        var cxf=(x1+x2)/2, cyf=(y1+y2)/2;
+        var rxf=Math.abs(x2-x1)/2, ryf=Math.abs(y2-y1)/2;
+        ctx.fillStyle = s.color;
+        if (ctx.ellipse){ ctx.ellipse(cxf,cyf,rxf,ryf,0,0,Math.PI*2); }
+        else { ctx.arc(cxf,cyf,Math.max(rxf,ryf),0,Math.PI*2); }
+        ctx.fill();
+      } else if (s.tool==='triangle'){
+        // Isosceles triangle inscribed in the bounding box: apex top-center, base along bottom.
+        var tl=Math.min(x1,x2), tr=Math.max(x1,x2), tt=Math.min(y1,y2), tb=Math.max(y1,y2);
+        ctx.moveTo((tl+tr)/2, tt);
+        ctx.lineTo(tr, tb);
+        ctx.lineTo(tl, tb);
+        ctx.closePath();
+        ctx.stroke();
+      } else if (s.tool==='cloud'){
+        this._cloudPath(ctx, Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
         ctx.stroke();
       } else if (s.tool==='arrow'){
         ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
@@ -333,6 +378,27 @@
         ctx.moveTo(x2,y2);
         ctx.lineTo(x2 - head*Math.cos(ang + Math.PI/6), y2 - head*Math.sin(ang + Math.PI/6));
         ctx.stroke();
+      }
+    },
+
+    // S339 — revision-cloud path: scalloped arcs around the bounding box. Builds a
+    // closed path the caller can stroke. Bump radius scales with the box so small
+    // clouds still read as clouds. Uses arc only (no quadraticCurveTo, per canon).
+    _cloudPath: function(ctx, x, y, w, h){
+      if (w < 4 || h < 4){ ctx.rect(x,y,w,h); return; }
+      var bump = Math.max(6, Math.min(w, h) * 0.16);
+      var perim = 2*(w+h);
+      var pts = [];
+      function edge(x0,y0,x1,y1,count){ for(var i=0;i<count;i++){ var t=i/count; pts.push([x0+(x1-x0)*t, y0+(y1-y0)*t]); } }
+      var nTop=Math.max(2,Math.round(w/(bump*1.6))), nRight=Math.max(2,Math.round(h/(bump*1.6)));
+      edge(x,y, x+w,y, nTop);
+      edge(x+w,y, x+w,y+h, nRight);
+      edge(x+w,y+h, x,y+h, nTop);
+      edge(x,y+h, x,y, nRight);
+      for (var i=0;i<pts.length;i++){
+        var p=pts[i];
+        ctx.moveTo(p[0]+bump, p[1]);
+        ctx.arc(p[0], p[1], bump, 0, Math.PI*2);
       }
     },
 
@@ -862,9 +928,9 @@
       // Pass 3: shapes (per-object opacity + rotation)
       for (var m=0;m<this.strokes.length;m++){
         var sh = this.strokes[m];
-        if (sh.tool==='line'||sh.tool==='rect'||sh.tool==='circle'||sh.tool==='arrow') this._drawShapeR(ctx, sh);
+        if (isShapeTool(sh.tool)) this._drawShapeR(ctx, sh);
       }
-      if (this._curr && (this._curr.tool==='line'||this._curr.tool==='rect'||this._curr.tool==='circle'||this._curr.tool==='arrow')) this._drawShapeR(ctx, this._curr);
+      if (this._curr && isShapeTool(this._curr.tool)) this._drawShapeR(ctx, this._curr);
       // Pass 4: text labels (per-object opacity + rotation)
       for (var n=0;n<this.strokes.length;n++){
         var tx = this.strokes[n];
@@ -964,7 +1030,7 @@
             oc.stroke(); oc.restore();
           });
           // Shapes on top (per-object opacity + rotation about scaled bbox center)
-          self.strokes.filter(function(s){return s.tool==='line'||s.tool==='rect'||s.tool==='circle'||s.tool==='arrow';}).forEach(function(s){
+          self.strokes.filter(function(s){return isShapeTool(s.tool);}).forEach(function(s){
             oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
             if (s.rotation){ var a=s.pts[0],b=s.pts[1], cx=((a.x+b.x)/2)*sx, cy=((a.y+b.y)/2)*sy;
               oc.translate(cx,cy); oc.rotate(s.rotation); oc.translate(-cx,-cy); }
