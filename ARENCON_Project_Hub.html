@@ -113,6 +113,7 @@ body.dark-mode{
 .hub-view-toggle{display:inline-flex;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:2px;gap:1px}
 .hub-view-toggle button{border:none;background:none;color:var(--steel);font-size:calc(12.5px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;padding:6px 12px;border-radius:6px;cursor:pointer;line-height:1;white-space:nowrap}
 .hub-view-toggle button.active{background:var(--info,#2C7FB8);color:#fff}
+body.bold.dark-mode .hub-view-toggle button.active{background:rgba(255,255,255,.12) !important;color:#f4f3f6 !important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
 body.dark-mode .hub-view-toggle{background:var(--card)}
 /* Hub filter menu */
 .hub-filter-badge{background:var(--arencon);color:#fff;border-radius:999px;font-size:calc(10px + var(--ts));font-weight:700;padding:1px 6px;margin-left:4px}
@@ -844,6 +845,8 @@ body.bold.dark-mode .view-list .band-body,body.bold.dark-mode .view-list .projec
 /* Band collapse must win over every view-mode display rule */
 .band-body.hidden,
 .view-cards .band-body.hidden,.view-compact .band-body.hidden,.view-list .band-body.hidden{display:none !important;}
+/* starred cards: no status badge (always active, redundant on the top shortcut) */
+#starred-section .project-badge{display:none !important;}
 
 /* ── Demo tinted pills (tool pills + progress chips) ── */
 /* Demo semantic colours */
@@ -2483,8 +2486,8 @@ function _renderProjectCard(p, myId) {
     ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-pill tp-' + t + '" style="background:' + ti.color + '" title="' + esc(ti.name) + '">' + ti.svg + ti.short + '</span>' : ''; }).join('')
     : '<span style="font-size:calc(10px + var(--ts));color:var(--silver)">No tools</span>';
 
-  // Progress chips
-  var progressHtml = _getProgressChipsHtml(p.id);
+  // Progress chips — removed from Hub cards/list (shown on detail page only)
+  var progressHtml = '';
 
   // Trash view
   if (_showDeleted && p.deleted_at) {
