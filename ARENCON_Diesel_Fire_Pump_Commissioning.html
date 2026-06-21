@@ -5776,8 +5776,37 @@ function _openPhotoReusePicker(onPickFile, opts){
   h+='</div></div>';
   ov.innerHTML=h;
   document.body.appendChild(ov);
+  _lockBodyScroll();
 }
-function _closePhotoReusePicker(){ var ex=document.getElementById('reuse-picker-ov'); if(ex) ex.remove(); _reusePickerCb=null; _reusePickerItems=[]; }
+// S369: prevent the page behind a modal from scrolling. Preserves the current
+// scroll position (position:fixed would otherwise jump to top) and restores it
+// on unlock. Ref-counted so nested/stacked modals don't unlock prematurely.
+var _scrollLockCount=0, _scrollLockY=0;
+function _lockBodyScroll(){
+  if(_scrollLockCount===0){
+    _scrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.position='fixed';
+    document.body.style.top=(-_scrollLockY)+'px';
+    document.body.style.left='0';
+    document.body.style.right='0';
+    document.body.style.width='100%';
+    document.body.style.overflow='hidden';
+  }
+  _scrollLockCount++;
+}
+function _unlockBodyScroll(){
+  _scrollLockCount=Math.max(0,_scrollLockCount-1);
+  if(_scrollLockCount===0){
+    document.body.style.position='';
+    document.body.style.top='';
+    document.body.style.left='';
+    document.body.style.right='';
+    document.body.style.width='';
+    document.body.style.overflow='';
+    window.scrollTo(0,_scrollLockY);
+  }
+}
+function _closePhotoReusePicker(){ var ex=document.getElementById('reuse-picker-ov'); if(ex){ ex.remove(); _unlockBodyScroll(); } _reusePickerCb=null; _reusePickerItems=[]; }
 function _pickReusePhoto(k){
   var it=_reusePickerItems[k]; var cb=_reusePickerCb;
   if(!it||!it.photo||!cb){ _closePhotoReusePicker(); return; }
