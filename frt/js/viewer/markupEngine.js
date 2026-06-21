@@ -448,6 +448,7 @@
             '<div class="mk-tc-sizeval"></div><button type="button" class="mk-inc">+</button></div>'+
           '<div class="mk-tc-sep"></div>'+
           '<button type="button" class="mk-tc-btn mk-tc-ret" title="New line">'+RET+'</button>'+
+          '<button type="button" class="mk-tc-btn mk-tc-color" title="Text colour"><span class="mk-tc-dot"></span></button>'+
           '<div class="mk-tc-spacer"></div>'+
           '<button type="button" class="mk-tc-btn mk-tc-x" title="Discard">'+XS+'</button>'+
           '<button type="button" class="mk-tc-btn mk-tc-ok" title="Place">'+OK+'</button>'+
@@ -459,7 +460,11 @@
       var ta  = chip.querySelector('.mk-text-area');
       var val = chip.querySelector('.mk-tc-sizeval');
       ta.value = startText;
+      var curColor = startColor;
       ta.style.color = startColor;
+      // colour dot reflects current colour
+      var _dot = chip.querySelector('.mk-tc-dot');
+      if (_dot) _dot.style.background = curColor;
 
       function autoGrow(){
         ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px';
@@ -497,8 +502,34 @@
         autoGrow(); ta.focus();
       });
 
+      // colour button: tap → small swatch popup → recolour the live text + dot.
+      // Same palette as the markup toolbar. Applies to this text on commit.
+      var COLORS = ['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'];
+      var colorBtn = chip.querySelector('.mk-tc-color');
+      var colorPop = null;
+      function closeColorPop(){ if (colorPop && colorPop.parentNode){ colorPop.parentNode.removeChild(colorPop); } colorPop=null; }
+      colorBtn.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        if (colorPop){ closeColorPop(); return; }
+        colorPop = document.createElement('div');
+        colorPop.className = 'mk-tc-colorpop';
+        COLORS.forEach(function(c){
+          var sw = document.createElement('button'); sw.type='button'; sw.className='mk-tc-sw';
+          sw.style.background = c;
+          if (c === curColor) sw.classList.add('sel');
+          sw.addEventListener('click', function(ev){
+            ev.preventDefault(); ev.stopPropagation();
+            curColor = c; ta.style.color = c; if (_dot) _dot.style.background = c;
+            closeColorPop(); ta.focus();
+          });
+          colorPop.appendChild(sw);
+        });
+        chip.appendChild(colorPop);
+      });
+
       var resolved = false;
       function cleanup(){
+        if (typeof closeColorPop==='function') closeColorPop();
         if (chip.parentNode) chip.parentNode.removeChild(chip);
         if (self._textInput === chip) self._textInput = null;
         if (editStroke){ delete editStroke._editing; }
@@ -520,14 +551,14 @@
           if (!v.trim()){ // emptied → delete the stroke
             var ix=self.strokes.indexOf(editStroke); if(ix>=0) self.strokes.splice(ix,1);
           } else {
-            editStroke.text=v; editStroke.size=newSize;
+            editStroke.text=v; editStroke.size=newSize; editStroke.color=curColor;
             editStroke.pts[0]={x:lx,y:ly};
           }
           delete editStroke._editing;
           self.redoStack=[]; if(self._onDirty) self._onDirty(); self._render(); cleanup(); return;
         }
         if (v.trim()){
-          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:self.color, size:newSize, opacity:self.opacity });
+          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, size:newSize, opacity:self.opacity });
           self.redoStack=[]; if(self._onDirty) self._onDirty();
         }
         self._render(); cleanup();
@@ -589,11 +620,34 @@
       var avg = (sx+sy)/2;
       var fontPx = (s.size||3) * 4 * avg;
       var lineHpx = fontPx * this._LINE_H_FACTOR;
+      var lines = String(s.text||'').split('\n');
+      // S339 (Mark): readable BACKING PILL — busy/colourful drawings made text blend
+      // in. Draw a fixed dark translucent rounded rect (~70%) behind the text so the
+      // ink stays legible regardless of what's underneath or the chosen text colour.
       ctx.font = '600 ' + fontPx + 'px Calibri, sans-serif';
+      var padX = fontPx*0.28, padY = fontPx*0.20;
+      var maxW = 0;
+      for (var w=0; w<lines.length; w++){ var lw = ctx.measureText(lines[w]).width; if (lw>maxW) maxW=lw; }
+      var bx = p.x*sx - padX;
+      var by = p.y*sy - fontPx - padY;                 // top above first baseline
+      var bw = maxW + padX*2;
+      var bh = (lines.length*lineHpx) + padY*2 - (lineHpx - fontPx);
+      var rad = Math.min(8*avg, bh/2);
+      ctx.save();
+      ctx.fillStyle = 'rgba(20,18,24,0.70)';
+      ctx.beginPath();
+      if (ctx.roundRect){ ctx.roundRect(bx, by, bw, bh, rad); }
+      else {
+        ctx.moveTo(bx+rad,by); ctx.lineTo(bx+bw-rad,by); ctx.arcTo(bx+bw,by,bx+bw,by+rad,rad);
+        ctx.lineTo(bx+bw,by+bh-rad); ctx.arcTo(bx+bw,by+bh,bx+bw-rad,by+bh,rad);
+        ctx.lineTo(bx+rad,by+bh); ctx.arcTo(bx,by+bh,bx,by+bh-rad,rad);
+        ctx.lineTo(bx,by+rad); ctx.arcTo(bx,by,bx+rad,by,rad);
+      }
+      ctx.fill();
+      ctx.restore();
+      // text on top
       ctx.fillStyle = s.color;
       ctx.textBaseline = 'alphabetic';
-      var lines = String(s.text||'').split('\n');
-      // pts[0] is the first line's baseline; each subsequent line drops by lineH.
       for (var i=0;i<lines.length;i++){
         ctx.fillText(lines[i], p.x*sx, p.y*sy + i*lineHpx);
       }

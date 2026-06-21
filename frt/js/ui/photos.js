@@ -26,7 +26,7 @@ var _filterMode = 'all';
 //   'trash' = Recently Deleted — soft-deleted DEFIC pool photos (site photos
 //             join in stage 2). Display-only countdown; restore via restorePoolPhoto.
 var _photoTab = 'all';
-var _TRASH_RETENTION_DAYS = 30;
+var _TRASH_RETENTION_DAYS = 90;
 // S265 stage 2: project id this session has already auto-purged (run-once guard).
 var _purgedForProjectId = null;
 var _selectedUids = new Set();

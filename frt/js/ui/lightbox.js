@@ -45,10 +45,17 @@ import { showConfirm } from '../shared/dialogs.js';
     '.mk-text-chip .mk-tc-ret:active{background:rgba(255,255,255,.10);}'+
     '.mk-text-chip .mk-tc-x{color:#a09aa8;}.mk-text-chip .mk-tc-x:active{background:rgba(255,255,255,.10);}'+
     '.mk-text-chip .mk-tc-ok{background:#3FD08A;color:#fff;}.mk-text-chip .mk-tc-ok:active{filter:brightness(.9);}'+
+    '.mk-text-chip .mk-tc-dot{width:20px;height:20px;border-radius:50%;border:2px solid #fff;display:block;background:#FF0000;}'+
+    '.mk-text-chip .mk-tc-colorpop{position:absolute;top:44px;right:8px;display:flex;flex-wrap:wrap;gap:6px;width:118px;'+
+      'padding:8px;background:rgba(34,34,44,.99);border:1px solid rgba(255,255,255,.16);border-radius:12px;'+
+      'box-shadow:0 8px 26px rgba(0,0,0,.6);z-index:10001;}'+
+    '.mk-text-chip .mk-tc-sw{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.4);'+
+      'cursor:pointer;padding:0;}'+
+    '.mk-text-chip .mk-tc-sw.sel{border-color:#fff;box-shadow:0 0 0 2px #9C2742;}'+
     '.mk-text-chip .mk-tc-spacer{flex:1 1 auto;}'+
-    '.mk-text-chip .mk-text-area{border:none;outline:none;background:transparent;color:#f4f3f6;resize:none;'+
+    '.mk-text-chip .mk-text-area{border:none;outline:none;background:rgba(20,18,24,.70);color:#f4f3f6;resize:none;'+
       'overflow:hidden;font-weight:600;font-family:Calibri,sans-serif;line-height:1.25;padding:9px 11px;'+
-      'min-width:210px;width:210px;caret-color:#C9476A;}'+
+      'min-width:210px;width:210px;caret-color:#C9476A;border-radius:0 0 8px 8px;}'+
     '.mk-text-chip .mk-text-area::placeholder{color:#a09aa8;font-weight:400;}'+
     // S339 (Mark): while the lightbox is open, hide the header inspector chip +
     // sign-out so the green "mhe / Sign out" badge stops overlapping the markup
