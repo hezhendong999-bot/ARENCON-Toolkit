@@ -5098,21 +5098,18 @@ body.dark-mode .pin-rec-toggle.is-rec:hover{background:rgba(168,180,197,.24);col
    Matches the same breakpoint pattern used elsewhere (proj-grid line 188,
    obs-layout line 2104). */
 @media(max-width:700px){.obs-layout-merged{grid-template-columns:1fr;}}
-.obs-media-col{display:flex;min-width:0;cursor:pointer;}/* S342: zone is click-to-add */
+.obs-media-col{display:flex;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}/* S342: zone is click-to-add. S341: kill the Android Chrome tap-highlight that flashed the whole box on tap. */
 .obs-media-col.drag-over .obs-media-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
-.obs-media-zone{flex:1;border:2px dashed var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--smoke);min-height:140px;transition:border-color .15s,background .15s;}
+.obs-media-zone{flex:1;border:2px dashed var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--smoke);min-height:140px;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;}
 .obs-media-photos{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;}
 .obs-media-photos .obs-photo-wrap{width:80px;height:80px;}
 .obs-media-divider{height:1px;background:var(--border);margin:2px 0;}
 .obs-media-hint{font-size:calc(11px + var(--ts));color:var(--silver);text-align:center;font-weight:600;line-height:1.2;flex:1;display:flex;align-items:center;justify-content:center;min-height:24px;}
-.obs-media-btns{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2;}
-/* S341 FIX: the Camera/Gallery buttons sit inside the click-to-add drop zone
-   (.obs-media-col). On touch WebViews the zone's own tap/drag handling was
-   swallowing taps meant for the buttons (visible as the zone's blue drag-over
-   flash firing instead of the button). Raise the button row onto its own
-   stacking layer and force the buttons to own their pointer events so a tap on
-   Camera/Gallery always lands on the button, never the zone behind it. */
-.obs-media-btns .obs-drop-btn{position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;}
+.obs-media-btns{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2;}
+/* S341: on narrow Android phones the Camera/Gallery buttons were cramped edge
+   to edge. Let them share the row evenly with a sensible min width and a
+   comfortable touch height so they fit and tap cleanly. */
+.obs-media-btns .obs-drop-btn{flex:1 1 0;min-width:108px;min-height:44px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;}
 
 .defic-pin-footer{padding:10px 14px;background:rgba(0,0,0,0.02);border-top:1.5px solid var(--border);}
 .defic-pin-footer .defic-actions{margin-top:0;padding-top:0;border-top:none;}
