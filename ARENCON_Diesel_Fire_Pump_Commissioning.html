@@ -424,7 +424,12 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .ts-pitot .pcard select{margin-bottom:0;}
 /* rated values — compact inline */
 .ts-rated{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px;align-items:stretch;}
-.ts-rated-7{grid-template-columns:repeat(7,1fr);}
+/* S343: 7-pt rated grid was 7 forced-equal columns — too narrow, so the long
+   shared labels ("Pressure Reducing Valve (psi)") wrapped and pushed the first
+   input row down vs the 6-col 3-pt grid. Switch to auto-fit columns with a min
+   width matched to the 3-pt field width: the shared fields now get the same room
+   they have in 3-pt (no wrap), and the extra PLD-only field reflows naturally. */
+.ts-rated-7{grid-template-columns:repeat(auto-fit,minmax(132px,1fr));}
 .ts-rated .meta-field{width:auto;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;}
 .ts-rated .meta-field input{text-align:right;}
 /* S338: reserve a uniform 2-line label height so a wrapping "(PSI)" never pushes
@@ -437,10 +442,13 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 .ev-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 @media(max-width:560px){.ev-tiles{grid-template-columns:1fr;}}
 /* S344: evidence boxes as thumbnail grids (checklist-style) */
-.ev-grid-card{border:1.5px solid var(--border);border-radius:10px;background:var(--card-bg,#fff);padding:10px 11px;transition:all .14s;}
+/* S343: populated evidence box matches the empty dashed-tile family — same dashed
+   border + off-white fill, and a full-height flex column so the Camera/Gallery row
+   pins to the bottom and lines up across all three boxes regardless of photo count. */
+.ev-grid-card{border:2px dashed var(--border);border-radius:10px;background:#fff;padding:10px 11px;transition:all .14s;display:flex;flex-direction:column;height:100%;min-height:128px;}
 .ev-grid-card.drag-over{border-color:var(--arencon);background:rgba(156,39,66,.05);}
-body.dark-mode .ev-grid-card{background:var(--b-fieldbg,rgba(255,255,255,.04));}
-.ev-grid-head{font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+body.dark-mode .ev-grid-card{background:#1e2028!important;border-color:rgba(255,255,255,.14)!important;}
+.ev-grid-head{font-size:calc(11px + var(--ts));font-weight:700;color:var(--steel);margin-bottom:8px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.3px;}
 .ev-grid-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:9px;background:var(--smoke);color:var(--steel);font-size:calc(10.5px + var(--ts));font-weight:700;text-align:center;}
 body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-grid{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;}
@@ -463,6 +471,10 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-tile .s{font-size:calc(10px + var(--ts));color:var(--silver);}
 .ev-tile.has-img{border-style:solid;}
 .ev-tile-btns{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;margin-top:10px;padding:0 8px;width:100%;}
+/* S343: in the populated grid-card, the thumbnail grid holds its natural height and
+   the button row is pushed to the bottom so all three boxes' buttons share one line. */
+.ev-grid-card .ev-grid{flex:0 0 auto;}
+.ev-grid-card .ev-tile-btns{margin-top:auto;padding-top:10px;}
 /* S342: any photo box wired for click-to-upload shows a pointer + subtle hover
    so it reads as tappable (replaces the removed Upload button). */
 .ev-clickable{cursor:pointer;}
