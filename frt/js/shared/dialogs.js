@@ -40,8 +40,8 @@ export function showConfirm(title, message) {
   return new Promise(function(resolve) {
     var overlay = _createOverlay();
     var modal = _createModal(title, message, [
-      { label: 'Yes', color: '#1A7A4A', action: function() { _removeOverlay(overlay); resolve(true); } },
-      { label: 'Cancel', color: '#C0392B', action: function() { _removeOverlay(overlay); resolve(false); } }
+      { label: 'Cancel', color: '#C0392B', action: function() { _removeOverlay(overlay); resolve(false); } },
+      { label: 'Yes', color: '#1A7A4A', action: function() { _removeOverlay(overlay); resolve(true); } }
     ]);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
