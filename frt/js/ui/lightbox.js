@@ -78,6 +78,12 @@ var _scale = 1;
 var _fitScale = 1;
 var _panX = 0;
 var _panY = 0;
+// Part B (keyboard scroll-into-view): a temporary upward view nudge (px, positive =
+// content moves up) so a text box placed low on the photo clears the on-screen
+// keyboard. Applied as one extra Y term in _applyTransform, IDENTICAL on wrap+canvas
+// (so they never diverge → no drift), AFTER _clampPan (it's a view nudge, not a pan).
+// Reset to 0 on text end / keyboard close.
+var _kbShift = 0;
 var _dragging = false;
 var _lastX = 0;
 var _lastY = 0;
@@ -367,9 +373,35 @@ function _buildMarkupBar(overlay){
       textBar.style.bottom = '16px';
     }
   }
+  // Part B: scroll the on-photo text box into view above the keyboard. The bar already
+  // lifts (above); this shifts the PHOTO + MARKUP up by _kbShift so a box placed low on
+  // the photo isn't hidden behind the keyboard. Keyboard height varies by device/OS, so
+  // we measure the visible region via visualViewport, never a hardcoded height.
+  function _computeKbShift(){
+    var box = (window.MarkupEngine && window.MarkupEngine._textInput) || null;
+    if (!box || textBar.style.display==='none'){
+      if (_kbShift !== 0){ _kbShift = 0; _applyTransform(); }
+      return;
+    }
+    var vv = window.visualViewport;
+    var visibleBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
+    var barH = textBar.getBoundingClientRect().height || 48;
+    var safeBottom = visibleBottom - barH - 12;
+    var boxBottom = box.getBoundingClientRect().bottom;
+    var want = Math.max(0, boxBottom - safeBottom);
+    if (Math.abs(want - _kbShift) > 0.5){
+      _kbShift = want;
+      _applyTransform();
+      // re-glue the box to the (now-shifted) canvas point
+      if (window.MarkupEngine && window.MarkupEngine._repositionTextBox){
+        window.MarkupEngine._repositionTextBox();
+      }
+    }
+  }
+  function _kbReact(){ _liftTextBar(); _computeKbShift(); }
   if (window.visualViewport){
-    window.visualViewport.addEventListener('resize', _liftTextBar);
-    window.visualViewport.addEventListener('scroll', _liftTextBar);
+    window.visualViewport.addEventListener('resize', _kbReact);
+    window.visualViewport.addEventListener('scroll', _kbReact);
   }
 
   function _refreshTextBarGlyphs(){
@@ -421,15 +453,22 @@ function _buildMarkupBar(overlay){
       _tc=controller; _refreshTextBarGlyphs();
       if(_markupBar) _markupBar.style.display='none';
       textBar.style.display='flex';
-      // lift above keyboard; the keyboard opens slightly after focus, so re-lift on a
-      // couple of frames + a short timeout to catch the viewport resize.
-      _liftTextBar();
-      requestAnimationFrame(_liftTextBar);
-      setTimeout(_liftTextBar, 150);
-      setTimeout(_liftTextBar, 400);
+      // lift above keyboard; the keyboard opens slightly after focus, so re-react on a
+      // couple of frames + a short timeout to catch the viewport resize (Part A bar lift
+      // + Part B box scroll-into-view).
+      _kbReact();
+      requestAnimationFrame(_kbReact);
+      setTimeout(_kbReact, 150);
+      setTimeout(_kbReact, 400);
+      // multi-line growth while typing can push the box back under the keyboard
+      if(controller && controller.__kbInputWired!==true && window.MarkupEngine && window.MarkupEngine._textInput){
+        try{ window.MarkupEngine._textInput.addEventListener('input', _computeKbShift); controller.__kbInputWired=true; }catch(_){}
+      }
     };
     window.MarkupEngine._onTextEnd=function(){
       _tc=null; _tcloseTextPops(); textBar.style.display='none';
+      // Part B: drop the keyboard-scroll nudge so the photo returns to its place.
+      if(_kbShift !== 0){ _kbShift = 0; _applyTransform(); }
       if(_markupActive && _markupBar) _markupBar.style.display='flex';
       // S339 auto-unarm: after a text box is finished, drop the Text tool so the
       // next tap doesn't drop another box. User re-taps T for the next label.
@@ -777,7 +816,7 @@ function _applyTransform() {
   // CSS applies transforms right-to-left so the inner (scale) hits first,
   // then rotate pivots the scaled image around (0,0), then translate moves
   // it into place.
-  wrap.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY) + 'px,0) rotate(' + rot + 'deg) scale(' + _scale + ')';
+  wrap.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY - _kbShift) + 'px,0) rotate(' + rot + 'deg) scale(' + _scale + ')';
   // S329 (#20/#21/#22, Mark): mirror the SAME transform onto the markup canvas so markup
   // zooms/pans WITH the photo. The canvas was synced to the fit-display box (engine's
   // original coord space — untouched), so its relative scale is k = _scale/_fitScale; the
@@ -794,7 +833,7 @@ function _applyTransform() {
     // the canvas's own CSS left/top so the two align at every zoom.
     var _cl = parseFloat(mc.style.left) || 0;
     var _ct = parseFloat(mc.style.top) || 0;
-    mc.style.transform = 'translate3d(' + (_panX + offX - _cl) + 'px,' + (_panY + offY - _ct) + 'px,0) rotate(' + rot + 'deg) scale(' + k + ')';
+    mc.style.transform = 'translate3d(' + (_panX + offX - _cl) + 'px,' + (_panY + offY - _ct - _kbShift) + 'px,0) rotate(' + rot + 'deg) scale(' + k + ')';
   }
   _updateZoomIndicator();
 }

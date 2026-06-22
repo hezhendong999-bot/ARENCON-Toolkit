@@ -438,13 +438,20 @@
 
       function screenFont(){ return sizePx * scaleY; }
       function positionBox(){
-        // place box so its first text line baseline ~ anchor point
+        // place box so its first text line baseline ~ anchor point.
+        // Part B (keyboard scroll): re-read the canvas rect LIVE each call so the
+        // box stays glued to the photo point when _kbShift moves the canvas up.
+        // scaleX/scaleY stay from the closure — the canvas CSS size doesn't change
+        // on a kb-shift, only its screen position does.
+        var lr = self.canvas.getBoundingClientRect();
         var sf = screenFont();
-        var sx = r.left + anchor.x * scaleX;
-        var sy = r.top  + anchor.y * scaleY;
+        var sx = lr.left + anchor.x * scaleX;
+        var sy = lr.top  + anchor.y * scaleY;
         box.style.left = Math.max(2, sx - 4) + 'px';
         box.style.top  = Math.max(2, sy - sf) + 'px';
       }
+      // Part B: lightbox calls this after each _kbShift change to re-glue the box.
+      self._repositionTextBox = positionBox;
       function applyStyle(){
         box.style.fontSize = screenFont() + 'px';
         box.style.color = curColor;
@@ -463,6 +470,7 @@
       function cleanup(){
         if (box.parentNode) box.parentNode.removeChild(box);
         if (self._textInput === box) self._textInput = null;
+        if (self._repositionTextBox === positionBox) self._repositionTextBox = null;  // Part B
         if (editStroke){ delete editStroke._editing; }
         if (self._onTextEnd) self._onTextEnd();   // tell lightbox to restore tool row
       }
