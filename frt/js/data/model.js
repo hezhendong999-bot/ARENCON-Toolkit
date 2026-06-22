@@ -3492,3 +3492,6 @@ export var Model = {
     });
   }
 };
+
+// S340: expose Model for console diagnostics (read-only debugging hook).
+try { if (typeof window !== 'undefined') window._frtModel = Model; } catch(_){}

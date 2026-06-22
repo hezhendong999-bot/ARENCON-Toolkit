@@ -654,7 +654,16 @@ function _toggleMarkup(){
     // AND can resolve the original source, swap lb-image to the original first.
     var savedStrokes = (p._markupStrokes && p._markupStrokes.length) ? p._markupStrokes : null;
     var origSrc = savedStrokes ? _resolveOriginalSrc(p) : null;
-    try { console.log('[S340 reopen]', p && p.id, 'savedStrokes=', savedStrokes && savedStrokes.length, 'origSrc=', origSrc ? (origSrc.slice(0,60)) : null, 'hasOrigBlob=', !!(p&&p._origBlob), 'origBackupId=', p&&p._origBackupId); } catch(_){}
+    try {
+      console.log('[S340 reopen]', p && p.id,
+        'savedStrokes=', savedStrokes && savedStrokes.length,
+        '| has _markupStrokes key=', (p && ('_markupStrokes' in p)),
+        '| typeof=', (p && typeof p._markupStrokes),
+        '| rawLen=', (p && p._markupStrokes && p._markupStrokes.length),
+        '| origSrc=', origSrc ? origSrc.slice(0,50) : null,
+        '| origBackupId=', p && p._origBackupId,
+        '| keys=', p ? Object.keys(p).filter(function(k){return k.indexOf("_")===0;}).join(",") : '');
+    } catch(_){}
     var attachAndArm = function(){
       var prevScale = _scale, prevPanX = _panX, prevPanY = _panY;
       _calcFitScale();
