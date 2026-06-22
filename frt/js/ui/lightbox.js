@@ -654,6 +654,7 @@ function _toggleMarkup(){
     // AND can resolve the original source, swap lb-image to the original first.
     var savedStrokes = (p._markupStrokes && p._markupStrokes.length) ? p._markupStrokes : null;
     var origSrc = savedStrokes ? _resolveOriginalSrc(p) : null;
+    try { console.log('[S340 reopen]', p && p.id, 'savedStrokes=', savedStrokes && savedStrokes.length, 'origSrc=', origSrc ? (origSrc.slice(0,60)) : null, 'hasOrigBlob=', !!(p&&p._origBlob), 'origBackupId=', p&&p._origBackupId); } catch(_){}
     var attachAndArm = function(){
       var prevScale = _scale, prevPanX = _panX, prevPanY = _panY;
       _calcFitScale();
@@ -701,12 +702,14 @@ function _saveMarkup(){
   if (!window.MarkupEngine || !window.MarkupEngine.isDirty()){ _exitMarkupNoSave(); return; }
   // S340: capture the live strokes for persistence BEFORE saveBlob (which is async).
   var savedStrokes = window.MarkupEngine.exportStrokes();
+  try { console.log('[S340 save] exportStrokes →', savedStrokes && savedStrokes.length, 'stroke(s); isDirty=', window.MarkupEngine.isDirty(), 'rawLen=', (window.MarkupEngine.strokes||[]).length); } catch(_){}
   window.MarkupEngine.saveBlob().then(function(blob){
     var p = _photos[_idx]; if (!p){ _exitMarkupNoSave(); return; }
     if (!p._origBlob && p.dataUrl) p._origBlob = p.dataUrl;
     var url = URL.createObjectURL(blob);
     p.dataUrl = url; p._annotated = true;
     p._markupStrokes = savedStrokes;   // S340: ride with the photo into IDB + cloud
+    try { console.log('[S340 save] set p._markupStrokes on', p.id, '→', (p._markupStrokes||[]).length, 'stroke(s)'); } catch(_){}
     var img = document.getElementById('lb-image');
     if (img) img.src = url;
     // R2 upload hook — defer to host app via custom event (now carries strokes)

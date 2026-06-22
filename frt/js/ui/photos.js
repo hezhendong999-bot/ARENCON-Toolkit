@@ -1961,6 +1961,7 @@ document.addEventListener('frt-markup-saved', function(e) {
       siblings.push({ photo: photo, location: { type: 'unknown' } });
     }
     console.log('[Markup save] stamping', siblings.length, 'sibling(s)', { backupId: backupId });
+    try { console.log('[S340 stamp] d.strokes =', d.strokes && d.strokes.length, '(typeof', typeof d.strokes + ')'); } catch(_){}
     // S115 P11: For instant visual feedback in defic tab + pin editor, share
     // the lightbox's blob URL of the marked image across every sibling. Blob
     // URLs are document-scoped — any <img src=...> in the page can use them.
