@@ -901,11 +901,42 @@ function _showPhoto(idx) {
   if (!img) return;
 
   var src = p.r2Url || p.dataUrl || p.thumb || '';
+  // S341 (Option A): graceful fallback if the displayed image fails to load.
+  // The primary src is normally p.r2Url. For a small number of historical
+  // photos the r2Url points at an orphaned/never-uploaded R2 object that 404s
+  // (e.g. a marked JPEG whose upload didn't complete). Without this, such a
+  // photo shows a BLANK frame. We build an ordered list of alternate sources
+  // and step to the next one on each load error, so the viewer falls back to
+  // any local copy (dataUrl/thumb) or the clean original backup instead of
+  // showing nothing. Each candidate is tried at most once (no loop). This is
+  // purely additive: when the primary src loads (the 35/36 normal case), the
+  // error handler never runs and behavior is unchanged.
+  var _fallbacks = [];
+  (function(){
+    var seen = {};
+    [p.r2Url, p.dataUrl, p.thumb].forEach(function(s){
+      if (s && !seen[s]) { seen[s] = 1; _fallbacks.push(s); }
+    });
+    try {
+      var orig = _resolveOriginalSrc(p);
+      if (orig && !seen[orig]) { seen[orig] = 1; _fallbacks.push(orig); }
+    } catch(_){}
+  })();
+  var _fbIdx = 0;
   img.onload = function() {
     _calcFitScale();
     _scale = _fitScale;
     _panX = 0; _panY = 0;
     _applyTransform();
+  };
+  img.onerror = function() {
+    _fbIdx++;
+    if (_fbIdx < _fallbacks.length) {
+      try { console.warn('[Lightbox] image load failed, trying fallback', _fbIdx, '/', _fallbacks.length - 1); } catch(_){}
+      img.src = _fallbacks[_fbIdx];
+    } else {
+      try { console.warn('[Lightbox] all image sources failed for photo', p && p.id); } catch(_){}
+    }
   };
   // S114 P1.4: set crossOrigin BEFORE src so the R2 image loads via CORS and the
   // canvas isn't tainted when MarkupEngine.saveBlob() draws it into a canvas
