@@ -39,7 +39,9 @@
     _uid: function(){ return 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); },
 
     // Mount onto an <img> inside a host element. Creates an absolutely-positioned canvas overlay.
-    attach: function(hostEl, imgEl, origBlob, onDirty){
+    // initStrokes (optional): an array of previously-saved stroke objects (logical coords) to
+    // reload as LIVE, editable markup. Pass null/undefined for a clean canvas.
+    attach: function(hostEl, imgEl, origBlob, onDirty, initStrokes){
       this.detach();
       this.host = hostEl; this.img = imgEl; this._origBlob = origBlob || null;
       this._onDirty = onDirty || null;
@@ -49,10 +51,26 @@
         '-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;';
       hostEl.appendChild(c);
       this.canvas = c; this.ctx = c.getContext('2d');
-      this.strokes = []; this.redoStack = [];
-      this._sync();
+      // Reload saved strokes (deep-cloned so the engine owns its own copy) or start clean.
+      this.strokes = (initStrokes && initStrokes.length)
+        ? JSON.parse(JSON.stringify(initStrokes))
+        : [];
+      this.redoStack = [];
+      // Baseline signature of the just-loaded strokes — lets the lightbox tell a
+      // genuine edit from a no-op reopen (so closing without changes doesn't
+      // needlessly re-flatten + re-upload). Updated by _onDirty edits via the getter.
+      this._attachSig = JSON.stringify(this.strokes);
+      this._sync();   // sets w/h and _render()s — re-paints the reloaded strokes
       this._bind();
       window.addEventListener('resize', this._syncBound = this._sync.bind(this));
+    },
+
+    // Serialize current strokes for persistence (logical coords; pure data, no canvas).
+    // Returns a deep clone so callers can't mutate engine state.
+    exportStrokes: function(){
+      return this.strokes && this.strokes.length
+        ? JSON.parse(JSON.stringify(this.strokes))
+        : [];
     },
 
     detach: function(){
@@ -1046,6 +1064,13 @@
     },
 
     isDirty: function(){ return this.strokes.length > 0; },
+
+    // True only if strokes differ from what was loaded at attach (a real edit).
+    // Used so reopening a saved photo and closing it WITHOUT changes doesn't
+    // re-flatten/re-upload an identical marked image.
+    hasChangesSinceAttach: function(){
+      return JSON.stringify(this.strokes) !== (this._attachSig || '[]');
+    },
 
     undo: function(){
       if (this._shapePending){ this._shapePending = null; this._curr = null; this._render(); return; }

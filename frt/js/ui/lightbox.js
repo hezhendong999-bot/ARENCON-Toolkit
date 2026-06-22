@@ -621,7 +621,10 @@ function _exitMarkupNoSave(){
 // and closing the lightbox all bake + persist (via _saveMarkup, which dispatches
 // frt-markup-saved and then exits). Exiting with a clean/undirty canvas just exits.
 function _maybeCommitOnExit(){
-  if (window.MarkupEngine && window.MarkupEngine.isDirty()){
+  // S340: re-save only when the strokes actually changed. A photo reopened for
+  // re-edit loads its saved strokes (isDirty()=true immediately); without this
+  // guard, simply opening + closing markup would needlessly re-flatten + re-upload.
+  if (window.MarkupEngine && window.MarkupEngine.hasChangesSinceAttach()){
     _saveMarkup();        // bakes, dispatches frt-markup-saved, then exits markup
   } else {
     _exitMarkupNoSave();
@@ -643,28 +646,71 @@ function _toggleMarkup(){
     // onto the markup canvas (see _applyMarkupTransform). We sync the canvas to the photo's
     // FIT box once at attach (baseline), then the shared transform scales/pans both together.
     // We no longer force fit-scale on entry, so the current zoom carries into markup.
-    var prevScale = _scale, prevPanX = _panX, prevPanY = _panY;
-    _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();  // baseline so _sync captures fit box
     var p = _photos[_idx] || {};
-    window.MarkupEngine.attach(canvas, img, p._origBlob || null, null);
-    // restore the zoom the user had, now mirrored onto the freshly-synced canvas
-    _scale = prevScale; _panX = prevPanX; _panY = prevPanY; _applyTransform();
-    if (_markupBar) _markupBar.style.display='flex';
-    _markupActive = true;
+    // S340 RE-EDITABLE MARKUP: if this photo has saved strokes, reload them as LIVE
+    // editable objects. CRITICAL: the strokes must render on the CLEAN ORIGINAL image,
+    // not the flattened/marked JPEG currently shown — otherwise the reloaded strokes
+    // paint ON TOP of already-baked strokes (doubling). So when we have saved strokes
+    // AND can resolve the original source, swap lb-image to the original first.
+    var savedStrokes = (p._markupStrokes && p._markupStrokes.length) ? p._markupStrokes : null;
+    var origSrc = savedStrokes ? _resolveOriginalSrc(p) : null;
+    var attachAndArm = function(){
+      var prevScale = _scale, prevPanX = _panX, prevPanY = _panY;
+      _calcFitScale();
+      _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();  // baseline so _sync captures fit box
+      // Only pass strokes if we successfully switched to the original (origSrc set);
+      // otherwise attach clean (legacy/old-marked photos behave exactly as before).
+      window.MarkupEngine.attach(canvas, img, p._origBlob || null, null, origSrc ? savedStrokes : null);
+      _scale = prevScale; _panX = prevPanX; _panY = prevPanY; _applyTransform();
+      if (_markupBar) _markupBar.style.display='flex';
+      _markupActive = true;
+    };
+    if (origSrc && img.src !== origSrc){
+      // load the original, THEN attach + render strokes once it's the displayed image
+      var onOrig = function(){
+        img.removeEventListener('load', onOrig);
+        attachAndArm();
+      };
+      img.addEventListener('load', onOrig);
+      img.src = origSrc;
+    } else {
+      attachAndArm();
+    }
   }
+}
+
+// S340: resolve the best "clean original" image source for re-editing markup.
+// Order: the (original) backup record's r2Url (cloud, survives sessions) →
+// in-memory _origBlob (Blob or data-URL string). Returns a usable src string,
+// or null if none is resolvable (caller then attaches clean = no re-edit, no doubling).
+function _resolveOriginalSrc(p){
+  try {
+    if (p._origBackupId && typeof Model !== 'undefined' && Model.getSitePhotos){
+      var bk = (Model.getSitePhotos()||[]).filter(function(x){ return x && x.id === p._origBackupId; })[0];
+      if (bk && bk.r2Url) return bk.r2Url;
+    }
+  } catch(_){}
+  if (p._origBlob){
+    if (typeof p._origBlob === 'string') return p._origBlob;
+    try { return URL.createObjectURL(p._origBlob); } catch(_){}
+  }
+  return null;
 }
 
 function _saveMarkup(){
   if (!window.MarkupEngine || !window.MarkupEngine.isDirty()){ _exitMarkupNoSave(); return; }
+  // S340: capture the live strokes for persistence BEFORE saveBlob (which is async).
+  var savedStrokes = window.MarkupEngine.exportStrokes();
   window.MarkupEngine.saveBlob().then(function(blob){
     var p = _photos[_idx]; if (!p){ _exitMarkupNoSave(); return; }
     if (!p._origBlob && p.dataUrl) p._origBlob = p.dataUrl;
     var url = URL.createObjectURL(blob);
     p.dataUrl = url; p._annotated = true;
+    p._markupStrokes = savedStrokes;   // S340: ride with the photo into IDB + cloud
     var img = document.getElementById('lb-image');
     if (img) img.src = url;
-    // R2 upload hook — defer to host app via custom event
-    try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:blob,index:_idx}})); } catch(e){}
+    // R2 upload hook — defer to host app via custom event (now carries strokes)
+    try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:blob,index:_idx,strokes:savedStrokes}})); } catch(e){}
     _exitMarkupNoSave();
     if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
     if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
@@ -879,11 +925,13 @@ function _open(photos, startIdx, opts) {
 function _close() {
   // Copy Diesel S305: closing the lightbox with unsaved strokes COMMITS them
   // first (bake + persist), then tears down — no silent discard. If clean, just close.
-  if (_markupActive && window.MarkupEngine && window.MarkupEngine.isDirty()){
+  if (_markupActive && window.MarkupEngine && window.MarkupEngine.hasChangesSinceAttach()){
     _closeAfterPersist = true;
     _saveMarkup();   // on success its .then exits markup; _finishClose runs after
     return;
   }
+  // markup open but unchanged (incl. a re-edit reopen with no edits) — exit clean.
+  if (_markupActive && window.MarkupEngine){ _exitMarkupNoSave(); }
   _finishClose();
 }
 function _finishClose() {
@@ -908,7 +956,7 @@ function _finishClose() {
 var _navAfterPersist = null;   // target index to show after a nav-triggered commit
 function _navCommitThen(targetIdx){
   if (targetIdx < 0 || targetIdx >= _photos.length) return;
-  if (_markupActive && window.MarkupEngine && window.MarkupEngine.isDirty()){
+  if (_markupActive && window.MarkupEngine && window.MarkupEngine.hasChangesSinceAttach()){
     _navAfterPersist = targetIdx;
     _saveMarkup();   // bakes+persists; its .then navigates via _navAfterPersist
     return;

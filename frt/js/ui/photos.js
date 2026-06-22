@@ -1976,6 +1976,7 @@ document.addEventListener('frt-markup-saved', function(e) {
       sp.r2Status = 'uploading';
       sp._annotated = true;
       if (backupId) sp._origBackupId = backupId;
+      if (d.strokes) sp._markupStrokes = d.strokes;   // S340: re-editable markup data
       if (sp.addedDate !== todayStr) sp.addedDate = todayStr;
       // S115 P11: keep stale thumb until async thumb-gen replaces it. Briefly
       // showing the original thumb is better than a 404 from the marked R2
@@ -2129,6 +2130,7 @@ document.addEventListener('frt-markup-reverted', function(e) {
   if (!photo._origBackupId) {
     console.log('[Markup revert] no _origBackupId on photo — clearing _annotated only');
     delete photo._annotated;
+    delete photo._markupStrokes;   // S340
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     return;
   }
@@ -2210,6 +2212,7 @@ document.addEventListener('frt-markup-reverted', function(e) {
     if (origAddedDate) sp.addedDate = origAddedDate;
     delete sp._annotated;
     delete sp._origBackupId;
+    delete sp._markupStrokes;   // S340: reverted photo has no saved markup to re-edit
     delete sp.dataUrl;
   });
 
