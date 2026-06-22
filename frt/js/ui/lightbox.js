@@ -664,27 +664,44 @@ function _toggleMarkup(){
         '| origBackupId=', p && p._origBackupId,
         '| keys=', p ? Object.keys(p).filter(function(k){return k.indexOf("_")===0;}).join(",") : '');
     } catch(_){}
-    var attachAndArm = function(){
+    // attachAndArm(withStrokes): mount the engine. Pass strokes ONLY when we're
+    // confident the displayed image is the CLEAN original (else doubling). When the
+    // original can't be loaded (404/error), we attach clean so the photo still opens.
+    var attachAndArm = function(withStrokes){
       var prevScale = _scale, prevPanX = _panX, prevPanY = _panY;
       _calcFitScale();
       _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();  // baseline so _sync captures fit box
-      // Only pass strokes if we successfully switched to the original (origSrc set);
-      // otherwise attach clean (legacy/old-marked photos behave exactly as before).
-      window.MarkupEngine.attach(canvas, img, p._origBlob || null, null, origSrc ? savedStrokes : null);
+      window.MarkupEngine.attach(canvas, img, p._origBlob || null, null, withStrokes ? savedStrokes : null);
       _scale = prevScale; _panX = prevPanX; _panY = prevPanY; _applyTransform();
       if (_markupBar) _markupBar.style.display='flex';
       _markupActive = true;
     };
     if (origSrc && img.src !== origSrc){
-      // load the original, THEN attach + render strokes once it's the displayed image
-      var onOrig = function(){
-        img.removeEventListener('load', onOrig);
-        attachAndArm();
+      // Switch the display to the clean original, THEN attach + render strokes on it.
+      // CRITICAL: the original R2 file can 404 (orphaned/never-uploaded). Without an
+      // error+timeout guard, a failed load means 'load' never fires and markup never
+      // arms — the photo looks "stuck flattened". So guard every outcome:
+      //   success → attach WITH strokes on the clean original
+      //   error/404 or timeout → attach CLEAN on whatever is shown (no doubling, opens)
+      var _done = false;
+      var _finish = function(ok){
+        if (_done) return; _done = true;
+        img.removeEventListener('load', _onOk);
+        img.removeEventListener('error', _onErr);
+        if (_t) { clearTimeout(_t); _t = null; }
+        try { console.log('[S340 reopen] original load ' + (ok?'OK → arm WITH strokes':'FAILED → arm CLEAN (strokes kept in data)')); } catch(_){}
+        attachAndArm(ok);   // ok=true → with strokes; ok=false → clean
       };
-      img.addEventListener('load', onOrig);
+      var _onOk  = function(){ _finish(true); };
+      var _onErr = function(){ _finish(false); };
+      img.addEventListener('load', _onOk);
+      img.addEventListener('error', _onErr);
+      var _t = setTimeout(function(){ _finish(false); }, 6000);  // never hang
       img.src = origSrc;
     } else {
-      attachAndArm();
+      // No original switch needed (origSrc null, or img already showing it).
+      // If origSrc is null we never resolved a clean original → attach clean.
+      attachAndArm(!!origSrc);
     }
   }
 }
