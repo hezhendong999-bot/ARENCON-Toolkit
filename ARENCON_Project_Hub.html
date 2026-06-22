@@ -884,6 +884,67 @@ body.bold.dark-mode .admin-section-header{
   color:var(--fg) !important;border-bottom:1px solid rgba(255,255,255,.10) !important;}
 /* Status text: muted yes/no family instead of saturated */
 body.bold.dark-mode .admin-act-btn{color:var(--fg) !important;}
+
+/* ── S341: muted-palette pass — destructive/status/archive surfaces ──────────
+   The muted Bold system bans bright saturated colour. These were still on raw
+   #DC2626 / #EA580C / #7C3AED / #EF4444. Map them to the muted fail / warn /
+   super families. Locked PDF export bar (#2C4770) is intentionally NOT touched. */
+/* Destructive (delete/trash/danger) → muted fail red, not bright #DC2626 */
+body.bold .detail-actions .btn-danger,
+body.bold .dash-btn[onclick*="executeDeleteProject"],
+body.bold #purge-ok-btn{
+  background:linear-gradient(135deg,#A33A4E,#8C2C3E) !important;color:#fff !important;box-shadow:none !important;}
+body.bold.dark-mode .detail-actions .btn-danger,
+body.bold.dark-mode .dash-btn[onclick*="executeDeleteProject"],
+body.bold.dark-mode #purge-ok-btn{
+  background:rgba(192,68,95,.18) !important;color:#E26076 !important;border:1px solid rgba(226,96,118,.4) !important;}
+body.bold .toast.error{background:#A33A4E !important;}
+body.bold .delete-confirm-input:focus{border-color:#C0445F !important;box-shadow:0 0 0 3px rgba(192,68,95,.10) !important;}
+/* Delete-modal heading/strong ink → muted fail (set on inline-styled nodes) */
+body.bold .modal h3[style*="DC2626"],body.bold strong[style*="DC2626"],
+body.bold #del-error,body.bold #purge-error{color:#C0445F !important;}
+body.bold.dark-mode .modal h3[style*="DC2626"],body.bold.dark-mode strong[style*="DC2626"],
+body.bold.dark-mode #del-error,body.bold.dark-mode #purge-error{color:#E26076 !important;}
+/* Archive (set-aside) → muted warn amber, not bright orange #EA580C */
+body.bold .detail-actions .btn-archive,body.bold .btn-archive{
+  background:linear-gradient(135deg,#B07F3A,#946A2E) !important;color:#fff !important;box-shadow:none !important;}
+body.bold.dark-mode .detail-actions .btn-archive,body.bold.dark-mode .btn-archive{
+  background:rgba(224,163,106,.18) !important;color:#E0A36A !important;border:1px solid rgba(224,163,106,.35) !important;}
+/* Super-admin role badge → muted indigo (avatar-safe), not bright #7C3AED */
+body.bold .role-super{background:rgba(110,90,168,.14) !important;color:#6E5AA8 !important;}
+body.bold.dark-mode .role-super{background:rgba(165,147,224,.16) !important;color:#A593E0 !important;}
+/* Connection-offline dot + header count badge → muted fail */
+body.bold .conn-dot.offline{background:#C0445F !important;box-shadow:0 0 6px rgba(192,68,95,.35) !important;}
+body.bold .hdr-badge{background:#C0445F !important;box-shadow:none !important;}
+body.bold.dark-mode .conn-dot.offline{background:#E26076 !important;}
+body.bold.dark-mode .hdr-badge{background:#E26076 !important;}
+/* Toast success → muted pass green (was bright #059669) */
+body.bold .toast.success{background:#2E7D5B !important;}
+body.bold.dark-mode .toast.success{background:#2F9E72 !important;}
+/* QR modal → Bold glass card in dark (was hard white box) */
+body.bold.dark-mode .qr-modal-box{
+  background:var(--card) !important;border:1px solid var(--border) !important;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);}
+body.bold.dark-mode .qr-modal-box h3{color:var(--fg) !important;}
+body.bold.dark-mode .qr-modal-box p{color:var(--steel) !important;}
+body.bold .qr-modal-close{background:var(--card) !important;border:1px solid var(--border) !important;color:var(--fg) !important;}
+body.bold .qr-modal-close:hover{border-color:var(--arencon) !important;}
+/* QR code itself stays on a white chip (scannability) */
+body.bold.dark-mode #qr-code-large{background:#fff !important;padding:10px !important;}
+/* Role badges (admin/inspector) + the blue badge-role → muted families */
+body.bold .role-admin,body.bold .badge-role{background:rgba(63,111,156,.14) !important;color:#3F6E9C !important;}
+body.bold.dark-mode .role-admin,body.bold.dark-mode .badge-role{background:rgba(70,160,200,.16) !important;color:#5AA9C8 !important;}
+body.bold .role-inspector{background:rgba(201,138,74,.14) !important;color:#B07F3A !important;}
+body.bold.dark-mode .role-inspector{background:rgba(224,163,106,.16) !important;color:#E0A36A !important;}
+/* Report-status pills (draft/review/issued/revision) → muted warn/info/pass/fail */
+body.bold .ri-status.draft{background:rgba(201,138,74,.14) !important;color:#B07F3A !important;}
+body.bold .ri-status.review{background:rgba(63,111,156,.14) !important;color:#3F6E9C !important;}
+body.bold .ri-status.issued{background:rgba(46,125,91,.14) !important;color:#2E7D5B !important;}
+body.bold .ri-status.revision{background:rgba(192,68,95,.12) !important;color:#C0445F !important;}
+body.bold.dark-mode .ri-status.draft{background:rgba(224,163,106,.16) !important;color:#E0A36A !important;}
+body.bold.dark-mode .ri-status.review{background:rgba(70,160,200,.16) !important;color:#5AA9C8 !important;}
+body.bold.dark-mode .ri-status.issued{background:rgba(63,208,138,.14) !important;color:#3FD08A !important;}
+body.bold.dark-mode .ri-status.revision{background:rgba(226,96,118,.14) !important;color:#E26076 !important;}
 /* Sign-in background — demo surface, no blue navy */
 body.bold .login-wrap,body.login-wrap{background:var(--bg) !important;}
 body.bold.dark-mode .login-wrap{
