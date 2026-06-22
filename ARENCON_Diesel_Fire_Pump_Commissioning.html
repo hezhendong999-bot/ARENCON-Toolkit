@@ -1029,7 +1029,15 @@ body.dark-mode .defic-badge.resp-both{background:#1a0a2a;color:#b080d0;}
   #exm-ov .exm-photos{display:flex;align-items:center;gap:14px;background:#F4F2F7;border:1px solid #E3E1E8;border-radius:9px;padding:13px 14px;}
   #exm-ov .exm-photos button{background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:8px;padding:9px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;}
   #exm-ov .exm-btn{border:none;border-radius:9px;padding:12px 24px;font:700 14px Calibri,sans-serif;cursor:pointer;}
-  #exm-ov .exm-cancel{background:#455A64;color:#fff;}
+  #exm-ov .exm-cancel{background:rgba(192,57,43,.04);color:#A85959;border:1.5px solid rgba(192,57,43,.25);}
+.exm-cancel:hover{background:rgba(192,57,43,.10);border-color:#A85959;}
+body.dark-mode .exm-cancel{background:#2e1a1a;color:#e08080;border-color:rgba(224,128,128,.25);}
+body.dark-mode .exm-cancel:hover{background:#402222;border-color:#e08080;}
+/* S341b: canonical Cancel button — muted-burgundy ghost, matches FRT .btn-muted-cancel. */
+._dsl-cancel{background:rgba(192,57,43,.04);color:#A85959;border:1.5px solid rgba(192,57,43,.25);border-radius:8px;padding:11px 22px;font:600 14px Calibri,sans-serif;cursor:pointer;transition:background .15s,border-color .15s;}
+._dsl-cancel:hover{background:rgba(192,57,43,.10);border-color:#A85959;}
+body.dark-mode ._dsl-cancel{background:#2e1a1a;color:#e08080;border-color:rgba(224,128,128,.25);}
+body.dark-mode ._dsl-cancel:hover{background:#402222;border-color:#e08080;}
   #exm-ov .exm-go{background:#1A7A4A;color:#fff;}
   /* ════ S366: Export modal chrome moved off inline hex onto classes so dark-mode can re-skin it (match FRT exportview). Light values below are the defaults; body.dark-mode block overrides. ════ */
   #exm-ov .exm-card{background:#FBFAFC;color:#1B1A22;}
@@ -1887,6 +1895,14 @@ function _refreshDarkButtons(){
 }
 initDarkMode();
 // ── Custom modals — callback-based replacements for confirm/prompt/alert ──
+// S341b: shared Cancel-button style — muted-burgundy ghost matching FRT's
+// .btn-muted-cancel (Mark: all Cancel buttons consistent across tools). Light:
+// faint burgundy fill, #A85959 text/ring. Dark: #2e1a1a fill, #e08080 text.
+function _acCancelStyle(isDark){
+  return isDark
+    ? 'padding:8px 20px;border:1.5px solid rgba(224,128,128,.25);border-radius:8px;background:#2e1a1a;color:#e08080;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;'
+    : 'padding:8px 20px;border:1.5px solid rgba(192,57,43,.25);border-radius:8px;background:rgba(192,57,43,.04);color:#A85959;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;';
+}
 function _aConfirm(msg,onOk,okText){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#16151b':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'rgba(255,255,255,.14)':'#DDE1E7';
@@ -1895,7 +1911,7 @@ function _aConfirm(msg,onOk,okText){
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
   h+='<div style="font-size:14px;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button class="_ac-cancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button class="_ac-cancel" style="'+_acCancelStyle(isDark)+'">Cancel</button>';
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
   h+='</div></div>';
   ov.innerHTML=h;
@@ -1913,7 +1929,7 @@ function _aPrompt(msg,defVal,onOk){
   h+='<div style="font-size:14px;line-height:1.5;margin-bottom:14px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
   h+='<input class="_ap-input" type="text" value="'+_escAttr(defVal||'')+'" style="width:100%;padding:10px 14px;border:1.5px solid '+bdr+';border-radius:8px;font-size:14px;font-family:Calibri,sans-serif;background:'+ibg+';color:'+fg+';outline:none;margin-bottom:16px;box-sizing:border-box;">';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  h+='<button class="_ac-cancel" style="padding:8px 20px;border:1.5px solid '+bdr+';border-radius:8px;background:none;color:'+fg2+';font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">Cancel</button>';
+  h+='<button class="_ac-cancel" style="'+_acCancelStyle(isDark)+'">Cancel</button>';
   h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;var inp=ov.querySelector('._ap-input');
@@ -1922,6 +1938,35 @@ function _aPrompt(msg,defVal,onOk){
   ov.querySelector('._ac-ok').onclick=function(){var v=inp.value;ov.remove();if(onOk)onOk(v);};
   inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var v=inp.value;ov.remove();if(onOk)onOk(v);}if(e.key==='Escape')ov.remove();});
   document.body.appendChild(ov);inp.focus();inp.select();
+}
+// S341b: TYPE-TO-CONFIRM modal for destructive mass actions (Mark's rule: no
+// mass-delete without typing). Confirm stays disabled until the user types the
+// required word (case-insensitive, trimmed). Reused later by the safe-load
+// REPLACE door. Cancel uses the canonical muted-burgundy; confirm is destructive red.
+function _aTypeConfirm(msg, requiredWord, onOk, okText){
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#16151b':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'rgba(255,255,255,.14)':'#DDE1E7',ibg=isDark?'#1f1d26':'#F8FAFC';
+  var word=String(requiredWord||'reset');
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:440px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:14px;line-height:1.5;margin-bottom:14px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
+  h+='<div style="font-size:13px;color:'+fg2+';margin-bottom:8px;">Type <b style="color:'+fg+';">'+_escHtml(word)+'</b> to confirm:</div>';
+  h+='<input class="_atc-input" type="text" autocomplete="off" spellcheck="false" placeholder="'+_escAttr(word)+'" style="width:100%;padding:10px 14px;border:1.5px solid '+bdr+';border-radius:8px;font-size:14px;font-family:Calibri,sans-serif;background:'+ibg+';color:'+fg+';margin-bottom:18px;box-sizing:border-box;">';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
+  h+='<button class="_ac-cancel" style="'+_acCancelStyle(isDark)+'">Cancel</button>';
+  h+='<button class="_atc-ok" disabled style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:not-allowed;opacity:.45;transition:opacity .15s;">'+_escHtml(okText||'Confirm')+'</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  var inp=ov.querySelector('._atc-input'), ok=ov.querySelector('._atc-ok');
+  function _match(){ return inp.value.trim().toLowerCase()===word.toLowerCase(); }
+  function _sync(){ var m=_match(); ok.disabled=!m; ok.style.cursor=m?'pointer':'not-allowed'; ok.style.opacity=m?'1':'.45'; }
+  inp.addEventListener('input',_sync);
+  inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&_match()){ ov.remove(); if(onOk)onOk(); } if(e.key==='Escape') ov.remove(); });
+  ov.addEventListener('click',function(e){ if(e.target===ov) ov.remove(); });
+  ov.querySelector('._ac-cancel').onclick=function(){ ov.remove(); };
+  ok.onclick=function(){ if(!_match()) return; ov.remove(); if(onOk)onOk(); };
+  document.body.appendChild(ov); inp.focus();
 }
 function _aAlert(msg){
   var isDark=document.body.classList.contains('dark-mode');
@@ -9402,7 +9447,7 @@ function _prePrintOpen(all){
   });
   h+='</div>'
     +'<div style="flex:0 0 auto;display:flex;gap:10px;padding:12px 20px;background:#F2F0F5;border-top:1px solid #E3E1E8;">'
-    +'<button onclick="_ppxClose()" style="background:#455A64;color:#fff;border:none;border-radius:8px;padding:11px 22px;font:700 14px Calibri,sans-serif;cursor:pointer;">Cancel</button>'
+    +'<button onclick="_ppxClose()" class="_dsl-cancel">Cancel</button>'
     +'<span style="flex:1;display:flex;align-items:center;color:#5E5B68;font-size:12px;" id="ppx-total"></span>'
     +'<button onclick="_ppxDone()" style="background:#9C2742;color:#fff;border:none;border-radius:8px;padding:11px 26px;font:700 14px Calibri,sans-serif;cursor:pointer;">Done</button></div></div>';
   ov.innerHTML=h;
@@ -13605,7 +13650,7 @@ function issueReport(){
   if(parsed.issued){
     html += rowBtn('revert', _dslCalcRevertDraft(), '\u21A9\uFE0F', 'Revert to Draft', nuBg, nuBd, nuTx);
   }
-  html += '<button data-issue-action="cancel" style="width:100%;margin-top:4px;padding:11px 16px;font-size:calc(14px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;border:1px solid '+(isDark?'rgba(255,255,255,.14)':'#D8D5DE')+';background:'+(isDark?'rgba(255,255,255,.05)':'#F2F0F5')+';color:'+fg2+';border-radius:9px;cursor:pointer;">Cancel</button>';
+  html += '<button data-issue-action="cancel" style="width:100%;margin-top:4px;padding:11px 16px;font-size:calc(14px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;border:1.5px solid '+(isDark?'rgba(224,128,128,.25)':'rgba(192,57,43,.25)')+';background:'+(isDark?'#2e1a1a':'rgba(192,57,43,.04)')+';color:'+(isDark?'#e08080':'#A85959')+';border-radius:9px;cursor:pointer;">Cancel</button>';
   html += '</div>';
   ov.innerHTML = html;
 
@@ -13857,7 +13902,7 @@ function _applyLoadedState(raw) {
 // RESET FUNCTIONS
 // ══════════════════════════════════════════════════
 function resetAllPages() {
-  _aConfirm('Reset ALL pages for this project? This will clear all entered data permanently.',function(){
+  _aTypeConfirm('Reset ALL pages for this project? This permanently clears every entered value, photo reference, and deficiency across all pages. This cannot be undone.', 'reset', function(){
   if(_csHubMode && typeof CloudSync !== 'undefined'){
     // Cloud mode: will reload which triggers fresh load
   } else {
@@ -13866,7 +13911,7 @@ function resetAllPages() {
     _idbDelete(_rkey).catch(function(){});
   }
   location.reload();
-  },'Reset');
+  },'Reset all pages');
 }
 
 
