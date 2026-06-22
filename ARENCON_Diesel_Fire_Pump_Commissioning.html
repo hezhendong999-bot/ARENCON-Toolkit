@@ -6141,6 +6141,13 @@ function _renderFlowPhotoModal(){
   host.innerHTML=h;
   host.style.display='block';
   document.body.classList.add('fpm-open');
+  // S342d: the inline onclick on the X was failing to close the modal after deleting
+  // a photo from it. Bind close directly to the X and backdrop here as a guaranteed
+  // handler that can't be defeated by a stale inline attribute or lingering listener.
+  var _fx=host.querySelector('.fpm-x');
+  if(_fx) _fx.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); closeFlowPhotos(); });
+  var _fb=host.querySelector('.fpm-backdrop');
+  if(_fb) _fb.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); closeFlowPhotos(); });
 }
 function openFlowPhotos(tbl, i){
   _flowPhotoTbl=tbl; _flowPhotoIdx=i;
@@ -6303,6 +6310,11 @@ function _renderFlowEquipModal(){
   host.innerHTML=h;
   host.style.display='block';
   document.body.classList.add('fpm-open');
+  // S342d: guaranteed close binding (see flow-photo modal note).
+  var _ex=host.querySelector('.fpm-x');
+  if(_ex) _ex.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); closeFlowEquip(); });
+  var _eb=host.querySelector('.fpm-backdrop');
+  if(_eb) _eb.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); closeFlowEquip(); });
 }
 function openFlowEquipModal(tbl){
   _flowEqTbl = (tbl==='pld') ? 'pld' : 'std';
