@@ -2821,7 +2821,13 @@ async function launchTool(key) {
   // tab SYNCHRONOUSLY (so iOS doesn't block the popup), then resolve the correct
   // instance and point the tab at it. If instances exist → open the most recent
   // by explicit id; if none → open blank to create the first.
-  var win = window.open('about:blank', '_blank');
+  // S341: open into a reusable named tab (per tool+project) instead of _blank, so
+  // re-launching from the tile focuses the existing tab rather than stacking new
+  // ones. Opened synchronously (iOS popup rule). Once the instance resolves we
+  // also align the tab name to the per-instance scheme used by openInstance, so
+  // the tile and the report row share ONE tab for the same report.
+  var _baseTgt = 'arencon_' + key + '_' + String(proj.id).replace(/[^a-zA-Z0-9_]/g,'');
+  var win = window.open('about:blank', _baseTgt);
   var finalUrl = baseUrl;   // default: blank (no instance) — first report
   try {
     var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).order('instance_number', {ascending:false}).execute();
@@ -2829,8 +2835,8 @@ async function launchTool(key) {
       finalUrl = baseUrl + '&instance=' + encodeURIComponent(existing[0].id);
     }
   } catch(e) { /* query failed — fall back to blank open */ }
-  if (win) { win.location.href = finalUrl; }
-  else { window.open(finalUrl, '_blank'); }   // popup was blocked — try direct
+  if (win) { win.location.href = finalUrl; try{ win.focus(); }catch(e){} }
+  else { window.open(finalUrl, _baseTgt); }   // popup was blocked — try direct
 }
 
 async function toggleTool(key) {
@@ -3015,7 +3021,12 @@ function launchToolInstance(key, instanceId) {
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
     + '&sfn=' + encodeURIComponent(sfn);
-  window.open(url, '_blank');
+  // S341: reuse one tab per (tool+project) so the tile and this report row share
+  // the SAME tab — clicking either focuses the existing tab instead of spawning a
+  // new one. Re-assign the URL so a navigated-away tab returns to this report.
+  var _tgt = 'arencon_' + key + '_' + String(_detailProjectId).replace(/[^a-zA-Z0-9_]/g,'');
+  var w = window.open(url, _tgt);
+  if (w) { try { w.location.href = url; w.focus(); } catch(e){} }
 }
 
 // S335: staff-picker modal replaces the old prompt(). The generic "+ New
