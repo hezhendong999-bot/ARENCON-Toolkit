@@ -3073,6 +3073,17 @@ function _renderCombinedView(proj, container) {
 
   container.innerHTML = h;
 
+  // S339 (Mark): kill the expanded-card "flash" on filter-tab switch. The card
+  // paints at one height, then a rAF below renders the pin mini-map + autosizes
+  // comment boxes → a visible reflow one frame later. When a row is OPEN, hide the
+  // container until that rAF settles, then reveal — the user sees only the final
+  // layout, never the mid-adjustment jump. Only gated on _openObsKey so collapsed
+  // lists (nothing to reflow) are unaffected.
+  if (_openObsKey) {
+    container.style.visibility = 'hidden';
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ container.style.visibility = ''; }); });
+  }
+
   // S250 §6 (Option A): inject the list-action cluster (Collapse all · Re-sort)
   // into the filter-row placeholder. Falls back to prepending into the
   // container if the placeholder isn't present (e.g. a context where the
