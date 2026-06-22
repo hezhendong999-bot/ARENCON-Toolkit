@@ -496,7 +496,12 @@
         if (e.key === 'Escape'){ e.preventDefault(); cancel(); }
         e.stopPropagation();   // Enter = newline (contentEditable default)
       });
-      box.addEventListener('input', positionBox);
+      // NOTE: do NOT reposition the box on 'input'. The box's top-left anchor never
+      // changes as text grows (multi-line grows downward from the fixed top), so
+      // re-running positionBox is a no-op on desktop but a BUG on mobile: once the
+      // keyboard is open the visual viewport shifts the position:fixed origin, so
+      // re-applying the (viewport-relative) top/left yanks the box off the tapped
+      // spot on the first keystroke. Place once (applyStyle above) and leave it.
 
       // controller the lightbox docked bar drives
       var controller = {
@@ -516,7 +521,7 @@
         insertNewline: function(){
           box.focus();
           try{ document.execCommand('insertLineBreak'); }catch(_){ document.execCommand('insertText',false,'\n'); }
-          positionBox();
+          // no positionBox() — box top-left is fixed; recomputing it drifts on mobile.
         },
         commit: commit,
         cancel: cancel
