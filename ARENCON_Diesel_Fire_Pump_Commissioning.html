@@ -1903,6 +1903,19 @@ function _acCancelStyle(isDark){
     ? 'padding:8px 20px;border:1.5px solid rgba(224,128,128,.25);border-radius:8px;background:#2e1a1a;color:#e08080;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;'
     : 'padding:8px 20px;border:1.5px solid rgba(192,57,43,.25);border-radius:8px;background:rgba(192,57,43,.04);color:#A85959;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;';
 }
+// S341c: intent-aware OK/primary button colour. Destructive actions (Delete,
+// Reset, Revert, Remove, Clear, Purge, Discard) stay brand-burgundy as the
+// danger signal; neutral utility actions (Export, Download, Close, Save, OK,
+// Import, Confirm, Restore…) use a calm slate-blue so the brand red is reserved
+// for destruction + true CTAs. Colour is derived from the button LABEL, so new
+// modals pick the right colour automatically.
+function _acOkStyle(okText, isDark){
+  var t=String(okText||'').toLowerCase();
+  var destructive=/\b(delete|reset|revert|remove|clear|purge|discard|wipe|erase)\b/.test(t);
+  var base='padding:8px 20px;border:none;border-radius:8px;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;';
+  if(destructive) return base+'background:#9C2742;';                 // burgundy danger
+  return base+(isDark?'background:#4E73A0;':'background:#3E5C7E;');   // slate-blue utility
+}
 function _aConfirm(msg,onOk,okText){
   var isDark=document.body.classList.contains('dark-mode');
   var bg=isDark?'#16151b':'#fff',fg=isDark?'#d0d8f0':'#1C2333',fg2=isDark?'#8a94b0':'#4A5568',bdr=isDark?'rgba(255,255,255,.14)':'#DDE1E7';
@@ -1912,11 +1925,32 @@ function _aConfirm(msg,onOk,okText){
   h+='<div style="font-size:14px;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
   h+='<button class="_ac-cancel" style="'+_acCancelStyle(isDark)+'">Cancel</button>';
-  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">'+(okText||'OK')+'</button>';
+  h+='<button class="_ac-ok" style="'+_acOkStyle(okText,isDark)+'">'+(okText||'OK')+'</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.querySelector('._ac-cancel').onclick=function(){ov.remove();};
+  ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
+  document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
+}
+// S341c: rich-HTML variant of _aConfirm for INTERNAL, pre-built markup (diagnostics,
+// logs) — does NOT escape, so callers must pass trusted HTML only (never user input).
+// Wider shell + scrollable body. If onOk is falsy it renders a single dismiss button
+// (info modal). Shares the same theme-aware button colours as _aConfirm.
+function _aConfirmHtml(htmlMsg, onOk, okText){
+  var isDark=document.body.classList.contains('dark-mode');
+  var bg=isDark?'#16151b':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'rgba(255,255,255,.14)':'#DDE1E7';
+  var ov=document.createElement('div');ov.className='_a-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:560px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
+  h+='<div style="font-size:14px;line-height:1.5;margin-bottom:18px;max-height:62vh;overflow:auto;">'+htmlMsg+'</div>';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
+  if(onOk) h+='<button class="_ac-cancel" style="'+_acCancelStyle(isDark)+'">Cancel</button>';
+  h+='<button class="_ac-ok" style="'+_acOkStyle(okText,isDark)+'">'+(_escHtml(okText||'OK'))+'</button>';
+  h+='</div></div>';
+  ov.innerHTML=h;
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  var cx=ov.querySelector('._ac-cancel'); if(cx) cx.onclick=function(){ov.remove();};
   ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
   document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
 }
@@ -1930,7 +1964,7 @@ function _aPrompt(msg,defVal,onOk){
   h+='<input class="_ap-input" type="text" value="'+_escAttr(defVal||'')+'" style="width:100%;padding:10px 14px;border:1.5px solid '+bdr+';border-radius:8px;font-size:14px;font-family:Calibri,sans-serif;background:'+ibg+';color:'+fg+';outline:none;margin-bottom:16px;box-sizing:border-box;">';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
   h+='<button class="_ac-cancel" style="'+_acCancelStyle(isDark)+'">Cancel</button>';
-  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
+  h+='<button class="_ac-ok" style="'+_acOkStyle('OK',isDark)+'">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;var inp=ov.querySelector('._ap-input');
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
@@ -1976,7 +2010,7 @@ function _aAlert(msg){
   var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
   h+='<div style="font-size:14px;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;">'+_escHtml(msg)+'</div>';
   h+='<div style="display:flex;justify-content:flex-end;">';
-  h+='<button class="_ac-ok" style="padding:8px 20px;border:none;border-radius:8px;background:#9C2742;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;">OK</button>';
+  h+='<button class="_ac-ok" style="'+_acOkStyle('OK',isDark)+'">OK</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
@@ -13922,7 +13956,7 @@ function resetCurrentPage() {
   if (!active) return;
   const label = {'proj':'Project Info','s1':'Pre-Commissioning','s2':'Visual Inspection','s3':'Controller Tests',
     's4':'Performance Test','s4pld':'Performance Test','s5':'FA & Signaling','defic':'Deficiencies','sign':'Signature','sketch':'Sketches'}[active]||active;
-  _aConfirm(`Reset "${label}" page? This clears only this page's data.`,function(){
+  _aTypeConfirm(`Reset "${label}" page? This permanently clears all data entered on this page. This cannot be undone.`, 'reset', function(){
   if (active === 'proj') {
     ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
      'pi-contractor','pi-version'].forEach(id => {
@@ -15414,7 +15448,8 @@ function dslDiag(){
     +'<div style="font-weight:700;font-size:15px;margin-bottom:6px;">Photo Delete Log</div>'
     +'<div style="font-size:11.5px;color:var(--silver);margin-bottom:8px;">Last '+buf.length+' soft-delete(s) this session, newest first. A delete &lt;10s after capture is a PHANTOM. Show this to the developer.</div>'
     +rows+'</div>';
-  if(typeof _aConfirm==='function') _aConfirm(html, function(){}, 'Close');
+  if(typeof _aConfirmHtml==='function') _aConfirmHtml(html, null, 'Close');
+  else if(typeof _aConfirm==='function') _aConfirm(html, function(){}, 'Close');
   else alert(JSON.stringify(buf,null,2));
 }
 function _ddEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
@@ -16878,7 +16913,7 @@ function _pgReassignSelected(){
     + '<select id="_pg_reassign_dest" style="width:100%;padding:8px;font-size:14px;border-radius:6px;border:1.5px solid var(--border);font-family:Calibri,sans-serif;">'
     + dests.map(function(d,i){ return '<option value="'+i+'">'+d+'</option>'; }).join('')
     + '</select></div>';
-  _aConfirm(html, function(){
+  _aConfirmHtml(html, function(){
     var destIdx = parseInt(document.getElementById('_pg_reassign_dest').value);
     var dest = dests[destIdx];
     // Copy photos to destination
