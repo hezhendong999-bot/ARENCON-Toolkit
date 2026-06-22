@@ -2297,13 +2297,11 @@ body.dark-mode .obs-drop-col.drag-over .obs-drop-zone{background:rgba(156,39,66,
 .obs-drop-msg-sub{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:400;}
 /* P1.9: 3 drop buttons in ONE row (was column). Compact width, muted colors. */
 .obs-drop-btns{display:flex;flex-direction:row;gap:5px;justify-content:center;flex-wrap:wrap;}
-.obs-drop-btn{padding:6px 10px;border-radius:5px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;border:none;color:white;transition:filter .15s;}
+.obs-drop-btn{padding:7px 14px;border-radius:7px;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;letter-spacing:.3px;cursor:pointer;border:none;color:white;transition:filter .15s;}
 .obs-drop-btn:hover{filter:brightness(1.10);}
-/* Muted palette per Mark's color rule */
-.obs-drop-btn.is-upload{background:var(--b-pb-u,#5A6E80);}
-.obs-drop-btn.is-camera{background:var(--b-pb-c,#5C7A65);}
-.obs-drop-btn.is-addphotos{background:var(--b-pb-c,#5C7A65);}/* S317: merged Add Photos — green, matches gallery */
-.obs-drop-btn.is-gallery{background:var(--b-pb-g,#7D3F4F);}
+/* S342: unified Camera+Gallery — DAY = Diesel dusty solids (camera green / gallery purple). DARK is the FRT tint look, set below. */
+.obs-drop-btn.is-camera{background:#5C7A65;}
+.obs-drop-btn.is-gallery{background:#8A7689;}
 body.dark-mode .obs-drop-btn{color:white;}
 
 /* S114 P1.9 — per-pin AI Review button. Matches the page-header AI Review color (#7B2D8E). */
@@ -5091,7 +5089,7 @@ body.dark-mode .pin-rec-toggle.is-rec:hover{background:rgba(168,180,197,.24);col
    Matches the same breakpoint pattern used elsewhere (proj-grid line 188,
    obs-layout line 2104). */
 @media(max-width:700px){.obs-layout-merged{grid-template-columns:1fr;}}
-.obs-media-col{display:flex;min-width:0;}
+.obs-media-col{display:flex;min-width:0;cursor:pointer;}/* S342: zone is click-to-add */
 .obs-media-col.drag-over .obs-media-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
 .obs-media-zone{flex:1;border:2px dashed var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--smoke);min-height:140px;transition:border-color .15s,background .15s;}
 .obs-media-photos{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;}
@@ -5223,11 +5221,9 @@ body.dark-mode {
   color: white !important;
 }
 
-/* ── Photo upload/camera/gallery: dark-mode softening only.
-     Light mode keeps existing #5A6E80/#5C7A65/#7D3F4F (Mark likes them). ── */
-body.dark-mode .obs-drop-btn.is-upload  { background: var(--b-pb-u-bg)  !important; color: var(--b-pb-u) !important; }
+/* ── Photo Camera/Gallery: dark-mode = FRT tint look (the unified standard).
+     DAY keeps Diesel dusty solids #5C7A65 / #8A7689 set above. ── */
 body.dark-mode .obs-drop-btn.is-camera  { background: var(--b-pb-c-bg)  !important; color: var(--b-pb-c) !important; }
-body.dark-mode .obs-drop-btn.is-addphotos { background: var(--b-pb-c-bg) !important; color: var(--b-pb-c) !important; }/* S317 */
 body.dark-mode .obs-drop-btn.is-gallery { background: var(--b-pb-g-bg) !important; color: var(--b-pb-g) !important; }
 
 /* End S121 Push 6 ─────────────────────────────────────────────────── */

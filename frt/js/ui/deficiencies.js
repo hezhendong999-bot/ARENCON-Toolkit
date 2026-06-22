@@ -877,11 +877,10 @@ function _buildPinGroupCard(d, ctrId) {
     }
     h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + '</div>';
     h += '<div class="obs-media-btns">';
-    // S331 #photo-buttons — Upload/Camera/Gallery exposed as labeled buttons
-    // (was icon-only; team found the camera affordance unclear). Same actions,
-    // dusty .is-* colors preserved.
-    h += '<button class="obs-drop-btn is-upload" data-action="photo-upload" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Upload from device">\uD83D\uDCCE Upload</button>';
-    h += '<button class="obs-drop-btn is-camera" data-action="photo-camera" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photo with camera">\uD83D\uDCF7 Camera</button>';
+    // S342 (Mark): unified Camera + Gallery (Upload retired). Camera = burst
+    // (file-picker fallback when unsupported, see photo-add handler); the zone
+    // itself is also click-to-add + droppable. Matches Diesel photo-zone.
+    h += '<button class="obs-drop-btn is-camera" data-action="photo-add" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photos with the burst camera">\uD83D\uDCF7 Camera</button>';
     h += '<button class="obs-drop-btn is-gallery" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F Gallery</button>';
     h += '</div>';
     h += '</div></div>';
@@ -2643,12 +2642,13 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   // shape/size) for consistency. Force the labelled, non-icon-only variant on
   // all surfaces — the space-saving branch is retired.
   var _icl = '';
-  var _al = ' Add Photos';
+  var _al = ' Camera';
   var _gl = ' Gallery';
-  // S317 (Mark): Upload + Camera consolidated into ONE "Add Photos" button
-  // (matches the Photo Gallery). Burst camera primary, file-picker fallback —
-  // see the photo-add handler. Gallery (pick from existing pool) stays separate.
-  h += '<button class="obs-drop-btn is-addphotos' + _icl + '" data-action="photo-add" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Add photos — camera or upload">\uD83D\uDCF7' + _al + '</button>';
+  // S342 (Mark): "Add Photos" relabelled "Camera" — burst camera primary,
+  // file-picker fallback (see photo-add handler). Camera + Gallery is the
+  // unified two-button photo-zone shared with Diesel; the zone is also
+  // click-to-add + droppable. Upload retired.
+  h += '<button class="obs-drop-btn is-camera' + _icl + '" data-action="photo-add" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photos with the burst camera">\uD83D\uDCF7' + _al + '</button>';
   h += '<button class="obs-drop-btn is-gallery' + _icl + '" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F' + _gl + '</button>';
   h += '</div>';
   h += '</div></div>'; // /obs-media-zone /obs-media-col
@@ -6437,6 +6437,42 @@ document.addEventListener('drop', function(e) {
       _compressAndAdd(e.dataTransfer.files[i], deficId, obsIdx);
     }
   }
+});
+
+// S342 (Mark): click-to-add on the photo zone (matches Diesel _boxUp). Tapping
+// empty zone area opens the burst camera (file-picker fallback). Guarded: a
+// click that lands on an interactive child (button/img/link/input) was meant
+// for that control, so we bail and let the normal action dispatch handle it.
+document.addEventListener('click', function(e) {
+  var zone = e.target.closest && e.target.closest('[data-action="photo-drop"]');
+  if (!zone) return;
+  // walk from the click target up to the zone; if we cross a control, bail.
+  var n = e.target;
+  while (n && n !== zone) {
+    var tag = (n.tagName || '').toLowerCase();
+    if (tag === 'button' || tag === 'a' || tag === 'img' || tag === 'input'
+        || tag === 'select' || tag === 'textarea' || tag === 'label') return;
+    if (n.getAttribute && n.getAttribute('role') === 'button') return;
+    n = n.parentNode;
+  }
+  var deficId = zone.getAttribute('data-defic-id');
+  if (!deficId) return;
+  var obsIdx = parseInt(zone.getAttribute('data-obs-idx') || '0');
+  (function(tgtDefic, tgtObs) {
+    function _filePick() {
+      var inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+      inp.onchange = function() {
+        if (!inp.files || !inp.files.length) return;
+        for (var i = 0; i < inp.files.length; i++) _compressAndAdd(inp.files[i], tgtDefic, tgtObs);
+      };
+      inp.click();
+    }
+    openCameraBurst().then(function(files) {
+      if (files === null) { _filePick(); return; } // unsupported/denied → upload fallback
+      for (var i = 0; i < files.length; i++) _compressAndAdd(files[i], tgtDefic, tgtObs);
+    }).catch(function(){ _filePick(); });
+  })(deficId, obsIdx);
 });
 
 // Enter key on contractor name input

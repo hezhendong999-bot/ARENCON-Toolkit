@@ -3082,7 +3082,7 @@ function updatePhaseFlags(){
             <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
               <button class="pz-camera" onclick="_recCamera('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #5C7A65;background:#5C7A65;color:#fff;">📷 Camera</button>
               <!-- S366 (Mark): camera re-added per "all 3 buttons everywhere" — supersedes S294's one-button decision. -->
-              <button class="pz-gallery" onclick="_galleryReuseRecord('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #8A7689;background:#8A7689;color:#fff;">🖼 Gallery</button>
+              <button class="pz-gallery" onclick="_galleryReuseRecord('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #8A7689;background:#8A7689;color:#fff;">🖼️ Gallery</button>
             </div>
           </div>
         </div>
@@ -3553,7 +3553,7 @@ function buildItem(id, item, section, idx, isCustom) {
             <span class="pm-hint">${_nPhotos>0?'Drop more photos to add':'Drop or tap here, or use a button'}</span>
             <span class="pm-btns">
               <button class="pm-b cam" onclick="triggerCamera('${id}')">📷<span class="pm-b-txt">Camera</span></button>
-              <button class="pm-b gal" onclick="_galleryReuseChecklist('${id}')">🖼<span class="pm-b-txt">Gallery</span></button>
+              <button class="pm-b gal" onclick="_galleryReuseChecklist('${id}')">🖼️<span class="pm-b-txt">Gallery</span></button>
             </span>
           </div>
         </div>
@@ -6111,7 +6111,7 @@ function _renderFlowPhotoModal(){
   h+='<span>Drag, drop or tap — tagged <b>'+(_GAUGE_TAG_LABEL[_flowPhotoActiveReading]||'Suction')+'</b></span>';
   h+='<div class="pz-row">';
   h+='<button class="pz-camera" onclick="event.stopPropagation();_flowPhotoCamera()">📷 Camera</button>';
-  h+='<button class="pz-gallery" onclick="event.stopPropagation();_flowPhotoOpenGallery()">🖼 Gallery</button>';
+  h+='<button class="pz-gallery" onclick="event.stopPropagation();_flowPhotoOpenGallery()">🖼️ Gallery</button>';
   h+='</div>';
   h+='</div>';
   // grouped thumbs (by reading, in canonical order; legacy untagged → Unsorted)
@@ -6299,7 +6299,7 @@ function _renderFlowEquipModal(){
   var activeHint=''; _FLOWEQ_CATS.forEach(function(c){ if(c.k===_flowEqActiveCat) activeHint=c.hint; });
   h+='<div class="photo-zone-compact fpm-zone ev-clickable" onclick="_boxUp(event,function(){_flowEqUpload()})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowEqDrop(event)">';
   h+='<span>Drag &amp; drop — tagged <b>'+_floweqLabel(_flowEqActiveCat)+'</b>'+(activeHint?(' · '+activeHint):'')+'</span>';
-  h+='<div class="pz-row"><button class="pz-camera" onclick="event.stopPropagation();_flowEqCamera()">📷 Camera</button><button class="pz-gallery" onclick="event.stopPropagation();_flowEqGalleryReuse()">🖼 Gallery</button></div>';
+  h+='<div class="pz-row"><button class="pz-camera" onclick="event.stopPropagation();_flowEqCamera()">📷 Camera</button><button class="pz-gallery" onclick="event.stopPropagation();_flowEqGalleryReuse()">🖼️ Gallery</button></div>';
   h+='</div>';
   // grouped thumbs by category
   var live=arr.filter(function(p){return !_isPhotoDeleted(p);});
@@ -8311,9 +8311,9 @@ function buildDeficItem(name, safe, d, i) {
       +'<div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')})" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';deficRespTimelineDrop(event,\''+safe+'\','+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">'
       +'<span>Drag, drop or tap</span>'
       +'<div style="display:flex;gap:5px;">'
-      +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
+      +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" class="pz-camera">📷 Camera</button>'
       
-      +'<button onclick="_galleryReuseDeficResp(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button>'
+      +'<button onclick="_galleryReuseDeficResp(\''+safe+'\','+i+','+ci+')" class="pz-gallery">🖼️ Gallery</button>'
       +'</div></div></div></div></div>';
   });
 
@@ -8338,9 +8338,9 @@ function buildDeficItem(name, safe, d, i) {
     +'<div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){deficUpload(\''+safe+'\','+i+')})" ondragover="handleDragOver(event,\'_d_'+safe+'_'+i+'\')" ondragleave="handleDragLeave(event,\'_d_'+safe+'_'+i+'\')" ondrop="deficDrop(event,\''+safe+'\','+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;">'
     +'<span>Drag, drop or tap here</span>'
     +'<div style="display:flex;gap:5px;">'
-    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
+    +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" class="pz-camera">📷 Camera</button>'
     
-    +'<button onclick="event.stopPropagation();_galleryReuseDefic(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
+    +'<button onclick="event.stopPropagation();_galleryReuseDefic(\''+safe+'\','+i+')" class="pz-gallery">🖼️ Gallery</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="deficiencies[\''+safe+'\']['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="deficiencies[\''+safe+'\']['+i+'].status=this.value;_checkDeficStatusChange(\''+safe+'\','+i+');updateDeficSummary();">'
@@ -8620,13 +8620,13 @@ function buildGeneralDeficItem(d, i) {
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Comment</div><textarea placeholder="'+label+' response..." style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].responses['+ci+'].comment=this.value">'+(cr.comment||'')+'</textarea></div>';
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+crPhotosHtml+'</div>';
     respHtml += '<div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){genDeficRespUpload('+i+','+ci+')})" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';genDeficRespDrop(event,'+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">';
-    respHtml += '<span>Drag, drop or tap</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="_galleryReuseGenDeficResp('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div></div>';
+    respHtml += '<span>Drag, drop or tap</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespCamera('+i+','+ci+')" class="pz-camera">📷 Camera</button><button onclick="_galleryReuseGenDeficResp('+i+','+ci+')" class="pz-gallery">🖼️ Gallery</button></div></div></div></div></div>';
   });
   respHtml += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'contractor\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #E67E22;border-radius:5px;background:#fffbf0;color:#E67E22;font-size:12px;cursor:pointer;font-weight:600;">+ Add Contractor Response</button>';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'consultant\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #1565C0;border-radius:5px;background:#f0f4ff;color:#1565C0;font-size:12px;cursor:pointer;font-weight:600;">+ Add Consultant Response</button></div>';
 
-  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){genDeficUpload('+i+')})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag, drop or tap here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="event.stopPropagation();_galleryReuseGenDefic('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
+  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){genDeficUpload('+i+')})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag, drop or tap here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficCamera('+i+')" class="pz-camera">📷 Camera</button><button onclick="event.stopPropagation();_galleryReuseGenDefic('+i+')" class="pz-gallery">🖼️ Gallery</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="generalDeficiencies['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="generalDeficiencies['+i+'].status=this.value;updateDeficSummary();renderGeneralDeficGroup();"><option value="open" '+(sc==='open'?'selected':'')+'>● Outstanding</option><option value="in-progress" '+(sc==='in-progress'?'selected':'')+'>● In Progress</option><option value="resolved" '+(sc==='resolved'?'selected':'')+'>● Addressed & Closed</option></select></div>'
@@ -10638,7 +10638,7 @@ function addSketchEntry() {
             <div style="display:flex;gap:6px;">
               <button class="btn btn-sm" style="background:#5C7A65;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
               
-              <button class="btn btn-sm" style="background:#8A7689;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_galleryReuseSketch(${uid})">🖼 Gallery</button>
+              <button class="btn btn-sm" style="background:#8A7689;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_galleryReuseSketch(${uid})">🖼️ Gallery</button>
             </div>
           </div>
         </div>
@@ -15739,7 +15739,7 @@ function _recZoneHtml(kind){
   html+='<div class="photo-zone-compact ev-clickable" onclick="_boxUp(event,function(){_recUpload(\''+kind+'\')})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
   html+='<span>Drag, drop or tap · '+hint+'</span>';
   html+='<button class="pz-camera" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷 Camera</button>';
-  html+='<button class="pz-gallery" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼 Gallery</button>';
+  html+='<button class="pz-gallery" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼️ Gallery</button>';
   html+='</div>';
   if(thumbs.length){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
@@ -15776,7 +15776,7 @@ function _evTileHtml(kind){
         +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+' · tap to add</span>'
         +'<div class="ev-tile-btns">'
           +'<button class="pm-b cam" onclick="event.stopPropagation();'+camFn+'">📷<span class="pm-b-txt">Camera</span></button>'
-          +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseFlowTest('+(isPld?'true':'false')+')">🖼<span class="pm-b-txt">Gallery</span></button>'
+          +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseFlowTest('+(isPld?'true':'false')+')">🖼️<span class="pm-b-txt">Gallery</span></button>'
         +'</div></div>';
     }
     var fhtml='<div class="ev-grid-card ev-clickable" onclick="_boxUp(event,function(){'+trig+';})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">';
@@ -15793,7 +15793,7 @@ function _evTileHtml(kind){
     fhtml+='</div>';
     fhtml+='<div class="ev-tile-btns">'
       +'<button class="pm-b cam" onclick="event.stopPropagation();'+camFn+'">📷<span class="pm-b-txt">Camera</span></button>'
-      +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseFlowTest('+(isPld?'true':'false')+')">🖼<span class="pm-b-txt">Gallery</span></button>'
+      +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseFlowTest('+(isPld?'true':'false')+')">🖼️<span class="pm-b-txt">Gallery</span></button>'
     +'</div>';
     fhtml+='</div>';
     return fhtml;
@@ -15806,7 +15806,7 @@ function _evTileHtml(kind){
       +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+' · tap to add</span>'
       +'<div class="ev-tile-btns">'
         +'<button class="pm-b cam" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷<span class="pm-b-txt">Camera</span></button>'
-        +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼<span class="pm-b-txt">Gallery</span></button>'
+        +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼️<span class="pm-b-txt">Gallery</span></button>'
       +'</div></div>';
   }
   var html='<div class="ev-grid-card ev-clickable" onclick="_boxUp(event,function(){_recUpload(\''+kind+'\');})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
@@ -15823,7 +15823,7 @@ function _evTileHtml(kind){
   html+='</div>';
   html+='<div class="ev-tile-btns">'
     +'<button class="pm-b cam" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷<span class="pm-b-txt">Camera</span></button>'
-    +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼<span class="pm-b-txt">Gallery</span></button>'
+    +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼️<span class="pm-b-txt">Gallery</span></button>'
   +'</div>';
   html+='</div>';
   return html;
