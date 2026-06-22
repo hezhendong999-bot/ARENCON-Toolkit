@@ -845,7 +845,7 @@ function _buildPinGroupCard(d, ctrId) {
     h += '</div>';
     var obsPhotos = (Model.getEffectivePhotos ? Model.getEffectivePhotos(d, oi) : (o.photos || []));
     h += '<div class="obs-media-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
-    h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
+    h += ' ondragover="event.preventDefault();if(event.dataTransfer&&Array.prototype.indexOf.call(event.dataTransfer.types||[],\'Files\')!==-1)this.classList.add(\'drag-over\')"';
     h += ' ondragleave="this.classList.remove(\'drag-over\')">';
     h += '<div class="obs-media-zone">';
     if (obsPhotos.length) {
@@ -2584,7 +2584,7 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '<div class="dfx-ed-photos-head"><span>Photos ' + _chooseBtn + '</span><span class="dfx-ed-pcount">' + obsPhotos.length + ' attached</span></div>';
   }
   h += '<div class="obs-media-col" data-action="photo-drop" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '"';
-  h += ' ondragover="event.preventDefault();this.classList.add(\'drag-over\')"';
+  h += ' ondragover="event.preventDefault();if(event.dataTransfer&&Array.prototype.indexOf.call(event.dataTransfer.types||[],\'Files\')!==-1)this.classList.add(\'drag-over\')"';
   h += ' ondragleave="this.classList.remove(\'drag-over\')">';
   h += '<div class="obs-media-zone">';
   // S225: pin-origin move ghosts for THIS pin+obs (faded snapshot + Undo).
@@ -6476,20 +6476,19 @@ document.addEventListener('click', function(e) {
   var deficId = zone.getAttribute('data-defic-id');
   if (!deficId) return;
   var obsIdx = parseInt(zone.getAttribute('data-obs-idx') || '0');
+  // S341 FIX: tapping the BOX (empty zone area) opens the NATIVE file dropdown
+  // — Android's chooser offering Camera / Files / etc. It must NOT directly arm
+  // the burst camera; that is the dedicated Camera button's job only. A bare
+  // <input type="file" accept="image/*"> (no `capture` attr) yields the OS
+  // chooser rather than jumping straight into the camera.
   (function(tgtDefic, tgtObs) {
-    function _filePick() {
-      var inp = document.createElement('input');
-      inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
-      inp.onchange = function() {
-        if (!inp.files || !inp.files.length) return;
-        for (var i = 0; i < inp.files.length; i++) _compressAndAdd(inp.files[i], tgtDefic, tgtObs);
-      };
-      inp.click();
-    }
-    openCameraBurst().then(function(files) {
-      if (files === null) { _filePick(); return; } // unsupported/denied → upload fallback
-      for (var i = 0; i < files.length; i++) _compressAndAdd(files[i], tgtDefic, tgtObs);
-    }).catch(function(){ _filePick(); });
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+    inp.onchange = function() {
+      if (!inp.files || !inp.files.length) return;
+      for (var i = 0; i < inp.files.length; i++) _compressAndAdd(inp.files[i], tgtDefic, tgtObs);
+    };
+    inp.click();
   })(deficId, obsIdx);
 });
 
