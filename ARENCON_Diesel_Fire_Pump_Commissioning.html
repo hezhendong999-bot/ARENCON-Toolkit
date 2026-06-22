@@ -2036,7 +2036,7 @@ function _escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;
 function openMobileMenu(){
   var ha=document.querySelector('.header-actions');
   var bd=document.getElementById('mobile-menu-backdrop');
-  // S266: the drawer lives inside .app-header, which has backdrop-filter:blur + z-index:10000.
+  // S266: the drawer lives inside .app-header, which has backdrop-filter:blur + z-index:5000.
   // That ancestor creates a stacking context AND a containing block that traps the fixed-position
   // drawer (rendering it BEHIND the body). Move the drawer to <body> on open so it escapes the
   // trap and overlays everything; restore it on close so the desktop header is unchanged.
@@ -17939,7 +17939,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .app-header,.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
 
 /* ---------- HEADER + NAV — S245 Slice 1: Bold two-skin chrome (light day / near-black dark) ---------- */
-.app-header{background:var(--b-chrome-bg)!important;color:var(--b-chrome-fg)!important;border-bottom:1px solid var(--b-chrome-rule);box-shadow:0 1px 3px rgba(40,30,50,.10)!important;z-index:10000!important;}
+/* S341e: header z-index lowered 10000 → 5000 so it sits ABOVE page content
+   (phase-bar/panels/summary z:1-3, bottom nav z:100) but BELOW every modal
+   overlay (lowest modal overlay is z:8999). This is the root fix for modals
+   sliding under the sticky header (AI Usage, etc.) — no per-modal bumps needed.
+   Z-INDEX SCALE (keep modals above 8999): page content 0-100 · header 5000 ·
+   modal overlays 8999+ · mobile drawer 10002 · toasts 9999. New modals must
+   use an overlay z-index of at least 9000. */
+.app-header{background:var(--b-chrome-bg)!important;color:var(--b-chrome-fg)!important;border-bottom:1px solid var(--b-chrome-rule);box-shadow:0 1px 3px rgba(40,30,50,.10)!important;z-index:5000!important;}
 body.dark-mode .app-header{background:var(--b-chrome-bg)!important;color:var(--b-chrome-fg)!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;}
 .app-title{color:var(--b-chrome-fg)!important;}
 .section-nav{background:var(--b-chrome-bg)!important;border-bottom:1px solid var(--b-chrome-rule);}
