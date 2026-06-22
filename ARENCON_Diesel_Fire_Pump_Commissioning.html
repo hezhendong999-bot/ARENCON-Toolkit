@@ -6040,6 +6040,12 @@ function _flowPhotoSetReading(j, reading){
   if(typeof debounceAutosave==='function') debounceAutosave();
 }
 function _flowPhotoCloseReassign(){ var ex=document.getElementById('fpm-reassign'); if(ex) ex.remove(); }
+// S342f: _flowPhotoCloseGallery was CALLED in 5 places (incl. closeFlowPhotos) but
+// never DEFINED → every close threw "ReferenceError: _flowPhotoCloseGallery is not
+// defined" on its first line and aborted, so the modal X / backdrop / Esc all
+// silently failed. Define it to remove the gallery-picker overlay, mirroring
+// _flowPhotoCloseReassign. THIS is the real fix; the prior tap-probe was a symptom chase.
+function _flowPhotoCloseGallery(){ var ex=document.getElementById('fpm-gallery'); if(ex) ex.remove(); }
 function _flowPhotoOpenReassign(j, btn){
   _flowPhotoCloseReassign();
   var card=btn.closest('.fpm-card'); if(!card) return;
@@ -6161,34 +6167,6 @@ function openFlowPhotos(tbl, i){
   document.addEventListener('keydown', _flowPhotoEsc);
 }
 function _flowPhotoEsc(e){ if(e.key==='Escape'){ closeFlowPhotos(); } }
-// S342e TEMP DIAGNOSTIC: while the gauge modal is open, capture every click at the
-// document level (capture phase = fires before anything can stopPropagation) and,
-// if it landed on/near the close X, report the element actually under the point.
-// This tells us what's intercepting the X tap. Remove once root cause is found.
-function _fpmTapProbe(e){
-  if(!document.body.classList.contains('fpm-open')) return;
-  var x=(e.touches&&e.touches[0]?e.touches[0].clientX:e.clientX);
-  var y=(e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY);
-  if(x==null||y==null) return;
-  var top=document.elementFromPoint(x,y);
-  var isX = top && (top.classList&&top.classList.contains('fpm-x') || (top.closest&&top.closest('.fpm-x')));
-  // Only surface info when the tap is in the modal header region or directly hits/should-hit the X.
-  var head=document.querySelector('#flow-photo-modal .fpm-head, #flow-equip-modal .fpm-head');
-  var inHead = head && (function(){ var r=head.getBoundingClientRect(); return y>=r.top-4 && y<=r.bottom+4 && x>=r.left-4 && x<=r.right+4; })();
-  if(isX || inHead){
-    var desc = top ? (top.tagName.toLowerCase()+(top.className?('.'+String(top.className).trim().replace(/\s+/g,'.')):'')+(top.id?('#'+top.id):'')) : 'null';
-    try{ console.warn('[fpmTapProbe] header/X tap. topmost element =', top, desc, 'isX=', !!isX); }catch(_e){}
-    if(!isX){ showToast('X covered by: '+desc, 4000); }
-    // Guaranteed close on any tap in the header/X region, regardless of what's on top.
-    e.preventDefault(); e.stopPropagation();
-    var fp=document.getElementById('flow-photo-modal');
-    var fe=document.getElementById('flow-equip-modal');
-    if(fp && fp.style.display!=='none'){ closeFlowPhotos(); }
-    else if(fe && fe.style.display!=='none' && typeof closeFlowEquip==='function'){ closeFlowEquip(); }
-  }
-}
-document.addEventListener('click', _fpmTapProbe, true);
-document.addEventListener('touchend', _fpmTapProbe, true);
 function closeFlowPhotos(){
   _flowPhotoCloseReassign();
   _flowPhotoCloseGallery();
