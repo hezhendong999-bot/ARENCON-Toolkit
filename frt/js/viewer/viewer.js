@@ -1935,27 +1935,6 @@ function _peObsColor(i) { return _PE_OBS_COLORS[(i || 0) % _PE_OBS_COLORS.length
 function _peObsLetter(i) { return String.fromCharCode(65 + ((i || 0) % 26)); }
 
 function _openPinEditor(deficId) {
-  // ── TEMP S341 DIAGNOSTIC PROBE (remove after diagnosis) ───────────────
-  try {
-    var _dbg = [];
-    _dbg.push('defic=' + (Model.findDeficiency(deficId) ? 'Y' : 'N'));
-    _dbg.push('overlay=' + (document.getElementById('pin-editor-overlay') ? 'Y' : 'N'));
-    _dbg.push('buildObs=' + (window._frtBuildObsEditor ? 'Y' : 'N'));
-    _dbg.push('picker=' + (typeof FrtPhotoPicker !== 'undefined' && FrtPhotoPicker ? 'Y' : 'N'));
-    _dbg.push('mount=' + (document.getElementById('pe-obs-content') ? 'Y' : 'N'));
-    var _t = document.createElement('div');
-    _t.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483647;background:#2C4770;color:#fff;font:13px Calibri,sans-serif;padding:10px 12px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.4);';
-    _t.textContent = 'PIN PROBE → ' + _dbg.join(' · ');
-    document.body.appendChild(_t);
-    setTimeout(function(){ if(_t.parentNode) _t.parentNode.removeChild(_t); }, 8000);
-  } catch(_e) {
-    var _te = document.createElement('div');
-    _te.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483647;background:#9C2742;color:#fff;font:13px Calibri,sans-serif;padding:10px 12px;border-radius:8px;';
-    _te.textContent = 'PIN PROBE THREW: ' + (_e && _e.message ? _e.message : _e);
-    document.body.appendChild(_te);
-    setTimeout(function(){ if(_te.parentNode) _te.parentNode.removeChild(_te); }, 10000);
-  }
-  // ── END PROBE ─────────────────────────────────────────────────────────
   var f = Model.findDeficiency(deficId);
   if (!f) return;
   // Lock only on a genuine closed→open transition; re-opens (obs add/remove,
@@ -1994,22 +1973,14 @@ function _openPinEditor(deficId) {
   // CRUD row, date input, description datalist, pe-obs-tabs, move-to selects)
   // is gone — those elements were removed from the overlay (index.html). All
   // persistence flows through deficiencies.js's document-level delegates.
-  try {
-    _peRenderUnifiedEditor(d, 0);
-  } catch(_pe1) {
-    var _x1=document.createElement('div');_x1.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483647;background:#9C2742;color:#fff;font:13px Calibri;padding:10px;border-radius:8px;';_x1.textContent='RENDER-EDITOR THREW: '+(_pe1&&_pe1.message?_pe1.message:_pe1);document.body.appendChild(_x1);setTimeout(function(){if(_x1.parentNode)_x1.parentNode.removeChild(_x1);},10000);
-  }
+  _peRenderUnifiedEditor(d, 0);
 
   // S116 Push 1 (G): canvas-based mini-map (KEPT — the right-column drawing
   // panel). Renders the FULL drawing image with a priority-coloured teardrop
   // pin marker. Reads d.drawingId so cross-drawing pins show the correct
   // drawing. Desktop = -thumb, mobile = -thumb-mobile (collapses below).
-  try {
-    _renderPinMiniMap(d, 'pe-location-thumb');
-    _renderPinMiniMap(d, 'pe-location-thumb-mobile');
-  } catch(_pe2) {
-    var _x2=document.createElement('div');_x2.style.cssText='position:fixed;left:8px;right:8px;bottom:48px;z-index:2147483647;background:#9C2742;color:#fff;font:13px Calibri;padding:10px;border-radius:8px;';_x2.textContent='MINIMAP THREW: '+(_pe2&&_pe2.message?_pe2.message:_pe2);document.body.appendChild(_x2);setTimeout(function(){if(_x2.parentNode)_x2.parentNode.removeChild(_x2);},10000);
-  }
+  _renderPinMiniMap(d, 'pe-location-thumb');
+  _renderPinMiniMap(d, 'pe-location-thumb-mobile');
 
   overlay.style.display = 'flex';
 }
