@@ -256,8 +256,16 @@ body.bold .view-list .project-card::after{display:none !important}
 /* Card top row: number + name */
 .project-card-top{display:flex;align-items:center;gap:8px;margin-bottom:2px}
 .project-card-number{font-size:calc(16px + var(--ts));font-weight:800;color:var(--arencon);white-space:nowrap;letter-spacing:-.3px;flex-shrink:0}
-.project-card-name{font-size:calc(13px + var(--ts));font-weight:600;color:var(--fg);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3;flex:1;min-width:0}
+.project-card-name{font-size:calc(13px + var(--ts));font-weight:600;color:var(--fg);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3;flex:1;min-width:0;min-height:2.6em}
+/* S341: a 1-line name still reserves 2 rows (min-height above), so tool pills,
+   date, backup status, and avatar line up across cards regardless of name length.
+   List/compact override the min-height (single-line layouts). */
+.view-list .project-card-name,.view-compact .project-card-name{min-height:0}
 .project-card-client{font-size:calc(11px + var(--ts));color:var(--silver);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* S341: empty client (no client entered) collapses in card/compact so it leaves
+   no gap — but in LIST view it must still reserve its column (see .view-list rule)
+   so the project name can't slide left into the client slot (7489.01 bug). */
+.view-cards .project-card-client:empty,.view-compact .project-card-client:empty,#starred-section .project-card-client:empty{display:none}
 /* Card middle: status + date + PM */
 .project-card-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:nowrap}
 .project-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
@@ -856,6 +864,26 @@ body.bold .pg-filter.active{background:var(--arencon-mid,#9C2742) !important;col
 body.bold.dark-mode .pg-filter.active{background:var(--arencon,#CE5470) !important;color:#fff !important;}
 body.bold .pg-action-btn{background:var(--card) !important;color:var(--fg) !important;border:1px solid var(--border) !important;}
 body.bold .pg-action-btn:hover{border-color:var(--arencon) !important;color:var(--arencon) !important;}
+
+/* ── S341: Admin panel buttons + section headers → Bold ───────────────────
+   Was the last pre-Bold island in the admin view. Action buttons take the Bold
+   chrome family; section headers take the glass-card surface; the deactivate
+   "danger" button uses the MUTED fail red (not bright #DC2626). */
+body.bold .admin-act-btn{
+  background:var(--card) !important;color:var(--fg) !important;border:1px solid var(--border) !important;}
+body.bold .admin-act-btn:hover{border-color:var(--arencon) !important;color:var(--arencon) !important;}
+body.bold .admin-act-btn.danger{border-color:rgba(192,68,95,.45) !important;color:#C0445F !important;background:var(--card) !important;}
+body.bold.dark-mode .admin-act-btn.danger{border-color:rgba(226,96,118,.4) !important;color:#E26076 !important;}
+body.bold .admin-act-btn.danger:hover{background:rgba(192,68,95,.10) !important;}
+body.bold.dark-mode .admin-act-btn.danger:hover{background:rgba(226,96,118,.12) !important;}
+body.bold .admin-section-header{
+  background:linear-gradient(160deg,rgba(255,255,255,.96),rgba(247,245,249,.88)) !important;
+  color:var(--fg) !important;border-bottom:1px solid var(--border) !important;}
+body.bold.dark-mode .admin-section-header{
+  background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02)) !important;
+  color:var(--fg) !important;border-bottom:1px solid rgba(255,255,255,.10) !important;}
+/* Status text: muted yes/no family instead of saturated */
+body.bold.dark-mode .admin-act-btn{color:var(--fg) !important;}
 /* Sign-in background — demo surface, no blue navy */
 body.bold .login-wrap,body.login-wrap{background:var(--bg) !important;}
 body.bold.dark-mode .login-wrap{
@@ -1553,7 +1581,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
     </div>
     <div class="modal-actions">
       <button class="dash-btn secondary" onclick="closeEditProjectModal()">Cancel</button>
-      <button class="dash-btn primary" id="ep-save-btn" onclick="saveEditProject()">Save Changes</button>
+      <button class="dash-btn primary btn-newproj" id="ep-save-btn" onclick="saveEditProject()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -2595,7 +2623,7 @@ function _renderProjectCard(p, myId) {
     return '<div class="project-card" onclick="' + cardClick + '">'
       + bulkCheckHtml
       + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span></div>'
-      + (client ? '<div class="project-card-client">' + client + '</div>' : '')
+      + '<div class="project-card-client">' + client + '</div>'
       + '<div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-bottom:6px">Deleted ' + delDate + ' by ' + esc(delBy) + '</div>'
       + '<div style="display:flex;gap:8px">'
       + '<button style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--yes);background:var(--yes-bg);color:var(--yes);font-weight:600;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();restoreProject(\'' + esc(p.id) + '\')">↩️ Restore</button>'
@@ -2620,7 +2648,7 @@ function _renderProjectCard(p, myId) {
     + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
     + '</div>'
-    + (client ? '<div class="project-card-client">' + client + '</div>' : '')
+    + '<div class="project-card-client">' + client + '</div>'
     + '<div class="project-card-row">' + statusBadge + '<span class="project-card-date">' + date + '</span>' + (p.project_manager && _userInitials[p.project_manager] ? '<span class="project-card-pm-av">' + _pmAvatar(p.project_manager) + '</span>' : (pmName ? '<span class="project-card-pm">' + esc(pmName) + '</span>' : '')) + '</div>'
     + '<div class="project-card-bottom">' + toolIcons + progressHtml + backupHtml + '</div>'
     + '</div>';
