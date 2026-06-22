@@ -439,7 +439,7 @@ body.dark-mode .ts-seg button:not(.on):hover{background:rgba(201,71,106,.14)!imp
 @media(max-width:680px){.ts-rated,.ts-rated-7{grid-template-columns:repeat(2,1fr);}}
 /* evidence tiles — prominent 3-up */
 .ev-lbl{font-size:calc(11px + var(--ts));font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--silver);margin-bottom:9px;}
-.ev-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.ev-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:stretch;}
 @media(max-width:560px){.ev-tiles{grid-template-columns:1fr;}}
 /* S344: evidence boxes as thumbnail grids (checklist-style) */
 /* S343: populated evidence box matches the empty dashed-tile family — same dashed
@@ -464,7 +464,7 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 @media(pointer:coarse){.ev-thumb .ev-thumb-dl,.ev-thumb .ev-thumb-del{opacity:.9;}}
 .ev-add-tile{width:84px;height:84px;border-radius:7px;border:2px dashed var(--border);background:transparent;color:var(--steel);font-size:30px;font-weight:300;line-height:1;cursor:pointer;flex:0 0 auto;transition:all .14s;display:flex;align-items:center;justify-content:center;}
 .ev-add-tile:hover{border-color:var(--arencon);color:var(--arencon);}
-.ev-tile{border:2px dashed var(--border);border-radius:10px;background:#fff;min-height:128px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
+.ev-tile{border:2px dashed var(--border);border-radius:10px;background:#fff;min-height:128px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden;}
 .ev-tile:hover,.ev-tile.drag-over{border-color:var(--arencon);background:#fdf6f8;}
 /* S343b: center the icon/label group vertically but pin the Camera/Gallery row to
    the bottom, so the empty box's buttons land on the same line as a populated box. */
