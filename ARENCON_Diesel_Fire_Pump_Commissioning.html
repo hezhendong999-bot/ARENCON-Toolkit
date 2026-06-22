@@ -3502,7 +3502,7 @@ function buildItem(id, item, section, idx, isCustom) {
     var sec=section.replace('s4pld','4b').replace('s5m','5').replace('s','');
     return sec+'.'+(idx+1);
   })();
-  var _nPhotos = (s.photos||[]).length;
+  var _nPhotos = (s.photos||[]).filter(function(p){ return !_isPhotoDeleted(p); }).length;
   var _detailOpen = (s.status==='no') || _nPhotos>0;
   div.innerHTML = `
     <div class="item-main">
@@ -4970,7 +4970,7 @@ function setStatus(id, status) {
   });
   var detail = document.getElementById('id-'+id);
   if(detail) {
-    var _hasPhotos = (clState[id].photos||[]).length>0;
+    var _hasPhotos = (clState[id].photos||[]).filter(function(p){return !_isPhotoDeleted(p);}).length>0;
     // open on NO; otherwise keep whatever state it's in (don't slam shut a manually-opened or photo-bearing detail)
     if(clState[id].status==='no') detail.classList.add('open');
     else if(!_hasPhotos && !detail.dataset.userOpened) detail.classList.remove('open');
@@ -8412,7 +8412,7 @@ function _checklistFindings(){
     var item = all[idx];
     var num = (item&&item.num) ? item.num : (sec.replace('s4pld','4b').replace('s5m','5').replace('s','')+'.'+(idx+1));
     var text = (item&&item.text) ? item.text : (st.customText||'(custom item)');
-    out.push({id:id, num:num, text:text, photos:(st.photos||[]).length, comment:st.comment||''});
+    out.push({id:id, num:num, text:text, photos:(st.photos||[]).filter(function(p){return !_isPhotoDeleted(p);}).length, comment:st.comment||''});
   });
   out.sort(function(a,b){ return a.id<b.id?-1:1; });
   return out;
@@ -8690,8 +8690,8 @@ function renderAllDeficTable() {
     else if(hasCtr) respBadge = '<span class="defic-badge resp-ctr">Contractor</span>';
     else if(hasCon) respBadge = '<span class="defic-badge resp-con">Consultant</span>';
     else respBadge = '<span style="color:var(--silver);">—</span>';
-    var photoCount = (d.photos||[]).length;
-    resps.forEach(function(x){ photoCount += (x.photos||[]).length; });
+    var photoCount = (d.photos||[]).filter(function(p){return !_isPhotoDeleted(p);}).length;
+    resps.forEach(function(x){ photoCount += (x.photos||[]).filter(function(p){return !_isPhotoDeleted(p);}).length; });
     var desc = ((d.description||'').substring(0,80)) || '<em style="color:var(--silver);">No description</em>';
     html += '<tr onclick="jumpToDeficiency(\''+r.ctr+'\','+r.idx+')">';
     html += '<td style="font-weight:800;color:#9C2742;">'+r.globalNum+'</td>';
@@ -8728,8 +8728,8 @@ function exportAllDeficCSV() {
     var hasCtr = resps.some(function(x){return x.party==='contractor';});
     var hasCon = resps.some(function(x){return x.party==='consultant';});
     var respLbl = (hasCtr&&hasCon)?'Both':hasCtr?'Contractor':hasCon?'Consultant':'None';
-    var photoCount = (d.photos||[]).length;
-    resps.forEach(function(x){ photoCount += (x.photos||[]).length; });
+    var photoCount = (d.photos||[]).filter(function(p){return !_isPhotoDeleted(p);}).length;
+    resps.forEach(function(x){ photoCount += (x.photos||[]).filter(function(p){return !_isPhotoDeleted(p);}).length; });
     var desc = '"' + (d.description||'').replace(/"/g,'""') + '"';
     rows.push([r.globalNum, '"'+r.ctr+'"', desc, d.date||'', scLbl, d.iarStatus?'YES':'No', respLbl, photoCount].join(','));
   });
@@ -14164,7 +14164,13 @@ window.addEventListener('load', () => {
         window._csHubSfn=_sfn;
       }
       var _pbBdg=document.getElementById('pb-badge');
-      if(_pbBdg){_pbBdg.textContent='DRAFT';_pbBdg.style.background='#8A7689';}
+      if(_pbBdg){
+        // S342b: was hardcoded '#8A7689' (mauve) on load → badge showed the wrong
+        // colour until a status change. Derive label+colour from the revision the
+        // same way FRT does, so DRAFT is amber from first paint and never drifts.
+        if(typeof _dslSyncStatusBadges==='function'){ _dslSyncStatusBadges(); }
+        else { _pbBdg.textContent='DRAFT'; _pbBdg.style.setProperty('background','#E67E22','important'); }
+      }
 
       }
 
