@@ -60,7 +60,10 @@ function _obsPhotoSyncBadge(ph) {
     var m = String(ph.id || '').match(/^[a-z]+_(\d{13})/i);
     if (m) photoTs = parseInt(m[1], 10);
     var syncTs = lastSync ? new Date(lastSync).getTime() : 0;
-    if (photoTs && syncTs && photoTs <= syncTs) {
+    // Null/zero watermark = haven't heard from cloud yet = "unknown", NOT
+    // "failed". Don't downgrade a confirmed-up R2 photo to orange on load.
+    // (Keep in sync with _cloudIcon in photos.js.)
+    if ((photoTs && syncTs && photoTs <= syncTs) || (!syncTs)) {
       status = 'Synced'; color = '#5F8068';
       glyph = '<path d="M8 12.5l2.5 2.5L16 9.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
     } else {

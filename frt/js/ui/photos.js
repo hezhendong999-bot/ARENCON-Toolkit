@@ -209,7 +209,13 @@ function _cloudIcon(ph) {
     var m = String(ph.id || '').match(/^[a-z]+_(\d{13})/i);
     if (m) photoTs = parseInt(m[1], 10);
     var syncTs = lastSync ? new Date(lastSync).getTime() : 0;
-    if (photoTs && syncTs && photoTs <= syncTs) {
+    // A null/zero watermark means we simply haven't heard back from the cloud
+    // yet this session (gallery painted before the first pull/IDB-restore set
+    // it). That is "unknown", NOT "failed" — do NOT downgrade a confirmed-up
+    // R2 photo to orange in that case (caused the false "awaiting" badge on
+    // load). Only show pending when we HAVE a watermark and the photo is newer
+    // than it (the genuine silent-sync-failure signal is preserved).
+    if ((photoTs && syncTs && photoTs <= syncTs) || (!syncTs)) {
       status = 'Synced'; color = '#5F8068';
       glyph = '<path d="M8 12.5l2.5 2.5L16 9.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
     } else {
