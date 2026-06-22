@@ -245,22 +245,20 @@ input[type="checkbox"]{-webkit-appearance:checkbox!important;-moz-appearance:che
 /* narrow widths: keep all three on one row, drop the labels, keep the icons */
 @media(max-width:520px){.pm-b-txt{display:none;}.pm-b{padding:6px 9px;gap:0;}}
 .pm-b:hover{filter:brightness(1.08);}
-.pm-b.up{background:#4F6B8A;}
+
 .pm-b.cam{background:#5C7A65;}
 .pm-b.gal{background:#8A7689;}
 /* ── PHOTO ZONE COMPACT (still used by Site Records zone) ── */
 .photo-zone-compact{border:2px dashed var(--border);border-radius:8px;padding:14px 12px;background:var(--smoke);min-height:60px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:9px;transition:border-color .15s;}
 .photo-zone-compact.drag-over{border-color:var(--arencon);background:rgba(156,39,66,.05);}
 .photo-zone-compact span{font-size:calc(12px + var(--ts));color:var(--silver);}
-.photo-zone-compact .pz-upload,.photo-zone-compact .pz-camera{padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid var(--border);transition:all .14s;}
-.photo-zone-compact .pz-upload{background:#4F6B8A;color:#fff;border-color:#4F6B8A;}
-.photo-zone-compact .pz-upload:hover{background:#445b78;border-color:#445b78;}
+.photo-zone-compact .pz-camera{padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid var(--border);transition:all .14s;}
 .photo-zone-compact .pz-camera{background:#5C7A65;color:white;border-color:#5C7A65;}
 .photo-zone-compact .pz-camera:hover{background:#4e6856;border-color:#4e6856;}
 .fpm-zone{flex-direction:column;padding:9px 10px;min-height:0;gap:6px;margin-bottom:8px;}
 .fpm-zone>span{width:100%;text-align:center;font-size:calc(11px + var(--ts));}
 .fpm-zone .pz-row{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;}
-.fpm-zone .pz-upload,.fpm-zone .pz-gallery{padding:6px 12px;font-size:calc(11.5px + var(--ts));border-radius:6px;}
+.fpm-zone .pz-gallery{padding:6px 12px;font-size:calc(11.5px + var(--ts));border-radius:6px;}
 .photo-zone-compact .pz-gallery{padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #8A7689;background:#8A7689;color:#fff;transition:all .14s;}
 .photo-zone-compact .pz-gallery:hover{background:#766472;border-color:#766472;}
 body.dark-mode .photo-zone-compact .pz-gallery{background:#4a3f49!important;border-color:#4a3f49!important;color:#cbb8c8!important;}
@@ -465,6 +463,11 @@ body.dark-mode .ev-grid-n{background:rgba(255,255,255,.1);color:#bbb;}
 .ev-tile .s{font-size:calc(10px + var(--ts));color:var(--silver);}
 .ev-tile.has-img{border-style:solid;}
 .ev-tile-btns{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;margin-top:10px;padding:0 8px;width:100%;}
+/* S342: any photo box wired for click-to-upload shows a pointer + subtle hover
+   so it reads as tappable (replaces the removed Upload button). */
+.ev-clickable{cursor:pointer;}
+.ev-clickable:hover{border-color:var(--arencon);}
+.photo-zone.ev-clickable:hover,.photo-zone-compact.ev-clickable:hover,.pm.ev-clickable:hover,.ev-grid-card.ev-clickable:hover,.markup-placeholder.ev-clickable:hover{border-color:var(--arencon);}
 .ev-tile-btns .pm-b{flex:0 0 auto;min-width:0;padding:5px 10px;}
 .ev-tile-btns .pm-b-txt{overflow:visible;}
 .np-tile-btns{display:flex;flex-wrap:nowrap;gap:6px;justify-content:stretch;margin-top:9px;padding:0 6px;width:100%;}
@@ -564,6 +567,12 @@ body.dark-mode .fpm-gallery{background:#16151b;}
 /* S366: per-point verdict override dropdown */
 .fp-override{font-family:Calibri,sans-serif;font-size:calc(10.5px + var(--ts));font-weight:700;border:1px solid var(--border);border-radius:8px;padding:2px 5px;background:var(--smoke);color:var(--slate);cursor:pointer;}
 body.dark-mode .fp-override{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#e8e6ec;}
+/* S342: dropdown OPTION list was grey-on-white (near invisible). Style the open
+   list explicitly per mode so every option is readable. Native <option> honours
+   background/color in Chrome (the TWA engine). */
+.fp-override option{background:#ffffff;color:#1B1A22;font-weight:600;}
+body.dark-mode .fp-override option{background:#1f1d26;color:#e8e6ec;}
+.fp-override option:checked{background:#9C2742;color:#fff;}
 body.dark-mode .fp-verdict.flag{background:rgba(224,163,106,.16);color:#E0A36A;}
 /* ── S213 framed chart figure (FRT family) ── */
 .fig{background:#fff;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);}
@@ -1337,7 +1346,6 @@ body.dark-mode .cl-item.s-no .item-detail.open{background:#2a1c20!important;}
 body.dark-mode .detail-label{color:#8a90a0!important;}
 body.dark-mode .comment-input{background:rgba(255,255,255,.06)!important;color:#d4d4d4!important;border-color:rgba(255,255,255,.14)!important;}
 body.dark-mode .photo-zone,body.dark-mode .photo-zone-compact,body.dark-mode [style*="border:2px dashed"]{background:#1e2028!important;border-color:rgba(255,255,255,.14)!important;color:#6a7080!important;}
-body.dark-mode .photo-zone-compact .pz-upload{background:#2f4258!important;color:#a8c0d8!important;border-color:#2f4258!important;}
 body.dark-mode .rec-zone-card{background:var(--b-fieldbg)!important;border-color:var(--border)!important;}
 body.dark-mode .photo-zone-compact .pz-camera{background:#33473a!important;border-color:#33473a!important;color:#aaccb4!important;}
 body.dark-mode .ev-tile{background:#1e2028!important;border-color:rgba(255,255,255,.14)!important;}
@@ -1345,7 +1353,7 @@ body.dark-mode .ev-tile{background:#1e2028!important;border-color:rgba(255,255,2
    colours so they read as deliberate buttons, not muddy blocks on near-black. */
 body.dark-mode .pm-b{box-shadow:none;border:1px solid rgba(255,255,255,.08);}
 body.dark-mode .pm-b.cam{background:#2C4A3A!important;color:#cfe6d8!important;}
-body.dark-mode .pm-b.up{background:#2B3F57!important;color:#cdddf0!important;}
+body.dark-mode 
 body.dark-mode .pm-b.gal{background:#3E3450!important;color:#ddd0ea!important;}
 body.dark-mode .ev-tile:hover,body.dark-mode .ev-tile.drag-over{border-color:var(--arencon)!important;background:#241c20!important;}
 body.dark-mode .ev-tile .l{color:#c0c8d8!important;}
@@ -3043,7 +3051,8 @@ function updatePhaseFlags(){
       <div class="card-body">
         <!-- S268: single FRT-style drag&drop zone (Site Records capture card removed).
              Wired to diesel's existing pipeline: _recDrop/_recUpload/_recCamera with kind 'site'. -->
-        <div class="photo-zone" id="site-photo-upload" style="margin-bottom:14px;"
+        <div class="photo-zone ev-clickable" id="site-photo-upload" style="margin-bottom:14px;"
+             onclick="_boxUp(event,function(){_recUpload('site')})"
              ondragover="event.preventDefault();this.classList.add('drag-over')"
              ondragleave="this.classList.remove('drag-over')"
              ondrop="_recDrop(event,'site')">
@@ -3053,7 +3062,6 @@ function updatePhaseFlags(){
             <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
               <button class="pz-camera" onclick="_recCamera('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #5C7A65;background:#5C7A65;color:#fff;">📷 Camera</button>
               <!-- S366 (Mark): camera re-added per "all 3 buttons everywhere" — supersedes S294's one-button decision. -->
-              <button class="pz-upload" onclick="_recUpload('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #4F6B8A;background:#4F6B8A;color:#fff;">📥 Upload</button>
               <button class="pz-gallery" onclick="_galleryReuseRecord('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #8A7689;background:#8A7689;color:#fff;">🖼 Gallery</button>
             </div>
           </div>
@@ -3518,14 +3526,13 @@ function buildItem(id, item, section, idx, isCustom) {
       </div>
       <div>
         <div class="detail-label">Photos</div>
-        <div class="pm" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handleDrop(event,'${id}')">
+        <div class="pm ev-clickable" onclick="_boxUp(event,function(){triggerPhoto('${id}')})" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handleDrop(event,'${id}')">
           <div class="photo-grid" id="pg-${id}">${renderThumbs(id)}</div>
           <div class="pm-divider${_nPhotos>0?'':' hide'}" id="pmdiv-${id}"></div>
           <div class="pm-foot">
-            <span class="pm-hint">${_nPhotos>0?'Drop more photos to add':'Drop photos here or use a button'}</span>
+            <span class="pm-hint">${_nPhotos>0?'Drop more photos to add':'Drop or tap here, or use a button'}</span>
             <span class="pm-btns">
               <button class="pm-b cam" onclick="triggerCamera('${id}')">📷<span class="pm-b-txt">Camera</span></button>
-              <button class="pm-b up" onclick="triggerPhoto('${id}')">📥<span class="pm-b-txt">Upload</span></button>
               <button class="pm-b gal" onclick="_galleryReuseChecklist('${id}')">🖼<span class="pm-b-txt">Gallery</span></button>
             </span>
           </div>
@@ -3559,7 +3566,7 @@ function refreshItemPhotoUI(id){
   var div = document.getElementById('pmdiv-'+id);
   if(div) div.classList.toggle('hide', n===0);
   var detail = document.getElementById('id-'+id);
-  if(detail){ var hint = detail.querySelector('.pm-hint'); if(hint) hint.textContent = n>0 ? 'Drop more photos to add' : 'Drop photos here or use a button'; }
+  if(detail){ var hint = detail.querySelector('.pm-hint'); if(hint) hint.textContent = n>0 ? 'Drop more photos to add' : 'Drop or tap here, or use a button'; }
 }
 
 // ═══ S282 B8: DieselMarkup — non-destructive vector markup engine ═══
@@ -5935,6 +5942,15 @@ function _galleryReuseRecord(kind){
   var cur=(typeof recordPhotos!=='undefined'?recordPhotos:[]).filter(function(p){return p&&p.kind===kind;});
   _openPhotoReusePicker(function(file){ _recAddFile(file, kind); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
 }
+// S342: gallery-reuse for the flow-test evidence box (added Gallery parity; the
+// flow box previously had only Camera + Upload).
+function _galleryReuseFlowTest(isPld){
+  _openPhotoReusePicker(function(file){
+    if(isPld){ if(typeof _pfFlowTestPld==='function') _pfFlowTestPld(file); else if(typeof _pfFlowTest==='function') _pfFlowTest(file); }
+    else { if(typeof _pfFlowTest==='function') _pfFlowTest(file); }
+    if(typeof _renderRecordZones==='function') _renderRecordZones();
+  }, {});
+}
 function _galleryReuseDefic(name, idx){
   var cur=(deficiencies[name]&&deficiencies[name][idx]&&deficiencies[name][idx].photos)||[];
   _openPhotoReusePicker(function(file){ handleFiles(name, [file], true); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
@@ -6065,12 +6081,11 @@ function _renderFlowPhotoModal(){
   });
   h+='</div>';
   // shared capture zone — caption row on top, button row below (Upload · Camera · Gallery)
-  h+='<div class="photo-zone-compact fpm-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
-  h+='<span>Drag &amp; drop — tagged <b>'+(_GAUGE_TAG_LABEL[_flowPhotoActiveReading]||'Suction')+'</b></span>';
+  h+='<div class="photo-zone-compact fpm-zone ev-clickable" onclick="_boxUp(event,function(){_flowPhotoUpload()})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowPhotoDrop(event)">';
+  h+='<span>Drag, drop or tap — tagged <b>'+(_GAUGE_TAG_LABEL[_flowPhotoActiveReading]||'Suction')+'</b></span>';
   h+='<div class="pz-row">';
-  h+='<button class="pz-camera" onclick="_flowPhotoCamera()">📷 Camera</button>';
-  h+='<button class="pz-upload" onclick="_flowPhotoUpload()">📥 Upload</button>';
-  h+='<button class="pz-gallery" onclick="_flowPhotoOpenGallery()">🖼 Gallery</button>';
+  h+='<button class="pz-camera" onclick="event.stopPropagation();_flowPhotoCamera()">📷 Camera</button>';
+  h+='<button class="pz-gallery" onclick="event.stopPropagation();_flowPhotoOpenGallery()">🖼 Gallery</button>';
   h+='</div>';
   h+='</div>';
   // grouped thumbs (by reading, in canonical order; legacy untagged → Unsorted)
@@ -6249,9 +6264,9 @@ function _renderFlowEquipModal(){
   h+='</div>';
   // capture zone
   var activeHint=''; _FLOWEQ_CATS.forEach(function(c){ if(c.k===_flowEqActiveCat) activeHint=c.hint; });
-  h+='<div class="photo-zone-compact fpm-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowEqDrop(event)">';
+  h+='<div class="photo-zone-compact fpm-zone ev-clickable" onclick="_boxUp(event,function(){_flowEqUpload()})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowEqDrop(event)">';
   h+='<span>Drag &amp; drop — tagged <b>'+_floweqLabel(_flowEqActiveCat)+'</b>'+(activeHint?(' · '+activeHint):'')+'</span>';
-  h+='<div class="pz-row"><button class="pz-camera" onclick="_flowEqCamera()">📷 Camera</button><button class="pz-upload" onclick="_flowEqUpload()">📥 Upload</button><button class="pz-gallery" onclick="_flowEqGalleryReuse()">🖼 Gallery</button></div>';
+  h+='<div class="pz-row"><button class="pz-camera" onclick="event.stopPropagation();_flowEqCamera()">📷 Camera</button><button class="pz-gallery" onclick="event.stopPropagation();_flowEqGalleryReuse()">🖼 Gallery</button></div>';
   h+='</div>';
   // grouped thumbs by category
   var live=arr.filter(function(p){return !_isPhotoDeleted(p);});
@@ -8255,11 +8270,11 @@ function buildDeficItem(name, safe, d, i) {
       +'<textarea placeholder="'+label+' response..." style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="deficiencies[\''+safe+'\']['+i+'].responses['+ci+'].comment=this.value">'+(cr.comment||'')+'</textarea></div>'
       +'<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Response Photos</div>'
       +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+crPhotosHtml+'</div>'
-      +'<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';deficRespTimelineDrop(event,\''+safe+'\','+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">'
-      +'<span>Drag & drop photos</span>'
+      +'<div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')})" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';deficRespTimelineDrop(event,\''+safe+'\','+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">'
+      +'<span>Drag, drop or tap</span>'
       +'<div style="display:flex;gap:5px;">'
       +'<button onclick="deficRespTimelineCamera(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
-      +'<button onclick="deficRespTimelineUpload(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#4F6B8A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button>'
+      
       +'<button onclick="_galleryReuseDeficResp(\''+safe+'\','+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button>'
       +'</div></div></div></div></div>';
   });
@@ -8282,11 +8297,11 @@ function buildDeficItem(name, safe, d, i) {
     +'<div>'
     +'<div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div>'
     +'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;" id="dpt-'+safe+'-'+i+'">'+thumbsHtml+'</div>'
-    +'<div class="photo-zone" ondragover="handleDragOver(event,\'_d_'+safe+'_'+i+'\')" ondragleave="handleDragLeave(event,\'_d_'+safe+'_'+i+'\')" ondrop="deficDrop(event,\''+safe+'\','+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;" onclick="deficUpload(\''+safe+'\','+i+')">'
-    +'<span>Drag & drop photos here</span>'
+    +'<div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){deficUpload(\''+safe+'\','+i+')})" ondragover="handleDragOver(event,\'_d_'+safe+'_'+i+'\')" ondragleave="handleDragLeave(event,\'_d_'+safe+'_'+i+'\')" ondrop="deficDrop(event,\''+safe+'\','+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;">'
+    +'<span>Drag, drop or tap here</span>'
     +'<div style="display:flex;gap:5px;">'
     +'<button onclick="event.stopPropagation();deficCamera(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button>'
-    +'<button onclick="event.stopPropagation();deficUpload(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#4F6B8A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button>'
+    
     +'<button onclick="event.stopPropagation();_galleryReuseDefic(\''+safe+'\','+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="deficiencies[\''+safe+'\']['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
@@ -8566,14 +8581,14 @@ function buildGeneralDeficItem(d, i) {
     respHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Comment</div><textarea placeholder="'+label+' response..." style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].responses['+ci+'].comment=this.value">'+(cr.comment||'')+'</textarea></div>';
     respHtml += '<div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Response Photos</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+crPhotosHtml+'</div>';
-    respHtml += '<div class="photo-zone" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';genDeficRespDrop(event,'+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">';
-    respHtml += '<span>Drag & drop photos</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="genDeficRespUpload('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#4F6B8A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="_galleryReuseGenDeficResp('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div></div>';
+    respHtml += '<div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){genDeficRespUpload('+i+','+ci+')})" ondragover="event.preventDefault();this.style.borderColor=\'var(--red)\';" ondragleave="this.style.borderColor=\'var(--border)\';" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';genDeficRespDrop(event,'+i+','+ci+')" style="padding:14px;min-height:80px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">';
+    respHtml += '<span>Drag, drop or tap</span><div style="display:flex;gap:5px;"><button onclick="genDeficRespCamera('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="_galleryReuseGenDeficResp('+i+','+ci+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div></div>';
   });
   respHtml += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'contractor\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #E67E22;border-radius:5px;background:#fffbf0;color:#E67E22;font-size:12px;cursor:pointer;font-weight:600;">+ Add Contractor Response</button>';
   respHtml += '<button onclick="generalDeficiencies['+i+'].responses.push({party:\'consultant\',comment:\'\',date:\'\',status:\'open\',photos:[]});renderGeneralDeficGroup();" style="padding:6px 14px;border:1.5px dashed #1565C0;border-radius:5px;background:#f0f4ff;color:#1565C0;font-size:12px;cursor:pointer;font-weight:600;">+ Add Consultant Response</button></div>';
 
-  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag & drop photos here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="event.stopPropagation();genDeficUpload('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#4F6B8A;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📥 Upload</button><button onclick="event.stopPropagation();_galleryReuseGenDefic('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
+  return '<div style="border-top:1px solid var(--border);padding:14px 16px;"><div style="display:flex;gap:10px;align-items:flex-start;"><div style="min-width:28px;width:28px;height:28px;border-radius:50%;background:'+_deficPriColor(d.priority||'high')+';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;" title="'+(d.priority||'high')+' priority">G'+(i+1)+'</div><div style="flex:1;min-width:0;">'+_deficPriRow(d.priority||'high','setGenDeficPriority('+i+',')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Describe Deficiency</div><textarea placeholder="Describe deficiency..." style="width:100%;height:150px;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;" oninput="generalDeficiencies['+i+'].description=this.value">'+(d.description||'')+'</textarea></div><div><div style="font-size:11px;font-weight:600;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Evidence Photos</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">'+thumbsHtml+'</div><div class="photo-zone ev-clickable" onclick="_boxUp(event,function(){genDeficUpload('+i+')})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');genDeficDrop(event,'+i+')" style="padding:14px 12px;min-height:110px;border:2px dashed var(--border);border-radius:8px;font-size:11px;color:var(--silver);text-align:center;background:var(--smoke);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;"><span>Drag, drop or tap here</span><div style="display:flex;gap:5px;"><button onclick="event.stopPropagation();genDeficCamera('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#5C7A65;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">📷 Camera</button><button onclick="event.stopPropagation();_galleryReuseGenDefic('+i+')" style="padding:5px 10px;border:none;border-radius:5px;background:#8A7689;color:white;font-size:calc(12.5px + var(--ts));cursor:pointer;">🖼 Gallery</button></div></div></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Date</label><input type="date" value="'+(d.date||'')+'" oninput="generalDeficiencies['+i+'].date=this.value" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;"></div>'
     +'<div><label style="font-size:11px;color:#666;display:block;margin-bottom:2px;">Status</label><select style="padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;color:'+scCol+';font-weight:600;" onchange="generalDeficiencies['+i+'].status=this.value;updateDeficSummary();renderGeneralDeficGroup();"><option value="open" '+(sc==='open'?'selected':'')+'>● Outstanding</option><option value="in-progress" '+(sc==='in-progress'?'selected':'')+'>● In Progress</option><option value="resolved" '+(sc==='resolved'?'selected':'')+'>● Addressed & Closed</option></select></div>'
@@ -10579,12 +10594,12 @@ function addSketchEntry() {
       <div style="width:100%;margin-top:12px;border-top:1.5px solid var(--border);padding-top:12px;">
         <div class="sketch-col-label">Photo Upload &amp; Markup</div>
         <div class="markup-canvas-wrap" id="markup-wrap-${uid}" style="max-width:100%;">
-          <div class="markup-placeholder" id="markup-placeholder-${uid}" ondragover="event.preventDefault();this.style.borderColor='var(--red)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_sketchPhotoDrop(event,${uid})" style="border:2px dashed var(--border);border-radius:8px;padding:20px;min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:default;background:var(--smoke);">
+          <div class="markup-placeholder ev-clickable" id="markup-placeholder-${uid}" onclick="_boxUp(event,function(){_sketchPhotoUpload(${uid})})" ondragover="event.preventDefault();this.style.borderColor='var(--red)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_sketchPhotoDrop(event,${uid})" style="border:2px dashed var(--border);border-radius:8px;padding:20px;min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:default;background:var(--smoke);">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="13" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
             <div style="font-size:13px;color:#888;">Drag & drop a site photo here to annotate</div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-sm" style="background:#5C7A65;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
-              <button class="btn btn-sm" style="background:#4F6B8A;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoUpload(${uid})">📥 Upload</button>
+              
               <button class="btn btn-sm" style="background:#8A7689;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_galleryReuseSketch(${uid})">🖼 Gallery</button>
             </div>
           </div>
@@ -15677,11 +15692,10 @@ function _recZoneHtml(kind){
   var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !_isPhotoDeleted(o.p) && (o.p.kind||'site')===kind;});
   var html='<div class="rec-zone-card" style="border:1.5px solid var(--border);border-radius:9px;padding:11px;background:var(--card-bg,var(--smoke));">';
   html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
-  html+='<div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
-  html+='<span>Drag &amp; drop · '+hint+'</span>';
-  html+='<button class="pz-camera" onclick="_recCamera(\''+kind+'\')">📷 Camera</button>';
-  html+='<button class="pz-upload" onclick="_recUpload(\''+kind+'\')">📥 Upload</button>';
-  html+='<button class="pz-gallery" onclick="_galleryReuseRecord(\''+kind+'\')">🖼 Gallery</button>';
+  html+='<div class="photo-zone-compact ev-clickable" onclick="_boxUp(event,function(){_recUpload(\''+kind+'\')})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
+  html+='<span>Drag, drop or tap · '+hint+'</span>';
+  html+='<button class="pz-camera" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷 Camera</button>';
+  html+='<button class="pz-gallery" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼 Gallery</button>';
   html+='</div>';
   if(thumbs.length){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
@@ -15711,17 +15725,17 @@ function _evTileHtml(kind){
     var fp=fpAll.map(function(p,i){return {p:p,i:i};}).filter(function(o){return !_isPhotoDeleted(o.p);});
     var arrName = isPld ? 'flowTestPhotosPld' : 'flowTestPhotos';
     var trig = isPld ? 'triggerFlowTestPhotoPld()' : 'triggerFlowTestPhoto()';
+    var camFn = isPld ? 'triggerFlowTestCameraPld()' : 'triggerFlowTestCamera()';
     var drop = isPld ? 'handleFlowTestDropPld(event)' : 'handleFlowTestDrop(event)';
     if(!fp.length){
-      var camFn = isPld ? 'triggerFlowTestCameraPld()' : 'triggerFlowTestCamera()';
-      return '<div class="ev-tile" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
-        +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span>'
+      return '<div class="ev-tile ev-clickable" onclick="_boxUp(event,function(){'+trig+';})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
+        +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+' · tap to add</span>'
         +'<div class="ev-tile-btns">'
           +'<button class="pm-b cam" onclick="event.stopPropagation();'+camFn+'">📷<span class="pm-b-txt">Camera</span></button>'
-          +'<button class="pm-b up" onclick="event.stopPropagation();'+trig+'">📥<span class="pm-b-txt">Upload</span></button>'
+          +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseFlowTest('+(isPld?'true':'false')+')">🖼<span class="pm-b-txt">Gallery</span></button>'
         +'</div></div>';
     }
-    var fhtml='<div class="ev-grid-card" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">';
+    var fhtml='<div class="ev-grid-card ev-clickable" onclick="_boxUp(event,function(){'+trig+';})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">';
     fhtml+='<div class="ev-grid-head">'+def[0]+' '+def[1]+'<span class="ev-grid-n">'+fp.length+'</span></div>';
     fhtml+='<div class="ev-grid">';
     fp.forEach(function(o){
@@ -15735,7 +15749,7 @@ function _evTileHtml(kind){
     fhtml+='</div>';
     fhtml+='<div class="ev-tile-btns">'
       +'<button class="pm-b cam" onclick="event.stopPropagation();'+camFn+'">📷<span class="pm-b-txt">Camera</span></button>'
-      +'<button class="pm-b up" onclick="event.stopPropagation();'+trig+'">📥<span class="pm-b-txt">Upload</span></button>'
+      +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseFlowTest('+(isPld?'true':'false')+')">🖼<span class="pm-b-txt">Gallery</span></button>'
     +'</div>';
     fhtml+='</div>';
     return fhtml;
@@ -15744,15 +15758,14 @@ function _evTileHtml(kind){
   // record-backed kinds (pump / pump-pld / placard / placard-pld)
   var thumbs=(typeof recordPhotos==='undefined'?[]:recordPhotos).map(function(p,i){return {p:p,i:i};}).filter(function(o){return !_isPhotoDeleted(o.p) && (o.p.kind||'site')===kind;});
   if(!thumbs.length){
-    return '<div class="ev-tile" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
-      +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+'</span>'
+    return '<div class="ev-tile ev-clickable" onclick="_boxUp(event,function(){_recUpload(\''+kind+'\');})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
+      +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+' · tap to add</span>'
       +'<div class="ev-tile-btns">'
         +'<button class="pm-b cam" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷<span class="pm-b-txt">Camera</span></button>'
-        +'<button class="pm-b up" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">📥<span class="pm-b-txt">Upload</span></button>'
         +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼<span class="pm-b-txt">Gallery</span></button>'
       +'</div></div>';
   }
-  var html='<div class="ev-grid-card" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
+  var html='<div class="ev-grid-card ev-clickable" onclick="_boxUp(event,function(){_recUpload(\''+kind+'\');})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
   html+='<div class="ev-grid-head">'+def[0]+' '+def[1]+'<span class="ev-grid-n">'+thumbs.length+'</span></div>';
   html+='<div class="ev-grid">';
   thumbs.forEach(function(o){
@@ -15766,7 +15779,6 @@ function _evTileHtml(kind){
   html+='</div>';
   html+='<div class="ev-tile-btns">'
     +'<button class="pm-b cam" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷<span class="pm-b-txt">Camera</span></button>'
-    +'<button class="pm-b up" onclick="event.stopPropagation();_recUpload(\''+kind+'\')">📥<span class="pm-b-txt">Upload</span></button>'
     +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼<span class="pm-b-txt">Gallery</span></button>'
   +'</div>';
   html+='</div>';
@@ -16217,6 +16229,28 @@ function _recAddFile(file, kind){
     });
   };
   r.readAsDataURL(file);
+}
+// S342: click-the-box-to-upload. Photo zones already accept drag&drop; this makes
+// the whole tile a click target equivalent to the old Upload button, so Upload
+// buttons are removed tool-wide (Camera + Gallery kept). The helper ignores clicks
+// that land on an interactive child (button, link, img/thumb, input, select) so
+// Camera/Gallery/delete/zoom and thumbnails keep working — only "empty" clicks on
+// the tile trigger upload. `fn` is the zone's existing upload trigger.
+function _boxUp(e, fn){
+  try{
+    var t=e.target;
+    // walk up from the click target to the bound box; if we pass an interactive
+    // element first, this click was meant for that control, not the box.
+    var box=e.currentTarget;
+    var n=t;
+    while(n && n!==box){
+      var tag=(n.tagName||'').toLowerCase();
+      if(tag==='button'||tag==='a'||tag==='img'||tag==='input'||tag==='select'||tag==='textarea'||tag==='label') return;
+      if(n.getAttribute && (n.getAttribute('role')==='button' || n.hasAttribute('data-noupload'))) return;
+      n=n.parentNode;
+    }
+    if(typeof fn==='function') fn();
+  }catch(_e){ if(typeof fn==='function') fn(); }
 }
 function _recDrop(e, kind){ e.preventDefault(); var z=e.currentTarget; if(z)z.classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(function(f){ _recAddFile(f,kind); }); }
 function _recUpload(kind){ var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=function(){ Array.from(inp.files).forEach(function(f){ _recAddFile(f,kind); }); }; inp.click(); }
