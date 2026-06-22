@@ -828,6 +828,34 @@ body.bold.dark-mode .hdr{
   box-shadow:0 2px 16px rgba(0,0,0,.5) !important;}
 /* Logged out: hide the app header entirely so it can't leak over the sign-in screen */
 body.logged-out .hdr{display:none !important;}
+
+/* ── S341: Project Photos section — Bold glass reskin ──────────────────────
+   The per-report group panels (.pg-tool-section/header/body) were the last
+   surface still on the pre-Bold navy palette (dark header #1a1f2a, body
+   #151920). Bring them onto the demo glass-card system so the photo section
+   matches every other Hub card. UI-chrome only — thumb grid + badges untouched. */
+body.bold .pg-tool-section{
+  border:1px solid var(--border) !important;border-radius:14px !important;overflow:hidden;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+body.bold .pg-tool-header{
+  background:linear-gradient(160deg,rgba(255,255,255,.96),rgba(247,245,249,.88)) !important;
+  color:var(--fg) !important;border-bottom:1px solid var(--border) !important;}
+body.bold .pg-tool-header:hover{background:rgba(247,245,249,.96) !important;}
+body.bold .pg-tool-body{background:transparent !important;}
+body.bold.dark-mode .pg-tool-section{
+  border:1px solid rgba(255,255,255,.10) !important;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 8px 24px rgba(0,0,0,.35) !important;}
+body.bold.dark-mode .pg-tool-header{
+  background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02)) !important;
+  color:var(--fg) !important;border-bottom:1px solid rgba(255,255,255,.10) !important;}
+body.bold.dark-mode .pg-tool-header:hover{background:rgba(255,255,255,.08) !important;}
+body.bold.dark-mode .pg-tool-body{background:transparent !important;}
+/* Filter pills + action buttons → Bold chrome family */
+body.bold .pg-filter-group{background:color-mix(in srgb,var(--fg) 6%,transparent) !important;}
+body.bold .pg-filter.active{background:var(--arencon-mid,#9C2742) !important;color:#fff !important;box-shadow:none !important;}
+body.bold.dark-mode .pg-filter.active{background:var(--arencon,#CE5470) !important;color:#fff !important;}
+body.bold .pg-action-btn{background:var(--card) !important;color:var(--fg) !important;border:1px solid var(--border) !important;}
+body.bold .pg-action-btn:hover{border-color:var(--arencon) !important;color:var(--arencon) !important;}
 /* Sign-in background — demo surface, no blue navy */
 body.bold .login-wrap,body.login-wrap{background:var(--bg) !important;}
 body.bold.dark-mode .login-wrap{
