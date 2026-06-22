@@ -3498,7 +3498,7 @@ function toggleItemDetail(id){
 }
 // S205: refresh the photo module chrome (count badge, divider, hint) after add/remove
 function refreshItemPhotoUI(id){
-  var n = (clState[id] && clState[id].photos ? clState[id].photos.length : 0);
+  var n = (clState[id] && Array.isArray(clState[id].photos)) ? clState[id].photos.filter(function(p){return !_isPhotoDeleted(p);}).length : 0;
   var btn = document.getElementById('pbtn-'+id);
   if(btn){
     btn.classList.toggle('has', n>0);

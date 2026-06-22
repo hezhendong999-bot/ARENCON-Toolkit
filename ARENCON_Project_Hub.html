@@ -4827,10 +4827,28 @@ function _pgExtractPhotos(row) {
     ? (toolLabel + ' #' + _dispNum + (_init ? ' (' + _init + ')' : ''))
     : (toolLabel + ' #' + instNum));
 
+  // S341 (date bug): derive a photo's REAL capture date from the photo object,
+  // mirroring the tools' own date key (addedDate || date), then timestamp /
+  // uploadDate, then the id-embedded ms timestamp (sp_<ts>_ / ph_<ts>_). NEVER
+  // fall back to row.updated_at — that's the last CLOUD SYNC time, which made
+  // undated photos cluster under a future "sync day" (e.g. June 22) instead of
+  // their March capture day. A photo with truly no date sorts under "No date".
+  function _photoDate(ph) {
+    if (!ph) return '';
+    var d = ph.addedDate || ph.date || ph.timestamp || ph.uploadDate || '';
+    if (d) return d;
+    var m = String(ph.id || '').match(/_(\d{10,})_/);
+    if (m) { var t = parseInt(m[1], 10); if (t) return new Date(t).toISOString(); }
+    return '';
+  }
+
   function _makeRec(src, type, caption, date, srcPh) {
     if (!src) return null;
+    // Prefer an explicit date arg; else derive from the photo; else leave blank
+    // (groups under "No date") — but NEVER use the sync time (row.updated_at).
+    var _d = date || _photoDate(srcPh) || '';
     var rec = { src: src, type: type, caption: caption || '', tool: label, toolKey: toolKey,
-             date: date || row.updated_at || '', id: 'pg_' + Math.random().toString(36).substr(2,9),
+             date: _d, id: 'pg_' + Math.random().toString(36).substr(2,9),
              instanceNum: instNum };
     // B1 (S339+): carry the tool-stamped badge through verbatim if present.
     // The Hub READS these; it never derives them.
@@ -4885,7 +4903,7 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', ph));
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, _photoDate(ph) || d.date || '', ph));
                 emittedAtLeastOne = true;
               });
             });
@@ -4896,7 +4914,7 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', ph));
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, _photoDate(ph) || d.date || '', ph));
                 emittedAtLeastOne = true;
               });
             });
@@ -4915,7 +4933,7 @@ function _pgExtractPhotos(row) {
               if (seenIds[pid]) return;
               seenIds[pid] = true;
               var obsLabel = numEn > 1 ? String.fromCharCode(65 + ei) : '';
-              photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '', ph));
+              photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, _photoDate(ph) || d.date || '', ph));
               emittedAtLeastOne = true;
             });
           });
@@ -4925,7 +4943,7 @@ function _pgExtractPhotos(row) {
               if (ph && ph.deleted) return; // skip soft-deleted
               var src = _pgResolveR2Src(ph, projectId);
               if (!src) return;
-              photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || '', ph));
+              photos.push(_makeRec(src, 'deficiency', pinLabel, _photoDate(ph) || d.date || '', ph));
             });
           }
         }
@@ -5000,6 +5018,19 @@ function _pgExtractPhotos(row) {
     });
     (data.flowTestPhotosPld || []).forEach(function(ph) {
       var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Flow Test (PLD)', ph.date||'', ph));
+    });
+    // S341: per-flow-point gauge photos live in stdData[].photos / pldData[].photos
+    // (3-pt + 7-pt rows) — these were NOT being read, so gauge captures (1.3, 5.3,
+    // PLD readings, etc.) never appeared in the Hub roll-up. Walk both.
+    (data.stdData || []).forEach(function(row) {
+      ((row && row.photos) || []).forEach(function(ph) {
+        var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Gauge', ph.date||'', ph));
+      });
+    });
+    (data.pldData || []).forEach(function(row) {
+      ((row && row.photos) || []).forEach(function(ph) {
+        var src = _pumpSrc(ph); if (src) photos.push(_makeRec(src, 'site', 'Gauge (PLD)', ph.date||'', ph));
+      });
     });
   }
 
