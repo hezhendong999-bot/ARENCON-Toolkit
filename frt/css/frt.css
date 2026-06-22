@@ -10714,3 +10714,25 @@ body.dark-mode .cv-selbar-reopen{ background:#46C5E8; border-color:#46C5E8; colo
 @media (max-width: 600px) and (orientation: portrait){
   .dv-ss-lbl-color{ display:none !important; }
 }
+
+/* ═══════════════════ S341: CANONICAL MUTED BUTTON SYSTEM ═══════════════════
+   Unified across FRT / Diesel / Hub.
+   utility(teal) · confirm/primary(green) · danger(red) · cancel(amber).
+   Burgundy reserved for wordmark + true CTAs only. 7px radius, matched shape.
+   Appended last so it supersedes earlier scattered .btn-* rules. */
+.btn-primary{background:#DCF1E8 !important;border:1px solid #2E9E72 !important;color:#1F8A60 !important;border-radius:7px !important;}
+.btn-primary:hover{background:#CFEBDF !important;border-color:#2E9E72 !important;color:#1F8A60 !important;}
+body.dark-mode .btn-primary{background:rgba(63,208,138,.15) !important;border:1px solid #3FD08A !important;color:#3FD08A !important;}
+body.dark-mode .btn-primary:hover{background:rgba(63,208,138,.22) !important;}
+.btn-danger{background:#FBE3E9 !important;border:1px solid #C0445F !important;color:#A83A50 !important;border-radius:7px !important;}
+.btn-danger:hover{background:#F8D7DF !important;border-color:#C0445F !important;color:#A83A50 !important;}
+body.dark-mode .btn-danger{background:rgba(226,96,118,.14) !important;border:1px solid #E26076 !important;color:#E8788C !important;}
+body.dark-mode .btn-danger:hover{background:rgba(226,96,118,.2) !important;}
+.btn-outline,.btn-secondary,.btn-muted-ok{background:#DCEFEF !important;border:1px solid #2E8C8C !important;color:#1F7373 !important;border-radius:7px !important;}
+.btn-outline:hover,.btn-secondary:hover,.btn-muted-ok:hover{background:#CFE8E8 !important;border-color:#2E8C8C !important;color:#1F7373 !important;}
+body.dark-mode .btn-outline,body.dark-mode .btn-secondary,body.dark-mode .btn-muted-ok{background:rgba(63,184,184,.15) !important;border:1px solid #3FB8B8 !important;color:#5FCBCB !important;}
+body.dark-mode .btn-outline:hover,body.dark-mode .btn-secondary:hover,body.dark-mode .btn-muted-ok:hover{background:rgba(63,184,184,.22) !important;}
+.btn-muted-cancel,.btn-cancel,.btn-amber{background:#F6E8D6 !important;border:1px solid #C98A4A !important;color:#9A6A28 !important;border-radius:7px !important;}
+.btn-muted-cancel:hover,.btn-cancel:hover,.btn-amber:hover{background:#F1DEC4 !important;border-color:#C98A4A !important;color:#9A6A28 !important;}
+body.dark-mode .btn-muted-cancel,body.dark-mode .btn-cancel,body.dark-mode .btn-amber{background:rgba(224,163,106,.16) !important;border:1px solid #E0A36A !important;color:#E0A36A !important;}
+body.dark-mode .btn-muted-cancel:hover,body.dark-mode .btn-cancel:hover,body.dark-mode .btn-amber:hover{background:rgba(224,163,106,.24) !important;}

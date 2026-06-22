@@ -1919,9 +1919,10 @@ initDarkMode();
 // .btn-muted-cancel (Mark: all Cancel buttons consistent across tools). Light:
 // faint burgundy fill, #A85959 text/ring. Dark: #2e1a1a fill, #e08080 text.
 function _acCancelStyle(isDark){
+  // S341: canonical Cancel — muted amber (back-out), matched shape with _acOkStyle.
   return isDark
-    ? 'padding:8px 20px;border:1.5px solid rgba(224,128,128,.25);border-radius:8px;background:#2e1a1a;color:#e08080;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;'
-    : 'padding:8px 20px;border:1.5px solid rgba(192,57,43,.25);border-radius:8px;background:rgba(192,57,43,.04);color:#A85959;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;';
+    ? 'padding:7px 15px;border:1px solid #E0A36A;border-radius:7px;background:rgba(224,163,106,.16);color:#E0A36A;font-weight:700;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;letter-spacing:.3px;'
+    : 'padding:7px 15px;border:1px solid #C98A4A;border-radius:7px;background:#F6E8D6;color:#9A6A28;font-weight:700;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;letter-spacing:.3px;';
 }
 // S341c: intent-aware OK/primary button colour. Destructive actions (Delete,
 // Reset, Revert, Remove, Clear, Purge, Discard) stay brand-burgundy as the
@@ -1930,13 +1931,20 @@ function _acCancelStyle(isDark){
 // for destruction + true CTAs. Colour is derived from the button LABEL, so new
 // modals pick the right colour automatically.
 function _acOkStyle(okText, isDark){
+  // S341: intent-aware OK colour from the LABEL, on the canonical muted system.
   var t=String(okText||'').toLowerCase();
+  var base='padding:7px 15px;border-radius:7px;font-weight:700;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;letter-spacing:.3px;';
   var destructive=/\b(delete|reset|revert|remove|clear|purge|discard|wipe|erase)\b/.test(t);
-  var base='padding:8px 20px;border:none;border-radius:8px;color:white;font-weight:600;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;';
-  if(destructive) return base+'background:#9C2742;';                 // burgundy danger
-  // Muted dusty-blue utility. Light a touch deeper, dark muted to sit in the
-  // dark palette (matches the dark-mode upload-button mute).
-  return base+(isDark?'background:#2f4258;color:#bcd0e4;':'background:#3E5C7E;');
+  var confirm=/\b(save|confirm|apply|ok|yes|proceed|continue|create|add|done|submit|mark)\b/.test(t);
+  if(destructive) return base+(isDark
+    ? 'border:1px solid #E26076;background:rgba(226,96,118,.14);color:#E8788C;'
+    : 'border:1px solid #C0445F;background:#FBE3E9;color:#A83A50;');
+  if(confirm) return base+(isDark
+    ? 'border:1px solid #3FD08A;background:rgba(63,208,138,.15);color:#3FD08A;'
+    : 'border:1px solid #2E9E72;background:#DCF1E8;color:#1F8A60;');
+  return base+(isDark
+    ? 'border:1px solid #3FB8B8;background:rgba(63,184,184,.15);color:#5FCBCB;'
+    : 'border:1px solid #2E8C8C;background:#DCEFEF;color:#1F7373;');
 }
 function _aConfirm(msg,onOk,okText){
   var isDark=document.body.classList.contains('dark-mode');
@@ -17930,7 +17938,7 @@ window.AIUsage = AIUsage;
   --slate:#1B1A22; --slate-mid:#2C3E50; --steel:#5E5B68; --silver:#928E9C;
   --arencon:#9C2742; --arencon-mid:#7d1f35;
   --yes:#2E9E72; --yes-bg:#DBF3E9; --no:#C0445F; --no-bg:#FBE3E9;
-  --na:#2C6E9C; --na-bg:#D6E8F4; --warn:#D98A1E; --warn-bg:#FBEDD3;
+  --na:#2C7FB8; --na-bg:#D6E8F4; --warn:#D98A1E; --warn-bg:#FBEDD3;
   --b-info:#2C7FB8; --b-info-bg:#DEEEF8; --b-rec:#D98A1E;
   --shadow:0 2px 6px rgba(40,30,50,.07),0 10px 30px rgba(40,30,50,.08);
   --shadow-lg:0 18px 50px rgba(40,30,50,.16);
@@ -17950,7 +17958,7 @@ body.dark-mode{
   --slate:#f4f3f6; --slate-mid:#0e0d12; --steel:#a09aa8; --silver:#6b6674;
   --arencon:#C9476A; --arencon-mid:#9C2742;
   --yes:#3FD08A; --yes-bg:rgba(63,208,138,.15); --no:#E26076; --no-bg:rgba(226,96,118,.16);
-  --na:#7FB4D8; --na-bg:rgba(70,150,200,.22); --warn:#E6A23C; --warn-bg:rgba(230,162,60,.16);
+  --na:#7FB8DD; --na-bg:rgba(70,150,200,.20); --warn:#E6A23C; --warn-bg:rgba(230,162,60,.16);
   --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
   --info:#46C5E8; --gr-rpm:#A593E0;
   --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px rgba(0,0,0,.4);
@@ -18089,10 +18097,23 @@ input:focus,textarea:focus,select:focus{outline:none!important;border-color:var(
   background:var(--surface)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--arencon) 18%,transparent)!important;}
 
 /* ---------- BUTTONS -> Bold ---------- */
-.btn-primary,.btn-danger{background:var(--arencon)!important;color:#fff!important;border-radius:8px;}
-.btn-primary:hover,.btn-danger:hover{filter:brightness(1.08);background:var(--arencon)!important;}
-.btn-outline{background:var(--surface)!important;color:var(--slate)!important;border:1px solid var(--border)!important;border-radius:8px;box-shadow:var(--b-btn-shadow)!important;transition:box-shadow .15s, transform .08s, background .15s!important;}
-.btn-outline:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22)!important;}
+.btn-primary{border:1px solid #2E9E72!important;background:#DCF1E8!important;color:#1F8A60!important;border-radius:7px!important;box-shadow:none!important;}
+.btn-primary:hover{background:#CFEBDF!important;}
+body.dark-mode .btn-primary{border:1px solid #3FD08A!important;background:rgba(63,208,138,.15)!important;color:#3FD08A!important;}
+body.dark-mode .btn-primary:hover{background:rgba(63,208,138,.22)!important;}
+.btn-danger{border:1px solid #C0445F!important;background:#FBE3E9!important;color:#A83A50!important;border-radius:7px!important;box-shadow:none!important;}
+.btn-danger:hover{background:#F8D7DF!important;}
+body.dark-mode .btn-danger{border:1px solid #E26076!important;background:rgba(226,96,118,.14)!important;color:#E8788C!important;}
+body.dark-mode .btn-danger:hover{background:rgba(226,96,118,.2)!important;}
+.btn-outline,.btn-secondary{border:1px solid #2E8C8C!important;background:#DCEFEF!important;color:#1F7373!important;border-radius:7px!important;box-shadow:none!important;}
+.btn-outline:hover,.btn-secondary:hover{background:#CFE8E8!important;}
+body.dark-mode .btn-outline,body.dark-mode .btn-secondary{border:1px solid #3FB8B8!important;background:rgba(63,184,184,.15)!important;color:#5FCBCB!important;}
+body.dark-mode .btn-outline:hover,body.dark-mode .btn-secondary:hover{background:rgba(63,184,184,.22)!important;}
+.btn-outline:active,.btn-secondary:active,.btn-primary:active,.btn-danger:active{transform:translateY(1px);}
+.btn-amber,.btn-cancel,.btn-muted-cancel{border:1px solid #C98A4A!important;background:#F6E8D6!important;color:#9A6A28!important;border-radius:7px!important;box-shadow:none!important;}
+.btn-amber:hover,.btn-cancel:hover,.btn-muted-cancel:hover{background:#F1DEC4!important;}
+body.dark-mode .btn-amber,body.dark-mode .btn-cancel,body.dark-mode .btn-muted-cancel{border:1px solid #E0A36A!important;background:rgba(224,163,106,.16)!important;color:#E0A36A!important;}
+body.dark-mode .btn-amber:hover,body.dark-mode .btn-cancel:hover,body.dark-mode .btn-muted-cancel:hover{background:rgba(224,163,106,.24)!important;}
 
 /* ---------- PASS/FAIL/NA + Y/N/NA -> semantic pills (glow in dark) ---------- */
 .fig-readout .ro .chip.pass{background:var(--yes-bg)!important;color:var(--yes)!important;border:1px solid color-mix(in srgb,var(--yes) 35%,transparent)!important;}

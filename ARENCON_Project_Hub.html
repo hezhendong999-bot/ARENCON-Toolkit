@@ -945,6 +945,43 @@ body.bold.dark-mode .ri-status.draft{background:rgba(224,163,106,.16) !important
 body.bold.dark-mode .ri-status.review{background:rgba(70,160,200,.16) !important;color:#5AA9C8 !important;}
 body.bold.dark-mode .ri-status.issued{background:rgba(63,208,138,.14) !important;color:#3FD08A !important;}
 body.bold.dark-mode .ri-status.revision{background:rgba(226,96,118,.14) !important;color:#E26076 !important;}
+
+/* ── S341: canonical muted BUTTON SYSTEM (matches FRT/Diesel) ────────────────
+   utility(teal) · confirm/create(green) · danger(red) · cancel/archive(amber).
+   Burgundy reserved for the wordmark + true CTAs only — no longer on buttons.
+   Shape: 7px radius, kept padding/size per surface. Day deeper, night softer. */
+/* confirm / create — green (primary + New Project) */
+body.bold .dash-btn.primary,body.bold .dash-btn.primary.btn-newproj{
+  background:#DCF1E8 !important;border:1px solid #2E9E72 !important;color:#1F8A60 !important;border-radius:7px !important;box-shadow:none !important;}
+body.bold .dash-btn.primary:hover,body.bold .dash-btn.primary.btn-newproj:hover{background:#CFEBDF !important;transform:none !important;box-shadow:none !important;}
+body.bold.dark-mode .dash-btn.primary,body.bold.dark-mode .dash-btn.primary.btn-newproj{
+  background:rgba(63,208,138,.15) !important;border:1px solid #3FD08A !important;color:#3FD08A !important;}
+body.bold.dark-mode .dash-btn.primary:hover,body.bold.dark-mode .dash-btn.primary.btn-newproj:hover{background:rgba(63,208,138,.22) !important;}
+/* utility — teal (export, secondary, admin action, photo action, detail action) */
+body.bold .dash-btn.export,body.bold .dash-btn.secondary,body.bold .admin-act-btn,
+body.bold .pg-action-btn,body.bold .detail-actions .btn-action{
+  background:#DCEFEF !important;border:1px solid #2E8C8C !important;color:#1F7373 !important;border-radius:7px !important;box-shadow:none !important;}
+body.bold .dash-btn.export:hover,body.bold .dash-btn.secondary:hover,body.bold .admin-act-btn:hover,
+body.bold .pg-action-btn:hover,body.bold .detail-actions .btn-action:hover{background:#CFE8E8 !important;border-color:#2E8C8C !important;color:#1F7373 !important;}
+body.bold.dark-mode .dash-btn.export,body.bold.dark-mode .dash-btn.secondary,body.bold.dark-mode .admin-act-btn,
+body.bold.dark-mode .pg-action-btn,body.bold.dark-mode .detail-actions .btn-action{
+  background:rgba(63,184,184,.15) !important;border:1px solid #3FB8B8 !important;color:#5FCBCB !important;}
+body.bold.dark-mode .dash-btn.export:hover,body.bold.dark-mode .dash-btn.secondary:hover,body.bold.dark-mode .admin-act-btn:hover,
+body.bold.dark-mode .pg-action-btn:hover,body.bold.dark-mode .detail-actions .btn-action:hover{background:rgba(63,184,184,.22) !important;border-color:#3FB8B8 !important;color:#5FCBCB !important;}
+/* danger — red (delete, deactivate) */
+body.bold .detail-actions .btn-danger,body.bold .admin-act-btn.danger,
+body.bold .dash-btn[onclick*="executeDeleteProject"],body.bold #purge-ok-btn{
+  background:#FBE3E9 !important;border:1px solid #C0445F !important;color:#A83A50 !important;border-radius:7px !important;box-shadow:none !important;}
+body.bold.dark-mode .detail-actions .btn-danger,body.bold.dark-mode .admin-act-btn.danger,
+body.bold.dark-mode .dash-btn[onclick*="executeDeleteProject"],body.bold.dark-mode #purge-ok-btn{
+  background:rgba(226,96,118,.14) !important;border:1px solid #E26076 !important;color:#E8788C !important;}
+/* cancel / archive (back-out / set-aside) — amber */
+body.bold .detail-actions .btn-archive,body.bold .btn-archive,body.bold .dash-btn.cancel,body.bold .btn-cancel{
+  background:#F6E8D6 !important;border:1px solid #C98A4A !important;color:#9A6A28 !important;border-radius:7px !important;box-shadow:none !important;}
+body.bold.dark-mode .detail-actions .btn-archive,body.bold.dark-mode .btn-archive,body.bold.dark-mode .dash-btn.cancel,body.bold.dark-mode .btn-cancel{
+  background:rgba(224,163,106,.16) !important;border:1px solid #E0A36A !important;color:#E0A36A !important;}
+/* N/A blue brighten on report-status review pill stays, plus any N/A toggle */
+
 /* Sign-in background — demo surface, no blue navy */
 body.bold .login-wrap,body.login-wrap{background:var(--bg) !important;}
 body.bold.dark-mode .login-wrap{
@@ -1331,7 +1368,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
         <div class="modal-field" style="flex:1;min-width:140px"><label>To period</label><select id="aiu-mark-to"></select></div>
       </div>
       <div class="modal-actions">
-        <button class="dash-btn secondary" onclick="AIUsageUI.closeMark()">Cancel</button>
+        <button class="dash-btn secondary cancel" onclick="AIUsageUI.closeMark()">Cancel</button>
         <button class="dash-btn primary" onclick="AIUsageUI.confirmMark()">Mark billed</button>
       </div>
     </div>
@@ -1459,7 +1496,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       <select id="np-pm"><option value="">— Select —</option></select>
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeNewProjectModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeNewProjectModal()">Cancel</button>
       <button class="dash-btn primary" id="np-create-btn" onclick="createProject()">Create Project</button>
     </div>
   </div>
@@ -1474,7 +1511,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
     <input type="text" class="delete-confirm-input" id="del-confirm-input" placeholder="Type DELETE here" autocomplete="off">
     <div id="del-error" style="display:none;font-size:calc(12px + var(--ts));color:#DC2626;font-weight:600;margin:4px 0;"></div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeDeleteModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeDeleteModal()">Cancel</button>
       <button class="dash-btn" style="background:linear-gradient(135deg,#DC2626,#B91C1C);color:white;" onclick="executeDeleteProject()">Move to Trash</button>
     </div>
   </div>
@@ -1488,7 +1525,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
     <div class="modal-actions" style="flex-direction:column;align-items:stretch;gap:9px;">
       <button class="dash-btn primary" onclick="_archiveWithDownload()">📥 Download JSON &amp; Archive</button>
       <button class="dash-btn secondary" onclick="_archiveNoDownload()">Archive without downloading</button>
-      <button class="dash-btn secondary" onclick="closeArchiveModal()" style="border:none;background:none;color:var(--steel);">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeArchiveModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -1508,7 +1545,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       </select>
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditRoleModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeEditRoleModal()">Cancel</button>
       <button class="dash-btn primary" onclick="saveRoleChange()">Save</button>
     </div>
   </div>
@@ -1524,7 +1561,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       <input type="text" id="edit-num-input" placeholder="e.g. 1042 (leave blank to clear)">
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditNumModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeEditNumModal()">Cancel</button>
       <button class="dash-btn primary" onclick="saveUserNum()">Save</button>
     </div>
   </div>
@@ -1540,7 +1577,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       <input type="text" id="edit-init-input" placeholder="e.g. MH (leave blank to clear)" maxlength="6">
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditInitModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeEditInitModal()">Cancel</button>
       <button class="dash-btn primary" onclick="saveUserInit()">Save</button>
     </div>
   </div>
@@ -1557,7 +1594,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
     </div>
     <p style="font-size:calc(11.5px + var(--ts));color:var(--silver);margin:-4px 0 14px">Updates the name shown across all ARENCON tools. Login email is managed in the Authentication tab.</p>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditNameModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeEditNameModal()">Cancel</button>
       <button class="dash-btn primary" onclick="saveUserName()">Save</button>
     </div>
   </div>
@@ -1574,7 +1611,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
     </div>
     <p style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">A shared report isn't tied to a person — anyone's reports list it under "Shared".</p>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeOwnerTrackModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeOwnerTrackModal()">Cancel</button>
       <button class="dash-btn primary" onclick="confirmOwnerTrack()">Create</button>
     </div>
   </div>
@@ -1596,7 +1633,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
     <p id="reset-pw-note" style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">Give this to the user. They sign in with it, then change it from their Profile.</p>
     <div id="reset-pw-success" style="display:none;background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.35);color:var(--yes);padding:9px 11px;border-radius:8px;font-size:calc(12.5px + var(--ts));margin-top:8px;line-height:1.4">✓ Password updated. Copy it above and send it to the user.</div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" id="reset-pw-cancel" onclick="closeResetPwModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" id="reset-pw-cancel" onclick="closeResetPwModal()">Cancel</button>
       <button class="dash-btn primary" id="reset-pw-go" onclick="resetPwPrimary()">Set Password</button>
     </div>
   </div>
@@ -1641,7 +1678,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
       </select>
     </div>
     <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditProjectModal()">Cancel</button>
+      <button class="dash-btn secondary cancel" onclick="closeEditProjectModal()">Cancel</button>
       <button class="dash-btn primary btn-newproj" id="ep-save-btn" onclick="saveEditProject()">Save Changes</button>
     </div>
   </div>
@@ -1690,7 +1727,7 @@ body.bold .progress-chip.issued{color:var(--d-issued);background:color-mix(in sr
           <input type="password" id="pin-confirm" placeholder="Confirm" maxlength="8" inputmode="numeric" pattern="[0-9]*">
         </div>
         <div class="modal-actions" style="margin-top:8px">
-          <button class="dash-btn secondary" onclick="_pinSetupCancel()">Cancel</button>
+          <button class="dash-btn secondary cancel" onclick="_pinSetupCancel()">Cancel</button>
           <button class="dash-btn primary" onclick="_pinSetupSave()">Save PIN</button>
         </div>
       </div>
@@ -2887,8 +2924,12 @@ async function launchTool(key) {
   // ones. Opened synchronously (iOS popup rule). Once the instance resolves we
   // also align the tab name to the per-instance scheme used by openInstance, so
   // the tile and the report row share ONE tab for the same report.
+  // S341 (robust tab reuse): open '' (NOT about:blank) so an already-open tool tab
+  // for this tool+project is returned and focused without being blanked. Resolve the
+  // latest instance, then only navigate if the tab is new/blank or on a different
+  // report. iOS popup rule: the open() call is still synchronous on the click.
   var _baseTgt = 'arencon_' + key + '_' + String(proj.id).replace(/[^a-zA-Z0-9_]/g,'');
-  var win = window.open('about:blank', _baseTgt);
+  var win = window.open('', _baseTgt);
   var finalUrl = baseUrl;   // default: blank (no instance) — first report
   try {
     var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).order('instance_number', {ascending:false}).execute();
@@ -2896,8 +2937,14 @@ async function launchTool(key) {
       finalUrl = baseUrl + '&instance=' + encodeURIComponent(existing[0].id);
     }
   } catch(e) { /* query failed — fall back to blank open */ }
-  if (win) { win.location.href = finalUrl; try{ win.focus(); }catch(e){} }
-  else { window.open(finalUrl, _baseTgt); }   // popup was blocked — try direct
+  if (!win) { window.open(finalUrl, _baseTgt); return; }   // popup blocked → direct
+  try {
+    var here = '';
+    try { here = win.location.href; } catch(e) { here = ''; }
+    var already = here && here.indexOf('ARENCON') !== -1 && (existing && existing.length>0 ? here.indexOf(existing[0].id) !== -1 : true);
+    if (!already) win.location.href = finalUrl;            // new tab or wrong report → load
+    win.focus();                                           // already correct → just focus
+  } catch(e) { try { win.location.href = finalUrl; } catch(_e){} }
 }
 
 async function toggleTool(key) {
@@ -3082,12 +3129,22 @@ function launchToolInstance(key, instanceId) {
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
     + '&sfn=' + encodeURIComponent(sfn);
-  // S341: reuse one tab per (tool+project) so the tile and this report row share
-  // the SAME tab — clicking either focuses the existing tab instead of spawning a
-  // new one. Re-assign the URL so a navigated-away tab returns to this report.
+  // S341 (robust tab reuse): first try to FOCUS an existing tab for this
+  // tool+project WITHOUT forcing navigation — window.open('', name) returns the
+  // existing named window if one is open, or a fresh blank tab if not. Only set
+  // .location when the tab is new or pointing elsewhere, so re-clicking a report
+  // that's already open just focuses it instead of spawning a duplicate.
   var _tgt = 'arencon_' + key + '_' + String(_detailProjectId).replace(/[^a-zA-Z0-9_]/g,'');
-  var w = window.open(url, _tgt);
-  if (w) { try { w.location.href = url; w.focus(); } catch(e){} }
+  var w = window.open('', _tgt);
+  try {
+    if (!w) { window.open(url, _tgt); return; }          // popup blocked → direct
+    var here = '';
+    try { here = w.location.href; } catch(e) { here = ''; } // cross-origin/blank
+    if (!here || here === 'about:blank' || here.indexOf('ARENCON') === -1) {
+      w.location.href = url;                               // new/blank tab → load it
+    }
+    w.focus();                                            // already open → just focus
+  } catch(e) { window.open(url, _tgt); }
 }
 
 // S335: staff-picker modal replaces the old prompt(). The generic "+ New
@@ -3544,7 +3601,7 @@ function _typeToConfirmPurge(title, message, onConfirm) {
     + '<input type="text" class="delete-confirm-input" id="purge-confirm-input" placeholder="Type DELETE here" autocomplete="off">'
     + '<div id="purge-error" style="display:none;font-size:calc(12px + var(--ts));color:#DC2626;font-weight:600;margin:4px 0;"></div>'
     + '<div class="modal-actions">'
-    + '<button class="dash-btn secondary" id="purge-cancel-btn">Cancel</button>'
+    + '<button class="dash-btn secondary cancel" id="purge-cancel-btn">Cancel</button>'
     + '<button class="dash-btn" id="purge-ok-btn" style="background:linear-gradient(135deg,#DC2626,#B91C1C);color:white;">Permanently Delete</button>'
     + '</div></div>';
   document.body.appendChild(ov);
