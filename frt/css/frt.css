@@ -5105,7 +5105,14 @@ body.dark-mode .pin-rec-toggle.is-rec:hover{background:rgba(168,180,197,.24);col
 .obs-media-photos .obs-photo-wrap{width:80px;height:80px;}
 .obs-media-divider{height:1px;background:var(--border);margin:2px 0;}
 .obs-media-hint{font-size:calc(11px + var(--ts));color:var(--silver);text-align:center;font-weight:600;line-height:1.2;flex:1;display:flex;align-items:center;justify-content:center;min-height:24px;}
-.obs-media-btns{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;}
+.obs-media-btns{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2;}
+/* S341 FIX: the Camera/Gallery buttons sit inside the click-to-add drop zone
+   (.obs-media-col). On touch WebViews the zone's own tap/drag handling was
+   swallowing taps meant for the buttons (visible as the zone's blue drag-over
+   flash firing instead of the button). Raise the button row onto its own
+   stacking layer and force the buttons to own their pointer events so a tap on
+   Camera/Gallery always lands on the button, never the zone behind it. */
+.obs-media-btns .obs-drop-btn{position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;}
 
 .defic-pin-footer{padding:10px 14px;background:rgba(0,0,0,0.02);border-top:1.5px solid var(--border);}
 .defic-pin-footer .defic-actions{margin-top:0;padding-top:0;border-top:none;}

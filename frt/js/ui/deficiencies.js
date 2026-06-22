@@ -6458,6 +6458,21 @@ document.addEventListener('click', function(e) {
     if (n.getAttribute && n.getAttribute('role') === 'button') return;
     n = n.parentNode;
   }
+  // S341 FIX: on touch WebViews e.target can resolve to the zone even when the
+  // user tapped a Camera/Gallery button's pixels (the walk above then misses
+  // it, and the zone's click-to-add fires + flashes blue, swallowing the tap).
+  // Belt-and-suspenders: if the click coordinates fall inside ANY interactive
+  // control within this zone, treat it as that control's tap and bail so its
+  // own handler runs. Covers buttons, the photo thumbs, and links.
+  if (e.clientX != null && e.clientY != null) {
+    var controls = zone.querySelectorAll('button, a, input, select, textarea, label, [role="button"], img[data-action]');
+    for (var ci = 0; ci < controls.length; ci++) {
+      var r = controls[ci].getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        return;
+      }
+    }
+  }
   var deficId = zone.getAttribute('data-defic-id');
   if (!deficId) return;
   var obsIdx = parseInt(zone.getAttribute('data-obs-idx') || '0');
