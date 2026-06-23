@@ -2928,6 +2928,11 @@ async function launchTool(key) {
   // for this tool+project is returned and focused without being blanked. Resolve the
   // latest instance, then only navigate if the tab is new/blank or on a different
   // report. iOS popup rule: the open() call is still synchronous on the click.
+  // S341 fix: same phantom-tab bug as the report row — the conditional
+  // "already correct → just focus" path could skip navigation and the tile
+  // appeared dead. Open the named tab synchronously (iOS popup rule), resolve
+  // the latest instance, then ALWAYS point the tab at the report. Reusing the
+  // name keeps re-launches in one tab; always navigating guarantees it loads.
   var _baseTgt = 'arencon_' + key + '_' + String(proj.id).replace(/[^a-zA-Z0-9_]/g,'');
   var win = window.open('', _baseTgt);
   var finalUrl = baseUrl;   // default: blank (no instance) — first report
@@ -2939,12 +2944,9 @@ async function launchTool(key) {
   } catch(e) { /* query failed — fall back to blank open */ }
   if (!win) { window.open(finalUrl, _baseTgt); return; }   // popup blocked → direct
   try {
-    var here = '';
-    try { here = win.location.href; } catch(e) { here = ''; }
-    var already = here && here.indexOf('ARENCON') !== -1 && (existing && existing.length>0 ? here.indexOf(existing[0].id) !== -1 : true);
-    if (!already) win.location.href = finalUrl;            // new tab or wrong report → load
-    win.focus();                                           // already correct → just focus
-  } catch(e) { try { win.location.href = finalUrl; } catch(_e){} }
+    win.location.href = finalUrl;   // always load the resolved report into the (reused) tab
+    win.focus();
+  } catch(e) { try { window.open(finalUrl, '_blank'); } catch(_e){} }
 }
 
 async function toggleTool(key) {
@@ -3129,22 +3131,19 @@ function launchToolInstance(key, instanceId) {
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
     + '&sfn=' + encodeURIComponent(sfn);
-  // S341 (robust tab reuse): first try to FOCUS an existing tab for this
-  // tool+project WITHOUT forcing navigation — window.open('', name) returns the
-  // existing named window if one is open, or a fresh blank tab if not. Only set
-  // .location when the tab is new or pointing elsewhere, so re-clicking a report
-  // that's already open just focuses it instead of spawning a duplicate.
+  // S341 fix: report rows stopped opening because the "reuse the tab" logic
+  // could grab a phantom/closed/blank named window and just .focus() it without
+  // ever navigating — so the click appeared to do nothing. Reliability first:
+  // always navigate the named tab to the report. Reusing the name means a
+  // re-click lands in the SAME tab (no duplicate spam) but ALWAYS loads the
+  // report, even if the previous tab was closed, blank, or on another page.
   var _tgt = 'arencon_' + key + '_' + String(_detailProjectId).replace(/[^a-zA-Z0-9_]/g,'');
-  var w = window.open('', _tgt);
-  try {
-    if (!w) { window.open(url, _tgt); return; }          // popup blocked → direct
-    var here = '';
-    try { here = w.location.href; } catch(e) { here = ''; } // cross-origin/blank
-    if (!here || here === 'about:blank' || here.indexOf('ARENCON') === -1) {
-      w.location.href = url;                               // new/blank tab → load it
-    }
-    w.focus();                                            // already open → just focus
-  } catch(e) { window.open(url, _tgt); }
+  var w = window.open(url, _tgt);   // open-or-reuse the named tab AND load the report in one call
+  try { if (w) w.focus(); } catch(e) {}
+  if (!w) {
+    // popup blocked → last-resort direct open
+    try { window.open(url, '_blank'); } catch(e2) {}
+  }
 }
 
 // S335: staff-picker modal replaces the old prompt(). The generic "+ New
