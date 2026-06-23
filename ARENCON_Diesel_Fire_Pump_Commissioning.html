@@ -4421,6 +4421,7 @@ var DslLightbox = (function(){
   var _markupActive=false;
   var _mkTool='pen', _mkColor='#FF0000', _mkSize=4;
   var _setTool=null;        // S295: module handle to the bar's setActiveTool (ESC deactivates tool)
+  var _resetBarState=null;  // S344: module handle to reset toolbar to clean default (markup entry)
   var _mkAlpha=100;         // S296: stroke opacity %, driven by the bar's opacity slider
   var _mkDraft={};          // S295: per-photo unsaved-stroke stash — strokes survive markup exit/nav until saved or cleared
   var _persistBusy=false;   // S303: a save is persisting — exit/toggle/close blocked until it settles
@@ -4787,8 +4788,11 @@ var DslLightbox = (function(){
     // Group button: tap = activate its current member tool; the caret region opens the flyout.
     function _wireGroup(grpBtn, fly){
       grpBtn.addEventListener('click', function(e){
-        if(fly.style.display!=='none'){ _closeFlyouts(); return; }
-        // If this group's tool is already active, a tap opens the flyout; otherwise activate then leave open for quick switch
+        var wasOpen=(fly.style.display!=='none');
+        var curTool=grpBtn.dataset.tool||'pen';
+        var wasActive=(_mkTool===curTool);
+        setActiveTool(curTool);   // activate this group's current member (closes flyouts)
+        if(wasOpen && wasActive){ _closeFlyouts(); return; }   // second tap on active group → close menu
         _openFlyAbove(fly, grpBtn, true);
       });
       Array.prototype.forEach.call(fly.querySelectorAll('button'), function(mb){
@@ -4805,8 +4809,10 @@ var DslLightbox = (function(){
       });
     }
     bSel.addEventListener('click', function(){
-      setActiveTool('select');
-      if(subFly.style.display!=='none'){ _closeFlyouts(); return; }
+      var wasOpen=(subFly.style.display!=='none');
+      var wasSelect=(_mkTool==='select');
+      setActiveTool('select');   // this closes flyouts as a side effect
+      if(wasOpen && wasSelect){ _closeFlyouts(); return; }   // second tap on active Select → close menu
       _hiliteSub(); _openFlyAbove(subFly, bSel, false);
     });
     Array.prototype.forEach.call(subFly.querySelectorAll('button'), function(sb){
@@ -4894,6 +4900,15 @@ var DslLightbox = (function(){
     bDel.addEventListener('click',_deleteCurrent);
     _el('dlb-prev').addEventListener('click',function(){ _nav(-1); });
     _el('dlb-next').addEventListener('click',function(){ _nav(1); });
+    _resetBarState=function(){
+      // S344: bring the toolbar to a clean default — used on markup entry so tool/flyout/
+      // confirm/text state never leaks across lightbox open/close.
+      try{ if(window.DieselMarkup){ if(DieselMarkup._textController&&DieselMarkup._textController.cancel) DieselMarkup._textController.cancel(); if(DieselMarkup.cancelSelect) DieselMarkup.cancelSelect(); if(DieselMarkup.setSelectSub) DieselMarkup.setSelectSub('rubber'); } }catch(_){}
+      _closeFlyouts(); _tcloseTextPops();
+      if(textBar) textBar.style.display='none';
+      if(cBar) cBar.style.display='none';
+      setActiveTool('pen');
+    };
     setActiveTool('pen'); setSwatch('#FF0000'); _applySize(); _applyOp();
     _wireViewEvents();
     window.addEventListener('resize', function(){
@@ -5069,6 +5084,7 @@ var DslLightbox = (function(){
     // calc so a sheet-mode stage sizes itself to the remaining area.
     if(_layoutBar) _layoutBar();
     var _mb=_el('dlb-markupbar'); _mb.style.display='flex'; void _mb.offsetHeight;
+    if(_resetBarState) _resetBarState();   // S344: clean tool/flyout/confirm/text state on entry
     _resetView();                       // markup at fit scale, no pan (FRT rule)
     var p=_photoObj(_idx);
     cv.style.display='block';
