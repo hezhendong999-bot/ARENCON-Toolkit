@@ -4856,8 +4856,8 @@ var DslLightbox = (function(){
     swatches.forEach(function(s){ s.addEventListener('click',function(){ setSwatch(s.dataset.col); _closeFlyouts(); }); });
     // tap outside any flyout closes them
     ov.addEventListener('click', function(e){
-      if(penFly.style.display==='none'&&shapeFly.style.display==='none'&&colorFly.style.display==='none') return;
-      if(e.target.closest && (e.target.closest('#dlb-mk-penfly')||e.target.closest('#dlb-mk-shapefly')||e.target.closest('#dlb-mk-colorfly')||e.target.closest('#dlb-mk-pengrp')||e.target.closest('#dlb-mk-shapegrp')||e.target.closest('#dlb-mk-color'))) return;
+      if(penFly.style.display==='none'&&shapeFly.style.display==='none'&&colorFly.style.display==='none'&&subFly.style.display==='none') return;
+      if(e.target.closest && (e.target.closest('#dlb-mk-penfly')||e.target.closest('#dlb-mk-shapefly')||e.target.closest('#dlb-mk-colorfly')||e.target.closest('#dlb-mk-subfly')||e.target.closest('#dlb-mk-pengrp')||e.target.closest('#dlb-mk-shapegrp')||e.target.closest('#dlb-mk-color')||e.target.closest('#dlb-mk-sel'))) return;
       _closeFlyouts();
     }, true);
     // ── Size stepper (1–20) ──
