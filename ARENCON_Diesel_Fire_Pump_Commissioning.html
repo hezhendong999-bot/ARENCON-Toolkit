@@ -3434,7 +3434,7 @@ function renderDeficThumbs(safe, itemIdx) {
   el.innerHTML = photos.map((p,j)=>`<div style="position:relative;display:inline-block;">
     <img src="${p.d||p.r2Url}" onclick="openLightbox(deficiencies['${safe}'][${itemIdx}].photos,${j})" style="cursor:zoom-in;width:72px;height:72px;object-fit:cover;border-radius:4px;border:2px solid #eee;" title="Click to enlarge">
     <button onclick="event.stopPropagation();removeDeficPhoto('${safe}',${itemIdx},${j})" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;line-height:1;">✕</button>
-    <button class="photo-markup-btn" onclick="event.stopPropagation();openDeficPhotoMarkup('${safe}',${itemIdx},${j})" title="Markup">✏</button>
+    <button class="photo-markup-btn" onclick="event.stopPropagation();openLightboxMarkup(deficiencies['${safe}'][${itemIdx}].photos,${j})" title="Markup">✏</button>
   </div>`).join('');
 }
 
@@ -4578,7 +4578,7 @@ var DslLightbox = (function(){
     penFly.appendChild(penP); penFly.appendChild(penH); penFly.appendChild(penL); penFly.appendChild(penA); ov.appendChild(penFly);
     // ── Shapes-group flyout (FRT: Rectangle / Filled Rect / Circle / Filled Circle / Triangle) ──
     var shapeFly=document.createElement('div'); shapeFly.id='dlb-mk-shapefly';
-    shapeFly.style.cssText=penFly.style.cssText; shapeFly.style.flexWrap='wrap'; shapeFly.style.maxWidth='150px';
+    shapeFly.style.cssText=penFly.style.cssText;   // single row, hugs content (no wrap gap)
     // S344: filled rect/circle DRAW support added to the engine in Phase 2b; buttons present now.
     [['square','square'],['square-fill','square-fill'],['circle','circle'],['circle-fill','circle-fill'],['triangle','triangle']]
       .forEach(function(s){ shapeFly.appendChild(flyBtn(s[0],s[1],s[0])); });
@@ -5482,7 +5482,8 @@ var DslLightbox = (function(){
      }
      _close(); return true;
   }
-  return { open:_open, close:_close, isOpen:function(){return _isOpen;}, handleBack:_handleBack };
+  return { open:_open, close:_close, isOpen:function(){return _isOpen;}, handleBack:_handleBack,
+    enterMarkup:function(){ if(_isOpen && !_markupActive){ _toggleMarkup(); } } };
 })();
 if(typeof window!=='undefined') window.DslLightbox = DslLightbox;
 
@@ -5492,6 +5493,24 @@ function openLightbox(photos, idx, ctx) {
   // S293: the legacy #photo-lightbox DOM and its showLbPhoto/initLbMarkup
   // chain were removed outright (dead-code cleanup, Mark-directed).
   DslLightbox.open(photos, typeof idx === 'number' ? idx : 0, ctx || null);
+}
+
+// S344 Phase 3: open the upgraded lightbox at a photo and jump straight into markup.
+// Replaces the retired destructive bitmap modal (openDeficPhotoMarkup/_openPmuModal) so
+// every ✏ markup entry uses the FRT engine + non-destructive p.mk storage. The image
+// decodes async, so enter markup on a short poll once the lightbox image is ready.
+function openLightboxMarkup(photos, idx, ctx){
+  openLightbox(photos, idx, ctx);
+  var tries=0;
+  (function waitReady(){
+    tries++;
+    var img=document.getElementById('dlb-image');
+    if(window.DslLightbox && DslLightbox.isOpen && DslLightbox.isOpen() && img && img.naturalWidth){
+      try{ DslLightbox.enterMarkup(); }catch(e){}
+      return;
+    }
+    if(tries<40) setTimeout(waitReady, 50);
+  })();
 }
 
 function closeLightbox() {
@@ -5505,7 +5524,7 @@ function renderThumbs(id) {
     <div class="photo-thumb" style="width:96px;height:96px;">
       <img src="${p.d||p.r2Url}" onclick="openLightbox(clState['${id}'].photos,${i})" style="cursor:zoom-in;width:100%;height:100%;object-fit:cover;" title="Click to enlarge — full resolution">
       <button class="photo-remove" onclick="removePhoto('${id}',${i})">✕</button>
-      <button class="photo-markup-btn" onclick="event.stopPropagation();openPhotoMarkup('${id}',${i})" title="Markup this photo">✏</button>
+      <button class="photo-markup-btn" onclick="event.stopPropagation();openLightboxMarkup(clState['${id}'].photos,${i})" title="Markup this photo">✏</button>
     </div>`).join('');
 }
 
@@ -13734,13 +13753,8 @@ if(typeof window!=='undefined'){
       if (_open) { resolve([]); return; }
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { resolve(null); return; }
       _open = true;
-      // S342: Android WebView crashes ("Aw, Snap") on the old 4096x3072 (12MP)
-      // request — the live video texture + full-res canvas grabs exhaust the
-      // WebView renderer's tight memory ceiling (iOS Safari has more headroom).
-      // Cap the live stream to 1080p — still sharp after downstream compression,
-      // ~6x less memory. Mirrors FRT cameraBurst.js S341 fix.
       navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 3072 } },
         audio: false
       }).then(function(stream) {
         _openUI(stream, function(r) { _open = false; resolve(r); });
@@ -13843,35 +13857,28 @@ if(typeof window!=='undefined'){
       _updateUI();
     }
     function _grabFrame() {
-      var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
-      // S342: clamp the grab to a 1920px long edge so a single shot can never
-      // allocate a huge canvas (a 12MP grab is ~50MB raw — a few crash the
-      // Android WebView). Scale proportionally; 1920px is ample for a report
-      // photo and is downscaled again by the downstream compressor anyway.
-      var MAX = 1920;
-      var scale = Math.min(1, MAX / Math.max(vw, vh));
-      var cw = Math.round(vw * scale), ch = Math.round(vh * scale);
-      var cv = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
+      var cw = video.videoWidth || 1280, ch = video.videoHeight || 720;
+      var cv = document.createElement('canvas');
       cv.width = cw; cv.height = ch;
-      var ctx = cv.getContext('2d');
-      try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
-      ctx.drawImage(video, 0, 0, cw, ch);
-      cv.toBlob(function(b) {
-        if (b) _addShot(b);
-        busy = false;
-        cv.width = 0; cv.height = 0; // release canvas backing store promptly
-      }, 'image/jpeg', 0.9);
+      cv.getContext('2d').drawImage(video, 0, 0, cw, ch);
+      cv.toBlob(function(b) { if (b) _addShot(b); busy = false; }, 'image/jpeg', 0.92);
     }
     shutter.addEventListener('click', function() {
       if (busy) return;
       busy = true;
-      // S342: use the resolution-CLAMPED canvas grab as the primary path.
-      // ImageCapture.takePhoto() ignores the getUserMedia size constraint and
-      // returns FULL-SENSOR images (12MP+) on Android — exactly what crashed
-      // the WebView. The canvas grab respects our 1920px cap. (iOS does not
-      // expose ImageCapture, so it already used this path.) takePhoto retired
-      // to keep memory bounded and the shutter responsive. Mirrors FRT S341.
-      _grabFrame();
+      if (imgCap && imgCap.takePhoto) {
+        var settled = false;
+        var timer = setTimeout(function() { if (settled) return; settled = true; _grabFrame(); }, 1500);
+        imgCap.takePhoto().then(function(b) {
+          if (settled) return; settled = true; clearTimeout(timer);
+          _addShot(b); busy = false;
+        }).catch(function() {
+          if (settled) return; settled = true; clearTimeout(timer);
+          _grabFrame();
+        });
+      } else {
+        _grabFrame();
+      }
     });
     function _close(result) {
       try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
