@@ -1679,13 +1679,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 
 /* ═══ INSPECTOR CHIP — always visible in header ═══ */
 .inspector-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:16px;font-size:calc(11px + var(--ts));font-weight:600;color:rgba(255,255,255,.85);cursor:pointer;transition:all .15s;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
-/* S341 (Mark): remove the redundant "mhe / Sign out" header badge entirely.
-   Sign Out lives in the ☰ menu (#mobile-signout-btn, wired independently), so
-   the header name chip + Sign Out button are duplicate clutter that also
-   floated over content on narrow layouts. Hidden on ALL screens. The ☰ menu
-   remains the single sign-out path. (#presence-chip "others here" is a separate
-   feature and is left intact.) */
-#inspector-chip, #btn-signout{display:none !important;}
 .inspector-chip:hover{background:rgba(255,255,255,.25);}
 .inspector-chip .ic-icon{font-size:calc(13px + var(--ts));flex-shrink:0;}
 .inspector-chip .ic-name{overflow:hidden;text-overflow:ellipsis;}
