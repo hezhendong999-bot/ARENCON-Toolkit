@@ -23,11 +23,44 @@
 
 var _open = false;
 
+// S342: instant tap-feedback overlay. getUserMedia can take 1-3s to open the
+// camera hardware on Android; previously NOTHING appeared in that gap, so the
+// Camera button looked dead and Mark couldn't tell his tap registered (and
+// re-tapped). Show a lightweight "Starting camera…" overlay synchronously the
+// moment open() is called; replace it with the real UI when the stream lands,
+// or remove it on error. <16ms acknowledgment instead of a 1-3s dead button.
+function _showStartingOverlay() {
+  var o = document.getElementById('cam-burst-starting');
+  if (o) return o;
+  o = document.createElement('div');
+  o.id = 'cam-burst-starting';
+  o.style.cssText = 'position:fixed;inset:0;z-index:99998;background:#0b0a0d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font-family:Calibri,sans-serif;color:#f4f3f6;';
+  var spin = document.createElement('div');
+  spin.style.cssText = 'width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#C9476A;animation:camBurstSpin .8s linear infinite;';
+  var label = document.createElement('div');
+  label.textContent = 'Starting camera…';
+  label.style.cssText = 'font-size:16px;color:#a09aa8;';
+  if (!document.getElementById('cam-burst-spin-kf')) {
+    var st = document.createElement('style');
+    st.id = 'cam-burst-spin-kf';
+    st.textContent = '@keyframes camBurstSpin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+  o.appendChild(spin); o.appendChild(label);
+  document.body.appendChild(o);
+  return o;
+}
+function _removeStartingOverlay() {
+  var o = document.getElementById('cam-burst-starting');
+  if (o && o.parentNode) o.parentNode.removeChild(o);
+}
+
 export function openCameraBurst() {
   return new Promise(function(resolve) {
     if (_open) { resolve([]); return; }
     if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { resolve(null); return; }
     _open = true;
+    _showStartingOverlay(); // instant feedback before the hardware opens
     // S341: Android WebView crashes ("Aw, Snap") on the old 4096x3072 (12MP)
     // request — the live video texture + full-res canvas grabs exhaust the
     // WebView renderer's much tighter memory ceiling (iOS Safari has far more
@@ -38,8 +71,10 @@ export function openCameraBurst() {
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
       audio: false
     }).then(function(stream) {
+      _removeStartingOverlay();
       _openUI(stream, function(r) { _open = false; resolve(r); });
     }).catch(function() {
+      _removeStartingOverlay();
       _open = false;
       resolve(null);
     });
@@ -179,12 +214,51 @@ function _openUI(stream, done) {
     _grabFrame();
   });
 
+  // S342: rotation handling. On Android the video track briefly mutes and
+  // renegotiates orientation/resolution when the tablet rotates; the <video>
+  // keeps painting the LAST frame (looks frozen) until the new stream settles.
+  // We can't remove the platform pause, but we can make it read as intentional:
+  // show a brief "Adjusting…" hint on the known signals (orientationchange +
+  // track mute) and clear it when the track unmutes or after a short timeout,
+  // and nudge the video to resume painting.
+  var _adjust = document.createElement('div');
+  _adjust.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(11,10,13,.55);color:#f4f3f6;font-family:Calibri,sans-serif;font-size:15px;z-index:3;';
+  _adjust.textContent = 'Adjusting…';
+  vidWrap.appendChild(_adjust);
+  var _adjustTimer = null;
+  function _showAdjusting() {
+    _adjust.style.display = 'flex';
+    if (_adjustTimer) clearTimeout(_adjustTimer);
+    _adjustTimer = setTimeout(_hideAdjusting, 1200); // safety: clear even if unmute never fires
+  }
+  function _hideAdjusting() {
+    _adjust.style.display = 'none';
+    if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; }
+    try { if (video.paused) video.play().catch(function(){}); } catch (e) {} // nudge repaint
+  }
+  function _onOrient() { _showAdjusting(); }
+  try {
+    window.addEventListener('orientationchange', _onOrient);
+    if (track && track.addEventListener) {
+      track.addEventListener('mute', _showAdjusting);
+      track.addEventListener('unmute', _hideAdjusting);
+    }
+  } catch (e) {}
+
   function _close(result) {
     try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
     urls.forEach(function(u) { try { URL.revokeObjectURL(u); } catch (e) {} });
     document.body.style.overflow = prevOverflow;
     overlay.remove();
     document.removeEventListener('keydown', _esc);
+    try {
+      window.removeEventListener('orientationchange', _onOrient);
+      if (track && track.removeEventListener) {
+        track.removeEventListener('mute', _showAdjusting);
+        track.removeEventListener('unmute', _hideAdjusting);
+      }
+    } catch (e) {}
+    if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; }
     done(result);
   }
   function _esc(e) { if (e.key === 'Escape') _close([]); } // Escape = cancel (never the null fallback path)

@@ -1909,57 +1909,65 @@ function _getGroupBounds() {
 function _drawGroupedSelection(ctx) {
   var b = _getGroupBounds();
   if (!b) return;
-  var pad = 6;
+  // S342: scale ALL selection affordances by _uiScale() so they stay a constant
+  // size ON SCREEN regardless of viewer zoom. Previously handles/rotation/delete
+  // used FIXED canvas-pixel sizes (hs=11, r=9), so when zoomed out the markup —
+  // and these controls with it — shrank to near-untappable on the tablet (Mark
+  // couldn't hit the red ✕ in portrait at fit-zoom). The file's own _uiScale
+  // comment already lists these as the things it's FOR; they just weren't using
+  // it. Hit-tests below use the identical scaled geometry so tap target == paint.
+  var us = _uiScale();
+  var pad = 6 * us;
   var bx = b.x1 - pad, by = b.y1 - pad, bw = b.x2 - b.x1 + pad * 2, bh = b.y2 - b.y1 + pad * 2;
   ctx.save();
   // Dashed border
-  ctx.setLineDash([5, 4]);
+  ctx.setLineDash([5 * us, 4 * us]);
   ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2 * us;
   ctx.globalAlpha = 1;
   ctx.strokeRect(bx, by, bw, bh);
   ctx.setLineDash([]);
   // Corner resize handles
-  var hs = 11;
+  var hs = 11 * us;
   ctx.fillStyle = 'white';
   ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.5 * us;
   [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].forEach(function(p) {
     ctx.fillRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs);
     ctx.strokeRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs);
   });
   // Rotation handle (circle above top-center, Microsoft-style)
-  var rcx = bx + bw / 2, rcy = by - 24;
+  var rcx = bx + bw / 2, rcy = by - 24 * us;
   ctx.beginPath();
   ctx.moveTo(bx + bw / 2, by);
-  ctx.lineTo(rcx, rcy + 9);
+  ctx.lineTo(rcx, rcy + 9 * us);
   ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1 * us;
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(rcx, rcy, 9, 0, Math.PI * 2);
+  ctx.arc(rcx, rcy, 9 * us, 0, Math.PI * 2);
   ctx.fillStyle = 'white';
   ctx.fill();
   ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.5 * us;
   ctx.stroke();
   // Rotation arrow icon inside circle
   ctx.beginPath();
-  ctx.arc(rcx, rcy, 5, -0.3, Math.PI * 1.4);
+  ctx.arc(rcx, rcy, 5 * us, -0.3, Math.PI * 1.4);
   ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1.2;
+  ctx.lineWidth = 1.2 * us;
   ctx.stroke();
   // Delete button (red X) — top-right outside box
-  var dx = bx + bw + 4, dy = by - 14;
+  var dx = bx + bw + 4 * us, dy = by - 14 * us;
   ctx.fillStyle = '#E53E3E';
   ctx.beginPath();
-  ctx.arc(dx + 8, dy + 8, 9, 0, Math.PI * 2);
+  ctx.arc(dx + 8 * us, dy + 8 * us, 9 * us, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = 'white';
-  ctx.font = 'bold 12px Calibri,sans-serif';
+  ctx.font = 'bold ' + (12 * us) + 'px Calibri,sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('\u2715', dx + 8, dy + 8);
+  ctx.fillText('\u2715', dx + 8 * us, dy + 8 * us);
   ctx.restore();
 }
 
@@ -1967,11 +1975,16 @@ function _drawGroupedSelection(ctx) {
 function _hitResizeHandle(pos) {
   var b = _getGroupBounds();
   if (!b) return -1;
-  var pad = 6;
+  // S342: match the scaled paint geometry + guarantee a ~44px screen touch
+  // target. _uiScale() converts CSS px → canvas px, so a 44px screen target is
+  // 22*us radius in canvas space (clamped so it never shrinks below the visual).
+  var us = _uiScale();
+  var pad = 6 * us;
   var bx = b.x1 - pad, by = b.y1 - pad, bw = b.x2 - b.x1 + pad * 2, bh = b.y2 - b.y1 + pad * 2;
+  var hitR = Math.max(11 * us, 22 * us);
   var corners = [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]];
   for (var i = 0; i < corners.length; i++) {
-    if (Math.abs(pos.x - corners[i][0]) <= 11 && Math.abs(pos.y - corners[i][1]) <= 11) return i;
+    if (Math.abs(pos.x - corners[i][0]) <= hitR && Math.abs(pos.y - corners[i][1]) <= hitR) return i;
   }
   return -1;
 }
@@ -1979,20 +1992,25 @@ function _hitResizeHandle(pos) {
 function _hitRotateHandle(pos) {
   var b = _getGroupBounds();
   if (!b) return false;
-  var pad = 6;
-  var rcx = (b.x1 + b.x2) / 2, rcy = b.y1 - pad - 24;
+  var us = _uiScale();
+  var pad = 6 * us;
+  var rcx = (b.x1 + b.x2) / 2, rcy = b.y1 - pad - 24 * us;
   var dist = Math.sqrt((pos.x - rcx) * (pos.x - rcx) + (pos.y - rcy) * (pos.y - rcy));
-  return dist <= 14;
+  return dist <= 22 * us; // ~44px screen touch target
 }
 
 function _hitDeleteButton(pos) {
   var b = _getGroupBounds();
   if (!b) return false;
-  var pad = 6;
-  var dx = b.x2 + pad + 4 + 8;
-  var dy = b.y1 - pad - 14 + 8;
-  var dist = Math.sqrt((pos.x - dx) * (pos.x - dx) + (pos.y - dy) * (pos.y - dy));
-  return dist <= 12;
+  var us = _uiScale();
+  var pad = 6 * us;
+  var bw = b.x2 - b.x1 + pad * 2;
+  var bx = b.x1 - pad;
+  // Centre of the delete circle in the scaled paint geometry:
+  var dcx = bx + bw + 4 * us + 8 * us;
+  var dcy = (b.y1 - pad) - 14 * us + 8 * us;
+  var dist = Math.sqrt((pos.x - dcx) * (pos.x - dcx) + (pos.y - dcy) * (pos.y - dcy));
+  return dist <= 22 * us; // ~44px screen touch target (was fixed 12 canvas px)
 }
 
 function _getBounds(obj) {
