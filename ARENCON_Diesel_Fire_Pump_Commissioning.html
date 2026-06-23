@@ -3617,6 +3617,12 @@ var DieselMarkup = (function(){
     // pick (toggle), then ✓ to collapse picks into one selection. Selection is sticky
     // in both modes; only ✗ (cancelSelect) or switching tools clears it.
     _selectSub:'rubber', _pickIds:[], _onSelChange:null,
+    // S344 Phase 2d: on-photo text box state (FRT port). Sticky colours persist across
+    // boxes; the lightbox docked text bar drives the live controller via _onTextStart/End.
+    _lastTextColor:null, _lastTextBg:'none', _textController:null, _textInput:null,
+    _onTextStart:null, _onTextEnd:null,
+    _SIZE_STEPS:[12,14,16,20,24,28,32,40,48],
+    _PALETTE:['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'],
     _drawing:false, _curr:null,
     _styleFn:null, _onDirty:null, _bound:null,
 
@@ -3733,8 +3739,10 @@ var DieselMarkup = (function(){
     _strokeBBox:function(s){
       var pad=(s.size||6)/2 + (s.tool==='highlight'?(s.size||6):0);
       if(s.tool==='text'){
-        var fp=s.fontSize||24, w=Math.max(10,(s.text||'').length*fp*0.55);
-        return {x1:s.pts[0].x-4, y1:s.pts[0].y-fp, x2:s.pts[0].x+w+4, y2:s.pts[0].y+fp*0.25};
+        var fp=s.fontSize||24, lines=String(s.text||'').split('\n');
+        var maxLen=0; for(var i=0;i<lines.length;i++){ if(lines[i].length>maxLen) maxLen=lines[i].length; }
+        var w=Math.max(10, maxLen*fp*0.55), lineH=fp*1.25, h=lineH*lines.length;
+        return {x1:s.pts[0].x-4, y1:s.pts[0].y-fp, x2:s.pts[0].x+w+4, y2:s.pts[0].y-fp+h+fp*0.25};
       }
       var x1=1e15,y1=1e15,x2=-1e15,y2=-1e15;
       (s.pts||[]).forEach(function(q){ if(q.x<x1)x1=q.x; if(q.y<y1)y1=q.y; if(q.x>x2)x2=q.x; if(q.y>y2)y2=q.y; });
@@ -4048,15 +4056,113 @@ var DieselMarkup = (function(){
       ctx.restore();
     },
 
-    _promptText:function(p, st){
+    // S344 Phase 2d: on-photo editable text box (FRT _textPrompt port). A contentEditable
+    // div sits in screen space over the canvas; the lightbox docked text bar drives size,
+    // text colour, bg colour, newline, ✓/✕ via the returned controller. Multi-line supported.
+    // editId re-opens an existing text stroke. Diesel coords: natural px on the canvas
+    // backing store; fontSize stored in natural px; bg = optional pill colour ('none'=clean).
+    _promptText:function(p, st, editId){
       var self=this;
-      if(typeof _aPrompt!=='function'){ return; }
-      _aPrompt('Enter text:', '', function(txt){
-        if(!txt) return;
-        self.strokes.push({id:self._uid(), tool:'text', pts:[{x:p.x,y:p.y}], text:txt,
-                           color:st.color, fontSize:st.fontSize||24, alpha:st.alpha});   // S314: id
-        self._pushOp({t:'add'}); if(self._onDirty) self._onDirty(); self.render();
+      if(self._textInput){ try{ self._textInput.parentNode.removeChild(self._textInput); }catch(_){} self._textInput=null; }
+      var editStroke = editId ? self._findStroke(editId) : null;
+      var startText  = editStroke ? (editStroke.text||'') : '';
+      var startFont  = editStroke ? (editStroke.fontSize||24) : (st.fontSize||24);   // natural px
+      var startColor = editStroke ? (editStroke.color||self._lastTextColor||st.color) : (self._lastTextColor||st.color||'#A85959');
+      var startBg    = editStroke ? (editStroke.bg||'none') : (self._lastTextBg||'none');
+      if(editStroke){ editStroke._editing=true; self.render(); }
+      var rect=self.canvas.getBoundingClientRect();
+      var scaleX=rect.width/self.nw, scaleY=rect.height/self.nh;       // screen px per natural px
+      var anchor=editStroke ? {x:editStroke.pts[0].x, y:editStroke.pts[0].y} : {x:p.x, y:p.y};
+      var fontN=startFont;                                            // current font in natural px
+      var curColor=startColor, curBg=startBg;
+      var box=document.createElement('div');
+      box.className='dlb-mk-text-box';
+      box.contentEditable='true'; box.spellcheck=false;
+      box.style.cssText='position:fixed;z-index:10050;min-width:8px;max-width:90vw;outline:none;'+
+        'font-family:Calibri,Arial,sans-serif;font-weight:bold;line-height:1.25;white-space:pre-wrap;'+
+        'word-break:break-word;padding:1px 4px;border-radius:4px;caret-color:#fff;';
+      document.body.appendChild(box);
+      self._textInput=box;
+      if(startText){ box.textContent=startText; }
+      function screenFont(){ return fontN*scaleY; }
+      function positionBox(){
+        var sf=screenFont();
+        var sx=rect.left + anchor.x*scaleX;
+        var sy=rect.top  + anchor.y*scaleY;
+        box.style.left=Math.max(2, sx-4)+'px';
+        box.style.top =Math.max(2, sy-sf)+'px';
+      }
+      function applyStyle(){
+        box.style.fontSize=screenFont()+'px';
+        box.style.color=curColor;
+        box.style.background='rgba(20,18,24,.55)';   // editing backing pill (readability)
+        positionBox();
+      }
+      applyStyle(); box.focus();
+      requestAnimationFrame(function(){ try{ box.focus(); placeCaretEnd(); }catch(_){} });
+      function placeCaretEnd(){ try{ var rg=document.createRange(); rg.selectNodeContents(box); rg.collapse(false);
+        var s=window.getSelection(); s.removeAllRanges(); s.addRange(rg);}catch(_){} }
+      var resolved=false;
+      function cleanup(){
+        if(box.parentNode) box.parentNode.removeChild(box);
+        if(self._textInput===box) self._textInput=null;
+        if(editStroke){ delete editStroke._editing; }
+        self._textController=null;
+        if(self._onTextEnd) self._onTextEnd();
+      }
+      function commit(){
+        if(resolved) return; resolved=true;
+        var r2=self.canvas.getBoundingClientRect();
+        var br=box.getBoundingClientRect();
+        var sx2=r2.width/self.nw, sy2=r2.height/self.nh;
+        var ascent=fontN*sy2;
+        var lx=(br.left+4 - r2.left)/sx2;
+        var ly=(br.top  - r2.top + ascent)/sy2;
+        var v=(box.innerText||box.textContent||'').replace(/[ \t]+$/,'').replace(/\n+$/,'');
+        self._lastTextColor=curColor; self._lastTextBg=curBg;
+        if(editStroke){
+          if(!v.trim()){ var ix=self.strokes.indexOf(editStroke); if(ix>=0){ self.strokes.splice(ix,1); self._pushOp({t:'del', idx:ix, stroke:editStroke}); } }
+          else { var before=JSON.stringify(editStroke); editStroke.text=v; editStroke.fontSize=fontN; editStroke.color=curColor; editStroke.bg=curBg; editStroke.pts[0]={x:lx,y:ly};
+            var eix=self.strokes.indexOf(editStroke); self._pushOp({t:'mod', idx:eix, before:before, after:JSON.stringify(editStroke)}); }
+          delete editStroke._editing; self.redo=[]; if(self._onDirty) self._onDirty(); self.render(); cleanup(); return;
+        }
+        if(v.trim()){
+          var ns={id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, bg:curBg, fontSize:fontN, alpha:(st.alpha==null?1:st.alpha)};
+          self.strokes.push(ns); self._pushOp({t:'add'}); self.redo=[]; if(self._onDirty) self._onDirty();
+        }
+        self.render(); cleanup();
+      }
+      function cancel(){ if(resolved) return; resolved=true; self.render(); cleanup(); }
+      box.addEventListener('keydown', function(e){
+        if(e.key==='Escape'){ e.preventDefault(); cancel(); }
+        e.stopPropagation();   // Enter = newline (contentEditable default)
       });
+      var controller={
+        isActive:function(){ return !resolved; },
+        getSize:function(){ return Math.round(fontN); },
+        getColor:function(){ return curColor; },
+        getBg:function(){ return curBg; },
+        palette:self._PALETTE,
+        stepSize:function(dir){
+          var steps=self._SIZE_STEPS, i=0, best=1e9;
+          for(var k=0;k<steps.length;k++){ var d=Math.abs(steps[k]-fontN); if(d<best){best=d;i=k;} }
+          i=Math.max(0,Math.min(steps.length-1,i+dir)); fontN=steps[i]; applyStyle(); box.focus();
+          return fontN;
+        },
+        setColor:function(c){ curColor=c; self._lastTextColor=c; box.style.color=c; box.focus(); },
+        setBg:function(c){ curBg=c; self._lastTextBg=c; box.focus(); },
+        insertNewline:function(){ box.focus(); try{ document.execCommand('insertLineBreak'); }catch(_){ document.execCommand('insertText',false,'\n'); } },
+        commit:commit, cancel:cancel
+      };
+      self._textController=controller;
+      // 2d-1 fallback: if no docked text bar is wired (no _onTextStart), commit on blur so
+      // the box is usable on its own. Once 2d-2 wires the bar, _onTextStart exists and the
+      // bar's ✓/✕ drive commit/cancel (FRT model — no blur-commit).
+      if(!self._onTextStart){
+        box.addEventListener('blur', function(){ setTimeout(commit, 60); });
+      }
+      if(self._onTextStart) self._onTextStart(controller);
+      return controller;
     },
 
     _eraseAt:function(p){
@@ -4159,11 +4265,29 @@ var DieselMarkup = (function(){
         }
         ctx.stroke();
       } else if(s.tool==='text'){
-        var fp=(s.fontSize||24)*((sx+sy)/2);
-        ctx.font='bold '+fp+'px Calibri,Arial,sans-serif'; ctx.textBaseline='alphabetic';
-        ctx.lineWidth=Math.max(1,fp/12); ctx.strokeStyle='#fff';
-        ctx.strokeText(s.text||'', s.pts[0].x*sx, s.pts[0].y*sy);
-        ctx.fillStyle=s.color; ctx.fillText(s.text||'', s.pts[0].x*sx, s.pts[0].y*sy);
+        if(s._editing){ /* the on-photo box is showing; don't double-draw */ }
+        else {
+          var fp=(s.fontSize||24)*((sx+sy)/2);
+          ctx.font='bold '+fp+'px Calibri,Arial,sans-serif'; ctx.textBaseline='alphabetic';
+          var lines=String(s.text||'').split('\n');
+          var lineH=fp*1.25, tx=s.pts[0].x*sx, ty=s.pts[0].y*sy;
+          // optional background pill behind the whole block
+          if(s.bg && s.bg!=='none'){
+            var maxw=0; for(var li=0;li<lines.length;li++){ var w=ctx.measureText(lines[li]).width; if(w>maxw)maxw=w; }
+            var padX=fp*0.25, padY=fp*0.18;
+            var blkH=lineH*lines.length;
+            ctx.save(); ctx.globalAlpha=(s.alpha==null?1:s.alpha);
+            ctx.fillStyle=s.bg;
+            ctx.fillRect(tx-padX, ty-fp-padY, maxw+padX*2, blkH+padY*2);
+            ctx.restore();
+          }
+          ctx.lineWidth=Math.max(1,fp/12); ctx.strokeStyle='rgba(0,0,0,.55)';
+          for(var ln=0;ln<lines.length;ln++){
+            var yy=ty+ln*lineH;
+            if(!(s.bg&&s.bg!=='none')) ctx.strokeText(lines[ln], tx, yy);   // halo only when no bg pill
+            ctx.fillStyle=s.color; ctx.fillText(lines[ln], tx, yy);
+          }
+        }
       }
       ctx.restore();
     },
