@@ -3684,11 +3684,20 @@ var DieselMarkup = (function(){
       var self=this, c=this.canvas;
       function down(ev){
         ev.preventDefault();
+        // S344 Phase 4 (FRT parity): if a text box is already open, swallow ALL canvas
+        // presses — tapping empty space must not drop a second box or discard the open one.
+        if(self._textInput){ return; }
         var st=self._styleFn(); var p=self._pt(ev);
         if(!st.tool) return;   // S295: no active tool (ESC-deactivated) — clicks draw nothing
         if(st.tool==='select'){ self._drawing=true; self._selDrag=true; self._selDown(p, ev); return; }   // S314 group select
         if(self.hasSel()) self.deselect();   // S314: drawing with any other tool drops the selection
-        if(st.tool==='text'){ self._promptText(p, st); return; }
+        if(st.tool==='text'){
+          // S344 Phase 4 (FRT parity): tapping an existing text mark re-opens it for editing
+          // (editId) instead of dropping a new box on top.
+          var hitText=self._hitTextAt(p);
+          if(hitText){ self._promptText(p, st, hitText); return; }
+          self._promptText(p, st); return;
+        }
         if(st.tool==='erase'){ self._drawing=true; self._eraseAt(p); return; }
         self._drawing=true; self.redo=[];
         self._curr={id:self._uid(), tool:st.tool, color:st.color, size:st.size, alpha:st.alpha,
@@ -3855,6 +3864,18 @@ var DieselMarkup = (function(){
       var self=this;
       var after=snap.ids.map(function(id){ return JSON.stringify(self._findStroke(id)); });
       if(after.join('\u0001')!==snap.before.join('\u0001')) this._pushOp({t:'gmod', ids:snap.ids, before:snap.before, after:after});
+    },
+    // S344 Phase 4: topmost TEXT stroke under p → its id (for tap-to-edit). Generous
+    // screen-constant hit padding, glove-friendly.
+    _hitTextAt:function(p){
+      var rect=this.canvas.getBoundingClientRect();
+      var hr=10*(this.nw/Math.max(1,rect.width));
+      for(var i=this.strokes.length-1;i>=0;i--){
+        var s=this.strokes[i]; if(s.tool!=='text') continue;
+        var b=this._strokeAABB(s);
+        if(p.x>=b.x1-hr&&p.x<=b.x2+hr&&p.y>=b.y1-hr&&p.y<=b.y2+hr) return s.id;
+      }
+      return null;
     },
     _hitStrokeSel:function(p){
       var rect=this.canvas.getBoundingClientRect();
