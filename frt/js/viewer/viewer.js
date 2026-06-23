@@ -1512,36 +1512,34 @@ function _renderPins() {
     };
     if (host) window.PinsGL.resize(host.clientWidth, host.clientHeight);
 
-    // Pin size shrink when zoomed out: 0.7× at fit-to-screen, lerp to 1.0× at 1×,
-    // stays 1.0× when zoomed in. Keeps zoomed-in feel unchanged.
-    var pinScale = 1;
+    // S342 — CONTINUOUS pin sizing (was: smooth fit→1× curve PLUS a discrete
+    // tile-level multiplier that SNAPPED pins +64% the instant TiledPdf's
+    // activeLevel flipped to 3/4). That snap caused the "pin jumps bigger then
+    // smaller" Mark saw near max zoom: activeLevel oscillates 2↔3↔4 while tiles
+    // load, yanking every pin's size on each flip — and that repaint fired at
+    // the exact moment of heaviest tile decode, contributing to the WebView
+    // OOM crash. Replaced with ONE continuous curve driven by actual zoom
+    // (_scale), so pins grow smoothly across the whole range with no snap and
+    // no size change coupled to tile-level swaps.
+    //
+    //   _scale ≤ fit ............ 0.7×   (zoomed out — small, unchanged)
+    //   fit → 1× ................ 0.7 → 1.0×  (smooth, unchanged)
+    //   1× → MAX (deep zoom) .... 1.0 → 1.55× (smooth climb; REPLACES the
+    //                              old 1.645 snap — pins end up big & tappable
+    //                              at max zoom but get there gradually)
+    var pinScale;
     var fitS = (typeof _fitScale === 'number' && _fitScale > 0) ? _fitScale : 1;
-    if (_scale >= 1) {
-      pinScale = 1;
-    } else if (_scale <= fitS) {
+    var maxZ = (typeof _MAX_ZOOM === 'number' && _MAX_ZOOM > 1) ? _MAX_ZOOM : 4;
+    if (_scale <= fitS) {
       pinScale = 0.7;
-    } else {
+    } else if (_scale < 1) {
       var t = (_scale - fitS) / (1 - fitS);
-      pinScale = 0.7 + 0.3 * t;
+      pinScale = 0.7 + 0.3 * t;            // 0.7 → 1.0
+    } else {
+      // 1× → max zoom: smooth climb to 1.55×. Clamp guards _scale > maxZ.
+      var dz = Math.min(1, (_scale - 1) / Math.max(0.001, (maxZ - 1)));
+      pinScale = 1 + 0.55 * dz;            // 1.0 → 1.55
     }
-
-    // S187 Item 3: bump pin size 1.15× when the active tile level is 3
-    // or 4 (deep zoom on tiled drawings). Pins compete with fine drawing
-    // detail at high zoom, so a small size increase improves visibility
-    // without changing the zoomed-out / mid-zoom appearance. Tile level
-    // is sourced from TiledPdf.stats().activeLevel (the same field
-    // surfaced in the perf overlay TSV as `lvl`). Only applies when
-    // TiledPdf is active; legacy non-tile drawings are unaffected.
-    try {
-      if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive() && TiledPdf.stats) {
-        var _tps = TiledPdf.stats();
-        if (_tps && (_tps.activeLevel === 3 || _tps.activeLevel === 4)) {
-          pinScale = pinScale * 1.645; // S341 — was 1.265; +30% more per Mark, pins too small to tap at deep zoom
-        } else if (_tps && _tps.activeLevel === 1 && _IS_TOUCH) {
-          pinScale = pinScale * 0.90; // S341 — L1 pins on mobile slightly oversized per Mark, −10%
-        }
-      }
-    } catch (_e_l34) {}
 
     // S83: Build inspector color lookup for this project.
     // Colors live in proj.ui.inspectorColors[userId] = '#xxx' (cached by Project Hub).
