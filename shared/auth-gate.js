@@ -132,10 +132,13 @@
   }
 
   // ── Persistent "signed in as X · Sign out" badge ────────────────────────
-  // Injected into every gated tool after auth. Makes WHOSE session you're in
-  // visible (the "logged in as Mark" incident would have been caught at a
-  // glance) and gives a one-tap sign-out to switch accounts.
-  function mountBadge(name) {
+  // S341 (Mark): the floating bottom-right badge is REMOVED from all tools. It
+  // was redundant with the in-header inspector chip (shows the signed-in name)
+  // and the header / ☰-menu Sign Out, and it overlapped content on narrow
+  // layouts. The auth gate, session handling, and sign-out logic are unchanged
+  // — only the visual badge no longer mounts. To restore it, revert this stub.
+  function mountBadge(name) { /* intentionally no-op — badge removed S341 */ }
+  function _mountBadge_DISABLED_S341(name) {
     try {
       if (document.getElementById('arencon-auth-badge')) return;
       var dark = DARK;
