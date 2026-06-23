@@ -3972,7 +3972,16 @@ var DieselMarkup = (function(){
         ctx.save(); ctx.setLineDash([5*pk,3*pk]); ctx.strokeStyle='#46C5E8'; ctx.lineWidth=Math.max(1.5,1.6*pk); ctx.globalAlpha=1;
         this._pickIds.forEach(function(id){ var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s);
           ctx.strokeRect(b.x1-3*pk,b.y1-3*pk,(b.x2-b.x1)+6*pk,(b.y2-b.y1)+6*pk); });
-        ctx.setLineDash([]); ctx.restore();
+        ctx.setLineDash([]);
+        // green ✓ badge at the top of each picked mark (FRT parity)
+        var br=9*pk;
+        this._pickIds.forEach(function(id){ var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s);
+          var bx=(b.x1+b.x2)/2, by=b.y1-3*pk-br;
+          ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fillStyle='#3FD08A'; ctx.fill();
+          ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1.4,1.8*pk); ctx.lineCap='round'; ctx.lineJoin='round';
+          ctx.beginPath(); ctx.moveTo(bx-br*0.45,by); ctx.lineTo(bx-br*0.1,by+br*0.4); ctx.lineTo(bx+br*0.5,by-br*0.4); ctx.stroke();
+        });
+        ctx.restore();
       }
       if(this._rubberBand){
         var rb=this._rubberBand, rk=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width);
@@ -4547,16 +4556,25 @@ var DslLightbox = (function(){
       });
     });
     // ✓/✗ confirm bar refresh — driven by engine selection state.
+    function _placeConfirmBar(){
+      // Sit the confirm bar just above the live toolbar with an 8px gap — never overlap,
+      // regardless of the two-row bar's height (FRT parity).
+      try{
+        var br=bar.getBoundingClientRect();
+        var gap=window.innerHeight - br.top + 8;   // distance from viewport bottom to bar top, + gap
+        cBar.style.bottom=Math.max(96, Math.round(gap))+'px';
+      }catch(_){ cBar.style.bottom='112px'; }
+    }
     function _refreshConfirmBar(){
       var E=window.DieselMarkup; if(!E||_mkTool!=='select'){ cBar.style.display='none'; return; }
       var picking = E.isPicking&&E.isPicking();
       var hasSel = E.hasSel&&E.hasSel();
       if(picking){
         cCnt.textContent=(E.pickCount?E.pickCount():0)+' picked';
-        cOk.style.display='flex'; cNo.style.display='flex'; cBar.style.display='flex';
+        cOk.style.display='flex'; cNo.style.display='flex'; cBar.style.display='flex'; _placeConfirmBar();
       } else if(hasSel){
         cCnt.textContent=(E.selCount?E.selCount():0)+' selected';
-        cOk.style.display='none'; cNo.style.display='flex'; cBar.style.display='flex';
+        cOk.style.display='none'; cNo.style.display='flex'; cBar.style.display='flex'; _placeConfirmBar();
       } else { cBar.style.display='none'; }
     }
     cOk.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.confirmPick){ DieselMarkup.confirmPick(); } _refreshConfirmBar(); });
