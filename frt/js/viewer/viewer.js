@@ -1536,7 +1536,9 @@ function _renderPins() {
       if (typeof TiledPdf !== 'undefined' && TiledPdf.isActive && TiledPdf.isActive() && TiledPdf.stats) {
         var _tps = TiledPdf.stats();
         if (_tps && (_tps.activeLevel === 3 || _tps.activeLevel === 4)) {
-          pinScale = pinScale * 1.265; // S331v — was 1.15; +10% per Mark for L3/L4 visibility
+          pinScale = pinScale * 1.645; // S341 — was 1.265; +30% more per Mark, pins too small to tap at deep zoom
+        } else if (_tps && _tps.activeLevel === 1 && _IS_TOUCH) {
+          pinScale = pinScale * 0.90; // S341 — L1 pins on mobile slightly oversized per Mark, −10%
         }
       }
     } catch (_e_l34) {}
@@ -1813,6 +1815,22 @@ document.getElementById('dv-canvas-area').addEventListener('touchend', function(
     e.stopImmediatePropagation();
     _pinToolDrop(touch.clientX, touch.clientY);
     return;
+  }
+  // S341 (Mark): single tap on an existing pin opens its editor when NO tool is
+  // armed. Previously the touch path had no explicit "tap pin → open" branch and
+  // relied on the browser synthesizing a click after touchend — which Android
+  // WebView often does NOT fire (contextmenu suppression + touch-action), so the
+  // ONLY way to open a pin was to arm the pin tool, which caused accidental
+  // drops. Now we resolve the pin on touchend and open it directly. Guarded so a
+  // press-and-hold drag or a pan doesn't count as a tap.
+  if (!Markup.isActive() && !_pinDragging && !_pinMouseDragging &&
+      (Date.now() - _pinDragEndTime >= 300)) {
+    var _tapPinId = _resolvePinAt(touch.clientX, touch.clientY, e.target);
+    if (_tapPinId) {
+      e.stopImmediatePropagation();
+      _openPinEditor(_tapPinId);
+      return;
+    }
   }
 }, true);
 
