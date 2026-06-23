@@ -1282,7 +1282,17 @@ function _flowBlock(block){
     // 962) so this never fires at the top of a fresh page. recBlocks'
     // tradeHeaders have no _secH (||0) so this is inert for recs.
     var _secH=block._secH||0,_freshCap=PAGE_H-COMPACT_HEADER_H;
-    if(_secH&&_secH<=_freshCap&&avail<_secH&&curUsed>PAGE_H*0.15){
+    // S341 (Mark): the keep-together rule was too aggressive — ANY trade section
+    // that didn't fit the remaining space got pushed to a fresh page, leaving a
+    // big blank gap at the bottom of the prior page (field report: Fire Alarm
+    // page had a half-page gap because General Contracting jumped to a fresh
+    // page). Mark's call: no blank gap is better than keeping every section
+    // whole. So only keep a section together when it's SMALL enough that
+    // splitting it would orphan an awkward sliver (≤ ~45% of a page). Larger
+    // sections flow naturally and fill the space — they split across the page
+    // boundary (the trade band re-stamps "(cont.)" on the next page, unchanged).
+    var _keepTogetherCap=PAGE_H*0.45;
+    if(_secH&&_secH<=_freshCap&&_secH<=_keepTogetherCap&&avail<_secH&&curUsed>PAGE_H*0.15){
       _finalizePage();_startPage();avail=PAGE_H-curUsed;
     }
     if(avail<blockH+200){_finalizePage();_startPage();}
