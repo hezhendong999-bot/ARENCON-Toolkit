@@ -4266,60 +4266,112 @@ var DslLightbox = (function(){
       r.style.cssText = scroll ? _rowScrollCss : _rowActionCss;
       return r;
     }
-    var rowTools=mkRow(true), rowStyle=mkRow(true), rowActions=mkRow(false);
-    function _layoutMarkupBar(){
-      var keep = bar.style.display;   // preserve shown/hidden state
-      if(window.innerWidth < 700){
-        bar.style.cssText='position:static;flex:0 0 auto;width:100%;display:none;flex-direction:column;gap:6px;padding:8px 10px calc(10px + env(safe-area-inset-bottom,0px));background:rgba(20,20,28,.97);box-shadow:0 -4px 16px rgba(0,0,0,.5);box-sizing:border-box;';
-        rowTools.style.cssText=_rowScrollCss; rowStyle.style.cssText=_rowScrollCss; rowActions.style.cssText=_rowActionCss;
-      } else {
-        bar.style.cssText='position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:rgba(20,20,28,.92);border-radius:24px;z-index:11;box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:96vw;flex-wrap:wrap;';
-        rowTools.style.cssText='display:contents;'; rowStyle.style.cssText='display:contents;'; rowActions.style.cssText='display:contents;';
-      }
-      bar.style.display = keep || 'none';
-    }
-    _layoutBar = _layoutMarkupBar;
-    _layoutMarkupBar();
-    function tb(id,label,title){
-      var b=document.createElement('button');
-      b.id=id; b.title=title; b.textContent=label;
-      b.style.cssText='background:rgba(255,255,255,.12);color:#fff;border:none;min-width:40px;height:34px;padding:0 10px;border-radius:17px;cursor:pointer;font:600 12px Calibri,sans-serif;flex:0 0 auto;';
+    var rowTools=mkRow(true), rowStyle=mkRow(true);
+    // ═══ S344 Phase 1 — FRT redesigned TWO-ROW ICON BAR (ported from frt/js/ui/lightbox.js) ═══
+    // Replaces the old single-row text-label pill. Row 1 = tools (Select w/ sub-caret,
+    // Pen-group, Shapes-group w/ flyout, Text, Eraser | Undo Redo). Row 2 = size · opacity
+    // steppers · colour swatch+flyout | Save Clear Revert (icon actions). Wiring below keeps
+    // Diesel's existing setActiveTool/_styleFn/engine plumbing; tool keys unchanged
+    // (select/pen/highlight/line/square/circle/arrow/text/erase). Select sub-flyout, confirm
+    // bar, filled shapes + docked text bar arrive in Phase 2 (engine-dependent).
+    var SVG={
+      select:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>',
+      pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+      highlight:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>',
+      line:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4"/></svg>',
+      arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>',
+      square:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>',
+      'square-fill':'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>',
+      circle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>',
+      'circle-fill':'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>',
+      triangle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3L22 21H2z"/></svg>',
+      cloud:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 1 0 0-9h-.1A5.5 5.5 0 0 0 7 13.5 3.5 3.5 0 0 0 3.5 17 3.5 3.5 0 0 0 7 20.5h10.5"/></svg>',
+      text:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>',
+      eraser:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/></svg>',
+      undo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>',
+      redo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>',
+      check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 6"/></svg>',
+      trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>',
+      revert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/><path d="M9 21h8"/></svg>'
+    };
+    function _sized(svg){ return svg.replace('<svg ', '<svg width="21" height="21" '); }
+    function iconBtn(id,key,title,caret){
+      var b=document.createElement('button'); b.id=id; b.title=title;
+      b.style.cssText='flex:0 0 auto;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#cfd2d6;border-radius:8px;cursor:pointer;padding:0;position:relative;';
+      b.innerHTML=_sized(SVG[key])+(caret?'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#aaa;line-height:1;">\u25B8</span>':'');
       return b;
     }
-    var tools=[['dlb-mk-sel','Select','select'],['dlb-mk-pen','Pen','pen'],['dlb-mk-hi','Highlight','highlight'],['dlb-mk-line','Line','line'],
-               ['dlb-mk-rect','Rect','square'],['dlb-mk-circ','Oval','circle'],['dlb-mk-arr','Arrow','arrow'],
-               ['dlb-mk-text','Text','text'],['dlb-mk-er','Eraser','erase']];
-    var toolBtns={};
-    tools.forEach(function(t){ var b=tb(t[0],t[1],t[1]); toolBtns[t[2]]=b; rowTools.appendChild(b); });
-    function sep(){ var s=document.createElement('div'); s.style.cssText='width:1px;height:20px;background:rgba(255,255,255,.25);margin:0 2px;flex:0 0 auto;'; return s; }
-    rowTools.appendChild(sep());
-    var bUn=tb('dlb-mk-undo','\u21B6','Undo (Ctrl+Z)'), bRd=tb('dlb-mk-redo','\u21B7','Redo (Ctrl+Y)');
-    rowTools.appendChild(bUn); rowTools.appendChild(bRd);
-    var swatches=[];
-    ['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'].forEach(function(col){
-      var s=document.createElement('button');
-      s.dataset.col=col;
-      s.style.cssText='width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:'+col+';cursor:pointer;padding:0;flex:0 0 auto;';
-      swatches.push(s); rowStyle.appendChild(s);
-    });
-    rowStyle.appendChild(sep());
-    var sizeWrap=document.createElement('div'); sizeWrap.style.cssText='display:flex;align-items:center;gap:5px;flex:0 0 auto;';
-    sizeWrap.innerHTML='<span style="color:rgba(255,255,255,.75);font:600 11px Calibri,sans-serif;">Size</span>';
-    var sizeSld=document.createElement('input'); sizeSld.type='range'; sizeSld.min='1'; sizeSld.max='20'; sizeSld.value='4';
-    sizeSld.style.cssText='width:70px;accent-color:#9C2742;';
-    sizeWrap.appendChild(sizeSld); rowStyle.appendChild(sizeWrap); rowStyle.appendChild(sep());
-    var opWrap=document.createElement('span'); opWrap.style.cssText=sizeWrap.style.cssText;
-    var opLbl=document.createElement('span'); opLbl.textContent='Opacity'; opLbl.style.cssText='color:rgba(255,255,255,.75);font:600 11px Calibri,sans-serif;';
-    var opSld=document.createElement('input'); opSld.type='range'; opSld.min='10'; opSld.max='100'; opSld.value='100';
-    opSld.id='dlb-mk-opacity'; opSld.style.cssText='width:70px;accent-color:#9C2742;';
-    opWrap.appendChild(opLbl); opWrap.appendChild(opSld); rowStyle.appendChild(opWrap);
-    // S306 (1c): Save button removed — auto-commit on markup exit (✎/✕/close)
-    // makes it redundant. _saveMk remains the commit path called by exit/close.
-    var bCr=tb('dlb-mk-clear','Clear','Clear all strokes');
-    var bRv=tb('dlb-mk-revert','Revert','Remove saved markup');
-    var bX =tb('dlb-mk-exit','\u2715','Exit markup'); bX.style.background='#9C2742';
-    rowActions.appendChild(bCr); rowActions.appendChild(bRv); rowActions.appendChild(bX);
-    bar.appendChild(rowTools); bar.appendChild(rowStyle); bar.appendChild(rowActions);
+    var _rowCss='display:flex;flex-wrap:nowrap;justify-content:center;align-items:center;gap:4px;';
+    rowTools.style.cssText=_rowCss; rowStyle.style.cssText=_rowCss;
+    var rdiv=document.createElement('div'); rdiv.style.cssText='height:1px;background:rgba(255,255,255,.10);margin:1px 4px;';
+    function _layoutMarkupBar(){
+      var keep=bar.style.display;
+      bar.style.cssText='position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;flex-direction:column;gap:6px;padding:9px 10px;background:rgba(20,20,28,.94);border-radius:16px;z-index:11;box-shadow:0 6px 20px rgba(0,0,0,.5);max-width:calc(100vw - 16px);box-sizing:border-box;';
+      bar.style.display=keep||'none';
+    }
+    _layoutBar=_layoutMarkupBar; _layoutMarkupBar();
+    // ── Row 1: Select(caret) · Pen-group(caret) · Shapes-group(caret) · Text · Eraser | Undo Redo ──
+    var bSel=iconBtn('dlb-mk-sel','select','Select \u2014 tap a mark or drag a box',false);
+    bSel.querySelector('svg').insertAdjacentHTML('afterend','<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#aaa;line-height:1;">\u25BE</span>');
+    var bPenGrp=iconBtn('dlb-mk-pengrp','pen','Pen / Highlighter',true); bPenGrp.dataset.tool='pen';
+    var bShapeGrp=iconBtn('dlb-mk-shapegrp','square','Shapes',true); bShapeGrp.dataset.tool='square';
+    var bTx=iconBtn('dlb-mk-text','text','Text label',false);
+    var bEr=iconBtn('dlb-mk-er','eraser','Eraser',false);
+    function sepU(){ var s=document.createElement('div'); s.style.cssText='width:1px;height:26px;background:rgba(255,255,255,.18);margin:0 2px;flex:0 0 auto;'; return s; }
+    var bUn=iconBtn('dlb-mk-undo','undo','Undo (Ctrl+Z)',false);
+    var bRd=iconBtn('dlb-mk-redo','redo','Redo (Ctrl+Y)',false);
+    [bSel,bPenGrp,bShapeGrp,bTx,bEr,sepU(),bUn,bRd].forEach(function(e){rowTools.appendChild(e);});
+    // toolBtns map (key→button) so existing setActiveTool() highlight logic still works.
+    // Group buttons carry their CURRENT tool in dataset.tool; the highlight resolves
+    // by matching the active tool against each group's member set (handled in setActiveTool).
+    var toolBtns={ select:bSel, pen:bPenGrp, highlight:bPenGrp, line:bShapeGrp, square:bShapeGrp,
+                   circle:bShapeGrp, arrow:bShapeGrp, triangle:bShapeGrp, cloud:bShapeGrp, text:bTx, erase:bEr };
+    // ── Pen-group flyout (Pen / Highlighter) ──
+    var penFly=document.createElement('div'); penFly.id='dlb-mk-penfly';
+    penFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:row;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
+    function flyBtn(tool,key,title){ var b=iconBtn('','',title,false); b.innerHTML=_sized(SVG[key]); b.dataset.tool=tool; b.style.width='44px'; b.style.height='44px'; return b; }
+    var penP=flyBtn('pen','pen','Pen'), penH=flyBtn('highlight','highlight','Highlighter');
+    penFly.appendChild(penP); penFly.appendChild(penH); ov.appendChild(penFly);
+    // ── Shapes-group flyout (Line / Arrow / Rect / Oval / Triangle / Cloud) ──
+    var shapeFly=document.createElement('div'); shapeFly.id='dlb-mk-shapefly';
+    shapeFly.style.cssText=penFly.style.cssText; shapeFly.style.flexWrap='wrap'; shapeFly.style.maxWidth='176px';
+    // S344 Phase 1: only shapes the current engine draws. cloud + filled variants land in Phase 2.
+    [['line','line'],['arrow','arrow'],['square','square'],['circle','circle'],['triangle','triangle']]
+      .forEach(function(s){ shapeFly.appendChild(flyBtn(s[0],s[1],s[0])); });
+    ov.appendChild(shapeFly);
+    // ── Row 2: size stepper · opacity stepper · | · colour swatch+flyout · | · save clear revert ──
+    function sep2px(){ var d=document.createElement('div'); d.style.cssText='width:1px;height:26px;background:rgba(255,255,255,.18);margin:0 2px;flex:0 0 auto;'; return d; }
+    function stepBtn(txt){ var b=document.createElement('button'); b.textContent=txt; b.style.cssText='width:26px;height:30px;border:none;border-radius:6px;background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-weight:700;cursor:pointer;flex:0 0 auto;'; return b; }
+    var sizeWrap=document.createElement('div'); sizeWrap.style.cssText='display:flex;flex-direction:row;align-items:center;gap:2px;flex:0 0 auto;';
+    sizeWrap.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#9a96a2" stroke-width="2" style="width:15px;height:15px;margin-right:1px;"><path d="M3 6h18M5 12h14M7 18h10"/></svg>';
+    var szMinus=stepBtn('\u2212'); var szVal=document.createElement('span'); szVal.id='dlb-mk-size-val'; szVal.textContent='4';
+    szVal.style.cssText='font-size:12.5px;color:#dfe;min-width:20px;text-align:center;font-weight:600;';
+    var szPlus=stepBtn('+');
+    sizeWrap.appendChild(szMinus); sizeWrap.appendChild(szVal); sizeWrap.appendChild(szPlus);
+    var opWrap=document.createElement('div'); opWrap.style.cssText='display:flex;flex-direction:row;align-items:center;gap:2px;flex:0 0 auto;';
+    opWrap.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#9a96a2" stroke-width="2" style="width:15px;height:15px;margin-right:1px;"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="#9a96a2"/></svg>';
+    var opMinus=stepBtn('\u2212');
+    var opVal=document.createElement('span'); opVal.id='dlb-mk-op-val'; opVal.textContent='100'; opVal.title='Click to type a value (10\u2013100)';
+    opVal.style.cssText='font-size:12.5px;color:#dfe;min-width:30px;text-align:center;font-weight:600;cursor:text;border-radius:4px;';
+    var opPlus=stepBtn('+');
+    opWrap.appendChild(opMinus); opWrap.appendChild(opVal); opWrap.appendChild(opPlus);
+    var colors=['#FF0000','#FFEB3B','#5F8068','#1976D2','#000000','#FFFFFF'];
+    var colorBtn=document.createElement('button'); colorBtn.id='dlb-mk-color'; colorBtn.title='Colour';
+    colorBtn.style.cssText='flex:0 0 auto;width:40px;height:40px;border:none;background:transparent;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+    var colorDot=document.createElement('div'); colorDot.id='dlb-mk-colordot'; colorDot.style.cssText='width:22px;height:22px;border-radius:50%;background:#FF0000;border:2px solid #fff;'; colorBtn.appendChild(colorDot);
+    var colorFly=document.createElement('div'); colorFly.id='dlb-mk-colorfly';
+    colorFly.style.cssText='position:absolute;z-index:26;display:none;flex-wrap:wrap;gap:6px;width:118px;padding:8px;background:rgba(34,34,44,.99);border:1px solid rgba(255,255,255,.16);border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.6);';
+    var swatches=colors.map(function(col){ var s=document.createElement('button'); s.className='dlb-mk-swatch'; s.dataset.col=col;
+      s.style.cssText='width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:'+col+';cursor:pointer;padding:0;'; return s; });
+    swatches.forEach(function(s){colorFly.appendChild(s);}); ov.appendChild(colorFly);
+    function actBtn(id,key,title,color){ var b=document.createElement('button'); b.id=id; b.title=title;
+      b.style.cssText='flex:0 0 auto;width:40px;height:40px;border:none;background:transparent;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:'+(color||'#cfd2d6')+';';
+      b.innerHTML=_sized(SVG[key]); return b; }
+    var bSv=actBtn('dlb-mk-save','check','Save annotated copy','#7fd0a0');
+    var bCr=actBtn('dlb-mk-clear','trash','Clear all edits','#e88');
+    var bRv=actBtn('dlb-mk-revert','revert','Discard edits',null);
+    [sizeWrap,opWrap,sep2px(),colorBtn,sep2px(),bSv,bCr,bRv].forEach(function(e){rowStyle.appendChild(e);});
+    bar.appendChild(rowTools); bar.appendChild(rdiv); bar.appendChild(rowStyle);
     ov.appendChild(bar);
     document.body.appendChild(ov);
     _built=true;
@@ -4328,10 +4380,16 @@ var DslLightbox = (function(){
     function setActiveTool(tool){
       _mkTool=tool;
       if(tool!=='select' && window.DieselMarkup && DieselMarkup.hasSel && DieselMarkup.hasSel()) DieselMarkup.deselect();   // S314
-      Object.keys(toolBtns).forEach(function(k){ toolBtns[k].style.background = (k===tool)?'#9C2742':'rgba(255,255,255,.12)'; });
+      // S344: highlight the owning button (group buttons own several tools). De-tint all first.
+      [bSel,bPenGrp,bShapeGrp,bTx,bEr].forEach(function(b){ b.style.background='transparent'; b.style.color='#cfd2d6'; });
+      var owner=toolBtns[tool];
+      if(owner){ owner.style.background='rgba(156,39,66,.9)'; owner.style.color='#fff'; }
+      // Group buttons reflect their current member tool's icon.
+      if(tool==='pen'||tool==='highlight'){ bPenGrp.dataset.tool=tool; bPenGrp.innerHTML=_sized(SVG[tool])+'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#fff;line-height:1;">\u25B8</span>'; }
+      if(tool==='line'||tool==='arrow'||tool==='square'||tool==='circle'||tool==='triangle'||tool==='cloud'){ bShapeGrp.dataset.tool=tool; bShapeGrp.innerHTML=_sized(SVG[tool])+'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#fff;line-height:1;">\u25B8</span>'; }
+      _closeFlyouts();
     }
     // S314: live-apply style changes to the current selection (FRT _applyToSelection port).
-    // Sliders: live preview on 'input', ONE gmod op committed on 'change'. Swatch: one op per click.
     var _selGest=null;
     function _selLive(fn){
       if(!(window.DieselMarkup&&DieselMarkup.hasSel&&DieselMarkup.hasSel())) return;
@@ -4341,6 +4399,7 @@ var DslLightbox = (function(){
     function _selCommit(){ if(_selGest){ DieselMarkup.commitSel(_selGest); _selGest=null; } }
     function setSwatch(col){
       _mkColor=col;
+      colorDot.style.background=col;
       swatches.forEach(function(s){ s.style.borderColor=(s.dataset.col===col)?'#fff':'rgba(255,255,255,.4)'; s.style.boxShadow=(s.dataset.col===col)?'0 0 0 2px #9C2742':'none'; });
       if(window.DieselMarkup&&DieselMarkup.hasSel&&DieselMarkup.hasSel()){
         var snap=DieselMarkup.snapSel();
@@ -4349,28 +4408,77 @@ var DslLightbox = (function(){
       }
     }
     _setTool = setActiveTool;   // S295: ESC handler needs to deactivate the tool
-    Object.keys(toolBtns).forEach(function(k){ toolBtns[k].addEventListener('click',function(){ setActiveTool(k); }); });
-    swatches.forEach(function(s){ s.addEventListener('click',function(){ setSwatch(s.dataset.col); }); });
-    sizeSld.addEventListener('input',function(){
-      _mkSize=parseInt(sizeSld.value,10)||4;
+    // ── Flyout open/close (pen-group, shapes-group, colour) ──
+    function _closeFlyouts(){ [penFly,shapeFly,colorFly].forEach(function(f){ f.style.display='none'; }); }
+    function _openFlyAbove(fly, anchor, horizontal){
+      _closeFlyouts();
+      fly.style.display = horizontal ? 'flex' : 'flex';
+      var ar=anchor.getBoundingClientRect();
+      // measure then place just above the anchor, clamped to viewport
+      fly.style.left='0px'; fly.style.top='0px';
+      var fr=fly.getBoundingClientRect();
+      var left=Math.max(6, Math.min(ar.left+ar.width/2-fr.width/2, window.innerWidth-fr.width-6));
+      var top=ar.top-fr.height-8;
+      fly.style.left=left+'px'; fly.style.top=top+'px';
+    }
+    // Group button: tap = activate its current member tool; the caret region opens the flyout.
+    function _wireGroup(grpBtn, fly){
+      grpBtn.addEventListener('click', function(e){
+        if(fly.style.display!=='none'){ _closeFlyouts(); return; }
+        // If this group's tool is already active, a tap opens the flyout; otherwise activate then leave open for quick switch
+        _openFlyAbove(fly, grpBtn, true);
+      });
+      Array.prototype.forEach.call(fly.querySelectorAll('button'), function(mb){
+        mb.addEventListener('click', function(){ setActiveTool(mb.dataset.tool); });
+      });
+    }
+    _wireGroup(bPenGrp, penFly);
+    _wireGroup(bShapeGrp, shapeFly);
+    bSel.addEventListener('click', function(){ setActiveTool('select'); });
+    bTx.addEventListener('click', function(){ setActiveTool('text'); });
+    bEr.addEventListener('click', function(){ setActiveTool('erase'); });
+    // ── Colour swatch button → colour flyout ──
+    colorBtn.addEventListener('click', function(){
+      if(colorFly.style.display!=='none'){ _closeFlyouts(); return; }
+      _openFlyAbove(colorFly, colorBtn, false);
+    });
+    swatches.forEach(function(s){ s.addEventListener('click',function(){ setSwatch(s.dataset.col); _closeFlyouts(); }); });
+    // tap outside any flyout closes them
+    ov.addEventListener('click', function(e){
+      if(penFly.style.display==='none'&&shapeFly.style.display==='none'&&colorFly.style.display==='none') return;
+      if(e.target.closest && (e.target.closest('#dlb-mk-penfly')||e.target.closest('#dlb-mk-shapefly')||e.target.closest('#dlb-mk-colorfly')||e.target.closest('#dlb-mk-pengrp')||e.target.closest('#dlb-mk-shapegrp')||e.target.closest('#dlb-mk-color'))) return;
+      _closeFlyouts();
+    }, true);
+    // ── Size stepper (1–20) ──
+    function _applySize(){
+      szVal.textContent=String(_mkSize);
       _selLive(function(){
         DieselMarkup.applySel('size',function(s){ return s.tool==='text'?s.size:_mkSize*3; },false);
         DieselMarkup.applySel('fontSize',function(s){ return s.tool==='text'?Math.max(18,_mkSize*8):s.fontSize; },false);
       });
+      _selCommit();
+    }
+    szMinus.addEventListener('click',function(){ _mkSize=Math.max(1,_mkSize-1); _applySize(); });
+    szPlus .addEventListener('click',function(){ _mkSize=Math.min(20,_mkSize+1); _applySize(); });
+    // ── Opacity stepper (10–100, click value to type) ──
+    function _applyOp(){
+      opVal.textContent=String(_mkAlpha);
+      _selLive(function(){ DieselMarkup.applySel('alpha',function(s){ var a=_mkAlpha/100; return s.tool==='highlight'?0.35*a:a; },false); });
+      _selCommit();
+    }
+    opMinus.addEventListener('click',function(){ _mkAlpha=Math.max(10,_mkAlpha-10); _applyOp(); });
+    opPlus .addEventListener('click',function(){ _mkAlpha=Math.min(100,_mkAlpha+10); _applyOp(); });
+    opVal.addEventListener('click',function(){
+      var v=prompt('Opacity (10–100):', String(_mkAlpha));
+      if(v===null) return; var n=parseInt(v,10); if(isNaN(n)) return;
+      _mkAlpha=Math.max(10,Math.min(100,n)); _applyOp();
     });
-    sizeSld.addEventListener('change',_selCommit);
-    opSld.addEventListener('input',function(){
-      _mkAlpha=parseInt(opSld.value,10)||100;
-      _selLive(function(){
-        DieselMarkup.applySel('alpha',function(s){ var a=_mkAlpha/100; return s.tool==='highlight'?0.35*a:a; },false);
-      });
-    });
-    opSld.addEventListener('change',_selCommit);
+    // ── Undo / Redo / actions ──
     bUn.addEventListener('click',function(){ DieselMarkup.undo(); });
     bRd.addEventListener('click',function(){ DieselMarkup.redoOp(); });
     bCr.addEventListener('click',function(){ DieselMarkup.clear(); });
     bRv.addEventListener('click',_revertMk);
-    bX .addEventListener('click',_toggleMarkup);
+    bSv.addEventListener('click',_toggleMarkup);   // S344: Save commits + exits (Diesel auto-commit path)
     bMk.addEventListener('click',_toggleMarkup);
     bDl.addEventListener('click',_download);
     bRo.addEventListener('click',function(){
@@ -4381,12 +4489,11 @@ var DslLightbox = (function(){
     bDel.addEventListener('click',_deleteCurrent);
     _el('dlb-prev').addEventListener('click',function(){ _nav(-1); });
     _el('dlb-next').addEventListener('click',function(){ _nav(1); });
-    setActiveTool('pen'); setSwatch('#FF0000');
+    setActiveTool('pen'); setSwatch('#FF0000'); _applySize(); _applyOp();
     _wireViewEvents();
-    // S285: viewport changes (devtools open/close, rotation, window resize)
-    // invalidate the fit — recalc while open.
     window.addEventListener('resize', function(){
-      if(_isOpen && _layoutBar) _layoutBar();   // S305: pill<->sheet on viewport change
+      _closeFlyouts();
+      if(_isOpen && _layoutBar) _layoutBar();
       if(_isOpen && !_markupActive) _scheduleFit();
     });
   }
