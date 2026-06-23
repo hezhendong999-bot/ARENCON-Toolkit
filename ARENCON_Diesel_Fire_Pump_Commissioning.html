@@ -3672,7 +3672,7 @@ var DieselMarkup = (function(){
       return {x:(t.clientX-r.left)*sx, y:(t.clientY-r.top)*sy};
     },
 
-    _isShape:function(t){return t==='line'||t==='arrow'||t==='circle'||t==='square'||t==='triangle';},
+    _isShape:function(t){return t==='line'||t==='arrow'||t==='circle'||t==='square'||t==='triangle'||t==='square-fill'||t==='circle-fill'||t==='cloud';},
 
     _bind:function(){
       var self=this, c=this.canvas;
@@ -4072,15 +4072,45 @@ var DieselMarkup = (function(){
       } else if(s.tool==='square'){
         var qx=Math.min(s.pts[0].x,s.pts[1].x)*sx, qy=Math.min(s.pts[0].y,s.pts[1].y)*sy;
         ctx.strokeRect(qx, qy, Math.abs(s.pts[1].x-s.pts[0].x)*sx, Math.abs(s.pts[1].y-s.pts[0].y)*sy);
+      } else if(s.tool==='square-fill'){
+        var fqx=Math.min(s.pts[0].x,s.pts[1].x)*sx, fqy=Math.min(s.pts[0].y,s.pts[1].y)*sy;
+        ctx.fillRect(fqx, fqy, Math.abs(s.pts[1].x-s.pts[0].x)*sx, Math.abs(s.pts[1].y-s.pts[0].y)*sy);
       } else if(s.tool==='circle'){
         var ccx=(s.pts[0].x+s.pts[1].x)/2*sx, ccy=(s.pts[0].y+s.pts[1].y)/2*sy,
             crx=Math.abs(s.pts[1].x-s.pts[0].x)/2*sx||1, cry=Math.abs(s.pts[1].y-s.pts[0].y)/2*sy||1;
         ctx.beginPath();
         if(ctx.ellipse) ctx.ellipse(ccx,ccy,crx,cry,0,0,Math.PI*2); else ctx.arc(ccx,ccy,Math.max(crx,cry),0,Math.PI*2);
         ctx.stroke();
+      } else if(s.tool==='circle-fill'){
+        var fcx=(s.pts[0].x+s.pts[1].x)/2*sx, fcy=(s.pts[0].y+s.pts[1].y)/2*sy,
+            frx=Math.abs(s.pts[1].x-s.pts[0].x)/2*sx||1, fry=Math.abs(s.pts[1].y-s.pts[0].y)/2*sy||1;
+        ctx.beginPath();
+        if(ctx.ellipse) ctx.ellipse(fcx,fcy,frx,fry,0,0,Math.PI*2); else ctx.arc(fcx,fcy,Math.max(frx,fry),0,Math.PI*2);
+        ctx.fill();
       } else if(s.tool==='triangle'){
         var tx1=s.pts[0].x*sx,ty1=s.pts[0].y*sy,tx2=s.pts[1].x*sx,ty2=s.pts[1].y*sy;
         ctx.beginPath(); ctx.moveTo((tx1+tx2)/2,ty1); ctx.lineTo(tx1,ty2); ctx.lineTo(tx2,ty2); ctx.closePath(); ctx.stroke();
+      } else if(s.tool==='cloud'){
+        // S344 Phase 2b: revision-cloud — scalloped arcs around the drag bbox (FRT parity).
+        var clx1=Math.min(s.pts[0].x,s.pts[1].x)*sx, cly1=Math.min(s.pts[0].y,s.pts[1].y)*sy,
+            clx2=Math.max(s.pts[0].x,s.pts[1].x)*sx, cly2=Math.max(s.pts[0].y,s.pts[1].y)*sy;
+        var cw=clx2-clx1, ch=cly2-cly1; if(cw<4||ch<4){ /* too small */ }
+        var bump=Math.max(8,(s.size||6)*2.2)*((sx+sy)/2);
+        var per=2*(cw+ch); var n=Math.max(8,Math.round(per/(bump*1.6))); var r=bump/2;
+        ctx.beginPath();
+        var pts=[]; var i2;
+        // build perimeter points clockwise
+        var nTop=Math.max(2,Math.round(cw/(bump*1.6))), nRt=Math.max(2,Math.round(ch/(bump*1.6)));
+        for(i2=0;i2<nTop;i2++) pts.push({x:clx1+cw*(i2/nTop), y:cly1});
+        for(i2=0;i2<nRt;i2++) pts.push({x:clx2, y:cly1+ch*(i2/nRt)});
+        for(i2=0;i2<nTop;i2++) pts.push({x:clx2-cw*(i2/nTop), y:cly2});
+        for(i2=0;i2<nRt;i2++) pts.push({x:clx1, y:cly2-ch*(i2/nRt)});
+        for(i2=0;i2<pts.length;i2++){
+          var a0=Math.atan2(pts[i2].y-((cly1+cly2)/2), pts[i2].x-((clx1+clx2)/2));
+          ctx.moveTo(pts[i2].x+r, pts[i2].y);
+          ctx.arc(pts[i2].x, pts[i2].y, r, 0, Math.PI*2);
+        }
+        ctx.stroke();
       } else if(s.tool==='text'){
         var fp=(s.fontSize||24)*((sx+sy)/2);
         ctx.font='bold '+fp+'px Calibri,Arial,sans-serif'; ctx.textBaseline='alphabetic';
@@ -4358,8 +4388,8 @@ var DslLightbox = (function(){
     // toolBtns map (key→button) so existing setActiveTool() highlight logic still works.
     // Group buttons carry their CURRENT tool in dataset.tool; the highlight resolves
     // by matching the active tool against each group's member set (handled in setActiveTool).
-    var toolBtns={ select:bSel, pen:bPenGrp, highlight:bPenGrp, line:bShapeGrp, square:bShapeGrp,
-                   circle:bShapeGrp, arrow:bShapeGrp, triangle:bShapeGrp, cloud:bShapeGrp, text:bTx, erase:bEr };
+    var toolBtns={ select:bSel, pen:bPenGrp, highlight:bPenGrp, line:bPenGrp, arrow:bPenGrp,
+                   square:bShapeGrp, 'square-fill':bShapeGrp, circle:bShapeGrp, 'circle-fill':bShapeGrp, triangle:bShapeGrp, text:bTx, erase:bEr };
     // ── Pen-group flyout (Pen / Highlighter) ──
     var penFly=document.createElement('div'); penFly.id='dlb-mk-penfly';
     penFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:row;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
@@ -4370,12 +4400,13 @@ var DslLightbox = (function(){
       return b;
     }
     var penP=flyBtn('pen','pen','Pen'), penH=flyBtn('highlight','highlight','Highlighter');
-    penFly.appendChild(penP); penFly.appendChild(penH); ov.appendChild(penFly);
-    // ── Shapes-group flyout (Line / Arrow / Rect / Oval / Triangle / Cloud) ──
+    var penL=flyBtn('line','line','Line'), penA=flyBtn('arrow','arrow','Arrow');
+    penFly.appendChild(penP); penFly.appendChild(penH); penFly.appendChild(penL); penFly.appendChild(penA); ov.appendChild(penFly);
+    // ── Shapes-group flyout (FRT: Rectangle / Filled Rect / Circle / Filled Circle / Triangle) ──
     var shapeFly=document.createElement('div'); shapeFly.id='dlb-mk-shapefly';
-    shapeFly.style.cssText=penFly.style.cssText; shapeFly.style.flexWrap='wrap'; shapeFly.style.maxWidth='176px';
-    // S344 Phase 1: only shapes the current engine draws. cloud + filled variants land in Phase 2.
-    [['line','line'],['arrow','arrow'],['square','square'],['circle','circle'],['triangle','triangle']]
+    shapeFly.style.cssText=penFly.style.cssText; shapeFly.style.flexWrap='wrap'; shapeFly.style.maxWidth='150px';
+    // S344: filled rect/circle DRAW support added to the engine in Phase 2b; buttons present now.
+    [['square','square'],['square-fill','square-fill'],['circle','circle'],['circle-fill','circle-fill'],['triangle','triangle']]
       .forEach(function(s){ shapeFly.appendChild(flyBtn(s[0],s[1],s[0])); });
     ov.appendChild(shapeFly);
     // ── S344 Phase 2a: Select sub-tool flyout (Rubber-band / Tap select) ──
@@ -4447,8 +4478,8 @@ var DslLightbox = (function(){
       var owner=toolBtns[tool];
       if(owner){ owner.style.background='rgba(156,39,66,.9)'; owner.style.color='#fff'; }
       // Group buttons reflect their current member tool's icon.
-      if(tool==='pen'||tool==='highlight'){ bPenGrp.dataset.tool=tool; bPenGrp.innerHTML=_sized(SVG[tool])+'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#fff;line-height:1;">\u25B8</span>'; }
-      if(tool==='line'||tool==='arrow'||tool==='square'||tool==='circle'||tool==='triangle'||tool==='cloud'){ bShapeGrp.dataset.tool=tool; bShapeGrp.innerHTML=_sized(SVG[tool])+'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#fff;line-height:1;">\u25B8</span>'; }
+      if(tool==='pen'||tool==='highlight'||tool==='line'||tool==='arrow'){ bPenGrp.dataset.tool=tool; bPenGrp.innerHTML=_sized(SVG[tool])+'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#fff;line-height:1;">\u25B8</span>'; }
+      if(tool==='square'||tool==='square-fill'||tool==='circle'||tool==='circle-fill'||tool==='triangle'){ bShapeGrp.dataset.tool=tool; bShapeGrp.innerHTML=_sized(SVG[tool])+'<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#fff;line-height:1;">\u25B8</span>'; }
       _closeFlyouts();
       if(typeof _refreshConfirmBar==='function') _refreshConfirmBar();
     }
@@ -4498,15 +4529,21 @@ var DslLightbox = (function(){
     _wireGroup(bPenGrp, penFly);
     _wireGroup(bShapeGrp, shapeFly);
     // Select button: tap activates select + opens the sub-flyout (Rubber-band / Tap select).
+    function _hiliteSub(){
+      var cur=(window.DieselMarkup&&DieselMarkup.getSelectSub)?DieselMarkup.getSelectSub():'rubber';
+      Array.prototype.forEach.call(subFly.querySelectorAll('button'), function(b){
+        b.style.background=(b.dataset.sub===cur)?'#9C2742':'rgba(255,255,255,.06)';
+      });
+    }
     bSel.addEventListener('click', function(){
       setActiveTool('select');
       if(subFly.style.display!=='none'){ _closeFlyouts(); return; }
-      _openFlyAbove(subFly, bSel, false);
+      _hiliteSub(); _openFlyAbove(subFly, bSel, false);
     });
     Array.prototype.forEach.call(subFly.querySelectorAll('button'), function(sb){
       sb.addEventListener('click', function(){
         if(window.DieselMarkup&&DieselMarkup.setSelectSub) DieselMarkup.setSelectSub(sb.dataset.sub);
-        setActiveTool('select'); _closeFlyouts(); _refreshConfirmBar();
+        setActiveTool('select'); _hiliteSub(); _closeFlyouts(); _refreshConfirmBar();
       });
     });
     // ✓/✗ confirm bar refresh — driven by engine selection state.
