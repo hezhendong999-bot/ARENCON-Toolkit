@@ -3131,14 +3131,15 @@ function launchToolInstance(key, instanceId) {
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
     + '&sfn=' + encodeURIComponent(sfn);
-  // S341 fix: report rows stopped opening because the "reuse the tab" logic
-  // could grab a phantom/closed/blank named window and just .focus() it without
-  // ever navigating — so the click appeared to do nothing. Reliability first:
-  // always navigate the named tab to the report. Reusing the name means a
-  // re-click lands in the SAME tab (no duplicate spam) but ALWAYS loads the
-  // report, even if the previous tab was closed, blank, or on another page.
-  var _tgt = 'arencon_' + key + '_' + String(_detailProjectId).replace(/[^a-zA-Z0-9_]/g,'');
-  var w = window.open(url, _tgt);   // open-or-reuse the named tab AND load the report in one call
+  // S341 fix (Test 3): the tab was keyed by tool+project only, so two reports
+  // of the SAME tool in the SAME project (FRT #1 and FRT #2) shared one tab —
+  // clicking the other report reused the already-booted tab and you stayed on
+  // the wrong report. Key the tab by INSTANCE too: each distinct report gets its
+  // own reusable tab. Re-clicking the SAME report still reuses its tab (no
+  // duplicate spam); a DIFFERENT report opens in its own tab with the right data.
+  var _tgt = 'arencon_' + key + '_' + String(_detailProjectId).replace(/[^a-zA-Z0-9_]/g,'')
+    + '_' + String(instanceId).replace(/[^a-zA-Z0-9_]/g,'');
+  var w = window.open(url, _tgt);   // open-or-reuse the per-report tab AND load it in one call
   try { if (w) w.focus(); } catch(e) {}
   if (!w) {
     // popup blocked → last-resort direct open
