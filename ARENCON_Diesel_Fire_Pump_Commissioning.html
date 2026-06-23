@@ -4329,7 +4329,12 @@ var DslLightbox = (function(){
     // ── Pen-group flyout (Pen / Highlighter) ──
     var penFly=document.createElement('div'); penFly.id='dlb-mk-penfly';
     penFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:row;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
-    function flyBtn(tool,key,title){ var b=iconBtn('','',title,false); b.innerHTML=_sized(SVG[key]); b.dataset.tool=tool; b.style.width='44px'; b.style.height='44px'; return b; }
+    function flyBtn(tool,key,title){
+      var b=document.createElement('button'); b.title=title; b.dataset.tool=tool;
+      b.style.cssText='flex:0 0 auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#cfd2d6;border-radius:8px;cursor:pointer;padding:0;';
+      b.innerHTML=_sized(SVG[key]);
+      return b;
+    }
     var penP=flyBtn('pen','pen','Pen'), penH=flyBtn('highlight','highlight','Highlighter');
     penFly.appendChild(penP); penFly.appendChild(penH); ov.appendChild(penFly);
     // ── Shapes-group flyout (Line / Arrow / Rect / Oval / Triangle / Cloud) ──
