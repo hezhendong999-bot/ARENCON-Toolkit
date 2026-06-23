@@ -1373,8 +1373,19 @@ if(!isFinalComm&&mainBodyDefs.length&&_recsMode!=='only'){
   // last card, but ~20px lighter). If even this compact form doesn't fit on
   // the current page, then spill — but that's rare now.
   var nH='<div style="margin-top:6px;font-size:11pt;color:#333;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
-  if(curUsed+_measure(nH)>PAGE_H){_finalizePage();_startPage();}
-  curPageHtml+=nH;curUsed+=_measure(nH);
+  // S341 (Mark): the one-line note was getting its OWN otherwise-blank page when
+  // the last body card filled the page to within a hair of PAGE_H — it spilled,
+  // then the appendix forced a fresh page after it, leaving the note alone on a
+  // wasted sheet (field report). Give it a tolerance: PAGE_H is the strict
+  // content ceiling but each page carries ~0.5in (~48px) bottom padding as
+  // headroom, and the appendix ALWAYS starts on its own forced page — so a
+  // single-line note overrunning the body's last page by a little never
+  // collides with anything. Only spill if it truly can't fit even with the
+  // padding headroom.
+  var _noteH=_measure(nH);
+  var _NOTE_TOL=64; // ≈ page bottom padding; keeps a 1-line note with its content
+  if(curUsed+_noteH>PAGE_H+_NOTE_TOL){_finalizePage();_startPage();}
+  curPageHtml+=nH;curUsed+=_noteH;
 }
 _finalizePage();
 
@@ -1476,7 +1487,7 @@ if(isField&&p.drawings&&p.drawings.length){
       // drawings stay under the same letter with an "(cont.)" band (S316 §5).
       var aH='';
       if(_firstDrawingOfAppendix){aH+='<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div>';_firstDrawingOfAppendix=false;}
-      else{aH+='<div class="sh" style="margin-top:0;color:#6B7B8C;font-size:11pt;">'+esc('Appendix '+_letter+' (cont.)')+'</div>';}
+      else{aH+='<div class="sh" style="margin-top:0;">'+esc('Appendix '+_letter)+' <span class="ch-cont">(cont.)</span></div>';}
       aH+='<div class="sb" style="padding:8px;"><div class="app-dwg">';
       aH+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
       var _imgId='app-dwg-'+_letter+'-'+dw.id; // S317: appendix-scoped unique id
