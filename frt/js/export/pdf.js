@@ -699,9 +699,16 @@ if(summaryDefs.length){
   _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#A85959;">'+summaryDefs.filter(_rowOpen).length+'</td>';
   _deficSummaryHtml+='<td style="'+_cTd+'text-align:center;color:#5F8068;">'+summaryDefs.filter(_rowClosed).length+'</td></tr>';
   _deficSummaryHtml+='</tbody></table></div>';
-  // S317 (Mark): the "New This Report counts items… not additive" footnote rows
-  // are removed from the client report (Mark marked them off — they read as clutter
-  // under the table). The summary table speaks for itself.
+  // S341 (Mark): the closing "further deficiencies may be noted" note now sits
+  // directly UNDER the Deficiency Summary table (page 1) instead of trailing the
+  // body cards. Page 1 layout is settled and never sits at a precarious page
+  // boundary, so the note can never be orphaned onto its own blank sheet (the
+  // problem it had at the end of the body). It also reads better as a footnote
+  // to the summary. Same gate as the old end-of-body placement: skip for
+  // final-commissioning reports and recs-only mode.
+  if(!isFinalComm&&_recsMode!=='only'){
+    _deficSummaryHtml+='<div style="margin-top:8px;font-size:10pt;color:#555;font-style:italic;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
+  }
   // ── S284 (Mark-approved rev C): page-1 dashboard — Status Overview two-ring
   // donut + Resolution Progress bars. Pure SVG (prints crisp, no canvas).
   // Numbers come from the SAME predicates as the summary table above
@@ -1364,29 +1371,10 @@ function _stampKeepWithNext(blocks){
 }
 _stampKeepWithNext(contentBlocks);
 contentBlocks.forEach(_flowBlock);
-if(!isFinalComm&&mainBodyDefs.length&&_recsMode!=='only'){
-  // S119 Push G: avoid orphaning the closing note onto a new page when the
-  // previous page has just a bit of headroom. The note is one line of 11pt
-  // text, so heavy top/bottom chrome (was margin-top:16px + padding:10px 0)
-  // forced new-page splits whenever the previous page had <42px free.
-  // Tighten to a minimal margin-top:6px (still visually separated from the
-  // last card, but ~20px lighter). If even this compact form doesn't fit on
-  // the current page, then spill — but that's rare now.
-  var nH='<div style="margin-top:6px;font-size:11pt;color:#333;">Note: Further deficiencies may be noted in future field reports following final commissioning.</div>';
-  // S341 (Mark): the one-line note was getting its OWN otherwise-blank page when
-  // the last body card filled the page to within a hair of PAGE_H — it spilled,
-  // then the appendix forced a fresh page after it, leaving the note alone on a
-  // wasted sheet (field report). Give it a tolerance: PAGE_H is the strict
-  // content ceiling but each page carries ~0.5in (~48px) bottom padding as
-  // headroom, and the appendix ALWAYS starts on its own forced page — so a
-  // single-line note overrunning the body's last page by a little never
-  // collides with anything. Only spill if it truly can't fit even with the
-  // padding headroom.
-  var _noteH=_measure(nH);
-  var _NOTE_TOL=64; // ≈ page bottom padding; keeps a 1-line note with its content
-  if(curUsed+_noteH>PAGE_H+_NOTE_TOL){_finalizePage();_startPage();}
-  curPageHtml+=nH;curUsed+=_noteH;
-}
+// S341 (Mark): the closing "further deficiencies may be noted" note was here at
+// the end of the body, where it kept orphaning onto its own blank page before
+// the appendix. It now lives directly under the Deficiency Summary table on
+// page 1 (built above), so this end-of-body placement is removed.
 _finalizePage();
 
 // Closed summary
