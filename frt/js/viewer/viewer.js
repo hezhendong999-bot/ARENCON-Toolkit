@@ -4735,7 +4735,15 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (e.target.closest && e.target.closest('[data-dv-action="heights"]')) {
-    _openHeights();
+    // S342 V1: toggle — if the panel is already open, this tap closes it
+    // (previously _openHeights only ever opened it; re-tap re-opened it and
+    // only the ✕/Save closed it).
+    var hpan = document.getElementById('dv-heights-panel');
+    if (hpan && hpan.style.display !== 'none' && hpan.style.display !== '') {
+      hpan.style.display = 'none';
+    } else {
+      _openHeights();
+    }
     var mm = document.getElementById('dv-more-menu');
     if (mm) mm.style.display = 'none';
     return;

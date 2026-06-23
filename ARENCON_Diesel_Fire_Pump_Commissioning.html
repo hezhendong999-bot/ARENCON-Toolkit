@@ -13734,8 +13734,13 @@ if(typeof window!=='undefined'){
       if (_open) { resolve([]); return; }
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { resolve(null); return; }
       _open = true;
+      // S342: Android WebView crashes ("Aw, Snap") on the old 4096x3072 (12MP)
+      // request — the live video texture + full-res canvas grabs exhaust the
+      // WebView renderer's tight memory ceiling (iOS Safari has more headroom).
+      // Cap the live stream to 1080p — still sharp after downstream compression,
+      // ~6x less memory. Mirrors FRT cameraBurst.js S341 fix.
       navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 3072 } },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false
       }).then(function(stream) {
         _openUI(stream, function(r) { _open = false; resolve(r); });
@@ -13838,28 +13843,35 @@ if(typeof window!=='undefined'){
       _updateUI();
     }
     function _grabFrame() {
-      var cw = video.videoWidth || 1280, ch = video.videoHeight || 720;
-      var cv = document.createElement('canvas');
+      var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
+      // S342: clamp the grab to a 1920px long edge so a single shot can never
+      // allocate a huge canvas (a 12MP grab is ~50MB raw — a few crash the
+      // Android WebView). Scale proportionally; 1920px is ample for a report
+      // photo and is downscaled again by the downstream compressor anyway.
+      var MAX = 1920;
+      var scale = Math.min(1, MAX / Math.max(vw, vh));
+      var cw = Math.round(vw * scale), ch = Math.round(vh * scale);
+      var cv = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
       cv.width = cw; cv.height = ch;
-      cv.getContext('2d').drawImage(video, 0, 0, cw, ch);
-      cv.toBlob(function(b) { if (b) _addShot(b); busy = false; }, 'image/jpeg', 0.92);
+      var ctx = cv.getContext('2d');
+      try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
+      ctx.drawImage(video, 0, 0, cw, ch);
+      cv.toBlob(function(b) {
+        if (b) _addShot(b);
+        busy = false;
+        cv.width = 0; cv.height = 0; // release canvas backing store promptly
+      }, 'image/jpeg', 0.9);
     }
     shutter.addEventListener('click', function() {
       if (busy) return;
       busy = true;
-      if (imgCap && imgCap.takePhoto) {
-        var settled = false;
-        var timer = setTimeout(function() { if (settled) return; settled = true; _grabFrame(); }, 1500);
-        imgCap.takePhoto().then(function(b) {
-          if (settled) return; settled = true; clearTimeout(timer);
-          _addShot(b); busy = false;
-        }).catch(function() {
-          if (settled) return; settled = true; clearTimeout(timer);
-          _grabFrame();
-        });
-      } else {
-        _grabFrame();
-      }
+      // S342: use the resolution-CLAMPED canvas grab as the primary path.
+      // ImageCapture.takePhoto() ignores the getUserMedia size constraint and
+      // returns FULL-SENSOR images (12MP+) on Android — exactly what crashed
+      // the WebView. The canvas grab respects our 1920px cap. (iOS does not
+      // expose ImageCapture, so it already used this path.) takePhoto retired
+      // to keep memory bounded and the shutter responsive. Mirrors FRT S341.
+      _grabFrame();
     });
     function _close(result) {
       try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
