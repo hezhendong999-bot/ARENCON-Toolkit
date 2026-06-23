@@ -3619,7 +3619,7 @@ var DieselMarkup = (function(){
     _selectSub:'rubber', _pickIds:[], _onSelChange:null,
     // S344 Phase 2d: on-photo text box state (FRT port). Sticky colours persist across
     // boxes; the lightbox docked text bar drives the live controller via _onTextStart/End.
-    _lastTextColor:null, _lastTextBg:'none', _textController:null, _textInput:null,
+    _lastTextColor:null, _lastTextBg:'none', _textController:null, _textInput:null, _repositionTextBox:null,
     _onTextStart:null, _onTextEnd:null,
     _SIZE_STEPS:[12,14,16,20,24,28,32,40,48],
     _PALETTE:['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'],
@@ -4091,28 +4091,38 @@ var DieselMarkup = (function(){
       var startColor = editStroke ? (editStroke.color||self._lastTextColor||st.color) : (self._lastTextColor||st.color||'#A85959');
       var startBg    = editStroke ? (editStroke.bg||'none') : (self._lastTextBg||'none');
       if(editStroke){ editStroke._editing=true; self.render(); }
-      var rect=self.canvas.getBoundingClientRect();
-      var scaleX=rect.width/self.nw, scaleY=rect.height/self.nh;       // screen px per natural px
       var anchor=editStroke ? {x:editStroke.pts[0].x, y:editStroke.pts[0].y} : {x:p.x, y:p.y};
       var fontN=startFont;                                            // current font in natural px
       var curColor=startColor, curBg=startBg;
       var box=document.createElement('div');
       box.className='dlb-mk-text-box';
       box.contentEditable='true'; box.spellcheck=false;
-      box.style.cssText='position:fixed;z-index:10050;min-width:8px;max-width:90vw;outline:none;'+
+      // S344 Phase 4 fix: the box lives INSIDE the photo area (dlb-canvas's parent), not on
+      // document.body. Absolute-positioned in the area's coordinate space so it (a) is clipped
+      // to the lightbox and can never leak onto other pages, and (b) tracks the canvas as the
+      // user pans/zooms (positionBox reads the canvas's live offset+scale and is re-run via
+      // repositionTextBox() from the lightbox's _apply()).
+      box.style.cssText='position:absolute;z-index:10050;min-width:8px;max-width:calc(100% - 4px);outline:none;'+
         'font-family:Calibri,Arial,sans-serif;font-weight:bold;line-height:1.25;white-space:pre-wrap;'+
         'word-break:break-word;padding:1px 4px;border-radius:4px;caret-color:#fff;';
-      document.body.appendChild(box);
+      var host=(self.canvas&&self.canvas.parentNode)||document.body;
+      host.appendChild(box);
       self._textInput=box;
       if(startText){ box.textContent=startText; }
-      function screenFont(){ return fontN*scaleY; }
+      function curScaleY(){ var dh=self.canvas?self.canvas.offsetHeight:self.nh; return dh/self.nh; }
+      function curScaleX(){ var dw=self.canvas?self.canvas.offsetWidth:self.nw; return dw/self.nw; }
+      function screenFont(){ return fontN*curScaleY(); }
       function positionBox(){
+        // canvas offset within the area (= _panX/_panY) + anchor scaled to current display size
         var sf=screenFont();
-        var sx=rect.left + anchor.x*scaleX;
-        var sy=rect.top  + anchor.y*scaleY;
-        box.style.left=Math.max(2, sx-4)+'px';
-        box.style.top =Math.max(2, sy-sf)+'px';
+        var cl=self.canvas?self.canvas.offsetLeft:0, ct=self.canvas?self.canvas.offsetTop:0;
+        var sx=cl + anchor.x*curScaleX();
+        var sy=ct + anchor.y*curScaleY();
+        box.style.left=Math.round(sx-4)+'px';
+        box.style.top =Math.round(sy-sf)+'px';
       }
+      // expose so the lightbox can keep the box glued during pan/zoom
+      self._repositionTextBox=function(){ if(self._textInput===box){ box.style.fontSize=screenFont()+'px'; positionBox(); } };
       function applyStyle(){
         box.style.fontSize=screenFont()+'px';
         box.style.color=curColor;
@@ -4127,6 +4137,7 @@ var DieselMarkup = (function(){
       function cleanup(){
         if(box.parentNode) box.parentNode.removeChild(box);
         if(self._textInput===box) self._textInput=null;
+        self._repositionTextBox=null;
         if(editStroke){ delete editStroke._editing; }
         self._textController=null;
         if(self._onTextEnd) self._onTextEnd();
@@ -5001,7 +5012,7 @@ var DslLightbox = (function(){
     var z=_el('dlb-zoom');
     if(z&&_fitScale) z.textContent=Math.round((_scale/_fitScale)*100)+'%';
     // keep the markup overlay pinned to the fitted photo rect while active
-    if(_markupActive) _placeMarkupCanvas();
+    if(_markupActive){ _placeMarkupCanvas(); try{ if(window.DieselMarkup && DieselMarkup._repositionTextBox) DieselMarkup._repositionTextBox(); }catch(_){} }
   }
   // S287: position the markup engine's interactive canvas exactly over the
   // photo as painted on the stage (markup runs at fit scale, pan 0).
@@ -5134,6 +5145,7 @@ var DslLightbox = (function(){
   }
   function _exitMarkup(keepStrokes){
     if(_persistBusy){ if(typeof showToast==='function') showToast('Still saving \u2014 one moment\u2026'); return; }   // S303
+    try{ if(window.DieselMarkup && DieselMarkup._textController && DieselMarkup._textController.cancel) DieselMarkup._textController.cancel(); }catch(_){}   // S344: never leave an open text box behind
     if(window.DieselMarkup && !keepStrokes){
       // S295: stash unsaved strokes so leaving markup mode (toggle/nav/close)
       // never loses work — they reload on re-entry and composite in view mode.
