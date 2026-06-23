@@ -3777,10 +3777,13 @@ var DieselMarkup = (function(){
       var k=this.nw/Math.max(1,rect.width);                 // natural px per screen px
       var pad=8*k, hs=11*k;
       var bx1=b.x1-pad, by1=b.y1-pad, bx2=b.x2+pad, by2=b.y2+pad;
+      var coarse=(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
       return { k:k, pad:pad, hs:hs, b:{x1:bx1,y1:by1,x2:bx2,y2:by2},
         corners:[{x:bx1,y:by1},{x:bx2,y:by1},{x:bx2,y:by2},{x:bx1,y:by2}],
         rot:{x:(bx1+bx2)/2, y:by1-24*k, r:9*k},
-        del:{x:bx2+14*k, y:by1-14*k, r:9*k} };
+        del:{x:bx2+14*k, y:by1-14*k, r:9*k},
+        // S344 Phase 2c: copy handle — bottom-center, below the box. Generous radius on touch.
+        copy:{x:(bx1+bx2)/2, y:by2+34*k, r:(coarse?20:11)*k} };
     },
     hasSel:function(){ return !!(this.selIds&&this.selIds.length); },
     deselect:function(){ this.selIds=[]; this._pickIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
@@ -3804,6 +3807,25 @@ var DieselMarkup = (function(){
       this._pushOp({t:'gdel', items:items});
       this.selIds=[]; this._dragState=null; this._rubberBand=null;
       if(this._onDirty) this._onDirty(); this.render();
+    },
+    // S344 Phase 2c: duplicate the current selection. Each clone gets a fresh id, a deep
+    // copy of pts[] offset by (+28,+28), and becomes the new selection so the user can
+    // drag-to-place and chain another copy. Op-logged ('gadd') so one Undo removes the clones.
+    _cloneSelection:function(){
+      if(!this.hasSel()) return;
+      var self=this, OFF=28, newIds=[], added=[];
+      this.selIds.forEach(function(id){
+        var s=self._findStroke(id); if(!s) return;
+        var c=JSON.parse(JSON.stringify(s));   // deep copy (pts, optional fields)
+        c.id=self._uid();
+        if(c.pts) c.pts=c.pts.map(function(q){ return {x:q.x+OFF, y:q.y+OFF}; });
+        self.strokes.push(c); newIds.push(c.id); added.push({idx:self.strokes.length-1, stroke:c});
+      });
+      if(!newIds.length) return;
+      this.selIds=newIds; this.redo=[]; this.redoOps=[];
+      this._pushOp({t:'gadd', items:added});
+      if(this._onDirty) this._onDirty();
+      this.render(); this._emitSel();
     },
     // Apply a style field to the current selection. log=false → live preview (slider input);
     // commitSel(snap) pushes one gmod for the whole gesture. Swatch clicks pass log=true.
@@ -3839,6 +3861,9 @@ var DieselMarkup = (function(){
       var g=this.hasSel()?this._selGeom():null;
       function d(a,bx,by){ var dx=a.x-bx, dy=a.y-by; return Math.sqrt(dx*dx+dy*dy); }
       if(g){
+        // S344 Phase 2c: copy handle (✎ duplicate) — tested BEFORE all other handles so a
+        // tap duplicates the selection instead of starting a move/resize.
+        if(g.copy && d(p,g.copy.x,g.copy.y)<=g.copy.r+5*g.k){ this._cloneSelection(); return; }
         // delete handle (✕)
         if(d(p,g.del.x,g.del.y)<=g.del.r+5*g.k){ this.deleteSelected(); return; }
         // corner scale handles — anchor is the OPPOSITE corner (FRT model)
@@ -4007,6 +4032,19 @@ var DieselMarkup = (function(){
       ctx.beginPath(); ctx.arc(g.del.x,g.del.y,g.del.r,0,Math.PI*2); ctx.fillStyle='#C0445F'; ctx.fill();
       ctx.fillStyle='#fff'; ctx.font='bold '+Math.round(g.del.r*1.15)+'px Calibri,sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('\u2715',g.del.x,g.del.y+g.k*0.5);
+      // S344 Phase 2c: copy handle (blue circle + two-rect glyph, bottom-center, stem)
+      if(g.copy){
+        ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=lw;
+        ctx.beginPath(); ctx.moveTo((g.b.x1+g.b.x2)/2,g.b.y2); ctx.lineTo(g.copy.x,g.copy.y-g.copy.r); ctx.stroke();
+        ctx.beginPath(); ctx.arc(g.copy.x,g.copy.y,g.copy.r,0,Math.PI*2); ctx.fillStyle='#2C5E8E'; ctx.fill();
+        ctx.strokeStyle='#2C5E8E'; ctx.stroke();
+        // two-rect copy glyph (white): back rect up-left, front rect down-right
+        var u=g.copy.r*0.42;
+        ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1,lw*0.9);
+        ctx.strokeRect(g.copy.x-u*1.4, g.copy.y-u*1.4, u*1.8, u*2.2);
+        ctx.fillStyle='#2C5E8E'; ctx.fillRect(g.copy.x-u*0.2, g.copy.y-u*0.2, u*1.8, u*2.2);
+        ctx.strokeRect(g.copy.x-u*0.2, g.copy.y-u*0.2, u*1.8, u*2.2);
+      }
       ctx.restore();
     },
 
@@ -4187,6 +4225,7 @@ var DieselMarkup = (function(){
       else if(op.t==='mod'){ this.strokes[op.idx]=JSON.parse(op.before); }
       else if(op.t==='gmod'){ op.ids.forEach(function(id,i){ var j=self.strokes.findIndex(function(s){return s.id===id;}); if(j>=0) self.strokes[j]=JSON.parse(op.before[i]); }); }   // S314
       else if(op.t==='gdel'){ op.items.forEach(function(it){ self.strokes.splice(Math.min(it.idx,self.strokes.length),0,it.stroke); }); }   // S314 (items stored ascending)
+      else if(op.t==='gadd'){ var addIds=op.items.map(function(it){return it.stroke.id;}); this.strokes=this.strokes.filter(function(s){return addIds.indexOf(s.id)===-1;}); }   // S344 Phase 2c: undo a clone
       else if(op.t==='clear'){ this.strokes=JSON.parse(op.all); }
       this.redoOps.push(op);
       this.selection=null; this._selMode=null; this._selHandles=null;
@@ -4202,6 +4241,7 @@ var DieselMarkup = (function(){
       else if(op.t==='mod'){ this.strokes[op.idx]=JSON.parse(op.after); }
       else if(op.t==='gmod'){ op.ids.forEach(function(id,i){ var j=self.strokes.findIndex(function(s){return s.id===id;}); if(j>=0) self.strokes[j]=JSON.parse(op.after[i]); }); }   // S314
       else if(op.t==='gdel'){ var rmIds=op.items.map(function(it){return it.stroke.id;}); this.strokes=this.strokes.filter(function(s){return rmIds.indexOf(s.id)===-1;}); }   // S314
+      else if(op.t==='gadd'){ op.items.forEach(function(it){ self.strokes.splice(Math.min(it.idx,self.strokes.length),0,it.stroke); }); }   // S344 Phase 2c: redo a clone
       else if(op.t==='clear'){ this.strokes=[]; }
       this.ops.push(op);
       this.selection=null; this._selMode=null; this._selHandles=null;
