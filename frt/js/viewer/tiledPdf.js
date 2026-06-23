@@ -52,18 +52,13 @@ var _tileCount = 0;
 // we don't re-fetch the same URLs. Cleared on _close_internal.
 var _s99PrefetchIssued = {};
 
-// S342: in-memory tile pool lowered 800 → 300 to stop the Android WebView
-// "Aw, Snap" OOM crash Mark hit at deep zoom on large drawings. The old
-// comment's "800 tiles ≈ 200 MB" math was wrong: it used the COMPRESSED WebP
-// size (~80 kB), but a tile in memory is the DECODED RGBA bitmap — a 512×512
-// tile is 512×512×4 ≈ 1 MB decoded, so 800 tiles ≈ 800 MB, not 200 MB. Stacked
-// on the markup canvas (natural×DPR) + two WebGL contexts (pins + markup) +
-// the base page, that blew past the WebView's memory ceiling. 300 tiles
-// ≈ 300 MB leaves real headroom. The white-flash the big pool guarded against
-// is preserved a different way: _evictExcess now protects CURRENT-LEVEL tiles
-// and only evicts old/off-level tiles (which never prevented a visible flash),
-// so we cut memory without the flash tradeoff.
-var _MAX_TILES = 300;
+// S113 Push 2: iOS detection vars retired alongside iOS support. Tile pool
+// is now sized for the production target — desktop and Android tablets.
+// At ~80 kB per WebP tile + decode overhead, 800 tiles ≈ 200 MB, well
+// within budget on both platforms. Larger cache keeps old-level tiles
+// resident so a fast zoom-in/out doesn't expose white background while
+// new tiles fetch (the L4 flash on zoom-in symptom).
+var _MAX_TILES = 800;
 var _MAX_CONCURRENT = 6;
 var _TILE_SIZE = 512;
 
@@ -778,15 +773,9 @@ function _cancelPendingExceptLevel(keepLevel) {
 }
 
 function _evictExcess(layer) {
-  // S342: two-pass eviction so the lower _MAX_TILES (300) never causes a
-  // visible white-flash. Pass 1 drops only OLD/OFF-LEVEL tiles (level !=
-  // current active level) — these are off-screen or stale-zoom tiles that
-  // never prevented a flash you'd actually see, so evicting them is free.
-  // Pass 2 is a safety valve: if a single level legitimately needs more than
-  // the budget (huge drawing, deep zoom), fall back to plain LRU including
-  // current-level tiles. In practice pass 1 reclaims everything needed.
-  function _drop(key) {
-    var tile = _tiles[key];
+  while (_tileCount > _MAX_TILES && _tileOrder.length) {
+    var oldest = _tileOrder.shift();
+    var tile = _tiles[oldest];
     if (tile) {
       if (_S99_CANVAS) {
         _evictTileFromCanvas(tile);
@@ -795,28 +784,8 @@ function _evictExcess(layer) {
         tile.img.src = '';
       }
     }
-    delete _tiles[key];
+    delete _tiles[oldest];
     _tileCount--;
-    var oi = _tileOrder.indexOf(key);
-    if (oi >= 0) _tileOrder.splice(oi, 1);
-  }
-
-  var cur = _dbg_lastLevel; // current active tile level (null if unknown)
-
-  // Pass 1: oldest-first, off-level tiles only.
-  for (var i = 0; _tileCount > _MAX_TILES && i < _tileOrder.length; ) {
-    var key = _tileOrder[i];
-    var tile = _tiles[key];
-    if (cur != null && tile && tile.level !== cur) {
-      _drop(key); // _drop splices key out, so don't advance i
-    } else {
-      i++; // keep current-level tile; move on
-    }
-  }
-
-  // Pass 2 (safety valve): still over budget → plain LRU, oldest first.
-  while (_tileCount > _MAX_TILES && _tileOrder.length) {
-    _drop(_tileOrder[0]);
   }
 }
 
