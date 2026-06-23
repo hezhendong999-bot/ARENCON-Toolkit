@@ -1440,17 +1440,31 @@ if(isField&&p.drawings&&p.drawings.length){
   // the deficiency Previously-Closed split): an item closed in a PRIOR instance
   // leaves the active flow → it must NOT appear in its appendix (it lives in the
   // Previously Closed section instead). Closed THIS instance stays (shown Closed).
-  function _appPrevClosed(r){return _deficIsClosed(r.d)&&((r.d.closedOnInstance||_curInst)<_curInst);}
+  // S342: read the closing instance the SAME way mainBodyDefs does — prefer the
+  // per-obs addressedOnInstance when the obs carries addressed metadata, else
+  // fall back to pin-level closedOnInstance — so the appendix can never disagree
+  // with the page-1 body about whether an item is current- vs prior-closed.
+  function _appClosedInst(r){
+    var obs=r.obs;
+    if(obs&&obs.addressed!==undefined)return obs.addressedOnInstance||r.d.closedOnInstance||_curInst;
+    return r.d.closedOnInstance||_curInst;
+  }
+  function _appPrevClosed(r){return _deficIsClosed(r.d)&&(_appClosedInst(r)<_curInst);}
   // Build the lettered list of appendices to emit, in order.
   var _appendixDefs=[];
   // Appendix A — deficiency drawings (non-rec pins). Suppressed in recs-only
   // mode (there are no deficiencies in the report, so no deficiency appendix).
-  // Scope unchanged from pre-S317: ALL deficiency pins on the drawing show,
-  // including prior-closed pins (which carry an em-dash Item #). The body's
-  // "Previously Closed Items" table handles them in the narrative separately.
+  // S342 (N+1 rule fix): a deficiency closed in a PRIOR instance must NOT appear
+  // here — neither as a drawing pin nor as a pin-table row. It leaves the active
+  // flow and lives ONLY in the "Previously Closed Items" section (matching the
+  // page-1 body, which already excludes prior-closed via mainBodyDefs, and the
+  // recommendation appendix below, which already applies _appPrevClosed). Closed
+  // THIS instance still shows (status "Closed"). Before this fix the deficiency
+  // predicate was prev-closed-agnostic, so an item closed in report #2 wrongly
+  // re-appeared on the drawing AND in the appendix table when viewing report #3.
   if(_recsMode!=='only'){
     _appendixDefs.push({kind:'deficiency',
-      pred:function(r){return !(r.d&&r.d.isRecommendation);}});
+      pred:function(r){return !(r.d&&r.d.isRecommendation)&&!_appPrevClosed(r);}});
   }
   // Recommendation appendix — gated on recs-included + active rec pins exist.
   // Takes the NEXT free letter: 'A' when it's the only appendix (recs-only or
