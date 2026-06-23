@@ -16729,6 +16729,27 @@ function _npApplyNameplate(np, mode){
 function _placardPreview(btn, d, nPhotos, mode){
   mode = (mode==='pld') ? 'pld' : 'std';
   var sfx = (mode==='pld') ? '-pld' : '';
+  // S344: the worker sometimes leaves churn_pressure_psi AND max_allowable_discharge_psi null
+  // in the structured JSON even though the prose `notes` states the placard's "Max p" value
+  // (= churn / shutoff). Salvage that number from the notes so the Churn row fills. Conservative:
+  // only fires when both structured fields are null, only accepts a plausible 0–600 psi value.
+  function _salvageMaxP(notes){
+    if(!notes) return null;
+    var pats=[
+      // "Max p (max allowable discharge) = 180.0 psi"  /  "Max p = 180 psi"
+      /\bmax\s*p\b[^0-9]{0,40}?([0-9]{1,3}(?:\.[0-9]+)?)\s*psi/i,
+      // "max allowable discharge ... 180 psi" / "max discharge pressure: 180 psi"
+      /max(?:imum)?\s*(?:allowable\s*)?discharge[^0-9]{0,40}?([0-9]{1,3}(?:\.[0-9]+)?)\s*psi/i,
+      // "churn ... 180 psi" / "shutoff ... 180 psi"
+      /(?:churn|shut[\s-]?off)[^0-9]{0,40}?([0-9]{1,3}(?:\.[0-9]+)?)\s*psi/i
+    ];
+    for(var i=0;i<pats.length;i++){ var mm=notes.match(pats[i]); if(mm){ var n=parseFloat(mm[1]); if(isFinite(n)&&n>0&&n<=600) return n; } }
+    return null;
+  }
+  if(d.churn_pressure_psi==null && d.max_allowable_discharge_psi==null){
+    var sv=_salvageMaxP(d.notes);
+    if(sv!=null){ d.max_allowable_discharge_psi=sv; try{ console.info('[placard scan] salvaged Max p/churn from notes:', sv); }catch(_s){} }
+  }
   var old=document.getElementById('placard-scan-card'); if(old&&old.parentNode) old.parentNode.removeChild(old);
   function inputCur(id){ var el=document.getElementById(id); return el?el.value:''; }
   function curPlacard(pct){
