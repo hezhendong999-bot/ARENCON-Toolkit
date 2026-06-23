@@ -4639,6 +4639,102 @@ var DslLightbox = (function(){
     [sizeWrap,opWrap,sep2px(),colorBtn,sep2px(),bSv,bCr,bRv].forEach(function(e){rowStyle.appendChild(e);});
     bar.appendChild(rowTools); bar.appendChild(rdiv); bar.appendChild(rowStyle);
     ov.appendChild(bar);
+    // ═══ S344 Phase 2d-2: docked TEXT bar (FRT port) — swaps in over the markup bar while
+    // editing an on-photo text box. size − N + · text-colour A · bg-colour (w/ none) · ↵ · ✕ ✓.
+    var TEXT_PALETTE=['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'];
+    var _RET='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+    var _XS='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    var _OK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6"/></svg>';
+    var _NONEX='<svg width="100%" height="100%" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="#e23" stroke-width="2.6"/></svg>';
+    var textBar=document.createElement('div'); textBar.id='dlb-text-bar';
+    textBar.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;'+
+      'align-items:center;gap:4px;padding:7px 9px;background:rgba(20,20,28,.96);border:1.5px solid #C9476A;'+
+      'border-radius:14px;z-index:13;box-shadow:0 6px 20px rgba(0,0,0,.55);max-width:calc(100vw - 16px);box-sizing:border-box;flex-wrap:nowrap;';
+    textBar.innerHTML=
+      '<button type="button" class="tb-dec" style="width:34px;height:40px;border:none;background:transparent;color:#f4f3f6;font:700 20px Calibri;border-radius:8px;cursor:pointer;">\u2212</button>'+
+      '<div class="tb-sizeval" style="min-width:26px;text-align:center;font:13px Calibri;color:#a09aa8;font-variant-numeric:tabular-nums;">24</div>'+
+      '<button type="button" class="tb-inc" style="width:34px;height:40px;border:none;background:transparent;color:#f4f3f6;font:700 20px Calibri;border-radius:8px;cursor:pointer;">+</button>'+
+      '<div style="width:1px;height:28px;background:rgba(255,255,255,.14);margin:0 2px;"></div>'+
+      '<button type="button" class="tb-textcol" title="Text colour" style="width:40px;height:40px;border:none;background:transparent;border-radius:8px;cursor:pointer;position:relative;">'+
+        '<span style="font:800 19px Calibri;color:#A85959;" class="tb-A">A</span>'+
+        '<span class="tb-Ustrip" style="position:absolute;bottom:5px;left:9px;right:9px;height:3px;border-radius:2px;background:#A85959;"></span></button>'+
+      '<button type="button" class="tb-bgcol" title="Background colour" style="width:40px;height:40px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">'+
+        '<span class="tb-bgglyph" style="width:22px;height:18px;border-radius:3px;border:1.5px solid rgba(255,255,255,.5);position:relative;overflow:hidden;display:block;"></span></button>'+
+      '<button type="button" class="tb-ret" title="New line" style="width:44px;height:40px;border:none;background:transparent;color:#f4f3f6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">'+_RET+'</button>'+
+      '<div style="width:1px;height:28px;background:rgba(255,255,255,.14);margin:0 2px;"></div>'+
+      '<button type="button" class="tb-x" title="Discard" style="width:46px;height:40px;border:none;background:transparent;color:#a09aa8;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">'+_XS+'</button>'+
+      '<button type="button" class="tb-ok" title="Place" style="width:46px;height:40px;border:none;background:#3FD08A;color:#fff;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">'+_OK+'</button>';
+    ov.appendChild(textBar);
+    function _mkPop(){ var pp=document.createElement('div');
+      pp.style.cssText='position:absolute;display:none;flex-wrap:wrap;gap:6px;width:160px;padding:8px;background:rgba(34,34,44,.99);border:1px solid rgba(255,255,255,.16);border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.6);z-index:27;';
+      ov.appendChild(pp); return pp; }
+    var textPop=_mkPop(), bgPop=_mkPop();
+    function _swatchT(c,isNone){ var s=document.createElement('button'); s.type='button';
+      s.style.cssText='width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.4);cursor:pointer;padding:0;overflow:hidden;';
+      if(isNone){ s.style.background='#2a2a32'; s.innerHTML=_NONEX; } else { s.style.background=c; }
+      return s; }
+    function _tcloseTextPops(){ textPop.style.display='none'; bgPop.style.display='none'; }
+    function _posPop(pop, btn){ var br=btn.getBoundingClientRect(), o=ov.getBoundingClientRect();
+      pop.style.left=Math.max(6,(br.left-o.left)+br.width/2-80)+'px'; pop.style.bottom=(o.bottom-textBar.getBoundingClientRect().top+8)+'px'; pop.style.right='auto'; }
+    var _tc=null;
+    function _liftTextBar(){
+      if(textBar.style.display==='none') return;
+      var vv=window.visualViewport;
+      if(vv){ var kb=window.innerHeight - vv.height - vv.offsetTop; if(kb<0) kb=0; textBar.style.bottom=(kb+12)+'px'; }
+      else { textBar.style.bottom='16px'; }
+    }
+    if(window.visualViewport){ window.visualViewport.addEventListener('resize',_liftTextBar); window.visualViewport.addEventListener('scroll',_liftTextBar); }
+    function _refreshTextBarGlyphs(){
+      if(!_tc) return;
+      var col=_tc.getColor(), bg=_tc.getBg();
+      textBar.querySelector('.tb-A').style.color=col;
+      textBar.querySelector('.tb-Ustrip').style.background=col;
+      var g=textBar.querySelector('.tb-bgglyph');
+      if(!bg||bg==='none'){ g.style.background='transparent'; g.innerHTML=_NONEX; }
+      else { g.style.background=bg; g.innerHTML=''; }
+      textBar.querySelector('.tb-sizeval').textContent=Math.round(_tc.getSize());
+    }
+    TEXT_PALETTE.forEach(function(c){ var s=_swatchT(c,false);
+      s.addEventListener('click',function(e){ e.stopPropagation(); if(_tc){_tc.setColor(c); _refreshTextBarGlyphs();} _tcloseTextPops(); });
+      textPop.appendChild(s); });
+    var txCustom=document.createElement('input'); txCustom.type='color'; txCustom.value='#A85959';
+    txCustom.style.cssText='width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;';
+    txCustom.addEventListener('input',function(){ if(_tc){_tc.setColor(txCustom.value); _refreshTextBarGlyphs();} });
+    textPop.appendChild(txCustom);
+    var bgNone=_swatchT(null,true);
+    bgNone.addEventListener('click',function(e){ e.stopPropagation(); if(_tc){_tc.setBg('none'); _refreshTextBarGlyphs();} _tcloseTextPops(); });
+    bgPop.appendChild(bgNone);
+    TEXT_PALETTE.forEach(function(c){ var s=_swatchT(c,false);
+      s.addEventListener('click',function(e){ e.stopPropagation(); if(_tc){_tc.setBg(c); _refreshTextBarGlyphs();} _tcloseTextPops(); });
+      bgPop.appendChild(s); });
+    var bgCustom=document.createElement('input'); bgCustom.type='color'; bgCustom.value='#1C2333';
+    bgCustom.style.cssText='width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;';
+    bgCustom.addEventListener('input',function(){ if(_tc){_tc.setBg(bgCustom.value); _refreshTextBarGlyphs();} });
+    bgPop.appendChild(bgCustom);
+    textBar.querySelector('.tb-dec').addEventListener('click',function(e){e.preventDefault(); if(_tc){_tc.stepSize(-1); _refreshTextBarGlyphs();}});
+    textBar.querySelector('.tb-inc').addEventListener('click',function(e){e.preventDefault(); if(_tc){_tc.stepSize(1); _refreshTextBarGlyphs();}});
+    textBar.querySelector('.tb-ret').addEventListener('click',function(e){e.preventDefault(); if(_tc)_tc.insertNewline();});
+    textBar.querySelector('.tb-ok').addEventListener('click',function(e){e.preventDefault(); if(_tc)_tc.commit();});
+    textBar.querySelector('.tb-x').addEventListener('click',function(e){e.preventDefault(); if(_tc)_tc.cancel();});
+    textBar.querySelector('.tb-textcol').addEventListener('click',function(e){e.stopPropagation();
+      var on=textPop.style.display==='flex'; _tcloseTextPops(); if(!on){ _posPop(textPop,this); textPop.style.display='flex'; }});
+    textBar.querySelector('.tb-bgcol').addEventListener('click',function(e){e.stopPropagation();
+      var on=bgPop.style.display==='flex'; _tcloseTextPops(); if(!on){ _posPop(bgPop,this); bgPop.style.display='flex'; }});
+    ov.addEventListener('click',function(ev){ if(!textBar.contains(ev.target)) _tcloseTextPops(); });
+    // engine hooks: show text bar (hide markup bar) on text start; reverse on end.
+    if(window.DieselMarkup){
+      DieselMarkup._onTextStart=function(controller){
+        _tc=controller; _refreshTextBarGlyphs();
+        bar.style.display='none';
+        textBar.style.display='flex';
+        _liftTextBar(); requestAnimationFrame(_liftTextBar); setTimeout(_liftTextBar,150); setTimeout(_liftTextBar,400);
+      };
+      DieselMarkup._onTextEnd=function(){
+        _tc=null; _tcloseTextPops(); textBar.style.display='none';
+        if(_markupActive) bar.style.display='flex';
+        setActiveTool('pen');   // FRT auto-unarm: drop Text after a box so next tap doesn't add another
+      };
+    }
     document.body.appendChild(ov);
     _built=true;
 
