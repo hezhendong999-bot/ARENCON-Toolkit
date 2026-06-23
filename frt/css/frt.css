@@ -1679,6 +1679,13 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 
 /* ═══ INSPECTOR CHIP — always visible in header ═══ */
 .inspector-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:16px;font-size:calc(11px + var(--ts));font-weight:600;color:rgba(255,255,255,.85);cursor:pointer;transition:all .15s;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
+/* S341 (Mark): remove the redundant "mhe / Sign out" header badge entirely.
+   Sign Out lives in the ☰ menu (#mobile-signout-btn, wired independently), so
+   the header name chip + Sign Out button are duplicate clutter that also
+   floated over content on narrow layouts. Hidden on ALL screens. The ☰ menu
+   remains the single sign-out path. (#presence-chip "others here" is a separate
+   feature and is left intact.) */
+#inspector-chip, #btn-signout{display:none !important;}
 .inspector-chip:hover{background:rgba(255,255,255,.25);}
 .inspector-chip .ic-icon{font-size:calc(13px + var(--ts));flex-shrink:0;}
 .inspector-chip .ic-name{overflow:hidden;text-overflow:ellipsis;}
@@ -5106,10 +5113,10 @@ body.dark-mode .pin-rec-toggle.is-rec:hover{background:rgba(168,180,197,.24);col
 .obs-media-divider{height:1px;background:var(--border);margin:2px 0;}
 .obs-media-hint{font-size:calc(11px + var(--ts));color:var(--silver);text-align:center;font-weight:600;line-height:1.2;flex:1;display:flex;align-items:center;justify-content:center;min-height:24px;}
 .obs-media-btns{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2;}
-/* S341: on narrow Android phones the Camera/Gallery buttons were cramped edge
-   to edge. Let them share the row evenly with a sensible min width and a
-   comfortable touch height so they fit and tap cleanly. */
-.obs-media-btns .obs-drop-btn{flex:1 1 0;min-width:108px;min-height:44px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;}
+/* S341: compact Camera/Gallery buttons — normal small padding like any other
+   button, natural width (no stretch-to-fill). Keep touch-priority bits so taps
+   land on the button, not the drop zone behind it. */
+.obs-media-btns .obs-drop-btn{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;padding:6px 12px;font-size:calc(12px + var(--ts));position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;}
 
 .defic-pin-footer{padding:10px 14px;background:rgba(0,0,0,0.02);border-top:1.5px solid var(--border);}
 .defic-pin-footer .defic-actions{margin-top:0;padding-top:0;border-top:none;}

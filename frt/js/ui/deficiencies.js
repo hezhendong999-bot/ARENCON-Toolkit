@@ -2423,8 +2423,9 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     var _isRecH = !!o.isRecommendation;
     var _pinNum = (opts.pinNum != null) ? opts.pinNum : (d.num != null ? d.num : '?');
     h += '<div class="dfx-ed-header">';
-    // star-only recommendation (reuses toggle-rec, per-obs)
-    h += '<button type="button" data-action="toggle-rec" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" class="dfx-ed-star' + (_isRecH ? ' on' : '') + '" aria-pressed="' + (_isRecH ? 'true' : 'false') + '" title="' + (_isRecH ? 'Recommendation \u2014 click to revert' : 'Mark as recommendation') + '">' + (_isRecH ? '\u2605' : '\u2606') + '</button>';
+    // S341 (Mark): removed the header recommendation star — redundant with the
+    // status pill's recommendation option, which is how Mark marks recs. The
+    // header row is now just Pin # · on-drawing link.
     h += '<span class="dfx-ed-pinlabel">Pin #' + esc(_pinNum) + '</span>';
     // reserved on-drawing link slot (C passes opts.onDrawingLink; B does not)
     if (opts.onDrawingLink && opts.onDrawingLink.label) {
