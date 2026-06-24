@@ -494,14 +494,21 @@ function _updateDimFinChip() {
   }
   var mc = _getCanvas();
   if (!mc) { chip.classList.remove('show', 'pulse'); _dimFinChipWasShowing = false; return; }
+  // S342: the Done chip used to sit 16px right / 24px above the chain anchor —
+  // i.e. right on top of the point you're drawing from, blocking the live line
+  // (Mark's complaint). It does NOT need to track the anchor: tapping it just
+  // ends the chain, so a fixed, predictable, out-of-the-way spot is better and
+  // behaves identically on mobile and PC. Pin it to the TOP-CENTRE of the canvas
+  // area, just below the toolbar, where it never overlaps the drawing zone and
+  // is always within easy thumb reach. (Kept position:fixed; only x/y change.)
   var r = mc.getBoundingClientRect();
-  var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
-  var sx = r.left + (anchor.x / lw) * r.width;
-  var sy = r.top + (anchor.y / lh) * r.height;
-  // Pill is wider than the old circle — clamp with a generous right margin
-  // so the "Done" label never hangs off-screen.
-  var x = Math.min(Math.max(8, sx + 16), window.innerWidth - 132);
-  var y = Math.min(Math.max(8, sy - 24), window.innerHeight - 60);
+  var chipW = chip.offsetWidth || 110;
+  var x = Math.round(r.left + r.width / 2 - chipW / 2);
+  // Clamp horizontally so it never runs off either edge on a narrow phone.
+  x = Math.min(Math.max(8, x), window.innerWidth - chipW - 8);
+  // Sit a fixed gap below the top of the canvas viewport (clears the toolbar);
+  // never higher than 12px from the window top.
+  var y = Math.max(12, r.top + 12);
   chip.style.left = x + 'px';
   chip.style.top = y + 'px';
   chip.classList.add('show');
@@ -1968,6 +1975,28 @@ function _drawGroupedSelection(ctx) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('\u2715', dx + 8 * us, dy + 8 * us);
+  // S342 — copy handle: filled circle centred below the bottom edge (a corner not
+  // used by rotate top-centre / delete top-right), with a two-rect copy glyph.
+  // Visible whenever a selection exists in select mode; tapping it duplicates the
+  // selection (see _hitCopyHandle / _cloneSelection). Scaled by us so it matches
+  // the other handles' constant on-screen size at any zoom.
+  var ccx = bx + bw / 2, ccy = by + bh + 28 * us;
+  ctx.beginPath();
+  ctx.moveTo(bx + bw / 2, by + bh);
+  ctx.lineTo(ccx, ccy - 9 * us);
+  ctx.strokeStyle = '#2196F3';
+  ctx.lineWidth = 1 * us;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(ccx, ccy, 9 * us, 0, Math.PI * 2);
+  ctx.fillStyle = '#2196F3';
+  ctx.fill();
+  // two-rect copy glyph (white outline): back rect up-left, front rect down-right
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 1.3 * us;
+  var _g = 2.8 * us;
+  ctx.strokeRect(ccx - _g * 1.3, ccy - _g * 1.3, _g * 2, _g * 2);
+  ctx.strokeRect(ccx - _g * 0.2, ccy - _g * 0.2, _g * 2, _g * 2);
   ctx.restore();
 }
 
@@ -2011,6 +2040,62 @@ function _hitDeleteButton(pos) {
   var dcy = (b.y1 - pad) - 14 * us + 8 * us;
   var dist = Math.sqrt((pos.x - dcx) * (pos.x - dcx) + (pos.y - dcy) * (pos.y - dcy));
   return dist <= 22 * us; // ~44px screen touch target (was fixed 12 canvas px)
+}
+
+// S342 — copy handle hit-test (ported from markupEngine S339 _hitCopy, per
+// LOCKED_COPY_MARKUP_DESIGN). Filled circle centred BELOW the selection box
+// bottom edge — a corner not used by rotate (top-centre) or delete (top-right).
+// Scaled by _uiScale() so it stays a constant, finger-friendly size at any zoom
+// (matches the S342 handle-sizing fix). Tested BEFORE delete/resize/rotate/move
+// in _handleSelectDown so tapping it duplicates instead of starting a drag.
+function _hitCopyHandle(pos) {
+  var b = _getGroupBounds();
+  if (!b) return false;
+  var us = _uiScale();
+  var pad = 6 * us;
+  var ccx = (b.x1 + b.x2) / 2;
+  var ccy = b.y2 + pad + 28 * us; // below the box, mirrors rotate's stem above
+  var dist = Math.sqrt((pos.x - ccx) * (pos.x - ccx) + (pos.y - ccy) * (pos.y - ccy));
+  return dist <= 22 * us; // ~44px screen touch target
+}
+
+// S342 — deep-clone the current selection, offset by (+28,+28) image-space px,
+// and make the clones the new active selection so the user can immediately
+// drag-to-place and chain another copy (offset-drag model, LOCKED spec).
+// Coordinate fields offset PER TYPE (mk.js model): x1/y1/x2/y2 (rect/line/arrow/
+// circle/text), mx1/my1/mx2/my2 (dimension), every point in points[], and every
+// point in each eraserMask[].points[]. All arrays DEEP-copied (no aliasing).
+function _cloneSelection() {
+  if (!_selectedIds.length) return;
+  var DX = 28, DY = 28;
+  var newIds = [];
+  _selectedIds.map(function(id) { return _findObj(id); }).filter(Boolean).forEach(function(src) {
+    var c = JSON.parse(JSON.stringify(src)); // deep copy (incl. points/eraserMask arrays)
+    c.id = _newId();
+    // Offset the simple coordinate fields when present.
+    if (c.x1 != null) { c.x1 += DX; c.x2 = (c.x2 != null ? c.x2 + DX : c.x2); }
+    if (c.y1 != null) { c.y1 += DY; c.y2 = (c.y2 != null ? c.y2 + DY : c.y2); }
+    // Dimension objects carry their own measured-endpoint coords.
+    if (c.mx1 != null) { c.mx1 += DX; c.mx2 += DX; c.my1 += DY; c.my2 += DY; }
+    // Pen/highlight/eraser stroke points.
+    if (c.points && c.points.length) {
+      for (var i = 0; i < c.points.length; i++) { c.points[i].x += DX; c.points[i].y += DY; }
+    }
+    // Eraser masks (array of { points:[{x,y}...] }).
+    if (c.eraserMask && c.eraserMask.length) {
+      for (var m = 0; m < c.eraserMask.length; m++) {
+        var mp = c.eraserMask[m].points;
+        if (mp) for (var j = 0; j < mp.length; j++) { mp[j].x += DX; mp[j].y += DY; }
+      }
+    }
+    _objects.push(c);
+    newIds.push(c.id);
+  });
+  if (!newIds.length) return;
+  _selectedIds = newIds;
+  _pushHistory();
+  _renderAll();
+  _markDirty();
 }
 
 function _getBounds(obj) {
@@ -2847,6 +2932,14 @@ function _hitTestObjects(pos) {
 function _handleSelectDown(e) {
   if (_tool !== 'select') return;
   var pos = _getPos(e);
+
+  // S342 — copy handle FIRST (before delete/resize/rotate/move) so tapping it
+  // duplicates the selection rather than starting a drag. Ported from the photo
+  // markup engine (markupEngine S339) per LOCKED_COPY_MARKUP_DESIGN.
+  if (_selectedIds.length && _hitCopyHandle(pos)) {
+    _cloneSelection();
+    return;
+  }
 
   // Check if clicking the grouped delete button
   if (_selectedIds.length && _hitDeleteButton(pos)) {
