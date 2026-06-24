@@ -3807,7 +3807,7 @@ var DieselMarkup = (function(){
     // ── S344 Phase 2a: FRT S339 select sub-tool + confirm API ──
     setSelectSub:function(sub){ if(sub==='single') sub='rubber'; this._selectSub=sub; this._pickIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     getSelectSub:function(){ return this._selectSub; },
-    confirmPick:function(){ if(!this._pickIds.length) return; this.selIds=this._pickIds.slice(); this._pickIds=[]; if(this.ctx) this.render(); this._emitSel(); },
+    confirmPick:function(){ if(!this._pickIds.length) return; this.selIds=this._pickIds.slice(); this._pickIds=[]; this._selectSub='rubber'; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     cancelSelect:function(){ this.selIds=[]; this._pickIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     hasActiveSelection:function(){ return (this.selIds&&this.selIds.length>0)||(this._pickIds&&this._pickIds.length>0); },
     isPicking:function(){ return this._selectSub==='tap' && this._pickIds && this._pickIds.length>0; },
@@ -4866,16 +4866,16 @@ var DslLightbox = (function(){
     function _refreshConfirmBar(){
       var E=window.DieselMarkup; if(!E||_mkTool!=='select'){ cBar.style.display='none'; return; }
       var picking = E.isPicking&&E.isPicking();
-      var hasSel = E.hasSel&&E.hasSel();
+      // Only show the pick bar DURING picking. Once picks are confirmed into a selection we
+      // hide it — leaving it up was overlaying the bottom of the photo and intercepting the
+      // touch that starts a group MOVE (device-only; the bar ate the drag-start). The selection
+      // is now manipulated via the on-canvas handles; empty-tap or Escape deselects.
       if(picking){
         cCnt.textContent=(E.pickCount?E.pickCount():0)+' picked';
         cOk.style.display='flex'; cNo.style.display='flex'; cBar.style.display='flex'; _placeConfirmBar();
-      } else if(hasSel){
-        cCnt.textContent=(E.selCount?E.selCount():0)+' selected';
-        cOk.style.display='none'; cNo.style.display='flex'; cBar.style.display='flex'; _placeConfirmBar();
       } else { cBar.style.display='none'; }
     }
-    cOk.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.confirmPick){ DieselMarkup.confirmPick(); } _refreshConfirmBar(); });
+    cOk.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.confirmPick){ DieselMarkup.confirmPick(); } _hiliteSub(); _refreshConfirmBar(); });
     cNo.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.cancelSelect){ DieselMarkup.cancelSelect(); } _refreshConfirmBar(); });
     if(window.DieselMarkup&&DieselMarkup.onSelChange) DieselMarkup.onSelChange(_refreshConfirmBar);
     bTx.addEventListener('click', function(){ setActiveTool('text'); });
