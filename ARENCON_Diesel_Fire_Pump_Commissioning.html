@@ -3807,11 +3807,14 @@ var DieselMarkup = (function(){
     // ── S344 Phase 2a: FRT S339 select sub-tool + confirm API ──
     setSelectSub:function(sub){ if(sub==='single') sub='rubber'; this._selectSub=sub; this._pickIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     getSelectSub:function(){ return this._selectSub; },
-    confirmPick:function(){ if(!this._pickIds.length) return; this.selIds=this._pickIds.slice(); this._pickIds=[]; this._selectSub='rubber'; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    // S344 unified tap model: tap selection lives in selIds (no separate pick phase). ✓ just
+    // keeps the selection (bar dismisses on its own); selection is manipulated via canvas handles.
+    confirmPick:function(){ /* selection already in selIds; nothing to collapse */ if(this.ctx) this.render(); this._emitSel(); },
     cancelSelect:function(){ this.selIds=[]; this._pickIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     hasActiveSelection:function(){ return (this.selIds&&this.selIds.length>0)||(this._pickIds&&this._pickIds.length>0); },
-    isPicking:function(){ return this._selectSub==='tap' && this._pickIds && this._pickIds.length>0; },
-    pickCount:function(){ return this._pickIds?this._pickIds.length:0; },
+    // "picking" now means: tap sub-mode with an active selection — used to show the count bar.
+    isPicking:function(){ return this._selectSub==='tap' && this.selIds && this.selIds.length>0; },
+    pickCount:function(){ return (this._selectSub==='tap') ? (this.selIds?this.selIds.length:0) : (this._pickIds?this._pickIds.length:0); },
     selCount:function(){ return this.selIds?this.selIds.length:0; },
     onSelChange:function(fn){ this._onSelChange=fn||null; },
     _emitSel:function(){ if(this._onSelChange){ try{ this._onSelChange(); }catch(_){} } },
@@ -3914,15 +3917,26 @@ var DieselMarkup = (function(){
         }
       }
       var hit=this._hitStrokeSel(p);
-      // S344 Phase 2a: tap sub-mode — tap a mark to toggle it in the pick set; empty
-      // taps are sticky (do nothing). ✓ collapses picks into a selection (confirmPick).
-      if(this._selectSub==='tap' && !this.hasSel()){
+      // S344: unified TAP-select model (Mark's spec). In tap sub-mode the selection lives in
+      // selIds directly — there is no separate pick->confirm phase. A TAP on a mark toggles it
+      // in/out of the group (works whether the mark is inside or outside the current group box).
+      // A PRESS+DRAG inside the group box MOVES the group. Empty-area taps are sticky (never
+      // start a rubber-band, never lose the group). Tap vs drag is resolved on _selUp via
+      // ds.moved; on down we arm both a potential toggle and a potential move.
+      if(this._selectSub==='tap'){
+        if(g && p.x>=g.b.x1&&p.x<=g.b.x2&&p.y>=g.b.y1&&p.y<=g.b.y2){
+          // inside the group box: arm a move; remember a hit so a no-move tap toggles it out.
+          this._dragState={type:'move', startX:p.x, startY:p.y, moved:false, orig:this._snapSel(),
+                           tapToggleId: hit?hit.id:null};
+          return;
+        }
         if(hit){
-          var pix=this._pickIds.indexOf(hit.id);
-          if(pix!==-1) this._pickIds.splice(pix,1); else this._pickIds.push(hit.id);
+          // tap on a mark outside the box -> add it to the group immediately.
+          var tix=this.selIds.indexOf(hit.id);
+          if(tix!==-1) this.selIds.splice(tix,1); else this.selIds.push(hit.id);
           this._dragState=null; this.render(); this._emitSel();
         }
-        return;   // empty-area tap: sticky, no rubber-band in tap mode
+        return;   // empty-area tap outside box: sticky, no rubber-band in tap mode
       }
       var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
       // Press inside a multi-selection's bounds (even empty space between strokes)
@@ -4016,6 +4030,12 @@ var DieselMarkup = (function(){
           this._pushOp({t:'gmod', ids:this.selIds.slice(), before:ds.orig, after:after});
           if(this._onDirty) this._onDirty();
         }
+      }
+      // S344 unified tap model: a no-move tap that landed inside the box ON a mark TOGGLES
+      // that mark (add if not selected, remove if selected). Empty-space no-move tap = sticky.
+      if(ds && ds.type==='move' && !ds.moved && ds.tapToggleId && this._selectSub==='tap'){
+        var tox=this.selIds.indexOf(ds.tapToggleId);
+        if(tox!==-1) this.selIds.splice(tox,1); else this.selIds.push(ds.tapToggleId);
       }
       this._dragState=null; this.render(); this._emitSel();
     },
@@ -4854,6 +4874,7 @@ var DslLightbox = (function(){
       });
     });
     // ✓/✗ confirm bar refresh — driven by engine selection state.
+    var _barDismissed=false;   // S344: ✓ hides the bar but keeps selection; a new tap re-shows it
     function _placeConfirmBar(){
       // Sit the confirm bar just above the live toolbar with an 8px gap — never overlap,
       // regardless of the two-row bar's height (FRT parity).
@@ -4865,19 +4886,20 @@ var DslLightbox = (function(){
     }
     function _refreshConfirmBar(){
       var E=window.DieselMarkup; if(!E||_mkTool!=='select'){ cBar.style.display='none'; return; }
-      var picking = E.isPicking&&E.isPicking();
-      // Only show the pick bar DURING picking. Once picks are confirmed into a selection we
-      // hide it — leaving it up was overlaying the bottom of the photo and intercepting the
-      // touch that starts a group MOVE (device-only; the bar ate the drag-start). The selection
-      // is now manipulated via the on-canvas handles; empty-tap or Escape deselects.
-      if(picking){
-        cCnt.textContent=(E.pickCount?E.pickCount():0)+' picked';
+      var picking = E.isPicking&&E.isPicking();   // tap-mode with an active selection
+      if(picking && !_barDismissed){
+        cCnt.textContent=(E.pickCount?E.pickCount():0)+' selected';
         cOk.style.display='flex'; cNo.style.display='flex'; cBar.style.display='flex'; _placeConfirmBar();
       } else { cBar.style.display='none'; }
     }
-    cOk.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.confirmPick){ DieselMarkup.confirmPick(); } _hiliteSub(); _refreshConfirmBar(); });
-    cNo.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.cancelSelect){ DieselMarkup.cancelSelect(); } _refreshConfirmBar(); });
-    if(window.DieselMarkup&&DieselMarkup.onSelChange) DieselMarkup.onSelChange(_refreshConfirmBar);
+    cOk.addEventListener('click',function(){ _barDismissed=true; cBar.style.display='none'; });   // keep selection, just hide the bar
+    cNo.addEventListener('click',function(){ _barDismissed=false; if(window.DieselMarkup&&DieselMarkup.cancelSelect){ DieselMarkup.cancelSelect(); } _refreshConfirmBar(); });
+    if(window.DieselMarkup&&DieselMarkup.onSelChange) DieselMarkup.onSelChange(function(){
+      // A new tap-add (or any selection change) un-dismisses the bar so it reappears with the
+      // updated count; if the selection emptied, keep it dismissed-clean.
+      var E=window.DieselMarkup; if(E && E.selCount && E.selCount()>0 && E.getSelectSub && E.getSelectSub()==='tap') _barDismissed=false;
+      _refreshConfirmBar();
+    });
     bTx.addEventListener('click', function(){ setActiveTool('text'); });
     bEr.addEventListener('click', function(){ setActiveTool('erase'); });
     // ── Colour swatch button → colour flyout ──
