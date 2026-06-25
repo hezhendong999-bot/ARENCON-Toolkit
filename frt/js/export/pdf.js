@@ -1876,19 +1876,37 @@ function _betaFetchBytes(url){
  * under: photos/{projectId}/frt/{type}/{filename}. FRT already stores this on
  * the photo as ph.r2Key — use it directly. Fall back to parsing r2Url only if
  * r2Key is missing (older photos). */
+// S(this) — convert the URL-form key the photo stores
+//   photos/{slug}/{tool}/{type}/{fname}
+// into the TRUE R2 bucket key the worker mints/resolves against
+//   {slug}/photos/{tool}/{type}/{fname}
+// (the worker's own urlPathToR2Key swaps `photos` and `{slug}`). Without this
+// swap, mint hashes the wrong string and resolve's bucket.get() finds nothing
+// → every contractor photo link returned "Not Found". Confirmed against the
+// live worker source (KEY FORMAT MAPPING header).
+function _toR2BucketKey(k){
+  if(!k||typeof k!=='string')return '';
+  var parts=k.split('/').filter(Boolean);
+  if(parts.length<2)return k;
+  if(parts[0]==='photos'){
+    // photos/{slug}/{rest...} -> {slug}/photos/{rest...}
+    return parts[1]+'/photos/'+parts.slice(2).join('/');
+  }
+  // already in {slug}/photos/... form (or unknown) — leave as-is
+  return k;
+}
 function _betaKeyFromPhoto(ph){
   if(!ph)return '';
-  if(ph.r2Key&&typeof ph.r2Key==='string')return ph.r2Key;
+  if(ph.r2Key&&typeof ph.r2Key==='string')return _toR2BucketKey(ph.r2Key);
   var r2Url=ph.r2Url;
   if(!r2Url||typeof r2Url!=='string')return '';
   try{
     var m=r2Url.match(/^https?:\/\/[^/]+\/(.+)$/);
     var path=(m?m[1]:r2Url).split('?')[0].split('#')[0];
-    // path IS the key (worker GET = origin + '/' + key). Sanity check shape.
     var parts=path.split('/').filter(Boolean);
     if(parts.indexOf('photos')<0)return '';
     if(parts.length<4)return '';
-    return path;
+    return _toR2BucketKey(path);
   }catch(e){return '';}
 }
 
@@ -1905,17 +1923,11 @@ function _betaGetJWT(){
  * {pid}/photos/frt/{type}/{fname} form. We can't see the worker source, so we
  * send BOTH candidate forms per photo and accept whichever the worker mints.
  * Returns map {anyKeyForm -> token}. Tolerates failure. */
+// S(this): key form is now known exactly (_toR2BucketKey produces the true R2
+// bucket key the worker mints/resolves). No more dual-form guessing — return
+// the single correct key so we mint exactly one KV entry and look it up cleanly.
 function _betaKeyVariants(k){
-  if(!k)return [];
-  var v=[k];
-  var parts=k.split('/');
-  // photos/{pid}/frt/{type}/{fname}  <->  {pid}/photos/frt/{type}/{fname}
-  if(parts[0]==='photos'&&parts.length>=2){
-    v.push([parts[1],'photos'].concat(parts.slice(2)).join('/'));
-  }else if(parts.length>=2&&parts[1]==='photos'){
-    v.push(['photos',parts[0]].concat(parts.slice(2)).join('/'));
-  }
-  return v;
+  return k?[k]:[];
 }
 
 function _betaMintLinks(keys){
