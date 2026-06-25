@@ -20,7 +20,7 @@
  */
 
 import { Model, isSiteRecordsName } from '../data/model.js';
-import { initPDFExport } from './pdf.js';
+import { initPDFExport, initPDFExportBeta } from './pdf.js';
 import { initDeficiencies } from '../ui/deficiencies.js';
 import { toast } from '../shared/toast.js';
 
@@ -99,6 +99,8 @@ function _styleOnce() {
     '.exv-cancel:hover{background:#763D3D;}',
     '.exv-go{padding:6px 18px;border:0;background:#4A6B5A;color:#fff;border-radius:6px;font-size:calc(13px + var(--ts,0px));font-weight:700;cursor:pointer;letter-spacing:.2px;}',
     '.exv-go:hover{background:#3E5A4B;}',
+    '.exv-beta{padding:6px 14px;border:1px solid #2C7FB8;background:transparent;color:#2C7FB8;border-radius:6px;font-size:calc(12px + var(--ts,0px));font-weight:700;cursor:pointer;letter-spacing:.2px;margin-left:8px;}',
+    '.exv-beta:hover{background:rgba(44,127,184,.10);}',
     '@media(max-width:680px){.exv-grid{grid-template-columns:1fr;}}'
   ].join('');
   document.head.appendChild(st);
@@ -244,7 +246,8 @@ export var initExportView = {
 
     h += '<div class="exv-f">'
       + '<div class="exv-acts"><button class="exv-cancel" id="exv-cancel">Cancel</button>'
-      + '<button class="exv-go" id="exv-go">\uD83D\uDCC4 Generate PDF</button></div></div>';
+      + '<button class="exv-go" id="exv-go">\uD83D\uDCC4 Generate PDF</button>'
+      + '<button class="exv-beta" id="exv-beta" title="Linked-photo PDF (BETA) — separate renderer, does not affect your normal PDF">\uD83D\uDD17 Linked PDF (BETA)</button></div></div>';
 
     h += '</div></div>';
 
@@ -368,6 +371,33 @@ export var initExportView = {
         untaggedMode: untaggedMode
       });
     });
+
+    // BETA: linked-photo PDF. Separate pdf-lib renderer; does NOT touch the
+    // normal export path above. Renders the current project as-is (no option
+    // wiring yet — this round is for testing selectable text + real photo links).
+    var _betaBtn = ov.querySelector('#exv-beta');
+    if (_betaBtn) {
+      _betaBtn.addEventListener('click', function() {
+        var doRenumber = ov.querySelector('#exv-renum').checked;
+        var tov = (ov.querySelector('#exv-title').value || '').trim();
+        var p = Model.getProject();
+        if (p) {
+          p.distribution = selectedNames();
+          Model.updateField('reportTitleOverride',
+            (tov && tov !== 'Field Review Report') ? tov : '');
+          if (Model.saveNow) Model.saveNow();
+        }
+        close();
+        if (doRenumber) {
+          var rc = Model.renumberDeficiencies();
+          if (rc > 0) {
+            if (initDeficiencies && initDeficiencies.render) initDeficiencies.render();
+            if (window._frtRenderTasks) window._frtRenderTasks();
+          }
+        }
+        initPDFExportBeta.generate();
+      });
+    }
 
     refreshPrev();
   }

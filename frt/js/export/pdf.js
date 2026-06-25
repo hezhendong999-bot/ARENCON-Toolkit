@@ -1701,3 +1701,304 @@ export const initPDFExport={
     });
   }
 };
+
+/* ============================================================================
+ * BETA — pdf-lib linked-photo report renderer  (C2 Step 2, ADDITIVE)
+ * ----------------------------------------------------------------------------
+ * Parallel to the locked print renderer (_exportPDFWithCache). Touches NONE of
+ * it. Produces a downloadable PDF with: embedded Carlito (selectable/searchable
+ * text), photos drawn from the same r2Cache, and REAL /Link /URI annotations
+ * over photos -> https://arencon-r2-worker.../p/{token}. Links survive any
+ * viewer/re-save (the whole point of C2).
+ *
+ * Photo links: derives the R2 bucket key from each photo's r2Url, mints via
+ * POST /mintlinks (user's Supabase JWT), bakes links it can; any photo whose
+ * key can't be derived/minted is drawn WITHOUT a link (export never breaks).
+ * The renderer reports a minted/total count so we learn key-derivation
+ * reliability on live data.
+ *
+ * This is a FRESH layout (clean, on-brand) — NOT yet a pixel clone of the print
+ * cascade. Labeled BETA in-UI. Layout-fidelity port is the next sessions.
+ * ========================================================================== */
+
+var BETA_WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
+var BETA_CARLITO_REG='https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/carlito/Carlito-Regular.ttf';
+var BETA_CARLITO_BOLD='https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/carlito/Carlito-Bold.ttf';
+var BETA_PDFLIB_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+var BETA_FONTKIT_CDN='https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';
+
+function _betaLoadScript(src){
+  return new Promise(function(res,rej){
+    if(src.indexOf('pdf-lib')>=0&&window.PDFLib)return res();
+    if(src.indexOf('fontkit')>=0&&window.fontkit)return res();
+    var s=document.createElement('script');s.src=src;
+    s.onload=function(){res();};s.onerror=function(){rej(new Error('load fail '+src));};
+    document.head.appendChild(s);
+  });
+}
+
+function _betaFetchBytes(url){
+  return fetch(url).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status+' '+url);return r.arrayBuffer();})
+    .then(function(b){return new Uint8Array(b);});
+}
+
+/* Derive the R2 bucket key the mint route expects:
+ *   {slug}/photos/{tool}/{type}/{fname}
+ * from a stored r2Url. r2Url forms vary; we parse the path after the worker
+ * origin (or any origin) and normalize. Returns '' if we can't get a confident key. */
+function _betaKeyFromR2Url(r2Url){
+  if(!r2Url||typeof r2Url!=='string')return '';
+  try{
+    var path='';
+    // strip scheme+host
+    var m=r2Url.match(/^https?:\/\/[^/]+\/(.+)$/);
+    path=m?m[1]:r2Url;
+    // strip query/hash
+    path=path.split('?')[0].split('#')[0];
+    // common worker GET path is /photos/{pid}/frt/{type}/{fname} OR
+    // /{pid}/photos/frt/{type}/{fname}; mint wants {slug}/photos/{tool}/{type}/{fname}.
+    // Normalize: find the 'photos' segment and rebuild as {prefix}/photos/{rest}.
+    var parts=path.split('/').filter(Boolean);
+    var pi=parts.indexOf('photos');
+    if(pi<0)return '';
+    // bucket-key form: everything from the segment before 'photos' onward,
+    // i.e. {pid}/photos/{tool}/{type}/{fname}. If 'photos' is first, no pid -> bail.
+    if(pi===0)return '';
+    var key=parts.slice(pi-1).join('/');
+    // sanity: need at least {pid}/photos/{tool}/{type}/{fname} = 5 segments
+    if(key.split('/').length<5)return '';
+    return key;
+  }catch(e){return '';}
+}
+
+function _betaGetJWT(){
+  try{
+    var t=localStorage.getItem('sb-access-token');
+    if(t)return t;
+  }catch(e){}
+  return '';
+}
+
+/* Mint links for a set of keys. Returns map {key:token}. Tolerates failure. */
+function _betaMintLinks(keys){
+  if(!keys.length)return Promise.resolve({});
+  var jwt=_betaGetJWT();
+  if(!jwt)return Promise.resolve({}); // no auth -> no links (graceful)
+  return fetch(BETA_WORKER+'/mintlinks',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+    body:JSON.stringify({keys:keys})
+  }).then(function(r){if(!r.ok)throw new Error('mint HTTP '+r.status);return r.json();})
+    .then(function(j){return (j&&j.links)||{};})
+    .catch(function(){return {};});
+}
+
+/* Flatten the project into report rows the BETA renderer draws.
+ * Mirrors the data the print path uses, kept intentionally simple for BETA. */
+function _betaCollectRows(p){
+  var rows=[];
+  function pushDefics(ctrName,defics){
+    (defics||[]).forEach(function(d){
+      var status=(Model&&Model.getEffectiveStatus)?Model.getEffectiveStatus(d):(d.status||'open');
+      var text=_deficDesc(d);
+      var photos=[];
+      // effective photos if available, else pooled
+      if(Model&&Model.getEffectivePhotos&&d.observations&&d.observations.length){
+        d.observations.forEach(function(o,oi){
+          var ph=Model.getEffectivePhotos(d,oi)||[];
+          ph.forEach(function(x){photos.push(x);});
+        });
+      }else{
+        (d.photos||[]).forEach(function(x){photos.push(x);});
+      }
+      rows.push({
+        ctr:ctrName||'',
+        itemText:text,
+        priority:(d.priority||'high'),
+        status:status,
+        isRec:!!d.isRecommendation,
+        pinRef:(d.drawingName||'')+(d.pinLabel?(' · '+d.pinLabel):''),
+        photos:photos
+      });
+    });
+  }
+  (p.contractors||[]).forEach(function(c){pushDefics(c.name||c.contractor||'Contractor',c.deficiencies);});
+  pushDefics('General',p.generalDeficiencies);
+  return rows;
+}
+
+/* Collect every photo across rows, derive keys, return {photos, keyByR2Url}. */
+function _betaCollectPhotoKeys(rows){
+  var seen={};var keys=[];var keyByUrl={};
+  rows.forEach(function(r){
+    (r.photos||[]).forEach(function(ph){
+      if(!ph||!ph.r2Url)return;
+      if(seen[ph.r2Url])return;seen[ph.r2Url]=1;
+      var k=_betaKeyFromR2Url(ph.r2Url);
+      if(k){keyByUrl[ph.r2Url]=k;keys.push(k);}
+    });
+  });
+  return {keys:keys,keyByUrl:keyByUrl};
+}
+
+/* fetch image bytes for a photo, preferring full-res cached blob, then small, then dataUrl. */
+async function _betaImgBytes(ph,r2Cache){
+  var candidates=[];
+  if(ph.r2Url&&r2Cache&&r2Cache[ph.r2Url])candidates.push(r2Cache[ph.r2Url]);
+  if(ph.r2Url&&r2Cache&&r2Cache['small:'+ph.r2Url])candidates.push(r2Cache['small:'+ph.r2Url]);
+  if(ph.dataUrl&&r2Cache&&r2Cache['small:'+ph.dataUrl])candidates.push(r2Cache['small:'+ph.dataUrl]);
+  if(ph.dataUrl)candidates.push(ph.dataUrl);
+  if(ph.r2Url)candidates.push(ph.r2Url);
+  for(var i=0;i<candidates.length;i++){
+    try{ return await _betaFetchBytes(candidates[i]); }catch(e){}
+  }
+  return null;
+}
+
+async function _betaRender(p,r2Cache,linkByUrl,mintStats){
+  var PDFLib=window.PDFLib;
+  var reg=await _betaFetchBytes(BETA_CARLITO_REG);
+  var bold=await _betaFetchBytes(BETA_CARLITO_BOLD);
+  var doc=await PDFLib.PDFDocument.create();
+  doc.registerFontkit(window.fontkit);
+  var fReg=await doc.embedFont(reg,{subset:true});
+  var fBold=await doc.embedFont(bold,{subset:true});
+
+  var W=612,H=792,MX=43,MT=50;
+  var burg=PDFLib.rgb(0.612,0.153,0.259);
+  var ink=PDFLib.rgb(0.11,0.14,0.20);
+  var ink2=PDFLib.rgb(0.42,0.45,0.50);
+  var hair=PDFLib.rgb(0.6,0.6,0.6);
+  var cardBd=PDFLib.rgb(0.87,0.88,0.91);
+
+  var page=doc.addPage([W,H]);
+  var y=MT; // y measured from top edge
+  function newPage(){ page=doc.addPage([W,H]); y=MT; }
+  function ensure(h){ if(y+h>H-MT){ newPage(); } }
+  function text(t,x,size,font,color){ page.drawText(t||'',{x:x,y:H-y-size,size:size,font:font||fReg,color:color||ink}); }
+  function line(thick,color){ ensure(1); page.drawLine({start:{x:MX,y:H-y},end:{x:W-MX,y:H-y},thickness:thick,color:color}); }
+  function wrap(t,x,size,font,color,maxW){
+    t=(t||'').replace(/\s+/g,' ').trim();if(!t){return;}
+    var f=font||fReg;var words=t.split(' ');var ln='';
+    words.forEach(function(w){
+      var trial=ln?ln+' '+w:w;
+      if(f.widthOfTextAtSize(trial,size)>maxW&&ln){ ensure(size+3); text(ln,x,size,f,color); y+=size+3; ln=w; }
+      else ln=trial;
+    });
+    if(ln){ ensure(size+3); text(ln,x,size,f,color); y+=size+3; }
+  }
+
+  // ---- Page-1 header ----
+  text('ARENCON — Field Review Report',MX,18,fBold,burg); y+=24;
+  text('LINKED-PHOTO PDF · BETA',MX,9,fBold,ink2); y+=14;
+  line(1,hair); y+=14;
+  var proj=p.projectName||p.name||p.projectNo||'(untitled project)';
+  text('Project: '+proj,MX,11,fBold,ink); y+=18;
+  if(p.client){text('Client: '+p.client,MX,11,fReg,ink2);y+=16;}
+  if(p.address){text('Address: '+p.address,MX,11,fReg,ink2);y+=16;}
+  y+=6;
+
+  var rows=_betaCollectRows(p);
+  var itemNo=0;
+
+  for(var ri=0;ri<rows.length;ri++){
+    var r=rows[ri];
+    itemNo++;
+    ensure(46);
+    text(r.ctr||'—',MX,9,fBold,ink2); y+=14;
+    var pill=r.isRec?'Recommendation':(r.status==='closed'?'Closed':'Outstanding');
+    var pillColor=r.isRec?PDFLib.rgb(0.37,0.33,0.25):(r.status==='closed'?PDFLib.rgb(0.26,0.42,0.31):(r.priority==='low'?PDFLib.rgb(0.56,0.38,0.25):PDFLib.rgb(0.56,0.27,0.27)));
+    text(String(itemNo),MX,11,fBold,burg);
+    if(r.pinRef){text('· '+r.pinRef,MX+18,10,fReg,PDFLib.rgb(0.29,0.33,0.41));}
+    var pillW=fBold.widthOfTextAtSize(pill,9.5);
+    page.drawText(pill,{x:W-MX-pillW,y:H-y-11,size:9.5,font:fBold,color:pillColor});
+    y+=18;
+    wrap(r.itemText||'—',MX,11,fReg,ink,W-2*MX);
+    y+=4;
+
+    // ---- photo grid (3-up) drawn inline so page ref is always current ----
+    var photos=(r.photos||[]).filter(function(ph){return ph&&(ph.r2Url||ph.dataUrl);});
+    if(photos.length){
+      var gap=6, cols=3, cellW=(W-2*MX-gap*(cols-1))/cols, cellH=cellW*0.75;
+      var col=0, rowTop=y;
+      for(var pi2=0;pi2<photos.length;pi2++){
+        var ph=photos[pi2];
+        if(col===0){ ensure(cellH+8); rowTop=y; }
+        var x=MX+col*(cellW+gap);
+        var cellYpdf=H-(rowTop+cellH);
+        // border
+        page.drawRectangle({x:x,y:cellYpdf,width:cellW,height:cellH,borderWidth:1,borderColor:cardBd});
+        // image
+        var bytes=await _betaImgBytes(ph,r2Cache);
+        if(bytes){
+          try{
+            var img=(bytes[0]===0x89&&bytes[1]===0x50)?await doc.embedPng(bytes):await doc.embedJpg(bytes);
+            page.drawImage(img,{x:x,y:cellYpdf,width:cellW,height:cellH});
+          }catch(e){}
+        }
+        // link annotation
+        var tok=ph.r2Url?linkByUrl[ph.r2Url]:null;
+        if(tok){
+          var ctx=doc.context;
+          var link=ctx.obj({Type:'Annot',Subtype:'Link',Rect:[x,cellYpdf,x+cellW,cellYpdf+cellH],Border:[0,0,0],
+            A:ctx.obj({Type:'Action',S:'URI',URI:PDFLib.PDFString.of(BETA_WORKER+'/p/'+tok)})});
+          var ref=ctx.register(link);
+          var ex=page.node.Annots();
+          if(ex){ex.push(ref);}else{page.node.set(PDFLib.PDFName.of('Annots'),ctx.obj([ref]));}
+          mintStats.linked++;
+        }
+        col++;
+        if(col>=cols){col=0;y=rowTop+cellH+gap;}
+      }
+      if(col!==0){y=rowTop+cellH+gap;}
+      y+=4;
+    }
+
+    line(0.5,cardBd); y+=12;
+  }
+
+  return await doc.save();
+}
+
+export const initPDFExportBeta={
+  generate(){
+    var p=Model.getProject();if(!p){toast('No project loaded');return;}
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+    ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:26px 34px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;min-width:320px;"><div style="font-size:16px;font-weight:700;color:#1C2333;margin-bottom:10px;">Building linked-photo PDF (BETA)</div><div id="beta-lbl" style="font-size:13px;color:#4A5568;">Loading…</div></div>';
+    document.body.appendChild(ov);
+    var lbl=function(t){var e=document.getElementById('beta-lbl');if(e)e.textContent=t;};
+
+    var mintStats={linked:0,total:0,minted:0};
+
+    Promise.all([_betaLoadScript(BETA_PDFLIB_CDN),_betaLoadScript(BETA_FONTKIT_CDN)])
+    .then(function(){ lbl('Fetching photos…'); return _prefetchR2PhotosForPDF(p,function(d,t){lbl('Fetching photos… '+d+'/'+t);}); })
+    .then(function(r2Cache){
+      lbl('Minting photo links…');
+      var rows=_betaCollectRows(p);
+      var pk=_betaCollectPhotoKeys(rows);
+      mintStats.total=0;rows.forEach(function(r){(r.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)mintStats.total++;});});
+      return _betaMintLinks(pk.keys).then(function(tokenByKey){
+        var linkByUrl={};
+        Object.keys(pk.keyByUrl).forEach(function(url){
+          var k=pk.keyByUrl[url];if(tokenByKey[k]){linkByUrl[url]=tokenByKey[k];mintStats.minted++;}
+        });
+        lbl('Rendering…');
+        return _betaRender(p,r2Cache,linkByUrl,mintStats);
+      });
+    })
+    .then(function(bytes){
+      try{ov.remove();}catch(e){}
+      var blob=new Blob([bytes],{type:'application/pdf'});
+      var url=URL.createObjectURL(blob);
+      var name=((p.projectName||p.name||'ARENCON_Report').replace(/[^\w\-]+/g,'_'))+'_LINKED_BETA.pdf';
+      var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+      toast('Linked-photo PDF built · '+mintStats.linked+'/'+mintStats.total+' photos linked');
+    })
+    .catch(function(e){
+      try{ov.remove();}catch(e2){}
+      console.error('[PDF BETA]',e);
+      showAlert('BETA PDF failed','The linked-photo PDF could not be built: '+(e&&e.message||e)+'\n\nYour normal PDF export is unaffected.');
+    });
+  }
+};
