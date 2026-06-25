@@ -1930,20 +1930,49 @@ function _betaKeyVariants(k){
   return k?[k]:[];
 }
 
+// S(this) — B (KV-write reduction): tokens are deterministic (same R2 key ->
+// same token forever), so cache them locally. Only keys we've never minted get
+// sent to the worker; cached keys skip the network + the KV write entirely.
+// This stops the re-export write storm at the source on this device. Paired
+// with worker-side skip-if-exists (A) for full device-independent protection.
+var _PDF_TOKEN_CACHE_KEY='arencon_pdf_link_tokens_v1';
+function _loadTokenCache(){
+  try{var s=localStorage.getItem(_PDF_TOKEN_CACHE_KEY);return s?JSON.parse(s):{};}catch(e){return {};}
+}
+function _saveTokenCache(c){
+  try{localStorage.setItem(_PDF_TOKEN_CACHE_KEY,JSON.stringify(c));}catch(e){}
+}
 function _betaMintLinks(keys){
   if(!keys.length)return Promise.resolve({});
+  // de-dupe incoming keys
+  var uniq={};keys.forEach(function(k){if(k)uniq[k]=1;});
+  var allKeys=Object.keys(uniq);
+  var cache=_loadTokenCache();
+  var out={};var toMint=[];
+  allKeys.forEach(function(k){
+    if(cache[k])out[k]=cache[k];      // already minted before — reuse, no network, no KV write
+    else toMint.push(k);
+  });
+  if(!toMint.length)return Promise.resolve(out); // everything cached — zero requests
   var jwt=_betaGetJWT();
-  if(!jwt)return Promise.resolve({__noauth:true});
-  // expand to candidate variants, de-dupe
-  var all={};keys.forEach(function(k){_betaKeyVariants(k).forEach(function(v){all[v]=1;});});
-  var sendKeys=Object.keys(all);
+  if(!jwt){ // no auth: return what we have cached; flag only if nothing at all
+    return Promise.resolve(Object.keys(out).length?out:{__noauth:true});
+  }
   return fetch(BETA_WORKER+'/mintlinks',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
-    body:JSON.stringify({keys:sendKeys})
+    body:JSON.stringify({keys:toMint})
   }).then(function(r){if(!r.ok)throw new Error('mint HTTP '+r.status);return r.json();})
-    .then(function(j){return (j&&j.links)||{};})
-    .catch(function(e){return {__err:String(e&&e.message||e)};});
+    .then(function(j){
+      var fresh=(j&&j.links)||{};
+      Object.keys(fresh).forEach(function(k){out[k]=fresh[k];cache[k]=fresh[k];});
+      _saveTokenCache(cache);
+      return out;
+    })
+    .catch(function(e){
+      // network/mint failed: still return any cached tokens we have
+      return Object.keys(out).length?out:{__err:String(e&&e.message||e)};
+    });
 }
 
 /* Flatten the project into report rows the BETA renderer draws.
