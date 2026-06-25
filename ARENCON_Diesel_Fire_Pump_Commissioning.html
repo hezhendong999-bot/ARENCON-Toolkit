@@ -3616,7 +3616,7 @@ var DieselMarkup = (function(){
     // tap-one-or-drag-box group select (default). 'tap' = two-phase: tap marks to
     // pick (toggle), then ✓ to collapse picks into one selection. Selection is sticky
     // in both modes; only ✗ (cancelSelect) or switching tools clears it.
-    _selectSub:'rubber', _pickIds:[], _onSelChange:null,
+    _selectSub:'rubber', _pickIds:[], _onSelChange:null, _grouped:false,
     // S344 Phase 2d: on-photo text box state (FRT port). Sticky colours persist across
     // boxes; the lightbox docked text bar drives the live controller via _onTextStart/End.
     _lastTextColor:null, _lastTextBg:'none', _textController:null, _textInput:null, _repositionTextBox:null,
@@ -3639,7 +3639,7 @@ var DieselMarkup = (function(){
       this.ctx = canvasEl.getContext('2d');
       this.strokes = []; this.redo = [];
       this.ops = []; this.redoOps = []; this.selection = null; this._selMode = null; this._selHandles = null;
-      this.selIds = []; this._dragState = null; this._rubberBand = null; this._selDrag = false; this._pickIds=[]; this._selectSub=this._selectSub||"rubber";   // S314 + S344
+      this.selIds = []; this._dragState = null; this._rubberBand = null; this._selDrag = false; this._pickIds=[]; this._grouped=false; this._selectSub=this._selectSub||"rubber";   // S314 + S344
       // Load existing markup (rescale if it was authored at a different natural size)
       if(existingMk && Array.isArray(existingMk.o)){
         var sx = (existingMk.w ? this.nw/existingMk.w : 1);
@@ -3668,7 +3668,7 @@ var DieselMarkup = (function(){
       this._bound=null; this.canvas=null; this.ctx=null; this.img=null;
       this.strokes=[]; this.redo=[]; this._drawing=false; this._curr=null;
       this.ops=[]; this.redoOps=[]; this.selection=null; this._selMode=null; this._selHandles=null;
-      this.selIds=[]; this._dragState=null; this._rubberBand=null; this._selDrag=false; this._pickIds=[];   // S314 + S344
+      this.selIds=[]; this._dragState=null; this._rubberBand=null; this._selDrag=false; this._pickIds=[]; this._grouped=false;   // S314 + S344
     },
 
     _pt:function(ev){
@@ -3803,18 +3803,18 @@ var DieselMarkup = (function(){
         copy:{x:(bx1+bx2)/2, y:by2+34*k, r:(coarse?20:11)*k} };
     },
     hasSel:function(){ return !!(this.selIds&&this.selIds.length); },
-    deselect:function(){ this.selIds=[]; this._pickIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    deselect:function(){ this.selIds=[]; this._pickIds=[]; this._grouped=false; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     // ── S344 Phase 2a: FRT S339 select sub-tool + confirm API ──
-    setSelectSub:function(sub){ if(sub==='single') sub='rubber'; this._selectSub=sub; this._pickIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    setSelectSub:function(sub){ if(sub==='single') sub='rubber'; this._selectSub=sub; this._pickIds=[]; this._grouped=false; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     getSelectSub:function(){ return this._selectSub; },
-    // S344 unified tap model: tap selection lives in selIds (no separate pick phase). ✓ just
-    // keeps the selection (bar dismisses on its own); selection is manipulated via canvas handles.
-    confirmPick:function(){ /* selection already in selIds; nothing to collapse */ if(this.ctx) this.render(); this._emitSel(); },
-    cancelSelect:function(){ this.selIds=[]; this._pickIds=[]; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    // ✓ groups the currently-picked marks into a moveable selection (shows the group box + handles).
+    confirmPick:function(){ if(this.selIds&&this.selIds.length){ this._grouped=true; } if(this.ctx) this.render(); this._emitSel(); },
+    cancelSelect:function(){ this.selIds=[]; this._pickIds=[]; this._grouped=false; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    isGrouped:function(){ return !!this._grouped; },
     hasActiveSelection:function(){ return (this.selIds&&this.selIds.length>0)||(this._pickIds&&this._pickIds.length>0); },
-    // "picking" now means: tap sub-mode with an active selection — used to show the count bar.
-    isPicking:function(){ return this._selectSub==='tap' && this.selIds && this.selIds.length>0; },
-    pickCount:function(){ return (this._selectSub==='tap') ? (this.selIds?this.selIds.length:0) : (this._pickIds?this._pickIds.length:0); },
+    // "picking" = tap-mode marks selected but NOT yet grouped — drives the ✓/✗ bar.
+    isPicking:function(){ return this._selectSub==='tap' && !this._grouped && this.selIds && this.selIds.length>0; },
+    pickCount:function(){ return this.selIds?this.selIds.length:0; },
     selCount:function(){ return this.selIds?this.selIds.length:0; },
     onSelChange:function(fn){ this._onSelChange=fn||null; },
     _emitSel:function(){ if(this._onSelChange){ try{ this._onSelChange(); }catch(_){} } },
@@ -3917,26 +3917,25 @@ var DieselMarkup = (function(){
         }
       }
       var hit=this._hitStrokeSel(p);
-      // S344: unified TAP-select model (Mark's spec). In tap sub-mode the selection lives in
-      // selIds directly — there is no separate pick->confirm phase. A TAP on a mark toggles it
-      // in/out of the group (works whether the mark is inside or outside the current group box).
-      // A PRESS+DRAG inside the group box MOVES the group. Empty-area taps are sticky (never
-      // start a rubber-band, never lose the group). Tap vs drag is resolved on _selUp via
-      // ds.moved; on down we arm both a potential toggle and a potential move.
+      // S344 two-state TAP model (Mark's spec):
+      //  PICKING  — tap marks to toggle them in selIds; each shows its own glow; NOT grouped,
+      //             NOT moveable yet. ✓ groups them (sets _grouped).
+      //  GROUPED  — after ✓: the group box + handles show; DRAG the box to move. Tapping a mark
+      //             still toggles it in/out (stays grouped + moveable — Option B). Empty taps sticky.
       if(this._selectSub==='tap'){
-        if(g && p.x>=g.b.x1&&p.x<=g.b.x2&&p.y>=g.b.y1&&p.y<=g.b.y2){
-          // inside the group box: arm a move; remember a hit so a no-move tap toggles it out.
+        // GROUPED: pressing inside the box on empty space arms a move (drag to move the group).
+        if(this._grouped && g && p.x>=g.b.x1&&p.x<=g.b.x2&&p.y>=g.b.y1&&p.y<=g.b.y2){
           this._dragState={type:'move', startX:p.x, startY:p.y, moved:false, orig:this._snapSel(),
                            tapToggleId: hit?hit.id:null};
           return;
         }
         if(hit){
-          // tap on a mark outside the box -> add it to the group immediately.
+          // tap a mark: toggle its individual pick (works in both picking and grouped states).
           var tix=this.selIds.indexOf(hit.id);
           if(tix!==-1) this.selIds.splice(tix,1); else this.selIds.push(hit.id);
           this._dragState=null; this.render(); this._emitSel();
         }
-        return;   // empty-area tap outside box: sticky, no rubber-band in tap mode
+        return;   // empty-area tap: sticky (never rubber-band, never lose the picks)
       }
       var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
       // Press inside a multi-selection's bounds (even empty space between strokes)
@@ -4040,22 +4039,30 @@ var DieselMarkup = (function(){
       this._dragState=null; this.render(); this._emitSel();
     },
     _drawSelChrome:function(ctx){
-      // S344 Phase 2a: tap-mode pick highlights — outline each picked-but-unconfirmed mark.
-      if(this._pickIds && this._pickIds.length){
+      // S344 two-state tap: in TAP mode every selected mark shows its own glowing border so you
+      // can tell which individuals are picked (both before and after grouping). The group box
+      // (drawn further below) only appears once _grouped (✓) is set.
+      var inTap=(this._selectSub==='tap');
+      if(inTap && this.selIds && this.selIds.length){
         var self=this, pk=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width);
-        ctx.save(); ctx.setLineDash([5*pk,3*pk]); ctx.strokeStyle='#46C5E8'; ctx.lineWidth=Math.max(1.5,1.6*pk); ctx.globalAlpha=1;
-        this._pickIds.forEach(function(id){ var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s);
-          ctx.strokeRect(b.x1-3*pk,b.y1-3*pk,(b.x2-b.x1)+6*pk,(b.y2-b.y1)+6*pk); });
-        ctx.setLineDash([]);
-        // green ✓ badge at the top of each picked mark (FRT parity)
-        var br=9*pk;
-        this._pickIds.forEach(function(id){ var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s);
-          var bx=(b.x1+b.x2)/2, by=b.y1-3*pk-br;
-          ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fillStyle='#3FD08A'; ctx.fill();
-          ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1.4,1.8*pk); ctx.lineCap='round'; ctx.lineJoin='round';
-          ctx.beginPath(); ctx.moveTo(bx-br*0.45,by); ctx.lineTo(bx-br*0.1,by+br*0.4); ctx.lineTo(bx+br*0.5,by-br*0.4); ctx.stroke();
+        ctx.save();
+        this.selIds.forEach(function(id){ var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s);
+          var x=b.x1-3*pk, y=b.y1-3*pk, w=(b.x2-b.x1)+6*pk, h=(b.y2-b.y1)+6*pk;
+          // soft cyan glow halo
+          ctx.shadowColor='#46C5E8'; ctx.shadowBlur=10*pk;
+          ctx.strokeStyle='#46C5E8'; ctx.lineWidth=Math.max(1.6,1.8*pk); ctx.globalAlpha=1;
+          ctx.strokeRect(x,y,w,h);
+          // a second crisp pass on top (shadow off) so the line stays sharp
+          ctx.shadowBlur=0; ctx.strokeRect(x,y,w,h);
         });
         ctx.restore();
+      } else if(this._pickIds && this._pickIds.length){
+        // (legacy pick-set path — retained, unused in the two-state model)
+        var self2=this, pk2=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width);
+        ctx.save(); ctx.setLineDash([5*pk2,3*pk2]); ctx.strokeStyle='#46C5E8'; ctx.lineWidth=Math.max(1.5,1.6*pk2); ctx.globalAlpha=1;
+        this._pickIds.forEach(function(id){ var s=self2._findStroke(id); if(!s) return; var b=self2._strokeAABB(s);
+          ctx.strokeRect(b.x1-3*pk2,b.y1-3*pk2,(b.x2-b.x1)+6*pk2,(b.y2-b.y1)+6*pk2); });
+        ctx.setLineDash([]); ctx.restore();
       }
       if(this._rubberBand){
         var rb=this._rubberBand, rk=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width);
@@ -4064,6 +4071,9 @@ var DieselMarkup = (function(){
         ctx.setLineDash([]); ctx.restore();
       }
       if(!this.hasSel()) return;
+      // In tap mode the group box + handles only appear AFTER grouping (✓). While still picking,
+      // show only the per-mark glows above (no box, not moveable).
+      if(inTap && !this._grouped) return;
       var g=this._selGeom(); if(!g) return;
       var lw=Math.max(1.5,1.5*g.k);
       ctx.save(); ctx.globalAlpha=1;
@@ -4886,20 +4896,15 @@ var DslLightbox = (function(){
     }
     function _refreshConfirmBar(){
       var E=window.DieselMarkup; if(!E||_mkTool!=='select'){ cBar.style.display='none'; return; }
-      var picking = E.isPicking&&E.isPicking();   // tap-mode with an active selection
-      if(picking && !_barDismissed){
+      var picking = E.isPicking&&E.isPicking();   // tap-mode marks picked but NOT yet grouped
+      if(picking){
         cCnt.textContent=(E.pickCount?E.pickCount():0)+' selected';
         cOk.style.display='flex'; cNo.style.display='flex'; cBar.style.display='flex'; _placeConfirmBar();
-      } else { cBar.style.display='none'; }
+      } else { cBar.style.display='none'; }   // grouped (or empty) → no bar
     }
-    cOk.addEventListener('click',function(){ _barDismissed=true; cBar.style.display='none'; });   // keep selection, just hide the bar
-    cNo.addEventListener('click',function(){ _barDismissed=false; if(window.DieselMarkup&&DieselMarkup.cancelSelect){ DieselMarkup.cancelSelect(); } _refreshConfirmBar(); });
-    if(window.DieselMarkup&&DieselMarkup.onSelChange) DieselMarkup.onSelChange(function(){
-      // A new tap-add (or any selection change) un-dismisses the bar so it reappears with the
-      // updated count; if the selection emptied, keep it dismissed-clean.
-      var E=window.DieselMarkup; if(E && E.selCount && E.selCount()>0 && E.getSelectSub && E.getSelectSub()==='tap') _barDismissed=false;
-      _refreshConfirmBar();
-    });
+    cOk.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.confirmPick){ DieselMarkup.confirmPick(); } _refreshConfirmBar(); });   // ✓ = group the picks
+    cNo.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.cancelSelect){ DieselMarkup.cancelSelect(); } _refreshConfirmBar(); });   // ✗ = clear
+    if(window.DieselMarkup&&DieselMarkup.onSelChange) DieselMarkup.onSelChange(_refreshConfirmBar);
     bTx.addEventListener('click', function(){ setActiveTool('text'); });
     bEr.addEventListener('click', function(){ setActiveTool('erase'); });
     // ── Colour swatch button → colour flyout ──
