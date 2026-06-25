@@ -1115,6 +1115,21 @@ function _pinTrades(d){
   var pc=(d&&d.id!=null)?(_parentCtrByDefId[d.id]||null):null;
   return Model.derivePinTrades(d,pc)||[];
 }
+// S(this) — Mark: does this pin have its OWN trade tag, vs. inheriting the
+// parent contractor's (multi-)trade list? An untagged pin on a multi-trade
+// contractor was being FANNED OUT — emitted once under every trade — which
+// produced phantom duplicate items (e.g. Sprinkler deficiencies re-appearing
+// as orphan Fire Alarm / Electrical items). Untagged pins should appear ONCE
+// in "Other Trade Items", not fan out. A pin is "self-tagged" only when its
+// own obs[0].trade (or legacy defic.trade) is set.
+function _pinHasOwnTrade(d){
+  if(!d)return false;
+  if(Array.isArray(d.observations)&&d.observations.length){
+    var t0=d.observations[0]&&d.observations[0].trade;
+    return !!(t0&&String(t0).trim());
+  }
+  return !!(d.trade&&String(d.trade).trim());
+}
 var _realCtrNames={};(p.contractors||[]).forEach(function(c){if(c&&c.name)_realCtrNames[c.name]=true;});
 function _isRealCtr(nm){return !!_realCtrNames[nm]&&!isSiteRecordsName(nm);}
 var _ctrIdxByName={};(p.contractors||[]).forEach(function(c,i){if(c&&c.name&&_ctrIdxByName[c.name]==null)_ctrIdxByName[c.name]=i;});
@@ -1138,7 +1153,11 @@ if(mainBodyDefs.length){
     if(r.d&&r.d.isRecommendation){if(_recsMode!=='exclude')pooledRecs.push(r);return;}
     var tks=_pinTrades(r.d);
     var real=_isRealCtr(r.ctr);
-    if(tks.length){
+    // S(this): only place the pin under real trade sections when it is SELF-tagged
+    // (has its own trade). An untagged pin — even on a multi-trade contractor —
+    // is genuinely uncategorised and belongs ONCE in "Other Trade Items", not
+    // fanned out across every trade (which created phantom duplicate items).
+    if(tks.length&&_pinHasOwnTrade(r.d)){
       tks.forEach(function(t){
         if(!tradeMap[t]){tradeMap[t]=_newTrade(t);tradeSeen.push(t);}
         var T=tradeMap[t];
