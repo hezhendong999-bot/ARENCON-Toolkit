@@ -199,6 +199,38 @@ function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d,isSiteRecord){
   ctx.restore();
 }
 
+// S343 (#4A) — downscale a photo for IN-REPORT embedding. The report grid shows
+// each photo at ~200-350px wide; embedding the full-res original (3-5 MB phone
+// JPEGs) is what made the PDF ~95 MB for 40 photos. Draw to a canvas capped at
+// PDF_PHOTO_MAX px long edge at JPEG 0.8 -> ~150-250 KB each, still crisp in print.
+// Returns a Promise<dataURL>; on any failure resolves the ORIGINAL src.
+var PDF_PHOTO_MAX = 1000;
+function _downscalePhotoForPDF(src){
+  return new Promise(function(resolve){
+    if(!src){resolve('');return;}
+    var img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=function(){
+      try{
+        var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(!w||!h){resolve(src);return;}
+        var scale=Math.min(1, PDF_PHOTO_MAX/Math.max(w,h));
+        if(scale>=1){resolve(src);return;}
+        var cw=Math.round(w*scale), ch=Math.round(h*scale);
+        var cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+        var cx=cv.getContext('2d');
+        try{cx.imageSmoothingQuality='high';}catch(e){}
+        cx.drawImage(img,0,0,cw,ch);
+        var out=cv.toDataURL('image/jpeg',0.8);
+        cv.width=0;cv.height=0;
+        resolve(out||src);
+      }catch(e){resolve(src);}
+    };
+    img.onerror=function(){resolve(src);};
+    img.src=src;
+  });
+}
+
 function _prefetchR2PhotosForPDF(p,progressCb){
   var urls=[];
   function _collect(defics){
@@ -220,20 +252,52 @@ function _prefetchR2PhotosForPDF(p,progressCb){
   _collect(p.generalDeficiencies);
   (p.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)urls.push(ph.r2Url);});
   urls=urls.filter(function(u,i,a){return a.indexOf(u)===i;});
-  if(!urls.length)return Promise.resolve({});
-  var cache={};var done=0;var total=urls.length;
+  // S343: also downscale dataUrl-only (unsynced) photos so they aren't full-res.
+  var dataUrls=[];
+  function _collectData(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      function add(arr){(arr||[]).forEach(function(ph){if(ph&&!ph.r2Url&&ph.dataUrl)dataUrls.push(ph.dataUrl);});}
+      add(d.photos);
+      if(d.observations)d.observations.forEach(function(o){add(o.photos);});
+      if(d.entries)d.entries.forEach(function(e){add(e.photos);});
+      (d.activity||[]).forEach(function(a){add(a.photos);});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_collectData(c.deficiencies);});
+  _collectData(p.generalDeficiencies);
+  (p.photos||[]).forEach(function(ph){if(ph&&!ph.r2Url&&ph.dataUrl)dataUrls.push(ph.dataUrl);});
+  dataUrls=dataUrls.filter(function(u,i,a){return a.indexOf(u)===i;});
+  if(!urls.length&&!dataUrls.length)return Promise.resolve({});
+  var cache={};var done=0;var total=urls.length+dataUrls.length;
   if(progressCb)progressCb(0,total);
   return Promise.all(urls.map(function(url){
     return fetch(url).then(function(res){if(!res.ok)throw new Error(res.status);return res.blob();})
-    .then(function(blob){cache[url]=URL.createObjectURL(blob);})
+    .then(function(blob){
+      var ou=URL.createObjectURL(blob);
+      cache[url]=ou;
+      return _downscalePhotoForPDF(ou).then(function(small){cache['small:'+url]=small;});
+    })
     .catch(function(){}).finally(function(){done++;if(progressCb)progressCb(done,total);});
-  })).then(function(){return cache;});
+  }).concat(dataUrls.map(function(du){
+    return _downscalePhotoForPDF(du).then(function(small){cache['small:'+du]=small;})
+      .catch(function(){}).finally(function(){done++;if(progressCb)progressCb(done,total);});
+  }))).then(function(){return cache;});
 }
 
 function _pdfPhotoSrc(ph,r2Cache){
   if(!ph)return '';if(typeof ph==='string')return ph;
-  if(ph.r2Url&&r2Cache&&r2Cache[ph.r2Url])return r2Cache[ph.r2Url];
+  if(r2Cache){
+    if(ph.r2Url&&r2Cache['small:'+ph.r2Url])return r2Cache['small:'+ph.r2Url];
+    if(!ph.r2Url&&ph.dataUrl&&r2Cache['small:'+ph.dataUrl])return r2Cache['small:'+ph.dataUrl];
+    if(ph.r2Url&&r2Cache[ph.r2Url])return r2Cache[ph.r2Url];
+  }
   return ph.dataUrl||ph.r2Url||'';
+}
+// S343 (#4B) — full-res link target (synced R2 original). '' when no shareable URL.
+function _pdfPhotoFullHref(ph){
+  if(!ph||typeof ph==='string')return '';
+  return ph.r2Url||'';
 }
 
 function _buildCSS(fontB64){
@@ -349,6 +413,7 @@ function _buildCSS(fontB64){
   c+='.so{color:#A85959;font-weight:700;font-size:11pt;}.sc{color:#5F8068;font-weight:700;font-size:11pt;}';
   // S118: 3-up photo grid (was 2-up flow with 160×160 tiles)
   c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
+  c+='.dp-grid a{display:block;width:100%;text-decoration:none;}';
   c+='.dp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
   // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
   c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
@@ -935,7 +1000,12 @@ function _buildDefCard(r,hdrExtra){
   h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">'+r._itemNo+'</span><span class="item-sep">\u00b7</span><span class="pinref-dark">'+_pinRef+'</span></span><span class="dc-hdr-r">'+_inspChip+(hdrExtra||'')+(_showRecChip?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
-  if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){h+='<img class="dp" src="'+_pdfPhotoSrc(ph,r2Cache)+'">';});h+='</div>';}
+  if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){
+    var _src=_pdfPhotoSrc(ph,r2Cache);
+    var _href=_pdfPhotoFullHref(ph);
+    if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
+    else{h+='<img class="dp" src="'+_src+'">';}
+  });h+='</div>';}
   if(fuActs.length){
     h+='<div class="fu-grp"><span>Follow-up</span><span style="font-weight:500;color:#6B7B8C;">FRT #'+_curInst+'</span></div>';
     fuActs.forEach(function(a){
