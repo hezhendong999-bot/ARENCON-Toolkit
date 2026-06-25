@@ -33,39 +33,36 @@ function _deficDesc(d){
 // on newlines, or on inline " - " dash separators); otherwise plain escaped
 // prose. Leading bullet glyphs/dashes are stripped from each item. Pure prose
 // (no list markers) is untouched, so single-sentence items look exactly as before.
+// S(this) — Mark (revised rule): a line becomes a bullet ONLY when it BEGINS
+// with a dash (leading "- " on its own line). Mid-sentence dashes stay inline.
+// Lines without a leading dash render as plain text (lead-in sentences, single
+// paragraphs). Mixed content works: a non-dash lead-in line followed by several
+// "- " lines renders the lead-in as text + the rest as a bullet list. Pure prose
+// with no leading-dash line is returned untouched (escaped). Used by body AND
+// appendix so bulleting is consistent.
 function _descHtml(raw){
-  var t=(raw==null?'':String(raw)).trim();
+  var t=(raw==null?'':String(raw)).replace(/\r\n?/g,'\n').trim();
   if(!t)return '\u2014';
-  var segs=null;
-  if(/\r|\n/.test(t)){
-    segs=t.split(/\r?\n/);
-  }else if(/(^|\s)[-\u2022\u2013\u2014]\s+\S/.test(t)){
-    // inline dash/bullet list on one line: "A. - item one - item two"
-    // split on a space-dash-space boundary, keep any lead-in before the first dash
-    segs=t.split(/\s+[-\u2022\u2013\u2014]\s+/);
+  if(t.indexOf('\n')<0){
+    // single line: only a leading dash makes it a (one-item) bullet
+    if(/^\s*-\s+\S/.test(t)) return '<ul class="dc-bul"><li>'+esc(t.replace(/^\s*-\s*/,''))+'</li></ul>';
+    return esc(t);
   }
-  if(segs){
-    var lead='';var items=[];
-    segs.forEach(function(s,i){
-      s=s.replace(/^\s*[-\u2022\u2013\u2014]\s*/,'').trim();
-      if(!s)return;
-      if(i===0&&!/^\s*[-\u2022\u2013\u2014]/.test(segs[0])&&segs.length>1&&!/\n/.test(t)){
-        // first chunk before the first inline dash is a lead-in sentence, not a bullet
-        lead=s;
-      }else{
-        items.push(s);
-      }
-    });
-    if(items.length>=2){
-      var out='';
-      if(lead)out+='<div style="margin-bottom:4px;">'+esc(lead)+'</div>';
-      out+='<ul class="dc-bul">';
-      items.forEach(function(it){out+='<li>'+esc(it)+'</li>';});
-      out+='</ul>';
-      return out;
+  var lines=t.split('\n');
+  var out='';var inList=false;
+  lines.forEach(function(ln){
+    var raw=ln.replace(/\s+$/,'');
+    if(/^\s*-\s+/.test(raw)){
+      if(!inList){out+='<ul class="dc-bul">';inList=true;}
+      out+='<li>'+esc(raw.replace(/^\s*-\s*/,'').trim())+'</li>';
+    }else{
+      if(inList){out+='</ul>';inList=false;}
+      var s=raw.trim();
+      if(s)out+='<div'+(out?' style="margin-top:3px;"':'')+'>'+esc(s)+'</div>';
     }
-  }
-  return esc(t);
+  });
+  if(inList)out+='</ul>';
+  return out||esc(t);
 }
 
 function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
@@ -1671,7 +1668,7 @@ if(isField&&p.drawings&&p.drawings.length){
         // S317: Item # is the body item number; rows with no body card (shouldn't
         // occur now that prior-closed are filtered out) show an em-dash, safe.
         var _itm=(r._itemNo!=null)?('<strong style="color:#9C2742;">'+r._itemNo+'</strong>'):'<span style="color:#B8BCC6;">\u2014</span>';
-        aH+='<tr><td>'+_itm+'</td><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+esc(_itemDesc(r)||'\u2014')+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
+        aH+='<tr><td>'+_itm+'</td><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+_descHtml(_itemDesc(r))+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
       });
       aH+='</tbody></table></div></div>';
       // S317 correction: the recommendation appendix always starts its OWN page
