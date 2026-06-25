@@ -6654,7 +6654,7 @@ async function _r2CleanupOrphans(){
   try{
     var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
     var listUrl=workerUrl+'/list/'+_r2FolderId+'/electric/original/';
-    var resp=await fetch(listUrl);
+    var resp=await fetch(listUrl,{headers:_authHeaders()}); // S343 SECURITY
     if(!resp.ok)throw new Error('R2 list failed: '+resp.status);
     var data=await resp.json();
     var r2Files=(data.objects||[]).map(function(o){return o.key;});
@@ -8221,7 +8221,8 @@ async function remove(projectId,tool,type,filename){
 
 async function list(projectId,tool,type){
   var path='/list/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type);
-  var res=await fetch(WORKER_URL+path,{method:'GET'});
+  // S343 SECURITY: send auth so the Worker can REQUIRE auth on /list/ (was anon).
+  var res=await fetch(WORKER_URL+path,{method:'GET',headers:_authHeaders()});
   if(!res.ok){throw new Error('List failed: '+res.statusText);}
   return await res.json();
 }

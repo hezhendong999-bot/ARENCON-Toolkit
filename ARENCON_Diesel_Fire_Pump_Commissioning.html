@@ -13808,8 +13808,9 @@ if(typeof window!=='undefined'){
       if (_open) { resolve([]); return; }
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { resolve(null); return; }
       _open = true;
+      // S342: cap stream to 1080p — 4096x3072 (12MP) crashed Android WebView (OOM).
       navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 3072 } },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false
       }).then(function(stream) {
         _openUI(stream, function(r) { _open = false; resolve(r); });
@@ -13912,28 +13913,23 @@ if(typeof window!=='undefined'){
       _updateUI();
     }
     function _grabFrame() {
-      var cw = video.videoWidth || 1280, ch = video.videoHeight || 720;
+      var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
+      var MAX = 1920; // S342: clamp grab so a single shot can't allocate a huge canvas
+      var scale = Math.min(1, MAX / Math.max(vw, vh));
+      var cw = Math.round(vw * scale), ch = Math.round(vh * scale);
       var cv = document.createElement('canvas');
       cv.width = cw; cv.height = ch;
-      cv.getContext('2d').drawImage(video, 0, 0, cw, ch);
-      cv.toBlob(function(b) { if (b) _addShot(b); busy = false; }, 'image/jpeg', 0.92);
+      var ctx = cv.getContext('2d');
+      try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
+      ctx.drawImage(video, 0, 0, cw, ch);
+      cv.toBlob(function(b) { if (b) _addShot(b); busy = false; cv.width = 0; cv.height = 0; }, 'image/jpeg', 0.9);
     }
     shutter.addEventListener('click', function() {
       if (busy) return;
       busy = true;
-      if (imgCap && imgCap.takePhoto) {
-        var settled = false;
-        var timer = setTimeout(function() { if (settled) return; settled = true; _grabFrame(); }, 1500);
-        imgCap.takePhoto().then(function(b) {
-          if (settled) return; settled = true; clearTimeout(timer);
-          _addShot(b); busy = false;
-        }).catch(function() {
-          if (settled) return; settled = true; clearTimeout(timer);
-          _grabFrame();
-        });
-      } else {
-        _grabFrame();
-      }
+      // S342: takePhoto retired — it returned full-sensor (12MP) images on Android
+      // ignoring the size cap, crashing the WebView. Clamped canvas grab instead.
+      _grabFrame();
     });
     function _close(result) {
       try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
@@ -14235,7 +14231,7 @@ async function _r2CleanupOrphans(){
   try{
     var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
     var listUrl=workerUrl+'/list/'+_r2FolderId+'/diesel/original/';
-    var resp=await fetch(listUrl);
+    var resp=await fetch(listUrl,{headers:_authHeaders()}); // S343 SECURITY
     if(!resp.ok)throw new Error('R2 list failed: '+resp.status);
     var data=await resp.json();
     var r2Files=(data.objects||[]).map(function(o){return o.key;});
@@ -17775,7 +17771,8 @@ async function remove(projectId,tool,type,filename){
 
 async function list(projectId,tool,type){
   var path='/list/'+encodeURIComponent(projectId)+'/'+encodeURIComponent(tool)+'/'+encodeURIComponent(type);
-  var res=await fetch(WORKER_URL+path,{method:'GET'});
+  // S343 SECURITY: send auth so the Worker can REQUIRE auth on /list/ (was anon).
+  var res=await fetch(WORKER_URL+path,{method:'GET',headers:_authHeaders()});
   if(!res.ok){throw new Error('List failed: '+res.statusText);}
   return await res.json();
 }

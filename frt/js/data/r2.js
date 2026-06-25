@@ -187,10 +187,19 @@ export var R2 = {
     });
   },
 
-  /** List files in R2. Returns [{key, url, size}]. */
+  /** List files in R2. Returns [{key, url, size}].
+   *  S343 SECURITY: now sends the Bearer token (same as listAll / PUT / DELETE).
+   *  The /list/ endpoint was previously called anonymously, which left it open
+   *  for anyone to enumerate every photo/drawing key in a project from a single
+   *  public photo URL. Sending the token lets the Worker REQUIRE auth on /list/
+   *  (Worker-side change) without breaking the app. GET stays public (filenames
+   *  are unguessable UUIDs, so direct GET can't be enumerated — only LIST could). */
   list: function(projectId, type) {
+    var token = _getToken();
     var listUrl = R2_WORKER + '/list/' + projectId + '/frt/' + type + '/';
-    return fetch(listUrl).then(function(resp) {
+    return fetch(listUrl, {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+    }).then(function(resp) {
       if (!resp.ok) return [];
       return resp.json();
     }).then(function(data) {
