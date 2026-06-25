@@ -281,6 +281,17 @@ function _finishReview() {
 }
 
 // ── Write-Back to Data Model ────────────────────────────
+// S342 DATA-LOSS FIX: this function used to mutate the in-memory model
+// (d.observations[idx].text = newText, etc.) and RETURN — it never marked the
+// project dirty and never queued a save. The AI comment showed on screen
+// (model changed + UI re-rendered) but was never persisted to IDB/cloud, so a
+// later reload (e.g. next day on another device) pulled cloud state WITHOUT the
+// comment and it vanished. Fix: after writing the AI-specific extra fields
+// (aiReviewed / description / closedNote flags that the generic setters don't
+// touch), route the actual text through the Model methods that DO persist —
+// updateObservation / updateActivityEntry / updateClosedNote — each of which
+// sets _dirty and calls _queueSave() (cloud). Mirrors the manual-edit path
+// (deficiencies.js obs-text handler → Model.updateObservation).
 function _writeBack(path, newText) {
   var p = Model.getProject();
   if (!p) return;
@@ -295,14 +306,47 @@ function _writeBack(path, newText) {
   if (!deficArr || !deficArr[di]) return;
   var d = deficArr[di];
   if (type === 'obs') {
-    if (d.observations && d.observations[idx]) { d.observations[idx].text = newText; d.observations[idx].aiReviewed = true; }
-    if (d.entries && d.entries[idx]) { d.entries[idx].text = newText; d.entries[idx].description = newText; }
+    // AI-specific extras the generic setter doesn't handle:
+    if (d.observations && d.observations[idx]) { d.observations[idx].aiReviewed = true; }
+    if (d.entries && d.entries[idx]) { d.entries[idx].description = newText; }
     if (idx === 0) d.description = newText;
+    // Persisting write (marks dirty + queues cloud save):
+    if (d.id != null && typeof Model.updateObservation === 'function') {
+      Model.updateObservation(d.id, idx, newText);
+    } else {
+      // Fallback: write text directly, then force a dirty save so it can't be lost.
+      if (d.observations && d.observations[idx]) d.observations[idx].text = newText;
+      if (d.entries && d.entries[idx]) d.entries[idx].text = newText;
+      _persistFallback();
+    }
   } else if (type === 'act') {
-    if (d.activity && d.activity[idx]) { d.activity[idx].text = newText; d.activity[idx].aiReviewed = true; }
+    if (d.activity && d.activity[idx]) { d.activity[idx].aiReviewed = true; }
+    var actEntry = d.activity && d.activity[idx];
+    if (d.id != null && actEntry && actEntry.id != null && typeof Model.updateActivityEntry === 'function') {
+      Model.updateActivityEntry(d.id, actEntry.id, { text: newText });
+    } else {
+      if (actEntry) actEntry.text = newText;
+      _persistFallback();
+    }
   } else if (type === 'cn') {
-    d.closedNote = newText; d.closedNoteAiReviewed = true;
+    d.closedNoteAiReviewed = true;
+    if (d.id != null && typeof Model.updateClosedNote === 'function') {
+      Model.updateClosedNote(d.id, newText);
+    } else {
+      d.closedNote = newText;
+      _persistFallback();
+    }
   }
+}
+
+// S342: last-resort persistence when an id-based Model setter isn't available —
+// queue a cloud save the same way the Model's own mutators do. Prefer the public
+// saveNow (IDB) AND a dirty flag so the cloud queue also fires on the next tick.
+function _persistFallback() {
+  try {
+    if (typeof Model.markDirtyAndSave === 'function') { Model.markDirtyAndSave(); return; }
+    if (typeof Model.saveNow === 'function') Model.saveNow();
+  } catch (e) {}
 }
 
 // ── Button State ────────────────────────────────────────
