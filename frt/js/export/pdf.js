@@ -27,6 +27,47 @@ function _deficDesc(d){
   return d.description||'';
 }
 
+// S(this) — Mark: descriptions entered as manual bullet points were collapsing
+// into a run-on paragraph (esc() drops the newlines/dashes the inspector typed).
+// Render a real bulleted list when the text is clearly a list (≥2 segments split
+// on newlines, or on inline " - " dash separators); otherwise plain escaped
+// prose. Leading bullet glyphs/dashes are stripped from each item. Pure prose
+// (no list markers) is untouched, so single-sentence items look exactly as before.
+function _descHtml(raw){
+  var t=(raw==null?'':String(raw)).trim();
+  if(!t)return '\u2014';
+  var segs=null;
+  if(/\r|\n/.test(t)){
+    segs=t.split(/\r?\n/);
+  }else if(/(^|\s)[-\u2022\u2013\u2014]\s+\S/.test(t)){
+    // inline dash/bullet list on one line: "A. - item one - item two"
+    // split on a space-dash-space boundary, keep any lead-in before the first dash
+    segs=t.split(/\s+[-\u2022\u2013\u2014]\s+/);
+  }
+  if(segs){
+    var lead='';var items=[];
+    segs.forEach(function(s,i){
+      s=s.replace(/^\s*[-\u2022\u2013\u2014]\s*/,'').trim();
+      if(!s)return;
+      if(i===0&&!/^\s*[-\u2022\u2013\u2014]/.test(segs[0])&&segs.length>1&&!/\n/.test(t)){
+        // first chunk before the first inline dash is a lead-in sentence, not a bullet
+        lead=s;
+      }else{
+        items.push(s);
+      }
+    });
+    if(items.length>=2){
+      var out='';
+      if(lead)out+='<div style="margin-bottom:4px;">'+esc(lead)+'</div>';
+      out+='<ul class="dc-bul">';
+      items.forEach(function(it){out+='<li>'+esc(it)+'</li>';});
+      out+='</ul>';
+      return out;
+    }
+  }
+  return esc(t);
+}
+
 function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
   var img=new Image();
   img.onload=function(){
@@ -366,6 +407,8 @@ function _buildCSS(fontB64){
   c+='.item-sep{color:#B8BCC6;font-weight:400;margin:0 1px;font-size:11pt;line-height:1;}';/* S317 Option E middot — tightest (Mark: pin# closer to item#) */
   c+='.pinref-dark{color:#4A5568;font-size:9.5pt;font-weight:600;line-height:1;}';/* S317 Option E "Pin 3A" */
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
+  c+='.dc-bul{margin:2px 0 0;padding-left:18px;}';
+  c+='.dc-bul li{margin:0 0 3px;line-height:1.35;break-inside:avoid;page-break-inside:avoid;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
   // S118 status pills — color encodes priority (red=Outstanding High, orange=Outstanding Low, green=Closed)
   // S154 round 2: bg + fg both nudged a step darker for more presence in the report.
@@ -979,7 +1022,7 @@ function _buildDefCard(r,hdrExtra){
   }else{fuActs=actArr;}
   // Build card HTML
   var h='<div class="dc"><div class="dc-inner">';
-  if(hasDwg)h+='<img class="dc-mini" id="mm-'+d.id+'-'+r.obsIdx+'" src="" alt="drawing">';
+  if(hasDwg)h+='<img class="dc-mini" id="mm-'+d.id+'-'+r.obsIdx+'" data-mm="'+d.id+'-'+r.obsIdx+'" src="" alt="drawing">';
   h+='<div class="dc-content">';
   // S143 (Phase 3 G/3.5): inspector initials chip in the PDF header.
   // Only when the picker selected "initials"; legacy/null createdBy
@@ -1001,7 +1044,7 @@ function _buildDefCard(r,hdrExtra){
   var _pinRef='Pin '+esc(r.numLabel||r.rn);
   h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">'+r._itemNo+'</span><span class="item-sep">\u00b7</span><span class="pinref-dark">'+_pinRef+'</span></span><span class="dc-hdr-r">'+_inspChip+(hdrExtra||'')+(_showRecChip?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
-  h+='<div class="dc-desc">'+esc(po.text||'\u2014')+'</div>';
+  h+='<div class="dc-desc">'+_descHtml(po.text)+'</div>';
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){
     var _src=_pdfPhotoSrc(ph,r2Cache);
     var _href=_pdfPhotoFullHref(ph);
@@ -1367,7 +1410,13 @@ function _flowBlock(block){
     if(_secH&&_secH<=_freshCap&&_secH<=_keepTogetherCap&&avail<_secH&&curUsed>PAGE_H*0.15){
       _finalizePage();_startPage();avail=PAGE_H-curUsed;
     }
-    if(avail<blockH+200){_finalizePage();_startPage();}
+    // S(this): keep the trade band with its contractor sub-band + first item so
+    // the title never orphans at a page bottom. _keepH (stamped above) = sub-band
+    // + first-item height. Fall back to the old +200 lookahead when no keep was
+    // stamped or it can't fit a fresh page anyway.
+    var _tKeep=block._keepH||0,_tCap=PAGE_H-COMPACT_HEADER_H;
+    var _tNeed=(_tKeep&&_tKeep<=_tCap)?_tKeep:200;
+    if(avail<blockH+_tNeed){_finalizePage();_startPage();}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
   if(block.type==='ctrHeader'||block.type==='recHeader'){
@@ -1444,10 +1493,19 @@ function _flowBlock(block){
 function _stampKeepWithNext(blocks){
   for(var i=0;i<blocks.length;i++){
     var t=blocks[i].type;
-    if(t!=='ctrHeader'&&t!=='recHeader')continue;
+    if(t!=='ctrHeader'&&t!=='recHeader'&&t!=='tradeHeader')continue;
     var nb=blocks[i+1];
     if(nb&&nb.type!=='tradeHeader'&&nb.type!=='ctrHeader'&&nb.type!=='recHeader'){
       blocks[i]._keepH=_measure(nb.html);
+    }else if(nb&&(nb.type==='ctrHeader'||nb.type==='recHeader')){
+      // S(this): a trade header is immediately followed by a contractor sub-band.
+      // Keep the trade band, the sub-band, AND the sub-band's first item together
+      // so a trade title can never sit alone at a page bottom (the floating
+      // "Electrical"/"Fire Alarm" orphan). Stamp the trade header with the
+      // sub-band height PLUS the sub-band's own _keepH (its first item).
+      var sub=_measure(nb.html);var nn=blocks[i+2];
+      var first=(nn&&nn.type!=='tradeHeader'&&nn.type!=='ctrHeader'&&nn.type!=='recHeader')?_measure(nn.html):0;
+      blocks[i]._keepH=sub+first;
     }
   }
 }
@@ -1655,14 +1713,16 @@ if(isField){
       }
       // Per-card minimap teardrops (one image per obs row across the report body).
       function _renderMinimaps(){
-        var mi=0;
+        var mi=0;var _mmDone={};
         function nextMm(){
           if(mi>=_mmPins.length)return;var r=_mmPins[mi];
           var info=dwgMap[r.d.drawingId];
-          if(!info||!info.dataUrl){mi++;setTimeout(nextMm,5);return;}
-          try{var el=D.getElementById('mm-'+r.d.id+'-'+r.obsIdx);
+          var _mmKey=r.d.id+'-'+r.obsIdx;
+          if(!info||!info.dataUrl||_mmDone[_mmKey]){mi++;setTimeout(nextMm,5);return;}
+          _mmDone[_mmKey]=1;
+          try{var els=D.querySelectorAll('[data-mm="'+_mmKey+'"]');
             var _isSr=isSiteRecordsName(r.ctr);
-            if(el){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{el.src=su;}catch(x){}mi++;setTimeout(nextMm,5);},_isSr);}
+            if(els&&els.length){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{for(var ei=0;ei<els.length;ei++){els[ei].src=su;}}catch(x){}mi++;setTimeout(nextMm,5);},_isSr);}
             else{mi++;setTimeout(nextMm,5);}
           }catch(x){mi++;setTimeout(nextMm,5);}
         }
