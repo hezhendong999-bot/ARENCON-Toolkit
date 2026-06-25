@@ -7,6 +7,8 @@ import { Model, isSiteRecordsName, SITE_RECORDS_LABEL } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
+import { CARLITO_REG_B64 } from './carlitoReg.js';
+import { CARLITO_BOLD_B64 } from './carlitoBold.js';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 // S154 Bug #4: closed-status now derived from Model.getEffectiveStatus
@@ -1722,8 +1724,12 @@ export const initPDFExport={
  * ========================================================================== */
 
 var BETA_WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
-var BETA_CARLITO_REG='https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/carlito/Carlito-Regular.ttf';
-var BETA_CARLITO_BOLD='https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/carlito/Carlito-Bold.ttf';
+// Carlito embedded as base64 (offline, no network font fetch). Decoded to bytes once.
+function _betaB64ToBytes(b64){
+  var bin=atob(b64);var arr=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return arr;
+}
 var BETA_PDFLIB_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
 var BETA_FONTKIT_CDN='https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';
 
@@ -1742,32 +1748,23 @@ function _betaFetchBytes(url){
     .then(function(b){return new Uint8Array(b);});
 }
 
-/* Derive the R2 bucket key the mint route expects:
- *   {slug}/photos/{tool}/{type}/{fname}
- * from a stored r2Url. r2Url forms vary; we parse the path after the worker
- * origin (or any origin) and normalize. Returns '' if we can't get a confident key. */
-function _betaKeyFromR2Url(r2Url){
+/* The R2 object key the mint route hashes is the EXACT key FRT stored objects
+ * under: photos/{projectId}/frt/{type}/{filename}. FRT already stores this on
+ * the photo as ph.r2Key — use it directly. Fall back to parsing r2Url only if
+ * r2Key is missing (older photos). */
+function _betaKeyFromPhoto(ph){
+  if(!ph)return '';
+  if(ph.r2Key&&typeof ph.r2Key==='string')return ph.r2Key;
+  var r2Url=ph.r2Url;
   if(!r2Url||typeof r2Url!=='string')return '';
   try{
-    var path='';
-    // strip scheme+host
     var m=r2Url.match(/^https?:\/\/[^/]+\/(.+)$/);
-    path=m?m[1]:r2Url;
-    // strip query/hash
-    path=path.split('?')[0].split('#')[0];
-    // common worker GET path is /photos/{pid}/frt/{type}/{fname} OR
-    // /{pid}/photos/frt/{type}/{fname}; mint wants {slug}/photos/{tool}/{type}/{fname}.
-    // Normalize: find the 'photos' segment and rebuild as {prefix}/photos/{rest}.
+    var path=(m?m[1]:r2Url).split('?')[0].split('#')[0];
+    // path IS the key (worker GET = origin + '/' + key). Sanity check shape.
     var parts=path.split('/').filter(Boolean);
-    var pi=parts.indexOf('photos');
-    if(pi<0)return '';
-    // bucket-key form: everything from the segment before 'photos' onward,
-    // i.e. {pid}/photos/{tool}/{type}/{fname}. If 'photos' is first, no pid -> bail.
-    if(pi===0)return '';
-    var key=parts.slice(pi-1).join('/');
-    // sanity: need at least {pid}/photos/{tool}/{type}/{fname} = 5 segments
-    if(key.split('/').length<5)return '';
-    return key;
+    if(parts.indexOf('photos')<0)return '';
+    if(parts.length<4)return '';
+    return path;
   }catch(e){return '';}
 }
 
@@ -1779,18 +1776,38 @@ function _betaGetJWT(){
   return '';
 }
 
-/* Mint links for a set of keys. Returns map {key:token}. Tolerates failure. */
+/* Mint links. The worker HMACs the exact R2 key string. FRT stores keys as
+ * photos/{pid}/frt/{type}/{fname}. Some worker builds key on a transposed
+ * {pid}/photos/frt/{type}/{fname} form. We can't see the worker source, so we
+ * send BOTH candidate forms per photo and accept whichever the worker mints.
+ * Returns map {anyKeyForm -> token}. Tolerates failure. */
+function _betaKeyVariants(k){
+  if(!k)return [];
+  var v=[k];
+  var parts=k.split('/');
+  // photos/{pid}/frt/{type}/{fname}  <->  {pid}/photos/frt/{type}/{fname}
+  if(parts[0]==='photos'&&parts.length>=2){
+    v.push([parts[1],'photos'].concat(parts.slice(2)).join('/'));
+  }else if(parts.length>=2&&parts[1]==='photos'){
+    v.push(['photos',parts[0]].concat(parts.slice(2)).join('/'));
+  }
+  return v;
+}
+
 function _betaMintLinks(keys){
   if(!keys.length)return Promise.resolve({});
   var jwt=_betaGetJWT();
-  if(!jwt)return Promise.resolve({}); // no auth -> no links (graceful)
+  if(!jwt)return Promise.resolve({__noauth:true});
+  // expand to candidate variants, de-dupe
+  var all={};keys.forEach(function(k){_betaKeyVariants(k).forEach(function(v){all[v]=1;});});
+  var sendKeys=Object.keys(all);
   return fetch(BETA_WORKER+'/mintlinks',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
-    body:JSON.stringify({keys:keys})
+    body:JSON.stringify({keys:sendKeys})
   }).then(function(r){if(!r.ok)throw new Error('mint HTTP '+r.status);return r.json();})
     .then(function(j){return (j&&j.links)||{};})
-    .catch(function(){return {};});
+    .catch(function(e){return {__err:String(e&&e.message||e)};});
 }
 
 /* Flatten the project into report rows the BETA renderer draws.
@@ -1827,14 +1844,14 @@ function _betaCollectRows(p){
   return rows;
 }
 
-/* Collect every photo across rows, derive keys, return {photos, keyByR2Url}. */
+/* Collect every photo, derive its R2 key, map token-lookup back by r2Url. */
 function _betaCollectPhotoKeys(rows){
   var seen={};var keys=[];var keyByUrl={};
   rows.forEach(function(r){
     (r.photos||[]).forEach(function(ph){
       if(!ph||!ph.r2Url)return;
       if(seen[ph.r2Url])return;seen[ph.r2Url]=1;
-      var k=_betaKeyFromR2Url(ph.r2Url);
+      var k=_betaKeyFromPhoto(ph);
       if(k){keyByUrl[ph.r2Url]=k;keys.push(k);}
     });
   });
@@ -1857,8 +1874,8 @@ async function _betaImgBytes(ph,r2Cache){
 
 async function _betaRender(p,r2Cache,linkByUrl,mintStats){
   var PDFLib=window.PDFLib;
-  var reg=await _betaFetchBytes(BETA_CARLITO_REG);
-  var bold=await _betaFetchBytes(BETA_CARLITO_BOLD);
+  var reg=_betaB64ToBytes(CARLITO_REG_B64);
+  var bold=_betaB64ToBytes(CARLITO_BOLD_B64);
   var doc=await PDFLib.PDFDocument.create();
   doc.registerFontkit(window.fontkit);
   var fReg=await doc.embedFont(reg,{subset:true});
@@ -1979,10 +1996,18 @@ export const initPDFExportBeta={
       var pk=_betaCollectPhotoKeys(rows);
       mintStats.total=0;rows.forEach(function(r){(r.photos||[]).forEach(function(ph){if(ph&&ph.r2Url)mintStats.total++;});});
       return _betaMintLinks(pk.keys).then(function(tokenByKey){
+        var diag='';
+        if(tokenByKey.__noauth){diag=' (not signed in — no links)';tokenByKey={};}
+        else if(tokenByKey.__err){diag=' (mint error: '+tokenByKey.__err+')';tokenByKey={};}
         var linkByUrl={};
         Object.keys(pk.keyByUrl).forEach(function(url){
-          var k=pk.keyByUrl[url];if(tokenByKey[k]){linkByUrl[url]=tokenByKey[k];mintStats.minted++;}
+          var k=pk.keyByUrl[url];
+          // accept whichever key-variant the worker minted
+          var variants=_betaKeyVariants(k);var tok=null;
+          for(var i=0;i<variants.length;i++){if(tokenByKey[variants[i]]){tok=tokenByKey[variants[i]];break;}}
+          if(tok){linkByUrl[url]=tok;mintStats.minted++;}
         });
+        mintStats._diag=diag;
         lbl('Rendering…');
         return _betaRender(p,r2Cache,linkByUrl,mintStats);
       });
@@ -1993,7 +2018,7 @@ export const initPDFExportBeta={
       var url=URL.createObjectURL(blob);
       var name=((p.projectName||p.name||'ARENCON_Report').replace(/[^\w\-]+/g,'_'))+'_LINKED_BETA.pdf';
       var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
-      toast('Linked-photo PDF built · '+mintStats.linked+'/'+mintStats.total+' photos linked');
+      toast('Linked PDF · '+mintStats.linked+'/'+mintStats.total+' photos linked'+(mintStats._diag||''));
     })
     .catch(function(e){
       try{ov.remove();}catch(e2){}
