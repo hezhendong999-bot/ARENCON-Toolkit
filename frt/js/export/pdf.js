@@ -271,6 +271,30 @@ function _downscalePhotoForPDF(src){
   });
 }
 
+// S(this) — collect every synced photo's {r2Url -> R2 key} across the whole
+// project, for tokenized-link minting (privacy fix). Mirrors the prefetch walk.
+function _collectPhotoKeysForMint(p){
+  var keyByUrl={};
+  function _walk(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      function add(arr){(arr||[]).forEach(function(ph){
+        if(ph&&ph.r2Url&&!keyByUrl[ph.r2Url]){var k=_betaKeyFromPhoto(ph);if(k)keyByUrl[ph.r2Url]=k;}
+      });}
+      add(d.photos);
+      if(d.observations)d.observations.forEach(function(o){add(o.photos);});
+      if(d.entries)d.entries.forEach(function(e){add(e.photos);});
+      (d.activity||[]).forEach(function(a){add(a.photos);});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_walk(c.deficiencies);});
+  _walk(p.generalDeficiencies);
+  (p.photos||[]).forEach(function(ph){
+    if(ph&&ph.r2Url&&!keyByUrl[ph.r2Url]){var k=_betaKeyFromPhoto(ph);if(k)keyByUrl[ph.r2Url]=k;}
+  });
+  return keyByUrl;
+}
+
 function _prefetchR2PhotosForPDF(p,progressCb){
   var urls=[];
   function _collect(defics){
@@ -335,9 +359,17 @@ function _pdfPhotoSrc(ph,r2Cache){
   return ph.dataUrl||ph.r2Url||'';
 }
 // S343 (#4B) — full-res link target (synced R2 original). '' when no shareable URL.
+// S(this) — Mark privacy fix: photo links must NEVER be the raw R2 URL (it
+// exposes the worker subdomain = personal account handle + bucket path).
+// Links now resolve to opaque /p/{token} from _pdfLinkByUrl, minted before
+// export. If a photo wasn't minted, it gets NO link (return '') rather than
+// falling back to the exposed URL. Option A (Mark): privacy over clickability.
+var _pdfLinkByUrl={};
+var _PDF_WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
 function _pdfPhotoFullHref(ph){
   if(!ph||typeof ph==='string')return '';
-  return ph.r2Url||'';
+  if(ph.r2Url&&_pdfLinkByUrl[ph.r2Url])return _PDF_WORKER+'/p/'+_pdfLinkByUrl[ph.r2Url];
+  return '';
 }
 
 function _buildCSS(fontB64){
@@ -1769,8 +1801,24 @@ export const initPDFExport={
         if(lbl)lbl.textContent='Fetching photos... '+done+'/'+total;
         if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+'%';}catch(e){}
       }).then(function(r2Cache){
-        try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-        _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off');
+        // S(this) — privacy: mint opaque /p/{token} links for every synced photo
+        // BEFORE rendering. Populate _pdfLinkByUrl so _pdfPhotoFullHref emits
+        // tokens (never the raw R2 URL). On any mint failure, links simply don't
+        // appear — the raw account URL is never exposed.
+        _pdfLinkByUrl={};
+        try{var lbl2=document.getElementById('pf-label');if(lbl2)lbl2.textContent='Securing photo links…';}catch(e){}
+        var keyByUrl=_collectPhotoKeysForMint(p);
+        var keys=Object.keys(keyByUrl).map(function(u){return keyByUrl[u];});
+        return _betaMintLinks(keys).then(function(tokenByKey){
+          if(tokenByKey&&!tokenByKey.__noauth&&!tokenByKey.__err){
+            Object.keys(keyByUrl).forEach(function(url){
+              var k=keyByUrl[url];var variants=_betaKeyVariants(k);
+              for(var i=0;i<variants.length;i++){if(tokenByKey[variants[i]]){_pdfLinkByUrl[url]=tokenByKey[variants[i]];break;}}
+            });
+          }
+          try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
+          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off');
+        });
       });
     }).catch(function(e){
       try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e2){}
