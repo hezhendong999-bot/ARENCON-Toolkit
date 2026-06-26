@@ -378,6 +378,19 @@ function _buildCSS(fontB64){
   if(fontB64){c+='@font-face{font-family:"BlairMdITC TT";src:url(data:font/truetype;base64,'+fontB64+') format("truetype");font-weight:normal;font-style:normal;}';}
   var blairFam=fontB64?'"BlairMdITC TT","Times New Roman",serif':'Calibri,sans-serif';
   c+='.page{width:8.5in;min-height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
+  // S346: appendix sheets can take a larger landscape size. Body pages stay
+  // Letter (default .page). These override only width/min-height; the named
+  // @page rules below drive the actual printed paper size (mixed-size PDF).
+  c+='.page.p11x17{width:17in;min-height:11in;}';
+  c+='.page.p24x36{width:36in;min-height:24in;}';
+  // S346: appendix split — drawing LEFT (flexes), deficiency list RIGHT at a
+  // FIXED 5.4in width (identical column on every sheet size; 24x36 gives its
+  // extra room to the drawing, not the list). List reuses the body .dc cards.
+  c+='.app-split{display:flex;gap:14px;align-items:flex-start;}';
+  c+='.app-split-dwg{flex:1 1 auto;min-width:0;}';
+  c+='.app-split-dwg img{width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;}';
+  c+='.app-split-list{flex:0 0 5.4in;width:5.4in;min-width:0;display:flex;flex-direction:column;text-align:left;}';
+  c+='.app-split-list .dc:first-child{border-top:1px solid #DDE1E7;border-radius:6px 6px 0 0;}';
   c+='.page-content{position:relative;}';
   c+='.ph{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:10px;margin-bottom:0;}';
   c+='.ph img{height:34px;}';
@@ -537,8 +550,12 @@ function _buildCSS(fontB64){
   c+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
   c+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-family:Calibri,sans-serif;font-size:11pt;line-height:1.23;}.pi-row:last-child{margin-bottom:0;}';
   c+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}.pi-value{font-weight:400;color:#1C2333;}';
-  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}}';
+  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}}';
   c+='@page{size:letter;margin:0;}';
+  // S346: named page sizes for the mixed-size appendix. Body pages use the
+  // default @page (letter); appendix sheets tagged .p11x17/.p24x36 map to these.
+  c+='@page tabloidpg{size:17in 11in;margin:0;}';
+  c+='@page archpg{size:36in 24in;margin:0;}';
   return c;
 }
 
@@ -1683,36 +1700,51 @@ if(isField&&p.drawings&&p.drawings.length){
       var aH='';
       if(_firstDrawingOfAppendix){aH+='<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div>';_firstDrawingOfAppendix=false;}
       else{aH+='<div class="sh" style="margin-top:0;">'+esc('Appendix '+_letter)+' <span class="ch-cont">(cont.)</span></div>';}
-      aH+='<div class="sb" style="padding:8px;"><div class="app-dwg">';
+      // S346: appendix layout is now drawing LEFT / deficiency-card list RIGHT
+      // (.app-split). The list reuses the body .dc card look (minus photo/follow-
+      // up) so there's zero style drift from the body. On Letter (default size)
+      // the split still applies; on 11x17/24x36 the page is wider so the drawing
+      // grows while the list stays a fixed 5.4in column. Item # is READ from
+      // r._itemNo (assigned during body render) — never re-assigned here.
+      aH+='<div class="sb" style="padding:8px;">';
       aH+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
+      aH+='<div class="app-split">';
       var _imgId='app-dwg-'+_letter+'-'+dw.id; // S317: appendix-scoped unique id
-      aH+='<img class="app-dwg" id="'+_imgId+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+      aH+='<div class="app-split-dwg"><img id="'+_imgId+'" src="" alt="'+esc(dw.name)+'"></div>';
       _appendixImgJobs.push({imgId:_imgId,drawingId:dw.id,pins:dPins});
-      aH+='<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
+      aH+='<div class="app-split-list">';
       dPins.forEach(function(r){var d=r.d;
         // S119 hotfix: per-obs status + description (r.ctr is already per-obs).
         var rowOpen=_itemIsOpen(r);
-        var statusTxt,statusCol;
+        var pillCls,pillTxt;
         // S317 correction: the recommendation appendix is two-state ONLY —
         // an OPEN rec is "Recommendation" (never "Outstanding"), a CLOSED-this-
         // instance rec is "Closed". Deficiency appendix keeps IAR/Outstanding/Closed.
         if(_isRecAppendix){
-          if(rowOpen){statusTxt='Recommendation';statusCol='#5E5440';} // muted tan (rec family)
-          else{statusTxt='Closed';statusCol='#5F8068';}                // muted sage
-        }else if(d.iar){statusTxt='IAR';statusCol='#E91E8C';}
-        else if(rowOpen){statusTxt='Outstanding';statusCol='#A85959';} // S154 muted maroon
-        else{statusTxt='Closed';statusCol='#5F8068';}                  // S154 muted sage
-        // S317: Item # is the body item number; rows with no body card (shouldn't
-        // occur now that prior-closed are filtered out) show an em-dash, safe.
-        var _itm=(r._itemNo!=null)?('<strong style="color:#9C2742;">'+r._itemNo+'</strong>'):'<span style="color:#B8BCC6;">\u2014</span>';
-        aH+='<tr><td>'+_itm+'</td><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+_descHtml(_itemDesc(r))+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
+          if(rowOpen){pillCls='pill-rec';pillTxt='Recommendation';}
+          else{pillCls='pill-c';pillTxt='Closed';}
+        }else if(d.iar){pillCls='pill-h';pillTxt='IAR';}
+        else if(rowOpen){pillCls='pill-h';pillTxt='Outstanding';}
+        else{pillCls='pill-c';pillTxt='Closed';}
+        // S346: body-style .dc card. Header = "{itemNo} · Pin {ref}" + status
+        // pill (right). Body = description. Footer = contractor. Photo/follow-up
+        // intentionally omitted (appendix = compact cross-reference list).
+        var _itm=(r._itemNo!=null)?r._itemNo:'\u2014';
+        var _pinRef='Pin '+esc(r.numLabel||d.num);
+        aH+='<div class="dc">';
+        aH+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">'+_itm+'</span><span class="item-sep">\u00b7</span><span class="pinref-dark">'+_pinRef+'</span></span><span class="dc-hdr-r"><span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
+        aH+='<div class="dc-desc">'+_descHtml(_itemDesc(r))+'</div>';
+        if(r.ctr)aH+='<div class="dc-footer">'+esc(r.ctr)+'</div>';
+        aH+='</div>';
       });
-      aH+='</tbody></table></div></div>';
+      aH+='</div>'; // .app-split-list
+      aH+='</div>'; // .app-split
+      aH+='</div>'; // .sb
       // S317 correction: the recommendation appendix always starts its OWN page
       // (matches the Recommendations section living on its own page today). The
       // per-page model already forces a page break per appendix entry; the rec
       // appendix's first drawing therefore opens a fresh page after Appendix A.
-      pages.push({html:aH,pageNum:curPageNum,isAppendix:true});curPageNum++;
+      pages.push({html:aH,pageNum:curPageNum,isAppendix:true,appSize:_drawPageSize});curPageNum++;
     });
   });
 }
@@ -1720,7 +1752,11 @@ if(isField&&p.drawings&&p.drawings.length){
 // Render pages
 var allH='';
 pages.forEach(function(pg,idx){
-  var pn=idx+1;allH+='<div class="page">';
+  // S346: appendix pages carry the chosen drawing-sheet size class (.p11x17 /
+  // .p24x36). Body pages and 'letter' appendix pages stay default .page.
+  var _pgCls='page';
+  if(pg.isAppendix&&pg.appSize&&pg.appSize!=='letter')_pgCls+=' '+(pg.appSize==='11x17'?'p11x17':'p24x36');
+  var pn=idx+1;allH+='<div class="'+_pgCls+'">';
   if(pn>1)allH+=_compactHeader(pn);
   allH+='<div class="page-content">'+pg.html+'</div></div>';
 });
