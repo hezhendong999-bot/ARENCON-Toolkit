@@ -5163,6 +5163,33 @@ var DslLightbox = (function(){
     if(window.DieselMarkup && DieselMarkup.strokes && DieselMarkup.strokes.length){ _saveMk(); }
     else { _exitMarkup(false); }
   }
+  // ===== TEMP S346 DIAGNOSTIC — remove after Mark verifies =====
+  function _DBG346(p, baseMode){
+    try{
+      var mk=(p&&p.id&&_mkDraft[p.id])||(p&&p.mk)||null;
+      var nStrokes=(mk&&mk.o&&mk.o.length)||0;
+      var liveStrokes=(window.DieselMarkup&&DieselMarkup.strokes&&DieselMarkup.strokes.length)||0;
+      var cv=_el('dlb-canvas');
+      var msg='S346 ✎\n'
+        +'branch: '+baseMode+'\n'
+        +'p.mk strokes: '+nStrokes+'\n'
+        +'engine strokes: '+liveStrokes+'\n'
+        +'_annotated: '+(!!(p&&p._annotated))+'\n'
+        +'_origBackupId: '+((p&&p._origBackupId)?'yes':'NO')+'\n'
+        +'canvas px: '+(cv?cv.width:'?')+'x'+(cv?cv.height:'?')+'\n'
+        +'canvas css: '+(cv?cv.style.width:'?')+' x '+(cv?cv.style.height:'?');
+      var d=document.getElementById('dbg346');
+      if(!d){ d=document.createElement('div'); d.id='dbg346';
+        d.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;background:rgba(0,0,0,.82);color:#0f0;'
+          +'font:11px/1.35 monospace;white-space:pre;padding:8px 10px;border-radius:8px;max-width:60vw;pointer-events:auto;';
+        d.onclick=function(){ d.style.display='none'; };
+        document.body.appendChild(d);
+      }
+      d.style.display='block'; d.textContent=msg;
+    }catch(_e){}
+  }
+  // ===== END TEMP S346 DIAGNOSTIC =====
+
   // S346 (non-destructive markup): resolve a photo's CLEAN ORIGINAL image source
   // so re-entering markup replays p.mk over the original — NOT over the already-
   // baked p.d (which would double-bake the strokes). Reuses the same backup
@@ -5212,42 +5239,45 @@ var DslLightbox = (function(){
     // S346: the base image the engine paints under the strokes. For a re-opened
     // annotated photo we MUST paint the clean original (not the baked p.d) or the
     // saved strokes replay on top of already-baked strokes = double image.
-    var _doAttach=function(baseImg){
-      DieselMarkup.attach(cv, baseImg, (p.id&&_mkDraft[p.id])||p.mk||null, function(){
-        // S296: opacity slider drives alpha; highlighter keeps its 0.35 base character
-        // (this also fixes the regression where highlights drew fully opaque at alpha:1).
+    _markupActive=true;
+    _el('dlb-area').style.cursor='crosshair';
+    var _doAttach=function(){
+      // attach to the ON-PAGE dlb-image (it has real offsetWidth/naturalWidth;
+      // an off-DOM Image has offsetWidth 0 -> zero-size canvas -> frozen flat look).
+      DieselMarkup.attach(cv, img, (p.id&&_mkDraft[p.id])||p.mk||null, function(){
         var _a=_mkAlpha/100;
         return {tool:_mkTool, color:_mkColor, size:_mkSize*3,
                 alpha:(_mkTool==='highlight' ? 0.35*_a : _a),
                 fontSize:Math.max(18,_mkSize*8)};
       }, null);
+      // post-attach setup (was after the if/else; must run AFTER the async
+      // original load completes for the clean-original branch).
+      _apply();                            // repaints stage WITHOUT baked mk + places canvas
+      _placeMarkupCanvas();
+      try{ DieselMarkup.render(); }catch(e){ console.warn('[DLB] markup initial render failed', e); }  // paint base photo + loaded strokes
+      _DBG346(p, baseMode);   // TEMP diagnostic — remove after verify
     };
 
     var _origSrc=_origSrcForMarkup(p);
     var _curSrc=img.getAttribute('src')||img.src||'';
+    var baseMode;
     if(_origSrc && _origSrc!==_curSrc){
-      // Need the clean original under the strokes. If it's a data: URL it's already
-      // local — decode into a fresh Image and attach. If it's an R2 URL it may need
-      // a network fetch; decode off-DOM, then attach. Strokes replay over original.
-      var _orig=new Image();
-      _orig.onload=function(){ _doAttach(_orig); };
-      _orig.onerror=function(){
-        console.warn('[DLB] markup: clean original failed to load — attaching to displayed image (strokes will not double-bake only if p.mk empty)');
-        _doAttach(img);   // safe fallback: still editable; worst case visual is the existing baked look
+      // Re-point the DISPLAYED image at the clean original, wait for it to load
+      // (real naturalWidth + offsetWidth), then attach + replay strokes over it.
+      baseMode='clean-original';
+      var _restore=function(){ img.onload=null; img.onerror=null; };
+      img.onload=function(){ _restore(); _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _doAttach(); };
+      img.onerror=function(){ _restore();
+        console.warn('[DLB] markup: clean original failed to load — keeping displayed image');
+        baseMode='fallback-baked'; _doAttach();
       };
-      try{ if(_origSrc.indexOf('data:')!==0) _orig.crossOrigin='anonymous'; }catch(_e){}
-      _orig.src=_origSrc;
+      try{ if(_origSrc.indexOf('data:')!==0) img.removeAttribute('crossorigin'); }catch(_e){}
+      img.src=_origSrc;
     } else {
       // Fresh photo (no baked original) OR original already displayed — attach as-is.
-      _doAttach(img);
+      baseMode = _origSrc ? 'already-original' : 'fresh-photo';
+      _doAttach();
     }
-    // S287: the decode <img> is hidden (offsetWidth 0) — pin the engine canvas
-    // CSS over the photo as painted on the stage at fit.
-    _markupActive=true;
-    _apply();                            // repaints stage WITHOUT baked mk + places canvas
-    _placeMarkupCanvas();
-    try{ DieselMarkup.render(); }catch(e){ console.warn('[DLB] markup initial render failed', e); }  // paint base photo + loaded strokes
-    _el('dlb-area').style.cursor='crosshair';
   }
   function _exitMarkup(keepStrokes){
     if(_persistBusy){ if(typeof showToast==='function') showToast('Still saving \u2014 one moment\u2026'); return; }   // S303
