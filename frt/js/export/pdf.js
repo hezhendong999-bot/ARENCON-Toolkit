@@ -94,14 +94,19 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
   img.src=dwgDataUrl;
 }
 
-function _renderDrawingWithPins(dwgDataUrl,pins,callback){
+function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize){
   var img=new Image();
   img.onload=function(){
     var MAX_PX=5000000;var scale=Math.min(1,Math.sqrt(MAX_PX/(img.width*img.height)));
     var w=Math.round(img.width*scale);var h=Math.round(img.height*scale);
     var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
-    var pinW=Math.max(28,w*0.028);
+    // S346 (Mark): pin size is a fraction of the rendered drawing width. On the
+    // big landscape sheets that fraction makes pins huge (24x36 "way too big",
+    // 11x17 "a little big"). Shrink the factor per sheet size so a pin reads at
+    // roughly consistent physical size regardless of paper. Letter unchanged.
+    var _pinFrac=(pageSize==='24x36')?0.014:(pageSize==='11x17')?0.022:0.028;
+    var pinW=Math.max(28,w*_pinFrac);
     pins.forEach(function(rr){
       var d=rr.d;if(d.pinX==null)return;
       var px=d.pinX*w;var py=d.pinY*h;
@@ -553,7 +558,7 @@ function _buildCSS(fontB64){
   c+='.title-block .tb-line4{font-family:Calibri,sans-serif;font-size:12pt;font-weight:700;color:#333;line-height:1.23;margin-bottom:2px;}';
   c+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
   c+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-family:Calibri,sans-serif;font-size:11pt;line-height:1.23;}.pi-row:last-child{margin-bottom:0;}';
-  c+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}.pi-value{font-weight:400;color:#1C2333;}';
+  c+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}.pi-value{flex:1;min-width:0;font-weight:400;color:#1C2333;overflow-wrap:break-word;}';
   c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}}';
   c+='@page{size:letter;margin:0;}';
   // S346: named page sizes for the mixed-size appendix. Body pages use the
@@ -757,10 +762,19 @@ titleBlock+='</div>';
 fullHeader+=titleBlock;
 
 // Project info
+// S346 (#1, Mark): the Distribution line must reflect the export modal's actual
+// selection — including manually-added "Other recipients" (e.g. CBRE). The modal
+// saves that selection to p.distribution; use it as the source of truth. Only
+// fall back to the old client+contractors derivation when no distribution was
+// ever saved (legacy projects / direct export without opening the modal).
 var _pdfDP=[];
-if(p.info&&p.info.client)_pdfDP.push(p.info.client);
-if(_ctrSubtitle){if(_ctrSubtitle!==(p.info&&p.info.client))_pdfDP.push(_ctrSubtitle);}
-else{(p.contractors||[]).forEach(function(c){if(c.name!==(p.info&&p.info.client))_pdfDP.push(c.name);});}
+if(Array.isArray(p.distribution)&&p.distribution.length){
+  p.distribution.forEach(function(n){if(n)_pdfDP.push(n);});
+}else{
+  if(p.info&&p.info.client)_pdfDP.push(p.info.client);
+  if(_ctrSubtitle){if(_ctrSubtitle!==(p.info&&p.info.client))_pdfDP.push(_ctrSubtitle);}
+  else{(p.contractors||[]).forEach(function(c){if(c.name!==(p.info&&p.info.client))_pdfDP.push(c.name);});}
+}
 var infoGrid='<div class="pi-list">';
 [['Date of Issue:',(p.info&&p.info.dateOfIssue)||'\u2014'],
 ['Date of Site Review:',(p.info&&p.info.visitDate)||'\u2014'],
@@ -1888,7 +1902,7 @@ if(isField){
         _renderDrawingWithPins(du,job.pins,function(rendered){
           try{var ae=D.getElementById(job.imgId);if(ae)ae.src=rendered;}catch(x){}
           qi++;setTimeout(nextJob,50);
-        });
+        },_drawPageSize);
       }
       // Per-card minimap teardrops (one image per obs row across the report body).
       function _renderMinimaps(){
