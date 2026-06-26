@@ -3616,7 +3616,7 @@ var DieselMarkup = (function(){
     // tap-one-or-drag-box group select (default). 'tap' = two-phase: tap marks to
     // pick (toggle), then ✓ to collapse picks into one selection. Selection is sticky
     // in both modes; only ✗ (cancelSelect) or switching tools clears it.
-    _selectSub:'rubber', _pickIds:[], _onSelChange:null, _grouped:false,
+    _selectSub:'rubber', _pickIds:[], _onSelChange:null, _grouped:false, _groupActiveId:null,
     // S344 Phase 2d: on-photo text box state (FRT port). Sticky colours persist across
     // boxes; the lightbox docked text bar drives the live controller via _onTextStart/End.
     _lastTextColor:null, _lastTextBg:'none', _textController:null, _textInput:null, _repositionTextBox:null,
@@ -3803,13 +3803,16 @@ var DieselMarkup = (function(){
         copy:{x:(bx1+bx2)/2, y:by2+34*k, r:(coarse?20:11)*k} };
     },
     hasSel:function(){ return !!(this.selIds&&this.selIds.length); },
-    deselect:function(){ this.selIds=[]; this._pickIds=[]; this._grouped=false; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    deselect:function(){ this.selIds=[]; this._pickIds=[]; this._grouped=false; this._groupActiveId=null; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     // ── S344 Phase 2a: FRT S339 select sub-tool + confirm API ──
-    setSelectSub:function(sub){ if(sub==='single') sub='rubber'; this._selectSub=sub; this._pickIds=[]; this._grouped=false; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    setSelectSub:function(sub){ if(sub==='single') sub='rubber'; this._selectSub=sub; this._pickIds=[]; this._grouped=false; this._groupActiveId=null; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
     getSelectSub:function(){ return this._selectSub; },
     // ✓ merges the PICK set into the grouped (moveable) selection — the ONLY way to group.
-    confirmPick:function(){ if(!this._pickIds||!this._pickIds.length) return; var self=this; this._pickIds.forEach(function(id){ if(self.selIds.indexOf(id)===-1) self.selIds.push(id); }); this._pickIds=[]; if(this.ctx) this.render(); this._emitSel(); },
-    cancelSelect:function(){ this.selIds=[]; this._pickIds=[]; this._grouped=false; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    confirmPick:function(){ if(!this._pickIds||!this._pickIds.length) return; var self=this; this._pickIds.forEach(function(id){ if(self.selIds.indexOf(id)===-1) self.selIds.push(id); }); this._pickIds=[]; this._groupActiveId=null; if(this.ctx) this.render(); this._emitSel(); },
+    cancelSelect:function(){ this.selIds=[]; this._pickIds=[]; this._grouped=false; this._groupActiveId=null; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
+    // Ungroup: pull the currently-active grouped mark back out of the group (it stays on the photo).
+    groupActiveId:function(){ return this._groupActiveId; },
+    ungroupActive:function(){ if(!this._groupActiveId) return; var i=this.selIds.indexOf(this._groupActiveId); if(i!==-1) this.selIds.splice(i,1); this._groupActiveId=null; if(this.ctx) this.render(); this._emitSel(); },
     hasActiveSelection:function(){ return (this.selIds&&this.selIds.length>0)||(this._pickIds&&this._pickIds.length>0); },
     // "picking" = there are marks in the PICK set → drives the ✓/✗ bar.
     isPicking:function(){ return this._selectSub==='tap' && this._pickIds && this._pickIds.length>0; },
@@ -3928,7 +3931,15 @@ var DieselMarkup = (function(){
           return;
         }
         if(hit){
-          // tap a mark → toggle it in the PICK set (independent of any existing group).
+          if(this.selIds.indexOf(hit.id)!==-1){
+            // tapped a mark that's ALREADY in the group → make it the "active" grouped mark
+            // (shows the round amber Ungroup button so this one can be pulled out of the group).
+            this._groupActiveId = (this._groupActiveId===hit.id) ? null : hit.id;
+            this._dragState=null; this.render(); this._emitSel();
+            return;
+          }
+          // tap an UNGROUPED mark → toggle it in the PICK set (cyan glow + green check).
+          this._groupActiveId=null;
           var pix=this._pickIds.indexOf(hit.id);
           if(pix!==-1) this._pickIds.splice(pix,1); else this._pickIds.push(hit.id);
           this._dragState=null; this.render(); this._emitSel();
@@ -4059,6 +4070,26 @@ var DieselMarkup = (function(){
         var rb=this._rubberBand, rk=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width);
         ctx.save(); ctx.setLineDash([4*rk,3*rk]); ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=Math.max(1,1*rk); ctx.globalAlpha=1;
         ctx.strokeRect(Math.min(rb.x1,rb.x2),Math.min(rb.y1,rb.y2),Math.abs(rb.x2-rb.x1),Math.abs(rb.y2-rb.y1));
+        ctx.setLineDash([]); ctx.restore();
+      }
+      // S344: GROUPED marks (selIds) each get an amber frame so they read as "in the group",
+      // distinct from the cyan/green PICK state. The tapped "active" grouped mark gets a thicker
+      // solid amber frame (it's the one the round Ungroup button will pull out).
+      if(inTap && this.selIds && this.selIds.length){
+        var selfG=this, pkG=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width), actId=this._groupActiveId;
+        ctx.save();
+        this.selIds.forEach(function(id){ var s=selfG._findStroke(id); if(!s) return; var b=selfG._strokeAABB(s);
+          var x=b.x1-3*pkG, y=b.y1-3*pkG, w=(b.x2-b.x1)+6*pkG, h=(b.y2-b.y1)+6*pkG;
+          if(id===actId){
+            ctx.setLineDash([]); ctx.shadowColor='#EF9F27'; ctx.shadowBlur=10*pkG;
+            ctx.strokeStyle='#EF9F27'; ctx.lineWidth=Math.max(2,2.4*pkG);
+            ctx.strokeRect(x,y,w,h); ctx.shadowBlur=0; ctx.strokeRect(x,y,w,h);
+          } else {
+            ctx.shadowBlur=0; ctx.setLineDash([5*pkG,3*pkG]);
+            ctx.strokeStyle='#BA7517'; ctx.lineWidth=Math.max(1.4,1.6*pkG);
+            ctx.strokeRect(x,y,w,h);
+          }
+        });
         ctx.setLineDash([]); ctx.restore();
       }
       if(!this.hasSel()) return;   // group box only when there IS a grouped selection (selIds)
@@ -4654,7 +4685,10 @@ var DslLightbox = (function(){
     cOk.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
     var cNo=document.createElement('button'); cNo.innerHTML='\u2715'; cNo.title='Cancel \u2014 clear selection';
     cNo.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
-    cBar.appendChild(cCnt); cBar.appendChild(cOk); cBar.appendChild(cNo);
+    var cUn=document.createElement('button'); cUn.title='Ungroup \u2014 remove this mark from the group';
+    cUn.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 4 8"/><line x1="8" y1="12" x2="12" y2="12"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+    cUn.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;background:#BA7517;display:none;align-items:center;justify-content:center;';
+    cBar.appendChild(cCnt); cBar.appendChild(cUn); cBar.appendChild(cOk); cBar.appendChild(cNo);
     ov.appendChild(cBar);
     // ── Row 2: size stepper · opacity stepper · | · colour swatch+flyout · | · save clear revert ──
     function sep2px(){ var d=document.createElement('div'); d.style.cssText='width:1px;height:26px;background:rgba(255,255,255,.18);margin:0 2px;flex:0 0 auto;'; return d; }
@@ -4885,12 +4919,19 @@ var DslLightbox = (function(){
     function _refreshConfirmBar(){
       var E=window.DieselMarkup; if(!E||_mkTool!=='select'){ cBar.style.display='none'; return; }
       var picking = E.isPicking&&E.isPicking();   // tap-mode marks picked but NOT yet grouped
+      var activeGrouped = E.groupActiveId&&E.groupActiveId();   // a grouped mark is tapped → ungroup
       if(picking){
         cCnt.textContent=(E.pickCount?E.pickCount():0)+' selected';
-        cOk.style.display='flex'; cNo.style.display='flex'; cBar.style.display='flex'; _placeConfirmBar();
-      } else { cBar.style.display='none'; }   // grouped (or empty) → no bar
+        cUn.style.display='none'; cOk.style.display='flex'; cNo.style.display='flex';
+        cBar.style.display='flex'; _placeConfirmBar();
+      } else if(activeGrouped){
+        cCnt.textContent='1 grouped';
+        cUn.style.display='flex'; cOk.style.display='none'; cNo.style.display='flex';
+        cBar.style.display='flex'; _placeConfirmBar();
+      } else { cBar.style.display='none'; }
     }
     cOk.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.confirmPick){ DieselMarkup.confirmPick(); } _refreshConfirmBar(); });   // ✓ = group the picks
+    cUn.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.ungroupActive){ DieselMarkup.ungroupActive(); } _refreshConfirmBar(); });   // ⛓ = remove this mark from the group
     cNo.addEventListener('click',function(){ if(window.DieselMarkup&&DieselMarkup.cancelSelect){ DieselMarkup.cancelSelect(); } _refreshConfirmBar(); });   // ✗ = clear
     if(window.DieselMarkup&&DieselMarkup.onSelChange) DieselMarkup.onSelChange(_refreshConfirmBar);
     bTx.addEventListener('click', function(){ setActiveTool('text'); });
