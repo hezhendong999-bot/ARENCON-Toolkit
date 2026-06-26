@@ -1695,56 +1695,80 @@ if(isField&&p.drawings&&p.drawings.length){
         var ai=(a._itemNo!=null)?a._itemNo:Infinity, bi=(b._itemNo!=null)?b._itemNo:Infinity;
         return ai-bi;
       });
-      // Appendix title band only on the FIRST drawing of the appendix; later
-      // drawings stay under the same letter with an "(cont.)" band (S316 §5).
-      var aH='';
-      if(_firstDrawingOfAppendix){aH+='<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div>';_firstDrawingOfAppendix=false;}
-      else{aH+='<div class="sh" style="margin-top:0;">'+esc('Appendix '+_letter)+' <span class="ch-cont">(cont.)</span></div>';}
-      // S346: appendix layout is now drawing LEFT / deficiency-card list RIGHT
-      // (.app-split). The list reuses the body .dc card look (minus photo/follow-
-      // up) so there's zero style drift from the body. On Letter (default size)
-      // the split still applies; on 11x17/24x36 the page is wider so the drawing
-      // grows while the list stays a fixed 5.4in column. Item # is READ from
-      // r._itemNo (assigned during body render) — never re-assigned here.
-      aH+='<div class="sb" style="padding:8px;">';
-      aH+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
-      aH+='<div class="app-split">';
-      var _imgId='app-dwg-'+_letter+'-'+dw.id; // S317: appendix-scoped unique id
-      aH+='<div class="app-split-dwg"><img id="'+_imgId+'" src="" alt="'+esc(dw.name)+'"></div>';
-      _appendixImgJobs.push({imgId:_imgId,drawingId:dw.id,pins:dPins});
-      aH+='<div class="app-split-list">';
-      dPins.forEach(function(r){var d=r.d;
-        // S119 hotfix: per-obs status + description (r.ctr is already per-obs).
+      // S346 card builder — one appendix .dc card (body-style, minus photo/follow-
+      // up). Used for BOTH measuring (chunking) and emitting, so they never drift.
+      function _appCard(r){var d=r.d;
         var rowOpen=_itemIsOpen(r);
         var pillCls,pillTxt;
-        // S317 correction: the recommendation appendix is two-state ONLY —
-        // an OPEN rec is "Recommendation" (never "Outstanding"), a CLOSED-this-
-        // instance rec is "Closed". Deficiency appendix keeps IAR/Outstanding/Closed.
         if(_isRecAppendix){
           if(rowOpen){pillCls='pill-rec';pillTxt='Recommendation';}
           else{pillCls='pill-c';pillTxt='Closed';}
         }else if(d.iar){pillCls='pill-h';pillTxt='IAR';}
         else if(rowOpen){pillCls='pill-h';pillTxt='Outstanding';}
         else{pillCls='pill-c';pillTxt='Closed';}
-        // S346: body-style .dc card. Header = "{itemNo} · Pin {ref}" + status
-        // pill (right). Body = description. Footer = contractor. Photo/follow-up
-        // intentionally omitted (appendix = compact cross-reference list).
         var _itm=(r._itemNo!=null)?r._itemNo:'\u2014';
         var _pinRef='Pin '+esc(r.numLabel||d.num);
-        aH+='<div class="dc">';
-        aH+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">'+_itm+'</span><span class="item-sep">\u00b7</span><span class="pinref-dark">'+_pinRef+'</span></span><span class="dc-hdr-r"><span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
-        aH+='<div class="dc-desc">'+_descHtml(_itemDesc(r))+'</div>';
-        if(r.ctr)aH+='<div class="dc-footer">'+esc(r.ctr)+'</div>';
-        aH+='</div>';
+        var h='<div class="dc">';
+        h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">'+_itm+'</span><span class="item-sep">\u00b7</span><span class="pinref-dark">'+_pinRef+'</span></span><span class="dc-hdr-r"><span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
+        h+='<div class="dc-desc">'+_descHtml(_itemDesc(r))+'</div>';
+        if(r.ctr)h+='<div class="dc-footer">'+esc(r.ctr)+'</div>';
+        h+='</div>';
+        return h;
+      }
+      // S346 CHUNKING (measured, never guessed). The card list flows down the
+      // right column; the drawing occupies the left. When the list is taller than
+      // the page, split into multiple pages — each repeats the SAME drawing
+      // showing ONLY that page's pins (locked spec). Budget = page content height
+      // minus the title band + sb padding. Measured via _measure() at the real
+      // 4.6in list width (measureZone is 7.3in wide; we wrap in a fixed-width box).
+      // _measure gives the card's rendered height in the export's own metrics, so
+      // the split matches the printed page exactly.
+      function _measureAppCard(html){
+        return _measure('<div style="width:4.6in;">'+html+'</div>');
+      }
+      // Page content height for this sheet size (logical px, matching PAGE_H=912
+      // = Letter content height). 11x17/24x36 are landscape: SHORTER than Letter
+      // portrait content height per inch isn't true — content height = (paper
+      // height - 1in vert padding) scaled the same way PAGE_H scales Letter's 10in.
+      // PAGE_H(912) corresponds to Letter's 10in usable height -> 91.2 px/in.
+      var _PXPI=PAGE_H/10; // px per usable inch (912/10)
+      var _sheetUsableH = (_drawPageSize==='24x36') ? (24-1)*_PXPI
+                        : (_drawPageSize==='11x17') ? (11-1)*_PXPI
+                        : PAGE_H; // letter
+      var _titleBandH=_measure('<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div><div class="app-dwg-title">'+esc(dw.name)+'</div>');
+      var _availH=_sheetUsableH-_titleBandH-24; // 24 = sb padding(8*2)+slack
+
+      var _chunks=[]; var _cur=[]; var _curH=0;
+      dPins.forEach(function(r){
+        var ch=_measureAppCard(_appCard(r));
+        if(_cur.length && _curH+ch>_availH){_chunks.push(_cur);_cur=[];_curH=0;}
+        _cur.push(r);_curH+=ch;
       });
-      aH+='</div>'; // .app-split-list
-      aH+='</div>'; // .app-split
-      aH+='</div>'; // .sb
-      // S317 correction: the recommendation appendix always starts its OWN page
-      // (matches the Recommendations section living on its own page today). The
-      // per-page model already forces a page break per appendix entry; the rec
-      // appendix's first drawing therefore opens a fresh page after Appendix A.
-      pages.push({html:aH,pageNum:curPageNum,isAppendix:true,appSize:_drawPageSize});curPageNum++;
+      if(_cur.length)_chunks.push(_cur);
+      if(!_chunks.length)_chunks.push([]); // safety
+
+      // Emit one page per chunk. Drawing repeats each page with that page's pins.
+      _chunks.forEach(function(chunkPins,_ci){
+        var aH='';
+        if(_firstDrawingOfAppendix){aH+='<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div>';_firstDrawingOfAppendix=false;}
+        else{aH+='<div class="sh" style="margin-top:0;">'+esc('Appendix '+_letter)+' <span class="ch-cont">(cont.)</span></div>';}
+        aH+='<div class="sb" style="padding:8px;">';
+        var _pinCountTxt=(_chunks.length>1)
+          ? (chunkPins.length+' pin'+(chunkPins.length>1?'s':'')+' (of '+dPins.length+')')
+          : (dPins.length+' pin'+(dPins.length>1?'s':''));
+        aH+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+_pinCountTxt+'</div>';
+        aH+='<div class="app-split">';
+        // S346: per-chunk image id so each page's drawing renders its OWN pins.
+        var _imgId='app-dwg-'+_letter+'-'+dw.id+'-'+_ci;
+        aH+='<div class="app-split-dwg"><img id="'+_imgId+'" src="" alt="'+esc(dw.name)+'"></div>';
+        _appendixImgJobs.push({imgId:_imgId,drawingId:dw.id,pins:chunkPins});
+        aH+='<div class="app-split-list">';
+        chunkPins.forEach(function(r){aH+=_appCard(r);});
+        aH+='</div>'; // .app-split-list
+        aH+='</div>'; // .app-split
+        aH+='</div>'; // .sb
+        pages.push({html:aH,pageNum:curPageNum,isAppendix:true,appSize:_drawPageSize});curPageNum++;
+      });
     });
   });
 }
