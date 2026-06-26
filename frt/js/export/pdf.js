@@ -1720,21 +1720,13 @@ if(isField&&p.drawings&&p.drawings.length){
         return h;
       }
       // S346: LETTER keeps the ORIGINAL appendix layout — drawing on TOP (full
-      // width) + the .app-pin-table below, ONE page per drawing, NO chunking.
-      // Only landscape (11x17 / 24x36) uses the new drawing-left / card-list-right
-      // split with measured pin-chunking. (Mark, S346: do NOT change Letter to
-      // left/right — that was the pre-session behavior.)
+      // width) + the .app-pin-table below. Mark S346: keep this stacked layout
+      // (NOT left/right), but CHUNK it — when the table overflows the page, split
+      // to a new page that REPEATS the drawing with only that page's rows
+      // (locked spec, same rule as landscape, stacked instead of side-by-side).
       if(_drawPageSize!=='11x17'&&_drawPageSize!=='24x36'){
-        var aHL='';
-        if(_firstDrawingOfAppendix){aHL+='<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div>';_firstDrawingOfAppendix=false;}
-        else{aHL+='<div class="sh" style="margin-top:0;">'+esc('Appendix '+_letter)+' <span class="ch-cont">(cont.)</span></div>';}
-        aHL+='<div class="sb" style="padding:8px;"><div class="app-dwg">';
-        aHL+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
-        var _imgIdL='app-dwg-'+_letter+'-'+dw.id;
-        aHL+='<img class="app-dwg" id="'+_imgIdL+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
-        _appendixImgJobs.push({imgId:_imgIdL,drawingId:dw.id,pins:dPins});
-        aHL+='<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
-        dPins.forEach(function(r){var d=r.d;
+        // Build one table-row's HTML (used for measuring AND emitting).
+        function _appRow(r){var d=r.d;
           var rowOpen=_itemIsOpen(r);
           var statusTxt,statusCol;
           if(_isRecAppendix){
@@ -1744,10 +1736,50 @@ if(isField&&p.drawings&&p.drawings.length){
           else if(rowOpen){statusTxt='Outstanding';statusCol='#A85959';}
           else{statusTxt='Closed';statusCol='#5F8068';}
           var _itm=(r._itemNo!=null)?('<strong style="color:#9C2742;">'+r._itemNo+'</strong>'):'<span style="color:#B8BCC6;">\u2014</span>';
-          aHL+='<tr><td>'+_itm+'</td><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+_descHtml(_itemDesc(r))+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
+          return '<tr><td>'+_itm+'</td><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+_descHtml(_itemDesc(r))+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
+        }
+        // Measure one row in a real .app-pin-table (the measureZone is 7.3in wide,
+        // = the Letter content width, so the row wraps exactly as it will print).
+        function _measureRow(rowHtml){
+          return _measure('<table class="app-pin-table"><tbody>'+rowHtml+'</tbody></table>');
+        }
+        // Vertical budget for ROWS on a page = page content height minus the
+        // title band, the drawing display height, the table header, and slack.
+        // Drawing on Letter is max-width:100% (~7.3in wide); reserve its height
+        // at the same px/in scale assuming a landscape-ish sheet (~1.45 ratio).
+        var _PXPI_L=PAGE_H/10;                 // 91.2 px per usable inch
+        var _dwgReserve=(7.3/1.45)*_PXPI_L;    // ~5in tall drawing
+        var _titleBandHL=_measure('<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div><div class="app-dwg-title">'+esc(dw.name)+'</div>');
+        var _theadH=_measure('<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead></table>');
+        var _rowsAvailH=PAGE_H-_titleBandHL-_dwgReserve-_theadH-24;
+        if(_rowsAvailH<120)_rowsAvailH=120; // floor: always allow some rows
+
+        var _chunksL=[]; var _curL=[]; var _curHL=0;
+        dPins.forEach(function(r){
+          var rh=_measureRow(_appRow(r));
+          if(_curL.length && _curHL+rh>_rowsAvailH){_chunksL.push(_curL);_curL=[];_curHL=0;}
+          _curL.push(r);_curHL+=rh;
         });
-        aHL+='</tbody></table></div></div>';
-        pages.push({html:aHL,pageNum:curPageNum,isAppendix:true,appSize:_drawPageSize});curPageNum++;
+        if(_curL.length)_chunksL.push(_curL);
+        if(!_chunksL.length)_chunksL.push([]);
+
+        _chunksL.forEach(function(chunkPins,_ci){
+          var aHL='';
+          if(_firstDrawingOfAppendix){aHL+='<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div>';_firstDrawingOfAppendix=false;}
+          else{aHL+='<div class="sh" style="margin-top:0;">'+esc('Appendix '+_letter)+' <span class="ch-cont">(cont.)</span></div>';}
+          aHL+='<div class="sb" style="padding:8px;"><div class="app-dwg">';
+          var _pinCountTxtL=(_chunksL.length>1)
+            ? (chunkPins.length+' pin'+(chunkPins.length>1?'s':'')+' (of '+dPins.length+')')
+            : (dPins.length+' pin'+(dPins.length>1?'s':''));
+          aHL+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+_pinCountTxtL+'</div>';
+          var _imgIdL='app-dwg-'+_letter+'-'+dw.id+'-'+_ci;
+          aHL+='<img class="app-dwg" id="'+_imgIdL+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+          _appendixImgJobs.push({imgId:_imgIdL,drawingId:dw.id,pins:chunkPins});
+          aHL+='<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
+          chunkPins.forEach(function(r){aHL+=_appRow(r);});
+          aHL+='</tbody></table></div></div>';
+          pages.push({html:aHL,pageNum:curPageNum,isAppendix:true,appSize:_drawPageSize});curPageNum++;
+        });
         return; // Letter path done for this drawing
       }
       // ===== LANDSCAPE (11x17 / 24x36) below: split + measured chunking =====
