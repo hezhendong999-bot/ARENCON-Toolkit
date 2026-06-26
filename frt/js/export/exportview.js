@@ -201,6 +201,16 @@ export var initExportView = {
       + '<option value="field">Include mini-maps and drawing appendices</option>'
       + '<option value="plain">Report only \u2014 no drawings</option>'
       + '</select></div>';
+    // S(this): drawing-sheet size selector. Controls ONLY the appendix drawing
+    // sheets (report body stays Letter portrait). Default Letter portrait.
+    // Shown only when drawings are included (#exv-type === 'field'); meaningless
+    // otherwise. Plumbing-only this step — pdf.js carries the value but still
+    // renders Letter until the mixed-page renderer lands.
+    h += '<div class="exv-fld" id="exv-drawpage-fld"><label>Drawing sheet size</label><select id="exv-drawpage">'
+      + '<option value="letter">Letter portrait (default)</option>'
+      + '<option value="11x17">11\u00D717 landscape</option>'
+      + '<option value="24x36">24\u00D736 landscape</option>'
+      + '</select></div>';
     h += '<div class="exv-fld"><label>Show items for</label><select id="exv-ctr">' + ctrOpts
       + '</select></div>';
     h += '<div class="exv-fld"><label>Inspector initials</label><select id="exv-insp">'
@@ -258,6 +268,18 @@ export var initExportView = {
 
     var groupsEl = ov.querySelector('#exv-groups');
     var prevBox = ov.querySelector('#exv-prevbox');
+
+    // S(this): the drawing-sheet-size selector is only meaningful when drawings
+    // are included. Hide it for "Report only — no drawings". Sync on load + change.
+    (function() {
+      var _typeEl = ov.querySelector('#exv-type');
+      var _dpFld = ov.querySelector('#exv-drawpage-fld');
+      if (_typeEl && _dpFld) {
+        var _syncDp = function() { _dpFld.style.display = (_typeEl.value === 'field') ? '' : 'none'; };
+        _typeEl.addEventListener('change', _syncDp);
+        _syncDp();
+      }
+    })();
 
     function selectedNames() {
       return [].slice.call(groupsEl.querySelectorAll('.exv-c.on'))
@@ -334,6 +356,10 @@ export var initExportView = {
       var doRenumber = ov.querySelector('#exv-renum').checked;
       var utEl = ov.querySelector('input[name="exv-ut"]:checked');
       var untaggedMode = utEl ? utEl.value : 'show';
+      // S(this): chosen appendix drawing-sheet size (letter|11x17|24x36).
+      // Forced to 'letter' when drawings aren't included (selector is hidden).
+      var _dpEl = ov.querySelector('#exv-drawpage');
+      var drawingPageSize = (type === 'field' && _dpEl) ? (_dpEl.value || 'letter') : 'letter';
 
       // Persist title override + distribution to the project. updateField
       // writes proj.info.reportTitleOverride (exactly what pdf.js reads)
@@ -368,7 +394,8 @@ export var initExportView = {
         recFooter: recFooter,
         includeSiteRecords: includeSiteRecords,
         inspTag: inspTag,
-        untaggedMode: untaggedMode
+        untaggedMode: untaggedMode,
+        drawingPageSize: drawingPageSize
       });
     });
 

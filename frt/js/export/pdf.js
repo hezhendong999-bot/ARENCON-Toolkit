@@ -542,8 +542,13 @@ function _buildCSS(fontB64){
   return c;
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter,inspTag){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter,inspTag,drawingPageSize){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
+// S(this): chosen appendix drawing-sheet size. Controls ONLY the appendix
+// drawing sheets in the mixed-page renderer; report body always stays Letter
+// portrait. Plumbing only this step — value is carried + validated but the
+// appendix still renders Letter until the mixed-page render pass lands (step 2).
+var _drawPageSize=(drawingPageSize==='11x17'||drawingPageSize==='24x36')?drawingPageSize:'letter';
 // S139 Phase 3: untagged-trade routing.
 //   _untaggedMode 'show'   -> untagged pins render in an "Other Trade Items"
 //                              band, after all real trades.
@@ -1817,13 +1822,13 @@ export const initPDFExport={
             });
           }
           try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off');
+          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter');
         });
       });
     }).catch(function(e){
       try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e2){}
       console.warn('[PDF] Error:',e);
-      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off');
+      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter');
     });
   }
 };
