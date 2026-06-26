@@ -1715,7 +1715,38 @@ if(isField&&p.drawings&&p.drawings.length){
         h+='</div>';
         return h;
       }
-      // S346 CHUNKING (measured, never guessed). The card list flows down the
+      // S346: LETTER keeps the ORIGINAL appendix layout — drawing on TOP (full
+      // width) + the .app-pin-table below, ONE page per drawing, NO chunking.
+      // Only landscape (11x17 / 24x36) uses the new drawing-left / card-list-right
+      // split with measured pin-chunking. (Mark, S346: do NOT change Letter to
+      // left/right — that was the pre-session behavior.)
+      if(_drawPageSize!=='11x17'&&_drawPageSize!=='24x36'){
+        var aHL='';
+        if(_firstDrawingOfAppendix){aHL+='<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div>';_firstDrawingOfAppendix=false;}
+        else{aHL+='<div class="sh" style="margin-top:0;">'+esc('Appendix '+_letter)+' <span class="ch-cont">(cont.)</span></div>';}
+        aHL+='<div class="sb" style="padding:8px;"><div class="app-dwg">';
+        aHL+='<div class="app-dwg-title">'+esc(dw.name)+' \u2014 '+dPins.length+' pin'+(dPins.length>1?'s':'')+'</div>';
+        var _imgIdL='app-dwg-'+_letter+'-'+dw.id;
+        aHL+='<img class="app-dwg" id="'+_imgIdL+'" src="" alt="'+esc(dw.name)+'" style="max-width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;">';
+        _appendixImgJobs.push({imgId:_imgIdL,drawingId:dw.id,pins:dPins});
+        aHL+='<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead><tbody>';
+        dPins.forEach(function(r){var d=r.d;
+          var rowOpen=_itemIsOpen(r);
+          var statusTxt,statusCol;
+          if(_isRecAppendix){
+            if(rowOpen){statusTxt='Recommendation';statusCol='#5E5440';}
+            else{statusTxt='Closed';statusCol='#5F8068';}
+          }else if(d.iar){statusTxt='IAR';statusCol='#E91E8C';}
+          else if(rowOpen){statusTxt='Outstanding';statusCol='#A85959';}
+          else{statusTxt='Closed';statusCol='#5F8068';}
+          var _itm=(r._itemNo!=null)?('<strong style="color:#9C2742;">'+r._itemNo+'</strong>'):'<span style="color:#B8BCC6;">\u2014</span>';
+          aHL+='<tr><td>'+_itm+'</td><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+_descHtml(_itemDesc(r))+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';
+        });
+        aHL+='</tbody></table></div></div>';
+        pages.push({html:aHL,pageNum:curPageNum,isAppendix:true,appSize:_drawPageSize});curPageNum++;
+        return; // Letter path done for this drawing
+      }
+      // ===== LANDSCAPE (11x17 / 24x36) below: split + measured chunking =====
       // right column; the drawing occupies the left. When the list is taller than
       // the page, split into multiple pages — each repeats the SAME drawing
       // showing ONLY that page's pins (locked spec). Budget = page content height
@@ -1733,8 +1764,7 @@ if(isField&&p.drawings&&p.drawings.length){
       // PAGE_H(912) corresponds to Letter's 10in usable height -> 91.2 px/in.
       var _PXPI=PAGE_H/10; // px per usable inch (912/10)
       var _sheetUsableH = (_drawPageSize==='24x36') ? (24-1)*_PXPI
-                        : (_drawPageSize==='11x17') ? (11-1)*_PXPI
-                        : PAGE_H; // letter
+                        : (11-1)*_PXPI; // 11x17 (Letter returned early above)
       var _titleBandH=_measure('<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div><div class="app-dwg-title">'+esc(dw.name)+'</div>');
       var _availH=_sheetUsableH-_titleBandH-24; // 24 = sb padding(8*2)+slack
 
