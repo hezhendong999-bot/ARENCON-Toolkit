@@ -5163,6 +5163,31 @@ var DslLightbox = (function(){
     if(window.DieselMarkup && DieselMarkup.strokes && DieselMarkup.strokes.length){ _saveMk(); }
     else { _exitMarkup(false); }
   }
+  // S346 (non-destructive markup): resolve a photo's CLEAN ORIGINAL image source
+  // so re-entering markup replays p.mk over the original — NOT over the already-
+  // baked p.d (which would double-bake the strokes). Reuses the same backup
+  // lookup the revert path uses (_origBackupId -> recordPhotos -> backup.d), and
+  // falls back to the R2 'original/' key when the original isn't in memory after
+  // a fresh device load. Returns '' when this photo has no baked original (a
+  // fresh, never-saved photo) — caller then uses the displayed image as-is.
+  function _origSrcForMarkup(p){
+    if(!p || !p._annotated || !p._origBackupId) return '';   // not a re-open of saved markup
+    // 1) original backup record carried in memory (covers same-session + most loads)
+    if(typeof recordPhotos!=='undefined'){
+      var b=recordPhotos.filter(function(r){ return r && r.id===p._origBackupId; })[0];
+      if(b){
+        if(b.d) return b.d;                       // clean original binary in memory
+        if(b.r2Url) return b.r2Url;               // original at its cloud URL
+      }
+    }
+    // 2) deterministic R2 'original/' key (fresh-device fallback)
+    if(p.id && typeof _r2FolderId!=='undefined' && _r2FolderId &&
+       typeof R2Photos!=='undefined' && R2Photos.getUrl){
+      try{ return R2Photos.getUrl(_r2FolderId, 'diesel', 'original', p.id + '.jpg'); }catch(_e){}
+    }
+    return '';
+  }
+
   function _toggleMarkup(){
     if(_markupActive){ _maybeCommitOnExit(); return; }
     if(!window.DieselMarkup){ if(typeof showToast==='function') showToast('Markup engine not loaded'); return; }
@@ -5183,14 +5208,39 @@ var DslLightbox = (function(){
     // WHITE on the affected machine.
     try{ cv.getContext('2d',{alpha:false}); }catch(e){ console.warn('[DLB] opaque markup ctx pre-create failed', e); }
     DieselMarkup.opaqueBase=true;
-    DieselMarkup.attach(cv, img, (p.id&&_mkDraft[p.id])||p.mk||null, function(){
-      // S296: opacity slider drives alpha; highlighter keeps its 0.35 base character
-      // (this also fixes the regression where highlights drew fully opaque at alpha:1).
-      var _a=_mkAlpha/100;
-      return {tool:_mkTool, color:_mkColor, size:_mkSize*3,
-              alpha:(_mkTool==='highlight' ? 0.35*_a : _a),
-              fontSize:Math.max(18,_mkSize*8)};
-    }, null);
+
+    // S346: the base image the engine paints under the strokes. For a re-opened
+    // annotated photo we MUST paint the clean original (not the baked p.d) or the
+    // saved strokes replay on top of already-baked strokes = double image.
+    var _doAttach=function(baseImg){
+      DieselMarkup.attach(cv, baseImg, (p.id&&_mkDraft[p.id])||p.mk||null, function(){
+        // S296: opacity slider drives alpha; highlighter keeps its 0.35 base character
+        // (this also fixes the regression where highlights drew fully opaque at alpha:1).
+        var _a=_mkAlpha/100;
+        return {tool:_mkTool, color:_mkColor, size:_mkSize*3,
+                alpha:(_mkTool==='highlight' ? 0.35*_a : _a),
+                fontSize:Math.max(18,_mkSize*8)};
+      }, null);
+    };
+
+    var _origSrc=_origSrcForMarkup(p);
+    var _curSrc=img.getAttribute('src')||img.src||'';
+    if(_origSrc && _origSrc!==_curSrc){
+      // Need the clean original under the strokes. If it's a data: URL it's already
+      // local — decode into a fresh Image and attach. If it's an R2 URL it may need
+      // a network fetch; decode off-DOM, then attach. Strokes replay over original.
+      var _orig=new Image();
+      _orig.onload=function(){ _doAttach(_orig); };
+      _orig.onerror=function(){
+        console.warn('[DLB] markup: clean original failed to load — attaching to displayed image (strokes will not double-bake only if p.mk empty)');
+        _doAttach(img);   // safe fallback: still editable; worst case visual is the existing baked look
+      };
+      try{ if(_origSrc.indexOf('data:')!==0) _orig.crossOrigin='anonymous'; }catch(_e){}
+      _orig.src=_origSrc;
+    } else {
+      // Fresh photo (no baked original) OR original already displayed — attach as-is.
+      _doAttach(img);
+    }
     // S287: the decode <img> is hidden (offsetWidth 0) — pin the engine canvas
     // CSS over the photo as painted on the stage at fit.
     _markupActive=true;
@@ -13453,7 +13503,10 @@ async function _dslMarkupPersist(p, mk){
     // S306 (Mark): P9 date-bump dropped for Diesel — saving markup keeps the
     // photo's original date so it stays in its existing gallery group (the jump
     // to today's group was confusing). _mkTs still drives merge arbitration.
-    delete sp.mk;                        // strokes are baked now (FRT parity)
+    // S346 (non-destructive markup): KEEP sp.mk so the inspector can re-open and
+    // edit the markup. sp.d holds the baked 'marked' image (PDF + thumbs read it);
+    // re-entering markup paints sp.mk over the CLEAN ORIGINAL via _origSrcForMarkup,
+    // so strokes never double-bake. Revert still clears mk. (Was: delete sp.mk.)
     if(hub){ sp.r2Key = markedKey; sp.r2Url = markedUrl; sp.r2Status = 'pending'; }
   };
   _dslStampSiblings(p, stamp);
