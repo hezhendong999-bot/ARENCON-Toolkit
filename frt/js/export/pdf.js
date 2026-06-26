@@ -389,7 +389,7 @@ function _buildCSS(fontB64){
   c+='.app-split{display:flex;gap:14px;align-items:flex-start;}';
   c+='.app-split-dwg{flex:1 1 auto;min-width:0;}';
   c+='.app-split-dwg img{width:100%;height:auto;display:block;border:1px solid #DDE1E7;border-radius:4px;}';
-  c+='.app-split-list{flex:0 0 5.4in;width:5.4in;min-width:0;display:flex;flex-direction:column;text-align:left;}';
+  c+='.app-split-list{flex:0 0 4.6in;width:4.6in;min-width:0;display:flex;flex-direction:column;text-align:left;}';
   c+='.app-split-list .dc:first-child{border-top:1px solid #DDE1E7;border-radius:6px 6px 0 0;}';
   c+='.page-content{position:relative;}';
   c+='.ph{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:10px;margin-bottom:0;}';
