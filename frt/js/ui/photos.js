@@ -386,7 +386,11 @@ export var initPhotos = {
           // S339 (Mark): prefix "Obs " so the badge reads "Obs 3A" / "Obs 1B"
           // rather than a bare "3A". Site badge ("Site") is unchanged; this only
           // relabels deficiency/observation photos.
+          // S346 (#19, Mark): a TRUE site record (no contractor) must read
+          // "Site 17A", not "Obs 17A" — "Obs" implies a contractor deficiency.
+          // Reuse the same _isSiteRecordPin flag that drives the badge class.
           var obsLetter = String.fromCharCode(65 + oi);
+          var _badgePrefix = _isSiteRecordPin ? 'Site ' : 'Obs ';
           records.push({
             type: 'defic',
             deficId: defic.id,
@@ -399,7 +403,7 @@ export var initPhotos = {
             photoIdx: phi,
             ph: ph,
             src: (mk && mk.markedR2Key) || ph.r2Url || ph.dataUrl || '',
-            badgeText: 'Obs ' + defic.num + obsLetter,
+            badgeText: _badgePrefix + defic.num + obsLetter,
             badgeClass: obsBadgeCls,
             badgeCat: _badgeCat,
             dateKey: dk.key, dateLabel: dk.label,

@@ -3952,6 +3952,15 @@ function _renderBoardView(proj, container) {
 // Model.saveNow() (the established UI create path).
 function _addDeficTriggerHTML(opts) {
   opts = opts || {};
+  // S346 (#10): the add trigger relabels per active category segment, and is
+  // SUPPRESSED entirely on the Closed segment (you don't author new closed
+  // items). 'rec' -> "Add recommendation", 'siterec' -> "Add site record",
+  // everything else (outstanding/all) -> "Add deficiency".
+  if (_catFilter === 'closed') return '';
+  var _addNoun = (_catFilter === 'rec') ? 'recommendation'
+              : (_catFilter === 'siterec') ? 'site record'
+              : 'deficiency';
+  var _addLbl = 'Add ' + _addNoun;
   if (opts.scoped) {
     // S146 (Mark): section-scoped trigger at the foot of each
     // trade->contractor group. Pre-targets the contractor (+ trade) so
@@ -3962,12 +3971,12 @@ function _addDeficTriggerHTML(opts) {
       + (opts.ctrId ? ' data-ctr-id="' + esc(opts.ctrId) + '"' : '')
       + (opts.trade ? ' data-trade="' + esc(opts.trade) + '"' : '')
       + ' role="button" tabindex="0">'
-      + '<span class="adc-plus">+</span> Add deficiency'
+      + '<span class="adc-plus">+</span> ' + _addLbl
       + (lbl ? '<span class="adc-tgt">to ' + lbl + tl + '</span>' : '')
       + '</div>';
   }
   return '<div class="add-deficiency-card" data-action="open-add-defic" role="button" tabindex="0">'
-    + '<span class="adc-plus">+</span> Add deficiency'
+    + '<span class="adc-plus">+</span> ' + _addLbl
     + '<span class="adc-sub">creates an item \u2014 assign contractor / trade / pin in the dialog, or skip &amp; add later</span>'
     + '</div>';
 }

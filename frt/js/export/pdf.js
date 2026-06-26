@@ -153,7 +153,11 @@ function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d,isSiteRecord){
     fill=(pr==='low'||pr==='general')?'#B07F5A':'#A85959'; // S217: 'general' retired → reads as low (amber); high stays maroon
   }
   var isClosed=_deficIsClosed(d);
-  var alpha=isClosed?0.5:1;
+  // S346 (#3): a CLOSED item's teardrop reads GREEN + SOLID (not its priority
+  // colour at 50% alpha). Matches the closed sage used by the appendix status
+  // and .pill-c family — so a closed pin is unmistakably "done" on the drawing.
+  if(isClosed)fill='#5F8068'; // muted sage — Closed
+  var alpha=1; // S346 (#3): always solid; closed no longer fades to 0.5
 
   ctx.save();
   ctx.globalAlpha=alpha;
