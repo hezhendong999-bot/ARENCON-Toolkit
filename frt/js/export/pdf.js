@@ -355,12 +355,94 @@ function _prefetchR2PhotosForPDF(p,progressCb){
   }).concat(dataUrls.map(function(du){
     return _downscalePhotoForPDF(du).then(function(small){cache['small:'+du]=small;})
       .catch(function(){}).finally(function(){done++;if(progressCb)progressCb(done,total);});
-  }))).then(function(){return cache;});
+  }))).then(function(){
+    // S351 never-bake: composite rotation + vector strokes for the LIVE HTML PDF
+    // path. The HTML <img> can't rotate/composite vectors itself, and the stored
+    // image is now CLEAN, so we pre-bake a render-time dataURL per photo that has
+    // a rotation and/or strokes, keyed by photo id. _pdfPhotoSrc returns it.
+    var photosToComp=[];
+    function _collectPh(defics){
+      if(!defics)return;
+      defics.forEach(function(d){
+        function add(arr){(arr||[]).forEach(function(ph){
+          if(ph && typeof ph==='object'){
+            var rot=(typeof ph.rotation==='number')?(((ph.rotation%360)+360)%360):0;
+            if(rot || (ph._markupStrokes&&ph._markupStrokes.length)) photosToComp.push(ph);
+          }
+        });}
+        add(d.photos);
+        if(d.observations)d.observations.forEach(function(o){add(o.photos);});
+        if(d.entries)d.entries.forEach(function(e){add(e.photos);});
+        (d.activity||[]).forEach(function(a){add(a.photos);});
+      });
+    }
+    (p.contractors||[]).forEach(function(c){_collectPh(c.deficiencies);});
+    _collectPh(p.generalDeficiencies);
+    (p.photos||[]).forEach(function(ph){
+      if(ph && typeof ph==='object'){
+        var rot=(typeof ph.rotation==='number')?(((ph.rotation%360)+360)%360):0;
+        if(rot || (ph._markupStrokes&&ph._markupStrokes.length)) photosToComp.push(ph);
+      }
+    });
+    if(!photosToComp.length) return cache;
+    return Promise.all(photosToComp.map(function(ph){
+      // pick the best already-cached source for this photo (the clean image)
+      var src = (ph.r2Url&&cache['small:'+ph.r2Url]) || (ph.r2Url&&cache[ph.r2Url])
+              || (ph.dataUrl&&cache['small:'+ph.dataUrl]) || ph.dataUrl || ph.r2Url || '';
+      if(!src) return Promise.resolve();
+      var rot=(typeof ph.rotation==='number')?(((ph.rotation%360)+360)%360):0;
+      var strokes=(ph._markupStrokes&&ph._markupStrokes.length)?ph._markupStrokes:null;
+      return _compositeRotatedMarkedURL(src, rot, strokes, ph._mkFrame||null).then(function(durl){
+        if(durl && ph.id) cache['comp:'+ph.id]=durl;
+      }).catch(function(){});
+    })).then(function(){ return cache; });
+  });
+}
+
+// S351: dataURL variant of the never-bake compositor for the HTML PDF path.
+// Draws the photo rotated with vector strokes on top in the same rotated frame,
+// using the persisted authoring frame (mkFrame) for deterministic stroke scale.
+function _compositeRotatedMarkedURL(src, rot, strokes, mkFrame){
+  return new Promise(function(resolve){
+    try{
+      var ME=(typeof window!=='undefined')?window.MarkupEngine:null;
+      var img=new Image(); img.crossOrigin='anonymous';
+      img.onload=function(){
+        try{
+          var nw=img.naturalWidth, nh=img.naturalHeight;
+          if(!nw||!nh){ resolve(''); return; }
+          var sideways=(rot===90||rot===270);
+          var ow=sideways?nh:nw, oh=sideways?nw:nh;
+          var cv=document.createElement('canvas'); cv.width=ow; cv.height=oh;
+          var ctx=cv.getContext('2d');
+          function applyRot(){
+            if(rot===90){ ctx.translate(ow,0); ctx.rotate(Math.PI/2); }
+            else if(rot===180){ ctx.translate(ow,oh); ctx.rotate(Math.PI); }
+            else if(rot===270){ ctx.translate(0,oh); ctx.rotate(3*Math.PI/2); }
+          }
+          ctx.save(); applyRot(); ctx.drawImage(img,0,0,nw,nh); ctx.restore();
+          if(strokes&&strokes.length&&ME&&ME.renderStrokesToContext){
+            var fw=(mkFrame&&mkFrame.w)?mkFrame.w:nw, fh=(mkFrame&&mkFrame.h)?mkFrame.h:nh;
+            ctx.save(); applyRot(); ctx.scale(nw/fw, nh/fh);
+            try{ ME.renderStrokesToContext(ctx, strokes, fw, fh); }catch(_){}
+            ctx.restore();
+          }
+          var out=cv.toDataURL('image/jpeg',0.9); cv.width=0; cv.height=0;
+          resolve(out||'');
+        }catch(e){ resolve(''); }
+      };
+      img.onerror=function(){ resolve(''); };
+      img.src=src;
+    }catch(e){ resolve(''); }
+  });
 }
 
 function _pdfPhotoSrc(ph,r2Cache){
   if(!ph)return '';if(typeof ph==='string')return ph;
   if(r2Cache){
+    // S351 never-bake: a pre-composited (rotated + vector strokes) render-time
+    // dataURL takes precedence — it already reflects p.rotation + _markupStrokes.
+    if(ph.id&&r2Cache['comp:'+ph.id])return r2Cache['comp:'+ph.id];
     if(ph.r2Url&&r2Cache['small:'+ph.r2Url])return r2Cache['small:'+ph.r2Url];
     if(!ph.r2Url&&ph.dataUrl&&r2Cache['small:'+ph.dataUrl])return r2Cache['small:'+ph.dataUrl];
     if(ph.r2Url&&r2Cache[ph.r2Url])return r2Cache[ph.r2Url];
