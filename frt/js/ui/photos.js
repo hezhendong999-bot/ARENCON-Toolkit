@@ -2073,9 +2073,14 @@ document.addEventListener('frt-markup-saved', function(e) {
     return;
   }
 
-  // CASE 3: first markup, no preKey, but we have _origBlob — upload original first
-  if (origBlobSrc) {
-    console.log('[Markup save] CASE 3: first markup, no preKey — uploading original from _origBlob');
+  // CASE 3: first markup, no preKey — upload a clean original, then back it up.
+  // S347d: prefer the captured clean Blob (d.cleanBlob, a real Blob from the
+  // engine's source image) over the fragile _origBlob string. This guarantees a
+  // backup is created even when _origBlob is a dead blob: URL — closing the
+  // silent-overwrite hole.
+  var cleanCapture = d.cleanBlob || null;
+  if (origBlobSrc || cleanCapture) {
+    console.log('[Markup save] CASE 3: first markup, no preKey — uploading original (cleanCapture=' + !!cleanCapture + ')');
     var origFilename = 'orig_' + (photo.id || Date.now()) + '.jpg';
     var origKey = 'photos/' + pid + '/frt/original/' + origFilename;
     var origUrl = workerUrl + '/' + origKey;
@@ -2084,9 +2089,11 @@ document.addEventListener('frt-markup-saved', function(e) {
       if (typeof src === 'string' && src.indexOf('data:') === 0) return fetch(src).then(function(r){ return r.blob(); });
       return Promise.resolve(null);
     }
-    _toBlobLocal(origBlobSrc).then(function(origBlob) {
+    // Prefer the captured clean Blob; fall back to converting _origBlob.
+    var origPromise = cleanCapture ? Promise.resolve(cleanCapture) : _toBlobLocal(origBlobSrc);
+    origPromise.then(function(origBlob) {
       if (!origBlob) {
-        console.warn('[Markup save] CASE 3: could not convert _origBlob to Blob — falling back to no-backup');
+        console.warn('[Markup save] CASE 3: no convertible original — backup NOT created (revert disabled)');
         _stampSiblings(null);
         return;
       }
@@ -2108,8 +2115,10 @@ document.addEventListener('frt-markup-saved', function(e) {
     return;
   }
 
-  // CASE 4: no preKey, no _origBlob — markup persists but cannot be reverted
-  console.warn('[Markup save] CASE 4: no preKey, no _origBlob — markup persists but Revert will not work');
+  // CASE 4: no preKey, no _origBlob, no clean capture — markup persists but cannot
+  // be reverted. With S347d this should be unreachable in normal flow (cleanBlob
+  // is always captured when the engine has a source image).
+  console.warn('[Markup save] CASE 4: no original source at all — markup persists but Revert will not work');
   _stampSiblings(null);
 });
 

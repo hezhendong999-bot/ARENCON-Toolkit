@@ -1144,6 +1144,24 @@
     // Revert: drop edits AND signal caller to reload original blob
     revert: function(){ this.clear(); return this._origBlob; },
 
+    // S347d: re-encode the CLEAN source image (this.img — the original the engine
+    // draws under the strokes) to a Blob, with NO strokes painted. Used to capture
+    // a guaranteed clean-original backup at markup-save time, so the original is
+    // never lost (prevents the silent-overwrite CASE 4). Returns Promise<Blob|null>.
+    cleanBlob: function(){
+      var self = this;
+      return new Promise(function(resolve){
+        try {
+          var img = self.img;
+          if (!img || !img.naturalWidth){ resolve(null); return; }
+          var nw = img.naturalWidth, nh = img.naturalHeight;
+          var cv = document.createElement('canvas'); cv.width = nw; cv.height = nh;
+          cv.getContext('2d').drawImage(img, 0, 0, nw, nh);   // clean pixels only
+          cv.toBlob(function(b){ resolve(b || null); }, 'image/jpeg', 0.92);
+        } catch(_){ resolve(null); }
+      });
+    },
+
     // Bake annotations into a fresh blob at the image's natural resolution
     saveBlob: function(){
       var self = this;

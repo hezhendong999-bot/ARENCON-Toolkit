@@ -941,21 +941,30 @@ function _saveMarkup(){
   // S340: capture the live strokes for persistence BEFORE saveBlob (which is async).
   var savedStrokes = window.MarkupEngine.exportStrokes();
   try { console.log('[S340 save] exportStrokes →', savedStrokes && savedStrokes.length, 'stroke(s); isDirty=', window.MarkupEngine.isDirty(), 'rawLen=', (window.MarkupEngine.strokes||[]).length); } catch(_){}
-  window.MarkupEngine.saveBlob().then(function(blob){
-    var p = _photos[_idx]; if (!p){ _exitMarkupNoSave(); return; }
-    if (!p._origBlob && p.dataUrl) p._origBlob = p.dataUrl;
-    var url = URL.createObjectURL(blob);
-    p.dataUrl = url; p._annotated = true;
-    p._markupStrokes = savedStrokes;   // S340: ride with the photo into IDB + cloud
-    try { console.log('[S340 save] set p._markupStrokes on', p.id, '→', (p._markupStrokes||[]).length, 'stroke(s)'); } catch(_){}
-    var img = document.getElementById('lb-image');
-    if (img) img.src = url;
-    // R2 upload hook — defer to host app via custom event (now carries strokes)
-    try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:blob,index:_idx,strokes:savedStrokes}})); } catch(e){}
-    _exitMarkupNoSave();
-    if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
-    if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
-  }).catch(function(e){ _closeAfterPersist = false; _navAfterPersist = null; toast('Save failed: '+e.message, 'error'); /* stay in markup so strokes aren't lost */ });
+  // S347d: capture a GUARANTEED clean-original Blob from the engine's source image
+  // (this.img, drawn under the strokes) so the backup never relies on a fragile
+  // dataUrl/blob: string. This prevents the silent-overwrite case where no usable
+  // original existed and the marked image replaced the only copy.
+  window.MarkupEngine.cleanBlob().then(function(cleanBlob){
+    window.MarkupEngine.saveBlob().then(function(blob){
+      var p = _photos[_idx]; if (!p){ _exitMarkupNoSave(); return; }
+      // Prefer the captured clean Blob as the durable original (a real Blob, not a
+      // URL). Only fall back to dataUrl if the clean capture failed.
+      if (cleanBlob) { p._origBlob = cleanBlob; }
+      else if (!p._origBlob && p.dataUrl && String(p.dataUrl).indexOf('blob:') !== 0) { p._origBlob = p.dataUrl; }
+      var url = URL.createObjectURL(blob);
+      p.dataUrl = url; p._annotated = true;
+      p._markupStrokes = savedStrokes;   // S340: ride with the photo into IDB + cloud
+      try { console.log('[S340 save] set p._markupStrokes on', p.id, '→', (p._markupStrokes||[]).length, 'stroke(s); cleanBlob=', !!cleanBlob); } catch(_){}
+      var img = document.getElementById('lb-image');
+      if (img) img.src = url;
+      // R2 upload hook — carries strokes AND the captured clean original blob.
+      try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:blob,index:_idx,strokes:savedStrokes,cleanBlob:cleanBlob}})); } catch(e){}
+      _exitMarkupNoSave();
+      if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
+      if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
+    }).catch(function(e){ _closeAfterPersist = false; _navAfterPersist = null; toast('Save failed: '+e.message, 'error'); /* stay in markup so strokes aren't lost */ });
+  });
 }
 
 function _revertMarkup(){
