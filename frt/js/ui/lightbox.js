@@ -781,17 +781,22 @@ function _rotatePhoto(){
     strokes = JSON.parse(JSON.stringify(p._markupStrokes));
   }
 
-  // S350e ROOT FIX: when markup is OPEN, the clean base lives in the engine
-  // (the image it draws on top of). Capture it as a fresh in-memory Blob via
-  // cleanBlob() and seed p._origBlob BEFORE the rotation resolves its source.
-  // Without this, "draw → rotate immediately" (no save yet) found no clean
-  // source → _loadRotImage returned clean:false → strokes were FLATTENED into
-  // the pixels and _markupStrokes cleared → Revert had nothing to restore.
-  // cleanBlob() is in-memory (no network), so this does not reintroduce the
-  // R2 display race. If no marks are open, skip straight to the rotation.
-  var _seedClean = (wasMarkup && strokes && strokes.length && window.MarkupEngine && window.MarkupEngine.cleanBlob)
+  // S350e/f ROOT FIX: when markup is OPEN and the photo has NO clean source yet,
+  // capture one ONCE from the engine. cleanBlob() renders the engine's attached
+  // image — which is pristine ONLY before any marks are baked into the pixels
+  // (i.e. on the FIRST rotation of a never-saved photo; marks are a canvas
+  // overlay at that point, not yet in the bitmap).
+  //
+  // CRITICAL (S350f): do NOT re-seed if _origBlob already exists. After the first
+  // rotation the display bitmap carries baked marks, so a fresh cleanBlob() would
+  // capture a MARKED image as "clean"; carrying the 3 vector strokes on top of
+  // that duplicates them every rotation (3→6→9…). Reuse the original clean blob.
+  var _needSeed = (wasMarkup && strokes && strokes.length
+                   && !p._origBlob
+                   && window.MarkupEngine && window.MarkupEngine.cleanBlob);
+  var _seedClean = _needSeed
     ? window.MarkupEngine.cleanBlob().then(function(cb){
-        if (cb) { p._origBlob = cb; }   // now _loadRotImage's in-memory path hits → clean:true
+        if (cb) { p._origBlob = cb; }   // captured ONCE; _loadRotImage now hits clean:true
         return true;
       }).catch(function(){ return true; })
     : Promise.resolve(true);
@@ -815,7 +820,7 @@ function _rotatePhoto(){
     }
     // S350d INSTRUMENT — print exactly what this rotation decided.
     try {
-      console.log('%c[ROT S350d]','background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold', {
+      console.log('%c[ROT S350f]','background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold', {
         photoId: p.id,
         strokesCaptured: (wasMarkup && window.MarkupEngine) ? 'live' : ((p._markupStrokes||[]).length + ' persisted'),
         sourceClean: got.clean,
@@ -868,6 +873,13 @@ function _rotatePhoto(){
     _bakeRot(img, 90, strokes, newNatW, newNatH, bakeScaleX, bakeScaleY).then(function(blob){
       _cleanBakePromise.then(function(cleanRotBlob){
       if (got.revoke && got.url){ try{ URL.revokeObjectURL(got.url); }catch(_){} }
+      // S350f: keep the in-memory clean chain ORIENTED. The next rotation reads
+      // p._origBlob as its clean source (via _loadRotImage's in-memory path), so
+      // it must now hold the ROTATED clean pixels — not the pre-rotation ones.
+      // Without this, rotation N+1 bakes strokes onto a wrongly-oriented clean
+      // image. (When a backup record exists, photos.js also rotates it forward;
+      // this covers the never-saved-photo case where there is no backup record.)
+      if (cleanRotBlob) { p._origBlob = cleanRotBlob; }
       // Fork: new key/blob, current-report refs only (handled in photos.js).
       // S349: pass _origBackupId + the rotated clean blob so photos.js can keep
       // the clean-original backup pointing at a rotated /original/ image.
