@@ -2169,8 +2169,15 @@ document.addEventListener('frt-photo-rotated', function(e) {
     sp.r2Key = newKey;
     sp.r2Url = newUrl;
     sp.r2Status = 'uploading';
-    if (strokes) sp._markupStrokes = strokes;
-    if (strokes && strokes.length) sp._annotated = true;
+    if (strokes && strokes.length) {
+      sp._markupStrokes = strokes;   // clean-original path: vectors stay editable
+      sp._annotated = true;
+    } else if (d.baked) {
+      // Pixel-only rotation: marks are now baked into the pixels. Clear stale
+      // vector strokes so reopening markup doesn't re-draw them (double marks).
+      delete sp._markupStrokes;
+      sp._annotated = true;
+    }
     if (rotatedBlobUrl) sp.dataUrl = rotatedBlobUrl;
   });
   try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}

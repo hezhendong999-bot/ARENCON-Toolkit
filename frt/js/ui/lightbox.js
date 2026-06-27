@@ -778,6 +778,16 @@ function _rotatePhoto(){
     var natW = img.naturalWidth, natH = img.naturalHeight;
     var newNatW = natH, newNatH = natW;   // 90° swap
 
+    // SAFETY: if the source is NOT a verified clean original, its pixels already
+    // contain the baked marks. We must NOT composite strokes again (that double-
+    // bakes and accumulates phantom marks every rotation) and must NOT carry the
+    // vector strokes forward. Rotate PIXELS ONLY; the baked marks rotate with them.
+    var hadStrokesButBaked = false;
+    if (strokes && strokes.length && !got.clean){
+      strokes = null;   // drop vector carry + composite for this rotation
+      hadStrokesButBaked = true;
+    }
+
     // Determine the FIT frame the strokes live in, so the rigid rotation
     // (done in fraction space) normalizes by the correct magnitude:
     //  • markup OPEN  → the engine's current fit box (E.w × E.h)
@@ -805,19 +815,27 @@ function _rotatePhoto(){
     var bakeScaleX = newFitW ? (newNatW / newFitW) : 1;
     var bakeScaleY = newFitH ? (newNatH / newFitH) : 1;
 
-    // Bake rotated pixels (+ composite rotated strokes for the display/export blob).
+    // Bake rotated pixels (+ composite rotated strokes ONLY when from clean original).
     _bakeRot(img, 90, strokes, newNatW, newNatH, bakeScaleX, bakeScaleY).then(function(blob){
       if (got.revoke && got.url){ try{ URL.revokeObjectURL(got.url); }catch(_){} }
       // Fork: new key/blob, current-report refs only (handled in photos.js).
       try {
         document.dispatchEvent(new CustomEvent('frt-photo-rotated', {
-          detail:{ photo:p, blob:blob, index:_idx, strokes:strokes }
+          detail:{ photo:p, blob:blob, index:_idx, strokes:strokes, baked:hadStrokesButBaked }
         }));
       } catch(_){}
       // Reflect locally: photo now a genuinely-rotated bitmap at 0° view-rotation.
       var url = URL.createObjectURL(blob);
       p.dataUrl = url;
-      if (strokes) p._markupStrokes = strokes;
+      if (strokes) {
+        p._markupStrokes = strokes;        // clean-original path: vectors stay editable
+      } else if (hadStrokesButBaked) {
+        // Pixel-only rotation of an already-marked bitmap: the marks are now part
+        // of the pixels. The old vector strokes are stale — clear them so the next
+        // markup reopen does NOT re-draw them on top (which would double the marks).
+        delete p._markupStrokes;
+        p._annotated = true;               // pixels are annotated; just not vector-editable
+      }
       _rotations[_idx] = 0;
       var lbimg = _el('lb-image');
       if (lbimg) lbimg.src = url;
@@ -850,29 +868,42 @@ function _rotatePhoto(){
   }).catch(function(e){ _rotBusy=false; try{toast('Rotation failed: '+(e&&e.message||e),'error');}catch(_){} });
 }
 
-// Load the rotation source as an Image. When marked, prefer the CLEAN original.
-function _loadRotImage(p, marked){
+// Load the rotation source. When `needClean` is true (photo is marked), we try
+// ONLY durable clean-original sources and report clean:true. If none load, we
+// fall back to the photo's CURRENT image and report clean:false — the caller must
+// then rotate PIXELS ONLY (no stroke composite) since that image already contains
+// the baked marks. This prevents cumulative double-baking of strokes.
+function _loadRotImage(p, needClean){
   return new Promise(function(resolve, reject){
-    var src=null, revoke=false;
-    if (marked){ var clean=_resolveOriginalSrc(p); if(clean){ src=clean; if(clean.indexOf('blob:')===0) revoke=true; } }
-    if (!src && p._origBlob){
-      if (typeof p._origBlob==='string') src=p._origBlob;
-      else { try{ src=URL.createObjectURL(p._origBlob); revoke=true; }catch(_){}}
+    function loadUrl(src, revoke, clean, onFail){
+      var im=new Image(); im.crossOrigin='anonymous';
+      im.onload=function(){ resolve({img:im, revoke:revoke, url:revoke?src:null, clean:clean}); };
+      im.onerror=function(){ if(revoke&&src){try{URL.revokeObjectURL(src);}catch(_){}} onFail(); };
+      im.src=src;
     }
-    if (!src) src = p.r2Url || p.dataUrl || p.thumb || '';
-    if (!src){ reject(new Error('no source')); return; }
-    var im=new Image(); im.crossOrigin='anonymous';
-    im.onload=function(){ resolve({img:im, revoke:revoke, url:revoke?src:null}); };
-    im.onerror=function(){
-      if (revoke && src){ try{URL.revokeObjectURL(src);}catch(_){} }
-      fetch(p.r2Url||p.dataUrl||p.thumb||'').then(function(r){return r.blob();}).then(function(b){
-        var u=URL.createObjectURL(b); var i2=new Image();
-        i2.onload=function(){ resolve({img:i2,revoke:true,url:u}); };
-        i2.onerror=function(){ try{URL.revokeObjectURL(u);}catch(_){}; reject(new Error('img load failed')); };
-        i2.src=u;
-      }).catch(function(){ reject(new Error('img load failed')); });
-    };
-    im.src=src;
+    // 1) If marked, try the CLEAN original first (durable only).
+    if (needClean){
+      var clean = _resolveOriginalSrc(p);   // already rejects dead blob: strings
+      if (clean){
+        var rev = (clean.indexOf('blob:')===0);
+        loadUrl(clean, rev, true, function(){ tryCurrent(); });
+        return;
+      }
+    }
+    tryCurrent();
+    // 2) Fall back to the photo's CURRENT image (may be the marked bitmap).
+    function tryCurrent(){
+      var src = (p.r2Url && p.r2Url.indexOf('blob:')!==0 ? p.r2Url : '') || p.dataUrl || p.thumb || '';
+      if (!src){ reject(new Error('no source')); return; }
+      // clean:false → strokes are already in these pixels; caller must NOT composite.
+      loadUrl(src, false, false, function(){
+        // last resort: fetch->blob (CORS-safe) of the same current src
+        fetch(src).then(function(r){return r.blob();}).then(function(b){
+          var u=URL.createObjectURL(b);
+          loadUrl(u, true, false, function(){ reject(new Error('img load failed')); });
+        }).catch(function(){ reject(new Error('img load failed')); });
+      });
+    }
   });
 }
 
