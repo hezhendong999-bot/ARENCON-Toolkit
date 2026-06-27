@@ -180,10 +180,13 @@ function _buildToolbar() {
   overlay.appendChild(topBar);
   dl.addEventListener('click', _downloadCurrent);
   rot.addEventListener('click', function() {
-    // S349 REBUILD: permanent rotation with intact backup chain. _rotatePhoto
-    // bakes rotated pixels, carries _origBackupId forward, and rotates the clean
-    // original backup under /original/ so Revert keeps working after rotation.
-    _rotatePhoto();
+    // S349d ROLLBACK: permanent rotation depends on R2 round-trips completing
+    // before the display reloads, which races on every tap (404 fallback +
+    // 2 new R2 objects per click). Disabled pending a redesign that bakes
+    // locally and shows the rotated bitmap WITHOUT waiting on R2. View-only
+    // rotation is safe — display only, no fork, no bake, no backup touch.
+    _rotations[_idx] = (_currentRotation() + 90) % 360;
+    _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
   });
   mkb.addEventListener('click', _toggleMarkup);
   _buildMarkupBar(overlay);
