@@ -5061,7 +5061,12 @@ var DslLightbox = (function(){
     try{ ctx.drawImage(img,0,0); }catch(e){ console.warn('[DLB] stage drawImage failed', e); }
     // saved markup composited over the photo (image natural coords)
     var p=_photoObj(_idx);
-    var mkV=(p.id&&_mkDraft[p.id])||p.mk;   // S295: unsaved draft composites too — exiting markup never *looks* like lost work
+    // S367: when a photo is annotated, its displayed image (p.d) ALREADY has the
+    // strokes baked in, so compositing p.mk again would double-draw. Only the
+    // UNSAVED draft (_mkDraft) needs compositing here — saved p.mk is for re-entry
+    // editing, not display. Non-annotated photo with a draft still composites.
+    var _draft=(p.id&&_mkDraft[p.id])||null;
+    var mkV = _draft ? _draft : (p._annotated ? null : p.mk);
     if(mkV && window.DieselMarkup && !_markupActive){
       try{ DieselMarkup.composite(ctx, mkV, nw, nh); }catch(e){ console.warn('[DLB] saved-mk composite failed', e); }
     }
@@ -13526,6 +13531,11 @@ async function _dslMarkupPersist(p, mk){
     // edit the markup. sp.d holds the baked 'marked' image (PDF + thumbs read it);
     // re-entering markup paints sp.mk over the CLEAN ORIGINAL via _origSrcForMarkup,
     // so strokes never double-bake. Revert still clears mk. (Was: delete sp.mk.)
+    // S367 FIX: the S346 comment above promised sp.mk was kept, but the assignment
+    // was never written — so editable strokes were lost on every save (markup
+    // disappeared on reopen; passed_strokes:0). Assign the strokes here so re-entry
+    // replays them. Deep-clone so siblings don't share one mutable array.
+    if(mk){ try{ sp.mk = JSON.parse(JSON.stringify(mk)); }catch(_e){ sp.mk = mk; } }
     if(hub){ sp.r2Key = markedKey; sp.r2Url = markedUrl; sp.r2Status = 'pending'; }
   };
   _dslStampSiblings(p, stamp);
@@ -18292,7 +18302,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S366';
+var DIESEL_BUILD = 'S367';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
