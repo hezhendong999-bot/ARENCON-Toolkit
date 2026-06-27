@@ -180,11 +180,10 @@ function _buildToolbar() {
   overlay.appendChild(topBar);
   dl.addEventListener('click', _downloadCurrent);
   rot.addEventListener('click', function() {
-    // S347 ROLLBACK: permanent rotation (_rotatePhoto) is disabled pending a
-    // proper rebuild of the rotation↔markup backup contract. View-only rotation
-    // is safe — it never forks, bakes, or touches the backup chain.
-    _rotations[_idx] = (_currentRotation() + 90) % 360;
-    _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
+    // S349 REBUILD: permanent rotation with intact backup chain. _rotatePhoto
+    // bakes rotated pixels, carries _origBackupId forward, and rotates the clean
+    // original backup under /original/ so Revert keeps working after rotation.
+    _rotatePhoto();
   });
   mkb.addEventListener('click', _toggleMarkup);
   _buildMarkupBar(overlay);
@@ -821,13 +820,27 @@ function _rotatePhoto(){
     var bakeScaleX = newFitW ? (newNatW / newFitW) : 1;
     var bakeScaleY = newFitH ? (newNatH / newFitH) : 1;
 
+    // S349: when rotating a marked photo FROM its clean original (got.clean),
+    // also bake a rotated CLEAN blob (pixels only, NO strokes) so the backup
+    // chain can be carried forward to a rotated /original/ key. Revert then
+    // restores to a correctly-rotated clean image instead of an un-rotated one.
+    // When got.clean is false (no usable original) there is nothing clean to
+    // rotate — backup stays as-is / non-revertable, exactly as before.
+    var _cleanBakePromise = got.clean
+      ? _bakeRot(img, 90, null, newNatW, newNatH, bakeScaleX, bakeScaleY)
+      : Promise.resolve(null);
+
     // Bake rotated pixels (+ composite rotated strokes ONLY when from clean original).
     _bakeRot(img, 90, strokes, newNatW, newNatH, bakeScaleX, bakeScaleY).then(function(blob){
+      _cleanBakePromise.then(function(cleanRotBlob){
       if (got.revoke && got.url){ try{ URL.revokeObjectURL(got.url); }catch(_){} }
       // Fork: new key/blob, current-report refs only (handled in photos.js).
+      // S349: pass _origBackupId + the rotated clean blob so photos.js can keep
+      // the clean-original backup pointing at a rotated /original/ image.
       try {
         document.dispatchEvent(new CustomEvent('frt-photo-rotated', {
-          detail:{ photo:p, blob:blob, index:_idx, strokes:strokes, baked:hadStrokesButBaked }
+          detail:{ photo:p, blob:blob, index:_idx, strokes:strokes, baked:hadStrokesButBaked,
+                   origBackupId:(p._origBackupId||null), cleanRotBlob:cleanRotBlob }
         }));
       } catch(_){}
       // Reflect locally: photo now a genuinely-rotated bitmap at 0° view-rotation.
@@ -870,6 +883,7 @@ function _rotatePhoto(){
       } else {
         finish();
       }
+      });  // S349: close _cleanBakePromise.then
     }).catch(function(e){ _rotBusy=false; try{toast('Rotation failed: '+(e&&e.message||e),'error');}catch(_){} });
   }).catch(function(e){ _rotBusy=false; try{toast('Rotation failed: '+(e&&e.message||e),'error');}catch(_){} });
 }
