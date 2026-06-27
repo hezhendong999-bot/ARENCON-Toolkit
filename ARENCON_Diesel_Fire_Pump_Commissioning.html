@@ -5240,8 +5240,25 @@ var DslLightbox = (function(){
       var _restore=function(){ img.onload=null; img.onerror=null; };
       img.onload=function(){ _restore(); _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _doAttach(); };
       img.onerror=function(){ _restore();
-        console.warn('[DLB] markup: clean original failed to load — keeping displayed image');
-        baseMode='fallback-baked'; _doAttach();
+        // S348: the clean-original fetch failed (e.g. R2 404). img is now BROKEN
+        // (naturalWidth 0) — attaching here gives the engine a zero-size base, so
+        // strokes paint then vanish on the next render. Restore the last-good
+        // displayed (baked) src and WAIT for it to reload before attaching, so the
+        // base always has real dimensions and new markup can never drop.
+        console.warn('[DLB] markup: clean original failed to load — restoring baked display image as base');
+        baseMode='fallback-baked';
+        if(_curSrc && _curSrc!==img.src){
+          img.onload=function(){ img.onload=null; img.onerror=null; _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _doAttach(); };
+          img.onerror=function(){ img.onload=null; img.onerror=null;
+            console.warn('[DLB] markup: baked display image also failed — attaching as-is');
+            _doAttach();
+          };
+          try{ if(_curSrc.indexOf('data:')!==0) img.removeAttribute('crossorigin'); }catch(_e){}
+          img.src=_curSrc;
+        } else {
+          // already showing the baked image (or no good src to restore) — attach now
+          _doAttach();
+        }
       };
       try{ if(_origSrc.indexOf('data:')!==0) img.removeAttribute('crossorigin'); }catch(_e){}
       img.src=_origSrc;
@@ -18275,7 +18292,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S365';
+var DIESEL_BUILD = 'S366';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
