@@ -103,7 +103,25 @@ var _swiping = false;
 
 function _el(id) { return document.getElementById(id); }
 
-function _currentRotation() { return _rotations[_idx] || 0; }
+function _currentRotation() {
+  // S351 REWRITE — rotation is a PERSISTED property of the photo record, not a
+  // throwaway view state. Never-bake model: the photo binary stays clean and
+  // unrotated; p.rotation (0/90/180/270) is applied at display + PDF time, and
+  // markup strokes ride the SAME rotated frame (see _applyTransform). This is
+  // why marks can't drift, duplicate, or be lost — nothing is ever baked.
+  var p = _photos[_idx];
+  if (p && typeof p.rotation === 'number') return ((p.rotation % 360) + 360) % 360;
+  return _rotations[_idx] || 0;
+}
+function _setRotation(deg){
+  deg = ((deg % 360) + 360) % 360;
+  var p = _photos[_idx];
+  if (p) {
+    p.rotation = deg;                 // persisted source of truth
+    try { if (typeof Model !== 'undefined' && Model.saveNow) Model.saveNow(); } catch(_){}
+  }
+  _rotations[_idx] = deg;             // view cache mirror
+}
 function _isRotatedSideways() { var r = _currentRotation(); return r === 90 || r === 270; }
 function _updateZoomIndicator() {
   var z = document.getElementById('lb-zoom-indicator');
@@ -180,15 +198,13 @@ function _buildToolbar() {
   overlay.appendChild(topBar);
   dl.addEventListener('click', _downloadCurrent);
   rot.addEventListener('click', function() {
-    // S350: permanent rotation re-enabled. Locked design — the bake + display
-    // update are IN-MEMORY and never await R2 (see _rotatePhoto, ~line 850:
-    // bake blob → createObjectURL → lb-image.src). The only network-touching
-    // step is the bake SOURCE load in _loadRotImage, which now prefers the
-    // in-memory _origBlob over an R2 GET (S350 fix), so the common case
-    // (rotate a photo just marked up) never hits the network for display.
-    // The R2 upload + backup re-point happen in the background via the
-    // frt-photo-rotated handler in photos.js (carries _origBackupId forward).
-    _rotatePhoto();
+    // S351 REWRITE — never-bake rotation. Bump the persisted rotation and let
+    // _applyTransform rotate the photo AND the markup canvas together in one
+    // frame (already proven aligned at all zoom/pan/fit). No bake, no R2 fork,
+    // no backup chain, no upload-per-tap — those are deleted. Marks ride the
+    // rotation as vectors; revert just deletes them.
+    _setRotation(_currentRotation() + 90);
+    _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
   });
   mkb.addEventListener('click', _toggleMarkup);
   _buildMarkupBar(overlay);
@@ -760,312 +776,45 @@ function _resolveOriginalSrc(p){
   return null;
 }
 
-// ── S347: permanent photo rotation (rigid, flatten-with-photo) ────────────
-// Tap rotate → 90° CW, PERMANENT (baked pixels), forked to a NEW R2 key/IDB blob
-// so prior report instances are never altered. Markup strokes are vector data;
-// they rotate RIGIDLY in pixel space (via MarkupEngine), so they stay glued to
-// the photo at the exact same spots. No canvas CSS-spin — the markup canvas sits
-// flat on the rotated photo. Works whether markup mode is open or closed.
-var _rotBusy = false;
-// S350g: debounced rotation persist. Visual rotation is instant per tap; the
-// R2 fork+upload (frt-photo-rotated) fires once after taps settle, or on close.
-var _rotDispatchTimer = null;
-var _pendingRotDetail = null;
-function _flushRotDispatch(){
-  if (_rotDispatchTimer){ clearTimeout(_rotDispatchTimer); _rotDispatchTimer = null; }
-  var d = _pendingRotDetail; _pendingRotDetail = null;
-  if (!d) return;
-  try {
-    document.dispatchEvent(new CustomEvent('frt-photo-rotated', { detail: d }));
-  } catch(_){}
-}
-function _rotatePhoto(){
-  if (_rotBusy) return;
-  var p = _photos[_idx]; if (!p) return;
-  _rotBusy = true;
-
-  var wasMarkup = _markupActive;
-  // Capture live strokes if markup is open; else use persisted strokes.
-  var strokes = null;
-  if (wasMarkup && window.MarkupEngine){
-    strokes = window.MarkupEngine.exportStrokes();
-  } else if (p._markupStrokes && p._markupStrokes.length){
-    strokes = JSON.parse(JSON.stringify(p._markupStrokes));
-  }
-
-  // S350e/f ROOT FIX: when markup is OPEN and the photo has NO clean source yet,
-  // capture one ONCE from the engine. cleanBlob() renders the engine's attached
-  // image — which is pristine ONLY before any marks are baked into the pixels
-  // (i.e. on the FIRST rotation of a never-saved photo; marks are a canvas
-  // overlay at that point, not yet in the bitmap).
-  //
-  // CRITICAL (S350f): do NOT re-seed if _origBlob already exists. After the first
-  // rotation the display bitmap carries baked marks, so a fresh cleanBlob() would
-  // capture a MARKED image as "clean"; carrying the 3 vector strokes on top of
-  // that duplicates them every rotation (3→6→9…). Reuse the original clean blob.
-  var _needSeed = (wasMarkup && strokes && strokes.length
-                   && !p._origBlob
-                   && window.MarkupEngine && window.MarkupEngine.cleanBlob);
-  var _seedClean = _needSeed
-    ? window.MarkupEngine.cleanBlob().then(function(cb){
-        if (cb) { p._origBlob = cb; }   // captured ONCE; _loadRotImage now hits clean:true
-        return true;
-      }).catch(function(){ return true; })
-    : Promise.resolve(true);
-
-  // Source for the rotated bake = the CLEAN ORIGINAL when marked (so strokes are
-  // not double-baked), else the current displayed image.
-  _seedClean.then(function(){
-  return _loadRotImage(p, !!(strokes && strokes.length)); }).then(function(got){
-    var img = got.img;
-    var natW = img.naturalWidth, natH = img.naturalHeight;
-    var newNatW = natH, newNatH = natW;   // 90° swap
-
-    // SAFETY: if the source is NOT a verified clean original, its pixels already
-    // contain the baked marks. We must NOT composite strokes again (that double-
-    // bakes and accumulates phantom marks every rotation) and must NOT carry the
-    // vector strokes forward. Rotate PIXELS ONLY; the baked marks rotate with them.
-    var hadStrokesButBaked = false;
-    if (strokes && strokes.length && !got.clean){
-      strokes = null;   // drop vector carry + composite for this rotation
-      hadStrokesButBaked = true;
-    }
-    // S350d INSTRUMENT — print exactly what this rotation decided.
-    try {
-      console.log('%c[ROT S350g]','background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold', {
-        photoId: p.id,
-        strokesCaptured: (wasMarkup && window.MarkupEngine) ? 'live' : ((p._markupStrokes||[]).length + ' persisted'),
-        sourceClean: got.clean,
-        decision: got.clean ? 'KEEP VECTORS (revertable, clean backup will rotate)' :
-                  (hadStrokesButBaked ? 'FLATTEN MARKS INTO PIXELS (no clean source → NOT revertable)' : 'pixels-only (no marks)'),
-        origBackupId_before: p._origBackupId || 'MISSING',
-        origBlob: p._origBlob ? (typeof p._origBlob==='string' ? 'string' : 'Blob('+p._origBlob.size+'b)') : 'MISSING',
-        why_not_clean: got.clean ? '—' : 'loadRotImage fell through to current marked bitmap; no usable clean original (_origBlob missing AND backup r2Url not loadable)'
-      });
-    } catch(_){}
-
-    // Determine the FIT frame the strokes live in, so the rigid rotation
-    // (done in fraction space) normalizes by the correct magnitude:
-    //  • markup OPEN  → the engine's current fit box (E.w × E.h)
-    //  • markup CLOSED→ reconstruct the fit box = natural × fitScale (same aspect
-    //    as natural, which is what the engine uses on reload)
-    var fitW, fitH;
-    if (wasMarkup && window.MarkupEngine && window.MarkupEngine.w){
-      fitW = window.MarkupEngine.w; fitH = window.MarkupEngine.h;
-    } else {
-      // mirror _calcFitScale at natural orientation (portrait/landscape as-is)
-      var area = _el('lb-canvas');
-      var aw = area ? area.clientWidth : natW, ah = area ? area.clientHeight : natH;
-      var fs = Math.min(aw / natW, ah / natH); if (fs > 1) fs = 1;
-      fitW = natW * fs; fitH = natH * fs;
-    }
-
-    // Rotate strokes RIGIDLY (fraction-space, frame-independent result) in the
-    // FIT frame. They stay fit-px (persistable; engine re-fits on reload). The
-    // bake composites them scaled up to natural via (newNatW/newFitW).
-    var newFitW = fitH, newFitH = fitW;   // fit frame swaps too
-    if (strokes && strokes.length){
-      window.MarkupEngine.rotateStrokesInFrame(strokes, 1, fitW, fitH);
-    }
-    // scale from rotated FIT px → rotated NATURAL px for the bake composite
-    var bakeScaleX = newFitW ? (newNatW / newFitW) : 1;
-    var bakeScaleY = newFitH ? (newNatH / newFitH) : 1;
-
-    // S349: when rotating a marked photo FROM its clean original (got.clean),
-    // also bake a rotated CLEAN blob (pixels only, NO strokes) so the backup
-    // chain can be carried forward to a rotated /original/ key. Revert then
-    // restores to a correctly-rotated clean image instead of an un-rotated one.
-    // When got.clean is false (no usable original) there is nothing clean to
-    // rotate — backup stays as-is / non-revertable, exactly as before.
-    var _cleanBakePromise = got.clean
-      ? _bakeRot(img, 90, null, newNatW, newNatH, bakeScaleX, bakeScaleY)
-      : Promise.resolve(null);
-
-    // Bake rotated pixels (+ composite rotated strokes ONLY when from clean original).
-    _bakeRot(img, 90, strokes, newNatW, newNatH, bakeScaleX, bakeScaleY).then(function(blob){
-      _cleanBakePromise.then(function(cleanRotBlob){
-      if (got.revoke && got.url){ try{ URL.revokeObjectURL(got.url); }catch(_){} }
-      // S350f: keep the in-memory clean chain ORIENTED. The next rotation reads
-      // p._origBlob as its clean source (via _loadRotImage's in-memory path), so
-      // it must now hold the ROTATED clean pixels — not the pre-rotation ones.
-      // Without this, rotation N+1 bakes strokes onto a wrongly-oriented clean
-      // image. (When a backup record exists, photos.js also rotates it forward;
-      // this covers the never-saved-photo case where there is no backup record.)
-      if (cleanRotBlob) { p._origBlob = cleanRotBlob; }
-      // Fork: new key/blob, current-report refs only (handled in photos.js).
-      // S349: pass _origBackupId + the rotated clean blob so photos.js can keep
-      // S350g DEBOUNCE: visual rotation is instant (local reflect below), but the
-      // R2 fork+upload must NOT fire on every tap. Each _rotatePhoto produces a
-      // COMPLETE rotated blob from current state, so only the LAST burst tap needs
-      // to persist — earlier dispatches would just upload intermediate orientations
-      // and spray R2 (the log showed ~30 uploads for a few taps). Queue the latest
-      // detail; fire one dispatch ~900ms after the last tap (or on lightbox close).
-      try {
-        _pendingRotDetail = { photo:p, blob:blob, index:_idx, strokes:strokes,
-          baked:hadStrokesButBaked, origBackupId:(p._origBackupId||null), cleanRotBlob:cleanRotBlob };
-        if (_rotDispatchTimer) clearTimeout(_rotDispatchTimer);
-        _rotDispatchTimer = setTimeout(_flushRotDispatch, 900);
-      } catch(_){}
-      // Reflect locally: photo now a genuinely-rotated bitmap at 0° view-rotation.
-      var url = URL.createObjectURL(blob);
-      p.dataUrl = url;
-      if (strokes) {
-        p._markupStrokes = strokes;        // clean-original path: vectors stay editable
-      } else if (hadStrokesButBaked) {
-        // Pixel-only rotation of an already-marked bitmap: the marks are now part
-        // of the pixels. The old vector strokes are stale — clear them so the next
-        // markup reopen does NOT re-draw them on top (which would double the marks).
-        delete p._markupStrokes;
-        p._annotated = true;               // pixels are annotated; just not vector-editable
-      }
-      _rotations[_idx] = 0;
-      var lbimg = _el('lb-image');
-      if (lbimg) lbimg.src = url;
-
-      // If markup was open, re-arm the engine FLAT on the rotated photo so the
-      // strokes stay editable and aligned (canvas re-syncs to the new box; no spin).
-      var finish = function(){
-        _calcFitScale(); _scale=_fitScale; _panX=0; _panY=0; _applyTransform();
-        _rotBusy = false;
-      };
-      if (wasMarkup && window.MarkupEngine){
-        // wait for the rotated image to load so _sync measures the new box
-        if (lbimg){
-          var done=false; var go=function(){ if(done)return; done=true;
-            lbimg.removeEventListener('load',go);
-            try {
-              window.MarkupEngine.detach();
-              var host=_el('lb-canvas');
-              window.MarkupEngine.attach(host, lbimg, p._origBlob||null, null, strokes||null);
-            } catch(_){}
-            finish();
-          };
-          lbimg.addEventListener('load',go);
-          setTimeout(go, 1500);   // never hang
-        } else { finish(); }
-      } else {
-        finish();
-      }
-      });  // S349: close _cleanBakePromise.then
-    }).catch(function(e){ _rotBusy=false; try{toast('Rotation failed: '+(e&&e.message||e),'error');}catch(_){} });
-  }).catch(function(e){ _rotBusy=false; try{toast('Rotation failed: '+(e&&e.message||e),'error');}catch(_){} });
-}
-
-// Load the rotation source. When `needClean` is true (photo is marked), we try
-// ONLY durable clean-original sources and report clean:true. If none load, we
-// fall back to the photo's CURRENT image and report clean:false — the caller must
-// then rotate PIXELS ONLY (no stroke composite) since that image already contains
-// the baked marks. This prevents cumulative double-baking of strokes.
-function _loadRotImage(p, needClean){
-  return new Promise(function(resolve, reject){
-    function loadUrl(src, revoke, clean, onFail){
-      var im=new Image(); im.crossOrigin='anonymous';
-      im.onload=function(){ resolve({img:im, revoke:revoke, url:revoke?src:null, clean:clean}); };
-      im.onerror=function(){ if(revoke&&src){try{URL.revokeObjectURL(src);}catch(_){}} onFail(); };
-      im.src=src;
-    }
-    // 1) If marked, try the CLEAN original first.
-    if (needClean){
-      // S350 race fix: prefer the IN-MEMORY clean blob over any network source.
-      // After a markup-save, p._origBlob holds the clean original as a live Blob
-      // (set in _revertMarkup/save path, ~line 976). Baking from it keeps the
-      // rotation display path 100% off the network — no R2 GET, no 404 race.
-      // Only fall back to _resolveOriginalSrc (which may return an R2 URL) when
-      // no usable in-memory blob exists.
-      if (p._origBlob && typeof p._origBlob !== 'string'){
-        try {
-          var memUrl = URL.createObjectURL(p._origBlob);
-          loadUrl(memUrl, true, true, function(){ tryResolved(); });
-          return;
-        } catch(_){ /* fall through */ }
-      }
-      tryResolved();
-      return;
-    }
-    tryCurrent();
-    function tryResolved(){
-      var clean = _resolveOriginalSrc(p);   // already rejects dead blob: strings
-      if (clean){
-        var rev = (clean.indexOf('blob:')===0);
-        loadUrl(clean, rev, true, function(){ tryCurrent(); });
-        return;
-      }
-      tryCurrent();
-    }
-    // 2) Fall back to the photo's CURRENT image (may be the marked bitmap).
-    function tryCurrent(){
-      var src = (p.r2Url && p.r2Url.indexOf('blob:')!==0 ? p.r2Url : '') || p.dataUrl || p.thumb || '';
-      if (!src){ reject(new Error('no source')); return; }
-      // clean:false → strokes are already in these pixels; caller must NOT composite.
-      loadUrl(src, false, false, function(){
-        // last resort: fetch->blob (CORS-safe) of the same current src
-        fetch(src).then(function(r){return r.blob();}).then(function(b){
-          var u=URL.createObjectURL(b);
-          loadUrl(u, true, false, function(){ reject(new Error('img load failed')); });
-        }).catch(function(){ reject(new Error('img load failed')); });
-      });
-    }
-  });
-}
-
-// Bake rotation into pixels (plain canvas; NO OffscreenCanvas). cw×ch = output
-// (already swapped). If strokes given (in rotated FIT px), composite them scaled
-// by (sx,sy) to natural so they paint at the right size on the natural canvas.
-function _bakeRot(srcImg, deg, strokes, cw, ch, sx, sy){
-  return new Promise(function(resolve, reject){
-    try {
-      var nw=srcImg.naturalWidth, nh=srcImg.naturalHeight;
-      var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-      var ctx=cv.getContext('2d');
-      ctx.save();
-      if (deg===90){ ctx.translate(cw,0); ctx.rotate(Math.PI/2); }
-      else if (deg===180){ ctx.translate(cw,ch); ctx.rotate(Math.PI); }
-      else if (deg===270){ ctx.translate(0,ch); ctx.rotate(3*Math.PI/2); }
-      ctx.drawImage(srcImg,0,0,nw,nh);
-      ctx.restore();
-      if (strokes && strokes.length && window.MarkupEngine && window.MarkupEngine.renderStrokesToContext){
-        try {
-          ctx.save();
-          ctx.scale(sx||1, sy||1);   // fit-px strokes → natural px
-          // renderStrokesToContext paints in W×H = the strokes' own (fit) frame
-          window.MarkupEngine.renderStrokesToContext(ctx, strokes, (cw/(sx||1)), (ch/(sy||1)));
-          ctx.restore();
-        } catch(_){}
-      }
-      cv.toBlob(function(b){ b?resolve(b):reject(new Error('toBlob failed')); }, 'image/jpeg', 0.92);
-    } catch(e){ reject(e); }
-  });
-}
 
 function _saveMarkup(){
   if (!window.MarkupEngine || !window.MarkupEngine.isDirty()){ _exitMarkupNoSave(); return; }
   // S340: capture the live strokes for persistence BEFORE saveBlob (which is async).
   var savedStrokes = window.MarkupEngine.exportStrokes();
-  try { console.log('[S340 save] exportStrokes →', savedStrokes && savedStrokes.length, 'stroke(s); isDirty=', window.MarkupEngine.isDirty(), 'rawLen=', (window.MarkupEngine.strokes||[]).length); } catch(_){}
+  // S351 PERMANENT never-bake: capture the EXACT frame the strokes were authored
+  // in (the engine's current fit box). This is the missing source-of-truth that
+  // lets EVERY surface (lightbox, PDF, thumbnails) composite strokes
+  // deterministically — strokes are fit-logical px, meaningless without their
+  // frame. Stored on the record so it rides into IDB + cloud.
+  var _mkFrame = (window.MarkupEngine.w && window.MarkupEngine.h)
+    ? { w: window.MarkupEngine.w, h: window.MarkupEngine.h } : null;
+  try { console.log('[S351 save] strokes →', savedStrokes && savedStrokes.length, '| frame=', _mkFrame); } catch(_){}
   // S347d: capture a GUARANTEED clean-original Blob from the engine's source image
-  // (this.img, drawn under the strokes) so the backup never relies on a fragile
-  // dataUrl/blob: string. This prevents the silent-overwrite case where no usable
-  // original existed and the marked image replaced the only copy.
+  // (this.img, drawn under the strokes) — under never-bake this is THE stored
+  // image (clean), not a fallback. We do NOT bake a marked binary anymore.
   window.MarkupEngine.cleanBlob().then(function(cleanBlob){
-    window.MarkupEngine.saveBlob().then(function(blob){
       var p = _photos[_idx]; if (!p){ _exitMarkupNoSave(); return; }
-      // Prefer the captured clean Blob as the durable original (a real Blob, not a
-      // URL). Only fall back to dataUrl if the clean capture failed.
-      if (cleanBlob) { p._origBlob = cleanBlob; }
-      else if (!p._origBlob && p.dataUrl && String(p.dataUrl).indexOf('blob:') !== 0) { p._origBlob = p.dataUrl; }
-      var url = URL.createObjectURL(blob);
-      p.dataUrl = url; p._annotated = true;
-      p._markupStrokes = savedStrokes;   // S340: ride with the photo into IDB + cloud
-      try { console.log('[S340 save] set p._markupStrokes on', p.id, '→', (p._markupStrokes||[]).length, 'stroke(s); cleanBlob=', !!cleanBlob); } catch(_){}
-      var img = document.getElementById('lb-image');
-      if (img) img.src = url;
-      // R2 upload hook — carries strokes AND the captured clean original blob.
-      try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:blob,index:_idx,strokes:savedStrokes,cleanBlob:cleanBlob}})); } catch(e){}
+      // never-bake: the photo's stored image stays CLEAN. Strokes + frame are
+      // separate vector data composited at display/export time. No saveBlob, no
+      // marked dataUrl, no R2 marked-binary fork.
+      if (cleanBlob) {
+        p._origBlob = cleanBlob;
+        var cleanUrl = URL.createObjectURL(cleanBlob);
+        p.dataUrl = cleanUrl;            // clean image is the display source
+        var img = document.getElementById('lb-image');
+        if (img) img.src = cleanUrl;     // strokes re-composite live via the engine/CSS frame
+      }
+      p._annotated = (savedStrokes && savedStrokes.length) > 0;
+      p._markupStrokes = savedStrokes;   // vector strokes ride into IDB + cloud
+      if (_mkFrame) p._mkFrame = _mkFrame; // authoring frame — source of truth for compositing
+      try { console.log('[S351 save] set strokes on', p.id, '→', (p._markupStrokes||[]).length, '| frame', p._mkFrame, '| clean kept (no bake)'); } catch(_){}
+      // Persist + sync hook. cleanBlob is the durable original; strokes/frame are data.
+      try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:cleanBlob,index:_idx,strokes:savedStrokes,cleanBlob:cleanBlob,mkFrame:_mkFrame}})); } catch(e){}
+      try { if (typeof Model !== 'undefined' && Model.saveNow) Model.saveNow(); } catch(_){}
       _exitMarkupNoSave();
       if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
       if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
     }).catch(function(e){ _closeAfterPersist = false; _navAfterPersist = null; toast('Save failed: '+e.message, 'error'); /* stay in markup so strokes aren't lost */ });
-  });
 }
 
 function _revertMarkup(){
@@ -1313,9 +1062,6 @@ function _open(photos, startIdx, opts) {
 }
 
 function _close() {
-  // S350g: persist any pending rotation immediately (don't lose a rotate that
-  // happened within the 900ms debounce window when the user closes fast).
-  if (_pendingRotDetail) { _flushRotDispatch(); }
   // Copy Diesel S305: closing the lightbox with unsaved strokes COMMITS them
   // first (bake + persist), then tears down — no silent discard. If clean, just close.
   if (_markupActive && window.MarkupEngine && window.MarkupEngine.hasChangesSinceAttach()){
@@ -1391,7 +1137,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }
   if (e.key === '-') { _scale = Math.max(_fitScale, _scale / 1.2); if (_scale <= _fitScale) { _panX = 0; _panY = 0; } _applyTransform(); }
   if (e.key === '0') { _resetView(); }
-  if (e.key === 'r' || e.key === 'R') { _rotations[_idx] = (_currentRotation() + 90) % 360; _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform(); }
+  if (e.key === 'r' || e.key === 'R') { _setRotation(_currentRotation() + 90); _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform(); }
 });
 
 // Mouse double-click → reset zoom (S70)

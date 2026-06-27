@@ -711,7 +711,9 @@ export var initPhotos = {
         });
         html += '</span>';
         if (r.src) {
-          html += '<img ' + clickAction + ' src="' + esc(r.src) + '" loading="lazy" onerror="this.style.display=\'none\'">';
+          var _rot = (r.ph && typeof r.ph.rotation==='number') ? (((r.ph.rotation%360)+360)%360) : 0;
+          var _rotStyle = _rot ? (' style="transform:rotate('+_rot+'deg)"') : '';
+          html += '<img ' + clickAction + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="this.style.display=\'none\'">';
         } else {
           html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
         }
@@ -2142,154 +2144,6 @@ document.addEventListener('frt-markup-saved', function(e) {
 //   7. Clear _annotated, _origBackupId, dataUrl on all siblings.
 // ────────────────────────────────────────────────────────────────────────
 // ────────────────────────────────────────────────────────────────────────
-// S347: permanent photo rotation — fork-on-rotate (copy-on-write).
-// Lightbox bakes rotated pixels (+ composited markup) and dispatches here.
-// We mint a NEW R2 key + NEW IDB blob and point every CURRENT-report reference
-// sharing the old binary at it (rotation follows the photo everywhere in THIS
-// report). Prior issued reports are separate rows with their own frozen JSON +
-// r2Key — never reached. We fork (never overwrite the old key).
-document.addEventListener('frt-photo-rotated', function(e) {
-  var d = e.detail; if (!d || !d.blob || !d.photo) { console.warn('[Rotate] missing detail/blob/photo'); return; }
-  var photo = d.photo;
-  var proj = Model.getProject(); if (!proj) { console.warn('[Rotate] no project'); return; }
-  var pid = proj.id || proj.projectId; if (!pid) { console.warn('[Rotate] no project id'); return; }
-
-  var preKey = photo.r2Key || '';
-  var strokes = d.strokes || null;
-  var inBackupId = d.origBackupId || photo._origBackupId || null;   // S349
-  var cleanRotBlob = d.cleanRotBlob || null;                        // S349
-
-  var filename = 'rotated_' + (photo.id || Date.now()) + '_' + Date.now() + '.jpg';
-  var newKey = 'photos/' + pid + '/frt/marked/' + filename;
-  var workerUrl = (R2 && R2.WORKER_URL) ? R2.WORKER_URL : 'https://arencon-r2-worker.hezhendong999.workers.dev';
-  var newUrl = workerUrl + '/' + newKey;
-
-  console.log('[Rotate] fork', { photoId: photo.id, preKey: preKey, newKey: newKey,
-    strokes: strokes && strokes.length, inBackupId: inBackupId, hasCleanRot: !!cleanRotBlob });
-
-  var rotatedBlobUrl = (photo.dataUrl && typeof photo.dataUrl === 'string' && photo.dataUrl.indexOf('blob:') === 0)
-    ? photo.dataUrl : null;
-
-  // ── S349: ROTATE THE CLEAN-ORIGINAL BACKUP FORWARD (copy-on-write) ─────────
-  // The defect this fixes: the old fork left the photo's r2Key in /marked/ but
-  // never rotated the clean backup. On the NEXT markup-save the /marked/ preKey
-  // tripped the corrupted-state recovery branch, which minted a SECOND backup
-  // and orphaned _origBackupId → Revert broke after rotation.
-  //
-  // Contract now:
-  //   • Marked photo rotated from a healthy clean original (cleanRotBlob present):
-  //       upload the rotated clean blob to a NEW /original/ key, point the backup
-  //       record at it (copy-on-write — never mutate an issued report's key),
-  //       and KEEP _origBackupId on every sibling. Revert restores a correctly
-  //       rotated clean image.
-  //   • No clean original (cleanRotBlob null): leave the backup untouched; the
-  //       photo keeps whatever revertability it had. No false backup is created.
-  var newBackupId = inBackupId;   // default: unchanged
-  function _rotateBackupThen(done) {
-    if (!cleanRotBlob || !inBackupId) { done(inBackupId); return; }
-    var backup = (proj.photos || []).find(function(p){ return p && p.id === inBackupId && p._isOrigBackup; });
-    if (!backup) { console.warn('[Rotate] backup record not found for', inBackupId, '— skipping backup rotation'); done(inBackupId); return; }
-    var origFilename = 'orig_rot_' + (photo.id || Date.now()) + '_' + Date.now() + '.jpg';
-    var rotOrigKey = 'photos/' + pid + '/frt/original/' + origFilename;
-    var rotOrigUrl = workerUrl + '/' + rotOrigKey;
-    // Point the backup at the rotated clean key NOW (optimistic; upload async).
-    backup.r2Key = rotOrigKey;
-    backup.r2Url = rotOrigUrl;
-    backup.r2Status = 'uploading';
-    delete backup.thumb;   // stale (un-rotated) thumb; regenerated lazily
-    console.log('[Rotate] backup rotated (copy-on-write)', { backupId: backup.id, rotOrigKey: rotOrigKey });
-    R2.upload(pid, 'original', cleanRotBlob, origFilename).then(function(result) {
-      if (result) {
-        backup.r2Status = 'uploaded';
-        if (result.r2Key) { backup.r2Key = result.r2Key; backup.r2Url = result.r2Url || rotOrigUrl; }
-        Model.saveNow();
-        console.log('[Rotate] rotated clean original uploaded');
-      } else {
-        console.warn('[Rotate] rotated original upload returned null — queueing');
-        try { R2.queueUpload('orig_rot_' + photo.id, pid, 'original', cleanRotBlob, origFilename); } catch(_){}
-      }
-    }).catch(function(err) {
-      console.warn('[Rotate] rotated original upload error, queueing:', err && err.message);
-      try { R2.queueUpload('orig_rot_' + photo.id, pid, 'original', cleanRotBlob, origFilename); } catch(_){}
-    });
-    done(backup.id);
-  }
-
-  _rotateBackupThen(function(resolvedBackupId) {
-    newBackupId = resolvedBackupId;
-
-    var siblings = preKey
-      ? Model.findPhotosByR2Key(preKey).filter(function(s){ return !s.photo._isOrigBackup; })
-      : Model.findPhotosById(photo.id).filter(function(s){ return !s.photo._isOrigBackup; });
-    if (!siblings.some(function(s){ return s.photo === photo; })) {
-      siblings.push({ photo: photo, location: { type: 'unknown' } });
-    }
-    siblings.forEach(function(s){
-      var sp = s.photo; if (!sp) return;
-      sp.r2Key = newKey;
-      sp.r2Url = newUrl;
-      sp.r2Status = 'uploading';
-      // S349: keep the (now rotated) backup pointer alive on every sibling so
-      // Revert resolves it after rotation — this is THE fix.
-      if (newBackupId) sp._origBackupId = newBackupId;
-      if (strokes && strokes.length) {
-        sp._markupStrokes = strokes;   // clean-original path: vectors stay editable
-        sp._annotated = true;
-      } else if (d.baked) {
-        // Pixel-only rotation: marks are now baked into the pixels. Clear stale
-        // vector strokes so reopening markup doesn't re-draw them (double marks).
-        delete sp._markupStrokes;
-        sp._annotated = true;
-      }
-      if (rotatedBlobUrl) sp.dataUrl = rotatedBlobUrl;
-    });
-    try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}
-    Model.saveNow();
-    if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-    Model._notify && Model._notify('photo', { action: 'rotated', photoId: photo.id });
-
-  // Fresh thumb of the rotated blob (best-effort, async).
-  try {
-    var fr = new FileReader();
-    fr.onload = function(ev) {
-      var imgEl = new Image();
-      imgEl.onload = function() {
-        try {
-          var sc = Math.min(200 / imgEl.naturalWidth, 200 / imgEl.naturalHeight, 1);
-          var canv = document.createElement('canvas');
-          canv.width = Math.max(1, Math.round(imgEl.naturalWidth * sc));
-          canv.height = Math.max(1, Math.round(imgEl.naturalHeight * sc));
-          canv.getContext('2d').drawImage(imgEl, 0, 0, canv.width, canv.height);
-          var thumbUrl = canv.toDataURL('image/jpeg', 0.7);
-          Model.findPhotosByR2Key(newKey).forEach(function(rec){ if (rec.photo) rec.photo.thumb = thumbUrl; });
-          Model.saveNow();
-          if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-          Model._notify && Model._notify('photo', { action: 'rotated-thumb-ready', photoId: photo.id });
-        } catch(_){}
-      };
-      imgEl.src = ev.target.result;
-    };
-    fr.readAsDataURL(d.blob);
-  } catch(_) {}
-
-  // Upload forked rotated blob to R2 (background; retry-queued on failure).
-  R2.upload(pid, 'marked', d.blob, filename).then(function(result) {
-    if (result) {
-      Model.findPhotosByR2Key(newKey).forEach(function(rec){ if (rec.photo && !rec.photo._isOrigBackup) rec.photo.r2Status = 'uploaded'; });
-      Model.saveNow();
-      if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-      Model._notify && Model._notify('photo', { action: 'rotated-uploaded', photoId: photo.id });
-      console.log('[Rotate] forked blob uploaded');
-    } else {
-      console.warn('[Rotate] upload returned null — queueing retry');
-      try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
-    }
-  }).catch(function(err) {
-    console.warn('[Rotate] upload error, queueing:', err && err.message);
-    try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
-  });
-  });  // S349: close _rotateBackupThen callback
-});
 
 document.addEventListener('frt-markup-reverted', function(e) {
   var d = e.detail; if (!d || !d.photo) { console.warn('[Markup revert] missing detail/photo'); return; }

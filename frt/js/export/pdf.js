@@ -2177,9 +2177,81 @@ async function _betaImgBytes(ph,r2Cache){
   if(ph.dataUrl)candidates.push(ph.dataUrl);
   if(ph.r2Url)candidates.push(ph.r2Url);
   for(var i=0;i<candidates.length;i++){
-    try{ return await _betaFetchBytes(candidates[i]); }catch(e){}
+    try{
+      var bytes = await _betaFetchBytes(candidates[i]);
+      // S351 never-bake: if the photo carries a rotation and/or vector markup
+      // (new model — image bytes are CLEAN + unrotated), composite them now so
+      // the PDF matches the on-screen lightbox. Old-model photos (already-baked
+      // marked binaries with no rotation/_markupStrokes) skip this untouched.
+      var rot = (typeof ph.rotation==='number') ? (((ph.rotation%360)+360)%360) : 0;
+      var strokes = (ph._markupStrokes && ph._markupStrokes.length) ? ph._markupStrokes : null;
+      if (bytes && (rot || strokes)){
+        try { var comp = await _compositeRotatedMarked(bytes, rot, strokes, ph._mkFrame||null); if (comp) return comp; }
+        catch(_){ /* fall through to raw bytes */ }
+      }
+      return bytes;
+    }catch(e){}
   }
   return null;
+}
+
+// S351 never-bake compositor. Inputs: raw CLEAN image bytes, rotation
+// (0/90/180/270), vector strokes (authored in fit-logical px), and the EXACT
+// authoring frame {w,h} those strokes were drawn in (persisted as ph._mkFrame).
+// Returns JPEG bytes of the photo drawn rotated with strokes painted on top in
+// the same rotated frame. Render-time only — pixels are never persistently
+// merged. Deterministic: the frame removes all scaling guesswork. Plain canvas
+// (no OffscreenCanvas — iOS).
+function _compositeRotatedMarked(bytes, rot, strokes, mkFrame){
+  return new Promise(function(resolve){
+    try{
+      var ME = (typeof window!=='undefined') ? window.MarkupEngine : null;
+      var blob = new Blob([bytes]);
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function(){
+        try{
+          var nw = img.naturalWidth, nh = img.naturalHeight;
+          if(!nw||!nh){ URL.revokeObjectURL(url); resolve(null); return; }
+          var sideways = (rot===90||rot===270);
+          var ow = sideways ? nh : nw, oh = sideways ? nw : nh;   // output dims
+          var cv = document.createElement('canvas'); cv.width=ow; cv.height=oh;
+          var ctx = cv.getContext('2d');
+          function applyRot(){
+            if(rot===90){ ctx.translate(ow,0); ctx.rotate(Math.PI/2); }
+            else if(rot===180){ ctx.translate(ow,oh); ctx.rotate(Math.PI); }
+            else if(rot===270){ ctx.translate(0,oh); ctx.rotate(3*Math.PI/2); }
+          }
+          // 1) rotated photo, filling output
+          ctx.save(); applyRot(); ctx.drawImage(img,0,0,nw,nh); ctx.restore();
+          // 2) strokes on top, SAME rotated frame, scaled from their authoring
+          //    frame (mkFrame) to the natural photo space. Deterministic: we know
+          //    the exact frame the strokes were drawn in.
+          if(strokes && strokes.length && ME && ME.renderStrokesToContext){
+            var fw = (mkFrame && mkFrame.w) ? mkFrame.w : nw;
+            var fh = (mkFrame && mkFrame.h) ? mkFrame.h : nh;
+            var sx = nw / fw, sy = nh / fh;     // fit→natural (uniform; aspect matches)
+            ctx.save();
+            applyRot();
+            ctx.scale(sx, sy);
+            // renderStrokesToContext draws at raw fit-px coords; the context scale
+            // maps them onto the nw×nh photo, which applyRot maps into output.
+            try { ME.renderStrokesToContext(ctx, strokes, fw, fh); } catch(_){}
+            ctx.restore();
+          }
+          URL.revokeObjectURL(url);
+          var outUrl = cv.toDataURL('image/jpeg', 0.9);
+          cv.width=0; cv.height=0;
+          var b64 = outUrl.split(',')[1];
+          var bin = atob(b64); var arr = new Uint8Array(bin.length);
+          for(var k=0;k<bin.length;k++) arr[k]=bin.charCodeAt(k);
+          resolve(arr);
+        }catch(e){ try{URL.revokeObjectURL(url);}catch(_){}; resolve(null); }
+      };
+      img.onerror=function(){ try{URL.revokeObjectURL(url);}catch(_){}; resolve(null); };
+      img.src=url;
+    }catch(e){ resolve(null); }
+  });
 }
 
 async function _betaRender(p,r2Cache,linkByUrl,mintStats){
