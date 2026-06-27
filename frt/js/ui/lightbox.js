@@ -180,13 +180,15 @@ function _buildToolbar() {
   overlay.appendChild(topBar);
   dl.addEventListener('click', _downloadCurrent);
   rot.addEventListener('click', function() {
-    // S349d ROLLBACK: permanent rotation depends on R2 round-trips completing
-    // before the display reloads, which races on every tap (404 fallback +
-    // 2 new R2 objects per click). Disabled pending a redesign that bakes
-    // locally and shows the rotated bitmap WITHOUT waiting on R2. View-only
-    // rotation is safe — display only, no fork, no bake, no backup touch.
-    _rotations[_idx] = (_currentRotation() + 90) % 360;
-    _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
+    // S350: permanent rotation re-enabled. Locked design — the bake + display
+    // update are IN-MEMORY and never await R2 (see _rotatePhoto, ~line 850:
+    // bake blob → createObjectURL → lb-image.src). The only network-touching
+    // step is the bake SOURCE load in _loadRotImage, which now prefers the
+    // in-memory _origBlob over an R2 GET (S350 fix), so the common case
+    // (rotate a photo just marked up) never hits the network for display.
+    // The R2 upload + backup re-point happen in the background via the
+    // frt-photo-rotated handler in photos.js (carries _origBackupId forward).
+    _rotatePhoto();
   });
   mkb.addEventListener('click', _toggleMarkup);
   _buildMarkupBar(overlay);
@@ -904,16 +906,34 @@ function _loadRotImage(p, needClean){
       im.onerror=function(){ if(revoke&&src){try{URL.revokeObjectURL(src);}catch(_){}} onFail(); };
       im.src=src;
     }
-    // 1) If marked, try the CLEAN original first (durable only).
+    // 1) If marked, try the CLEAN original first.
     if (needClean){
+      // S350 race fix: prefer the IN-MEMORY clean blob over any network source.
+      // After a markup-save, p._origBlob holds the clean original as a live Blob
+      // (set in _revertMarkup/save path, ~line 976). Baking from it keeps the
+      // rotation display path 100% off the network — no R2 GET, no 404 race.
+      // Only fall back to _resolveOriginalSrc (which may return an R2 URL) when
+      // no usable in-memory blob exists.
+      if (p._origBlob && typeof p._origBlob !== 'string'){
+        try {
+          var memUrl = URL.createObjectURL(p._origBlob);
+          loadUrl(memUrl, true, true, function(){ tryResolved(); });
+          return;
+        } catch(_){ /* fall through */ }
+      }
+      tryResolved();
+      return;
+    }
+    tryCurrent();
+    function tryResolved(){
       var clean = _resolveOriginalSrc(p);   // already rejects dead blob: strings
       if (clean){
         var rev = (clean.indexOf('blob:')===0);
         loadUrl(clean, rev, true, function(){ tryCurrent(); });
         return;
       }
+      tryCurrent();
     }
-    tryCurrent();
     // 2) Fall back to the photo's CURRENT image (may be the marked bitmap).
     function tryCurrent(){
       var src = (p.r2Url && p.r2Url.indexOf('blob:')!==0 ? p.r2Url : '') || p.dataUrl || p.thumb || '';
