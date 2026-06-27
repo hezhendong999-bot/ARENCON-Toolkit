@@ -179,10 +179,7 @@ function _buildToolbar() {
   topBar.appendChild(left); topBar.appendChild(center); topBar.appendChild(right);
   overlay.appendChild(topBar);
   dl.addEventListener('click', _downloadCurrent);
-  rot.addEventListener('click', function() {
-    _rotations[_idx] = (_currentRotation() + 90) % 360;
-    _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
-  });
+  rot.addEventListener('click', function() { _rotatePhoto(); });
   mkb.addEventListener('click', _toggleMarkup);
   _buildMarkupBar(overlay);
   _toolbarBuilt = true;
@@ -724,6 +721,161 @@ function _resolveOriginalSrc(p){
   return null;
 }
 
+// ── S347: permanent photo rotation (rigid, flatten-with-photo) ────────────
+// Tap rotate → 90° CW, PERMANENT (baked pixels), forked to a NEW R2 key/IDB blob
+// so prior report instances are never altered. Markup strokes are vector data;
+// they rotate RIGIDLY in pixel space (via MarkupEngine), so they stay glued to
+// the photo at the exact same spots. No canvas CSS-spin — the markup canvas sits
+// flat on the rotated photo. Works whether markup mode is open or closed.
+var _rotBusy = false;
+function _rotatePhoto(){
+  if (_rotBusy) return;
+  var p = _photos[_idx]; if (!p) return;
+  _rotBusy = true;
+
+  var wasMarkup = _markupActive;
+  // Capture live strokes if markup is open; else use persisted strokes.
+  var strokes = null;
+  if (wasMarkup && window.MarkupEngine){
+    strokes = window.MarkupEngine.exportStrokes();
+  } else if (p._markupStrokes && p._markupStrokes.length){
+    strokes = JSON.parse(JSON.stringify(p._markupStrokes));
+  }
+
+  // Source for the rotated bake = the CLEAN ORIGINAL when marked (so strokes are
+  // not double-baked), else the current displayed image.
+  _loadRotImage(p, !!(strokes && strokes.length)).then(function(got){
+    var img = got.img;
+    var natW = img.naturalWidth, natH = img.naturalHeight;
+    var newNatW = natH, newNatH = natW;   // 90° swap
+
+    // Determine the FIT frame the strokes live in, so the rigid rotation
+    // (done in fraction space) normalizes by the correct magnitude:
+    //  • markup OPEN  → the engine's current fit box (E.w × E.h)
+    //  • markup CLOSED→ reconstruct the fit box = natural × fitScale (same aspect
+    //    as natural, which is what the engine uses on reload)
+    var fitW, fitH;
+    if (wasMarkup && window.MarkupEngine && window.MarkupEngine.w){
+      fitW = window.MarkupEngine.w; fitH = window.MarkupEngine.h;
+    } else {
+      // mirror _calcFitScale at natural orientation (portrait/landscape as-is)
+      var area = _el('lb-canvas');
+      var aw = area ? area.clientWidth : natW, ah = area ? area.clientHeight : natH;
+      var fs = Math.min(aw / natW, ah / natH); if (fs > 1) fs = 1;
+      fitW = natW * fs; fitH = natH * fs;
+    }
+
+    // Rotate strokes RIGIDLY (fraction-space, frame-independent result) in the
+    // FIT frame. They stay fit-px (persistable; engine re-fits on reload). The
+    // bake composites them scaled up to natural via (newNatW/newFitW).
+    var newFitW = fitH, newFitH = fitW;   // fit frame swaps too
+    if (strokes && strokes.length){
+      window.MarkupEngine.rotateStrokesInFrame(strokes, 1, fitW, fitH);
+    }
+    // scale from rotated FIT px → rotated NATURAL px for the bake composite
+    var bakeScaleX = newFitW ? (newNatW / newFitW) : 1;
+    var bakeScaleY = newFitH ? (newNatH / newFitH) : 1;
+
+    // Bake rotated pixels (+ composite rotated strokes for the display/export blob).
+    _bakeRot(img, 90, strokes, newNatW, newNatH, bakeScaleX, bakeScaleY).then(function(blob){
+      if (got.revoke && got.url){ try{ URL.revokeObjectURL(got.url); }catch(_){} }
+      // Fork: new key/blob, current-report refs only (handled in photos.js).
+      try {
+        document.dispatchEvent(new CustomEvent('frt-photo-rotated', {
+          detail:{ photo:p, blob:blob, index:_idx, strokes:strokes }
+        }));
+      } catch(_){}
+      // Reflect locally: photo now a genuinely-rotated bitmap at 0° view-rotation.
+      var url = URL.createObjectURL(blob);
+      p.dataUrl = url;
+      if (strokes) p._markupStrokes = strokes;
+      _rotations[_idx] = 0;
+      var lbimg = _el('lb-image');
+      if (lbimg) lbimg.src = url;
+
+      // If markup was open, re-arm the engine FLAT on the rotated photo so the
+      // strokes stay editable and aligned (canvas re-syncs to the new box; no spin).
+      var finish = function(){
+        _calcFitScale(); _scale=_fitScale; _panX=0; _panY=0; _applyTransform();
+        _rotBusy = false;
+      };
+      if (wasMarkup && window.MarkupEngine){
+        // wait for the rotated image to load so _sync measures the new box
+        if (lbimg){
+          var done=false; var go=function(){ if(done)return; done=true;
+            lbimg.removeEventListener('load',go);
+            try {
+              window.MarkupEngine.detach();
+              var host=_el('lb-canvas');
+              window.MarkupEngine.attach(host, lbimg, p._origBlob||null, null, strokes||null);
+            } catch(_){}
+            finish();
+          };
+          lbimg.addEventListener('load',go);
+          setTimeout(go, 1500);   // never hang
+        } else { finish(); }
+      } else {
+        finish();
+      }
+    }).catch(function(e){ _rotBusy=false; try{toast('Rotation failed: '+(e&&e.message||e),'error');}catch(_){} });
+  }).catch(function(e){ _rotBusy=false; try{toast('Rotation failed: '+(e&&e.message||e),'error');}catch(_){} });
+}
+
+// Load the rotation source as an Image. When marked, prefer the CLEAN original.
+function _loadRotImage(p, marked){
+  return new Promise(function(resolve, reject){
+    var src=null, revoke=false;
+    if (marked){ var clean=_resolveOriginalSrc(p); if(clean){ src=clean; if(clean.indexOf('blob:')===0) revoke=true; } }
+    if (!src && p._origBlob){
+      if (typeof p._origBlob==='string') src=p._origBlob;
+      else { try{ src=URL.createObjectURL(p._origBlob); revoke=true; }catch(_){}}
+    }
+    if (!src) src = p.r2Url || p.dataUrl || p.thumb || '';
+    if (!src){ reject(new Error('no source')); return; }
+    var im=new Image(); im.crossOrigin='anonymous';
+    im.onload=function(){ resolve({img:im, revoke:revoke, url:revoke?src:null}); };
+    im.onerror=function(){
+      if (revoke && src){ try{URL.revokeObjectURL(src);}catch(_){} }
+      fetch(p.r2Url||p.dataUrl||p.thumb||'').then(function(r){return r.blob();}).then(function(b){
+        var u=URL.createObjectURL(b); var i2=new Image();
+        i2.onload=function(){ resolve({img:i2,revoke:true,url:u}); };
+        i2.onerror=function(){ try{URL.revokeObjectURL(u);}catch(_){}; reject(new Error('img load failed')); };
+        i2.src=u;
+      }).catch(function(){ reject(new Error('img load failed')); });
+    };
+    im.src=src;
+  });
+}
+
+// Bake rotation into pixels (plain canvas; NO OffscreenCanvas). cw×ch = output
+// (already swapped). If strokes given (in rotated FIT px), composite them scaled
+// by (sx,sy) to natural so they paint at the right size on the natural canvas.
+function _bakeRot(srcImg, deg, strokes, cw, ch, sx, sy){
+  return new Promise(function(resolve, reject){
+    try {
+      var nw=srcImg.naturalWidth, nh=srcImg.naturalHeight;
+      var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+      var ctx=cv.getContext('2d');
+      ctx.save();
+      if (deg===90){ ctx.translate(cw,0); ctx.rotate(Math.PI/2); }
+      else if (deg===180){ ctx.translate(cw,ch); ctx.rotate(Math.PI); }
+      else if (deg===270){ ctx.translate(0,ch); ctx.rotate(3*Math.PI/2); }
+      ctx.drawImage(srcImg,0,0,nw,nh);
+      ctx.restore();
+      if (strokes && strokes.length && window.MarkupEngine && window.MarkupEngine.renderStrokesToContext){
+        try {
+          ctx.save();
+          ctx.scale(sx||1, sy||1);   // fit-px strokes → natural px
+          // renderStrokesToContext paints in W×H = the strokes' own (fit) frame
+          window.MarkupEngine.renderStrokesToContext(ctx, strokes, (cw/(sx||1)), (ch/(sy||1)));
+          ctx.restore();
+        } catch(_){}
+      }
+      cv.toBlob(function(b){ b?resolve(b):reject(new Error('toBlob failed')); }, 'image/jpeg', 0.92);
+    } catch(e){ reject(e); }
+  });
+}
+
 function _saveMarkup(){
   if (!window.MarkupEngine || !window.MarkupEngine.isDirty()){ _exitMarkupNoSave(); return; }
   // S340: capture the live strokes for persistence BEFORE saveBlob (which is async).
@@ -1058,7 +1210,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }
   if (e.key === '-') { _scale = Math.max(_fitScale, _scale / 1.2); if (_scale <= _fitScale) { _panX = 0; _panY = 0; } _applyTransform(); }
   if (e.key === '0') { _resetView(); }
-  if (e.key === 'r' || e.key === 'R') { _rotations[_idx] = (_currentRotation() + 90) % 360; _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform(); }
+  if (e.key === 'r' || e.key === 'R') { _rotatePhoto(); }
 });
 
 // Mouse double-click → reset zoom (S70)

@@ -73,6 +73,56 @@
         : [];
     },
 
+    // S347: rigidly rotate the LIVE strokes by `steps` × 90° CW. Rotation is
+    // done in FRACTION space (frame-independent), which is mathematically
+    // identical to rigid pixel rotation about the image but needs no knowledge
+    // of the absolute frame magnitude. Strokes are stored in fit-logical px;
+    // we normalize by the current fit frame (this.w × this.h), rotate, then
+    // re-expand into the SWAPPED fit frame. Per-object s.rotation turns +90° CW.
+    // After this the engine's frame W/H have swapped — caller re-syncs + _render.
+    rotateStrokes: function(steps){
+      if (!this.strokes || !this.strokes.length) return;
+      var r = MarkupEngine.rotateStrokesInFrame(this.strokes, steps, this.w, this.h);
+      // (frame swap is reflected by the caller's re-sync; nothing else to do here)
+      return r;
+    },
+
+    // Static: rigid 90°-CW-by-steps rotation of a stroke array IN PLACE. Works in
+    // fraction space using the given starting frame (w0,h0) only to normalize;
+    // the result is re-expanded into the swapped frame. Returns the new frame.
+    // 90° CW in fraction space: (fx,fy) -> (1 - fy, fx)  [== rigid pixel rotation].
+    rotateStrokesInFrame: function(strokes, steps, w0, h0){
+      steps = (((steps||0) % 4) + 4) % 4;
+      if (!steps || !strokes || !strokes.length) return { w: w0, h: h0 };
+      var w = w0, h = h0;
+      // normalize to fractions of the starting frame
+      for (var a = 0; a < strokes.length; a++){
+        var st = strokes[a]; if (!st.pts) continue;
+        for (var b = 0; b < st.pts.length; b++){ st.pts[b].x /= w; st.pts[b].y /= h; }
+      }
+      // rotate in fraction space, swapping the frame each step
+      for (var s = 0; s < steps; s++){
+        for (var i = 0; i < strokes.length; i++){
+          var k = strokes[i];
+          if (k.pts){
+            for (var j = 0; j < k.pts.length; j++){
+              var p = k.pts[j];
+              var nx = 1 - p.y, ny = p.x;   // (fx,fy) -> (1-fy, fx)
+              p.x = nx; p.y = ny;
+            }
+          }
+          if (k.rotation != null) k.rotation += Math.PI / 2;
+        }
+        var t = w; w = h; h = t;
+      }
+      // re-expand into the new (swapped) frame
+      for (var c = 0; c < strokes.length; c++){
+        var sc = strokes[c]; if (!sc.pts) continue;
+        for (var e = 0; e < sc.pts.length; e++){ sc.pts[e].x *= w; sc.pts[e].y *= h; }
+      }
+      return { w: w, h: h };
+    },
+
     detach: function(){
       if (this._textInput && this._textInput.parentNode) { try{ this._textInput.parentNode.removeChild(this._textInput); }catch(_){} this._textInput=null; }
       if (this._syncBound) { window.removeEventListener('resize', this._syncBound); this._syncBound = null; }
@@ -1151,6 +1201,51 @@
           });
           out.toBlob(function(b){ b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/jpeg', 0.92);
         } catch(e){ reject(e); }
+      });
+    },
+
+    // S347: paint strokes (already in TARGET-px coords matching the ctx canvas
+    // W×H) onto an arbitrary 2D context. Mirrors saveBlob compositing at scale 1.
+    // Used by the rotation bake to composite rotated markup onto rotated pixels.
+    renderStrokesToContext: function(ctx, strokes, W, H){
+      if (!ctx || !strokes || !strokes.length) return;
+      var self = this;
+      var hi = strokes.filter(function(s){return s.tool==='highlight';});
+      if (hi.length){
+        var hg = {};
+        hi.forEach(function(s){ var op=(s.opacity!=null)?s.opacity:1; (hg[String(op)]||(hg[String(op)]={opacity:op,list:[]})).list.push(s); });
+        for (var hk in hg){ if(!hg.hasOwnProperty(hk)) continue; var g=hg[hk];
+          var off=document.createElement('canvas'); off.width=W; off.height=H;
+          var hc=off.getContext('2d'); hc.lineCap='round'; hc.lineJoin='round';
+          g.list.forEach(function(s){
+            hc.strokeStyle=s.color; hc.lineWidth=(s.size||3)*4;
+            hc.beginPath(); hc.moveTo(s.pts[0].x,s.pts[0].y);
+            for (var j=1;j<s.pts.length;j++) hc.lineTo(s.pts[j].x,s.pts[j].y);
+            hc.stroke();
+          });
+          ctx.save(); ctx.globalAlpha=self.hlAlpha*g.opacity; ctx.drawImage(off,0,0); ctx.restore();
+        }
+      }
+      ctx.lineCap='round'; ctx.lineJoin='round';
+      strokes.filter(function(s){return s.tool==='pen';}).forEach(function(s){
+        ctx.save(); ctx.globalAlpha=(s.opacity!=null)?s.opacity:1;
+        ctx.strokeStyle=s.color; ctx.lineWidth=s.size;
+        ctx.beginPath(); ctx.moveTo(s.pts[0].x,s.pts[0].y);
+        for (var j=1;j<s.pts.length;j++) ctx.lineTo(s.pts[j].x,s.pts[j].y);
+        ctx.stroke(); ctx.restore();
+      });
+      strokes.filter(function(s){return isShapeTool(s.tool);}).forEach(function(s){
+        ctx.save(); ctx.globalAlpha=(s.opacity!=null)?s.opacity:1;
+        if (s.rotation){ var a=s.pts[0],b=s.pts[1], cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
+          ctx.translate(cx,cy); ctx.rotate(s.rotation); ctx.translate(-cx,-cy); }
+        self._drawShape(ctx, s, 1, 1); ctx.restore();
+      });
+      strokes.filter(function(s){return s.tool==='text';}).forEach(function(s){
+        ctx.save(); ctx.globalAlpha=(s.opacity!=null)?s.opacity:1;
+        if (s.rotation){ var _bm=self._textMetrics(s), fs=_bm.fs, estW=_bm.w;
+          var cx=s.pts[0].x+estW/2, cy=s.pts[0].y-fs+_bm.h/2;
+          ctx.translate(cx,cy); ctx.rotate(s.rotation); ctx.translate(-cx,-cy); }
+        self._drawText(ctx, s, 1, 1); ctx.restore();
       });
     }
   };

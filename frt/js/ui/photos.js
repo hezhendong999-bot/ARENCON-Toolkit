@@ -2132,6 +2132,94 @@ document.addEventListener('frt-markup-saved', function(e) {
 //   6. Delete the marked R2 file (background; orphan-safe if it fails).
 //   7. Clear _annotated, _origBackupId, dataUrl on all siblings.
 // ────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────
+// S347: permanent photo rotation — fork-on-rotate (copy-on-write).
+// Lightbox bakes rotated pixels (+ composited markup) and dispatches here.
+// We mint a NEW R2 key + NEW IDB blob and point every CURRENT-report reference
+// sharing the old binary at it (rotation follows the photo everywhere in THIS
+// report). Prior issued reports are separate rows with their own frozen JSON +
+// r2Key — never reached. We fork (never overwrite the old key).
+document.addEventListener('frt-photo-rotated', function(e) {
+  var d = e.detail; if (!d || !d.blob || !d.photo) { console.warn('[Rotate] missing detail/blob/photo'); return; }
+  var photo = d.photo;
+  var proj = Model.getProject(); if (!proj) { console.warn('[Rotate] no project'); return; }
+  var pid = proj.id || proj.projectId; if (!pid) { console.warn('[Rotate] no project id'); return; }
+
+  var preKey = photo.r2Key || '';
+  var strokes = d.strokes || null;
+
+  var filename = 'rotated_' + (photo.id || Date.now()) + '_' + Date.now() + '.jpg';
+  var newKey = 'photos/' + pid + '/frt/marked/' + filename;
+  var workerUrl = (R2 && R2.WORKER_URL) ? R2.WORKER_URL : 'https://arencon-r2-worker.hezhendong999.workers.dev';
+  var newUrl = workerUrl + '/' + newKey;
+
+  console.log('[Rotate] fork', { photoId: photo.id, preKey: preKey, newKey: newKey, strokes: strokes && strokes.length });
+
+  var rotatedBlobUrl = (photo.dataUrl && typeof photo.dataUrl === 'string' && photo.dataUrl.indexOf('blob:') === 0)
+    ? photo.dataUrl : null;
+
+  var siblings = preKey
+    ? Model.findPhotosByR2Key(preKey).filter(function(s){ return !s.photo._isOrigBackup; })
+    : Model.findPhotosById(photo.id).filter(function(s){ return !s.photo._isOrigBackup; });
+  if (!siblings.some(function(s){ return s.photo === photo; })) {
+    siblings.push({ photo: photo, location: { type: 'unknown' } });
+  }
+  siblings.forEach(function(s){
+    var sp = s.photo; if (!sp) return;
+    sp.r2Key = newKey;
+    sp.r2Url = newUrl;
+    sp.r2Status = 'uploading';
+    if (strokes) sp._markupStrokes = strokes;
+    if (strokes && strokes.length) sp._annotated = true;
+    if (rotatedBlobUrl) sp.dataUrl = rotatedBlobUrl;
+  });
+  try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}
+  Model.saveNow();
+  if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+  Model._notify && Model._notify('photo', { action: 'rotated', photoId: photo.id });
+
+  // Fresh thumb of the rotated blob (best-effort, async).
+  try {
+    var fr = new FileReader();
+    fr.onload = function(ev) {
+      var imgEl = new Image();
+      imgEl.onload = function() {
+        try {
+          var sc = Math.min(200 / imgEl.naturalWidth, 200 / imgEl.naturalHeight, 1);
+          var canv = document.createElement('canvas');
+          canv.width = Math.max(1, Math.round(imgEl.naturalWidth * sc));
+          canv.height = Math.max(1, Math.round(imgEl.naturalHeight * sc));
+          canv.getContext('2d').drawImage(imgEl, 0, 0, canv.width, canv.height);
+          var thumbUrl = canv.toDataURL('image/jpeg', 0.7);
+          Model.findPhotosByR2Key(newKey).forEach(function(rec){ if (rec.photo) rec.photo.thumb = thumbUrl; });
+          Model.saveNow();
+          if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+          Model._notify && Model._notify('photo', { action: 'rotated-thumb-ready', photoId: photo.id });
+        } catch(_){}
+      };
+      imgEl.src = ev.target.result;
+    };
+    fr.readAsDataURL(d.blob);
+  } catch(_) {}
+
+  // Upload forked rotated blob to R2 (background; retry-queued on failure).
+  R2.upload(pid, 'marked', d.blob, filename).then(function(result) {
+    if (result) {
+      Model.findPhotosByR2Key(newKey).forEach(function(rec){ if (rec.photo && !rec.photo._isOrigBackup) rec.photo.r2Status = 'uploaded'; });
+      Model.saveNow();
+      if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+      Model._notify && Model._notify('photo', { action: 'rotated-uploaded', photoId: photo.id });
+      console.log('[Rotate] forked blob uploaded');
+    } else {
+      console.warn('[Rotate] upload returned null — queueing retry');
+      try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
+    }
+  }).catch(function(err) {
+    console.warn('[Rotate] upload error, queueing:', err && err.message);
+    try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
+  });
+});
+
 document.addEventListener('frt-markup-reverted', function(e) {
   var d = e.detail; if (!d || !d.photo) { console.warn('[Markup revert] missing detail/photo'); return; }
   var photo = d.photo;
