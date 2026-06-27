@@ -12,7 +12,7 @@
  */
 
 import { toast } from '../shared/toast.js';
-import { showConfirm } from '../shared/dialogs.js';
+import { showConfirm, showAlert } from '../shared/dialogs.js';
 
 // S339 (Mark): text-edit chip styles. Injected once. Fixed top control row
 // (grab · − size + · ↵ · ✕ · ✓) over an auto-expanding multi-line textarea.
@@ -998,7 +998,15 @@ function _revertMarkup(){
   // is enough — no persisted state to undo.)
   var hasSaved = !!p._origBackupId;
   console.log('[Markup] _revertMarkup called — hasSaved=', hasSaved, 'origBackupId=', p._origBackupId, 'r2Key=', p.r2Key);
-  if (!hasSaved && !window.MarkupEngine.isDirty()) { console.log('[Markup] revert: nothing to do'); return; }
+  // S349s: never fail silently. If there's a live (unsaved) stroke, clearing the
+  // engine is the revert. If there's neither a saved backup nor a live stroke,
+  // tell the user WHY nothing happens instead of returning quietly (on a tablet
+  // a silent return is indistinguishable from a dead button).
+  if (!hasSaved && !window.MarkupEngine.isDirty()) {
+    console.log('[Markup] revert: nothing to do');
+    showAlert('Nothing to revert', 'This photo has no saved markup to undo. (If it was marked up in an earlier session, its original backup is unavailable, so it can\u2019t be reverted \u2014 re-take the photo if you need a clean copy.)');
+    return;
+  }
   var doRevert = function(){
     window.MarkupEngine.clear();
     if (hasSaved) {
