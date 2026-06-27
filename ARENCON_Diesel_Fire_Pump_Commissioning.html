@@ -13416,7 +13416,23 @@ function _dslStampSiblings(photo, stampFn){
 // regression: a tainted canvas made toDataURL throw before anything persisted.
 function _dslLoadBakeImage(p){
   return new Promise(function(res, rej){
-    var local = p.d || '';
+    // S367b: for an ALREADY-annotated photo, p.d is the BAKED marked image — baking
+    // the strokes onto it again double-stamps the markup (duplicates accumulate on
+    // every re-save). Bake onto the CLEAN ORIGINAL instead, resolved the same way
+    // re-entry editing does: backup record (_origBackupId) → its d / r2Url, else the
+    // deterministic /original/ R2 key. Only annotated photos take this branch; a
+    // first-ever markup still bakes onto p.d/r2Url as before.
+    var origSrc = '';
+    if(p && p._annotated && p._origBackupId && typeof recordPhotos!=='undefined'){
+      var b = recordPhotos.filter(function(r){ return r && r.id===p._origBackupId; })[0];
+      if(b){ origSrc = b.d || b.r2Url || ''; }
+    }
+    if(p && p._annotated && !origSrc && p.id && typeof _r2FolderId!=='undefined' && _r2FolderId &&
+       typeof R2Photos!=='undefined' && R2Photos.getUrl){
+      try{ origSrc = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', p.id + '.jpg'); }catch(_e){}
+    }
+
+    var local = (!p._annotated && p.d) ? p.d : (origSrc && origSrc.indexOf('data:')===0 ? origSrc : '');
     if(local){
       var im = new Image();
       im.onload = function(){ res({img:im, revoke:function(){}}); };
@@ -13424,7 +13440,8 @@ function _dslLoadBakeImage(p){
       im.src = local;
       return;
     }
-    var url = p.r2Url || '';
+    // cloud path: annotated → clean original URL; otherwise the photo's own r2Url
+    var url = (p._annotated && origSrc) ? origSrc : (p.r2Url || origSrc || '');
     if(!url) return rej(new Error('photo has no local data and no cloud URL'));
     var busted = url + (url.indexOf('?')>=0 ? '&' : '?') + 'cb=' + Date.now();
     fetch(busted, {cache:'no-store'}).then(function(r){
@@ -18302,7 +18319,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S367';
+var DIESEL_BUILD = 'S368';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
