@@ -781,9 +781,25 @@ function _rotatePhoto(){
     strokes = JSON.parse(JSON.stringify(p._markupStrokes));
   }
 
+  // S350e ROOT FIX: when markup is OPEN, the clean base lives in the engine
+  // (the image it draws on top of). Capture it as a fresh in-memory Blob via
+  // cleanBlob() and seed p._origBlob BEFORE the rotation resolves its source.
+  // Without this, "draw → rotate immediately" (no save yet) found no clean
+  // source → _loadRotImage returned clean:false → strokes were FLATTENED into
+  // the pixels and _markupStrokes cleared → Revert had nothing to restore.
+  // cleanBlob() is in-memory (no network), so this does not reintroduce the
+  // R2 display race. If no marks are open, skip straight to the rotation.
+  var _seedClean = (wasMarkup && strokes && strokes.length && window.MarkupEngine && window.MarkupEngine.cleanBlob)
+    ? window.MarkupEngine.cleanBlob().then(function(cb){
+        if (cb) { p._origBlob = cb; }   // now _loadRotImage's in-memory path hits → clean:true
+        return true;
+      }).catch(function(){ return true; })
+    : Promise.resolve(true);
+
   // Source for the rotated bake = the CLEAN ORIGINAL when marked (so strokes are
   // not double-baked), else the current displayed image.
-  _loadRotImage(p, !!(strokes && strokes.length)).then(function(got){
+  _seedClean.then(function(){
+  return _loadRotImage(p, !!(strokes && strokes.length)); }).then(function(got){
     var img = got.img;
     var natW = img.naturalWidth, natH = img.naturalHeight;
     var newNatW = natH, newNatH = natW;   // 90° swap
@@ -797,6 +813,19 @@ function _rotatePhoto(){
       strokes = null;   // drop vector carry + composite for this rotation
       hadStrokesButBaked = true;
     }
+    // S350d INSTRUMENT — print exactly what this rotation decided.
+    try {
+      console.log('%c[ROT S350d]','background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold', {
+        photoId: p.id,
+        strokesCaptured: (wasMarkup && window.MarkupEngine) ? 'live' : ((p._markupStrokes||[]).length + ' persisted'),
+        sourceClean: got.clean,
+        decision: got.clean ? 'KEEP VECTORS (revertable, clean backup will rotate)' :
+                  (hadStrokesButBaked ? 'FLATTEN MARKS INTO PIXELS (no clean source → NOT revertable)' : 'pixels-only (no marks)'),
+        origBackupId_before: p._origBackupId || 'MISSING',
+        origBlob: p._origBlob ? (typeof p._origBlob==='string' ? 'string' : 'Blob('+p._origBlob.size+'b)') : 'MISSING',
+        why_not_clean: got.clean ? '—' : 'loadRotImage fell through to current marked bitmap; no usable clean original (_origBlob missing AND backup r2Url not loadable)'
+      });
+    } catch(_){}
 
     // Determine the FIT frame the strokes live in, so the rigid rotation
     // (done in fraction space) normalizes by the correct magnitude:
@@ -1531,7 +1560,26 @@ document.addEventListener('touchend', function(e) {
 export var Lightbox = {
   open: _open,
   close: _close,
-  isOpen: function() { return _isOpen; }
+  isOpen: function() { return _isOpen; },
+  // S350d diagnostic: reach the live active photo + rotation state from console.
+  activePhoto: function(){ return _photos[_idx] || null; },
+  rotState: function(){
+    var p = _photos[_idx] || null;
+    return {
+      idx: _idx, count: _photos.length, markupActive: _markupActive,
+      photo: p && {
+        id: p.id,
+        strokeCount: (p._markupStrokes||[]).length,
+        origBlob: p._origBlob ? (typeof p._origBlob==='string' ? 'string:'+String(p._origBlob).slice(0,30) : 'Blob('+p._origBlob.size+'b)') : 'MISSING',
+        origBackupId: p._origBackupId || 'MISSING',
+        annotated: !!p._annotated,
+        r2Key: p.r2Key, r2Url: p.r2Url ? String(p.r2Url).slice(0,70) : 'none',
+        dataUrl: p.dataUrl ? String(p.dataUrl).slice(0,30) : 'none'
+      },
+      resolvedCleanSrc: p ? (function(){ try{ return _resolveOriginalSrc(p); }catch(e){ return 'ERR:'+e.message; } })() : null,
+      engine: window.MarkupEngine ? { w: window.MarkupEngine.w, h: window.MarkupEngine.h, liveStrokes: (function(){try{return window.MarkupEngine.exportStrokes().length;}catch(_){return 'n/a';}})() } : 'not loaded'
+    };
+  }
 };
 
 // Caption editing
