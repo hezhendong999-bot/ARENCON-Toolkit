@@ -690,7 +690,24 @@ function _toggleMarkup(){
         attachAndArm(ok);   // ok=true → with strokes; ok=false → clean
       };
       var _onOk  = function(){ _finish(true); };
-      var _onErr = function(){ _finish(false); };
+      var _onErr = function(){
+        // Original failed to load (dead blob / 404). Restore the display image to
+        // a WORKING source so the photo doesn't stay broken/tiny, THEN arm clean.
+        // Prefer the photo's current durable URL; fall back to dataUrl/thumb.
+        try {
+          var working = '';
+          if (p.r2Url && p.r2Url.indexOf('blob:') !== 0) working = p.r2Url;
+          else if (p.dataUrl && String(p.dataUrl).indexOf('blob:') !== 0) working = p.dataUrl;
+          else if (p.thumb) working = p.thumb;
+          if (working && img.src !== working){
+            // Set without re-triggering this handler (we already removed listeners in _finish).
+            var restore = function(){ img.removeEventListener('load', restore); _calcFitScale(); _scale=_fitScale; _panX=0; _panY=0; _applyTransform(); };
+            img.addEventListener('load', restore);
+            img.src = working;
+          }
+        } catch(_){}
+        _finish(false);
+      };
       img.addEventListener('load', _onOk);
       img.addEventListener('error', _onErr);
       var _t = setTimeout(function(){ _finish(false); }, 6000);  // never hang
@@ -708,16 +725,28 @@ function _toggleMarkup(){
 // in-memory _origBlob (Blob or data-URL string). Returns a usable src string,
 // or null if none is resolvable (caller then attaches clean = no re-edit, no doubling).
 function _resolveOriginalSrc(p){
+  // Prefer DURABLE sources that survive a page reload. A stored blob: URL string
+  // is NOT durable — blob URLs die when the page reloads, so a persisted blob:
+  // string is very likely dead (ERR_FILE_NOT_FOUND) and must be skipped, or
+  // markup loads a broken image and the photo shrinks to its thumbnail.
   try {
     if (p._origBackupId && typeof Model !== 'undefined' && Model.getSitePhotos){
       var bk = (Model.getSitePhotos()||[]).filter(function(x){ return x && x.id === p._origBackupId; })[0];
-      if (bk && bk.r2Url) return bk.r2Url;
+      if (bk && bk.r2Url && bk.r2Url.indexOf('blob:') !== 0) return bk.r2Url;
     }
   } catch(_){}
   if (p._origBlob){
-    if (typeof p._origBlob === 'string') return p._origBlob;
-    try { return URL.createObjectURL(p._origBlob); } catch(_){}
+    // A real Blob object → mint a FRESH (live) blob URL. Safe.
+    if (typeof p._origBlob !== 'string'){
+      try { return URL.createObjectURL(p._origBlob); } catch(_){}
+    } else {
+      // String form: only trust durable schemes. Reject blob: (likely dead).
+      var s = p._origBlob;
+      if (s.indexOf('blob:') !== 0 && (s.indexOf('http') === 0 || s.indexOf('data:') === 0)) return s;
+    }
   }
+  // Last resort: the photo's own durable URL (clean original may equal it).
+  if (p.r2Url && p.r2Url.indexOf('blob:') !== 0 && p.r2Url.indexOf('/marked/') < 0) return p.r2Url;
   return null;
 }
 
