@@ -179,7 +179,13 @@ function _buildToolbar() {
   topBar.appendChild(left); topBar.appendChild(center); topBar.appendChild(right);
   overlay.appendChild(topBar);
   dl.addEventListener('click', _downloadCurrent);
-  rot.addEventListener('click', function() { _rotatePhoto(); });
+  rot.addEventListener('click', function() {
+    // S347 ROLLBACK: permanent rotation (_rotatePhoto) is disabled pending a
+    // proper rebuild of the rotation↔markup backup contract. View-only rotation
+    // is safe — it never forks, bakes, or touches the backup chain.
+    _rotations[_idx] = (_currentRotation() + 90) % 360;
+    _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();
+  });
   mkb.addEventListener('click', _toggleMarkup);
   _buildMarkupBar(overlay);
   _toolbarBuilt = true;
@@ -1279,7 +1285,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === '+' || e.key === '=') { _scale = Math.min(8, _scale * 1.2); _applyTransform(); }
   if (e.key === '-') { _scale = Math.max(_fitScale, _scale / 1.2); if (_scale <= _fitScale) { _panX = 0; _panY = 0; } _applyTransform(); }
   if (e.key === '0') { _resetView(); }
-  if (e.key === 'r' || e.key === 'R') { _rotatePhoto(); }
+  if (e.key === 'r' || e.key === 'R') { _rotations[_idx] = (_currentRotation() + 90) % 360; _calcFitScale(); _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform(); }
 });
 
 // Mouse double-click → reset zoom (S70)
