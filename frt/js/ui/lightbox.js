@@ -767,6 +767,18 @@ function _resolveOriginalSrc(p){
 // the photo at the exact same spots. No canvas CSS-spin — the markup canvas sits
 // flat on the rotated photo. Works whether markup mode is open or closed.
 var _rotBusy = false;
+// S350g: debounced rotation persist. Visual rotation is instant per tap; the
+// R2 fork+upload (frt-photo-rotated) fires once after taps settle, or on close.
+var _rotDispatchTimer = null;
+var _pendingRotDetail = null;
+function _flushRotDispatch(){
+  if (_rotDispatchTimer){ clearTimeout(_rotDispatchTimer); _rotDispatchTimer = null; }
+  var d = _pendingRotDetail; _pendingRotDetail = null;
+  if (!d) return;
+  try {
+    document.dispatchEvent(new CustomEvent('frt-photo-rotated', { detail: d }));
+  } catch(_){}
+}
 function _rotatePhoto(){
   if (_rotBusy) return;
   var p = _photos[_idx]; if (!p) return;
@@ -820,7 +832,7 @@ function _rotatePhoto(){
     }
     // S350d INSTRUMENT — print exactly what this rotation decided.
     try {
-      console.log('%c[ROT S350f]','background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold', {
+      console.log('%c[ROT S350g]','background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold', {
         photoId: p.id,
         strokesCaptured: (wasMarkup && window.MarkupEngine) ? 'live' : ((p._markupStrokes||[]).length + ' persisted'),
         sourceClean: got.clean,
@@ -882,12 +894,17 @@ function _rotatePhoto(){
       if (cleanRotBlob) { p._origBlob = cleanRotBlob; }
       // Fork: new key/blob, current-report refs only (handled in photos.js).
       // S349: pass _origBackupId + the rotated clean blob so photos.js can keep
-      // the clean-original backup pointing at a rotated /original/ image.
+      // S350g DEBOUNCE: visual rotation is instant (local reflect below), but the
+      // R2 fork+upload must NOT fire on every tap. Each _rotatePhoto produces a
+      // COMPLETE rotated blob from current state, so only the LAST burst tap needs
+      // to persist — earlier dispatches would just upload intermediate orientations
+      // and spray R2 (the log showed ~30 uploads for a few taps). Queue the latest
+      // detail; fire one dispatch ~900ms after the last tap (or on lightbox close).
       try {
-        document.dispatchEvent(new CustomEvent('frt-photo-rotated', {
-          detail:{ photo:p, blob:blob, index:_idx, strokes:strokes, baked:hadStrokesButBaked,
-                   origBackupId:(p._origBackupId||null), cleanRotBlob:cleanRotBlob }
-        }));
+        _pendingRotDetail = { photo:p, blob:blob, index:_idx, strokes:strokes,
+          baked:hadStrokesButBaked, origBackupId:(p._origBackupId||null), cleanRotBlob:cleanRotBlob };
+        if (_rotDispatchTimer) clearTimeout(_rotDispatchTimer);
+        _rotDispatchTimer = setTimeout(_flushRotDispatch, 900);
       } catch(_){}
       // Reflect locally: photo now a genuinely-rotated bitmap at 0° view-rotation.
       var url = URL.createObjectURL(blob);
@@ -1296,6 +1313,9 @@ function _open(photos, startIdx, opts) {
 }
 
 function _close() {
+  // S350g: persist any pending rotation immediately (don't lose a rotate that
+  // happened within the 900ms debounce window when the user closes fast).
+  if (_pendingRotDetail) { _flushRotDispatch(); }
   // Copy Diesel S305: closing the lightbox with unsaved strokes COMMITS them
   // first (bake + persist), then tears down — no silent discard. If clean, just close.
   if (_markupActive && window.MarkupEngine && window.MarkupEngine.hasChangesSinceAttach()){
