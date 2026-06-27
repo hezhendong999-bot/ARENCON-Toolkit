@@ -5163,33 +5163,6 @@ var DslLightbox = (function(){
     if(window.DieselMarkup && DieselMarkup.strokes && DieselMarkup.strokes.length){ _saveMk(); }
     else { _exitMarkup(false); }
   }
-  // ===== TEMP S346 DIAGNOSTIC — remove after Mark verifies =====
-  function _DBG346(p, baseMode){
-    try{
-      var mk=(p&&p.id&&_mkDraft[p.id])||(p&&p.mk)||null;
-      var nStrokes=(mk&&mk.o&&mk.o.length)||0;
-      var liveStrokes=(window.DieselMarkup&&DieselMarkup.strokes&&DieselMarkup.strokes.length)||0;
-      var cv=_el('dlb-canvas');
-      var msg='S346 ✎\n'
-        +'branch: '+baseMode+'\n'
-        +'p.mk strokes: '+nStrokes+'\n'
-        +'engine strokes: '+liveStrokes+'\n'
-        +'_annotated: '+(!!(p&&p._annotated))+'\n'
-        +'_origBackupId: '+((p&&p._origBackupId)?'yes':'NO')+'\n'
-        +'canvas px: '+(cv?cv.width:'?')+'x'+(cv?cv.height:'?')+'\n'
-        +'canvas css: '+(cv?cv.style.width:'?')+' x '+(cv?cv.style.height:'?');
-      var d=document.getElementById('dbg346');
-      if(!d){ d=document.createElement('div'); d.id='dbg346';
-        d.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;background:rgba(0,0,0,.82);color:#0f0;'
-          +'font:11px/1.35 monospace;white-space:pre;padding:8px 10px;border-radius:8px;max-width:60vw;pointer-events:auto;';
-        d.onclick=function(){ d.style.display='none'; };
-        document.body.appendChild(d);
-      }
-      d.style.display='block'; d.textContent=msg;
-    }catch(_e){}
-  }
-  // ===== END TEMP S346 DIAGNOSTIC =====
-
   // S346 (non-destructive markup): resolve a photo's CLEAN ORIGINAL image source
   // so re-entering markup replays p.mk over the original — NOT over the already-
   // baked p.d (which would double-bake the strokes). Reuses the same backup
@@ -5255,7 +5228,6 @@ var DslLightbox = (function(){
       _apply();                            // repaints stage WITHOUT baked mk + places canvas
       _placeMarkupCanvas();
       try{ DieselMarkup.render(); }catch(e){ console.warn('[DLB] markup initial render failed', e); }  // paint base photo + loaded strokes
-      _DBG346(p, baseMode);   // TEMP diagnostic — remove after verify
     };
 
     var _origSrc=_origSrcForMarkup(p);
