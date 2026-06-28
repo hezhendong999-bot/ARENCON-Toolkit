@@ -2518,6 +2518,18 @@ export var Model = {
         }
       }
     }
+    var copy = {
+      id: _uid('ph'),
+      r2Key: src.r2Key || null,
+      sourceR2Key: src.sourceR2Key || src.r2Key || null,
+      r2Url: src.r2Url || null,
+      dataUrl: src.dataUrl || null,
+      thumb: src.thumb || null,
+      filename: src.filename || ('photo_' + Date.now() + '.jpg'),
+      addedDate: src.addedDate || new Date().toISOString().split('T')[0],
+      createdBy: src.createdBy || _currentUserId || null
+    };
+    if (src._origBackupId) copy._origBackupId = src._origBackupId;
     if (src._annotated)    copy._annotated    = src._annotated;
     if (src.r2Status)      copy.r2Status      = src.r2Status;
     // S358: carry never-bake markup vectors + display rotation onto the pin copy
