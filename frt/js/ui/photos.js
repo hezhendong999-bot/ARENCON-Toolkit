@@ -1974,89 +1974,25 @@ document.addEventListener('frt-markup-saved', function(e) {
     }
     console.log('[Markup save] stamping', siblings.length, 'sibling(s)', { backupId: backupId });
     try { console.log('[S340 stamp] d.strokes =', d.strokes && d.strokes.length, '(typeof', typeof d.strokes + ')'); } catch(_){}
-    // S115 P11: For instant visual feedback in defic tab + pin editor, share
-    // the lightbox's blob URL of the marked image across every sibling. Blob
-    // URLs are document-scoped — any <img src=...> in the page can use them.
-    // This means the marked thumbnail shows immediately after save, before
-    // the marked R2 file is uploaded (which takes 1-2 seconds).
-    var markedBlobUrl = (photo.dataUrl && typeof photo.dataUrl === 'string' && photo.dataUrl.indexOf('blob:') === 0)
-      ? photo.dataUrl
-      : null;
+    // S351c NEVER-BAKE: do NOT repoint r2Key/r2Url/dataUrl/thumb to a marked
+    // binary. The photo's display source stays the CLEAN image; rotation +
+    // vector strokes composite at render time (lightbox overlay, gallery thumb,
+    // PDF). Stamping a marked URL here is what made the gallery show a baked
+    // image (so rotation/strokes looked frozen). We only persist the vector
+    // strokes, the authoring frame, the annotated flag, and the backup link.
     siblings.forEach(function(s){
       var sp = s.photo; if (!sp) return;
-      sp.r2Key = newKey;
-      sp.r2Url = newUrl;
-      sp.r2Status = 'uploading';
-      sp._annotated = true;
+      sp._annotated = (d.strokes && d.strokes.length) > 0;
       if (backupId) sp._origBackupId = backupId;
-      if (d.strokes) sp._markupStrokes = d.strokes;   // S340: re-editable markup data
+      if (d.strokes) sp._markupStrokes = d.strokes;     // re-editable vector markup
+      if (d.mkFrame) sp._mkFrame = d.mkFrame;           // authoring frame (deterministic compositing)
       if (sp.addedDate !== todayStr) sp.addedDate = todayStr;
-      // S115 P11: keep stale thumb until async thumb-gen replaces it. Briefly
-      // showing the original thumb is better than a 404 from the marked R2
-      // path that doesn't exist yet. Once thumb-gen completes the thumb
-      // becomes the marked image (handled below).
-      // (Earlier code used: delete sp.thumb)
-      // Share marked blob URL so defic/pin renders pick it up immediately.
-      if (markedBlobUrl) sp.dataUrl = markedBlobUrl;
     });
-    try { IDB.put('photoBlobs', { id: photo.id, dataBlob: d.blob }).catch(function(){}); } catch(_){}
     Model.saveNow();
+    try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); } catch(_){}
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-    // S115 P11: notify so defic tab + pin editor re-render with the new
-    // r2Key/r2Url + shared blob URL. Photos showing the OLD thumb get the
-    // freshly-shared blob URL (which fronts the marked image instantly).
     Model._notify && Model._notify('photo', { action: 'markup-stamped', photoId: photo.id });
   }
-
-  // ── Generate fresh thumb of marked blob (best-effort, async) ──
-  try {
-    var fr = new FileReader();
-    fr.onload = function(ev) {
-      var imgEl = new Image();
-      imgEl.onload = function() {
-        try {
-          var tw = 200, th = 200;
-          var sc = Math.min(tw / imgEl.naturalWidth, th / imgEl.naturalHeight, 1);
-          var canv = document.createElement('canvas');
-          canv.width = Math.max(1, Math.round(imgEl.naturalWidth * sc));
-          canv.height = Math.max(1, Math.round(imgEl.naturalHeight * sc));
-          canv.getContext('2d').drawImage(imgEl, 0, 0, canv.width, canv.height);
-          var markedThumbDataUrl = canv.toDataURL('image/jpeg', 0.7);
-          var live = Model.findPhotosByR2Key(newKey);
-          live.forEach(function(rec){ if (rec.photo) rec.photo.thumb = markedThumbDataUrl; });
-          if (photo.r2Key === newKey) photo.thumb = markedThumbDataUrl;
-          Model.saveNow();
-          if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-          // S115 P11: notify so defic tab + pin editor re-render their thumbs.
-          // (Without this, the thumbs stay on the OLD r2Url until next render is
-          // triggered some other way — e.g. user switches tabs.)
-          Model._notify && Model._notify('photo', { action: 'markup-thumb-ready', photoId: photo.id });
-        } catch(_){}
-      };
-      imgEl.src = ev.target.result;
-    };
-    fr.readAsDataURL(d.blob);
-  } catch(_) {}
-
-  // ── Upload marked blob to R2 (background) ──
-  R2.upload(pid, 'marked', d.blob, filename).then(function(result) {
-    if (result) {
-      var live = Model.findPhotosByR2Key(newKey);
-      live.forEach(function(rec){ if (rec.photo && !rec.photo._isOrigBackup) rec.photo.r2Status = 'uploaded'; });
-      if (photo.r2Key === newKey) photo.r2Status = 'uploaded';
-      Model.saveNow();
-      if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-      // S115 P11: notify on upload-complete too so cloud-status indicators refresh.
-      Model._notify && Model._notify('photo', { action: 'markup-uploaded', photoId: photo.id });
-      console.log('[Markup save] marked blob uploaded successfully');
-    } else {
-      console.warn('[Markup save] marked blob upload returned null — queueing for retry');
-      try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
-    }
-  }).catch(function(err) {
-    console.warn('[Markup save] marked blob upload error, queueing:', err && err.message);
-    try { R2.queueUpload(photo.id, pid, 'marked', d.blob, filename); } catch(_){}
-  });
 
   // ── Backup creation: branch on state ──
 

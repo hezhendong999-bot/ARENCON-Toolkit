@@ -640,6 +640,9 @@ function _exitMarkupNoSave(){
   var _cb=document.getElementById('lb-mk-confirm'); if(_cb) _cb.style.display='none';
   ['lb-mk-subfly','lb-mk-colorfly'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
   _markupActive = false;
+  // S351c: markup engine detached — repaint the persistent overlay so the saved
+  // strokes stay visible now that the live canvas is gone.
+  try { _renderStaticMarkup(_photos[_idx]); } catch(_){}
 }
 // Copied from Diesel S305/S306: leaving markup mode COMMITS any drawn strokes —
 // no explicit Save click required. The pencil toggle (✎), the ✕ button, Escape,
@@ -903,6 +906,50 @@ function _clampPan() {
   else { _panY = Math.min(0, Math.max(ah - sh, _panY)); }
 }
 
+// S351c never-bake display layer: render saved vector strokes onto a persistent
+// overlay canvas sized/positioned over lb-image, so markup is visible when the
+// markup tool is CLOSED (the engine only renders while armed). Strokes are in
+// fit-logical px (p._mkFrame); we draw them in the photo's current displayed box
+// and let the shared CSS transform (_applyTransform) rotate/zoom them WITH the
+// photo. Hidden while markup is armed (engine owns the canvas then).
+function _renderStaticMarkup(p){
+  try {
+    var wrap = _el('lb-img-wrap'); var img = _el('lb-image');
+    if (!wrap || !img) return;
+    var ov = document.getElementById('lb-static-markup');
+    var strokes = (p && p._markupStrokes && p._markupStrokes.length) ? p._markupStrokes : null;
+    // Remove/clear when armed or no strokes
+    if (_markupActive || !strokes){
+      if (ov) ov.style.display = 'none';
+      return;
+    }
+    if (!ov){
+      ov = document.createElement('canvas');
+      ov.id = 'lb-static-markup';
+      ov.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;z-index:4;';
+      wrap.appendChild(ov);
+    }
+    ov.style.display = 'block';
+    // Draw in the strokes' OWN authoring frame so coords map 1:1; size the canvas
+    // to that frame and CSS-scale it to the image's displayed box. The wrap's
+    // transform (rotate/scale/pan) then carries the overlay WITH the photo.
+    var fw = (p._mkFrame && p._mkFrame.w) ? p._mkFrame.w : (img.naturalWidth || img.width);
+    var fh = (p._mkFrame && p._mkFrame.h) ? p._mkFrame.h : (img.naturalHeight || img.height);
+    ov.width = fw; ov.height = fh;
+    // match the image's rendered size (object-fit:contain box == img.width/height
+    // as laid out); use the image element's box so it overlays exactly.
+    ov.style.width = img.clientWidth + 'px';
+    ov.style.height = img.clientHeight + 'px';
+    ov.style.left = img.offsetLeft + 'px';
+    ov.style.top  = img.offsetTop + 'px';
+    var ctx = ov.getContext('2d');
+    ctx.clearRect(0,0,fw,fh);
+    if (window.MarkupEngine && window.MarkupEngine.renderStrokesToContext){
+      try { window.MarkupEngine.renderStrokesToContext(ctx, strokes, fw, fh); } catch(_){}
+    }
+  } catch(_){}
+}
+
 function _applyTransform() {
   _clampPan();
   var wrap = _el('lb-img-wrap');
@@ -1009,6 +1056,7 @@ function _showPhoto(idx) {
     _scale = _fitScale;
     _panX = 0; _panY = 0;
     _applyTransform();
+    _renderStaticMarkup(p);   // S351c: paint saved strokes when markup is closed
   };
   img.onerror = function() {
     _fbIdx++;
