@@ -10852,10 +10852,10 @@ function _realExportPDF() {
   </div>
   <div id="contractor-sigs-print"></div>
   <div id="witness-sigs-print"></div>
-  <div id="flow-test-photos-print"></div>
   <!-- photos are rendered inline at each checklist item -->
-  <div id="sketches-print"></div>
   </div>
+  <div id="flow-test-photos-print"></div>
+  <div id="sketches-print"></div>
   ${typeof _appendixHTML==='function' ? _appendixHTML() : ''}
   </div><!-- end .page -->
   
@@ -10941,7 +10941,7 @@ function _realExportPDF() {
       // Flow test photos
       const ftPrint = wd.getElementById('flow-test-photos-print');
       if (ftPrint && flowTestPhotos && flowTestPhotos.length > 0) {
-        let ftHtml = '<h2 style="font-size:11pt;font-weight:bold;background:#1C2333;color:white;padding:6px 12px;margin:20px 0 8px;text-transform:uppercase;">Flow Test Chart Photos</h2>';
+        let ftHtml = '<div class="sh" style="margin-top:20px;">Flow Test Chart Photos</div>';
         ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;">';
         flowTestPhotos.forEach(p => {
           ftHtml += '<img src="'+_phSrc(p)+'" style="max-height:160px;max-width:220px;object-fit:contain;border:1px solid #ddd;border-radius:4px;">';
@@ -10953,7 +10953,7 @@ function _realExportPDF() {
       // Sketches
       const skPrint = wd.getElementById('sketches-print');
       if (skPrint && sketchEntries.length > 0) {
-        let skHtml = '<h2 style="font-size:11pt;font-weight:bold;background:#1C2333;color:white;padding:6px 12px;margin:20px 0 8px;text-transform:uppercase;">Site Sketches &amp; Photo Markups</h2>';
+        let skHtml = '<div class="sh" style="margin-top:20px;">Site Sketches &amp; Photo Markups</div>';
         sketchEntries.filter(e=>document.getElementById('sketch-'+e.uid)).forEach((entry, dispIdx) => {
           var skUid = entry.uid;
           if(typeof _flattenSTL==='function') _flattenSTL(skUid);
@@ -18558,7 +18558,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372.1';
+var DIESEL_BUILD = 'S372.2';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
