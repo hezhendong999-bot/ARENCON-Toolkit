@@ -791,7 +791,17 @@ function _resolveOriginalSrc(p){
 
 
 function _saveMarkup(){
-  if (!window.MarkupEngine || !window.MarkupEngine.isDirty()){ _exitMarkupNoSave(); return; }
+  // S354: persist when the strokes CHANGED since attach (including deletions, even
+  // down to zero). The old guard used isDirty() (strokes.length>0), so deleting all
+  // marks — or any delete where the result still differed — could skip persistence
+  // and the pre-edit strokes reloaded on reopen ("delete then close brings it back").
+  // hasChangesSinceAttach() compares against the attach snapshot, so a deletion is a
+  // real change that must be saved. If genuinely unchanged, exit clean.
+  if (!window.MarkupEngine){ _exitMarkupNoSave(); return; }
+  var _changed = window.MarkupEngine.hasChangesSinceAttach
+    ? window.MarkupEngine.hasChangesSinceAttach()
+    : window.MarkupEngine.isDirty();
+  if (!_changed){ _exitMarkupNoSave(); return; }
   // S340: capture the live strokes for persistence BEFORE saveBlob (which is async).
   var savedStrokes = window.MarkupEngine.exportStrokes();
   // S351 PERMANENT never-bake: capture the EXACT frame the strokes were authored
