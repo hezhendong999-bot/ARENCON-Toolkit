@@ -29,6 +29,7 @@ var _photoTab = 'all';
 var _TRASH_RETENTION_DAYS = 90;
 // S265 stage 2: project id this session has already auto-purged (run-once guard).
 var _purgedForProjectId = null;
+var _dateRepairForProjectId = null;   // S366 one-time guarded date-repair
 var _selectedUids = new Set();
 var _filterPanelOpen = false;
 // S114 P1.3: anchor for shift-click range select. Stores the last toggled UID
@@ -309,6 +310,35 @@ export var initPhotos = {
     if (Model.purgeExpiredPhotos && _purgedForProjectId !== (proj.id || proj.projectId)) {
       _purgedForProjectId = (proj.id || proj.projectId);
       try { Model.purgeExpiredPhotos(_TRASH_RETENTION_DAYS); } catch (e) { /* defensive */ }
+    }
+
+    // S366: one-time date repair for photos the buggy S363/S364 builds left on the
+    // WRONG date (e.g. an obs photo whose marks were erased but whose date stayed on
+    // a later day). Correct rule (S365): an UNMARKED photo belongs on its capture
+    // date; a MARKED photo belongs on today. So restore the id-encoded capture date
+    // ONLY for photos that (a) carry NO markup strokes right now, AND (b) whose stored
+    // addedDate is strictly LATER than their id date. Marked photos are never touched
+    // (they legitimately sit on today). This is the guarded version of the removed
+    // S364 repair — it no longer drags marked photos off today.
+    if (_dateRepairForProjectId !== (proj.id || proj.projectId)) {
+      _dateRepairForProjectId = (proj.id || proj.projectId);
+      try {
+        var _fixed = 0;
+        (Model.getAllPhotoRecords ? Model.getAllPhotoRecords() : []).forEach(function(rec){
+          var ph = rec.photo; if (!ph || !ph.id || !ph.addedDate) return;
+          if (ph._markupStrokes && ph._markupStrokes.length) return; // marked => belongs on today
+          var m = String(ph.id).match(/_(\d{13})(?:_|$)/);
+          if (!m) return;
+          var idDate;
+          try { idDate = new Date(parseInt(m[1])).toISOString().split('T')[0]; } catch(_) { return; }
+          if (idDate && ph.addedDate > idDate) { ph.addedDate = idDate; _fixed++; }
+        });
+        if (_fixed > 0) {
+          console.log('[S366 date-repair] restored capture date on', _fixed, 'unmarked photo(s)');
+          Model.saveNow();
+          try { if (Model.touch) Model.touch(); } catch(_){}
+        }
+      } catch(e) { /* defensive */ }
     }
 
     var sitePhotos = proj.photos || [];
