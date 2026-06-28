@@ -713,7 +713,8 @@ export var initPhotos = {
         if (r.src) {
           var _rot = (r.ph && typeof r.ph.rotation==='number') ? (((r.ph.rotation%360)+360)%360) : 0;
           var _rotStyle = _rot ? (' style="transform:rotate('+_rot+'deg)"') : '';
-          html += '<img ' + clickAction + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="this.style.display=\'none\'">';
+          var _pidAttr = (r.ph && r.ph.id) ? (' data-thumb-pid="' + esc(r.ph.id) + '"') : '';
+          html += '<img ' + clickAction + _pidAttr + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="this.style.display=\'none\'">';
         } else {
           html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
         }
@@ -848,17 +849,17 @@ function _compositeGalleryThumbs(container){
   });
 }
 
-// swap the composited dataURL into any gallery <img> showing this photo, and
-// REMOVE the CSS rotate (the dataURL is already rotated — double-rotating is wrong).
+// swap the composited dataURL into the gallery <img> for THIS photo only, matched
+// by exact data-thumb-pid (NOT by URL prefix — many photos share the R2 worker URL
+// prefix, which made one composite stamp onto every thumbnail). Clears the CSS rotate
+// since the composite is already rotated.
 function _applyThumbToImgs(imgs, p, durl, rot){
-  var cands=[p._cleanThumbSrc, p.thumb, p.r2Url, p.dataUrl].filter(Boolean).map(function(s){return String(s).slice(0,40);});
+  if(!p || !p.id) return;
   for(var i=0;i<imgs.length;i++){
-    var im=imgs[i]; var s=im.src||'';
-    // match imgs currently showing this photo's clean/source image OR already this composite
-    if(im.src===durl) { im.style.transform='none'; continue; }
-    if(cands.some(function(c){return s.indexOf(c)>=0;})){
-      im.src=durl;
-      im.style.transform='none';   // composite is pre-rotated; clear CSS rotate
+    var im=imgs[i];
+    if(im.getAttribute && im.getAttribute('data-thumb-pid') === p.id){
+      im.src = durl;
+      im.style.transform = 'none';   // composite is pre-rotated; clear CSS rotate
     }
   }
 }
