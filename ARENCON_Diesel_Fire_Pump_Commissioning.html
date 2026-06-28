@@ -10039,10 +10039,20 @@ function _appendixHTML(){
       return _appendixEligible(it) && it.src && !_appendixExcl.has(_ppxKey(it));
     });
     if(!inc.length) return '';
+    window._apxBandEmitted = true;   // S372.5: this path always emits the Photo Appendix band
     function esc(t){ return (''+(t==null?'':t)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
     function chunk(a,n){ var o=[]; for(var i=0;i<a.length;i+=n) o.push(a.slice(i,i+n)); return o; }
-    function head(t){ return '<div style="font:700 16px Calibri,sans-serif;color:#1C2333;border-bottom:2px solid #2C4770;padding:18px 0 5px;margin-bottom:10px;">'+esc(t)+'</div>'; }
-    function sub(t){ return '<div style="font:700 12.5px Calibri,sans-serif;color:#2C4770;padding:8px 0 4px;">'+esc(t)+'</div>'; }
+    // S372.5 unified-appendix design. ONE navy section band ("Photo Appendix");
+    // every category below is a refined sub-header (burgundy left-rule + dark label
+    // + hairline baseline), visually subordinate to the band and consistent across
+    // charts / pump / placards / gauges / sketches. No more disconnected navy bars.
+    function head(t){
+      return '<div style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin-bottom:11px;border-bottom:1px solid #D8DCE3;">'
+        +'<span style="width:4px;height:15px;background:#9C2742;border-radius:2px;display:inline-block;flex:0 0 auto;"></span>'
+        +'<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">'+esc(t)+'</span>'
+        +'</div>';
+    }
+    function sub(t){ return '<div style="font:700 11.5px Calibri,sans-serif;color:#9C2742;letter-spacing:.2px;padding:6px 0 4px;">'+esc(t)+'</div>'; }
     function rows(items,size){
       // returns ARRAY of row strings (each row = one bin-pack block)
       return chunk(items, size>=300?2:3).map(function(row){
@@ -10063,13 +10073,11 @@ function _appendixHTML(){
       out+='<div>'+labelFn(label)+rs[0]+'</div>';
       for(var i=1;i<rs.length;i++) out+=rs[i];
     }
+    // The single navy section band — the appendix anchor. Emitted once, before the
+    // first category. Flow-test charts + sketches (separate DOM divs, after this in
+    // source order) continue UNDER this band via the paginator, as sub-headers.
+    var _apxTitle = '<div class="sh apx-band" style="margin-top:26px;">Photo Appendix</div>';
     var first=true;
-    // S372 fix: the appendix must be its OWN paginator section. The bin-pack groups
-    // blocks into section units by the `sh` class; the old title was a plain styled
-    // div, so the whole appendix got absorbed into the LAST section (Signature) and
-    // its overflow pages were stamped "Signature (cont.)" with photos beneath them.
-    // Emitting a real `sh` band starts a fresh unit → "Photo Appendix (cont.)".
-    var _apxTitle = '<div class="sh" style="margin-top:26px;">Photo Appendix</div>';
     // S367: active test type drives the "(3-Point)" / "(7-Point)" suffix on
     // appendix section headers so placards/charts/pump photos are unambiguous.
     var ptype='std';
@@ -10167,10 +10175,10 @@ function _appendixHTML(){
         for(var li=1;li<lines.length;li++) out+=lines[li];
       });
     });
-    // 4. Flow test charts (Hose Monster) — 3-up
-    sect('Flow Test Charts'+ptSuffix, inc.filter(function(it){
-      return it.type==='flowtest'||it.type==='flowtest-pld'||(it.type==='record'&&(it.photo.kind==='flow'||it.photo.kind==='flow-pld'));
-    }), 228);
+    // Flow Test Charts + Site Sketches are rendered by the flow-test-photos-print /
+    // sketches-print divs immediately after this appendix HTML (they need live
+    // canvas access). They continue under the same "Photo Appendix" section band as
+    // refined sub-headers — see the PDF fill block. Not duplicated here.
     return out;
   }catch(e){ console.warn('[appendix] build error', e); return ''; }
 }
@@ -10427,6 +10435,7 @@ function _ensureChartsForExport(){
   };
 }
 function _exportPDFGo() {
+  window._apxBandEmitted = false;   // S372.5: reset per-export; _appendixHTML / flow-test / sketch set it true when the Photo Appendix band is emitted
   var _chartRestore=_ensureChartsForExport();   // S316
   [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
   setTimeout(function(){
@@ -10883,9 +10892,9 @@ function _realExportPDF() {
   <div id="witness-sigs-print"></div>
   <!-- photos are rendered inline at each checklist item -->
   </div>
+  ${typeof _appendixHTML==='function' ? _appendixHTML() : ''}
   <div id="flow-test-photos-print"></div>
   <div id="sketches-print"></div>
-  ${typeof _appendixHTML==='function' ? _appendixHTML() : ''}
   </div><!-- end .page -->
   
   <!-- Mobile page navigation -->
@@ -10970,10 +10979,19 @@ function _realExportPDF() {
       // Flow test photos
       const ftPrint = wd.getElementById('flow-test-photos-print');
       if (ftPrint && flowTestPhotos && flowTestPhotos.length > 0) {
-        let ftHtml = '<div class="sh" style="margin-top:20px;">Flow Test Chart Photos</div>';
-        ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;">';
+        // S372.5: if the appendix had no eligible photos, no "Photo Appendix" band
+        // was emitted — add it here so flow-test charts sit under their own section
+        // (and the paginator doesn't fold them into Signature).
+        let ftHtml = '';
+        if(!window._apxBandEmitted){ ftHtml += '<div class="sh apx-band" style="margin-top:26px;">Photo Appendix</div>'; window._apxBandEmitted = true; }
+        // A refined category sub-header (burgundy rule + label + hairline), matching
+        // the appendix internals — NOT a standalone navy band.
+        ftHtml += '<div class="apx-subhead" style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin:0 0 11px;border-bottom:1px solid #D8DCE3;">'
+          + '<span style="width:4px;height:15px;background:#9C2742;border-radius:2px;display:inline-block;flex:0 0 auto;"></span>'
+          + '<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">Flow Test Charts</span></div>';
+        ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:12px;">';
         flowTestPhotos.forEach(p => {
-          ftHtml += '<img src="'+_phSrc(p)+'" style="max-height:160px;max-width:220px;object-fit:contain;border:1px solid #ddd;border-radius:4px;">';
+          ftHtml += '<div style="width:228px;height:228px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;"><img src="'+_phSrc(p)+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>';
         });
         ftHtml += '</div>';
         ftPrint.innerHTML = ftHtml;
@@ -10982,7 +11000,11 @@ function _realExportPDF() {
       // Sketches
       const skPrint = wd.getElementById('sketches-print');
       if (skPrint && sketchEntries.length > 0) {
-        let skHtml = '<div class="sh" style="margin-top:20px;">Site Sketches &amp; Photo Markups</div>';
+        let skHtml = '';
+        if(!window._apxBandEmitted){ skHtml += '<div class="sh apx-band" style="margin-top:26px;">Photo Appendix</div>'; window._apxBandEmitted = true; }
+        skHtml += '<div class="apx-subhead" style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin:0 0 11px;border-bottom:1px solid #D8DCE3;">'
+          + '<span style="width:4px;height:15px;background:#9C2742;border-radius:2px;display:inline-block;flex:0 0 auto;"></span>'
+          + '<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">Site Sketches &amp; Photo Markups</span></div>';
         sketchEntries.filter(e=>document.getElementById('sketch-'+e.uid)).forEach((entry, dispIdx) => {
           var skUid = entry.uid;
           if(typeof _flattenSTL==='function') _flattenSTL(skUid);
@@ -18638,7 +18660,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372.4';
+var DIESEL_BUILD = 'S372.5';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
