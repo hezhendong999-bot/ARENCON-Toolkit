@@ -10035,6 +10035,12 @@ function _appendixHTML(){
       for(var i=1;i<rs.length;i++) out+=rs[i];
     }
     var first=true;
+    // S372 fix: the appendix must be its OWN paginator section. The bin-pack groups
+    // blocks into section units by the `sh` class; the old title was a plain styled
+    // div, so the whole appendix got absorbed into the LAST section (Signature) and
+    // its overflow pages were stamped "Signature (cont.)" with photos beneath them.
+    // Emitting a real `sh` band starts a fresh unit → "Photo Appendix (cont.)".
+    var _apxTitle = '<div class="sh" style="margin-top:26px;">Photo Appendix</div>';
     // S367: active test type drives the "(3-Point)" / "(7-Point)" suffix on
     // appendix section headers so placards/charts/pump photos are unambiguous.
     var ptype='std';
@@ -10042,14 +10048,14 @@ function _appendixHTML(){
     var ptSuffix = (ptype==='pld') ? ' (7-Point)' : ' (3-Point)';
     function sect(title, items, size){
       if(!items.length) return;
-      var t=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':'');
+      var t=(first?_apxTitle:'');
       first=false;
       emit(title, items, size, function(l){ return t+head(l); });
     }
     // 1. Pump & Installation — TWO per row at 230x185, left-aligned
     var pmp=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind==='pump'||it.photo.kind==='pump-pld'); });
     if(pmp.length){
-      var tp=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
+      var tp=(first?_apxTitle:''); first=false;
       function _pmpCard(it){
         var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){}
         return '<div style="width:230px;">'
@@ -10067,7 +10073,7 @@ function _appendixHTML(){
     // 2. Placards (incl. PLD placard) — TWO cards per row at 285x300, left-aligned
     var plc=inc.filter(function(it){ return it.type==='record'&&(it.photo.kind||'').indexOf('placard')!==-1; });
     if(plc.length){
-      var t2=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
+      var t2=(first?_apxTitle:''); first=false;
       var plcHdr=(plc[0].photo.kind==='placard-pld'?'PLD Placard (7-Point)':'Pump Placard (3-Point)');
       function _plcCard(it){
         var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){}
@@ -10088,45 +10094,50 @@ function _appendixHTML(){
     //    when the line is full; each photo captioned with its reading. For 7-Point
     //    (PLD) the caption also notes without/with PLD. The flow-point sub-header
     //    travels with its first photos (keep-with-next).
-    var gType=(ptype==='pld')?'gauge-pld':'gauge';
-    var gRows=(ptype==='pld')?(typeof pldData!=='undefined'?pldData:[]):(typeof stdData!=='undefined'?stdData:[]);
-    var gItems=inc.filter(function(it){ return it.type===gType; });
-    if(gItems.length){
-      var hdrDone=false, prefix=(ptype==='pld')?'gauge_pld_':'gauge_std_';
-      var gh=(first?'<div style="font:700 20px Calibri,sans-serif;color:#1C2333;padding-top:26px;">Photo Appendix</div>':''); first=false;
-      var _rdOrder=(typeof _GAUGE_READINGS!=='undefined'?_GAUGE_READINGS:[]);
+    // S372 fix: emit gauge photos for BOTH pump types (3-Point std + 7-Point PLD),
+    // not just whichever pump-type toggle happened to be active at print time. A
+    // marked-up 7-point photo was silently dropped from the report when generated
+    // on the 3-point view. Each type prints its own header only if it has photos.
+    var _gaugeTypes=[
+      { gType:'gauge',     rows:(typeof stdData!=='undefined'?stdData:[]), prefix:'gauge_std_', isPld:false, suffix:'3-Point' },
+      { gType:'gauge-pld', rows:(typeof pldData!=='undefined'?pldData:[]), prefix:'gauge_pld_', isPld:true,  suffix:'7-Point' }
+    ];
+    var _rdOrderG=(typeof _GAUGE_READINGS!=='undefined'?_GAUGE_READINGS:[]);
+    _gaugeTypes.forEach(function(GT){
+      var gItems=inc.filter(function(it){ return it.type===GT.gType; });
+      if(!gItems.length) return;
+      var hdrDone=false;
+      var gh=(first?_apxTitle:''); first=false;
       function _gCard(it){
-        var rd=_rdOrder.filter(function(r){ return r.k===(it.photo.tag||'suction'); })[0];
+        var rd=_rdOrderG.filter(function(r){ return r.k===(it.photo.tag||'suction'); })[0];
         var cap=rd?rd.label:(it.photo.tag||'');
-        if(ptype==='pld' && it.photo.mode){ cap+= (it.photo.mode==='pld'?' · w/PLD':it.photo.mode==='direct'?' · w/o PLD':''); }
+        if(GT.isPld && it.photo.mode){ cap+= (it.photo.mode==='pld'?' \u00b7 w/PLD':it.photo.mode==='direct'?' \u00b7 w/o PLD':''); }
         return '<div style="width:120px;">'
           +'<div style="width:120px;height:150px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
           +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
           +'<div style="font:10px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(cap)+'</div>'
           +'</div>';
       }
-      gRows.forEach(function(row,ri){
-        var rowItems=gItems.filter(function(it){ return it.section===prefix+ri; });
+      GT.rows.forEach(function(row,ri){
+        var rowItems=gItems.filter(function(it){ return it.section===GT.prefix+ri; });
         if(!rowItems.length) return;
-        // Order photos by reading sequence (and PLD mode: without before with).
         rowItems.sort(function(a,b){
-          var ia=_rdOrder.findIndex(function(r){ return r.k===(a.photo.tag||'suction'); });
-          var ib=_rdOrder.findIndex(function(r){ return r.k===(b.photo.tag||'suction'); });
+          var ia=_rdOrderG.findIndex(function(r){ return r.k===(a.photo.tag||'suction'); });
+          var ib=_rdOrderG.findIndex(function(r){ return r.k===(b.photo.tag||'suction'); });
           if(ia!==ib) return ia-ib;
           var ma=(a.photo.mode==='pld')?1:0, mb=(b.photo.mode==='pld')?1:0;
           return ma-mb;
         });
         var lbl=sub(row.pct||('Point '+(ri+1)));
-        // 5 cards per wrapped line fit a letter page (5*120 + gaps ≈ 660px).
         var lineGroups=chunk(rowItems,5);
         var lines=lineGroups.map(function(g){
           return '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start;margin-bottom:10px;">'+g.map(_gCard).join('')+'</div>';
         });
-        if(!hdrDone){ out+='<div>'+gh+head('Flow Test \u2014 Gauge & RPM Photos ('+(ptype==='pld'?'7-Point':'3-Point')+')')+lbl+lines[0]+'</div>'; hdrDone=true; }
+        if(!hdrDone){ out+='<div>'+gh+head('Flow Test \u2014 Gauge & RPM Photos ('+GT.suffix+')')+lbl+lines[0]+'</div>'; hdrDone=true; }
         else out+='<div>'+lbl+lines[0]+'</div>';
         for(var li=1;li<lines.length;li++) out+=lines[li];
       });
-    }
+    });
     // 4. Flow test charts (Hose Monster) — 3-up
     sect('Flow Test Charts'+ptSuffix, inc.filter(function(it){
       return it.type==='flowtest'||it.type==='flowtest-pld'||(it.type==='record'&&(it.photo.kind==='flow'||it.photo.kind==='flow-pld'));
@@ -18547,7 +18558,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372';
+var DIESEL_BUILD = 'S372.1';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
