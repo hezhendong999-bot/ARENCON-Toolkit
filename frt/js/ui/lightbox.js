@@ -688,16 +688,6 @@ function _toggleMarkup(){
     // AND can resolve the original source, swap lb-image to the original first.
     var savedStrokes = (p._markupStrokes && p._markupStrokes.length) ? p._markupStrokes : null;
     var origSrc = savedStrokes ? _resolveOriginalSrc(p) : null;
-    try {
-      console.log('[S340 reopen]', p && p.id,
-        'savedStrokes=', savedStrokes && savedStrokes.length,
-        '| has _markupStrokes key=', (p && ('_markupStrokes' in p)),
-        '| typeof=', (p && typeof p._markupStrokes),
-        '| rawLen=', (p && p._markupStrokes && p._markupStrokes.length),
-        '| origSrc=', origSrc ? origSrc.slice(0,50) : null,
-        '| origBackupId=', p && p._origBackupId,
-        '| keys=', p ? Object.keys(p).filter(function(k){return k.indexOf("_")===0;}).join(",") : '');
-    } catch(_){}
     // attachAndArm(withStrokes): mount the engine. Pass strokes ONLY when we're
     // confident the displayed image is the CLEAN original (else doubling). When the
     // original can't be loaded (404/error), we attach clean so the photo still opens.
@@ -728,7 +718,6 @@ function _toggleMarkup(){
         img.removeEventListener('load', _onOk);
         img.removeEventListener('error', _onErr);
         if (_t) { clearTimeout(_t); _t = null; }
-        try { console.log('[S340 reopen] original load ' + (ok?'OK → arm WITH strokes':'FAILED → arm CLEAN (strokes kept in data)')); } catch(_){}
         attachAndArm(ok);   // ok=true → with strokes; ok=false → clean
       };
       var _onOk  = function(){ _finish(true); };
@@ -814,7 +803,6 @@ function _saveMarkup(){
   // frame. Stored on the record so it rides into IDB + cloud.
   var _mkFrame = (window.MarkupEngine.w && window.MarkupEngine.h)
     ? { w: window.MarkupEngine.w, h: window.MarkupEngine.h } : null;
-  try { console.log('[S351 save] strokes →', savedStrokes && savedStrokes.length, '| frame=', _mkFrame); } catch(_){}
   // S347d: capture a GUARANTEED clean-original Blob from the engine's source image
   // (this.img, drawn under the strokes) — under never-bake this is THE stored
   // image (clean), not a fallback. We do NOT bake a marked binary anymore.
@@ -833,7 +821,6 @@ function _saveMarkup(){
       p._annotated = (savedStrokes && savedStrokes.length) > 0;
       p._markupStrokes = savedStrokes;   // vector strokes ride into IDB + cloud
       if (_mkFrame) p._mkFrame = _mkFrame; // authoring frame — source of truth for compositing
-      try { console.log('[S351 save] set strokes on', p.id, '→', (p._markupStrokes||[]).length, '| frame', p._mkFrame, '| clean kept (no bake)'); } catch(_){}
       // Persist + sync hook. cleanBlob is the durable original; strokes/frame are data.
       try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:cleanBlob,index:_idx,strokes:savedStrokes,cleanBlob:cleanBlob,mkFrame:_mkFrame}})); } catch(e){}
       try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); else if (Model && Model.saveNow) Model.saveNow(); } catch(_){}
@@ -856,7 +843,6 @@ function _revertMarkup(){
   // tell the user WHY nothing happens instead of returning quietly (on a tablet
   // a silent return is indistinguishable from a dead button).
   if (!hasSaved && !window.MarkupEngine.isDirty()) {
-    console.log('[Markup] revert: nothing to do');
     showAlert('Nothing to revert', 'This photo has no saved markup to undo. (If it was marked up in an earlier session, its original backup is unavailable, so it can\u2019t be reverted \u2014 re-take the photo if you need a clean copy.)');
     return;
   }
@@ -865,9 +851,7 @@ function _revertMarkup(){
     if (hasSaved) {
       // Dispatch revert event — photos.js handler does R2 cleanup,
       // backup-record removal, sibling restoration, and persistence.
-      console.log('[Markup] dispatching frt-markup-reverted for photo id=', p.id);
       try { document.dispatchEvent(new CustomEvent('frt-markup-reverted',{detail:{photo:p,index:_idx}})); } catch(e){ console.warn('[Markup] dispatch error:', e); }
-      console.log('[Markup] after dispatch — p.r2Key=', p.r2Key, 'p.r2Url=', p.r2Url, 'p._origBackupId=', p._origBackupId);
       // Force image reload from the restored r2Url. Add cache-bust in case
       // the browser cached anything under the old marked URL.
       var img = document.getElementById('lb-image');
@@ -880,7 +864,6 @@ function _revertMarkup(){
           // dropped and the original is fetched fresh.
           var bust = (src.indexOf('?') >= 0 ? '&' : '?') + 'rv=' + Date.now();
           img.src = src + bust;
-          console.log('[Markup] revert: img.src set to', src + bust);
         } else {
           console.warn('[Markup] revert: no src to set on img — p.r2Url and _origBlob both missing');
         }

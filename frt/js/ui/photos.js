@@ -29,7 +29,6 @@ var _photoTab = 'all';
 var _TRASH_RETENTION_DAYS = 90;
 // S265 stage 2: project id this session has already auto-purged (run-once guard).
 var _purgedForProjectId = null;
-var _dateRepairForProjectId = null;   // S366 one-time guarded date-repair
 var _selectedUids = new Set();
 var _filterPanelOpen = false;
 // S114 P1.3: anchor for shift-click range select. Stores the last toggled UID
@@ -310,35 +309,6 @@ export var initPhotos = {
     if (Model.purgeExpiredPhotos && _purgedForProjectId !== (proj.id || proj.projectId)) {
       _purgedForProjectId = (proj.id || proj.projectId);
       try { Model.purgeExpiredPhotos(_TRASH_RETENTION_DAYS); } catch (e) { /* defensive */ }
-    }
-
-    // S366: one-time date repair for photos the buggy S363/S364 builds left on the
-    // WRONG date (e.g. an obs photo whose marks were erased but whose date stayed on
-    // a later day). Correct rule (S365): an UNMARKED photo belongs on its capture
-    // date; a MARKED photo belongs on today. So restore the id-encoded capture date
-    // ONLY for photos that (a) carry NO markup strokes right now, AND (b) whose stored
-    // addedDate is strictly LATER than their id date. Marked photos are never touched
-    // (they legitimately sit on today). This is the guarded version of the removed
-    // S364 repair — it no longer drags marked photos off today.
-    if (_dateRepairForProjectId !== (proj.id || proj.projectId)) {
-      _dateRepairForProjectId = (proj.id || proj.projectId);
-      try {
-        var _fixed = 0;
-        (Model.getAllPhotoRecords ? Model.getAllPhotoRecords() : []).forEach(function(rec){
-          var ph = rec.photo; if (!ph || !ph.id || !ph.addedDate) return;
-          if (ph._markupStrokes && ph._markupStrokes.length) return; // marked => belongs on today
-          var m = String(ph.id).match(/_(\d{13})(?:_|$)/);
-          if (!m) return;
-          var idDate;
-          try { idDate = new Date(parseInt(m[1])).toISOString().split('T')[0]; } catch(_) { return; }
-          if (idDate && ph.addedDate > idDate) { ph.addedDate = idDate; _fixed++; }
-        });
-        if (_fixed > 0) {
-          console.log('[S366 date-repair] restored capture date on', _fixed, 'unmarked photo(s)');
-          Model.saveNow();
-          try { if (Model.touch) Model.touch(); } catch(_){}
-        }
-      } catch(e) { /* defensive */ }
     }
 
     var sitePhotos = proj.photos || [];
@@ -1403,27 +1373,102 @@ function _compressSitePhoto(file, cb) {
   });
 }
 
+// S367 — minimal EXIF capture-date reader. Photos are dated by when they were
+// TAKEN (EXIF DateTimeOriginal), not when uploaded into the app — fixes photos
+// shot on the field day but imported later showing the import date. Reads only the
+// date tag from the JPEG APP1/EXIF segment; no dependency, no full EXIF parse.
+// Returns 'YYYY-MM-DD' or null (caller falls back to upload date).
+function _readExifCaptureDate(file) {
+  return new Promise(function(resolve){
+    try {
+      if (!file || !/^image\/jpe?g$/i.test(file.type || '')) { resolve(null); return; }
+      var reader = new FileReader();
+      reader.onerror = function(){ resolve(null); };
+      reader.onload = function(e){
+        try {
+          var view = new DataView(e.target.result);
+          if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) { resolve(null); return; } // not JPEG
+          var offset = 2, len = view.byteLength;
+          while (offset < len) {
+            if (view.getUint16(offset) !== 0xFFE1) {            // not APP1 — skip this marker
+              if ((view.getUint16(offset) & 0xFF00) !== 0xFF00) { resolve(null); return; }
+              offset += 2 + view.getUint16(offset + 2);
+              continue;
+            }
+            // APP1 (EXIF) segment
+            var app1 = offset + 4;
+            if (view.getUint32(app1) !== 0x45786966) { resolve(null); return; } // "Exif"
+            var tiff = app1 + 6;
+            var little = (view.getUint16(tiff) === 0x4949);    // II = little-endian
+            function u16(o){ return view.getUint16(o, little); }
+            function u32(o){ return view.getUint32(o, little); }
+            if (u16(tiff + 2) !== 0x002A) { resolve(null); return; }
+            var ifd0 = tiff + u32(tiff + 4);
+            // Walk IFD0 to find the EXIF sub-IFD pointer (tag 0x8769).
+            var n0 = u16(ifd0), exifIfd = 0;
+            for (var i = 0; i < n0; i++) {
+              var e0 = ifd0 + 2 + i * 12;
+              if (u16(e0) === 0x8769) { exifIfd = tiff + u32(e0 + 8); break; }
+            }
+            function readDateTag(ifd, tag) {
+              if (!ifd) return null;
+              var n = u16(ifd);
+              for (var j = 0; j < n; j++) {
+                var ent = ifd + 2 + j * 12;
+                if (u16(ent) === tag) {
+                  var cnt = u32(ent + 4);              // ASCII "YYYY:MM:DD HH:MM:SS\0" = 20
+                  var valOff = (cnt > 4) ? tiff + u32(ent + 8) : (ent + 8);
+                  var s = '';
+                  for (var k = 0; k < Math.min(cnt, 19); k++) {
+                    var c = view.getUint8(valOff + k); if (!c) break; s += String.fromCharCode(c);
+                  }
+                  return s;
+                }
+              }
+              return null;
+            }
+            // Prefer DateTimeOriginal (0x9003); fall back to DateTimeDigitized (0x9004).
+            var raw = readDateTag(exifIfd, 0x9003) || readDateTag(exifIfd, 0x9004);
+            if (raw) {
+              var m = raw.match(/^(\d{4}):(\d{2}):(\d{2})/);   // "YYYY:MM:DD ..."
+              if (m) { resolve(m[1] + '-' + m[2] + '-' + m[3]); return; }
+            }
+            resolve(null); return;
+          }
+          resolve(null);
+        } catch(err){ resolve(null); }
+      };
+      // Header is enough — EXIF lives in the first APP1 segment near the top.
+      reader.readAsArrayBuffer(file.slice(0, 131072));
+    } catch(err){ resolve(null); }
+  });
+}
+
 function _addSitePhoto(file) {
-  _compressSitePhoto(file, function(dataUrl, thumb) {
-    var proj = Model.getProject();
-    if (!proj) return;
-    if (!proj.photos) proj.photos = [];
-    var photo = {
-      id: 'sph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      filename: file.name,
-      dataUrl: dataUrl,
-      thumb: thumb,
-      caption: '',
-      addedDate: new Date().toISOString().split('T')[0]
-    };
-    proj.photos.push(photo);
-    Model.saveNow();
-    initPhotos.render();
-    toast('Site photo added');
-    var pid = new URLSearchParams(window.location.search).get('project');
-    if (pid) {
-      R2.uploadPhoto(pid, photo, 'original').then(function() { Model.saveNow(); });
-    }
+  // S367: read the real capture date from EXIF BEFORE compression (which strips it).
+  _readExifCaptureDate(file).then(function(captureDate){
+    _compressSitePhoto(file, function(dataUrl, thumb) {
+      var proj = Model.getProject();
+      if (!proj) return;
+      if (!proj.photos) proj.photos = [];
+      var photo = {
+        id: 'sph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        filename: file.name,
+        dataUrl: dataUrl,
+        thumb: thumb,
+        caption: '',
+        // Capture date (when the photo was TAKEN) if EXIF has it; else upload date.
+        addedDate: captureDate || new Date().toISOString().split('T')[0]
+      };
+      proj.photos.push(photo);
+      Model.saveNow();
+      initPhotos.render();
+      toast('Site photo added');
+      var pid = new URLSearchParams(window.location.search).get('project');
+      if (pid) {
+        R2.uploadPhoto(pid, photo, 'original').then(function() { Model.saveNow(); });
+      }
+    });
   });
 }
 
@@ -2006,7 +2051,6 @@ document.addEventListener('frt-markup-saved', function(e) {
       _isOrigBackup: true
     };
     Model.addSitePhoto(backup);
-    console.log('[Markup save] backup created', { id: backup.id, r2Key: backupKey, addedDate: backup.addedDate });
     return backup.id;
   }
 
@@ -2019,8 +2063,6 @@ document.addEventListener('frt-markup-saved', function(e) {
     if (!siblings.some(function(s){ return s.photo === photo; })) {
       siblings.push({ photo: photo, location: { type: 'unknown' } });
     }
-    console.log('[Markup save] stamping', siblings.length, 'sibling(s)', { backupId: backupId });
-    try { console.log('[S340 stamp] d.strokes =', d.strokes && d.strokes.length, '(typeof', typeof d.strokes + ')'); } catch(_){}
     // S351c NEVER-BAKE: do NOT repoint r2Key/r2Url/dataUrl/thumb to a marked
     // binary. The photo's display source stays the CLEAN image; rotation +
     // vector strokes composite at render time (lightbox overlay, gallery thumb,
@@ -2071,7 +2113,6 @@ document.addEventListener('frt-markup-saved', function(e) {
   if (existingBackupId) {
     var _emptyNow = !(d.strokes && d.strokes.length);
     if (_emptyNow) {
-      console.log('[Markup save] CASE 1: all strokes removed — auto-deleting redundant backup', existingBackupId);
       var _bkRec = Model.getAllPhotoRecords().filter(function(rec){ return rec.photo && rec.photo.id === existingBackupId; })[0];
       var _bkDate = (_bkRec && _bkRec.photo && _bkRec.photo.addedDate) || '';
       var _sibs = Model.getAllPhotoRecords().filter(function(rec){
@@ -2091,7 +2132,6 @@ document.addEventListener('frt-markup-saved', function(e) {
       Model._notify && Model._notify('photo', { action: 'markup-cleared', photoId: photo.id });
       return;
     }
-    console.log('[Markup save] CASE 1: re-save with existing backup');
     _stampSiblings(existingBackupId);
     return;
   }
@@ -2102,7 +2142,6 @@ document.addEventListener('frt-markup-saved', function(e) {
   // (the redundant copy would be invisible). Under never-bake the working photo
   // keeps preKey + strokes; the backup is a separate clean Site Record. S363.
   if (preKey) {
-    console.log('[Markup save] CASE 2: first markup with preKey — uploading distinct clean original for visible backup');
     var c2Filename = 'orig_' + (photo.id || Date.now()) + '.jpg';
     var c2Key = 'photos/' + pid + '/frt/original/' + c2Filename;
     var c2Url = workerUrl + '/' + c2Key;
@@ -2128,7 +2167,6 @@ document.addEventListener('frt-markup-saved', function(e) {
       return R2.upload(pid, 'original', c2Blob, c2Filename).then(function(up){
         var ak = (up && up.r2Key) || c2Key;
         var au = (up && up.r2Url) || c2Url;
-        console.log('[Markup save] CASE 2: distinct original uploaded', { key: ak, success: !!up });
         var bid2 = _createBackup(ak, au);
         _stampSiblings(bid2);
         if (!up) { try { R2.queueUpload('orig_' + photo.id, pid, 'original', c2Blob, c2Filename); } catch(_){} }
@@ -2148,7 +2186,6 @@ document.addEventListener('frt-markup-saved', function(e) {
   // silent-overwrite hole.
   var cleanCapture = d.cleanBlob || null;
   if (origBlobSrc || cleanCapture) {
-    console.log('[Markup save] CASE 3: first markup, no preKey — uploading original (cleanCapture=' + !!cleanCapture + ')');
     var origFilename = 'orig_' + (photo.id || Date.now()) + '.jpg';
     var origKey = 'photos/' + pid + '/frt/original/' + origFilename;
     var origUrl = workerUrl + '/' + origKey;
@@ -2168,7 +2205,6 @@ document.addEventListener('frt-markup-saved', function(e) {
       return R2.upload(pid, 'original', origBlob, origFilename).then(function(uploadResult) {
         var actualKey = (uploadResult && uploadResult.r2Key) || origKey;
         var actualUrl = (uploadResult && uploadResult.r2Url) || origUrl;
-        console.log('[Markup save] CASE 3: original upload complete', { success: !!uploadResult, key: actualKey });
         var bid3 = _createBackup(actualKey, actualUrl);
         _stampSiblings(bid3);
         if (!uploadResult) {
@@ -2300,7 +2336,6 @@ document.addEventListener('frt-markup-reverted', function(e) {
   console.log('[Markup revert] start', { photoId: photo.id, origBackupId: photo._origBackupId, r2Key: photo.r2Key });
 
   if (!photo._origBackupId) {
-    console.log('[Markup revert] no _origBackupId on photo — clearing _annotated only');
     delete photo._annotated;
     delete photo._markupStrokes;   // S340
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
@@ -2316,7 +2351,6 @@ document.addEventListener('frt-markup-reverted', function(e) {
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     return;
   }
-  console.log('[Markup revert] backup found', { backupId: backup.id, origKey: backup.r2Key });
 
   var origKey = backup.r2Key || '';
   var origUrl = backup.r2Url || '';
@@ -2353,7 +2387,6 @@ document.addEventListener('frt-markup-reverted', function(e) {
   // every sibling and remove the now-unneeded backup record. No R2 delete (the
   // shared key is the only/clean copy — deleting it would 404 the photo).
   if (markedKey && markedKey === origKey) {
-    console.log('[Markup revert] never-bake revert (photo and backup share the clean original) — clearing flags + removing backup record');
     var nbSibs = markedKey ? Model.findPhotosByR2Key(markedKey) : [];
     nbSibs = nbSibs.filter(function(s){ return s && s.photo && !s.photo._isOrigBackup; });
     if (!nbSibs.some(function(s){ return s.photo === photo; })) nbSibs.push({ photo: photo });
@@ -2378,7 +2411,6 @@ document.addEventListener('frt-markup-reverted', function(e) {
     try { IDB.delete('photoBlobs', photo.id).catch(function(){}); } catch(_){}
     Model.saveNow();
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-    console.log('[Markup revert] never-bake revert complete');
     return;
   }
 
@@ -2393,7 +2425,6 @@ document.addEventListener('frt-markup-reverted', function(e) {
       if (!siblings.some(function(s){ return s.photo === rec.photo; })) siblings.push(rec);
     }
   });
-  console.log('[Markup revert] restoring', siblings.length, 'sibling(s) to original');
 
   // S115 P9: also restore the original addedDate from the backup. Save bumped
   // sibling addedDate to today; revert must roll it back so reverted photos
@@ -2415,7 +2446,6 @@ document.addEventListener('frt-markup-reverted', function(e) {
   });
 
   Model.removeSitePhotoById(backup.id);
-  console.log('[Markup revert] backup record removed from gallery');
 
   if (markedKey && markedKey !== origKey && R2 && R2.del) {
     try { R2.del(markedKey).catch(function(){}); } catch(_){}
@@ -2424,5 +2454,4 @@ document.addEventListener('frt-markup-reverted', function(e) {
 
   Model.saveNow();
   if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
-  console.log('[Markup revert] complete');
 });
