@@ -5780,13 +5780,16 @@ document.getElementById('global-file-input').addEventListener('change', function
     } else {
       Array.from(files).forEach(function(f){
         if(!f.type.startsWith('image/')) return;
+        // S371: EXIF capture date before compression.
+        _photoDateFromExif(f).then(function(photoDate){
         const r=new FileReader();
         r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
-          deficiencies[t.name][t.idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          deficiencies[t.name][t.idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:photoDate,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
           renderDeficGroup(t.name);
           if(typeof updateDeficSummary==='function') updateDeficSummary();
         }); };
         r.readAsDataURL(f);
+        });
       });
     }
     reset(); return;
@@ -5797,16 +5800,19 @@ document.getElementById('global-file-input').addEventListener('change', function
     const id = currentPhotoId;
     Array.from(files).forEach(function(f){
       if(!f.type.startsWith('image/')) return;
+      // S371: EXIF capture date before compression.
+      _photoDateFromExif(f).then(function(photoDate){
       const r=new FileReader();
       r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
         if(!clState[id]) return; // never auto-vivify; a real item always exists before upload
-        clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+        clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:photoDate,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
         var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
         var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
         var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
         if(typeof refreshItemPhotoUI==='function') refreshItemPhotoUI(id);
       }); };
       r.readAsDataURL(f);
+      });
     });
   }
   reset();
@@ -5814,6 +5820,8 @@ document.getElementById('global-file-input').addEventListener('change', function
 function handleFiles(id, files, isDefic) {
   Array.from(files).forEach(f => {
     if(!f.type.startsWith('image/')) return;
+    // S371: capture date from EXIF (original File, before compression strips it).
+    _photoDateFromExif(f).then(function(photoDate){
     const r = new FileReader();
     r.onload = e => {
       compressImage(e.target.result, 1600, 0.85, function(compressed){
@@ -5824,7 +5832,7 @@ function handleFiles(id, files, isDefic) {
           // nothing saved). Same guard the restore path at _restore already uses.
           if(!deficiencies[id]) return;
           if(!Array.isArray(deficiencies[id].photos)) deficiencies[id].photos=[];
-          deficiencies[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          deficiencies[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:photoDate,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
           renderDeficThumbs(id);
           updateDeficSummary();
         } else {
@@ -5835,7 +5843,7 @@ function handleFiles(id, files, isDefic) {
           // "camera opens, photo taken, nothing saves" bug.)
           if(!clState[id]) clState[id] = { status:null, comment:'', photos:[], customText:'' };
           if(!Array.isArray(clState[id].photos)) clState[id].photos=[];
-          clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:photoDate,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
           var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
           var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
           var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
@@ -5844,6 +5852,7 @@ function handleFiles(id, files, isDefic) {
       });
     };
     r.readAsDataURL(f);
+    });
   });
 }
 function removePhoto(id,i){
@@ -17014,20 +17023,99 @@ function _placardPreview(btn, d, nPhotos, mode){
   });
 }
 
+// ── S371 PORT (from FRT S367): EXIF capture-date ──────────────────────────
+// Date a photo by when it was TAKEN (EXIF DateTimeOriginal), not when it was
+// uploaded. Dependency-free: reads only the JPEG header (first 128KB) for the
+// APP1/EXIF segment. Returns 'YYYY-MM-DD' or null. MUST run on the original File
+// BEFORE compressImage (compression strips EXIF). Ported verbatim from FRT.
+function _readExifCaptureDate(file) {
+  return new Promise(function(resolve){
+    try {
+      if (!file || !/^image\/jpe?g$/i.test(file.type || '')) { resolve(null); return; }
+      var reader = new FileReader();
+      reader.onerror = function(){ resolve(null); };
+      reader.onload = function(e){
+        try {
+          var view = new DataView(e.target.result);
+          if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) { resolve(null); return; }
+          var offset = 2, len = view.byteLength;
+          while (offset < len) {
+            if (view.getUint16(offset) !== 0xFFE1) {
+              if ((view.getUint16(offset) & 0xFF00) !== 0xFF00) { resolve(null); return; }
+              offset += 2 + view.getUint16(offset + 2);
+              continue;
+            }
+            var app1 = offset + 4;
+            if (view.getUint32(app1) !== 0x45786966) { resolve(null); return; }
+            var tiff = app1 + 6;
+            var little = (view.getUint16(tiff) === 0x4949);
+            function u16(o){ return view.getUint16(o, little); }
+            function u32(o){ return view.getUint32(o, little); }
+            if (u16(tiff + 2) !== 0x002A) { resolve(null); return; }
+            var ifd0 = tiff + u32(tiff + 4);
+            var n0 = u16(ifd0), exifIfd = 0;
+            for (var i = 0; i < n0; i++) {
+              var e0 = ifd0 + 2 + i * 12;
+              if (u16(e0) === 0x8769) { exifIfd = tiff + u32(e0 + 8); break; }
+            }
+            function readDateTag(ifd, tag) {
+              if (!ifd) return null;
+              var n = u16(ifd);
+              for (var j = 0; j < n; j++) {
+                var ent = ifd + 2 + j * 12;
+                if (u16(ent) === tag) {
+                  var cnt = u32(ent + 4);
+                  var valOff = (cnt > 4) ? tiff + u32(ent + 8) : (ent + 8);
+                  var s = '';
+                  for (var k = 0; k < Math.min(cnt, 19); k++) {
+                    var c = view.getUint8(valOff + k); if (!c) break; s += String.fromCharCode(c);
+                  }
+                  return s;
+                }
+              }
+              return null;
+            }
+            var raw = readDateTag(exifIfd, 0x9003) || readDateTag(exifIfd, 0x9004);
+            if (raw) {
+              var m = raw.match(/^(\d{4}):(\d{2}):(\d{2})/);
+              if (m) { resolve(m[1] + '-' + m[2] + '-' + m[3]); return; }
+            }
+            resolve(null); return;
+          }
+          resolve(null);
+        } catch(err){ resolve(null); }
+      };
+      reader.readAsArrayBuffer(file.slice(0, 131072));
+    } catch(err){ resolve(null); }
+  });
+}
+// Diesel stores `date` as full ISO; EXIF gives 'YYYY-MM-DD'. Convert the capture
+// date to LOCAL-NOON ISO so it lands on the right calendar day in every timezone
+// (midnight UTC could shift a day). No EXIF → upload-time ISO (unchanged behavior).
+function _photoDateFromExif(file){
+  return _readExifCaptureDate(file).then(function(cap){
+    if (cap) { return new Date(cap + 'T12:00:00').toISOString(); }
+    return new Date().toISOString();
+  });
+}
+
 function _recAddFile(file, kind){
   if(!file || !file.type || file.type.indexOf('image/')!==0) return;
-  var r=new FileReader();
-  r.onload=function(ev){
-    compressImage(ev.target.result, 1600, 0.85, function(c){
-      var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-               kind:kind, caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
-      recordPhotos.push(_ph);
-      _r2EnqueuePhoto(_ph);
-      _renderRecordZones();
-      if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
-    });
-  };
-  r.readAsDataURL(file);
+  // S371: read capture date from the original File before compression strips EXIF.
+  _photoDateFromExif(file).then(function(photoDate){
+    var r=new FileReader();
+    r.onload=function(ev){
+      compressImage(ev.target.result, 1600, 0.85, function(c){
+        var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+                 kind:kind, caption:'', date:photoDate, r2Key:'', r2Status:'', r2Url:''};
+        recordPhotos.push(_ph);
+        _r2EnqueuePhoto(_ph);
+        _renderRecordZones();
+        if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+      });
+    };
+    r.readAsDataURL(file);
+  });
 }
 // S342: click-the-box-to-upload. Photo zones already accept drag&drop; this makes
 // the whole tile a click target equivalent to the old Upload button, so Upload
@@ -18319,7 +18407,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S368';
+var DIESEL_BUILD = 'S371';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
