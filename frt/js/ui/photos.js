@@ -29,6 +29,7 @@ var _photoTab = 'all';
 var _TRASH_RETENTION_DAYS = 90;
 // S265 stage 2: project id this session has already auto-purged (run-once guard).
 var _purgedForProjectId = null;
+var _dateRepairForProjectId = null;   // S364 one-time date-repair guard
 var _selectedUids = new Set();
 var _filterPanelOpen = false;
 // S114 P1.3: anchor for shift-click range select. Stores the last toggled UID
@@ -309,6 +310,37 @@ export var initPhotos = {
     if (Model.purgeExpiredPhotos && _purgedForProjectId !== (proj.id || proj.projectId)) {
       _purgedForProjectId = (proj.id || proj.projectId);
       try { Model.purgeExpiredPhotos(_TRASH_RETENTION_DAYS); } catch (e) { /* defensive */ }
+    }
+
+    // S364: one-time date repair. The pre-S364 markup save moved a photo's
+    // addedDate to "today" on every markup (a baked-model leftover). Under
+    // never-bake the photo is unchanged, so that was wrong. Restore the real date
+    // from the photo's id timestamp (ph_<ms>) for any photo whose stored addedDate
+    // is LATER than its id-encoded date — the exact signature of the bug. Photos
+    // legitimately added today have id-date == today, so they're untouched.
+    if (_dateRepairForProjectId !== (proj.id || proj.projectId)) {
+      _dateRepairForProjectId = (proj.id || proj.projectId);
+      try {
+        var _repaired = 0;
+        (Model.getAllPhotoRecords ? Model.getAllPhotoRecords() : []).forEach(function(rec){
+          var ph = rec.photo; if (!ph || !ph.id || !ph.addedDate) return;
+          var m = String(ph.id).match(/_(\d{13})(?:_|$)/);
+          if (!m) return;
+          var idDate;
+          try { idDate = new Date(parseInt(m[1])).toISOString().split('T')[0]; } catch(_) { return; }
+          // Only correct when stored date is strictly LATER than the capture date
+          // (i.e. shifted forward). Never move a date earlier-than-id (legit).
+          if (idDate && ph.addedDate > idDate) {
+            ph.addedDate = idDate;
+            _repaired++;
+          }
+        });
+        if (_repaired > 0) {
+          console.log('[S364 date-repair] restored original date on', _repaired, 'photo(s) shifted by the old markup bug');
+          Model.saveNow();
+          try { if (Model.touch) Model.touch(); } catch(_){}
+        }
+      } catch(e) { /* defensive */ }
     }
 
     var sitePhotos = proj.photos || [];
@@ -2003,7 +2035,11 @@ document.addEventListener('frt-markup-saved', function(e) {
       if (backupId) sp._origBackupId = backupId;
       if (d.strokes) sp._markupStrokes = d.strokes;     // re-editable vector markup
       if (d.mkFrame) sp._mkFrame = d.mkFrame;           // authoring frame (deterministic compositing)
-      if (sp.addedDate !== todayStr) sp.addedDate = todayStr;
+      // S364: NEVER move the photo's date on markup. Under never-bake the photo's
+      // binary is unchanged (strokes are an overlay), so its capture date must NOT
+      // shift to today. The old `sp.addedDate = todayStr` was a leftover from the
+      // baked-marked model (where the marked photo was a "new" file). Removing it
+      // keeps photos under their real date after markup.
     });
     Model.saveNow();
     try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); } catch(_){}
@@ -2018,6 +2054,21 @@ document.addEventListener('frt-markup-saved', function(e) {
   // auto-delete the redundant backup Site Record and clear the markup flags, the
   // same cleanup the explicit Revert does. Keeps the redundant-copy lifecycle
   // symmetric: marks present => backup exists; marks gone => backup gone.
+  if (existingBackupId) {
+    // S364: verify the referenced backup RECORD actually exists in the gallery.
+    // An obs photo can carry a stale _origBackupId (e.g. carried forward by a copy)
+    // whose backup record was never created or was removed — CASE 1 would then skip
+    // creating a visible backup and silently mark up the original. If the record is
+    // missing, drop the stale id and fall through to first-markup handling below.
+    var _bkExists = Model.getAllPhotoRecords().some(function(rec){
+      return rec.photo && rec.photo.id === existingBackupId;
+    });
+    if (!_bkExists) {
+      console.warn('[Markup save] CASE 1: _origBackupId', existingBackupId, 'has no gallery record — treating as first markup');
+      delete photo._origBackupId;
+      existingBackupId = null;
+    }
+  }
   if (existingBackupId) {
     var _emptyNow = !(d.strokes && d.strokes.length);
     if (_emptyNow) {

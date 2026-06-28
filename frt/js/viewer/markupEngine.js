@@ -789,30 +789,50 @@
       return null;
     },
 
+    // S364 — selection-chrome scale compensation. The canvas is sized to the
+    // photo's NATURAL pixel dimensions (self.w) and CSS-scaled down by the wrap to
+    // fit the screen (S358 single-transform model). Handles drawn in logical px
+    // therefore shrink by that same factor on screen — microscopic on large/obs
+    // photos. Multiply every handle size / offset / hit-radius by naturalW÷onScreenW
+    // so the chrome is a CONSTANT screen size regardless of photo resolution. Clamped
+    // so it can't blow up to absurd sizes on tiny photos.
+    _uiScale: function(){
+      try {
+        if (!this.canvas) return 1;
+        var onScreenW = this.canvas.getBoundingClientRect().width;
+        if (!onScreenW || !this.w) return 1;
+        var k = this.w / onScreenW;            // naturalW / displayedW = 1/displayScale
+        if (!isFinite(k) || k <= 0) return 1;
+        return Math.max(0.5, Math.min(k, 12)); // clamp
+      } catch(e){ return 1; }
+    },
+
     _hitResize: function(p){
       var b=this._groupBounds(); if(!b) return -1;
-      var pad=6, bx=b.x1-pad, by=b.y1-pad, bw=b.x2-b.x1+pad*2, bh=b.y2-b.y1+pad*2;
+      var u=this._uiScale(), pad=6*u;
+      var bx=b.x1-pad, by=b.y1-pad, bw=b.x2-b.x1+pad*2, bh=b.y2-b.y1+pad*2;
       var cor=[[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]];
-      for (var i=0;i<4;i++){ if (Math.abs(p.x-cor[i][0])<=11 && Math.abs(p.y-cor[i][1])<=11) return i; }
+      var tol=11*u;
+      for (var i=0;i<4;i++){ if (Math.abs(p.x-cor[i][0])<=tol && Math.abs(p.y-cor[i][1])<=tol) return i; }
       return -1;
     },
     _hitRotate: function(p){
       var b=this._groupBounds(); if(!b) return false;
-      var pad=6, rcx=(b.x1+b.x2)/2, rcy=b.y1-pad-24;
-      return Math.sqrt((p.x-rcx)*(p.x-rcx)+(p.y-rcy)*(p.y-rcy)) <= 14;
+      var u=this._uiScale(), pad=6*u, rcx=(b.x1+b.x2)/2, rcy=b.y1-pad-24*u;
+      return Math.sqrt((p.x-rcx)*(p.x-rcx)+(p.y-rcy)*(p.y-rcy)) <= 14*u;
     },
     _hitDelete: function(p){
       var b=this._groupBounds(); if(!b) return false;
-      var pad=6, dx=b.x2+pad+4+8, dy=b.y1-pad-14+8;
-      return Math.sqrt((p.x-dx)*(p.x-dx)+(p.y-dy)*(p.y-dy)) <= 12;
+      var u=this._uiScale(), pad=6*u, dx=b.x2+pad+(4+8)*u, dy=b.y1-pad-(14-8)*u;
+      return Math.sqrt((p.x-dx)*(p.x-dx)+(p.y-dy)*(p.y-dy)) <= 12*u;
     },
     // S339 — copy handle: filled circle centered below the bottom edge, mirroring
     // the rotate handle's top-center stem. Generous radius on coarse pointers.
     _hitCopy: function(p){
       var b=this._groupBounds(); if(!b) return false;
-      var pad=6, ccx=(b.x1+b.x2)/2, ccy=b.y2+pad+34;
+      var u=this._uiScale(), pad=6*u, ccx=(b.x1+b.x2)/2, ccy=b.y2+pad+34*u;
       var coarse=(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-      var rad=coarse?20:14;
+      var rad=(coarse?20:14)*u;
       return Math.sqrt((p.x-ccx)*(p.x-ccx)+(p.y-ccy)*(p.y-ccy)) <= rad;
     },
 
@@ -1021,31 +1041,32 @@
         ctx.setLineDash([]); ctx.restore();
       }
       var b=this._groupBounds(); if(!b) return;
-      var pad=6, bx=b.x1-pad, by=b.y1-pad, bw=b.x2-b.x1+pad*2, bh=b.y2-b.y1+pad*2;
+      var u=this._uiScale();   // S364: screen-constant chrome
+      var pad=6*u, bx=b.x1-pad, by=b.y1-pad, bw=b.x2-b.x1+pad*2, bh=b.y2-b.y1+pad*2;
       ctx.save();
-      ctx.setLineDash([5,4]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=2; ctx.globalAlpha=1;
+      ctx.setLineDash([5*u,4*u]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=2*u; ctx.globalAlpha=1;
       ctx.strokeRect(bx,by,bw,bh); ctx.setLineDash([]);
-      var hs=11; ctx.fillStyle='white'; ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.5;
+      var hs=11*u; ctx.fillStyle='white'; ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.5*u;
       [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]].forEach(function(p){
         ctx.fillRect(p[0]-hs/2,p[1]-hs/2,hs,hs); ctx.strokeRect(p[0]-hs/2,p[1]-hs/2,hs,hs); });
-      var rcx=bx+bw/2, rcy=by-24;
-      ctx.beginPath(); ctx.moveTo(bx+bw/2,by); ctx.lineTo(rcx,rcy+9); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1; ctx.stroke();
-      ctx.beginPath(); ctx.arc(rcx,rcy,9,0,Math.PI*2); ctx.fillStyle='white'; ctx.fill(); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.5; ctx.stroke();
-      ctx.beginPath(); ctx.arc(rcx,rcy,5,-0.3,Math.PI*1.4); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.2; ctx.stroke();
-      var dx=bx+bw+4, dy=by-14;
-      ctx.fillStyle='#E53E3E'; ctx.beginPath(); ctx.arc(dx+8,dy+8,9,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='white'; ctx.font='bold 12px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('\u2715', dx+8, dy+8);
+      var rcx=bx+bw/2, rcy=by-24*u;
+      ctx.beginPath(); ctx.moveTo(bx+bw/2,by); ctx.lineTo(rcx,rcy+9*u); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1*u; ctx.stroke();
+      ctx.beginPath(); ctx.arc(rcx,rcy,9*u,0,Math.PI*2); ctx.fillStyle='white'; ctx.fill(); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.5*u; ctx.stroke();
+      ctx.beginPath(); ctx.arc(rcx,rcy,5*u,-0.3,Math.PI*1.4); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.2*u; ctx.stroke();
+      var dx=bx+bw+4*u, dy=by-14*u;
+      ctx.fillStyle='#E53E3E'; ctx.beginPath(); ctx.arc(dx+8*u,dy+8*u,9*u,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='white'; ctx.font='bold '+(12*u)+'px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('\u2715', dx+8*u, dy+8*u);
       // S339 — copy handle: bottom-center, stem mirrors the rotate handle's stem
-      var ccx=bx+bw/2, ccy=by+bh+34;
-      ctx.beginPath(); ctx.moveTo(bx+bw/2,by+bh); ctx.lineTo(ccx,ccy-9); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1; ctx.stroke();
-      ctx.beginPath(); ctx.arc(ccx,ccy,9,0,Math.PI*2); ctx.fillStyle='#1565C0'; ctx.fill();
-      ctx.strokeStyle='#1565C0'; ctx.lineWidth=1.5; ctx.stroke();
+      var ccx=bx+bw/2, ccy=by+bh+34*u;
+      ctx.beginPath(); ctx.moveTo(bx+bw/2,by+bh); ctx.lineTo(ccx,ccy-9*u); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1*u; ctx.stroke();
+      ctx.beginPath(); ctx.arc(ccx,ccy,9*u,0,Math.PI*2); ctx.fillStyle='#1565C0'; ctx.fill();
+      ctx.strokeStyle='#1565C0'; ctx.lineWidth=1.5*u; ctx.stroke();
       // two-rect copy glyph (white): back rect offset up-left, front rect down-right
-      ctx.strokeStyle='white'; ctx.lineWidth=1.3;
-      ctx.strokeRect(ccx-4, ccy-4, 5, 6);
-      ctx.fillStyle='#1565C0'; ctx.fillRect(ccx-1, ccy-1, 5, 6);
-      ctx.strokeRect(ccx-1, ccy-1, 5, 6);
+      ctx.strokeStyle='white'; ctx.lineWidth=1.3*u;
+      ctx.strokeRect(ccx-4*u, ccy-4*u, 5*u, 6*u);
+      ctx.fillStyle='#1565C0'; ctx.fillRect(ccx-1*u, ccy-1*u, 5*u, 6*u);
+      ctx.strokeRect(ccx-1*u, ccy-1*u, 5*u, 6*u);
       ctx.restore();
     },
 
