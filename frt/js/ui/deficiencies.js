@@ -1536,24 +1536,36 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     if (siteSrc != null) {
       res = (mode === 'move') ? (Model.moveSitePhotoToPin(siteSrc, toId) || {}).copy
                               : Model.copySitePhotoToPin(siteSrc, toId, true);
-      // S371: a forced Copy mints its OWN R2 object so it renders as a separate
-      // tile (not collapsed onto the source). R2.uploadPhoto generates a fresh
-      // filename → distinct r2Key → distinct _photoIdentityKey. It also stores
-      // the blob in IDB (permanent backup, hard rule) and sets res.r2Key/r2Url
-      // in place on success. NOTE: R2.upload RESOLVES null on failure (never
-      // rejects) and UploadQueue retries the IDB-backed blob, so offline the
-      // copy keeps rendering via dataUrl and gains its key on a later sync.
-      if (res && res._needsOwnR2 && window.R2 && R2.uploadPhoto) {
+      // S371c: a forced Copy mints its OWN R2 object so it renders as a separate
+      // tile AND can be opened. The copy already renders via the source's r2Url/
+      // dataUrl (identity is the unique _idSeed, so no collapse). Now give it its
+      // OWN binary under a fresh key. R2.uploadPhoto needs an inline dataUrl; site
+      // photos are often lazy (bytes in R2 only), so fetch the source's blob first
+      // when there's no dataUrl, then upload under a new filename and repoint the
+      // copy's r2Key/r2Url to its own object. On any failure the copy keeps the
+      // source's render URL (still visible) and retries on next sync.
+      if (res && res._needsOwnR2 && window.R2 && R2.upload) {
         var _pidCp = new URLSearchParams(window.location.search).get('project');
         if (_pidCp) {
-          R2.uploadPhoto(_pidCp, res, 'original').then(function(updated){
-            // On success res.r2Key/r2Url are set in place → re-render separates
-            // the copy from its source. On null (offline) the IDB blob is queued
-            // for retry; nothing more to do here.
-            Model.saveNow();
-            if (window.initPhotos && initPhotos.render) initPhotos.render();
-            if (window.initDeficiencies && initDeficiencies.render) initDeficiencies.render();
-          });
+          var _srcBytes = res.dataUrl
+            ? fetch(res.dataUrl).then(function(r){ return r.blob(); })
+            : (res.r2Url ? fetch(res.r2Url).then(function(r){ return r.ok ? r.blob() : null; }) : Promise.resolve(null));
+          _srcBytes.then(function(blob){
+            if (!blob) { console.warn('[Copy site->pin] no source bytes to copy — copy keeps source render URL'); return; }
+            var _fn = 'defic_' + (res.id || Date.now()) + '.jpg';
+            try { if (window.IDB) IDB.put('photoBlobs', { id: res.id, dataBlob: blob }).catch(function(){}); } catch(_){}
+            return R2.upload(_pidCp, 'original', blob, _fn).then(function(up){
+              if (up && up.r2Key) {
+                res.r2Key = up.r2Key; res.r2Url = up.r2Url;
+                res.sourceR2Key = up.r2Key; res.r2Status = 'uploaded';
+                Model.saveNow();
+              }
+              // null up = offline; UploadQueue retries the IDB blob. Copy still
+              // renders via the source URL meanwhile.
+              if (window.initPhotos && initPhotos.render) initPhotos.render();
+              if (window.initDeficiencies && initDeficiencies.render) initDeficiencies.render();
+            });
+          }).catch(function(err){ console.warn('[Copy site->pin] R2 copy upload error:', err && err.message); });
         }
       }
     } else {

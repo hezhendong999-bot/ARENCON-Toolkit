@@ -2541,13 +2541,16 @@ export var Model = {
     var _isForced = !!forceCopy;
     var copy = {
       id: _uid('ph'),
+      // r2Key stays null until the copy's OWN binary is uploaded (deficiencies.js).
       r2Key: _isForced ? null : (src.r2Key || null),
-      // S371b: a forced copy must NOT inherit sourceR2Key either — _photoIdentityKey
-      // falls back to sourceR2Key, so carrying it kept the copy's identity equal to
-      // the source's ('r2:'+sourceKey) and the gallery re-collapsed them. Null it;
-      // the new key minted by R2.uploadPhoto becomes the copy's real identity.
-      sourceR2Key: _isForced ? null : (src.sourceR2Key || src.r2Key || null),
-      r2Url: _isForced ? null : (src.r2Url || null),
+      // S371c: identity is driven by _idSeed (set below), NOT by these keys, so a
+      // forced copy can safely keep the source's r2Url/sourceR2Key for RENDERING
+      // (thumbnail + lightbox: gallery uses thumb||r2Url||dataUrl) in the window
+      // before its own upload lands. Without this the tile was blank + unopenable
+      // when the source's bytes lived in R2 (lazy, no inline dataUrl). Once the
+      // copy's own upload completes, r2Key/r2Url are repointed to its own object.
+      sourceR2Key: src.sourceR2Key || src.r2Key || null,
+      r2Url: src.r2Url || null,
       dataUrl: src.dataUrl || null,
       thumb: src.thumb || null,
       filename: src.filename || ('photo_' + Date.now() + '.jpg'),
@@ -2555,11 +2558,10 @@ export var Model = {
                            : (src.addedDate || new Date().toISOString().split('T')[0]),
       createdBy: src.createdBy || _currentUserId || null
     };
-    // S371b: unique identity seed for the PRE-UPLOAD window. The copy's bytes are
-    // identical to the source, so without this the byte-fallback in
-    // _photoIdentityKey would STILL collapse the two until the R2 key lands.
-    // _idSeed is checked first in _photoIdentityKey and is persisted (so identity
-    // stays stable across reload even if the upload is still pending).
+    // S371b: unique identity seed — the copy's bytes are identical to the source,
+    // so this is what keeps the gallery from collapsing the two into one tile
+    // (checked FIRST in _photoIdentityKey, persisted so identity is stable across
+    // reload + after the copy's own upload). This is what makes Copy ≠ Move.
     if (_isForced) copy._idSeed = copy.id;
     // Flag so the caller mints the copy's own R2 object (non-enumerable: never
     // persisted, never synced — it's a one-shot upload instruction).
