@@ -707,6 +707,10 @@ function _toggleMarkup(){
       _scale = prevScale; _panX = prevPanX; _panY = prevPanY; _applyTransform();
       if (_markupBar) _markupBar.style.display='flex';
       _markupActive = true;
+      // S353: hide the persistent overlay now that the engine canvas is live —
+      // otherwise BOTH render the strokes (visible doubling on arm).
+      var _ov = document.getElementById('lb-static-markup');
+      if (_ov) _ov.style.display = 'none';
     };
     if (origSrc && img.src !== origSrc){
       // Switch the display to the clean original, THEN attach + render strokes on it.
@@ -869,10 +873,17 @@ function _revertMarkup(){
         }
       }
       delete p._annotated;
+      delete p._markupStrokes;   // S353: ensure overlay has nothing to redraw
+      // S353: explicitly clear + hide the persistent overlay. Revert clears the
+      // engine + data, but the static overlay canvas keeps its last painted
+      // strokes until told otherwise — that's why the first stroke appeared to
+      // survive a revert. Wipe it now.
+      var _ov = document.getElementById('lb-static-markup');
+      if (_ov) { try { _ov.getContext('2d').clearRect(0,0,_ov.width,_ov.height); } catch(_){} _ov.style.display='none'; }
       // If we're currently in markup mode, exit it so the user sees the
       // restored original cleanly.
       if (_markupActive) {
-        try { _toggleMarkup(); } catch(_){}
+        try { _exitMarkupNoSave(); } catch(_){}
       }
     } else if (p._origBlob) {
       // No persisted markup — just restore the in-memory original.
