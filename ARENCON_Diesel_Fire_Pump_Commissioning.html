@@ -4983,6 +4983,26 @@ var DslLightbox = (function(){
     bRo.addEventListener('click',function(){
       _rotations[_idx]=(_rot()+90)%360;
       _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _apply();
+      // S372: persist the rotation so it survives close + shows on thumbnails.
+      var p=_photos[_idx];
+      if(p && typeof p==='object'){
+        p.rotation=_rotations[_idx];
+        if(typeof _rebuildMkDisplay==='function'){
+          _rebuildMkDisplay(p).then(function(){
+            // The cache is now ROTATED, so the displayed image already includes the
+            // rotation — reset the live display rotation to 0 and reload so we don't
+            // rotate the (already-rotated) cache a second time.
+            _rotations[_idx]=0;
+            _showPhoto(_idx);
+            if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces();
+            if(typeof saveState==='function') try{ saveState(); }catch(_e){}
+            if(typeof debounceAutosave==='function') debounceAutosave();
+            if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save && typeof _collectCloudState==='function'){
+              try{ CloudSync.save(_collectCloudState()); }catch(_e){}
+            }
+          });
+        }
+      }
     });
     bCl.addEventListener('click',_close);
     bDel.addEventListener('click',_deleteCurrent);
@@ -5357,16 +5377,25 @@ var DslLightbox = (function(){
       _sbDone();
       _exitMarkup(false);
       delete _mkDraft[p.id];   // strokes are baked into the photo — drop the session draft
-      _showPhoto(_idx);        // reload — photo now displays the baked marked version
-      if(typeof showToast==='function') showToast('\u2713 Markup saved \u2014 original kept in Site Records');
-      if(typeof saveState==='function') try{ saveState(); }catch(e){ console.warn('[DLB] saveMk saveState failed', e); }
-      if(typeof debounceAutosave==='function') debounceAutosave();
-      if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
-        try{ CloudSync.save(_collectCloudState()); }catch(e){ console.warn('[DLB] saveMk cloud push failed', e); }
+      // S372: if the photo carries a persisted rotation, the flat composite from
+      // persist is at 0° — rebuild so marks AND rotation both show, then reload.
+      var _afterDisp = function(){
+        _showPhoto(_idx);        // reload — photo now displays the composited version
+        if(typeof showToast==='function') showToast('\u2713 Markup saved \u2014 original kept in Site Records');
+        if(typeof saveState==='function') try{ saveState(); }catch(e){ console.warn('[DLB] saveMk saveState failed', e); }
+        if(typeof debounceAutosave==='function') debounceAutosave();
+        if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save){
+          try{ CloudSync.save(_collectCloudState()); }catch(e){ console.warn('[DLB] saveMk cloud push failed', e); }
+        }
+        if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] saveMk renderer failed', e); } }
+        _dslRefreshPhotoSurfaces();   // S301: checklist/defic/flow thumbs too, not just gallery
+        if(_closeAfterPersist){ _closeAfterPersist=false; _close(); }   // S305: commit was triggered by closing the lightbox
+      };
+      if(((p.rotation||0)%360)!==0 && typeof _rebuildMkDisplay==='function'){
+        _rebuildMkDisplay(p).then(_afterDisp);
+      } else {
+        _afterDisp();
       }
-      if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(e){ console.warn('[DLB] saveMk renderer failed', e); } }
-      _dslRefreshPhotoSurfaces();   // S301: checklist/defic/flow thumbs too, not just gallery
-      if(_closeAfterPersist){ _closeAfterPersist=false; _close(); }   // S305: commit was triggered by closing the lightbox
     }).catch(function(e){
       _sbDone();
       _closeAfterPersist=false;   // S305: stay open on failure so the strokes are visible
@@ -13134,10 +13163,10 @@ function collectState() {
     sigStrokes: (typeof _sigStrokes!=='undefined') ? JSON.parse(JSON.stringify(_sigStrokes)) : {},
     // Photos stored separately to keep main state lean
     batData: {b1:[...batData.b1], b2:[...batData.b2]},
-    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,id:p.id||'',tag:p.tag||'',caption:p.caption||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
+    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,id:p.id||'',tag:p.tag||'',caption:p.caption||'',mk:p.mk||null,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
-    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,id:p.id||'',tag:p.tag||'',caption:p.caption||'',mk:p.mk||null,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
-    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
+    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,id:p.id||'',tag:p.tag||'',caption:p.caption||'',mk:p.mk||null,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
+    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
     sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
@@ -13159,7 +13188,7 @@ function _collectCloudState(){
   // S305: heartbeat log removed — pushes run every 15s and were flooding the
   // console (Mark). Event logs ([DLB], merge backup-restores, errors) remain.
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
-  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
+  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
   if(s.deficiencies){Object.keys(s.deficiencies).forEach(function(k){if(Array.isArray(s.deficiencies[k]))s.deficiencies[k].forEach(function(d){
     if(d.photos)d.photos=_stripPhotos(d.photos);
@@ -13171,10 +13200,10 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
   if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
-  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});
+  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
@@ -13561,7 +13590,9 @@ function _rebuildAllMkDisplays(){
     var pending = [];
     arrays.forEach(function(arr){
       arr.forEach(function(p){
-        if(p && p._annotated && p.mk && Array.isArray(p.mk.o) && p.mk.o.length && !p._mkDisplay){
+        var needsMk = p && p._annotated && p.mk && Array.isArray(p.mk.o) && p.mk.o.length;
+        var needsRot = p && ((p.rotation||0)%360)!==0;   // S372: rotated photos also need the cache
+        if((needsMk || needsRot) && !p._mkDisplay){
           pending.push(_rebuildMkDisplay(p));
         }
       });
@@ -13579,16 +13610,30 @@ function _rebuildMkDisplay(p){
     try{
       if(!p){ resolve(p); return; }
       var hasMk = p.mk && Array.isArray(p.mk.o) && p.mk.o.length;
-      if(!hasMk){ if(p._mkDisplay) delete p._mkDisplay; resolve(p); return; }
+      var rot = ((p.rotation||0)%360+360)%360;   // S372: persisted display rotation
+      // No marks AND no rotation → nothing to composite; show the clean photo as-is.
+      if(!hasMk && !rot){ if(p._mkDisplay) delete p._mkDisplay; resolve(p); return; }
       // Load the CLEAN source the same taint-free way the (old) bake did.
       _dslLoadBakeImage(p).then(function(bake){
         try{
           var img=bake.img, nw=img.naturalWidth, nh=img.naturalHeight;
           if(!nw||!nh){ bake.revoke&&bake.revoke(); resolve(p); return; }
-          var c=document.createElement('canvas'); c.width=nw; c.height=nh;
-          var cx=c.getContext('2d');
-          cx.drawImage(img,0,0,nw,nh);
-          if(window.DieselMarkup) DieselMarkup.composite(cx, p.mk, nw, nh);
+          // 1) clean photo + marks onto a natural-size buffer (markup is in natural coords)
+          var buf=document.createElement('canvas'); buf.width=nw; buf.height=nh;
+          var bx=buf.getContext('2d');
+          bx.drawImage(img,0,0,nw,nh);
+          if(hasMk && window.DieselMarkup) DieselMarkup.composite(bx, p.mk, nw, nh);
+          // 2) rotate the composited buffer into the final display canvas
+          var c, cx;
+          if(rot===90||rot===270){ c=document.createElement('canvas'); c.width=nh; c.height=nw; }
+          else { c=document.createElement('canvas'); c.width=nw; c.height=nh; }
+          cx=c.getContext('2d');
+          cx.save();
+          cx.translate(c.width/2, c.height/2);
+          cx.rotate(rot*Math.PI/180);
+          cx.translate(-nw/2, -nh/2);
+          cx.drawImage(buf,0,0,nw,nh);
+          cx.restore();
           p._mkDisplay = c.toDataURL('image/jpeg', 0.9);
           bake.revoke&&bake.revoke();
         }catch(e){ console.warn('[NB] rebuild display failed', e&&e.message); }
@@ -18558,7 +18603,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372.2';
+var DIESEL_BUILD = 'S372.3';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
