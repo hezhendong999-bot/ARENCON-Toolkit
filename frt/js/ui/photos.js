@@ -2013,18 +2013,77 @@ document.addEventListener('frt-markup-saved', function(e) {
 
   // ── Backup creation: branch on state ──
 
-  // CASE 1: re-save (existing backup) — just stamp siblings, no new backup
+  // CASE 1: re-save (existing backup) — stamp siblings, no new backup.
+  // S363: if the user erased ALL strokes, an empty save means "no markup left" —
+  // auto-delete the redundant backup Site Record and clear the markup flags, the
+  // same cleanup the explicit Revert does. Keeps the redundant-copy lifecycle
+  // symmetric: marks present => backup exists; marks gone => backup gone.
   if (existingBackupId) {
+    var _emptyNow = !(d.strokes && d.strokes.length);
+    if (_emptyNow) {
+      console.log('[Markup save] CASE 1: all strokes removed — auto-deleting redundant backup', existingBackupId);
+      var _sibs = Model.getAllPhotoRecords().filter(function(rec){
+        return rec.photo && !rec.photo._isOrigBackup &&
+               (rec.photo._origBackupId === existingBackupId || rec.photo === photo);
+      });
+      _sibs.forEach(function(s){
+        var sp=s.photo; if(!sp) return;
+        delete sp._annotated; delete sp._origBackupId; delete sp._markupStrokes; delete sp._mkFrame;
+      });
+      Model.removeSitePhotoById(existingBackupId);
+      Model.saveNow();
+      try { if (Model.touch) Model.touch(); } catch(_){}
+      if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+      Model._notify && Model._notify('photo', { action: 'markup-cleared', photoId: photo.id });
+      return;
+    }
     console.log('[Markup save] CASE 1: re-save with existing backup');
     _stampSiblings(existingBackupId);
     return;
   }
 
-  // CASE 2: first markup, original is in R2 (preKey set) — backup synchronously
+  // CASE 2: first markup, original is in R2 (preKey set). Upload a DISTINCT clean
+  // copy to /original/ so the backup has its OWN r2Key — otherwise it shares the
+  // working photo's key + identity and the gallery collapses both into one tile
+  // (the redundant copy would be invisible). Under never-bake the working photo
+  // keeps preKey + strokes; the backup is a separate clean Site Record. S363.
   if (preKey) {
-    console.log('[Markup save] CASE 2: first markup with preKey — sync backup');
-    var bid2 = _createBackup(preKey, preUrl);
-    _stampSiblings(bid2);
+    console.log('[Markup save] CASE 2: first markup with preKey — uploading distinct clean original for visible backup');
+    var c2Filename = 'orig_' + (photo.id || Date.now()) + '.jpg';
+    var c2Key = 'photos/' + pid + '/frt/original/' + c2Filename;
+    var c2Url = workerUrl + '/' + c2Key;
+    var c2Clean = d.cleanBlob || null;
+    function _c2ToBlob(src){
+      if (src instanceof Blob) return Promise.resolve(src);
+      if (typeof src === 'string' && src.indexOf('data:') === 0) return fetch(src).then(function(r){ return r.blob(); });
+      return Promise.resolve(null);
+    }
+    // Prefer captured clean Blob; else fetch the clean original from its R2 URL.
+    var c2Promise = c2Clean ? Promise.resolve(c2Clean)
+                  : (origBlobSrc ? _c2ToBlob(origBlobSrc)
+                  : (preUrl ? fetch(preUrl).then(function(r){ return r.ok ? r.blob() : null; }).catch(function(){ return null; }) : Promise.resolve(null)));
+    c2Promise.then(function(c2Blob){
+      if (!c2Blob) {
+        // Couldn't obtain a distinct copy — fall back to the original behavior
+        // (backup shares preKey). Revert still works; the tile may merge.
+        console.warn('[Markup save] CASE 2: no distinct clean blob — backup shares preKey (may merge in gallery)');
+        var bidF = _createBackup(preKey, preUrl);
+        _stampSiblings(bidF);
+        return;
+      }
+      return R2.upload(pid, 'original', c2Blob, c2Filename).then(function(up){
+        var ak = (up && up.r2Key) || c2Key;
+        var au = (up && up.r2Url) || c2Url;
+        console.log('[Markup save] CASE 2: distinct original uploaded', { key: ak, success: !!up });
+        var bid2 = _createBackup(ak, au);
+        _stampSiblings(bid2);
+        if (!up) { try { R2.queueUpload('orig_' + photo.id, pid, 'original', c2Blob, c2Filename); } catch(_){} }
+      });
+    }).catch(function(err){
+      console.warn('[Markup save] CASE 2: distinct original error:', err && err.message, '— backup with intended URL');
+      var bid2e = _createBackup(c2Key, c2Url);
+      _stampSiblings(bid2e);
+    });
     return;
   }
 
