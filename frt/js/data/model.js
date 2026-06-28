@@ -2441,7 +2441,12 @@ export var Model = {
     if (key) {
       for (var i = 0; i < dst.defic.photos.length; i++) {
         var ex = dst.defic.photos[i];
-        if (ex && !ex.deleted && this._photoIdentityKey(ex) === key) return ex;
+        if (ex && !ex.deleted && this._photoIdentityKey(ex) === key) {
+          // S360: dedup hit (see copySitePhotoToPin) — flag so the caller can say
+          // "already on Pin N" rather than a misleading "Copied".
+          try { Object.defineProperty(ex, '_dedupExisting', { value: true, enumerable: false, configurable: true }); } catch(_) {}
+          return ex;
+        }
       }
     }
     var copy = {
@@ -2504,21 +2509,15 @@ export var Model = {
     if (key) {
       for (var i = 0; i < dst.defic.photos.length; i++) {
         var ex = dst.defic.photos[i];
-        if (ex && !ex.deleted && this._photoIdentityKey(ex) === key) return ex;
+        if (ex && !ex.deleted && this._photoIdentityKey(ex) === key) {
+          // S360: dedup hit — this binary is already on the target pin. Return the
+          // existing entry but flag it (non-enumerable, so it never persists) so the
+          // caller can tell the truth ("already on Pin N") instead of "Copied".
+          try { Object.defineProperty(ex, '_dedupExisting', { value: true, enumerable: false, configurable: true }); } catch(_) {}
+          return ex;
+        }
       }
     }
-    var copy = {
-      id: _uid('ph'),
-      r2Key: src.r2Key || null,
-      sourceR2Key: src.sourceR2Key || src.r2Key || null,
-      r2Url: src.r2Url || null,
-      dataUrl: src.dataUrl || null,
-      thumb: src.thumb || null,
-      filename: src.filename || ('photo_' + Date.now() + '.jpg'),
-      addedDate: src.addedDate || new Date().toISOString().split('T')[0],
-      createdBy: src.createdBy || _currentUserId || null
-    };
-    if (src._origBackupId) copy._origBackupId = src._origBackupId;
     if (src._annotated)    copy._annotated    = src._annotated;
     if (src.r2Status)      copy.r2Status      = src.r2Status;
     // S358: carry never-bake markup vectors + display rotation onto the pin copy

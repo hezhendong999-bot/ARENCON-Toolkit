@@ -1566,6 +1566,17 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
 
     _closePinPhotoPicker();
     if (res) {
+      // S360: Copy that hit dedup (binary already on the target pin) created
+      // nothing — say so plainly instead of a misleading "Copied".
+      if (mode === 'copy' && res._dedupExisting) {
+        if (window.initPhotos && initPhotos.render) initPhotos.render();
+        initDeficiencies.render();
+        var whereDup = attachedToObs
+          ? ('Obs ' + String.fromCharCode(65 + toObsIdx) + ' on Pin ' + destNum)
+          : ('Pin ' + destNum);
+        toast('Already on ' + whereDup + ' \u2014 this photo is already there, nothing to copy');
+        return;
+      }
       if (desc) Model.registerMove(desc);
       if (window.initPhotos && initPhotos.render) initPhotos.render();
       initDeficiencies.render();

@@ -5,6 +5,7 @@
 
 import { Model, isSiteRecordsName, SITE_RECORDS_LABEL } from '../data/model.js';
 import { IDB } from '../data/idb.js';
+import { R2 } from '../data/r2.js';
 import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
 import { CARLITO_REG_B64 } from './carlitoReg.js';
@@ -456,9 +457,93 @@ function _pdfPhotoSrc(ph,r2Cache){
 // export. If a photo wasn't minted, it gets NO link (return '') rather than
 // falling back to the exposed URL. Option A (Mark): privacy over clickability.
 var _pdfLinkByUrl={};
+// S360 — REPORT SNAPSHOTS (frozen, immutable, content-addressed). At export, each
+// photo that has markup and/or rotation is composited at FULL RES (rotation + marks
+// baked) and uploaded to R2 under a content-hash key:
+//   photos/{pid}/frt/report-snapshots/{hash}/{photoId}.jpg
+// The hash is over (rotation + strokes), so identical content => identical key =>
+// no re-upload (cheap GET existence check). Any change => new hash => new key =>
+// new snapshot + new link. Old reports keep pointing at their old hash (frozen).
+// Both the in-PDF <img> AND the clickable /p/{token} link resolve to the SAME
+// snapshot, so they match exactly. Clean, unrotated photos get NO snapshot — their
+// link stays the clean original (which already matches). This does NOT violate
+// never-bake: never-bake governs the LIVE editable store (still clean vectors);
+// snapshots are export-time frozen deliverables (Report Immutability principle).
+var _snapshotByPhotoId={};   // photoId -> { r2Url, r2Key }
+
+// Small, stable content hash of a photo's visual state (rotation + strokes).
+function _snapHash(rot, strokes){
+  var s = 'r'+(rot||0)+'|' + (strokes && strokes.length ? JSON.stringify(strokes) : '');
+  // FNV-1a 32-bit — short, deterministic, dependency-free.
+  var h = 0x811c9dc5;
+  for (var i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = (h + ((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24)))>>>0; }
+  return ('0000000'+h.toString(16)).slice(-8);
+}
+
+// Build frozen snapshots for every marked/rotated photo in the report. Returns a
+// promise; on any per-photo failure that photo simply gets no snapshot (export
+// never breaks). progressCb(done,total) optional.
+function _buildReportSnapshots(p, r2Cache, progressCb){
+  _snapshotByPhotoId = {};
+  var pid = (p && (p.projectId || p.id)) || (Model.getProject && Model.getProject() && (Model.getProject().projectId||Model.getProject().id)) || '';
+  if(!pid) return Promise.resolve(_snapshotByPhotoId);
+  // Collect unique photos (by id) with marks/rotation.
+  var seen={}, list=[];
+  function add(arr){ (arr||[]).forEach(function(ph){
+    if(!ph || typeof ph!=='object' || !ph.id || seen[ph.id]) return;
+    var rot=(typeof ph.rotation==='number')?(((ph.rotation%360)+360)%360):0;
+    var hasMk=(ph._markupStrokes&&ph._markupStrokes.length);
+    if(rot || hasMk){ seen[ph.id]=1; list.push(ph); }
+  });}
+  function walk(defics){ (defics||[]).forEach(function(d){
+    add(d.photos);
+    if(d.observations) d.observations.forEach(function(o){add(o.photos);});
+    if(d.entries) d.entries.forEach(function(e){add(e.photos);});
+    (d.activity||[]).forEach(function(a){add(a.photos);});
+  });}
+  (p.contractors||[]).forEach(function(c){walk(c.deficiencies);});
+  walk(p.generalDeficiencies);
+  add(p.photos);
+
+  var total=list.length, done=0;
+  if(!total) return Promise.resolve(_snapshotByPhotoId);
+  if(progressCb) progressCb(0,total);
+
+  return Promise.all(list.map(function(ph){
+    var rot=(typeof ph.rotation==='number')?(((ph.rotation%360)+360)%360):0;
+    var strokes=(ph._markupStrokes&&ph._markupStrokes.length)?ph._markupStrokes:null;
+    var hash=_snapHash(rot, strokes);
+    var fname=ph.id+'.jpg';
+    var r2Key='photos/'+pid+'/frt/report-snapshots/'+hash+'/'+fname;
+    var r2Url=R2.WORKER_URL+'/'+r2Key;
+    // Existence check: same content-hash key already in R2 => reuse, skip upload.
+    return fetch(r2Url,{method:'GET'}).then(function(resp){
+      if(resp && resp.ok){
+        _snapshotByPhotoId[ph.id]={r2Url:r2Url,r2Key:r2Key};
+        done++; if(progressCb)progressCb(done,total); return;
+      }
+      // Not present — composite at full res then upload.
+      var src=(ph.r2Url&&r2Cache&&r2Cache[ph.r2Url]) || (ph.dataUrl&&!/^blob:/.test(ph.dataUrl)?ph.dataUrl:'') || ph.r2Url || '';
+      if(!src){ done++; if(progressCb)progressCb(done,total); return; }
+      return _compositeRotatedMarkedURL(src, rot, strokes, ph._mkFrame||null).then(function(durl){
+        if(!durl){ done++; if(progressCb)progressCb(done,total); return; }
+        return R2.upload(pid, 'report-snapshots/'+hash, durl, fname, 'image/jpeg').then(function(res){
+          if(res&&res.r2Url){ _snapshotByPhotoId[ph.id]={r2Url:res.r2Url,r2Key:res.r2Key}; }
+          done++; if(progressCb)progressCb(done,total);
+        });
+      });
+    }).catch(function(){ done++; if(progressCb)progressCb(done,total); });
+  })).then(function(){ return _snapshotByPhotoId; });
+}
+
 var _PDF_WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
 function _pdfPhotoFullHref(ph){
   if(!ph||typeof ph==='string')return '';
+  // S360: prefer the frozen report snapshot's token (matches the in-PDF thumbnail).
+  if(ph.id&&_snapshotByPhotoId[ph.id]){
+    var su=_snapshotByPhotoId[ph.id].r2Url;
+    if(su&&_pdfLinkByUrl[su])return _PDF_WORKER+'/p/'+_pdfLinkByUrl[su];
+  }
   if(ph.r2Url&&_pdfLinkByUrl[ph.r2Url])return _PDF_WORKER+'/p/'+_pdfLinkByUrl[ph.r2Url];
   return '';
 }
@@ -2033,8 +2118,22 @@ export const initPDFExport={
         // tokens (never the raw R2 URL). On any mint failure, links simply don't
         // appear — the raw account URL is never exposed.
         _pdfLinkByUrl={};
-        try{var lbl2=document.getElementById('pf-label');if(lbl2)lbl2.textContent='Securing photo links…';}catch(e){}
+        try{var lbl2=document.getElementById('pf-label');if(lbl2)lbl2.textContent='Building report snapshots…';}catch(e){}
+        // S360: build frozen, content-addressed snapshots for marked/rotated photos
+        // FIRST. The clickable link + in-PDF thumbnail both resolve to these.
+        return _buildReportSnapshots(p, r2Cache, function(d,t){
+          try{var lbl3=document.getElementById('pf-label');var bar=document.getElementById('pf-bar');
+          if(lbl3)lbl3.textContent='Building report snapshots… '+d+'/'+t;
+          if(bar)bar.style.width=Math.round((d/Math.max(1,t))*100)+'%';}catch(e){}
+        }).then(function(){
+        try{var lbl2b=document.getElementById('pf-label');if(lbl2b)lbl2b.textContent='Securing photo links…';}catch(e){}
         var keyByUrl=_collectPhotoKeysForMint(p);
+        // S360: also mint tokens for snapshot URLs (their bucket keys), so the
+        // frozen link is opaque /p/{token} just like originals.
+        Object.keys(_snapshotByPhotoId).forEach(function(pid){
+          var s=_snapshotByPhotoId[pid];
+          if(s&&s.r2Url&&s.r2Key&&!keyByUrl[s.r2Url]) keyByUrl[s.r2Url]=_toR2BucketKey(s.r2Key);
+        });
         var keys=Object.keys(keyByUrl).map(function(u){return keyByUrl[u];});
         return _betaMintLinks(keys).then(function(tokenByKey){
           if(tokenByKey&&!tokenByKey.__noauth&&!tokenByKey.__err){
@@ -2045,6 +2144,7 @@ export const initPDFExport={
           }
           try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
           _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter');
+        });
         });
       });
     }).catch(function(e){
