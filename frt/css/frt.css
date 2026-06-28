@@ -10421,7 +10421,7 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .header-actions > #btn-signout{ display:none !important; }
   #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:inline-flex !important; }
 }
-@media(min-width:1025px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn, .app-header #mobile-menu-btn{ display:none !important; } }
+@media(min-width:1025px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn, .app-header #mobile-menu-btn{ display:inline-flex !important; } }
 .mobile-menu #mobile-signout-btn, .mobile-menu .mm-btn.mm-signout{ background:#0F766E !important; color:#fff !important; border-color:#0F766E !important; }
 /* ── end S259 header button system ──────────────────────────────────── */
 

@@ -3447,6 +3447,15 @@ export var Model = {
     return _saveToIDB();
   },
 
+  // S351b: mark the project dirty so an edit reaches the CLOUD on the next push,
+  // not just IDB. saveNow() alone only writes IDB; the cloud push fires on the
+  // _dirty flag. A field saved via saveNow() but not marked dirty (e.g. photo
+  // rotation) is overwritten by the next cloud pull. touch() fixes that.
+  touch: function() {
+    _dirty = true;
+    _queueSave();
+  },
+
   loadFromIDB: function(projectId) {
     var self = this;
     return IDB.get('projects', projectId).then(function(proj) {

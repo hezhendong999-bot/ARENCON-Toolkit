@@ -118,7 +118,9 @@ function _setRotation(deg){
   var p = _photos[_idx];
   if (p) {
     p.rotation = deg;                 // persisted source of truth
-    try { if (typeof Model !== 'undefined' && Model.saveNow) Model.saveNow(); } catch(_){}
+    // S351b: touch() marks dirty so rotation rides the CLOUD push. saveNow alone
+    // only writes IDB → the next cloud pull would overwrite it (revert-on-refresh).
+    try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); else if (Model && Model.saveNow) Model.saveNow(); } catch(_){}
   }
   _rotations[_idx] = deg;             // view cache mirror
 }
@@ -810,7 +812,7 @@ function _saveMarkup(){
       try { console.log('[S351 save] set strokes on', p.id, '→', (p._markupStrokes||[]).length, '| frame', p._mkFrame, '| clean kept (no bake)'); } catch(_){}
       // Persist + sync hook. cleanBlob is the durable original; strokes/frame are data.
       try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:cleanBlob,index:_idx,strokes:savedStrokes,cleanBlob:cleanBlob,mkFrame:_mkFrame}})); } catch(e){}
-      try { if (typeof Model !== 'undefined' && Model.saveNow) Model.saveNow(); } catch(_){}
+      try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); else if (Model && Model.saveNow) Model.saveNow(); } catch(_){}
       _exitMarkupNoSave();
       if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
       if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
