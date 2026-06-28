@@ -1969,23 +1969,30 @@ if (cameraInput) cameraInput.addEventListener('change', function(e) {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// S115: R2 wiring for markup save events (port of v1's _origBackupId flow).
+// Markup SAVE handler (frt-markup-saved) — NEVER-BAKE model (S351+).
 //
-// Flow on save (all SYNCHRONOUS local mutations first, R2 upload in bg):
-//   1. Capture pre-markup r2Key/r2Url.
-//   2. Compute the new marked r2Key/r2Url (deterministic — based on photo id).
-//   3. Find every sibling sharing the pre-markup r2Key (gallery, defic, obs).
-//   4. If first markup, create the "(original)" backup gallery record
-//      pointing at the PRE-markup R2 file (no re-upload of the original).
-//   5. Propagate r2Key/r2Url/_origBackupId/_annotated to every sibling.
-//   6. Persist (Model.saveNow) + render — instant UI feedback.
-//   7. Kick off R2 upload of the marked blob in the background. If it fails,
-//      flag r2Status='pending' and queue for retry. Records still display
-//      correctly — they point at the new key, the file just isn't there yet.
+// Vector strokes are the ONLY markup persistence. The photo's stored binary is
+// always the CLEAN original; strokes + rotation composite at render time
+// (lightbox overlay, gallery thumb, PDF). No marked binary is ever uploaded.
 //
-// Flow on subsequent saves (markup edited again):
-//   _origBackupId already set on the active record. Skip backup creation.
-//   r2Key already points at marked file (deterministic key). Just re-upload.
+// Flow on FIRST markup:
+//   1. Capture pre-markup r2Key/r2Url + any clean blob the engine handed us.
+//   2. Create a visible "(original)" backup Site Record. Give it its OWN
+//      /original/ R2 key (a distinct clean copy) so the gallery renders it as a
+//      separate tile instead of collapsing it onto the working photo (S363).
+//   3. Stamp the working photo (+ every sibling sharing the binary) with the
+//      vector strokes, the authoring frame (_mkFrame), _annotated, _origBackupId.
+//   4. Move the MARKED photo's date to TODAY; the backup keeps the ORIGINAL
+//      capture date (S365).
+//   5. Persist + render.
+//
+// Flow on RE-SAVE (existing backup): just re-stamp strokes. If all strokes were
+// erased, auto-delete the backup + roll the date back (symmetric lifecycle).
+//
+// Cases: 1 = existing backup (re-save / erase-all). 2 = first markup, photo has
+// an R2 key (upload distinct /original/ copy). 3 = first markup, no R2 key
+// (upload the clean original, then back it up). 4 = no original source at all
+// (markup persists but Revert won't work — should be unreachable in normal flow).
 // ────────────────────────────────────────────────────────────────────────
 document.addEventListener('frt-markup-saved', function(e) {
   var d = e.detail; if (!d || !d.blob || !d.photo) { console.warn('[Markup save] missing detail/blob/photo'); return; }
@@ -2019,11 +2026,10 @@ document.addEventListener('frt-markup-saved', function(e) {
     isReSave: !!existingBackupId
   });
 
-  // ── Compute deterministic marked R2 key (stable across re-saves) ──
-  var filename = 'marked_' + (photo.id || Date.now()) + '.jpg';
-  var newKey = 'photos/' + pid + '/frt/marked/' + filename;
+  // S367 cleanup: the old baked model computed a /marked/ R2 key here and uploaded
+  // a flattened marked JPEG. Never-bake (S351+) stores only vector strokes, so the
+  // marked key/upload is gone. Only workerUrl is still needed (for /original/ backup URLs).
   var workerUrl = (R2 && R2.WORKER_URL) ? R2.WORKER_URL : 'https://arencon-r2-worker.hezhendong999.workers.dev';
-  var newUrl = workerUrl + '/' + newKey;
 
   // ── Date logic ──
   var origAddedDate = photo.addedDate || photo.date || '';
