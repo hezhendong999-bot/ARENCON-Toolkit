@@ -3432,7 +3432,7 @@ function renderDeficThumbs(safe, itemIdx) {
   if(!el) return;
   const photos = deficiencies[safe]?.[itemIdx]?.photos||[];
   el.innerHTML = photos.map((p,j)=>`<div style="position:relative;display:inline-block;">
-    <img src="${p.d||p.r2Url}" onclick="openLightbox(deficiencies['${safe}'][${itemIdx}].photos,${j})" style="cursor:zoom-in;width:72px;height:72px;object-fit:cover;border-radius:4px;border:2px solid #eee;" title="Click to enlarge">
+    <img src="${_phSrc(p)}" onclick="openLightbox(deficiencies['${safe}'][${itemIdx}].photos,${j})" style="cursor:zoom-in;width:72px;height:72px;object-fit:cover;border-radius:4px;border:2px solid #eee;" title="Click to enlarge">
     <button onclick="event.stopPropagation();removeDeficPhoto('${safe}',${itemIdx},${j})" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;line-height:1;">✕</button>
     <button class="photo-markup-btn" onclick="event.stopPropagation();openLightboxMarkup(deficiencies['${safe}'][${itemIdx}].photos,${j})" title="Markup">✏</button>
   </div>`).join('');
@@ -5165,8 +5165,45 @@ var DslLightbox = (function(){
   // with an empty canvas just exits. Save button kept for explicit mid-session
   // commits. Prev/Next nav still stashes (resume on return, commit on exit).
   function _maybeCommitOnExit(){
+    var p=_photos[_idx];
     if(window.DieselMarkup && DieselMarkup.strokes && DieselMarkup.strokes.length){ _saveMk(); }
+    else if(p && (p._annotated || p.mk) && window.DieselMarkup){
+      // S372 (never-bake): the photo WAS annotated and the inspector erased every
+      // stroke, then closed. Exiting silently used to leave stale p.mk +
+      // p._mkDisplay, so the marks "came back". Persist the cleared state directly
+      // (no confirm — the erase IS the intent): clear markup fields + remove the
+      // clean-original backup (symmetric FRT S363 lifecycle: no strokes ⇒ no markup).
+      _clearMarkupState(p);
+    }
     else { _exitMarkup(false); }
+  }
+  // S372: persist a deliberate full-erase. Mirrors _dslMarkupRevert's cleanup but
+  // with no confirmation dialog (the inspector already erased every stroke). Uses
+  // the backup machinery when present so the (original) Site Record is removed and
+  // the photo returns to its single clean state.
+  function _clearMarkupState(p){
+    try{
+      if(p && p._origBackupId && typeof _dslMarkupRevert==='function'){
+        _dslMarkupRevert(p);   // restores clean p.d, clears mk/_mkDisplay/_annotated, drops backup
+      } else if(p){
+        delete p.mk; delete p._mkDisplay; delete p._annotated; delete p._origBackupId;
+        if(typeof _dslStampSiblings==='function'){
+          _dslStampSiblings(p, function(sp){ delete sp.mk; delete sp._mkDisplay; delete sp._annotated; delete sp._origBackupId; });
+        }
+      }
+      if(window.DieselMarkup) DieselMarkup.clear();
+    }catch(e){ console.warn('[DLB] clearMarkupState failed', e); }
+    if(p && p.id) delete _mkDraft[p.id];
+    _exitMarkup(false);
+    _showPhoto(_idx);
+    if(typeof saveState==='function') try{ saveState(); }catch(_e){}
+    if(typeof debounceAutosave==='function') debounceAutosave();
+    if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save && typeof _collectCloudState==='function'){
+      try{ CloudSync.save(_collectCloudState()); }catch(_e){}
+    }
+    if(_ctx && typeof _ctx.renderer==='function'){ try{ _ctx.renderer(); }catch(_e){} }
+    if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces();
+    if(typeof showToast==='function') showToast('Markup removed \u2014 original kept');
   }
   // S346 (non-destructive markup): resolve a photo's CLEAN ORIGINAL image source
   // so re-entering markup replays p.mk over the original — NOT over the already-
@@ -5685,7 +5722,7 @@ function renderThumbs(id) {
   const photos = clState[id]?.photos||[];
   return photos.map((p,i)=>({p:p,i:i})).filter(o=>!_isPhotoDeleted(o.p)).map(({p,i})=>`
     <div class="photo-thumb" style="width:96px;height:96px;">
-      <img src="${p.d||p.r2Url}" onclick="openLightbox(clState['${id}'].photos,${i})" style="cursor:zoom-in;width:100%;height:100%;object-fit:cover;" title="Click to enlarge — full resolution">
+      <img src="${_phSrc(p)}" onclick="openLightbox(clState['${id}'].photos,${i})" style="cursor:zoom-in;width:100%;height:100%;object-fit:cover;" title="Click to enlarge — full resolution">
       <button class="photo-remove" onclick="removePhoto('${id}',${i})">✕</button>
       <button class="photo-markup-btn" onclick="event.stopPropagation();openLightboxMarkup(clState['${id}'].photos,${i})" title="Markup this photo">✏</button>
     </div>`).join('');
@@ -6625,7 +6662,7 @@ function _openPhotoReusePicker(onPickFile, opts){
     h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">';
     items.forEach(function(it,k){
       h+='<div onclick="_pickReusePhoto('+k+')" style="position:relative;cursor:pointer;border-radius:8px;overflow:hidden;border:1.5px solid '+(isDark?'rgba(255,255,255,.14)':'#D8D5DE')+';aspect-ratio:4/3;">'
-        +'<img src="'+(it.photo.d||it.photo.r2Url||'')+'" style="width:100%;height:100%;object-fit:cover;display:block;">'
+        +'<img src="'+_phSrc(it.photo)+'" style="width:100%;height:100%;object-fit:cover;display:block;">'
         +(it.badge?'<span style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.62);color:#fff;font-size:10px;font-weight:700;padding:2px 5px;">'+it.badge+'</span>':'')
         +'</div>';
     });
@@ -6751,7 +6788,7 @@ function _flowPhotoOpenGallery(){
   else {
     h+='<div class="fpm-gal-grid">';
     items.forEach(function(it,k){
-      h+='<div class="fpm-gal-cell" onclick="_flowPhotoPickIdx('+k+')"><img src="'+(it.photo.d||it.photo.r2Url||'')+'"><span class="fpm-gal-badge">'+(it.badge||'')+'</span></div>';
+      h+='<div class="fpm-gal-cell" onclick="_flowPhotoPickIdx('+k+')"><img src="'+_phSrc(it.photo)+'"><span class="fpm-gal-badge">'+(it.badge||'')+'</span></div>';
     });
     h+='</div>';
   }
@@ -6855,7 +6892,7 @@ function _renderFlowPhotoModal(){
         // shows them under Without-PLD and hides them under With-PLD.
         if(_flowPhotoTbl==='pld' && (p.mode||'pld')!==_flowPhotoActiveMode) return;
         any=true;
-        h+='<div class="fpm-thumb"><img src="'+(p.d||p.r2Url||'')+'" onclick="_flowPhotoLightbox('+j+')">'
+        h+='<div class="fpm-thumb"><img src="'+_phSrc(p)+'" onclick="_flowPhotoLightbox('+j+')">'
           +'<button class="fpm-del" onclick="_flowPhotoDelete('+j+')" title="Remove">✕</button>'
           +'<button class="fpm-move" onclick="event.stopPropagation();_flowPhotoOpenReassign('+j+',this)" title="Move to another reading">⇄</button></div>';
       });
@@ -6868,7 +6905,7 @@ function _renderFlowPhotoModal(){
     if(unsorted.length){
       h+='<div class="fpm-grp"><div class="fpm-grp-hd"><span class="gh-dot" style="background:var(--silver)"></span>Unsorted</div><div class="fpm-thumbs">';
       unsorted.forEach(function(o){
-        h+='<div class="fpm-thumb"><img src="'+(o.p.d||o.p.r2Url||'')+'" onclick="_flowPhotoLightbox('+o.j+')">'
+        h+='<div class="fpm-thumb"><img src="'+_phSrc(o.p)+'" onclick="_flowPhotoLightbox('+o.j+')">'
           +'<button class="fpm-del" onclick="_flowPhotoDelete('+o.j+')" title="Remove">✕</button>'
           +'<button class="fpm-move" onclick="event.stopPropagation();_flowPhotoOpenReassign('+o.j+',this)" title="Assign a reading">⇄</button></div>';
       });
@@ -8987,7 +9024,7 @@ function buildDeficItem(name, safe, d, i) {
   (d.photos || []).forEach(function(p, j) {
     if(p&&p.deleted) return;   // S337: soft-deleted photos never render
     thumbsHtml += '<div class="photo-thumb">'
-      +'<img src="'+(p.d||p.r2Url)+'" onclick="openLightbox(deficiencies[\''+safe+'\']['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view">'
+      +'<img src="'+_phSrc(p)+'" onclick="openLightbox(deficiencies[\''+safe+'\']['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view">'
       +'<button class="photo-remove" onclick="removeDeficPhoto(\''+safe+'\','+i+','+j+')">✕</button></div>';
   });
 
@@ -9008,7 +9045,7 @@ function buildDeficItem(name, safe, d, i) {
     (cr.photos || []).forEach(function(rp, ri) {
       if(rp&&rp.deleted) return;   // S337
       crPhotosHtml += '<div style="position:relative;display:inline-block;">'
-        +'<img src="'+(rp.d||rp.r2Url||rp)+'" onclick="if(typeof openLightbox===\'function\')openLightbox(deficiencies[\''+safe+'\']['+i+'].responses['+ci+'].photos,'+ri+',{renderer:function(){renderDeficGroup(\''+name+'\');}})" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:zoom-in;">'
+        +'<img src="'+(_phSrc(rp)||rp)+'" onclick="if(typeof openLightbox===\'function\')openLightbox(deficiencies[\''+safe+'\']['+i+'].responses['+ci+'].photos,'+ri+',{renderer:function(){renderDeficGroup(\''+name+'\');}})" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:zoom-in;">'
         +'<button onclick="event.stopPropagation();removeDeficRespPhoto(\''+safe+'\','+i+','+ci+','+ri+',\''+name+'\')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">'
@@ -9321,7 +9358,7 @@ function buildGeneralDeficItem(d, i) {
   var thumbsHtml = '';
   (d.photos || []).forEach(function(p, j) {
     if(p&&p.deleted) return;   // S337
-    thumbsHtml += '<div class="photo-thumb"><img src="'+(p.d||p.r2Url)+'" onclick="openLightbox(generalDeficiencies['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view"><button class="photo-remove" onclick="removeGenDeficPhoto('+i+','+j+')">✕</button></div>';
+    thumbsHtml += '<div class="photo-thumb"><img src="'+_phSrc(p)+'" onclick="openLightbox(generalDeficiencies['+i+'].photos,'+j+')" style="cursor:zoom-in;width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="Click to view"><button class="photo-remove" onclick="removeGenDeficPhoto('+i+','+j+')">✕</button></div>';
   });
   var respHtml = '';
   (d.responses || []).forEach(function(cr, ci) {
@@ -9334,7 +9371,7 @@ function buildGeneralDeficItem(d, i) {
     var crPhotosHtml = '';
     (cr.photos || []).forEach(function(rp, ri) {
       if(rp&&rp.deleted) return;   // S337
-      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(rp.d||rp.r2Url||rp)+'" onclick="if(typeof openLightbox===\'function\')openLightbox(generalDeficiencies['+i+'].responses['+ci+'].photos,'+ri+',{renderer:function(){renderGeneralDeficGroup();}})" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="event.stopPropagation();removeGenDeficRespPhoto('+i+','+ci+','+ri+')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
+      crPhotosHtml += '<div style="position:relative;display:inline-block;"><img src="'+(_phSrc(rp)||rp)+'" onclick="if(typeof openLightbox===\'function\')openLightbox(generalDeficiencies['+i+'].responses['+ci+'].photos,'+ri+',{renderer:function(){renderGeneralDeficGroup();}})" style="width:86px;height:86px;object-fit:cover;border-radius:6px;border:2px solid #ddd;cursor:zoom-in;"><button onclick="event.stopPropagation();removeGenDeficRespPhoto('+i+','+ci+','+ri+')" style="position:absolute;top:-4px;right:-4px;background:#A85959;color:white;border:none;border-radius:50%;width:14px;height:14px;cursor:pointer;font-size:9px;padding:0;">✕</button></div>';
     });
     respHtml += '<div style="margin-top:8px;padding:10px 12px;background:'+bgCol+';border:1px solid '+borderCol+';border-left:3px solid '+accentCol+';border-radius:6px;">';
     respHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:'+accentCol+';text-transform:uppercase;letter-spacing:.5px;">'+(isContractor?'⚡':'🔍')+' '+label+' Response #'+(ci+1)+'</div><button onclick="generalDeficiencies['+i+'].responses.splice('+ci+',1);renderGeneralDeficGroup();" style="padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:white;color:#999;font-size:10px;cursor:pointer;">✕ Remove</button></div>';
@@ -10386,7 +10423,7 @@ function _realExportPDF() {
     const pill = pillCls ? `<span class="pill ${pillCls}">${pillTxt}</span>` : `<span style="color:#B08948;font-weight:700;">—</span>`;
     const rowCls = sc==='no'?' class="nd-flag"':'';
     const cmHtml = cm ? `<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:3px;">${cm}</div>` : '';
-    const photosRow = photos.length ? `<tr class="ph-keep ${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`<img src="${p.r2Url||p.d}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`).join('')}</div></td></tr>` : '';
+    const photosRow = photos.length ? `<tr class="ph-keep ${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`<img src="${_phSrc(p)}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`).join('')}</div></td></tr>` : '';
     return `<tr${rowCls}>
       <td class="ctr" style="font-weight:600;color:#666;white-space:nowrap;font-size:9pt;width:34px;">${item.num}</td>
       <td>${txt}${cmHtml}</td>
@@ -10711,7 +10748,7 @@ function _realExportPDF() {
         out += '<div style="font-size:8pt;color:#555;margin-top:2px;">Date: '+(d.date||'---')+'</div>';
         if (d.photos && d.photos.length) {
           out += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">';
-          d.photos.forEach(p => { out += '<img src="'+(p.r2Url||p.d)+'" style="width:100%;max-width:250px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'; });
+          d.photos.forEach(p => { out += '<img src="'+_phSrc(p)+'" style="width:100%;max-width:250px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'; });
           out += '</div>';
         }
         // Unified responses timeline
@@ -10730,7 +10767,7 @@ function _realExportPDF() {
             out += '<div style="font-size:8.5pt;padding:5px;background:white;border:1px solid #EEE;border-radius:3px;">'+(cr.comment||'(No comment)')+'</div>';
             if (cr.photos && cr.photos.length) {
               out += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
-              cr.photos.forEach(function(p){ out += '<img src="'+(p.d||p)+'" style="width:100%;max-width:220px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'; });
+              cr.photos.forEach(function(p){ out += '<img src="'+(_phSrc(p)||p)+'" style="width:100%;max-width:220px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'; });
               out += '</div>';
             }
             out += '</div>';
@@ -10896,7 +10933,7 @@ function _realExportPDF() {
         let ftHtml = '<h2 style="font-size:11pt;font-weight:bold;background:#1C2333;color:white;padding:6px 12px;margin:20px 0 8px;text-transform:uppercase;">Flow Test Chart Photos</h2>';
         ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;">';
         flowTestPhotos.forEach(p => {
-          ftHtml += '<img src="'+(p.r2Url||p.d)+'" style="max-height:160px;max-width:220px;object-fit:contain;border:1px solid #ddd;border-radius:4px;">';
+          ftHtml += '<img src="'+_phSrc(p)+'" style="max-height:160px;max-width:220px;object-fit:contain;border:1px solid #ddd;border-radius:4px;">';
         });
         ftHtml += '</div>';
         ftPrint.innerHTML = ftHtml;
@@ -12688,7 +12725,7 @@ function renderFlowTestThumbsPld() {
   if(!el) return;
   el.innerHTML = flowTestPhotosPld.map((p,i)=>({p:p,i:i})).filter(o=>!_isPhotoDeleted(o.p)).map(({p,i})=>`
     <div style="position:relative;">
-      <img src="${p.d||p.r2Url}" onclick="openLightbox(flowTestPhotosPld,${i})" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:2px solid #ddd;cursor:zoom-in;">
+      <img src="${_phSrc(p)}" onclick="openLightbox(flowTestPhotosPld,${i})" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:2px solid #ddd;cursor:zoom-in;">
       <button onclick="flowTestPhotosPld.splice(${i},1);renderFlowTestThumbsPld()" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;">✕</button>
     </div>`).join('');
 }
@@ -12722,7 +12759,7 @@ function renderFlowTestThumbs() {
   const el = document.getElementById('flow-test-thumbs');
   if(!el) return;
   el.innerHTML = flowTestPhotos.map((p,i)=>({p:p,i:i})).filter(o=>!_isPhotoDeleted(o.p)).map(({p,i})=>`
-    <div class="photo-thumb"><img src="${p.d||p.r2Url}">
+    <div class="photo-thumb"><img src="${_phSrc(p)}">
     <button class="photo-remove" onclick="flowTestPhotos.splice(${i},1);renderFlowTestThumbs()">✕</button></div>`).join('');
 }
 
@@ -13147,6 +13184,8 @@ var _r2FolderId = null; // set during Hub init
 // it derives the URL fresh each render instead of trusting the stored field.
 function _photoSrc(p){
   if(!p) return '';
+  // NEVER-BAKE (S372): composited display cache wins (clean p.d + p.mk rendered).
+  if(p._mkDisplay) return p._mkDisplay;
   if(p.d) return p.d;
   if(p.r2Url) return p.r2Url;
   if(p.id && _r2FolderId && typeof R2Photos!=='undefined' && R2Photos.getUrl){
@@ -13465,6 +13504,89 @@ function _dslLoadBakeImage(p){
   });
 }
 
+// ═══ NEVER-BAKE DISPLAY LAYER (Diesel S372) ═══════════════════════════════
+// Diesel historically BAKED markup into p.d (a flattened JPEG). Never-bake keeps
+// p.d as the CLEAN original forever and treats p.mk (vectors) as the source of
+// truth. Surfaces that show a photo as a plain <img src> can't composite vectors,
+// so we keep a regenerable DISPLAY CACHE (p._mkDisplay): a composited data-URL
+// rebuilt from the clean source + p.mk whenever markup changes. It is a derived
+// cache only — never a backup, never the source of truth, stripped from cloud.
+//
+//   _phSrc(p)            → the right src for any <img>: display cache → clean → cloud
+//   _rebuildMkDisplay(p) → regenerate p._mkDisplay from clean source + p.mk
+//
+// Already-baked legacy photos (p._annotated with no p.mk, or _nbBaked flag) keep
+// their baked p.d untouched — _phSrc returns p.d for them, so nothing regresses.
+// _phSrc delegates to _photoSrc (the single resolver), which now prefers the
+// never-bake display cache. Kept as a thin alias so the thumbnail/PDF surfaces
+// can read one short name.
+function _phSrc(p){ return (typeof _photoSrc==='function') ? _photoSrc(p) : (p && (p._mkDisplay||p.d||p.r2Url) || ''); }
+
+// NEVER-BAKE (S372): _mkDisplay is a derived cache, stripped from cloud/IDB on
+// save. After a load, annotated photos have p.mk but no p._mkDisplay → they would
+// render CLEAN (no marks) until re-saved. Walk every photo array and rebuild the
+// display cache for any annotated photo missing it. Async + best-effort; surfaces
+// re-render as each resolves. Legacy already-baked photos (annotated, no p.mk)
+// are skipped — their clean p.d isn't available, so their existing baked p.d (if
+// present) stays the display; _rebuildMkDisplay no-ops without mk.
+function _rebuildAllMkDisplays(){
+  try{
+    var arrays = [];
+    if(typeof recordPhotos!=='undefined') arrays.push(recordPhotos);
+    if(typeof flowTestPhotos!=='undefined') arrays.push(flowTestPhotos);
+    if(typeof flowTestPhotosPld!=='undefined') arrays.push(flowTestPhotosPld);
+    function collectDefic(obj){ if(!obj) return; Object.keys(obj).forEach(function(k){
+      var items = obj[k]; if(!Array.isArray(items)) items=[items];
+      items.forEach(function(it){ if(it&&Array.isArray(it.photos)) arrays.push(it.photos);
+        if(it&&Array.isArray(it.responses)) it.responses.forEach(function(r){ if(r&&Array.isArray(r.photos)) arrays.push(r.photos); }); });
+    }); }
+    if(typeof deficiencies!=='undefined') collectDefic(deficiencies);
+    if(typeof generalDeficiencies!=='undefined' && Array.isArray(generalDeficiencies)){
+      generalDeficiencies.forEach(function(d){ if(d&&Array.isArray(d.photos)) arrays.push(d.photos);
+        if(d&&Array.isArray(d.responses)) d.responses.forEach(function(r){ if(r&&Array.isArray(r.photos)) arrays.push(r.photos); }); });
+    }
+    if(typeof clState!=='undefined') Object.keys(clState).forEach(function(k){ var c=clState[k]; if(c&&Array.isArray(c.photos)) arrays.push(c.photos); });
+
+    var pending = [];
+    arrays.forEach(function(arr){
+      arr.forEach(function(p){
+        if(p && p._annotated && p.mk && Array.isArray(p.mk.o) && p.mk.o.length && !p._mkDisplay){
+          pending.push(_rebuildMkDisplay(p));
+        }
+      });
+    });
+    if(pending.length){
+      console.info('[NB] rebuilding '+pending.length+' display cache(s) after load');
+      Promise.all(pending).then(function(){ if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces(); });
+    }
+  }catch(e){ console.warn('[NB] rebuildAll failed', e&&e.message); }
+}
+// Rebuild the display cache from the CLEAN source + current p.mk. Async (image
+// decode). Resolves to the photo. No strokes → clears the cache (shows clean).
+function _rebuildMkDisplay(p){
+  return new Promise(function(resolve){
+    try{
+      if(!p){ resolve(p); return; }
+      var hasMk = p.mk && Array.isArray(p.mk.o) && p.mk.o.length;
+      if(!hasMk){ if(p._mkDisplay) delete p._mkDisplay; resolve(p); return; }
+      // Load the CLEAN source the same taint-free way the (old) bake did.
+      _dslLoadBakeImage(p).then(function(bake){
+        try{
+          var img=bake.img, nw=img.naturalWidth, nh=img.naturalHeight;
+          if(!nw||!nh){ bake.revoke&&bake.revoke(); resolve(p); return; }
+          var c=document.createElement('canvas'); c.width=nw; c.height=nh;
+          var cx=c.getContext('2d');
+          cx.drawImage(img,0,0,nw,nh);
+          if(window.DieselMarkup) DieselMarkup.composite(cx, p.mk, nw, nh);
+          p._mkDisplay = c.toDataURL('image/jpeg', 0.9);
+          bake.revoke&&bake.revoke();
+        }catch(e){ console.warn('[NB] rebuild display failed', e&&e.message); }
+        resolve(p);
+      }).catch(function(e){ console.warn('[NB] rebuild load failed', e&&e.message); resolve(p); });
+    }catch(e){ console.warn('[NB] rebuild error', e&&e.message); resolve(p); }
+  });
+}
+
 async function _dslMarkupPersist(p, mk){
   if(!p || !mk) throw new Error('nothing to persist');
   if(!p.id) p.id = 'ph_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);   // S300: deterministic keys need an id
@@ -13478,6 +13600,11 @@ async function _dslMarkupPersist(p, mk){
   c.width = nw; c.height = nh;
   var cx = c.getContext('2d');
   cx.drawImage(img, 0, 0, nw, nh);
+  // NEVER-BAKE (S372): capture the CLEAN source as a data-URL BEFORE compositing,
+  // so the stamp can restore sp.d to clean (a re-saved legacy photo arrives with
+  // a baked p.d). p.d must always hold the clean original under never-bake.
+  var cleanD = '';
+  try { cleanD = c.toDataURL('image/jpeg', 0.92); } catch(_e){ cleanD = ''; }
   DieselMarkup.composite(cx, mk, nw, nh);
   var markedD = c.toDataURL('image/jpeg', 0.9);
   bake.revoke();
@@ -13546,21 +13673,20 @@ async function _dslMarkupPersist(p, mk){
   // ── Stamp the photo (and any same-id references) ──
   var mkTs = Date.now();   // S301: annotation-state timestamp — merge arbitration
   var stamp = function(sp){
-    sp.d = markedD;
+    // NEVER-BAKE (S372): keep sp.d CLEAN (the original). The composited image goes
+    // to sp._mkDisplay — a regenerable display cache that every <img> surface reads
+    // via _phSrc(). p.mk (vectors) is the source of truth; sp.d is never overwritten
+    // with a flattened image again. cleanD restores a re-saved legacy photo whose
+    // arriving sp.d was the OLD baked composite.
+    if(cleanD) sp.d = cleanD;
+    sp._mkDisplay = markedD;
     sp._annotated = true;
     sp._mkTs = mkTs;
     if(backupId) sp._origBackupId = backupId;
-    // S306 (Mark): P9 date-bump dropped for Diesel — saving markup keeps the
-    // photo's original date so it stays in its existing gallery group (the jump
-    // to today's group was confusing). _mkTs still drives merge arbitration.
-    // S346 (non-destructive markup): KEEP sp.mk so the inspector can re-open and
-    // edit the markup. sp.d holds the baked 'marked' image (PDF + thumbs read it);
-    // re-entering markup paints sp.mk over the CLEAN ORIGINAL via _origSrcForMarkup,
-    // so strokes never double-bake. Revert still clears mk. (Was: delete sp.mk.)
-    // S367 FIX: the S346 comment above promised sp.mk was kept, but the assignment
-    // was never written — so editable strokes were lost on every save (markup
-    // disappeared on reopen; passed_strokes:0). Assign the strokes here so re-entry
-    // replays them. Deep-clone so siblings don't share one mutable array.
+    // S306 (Mark): markup save keeps the photo's original date (no jump to today).
+    // _mkTs still drives merge arbitration.
+    // p.mk holds the editable vectors for re-entry; deep-clone so siblings don't
+    // share one mutable array.
     if(mk){ try{ sp.mk = JSON.parse(JSON.stringify(mk)); }catch(_e){ sp.mk = mk; } }
     if(hub){ sp.r2Key = markedKey; sp.r2Url = markedUrl; sp.r2Status = 'pending'; }
   };
@@ -13644,6 +13770,7 @@ function _dslMarkupRevert(p){
     sp.r2Status = origKey ? 'uploaded' : '';
     if(backup.date) sp.date = backup.date;   // S306: save no longer bumps the date, so this is a no-op for new photos; kept for legacy photos saved before the P9 drop (restores their original group)
     delete sp._annotated; delete sp._origBackupId; delete sp.mk;
+    delete sp._mkDisplay;   // NEVER-BAKE (S372): drop the composited display cache → clean photo shows
   };
   _dslStampSiblings(p, restore);
   // ── Remove the backup record from Site Records ──
@@ -14736,7 +14863,7 @@ function _applyLoadedState(raw) {
       const sMap = {s1:S1,s2:S2,s3:S3,s4:S4_items,s4pld:S4_items,s5:S5};
       if(sMap[sec]) renderChecklist(sMap[sec], 'cl-'+sec, sec);
     });
-    setTimeout(function(){ updateProgress(); updateVerdict(); try{ if(typeof _pgPurgeExpired==='function') _pgPurgeExpired(); }catch(_e){} }, 200);
+    setTimeout(function(){ updateProgress(); updateVerdict(); try{ if(typeof _pgPurgeExpired==='function') _pgPurgeExpired(); }catch(_e){} try{ if(typeof _rebuildAllMkDisplays==='function') _rebuildAllMkDisplays(); }catch(_e){} }, 200);
   } catch(e) {
     console.error('Load error:', e);
   }
@@ -16014,12 +16141,23 @@ function _collectAllPhotos(opts){
   // empty and Restore could never find a photo. The flag restores the S354
   // contract ("_collectAllPhotos stays the full walk") for the consumers that need it.
   var _includeDeleted = !!(opts && opts.includeDeleted);
+  var _includeBackups = !!(opts && opts.includeBackups);
   // S367: a photo is "live" (eligible to appear in the gallery/appendix) only
   // if it is NOT soft-deleted (S337 `deleted` flag) and NOT an internal
   // original-backup placeholder (`_isOrigBackup`, kept only to restore markup).
   // Every on-screen renderer already skips these; the appendix must too, or
   // deleted placards and backup duplicates leak into the client PDF.
-  function _live(p){ return _includeDeleted ? !!p : (p && !p.deleted && !p._isOrigBackup); }
+  // S372 (never-bake): the GALLERY now shows clean-original backups as their own
+  // Site Record tiles (FRT S363 parity — mark a photo → see the marked one + a
+  // clean copy). Callers that want them pass includeBackups:true (gallery only).
+  // The PDF appendix never sets it, and _appendixEligible already excludes site
+  // records, so client reports never gain backup duplicates.
+  function _live(p){
+    if(_includeDeleted) return !!p;
+    if(!p || p.deleted) return false;
+    if(p._isOrigBackup) return _includeBackups;
+    return true;
+  }
   // 1. Flow test photos (3-point) — S355: badge by category tag
   (flowTestPhotos||[]).forEach(function(p,i){
     if(!_live(p)) return;
@@ -16304,7 +16442,9 @@ function _normalizeAllPhotoDel(s){
   return s;
 }
 function _pgVisible(){
-  return _collectAllPhotos().filter(function(a){ return !_isPhotoDeleted(a.photo); });
+  // S372: include _isOrigBackup clean-original records so they render as their own
+  // Site Record tiles alongside the marked photo (never-bake / FRT S363 parity).
+  return _collectAllPhotos({includeBackups:true}).filter(function(a){ return !_isPhotoDeleted(a.photo); });
 }
 // Deleted photos for the trash view — same collected records, only the deleted ones,
 // newest-deleted first.
@@ -16488,7 +16628,7 @@ function _recZoneHtml(kind){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
     thumbs.forEach(function(o){
       html+='<div style="position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);">'
-        +'<img src="'+(o.p.d||o.p.r2Url||'')+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+        +'<img src="'+_phSrc(o.p)+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
         +'<button onclick="event.stopPropagation();_recDownloadById(\''+(o.p.id||'')+'\')" title="Download" style="position:absolute;bottom:2px;left:2px;background:rgba(44,71,112,.92);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">\u2193</button>'
         +'<button onclick="_recDelete('+o.i+')" title="Remove" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;padding:0;cursor:pointer;">✕</button>'
         +'</div>';
@@ -16558,7 +16698,7 @@ function _evTileHtml(kind){
   thumbs.forEach(function(o){
     var p=o.p;
     html+='<div class="ev-thumb">'
-      +'<img src="'+(p.d||p.r2Url||'')+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
+      +'<img src="'+_phSrc(p)+'" onclick="_recLightbox('+o.i+')" onerror="this.onerror=null;this.removeAttribute(\'src\');this.style.background=\'var(--smoke)\';">'
       +'<button class="ev-thumb-dl" title="Download this photo" onclick="event.stopPropagation();_recDownloadById(\''+(p.id||'')+'\')">\u2193</button>'
       +'<button class="ev-thumb-del" title="Delete this photo" onclick="event.stopPropagation();_recDeletePhotoById(\''+(p.id||'')+'\')">✕</button>'
       +'</div>';
@@ -18407,7 +18547,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S371b';
+var DIESEL_BUILD = 'S372';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
