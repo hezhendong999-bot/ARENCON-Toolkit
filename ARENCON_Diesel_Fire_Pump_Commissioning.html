@@ -11300,17 +11300,37 @@ function _realExportPDF() {
         if(band && band.parentNode===curPage) curPage.removeChild(band);
 
         // 3) Decide whether to start the section HERE or on a fresh page.
-        //    Keep-with-next: only break to a new page if the current page can't
-        //    even hold the band + a token of content (band would be orphaned).
-        //    Otherwise pack the section onto the current page and let it split.
+        //    Keep-with-next: the band must not strand on a page whose remaining
+        //    room can't hold the band PLUS its first real content block. Testing a
+        //    flat 70px wasn't enough — a tall first block (e.g. a 300px placard
+        //    apx-keep) overflowed in step 4 and got pushed to a fresh page on its
+        //    own, leaving the band orphaned above a big gap. So test the band + the
+        //    ACTUAL first body node together; if they don't both fit, push first so
+        //    band + first block start the next page together.
         if(head){
-          var testBand = _bandClone(head,false);
-          curPage.appendChild(testBand);
-          var bandOrphaned = _overflow();          // band alone already overflows?
-          // also treat "almost no room under the band" as orphaned
-          if(!bandOrphaned && (PAGE_LIMIT - curPage.offsetHeight) < 70){ bandOrphaned = true; }
-          curPage.removeChild(testBand);
-          if(bandOrphaned && curPage.children.length > 1){ _push(); }
+          var pushedForBand = false;
+          if(curPage.children.length > 1){
+            var testBand = _bandClone(head,false);
+            curPage.appendChild(testBand);
+            var firstBN = bodyNodes[0];
+            var measured = false;
+            if(firstBN){
+              curPage.appendChild(firstBN);          // tentatively measure band + first block
+              measured = true;
+              if(_overflow()){ 
+                curPage.removeChild(firstBN);         // pull the test block back
+                curPage.removeChild(testBand);
+                _push();                              // band + first block won't fit → fresh page
+                pushedForBand = true;
+              } else {
+                curPage.removeChild(firstBN);         // they fit; remove the test block, keep going
+                curPage.removeChild(testBand);
+              }
+            } else {
+              if(_overflow()){ _push(); pushedForBand = true; }
+              curPage.removeChild(testBand);
+            }
+          }
           curPage.appendChild(_bandClone(head,false));
         } else if(curPage.children.length > 1 && (PAGE_LIMIT - curPage.offsetHeight) < 70){
           _push();
@@ -18718,7 +18738,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372.7';
+var DIESEL_BUILD = 'S372.8';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
