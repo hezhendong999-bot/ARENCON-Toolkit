@@ -123,6 +123,9 @@ function _setRotation(deg){
     try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); else if (Model && Model.saveNow) Model.saveNow(); } catch(_){}
   }
   _rotations[_idx] = deg;             // view cache mirror
+  // S352: if markup is armed, keep the engine's rotation hint in sync so drawing
+  // continues to land correctly after a mid-markup rotate.
+  try { if (_markupActive && window.MarkupEngine && window.MarkupEngine.setRotation) window.MarkupEngine.setRotation(deg); } catch(_){}
 }
 function _isRotatedSideways() { var r = _currentRotation(); return r === 90 || r === 270; }
 function _updateZoomIndicator() {
@@ -700,6 +703,7 @@ function _toggleMarkup(){
       _calcFitScale();
       _scale = _fitScale; _panX = 0; _panY = 0; _applyTransform();  // baseline so _sync captures fit box
       window.MarkupEngine.attach(canvas, img, p._origBlob || null, null, withStrokes ? savedStrokes : null);
+      try { if (window.MarkupEngine.setRotation) window.MarkupEngine.setRotation(_currentRotation()); } catch(_){}
       _scale = prevScale; _panX = prevPanX; _panY = prevPanY; _applyTransform();
       if (_markupBar) _markupBar.style.display='flex';
       _markupActive = true;
@@ -914,11 +918,10 @@ function _clampPan() {
 // photo. Hidden while markup is armed (engine owns the canvas then).
 function _renderStaticMarkup(p){
   try {
-    var wrap = _el('lb-img-wrap'); var img = _el('lb-image');
-    if (!wrap || !img) return;
+    var host = _el('lb-canvas'); var img = _el('lb-image');
+    if (!host || !img) return;
     var ov = document.getElementById('lb-static-markup');
     var strokes = (p && p._markupStrokes && p._markupStrokes.length) ? p._markupStrokes : null;
-    // Remove/clear when armed or no strokes
     if (_markupActive || !strokes){
       if (ov) ov.style.display = 'none';
       return;
@@ -926,28 +929,51 @@ function _renderStaticMarkup(p){
     if (!ov){
       ov = document.createElement('canvas');
       ov.id = 'lb-static-markup';
-      ov.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;z-index:4;';
-      wrap.appendChild(ov);
+      ov.style.cssText = 'position:absolute;pointer-events:none;z-index:4;transform-origin:0 0;';
+      host.appendChild(ov);
     }
     ov.style.display = 'block';
-    // Draw in the strokes' OWN authoring frame so coords map 1:1; size the canvas
-    // to that frame and CSS-scale it to the image's displayed box. The wrap's
-    // transform (rotate/scale/pan) then carries the overlay WITH the photo.
-    var fw = (p._mkFrame && p._mkFrame.w) ? p._mkFrame.w : (img.naturalWidth || img.width);
-    var fh = (p._mkFrame && p._mkFrame.h) ? p._mkFrame.h : (img.naturalHeight || img.height);
+    // S352: size the overlay to the UNROTATED fit box (natural × current scale),
+    // positioned at the wrap origin — NOT img.getBoundingClientRect(), which is the
+    // already-rotated box and would make the transform mirror rotate it twice. The
+    // shared transform (in _applyStaticMarkupTransform) then rotates it exactly once,
+    // matching the engine canvas. Internal resolution = authoring frame (mkFrame).
+    var nw = img.naturalWidth || (p._mkFrame && p._mkFrame.w) || 1;
+    var nh = img.naturalHeight || (p._mkFrame && p._mkFrame.h) || 1;
+    ov.style.left = '0px';
+    ov.style.top  = '0px';
+    ov.style.width  = nw + 'px';
+    ov.style.height = nh + 'px';
+    var fw = (p._mkFrame && p._mkFrame.w) ? p._mkFrame.w : nw;
+    var fh = (p._mkFrame && p._mkFrame.h) ? p._mkFrame.h : nh;
     ov.width = fw; ov.height = fh;
-    // match the image's rendered size (object-fit:contain box == img.width/height
-    // as laid out); use the image element's box so it overlays exactly.
-    ov.style.width = img.clientWidth + 'px';
-    ov.style.height = img.clientHeight + 'px';
-    ov.style.left = img.offsetLeft + 'px';
-    ov.style.top  = img.offsetTop + 'px';
     var ctx = ov.getContext('2d');
     ctx.clearRect(0,0,fw,fh);
     if (window.MarkupEngine && window.MarkupEngine.renderStrokesToContext){
       try { window.MarkupEngine.renderStrokesToContext(ctx, strokes, fw, fh); } catch(_){}
     }
+    // Apply the current transform immediately so it's aligned on first paint.
+    _applyStaticMarkupTransform();
   } catch(_){}
+}
+// Mirror the photo's transform onto the static overlay (same math as the engine
+// canvas in _applyTransform). Called from _applyTransform.
+function _applyStaticMarkupTransform(){
+  var ov = document.getElementById('lb-static-markup');
+  if (!ov || ov.style.display === 'none') return;
+  var rot = _currentRotation();
+  var img = _el('lb-image');
+  var nw = (img && img.naturalWidth) ? img.naturalWidth : 0;
+  var nh = (img && img.naturalHeight) ? img.naturalHeight : 0;
+  // Mirror the WRAP transform exactly (see _applyTransform). The overlay's CSS box
+  // is already natural×_scale, so the CSS scale factor here is 1; the rotation
+  // offset uses nw/nh×_scale identically to the wrap so the two stay locked.
+  var offX = 0, offY = 0;
+  if (rot === 90)  { offX = nh * _scale; }
+  else if (rot === 180) { offX = nw * _scale; offY = nh * _scale; }
+  else if (rot === 270) { offY = nw * _scale; }
+  ov.style.transformOrigin = '0 0';
+  ov.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY) + 'px,0) rotate(' + rot + 'deg) scale(' + _scale + ')';
 }
 
 function _applyTransform() {
@@ -1000,6 +1026,7 @@ function _applyTransform() {
     mc.style.transform = 'translate3d(' + (_panX + offX - _cl) + 'px,' + (_panY + offY - _ct) + 'px,0) rotate(' + rot + 'deg) scale(' + k + ')';
   }
   _updateZoomIndicator();
+  _applyStaticMarkupTransform();
 }
 
 function _calcFitScale() {

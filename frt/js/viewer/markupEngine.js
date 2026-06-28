@@ -60,9 +60,17 @@
       // genuine edit from a no-op reopen (so closing without changes doesn't
       // needlessly re-flatten + re-upload). Updated by _onDirty edits via the getter.
       this._attachSig = JSON.stringify(this.strokes);
+      this._rotation = 0;   // S352: lightbox sets this so pt() can un-rotate input
       this._sync();   // sets w/h and _render()s — re-paints the reloaded strokes
       this._bind();
       window.addEventListener('resize', this._syncBound = this._sync.bind(this));
+    },
+
+    // S352: the lightbox tells the engine the photo's display rotation (0/90/180/270)
+    // so pointer input can be inverted back into the canvas's logical frame. Without
+    // this, getBoundingClientRect (axis-aligned) makes drawing land wrong when rotated.
+    setRotation: function(deg){
+      this._rotation = ((deg % 360) + 360) % 360;
     },
 
     // Serialize current strokes for persistence (logical coords; pure data, no canvas).
@@ -204,14 +212,33 @@
         var r = c.getBoundingClientRect();
         var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX);
         var cy = (ev.touches ? ev.touches[0].clientY : ev.clientY);
-        // S329 (#20/#21/#22): during markup the canvas may carry a CSS scale (zoom), so
-        // its on-screen rect is larger/smaller than its logical size. Map the screen point
-        // back into the canvas's LOGICAL (fit) coordinate space — the same space strokes
-        // were always stored in — so saveBlob() and line widths are unaffected. At fit
-        // (no scale) r.width === self.w, so this reduces to the original (cx - r.left).
-        var sx = (r.width  && self.w) ? (self.w / r.width)  : 1;
-        var sy = (r.height && self.h) ? (self.h / r.height) : 1;
-        return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
+        // S329: the canvas may carry a CSS scale (zoom); map screen→logical.
+        // S352: it may ALSO carry a CSS rotation. getBoundingClientRect is the
+        // axis-aligned (rotated) box, so we must un-rotate the point about the
+        // box centre by -rotation BEFORE mapping to logical coords — otherwise
+        // drawing lands wrong on rotated photos. At rotation 0 this is a no-op.
+        var rot = self._rotation || 0;
+        var lx, ly;
+        if (rot){
+          var bcx = r.left + r.width/2, bcy = r.top + r.height/2;
+          var dx = cx - bcx, dy = cy - bcy;
+          var a = -rot * Math.PI/180;
+          var ux = dx*Math.cos(a) - dy*Math.sin(a);
+          var uy = dx*Math.sin(a) + dy*Math.cos(a);
+          // unrotated on-screen box dims (swap on 90/270)
+          var ubw = (rot%180!==0) ? r.height : r.width;
+          var ubh = (rot%180!==0) ? r.width  : r.height;
+          var sx0 = (ubw && self.w) ? (self.w / ubw) : 1;
+          var sy0 = (ubh && self.h) ? (self.h / ubh) : 1;
+          lx = (ux + ubw/2) * sx0;
+          ly = (uy + ubh/2) * sy0;
+        } else {
+          var sx = (r.width  && self.w) ? (self.w / r.width)  : 1;
+          var sy = (r.height && self.h) ? (self.h / r.height) : 1;
+          lx = (cx - r.left) * sx;
+          ly = (cy - r.top)  * sy;
+        }
+        return { x: lx, y: ly };
       }
       function isShape(t){ return t==='arrow'||t==='rect'||t==='circle'||t==='line'||t==='rect-fill'||t==='circle-fill'||t==='triangle'||t==='cloud'; }
       // S329 (#23, Mark): shapes (arrow/rect/circle/line) place via TWO CLICKS
