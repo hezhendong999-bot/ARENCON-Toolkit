@@ -11069,6 +11069,18 @@ function _realExportPDF() {
       var PAGE_H = 912; // usable height per page (8.5x11 @ 96dpi minus padding)
       var origPage = wd.querySelector('.page');
       if(!origPage) return;
+      // S372.4: the flow-test/sketch print divs are wrapper <div>s whose .sh band
+      // + photos live INSIDE them (injected via innerHTML). The unit-grouper below
+      // only inspects DIRECT children of .page, so a nested .sh is invisible and the
+      // wrapper gets absorbed into the previous section (Signature) → photos print
+      // under "Signature (cont.)". Unwrap these wrappers: promote their children to
+      // be direct .page children, in place, so each inner .sh starts its own unit.
+      ['flow-test-photos-print','sketches-print'].forEach(function(wid){
+        var wrap = wd.getElementById(wid);
+        if(!wrap || wrap.parentNode!==origPage) return;
+        while(wrap.firstChild){ origPage.insertBefore(wrap.firstChild, wrap); }
+        origPage.removeChild(wrap);
+      });
       // Get project info for compact header
       var _chClient = (proj.client||'').replace(/</g,'&lt;');
       var _chAddr = (proj.addr||'').replace(/</g,'&lt;');
@@ -13695,25 +13707,38 @@ async function _dslMarkupPersist(p, mk){
   // ── Backup creation (first markup only) ──
   var backupId = p._origBackupId || null;
   if(!isReSave && !isCorruptReSave){
-    if(preD || preKey){
+    // S372.4: the backup MUST be openable. preD is empty for cloud-loaded photos
+    // (bytes live in R2, not p.d), and the marked stamp below repoints the live
+    // photo's r2Key/r2Url to /marked/ — so a backup that only borrowed preKey could
+    // end up pointing at a moved object → "Photo not found". Give the backup its OWN
+    // resolvable bytes: use preD when present, else the cleanD data-URL we already
+    // captured from the taint-free source. Upload it under the backup's own
+    // /original/ key so it resolves from any device (FRT S363 parity).
+    var backupBytes = preD || cleanD || '';
+    if(backupBytes || preKey){
+      var backupId2 = 'ph_orig_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
       var backup = {
-        d: preD, n: p.n || 'photo.jpg',
-        id: 'ph_orig_' + Date.now() + '_' + Math.random().toString(36).substr(2,6),
+        d: backupBytes, n: p.n || 'photo.jpg',
+        id: backupId2,
         kind: 'site',
         caption: (p.caption ? (p.caption + ' (original)') : 'Original'),
-        date: preDate || new Date().toISOString(),
+        date: preDate || new Date().toISOString(),   // backup keeps ORIGINAL date
         r2Key: preKey, r2Url: preUrl, r2Status: preKey ? (preStatus || 'uploaded') : '',
         _isOrigBackup: true
       };
       if(typeof recordPhotos !== 'undefined') recordPhotos.push(backup);
       backupId = backup.id;
-      // FRT CASE 3: original was never uploaded — upload it under the backup's
-      // own key so revert works from any device. (_r2EnqueuePhoto keys by id,
-      // type 'original', durable outbox.)
-      if(!preKey && preD && typeof _csHubMode!=='undefined' && _csHubMode){
+      // S372.4: guarantee the backup is openable. _r2EnqueuePhoto repoints the
+      // record to its OWN /diesel/original/{id}.jpg key and uploads the bytes, so
+      // the backup never depends on the live photo's key (which the stamp below
+      // moves to /marked/). Call it whenever we have bytes — even if the photo had
+      // a preKey — so the (original) copy gets its own durable object and the
+      // "Photo not found" case can't happen. The local d also keeps it openable
+      // offline immediately.
+      if(backup.d && typeof _csHubMode!=='undefined' && _csHubMode){
         try { _r2EnqueuePhoto(backup); } catch(e){ console.warn('[DLB] persist: original backup upload enqueue failed', e); }
       }
-      console.info('[DLB] persist: backup created', {backupId:backupId, r2Key:backup.r2Key?backup.r2Key.slice(-40):''});
+      console.info('[DLB] persist: backup created', {backupId:backupId, hasD:!!backup.d, r2Key:backup.r2Key?backup.r2Key.slice(-40):''});
     } else {
       // FRT CASE 4: no original binary anywhere — markup persists but cannot revert.
       console.warn('[DLB] persist: no preKey and no local binary — markup will not be revertible');
@@ -13728,6 +13753,7 @@ async function _dslMarkupPersist(p, mk){
 
   // ── Stamp the photo (and any same-id references) ──
   var mkTs = Date.now();   // S301: annotation-state timestamp — merge arbitration
+  var todayIso = new Date().toISOString();   // S372.4: FRT date model — marked photo → TODAY
   var stamp = function(sp){
     // NEVER-BAKE (S372): keep sp.d CLEAN (the original). The composited image goes
     // to sp._mkDisplay — a regenerable display cache that every <img> surface reads
@@ -13739,8 +13765,11 @@ async function _dslMarkupPersist(p, mk){
     sp._annotated = true;
     sp._mkTs = mkTs;
     if(backupId) sp._origBackupId = backupId;
-    // S306 (Mark): markup save keeps the photo's original date (no jump to today).
-    // _mkTs still drives merge arbitration.
+    // S372.4 (FRT date model, ported): a MARKED photo carries TODAY's date so it
+    // sorts into today's group in the gallery; the clean (original) backup keeps
+    // the photo's ORIGINAL capture date (set on the backup record above). Revert /
+    // erase-all rolls the marked photo back to the backup's original date.
+    sp.date = todayIso;
     // p.mk holds the editable vectors for re-entry; deep-clone so siblings don't
     // share one mutable array.
     if(mk){ try{ sp.mk = JSON.parse(JSON.stringify(mk)); }catch(_e){ sp.mk = mk; } }
@@ -13824,7 +13853,7 @@ function _dslMarkupRevert(p){
     if(backup.d) sp.d = backup.d; else delete sp.d;
     sp.r2Key = origKey; sp.r2Url = backup.r2Url || '';
     sp.r2Status = origKey ? 'uploaded' : '';
-    if(backup.date) sp.date = backup.date;   // S306: save no longer bumps the date, so this is a no-op for new photos; kept for legacy photos saved before the P9 drop (restores their original group)
+    if(backup.date) sp.date = backup.date;   // S372.4: marking moves the photo to TODAY, so revert rolls it BACK to the backup's original capture date
     delete sp._annotated; delete sp._origBackupId; delete sp.mk;
     delete sp._mkDisplay;   // NEVER-BAKE (S372): drop the composited display cache → clean photo shows
   };
@@ -17558,7 +17587,9 @@ function _pgDeselectAll(){
 // collection at action time. Numeric refs still accepted for back-compat.
 function _pgJsq(s){ return (''+s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 function _pgResolveByPid(pid){
-  var all = _collectAllPhotos();
+  // S372.4: include backups so a clean-original (_isOrigBackup) tile resolves;
+  // match the gallery's visible set so the lightbox index lines up.
+  var all = (typeof _pgVisible==='function') ? _pgVisible() : _collectAllPhotos();
   for(var i=0;i<all.length;i++){
     var it = all[i];
     var ipid = (it.photo && it.photo.id) || ('pg_'+it.section+'_'+it.idx);
@@ -17568,7 +17599,11 @@ function _pgResolveByPid(pid){
 }
 function _pgResolveRef(ref){
   if(typeof ref==='number'){
-    var all=_collectAllPhotos();
+    // S372.4: the gallery renders via _pgVisible() = _collectAllPhotos({includeBackups:true}),
+    // so a numeric index must resolve against the SAME set (with backups) or the
+    // indices shift and a clean-original tile resolves to the wrong photo / "not
+    // found". Match the gallery's visible, non-deleted ordering exactly.
+    var all=(typeof _pgVisible==='function') ? _pgVisible() : _collectAllPhotos();
     return all[ref] ? {item:all[ref], idx:ref, all:all} : null;
   }
   return _pgResolveByPid(ref);
@@ -18603,7 +18638,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372.3';
+var DIESEL_BUILD = 'S372.4';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
