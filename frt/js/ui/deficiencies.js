@@ -1536,14 +1536,13 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     if (siteSrc != null) {
       res = (mode === 'move') ? (Model.moveSitePhotoToPin(siteSrc, toId) || {}).copy
                               : Model.copySitePhotoToPin(siteSrc, toId, true);
-      // S371c: a forced Copy mints its OWN R2 object so it renders as a separate
+      // S371: a forced Copy mints its OWN R2 binary so it renders as a separate
       // tile AND can be opened. The copy already renders via the source's r2Url/
-      // dataUrl (identity is the unique _idSeed, so no collapse). Now give it its
-      // OWN binary under a fresh key. R2.uploadPhoto needs an inline dataUrl; site
-      // photos are often lazy (bytes in R2 only), so fetch the source's blob first
-      // when there's no dataUrl, then upload under a new filename and repoint the
-      // copy's r2Key/r2Url to its own object. On any failure the copy keeps the
-      // source's render URL (still visible) and retries on next sync.
+      // dataUrl (identity is the unique _idSeed, so no collapse). Site photos are
+      // often lazy (bytes in R2 only, no inline dataUrl), so fetch the source's
+      // blob first, then R2.upload under a fresh filename and repoint the copy's
+      // r2Key/r2Url to its own object. On failure the copy keeps the source's
+      // render URL (still visible) and retries on next sync.
       if (res && res._needsOwnR2 && window.R2 && R2.upload) {
         var _pidCp = new URLSearchParams(window.location.search).get('project');
         if (_pidCp) {

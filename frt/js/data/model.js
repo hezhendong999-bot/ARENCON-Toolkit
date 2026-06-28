@@ -2528,27 +2528,24 @@ export var Model = {
         }
       }
     }
-    // S371: an EXPLICIT Copy must get its OWN identity, not borrow the source's
-    // r2Key. Borrowing the key made _photoIdentityKey return the same 'r2:'+key
-    // for source and copy, so the gallery collapsed both into ONE tile (badged
-    // Obs by mutual-exclusivity) — the "Copy displays like Move" bug. A forced
-    // copy therefore starts with NO r2Key; deficiencies.js immediately uploads
-    // the binary under a fresh key (R2.uploadPhoto), giving it a distinct
-    // identity → its own tile with the pin's obs badge. dataUrl/thumb keep it
-    // rendering in the gap before the upload lands. The clean Site-Record backup
-    // (created at markup time) keeps the ORIGINAL date; this active copy is a NEW
-    // change so it carries TODAY (S365 date split, applied to copies).
+    // S371 (final): an EXPLICIT Copy must render as its OWN tile, not collapse
+    // onto the source. The collapse came from _photoIdentityKey returning the
+    // same 'r2:'+key for source and copy (it keys on r2Key, then sourceR2Key).
+    // Fix: a forced copy gets a unique _idSeed (set below) that _photoIdentityKey
+    // checks FIRST, so it is a distinct tile regardless of shared binary keys —
+    // this is what makes Copy ≠ Move. Because identity no longer depends on the
+    // keys, the copy SAFELY keeps the source's r2Url/dataUrl/thumb for RENDERING
+    // (thumbnail + lightbox use thumb||r2Url||dataUrl) in the window before its
+    // own binary uploads — without this the tile was blank + unopenable when the
+    // source's bytes lived only in R2 (lazy, no inline dataUrl). deficiencies.js
+    // then uploads the copy's binary under a fresh key and repoints r2Key/r2Url
+    // to its own object. Date: the clean Site-Record backup keeps the ORIGINAL
+    // date; this active copy is a NEW change so it carries TODAY (S365 split).
     var _isForced = !!forceCopy;
     var copy = {
       id: _uid('ph'),
       // r2Key stays null until the copy's OWN binary is uploaded (deficiencies.js).
       r2Key: _isForced ? null : (src.r2Key || null),
-      // S371c: identity is driven by _idSeed (set below), NOT by these keys, so a
-      // forced copy can safely keep the source's r2Url/sourceR2Key for RENDERING
-      // (thumbnail + lightbox: gallery uses thumb||r2Url||dataUrl) in the window
-      // before its own upload lands. Without this the tile was blank + unopenable
-      // when the source's bytes lived in R2 (lazy, no inline dataUrl). Once the
-      // copy's own upload completes, r2Key/r2Url are repointed to its own object.
       sourceR2Key: src.sourceR2Key || src.r2Key || null,
       r2Url: src.r2Url || null,
       dataUrl: src.dataUrl || null,
@@ -2558,13 +2555,10 @@ export var Model = {
                            : (src.addedDate || new Date().toISOString().split('T')[0]),
       createdBy: src.createdBy || _currentUserId || null
     };
-    // S371b: unique identity seed — the copy's bytes are identical to the source,
-    // so this is what keeps the gallery from collapsing the two into one tile
-    // (checked FIRST in _photoIdentityKey, persisted so identity is stable across
-    // reload + after the copy's own upload). This is what makes Copy ≠ Move.
+    // Unique identity seed (persisted) — checked first in _photoIdentityKey so a
+    // forced copy never collapses onto its byte-identical source.
     if (_isForced) copy._idSeed = copy.id;
-    // Flag so the caller mints the copy's own R2 object (non-enumerable: never
-    // persisted, never synced — it's a one-shot upload instruction).
+    // One-shot upload instruction for the caller (non-enumerable: never persisted/synced).
     if (_isForced) { try { Object.defineProperty(copy, '_needsOwnR2', { value: true, enumerable: false, configurable: true }); } catch(_) {} }
     if (src._origBackupId) copy._origBackupId = src._origBackupId;
     if (src._annotated)    copy._annotated    = src._annotated;
