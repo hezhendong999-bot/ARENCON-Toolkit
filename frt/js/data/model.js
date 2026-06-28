@@ -2134,7 +2134,7 @@ export var Model = {
     });
     var sited = false;
     if (!alreadySite) {
-      _project.photos.push({
+      var _siteRec = {
         id: _uid('ph'),
         r2Key: p.r2Key || null,
         sourceR2Key: p.sourceR2Key || p.r2Key || null,
@@ -2146,7 +2146,15 @@ export var Model = {
         createdBy: p.createdBy || _currentUserId || null,
         r2Status: p.r2Status || undefined,
         _releasedFromPin: f.defic.num != null ? f.defic.num : true
-      });
+      };
+      // S358: carry never-bake markup vectors + rotation so a marked photo
+      // released back to site keeps its marks (not clean at 0°).
+      if (p._origBackupId) _siteRec._origBackupId = p._origBackupId;
+      if (p._annotated)    _siteRec._annotated    = p._annotated;
+      if (p._markupStrokes && p._markupStrokes.length) _siteRec._markupStrokes = JSON.parse(JSON.stringify(p._markupStrokes));
+      if (p._mkFrame)                                   _siteRec._mkFrame       = { w: p._mkFrame.w, h: p._mkFrame.h };
+      if (typeof p.rotation === 'number')               _siteRec.rotation       = p.rotation;
+      _project.photos.push(_siteRec);
       sited = true;
     }
     // Soft-delete the pool entry (cascades out of selections + markups).
@@ -2452,6 +2460,13 @@ export var Model = {
     if (photo._origBackupId) copy._origBackupId = photo._origBackupId;
     if (photo._annotated)    copy._annotated    = photo._annotated;
     if (photo.r2Status)      copy.r2Status      = photo.r2Status;
+    // S358: NEVER-BAKE markup lives entirely in vector fields (no marked binary
+    // anymore). Without carrying these, the assigned copy renders CLEAN at 0° while
+    // the source keeps its marks (the "markup + rotation vanish on assign" bug).
+    // Deep-clone the stroke array so the copy owns its own data.
+    if (photo._markupStrokes && photo._markupStrokes.length) copy._markupStrokes = JSON.parse(JSON.stringify(photo._markupStrokes));
+    if (photo._mkFrame)                                       copy._mkFrame       = { w: photo._mkFrame.w, h: photo._mkFrame.h };
+    if (typeof photo.rotation === 'number')                   copy.rotation       = photo.rotation;
     dst.defic.photos.push(copy);
     dst.defic._photoPoolMigrated = true;
     _dirty = true;
@@ -2506,6 +2521,12 @@ export var Model = {
     if (src._origBackupId) copy._origBackupId = src._origBackupId;
     if (src._annotated)    copy._annotated    = src._annotated;
     if (src.r2Status)      copy.r2Status      = src.r2Status;
+    // S358: carry never-bake markup vectors + display rotation onto the pin copy
+    // (see copyPhotoToPin). Site→pin assign of a marked, rotated photo must keep
+    // its marks + rotation, not show clean at 0°.
+    if (src._markupStrokes && src._markupStrokes.length) copy._markupStrokes = JSON.parse(JSON.stringify(src._markupStrokes));
+    if (src._mkFrame)                                     copy._mkFrame       = { w: src._mkFrame.w, h: src._mkFrame.h };
+    if (typeof src.rotation === 'number')                copy.rotation       = src.rotation;
     dst.defic.photos.push(copy);
     dst.defic._photoPoolMigrated = true;
     _dirty = true;
@@ -2877,7 +2898,7 @@ export var Model = {
           return sp && !sp.deleted && self._photoIdentityKey(sp) === key;
         });
         if (already) return;
-        _project.photos.push({
+        var _relRec = {
           id: _uid('ph'),
           r2Key: p.r2Key || null,
           sourceR2Key: p.sourceR2Key || p.r2Key || null,
@@ -2889,7 +2910,14 @@ export var Model = {
           createdBy: p.createdBy || _currentUserId || null,
           r2Status: p.r2Status || undefined,
           _releasedFromPin: f.defic.num != null ? f.defic.num : true
-        });
+        };
+        // S358: carry never-bake markup vectors + rotation (see releasePoolPhotoToSite).
+        if (p._origBackupId) _relRec._origBackupId = p._origBackupId;
+        if (p._annotated)    _relRec._annotated    = p._annotated;
+        if (p._markupStrokes && p._markupStrokes.length) _relRec._markupStrokes = JSON.parse(JSON.stringify(p._markupStrokes));
+        if (p._mkFrame)                                   _relRec._mkFrame       = { w: p._mkFrame.w, h: p._mkFrame.h };
+        if (typeof p.rotation === 'number')               _relRec.rotation       = p.rotation;
+        _project.photos.push(_relRec);
       });
     }
     // Save for undo
