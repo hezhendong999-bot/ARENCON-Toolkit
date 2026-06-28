@@ -29,7 +29,6 @@ var _photoTab = 'all';
 var _TRASH_RETENTION_DAYS = 90;
 // S265 stage 2: project id this session has already auto-purged (run-once guard).
 var _purgedForProjectId = null;
-var _dateRepairForProjectId = null;   // S364 one-time date-repair guard
 var _selectedUids = new Set();
 var _filterPanelOpen = false;
 // S114 P1.3: anchor for shift-click range select. Stores the last toggled UID
@@ -310,37 +309,6 @@ export var initPhotos = {
     if (Model.purgeExpiredPhotos && _purgedForProjectId !== (proj.id || proj.projectId)) {
       _purgedForProjectId = (proj.id || proj.projectId);
       try { Model.purgeExpiredPhotos(_TRASH_RETENTION_DAYS); } catch (e) { /* defensive */ }
-    }
-
-    // S364: one-time date repair. The pre-S364 markup save moved a photo's
-    // addedDate to "today" on every markup (a baked-model leftover). Under
-    // never-bake the photo is unchanged, so that was wrong. Restore the real date
-    // from the photo's id timestamp (ph_<ms>) for any photo whose stored addedDate
-    // is LATER than its id-encoded date — the exact signature of the bug. Photos
-    // legitimately added today have id-date == today, so they're untouched.
-    if (_dateRepairForProjectId !== (proj.id || proj.projectId)) {
-      _dateRepairForProjectId = (proj.id || proj.projectId);
-      try {
-        var _repaired = 0;
-        (Model.getAllPhotoRecords ? Model.getAllPhotoRecords() : []).forEach(function(rec){
-          var ph = rec.photo; if (!ph || !ph.id || !ph.addedDate) return;
-          var m = String(ph.id).match(/_(\d{13})(?:_|$)/);
-          if (!m) return;
-          var idDate;
-          try { idDate = new Date(parseInt(m[1])).toISOString().split('T')[0]; } catch(_) { return; }
-          // Only correct when stored date is strictly LATER than the capture date
-          // (i.e. shifted forward). Never move a date earlier-than-id (legit).
-          if (idDate && ph.addedDate > idDate) {
-            ph.addedDate = idDate;
-            _repaired++;
-          }
-        });
-        if (_repaired > 0) {
-          console.log('[S364 date-repair] restored original date on', _repaired, 'photo(s) shifted by the old markup bug');
-          Model.saveNow();
-          try { if (Model.touch) Model.touch(); } catch(_){}
-        }
-      } catch(e) { /* defensive */ }
     }
 
     var sitePhotos = proj.photos || [];
@@ -2035,11 +2003,12 @@ document.addEventListener('frt-markup-saved', function(e) {
       if (backupId) sp._origBackupId = backupId;
       if (d.strokes) sp._markupStrokes = d.strokes;     // re-editable vector markup
       if (d.mkFrame) sp._mkFrame = d.mkFrame;           // authoring frame (deterministic compositing)
-      // S364: NEVER move the photo's date on markup. Under never-bake the photo's
-      // binary is unchanged (strokes are an overlay), so its capture date must NOT
-      // shift to today. The old `sp.addedDate = todayStr` was a leftover from the
-      // baked-marked model (where the marked photo was a "new" file). Removing it
-      // keeps photos under their real date after markup.
+      // S365: the MARKED photo moves to TODAY (you marked it up today); the clean
+      // backup keeps the ORIGINAL capture date (set in _createBackup). Only stamp
+      // photos that actually carry strokes — never the backup record.
+      if (d.strokes && d.strokes.length && !sp._isOrigBackup && sp.addedDate !== todayStr) {
+        sp.addedDate = todayStr;
+      }
     });
     Model.saveNow();
     try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); } catch(_){}
@@ -2073,6 +2042,8 @@ document.addEventListener('frt-markup-saved', function(e) {
     var _emptyNow = !(d.strokes && d.strokes.length);
     if (_emptyNow) {
       console.log('[Markup save] CASE 1: all strokes removed — auto-deleting redundant backup', existingBackupId);
+      var _bkRec = Model.getAllPhotoRecords().filter(function(rec){ return rec.photo && rec.photo.id === existingBackupId; })[0];
+      var _bkDate = (_bkRec && _bkRec.photo && _bkRec.photo.addedDate) || '';
       var _sibs = Model.getAllPhotoRecords().filter(function(rec){
         return rec.photo && !rec.photo._isOrigBackup &&
                (rec.photo._origBackupId === existingBackupId || rec.photo === photo);
@@ -2080,6 +2051,8 @@ document.addEventListener('frt-markup-saved', function(e) {
       _sibs.forEach(function(s){
         var sp=s.photo; if(!sp) return;
         delete sp._annotated; delete sp._origBackupId; delete sp._markupStrokes; delete sp._mkFrame;
+        // S365: marks gone -> roll the date back to the original (markup had moved it to today).
+        if (_bkDate) sp.addedDate = _bkDate;
       });
       Model.removeSitePhotoById(existingBackupId);
       Model.saveNow();
@@ -2359,11 +2332,15 @@ document.addEventListener('frt-markup-reverted', function(e) {
         if (!nbSibs.some(function(s){ return s.photo === rec.photo; })) nbSibs.push(rec);
       }
     });
+    var _nbOrigDate = backup.addedDate || '';
     nbSibs.forEach(function(s){
       var sp = s.photo; if (!sp) return;
       delete sp._annotated;
       delete sp._origBackupId;
       delete sp._markupStrokes;
+      // S365: revert rolls the date back to the original (markup had moved the
+      // marked photo to today; undoing the markup undoes the date move too).
+      if (_nbOrigDate) sp.addedDate = _nbOrigDate;
       // rotation is a separate display property; revert leaves it as-is unless the
       // user also reset it. (Markup revert removes MARKS, not rotation.)
     });
