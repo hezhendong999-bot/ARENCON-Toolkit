@@ -10073,11 +10073,16 @@ function _appendixHTML(){
       out+='<div>'+labelFn(label)+rs[0]+'</div>';
       for(var i=1;i<rs.length;i++) out+=rs[i];
     }
-    // The single navy section band — the appendix anchor. Emitted once, before the
-    // first category. Flow-test charts + sketches (separate DOM divs, after this in
-    // source order) continue UNDER this band via the paginator, as sub-headers.
+    // The single navy section band — the appendix anchor. Emitted ONCE here as a
+    // STANDALONE top-level element so the paginator's unit-grouper (which only
+    // inspects direct .page children) sees the `sh` class and starts a Photo
+    // Appendix unit. Wrapping it inside a section's <div> made it a grandchild →
+    // invisible → the whole appendix got absorbed into the Signature unit and its
+    // photos printed under "Signature (cont.)". Flow-test charts + sketches (DOM
+    // divs after the appendix) continue UNDER this band as refined sub-headers.
     var _apxTitle = '<div class="sh apx-band" style="margin-top:26px;">Photo Appendix</div>';
-    var first=true;
+    out += _apxTitle;
+    var first=false;   // band already emitted standalone; sections no longer embed it
     // S367: active test type drives the "(3-Point)" / "(7-Point)" suffix on
     // appendix section headers so placards/charts/pump photos are unambiguous.
     var ptype='std';
@@ -18660,7 +18665,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372.5';
+var DIESEL_BUILD = 'S372.6';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
