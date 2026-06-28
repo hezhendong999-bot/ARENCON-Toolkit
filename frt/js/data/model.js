@@ -2523,17 +2523,32 @@ export var Model = {
         }
       }
     }
+    // S371: an EXPLICIT Copy must get its OWN identity, not borrow the source's
+    // r2Key. Borrowing the key made _photoIdentityKey return the same 'r2:'+key
+    // for source and copy, so the gallery collapsed both into ONE tile (badged
+    // Obs by mutual-exclusivity) — the "Copy displays like Move" bug. A forced
+    // copy therefore starts with NO r2Key; deficiencies.js immediately uploads
+    // the binary under a fresh key (R2.uploadPhoto), giving it a distinct
+    // identity → its own tile with the pin's obs badge. dataUrl/thumb keep it
+    // rendering in the gap before the upload lands. The clean Site-Record backup
+    // (created at markup time) keeps the ORIGINAL date; this active copy is a NEW
+    // change so it carries TODAY (S365 date split, applied to copies).
+    var _isForced = !!forceCopy;
     var copy = {
       id: _uid('ph'),
-      r2Key: src.r2Key || null,
+      r2Key: _isForced ? null : (src.r2Key || null),
       sourceR2Key: src.sourceR2Key || src.r2Key || null,
-      r2Url: src.r2Url || null,
+      r2Url: _isForced ? null : (src.r2Url || null),
       dataUrl: src.dataUrl || null,
       thumb: src.thumb || null,
       filename: src.filename || ('photo_' + Date.now() + '.jpg'),
-      addedDate: src.addedDate || new Date().toISOString().split('T')[0],
+      addedDate: _isForced ? new Date().toISOString().split('T')[0]
+                           : (src.addedDate || new Date().toISOString().split('T')[0]),
       createdBy: src.createdBy || _currentUserId || null
     };
+    // Flag so the caller mints the copy's own R2 object (non-enumerable: never
+    // persisted, never synced — it's a one-shot upload instruction).
+    if (_isForced) { try { Object.defineProperty(copy, '_needsOwnR2', { value: true, enumerable: false, configurable: true }); } catch(_) {} }
     if (src._origBackupId) copy._origBackupId = src._origBackupId;
     if (src._annotated)    copy._annotated    = src._annotated;
     if (src.r2Status)      copy.r2Status      = src.r2Status;

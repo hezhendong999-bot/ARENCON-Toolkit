@@ -1536,6 +1536,26 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     if (siteSrc != null) {
       res = (mode === 'move') ? (Model.moveSitePhotoToPin(siteSrc, toId) || {}).copy
                               : Model.copySitePhotoToPin(siteSrc, toId, true);
+      // S371: a forced Copy mints its OWN R2 object so it renders as a separate
+      // tile (not collapsed onto the source). R2.uploadPhoto generates a fresh
+      // filename → distinct r2Key → distinct _photoIdentityKey. It also stores
+      // the blob in IDB (permanent backup, hard rule) and sets res.r2Key/r2Url
+      // in place on success. NOTE: R2.upload RESOLVES null on failure (never
+      // rejects) and UploadQueue retries the IDB-backed blob, so offline the
+      // copy keeps rendering via dataUrl and gains its key on a later sync.
+      if (res && res._needsOwnR2 && window.R2 && R2.uploadPhoto) {
+        var _pidCp = new URLSearchParams(window.location.search).get('project');
+        if (_pidCp) {
+          R2.uploadPhoto(_pidCp, res, 'original').then(function(updated){
+            // On success res.r2Key/r2Url are set in place → re-render separates
+            // the copy from its source. On null (offline) the IDB blob is queued
+            // for retry; nothing more to do here.
+            Model.saveNow();
+            if (window.initPhotos && initPhotos.render) initPhotos.render();
+            if (window.initDeficiencies && initDeficiencies.render) initDeficiencies.render();
+          });
+        }
+      }
     } else {
       res = (mode === 'move') ? Model.movePhotoToPin(srcDeficId, photoId, toId)
                               : Model.copyPhotoToPin(srcDeficId, photoId, toId, true);
