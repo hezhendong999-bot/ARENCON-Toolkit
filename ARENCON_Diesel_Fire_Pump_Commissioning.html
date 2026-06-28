@@ -10047,7 +10047,7 @@ function _appendixHTML(){
     // + hairline baseline), visually subordinate to the band and consistent across
     // charts / pump / placards / gauges / sketches. No more disconnected navy bars.
     function head(t){
-      return '<div style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin-bottom:11px;border-bottom:1px solid #D8DCE3;">'
+      return '<div class="apx-subhead" data-subhead="'+esc(t)+'" style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin-bottom:11px;border-bottom:1px solid #D8DCE3;">'
         +'<span style="width:4px;height:15px;background:#9C2742;border-radius:2px;display:inline-block;flex:0 0 auto;"></span>'
         +'<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">'+esc(t)+'</span>'
         +'</div>';
@@ -10070,7 +10070,7 @@ function _appendixHTML(){
     function emit(label, items, size, labelFn){
       if(!items.length) return;
       var rs=rows(items,size);
-      out+='<div>'+labelFn(label)+rs[0]+'</div>';
+      out+='<div class="apx-keep">'+labelFn(label)+rs[0]+'</div>';
       for(var i=1;i<rs.length;i++) out+=rs[i];
     }
     // The single navy section band — the appendix anchor. Emitted ONCE here as a
@@ -10109,7 +10109,7 @@ function _appendixHTML(){
       var pmpRows=chunk(pmp,2).map(function(pair){
         return '<div style="display:flex;gap:14px;justify-content:flex-start;margin-bottom:14px;">'+pair.map(_pmpCard).join('')+'</div>';
       });
-      out+='<div>'+tp+head('Pump & Installation'+ptSuffix)+pmpRows[0]+'</div>';
+      out+='<div class="apx-keep">'+tp+head('Pump & Installation'+ptSuffix)+pmpRows[0]+'</div>';
       for(var pm=1;pm<pmpRows.length;pm++) out+=pmpRows[pm];
     }
     // 2. Placards (incl. PLD placard) — TWO cards per row at 285x300, left-aligned
@@ -10128,7 +10128,7 @@ function _appendixHTML(){
       var plcRows=chunk(plc,2).map(function(pair){
         return '<div style="display:flex;gap:14px;justify-content:flex-start;margin-bottom:16px;">'+pair.map(_plcCard).join('')+'</div>';
       });
-      out+='<div>'+t2+head(plcHdr)+plcRows[0]+'</div>';
+      out+='<div class="apx-keep">'+t2+head(plcHdr)+plcRows[0]+'</div>';
       for(var pr=1;pr<plcRows.length;pr++) out+=plcRows[pr];
     }
     // 3. Gauge & RPM — Option C: ONE row per flow point. All readings for that
@@ -10175,8 +10175,8 @@ function _appendixHTML(){
         var lines=lineGroups.map(function(g){
           return '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start;margin-bottom:10px;">'+g.map(_gCard).join('')+'</div>';
         });
-        if(!hdrDone){ out+='<div>'+gh+head('Flow Test \u2014 Gauge & RPM Photos ('+GT.suffix+')')+lbl+lines[0]+'</div>'; hdrDone=true; }
-        else out+='<div>'+lbl+lines[0]+'</div>';
+        if(!hdrDone){ out+='<div class="apx-keep">'+gh+head('Flow Test \u2014 Gauge & RPM Photos ('+GT.suffix+')')+lbl+lines[0]+'</div>'; hdrDone=true; }
+        else out+='<div class="apx-keep">'+lbl+lines[0]+'</div>';
         for(var li=1;li<lines.length;li++) out+=lines[li];
       });
     });
@@ -10989,16 +10989,19 @@ function _realExportPDF() {
         // (and the paginator doesn't fold them into Signature).
         let ftHtml = '';
         if(!window._apxBandEmitted){ ftHtml += '<div class="sh apx-band" style="margin-top:26px;">Photo Appendix</div>'; window._apxBandEmitted = true; }
-        // A refined category sub-header (burgundy rule + label + hairline), matching
-        // the appendix internals — NOT a standalone navy band.
-        ftHtml += '<div class="apx-subhead" style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin:0 0 11px;border-bottom:1px solid #D8DCE3;">'
+        // S372.7: keep the sub-header glued to its first chart (apx-keep ⇒ atomic),
+        // so the header never strands at a page bottom. Remaining charts flow as
+        // separate blocks and may break across pages.
+        var _ftSub = '<div class="apx-subhead" data-subhead="Flow Test Charts" style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin:0 0 11px;border-bottom:1px solid #D8DCE3;">'
           + '<span style="width:4px;height:15px;background:#9C2742;border-radius:2px;display:inline-block;flex:0 0 auto;"></span>'
           + '<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">Flow Test Charts</span></div>';
-        ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:12px;">';
-        flowTestPhotos.forEach(p => {
-          ftHtml += '<div style="width:228px;height:228px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;"><img src="'+_phSrc(p)+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>';
-        });
-        ftHtml += '</div>';
+        var _ftCard = function(p){ return '<div style="width:228px;height:228px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;"><img src="'+_phSrc(p)+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'; };
+        // first block = subhead + first chart (atomic); rest = 3-up rows that split freely
+        ftHtml += '<div class="apx-keep">'+_ftSub+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+_ftCard(flowTestPhotos[0])+'</div></div>';
+        for(var _fi=1; _fi<flowTestPhotos.length; _fi+=3){
+          var _grp = flowTestPhotos.slice(_fi,_fi+3).map(_ftCard).join('');
+          ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;">'+_grp+'</div>';
+        }
         ftPrint.innerHTML = ftHtml;
       }
       // Photos now appear inline after each checklist item (removed appendix section)
@@ -11322,7 +11325,7 @@ function _realExportPDF() {
           // never split. If it has keep-prev, try to pull its immediately-
           // preceding sibling (e.g. the Deficiency Summary .sb) onto the fresh
           // page with it so the two are never separated by a page break.
-          var isNoSplit = bn.classList && bn.classList.contains('nosplit');
+          var isNoSplit = bn.classList && (bn.classList.contains('nosplit') || bn.classList.contains('apx-keep'));
           if(isNoSplit){
             var prevNode = null;
             if(bn.classList.contains('keep-prev')){
@@ -11356,6 +11359,56 @@ function _realExportPDF() {
 
       if(curPage.children.length > 1) pages.push(curPage);
       if(stage.parentNode) stage.parentNode.removeChild(stage);
+
+      // S372.7: sub-section continuation headers. The paginator re-stamps the
+      // SECTION band ("Photo Appendix (cont.)") but not the sub-headers inside it.
+      // Walk the finished pages in order, tracking the last appendix sub-header
+      // seen; when a page carries appendix photo rows that continue a sub-section
+      // whose header was on an earlier page (i.e. the page's first appendix block
+      // is NOT itself a sub-header), inject a "<sub> (cont.)" header at the top of
+      // that page's appendix content so the reader always knows what they're seeing.
+      (function(){
+        var lastSub = null;   // label of the most recent appendix sub-header seen
+        pages.forEach(function(pg){
+          var kids = Array.from(pg.children);
+          var firstAppendixIsSub = null;   // sub-header element if the first appendix block IS one
+          var firstAppendixNode = null;    // first appendix content node on this page
+          var pageLastSub = null;          // last sub-header label found on this page
+          var sawApxContent = false;
+          for(var i=0;i<kids.length;i++){
+            var k = kids[i];
+            if(k.classList && k.classList.contains('apx-band')){ sawApxContent = true; continue; }
+            var isSub = k.classList && k.classList.contains('apx-subhead');
+            var innerSub = (!isSub && k.querySelector) ? k.querySelector('.apx-subhead') : null;
+            var subEl = isSub ? k : innerSub;
+            var hasImg = (!subEl && k.querySelector) ? !!k.querySelector('img') : false;
+            var isPhoto = !subEl && hasImg;
+            if(subEl){
+              sawApxContent = true;
+              if(!firstAppendixNode){ firstAppendixNode = k; firstAppendixIsSub = subEl; }
+              pageLastSub = (subEl.getAttribute('data-subhead')||subEl.textContent||'').replace(/\s*\(cont\.\)\s*$/,'');
+            } else if(isPhoto){
+              sawApxContent = true;
+              if(!firstAppendixNode){ firstAppendixNode = k; }
+            }
+          }
+          // Inject "(cont.)" only when this page's FIRST appendix block is photo
+          // content (not a sub-header) continuing the previous page's sub-section.
+          if(sawApxContent && firstAppendixNode && !firstAppendixIsSub && lastSub){
+            var cont = wd.createElement('div');
+            cont.className = 'apx-subhead';
+            cont.setAttribute('data-subhead', lastSub);
+            cont.style.cssText = 'display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin:0 0 11px;border-bottom:1px solid #D8DCE3;';
+            cont.innerHTML = '<span style="width:4px;height:15px;background:#9C2742;border-radius:2px;display:inline-block;flex:0 0 auto;"></span>'
+              + '<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">'
+              + lastSub.replace(/&/g,'&amp;').replace(/</g,'&lt;') + ' (cont.)</span>';
+            pg.insertBefore(cont, firstAppendixNode);
+          }
+          // Carry forward the last sub-header seen on this page (if any) so the NEXT
+          // page's continuation uses the correct sub-section.
+          if(pageLastSub) lastSub = pageLastSub;
+        });
+      })();
 
       // Replace original page with paginated pages. NO "Page X of Y" footer.
       // Force every final page to EXACTLY letter height (11in) so all pages are
@@ -18665,7 +18718,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372.6';
+var DIESEL_BUILD = 'S372.7';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
