@@ -2414,6 +2414,11 @@ export var Model = {
   // short stable string, or null only when there's truly nothing to compare.
   _photoIdentityKey: function(photo) {
     if (!photo) return null;
+    // S371b: a forced Copy carries a unique _idSeed so it has its OWN identity
+    // even before its R2 key lands (its bytes are identical to the source, which
+    // would otherwise collapse them via the byte-fallback). Checked FIRST and
+    // persisted, so the copy stays a distinct tile across reload + after upload.
+    if (photo._idSeed) return 'seed:' + photo._idSeed;
     if (photo.r2Key) return 'r2:' + photo.r2Key;
     if (photo.sourceR2Key) return 'r2:' + photo.sourceR2Key;
     // pre-upload fallback: hash-ish of the local image bytes. dataUrl/thumb are
@@ -2537,7 +2542,11 @@ export var Model = {
     var copy = {
       id: _uid('ph'),
       r2Key: _isForced ? null : (src.r2Key || null),
-      sourceR2Key: src.sourceR2Key || src.r2Key || null,
+      // S371b: a forced copy must NOT inherit sourceR2Key either — _photoIdentityKey
+      // falls back to sourceR2Key, so carrying it kept the copy's identity equal to
+      // the source's ('r2:'+sourceKey) and the gallery re-collapsed them. Null it;
+      // the new key minted by R2.uploadPhoto becomes the copy's real identity.
+      sourceR2Key: _isForced ? null : (src.sourceR2Key || src.r2Key || null),
       r2Url: _isForced ? null : (src.r2Url || null),
       dataUrl: src.dataUrl || null,
       thumb: src.thumb || null,
@@ -2546,6 +2555,12 @@ export var Model = {
                            : (src.addedDate || new Date().toISOString().split('T')[0]),
       createdBy: src.createdBy || _currentUserId || null
     };
+    // S371b: unique identity seed for the PRE-UPLOAD window. The copy's bytes are
+    // identical to the source, so without this the byte-fallback in
+    // _photoIdentityKey would STILL collapse the two until the R2 key lands.
+    // _idSeed is checked first in _photoIdentityKey and is persisted (so identity
+    // stays stable across reload even if the upload is still pending).
+    if (_isForced) copy._idSeed = copy.id;
     // Flag so the caller mints the copy's own R2 object (non-enumerable: never
     // persisted, never synced — it's a one-shot upload instruction).
     if (_isForced) { try { Object.defineProperty(copy, '_needsOwnR2', { value: true, enumerable: false, configurable: true }); } catch(_) {} }
