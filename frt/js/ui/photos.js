@@ -713,8 +713,7 @@ export var initPhotos = {
         if (r.src) {
           var _rot = (r.ph && typeof r.ph.rotation==='number') ? (((r.ph.rotation%360)+360)%360) : 0;
           var _rotStyle = _rot ? (' style="transform:rotate('+_rot+'deg)"') : '';
-          var _pidAttr = (r.ph && r.ph.id) ? (' data-thumb-pid="' + esc(r.ph.id) + '"') : '';
-          html += '<img ' + clickAction + _pidAttr + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="this.style.display=\'none\'">';
+          html += '<img ' + clickAction + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="this.style.display=\'none\'">';
         } else {
           html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
         }
@@ -773,96 +772,8 @@ export var initPhotos = {
     container.querySelectorAll('.ph-date-check[data-indet="1"]').forEach(function(cb) {
       cb.indeterminate = true;
     });
-
-    // S355: composite markup strokes into gallery thumbnails for marked photos.
-    // The thumbnail previously showed the CLEAN image (CSS-rotated) with no marks.
-    // Here we draw the clean image rotated + strokes on top into a small dataURL
-    // and swap it into the rendered <img>. The photo record stays clean (never-bake);
-    // this is a display-only cache, regenerated only when rotation or stroke count
-    // changes (keyed cache on the photo object).
-    try { _compositeGalleryThumbs(container); } catch(_){}
   }
 };
-
-// S355: per-photo composited thumbnail (clean image rotated + vector strokes).
-function _compositeThumbURL(src, rot, strokes, mkFrame){
-  return new Promise(function(resolve){
-    try{
-      var ME=(typeof window!=='undefined')?window.MarkupEngine:null;
-      var img=new Image(); img.crossOrigin='anonymous';
-      img.onload=function(){
-        try{
-          var nw=img.naturalWidth, nh=img.naturalHeight;
-          if(!nw||!nh){ resolve(''); return; }
-          // cap the thumb size so this stays cheap
-          var MAX=320, sc=Math.min(MAX/nw, MAX/nh, 1);
-          var bw=Math.max(1,Math.round(nw*sc)), bh=Math.max(1,Math.round(nh*sc));
-          var sideways=(rot===90||rot===270);
-          var ow=sideways?bh:bw, oh=sideways?bw:bh;
-          var cv=document.createElement('canvas'); cv.width=ow; cv.height=oh;
-          var ctx=cv.getContext('2d');
-          function applyRot(){
-            if(rot===90){ ctx.translate(ow,0); ctx.rotate(Math.PI/2); }
-            else if(rot===180){ ctx.translate(ow,oh); ctx.rotate(Math.PI); }
-            else if(rot===270){ ctx.translate(0,oh); ctx.rotate(3*Math.PI/2); }
-          }
-          ctx.save(); applyRot(); ctx.drawImage(img,0,0,bw,bh); ctx.restore();
-          if(strokes&&strokes.length&&ME&&ME.renderStrokesToContext){
-            var fw=(mkFrame&&mkFrame.w)?mkFrame.w:nw, fh=(mkFrame&&mkFrame.h)?mkFrame.h:nh;
-            ctx.save(); applyRot(); ctx.scale(bw/fw, bh/fh);
-            try{ ME.renderStrokesToContext(ctx, strokes, fw, fh); }catch(_){}
-            ctx.restore();
-          }
-          var out=cv.toDataURL('image/jpeg',0.85); cv.width=0; cv.height=0;
-          resolve(out||'');
-        }catch(e){ resolve(''); }
-      };
-      img.onerror=function(){ resolve(''); };
-      img.src=src;
-    }catch(e){ resolve(''); }
-  });
-}
-
-function _compositeGalleryThumbs(container){
-  var proj = Model.getProject(); if(!proj) return;
-  // gather all photos with strokes that are visible in this render
-  var imgs = container.querySelectorAll('img');
-  Model.getAllPhotoRecords().forEach(function(rec){
-    var p = rec.photo; if(!p || p._isOrigBackup) return;
-    var strokes = p._markupStrokes;
-    if(!strokes || !strokes.length) return;
-    var rot = (typeof p.rotation==='number') ? (((p.rotation%360)+360)%360) : 0;
-    var cacheKey = rot + ':' + strokes.length;
-    // already composited for this state? reuse.
-    if(p._thumbCompositeKey === cacheKey && p._thumbComposite){
-      _applyThumbToImgs(imgs, p, p._thumbComposite, rot);
-      return;
-    }
-    var cleanSrc = p._cleanThumbSrc || p.thumb || p.r2Url || p.dataUrl;
-    if(!cleanSrc) return;
-    if(!p._cleanThumbSrc) p._cleanThumbSrc = cleanSrc;   // remember the clean source
-    _compositeThumbURL(cleanSrc, rot, strokes, p._mkFrame||null).then(function(durl){
-      if(!durl) return;
-      p._thumbComposite = durl; p._thumbCompositeKey = cacheKey;
-      _applyThumbToImgs(container.querySelectorAll('img'), p, durl, rot);
-    });
-  });
-}
-
-// swap the composited dataURL into the gallery <img> for THIS photo only, matched
-// by exact data-thumb-pid (NOT by URL prefix — many photos share the R2 worker URL
-// prefix, which made one composite stamp onto every thumbnail). Clears the CSS rotate
-// since the composite is already rotated.
-function _applyThumbToImgs(imgs, p, durl, rot){
-  if(!p || !p.id) return;
-  for(var i=0;i<imgs.length;i++){
-    var im=imgs[i];
-    if(im.getAttribute && im.getAttribute('data-thumb-pid') === p.id){
-      im.src = durl;
-      im.style.transform = 'none';   // composite is pre-rotated; clear CSS rotate
-    }
-  }
-}
 
 Model.onChange('project', _scheduleRender);
 // S114 P1.4: also catch photo/deficiency mutations so the gallery stays fresh
