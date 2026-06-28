@@ -665,7 +665,10 @@ function _toggleMarkup(){
   // S120 Push 14: native alert → toast for transient infrastructure errors.
   if (!window.MarkupEngine){ toast('Markup engine not loaded', 'error'); return; }
   var img = document.getElementById('lb-image');
-  var canvas = document.getElementById('lb-canvas');
+  // S358: attach the markup canvas INSIDE lb-img-wrap (the rotated/scaled/panned
+  // frame) so it inherits the single wrap transform. Was lb-canvas (outer, untransformed),
+  // which forced a fragile hand-derived mirror that leaked at 90/270.
+  var canvas = document.getElementById('lb-img-wrap') || document.getElementById('lb-canvas');
   if (!img || !canvas) return;
   if (_markupActive){
     _maybeCommitOnExit();   // exiting now auto-commits (was: silent detach/discard)
@@ -939,7 +942,7 @@ function _clampPan() {
 // photo. Hidden while markup is armed (engine owns the canvas then).
 function _renderStaticMarkup(p){
   try {
-    var host = _el('lb-canvas'); var img = _el('lb-image');
+    var host = _el('lb-img-wrap') || _el('lb-canvas'); var img = _el('lb-image');
     if (!host || !img) return;
     var ov = document.getElementById('lb-static-markup');
     var strokes = (p && p._markupStrokes && p._markupStrokes.length) ? p._markupStrokes : null;
@@ -980,21 +983,12 @@ function _renderStaticMarkup(p){
 // Mirror the photo's transform onto the static overlay (same math as the engine
 // canvas in _applyTransform). Called from _applyTransform.
 function _applyStaticMarkupTransform(){
-  var ov = document.getElementById('lb-static-markup');
-  if (!ov || ov.style.display === 'none') return;
-  var rot = _currentRotation();
-  var img = _el('lb-image');
-  var nw = (img && img.naturalWidth) ? img.naturalWidth : 0;
-  var nh = (img && img.naturalHeight) ? img.naturalHeight : 0;
-  // Mirror the WRAP transform exactly (see _applyTransform). The overlay's CSS box
-  // is already natural×_scale, so the CSS scale factor here is 1; the rotation
-  // offset uses nw/nh×_scale identically to the wrap so the two stay locked.
-  var offX = 0, offY = 0;
-  if (rot === 90)  { offX = nh * _scale; }
-  else if (rot === 180) { offX = nw * _scale; offY = nh * _scale; }
-  else if (rot === 270) { offY = nw * _scale; }
-  ov.style.transformOrigin = '0 0';
-  ov.style.transform = 'translate3d(' + (_panX + offX) + 'px,' + (_panY + offY) + 'px,0) rotate(' + rot + 'deg) scale(' + _scale + ')';
+  // S358: the static overlay is now a CHILD of lb-img-wrap and inherits the wrap's
+  // single transform automatically — no mirror needed. This function is retained as a
+  // no-op hook (still called from _applyTransform / _renderStaticMarkup) so callers
+  // don't need editing. The overlay's CSS box is natural×natural at local (0,0),
+  // exactly overlaying the photo; the wrap rotates/scales/pans both together.
+  return;
 }
 
 function _applyTransform() {
@@ -1032,20 +1026,10 @@ function _applyTransform() {
   // zooms/pans WITH the photo. The canvas was synced to the fit-display box (engine's
   // original coord space — untouched), so its relative scale is k = _scale/_fitScale; the
   // pan/rotate/offset terms are identical to the wrap. Proven aligned at all zoom/pan/fit.
-  if (_markupActive && window.MarkupEngine && window.MarkupEngine.canvas) {
-    var mc = window.MarkupEngine.canvas;
-    var k = (_fitScale ? (_scale / _fitScale) : 1);
-    mc.style.transformOrigin = '0 0';
-    // S339 FIX (mobile drift): the canvas carries its own CSS left/top from _sync
-    // (the image's letterbox offset within the host). The wrap has no such CSS offset
-    // (left:0/top:0) and positions purely via transform. Mirroring the SAME translate
-    // onto the canvas double-counts that offset (a constant ~106px on letterboxed
-    // portrait photos; ~0 on desktop, which is why it only showed on mobile). Subtract
-    // the canvas's own CSS left/top so the two align at every zoom.
-    var _cl = parseFloat(mc.style.left) || 0;
-    var _ct = parseFloat(mc.style.top) || 0;
-    mc.style.transform = 'translate3d(' + (_panX + offX - _cl) + 'px,' + (_panY + offY - _ct) + 'px,0) rotate(' + rot + 'deg) scale(' + k + ')';
-  }
+  // S358 SINGLE-TRANSFORM MODEL: the markup canvas is now a CHILD of lb-img-wrap,
+  // so it INHERITS this exact transform automatically (rotate/scale/pan applied once
+  // to photo + ink together). No mirror block needed — the S329/S339 mirror that
+  // hand-derived the canvas transform (and leaked at 90/270) is removed.
   _updateZoomIndicator();
   _applyStaticMarkupTransform();
 }

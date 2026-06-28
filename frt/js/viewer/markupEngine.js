@@ -145,16 +145,24 @@
     // Match overlay canvas to img's rendered box (CSS px) at device pixel resolution
     _sync: function(){
       if (!this.canvas || !this.img) return;
-      var r = this.img.getBoundingClientRect();
-      var hr = this.host.getBoundingClientRect();
-      this.canvas.style.left = (r.left - hr.left) + 'px';
-      this.canvas.style.top  = (r.top  - hr.top)  + 'px';
-      this.canvas.style.width  = r.width  + 'px';
-      this.canvas.style.height = r.height + 'px';
+      // S358 SINGLE-TRANSFORM MODEL (proven in FRT_ROTATION_REBUILD_DEMO):
+      // The markup canvas is now a CHILD of lb-img-wrap (the rotated/scaled/panned
+      // frame), sitting directly over the photo at local (0,0). It therefore
+      // INHERITS the wrap's single transform — rotate/zoom/pan apply to photo and
+      // ink together, exactly once. No mirror, no frame-swap, no separate
+      // un-rotation. The canvas logical frame == the photo's natural pixel box, so
+      // strokes live in one fixed unrotated frame at all rotations. This removes
+      // the three-stacked-correction stack that broke draw-at-90.
+      var nw = this.img.naturalWidth  || this.img.width  || 1;
+      var nh = this.img.naturalHeight || this.img.height || 1;
+      this.canvas.style.left = '0px';
+      this.canvas.style.top  = '0px';
+      this.canvas.style.width  = nw + 'px';
+      this.canvas.style.height = nh + 'px';
       this.dpr = window.devicePixelRatio || 1;
-      this.w = r.width; this.h = r.height;
-      this.canvas.width  = Math.max(1, Math.round(r.width  * this.dpr));
-      this.canvas.height = Math.max(1, Math.round(r.height * this.dpr));
+      this.w = nw; this.h = nh;
+      this.canvas.width  = Math.max(1, Math.round(nw * this.dpr));
+      this.canvas.height = Math.max(1, Math.round(nh * this.dpr));
       this.ctx.setTransform(this.dpr,0,0,this.dpr,0,0);
       this._render();
     },
@@ -212,32 +220,27 @@
         var r = c.getBoundingClientRect();
         var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX);
         var cy = (ev.touches ? ev.touches[0].clientY : ev.clientY);
-        // S329: the canvas may carry a CSS scale (zoom); map screen→logical.
-        // S352: it may ALSO carry a CSS rotation. getBoundingClientRect is the
-        // axis-aligned (rotated) box, so we must un-rotate the point about the
-        // box centre by -rotation BEFORE mapping to logical coords — otherwise
-        // drawing lands wrong on rotated photos. At rotation 0 this is a no-op.
+        // S358 SINGLE-TRANSFORM INVERSE (matches FRT_ROTATION_REBUILD_DEMO _toFrame):
+        // The canvas is a child of lb-img-wrap, sized to the photo's natural frame
+        // (self.w×self.h) and carried by the wrap's single rotate/scale transform.
+        // getBoundingClientRect returns the axis-aligned box of that rotated+scaled
+        // canvas. Recover the logical point by inverting ONE transform: translate to
+        // box centre, un-rotate by -rotation, then map the unrotated on-screen box to
+        // logical natural px. self.w/self.h are the FIXED unrotated frame now, so
+        // there is nothing else to compensate for — a single clean inverse.
         var rot = self._rotation || 0;
-        var lx, ly;
-        if (rot){
-          var bcx = r.left + r.width/2, bcy = r.top + r.height/2;
-          var dx = cx - bcx, dy = cy - bcy;
-          var a = -rot * Math.PI/180;
-          var ux = dx*Math.cos(a) - dy*Math.sin(a);
-          var uy = dx*Math.sin(a) + dy*Math.cos(a);
-          // unrotated on-screen box dims (swap on 90/270)
-          var ubw = (rot%180!==0) ? r.height : r.width;
-          var ubh = (rot%180!==0) ? r.width  : r.height;
-          var sx0 = (ubw && self.w) ? (self.w / ubw) : 1;
-          var sy0 = (ubh && self.h) ? (self.h / ubh) : 1;
-          lx = (ux + ubw/2) * sx0;
-          ly = (uy + ubh/2) * sy0;
-        } else {
-          var sx = (r.width  && self.w) ? (self.w / r.width)  : 1;
-          var sy = (r.height && self.h) ? (self.h / r.height) : 1;
-          lx = (cx - r.left) * sx;
-          ly = (cy - r.top)  * sy;
-        }
+        var bcx = r.left + r.width/2, bcy = r.top + r.height/2;
+        var dx = cx - bcx, dy = cy - bcy;
+        var a = -rot * Math.PI/180;
+        var ux = dx*Math.cos(a) - dy*Math.sin(a);
+        var uy = dx*Math.sin(a) + dy*Math.cos(a);
+        // unrotated on-screen box dims (swap back on 90/270)
+        var ubw = (rot%180!==0) ? r.height : r.width;
+        var ubh = (rot%180!==0) ? r.width  : r.height;
+        var sx0 = (ubw && self.w) ? (self.w / ubw) : 1;
+        var sy0 = (ubh && self.h) ? (self.h / ubh) : 1;
+        var lx = (ux + ubw/2) * sx0;
+        var ly = (uy + ubh/2) * sy0;
         return { x: lx, y: ly };
       }
       function isShape(t){ return t==='arrow'||t==='rect'||t==='circle'||t==='line'||t==='rect-fill'||t==='circle-fill'||t==='triangle'||t==='cloud'; }
