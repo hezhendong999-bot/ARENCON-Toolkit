@@ -2429,7 +2429,7 @@ export var Model = {
   // Returns the target pool entry (new or pre-existing). Idempotent: if the
   // destination already has a live entry for the same binary, returns it
   // without duplicating. R2 is NOT touched — same object, two references.
-  copyPhotoToPin: function(fromDeficId, photoId, toDeficId) {
+  copyPhotoToPin: function(fromDeficId, photoId, toDeficId, forceCopy) {
     if (!fromDeficId || !toDeficId || fromDeficId === toDeficId) return null;
     var src = this.findDeficiency(fromDeficId);
     var dst = this.findDeficiency(toDeficId);
@@ -2437,7 +2437,8 @@ export var Model = {
     var photo = this._findPoolPhoto(src.defic, photoId);
     if (!photo) return null;
     if (!Array.isArray(dst.defic.photos)) dst.defic.photos = [];
-    var key = this._photoIdentityKey(photo);
+    // S362: explicit Copy (forceCopy) bypasses dedup — always a new reference.
+    var key = forceCopy ? null : this._photoIdentityKey(photo);
     if (key) {
       for (var i = 0; i < dst.defic.photos.length; i++) {
         var ex = dst.defic.photos[i];
@@ -2498,14 +2499,18 @@ export var Model = {
   // binary — NEVER a URL copy, NEVER an R2 re-upload (canon Photo Model). Dedup:
   // if the target pin already has a live pool entry for the same binary, return
   // it without duplicating. Returns the target pool entry, or null.
-  copySitePhotoToPin: function(siteIdx, toDeficId) {
+  copySitePhotoToPin: function(siteIdx, toDeficId, forceCopy) {
     if (!_project || !Array.isArray(_project.photos)) return null;
     var src = _project.photos[siteIdx];
     if (!src || src.deleted) return null;
     var dst = this.findDeficiency(toDeficId);
     if (!dst) return null;
     if (!Array.isArray(dst.defic.photos)) dst.defic.photos = [];
-    var key = this._photoIdentityKey(src);
+    // S362: an EXPLICIT Copy (forceCopy) must always create a new reference, even
+    // when the binary is already on this pin — that's what Copy means ("another
+    // instance here"). Only the implicit/dedup path (Move, internal) collapses to
+    // the existing entry.
+    var key = forceCopy ? null : this._photoIdentityKey(src);
     if (key) {
       for (var i = 0; i < dst.defic.photos.length; i++) {
         var ex = dst.defic.photos[i];

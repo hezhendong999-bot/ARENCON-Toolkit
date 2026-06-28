@@ -1535,10 +1535,10 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     var res;
     if (siteSrc != null) {
       res = (mode === 'move') ? (Model.moveSitePhotoToPin(siteSrc, toId) || {}).copy
-                              : Model.copySitePhotoToPin(siteSrc, toId);
+                              : Model.copySitePhotoToPin(siteSrc, toId, true);
     } else {
       res = (mode === 'move') ? Model.movePhotoToPin(srcDeficId, photoId, toId)
-                              : Model.copyPhotoToPin(srcDeficId, photoId, toId);
+                              : Model.copyPhotoToPin(srcDeficId, photoId, toId, true);
     }
     // Reference the landed photo from the chosen obs (orphan-proof) ONLY when
     // that obs is in custom-selection mode. addPhotoToObs returns false for a

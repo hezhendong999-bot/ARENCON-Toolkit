@@ -713,7 +713,15 @@ export var initPhotos = {
         if (r.src) {
           var _rot = (r.ph && typeof r.ph.rotation==='number') ? (((r.ph.rotation%360)+360)%360) : 0;
           var _rotStyle = _rot ? (' style="transform:rotate('+_rot+'deg)"') : '';
-          html += '<img ' + clickAction + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="this.style.display=\'none\'">';
+          // S362: tag every thumbnail with its EXACT photo id (data-thumb-pid) and,
+          // when it carries vector markup, a marker the post-render compositor reads.
+          // The compositor swaps src to a pre-rotated marked composite and clears the
+          // CSS rotate. NEVER match by URL prefix (all photos share the R2 worker URL
+          // prefix - that stamped one composite onto every thumb in S355).
+          var _pid = (r.ph && r.ph.id) ? r.ph.id : '';
+          var _hasMk = (r.ph && r.ph._markupStrokes && r.ph._markupStrokes.length) ? '1' : '';
+          var _thumbAttrs = (_pid ? (' data-thumb-pid="' + esc(_pid) + '"') : '') + (_hasMk ? ' data-thumb-mk="1"' : '');
+          html += '<img ' + clickAction + _thumbAttrs + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="this.style.display=\'none\'">';
         } else {
           html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
         }
@@ -772,6 +780,15 @@ export var initPhotos = {
     container.querySelectorAll('.ph-date-check[data-indet="1"]').forEach(function(cb) {
       cb.indeterminate = true;
     });
+
+    // S362: thumbnail markup compositor (demo-proven never-bake path). For each
+    // thumbnail flagged data-thumb-mk, composite the photo's vector strokes (+
+    // rotation) onto a small canvas and swap the <img> src to that pre-rotated
+    // marked image, then CLEAR the inline CSS rotate (the composite is already
+    // rotated — double-rotation otherwise). Targeting is by EXACT data-thumb-pid;
+    // never URL prefix. Async + per-photo guarded so one failure can't stamp the
+    // wrong image onto another thumb (the S355 regression).
+    try { _compositeThumbnails(container, proj); } catch(_){}
   }
 };
 
@@ -2081,6 +2098,88 @@ document.addEventListener('frt-markup-saved', function(e) {
 // ────────────────────────────────────────────────────────────────────────
 // ────────────────────────────────────────────────────────────────────────
 
+// S362 — Gallery thumbnail markup compositor. Renders each marked photo's
+// vector strokes (+ rotation) onto a small canvas and swaps the thumbnail <img>
+// to that pre-rotated marked image. Reuses MarkupEngine.renderStrokesToContext
+// (the same compositing the PDF + lightbox use). Targets imgs by EXACT
+// data-thumb-pid; clears the inline CSS rotate on composited thumbs.
+function _compositeThumbnailURL(src, rot, strokes, mkFrame){
+  return new Promise(function(resolve){
+    try{
+      var ME=(typeof window!=='undefined')?window.MarkupEngine:null;
+      var img=new Image(); img.crossOrigin='anonymous';
+      img.onload=function(){
+        try{
+          var nw=img.naturalWidth, nh=img.naturalHeight;
+          if(!nw||!nh){ resolve(''); return; }
+          // Downscale to a thumbnail-sized canvas (longest edge ~240px) for speed.
+          var maxEdge=240, scale=Math.min(1, maxEdge/Math.max(nw,nh));
+          var dw=Math.max(1,Math.round(nw*scale)), dh=Math.max(1,Math.round(nh*scale));
+          var sideways=(rot===90||rot===270);
+          var ow=sideways?dh:dw, oh=sideways?dw:dh;
+          var cv=document.createElement('canvas'); cv.width=ow; cv.height=oh;
+          var ctx=cv.getContext('2d');
+          function applyRot(){
+            if(rot===90){ ctx.translate(ow,0); ctx.rotate(Math.PI/2); }
+            else if(rot===180){ ctx.translate(ow,oh); ctx.rotate(Math.PI); }
+            else if(rot===270){ ctx.translate(0,oh); ctx.rotate(3*Math.PI/2); }
+          }
+          ctx.save(); applyRot(); ctx.drawImage(img,0,0,dw,dh); ctx.restore();
+          if(strokes&&strokes.length&&ME&&ME.renderStrokesToContext){
+            var fw=(mkFrame&&mkFrame.w)?mkFrame.w:nw, fh=(mkFrame&&mkFrame.h)?mkFrame.h:nh;
+            ctx.save(); applyRot(); ctx.scale(dw/fw, dh/fh);
+            try{ ME.renderStrokesToContext(ctx, strokes, fw, fh); }catch(_){}
+            ctx.restore();
+          }
+          var out=cv.toDataURL('image/jpeg',0.82); cv.width=0; cv.height=0;
+          resolve(out||'');
+        }catch(e){ resolve(''); }
+      };
+      img.onerror=function(){ resolve(''); };
+      img.src=src;
+    }catch(e){ resolve(''); }
+  });
+}
+function _findPhotoByIdAnywhere(proj, pid){
+  if(!proj||!pid) return null;
+  var hit=null;
+  function scan(arr){ if(hit||!arr) return; for(var i=0;i<arr.length;i++){ if(arr[i]&&arr[i].id===pid){ hit=arr[i]; return; } } }
+  scan(proj.photos);
+  function walk(defics){ (defics||[]).forEach(function(d){
+    if(hit) return;
+    scan(d.photos);
+    if(d.observations) d.observations.forEach(function(o){scan(o.photos);});
+    if(d.entries) d.entries.forEach(function(e){scan(e.photos);});
+    (d.activity||[]).forEach(function(a){scan(a.photos);});
+  });}
+  (proj.contractors||[]).forEach(function(c){walk(c.deficiencies);});
+  walk(proj.generalDeficiencies);
+  return hit;
+}
+function _compositeThumbnails(container, proj){
+  if(!container||!proj) return;
+  var imgs=container.querySelectorAll('img[data-thumb-mk="1"][data-thumb-pid]');
+  [].forEach.call(imgs, function(imgEl){
+    var pid=imgEl.getAttribute('data-thumb-pid'); if(!pid) return;
+    var ph=_findPhotoByIdAnywhere(proj, pid); if(!ph) return;
+    var strokes=(ph._markupStrokes&&ph._markupStrokes.length)?ph._markupStrokes:null;
+    if(!strokes) return;
+    var rot=(typeof ph.rotation==='number')?(((ph.rotation%360)+360)%360):0;
+    // Source for compositing: the clean displayed thumbnail src (already loaded).
+    var src=imgEl.getAttribute('src')||ph.thumb||ph.r2Url||ph.dataUrl||'';
+    if(!src) return;
+    _compositeThumbnailURL(src, rot, strokes, ph._mkFrame||null).then(function(durl){
+      if(!durl) return;
+      // EXACT-ID re-resolve: the gallery may have re-rendered while we composited.
+      // Only swap if THIS element is still in the DOM and still bound to THIS pid.
+      if(imgEl.getAttribute('data-thumb-pid')!==pid) return;
+      if(!imgEl.isConnected) return;
+      imgEl.src=durl;
+      imgEl.style.transform='';   // composite is pre-rotated — drop the CSS rotate
+    }).catch(function(){});
+  });
+}
+
 document.addEventListener('frt-markup-reverted', function(e) {
   var d = e.detail; if (!d || !d.photo) { console.warn('[Markup revert] missing detail/photo'); return; }
   var photo = d.photo;
@@ -2130,17 +2229,39 @@ document.addEventListener('frt-markup-reverted', function(e) {
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     return;
   }
-  // S115 P8: Sanity check — if photo and backup share the same r2Key, restoring
-  // is a no-op AND would delete the only copy of the image. Bail.
+  // S362: NEVER-BAKE revert. Under the never-bake model (S351+) the photo's
+  // stored image IS the clean original — there is no separate /marked/ binary —
+  // so the photo's r2Key legitimately EQUALS the backup's r2Key. The old guard
+  // below treated that equality as "corruption" and refused to revert, throwing a
+  // false "Cannot revert this photo" AFTER the markup had already been cleared by
+  // lightbox._revertMarkup. That's the bug (obs photos with rotation hit it most).
+  // When the keys match AND neither is a /marked/ path, this is the normal
+  // never-bake case: the strokes are already gone; just drop the markup flags from
+  // every sibling and remove the now-unneeded backup record. No R2 delete (the
+  // shared key is the only/clean copy — deleting it would 404 the photo).
   if (markedKey && markedKey === origKey) {
-    console.error('[Markup revert] CORRUPTED STATE: photo and backup share r2Key — refusing to revert');
-    // S120 Push 14: native alert → showAlert.
-    showAlert('Cannot revert this photo', 'The photo and its backup point at the same R2 file (a corrupted state from an earlier session). To clear the corruption, re-take this photo.');
-    delete photo._origBackupId;
-    delete photo._annotated;
+    console.log('[Markup revert] never-bake revert (photo and backup share the clean original) — clearing flags + removing backup record');
+    var nbSibs = markedKey ? Model.findPhotosByR2Key(markedKey) : [];
+    nbSibs = nbSibs.filter(function(s){ return s && s.photo && !s.photo._isOrigBackup; });
+    if (!nbSibs.some(function(s){ return s.photo === photo; })) nbSibs.push({ photo: photo });
+    Model.getAllPhotoRecords().forEach(function(rec){
+      if (rec.photo && !rec.photo._isOrigBackup && rec.photo._origBackupId === backup.id) {
+        if (!nbSibs.some(function(s){ return s.photo === rec.photo; })) nbSibs.push(rec);
+      }
+    });
+    nbSibs.forEach(function(s){
+      var sp = s.photo; if (!sp) return;
+      delete sp._annotated;
+      delete sp._origBackupId;
+      delete sp._markupStrokes;
+      // rotation is a separate display property; revert leaves it as-is unless the
+      // user also reset it. (Markup revert removes MARKS, not rotation.)
+    });
     Model.removeSitePhotoById(backup.id);
+    try { IDB.delete('photoBlobs', photo.id).catch(function(){}); } catch(_){}
     Model.saveNow();
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
+    console.log('[Markup revert] never-bake revert complete');
     return;
   }
 
