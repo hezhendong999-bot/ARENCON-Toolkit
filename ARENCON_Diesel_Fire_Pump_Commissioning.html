@@ -4981,27 +4981,33 @@ var DslLightbox = (function(){
     bMk.addEventListener('click',_toggleMarkup);
     bDl.addEventListener('click',_download);
     bRo.addEventListener('click',function(){
-      _rotations[_idx]=(_rot()+90)%360;
-      _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _apply();
-      // S372: persist the rotation so it survives close + shows on thumbnails.
+      // S373: SINGLE-SOURCE ROTATION. The rotated image lives ONLY in the baked
+      // _mkDisplay cache — the live viewer never rotates a baked cache a second time
+      // (the old code applied _rot() ON TOP of the rotated cache → double-rotation,
+      // the "spin 90° then snap back / stuck sideways" field bug). The durable truth
+      // is p.rotation; the live _rotations[_idx] stays 0 for cache-backed photos.
       var p=_photos[_idx];
-      if(p && typeof p==='object'){
-        p.rotation=_rotations[_idx];
-        if(typeof _rebuildMkDisplay==='function'){
-          _rebuildMkDisplay(p).then(function(){
-            // The cache is now ROTATED, so the displayed image already includes the
-            // rotation — reset the live display rotation to 0 and reload so we don't
-            // rotate the (already-rotated) cache a second time.
-            _rotations[_idx]=0;
-            _showPhoto(_idx);
-            if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces();
-            if(typeof saveState==='function') try{ saveState(); }catch(_e){}
-            if(typeof debounceAutosave==='function') debounceAutosave();
-            if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save && typeof _collectCloudState==='function'){
-              try{ CloudSync.save(_collectCloudState()); }catch(_e){}
-            }
-          });
-        }
+      if(!(p && typeof p==='object')){
+        // Fallback: ephemeral (cacheless) photo — keep the old live-only spin.
+        _rotations[_idx]=(_rot()+90)%360;
+        _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _apply();
+        return;
+      }
+      // Increment the DURABLE rotation (not the live transform — that's why the
+      // console showed 90→180→270 climbing wrong: it was double-counting _rot()).
+      p.rotation=(((p.rotation||0)+90)%360+360)%360;
+      _rotations[_idx]=0;   // cache will carry the rotation; live transform = 0
+      if(typeof _rebuildMkDisplay==='function'){
+        _rebuildMkDisplay(p).then(function(){
+          _rotations[_idx]=0;       // stays 0 — the cache is already rotated
+          _showPhoto(_idx);         // reloads dlb-image = rotated cache; _apply paints at 0°
+          if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces();
+          if(typeof saveState==='function') try{ saveState(); }catch(_e){}
+          if(typeof debounceAutosave==='function') debounceAutosave();
+          if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save && typeof _collectCloudState==='function'){
+            try{ CloudSync.save(_collectCloudState()); }catch(_e){}
+          }
+        });
       }
     });
     bCl.addEventListener('click',_close);
@@ -5626,7 +5632,7 @@ var DslLightbox = (function(){
       if(e.key==='+'||e.key==='='){ _scale=Math.min(8,_scale*1.2); _apply(); }
       if(e.key==='-'){ _scale=Math.max(_fitScale,_scale/1.2); if(_scale<=_fitScale){_panX=0;_panY=0;} _apply(); }
       if(e.key==='0'){ _resetView(); }
-      if(e.key==='r'||e.key==='R'){ _rotations[_idx]=(_rot()+90)%360; _calcFit(); _scale=_fitScale; _panX=0; _panY=0; _apply(); }
+      if(e.key==='r'||e.key==='R'){ var _rb=_el('dlb-rotate'); if(_rb) _rb.click(); }   // S373: one rotation path (persist + single-source cache)
     });
   }
 
@@ -18738,7 +18744,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S372.8';
+var DIESEL_BUILD = 'S373';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
