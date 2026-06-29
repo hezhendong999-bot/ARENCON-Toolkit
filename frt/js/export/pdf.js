@@ -678,6 +678,17 @@ function _buildCSS(fontB64){
   c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
   c+='.dp-grid a{display:block;width:100%;text-decoration:none;}';
   c+='.dp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
+  // S(this) — measure-only deterministic photo height. The pagination pre-pass
+  // measures card heights synchronously in #measure-zone (width:7.3in, same as a
+  // real page's content width). aspect-ratio photos can measure SHORT there if
+  // images haven't decoded yet, so _keepH (band + first item) under-measures and
+  // the keep-together guard wrongly lets a tall photo card's band sit alone at a
+  // page bottom while the card flows to the next page — the orphaned-title bug.
+  // Scoped to #measure-zone ONLY: force .dp to its true rendered height
+  // (3-col grid in 7.3in → 230.3px cell → 4:3 → 172.7px) so measurement is
+  // decode-independent. Real .page rendering is untouched (keeps aspect-ratio),
+  // so photos display exactly as before — this changes measurement, not output.
+  c+='#measure-zone .dp{aspect-ratio:auto!important;height:172.7px!important;}';
   // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
   c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
   c+='.fu-row{padding:3px 0;line-height:1.4;}';
@@ -1642,12 +1653,12 @@ function _measure(html){measureZone.innerHTML=html;var h=measureZone.offsetHeigh
 // the whole measure+render pass on fonts.ready makes every measurement use the
 // real printed font. Defensive: if fonts API is missing/never resolves, a 1500ms
 // fallback still runs pagination so export can never hang.
-// S(this) — Layer 2 (insurance): pre-warm the browser's image-decode cache for
-// every photo src the measure pass will render, BEFORE pagination measures any
-// card. Layer 1 (padding-ratio box) already makes card height decode-independent,
-// so this is belt-and-suspenders: it guarantees the measureZone renders decoded
-// images and never has to reflow. Gathers the srcs the cards actually use (same
-// _pdfPhotoSrc the cards call), decodes them off-DOM, and resolves even on error.
+// S(this) — image-decode pre-warm: decode every photo src the report will
+// render before pagination runs, so the real .page output paints decoded images
+// immediately (no post-render reflow). Correctness of the page-break MEASUREMENT
+// is handled separately by the #measure-zone deterministic photo height (.dp
+// fixed-height rule above); this prewarm is a rendering-smoothness safeguard.
+// Self-capped at 1200ms so it can never noticeably delay export.
 function _prewarmPhotoDecode(){
   try{
     var srcs={};
@@ -1737,7 +1748,12 @@ function _flowBlock(block){
     // + first-item height. Fall back to the old +200 lookahead when no keep was
     // stamped or it can't fit a fresh page anyway.
     var _tKeep=block._keepH||0,_tCap=PAGE_H-COMPACT_HEADER_H;
-    var _tNeed=(_tKeep&&_tKeep<=_tCap)?_tKeep:200;
+    // S(this): same orphan fix as the ctrHeader branch — when the trade band's
+    // kept unit (sub-band + first item) is taller than a full page (many photos),
+    // don't fall back to a weak +200 that lets the band sit alone; require at
+    // least band + a meaningful first chunk so the title always travels with its
+    // content. Measure-zone deterministic photo height (above) makes _tKeep accurate.
+    var _tNeed=(_tKeep&&_tKeep<=_tCap)?_tKeep:(_tKeep?280:200);
     if(avail<blockH+_tNeed){_finalizePage();_startPage();}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
@@ -1754,7 +1770,18 @@ function _flowBlock(block){
     // (they dc-split regardless) and band-with-no-item fall back to the old
     // +200 heuristic so an unsatisfiable keep never wastes a page.
     var _keepH=block._keepH||0,_keepCap=PAGE_H-COMPACT_HEADER_H;
-    var _need=(_keepH&&_keepH<=_keepCap)?_keepH:200;
+    // S(this): close the orphan hole for VERY tall first items (many photos).
+    // Old logic fell back to +200 when _keepH exceeded a full page, on the theory
+    // that such an item dc-splits anyway. But if the band sat near a page bottom,
+    // band+200 could still "fit", the band got placed, then the tall item flowed
+    // to the next page — orphaning the title (Mark's bug). Fix: when the first
+    // item is tall (with or without a real _keepH), require AT LEAST enough room
+    // for the band + a meaningful first chunk (min ~280px) so the band is never
+    // emitted unless its item — or the first dc-split slice of it — follows on the
+    // same page. Combined with the measure-zone deterministic photo height above,
+    // _keepH is now accurate, so the common case needs the full band+item to fit.
+    var _minChunk=280;
+    var _need=(_keepH&&_keepH<=_keepCap)?_keepH:(_keepH?_minChunk:200);
     if(avail<blockH+_need){_finalizePage();_startPage();if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
