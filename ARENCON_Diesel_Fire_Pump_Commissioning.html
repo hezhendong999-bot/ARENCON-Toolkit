@@ -13938,7 +13938,42 @@ function _dslMarkupRevert(p){
   var origKey = backup.r2Key || '', markedKey = p.r2Key || '';
   // FRT S115 P8 corruption guards — never delete the only remaining copy.
   if(origKey.indexOf('/marked/') >= 0){
-    console.error('[DLB] revert: CORRUPTED BACKUP — backup r2Key is /marked/. Keeping marked version.');
+    // S373: the backup's cloud key is corrupt (points at /marked/, a legacy state
+    // from before the S372.4 persist guards). The OLD behavior abandoned revert
+    // entirely. But the corrupt key only means the CLOUD object is unreliable — the
+    // backup may still carry CLEAN local bytes (backup.d). Recover from those when
+    // they are demonstrably NOT the marked image (i.e. distinct from the photo's
+    // current marked display source). Only keep the marked version when there is no
+    // distinct clean source anywhere — so we never restore the marked image as a
+    // false "original" (the corruption this guard exists to prevent).
+    var markedSrc = (p._mkDisplay || '') ;
+    var cleanLocal = (backup.d && backup.d.indexOf('data:')===0 && backup.d !== markedSrc) ? backup.d : '';
+    if(cleanLocal){
+      console.warn('[DLB] revert: backup cloud key corrupt (/marked/) but clean local bytes present and distinct — recovering from backup.d, repointing to a fresh /original/ key.');
+      var rvTsC = Date.now();
+      var restoreC = function(sp){
+        sp._mkTs = rvTsC;
+        sp.d = cleanLocal;
+        // drop the corrupt cloud reference; re-upload under a fresh /original/ key
+        // so the recovered clean photo is durable across devices.
+        sp.r2Key = ''; sp.r2Url = ''; sp.r2Status = '';
+        if(backup.date) sp.date = backup.date;
+        delete sp._annotated; delete sp._origBackupId; delete sp.mk; delete sp._mkDisplay;
+      };
+      _dslStampSiblings(p, restoreC);
+      // give the recovered photo its own durable /original/ object (hub only)
+      if(p.d && typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2EnqueuePhoto==='function'){
+        try{ _r2EnqueuePhoto(p); }catch(e){ console.warn('[DLB] revert: recovered-photo upload enqueue failed', e); }
+      }
+      var biC = recordPhotos.indexOf(backup); if(biC>=0) recordPhotos.splice(biC,1);
+      if(typeof showToast==='function') showToast('Reverted — recovered the clean original from the local backup.');
+      if(typeof saveState==='function') try{ saveState(); }catch(_e){}
+      if(typeof debounceAutosave==='function') debounceAutosave();
+      if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save && typeof _collectCloudState==='function'){ try{ CloudSync.save(_collectCloudState()); }catch(_e){} }
+      if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces();
+      return true;
+    }
+    console.error('[DLB] revert: CORRUPTED BACKUP — backup r2Key is /marked/ and no distinct clean bytes. Keeping marked version.');
     if(typeof showToast==='function') showToast('Cannot revert: the original backup is corrupted. Keeping the marked version.');
     delete p._origBackupId; delete p._annotated;
     var bi0 = recordPhotos.indexOf(backup); if(bi0>=0) recordPhotos.splice(bi0,1);
@@ -18744,7 +18779,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S373';
+var DIESEL_BUILD = 'S373.1';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
