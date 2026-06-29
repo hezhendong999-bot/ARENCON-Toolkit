@@ -677,7 +677,14 @@ function _buildCSS(fontB64){
   // S118: 3-up photo grid (was 2-up flow with 160×160 tiles)
   c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
   c+='.dp-grid a{display:block;width:100%;text-decoration:none;}';
-  c+='.dp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
+  // S(this) — deterministic photo height. The 4:3 box height is reserved from
+  // the cell WIDTH via padding-bottom:75%, NOT from image decode. This makes the
+  // pagination measure pass (measureZone.offsetHeight, read synchronously) return
+  // the correct card height even before images decode — fixing the "gap then push
+  // to next page" bug where photo cards measured short, then ballooned on print.
+  // The <img> is absolutely positioned to fill the reserved box.
+  c+='.dp-box{position:relative;width:100%;padding-bottom:75%;border-radius:4px;overflow:hidden;border:1px solid #DDE1E7;background:#F2F3F5;}';
+  c+='.dp{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;}';
   // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
   c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
   c+='.fu-row{padding:3px 0;line-height:1.4;}';
@@ -1303,8 +1310,8 @@ function _buildDefCard(r,hdrExtra){
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){
     var _src=_pdfPhotoSrc(ph,r2Cache);
     var _href=_pdfPhotoFullHref(ph);
-    if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
-    else{h+='<img class="dp" src="'+_src+'">';}
+    if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><span class="dp-box"><img class="dp" src="'+_src+'"></span></a>';}
+    else{h+='<span class="dp-box"><img class="dp" src="'+_src+'"></span>';}
   });h+='</div>';}
   if(fuActs.length){
     h+='<div class="fu-grp"><span>Follow-up</span><span style="font-weight:500;color:#6B7B8C;">FRT #'+_curInst+'</span></div>';
@@ -1642,10 +1649,36 @@ function _measure(html){measureZone.innerHTML=html;var h=measureZone.offsetHeigh
 // the whole measure+render pass on fonts.ready makes every measurement use the
 // real printed font. Defensive: if fonts API is missing/never resolves, a 1500ms
 // fallback still runs pagination so export can never hang.
+// S(this) — Layer 2 (insurance): pre-warm the browser's image-decode cache for
+// every photo src the measure pass will render, BEFORE pagination measures any
+// card. Layer 1 (padding-ratio box) already makes card height decode-independent,
+// so this is belt-and-suspenders: it guarantees the measureZone renders decoded
+// images and never has to reflow. Gathers the srcs the cards actually use (same
+// _pdfPhotoSrc the cards call), decodes them off-DOM, and resolves even on error.
+function _prewarmPhotoDecode(){
+  try{
+    var srcs={};
+    (reportDefs||[]).forEach(function(r){
+      var po=(r.d&&r.d.observations&&r.d.observations[r.obsIdx])||r.d||{};
+      (po.photos||[]).forEach(function(ph){var s=_pdfPhotoSrc(ph,r2Cache);if(s)srcs[s]=1;});
+    });
+    var list=Object.keys(srcs);
+    if(!list.length)return Promise.resolve();
+    return Promise.all(list.map(function(s){
+      return new Promise(function(res){
+        try{var im=new Image();im.onload=function(){res();};im.onerror=function(){res();};im.src=s;
+          if(im.decode){im.decode().then(function(){res();},function(){res();});}
+        }catch(e){res();}
+      });
+    }));
+  }catch(e){return Promise.resolve();}
+}
 var _fontsReady = (D.fonts && D.fonts.ready) ? D.fonts.ready : Promise.resolve();
 var _pagRan=false;
 function _runPaginationGated(){ if(_pagRan)return; _pagRan=true; _runPagination(); }
-_fontsReady.then(_runPaginationGated, _runPaginationGated);
+// Gate pagination on BOTH fonts loaded AND photo decode pre-warmed. The 1500ms
+// safety fallback still fires independently so export can never hang.
+Promise.all([_fontsReady, _prewarmPhotoDecode()]).then(_runPaginationGated, _runPaginationGated);
 setTimeout(_runPaginationGated, 1500);
 function _runPagination(){
 var FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
