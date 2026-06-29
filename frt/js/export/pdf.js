@@ -677,14 +677,7 @@ function _buildCSS(fontB64){
   // S118: 3-up photo grid (was 2-up flow with 160×160 tiles)
   c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
   c+='.dp-grid a{display:block;width:100%;text-decoration:none;}';
-  // S(this) — deterministic photo height. The 4:3 box height is reserved from
-  // the cell WIDTH via padding-bottom:75%, NOT from image decode. This makes the
-  // pagination measure pass (measureZone.offsetHeight, read synchronously) return
-  // the correct card height even before images decode — fixing the "gap then push
-  // to next page" bug where photo cards measured short, then ballooned on print.
-  // The <img> is absolutely positioned to fill the reserved box.
-  c+='.dp-box{position:relative;width:100%;padding-bottom:75%;border-radius:4px;overflow:hidden;border:1px solid #DDE1E7;background:#F2F3F5;}';
-  c+='.dp{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;}';
+  c+='.dp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
   // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
   c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
   c+='.fu-row{padding:3px 0;line-height:1.4;}';
@@ -1310,8 +1303,8 @@ function _buildDefCard(r,hdrExtra){
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){
     var _src=_pdfPhotoSrc(ph,r2Cache);
     var _href=_pdfPhotoFullHref(ph);
-    if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><span class="dp-box"><img class="dp" src="'+_src+'"></span></a>';}
-    else{h+='<span class="dp-box"><img class="dp" src="'+_src+'"></span>';}
+    if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
+    else{h+='<img class="dp" src="'+_src+'">';}
   });h+='</div>';}
   if(fuActs.length){
     h+='<div class="fu-grp"><span>Follow-up</span><span style="font-weight:500;color:#6B7B8C;">FRT #'+_curInst+'</span></div>';
@@ -1664,13 +1657,17 @@ function _prewarmPhotoDecode(){
     });
     var list=Object.keys(srcs);
     if(!list.length)return Promise.resolve();
-    return Promise.all(list.map(function(s){
+    var decodeAll=Promise.all(list.map(function(s){
       return new Promise(function(res){
         try{var im=new Image();im.onload=function(){res();};im.onerror=function(){res();};im.src=s;
           if(im.decode){im.decode().then(function(){res();},function(){res();});}
         }catch(e){res();}
       });
     }));
+    // Self-cap: never let decode-warm delay export more than 1200ms regardless
+    // of photo count or network. Whichever resolves first wins.
+    var cap=new Promise(function(res){setTimeout(res,1200);});
+    return Promise.race([decodeAll, cap]);
   }catch(e){return Promise.resolve();}
 }
 var _fontsReady = (D.fonts && D.fonts.ready) ? D.fonts.ready : Promise.resolve();
