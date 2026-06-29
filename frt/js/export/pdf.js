@@ -769,6 +769,20 @@ var _recFooter=(recFooter!==false);
 var _includeSiteRecords=(includeSiteRecords===true);
 var reportDefs=[];var rn=1;
 var _ctrFilterId=ctrFilter||'__all__';var _ctrFilterName='';
+// S(this) — multi-contractor: ctrFilter may now be a comma-joined set of
+// contractor ids (e.g. "ctr_a,ctr_b") in addition to the sentinels '__all__'
+// and '__general__' and a single id. Build a membership set + a flag. A single
+// id still works (set of size 1). '__all__'/'__general__' keep their meaning.
+var _ctrSet=null;
+if(_ctrFilterId!=='__all__'&&_ctrFilterId!=='__general__'&&_ctrFilterId.indexOf(',')>=0){
+  _ctrSet={};_ctrFilterId.split(',').forEach(function(id){id=id.trim();if(id)_ctrSet[id]=1;});
+}
+function _ctrIncluded(cid){
+  if(_ctrFilterId==='__all__')return true;
+  if(_ctrFilterId==='__general__')return false;
+  if(_ctrSet)return !!_ctrSet[cid];
+  return cid===_ctrFilterId;
+}
 // S119 hotfix: per-obs description (text) and status (addressed). Used by
 // the per-drawing appendix table and the closed-summary table — without
 // these helpers both tables show pin-level data identical for every obs row,
@@ -836,9 +850,7 @@ function _pushItems(d,ctrName){
   }
 }
 (p.contractors||[]).forEach(function(c){
-  if(_ctrFilterId!=='__all__'&&_ctrFilterId!=='__general__'&&c.id!==_ctrFilterId)return;
-  if(_ctrFilterId==='__general__')return;
-  if(c.id===_ctrFilterId)_ctrFilterName=c.name;
+  if(!_ctrIncluded(c.id))return;
   (c.deficiencies||[]).forEach(function(d){_pushItems(d,c.name);});
 });
 if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
@@ -858,6 +870,13 @@ if(_ctrFilterId==='__all__'||_ctrFilterId==='__general__'){
   });
 }
 if(_ctrFilterId==='__general__')_ctrFilterName=SITE_RECORDS_LABEL;
+// S(this) — multi-contractor subtitle/filename label. Single id -> that name;
+// a set -> names joined " + " (in roster order, so the label is stable).
+if(_ctrFilterId!=='__all__'&&_ctrFilterId!=='__general__'){
+  var _selNames=(p.contractors||[]).filter(function(c){return _ctrIncluded(c.id);})
+                 .map(function(c){return c.name||'Unnamed';});
+  _ctrFilterName=_selNames.join(' + ');
+}
 
 var _curInst=p.currentFrtInstance||1;
 // S119: per-observation status filter. An obs is included if:
@@ -1561,7 +1580,11 @@ var w=window.open('','_blank');
 if(!w){showAlert('Popup blocked. Allow popups for this site.');return;}
 var _pdfSN=Model.getSmartFilename();
 var _pdfSB=_pdfSN.replace(/\s+[A-Z]\d{2}([A-Z]\d{2})?$/,'');
-var _pdfCS=(_ctrFilterId!=='__all__'&&_ctrFilterName)?' - '+_ctrFilterName:'';
+// Filename label: full joined name unless it's long (multi-select), then a
+// compact stand-in. The on-page subtitle keeps the full _ctrFilterName.
+var _pdfCSName=_ctrFilterName;
+if(_pdfCSName&&_pdfCSName.length>40)_pdfCSName='Selected contractors';
+var _pdfCS=(_ctrFilterId!=='__all__'&&_pdfCSName)?' - '+_pdfCSName:'';
 var _pdfTitle=_pdfSB+' FPE Field Rvw'+_pdfCS+' #'+_rptNum+' '+_rptRev;
 // S329 (#32, Mark): the report and the Export/Close bar share ONE document again.
 // The bar is position:fixed at the top and is kept at a CONSTANT on-screen size
@@ -1611,6 +1634,20 @@ try{
 // Pagination
 var PAGE_H=912;var measureZone=D.getElementById('measure-zone');var pagesContainer=D.getElementById('pages-container');
 function _measure(html){measureZone.innerHTML=html;var h=measureZone.offsetHeight;measureZone.innerHTML='';return h;}
+// S(this) FIX — title-detach bug: ALL pagination height measurements must run
+// AFTER the embedded Blair/Carlito @font-face have decoded in this print window.
+// Measuring earlier sizes the title block at fallback-font height; it then prints
+// taller in the real font and overshoots the page, detaching the title. Preview
+// looked fine only because fonts had settled by the time the user looked. Gating
+// the whole measure+render pass on fonts.ready makes every measurement use the
+// real printed font. Defensive: if fonts API is missing/never resolves, a 1500ms
+// fallback still runs pagination so export can never hang.
+var _fontsReady = (D.fonts && D.fonts.ready) ? D.fonts.ready : Promise.resolve();
+var _pagRan=false;
+function _runPaginationGated(){ if(_pagRan)return; _pagRan=true; _runPagination(); }
+_fontsReady.then(_runPaginationGated, _runPaginationGated);
+setTimeout(_runPaginationGated, 1500);
+function _runPagination(){
 var FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
 // S284 auto-compact cascade: if the dashboard page would overflow the page
 // budget (many contractors), swap in the compact dashboard (overall bar only,
@@ -2092,6 +2129,7 @@ if(isField){
     });
   }
 }
+} // end _runPagination (font-ready gated)
 }
 
 export const initPDFExport={

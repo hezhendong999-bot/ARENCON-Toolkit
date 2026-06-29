@@ -66,6 +66,18 @@ function _styleOnce() {
     '.exv-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;}',
     '.exv-fld label{display:block;font-size:calc(13px + var(--ts,0px));font-weight:600;color:var(--steel,#4A5568);margin-bottom:4px;}',
     '.exv-fld select,.exv-fld input[type=text]{width:100%;padding:8px 10px;border:1.5px solid var(--border,#D5DBE3);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts,0px));background:var(--card,#fff);color:var(--fg,#1C2333);}',
+    '.exv-multi{border:1.5px solid var(--border,#D5DBE3);border-radius:8px;overflow:hidden;background:var(--card,#fff);}',
+    '.exv-mrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border,#E4E8EE);cursor:pointer;user-select:none;transition:background .12s;}',
+    '.exv-mrow:last-of-type{border-bottom:none;}',
+    '.exv-mrow.on{background:rgba(156,39,66,.06);}',
+    '.exv-mall{background:var(--card2,#F2F4F8);font-weight:700;}',
+    '.exv-msep{height:1px;background:var(--border,#E4E8EE);}',
+    '.exv-mbox{width:18px;height:18px;flex:0 0 auto;border:2px solid var(--steel,#9AA3B0);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;line-height:1;}',
+    '.exv-mrow.on .exv-mbox{background:#9C2742;border-color:#9C2742;}',
+    '.exv-mdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}',
+    '.exv-mname{flex:1;font-size:calc(14px + var(--ts,0px));font-weight:600;color:var(--fg,#1C2333);}',
+    '.exv-mct{font-size:calc(12px + var(--ts,0px));color:var(--steel,#5A6373);font-variant-numeric:tabular-nums;}',
+    '.exv-mhint{font-size:calc(11px + var(--ts,0px));color:var(--steel,#928E9C);padding:8px 12px;background:var(--card2,#FAFAFB);}',
     '.exv-chk{display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts,0px));color:var(--fg,#33415C);padding:5px 0;cursor:pointer;}',
     '.exv-chk input{width:15px;height:15px;}',
     '.exv-tw{display:flex;gap:8px;align-items:stretch;}',
@@ -119,16 +131,32 @@ export var initExportView = {
     var rptNum = proj.currentFrtInstance || 1;
     var titleVal = (info.reportTitleOverride && String(info.reportTitleOverride).trim()) || 'Field Review Report';
 
-    // Contractor filter options (parity with legacy picker — Site
-    // General stays a *filter* option; it is only excluded as a
-    // distribution recipient).
-    var ctrOpts = '<option value="__all__">All contractors</option>';
-    (proj.contractors || []).forEach(function(c) {
-      ctrOpts += '<option value="' + _esc(c.id) + '">' + _esc(c.name || 'Unnamed') + '</option>';
+    // S(this) — multi-contractor selector. Replaces the single-pick dropdown
+    // with a checkbox group: tick any subset; "All contractors" = every box on.
+    // Resolves to a hidden #exv-ctr value ('__all__' | '__general__' | single id
+    // | comma-joined id set) so the downstream read at #exv-ctr is unchanged.
+    var _ctrList = (proj.contractors || []);
+    var _ctrPalette = ['#9C2742','#2C7FB8','#C98A4A','#2E9E72','#7A5EA8','#C0445F'];
+    var _hasGeneral = (proj.generalDeficiencies || []).length > 0;
+    function _ctrCount(c){ return (c.deficiencies || []).length; }
+    var _ctrMultiHtml = '<div class="exv-multi" id="exv-ctr-multi">';
+    _ctrMultiHtml += '<div class="exv-mrow exv-mall on" data-id="__all__"><span class="exv-mbox">&#10003;</span>'
+      + '<span class="exv-mname">All contractors</span></div><div class="exv-msep"></div>';
+    _ctrList.forEach(function(c, i){
+      _ctrMultiHtml += '<div class="exv-mrow on" data-id="' + _esc(c.id) + '" data-n="' + _esc(c.name || 'Unnamed') + '">'
+        + '<span class="exv-mbox">&#10003;</span>'
+        + '<span class="exv-mdot" style="background:' + _ctrPalette[i % _ctrPalette.length] + ';"></span>'
+        + '<span class="exv-mname">' + _esc(c.name || 'Unnamed') + '</span>'
+        + '<span class="exv-mct">' + _ctrCount(c) + '</span></div>';
     });
-    if ((proj.generalDeficiencies || []).length) {
-      ctrOpts += '<option value="__general__">Site Records only</option>';
+    if (_hasGeneral) {
+      _ctrMultiHtml += '<div class="exv-msep"></div>'
+        + '<div class="exv-mrow" data-id="__general__" data-n="Site Records">'
+        + '<span class="exv-mbox">&#10003;</span><span class="exv-mdot" style="background:#928E9C;"></span>'
+        + '<span class="exv-mname">Site Records (internal)</span></div>';
     }
+    _ctrMultiHtml += '<div class="exv-mhint">Untick "All contractors" to choose a subset.</div></div>';
+    _ctrMultiHtml += '<input type="hidden" id="exv-ctr" value="__all__">';
 
     // ── Distribution model ────────────────────────────────────────
     // Recipients in their roles. Owner = info.client. Contractors =
@@ -209,8 +237,7 @@ export var initExportView = {
       + '<option value="11x17">11\u00D717 landscape</option>'
       + '<option value="24x36">24\u00D736 landscape</option>'
       + '</select></div>';
-    h += '<div class="exv-fld"><label>Show items for</label><select id="exv-ctr">' + ctrOpts
-      + '</select></div>';
+    h += '<div class="exv-fld"><label>Show items for</label>' + _ctrMultiHtml + '</div>';
     h += '<div class="exv-fld"><label>Inspector initials</label><select id="exv-insp">'
       + '<option value="off">Don\u2019t show initials</option>'
       + '<option value="initials">Show initials on each item</option>'
@@ -340,6 +367,49 @@ export var initExportView = {
     function close() { ov.remove(); }
     ov.querySelector('#exv-cancel').addEventListener('click', close);
     ov.querySelector('#exv-x').addEventListener('click', close);
+
+    // S(this) — multi-contractor selector wiring. Maintains the hidden
+    // #exv-ctr value as the user ticks rows. Touch-safe (click, not :hover).
+    (function(){
+      var multi = ov.querySelector('#exv-ctr-multi');
+      var hidden = ov.querySelector('#exv-ctr');
+      var goBtn = ov.querySelector('#exv-go');
+      if (!multi || !hidden) return;
+      function rowsAll(){ return Array.prototype.slice.call(multi.querySelectorAll('.exv-mrow')); }
+      function ctrRows(){ return rowsAll().filter(function(r){ var id=r.dataset.id; return id!=='__all__'&&id!=='__general__'; }); }
+      function setOn(r,v){ r.classList.toggle('on',v); r.querySelector('.exv-mbox').innerHTML = v ? '&#10003;' : ''; }
+      function resolve(){
+        var allRow = multi.querySelector('[data-id="__all__"]');
+        var genRow = multi.querySelector('[data-id="__general__"]');
+        var picked = ctrRows().filter(function(r){ return r.classList.contains('on'); });
+        var allCtr = ctrRows();
+        var genOn = genRow && genRow.classList.contains('on');
+        var val;
+        if (picked.length === allCtr.length && allCtr.length) { val = '__all__'; }
+        else if (picked.length === 0 && genOn) { val = '__general__'; }
+        else if (picked.length === 0) { val = ''; } // nothing -> blocked below
+        else { val = picked.map(function(r){ return r.dataset.id; }).join(','); }
+        hidden.value = val;
+        // Block export when nothing is selected.
+        var none = (picked.length === 0 && !genOn);
+        if (goBtn) { goBtn.disabled = none; goBtn.style.opacity = none ? '0.5' : ''; goBtn.style.cursor = none ? 'not-allowed' : ''; }
+      }
+      multi.addEventListener('click', function(e){
+        var r = e.target.closest('.exv-mrow'); if (!r) return;
+        var id = r.dataset.id;
+        if (id === '__all__') {
+          var turnOn = !r.classList.contains('on');
+          setOn(r, turnOn);
+          ctrRows().forEach(function(c){ setOn(c, turnOn); });
+        } else {
+          setOn(r, !r.classList.contains('on'));
+          var everyOn = ctrRows().every(function(c){ return c.classList.contains('on'); });
+          setOn(multi.querySelector('[data-id="__all__"]'), everyOn && ctrRows().length>0);
+        }
+        resolve();
+      });
+      resolve();
+    })();
 
     ov.querySelector('#exv-go').addEventListener('click', function() {
       var type = ov.querySelector('#exv-type').value;
