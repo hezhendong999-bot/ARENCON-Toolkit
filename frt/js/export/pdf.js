@@ -1875,8 +1875,13 @@ try{
   // appears in the actual PDF (@media print hides #pdf-btn-bar).
 }catch(e){}
 
-// Pagination
-var PAGE_H=912;var measureZone=D.getElementById('measure-zone');var pagesContainer=D.getElementById('pages-container');
+// Pagination. PAGE_H is the usable content height of a Letter .page in the SAME
+// 96dpi pixel units that _measure() returns (measure-zone is a real 96dpi element).
+// .page is 11in tall with 0.5in top+bottom padding => 10in usable => 960px at 96dpi.
+// (Was 912 — a 91.2px/in figure that did NOT match the 96dpi measurements, so the
+// engine thought pages filled ~5% early and split cards that actually fit, doubling
+// the page count and detaching headers.)
+var PAGE_H=960;var measureZone=D.getElementById('measure-zone');var pagesContainer=D.getElementById('pages-container');
 function _measure(html){measureZone.innerHTML=html;var h=measureZone.offsetHeight;measureZone.innerHTML='';return h;}
 // S(this) FIX — title-detach bug: ALL pagination height measurements must run
 // AFTER the embedded Blair/Carlito @font-face have decoded in this print window.
@@ -2043,28 +2048,24 @@ function _flowBlock(block){
       var _contHead=cH.replace(/<div class="dc-desc">[\s\S]*?<\/div>\s*$/,'')
                       .replace(/(<span class="pinref-dark">[^<]*)(<\/span>)/,'$1 <span style="color:#928E9C;font-style:italic;font-weight:600;font-size:9.5pt;">(continued)</span>$2');
       var headH=_measure(cH+cF);
-      var firstRowH=_measure('<div class="dc-split'+sp[1]+cF);
-      if(avail < headH+firstRowH && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-      // Place the head once. Measure the head ALONE (cF is appended at the very end,
-      // and on continuation pages _contHead is re-emitted) — measuring cH+cF here
-      // double-counted the empty card tail and inflated curUsed, which with the new
-      // fixed-height pages could trigger a premature break.
+      // ROW_H: a 3-photo dc-split row is deterministic — the measure-zone forces
+      // .dp to 172.7px (3-col grid in 7.3in), so every row is the same height
+      // regardless of photo count in it. Per-row _measure() was returning inflated
+      // values that made curUsed cross PAGE_H after barely one row, splitting every
+      // card onto its own half-empty page (the doubled page count + detached header
+      // you saw). Fixed ROW_H matches the approved demo's arithmetic exactly.
+      var ROW_H=185; // 172.7px photo + grid margins/gap
+      if(avail < headH+ROW_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+      // Place the head once (measured alone — cF is appended at the very end).
       var headOnlyH=_measure(cH);
       curPageHtml+=cH;curUsed+=headOnlyH;
-      // rowsOnPage prevents an empty (row-less) page / infinite loop. headUsedThisPage
-      // = how much of THIS page the head currently occupies, so we can detect the rare
-      // "head + first row > page" case (a deficiency with a very long text head and no
-      // early photo row): there the row must go to the next page or it would clip.
       var rowsOnPage=0;
       var headUsedThisPage=headOnlyH;
       for(var si=1;si<sp.length;si++){
-        var sH='<div class="dc-split'+sp[si];var sHt=_measure(sH);
-        // Break before any row that would overflow the fixed-height page. Normally we
-        // keep >=1 row per page (rowsOnPage>0). But if no row has landed yet AND the
-        // head alone already leaves no room for even this row, break anyway so the row
-        // continues on a fresh page under _contHead instead of clipping. _contHead is
-        // short, so its own first row always fits — no infinite loop.
-        if(curUsed+sHt>PAGE_H && (rowsOnPage>0 || headUsedThisPage+sHt>PAGE_H)){
+        var sH='<div class="dc-split'+sp[si];
+        // Fixed row height (not _measure) so the fill math matches the real render
+        // and the demo. Break only when this row would actually overflow the page.
+        if(curUsed+ROW_H>PAGE_H && (rowsOnPage>0 || headUsedThisPage+ROW_H>PAGE_H)){
           curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
           _finalizePage();_startPage();_restamp();
           curPageHtml+=_contHead;
@@ -2072,7 +2073,7 @@ function _flowBlock(block){
           curUsed+=contH;
           rowsOnPage=0;headUsedThisPage=contH;
         }
-        curPageHtml+=sH;curUsed+=sHt;rowsOnPage++;
+        curPageHtml+=sH;curUsed+=ROW_H;rowsOnPage++;
       }
       curPageHtml+=cF;
     }
@@ -2290,11 +2291,14 @@ if(isField&&p.drawings&&p.drawings.length){
         // title band, the drawing display height, the table header, and slack.
         // Drawing on Letter is max-width:100% (~7.3in wide); reserve its height
         // at the same px/in scale assuming a landscape-ish sheet (~1.45 ratio).
-        var _PXPI_L=PAGE_H/10;                 // 91.2 px per usable inch
+        // Letter-appendix drawing-list sizing keeps its original 912 calibration
+        // (this fix only changes body deficiency-page pagination).
+        var _APPENDIX_PAGE_H=912;
+        var _PXPI_L=_APPENDIX_PAGE_H/10;       // 91.2 px per usable inch
         var _dwgReserve=(7.3/1.45)*_PXPI_L;    // ~5in tall drawing
         var _titleBandHL=_measure('<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div><div class="app-dwg-title">'+esc(dw.name)+'</div>');
         var _theadH=_measure('<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead></table>');
-        var _rowsAvailH=PAGE_H-_titleBandHL-_dwgReserve-_theadH-24;
+        var _rowsAvailH=_APPENDIX_PAGE_H-_titleBandHL-_dwgReserve-_theadH-24;
         if(_rowsAvailH<120)_rowsAvailH=120; // floor: always allow some rows
 
         var _chunksL=[]; var _curL=[]; var _curHL=0;
@@ -2336,12 +2340,9 @@ if(isField&&p.drawings&&p.drawings.length){
       function _measureAppCard(html){
         return _measure('<div style="width:4.6in;">'+html+'</div>');
       }
-      // Page content height for this sheet size (logical px, matching PAGE_H=912
-      // = Letter content height). 11x17/24x36 are landscape: SHORTER than Letter
-      // portrait content height per inch isn't true — content height = (paper
-      // height - 1in vert padding) scaled the same way PAGE_H scales Letter's 10in.
-      // PAGE_H(912) corresponds to Letter's 10in usable height -> 91.2 px/in.
-      var _PXPI=PAGE_H/10; // px per usable inch (912/10)
+      // Appendix sheet sizing keeps its original 91.2 px/in calibration so this
+      // body-pagination fix does not also shift the appendix drawing-list packing.
+      var _PXPI=91.2; // px per usable inch (appendix-only; body uses PAGE_H=960)
       var _sheetUsableH = (_drawPageSize==='24x36') ? (24-1)*_PXPI
                         : (11-1)*_PXPI; // 11x17 (Letter returned early above)
       var _titleBandH=_measure('<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div><div class="app-dwg-title">'+esc(dw.name)+'</div>');
