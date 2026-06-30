@@ -654,46 +654,32 @@ function _captureExportPDF(w,D,title,btn,hintEl){
     var pdfDoc;
     return PDFLib.PDFDocument.create().then(function(doc){
       pdfDoc=doc;
-      // Letter portrait by default; appendix sheets may be wider — size each PDF
-      // page to its captured aspect ratio so 11x17 / 24x36 appendix sheets keep
-      // their proportions instead of being squashed onto letter.
+      // EXACT demo logic: the PDF page is a 1:1 photograph of the on-screen .page
+      // element. Size each PDF page straight from that element's own rendered size
+      // (offsetWidth/offsetHeight at 96dpi -> 72pt points). Whatever the preview
+      // shows IS what the PDF becomes. No deterministic point constants, no aspect
+      // overrides — those were what made pages come out wide/oversized and pushed
+      // headers into the middle of the sheet. (This is the demo's capture loop.)
       var idx=0;
       function nextPage(){
         if(idx>=pages.length) return Promise.resolve();
         setHint('Rendering page '+(idx+1)+' of '+pages.length+'…');
-        return h2c(pages[idx],{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,
-          width:pages[idx].offsetWidth,height:pages[idx].offsetHeight,windowWidth:pages[idx].offsetWidth})
+        var pageEl=pages[idx];
+        return h2c(pageEl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false})
           .then(function(canvas){
             var png=canvas.toDataURL('image/png');
             return pdfDoc.embedPng(png).then(function(pngImg){
-              var pageEl=pages[idx];
-              // Deterministic page size in POINTS (72pt/in). Never derive from
-              // offsetWidth — under print media / zoom that can be 0 or NaN, which
-              // made addPage([NaN,NaN]) throw and silently fall back to print.
-              // Letter portrait by default; appendix sheets carry a size class.
-              var pw=612, ph=792;                 // 8.5 x 11 in
-              if(pageEl.classList.contains('p11x17')){ pw=1224; ph=792; }   // 17x11
-              else if(pageEl.classList.contains('p24x36')){ pw=2592; ph=1728; } // 36x24
-              // If the captured canvas aspect disagrees (e.g. a sheet grew), fall
-              // back to the canvas aspect scaled to letter width so nothing clips.
-              // Guard against non-finite values: a failed/oversized html2canvas
-              // render can yield 0 or NaN canvas dims, and chh/cw could be NaN or
-              // Infinity → addPage([612, NaN]) throws the "type NaN" error seen in
-              // the field. Only adjust ph when aspect is a sane finite ratio; else
-              // keep the deterministic letter height. (Belt-and-suspenders: the
-              // fixed-height page change above already prevents over-tall pages.)
-              var cw=canvas.width, chh=canvas.height;
-              if(cw>0&&chh>0){
-                var aspect=chh/cw;
-                if(isFinite(aspect)&&aspect>0&&aspect<8){
-                  ph = pw*aspect;
-                }
-              }
-              if(!isFinite(pw)||!isFinite(ph)||pw<=0||ph<=0){pw=612;ph=792;}
+              // Size the PDF page from the actual element (demo line-for-line).
+              var pw=(pageEl.offsetWidth/96)*72;
+              var ph=(pageEl.offsetHeight/96)*72;
+              // Minimal sanity floor: only if the element reported nothing usable
+              // (never under normal rendering) fall back to letter so addPage can't
+              // throw on a NaN/zero. Does not alter any real page's size.
+              if(!isFinite(pw)||pw<=0){pw=612;}
+              if(!isFinite(ph)||ph<=0){ph=792;}
               var pg=pdfDoc.addPage([pw,ph]);
               pg.drawImage(pngImg,{x:0,y:0,width:pw,height:ph});
-              // --- Preserve clickable photo links ---
-              // Map each <a> rect (relative to the page element) into PDF points.
+              // --- Preserve clickable photo links (demo logic) ---
               try{
                 var pageRect=pageEl.getBoundingClientRect();
                 if(pageRect.width>0&&pageRect.height>0){
@@ -707,8 +693,7 @@ function _captureExportPDF(w,D,title,btn,hintEl){
                   var x0=(r.left-pageRect.left)*sx;
                   var y0Top=(r.top-pageRect.top)*sy;
                   var lw=r.width*sx, lh=r.height*sy;
-                  // PDF y origin is bottom-left.
-                  var yBottom=ph-(y0Top+lh);
+                  var yBottom=ph-(y0Top+lh); // PDF y origin bottom-left
                   _capAddLinkAnnot(PDFLib,pdfDoc,pg,x0,yBottom,lw,lh,href);
                 }
                 }
