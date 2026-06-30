@@ -330,6 +330,29 @@ export var R2 = {
     });
   },
 
+  /**
+   * Upload the UNTOUCHED original camera/import file as the `original` type.
+   *
+   * Unlike uploadPhoto (which uploads photo.dataUrl — the 1600/0.8 compressed
+   * copy), this uploads the raw File byte-for-byte. _toBlob passes a File/Blob
+   * through unchanged (no re-encode), so the original resolution + quality land
+   * in R2 intact. r2Key/r2Url are set to the original, so gallery full-view,
+   * download-to-server, and the contractor photo link all resolve full-res.
+   * The compressed photo.dataUrl stays local for fast rendering + the PDF embed.
+   *
+   * R2 is a transfer buffer (downloaded to server, then cleaned up), so storing
+   * the full original here is intentional and bounded to in-flight projects.
+   */
+  uploadPhotoOriginal: function(projectId, photo, file) {
+    if (!photo || !file) return Promise.resolve(null);
+    var filename = 'defic_' + R2.generateFilename('jpg');
+    // file is a Blob → _toBlob returns it untouched; original bytes preserved.
+    return R2.upload(projectId, 'original', file, filename).then(function(result) {
+      if (result) { photo.r2Key = result.r2Key; photo.r2Url = result.r2Url; }
+      return photo;
+    });
+  },
+
   /** Upload drawing to R2. Updates drawing.r2Key/r2Url in place. */
   uploadDrawing: function(projectId, drawing, data) {
     // S158 V-5: filename should NOT double-prefix "dwg_". drawing.id already

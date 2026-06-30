@@ -6324,7 +6324,11 @@ function _compressAndAdd(file, deficId, obsIdx) {
       }
 
       // ── PROD path: current behavior, unchanged from Fix D ──
-      R2.uploadPhoto(pid, photo, 'original').then(function() {
+      // S389: upload the UNTOUCHED original file (not the compressed dataUrl).
+      // r2Key/r2Url → full-res original; gallery full-view, download, and the
+      // contractor link all resolve full-res. dataUrl stays compressed for
+      // in-app render + PDF embed. R2 is a transfer buffer (cleaned up post-DL).
+      R2.uploadPhotoOriginal(pid, photo, file).then(function() {
         Model.saveNow(); // Save updated r2Key/r2Url
       }).catch(function(r2err) {
         // S164 Fix D (V-7): R2 PUT failure was previously an unhandled
