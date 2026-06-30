@@ -899,7 +899,21 @@ function _buildCSS(fontB64){
   // (3-col grid in 7.3in → 230.3px cell → 4:3 → 172.7px) so measurement is
   // decode-independent. Real .page rendering is untouched (keeps aspect-ratio),
   // so photos display exactly as before — this changes measurement, not output.
-  c+='#measure-zone .dp{aspect-ratio:auto!important;height:172.7px!important;}';
+  // MEASURED from live render (S378): the photo grid lives inside dc-content,
+  // which is flex:1 AFTER the minimap + gap are subtracted from the 7.3in content
+  // area. Two cases, both made decode-independent with an explicit height so
+  // pagination is correct even if it runs before images decode (the 1500ms
+  // fallback can fire first on a slow load):
+  //   • Card WITH a drawing minimap (.dc-inner:has(.dc-mini)): grid = 503px,
+  //     3-col cell 164px, 4:3 → 123px row (live-measured: gridH 123, dpH 123).
+  //   • Card WITHOUT a minimap: grid spans the full 700px, cell ~231px → 173px.
+  // The old single 172.7 value over-measured every minimap card ~50px/row,
+  // overshooting page-fill (early breaks, 1147/1075px overflow pages).
+  c+='#measure-zone .dc-inner:has(.dc-mini) .dp{aspect-ratio:auto!important;height:123px!important;}';
+  c+='#measure-zone .dc-inner:not(:has(.dc-mini)) .dp{aspect-ratio:auto!important;height:173px!important;}';
+  // Fallback for engines without :has() — default any unmatched .dp to 123 (the
+  // common minimap case in field reports). Harmless where :has() is supported.
+  c+='#measure-zone .dp{aspect-ratio:auto!important;height:123px!important;}';
   // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
   c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
   c+='.fu-row{padding:3px 0;line-height:1.4;}';
@@ -1979,7 +1993,7 @@ function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_
 // .dp is forced to a fixed height in the 7.3in measure zone, so every photo
 // row is the same height regardless of how many photos sit in it.
 // ============================================================================
-var ROW_H=185;      // one dc-split photo row (3-col grid @ 7.3in)
+var ROW_H=128;      // one dc-split photo row: 123px measured (3-col @ 503px, 4:3) + 5px grid gap
 var MIN_ROW=ROW_H;  // a band needs room for itself + at least one row, else orphan
 
 function _flowBlock(block){
