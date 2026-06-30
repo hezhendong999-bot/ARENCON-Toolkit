@@ -578,8 +578,16 @@ function _capLoadScriptInto(w,src,globalName){
   return new Promise(function(res,rej){
     try{
       if(globalName&&w[globalName])return res();
+      var done=false;
+      var to=setTimeout(function(){
+        if(done)return;
+        // If the global appeared despite no onload (some CSP setups), accept it.
+        if(globalName&&w[globalName]){done=true;return res();}
+        done=true;rej(new Error('load timeout '+src));
+      },15000);
       var s=w.document.createElement('script');s.src=src;
-      s.onload=function(){res();};s.onerror=function(){rej(new Error('load fail '+src));};
+      s.onload=function(){if(done)return;done=true;clearTimeout(to);res();};
+      s.onerror=function(){if(done)return;done=true;clearTimeout(to);rej(new Error('load fail '+src));};
       w.document.head.appendChild(s);
     }catch(e){rej(e);}
   });
@@ -654,32 +662,35 @@ function _captureExportPDF(w,D,title,btn,hintEl){
     var pdfDoc;
     return PDFLib.PDFDocument.create().then(function(doc){
       pdfDoc=doc;
-      // EXACT demo logic: the PDF page is a 1:1 photograph of the on-screen .page
-      // element. Size each PDF page straight from that element's own rendered size
-      // (offsetWidth/offsetHeight at 96dpi -> 72pt points). Whatever the preview
-      // shows IS what the PDF becomes. No deterministic point constants, no aspect
-      // overrides — those were what made pages come out wide/oversized and pushed
-      // headers into the middle of the sheet. (This is the demo's capture loop.)
+      // Photograph each on-screen .page element 1:1. html2canvas is given the
+      // element's exact box + a scroll reset so it captures the element reliably
+      // inside the popup (without explicit width/height/scroll it can hang or
+      // mis-capture when the popup is scrolled or the page is taller than the
+      // viewport — that was why the green button appeared to "do nothing"). The
+      // PDF page is then sized from the element so output matches the preview.
       var idx=0;
       function nextPage(){
         if(idx>=pages.length) return Promise.resolve();
         setHint('Rendering page '+(idx+1)+' of '+pages.length+'…');
         var pageEl=pages[idx];
-        return h2c(pageEl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false})
+        var ew=pageEl.offsetWidth, eh=pageEl.offsetHeight;
+        return h2c(pageEl,{
+          scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false,
+          width:ew, height:eh,
+          windowWidth:ew, windowHeight:eh,
+          scrollX:0, scrollY:0, x:0, y:0
+        })
           .then(function(canvas){
             var png=canvas.toDataURL('image/png');
             return pdfDoc.embedPng(png).then(function(pngImg){
-              // Size the PDF page from the actual element (demo line-for-line).
-              var pw=(pageEl.offsetWidth/96)*72;
-              var ph=(pageEl.offsetHeight/96)*72;
-              // Minimal sanity floor: only if the element reported nothing usable
-              // (never under normal rendering) fall back to letter so addPage can't
-              // throw on a NaN/zero. Does not alter any real page's size.
+              // Size the PDF page from the actual element (96dpi px -> 72pt points).
+              var pw=(ew/96)*72;
+              var ph=(eh/96)*72;
               if(!isFinite(pw)||pw<=0){pw=612;}
               if(!isFinite(ph)||ph<=0){ph=792;}
               var pg=pdfDoc.addPage([pw,ph]);
               pg.drawImage(pngImg,{x:0,y:0,width:pw,height:ph});
-              // --- Preserve clickable photo links (demo logic) ---
+              // --- Preserve clickable photo links ---
               try{
                 var pageRect=pageEl.getBoundingClientRect();
                 if(pageRect.width>0&&pageRect.height>0){
@@ -700,6 +711,14 @@ function _captureExportPDF(w,D,title,btn,hintEl){
               }catch(linkErr){/* links are best-effort; never block export */}
               idx++;return nextPage();
             });
+          })
+          .catch(function(pageErr){
+            // One page failing must NOT abort the whole export. Add a blank
+            // letter page in its place, log, and continue so the user still
+            // gets a PDF and can see which page didn't render.
+            try{console.error('[capture] page '+(idx+1)+' failed:',pageErr);}catch(e){}
+            try{pdfDoc.addPage([612,792]);}catch(e){}
+            idx++;return nextPage();
           });
       }
       return nextPage();
