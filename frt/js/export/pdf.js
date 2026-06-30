@@ -726,16 +726,7 @@ function _buildCSS(fontB64){
   c+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
   c+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-family:Calibri,sans-serif;font-size:11pt;line-height:1.23;}.pi-row:last-child{margin-bottom:0;}';
   c+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}.pi-value{flex:1;min-width:0;font-weight:400;color:#1C2333;overflow-wrap:break-word;}';
-  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;break-inside:avoid!important;page-break-inside:avoid!important;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}'
-   // Export PDF uses w.print(). Left to itself the browser RE-paginates with its
-   // own break logic and ignores the engine\'s .page boundaries, breaking a page
-   // right after a trade/contractor band and orphaning the title (the preview is
-   // correct because it renders the engine\'s fixed .page layout). The real fix:
-   // break-inside:avoid on .page forces each engine page to print as ONE physical
-   // page, so the printed output matches the preview exactly — no re-break, no
-   // orphan. The band rule below is a backup in case a page is taller than a sheet.
-   + '.th-band,.ch{break-after:avoid!important;page-break-after:avoid!important;break-inside:avoid!important;page-break-inside:avoid!important;}'
-   + '}';
+  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}}';
   c+='@page{size:letter;margin:0;}';
   // S346: named page sizes for the mixed-size appendix. Body pages use the
   // default @page (letter); appendix sheets tagged .p11x17/.p24x36 map to these.
@@ -1614,6 +1605,103 @@ var D=w.document;
 // genuinely pinned on phone + desktop), and the INNER child carries the zoom
 // counter-scale. Wrapper height is set to the inner's scaled height so the blue
 // strip is the right thickness. Verified on Mark's phone (holds size, stays pinned).
+// ============================================================================
+// CAPTURE EXPORT (S384) — make the exported PDF match the on-screen preview
+// EXACTLY. The old green button called w.print(), which lets the browser
+// RE-PAGINATE and ignore the engine's .page boundaries (orphaned band titles,
+// blank pages). Instead we photograph each .page div with html2canvas and drop
+// it 1:1 onto a PDF page sized from that element. What you see in the preview
+// is literally what lands in the PDF. Photo <a href> links are re-created as
+// PDF link annotations so clickable photos still work. (POC-proven approach.)
+// ============================================================================
+var _CAP_H2C_CDN='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+var _CAP_PDFLIB_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+function _capLoad(win,src,glob){
+  return new Promise(function(res,rej){
+    if(win[glob])return res();
+    var s=win.document.createElement('script');s.src=src;
+    s.onload=function(){res();};s.onerror=function(){rej(new Error('load fail '+src));};
+    win.document.head.appendChild(s);
+  });
+}
+function _capStatus(D,txt){
+  var s=D.getElementById('cap-status');
+  if(!s){
+    s=D.createElement('div');s.id='cap-status';
+    s.style.cssText='position:fixed;top:56px;left:0;right:0;z-index:9998;background:#1A7A4A;color:#fff;font:13px Calibri,sans-serif;padding:6px 20px;';
+    D.body.appendChild(s);
+  }
+  s.textContent=txt;s.style.display='block';
+}
+function _capHideStatus(D){var s=D.getElementById('cap-status');if(s)s.style.display='none';}
+function _captureExportPDF(w,D){
+  var bar=D.getElementById('pdf-btn-bar');
+  (async function(){
+    try{
+      _capStatus(D,'Loading export libraries…');
+      await _capLoad(w,_CAP_H2C_CDN,'html2canvas');
+      await _capLoad(w,_CAP_PDFLIB_CDN,'PDFLib');
+      var h2c=w.html2canvas, PDFLib=w.PDFLib;
+      _capStatus(D,'Waiting for fonts and photos…');
+      try{ if(D.fonts&&D.fonts.ready) await D.fonts.ready; }catch(e){}
+      var imgs=[].slice.call(D.querySelectorAll('.page img'));
+      await Promise.all(imgs.map(function(im){
+        if(im.complete && im.naturalWidth>0) return Promise.resolve();
+        return new Promise(function(r){im.addEventListener('load',r,{once:true});im.addEventListener('error',r,{once:true});});
+      }));
+      var pages=[].slice.call(D.querySelectorAll('.page'));
+      if(!pages.length){ _capStatus(D,'Nothing to export.'); return; }
+      if(bar) bar.style.display='none';
+      _capHideStatus(D);
+      var pdfDoc=await PDFLib.PDFDocument.create();
+      for(var i=0;i<pages.length;i++){
+        if(bar) bar.style.display='none';
+        _capStatus(D,'Rendering page '+(i+1)+' of '+pages.length+'…');
+        var pageEl=pages[i];
+        var ew=pageEl.offsetWidth, eh=pageEl.offsetHeight;
+        var canvas=await h2c(pageEl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:ew,height:eh,windowWidth:ew,windowHeight:eh,scrollX:0,scrollY:0});
+        var png=await pdfDoc.embedPng(canvas.toDataURL('image/png'));
+        var pw=(ew/96)*72, ph=(eh/96)*72;
+        if(!isFinite(pw)||pw<=0)pw=612; if(!isFinite(ph)||ph<=0)ph=792;
+        var pg=pdfDoc.addPage([pw,ph]);
+        pg.drawImage(png,{x:0,y:0,width:pw,height:ph});
+        try{
+          var pr=pageEl.getBoundingClientRect();
+          var sx=pw/pr.width, sy=ph/pr.height;
+          var links=[].slice.call(pageEl.querySelectorAll('a[href]'));
+          links.forEach(function(a){
+            var href=a.getAttribute('href')||'';
+            if(!/^https?:\/\//i.test(href))return;
+            var r=a.getBoundingClientRect();
+            if(r.width<2||r.height<2)return;
+            var x0=(r.left-pr.left)*sx, yTop=(r.top-pr.top)*sy, lw=r.width*sx, lh=r.height*sy;
+            var yBottom=ph-(yTop+lh);
+            var ctx=pdfDoc.context;
+            var annot=ctx.obj({Type:'Annot',Subtype:'Link',Rect:[x0,yBottom,x0+lw,yBottom+lh],Border:[0,0,0],A:ctx.obj({Type:'Action',S:'URI',URI:PDFLib.PDFString.of(href)})});
+            var ref=ctx.register(annot);
+            var ex=pg.node.Annots&&pg.node.Annots();
+            if(ex&&ex.push)ex.push(ref); else pg.node.set(PDFLib.PDFName.of('Annots'),ctx.obj([ref]));
+          });
+        }catch(e){}
+      }
+      _capStatus(D,'Saving PDF…');
+      var bytes=await pdfDoc.save();
+      var blob=new Blob([bytes],{type:'application/pdf'});
+      var url=URL.createObjectURL(blob);
+      var a=D.createElement('a');a.href=url;
+      a.download=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
+      D.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(url);},4000);
+      if(bar) bar.style.display='';
+      _capStatus(D,'Done — PDF downloaded. It matches this preview exactly.');
+      setTimeout(function(){_capHideStatus(D);},4000);
+    }catch(err){
+      if(bar) bar.style.display='';
+      _capStatus(D,'Export error: '+(err&&err.message?err.message:err));
+      try{console.error('[capture export]',err);}catch(e){}
+    }
+  })();
+}
 try{
   var barFix=D.createElement('div');barFix.id='pdf-btn-bar';
   barFix.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;overflow:hidden;background:#2C4770;box-shadow:0 2px 8px rgba(0,0,0,.3);';
@@ -1621,8 +1709,8 @@ try{
   bar.style.cssText='transform-origin:top left;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;will-change:transform,width;';
   var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
   pb.style.cssText='padding:8px 24px;background:#2E9E72;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
-  pb.onclick=function(){w.print();};bar.appendChild(pb);
-  var ht=D.createElement('span');ht.textContent='Click to save as PDF via your browser print dialog.';
+  pb.onclick=function(){_captureExportPDF(w,D);};bar.appendChild(pb);
+  var ht=D.createElement('span');ht.textContent='Click to save the report as a PDF (matches this preview exactly).';
   ht.style.cssText='color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';bar.appendChild(ht);
   var cb=D.createElement('button');cb.innerHTML='\u2715 Close';
   cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
