@@ -54,10 +54,10 @@ function _styleOnce() {
   st.textContent = [
     '#exv-ov{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;overflow:auto;padding:18px 14px;font-family:Calibri,sans-serif;}',
     '.exv-w{background:var(--bg,#fff);color:var(--fg,#1C2333);width:100%;max-width:1060px;max-height:calc(100vh - 36px);display:flex;flex-direction:column;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3);}',
-    '.exv-h{flex:none;background:linear-gradient(135deg,#1B2438,#243048);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;}',
+    '.exv-h{flex:none;background:linear-gradient(135deg,#9C2742,#7E1F36);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;}',
     '.exv-h .t{font-size:calc(18px + var(--ts,0px));font-weight:700;letter-spacing:.3px;}',
-    '.exv-h .s{font-size:calc(12px + var(--ts,0px));color:#9FB0CC;margin-top:2px;}',
-    '.exv-h .x{color:#9FB0CC;font-size:20px;cursor:pointer;border:0;background:none;}',
+    '.exv-h .s{font-size:calc(12px + var(--ts,0px));color:#F0D4DB;margin-top:2px;}',
+    '.exv-h .x{color:#F0D4DB;font-size:20px;cursor:pointer;border:0;background:none;}',
     '.exv-b{flex:1 1 auto;min-height:0;overflow-y:auto;padding:18px 24px;}',
     '.exv-sec{margin-bottom:16px;}',
     '.exv-sh{font-size:calc(13px + var(--ts,0px));font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#4F6788;margin-bottom:8px;border-bottom:1px solid var(--border,#E4E8EE);padding-bottom:5px;display:flex;justify-content:space-between;align-items:center;}',
@@ -72,7 +72,7 @@ function _styleOnce() {
     '.exv-mrow.on{background:rgba(156,39,66,.06);}',
     '.exv-mall{background:var(--card2,#F2F4F8);font-weight:700;}',
     '.exv-msep{height:1px;background:var(--border,#E4E8EE);}',
-    '.exv-mbox{width:18px;height:18px;flex:0 0 auto;border:2px solid var(--steel,#9AA3B0);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;line-height:1;}',
+    '.exv-mbox{width:18px;height:18px;flex:0 0 auto;border:2px solid var(--steel,#7A8699);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;line-height:1;background:#fff;}',
     '.exv-mrow.on .exv-mbox{background:#9C2742;border-color:#9C2742;}',
     '.exv-mdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}',
     '.exv-mname{flex:1;font-size:calc(14px + var(--ts,0px));font-weight:600;color:var(--fg,#1C2333);}',
@@ -152,7 +152,7 @@ export var initExportView = {
     if (_hasGeneral) {
       _ctrMultiHtml += '<div class="exv-msep"></div>'
         + '<div class="exv-mrow" data-id="__general__" data-n="Site Records">'
-        + '<span class="exv-mbox">&#10003;</span><span class="exv-mdot" style="background:#928E9C;"></span>'
+        + '<span class="exv-mbox"></span><span class="exv-mdot" style="background:#928E9C;"></span>'
         + '<span class="exv-mname">Site Records (internal)</span></div>';
     }
     _ctrMultiHtml += '<div class="exv-mhint">Untick "All contractors" to choose a subset.</div></div>';

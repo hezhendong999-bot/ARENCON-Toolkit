@@ -66,16 +66,26 @@ function _descHtml(raw){
   return out||esc(t);
 }
 
+// S(this) — MINIMAP SPEED: cache decoded drawing Images keyed by dataURL so a
+// drawing with N pins decodes ONCE instead of N times. Decoding a large drawing
+// dataURL was the dominant cost (10 pins on one sheet = 10 full decodes). The
+// decoded Image is read-only and reused across every pin/job. Map lives for the
+// life of one export (the print window), then is GC'd with the window.
+var _dwgImgCache=Object.create(null);
+function _getDecodedDrawing(dataUrl){
+  return new Promise(function(res,rej){
+    var c=_dwgImgCache[dataUrl];
+    if(c){ if(c.img){res(c.img);} else {c.waiters.push(res);} return; }
+    var entry={img:null,waiters:[res]};_dwgImgCache[dataUrl]=entry;
+    var img=new Image();
+    img.onload=function(){entry.img=img;var ws=entry.waiters;entry.waiters=[];ws.forEach(function(w){w(img);});};
+    img.onerror=function(){var ws=entry.waiters;entry.waiters=[];ws.forEach(function(w){w(null);});delete _dwgImgCache[dataUrl];};
+    img.src=dataUrl;
+  });
+}
 function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
-  var img=new Image();
-  img.onload=function(){
-    // S118 design lock: tighter crop (0.25→0.22) and bigger pin teardrop. Mark's
-    // "20% smaller than the v11 mockup, still legible" target = ~24px display
-    // size on the 160px-wide dc-mini box. Canvas-to-display ratio is 5×, so
-    // canvas pinW≈120 hits the target (was Math.max(28, outW*0.07)=56).
-    // S118 design lock + S336: crop fraction sets the minimap zoom. Zoomed out
-    // ~15% (0.22->0.253), then another ~15% (->0.291) per Mark; floors scaled to
-    // match (460->529, 345->397). Net ~32% more context around the pin than S118.
+  _getDecodedDrawing(dwgDataUrl).then(function(img){
+    if(!img){callback(dwgDataUrl);return;}
     var cropFrac=0.291;
     var cropW=Math.max(img.width*cropFrac,529);var cropH=Math.max(img.height*cropFrac,397);
     var px=(pinData.pinX||0.5)*img.width;var py=(pinData.pinY||0.5)*img.height;
@@ -86,40 +96,29 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
-    // S118: outW*0.15 ≈ 24px. S336: reduced ~10% (->0.135), then another ~10%
-    // (->0.1215) per Mark; floor 60->54->49. Net ~19% smaller than S118.
     var pinW=Math.max(49,outW*0.1215);
     _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData,isSiteRecord);
     callback(canvas.toDataURL('image/jpeg',0.92));
-  };
-  img.src=dwgDataUrl;
+  });
 }
 
 function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize){
-  var img=new Image();
-  img.onload=function(){
+  _getDecodedDrawing(dwgDataUrl).then(function(img){
+    if(!img){callback(dwgDataUrl);return;}
     var MAX_PX=5000000;var scale=Math.min(1,Math.sqrt(MAX_PX/(img.width*img.height)));
     var w=Math.round(img.width*scale);var h=Math.round(img.height*scale);
     var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
-    // S346 (Mark): pin size is a fraction of the rendered drawing width. On the
-    // big landscape sheets that fraction makes pins huge (24x36 "way too big",
-    // 11x17 "a little big"). Shrink the factor per sheet size so a pin reads at
-    // roughly consistent physical size regardless of paper. Letter unchanged.
     var _pinFrac=(pageSize==='24x36')?0.014:(pageSize==='11x17')?0.022:0.028;
     var pinW=Math.max(28,w*_pinFrac);
     pins.forEach(function(rr){
       var d=rr.d;if(d.pinX==null)return;
       var px=d.pinX*w;var py=d.pinY*h;
-      // S154 PIN-COLOUR-OVERHAUL: derive isSiteRecord per-pin so a Site
-      // Record entry on the full-drawing overview gets the indigo teardrop
-      // just like its dedicated minimap does.
       var _isSr=isSiteRecordsName(rr.ctr);
       _drawTeardropPin(ctx,px,py,pinW,d,_isSr);
     });
     callback(canvas.toDataURL('image/jpeg',0.92));
-  };
-  img.src=dwgDataUrl;
+  });
 }
 
 // S113 Push 12: teardrop pin matches the viewer's SVG path EXACTLY.
@@ -2213,7 +2212,7 @@ if(isField){
         var job=jobs[qi];var du=dwgMap[job.drawingId].dataUrl;
         _renderDrawingWithPins(du,job.pins,function(rendered){
           try{var ae=D.getElementById(job.imgId);if(ae)ae.src=rendered;}catch(x){}
-          qi++;setTimeout(nextJob,50);
+          qi++;nextJob();
         },_drawPageSize);
       }
       // Per-card minimap teardrops (one image per obs row across the report body).
@@ -2223,17 +2222,17 @@ if(isField){
           if(mi>=_mmPins.length)return;var r=_mmPins[mi];
           var info=dwgMap[r.d.drawingId];
           var _mmKey=r.d.id+'-'+r.obsIdx;
-          if(!info||!info.dataUrl||_mmDone[_mmKey]){mi++;setTimeout(nextMm,5);return;}
+          if(!info||!info.dataUrl||_mmDone[_mmKey]){mi++;nextMm();return;}
           _mmDone[_mmKey]=1;
           try{var els=D.querySelectorAll('[data-mm="'+_mmKey+'"]');
             var _isSr=isSiteRecordsName(r.ctr);
-            if(els&&els.length){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{for(var ei=0;ei<els.length;ei++){els[ei].src=su;}}catch(x){}mi++;setTimeout(nextMm,5);},_isSr);}
-            else{mi++;setTimeout(nextMm,5);}
-          }catch(x){mi++;setTimeout(nextMm,5);}
+            if(els&&els.length){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{for(var ei=0;ei<els.length;ei++){els[ei].src=su;}}catch(x){}mi++;nextMm();},_isSr);}
+            else{mi++;nextMm();}
+          }catch(x){mi++;nextMm();}
         }
         nextMm();
       }
-      setTimeout(nextJob,200);
+      nextJob();
     });
   }
 }
