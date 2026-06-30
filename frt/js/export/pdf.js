@@ -1952,7 +1952,20 @@ if(_recsMode!=='only'&&_dashHtmlFull&&FULL_HEADER_H>PAGE_H){
 }
 var COMPACT_HEADER_H=_measure(_compactHeader(2));
 var pages=[];var curPageHtml='';var curUsed=0;var curPageNum=1;var isFirstPage=true;
-function _startPage(){curPageHtml='';curUsed=0;if(isFirstPage){curPageHtml+=fullHeader+infoGrid+summaryHtml;curUsed+=FULL_HEADER_H;isFirstPage=false;}}
+function _startPage(){
+  curPageHtml='';curUsed=0;
+  if(isFirstPage){
+    curPageHtml+=fullHeader+infoGrid+summaryHtml;curUsed+=FULL_HEADER_H;isFirstPage=false;
+  }else{
+    // CRITICAL: pages 2+ get a compact running header injected at RENDER time
+    // (the pages.forEach loop adds _compactHeader(pn) before .page-content).
+    // That header is ~49px and was NEVER counted in the page budget, so the
+    // engine filled cards to the full PAGE_H and the render-time header pushed
+    // the page content past the usable area — overflowing 2 pages to 1147/1075.
+    // Reserve it here so curUsed reflects the real space the cards have.
+    curUsed+=COMPACT_HEADER_H;
+  }
+}
 function _finalizePage(){if(curPageHtml.trim()){pages.push({html:curPageHtml,pageNum:curPageNum});curPageNum++;}}
 _startPage();
 // S284 (Mark-approved): page 1 is the summary dashboard; deficiency items
