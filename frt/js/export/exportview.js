@@ -66,18 +66,25 @@ function _styleOnce() {
     '.exv-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;}',
     '.exv-fld label{display:block;font-size:calc(13px + var(--ts,0px));font-weight:600;color:var(--steel,#4A5568);margin-bottom:4px;}',
     '.exv-fld select,.exv-fld input[type=text]{width:100%;padding:8px 10px;border:1.5px solid var(--border,#D5DBE3);border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts,0px));background:var(--card,#fff);color:var(--fg,#1C2333);}',
-    '.exv-multi{border:1.5px solid var(--border,#D5DBE3);border-radius:8px;overflow:hidden;background:var(--card,#fff);}',
-    '.exv-mrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border,#E4E8EE);cursor:pointer;user-select:none;transition:background .12s;}',
+    // Contractor multi-select: pinned to an explicit dark panel with explicitly
+    // LIGHT text on EVERY row — selected or not. Previously rows had no own
+    // background (transparent over --card) and the name used --fg, so a deselected
+    // row could land light-text-on-light-surface = invisible. Now every row carries
+    // its own surface + ink, so it is always readable regardless of host theme or
+    // selection state.
+    '.exv-multi{border:1.5px solid #3a4254;border-radius:8px;overflow:hidden;background:#1c2230;}',
+    '.exv-mrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #2c3444;cursor:pointer;user-select:none;transition:background .12s;background:#1c2230;}',
     '.exv-mrow:last-of-type{border-bottom:none;}',
-    '.exv-mrow.on{background:rgba(44,71,112,.06);}',
-    '.exv-mall{background:var(--card2,#F2F4F8);font-weight:700;}',
-    '.exv-msep{height:1px;background:var(--border,#E4E8EE);}',
-    '.exv-mbox{width:18px;height:18px;flex:0 0 auto;border:2px solid var(--steel,#9AA3B0);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;line-height:1;}',
+    '.exv-mrow.on{background:#2a3346;}',
+    '.exv-mall{background:#242c3c;font-weight:700;}',
+    '.exv-mall.on{background:#2f3a4f;}',
+    '.exv-msep{height:1px;background:#2c3444;}',
+    '.exv-mbox{width:18px;height:18px;flex:0 0 auto;border:2px solid #6b7589;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;line-height:1;background:transparent;}',
     '.exv-mrow.on .exv-mbox{background:#2C4770;border-color:#2C4770;}',
     '.exv-mdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}',
-    '.exv-mname{flex:1;font-size:calc(14px + var(--ts,0px));font-weight:600;color:var(--fg,#1C2333);}',
-    '.exv-mct{font-size:calc(12px + var(--ts,0px));color:var(--steel,#5A6373);font-variant-numeric:tabular-nums;}',
-    '.exv-mhint{font-size:calc(11px + var(--ts,0px));color:var(--steel,#928E9C);padding:8px 12px;background:var(--card2,#FAFAFB);}',
+    '.exv-mname{flex:1;font-size:calc(14px + var(--ts,0px));font-weight:600;color:#eef1f6;}',
+    '.exv-mct{font-size:calc(12px + var(--ts,0px));color:#aab2c4;font-variant-numeric:tabular-nums;}',
+    '.exv-mhint{font-size:calc(11px + var(--ts,0px));color:#aab2c4;padding:8px 12px;background:#242c3c;}',
     '.exv-chk{display:flex;align-items:center;gap:8px;font-size:calc(13px + var(--ts,0px));color:var(--fg,#33415C);padding:5px 0;cursor:pointer;}',
     '.exv-chk input{width:15px;height:15px;}',
     '.exv-tw{display:flex;gap:8px;align-items:stretch;}',

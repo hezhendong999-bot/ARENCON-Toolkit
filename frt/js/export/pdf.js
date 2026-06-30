@@ -676,12 +676,20 @@ function _captureExportPDF(w,D,title,btn,hintEl){
               else if(pageEl.classList.contains('p24x36')){ pw=2592; ph=1728; } // 36x24
               // If the captured canvas aspect disagrees (e.g. a sheet grew), fall
               // back to the canvas aspect scaled to letter width so nothing clips.
+              // Guard against non-finite values: a failed/oversized html2canvas
+              // render can yield 0 or NaN canvas dims, and chh/cw could be NaN or
+              // Infinity → addPage([612, NaN]) throws the "type NaN" error seen in
+              // the field. Only adjust ph when aspect is a sane finite ratio; else
+              // keep the deterministic letter height. (Belt-and-suspenders: the
+              // fixed-height page change above already prevents over-tall pages.)
               var cw=canvas.width, chh=canvas.height;
               if(cw>0&&chh>0){
                 var aspect=chh/cw;
-                // keep width, set height from real captured aspect (guards odd cards)
-                ph = pw*aspect;
+                if(isFinite(aspect)&&aspect>0&&aspect<8){
+                  ph = pw*aspect;
+                }
               }
+              if(!isFinite(pw)||!isFinite(ph)||pw<=0||ph<=0){pw=612;ph=792;}
               var pg=pdfDoc.addPage([pw,ph]);
               pg.drawImage(pngImg,{x:0,y:0,width:pw,height:ph});
               // --- Preserve clickable photo links ---
@@ -743,12 +751,21 @@ function _buildCSS(fontB64){
   c+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11pt;line-height:1.23;background:#525659;margin:0;padding:20px;}';
   if(fontB64){c+='@font-face{font-family:"BlairMdITC TT";src:url(data:font/truetype;base64,'+fontB64+') format("truetype");font-weight:normal;font-style:normal;}';}
   var blairFam=fontB64?'"BlairMdITC TT","Times New Roman",serif':'Calibri,sans-serif';
-  c+='.page{width:8.5in;min-height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
+  // S(this): FIXED height (not min-height) on body Letter pages. With min-height a
+  // page that the flow engine slightly over-filled would GROW past 11in, and the
+  // capture rendered that over-tall element as one giant PDF page (the stacked
+  // half-sheets bug: an item tail + a fresh header/bands + the next item all packed
+  // into one captured "page"). Fixed height + overflow:hidden makes each sheet a
+  // true 11in page, exactly like the approved demo POC. Appendix sheets (.p11x17 /
+  // .p24x36) intentionally KEEP min-height — they size to their own drawing content.
+  c+='.page{width:8.5in;height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
   // S346: appendix sheets can take a larger landscape size. Body pages stay
   // Letter (default .page). These override only width/min-height; the named
   // @page rules below drive the actual printed paper size (mixed-size PDF).
-  c+='.page.p11x17{width:17in;min-height:11in;}';
-  c+='.page.p24x36{width:36in;min-height:24in;}';
+  c+='.page.p11x17{width:17in;height:auto;min-height:11in;}';
+  c+='.page.p24x36{width:36in;height:auto;min-height:24in;}';
+  // S(this): appendix pages (any size, incl. letter) size to their drawing content.
+  c+='.page.page-appendix{height:auto;min-height:11in;}';
   // S346: appendix split — drawing LEFT (flexes), deficiency list RIGHT at a
   // FIXED 5.4in width (identical column on every sheet size; 24x36 gives its
   // extra room to the drawing, not the list). List reuses the body .dc cards.
@@ -2024,16 +2041,34 @@ function _flowBlock(block){
       var headH=_measure(cH+cF);
       var firstRowH=_measure('<div class="dc-split'+sp[1]+cF);
       if(avail < headH+firstRowH && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-      curPageHtml+=cH;curUsed+=_measure(cH+cF);
+      // Place the head once. Measure the head ALONE (cF is appended at the very end,
+      // and on continuation pages _contHead is re-emitted) — measuring cH+cF here
+      // double-counted the empty card tail and inflated curUsed, which with the new
+      // fixed-height pages could trigger a premature break.
+      var headOnlyH=_measure(cH);
+      curPageHtml+=cH;curUsed+=headOnlyH;
+      // rowsOnPage prevents an empty (row-less) page / infinite loop. headUsedThisPage
+      // = how much of THIS page the head currently occupies, so we can detect the rare
+      // "head + first row > page" case (a deficiency with a very long text head and no
+      // early photo row): there the row must go to the next page or it would clip.
+      var rowsOnPage=0;
+      var headUsedThisPage=headOnlyH;
       for(var si=1;si<sp.length;si++){
         var sH='<div class="dc-split'+sp[si];var sHt=_measure(sH);
-        if(curUsed+sHt>PAGE_H && si>1){
+        // Break before any row that would overflow the fixed-height page. Normally we
+        // keep >=1 row per page (rowsOnPage>0). But if no row has landed yet AND the
+        // head alone already leaves no room for even this row, break anyway so the row
+        // continues on a fresh page under _contHead instead of clipping. _contHead is
+        // short, so its own first row always fits — no infinite loop.
+        if(curUsed+sHt>PAGE_H && (rowsOnPage>0 || headUsedThisPage+sHt>PAGE_H)){
           curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
           _finalizePage();_startPage();_restamp();
           curPageHtml+=_contHead;
-          curUsed+=_measure(_contHead+cF);
+          var contH=_measure(_contHead);
+          curUsed+=contH;
+          rowsOnPage=0;headUsedThisPage=contH;
         }
-        curPageHtml+=sH;curUsed+=sHt;
+        curPageHtml+=sH;curUsed+=sHt;rowsOnPage++;
       }
       curPageHtml+=cF;
     }
@@ -2348,7 +2383,11 @@ var allH='';
 pages.forEach(function(pg,idx){
   // S346: appendix pages carry the chosen drawing-sheet size class (.p11x17 /
   // .p24x36). Body pages and 'letter' appendix pages stay default .page.
+  // S(this): ALL appendix pages also get .page-appendix so they keep height:auto
+  // (a letter-sized drawing appendix must size to its drawing, not clip at the new
+  // fixed 11in body-page height). Body pages keep the fixed height.
   var _pgCls='page';
+  if(pg.isAppendix)_pgCls+=' page-appendix';
   if(pg.isAppendix&&pg.appSize&&pg.appSize!=='letter')_pgCls+=' '+(pg.appSize==='11x17'?'p11x17':'p24x36');
   var pn=idx+1;allH+='<div class="'+_pgCls+'">';
   if(pn>1)allH+=_compactHeader(pn);
