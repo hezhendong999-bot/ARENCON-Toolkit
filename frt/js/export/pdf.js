@@ -548,6 +548,172 @@ function _pdfPhotoFullHref(ph){
   return '';
 }
 
+// ===========================================================================
+// S(this) — Stage 1: capture-mode PDF export.
+// Renders the export popup's already-correct .page sheets to a PDF EXACTLY as
+// shown, bypassing the browser print dialog (which re-paginated the layout, added
+// browser headers/footers, and squeezed the content width). This does NOT change
+// how pages are built — photos, photo links, drawing minimaps, fonts, and
+// pagination are all produced by the existing pipeline untouched. It only changes
+// the final "make a PDF" step from w.print() to a faithful canvas capture.
+// ===========================================================================
+var _CAP_HTML2CANVAS_CDN='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+var _CAP_PDFLIB_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+
+// Load a script INTO the popup window (w), resolving when ready.
+function _capLoadScriptInto(w,src,globalName){
+  return new Promise(function(res,rej){
+    try{
+      if(globalName&&w[globalName])return res();
+      var s=w.document.createElement('script');s.src=src;
+      s.onload=function(){res();};s.onerror=function(){rej(new Error('load fail '+src));};
+      w.document.head.appendChild(s);
+    }catch(e){rej(e);}
+  });
+}
+
+// Wait until every <img> in the popup is fully loaded (non-empty src + complete +
+// naturalWidth>0). The drawing minimaps render async (their src is assigned after
+// pagination), so this is essential — capturing early would yield blank drawings.
+// Polls with a hard timeout so export can never hang.
+function _capWaitForImages(D,timeoutMs){
+  return new Promise(function(res){
+    var start=Date.now();
+    function ready(){
+      var imgs=D.querySelectorAll('img');
+      for(var i=0;i<imgs.length;i++){
+        var im=imgs[i];
+        // An image is "settled" if it has a src AND finished (complete) AND has
+        // real pixels (naturalWidth>0). Images with empty src are still pending
+        // async assignment (drawing minimaps) — keep waiting for those.
+        if(!im.getAttribute('src')) return false;
+        if(!im.complete||im.naturalWidth===0) return false;
+      }
+      return true;
+    }
+    (function poll(){
+      if(ready()||Date.now()-start>timeoutMs)return res();
+      setTimeout(poll,120);
+    })();
+  });
+}
+
+// Add a clickable URI link annotation to a pdf-lib page rectangle.
+// PDFLib is the popup window's PDFLib instance (w.PDFLib).
+function _capAddLinkAnnot(PDFLib,pdfDoc,pg,x,y,wid,hei,uri){
+  try{
+    var ctx=pdfDoc.context;
+    var annot=ctx.obj({
+      Type:'Annot', Subtype:'Link',
+      Rect:[x,y,x+wid,y+hei],
+      Border:[0,0,0],
+      A:ctx.obj({ Type:'Action', S:'URI', URI:PDFLib.PDFString.of(uri) })
+    });
+    var ref=ctx.register(annot);
+    var node=pg.node;
+    var existing=node.Annots&&node.Annots();
+    if(existing&&existing.push){existing.push(ref);}
+    else{node.set(PDFLib.PDFName.of('Annots'), ctx.obj([ref]));}
+  }catch(e){/* best-effort; never block export */}
+}
+
+function _captureExportPDF(w,D,title,btn,hintEl){
+  var origBtnHtml=btn.innerHTML;
+  function setHint(t){try{if(hintEl)hintEl.textContent=t;}catch(e){}}
+  btn.disabled=true;btn.style.opacity='0.6';btn.innerHTML='Working…';
+  setHint('Loading export engine…');
+  Promise.all([
+    _capLoadScriptInto(w,_CAP_HTML2CANVAS_CDN,'html2canvas'),
+    _capLoadScriptInto(w,_CAP_PDFLIB_CDN,'PDFLib')
+  ]).then(function(){
+    setHint('Waiting for photos & drawings to finish loading…');
+    return _capWaitForImages(D, 20000);
+  }).then(function(){
+    var h2c=w.html2canvas, PDFLib=w.PDFLib;
+    if(!h2c||!PDFLib) throw new Error('capture libraries unavailable');
+    var pages=D.querySelectorAll('.page');
+    if(!pages.length) throw new Error('no pages to export');
+    // Hide the fixed button bar so it isn't captured.
+    var barEl=D.getElementById('pdf-btn-bar');var barPrev=barEl?barEl.style.display:null;
+    if(barEl)barEl.style.display='none';
+    var bodyPadPrev=D.body.style.paddingTop;D.body.style.paddingTop='0';
+
+    var pdfDoc;
+    return PDFLib.PDFDocument.create().then(function(doc){
+      pdfDoc=doc;
+      // Letter portrait by default; appendix sheets may be wider — size each PDF
+      // page to its captured aspect ratio so 11x17 / 24x36 appendix sheets keep
+      // their proportions instead of being squashed onto letter.
+      var idx=0;
+      function nextPage(){
+        if(idx>=pages.length) return Promise.resolve();
+        setHint('Rendering page '+(idx+1)+' of '+pages.length+'…');
+        return h2c(pages[idx],{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,
+          width:pages[idx].offsetWidth,height:pages[idx].offsetHeight,windowWidth:pages[idx].offsetWidth})
+          .then(function(canvas){
+            var png=canvas.toDataURL('image/png');
+            return pdfDoc.embedPng(png).then(function(pngImg){
+              // Page size in points: derive from the captured pixel aspect at 72pt/in.
+              // Letter content sheet is 8.5x11in. We size the PDF page to match the
+              // .page element's real on-screen size in inches (offsetWidth/96).
+              var pageEl=pages[idx];
+              var wIn=pageEl.offsetWidth/96, hIn=pageEl.offsetHeight/96;
+              var pw=wIn*72, ph=hIn*72;
+              var pg=pdfDoc.addPage([pw,ph]);
+              pg.drawImage(pngImg,{x:0,y:0,width:pw,height:ph});
+              // --- Preserve clickable photo links ---
+              // Capture rasterizes the page, so the <a href> photo links would be
+              // lost. Re-create them as PDF link annotations at the matching
+              // coordinates: for each <a> with an http(s) href inside this .page,
+              // map its rect (relative to the page) into PDF points (origin
+              // bottom-left, so flip Y) and add a link annotation.
+              try{
+                var pageRect=pageEl.getBoundingClientRect();
+                var sx=pw/pageRect.width, sy=ph/pageRect.height;
+                var anchors=pageEl.querySelectorAll('a[href]');
+                for(var ai=0;ai<anchors.length;ai++){
+                  var href=anchors[ai].getAttribute('href')||'';
+                  if(!/^https?:\/\//i.test(href))continue;
+                  var r=anchors[ai].getBoundingClientRect();
+                  if(r.width<2||r.height<2)continue;
+                  var x0=(r.left-pageRect.left)*sx;
+                  var y0Top=(r.top-pageRect.top)*sy;
+                  var lw=r.width*sx, lh=r.height*sy;
+                  // PDF y origin is bottom-left.
+                  var yBottom=ph-(y0Top+lh);
+                  _capAddLinkAnnot(PDFLib,pdfDoc,pg,x0,yBottom,lw,lh,href);
+                }
+              }catch(linkErr){/* links are best-effort; never block export */}
+              idx++;return nextPage();
+            });
+          });
+      }
+      return nextPage();
+    }).then(function(){
+      setHint('Finalizing…');
+      return pdfDoc.save();
+    }).then(function(bytes){
+      // restore UI
+      if(barEl)barEl.style.display=(barPrev||'');
+      D.body.style.paddingTop=bodyPadPrev;
+      var fname=(title||'ARENCON_Report').replace(/[\\/:*?"<>|]+/g,'_')+'.pdf';
+      var blob=new Blob([bytes],{type:'application/pdf'});
+      var url=(w.URL||w.webkitURL).createObjectURL(blob);
+      var a=D.createElement('a');a.href=url;a.download=fname;D.body.appendChild(a);a.click();
+      setTimeout(function(){try{(w.URL||w.webkitURL).revokeObjectURL(url);a.remove();}catch(e){}},2000);
+      btn.disabled=false;btn.style.opacity='';btn.innerHTML=origBtnHtml;
+      setHint('Saved '+fname+'. If anything looks off, use Browser Print as a fallback.');
+    });
+  }).catch(function(err){
+    // Any failure → restore button and fall back to the browser print dialog.
+    try{var barEl2=D.getElementById('pdf-btn-bar');if(barEl2)barEl2.style.display='';}catch(e){}
+    btn.disabled=false;btn.style.opacity='';btn.innerHTML=origBtnHtml;
+    setHint('Capture unavailable ('+(err&&err.message||'error')+') — using browser print instead.');
+    try{w.print();}catch(e){}
+  });
+}
+
+
 function _buildCSS(fontB64){
   var c='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
   c+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11pt;line-height:1.23;background:#525659;margin:0;padding:20px;}';
@@ -1623,7 +1789,17 @@ try{
   bar.style.cssText='transform-origin:top left;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;will-change:transform,width;';
   var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
   pb.style.cssText='padding:8px 24px;background:#2E9E72;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
-  pb.onclick=function(){w.print();};bar.appendChild(pb);
+  // S(this) — Stage 1 capture-mode export. Replaces the browser print dialog
+  // (which re-paginated the layout, added browser headers, squeezed the width)
+  // with a faithful capture: each .page is rendered to canvas EXACTLY as shown
+  // and assembled into a letter PDF. Waits for ALL images (cached photos AND the
+  // async-rendered drawing minimaps) before capturing so nothing is blank.
+  // Falls back to w.print() if the capture libraries fail to load.
+  pb.onclick=function(){_captureExportPDF(w,D,_pdfTitle,pb,ht);};bar.appendChild(pb);
+  var pbPrint=D.createElement('button');pbPrint.innerHTML='\uD83D\uDDA8 Browser Print';
+  pbPrint.style.cssText='padding:8px 18px;background:#7B6F5A;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
+  pbPrint.title='Fallback: save via the browser print dialog.';
+  pbPrint.onclick=function(){w.print();};bar.appendChild(pbPrint);
   var ht=D.createElement('span');ht.textContent='Click to save as PDF via your browser print dialog.';
   ht.style.cssText='color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';bar.appendChild(ht);
   var cb=D.createElement('button');cb.innerHTML='\u2715 Close';
