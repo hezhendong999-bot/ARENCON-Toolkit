@@ -69,11 +69,11 @@ function _styleOnce() {
     '.exv-multi{border:1.5px solid var(--border,#D5DBE3);border-radius:8px;overflow:hidden;background:var(--card,#fff);}',
     '.exv-mrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border,#E4E8EE);cursor:pointer;user-select:none;transition:background .12s;}',
     '.exv-mrow:last-of-type{border-bottom:none;}',
-    '.exv-mrow.on{background:rgba(156,39,66,.06);}',
+    '.exv-mrow.on{background:rgba(44,71,112,.06);}',
     '.exv-mall{background:var(--card2,#F2F4F8);font-weight:700;}',
     '.exv-msep{height:1px;background:var(--border,#E4E8EE);}',
     '.exv-mbox{width:18px;height:18px;flex:0 0 auto;border:2px solid var(--steel,#9AA3B0);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;line-height:1;}',
-    '.exv-mrow.on .exv-mbox{background:#9C2742;border-color:#9C2742;}',
+    '.exv-mrow.on .exv-mbox{background:#2C4770;border-color:#2C4770;}',
     '.exv-mdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}',
     '.exv-mname{flex:1;font-size:calc(14px + var(--ts,0px));font-weight:600;color:var(--fg,#1C2333);}',
     '.exv-mct{font-size:calc(12px + var(--ts,0px));color:var(--steel,#5A6373);font-variant-numeric:tabular-nums;}',
@@ -152,7 +152,7 @@ export var initExportView = {
     if (_hasGeneral) {
       _ctrMultiHtml += '<div class="exv-msep"></div>'
         + '<div class="exv-mrow" data-id="__general__" data-n="Site Records">'
-        + '<span class="exv-mbox">&#10003;</span><span class="exv-mdot" style="background:#928E9C;"></span>'
+        + '<span class="exv-mbox"></span><span class="exv-mdot" style="background:#928E9C;"></span>'
         + '<span class="exv-mname">Site Records (internal)</span></div>';
     }
     _ctrMultiHtml += '<div class="exv-mhint">Untick "All contractors" to choose a subset.</div></div>';
