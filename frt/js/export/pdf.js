@@ -757,8 +757,8 @@ function _buildCSS(fontB64){
   // S139 Phase 3: .ch is now the CONTRACTOR SUB-BAND nested under a navy
   // .th-band trade header — taupe #7B6F5A (canon PDF spec), no top radius
   // or top margin since it butts against the trade band above it.
-  c+='.ch{background:#7B6F5A;color:white;padding:6px 14px;font-weight:700;font-size:10.5pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
-  c+='.th-band{background:#2A3A5C;color:#fff;padding:8px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:18px;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
+  c+='.ch{background:#7B6F5A;color:white;padding:6px 14px;font-weight:700;font-size:10.5pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;break-after:avoid;page-break-after:avoid;break-inside:avoid;page-break-inside:avoid;}';
+  c+='.th-band{background:#2A3A5C;color:#fff;padding:8px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:18px;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;break-after:avoid;page-break-after:avoid;break-inside:avoid;page-break-inside:avoid;}';
   // S142 Batch 3-3 (Model 2 §4.4): pooled "Recommendations" section.
   // .th-band.recs = grey band (demo --grey #6B7280, distinct from the
   // navy trade bands); .rec-cap = the advisory caption row directly under
