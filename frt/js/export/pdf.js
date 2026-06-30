@@ -1659,15 +1659,26 @@ function _captureExportPDF(w,D){
         _capStatus(D,'Rendering page '+(i+1)+' of '+pages.length+'…');
         var pageEl=pages[i];
         var ew=pageEl.offsetWidth, eh=pageEl.offsetHeight;
+        // Fall back to a Letter element box if the element couldn't be measured
+        // (auto-height appendix pages, off-screen pages, zero-size, etc.).
+        if(!isFinite(ew)||ew<=0) ew=816;   // 8.5in @96dpi
+        if(!isFinite(eh)||eh<=0) eh=1056;  // 11in  @96dpi
         var canvas=await h2c(pageEl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:ew,height:eh,windowWidth:ew,windowHeight:eh,scrollX:0,scrollY:0});
-        var png=await pdfDoc.embedPng(canvas.toDataURL('image/png'));
-        var pw=(ew/96)*72, ph=(eh/96)*72;
-        if(!isFinite(pw)||pw<=0)pw=612; if(!isFinite(ph)||ph<=0)ph=792;
+        // Size the PDF page from the ACTUAL canvas pixels (scale:2 -> /2 back to
+        // CSS px -> 72/96 to points). canvas dims are always finite integers, so
+        // this can never feed NaN into addPage. Fall back to Letter if somehow 0.
+        var cssW=(canvas.width||ew*2)/2, cssH=(canvas.height||eh*2)/2;
+        var pw=(cssW/96)*72, ph=(cssH/96)*72;
+        if(!isFinite(pw)||pw<=0) pw=612;   // 8.5in in points
+        if(!isFinite(ph)||ph<=0) ph=792;   // 11in  in points
+        var png;
+        try{ png=await pdfDoc.embedPng(canvas.toDataURL('image/png')); }
+        catch(ep){ _capStatus(D,'Skipped a blank page ('+(i+1)+').'); continue; }
         var pg=pdfDoc.addPage([pw,ph]);
         pg.drawImage(png,{x:0,y:0,width:pw,height:ph});
         try{
           var pr=pageEl.getBoundingClientRect();
-          var sx=pw/pr.width, sy=ph/pr.height;
+          var sx=pw/(pr.width||cssW), sy=ph/(pr.height||cssH);
           var links=[].slice.call(pageEl.querySelectorAll('a[href]'));
           links.forEach(function(a){
             var href=a.getAttribute('href')||'';
