@@ -726,7 +726,16 @@ function _buildCSS(fontB64){
   c+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
   c+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-family:Calibri,sans-serif;font-size:11pt;line-height:1.23;}.pi-row:last-child{margin-bottom:0;}';
   c+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}.pi-value{flex:1;min-width:0;font-weight:400;color:#1C2333;overflow-wrap:break-word;}';
-  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}}';
+  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;break-inside:avoid!important;page-break-inside:avoid!important;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}'
+   // Export PDF uses w.print(). Left to itself the browser RE-paginates with its
+   // own break logic and ignores the engine\'s .page boundaries, breaking a page
+   // right after a trade/contractor band and orphaning the title (the preview is
+   // correct because it renders the engine\'s fixed .page layout). The real fix:
+   // break-inside:avoid on .page forces each engine page to print as ONE physical
+   // page, so the printed output matches the preview exactly — no re-break, no
+   // orphan. The band rule below is a backup in case a page is taller than a sheet.
+   + '.th-band,.ch{break-after:avoid!important;page-break-after:avoid!important;break-inside:avoid!important;page-break-inside:avoid!important;}'
+   + '}';
   c+='@page{size:letter;margin:0;}';
   // S346: named page sizes for the mixed-size appendix. Body pages use the
   // default @page (letter); appendix sheets tagged .p11x17/.p24x36 map to these.
