@@ -653,22 +653,29 @@ function _captureExportPDF(w,D,title,btn,hintEl){
           .then(function(canvas){
             var png=canvas.toDataURL('image/png');
             return pdfDoc.embedPng(png).then(function(pngImg){
-              // Page size in points: derive from the captured pixel aspect at 72pt/in.
-              // Letter content sheet is 8.5x11in. We size the PDF page to match the
-              // .page element's real on-screen size in inches (offsetWidth/96).
               var pageEl=pages[idx];
-              var wIn=pageEl.offsetWidth/96, hIn=pageEl.offsetHeight/96;
-              var pw=wIn*72, ph=hIn*72;
+              // Deterministic page size in POINTS (72pt/in). Never derive from
+              // offsetWidth — under print media / zoom that can be 0 or NaN, which
+              // made addPage([NaN,NaN]) throw and silently fall back to print.
+              // Letter portrait by default; appendix sheets carry a size class.
+              var pw=612, ph=792;                 // 8.5 x 11 in
+              if(pageEl.classList.contains('p11x17')){ pw=1224; ph=792; }   // 17x11
+              else if(pageEl.classList.contains('p24x36')){ pw=2592; ph=1728; } // 36x24
+              // If the captured canvas aspect disagrees (e.g. a sheet grew), fall
+              // back to the canvas aspect scaled to letter width so nothing clips.
+              var cw=canvas.width, chh=canvas.height;
+              if(cw>0&&chh>0){
+                var aspect=chh/cw;
+                // keep width, set height from real captured aspect (guards odd cards)
+                ph = pw*aspect;
+              }
               var pg=pdfDoc.addPage([pw,ph]);
               pg.drawImage(pngImg,{x:0,y:0,width:pw,height:ph});
               // --- Preserve clickable photo links ---
-              // Capture rasterizes the page, so the <a href> photo links would be
-              // lost. Re-create them as PDF link annotations at the matching
-              // coordinates: for each <a> with an http(s) href inside this .page,
-              // map its rect (relative to the page) into PDF points (origin
-              // bottom-left, so flip Y) and add a link annotation.
+              // Map each <a> rect (relative to the page element) into PDF points.
               try{
                 var pageRect=pageEl.getBoundingClientRect();
+                if(pageRect.width>0&&pageRect.height>0){
                 var sx=pw/pageRect.width, sy=ph/pageRect.height;
                 var anchors=pageEl.querySelectorAll('a[href]');
                 for(var ai=0;ai<anchors.length;ai++){
@@ -682,6 +689,7 @@ function _captureExportPDF(w,D,title,btn,hintEl){
                   // PDF y origin is bottom-left.
                   var yBottom=ph-(y0Top+lh);
                   _capAddLinkAnnot(PDFLib,pdfDoc,pg,x0,yBottom,lw,lh,href);
+                }
                 }
               }catch(linkErr){/* links are best-effort; never block export */}
               idx++;return nextPage();
@@ -705,11 +713,14 @@ function _captureExportPDF(w,D,title,btn,hintEl){
       setHint('Saved '+fname+'. If anything looks off, use Browser Print as a fallback.');
     });
   }).catch(function(err){
-    // Any failure → restore button and fall back to the browser print dialog.
+    // Any failure → restore button and SHOW the error. Do NOT auto-open the
+    // browser print dialog (that made it look like capture mode did nothing).
+    // The separate "Browser Print" button is there if the user wants the fallback.
     try{var barEl2=D.getElementById('pdf-btn-bar');if(barEl2)barEl2.style.display='';}catch(e){}
+    try{D.body.style.paddingTop='56px';}catch(e){}
     btn.disabled=false;btn.style.opacity='';btn.innerHTML=origBtnHtml;
-    setHint('Capture unavailable ('+(err&&err.message||'error')+') — using browser print instead.');
-    try{w.print();}catch(e){}
+    setHint('Export failed: '+(err&&err.message||'error')+'. Try again, or use Browser Print.');
+    try{console.error('[capture export] failed:',err);}catch(e){}
   });
 }
 
