@@ -762,7 +762,7 @@ function _buildCSS(fontB64){
   // into one captured "page"). Fixed height + overflow:hidden makes each sheet a
   // true 11in page, exactly like the approved demo POC. Appendix sheets (.p11x17 /
   // .p24x36) intentionally KEEP min-height — they size to their own drawing content.
-  c+='.page{width:8.5in;height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
+  c+='.page{box-sizing:border-box;width:8.5in;height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
   // S346: appendix sheets can take a larger landscape size. Body pages stay
   // Letter (default .page). These override only width/min-height; the named
   // @page rules below drive the actual printed paper size (mixed-size PDF).
@@ -1993,72 +1993,93 @@ function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_
 // .dp is forced to a fixed height in the 7.3in measure zone, so every photo
 // row is the same height regardless of how many photos sit in it.
 // ============================================================================
-var ROW_H=128;      // one dc-split photo row: 123px measured (3-col @ 503px, 4:3) + 5px grid gap
-var MIN_ROW=ROW_H;  // a band needs room for itself + at least one row, else orphan
+// ============================================================================
+// FLOW ENGINE — FULL REBUILD (S379). The prior versions overshot 2 pages to
+// 1147/1075px. Root cause, finally measured from live state: a defCard's
+// drawing minimap (.dc-mini, floated left, up to 160px tall) is NOT counted
+// when the card splits — _measure(cH) measures only the text column. When the
+// minimap is TALLER than the text+rows on a page, the real card renders taller
+// than curUsed tracked, and the page overshoots. Also PAGE_H was 960 while the
+// real usable content area is ~990px.
+//
+// Rules (from the approved overflow_poc): walk blocks in order, fill each page
+// top-to-bottom, split photo cards at dc-split rows, next item flows up into
+// leftover space. A page's used height is the MAX of the text-column stack and
+// the minimap height for the card currently being laid out.
+// ============================================================================
+var ROW_H=128;       // one dc-split photo row: 123px (3-col @503px, 4:3) + 5px gap
+var MINI_H=168;      // .dc-mini max-height 160 + ~8 spacing — the floor a card occupies
+var MIN_ROW=ROW_H;   // a band needs room for itself + one row, else it orphans
 
 function _flowBlock(block){
   if(block.type==='tradeHeader'){
     _aTradeHtml=block.htmlCont||block.html;_aCtrHtml='';
     var bandH=_measure(block.html);
-    var avail=PAGE_H-curUsed;
-    // Break only to avoid a true orphan: band + at least one content row must
-    // fit, OR we're already at the top of a fresh page (don't waste it).
-    if(avail<bandH+MIN_ROW && curUsed>PAGE_H*0.15){_finalizePage();_startPage();}
-    curPageHtml+=block.html;curUsed+=_measure(block.html);return;
+    if(PAGE_H-curUsed<bandH+MIN_ROW && curUsed>PAGE_H*0.15){_finalizePage();_startPage();}
+    curPageHtml+=block.html;curUsed+=bandH;return;
   }
   if(block.type==='ctrHeader'||block.type==='recHeader'){
     _aCtrHtml=block.htmlCont||block.html;
     var cbandH=_measure(block.html);
-    var cavail=PAGE_H-curUsed;
-    if(cavail<cbandH+MIN_ROW && curUsed>PAGE_H*0.15){
+    if(PAGE_H-curUsed<cbandH+MIN_ROW && curUsed>PAGE_H*0.15){
       _finalizePage();_startPage();
-      // re-stamp the parent trade band so the contractor keeps its context
       if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}
     }
-    curPageHtml+=block.html;curUsed+=_measure(block.html);return;
+    curPageHtml+=block.html;curUsed+=cbandH;return;
   }
-  // ---- content card (defCard / recLead / recPrev / etc.) ----
+  // ---- content card ----
+  var hasMini=block.html.indexOf('class="dc-mini"')>=0;
   var blockH=_measure(block.html);
-  var avail=PAGE_H-curUsed;
-  if(blockH<=avail){curPageHtml+=block.html;curUsed+=blockH;return;}
+  // The card occupies at least the minimap height if it has one.
+  var effH=hasMini?Math.max(blockH,MINI_H):blockH;
+  if(effH<=PAGE_H-curUsed){curPageHtml+=block.html;curUsed+=effH;return;}
 
-  // Doesn't fit. Split at dc-split row boundaries if possible.
+  // Split at dc-split photo-row boundaries.
   var sp=block.html.split(/<div class="dc-split/);
   if(sp.length<=1){
-    // Indivisible (text-only / no photo rows). Move whole if it fits a fresh
-    // page; otherwise place here and overflow (last resort, very rare).
-    if(blockH<=PAGE_H-COMPACT_HEADER_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-    curPageHtml+=block.html;curUsed+=blockH;return;
+    // No photo rows to split on. Move whole if it fits a fresh page.
+    if(effH<=PAGE_H-COMPACT_HEADER_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+    curPageHtml+=block.html;curUsed+=effH;return;
   }
-  // cH = card head (wrapper + minimap + desc, up to the first photo row).
-  // cF closes dc-content > dc-inner > dc.
   var cH=sp[0];var cF='</div></div></div>';
-  // Continuation head: same wrapper (keeps the floated minimap on every page)
-  // but the full deficiency text is replaced with a dimmed "(continued)" tag.
   var _contHead=cH.replace(/<div class="dc-desc">[\s\S]*?<\/div>\s*$/,'')
                   .replace(/(<span class="pinref-dark">[^<]*)(<\/span>)/,'$1 <span style="color:#928E9C;font-style:italic;font-weight:600;font-size:9.5pt;">(continued)</span>$2');
-  var headH=_measure(cH+cF);
-  // If not even head + one row fits here, start a fresh page first (unless the
-  // page is already near-empty, in which case overflow rather than waste it).
-  if(avail<headH+ROW_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();avail=PAGE_H-curUsed;}
   var headOnlyH=_measure(cH);
-  curPageHtml+=cH;curUsed+=headOnlyH;
+  // The head's footprint is at least the minimap height (minimap sits beside it).
+  var headEffH=hasMini?Math.max(headOnlyH,MINI_H):headOnlyH;
+  // Need head + at least one row to start the card here.
+  if(PAGE_H-curUsed<headEffH+ROW_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+  curPageHtml+=cH;
+  // Track text-column height and the minimap floor separately; the page's used
+  // height is the max of the two so the minimap can never be undercounted.
+  var textCol=headOnlyH;          // running text-column height on this page
+  var miniFloor=hasMini?MINI_H:0; // minimap height applies to the FIRST page only
+  curUsed += Math.max(textCol, miniFloor);
   var rowsOnPage=0;
-  var headUsedThisPage=headOnlyH;
   for(var si=1;si<sp.length;si++){
     var sH='<div class="dc-split'+sp[si];
-    // Break before a row only when it would actually overflow the page AND
-    // at least one row already sits here (never strand the head with zero rows
-    // unless even the head alone overflows a page).
-    if(curUsed+ROW_H>PAGE_H && (rowsOnPage>0 || headUsedThisPage+ROW_H>PAGE_H)){
+    // Will adding this row overflow the page? Account against the larger of the
+    // growing text column and the minimap floor.
+    var projected = Math.max(textCol+ROW_H, miniFloor);
+    var pageUsedBeforeCard = curUsed - Math.max(textCol, miniFloor);
+    if(pageUsedBeforeCard + projected > PAGE_H && rowsOnPage>0){
       curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
       _finalizePage();_startPage();_restamp();
       curPageHtml+=_contHead;
       var contH=_measure(_contHead);
-      curUsed+=contH;
-      rowsOnPage=0;headUsedThisPage=contH;
+      // Continuation pages repeat the minimap (the wrapper carries it), so the
+      // floor applies again.
+      textCol=contH; miniFloor=hasMini?MINI_H:0;
+      curUsed += Math.max(textCol, miniFloor);
+      rowsOnPage=0;
+      // recompute baseline for this fresh page
+      pageUsedBeforeCard = curUsed - Math.max(textCol, miniFloor);
     }
-    curPageHtml+=sH;curUsed+=ROW_H;rowsOnPage++;
+    // place the row
+    curPageHtml+=sH;
+    textCol+=ROW_H; rowsOnPage++;
+    // bump curUsed by the delta needed to keep it = pageBaseline + max(textCol,floor)
+    curUsed = pageUsedBeforeCard + Math.max(textCol, miniFloor);
   }
   curPageHtml+=cF;
 }
