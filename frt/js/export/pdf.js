@@ -66,16 +66,36 @@ function _descHtml(raw){
   return out||esc(t);
 }
 
+// ===========================================================================
+// S(this) — minimap SPEED. Two caches eliminate the repeated full-drawing
+// decode that made every export wait seconds:
+//   _mmImgCache:  decoded <img> per drawing dataURL (decode the big drawing ONCE,
+//                 reuse for every pin on it) — keyed by the dataURL string.
+//   _mmRenderCache: the finished minimap dataURL per drawing+pin position, so an
+//                 identical minimap (and any re-export of the same project) is
+//                 instant. Keyed by dwgKey + pinX + pinY + flags.
+// Both live for the page session; cleared implicitly when the popup/app reloads.
+// ===========================================================================
+var _mmImgCache={};        // dataUrl -> Promise<HTMLImageElement>
+var _mmRenderCache={};     // renderKey -> dataURL (jpeg)
+
+function _mmLoadImage(dwgDataUrl){
+  if(_mmImgCache[dwgDataUrl]) return _mmImgCache[dwgDataUrl];
+  var pr=new Promise(function(res,rej){
+    var img=new Image();
+    img.onload=function(){res(img);};
+    img.onerror=function(){rej(new Error('drawing decode failed'));};
+    img.src=dwgDataUrl;
+  });
+  _mmImgCache[dwgDataUrl]=pr;
+  return pr;
+}
+
 function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
-  var img=new Image();
-  img.onload=function(){
-    // S118 design lock: tighter crop (0.25→0.22) and bigger pin teardrop. Mark's
-    // "20% smaller than the v11 mockup, still legible" target = ~24px display
-    // size on the 160px-wide dc-mini box. Canvas-to-display ratio is 5×, so
-    // canvas pinW≈120 hits the target (was Math.max(28, outW*0.07)=56).
-    // S118 design lock + S336: crop fraction sets the minimap zoom. Zoomed out
-    // ~15% (0.22->0.253), then another ~15% (->0.291) per Mark; floors scaled to
-    // match (460->529, 345->397). Net ~32% more context around the pin than S118.
+  // Cache hit → return the already-rendered minimap instantly (no decode/redraw).
+  var rkey='single|'+(pinData.drawingId||'')+'|'+(pinData.pinX||0.5)+'|'+(pinData.pinY||0.5)+'|'+(isSiteRecord?1:0);
+  if(_mmRenderCache[rkey]){ callback(_mmRenderCache[rkey]); return; }
+  _mmLoadImage(dwgDataUrl).then(function(img){
     var cropFrac=0.291;
     var cropW=Math.max(img.width*cropFrac,529);var cropH=Math.max(img.height*cropFrac,397);
     var px=(pinData.pinX||0.5)*img.width;var py=(pinData.pinY||0.5)*img.height;
@@ -86,40 +106,33 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
-    // S118: outW*0.15 ≈ 24px. S336: reduced ~10% (->0.135), then another ~10%
-    // (->0.1215) per Mark; floor 60->54->49. Net ~19% smaller than S118.
     var pinW=Math.max(49,outW*0.1215);
     _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData,isSiteRecord);
-    callback(canvas.toDataURL('image/jpeg',0.92));
-  };
-  img.src=dwgDataUrl;
+    var out=canvas.toDataURL('image/jpeg',0.92);
+    canvas.width=0;canvas.height=0;
+    _mmRenderCache[rkey]=out;
+    callback(out);
+  }).catch(function(){ callback(''); });
 }
 
 function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize){
-  var img=new Image();
-  img.onload=function(){
+  _mmLoadImage(dwgDataUrl).then(function(img){
     var MAX_PX=5000000;var scale=Math.min(1,Math.sqrt(MAX_PX/(img.width*img.height)));
     var w=Math.round(img.width*scale);var h=Math.round(img.height*scale);
     var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
-    // S346 (Mark): pin size is a fraction of the rendered drawing width. On the
-    // big landscape sheets that fraction makes pins huge (24x36 "way too big",
-    // 11x17 "a little big"). Shrink the factor per sheet size so a pin reads at
-    // roughly consistent physical size regardless of paper. Letter unchanged.
     var _pinFrac=(pageSize==='24x36')?0.014:(pageSize==='11x17')?0.022:0.028;
     var pinW=Math.max(28,w*_pinFrac);
     pins.forEach(function(rr){
       var d=rr.d;if(d.pinX==null)return;
       var px=d.pinX*w;var py=d.pinY*h;
-      // S154 PIN-COLOUR-OVERHAUL: derive isSiteRecord per-pin so a Site
-      // Record entry on the full-drawing overview gets the indigo teardrop
-      // just like its dedicated minimap does.
       var _isSr=isSiteRecordsName(rr.ctr);
       _drawTeardropPin(ctx,px,py,pinW,d,_isSr);
     });
-    callback(canvas.toDataURL('image/jpeg',0.92));
-  };
-  img.src=dwgDataUrl;
+    var out=canvas.toDataURL('image/jpeg',0.92);
+    canvas.width=0;canvas.height=0;
+    callback(out);
+  }).catch(function(){ callback(''); });
 }
 
 // S113 Push 12: teardrop pin matches the viewer's SVG path EXACTLY.
@@ -1488,12 +1501,24 @@ function _buildDefCard(r,hdrExtra){
   h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">'+r._itemNo+'</span><span class="item-sep">\u00b7</span><span class="pinref-dark">'+_pinRef+'</span></span><span class="dc-hdr-r">'+_inspChip+(hdrExtra||'')+(_showRecChip?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+_descHtml(po.text)+'</div>';
-  if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){
-    var _src=_pdfPhotoSrc(ph,r2Cache);
-    var _href=_pdfPhotoFullHref(ph);
-    if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
-    else{h+='<img class="dp" src="'+_src+'">';}
-  });h+='</div>';}
+  if(po.photos&&po.photos.length){
+    // S(this) — DEMO-MATCH: emit photos in ROWS of 3, each row preceded by a
+    // dc-split marker so the flow engine can break between any two rows (never
+    // mid-photo). This is what lets a tall photo card fill the current page and
+    // continue the rest on the next, instead of jumping whole and leaving a gap.
+    var _phs=po.photos;
+    for(var _pi=0;_pi<_phs.length;_pi+=3){
+      h+='<div class="dc-split"><div class="dp-grid">';
+      for(var _pj=_pi;_pj<Math.min(_pi+3,_phs.length);_pj++){
+        var _ph=_phs[_pj];
+        var _src=_pdfPhotoSrc(_ph,r2Cache);
+        var _href=_pdfPhotoFullHref(_ph);
+        if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
+        else{h+='<img class="dp" src="'+_src+'">';}
+      }
+      h+='</div></div>';
+    }
+  }
   if(fuActs.length){
     h+='<div class="fu-grp"><span>Follow-up</span><span style="font-weight:500;color:#6B7B8C;">FRT #'+_curInst+'</span></div>';
     fuActs.forEach(function(a){
@@ -1973,23 +1998,40 @@ function _flowBlock(block){
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
   if(blockH<=avail){curPageHtml+=block.html;curUsed+=blockH;}
-  else if(blockH<=PAGE_H-COMPACT_HEADER_H){
-    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-    curPageHtml+=block.html;curUsed+=blockH;
-  }else{
-    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+  else{
+    // S(this) — DEMO-MATCH continuous flow. The card doesn't fit the remaining
+    // space. The OLD code jumped the whole card to a fresh page whenever the
+    // page was >15% full, which left big gaps (one item per page, empty bottoms).
+    // Instead: split the card at its photo-row boundaries (dc-split markers) and
+    // fill the CURRENT page with everything that fits, then continue the rest on
+    // the next page under a "[continued]" marker. The next item then flows into
+    // whatever space is left — no gaps. Only when the card has no split points
+    // (text-only, genuinely indivisible) do we move it whole.
     var sp=block.html.split(/<div class="dc-split/);
-    if(sp.length<=1){curPageHtml+=block.html;curUsed+=blockH;}
-    else{
+    if(sp.length<=1){
+      // Indivisible card. If it fits a fresh page, move it whole (can't split);
+      // otherwise place it here and let it overflow (last resort, very rare).
+      if(blockH<=PAGE_H-COMPACT_HEADER_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+      curPageHtml+=block.html;curUsed+=blockH;
+    }else{
+      // cH = card head (text/heading up to first photo row). cF closes the card.
       var cH=sp[0];var cF='</div></div></div>';
+      // Compact continuation head: same wrapper (dc>dc-inner>dc-content) but the
+      // description is replaced with a dimmed "(continued)" line so the full
+      // deficiency text isn't repeated on every continuation page (demo behavior).
+      var _contHead=cH.replace(/<div class="dc-desc">[\s\S]*?<\/div>\s*$/,'')
+                      .replace(/(<span class="pinref-dark">[^<]*)(<\/span>)/,'$1 <span style="color:#928E9C;font-style:italic;font-weight:600;font-size:9.5pt;">(continued)</span>$2');
+      var headH=_measure(cH+cF);
+      var firstRowH=_measure('<div class="dc-split'+sp[1]+cF);
+      if(avail < headH+firstRowH && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
       curPageHtml+=cH;curUsed+=_measure(cH+cF);
       for(var si=1;si<sp.length;si++){
         var sH='<div class="dc-split'+sp[si];var sHt=_measure(sH);
-        if(curUsed+sHt>PAGE_H&&si>1){
+        if(curUsed+sHt>PAGE_H && si>1){
           curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
           _finalizePage();_startPage();_restamp();
-          curPageHtml+=cH+'<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>';
-          curUsed+=_measure(cH+'<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>'+cF);
+          curPageHtml+=_contHead;
+          curUsed+=_measure(_contHead+cF);
         }
         curPageHtml+=sH;curUsed+=sHt;
       }
