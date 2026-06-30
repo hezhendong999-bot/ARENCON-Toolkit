@@ -5640,24 +5640,18 @@ function _pgUpdateSelUI() {
 function _pgFetchAndDownload(ph, filename) {
   var src = ph.src;
   if (!src) return;
-  if (src.indexOf(R2_WORKER) === 0) {
-    var token = localStorage.getItem('sb-access-token');
-    fetch(src, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} })
-      .then(function(r) { return r.blob(); })
-      .then(function(blob) {
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = filename;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
-      })
-      .catch(function(e) { toast('Download failed — check connection', 'error'); });
-  } else {
+  // Reuse _pgFetchBlob so single-photo and fallback downloads get the same
+  // unauthenticated-retry + status-check behavior as the zip path.
+  _pgFetchBlob(src).then(function(blob) {
     var a = document.createElement('a');
-    a.href = src;
+    a.href = URL.createObjectURL(blob);
     a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  }
+    setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+  }).catch(function(e) {
+    console.warn('[PG] Single download failed (' + (e && e.message) + '):', src);
+    toast('Download failed — check connection, or sign out and back in', 'error');
+  });
 }
 
 function pgDownloadSelected() {
@@ -5696,7 +5690,7 @@ function _pgDoZip(photos, suffix) {
   var folderName = (smartBase + ' ' + suffix).replace(/[^a-zA-Z0-9 ._&-]/g, '').replace(/\s+/g, ' ').trim();
   var zip = new JSZip();
   var folder = zip.folder(folderName);
-  var done = 0, total = photos.length;
+  var done = 0, ok = 0, failed = 0, total = photos.length;
   toast('Preparing zip: 0/' + total + '...', 'info');
 
   var promises = photos.map(function(ph, i) {
@@ -5704,31 +5698,51 @@ function _pgDoZip(photos, suffix) {
       var ext = blob.type === 'image/png' ? '.png' : '.jpg';
       var fname = (ph.tool + '_' + ph.type + '_' + (i+1) + ext).replace(/[^a-zA-Z0-9._-]/g, '_');
       folder.file(fname, blob);
-      done++;
+      ok++; done++;
       if (done % 5 === 0 || done === total) toast('Preparing zip: ' + done + '/' + total + '...', 'info');
-    }).catch(function() { done++; });
+    }).catch(function(e) {
+      failed++; done++;
+      console.warn('[PG] Photo failed (' + (e && e.message) + '):', ph && ph.src);
+    });
   });
 
   Promise.all(promises).then(function() {
-    toast('Compressing ' + done + ' photos...', 'info');
+    // Don't hand the user a real-looking "Downloaded" with an empty zip.
+    if (ok === 0) {
+      toast('Download failed — could not fetch any of the ' + total + ' photos. Try again, or sign out and back in.', 'error');
+      throw new Error('all ' + total + ' photo fetches failed');
+    }
+    toast('Compressing ' + ok + ' photos' + (failed ? ' (' + failed + ' failed)' : '') + '...', 'info');
     return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
   }).then(function(blob) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a'); a.href = url; a.download = folderName + '.zip';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
-    toast('Downloaded ' + folderName + '.zip', 'success');
+    toast('Downloaded ' + ok + ' photo' + (ok!==1?'s':'') + (failed ? ' — ' + failed + ' could not be fetched' : ''), failed ? 'info' : 'success');
   }).catch(function(e) {
     console.error('[PG] Zip failed:', e);
-    toast('Zip failed — try again', 'error');
+    if (ok > 0) toast('Zip failed — try again', 'error');
   });
 }
 
 function _pgFetchBlob(src) {
-  if (!src) return Promise.reject('no src');
+  if (!src) return Promise.reject(new Error('no src'));
   if (src.indexOf(R2_WORKER) === 0) {
+    // R2 GET is unauthenticated. We still attempt with the saved token first
+    // (harmless when valid), but if that fails — e.g. the token is missing or
+    // expired — we retry the SAME url with no Authorization header. An expired
+    // token can itself trigger the rejection that an anonymous read would not,
+    // so the retry rescues the common field case (stale token => empty zip).
     var token = localStorage.getItem('sb-access-token');
-    return fetch(src, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} }).then(function(r) { if (!r.ok) throw new Error(r.status); return r.blob(); });
+    var doFetch = function(useToken) {
+      return fetch(src, { headers: (useToken && token) ? { 'Authorization': 'Bearer ' + token } : {} })
+        .then(function(r) { if (!r.ok) throw new Error('R2 ' + r.status); return r.blob(); });
+    };
+    return doFetch(true).catch(function(e1) {
+      console.warn('[PG] R2 fetch with token failed (' + (e1 && e1.message) + '), retrying unauthenticated:', src);
+      return doFetch(false);
+    });
   }
   if (src.startsWith('data:')) return fetch(src).then(function(r) { return r.blob(); });
   return fetch(src).then(function(r) { if (!r.ok) throw new Error(r.status); return r.blob(); });
