@@ -4750,10 +4750,10 @@ async function r2RefreshStatus() {
   grid.innerHTML = '';
 
   var WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
-  // Build slug folder for R2 list path (same logic as FRT _makeR2FolderSlug)
+  // R2 list path is keyed by the project UUID, not a name-based slug — the slug
+  // folder does not exist in the bucket (see _pgResolveR2Src fix). Use projId.
   var proj = _projects ? _projects.find(function(p){ return p.id === projId; }) : null;
-  var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
-  var r2Folder = slug || projId;
+  var r2Folder = projId;
 
   // Always refresh token before R2 calls to avoid 401/empty results
   try { await _sb.auth.refreshSession(); } catch(e) {}
@@ -4960,10 +4960,13 @@ function _pgResolveR2Src(ph, projectId) {
     var parts = ph.r2Key.split('/');
     // Expected: ['photos', '{pid}', '{tool}', '{type}', '{fname}']
     if (parts.length >= 5 && parts[0] === 'photos') {
-      var proj = _projects ? _projects.find(function(p) { return p.id === projectId; }) : null;
-      var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
-      var folder = slug || parts[1];
-      var tool = parts[2] || 'frt';   // S332: honor the photo's real tool (was hardcoded frt → diesel/electric photos got wrong URLs)
+      // FIX: the worker serves photos at /photos/{uuid}/{tool}/{type}/{fname},
+      // where {uuid} is the project id baked into r2Key at upload time. A prior
+      // version replaced parts[1] (the UUID) with a name-based "slug" folder
+      // that does NOT exist in the bucket — every GET 404'd and the gallery /
+      // download came back empty. The stored UUID is correct; use it verbatim.
+      var folder = parts[1];
+      var tool = parts[2] || 'frt';   // S332: honor the photo's real tool (diesel/electric)
       var type = parts[3];
       var fname = parts.slice(4).join('/');
       return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/' + encodeURIComponent(tool) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
