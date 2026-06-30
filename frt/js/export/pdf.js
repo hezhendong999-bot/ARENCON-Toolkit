@@ -762,7 +762,7 @@ function _buildCSS(fontB64){
   // into one captured "page"). Fixed height + overflow:hidden makes each sheet a
   // true 11in page, exactly like the approved demo POC. Appendix sheets (.p11x17 /
   // .p24x36) intentionally KEEP min-height — they size to their own drawing content.
-  c+='.page{box-sizing:border-box;width:8.5in;height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
+  c+='.page{width:8.5in;height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
   // S346: appendix sheets can take a larger landscape size. Body pages stay
   // Letter (default .page). These override only width/min-height; the named
   // @page rules below drive the actual printed paper size (mixed-size PDF).
@@ -899,21 +899,7 @@ function _buildCSS(fontB64){
   // (3-col grid in 7.3in → 230.3px cell → 4:3 → 172.7px) so measurement is
   // decode-independent. Real .page rendering is untouched (keeps aspect-ratio),
   // so photos display exactly as before — this changes measurement, not output.
-  // MEASURED from live render (S378): the photo grid lives inside dc-content,
-  // which is flex:1 AFTER the minimap + gap are subtracted from the 7.3in content
-  // area. Two cases, both made decode-independent with an explicit height so
-  // pagination is correct even if it runs before images decode (the 1500ms
-  // fallback can fire first on a slow load):
-  //   • Card WITH a drawing minimap (.dc-inner:has(.dc-mini)): grid = 503px,
-  //     3-col cell 164px, 4:3 → 123px row (live-measured: gridH 123, dpH 123).
-  //   • Card WITHOUT a minimap: grid spans the full 700px, cell ~231px → 173px.
-  // The old single 172.7 value over-measured every minimap card ~50px/row,
-  // overshooting page-fill (early breaks, 1147/1075px overflow pages).
-  c+='#measure-zone .dc-inner:has(.dc-mini) .dp{aspect-ratio:auto!important;height:123px!important;}';
-  c+='#measure-zone .dc-inner:not(:has(.dc-mini)) .dp{aspect-ratio:auto!important;height:173px!important;}';
-  // Fallback for engines without :has() — default any unmatched .dp to 123 (the
-  // common minimap case in field reports). Harmless where :has() is supported.
-  c+='#measure-zone .dp{aspect-ratio:auto!important;height:123px!important;}';
+  c+='#measure-zone .dp{aspect-ratio:auto!important;height:172.7px!important;}';
   // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
   c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
   c+='.fu-row{padding:3px 0;line-height:1.4;}';
@@ -1952,20 +1938,7 @@ if(_recsMode!=='only'&&_dashHtmlFull&&FULL_HEADER_H>PAGE_H){
 }
 var COMPACT_HEADER_H=_measure(_compactHeader(2));
 var pages=[];var curPageHtml='';var curUsed=0;var curPageNum=1;var isFirstPage=true;
-function _startPage(){
-  curPageHtml='';curUsed=0;
-  if(isFirstPage){
-    curPageHtml+=fullHeader+infoGrid+summaryHtml;curUsed+=FULL_HEADER_H;isFirstPage=false;
-  }else{
-    // CRITICAL: pages 2+ get a compact running header injected at RENDER time
-    // (the pages.forEach loop adds _compactHeader(pn) before .page-content).
-    // That header is ~49px and was NEVER counted in the page budget, so the
-    // engine filled cards to the full PAGE_H and the render-time header pushed
-    // the page content past the usable area — overflowing 2 pages to 1147/1075.
-    // Reserve it here so curUsed reflects the real space the cards have.
-    curUsed+=COMPACT_HEADER_H;
-  }
-}
+function _startPage(){curPageHtml='';curUsed=0;if(isFirstPage){curPageHtml+=fullHeader+infoGrid+summaryHtml;curUsed+=FULL_HEADER_H;isFirstPage=false;}}
 function _finalizePage(){if(curPageHtml.trim()){pages.push({html:curPageHtml,pageNum:curPageNum});curPageNum++;}}
 _startPage();
 // S284 (Mark-approved): page 1 is the summary dashboard; deficiency items
@@ -1983,119 +1956,178 @@ function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_
 // dc-split) can flow the pooled Recommendations blocks on their own
 // forced new page after Previously Closed Items. Behaviour identical for
 // the main body — it is still `contentBlocks.forEach(_flowBlock)` below.
-// ============================================================================
-// CONTINUOUS-FLOW ENGINE (rewritten to match the approved overflow_poc demo).
-// Replaces the ~10-session pile of competing keep-together heuristics
-// (_secH / _keepTogetherCap / _tKeep / _tNeed / _keepH / _minChunk / headH)
-// that produced the gaps-everywhere / huge-page output. ONE simple rule set:
-//
-//   1. Walk blocks in order. Fill each page top-to-bottom.
-//   2. A block that fits the remaining space is placed; the next block flows
-//      in right below it — no gaps.
-//   3. A photo card that does NOT fit is split at its dc-split (3-photo) row
-//      boundaries: head + as many rows as fit go here, the rest continue on
-//      the next page under a dimmed "(continued)" head. The card's running
-//      Trade/Contractor bands re-stamp "(cont.)" via _restamp().
-//   4. A band (trade/contractor) only breaks to a fresh page when it would
-//      otherwise be the LAST thing on the page with nothing under it (true
-//      orphan): i.e. neither the band nor a first photo row would fit. No
-//      whole-section keep-together — Mark's rule: no blank gap beats keeping
-//      a section whole.
-//
-// Deterministic ROW_H (not per-row _measure) matches the real 3-col grid:
-// .dp is forced to a fixed height in the 7.3in measure zone, so every photo
-// row is the same height regardless of how many photos sit in it.
-// ============================================================================
-// ============================================================================
-// FLOW ENGINE — FULL REBUILD (S379). The prior versions overshot 2 pages to
-// 1147/1075px. Root cause, finally measured from live state: a defCard's
-// drawing minimap (.dc-mini, floated left, up to 160px tall) is NOT counted
-// when the card splits — _measure(cH) measures only the text column. When the
-// minimap is TALLER than the text+rows on a page, the real card renders taller
-// than curUsed tracked, and the page overshoots. Also PAGE_H was 960 while the
-// real usable content area is ~990px.
-//
-// Rules (from the approved overflow_poc): walk blocks in order, fill each page
-// top-to-bottom, split photo cards at dc-split rows, next item flows up into
-// leftover space. A page's used height is the MAX of the text-column stack and
-// the minimap height for the card currently being laid out.
-// ============================================================================
-var ROW_H=128;       // one dc-split photo row: 123px (3-col @503px, 4:3) + 5px gap
-var MINI_H=168;      // .dc-mini max-height 160 + ~8 spacing — the floor a card occupies
-var MIN_ROW=ROW_H;   // a band needs room for itself + one row, else it orphans
-
 function _flowBlock(block){
+  var blockH=_measure(block.html);var avail=PAGE_H-curUsed;
   if(block.type==='tradeHeader'){
     _aTradeHtml=block.htmlCont||block.html;_aCtrHtml='';
-    var bandH=_measure(block.html);
-    if(PAGE_H-curUsed<bandH+MIN_ROW && curUsed>PAGE_H*0.15){_finalizePage();_startPage();}
-    curPageHtml+=block.html;curUsed+=bandH;return;
+    // S148 D1 (Option #1): keep the whole trade together when it fits a
+    // fresh page but not the space left here. _freshCap mirrors the
+    // engine's existing "can this ever fit a page" ceiling (used ~line
+    // 958 below) for consistency. curUsed>PAGE_H*0.15 reuses the
+    // engine's own "don't waste a near-empty page" idiom (lines ~959/
+    // 962) so this never fires at the top of a fresh page. recBlocks'
+    // tradeHeaders have no _secH (||0) so this is inert for recs.
+    var _secH=block._secH||0,_freshCap=PAGE_H-COMPACT_HEADER_H;
+    // S341 (Mark): the keep-together rule was too aggressive — ANY trade section
+    // that didn't fit the remaining space got pushed to a fresh page, leaving a
+    // big blank gap at the bottom of the prior page (field report: Fire Alarm
+    // page had a half-page gap because General Contracting jumped to a fresh
+    // page). Mark's call: no blank gap is better than keeping every section
+    // whole. So only keep a section together when it's SMALL enough that
+    // splitting it would orphan an awkward sliver (≤ ~45% of a page). Larger
+    // sections flow naturally and fill the space — they split across the page
+    // boundary (the trade band re-stamps "(cont.)" on the next page, unchanged).
+    var _keepTogetherCap=PAGE_H*0.45;
+    if(_secH&&_secH<=_freshCap&&_secH<=_keepTogetherCap&&avail<_secH&&curUsed>PAGE_H*0.15){
+      _finalizePage();_startPage();avail=PAGE_H-curUsed;
+    }
+    // S(this): keep the trade band with its contractor sub-band + first item so
+    // the title never orphans at a page bottom. _keepH (stamped above) = sub-band
+    // + first-item height. Fall back to the old +200 lookahead when no keep was
+    // stamped or it can't fit a fresh page anyway.
+    var _tKeep=block._keepH||0,_tCap=PAGE_H-COMPACT_HEADER_H;
+    // S(this): same orphan fix as the ctrHeader branch — when the trade band's
+    // kept unit (sub-band + first item) is taller than a full page (many photos),
+    // don't fall back to a weak +200 that lets the band sit alone; require at
+    // least band + a meaningful first chunk so the title always travels with its
+    // content. Measure-zone deterministic photo height (above) makes _tKeep accurate.
+    var _tNeed=(_tKeep&&_tKeep<=_tCap)?_tKeep:(_tKeep?280:200);
+    if(avail<blockH+_tNeed){_finalizePage();_startPage();}
+    curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
   if(block.type==='ctrHeader'||block.type==='recHeader'){
+    // S118: use the pre-built (cont.) variant from the block — replaces the old "— continued" string concat
     _aCtrHtml=block.htmlCont||block.html;
-    var cbandH=_measure(block.html);
-    if(PAGE_H-curUsed<cbandH+MIN_ROW && curUsed>PAGE_H*0.15){
-      _finalizePage();_startPage();
-      if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}
+    // S284 keep-with-next: a contractor band must never sit ITEM-LESS at a
+    // page bottom (the "Vipond (cont.)" orphan — the band fit under the old
+    // fixed +200 lookahead, but its first card didn't, so the generic branch
+    // broke the page and _restamp re-emitted the band as "(cont.)" on the
+    // next page). _keepH (stamped by the pre-pass below) = measured height
+    // of the band's FIRST item block. Require band+first-item to fit here;
+    // otherwise break BEFORE the band. Items too tall for even a fresh page
+    // (they dc-split regardless) and band-with-no-item fall back to the old
+    // +200 heuristic so an unsatisfiable keep never wastes a page.
+    var _keepH=block._keepH||0,_keepCap=PAGE_H-COMPACT_HEADER_H;
+    // S(this): close the orphan hole for VERY tall first items (many photos).
+    // Old logic fell back to +200 when _keepH exceeded a full page, on the theory
+    // that such an item dc-splits anyway. But if the band sat near a page bottom,
+    // band+200 could still "fit", the band got placed, then the tall item flowed
+    // to the next page — orphaning the title (Mark's bug). Fix: when the first
+    // item is tall (with or without a real _keepH), require AT LEAST enough room
+    // for the band + a meaningful first chunk (min ~280px) so the band is never
+    // emitted unless its item — or the first dc-split slice of it — follows on the
+    // same page. Combined with the measure-zone deterministic photo height above,
+    // _keepH is now accurate, so the common case needs the full band+item to fit.
+    var _minChunk=280;
+    var _need=(_keepH&&_keepH<=_keepCap)?_keepH:(_keepH?_minChunk:200);
+    if(avail<blockH+_need){_finalizePage();_startPage();if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}}
+    curPageHtml+=block.html;curUsed+=_measure(block.html);return;
+  }
+  if(blockH<=avail){curPageHtml+=block.html;curUsed+=blockH;}
+  else{
+    // S(this) — DEMO-MATCH continuous flow. The card doesn't fit the remaining
+    // space. The OLD code jumped the whole card to a fresh page whenever the
+    // page was >15% full, which left big gaps (one item per page, empty bottoms).
+    // Instead: split the card at its photo-row boundaries (dc-split markers) and
+    // fill the CURRENT page with everything that fits, then continue the rest on
+    // the next page under a "[continued]" marker. The next item then flows into
+    // whatever space is left — no gaps. Only when the card has no split points
+    // (text-only, genuinely indivisible) do we move it whole.
+    var sp=block.html.split(/<div class="dc-split/);
+    if(sp.length<=1){
+      // Indivisible card. If it fits a fresh page, move it whole (can't split);
+      // otherwise place it here and let it overflow (last resort, very rare).
+      if(blockH<=PAGE_H-COMPACT_HEADER_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+      curPageHtml+=block.html;curUsed+=blockH;
+    }else{
+      // cH = card head (text/heading up to first photo row). cF closes the card.
+      var cH=sp[0];var cF='</div></div></div>';
+      // Compact continuation head: same wrapper (dc>dc-inner>dc-content) but the
+      // description is replaced with a dimmed "(continued)" line so the full
+      // deficiency text isn't repeated on every continuation page (demo behavior).
+      var _contHead=cH.replace(/<div class="dc-desc">[\s\S]*?<\/div>\s*$/,'')
+                      .replace(/(<span class="pinref-dark">[^<]*)(<\/span>)/,'$1 <span style="color:#928E9C;font-style:italic;font-weight:600;font-size:9.5pt;">(continued)</span>$2');
+      var headH=_measure(cH+cF);
+      // ROW_H: a 3-photo dc-split row is deterministic — the measure-zone forces
+      // .dp to 172.7px (3-col grid in 7.3in), so every row is the same height
+      // regardless of photo count in it. Per-row _measure() was returning inflated
+      // values that made curUsed cross PAGE_H after barely one row, splitting every
+      // card onto its own half-empty page (the doubled page count + detached header
+      // you saw). Fixed ROW_H matches the approved demo's arithmetic exactly.
+      var ROW_H=185; // 172.7px photo + grid margins/gap
+      if(avail < headH+ROW_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+      // Place the head once (measured alone — cF is appended at the very end).
+      var headOnlyH=_measure(cH);
+      curPageHtml+=cH;curUsed+=headOnlyH;
+      var rowsOnPage=0;
+      var headUsedThisPage=headOnlyH;
+      for(var si=1;si<sp.length;si++){
+        var sH='<div class="dc-split'+sp[si];
+        // Fixed row height (not _measure) so the fill math matches the real render
+        // and the demo. Break only when this row would actually overflow the page.
+        if(curUsed+ROW_H>PAGE_H && (rowsOnPage>0 || headUsedThisPage+ROW_H>PAGE_H)){
+          curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
+          _finalizePage();_startPage();_restamp();
+          curPageHtml+=_contHead;
+          var contH=_measure(_contHead);
+          curUsed+=contH;
+          rowsOnPage=0;headUsedThisPage=contH;
+        }
+        curPageHtml+=sH;curUsed+=ROW_H;rowsOnPage++;
+      }
+      curPageHtml+=cF;
     }
-    curPageHtml+=block.html;curUsed+=cbandH;return;
   }
-  // ---- content card ----
-  var hasMini=block.html.indexOf('class="dc-mini"')>=0;
-  var blockH=_measure(block.html);
-  // The card occupies at least the minimap height if it has one.
-  var effH=hasMini?Math.max(blockH,MINI_H):blockH;
-  if(effH<=PAGE_H-curUsed){curPageHtml+=block.html;curUsed+=effH;return;}
-
-  // Split at dc-split photo-row boundaries.
-  var sp=block.html.split(/<div class="dc-split/);
-  if(sp.length<=1){
-    // No photo rows to split on. Move whole if it fits a fresh page.
-    if(effH<=PAGE_H-COMPACT_HEADER_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-    curPageHtml+=block.html;curUsed+=effH;return;
-  }
-  var cH=sp[0];var cF='</div></div></div>';
-  var _contHead=cH.replace(/<div class="dc-desc">[\s\S]*?<\/div>\s*$/,'')
-                  .replace(/(<span class="pinref-dark">[^<]*)(<\/span>)/,'$1 <span style="color:#928E9C;font-style:italic;font-weight:600;font-size:9.5pt;">(continued)</span>$2');
-  var headOnlyH=_measure(cH);
-  // The head's footprint is at least the minimap height (minimap sits beside it).
-  var headEffH=hasMini?Math.max(headOnlyH,MINI_H):headOnlyH;
-  // Need head + at least one row to start the card here.
-  if(PAGE_H-curUsed<headEffH+ROW_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-  curPageHtml+=cH;
-  // Track text-column height and the minimap floor separately; the page's used
-  // height is the max of the two so the minimap can never be undercounted.
-  var textCol=headOnlyH;          // running text-column height on this page
-  var miniFloor=hasMini?MINI_H:0; // minimap height applies to the FIRST page only
-  curUsed += Math.max(textCol, miniFloor);
-  var rowsOnPage=0;
-  for(var si=1;si<sp.length;si++){
-    var sH='<div class="dc-split'+sp[si];
-    // Will adding this row overflow the page? Account against the larger of the
-    // growing text column and the minimap floor.
-    var projected = Math.max(textCol+ROW_H, miniFloor);
-    var pageUsedBeforeCard = curUsed - Math.max(textCol, miniFloor);
-    if(pageUsedBeforeCard + projected > PAGE_H && rowsOnPage>0){
-      curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
-      _finalizePage();_startPage();_restamp();
-      curPageHtml+=_contHead;
-      var contH=_measure(_contHead);
-      // Continuation pages repeat the minimap (the wrapper carries it), so the
-      // floor applies again.
-      textCol=contH; miniFloor=hasMini?MINI_H:0;
-      curUsed += Math.max(textCol, miniFloor);
-      rowsOnPage=0;
-      // recompute baseline for this fresh page
-      pageUsedBeforeCard = curUsed - Math.max(textCol, miniFloor);
-    }
-    // place the row
-    curPageHtml+=sH;
-    textCol+=ROW_H; rowsOnPage++;
-    // bump curUsed by the delta needed to keep it = pageBaseline + max(textCol,floor)
-    curUsed = pageUsedBeforeCard + Math.max(textCol, miniFloor);
-  }
-  curPageHtml+=cF;
 }
+// S148 D1 (Option #1, Mark-approved): per-trade keep-together pre-pass.
+// For each tradeHeader in the MAIN deficiency body, pre-measure the
+// whole trade section = that header + every following block up to the
+// next tradeHeader (or end), and stash the total on the header block as
+// _secH. The tradeHeader branch of _flowBlock reads _secH to force a
+// fresh page when an entire trade would otherwise start near a page
+// bottom and break mid-section — but ONLY when the trade actually fits
+// a fresh page (an over-page-length trade must still split, behaviour
+// unchanged). This is a pure measurement pass over contentBlocks; it
+// does NOT touch _flowBlock's own per-block measuring, the bin-pack,
+// dc-split, go(pg), or recBlocks (recs flow separately and already get
+// a forced fresh page as a whole section — intentionally untouched).
+(function(){
+  for(var i=0;i<contentBlocks.length;i++){
+    if(contentBlocks[i].type!=='tradeHeader')continue;
+    var s=_measure(contentBlocks[i].html);
+    for(var j=i+1;j<contentBlocks.length&&contentBlocks[j].type!=='tradeHeader';j++){
+      s+=_measure(contentBlocks[j].html);
+    }
+    contentBlocks[i]._secH=s;
+  }
+})();
+// S284 keep-with-next pre-pass: stamp each ctrHeader/recHeader with the
+// measured height of its FIRST following item block (_keepH), so the band
+// branch above can refuse to start a band whose first card won't fit under
+// it. A band immediately followed by another header (empty band) gets no
+// stamp → falls back to the +200 heuristic. Pure measurement pass —
+// _flowBlock's own per-block measuring, the bin-pack, dc-split, go(pg)
+// are untouched (same discipline as the S148 _secH pass above).
+function _stampKeepWithNext(blocks){
+  for(var i=0;i<blocks.length;i++){
+    var t=blocks[i].type;
+    if(t!=='ctrHeader'&&t!=='recHeader'&&t!=='tradeHeader')continue;
+    var nb=blocks[i+1];
+    if(nb&&nb.type!=='tradeHeader'&&nb.type!=='ctrHeader'&&nb.type!=='recHeader'){
+      blocks[i]._keepH=_measure(nb.html);
+    }else if(nb&&(nb.type==='ctrHeader'||nb.type==='recHeader')){
+      // S(this): a trade header is immediately followed by a contractor sub-band.
+      // Keep the trade band, the sub-band, AND the sub-band's first item together
+      // so a trade title can never sit alone at a page bottom (the floating
+      // "Electrical"/"Fire Alarm" orphan). Stamp the trade header with the
+      // sub-band height PLUS the sub-band's own _keepH (its first item).
+      var sub=_measure(nb.html);var nn=blocks[i+2];
+      var first=(nn&&nn.type!=='tradeHeader'&&nn.type!=='ctrHeader'&&nn.type!=='recHeader')?_measure(nn.html):0;
+      blocks[i]._keepH=sub+first;
+    }
+  }
+}
+_stampKeepWithNext(contentBlocks);
 contentBlocks.forEach(_flowBlock);
 // S341 (Mark): the closing "further deficiencies may be noted" note was here at
 // the end of the body, where it kept orphaning onto its own blank page before
@@ -2137,8 +2169,7 @@ if(showClosedSummary&&closedSummaryDefs.length&&_recsMode!=='only'){
 if(recBlocks.length){
   _aTradeHtml='';_aCtrHtml='';
   _startPage();
-  // Recs flow through the same continuous-flow engine; no keep-with-next
-  // pre-pass needed (the engine reads no stamped heights).
+  _stampKeepWithNext(recBlocks); // S284: rec bands get the same keep-with-next
   recBlocks.forEach(_flowBlock);
   _finalizePage();
 }
