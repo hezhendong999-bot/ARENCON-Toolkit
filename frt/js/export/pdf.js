@@ -66,36 +66,16 @@ function _descHtml(raw){
   return out||esc(t);
 }
 
-// ===========================================================================
-// S(this) — minimap SPEED. Two caches eliminate the repeated full-drawing
-// decode that made every export wait seconds:
-//   _mmImgCache:  decoded <img> per drawing dataURL (decode the big drawing ONCE,
-//                 reuse for every pin on it) — keyed by the dataURL string.
-//   _mmRenderCache: the finished minimap dataURL per drawing+pin position, so an
-//                 identical minimap (and any re-export of the same project) is
-//                 instant. Keyed by dwgKey + pinX + pinY + flags.
-// Both live for the page session; cleared implicitly when the popup/app reloads.
-// ===========================================================================
-var _mmImgCache={};        // dataUrl -> Promise<HTMLImageElement>
-var _mmRenderCache={};     // renderKey -> dataURL (jpeg)
-
-function _mmLoadImage(dwgDataUrl){
-  if(_mmImgCache[dwgDataUrl]) return _mmImgCache[dwgDataUrl];
-  var pr=new Promise(function(res,rej){
-    var img=new Image();
-    img.onload=function(){res(img);};
-    img.onerror=function(){rej(new Error('drawing decode failed'));};
-    img.src=dwgDataUrl;
-  });
-  _mmImgCache[dwgDataUrl]=pr;
-  return pr;
-}
-
 function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
-  // Cache hit → return the already-rendered minimap instantly (no decode/redraw).
-  var rkey='single|'+(pinData.drawingId||'')+'|'+(pinData.pinX||0.5)+'|'+(pinData.pinY||0.5)+'|'+(isSiteRecord?1:0);
-  if(_mmRenderCache[rkey]){ callback(_mmRenderCache[rkey]); return; }
-  _mmLoadImage(dwgDataUrl).then(function(img){
+  var img=new Image();
+  img.onload=function(){
+    // S118 design lock: tighter crop (0.25→0.22) and bigger pin teardrop. Mark's
+    // "20% smaller than the v11 mockup, still legible" target = ~24px display
+    // size on the 160px-wide dc-mini box. Canvas-to-display ratio is 5×, so
+    // canvas pinW≈120 hits the target (was Math.max(28, outW*0.07)=56).
+    // S118 design lock + S336: crop fraction sets the minimap zoom. Zoomed out
+    // ~15% (0.22->0.253), then another ~15% (->0.291) per Mark; floors scaled to
+    // match (460->529, 345->397). Net ~32% more context around the pin than S118.
     var cropFrac=0.291;
     var cropW=Math.max(img.width*cropFrac,529);var cropH=Math.max(img.height*cropFrac,397);
     var px=(pinData.pinX||0.5)*img.width;var py=(pinData.pinY||0.5)*img.height;
@@ -106,33 +86,40 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
+    // S118: outW*0.15 ≈ 24px. S336: reduced ~10% (->0.135), then another ~10%
+    // (->0.1215) per Mark; floor 60->54->49. Net ~19% smaller than S118.
     var pinW=Math.max(49,outW*0.1215);
     _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData,isSiteRecord);
-    var out=canvas.toDataURL('image/jpeg',0.92);
-    canvas.width=0;canvas.height=0;
-    _mmRenderCache[rkey]=out;
-    callback(out);
-  }).catch(function(){ callback(''); });
+    callback(canvas.toDataURL('image/jpeg',0.92));
+  };
+  img.src=dwgDataUrl;
 }
 
 function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize){
-  _mmLoadImage(dwgDataUrl).then(function(img){
+  var img=new Image();
+  img.onload=function(){
     var MAX_PX=5000000;var scale=Math.min(1,Math.sqrt(MAX_PX/(img.width*img.height)));
     var w=Math.round(img.width*scale);var h=Math.round(img.height*scale);
     var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
+    // S346 (Mark): pin size is a fraction of the rendered drawing width. On the
+    // big landscape sheets that fraction makes pins huge (24x36 "way too big",
+    // 11x17 "a little big"). Shrink the factor per sheet size so a pin reads at
+    // roughly consistent physical size regardless of paper. Letter unchanged.
     var _pinFrac=(pageSize==='24x36')?0.014:(pageSize==='11x17')?0.022:0.028;
     var pinW=Math.max(28,w*_pinFrac);
     pins.forEach(function(rr){
       var d=rr.d;if(d.pinX==null)return;
       var px=d.pinX*w;var py=d.pinY*h;
+      // S154 PIN-COLOUR-OVERHAUL: derive isSiteRecord per-pin so a Site
+      // Record entry on the full-drawing overview gets the indigo teardrop
+      // just like its dedicated minimap does.
       var _isSr=isSiteRecordsName(rr.ctr);
       _drawTeardropPin(ctx,px,py,pinW,d,_isSr);
     });
-    var out=canvas.toDataURL('image/jpeg',0.92);
-    canvas.width=0;canvas.height=0;
-    callback(out);
-  }).catch(function(){ callback(''); });
+    callback(canvas.toDataURL('image/jpeg',0.92));
+  };
+  img.src=dwgDataUrl;
 }
 
 // S113 Push 12: teardrop pin matches the viewer's SVG path EXACTLY.
@@ -561,215 +548,17 @@ function _pdfPhotoFullHref(ph){
   return '';
 }
 
-// ===========================================================================
-// S(this) — Stage 1: capture-mode PDF export.
-// Renders the export popup's already-correct .page sheets to a PDF EXACTLY as
-// shown, bypassing the browser print dialog (which re-paginated the layout, added
-// browser headers/footers, and squeezed the content width). This does NOT change
-// how pages are built — photos, photo links, drawing minimaps, fonts, and
-// pagination are all produced by the existing pipeline untouched. It only changes
-// the final "make a PDF" step from w.print() to a faithful canvas capture.
-// ===========================================================================
-var _CAP_HTML2CANVAS_CDN='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-var _CAP_PDFLIB_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
-
-// Load a script INTO the popup window (w), resolving when ready.
-function _capLoadScriptInto(w,src,globalName){
-  return new Promise(function(res,rej){
-    try{
-      if(globalName&&w[globalName])return res();
-      var done=false;
-      var to=setTimeout(function(){
-        if(done)return;
-        // If the global appeared despite no onload (some CSP setups), accept it.
-        if(globalName&&w[globalName]){done=true;return res();}
-        done=true;rej(new Error('load timeout '+src));
-      },15000);
-      var s=w.document.createElement('script');s.src=src;
-      s.onload=function(){if(done)return;done=true;clearTimeout(to);res();};
-      s.onerror=function(){if(done)return;done=true;clearTimeout(to);rej(new Error('load fail '+src));};
-      w.document.head.appendChild(s);
-    }catch(e){rej(e);}
-  });
-}
-
-// Wait until every <img> in the popup is fully loaded (non-empty src + complete +
-// naturalWidth>0). The drawing minimaps render async (their src is assigned after
-// pagination), so this is essential — capturing early would yield blank drawings.
-// Polls with a hard timeout so export can never hang.
-function _capWaitForImages(D,timeoutMs){
-  return new Promise(function(res){
-    var start=Date.now();
-    function ready(){
-      var imgs=D.querySelectorAll('img');
-      for(var i=0;i<imgs.length;i++){
-        var im=imgs[i];
-        // An image is "settled" if it has a src AND finished (complete) AND has
-        // real pixels (naturalWidth>0). Images with empty src are still pending
-        // async assignment (drawing minimaps) — keep waiting for those.
-        if(!im.getAttribute('src')) return false;
-        if(!im.complete||im.naturalWidth===0) return false;
-      }
-      return true;
-    }
-    (function poll(){
-      if(ready()||Date.now()-start>timeoutMs)return res();
-      setTimeout(poll,120);
-    })();
-  });
-}
-
-// Add a clickable URI link annotation to a pdf-lib page rectangle.
-// PDFLib is the popup window's PDFLib instance (w.PDFLib).
-function _capAddLinkAnnot(PDFLib,pdfDoc,pg,x,y,wid,hei,uri){
-  try{
-    var ctx=pdfDoc.context;
-    var annot=ctx.obj({
-      Type:'Annot', Subtype:'Link',
-      Rect:[x,y,x+wid,y+hei],
-      Border:[0,0,0],
-      A:ctx.obj({ Type:'Action', S:'URI', URI:PDFLib.PDFString.of(uri) })
-    });
-    var ref=ctx.register(annot);
-    var node=pg.node;
-    var existing=node.Annots&&node.Annots();
-    if(existing&&existing.push){existing.push(ref);}
-    else{node.set(PDFLib.PDFName.of('Annots'), ctx.obj([ref]));}
-  }catch(e){/* best-effort; never block export */}
-}
-
-function _captureExportPDF(w,D,title,btn,hintEl){
-  var origBtnHtml=btn.innerHTML;
-  function setHint(t){try{if(hintEl)hintEl.textContent=t;}catch(e){}}
-  btn.disabled=true;btn.style.opacity='0.6';btn.innerHTML='Working…';
-  setHint('Loading export engine…');
-  Promise.all([
-    _capLoadScriptInto(w,_CAP_HTML2CANVAS_CDN,'html2canvas'),
-    _capLoadScriptInto(w,_CAP_PDFLIB_CDN,'PDFLib')
-  ]).then(function(){
-    setHint('Waiting for photos & drawings to finish loading…');
-    return _capWaitForImages(D, 20000);
-  }).then(function(){
-    var h2c=w.html2canvas, PDFLib=w.PDFLib;
-    if(!h2c||!PDFLib) throw new Error('capture libraries unavailable');
-    var pages=D.querySelectorAll('.page');
-    if(!pages.length) throw new Error('no pages to export');
-    // Hide the fixed button bar so it isn't captured.
-    var barEl=D.getElementById('pdf-btn-bar');var barPrev=barEl?barEl.style.display:null;
-    if(barEl)barEl.style.display='none';
-    var bodyPadPrev=D.body.style.paddingTop;D.body.style.paddingTop='0';
-
-    var pdfDoc;
-    return PDFLib.PDFDocument.create().then(function(doc){
-      pdfDoc=doc;
-      // Photograph each on-screen .page element 1:1. html2canvas is given the
-      // element's exact box + a scroll reset so it captures the element reliably
-      // inside the popup (without explicit width/height/scroll it can hang or
-      // mis-capture when the popup is scrolled or the page is taller than the
-      // viewport — that was why the green button appeared to "do nothing"). The
-      // PDF page is then sized from the element so output matches the preview.
-      var idx=0;
-      function nextPage(){
-        if(idx>=pages.length) return Promise.resolve();
-        setHint('Rendering page '+(idx+1)+' of '+pages.length+'…');
-        var pageEl=pages[idx];
-        var ew=pageEl.offsetWidth, eh=pageEl.offsetHeight;
-        return h2c(pageEl,{
-          scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false,
-          width:ew, height:eh,
-          windowWidth:ew, windowHeight:eh,
-          scrollX:0, scrollY:0, x:0, y:0
-        })
-          .then(function(canvas){
-            var png=canvas.toDataURL('image/png');
-            return pdfDoc.embedPng(png).then(function(pngImg){
-              // Size the PDF page from the actual element (96dpi px -> 72pt points).
-              var pw=(ew/96)*72;
-              var ph=(eh/96)*72;
-              if(!isFinite(pw)||pw<=0){pw=612;}
-              if(!isFinite(ph)||ph<=0){ph=792;}
-              var pg=pdfDoc.addPage([pw,ph]);
-              pg.drawImage(pngImg,{x:0,y:0,width:pw,height:ph});
-              // --- Preserve clickable photo links ---
-              try{
-                var pageRect=pageEl.getBoundingClientRect();
-                if(pageRect.width>0&&pageRect.height>0){
-                var sx=pw/pageRect.width, sy=ph/pageRect.height;
-                var anchors=pageEl.querySelectorAll('a[href]');
-                for(var ai=0;ai<anchors.length;ai++){
-                  var href=anchors[ai].getAttribute('href')||'';
-                  if(!/^https?:\/\//i.test(href))continue;
-                  var r=anchors[ai].getBoundingClientRect();
-                  if(r.width<2||r.height<2)continue;
-                  var x0=(r.left-pageRect.left)*sx;
-                  var y0Top=(r.top-pageRect.top)*sy;
-                  var lw=r.width*sx, lh=r.height*sy;
-                  var yBottom=ph-(y0Top+lh); // PDF y origin bottom-left
-                  _capAddLinkAnnot(PDFLib,pdfDoc,pg,x0,yBottom,lw,lh,href);
-                }
-                }
-              }catch(linkErr){/* links are best-effort; never block export */}
-              idx++;return nextPage();
-            });
-          })
-          .catch(function(pageErr){
-            // One page failing must NOT abort the whole export. Add a blank
-            // letter page in its place, log, and continue so the user still
-            // gets a PDF and can see which page didn't render.
-            try{console.error('[capture] page '+(idx+1)+' failed:',pageErr);}catch(e){}
-            try{pdfDoc.addPage([612,792]);}catch(e){}
-            idx++;return nextPage();
-          });
-      }
-      return nextPage();
-    }).then(function(){
-      setHint('Finalizing…');
-      return pdfDoc.save();
-    }).then(function(bytes){
-      // restore UI
-      if(barEl)barEl.style.display=(barPrev||'');
-      D.body.style.paddingTop=bodyPadPrev;
-      var fname=(title||'ARENCON_Report').replace(/[\\/:*?"<>|]+/g,'_')+'.pdf';
-      var blob=new Blob([bytes],{type:'application/pdf'});
-      var url=(w.URL||w.webkitURL).createObjectURL(blob);
-      var a=D.createElement('a');a.href=url;a.download=fname;D.body.appendChild(a);a.click();
-      setTimeout(function(){try{(w.URL||w.webkitURL).revokeObjectURL(url);a.remove();}catch(e){}},2000);
-      btn.disabled=false;btn.style.opacity='';btn.innerHTML=origBtnHtml;
-      setHint('Saved '+fname+'. If anything looks off, use Browser Print as a fallback.');
-    });
-  }).catch(function(err){
-    // Any failure → restore button and SHOW the error. Do NOT auto-open the
-    // browser print dialog (that made it look like capture mode did nothing).
-    // The separate "Browser Print" button is there if the user wants the fallback.
-    try{var barEl2=D.getElementById('pdf-btn-bar');if(barEl2)barEl2.style.display='';}catch(e){}
-    try{D.body.style.paddingTop='56px';}catch(e){}
-    btn.disabled=false;btn.style.opacity='';btn.innerHTML=origBtnHtml;
-    setHint('Export failed: '+(err&&err.message||'error')+'. Try again, or use Browser Print.');
-    try{console.error('[capture export] failed:',err);}catch(e){}
-  });
-}
-
-
 function _buildCSS(fontB64){
   var c='*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}';
   c+='body{font-family:Calibri,sans-serif;color:#1C2333;font-size:11pt;line-height:1.23;background:#525659;margin:0;padding:20px;}';
   if(fontB64){c+='@font-face{font-family:"BlairMdITC TT";src:url(data:font/truetype;base64,'+fontB64+') format("truetype");font-weight:normal;font-style:normal;}';}
   var blairFam=fontB64?'"BlairMdITC TT","Times New Roman",serif':'Calibri,sans-serif';
-  // S(this): FIXED height (not min-height) on body Letter pages. With min-height a
-  // page that the flow engine slightly over-filled would GROW past 11in, and the
-  // capture rendered that over-tall element as one giant PDF page (the stacked
-  // half-sheets bug: an item tail + a fresh header/bands + the next item all packed
-  // into one captured "page"). Fixed height + overflow:hidden makes each sheet a
-  // true 11in page, exactly like the approved demo POC. Appendix sheets (.p11x17 /
-  // .p24x36) intentionally KEEP min-height — they size to their own drawing content.
-  c+='.page{width:8.5in;height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
+  c+='.page{width:8.5in;min-height:11in;background:white;margin:0 auto 24px;padding:0.5in 0.6in;box-shadow:0 2px 12px rgba(0,0,0,.3);position:relative;overflow:hidden;}';
   // S346: appendix sheets can take a larger landscape size. Body pages stay
   // Letter (default .page). These override only width/min-height; the named
   // @page rules below drive the actual printed paper size (mixed-size PDF).
-  c+='.page.p11x17{width:17in;height:auto;min-height:11in;}';
-  c+='.page.p24x36{width:36in;height:auto;min-height:24in;}';
-  // S(this): appendix pages (any size, incl. letter) size to their drawing content.
-  c+='.page.page-appendix{height:auto;min-height:11in;}';
+  c+='.page.p11x17{width:17in;min-height:11in;}';
+  c+='.page.p24x36{width:36in;min-height:24in;}';
   // S346: appendix split — drawing LEFT (flexes), deficiency list RIGHT at a
   // FIXED 5.4in width (identical column on every sheet size; 24x36 gives its
   // extra room to the drawing, not the list). List reuses the body .dc cards.
@@ -791,8 +580,8 @@ function _buildCSS(fontB64){
   // S139 Phase 3: .ch is now the CONTRACTOR SUB-BAND nested under a navy
   // .th-band trade header — taupe #7B6F5A (canon PDF spec), no top radius
   // or top margin since it butts against the trade band above it.
-  c+='.ch{background:#7B6F5A;color:white;padding:6px 14px;font-weight:700;font-size:10.5pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;break-after:avoid;page-break-after:avoid;break-inside:avoid;page-break-inside:avoid;}';
-  c+='.th-band{background:#2A3A5C;color:#fff;padding:8px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:18px;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;break-after:avoid;page-break-after:avoid;break-inside:avoid;page-break-inside:avoid;}';
+  c+='.ch{background:#7B6F5A;color:white;padding:6px 14px;font-weight:700;font-size:10.5pt;border-radius:0;margin-top:0;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
+  c+='.th-band{background:#2A3A5C;color:#fff;padding:8px 14px;font-weight:700;font-size:12pt;border-radius:6px 6px 0 0;margin-top:18px;margin-bottom:0;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center;}';
   // S142 Batch 3-3 (Model 2 §4.4): pooled "Recommendations" section.
   // .th-band.recs = grey band (demo --grey #6B7280, distinct from the
   // navy trade bands); .rec-cap = the advisory caption row directly under
@@ -889,17 +678,6 @@ function _buildCSS(fontB64){
   c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
   c+='.dp-grid a{display:block;width:100%;text-decoration:none;}';
   c+='.dp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
-  // S(this) — measure-only deterministic photo height. The pagination pre-pass
-  // measures card heights synchronously in #measure-zone (width:7.3in, same as a
-  // real page's content width). aspect-ratio photos can measure SHORT there if
-  // images haven't decoded yet, so _keepH (band + first item) under-measures and
-  // the keep-together guard wrongly lets a tall photo card's band sit alone at a
-  // page bottom while the card flows to the next page — the orphaned-title bug.
-  // Scoped to #measure-zone ONLY: force .dp to its true rendered height
-  // (3-col grid in 7.3in → 230.3px cell → 4:3 → 172.7px) so measurement is
-  // decode-independent. Real .page rendering is untouched (keeps aspect-ratio),
-  // so photos display exactly as before — this changes measurement, not output.
-  c+='#measure-zone .dp{aspect-ratio:auto!important;height:172.7px!important;}';
   // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
   c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
   c+='.fu-row{padding:3px 0;line-height:1.4;}';
@@ -948,7 +726,7 @@ function _buildCSS(fontB64){
   c+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
   c+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-family:Calibri,sans-serif;font-size:11pt;line-height:1.23;}.pi-row:last-child{margin-bottom:0;}';
   c+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}.pi-value{flex:1;min-width:0;font-weight:400;color:#1C2333;overflow-wrap:break-word;}';
-  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;height:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;overflow:visible!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}}';
+  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}}';
   c+='@page{size:letter;margin:0;}';
   // S346: named page sizes for the mixed-size appendix. Body pages use the
   // default @page (letter); appendix sheets tagged .p11x17/.p24x36 map to these.
@@ -1522,24 +1300,12 @@ function _buildDefCard(r,hdrExtra){
   h+='<div class="dc-hdr"><span class="dc-hdr-l"><span class="dc-itemnum">'+r._itemNo+'</span><span class="item-sep">\u00b7</span><span class="pinref-dark">'+_pinRef+'</span></span><span class="dc-hdr-r">'+_inspChip+(hdrExtra||'')+(_showRecChip?'<span class="rec-chip">REC</span>':'')+'<span class="'+pillCls+'">'+esc(pillTxt)+'</span></span></div>';
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+_descHtml(po.text)+'</div>';
-  if(po.photos&&po.photos.length){
-    // S(this) — DEMO-MATCH: emit photos in ROWS of 3, each row preceded by a
-    // dc-split marker so the flow engine can break between any two rows (never
-    // mid-photo). This is what lets a tall photo card fill the current page and
-    // continue the rest on the next, instead of jumping whole and leaving a gap.
-    var _phs=po.photos;
-    for(var _pi=0;_pi<_phs.length;_pi+=3){
-      h+='<div class="dc-split"><div class="dp-grid">';
-      for(var _pj=_pi;_pj<Math.min(_pi+3,_phs.length);_pj++){
-        var _ph=_phs[_pj];
-        var _src=_pdfPhotoSrc(_ph,r2Cache);
-        var _href=_pdfPhotoFullHref(_ph);
-        if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
-        else{h+='<img class="dp" src="'+_src+'">';}
-      }
-      h+='</div></div>';
-    }
-  }
+  if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){
+    var _src=_pdfPhotoSrc(ph,r2Cache);
+    var _href=_pdfPhotoFullHref(ph);
+    if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
+    else{h+='<img class="dp" src="'+_src+'">';}
+  });h+='</div>';}
   if(fuActs.length){
     h+='<div class="fu-grp"><span>Follow-up</span><span style="font-weight:500;color:#6B7B8C;">FRT #'+_curInst+'</span></div>';
     fuActs.forEach(function(a){
@@ -1846,17 +1612,7 @@ try{
   bar.style.cssText='transform-origin:top left;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;will-change:transform,width;';
   var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
   pb.style.cssText='padding:8px 24px;background:#2E9E72;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
-  // S(this) — Stage 1 capture-mode export. Replaces the browser print dialog
-  // (which re-paginated the layout, added browser headers, squeezed the width)
-  // with a faithful capture: each .page is rendered to canvas EXACTLY as shown
-  // and assembled into a letter PDF. Waits for ALL images (cached photos AND the
-  // async-rendered drawing minimaps) before capturing so nothing is blank.
-  // Falls back to w.print() if the capture libraries fail to load.
-  pb.onclick=function(){_captureExportPDF(w,D,_pdfTitle,pb,ht);};bar.appendChild(pb);
-  var pbPrint=D.createElement('button');pbPrint.innerHTML='\uD83D\uDDA8 Browser Print';
-  pbPrint.style.cssText='padding:8px 18px;background:#7B6F5A;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
-  pbPrint.title='Fallback: save via the browser print dialog.';
-  pbPrint.onclick=function(){w.print();};bar.appendChild(pbPrint);
+  pb.onclick=function(){w.print();};bar.appendChild(pb);
   var ht=D.createElement('span');ht.textContent='Click to save as PDF via your browser print dialog.';
   ht.style.cssText='color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';bar.appendChild(ht);
   var cb=D.createElement('button');cb.innerHTML='\u2715 Close';
@@ -1875,13 +1631,8 @@ try{
   // appears in the actual PDF (@media print hides #pdf-btn-bar).
 }catch(e){}
 
-// Pagination. PAGE_H is the usable content height of a Letter .page in the SAME
-// 96dpi pixel units that _measure() returns (measure-zone is a real 96dpi element).
-// .page is 11in tall with 0.5in top+bottom padding => 10in usable => 960px at 96dpi.
-// (Was 912 — a 91.2px/in figure that did NOT match the 96dpi measurements, so the
-// engine thought pages filled ~5% early and split cards that actually fit, doubling
-// the page count and detaching headers.)
-var PAGE_H=960;var measureZone=D.getElementById('measure-zone');var pagesContainer=D.getElementById('pages-container');
+// Pagination
+var PAGE_H=912;var measureZone=D.getElementById('measure-zone');var pagesContainer=D.getElementById('pages-container');
 function _measure(html){measureZone.innerHTML=html;var h=measureZone.offsetHeight;measureZone.innerHTML='';return h;}
 // S(this) FIX — title-detach bug: ALL pagination height measurements must run
 // AFTER the embedded Blair/Carlito @font-face have decoded in this print window.
@@ -1891,40 +1642,10 @@ function _measure(html){measureZone.innerHTML=html;var h=measureZone.offsetHeigh
 // the whole measure+render pass on fonts.ready makes every measurement use the
 // real printed font. Defensive: if fonts API is missing/never resolves, a 1500ms
 // fallback still runs pagination so export can never hang.
-// S(this) — image-decode pre-warm: decode every photo src the report will
-// render before pagination runs, so the real .page output paints decoded images
-// immediately (no post-render reflow). Correctness of the page-break MEASUREMENT
-// is handled separately by the #measure-zone deterministic photo height (.dp
-// fixed-height rule above); this prewarm is a rendering-smoothness safeguard.
-// Self-capped at 1200ms so it can never noticeably delay export.
-function _prewarmPhotoDecode(){
-  try{
-    var srcs={};
-    (reportDefs||[]).forEach(function(r){
-      var po=(r.d&&r.d.observations&&r.d.observations[r.obsIdx])||r.d||{};
-      (po.photos||[]).forEach(function(ph){var s=_pdfPhotoSrc(ph,r2Cache);if(s)srcs[s]=1;});
-    });
-    var list=Object.keys(srcs);
-    if(!list.length)return Promise.resolve();
-    var decodeAll=Promise.all(list.map(function(s){
-      return new Promise(function(res){
-        try{var im=new Image();im.onload=function(){res();};im.onerror=function(){res();};im.src=s;
-          if(im.decode){im.decode().then(function(){res();},function(){res();});}
-        }catch(e){res();}
-      });
-    }));
-    // Self-cap: never let decode-warm delay export more than 1200ms regardless
-    // of photo count or network. Whichever resolves first wins.
-    var cap=new Promise(function(res){setTimeout(res,1200);});
-    return Promise.race([decodeAll, cap]);
-  }catch(e){return Promise.resolve();}
-}
 var _fontsReady = (D.fonts && D.fonts.ready) ? D.fonts.ready : Promise.resolve();
 var _pagRan=false;
 function _runPaginationGated(){ if(_pagRan)return; _pagRan=true; _runPagination(); }
-// Gate pagination on BOTH fonts loaded AND photo decode pre-warmed. The 1500ms
-// safety fallback still fires independently so export can never hang.
-Promise.all([_fontsReady, _prewarmPhotoDecode()]).then(_runPaginationGated, _runPaginationGated);
+_fontsReady.then(_runPaginationGated, _runPaginationGated);
 setTimeout(_runPaginationGated, 1500);
 function _runPagination(){
 var FULL_HEADER_H=_measure(fullHeader+infoGrid+summaryHtml);
@@ -1986,12 +1707,7 @@ function _flowBlock(block){
     // + first-item height. Fall back to the old +200 lookahead when no keep was
     // stamped or it can't fit a fresh page anyway.
     var _tKeep=block._keepH||0,_tCap=PAGE_H-COMPACT_HEADER_H;
-    // S(this): same orphan fix as the ctrHeader branch — when the trade band's
-    // kept unit (sub-band + first item) is taller than a full page (many photos),
-    // don't fall back to a weak +200 that lets the band sit alone; require at
-    // least band + a meaningful first chunk so the title always travels with its
-    // content. Measure-zone deterministic photo height (above) makes _tKeep accurate.
-    var _tNeed=(_tKeep&&_tKeep<=_tCap)?_tKeep:(_tKeep?280:200);
+    var _tNeed=(_tKeep&&_tKeep<=_tCap)?_tKeep:200;
     if(avail<blockH+_tNeed){_finalizePage();_startPage();}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
@@ -2008,72 +1724,30 @@ function _flowBlock(block){
     // (they dc-split regardless) and band-with-no-item fall back to the old
     // +200 heuristic so an unsatisfiable keep never wastes a page.
     var _keepH=block._keepH||0,_keepCap=PAGE_H-COMPACT_HEADER_H;
-    // S(this): close the orphan hole for VERY tall first items (many photos).
-    // Old logic fell back to +200 when _keepH exceeded a full page, on the theory
-    // that such an item dc-splits anyway. But if the band sat near a page bottom,
-    // band+200 could still "fit", the band got placed, then the tall item flowed
-    // to the next page — orphaning the title (Mark's bug). Fix: when the first
-    // item is tall (with or without a real _keepH), require AT LEAST enough room
-    // for the band + a meaningful first chunk (min ~280px) so the band is never
-    // emitted unless its item — or the first dc-split slice of it — follows on the
-    // same page. Combined with the measure-zone deterministic photo height above,
-    // _keepH is now accurate, so the common case needs the full band+item to fit.
-    var _minChunk=280;
-    var _need=(_keepH&&_keepH<=_keepCap)?_keepH:(_keepH?_minChunk:200);
+    var _need=(_keepH&&_keepH<=_keepCap)?_keepH:200;
     if(avail<blockH+_need){_finalizePage();_startPage();if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}}
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
   if(blockH<=avail){curPageHtml+=block.html;curUsed+=blockH;}
-  else{
-    // S(this) — DEMO-MATCH continuous flow. The card doesn't fit the remaining
-    // space. The OLD code jumped the whole card to a fresh page whenever the
-    // page was >15% full, which left big gaps (one item per page, empty bottoms).
-    // Instead: split the card at its photo-row boundaries (dc-split markers) and
-    // fill the CURRENT page with everything that fits, then continue the rest on
-    // the next page under a "[continued]" marker. The next item then flows into
-    // whatever space is left — no gaps. Only when the card has no split points
-    // (text-only, genuinely indivisible) do we move it whole.
+  else if(blockH<=PAGE_H-COMPACT_HEADER_H){
+    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+    curPageHtml+=block.html;curUsed+=blockH;
+  }else{
+    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
     var sp=block.html.split(/<div class="dc-split/);
-    if(sp.length<=1){
-      // Indivisible card. If it fits a fresh page, move it whole (can't split);
-      // otherwise place it here and let it overflow (last resort, very rare).
-      if(blockH<=PAGE_H-COMPACT_HEADER_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-      curPageHtml+=block.html;curUsed+=blockH;
-    }else{
-      // cH = card head (text/heading up to first photo row). cF closes the card.
+    if(sp.length<=1){curPageHtml+=block.html;curUsed+=blockH;}
+    else{
       var cH=sp[0];var cF='</div></div></div>';
-      // Compact continuation head: same wrapper (dc>dc-inner>dc-content) but the
-      // description is replaced with a dimmed "(continued)" line so the full
-      // deficiency text isn't repeated on every continuation page (demo behavior).
-      var _contHead=cH.replace(/<div class="dc-desc">[\s\S]*?<\/div>\s*$/,'')
-                      .replace(/(<span class="pinref-dark">[^<]*)(<\/span>)/,'$1 <span style="color:#928E9C;font-style:italic;font-weight:600;font-size:9.5pt;">(continued)</span>$2');
-      var headH=_measure(cH+cF);
-      // ROW_H: a 3-photo dc-split row is deterministic — the measure-zone forces
-      // .dp to 172.7px (3-col grid in 7.3in), so every row is the same height
-      // regardless of photo count in it. Per-row _measure() was returning inflated
-      // values that made curUsed cross PAGE_H after barely one row, splitting every
-      // card onto its own half-empty page (the doubled page count + detached header
-      // you saw). Fixed ROW_H matches the approved demo's arithmetic exactly.
-      var ROW_H=185; // 172.7px photo + grid margins/gap
-      if(avail < headH+ROW_H && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-      // Place the head once (measured alone — cF is appended at the very end).
-      var headOnlyH=_measure(cH);
-      curPageHtml+=cH;curUsed+=headOnlyH;
-      var rowsOnPage=0;
-      var headUsedThisPage=headOnlyH;
+      curPageHtml+=cH;curUsed+=_measure(cH+cF);
       for(var si=1;si<sp.length;si++){
-        var sH='<div class="dc-split'+sp[si];
-        // Fixed row height (not _measure) so the fill math matches the real render
-        // and the demo. Break only when this row would actually overflow the page.
-        if(curUsed+ROW_H>PAGE_H && (rowsOnPage>0 || headUsedThisPage+ROW_H>PAGE_H)){
+        var sH='<div class="dc-split'+sp[si];var sHt=_measure(sH);
+        if(curUsed+sHt>PAGE_H&&si>1){
           curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
           _finalizePage();_startPage();_restamp();
-          curPageHtml+=_contHead;
-          var contH=_measure(_contHead);
-          curUsed+=contH;
-          rowsOnPage=0;headUsedThisPage=contH;
+          curPageHtml+=cH+'<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>';
+          curUsed+=_measure(cH+'<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>'+cF);
         }
-        curPageHtml+=sH;curUsed+=ROW_H;rowsOnPage++;
+        curPageHtml+=sH;curUsed+=sHt;
       }
       curPageHtml+=cF;
     }
@@ -2291,14 +1965,11 @@ if(isField&&p.drawings&&p.drawings.length){
         // title band, the drawing display height, the table header, and slack.
         // Drawing on Letter is max-width:100% (~7.3in wide); reserve its height
         // at the same px/in scale assuming a landscape-ish sheet (~1.45 ratio).
-        // Letter-appendix drawing-list sizing keeps its original 912 calibration
-        // (this fix only changes body deficiency-page pagination).
-        var _APPENDIX_PAGE_H=912;
-        var _PXPI_L=_APPENDIX_PAGE_H/10;       // 91.2 px per usable inch
+        var _PXPI_L=PAGE_H/10;                 // 91.2 px per usable inch
         var _dwgReserve=(7.3/1.45)*_PXPI_L;    // ~5in tall drawing
         var _titleBandHL=_measure('<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div><div class="app-dwg-title">'+esc(dw.name)+'</div>');
         var _theadH=_measure('<table class="app-pin-table"><thead><tr><th>Item</th><th>Pin</th><th>Description</th><th>Status</th><th>Contractor</th></tr></thead></table>');
-        var _rowsAvailH=_APPENDIX_PAGE_H-_titleBandHL-_dwgReserve-_theadH-24;
+        var _rowsAvailH=PAGE_H-_titleBandHL-_dwgReserve-_theadH-24;
         if(_rowsAvailH<120)_rowsAvailH=120; // floor: always allow some rows
 
         var _chunksL=[]; var _curL=[]; var _curHL=0;
@@ -2340,9 +2011,12 @@ if(isField&&p.drawings&&p.drawings.length){
       function _measureAppCard(html){
         return _measure('<div style="width:4.6in;">'+html+'</div>');
       }
-      // Appendix sheet sizing keeps its original 91.2 px/in calibration so this
-      // body-pagination fix does not also shift the appendix drawing-list packing.
-      var _PXPI=91.2; // px per usable inch (appendix-only; body uses PAGE_H=960)
+      // Page content height for this sheet size (logical px, matching PAGE_H=912
+      // = Letter content height). 11x17/24x36 are landscape: SHORTER than Letter
+      // portrait content height per inch isn't true — content height = (paper
+      // height - 1in vert padding) scaled the same way PAGE_H scales Letter's 10in.
+      // PAGE_H(912) corresponds to Letter's 10in usable height -> 91.2 px/in.
+      var _PXPI=PAGE_H/10; // px per usable inch (912/10)
       var _sheetUsableH = (_drawPageSize==='24x36') ? (24-1)*_PXPI
                         : (11-1)*_PXPI; // 11x17 (Letter returned early above)
       var _titleBandH=_measure('<div class="sh" style="margin-top:0;">'+esc(_appTitle)+'</div><div class="app-dwg-title">'+esc(dw.name)+'</div>');
@@ -2388,11 +2062,7 @@ var allH='';
 pages.forEach(function(pg,idx){
   // S346: appendix pages carry the chosen drawing-sheet size class (.p11x17 /
   // .p24x36). Body pages and 'letter' appendix pages stay default .page.
-  // S(this): ALL appendix pages also get .page-appendix so they keep height:auto
-  // (a letter-sized drawing appendix must size to its drawing, not clip at the new
-  // fixed 11in body-page height). Body pages keep the fixed height.
   var _pgCls='page';
-  if(pg.isAppendix)_pgCls+=' page-appendix';
   if(pg.isAppendix&&pg.appSize&&pg.appSize!=='letter')_pgCls+=' '+(pg.appSize==='11x17'?'p11x17':'p24x36');
   var pn=idx+1;allH+='<div class="'+_pgCls+'">';
   if(pn>1)allH+=_compactHeader(pn);
