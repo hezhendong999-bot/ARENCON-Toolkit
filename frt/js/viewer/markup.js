@@ -3987,6 +3987,14 @@ function _syncTextDecoButtons() {
 }
 
 function _setActiveTool(tool) {
+  // S392: An open text box must not survive a tool switch/disarm — otherwise the
+  // empty contentEditable div is left on the canvas (invisible pointer-blocker as
+  // you pan/zoom) and its docked bar stays visible. Commit it first (empty text
+  // self-deletes via commit()). Guarded by _dvTextCtl.isActive() so the nested
+  // _setActiveTool(null) that cleanup() itself fires is a no-op (already resolved).
+  if (_dvTextBox && _dvTextCtl && _dvTextCtl.isActive()) {
+    _dvTextCtl.commit();
+  }
   if (_tool === 'polyline' && _polyPoints.length >= 2 && tool !== 'polyline') {
     _finishPolyline();
   }
