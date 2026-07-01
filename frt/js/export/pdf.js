@@ -535,7 +535,7 @@ function _buildReportSnapshots(p, r2Cache, progressCb){
   })).then(function(){ return _snapshotByPhotoId; });
 }
 
-var _PDF_WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
+var _PDF_WORKER='https://files.arencon.app';
 function _pdfPhotoFullHref(ph){
   if(!ph||typeof ph==='string')return '';
   // S360: prefer the frozen report snapshot's token (matches the in-PDF thumbnail).
@@ -2319,7 +2319,7 @@ export const initPDFExport={
  * cascade. Labeled BETA in-UI. Layout-fidelity port is the next sessions.
  * ========================================================================== */
 
-var BETA_WORKER='https://arencon-r2-worker.hezhendong999.workers.dev';
+var BETA_WORKER='https://files.arencon.app';
 // Carlito embedded as base64 (offline, no network font fetch). Decoded to bytes once.
 function _betaB64ToBytes(b64){
   var bin=atob(b64);var arr=new Uint8Array(bin.length);
