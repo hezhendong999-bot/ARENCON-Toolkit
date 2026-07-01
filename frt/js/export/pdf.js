@@ -734,7 +734,7 @@ function _buildCSS(fontB64){
   return c;
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter,inspTag,drawingPageSize){
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter,inspTag,drawingPageSize,internalMode){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 // S(this): chosen appendix drawing-sheet size. Controls ONLY the appendix
 // drawing sheets in the mixed-page renderer; report body always stays Letter
@@ -934,7 +934,14 @@ var _ctrSubtitle='';
 if(_ctrFilterId!=='__all__'&&_ctrFilterName)_ctrSubtitle=_ctrFilterName;
 
 // Full header
-var fullHeader='<div class="ph"><div><img src="'+logo+'" alt="ARENCON"></div>';
+// S391: internal Site-Records report — Option-B page-1 mark (thin top rule +
+// corner tag) in the locked report ink #1C2333 (muted-only rule; not burgundy).
+var _internalBanner = internalMode
+  ? '<div style="position:relative;border-top:3px solid #1C2333;margin-bottom:8px;">'
+    + '<div style="position:absolute;top:0;right:0;background:#1C2333;color:#fff;font-size:8pt;font-weight:700;letter-spacing:.5px;padding:3px 9px;border-bottom-left-radius:5px;text-transform:uppercase;">Internal \u2014 not for external issue</div>'
+    + '</div>'
+  : '';
+var fullHeader=_internalBanner+'<div class="ph"><div><img src="'+logo+'" alt="ARENCON"></div>';
 fullHeader+='<div class="ph-addr">1551 CATERPILLAR ROAD, SUITE 206<br>MISSISSAUGA, ON &nbsp;&nbsp; L4X 2Z6<br>CANADA<br><br>P: 905 615 1774<br>F: 905 615 9351<br>E: mail'+'@'+'arencon.com</div></div>';
 var titleBlock='<div class="title-block"><div class="tb-line1">Fire Protection Engineering</div>';
 titleBlock+='<div class="tb-line2">'+esc(_rptTitleBase)+' #'+_rptNum+'</div>';
@@ -953,7 +960,10 @@ fullHeader+=titleBlock;
 // fall back to the old client+contractors derivation when no distribution was
 // ever saved (legacy projects / direct export without opening the modal).
 var _pdfDP=[];
-if(Array.isArray(p.distribution)&&p.distribution.length){
+if(internalMode){
+  // Internal Site-Records report: never carries an external distribution line.
+  _pdfDP.push('Internal \u2014 ARENCON only');
+}else if(Array.isArray(p.distribution)&&p.distribution.length){
   p.distribution.forEach(function(n){if(n)_pdfDP.push(n);});
 }else{
   if(p.info&&p.info.client)_pdfDP.push(p.info.client);
@@ -2288,7 +2298,7 @@ export const initPDFExport={
             });
           }
           try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter');
+          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter',!!opts.internalMode);
         });
         });
       });
