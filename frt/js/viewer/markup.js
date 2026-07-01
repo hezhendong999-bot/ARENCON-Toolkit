@@ -2779,7 +2779,7 @@ function _endDraw(e) {
 
 var _dvTextBox = null;          // the on-canvas contentEditable box (or null)
 var _dvTextCtl = null;          // controller the docked bar drives (or null)
-var _dvLastTextColor = null;    // sticky text colour across boxes
+var _dvLastTextColor = '#9C2742';    // S394: sticky text colour; defaults to brand burgundy (legible on light drawings). Was falling back to muted #A85959.
 var _dvLastTextBg = 'none';     // sticky bg across boxes
 var _DV_SIZE_STEPS = [24, 32, 40, 56, 72, 80, 96, 120, 160, 220];  // S391: logical px, tuned for large PDF drawings; 80 = default. Stepper spans small->large like the lightbox.
 var _DV_TEXT_PALETTE = ['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'];
@@ -2947,7 +2947,7 @@ function _dvBuildTextBar() {
   var NONEX = '<svg width="100%" height="100%" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="#e23" stroke-width="2.6"/></svg>';
   var bar = document.createElement('div');
   bar.id = 'dv-text-bar';
-  bar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;' +
+  bar.style.cssText = 'position:fixed;left:50%;bottom:72px;transform:translateX(-50%);display:none;' +
     'align-items:center;gap:4px;padding:7px 9px;background:rgba(20,20,28,.96);border:1.5px solid #C9476A;' +
     'border-radius:14px;z-index:1000;box-shadow:0 6px 20px rgba(0,0,0,.55);max-width:calc(100vw - 16px);' +
     'box-sizing:border-box;flex-wrap:nowrap;';
@@ -2957,8 +2957,8 @@ function _dvBuildTextBar() {
     '<button type="button" class="dvtb-inc" style="width:34px;height:40px;border:none;background:transparent;color:#f4f3f6;font:700 20px Calibri;border-radius:8px;cursor:pointer;">+</button>' +
     '<div style="width:1px;height:28px;background:rgba(255,255,255,.14);margin:0 2px;"></div>' +
     '<button type="button" class="dvtb-textcol" title="Text colour" style="width:40px;height:40px;border:none;background:transparent;border-radius:8px;cursor:pointer;position:relative;">' +
-      '<span class="dvtb-A" style="font:800 19px Calibri;color:#A85959;">A</span>' +
-      '<span class="dvtb-Ustrip" style="position:absolute;bottom:5px;left:9px;right:9px;height:3px;border-radius:2px;background:#A85959;"></span></button>' +
+      '<span class="dvtb-A" style="font:800 19px Calibri;color:#9C2742;">A</span>' +
+      '<span class="dvtb-Ustrip" style="position:absolute;bottom:5px;left:9px;right:9px;height:3px;border-radius:2px;background:#9C2742;"></span></button>' +
     '<button type="button" class="dvtb-bgcol" title="Background colour" style="width:40px;height:40px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">' +
       '<span class="dvtb-bgglyph" style="width:22px;height:18px;border-radius:3px;border:1.5px solid rgba(255,255,255,.5);position:relative;overflow:hidden;display:block;"></span></button>' +
     '<button type="button" class="dvtb-ret" title="New line" style="width:44px;height:40px;border:none;background:transparent;color:#f4f3f6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">' + RET + '</button>' +

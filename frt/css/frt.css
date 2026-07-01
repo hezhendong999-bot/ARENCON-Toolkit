@@ -215,6 +215,14 @@ body.dark-mode .upload-box{background:#14171e!important;border-color:#2a2e38!imp
 body.dark-mode .drawing-viewer-overlay{background:#1a1a1a;}
 .drawing-viewer-overlay.open{display:flex;}
 body.dv-open{overflow:hidden!important;}
+/* S394: drawing-viewer text-entry box. Was missing entirely — with no position:fixed
+   the inline left/top did nothing and the box collapsed invisibly inside the
+   overflow:hidden overlay. Mirrors the lightbox .mk-text-box. */
+.dv-text-box{position:fixed;z-index:10000;min-width:12px;font-weight:600;font-family:Calibri,sans-serif;
+  line-height:1.25;white-space:pre;color:#9C2742;background:rgba(255,255,255,.72);padding:2px 6px;border-radius:5px;
+  outline:1.5px solid #9C2742;caret-color:#9C2742;-webkit-user-select:text;user-select:text;-webkit-touch-callout:none;}
+body.dark-mode .dv-text-box{color:#f4f3f6;background:rgba(20,18,24,.55);outline-color:#C9476A;caret-color:#C9476A;}
+.dv-text-box:empty::before{content:attr(data-empty-placeholder);color:#928E9C;font-weight:400;}
 .dv-toolbar{background:var(--b-chrome-bg);padding:6px 10px;display:flex;align-items:center;gap:6px;z-index:30;flex-shrink:0;position:relative;border-bottom:1px solid var(--b-chrome-rule);box-shadow:0 1px 3px rgba(0,0,0,.08);}
 body.dark-mode .dv-toolbar{background:var(--b-chrome-bg);box-shadow:none;border-bottom-color:var(--b-chrome-rule);}
 .dv-toolbar .dv-title-wrap{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;padding:0 8px;}
