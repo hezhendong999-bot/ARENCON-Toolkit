@@ -16,7 +16,7 @@ import { Auth } from '../shared/auth.js';
 import { IDB } from './idb.js';
 import { UploadQueue } from './uploadQueue.js';
 
-var R2_WORKER = 'https://arencon-r2-worker.hezhendong999.workers.dev';
+var R2_WORKER = 'https://files.arencon.app';
 
 // S133 — Tombstone (deletedIds) policy. Tombstones are {id, t: ms-epoch}
 // entries that prevent the erase-while-concurrent resurrection bug. They

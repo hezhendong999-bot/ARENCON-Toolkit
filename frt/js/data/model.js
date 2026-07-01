@@ -8,6 +8,41 @@
 
 import { IDB } from './idb.js';
 
+// ── S391: hostname migration walk (files.arencon.app) ────────────────────
+// Old records froze the previous worker hostname into r2Url. On every load
+// funnel (setProject / applyMerged) we recursively swap ONLY the host on any
+// string field named r2Url, preserving the full path (/marked/ variants,
+// query strings). blob:/data: URLs are skipped. This scrubs the old hostname
+// from all in-memory photo/drawing/backup records without changing WHICH
+// object a URL targets, so original/marked/markup resolution is unaffected.
+var _R2_NEW_HOST = 'https://files.arencon.app';
+var _R2_OLD_HOSTS = ['https://arencon-r2-worker.hezhendong999.workers.dev'];
+function _migrateR2UrlString(u){
+  if (!u || typeof u !== 'string') return u;
+  if (u.indexOf('blob:') === 0 || u.indexOf('data:') === 0) return u;
+  for (var i=0;i<_R2_OLD_HOSTS.length;i++){
+    var h=_R2_OLD_HOSTS[i];
+    if (u.indexOf(h) === 0) return _R2_NEW_HOST + u.slice(h.length);
+  }
+  return u;
+}
+function _migrateProjectR2Hosts(node, seen){
+  if (!node || typeof node !== 'object') return;
+  seen = seen || (typeof WeakSet !== 'undefined' ? new WeakSet() : null);
+  if (seen){ if (seen.has(node)) return; seen.add(node); }
+  if (Array.isArray(node)){
+    for (var i=0;i<node.length;i++) _migrateProjectR2Hosts(node[i], seen);
+    return;
+  }
+  for (var k in node){
+    if (!Object.prototype.hasOwnProperty.call(node,k)) continue;
+    var v=node[k];
+    if (k === 'r2Url' && typeof v === 'string'){ node[k]=_migrateR2UrlString(v); }
+    else if (v && typeof v === 'object'){ _migrateProjectR2Hosts(v, seen); }
+  }
+}
+
+
 // ── Internal State ───────────────────────────────────────
 var _project = null;
 var _dirty = false;
@@ -818,6 +853,7 @@ export var Model = {
     // v2's setProject is the single funnel for every load path so one call
     // here covers all of them. Folder-scoped to respect v2's folder model
     // (two drawings with the same name in different folders are NOT duplicates).
+    try { _migrateProjectR2Hosts(proj); } catch(_e){ console.warn('[Model] r2 host migrate skipped', _e); }
     var _dedupRemoved = _autoDedup(proj);
     if (_dedupRemoved > 0) {
       console.log('[Model] AutoDedup: removed ' + _dedupRemoved + ' duplicate drawing(s) (' + proj.drawings.length + ' remaining)');
@@ -857,6 +893,7 @@ export var Model = {
    */
   applyMerged: function(mergedProj) {
     if (!mergedProj) return null;
+    try { _migrateProjectR2Hosts(mergedProj); } catch(_e){ console.warn('[Model] r2 host migrate skipped (merge)', _e); }
     _project = mergedProj;
     _dirty = true;
     // S284b: a merge is exactly when stale-client resurrection happens —
