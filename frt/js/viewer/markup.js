@@ -83,7 +83,7 @@ var _tool = null;
 var _dimFinChipWasShowing = false;  // S331 #37 — gate one-time finish-chip pulse
 var _color = '#A85959';
 var _lineWidth = 3;
-var _fontSize = 20;
+var _fontSize = 80;  // S391: default logical text size, tuned for large PDF drawings (5184px @ ~0.22 fit ~= 18px on-screen). User steps smaller/larger via the chip bar.
 var _opacity = 1;
 
 var _eventsWired = false;
@@ -139,6 +139,17 @@ var _useWebGL = (function(){
 // ── Helpers ─────────────────────────────────────────────
 function _newId() {
   return 'mk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5);
+}
+
+// S390: translucent fill for a text background-pill swatch (ported from the
+// lightbox markupEngine _bgFill). hex -> rgba ~0.78; 'none'/invalid -> transparent.
+function _mkBgFill(hex) {
+  if (!hex || hex === 'none') return 'rgba(0,0,0,0)';
+  var h = hex.replace('#', '');
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  var rr = parseInt(h.slice(0, 2), 16), gg = parseInt(h.slice(2, 4), 16), bb = parseInt(h.slice(4, 6), 16);
+  if (isNaN(rr)) return 'rgba(20,18,24,0.72)';
+  return 'rgba(' + rr + ',' + gg + ',' + bb + ',0.78)';
 }
 
 function _findObj(id) {
@@ -1483,6 +1494,23 @@ function _drawObjectRaw(ctx, obj) {
     var bxTop = obj.y1 - fsTx - padTx + 2;
     var bxW = estWTx + padTx * 2;
     var bxH = fsTx + padTx * 2;
+    // S390: optional background pill (ported from lightbox). Committed text shows
+    // its chosen bg colour behind the ink for legibility over busy drawings.
+    // Default 'none'/undefined = no pill (clean text — matches all pre-S390 objects).
+    if (obj.bg && obj.bg !== 'none') {
+      var _pbgX = fsTx * 0.28, _pbgY = fsTx * 0.20;
+      var _pbx = obj.x1 - _pbgX, _pby = obj.y1 - fsTx - _pbgY;
+      var _pbw = estWTx + _pbgX * 2, _pbh = fsTx + _pbgY * 2;
+      var _prad = Math.min(8, _pbh / 2);
+      ctx.save();
+      ctx.globalAlpha = (obj.opacity != null ? obj.opacity : 1);
+      ctx.fillStyle = _mkBgFill(obj.bg);
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(_pbx, _pby, _pbw, _pbh, _prad);
+      else ctx.rect(_pbx, _pby, _pbw, _pbh);
+      ctx.fill();
+      ctx.restore();
+    }
     if (obj.hatch) {
       // Fine 45° diagonal lines, 1 px stroke, 6 px spacing, 0.4 alpha of
       // obj.color. Clipped to the text bbox so the hatch stays contained.
@@ -2733,92 +2761,310 @@ function _endDraw(e) {
 
 // ── Text Tool ───────────────────────────────────────────
 
+// ── Text Tool — S390 CHIP ENGINE (ported from photo lightbox) ───────────
+// Replaces the old bare-textarea text tool with the IDENTICAL engine the photo
+// lightbox uses (markupEngine _textPrompt + #lb-text-bar): an on-canvas
+// contentEditable box driven by a docked bottom bar (size − N +, text-colour A,
+// background pill, ↵ newline, ✕ discard, ✓ place). Multi-line. Sticky colour+bg.
+// Storage stays NATIVE to this engine (type:'text', x1, y1, fontSize, color,
+// bold, opacity) so selection / move / copy / group / hit-test are untouched;
+// only a new optional `bg` field is added (rendered by both the 2D and WebGL
+// paths). Existing text objects (no bg) render exactly as before.
+//
+// KEY DIFFERENCE vs the photo lightbox: the drawing surface can pan/zoom WHILE a
+// box is open (a photo cannot). So the open box re-anchors to its logical point
+// on every transform change — _dvRepositionTextBox(), called from the viewer's
+// transform-apply. Coordinate primitive is identical to both engines:
+//   zoom = canvasRect.width / _logicalW ; screen = rect.left + logical * zoom.
+
+var _dvTextBox = null;          // the on-canvas contentEditable box (or null)
+var _dvTextCtl = null;          // controller the docked bar drives (or null)
+var _dvLastTextColor = null;    // sticky text colour across boxes
+var _dvLastTextBg = 'none';     // sticky bg across boxes
+var _DV_SIZE_STEPS = [24, 32, 40, 56, 72, 80, 96, 120, 160, 220];  // S391: logical px, tuned for large PDF drawings; 80 = default. Stepper spans small->large like the lightbox.
+var _DV_TEXT_PALETTE = ['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'];
+
+// css-px per logical unit, from the markup canvas rect (same as _handleTextPlace was)
+function _dvTextZoom() {
+  var mc = _getCanvas(); if (!mc) return 1;
+  var r = mc.getBoundingClientRect();
+  var lw = mc._logicalW || mc.width;
+  return lw ? (r.width / lw) : 1;
+}
+function _dvLogicalToScreen(lx, ly) {
+  var mc = _getCanvas(); var r = mc.getBoundingClientRect();
+  var lw = mc._logicalW || mc.width, z = lw ? r.width / lw : 1;
+  return { x: r.left + lx * z, y: r.top + ly * z, z: z };
+}
+function _dvScreenToLogical(sx, sy) {
+  var mc = _getCanvas(); var r = mc.getBoundingClientRect();
+  var lw = mc._logicalW || mc.width, z = lw ? r.width / lw : 1;
+  return { x: (sx - r.left) / z, y: (sy - r.top) / z };
+}
+
+// Called from _startDraw when the text tool is active (replaces old placement),
+// and from the click handler when an existing text object is tapped for edit.
 function _handleTextPlace(e) {
-  var pos = _getPos(e);
   var mc = _getCanvas();
   if (!mc) { console.warn('[Markup] Text: no canvas'); return; }
-  console.log('[Markup] Text tool placed at', pos.x.toFixed(0), pos.y.toFixed(0));
+  // If a box is already open, a tap elsewhere just COMMITS it (two-step flow,
+  // matches the old S114 Push-4 behaviour + the lightbox).
+  if (_dvTextBox) { if (_dvTextCtl) _dvTextCtl.commit(); return; }
+  var pos = _getPos(e);
+  // S390: tap-to-edit — if the tap lands on an existing text object, reopen the
+  // chip on it (identical to the lightbox), rather than dropping a new one.
+  var hit = _hitTestObjects(pos);
+  if (hit && hit.type === 'text') { _dvOpenTextBox(null, hit); return; }
+  // baseline one line below the tap (unchanged anchor rule from the old tool)
+  _dvOpenTextBox({ x: pos.x, y: pos.y + _fontSize }, null);
+}
 
-  // S114 Push 4: two-step text flow — if a text input is already active, this
-  // click just COMMITS it (via blur). The next click creates a new text box.
-  // Prevents the "click confirms + immediately opens new ghost text box" bug.
-  var existing = document.querySelector('.mk-text-input-live');
-  if (existing) {
-    existing.blur(); // triggers the blur listener's commit path
-    return;
-  }
+// editObj != null → re-edit an existing text object at its own anchor.
+function _dvOpenTextBox(logicalPt, editObj) {
+  if (_dvTextBox) { if (_dvTextCtl) _dvTextCtl.cancel(); }
 
-  // Get screen position of click — derive from the logical click pos and the
-  // canvas rect so the input sits EXACTLY where the committed text will render,
-  // at the current zoom. (Old code used raw e.clientX/Y, which diverged from the
-  // logical anchor whenever the canvas was panned/zoomed — the "not where I
-  // clicked" bug.)
-  var rectMc = mc.getBoundingClientRect();
-  var lwMc = mc._logicalW || mc.width;
-  var zoom = rectMc.width / lwMc;                 // CSS px per logical unit
-  var screenFontPx = _fontSize * zoom;
-  // Committed anchor: x1 = pos.x, y1 = pos.y + _fontSize (baseline one line below
-  // the click). Input top-left aligns so its text baseline lands on that anchor.
-  var screenX = rectMc.left + pos.x * zoom;
-  var screenY = rectMc.top + pos.y * zoom;        // top of the text box
+  var anchor = editObj ? { x: editObj.x1, y: editObj.y1 } : { x: logicalPt.x, y: logicalPt.y };
+  var sizePx = editObj ? (editObj.fontSize || 20) : _fontSize;           // logical font px
+  var curColor = editObj ? (editObj.color || _dvLastTextColor || _color) : (_dvLastTextColor || _color);
+  var curBg = editObj ? (editObj.bg || 'none') : _dvLastTextBg;
+  var curBold = editObj ? !!editObj.bold : false;
+  var startText = editObj ? (editObj.text || '') : '';
+  if (editObj) { editObj._editing = true; _renderAll(); }
 
-  var input = document.createElement('textarea');
-  input.className = 'mk-text-input-live mk-text-paint';
-  // MS-Paint style: transparent, no border box, no resize chrome, no hatch.
-  // What you type IS the live preview, in the current colour and the on-screen
-  // font size at this zoom. A faint 1px colour tick marks an empty field.
-  input.style.cssText = 'position:fixed;z-index:99999;display:block;margin:0;padding:0;'+
-    'background:transparent;border:none;outline:none;resize:none;overflow:hidden;'+
-    'white-space:pre;color:' + _color + ';caret-color:' + _color + ';'+
-    'font:' + '400 ' + screenFontPx + 'px/1 Calibri,sans-serif;'+
-    'min-width:8px;width:8px;height:' + (screenFontPx * 1.25) + 'px;'+
-    'box-shadow:-1px 0 0 0 ' + _color + ';';
-  input.style.left = screenX + 'px';
-  input.style.top = screenY + 'px';
-
-  // Append inside the viewer overlay for z-index compatibility
+  var box = document.createElement('div');
+  box.className = 'dv-text-box';
+  box.contentEditable = 'true';
+  box.spellcheck = false;
+  box.setAttribute('data-empty-placeholder', 'Type\u2026');
+  if (startText) box.textContent = startText;
   var overlay = document.getElementById('drawing-viewer-overlay');
-  (overlay || document.body).appendChild(input);
+  (overlay || document.body).appendChild(box);
+  _dvTextBox = box;
+  box._dvAnchor = anchor;
 
-  input._mkX = pos.x;
-  input._mkY = pos.y + _fontSize;
-
-  // Auto-grow width so the caret tracks the end of the typed text
-  var _meas = document.createElement('span');
-  _meas.style.cssText = 'position:fixed;visibility:hidden;white-space:pre;font:' + '400 ' + screenFontPx + 'px/1 Calibri,sans-serif;';
-  (overlay || document.body).appendChild(_meas);
-  function _grow(){ _meas.textContent = input.value || ''; input.style.width = (_meas.offsetWidth + 4) + 'px'; }
-
-  setTimeout(function() { input.focus(); }, 80);
-
-  var committed = false;
-  function _cleanupMeas(){ if (_meas.parentNode) _meas.parentNode.removeChild(_meas); }
-  function _commit() {
-    if (committed) return;
-    committed = true;
-    var txt = input.value.trim();
-    if (input.parentNode) input.parentNode.removeChild(input);
-    _cleanupMeas();
-    if (txt) {
-      _objects.push({
-        id: _newId(), type: 'text', text: txt,
-        x1: input._mkX, y1: input._mkY,
-        color: _color, fontSize: _fontSize, bold: false, opacity: _opacity,
-        border: _textBorderDefault, hatch: _textHatchDefault
-      });
-      _pushHistory();
-      _renderAll();
-      _markDirty();
-      console.log('[Markup] Text committed:', txt);
-    }
+  function screenFont() { return sizePx * _dvTextZoom(); }
+  function positionBox() {
+    var sp = _dvLogicalToScreen(anchor.x, anchor.y);
+    var sf = screenFont();
+    box.style.left = Math.max(2, sp.x - 4) + 'px';
+    box.style.top = Math.max(2, sp.y - sf) + 'px';   // baseline ~ anchor
+    box.style.fontSize = sf + 'px';
+    box.style.color = curColor;
+    box.style.fontWeight = curBold ? '700' : '600';
   }
-  input.addEventListener('input', _grow);
-  input.addEventListener('blur', function() { setTimeout(_commit, 150); });
-  input.addEventListener('keydown', function(ev) {
-    if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); _commit(); }
-    if (ev.key === 'Escape') { if (input.parentNode) input.parentNode.removeChild(input); _cleanupMeas(); committed = true; }
-    ev.stopPropagation(); // Prevent viewer keyboard shortcuts
+  positionBox();
+  box._dvReposition = positionBox;   // re-glue hook (called on pan/zoom)
+  box.focus();
+  requestAnimationFrame(function () { try { box.focus(); _dvCaretEnd(box); } catch (_) {} });
+
+  var resolved = false;
+  function cleanup() {
+    if (box.parentNode) box.parentNode.removeChild(box);
+    if (_dvTextBox === box) _dvTextBox = null;
+    if (editObj) delete editObj._editing;
+    _dvHideTextBar();
+    _dvTextCtl = null;
+    // auto-unarm text (S339): drop the tool so the next tap doesn't drop a box
+    _setActiveTool(null);
+  }
+  function commit() {
+    if (resolved) return; resolved = true;
+    var r2 = mc.getBoundingClientRect();
+    var lw = mc._logicalW || mc.width, z = lw ? r2.width / lw : 1;
+    var br = box.getBoundingClientRect();
+    var ascent = sizePx * z;
+    var lx = (br.left + 4 - r2.left) / z;
+    var ly = (br.top - r2.top + ascent) / z;
+    var v = (box.innerText || box.textContent || '').replace(/[ \t]+$/, '').replace(/\n+$/, '');
+    _dvLastTextColor = curColor; _dvLastTextBg = curBg;
+    if (editObj) {
+      if (!v.trim()) { var ix = _objects.indexOf(editObj); if (ix >= 0) _objects.splice(ix, 1); }
+      else {
+        editObj.text = v; editObj.fontSize = sizePx; editObj.color = curColor;
+        editObj.bold = curBold; editObj.bg = curBg; editObj.x1 = lx; editObj.y1 = ly;
+      }
+      delete editObj._editing;
+      _pushHistory(); _renderAll(); _markDirty(); cleanup(); return;
+    }
+    if (v.trim()) {
+      _objects.push({
+        id: _newId(), type: 'text', text: v,
+        x1: lx, y1: ly, color: curColor, fontSize: sizePx,
+        bold: curBold, opacity: _opacity, bg: curBg
+      });
+      _pushHistory(); _renderAll(); _markDirty();
+    }
+    cleanup();
+  }
+  function cancel() { if (resolved) return; resolved = true; _renderAll(); cleanup(); }
+
+  box.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+    ev.stopPropagation();   // Enter = newline (contentEditable default); block viewer shortcuts
   });
+
+  _dvTextCtl = {
+    isActive: function () { return !resolved; },
+    getSize: function () { return sizePx; },
+    getColor: function () { return curColor; },
+    getBg: function () { return curBg; },
+    stepSize: function (dir) {
+      var i = 0, best = 1e9;
+      for (var k = 0; k < _DV_SIZE_STEPS.length; k++) { var d = Math.abs(_DV_SIZE_STEPS[k] - sizePx); if (d < best) { best = d; i = k; } }
+      i = Math.max(0, Math.min(_DV_SIZE_STEPS.length - 1, i + dir));
+      sizePx = _DV_SIZE_STEPS[i]; positionBox(); box.focus(); return sizePx;
+    },
+    setColor: function (c) { curColor = c; _dvLastTextColor = c; box.style.color = c; box.focus(); },
+    setBg: function (c) { curBg = c; _dvLastTextBg = c; box.focus(); },   // shows on commit
+    insertNewline: function () {
+      box.focus();
+      try { document.execCommand('insertLineBreak'); } catch (_) { document.execCommand('insertText', false, '\n'); }
+    },
+    commit: commit, cancel: cancel
+  };
+  _dvShowTextBar(_dvTextCtl);
+}
+
+function _dvCaretEnd(box) {
+  try { var rg = document.createRange(); rg.selectNodeContents(box); rg.collapse(false);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(rg); } catch (_) {}
+}
+
+// Re-glue the open box to its logical anchor. MUST be called whenever the
+// drawing surface pans/zooms (the whole reason this differs from the lightbox).
+function _dvRepositionTextBox() {
+  if (_dvTextBox && _dvTextBox._dvReposition) _dvTextBox._dvReposition();
+}
+
+// ---- docked text bar (built once, lazily) ----
+var _dvTextBar = null, _dvPopText = null, _dvPopBg = null;
+function _dvBuildTextBar() {
+  if (_dvTextBar) return _dvTextBar;
+  var overlay = document.getElementById('drawing-viewer-overlay') || document.body;
+  var RET = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+  var XS = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  var OK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6"/></svg>';
+  var NONEX = '<svg width="100%" height="100%" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="#e23" stroke-width="2.6"/></svg>';
+  var bar = document.createElement('div');
+  bar.id = 'dv-text-bar';
+  bar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;' +
+    'align-items:center;gap:4px;padding:7px 9px;background:rgba(20,20,28,.96);border:1.5px solid #C9476A;' +
+    'border-radius:14px;z-index:1000;box-shadow:0 6px 20px rgba(0,0,0,.55);max-width:calc(100vw - 16px);' +
+    'box-sizing:border-box;flex-wrap:nowrap;';
+  bar.innerHTML =
+    '<button type="button" class="dvtb-dec" style="width:34px;height:40px;border:none;background:transparent;color:#f4f3f6;font:700 20px Calibri;border-radius:8px;cursor:pointer;">\u2212</button>' +
+    '<div class="dvtb-sizeval" style="min-width:26px;text-align:center;font:13px Calibri;color:#a09aa8;font-variant-numeric:tabular-nums;">20</div>' +
+    '<button type="button" class="dvtb-inc" style="width:34px;height:40px;border:none;background:transparent;color:#f4f3f6;font:700 20px Calibri;border-radius:8px;cursor:pointer;">+</button>' +
+    '<div style="width:1px;height:28px;background:rgba(255,255,255,.14);margin:0 2px;"></div>' +
+    '<button type="button" class="dvtb-textcol" title="Text colour" style="width:40px;height:40px;border:none;background:transparent;border-radius:8px;cursor:pointer;position:relative;">' +
+      '<span class="dvtb-A" style="font:800 19px Calibri;color:#A85959;">A</span>' +
+      '<span class="dvtb-Ustrip" style="position:absolute;bottom:5px;left:9px;right:9px;height:3px;border-radius:2px;background:#A85959;"></span></button>' +
+    '<button type="button" class="dvtb-bgcol" title="Background colour" style="width:40px;height:40px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">' +
+      '<span class="dvtb-bgglyph" style="width:22px;height:18px;border-radius:3px;border:1.5px solid rgba(255,255,255,.5);position:relative;overflow:hidden;display:block;"></span></button>' +
+    '<button type="button" class="dvtb-ret" title="New line" style="width:44px;height:40px;border:none;background:transparent;color:#f4f3f6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">' + RET + '</button>' +
+    '<div style="width:1px;height:28px;background:rgba(255,255,255,.14);margin:0 2px;"></div>' +
+    '<button type="button" class="dvtb-x" title="Discard" style="width:46px;height:40px;border:none;background:transparent;color:#a09aa8;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">' + XS + '</button>' +
+    '<button type="button" class="dvtb-ok" title="Place" style="width:46px;height:40px;border:none;background:#3FD08A;color:#fff;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">' + OK + '</button>';
+  overlay.appendChild(bar);
+  _dvTextBar = bar;
+
+  function mkPop() {
+    var p = document.createElement('div');
+    p.style.cssText = 'position:fixed;display:none;flex-wrap:wrap;gap:6px;width:160px;padding:8px;' +
+      'background:rgba(34,34,44,.99);border:1px solid rgba(255,255,255,.16);border-radius:12px;' +
+      'box-shadow:0 8px 26px rgba(0,0,0,.6);z-index:1001;';
+    overlay.appendChild(p); return p;
+  }
+  _dvPopText = mkPop(); _dvPopBg = mkPop();
+
+  function swatch(c, isNone) {
+    var s = document.createElement('button'); s.type = 'button';
+    s.style.cssText = 'width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.4);cursor:pointer;padding:0;overflow:hidden;';
+    if (isNone) { s.style.background = '#2a2a32'; s.innerHTML = NONEX; } else { s.style.background = c; }
+    return s;
+  }
+  function closePops() { _dvPopText.style.display = 'none'; _dvPopBg.style.display = 'none'; }
+  function posPop(pop, btn) {
+    var br = btn.getBoundingClientRect();
+    pop.style.left = Math.max(6, br.left + br.width / 2 - 80) + 'px';
+    pop.style.top = (br.top - pop.offsetHeight - 8) + 'px';
+  }
+  bar._dvClosePops = closePops;
+
+  // text-colour palette + custom
+  _DV_TEXT_PALETTE.forEach(function (c) {
+    var s = swatch(c, false);
+    s.addEventListener('click', function (e) { e.stopPropagation(); if (_dvTextCtl) { _dvTextCtl.setColor(c); _dvRefreshTextBar(); } closePops(); });
+    _dvPopText.appendChild(s);
+  });
+  var txCustom = document.createElement('input'); txCustom.type = 'color'; txCustom.value = '#A85959';
+  txCustom.style.cssText = 'width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;';
+  txCustom.addEventListener('input', function () { if (_dvTextCtl) { _dvTextCtl.setColor(txCustom.value); _dvRefreshTextBar(); } });
+  _dvPopText.appendChild(txCustom);
+
+  // bg palette: none + palette + custom
+  var bgNone = swatch(null, true);
+  bgNone.addEventListener('click', function (e) { e.stopPropagation(); if (_dvTextCtl) { _dvTextCtl.setBg('none'); _dvRefreshTextBar(); } closePops(); });
+  _dvPopBg.appendChild(bgNone);
+  _DV_TEXT_PALETTE.forEach(function (c) {
+    var s = swatch(c, false);
+    s.addEventListener('click', function (e) { e.stopPropagation(); if (_dvTextCtl) { _dvTextCtl.setBg(c); _dvRefreshTextBar(); } closePops(); });
+    _dvPopBg.appendChild(s);
+  });
+  var bgCustom = document.createElement('input'); bgCustom.type = 'color'; bgCustom.value = '#1C2333';
+  bgCustom.style.cssText = 'width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;';
+  bgCustom.addEventListener('input', function () { if (_dvTextCtl) { _dvTextCtl.setBg(bgCustom.value); _dvRefreshTextBar(); } });
+  _dvPopBg.appendChild(bgCustom);
+
+  bar.querySelector('.dvtb-dec').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) { _dvTextCtl.stepSize(-1); _dvRefreshTextBar(); } });
+  bar.querySelector('.dvtb-inc').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) { _dvTextCtl.stepSize(1); _dvRefreshTextBar(); } });
+  bar.querySelector('.dvtb-ret').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) _dvTextCtl.insertNewline(); });
+  bar.querySelector('.dvtb-ok').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) _dvTextCtl.commit(); });
+  bar.querySelector('.dvtb-x').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) _dvTextCtl.cancel(); });
+  bar.querySelector('.dvtb-textcol').addEventListener('click', function (e) {
+    e.stopPropagation(); var on = _dvPopText.style.display === 'flex'; closePops();
+    if (!on) { _dvPopText.style.display = 'flex'; posPop(_dvPopText, this); }
+  });
+  bar.querySelector('.dvtb-bgcol').addEventListener('click', function (e) {
+    e.stopPropagation(); var on = _dvPopBg.style.display === 'flex'; closePops();
+    if (!on) { _dvPopBg.style.display = 'flex'; posPop(_dvPopBg, this); }
+  });
+  overlay.addEventListener('click', function (ev) { if (!bar.contains(ev.target) && !_dvPopText.contains(ev.target) && !_dvPopBg.contains(ev.target)) closePops(); });
+
+  // lift the bar above the on-screen keyboard (visualViewport)
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', _dvLiftTextBar);
+    window.visualViewport.addEventListener('scroll', _dvLiftTextBar);
+  }
+  return bar;
+}
+function _dvLiftTextBar() {
+  if (!_dvTextBar || _dvTextBar.style.display === 'none') return;
+  var vv = window.visualViewport;
+  if (vv) { var gap = window.innerHeight - vv.height - vv.offsetTop; if (gap < 0) gap = 0; _dvTextBar.style.bottom = (gap + 12) + 'px'; }
+  else { _dvTextBar.style.bottom = '16px'; }
+}
+function _dvRefreshTextBar() {
+  if (!_dvTextBar || !_dvTextCtl) return;
+  var col = _dvTextCtl.getColor(), bg = _dvTextCtl.getBg();
+  _dvTextBar.querySelector('.dvtb-A').style.color = col;
+  _dvTextBar.querySelector('.dvtb-Ustrip').style.background = col;
+  var g = _dvTextBar.querySelector('.dvtb-bgglyph');
+  if (!bg || bg === 'none') { g.style.background = 'transparent'; g.innerHTML = '<svg width="100%" height="100%" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="#e23" stroke-width="2.6"/></svg>'; }
+  else { g.style.background = bg; g.innerHTML = ''; }
+  _dvTextBar.querySelector('.dvtb-sizeval').textContent = Math.round(_dvTextCtl.getSize());
+}
+function _dvShowTextBar(ctl) {
+  _dvBuildTextBar();
+  _dvTextBar.style.display = 'flex';
+  _dvRefreshTextBar();
+  _dvLiftTextBar();
+  requestAnimationFrame(_dvLiftTextBar);
+  setTimeout(_dvLiftTextBar, 150);
+  setTimeout(_dvLiftTextBar, 400);
+}
+function _dvHideTextBar() {
+  if (_dvTextBar) { _dvTextBar.style.display = 'none'; if (_dvTextBar._dvClosePops) _dvTextBar._dvClosePops(); }
 }
 
 // ── Polyline Tool ───────────────────────────────────────
@@ -4459,12 +4705,12 @@ function _wireEvents() {
       }
       return;
     }
-    // Double-click on text object with selector → edit it
+    // Double-click on text object with selector → edit it (S390: via chip engine)
     if (_tool === 'select') {
       var pos = _getPos(e);
       var hit = _hitTestObjects(pos);
       if (hit && hit.type === 'text') {
-        _editTextObject(hit, e);
+        _dvOpenTextBox(null, hit);
       }
     }
   });
@@ -4757,6 +5003,11 @@ export var Markup = {
   // S182 instrumentation showed this single deferral is the highest-leverage
   // pan/zoom fix in the codebase.
   setRenderScale: function(s) {
+    // S390: keep an open text-entry box glued to its logical anchor as the
+    // drawing pans/zooms under it (photo lightbox never needed this — a photo
+    // can't move under an open box). Runs BEFORE the gesture/empty early-returns
+    // so the box tracks during a live pinch and even before the first object.
+    if (_dvTextBox) _dvRepositionTextBox();
     if (_gestureActive) {
       _pendingScale = s;
       return;
