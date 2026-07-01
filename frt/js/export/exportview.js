@@ -100,7 +100,7 @@ function _styleOnce() {
     '.exv-tr .nm .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
     '.exv-tr .c{display:flex;justify-content:center;padding:7px 0;cursor:pointer;}',
     '.exv-ic{width:26px;height:26px;border-radius:7px;border:1.5px solid var(--border,#D5DBE3);display:flex;align-items:center;justify-content:center;color:#928E9C;font-size:calc(13px + var(--ts,0px));background:var(--card,#fff);transition:all .12s;}',
-    '.exv-ic.on.rep{background:rgba(156,39,66,.12);border-color:rgba(156,39,66,.45);color:#9C2742;}',
+    '.exv-ic.on.rep{background:rgba(44,71,112,.12);border-color:rgba(44,71,112,.45);color:#2C4770;}',
     '.exv-ic.on.rec{background:rgba(46,158,114,.14);border-color:#2E9E72;color:#2E9E72;}',
     '.exv-ic.lk{opacity:.7;cursor:not-allowed;}',
     '.exv-grp{font-size:calc(9.5px + var(--ts,0px));font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#928E9C;padding:7px 12px 4px;background:var(--smoke,#F0EDE6);}',
@@ -114,7 +114,7 @@ function _styleOnce() {
     '.exv-mini button{font-size:calc(10px + var(--ts,0px));font-weight:700;text-transform:uppercase;letter-spacing:.3px;border:1px solid var(--border,#D5DBE3);background:var(--card,#fff);color:#5E5B68;border-radius:5px;padding:3px 8px;cursor:pointer;}',
     '.exv-add{display:flex;gap:8px;margin-top:10px;}',
     '.exv-add input{flex:1;padding:8px 11px;border:1.5px dashed var(--border,#C5CEDB);border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts,0px));background:var(--card,#fff);color:var(--fg,#1C2333);}',
-    '.exv-add button{font-size:calc(12px + var(--ts,0px));font-weight:700;border:1.5px solid rgba(156,39,66,.4);background:rgba(156,39,66,.10);color:#9C2742;border-radius:7px;padding:0 14px;cursor:pointer;white-space:nowrap;}',
+    '.exv-add button{font-size:calc(12px + var(--ts,0px));font-weight:700;border:1.5px solid rgba(44,71,112,.4);background:rgba(44,71,112,.10);color:#2C4770;border-radius:7px;padding:0 14px;cursor:pointer;white-space:nowrap;}',
     '.exv-prev{margin-top:10px;border:1px solid var(--border,#E4E8EE);border-radius:8px;background:var(--smoke,#F0EDE6);padding:9px 12px;}',
     '.exv-prev.internal{border-color:#9C2742;background:rgba(156,39,66,.08);}',
     '.exv-prev .lbl{font-size:calc(9.5px + var(--ts,0px));font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#928E9C;margin-bottom:3px;}',
@@ -142,8 +142,8 @@ function _styleOnce() {
     '.exv-count.internal{color:#9C2742;font-weight:700;}',
     '.exv-acts{display:flex;gap:10px;}',
     '.exv-cancel{padding:9px 18px;border:1px solid var(--border,#D5DBE3);background:var(--card,#fff);color:#5E5B68;border-radius:8px;font-size:calc(13px + var(--ts,0px));font-weight:700;cursor:pointer;}',
-    '.exv-go{padding:9px 20px;border:0;background:#9C2742;color:#fff;border-radius:8px;font-size:calc(14px + var(--ts,0px));font-weight:700;cursor:pointer;letter-spacing:.2px;}',
-    '.exv-go:hover{background:#872238;}',
+    '.exv-go{padding:9px 20px;border:0;background:#243048;color:#fff;border-radius:8px;font-size:calc(14px + var(--ts,0px));font-weight:700;cursor:pointer;letter-spacing:.2px;}',
+    '.exv-go:hover{background:#1B2438;}',
     '.exv-go.internal{background:#9C2742;}',
     '.exv-go:disabled{opacity:.5;cursor:not-allowed;}'
   ].join('');
@@ -424,10 +424,13 @@ export var initExportView = {
       if (!ic || ic.classList.contains('lk')) return;
       var turnOn = !ic.classList.contains('on');
       ic.classList.toggle('on', turnOn);
-      // default link: turning Deficiency ON also turns Distribution ON (override allowed after)
-      if (act === 'rep' && turnOn) {
+      // default link (both directions): turning Deficiency ON adds Distribution;
+      // turning Deficiency OFF removes Distribution. Either overridable after.
+      if (act === 'rep') {
         var recIc = row.querySelector('[data-act="rec"] .exv-ic');
-        if (recIc && !recIc.classList.contains('lk') && !recIc.classList.contains('on')) recIc.classList.add('on');
+        if (recIc && !recIc.classList.contains('lk')) {
+          recIc.classList.toggle('on', turnOn);
+        }
       }
       refresh();
     });
@@ -444,6 +447,8 @@ export var initExportView = {
       if (rosterEl.classList.contains('greyed')) return;
       ctrRows().forEach(function(r){
         r.querySelector('[data-act="rep"] .exv-ic').classList.remove('on');
+        var rec = r.querySelector('[data-act="rec"] .exv-ic');
+        if (rec && !rec.classList.contains('lk')) rec.classList.remove('on');
       });
       refresh();
     });
