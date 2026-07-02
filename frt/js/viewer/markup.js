@@ -1210,7 +1210,12 @@ function _renderAll() {
 
   if (useWebGLNow){
     try {
-      window.WebGLMarkupRenderer.render(_objects, { dpr: dpr, hlAlpha: 0.3 });
+      // S400: exclude the object currently open in the text edit box — the 2D path
+      // skips it in _drawObject (obj._editing), but WebGL renders committed objects
+      // directly and never saw that skip, so the edited text showed doubled behind
+      // the live box. Filter here to match the 2D behaviour.
+      var _wglObjs = _objects.filter(function(o){ return !o._editing; });
+      window.WebGLMarkupRenderer.render(_wglObjs, { dpr: dpr, hlAlpha: 0.3 });
     } catch(err){
       console.warn('[Markup] WebGL render threw — disabling for this session:', err);
       _useWebGL = false;
