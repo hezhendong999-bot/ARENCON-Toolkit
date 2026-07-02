@@ -15276,6 +15276,27 @@ window.addEventListener('load', () => {
     var params = CloudSync.readUrlParams();
 
     if(params.projectId){
+      // REPORT ISOLATION (item C) — HARD BLOCK: a Hub launch with no ?instance=
+      // used to fall through to the "latest row" for this project, so a stale
+      // bookmark or old Hub build could silently load AND overwrite another
+      // inspector's report. Every report must be independent. If we're in Hub mode
+      // without an explicit instance, refuse to load or save any cloud data and
+      // tell the user to open the report from the Hub (where the picker mints/loads
+      // a specific ?instance=). Fixed overlay only — never touch .main-wrap.
+      if(!params.instanceId){
+        try{
+          var _ov=document.createElement('div');
+          _ov.id='no-instance-block';
+          _ov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,10,13,.72);backdrop-filter:blur(6px);font-family:Calibri,sans-serif;padding:24px;';
+          _ov.innerHTML='<div style="max-width:420px;background:#fff;border-radius:16px;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center;">'
+            +'<div style="font-size:15px;font-weight:700;color:#9C2742;margin-bottom:10px;">Open this report from the Project Hub</div>'
+            +'<div style="font-size:13px;line-height:1.5;color:#5E5B68;margin-bottom:18px;">This link is missing a specific report. To keep each inspector\u2019s report separate, open the Diesel report from its project in the Hub \u2014 pick an existing report or create a new one.</div>'
+            +'<a href="ARENCON_Project_Hub.html" style="display:inline-block;background:#9C2742;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:10px 22px;border-radius:10px;">Go to Project Hub</a>'
+            +'</div>';
+          document.body.appendChild(_ov);
+        }catch(_e){}
+        return;   // no cloud init, no autosave, no load — cannot clobber a shared row
+      }
       // Hub mode: launched with ?project=<uuid>
       _csHubMode = true;
       _csProjectId = params.projectId;
@@ -18801,7 +18822,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S393';
+var DIESEL_BUILD = 'S394';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>

@@ -1948,20 +1948,26 @@ function _renderDetailTools(proj) {
 }
 
 function launchTool(key) {
+  // REPORT ISOLATION (item C): a bare no-instance launch used to open Diesel/etc
+  // against the "latest row" for the project, so multiple inspectors converged on
+  // ONE shared record and clobbered each other. Every report must be independent.
+  // The per-report picker (existing reports + "＋ New Report") is already rendered
+  // in #detail-instances; route the tile there instead of launching blind. The
+  // inspector then opens their own report or creates a new one — both paths carry
+  // an explicit ?instance= so records never merge.
   if (!_detailProjectId) return;
-  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
-  if (!proj) return;
-  var t = AVAILABLE_TOOLS[key];
-  if (!t) return;
-  var sfn = buildSmartFilename(proj);
-  var url = t.file
-    + '?project=' + encodeURIComponent(proj.id)
-    + '&pn=' + encodeURIComponent(proj.project_number || '')
-    + '&pname=' + encodeURIComponent(proj.project_name || '')
-    + '&client=' + encodeURIComponent(proj.client || '')
-    + '&addr=' + encodeURIComponent(proj.address || '')
-    + '&sfn=' + encodeURIComponent(sfn);
-  window.open(url, '_blank');
+  var sec = document.getElementById('ri-sec-' + key);
+  if (sec) {
+    try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e) { sec.scrollIntoView(); }
+    sec.style.transition = 'box-shadow .25s, background .25s';
+    sec.style.boxShadow = '0 0 0 2px var(--arencon)';
+    sec.style.borderRadius = '10px';
+    setTimeout(function(){ sec.style.boxShadow = 'none'; }, 1400);
+  } else {
+    // Tools with a report list not yet rendered (edge): reload the list.
+    var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
+    if (proj) _loadAndRenderInstances(proj);
+  }
 }
 
 async function toggleTool(key) {
@@ -2037,7 +2043,7 @@ async function _loadAndRenderInstances(proj) {
     var instances = allInstances.filter(function(r){ return r.tool_key === key; });
     var shortName = _TOOL_SHORT_NAMES[key] || t.name;
 
-    html += '<div style="margin-top:14px;"><div style="font-size:calc(13px + var(--ts));font-weight:700;color:var(--fg);display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+    html += '<div id="ri-sec-' + key + '" style="margin-top:14px;scroll-margin-top:12px;"><div style="font-size:calc(13px + var(--ts));font-weight:700;color:var(--fg);display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
       + t.icon + ' ' + esc(t.name) + '</div>';
 
     if (instances.length > 0) {
