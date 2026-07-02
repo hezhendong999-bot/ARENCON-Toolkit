@@ -2329,7 +2329,7 @@ export const initPDFExport={
     }).catch(function(e){
       try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e2){}
       console.warn('[PDF] Error:',e);
-      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter');
+      _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter',!!opts.internalMode);
     });
   }
 };
@@ -2360,7 +2360,7 @@ function _betaB64ToBytes(b64){
   for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
   return arr;
 }
-var BETA_PDFLIB_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+var BETA_PDFLIB_CDN='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 var BETA_FONTKIT_CDN='https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';
 
 function _betaLoadScript(src){
