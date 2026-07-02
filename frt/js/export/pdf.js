@@ -1737,16 +1737,44 @@ function _captureExportPDF(w,D){
       _capStatus(D,'Saving PDF…');
       var bytes=await pdfDoc.save();
       var blob=new Blob([bytes],{type:'application/pdf'});
-      var url=URL.createObjectURL(blob);
-      // S398: blob is created with main-window Blob/URL, so trigger the download
-      // from the MAIN document too (same realm) — avoids a cross-realm blob-URL
-      // edge case where a popup-document anchor can't resolve a main-window blob.
-      var a=document.createElement('a');a.href=url;
-      a.download=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
-      document.body.appendChild(a);a.click();a.remove();
-      setTimeout(function(){URL.revokeObjectURL(url);},4000);
+      var fname=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
+      // S399: restore the native "Save As" dialog. showSaveFilePicker opens the
+      // real OS save dialog (choose folder + confirm/rename filename) on desktop
+      // Chrome/Edge. Must run in the MAIN window (same realm as the blob, S398).
+      // Cancel throws AbortError → treat as user-cancelled, do NOT auto-download.
+      // Only genuine unsupported/failure falls back to the anchor download
+      // (Android tablet / iPad, which have no picker API).
+      var _savedViaPicker=false;
+      if(typeof window.showSaveFilePicker==='function'){
+        try{
+          var _fh=await window.showSaveFilePicker({
+            suggestedName:fname,
+            types:[{description:'PDF document',accept:{'application/pdf':['.pdf']}}]
+          });
+          var _ws=await _fh.createWritable();
+          await _ws.write(blob);
+          await _ws.close();
+          _savedViaPicker=true;
+        }catch(_pk){
+          // AbortError = user hit Cancel in the Save dialog → stop, no download.
+          if(_pk&&(_pk.name==='AbortError'||_pk.code===20)){
+            if(bar) bar.style.display='';
+            _capStatus(D,'Save cancelled.');
+            setTimeout(function(){_capHideStatus(D);},2500);
+            return;
+          }
+          // any other error → fall through to the anchor download below
+        }
+      }
+      if(!_savedViaPicker){
+        var url=URL.createObjectURL(blob);
+        var a=document.createElement('a');a.href=url;
+        a.download=fname;
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(function(){URL.revokeObjectURL(url);},4000);
+      }
       if(bar) bar.style.display='';
-      _capStatus(D,'Done — PDF downloaded. It matches this preview exactly.');
+      _capStatus(D,_savedViaPicker?'Done — PDF saved. It matches this preview exactly.':'Done — PDF downloaded. It matches this preview exactly.');
       setTimeout(function(){_capHideStatus(D);},4000);
     }catch(err){
       if(bar) bar.style.display='';
