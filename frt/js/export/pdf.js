@@ -1669,6 +1669,11 @@ function _captureExportPDF(w,D){
       if(bar) bar.style.display='none';
       _capHideStatus(D);
       var pdfDoc=await PDFLib.PDFDocument.create();
+      try{
+        console.warn('[PROBE] PDFLib type=',typeof PDFLib,'has PDFDocument=',!!(PDFLib&&PDFLib.PDFDocument),'version=',(PDFLib&&PDFLib.PDFDocument&&PDFLib.PDFDocument.name));
+        console.warn('[PROBE] pdfDoc type=',typeof pdfDoc,'ctor=',pdfDoc&&pdfDoc.constructor&&pdfDoc.constructor.name,'has addPage=',!!(pdfDoc&&pdfDoc.addPage),'has embedPng=',!!(pdfDoc&&pdfDoc.embedPng));
+        console.warn('[PROBE] PageSizes=',PDFLib&&PDFLib.PageSizes,'rgb fn=',typeof (PDFLib&&PDFLib.rgb));
+      }catch(_pr){ console.warn('[PROBE] threw',_pr&&_pr.message); }
       for(var i=0;i<pages.length;i++){
         if(bar) bar.style.display='none';
         _capStatus(D,'Rendering page '+(i+1)+' of '+pages.length+'…');
