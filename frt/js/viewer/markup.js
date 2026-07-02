@@ -2868,8 +2868,7 @@ function _dvOpenTextBox(logicalPt, editObj) {
     _setActiveTool(null);
   }
   function commit() {
-    if (resolved) { console.log('[TextDbg] commit() NO-OP — already resolved'); return; } resolved = true;
-    console.log('[TextDbg] commit() entered; text=', JSON.stringify((box.innerText || box.textContent || '')));
+    if (resolved) return; resolved = true;
     var r2 = mc.getBoundingClientRect();
     var lw = mc._logicalW || mc.width, z = lw ? r2.width / lw : 1;
     var br = box.getBoundingClientRect();
@@ -3017,11 +3016,18 @@ function _dvBuildTextBar() {
   bgCustom.addEventListener('input', function () { if (_dvTextCtl) { _dvTextCtl.setBg(bgCustom.value); _dvRefreshTextBar(); } });
   _dvPopBg.appendChild(bgCustom);
 
-  bar.querySelector('.dvtb-dec').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) { _dvTextCtl.stepSize(-1); _dvRefreshTextBar(); } });
-  bar.querySelector('.dvtb-inc').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) { _dvTextCtl.stepSize(1); _dvRefreshTextBar(); } });
-  bar.querySelector('.dvtb-ret').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) _dvTextCtl.insertNewline(); });
-  bar.querySelector('.dvtb-ok').addEventListener('click', function (e) { e.preventDefault(); console.log('[TextDbg] OK click fired; ctl=', !!_dvTextCtl, 'active=', _dvTextCtl && _dvTextCtl.isActive()); if (_dvTextCtl) _dvTextCtl.commit(); });
-  bar.querySelector('.dvtb-x').addEventListener('click', function (e) { e.preventDefault(); if (_dvTextCtl) _dvTextCtl.cancel(); });
+  // S396: fire on pointerdown + preventDefault so the button acts BEFORE the
+  // contentEditable box loses focus (click was racing the blur and getting lost —
+  // OK appeared to do nothing). Matches the dimension-chip pattern (mousedown-based).
+  function _dvBtn(sel, fn) {
+    var b = bar.querySelector(sel);
+    b.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); fn(); });
+  }
+  _dvBtn('.dvtb-dec', function () { if (_dvTextCtl) { _dvTextCtl.stepSize(-1); _dvRefreshTextBar(); } });
+  _dvBtn('.dvtb-inc', function () { if (_dvTextCtl) { _dvTextCtl.stepSize(1); _dvRefreshTextBar(); } });
+  _dvBtn('.dvtb-ret', function () { if (_dvTextCtl) _dvTextCtl.insertNewline(); });
+  _dvBtn('.dvtb-ok',  function () { if (_dvTextCtl) _dvTextCtl.commit(); });
+  _dvBtn('.dvtb-x',   function () { if (_dvTextCtl) _dvTextCtl.cancel(); });
   bar.querySelector('.dvtb-textcol').addEventListener('click', function (e) {
     e.stopPropagation(); var on = _dvPopText.style.display === 'flex'; closePops();
     if (!on) { _dvPopText.style.display = 'flex'; posPop(_dvPopText, this); }
@@ -4192,7 +4198,6 @@ function _wireEvents() {
 
   // Sidebar tool clicks (delegated — still the mouse / desktop path)
   document.addEventListener('click', function(e) {
-    if (e.target && e.target.closest && e.target.closest('.dvtb-ok')) { console.log('[TextDbg] doc-click saw .dvtb-ok; skipNext=', _skipNextClick, 'dt=', (Date.now()-_subBtnHandledAt)); }
     var _dbgBtn = e.target && e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
     if (window._mkDbg && _dbgBtn) window._mkDbg('click tool='+_dbgBtn.getAttribute('data-mk-tool')+' skip='+_skipNextClick+' dt='+(Date.now()-_subBtnHandledAt));
     // S82: if touchend on a sub-tool btn just fired, UNCONDITIONALLY skip the
