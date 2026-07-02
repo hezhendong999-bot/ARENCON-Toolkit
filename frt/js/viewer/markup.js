@@ -2869,6 +2869,7 @@ function _dvOpenTextBox(logicalPt, editObj) {
   }
   function commit() {
     if (resolved) return; resolved = true;
+    var mc = _getCanvas();   // S397: was referencing out-of-scope `mc` -> ReferenceError on every OK tap, box never committed
     var r2 = mc.getBoundingClientRect();
     var lw = mc._logicalW || mc.width, z = lw ? r2.width / lw : 1;
     var br = box.getBoundingClientRect();
