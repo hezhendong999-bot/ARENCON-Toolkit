@@ -1695,12 +1695,12 @@ function _captureExportPDF(w,D){
         try{ png=await pdfDoc.embedPng(canvas.toDataURL('image/png')); }
         catch(ep){ _capStatus(D,'Skipped a blank page ('+(i+1)+').'); continue; }
         var pg;
-        try{ pg=pdfDoc.addPage([pw,ph]); }
+        var _pwN=Number(pw), _phN=Number(ph);
+        if(!isFinite(_pwN)||_pwN<=0)_pwN=612;
+        if(!isFinite(_phN)||_phN<=0)_phN=792;
+        try{ pg=pdfDoc.addPage([_pwN,_phN]); }
         catch(eap){
-          // S395: a corrupt canvas (e.g. a failed/404 photo) can throw a NaN-page
-          // error deep in pdf-lib. Skip this page rather than abort the whole
-          // export, so one bad photo never blocks the entire report.
-          try{console.warn('[PDF] Skipped page '+(i+1)+' (render error):',eap&&eap.message);}catch(_){}
+          try{console.warn('[PROBE2] addPage fail page',i+1,'pw=',pw,'(',typeof pw,') ph=',ph,'(',typeof ph,') _pwN=',_pwN,'_phN=',_phN,'msg=',eap&&eap.message);}catch(_){}
           _capStatus(D,'Skipped a page that failed to render ('+(i+1)+').');
           continue;
         }
