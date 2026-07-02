@@ -13305,8 +13305,14 @@ function _collectCloudState(){
   s._build=(typeof DIESEL_BUILD!=='undefined')?DIESEL_BUILD:'unknown';   // S302: which build wrote this row
   // S305: heartbeat log removed — pushes run every 15s and were flooding the
   // console (Mark). Event logs ([DLB], merge backup-restores, errors) remain.
-  // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
-  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
+  // RETENTION GUARD (B): only strip a photo's base64 bytes from the CLOUD payload
+  // once R2 has CONFIRMED the upload (r2Status==='uploaded'). Until then, carry the
+  // bytes so a device that only ever saw the cloud copy can still render/recover the
+  // photo. This never bloats confirmed photos; it protects un-synced field captures
+  // from vanishing on a save->load->merge round-trip. (IDB always keeps full bytes.)
+  function _keepD(p){ return (p && p.r2Status==='uploaded') ? '' : (p && p.d ? p.d : ''); }
+  // Strip base64 photo data from all photo arrays — R2 handles confirmed ones.
+  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{d:_keepD(p),n:p.n||'',id:p.id||'',tag:p.tag||'',caption:p.caption||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
   if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
   if(s.deficiencies){Object.keys(s.deficiencies).forEach(function(k){if(Array.isArray(s.deficiencies[k]))s.deficiencies[k].forEach(function(d){
     if(d.photos)d.photos=_stripPhotos(d.photos);
@@ -13318,10 +13324,10 @@ function _collectCloudState(){
     if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
   });}
   if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
+  function _stripGaugePhotos(arr){if(!arr)return arr;return arr.map(function(p){return{d:_keepD(p),n:p.n||'',id:p.id||'',tag:p.tag||'',mode:p.mode||null,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});}
   if(Array.isArray(s.stdData))s.stdData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
   if(Array.isArray(s.pldData))s.pldData.forEach(function(r){if(r&&r.photos)r.photos=_stripGaugePhotos(r.photos);});
-  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});
+  if(s.recordPhotos)s.recordPhotos=s.recordPhotos.map(function(p){return{d:_keepD(p),n:p.n||'',id:p.id||'',kind:p.kind||'',caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''};});
   if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
@@ -14938,7 +14944,8 @@ function _assignRowPreservePhotos(target, src){
   if(!target || !src) return;
   var localPhotos = Array.isArray(target.photos) ? target.photos.slice() : [];
   Object.assign(target, src);
-  if(Array.isArray(target.photos) && localPhotos.length){
+  if(Array.isArray(target.photos)){
+    // Re-attach local binary/pointers onto matching cloud photos (by id).
     target.photos.forEach(function(np){
       if(!np) return;
       var lp = localPhotos.filter(function(x){return x && np.id && x.id===np.id;})[0];
@@ -14948,6 +14955,21 @@ function _assignRowPreservePhotos(target, src){
         if(!np.tag && lp.tag) np.tag = lp.tag;                          // keep reading assignment
       }
     });
+    // ROOT-CAUSE FIX (7-Point loss): a photo just captured on a secondary tab may
+    // not yet exist in the cloud copy of this row when the merge runs (upload not
+    // confirmed / save raced the merge). The old code iterated only cloud photos,
+    // so a local-only capture was silently dropped. Union in any local photo whose
+    // id is absent cloud-side AND that still holds usable bytes/pointer — never
+    // lose an un-synced field capture. (Skip local rows already tombstoned.)
+    var cloudIds = {};
+    target.photos.forEach(function(np){ if(np && np.id) cloudIds[np.id]=1; });
+    localPhotos.forEach(function(lp){
+      if(!lp || !lp.id || cloudIds[lp.id]) return;
+      if(lp.deleted || lp.delState==='deleted') return;                 // honor real deletes
+      if(lp.d || lp.r2Url){ target.photos.push(lp); }                   // keep un-synced capture
+    });
+  } else if(localPhotos.length){
+    target.photos = localPhotos;                                        // cloud sent none — keep local
   }
 }
 function _applyLoadedState(raw) {
@@ -18779,7 +18801,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S373.1';
+var DIESEL_BUILD = 'S393';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
