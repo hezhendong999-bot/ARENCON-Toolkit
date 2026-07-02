@@ -676,7 +676,7 @@ function _buildCSS(fontB64){
   // S118: 3-up photo grid (was 2-up flow with 160×160 tiles)
   c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
   c+='.dp-grid a{display:block;width:100%;text-decoration:none;}';
-  c+='.dp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
+  c+='.dp{width:100%;aspect-ratio:4/3;background-size:cover;background-position:center;background-repeat:no-repeat;border-radius:4px;border:1px solid #DDE1E7;display:block;}';
   // S118: follow-up section (replaces "General Activity") — compact rows, no bg colors
   c+='.fu-grp{font-size:9.5pt;font-weight:700;color:#4A5568;letter-spacing:0.4px;text-transform:uppercase;margin:10px 0 4px;display:flex;justify-content:space-between;border-bottom:0.5px solid #DDE1E7;padding-bottom:3px;}';
   c+='.fu-row{padding:3px 0;line-height:1.4;}';
@@ -1318,8 +1318,8 @@ function _buildDefCard(r,hdrExtra){
     // emit a labeled placeholder tile instead of an empty <img>.
     if(!_src){
       h+='<div class="dp dp-missing" style="display:flex;align-items:center;justify-content:center;background:#F2F0EC;color:#928E9C;font-size:8pt;font-weight:600;text-align:center;line-height:1.3;padding:4px;">Photo\u00A0unavailable</div>';
-    }else if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
-    else{h+='<img class="dp" src="'+_src+'">';}
+    }else if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><div class="dp" style="background-image:url(\''+_src+'\')"></div></a>';}
+    else{h+='<div class="dp" style="background-image:url(\''+_src+'\')"></div>';}
   });h+='</div>';}
   if(fuActs.length){
     h+='<div class="fu-grp"><span>Follow-up</span><span style="font-weight:500;color:#6B7B8C;">FRT #'+_curInst+'</span></div>';
