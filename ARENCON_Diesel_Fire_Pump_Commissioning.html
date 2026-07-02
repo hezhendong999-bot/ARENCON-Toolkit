@@ -17044,7 +17044,20 @@ function _placardPhotoData(p, cb){
     var busted = url + (url.indexOf('?')>=0 ? '&' : '?') + 'cb=' + Date.now();
     fetch(busted, {cache:'no-store'})
       .then(function(r){ if(!r.ok) throw new Error('R2 '+r.status); return r.blob(); })
-      .then(function(b){ var fr=new FileReader(); fr.onload=function(){ if(!fromDataUrl(fr.result)) cb(null); }; fr.onerror=function(){ cb(null); }; fr.readAsDataURL(b); })
+      .then(function(b){
+        // S395: the worker serves everything as image/jpeg even when the stored
+        // object is an HTML error page (that is how corrupt "jpg" files arose).
+        // Validate real image magic bytes before handing to the model — reject a
+        // disguised error page instead of scanning garbage. Worker-only host per
+        // canonical architecture; survives a future arencon.app migration since the
+        // resolved URL just follows whatever host _photoSrc returns.
+        return Promise.resolve(
+          (typeof _isRealImageBlob==='function') ? _isRealImageBlob(b) : true
+        ).then(function(ok){
+          if(!ok){ cb(null); return; }
+          var fr=new FileReader(); fr.onload=function(){ if(!fromDataUrl(fr.result)) cb(null); }; fr.onerror=function(){ cb(null); }; fr.readAsDataURL(b);
+        });
+      })
       .catch(function(){ cb(null); });
   }
   if(!p.d && (p.id || p.r2Key)){
@@ -17152,6 +17165,58 @@ function _downscaleForVision(img){
     }catch(_e){ resolve(img); }
   });
 }
+// ── AI-scan auth pre-flight helpers (S395) ──
+// Decode a Supabase access JWT's exp claim locally (no network). Returns true if
+// the token is missing, unparseable, or within GRACE seconds of expiry. Pure
+// client-side base64url math — host-agnostic, so it is unaffected by any future
+// domain migration (e.g. arencon.app): the JWT structure and Supabase refresh
+// flow are identical regardless of which origin serves the page.
+function _jwtExpired(tok, graceSec){
+  try{
+    if(!tok) return true;
+    var parts=String(tok).split('.');
+    if(parts.length<2) return true;
+    var b=parts[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(b.length%4) b+='=';
+    var payload=JSON.parse(atob(b));
+    if(!payload || !payload.exp) return true;                       // no exp → treat as stale
+    var now=Math.floor(Date.now()/1000);
+    return (payload.exp - now) <= (graceSec||30);
+  }catch(_e){ return true; }
+}
+// Render an inline re-auth prompt directly under the Scan button. The "Sign in"
+// action retries the SILENT refresh in place (stored refresh token, no re-typing),
+// and on success auto-retries the scan. Falls back to a Hub message only if the
+// refresh token itself is dead. Inline (not overlay) to keep the inspector in the
+// scan flow on a field iPad.
+function _placardAuthPrompt(btn, mode){
+  try{
+    if(!btn) return;
+    var host=btn.parentNode; if(!host) return;
+    var old=host.querySelector('.pl-auth-inline'); if(old) old.remove();
+    var box=document.createElement('div');
+    box.className='pl-auth-inline';
+    box.style.cssText='margin-top:8px;font-family:Calibri,sans-serif;font-size:12.5px;line-height:1.45;color:var(--fail,#C0445F);display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+    var msg=document.createElement('span');
+    msg.textContent='Session expired \u2014 sign in again to use AI scan.';
+    var act=document.createElement('button');
+    act.type='button';
+    act.textContent='Sign in';
+    act.style.cssText='font-family:Calibri,sans-serif;font-size:12.5px;font-weight:600;color:#fff;background:#9C2742;border:none;border-radius:8px;padding:5px 14px;cursor:pointer;';
+    act.onclick=function(){
+      act.disabled=true; act.textContent='Signing in\u2026';
+      Promise.resolve(typeof _refreshAccessToken==='function'?_refreshAccessToken():null).then(function(nt){
+        if(nt){ box.remove(); _placardScan(btn, mode); }               // refreshed → re-run scan
+        else{
+          msg.textContent='Couldn\u2019t refresh your session. Reopen this report from the Hub to sign in.';
+          act.style.display='none';
+        }
+      });
+    };
+    box.appendChild(msg); box.appendChild(act);
+    host.appendChild(box);
+  }catch(_e){}
+}
 function _placardScan(btn, mode){
   // S338: 3-pt and 7-pt are SEPARATE PUMPS (3-pt=constant-speed, 7-pt=PLD/variable).
   // A scan launched from one tab reads ONLY that tab's placard photo(s) and writes
@@ -17173,8 +17238,22 @@ function _placardScan(btn, mode){
     ? rp.filter(function(p){return (p.kind||'')==='placard-pld';}).slice(-1)
     : rp.filter(function(p){return (p.kind||'')==='placard';}).slice(-1);
   if(!take.length){ showToast(mode==='pld' ? 'Capture a PLD/engine placard photo first' : 'Capture a placard photo first'); return; }
+  // AUTH PRE-FLIGHT (S395): decode the token's exp locally BEFORE calling the AI
+  // worker. If missing/expired/near-expiry, attempt a SILENT refresh in place; on
+  // failure show the inline "Sign in" prompt under the button. Catches the common
+  // stale-session case without burning a failing worker request first. The 401/403
+  // path below remains the fallback for a token that looks valid locally but the
+  // worker rejects. Host-agnostic — survives a future arencon.app migration.
   var token=localStorage.getItem('sb-access-token');
-  if(!token){ showToast('Sign in (Hub mode) to use AI scan'); return; }
+  if(_jwtExpired(token, 30)){
+    if(typeof _refreshAccessToken==='function'){
+      _refreshAccessToken().then(function(nt){
+        if(nt){ _placardScan(btn, mode); }                            // got a fresh token → re-run
+        else { _placardAuthPrompt(btn, mode); }                       // refresh token dead → prompt
+      });
+    } else { _placardAuthPrompt(btn, mode); }
+    return;
+  }
   var origTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Reading '+take.length+' placard photo'+(take.length>1?'s':'')+'\u2026'; }
   function done(){ if(btn){ btn.disabled=false; btn.textContent=origTxt; } }
   var imgs=[], chain=Promise.resolve();
@@ -17187,7 +17266,7 @@ function _placardScan(btn, mode){
     }); });
   });
   chain.then(function(){
-    if(!imgs.length){ done(); showToast('Could not load the placard photo(s)'); return; }
+    if(!imgs.length){ done(); showToast('Placard photo not synced yet \u2014 reopen this report after it syncs, then scan.'); return; }
     // S338: readUrlParams lives inside the CloudSync IIFE — call it via CloudSync so
     // projectNumber is actually populated (was bare readUrlParams() → undefined →
     // AI usage log showed '-' for project #).
@@ -18822,7 +18901,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S394';
+var DIESEL_BUILD = 'S395';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
