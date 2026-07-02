@@ -2738,7 +2738,13 @@ async function _betaRender(p,r2Cache,linkByUrl,mintStats){
         if(bytes){
           try{
             var img=(bytes[0]===0x89&&bytes[1]===0x50)?await doc.embedPng(bytes):await doc.embedJpg(bytes);
-            page.drawImage(img,{x:x,y:cellYpdf,width:cellW,height:cellH});
+            // S401: preserve aspect ratio — fit (contain) inside the cell and centre,
+            // instead of stretching to cellW×cellH (was distorting portrait/wide photos).
+            var _iw=img.width, _ih=img.height;
+            var _sc=Math.min(cellW/_iw, cellH/_ih);
+            var _dw=_iw*_sc, _dh=_ih*_sc;
+            var _dx=x+(cellW-_dw)/2, _dy=cellYpdf+(cellH-_dh)/2;
+            page.drawImage(img,{x:_dx,y:_dy,width:_dw,height:_dh});
           }catch(e){}
         }
         // link annotation
