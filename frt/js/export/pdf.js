@@ -1630,7 +1630,7 @@ var D=w.document;
 // PDF link annotations so clickable photos still work. (POC-proven approach.)
 // ============================================================================
 var _CAP_H2C_CDN='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-var _CAP_PDFLIB_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+var _CAP_PDFLIB_CDN='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 function _capLoad(win,src,glob){
   return new Promise(function(res,rej){
     if(win[glob])return res();
@@ -1669,11 +1669,15 @@ function _captureExportPDF(w,D){
       if(bar) bar.style.display='none';
       _capHideStatus(D);
       var pdfDoc=await PDFLib.PDFDocument.create();
+      // S395: pdf-lib 1.17.1 can load with a corrupt page-tree Count (returns NaN),
+      // making every addPage throw a "'page' ... type NaN" internal error even on
+      // valid dimensions. If the fresh doc's page count is not a clean 0, rebuild
+      // the document so the page tree is sane before we add pages.
       try{
-        console.warn('[PROBE] PDFLib type=',typeof PDFLib,'has PDFDocument=',!!(PDFLib&&PDFLib.PDFDocument),'version=',(PDFLib&&PDFLib.PDFDocument&&PDFLib.PDFDocument.name));
-        console.warn('[PROBE] pdfDoc type=',typeof pdfDoc,'ctor=',pdfDoc&&pdfDoc.constructor&&pdfDoc.constructor.name,'has addPage=',!!(pdfDoc&&pdfDoc.addPage),'has embedPng=',!!(pdfDoc&&pdfDoc.embedPng));
-        console.warn('[PROBE] PageSizes=',PDFLib&&PDFLib.PageSizes,'rgb fn=',typeof (PDFLib&&PDFLib.rgb));
-      }catch(_pr){ console.warn('[PROBE] threw',_pr&&_pr.message); }
+        var _pc=pdfDoc.getPageCount();
+        if(typeof _pc!=='number'||!isFinite(_pc)){ pdfDoc=await PDFLib.PDFDocument.create(); }
+      }catch(_shim){ try{ pdfDoc=await PDFLib.PDFDocument.create(); }catch(_s2){} }
+
       for(var i=0;i<pages.length;i++){
         if(bar) bar.style.display='none';
         _capStatus(D,'Rendering page '+(i+1)+' of '+pages.length+'…');
@@ -1700,7 +1704,7 @@ function _captureExportPDF(w,D){
         if(!isFinite(_phN)||_phN<=0)_phN=792;
         try{ pg=pdfDoc.addPage([_pwN,_phN]); }
         catch(eap){
-          try{console.warn('[PROBE2] addPage fail page',i+1,'pw=',pw,'(',typeof pw,') ph=',ph,'(',typeof ph,') _pwN=',_pwN,'_phN=',_phN,'msg=',eap&&eap.message);}catch(_){}
+          try{console.warn('[PDF] Skipped page '+(i+1)+' (render error):',eap&&eap.message);}catch(_){}
           _capStatus(D,'Skipped a page that failed to render ('+(i+1)+').');
           continue;
         }
