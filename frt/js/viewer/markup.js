@@ -3189,6 +3189,10 @@ function _hitTestObjects(pos) {
 
 function _handleSelectDown(e) {
   if (_tool !== 'select') return;
+  // S399: if a text edit box is open, any canvas interaction commits it first
+  // (matches tap-elsewhere-commits) rather than starting a selection/drag on the
+  // object being edited — that was the path that let the edited copy be dragged.
+  if (_dvTextBox) { if (_dvTextCtl) _dvTextCtl.commit(); return; }
   var pos = _getPos(e);
 
   // S342 — copy handle FIRST (before delete/resize/rotate/move) so tapping it
@@ -4730,6 +4734,10 @@ function _wireEvents() {
       var pos = _getPos(e);
       var hit = _hitTestObjects(pos);
       if (hit && hit.type === 'text') {
+        // S399: drop selection first. Editing + transform handles must not be
+        // live on the same object simultaneously — otherwise the selected copy
+        // stays painted and draggable behind the edit box (redundant/doubled text).
+        _selectedIds = [];
         _dvOpenTextBox(null, hit);
       }
     }
