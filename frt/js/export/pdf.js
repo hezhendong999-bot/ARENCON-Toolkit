@@ -1312,7 +1312,13 @@ function _buildDefCard(r,hdrExtra){
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){
     var _src=_pdfPhotoSrc(ph,r2Cache);
     var _href=_pdfPhotoFullHref(ph);
-    if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
+    // S395: a failed/404 photo yields an empty src. An <img src=""> corrupts the
+    // html2canvas render (blank canvas -> NaN page size -> pdf-lib addPage throws).
+    // Per canon "empty-src photos render a placeholder, never silently skipped",
+    // emit a labeled placeholder tile instead of an empty <img>.
+    if(!_src){
+      h+='<div class="dp dp-missing" style="display:flex;align-items:center;justify-content:center;background:#F2F0EC;color:#928E9C;font-size:8pt;font-weight:600;text-align:center;line-height:1.3;padding:4px;">Photo\u00A0unavailable</div>';
+    }else if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><img class="dp" src="'+_src+'"></a>';}
     else{h+='<img class="dp" src="'+_src+'">';}
   });h+='</div>';}
   if(fuActs.length){
@@ -1672,7 +1678,6 @@ function _captureExportPDF(w,D){
         // (auto-height appendix pages, off-screen pages, zero-size, etc.).
         if(!isFinite(ew)||ew<=0) ew=816;   // 8.5in @96dpi
         if(!isFinite(eh)||eh<=0) eh=1056;  // 11in  @96dpi
-        try{ console.warn('[NANDBG] page',i+1,'of',pages.length,'cls=',pageEl.className,'ew=',ew,'eh=',eh); }catch(_d){}
         var canvas=await h2c(pageEl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:ew,height:eh,windowWidth:ew,windowHeight:eh,scrollX:0,scrollY:0});
         // Size the PDF page from the ACTUAL canvas pixels (scale:2 -> /2 back to
         // CSS px -> 72/96 to points). canvas dims are always finite integers, so
@@ -1681,13 +1686,19 @@ function _captureExportPDF(w,D){
         var pw=(cssW/96)*72, ph=(cssH/96)*72;
         if(!isFinite(pw)||pw<=0) pw=612;   // 8.5in in points
         if(!isFinite(ph)||ph<=0) ph=792;   // 11in  in points
-        try{ console.warn('[NANDBG] page',i+1,'canvas=',canvas&&canvas.width,'x',canvas&&canvas.height,'pw=',pw,'ph=',ph); }catch(_d){}
         var png;
         try{ png=await pdfDoc.embedPng(canvas.toDataURL('image/png')); }
-        catch(ep){ console.warn('[NANDBG] embedPng FAILED page',i+1,ep&&ep.message); _capStatus(D,'Skipped a blank page ('+(i+1)+').'); continue; }
+        catch(ep){ _capStatus(D,'Skipped a blank page ('+(i+1)+').'); continue; }
         var pg;
         try{ pg=pdfDoc.addPage([pw,ph]); }
-        catch(eap){ console.error('[NANDBG] addPage THREW page',i+1,'pw=',pw,'ph=',ph,eap&&eap.message); throw eap; }
+        catch(eap){
+          // S395: a corrupt canvas (e.g. a failed/404 photo) can throw a NaN-page
+          // error deep in pdf-lib. Skip this page rather than abort the whole
+          // export, so one bad photo never blocks the entire report.
+          try{console.warn('[PDF] Skipped page '+(i+1)+' (render error):',eap&&eap.message);}catch(_){}
+          _capStatus(D,'Skipped a page that failed to render ('+(i+1)+').');
+          continue;
+        }
         pg.drawImage(png,{x:0,y:0,width:pw,height:ph});
         try{
           var pr=pageEl.getBoundingClientRect();
@@ -1723,7 +1734,6 @@ function _captureExportPDF(w,D){
       if(bar) bar.style.display='';
       _capStatus(D,'Export error: '+(err&&err.message?err.message:err));
       try{console.error('[capture export]',err);}catch(e){}
-      try{console.error('[NANDBG STACK]', err&&err.stack ? err.stack : '(no stack)');}catch(e){}
     }
   })();
 }
