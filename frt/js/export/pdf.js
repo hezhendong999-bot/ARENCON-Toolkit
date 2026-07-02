@@ -611,7 +611,7 @@ function _buildCSS(fontB64){
   c+='.dc{border:1px solid #DDE1E7;border-top:none;padding:10px 12px;margin-bottom:0;background:white;}';
   c+='.dc:last-child{border-radius:0 0 6px 6px;margin-bottom:10px;}';
   c+='.dc-inner{display:flex;gap:12px;align-items:flex-start;}';
-  c+='.dc-mini{flex-shrink:0;width:160px;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
+  c+='.dc-mini{flex-shrink:0;width:160px;height:auto;border-radius:6px;border:1px solid #DDE1E7;display:block;align-self:flex-start;}';
   c+='.dc-content{flex:1;min-width:0;}';
   // S118: card header — item# burgundy + merged status pill (color encodes priority)
   c+='.dc-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}';
