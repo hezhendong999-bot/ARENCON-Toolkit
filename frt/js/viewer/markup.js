@@ -1387,6 +1387,10 @@ function _renderAll() {
 }
 
 function _drawObject(ctx, obj) {
+  // S398: don't paint the object that's currently open in the text edit box —
+  // otherwise the committed copy shows THROUGH/behind the live box (doubled text
+  // while editing or resizing). Cleared on commit/cancel (delete obj._editing).
+  if (obj._editing) return;
   // Masked objects render into a reusable per-object offscreen buffer so the
   // destination-out eraser mask only cuts from THIS object's pixels, not from
   // underlying objects already on the main canvas.
