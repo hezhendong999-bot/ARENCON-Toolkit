@@ -1651,8 +1651,32 @@ function _capStatus(D,txt){
 function _capHideStatus(D){var s=D.getElementById('cap-status');if(s)s.style.display='none';}
 function _captureExportPDF(w,D){
   var bar=D.getElementById('pdf-btn-bar');
+  var _pickerSupported=(typeof w.showSaveFilePicker==='function');
+  var _saveHandle=null;
   (async function(){
     try{
+      // S400: ask for the Save-As location FIRST, on this fresh click, in the
+      // popup window w that owns the activation. showSaveFilePicker needs a
+      // recent user gesture; S399 called it AFTER the multi-second render →
+      // activation stale → silent auto-download. Pick first, hold the handle
+      // across the render, write at the end (proven in standalone repro).
+      // Cancel = stop cleanly, no render, no download.
+      if(_pickerSupported){
+        var _sName=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
+        try{
+          _saveHandle=await w.showSaveFilePicker({
+            suggestedName:_sName,
+            types:[{description:'PDF document',accept:{'application/pdf':['.pdf']}}]
+          });
+        }catch(_pk){
+          if(_pk&&(_pk.name==='AbortError'||_pk.code===20)){
+            _capStatus(D,'Save cancelled.');
+            setTimeout(function(){_capHideStatus(D);},2500);
+            return;
+          }
+          _saveHandle=null;
+        }
+      }
       _capStatus(D,'Loading export libraries…');
       await _capLoad(w,_CAP_H2C_CDN,'html2canvas');
       // S398: pdf-lib MUST instantiate in the MAIN window. Inside the
@@ -1672,8 +1696,9 @@ function _captureExportPDF(w,D){
       }));
       var pages=[].slice.call(D.querySelectorAll('.page'));
       if(!pages.length){ _capStatus(D,'Nothing to export.'); return; }
-      if(bar) bar.style.display='none';
-      _capHideStatus(D);
+      // S400: keep the export bar visible during render (was display:none, which
+      // made the button vanish). The green status strip shows page progress; the
+      // @media print rule hides #pdf-btn-bar in the actual PDF, so this is safe.
       var pdfDoc=await PDFLib.PDFDocument.create();
       // S395: pdf-lib 1.17.1 can load with a corrupt page-tree Count (returns NaN),
       // making every addPage throw a "'page' ... type NaN" internal error even on
@@ -1685,7 +1710,6 @@ function _captureExportPDF(w,D){
       }catch(_shim){ try{ pdfDoc=await PDFLib.PDFDocument.create(); }catch(_s2){} }
 
       for(var i=0;i<pages.length;i++){
-        if(bar) bar.style.display='none';
         _capStatus(D,'Rendering page '+(i+1)+' of '+pages.length+'…');
         var pageEl=pages[i];
         var ew=pageEl.offsetWidth, eh=pageEl.offsetHeight;
@@ -1738,33 +1762,17 @@ function _captureExportPDF(w,D){
       var bytes=await pdfDoc.save();
       var blob=new Blob([bytes],{type:'application/pdf'});
       var fname=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
-      // S399: restore the native "Save As" dialog. showSaveFilePicker opens the
-      // real OS save dialog (choose folder + confirm/rename filename) on desktop
-      // Chrome/Edge. Must run in the MAIN window (same realm as the blob, S398).
-      // Cancel throws AbortError → treat as user-cancelled, do NOT auto-download.
-      // Only genuine unsupported/failure falls back to the anchor download
-      // (Android tablet / iPad, which have no picker API).
+      // S400: write to the handle already chosen at the top (fresh-click picker).
+      // If we have a handle → write there (the folder/name the user picked). If
+      // not (unsupported device, or picker errored non-cancel) → anchor download.
       var _savedViaPicker=false;
-      if(typeof window.showSaveFilePicker==='function'){
+      if(_saveHandle){
         try{
-          var _fh=await window.showSaveFilePicker({
-            suggestedName:fname,
-            types:[{description:'PDF document',accept:{'application/pdf':['.pdf']}}]
-          });
-          var _ws=await _fh.createWritable();
+          var _ws=await _saveHandle.createWritable();
           await _ws.write(blob);
           await _ws.close();
           _savedViaPicker=true;
-        }catch(_pk){
-          // AbortError = user hit Cancel in the Save dialog → stop, no download.
-          if(_pk&&(_pk.name==='AbortError'||_pk.code===20)){
-            if(bar) bar.style.display='';
-            _capStatus(D,'Save cancelled.');
-            setTimeout(function(){_capHideStatus(D);},2500);
-            return;
-          }
-          // any other error → fall through to the anchor download below
-        }
+        }catch(_wr){ _savedViaPicker=false; } // write failed → fall back to download
       }
       if(!_savedViaPicker){
         var url=URL.createObjectURL(blob);
