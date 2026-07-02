@@ -1689,10 +1689,35 @@ function _captureExportPDF(w,D){
       var h2c=w.html2canvas, PDFLib=window.PDFLib;
       _capStatus(D,'Waiting for fonts and photos…');
       try{ if(D.fonts&&D.fonts.ready) await D.fonts.ready; }catch(e){}
+      // S402: block until the async minimap/appendix render chain has assigned
+      // every real src (was fire-and-forget → capture screenshotted empty imgs).
+      try{ await _minimapsReady; }catch(e){}
       var imgs=[].slice.call(D.querySelectorAll('.page img'));
+      // Wait for every image to actually DECODE (not just "complete"). A failed
+      // or still-empty img reports complete=true, naturalWidth=0 and its load
+      // listener never fires again — so poll for real pixels with a bounded wait,
+      // then force decode(). This is what makes the PDF match the preview.
       await Promise.all(imgs.map(function(im){
-        if(im.complete && im.naturalWidth>0) return Promise.resolve();
-        return new Promise(function(r){im.addEventListener('load',r,{once:true});im.addEventListener('error',r,{once:true});});
+        return new Promise(function(resolve){
+          var tries=0;
+          (function check(){
+            if(im.naturalWidth>0){
+              if(im.decode){ im.decode().then(resolve).catch(resolve); } else { resolve(); }
+              return;
+            }
+            if(!im.getAttribute('src')){ // src not assigned yet — keep waiting
+              if(tries++>200){ resolve(); return; } // ~10s ceiling, never hang
+              setTimeout(check,50); return;
+            }
+            // src present but not yet decoded: wait on load/error, re-check
+            var done=false;
+            function onEvt(){ if(done)return; done=true; setTimeout(check,0); }
+            im.addEventListener('load',onEvt,{once:true});
+            im.addEventListener('error',function(){ if(done)return; done=true; resolve(); },{once:true});
+            if(tries++>200){ resolve(); return; }
+            setTimeout(function(){ if(!done){ done=true; check(); } },200);
+          })();
+        });
       }));
       var pages=[].slice.call(D.querySelectorAll('.page'));
       if(!pages.length){ _capStatus(D,'Nothing to export.'); return; }
@@ -2037,6 +2062,16 @@ if(recBlocks.length){
 // S317 BUGFIX: appendix image render jobs, shared between the assembly block
 // (below) and the drawing-render pass further down. Declared here so both see it.
 var _appendixImgJobs=[]; // { imgId, drawingId, pins:[r,...] }
+// S402: minimap/appendix images are rendered by a fire-and-forget async chain
+// (Promise.all -> nextJob -> _renderMinimaps -> per-img .src=). Capture used to
+// screenshot before that chain finished, snapshotting empty src="" imgs as the
+// "drawing" alt placeholder — the root cause of "PDF doesn't match preview".
+// This promise resolves ONLY when every appendix img + per-card minimap has its
+// real src assigned; _captureExportPDF awaits it before html2canvas.
+var _minimapsReady=Promise.resolve();
+var _minimapsReadyResolve=null;
+function _armMinimapsReady(){ _minimapsReady=new Promise(function(res){_minimapsReadyResolve=res;}); }
+function _signalMinimapsReady(){ if(_minimapsReadyResolve){var f=_minimapsReadyResolve;_minimapsReadyResolve=null;f();} }
 // Appendix — S317: split into lettered Appendix A (deficiency pins) and
 // Appendix B (recommendation pins). Each appendix shows ONLY its own pin type
 // (legal separation — rec pins never land on deficiency drawings). Lettering:
@@ -2274,6 +2309,8 @@ if(isField){
   // Ensure every minimap drawing's dataUrl is loaded too (not just appendix drawings).
   _mmPins.forEach(function(r){if(!dwgMap[r.d.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===r.d.drawingId;});if(dObj)dwgMap[r.d.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null};}});
   var dIds=Object.keys(dwgMap);
+  _armMinimapsReady(); // S402: pending until the render chain below finishes
+  if(!dIds.length){ _signalMinimapsReady(); }
   if(dIds.length){
     var fp=[];
     dIds.forEach(function(id){var info=dwgMap[id];if(info.dataUrl)return;
@@ -2298,7 +2335,8 @@ if(isField){
       function _renderMinimaps(){
         var mi=0;var _mmDone={};
         function nextMm(){
-          if(mi>=_mmPins.length)return;var r=_mmPins[mi];
+          if(mi>=_mmPins.length){_signalMinimapsReady();return;} // S402: chain complete
+          var r=_mmPins[mi];
           var info=dwgMap[r.d.drawingId];
           var _mmKey=r.d.id+'-'+r.obsIdx;
           if(!info||!info.dataUrl||_mmDone[_mmKey]){mi++;nextMm();return;}
