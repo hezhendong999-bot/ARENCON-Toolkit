@@ -1655,8 +1655,14 @@ function _captureExportPDF(w,D){
     try{
       _capStatus(D,'Loading export libraries…');
       await _capLoad(w,_CAP_H2C_CDN,'html2canvas');
-      await _capLoad(w,_CAP_PDFLIB_CDN,'PDFLib');
-      var h2c=w.html2canvas, PDFLib=w.PDFLib;
+      // S398: pdf-lib MUST instantiate in the MAIN window. Inside the
+      // window.open('') popup realm, PDFDocument.create() yields a corrupt
+      // page-tree Count (NaN) so every addPage throws "page ... type NaN".
+      // Proven on-device: main-window addPage OK, popup addPage NaN. html2canvas
+      // still runs against the popup DOM (it only reads nodes); the resulting
+      // canvas dataURL is a plain string that crosses the window boundary fine.
+      await _capLoad(window,_CAP_PDFLIB_CDN,'PDFLib');
+      var h2c=w.html2canvas, PDFLib=window.PDFLib;
       _capStatus(D,'Waiting for fonts and photos…');
       try{ if(D.fonts&&D.fonts.ready) await D.fonts.ready; }catch(e){}
       var imgs=[].slice.call(D.querySelectorAll('.page img'));
@@ -1732,9 +1738,12 @@ function _captureExportPDF(w,D){
       var bytes=await pdfDoc.save();
       var blob=new Blob([bytes],{type:'application/pdf'});
       var url=URL.createObjectURL(blob);
-      var a=D.createElement('a');a.href=url;
+      // S398: blob is created with main-window Blob/URL, so trigger the download
+      // from the MAIN document too (same realm) — avoids a cross-realm blob-URL
+      // edge case where a popup-document anchor can't resolve a main-window blob.
+      var a=document.createElement('a');a.href=url;
       a.download=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
-      D.body.appendChild(a);a.click();a.remove();
+      document.body.appendChild(a);a.click();a.remove();
       setTimeout(function(){URL.revokeObjectURL(url);},4000);
       if(bar) bar.style.display='';
       _capStatus(D,'Done — PDF downloaded. It matches this preview exactly.');
