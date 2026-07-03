@@ -2020,6 +2020,33 @@ contentBlocks.forEach(_flowBlock);
 // page 1 (built above), so this end-of-body placement is removed.
 _finalizePage();
 
+// S317 BUGFIX: appendix image render jobs, shared between both _emitAppendices
+// calls and the drawing-render pass further down. Declared here (S408: moved up
+// from the pre-appendix position) so the FIRST call already sees live values —
+// var assignment does not hoist, only the declaration does.
+var _appendixImgJobs=[]; // { imgId, drawingId, pins:[r,...] }
+// S402: minimap/appendix images are rendered by a fire-and-forget async chain
+// (Promise.all -> nextJob -> _renderMinimaps -> per-img .src=). Capture used to
+// screenshot before that chain finished, snapshotting empty src="" imgs as the
+// "drawing" alt placeholder — the root cause of "PDF doesn't match preview".
+// This promise resolves ONLY when every appendix img + per-card minimap has its
+// real src assigned; _captureExportPDF awaits it before html2canvas.
+var _minimapsReady=Promise.resolve();
+var _minimapsReadyResolve=null;
+function _armMinimapsReady(){ _minimapsReady=new Promise(function(res){_minimapsReadyResolve=res;}); }
+function _signalMinimapsReady(){ if(_minimapsReadyResolve){var f=_minimapsReadyResolve;_minimapsReadyResolve=null;f();} }
+// S408: appendix lettering state — hoisted OUT of _emitAppendices so the letter
+// sequence spans both calls (A = deficiency appendix here, B = recommendation
+// appendix after the Recommendations section; recs-only reports still get 'A').
+var _appLetters='ABCDEFGH';
+var _appIdx=0;
+// S408 (LOCKED_REPORT_ITEM_NUMBER_S316 §4): Appendix A — Drawings with Pins
+// (Deficiencies) — moves BEFORE Previously Closed Items and Recommendations.
+// Target order: body → Appendix A → Previously Closed → Recommendations →
+// Appendix B. _emitAppendices is declared further down; function declarations
+// hoist across the whole function body, so this early call is safe.
+_emitAppendices(['deficiency']);
+
 // Closed summary
 if(showClosedSummary&&closedSummaryDefs.length&&_recsMode!=='only'){
   var csG={};closedSummaryDefs.forEach(function(r){var i=r.d.closedOnInstance||1;if(!csG[i])csG[i]=[];csG[i].push(r);});
@@ -2059,25 +2086,24 @@ if(recBlocks.length){
   _finalizePage();
 }
 
-// S317 BUGFIX: appendix image render jobs, shared between the assembly block
-// (below) and the drawing-render pass further down. Declared here so both see it.
-var _appendixImgJobs=[]; // { imgId, drawingId, pins:[r,...] }
-// S402: minimap/appendix images are rendered by a fire-and-forget async chain
-// (Promise.all -> nextJob -> _renderMinimaps -> per-img .src=). Capture used to
-// screenshot before that chain finished, snapshotting empty src="" imgs as the
-// "drawing" alt placeholder — the root cause of "PDF doesn't match preview".
-// This promise resolves ONLY when every appendix img + per-card minimap has its
-// real src assigned; _captureExportPDF awaits it before html2canvas.
-var _minimapsReady=Promise.resolve();
-var _minimapsReadyResolve=null;
-function _armMinimapsReady(){ _minimapsReady=new Promise(function(res){_minimapsReadyResolve=res;}); }
-function _signalMinimapsReady(){ if(_minimapsReadyResolve){var f=_minimapsReadyResolve;_minimapsReadyResolve=null;f();} }
+// S408: the recommendation appendix (Appendix B) is emitted HERE — after the
+// pooled Recommendations section — while the deficiency appendix (Appendix A)
+// was emitted earlier via the same _emitAppendices function (see the call
+// after the main-body flow). Function declaration hoists; the shared
+// declarations (_appendixImgJobs, _minimapsReady machinery, _appLetters/
+// _appIdx) were moved up beside the first call so both calls and the
+// drawing-render pass further down see live values.
+_emitAppendices(['recommendation']);
 // Appendix — S317: split into lettered Appendix A (deficiency pins) and
 // Appendix B (recommendation pins). Each appendix shows ONLY its own pin type
 // (legal separation — rec pins never land on deficiency drawings). Lettering:
 // A = deficiencies (always, when defic pins on drawings exist); B = recs (only
 // when recs are included AND rec pins exist on drawings). Pin table gains a
 // leading Item column reading r._itemNo (body-order item #). LOCKED S316 spec.
+// S408: wrapped as a function; _kindsWanted filters which lettered appendix
+// this call emits. Lettering state persists ACROSS calls (hoisted _appIdx) so
+// A/B assignment is unchanged, including the recs-only 'A' fallback.
+function _emitAppendices(_kindsWanted){
 if(isField&&p.drawings&&p.drawings.length){
   // S317 prior-closed predicate (mirrors the rec section's _recPrevClosed and
   // the deficiency Previously-Closed split): an item closed in a PRIOR instance
@@ -2117,8 +2143,8 @@ if(isField&&p.drawings&&p.drawings.length){
     if(_hasRecPin)_appendixDefs.push({kind:'recommendation',
       pred:function(r){return !!(r.d&&r.d.isRecommendation)&&!_appPrevClosed(r);}});
   }
-  var _appLetters='ABCDEFGH';
-  var _appIdx=0;
+  // S408: emit only the appendix kinds this call asked for (letters hoisted).
+  _appendixDefs=_appendixDefs.filter(function(def){return _kindsWanted.indexOf(def.kind)>=0;});
   // (img-render jobs collected into the hoisted _appendixImgJobs above)
   _appendixDefs.forEach(function(def){
     // Drawings that carry at least one pin matching this appendix's predicate.
@@ -2276,6 +2302,7 @@ if(isField&&p.drawings&&p.drawings.length){
       });
     });
   });
+}
 }
 
 // Render pages
