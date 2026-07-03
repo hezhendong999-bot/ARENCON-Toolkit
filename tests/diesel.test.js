@@ -152,6 +152,33 @@ function serve() {
   await new Promise((r) => setTimeout(r, 800));
   check('T2: switching to 7-Point throws no errors', pageErrors.length === preErr, pageErrors.slice(preErr).join(' | '));
 
+  /* ── Explorer: seeded random interaction — hunts bugs nobody predicted.
+   * Deterministic (re-run with the printed seed to reproduce). Destructive
+   * controls and file inputs excluded; strays from window.open are closed. */
+  page.on('dialog', (d) => d.dismiss().catch(() => {}));
+  browser.on('targetcreated', async (t) => { try { const pg = await t.page(); if (pg && pg !== page) await pg.close(); } catch (_) {} });
+  {
+    let s = 398001 >>> 0;
+    const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const before = pageErrors.length;
+    for (let i = 0; i < 40; i++) {
+      try {
+        await page.evaluate((r) => {
+          const els = Array.from(document.querySelectorAll('button, [onclick], a, select, [role="button"], .btn'))
+            .filter((e) => e.offsetParent !== null)
+            .filter((e) => !/delete|remove|clear|reset|sign ?out|log ?out|wipe/i.test((e.textContent || '') + (e.title || '')))
+            .filter((e) => !(e.tagName === 'INPUT' && e.type === 'file'));
+          if (!els.length) return;
+          els[Math.floor(r * els.length)].click();
+        }, rnd());
+      } catch (_) {}
+      await new Promise((r) => setTimeout(r, 160));
+      if (i % 7 === 6) { try { await page.keyboard.press('Escape'); } catch (_) {} }
+    }
+    const fresh = pageErrors.slice(before);
+    check('explorer(Diesel, seed=398001, steps=40): no JS errors', fresh.length === 0, fresh.slice(0, 3).join(' | '));
+  }
+
   await browser.close();
   srv.close();
 
