@@ -1516,7 +1516,7 @@ function showApp() {
   // Capture ?open= BEFORE replaceState strips query string
   try {
     var _urlP = new URLSearchParams(window.location.search);
-    _pendingOpenId = _urlP.get('open') || null;
+    _pendingOpenId = _urlP.get('open') || _urlP.get('project') || null; // S413: also accept ?project= - the param every tool's back-flow sends (FRT _hubUrl S331, Diesel's detail path). One-word mismatch ('open' vs 'project') broke the tool -> project-detail tier; back landed on the dashboard instead. Hub now honors both.
   } catch(e) { _pendingOpenId = null; }
 
   // Update header user info
