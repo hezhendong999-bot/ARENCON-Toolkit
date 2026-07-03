@@ -2002,6 +2002,67 @@ function wireEvents() {
     }
   });
 
+  // ── S411: TIERED BACK-TRAP (ports Diesel's S332/S333 pattern) ─────────
+  // Android/TWA back (or swipe-back) peels ONE layer at a time instead of
+  // throwing the inspector all the way back to the Hub: photo lightbox →
+  // drawing viewer → export modal → mobile menu → non-default tab → and only
+  // then the normal ← Back leave flow (3-button dialog when unsaved, exact
+  // same path as the on-screen button). Guard entries keep history topped up
+  // so the page itself never pops out from under an open layer.
+  var _BT_DEPTH = 3;
+  function _btTopUp() {
+    try {
+      var have = (history.state && history.state._frtGuard) ? history.state._frtGuard : 0;
+      while (have < _BT_DEPTH) { have++; history.pushState({ _frtGuard: have }, ''); }
+    } catch (e) {}
+  }
+  function _btPeel() {
+    try {
+      // 1. photo lightbox (public API — runs its unsaved-markup exit flow)
+      var lb = window._frtLightbox;
+      if (lb && lb.isOpen && lb.isOpen()) { lb.close(); return true; }
+      // 2. drawing viewer — click #dv-close so the viewer's REAL close flow runs
+      var dvo = document.getElementById('drawing-viewer-overlay');
+      if (dvo && dvo.classList.contains('open')) {
+        var x = document.getElementById('dv-close');
+        if (x) { x.click(); return true; }
+      }
+      // 3. export modal
+      var exv = document.getElementById('exv-ov');
+      if (exv) {
+        var ex = document.getElementById('exv-x');
+        if (ex) ex.click(); else exv.remove();
+        return true;
+      }
+      // 4. mobile menu
+      var mm = document.getElementById('mobile-menu-overlay');
+      if (mm && mm.classList.contains('open')) { closeMobileMenu(); return true; }
+      // 5. non-default tab collapses to Project Info (mirrors Diesel's
+      //    collapse-to-Summary tier)
+      if (_currentTab !== 'info') { switchTab('info'); return true; }
+    } catch (e) {}
+    return false;
+  }
+  (function _installBackTrap() {
+    try {
+      _btTopUp();
+      window.addEventListener('popstate', function () {
+        var handled = _btPeel();
+        _btTopUp();   // re-arm guards after every pop
+        if (!handled) {
+          // Nothing left to peel → behave exactly like the on-screen ← Back
+          // button (leave dialog when unsaved, direct navigation otherwise).
+          var bb = document.getElementById('back-btn');
+          if (bb) { bb.click(); }
+          else {
+            var ll = document.getElementById('logo-link');
+            window.location.href = ll ? ll.href : '../index.html';
+          }
+        }
+      });
+    } catch (e) {}
+  })();
+
   // More dropdown button
   var moreWrap = document.getElementById('btn-more-wrap');
   if (moreWrap) {
@@ -2082,7 +2143,7 @@ function _countUntaggedForBand(proj) {
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S410';
+var FRT_BUILD = 'S411';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
