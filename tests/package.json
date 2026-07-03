@@ -1,0 +1,6 @@
+{
+  "name": "arencon-toolkit-tests",
+  "private": true,
+  "description": "Headless regression harness for ARENCON tools (Diesel first).",
+  "dependencies": { "puppeteer": "^23.0.0" }
+}

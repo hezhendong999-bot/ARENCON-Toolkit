@@ -1,0 +1,29 @@
+# ARENCON Diesel regression harness — runs on EVERY push to main that touches the
+# Diesel tool or the tests, from any writer (including the concurrent Training-Center
+# bot). A red X on a commit means shipped features were stomped or core photo/merge
+# behavior broke — check the job log for the exact FAIL lines.
+name: diesel-tests
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ARENCON_Diesel_Fire_Pump_Commissioning.html'
+      - 'tests/**'
+      - '.github/workflows/diesel-tests.yml'
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install harness deps
+        working-directory: tests
+        run: npm install --no-fund --no-audit
+      - name: Run Diesel harness (Tier 1 + 2)
+        working-directory: tests
+        run: node diesel.test.js
