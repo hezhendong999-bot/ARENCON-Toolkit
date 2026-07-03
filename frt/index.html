@@ -797,6 +797,19 @@ function ensurePdfJs(cb){
         </div>
         <button id="dim-calibrate-btn" class="dim-v3-cal" data-tip="Optional — draw across a known distance to set scale">📏</button>
       </div>
+      <!-- S407 — Polyline sub-toolbar (mirrors the dimension pattern; V4 from
+           the open list). Hidden by default; shown while the polyline tool is
+           active. ✓ finishes the polyline AS DRAWN (open — unlike tapping the
+           first point, which closes the loop), ↩ removes the last placed
+           point, ✕ discards the in-progress polyline. Reuses dim-v3 classes —
+           no new CSS, same touch targets. -->
+      <div id="poly-sub-toolbar" class="dim-sub-toolbar dim-sub-v3" style="display:none;">
+        <button id="poly-commit-btn" class="dim-v3-primary" data-tip="Finish the polyline as drawn">
+          <span class="dim-v3-ic">✓</span><span class="dim-v3-txt">Finish</span>
+        </button>
+        <button id="poly-undo-pt-btn" class="dim-v3-cal" data-tip="Remove the last point">↩</button>
+        <button id="poly-cancel-btn" class="dim-v3-cal" data-tip="Discard the in-progress polyline">✕</button>
+      </div>
       <!-- S330 #37 — Dimension value keypad (units OUTSIDE; metric hides
            feet/inch keys). Floating on desktop, bottom-dock on touch. -->
       <div id="dim-kp" class="dim-kp">

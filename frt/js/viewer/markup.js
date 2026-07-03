@@ -3140,6 +3140,56 @@ function _finishPolyline() {
   _renderAll();
 }
 
+// ── S407: polyline sub-toolbar actions ──────────────────────────────
+// ✓ Finish commits the polyline AS DRAWN (open) — tapping near the first
+// point still closes the loop as before; the two finishes coexist.
+function _commitPolyline() {
+  if (_polyPoints.length >= 2) { _finishPolyline(); }
+  else { _cancelPolyline(); }
+}
+// ✕ Cancel discards all in-progress points (nothing committed to _objects).
+function _cancelPolyline() {
+  _polyPoints = [];
+  var ov = _getOverlay();
+  if (ov) {
+    ov.style.display = 'none';
+    var c = ov.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, ov.width, ov.height);
+  }
+  _renderAll();
+}
+// ↩ Undo removes only the LAST placed point and repaints the preview —
+// fixes a misclick without redrawing the whole polyline.
+function _undoPolyPoint() {
+  if (!_polyPoints.length) return;
+  _polyPoints.pop();
+  _redrawPolyOverlay();
+}
+// Repaint the placed-segments preview from _polyPoints (same drawing
+// contract as _handlePolylineClick: lineTo only, round caps/joins).
+function _redrawPolyOverlay() {
+  var ov = _ensureOverlay();
+  if (!ov) return;
+  var ctx = ov.getContext('2d');
+  var d = ov._dpr || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  if (_polyPoints.length < 2) { if (!_polyPoints.length) ov.style.display = 'none'; return; }
+  ov.style.display = 'block';
+  ov.style.opacity = '1';
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.strokeStyle = _color;
+  ctx.lineWidth = _lineWidth;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha = _opacity;
+  ctx.beginPath();
+  ctx.moveTo(_polyPoints[0].x, _polyPoints[0].y);
+  for (var i = 1; i < _polyPoints.length; i++) ctx.lineTo(_polyPoints[i].x, _polyPoints[i].y);
+  ctx.stroke();
+}
+
 function _drawPolylinePreview(e) {
   var pos = _getPos(e);
   var ov = _ensureOverlay();
@@ -4034,6 +4084,12 @@ function _setActiveTool(tool) {
   }
   var dimSub = document.getElementById('dim-sub-toolbar');
   if (dimSub) dimSub.style.display = (tool === 'dimension') ? 'flex' : 'none';
+  // S407: polyline sub-toolbar visibility mirrors the dimension pattern.
+  // Leaving the polyline tool discards any in-progress (uncommitted) points —
+  // same contract as _resetDimensionFlow above.
+  var polySub = document.getElementById('poly-sub-toolbar');
+  if (polySub) polySub.style.display = (tool === 'polyline') ? 'flex' : 'none';
+  if (tool !== 'polyline' && _polyPoints.length) _cancelPolyline();
 
   // Update sidebar button states
   var sidebar = document.getElementById('dv-sidebar-tools');
@@ -4297,6 +4353,23 @@ function _wireEvents() {
         sm.classList.toggle('open');
         if (!isOpen) _positionSubmenu(sm, shapesGroupBtn);
       }
+      e.stopPropagation();
+      return;
+    }
+
+    // S407 — Polyline sub-toolbar buttons (✓ finish / ↩ undo point / ✕ cancel).
+    if (e.target.closest && e.target.closest('#poly-commit-btn')) {
+      _commitPolyline();
+      e.stopPropagation();
+      return;
+    }
+    if (e.target.closest && e.target.closest('#poly-undo-pt-btn')) {
+      _undoPolyPoint();
+      e.stopPropagation();
+      return;
+    }
+    if (e.target.closest && e.target.closest('#poly-cancel-btn')) {
+      _cancelPolyline();
       e.stopPropagation();
       return;
     }
