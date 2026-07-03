@@ -15,6 +15,11 @@
  */
 
 const ALLOWED_ORIGINS = [
+  // S414 (#4): arencon.app added - the S390 domain move left this allowlist
+  // on the old origin only, killing every AI feature (FRT assistant, Diesel
+  // placard scan) with CORS preflight failures. Old origin kept during the
+  // transition; remove it when the github.io fallback is retired.
+  'https://arencon.app',
   'https://hezhendong999-bot.github.io',
   'http://localhost',
   'http://127.0.0.1'
