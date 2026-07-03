@@ -211,6 +211,30 @@ function _deleteRow(rowId) {
 // failed, cancelled, or online/focus-triggered immediate retry).
 var _retryTimers = {};
 
+// S414: session caches for the R2 dead-key heal (verifyR2Keys).
+var _r2VerifiedProjects = {};
+var _r2VerifiedKeys = {};
+function _r2HealOne(projectId, ph, res) {
+  // Confirmed 404. Prefer original bytes from photoBlobs; fall back to the
+  // compressed dataUrl; otherwise null the key (record kept).
+  return IDB.get('photoBlobs', ph.id).then(function(rec){
+    var blob = rec && rec.dataBlob;
+    if (blob) {
+      var fname = (ph.r2Key || '').split('/').pop() || ('heal_' + ph.id + '.jpg');
+      return R2.upload(projectId, 'original', blob, fname).then(function(result){
+        if (result) { ph.r2Key = result.r2Key; ph.r2Url = result.r2Url; res.healed++; }
+      });
+    }
+    if (ph.dataUrl) {
+      return R2.uploadPhoto(projectId, ph, 'original').then(function(r){ if (r) res.healed++; });
+    }
+    ph.r2Key = null; ph.r2Url = null; res.nulled++;
+    console.warn('[R2Heal] no local bytes for ' + ph.id + ' \u2014 key nulled (record kept)');
+  }).catch(function(e){
+    console.warn('[R2Heal] heal failed for ' + ph.id + ':', e && e.message);
+  });
+}
+
 // ─────────────────────────────────────────────────────────────
 // Batched failure toast (S172, per D1)
 // ─────────────────────────────────────────────────────────────
@@ -1108,6 +1132,53 @@ export var BinaryOutbox = {
    *  that R2 had confirmed but cloud hadn't yet captured.
    *
    *  Idempotent — re-running with no missing photos is a fast no-op. */
+  // ── S414 (#6/#7 root cause): R2 dead-key HEAD-verify + self-heal ──────
+  // reconcileWithModel (and cloud pulls generally) trusted stored r2Keys
+  // without checking the object still exists. A dead key (object deleted or
+  // never landed — the 7155.51 case) leaves a photo pointing at a 404
+  // forever: permanent yellow badge, files.arencon.app 404s in console, and
+  // unreferenced-pool integrity noise. This pass HEAD-verifies every photo
+  // r2Url once per project per session and heals:
+  //   dead key + bytes in photoBlobs → re-upload the original bytes
+  //   dead key + only dataUrl        → re-upload compressed via R2.uploadPhoto
+  //   dead key + nothing             → null r2Key/r2Url (record KEPT — the
+  //                                    badge then shows the true state; photo
+  //                                    records are never deleted here, the
+  //                                    six-gate orphan system is separate)
+  // Returns {checked, ok, healed, nulled}. Caller saves if healed||nulled.
+  verifyR2Keys: function(proj) {
+    var self = this;
+    if (!_initialized) return this.init().then(function(){ return self.verifyR2Keys(proj); });
+    if (!proj || !proj.id) return Promise.resolve(null);
+    if (_r2VerifiedProjects[proj.id]) return Promise.resolve(null);
+    _r2VerifiedProjects[proj.id] = true;   // once per session per project
+    var photos = [];
+    (proj.photos || []).forEach(function(ph){ photos.push(ph); });
+    (proj.contractors || []).forEach(function(c){
+      (c.deficiencies || []).forEach(function(d){
+        (d.photos || []).forEach(function(ph){ photos.push(ph); });
+      });
+    });
+    var targets = photos.filter(function(ph){ return ph && ph.r2Url && ph.r2Key && !_r2VerifiedKeys[ph.r2Key]; });
+    if (targets.length > 300) targets = targets.slice(0, 300);   // bound per run
+    var res = { checked: targets.length, ok: 0, healed: 0, nulled: 0 };
+    var chain = Promise.resolve();
+    targets.forEach(function(ph){
+      chain = chain.then(function(){
+        return fetch(ph.r2Url, { method: 'HEAD' }).then(function(r){
+          if (r.ok) { _r2VerifiedKeys[ph.r2Key] = true; res.ok++; return; }
+          if (r.status !== 404) { res.ok++; return; }   // transient — do not heal on non-404
+          return _r2HealOne(proj.id, ph, res);
+        }).catch(function(){ /* network blip — never heal on failure to reach */ });
+      });
+    });
+    return chain.then(function(){
+      if (res.checked) console.log('[R2Heal] ' + proj.id.slice(0,8) + '\u2026 checked:' + res.checked +
+        ' ok:' + res.ok + ' healed:' + res.healed + ' nulled:' + res.nulled);
+      return res;
+    });
+  },
+
   reconcileWithModel: function(proj) {
     if (!_FIX_A_ENABLED) return Promise.resolve(0);
     if (!_initialized) {

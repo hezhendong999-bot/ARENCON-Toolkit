@@ -589,6 +589,18 @@ export var SyncEngine = {
         } catch (e) {
           console.warn('[Sync][Fix A] reconcileWithModel (pull) failed:', e && e.message);
         }
+        // S414: HEAD-verify stored R2 keys once per project per session and
+        // self-heal dead ones (7155.51 yellow-badge / 404 root cause). Save
+        // only when something actually changed.
+        try {
+          if (BinaryOutbox && BinaryOutbox.verifyR2Keys) {
+            BinaryOutbox.verifyR2Keys(Model.getProject()).then(function(r){
+              if (r && (r.healed || r.nulled)) { Model.saveNow(); }
+            }).catch(function(){});
+          }
+        } catch (e) {
+          console.warn('[Sync] verifyR2Keys failed:', e && e.message);
+        }
         // S124 A3 — persist fresh snapshot to IDB (re-key in case instanceId
         // was null on entry but resolved from the row).
         _persistSyncMeta(projectId, _instanceId);

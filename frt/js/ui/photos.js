@@ -1466,7 +1466,15 @@ function _addSitePhoto(file) {
       toast('Site photo added');
       var pid = new URLSearchParams(window.location.search).get('project');
       if (pid) {
-        R2.uploadPhoto(pid, photo, 'original').then(function() { Model.saveNow(); });
+        // S414 (#3): S389 parity for SITE photos — upload the UNTOUCHED original
+        // File (full-res), not the compressed dataUrl. dataUrl stays compressed
+        // for in-app render + PDF embed, same contract as deficiency photos.
+        R2.uploadPhotoOriginal(pid, photo, file).then(function() { Model.saveNow(); })
+          .catch(function(err) {
+            photo.r2UploadFailed = true;   // badge shows true state; retryable
+            Model.saveNow();
+            console.warn('[R2] site photo original upload failed:', err && err.message);
+          });
       }
     });
   });
