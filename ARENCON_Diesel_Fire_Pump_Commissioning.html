@@ -5251,7 +5251,7 @@ var DslLightbox = (function(){
     // 2) deterministic R2 'original/' key (fresh-device fallback)
     if(p.id && typeof _r2FolderId!=='undefined' && _r2FolderId &&
        typeof R2Photos!=='undefined' && R2Photos.getUrl){
-      try{ return R2Photos.getUrl(_r2FolderId, 'diesel', 'original', p.id + '.jpg'); }catch(_e){}
+      try{ return R2Photos.getUrl(_r2FolderId, 'diesel', 'original', _r2Fname(p)); }catch(_e){}
     }
     return '';
   }
@@ -13353,7 +13353,7 @@ function _photoSrc(p){
   if(p.d) return p.d;
   if(p.r2Url) return p.r2Url;
   if(p.id && _r2FolderId && typeof R2Photos!=='undefined' && R2Photos.getUrl){
-    try{ return R2Photos.getUrl(_r2FolderId, 'diesel', 'original', p.id + '.jpg'); }catch(_e){}
+    try{ return R2Photos.getUrl(_r2FolderId, 'diesel', 'original', _r2Fname(p)); }catch(_e){}
   }
   return '';
 }
@@ -13564,6 +13564,13 @@ setTimeout(function(){
   }).catch(function(){});
 }, 12000);
 
+// S398 R2 KEY ISOLATION: every NEW upload's filename is prefixed with this
+// report's instanceId ("{uuid}__{photoId}.jpg") so R2 objects are provably owned
+// by one report. Path depth is unchanged — the worker treats the filename as an
+// opaque segment, so no worker change is needed. Legacy (unprefixed) objects keep
+// loading via each photo's STORED r2Key/r2Url; reconstruction (pointer lost) uses
+// p.r2v===2 to know which name shape to rebuild.
+function _r2Fname(p){ return (p && p.r2v===2 && typeof _csInstanceId!=='undefined' && _csInstanceId ? (_csInstanceId+'__') : '') + p.id + '.jpg'; }
 function _r2EnqueuePhoto(photoObj){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return;
   if(!photoObj || !photoObj.d) return;
@@ -13576,7 +13583,8 @@ function _r2EnqueuePhoto(photoObj){
   // stored object name is {id}.jpg. The human filename is kept only as display
   // metadata on photoObj.n — it never enters the key/url again.
   photoObj.id = photoObj.id || ('ph_' + Date.now() + '_' + Math.random().toString(36).substr(2,6));
-  var fname = photoObj.id + '.jpg';
+  if(typeof _csInstanceId!=='undefined' && _csInstanceId) photoObj.r2v = 2;   // S398: instance-owned key shape
+  var fname = _r2Fname(photoObj);
   var r2Key = 'photos/' + _r2FolderId + '/diesel/original/' + fname;
   photoObj.r2Key = r2Key;
   photoObj.r2Status = 'pending';
@@ -13641,7 +13649,7 @@ function _dslLoadBakeImage(p){
     }
     if(p && p._annotated && !origSrc && p.id && typeof _r2FolderId!=='undefined' && _r2FolderId &&
        typeof R2Photos!=='undefined' && R2Photos.getUrl){
-      try{ origSrc = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', p.id + '.jpg'); }catch(_e){}
+      try{ origSrc = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', _r2Fname(p)); }catch(_e){}
     }
 
     var local = (!p._annotated && p.d) ? p.d : (origSrc && origSrc.indexOf('data:')===0 ? origSrc : '');
@@ -13859,7 +13867,7 @@ async function _dslMarkupPersist(p, mk){
 
   // ── Marked R2 location (deterministic key — stable across re-saves) ──
   var hub = (typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2FolderId!=='undefined' && _r2FolderId);
-  var markedFname = 'marked_' + p.id + '.jpg';
+  var markedFname = 'marked_' + _r2Fname(p).replace(/\.jpg$/,'') + '.jpg';
   var markedKey = hub ? ('photos/' + _r2FolderId + '/diesel/marked/' + markedFname) : '';
   var markedUrl = (hub && typeof R2Photos!=='undefined') ? R2Photos.getUrl(_r2FolderId, 'diesel', 'marked', markedFname) : '';
 
@@ -14737,6 +14745,16 @@ async function _r2CleanupOrphans(){
     var data=await resp.json();
     var r2Files=(data.objects||[]).map(function(o){return o.key;});
     if(!r2Files.length){ showToast('R2 storage is empty — nothing to clean',2000); return; }
+    // S398 CROSS-REPORT SAFETY: the /list/ folder is shared by EVERY report of this
+    // project. Comparing it against only THIS report's state made every sibling
+    // report's photos look like "orphans" — running cleanup from one report would
+    // delete the others' photos. Only files whose name carries THIS instance's
+    // prefix ("{instanceId}__") are eligible; legacy unprefixed files and other
+    // reports' files are never deletable from here.
+    if(typeof _csInstanceId==='undefined' || !_csInstanceId){ showToast('Cleanup requires a report instance — reopen from the Hub',3000); return; }
+    var _pre=_csInstanceId+'__';
+    var _eligible=r2Files.filter(function(k){ var f=k.split('/').pop()||''; return f.indexOf(_pre)===0 || f.indexOf('marked_'+_pre)===0; });
+    var _skipped=r2Files.length-_eligible.length;
     // Collect all local r2Keys
     var localKeys={};
     function _addKeys(arr){if(!arr)return;arr.forEach(function(p){if(p&&p.r2Key)localKeys[p.r2Key]=true;});}
@@ -14745,9 +14763,9 @@ async function _r2CleanupOrphans(){
     if(typeof generalDeficiencies!=='undefined'){generalDeficiencies.forEach(function(d){_addKeys(d.photos);if(d.responses)d.responses.forEach(function(r){_addKeys(r.photos);});});}
     if(typeof flowTestPhotos!=='undefined')_addKeys(flowTestPhotos);
     if(typeof flowTestPhotosPld!=='undefined')_addKeys(flowTestPhotosPld);
-    var orphans=r2Files.filter(function(k){return !localKeys[k];});
-    if(!orphans.length){ showToast('R2 is clean — all '+r2Files.length+' files match local data',2000); return; }
-    _aConfirm('Found '+orphans.length+' orphaned R2 files (out of '+r2Files.length+' total).\\n\\nDelete them?',async function(){
+    var orphans=_eligible.filter(function(k){return !localKeys[k];});
+    if(!orphans.length){ showToast('R2 is clean — '+_eligible.length+' of this report\u2019s files match ('+_skipped+' other-report/legacy files untouched)',2500); return; }
+    _aConfirm('Found '+orphans.length+' orphaned files belonging to THIS report (out of '+_eligible.length+' owned; '+_skipped+' other-report/legacy files are protected and untouched).\\n\\nDelete them?',async function(){
       var deleted=0;
       for(var i=0;i<orphans.length;i++){
         try{
@@ -18043,7 +18061,7 @@ function _expMarkedSrc(p){
   if(p._annotated && p.d) return p.d;   // strokes baked into the live data URL
   try{
     if(p.id && typeof _r2FolderId!=='undefined' && _r2FolderId && typeof R2Photos!=='undefined' && R2Photos.getUrl){
-      return R2Photos.getUrl(_r2FolderId,'diesel','marked','marked_'+p.id+'.jpg');
+      return R2Photos.getUrl(_r2FolderId,'diesel','marked','marked_'+_r2Fname(p).replace(/\.jpg$/,'')+'.jpg');
     }
   }catch(_e){}
   return '';
@@ -18901,7 +18919,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S397';
+var DIESEL_BUILD = 'S398';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
