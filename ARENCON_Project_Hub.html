@@ -2070,6 +2070,16 @@ async function _loadAndRenderInstances(proj) {
           }
         }
         var isViewer = _profile && _profile.role === 'viewer';
+        // OWNERSHIP CHIP (S396): inspectors were piling onto one shared report row
+        // because nothing distinguished whose report was whose — multi-device
+        // autosave on one record then reconciled away each other's photos. Show a
+        // loud "Mine" chip on your own reports and the creator's name on others,
+        // so opening your own (or creating one) is the obvious move.
+        var isMine = _profile && inst.created_by && inst.created_by === _profile.id;
+        var creatorName = inst.created_by ? (userMap[inst.created_by] || '') : '';
+        var ownChip = isMine
+          ? '<span style="font-size:calc(9.5px + var(--ts));font-weight:700;color:#2E9E72;background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.35);border-radius:20px;padding:1px 8px;">Mine</span>'
+          : (creatorName ? '<span style="font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);background:rgba(128,128,140,.10);border:1px solid rgba(128,128,140,.25);border-radius:20px;padding:1px 8px;">' + esc(creatorName) + '</span>' : '');
         var actionsHtml = isViewer ? '' :
           '<span class="ri-actions">'
           + '<select class="ri-status-sel" onclick="event.stopPropagation()" onchange="changeInstanceStatus(\'' + inst.id + '\',this.value)">'
@@ -2083,6 +2093,7 @@ async function _loadAndRenderInstances(proj) {
         html += '<div class="ri-row" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\')" title="Open ' + esc(title) + '">'
           + '<span class="ri-icon">→</span>'
           + '<span class="ri-title">' + esc(title) + deficBadge + '</span>'
+          + ownChip
           + '<span class="ri-meta">'
           + '<span>' + date + '</span>'
           + '<span>' + esc(by) + '</span>'
