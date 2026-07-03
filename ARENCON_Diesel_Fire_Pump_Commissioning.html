@@ -17020,7 +17020,7 @@ function _renderRecordZones(){
    NEVER writes silently: a preview card shows read vs current values with per-field
    checkboxes; only Apply (the technologist's explicit confirm) writes the fields.
    Applies to BOTH 3pt and 7pt rated fields — one pump, one rated point. */
-var AI_WORKER_URL='https://arencon-ai-worker.hezhendong999.workers.dev';
+var AI_WORKER_URL='https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/ai-proxy'; // S397: Supabase Edge relay — the CF worker's CORS header still names github.io, blocking arencon.app; the proxy relays server-side (no CORS) and the worker still validates the JWT.
 function _placardPhotoData(p, cb){
   // Resolve the placard photo to {data(base64), media_type}. Order:
   //   1) in-memory local .d  (freshly captured this session — never fails)
@@ -18901,7 +18901,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S395';
+var DIESEL_BUILD = 'S397';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
@@ -18911,7 +18911,7 @@ if(typeof _wrapCloudSyncSave==='function') setTimeout(_wrapCloudSyncSave, 2000);
 /* Reuses the live worker arencon-ai-worker; context.tool='diesel_pump'. Inline IIFE (single-file tool). */
 var AIAssist = (function(){
   'use strict';
-  var WORKER_URL = 'https://arencon-ai-worker.hezhendong999.workers.dev';
+  var WORKER_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/ai-proxy'; // S397: same Edge relay as placard scan (CORS fix)
   var _busy=false, _panel=null, _overlay=null;
   var _suggestions=[], _processed=0, _accepted=0, _fieldMap={};
 

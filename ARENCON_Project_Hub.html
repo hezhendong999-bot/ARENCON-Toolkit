@@ -2080,6 +2080,7 @@ async function _loadAndRenderInstances(proj) {
         var ownChip = isMine
           ? '<span style="font-size:calc(9.5px + var(--ts));font-weight:700;color:#2E9E72;background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.35);border-radius:20px;padding:1px 8px;">Mine</span>'
           : (creatorName ? '<span style="font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);background:rgba(128,128,140,.10);border:1px solid rgba(128,128,140,.25);border-radius:20px;padding:1px 8px;">' + esc(creatorName) + '</span>' : '');
+        _riMeta[inst.id] = { mine: !!isMine, name: creatorName || '' };
         var actionsHtml = isViewer ? '' :
           '<span class="ri-actions">'
           + '<select class="ri-status-sel" onclick="event.stopPropagation()" onchange="changeInstanceStatus(\'' + inst.id + '\',this.value)">'
@@ -2096,7 +2097,7 @@ async function _loadAndRenderInstances(proj) {
           + ownChip
           + '<span class="ri-meta">'
           + '<span>' + date + '</span>'
-          + '<span>' + esc(by) + '</span>'
+          + (by !== '—' ? '<span title="Last saved by">edited · ' + esc(by) + '</span>' : '<span>—</span>')
           + '<span class="ri-status ' + status + '">' + status + '</span>'
           + actionsHtml
           + '</span>'
@@ -2111,8 +2112,32 @@ async function _loadAndRenderInstances(proj) {
   container.innerHTML = html;
 }
 
-function launchToolInstance(key, instanceId) {
+var _riMeta = {};   // instanceId -> {mine, name} — populated on picker render (S397)
+// OWNERSHIP WARN (S397): opening a colleague's report lets your device autosave
+// over their work — the exact multi-device pile-on that reconciled away photos on
+// 7155.51. Warn (in-DOM modal, never browser confirm) before opening a report you
+// didn't create; viewers are exempt (read-only browsing is legitimate).
+function _showOwnWarn(key, instanceId, name){
+  var old=document.getElementById('ri-own-warn'); if(old) old.remove();
+  var who = name ? esc(name) : 'another inspector';
+  var ov=document.createElement('div');
+  ov.id='ri-own-warn';
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,10,13,.62);backdrop-filter:blur(5px);padding:24px;font-family:Calibri,sans-serif;';
+  ov.innerHTML='<div style="max-width:430px;background:var(--card,#fff);border:1px solid var(--border,rgba(128,128,140,.25));border-radius:16px;padding:26px 24px;box-shadow:0 20px 60px rgba(0,0,0,.4);">'
+    +'<div style="font-size:calc(14px + var(--ts));font-weight:700;color:var(--arencon,#9C2742);margin-bottom:8px;">This is '+who+'\u2019s report</div>'
+    +'<div style="font-size:calc(12.5px + var(--ts));line-height:1.5;color:var(--steel,#5E5B68);margin-bottom:18px;">Opening it lets your device autosave over their work \u2014 photos and entries can be lost when two people edit one report. Open your own report, or create one.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">'
+    +'<button onclick="document.getElementById(\'ri-own-warn\').remove()" style="font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));padding:9px 16px;border-radius:10px;border:1px solid var(--border,rgba(128,128,140,.3));background:transparent;color:var(--fg,#1B1A22);cursor:pointer;">Cancel</button>'
+    +'<button onclick="document.getElementById(\'ri-own-warn\').remove();launchToolInstance(\''+key+'\',\''+instanceId+'\',true)" style="font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));padding:9px 16px;border-radius:10px;border:1px solid var(--arencon,#9C2742);background:transparent;color:var(--arencon,#9C2742);font-weight:600;cursor:pointer;">Open anyway</button>'
+    +'<button onclick="document.getElementById(\'ri-own-warn\').remove();createNewReport(\''+key+'\')" style="font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));padding:9px 16px;border-radius:10px;border:none;background:#2E9E72;color:#fff;font-weight:700;cursor:pointer;">\uff0b Create my own</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+}
+function launchToolInstance(key, instanceId, force) {
   if (!_detailProjectId) return;
+  var _m = _riMeta[instanceId];
+  var _isViewer = _profile && _profile.role === 'viewer';
+  if (!force && !_isViewer && _m && !_m.mine) { _showOwnWarn(key, instanceId, _m.name); return; }
   var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
   if (!proj) return;
   var t = AVAILABLE_TOOLS[key];
