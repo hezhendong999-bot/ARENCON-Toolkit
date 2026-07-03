@@ -872,6 +872,11 @@
       // committed selection stays empty until ✓. Empty taps ignored (sticky).
       if (this._selectSub==='tap'){
         if (hit){
+          // S410: post-commit ADDITIVE grouping (S341 verified gap). A tap after
+          // ✓ used to wipe the committed group and start a fresh pick; now the
+          // committed group RE-OPENS as picks, so new taps add to it (and tapping
+          // a member removes it), then ✓ recommits the enlarged group.
+          if (!this._pickIds.length && this._selectedIds.length) this._pickIds = this._selectedIds.slice();
           var pix=this._pickIds.indexOf(hit.id);
           if (pix!==-1) this._pickIds.splice(pix,1); else this._pickIds.push(hit.id);
           this._selectedIds=[];           // tap builds pick, not committed group, until ✓

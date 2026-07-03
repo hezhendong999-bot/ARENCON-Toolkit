@@ -2851,6 +2851,34 @@ function _dvOpenTextBox(logicalPt, editObj) {
   _dvTextBox = box;
   box._dvAnchor = anchor;
 
+  // S410 #2: EDGE-DRAG-TO-MOVE (deferred from S403). Grabbing the box within
+  // EDGE px of its border repositions the text while still editing — no tool
+  // switch. The interior keeps normal caret/selection behaviour. anchor is the
+  // SAME object commit reads, so the moved position persists. Coarse pointers
+  // (field tablets, gloves) get a wider band per the pointer:coarse rule.
+  (function(){
+    var EDGE = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches) ? 16 : 12;
+    var _edrag = null;
+    box.addEventListener('pointerdown', function(ev){
+      var r = box.getBoundingClientRect();
+      var ix = ev.clientX - r.left, iy = ev.clientY - r.top;
+      var nearEdge = ix < EDGE || iy < EDGE || (r.width - ix) < EDGE || (r.height - iy) < EDGE;
+      if (!nearEdge) return;                      // interior = normal editing
+      ev.preventDefault(); ev.stopPropagation();  // block caret placement for the grab
+      _edrag = { sx: ev.clientX, sy: ev.clientY, ax: anchor.x, ay: anchor.y, z: _dvTextZoom() || 1 };
+      try { box.setPointerCapture(ev.pointerId); } catch(_){}
+    });
+    box.addEventListener('pointermove', function(ev){
+      if (!_edrag) return;
+      anchor.x = _edrag.ax + (ev.clientX - _edrag.sx) / _edrag.z;
+      anchor.y = _edrag.ay + (ev.clientY - _edrag.sy) / _edrag.z;
+      positionBox();
+    });
+    function _endEdgeDrag(ev){ if (!_edrag) return; _edrag = null; try { box.releasePointerCapture(ev.pointerId); } catch(_){} }
+    box.addEventListener('pointerup', _endEdgeDrag);
+    box.addEventListener('pointercancel', _endEdgeDrag);
+  })();
+
   function screenFont() { return sizePx * _dvTextZoom(); }
   function positionBox() {
     var sp = _dvLogicalToScreen(anchor.x, anchor.y);

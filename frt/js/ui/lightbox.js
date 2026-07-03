@@ -1434,13 +1434,39 @@ document.addEventListener('click', function(e) {
     if (!p) return;
     // Replace info bar with input
     var current = p.caption || '';
-    info.innerHTML = '<input id="lb-caption-input" type="text" value="' + current.replace(/"/g, '&quot;') + '" placeholder="Add caption..." style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:4px 8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;color:#d0d8f0;outline:none;">';
+    // S410 #3: photo DATE-EDIT rides the existing caption editor — a date input
+    // beside the caption writes p.addedDate (the top of the _buildCaption /
+    // gallery-grouping precedence chain), so photos with missing or wrong EXIF
+    // dates can be corrected in place. Model.touch() marks dirty for cloud push
+    // (same S351b pattern rotation uses).
+    var _curDate = '';
+    try { var _d0 = new Date(p.addedDate || p.date || p.timestamp || ''); if (!isNaN(_d0.getTime())) _curDate = _d0.toISOString().slice(0,10); } catch(_){}
+    info.innerHTML = '<div style="display:flex;gap:6px;align-items:center;">'
+      + '<input id="lb-caption-input" type="text" value="' + current.replace(/"/g, '&quot;') + '" placeholder="Add caption..." style="flex:1;min-width:0;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:4px 8px;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;color:#d0d8f0;outline:none;">'
+      + '<input id="lb-date-input" type="date" value="' + _curDate + '" title="Photo date" style="flex:0 0 auto;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:4px 6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;color:#d0d8f0;outline:none;color-scheme:dark;">'
+      + '</div>';
+    var dinp = info.querySelector('#lb-date-input');
+    if (dinp) {
+      dinp.addEventListener('click', function(ev){ ev.stopPropagation(); });
+      dinp.addEventListener('change', function(ev){
+        if (dinp.value) {
+          p.addedDate = dinp.value;
+          try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); else if (Model && Model.saveNow) Model.saveNow(); } catch(_){}
+        }
+        ev.stopPropagation();
+      });
+      dinp.addEventListener('keydown', function(ev){ ev.stopPropagation(); });
+    }
     var inp = info.querySelector('#lb-caption-input');
     if (inp) {
       inp.focus();
       inp.select();
-      inp.addEventListener('blur', function() {
+      inp.addEventListener('blur', function(ev) {
+        // S410 #3: moving focus to the date input keeps the editor open;
+        // any other blur commits the caption as before.
+        if (ev.relatedTarget && ev.relatedTarget.id === 'lb-date-input') return;
         p.caption = inp.value.trim();
+        try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); } catch(_){}
         info.textContent = _buildCaption(p);
       });
       inp.addEventListener('keydown', function(ev) {
