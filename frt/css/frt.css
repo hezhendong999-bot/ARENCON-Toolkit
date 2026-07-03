@@ -10459,6 +10459,9 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 .dlc-bar-row .pct{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800;color:var(--yes);}
 .dlc-track{height:11px;border-radius:99px;overflow:hidden;margin-bottom:16px;position:relative;
   background:linear-gradient(90deg,var(--no) 0%,var(--warn) 50%,var(--yes) 100%);}
+/* S406: rec-segment resolved bar — brown→sage per the locked Recommendation
+   palette (#5E5440 open → #5F8068 closed). Fixed hex in both modes. */
+.dlc-track.dlc-track-rec{background:linear-gradient(90deg,#5E5440 0%,#5F8068 100%);}
 /* S283: red→amber→green resolved bar (bad→good). Gradient lives on the track;
    .dlc-fill is an OPAQUE mask anchored right that covers the unmet portion.
    inline left:<pct>% reveals gradient 0→pct. CRITICAL: the mask MUST be opaque

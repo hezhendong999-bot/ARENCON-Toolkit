@@ -1161,6 +1161,50 @@ function _renderDeficDashboard(total, outHigh, outLow, closed, rows, newCount, n
   return d;
 }
 
+// ── S406: Recommendation dashboard — segment swap ────────────────────────
+// When the Recommendations segment is active (_deriveCatFilter()==='rec'),
+// the dashboard donut swaps to Recommendation resolution. Approved palette
+// (S403 demo, Mark-locked): open = brown #5E5440, closed = sage #5F8068,
+// new-this-report inner arc #2C7FB8 aligned under the OPEN segment (same
+// A3 inner-ring pattern as the deficiency donut; recs new on this report
+// are open by definition — one visit per report). Fixed hex both modes per
+// the locked rec palette (never blue/teal for rec status colours).
+// Counts are PER-OBSERVATION via _deriveCategory (S231/S262 canon): open
+// rec = cat 'rec'; closed rec = cat 'closed' with under 'rec'. Legacy
+// 0-obs pins fall back to pin-level flags (same recoverable edge as
+// _flatRows). By-contractor block intentionally omitted in rec view; the
+// deficiency summary table below the dashboard is unchanged.
+function _renderRecDashboard(total, open, closed, newOpen) {
+  if (!total) return '';
+  var pct = Math.round((closed / total) * 100);
+  var C = 358.14, C2 = 251.33;
+  var openLen = (open / total) * C;
+  var closedLen = (closed / total) * C;
+  var d = '';
+  d += '<div class="dlc-dash">';
+  d += '<div class="dlc-dash-top">';
+  d += '<div class="dlc-donut"><svg width="132" height="132" viewBox="0 0 150 150" aria-hidden="true">';
+  d += '<circle cx="75" cy="75" r="57" fill="none" stroke="var(--border)" stroke-width="20"/>';
+  var _off = 0;
+  if (openLen > 0)   { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="#5E5440" stroke-width="20" stroke-dasharray="' + openLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="0"/>'; _off += openLen; }
+  if (closedLen > 0) { d += '<circle cx="75" cy="75" r="57" fill="none" stroke="#5F8068" stroke-width="20" stroke-dasharray="' + closedLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-_off).toFixed(1) + '"/>'; }
+  if (newOpen > 0) {
+    d += '<circle cx="75" cy="75" r="40" fill="none" stroke="var(--border)" stroke-width="6"/>';
+    d += '<circle cx="75" cy="75" r="40" fill="none" stroke="#2C7FB8" stroke-width="6" stroke-dasharray="' + ((newOpen / total) * C2).toFixed(1) + ' ' + C2.toFixed(1) + '"/>';
+  }
+  d += '</svg><div class="dlc-donut-ctr"><div class="v">' + total + '</div><div class="l">recs</div></div></div>';
+  d += '<div class="dlc-dash-right">';
+  d += '<div class="dlc-bar-row"><span class="lbl">Resolved</span><span class="pct">' + pct + '%</span></div>';
+  d += '<div class="dlc-track dlc-track-rec"><div class="dlc-fill" style="left:' + pct + '%"></div></div>';
+  d += '<div class="dlc-legend">';
+  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:#5E5440"></span><span class="nm">Open recommendations</span><span class="val">' + open + '</span></div>';
+  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:#5F8068"></span><span class="nm">Closed</span><span class="val">' + closed + '</span></div>';
+  d += '<div class="dlc-leg"><span class="dlc-dot" style="background:transparent;border:3px solid #2C7FB8;box-sizing:border-box;"></span><span class="nm">New this report</span><span class="val">' + (newOpen || 0) + '</span></div>';
+  d += '</div></div></div>';
+  d += '</div>';
+  return d;
+}
+
 // ── Deficiency Log Summary Table ─────────────────────────
 function _renderDeficLog(proj, allDefics) {
   var el = document.getElementById('defic-log-container');
@@ -1220,7 +1264,34 @@ function _renderDeficLog(proj, allDefics) {
   h += '<td style="text-align:center;color:var(--no);">' + tOut + '</td>';
   h += '<td style="text-align:center;color:var(--yes);">' + tClosed + '</td></tr>';
   h += '</tbody></table>';
-  el.innerHTML = _renderDeficDashboard(tTotal, tOutHigh, tOutLow, tClosed, _dashRows, tNew, tNewHigh, tNewLow) + h;
+  // S406: per-observation Recommendation stats for the rec-segment dashboard
+  // (see _renderRecDashboard header for the canon). Cheap single pass; only
+  // consumed when the Recommendations segment is active.
+  var _recT = 0, _recO = 0, _recC = 0, _recN = 0;
+  allDefics.forEach(function(rec) {
+    var d = rec.defic, hasCtr = !!rec.contractorId;
+    var obs = d.observations || [];
+    if (!obs.length) {
+      if (d.isRecommendation) {
+        _recT++;
+        if (deficIsClosed(d)) { _recC++; }
+        else { _recO++; if ((d.notedOnInstance || 1) === _curInst) _recN++; }
+      }
+      return;
+    }
+    obs.forEach(function(o) {
+      var cat = _deriveCategory(d, o, hasCtr);
+      if (cat.cat === 'rec') {
+        _recT++; _recO++;
+        if ((o.notedOnInstance || d.notedOnInstance || 1) === _curInst) _recN++;
+      } else if (cat.cat === 'closed' && cat.under === 'rec') {
+        _recT++; _recC++;
+      }
+    });
+  });
+  el.innerHTML = (_deriveCatFilter() === 'rec'
+    ? _renderRecDashboard(_recT, _recO, _recC, _recN)
+    : _renderDeficDashboard(tTotal, tOutHigh, tOutLow, tClosed, _dashRows, tNew, tNewHigh, tNewLow)) + h;
 
   // S154 §2.1 (Option A): keep the collapsed-state summary in sync with
   // the table. Single source of truth — tTotal/tOut/tClosed are already
