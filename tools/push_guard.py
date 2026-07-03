@@ -44,9 +44,12 @@ def main():
     blob = gh(API + f"/git/blobs/{entry['sha']}")
     live = base64.b64decode(blob["content"]).decode("utf-8", errors="replace")
 
-    new = open(local_file, encoding="utf-8", errors="replace").read()
-    ratio = len(new) / max(live_size, 1)
-    print(f"[GUARD] live={live_size}B new={len(new)}B ratio={ratio:.3f} (min {min_ratio})")
+    # S413 fix: compare BYTES, not decoded characters — multibyte UTF-8 made
+    # the old char-count read ~1% small on every non-ASCII-heavy file.
+    new_bytes = open(local_file, "rb").read()
+    new = new_bytes.decode("utf-8", errors="replace")
+    ratio = len(new_bytes) / max(live_size, 1)
+    print(f"[GUARD] live={live_size}B new={len(new_bytes)}B ratio={ratio:.3f} (min {min_ratio})")
     if ratio < min_ratio:
         print(f"[GUARD] ABORT: new file is {(1-ratio)*100:.1f}% smaller than LIVE HEAD.")
         print("[GUARD] This is the stale-base signature (S391 wipe was -41%).")
