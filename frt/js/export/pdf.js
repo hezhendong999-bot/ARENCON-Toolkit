@@ -1516,12 +1516,70 @@ if(pooledRecs.length){
   if(_aNo.length)_recSummaryHtml+=_recRow('General',_aNo,false);
   _recSummaryHtml+=_recRow(null,pooledRecs,true);
   _recSummaryHtml+='</tbody></table></div>';
+  // S409 (Mark): the Recommendations lead page mirrors the page-1 deficiency
+  // dashboard — Status Overview donut + Resolution/This-Visit bars — in the
+  // LOCKED rec palette (open brown #5E5440 / closed sage #5F8068 / new-this-
+  // report inner arc #2C7FB8). Same SVG ring math as the page-1 IIFE (r=43
+  // sw=12 outer, r=29 sw=5 inner, rotate -90), same p1-* bar classes, and the
+  // SAME predicates as the Recommendation Summary table above (_recOpenN /
+  // notedOnInstance), so chart and table can never disagree. Report Legend box
+  // intentionally omitted — it is global and already lives on page 1.
+  var _recDashHtml='';
+  (function(){
+    var T=pooledRecs.length; if(!T)return;
+    var O=_recOpenN(pooledRecs), CL=T-O;
+    var _rIsNew=function(r){return (r.d.notedOnInstance||1)===_curInst;};
+    var Nn=pooledRecs.filter(_rIsNew).length;
+    // Inner arc counts new OPEN recs only, aligned under the open segment
+    // (arcs never sit under closed — same rule as page 1's A3 ring).
+    var nOpen=pooledRecs.filter(function(r){return _rIsNew(r)&&_itemIsOpen(r);}).length;
+    var _priorCls=pooledRecs.filter(function(r){
+      if(_itemIsOpen(r))return false;
+      var ci=(r.obs&&r.obs.addressed!==undefined)?(r.obs.addressedOnInstance||r.d.closedOnInstance||1):(r.d.closedOnInstance||1);
+      return ci===_curInst&&(r.d.notedOnInstance||1)<_curInst;
+    }).length;
+    var pct=Math.round(CL/T*100);
+    var CO='#5E5440',CC='#5F8068',CN='#2C7FB8';
+    var s='',circ=2*Math.PI*43,off=0;
+    s+='<circle cx="50" cy="50" r="43" fill="none" stroke="#EDEAF0" stroke-width="12"/>';
+    [{v:O,c:CO},{v:CL,c:CC}].forEach(function(g){if(g.v<=0)return;var len=g.v/T*circ;
+      s+='<circle cx="50" cy="50" r="43" fill="none" stroke="'+g.c+'" stroke-width="12" stroke-dasharray="'+len.toFixed(1)+' '+circ.toFixed(1)+'" stroke-dashoffset="'+(-off).toFixed(1)+'"/>';off+=len;});
+    if(nOpen>0){
+      var c2=2*Math.PI*29;
+      s+='<circle cx="50" cy="50" r="29" fill="none" stroke="#EDEAF0" stroke-width="5"/>';
+      s+='<circle cx="50" cy="50" r="29" fill="none" stroke="'+CN+'" stroke-width="5" stroke-dasharray="'+((nOpen/T)*c2).toFixed(1)+' '+c2.toFixed(1)+'"/>';
+    }
+    var _donut='<svg width="100" height="100" viewBox="0 0 100 100" style="transform:rotate(-90deg);flex:none;">'+s+'</svg>';
+    var _ctrLbl='<div style="position:relative;width:100px;height:100px;flex:none;">'+_donut
+      +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><div style="font-size:17pt;font-weight:700;color:#1C2333;line-height:1;font-variant-numeric:tabular-nums;">'+T+'</div><div style="font-size:7.5pt;color:#607D8B;letter-spacing:1px;margin-top:1px;">RECS</div></div></div>';
+    function _leg(sw,nm,v){return '<div style="display:flex;align-items:center;gap:8px;font-size:9.5pt;color:#4A5568;margin:3px 0;">'+sw+'<span>'+nm+'</span><span style="margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;color:#1C2333;">'+v+' \u00b7 '+Math.round(v/T*100)+'%</span></div>';}
+    var _dot=function(cx){return '<span style="width:9px;height:9px;border-radius:50%;background:'+cx+';flex:none;display:inline-block;"></span>';};
+    var _rg='<span style="width:9px;height:9px;border-radius:50%;border:2.5px solid '+CN+';box-sizing:border-box;flex:none;display:inline-block;"></span>';
+    var _legHtml=_leg(_dot(CO),'Open',O)+_leg(_dot(CC),'Closed',CL)+_leg(_rg,'New this report',Nn);
+    _recDashHtml='<div style="display:flex;gap:14px;margin-top:12px;align-items:stretch;">'
+      +'<div style="flex:1.05;border:1px solid #DDE1E7;border-radius:6px;padding:7px 11px;display:flex;flex-direction:column;"><div style="font-size:9.5pt;font-weight:700;color:#2A3A5C;">Status Overview</div><div style="flex:1;display:flex;align-items:center;gap:12px;">'+_ctrLbl+'<div style="flex:1;">'+_legHtml+'</div></div></div>'
+      +'<div style="flex:1.1;display:flex;flex-direction:column;gap:10px;justify-content:center;">'
+        +'<div class="p1-barbox">'
+          +'<div class="p1-bt"><span>Recommendation Resolution <span class="p1-bt-sub">(all visits)</span></span><span class="p1-big">'+pct+'%</span></div>'
+          +'<div class="p1-track"><div class="p1-fill" style="width:'+pct+'%;background:#5E5440;"></div></div>'
+          +'<div class="p1-subline">'+CL+' of '+T+' recommendations closed since project start</div>'
+        +'</div>'
+        +'<div class="p1-barbox">'
+          +'<div class="p1-bt"><span>This Visit (FRT #'+_curInst+')</span></div>'
+          +'<div class="p1-delta">'
+            +'<div class="p1-dstat"><span class="p1-v p1-up">+'+Nn+'</span><span class="p1-k">new found</span></div>'
+            +'<div class="p1-dstat"><span class="p1-v p1-dn">\u2212'+_priorCls+'</span><span class="p1-k">prior closed</span></div>'
+          +'</div>'
+          +'<div class="p1-subline">Activity recorded during this site review</div>'
+        +'</div>'
+      +'</div></div>';
+  })();
   // Full mode: Option C section-title card + Rec Summary lead the
   // forced-new-page section (summary connects directly under the card —
   // drop its standalone 16px top gap). 'only' mode: no lead block; the
   // Rec Summary + Legend ride page 1 via summaryHtml.
   if(_recsMode!=='only'){
-    recBlocks.push({type:'recLead',html:_recSecTtlHtml+_recSummaryHtml});
+    recBlocks.push({type:'recLead',html:_recSecTtlHtml+_recDashHtml+_recSummaryHtml});
   }
   // (3) ACTIVE groups — main-report grammar (navy trade / taupe ctr / cards)
   // S147 B1 follow-up — rec body fan-out (Option A, Mark-approved). Uses
