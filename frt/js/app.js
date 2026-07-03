@@ -93,6 +93,24 @@ function _hubUrl(extraQuery) {
   return url;
 }
 
+// S412 (navigation convention, Mark-approved): Back walks ONE tier up (tool ->
+// project DETAIL page via _hubUrl's project= carry); the ARENCON logo jumps
+// HOME (Hub dashboard, no project param). Two affordances, three tiers.
+function _hubDashboardUrl() {
+  var url = '../ARENCON_Project_Hub.html';
+  try { if (new URLSearchParams(location.search).get('staging') === '1') url += '?staging=1'; } catch (_) {}
+  return url;
+}
+// S412: ONE canonical leave flow for every back-like path (← button, tiered
+// back-trap fall-through). Always guards unsaved changes with the 3-button
+// dialog in Hub mode. Fixes a latent bug where the hub-mode ← handler
+// navigated directly and bypassed the save dialog entirely.
+function _leaveTool() {
+  var dest = _hubMode ? _hubUrl() : '../index.html';
+  if (_hubMode && Model.hasUnsavedChanges()) { _showLeaveDialog(dest); }
+  else { window.location.href = dest; }
+}
+
 // ── Hub Mode Detection ───────────────────────────────────
 function detectHubMode() {
   var params = new URLSearchParams(window.location.search);
@@ -101,12 +119,12 @@ function detectHubMode() {
     _hubMode = true;
     _projectId = pid;
     var logoLink = document.getElementById('logo-link');
-    if (logoLink) logoLink.href = _hubUrl();
+    if (logoLink) logoLink.href = _hubDashboardUrl();   // S412: logo = HOME (dashboard)
     var backBtn = document.getElementById('back-btn');
     if (backBtn) {
       backBtn.style.display = '';
       backBtn.addEventListener('click', function() {
-        window.location.href = _hubUrl();
+        _leaveTool();   // S412: one tier up (detail page), save-guarded
       });
     }
     console.log('[FRT v2] Hub mode \u2014 project:', pid);
@@ -1980,18 +1998,9 @@ function wireEvents() {
     pbFn.addEventListener('click', _showRenameDialog);
   }
 
-  // Back button with leave dialog
-  var backBtn = document.getElementById('back-btn');
-  if (backBtn) backBtn.addEventListener('click', function(e) {
-    e.preventDefault();
-    var logoLink = document.getElementById('logo-link');
-    var destUrl = logoLink ? logoLink.href : '../index.html';
-    if (_hubMode && Model.hasUnsavedChanges()) {
-      _showLeaveDialog(destUrl);
-    } else {
-      window.location.href = destUrl;
-    }
-  });
+  // S412: the old duplicate back-btn listener is REMOVED — it raced the
+  // hub-mode handler (which navigated with NO save dialog). The single
+  // registration in the hub-mode init now routes through _leaveTool().
 
   // Logo click with leave dialog in Hub mode
   var logoLink = document.getElementById('logo-link');
@@ -2050,14 +2059,9 @@ function wireEvents() {
         var handled = _btPeel();
         _btTopUp();   // re-arm guards after every pop
         if (!handled) {
-          // Nothing left to peel → behave exactly like the on-screen ← Back
-          // button (leave dialog when unsaved, direct navigation otherwise).
-          var bb = document.getElementById('back-btn');
-          if (bb) { bb.click(); }
-          else {
-            var ll = document.getElementById('logo-link');
-            window.location.href = ll ? ll.href : '../index.html';
-          }
+          // Nothing left to peel → one tier up via the canonical leave flow
+          // (project DETAIL page; 3-button dialog when unsaved). S412.
+          _leaveTool();
         }
       });
     } catch (e) {}
@@ -2143,7 +2147,7 @@ function _countUntaggedForBand(proj) {
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S411';
+var FRT_BUILD = 'S412';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
