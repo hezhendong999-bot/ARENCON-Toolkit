@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>ARENCON — Camera UI Options</title>
+<style>
+  :root{
+    --arencon:#9C2742; --arencon-lt:#C9476A; --cyan:#46C5E8; --ok:#3FD08A;
+    --ink:#f4f3f6; --ink2:#a09aa8; --ink3:#6b6674;
+    --glass:rgba(255,255,255,.07); --glass-brd:rgba(255,255,255,.14);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body{ height:100%; background:#000; font-family:Calibri,'Segoe UI',sans-serif; overflow:hidden; }
+
+  /* ---- option switcher (floats above everything) ---- */
+  #switch{ position:fixed; top:calc(8px + env(safe-area-inset-top,0)); left:50%; transform:translateX(-50%);
+    z-index:100; display:flex; gap:2px; padding:3px; border-radius:12px;
+    background:rgba(20,18,26,.82); border:1px solid var(--glass-brd); backdrop-filter:blur(10px); }
+  #switch button{ font-family:inherit; font-size:13px; font-weight:700; color:var(--ink2);
+    background:transparent; border:0; border-radius:9px; padding:7px 13px; cursor:pointer; white-space:nowrap; }
+  #switch button.on{ color:#fff; background:var(--arencon); }
+
+  .screen{ position:fixed; inset:0; display:none; flex-direction:column; background:#0b0a0d; }
+  .screen.show{ display:flex; }
+
+  /* living background glow (Bold) */
+  .glow::before{ content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(60% 45% at 12% 0%, rgba(156,39,66,.20), transparent 60%),
+      radial-gradient(55% 40% at 100% 4%, rgba(70,197,232,.12), transparent 60%); }
+
+  /* mock live preview (4:3) — stands in for the camera feed */
+  .preview{ position:relative; width:100%; aspect-ratio:4/3; overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 30% 20%, #3a4653 0%, #232a33 45%, #12161c 100%);
+  }
+  .preview .scene{ position:absolute; inset:0;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.05), transparent 30%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 2px, transparent 2px 46px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 2px, transparent 2px 60px); }
+  .preview .subject{ position:absolute; left:50%; bottom:0; transform:translateX(-50%);
+    width:34%; height:70%; border-radius:8px 8px 0 0;
+    background:linear-gradient(160deg,#c74b3a,#8f3327); box-shadow:0 0 40px rgba(0,0,0,.4); opacity:.92; }
+  .preview .subject::after{ content:""; position:absolute; top:14%; left:50%; transform:translateX(-50%);
+    width:40%; height:8%; background:rgba(255,255,255,.5); border-radius:3px; }
+  .preview .vig{ position:absolute; inset:0; box-shadow:inset 0 0 120px rgba(0,0,0,.55); }
+  .preview .focus{ position:absolute; top:38%; left:44%; width:74px; height:74px;
+    border:1.5px solid rgba(255,255,255,.7); border-radius:6px; opacity:.7; }
+  .preview .livedot{ position:absolute; top:10px; left:12px; font-size:11px; color:#fff; opacity:.7;
+    background:rgba(0,0,0,.35); padding:3px 8px; border-radius:99px; }
+
+  .vwrap{ flex:1; display:flex; align-items:center; justify-content:center; min-height:0; }
+
+  /* thumbnails */
+  .strip{ display:flex; gap:7px; overflow-x:auto; padding:2px; }
+  .strip .th{ flex:none; border-radius:7px; background:linear-gradient(150deg,#3a4653,#232a33);
+    border:1px solid rgba(255,255,255,.18); }
+
+  /* shutter */
+  .shutter{ flex:none; border-radius:50%; background:#fff; cursor:pointer; }
+  .shutter:active{ transform:scale(.94); }
+
+  .count{ font-variant-numeric:tabular-nums; }
+
+  /* ============ OPTION 1 — NATIVE CLEAN ============ */
+  #s1{ background:#000; }
+  #s1 .top{ display:flex; align-items:center; justify-content:space-between; padding:calc(46px + env(safe-area-inset-top,0)) 20px 10px; color:#fff; }
+  #s1 .top .x{ font-size:26px; line-height:1; opacity:.9; }
+  #s1 .top .c{ font-size:15px; color:#fff; opacity:.85; }
+  #s1 .top .flip{ font-size:20px; opacity:.85; }
+  #s1 .strip{ padding:0 16px 10px; }
+  #s1 .strip .th{ width:52px; height:52px; }
+  #s1 .bar{ display:flex; align-items:center; justify-content:space-between; padding:6px 26px calc(22px + env(safe-area-inset-bottom,0)); }
+  #s1 .last{ width:46px; height:46px; border-radius:8px; background:linear-gradient(150deg,#3a4653,#232a33); border:1px solid rgba(255,255,255,.25); }
+  #s1 .shutter{ width:74px; height:74px; border:4px solid rgba(255,255,255,.35); }
+  #s1 .done{ color:#fff; font-size:17px; font-weight:600; background:none; border:0; min-width:46px; text-align:right; }
+
+  /* ============ OPTION 2 — ARENCON BOLD ============ */
+  #s2 .top{ display:flex; align-items:center; justify-content:space-between; padding:calc(46px + env(safe-area-inset-top,0)) 16px 10px; }
+  #s2 .brand{ font-size:14px; font-weight:800; letter-spacing:.02em; color:var(--arencon-lt); }
+  #s2 .cpill{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink);
+    background:var(--glass); border:1px solid var(--glass-brd); backdrop-filter:blur(8px); padding:6px 12px; border-radius:99px; }
+  #s2 .cpill .dot{ width:8px; height:8px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  #s2 .vwrap{ padding:0 12px; }
+  #s2 .preview{ border-radius:14px; border:1px solid var(--glass-brd); box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  #s2 .panel{ margin:10px; border-radius:18px; background:rgba(18,16,22,.72); border:1px solid var(--glass-brd);
+    backdrop-filter:blur(14px); padding:10px 14px calc(16px + env(safe-area-inset-bottom,0)); }
+  #s2 .strip{ padding:2px 2px 12px; }
+  #s2 .strip .th{ width:56px; height:56px; border-radius:9px; }
+  #s2 .row{ display:flex; align-items:center; justify-content:space-between; }
+  #s2 .ghost{ width:56px; }
+  #s2 .shutter{ width:76px; height:76px; border:4px solid var(--arencon); box-shadow:0 0 0 3px rgba(156,39,66,.25), 0 6px 22px rgba(0,0,0,.5); }
+  #s2 .done{ font-family:inherit; font-size:15px; font-weight:700; color:#fff; background:var(--arencon);
+    border:0; border-radius:12px; padding:12px 20px; cursor:pointer; }
+
+  /* ============ OPTION 3 — FIELD OPTIMIZED ============ */
+  #s3{ background:#000; }
+  #s3 .hint{ display:flex; align-items:center; justify-content:center; gap:9px;
+    padding:calc(44px + env(safe-area-inset-top,0)) 16px 10px; color:var(--ink2); font-size:14px; }
+  #s3 .hint .g{ display:inline-block; width:16px; height:22px; border:2px solid var(--ink2); border-radius:3px; }
+  #s3 .hint b{ color:#fff; font-weight:700; }
+  #s3 .cbar{ display:flex; align-items:center; justify-content:space-between; padding:8px 22px 4px; }
+  #s3 .cbar .c{ font-size:16px; font-weight:700; color:#fff; }
+  #s3 .cbar .retake{ font-size:14px; color:var(--ink2); font-weight:600; background:none; border:0; }
+  #s3 .strip{ padding:6px 18px 10px; }
+  #s3 .strip .th{ width:64px; height:64px; }
+  #s3 .bar{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:8px 20px calc(26px + env(safe-area-inset-bottom,0)); }
+  #s3 .cancel{ font-family:inherit; min-width:96px; min-height:56px; border-radius:14px; font-size:16px; color:#cfc9d6;
+    background:transparent; border:1px solid rgba(255,255,255,.28); }
+  #s3 .shutter{ width:90px; height:90px; border:6px solid rgba(255,255,255,.4); }
+  #s3 .done{ font-family:inherit; min-width:96px; min-height:56px; border-radius:14px; font-size:17px; font-weight:800;
+    color:#fff; background:var(--arencon); border:0; cursor:pointer; }
+
+  .capnote{ position:fixed; left:0; right:0; bottom:calc(2px + env(safe-area-inset-bottom,0)); text-align:center;
+    font-size:11px; color:rgba(255,255,255,.28); pointer-events:none; }
+</style>
+</head>
+<body>
+
+<div id="switch">
+  <button data-t="1" class="on">1 · Native</button>
+  <button data-t="2">2 · Bold</button>
+  <button data-t="3">3 · Field</button>
+</div>
+
+<!-- ============ OPTION 1 ============ -->
+<div class="screen show" id="s1">
+  <div class="top"><div class="x">&#10005;</div><div class="c"><span class="count" data-c>0</span> photos</div><div class="flip">&#8635;</div></div>
+  <div class="vwrap"><div class="preview"><div class="scene"></div><div class="subject"></div><div class="focus"></div><div class="vig"></div><div class="livedot">&#9679; live</div></div></div>
+  <div class="strip" data-strip></div>
+  <div class="bar"><div class="last"></div><div class="shutter" data-shot></div><button class="done">Done</button></div>
+</div>
+
+<!-- ============ OPTION 2 ============ -->
+<div class="screen glow" id="s2">
+  <div class="top"><div class="brand">ARENCON</div><div class="cpill"><span class="dot"></span><span class="count" data-c>0</span> captured</div></div>
+  <div class="vwrap"><div class="preview"><div class="scene"></div><div class="subject"></div><div class="focus"></div><div class="vig"></div></div></div>
+  <div class="panel">
+    <div class="strip" data-strip></div>
+    <div class="row"><div class="ghost"></div><div class="shutter" data-shot></div><button class="done">Done</button></div>
+  </div>
+</div>
+
+<!-- ============ OPTION 3 ============ -->
+<div class="screen" id="s3">
+  <div class="hint"><span class="g"></span> Hold the tablet <b>upright</b> for correct photos</div>
+  <div class="cbar"><div class="c"><span class="count" data-c>0</span> photos</div><button class="retake">Retake last</button></div>
+  <div class="vwrap"><div class="preview"><div class="scene"></div><div class="subject"></div><div class="focus"></div><div class="vig"></div><div class="livedot">&#9679; live</div></div></div>
+  <div class="strip" data-strip></div>
+  <div class="bar"><button class="cancel">Cancel</button><div class="shutter" data-shot></div><button class="done">Done</button></div>
+</div>
+
+<div class="capnote">Mock preview — controls are live, tap the shutter</div>
+
+<script>
+(function(){
+  'use strict';
+  // switcher
+  var btns = document.querySelectorAll('#switch button');
+  var screens = { '1':document.getElementById('s1'), '2':document.getElementById('s2'), '3':document.getElementById('s3') };
+  btns.forEach(function(b){
+    b.addEventListener('click', function(){
+      btns.forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      Object.keys(screens).forEach(function(k){ screens[k].classList.toggle('show', k===b.dataset.t); });
+    });
+  });
+
+  // live shutter per screen — adds a thumbnail + bumps counter
+  var tints = ['#3a4653,#232a33','#4a3b33,#2a221c','#33463c,#1c2a24','#3f3346,#251c2a','#46333a,#2a1c22'];
+  Object.keys(screens).forEach(function(k){
+    var sc = screens[k];
+    var shot = sc.querySelector('[data-shot]');
+    var strip = sc.querySelector('[data-strip]');
+    var cEls = sc.querySelectorAll('[data-c]');
+    var last = sc.querySelector('.last');
+    var n = 0;
+    if (!shot) return;
+    shot.addEventListener('click', function(){
+      n++;
+      cEls.forEach(function(e){ e.textContent = n; });
+      var t = tints[(n-1) % tints.length];
+      if (strip){
+        var th = document.createElement('div'); th.className='th';
+        th.style.background = 'linear-gradient(150deg,'+t+')';
+        // size matches CSS per screen via class; set a min so it shows
+        strip.appendChild(th); strip.scrollLeft = strip.scrollWidth;
+      }
+      if (last){ last.style.background = 'linear-gradient(150deg,'+t+')'; }
+      // flash
+      var pv = sc.querySelector('.preview');
+      if (pv){ var f=document.createElement('div'); f.style.cssText='position:absolute;inset:0;background:#fff;opacity:.75;transition:opacity .12s;';
+        pv.appendChild(f); requestAnimationFrame(function(){ f.style.opacity='0'; }); setTimeout(function(){ f.remove(); }, 200); }
+    });
+  });
+})();
+</script>
+</body>
+</html>
