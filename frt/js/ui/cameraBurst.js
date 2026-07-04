@@ -115,6 +115,12 @@ function _openUI(stream, done) {
   video.srcObject = stream;
   stage.appendChild(video);
   vidWrap.appendChild(stage);
+  function _updateStageAspect() {
+    var portrait = false;
+    try { portrait = window.matchMedia('(orientation: portrait)').matches; } catch (e) {}
+    stage.style.aspectRatio = portrait ? '3 / 4' : '4 / 3'; // preview frame follows the hold (WYSIWYG)
+  }
+  _updateStageAspect();
   var flash = document.createElement('div');
   flash.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s;';
   vidWrap.appendChild(flash);
@@ -253,24 +259,43 @@ function _openUI(stream, done) {
   // never OffscreenCanvas (Safari/iOS). 1920px long-edge cap keeps memory bounded.
   function _grabFrame() {
     var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
-    // Guarantee 4:3 output by center-cropping the source frame — matches the 4:3
-    // preview (WYSIWYG). No-op crop when the frame is already 4:3.
-    var TARGET = 4 / 3, srcW = vw, srcH = vh, sx = 0, sy = 0;
-    if (vw / vh > TARGET) { srcW = Math.round(vh * TARGET); sx = Math.round((vw - srcW) / 2); }
-    else if (vw / vh < TARGET) { srcH = Math.round(vw / TARGET); sy = Math.round((vh - srcH) / 2); }
-    // S341: clamp the grab to a 1920px long edge (WebView memory ceiling).
+    // Native-like orientation: rotate the raw frame to world-upright by the device
+    // angle so the saved photo follows how the iPad is held (portrait hold -> portrait
+    // photo). BEST-GUESS direction — if a hold saves sideways/upside-down, flip GRAB_ROT.
+    var a = 0;
+    try { a = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0); } catch (e) {}
+    a = ((a % 360) + 360) % 360;
+    var GRAB_ROT = (360 - a) % 360; // <-- flip to `a` if the direction is wrong on the iPad
+
+    // Step 1: rotate raw frame to upright on an intermediate canvas.
+    var swap = (GRAB_ROT === 90 || GRAB_ROT === 270);
+    var upW = swap ? vh : vw, upH = swap ? vw : vh;
+    var mid = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
+    mid.width = upW; mid.height = upH;
+    var mctx = mid.getContext('2d');
+    mctx.translate(upW / 2, upH / 2);
+    mctx.rotate(GRAB_ROT * Math.PI / 180);
+    mctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+
+    // Step 2: center-crop the upright frame to the display aspect (4:3 landscape /
+    // 3:4 portrait — follows the hold), then clamp to a 1920px long edge (S341).
+    var TARGET = upW >= upH ? (4 / 3) : (3 / 4);
+    var cropW = upW, cropH = upH, sx = 0, sy = 0;
+    if (upW / upH > TARGET) { cropW = Math.round(upH * TARGET); sx = Math.round((upW - cropW) / 2); }
+    else if (upW / upH < TARGET) { cropH = Math.round(upW / TARGET); sy = Math.round((upH - cropH) / 2); }
     var MAX = 1920;
-    var scale = Math.min(1, MAX / Math.max(srcW, srcH));
-    var cw = Math.round(srcW * scale), ch = Math.round(srcH * scale);
+    var scale = Math.min(1, MAX / Math.max(cropW, cropH));
+    var cw = Math.round(cropW * scale), ch = Math.round(cropH * scale);
     var cv = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
     cv.width = cw; cv.height = ch;
     var ctx = cv.getContext('2d');
     try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
-    ctx.drawImage(video, sx, sy, srcW, srcH, 0, 0, cw, ch); // cropped src -> dest
+    ctx.drawImage(mid, sx, sy, cropW, cropH, 0, 0, cw, ch);
+    mid.width = 0; mid.height = 0; // release intermediate promptly
     cv.toBlob(function(b) {
       if (b) _addShot(b);
       busy = false;
-      cv.width = 0; cv.height = 0; // release canvas backing store promptly
+      cv.width = 0; cv.height = 0;
     }, 'image/jpeg', 0.9);
   }
   shutter.addEventListener('click', function() { if (busy) return; busy = true; _grabFrame(); });
@@ -284,7 +309,7 @@ function _openUI(stream, done) {
   var _adjustTimer = null;
   function _showAdjusting() { _adjust.style.display = 'flex'; if (_adjustTimer) clearTimeout(_adjustTimer); _adjustTimer = setTimeout(_hideAdjusting, 1200); }
   function _hideAdjusting() { _adjust.style.display = 'none'; if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; } try { if (video.paused) video.play().catch(function(){}); } catch (e) {} }
-  function _onOrient() { _showAdjusting(); }
+  function _onOrient() { _updateStageAspect(); _showAdjusting(); }
   try {
     window.addEventListener('orientationchange', _onOrient);
     if (track && track.addEventListener) {
