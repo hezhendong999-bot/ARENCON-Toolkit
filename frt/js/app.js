@@ -1172,6 +1172,27 @@ function _pushToCloud() {
     _setCloudStatus('error', 'Not signed in — tap for details');
     return;
   }
+  // S426: stale-writer guard. Load-time migrations mark the model dirty at
+  // boot, so a freshly opened tab could push its stale IDB snapshot over a
+  // NEWER cloud row (external repair, another device, SQL fix) — the root
+  // cause of the S404–S421 relink clobbers. Before pushing, confirm the
+  // cloud row is not newer than the state this tab last pulled. If it is,
+  // skip: _pushDirty stays true and the 30s pull loop reconciles first;
+  // the push retries on a later tick against a fresh baseline.
+  if (typeof SyncEngine !== 'undefined' && SyncEngine.getRemoteUpdatedAt) {
+    SyncEngine.getRemoteUpdatedAt(_projectId, SyncEngine.instanceId).then(function(remoteTs) {
+      if (remoteTs && (!_lastPulledUpdatedAt || remoteTs > _lastPulledUpdatedAt)) {
+        console.log('[FRT v2] Push skipped \u2014 cloud (' + remoteTs + ') is newer than our baseline (' + (_lastPulledUpdatedAt || 'none') + '); pull will reconcile first');
+        return; // dirty flag preserved; no data lost, no overwrite
+      }
+      _pushToCloudNow();
+    }).catch(function() { _pushToCloudNow(); }); // network blip: behave as before
+    return;
+  }
+  _pushToCloudNow();
+}
+
+function _pushToCloudNow() {
   // S155: optimistic clear. If push succeeds, _pushDirty stays false. If a
   // concurrent 'saved' fires during the network round-trip, it re-sets
   // _pushDirty=true and the next cycle picks it up — no edit lost. If push
