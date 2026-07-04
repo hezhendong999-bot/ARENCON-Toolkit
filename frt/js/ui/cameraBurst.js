@@ -25,7 +25,7 @@ var _open = false;
 
 // S424: physical orientation from the gravity sensor. The TWA viewport is
 // portrait-locked, so screen.orientation.angle reads 0 no matter how the device
-// is held (measured, S423 DIAG) — the accelerometer is the only true signal.
+// is held (measured S423) — the accelerometer is the only true signal.
 // atan2 of the gravity vector in the device x-y plane = physical roll, snapped to
 // 0/90/180/270. Strongest exactly when the camera is in use (device near vertical);
 // near-flat readings are ignored and the last known value kept, like native cameras.
@@ -120,7 +120,6 @@ export function openCameraBurst() {
 function _openUI(stream, done) {
   var shots = [];   // File[]  — index-aligned with urls[]
   var urls  = [];   // object URLs (thumbnails + review); revoked on delete/close
-  var metas = [];   // DIAG (temporary): per-shot {aShot,vw,vh,src} — index-aligned with shots[]
   function _camAngle() {
     try {
       if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
@@ -128,7 +127,6 @@ function _openUI(stream, done) {
     } catch (e) {}
     return null;
   }
-  var aOpen = _camAngle(); // DIAG: device angle when the camera opened
 
   var overlay = document.createElement('div');
   overlay.id = 'cam-burst-overlay';
@@ -199,7 +197,7 @@ function _openUI(stream, done) {
   btnLib.addEventListener('click', function(){ libInput.value = ''; libInput.click(); });
   libInput.addEventListener('change', function(){
     var fs = Array.prototype.slice.call(libInput.files || []);
-    fs.forEach(function(file){ shots.push(file); urls.push(URL.createObjectURL(file)); metas.push({ aShot: null, vw: 0, vh: 0, src: 'lib' }); }); // DIAG
+    fs.forEach(function(file){ shots.push(file); urls.push(URL.createObjectURL(file)); });
     renderStrip(); _updateUI();
   });
 
@@ -219,10 +217,6 @@ function _openUI(stream, done) {
   var rImg = document.createElement('img');
   rImg.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;';
   rImgWrap.appendChild(rImg); review.appendChild(rImgWrap);
-  // DIAG (temporary): readings + the four rotations of this photo, labeled A-D.
-  var rDbg = document.createElement('div');
-  rDbg.style.cssText = 'flex:none;padding:4px 10px 0;';
-  review.appendChild(rDbg);
   var rBar = document.createElement('div');
   rBar.style.cssText = 'flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 28px calc(20px + env(safe-area-inset-bottom,0px));';
   var rPrev = document.createElement('button'); rPrev.innerHTML = '&#8249;';
@@ -266,10 +260,9 @@ function _openUI(stream, done) {
     });
     strip.scrollLeft = strip.scrollWidth;
   }
-  function _addShot(blob, diag) {
+  function _addShot(blob) {
     var f = new File([blob], 'camera_' + Date.now() + '_' + (shots.length + 1) + '.jpg', { type: blob.type || 'image/jpeg' });
     shots.push(f); urls.push(URL.createObjectURL(blob));
-    metas.push({ aShot: _camAngle(), grav: diag ? diag.grav : null, corr: diag ? diag.corr : null, vw: video.videoWidth || 0, vh: video.videoHeight || 0, src: 'cam' }); // DIAG
     renderStrip();
     flash.style.opacity = '.7';
     setTimeout(function() { flash.style.opacity = '0'; }, 90);
@@ -278,7 +271,7 @@ function _openUI(stream, done) {
   function _deleteAt(i) {
     if (i < 0 || i >= shots.length) return;
     try { URL.revokeObjectURL(urls[i]); } catch (e) {}
-    shots.splice(i, 1); urls.splice(i, 1); metas.splice(i, 1);
+    shots.splice(i, 1); urls.splice(i, 1);
     renderStrip(); _updateUI();
   }
   // review
@@ -291,45 +284,6 @@ function _openUI(stream, done) {
     rPos.textContent = 'Photo ' + (reviewIdx + 1) + ' of ' + shots.length;
     rPrev.disabled = reviewIdx === 0; rPrev.style.opacity = reviewIdx === 0 ? '.25' : '.9';
     rNext.disabled = reviewIdx === shots.length - 1; rNext.style.opacity = reviewIdx === shots.length - 1 ? '.25' : '.9';
-    _renderDebug();
-  }
-  function _fmtA(a) { return (a === null || a === undefined) ? 'n/a' : (a + '\u00B0'); }
-  function _rotThumb(img, deg, H) {
-    var w = img.naturalWidth, h = img.naturalHeight;
-    var swap = (deg === 90 || deg === 270);
-    var ow = swap ? h : w, oh = swap ? w : h;
-    var s = H / oh;
-    var cv = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
-    cv.width = Math.max(1, Math.round(ow * s)); cv.height = H;
-    var c = cv.getContext('2d');
-    c.translate(cv.width / 2, cv.height / 2); c.rotate(deg * Math.PI / 180);
-    c.drawImage(img, -w * s / 2, -h * s / 2, w * s, h * s);
-    return cv;
-  }
-  function _renderDebug() {
-    var m = metas[reviewIdx] || {};
-    rDbg.innerHTML = '';
-    var head = document.createElement('div');
-    head.style.cssText = 'font-family:monospace;font-size:11px;color:#a09aa8;text-align:center;margin-bottom:4px;';
-    head.textContent = 'DIAG \u00B7 shot ' + _fmtA(m.aShot) + ' \u00B7 grav ' + _fmtA(m.grav) + ' \u00B7 rot ' + _fmtA(m.corr) + ' \u00B7 frame ' + (m.vw || '?') + '\u00D7' + (m.vh || '?') + (m.src === 'lib' ? ' \u00B7 library' : '');
-    rDbg.appendChild(head);
-    var row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:6px;justify-content:center;align-items:flex-start;';
-    rDbg.appendChild(row);
-    var img = new Image();
-    img.onload = function () {
-      row.innerHTML = '';
-      [0, 90, 180, 270].forEach(function (deg, i) {
-        var cell = document.createElement('div'); cell.style.cssText = 'text-align:center;';
-        var cv = _rotThumb(img, deg, 92);
-        cv.style.cssText = 'display:block;border:1px solid rgba(255,255,255,.3);border-radius:6px;';
-        var lbl = document.createElement('div');
-        lbl.textContent = 'ABCD'[i] + ' \u00B7 ' + deg + '\u00B0';
-        lbl.style.cssText = 'font-size:11px;color:#f4f3f6;margin-top:2px;font-family:monospace;';
-        cell.appendChild(cv); cell.appendChild(lbl); row.appendChild(cell);
-      });
-    };
-    img.src = urls[reviewIdx];
   }
   rBack.addEventListener('click', function() { review.style.display = 'none'; });
   rPrev.addEventListener('click', function() { if (reviewIdx > 0) { reviewIdx--; _renderReview(); } });
@@ -348,7 +302,7 @@ function _openUI(stream, done) {
   // never OffscreenCanvas (Safari/iOS). 1920px long-edge cap keeps memory bounded.
   function _grabFrame() {
     var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
-    // S424 orientation fix (measured via S423 DIAG): the portrait-locked viewport
+    // S424 orientation fix (measured S423): the portrait-locked viewport
     // never rotates (screen angle always 0), so frames stay device-portrait and a
     // sideways hold saved sideways. Correction = gravity roll minus screen angle.
     // Measured on device: rotated-left → grav 90 → apply 270 (candidate D,
@@ -387,9 +341,8 @@ function _openUI(stream, done) {
     try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
     ctx.drawImage(mid, sx, sy, srcW, srcH, 0, 0, cw, ch);
     mid.width = 0; mid.height = 0;
-    var diag = { grav: _grav, scr: scrA, corr: corr };
     cv.toBlob(function(b) {
-      if (b) _addShot(b, diag);
+      if (b) _addShot(b);
       busy = false;
       cv.width = 0; cv.height = 0;
     }, 'image/jpeg', 0.9);
