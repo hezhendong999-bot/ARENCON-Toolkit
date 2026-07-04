@@ -15,30 +15,30 @@
   #review.show{ display:flex; }
 
   /* --- mock 4:3 preview / photo --- */
-  .frame{ position:relative; width:100%; aspect-ratio:4/3; overflow:hidden; background:#12161c; }
+  .frame{ position:relative; height:100%; max-height:100%; max-width:100%; aspect-ratio:4/3; overflow:hidden; background:#12161c; }
   .frame .scene{ position:absolute; inset:0; }
   .frame .vig{ position:absolute; inset:0; box-shadow:inset 0 0 120px rgba(0,0,0,.5); }
   .frame .focus{ position:absolute; top:37%; left:44%; width:72px; height:72px; border:1.5px solid rgba(255,255,255,.7); border-radius:6px; opacity:.6; }
   .frame .live{ position:absolute; top:10px; left:12px; font-size:11px; background:rgba(0,0,0,.35); padding:3px 8px; border-radius:99px; opacity:.75; }
   .frame .tag{ position:absolute; top:10px; right:12px; font-size:12px; background:rgba(0,0,0,.4); padding:3px 9px; border-radius:99px; opacity:.85; }
-  .vwrap{ flex:1; display:flex; align-items:center; justify-content:center; min-height:0; }
+  .vwrap{ flex:1; display:flex; align-items:center; justify-content:center; min-height:0; overflow:hidden; padding:8px 0; }
 
   /* --- camera top bar --- */
-  .top{ display:flex; align-items:center; justify-content:space-between; padding:calc(16px + env(safe-area-inset-top,0)) 20px 8px; }
+  .top{ flex:none; display:flex; align-items:center; justify-content:space-between; padding:calc(22px + env(safe-area-inset-top,0)) 20px 10px; }
   .top .x{ font-size:26px; line-height:1; width:40px; }
   .top .count{ font-size:15px; font-variant-numeric:tabular-nums; }
   .top .count b{ font-weight:700; }
   .top .rt{ width:40px; text-align:right; font-size:20px; opacity:.85; }
 
   /* --- thumbnail strip --- */
-  .strip{ display:flex; gap:8px; overflow-x:auto; padding:2px 16px 10px; min-height:0; }
+  .strip{ flex:none; display:flex; gap:8px; overflow-x:auto; padding:6px 16px 10px; min-height:0; }
   .strip:empty{ display:none; }
   .strip .th{ position:relative; flex:none; width:54px; height:54px; border-radius:8px; overflow:hidden;
     border:1px solid rgba(255,255,255,.25); }
   .strip .th .n{ position:absolute; bottom:2px; right:4px; font-size:10px; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.7); }
 
   /* --- camera bottom bar --- */
-  .bar{ display:flex; align-items:center; justify-content:space-between; padding:4px 24px calc(24px + env(safe-area-inset-bottom,0)); }
+  .bar{ flex:none; display:flex; align-items:center; justify-content:space-between; padding:4px 24px calc(24px + env(safe-area-inset-bottom,0)); }
   .retake{ background:none; border:0; color:var(--ink); font-size:15px; font-weight:600; min-width:96px; text-align:left; }
   .retake:disabled{ color:var(--ink3); }
   .shutter{ width:74px; height:74px; border-radius:50%; background:#fff; border:4px solid rgba(255,255,255,.35); flex:none; }
