@@ -3653,12 +3653,12 @@ function _pgExtractPhotos(row) {
     // deficiency pin pool (defic.photos[]) and must NOT be read as site photos —
     // those are emitted separately by _extractDefics below. So: use sitePhotos;
     // only fall back to data.photos when the project carries no deficiencies at all.
-    var _hasDefics =
-      (data.generalDeficiencies && data.generalDeficiencies.length) ||
-      ((data.contractors || []).some(function(c) { return c && c.deficiencies && c.deficiencies.length; }));
+    // DB-verified (S420): top-level data.photos ARE the site photos in current
+    // FRT schema (entries carry badgeType:'site'); deficiency photos live only
+    // under contractors[].deficiencies[].photos. No guard needed — no overlap.
     var _frtSite = (data.sitePhotos && data.sitePhotos.length)
       ? data.sitePhotos
-      : (!_hasDefics && data.photos && data.photos.length ? data.photos : []);
+      : (data.photos || []);
     _frtSite.forEach(function(ph) {
       if (!ph) return;
       var src = _pgResolveR2Src(ph, projectId);
