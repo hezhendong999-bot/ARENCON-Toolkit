@@ -23,6 +23,41 @@
 
 var _open = false;
 
+// S424: physical orientation from the gravity sensor. The TWA viewport is
+// portrait-locked, so screen.orientation.angle reads 0 no matter how the device
+// is held (measured, S423 DIAG) — the accelerometer is the only true signal.
+// atan2 of the gravity vector in the device x-y plane = physical roll, snapped to
+// 0/90/180/270. Strongest exactly when the camera is in use (device near vertical);
+// near-flat readings are ignored and the last known value kept, like native cameras.
+var _grav = null;
+var _gravArmed = false;
+var _isIOSDev = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function _onMotion(e) {
+  var g = e.accelerationIncludingGravity;
+  if (!g || g.x === null || g.y === null) return;
+  var gx = _isIOSDev ? -g.x : g.x, gy = _isIOSDev ? -g.y : g.y; // iOS inverts the sign convention
+  if (Math.sqrt(gx * gx + gy * gy) < 3) return; // near-flat: ambiguous, keep last known
+  var a = Math.round(Math.atan2(gx, gy) / (Math.PI / 2)) * 90;
+  _grav = ((a % 360) + 360) % 360;
+}
+function _armGravity() {
+  if (_gravArmed) return; _gravArmed = true;
+  try {
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+      // iOS 13+: must be called inside the user gesture — openCameraBurst is.
+      DeviceMotionEvent.requestPermission().then(function (s) {
+        if (s === 'granted') window.addEventListener('devicemotion', _onMotion);
+      }).catch(function () {});
+    } else {
+      window.addEventListener('devicemotion', _onMotion);
+    }
+  } catch (e) {}
+}
+function _disarmGravity() {
+  _gravArmed = false;
+  try { window.removeEventListener('devicemotion', _onMotion); } catch (e) {}
+}
+
 // S342: instant tap-feedback overlay. getUserMedia can take 1-3s to open the
 // camera hardware on Android; previously NOTHING appeared in that gap, so the
 // Camera button looked dead and Mark couldn't tell his tap registered (and
@@ -60,6 +95,7 @@ export function openCameraBurst() {
     if (_open) { resolve([]); return; }
     if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { resolve(null); return; }
     _open = true;
+    _armGravity(); // inside the user gesture (iOS sensor permission)
     _showStartingOverlay(); // instant feedback before the hardware opens
     // S341: Android WebView crashes ("Aw, Snap") on the old 4096x3072 (12MP)
     // request — the live video texture + full-res canvas grabs exhaust the
@@ -230,10 +266,10 @@ function _openUI(stream, done) {
     });
     strip.scrollLeft = strip.scrollWidth;
   }
-  function _addShot(blob) {
+  function _addShot(blob, diag) {
     var f = new File([blob], 'camera_' + Date.now() + '_' + (shots.length + 1) + '.jpg', { type: blob.type || 'image/jpeg' });
     shots.push(f); urls.push(URL.createObjectURL(blob));
-    metas.push({ aShot: _camAngle(), vw: video.videoWidth || 0, vh: video.videoHeight || 0, src: 'cam' }); // DIAG
+    metas.push({ aShot: _camAngle(), grav: diag ? diag.grav : null, corr: diag ? diag.corr : null, vw: video.videoWidth || 0, vh: video.videoHeight || 0, src: 'cam' }); // DIAG
     renderStrip();
     flash.style.opacity = '.7';
     setTimeout(function() { flash.style.opacity = '0'; }, 90);
@@ -275,7 +311,7 @@ function _openUI(stream, done) {
     rDbg.innerHTML = '';
     var head = document.createElement('div');
     head.style.cssText = 'font-family:monospace;font-size:11px;color:#a09aa8;text-align:center;margin-bottom:4px;';
-    head.textContent = 'DIAG \u00B7 open ' + _fmtA(aOpen) + ' \u00B7 shot ' + _fmtA(m.aShot) + ' \u00B7 frame ' + (m.vw || '?') + '\u00D7' + (m.vh || '?') + (m.src === 'lib' ? ' \u00B7 library' : '');
+    head.textContent = 'DIAG \u00B7 shot ' + _fmtA(m.aShot) + ' \u00B7 grav ' + _fmtA(m.grav) + ' \u00B7 rot ' + _fmtA(m.corr) + ' \u00B7 frame ' + (m.vw || '?') + '\u00D7' + (m.vh || '?') + (m.src === 'lib' ? ' \u00B7 library' : '');
     rDbg.appendChild(head);
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;align-items:flex-start;';
@@ -312,14 +348,36 @@ function _openUI(stream, done) {
   // never OffscreenCanvas (Safari/iOS). 1920px long-edge cap keeps memory bounded.
   function _grabFrame() {
     var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
-    // No forced rotation: iOS already delivers the frame oriented to the preview
-    // (upright). Rotating it again spun upright shots into sideways. Instead, just
-    // crop to the display aspect that follows the frame's own orientation:
-    // wide frame -> 4:3, tall frame -> 3:4. S341 1920px long-edge clamp preserved.
-    var TARGET = (vw >= vh) ? (4 / 3) : (3 / 4);
-    var srcW = vw, srcH = vh, sx = 0, sy = 0;
-    if (vw / vh > TARGET) { srcW = Math.round(vh * TARGET); sx = Math.round((vw - srcW) / 2); }
-    else if (vw / vh < TARGET) { srcH = Math.round(vw / TARGET); sy = Math.round((vh - srcH) / 2); }
+    // S424 orientation fix (measured via S423 DIAG): the portrait-locked viewport
+    // never rotates (screen angle always 0), so frames stay device-portrait and a
+    // sideways hold saved sideways. Correction = gravity roll minus screen angle.
+    // Measured on device: rotated-left → grav 90 → apply 270 (candidate D,
+    // confirmed upright). No gravity reading → rotation 0 — identical to S422,
+    // so nothing can regress.
+    var scrA = _camAngle(); if (scrA === null) scrA = 0;
+    var corr = 0;
+    if (_grav !== null) {
+      var delta = (((_grav - scrA) % 360) + 360) % 360;
+      corr = (360 - delta) % 360;
+    }
+    var swap = (corr === 90 || corr === 270);
+    var upW = swap ? vh : vw, upH = swap ? vw : vh;
+    var mid = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
+    mid.width = upW; mid.height = upH;
+    var mctx = mid.getContext('2d');
+    if (corr !== 0) {
+      mctx.translate(upW / 2, upH / 2);
+      mctx.rotate(corr * Math.PI / 180);
+      mctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+    } else {
+      mctx.drawImage(video, 0, 0, vw, vh);
+    }
+    // Crop the upright frame to its display aspect (wide → 4:3, tall → 3:4),
+    // then the S341 1920px long-edge clamp.
+    var TARGET = (upW >= upH) ? (4 / 3) : (3 / 4);
+    var srcW = upW, srcH = upH, sx = 0, sy = 0;
+    if (upW / upH > TARGET) { srcW = Math.round(upH * TARGET); sx = Math.round((upW - srcW) / 2); }
+    else if (upW / upH < TARGET) { srcH = Math.round(upW / TARGET); sy = Math.round((upH - srcH) / 2); }
     var MAX = 1920;
     var scale = Math.min(1, MAX / Math.max(srcW, srcH));
     var cw = Math.round(srcW * scale), ch = Math.round(srcH * scale);
@@ -327,9 +385,11 @@ function _openUI(stream, done) {
     cv.width = cw; cv.height = ch;
     var ctx = cv.getContext('2d');
     try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
-    ctx.drawImage(video, sx, sy, srcW, srcH, 0, 0, cw, ch);
+    ctx.drawImage(mid, sx, sy, srcW, srcH, 0, 0, cw, ch);
+    mid.width = 0; mid.height = 0;
+    var diag = { grav: _grav, scr: scrA, corr: corr };
     cv.toBlob(function(b) {
-      if (b) _addShot(b);
+      if (b) _addShot(b, diag);
       busy = false;
       cv.width = 0; cv.height = 0;
     }, 'image/jpeg', 0.9);
@@ -368,6 +428,7 @@ function _openUI(stream, done) {
       }
     } catch (e) {}
     if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; }
+    _disarmGravity();
     done(result);
   }
   // Escape: close the review first if it's open, otherwise cancel the camera.
