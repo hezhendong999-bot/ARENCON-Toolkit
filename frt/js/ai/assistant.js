@@ -13,7 +13,7 @@
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 
-var WORKER_URL = 'https://arencon-ai-worker.hezhendong999.workers.dev';
+var WORKER_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/ai-proxy'; // S415: Supabase Edge relay (same as Diesel S397). CF worker's CORS names github.io, blocking arencon.app; proxy relays server-side (no CORS), worker still validates the JWT.
 var _panel = null;
 var _overlay = null;
 var _suggestions = [];
