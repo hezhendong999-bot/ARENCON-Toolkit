@@ -2148,7 +2148,7 @@ function _countUntaggedForBand(proj) {
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S417';
+var FRT_BUILD = 'S418';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
@@ -2639,6 +2639,9 @@ function _issueReport() {
   });
 
   document.body.appendChild(modal);
+  lockScroll();
+  (function(){ var _r = false, _o = modal.remove.bind(modal);
+    modal.remove = function(){ if (_r) return _o(); _r = true; _o(); unlockScroll(); }; })();
 }
 
 function _doIssue(newRev) {

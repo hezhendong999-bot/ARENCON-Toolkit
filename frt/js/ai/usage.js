@@ -5,6 +5,7 @@
  */
 
 import { toast } from '../shared/toast.js';
+import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
 
 var SB_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
 var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
@@ -60,10 +61,11 @@ function _isAdmin() {
 
 function open() {
   _ensureOverlay();
+  if (!_overlay.classList.contains('open')) lockScroll();
   _overlay.classList.add('open');
   _loadBillingDay(function() { _setBillingCycleDates('current'); _fetchData(); });
 }
-function close() { if (_overlay) _overlay.classList.remove('open'); }
+function close() { if (_overlay && _overlay.classList.contains('open')) { unlockScroll(); _overlay.classList.remove('open'); } }
 
 function _loadBillingDay(cb) {
   fetch(SB_URL + '/rest/v1/app_settings?key=eq.billing_day&select=value', { headers: _sbHeaders() })
