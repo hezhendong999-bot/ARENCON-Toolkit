@@ -3647,8 +3647,13 @@ function _pgExtractPhotos(row) {
 
   // ── FRT ──
   if (toolKey === 'frt') {
-    // Site photos
-    (data.sitePhotos || []).forEach(function(ph) {
+    // Site photos. FRT's model migration renames sitePhotos -> photos and
+    // deletes sitePhotos, so migrated projects carry site images in data.photos.
+    // Read data.photos (current schema); fall back to data.sitePhotos (legacy,
+    // pre-migration saves). data.photos is the FRT site array here — deficiency
+    // photos live under defics[].photos, handled separately below.
+    var _frtSite = (data.photos && data.photos.length) ? data.photos : (data.sitePhotos || []);
+    _frtSite.forEach(function(ph) {
       if (!ph) return;
       var src = _pgResolveR2Src(ph, projectId);
       if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
