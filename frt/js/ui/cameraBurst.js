@@ -259,39 +259,22 @@ function _openUI(stream, done) {
   // never OffscreenCanvas (Safari/iOS). 1920px long-edge cap keeps memory bounded.
   function _grabFrame() {
     var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
-    // Native-like orientation: rotate the raw frame to world-upright by the device
-    // angle so the saved photo follows how the iPad is held (portrait hold -> portrait
-    // photo). BEST-GUESS direction — if a hold saves sideways/upside-down, flip GRAB_ROT.
-    var a = 0;
-    try { a = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0); } catch (e) {}
-    a = ((a % 360) + 360) % 360;
-    var GRAB_ROT = (360 - a) % 360; // <-- flip to `a` if the direction is wrong on the iPad
-
-    // Step 1: rotate raw frame to upright on an intermediate canvas.
-    var swap = (GRAB_ROT === 90 || GRAB_ROT === 270);
-    var upW = swap ? vh : vw, upH = swap ? vw : vh;
-    var mid = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
-    mid.width = upW; mid.height = upH;
-    var mctx = mid.getContext('2d');
-    mctx.translate(upW / 2, upH / 2);
-    mctx.rotate(GRAB_ROT * Math.PI / 180);
-    mctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
-
-    // Step 2: center-crop the upright frame to the display aspect (4:3 landscape /
-    // 3:4 portrait — follows the hold), then clamp to a 1920px long edge (S341).
-    var TARGET = upW >= upH ? (4 / 3) : (3 / 4);
-    var cropW = upW, cropH = upH, sx = 0, sy = 0;
-    if (upW / upH > TARGET) { cropW = Math.round(upH * TARGET); sx = Math.round((upW - cropW) / 2); }
-    else if (upW / upH < TARGET) { cropH = Math.round(upW / TARGET); sy = Math.round((upH - cropH) / 2); }
+    // No forced rotation: iOS already delivers the frame oriented to the preview
+    // (upright). Rotating it again spun upright shots into sideways. Instead, just
+    // crop to the display aspect that follows the frame's own orientation:
+    // wide frame -> 4:3, tall frame -> 3:4. S341 1920px long-edge clamp preserved.
+    var TARGET = (vw >= vh) ? (4 / 3) : (3 / 4);
+    var srcW = vw, srcH = vh, sx = 0, sy = 0;
+    if (vw / vh > TARGET) { srcW = Math.round(vh * TARGET); sx = Math.round((vw - srcW) / 2); }
+    else if (vw / vh < TARGET) { srcH = Math.round(vw / TARGET); sy = Math.round((vh - srcH) / 2); }
     var MAX = 1920;
-    var scale = Math.min(1, MAX / Math.max(cropW, cropH));
-    var cw = Math.round(cropW * scale), ch = Math.round(cropH * scale);
+    var scale = Math.min(1, MAX / Math.max(srcW, srcH));
+    var cw = Math.round(srcW * scale), ch = Math.round(srcH * scale);
     var cv = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
     cv.width = cw; cv.height = ch;
     var ctx = cv.getContext('2d');
     try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
-    ctx.drawImage(mid, sx, sy, cropW, cropH, 0, 0, cw, ch);
-    mid.width = 0; mid.height = 0; // release intermediate promptly
+    ctx.drawImage(video, sx, sy, srcW, srcH, 0, 0, cw, ch);
     cv.toBlob(function(b) {
       if (b) _addShot(b);
       busy = false;
