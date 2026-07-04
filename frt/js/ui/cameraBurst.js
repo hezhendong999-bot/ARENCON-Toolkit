@@ -107,11 +107,14 @@ function _openUI(stream, done) {
   // ---- preview ----
   var vidWrap = document.createElement('div');
   vidWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000;min-height:0;';
+  var stage = document.createElement('div'); // true 4:3 frame — WYSIWYG with the 4:3 grab below
+  stage.style.cssText = 'position:relative;height:100%;max-height:100%;max-width:100%;aspect-ratio:4/3;overflow:hidden;background:#000;';
   var video = document.createElement('video');
   video.autoplay = true; video.muted = true; video.playsInline = true; video.setAttribute('playsinline', '');
-  video.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+  video.style.cssText = 'width:100%;height:100%;object-fit:cover;'; // fill the 4:3 stage (center-crop)
   video.srcObject = stream;
-  vidWrap.appendChild(video);
+  stage.appendChild(video);
+  vidWrap.appendChild(stage);
   var flash = document.createElement('div');
   flash.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s;';
   vidWrap.appendChild(flash);
@@ -250,14 +253,20 @@ function _openUI(stream, done) {
   // never OffscreenCanvas (Safari/iOS). 1920px long-edge cap keeps memory bounded.
   function _grabFrame() {
     var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
+    // Guarantee 4:3 output by center-cropping the source frame — matches the 4:3
+    // preview (WYSIWYG). No-op crop when the frame is already 4:3.
+    var TARGET = 4 / 3, srcW = vw, srcH = vh, sx = 0, sy = 0;
+    if (vw / vh > TARGET) { srcW = Math.round(vh * TARGET); sx = Math.round((vw - srcW) / 2); }
+    else if (vw / vh < TARGET) { srcH = Math.round(vw / TARGET); sy = Math.round((vh - srcH) / 2); }
+    // S341: clamp the grab to a 1920px long edge (WebView memory ceiling).
     var MAX = 1920;
-    var scale = Math.min(1, MAX / Math.max(vw, vh));
-    var cw = Math.round(vw * scale), ch = Math.round(vh * scale);
+    var scale = Math.min(1, MAX / Math.max(srcW, srcH));
+    var cw = Math.round(srcW * scale), ch = Math.round(srcH * scale);
     var cv = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
     cv.width = cw; cv.height = ch;
     var ctx = cv.getContext('2d');
     try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
-    ctx.drawImage(video, 0, 0, cw, ch);
+    ctx.drawImage(video, sx, sy, srcW, srcH, 0, 0, cw, ch); // cropped src -> dest
     cv.toBlob(function(b) {
       if (b) _addShot(b);
       busy = false;
