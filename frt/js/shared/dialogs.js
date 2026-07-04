@@ -13,6 +13,8 @@
  *   - showPrompt(title, label, defaultVal) → Promise<string|null>
  */
 
+import { lockScroll, unlockScroll } from './scrollLock.js';
+
 /**
  * Show a simple alert dialog.
  * @param {string} title
@@ -282,6 +284,7 @@ export function showTypeToConfirm(title, message, requiredText) {
 function _createOverlay() {
   var overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+  lockScroll();
   return overlay;
 }
 
@@ -357,6 +360,7 @@ function _createModal(title, message, buttons, vertical) {
 function _removeOverlay(overlay) {
   if (overlay && overlay.parentNode) {
     overlay.parentNode.removeChild(overlay);
+    unlockScroll();
   }
 }
 
