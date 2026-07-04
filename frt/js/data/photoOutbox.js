@@ -1165,7 +1165,11 @@ export var BinaryOutbox = {
     var chain = Promise.resolve();
     targets.forEach(function(ph){
       chain = chain.then(function(){
-        return fetch(ph.r2Url, { method: 'HEAD' }).then(function(r){
+        // Worker does NOT support HEAD (documented) — a HEAD probe 404s on
+        // valid objects, which made this sweep null perfectly good keys and
+        // push the damage to cloud (S421 root cause). Probe with a 1-byte
+        // Range GET instead — same pattern as _verifyR2Object.
+        return fetch(ph.r2Url, { method: 'GET', headers: { 'Range': 'bytes=0-0' } }).then(function(r){
           if (r.ok) { _r2VerifiedKeys[ph.r2Key] = true; res.ok++; return; }
           if (r.status !== 404) { res.ok++; return; }   // transient — do not heal on non-404
           return _r2HealOne(proj.id, ph, res);
