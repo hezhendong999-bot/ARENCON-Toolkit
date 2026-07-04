@@ -159,6 +159,7 @@
     }).then(function(s){
       stream=s; video.srcObject=s; camEl.classList.add('open');
       document.body.style.overflow='hidden';
+      var pp = video.play(); if (pp && pp.catch) pp.catch(function(){}); // iOS needs an explicit play()
     }).catch(function(err){ banner('Camera error: '+(err&&err.message||err)+'  \u2014 if this is a permission prompt, allow camera and tap Open Camera again.'); });
   }
   function closeCam(){
@@ -184,29 +185,38 @@
 
   // ---- the exact FRT grab, plus normalization candidates ----------------
   function grabFrame(){
-    var a = angle();
-    var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
-    var MAX = 1920, scale = Math.min(1, MAX / Math.max(vw, vh));
-    var cw = Math.round(vw*scale), ch = Math.round(vh*scale);
+    try {
+      if (video.readyState < 2 || !video.videoWidth){
+        banner('Camera still starting (readyState '+video.readyState+', frame '+video.videoWidth+'\u00D7'+video.videoHeight+') \u2014 wait a second and tap the shutter again.');
+        return;
+      }
+      var a = angle();
+      var vw = video.videoWidth, vh = video.videoHeight;
+      var MAX = 1920, scale = Math.min(1, MAX / Math.max(vw, vh));
+      var cw = Math.round(vw*scale), ch = Math.round(vh*scale);
 
-    // RAW — identical to FRT cameraBurst _grabFrame()
-    var raw = document.createElement('canvas');
-    raw.width=cw; raw.height=ch;
-    var ctx = raw.getContext('2d');
-    try{ ctx.imageSmoothingQuality='high'; }catch(e){}
-    ctx.drawImage(video, 0, 0, cw, ch);
+      // RAW — identical to FRT cameraBurst _grabFrame()
+      var raw = document.createElement('canvas');
+      raw.width=cw; raw.height=ch;
+      var ctx = raw.getContext('2d');
+      try{ ctx.imageSmoothingQuality='high'; }catch(e){}
+      ctx.drawImage(video, 0, 0, cw, ch);
 
-    // CORRECTED — normalize by device angle (rotate raw by -angle)
-    var corrDeg = (a===null) ? 0 : ((360 - a) % 360);
-    var corr = rotate(raw, corrDeg);
+      // CORRECTED — normalize by device angle (rotate raw by -angle)
+      var corrDeg = (a===null) ? 0 : ((360 - a) % 360);
+      var corr = rotate(raw, corrDeg);
 
-    // flash + release + render
-    flash.style.opacity='.7'; setTimeout(function(){flash.style.opacity='0';},90);
-    render({
-      n:++shotN, angle:a, type:otype(), vw:vw, vh:vh, cw:cw, ch:ch,
-      corrDeg:corrDeg, raw:raw, corr:corr
-    });
-    busy=false;
+      // flash + render
+      flash.style.opacity='.7'; setTimeout(function(){flash.style.opacity='0';},90);
+      render({
+        n:++shotN, angle:a, type:otype(), vw:vw, vh:vh, cw:cw, ch:ch,
+        corrDeg:corrDeg, raw:raw, corr:corr
+      });
+    } catch(e){
+      banner('Capture failed: '+(e&&e.message||e)+' \u2014 screenshot this and send to Mark.');
+    } finally {
+      busy=false;  // ALWAYS reset so the shutter never gets stuck
+    }
   }
 
   function url(cv){ return cv.toDataURL('image/jpeg',0.85); }
