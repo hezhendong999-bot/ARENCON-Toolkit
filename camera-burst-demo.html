@@ -47,9 +47,13 @@
   .done:disabled{ color:var(--ink3); }
 
   /* --- review view --- */
-  #review .rtop{ display:flex; align-items:center; justify-content:space-between; padding:calc(16px + env(safe-area-inset-top,0)) 18px 8px; }
-  #review .back{ background:none; border:0; color:#fff; font-size:16px; font-weight:600; }
-  #review .pos{ font-size:15px; color:var(--ink2); font-variant-numeric:tabular-nums; }
+  #review .rtop{ position:relative; display:flex; align-items:center; padding:calc(16px + env(safe-area-inset-top,0)) 18px 8px; }
+  #review .back{ position:relative; z-index:2; display:flex; align-items:center; gap:6px;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.34); color:#fff;
+    font-size:15px; font-weight:700; padding:10px 18px; border-radius:99px; }
+  #review .back .chev{ font-size:20px; line-height:1; margin-top:-1px; }
+  #review .pos{ position:absolute; left:0; right:0; text-align:center; pointer-events:none;
+    font-size:15px; color:var(--ink2); font-variant-numeric:tabular-nums; }
   #review .rbar{ display:flex; align-items:center; justify-content:space-between; padding:10px 30px calc(26px + env(safe-area-inset-bottom,0)); }
   #review .nav{ background:none; border:0; color:#fff; font-size:30px; width:56px; opacity:.9; }
   #review .nav:disabled{ opacity:.25; }
@@ -92,9 +96,8 @@
 <!-- ===== REVIEW ===== -->
 <div class="screen" id="review">
   <div class="rtop">
-    <button class="back" id="btnBack">&#8249; Camera</button>
+    <button class="back" id="btnBack"><span class="chev">&#8249;</span> Camera</button>
     <div class="pos" id="pos">Photo 1 of 1</div>
-    <div style="width:70px"></div>
   </div>
   <div class="vwrap"><div class="frame"><div class="scene" id="reviewScene"></div><div class="vig"></div><div class="tag" id="reviewTag">Photo 1</div></div></div>
   <div class="rbar">
