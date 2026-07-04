@@ -23,6 +23,7 @@ import { BinaryOutbox } from './data/photoOutbox.js';
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
 import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js';
+import { lockScroll, unlockScroll } from './shared/scrollLock.js';
 import { initProjectInfo } from './ui/projectInfo.js';
 import { initDeficiencies } from './ui/deficiencies.js';
 import { initDrawings } from './ui/drawings.js';
@@ -310,12 +311,12 @@ function restoreTextSize() {
 // ── Mobile Menu ──────────────────────────────────────────
 function openMobileMenu() {
   var mm = document.getElementById('mobile-menu-overlay');
-  if (mm) mm.classList.add('open');
+  if (mm && !mm.classList.contains('open')) { mm.classList.add('open'); lockScroll(); }
 }
 
 function closeMobileMenu() {
   var mm = document.getElementById('mobile-menu-overlay');
-  if (mm) mm.classList.remove('open');
+  if (mm && mm.classList.contains('open')) { mm.classList.remove('open'); unlockScroll(); }
 }
 
 function closeMoreMenu() {
@@ -2147,7 +2148,7 @@ function _countUntaggedForBand(proj) {
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S415';
+var FRT_BUILD = 'S416';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');

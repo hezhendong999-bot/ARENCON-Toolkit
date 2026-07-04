@@ -12,6 +12,7 @@
 
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
+import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
 
 var WORKER_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/ai-proxy'; // S415: Supabase Edge relay (same as Diesel S397). CF worker's CORS names github.io, blocking arencon.app; proxy relays server-side (no CORS), worker still validates the JWT.
 var _panel = null;
@@ -139,8 +140,10 @@ function _ensurePanel() {
   _panel.querySelector('#ai-accept-all').addEventListener('click', _acceptAll);
 }
 
+var _aiScrollLocked = false;
 function _openPanel() {
   _ensurePanel();
+  if (!_aiScrollLocked) { lockScroll(); _aiScrollLocked = true; }
   requestAnimationFrame(function() {
     _overlay.classList.add('open');
     _panel.classList.add('open');
@@ -148,6 +151,7 @@ function _openPanel() {
 }
 
 function _closePanel() {
+  if (_aiScrollLocked) { unlockScroll(); _aiScrollLocked = false; }
   if (_overlay) _overlay.classList.remove('open');
   if (_panel) _panel.classList.remove('open');
   if (_accepted > 0) {

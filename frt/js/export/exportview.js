@@ -23,6 +23,7 @@ import { Model, isSiteRecordsName } from '../data/model.js';
 import { initPDFExport } from './pdf.js';
 import { initDeficiencies } from '../ui/deficiencies.js';
 import { toast } from '../shared/toast.js';
+import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
 
 // Replicated verbatim from app.js _countUntaggedForBand (pure fn; copied
 // rather than imported to avoid an app.js <-> exportview.js cycle).
@@ -64,7 +65,8 @@ function _showInternalConfirm(host, onProceed) {
     + '<button id="_ic-go" style="padding:9px 20px;border:0;background:#9C2742;color:#fff;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">&#128196; Generate internal PDF</button>'
     + '</div></div>';
   document.body.appendChild(ov);
-  function done(){ ov.remove(); }
+  lockScroll();
+  function done(){ ov.remove(); unlockScroll(); }
   ov.querySelector('#_ic-cancel').addEventListener('click', done);
   ov.addEventListener('click', function(e){ if (e.target === ov) done(); });
   ov.querySelector('#_ic-go').addEventListener('click', function(){ done(); onProceed(); });
@@ -332,6 +334,9 @@ export var initExportView = {
     wrap.innerHTML = h;
     var ov = wrap.firstChild;
     document.body.appendChild(ov);
+    lockScroll();
+    (function(){ var _r = false, _o = ov.remove.bind(ov);
+      ov.remove = function(){ if (_r) return _o(); _r = true; _o(); unlockScroll(); }; })();
 
     var rosterEl = ov.querySelector('#exv-roster');
     var hidden = ov.querySelector('#exv-ctr');
