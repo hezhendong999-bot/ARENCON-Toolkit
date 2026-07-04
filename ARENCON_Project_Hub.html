@@ -3647,12 +3647,18 @@ function _pgExtractPhotos(row) {
 
   // ── FRT ──
   if (toolKey === 'frt') {
-    // Site photos. FRT's model migration renames sitePhotos -> photos and
-    // deletes sitePhotos, so migrated projects carry site images in data.photos.
-    // Read data.photos (current schema); fall back to data.sitePhotos (legacy,
-    // pre-migration saves). data.photos is the FRT site array here — deficiency
-    // photos live under defics[].photos, handled separately below.
-    var _frtSite = (data.photos && data.photos.length) ? data.photos : (data.sitePhotos || []);
+    // Site photos live in data.sitePhotos. On legacy projects that predate the
+    // S120 pin-pool, FRT's migration moved site photos to top-level data.photos
+    // (guarded by "no deficiencies yet"). On modern projects data.photos IS the
+    // deficiency pin pool (defic.photos[]) and must NOT be read as site photos —
+    // those are emitted separately by _extractDefics below. So: use sitePhotos;
+    // only fall back to data.photos when the project carries no deficiencies at all.
+    var _hasDefics =
+      (data.generalDeficiencies && data.generalDeficiencies.length) ||
+      ((data.contractors || []).some(function(c) { return c && c.deficiencies && c.deficiencies.length; }));
+    var _frtSite = (data.sitePhotos && data.sitePhotos.length)
+      ? data.sitePhotos
+      : (!_hasDefics && data.photos && data.photos.length ? data.photos : []);
     _frtSite.forEach(function(ph) {
       if (!ph) return;
       var src = _pgResolveR2Src(ph, projectId);
