@@ -68,7 +68,7 @@ export function openCameraBurst() {
     // sharp deficiency photo after downstream compression and slashes memory
     // ~6x. iOS keeps behaving; this just stops the Android crash.
     navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, // 4:3 to match native/report framing (was 16:9 1080)
       audio: false
     }).then(function(stream) {
       _removeStartingOverlay();
@@ -82,112 +82,174 @@ export function openCameraBurst() {
 }
 
 function _openUI(stream, done) {
-  var shots = [];
-  var urls = [];
+  var shots = [];   // File[]  — index-aligned with urls[]
+  var urls  = [];   // object URLs (thumbnails + review); revoked on delete/close
 
   var overlay = document.createElement('div');
   overlay.id = 'cam-burst-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0b0a0d;display:flex;flex-direction:column;font-family:Calibri,sans-serif;';
 
+  // ---- top bar: ✕ cancel · live count · Library ----
+  var top = document.createElement('div');
+  top.style.cssText = 'flex:none;display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top,0px)) 18px 10px;color:#f4f3f6;';
+  var btnCancel = document.createElement('button');
+  btnCancel.id = 'cam-burst-cancel'; btnCancel.setAttribute('aria-label', 'Cancel'); btnCancel.innerHTML = '&#10005;';
+  btnCancel.style.cssText = 'width:44px;height:40px;background:none;border:0;color:#f4f3f6;font-size:24px;line-height:1;cursor:pointer;text-align:left;';
+  var counter = document.createElement('div');
+  counter.style.cssText = 'font-size:15px;color:#f4f3f6;opacity:.6;';
+  counter.innerHTML = '<b id="cam-burst-count">0</b> photos this round';
+  var btnLib = document.createElement('button');
+  btnLib.id = 'cam-burst-library'; btnLib.textContent = '\uD83D\uDDBC Library';
+  btnLib.style.cssText = 'background:rgba(255,255,255,.10);color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:99px;padding:8px 14px;font-size:14px;font-family:Calibri,sans-serif;cursor:pointer;';
+  top.appendChild(btnCancel); top.appendChild(counter); top.appendChild(btnLib);
+  overlay.appendChild(top);
+
+  // ---- preview ----
   var vidWrap = document.createElement('div');
   vidWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000;min-height:0;';
   var video = document.createElement('video');
-  video.autoplay = true; video.muted = true; video.playsInline = true;
-  video.setAttribute('playsinline', '');
+  video.autoplay = true; video.muted = true; video.playsInline = true; video.setAttribute('playsinline', '');
   video.style.cssText = 'width:100%;height:100%;object-fit:contain;';
   video.srcObject = stream;
   vidWrap.appendChild(video);
-
-  var counter = document.createElement('div');
-  counter.style.cssText = 'position:absolute;top:14px;right:14px;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:6px 14px;font-size:15px;font-weight:700;display:none;';
-  vidWrap.appendChild(counter);
-
   var flash = document.createElement('div');
   flash.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s;';
   vidWrap.appendChild(flash);
   overlay.appendChild(vidWrap);
 
+  // ---- thumbnail strip (tap a thumb to review) ----
   var strip = document.createElement('div');
-  strip.style.cssText = 'display:flex;gap:8px;overflow-x:auto;padding:8px 12px;background:#16141b;flex:none;';
+  strip.style.cssText = 'flex:none;display:flex;gap:8px;overflow-x:auto;padding:8px 12px;background:#16141b;';
   overlay.appendChild(strip);
 
-  // Controls — generous touch targets (field tablets, gloves)
+  // ---- bottom bar: Retake last · shutter · Done ----
   var bar = document.createElement('div');
-  bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 22px calc(14px + env(safe-area-inset-bottom,0px));background:#16141b;border-top:1px solid rgba(255,255,255,.08);flex:none;';
-  var btnCancel = document.createElement('button');
-  btnCancel.id = 'cam-burst-cancel';
-  btnCancel.textContent = 'Cancel';
-  btnCancel.style.cssText = 'min-width:96px;min-height:52px;background:transparent;color:#a09aa8;border:1px solid rgba(255,255,255,.2);border-radius:12px;font-size:16px;font-family:Calibri,sans-serif;cursor:pointer;';
+  bar.style.cssText = 'flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 22px calc(14px + env(safe-area-inset-bottom,0px));background:#16141b;border-top:1px solid rgba(255,255,255,.08);';
+  var btnRetake = document.createElement('button');
+  btnRetake.id = 'cam-burst-retake'; btnRetake.innerHTML = '&#8630; Retake last';
+  btnRetake.style.cssText = 'min-width:120px;min-height:52px;background:none;border:0;color:#f4f3f6;font-size:15px;font-weight:600;font-family:Calibri,sans-serif;text-align:left;cursor:pointer;';
   var shutter = document.createElement('button');
-  shutter.id = 'cam-burst-shutter';
-  shutter.setAttribute('aria-label', 'Take photo');
+  shutter.id = 'cam-burst-shutter'; shutter.setAttribute('aria-label', 'Take photo');
   shutter.style.cssText = 'width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.35);cursor:pointer;flex:none;';
   var btnDone = document.createElement('button');
-  btnDone.id = 'cam-burst-done';
-  btnDone.textContent = 'Done';
-  btnDone.style.cssText = 'min-width:96px;min-height:52px;background:#2E9E72;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;opacity:.45;';
-  bar.appendChild(btnCancel); bar.appendChild(shutter); bar.appendChild(btnDone);
+  btnDone.id = 'cam-burst-done'; btnDone.textContent = 'Done';
+  btnDone.style.cssText = 'min-width:120px;min-height:52px;background:none;border:0;color:#f4f3f6;font-size:17px;font-weight:700;font-family:Calibri,sans-serif;text-align:right;cursor:pointer;opacity:.45;';
+  bar.appendChild(btnRetake); bar.appendChild(shutter); bar.appendChild(btnDone);
   overlay.appendChild(bar);
 
-  // S332: Library/files option INSIDE the burst UI, so the single "Add Photos"
-  // button still reaches existing photos. Picked files merge into shots[] and
-  // flow out the identical Done path. (Ported from Diesel S333.)
+  // S332: Library — existing photos merge into shots[] and flow out the identical
+  // Done path (ported from Diesel S333).
   var libInput = document.createElement('input');
-  libInput.type = 'file'; libInput.accept = 'image/*'; libInput.multiple = true;
-  libInput.style.display = 'none';
+  libInput.type = 'file'; libInput.accept = 'image/*'; libInput.multiple = true; libInput.style.display = 'none';
   overlay.appendChild(libInput);
-  var btnLib = document.createElement('button');
-  btnLib.id = 'cam-burst-library';
-  btnLib.textContent = '\uD83D\uDDBC Library';
-  btnLib.style.cssText = 'position:absolute;top:14px;left:14px;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:8px 16px;font-size:14px;font-family:Calibri,sans-serif;cursor:pointer;z-index:2;';
-  vidWrap.appendChild(btnLib);
-  btnLib.addEventListener('click', function(){ libInput.value=''; libInput.click(); });
+  btnLib.addEventListener('click', function(){ libInput.value = ''; libInput.click(); });
   libInput.addEventListener('change', function(){
-    var fs = Array.prototype.slice.call(libInput.files||[]);
-    fs.forEach(function(file){
-      shots.push(file);
-      var u = URL.createObjectURL(file); urls.push(u);
-      var th = document.createElement('img'); th.src=u; th.style.cssText='height:56px;border-radius:8px;flex:none;';
-      strip.appendChild(th);
-    });
-    strip.scrollLeft = strip.scrollWidth;
-    _updateUI();
+    var fs = Array.prototype.slice.call(libInput.files || []);
+    fs.forEach(function(file){ shots.push(file); urls.push(URL.createObjectURL(file)); });
+    renderStrip(); _updateUI();
   });
+
+  // ---- review overlay: tap a thumb → full photo + prev/next + delete + back ----
+  var review = document.createElement('div');
+  review.style.cssText = 'position:absolute;inset:0;z-index:5;background:#000;display:none;flex-direction:column;';
+  var rTop = document.createElement('div');
+  rTop.style.cssText = 'flex:none;position:relative;display:flex;align-items:center;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 10px;';
+  var rBack = document.createElement('button');
+  rBack.innerHTML = '<span style="font-size:20px;line-height:1;margin-right:6px">&#8249;</span>Camera';
+  rBack.style.cssText = 'position:relative;z-index:2;display:flex;align-items:center;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.34);color:#fff;font-size:15px;font-weight:700;font-family:Calibri,sans-serif;padding:9px 16px;border-radius:99px;cursor:pointer;';
+  var rPos = document.createElement('div');
+  rPos.style.cssText = 'position:absolute;left:0;right:0;text-align:center;pointer-events:none;font-size:15px;color:#a09aa8;';
+  rTop.appendChild(rBack); rTop.appendChild(rPos); review.appendChild(rTop);
+  var rImgWrap = document.createElement('div');
+  rImgWrap.style.cssText = 'flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px;';
+  var rImg = document.createElement('img');
+  rImg.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;';
+  rImgWrap.appendChild(rImg); review.appendChild(rImgWrap);
+  var rBar = document.createElement('div');
+  rBar.style.cssText = 'flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 28px calc(20px + env(safe-area-inset-bottom,0px));';
+  var rPrev = document.createElement('button'); rPrev.innerHTML = '&#8249;';
+  rPrev.style.cssText = 'width:56px;min-height:52px;background:none;border:0;color:#fff;font-size:30px;cursor:pointer;';
+  var rDel = document.createElement('button'); rDel.innerHTML = '&#128465; Delete';
+  rDel.style.cssText = 'display:flex;align-items:center;gap:8px;background:rgba(226,96,118,.16);border:1px solid rgba(226,96,118,.5);color:#E26076;font-size:16px;font-weight:700;font-family:Calibri,sans-serif;padding:12px 22px;border-radius:12px;cursor:pointer;';
+  var rNext = document.createElement('button'); rNext.innerHTML = '&#8250;';
+  rNext.style.cssText = 'width:56px;min-height:52px;background:none;border:0;color:#fff;font-size:30px;cursor:pointer;';
+  rBar.appendChild(rPrev); rBar.appendChild(rDel); rBar.appendChild(rNext);
+  review.appendChild(rBar);
+  overlay.appendChild(review);
+  var reviewIdx = 0;
 
   document.body.appendChild(overlay);
   var prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
 
   var track = stream.getVideoTracks()[0];
-  var imgCap = (typeof window.ImageCapture === 'function' && track) ? new window.ImageCapture(track) : null;
   var busy = false;
 
   function _updateUI() {
-    counter.textContent = shots.length + (shots.length === 1 ? ' photo' : ' photos');
-    counter.style.display = shots.length ? 'block' : 'none';
+    var el = document.getElementById('cam-burst-count'); if (el) el.textContent = shots.length;
+    counter.style.opacity = shots.length ? '1' : '.6';
     btnDone.textContent = 'Done' + (shots.length ? ' (' + shots.length + ')' : '');
     btnDone.style.opacity = shots.length ? '1' : '.45';
+    btnRetake.style.opacity = shots.length ? '1' : '.4';
+    btnRetake.disabled = !shots.length;
+  }
+  function renderStrip() {
+    strip.innerHTML = '';
+    shots.forEach(function(f, i) {
+      var cell = document.createElement('div');
+      cell.style.cssText = 'position:relative;flex:none;cursor:pointer;';
+      var th = document.createElement('img'); th.src = urls[i];
+      th.style.cssText = 'height:56px;width:56px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.22);display:block;';
+      var num = document.createElement('span'); num.textContent = (i + 1);
+      num.style.cssText = 'position:absolute;bottom:2px;right:4px;font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8);';
+      cell.appendChild(th); cell.appendChild(num);
+      cell.addEventListener('click', function() { _openReview(i); });
+      strip.appendChild(cell);
+    });
+    strip.scrollLeft = strip.scrollWidth;
   }
   function _addShot(blob) {
     var f = new File([blob], 'camera_' + Date.now() + '_' + (shots.length + 1) + '.jpg', { type: blob.type || 'image/jpeg' });
-    shots.push(f);
-    var u = URL.createObjectURL(blob);
-    urls.push(u);
-    var th = document.createElement('img');
-    th.src = u;
-    th.style.cssText = 'height:56px;border-radius:8px;flex:none;';
-    strip.appendChild(th);
-    strip.scrollLeft = strip.scrollWidth;
+    shots.push(f); urls.push(URL.createObjectURL(blob));
+    renderStrip();
     flash.style.opacity = '.7';
     setTimeout(function() { flash.style.opacity = '0'; }, 90);
     _updateUI();
   }
+  function _deleteAt(i) {
+    if (i < 0 || i >= shots.length) return;
+    try { URL.revokeObjectURL(urls[i]); } catch (e) {}
+    shots.splice(i, 1); urls.splice(i, 1);
+    renderStrip(); _updateUI();
+  }
+  // review
+  function _openReview(i) { reviewIdx = i; _renderReview(); review.style.display = 'flex'; }
+  function _renderReview() {
+    if (!shots.length) { review.style.display = 'none'; return; }
+    if (reviewIdx > shots.length - 1) reviewIdx = shots.length - 1;
+    if (reviewIdx < 0) reviewIdx = 0;
+    rImg.src = urls[reviewIdx];
+    rPos.textContent = 'Photo ' + (reviewIdx + 1) + ' of ' + shots.length;
+    rPrev.disabled = reviewIdx === 0; rPrev.style.opacity = reviewIdx === 0 ? '.25' : '.9';
+    rNext.disabled = reviewIdx === shots.length - 1; rNext.style.opacity = reviewIdx === shots.length - 1 ? '.25' : '.9';
+  }
+  rBack.addEventListener('click', function() { review.style.display = 'none'; });
+  rPrev.addEventListener('click', function() { if (reviewIdx > 0) { reviewIdx--; _renderReview(); } });
+  rNext.addEventListener('click', function() { if (reviewIdx < shots.length - 1) { reviewIdx++; _renderReview(); } });
+  rDel.addEventListener('click', function() {
+    _deleteAt(reviewIdx);
+    if (!shots.length) { review.style.display = 'none'; return; }
+    _renderReview();
+  });
+  // retake last — quick delete of the most recent shot
+  btnRetake.addEventListener('click', function() { if (shots.length) _deleteAt(shots.length - 1); });
+
+  // S341: resolution-clamped canvas grab is the primary path. ImageCapture.takePhoto()
+  // ignores the getUserMedia size constraint and returns full-sensor images (12MP+)
+  // on Android, which crashed the WebView; it stays retired. Plain canvas only —
+  // never OffscreenCanvas (Safari/iOS). 1920px long-edge cap keeps memory bounded.
   function _grabFrame() {
     var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
-    // S341: clamp the grab to a 1920px long edge so a single shot can never
-    // allocate a huge canvas (a 12MP grab is ~50MB raw — a few of those crash
-    // the Android WebView). Scale proportionally; 1920px is ample for a report
-    // photo and is downscaled again by the downstream compressor anyway.
     var MAX = 1920;
     var scale = Math.min(1, MAX / Math.max(vw, vh));
     var cw = Math.round(vw * scale), ch = Math.round(vh * scale);
@@ -202,40 +264,17 @@ function _openUI(stream, done) {
       cv.width = 0; cv.height = 0; // release canvas backing store promptly
     }, 'image/jpeg', 0.9);
   }
-  shutter.addEventListener('click', function() {
-    if (busy) return;
-    busy = true;
-    // S341: use the resolution-CLAMPED canvas grab as the primary path.
-    // ImageCapture.takePhoto() ignores the getUserMedia size constraint and
-    // returns FULL-SENSOR images (12MP+) on Android, which is exactly what
-    // crashed the WebView. The canvas grab respects our 1920px cap. (iOS does
-    // not expose ImageCapture, so it already used this path.) takePhoto is
-    // retired here to keep memory bounded and the shutter responsive.
-    _grabFrame();
-  });
+  shutter.addEventListener('click', function() { if (busy) return; busy = true; _grabFrame(); });
 
-  // S342: rotation handling. On Android the video track briefly mutes and
-  // renegotiates orientation/resolution when the tablet rotates; the <video>
-  // keeps painting the LAST frame (looks frozen) until the new stream settles.
-  // We can't remove the platform pause, but we can make it read as intentional:
-  // show a brief "Adjusting…" hint on the known signals (orientationchange +
-  // track mute) and clear it when the track unmutes or after a short timeout,
-  // and nudge the video to resume painting.
+  // S342: rotation "Adjusting…" handling — the Android track briefly mutes/renegotiates
+  // on rotate and the <video> keeps painting the last frame; show a brief hint and nudge repaint.
   var _adjust = document.createElement('div');
   _adjust.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(11,10,13,.55);color:#f4f3f6;font-family:Calibri,sans-serif;font-size:15px;z-index:3;';
   _adjust.textContent = 'Adjusting…';
   vidWrap.appendChild(_adjust);
   var _adjustTimer = null;
-  function _showAdjusting() {
-    _adjust.style.display = 'flex';
-    if (_adjustTimer) clearTimeout(_adjustTimer);
-    _adjustTimer = setTimeout(_hideAdjusting, 1200); // safety: clear even if unmute never fires
-  }
-  function _hideAdjusting() {
-    _adjust.style.display = 'none';
-    if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; }
-    try { if (video.paused) video.play().catch(function(){}); } catch (e) {} // nudge repaint
-  }
+  function _showAdjusting() { _adjust.style.display = 'flex'; if (_adjustTimer) clearTimeout(_adjustTimer); _adjustTimer = setTimeout(_hideAdjusting, 1200); }
+  function _hideAdjusting() { _adjust.style.display = 'none'; if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; } try { if (video.paused) video.play().catch(function(){}); } catch (e) {} }
   function _onOrient() { _showAdjusting(); }
   try {
     window.addEventListener('orientationchange', _onOrient);
@@ -261,8 +300,11 @@ function _openUI(stream, done) {
     if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; }
     done(result);
   }
-  function _esc(e) { if (e.key === 'Escape') _close([]); } // Escape = cancel (never the null fallback path)
+  // Escape: close the review first if it's open, otherwise cancel the camera.
+  function _esc(e) { if (e.key === 'Escape') { if (review.style.display !== 'none') review.style.display = 'none'; else _close([]); } }
   document.addEventListener('keydown', _esc);
   btnCancel.addEventListener('click', function() { _close([]); });
   btnDone.addEventListener('click', function() { _close(shots.slice()); });
+
+  renderStrip(); _updateUI();
 }
