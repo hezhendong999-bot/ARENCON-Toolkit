@@ -64,6 +64,29 @@ function _disarmGravity() {
 // re-tapped). Show a lightweight "Starting camera…" overlay synchronously the
 // moment open() is called; replace it with the real UI when the stream lands,
 // or remove it on error. <16ms acknowledgment instead of a 1-3s dead button.
+// S427: immersive fullscreen — hides the browser URL bar + Android system UI so
+// the camera is seamless like iOS. Requested inside the open gesture; edge-swipe
+// reveals system UI. iOS Safari only allows fullscreen on <video>, so this is a
+// no-op there (harmless) — the Android TWA/browser is the target.
+function _enterFullscreen() {
+  try {
+    var el = document.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req && !document.fullscreenElement && !document.webkitFullscreenElement) {
+      var p = req.call(el);
+      if (p && p.catch) p.catch(function () {});
+    }
+  } catch (e) {}
+}
+function _exitFullscreen() {
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      var ex = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (ex) { var p = ex.call(document); if (p && p.catch) p.catch(function () {}); }
+    }
+  } catch (e) {}
+}
+
 function _showStartingOverlay() {
   var o = document.getElementById('cam-burst-starting');
   if (o) return o;
@@ -96,6 +119,7 @@ export function openCameraBurst() {
     if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { resolve(null); return; }
     _open = true;
     _armGravity(); // inside the user gesture (iOS sensor permission)
+    _enterFullscreen(); // S427 immersive — hide browser + system chrome (gesture-scoped)
     _showStartingOverlay(); // instant feedback before the hardware opens
     // S341: Android WebView crashes ("Aw, Snap") on the old 4096x3072 (12MP)
     // request — the live video texture + full-res canvas grabs exhaust the
@@ -307,6 +331,7 @@ function _openUI(stream, done) {
   var zoom = 1;
   var zMin = hasHwZoom ? caps.zoom.min : 1;
   var zMax = hasHwZoom ? caps.zoom.max : 5;
+  var _zoomRaf = 0, _zoomPending = false;
   function _applyZoom() {
     zoom = Math.max(1, Math.min(5, zoom));
     Array.prototype.forEach.call(zoomPills.children, function (p) {
@@ -315,11 +340,19 @@ function _openUI(stream, done) {
       p.style.color = on ? '#FFCC00' : '#c9c6cf';
     });
     if (hasHwZoom && track) {
-      var hz = zMin + (zoom - 1) * (zMax - zMin) / 4;
-      hz = Math.min(zMax, Math.max(zMin, hz));
-      try { track.applyConstraints({ advanced: [{ zoom: hz }] }); video.style.transform = 'none'; return; } catch (e) {}
+      video.style.transform = 'none';
+      if (!_zoomPending) {               // S427: coalesce hardware zoom to 1/frame — pinch was flooding applyConstraints (lag)
+        _zoomPending = true;
+        _zoomRaf = requestAnimationFrame(function () {
+          _zoomPending = false;
+          var hz = zMin + (zoom - 1) * (zMax - zMin) / 4;
+          hz = Math.min(zMax, Math.max(zMin, hz));
+          try { track.applyConstraints({ advanced: [{ zoom: hz }] }); } catch (e) {}
+        });
+      }
+    } else {
+      video.style.transform = 'scale(' + zoom + ')';
     }
-    video.style.transform = 'scale(' + zoom + ')';
   }
   Array.prototype.forEach.call(zoomPills.children, function (p) {
     p.addEventListener('click', function () { zoom = +p.dataset.z; _applyZoom(); });
@@ -509,6 +542,8 @@ function _openUI(stream, done) {
     } catch (e) {}
     if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; }
     _disarmGravity();
+    _exitFullscreen();
+    if (_zoomRaf) { try { cancelAnimationFrame(_zoomRaf); } catch (e) {} }
     done(result);
   }
   // Escape: close the review first if it's open, otherwise cancel the camera.
