@@ -171,6 +171,10 @@ function _openUI(stream, done) {
   var flashSlash = document.createElement('span');
   flashSlash.style.cssText = 'position:absolute;left:50%;top:50%;width:26px;height:2px;background:#fff;transform:translate(-50%,-50%) rotate(45deg);border-radius:2px;box-shadow:0 0 0 1.5px rgba(0,0,0,.55);display:block;';
   btnFlash.appendChild(flashSlash);
+  var torchIcon = document.createElement('span'); // S433: TORCH-state glyph
+  torchIcon.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 2h10v3l-3 4v13h-4V9L7 5z"/><path d="M12 12v3"/></svg>';
+  torchIcon.style.cssText = 'display:none;line-height:0;pointer-events:none;';
+  btnFlash.appendChild(torchIcon);
   var btnNight = _ib('<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>', 'night');
   var btnGrid = _ib('<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>', 'grid');
   var btnFloat = _ib('<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>', 'floating shutter');
@@ -302,9 +306,9 @@ function _openUI(stream, done) {
     try { L.push('track: ' + ((track && track.label) || '?')); } catch (e) {}
     try { var c = track.getCapabilities ? track.getCapabilities() : {}; L.push('caps.torch: ' + String(c.torch)); L.push('caps: ' + Object.keys(c).join(',').slice(0, 140)); } catch (e) { L.push('caps err: ' + e.message); }
     try {
-      var p = track.applyConstraints({ advanced: [{ torch: flashMode === 'on' }] });
+      var p = track.applyConstraints({ advanced: [{ torch: flashMode !== 'off' }] });
       if (p && p.then) {
-        p.then(function () { L.push('apply torch=' + (flashMode === 'on') + ': OK'); _diagShow(L); },
+        p.then(function () { L.push('apply torch=' + (flashMode !== 'off') + ': OK'); _diagShow(L); },
                function (err) { L.push('apply REJECTED: ' + (err && (err.name + ' ' + err.message))); _diagShow(L); });
       } else L.push('apply: no promise');
     } catch (e) { L.push('apply THREW: ' + e.message); }
@@ -331,15 +335,24 @@ function _openUI(stream, done) {
     hasHwZoom = !!(caps && caps.zoom && typeof caps.zoom.max === 'number');
   }
   setTimeout(_recap, 800);
+  // S433: three flash states — 'off' (slashed bolt), 'flash' (amber bolt,
+  // torch fires only ~320ms around the grab), 'torch' (amber flashlight,
+  // continuous work light).
+  function _setTorch(on, cb) {
+    if (!track) { if (cb) cb(); return; }
+    try {
+      var p = track.applyConstraints({ advanced: [{ torch: !!on }] });
+      if (p && p.then) { p.then(function () { if (cb) cb(); }, function () { if (cb) cb(); }); return; }
+    } catch (e) {}
+    if (cb) cb();
+  }
   function _applyFlash() {
-    btnFlash.style.color = flashMode === 'on' ? '#FFCC00' : '#fff';
-    flashSlash.style.display = flashMode === 'off' ? 'block' : 'none';
-    if (track) {
-      try {
-        var p = track.applyConstraints({ advanced: [{ torch: flashMode === 'on' }] });
-        if (p && p.catch) p.catch(function () {});
-      } catch (e) {}
-    }
+    var bolt = btnFlash.querySelector('svg'); // first svg = bolt
+    if (bolt) bolt.style.display = (flashMode === 'torch') ? 'none' : 'block';
+    torchIcon.style.display = (flashMode === 'torch') ? 'block' : 'none';
+    btnFlash.style.color = (flashMode === 'off') ? '#fff' : '#FFCC00';
+    flashSlash.style.display = (flashMode === 'off') ? 'block' : 'none';
+    _setTorch(flashMode === 'torch');
   }
   function _acquireTorchTrack(cb) {
     if (_torchBusy) return; _torchBusy = true;
@@ -390,11 +403,12 @@ function _openUI(stream, done) {
   }
   btnFlash.addEventListener('click', function () {
     _recap();
-    flashMode = flashMode === 'off' ? 'on' : 'off';
+    flashMode = flashMode === 'off' ? 'flash' : (flashMode === 'flash' ? 'torch' : 'off');
     _applyFlash();
-    if (flashMode === 'on' && !hasTorch && !_torchHopeless) {
+    if ((flashMode === 'flash' || flashMode === 'torch') && !hasTorch && !_torchHopeless) {
+      var want = flashMode; // _attachStream resets to 'off'; restore the chosen state
       _acquireTorchTrack(function (ok, trace) {
-        if (ok) { flashMode = 'on'; _applyFlash(); }
+        if (ok) { flashMode = want; _applyFlash(); }
         else { _diagFlash(); if (trace && trace.length) { setTimeout(function () { _diagShow(['HUNT TRACE S432'].concat(trace)); }, 4500); } }
       });
     }
@@ -422,7 +436,7 @@ function _openUI(stream, done) {
     zoomPills.forEach(function (b) { var on = Math.abs(zoom - (+b.dataset.z)) < 0.06; b.style.background = on ? 'rgba(0,0,0,.62)' : 'rgba(0,0,0,.42)'; b.style.color = on ? '#FFCC00' : '#c9c6cf'; });
     if (hasHwZoom && track) {
       video.style.transform = 'none' + _mirror();
-      if (!_zoomPending) { _zoomPending = true; _zoomRaf = requestAnimationFrame(function () { _zoomPending = false; var hz = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoom)); try { var zp = track.applyConstraints({ advanced: [{ zoom: hz }] }); var reassert = function () { if (flashMode === 'on') { try { var tp = track.applyConstraints({ advanced: [{ torch: true }] }); if (tp && tp.catch) tp.catch(function () {}); } catch (e) {} } }; if (zp && zp.then) zp.then(reassert, reassert); else reassert(); } catch (e) {} }); }
+      if (!_zoomPending) { _zoomPending = true; _zoomRaf = requestAnimationFrame(function () { _zoomPending = false; var hz = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoom)); try { var zp = track.applyConstraints({ advanced: [{ zoom: hz }] }); var reassert = function () { if (flashMode === 'torch') { try { var tp = track.applyConstraints({ advanced: [{ torch: true }] }); if (tp && tp.catch) tp.catch(function () {}); } catch (e) {} } }; if (zp && zp.then) zp.then(reassert, reassert); else reassert(); } catch (e) {} }); }
     } else { video.style.transform = 'scale(' + Math.max(1, zoom) + ')' + _mirror(); }
   }
   zoomPills.forEach(function (b) { b.addEventListener('click', function () { zoom = +b.dataset.z; applyZoom(); }); });
@@ -560,7 +574,22 @@ function _openUI(stream, done) {
       cv.width = 0; cv.height = 0;
     }, 'image/jpeg', 0.9);
   }
-  function shutterAction() { if (busy) return; busy = true; if (flashMode !== 'off') { flash.style.opacity = '.85'; setTimeout(function () { flash.style.opacity = '0'; }, 60); } _grabFrame(); }
+  function shutterAction() {
+    if (busy) return; busy = true;
+    if (flashMode === 'flash' && (hasTorch || _torchDevId)) {
+      // S433 flash-at-capture: torch on -> ~320ms exposure settle -> grab -> torch off.
+      _setTorch(true, function () {
+        setTimeout(function () {
+          flash.style.opacity = '.85'; setTimeout(function () { flash.style.opacity = '0'; }, 60);
+          _grabFrame();
+          _setTorch(false);
+        }, 320);
+      });
+    } else {
+      if (flashMode !== 'off') { flash.style.opacity = '.85'; setTimeout(function () { flash.style.opacity = '0'; }, 60); }
+      _grabFrame();
+    }
+  }
   shutter.addEventListener('click', shutterAction);
 
   // floating shutter: drag anywhere; hold → remove; re-enable from top ●
