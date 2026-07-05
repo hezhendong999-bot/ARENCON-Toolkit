@@ -292,6 +292,30 @@ function _openUI(stream, done) {
   var hasHwZoom = !!(caps && caps.zoom && typeof caps.zoom.max === 'number');
   var facing = 'environment';
 
+  // ── S430 DIAG (temporary — strip after torch fix): measure, don't guess ──
+  var _diag = document.createElement('div');
+  _diag.style.cssText = 'position:absolute;left:8px;top:8px;right:8px;z-index:30;background:rgba(0,0,0,.87);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 10px;font-size:11px;line-height:1.5;color:#9ff0c4;white-space:pre-wrap;display:none;pointer-events:none;font-family:monospace,monospace;';
+  vidWrap.appendChild(_diag);
+  function _diagShow(lines) { _diag.textContent = lines.join('\n'); _diag.style.display = 'block'; clearTimeout(_diag._h); _diag._h = setTimeout(function () { _diag.style.display = 'none'; }, 14000); }
+  function _diagFlash() {
+    var L = ['TORCH DIAG (mode=' + flashMode + ')'];
+    try { L.push('track: ' + ((track && track.label) || '?')); } catch (e) {}
+    try { var c = track.getCapabilities ? track.getCapabilities() : {}; L.push('caps.torch: ' + String(c.torch)); L.push('caps: ' + Object.keys(c).join(',').slice(0, 140)); } catch (e) { L.push('caps err: ' + e.message); }
+    try {
+      var p = track.applyConstraints({ advanced: [{ torch: flashMode === 'on' }] });
+      if (p && p.then) {
+        p.then(function () { L.push('apply torch=' + (flashMode === 'on') + ': OK'); _diagShow(L); },
+               function (err) { L.push('apply REJECTED: ' + (err && (err.name + ' ' + err.message))); _diagShow(L); });
+      } else L.push('apply: no promise');
+    } catch (e) { L.push('apply THREW: ' + e.message); }
+    try {
+      if (window.ImageCapture) { new ImageCapture(track).getPhotoCapabilities().then(function (pc) { L.push('fillLightMode: ' + JSON.stringify(pc.fillLightMode)); _diagShow(L); }, function (err) { L.push('photoCaps err: ' + (err && err.name)); _diagShow(L); }); }
+      else L.push('ImageCapture: none');
+    } catch (e) { L.push('IC threw: ' + e.message); }
+    try { navigator.mediaDevices.enumerateDevices().then(function (ds) { var cams = ds.filter(function (d) { return d.kind === 'videoinput'; }).map(function (d) { return d.label || d.deviceId.slice(0, 6); }); L.push('cams: ' + cams.join(' | ').slice(0, 220)); _diagShow(L); }); } catch (e) {}
+    _diagShow(L);
+  }
+
   // flash — OFF/ON honest torch (S429). Web can't auto-meter, so no AUTO.
   // Torch is attempted regardless of reported caps: getCapabilities() is often
   // empty until the track settles, so caps alone under-reports support.
@@ -312,7 +336,7 @@ function _openUI(stream, done) {
       } catch (e) {}
     }
   }
-  btnFlash.addEventListener('click', function () { _recap(); flashMode = flashMode === 'off' ? 'on' : 'off'; _applyFlash(); });
+  btnFlash.addEventListener('click', function () { _recap(); flashMode = flashMode === 'off' ? 'on' : 'off'; _applyFlash(); _diagFlash(); });
   _applyFlash();
 
   // night — brightness boost (browser can't do true computational night)
@@ -336,7 +360,7 @@ function _openUI(stream, done) {
     zoomPills.forEach(function (b) { var on = Math.abs(zoom - (+b.dataset.z)) < 0.06; b.style.background = on ? 'rgba(0,0,0,.62)' : 'rgba(0,0,0,.42)'; b.style.color = on ? '#FFCC00' : '#c9c6cf'; });
     if (hasHwZoom && track) {
       video.style.transform = 'none' + _mirror();
-      if (!_zoomPending) { _zoomPending = true; _zoomRaf = requestAnimationFrame(function () { _zoomPending = false; var hz = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoom)); try { track.applyConstraints({ advanced: [{ zoom: hz }] }); } catch (e) {} }); }
+      if (!_zoomPending) { _zoomPending = true; _zoomRaf = requestAnimationFrame(function () { _zoomPending = false; var hz = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoom)); try { var zp = track.applyConstraints({ advanced: [{ zoom: hz }] }); var reassert = function () { if (flashMode === 'on') { try { var tp = track.applyConstraints({ advanced: [{ torch: true }] }); if (tp && tp.catch) tp.catch(function () {}); } catch (e) {} } }; if (zp && zp.then) zp.then(reassert, reassert); else reassert(); } catch (e) {} }); }
     } else { video.style.transform = 'scale(' + Math.max(1, zoom) + ')' + _mirror(); }
   }
   zoomPills.forEach(function (b) { b.addEventListener('click', function () { zoom = +b.dataset.z; applyZoom(); }); });
