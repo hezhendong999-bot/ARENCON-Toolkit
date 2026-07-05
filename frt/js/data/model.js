@@ -2243,6 +2243,7 @@ export var Model = {
     var photo = pool.find(function(p) { return p && p.id === photoId; });
     if (!photo) return false;
     if (!photo.deleted) return false;
+    if (photo.purged) return false;
     delete photo.deleted;
     delete photo.deletedDate;
     _dirty = true;
@@ -3078,6 +3079,20 @@ export var Model = {
   // deleted/deletedDate, keeps R2 + array slot) so site photos join Recently
   // Deleted alongside defic photos. The index does NOT shift, so any cached
   // siteIdx stays valid. Idempotent: re-deleting a deleted photo is a no-op.
+  // S43x sticky-tombstone: permanently-deleted photos must NOT be spliced out of
+  // the pool — removing the record erased the deletion signal, so other devices
+  // still holding the photo re-added it on the next sync (photo-resurrection).
+  // Keep a lightweight tombstone that syncs everywhere; merge + display already
+  // skip deleted:true. Heavy image payloads are dropped to reclaim space; small
+  // metadata (id, r2Key) is kept so a later coordinated R2 sweep can reclaim.
+  _makePurgedTombstone: function(photo) {
+    if (!photo) return;
+    photo.deleted = true;
+    if (!photo.deletedDate) photo.deletedDate = new Date().toISOString();
+    photo.purged = true;
+    ['thumb','_thumbComposite','_thumbCompositeKey','_cleanThumbSrc','_origBlob','_markupStrokes','_mkFrame','_annotated','dataUrl'].forEach(function(k){ try { delete photo[k]; } catch (e) {} });
+  },
+
   removeSitePhoto: function(photoIdx) {
     if (!_project || !_project.photos) return null;
     if (photoIdx < 0 || photoIdx >= _project.photos.length) return null;
@@ -3098,6 +3113,7 @@ export var Model = {
     if (photoIdx < 0 || photoIdx >= _project.photos.length) return false;
     var photo = _project.photos[photoIdx];
     if (!photo || !photo.deleted) return false;
+    if (photo.purged) return false;
     delete photo.deleted;
     delete photo.deletedDate;
     _dirty = true;
@@ -3116,7 +3132,7 @@ export var Model = {
     if (photoIdx < 0 || photoIdx >= _project.photos.length) return false;
     var photo = _project.photos[photoIdx];
     if (!photo || !photo.deleted) return false;
-    _project.photos.splice(photoIdx, 1);
+    this._makePurgedTombstone(photo);
     _dirty = true;
     _queueSave();
     this._notify('photo', { action: 'purge-site' });
@@ -3133,7 +3149,7 @@ export var Model = {
     var i = pool.findIndex(function(p) { return p && p.id === photoId; });
     if (i < 0) return false;
     if (!pool[i].deleted) return false;
-    pool.splice(i, 1);
+    this._makePurgedTombstone(pool[i]);
     _dirty = true;
     _queueSave();
     this._notify('photo', { action: 'purge-pool', deficId: deficId, photoId: photoId });
@@ -3145,17 +3161,18 @@ export var Model = {
   // Called once on project load. Returns the count purged. Leaves R2 in place.
   purgeExpiredPhotos: function(retentionDays) {
     if (!_project) return 0;
+    var self = this;
     var cutoff = Date.now() - (retentionDays || 30) * 86400000;
     var purged = 0;
     var isExpired = function(p) {
-      if (!p || !p.deleted) return false;
+      if (!p || !p.deleted || p.purged) return false;
       var t = p.deletedDate ? new Date(p.deletedDate).getTime() : 0;
       return t > 0 && t < cutoff;
     };
     // site photos
     if (Array.isArray(_project.photos)) {
       for (var i = _project.photos.length - 1; i >= 0; i--) {
-        if (isExpired(_project.photos[i])) { _project.photos.splice(i, 1); purged++; }
+        if (isExpired(_project.photos[i])) { self._makePurgedTombstone(_project.photos[i]); purged++; }
       }
     }
     // defic pool photos
@@ -3164,7 +3181,7 @@ export var Model = {
       var pool = d.defic.photos;
       if (!Array.isArray(pool)) return;
       for (var j = pool.length - 1; j >= 0; j--) {
-        if (isExpired(pool[j])) { pool.splice(j, 1); purged++; }
+        if (isExpired(pool[j])) { self._makePurgedTombstone(pool[j]); purged++; }
       }
     });
     if (purged > 0) { _dirty = true; _queueSave(); this._notify('photo', { action: 'purge-expired', count: purged }); }
@@ -3535,6 +3552,12 @@ export var Model = {
 
   // S115: Remove a gallery photo by id (used to remove the backup record on revert).
   // Marks dirty + queues save. Returns true if removed.
+  // WARNING (S43x invariant): this HARD-removes (splice) a photo record. It is
+  // ONLY for internal 'original backup' churn (transient _isOrigBackup copies),
+  // NEVER for deleting a user photo. Permanently deleting a synced/user photo
+  // MUST go through _makePurgedTombstone (leaves a sticky deletion marker) —
+  // splicing a synced photo erases the deletion signal and causes the photo-
+  // resurrection bug (another device re-adds it). Do not repurpose for user deletes.
   removeSitePhotoById: function(id) {
     if (!_project || !_project.photos || !id) return false;
     for (var i = 0; i < _project.photos.length; i++) {

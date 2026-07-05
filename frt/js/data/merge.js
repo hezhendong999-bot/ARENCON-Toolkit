@@ -346,6 +346,22 @@ function _merge3Object(base, mine, theirs, pathStr) {
  * existed in base, then mine's new items appended, then theirs' new
  * items appended (in their respective orders).
  */
+// S43x deletion-wins (photo-resurrection fix): a soft/purged delete on either
+// side of a merge is authoritative — a stale ACTIVE copy on the other device
+// must never revive it, even when the 3-way base is missing/blank (safeBase={}
+// after a lost snapshot, which is exactly when resurrection happened). Scoped
+// to id-keyed items that carry a `deleted` flag (photos).
+function _isDeletedItem(x) { return !!(x && x.deleted === true); }
+function _tombstoneWins(mineItem, theirsItem) {
+  var md = _isDeletedItem(mineItem), td = _isDeletedItem(theirsItem);
+  if (md && td) {
+    if (theirsItem.purged && !mineItem.purged) return _clone(theirsItem);
+    if (mineItem.purged && !theirsItem.purged) return _clone(mineItem);
+    return _clone(theirsItem.deletedDate ? theirsItem : mineItem);
+  }
+  return _clone(md ? mineItem : theirsItem);
+}
+
 function _merge3IdArray(base, mine, theirs, pathStr) {
   var baseIdx = _indexById(base);
   var mineIdx = _indexById(mine);
@@ -406,6 +422,11 @@ function _merge3IdArray(base, mine, theirs, pathStr) {
         return;
       }
 
+      // S43x deletion-wins: honor a delete flag on either side before merging.
+      if (_isDeletedItem(mineItem) || _isDeletedItem(theirsItem)) {
+        result.push(_tombstoneWins(mineItem, theirsItem));
+        return;
+      }
       // Both present — recurse into the item itself.
       var sub = _merge3Value(baseItem, mineItem, theirsItem, pathStr + '[' + bid + ']');
       result.push(sub.value);
@@ -421,6 +442,12 @@ function _merge3IdArray(base, mine, theirs, pathStr) {
     if (theirsIdx.byId.hasOwnProperty(mid)) {
       // Both added an item with the same id. Recurse.
       seenIds[mid] = true;
+      // S43x deletion-wins: a base-less merge (safeBase={}) must still honor a
+      // delete flag here — this is the exact resurrection path.
+      if (_isDeletedItem(mineIdx.byId[mid]) || _isDeletedItem(theirsIdx.byId[mid])) {
+        result.push(_tombstoneWins(mineIdx.byId[mid], theirsIdx.byId[mid]));
+        return;
+      }
       var sub = _merge3Value(undefined, mineIdx.byId[mid], theirsIdx.byId[mid], pathStr + '[' + mid + ']');
       result.push(sub.value);
       Array.prototype.push.apply(conflicts, sub.conflicts);
@@ -755,6 +782,26 @@ if (typeof window !== 'undefined') {
       assert('deep nested conflict detected', r12.conflicts.length === 1);
       assert('deep nested conflict path correct',
         r12.conflicts[0].path === 'contractors[ctr1].deficiencies[d1].text');
+
+      // Test 13: S43x deletion-wins — resurrection blocked with a LOST base
+      // (phone has photo active, cloud has a sticky purge-tombstone, base={}).
+      var r13 = merge3(
+        {},
+        { photos: [ { id: 'p1' }, { id: 'p2' } ] },
+        { photos: [ { id: 'p1' }, { id: 'p2', deleted: true, purged: true, deletedDate: '2026-01-01T00:00:00Z' } ] }
+      );
+      var p13 = r13.merged.photos.find(function(p){ return p.id === 'p2'; });
+      assert('S43x: purged photo not resurrected on lost base', p13 && p13.deleted === true);
+      assert('S43x: no false conflict on deletion-wins', r13.conflicts.length === 0);
+
+      // Test 14: deletion wins over a stale local edit (edited locally, deleted upstream).
+      var r14 = merge3(
+        { photos: [ { id: 'x', cap: 'a' } ] },
+        { photos: [ { id: 'x', cap: 'edited' } ] },
+        { photos: [ { id: 'x', deleted: true, purged: true } ] }
+      );
+      var p14 = r14.merged.photos.find(function(p){ return p.id === 'x'; });
+      assert('S43x: delete beats a stale local edit', p14 && p14.deleted === true);
 
       console.log('--- ' + pass + ' passed, ' + fail + ' failed ---');
       return { pass: pass, fail: fail };

@@ -86,7 +86,7 @@ function _gatherDeletedRecords() {
   var out = [];
   // site photos (stage 2)
   (proj.photos || []).forEach(function(ph, i) {
-    if (ph && ph.deleted) {
+    if (ph && ph.deleted && !ph.purged) {
       out.push({
         kind: 'site',
         siteIdx: i,
@@ -103,7 +103,7 @@ function _gatherDeletedRecords() {
   allDefics.forEach(function(d) {
     var defic = d.defic;
     (defic.photos || []).forEach(function(ph) {
-      if (ph && ph.deleted) {
+      if (ph && ph.deleted && !ph.purged) {
         out.push({
           kind: 'defic',
           deficId: defic.id,
