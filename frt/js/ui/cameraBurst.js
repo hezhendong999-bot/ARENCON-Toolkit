@@ -266,6 +266,45 @@ function _openUI(stream, done) {
   var rImg = document.createElement('img');
   rImg.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;';
   rImgWrap.appendChild(rImg); review.appendChild(rImgWrap);
+  // S436: pinch-zoom / pan / double-tap on the review photo
+  var _rvS = 1, _rvX = 0, _rvY = 0;
+  function _rvApply() { rImg.style.transform = (_rvS === 1 && !_rvX && !_rvY) ? 'none' : ('translate(' + _rvX + 'px,' + _rvY + 'px) scale(' + _rvS + ')'); }
+  function _rvClampPan() {
+    var r = rImgWrap.getBoundingClientRect();
+    var mx = r.width * (_rvS - 1) / 2, my = r.height * (_rvS - 1) / 2;
+    if (_rvX > mx) _rvX = mx; if (_rvX < -mx) _rvX = -mx;
+    if (_rvY > my) _rvY = my; if (_rvY < -my) _rvY = -my;
+  }
+  function _rvReset() { _rvS = 1; _rvX = 0; _rvY = 0; _rvApply(); }
+  (function () {
+    var d0 = 0, s0 = 1, panning = false, px = 0, py = 0, lastTap = 0;
+    function dist(t) { var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx * dx + dy * dy); }
+    rImgWrap.style.touchAction = 'none';
+    rImgWrap.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 2) { d0 = dist(e.touches); s0 = _rvS; panning = false; }
+      else if (e.touches.length === 1) {
+        var t = e.touches[0], now = Date.now();
+        if (now - lastTap < 300) { if (_rvS > 1.05) { _rvReset(); } else { _rvS = 2.5; _rvClampPan(); _rvApply(); } lastTap = 0; }
+        else { lastTap = now; }
+        panning = _rvS > 1; px = t.clientX; py = t.clientY;
+      }
+    }, { passive: true });
+    rImgWrap.addEventListener('touchmove', function (e) {
+      if (e.touches.length === 2 && d0) {
+        _rvS = Math.max(1, Math.min(5, s0 * (dist(e.touches) / d0)));
+        _rvClampPan(); _rvApply();
+      } else if (e.touches.length === 1 && panning) {
+        var t = e.touches[0];
+        _rvX += t.clientX - px; _rvY += t.clientY - py; px = t.clientX; py = t.clientY;
+        _rvClampPan(); _rvApply();
+      }
+    }, { passive: true });
+    rImgWrap.addEventListener('touchend', function (e) {
+      if (e.touches.length < 2) d0 = 0;
+      if (_rvS <= 1.02) _rvReset();
+      panning = _rvS > 1 && e.touches.length === 1;
+    }, { passive: true });
+  })();
   var rBar = document.createElement('div');
   rBar.style.cssText = 'flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 28px calc(20px + env(safe-area-inset-bottom,0px));';
   var rPrev = document.createElement('button'); rPrev.innerHTML = '&#8249;';
@@ -296,29 +335,6 @@ function _openUI(stream, done) {
   var hasHwZoom = !!(caps && caps.zoom && typeof caps.zoom.max === 'number');
   var facing = 'environment';
 
-  // ── S430 DIAG (temporary — strip after torch fix): measure, don't guess ──
-  var _diag = document.createElement('div');
-  _diag.style.cssText = 'position:absolute;left:8px;top:8px;right:8px;z-index:30;background:rgba(0,0,0,.87);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 10px;font-size:11px;line-height:1.5;color:#9ff0c4;white-space:pre-wrap;display:none;pointer-events:none;font-family:monospace,monospace;';
-  vidWrap.appendChild(_diag);
-  function _diagShow(lines) { _diag.textContent = lines.join('\n'); _diag.style.display = 'block'; clearTimeout(_diag._h); _diag._h = setTimeout(function () { _diag.style.display = 'none'; }, 14000); }
-  function _diagFlash() {
-    var L = ['TORCH DIAG S432 (mode=' + flashMode + ')'];
-    try { L.push('track: ' + ((track && track.label) || '?')); } catch (e) {}
-    try { var c = track.getCapabilities ? track.getCapabilities() : {}; L.push('caps.torch: ' + String(c.torch)); L.push('caps: ' + Object.keys(c).join(',').slice(0, 140)); } catch (e) { L.push('caps err: ' + e.message); }
-    try {
-      var p = track.applyConstraints({ advanced: [{ torch: flashMode !== 'off' }] });
-      if (p && p.then) {
-        p.then(function () { L.push('apply torch=' + (flashMode !== 'off') + ': OK'); _diagShow(L); },
-               function (err) { L.push('apply REJECTED: ' + (err && (err.name + ' ' + err.message))); _diagShow(L); });
-      } else L.push('apply: no promise');
-    } catch (e) { L.push('apply THREW: ' + e.message); }
-    try {
-      if (window.ImageCapture) { new ImageCapture(track).getPhotoCapabilities().then(function (pc) { L.push('fillLightMode: ' + JSON.stringify(pc.fillLightMode)); _diagShow(L); }, function (err) { L.push('photoCaps err: ' + (err && err.name)); _diagShow(L); }); }
-      else L.push('ImageCapture: none');
-    } catch (e) { L.push('IC threw: ' + e.message); }
-    try { navigator.mediaDevices.enumerateDevices().then(function (ds) { var cams = ds.filter(function (d) { return d.kind === 'videoinput'; }).map(function (d) { return d.label || d.deviceId.slice(0, 6); }); L.push('cams: ' + cams.join(' | ').slice(0, 220)); _diagShow(L); }); } catch (e) {}
-    _diagShow(L);
-  }
 
   // flash — OFF/ON honest torch (S429). Web can't auto-meter, so no AUTO.
   // Torch is attempted regardless of reported caps: getCapabilities() is often
@@ -409,7 +425,7 @@ function _openUI(stream, done) {
       var want = flashMode; // _attachStream resets to 'off'; restore the chosen state
       _acquireTorchTrack(function (ok, trace) {
         if (ok) { flashMode = want; _applyFlash(); }
-        else { _diagFlash(); if (trace && trace.length) { setTimeout(function () { _diagShow(['HUNT TRACE S432'].concat(trace)); }, 4500); } }
+        // hunt failed: no torch-capable lens exposed — flash states stay honest no-ops
       });
     }
   });
@@ -441,6 +457,7 @@ function _openUI(stream, done) {
   }
   zoomPills.forEach(function (b) { b.addEventListener('click', function () { zoom = +b.dataset.z; applyZoom(); }); });
   applyZoom();
+  setTimeout(function () { _resGuard(); }, 0); // opener stream guarded too (hoisted fn)
 
   // flip front/back — S429 rebuild. Android holds the camera exclusively, so the
   // old stream must be STOPPED before requesting the other lens (the silent-fail
@@ -452,9 +469,14 @@ function _openUI(stream, done) {
     try { if (track && track.addEventListener) { track.addEventListener('mute', _showAdjusting); track.addEventListener('unmute', _hideAdjusting); } } catch (e) {}
     video.style.transform = _mirror(); flashMode = 'off'; _applyFlash(); zoom = 1; applyZoom();
     setTimeout(_recap, 800);
-    // S435: some devices ignore the gUM resolution request on deviceId-bound
-    // lenses — verify the RUNNING track and force 1920x1440 onto it if low.
-    setTimeout(function () {
+    _resGuard(); // S436: permanent — no stream is ever allowed to run low-res
+    _flipping = false;
+  }
+  // S436 (permanent, from S434/S435 measurement): some devices ignore the gUM
+  // resolution request on deviceId-bound lenses. Verify the RUNNING track at two
+  // intervals and force 1920x1440 onto it whenever it reports low. Never 640x480.
+  function _resGuard() {
+    function check() {
       var w = 0; try { w = (track.getSettings && track.getSettings().width) || video.videoWidth || 0; } catch (e) { w = video.videoWidth || 0; }
       if (w && w < 1200 && track) {
         try {
@@ -462,15 +484,9 @@ function _openUI(stream, done) {
           if (p && p.catch) p.catch(function () {});
         } catch (e) {}
       }
-      setTimeout(_resReadout, 700);
-    }, 700);
-    _flipping = false;
-  }
-  // S435 (temporary): on-screen stream-resolution readout — strip after verify
-  function _resReadout() {
-    var st = {}; try { st = track.getSettings ? track.getSettings() : {}; } catch (e) {}
-    _diagShow(['S435 · stream ' + (st.width || '?') + 'x' + (st.height || '?') + ' · video ' + video.videoWidth + 'x' + video.videoHeight, 'lens: ' + ((track && track.label) || '?')]);
-    clearTimeout(_diag._h); _diag._h = setTimeout(function () { _diag.style.display = 'none'; }, 5000);
+    }
+    setTimeout(check, 700);
+    setTimeout(check, 1800);
   }
   function flip() {
     if (_flipping) return; _flipping = true;
@@ -542,6 +558,7 @@ function _openUI(stream, done) {
     if (reviewIdx > shots.length - 1) reviewIdx = shots.length - 1;
     if (reviewIdx < 0) reviewIdx = 0;
     rImg.src = urls[reviewIdx];
+    _rvReset(); // S436: fresh photo starts unzoomed
     rPos.textContent = 'Photo ' + (reviewIdx + 1) + ' of ' + shots.length;
     rPrev.disabled = reviewIdx === 0; rPrev.style.opacity = reviewIdx === 0 ? '.25' : '.9';
     rNext.disabled = reviewIdx === shots.length - 1; rNext.style.opacity = reviewIdx === shots.length - 1 ? '.25' : '.9';
