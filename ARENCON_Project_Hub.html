@@ -3643,10 +3643,11 @@ function _pgExtractPhotos(row) {
   var instNum = row.instance_number || 1;
   var label = row.label || (toolLabel + ' #' + instNum);
 
-  function _makeRec(src, type, caption, date) {
+  function _makeRec(src, type, caption, date, badge) {
     if (!src) return null;
     return { src: src, type: type, caption: caption || '', tool: label, toolKey: toolKey,
-             date: date || row.updated_at || '', id: 'pg_' + Math.random().toString(36).substr(2,9),
+             date: date || row.updated_at || '', badge: badge || '',
+             id: 'pg_' + Math.random().toString(36).substr(2,9),
              instanceNum: instNum };
   }
 
@@ -3665,9 +3666,15 @@ function _pgExtractPhotos(row) {
       ? data.sitePhotos
       : (data.photos || []);
     _frtSite.forEach(function(ph) {
-      if (!ph) return;
+      // Viewer fidelity (S428): honor FRT's soft-delete — photos in Recently
+      // Deleted must not resurface here. Use the model's own date fields
+      // (addedDate/timestamp) so grouping matches FRT instead of defaulting
+      // to the row's updated_at, and carry the model's own badge text.
+      if (!ph || ph.deleted) return;
       var src = _pgResolveR2Src(ph, projectId);
-      if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site', ph.date || ph.uploadDate || ''));
+      if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site',
+        ph.date || ph.uploadDate || ph.addedDate || ph.timestamp || '',
+        ph.badgeText || ph._ctxLabel || 'Site'));
     });
     // ── S120: V1 corner-badge model ──
     // Each photo appears ONCE PER (obs that uses it). If a pool photo X
@@ -3699,7 +3706,9 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel,
+                  ph.date || ph.addedDate || ph.timestamp || d.date || '',
+                  ph.badgeText || (pinLabel + obsLabel)));
                 emittedAtLeastOne = true;
               });
             });
@@ -3985,7 +3994,7 @@ function _pgRender() {
       photos.forEach(function(ph) {
         var sel = _pgSelected.has(ph.id);
         var badgeColor = ph.type === 'site' ? '#1A7A4A' : ph.type === 'response' ? '#2C4A6B' : '#9C2742';
-        var badgeLabel = ph.type === 'site' ? 'Site' : (ph.caption || ('Pin ' + (ph.deficNum || '?')));
+        var badgeLabel = ph.badge || (ph.type === 'site' ? 'Site' : (ph.caption || ('Pin ' + (ph.deficNum || '?'))));
         var isR2 = ph.src && ph.src.indexOf(R2_WORKER) === 0;
         var r2Icon = isR2 ? '<span class="pg-r2-icon" title="Stored in cloud">☁️</span>' : '';
 
