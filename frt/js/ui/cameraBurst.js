@@ -132,7 +132,7 @@ export function openCameraBurst() {
     // sharp deficiency photo after downstream compression and slashes memory
     // ~6x. iOS keeps behaving; this just stops the Android crash.
     navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, // 4:3 to match native/report framing (was 16:9 1080)
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 3072 } }, // 4:3 to match native/report framing (was 16:9 1080)
       audio: false
     }).then(function(stream) {
       _removeStartingOverlay();
@@ -399,13 +399,13 @@ function _openUI(stream, done) {
       function tryNext() {
         if (i >= backs.length) {
           _torchHopeless = true; _torchBusy = false;
-          navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, facingMode: facing }, audio: false })
+          navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 4096 }, height: { ideal: 3072 }, facingMode: facing }, audio: false })
             .then(function (s) { _attachStream(s, facing); cb(false, trace); })
             .catch(function () { cb(false, trace); });
           return;
         }
         var dev = backs[i++], id = dev.deviceId, lbl = (dev.label || id.slice(0, 6));
-        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, deviceId: { exact: id } }, audio: false })
+        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 4096 }, height: { ideal: 3072 }, deviceId: { exact: id } }, audio: false })
           .then(function (s) {
             var t = s.getVideoTracks()[0];
             // S432: wait for the track to settle — caps are empty when read
@@ -492,9 +492,9 @@ function _openUI(stream, done) {
   function _resGuard() {
     function check() {
       var w = 0; try { w = (track.getSettings && track.getSettings().width) || video.videoWidth || 0; } catch (e) { w = video.videoWidth || 0; }
-      if (w && w < 1200 && track) {
+      if (w && w < 2000 && track) {
         try {
-          var p = track.applyConstraints({ width: { ideal: 1920 }, height: { ideal: 1440 } });
+          var p = track.applyConstraints({ width: { ideal: 4096 }, height: { ideal: 3072 } });
           if (p && p.catch) p.catch(function () {});
         } catch (e) {}
       }
@@ -508,15 +508,15 @@ function _openUI(stream, done) {
     try { if (track && track.removeEventListener) { track.removeEventListener('mute', _showAdjusting); track.removeEventListener('unmute', _hideAdjusting); } } catch (e) {}
     try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
     var _req = (next === 'environment' && _torchDevId)
-      ? navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, deviceId: { exact: _torchDevId } }, audio: false })
-      : navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, facingMode: { exact: next } }, audio: false });
+      ? navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 4096 }, height: { ideal: 3072 }, deviceId: { exact: _torchDevId } }, audio: false })
+      : navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 4096 }, height: { ideal: 3072 }, facingMode: { exact: next } }, audio: false });
     _req
       .then(function (s) { _attachStream(s, next); })
       .catch(function () {
-        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, facingMode: next }, audio: false })
+        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 4096 }, height: { ideal: 3072 }, facingMode: next }, audio: false })
           .then(function (s) { _attachStream(s, next); })
           .catch(function () { // recover the original lens so the camera never dies
-            navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, facingMode: facing }, audio: false })
+            navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 4096 }, height: { ideal: 3072 }, facingMode: facing }, audio: false })
               .then(function (s) { _attachStream(s, facing); })
               .catch(function () { _flipping = false; });
           });
@@ -584,7 +584,7 @@ function _openUI(stream, done) {
   rDel.addEventListener('click', function () { _deleteAt(reviewIdx); if (!shots.length) { review.style.display = 'none'; return; } _renderReview(); });
 
   // S341/S424: capture path — VERBATIM. Plain canvas only, gravity orientation fix, 1920px clamp.
-  function _grabFrame() {
+  function _grabFrameCore(maxPx) {
     var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
     var scrA = _camAngle(); if (scrA === null) scrA = 0;
     var corr = 0;
@@ -608,7 +608,7 @@ function _openUI(stream, done) {
     var srcW = upW, srcH = upH, sx = 0, sy = 0;
     if (upW / upH > TARGET) { srcW = Math.round(upH * TARGET); sx = Math.round((upW - srcW) / 2); }
     else if (upW / upH < TARGET) { srcH = Math.round(upW / TARGET); sy = Math.round((upH - srcH) / 2); }
-    var MAX = 1920;
+    var MAX = maxPx; // S438: capture at max stream res (R2 keeps originals); adaptive wrapper below steps down on failure — never crash
     var scale = Math.min(1, MAX / Math.max(srcW, srcH));
     var cw = Math.round(srcW * scale), ch = Math.round(srcH * scale);
     var cv = document.createElement('canvas');
@@ -618,10 +618,21 @@ function _openUI(stream, done) {
     ctx.drawImage(mid, sx, sy, srcW, srcH, 0, 0, cw, ch);
     mid.width = 0; mid.height = 0;
     cv.toBlob(function (b) {
-      if (b) _addShot(b);
-      busy = false;
       cv.width = 0; cv.height = 0;
-    }, 'image/jpeg', 0.9);
+      if (b) { _addShot(b); busy = false; }
+      else if (MAX > 1920) { _grabFrame(MAX >= 4096 ? 2560 : 1920); } // encode failed at this size: step down, never crash
+      else { busy = false; }
+    }, 'image/jpeg', 0.95);
+  }
+  // S438: adaptive capture — try max, degrade 4096→2560→1920 on any allocation
+  // or encode failure. Worst case is a softer photo, never a crash.
+  function _grabFrame(maxPx) {
+    var m = maxPx || 4096;
+    try { _grabFrameCore(m); }
+    catch (e) {
+      if (m > 1920) { _grabFrame(m >= 4096 ? 2560 : 1920); }
+      else { busy = false; }
+    }
   }
   function shutterAction() {
     if (busy) return; busy = true;
