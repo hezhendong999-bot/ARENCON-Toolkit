@@ -731,7 +731,7 @@ function _openUI(stream, done) {
     } catch (e) {}
     if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; }
     _disarmGravity();
-    _exitFullscreen();
+    // S439: page-level sticky fullscreen owns immersion now — do not exit on camera close
     if (_zoomRaf) { try { cancelAnimationFrame(_zoomRaf); } catch (e) {} }
     done(result);
   }

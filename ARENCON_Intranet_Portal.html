@@ -232,4 +232,7 @@ function doImportJSON(files){if(!files.length)return;var r=new FileReader();r.on
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeSidebar();closeBio();closeViewer();}if(e.key==='/'&&!e.ctrlKey&&document.activeElement.tagName!=='INPUT'){e.preventDefault();document.getElementById('global-search').focus();}});
 document.addEventListener('DOMContentLoaded',function(){var d=document.getElementById('new-date');if(d)d.value=new Date().toISOString().slice(0,10);setTimeout(function(){var e=document.getElementById('login-email');if(e)e.focus();},500);});
 window.addEventListener('resize',function(){if(CP==='orgchart')renderOrgLines();});
-</script></body></html>
+</script><script>/* S439: sticky immersive fullscreen — any tap re-enters whenever browser chrome is showing */
+(function(){function g(){if(document.fullscreenElement||document.webkitFullscreenElement)return;var e=document.documentElement,r=e.requestFullscreen||e.webkitRequestFullscreen;if(r){try{var p=r.call(e);if(p&&p.catch)p.catch(function(){});}catch(x){}}}document.addEventListener('pointerdown',g,{capture:true,passive:true});})();
+</script>
+</body></html>

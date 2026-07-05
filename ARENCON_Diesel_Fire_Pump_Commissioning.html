@@ -19700,5 +19700,8 @@ body.dark-mode #dark-toggle, body.dark-mode #btn-qr, body.dark-mode .text-size-t
 body{background:var(--smoke);color:var(--slate);}
 
 </style>
+<script>/* S439: sticky immersive fullscreen — any tap re-enters whenever browser chrome is showing */
+(function(){function g(){if(document.fullscreenElement||document.webkitFullscreenElement)return;var e=document.documentElement,r=e.requestFullscreen||e.webkitRequestFullscreen;if(r){try{var p=r.call(e);if(p&&p.catch)p.catch(function(){});}catch(x){}}}document.addEventListener('pointerdown',g,{capture:true,passive:true});})();
+</script>
 </body>
 </html>
