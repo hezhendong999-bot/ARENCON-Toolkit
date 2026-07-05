@@ -728,9 +728,21 @@ export var initPhotos = {
           var _pid = (r.ph && r.ph.id) ? r.ph.id : '';
           var _hasMk = (r.ph && r.ph._markupStrokes && r.ph._markupStrokes.length) ? '1' : '';
           var _thumbAttrs = (_pid ? (' data-thumb-pid="' + esc(_pid) + '"') : '') + (_hasMk ? ' data-thumb-mk="1"' : '');
-          html += '<img ' + clickAction + _thumbAttrs + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="this.style.display=\'none\'">';
+          // S430 Fix-1: relinked photos may have only r2Url (no local bytes). If the
+          // primary src fails to load, fall back to r2Url ONCE (self-healing, guarded
+          // by data-fb), then to a clickable placeholder — never a dead black tile.
+          // The clickAction stays on the <img>, so even a placeholder image opens the
+          // lightbox by index (which fetches r2Url on its own).
+          var _r2fb = (r.ph && r.ph.r2Url) ? r.ph.r2Url : '';
+          var _fbAttr = (_r2fb && _r2fb !== r.src)
+            ? (' data-r2fb="' + esc(_r2fb) + '"')
+            : '';
+          var _onerr = "if(this.dataset.fb!=='1'&&this.dataset.r2fb&&this.src!==this.dataset.r2fb){this.dataset.fb='1';this.src=this.dataset.r2fb;}else{this.classList.add('ph-img-broken');}";
+          html += '<img ' + clickAction + _thumbAttrs + _fbAttr + ' src="' + esc(r.src) + '"' + _rotStyle + ' loading="lazy" onerror="' + esc(_onerr) + '">';
         } else {
-          html += '<div class="ph-noimg">\uD83D\uDCF7</div>';
+          // S430 Fix-1: source-less tile stays clickable — the lightbox fetches r2Url
+          // by index on open, so a relinked photo with no thumb still viewable.
+          html += '<div class="ph-noimg" ' + clickAction + '>\uD83D\uDCF7</div>';
         }
         html += _cloudIcon(r.ph);
         // S226: copy chip on the origin photo.

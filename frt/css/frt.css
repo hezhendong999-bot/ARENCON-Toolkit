@@ -1906,6 +1906,13 @@ body.lb-open{overflow:hidden;}
 .lb-canvas:active{cursor:grabbing;}
 .lb-img-wrap{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;}
 .lb-img-wrap img{display:block;max-width:none;max-height:none;user-select:none;-webkit-user-select:none;pointer-events:none;}
+/* S430 Fix-2a: source-less / all-sources-failed photo placeholder. Absolutely
+   centred in the canvas, below the nav buttons so prev/next stay usable. */
+#lb-noimg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;padding:24px;}
+#lb-noimg .lb-noimg-inner{display:flex;flex-direction:column;align-items:center;text-align:center;color:#9aa0ac;font-family:Calibri,sans-serif;max-width:340px;}
+#lb-noimg .lb-noimg-inner svg{color:#6b6674;margin-bottom:14px;}
+#lb-noimg .lb-noimg-t{font-size:16px;font-weight:600;color:#c8ccd4;margin-bottom:6px;}
+#lb-noimg .lb-noimg-s{font-size:13px;line-height:1.45;color:#8a8f9a;}
 .lb-nav-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:3;background:rgba(0,0,0,.5);border:none;color:white;font-size:calc(20px + var(--ts));padding:12px 14px;cursor:pointer;border-radius:8px;transition:background .15s;}
 .lb-nav-btn:hover{background:rgba(0,0,0,.8);}
 .lb-nav-prev{left:12px;}
@@ -2158,7 +2165,12 @@ body.dark-mode .ph-filter-menu button:hover{background:#3a3e48;}
 .ph-card{position:relative;width:120px;height:100px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#000;user-select:none;cursor:default;contain:layout style paint;}
 .ph-card.selected{outline:3px solid var(--arencon);outline-offset:-1px;}
 .ph-card img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;}
-.ph-card .ph-noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;background:#1c1c20;}
+.ph-card .ph-noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;background:#1c1c20;cursor:zoom-in;}
+/* S430 Fix-1: a photo whose thumbnail/r2Url both fail to paint stays a visible,
+   clickable placeholder (never a dead black tile). The <img> keeps its click
+   action so tapping still opens the lightbox, which fetches r2Url on its own. */
+.ph-card img.ph-img-broken{object-fit:contain;background:#1c1c20 url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='1.6'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Ccircle cx='8.5' cy='9.5' r='1.6'/%3E%3Cpath d='M4 18l5-5 4 4 3-3 4 4'/%3E%3C/svg%3E") center/32px no-repeat;}
+.ph-card img.ph-img-broken{color:transparent;}
 /* Selection checkbox — hover-only when unselected, always shown when selected.
    Touch devices (no hover) fall back to always-shown for usability. */
 .ph-check{position:absolute;top:6px;left:6px;width:18px;height:18px;cursor:pointer;z-index:3;accent-color:var(--arencon);background:white;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.4);display:none;}

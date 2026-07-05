@@ -506,6 +506,17 @@ body.dark-mode .pg-tool-body{background:#151920;}
 .pg-thumb.selected{border-color:#9C2742;}
 .pg-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .pg-thumb-badge{position:absolute;top:4px;right:4px;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;color:white;pointer-events:none;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* S430 Fix-3: FRT badge-parity — multi-reference photos render ONE card with a
+   stacked column of category-coloured badges (mirrors FRT .ph-badges canon).
+   Colours are FRT's semantic set: high=red, low=amber, closed=green,
+   site=#6E6AA8, rec=#5E5440 (S317). Calibri, muted, never bright. */
+.pg-thumb-badges{position:absolute;top:4px;right:4px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:85%;pointer-events:none;z-index:2;}
+.pg-thumb-badges .pg-badge{font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;color:#fff;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 3px rgba(0,0,0,.4);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;}
+.pg-badge.pgb-high{background:#C0445F;}
+.pg-badge.pgb-low{background:#D98A1E;}
+.pg-badge.pgb-closed{background:#2E9E72;}
+.pg-badge.pgb-site{background:#6E6AA8;}
+.pg-badge.pgb-rec{background:#5E5440;}
 .pg-thumb.pg-missing{background:#eceaee;}
 .pg-thumb .pg-missing-tile{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;text-align:center;background:repeating-linear-gradient(45deg,#eceaee,#eceaee 8px,#e4e1e6 8px,#e4e1e6 16px);color:#928E9C;font-family:Calibri,sans-serif;pointer-events:none;}
 .pg-thumb .pg-missing-tile .pg-missing-ico{font-size:20px;line-height:1;opacity:.7;}
@@ -3672,9 +3683,19 @@ function _pgExtractPhotos(row) {
       // to the row's updated_at, and carry the model's own badge text.
       if (!ph || ph.deleted) return;
       var src = _pgResolveR2Src(ph, projectId);
-      if (src) photos.push(_makeRec(src, 'site', ph.caption || 'Site',
-        ph.date || ph.uploadDate || ph.addedDate || ph.timestamp || '',
-        ph.badgeText || ph._ctxLabel || 'Site'));
+      if (src) {
+        var rec = _makeRec(src, 'site', ph.caption || 'Site',
+          ph.date || ph.uploadDate || ph.addedDate || ph.timestamp || '',
+          ph.badgeText || ph._ctxLabel || 'Site');
+        // S430 Fix-3 (FRT badge parity): stamp the photo's binary identity and a
+        // structured badge so the post-extraction collapse can group multi-
+        // reference photos into ONE card with stacked category-coloured badges.
+        // Key is PARTITIONED by kind (S429, Mark's rule): a photo that is both a
+        // site photo and a pin photo stays TWO cards — 'S|' vs 'D|' never merge.
+        rec._phKey = 'S|' + (ph.id || ph.r2Key || src);
+        rec.badges = [{ text: rec.badge || 'Site', cls: 'pgb-site' }];
+        photos.push(rec);
+      }
     });
     // ── S120: V1 corner-badge model ──
     // Each photo appears ONCE PER (obs that uses it). If a pool photo X
@@ -3688,6 +3709,25 @@ function _pgExtractPhotos(row) {
         var observations = d.observations || [];
         var numObs = observations.length;
         var emittedAtLeastOne = false;
+        // S430 Fix-3 (FRT parity): SITE RECORD pin = NO CONTRACTOR (d.contractorId
+        // == null — the generalDeficiencies pool), never by priority (S317 canon).
+        var _isSiteRecordPin = (d.contractorId == null);
+        // Per-obs badge category, FRT S317 precedence:
+        //   closed > recommendation > site-record-pin > low > high.
+        // Returns {cls, cat, prefix} for the given observation.
+        function _obsBadgeMeta(o) {
+          var closed = !!(o && o.addressed);
+          var isRec = !!(o && o.isRecommendation);
+          var pri = (o && o.priority) || d.priority || 'high';
+          var low = (pri === 'low' || pri === 'general');
+          var cls;
+          if (closed)                cls = 'pgb-closed';
+          else if (isRec)            cls = 'pgb-rec';
+          else if (_isSiteRecordPin) cls = 'pgb-site';
+          else if (low)              cls = 'pgb-low';
+          else                       cls = 'pgb-high';
+          return { cls: cls, prefix: _isSiteRecordPin ? 'Site ' : 'Obs ' };
+        }
         // V2 path with observations array
         if (numObs > 0) {
           var pool = (d.photos || []).filter(function(p) { return p && !p.deleted; });
@@ -3706,9 +3746,18 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel,
+                var rec = _makeRec(src, 'deficiency', pinLabel + obsLabel,
                   ph.date || ph.addedDate || ph.timestamp || d.date || '',
-                  ph.badgeText || (pinLabel + obsLabel)));
+                  ph.badgeText || (pinLabel + obsLabel));
+                // S430 Fix-3 (FRT badge parity): badge text matches FRT exactly —
+                // prefix + pin number + obs letter, letter ALWAYS shown (S324),
+                // "Obs 3A" / "Site 17A" (S339/S346). Colour class from the S317
+                // per-obs precedence above. Identity partitioned 'D|' (S429).
+                var _m = _obsBadgeMeta(o);
+                var _letter = String.fromCharCode(65 + oi);
+                rec._phKey = 'D|' + (ph.id || ph.r2Key || src);
+                rec.badges = [{ text: _m.prefix + (d.num || '?') + _letter, cls: _m.cls }];
+                photos.push(rec);
                 emittedAtLeastOne = true;
               });
             });
@@ -3719,7 +3768,13 @@ function _pgExtractPhotos(row) {
                 var src = _pgResolveR2Src(ph, projectId);
                 if (!src) return;
                 var obsLabel = numObs > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + oi) : '';
-                photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+                var rec = _makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '');
+                // S430 Fix-3: legacy never-migrated obs photos get the same FRT
+                // badge format + category colour and collapse identity.
+                var _m = _obsBadgeMeta(o);
+                rec._phKey = 'D|' + ((ph && ph.id) || (ph && ph.r2Key) || src);
+                rec.badges = [{ text: _m.prefix + (d.num || '?') + String.fromCharCode(65 + oi), cls: _m.cls }];
+                photos.push(rec);
                 emittedAtLeastOne = true;
               });
             });
@@ -3738,7 +3793,15 @@ function _pgExtractPhotos(row) {
               if (seenIds[pid]) return;
               seenIds[pid] = true;
               var obsLabel = numEn > 1 ? ' \u00B7 Obs ' + String.fromCharCode(65 + ei) : '';
-              photos.push(_makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || ''));
+              var rec = _makeRec(src, 'deficiency', pinLabel + obsLabel, d.date || '');
+              // S430 Fix-3: ancient v1 entries — no per-obs closed/rec flags exist,
+              // so the badge colours from pin priority only (high/low), site-record
+              // pins purple per _isSiteRecordPin. Identity partitioned 'D|'.
+              var _v1low = (d.priority === 'low' || d.priority === 'general');
+              rec._phKey = 'D|' + pid;
+              rec.badges = [{ text: (_isSiteRecordPin ? 'Site ' : 'Obs ') + (d.num || '?') + String.fromCharCode(65 + ei),
+                              cls: _isSiteRecordPin ? 'pgb-site' : (_v1low ? 'pgb-low' : 'pgb-high') }];
+              photos.push(rec);
               emittedAtLeastOne = true;
             });
           });
@@ -3748,7 +3811,12 @@ function _pgExtractPhotos(row) {
               if (ph && ph.deleted) return; // skip soft-deleted
               var src = _pgResolveR2Src(ph, projectId);
               if (!src) return;
-              photos.push(_makeRec(src, 'deficiency', pinLabel, d.date || ''));
+              var rec = _makeRec(src, 'deficiency', pinLabel, d.date || '');
+              var _plLow = (d.priority === 'low' || d.priority === 'general');
+              rec._phKey = 'D|' + ((ph && ph.id) || (ph && ph.r2Key) || src);
+              rec.badges = [{ text: (_isSiteRecordPin ? 'Site ' : 'Obs ') + (d.num || '?') + 'A',
+                              cls: _isSiteRecordPin ? 'pgb-site' : (_plLow ? 'pgb-low' : 'pgb-high') }];
+              photos.push(rec);
             });
           }
         }
@@ -3765,6 +3833,35 @@ function _pgExtractPhotos(row) {
     }
     (data.contractors || []).forEach(function(c) { _extractDefics(c.deficiencies); });
     _extractDefics(data.generalDeficiencies);
+
+    // ── S430 Fix-3: FRT badge-parity collapse (port of FRT S205/S269/S429) ──
+    // A pool photo referenced by multiple obs/pins emitted one record per
+    // reference above. Collapse those into ONE card per photo, accumulating a
+    // stacked badge per real reference (deduped by text+class), exactly like
+    // FRT's gallery. The key is partitioned by kind (S429, Mark's binding
+    // decision): 'S|' site copies and 'D|' pin copies NEVER merge — a photo
+    // living as both shows as two cards, matching FRT by construction.
+    // KNOWN LIMIT (accepted): FRT's identity falls back to image BYTES when a
+    // cross-pin copy carries its own r2Key (S269). Cloud rows have no local
+    // bytes, so Hub groups by ph.id/r2Key/src only — a byte-identical copy
+    // uploaded under another pin's key stays a separate card here. Responses
+    // and other tools are untouched (no _phKey → pass through unchanged).
+    (function _collapseByIdentity() {
+      var byKey = {}, out = [];
+      photos.forEach(function(r) {
+        if (!r) return;
+        if (!r._phKey) { out.push(r); return; }        // non-FRT / response recs
+        var rep = byKey[r._phKey];
+        if (!rep) { byKey[r._phKey] = r; out.push(r); return; }
+        (r.badges || []).forEach(function(b) {
+          var dup = (rep.badges || []).some(function(x) { return x.text === b.text && x.cls === b.cls; });
+          if (!dup) (rep.badges = rep.badges || []).push(b);
+        });
+        // keep the earliest real date so date-grouping stays stable
+        if (r.date && (!rep.date || r.date < rep.date)) rep.date = r.date;
+      });
+      photos = out;
+    })();
   }
 
   // ── Diesel / Electric pump tools ──
@@ -4002,7 +4099,19 @@ function _pgRender() {
               + 'onclick="pgThumbClick(\'' + ph.id + '\',event)" ondblclick="pgLbOpen(\'' + ph.id + '\')">';
         html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\',event)">';
         html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" style="background:#ddd;">';
-        html += '<div class="pg-thumb-badge" style="background:' + badgeColor + ';">' + _pgEscHtml(badgeLabel) + '</div>';
+        // S430 Fix-3 (FRT badge parity): a multi-reference photo renders ONE card
+        // with a stacked column of category-coloured badges (mirrors FRT's
+        // .ph-badges). Recs without a badges[] array (responses, other tools)
+        // keep the original single-badge rendering unchanged.
+        if (ph.badges && ph.badges.length) {
+          html += '<div class="pg-thumb-badges">';
+          ph.badges.forEach(function(b) {
+            html += '<span class="pg-badge ' + _pgEsc(b.cls || 'pgb-high') + '">' + _pgEscHtml(b.text || '') + '</span>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div class="pg-thumb-badge" style="background:' + badgeColor + ';">' + _pgEscHtml(badgeLabel) + '</div>';
+        }
         html += '<button class="pg-thumb-del" onclick="event.stopPropagation();pgDeleteOne(\'' + ph.id + '\')" title="Delete">🗑</button>';
         html += '<button class="pg-thumb-dl" onclick="event.stopPropagation();pgDownloadOne(\'' + ph.id + '\')" title="Download">⬇</button>';
         html += r2Icon;

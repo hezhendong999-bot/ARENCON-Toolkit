@@ -103,6 +103,58 @@ var _swiping = false;
 
 function _el(id) { return document.getElementById(id); }
 
+// S430 Fix-2b: display-layer host rewrite. Local model layers still hold r2Urls
+// pointing at the retired worker host (arencon-r2-worker.hezhendong999.workers.dev);
+// the live host is files.arencon.app (S391 in Hub). This ONLY rewrites the string
+// used to paint — it never mutates the stored model. Applied to every src the
+// lightbox tries. Idempotent and safe on dataUrl/blob/relative strings.
+function _r2Host(u) {
+  if (!u || typeof u !== 'string') return u;
+  if (u.indexOf('arencon-r2-worker.hezhendong999.workers.dev') === -1) return u;
+  return u.replace('arencon-r2-worker.hezhendong999.workers.dev', 'files.arencon.app');
+}
+
+// S430 Fix-2a: toggle a "photo unavailable" placeholder inside the viewer frame.
+// When on, the <img> is hidden and a placeholder card shown, and any leftover
+// zoom/pan/markup from the previous (loaded) photo is cleared so the frame reads
+// as empty rather than a frozen prior image. When off (a photo loaded), the
+// placeholder is removed and normal display resumes. Prev/next keep working
+// because they call _showPhoto, which resets this on the next loadable photo.
+function _setNoImg(on) {
+  var img = _el('lb-image');
+  var wrap = _el('lb-img-wrap') || (img && img.parentNode);
+  if (!wrap) return;
+  var ph = _el('lb-noimg');
+  if (on) {
+    if (img) { img.style.visibility = 'hidden'; }
+    // clear stale transform/markup so nothing from the previous photo lingers
+    _scale = 1; _fitScale = 1; _panX = 0; _panY = 0;
+    try { var ov = _el('lb-static-markup'); if (ov) ov.style.display = 'none'; } catch(_){}
+    if (!ph) {
+      ph = document.createElement('div');
+      ph.id = 'lb-noimg';
+      ph.setAttribute('aria-hidden', 'false');
+      ph.innerHTML =
+        '<div class="lb-noimg-inner">' +
+          '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' +
+            '<rect x="3" y="4" width="18" height="16" rx="2"></rect>' +
+            '<circle cx="8.5" cy="9.5" r="1.8"></circle>' +
+            '<path d="M4 18l5-5 4 4 3-3 4 4"></path>' +
+          '</svg>' +
+          '<div class="lb-noimg-t">Photo unavailable on this device</div>' +
+          '<div class="lb-noimg-s">The image will reappear once the capturing device syncs it.</div>' +
+        '</div>';
+      // place it in the outer canvas so it isn't affected by wrap transforms
+      var outer = _el('lb-canvas') || wrap.parentNode || wrap;
+      outer.appendChild(ph);
+    }
+    ph.style.display = 'flex';
+  } else {
+    if (img) { img.style.visibility = ''; }
+    if (ph) ph.style.display = 'none';
+  }
+}
+
 function _currentRotation() {
   // S351 REWRITE — rotation is a PERSISTED property of the photo record, not a
   // throwaway view state. Never-bake model: the photo binary stays clean and
@@ -1043,7 +1095,7 @@ function _showPhoto(idx) {
   var counter = _el('lb-counter');
   if (!img) return;
 
-  var src = p.r2Url || p.dataUrl || p.thumb || '';
+  var src = _r2Host(p.r2Url || p.dataUrl || p.thumb || '');
   // S341 (Option A): graceful fallback if the displayed image fails to load.
   // The primary src is normally p.r2Url. For a small number of historical
   // photos the r2Url points at an orphaned/never-uploaded R2 object that 404s
@@ -1057,16 +1109,18 @@ function _showPhoto(idx) {
   var _fallbacks = [];
   (function(){
     var seen = {};
-    [p.r2Url, p.dataUrl, p.thumb].forEach(function(s){
+    [p.r2Url, p.dataUrl, p.thumb].forEach(function(s0){
+      var s = _r2Host(s0);
       if (s && !seen[s]) { seen[s] = 1; _fallbacks.push(s); }
     });
     try {
-      var orig = _resolveOriginalSrc(p);
+      var orig = _r2Host(_resolveOriginalSrc(p));
       if (orig && !seen[orig]) { seen[orig] = 1; _fallbacks.push(orig); }
     } catch(_){}
   })();
   var _fbIdx = 0;
   img.onload = function() {
+    _setNoImg(false);
     _calcFitScale();
     _scale = _fitScale;
     _panX = 0; _panY = 0;
@@ -1079,7 +1133,11 @@ function _showPhoto(idx) {
       try { console.warn('[Lightbox] image load failed, trying fallback', _fbIdx, '/', _fallbacks.length - 1); } catch(_){}
       img.src = _fallbacks[_fbIdx];
     } else {
+      // S430 Fix-2a: every source failed. Show a placeholder frame INSTEAD of a
+      // stuck/blank image so prev/next stepping keeps working (nav calls _showPhoto,
+      // which resets the placeholder on a photo that does load).
       try { console.warn('[Lightbox] all image sources failed for photo', p && p.id); } catch(_){}
+      _setNoImg(true);
     }
   };
   // S114 P1.4: set crossOrigin BEFORE src so the R2 image loads via CORS and the
@@ -1088,7 +1146,17 @@ function _showPhoto(idx) {
   // the GitHub Pages origin; verified via curl.
   // Setting crossOrigin on dataUrl/blob URLs is a harmless no-op.
   img.crossOrigin = 'anonymous';
-  img.src = src;
+  // S430 Fix-2a: a truly source-less photo (no r2Url/dataUrl/thumb — e.g. a
+  // fileless record awaiting iPad re-upload) has an empty src. Assigning ''
+  // does NOT fire onerror and would leave the PREVIOUS photo's frame painted,
+  // freezing the viewer during prev/next stepping. Detect it and show the
+  // placeholder directly; caption/counter/nav below still run normally.
+  if (!src) {
+    img.removeAttribute('src');
+    _setNoImg(true);
+  } else {
+    img.src = src;
+  }
 
   if (info) info.textContent = _buildCaption(p);
   if (counter) counter.textContent = (_photos.length > 1) ? (idx + 1) + ' / ' + _photos.length : '';
