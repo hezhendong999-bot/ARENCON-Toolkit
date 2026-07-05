@@ -369,13 +369,13 @@ function _openUI(stream, done) {
       function tryNext() {
         if (i >= backs.length) {
           _torchHopeless = true; _torchBusy = false;
-          navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
+          navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, facingMode: facing }, audio: false })
             .then(function (s) { _attachStream(s, facing); cb(false, trace); })
             .catch(function () { cb(false, trace); });
           return;
         }
         var dev = backs[i++], id = dev.deviceId, lbl = (dev.label || id.slice(0, 6));
-        navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: id } }, audio: false })
+        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, deviceId: { exact: id } }, audio: false })
           .then(function (s) {
             var t = s.getVideoTracks()[0];
             // S432: wait for the track to settle — caps are empty when read
@@ -460,15 +460,15 @@ function _openUI(stream, done) {
     try { if (track && track.removeEventListener) { track.removeEventListener('mute', _showAdjusting); track.removeEventListener('unmute', _hideAdjusting); } } catch (e) {}
     try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
     var _req = (next === 'environment' && _torchDevId)
-      ? navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: _torchDevId } }, audio: false })
-      : navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: next } }, audio: false });
+      ? navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, deviceId: { exact: _torchDevId } }, audio: false })
+      : navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, facingMode: { exact: next } }, audio: false });
     _req
       .then(function (s) { _attachStream(s, next); })
       .catch(function () {
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: next }, audio: false })
+        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, facingMode: next }, audio: false })
           .then(function (s) { _attachStream(s, next); })
           .catch(function () { // recover the original lens so the camera never dies
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
+            navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1440 }, facingMode: facing }, audio: false })
               .then(function (s) { _attachStream(s, facing); })
               .catch(function () { _flipping = false; });
           });
