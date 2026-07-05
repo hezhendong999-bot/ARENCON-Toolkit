@@ -437,7 +437,14 @@ export var initPhotos = {
       // the gallery now shares that single source of truth so it can't drift
       // back (the reason this regressed before: the gallery had its OWN key).
       var idk = (Model && Model._photoIdentityKey) ? Model._photoIdentityKey(ph) : null;
-      return idk || ph.r2Key || ph.sourceR2Key || ph.id || r.uid;
+      // S429 (Mark's design decision): a photo that exists as BOTH a site
+      // photo and a pin photo shows as TWO entries — the site copy and the
+      // pin copy — instead of collapsing to one. The key is partitioned by
+      // record origin, so cross-kind merging never happens. Within-kind
+      // behavior is unchanged: a pool photo referenced by multiple pins/obs
+      // still collapses to one card with a pill per reference (S205/S269 —
+      // the badge-spam fix stays).
+      return ((r.type === 'site') ? 'S|' : 'D|') + (idk || ph.r2Key || ph.sourceR2Key || ph.id || r.uid);
     }
     var _phById = {};
     var _phRepOrder = [];
