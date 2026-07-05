@@ -1027,6 +1027,26 @@ function _startCloudPull(){
   if (!_hubMode || !_projectId) return;
   _cloudPullTimer = setInterval(_checkRemoteForChanges, _cloudPullInterval);
   console.log('[FRT v2] Cloud pull started (poll every ' + _cloudPullInterval / 1000 + 's)');
+  // S440: instant catch-up when the app returns to foreground. The interval
+  // no-ops while hidden (S155), so switching PC→phone could wait a full tick;
+  // this closes that gap the moment the tab becomes visible.
+  if (!window._frtVisPullWired) {
+    window._frtVisPullWired = true;
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && _hubMode && _projectId) {
+        _checkRemoteForChanges();
+      }
+    });
+  }
+}
+
+// S440: repaint after a background pull. Model.setProject() refreshes the
+// data, but the painted screen kept showing the pre-pull state (the
+// cross-device “deleted photos still active” bug) — silent pulls updated
+// the model and the status pill only. Re-invoke the current tab, the same
+// idiom the boot-path render gate uses.
+function _repaintAfterPull(){
+  try { switchTab(_currentTab); } catch (e) { console.warn('[FRT v2] repaint after pull failed:', e && e.message); }
 }
 
 // ─── S96 Fix #3: Tile auto-prefetch (L0-L2 only, current project only) ──
@@ -1110,6 +1130,7 @@ function _checkRemoteForChanges(){
         if (data) {
           _lastPulledUpdatedAt = remoteTs;
           _setCloudStatus('synced', 'Refreshed from cloud');
+          _repaintAfterPull(); // S440: land the pulled data on screen
         }
       });
     } else {
@@ -1144,7 +1165,7 @@ function _showRemoteUpdateBanner(remoteTs){
       // Explicit user choice — bypass the S263 stale-overwrite gate (the
       // confirm above already warns this overwrites local).
       SyncEngine.pull(_projectId, SyncEngine.instanceId, { allowStaleOverwrite: true }).then(function(data){
-        if (data) { _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); }
+        if (data) { _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); _repaintAfterPull(); }
         b.remove();
       });
     });
@@ -2918,7 +2939,7 @@ window._frtCheckRemote = function(){
       var hasLocal = (typeof Model !== 'undefined' && Model.hasUnsavedChanges) ? Model.hasUnsavedChanges() : false;
       if (!hasLocal){
         SyncEngine.pull(_projectId, SyncEngine.instanceId).then(function(data){
-          if (data){ _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); }
+          if (data){ _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); _repaintAfterPull(); }
           resolve({ checked:true, remoteNewer:true, pulled:!!data });
         });
       } else {
