@@ -45,6 +45,12 @@ var _filterPanelOpen = false;
 var _lastSelectedUid = null;
 var _renderOrderUids = []; // refreshed every render() in display order
 
+// S439: Recently-Deleted grid multi-select (mirrors the S114 gallery pattern).
+var _trashSelected = new Set();
+var _trashLastSel = null;
+var _trashOrder = []; // uid render order for shift-click ranges
+function _trashUid(r) { return r.kind === 'site' ? ('s:' + r.siteIdx) : ('d:' + r.deficId + ':' + r.photoId); }
+
 // S114 P1.4: render debounce. Cloud pull every 30s fires a 'project' notify,
 // which would otherwise rebuild the entire gallery DOM on every poll, causing
 // visible flashes during scroll. RAF-coalesce + skip if panel not visible.
@@ -135,53 +141,54 @@ function _trashDaysRemaining(deletedDateIso) {
 // covers SITE + DEFIC photos (routed by r.kind) and adds an admin-gated
 // "Delete forever" button (inspectors see it disabled; principals/admins enabled).
 function _renderTrashHtml(deletedRecords) {
+  // S439: grid + multi-select rewrite (was a vertical list). Mirrors the S114
+  // gallery selection UX: hover checkbox (always visible on touch), shift-click
+  // range select, admin-gated bulk "Delete selected" / "Delete all".
   var h = '';
   if (!deletedRecords.length) {
+    _trashOrder = []; _trashSelected.clear(); _trashLastSel = null;
     h += '<p class="ph-empty">Nothing in Recently Deleted. Photos you delete from the gallery appear here and can be restored for ' + _TRASH_RETENTION_DAYS + ' days.</p>';
     return h;
   }
   var isAdmin = false;
   try { isAdmin = !!(Auth && Auth.isAdmin && Auth.isAdmin()); } catch (e) { isAdmin = false; }
+  _trashOrder = deletedRecords.map(_trashUid);
+  _trashSelected.forEach(function(u) { if (_trashOrder.indexOf(u) < 0) _trashSelected.delete(u); });
+  var nSel = _trashSelected.size;
   h += '<p class="ph-trash-note">Deleted photos are kept for ' + _TRASH_RETENTION_DAYS + ' days, then removed automatically. Restore brings a photo back where it was.'
     + (isAdmin ? '' : ' Only a principal can delete a photo permanently.') + '</p>';
-  h += '<div class="ph-trash-list">';
+  if (isAdmin) {
+    h += '<div class="ph-trash-bulkbar">';
+    h += '<button class="ph-trash-purge" data-action="ph-trash-purge-selected"' + (nSel ? '' : ' disabled') + '>Delete selected' + (nSel ? ' (' + nSel + ')' : '') + '</button>';
+    h += '<button class="ph-trash-purge ph-trash-purge-all" data-action="ph-trash-purge-all">Delete all (' + deletedRecords.length + ')</button>';
+    if (nSel) h += '<button class="ph-trash-restore" data-action="ph-trash-clear-sel">Clear selection</button>';
+    h += '</div>';
+  }
+  h += '<div class="ph-trash-grid">';
   deletedRecords.forEach(function(r) {
+    var uid = _trashUid(r);
     var days = _trashDaysRemaining(r.deletedDate);
-    var dateLabel = '';
-    if (r.deletedDate) {
-      var dt = new Date(r.deletedDate);
-      if (dt.getTime()) {
-        dateLabel = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-          + ' ' + dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-      }
-    }
     var daysCls = days <= 5 ? 'ph-trash-days urgent' : 'ph-trash-days';
-    // route attributes by kind
+    var selected = _trashSelected.has(uid);
     var routeAttrs = (r.kind === 'site')
       ? ' data-kind="site" data-site-idx="' + r.siteIdx + '"'
       : ' data-kind="defic" data-defic-id="' + esc(r.deficId) + '" data-photo-id="' + esc(r.photoId) + '"';
-    h += '<div class="ph-trash-item">';
-    // S266: thumbnail opens the photo in the lightbox (was static). Routed by
-    // kind so the click handler can re-find the live photo object to display.
+    h += '<div class="ph-trash-tile' + (selected ? ' selected' : '') + '" data-trash-uid="' + esc(uid) + '">';
     if (r.src) {
-      h += '<div class="ph-trash-thumb ph-trash-zoom" data-action="ph-trash-lightbox"' + routeAttrs + ' title="View photo"><img src="' + esc(r.src) + '" loading="lazy" onerror="this.style.display=\'none\'"></div>';
+      h += '<img class="tphoto" src="' + esc(r.src) + '" loading="lazy" data-action="ph-trash-lightbox"' + routeAttrs + ' title="View photo" onerror="this.style.display=\'none\'">';
     } else {
-      h += '<div class="ph-trash-thumb ph-trash-noimg">\uD83D\uDCF7</div>';
+      h += '<div class="tphoto tnoimg">\uD83D\uDCF7</div>';
     }
-    h += '<div class="ph-trash-meta">';
+    if (isAdmin) {
+      h += '<span class="ph-trash-check" data-action="ph-trash-toggle" data-uid="' + esc(uid) + '" title="Select">' + (selected ? '\u2713' : '') + '</span>';
+    }
+    h += '<div class="tmeta">';
     h += '<div class="ph-trash-label">' + esc(r.label) + '</div>';
-    if (dateLabel) h += '<div class="ph-trash-date">Deleted ' + esc(dateLabel) + '</div>';
     h += '<div class="' + daysCls + '">' + days + ' day' + (days === 1 ? '' : 's') + ' left</div>';
-    h += '</div>';
     h += '<div class="ph-trash-actions">';
     h += '<button class="ph-trash-restore" data-action="ph-restore-photo"' + routeAttrs + '>Restore</button>';
-    if (isAdmin) {
-      h += '<button class="ph-trash-purge" data-action="ph-purge-photo"' + routeAttrs + '>Delete forever</button>';
-    } else {
-      h += '<button class="ph-trash-purge disabled" disabled title="Only a principal can delete permanently">Delete forever</button>';
-    }
-    h += '</div>';
-    h += '</div>';
+    if (isAdmin) h += '<button class="ph-trash-purge" data-action="ph-purge-photo"' + routeAttrs + ' title="Delete forever">\uD83D\uDDD1</button>';
+    h += '</div></div></div>';
   });
   h += '</div>';
   return h;
@@ -1069,6 +1076,74 @@ document.addEventListener('click', function(e) {
       initPhotos.render();
       toast(done ? 'Photo permanently deleted' : 'Could not delete photo');
     });
+    return;
+  }
+
+  // S439 — trash grid: toggle selection with shift-click range (mirrors S114)
+  var tsel = e.target.closest && e.target.closest('[data-action="ph-trash-toggle"]');
+  if (tsel) {
+    e.stopPropagation();
+    var tuid = tsel.getAttribute('data-uid');
+    if (e.shiftKey && _trashLastSel && _trashLastSel !== tuid && _trashOrder.length) {
+      var ta = _trashOrder.indexOf(_trashLastSel), tt = _trashOrder.indexOf(tuid);
+      if (ta >= 0 && tt >= 0) {
+        var tlo = Math.min(ta, tt), thi = Math.max(ta, tt);
+        var tOn = !_trashSelected.has(tuid);
+        for (var tri = tlo; tri <= thi; tri++) {
+          if (tOn) _trashSelected.add(_trashOrder[tri]); else _trashSelected.delete(_trashOrder[tri]);
+        }
+        _trashLastSel = tuid;
+        initPhotos.render();
+        return;
+      }
+    }
+    if (_trashSelected.has(tuid)) _trashSelected.delete(tuid); else _trashSelected.add(tuid);
+    _trashLastSel = tuid;
+    initPhotos.render();
+    return;
+  }
+  var tclr = e.target.closest && e.target.closest('[data-action="ph-trash-clear-sel"]');
+  if (tclr) { e.stopPropagation(); _trashSelected.clear(); _trashLastSel = null; initPhotos.render(); return; }
+
+  // S439 — bulk permanent delete (selected / all). Buttons are admin-only in the
+  // markup AND the gate is re-verified here so it can't be forced. Site-photo
+  // purges run in DESCENDING index order — indices shift as entries are removed.
+  function _bulkPurge(uids, title, msg) {
+    var can = false;
+    try { can = !!(Auth && Auth.isAdmin && Auth.isAdmin()); } catch (ex) { can = false; }
+    if (!can) { toast('Only a principal can delete photos permanently'); return; }
+    showConfirm(title, msg).then(function(yes) {
+      if (!yes) return;
+      var recs = _gatherDeletedRecords();
+      var map = {}; recs.forEach(function(r) { map[_trashUid(r)] = r; });
+      var siteIdxs = [], defics = [];
+      uids.forEach(function(u) {
+        var r = map[u]; if (!r) return;
+        if (r.kind === 'site') siteIdxs.push(r.siteIdx); else defics.push(r);
+      });
+      var n = 0;
+      defics.forEach(function(r) { if (Model.purgePoolPhoto(r.deficId, r.photoId)) n++; });
+      siteIdxs.sort(function(a, b) { return b - a; });
+      siteIdxs.forEach(function(idx) { if (Model.purgeSitePhoto(idx)) n++; });
+      _trashSelected.clear(); _trashLastSel = null;
+      initPhotos.render();
+      toast(n ? (n + ' photo' + (n === 1 ? '' : 's') + ' permanently deleted') : 'Could not delete photos');
+    });
+  }
+  var tpsel = e.target.closest && e.target.closest('[data-action="ph-trash-purge-selected"]');
+  if (tpsel) {
+    e.stopPropagation();
+    var chosen = Array.prototype.slice.call(_trashSelected);
+    if (!chosen.length) return;
+    _bulkPurge(chosen, 'Delete Permanently', 'Permanently delete ' + chosen.length + ' selected photo' + (chosen.length === 1 ? '' : 's') + '? This cannot be undone.');
+    return;
+  }
+  var tpall = e.target.closest && e.target.closest('[data-action="ph-trash-purge-all"]');
+  if (tpall) {
+    e.stopPropagation();
+    var allUids = _trashOrder.slice();
+    if (!allUids.length) return;
+    _bulkPurge(allUids, 'Delete ALL Permanently', 'Permanently delete ALL ' + allUids.length + ' photos in Recently Deleted? This cannot be undone \u2014 none will be recoverable.');
     return;
   }
 

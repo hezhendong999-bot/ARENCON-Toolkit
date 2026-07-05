@@ -10774,3 +10774,24 @@ body.dark-mode .btn-outline:hover,body.dark-mode .btn-secondary:hover,body.dark-
 .btn-muted-cancel:hover,.btn-cancel:hover,.btn-amber:hover{background:#F1DEC4 !important;border-color:#C98A4A !important;color:#9A6A28 !important;}
 body.dark-mode .btn-muted-cancel,body.dark-mode .btn-cancel,body.dark-mode .btn-amber{background:rgba(224,163,106,.16) !important;border:1px solid #E0A36A !important;color:#E0A36A !important;}
 body.dark-mode .btn-muted-cancel:hover,body.dark-mode .btn-cancel:hover,body.dark-mode .btn-amber:hover{background:rgba(224,163,106,.24) !important;}
+
+/* ═══ S439: Recently-Deleted grid + multi-select (mirrors S114 gallery pattern) ═══ */
+.ph-trash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:10px;}
+.ph-trash-tile{position:relative;border:1px solid #d8d4dc;border-radius:12px;overflow:hidden;background:#fff;}
+.ph-trash-tile .tphoto{aspect-ratio:4/3;width:100%;object-fit:cover;display:block;cursor:zoom-in;background:#f2f0f4;}
+.ph-trash-tile .tnoimg{display:flex;align-items:center;justify-content:center;font-size:26px;color:#928E9C;}
+.ph-trash-tile .tmeta{padding:7px 9px;font-size:11.5px;line-height:1.4;}
+.ph-trash-tile .ph-trash-actions{display:flex;gap:6px;margin-top:6px;}
+.ph-trash-tile .ph-trash-actions button{font-size:11px;padding:4px 8px;}
+.ph-trash-check{position:absolute;top:7px;left:7px;width:26px;height:26px;border-radius:8px;border:2px solid #fff;background:rgba(20,18,24,.4);display:none;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:2;}
+.ph-trash-tile:hover .ph-trash-check{display:flex;}
+.ph-trash-tile.selected .ph-trash-check{display:flex;background:#9C2742;}
+.ph-trash-tile.selected{outline:2px solid #9C2742;outline-offset:-2px;}
+@media(pointer:coarse){.ph-trash-check{display:flex;}}
+.ph-trash-bulkbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 2px;}
+.ph-trash-bulkbar .ph-trash-purge[disabled]{opacity:.45;pointer-events:none;}
+.ph-trash-purge-all{border-color:#C0445F !important;color:#C0445F !important;}
+body.dark-mode .ph-trash-tile{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);}
+body.dark-mode .ph-trash-tile .tphoto{background:#1a181f;}
+body.dark-mode .ph-trash-tile.selected{outline-color:#C9476A;}
+body.dark-mode .ph-trash-tile.selected .ph-trash-check{background:#C9476A;}
