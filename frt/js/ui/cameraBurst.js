@@ -452,7 +452,25 @@ function _openUI(stream, done) {
     try { if (track && track.addEventListener) { track.addEventListener('mute', _showAdjusting); track.addEventListener('unmute', _hideAdjusting); } } catch (e) {}
     video.style.transform = _mirror(); flashMode = 'off'; _applyFlash(); zoom = 1; applyZoom();
     setTimeout(_recap, 800);
+    // S435: some devices ignore the gUM resolution request on deviceId-bound
+    // lenses — verify the RUNNING track and force 1920x1440 onto it if low.
+    setTimeout(function () {
+      var w = 0; try { w = (track.getSettings && track.getSettings().width) || video.videoWidth || 0; } catch (e) { w = video.videoWidth || 0; }
+      if (w && w < 1200 && track) {
+        try {
+          var p = track.applyConstraints({ width: { ideal: 1920 }, height: { ideal: 1440 } });
+          if (p && p.catch) p.catch(function () {});
+        } catch (e) {}
+      }
+      setTimeout(_resReadout, 700);
+    }, 700);
     _flipping = false;
+  }
+  // S435 (temporary): on-screen stream-resolution readout — strip after verify
+  function _resReadout() {
+    var st = {}; try { st = track.getSettings ? track.getSettings() : {}; } catch (e) {}
+    _diagShow(['S435 · stream ' + (st.width || '?') + 'x' + (st.height || '?') + ' · video ' + video.videoWidth + 'x' + video.videoHeight, 'lens: ' + ((track && track.label) || '?')]);
+    clearTimeout(_diag._h); _diag._h = setTimeout(function () { _diag.style.display = 'none'; }, 5000);
   }
   function flip() {
     if (_flipping) return; _flipping = true;
