@@ -298,7 +298,7 @@ function _openUI(stream, done) {
   vidWrap.appendChild(_diag);
   function _diagShow(lines) { _diag.textContent = lines.join('\n'); _diag.style.display = 'block'; clearTimeout(_diag._h); _diag._h = setTimeout(function () { _diag.style.display = 'none'; }, 14000); }
   function _diagFlash() {
-    var L = ['TORCH DIAG (mode=' + flashMode + ')'];
+    var L = ['TORCH DIAG S432 (mode=' + flashMode + ')'];
     try { L.push('track: ' + ((track && track.label) || '?')); } catch (e) {}
     try { var c = track.getCapabilities ? track.getCapabilities() : {}; L.push('caps.torch: ' + String(c.torch)); L.push('caps: ' + Object.keys(c).join(',').slice(0, 140)); } catch (e) { L.push('caps err: ' + e.message); }
     try {
@@ -343,6 +343,7 @@ function _openUI(stream, done) {
   }
   function _acquireTorchTrack(cb) {
     if (_torchBusy) return; _torchBusy = true;
+    var trace = []; // S432: per-lens trace — shown in DIAG on failure
     navigator.mediaDevices.enumerateDevices().then(function (ds) {
       var cams = ds.filter(function (d) { return d.kind === 'videoinput'; });
       var curId = null; try { curId = track.getSettings ? track.getSettings().deviceId : null; } catch (e) {}
@@ -356,31 +357,45 @@ function _openUI(stream, done) {
         if (i >= backs.length) {
           _torchHopeless = true; _torchBusy = false;
           navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
-            .then(function (s) { _attachStream(s, facing); cb(false); })
-            .catch(function () { cb(false); });
+            .then(function (s) { _attachStream(s, facing); cb(false, trace); })
+            .catch(function () { cb(false, trace); });
           return;
         }
-        var id = backs[i++].deviceId;
+        var dev = backs[i++], id = dev.deviceId, lbl = (dev.label || id.slice(0, 6));
         navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: id } }, audio: false })
           .then(function (s) {
-            var t = s.getVideoTracks()[0], c = {};
-            try { c = t.getCapabilities ? t.getCapabilities() : {}; } catch (e) {}
-            if (c && c.torch) { _torchDevId = id; _attachStream(s, 'environment'); _torchBusy = false; cb(true); }
-            else { try { s.getTracks().forEach(function (x) { x.stop(); }); } catch (e) {} tryNext(); }
+            var t = s.getVideoTracks()[0];
+            // S432: wait for the track to settle — caps are empty when read
+            // immediately (measured S430/S431 failure cause), then PROVE torch by
+            // applying it: a resolved applyConstraints is the ground truth.
+            setTimeout(function () {
+              var c = {}; try { c = t.getCapabilities ? t.getCapabilities() : {}; } catch (e) {}
+              var proven = false;
+              var settle = function (ok, err) {
+                trace.push(lbl + ': caps.torch=' + String(c && c.torch) + ' apply=' + (ok ? 'OK' : ('REJ ' + (err && err.name || ''))));
+                if (ok) { _torchDevId = id; _attachStream(s, 'environment'); _torchBusy = false; cb(true, trace); }
+                else { try { s.getTracks().forEach(function (x) { x.stop(); }); } catch (e) {} tryNext(); }
+              };
+              try {
+                var p = t.applyConstraints({ advanced: [{ torch: true }] });
+                if (p && p.then) { p.then(function () { settle(true); }, function (err) { settle(false, err); }); }
+                else settle(!!(c && c.torch));
+              } catch (e) { settle(false, e); }
+            }, 650);
           })
-          .catch(tryNext);
+          .catch(function (err) { trace.push(lbl + ': gUM ' + (err && err.name || 'fail')); tryNext(); });
       }
       tryNext();
-    }).catch(function () { _torchBusy = false; cb(false); });
+    }).catch(function () { _torchBusy = false; cb(false, trace); });
   }
   btnFlash.addEventListener('click', function () {
     _recap();
     flashMode = flashMode === 'off' ? 'on' : 'off';
     _applyFlash();
     if (flashMode === 'on' && !hasTorch && !_torchHopeless) {
-      _acquireTorchTrack(function (ok) {
+      _acquireTorchTrack(function (ok, trace) {
         if (ok) { flashMode = 'on'; _applyFlash(); }
-        else { _diagFlash(); } // DIAG only on failure — silent when the hunt works
+        else { _diagFlash(); if (trace && trace.length) { setTimeout(function () { _diagShow(['HUNT TRACE S432'].concat(trace)); }, 4500); } }
       });
     }
   });
