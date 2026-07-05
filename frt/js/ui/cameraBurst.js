@@ -152,116 +152,105 @@ function _openUI(stream, done) {
     return null;
   }
 
+  // ═══ S428 Android-style layout: top bar (icon-only, outside feed) / raw feed / bottom controls ═══
   var overlay = document.createElement('div');
   overlay.id = 'cam-burst-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;font-family:Calibri,sans-serif;color:#fff;';
 
-  // ---- preview: full-width WYSIWYG stage, chrome floats over it (S426 iOS layout) ----
+  // ---- top bar ----
+  var topbar = document.createElement('div');
+  topbar.style.cssText = 'flex:none;display:flex;align-items:center;gap:14px;padding:calc(10px + env(safe-area-inset-top,0px)) 18px 10px;background:#000;';
+  function _ib(svg, label) {
+    var b = document.createElement('button'); b.innerHTML = svg; if (label) b.setAttribute('aria-label', label);
+    b.style.cssText = 'width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;background:none;border:0;color:#fff;position:relative;cursor:pointer;';
+    return b;
+  }
+  var btnCancel = _ib('<span style="font-size:20px;line-height:1">&#10005;</span>', 'Cancel'); btnCancel.id = 'cam-burst-cancel';
+  var btnDone = document.createElement('button'); btnDone.id = 'cam-burst-done';
+  btnDone.style.cssText = 'display:none;align-items:center;gap:6px;height:34px;padding:0 15px;border-radius:99px;background:#20463a;border:0;color:#9ff0c4;font-size:14px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;';
+  btnDone.textContent = 'Done (0)';
+  var sp = document.createElement('div'); sp.style.flex = '1';
+  var btnFlash = _ib('<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>', 'flash');
+  var flashSlash = document.createElement('span');
+  flashSlash.style.cssText = 'position:absolute;left:50%;top:50%;width:26px;height:2px;background:#fff;transform:translate(-50%,-50%) rotate(45deg);border-radius:2px;box-shadow:0 0 0 1.5px rgba(0,0,0,.55);display:block;';
+  btnFlash.appendChild(flashSlash);
+  var btnNight = _ib('<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>', 'night');
+  var btnGrid = _ib('<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>', 'grid');
+  var btnFloat = _ib('<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>', 'floating shutter');
+  topbar.appendChild(btnCancel); topbar.appendChild(btnDone); topbar.appendChild(sp);
+  topbar.appendChild(btnFlash); topbar.appendChild(btnNight); topbar.appendChild(btnGrid); topbar.appendChild(btnFloat);
+  overlay.appendChild(topbar);
+
+  // ---- feed (raw, no forced aspect box) ----
   var vidWrap = document.createElement('div');
-  vidWrap.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;';
-  var stage = document.createElement('div'); // WYSIWYG capture region — width-locked, aspect follows the hold
-  stage.style.cssText = 'position:relative;width:100%;max-height:100%;aspect-ratio:4/3;overflow:hidden;background:#000;';
+  vidWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;background:#0a0a0c;';
   var video = document.createElement('video');
   video.autoplay = true; video.muted = true; video.playsInline = true; video.setAttribute('playsinline', '');
-  video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .18s ease-out;';
+  video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .16s ease-out,filter .2s;';
   video.srcObject = stream;
-  stage.appendChild(video);
-  var gridOverlay = document.createElement('div');
-  gridOverlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none;background-image:linear-gradient(rgba(255,255,255,.24) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.24) 1px,transparent 1px);background-size:33.333% 33.333%;background-position:center;';
-  stage.appendChild(gridOverlay);
-  var reticle = document.createElement('div');
-  reticle.style.cssText = 'position:absolute;left:50%;top:50%;width:76px;height:76px;transform:translate(-50%,-50%);pointer-events:none;display:none;border:1.5px solid #FFCC00;border-radius:4px;box-shadow:0 0 0 1px rgba(0,0,0,.25);';
-  var retSun = document.createElement('div');
-  retSun.innerHTML = '\u2600';
-  retSun.style.cssText = 'position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:5px;color:#FFCC00;font-size:16px;line-height:1;';
-  reticle.appendChild(retSun);
-  stage.appendChild(reticle);
-  vidWrap.appendChild(stage);
-  function _updateStageAspect() {
-    var portrait = false;
-    try { portrait = window.matchMedia('(orientation: portrait)').matches; } catch (e) {}
-    stage.style.aspectRatio = portrait ? '3 / 4' : '4 / 3'; // preview frame follows the hold (WYSIWYG)
-  }
-  _updateStageAspect();
-  var flash = document.createElement('div');
+  vidWrap.appendChild(video);
+  function _updateStageAspect() {} // no-op: raw feed has no forced aspect; kept for _onOrient
+  var flash = document.createElement('div'); // capture blink (used by _addShot)
   flash.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s;';
   vidWrap.appendChild(flash);
+  var gridOverlay = document.createElement('div');
+  gridOverlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none;background-image:linear-gradient(rgba(255,255,255,.24) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.24) 1px,transparent 1px);background-size:33.333% 33.333%;background-position:center;';
+  vidWrap.appendChild(gridOverlay);
+  // focus reticle + exposure slider
+  var reticle = document.createElement('div');
+  reticle.style.cssText = 'position:absolute;width:76px;height:76px;margin:-38px 0 0 -38px;pointer-events:none;display:none;z-index:4;border:1.5px solid #FFB020;border-radius:8px;box-shadow:0 0 0 1px rgba(0,0,0,.3);';
+  var retLock = document.createElement('div');
+  retLock.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#FFB020" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  retLock.style.cssText = 'position:absolute;top:-20px;left:50%;transform:translateX(-50%);';
+  reticle.appendChild(retLock);
+  var expo = document.createElement('div');
+  expo.style.cssText = 'position:absolute;left:100%;top:50%;margin:-56px 0 0 8px;width:30px;height:112px;pointer-events:auto;display:flex;flex-direction:column;align-items:center;';
+  var expoTrack = document.createElement('div'); expoTrack.style.cssText = 'position:relative;flex:1;width:2px;background:rgba(255,255,255,.45);';
+  var expoSun = document.createElement('div');
+  expoSun.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#FFB020"><circle cx="12" cy="12" r="4"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4 4l2 2M18 18l2 2M4 20l2-2M18 6l2-2" stroke="#FFB020" stroke-width="2"/></svg>';
+  expoSun.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);';
+  expoTrack.appendChild(expoSun); expo.appendChild(expoTrack); reticle.appendChild(expo);
+  vidWrap.appendChild(reticle);
+
+  // ---- bottom controls (overlay feed) ----
+  var controls = document.createElement('div');
+  controls.style.cssText = 'position:absolute;left:0;right:0;bottom:0;background:linear-gradient(0deg,rgba(0,0,0,.72),rgba(0,0,0,.35) 60%,transparent);';
+  var zoomBar = document.createElement('div');
+  zoomBar.style.cssText = 'display:flex;justify-content:center;gap:6px;padding:8px 0;';
+  var zoomPills = [];
+  ['0.6', '1', '2', '5'].forEach(function(z) {
+    var b = document.createElement('button'); b.dataset.z = z; b.textContent = (z === '0.6' ? '.6' : (z === '1' ? '1\u00D7' : z));
+    b.style.cssText = 'min-width:38px;height:36px;padding:0 8px;border-radius:99px;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.16);color:#c9c6cf;font-size:12.5px;font-weight:800;font-family:Calibri,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;';
+    zoomBar.appendChild(b); zoomPills.push(b);
+  });
+  controls.appendChild(zoomBar);
+  var bottom = document.createElement('div');
+  bottom.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:4px 26px calc(14px + env(safe-area-inset-bottom,0px));';
+  var chip = document.createElement('button'); chip.id = 'cam-burst-chip';
+  chip.style.cssText = 'justify-self:start;width:52px;height:52px;border-radius:50%;overflow:hidden;border:2px dashed rgba(255,255,255,.3);background:#111;position:relative;padding:0;cursor:pointer;';
+  var shutter = document.createElement('button'); shutter.id = 'cam-burst-shutter'; shutter.setAttribute('aria-label', 'Take photo');
+  shutter.style.cssText = 'justify-self:center;width:74px;height:74px;border-radius:50%;background:transparent;border:4px solid #fff;padding:5px;cursor:pointer;';
+  var shutCore = document.createElement('span'); shutCore.style.cssText = 'display:block;width:100%;height:100%;border-radius:50%;background:#fff;'; shutter.appendChild(shutCore);
+  var btnFlip = document.createElement('button'); btnFlip.setAttribute('aria-label', 'switch camera');
+  btnFlip.innerHTML = '<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 14.5-7.1"/><path d="M20 3v5h-5"/><path d="M21 12a9 9 0 0 1-14.5 7.1"/><path d="M4 21v-5h5"/><circle cx="12" cy="12" r="2.4"/></svg>';
+  btnFlip.style.cssText = 'justify-self:end;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.16);color:#fff;cursor:pointer;';
+  bottom.appendChild(chip); bottom.appendChild(shutter); bottom.appendChild(btnFlip);
+  controls.appendChild(bottom);
+  vidWrap.appendChild(controls);
   overlay.appendChild(vidWrap);
 
-  // ---- top cluster: ✕ · count · Library, then flash · grid ----
-  var topCluster = document.createElement('div');
-  topCluster.style.cssText = 'position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;gap:8px;padding:calc(12px + env(safe-area-inset-top,0px)) 14px 14px;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);';
-  var top = document.createElement('div');
-  top.style.cssText = 'display:flex;align-items:center;gap:10px;color:#f4f3f6;';
-  var btnCancel = document.createElement('button');
-  btnCancel.id = 'cam-burst-cancel'; btnCancel.setAttribute('aria-label', 'Cancel'); btnCancel.innerHTML = '&#10005;';
-  btnCancel.style.cssText = 'flex:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.16);color:#f4f3f6;font-size:18px;line-height:1;cursor:pointer;';
-  var counter = document.createElement('div');
-  counter.style.cssText = 'flex:1;display:flex;justify-content:center;';
-  counter.innerHTML = '<span style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:99px;background:rgba(20,19,24,.5);border:1px solid rgba(255,255,255,.16);font-size:13.5px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)"><b id="cam-burst-count" style="color:#46C5E8;font-size:15px">0</b><span style="color:#c9c6cf">photos this round</span></span>';
-  var btnLib = document.createElement('button');
-  btnLib.id = 'cam-burst-library'; btnLib.innerHTML = '<span style="font-size:15px">\uD83D\uDDBC</span> Library';
-  btnLib.style.cssText = 'flex:none;display:inline-flex;align-items:center;gap:6px;height:40px;background:rgba(255,255,255,.11);color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:99px;padding:0 14px;font-size:13.5px;font-weight:600;font-family:Calibri,sans-serif;cursor:pointer;';
-  top.appendChild(btnCancel); top.appendChild(counter); top.appendChild(btnLib);
-  var tools = document.createElement('div');
-  tools.style.cssText = 'display:flex;gap:9px;align-items:center;';
-  var btnFlash = document.createElement('button');
-  btnFlash.style.cssText = 'display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:99px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.16);color:#f4f3f6;font-size:12.5px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;';
-  btnFlash.innerHTML = '<span style="font-size:14px;line-height:1">\u26A1</span><span id="cam-flash-lab">AUTO</span>';
-  var flashLab = btnFlash.querySelector('#cam-flash-lab');
-  var btnGrid = document.createElement('button');
-  btnGrid.style.cssText = 'display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:99px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.16);color:#f4f3f6;font-size:12.5px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;';
-  btnGrid.innerHTML = '<span style="font-size:13px;line-height:1">\u25A6</span> Grid';
-  tools.appendChild(btnFlash); tools.appendChild(btnGrid);
-  topCluster.appendChild(top); topCluster.appendChild(tools);
-  overlay.appendChild(topCluster);
+  // ---- floating draggable shutter ----
+  var floater = document.createElement('div');
+  floater.style.cssText = 'position:absolute;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.92);border:3px solid rgba(255,255,255,.5);display:none;z-index:6;touch-action:none;box-shadow:0 4px 16px rgba(0,0,0,.4);';
+  var floatDel = document.createElement('div');
+  floatDel.innerHTML = '&#10005;';
+  floatDel.style.cssText = 'position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;background:#ff3b30;display:none;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;border:2px solid #fff;';
+  floater.appendChild(floatDel);
+  overlay.appendChild(floater);
 
-  // ---- bottom cluster: zoom pills · thumbnail strip · Retake · shutter · Done ----
-  var bottomCluster = document.createElement('div');
-  bottomCluster.style.cssText = 'position:absolute;bottom:0;left:0;right:0;display:flex;flex-direction:column;background:linear-gradient(0deg,rgba(0,0,0,.6),transparent);';
-  var zoomPills = document.createElement('div');
-  zoomPills.style.cssText = 'display:flex;justify-content:center;gap:7px;padding:6px 0 8px;';
-  ['1', '2', '5'].forEach(function (z) {
-    var p = document.createElement('button'); p.dataset.z = z; p.textContent = (z === '1' ? '1\u00D7' : z);
-    p.style.cssText = 'min-width:40px;height:38px;padding:0 8px;border-radius:99px;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.16);color:#c9c6cf;font-size:13px;font-weight:800;font-family:Calibri,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;';
-    zoomPills.appendChild(p);
-  });
-  var strip = document.createElement('div');
-  strip.style.cssText = 'display:flex;gap:8px;overflow-x:auto;padding:2px 14px 8px;min-height:0;';
-  var bar = document.createElement('div');
-  bar.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:8px 18px calc(14px + env(safe-area-inset-bottom,0px));';
-  var btnRetake = document.createElement('button');
-  btnRetake.id = 'cam-burst-retake';
-  btnRetake.innerHTML = '<span style="font-size:16px;line-height:1">\u21BA</span> Retake';
-  btnRetake.style.cssText = 'justify-self:start;display:inline-flex;align-items:center;gap:7px;height:48px;padding:0 18px;border-radius:24px;background:rgba(255,255,255,.14);border:0;color:#fff;font-size:14.5px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;';
-  var shutter = document.createElement('button');
-  shutter.id = 'cam-burst-shutter'; shutter.setAttribute('aria-label', 'Take photo');
-  shutter.style.cssText = 'justify-self:center;width:74px;height:74px;border-radius:50%;background:transparent;border:4px solid #fff;padding:5px;cursor:pointer;flex:none;';
-  var shutterCore = document.createElement('span');
-  shutterCore.style.cssText = 'display:block;width:100%;height:100%;border-radius:50%;background:#fff;';
-  shutter.appendChild(shutterCore);
-  var btnDone = document.createElement('button');
-  btnDone.id = 'cam-burst-done'; btnDone.textContent = 'Done';
-  btnDone.style.cssText = 'justify-self:end;display:inline-flex;align-items:center;justify-content:center;height:48px;min-width:96px;padding:0 20px;border-radius:24px;background:#20463a;border:0;color:#9ff0c4;font-size:15px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;opacity:.5;';
-  bar.appendChild(btnRetake); bar.appendChild(shutter); bar.appendChild(btnDone);
-  bottomCluster.appendChild(zoomPills); bottomCluster.appendChild(strip); bottomCluster.appendChild(bar);
-  overlay.appendChild(bottomCluster);
-
-  // S332: Library — existing photos merge into shots[] and flow out the identical
-  // Done path (ported from Diesel S333).
-  var libInput = document.createElement('input');
-  libInput.type = 'file'; libInput.accept = 'image/*'; libInput.multiple = true; libInput.style.display = 'none';
-  overlay.appendChild(libInput);
-  btnLib.addEventListener('click', function(){ libInput.value = ''; libInput.click(); });
-  libInput.addEventListener('change', function(){
-    var fs = Array.prototype.slice.call(libInput.files || []);
-    fs.forEach(function(file){ shots.push(file); urls.push(URL.createObjectURL(file)); });
-    renderStrip(); _updateUI();
-  });
-
-  // ---- review overlay: tap a thumb → full photo + prev/next + delete + back ----
+  // ---- review overlay (verbatim behavior) ----
   var review = document.createElement('div');
-  review.style.cssText = 'position:absolute;inset:0;z-index:5;background:#000;display:none;flex-direction:column;';
+  review.style.cssText = 'position:absolute;inset:0;z-index:20;background:#08070a;display:none;flex-direction:column;';
   var rTop = document.createElement('div');
   rTop.style.cssText = 'flex:none;position:relative;display:flex;align-items:center;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 10px;';
   var rBack = document.createElement('button');
@@ -295,137 +284,89 @@ function _openUI(stream, done) {
   var track = stream.getVideoTracks()[0];
   var busy = false;
 
-  // ══ S426 native controls: flash · zoom · focus · grid ══════════════════
-  // Hardware paths (torch/zoom/focus) come from MediaStreamTrack capabilities —
-  // present on Android Chrome/WebView (the TWA target), absent on iOS Safari.
-  // Capability-gated: a control is inert (not broken) where the device lacks it.
+  // ══ S428 native controls: flash · zoom · night · grid · focus · flip · floating shutter ══
   var caps = {};
   try { caps = (track && track.getCapabilities) ? track.getCapabilities() : {}; } catch (e) { caps = {}; }
   var hasTorch = !!(caps && caps.torch);
   var hasHwZoom = !!(caps && caps.zoom && typeof caps.zoom.max === 'number');
+  var facing = 'environment';
 
-  // flash / torch — auto → on → off
-  var flashMode = 'auto';
+  // flash — off → auto → on
+  var flashMode = 'off';
   function _applyFlash() {
-    if (flashLab) flashLab.textContent = flashMode.toUpperCase();
-    btnFlash.style.color = flashMode === 'on' ? '#FFCC00' : (flashMode === 'off' ? '#6b6674' : '#f4f3f6');
-    btnFlash.style.borderColor = flashMode === 'on' ? 'rgba(255,204,0,.5)' : 'rgba(255,255,255,.16)';
+    btnFlash.style.color = flashMode === 'on' ? '#FFCC00' : '#fff';
+    flashSlash.style.display = flashMode === 'off' ? 'block' : 'none';
     if (hasTorch && track) { try { track.applyConstraints({ advanced: [{ torch: flashMode === 'on' }] }); } catch (e) {} }
   }
-  btnFlash.addEventListener('click', function () {
-    flashMode = flashMode === 'auto' ? 'on' : (flashMode === 'on' ? 'off' : 'auto');
-    _applyFlash();
-  });
+  btnFlash.addEventListener('click', function () { flashMode = flashMode === 'off' ? 'auto' : (flashMode === 'auto' ? 'on' : 'off'); _applyFlash(); });
   _applyFlash();
 
-  // 3×3 grid
+  // night — brightness boost (browser can't do true computational night)
+  var night = false;
+  function _applyFilter(ev) {
+    var b = 1 + (typeof ev === 'number' ? ev * 0.6 : 0) + (night ? 0.5 : 0);
+    video.style.filter = (b === 1 ? 'none' : 'brightness(' + b + ') contrast(1.03)');
+  }
+  btnNight.addEventListener('click', function () { night = !night; btnNight.style.color = night ? '#FFCC00' : '#fff'; _applyFilter(); });
+
+  // grid
   var gridOn = false;
-  btnGrid.addEventListener('click', function () {
-    gridOn = !gridOn;
-    gridOverlay.style.display = gridOn ? 'block' : 'none';
-    btnGrid.style.color = gridOn ? '#FFCC00' : '#f4f3f6';
-    btnGrid.style.borderColor = gridOn ? 'rgba(255,204,0,.5)' : 'rgba(255,255,255,.16)';
-  });
+  btnGrid.addEventListener('click', function () { gridOn = !gridOn; gridOverlay.style.display = gridOn ? 'block' : 'none'; btnGrid.style.color = gridOn ? '#FFCC00' : '#fff'; });
 
-  // zoom — hardware where available (affects capture), digital preview fallback otherwise
-  var zoom = 1;
-  var zMin = hasHwZoom ? caps.zoom.min : 1;
-  var zMax = hasHwZoom ? caps.zoom.max : 5;
-  var _zoomRaf = 0, _zoomPending = false;
-  function _applyZoom() {
-    zoom = Math.max(1, Math.min(5, zoom));
-    Array.prototype.forEach.call(zoomPills.children, function (p) {
-      var on = Math.round(zoom) === +p.dataset.z;
-      p.style.background = on ? 'rgba(0,0,0,.62)' : 'rgba(0,0,0,.42)';
-      p.style.color = on ? '#FFCC00' : '#c9c6cf';
-    });
+  // zoom — hardware where available (0.6–5), digital preview fallback; rAF-throttled
+  var zoom = 1, _zoomRaf = 0, _zoomPending = false;
+  function _mirror() { return facing === 'user' ? ' scaleX(-1)' : ''; }
+  function applyZoom() {
+    var lo = hasHwZoom ? Math.min(0.6, caps.zoom.min) : 1;
+    zoom = Math.max(lo, Math.min(5, zoom));
+    zoomPills.forEach(function (b) { var on = Math.abs(zoom - (+b.dataset.z)) < 0.06; b.style.background = on ? 'rgba(0,0,0,.62)' : 'rgba(0,0,0,.42)'; b.style.color = on ? '#FFCC00' : '#c9c6cf'; });
     if (hasHwZoom && track) {
-      video.style.transform = 'none';
-      if (!_zoomPending) {               // S427: coalesce hardware zoom to 1/frame — pinch was flooding applyConstraints (lag)
-        _zoomPending = true;
-        _zoomRaf = requestAnimationFrame(function () {
-          _zoomPending = false;
-          var hz = zMin + (zoom - 1) * (zMax - zMin) / 4;
-          hz = Math.min(zMax, Math.max(zMin, hz));
-          try { track.applyConstraints({ advanced: [{ zoom: hz }] }); } catch (e) {}
-        });
-      }
-    } else {
-      video.style.transform = 'scale(' + zoom + ')';
-    }
+      video.style.transform = 'none' + _mirror();
+      if (!_zoomPending) { _zoomPending = true; _zoomRaf = requestAnimationFrame(function () { _zoomPending = false; var hz = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoom)); try { track.applyConstraints({ advanced: [{ zoom: hz }] }); } catch (e) {} }); }
+    } else { video.style.transform = 'scale(' + Math.max(1, zoom) + ')' + _mirror(); }
   }
-  Array.prototype.forEach.call(zoomPills.children, function (p) {
-    p.addEventListener('click', function () { zoom = +p.dataset.z; _applyZoom(); });
+  zoomPills.forEach(function (b) { b.addEventListener('click', function () { zoom = +b.dataset.z; applyZoom(); }); });
+  applyZoom();
+
+  // flip front/back — re-acquire stream; preview mirrors, capture (_grabFrame) untouched
+  function flip() {
+    var next = facing === 'environment' ? 'user' : 'environment';
+    var old = stream;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: next }, audio: false }).then(function (s) {
+      try { if (track && track.removeEventListener) { track.removeEventListener('mute', _showAdjusting); track.removeEventListener('unmute', _hideAdjusting); } } catch (e) {}
+      try { old.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+      facing = next; stream = s; video.srcObject = s; track = s.getVideoTracks()[0];
+      try { caps = track.getCapabilities ? track.getCapabilities() : {}; } catch (e) { caps = {}; }
+      hasTorch = !!(caps && caps.torch); hasHwZoom = !!(caps && caps.zoom && typeof caps.zoom.max === 'number');
+      try { if (track && track.addEventListener) { track.addEventListener('mute', _showAdjusting); track.addEventListener('unmute', _hideAdjusting); } } catch (e) {}
+      video.style.transform = _mirror(); flashMode = 'off'; _applyFlash(); zoom = 1; applyZoom();
+    }).catch(function () {});
+  }
+  btnFlip.addEventListener('click', flip);
+  btnFloat.addEventListener('click', function () {
+    var on = floater.style.display === 'none';
+    floater.style.display = on ? 'block' : 'none'; btnFloat.style.color = on ? '#FFCC00' : '#fff';
+    if (on && !floater._placed) { floater.style.right = '24px'; floater.style.bottom = '190px'; floater._placed = true; }
   });
-  _applyZoom();
 
-  // pinch-to-zoom (two-finger) + tap-to-focus (single finger) on the stage
-  var _pinchBase = 0, _pinchZoom = 1, _tap = null;
-  function _tdist(t) { var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx * dx + dy * dy); }
-  stage.addEventListener('touchstart', function (e) {
-    if (e.touches.length === 2) { _pinchBase = _tdist(e.touches); _pinchZoom = zoom; _tap = null; }
-    else if (e.touches.length === 1) { var t = e.touches[0]; _tap = { x: t.clientX, y: t.clientY, at: Date.now(), moved: false }; }
-  }, { passive: true });
-  stage.addEventListener('touchmove', function (e) {
-    if (e.touches.length === 2 && _pinchBase) { zoom = _pinchZoom * (_tdist(e.touches) / _pinchBase); _applyZoom(); }
-    else if (_tap) { _tap.moved = true; }
-  }, { passive: true });
-  stage.addEventListener('touchend', function (e) {
-    if (_pinchBase && e.touches.length < 2) _pinchBase = 0;
-    if (_tap && !_tap.moved && (Date.now() - _tap.at) < 300) _focusAt(_tap.x, _tap.y);
-    _tap = null;
-  }, { passive: true });
-  function _focusAt(clientX, clientY) {
-    var r = stage.getBoundingClientRect();
-    reticle.style.left = (clientX - r.left) + 'px';
-    reticle.style.top = (clientY - r.top) + 'px';
-    reticle.style.display = 'block';
-    reticle.style.transition = 'none';
-    reticle.style.transform = 'translate(-50%,-50%) scale(1.4)';
-    void reticle.offsetWidth;
-    reticle.style.transition = 'transform .34s ease-out';
-    reticle.style.transform = 'translate(-50%,-50%) scale(1)';
-    if (track && caps && (caps.focusMode || caps.pointsOfInterest)) {
-      try {
-        var con = {};
-        if (caps.pointsOfInterest) con.pointsOfInterest = [{ x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height }];
-        if (caps.focusMode && caps.focusMode.indexOf && caps.focusMode.indexOf('single-shot') >= 0) con.focusMode = 'single-shot';
-        track.applyConstraints({ advanced: [con] });
-      } catch (e) {}
-    }
-    clearTimeout(reticle._h); reticle._h = setTimeout(function () { reticle.style.display = 'none'; }, 1100);
-  }
-  // ═══════════════════════════════════════════════════════════════════════
-
+  // ---- capture ----
   function _updateUI() {
-    var el = document.getElementById('cam-burst-count'); if (el) el.textContent = shots.length;
-    counter.style.opacity = shots.length ? '1' : '.6';
-    btnDone.textContent = 'Done' + (shots.length ? ' (' + shots.length + ')' : '');
-    btnDone.style.opacity = shots.length ? '1' : '.45';
-    btnRetake.style.opacity = shots.length ? '1' : '.4';
-    btnRetake.disabled = !shots.length;
+    var n = shots.length;
+    btnDone.style.display = n ? 'inline-flex' : 'none';
+    btnDone.textContent = 'Done (' + n + ')';
   }
-  function renderStrip() {
-    strip.innerHTML = '';
-    shots.forEach(function(f, i) {
-      var cell = document.createElement('div');
-      cell.style.cssText = 'position:relative;flex:none;cursor:pointer;';
-      var th = document.createElement('img'); th.src = urls[i];
-      th.style.cssText = 'height:56px;width:56px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.22);display:block;';
-      var num = document.createElement('span'); num.textContent = (i + 1);
-      num.style.cssText = 'position:absolute;bottom:2px;right:4px;font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8);';
-      cell.appendChild(th); cell.appendChild(num);
-      cell.addEventListener('click', function() { _openReview(i); });
-      strip.appendChild(cell);
-    });
-    strip.scrollLeft = strip.scrollWidth;
+  function renderStrip() { // last-shot chip
+    if (!shots.length) { chip.style.borderStyle = 'dashed'; chip.style.borderColor = 'rgba(255,255,255,.3)'; chip.innerHTML = ''; return; }
+    chip.style.borderStyle = 'solid'; chip.style.borderColor = 'rgba(255,255,255,.6)';
+    chip.innerHTML = '<img src="' + urls[urls.length - 1] + '" style="width:100%;height:100%;object-fit:cover">' + (shots.length > 1 ? '<span style="position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:800;color:#fff;background:rgba(0,0,0,.28)">' + shots.length + '</span>' : '');
   }
+  chip.addEventListener('click', function () { if (shots.length) _openReview(shots.length - 1); });
   function _addShot(blob) {
     var f = new File([blob], 'camera_' + Date.now() + '_' + (shots.length + 1) + '.jpg', { type: blob.type || 'image/jpeg' });
     shots.push(f); urls.push(URL.createObjectURL(blob));
     renderStrip();
     flash.style.opacity = '.7';
-    setTimeout(function() { flash.style.opacity = '0'; }, 90);
+    setTimeout(function () { flash.style.opacity = '0'; }, 90);
     _updateUI();
   }
   function _deleteAt(i) {
@@ -434,7 +375,6 @@ function _openUI(stream, done) {
     shots.splice(i, 1); urls.splice(i, 1);
     renderStrip(); _updateUI();
   }
-  // review
   function _openReview(i) { reviewIdx = i; _renderReview(); review.style.display = 'flex'; }
   function _renderReview() {
     if (!shots.length) { review.style.display = 'none'; return; }
@@ -445,29 +385,14 @@ function _openUI(stream, done) {
     rPrev.disabled = reviewIdx === 0; rPrev.style.opacity = reviewIdx === 0 ? '.25' : '.9';
     rNext.disabled = reviewIdx === shots.length - 1; rNext.style.opacity = reviewIdx === shots.length - 1 ? '.25' : '.9';
   }
-  rBack.addEventListener('click', function() { review.style.display = 'none'; });
-  rPrev.addEventListener('click', function() { if (reviewIdx > 0) { reviewIdx--; _renderReview(); } });
-  rNext.addEventListener('click', function() { if (reviewIdx < shots.length - 1) { reviewIdx++; _renderReview(); } });
-  rDel.addEventListener('click', function() {
-    _deleteAt(reviewIdx);
-    if (!shots.length) { review.style.display = 'none'; return; }
-    _renderReview();
-  });
-  // retake last — quick delete of the most recent shot
-  btnRetake.addEventListener('click', function() { if (shots.length) _deleteAt(shots.length - 1); });
+  rBack.addEventListener('click', function () { review.style.display = 'none'; });
+  rPrev.addEventListener('click', function () { if (reviewIdx > 0) { reviewIdx--; _renderReview(); } });
+  rNext.addEventListener('click', function () { if (reviewIdx < shots.length - 1) { reviewIdx++; _renderReview(); } });
+  rDel.addEventListener('click', function () { _deleteAt(reviewIdx); if (!shots.length) { review.style.display = 'none'; return; } _renderReview(); });
 
-  // S341: resolution-clamped canvas grab is the primary path. ImageCapture.takePhoto()
-  // ignores the getUserMedia size constraint and returns full-sensor images (12MP+)
-  // on Android, which crashed the WebView; it stays retired. Plain canvas only —
-  // never OffscreenCanvas (Safari/iOS). 1920px long-edge cap keeps memory bounded.
+  // S341/S424: capture path — VERBATIM. Plain canvas only, gravity orientation fix, 1920px clamp.
   function _grabFrame() {
     var vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
-    // S424 orientation fix (measured S423): the portrait-locked viewport
-    // never rotates (screen angle always 0), so frames stay device-portrait and a
-    // sideways hold saved sideways. Correction = gravity roll minus screen angle.
-    // Measured on device: rotated-left → grav 90 → apply 270 (candidate D,
-    // confirmed upright). No gravity reading → rotation 0 — identical to S422,
-    // so nothing can regress.
     var scrA = _camAngle(); if (scrA === null) scrA = 0;
     var corr = 0;
     if (_grav !== null) {
@@ -476,7 +401,7 @@ function _openUI(stream, done) {
     }
     var swap = (corr === 90 || corr === 270);
     var upW = swap ? vh : vw, upH = swap ? vw : vh;
-    var mid = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
+    var mid = document.createElement('canvas');
     mid.width = upW; mid.height = upH;
     var mctx = mid.getContext('2d');
     if (corr !== 0) {
@@ -486,8 +411,6 @@ function _openUI(stream, done) {
     } else {
       mctx.drawImage(video, 0, 0, vw, vh);
     }
-    // Crop the upright frame to its display aspect (wide → 4:3, tall → 3:4),
-    // then the S341 1920px long-edge clamp.
     var TARGET = (upW >= upH) ? (4 / 3) : (3 / 4);
     var srcW = upW, srcH = upH, sx = 0, sy = 0;
     if (upW / upH > TARGET) { srcW = Math.round(upH * TARGET); sx = Math.round((upW - srcW) / 2); }
@@ -495,50 +418,97 @@ function _openUI(stream, done) {
     var MAX = 1920;
     var scale = Math.min(1, MAX / Math.max(srcW, srcH));
     var cw = Math.round(srcW * scale), ch = Math.round(srcH * scale);
-    var cv = document.createElement('canvas'); // plain canvas — never OffscreenCanvas
+    var cv = document.createElement('canvas');
     cv.width = cw; cv.height = ch;
     var ctx = cv.getContext('2d');
     try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
     ctx.drawImage(mid, sx, sy, srcW, srcH, 0, 0, cw, ch);
     mid.width = 0; mid.height = 0;
-    cv.toBlob(function(b) {
+    cv.toBlob(function (b) {
       if (b) _addShot(b);
       busy = false;
       cv.width = 0; cv.height = 0;
     }, 'image/jpeg', 0.9);
   }
-  shutter.addEventListener('click', function() { if (busy) return; busy = true; _grabFrame(); });
+  function shutterAction() { if (busy) return; busy = true; if (flashMode !== 'off') { flash.style.opacity = '.85'; setTimeout(function () { flash.style.opacity = '0'; }, 60); } _grabFrame(); }
+  shutter.addEventListener('click', shutterAction);
 
-  // S342: rotation "Adjusting…" handling — the Android track briefly mutes/renegotiates
-  // on rotate and the <video> keeps painting the last frame; show a brief hint and nudge repaint.
+  // floating shutter: drag anywhere; hold → remove; re-enable from top ●
+  (function () {
+    var holdT = null, moved = false, sx0, sy0, ox, oy;
+    floater.addEventListener('touchstart', function (e) { var t = e.touches[0]; moved = false; sx0 = t.clientX; sy0 = t.clientY; var r = floater.getBoundingClientRect(); ox = t.clientX - r.left; oy = t.clientY - r.top; holdT = setTimeout(function () { floatDel.style.display = 'flex'; }, 550); }, { passive: true });
+    floater.addEventListener('touchmove', function (e) { var t = e.touches[0]; if (Math.hypot(t.clientX - sx0, t.clientY - sy0) > 6) { moved = true; clearTimeout(holdT); } floater.style.left = (t.clientX - ox) + 'px'; floater.style.top = (t.clientY - oy) + 'px'; floater.style.right = 'auto'; floater.style.bottom = 'auto'; }, { passive: true });
+    floater.addEventListener('touchend', function () { clearTimeout(holdT); if (!moved && floatDel.style.display === 'none') shutterAction(); });
+    floatDel.addEventListener('click', function (e) { e.stopPropagation(); floater.style.display = 'none'; floatDel.style.display = 'none'; btnFloat.style.color = '#fff'; });
+    floater.addEventListener('click', function () { if (!('ontouchstart' in window) && floatDel.style.display === 'none') shutterAction(); });
+  })();
+
+  // gestures on feed: tap→focus · swipe up/down→flip · pinch→zoom
+  (function () {
+    var pinch = 0, pz = 1, t0 = null;
+    function dist(t) { var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.hypot(dx, dy); }
+    vidWrap.addEventListener('touchstart', function (e) {
+      if (e.target.closest && e.target.closest('button, [id="cam-burst-chip"]')) return;
+      if (e.target === expo || (e.target.closest && e.target.closest('div') === expo)) return;
+      if (e.touches.length === 2) { pinch = dist(e.touches); pz = zoom; t0 = null; }
+      else if (e.touches.length === 1) { var t = e.touches[0]; t0 = { x: t.clientX, y: t.clientY, at: Date.now(), moved: false }; }
+    }, { passive: true });
+    vidWrap.addEventListener('touchmove', function (e) {
+      if (e.touches.length === 2 && pinch) { zoom = pz * (dist(e.touches) / pinch); applyZoom(); }
+      else if (t0) { var t = e.touches[0]; if (Math.hypot(t.clientX - t0.x, t.clientY - t0.y) > 8) t0.moved = true; }
+    }, { passive: true });
+    vidWrap.addEventListener('touchend', function (e) {
+      if (pinch && e.touches.length < 2) pinch = 0;
+      if (t0) {
+        var last = e.changedTouches[0], dx = last.clientX - t0.x, dy = last.clientY - t0.y, ax = Math.abs(dx), ay = Math.abs(dy);
+        if (!t0.moved && (Date.now() - t0.at) < 300) focusAt(last.clientX, last.clientY);
+        else if (ay > 70 && ay > ax) flip();
+      }
+      t0 = null;
+    }, { passive: true });
+    vidWrap.addEventListener('click', function (e) { if (!('ontouchstart' in window) && !(e.target.closest && e.target.closest('button'))) focusAt(e.clientX, e.clientY); });
+  })();
+
+  // tap-to-focus + exposure slider
+  var _fh = null, expDragging = false;
+  function focusAt(clientX, clientY) {
+    var r = vidWrap.getBoundingClientRect();
+    reticle.style.left = (clientX - r.left) + 'px'; reticle.style.top = (clientY - r.top) + 'px'; reticle.style.display = 'block';
+    if (track && caps && (caps.pointsOfInterest || caps.focusMode)) {
+      try { var con = {}; if (caps.pointsOfInterest) con.pointsOfInterest = [{ x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height }]; if (caps.focusMode && caps.focusMode.indexOf && caps.focusMode.indexOf('single-shot') >= 0) con.focusMode = 'single-shot'; track.applyConstraints({ advanced: [con] }); } catch (e) {}
+    }
+    clearTimeout(_fh); _fh = setTimeout(function () { if (!expDragging) reticle.style.display = 'none'; }, 3500);
+  }
+  (function () {
+    function setSun(clientY) { var r = expoTrack.getBoundingClientRect(); var p = Math.max(0, Math.min(1, (clientY - r.top) / r.height)); expoSun.style.top = (p * 100) + '%'; var ev = (0.5 - p) * 2; _applyFilter(ev); if (track && caps.exposureCompensation) { try { track.applyConstraints({ advanced: [{ exposureCompensation: ev * caps.exposureCompensation.max }] }); } catch (e) {} } clearTimeout(_fh); }
+    expo.addEventListener('touchstart', function (e) { expDragging = true; setSun(e.touches[0].clientY); }, { passive: true });
+    expo.addEventListener('touchmove', function (e) { if (expDragging) setSun(e.touches[0].clientY); }, { passive: true });
+    expo.addEventListener('touchend', function () { expDragging = false; _fh = setTimeout(function () { reticle.style.display = 'none'; }, 2500); }, { passive: true });
+  })();
+
+  // S342: rotation "Adjusting…" handling
   var _adjust = document.createElement('div');
   _adjust.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(11,10,13,.55);color:#f4f3f6;font-family:Calibri,sans-serif;font-size:15px;z-index:3;';
   _adjust.textContent = 'Adjusting…';
   vidWrap.appendChild(_adjust);
   var _adjustTimer = null;
   function _showAdjusting() { _adjust.style.display = 'flex'; if (_adjustTimer) clearTimeout(_adjustTimer); _adjustTimer = setTimeout(_hideAdjusting, 1200); }
-  function _hideAdjusting() { _adjust.style.display = 'none'; if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; } try { if (video.paused) video.play().catch(function(){}); } catch (e) {} }
+  function _hideAdjusting() { _adjust.style.display = 'none'; if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; } try { if (video.paused) video.play().catch(function () {}); } catch (e) {} }
   function _onOrient() { _updateStageAspect(); _showAdjusting(); }
   try {
     window.addEventListener('orientationchange', _onOrient);
-    if (track && track.addEventListener) {
-      track.addEventListener('mute', _showAdjusting);
-      track.addEventListener('unmute', _hideAdjusting);
-    }
+    if (track && track.addEventListener) { track.addEventListener('mute', _showAdjusting); track.addEventListener('unmute', _hideAdjusting); }
   } catch (e) {}
 
   function _close(result) {
-    try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {}
-    urls.forEach(function(u) { try { URL.revokeObjectURL(u); } catch (e) {} });
+    try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
     document.body.style.overflow = prevOverflow;
     overlay.remove();
     document.removeEventListener('keydown', _esc);
     try {
       window.removeEventListener('orientationchange', _onOrient);
-      if (track && track.removeEventListener) {
-        track.removeEventListener('mute', _showAdjusting);
-        track.removeEventListener('unmute', _hideAdjusting);
-      }
+      if (track && track.removeEventListener) { track.removeEventListener('mute', _showAdjusting); track.removeEventListener('unmute', _hideAdjusting); }
     } catch (e) {}
     if (_adjustTimer) { clearTimeout(_adjustTimer); _adjustTimer = null; }
     _disarmGravity();
@@ -546,11 +516,10 @@ function _openUI(stream, done) {
     if (_zoomRaf) { try { cancelAnimationFrame(_zoomRaf); } catch (e) {} }
     done(result);
   }
-  // Escape: close the review first if it's open, otherwise cancel the camera.
   function _esc(e) { if (e.key === 'Escape') { if (review.style.display !== 'none') review.style.display = 'none'; else _close([]); } }
   document.addEventListener('keydown', _esc);
-  btnCancel.addEventListener('click', function() { _close([]); });
-  btnDone.addEventListener('click', function() { _close(shots.slice()); });
+  btnCancel.addEventListener('click', function () { _close([]); });
+  btnDone.addEventListener('click', function () { _close(shots.slice()); });
 
   renderStrip(); _updateUI();
 }
