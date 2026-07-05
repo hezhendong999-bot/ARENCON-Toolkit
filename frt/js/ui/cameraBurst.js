@@ -264,7 +264,10 @@ function _openUI(stream, done) {
   rBack.style.cssText = 'position:relative;z-index:2;display:flex;align-items:center;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.34);color:#fff;font-size:15px;font-weight:700;font-family:Calibri,sans-serif;padding:9px 16px;border-radius:99px;cursor:pointer;';
   var rPos = document.createElement('div');
   rPos.style.cssText = 'position:absolute;left:0;right:0;text-align:center;pointer-events:none;font-size:15px;color:#a09aa8;';
-  rTop.appendChild(rBack); rTop.appendChild(rPos); review.appendChild(rTop);
+  var rVer = document.createElement('div'); // build tag — one-glance confirmation of the running build
+  rVer.textContent = 'v437';
+  rVer.style.cssText = 'position:relative;z-index:2;margin-left:auto;font-size:10px;color:rgba(255,255,255,.35);pointer-events:none;font-variant-numeric:tabular-nums;';
+  rTop.appendChild(rBack); rTop.appendChild(rVer); rTop.appendChild(rPos); review.appendChild(rTop);
   var rImgWrap = document.createElement('div');
   rImgWrap.style.cssText = 'flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px;';
   var rImg = document.createElement('img');
@@ -281,36 +284,40 @@ function _openUI(stream, done) {
     if (_rvY > my) _rvY = my; if (_rvY < -my) _rvY = -my;
   }
   function _rvReset() { _rvS = 1; _rvX = 0; _rvY = 0; _rvApply(); }
+  // S437: zoom rebuilt on Pointer Events with pointer capture — touch events
+  // proved unreliable through this overlay stack on Android Chrome ("frozen").
+  // Pinch = 2 pointers · pan while zoomed = 1 pointer · double-tap toggles 2.5x.
   (function () {
-    var d0 = 0, s0 = 1, panning = false, px = 0, py = 0, lastTap = 0;
-    function dist(t) { var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx * dx + dy * dy); }
+    var pts = {}, n = 0, d0 = 0, s0 = 1, px = 0, py = 0, lastTap = 0;
+    function arr() { var a = []; for (var k in pts) a.push(pts[k]); return a; }
+    function dist(a) { var dx = a[0].x - a[1].x, dy = a[0].y - a[1].y; return Math.sqrt(dx * dx + dy * dy) || 1; }
     rImgWrap.style.touchAction = 'none';
-    rImgWrap.addEventListener('touchstart', function (e) {
-      if (e.touches.length === 2) { e.preventDefault(); d0 = dist(e.touches); s0 = _rvS; panning = false; }
-      else if (e.touches.length === 1) {
-        var t = e.touches[0], now = Date.now();
-        if (now - lastTap < 300) { e.preventDefault(); if (_rvS > 1.05) { _rvReset(); } else { _rvS = 2.5; _rvClampPan(); _rvApply(); } lastTap = 0; }
+    rImgWrap.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    rImgWrap.addEventListener('pointerdown', function (e) {
+      try { rImgWrap.setPointerCapture(e.pointerId); } catch (err) {}
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY }; n++;
+      if (n === 2) { d0 = dist(arr()); s0 = _rvS; }
+      else if (n === 1) {
+        var now = Date.now();
+        if (now - lastTap < 300) { if (_rvS > 1.05) { _rvReset(); } else { _rvS = 2.5; _rvClampPan(); _rvApply(); } lastTap = 0; }
         else { lastTap = now; }
-        panning = _rvS > 1; px = t.clientX; py = t.clientY;
+        px = e.clientX; py = e.clientY;
       }
-    }, { passive: false });
-    rImgWrap.addEventListener('touchmove', function (e) {
-      if (e.touches.length === 2 && d0) {
-        e.preventDefault();
-        _rvS = Math.max(1, Math.min(5, s0 * (dist(e.touches) / d0)));
-        _rvClampPan(); _rvApply();
-      } else if (e.touches.length === 1 && panning) {
-        e.preventDefault();
-        var t = e.touches[0];
-        _rvX += t.clientX - px; _rvY += t.clientY - py; px = t.clientX; py = t.clientY;
-        _rvClampPan(); _rvApply();
-      }
-    }, { passive: false });
-    rImgWrap.addEventListener('touchend', function (e) {
-      if (e.touches.length < 2) d0 = 0;
-      if (_rvS <= 1.02) _rvReset();
-      panning = _rvS > 1 && e.touches.length === 1;
-    }, { passive: true });
+    });
+    rImgWrap.addEventListener('pointermove', function (e) {
+      if (!pts[e.pointerId]) return;
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (n >= 2 && d0) { _rvS = Math.max(1, Math.min(5, s0 * (dist(arr()) / d0))); _rvClampPan(); _rvApply(); }
+      else if (n === 1 && _rvS > 1) { _rvX += e.clientX - px; _rvY += e.clientY - py; px = e.clientX; py = e.clientY; _rvClampPan(); _rvApply(); }
+    });
+    function up(e) {
+      if (pts[e.pointerId]) { delete pts[e.pointerId]; n = n > 0 ? n - 1 : 0; }
+      if (n < 2) d0 = 0;
+      if (n === 1) { var a = arr(); px = a[0].x; py = a[0].y; }
+      if (n === 0 && _rvS <= 1.02) _rvReset();
+    }
+    rImgWrap.addEventListener('pointerup', up);
+    rImgWrap.addEventListener('pointercancel', up);
   })();
   var rBar = document.createElement('div');
   rBar.style.cssText = 'flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 28px calc(20px + env(safe-area-inset-bottom,0px));';
