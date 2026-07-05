@@ -70,6 +70,10 @@ function _disarmGravity() {
 // no-op there (harmless) — the Android TWA/browser is the target.
 function _enterFullscreen() {
   try {
+    // S437: the installed app (TWA/standalone/fullscreen display-mode) already has
+    // no browser chrome — requesting fullscreen there does nothing except trigger
+    // Chrome's mandatory "swipe down to exit" toast. Skip it; browser tabs keep it.
+    if ((window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches)) || navigator.standalone) return;
     var el = document.documentElement;
     var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
     if (req && !document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -264,7 +268,8 @@ function _openUI(stream, done) {
   var rImgWrap = document.createElement('div');
   rImgWrap.style.cssText = 'flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px;';
   var rImg = document.createElement('img');
-  rImg.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;';
+  rImg.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;touch-action:none;-webkit-user-drag:none;';
+  rImg.draggable = false; // S437: touches start ON the img — without its own gesture lock the browser hijacks the pinch (the frozen-zoom cause)
   rImgWrap.appendChild(rImg); review.appendChild(rImgWrap);
   // S436: pinch-zoom / pan / double-tap on the review photo
   var _rvS = 1, _rvX = 0, _rvY = 0;
@@ -281,24 +286,26 @@ function _openUI(stream, done) {
     function dist(t) { var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx * dx + dy * dy); }
     rImgWrap.style.touchAction = 'none';
     rImgWrap.addEventListener('touchstart', function (e) {
-      if (e.touches.length === 2) { d0 = dist(e.touches); s0 = _rvS; panning = false; }
+      if (e.touches.length === 2) { e.preventDefault(); d0 = dist(e.touches); s0 = _rvS; panning = false; }
       else if (e.touches.length === 1) {
         var t = e.touches[0], now = Date.now();
-        if (now - lastTap < 300) { if (_rvS > 1.05) { _rvReset(); } else { _rvS = 2.5; _rvClampPan(); _rvApply(); } lastTap = 0; }
+        if (now - lastTap < 300) { e.preventDefault(); if (_rvS > 1.05) { _rvReset(); } else { _rvS = 2.5; _rvClampPan(); _rvApply(); } lastTap = 0; }
         else { lastTap = now; }
         panning = _rvS > 1; px = t.clientX; py = t.clientY;
       }
-    }, { passive: true });
+    }, { passive: false });
     rImgWrap.addEventListener('touchmove', function (e) {
       if (e.touches.length === 2 && d0) {
+        e.preventDefault();
         _rvS = Math.max(1, Math.min(5, s0 * (dist(e.touches) / d0)));
         _rvClampPan(); _rvApply();
       } else if (e.touches.length === 1 && panning) {
+        e.preventDefault();
         var t = e.touches[0];
         _rvX += t.clientX - px; _rvY += t.clientY - py; px = t.clientX; py = t.clientY;
         _rvClampPan(); _rvApply();
       }
-    }, { passive: true });
+    }, { passive: false });
     rImgWrap.addEventListener('touchend', function (e) {
       if (e.touches.length < 2) d0 = 0;
       if (_rvS <= 1.02) _rvReset();
