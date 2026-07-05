@@ -130,33 +130,28 @@ function _openUI(stream, done) {
 
   var overlay = document.createElement('div');
   overlay.id = 'cam-burst-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0b0a0d;display:flex;flex-direction:column;font-family:Calibri,sans-serif;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
 
-  // ---- top bar: ✕ cancel · live count · Library ----
-  var top = document.createElement('div');
-  top.style.cssText = 'flex:none;display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top,0px)) 18px 10px;color:#f4f3f6;';
-  var btnCancel = document.createElement('button');
-  btnCancel.id = 'cam-burst-cancel'; btnCancel.setAttribute('aria-label', 'Cancel'); btnCancel.innerHTML = '&#10005;';
-  btnCancel.style.cssText = 'width:44px;height:40px;background:none;border:0;color:#f4f3f6;font-size:24px;line-height:1;cursor:pointer;text-align:left;';
-  var counter = document.createElement('div');
-  counter.style.cssText = 'font-size:15px;color:#f4f3f6;opacity:.6;';
-  counter.innerHTML = '<b id="cam-burst-count">0</b> photos this round';
-  var btnLib = document.createElement('button');
-  btnLib.id = 'cam-burst-library'; btnLib.textContent = '\uD83D\uDDBC Library';
-  btnLib.style.cssText = 'background:rgba(255,255,255,.10);color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:99px;padding:8px 14px;font-size:14px;font-family:Calibri,sans-serif;cursor:pointer;';
-  top.appendChild(btnCancel); top.appendChild(counter); top.appendChild(btnLib);
-  overlay.appendChild(top);
-
-  // ---- preview ----
+  // ---- preview: full-width WYSIWYG stage, chrome floats over it (S426 iOS layout) ----
   var vidWrap = document.createElement('div');
-  vidWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000;min-height:0;';
-  var stage = document.createElement('div'); // true 4:3 frame — WYSIWYG with the 4:3 grab below
-  stage.style.cssText = 'position:relative;height:100%;max-height:100%;max-width:100%;aspect-ratio:4/3;overflow:hidden;background:#000;';
+  vidWrap.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;';
+  var stage = document.createElement('div'); // WYSIWYG capture region — width-locked, aspect follows the hold
+  stage.style.cssText = 'position:relative;width:100%;max-height:100%;aspect-ratio:4/3;overflow:hidden;background:#000;';
   var video = document.createElement('video');
   video.autoplay = true; video.muted = true; video.playsInline = true; video.setAttribute('playsinline', '');
-  video.style.cssText = 'width:100%;height:100%;object-fit:cover;'; // fill the 4:3 stage (center-crop)
+  video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .18s ease-out;';
   video.srcObject = stream;
   stage.appendChild(video);
+  var gridOverlay = document.createElement('div');
+  gridOverlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none;background-image:linear-gradient(rgba(255,255,255,.24) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.24) 1px,transparent 1px);background-size:33.333% 33.333%;background-position:center;';
+  stage.appendChild(gridOverlay);
+  var reticle = document.createElement('div');
+  reticle.style.cssText = 'position:absolute;left:50%;top:50%;width:76px;height:76px;transform:translate(-50%,-50%);pointer-events:none;display:none;border:1.5px solid #FFCC00;border-radius:4px;box-shadow:0 0 0 1px rgba(0,0,0,.25);';
+  var retSun = document.createElement('div');
+  retSun.innerHTML = '\u2600';
+  retSun.style.cssText = 'position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:5px;color:#FFCC00;font-size:16px;line-height:1;';
+  reticle.appendChild(retSun);
+  stage.appendChild(reticle);
   vidWrap.appendChild(stage);
   function _updateStageAspect() {
     var portrait = false;
@@ -169,25 +164,64 @@ function _openUI(stream, done) {
   vidWrap.appendChild(flash);
   overlay.appendChild(vidWrap);
 
-  // ---- thumbnail strip (tap a thumb to review) ----
-  var strip = document.createElement('div');
-  strip.style.cssText = 'flex:none;display:flex;gap:8px;overflow-x:auto;padding:8px 12px;background:#16141b;';
-  overlay.appendChild(strip);
+  // ---- top cluster: ✕ · count · Library, then flash · grid ----
+  var topCluster = document.createElement('div');
+  topCluster.style.cssText = 'position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;gap:8px;padding:calc(12px + env(safe-area-inset-top,0px)) 14px 14px;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);';
+  var top = document.createElement('div');
+  top.style.cssText = 'display:flex;align-items:center;gap:10px;color:#f4f3f6;';
+  var btnCancel = document.createElement('button');
+  btnCancel.id = 'cam-burst-cancel'; btnCancel.setAttribute('aria-label', 'Cancel'); btnCancel.innerHTML = '&#10005;';
+  btnCancel.style.cssText = 'flex:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.16);color:#f4f3f6;font-size:18px;line-height:1;cursor:pointer;';
+  var counter = document.createElement('div');
+  counter.style.cssText = 'flex:1;display:flex;justify-content:center;';
+  counter.innerHTML = '<span style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:99px;background:rgba(20,19,24,.5);border:1px solid rgba(255,255,255,.16);font-size:13.5px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)"><b id="cam-burst-count" style="color:#46C5E8;font-size:15px">0</b><span style="color:#c9c6cf">photos this round</span></span>';
+  var btnLib = document.createElement('button');
+  btnLib.id = 'cam-burst-library'; btnLib.innerHTML = '<span style="font-size:15px">\uD83D\uDDBC</span> Library';
+  btnLib.style.cssText = 'flex:none;display:inline-flex;align-items:center;gap:6px;height:40px;background:rgba(255,255,255,.11);color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:99px;padding:0 14px;font-size:13.5px;font-weight:600;font-family:Calibri,sans-serif;cursor:pointer;';
+  top.appendChild(btnCancel); top.appendChild(counter); top.appendChild(btnLib);
+  var tools = document.createElement('div');
+  tools.style.cssText = 'display:flex;gap:9px;align-items:center;';
+  var btnFlash = document.createElement('button');
+  btnFlash.style.cssText = 'display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:99px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.16);color:#f4f3f6;font-size:12.5px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;';
+  btnFlash.innerHTML = '<span style="font-size:14px;line-height:1">\u26A1</span><span id="cam-flash-lab">AUTO</span>';
+  var flashLab = btnFlash.querySelector('#cam-flash-lab');
+  var btnGrid = document.createElement('button');
+  btnGrid.style.cssText = 'display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:99px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.16);color:#f4f3f6;font-size:12.5px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;';
+  btnGrid.innerHTML = '<span style="font-size:13px;line-height:1">\u25A6</span> Grid';
+  tools.appendChild(btnFlash); tools.appendChild(btnGrid);
+  topCluster.appendChild(top); topCluster.appendChild(tools);
+  overlay.appendChild(topCluster);
 
-  // ---- bottom bar: Retake last · shutter · Done ----
+  // ---- bottom cluster: zoom pills · thumbnail strip · Retake · shutter · Done ----
+  var bottomCluster = document.createElement('div');
+  bottomCluster.style.cssText = 'position:absolute;bottom:0;left:0;right:0;display:flex;flex-direction:column;background:linear-gradient(0deg,rgba(0,0,0,.6),transparent);';
+  var zoomPills = document.createElement('div');
+  zoomPills.style.cssText = 'display:flex;justify-content:center;gap:7px;padding:6px 0 8px;';
+  ['1', '2', '5'].forEach(function (z) {
+    var p = document.createElement('button'); p.dataset.z = z; p.textContent = (z === '1' ? '1\u00D7' : z);
+    p.style.cssText = 'min-width:40px;height:38px;padding:0 8px;border-radius:99px;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.16);color:#c9c6cf;font-size:13px;font-weight:800;font-family:Calibri,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer;';
+    zoomPills.appendChild(p);
+  });
+  var strip = document.createElement('div');
+  strip.style.cssText = 'display:flex;gap:8px;overflow-x:auto;padding:2px 14px 8px;min-height:0;';
   var bar = document.createElement('div');
-  bar.style.cssText = 'flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 22px calc(14px + env(safe-area-inset-bottom,0px));background:#16141b;border-top:1px solid rgba(255,255,255,.08);';
+  bar.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:8px 18px calc(14px + env(safe-area-inset-bottom,0px));';
   var btnRetake = document.createElement('button');
-  btnRetake.id = 'cam-burst-retake'; btnRetake.innerHTML = '&#8630; Retake last';
-  btnRetake.style.cssText = 'min-width:120px;min-height:52px;background:none;border:0;color:#f4f3f6;font-size:15px;font-weight:600;font-family:Calibri,sans-serif;text-align:left;cursor:pointer;';
+  btnRetake.id = 'cam-burst-retake';
+  btnRetake.innerHTML = '<span style="font-size:16px;line-height:1">\u21BA</span> Retake';
+  btnRetake.style.cssText = 'justify-self:start;display:inline-flex;align-items:center;gap:7px;height:48px;padding:0 18px;border-radius:24px;background:rgba(255,255,255,.14);border:0;color:#fff;font-size:14.5px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;';
   var shutter = document.createElement('button');
   shutter.id = 'cam-burst-shutter'; shutter.setAttribute('aria-label', 'Take photo');
-  shutter.style.cssText = 'width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.35);cursor:pointer;flex:none;';
+  shutter.style.cssText = 'justify-self:center;width:74px;height:74px;border-radius:50%;background:transparent;border:4px solid #fff;padding:5px;cursor:pointer;flex:none;';
+  var shutterCore = document.createElement('span');
+  shutterCore.style.cssText = 'display:block;width:100%;height:100%;border-radius:50%;background:#fff;';
+  shutter.appendChild(shutterCore);
   var btnDone = document.createElement('button');
   btnDone.id = 'cam-burst-done'; btnDone.textContent = 'Done';
-  btnDone.style.cssText = 'min-width:120px;min-height:52px;background:none;border:0;color:#f4f3f6;font-size:17px;font-weight:700;font-family:Calibri,sans-serif;text-align:right;cursor:pointer;opacity:.45;';
+  btnDone.style.cssText = 'justify-self:end;display:inline-flex;align-items:center;justify-content:center;height:48px;min-width:96px;padding:0 20px;border-radius:24px;background:#20463a;border:0;color:#9ff0c4;font-size:15px;font-weight:700;font-family:Calibri,sans-serif;cursor:pointer;opacity:.5;';
   bar.appendChild(btnRetake); bar.appendChild(shutter); bar.appendChild(btnDone);
-  overlay.appendChild(bar);
+  bottomCluster.appendChild(zoomPills); bottomCluster.appendChild(strip); bottomCluster.appendChild(bar);
+  overlay.appendChild(bottomCluster);
 
   // S332: Library — existing photos merge into shots[] and flow out the identical
   // Done path (ported from Diesel S333).
@@ -236,6 +270,99 @@ function _openUI(stream, done) {
 
   var track = stream.getVideoTracks()[0];
   var busy = false;
+
+  // ══ S426 native controls: flash · zoom · focus · grid ══════════════════
+  // Hardware paths (torch/zoom/focus) come from MediaStreamTrack capabilities —
+  // present on Android Chrome/WebView (the TWA target), absent on iOS Safari.
+  // Capability-gated: a control is inert (not broken) where the device lacks it.
+  var caps = {};
+  try { caps = (track && track.getCapabilities) ? track.getCapabilities() : {}; } catch (e) { caps = {}; }
+  var hasTorch = !!(caps && caps.torch);
+  var hasHwZoom = !!(caps && caps.zoom && typeof caps.zoom.max === 'number');
+
+  // flash / torch — auto → on → off
+  var flashMode = 'auto';
+  function _applyFlash() {
+    if (flashLab) flashLab.textContent = flashMode.toUpperCase();
+    btnFlash.style.color = flashMode === 'on' ? '#FFCC00' : (flashMode === 'off' ? '#6b6674' : '#f4f3f6');
+    btnFlash.style.borderColor = flashMode === 'on' ? 'rgba(255,204,0,.5)' : 'rgba(255,255,255,.16)';
+    if (hasTorch && track) { try { track.applyConstraints({ advanced: [{ torch: flashMode === 'on' }] }); } catch (e) {} }
+  }
+  btnFlash.addEventListener('click', function () {
+    flashMode = flashMode === 'auto' ? 'on' : (flashMode === 'on' ? 'off' : 'auto');
+    _applyFlash();
+  });
+  _applyFlash();
+
+  // 3×3 grid
+  var gridOn = false;
+  btnGrid.addEventListener('click', function () {
+    gridOn = !gridOn;
+    gridOverlay.style.display = gridOn ? 'block' : 'none';
+    btnGrid.style.color = gridOn ? '#FFCC00' : '#f4f3f6';
+    btnGrid.style.borderColor = gridOn ? 'rgba(255,204,0,.5)' : 'rgba(255,255,255,.16)';
+  });
+
+  // zoom — hardware where available (affects capture), digital preview fallback otherwise
+  var zoom = 1;
+  var zMin = hasHwZoom ? caps.zoom.min : 1;
+  var zMax = hasHwZoom ? caps.zoom.max : 5;
+  function _applyZoom() {
+    zoom = Math.max(1, Math.min(5, zoom));
+    Array.prototype.forEach.call(zoomPills.children, function (p) {
+      var on = Math.round(zoom) === +p.dataset.z;
+      p.style.background = on ? 'rgba(0,0,0,.62)' : 'rgba(0,0,0,.42)';
+      p.style.color = on ? '#FFCC00' : '#c9c6cf';
+    });
+    if (hasHwZoom && track) {
+      var hz = zMin + (zoom - 1) * (zMax - zMin) / 4;
+      hz = Math.min(zMax, Math.max(zMin, hz));
+      try { track.applyConstraints({ advanced: [{ zoom: hz }] }); video.style.transform = 'none'; return; } catch (e) {}
+    }
+    video.style.transform = 'scale(' + zoom + ')';
+  }
+  Array.prototype.forEach.call(zoomPills.children, function (p) {
+    p.addEventListener('click', function () { zoom = +p.dataset.z; _applyZoom(); });
+  });
+  _applyZoom();
+
+  // pinch-to-zoom (two-finger) + tap-to-focus (single finger) on the stage
+  var _pinchBase = 0, _pinchZoom = 1, _tap = null;
+  function _tdist(t) { var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx * dx + dy * dy); }
+  stage.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) { _pinchBase = _tdist(e.touches); _pinchZoom = zoom; _tap = null; }
+    else if (e.touches.length === 1) { var t = e.touches[0]; _tap = { x: t.clientX, y: t.clientY, at: Date.now(), moved: false }; }
+  }, { passive: true });
+  stage.addEventListener('touchmove', function (e) {
+    if (e.touches.length === 2 && _pinchBase) { zoom = _pinchZoom * (_tdist(e.touches) / _pinchBase); _applyZoom(); }
+    else if (_tap) { _tap.moved = true; }
+  }, { passive: true });
+  stage.addEventListener('touchend', function (e) {
+    if (_pinchBase && e.touches.length < 2) _pinchBase = 0;
+    if (_tap && !_tap.moved && (Date.now() - _tap.at) < 300) _focusAt(_tap.x, _tap.y);
+    _tap = null;
+  }, { passive: true });
+  function _focusAt(clientX, clientY) {
+    var r = stage.getBoundingClientRect();
+    reticle.style.left = (clientX - r.left) + 'px';
+    reticle.style.top = (clientY - r.top) + 'px';
+    reticle.style.display = 'block';
+    reticle.style.transition = 'none';
+    reticle.style.transform = 'translate(-50%,-50%) scale(1.4)';
+    void reticle.offsetWidth;
+    reticle.style.transition = 'transform .34s ease-out';
+    reticle.style.transform = 'translate(-50%,-50%) scale(1)';
+    if (track && caps && (caps.focusMode || caps.pointsOfInterest)) {
+      try {
+        var con = {};
+        if (caps.pointsOfInterest) con.pointsOfInterest = [{ x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height }];
+        if (caps.focusMode && caps.focusMode.indexOf && caps.focusMode.indexOf('single-shot') >= 0) con.focusMode = 'single-shot';
+        track.applyConstraints({ advanced: [con] });
+      } catch (e) {}
+    }
+    clearTimeout(reticle._h); reticle._h = setTimeout(function () { reticle.style.display = 'none'; }, 1100);
+  }
+  // ═══════════════════════════════════════════════════════════════════════
 
   function _updateUI() {
     var el = document.getElementById('cam-burst-count'); if (el) el.textContent = shots.length;
