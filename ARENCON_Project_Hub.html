@@ -3703,7 +3703,7 @@ function _pgExtractPhotos(row) {
     // captioned "Pin 5 · Obs A", the other "Pin 5 · Obs B". Default-state
     // obs implicitly include every pool photo (matches the pin-editor
     // semantics). Inspectors who narrowed an obs see only that subset.
-    function _extractDefics(defics) {
+    function _extractDefics(defics, isGeneralPool) {
       (defics || []).forEach(function(d) {
         var pinLabel = 'Pin ' + (d.num || '?');
         var observations = d.observations || [];
@@ -3711,7 +3711,14 @@ function _pgExtractPhotos(row) {
         var emittedAtLeastOne = false;
         // S430 Fix-3 (FRT parity): SITE RECORD pin = NO CONTRACTOR (d.contractorId
         // == null — the generalDeficiencies pool), never by priority (S317 canon).
-        var _isSiteRecordPin = (d.contractorId == null);
+        // S431 FIX (S430 regression — "everything purple"): the raw cloud JSON
+        // does NOT carry contractorId on deficiency objects; that field only
+        // exists on FRT's in-memory records. Checking d.contractorId == null
+        // was true for EVERY pin, so all badges classed as Site. The parent
+        // array is authoritative: pins under contractors[].deficiencies are
+        // contractor observations; only data.generalDeficiencies is the
+        // no-contractor (Site Record) pool. Passed in by the two call sites.
+        var _isSiteRecordPin = !!isGeneralPool;
         // Per-obs badge category, FRT S317 precedence:
         //   closed > recommendation > site-record-pin > low > high.
         // Returns {cls, cat, prefix} for the given observation.
@@ -3831,8 +3838,8 @@ function _pgExtractPhotos(row) {
         });
       });
     }
-    (data.contractors || []).forEach(function(c) { _extractDefics(c.deficiencies); });
-    _extractDefics(data.generalDeficiencies);
+    (data.contractors || []).forEach(function(c) { _extractDefics(c.deficiencies, false); });
+    _extractDefics(data.generalDeficiencies, true);
 
     // ── S430 Fix-3: FRT badge-parity collapse (port of FRT S205/S269/S429) ──
     // A pool photo referenced by multiple obs/pins emitted one record per

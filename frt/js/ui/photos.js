@@ -14,6 +14,15 @@ import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark)
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+// S431: display-layer host rewrite (same as lightbox's _r2Host). Local model
+// layers still hold r2Urls on the retired worker host; the live host is
+// files.arencon.app (S391). Rewrites ONLY the string used to paint a tile —
+// never mutates the stored model. No-op on data:/blob:/current-host strings.
+function _r2h(u) {
+  if (!u || typeof u !== 'string') return u;
+  if (u.indexOf('arencon-r2-worker.hezhendong999.workers.dev') === -1) return u;
+  return u.replace('arencon-r2-worker.hezhendong999.workers.dev', 'files.arencon.app');
+}
 
 // ── S114 Push 1.2: gallery state ──
 // Filter mode mirrors v1: 'all' | 'site' | 'deficiency' | 'general'
@@ -77,7 +86,7 @@ function _gatherDeletedRecords() {
         siteIdx: i,
         photoId: ph.id,
         ph: ph,
-        src: ph.thumb || ph.r2Url || ph.dataUrl || '',
+        src: _r2h(ph.thumb || ph.r2Url || ph.dataUrl || ''),
         deletedDate: ph.deletedDate || null,
         label: 'Site photo'
       });
@@ -95,7 +104,7 @@ function _gatherDeletedRecords() {
           deficNum: defic.num,
           photoId: ph.id,
           ph: ph,
-          src: ph.thumb || ph.r2Url || ph.dataUrl || '',
+          src: _r2h(ph.thumb || ph.r2Url || ph.dataUrl || ''),
           deletedDate: ph.deletedDate || null,
           label: 'Pin ' + defic.num
         });
@@ -243,7 +252,7 @@ function _ghostStripHtml() {
   h += '<div class="ph-grid">';
   ghosts.forEach(function(g) {
     var s = g.snapshot || {};
-    var src = s.thumb || s.r2Url || s.dataUrl || '';
+    var src = _r2h(s.thumb || s.r2Url || s.dataUrl || '');
     h += '<div class="ph-card ph-just-moved ph-ghost">';
     if (src) {
       h += '<img src="' + esc(src) + '" loading="lazy" onerror="this.style.display=\'none\'">';
@@ -325,7 +334,7 @@ export var initPhotos = {
         type: 'site',
         siteIdx: i,
         ph: p,
-        src: p.thumb || p.r2Url || p.dataUrl || '',
+        src: _r2h(p.thumb || p.r2Url || p.dataUrl || ''),
         badgeText: 'Site',
         // P1.5: green "Site" badge (matches v1; not red)
         badgeClass: 'ph-badge-site',
@@ -402,7 +411,7 @@ export var initPhotos = {
             obsIdx: oi,
             photoIdx: phi,
             ph: ph,
-            src: (mk && mk.markedR2Key) || ph.r2Url || ph.dataUrl || '',
+            src: _r2h((mk && mk.markedR2Key) || ph.r2Url || ph.dataUrl || ''),
             badgeText: _badgePrefix + defic.num + obsLetter,
             badgeClass: obsBadgeCls,
             badgeCat: _badgeCat,
@@ -733,7 +742,7 @@ export var initPhotos = {
           // by data-fb), then to a clickable placeholder — never a dead black tile.
           // The clickAction stays on the <img>, so even a placeholder image opens the
           // lightbox by index (which fetches r2Url on its own).
-          var _r2fb = (r.ph && r.ph.r2Url) ? r.ph.r2Url : '';
+          var _r2fb = (r.ph && r.ph.r2Url) ? _r2h(r.ph.r2Url) : '';
           var _fbAttr = (_r2fb && _r2fb !== r.src)
             ? (' data-r2fb="' + esc(_r2fb) + '"')
             : '';
@@ -1362,7 +1371,7 @@ document.addEventListener('click', function(e) {
 
 // ── Site Photo Upload ───────────────────────────────────
 function _downloadPhoto(ph, fallbackName) {
-  var src = ph.r2Url || ph.dataUrl || '';
+  var src = _r2h(ph.r2Url || ph.dataUrl || '');
   if (!src) { toast('No image source'); return; }
   var fname = ph.filename || (fallbackName + '.jpg');
   if (!/\.(jpe?g|png|webp|gif)$/i.test(fname)) fname += '.jpg';
@@ -2348,7 +2357,7 @@ function _compositeThumbnails(container, proj){
     if(!strokes) return;
     var rot=(typeof ph.rotation==='number')?(((ph.rotation%360)+360)%360):0;
     // Source for compositing: the clean displayed thumbnail src (already loaded).
-    var src=imgEl.getAttribute('src')||ph.thumb||ph.r2Url||ph.dataUrl||'';
+    var src=imgEl.getAttribute('src')||ph.thumb||_r2h(ph.r2Url)||ph.dataUrl||'';
     if(!src) return;
     _compositeThumbnailURL(src, rot, strokes, ph._mkFrame||null).then(function(durl){
       if(!durl) return;
