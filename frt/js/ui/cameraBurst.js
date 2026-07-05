@@ -320,6 +320,11 @@ function _openUI(stream, done) {
   // Torch is attempted regardless of reported caps: getCapabilities() is often
   // empty until the track settles, so caps alone under-reports support.
   var flashMode = 'off';
+  // S431 (measured S430): the default 'environment' pick (camera 2) has NO torch on
+  // this device; the torch lives on another back lens (camera 0, the main). On
+  // flash-ON with a torchless track we hunt the back lenses for the one with a
+  // torch and bind to it. Cached per session; flip-to-back prefers it.
+  var _torchDevId = null, _torchHopeless = false, _torchBusy = false;
   function _recap() {
     try { caps = (track && track.getCapabilities) ? track.getCapabilities() : {}; } catch (e) { caps = {}; }
     hasTorch = !!(caps && caps.torch);
@@ -336,7 +341,49 @@ function _openUI(stream, done) {
       } catch (e) {}
     }
   }
-  btnFlash.addEventListener('click', function () { _recap(); flashMode = flashMode === 'off' ? 'on' : 'off'; _applyFlash(); _diagFlash(); });
+  function _acquireTorchTrack(cb) {
+    if (_torchBusy) return; _torchBusy = true;
+    navigator.mediaDevices.enumerateDevices().then(function (ds) {
+      var cams = ds.filter(function (d) { return d.kind === 'videoinput'; });
+      var curId = null; try { curId = track.getSettings ? track.getSettings().deviceId : null; } catch (e) {}
+      var backs = cams.filter(function (d) { return /back|rear|environment/i.test(d.label || '') && d.deviceId !== curId; });
+      if (!backs.length) backs = cams.filter(function (d) { return d.deviceId !== curId; });
+      // stop the current stream first — Android cameras are exclusive
+      try { if (track && track.removeEventListener) { track.removeEventListener('mute', _showAdjusting); track.removeEventListener('unmute', _hideAdjusting); } } catch (e) {}
+      try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+      var i = 0;
+      function tryNext() {
+        if (i >= backs.length) {
+          _torchHopeless = true; _torchBusy = false;
+          navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
+            .then(function (s) { _attachStream(s, facing); cb(false); })
+            .catch(function () { cb(false); });
+          return;
+        }
+        var id = backs[i++].deviceId;
+        navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: id } }, audio: false })
+          .then(function (s) {
+            var t = s.getVideoTracks()[0], c = {};
+            try { c = t.getCapabilities ? t.getCapabilities() : {}; } catch (e) {}
+            if (c && c.torch) { _torchDevId = id; _attachStream(s, 'environment'); _torchBusy = false; cb(true); }
+            else { try { s.getTracks().forEach(function (x) { x.stop(); }); } catch (e) {} tryNext(); }
+          })
+          .catch(tryNext);
+      }
+      tryNext();
+    }).catch(function () { _torchBusy = false; cb(false); });
+  }
+  btnFlash.addEventListener('click', function () {
+    _recap();
+    flashMode = flashMode === 'off' ? 'on' : 'off';
+    _applyFlash();
+    if (flashMode === 'on' && !hasTorch && !_torchHopeless) {
+      _acquireTorchTrack(function (ok) {
+        if (ok) { flashMode = 'on'; _applyFlash(); }
+        else { _diagFlash(); } // DIAG only on failure — silent when the hunt works
+      });
+    }
+  });
   _applyFlash();
 
   // night — brightness boost (browser can't do true computational night)
@@ -383,7 +430,10 @@ function _openUI(stream, done) {
     var next = facing === 'environment' ? 'user' : 'environment';
     try { if (track && track.removeEventListener) { track.removeEventListener('mute', _showAdjusting); track.removeEventListener('unmute', _hideAdjusting); } } catch (e) {}
     try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: next } }, audio: false })
+    var _req = (next === 'environment' && _torchDevId)
+      ? navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: _torchDevId } }, audio: false })
+      : navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: next } }, audio: false });
+    _req
       .then(function (s) { _attachStream(s, next); })
       .catch(function () {
         navigator.mediaDevices.getUserMedia({ video: { facingMode: next }, audio: false })
