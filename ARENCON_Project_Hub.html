@@ -3595,7 +3595,12 @@ function _pgResolveR2Src(ph, projectId) {
     if (parts.length >= 5 && parts[0] === 'photos') {
       var proj = _projects ? _projects.find(function(p) { return p.id === projectId; }) : null;
       var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
-      var folder = slug || parts[1];
+      // S427: the key's OWN folder is authoritative — photos can live under a
+      // legacy internal-id folder (e.g. proj_<ts>_<suffix>) that no slug
+      // rebuild can reach. Forcing the current slug here broke every
+      // legacy-folder photo in the Hub while FRT rendered them fine.
+      // The observer's 404 fallback still tries current slug + UUID.
+      var folder = parts[1] || slug;
       var type = parts[3];
       var fname = parts.slice(4).join('/');
       return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/frt/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
@@ -4046,7 +4051,9 @@ function _pgObserveThumbs(grid) {
         fetch(src)
           .then(function(r) {
             if (!r.ok) {
-              // 404 fallback: try swapping folder ID (UUID↔slug)
+              // 404 fallback chain (S427): the primary URL now uses the key's
+              // own folder, so on a miss we try the other known folders for
+              // this project — current slug, then project UUID.
               if (r.status === 404) {
                 var pathAfter = src.substring(R2_WORKER.length);
                 var parts = pathAfter.split('/');
@@ -4055,14 +4062,17 @@ function _pgObserveThumbs(grid) {
                   var usedFolder = decodeURIComponent(parts[2]);
                   var proj = _projects ? _projects.find(function(p){ return p.id === _detailProjectId; }) : null;
                   var slug = proj ? _pgMakeR2FolderSlug(proj.project_number, proj.project_name) : null;
-                  var tryFolder = (usedFolder === slug) ? _detailProjectId : (usedFolder === _detailProjectId && slug) ? slug : null;
-                  if (tryFolder && tryFolder !== usedFolder) {
-                    parts[2] = encodeURIComponent(tryFolder);
-                    var altUrl = R2_WORKER + parts.join('/');
-                    return fetch(altUrl).then(function(r2) {
-                      if (!r2.ok) throw new Error(r2.status);
-                      return r2.blob();
-                    });
+                  var alts = [slug, _detailProjectId].filter(function(f){ return f && f !== usedFolder; });
+                  if (alts.length) {
+                    var tryAt = function(i) {
+                      if (i >= alts.length) throw new Error('404');
+                      parts[2] = encodeURIComponent(alts[i]);
+                      return fetch(R2_WORKER + parts.join('/')).then(function(r2) {
+                        if (r2.ok) return r2.blob();
+                        return tryAt(i + 1);
+                      });
+                    };
+                    return tryAt(0);
                   }
                 }
               }
