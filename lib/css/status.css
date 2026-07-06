@@ -1,0 +1,97 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   ARENCON /lib/ — LOCKED VERDICT / STATUS PALETTE   (status.css, S446)
+   ══════════════════════════════════════════════════════════════════════════
+   This is the SHARED, LOCKED report/status colour system — the muted palette
+   that predates ARENCON Bold and must NOT be overwritten by it. It is kept
+   in its OWN file (physically separate from the Bold chrome tokens in
+   chrome.css) precisely so the two systems never blur:
+
+       chrome.css   →  ARENCON Bold  — UI CHROME (buttons, section chips,
+                                        info/brand, glassy surfaces). --ab-*
+       status.css   →  LOCKED verdicts — the meaning of a RESULT (pass/fail,
+                                        safety margin). --st-*
+
+   Every tool that renders a VERDICT (Diesel, Electric, and future pump/IT&M
+   tools) links this file so the shared verdicts are ONE definition and can
+   never drift apart. "Shared ones must match" — enforced structurally.
+
+   HEXES ARE VERBATIM FROM LIVE DIESEL CANON (the source of truth):
+     • PASS   #5F8068  (muted green)   — Diesel .fp-verdict.pass text
+     • FAIL   #A85959  (muted red)     — Diesel .fp-verdict.fail text
+     • N/A    silver                    — Diesel .fp-verdict.na
+     • Safety margin (Diesel S-margin verdicts):
+         DEFICIT  #C25B5B   TIGHT #D6A93E   ADEQUATE #3DBE6B
+   These are the LOCKED report/status colours — NOT the Bold --ab-* set, and
+   NOT FRT's deficiency-priority pin fills. Do not substitute the brighter
+   Bold greens/reds here; a verdict's colour is a separate, certified meaning.
+
+   TOOL-UNIQUE STATUSES ARE **NOT** DEFINED HERE. Electric-only chips such as
+   VFD state or PLD tags are each tool's own vocabulary and must stay local —
+   they are deliberately absent so no tool is forced to share what it doesn't.
+
+   Both skins: verdict MEANING is identical light/dark; only the tint depth of
+   the soft pill background shifts, matching how Diesel renders .fp-verdict.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="light"] {
+  /* text/ink of the verdict (the certified colour) */
+  --st-pass:      #5F8068;
+  --st-fail:      #A85959;
+  --st-na:        #928E9C;   /* silver ink (matches Bold ink-3 light) */
+  --st-deficit:   #C25B5B;
+  --st-tight:     #D6A93E;
+  --st-adequate:  #3DBE6B;
+
+  /* soft pill fills — Diesel .fp-verdict backgrounds, light skin */
+  --st-pass-bg:      #E8EFE7;
+  --st-fail-bg:      #F3E0DE;
+  --st-na-bg:        #EEF0F4;
+  --st-deficit-bg:   rgba(194,91,91,.14);
+  --st-tight-bg:     rgba(214,169,62,.16);
+  --st-adequate-bg:  rgba(61,190,107,.15);
+}
+
+[data-theme="dark"] {
+  /* Verdict INK holds its certified value; on dark we lift legibility a hair
+     without abandoning the muted identity (never the bright Bold tints). */
+  --st-pass:      #7FB090;
+  --st-fail:      #C98A8A;
+  --st-na:        #8A8594;
+  --st-deficit:   #D07E7E;
+  --st-tight:     #E0BC63;
+  --st-adequate:  #63C98A;
+
+  /* dark pill fills — low-alpha of the verdict colour, glow-friendly */
+  --st-pass-bg:      rgba(95,128,104,.22);
+  --st-fail-bg:      rgba(168,89,89,.22);
+  --st-na-bg:        rgba(146,142,156,.16);
+  --st-deficit-bg:   rgba(208,126,126,.20);
+  --st-tight-bg:     rgba(224,188,99,.20);
+  --st-adequate-bg:  rgba(99,201,138,.20);
+}
+
+/* ── Verdict pill (shared shape; mirrors Diesel .fp-verdict) ───────────────
+   Usage:  <span class="st-verdict st-pass">PASS</span>
+   The pill carries its own soft tinted background + 1px verdict-colour border,
+   matching the locked Diesel chip canon (tinted bg + border, not a heavy
+   badge, never a toast). Callers may also just read the --st-* vars directly
+   (e.g. for a leading colour dot) without using this class. */
+.st-verdict{
+  display:inline-flex; align-items:center; gap:6px;
+  font-family:Calibri, sans-serif;
+  font-size:13px; font-weight:700; line-height:1;
+  padding:4px 11px; border-radius:14px; white-space:nowrap;
+  border:1px solid currentColor;
+}
+.st-verdict .st-dot{
+  width:7px; height:7px; border-radius:50%;
+  background:currentColor; flex:0 0 auto;
+}
+
+.st-verdict.st-pass{      color:var(--st-pass);     background:var(--st-pass-bg); }
+.st-verdict.st-fail{      color:var(--st-fail);     background:var(--st-fail-bg); }
+.st-verdict.st-na{        color:var(--st-na);       background:var(--st-na-bg); }
+.st-verdict.st-deficit{   color:var(--st-deficit);  background:var(--st-deficit-bg); }
+.st-verdict.st-tight{     color:var(--st-tight);    background:var(--st-tight-bg); }
+.st-verdict.st-adequate{  color:var(--st-adequate); background:var(--st-adequate-bg); }

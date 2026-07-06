@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#EFEDF0">
 <title>ARENCON — Electric Fire Pump (Library Step 0 Skeleton)</title>
 <link rel="stylesheet" href="../lib/css/chrome.css?v=2">
+<link rel="stylesheet" href="../lib/css/status.css?v=1">
 <style>
   body { margin: 0; }
   .demo-wrap { max-width: 860px; margin: 24px auto; padding: 0 16px; display: grid; gap: 18px; }
@@ -55,20 +56,24 @@
     </div>
 
     <div class="ab-card">
-      <h2 class="ab-h2"><span class="ab-secnum">04</span>Shared Chips + Completion Bar</h2>
+      <h2 class="ab-h2"><span class="ab-secnum">04</span>Shared Verdicts + Completion Bar</h2>
       <div class="demo-row" style="margin-bottom:14px;">
-        <span class="ab-chip ab-chip-ok"><span class="ab-chip-dot" style="background:var(--ab-ok)"></span>Passed</span>
-        <span class="ab-chip ab-chip-fail"><span class="ab-chip-dot" style="background:var(--ab-fail)"></span>High</span>
-        <span class="ab-chip ab-chip-warn"><span class="ab-chip-dot" style="background:var(--ab-warn)"></span>Low</span>
-        <span class="ab-chip ab-chip-rec"><span class="ab-chip-dot" style="background:var(--ab-rec)"></span>Recommendation</span>
-        <span class="ab-chip ab-chip-info"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Info</span>
-        <span class="ab-chip ab-chip-brand"><span class="ab-chip-dot" style="background:var(--ab-brand)"></span>ARENCON</span>
+        <!-- SHARED verdicts (locked status.css palette — identical in Diesel + Electric) -->
+        <span class="st-verdict st-pass"><span class="st-dot"></span>PASS</span>
+        <span class="st-verdict st-fail"><span class="st-dot"></span>FAIL</span>
+        <span class="st-verdict st-na"><span class="st-dot"></span>N/A</span>
+        <span class="st-verdict st-adequate"><span class="st-dot"></span>ADEQUATE</span>
+        <span class="st-verdict st-tight"><span class="st-dot"></span>TIGHT</span>
+        <span class="st-verdict st-deficit"><span class="st-dot"></span>DEFICIT</span>
+        <!-- ELECTRIC-UNIQUE (its own vocabulary — NOT shared, not in status.css) -->
+        <span class="ab-chip ab-chip-info" style="--c:#2C7FB8"><span class="ab-chip-dot" style="background:#2C7FB8"></span>VFD</span>
+        <span class="ab-chip ab-chip-rec"><span class="ab-chip-dot" style="background:var(--ab-rec)"></span>PLD</span>
       </div>
       <div class="ab-bar">
         <div class="ab-bar-track"><div class="ab-bar-fill" style="width:62%"></div></div>
         <span class="ab-bar-pct">62%</span>
       </div>
-      <p class="demo-note" style="margin-top:10px;">Semantic colours mean the same thing in all ten tools — per-tool uniqueness (e.g. photo badge categories) maps tool tokens onto these, never invents new chrome.</p>
+      <p class="demo-note" style="margin-top:10px;"><b>Shared verdicts</b> (PASS/FAIL/N&nbsp;A + safety-margin ADEQUATE/TIGHT/DEFICIT) come from the locked <b>status.css</b> palette — the same muted hexes Diesel uses (<code>#5F8068</code>/<code>#A85959</code>/…), so a verdict reads identically across every pump/commissioning tool. <b>VFD</b> and <b>PLD</b> are Electric-unique — its own vocabulary, deliberately NOT forced to match anything. Verdict colours are the locked report system, never the Bold chrome tokens.</p>
     </div>
 
     <div class="ab-card">
