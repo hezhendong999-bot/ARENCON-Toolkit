@@ -84,7 +84,6 @@
     if (GREEN_CLOSED && pin.isClosed) return '#5F8068';  // resolved → muted green
     if (pin.isRecommendation) return '#5E5440';          // S317: rec → brown (matches PDF .rec-chip; rec wins over site/priority; closed above still wins)
     if (pin.isSiteRecord) return '#6B6FA8';
-    if (pin.isIAR) return '#E91E8C';
     if (pin.priority === 'general') return '#5F8068';
     if (pin.priority === 'low')     return '#B07F5A';
     return '#A85959'; // high
@@ -146,7 +145,7 @@
   // Draw one pin at native 32×42 coords, anchored at tip (16, 40).
   // Caller handles translate + scale to place at screen position.
   function _drawPinAtNative(ctx, pin, state, dimmed, highlightColor, pinAlpha){
-    var isOutstanding = !pin.isClosed && !pin.isIAR;
+    var isOutstanding = !pin.isClosed;
     // Contractor-highlight lens recolours a matching pin to its contractor's
     // colour (passed in); otherwise the normal priority/status fill applies.
     var fillHex = highlightColor || _priorityFillHex(pin);

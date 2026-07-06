@@ -5227,11 +5227,6 @@ document.addEventListener('click', function(e) {
   if (action === 'toggle-addressed') {
     var deficId = el.getAttribute('data-defic-id');
     var obsIdx = parseInt(el.getAttribute('data-obs-idx') || '0');
-    // S135: IAR confirm flow retired. When toggling addressed → closed
-    // on an IAR pin, the silent-degrade write (defic.iar = false on
-    // status-mirror) is preserved via Model.updateDeficStatus. No prompt.
-    var _ta = Model.findDeficiency(deficId);
-    if (_ta && _ta.defic && _ta.defic.iar) _ta.defic.iar = false;
     Model.toggleObsAddressed(deficId, obsIdx);
     initDeficiencies.render();
     if (window._frtRenderTasks) window._frtRenderTasks();
@@ -5710,11 +5705,8 @@ document.addEventListener('click', function(e) {
     var deficId = el.getAttribute('data-defic-id');
     var _cd = Model.findDeficiency(deficId);
     var _cnum = _cd ? _cd.defic.num || '?' : '?';
-    // S135: IAR confirm gate retired. Silent-degrade write of iar=false
-    // still happens inside the close handler below.
     showPrompt('\u2714 Close Deficiency #' + _cnum, 'Closing note (optional):').then(function(note) {
       if (note === null) return; // cancelled at note prompt
-      if (_cd && _cd.defic && _cd.defic.iar) _cd.defic.iar = false;
       Model.updateDeficStatus(deficId, 'closed');
       if (note) Model.updateClosedNote(deficId, note);
       _activeDlcTab = 'closed'; _dfxRecMode = 'all'; _catFilter = 'closed';  // S250 §4: Closed segment = all closed
@@ -5862,8 +5854,6 @@ document.addEventListener('change', function(e) {
     if (!_ssf || !_ssf.defic || !_ssf.defic.observations) return;
     var curAddressed = !!(_ssf.defic.observations[obsIdx] || {}).addressed;
     if (curAddressed === newAddressed) return; // no-op
-    // S135: IAR confirm gate retired. Silent-degrade write only.
-    if (_ssf.defic.iar && newAddressed) _ssf.defic.iar = false;
     Model.toggleObsAddressed(deficId, obsIdx);
     initDeficiencies.render();
     if (window._frtRenderTasks) window._frtRenderTasks();
@@ -5874,9 +5864,6 @@ document.addEventListener('change', function(e) {
     var deficId = e.target.getAttribute('data-defic-id');
     var newStatus = e.target.value;
     var _sf = Model.findDeficiency(deficId);
-    // S135: IAR confirm gate retired. Silent-degrade write of iar=false
-    // happens via Model.updateDeficStatus's status mirror.
-    if (newStatus === 'closed' && _sf && _sf.defic && _sf.defic.iar) _sf.defic.iar = false;
     Model.updateDeficStatus(deficId, newStatus);
     // S135: Site Records tab retired — non-closed routes to active view
     // (which renders the Site Records bottom section).

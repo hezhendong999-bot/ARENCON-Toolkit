@@ -152,8 +152,6 @@ function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d,isSiteRecord){
     fill='#5E5440'; // brown — Recommendation (S317, unified rec colour)
   }else if(isSiteRecord){
     fill='#6B6FA8'; // indigo — Site Records (S154)
-  }else if(d.iar){
-    fill='#E91E8C'; // pink — IAR (unchanged canon)
   }else{
     fill=(pr==='low'||pr==='general')?'#B07F5A':'#A85959'; // S217: 'general' retired → reads as low (amber); high stays maroon
   }
@@ -670,8 +668,7 @@ function _buildCSS(fontB64){
   c+='.dash-key .dk-l{background:#F5E2C8;color:#8E6240;}';
   c+='.dash-key .dk-c{background:#D2EBDC;color:#426B4F;}';
   c+='.dash-key .dk-rec{background:#DDD8CB;color:#5E5440;}';
-  // Legacy IAR badge + .so/.sc kept — used by summary tables / appendix / older code paths
-  c+='.iar{display:inline-block;background:#FF69B4;color:white;padding:1px 7px;border-radius:10px;font-size:9pt;font-weight:700;margin-left:4px;}';
+  // .so/.sc kept — used by summary tables / appendix. (IAR badge removed S444; feature retired S135.)
   c+='.so{color:#A85959;font-weight:700;font-size:11pt;}.sc{color:#5F8068;font-weight:700;font-size:11pt;}';
   // S118: 3-up photo grid (was 2-up flow with 160×160 tiles)
   c+='.dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0;}';
@@ -2230,8 +2227,7 @@ if(isField&&p.drawings&&p.drawings.length){
         if(_isRecAppendix){
           if(rowOpen){pillCls='pill-rec';pillTxt='Recommendation';}
           else{pillCls='pill-c';pillTxt='Closed';}
-        }else if(d.iar){pillCls='pill-h';pillTxt='IAR';}
-        else if(rowOpen){pillCls='pill-h';pillTxt='Outstanding';}
+        }else if(rowOpen){pillCls='pill-h';pillTxt='Outstanding';}
         else{pillCls='pill-c';pillTxt='Closed';}
         var _itm=(r._itemNo!=null)?r._itemNo:'\u2014';
         var _pinRef='Pin '+esc(r.numLabel||d.num);
@@ -2255,8 +2251,7 @@ if(isField&&p.drawings&&p.drawings.length){
           if(_isRecAppendix){
             if(rowOpen){statusTxt='Recommendation';statusCol='#5E5440';}
             else{statusTxt='Closed';statusCol='#5F8068';}
-          }else if(d.iar){statusTxt='IAR';statusCol='#E91E8C';}
-          else if(rowOpen){statusTxt='Outstanding';statusCol='#A85959';}
+          }else if(rowOpen){statusTxt='Outstanding';statusCol='#A85959';}
           else{statusTxt='Closed';statusCol='#5F8068';}
           var _itm=(r._itemNo!=null)?('<strong style="color:#9C2742;">'+r._itemNo+'</strong>'):'<span style="color:#B8BCC6;">\u2014</span>';
           return '<tr><td>'+_itm+'</td><td><strong style="color:#9C2742;">#'+(r.numLabel||d.num)+'</strong></td><td>'+_descHtml(_itemDesc(r))+'</td><td style="color:'+statusCol+';font-weight:700;">'+statusTxt+'</td><td>'+esc(r.ctr)+'</td></tr>';

@@ -445,7 +445,7 @@ function _addPinsToCanvas(ctx, dwg, canvas) {
   pins.forEach(function(r) {
     var d = r.defic;
     var px = d.pinX * canvas.width, py = d.pinY * canvas.height;
-    var fill = d.iar ? '#FF69B4' : (_deficIsOpen(d) ? '#A85959' : '#5F8068');  // S189 — forbidden #C0392B → muted #A85959 (matches .dfx-bv-col-hdr.h); forbidden #1A7A4A → muted #5F8068 (matches Addressed&Closed)
+    var fill = _deficIsOpen(d) ? '#A85959' : '#5F8068';  // S189 — forbidden #C0392B → muted #A85959 (matches .dfx-bv-col-hdr.h); forbidden #1A7A4A → muted #5F8068 (matches Addressed&Closed)
     var r0 = Math.max(3, 4 * scale), tipY = r0 * 2.2;
     ctx.save(); ctx.translate(px, py - tipY);
     ctx.beginPath(); ctx.arc(0, 0, r0, Math.PI, 0, false);

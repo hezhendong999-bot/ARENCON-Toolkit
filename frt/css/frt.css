@@ -428,12 +428,6 @@ body.dark-mode .pe-drawing-panel{border-left-color:rgba(255,255,255,.10);backgro
    gradient on the select. */
 .pe-compact-row .pe-select,
 .pe-compact-row .pe-input,
-.pe-compact-row .pe-iar-btn{
-  height:34px;
-  line-height:18px;
-  box-sizing:border-box;
-  vertical-align:middle;
-}
 .pe-compact-row .pe-select{
   -webkit-appearance:none;
   -moz-appearance:none;
@@ -476,8 +470,6 @@ body.dark-mode .pe-label{color:#8a94b0;}
 body.dark-mode .pe-select{background:#2a2d35;color:white;border-color:#3a3e48;}
 .pe-input{padding:7px 10px;border-radius:6px;background:var(--smoke);color:#1C2333;border:1px solid #dde1e7;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));width:100%;box-sizing:border-box;}
 body.dark-mode .pe-input{background:#2a2d35;color:white;border-color:#3a3e48;}
-.pe-iar-btn{padding:7px 14px;border-radius:6px;background:var(--smoke);color:#4A5568;border:1px solid #dde1e7;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));flex-shrink:0;align-self:flex-end;}.pe-iar-btn.active{background:#E91E8C;border-color:#E91E8C;color:white;}
-body.dark-mode .pe-iar-btn:not(.active){background:#2a2d35;color:white;border-color:#3a3e48;}
 .pe-section{display:flex;flex-direction:column;gap:4px;}
 .pe-obs-tabs{display:flex;gap:4px;flex-wrap:wrap;}
 .pe-obs-tab{padding:5px 12px;border-radius:6px 6px 0 0;background:var(--smoke);color:#4A5568;border:1px solid #dde1e7;border-bottom:none;cursor:pointer;font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts));font-weight:600;}.pe-obs-tab.active{background:#9C2742;color:white;border-color:#9C2742;}
@@ -598,7 +590,6 @@ body.dark-mode .pe-cancel-btn{background:transparent;color:#e08080;border-color:
   .pe-mobile-drawing{display:block;}
   .pe-compact-row{flex-direction:column;gap:8px;}
   .pe-compact-row .pe-field{width:100%;}
-  .pe-compact-row .pe-iar-btn{align-self:flex-start;width:auto;}
   .pe-fields{padding:12px 14px;}
   /* S177: photo-add buttons stack full-width at narrow widths (M1 backlog).
      Inline layout (padding:6px 18px; margin:3px) cramped at 360-430px
