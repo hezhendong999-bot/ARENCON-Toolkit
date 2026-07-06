@@ -640,8 +640,8 @@ function _buildCSS(fontB64){
   c+='.claim{font-size:10pt;color:#3D3A46;line-height:1.45;}';
   c+='.claim .rep{color:#4A5568;font-weight:700;}';
   c+='.rect-lbl{font-size:8pt;font-weight:700;color:#928E9C;margin:10px 0 5px;letter-spacing:.2px;}';
-  c+='.rphotos{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px;}';
-  c+='.rphoto{width:150px;height:113px;border:1px solid #DDE1E7;border-radius:4px;background:#F4F2F6;display:flex;align-items:center;justify-content:center;color:#928E9C;font-size:8.5pt;font-weight:700;}';
+  c+='.rphotos{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0 2px;}';
+  c+='.rphoto{width:100%;aspect-ratio:4/3;border:1px solid #DDE1E7;border-radius:4px;background:#F4F2F6;display:flex;align-items:center;justify-content:center;color:#928E9C;font-size:8.5pt;font-weight:700;}';
   c+='.arv{border-left:2px solid #9C2742;padding-left:10px;}';
   c+='.arv .tr-meta b{color:#9C2742;}';
   c+='.arv .pill{font-size:8.5pt;padding:2px 10px;vertical-align:1px;}';
