@@ -2192,7 +2192,7 @@ function _countUntaggedForBand(proj) {
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S438';
+var FRT_BUILD = 'S439';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
