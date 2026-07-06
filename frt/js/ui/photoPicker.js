@@ -131,7 +131,7 @@ import { showConfirm, showTypeToConfirm } from '../shared/dialogs.js';
     if (!strip) return;
 
     var pool = (d.photos || []).filter(function (p) { return p && !p.deleted; });
-    var deletedPool = (d.photos || []).filter(function (p) { return p && p.deleted; });
+    var deletedPool = (d.photos || []).filter(function (p) { return p && p.deleted && !p.purged; });
 
     if (!active.pending || !(active.pending instanceof Set)) {
       var obs = (d.observations || [])[idx];
