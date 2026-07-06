@@ -50,6 +50,9 @@ var _trashSelected = new Set();
 var _trashLastSel = null;
 var _trashOrder = []; // uid render order for shift-click ranges
 function _trashUid(r) { return r.kind === 'site' ? ('s:' + r.siteIdx) : ('d:' + r.deficId + ':' + r.photoId); }
+// S43x: on-photo action icons for Recently Deleted tiles (restore = green, delete = red via CSS).
+var IC_RESTORE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg>';
+var IC_TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>';
 
 // S114 P1.4: render debounce. Cloud pull every 30s fires a 'project' notify,
 // which would otherwise rebuild the entire gallery DOM on every poll, causing
@@ -179,16 +182,18 @@ function _renderTrashHtml(deletedRecords) {
     } else {
       h += '<div class="tphoto tnoimg">\uD83D\uDCF7</div>';
     }
+    h += '<div class="tscrim"></div>';
     if (isAdmin) {
       h += '<span class="ph-trash-check" data-action="ph-trash-toggle" data-uid="' + esc(uid) + '" title="Select">' + (selected ? '\u2713' : '') + '</span>';
     }
     h += '<div class="tmeta">';
     h += '<div class="ph-trash-label">' + esc(r.label) + '</div>';
     h += '<div class="' + daysCls + '">' + days + ' day' + (days === 1 ? '' : 's') + ' left</div>';
+    h += '</div>';
     h += '<div class="ph-trash-actions">';
-    h += '<button class="ph-trash-restore" data-action="ph-restore-photo"' + routeAttrs + '>Restore</button>';
-    if (isAdmin) h += '<button class="ph-trash-purge" data-action="ph-purge-photo"' + routeAttrs + ' title="Delete forever">\uD83D\uDDD1</button>';
-    h += '</div></div></div>';
+    h += '<button class="ph-trash-restore" data-action="ph-restore-photo"' + routeAttrs + ' title="Restore">' + IC_RESTORE_SVG + '</button>';
+    if (isAdmin) h += '<button class="ph-trash-purge" data-action="ph-purge-photo"' + routeAttrs + ' title="Delete forever">' + IC_TRASH_SVG + '</button>';
+    h += '</div></div>';
   });
   h += '</div>';
   return h;
