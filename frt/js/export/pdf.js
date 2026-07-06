@@ -622,6 +622,33 @@ function _buildCSS(fontB64){
   c+='.item-sep{color:#B8BCC6;font-weight:400;margin:0 1px;font-size:11pt;line-height:1;}';/* S317 Option E middot — tightest (Mark: pin# closer to item#) */
   c+='.pinref-dark{color:#4A5568;font-size:9.5pt;font-weight:600;line-height:1;}';/* S317 Option E "Pin 3A" */
   c+='.dc-desc{font-size:11pt;line-height:1.4;}';
+  // Contractor Response (Phase 1 preview) — B1 grammar, print values.
+  c+='.crb{border:1px solid #C9C4D0;border-radius:6px;margin-top:12px;overflow:hidden;}';
+  c+='.crb-hd{background:#EFEDF0;border-bottom:1px solid #C9C4D0;padding:6px 12px;font-size:9pt;font-weight:800;letter-spacing:.6px;color:#5E5B68;text-transform:uppercase;}';
+  c+='.crb-bd{padding:4px 12px 11px;}';
+  c+='.tr-row{padding:9px 0;}';
+  c+='.tr-row + .tr-row{border-top:1px solid #ECEAEF;}';
+  c+='.tr-meta{font-size:8.5pt;color:#928E9C;font-weight:700;letter-spacing:.3px;margin-bottom:3px;}';
+  c+='.tr-meta b{color:#5E5B68;}';
+  c+='.claim{font-size:10pt;color:#3D3A46;}';
+  c+='.claim .rep{color:#4A5568;font-weight:700;}';
+  c+='.rect-lbl{font-size:8pt;font-weight:700;color:#928E9C;margin:7px 0 4px;letter-spacing:.2px;}';
+  c+='.rphotos{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px;}';
+  c+='.rphoto{width:80px;height:60px;border:1px solid #DDE1E7;border-radius:4px;background:#F4F2F6;display:flex;align-items:center;justify-content:center;color:#928E9C;font-size:8.5pt;font-weight:700;}';
+  c+='.arv{border-left:2px solid #9C2742;padding-left:10px;}';
+  c+='.arv .tr-meta b{color:#9C2742;}';
+  c+='.arv .pill{font-size:8.5pt;padding:2px 10px;vertical-align:1px;}';
+  c+='.arv p{margin:3px 0 0;font-size:10pt;color:#3D3A46;}';
+  c+='.rd-chip{display:inline-flex;align-items:center;gap:4px;font-size:8.5pt;font-weight:700;padding:3px 9px;border-radius:10px;border:1px solid;letter-spacing:.2px;}';
+  c+='.rd-chip.r-g{color:#5E5B68;background:rgba(94,91,104,.10);border-color:rgba(94,91,104,.24);}';
+  c+='.rd-chip.r-r{color:#A85959;background:rgba(168,89,89,.14);border-color:rgba(168,89,89,.42);}';
+  c+='.rd-chip svg{display:block;}';
+  c+='.cbrow{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 8px;}';
+  c+='.cb{display:inline-flex;align-items:center;gap:7px;font-size:10pt;font-weight:600;color:#1B1A22;}';
+  c+='.cb .bx{width:13px;height:13px;border:1.5px solid #4A5568;border-radius:2px;background:#EEF3FA;display:inline-block;}';
+  c+='.flbl{font-size:8.5pt;font-weight:700;color:#5E5B68;margin-bottom:4px;}';
+  c+='.ffield{width:100%;height:76px;border:1.5px solid #4A5568;border-radius:3px;background:#EEF3FA;}';
+  c+='.closednote{font-size:9pt;color:#928E9C;font-style:italic;padding:9px 0 2px;}';
   c+='.dc-bul{margin:2px 0 0;padding-left:18px;}';
   c+='.dc-bul li{margin:0 0 3px;line-height:1.35;break-inside:avoid;page-break-inside:avoid;}';
   c+='.dc-footer{font-size:9pt;color:#607D8B;margin-top:6px;}';
@@ -1214,6 +1241,23 @@ function _compactHeader(pgNum){
 // The appendix Item column reads the same r._itemNo back off each row.
 var _itemNo=0;
 function _nextItem(){return ++_itemNo;}
+// Contractor Response Phase 1 preview scaffold — sample B1 threads. Gated by
+// window._frtCrbPreview (admin export-modal toggle). Remove when live
+// responses[]/arenconReviews[] land. Grammar: LOCKED_CONTRACTOR_RESPONSE_SYSTEM §1.
+var _CRB_FILL='<div class="cbrow"><span class="cb"><span class="bx"></span>Addressed</span><span class="cb"><span class="bx"></span>In Progress</span><span class="cb"><span class="bx"></span>Not in Scope</span><span class="cb"><span class="bx"></span>Other</span></div><div class="flbl">Contractor comments</div><div class="ffield"></div>';
+var _CRB_FLAG='<svg width="9" height="11" viewBox="0 0 9 11" fill="currentColor"><rect x="1" y="0" width="1.4" height="11" rx=".7"></rect><path d="M2.4 1h5.8L6.2 3.2 8.2 5.4H2.4z"></path></svg>';
+var _CRB_SAMPLES_OPEN=[
+  { chip:'', hd:'Contractor Response',
+    body:'<div class="tr-row live"><div class="tr-meta"><b>ROUND 1 \u2014 RESPOND ON THIS REPORT</b></div>'+_CRB_FILL+'</div>' },
+  { chip:'<span class="rd-chip r-g" title="Outstanding for 2 reports \u2014 first noted FRT #1">2nd rd</span>', hd:'Contractor Response \u2014 thread',
+    body:'<div class="tr-row"><div class="tr-meta"><b>ROUND 1 \u00b7 FRT #1</b> \u00b7 Apex Fire Protection \u00b7 2026-06-18</div><div class="claim"><span class="rep">Reported \u00b7 Addressed</span> \u2014 Penetration sealed; ready for re-inspection.</div><div class="rect-lbl">RECTIFICATION PHOTOS \u2014 SUBMITTED BY CONTRACTOR, ADDED BY ARENCON</div><div class="rphotos"><div class="rphoto">Rect. 1</div><div class="rphoto">Rect. 2</div></div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW \u00b7 FRT #2</b> \u00b7 2026-07-02 &nbsp;<span class="pill pill-h">Outstanding</span></div><p>Sealant is not the listed system for this assembly. Reseal per the listed system and resubmit photos.</p></div><div class="tr-row live"><div class="tr-meta"><b>ROUND 2 \u2014 RESPOND ON THIS REPORT</b></div>'+_CRB_FILL+'</div>' },
+  { chip:'<span class="rd-chip r-r" title="Outstanding for 3 reports \u2014 first noted FRT #1">'+_CRB_FLAG+'3rd rd</span>', hd:'Contractor Response \u2014 thread',
+    body:'<div class="tr-row"><div class="tr-meta"><b>ROUNDS 1\u20132 \u00b7 FRT #1\u2013#2</b> \u2014 earlier exchange on record in FRT #2</div><div class="claim" style="color:#928E9C">Contractor reported Addressed then In Progress; ARENCON held the item Outstanding.</div></div><div class="tr-row"><div class="tr-meta"><b>ROUND 3 \u00b7 FRT #3</b> \u00b7 Apex Fire Protection \u00b7 2026-08-19</div><div class="claim"><span class="rep">Reported \u00b7 Addressed</span> \u2014 Listed system installed; labels applied. Photos attached.</div><div class="rect-lbl">RECTIFICATION PHOTOS</div><div class="rphotos"><div class="rphoto">Rect. 1</div><div class="rphoto">Rect. 2</div></div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW \u00b7 FRT #3</b> \u00b7 2026-08-30 &nbsp;<span class="pill pill-h">Outstanding</span></div><p>Label applied is for the wrong rating. Correct system label required \u2014 escalated to project meeting.</p></div><div class="tr-row live"><div class="tr-meta"><b>ROUND 4 \u2014 RESPOND ON THIS REPORT</b></div>'+_CRB_FILL+'</div>' }
+];
+var _CRB_SAMPLE_CLOSED={ chip:'', hd:'Contractor Response \u2014 record',
+  body:'<div class="tr-row"><div class="tr-meta"><b>ROUND 1 \u00b7 FRT #1</b> \u00b7 Apex Fire Protection \u00b7 2026-06-18</div><div class="claim"><span class="rep">Reported \u00b7 Addressed</span> \u2014 Rectified per attached photos.</div><div class="rect-lbl">RECTIFICATION PHOTOS</div><div class="rphotos"><div class="rphoto">Rect. 1</div></div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW \u00b7 FRT #2</b> \u00b7 2026-07-02 &nbsp;<span class="pill pill-c">Closed</span></div><p>Verified on site review. Item closed.</p></div><div class="closednote">Closed items carry no fillable field. This item moves to Previously Closed on the next report.</div>' };
+function _crbBox(cs){ return '<div class="crb"><div class="crb-hd">'+cs.hd+'</div><div class="crb-bd">'+cs.body+'</div></div>'; }
+
 function _buildDefCard(r,hdrExtra){
   // S317: assign this rendered row its report-sequential item number.
   r._itemNo=_nextItem();
@@ -1274,6 +1318,13 @@ function _buildDefCard(r,hdrExtra){
   // (previously REC+Closed, which Mark rejected: it's one or the other).
   // Chip permanently retired (variable kept inert, S137 discipline).
   var _showRecChip=false;
+  // Contractor Response preview: pick a sample thread for this card (open
+  // rotation vs closed record), and ride the rounds chip on the header.
+  var _cs=null;
+  if(window._frtCrbPreview && !_isSrCard && !_isRec){
+    _cs = thisClosed ? _CRB_SAMPLE_CLOSED : _CRB_SAMPLES_OPEN[((r._itemNo||1)-1)%_CRB_SAMPLES_OPEN.length];
+    hdrExtra=(hdrExtra||'')+(_cs?_cs.chip:'');
+  }
   // Activity: obs-tied for this obs, plus pin-level (no obsRef) on first-obs only
   var actArr=d.activity&&d.activity.length?d.activity.slice().filter(function(a){return !a.autoGenerated;}).sort(function(a,b){return(b.date||'').localeCompare(a.date||'');}):[];
   var fuActs;
@@ -1339,6 +1390,7 @@ function _buildDefCard(r,hdrExtra){
     if(ci===_curInst&&cd)footerParts.push('Closed '+cd);
     else if(ci!==_curInst)footerParts.push('Closed in FRT #'+ci);}
   if(footerParts.length)h+='<div class="dc-footer">'+footerParts.join(' \u00b7 ')+'</div>';
+  if(_cs)h+=_crbBox(_cs);
   h+='</div></div></div>';
   return h;
 }

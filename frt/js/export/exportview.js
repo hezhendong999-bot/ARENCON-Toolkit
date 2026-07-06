@@ -24,6 +24,7 @@ import { initPDFExport } from './pdf.js';
 import { initDeficiencies } from '../ui/deficiencies.js';
 import { toast } from '../shared/toast.js';
 import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
+import { Auth } from '../shared/auth.js';
 
 // Replicated verbatim from app.js _countUntaggedForBand (pure fn; copied
 // rather than imported to avoid an app.js <-> exportview.js cycle).
@@ -300,11 +301,13 @@ export var initExportView = {
       + '<option value="letter">Letter portrait</option>'
       + '<option value="24x36">24\u00D736 landscape</option></select></div>';
     h += '<div class="exv-eb" style="margin-top:14px;">Options</div>';
+    var _crbAdmin=false; try{_crbAdmin=!!(Auth&&Auth.isAdmin&&Auth.isAdmin());}catch(_e){}
     h += '<div class="exv-opts">'
       + '<label class="exv-chk"><input type="checkbox" id="exv-final"> Final commissioning</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-closed" checked> Closed Items Summary</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-siterec"> Site Records only (internal)</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-renum" checked> Renumber before export</label>'
+      + (_crbAdmin ? '<label class="exv-chk"><input type="checkbox" id="exv-crbpreview"> Contractor Response \u2014 preview (sample thread)</label>' : '')
       + '</div>';
     // untagged control (parity)
     if (utc > 0) {
@@ -527,6 +530,7 @@ export var initExportView = {
         }
       }
 
+      window._frtCrbPreview = !!(ov.querySelector('#exv-crbpreview') && ov.querySelector('#exv-crbpreview').checked);
       initPDFExport.generate(type, {
         ctrFilter: ctrFilter,
         isFinalComm: isFinalComm,
