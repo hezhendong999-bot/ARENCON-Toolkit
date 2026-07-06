@@ -51,7 +51,7 @@
         <button class="ab-btn ab-btn-danger" id="btn-modal-delete">Sample: destructive modal</button>
         <button class="ab-btn ab-btn-confirm" id="btn-modal-leave">Sample: 3-button leave</button>
       </div>
-      <p class="demo-note" style="margin-top:10px;"><b>Cancel always leftmost · primary always rightmost.</b> Destructive: [Cancel] … [Delete]. Narrow screens stack with primary on top, Cancel at the bottom. Every modal in every tool follows this — the shared dialogs module (Step 1) enforces it, ending the left/right lottery.</p>
+      <p class="demo-note" style="margin-top:10px;"><b>These now run through the REAL /lib/shared/dialogs.js (Step 1).</b> The order is structurally enforced in the module — cancel-role buttons are auto-placed leftmost (or bottom when stacked) no matter what order a caller passes. A tool cannot get it wrong.</p>
     </div>
 
     <div class="ab-card">
@@ -70,20 +70,34 @@
       </div>
       <p class="demo-note" style="margin-top:10px;">Semantic colours mean the same thing in all ten tools — per-tool uniqueness (e.g. photo badge categories) maps tool tokens onto these, never invents new chrome.</p>
     </div>
+
+    <div class="ab-card">
+      <h2 class="ab-h2"><span class="ab-secnum">05</span>Step 1 Harness — live module tests</h2>
+      <div class="demo-row" id="harness-row" style="margin-bottom:12px;">
+        <span class="ab-chip ab-chip-info" id="h-idb"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>IDB: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-auth"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Auth: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-lock"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>ScrollLock: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-order"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Order rule: running…</span>
+      </div>
+      <p class="demo-note">IDB = round-trip (put/get/getAll/del) on Electric's OWN database via the parameterized factory. Auth = module load + session-restore smoke (the production 401→refresh path is code-identical to FRT's). ScrollLock = ref-count lock/unlock. Order = the enforcer demonstrably moves a mis-ordered Cancel to the correct slot.</p>
+    </div>
   </div>
 </div>
 
 <script type="module">
   import { initHeader } from '../lib/ui/header.js';
   import { toast } from '../lib/shared/toast.js';
+  import { showConfirm, showDialog, showLeaveDialog } from '../lib/shared/dialogs.js';
+  import { createIDB } from '../lib/data/idb.js';
+  import { lockScroll, unlockScroll, resetScrollLock } from '../lib/shared/scrollLock.js';
 
   var hdr = initHeader({
     mount: '#hdr-mount',
     toolName: 'Electric Fire Pump Commissioning',
-    defaultTheme: 'light',            // field tool → Bold·Light boot
+    defaultTheme: 'light',
     homeHref: '../ARENCON_Project_Hub.html',
     onBack: function() { toast('Back = one tier up (S412) — wired to the tool later'); },
-    buttons: [                        // Electric's unique slots (demo stubs)
+    buttons: [
       { id: 'btn-reports',  label: '📄 Reports',  onClick: function() { toast('Electric-specific button (config slot)'); } },
       { id: 'btn-readings', label: '⚡ Readings', onClick: function() { toast('Electric-specific button (config slot)'); } }
     ],
@@ -93,49 +107,92 @@
       { id: 'mi-json', label: '💾 Download JSON', onClick: function() { toast('Stub — wired at Step 5'); } }
     ]
   });
-
   hdr.setCloudStatus('synced', 'Synced');
 
   document.getElementById('btn-toast').addEventListener('click', function() {
     toast('Saved — /lib/shared/toast.js working');
   });
 
-  // ── Modal-convention demos (chrome only; behavior module lands at Step 1) ──
-  function demoModal(title, body, buttons) {
-    var ov = document.createElement('div'); ov.className = 'ab-modal-ov';
-    var m = document.createElement('div'); m.className = 'ab-modal';
-    m.innerHTML = '<h3 class="ab-modal-title"></h3><p class="ab-modal-body"></p>';
-    m.querySelector('.ab-modal-title').textContent = title;
-    m.querySelector('.ab-modal-body').textContent = body;
-    var foot = document.createElement('div'); foot.className = 'ab-modal-foot';
-    buttons.forEach(function(b) {
-      var btn = document.createElement('button');
-      btn.className = 'ab-btn ' + b.cls; btn.textContent = b.label;
-      btn.addEventListener('click', function() { ov.remove(); if (b.msg) toast(b.msg); });
-      foot.appendChild(btn);
-    });
-    m.appendChild(foot); ov.appendChild(m);
-    ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
-    document.body.appendChild(ov);
-  }
+  // ── Modal demos: now the REAL /lib/shared/dialogs.js ──
   document.getElementById('btn-modal-confirm').addEventListener('click', function() {
-    demoModal('Issue this report?', 'The report becomes read-only for inspectors once issued.',
-      [ { cls:'ab-btn-cancel', label:'Cancel' },
-        { cls:'ab-btn-confirm', label:'Issue Report', msg:'Primary sits rightmost' } ]);
+    showConfirm('Issue this report?', 'The report becomes read-only for inspectors once issued.')
+      .then(function(yes) { toast(yes ? 'Confirmed — primary was rightmost' : 'Cancelled — Cancel was leftmost'); });
   });
   document.getElementById('btn-modal-delete').addEventListener('click', function() {
-    demoModal('Delete 3 photos?', 'They move to Recently Deleted for 30 days.',
-      [ { cls:'ab-btn-cancel', label:'Cancel' },
-        { cls:'ab-btn-danger', label:'Delete', msg:'Destructive: still rightmost, danger colour' } ]);
+    // Deliberately pass Cancel LAST — the module's enforcer moves it leftmost.
+    showDialog({
+      title: 'Delete 3 photos?',
+      message: 'They move to Recently Deleted for 30 days. (Caller passed Cancel LAST — the module reordered it.)',
+      buttons: [
+        { label: 'Delete', role: 'danger', action: function() { toast('Destructive: rightmost, danger colour'); } },
+        { label: 'Cancel', role: 'cancel', action: function() { toast('Enforcer put Cancel leftmost'); } }
+      ]
+    });
   });
   document.getElementById('btn-modal-leave').addEventListener('click', function() {
-    demoModal('Unsaved changes', 'You have unsaved changes in this report.',
-      [ { cls:'ab-btn-cancel', label:'Cancel — go back' },
-        { cls:'ab-btn-warn', label:'Leave without saving', msg:'Middle action' },
-        { cls:'ab-btn-confirm', label:'Save & Leave', msg:'Green save, rightmost' } ]);
+    showLeaveDialog({}).then(function(r) { toast('Leave dialog resolved: ' + r); });
   });
 
-  console.info('%c[/lib/] Step 0 skeleton loaded', 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
+  // ── Step 1 harness ──
+  function chip(id, ok, label) {
+    var el = document.getElementById(id);
+    el.className = 'ab-chip ' + (ok ? 'ab-chip-ok' : 'ab-chip-fail');
+    el.innerHTML = '<span class="ab-chip-dot" style="background:var(--ab-' + (ok ? 'ok' : 'fail') + ')"></span>' + label;
+  }
+  // IDB round-trip on Electric's own DB
+  (function() {
+    var IDB = createIDB({ dbName: 'ARENCON_ELECTRIC_SKELETON', version: 1, stores: ['harness'] });
+    var rec = { id: 'h1', t: Date.now(), payload: 'step-1' };
+    IDB.put('harness', rec)
+      .then(function() { return IDB.get('harness', 'h1'); })
+      .then(function(got) {
+        if (!got || got.payload !== 'step-1') throw new Error('get mismatch');
+        return IDB.getAll('harness');
+      })
+      .then(function(all) {
+        if (!all.length) throw new Error('getAll empty');
+        return IDB.del('harness', 'h1');
+      })
+      .then(function() { return IDB.get('harness', 'h1'); })
+      .then(function(gone) {
+        if (gone !== null) throw new Error('del failed');
+        chip('h-idb', true, 'IDB: put/get/getAll/del ✓');
+      })
+      .catch(function(e) { chip('h-idb', false, 'IDB: ' + e.message); });
+  })();
+  // Auth smoke: module loaded; restoreSession resolves (null when signed out)
+  import('../lib/shared/auth.js').then(function(m) {
+    return Promise.resolve(m.Auth.restoreSession()).then(function(u) {
+      chip('h-auth', true, 'Auth: restore ✓ (' + (u ? 'session' : 'signed-out path') + ')');
+    });
+  }).catch(function(e) { chip('h-auth', false, 'Auth: ' + e.message); });
+  // ScrollLock ref-count
+  (function() {
+    try {
+      lockScroll(); lockScroll(); unlockScroll();
+      var stillLocked = document.body.style.position === 'fixed';
+      unlockScroll();
+      var released = document.body.style.position !== 'fixed';
+      resetScrollLock();
+      chip('h-lock', stillLocked && released, 'ScrollLock: ref-count ✓');
+    } catch (e) { chip('h-lock', false, 'ScrollLock: ' + e.message); }
+  })();
+  // Order enforcer: build a hidden dialog with Cancel passed LAST; assert it renders FIRST
+  (function() {
+    try {
+      var ov = showDialog({ title: 't', message: 'm', buttons: [
+        { label: 'Do it', role: 'confirm', action: function(){} },
+        { label: 'Cancel', role: 'cancel', action: function(){} }
+      ]});
+      ov.style.display = 'none';
+      var btns = ov.querySelectorAll('.ab-modal-foot .ab-btn');
+      var ok = btns.length === 2 && /^Cancel/.test(btns[0].textContent);
+      ov.remove(); resetScrollLock();
+      chip('h-order', ok, 'Order rule: Cancel forced leftmost ✓');
+    } catch (e) { chip('h-order', false, 'Order: ' + e.message); }
+  })();
+
+  console.info('%c[/lib/] Step 1 modules loaded', 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 
 <script>
