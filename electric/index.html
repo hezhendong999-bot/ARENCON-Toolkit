@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#EFEDF0">
+<title>ARENCON — Electric Fire Pump (Library Step 0 Skeleton)</title>
+<link rel="stylesheet" href="../lib/css/chrome.css?v=1">
+<style>
+  body { margin: 0; }
+  .demo-wrap { max-width: 860px; margin: 24px auto; padding: 0 16px; display: grid; gap: 18px; }
+  .demo-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .demo-note { font: 400 13px Calibri, sans-serif; color: var(--ab-ink2); line-height: 1.5; margin: 0; }
+  .demo-banner {
+    font: 700 12px Calibri, sans-serif; letter-spacing: .5px;
+    color: var(--ab-ink2); border: 1px dashed var(--ab-card-border);
+    border-radius: 10px; padding: 8px 12px; text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="ab-app" id="app">
+  <div id="hdr-mount"></div>
+
+  <div class="demo-wrap">
+    <div class="demo-banner">LIBRARY STEP 0 SKELETON — the live Electric tool is untouched; this page only proves /lib/ loads and the shared chrome renders. Same header every tool will inherit.</div>
+
+    <div class="ab-card">
+      <h2 class="ab-h2"><span class="ab-secnum">01</span>Shared Header</h2>
+      <p class="demo-note">Everything above is <b>/lib/ui/header.js</b> + <b>/lib/css/chrome.css</b> — Back, logo→Hub, title, the always-visible green sync dot, theme toggle, and ☰. The two Electric-specific buttons (Reports, Readings) are injected via config and collapse into ☰ on narrow screens. Tap ☀/☾ — the choice persists per-device and every converted tool will follow it.</p>
+    </div>
+
+    <div class="ab-card">
+      <h2 class="ab-h2"><span class="ab-secnum">02</span>Shared Buttons — S341 system</h2>
+      <div class="demo-row">
+        <button class="ab-btn ab-btn-confirm" id="btn-toast">Save (toast test)</button>
+        <button class="ab-btn ab-btn-utility">Export</button>
+        <button class="ab-btn ab-btn-na">N/A</button>
+        <button class="ab-btn ab-btn-cancel">Cancel</button>
+        <button class="ab-btn ab-btn-danger">Delete</button>
+        <button class="ab-btn ab-btn-cta">Primary CTA</button>
+      </div>
+      <p class="demo-note" style="margin-top:10px;">Defined once in chrome.css; identical intent-colours in every tool, both modes. "Save" fires <b>/lib/shared/toast.js</b>.</p>
+    </div>
+
+    <div class="ab-card">
+      <h2 class="ab-h2"><span class="ab-secnum">03</span>Shared Chips + Completion Bar</h2>
+      <div class="demo-row" style="margin-bottom:14px;">
+        <span class="ab-chip ab-chip-ok"><span class="ab-chip-dot" style="background:var(--ab-ok)"></span>Passed</span>
+        <span class="ab-chip ab-chip-fail"><span class="ab-chip-dot" style="background:var(--ab-fail)"></span>High</span>
+        <span class="ab-chip ab-chip-warn"><span class="ab-chip-dot" style="background:var(--ab-warn)"></span>Low</span>
+        <span class="ab-chip ab-chip-rec"><span class="ab-chip-dot" style="background:var(--ab-rec)"></span>Recommendation</span>
+        <span class="ab-chip ab-chip-info"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Info</span>
+        <span class="ab-chip ab-chip-brand"><span class="ab-chip-dot" style="background:var(--ab-brand)"></span>ARENCON</span>
+      </div>
+      <div class="ab-bar">
+        <div class="ab-bar-track"><div class="ab-bar-fill" style="width:62%"></div></div>
+        <span class="ab-bar-pct">62%</span>
+      </div>
+      <p class="demo-note" style="margin-top:10px;">Semantic colours mean the same thing in all ten tools — per-tool uniqueness (e.g. photo badge categories) maps tool tokens onto these, never invents new chrome.</p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initHeader } from '../lib/ui/header.js';
+  import { toast } from '../lib/shared/toast.js';
+
+  var hdr = initHeader({
+    mount: '#hdr-mount',
+    toolName: 'Electric Fire Pump Commissioning',
+    defaultTheme: 'light',            // field tool → Bold·Light boot
+    homeHref: '../ARENCON_Project_Hub.html',
+    onBack: function() { toast('Back = one tier up (S412) — wired to the tool later'); },
+    buttons: [                        // Electric's unique slots (demo stubs)
+      { id: 'btn-reports',  label: '📄 Reports',  onClick: function() { toast('Electric-specific button (config slot)'); } },
+      { id: 'btn-readings', label: '⚡ Readings', onClick: function() { toast('Electric-specific button (config slot)'); } }
+    ],
+    menuItems: [
+      { id: 'mi-qr', label: '📱 QR Code', onClick: function() { toast('QR lives in the menu (S441 canon)'); } },
+      { divider: true },
+      { id: 'mi-json', label: '💾 Download JSON', onClick: function() { toast('Stub — wired at Step 5'); } }
+    ]
+  });
+
+  hdr.setCloudStatus('synced', 'Synced');
+
+  document.getElementById('btn-toast').addEventListener('click', function() {
+    toast('Saved — /lib/shared/toast.js working');
+  });
+
+  console.info('%c[/lib/] Step 0 skeleton loaded', 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
+</script>
+
+<script>
+/* S439/S441 sticky immersive fullscreen — chrome-layer standard, all pages. */
+(function(){function g(){if(document.fullscreenElement||document.webkitFullscreenElement)return;var e=document.documentElement,r=e.requestFullscreen||e.webkitRequestFullscreen;if(r){try{var p=r.call(e);if(p&&p.catch)p.catch(function(){});}catch(x){}}}document.addEventListener('pointerdown',g,{capture:true,passive:true});})();
+</script>
+</body>
+</html>

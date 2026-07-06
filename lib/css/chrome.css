@@ -1,0 +1,279 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   ARENCON /lib/ — SHARED CHROME (S442, Library Step 0)
+   ═══════════════════════════════════════════════════════════════════════
+   One header, one button system, one set of tokens — every tool inherits.
+   Per-tool uniqueness comes from config (injected buttons, labels, badge
+   colours), never from restyled chrome.
+
+   Modes: data-theme="light|dark" on <html>. Field tools boot LIGHT
+   (daylight iPads/tablets); indoor screens boot DARK. Manual sun/moon
+   toggle, persisted per-device under ONE shared key ('arencon-theme') so
+   every tool on the same device matches. No auto-switching — contrast
+   never changes under an inspector mid-task.
+
+   Scoping: this is the ARENCON Bold UI-chrome layer. The muted report/PDF
+   palette and deficiency status-colour logic are a separate locked system
+   — never overwritten here.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Tokens ───────────────────────────────────────────────────────────── */
+:root, html[data-theme="light"] {
+  --ab-bg: #EFEDF0;               /* warm off-white, never pure white */
+  --ab-glow-a: rgba(156,39,66,.07);
+  --ab-glow-b: rgba(70,197,232,.07);
+  --ab-ink: #1B1A22;
+  --ab-ink2: #5E5B68;
+  --ab-ink3: #928E9C;
+  --ab-brand: #9C2742;
+  --ab-ok: #2E9E72;
+  --ab-fail: #C0445F;
+  --ab-warn: #C98A4A;
+  --ab-info: #2C7FB8;
+  --ab-rec: #D98A1E;
+  --ab-general: #3E8E6E;
+  --ab-card-bg: linear-gradient(180deg, rgba(255,255,255,.92), rgba(250,249,251,.88));
+  --ab-card-border: rgba(27,26,34,.10);
+  --ab-card-shadow: 0 2px 14px rgba(27,26,34,.07);
+  --ab-hdr-bg: rgba(255,255,255,.82);
+  --ab-hdr-border: rgba(27,26,34,.10);
+  --ab-hdr-fg: #1B1A22;
+  --ab-chip-alpha: .10;
+  --ab-btn-rule: rgba(27,26,34,.22);
+  --ab-pill-hover: rgba(156,39,66,.08);
+}
+html[data-theme="dark"] {
+  --ab-bg: #0b0a0d;
+  --ab-glow-a: rgba(156,39,66,.16);
+  --ab-glow-b: rgba(70,197,232,.13);
+  --ab-ink: #f4f3f6;
+  --ab-ink2: #a09aa8;
+  --ab-ink3: #6b6674;
+  --ab-brand: #C9476A;
+  --ab-ok: #3FD08A;
+  --ab-fail: #E26076;
+  --ab-warn: #E0A36A;
+  --ab-info: #46C5E8;
+  --ab-rec: #E6A23C;
+  --ab-general: #48C896;
+  --ab-card-bg: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.028));
+  --ab-card-border: rgba(255,255,255,.10);
+  --ab-card-shadow: 0 4px 22px rgba(0,0,0,.35);
+  --ab-hdr-bg: rgba(14,13,17,.78);
+  --ab-hdr-border: rgba(255,255,255,.09);
+  --ab-hdr-fg: #f4f3f6;
+  --ab-chip-alpha: .14;
+  --ab-btn-rule: rgba(255,255,255,.22);
+  --ab-pill-hover: rgba(201,71,106,.16);
+}
+
+/* ── Living surface ───────────────────────────────────────────────────── */
+.ab-app {
+  min-height: 100vh;
+  background: var(--ab-bg);
+  color: var(--ab-ink);
+  font-family: Calibri, sans-serif;
+  position: relative;
+}
+.ab-app::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(720px 460px at 0% 0%, var(--ab-glow-a), transparent 70%),
+    radial-gradient(720px 460px at 100% 0%, var(--ab-glow-b), transparent 70%);
+  z-index: 0;
+}
+.ab-app > * { position: relative; z-index: 1; }
+
+/* ── Shared header ────────────────────────────────────────────────────── */
+.ab-header {
+  position: sticky; top: 0; z-index: 1000; /* canon: header never demoted to z:1 */
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: var(--ab-hdr-bg);
+  color: var(--ab-hdr-fg);
+  border-bottom: 1px solid var(--ab-hdr-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.ab-hdr-left {
+  display: flex; align-items: center; gap: 8px;
+  min-width: 0; flex: 1; overflow: visible;
+}
+.ab-back {
+  flex-shrink: 0;
+  font: 700 13px Calibri, sans-serif;
+  color: var(--ab-hdr-fg);
+  background: transparent;
+  border: 1px solid var(--ab-btn-rule);
+  border-radius: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+.ab-logo { flex-shrink: 0; display: inline-flex; align-items: center; cursor: pointer; }
+.ab-logo img { height: 26px; display: block; }
+.ab-title {
+  font: 700 15px Calibri, sans-serif;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  letter-spacing: .2px;
+}
+.ab-hdr-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* Cloud/sync freshness — permanent-visibility rule (§S114-16): the dot never
+   hides at any width; verbose text hides on narrow screens instead. */
+.ab-cloud {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--ab-ink2);
+  cursor: pointer; flex-shrink: 0; touch-action: manipulation;
+}
+.ab-cloud-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--ab-ok); flex-shrink: 0;
+  transition: background .4s;
+  box-shadow: 0 0 0 0 rgba(63,208,138,.5);
+  animation: abCloudPulse 2s ease-out infinite;
+}
+.ab-cloud-dot[data-state="offline"] { background: var(--ab-ink3); animation: none; box-shadow: none; }
+.ab-cloud-dot[data-state="error"]   { background: var(--ab-fail); animation: none; box-shadow: none; }
+.ab-cloud-dot[data-state="saving"]  { background: var(--ab-warn); }
+@keyframes abCloudPulse {
+  0% { box-shadow: 0 0 0 0 rgba(63,208,138,.45); }
+  70% { box-shadow: 0 0 0 7px rgba(63,208,138,0); }
+  100% { box-shadow: 0 0 0 0 rgba(63,208,138,0); }
+}
+@media (prefers-reduced-motion: reduce) { .ab-cloud-dot { animation: none; box-shadow: none; } }
+@media (max-width: 700px) { .ab-cloud-text { display: none; } }
+
+/* Icon buttons (dark toggle, hamburger) — geometry from FRT canon */
+.ab-icon-btn {
+  width: 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; font-size: 16px;
+  border-radius: 6px;
+  border: 1px solid var(--ab-btn-rule);
+  background: transparent; color: var(--ab-hdr-fg);
+  cursor: pointer;
+}
+@media (hover:hover) { .ab-icon-btn:hover { background: var(--ab-pill-hover); border-color: var(--ab-brand); } }
+@media (pointer:coarse) { .ab-icon-btn { width: 38px; height: 38px; min-height: 38px; } }
+
+/* Tool-injected header buttons (config slots) — S341 intent classes below */
+.ab-hdr-btn {
+  font: 700 12.5px Calibri, sans-serif;
+  letter-spacing: .3px;
+  border-radius: 7px;
+  padding: 7px 14px;
+  border: 1px solid var(--ab-btn-rule);
+  background: transparent; color: var(--ab-hdr-fg);
+  cursor: pointer; flex-shrink: 0;
+  transition: background .15s, border-color .15s;
+}
+@media (pointer:coarse) { .ab-hdr-btn { min-height: 38px; } }
+
+/* Hamburger menu panel */
+.ab-menu {
+  position: absolute; top: calc(100% + 6px); right: 8px;
+  min-width: 230px;
+  background: var(--ab-card-bg);
+  border: 1px solid var(--ab-card-border);
+  border-radius: 12px;
+  box-shadow: var(--ab-card-shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 6px;
+  display: none;
+  z-index: 1001;
+}
+.ab-menu.open { display: block; }
+.ab-menu button {
+  display: block; width: 100%; text-align: left;
+  font: 600 13px Calibri, sans-serif;
+  color: var(--ab-ink);
+  background: transparent; border: none; border-radius: 8px;
+  padding: 10px 12px; cursor: pointer;
+}
+@media (hover:hover) { .ab-menu button:hover { background: var(--ab-pill-hover); } }
+@media (pointer:coarse) { .ab-menu button { min-height: 44px; } }
+.ab-menu .ab-menu-div { height: 1px; background: var(--ab-card-border); margin: 4px 6px; }
+
+/* ── S341 canonical muted button system (all tools) ───────────────────── */
+.ab-btn {
+  font: 700 13px Calibri, sans-serif;
+  letter-spacing: .3px;
+  border-radius: 7px;
+  padding: 7px 15px;
+  border: 1px solid;
+  cursor: pointer;
+}
+@media (pointer:coarse) { .ab-btn { min-height: 40px; } }
+html[data-theme="light"] .ab-btn-utility { border-color:#2E8C8C; background:#DCEFEF; color:#1F7373; }
+html[data-theme="dark"]  .ab-btn-utility { border-color:#3FB8B8; background:rgba(63,184,184,.15); color:#5FCBCB; }
+html[data-theme="light"] .ab-btn-confirm { border-color:#2E9E72; background:#DCF1E8; color:#1F8A60; }
+html[data-theme="dark"]  .ab-btn-confirm { border-color:#3FD08A; background:rgba(63,208,138,.15); color:#3FD08A; }
+html[data-theme="light"] .ab-btn-na      { border-color:#2C7FB8; background:#D6E8F4; color:#226699; }
+html[data-theme="dark"]  .ab-btn-na      { border-color:#5AA9D8; background:rgba(70,150,200,.20); color:#7FB8DD; }
+html[data-theme="light"] .ab-btn-danger  { border-color:#C0445F; background:#FBE3E9; color:#A83A50; }
+html[data-theme="dark"]  .ab-btn-danger  { border-color:#E26076; background:rgba(226,96,118,.14); color:#E8788C; }
+html[data-theme="light"] .ab-btn-cancel  { border-color:#C98A4A; background:#F6E8D6; color:#9A6A28; }
+html[data-theme="dark"]  .ab-btn-cancel  { border-color:#E0A36A; background:rgba(224,163,106,.16); color:#E0A36A; }
+/* Burgundy = wordmark + true CTAs only, never routine buttons (S341). */
+.ab-btn-cta { border-color: var(--ab-brand); background: var(--ab-brand); color: #fff; }
+
+/* ── Cards & section numbers ──────────────────────────────────────────── */
+.ab-card {
+  background: var(--ab-card-bg);
+  border: 1px solid var(--ab-card-border);
+  border-radius: 16px;
+  box-shadow: var(--ab-card-shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 20px 22px;
+}
+.ab-secnum {
+  display: inline-block;
+  font: 700 11px 'Consolas', 'Courier New', monospace;
+  color: var(--ab-ink2);
+  border: 1px solid var(--ab-card-border);
+  border-radius: 6px;
+  padding: 2px 7px;
+  letter-spacing: 1px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.ab-h2 {
+  font: 700 17px Calibri, sans-serif;
+  color: var(--ab-ink);
+  display: flex; align-items: center;
+  margin: 0 0 12px 0;
+}
+
+/* ── Chips & pills ────────────────────────────────────────────────────── */
+.ab-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font: 700 11px Calibri, sans-serif;
+  border-radius: 999px;
+  padding: 3px 10px;
+  border: 1px solid;
+  letter-spacing: .3px;
+}
+.ab-chip .ab-chip-dot { width: 7px; height: 7px; border-radius: 50%; }
+.ab-chip-ok      { color: var(--ab-ok);      border-color: var(--ab-ok);      background: color-mix(in srgb, var(--ab-ok)      calc(var(--ab-chip-alpha)*100%), transparent); }
+.ab-chip-fail    { color: var(--ab-fail);    border-color: var(--ab-fail);    background: color-mix(in srgb, var(--ab-fail)    calc(var(--ab-chip-alpha)*100%), transparent); }
+.ab-chip-warn    { color: var(--ab-warn);    border-color: var(--ab-warn);    background: color-mix(in srgb, var(--ab-warn)    calc(var(--ab-chip-alpha)*100%), transparent); }
+.ab-chip-info    { color: var(--ab-info);    border-color: var(--ab-info);    background: color-mix(in srgb, var(--ab-info)    calc(var(--ab-chip-alpha)*100%), transparent); }
+.ab-chip-rec     { color: var(--ab-rec);     border-color: var(--ab-rec);     background: color-mix(in srgb, var(--ab-rec)     calc(var(--ab-chip-alpha)*100%), transparent); }
+.ab-chip-general { color: var(--ab-general); border-color: var(--ab-general); background: color-mix(in srgb, var(--ab-general) calc(var(--ab-chip-alpha)*100%), transparent); }
+.ab-chip-brand   { color: var(--ab-brand);   border-color: var(--ab-brand);   background: color-mix(in srgb, var(--ab-brand)   calc(var(--ab-chip-alpha)*100%), transparent); }
+
+/* ── Completion bar ───────────────────────────────────────────────────── */
+.ab-bar { display: flex; align-items: center; gap: 10px; }
+.ab-bar-track {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: var(--ab-card-border); overflow: hidden;
+}
+.ab-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--ab-brand), var(--ab-info));
+  transition: width .4s ease;
+}
+.ab-bar-pct { font: 700 12px Calibri, sans-serif; font-variant-numeric: tabular-nums; color: var(--ab-ink2); }
