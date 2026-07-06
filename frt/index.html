@@ -1329,7 +1329,7 @@ function ensurePdfJs(cb){
 /* S441: page-level sticky immersive fullscreen (S439 pattern, was missing from the modular FRT page —
    root pages have it; this is why only the camera hid the browser/system bars). First tap enters
    fullscreen; any tap while chrome is showing re-enters. Identical to the Hub's proven snippet. */
-(function(){function g(){if(document.fullscreenElement||document.webkitFullscreenElement)return;var e=document.documentElement,r=e.requestFullscreen||e.webkitRequestFullscreen;if(r){try{var p=r.call(e);if(p&&p.catch)p.catch(function(){});}catch(x){}}}document.addEventListener('pointerdown',g,{capture:true,passive:true});})();
+(function(){if(!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches))return;function g(){if(document.fullscreenElement||document.webkitFullscreenElement)return;var e=document.documentElement,r=e.requestFullscreen||e.webkitRequestFullscreen;if(r){try{var p=r.call(e);if(p&&p.catch)p.catch(function(){});}catch(x){}}}document.addEventListener('pointerdown',g,{capture:true,passive:true});})();
 </script>
 </body>
 </html>
