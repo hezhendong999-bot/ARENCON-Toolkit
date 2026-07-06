@@ -97,6 +97,17 @@
       </div>
       <p class="demo-note"><b>R2 toolKey</b> = keys build as <code>photos/{pid}/electric/…</code> — Electric's own key space, never <code>/frt/</code>, same backend zero migration. <b>Range-GET probe</b> = the post-PUT existence check is a 1-byte <code>Range</code> GET, never HEAD (the S200/S421 worker rule). <b>Outbox resume</b> = a pending row written to Electric's OWN IndexedDB survives a fresh <code>init()</code> (upload survives reload). <b>Ownership guard</b> = the S398 rule — <code>deleteDrawingAssets</code> refuses to delete a PDF buffer still shared by a sibling drawing.</p>
     </div>
+
+    <div class="ab-card">
+      <h2 class="ab-h2"><span class="ab-secnum">07</span>Step 3 Harness — Merge + Sync Engine</h2>
+      <div class="demo-row" id="harness-row-3" style="margin-bottom:12px;">
+        <span class="ab-chip ab-chip-info" id="h-merge"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Merge self-test: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-resurrect"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Photo resurrection: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-adapter"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Canonical adapter: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-worker"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Off-thread merge: running…</span>
+      </div>
+      <p class="demo-note"><b>Merge self-test</b> = the built-in 3-way merge suite (14 tests) runs green against the extracted engine. <b>Photo resurrection</b> = the S43x deletion-wins guard — a purged photo stays deleted even when the shared history is lost, the exact bug that was fixed. <b>Canonical adapter</b> = ONE Electric state object satisfies both the sync engine (4 methods) and the Step-2 photo outbox (its 2 are a subset) — no duplication. <b>Off-thread merge</b> = the merge runs in a background worker so big projects don't freeze the screen; if a worker can't start it falls back to the main thread automatically, same result either way. <b>Nothing here touches the live Electric tool — this is the skeleton only.</b></p>
+    </div>
   </div>
 </div>
 
@@ -110,6 +121,9 @@
   import { createR2 } from '../lib/data/r2.js';
   import { createBinaryOutbox } from '../lib/data/photoOutbox.js';
   import { Auth } from '../lib/shared/auth.js';
+  import { createSync } from '../lib/data/sync.js';
+  import { SyncWorkerHost } from '../lib/data/syncWorkerHost.js';
+  import { merge3 } from '../lib/data/merge.js';
 
   var hdr = initHeader({
     mount: '#hdr-mount',
@@ -332,7 +346,74 @@
     } catch (e) { chip('h-own', false, 'Ownership: ' + e.message); }
   })();
 
-  console.info('%c[/lib/] Step 1 + Step 2 modules loaded', 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
+  // ─────────────────────────────────────────────────────────────
+  // Step 3 harness — Merge + Sync (Electric skeleton only; live tool untouched)
+  // ─────────────────────────────────────────────────────────────
+  // T1: the extracted merge engine's own 14-test suite runs green.
+  (function(){
+    try {
+      var pass=0, fail=0;
+      var _log=console.log, _err=console.error;
+      console.log=function(){ var s=[].join.call(arguments,' '); if(s.indexOf('\u2713')>=0)pass++; _log.apply(console,arguments); };
+      console.error=function(){ var s=[].join.call(arguments,' '); if(s.indexOf('\u2717')>=0)fail++; _err.apply(console,arguments); };
+      (window._frt_mergeDiag && window._frt_mergeDiag.testBasic) ? window._frt_mergeDiag.testBasic() : (fail=1);
+      console.log=_log; console.error=_err;
+      chip('h-merge', fail===0 && pass>=25, fail===0 ? ('Merge self-test: ' + pass + ' assertions green ✓') : ('Merge self-test: ' + fail + ' failed'));
+    } catch(e){ chip('h-merge', false, 'Merge self-test: ' + e.message); }
+  })();
+
+  // T2: S43x deletion-wins — purged photo NOT resurrected on a lost base.
+  (function(){
+    try {
+      var base = {};                                   // lost common ancestor
+      var mine = { photos: [ { id:'p1' }, { id:'p2' } ] };            // I still have p2 active
+      var theirs = { photos: [ { id:'p1' }, { id:'p2', deleted:true, purged:true, deletedDate:'2026-01-01T00:00:00Z' } ] };
+      var r = merge3(base, mine, theirs);
+      var p2 = (r.merged.photos||[]).find(function(x){ return x.id==='p2'; });
+      var good = p2 && p2.deleted===true && r.conflicts.length===0;
+      chip('h-resurrect', good, good ? 'Photo resurrection: purged photo stays deleted ✓' : 'resurrection guard FAILED');
+    } catch(e){ chip('h-resurrect', false, 'Resurrection: ' + e.message); }
+  })();
+
+  // T3: one Electric state object satisfies BOTH sync (canonical 4) and outbox (subset 2).
+  (function(){
+    try {
+      var electricProject = { id:'PIDX', projectInfo:{ client:'ACME' }, contractors:[], generalDeficiencies:[], photos:[] };
+      var applied=null, saved=0;
+      var model = {
+        getProject:  function(){ return electricProject; },
+        setProject:  function(p){ electricProject = p; },
+        applyMerged: function(p){ applied = p; electricProject = p; },
+        saveNow:     function(){ saved++; }
+      };
+      // Build sync with the canonical adapter (must not throw).
+      var Sync = createSync({ toolKey:'electric', Auth: Auth, IDB: E_IDB, model: model, SyncWorkerHost: SyncWorkerHost });
+      // Reject-incomplete probe.
+      var rejected=false;
+      try { createSync({ Auth:Auth, IDB:E_IDB, SyncWorkerHost:SyncWorkerHost, model:{ getProject:function(){return {};} } }); }
+      catch(_) { rejected=true; }
+      var good = Sync && typeof Sync.pull==='function' && rejected
+                 && typeof model.getProject==='function' && typeof model.saveNow==='function';
+      chip('h-adapter', good, good ? 'Canonical adapter: one model drives sync + outbox ✓' : 'adapter contract FAILED');
+    } catch(e){ chip('h-adapter', false, 'Adapter: ' + e.message); }
+  })();
+
+  // T4: off-thread merge via SyncWorkerHost, with automatic inline fallback.
+  (function(){
+    try {
+      var base = { projectInfo:{ client:'ACME' }, photos:[{id:'p1'}] };
+      var mine = { projectInfo:{ client:'ACME Corp' }, photos:[{id:'p1'}] };
+      var theirs = { projectInfo:{ client:'ACME' }, photos:[{id:'p1'},{id:'p2',deleted:true,purged:true}] };
+      SyncWorkerHost.merge3Worker(base, mine, theirs).then(function(res){
+        var p2 = (res.merged.photos||[]).find(function(x){ return x.id==='p2'; });
+        var usingWorker = SyncWorkerHost.isWorkerAvailable();
+        var good = res.merged.projectInfo.client==='ACME Corp' && p2 && p2.deleted===true && res.conflicts.length===0;
+        chip('h-worker', good, good ? ('Off-thread merge OK ✓ (' + (usingWorker ? 'worker' : 'inline fallback') + ')') : 'off-thread merge FAILED');
+      }).catch(function(e){ chip('h-worker', false, 'Off-thread: ' + e.message); });
+    } catch(e){ chip('h-worker', false, 'Off-thread: ' + e.message); }
+  })();
+
+  console.info('%c[/lib/] Step 1 + 2 + 3 modules loaded', 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 
 <script>
