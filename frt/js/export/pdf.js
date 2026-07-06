@@ -2173,24 +2173,27 @@ var _appIdx=0;
 _emitAppendices(['deficiency']);
 
 // Closed summary
-if(showClosedSummary&&closedSummaryDefs.length&&_recsMode!=='only'){
+var _cp=window._frtCrbPreview,_csp=_cp?6:5;
+if((showClosedSummary&&closedSummaryDefs.length||_cp)&&_recsMode!=='only'){
   var csG={};closedSummaryDefs.forEach(function(r){var i=r.d.closedOnInstance||1;if(!csG[i])csG[i]=[];csG[i].push(r);});
   var csI=Object.keys(csG).map(Number).sort(function(a,b){return a-b;});
   var cH2='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:10pt;">';
-  cH2+='<thead><tr style="background:#2A3A5C;color:white;"><th colspan="5" style="padding:8px 12px;text-align:left;font-size:12pt;">Previously Closed Items</th></tr>';
-  cH2+='<tr style="background:#4A5568;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:white;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th></tr></thead><tbody>';
+  cH2+='<thead><tr style="background:#2A3A5C;color:white;"><th colspan="'+_csp+'" style="padding:8px 12px;text-align:left;font-size:12pt;">Previously Closed Items</th></tr>';
+  cH2+='<tr style="background:#4A5568;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;color:white;"><th style="padding:5px 10px;text-align:left;">Pin</th><th style="padding:5px 10px;text-align:left;">Description</th><th style="padding:5px 10px;text-align:left;">Contractor</th><th style="padding:5px 10px;text-align:left;">Noted</th><th style="padding:5px 10px;text-align:left;">Status</th>'+(_cp?'<th style="padding:5px 10px;text-align:center;">Rounds</th>':'')+'</tr></thead><tbody>';
   csI.forEach(function(inst){
     var items=csG[inst];var cd2=items[0].d.closedDate||'';
-    cH2+='<tr><td colspan="5" style="padding:6px 10px;background:#EEF2F4;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#4A5568;">Closed in FRT #'+inst+(cd2?' \u2014 '+cd2:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
+    cH2+='<tr><td colspan="'+_csp+'" style="padding:6px 10px;background:#EEF2F4;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#4A5568;">Closed in FRT #'+inst+(cd2?' \u2014 '+cd2:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
     items.forEach(function(r,ri){
-      // S119 hotfix: use per-obs text + per-obs contractor override (already
-      // baked into r.ctr by _pushItems). Pre-S119 this used _deficDesc(r.d)
-      // which returns obs[0].text — duplicating the same description across
-      // every row of a multi-obs pin.
       var desc=_itemDesc(r);var td=desc.length>80?desc.substring(0,80)+'\u2026':desc;
-      cH2+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+(r.numLabel||r.d.num)+'</td><td style="padding:5px 10px;">'+esc(td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#3F6E55;font-weight:700;">'+esc(r.d.closedNote||'Addressed')+'</td></tr>';
+      var _rnd=Math.max(1,((r.d.closedOnInstance||1)-(r.d.notedOnInstance||1))+1);
+      cH2+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+(r.numLabel||r.d.num)+'</td><td style="padding:5px 10px;">'+esc(td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#3F6E55;font-weight:700;">'+esc(r.d.closedNote||'Addressed')+'</td>'+(_cp?'<td style="padding:5px 10px;text-align:center;font-weight:700;color:#4A5568;">'+_rnd+'</td>':'')+'</tr>';
     });
   });
+  if(_cp&&!csI.length){
+    cH2+='<tr><td colspan="'+_csp+'" style="padding:6px 10px;background:#EEF2F4;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#4A5568;">Closed in FRT #2 \u2014 2026-07-02 (2 items)</td></tr>';
+    cH2+='<tr style="background:#fff;"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#5</td><td style="padding:5px 10px;">Missing signage at fire pump room entry</td><td style="padding:5px 10px;">Apex Fire Protection</td><td style="padding:5px 10px;">FRT #1</td><td style="padding:5px 10px;color:#3F6E55;font-weight:700;">Addressed</td><td style="padding:5px 10px;text-align:center;font-weight:700;color:#4A5568;">2</td></tr>';
+    cH2+='<tr style="background:#fafafa;"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#8</td><td style="padding:5px 10px;">Sprinkler escutcheon not flush at Level 3 corridor</td><td style="padding:5px 10px;">Classic Fire &amp; Life Safety</td><td style="padding:5px 10px;">FRT #1</td><td style="padding:5px 10px;color:#3F6E55;font-weight:700;">Addressed</td><td style="padding:5px 10px;text-align:center;font-weight:700;color:#4A5568;">3</td></tr>';
+  }
   cH2+='</tbody></table></div>';
   _startPage();curPageHtml+=cH2;curUsed+=_measure(cH2);_finalizePage();
 }
