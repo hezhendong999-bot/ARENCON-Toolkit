@@ -83,6 +83,32 @@ function _photoUid(rec) {
 // deleted flag). Walks pools directly (NOT the effective/obs lists, which already
 // exclude deleted photos). Each record is tagged kind:'defic'|'site' so restore
 // and permanent-delete route to the right model call. Returns newest-deleted first.
+// S43x: capture the gallery badge onto a DEFIC photo at soft-delete time.
+// removePoolPhoto cascades the photo out of its observation selections, so the
+// obs letter/closed/rec state is only knowable BEFORE deletion. We freeze it as
+// ph._trashBadge so Recently Deleted shows the exact same pill as the gallery.
+function _stampTrashBadge(deficId, photoId) {
+  try {
+    var wrap=null, defic=null;
+    (Model.getAllDeficiencies(Model.getProject())||[]).forEach(function(d){ if(d.defic && d.defic.id===deficId){ wrap=d; defic=d.defic; } });
+    if(!defic) return;
+    var ph=(defic.photos||[]).filter(function(x){return x.id===photoId;})[0];
+    if(!ph) return;
+    var isSite=(wrap.contractorId==null);
+    var chosenOi=0, chosenO=null;
+    (defic.observations||[]).forEach(function(o,oi){
+      if(chosenO) return;
+      var eff=(Model.getEffectivePhotos)?Model.getEffectivePhotos(defic,oi):(o.photos||[]);
+      if(eff && eff.some(function(x){return x.id===photoId;})){ chosenOi=oi; chosenO=o; }
+    });
+    var o=chosenO||(defic.observations||[])[0]||{};
+    var pri=(o.priority)||defic.priority||'high', low=(pri==='low'||pri==='general');
+    var cls = o.addressed?'ph-badge-pin-closed' : (o.isRecommendation?'ph-badge-pin-rec' : (isSite?'ph-badge-site' : (low?'ph-badge-pin-low':'ph-badge-pin-high')));
+    var text=(isSite?'Site ':'Obs ')+defic.num+String.fromCharCode(65+chosenOi);
+    ph._trashBadge={text:text, cls:cls};
+  } catch(e){}
+}
+
 function _gatherDeletedRecords() {
   var proj = Model.getProject();
   if (!proj) return [];
@@ -97,7 +123,9 @@ function _gatherDeletedRecords() {
         ph: ph,
         src: _r2h(ph.thumb || ph.r2Url || ph.dataUrl || ''),
         deletedDate: ph.deletedDate || null,
-        label: 'Site photo'
+        label: 'Site photo',
+        badgeText: 'Site',
+        badgeClass: 'ph-badge-site'
       });
     }
   });
@@ -107,6 +135,8 @@ function _gatherDeletedRecords() {
     var defic = d.defic;
     (defic.photos || []).forEach(function(ph) {
       if (ph && ph.deleted && !ph.purged) {
+        var _isSiteD = (d.contractorId == null);
+        var _tb = ph._trashBadge || null;
         out.push({
           kind: 'defic',
           deficId: defic.id,
@@ -115,7 +145,9 @@ function _gatherDeletedRecords() {
           ph: ph,
           src: _r2h(ph.thumb || ph.r2Url || ph.dataUrl || ''),
           deletedDate: ph.deletedDate || null,
-          label: 'Pin ' + defic.num
+          label: 'Pin ' + defic.num,
+          badgeText: _tb ? _tb.text : ((_isSiteD ? 'Site ' : 'Obs ') + defic.num),
+          badgeClass: _tb ? _tb.cls : (_isSiteD ? 'ph-badge-site' : ((defic.priority === 'low' || defic.priority === 'general') ? 'ph-badge-pin-low' : 'ph-badge-pin-high'))
         });
       }
     });
@@ -183,6 +215,7 @@ function _renderTrashHtml(deletedRecords) {
       h += '<div class="tphoto tnoimg">\uD83D\uDCF7</div>';
     }
     h += '<div class="tscrim"></div>';
+    if (r.badgeText) h += '<span class="ph-badges"><span class="ph-badge ' + esc(r.badgeClass || 'ph-badge-site') + '">' + esc(r.badgeText) + '</span></span>';
     if (isAdmin) {
       h += '<span class="ph-trash-check" data-action="ph-trash-toggle" data-uid="' + esc(uid) + '" title="Select">' + (selected ? '\u2713' : '') + '</span>';
     }
@@ -951,6 +984,7 @@ document.addEventListener('click', function(e) {
     var dpId = delD.getAttribute('data-photo-id');
     showConfirm('Delete Photo', 'Delete this photo? You can restore it from Recently Deleted for ' + _TRASH_RETENTION_DAYS + ' days.').then(function(yes) {
       if (yes && ddId && dpId) {
+        try { _stampTrashBadge(ddId, dpId); } catch (e) {}
         var ok = Model.removePoolPhoto(ddId, dpId);
         _selectedUids.delete('defic:' + ddId); // defensive; uid prefix match not needed
         initPhotos.render();
