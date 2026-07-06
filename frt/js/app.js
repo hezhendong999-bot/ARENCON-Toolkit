@@ -522,10 +522,10 @@ function _repairPhotos() {
   showDialog({
     title: 'Repair Photos',
     message: msg,
-    buttons: [
-      { label: 'Re-home orphans', color: '#3E8E6E', action: function() { _run('rehome'); } },
+    buttons: [ // S443 order: Cancel leftmost, primary rightmost
+      { label: 'Cancel', outline: true, action: function() {} },
       { label: 'Delete orphans', color: '#C0445F', outline: true, action: function() { _run('delete'); } },
-      { label: 'Cancel', outline: true, action: function() {} }
+      { label: 'Re-home orphans', color: '#3E8E6E', action: function() { _run('rehome'); } }
     ]
   });
 }
@@ -2192,7 +2192,7 @@ function _countUntaggedForBand(proj) {
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S430';
+var FRT_BUILD = 'S431';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');

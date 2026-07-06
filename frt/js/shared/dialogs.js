@@ -169,8 +169,9 @@ export function showPrompt(title, label, defaultVal) {
       resolve(null);
     });
 
-    btnRow.appendChild(okBtn);
+    // S443 order convention: Cancel is ALWAYS the leftmost button.
     btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(okBtn);
     modal.appendChild(btnRow);
 
     overlay.appendChild(modal);

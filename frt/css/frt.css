@@ -10769,9 +10769,12 @@ body.dark-mode .btn-danger:hover{background:rgba(226,96,118,.2) !important;}
 .btn-outline:hover,.btn-secondary:hover,.btn-muted-ok:hover{background:#CFE8E8 !important;border-color:#2E8C8C !important;color:#1F7373 !important;}
 body.dark-mode .btn-outline,body.dark-mode .btn-secondary,body.dark-mode .btn-muted-ok{background:rgba(63,184,184,.15) !important;border:1px solid #3FB8B8 !important;color:#5FCBCB !important;}
 body.dark-mode .btn-outline:hover,body.dark-mode .btn-secondary:hover,body.dark-mode .btn-muted-ok:hover{background:rgba(63,184,184,.22) !important;}
-.btn-muted-cancel,.btn-cancel,.btn-amber{background:#F6E8D6 !important;border:1px solid #C98A4A !important;color:#9A6A28 !important;border-radius:7px !important;}
-.btn-muted-cancel:hover,.btn-cancel:hover,.btn-amber:hover{background:#F1DEC4 !important;border-color:#C98A4A !important;color:#9A6A28 !important;}
-body.dark-mode .btn-muted-cancel,body.dark-mode .btn-cancel,body.dark-mode .btn-amber{background:rgba(224,163,106,.16) !important;border:1px solid #E0A36A !important;color:#E0A36A !important;}
+/* S443 (Mark): Cancel = NEUTRAL ghost — supersedes the S341 orange cancel.
+   Cancel is the quiet option; it must recede next to any primary, never read
+   as a warning. Matches /lib/ chrome. (.btn-cancel/.btn-amber were unused aliases.) */
+.btn-muted-cancel,.btn-cancel,.btn-amber{background:rgba(27,26,34,.04) !important;border:1px solid rgba(27,26,34,.25) !important;color:#5E5B68 !important;border-radius:7px !important;}
+.btn-muted-cancel:hover,.btn-cancel:hover,.btn-amber:hover{background:rgba(27,26,34,.08) !important;border-color:rgba(27,26,34,.35) !important;color:#5E5B68 !important;}
+body.dark-mode .btn-muted-cancel,body.dark-mode .btn-cancel,body.dark-mode .btn-amber{background:rgba(255,255,255,.05) !important;border:1px solid rgba(255,255,255,.25) !important;color:#a09aa8 !important;}
 body.dark-mode .btn-muted-cancel:hover,body.dark-mode .btn-cancel:hover,body.dark-mode .btn-amber:hover{background:rgba(224,163,106,.24) !important;}
 
 /* ═══ S439: Recently-Deleted grid + multi-select (mirrors S114 gallery pattern) ═══ */

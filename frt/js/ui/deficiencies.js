@@ -1996,8 +1996,18 @@ function _showCtrEditDialog(ctr) {
   showDialog({
     title: 'Edit Contractor',
     message: '"' + ctr.name + '" \u2014 choose an action:',
-    buttons: [
+    buttons: [ // S443 order: Cancel leftmost, primary (Rename) rightmost
       { label: 'Cancel', outline: true, color: '#8A94B0' },
+      { label: '\uD83D\uDDD1 Delete contractor', color: '#9C2742', action: function() {
+          var deficCount = (ctr.deficiencies || []).length;
+          var msg = deficCount > 0
+            ? 'Delete "' + ctr.name + '"? Its ' + deficCount + ' item' + (deficCount === 1 ? '' : 's') + ' will be MOVED to Site Records (not deleted). The contractor record will be removed.'
+            : 'Delete "' + ctr.name + '" entirely?';
+          showConfirm('Delete Contractor', msg).then(function(yes) {
+            if (yes) { var _mv = Model.deleteContractorAndReassign(ctr.id); initDeficiencies.render(); toast('Deleted ' + ctr.name + (_mv > 0 ? ' \u2014 ' + _mv + ' item' + (_mv === 1 ? '' : 's') + ' moved to Site Records' : '')); }
+          });
+        }
+      },
       { label: '\u270F Rename', color: '#9C2742', action: function() {
           showPrompt('Rename Contractor', 'New name:', ctr.name).then(function(newName) {
             if (newName && newName.trim() && newName.trim() !== ctr.name) {
@@ -2006,16 +2016,6 @@ function _showCtrEditDialog(ctr) {
               initDeficiencies.render();
               toast('Renamed to: ' + ctr.name);
             }
-          });
-        }
-      },
-      { label: '\uD83D\uDDD1 Delete contractor', color: '#9C2742', action: function() {
-          var deficCount = (ctr.deficiencies || []).length;
-          var msg = deficCount > 0
-            ? 'Delete "' + ctr.name + '"? Its ' + deficCount + ' item' + (deficCount === 1 ? '' : 's') + ' will be MOVED to Site Records (not deleted). The contractor record will be removed.'
-            : 'Delete "' + ctr.name + '" entirely?';
-          showConfirm('Delete Contractor', msg).then(function(yes) {
-            if (yes) { var _mv = Model.deleteContractorAndReassign(ctr.id); initDeficiencies.render(); toast('Deleted ' + ctr.name + (_mv > 0 ? ' \u2014 ' + _mv + ' item' + (_mv === 1 ? '' : 's') + ' moved to Site Records' : '')); }
           });
         }
       }
@@ -3807,17 +3807,8 @@ function _confirmRemoveObsWithPhotos(deficId, obsIdx, afterFn) {
   showDialog({
     title: 'Remove Observation',
     message: 'This observation has ' + n + ' ' + noun + ' not used by any other observation on this pin. What should happen to ' + (n === 1 ? 'it' : 'them') + '?',
-    buttons: [
-      {
-        label: 'Move ' + noun + ' to Site Records', color: '#9C2742',
-        action: function() {
-          unique.forEach(function(p) {
-            if (p && p.id && Model.releasePoolPhotoToSite) Model.releasePoolPhotoToSite(deficId, p.id);
-          });
-          _removeNow();
-          toast('Observation removed \u00b7 ' + n + ' ' + noun + ' moved to Site Records');
-        }
-      },
+    buttons: [ // S443 order: Cancel leftmost, primary (Move) rightmost
+      { label: 'Cancel', color: '#9C2742', outline: true, action: function() {} },
       {
         label: 'Delete all', color: '#C0392B',
         action: function() {
@@ -3828,7 +3819,16 @@ function _confirmRemoveObsWithPhotos(deficId, obsIdx, afterFn) {
           toast('Observation removed \u00b7 ' + n + ' ' + noun + ' moved to Recently Deleted');
         }
       },
-      { label: 'Cancel', color: '#9C2742', outline: true, action: function() {} }
+      {
+        label: 'Move ' + noun + ' to Site Records', color: '#9C2742',
+        action: function() {
+          unique.forEach(function(p) {
+            if (p && p.id && Model.releasePoolPhotoToSite) Model.releasePoolPhotoToSite(deficId, p.id);
+          });
+          _removeNow();
+          toast('Observation removed \u00b7 ' + n + ' ' + noun + ' moved to Site Records');
+        }
+      }
     ]
   });
 }
@@ -5520,7 +5520,8 @@ document.addEventListener('click', function(e) {
     showDialog({
       title: 'Photo',
       message: 'What would you like to do with this photo?',
-      buttons: [
+      buttons: [ // S443 order: Cancel leftmost
+        { label: 'Cancel', color: '#9C2742', outline: true, action: function() {} },
         {
           label: 'Move to Site Records', color: '#9C2742',
           action: function() {
@@ -5552,8 +5553,7 @@ document.addEventListener('click', function(e) {
             _frtRefreshPinFocusIf(deficId);
             toast(ok ? 'Photo moved to Recently Deleted' : 'Could not delete photo');
           }
-        },
-        { label: 'Cancel', color: '#9C2742', outline: true, action: function() {} }
+        }
       ]
     });
   }
