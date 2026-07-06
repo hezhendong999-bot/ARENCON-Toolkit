@@ -10441,7 +10441,6 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
 
 /* ── 7 · Mobile drawer (<=1024px): QR + day/night stay in header; CTAs go to drawer ── */
 @media(max-width:1024px){
-  .header-actions > #btn-qr{ display:inline-flex !important; }
   .header-actions > #dark-toggle{ display:inline-flex !important; }
   .header-actions > #btn-text-size{ display:none !important; }
   .header-actions > #btn-signout{ display:none !important; }

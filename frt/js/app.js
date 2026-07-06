@@ -902,7 +902,7 @@ function _updateHeaderForProject() {
 
   // Toggle header buttons: hide dashboard, show project
   var dashBtns = ['btn-load', 'btn-export-all'];
-  var projBtns = ['btn-pdf', 'btn-issue', 'btn-more-wrap', 'btn-qr', 'btn-ai-review'];
+  var projBtns = ['btn-pdf', 'btn-issue', 'btn-more-wrap', 'btn-ai-review'];
   dashBtns.forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -2130,7 +2130,9 @@ function wireEvents() {
   });
 
   // QR Code button
-  var qrBtn = document.getElementById('btn-qr');
+  // S441: header QR button removed — QR now lives in the More ▾ menu (desktop)
+  // and the ☰ mobile menu. The more-menu delegate closes the menu on click.
+  var qrBtn = document.getElementById('btn-qr-more');
   if (qrBtn) qrBtn.addEventListener('click', _showQR);
   var mobileQr = document.getElementById('mobile-qr-btn');
   if (mobileQr) mobileQr.addEventListener('click', function() { closeMobileMenu(); _showQR(); });
@@ -2190,7 +2192,7 @@ function _countUntaggedForBand(proj) {
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S429';
+var FRT_BUILD = 'S430';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
@@ -2457,7 +2459,7 @@ function boot() {
     var mp = document.getElementById('mobile-pdf-btn');
     if (mp) mp.style.display = '';
     var mq = document.getElementById('mobile-qr-btn');
-    if (mq && _hubMode) mq.style.display = '';
+    if (mq) mq.style.display = ''; // S441: was hub-gated; header QR removed, so the menu entry now covers all project modes
 
     // S130 Proposal A — Deep-link pin focus from Hub photo gallery.
     // URL contract: ?project=<pid>&pinFocus=<deficId>&from=hub
