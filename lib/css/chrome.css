@@ -214,8 +214,14 @@ html[data-theme="light"] .ab-btn-na      { border-color:#2C7FB8; background:#D6E
 html[data-theme="dark"]  .ab-btn-na      { border-color:#5AA9D8; background:rgba(70,150,200,.20); color:#7FB8DD; }
 html[data-theme="light"] .ab-btn-danger  { border-color:#C0445F; background:#FBE3E9; color:#A83A50; }
 html[data-theme="dark"]  .ab-btn-danger  { border-color:#E26076; background:rgba(226,96,118,.14); color:#E8788C; }
-html[data-theme="light"] .ab-btn-cancel  { border-color:#C98A4A; background:#F6E8D6; color:#9A6A28; }
-html[data-theme="dark"]  .ab-btn-cancel  { border-color:#E0A36A; background:rgba(224,163,106,.16); color:#E0A36A; }
+/* Cancel = NEUTRAL ghost (S443 canon, Mark — supersedes the S341 orange cancel).
+   Cancel is the quiet option; it must recede next to any primary, never read
+   as a warning. The old orange lives on as .ab-btn-warn for genuinely warm
+   actions (Archive, stale-data prompts) — Cancel never wears it again. */
+html[data-theme="light"] .ab-btn-cancel { border-color:rgba(27,26,34,.25);  background:rgba(27,26,34,.04);   color:#5E5B68; }
+html[data-theme="dark"]  .ab-btn-cancel { border-color:rgba(255,255,255,.25); background:rgba(255,255,255,.05); color:#a09aa8; }
+html[data-theme="light"] .ab-btn-warn   { border-color:#C98A4A; background:#F6E8D6; color:#9A6A28; }
+html[data-theme="dark"]  .ab-btn-warn   { border-color:#E0A36A; background:rgba(224,163,106,.16); color:#E0A36A; }
 /* Burgundy = wordmark + true CTAs only, never routine buttons (S341). */
 .ab-btn-cta { border-color: var(--ab-brand); background: var(--ab-brand); color: #fff; }
 
@@ -277,3 +283,41 @@ html[data-theme="dark"]  .ab-btn-cancel  { border-color:#E0A36A; background:rgba
   transition: width .4s ease;
 }
 .ab-bar-pct { font: 700 12px Calibri, sans-serif; font-variant-numeric: tabular-nums; color: var(--ab-ink2); }
+
+/* ── Modal (chrome layer; behavior lives in /lib/shared/dialogs.js, Step 1) ──
+   BUTTON-ORDER CONVENTION — LOCKED (S443, Mark):
+   · Horizontal footer: Cancel is ALWAYS the leftmost button; the primary
+     action is ALWAYS the rightmost. Destructive modals: [Cancel] … [Delete],
+     danger colour, still rightmost.
+   · Stacked/vertical (narrow screens): primary on TOP, Cancel at the BOTTOM.
+   · 3-button leave dialog: [Cancel — go back] [Leave without saving] [Save & Leave].
+   Every modal in every tool follows this; the shared dialogs module enforces it. */
+.ab-modal-ov {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(10,9,12,.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.ab-modal {
+  background: var(--ab-card-bg);
+  border: 1px solid var(--ab-card-border);
+  border-radius: 16px;
+  box-shadow: var(--ab-card-shadow);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  width: min(440px, 96vw);
+  padding: 20px 22px;
+  color: var(--ab-ink);
+  font-family: Calibri, sans-serif;
+}
+.ab-modal-title { font: 700 16px Calibri, sans-serif; margin: 0 0 8px 0; }
+.ab-modal-body  { font: 400 13.5px Calibri, sans-serif; color: var(--ab-ink2); line-height: 1.5; margin: 0 0 18px 0; }
+.ab-modal-foot  { display: flex; gap: 10px; }
+.ab-modal-foot .ab-btn-cancel { margin-right: auto; }   /* Cancel pinned LEFT; actions gather RIGHT */
+@media (max-width: 480px) {
+  .ab-modal-foot { flex-direction: column-reverse; }     /* stacked: primary TOP, Cancel BOTTOM */
+  .ab-modal-foot .ab-btn-cancel { margin-right: 0; }
+  .ab-modal-foot .ab-btn { min-height: 44px; }
+}

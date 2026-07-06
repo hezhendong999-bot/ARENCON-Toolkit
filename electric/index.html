@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#EFEDF0">
 <title>ARENCON — Electric Fire Pump (Library Step 0 Skeleton)</title>
-<link rel="stylesheet" href="../lib/css/chrome.css?v=1">
+<link rel="stylesheet" href="../lib/css/chrome.css?v=2">
 <style>
   body { margin: 0; }
   .demo-wrap { max-width: 860px; margin: 24px auto; padding: 0 16px; display: grid; gap: 18px; }
@@ -31,20 +31,31 @@
     </div>
 
     <div class="ab-card">
-      <h2 class="ab-h2"><span class="ab-secnum">02</span>Shared Buttons — S341 system</h2>
+      <h2 class="ab-h2"><span class="ab-secnum">02</span>Shared Buttons — S341 system, S443 cancel redesign</h2>
       <div class="demo-row">
         <button class="ab-btn ab-btn-confirm" id="btn-toast">Save (toast test)</button>
         <button class="ab-btn ab-btn-utility">Export</button>
         <button class="ab-btn ab-btn-na">N/A</button>
         <button class="ab-btn ab-btn-cancel">Cancel</button>
+        <button class="ab-btn ab-btn-warn">Archive</button>
         <button class="ab-btn ab-btn-danger">Delete</button>
         <button class="ab-btn ab-btn-cta">Primary CTA</button>
       </div>
-      <p class="demo-note" style="margin-top:10px;">Defined once in chrome.css; identical intent-colours in every tool, both modes. "Save" fires <b>/lib/shared/toast.js</b>.</p>
+      <p class="demo-note" style="margin-top:10px;">Cancel is now a <b>neutral ghost</b> (S443 — supersedes the orange). The orange survives only as an explicit <b>warn</b> role (Archive, stale-data). "Save" fires <b>/lib/shared/toast.js</b>.</p>
     </div>
 
     <div class="ab-card">
-      <h2 class="ab-h2"><span class="ab-secnum">03</span>Shared Chips + Completion Bar</h2>
+      <h2 class="ab-h2"><span class="ab-secnum">03</span>Modal Convention — LOCKED button order</h2>
+      <div class="demo-row">
+        <button class="ab-btn ab-btn-utility" id="btn-modal-confirm">Sample: confirm modal</button>
+        <button class="ab-btn ab-btn-danger" id="btn-modal-delete">Sample: destructive modal</button>
+        <button class="ab-btn ab-btn-confirm" id="btn-modal-leave">Sample: 3-button leave</button>
+      </div>
+      <p class="demo-note" style="margin-top:10px;"><b>Cancel always leftmost · primary always rightmost.</b> Destructive: [Cancel] … [Delete]. Narrow screens stack with primary on top, Cancel at the bottom. Every modal in every tool follows this — the shared dialogs module (Step 1) enforces it, ending the left/right lottery.</p>
+    </div>
+
+    <div class="ab-card">
+      <h2 class="ab-h2"><span class="ab-secnum">04</span>Shared Chips + Completion Bar</h2>
       <div class="demo-row" style="margin-bottom:14px;">
         <span class="ab-chip ab-chip-ok"><span class="ab-chip-dot" style="background:var(--ab-ok)"></span>Passed</span>
         <span class="ab-chip ab-chip-fail"><span class="ab-chip-dot" style="background:var(--ab-fail)"></span>High</span>
@@ -87,6 +98,41 @@
 
   document.getElementById('btn-toast').addEventListener('click', function() {
     toast('Saved — /lib/shared/toast.js working');
+  });
+
+  // ── Modal-convention demos (chrome only; behavior module lands at Step 1) ──
+  function demoModal(title, body, buttons) {
+    var ov = document.createElement('div'); ov.className = 'ab-modal-ov';
+    var m = document.createElement('div'); m.className = 'ab-modal';
+    m.innerHTML = '<h3 class="ab-modal-title"></h3><p class="ab-modal-body"></p>';
+    m.querySelector('.ab-modal-title').textContent = title;
+    m.querySelector('.ab-modal-body').textContent = body;
+    var foot = document.createElement('div'); foot.className = 'ab-modal-foot';
+    buttons.forEach(function(b) {
+      var btn = document.createElement('button');
+      btn.className = 'ab-btn ' + b.cls; btn.textContent = b.label;
+      btn.addEventListener('click', function() { ov.remove(); if (b.msg) toast(b.msg); });
+      foot.appendChild(btn);
+    });
+    m.appendChild(foot); ov.appendChild(m);
+    ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+  }
+  document.getElementById('btn-modal-confirm').addEventListener('click', function() {
+    demoModal('Issue this report?', 'The report becomes read-only for inspectors once issued.',
+      [ { cls:'ab-btn-cancel', label:'Cancel' },
+        { cls:'ab-btn-confirm', label:'Issue Report', msg:'Primary sits rightmost' } ]);
+  });
+  document.getElementById('btn-modal-delete').addEventListener('click', function() {
+    demoModal('Delete 3 photos?', 'They move to Recently Deleted for 30 days.',
+      [ { cls:'ab-btn-cancel', label:'Cancel' },
+        { cls:'ab-btn-danger', label:'Delete', msg:'Destructive: still rightmost, danger colour' } ]);
+  });
+  document.getElementById('btn-modal-leave').addEventListener('click', function() {
+    demoModal('Unsaved changes', 'You have unsaved changes in this report.',
+      [ { cls:'ab-btn-cancel', label:'Cancel — go back' },
+        { cls:'ab-btn-warn', label:'Leave without saving', msg:'Middle action' },
+        { cls:'ab-btn-confirm', label:'Save & Leave', msg:'Green save, rightmost' } ]);
   });
 
   console.info('%c[/lib/] Step 0 skeleton loaded', 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
