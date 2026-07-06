@@ -626,6 +626,8 @@ function _buildCSS(fontB64){
   c+='.crb{border:1px solid #C9C4D0;border-radius:6px;margin-top:12px;overflow:hidden;}';
   c+='.crb-hd{background:#EFEDF0;border-bottom:1px solid #C9C4D0;padding:6px 12px;font-size:9pt;font-weight:800;letter-spacing:.6px;color:#5E5B68;text-transform:uppercase;}';
   c+='.crb-bd{padding:4px 12px 11px;}';
+  c+='.crb-seg .tr-row{padding:9px 0;}';
+  c+='.crb-seg + .crb-seg .tr-row{border-top:1px solid #ECEAEF;}';
   c+='.tr-row{padding:9px 0;}';
   c+='.tr-row + .tr-row{border-top:1px solid #ECEAEF;}';
   c+='.tr-meta{font-size:8.5pt;color:#928E9C;font-weight:700;letter-spacing:.3px;margin-bottom:3px;}';
@@ -1256,7 +1258,11 @@ var _CRB_SAMPLES_OPEN=[
 ];
 var _CRB_SAMPLE_CLOSED={ chip:'', hd:'Contractor Response \u2014 record',
   body:'<div class="tr-row"><div class="tr-meta"><b>ROUND 1 \u00b7 FRT #1</b> \u00b7 Apex Fire Protection \u00b7 2026-06-18</div><div class="claim"><span class="rep">Reported \u00b7 Addressed</span> \u2014 Rectified per attached photos.</div><div class="rect-lbl">RECTIFICATION PHOTOS</div><div class="rphotos"><div class="rphoto">Rect. 1</div></div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW \u00b7 FRT #2</b> \u00b7 2026-07-02 &nbsp;<span class="pill pill-c">Closed</span></div><p>Verified on site review. Item closed.</p></div><div class="closednote">Closed items carry no fillable field. This item moves to Previously Closed on the next report.</div>' };
-function _crbBox(cs){ return '<div class="crb"><div class="crb-hd">'+cs.hd+'</div><div class="crb-bd">'+cs.body+'</div></div>'; }
+function _crbBox(cs){
+  var rows=cs.body.split(/(?=<div class="tr-row)/).filter(Boolean);
+  var segs=rows.map(function(r){return '<div class="dc-split crb-seg">'+r+'</div>';}).join('');
+  return '<div class="crb"><div class="crb-hd">'+cs.hd+'</div><div class="crb-bd">'+segs+'</div></div>';
+}
 
 function _buildDefCard(r,hdrExtra){
   // S317: assign this rendered row its report-sequential item number.
@@ -2055,15 +2061,15 @@ function _flowBlock(block){
     var sp=block.html.split(/<div class="dc-split/);
     if(sp.length<=1){curPageHtml+=block.html;curUsed+=blockH;}
     else{
-      var cH=sp[0];var cF='</div></div></div>';
+      var cH=sp[0];var cF=/class="crb-bd"/.test(cH)?'</div></div></div></div></div>':'</div></div></div>';
       curPageHtml+=cH;curUsed+=_measure(cH+cF);
       for(var si=1;si<sp.length;si++){
         var sH='<div class="dc-split'+sp[si];var sHt=_measure(sH);
         if(curUsed+sHt>PAGE_H&&si>1){
-          curPageHtml+='<div style="font-size:9px;color:#888;font-style:italic;text-align:right;margin-top:4px;">[continued on next page]</div>'+cF;
+          curPageHtml+='<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;text-align:right;margin-top:6px;">continues on next page \u2192</div>'+cF;
           _finalizePage();_startPage();_restamp();
-          curPageHtml+=cH+'<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>';
-          curUsed+=_measure(cH+'<div style="font-size:9px;color:#888;font-style:italic;margin-bottom:4px;">[continued from previous page]</div>'+cF);
+          curPageHtml+=cH+'<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;margin-bottom:5px;">continued from previous page</div>';
+          curUsed+=_measure(cH+'<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;margin-bottom:5px;">continued from previous page</div>'+cF);
         }
         curPageHtml+=sH;curUsed+=sHt;
       }
