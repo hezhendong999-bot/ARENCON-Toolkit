@@ -632,6 +632,7 @@ function _buildCSS(fontB64){
   c+='.item-contband .dc-itemnum{font-style:normal;font-size:9.5pt;}';
   c+='.item-contband .pinref-dark{font-style:normal;}';
   c+='.item-contband .cont{opacity:.9;}';
+  c+='.dc-mini-cont{flex-shrink:0;width:160px;}';
   c+='.tr-row{padding:9px 0;}';
   c+='.tr-row + .tr-row{border-top:1px solid #ECEAEF;}';
   c+='.tr-meta{font-size:8.5pt;color:#928E9C;font-weight:700;letter-spacing:.3px;margin-bottom:3px;}';
@@ -2071,8 +2072,8 @@ function _flowBlock(block){
     if(sp.length<=1){curPageHtml+=block.html;curUsed+=blockH;}
     else{
       var cH=sp[0];var _isCrbCard=/class="crb-bd"/.test(cH);var cF=_isCrbCard?'</div></div></div></div></div>':'</div></div></div>';
-      var _cim=(cH.match(/<span class="dc-itemnum">([\s\S]*?)<\/span>/)||[])[1]||'';var _cpr=(cH.match(/<span class="pinref-dark">([\s\S]*?)<\/span>/)||[])[1]||'';
-      var _contHead='<div class="dc"><div class="dc-inner"><div class="dc-content"><div class="item-contband"><span class="dc-itemnum">'+_cim+'</span>'+(_cpr?' <span class="pinref-dark">'+_cpr+'</span>':'')+' <span class="cont">continued</span></div>'+(_isCrbCard?'<div class="crb"><div class="crb-hd">Contractor Response \u2014 thread (cont.)</div><div class="crb-bd">':'');
+      var _cim=(cH.match(/<span class="dc-itemnum">([\s\S]*?)<\/span>/)||[])[1]||'';var _cpr=(cH.match(/<span class="pinref-dark">([\s\S]*?)<\/span>/)||[])[1]||'';var _hasMini=/dc-mini/.test(cH);
+      var _contHead='<div class="dc"><div class="dc-inner">'+(_hasMini?'<div class="dc-mini-cont"></div>':'')+'<div class="dc-content"><div class="item-contband"><span class="dc-itemnum">'+_cim+'</span>'+(_cpr?' <span class="pinref-dark">'+_cpr+'</span>':'')+' <span class="cont">continued</span></div>'+(_isCrbCard?'<div class="crb"><div class="crb-hd">Contractor Response \u2014 thread (cont.)</div><div class="crb-bd">':'');
       curPageHtml+=cH;curUsed+=_measure(cH+cF);
       for(var si=1;si<sp.length;si++){
         var sH='<div class="dc-split'+sp[si];var sHt=_measure(sH);
