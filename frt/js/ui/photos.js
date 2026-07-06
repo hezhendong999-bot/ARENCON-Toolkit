@@ -214,15 +214,11 @@ function _renderTrashHtml(deletedRecords) {
     } else {
       h += '<div class="tphoto tnoimg">\uD83D\uDCF7</div>';
     }
-    h += '<div class="tscrim"></div>';
     if (r.badgeText) h += '<span class="ph-badges"><span class="ph-badge ' + esc(r.badgeClass || 'ph-badge-site') + '">' + esc(r.badgeText) + '</span></span>';
     if (isAdmin) {
       h += '<span class="ph-trash-check" data-action="ph-trash-toggle" data-uid="' + esc(uid) + '" title="Select">' + (selected ? '\u2713' : '') + '</span>';
     }
-    h += '<div class="tmeta">';
-    h += '<div class="ph-trash-label">' + esc(r.label) + '</div>';
-    h += '<div class="' + daysCls + '">' + days + ' day' + (days === 1 ? '' : 's') + ' left</div>';
-    h += '</div>';
+    h += '<div class="' + daysCls + '" title="' + days + ' day' + (days === 1 ? '' : 's') + ' left">' + days + 'd</div>';
     h += '<div class="ph-trash-actions">';
     h += '<button class="ph-trash-restore" data-action="ph-restore-photo"' + routeAttrs + ' title="Restore">' + IC_RESTORE_SVG + '</button>';
     if (isAdmin) h += '<button class="ph-trash-purge" data-action="ph-purge-photo"' + routeAttrs + ' title="Delete forever">' + IC_TRASH_SVG + '</button>';
