@@ -1258,6 +1258,9 @@ var _CRB_SAMPLES_OPEN=[
 ];
 var _CRB_SAMPLE_CLOSED={ chip:'', hd:'Contractor Response \u2014 record',
   body:'<div class="tr-row"><div class="tr-meta"><b>ROUND 1 \u00b7 FRT #1</b> \u00b7 Apex Fire Protection \u00b7 2026-06-18</div><div class="claim"><span class="rep">Reported \u00b7 Addressed</span> \u2014 Rectified per attached photos.</div><div class="rect-lbl">RECTIFICATION PHOTOS</div><div class="rphotos"><div class="rphoto">Rect. 1</div></div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW \u00b7 FRT #2</b> \u00b7 2026-07-02 &nbsp;<span class="pill pill-c">Closed</span></div><p>Verified on site review. Item closed.</p></div><div class="closednote">Closed items carry no fillable field. This item moves to Previously Closed on the next report.</div>' };
+var _crbLongShown=false;
+var _CRB_SAMPLE_LONG={ chip:'<span class="rd-chip r-r" title="Outstanding for 6 reports \u2014 first noted FRT #1">'+_CRB_FLAG+'6th rd</span>', hd:'Contractor Response \u2014 thread',
+  body:'<div class="tr-row"><div class="tr-meta"><b>ROUND 1 · FRT #1</b> · Apex Fire Protection · 2026-06-18</div><div class="claim"><span class="rep">Reported · Addressed</span> — Penetration sealed with CP-25WB+ per attached photos. Ready for re-inspection.</div><div class="rect-lbl">RECTIFICATION PHOTOS</div><div class="rphotos"><div class="rphoto">Rect. 1</div><div class="rphoto">Rect. 2</div></div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW · FRT #2</b> · 2026-07-02 &nbsp;<span class="pill pill-h">Outstanding</span></div><p>Sealant used is not the listed system for this wall assembly. Reseal per the listed system and resubmit photos.</p></div><div class="tr-row"><div class="tr-meta"><b>ROUND 2 · FRT #2</b> · Apex Fire Protection · 2026-07-21</div><div class="claim"><span class="rep">Reported · In Progress</span> — Listed system material on order; installation scheduled week of Aug 3.</div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW · FRT #3</b> · 2026-08-01 &nbsp;<span class="pill pill-h">Outstanding</span></div><p>Not complete at time of review. Item remains outstanding — third report. Schedule confirmation required.</p></div><div class="tr-row"><div class="tr-meta"><b>ROUND 3 · FRT #3</b> · Apex Fire Protection · 2026-08-19</div><div class="claim"><span class="rep">Reported · Addressed</span> — Listed system installed at penetration; labels applied. Photos attached.</div><div class="rect-lbl">RECTIFICATION PHOTOS</div><div class="rphotos"><div class="rphoto">Rect. 1</div><div class="rphoto">Rect. 2</div></div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW · FRT #4</b> · 2026-08-30 &nbsp;<span class="pill pill-h">Outstanding</span></div><p>Label applied is for the wrong F-rating. Correct system label required — fourth report. Escalated to project meeting.</p></div><div class="tr-row"><div class="tr-meta"><b>ROUND 4 · FRT #4</b> · Apex Fire Protection · 2026-09-15</div><div class="claim"><span class="rep">Reported · In Progress</span> — Correct labels ordered from manufacturer; re-labelling scheduled next visit.</div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW · FRT #5</b> · 2026-09-28 &nbsp;<span class="pill pill-h">Outstanding</span></div><p>Labels still not applied at time of review. Fifth report — outstanding. Formal notice to follow.</p></div><div class="tr-row"><div class="tr-meta"><b>ROUND 5 · FRT #5</b> · Apex Fire Protection · 2026-10-12</div><div class="claim"><span class="rep">Reported · Addressed</span> — Correct F-rated system labels applied at all penetrations. Photos attached.</div><div class="rect-lbl">RECTIFICATION PHOTOS</div><div class="rphotos"><div class="rphoto">Rect. 1</div><div class="rphoto">Rect. 2</div></div></div><div class="tr-row arv"><div class="tr-meta"><b>ARENCON REVIEW · FRT #6</b> · 2026-10-25 &nbsp;<span class="pill pill-h">Outstanding</span></div><p>One penetration still missing a label; remainder acceptable. Complete the final label and resubmit.</p></div><div class="tr-row live"><div class="tr-meta"><b>ROUND 6 — RESPOND ON THIS REPORT</b></div>'+_CRB_FILL+'</div>' };
 function _crbBox(cs){
   var rows=cs.body.split(/(?=<div class="tr-row)/).filter(Boolean);
   var segs=rows.map(function(r){return '<div class="dc-split crb-seg">'+r+'</div>';}).join('');
@@ -1328,7 +1331,9 @@ function _buildDefCard(r,hdrExtra){
   // rotation vs closed record), and ride the rounds chip on the header.
   var _cs=null;
   if(window._frtCrbPreview && !_isSrCard && !_isRec){
-    _cs = thisClosed ? _CRB_SAMPLE_CLOSED : _CRB_SAMPLES_OPEN[((r._itemNo||1)-1)%_CRB_SAMPLES_OPEN.length];
+    if(thisClosed){ _cs=_CRB_SAMPLE_CLOSED; }
+    else if(!_crbLongShown){ _cs=_CRB_SAMPLE_LONG; _crbLongShown=true; }
+    else { _cs=_CRB_SAMPLES_OPEN[((r._itemNo||1)-1)%_CRB_SAMPLES_OPEN.length]; }
     hdrExtra=(hdrExtra||'')+(_cs?_cs.chip:'');
   }
   // Activity: obs-tied for this obs, plus pin-level (no obsRef) on first-obs only
@@ -1460,7 +1465,7 @@ function _isRealCtr(nm){return !!_realCtrNames[nm]&&!isSiteRecordsName(nm);}
 var _ctrIdxByName={};(p.contractors||[]).forEach(function(c,i){if(c&&c.name&&_ctrIdxByName[c.name]==null)_ctrIdxByName[c.name]=i;});
 function _newTrade(nm){return{name:nm,total:0,real:{},realOrder:[],noctr:[]};}
 function _pushReal(T,cn,r){if(!T.real[cn]){T.real[cn]=[];T.realOrder.push(cn);}T.real[cn].push(r);T.total++;}
-var contentBlocks=[];
+var contentBlocks=[];_crbLongShown=false;
 _itemNo=0; // S317: deficiency item #s start at 1 (render order, gapless)
 // S142 Batch 3-2 (Model 2 §4.4): recommendations are pulled OUT of the
 // trade/contractor/Other-Trade-Items sections entirely. Deficiency
