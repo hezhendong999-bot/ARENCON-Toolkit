@@ -1942,15 +1942,34 @@ function _captureExportPDF(w,D){
           _savedViaPicker=true;
         }catch(_wr){ _savedViaPicker=false; } // write failed → fall back to download
       }
+      var _awaitingShare=false;
       if(!_savedViaPicker){
-        var url=URL.createObjectURL(blob);
-        var a=document.createElement('a');a.href=url;
-        a.download=fname;
-        document.body.appendChild(a);a.click();a.remove();
-        setTimeout(function(){URL.revokeObjectURL(url);},4000);
+        // S43x: mobile can't reliably auto-download a generated file (iOS wants the
+        // Share sheet, and the async capture already consumed the tap gesture). So on
+        // touch devices we surface a Save/Open button that fires Web Share on a fresh
+        // tap; desktop keeps the direct download.
+        var _isTouch=(w.matchMedia&&w.matchMedia('(pointer:coarse)').matches);
+        var _shareFile=null; try{ _shareFile=new (w.File||File)([blob],fname,{type:'application/pdf'}); }catch(_ff){}
+        var _nav=w.navigator||navigator;
+        var _canShare=!!(_shareFile&&_nav.canShare&&_nav.share&&_nav.canShare({files:[_shareFile]}));
+        if(_isTouch&&_canShare){
+          _awaitingShare=true;
+          try{
+            var sb=D.createElement('button');
+            sb.textContent='\uD83D\uDCE5 Save / Open PDF';
+            sb.style.cssText='padding:8px 22px;background:#2E9E72;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
+            sb.onclick=function(){ try{ _nav.share({files:[_shareFile],title:fname}).catch(function(){}); }catch(_s){} };
+            if(bar){bar.appendChild(sb);} else {D.body.insertBefore(sb,D.body.firstChild);}
+          }catch(_sb){}
+        } else {
+          var url=URL.createObjectURL(blob);
+          var a=document.createElement('a');a.href=url;a.download=fname;
+          document.body.appendChild(a);a.click();a.remove();
+          setTimeout(function(){URL.revokeObjectURL(url);},4000);
+        }
       }
       if(bar) bar.style.display='';
-      _capStatus(D,_savedViaPicker?'Done — PDF saved. It matches this preview exactly.':'Done — PDF downloaded. It matches this preview exactly.');
+      _capStatus(D,_awaitingShare?'PDF ready — tap "Save / Open PDF" above to send it to Files or Adobe.':(_savedViaPicker?'Done — PDF saved. It matches this preview exactly.':'Done — PDF downloaded. It matches this preview exactly.'));
       setTimeout(function(){_capHideStatus(D);},4000);
     }catch(err){
       if(bar) bar.style.display='';
