@@ -628,6 +628,7 @@ function _buildCSS(fontB64){
   c+='.crb-bd{padding:6px 12px 13px;}';
   c+='.crb-seg .tr-row{padding:12px 0;}';
   c+='.crb-seg + .crb-seg .tr-row{border-top:1px solid #ECEAEF;}';
+  c+='.crb-seg .arv{padding-left:20px;}';
   c+='.item-contband{font-size:8.5pt;font-weight:700;color:#928E9C;font-style:italic;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}';
   c+='.item-contband .dc-itemnum{font-style:normal;font-size:9.5pt;}';
   c+='.item-contband .pinref-dark{font-style:normal;}';
