@@ -108,6 +108,18 @@
       </div>
       <p class="demo-note"><b>Merge self-test</b> = the built-in 3-way merge suite (14 tests) runs green against the extracted engine. <b>Photo resurrection</b> = the S43x deletion-wins guard — a purged photo stays deleted even when the shared history is lost, the exact bug that was fixed. <b>Canonical adapter</b> = ONE Electric state object satisfies both the sync engine (4 methods) and the Step-2 photo outbox (its 2 are a subset) — no duplication. <b>Off-thread merge</b> = the merge runs in a background worker so big projects don't freeze the screen; if a worker can't start it falls back to the main thread automatically, same result either way. <b>Nothing here touches the live Electric tool — this is the skeleton only.</b></p>
     </div>
+
+    <div class="ab-card">
+      <h2 class="ab-h2"><span class="ab-secnum">08</span>Step 4 Harness — Photo Engine (Layers 1+2)</h2>
+      <div class="demo-row" id="harness-row-4" style="margin-bottom:12px;">
+        <span class="ab-chip ab-chip-info" id="h-exif"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>EXIF date read: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-thumb"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Thumbnail composite: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-trash"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Recently-Deleted: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-host"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Live R2 host: running…</span>
+        <span class="ab-chip ab-chip-info" id="h-cam"><span class="ab-chip-dot" style="background:var(--ab-info)"></span>Camera module: running…</span>
+      </div>
+      <p class="demo-note"><b>EXIF date read</b> = a photo is dated by when it was <i>taken</i>, not when it was uploaded (reads the camera's own timestamp). <b>Thumbnail composite</b> = the shared thumbnail generator runs on a plain canvas (never the banned OffscreenCanvas in this path). <b>Recently-Deleted</b> = the 90-day trash view + restore/delete UI, driven by plain records any tool supplies — Electric feeds pump photos, FRT feeds deficiency photos, same engine. <b>Live R2 host</b> = old file links are rewritten to <code>files.arencon.app</code> at display time. <b>Camera module</b> = the SACRED capture code (gravity orientation, 4096 capture, flash/torch) loaded intact — it's byte-identical to FRT and gets its real proof on your tablet in Step 5. <b>Skeleton only — live tools untouched.</b></p>
+    </div>
   </div>
 </div>
 
@@ -124,6 +136,9 @@
   import { createSync } from '../lib/data/sync.js';
   import { SyncWorkerHost } from '../lib/data/syncWorkerHost.js';
   import { merge3 } from '../lib/data/merge.js';
+  import * as PhotoEngine from '../lib/ui/photoEngine.js';
+  import { ImageWorkerHost } from '../lib/workers/imageWorkerHost.js';
+  import { openCameraBurst } from '../lib/ui/cameraBurst.js';
 
   var hdr = initHeader({
     mount: '#hdr-mount',
@@ -413,7 +428,110 @@
     } catch(e){ chip('h-worker', false, 'Off-thread: ' + e.message); }
   })();
 
-  console.info('%c[/lib/] Step 1 + 2 + 3 modules loaded', 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
+  // ─────────────────────────────────────────────────────────────
+  // Step 4 harness — Photo Engine Layers 1+2 (Electric skeleton only)
+  // ─────────────────────────────────────────────────────────────
+  // T1: EXIF capture-date reader parses a hand-built JPEG APP1 segment.
+  (function(){
+    try {
+      // Minimal JPEG: SOI + APP1(Exif, II, IFD0→EXIF sub-IFD with DateTimeOriginal).
+      // Build the exact bytes readExifCaptureDate walks. Little-endian ('II').
+      var bytes = [];
+      function push16(v){ bytes.push(v>>8&0xff, v&0xff); }        // big-endian marker writes
+      function le16(v){ return [v&0xff, v>>8&0xff]; }
+      function le32(v){ return [v&0xff, v>>8&0xff, v>>16&0xff, v>>24&0xff]; }
+      push16(0xFFD8);                    // SOI
+      // APP1
+      push16(0xFFE1);
+      // We'll fill length after building the EXIF payload.
+      var exif = [];
+      // "Exif\0\0"
+      [0x45,0x78,0x69,0x66,0x00,0x00].forEach(function(b){ exif.push(b); });
+      var tiffStart = exif.length;       // offsets in readDateTag are relative to TIFF header
+      [0x49,0x49].forEach(function(b){ exif.push(b); });           // 'II'
+      le16(0x002A).forEach(function(b){ exif.push(b); });           // magic 42
+      le32(8).forEach(function(b){ exif.push(b); });                // IFD0 at offset 8 (from TIFF)
+      // IFD0: 1 entry → EXIF sub-IFD pointer (0x8769)
+      le16(1).forEach(function(b){ exif.push(b); });                // entry count
+      le16(0x8769).forEach(function(b){ exif.push(b); });           // tag
+      le16(4).forEach(function(b){ exif.push(b); });                // type LONG
+      le32(1).forEach(function(b){ exif.push(b); });                // count
+      var subIfdOff = 8 + 2 + 12 + 4;    // IFD0(count2 + 1 entry12 + nextIFD4)
+      le32(subIfdOff).forEach(function(b){ exif.push(b); });        // value = sub-IFD offset
+      le32(0).forEach(function(b){ exif.push(b); });                // next IFD = 0
+      // EXIF sub-IFD: 1 entry → DateTimeOriginal (0x9003) ASCII "2026:03:14 09:00:00"
+      var dstr = '2026:03:14 09:00:00\0';
+      le16(1).forEach(function(b){ exif.push(b); });                // entry count
+      le16(0x9003).forEach(function(b){ exif.push(b); });           // tag
+      le16(2).forEach(function(b){ exif.push(b); });                // type ASCII
+      le32(dstr.length).forEach(function(b){ exif.push(b); });      // count
+      var dataOff = subIfdOff + 2 + 12 + 4;                         // after sub-IFD structure
+      le32(dataOff).forEach(function(b){ exif.push(b); });          // value offset
+      le32(0).forEach(function(b){ exif.push(b); });                // next IFD = 0
+      for (var i=0;i<dstr.length;i++) exif.push(dstr.charCodeAt(i));
+      var segLen = exif.length + 2;      // + the length field itself
+      push16(segLen);
+      exif.forEach(function(b){ bytes.push(b); });
+      var blob = new Blob([new Uint8Array(bytes)], { type:'image/jpeg' });
+      blob.type; // ensure type
+      PhotoEngine.readExifCaptureDate(blob).then(function(date){
+        chip('h-exif', date === '2026-03-14', date === '2026-03-14' ? 'EXIF date read: 2026-03-14 ✓' : ('EXIF date read: got ' + date));
+      });
+    } catch(e){ chip('h-exif', false, 'EXIF: ' + e.message); }
+  })();
+
+  // T2: thumbnail composite returns a jpeg dataURL from a tiny source image.
+  (function(){
+    try {
+      // 2x2 red PNG data URL
+      var png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4nGP8z8Dwn4EIwDiqEAAlWQMCFRnaHwAAAABJRU5ErkJggg==';
+      PhotoEngine.compositeThumbnailURL(png, 0, null, null).then(function(out){
+        var good = typeof out === 'string' && out.indexOf('data:image/jpeg') === 0;
+        chip('h-thumb', good, good ? 'Thumbnail composite: jpeg produced ✓' : 'thumbnail FAILED');
+      });
+    } catch(e){ chip('h-thumb', false, 'Thumbnail: ' + e.message); }
+  })();
+
+  // T3: Recently-Deleted renders from plain records + honors admin gate + retention.
+  (function(){
+    try {
+      var st = PhotoEngine.makeTrashState();
+      var records = [
+        { kind:'defic', deficId:'d1', photoId:'p1', src:'https://arencon-r2-worker.hezhendong999.workers.dev/x.jpg', deletedDate: new Date(Date.now()-3*86400000).toISOString(), badgeText:'Pin 1', badgeClass:'ph-badge-defic' },
+        { kind:'site', siteIdx:0, src:'data:image/png;base64,AAAA', deletedDate: new Date(Date.now()-88*86400000).toISOString() }
+      ];
+      var html = PhotoEngine.renderTrashHtml(records, st, false);   // inspector (no purge)
+      var htmlAdmin = PhotoEngine.renderTrashHtml(records, st, true); // admin (purge visible)
+      var daysOld = PhotoEngine.trashDaysRemaining(records[1].deletedDate); // ~2 left, urgent
+      var good = html.indexOf('ph-trash-grid') >= 0
+                 && html.indexOf('data-action="ph-purge-photo"') < 0   // inspector: NO purge btn
+                 && htmlAdmin.indexOf('data-action="ph-purge-photo"') >= 0 // admin: purge btn
+                 && html.indexOf('files.arencon.app') >= 0             // host rewrite applied
+                 && daysOld <= 5;                                       // urgent countdown
+      chip('h-trash', good, good ? 'Recently-Deleted: grid + admin-gate + retention ✓' : 'trash render FAILED');
+    } catch(e){ chip('h-trash', false, 'Recently-Deleted: ' + e.message); }
+  })();
+
+  // T4: live R2 host rewrite maps retired worker host → files.arencon.app.
+  (function(){
+    try {
+      var old = 'https://arencon-r2-worker.hezhendong999.workers.dev/photos/x/frt/original/a.jpg';
+      var neu = PhotoEngine.rewriteR2Host(old);
+      var passthrough = PhotoEngine.rewriteR2Host('data:image/png;base64,AAAA');
+      var good = neu.indexOf('files.arencon.app') >= 0 && neu.indexOf('workers.dev') < 0 && passthrough.indexOf('data:') === 0;
+      chip('h-host', good, good ? 'Live R2 host: files.arencon.app ✓' : 'host rewrite FAILED');
+    } catch(e){ chip('h-host', false, 'Host: ' + e.message); }
+  })();
+
+  // T5: SACRED camera module loads intact (export present; no live camera in a test).
+  (function(){
+    try {
+      var good = typeof openCameraBurst === 'function';
+      chip('h-cam', good, good ? 'Camera module: openCameraBurst() loaded ✓ (proof on tablet, Step 5)' : 'camera module MISSING');
+    } catch(e){ chip('h-cam', false, 'Camera: ' + e.message); }
+  })();
+
+  console.info('%c[/lib/] Step 1 + 2 + 3 + 4 modules loaded', 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 
 <script>
