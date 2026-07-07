@@ -1251,7 +1251,7 @@ function _nextItem(){return ++_itemNo;}
 // Contractor Response Phase 1 preview scaffold — sample B1 threads. Gated by
 // window._frtCrbPreview (admin export-modal toggle). Remove when live
 // responses[]/arenconReviews[] land. Grammar: LOCKED_CONTRACTOR_RESPONSE_SYSTEM §1.
-var _CRB_FILL='<div class="cbrow"><span class="cb"><span class="bx"></span>Addressed</span><span class="cb"><span class="bx"></span>In Progress</span><span class="cb"><span class="bx"></span>Not in Scope</span><span class="cb"><span class="bx"></span>Other</span></div><div class="flbl">Contractor comments</div><div class="ffield"></div>';
+var _CRB_FILL='<div class="cbrow" data-crbgroup="1"><span class="cb"><span class="bx" data-crbopt="Addressed"></span>Addressed</span><span class="cb"><span class="bx" data-crbopt="In Progress"></span>In Progress</span><span class="cb"><span class="bx" data-crbopt="Not in Scope"></span>Not in Scope</span><span class="cb"><span class="bx" data-crbopt="Other"></span>Other</span></div><div class="flbl">Contractor comments</div><div class="ffield" data-crbcomment="1"></div>';
 var _CRB_FLAG='<svg width="9" height="11" viewBox="0 0 9 11" fill="currentColor"><rect x="1" y="0" width="1.4" height="11" rx=".7"></rect><path d="M2.4 1h5.8L6.2 3.2 8.2 5.4H2.4z"></path></svg>';
 var _CRB_SAMPLES_OPEN=[
   { chip:'', hd:'Contractor Response',
@@ -1842,7 +1842,7 @@ function _captureExportPDF(w,D){
           })();
         });
       }));
-      var pages=[].slice.call(D.querySelectorAll('.page'));
+      var pages=[].slice.call(D.querySelectorAll('.page'));var _crbFieldIdx=0;
       if(!pages.length){ _capStatus(D,'Nothing to export.'); return; }
       // S400: keep the export bar visible during render (was display:none, which
       // made the button vanish). The green status strip shows page progress; the
@@ -1904,6 +1904,26 @@ function _captureExportPDF(w,D){
             var ex=pg.node.Annots&&pg.node.Annots();
             if(ex&&ex.push)ex.push(ref); else pg.node.set(PDFLib.PDFName.of('Annots'),ctx.obj([ref]));
           });
+          // Contractor Response fillable AcroForm widgets (S43x minimal first pass):
+          // live-round status = exclusive radio group, comment = text field. Plain look.
+          try{
+            var _form=pdfDoc.getForm();
+            [].slice.call(pageEl.querySelectorAll('[data-crbgroup]')).forEach(function(gEl){
+              _crbFieldIdx++;
+              var _rg=_form.createRadioGroup('resp_'+_crbFieldIdx+'_status');
+              [].slice.call(gEl.querySelectorAll('[data-crbopt]')).forEach(function(o){
+                var rr=o.getBoundingClientRect(); if(rr.width<2||rr.height<2)return;
+                var ox=(rr.left-pr.left)*sx, oy=(rr.top-pr.top)*sy, ow=rr.width*sx, oh=rr.height*sy;
+                try{ _rg.addOptionToPage(o.getAttribute('data-crbopt'), pg, {x:ox,y:ph-(oy+oh),width:ow,height:oh}); }catch(_eo){}
+              });
+            });
+            [].slice.call(pageEl.querySelectorAll('[data-crbcomment]')).forEach(function(cEl){
+              var rr=cEl.getBoundingClientRect(); if(rr.width<2||rr.height<2)return;
+              _crbFieldIdx++;
+              var cx=(rr.left-pr.left)*sx, cy=(rr.top-pr.top)*sy, cw=rr.width*sx, chh=rr.height*sy;
+              try{ _form.createTextField('resp_'+_crbFieldIdx+'_comment').addToPage(pg,{x:cx,y:ph-(cy+chh),width:cw,height:chh}); }catch(_ec){}
+            });
+          }catch(_cw){}
         }catch(e){}
       }
       _capStatus(D,'Saving PDF…');
