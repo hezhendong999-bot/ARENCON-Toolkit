@@ -1,0 +1,188 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   ARENCON Electric — Shell Layout (electric-app/electric.css, S446)
+   ══════════════════════════════════════════════════════════════════════════
+   Tool-specific LAYOUT only. All colour/theming comes from the shared layers:
+     chrome.css  → ARENCON Bold chrome tokens (--ab-*)
+     status.css  → locked verdict palette (--st-*)  [used as step-sheets port in]
+   This file never redefines a colour that lives in those; it composes them.
+   Calibri exclusively. Bold·Light is the boot default (daylight field tool).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  font-family: Calibri, "Segoe UI", sans-serif;
+  background: var(--ab-bg, #EFEDF0);
+  color: var(--ab-ink, #1B1A22);
+  -webkit-text-size-adjust: 100%;
+}
+
+#app-shell {
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh;
+  opacity: 0; transition: opacity .18s ease;
+}
+#app-shell.ready { opacity: 1; }
+
+/* ── Header ── */
+.ep-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 8px 14px;
+  background: var(--ab-brand, #9C2742);
+  color: #fff; flex-shrink: 0;
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+.ep-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ep-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ep-back {
+  background: rgba(255,255,255,.15); border: none; color: #fff;
+  width: 34px; height: 34px; border-radius: 7px; font-size: 18px;
+  cursor: pointer; flex-shrink: 0; transition: background .15s;
+}
+.ep-back:hover { background: rgba(255,255,255,.28); }
+.ep-logo { height: 30px; width: auto; display: block; }
+.ep-title {
+  font-family: Calibri, sans-serif; font-weight: 600; font-size: 18px;
+  letter-spacing: .3px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; min-width: 0;
+}
+.ep-icon-btn {
+  background: rgba(255,255,255,.15); border: none; color: #fff;
+  min-width: 36px; height: 34px; border-radius: 7px; font-size: 16px;
+  cursor: pointer; transition: background .15s;
+}
+.ep-icon-btn:hover { background: rgba(255,255,255,.28); }
+
+/* Freshness stamp — quiet, always visible */
+.ep-sync {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,.92);
+  padding: 3px 9px; border-radius: 12px; background: rgba(255,255,255,.12);
+  white-space: nowrap;
+}
+.ep-sync .ss-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #5FD08A; flex: 0 0 auto;
+  animation: ss-pulse 2.4s ease-in-out infinite;
+}
+.ep-sync[data-kind="warn"] .ss-dot { background: #E0A36A; }
+.ep-sync[data-kind="fail"] .ss-dot { background: #E26076; }
+@keyframes ss-pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* ── Project bar ── */
+.ep-projectbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px; flex-shrink: 0;
+  background: var(--ab-surface-2, rgba(0,0,0,.03));
+  border-bottom: 1px solid var(--ab-border, rgba(0,0,0,.08));
+  font-size: 13px;
+}
+.ep-projectbar .pb-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+  color: #fff; text-transform: uppercase; letter-spacing: .5px;
+  background: #6B6674; flex-shrink: 0;
+}
+.ep-projectbar .pb-name {
+  font-weight: 600; color: var(--ab-ink, #1B1A22);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Tab nav (horizontal scroll on narrow) ── */
+.ep-nav {
+  display: flex; gap: 4px; padding: 8px 12px; flex-shrink: 0;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  background: var(--ab-surface, transparent);
+  border-bottom: 1px solid var(--ab-border, rgba(0,0,0,.08));
+  scrollbar-width: thin;
+}
+.ep-nav::-webkit-scrollbar { height: 4px; }
+.nav-tab {
+  flex: 0 0 auto; padding: 8px 15px; border-radius: 9px;
+  border: 1px solid var(--ab-border, rgba(0,0,0,.1));
+  background: var(--ab-chip-bg, rgba(0,0,0,.02));
+  color: var(--ab-ink-2, #5E5B68);
+  font-family: Calibri, sans-serif; font-size: 13.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: all .15s;
+}
+.nav-tab:hover { border-color: var(--ab-brand, #9C2742); }
+.nav-tab.active {
+  background: var(--ab-brand, #9C2742); color: #fff;
+  border-color: var(--ab-brand, #9C2742);
+}
+
+/* ── Panels ── */
+.panel-scroll {
+  flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 18px 16px calc(28px + env(safe-area-inset-bottom));
+}
+.panel { display: none; }
+.panel.active { display: block; animation: panel-in .18s ease; }
+@keyframes panel-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.panel-placeholder {
+  max-width: 640px; margin: 24px auto; text-align: center;
+  padding: 32px 24px; border-radius: 16px;
+  border: 1px solid var(--ab-border, rgba(0,0,0,.08));
+  background: var(--ab-card, rgba(255,255,255,.55));
+  backdrop-filter: blur(8px);
+}
+.panel-placeholder.hidden { display: none; }
+.pp-num {
+  display: inline-block; font-family: "Courier New", monospace; font-weight: 700;
+  font-size: 12px; letter-spacing: 1px; padding: 3px 10px; border-radius: 6px;
+  border: 1px solid var(--ab-border, rgba(0,0,0,.15)); color: var(--ab-ink-3, #928E9C);
+  margin-bottom: 12px;
+}
+.pp-title { font-size: 22px; font-weight: 600; margin: 0 0 10px; color: var(--ab-ink, #1B1A22); }
+.pp-note { font-size: 14px; line-height: 1.55; color: var(--ab-ink-2, #5E5B68); margin: 0; }
+
+/* ── Boot status overlay (fixed, never replaces main content) ── */
+.ep-boot {
+  position: fixed; inset: 0; z-index: 900;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  background: var(--ab-bg, #EFEDF0); color: var(--ab-ink, #1B1A22);
+  font-size: 15px; font-weight: 600;
+}
+.ep-spinner {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 3px solid var(--ab-border, rgba(0,0,0,.15));
+  border-top-color: var(--ab-brand, #9C2742);
+  animation: ep-spin .8s linear infinite;
+}
+@keyframes ep-spin { to { transform: rotate(360deg); } }
+
+/* ── Leave dialog ── */
+.ep-modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.45); padding: 20px;
+}
+.ep-modal {
+  width: 100%; max-width: 340px; border-radius: 16px; padding: 22px 20px;
+  background: var(--ab-card-solid, #fff); color: var(--ab-ink, #1B1A22);
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ep-modal-title { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+.ep-modal-note { margin: 0 0 6px; font-size: 13px; text-align: center; color: var(--ab-ink-2, #5E5B68); }
+.ep-btn-save {
+  width: 100%; padding: 11px; border: none; border-radius: 9px;
+  background: #1A7A4A; color: #fff; font-size: 14px; font-weight: 700;
+  font-family: Calibri, sans-serif; cursor: pointer;
+}
+.ep-btn-leave {
+  width: 100%; padding: 11px; border-radius: 9px;
+  border: 1.5px solid var(--ab-border, rgba(0,0,0,.15));
+  background: var(--ab-chip-bg, rgba(0,0,0,.02)); color: var(--ab-ink, #1B1A22);
+  font-size: 13px; font-family: Calibri, sans-serif; cursor: pointer;
+}
+.ep-btn-cancel {
+  width: 100%; padding: 9px; border: none; background: none;
+  color: var(--ab-ink-3, #928E9C); font-size: 12px;
+  font-family: Calibri, sans-serif; cursor: pointer;
+}
+
+/* Touch targets: coarse pointers get a little more room (field gloves) */
+@media (pointer: coarse) {
+  .nav-tab { padding: 10px 17px; }
+  .ep-icon-btn, .ep-back { min-height: 40px; }
+}
