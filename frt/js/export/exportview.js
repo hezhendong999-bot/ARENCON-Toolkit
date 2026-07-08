@@ -25,6 +25,7 @@ import { initDeficiencies } from '../ui/deficiencies.js';
 import { toast } from '../shared/toast.js';
 import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
 import { Auth } from '../shared/auth.js';
+import { esc as _esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local; byte-identical)
 
 // Replicated verbatim from app.js _countUntaggedForBand (pure fn; copied
 // rather than imported to avoid an app.js <-> exportview.js cycle).
@@ -43,11 +44,7 @@ function _countUntaggedForBand(proj) {
 var OWNER_C = '#3E4C66';
 var ADDED_C = '#6B7280';
 
-function _esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-  });
-}
+// _esc() imported (aliased) from ../lib/esc.js (S453 — shared, byte-identical)
 
 // In-DOM internal-report confirm (never browser confirm/alert). Two actions:
 // Cancel (dismiss) / Generate internal PDF (proceed). Burgundy header per Bold.

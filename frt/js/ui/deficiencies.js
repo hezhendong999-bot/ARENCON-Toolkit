@@ -19,13 +19,14 @@ import { R2 } from '../data/r2.js';
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { AIAssist } from '../ai/assistant.js';
+import { esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local copy; byte-identical)
 
 // ── Helpers ──────────────────────────────────────────────
 // S151 Bug C fix: coerce non-strings before .replace. Latent since esc()
 // existed — callers like esc(d.num) (d.num is a Number) only began reaching
 // it once the Table/Board rows started opening the focused pin. String(...)
 // makes every caller safe; '' guard preserves the old falsy→'' behaviour.
-function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+// esc() imported from ../lib/esc.js (S453 — shared, byte-identical to former local copy)
 
 // S161 P2: Sync state badge for obs-photo cards in the pin editor. Composes
 // the R2 binary state (already tracked via ph.r2Status / ph.r2Url) with the
