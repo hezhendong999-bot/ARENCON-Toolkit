@@ -15,8 +15,9 @@ import { showConfirm } from '../shared/dialogs.js';
 import { showPrompt } from '../shared/dialogs.js';
 import { showTypeToConfirm } from '../shared/dialogs.js';
 import { initViewer } from '../viewer/viewer.js';
+import { esc, esc as _escHtml } from '../lib/esc.js'; // S454: shared HTML-escape (both local copies were identical; 0-case unreachable here)
 
-function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+// esc() imported from ../lib/esc.js (S454 — shared)
 
 // S120 Push 25 (C4): drawing-deletion wrapper that frees R2 storage when
 // the dropped drawing was holding the last reference to a PDF buffer. Use
@@ -1200,7 +1201,7 @@ function _getUniqueName(baseName) {
 
 // ─── V1 Drawing-conflict logic (ported verbatim S83) ────────────────
 // Local escape helper (avoids cross-module import; matches v1's escHtml).
-function _escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// _escHtml() imported (aliased) from ../lib/esc.js (S454 — shared; was identical to esc)
 
 function _dwgConflictsInFolder(names, folder, p){
   var existing = (p.drawings || [])

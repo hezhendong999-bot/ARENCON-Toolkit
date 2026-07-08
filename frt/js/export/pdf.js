@@ -13,8 +13,9 @@ import { CARLITO_BOLD_B64 } from './carlitoBold.js';
 // S448 1a scaffold (INERT): real-data Contractor Response render. Imported but
 // only invoked behind window._frtCrbLive (unset) — see crbRender.js header.
 import { crbBuildRealThread, crbRoundChip } from './crbRender.js';
+import { esc } from '../lib/esc.js'; // S454: shared HTML-escape (0-case verified unreachable here; output identical)
 
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// esc() imported from ../lib/esc.js (S454 — shared; numeric-0 case verified unreachable in this file)
 // S154 Bug #4: closed-status now derived from Model.getEffectiveStatus
 // instead of the persisted d.status. Pre-S119 pins where d.status='closed'
 // was written before per-obs addressed flags existed will deserialize with
