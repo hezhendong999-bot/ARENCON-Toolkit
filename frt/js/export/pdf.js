@@ -658,7 +658,9 @@ function _buildCSS(fontB64){
   c+='.cb{display:inline-flex;align-items:center;gap:7px;font-size:10pt;font-weight:600;color:#1B1A22;}';
   c+='.cb .bx{width:13px;height:13px;border:1.5px solid #4A5568;border-radius:2px;background:#EEF3FA;display:inline-block;}';
   c+='.flbl{font-size:8.5pt;font-weight:700;color:#5E5B68;margin-bottom:4px;}';
-  c+='.ffield{width:100%;height:76px;border:1.5px solid #4A5568;border-radius:3px;background:#EEF3FA;}';
+  c+='.ffield{width:100%;height:72px;border:1.5px solid #4A5568;border-radius:3px;background:#EEF3FA;}';/* ~4 rows @10pt; matches AcroForm multiline shrink-to-fit */
+  c+='.fhint{font-size:8pt;color:#928E9C;font-style:italic;margin:2px 0 7px;line-height:1.35;}';
+  c+='.fhint b{color:#5E5B68;font-style:normal;}';
   c+='.closednote{font-size:9pt;color:#928E9C;font-style:italic;padding:9px 0 2px;}';
   c+='.dc-bul{margin:2px 0 0;padding-left:18px;}';
   c+='.dc-bul li{margin:0 0 3px;line-height:1.35;break-inside:avoid;page-break-inside:avoid;}';
@@ -1255,7 +1257,7 @@ function _nextItem(){return ++_itemNo;}
 // Contractor Response Phase 1 preview scaffold — sample B1 threads. Gated by
 // window._frtCrbPreview (admin export-modal toggle). Remove when live
 // responses[]/arenconReviews[] land. Grammar: LOCKED_CONTRACTOR_RESPONSE_SYSTEM §1.
-var _CRB_FILL='<div class="cbrow" data-crbgroup="1"><span class="cb"><span class="bx" data-crbopt="Addressed"></span>Addressed</span><span class="cb"><span class="bx" data-crbopt="In Progress"></span>In Progress</span><span class="cb"><span class="bx" data-crbopt="Not in Scope"></span>Not in Scope</span><span class="cb"><span class="bx" data-crbopt="Other"></span>Other</span></div><div class="flbl">Contractor comments</div><div class="ffield" data-crbcomment="1"></div>';
+var _CRB_FILL='<div class="fhint">Type directly in this PDF and choose a status above. <b>Save the PDF \u2014 do not print to PDF.</b></div><div class="cbrow" data-crbgroup="1"><span class="cb"><span class="bx" data-crbopt="Addressed"></span>Addressed</span><span class="cb"><span class="bx" data-crbopt="In Progress"></span>In Progress</span><span class="cb"><span class="bx" data-crbopt="Not in Scope"></span>Not in Scope</span><span class="cb"><span class="bx" data-crbopt="Other"></span>Other</span></div><div class="flbl">Contractor comments</div><div class="ffield" data-crbcomment="1"></div>';
 var _CRB_FLAG='<svg width="9" height="11" viewBox="0 0 9 11" fill="currentColor"><rect x="1" y="0" width="1.4" height="11" rx=".7"></rect><path d="M2.4 1h5.8L6.2 3.2 8.2 5.4H2.4z"></path></svg>';
 var _CRB_SAMPLES_OPEN=[
   { chip:'', hd:'Contractor Response',
@@ -1909,10 +1911,13 @@ function _captureExportPDF(w,D){
             var ex=pg.node.Annots&&pg.node.Annots();
             if(ex&&ex.push)ex.push(ref); else pg.node.set(PDFLib.PDFName.of('Annots'),ctx.obj([ref]));
           });
-          // Contractor Response fillable AcroForm widgets (S43x minimal first pass):
-          // live-round status = exclusive radio group, comment = text field. Plain look.
+          // Contractor Response fillable AcroForm widgets (S447 styling pass):
+          // status = exclusive radio group; comment = multiline shrink-to-fit text field.
+          // Blue-tinted look (#EEF3FA fill / #4A5568 border) per LOCKED_CONTRACTOR_RESPONSE §1.6.
           try{
             var _form=pdfDoc.getForm();
+            var _fFill=PDFLib.rgb(0.933,0.953,0.980);   // #EEF3FA
+            var _fBord=PDFLib.rgb(0.290,0.333,0.408);   // #4A5568
             [].slice.call(pageEl.querySelectorAll('[data-crbgroup]')).forEach(function(gEl){
               _crbFieldIdx++;
               var _rg=_form.createRadioGroup('resp_'+_crbFieldIdx+'_status');
@@ -1921,12 +1926,18 @@ function _captureExportPDF(w,D){
                 var ox=(rr.left-pr.left)*sx, oy=(rr.top-pr.top)*sy, ow=rr.width*sx, oh=rr.height*sy;
                 try{ _rg.addOptionToPage(o.getAttribute('data-crbopt'), pg, {x:ox,y:ph-(oy+oh),width:ow,height:oh}); }catch(_eo){}
               });
+              try{ _rg.setBackgroundColor(_fFill); _rg.setBorderColor(_fBord); _rg.setBorderWidth(1.5); }catch(_ra){}
             });
             [].slice.call(pageEl.querySelectorAll('[data-crbcomment]')).forEach(function(cEl){
               var rr=cEl.getBoundingClientRect(); if(rr.width<2||rr.height<2)return;
               _crbFieldIdx++;
               var cx=(rr.left-pr.left)*sx, cy=(rr.top-pr.top)*sy, cw=rr.width*sx, chh=rr.height*sy;
-              try{ _form.createTextField('resp_'+_crbFieldIdx+'_comment').addToPage(pg,{x:cx,y:ph-(cy+chh),width:cw,height:chh}); }catch(_ec){}
+              try{
+                var _tf=_form.createTextField('resp_'+_crbFieldIdx+'_comment');
+                _tf.enableMultiline();
+                try{ _tf.setFontSize(0); }catch(_fs){}   // 0 = auto shrink-to-fit, never scrolls
+                _tf.addToPage(pg,{x:cx,y:ph-(cy+chh),width:cw,height:chh,backgroundColor:_fFill,borderColor:_fBord,borderWidth:1.5});
+              }catch(_ec){}
             });
           }catch(_cw){}
         }catch(e){}
