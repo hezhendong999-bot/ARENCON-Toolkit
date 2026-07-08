@@ -3,6 +3,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- S447: this tool now lives at /diesel-app/ but references support assets
+     (aiusage_panel.css/js, arencon-icon-192.png) by root-relative names that
+     assumed repo-root hosting. base href="/" makes those bare relative paths
+     resolve from the site root where the assets actually live. The one
+     same-folder asset (app.js) is referenced absolutely as /diesel-app/app.js
+     so this base does not misdirect it. -->
+<base href="/">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -18437,7 +18444,7 @@ document.addEventListener('mouseup', function() {
   </div>
 
 <!-- ══ DATA LAYER (R2Photos + R2Outbox + CloudSync) extracted to app.js — S447 Phase A ══ -->
-<script type="module" src="app.js"></script>
+<script type="module" src="/diesel-app/app.js"></script>
 
 <script>
 
