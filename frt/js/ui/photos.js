@@ -2560,7 +2560,7 @@ document.addEventListener('frt-markup-reverted', function(e) {
       // user also reset it. (Markup revert removes MARKS, not rotation.)
     });
     Model.removeSitePhotoById(backup.id);
-    try { IDB.delete('photoBlobs', photo.id).catch(function(){}); } catch(_){}
+    try { IDB.del('photoBlobs', photo.id).catch(function(){}); } catch(_){}
     Model.saveNow();
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     return;
@@ -2602,7 +2602,7 @@ document.addEventListener('frt-markup-reverted', function(e) {
   if (markedKey && markedKey !== origKey && R2 && R2.del) {
     try { R2.del(markedKey).catch(function(){}); } catch(_){}
   }
-  try { IDB.delete('photoBlobs', photo.id).catch(function(){}); } catch(_){}
+  try { IDB.del('photoBlobs', photo.id).catch(function(){}); } catch(_){}
 
   Model.saveNow();
   if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
