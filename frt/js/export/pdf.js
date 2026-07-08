@@ -10,8 +10,8 @@ import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
 import { CARLITO_REG_B64 } from './carlitoReg.js';
 import { CARLITO_BOLD_B64 } from './carlitoBold.js';
-// S448 1a scaffold (INERT): real-data Contractor Response render. Imported but
-// only invoked behind window._frtCrbLive (unset) — see crbRender.js header.
+// Real-data Contractor Response render (crbRender.js). S455: invoked behind
+// window._frtCrbLive, set by the admin "live (real data)" export toggle.
 import { crbBuildRealThread, crbRoundChip } from './crbRender.js';
 import { esc } from '../lib/esc.js'; // S454: shared HTML-escape (0-case verified unreachable here; output identical)
 
@@ -1346,18 +1346,30 @@ function _buildDefCard(r,hdrExtra){
   // Contractor Response preview: pick a sample thread for this card (open
   // rotation vs closed record), and ride the rounds chip on the header.
   var _cs=null;
-  // ── 1a REAL-DATA path (S448 scaffold, INERT) ─────────────────────────────
-  // Gated on window._frtCrbLive, which nothing sets yet. Wire-up = the Mark-
-  // present field-verify session: set the flag, confirm obs.responses[]/
-  // obs.arenconReviews[] read correctly, then remove _frtCrbPreview sample path.
+  // ── 1a REAL-DATA path (S455: LIVE, admin-gated) ──────────────────────────
+  // Gated on window._frtCrbLive, set by the "Contractor Response — live (real
+  // data)" admin checkbox in the export modal (exportview.js). Reads real
+  // obs.responses[] / obs.arenconReviews[]; takes precedence over the sample
+  // preview path below (which stays for on-device A/B until field-confirmed).
   // crbBuildRealThread returns {header,chip,body}; map header→hd for _crbBox.
   if(window._frtCrbLive && r.obs && !_isSrCard && !_isRec){
     var _rt=crbBuildRealThread({
       obs:r.obs, currentInstance:((Model.getProject&&Model.getProject())||{}).currentFrtInstance||1,
       closed:thisClosed, flagSvg:_CRB_FLAG, fillHtml:_CRB_FILL,
       pillClsResolver:function(s){return s==='closed'?'pill-c':s==='low'?'pill-l':'pill-h';},
-      // resolvePhoto: on-device session supplies r2Key→url via R2 (3. clickable links)
-      resolvePhoto:function(p){return {url:(p&&p.r2Url)||null,caption:p&&p.caption};}
+      // resolvePhoto: resolve a CRB photo {r2Key,r2Url,caption} to a displayable url.
+      // Mirrors _pdfPhotoSrc's cache order so CRB rectification/follow-up tiles use
+      // the same pre-fetched R2 blobs the regular report photos do (r2Cache is keyed
+      // by r2Url). Falls back to a bare r2Url when the cache miss, '' when neither.
+      resolvePhoto:function(ph){
+        if(!ph)return {url:null,caption:null};
+        var u='';
+        if(r2Cache&&ph.r2Url){
+          u=r2Cache['small:'+ph.r2Url]||r2Cache[ph.r2Url]||'';
+        }
+        if(!u)u=ph.r2Url||'';
+        return {url:u||null,caption:ph.caption||null};
+      }
     });
     if(_rt){ _cs={chip:_rt.chip,hd:_rt.header,body:_rt.body}; hdrExtra=(hdrExtra||'')+_rt.chip; }
   }

@@ -305,6 +305,7 @@ export var initExportView = {
       + '<label class="exv-chk"><input type="checkbox" id="exv-siterec"> Site Records only (internal)</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-renum" checked> Renumber before export</label>'
       + (_crbAdmin ? '<label class="exv-chk"><input type="checkbox" id="exv-crbpreview"> Contractor Response \u2014 preview (sample thread)</label>' : '')
+      + (_crbAdmin ? '<label class="exv-chk"><input type="checkbox" id="exv-crblive"> Contractor Response \u2014 live (real data)</label>' : '')
       + '</div>';
     // untagged control (parity)
     if (utc > 0) {
@@ -527,7 +528,11 @@ export var initExportView = {
         }
       }
 
-      window._frtCrbPreview = !!(ov.querySelector('#exv-crbpreview') && ov.querySelector('#exv-crbpreview').checked);
+      // CRB live (real obs.responses[]/arenconReviews[]) takes precedence over the
+      // sample preview in _buildDefCard. Both flags are set; when live is on we also
+      // force preview off so the export options read unambiguously (real vs sample).
+      window._frtCrbLive = !!(ov.querySelector('#exv-crblive') && ov.querySelector('#exv-crblive').checked);
+      window._frtCrbPreview = !window._frtCrbLive && !!(ov.querySelector('#exv-crbpreview') && ov.querySelector('#exv-crbpreview').checked);
       initPDFExport.generate(type, {
         ctrFilter: ctrFilter,
         isFinalComm: isFinalComm,
