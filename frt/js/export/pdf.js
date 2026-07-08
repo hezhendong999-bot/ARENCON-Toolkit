@@ -10,6 +10,9 @@ import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
 import { CARLITO_REG_B64 } from './carlitoReg.js';
 import { CARLITO_BOLD_B64 } from './carlitoBold.js';
+// S448 1a scaffold (INERT): real-data Contractor Response render. Imported but
+// only invoked behind window._frtCrbLive (unset) — see crbRender.js header.
+import { crbBuildRealThread, crbRoundChip } from './crbRender.js';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 // S154 Bug #4: closed-status now derived from Model.getEffectiveStatus
@@ -1342,7 +1345,22 @@ function _buildDefCard(r,hdrExtra){
   // Contractor Response preview: pick a sample thread for this card (open
   // rotation vs closed record), and ride the rounds chip on the header.
   var _cs=null;
-  if(window._frtCrbPreview && !_isSrCard && !_isRec){
+  // ── 1a REAL-DATA path (S448 scaffold, INERT) ─────────────────────────────
+  // Gated on window._frtCrbLive, which nothing sets yet. Wire-up = the Mark-
+  // present field-verify session: set the flag, confirm obs.responses[]/
+  // obs.arenconReviews[] read correctly, then remove _frtCrbPreview sample path.
+  // crbBuildRealThread returns {header,chip,body}; map header→hd for _crbBox.
+  if(window._frtCrbLive && r.obs && !_isSrCard && !_isRec){
+    var _rt=crbBuildRealThread({
+      obs:r.obs, currentInstance:((Model.getProject&&Model.getProject())||{}).currentFrtInstance||1,
+      closed:thisClosed, flagSvg:_CRB_FLAG, fillHtml:_CRB_FILL,
+      pillClsResolver:function(s){return s==='closed'?'pill-c':s==='low'?'pill-l':'pill-h';},
+      // resolvePhoto: on-device session supplies r2Key→url via R2 (3. clickable links)
+      resolvePhoto:function(p){return {url:(p&&p.r2Url)||null,caption:p&&p.caption};}
+    });
+    if(_rt){ _cs={chip:_rt.chip,hd:_rt.header,body:_rt.body}; hdrExtra=(hdrExtra||'')+_rt.chip; }
+  }
+  else if(window._frtCrbPreview && !_isSrCard && !_isRec){
     if(thisClosed){ _cs=_CRB_SAMPLE_CLOSED; }
     else if(!_crbLongShown){ _cs=_CRB_SAMPLE_LONG; _crbLongShown=true; }
     else { _cs=_CRB_SAMPLES_OPEN[((r._itemNo||1)-1)%_CRB_SAMPLES_OPEN.length]; }
