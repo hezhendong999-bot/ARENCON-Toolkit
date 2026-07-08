@@ -662,7 +662,7 @@ function _buildCSS(fontB64){
   c+='.cb{display:inline-flex;align-items:center;gap:7px;font-size:10pt;font-weight:600;color:#1B1A22;}';
   c+='.cb .bx{width:13px;height:13px;border:1.5px solid #4A5568;border-radius:2px;background:#EEF3FA;display:inline-block;}';
   c+='.flbl{font-size:8.5pt;font-weight:700;color:#5E5B68;margin-bottom:4px;}';
-  c+='.ffield{width:100%;height:72px;border:1.5px solid #4A5568;border-radius:3px;background:#EEF3FA;}';/* ~4 rows @10pt; matches AcroForm multiline shrink-to-fit */
+  c+='.ffield{width:100%;height:72px;border:1.5px solid #4A5568;border-radius:3px;background:#EEF3FA;}';/* ~4 rows @10pt; AcroForm fixed 10pt, shrink-only on overflow */
   c+='.fhint{font-size:8pt;color:#928E9C;font-style:italic;margin:2px 0 7px;line-height:1.35;}';
   c+='.fhint b{color:#5E5B68;font-style:normal;}';
   c+='.closednote{font-size:9pt;color:#928E9C;font-style:italic;padding:9px 0 2px;}';
@@ -1946,7 +1946,7 @@ function _captureExportPDF(w,D){
           // status = four SQUARE checkboxes (native square shape, matches preview),
           // made one-per-round via a MouseUp JavaScript action that clears siblings
           // (exclusive in Adobe/XChange; degrades to independent in JS-less viewers).
-          // comment = multiline shrink-to-fit text field.
+          // comment = multiline text field, fixed 10pt, shrink-only on overflow.
           // Blue-tinted look (#EEF3FA fill / #4A5568 border) per LOCKED_CONTRACTOR_RESPONSE §1.6.
           try{
             var _form=pdfDoc.getForm();
@@ -1985,8 +1985,18 @@ function _captureExportPDF(w,D){
               try{
                 var _tf=_form.createTextField('resp_'+_crbFieldIdx+'_comment');
                 _tf.enableMultiline();
-                try{ _tf.setFontSize(0); }catch(_fs){}   // 0 = auto shrink-to-fit, never scrolls
                 _tf.addToPage(pg,{x:cx,y:ph-(cy+chh),width:cw,height:chh,backgroundColor:_fFill,borderColor:_fBord,borderWidth:1.5});
+                // Option B (S455): fixed 10pt, shrink-ONLY on overflow. The old
+                // setFontSize(0) was full auto-size AND was called before addToPage,
+                // so it threw MissingDAEntry (swallowed) — the field had NO explicit
+                // size and the reader auto-grew a 9-char comment to fill the box.
+                // These MUST run AFTER addToPage (that's when the /DA entry exists).
+                // Fixed 10pt (matches the printed .ffield 4-row @10pt art) holds steady
+                // for normal comments; disableScrolling() lets a compliant reader
+                // (Acrobat/XChange) auto-shrink ONLY if a long comment overflows the 4
+                // rows — never grows above 10pt. Honors LOCKED_CONTRACTOR_RESPONSE §1.6.
+                try{ _tf.setFontSize(10); }catch(_fs){}
+                try{ _tf.disableScrolling(); }catch(_ds){}
               }catch(_ec){}
             });
           }catch(_cw){}
