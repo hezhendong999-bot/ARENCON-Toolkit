@@ -19434,14 +19434,24 @@ body.dark-mode #dark-toggle, body.dark-mode #btn-qr, body.dark-mode .text-size-t
 body{background:var(--smoke);color:var(--slate);}
 
 </style>
-<script>/* S439: sticky immersive fullscreen — touch devices only (S447: PC never forced). */
+<script>/* S439 (S447 rewrite): DO NOT force fullscreen from a browser tab.
+   The old pointer-coarse gate false-positived under Chrome DevTools device
+   emulation (which reports pointer:coarse), so PC kept getting forced into
+   fullscreen. Fullscreen for field tablets is already handled by the PWA/TWA
+   manifest (display:standalone) — no JS needed there. So: only run the
+   sticky-fullscreen re-entry when the app is ALREADY installed/standalone
+   (i.e. it lost fullscreen and we're restoring it); in a normal browser tab,
+   do nothing at all. */
 (function(){
-  /* Only field tablets (coarse pointer) get sticky fullscreen. Desktop/laptop
-     with a mouse is explicitly excluded so a stray click never forces PC into
-     fullscreen. */
-  var isTouch = false;
-  try { isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches; } catch(e){}
-  if(!isTouch) return;
+  function isStandalone(){
+    try {
+      return (window.matchMedia && (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches
+      )) || window.navigator.standalone === true;
+    } catch(e){ return false; }
+  }
+  if(!isStandalone()) return;  // browser tab (incl. desktop + DevTools emulation) — never force
   function g(){if(document.fullscreenElement||document.webkitFullscreenElement)return;var e=document.documentElement,r=e.requestFullscreen||e.webkitRequestFullscreen;if(r){try{var p=r.call(e);if(p&&p.catch)p.catch(function(){});}catch(x){}}}
   document.addEventListener('pointerdown',g,{capture:true,passive:true});
 })();
