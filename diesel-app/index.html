@@ -19453,27 +19453,10 @@ body.dark-mode #dark-toggle, body.dark-mode #btn-qr, body.dark-mode .text-size-t
 body{background:var(--smoke);color:var(--slate);}
 
 </style>
-<script>/* S439 (S447 rewrite): DO NOT force fullscreen from a browser tab.
-   The old pointer-coarse gate false-positived under Chrome DevTools device
-   emulation (which reports pointer:coarse), so PC kept getting forced into
-   fullscreen. Fullscreen for field tablets is already handled by the PWA/TWA
-   manifest (display:standalone) — no JS needed there. So: only run the
-   sticky-fullscreen re-entry when the app is ALREADY installed/standalone
-   (i.e. it lost fullscreen and we're restoring it); in a normal browser tab,
-   do nothing at all. */
-(function(){
-  function isStandalone(){
-    try {
-      return (window.matchMedia && (
-        window.matchMedia('(display-mode: standalone)').matches ||
-        window.matchMedia('(display-mode: fullscreen)').matches
-      )) || window.navigator.standalone === true;
-    } catch(e){ return false; }
-  }
-  if(!isStandalone()) return;  // browser tab (incl. desktop + DevTools emulation) — never force
-  function g(){if(document.fullscreenElement||document.webkitFullscreenElement)return;var e=document.documentElement,r=e.requestFullscreen||e.webkitRequestFullscreen;if(r){try{var p=r.call(e);if(p&&p.catch)p.catch(function(){});}catch(x){}}}
-  document.addEventListener('pointerdown',g,{capture:true,passive:true});
-})();
-</script>
+<!-- S447: S439 sticky-fullscreen script REMOVED entirely. It repeatedly
+     misfired on PC (pointer-coarse gate broke under DevTools; display-mode gate
+     broke when Chrome treated the page as installed). Field tablets get
+     fullscreen from the PWA/TWA manifest with no JS, so this script had no
+     upside and only caused PC forced-fullscreen. Gone for good. -->
 </body>
 </html>

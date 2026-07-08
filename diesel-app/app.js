@@ -316,14 +316,17 @@ var CloudSync = (function () {
   var _lastSavedJson = '';
   var _initialized = false;
 
-  // S447: transport routed through shared Auth.request — same Supabase fetch as
-  // the inline _request, plus transparent S91/S395 401->refresh->retry. keepalive
-  // preserved for PATCH/POST so autosave survives page-hide (matches inline).
+  // S447: transport routed through shared Auth.request. Diesel's original inline
+  // _headers() ALWAYS sent Prefer: return=representation so PATCH/POST return the
+  // written row; shared Auth._getHeaders() does NOT send it, so PATCH came back
+  // empty and the row wasn't confirmed (save reported success but reload reverted).
+  // Re-add Prefer here on every call to restore Diesel's exact transport contract.
   function _request(path, opts) {
     opts = opts || {};
+    var hdrs = Object.assign({ 'Prefer': 'return=representation' }, opts.headers || {});
     return Auth.request(path, {
       method: opts.method || 'GET',
-      headers: opts.headers || {},
+      headers: hdrs,
       body: opts.body,
       keepalive: (opts.method === 'PATCH' || opts.method === 'POST')
     });
