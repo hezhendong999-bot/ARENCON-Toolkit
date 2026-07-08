@@ -492,7 +492,10 @@ window.CloudSync = CloudSync;
 window.R2Photos = R2Photos;
 window.R2Outbox = R2Outbox;
 
-// Best-effort session restore before the tool's own boot reads tokens.
-if (Auth && typeof Auth.restoreSession === 'function') {
-  try { Auth.restoreSession(); } catch (e) {}
-}
+/* S447: NO proactive Auth.restoreSession() here. The single-file tool never
+ * restored/refreshed a session at page load — it uses whatever token is already
+ * in localStorage (via CloudSync.init -> _getUser) and shows its own sign-in
+ * gate when there isn't one. Calling restoreSession() here refreshed a session
+ * from the stored refresh token on every load, which bypassed sign-in after the
+ * user had signed out. Behavioral parity restored by leaving auth to the tool's
+ * own boot. */
