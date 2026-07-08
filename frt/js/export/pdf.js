@@ -1929,43 +1929,41 @@ function _captureExportPDF(w,D){
             var ex=pg.node.Annots&&pg.node.Annots();
             if(ex&&ex.push)ex.push(ref); else pg.node.set(PDFLib.PDFName.of('Annots'),ctx.obj([ref]));
           });
-          // Contractor Response fillable AcroForm widgets (S450):
-          // status = EXCLUSIVE one-per-round, but drawn as SQUARE checkboxes with an
-          // X mark (not round radios) so the PDF matches the preview's checkbox art.
+          // Contractor Response fillable AcroForm widgets (S451):
+          // status = four SQUARE checkboxes (native square shape, matches preview),
+          // made one-per-round via a MouseUp JavaScript action that clears siblings
+          // (exclusive in Adobe/XChange; degrades to independent in JS-less viewers).
           // comment = multiline shrink-to-fit text field.
           // Blue-tinted look (#EEF3FA fill / #4A5568 border) per LOCKED_CONTRACTOR_RESPONSE §1.6.
           try{
             var _form=pdfDoc.getForm();
             var _ctx=pdfDoc.context;
-            var _bgArr=[0.933,0.953,0.980];   // #EEF3FA
-            var _bcArr=[0.290,0.333,0.408];   // #4A5568
-            var _fFill=PDFLib.rgb(_bgArr[0],_bgArr[1],_bgArr[2]);
-            var _fBord=PDFLib.rgb(_bcArr[0],_bcArr[1],_bcArr[2]);
+            var _fFill=PDFLib.rgb(0.933,0.953,0.980);   // #EEF3FA
+            var _fBord=PDFLib.rgb(0.290,0.333,0.408);   // #4A5568
             [].slice.call(pageEl.querySelectorAll('[data-crbgroup]')).forEach(function(gEl){
               _crbFieldIdx++;
-              // Radio group = exclusivity (one option per group). Appearance is
-              // overridden per-widget below to a square box + X (caption glyph '8'
-              // in ZapfDingbats = cross), so Adobe shows checkboxes, not circles.
-              var _rg=_form.createRadioGroup('resp_'+_crbFieldIdx+'_status');
-              [].slice.call(gEl.querySelectorAll('[data-crbopt]')).forEach(function(o){
+              var _gi=_crbFieldIdx;
+              // Field name per option: resp_{idx}_status_{Option} (import-mappable).
+              var _opts=[].slice.call(gEl.querySelectorAll('[data-crbopt]'));
+              var _names=_opts.map(function(o){
+                return 'resp_'+_gi+'_status_'+String(o.getAttribute('data-crbopt')||'').replace(/[^A-Za-z0-9]+/g,'_');
+              });
+              _opts.forEach(function(o,oi){
                 var rr=o.getBoundingClientRect(); if(rr.width<2||rr.height<2)return;
                 var ox=(rr.left-pr.left)*sx, oy=(rr.top-pr.top)*sy, ow=rr.width*sx, oh=rr.height*sy;
-                try{ _rg.addOptionToPage(o.getAttribute('data-crbopt'), pg, {x:ox,y:ph-(oy+oh),width:ow,height:oh}); }catch(_eo){}
+                try{
+                  var _cb=_form.createCheckBox(_names[oi]);
+                  _cb.addToPage(pg,{x:ox,y:ph-(oy+oh),width:ow,height:oh,backgroundColor:_fFill,borderColor:_fBord,borderWidth:1.5});
+                  // MouseUp JS: when this box goes on, clear the other three.
+                  var _others=_names.filter(function(_,j){return j!==oi;});
+                  var _js="var me=this.getField('"+_names[oi]+"');"
+                        + "if(me&&me.value!='Off'){"
+                        + _others.map(function(n){return "var f=this.getField('"+n+"');if(f)f.checkThisBox(0,false);";}).join('')
+                        + "}";
+                  var _w=_cb.acroField.getWidgets()[0];
+                  _w.dict.set(PDFLib.PDFName.of('AA'),_ctx.obj({U:_ctx.obj({S:PDFLib.PDFName.of('JavaScript'),JS:PDFLib.PDFString.of(_js)})}));
+                }catch(_ecb){}
               });
-              // Square + X + blue tint via the widget MK/BS dicts. (PDFRadioGroup
-              // has NO setBackgroundColor in pdf-lib 1.17.1 — colour lives here.)
-              try{
-                _rg.acroField.getWidgets().forEach(function(w){
-                  var mk=w.getOrCreateAppearanceCharacteristics();
-                  mk.dict.set(PDFLib.PDFName.of('BG'),_ctx.obj([PDFLib.PDFNumber.of(_bgArr[0]),PDFLib.PDFNumber.of(_bgArr[1]),PDFLib.PDFNumber.of(_bgArr[2])]));
-                  mk.dict.set(PDFLib.PDFName.of('BC'),_ctx.obj([PDFLib.PDFNumber.of(_bcArr[0]),PDFLib.PDFNumber.of(_bcArr[1]),PDFLib.PDFNumber.of(_bcArr[2])]));
-                  mk.dict.set(PDFLib.PDFName.of('CA'),PDFLib.PDFString.of('8'));  // ZapfDingbats cross = X
-                  var bs=w.getOrCreateBorderStyle();
-                  bs.dict.set(PDFLib.PDFName.of('W'),PDFLib.PDFNumber.of(1.5));
-                  bs.dict.set(PDFLib.PDFName.of('S'),PDFLib.PDFName.of('S'));      // solid square border
-                });
-                _rg.defaultUpdateAppearances();
-              }catch(_mk){}
             });
             [].slice.call(pageEl.querySelectorAll('[data-crbcomment]')).forEach(function(cEl){
               var rr=cEl.getBoundingClientRect(); if(rr.width<2||rr.height<2)return;
