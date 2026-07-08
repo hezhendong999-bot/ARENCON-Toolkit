@@ -15323,6 +15323,25 @@ window.addEventListener('load', () => {
         return;   // no cloud init, no autosave, no load — cannot clobber a shared row
       }
       // Hub mode: launched with ?project=<uuid>
+      // S447 AUTH GATE: a signed-out user who opens this URL directly must NOT
+      // see the report (not even cached IDB data). Require a session token; if
+      // absent, show a sign-in wall that sends them to the Hub and STOP — no
+      // cloud init, no IDB load, no autosave.
+      var _authTok = localStorage.getItem('sb-access-token');
+      if(!_authTok){
+        try{
+          var _aov=document.createElement('div');
+          _aov.id='no-auth-block';
+          _aov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,10,13,.72);backdrop-filter:blur(4px);';
+          _aov.innerHTML='<div style="max-width:420px;background:#fff;border-radius:16px;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center;font-family:Calibri,sans-serif;">'
+            +'<div style="font-size:15px;font-weight:700;color:#9C2742;margin-bottom:10px;">Sign in to open this report</div>'
+            +'<div style="font-size:13px;line-height:1.5;color:#5E5B68;margin-bottom:18px;">Your session has ended. Please sign in from the Project Hub, then open this report again.</div>'
+            +'<a href="ARENCON_Project_Hub.html" style="display:inline-block;background:#9C2742;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:10px;">Go to Project Hub</a>'
+            +'</div>';
+          document.body.appendChild(_aov);
+        }catch(_e){}
+        return;   // signed out — refuse to load or display any report data
+      }
       _csHubMode = true;
       _csProjectId = params.projectId;
       _r2FolderId = params.projectId;
