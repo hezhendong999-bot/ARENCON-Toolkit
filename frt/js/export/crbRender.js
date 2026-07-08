@@ -108,9 +108,12 @@ function crbContractorRow(resp){
           : resp.source==='manual' ? ' \u00b7 manual entry'
           : '';
   var h = '<div class="tr-row"><div class="tr-meta"><b>'+meta+'</b>'+src+'</div>';
-  // claim line: quiet-slate "Reported · <Status>" then the comment
-  h += '<div class="claim"><span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span>'
-     + (resp.comment ? ' \u2014 '+_crbEsc(resp.comment) : '') + '</div>';
+  // claim line: emit .cflex directly (comment/empty in ctext, status right in rep)
+  // so status right-alignment does NOT depend on a comment existing — the _crbBox
+  // post-hoc regex only rewrites the sample-preview (non-cflex) shape, so a
+  // comment-less real round would otherwise stay left-aligned. (S449 fold.)
+  h += '<div class="claim cflex"><span class="ctext">'+(resp.comment?_crbEsc(resp.comment):'')+'</span>'
+     + '<span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span></div>';
   // rectification photos (already resolved to {url,caption})
   var rp = resp.rectPhotos||[];
   if(rp.length){

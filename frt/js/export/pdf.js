@@ -1929,22 +1929,43 @@ function _captureExportPDF(w,D){
             var ex=pg.node.Annots&&pg.node.Annots();
             if(ex&&ex.push)ex.push(ref); else pg.node.set(PDFLib.PDFName.of('Annots'),ctx.obj([ref]));
           });
-          // Contractor Response fillable AcroForm widgets (S447 styling pass):
-          // status = exclusive radio group; comment = multiline shrink-to-fit text field.
+          // Contractor Response fillable AcroForm widgets (S450):
+          // status = EXCLUSIVE one-per-round, but drawn as SQUARE checkboxes with an
+          // X mark (not round radios) so the PDF matches the preview's checkbox art.
+          // comment = multiline shrink-to-fit text field.
           // Blue-tinted look (#EEF3FA fill / #4A5568 border) per LOCKED_CONTRACTOR_RESPONSE §1.6.
           try{
             var _form=pdfDoc.getForm();
-            var _fFill=PDFLib.rgb(0.933,0.953,0.980);   // #EEF3FA
-            var _fBord=PDFLib.rgb(0.290,0.333,0.408);   // #4A5568
+            var _ctx=pdfDoc.context;
+            var _bgArr=[0.933,0.953,0.980];   // #EEF3FA
+            var _bcArr=[0.290,0.333,0.408];   // #4A5568
+            var _fFill=PDFLib.rgb(_bgArr[0],_bgArr[1],_bgArr[2]);
+            var _fBord=PDFLib.rgb(_bcArr[0],_bcArr[1],_bcArr[2]);
             [].slice.call(pageEl.querySelectorAll('[data-crbgroup]')).forEach(function(gEl){
               _crbFieldIdx++;
+              // Radio group = exclusivity (one option per group). Appearance is
+              // overridden per-widget below to a square box + X (caption glyph '8'
+              // in ZapfDingbats = cross), so Adobe shows checkboxes, not circles.
               var _rg=_form.createRadioGroup('resp_'+_crbFieldIdx+'_status');
               [].slice.call(gEl.querySelectorAll('[data-crbopt]')).forEach(function(o){
                 var rr=o.getBoundingClientRect(); if(rr.width<2||rr.height<2)return;
                 var ox=(rr.left-pr.left)*sx, oy=(rr.top-pr.top)*sy, ow=rr.width*sx, oh=rr.height*sy;
                 try{ _rg.addOptionToPage(o.getAttribute('data-crbopt'), pg, {x:ox,y:ph-(oy+oh),width:ow,height:oh}); }catch(_eo){}
               });
-              try{ _rg.setBackgroundColor(_fFill); _rg.setBorderColor(_fBord); _rg.setBorderWidth(1.5); }catch(_ra){}
+              // Square + X + blue tint via the widget MK/BS dicts. (PDFRadioGroup
+              // has NO setBackgroundColor in pdf-lib 1.17.1 — colour lives here.)
+              try{
+                _rg.acroField.getWidgets().forEach(function(w){
+                  var mk=w.getOrCreateAppearanceCharacteristics();
+                  mk.dict.set(PDFLib.PDFName.of('BG'),_ctx.obj([PDFLib.PDFNumber.of(_bgArr[0]),PDFLib.PDFNumber.of(_bgArr[1]),PDFLib.PDFNumber.of(_bgArr[2])]));
+                  mk.dict.set(PDFLib.PDFName.of('BC'),_ctx.obj([PDFLib.PDFNumber.of(_bcArr[0]),PDFLib.PDFNumber.of(_bcArr[1]),PDFLib.PDFNumber.of(_bcArr[2])]));
+                  mk.dict.set(PDFLib.PDFName.of('CA'),PDFLib.PDFString.of('8'));  // ZapfDingbats cross = X
+                  var bs=w.getOrCreateBorderStyle();
+                  bs.dict.set(PDFLib.PDFName.of('W'),PDFLib.PDFNumber.of(1.5));
+                  bs.dict.set(PDFLib.PDFName.of('S'),PDFLib.PDFName.of('S'));      // solid square border
+                });
+                _rg.defaultUpdateAppearances();
+              }catch(_mk){}
             });
             [].slice.call(pageEl.querySelectorAll('[data-crbcomment]')).forEach(function(cEl){
               var rr=cEl.getBoundingClientRect(); if(rr.width<2||rr.height<2)return;
