@@ -2301,8 +2301,6 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal(
 init();
 
 </script>
-<script>/* S439: sticky immersive fullscreen — any tap re-enters whenever browser chrome is showing */
-(function(){function g(){if(document.fullscreenElement||document.webkitFullscreenElement)return;var e=document.documentElement,r=e.requestFullscreen||e.webkitRequestFullscreen;if(r){try{var p=r.call(e);if(p&&p.catch)p.catch(function(){});}catch(x){}}}document.addEventListener('pointerdown',g,{capture:true,passive:true});})();
-</script>
+<script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>
 </body>
 </html>
