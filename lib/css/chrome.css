@@ -510,6 +510,23 @@ body.dark-mode .hdr-menu button span{ color:#8a94b0; }
   background:var(--b-chrome2); color:var(--b-chrome-fg);
 }
 .oflow-drawer .drawer-row:hover{ filter:brightness(1.06); }
+/* Section header for an expanded menu-type control (AI Review / Reports / More) —
+   carries the control's real color; its sub-items render as subrows below it. */
+.oflow-drawer .drawer-section{
+  width:100%; box-sizing:border-box;
+  padding:9px 14px 8px; border-radius:10px 10px 0 0; margin-top:4px;
+  font-family:Calibri,sans-serif; font-size:calc(12px + var(--ts)); font-weight:700;
+  letter-spacing:.3px; text-transform:uppercase; opacity:.95;
+}
+.oflow-drawer .drawer-subrow{
+  min-height:42px; justify-content:flex-start; text-align:left;
+  font-weight:600; flex-direction:column; align-items:flex-start; gap:1px;
+  border-radius:0; border-top:none;
+}
+.oflow-drawer .drawer-subrow:last-of-type{ border-radius:0 0 10px 10px; }
+.oflow-drawer .drawer-sub{
+  font-size:calc(10.5px + var(--ts)); font-weight:400; opacity:.6; line-height:1.2;
+}
 /* Sign Out pinned to bottom, teal, centered (locked S448) */
 .oflow-drawer .drawer-signout{
   margin-top:auto; background:#0F766E; color:#fff; border:none;
