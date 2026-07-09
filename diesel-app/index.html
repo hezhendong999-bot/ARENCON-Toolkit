@@ -22,6 +22,12 @@
 <title>ARENCON — Diesel Fire Pump Commissioning Report</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link rel="stylesheet" href="aiusage_panel.css">
+<!-- S455: shared header chrome. The engine builds DOM (.header-top/.header-left/
+     .hdr-menu/.hdr-icon) that needs these styles. Loading AFTER diesel's own
+     styles isn't enough on its own — the header-override block below neutralizes
+     diesel's legacy .header-top{space-between}/.hdr-btn/.mobile-open rules that
+     would otherwise fight the engine. -->
+<link rel="stylesheet" href="/lib/css/chrome.css">
 <script src="aiusage_panel.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
@@ -1752,6 +1758,26 @@ body.dark-mode .ai-diff-del{background:rgba(140,58,66,.30);color:#e8a0a0;}
 body.dark-mode .ai-usage-filters button{background:#37474F;}
 body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
 /* ============ end AI Usage Tracking panel ============ */
+</style>
+<!-- ══ S455 HEADER ENGINE OVERRIDE ══════════════════════════════════════════
+     The engine builds the header DOM; chrome.css styles it. But diesel's inline
+     <style> above loads AFTER chrome.css, so a few legacy rules (written for the
+     OLD inline header) still win by source order and break the engine layout:
+       • .header-top{justify-content:space-between} → pins Back/logo left, floats
+         actions far right with a huge gap (engine wants .header-left flex:1).
+       • legacy .hdr-btn / .header-actions sizing → cascades onto engine buttons.
+     This block loads LAST, re-asserting the engine's intended layout. Scoped to
+     the header only; nothing else in diesel-app is touched. ══════════════════ -->
+<style id="s455-header-override">
+  /* let the engine's flex model drive: left cluster grows, actions stay fixed */
+  .app-header .header-top{ justify-content:flex-start !important; }
+  .app-header .header-left{ flex:1 1 auto !important; min-width:0 !important; }
+  .app-header .header-actions{ flex:0 0 auto !important; position:static !important; z-index:auto !important; }
+  /* dropdown menus: hidden until .open (chrome.css intent); kill any inline leak */
+  .app-header .hdr-menu{ display:none; }
+  .app-header .hdr-menu.open{ display:block; }
+  /* engine icon buttons keep their square chrome.css sizing, not diesel .hdr-btn */
+  .app-header .hdr-icon{ width:var(--hdr-h) !important; }
 </style>
 </head>
 <body>
