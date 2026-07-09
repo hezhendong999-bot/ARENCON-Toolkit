@@ -501,34 +501,38 @@ body.dark-mode .hdr-menu button span{ color:#8a94b0; }
   overflow-y:auto;
 }
 .oflow-drawer.open{ display:flex; }
-.oflow-drawer .drawer-row{
-  width:100%; box-sizing:border-box;
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  min-height:46px; padding:12px 14px; border-radius:10px;
-  font-family:Calibri,sans-serif; font-size:calc(14px + var(--ts)); font-weight:600;
-  cursor:pointer; border:1px solid var(--b-chrome-rule);
-  background:var(--b-chrome2); color:var(--b-chrome-fg);
+
+/* ── NODE-RELOCATION drawer (S455): the drawer holds the REAL header controls
+   (moved DOM nodes), so they look IDENTICAL to the bar. Make each folded control
+   full-width and stack vertically; menu buttons keep their color and open their
+   real dropdown on tap. ── */
+.oflow-drawer > *{ width:100%; box-sizing:border-box; flex:0 0 auto; }
+/* menu-type controls (AI Review / Reports / More): wrapper full-width, its .hdr-btn
+   fills it and keeps its bar color */
+.oflow-drawer .hdr-menu-wrap{ position:relative; }
+.oflow-drawer .hdr-menu-wrap > .hdr-btn,
+.oflow-drawer > .hdr-btn{
+  width:100%; justify-content:center; min-height:46px; border-radius:10px;
+  font-size:calc(14px + var(--ts));
 }
-.oflow-drawer .drawer-row:hover{ filter:brightness(1.06); }
-/* Section header for an expanded menu-type control (AI Review / Reports / More) —
-   carries the control's real color; its sub-items render as subrows below it. */
-.oflow-drawer .drawer-section{
-  width:100%; box-sizing:border-box;
-  padding:9px 14px 8px; border-radius:10px 10px 0 0; margin-top:4px;
-  font-family:Calibri,sans-serif; font-size:calc(12px + var(--ts)); font-weight:700;
-  letter-spacing:.3px; text-transform:uppercase; opacity:.95;
+/* icon controls (QR / day-night / text-size) go full-width with a label-friendly
+   height so they're tappable and match the rhythm */
+.oflow-drawer > .hdr-icon{
+  width:100% !important; justify-content:center; min-height:46px; border-radius:10px;
+  border:1px solid var(--b-chrome-rule); background:var(--b-chrome2);
 }
-.oflow-drawer .drawer-subrow{
-  min-height:42px; justify-content:flex-start; text-align:left;
-  font-weight:600; flex-direction:column; align-items:flex-start; gap:1px;
-  border-radius:0; border-top:none;
+/* storage meter + inspector chip full-width */
+.oflow-drawer > .storage-bar,
+.oflow-drawer > .inspector-chip,
+.oflow-drawer > .header-nav-arrows{
+  width:100%; justify-content:center; min-height:46px; border-radius:10px;
 }
-.oflow-drawer .drawer-subrow:last-of-type{ border-radius:0 0 10px 10px; }
-.oflow-drawer .drawer-sub{
-  font-size:calc(10.5px + var(--ts)); font-weight:400; opacity:.6; line-height:1.2;
+/* dropdown menus opened from inside the drawer: position below the button,
+   full-width, so they read as an inline expansion (still the REAL menu) */
+.oflow-drawer .hdr-menu{
+  position:static; width:100%; margin-top:6px; box-shadow:none;
+  border:1px solid var(--b-chrome-rule);
 }
-/* Sign Out pinned to bottom, teal, centered (locked S448) */
-.oflow-drawer .drawer-signout{
-  margin-top:auto; background:#0F766E; color:#fff; border:none;
-  justify-content:center; font-weight:700;
-}
+/* Sign Out pinned to bottom when folded */
+.oflow-drawer > #btn-signout,
+.oflow-drawer > .hdr-signout{ margin-top:auto; }

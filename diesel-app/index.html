@@ -1803,6 +1803,12 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
       background:none !important; flex-direction:row !important; padding:0 !important; overflow:visible !important;
     }
     .app-header .header-actions.mobile-open .mobile-menu-btn{ display:inline-flex !important; }
+    /* controls that diesel hides by CLASS (storage/inspector/nav) must also show
+       when the engine moves them INTO the drawer (the @media hide applies
+       regardless of parent, so re-show them inside .oflow-drawer too). */
+    .oflow-drawer .storage-bar,
+    .oflow-drawer .header-nav-arrows,
+    .oflow-drawer .inspector-chip{ display:flex !important; }
   }
 </style>
 </head>
