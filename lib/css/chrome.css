@@ -321,3 +321,205 @@ html[data-theme="dark"]  .ab-btn-warn   { border-color:#E0A36A; background:rgba(
   .ab-modal-foot .ab-btn-cancel { margin-right: 0; }
   .ab-modal-foot .ab-btn { min-height: 44px; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PART — STANDARDIZED HEADER ENGINE CHROME (S455 extraction)
+   Companion to lib/ui/headerEngine.js (exports buildHeader). Extracted
+   verbatim from live Diesel per HEADER_EXTRACTION_MAP_S448. Additive: uses
+   .app-header/.hdr-*/.oflow-* classes + --hdr-*/--z-* tokens. Does NOT
+   collide with the S442 .ab-* system above, the report/PDF palette, or the
+   deficiency status colors. Canonical IDs: mobile-menu-btn, btn-qr.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --hdr-h: 34px;       /* height of EVERY header control */
+  --hdr-px: 12px;      /* horizontal padding of TEXT controls only */
+  --hdr-radius: 6px;   /* control corner radius */
+  --hdr-gap: 6px;      /* gap between action controls */
+  --back-slot-w: 84px; /* pixel-locked Back slot, identical on every page + drawing viewer */
+}
+
+/* ── Named z-index scale (locked S448) — 8 tiers ── */
+:root{
+  --z-base:        1;
+  --z-sticky-nav:  100;
+  --z-header:      200;
+  --z-dropdown:    300;
+  --z-drawer:      400;
+  --z-modal:       500;
+  --z-lightbox:    600;
+  --z-toast:       700;
+}
+
+/* ══ HEADER SHELL ══ */
+.app-header{
+  background:var(--b-chrome-bg);
+  color:var(--b-chrome-fg);
+  border-bottom:1px solid var(--b-chrome-rule);
+  box-shadow:0 1px 3px rgba(40,30,50,.10);
+  position:sticky; top:0; z-index:var(--z-header);
+  width:100%; box-sizing:border-box;
+}
+body.dark-mode .app-header{
+  box-shadow:0 2px 12px rgba(0,0,0,.5);
+}
+
+/* header top row: left cluster (back/logo/title) + right cluster (actions) */
+.header-top{
+  display:flex; align-items:center;
+  gap:var(--hdr-gap);
+  padding:8px 14px; box-sizing:border-box; min-width:0;
+}
+.header-left{ display:flex; align-items:center; gap:var(--hdr-gap); min-width:0; flex:1 1 auto; }
+.header-actions{ display:flex; align-items:center; gap:var(--hdr-gap); flex:0 0 auto; }
+
+/* ── BACK — fixed pixel-locked slot ── */
+.back-btn{
+  flex:0 0 var(--back-slot-w);
+  width:var(--back-slot-w);
+  height:var(--hdr-h); box-sizing:border-box;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  background:var(--b-chrome2); border:1px solid var(--b-chrome-rule);
+  color:var(--b-chrome-fg);
+  padding:0 var(--hdr-px); border-radius:var(--hdr-radius);
+  font-family:Calibri,sans-serif; font-size:calc(13px + var(--ts)); font-weight:600;
+  cursor:pointer; box-shadow:var(--b-btn-shadow);
+  transition:box-shadow .15s,transform .08s,background .15s;
+  white-space:nowrap;
+}
+.back-btn:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22); }
+.back-btn:hover{ background:var(--b-chrome-hover); }
+
+/* ── LOGO — own slot, fixed size == control height ── */
+.logo-slot{ flex:0 0 auto; display:flex; align-items:center; }
+.header-logo{
+  height:var(--hdr-h); width:auto; box-sizing:border-box;
+  background:#fff; padding:3px 7px; border-radius:var(--hdr-radius);
+  border:1px solid rgba(0,0,0,.08); box-shadow:0 1px 4px rgba(0,0,0,.2);
+  display:block; flex-shrink:0;
+}
+
+/* ── TITLE — truncates, never disappears ── */
+.app-title{
+  font-family:Calibri,sans-serif; font-weight:600;
+  font-size:calc(17px + var(--ts)); letter-spacing:.5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+  flex:1 1 auto;
+}
+
+/* ── TEXT controls (AI / Reports / More / meter / chip) ── */
+.hdr-btn{
+  height:var(--hdr-h); box-sizing:border-box;
+  padding:0 var(--hdr-px);
+  display:inline-flex; align-items:center; gap:4px;
+  border-radius:var(--hdr-radius);
+  font-family:Calibri,sans-serif; font-size:calc(12px + var(--ts)); font-weight:600;
+  cursor:pointer; border:none; color:white;
+  transition:all .15s; white-space:nowrap;
+}
+.hdr-btn:hover{ filter:brightness(1.15); }
+body.dark-mode .hdr-btn{ box-shadow:0 1px 4px rgba(0,0,0,.4); }
+body.dark-mode .hdr-btn:hover{ filter:brightness(1.2); }
+
+/* ── ICON controls — perfect squares (undo/redo/QR/day-night/S text-size/Sign Out/☰) ── */
+.hdr-icon{
+  width:var(--hdr-h); height:var(--hdr-h); padding:0;
+  box-sizing:border-box;
+  display:inline-flex; align-items:center; justify-content:center;
+  border-radius:var(--hdr-radius);
+  background:var(--b-chrome2); border:1px solid var(--b-chrome-rule);
+  color:var(--b-chrome-fg);
+  font-family:Calibri,sans-serif; font-size:calc(15px + var(--ts)); font-weight:600;
+  cursor:pointer; box-shadow:var(--b-btn-shadow);
+  transition:box-shadow .15s,transform .08s,background .15s,filter .15s;
+  line-height:1;
+}
+.hdr-icon:hover{ filter:brightness(1.12); background:var(--b-chrome-hover); }
+.hdr-icon:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22); }
+.hdr-icon.is-dim{ opacity:.4; }
+
+/* nav-arrows group (undo/redo) keeps its inline flow but children are icon squares */
+.header-nav-arrows{ display:inline-flex; align-items:center; gap:var(--hdr-gap); flex-shrink:0; }
+
+/* ── IDB storage meter (text control rhythm) ── */
+.storage-bar{
+  height:var(--hdr-h); box-sizing:border-box;
+  padding:0 var(--hdr-px);
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--b-chrome2); border:1px solid var(--b-chrome-rule);
+  border-radius:var(--hdr-radius); cursor:help; flex-shrink:0;
+}
+.storage-bar-track{ width:48px; height:5px; background:rgba(120,120,140,.28); border-radius:3px; overflow:hidden; }
+.storage-bar-fill{ height:100%; background:#5F8068; border-radius:3px; transition:width .4s; }
+
+/* ── Inspector chip (text control rhythm) ── */
+.inspector-chip{
+  height:var(--hdr-h); box-sizing:border-box;
+  padding:0 var(--hdr-px);
+  display:inline-flex; align-items:center; gap:5px;
+  background:var(--b-chrome2); border:1px solid var(--b-chrome-rule);
+  border-radius:var(--hdr-radius);
+  font-size:calc(11px + var(--ts)); font-weight:600; color:var(--b-chrome-fg);
+  cursor:pointer; transition:all .15s;
+  white-space:nowrap; max-width:150px; overflow:hidden; text-overflow:ellipsis; flex-shrink:0;
+}
+.inspector-chip .ic-name{ overflow:hidden; text-overflow:ellipsis; }
+
+/* ── cloud status (inline, permanent-visibility §S114-16) ── */
+.cloud-status{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:calc(11px + var(--ts)); color:var(--b-chrome-fg); opacity:.75; flex-shrink:0;
+}
+.cloud-dot{ width:9px; height:9px; border-radius:50%; background:#34D399; display:inline-block; flex-shrink:0; transition:background .4s; }
+
+/* ── Dropdown wrappers + menus (AI / Reports / More) ── */
+.hdr-menu-wrap{ position:relative; display:inline-flex; flex-shrink:0; }
+.hdr-menu{
+  display:none; position:absolute; right:0; top:100%; margin-top:4px;
+  background:#fff; border:1px solid var(--b-chrome-rule); border-radius:8px;
+  box-shadow:0 6px 24px rgba(0,0,0,.18);
+  min-width:220px; overflow:hidden; font-family:Calibri,sans-serif;
+  z-index:var(--z-dropdown);
+}
+.hdr-menu.open{ display:block; }
+body.dark-mode .hdr-menu{ background:#16151b; border-color:rgba(255,255,255,.12); }
+.hdr-menu button{ display:block; width:100%; text-align:left; border:none; background:#fff; cursor:pointer;
+  font-family:Calibri,sans-serif; font-size:calc(13px + var(--ts)); padding:10px 14px; color:#222; }
+.hdr-menu button:hover{ background:var(--b-chrome-hover); }
+body.dark-mode .hdr-menu button{ background:#16151b; color:#d0d8f0; }
+body.dark-mode .hdr-menu button:hover{ background:var(--b-chrome2); }
+.hdr-menu button span{ display:block; font-size:calc(10.5px + var(--ts)); opacity:.65; margin-top:1px; }
+body.dark-mode .hdr-menu button span{ color:#8a94b0; }
+
+/* ══ ☰ overflow drawer (priority-overflow target) ══ */
+.more-toggle{ display:none; }              /* shown by header.js only when ≥1 item folded */
+.more-toggle.has-folded{ display:inline-flex; }
+
+.oflow-backdrop{
+  display:none; position:fixed; inset:0; z-index:var(--z-drawer);
+  background:rgba(0,0,0,.55);
+}
+.oflow-backdrop.open{ display:block; }
+.oflow-drawer{
+  display:none; position:fixed; top:0; right:0; height:100%; width:min(320px,86vw);
+  z-index:calc(var(--z-drawer) + 1);
+  background:var(--b-chrome-bg); color:var(--b-chrome-fg);
+  border-left:1px solid var(--b-chrome-rule); box-shadow:-4px 0 24px rgba(0,0,0,.28);
+  flex-direction:column; padding:14px; gap:8px; box-sizing:border-box;
+  overflow-y:auto;
+}
+.oflow-drawer.open{ display:flex; }
+.oflow-drawer .drawer-row{
+  width:100%; box-sizing:border-box;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  min-height:46px; padding:12px 14px; border-radius:10px;
+  font-family:Calibri,sans-serif; font-size:calc(14px + var(--ts)); font-weight:600;
+  cursor:pointer; border:1px solid var(--b-chrome-rule);
+  background:var(--b-chrome2); color:var(--b-chrome-fg);
+}
+.oflow-drawer .drawer-row:hover{ filter:brightness(1.06); }
+/* Sign Out pinned to bottom, teal, centered (locked S448) */
+.oflow-drawer .drawer-signout{
+  margin-top:auto; background:#0F766E; color:#fff; border:none;
+  justify-content:center; font-weight:700;
+}
