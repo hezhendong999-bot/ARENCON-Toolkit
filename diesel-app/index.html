@@ -1778,6 +1778,32 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
   .app-header .hdr-menu.open{ display:block; }
   /* engine icon buttons keep their square chrome.css sizing, not diesel .hdr-btn */
   .app-header .hdr-icon{ width:var(--hdr-h) !important; }
+
+  /* ── S455: NEUTRALIZE diesel's legacy @media(max-width:1300px) header system ──
+     The old tool hid header controls with !important at ≤1300px and ran its own
+     .mobile-open reflow drawer. That fights the engine's JS priority-fold (which
+     is now the SINGLE authority on what shows/folds), causing non-monotonic
+     behaviour (controls vanishing from the bar without entering the drawer, then
+     reappearing as the window shrinks). Cancel those hides so the engine's inline
+     display wins; the engine builds its own .oflow-drawer. */
+  @media(max-width:1300px){
+    /* un-hide by default with !important (beats diesel's legacy display:none!important).
+       The engine's JS fold sets inline display:none!important, and inline !important
+       outranks stylesheet !important — so folded controls still hide correctly. */
+    .app-header .header-actions .hdr-btn,
+    .app-header .header-actions .hdr-ai-wrap,
+    .app-header .header-actions .hdr-repair-wrap,
+    .app-header .header-actions .hdr-menu-wrap,
+    .app-header .storage-bar,
+    .app-header .header-nav-arrows,
+    .app-header .inspector-chip{ display:inline-flex !important; }
+    /* the old reflow drawer is dead — engine owns .oflow-drawer */
+    .app-header .header-actions.mobile-open{
+      position:static !important; width:auto !important; max-width:none !important;
+      background:none !important; flex-direction:row !important; padding:0 !important; overflow:visible !important;
+    }
+    .app-header .header-actions.mobile-open .mobile-menu-btn{ display:inline-flex !important; }
+  }
 </style>
 </head>
 <body>
@@ -19142,7 +19168,11 @@ body.dark-mode{
 html{overflow-y:scroll;}
 body{position:relative;}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:var(--b-glow1),var(--b-glow2);}
-.app-header,.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
+.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
+/* S455: .app-header must stay STICKY (was forced position:relative here, which
+   broke the sticky header — it scrolled away / mis-layered over content). Sticky
+   + a z-index above page content (z-header) keeps it pinned at the top. */
+.app-header{position:sticky;top:0;z-index:var(--z-header,200);}
 
 /* ---------- HEADER + NAV — S245 Slice 1: Bold two-skin chrome (light day / near-black dark) ---------- */
 /* S341e: header z-index lowered 10000 → 5000 so it sits ABOVE page content
