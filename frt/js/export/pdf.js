@@ -2190,15 +2190,24 @@ function _flowBlock(block){
       var _cim=(cH.match(/<span class="dc-itemnum">([\s\S]*?)<\/span>/)||[])[1]||'';var _cpr=(cH.match(/<span class="pinref-dark">([\s\S]*?)<\/span>/)||[])[1]||'';var _hasMini=/dc-mini/.test(cH);
       var _contHead='<div class="dc"><div class="dc-inner">'+(_hasMini?'<div class="dc-mini-cont"></div>':'')+'<div class="dc-content"><div class="item-contband"><span class="dc-itemnum">'+_cim+'</span>'+(_cpr?' <span class="pinref-dark">'+_cpr+'</span>':'')+' <span class="cont">continued</span></div>'+(_isCrbCard?'<div class="crb"><div class="crb-hd">Contractor Response \u2014 thread (cont.)</div><div class="crb-bd">':'');
       curPageHtml+=cH;curUsed+=_measure(cH+cF);
+      // Track whether the current page already carries this item's header or a
+      // prior segment. We may break before ANY overflowing segment (including
+      // the first), but never when nothing of this item sits above the marker —
+      // which would emit an empty continuation. cH is placed just above, so the
+      // first iteration always has content above it; after a break, the
+      // continuation head is placed, so the flag re-arms.
+      var _placedOnPage=true; // cH was just added
       for(var si=1;si<sp.length;si++){
         var sH='<div class="dc-split'+sp[si];var sHt=_measure(sH);
-        if(curUsed+sHt>PAGE_H&&si>1){
+        if(curUsed+sHt>PAGE_H && _placedOnPage){
           curPageHtml+='<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;text-align:right;margin-top:6px;">continues on next page \u2192</div>'+cF;
           _finalizePage();_startPage();_restamp();
           curPageHtml+=_contHead;
           curUsed+=_measure(_contHead+cF);
+          _placedOnPage=true; // continuation head now sits above this segment
         }
         curPageHtml+=sH;curUsed+=sHt;
+        _placedOnPage=true;
       }
       curPageHtml+=cF;
     }
@@ -3127,3 +3136,4 @@ export const initPDFExportBeta={
     });
   }
 };
+
