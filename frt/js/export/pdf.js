@@ -1419,7 +1419,7 @@ function _buildDefCard(r,hdrExtra){
     // Per canon "empty-src photos render a placeholder, never silently skipped",
     // emit a labeled placeholder tile instead of an empty <img>.
     if(!_src){
-      h+='<div class="dp dp-missing" style="display:flex;align-items:center;justify-content:center;background:#F2F0EC;color:#928E9C;font-size:8pt;font-weight:600;text-align:center;line-height:1.3;padding:4px;">Photo\u00A0unavailable</div>';
+      h+='<div class="dp dp-missing" style="aspect-ratio:4/3;align-self:start;display:flex;align-items:center;justify-content:center;background:#F2F0EC;color:#928E9C;font-size:8pt;font-weight:600;text-align:center;line-height:1.3;padding:4px;box-sizing:border-box;">Photo\u00A0unavailable</div>';
     }else if(_href){h+='<a href="'+esc(_href)+'" target="_blank" rel="noopener" title="Open full-resolution photo"><div class="dp" style="background-image:url(\''+_src+'\')"></div></a>';}
     else{h+='<div class="dp" style="background-image:url(\''+_src+'\')"></div>';}
   });h+='</div>';}
