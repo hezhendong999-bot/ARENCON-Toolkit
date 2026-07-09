@@ -1412,6 +1412,13 @@ function _buildDefCard(r,hdrExtra){
   if(po.notedOnInstance!==_curInst){h+='<div style="font-size:9pt;color:#6B7B8C;margin-bottom:4px;">Noted in FRT #'+po.notedOnInstance+'</div>';}
   h+='<div class="dc-desc">'+_descHtml(po.text)+'</div>';
   if(po.photos&&po.photos.length){h+='<div class="dp-grid">';po.photos.forEach(function(ph){
+    // S456: skip tombstoned photos. A photo flagged deleted/purged was
+    // intentionally removed by the user (its bytes are purged from R2), so it
+    // must NOT render a "Photo unavailable" placeholder — that placeholder is
+    // reserved for genuine load failures of photos that SHOULD be present
+    // (S395). Rendering deleted tombstones as placeholders is what produced the
+    // stray grey tiles on pins whose photos had been deleted.
+    if(ph && (ph.deleted===true || ph.purged===true)) return;
     var _src=_pdfPhotoSrc(ph,r2Cache);
     var _href=_pdfPhotoFullHref(ph);
     // S395: a failed/404 photo yields an empty src. An <img src=""> corrupts the
@@ -3127,4 +3134,5 @@ export const initPDFExportBeta={
     });
   }
 };
+
 
