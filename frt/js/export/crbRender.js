@@ -1,12 +1,15 @@
 // ============================================================================
-// crbRender.js — Contractor Response: REAL-DATA render (1a scaffold, INERT)
+// crbRender.js — Contractor Response: REAL-DATA render (LIVE since S455)
 // ----------------------------------------------------------------------------
-// S448 groundwork. This module is imported by pdf.js but produces output ONLY
-// when window._frtCrbLive is truthy — a flag NOTHING currently sets. The live
-// wire-up (reading real obs.responses[] / obs.arenconReviews[], replacing the
-// sample-thread selection in _buildDefCard) is a data-path change and happens
-// in a Mark-present, field-verified session. Until then this file is dead code
-// that only defines pure functions + the schema contract.
+// S448 groundwork, wired live in S455. This module is imported by pdf.js and
+// produces output when window._frtCrbLive is truthy — set by the "Contractor
+// Response — live (real data)" admin checkbox in the export modal
+// (exportview.js). It reads real obs.responses[] / obs.arenconReviews[] and
+// replaces the sample-thread selection in _buildDefCard. The sample-preview
+// path (_frtCrbPreview) stays for on-device A/B until the live path is fully
+// field-confirmed. All functions here are PURE — they render existing model
+// data and never mutate it, so render-only changes (e.g. §1.4 thread
+// compression, S456) are safe without a data-path session.
 //
 // DESIGN AUTHORITY: LOCKED_CONTRACTOR_RESPONSE_SYSTEM.md §1 (grammar), and the
 // FRT deficiency model as it actually exists post-S114:
@@ -165,6 +168,33 @@ function crbReviewRow(rev, pillClsResolver){
 //
 // Returns { header, chip, body } or null when there is nothing to render
 // (no responses, no reviews, and not open — i.e. leave the card untouched).
+// Thread compression (locked §1.4): rounds whose report instance is OLDER than
+// the immediately-previous report (currentInstance-1) collapse into ONE grey
+// summary line, protecting pagination on long-running items. Rounds at
+// currentInstance-1 and newer print in full. Only leading, contiguous old
+// rounds are collapsed — the recent tail always prints verbatim.
+//
+// Grammar (matches _CRB_SAMPLES_OPEN[2]):
+//   "ROUNDS a–b · FRT #x–#y — earlier exchange on record in FRT #<prev>"
+// with a one-line quiet-slate gloss summarising the reported/held pattern.
+// Single collapsed round degrades to "ROUND a · FRT #x".
+function crbCompressionRow(collapsed, prevInstance){
+  if(!collapsed.length) return '';
+  var rA = collapsed[0].round, rB = collapsed[collapsed.length-1].round;
+  var iA = collapsed[0].frtInstance, iB = collapsed[collapsed.length-1].frtInstance;
+  var meta = (rA===rB)
+    ? ('ROUND '+_crbEsc(rA)+' \u00b7 FRT #'+_crbEsc(iA))
+    : ('ROUNDS '+_crbEsc(rA)+'\u2013'+_crbEsc(rB)+' \u00b7 FRT #'+_crbEsc(iA)+'\u2013#'+_crbEsc(iB));
+  meta += ' \u2014 earlier exchange on record in FRT #'+_crbEsc(prevInstance);
+  // Quiet-slate gloss: name the outcome pattern without re-printing each round.
+  var anyReview = collapsed.some(function(c){ return c.hadReview; });
+  var gloss = anyReview
+    ? 'Contractor responded across earlier rounds; ARENCON held the item Outstanding.'
+    : 'Earlier contractor rounds on record; no ARENCON review recorded in those reports.';
+  return '<div class="tr-row"><div class="tr-meta"><b>'+meta+'</b></div>'
+       + '<div class="claim" style="color:#928E9C">'+_crbEsc(gloss)+'</div></div>';
+}
+
 function crbBuildRealThread(opts){
   // opts: { obs, currentInstance, closed, pillClsResolver, flagSvg, fillHtml, resolvePhoto }
   var obs = opts.obs || {};
@@ -189,8 +219,39 @@ function crbBuildRealThread(opts){
   var resolve = opts.resolvePhoto || function(p){ return { url:null, caption:p&&p.caption }; };
   function resolveList(arr){ return (arr||[]).map(resolve); }
 
-  var body = '';
+  // ── Thread compression (§1.4) ──────────────────────────────────────────────
+  // The report instance of a round: prefer an explicit frtInstance on the
+  // contractor/review cell; fall back to notedOnInstance + (round-1). A round is
+  // "old" when its instance is strictly before the previous report
+  // (currentInstance-1). Collapse only the LEADING contiguous run of old rounds;
+  // the moment a round is recent, the rest of the tail prints in full (a later
+  // old-instance round is unusual and not hidden).
+  var curInst  = Number(opts.currentInstance)||1;
+  var prevInst = curInst - 1;
+  function instanceOf(rn){
+    var cell = byRound[rn];
+    var fi = (cell.resp && cell.resp.frtInstance) || (cell.rev && cell.rev.frtInstance);
+    return Number(fi) || (noted + (rn - 1));
+  }
+  var collapsed = [], tail = [], sawRecent = false;
   rounds.forEach(function(rn){
+    var inst = instanceOf(rn);
+    if(!sawRecent && inst < prevInst){
+      collapsed.push({ round: rn, frtInstance: inst, hadReview: !!(byRound[rn].rev) });
+    }else{
+      sawRecent = true;
+      tail.push(rn);
+    }
+  });
+  // Never collapse a lone round to a summary that's longer than the round itself;
+  // a single old round is cheap to keep — only compress 2+.
+  if(collapsed.length < 2){ tail = collapsed.map(function(c){return c.round;}).concat(tail); collapsed = []; }
+
+  var body = '';
+  if(collapsed.length){
+    body += crbCompressionRow(collapsed, prevInst);
+  }
+  tail.forEach(function(rn){
     var cell = byRound[rn];
     if(cell.resp){
       var rc = Object.assign({}, cell.resp, { rectPhotos: resolveList(cell.resp.rectPhotos) });
@@ -227,3 +288,4 @@ if(typeof window!=='undefined'){
     crbBuildRealThread: crbBuildRealThread
   };
 }
+
