@@ -18,6 +18,19 @@
 
 /* ── Tokens ───────────────────────────────────────────────────────────── */
 :root, html[data-theme="light"] {
+  --hdr-h: 34px;
+  --hdr-px: 12px;
+  --hdr-radius: 6px;
+  --hdr-gap: 6px;
+  --back-slot-w: 84px;
+  --z-base: 1;
+  --z-sticky-nav: 100;
+  --z-header: 200;
+  --z-dropdown: 300;
+  --z-drawer: 400;
+  --z-modal: 500;
+  --z-lightbox: 600;
+  --z-toast: 700;
   --ab-bg: #EFEDF0;               /* warm off-white, never pure white */
   --ab-glow-a: rgba(156,39,66,.07);
   --ab-glow-b: rgba(70,197,232,.07);
@@ -323,33 +336,11 @@ html[data-theme="dark"]  .ab-btn-warn   { border-color:#E0A36A; background:rgba(
 }
 
 
-/* ═══════════════════════════════════════════════════════════════════════
-   PART — STANDARDIZED HEADER ENGINE CHROME (S455 extraction)
-   Companion to lib/ui/headerEngine.js (exports buildHeader). Extracted
-   verbatim from live Diesel per HEADER_EXTRACTION_MAP_S448. Additive: uses
-   .app-header/.hdr-*/.oflow-* classes + --hdr-*/--z-* tokens. Does NOT
-   collide with the S442 .ab-* system above, the report/PDF palette, or the
-   deficiency status colors. Canonical IDs: mobile-menu-btn, btn-qr.
-   ═══════════════════════════════════════════════════════════════════════ */
-:root{
-  --hdr-h: 34px;       /* height of EVERY header control */
-  --hdr-px: 12px;      /* horizontal padding of TEXT controls only */
-  --hdr-radius: 6px;   /* control corner radius */
-  --hdr-gap: 6px;      /* gap between action controls */
-  --back-slot-w: 84px; /* pixel-locked Back slot, identical on every page + drawing viewer */
-}
-
-/* ── Named z-index scale (locked S448) — 8 tiers ── */
-:root{
-  --z-base:        1;
-  --z-sticky-nav:  100;
-  --z-header:      200;
-  --z-dropdown:    300;
-  --z-drawer:      400;
-  --z-modal:       500;
-  --z-lightbox:    600;
-  --z-toast:       700;
-}
+/* PART - STANDARDIZED HEADER ENGINE CHROME (S455 extraction)
+   Companion to lib/ui/headerEngine.js (exports buildHeader). Additive: uses
+   .app-header/.hdr-*/.oflow-* classes. The --hdr-*/--z-* tokens are defined in
+   the :root block at the top of this file (co-located with --ab-* so they parse
+   reliably). Canonical IDs: mobile-menu-btn, btn-qr. */
 
 /* ══ HEADER SHELL ══ */
 .app-header{
@@ -451,6 +442,7 @@ body.dark-mode .hdr-btn:hover{ filter:brightness(1.2); }
 }
 .storage-bar-track{ width:48px; height:5px; background:rgba(120,120,140,.28); border-radius:3px; overflow:hidden; }
 .storage-bar-fill{ height:100%; background:#5F8068; border-radius:3px; transition:width .4s; }
+.storage-label{ font-size:calc(9px + var(--ts)); color:var(--b-chrome-fg); opacity:.55; white-space:nowrap; font-family:Calibri,sans-serif; }
 
 /* ── Inspector chip (text control rhythm) ── */
 .inspector-chip{
