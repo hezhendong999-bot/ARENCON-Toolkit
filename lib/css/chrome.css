@@ -507,9 +507,12 @@ body.dark-mode .hdr-menu button span{ color:#8a94b0; }
    full-width and stack vertically; menu buttons keep their color and open their
    real dropdown on tap. ── */
 .oflow-drawer > *{ width:100%; box-sizing:border-box; flex:0 0 auto; }
-/* menu-type controls (AI Review / Reports / More): wrapper full-width, its .hdr-btn
-   fills it and keeps its bar color */
-.oflow-drawer .hdr-menu-wrap{ position:relative; }
+/* menu-type controls (AI Review / Reports / More) in the drawer: the wrap
+   becomes a vertical stack — parent button on TOP (full-width), and when opened
+   its dropdown flows BELOW it full-width (matches FRT's mobile drawer). */
+.oflow-drawer .hdr-menu-wrap{
+  position:relative; display:flex; flex-direction:column; width:100%;
+}
 .oflow-drawer .hdr-menu-wrap > .hdr-btn,
 .oflow-drawer > .hdr-btn{
   width:100%; justify-content:center; min-height:46px; border-radius:10px;
@@ -527,11 +530,12 @@ body.dark-mode .hdr-menu button span{ color:#8a94b0; }
 .oflow-drawer > .header-nav-arrows{
   width:100%; justify-content:center; min-height:46px; border-radius:10px;
 }
-/* dropdown menus opened from inside the drawer: position below the button,
-   full-width, so they read as an inline expansion (still the REAL menu) */
+/* dropdown menu opened from inside the drawer: static + full-width so it sits
+   directly BELOW its parent button (not absolutely positioned to the side). */
 .oflow-drawer .hdr-menu{
-  position:static; width:100%; margin-top:6px; box-shadow:none;
-  border:1px solid var(--b-chrome-rule);
+  position:static !important; right:auto !important; top:auto !important;
+  width:100%; margin:6px 0 0; box-shadow:none;
+  border:1px solid var(--b-chrome-rule); border-radius:10px;
 }
 /* Sign Out pinned to bottom when folded */
 .oflow-drawer > #btn-signout,
