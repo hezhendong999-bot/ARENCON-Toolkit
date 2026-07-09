@@ -2178,18 +2178,35 @@ function _flowBlock(block){
     curPageHtml+=block.html;curUsed+=_measure(block.html);return;
   }
   if(blockH<=avail){curPageHtml+=block.html;curUsed+=blockH;}
-  else if(blockH<=PAGE_H-COMPACT_HEADER_H){
-    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
-    curPageHtml+=block.html;curUsed+=blockH;
-  }else{
-    if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+  else{
+    // Item does not fit the space left on this page. Per Mark's pagination rule
+    // (no forced whole-item page jumps that leave big gaps): SPLIT it in place so
+    // it fills the current page and continues on the next with a "(cont.)" note.
+    // Only when the item has no dc-split segments (a single atomic block) do we
+    // fall back to moving it whole — that's the one unavoidable-gap case.
     var sp=block.html.split(/<div class="dc-split/);
-    if(sp.length<=1){curPageHtml+=block.html;curUsed+=blockH;}
+    if(sp.length<=1){
+      // Unsplittable block. If it fits a fresh page, move it whole (unavoidable
+      // gap on the prior page). If it's larger than a page too, place as-is
+      // (last resort — can't break it anywhere).
+      if(curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+      curPageHtml+=block.html;curUsed+=blockH;
+    }
     else{
+      // Splittable item — flow header + segments across the page boundary,
+      // filling the current page first. (Same machinery formerly reserved for
+      // items taller than a whole page; now used whenever an item overflows the
+      // remaining space, so pages pack naturally.)
       var cH=sp[0];var _isCrbCard=/class="crb-bd"/.test(cH);var cF=_isCrbCard?'</div></div></div></div></div>':'</div></div></div>';
       var _cim=(cH.match(/<span class="dc-itemnum">([\s\S]*?)<\/span>/)||[])[1]||'';var _cpr=(cH.match(/<span class="pinref-dark">([\s\S]*?)<\/span>/)||[])[1]||'';var _hasMini=/dc-mini/.test(cH);
       var _contHead='<div class="dc"><div class="dc-inner">'+(_hasMini?'<div class="dc-mini-cont"></div>':'')+'<div class="dc-content"><div class="item-contband"><span class="dc-itemnum">'+_cim+'</span>'+(_cpr?' <span class="pinref-dark">'+_cpr+'</span>':'')+' <span class="cont">continued</span></div>'+(_isCrbCard?'<div class="crb"><div class="crb-hd">Contractor Response \u2014 thread (cont.)</div><div class="crb-bd">':'');
-      curPageHtml+=cH;curUsed+=_measure(cH+cF);
+      // If the item header itself won't fit the space left, start it on a fresh
+      // page (its natural top) rather than overflowing the header. Guarded by the
+      // usual "page already has content" idiom so this never fires on an already-
+      // fresh page.
+      var _cHh=_measure(cH+cF);
+      if(_cHh>(PAGE_H-curUsed) && curUsed>PAGE_H*0.15){_finalizePage();_startPage();_restamp();}
+      curPageHtml+=cH;curUsed+=_cHh;
       // Track whether the current page already carries this item's header or a
       // prior segment. We may break before ANY overflowing segment (including
       // the first), but never when nothing of this item sits above the marker —
@@ -2290,11 +2307,12 @@ function _signalMinimapsReady(){ if(_minimapsReadyResolve){var f=_minimapsReadyR
 var _appLetters='ABCDEFGH';
 var _appIdx=0;
 // S408 (LOCKED_REPORT_ITEM_NUMBER_S316 §4): Appendix A — Drawings with Pins
-// (Deficiencies) — moves BEFORE Previously Closed Items and Recommendations.
-// Target order: body → Appendix A → Previously Closed → Recommendations →
-// Appendix B. _emitAppendices is declared further down; function declarations
-// hoist across the whole function body, so this early call is safe.
-_emitAppendices(['deficiency']);
+// (Deficiencies). S408 had moved it BEFORE Previously Closed; Mark reversed that
+// in S456 — Previously Closed Items is report content and belongs with the body,
+// so it now prints BEFORE Appendix A. New order:
+//   body → Previously Closed → Appendix A → Recommendations → Appendix B.
+// _emitAppendices is declared further down; function declarations hoist across
+// the whole function body, so the call below (after the closed summary) is safe.
 
 // Closed summary
 var _cp=window._frtCrbPreview,_csp=_cp?6:5;
@@ -2321,6 +2339,10 @@ if((showClosedSummary&&closedSummaryDefs.length||_cp)&&_recsMode!=='only'){
   cH2+='</tbody></table></div>';
   _startPage();curPageHtml+=cH2;curUsed+=_measure(cH2);_finalizePage();
 }
+
+// Appendix A — Drawings with Pins (Deficiencies). Emitted here, AFTER Previously
+// Closed Items (S456 order). _finalizePage() above guarantees a fresh start.
+_emitAppendices(['deficiency']);
 
 // S142 Batch 3-2 (Model 2 §4.4): pooled "Recommendations" section on a
 // FORCED new page, AFTER Previously Closed Items. The prior block always
