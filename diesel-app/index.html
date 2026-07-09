@@ -12563,12 +12563,19 @@ function hookChartAnnotations() {
 
 
 // Mobile swipe-to-open-menu removed per user request
-// Close menu when clicking a button inside it (mobile)
-document.querySelector('.header-actions').addEventListener('click', function(e) {
-  if(e.target.closest('.btn') && e.target.id !== 'mobile-close-menu' && window.innerWidth <= 768) {
-    setTimeout(function(){ closeMobileMenu(); }, 300);
-  }
-});
+// S455: the shared header engine builds .header-actions ASYNC (deferred module),
+// so at parse time this element is null → this old listener threw
+// (null.addEventListener), halting the rest of init (broke data load + menus).
+// The engine owns the ☰ drawer + closes it on selection now, so this old
+// mobile-close handler is obsolete. Guard it so it can never crash.
+var _haEl = document.querySelector('.header-actions');
+if (_haEl) {
+  _haEl.addEventListener('click', function(e) {
+    if(e.target.closest('.btn') && e.target.id !== 'mobile-close-menu' && window.innerWidth <= 768) {
+      if(typeof closeMobileMenu==='function') setTimeout(function(){ closeMobileMenu(); }, 300);
+    }
+  });
+}
 
 
 // Mobile page navigation
