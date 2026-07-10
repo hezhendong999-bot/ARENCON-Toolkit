@@ -284,14 +284,14 @@
           // pts[1] tracks the pointer during move; commit on up if dragged past
           // threshold. Matches pen/freehand and the signed-off demo.
           self._drawing = true;
-          self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size, opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
+          self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size*(self._uiScale?self._uiScale():1), opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
           self.redoStack = [];
           self._render();
           return;
         }
         // Freehand (pen/highlight) — drag flow.
         self._drawing = true;
-        self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size, opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
+        self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size*(self._uiScale?self._uiScale():1), opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
         self._curr.pts = [p]; // freehand uses growing array
         self.redoStack = [];
       }
@@ -346,7 +346,10 @@
     },
 
     _eraseAt: function(p){
-      var r = (this.size||3) + 10;
+      // S455-parity: radius is screen-constant (uiScale) so hi-res photos erase
+      // with the same on-screen brush as compressed ones.
+      var _u = this._uiScale ? this._uiScale() : 1;
+      var r = ((this.size||3) + 10) * _u;
       var r2 = r*r;
       function distToSeg(px,py, ax,ay, bx,by){
         var dx=bx-ax, dy=by-ay;
@@ -363,8 +366,33 @@
         var s = this.strokes[i];
         var tool = s.tool;
         if (tool === 'pen' || tool === 'highlight'){
-          for (var j=0; j<s.pts.length-1; j++){
-            if (distToSeg(p.x,p.y, s.pts[j].x,s.pts[j].y, s.pts[j+1].x,s.pts[j+1].y) <= r2){ hit=i; break; }
+          // S455-parity with drawing viewer: PATH-ERASE. Instead of deleting the
+          // whole freehand stroke, remove only the points under the brush and
+          // split the survivors into separate strokes. Shapes/text keep
+          // whole-delete (partial erase of a rect isn't meaningful without masks).
+          var touched=false;
+          for (var j=0; j<s.pts.length; j++){
+            var _ex=s.pts[j].x-p.x, _ey=s.pts[j].y-p.y;
+            if (_ex*_ex+_ey*_ey <= r2){ touched=true; break; }
+          }
+          if (touched){
+            var runs=[], cur=[];
+            for (var k=0; k<s.pts.length; k++){
+              var _pt=s.pts[k], _dx=_pt.x-p.x, _dy=_pt.y-p.y;
+              if (_dx*_dx+_dy*_dy <= r2){ if (cur.length>1) runs.push(cur); cur=[]; }
+              else cur.push(_pt);
+            }
+            if (cur.length>1) runs.push(cur);
+            var eng=this;
+            var repl=runs.map(function(run,ri){
+              return { id: ri===0 ? s.id : eng._uid(), tool:s.tool, color:s.color,
+                       size:s.size, opacity:s.opacity, pts:run };
+            });
+            this.redoStack.push(this.strokes[i]);
+            Array.prototype.splice.apply(this.strokes, [i,1].concat(repl));
+            if (this._onDirty) this._onDirty();
+            this._render();
+            return;
           }
         } else if (tool === 'line' || tool === 'arrow'){
           if (distToSeg(p.x,p.y, s.pts[0].x,s.pts[0].y, s.pts[1].x,s.pts[1].y) <= r2) hit=i;
@@ -591,7 +619,7 @@
           self.redoStack=[]; if(self._onDirty) self._onDirty(); self._render(); cleanup(); return;
         }
         if (v.trim()){
-          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, bg:curBg, size:newSize, opacity:self.opacity });
+          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, bg:curBg, size:newSize*(self._uiScale?self._uiScale():1), opacity:self.opacity });
           self.redoStack=[]; if(self._onDirty) self._onDirty();
         }
         self._render(); cleanup();
@@ -790,9 +818,12 @@
     },
 
     _hitStroke: function(p){
+      // S455-parity: tolerance is screen-constant (uiScale) — a fixed 6 natural px
+      // was ~1 screen px on hi-res photos, making strokes nearly untappable.
+      var tol=6*(this._uiScale?this._uiScale():1);
       for (var i=this.strokes.length-1;i>=0;i--){
         var b=this._strokeBounds(this.strokes[i]);
-        if (b && p.x>=b.x1-6 && p.x<=b.x2+6 && p.y>=b.y1-6 && p.y<=b.y2+6) return this.strokes[i];
+        if (b && p.x>=b.x1-tol && p.x<=b.x2+tol && p.y>=b.y1-tol && p.y<=b.y2+tol) return this.strokes[i];
       }
       return null;
     },
@@ -879,6 +910,19 @@
       // S339 — TAP-SELECT sub-mode: each tap toggles an individual pick (own box);
       // committed selection stays empty until ✓. Empty taps ignored (sticky).
       if (this._selectSub==='tap'){
+        // S455-parity: a committed (\u2713) selection is MOVABLE by pressing inside
+        // its bounds — including a SINGLE item (old code required >1, and a tap on
+        // the lone member dropped it, so singles were immovable). A press that
+        // doesn't actually move still performs the S410 tap-toggle on release
+        // (see _selectUp) so additive grouping is preserved.
+        if (this._selectedIds.length){
+          var gbt=this._groupBounds();
+          var uT=this._uiScale?this._uiScale():1, padT=6*uT;
+          if (gbt && p.x>=gbt.x1-padT && p.x<=gbt.x2+padT && p.y>=gbt.y1-padT && p.y<=gbt.y2+padT){
+            this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false, tapToggleId:(hit?hit.id:null) };
+            return;
+          }
+        }
         if (hit){
           // S410: post-commit ADDITIVE grouping (S341 verified gap). A tap after
           // ✓ used to wipe the committed group and start a fresh pick; now the
@@ -996,6 +1040,15 @@
         }
         this._rubberBand=null;
       }
+      // S455-parity: a press-inside-committed-bounds that did NOT move is a TAP —
+      // perform the S410 additive toggle (re-open group as picks, toggle the
+      // tapped member). Drag = move; tap = toggle. Both behaviors preserved.
+      if (ds.type==='move' && ds.moved===false && ds.tapToggleId && this._selectSub==='tap'){
+        if (!this._pickIds.length && this._selectedIds.length) this._pickIds=this._selectedIds.slice();
+        var _tix=this._pickIds.indexOf(ds.tapToggleId);
+        if (_tix!==-1) this._pickIds.splice(_tix,1); else this._pickIds.push(ds.tapToggleId);
+        this._selectedIds=[];
+      }
       if ((ds.type==='move'||ds.type==='resize'||ds.type==='rotate') && (ds.moved!==false)){
         if (this._onDirty) this._onDirty();
       }
@@ -1037,19 +1090,21 @@
         this._pickIds.forEach(function(id){
           var s=self._findStroke(id); if(!s) return;
           var b=self._strokeBounds(s); if(!b) return;
+          var uP=self._uiScale?self._uiScale():1;   // S455-parity: screen-constant pick chrome
           ctx.save();
-          ctx.setLineDash([4,3]); ctx.strokeStyle='#3FD08A'; ctx.lineWidth=2; ctx.globalAlpha=1;
-          ctx.strokeRect(b.x1-5,b.y1-5,b.x2-b.x1+10,b.y2-b.y1+10);
+          ctx.setLineDash([4*uP,3*uP]); ctx.strokeStyle='#3FD08A'; ctx.lineWidth=2*uP; ctx.globalAlpha=1;
+          ctx.strokeRect(b.x1-5*uP,b.y1-5*uP,b.x2-b.x1+10*uP,b.y2-b.y1+10*uP);
           ctx.setLineDash([]);
-          ctx.fillStyle='#3FD08A'; ctx.beginPath(); ctx.arc(b.x2+5,b.y1-5,7,0,Math.PI*2); ctx.fill();
-          ctx.fillStyle='#0b2018'; ctx.font='bold 10px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText('\u2713', b.x2+5, b.y1-4);
+          ctx.fillStyle='#3FD08A'; ctx.beginPath(); ctx.arc(b.x2+5*uP,b.y1-5*uP,7*uP,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='#0b2018'; ctx.font='bold '+Math.round(10*uP)+'px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText('\u2713', b.x2+5*uP, b.y1-4*uP);
           ctx.restore();
         });
       }
       if (this._rubberBand){
         var r=this._rubberBand;
-        ctx.save(); ctx.setLineDash([4,3]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1; ctx.globalAlpha=1;
+        var uR=this._uiScale?this._uiScale():1;
+        ctx.save(); ctx.setLineDash([4*uR,3*uR]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=Math.max(1,1.5*uR); ctx.globalAlpha=1;
         ctx.strokeRect(Math.min(r.x1,r.x2),Math.min(r.y1,r.y2),Math.abs(r.x2-r.x1),Math.abs(r.y2-r.y1));
         ctx.setLineDash([]); ctx.restore();
       }
