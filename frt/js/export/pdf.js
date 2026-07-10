@@ -766,7 +766,7 @@ function _buildCSS(fontB64){
   c+='.pi-list{margin-top:4px;padding:10px 0;border-top:2px solid #1C2333;border-bottom:2px solid #1C2333;}';
   c+='.pi-row{display:flex;gap:10px;margin-bottom:3px;font-family:Calibri,sans-serif;font-size:11pt;line-height:1.23;}.pi-row:last-child{margin-bottom:0;}';
   c+='.pi-label{min-width:145px;font-weight:400;color:#1C2333;}.pi-value{flex:1;min-width:0;font-weight:400;color:#1C2333;overflow-wrap:break-word;}';
-  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}}';
+  c+='@media print{body{background:white!important;padding:0!important;margin:0!important;}.page{width:auto!important;min-height:auto!important;margin:0!important;padding:0.5in 0.6in!important;box-shadow:none!important;page-break-after:always;}.page:last-child{page-break-after:auto;}#pdf-btn-bar,#pdf-btn-cluster{display:none!important;}#pdf-progress-wrap{display:none!important;}.page.p11x17{page:tabloidpg;}.page.p24x36{page:archpg;}}';
   c+='@page{size:letter;margin:0;}';
   // S346: named page sizes for the mixed-size appendix. Body pages use the
   // default @page (letter); appendix sheets tagged .p11x17/.p24x36 map to these.
@@ -1818,7 +1818,7 @@ function _capStatus(D,txt){
 }
 function _capHideStatus(D){var s=D.getElementById('cap-status');if(s)s.style.display='none';}
 function _captureExportPDF(w,D){
-  var bar=D.getElementById('pdf-btn-bar');
+  var bar=D.getElementById('pdf-btn-cluster'); // S457: banner retired; hide/restore the cluster during capture
   var _pickerSupported=(typeof w.showSaveFilePicker==='function');
   var _saveHandle=null;
   (async function(){
@@ -2063,69 +2063,62 @@ function _captureExportPDF(w,D){
 }
 var _usePagCssTag=false;
 try{_usePagCssTag=/[?&]pag=css(&|$)/.test(String(window.location.search||''));}catch(_te){}
+// ── S457 unified export cluster ───────────────────────────────────────────────
+// The old full-width banner lived inside the zoomable document, so it scaled
+// with the drawings (unusable tiny/huge, and stretched to 11x17 width). Now a
+// compact floating cluster — green Export pill + round Close — pinned to the
+// top-right of the VISIBLE screen and counter-scaled so it stays a constant
+// on-screen size at any zoom, any device:
+//   effective zoom = desktop page zoom (outerWidth/innerWidth — readable,
+//   unlike the DPR approach S338 removed) × pinch zoom (visualViewport.scale).
+// Updates on resize/viewport events only — no polling (S338's other objection).
 try{
-  var barFix=D.createElement('div');barFix.id='pdf-btn-bar';
-  barFix.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;overflow:hidden;background:#2C4770;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-  var bar=D.createElement('div');bar.id='pdf-btn-bar-inner';
-  bar.style.cssText='transform-origin:top left;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;will-change:transform,width;';
-  var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
-  pb.style.cssText='padding:8px 24px;background:#2E9E72;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
-  pb.onclick=function(){_captureExportPDF(w,D);};bar.appendChild(pb);
-  var ht=D.createElement('span');ht.textContent='Click to save the report as a PDF (matches this preview exactly).'+(_usePagCssTag?' \u00b7 engine v2':'');
-  ht.style.cssText='color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';bar.appendChild(ht);
-  var cb=D.createElement('button');cb.innerHTML='\u2715 Close';
-  cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
-  // S457: Close now empties the heavy preview DOM before closing — the preview
-  // holds hundreds of images; releasing them at close removes the memory spike
-  // that was crash-killing the tab on mobile ("Can't open this page").
   var _doClose=function(){
     try{var pc=D.getElementById('pages-container');if(pc)pc.innerHTML='';
         var mz=D.getElementById('measure-zone');if(mz)mz.innerHTML='';}catch(_e){}
     try{w.close();}catch(_e2){}
   };
-  cb.onclick=_doClose;bar.appendChild(cb);
-  barFix.appendChild(bar);
-  D.body.insertBefore(barFix,D.body.firstChild);D.body.style.paddingTop='56px';
-  // ── S457 mobile export cluster ────────────────────────────────────────────
-  // On coarse pointers the full-width banner is replaced by a compact floating
-  // cluster pinned to the top-right of the VISIBLE screen via visualViewport,
-  // counter-scaled so it stays the same on-screen size at any pinch zoom.
-  // (S338 stands for desktop: page-zoom is unreadable there, banner unchanged.)
-  try{
-    var _coarse=false;
-    try{_coarse=w.matchMedia&&w.matchMedia('(pointer:coarse)').matches;}catch(_m){}
-    if(_coarse&&w.visualViewport){
-      barFix.style.display='none';D.body.style.paddingTop='0';
-      var cl=D.createElement('div');cl.id='pdf-btn-cluster';
-      cl.style.cssText='position:fixed;z-index:99999;display:flex;gap:8px;transform-origin:top right;';
-      var pb2=D.createElement('button');pb2.innerHTML='\uD83D\uDCC4 Export PDF';
-      pb2.style.cssText='padding:10px 18px;background:#2E9E72;color:#fff;border:none;border-radius:22px;font:700 14px Calibri,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35);';
-      pb2.onclick=function(){_captureExportPDF(w,D);};cl.appendChild(pb2);
-      var cb2=D.createElement('button');cb2.innerHTML='\u2715';
-      cb2.style.cssText='width:42px;height:42px;background:#455A64;color:#fff;border:none;border-radius:50%;font:700 16px Calibri,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35);';
-      cb2.onclick=_doClose;cl.appendChild(cb2);
-      D.body.appendChild(cl);
-      var _fit=function(){
-        var vv=w.visualViewport;var s=1/(vv.scale||1);
-        cl.style.transform='scale('+s+')';
-        cl.style.top=(vv.offsetTop+8*s)+'px';
-        cl.style.left=(vv.offsetLeft+vv.width-(cl.offsetWidth*s)-8*s)+'px';
-      };
-      w.visualViewport.addEventListener('resize',_fit);
-      w.visualViewport.addEventListener('scroll',_fit);
-      _fit();setTimeout(_fit,300);
-    }
-  }catch(_vc){}
-  // S338 (#32): the page-zoom counter-scale is REMOVED. It tried to invert the
-  // bar against zoom via devicePixelRatio, but Chrome's page-zoom control does
-  // NOT move visualViewport.scale / devicePixelRatio in a way JS can read, so the
-  // counter-scale never countered page zoom — it only added a 400ms interval +
-  // transform/width thrash for no benefit (and could itself mis-size the strip).
-  // Mark is fine with a consistent full-width banner (it carries Close, so a
-  // compact cluster has nowhere to put it). Now a plain fixed banner: it scales
-  // with page zoom like all page content, which is predictable. The bar never
-  // appears in the actual PDF (@media print hides #pdf-btn-bar).
-}catch(e){}
+  var cl=D.createElement('div');cl.id='pdf-btn-cluster';
+  cl.style.cssText='position:fixed;z-index:99999;display:flex;align-items:center;gap:8px;transform-origin:top right;';
+  var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
+  pb.title='Click to save the report as a PDF (matches this preview exactly).';
+  pb.style.cssText='padding:10px 18px;background:#2E9E72;color:#fff;border:none;border-radius:22px;font:700 14px Calibri,sans-serif;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+  pb.onclick=function(){_captureExportPDF(w,D);};cl.appendChild(pb);
+  var cb=D.createElement('button');cb.innerHTML='\u2715';cb.title='Close preview';
+  cb.style.cssText='width:42px;height:42px;background:#455A64;color:#fff;border:none;border-radius:50%;font:700 16px Calibri,sans-serif;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+  cb.onclick=_doClose;cl.appendChild(cb);
+  if(_usePagCssTag){
+    var tg=D.createElement('span');tg.textContent='engine v2';
+    tg.style.cssText='font:600 10px Calibri,sans-serif;color:#455A64;background:rgba(255,255,255,.85);padding:2px 8px;border-radius:8px;';
+    cl.appendChild(tg);
+  }
+  D.body.appendChild(cl);
+  var _zoom=function(){
+    var pz=1;
+    try{if(w.outerWidth&&w.innerWidth)pz=w.outerWidth/w.innerWidth;}catch(_z1){}
+    if(!isFinite(pz)||pz<=0)pz=1;
+    var vv=1;
+    try{if(w.visualViewport&&w.visualViewport.scale)vv=w.visualViewport.scale;}catch(_z2){}
+    var z=pz*vv;
+    if(z<0.3)z=0.3;if(z>6)z=6;
+    return Math.round(z*20)/20; // quantize to kill sub-pixel jitter
+  };
+  var _fit=function(){
+    var s=1/_zoom();
+    var ox=0,oy=0,vw=w.innerWidth;
+    try{if(w.visualViewport){ox=w.visualViewport.offsetLeft;oy=w.visualViewport.offsetTop;vw=w.visualViewport.width;}}catch(_f1){}
+    cl.style.transform='scale('+s+')';
+    cl.style.top=(oy+10*s)+'px';
+    cl.style.left=(ox+vw-(cl.offsetWidth*s)-10*s)+'px';
+  };
+  w.addEventListener('resize',_fit);
+  try{w.visualViewport.addEventListener('resize',_fit);w.visualViewport.addEventListener('scroll',_fit);}catch(_f2){}
+  _fit();setTimeout(_fit,300);
+}catch(_uc){}
+// S457: the S338 full-width banner is retired. Its zoom problem is now solved
+// by the unified counter-scaled cluster above (page zoom measured via
+// outerWidth/innerWidth — the readable signal S338's DPR attempt lacked —
+// times visualViewport.scale for pinch; event-driven, no polling).
 
 // Pagination
 var PAGE_H=912;var measureZone=D.getElementById('measure-zone');var pagesContainer=D.getElementById('pages-container');
