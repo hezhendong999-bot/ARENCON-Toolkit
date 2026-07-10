@@ -4140,7 +4140,9 @@ var DieselMarkup = (function(){
         var selfG=this, pkG=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width), actId=this._groupActiveId;
         ctx.save();
         this.selIds.forEach(function(id){ var s=selfG._findStroke(id); if(!s) return; var b=selfG._strokeAABB(s);
-          var x=b.x1-3*pkG, y=b.y1-3*pkG, w=(b.x2-b.x1)+6*pkG, h=(b.y2-b.y1)+6*pkG;
+          // S459f (Mark): amber member frames sit as TIGHT to the ink as possible (1px);
+          // the wide grab gap belongs to the blue GROUP box (S459e pad), not these.
+          var x=b.x1-1*pkG, y=b.y1-1*pkG, w=(b.x2-b.x1)+2*pkG, h=(b.y2-b.y1)+2*pkG;
           if(id===actId){
             ctx.setLineDash([]); ctx.shadowColor='#EF9F27'; ctx.shadowBlur=10*pkG;
             ctx.strokeStyle='#EF9F27'; ctx.lineWidth=Math.max(2,2.4*pkG);
@@ -4484,10 +4486,10 @@ var DieselMarkup = (function(){
             ctx.fillRect(tx-padX, ty-fp-padY, maxw+padX*2, blkH+padY*2);
             ctx.restore();
           }
-          ctx.lineWidth=Math.max(1,fp/12); ctx.strokeStyle='rgba(0,0,0,.55)';
+          // S459f (Mark): NO dark halo/outline on text — it muddied the glyphs and made
+          // them hard to read. Plain fill only; the optional bg pill remains available.
           for(var ln=0;ln<lines.length;ln++){
             var yy=ty+ln*lineH;
-            if(!(s.bg&&s.bg!=='none')) ctx.strokeText(lines[ln], tx, yy);   // halo only when no bg pill
             ctx.fillStyle=s.color; ctx.fillText(lines[ln], tx, yy);
           }
         }
@@ -4842,15 +4844,18 @@ var DslLightbox = (function(){
     ov.appendChild(subFly);
     // ── S344 Phase 2a: ✓/✗ confirm bar (tap-mode pick → group; ✗ clears any selection) ──
     var cBar=document.createElement('div'); cBar.id='dlb-mk-confirm';
-    cBar.style.cssText='position:absolute;left:50%;bottom:96px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+    // S459f: pointer-events none on the pill, auto on its buttons — the bar stays visible
+    // while grouped (Mark: ✗ must remain reachable) without eating canvas drag-starts
+    // (the S344 reason it used to hide). Presses between/around buttons pass through.
+    cBar.style.cssText='position:absolute;left:50%;bottom:96px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);pointer-events:none;';
     var cCnt=document.createElement('span'); cCnt.style.cssText='font:600 13px Calibri,sans-serif;color:#cfcad6;';
     var cOk=document.createElement('button'); cOk.innerHTML='\u2713'; cOk.title='Confirm \u2014 group these';
-    cOk.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
+    cOk.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;pointer-events:auto;';
     var cNo=document.createElement('button'); cNo.innerHTML='\u2715'; cNo.title='Cancel \u2014 clear selection';
-    cNo.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+    cNo.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;pointer-events:auto;';
     var cUn=document.createElement('button'); cUn.title='Ungroup \u2014 remove this mark from the group';
     cUn.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 4 8"/><line x1="8" y1="12" x2="12" y2="12"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
-    cUn.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;background:#BA7517;display:none;align-items:center;justify-content:center;';
+    cUn.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;background:#BA7517;display:none;align-items:center;justify-content:center;pointer-events:auto;';
     cBar.appendChild(cCnt); cBar.appendChild(cUn); cBar.appendChild(cOk); cBar.appendChild(cNo);
     ov.appendChild(cBar);
     // ── Row 2: size stepper · opacity stepper · | · colour swatch+flyout · | · save clear revert ──
@@ -5083,6 +5088,7 @@ var DslLightbox = (function(){
       var E=window.DieselMarkup; if(!E||_mkTool!=='select'){ cBar.style.display='none'; return; }
       var picking = E.isPicking&&E.isPicking();   // tap-mode marks picked but NOT yet grouped
       var activeGrouped = E.groupActiveId&&E.groupActiveId();   // a grouped mark is tapped → ungroup
+      var grouped = E.selCount&&E.selCount()>0;   // S459f: a grouped selection exists
       if(picking){
         cCnt.textContent=(E.pickCount?E.pickCount():0)+' selected';
         cUn.style.display='none'; cOk.style.display='flex'; cNo.style.display='flex';
@@ -5090,6 +5096,15 @@ var DslLightbox = (function(){
       } else if(activeGrouped){
         cCnt.textContent='1 grouped';
         cUn.style.display='flex'; cOk.style.display='none'; cNo.style.display='flex';
+        cBar.style.display='flex'; _placeConfirmBar();
+      } else if(grouped){
+        // S459f (Mark): the ✗ must stay available while a group exists — with the bar
+        // hidden (old S344 rule) there was NO way to unselect a grouped selection.
+        // Only ✗ + count show (nothing to confirm, nothing to unlink); the bar body is
+        // click-through (see cBar pointer-events) so it can't eat drag-starts — the
+        // original reason S344 hid it.
+        cCnt.textContent=(E.selCount?E.selCount():0)+' grouped';
+        cUn.style.display='none'; cOk.style.display='none'; cNo.style.display='flex';
         cBar.style.display='flex'; _placeConfirmBar();
       } else { cBar.style.display='none'; }
     }
@@ -19103,7 +19118,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S459e';
+var DIESEL_BUILD = 'S459f';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
