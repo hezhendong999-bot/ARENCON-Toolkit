@@ -4358,7 +4358,7 @@ var DieselMarkup = (function(){
       // S459: strokes carrying an eraserMask render via a per-object offscreen so
       // destination-out carves ONLY this stroke's pixels (never the photo or the
       // strokes beneath) — the viewer's _drawObjectMasked pattern. Highlights carve
-      // inside their own offscreen in _drawHighlight instead.
+      // on their scratch inside _drawHighlightLayer instead (S459d no-stack model).
       if(s.eraserMask && s.eraserMask.length && s.tool!=='highlight'){
         this._drawStrokeMasked(ctx, s, sx||1, sy||1); return;
       }
@@ -4490,43 +4490,66 @@ var DieselMarkup = (function(){
       ctx.restore();
     },
 
-    // Highlight stroke: own offscreen layer composited once (no opacity stacking)
-    _drawHighlight:function(ctx, s, sx, sy){
-      sx=sx||1; sy=sy||1;
-      if(!s.pts||s.pts.length<2){ return; }
-      var off=document.createElement('canvas');
-      off.width=ctx.canvas.width; off.height=ctx.canvas.height;
-      var oc=off.getContext('2d');
-      if(s.rot){ var rc=this._strokeCenter(s); oc.translate(rc.x*sx,rc.y*sy); oc.rotate(s.rot); oc.translate(-rc.x*sx,-rc.y*sy); }   // S296
-      oc.lineCap='round'; oc.lineJoin='round';
-      oc.strokeStyle=s.color; oc.lineWidth=(s.size||6)*3*((sx+sy)/2); oc.globalAlpha=1;
-      oc.beginPath(); oc.moveTo(s.pts[0].x*sx,s.pts[0].y*sy);
-      for(var i=1;i<s.pts.length;i++) oc.lineTo(s.pts[i].x*sx,s.pts[i].y*sy);
-      oc.stroke();
-      // S459: carve this highlight's own eraserMask on its offscreen (cuts only this
-      // highlight's pixels) before the single alpha composite — viewer parity.
-      if(s.eraserMask && s.eraserMask.length){
-        oc.save();
-        oc.globalCompositeOperation='destination-out';
-        oc.lineCap='round'; oc.lineJoin='round'; oc.globalAlpha=1;
-        for(var hmi=0;hmi<s.eraserMask.length;hmi++){
-          var hm=s.eraserMask[hmi];
-          if(!hm.points||hm.points.length<2) continue;
-          oc.lineWidth=(hm.size||2)*((sx+sy)/2);
-          oc.beginPath(); oc.moveTo(hm.points[0].x*sx,hm.points[0].y*sy);
-          for(var hmj=1;hmj<hm.points.length;hmj++) oc.lineTo(hm.points[hmj].x*sx,hm.points[hmj].y*sy);
-          oc.stroke();
-        }
-        oc.restore();
-      }
-      ctx.save(); ctx.globalAlpha=(s.alpha==null?0.35:s.alpha); ctx.drawImage(off,0,0); ctx.restore();
+    // S459d — VIEWER-EXACT highlight layer model (no-stack, cross-stroke):
+    // per stroke: opaque spine + own mask carved on a SCRATCH canvas (isolated);
+    // accumulate scratches onto ONE shared layer at full alpha (opaque overlap
+    // stays flat — overlapping highlights never darken); composite the layer
+    // ONCE per alpha group at that alpha. Replaces the old per-stroke 0.35
+    // composite, which stacked across strokes (S459c field report).
+    _drawHighlightLayer:function(ctx, hls, sx, sy){
+      var self=this;
+      var layer=this._hlLayer||(this._hlLayer=document.createElement('canvas'));
+      var scr=this._hlScratch||(this._hlScratch=document.createElement('canvas'));
+      if(layer.width!==ctx.canvas.width||layer.height!==ctx.canvas.height){ layer.width=ctx.canvas.width; layer.height=ctx.canvas.height; }
+      if(scr.width!==ctx.canvas.width||scr.height!==ctx.canvas.height){ scr.width=ctx.canvas.width; scr.height=ctx.canvas.height; }
+      var lx=layer.getContext('2d'), sc=scr.getContext('2d');
+      // group by effective alpha (viewer opGroups)
+      var groups={};
+      hls.forEach(function(s){
+        var a=(s.alpha==null?0.35:s.alpha), k=Math.round(a*100);
+        if(!groups[k]) groups[k]={alpha:a, objs:[]};
+        groups[k].objs.push(s);
+      });
+      Object.keys(groups).forEach(function(gk){
+        var grp=groups[gk];
+        lx.setTransform(1,0,0,1,0,0); lx.clearRect(0,0,layer.width,layer.height);
+        grp.objs.forEach(function(s){
+          if(!s.pts||s.pts.length<2) return;
+          sc.setTransform(1,0,0,1,0,0); sc.clearRect(0,0,scr.width,scr.height);
+          sc.save();
+          if(s.rot){ var rc=self._strokeCenter(s); sc.translate(rc.x*sx,rc.y*sy); sc.rotate(s.rot); sc.translate(-rc.x*sx,-rc.y*sy); }   // S296
+          sc.lineCap='round'; sc.lineJoin='round';
+          sc.strokeStyle=s.color; sc.lineWidth=(s.size||6)*3*((sx+sy)/2); sc.globalAlpha=1;
+          sc.beginPath(); sc.moveTo(s.pts[0].x*sx,s.pts[0].y*sy);
+          for(var i=1;i<s.pts.length;i++) sc.lineTo(s.pts[i].x*sx,s.pts[i].y*sy);
+          sc.stroke();
+          if(s.eraserMask && s.eraserMask.length){   // carve this highlight's own mask on its scratch
+            sc.globalCompositeOperation='destination-out';
+            for(var mi=0;mi<s.eraserMask.length;mi++){
+              var m=s.eraserMask[mi];
+              if(!m.points||m.points.length<2) continue;
+              sc.lineWidth=(m.size||2)*((sx+sy)/2);
+              sc.beginPath(); sc.moveTo(m.points[0].x*sx,m.points[0].y*sy);
+              for(var mj=1;mj<m.points.length;mj++) sc.lineTo(m.points[mj].x*sx,m.points[mj].y*sy);
+              sc.stroke();
+            }
+          }
+          sc.restore();
+          lx.globalAlpha=1; lx.globalCompositeOperation='source-over';
+          lx.drawImage(scr,0,0);
+        });
+        ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+        ctx.globalAlpha=grp.alpha; ctx.globalCompositeOperation='source-over';
+        ctx.drawImage(layer,0,0); ctx.restore();
+      });
     },
 
     _renderTo:function(ctx, sx, sy){
       var self=this;
       var all = this.strokes.concat(this._curr?[this._curr]:[]);
-      // Pass 1: highlights (under)
-      all.forEach(function(s){ if(s.tool==='highlight') self._drawHighlight(ctx,s,sx,sy); });
+      // Pass 1: highlights (under) — shared-layer no-stack model (S459d)
+      var hls = all.filter(function(s){ return s.tool==='highlight'; });
+      if(hls.length) this._drawHighlightLayer(ctx, hls, sx||1, sy||1);
       // Pass 2: everything else on top
       all.forEach(function(s){ if(s.tool!=='highlight') self._drawStroke(ctx,s,sx,sy); });
     },
@@ -19075,7 +19098,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S459c';
+var DIESEL_BUILD = 'S459d';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
