@@ -2061,8 +2061,8 @@ function _captureExportPDF(w,D){
     }
   })();
 }
-var _usePagCssTag=false;
-try{_usePagCssTag=/[?&]pag=css(&|$)/.test(String(window.location.search||''));}catch(_te){}
+var _pagLegacyTag=false;
+try{_pagLegacyTag=/[?&]pag=legacy(&|$)/.test(String(window.location.search||''));}catch(_te){}
 // ── S457 unified export cluster ───────────────────────────────────────────────
 // The old full-width banner lived inside the zoomable document, so it scaled
 // with the drawings (unusable tiny/huge, and stretched to 11x17 width). Now a
@@ -2079,7 +2079,7 @@ try{
     try{w.close();}catch(_e2){}
   };
   var cl=D.createElement('div');cl.id='pdf-btn-cluster';
-  cl.style.cssText='position:fixed;z-index:99999;display:flex;align-items:center;gap:8px;transform-origin:top right;';
+  cl.style.cssText='position:fixed;z-index:99999;display:flex;align-items:center;gap:8px;transform-origin:bottom right;';
   var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
   pb.title='Click to save the report as a PDF (matches this preview exactly).';
   pb.style.cssText='padding:10px 18px;background:#2E9E72;color:#fff;border:none;border-radius:22px;font:700 14px Calibri,sans-serif;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);';
@@ -2087,8 +2087,8 @@ try{
   var cb=D.createElement('button');cb.innerHTML='\u2715';cb.title='Close preview';
   cb.style.cssText='width:42px;height:42px;background:#455A64;color:#fff;border:none;border-radius:50%;font:700 16px Calibri,sans-serif;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);';
   cb.onclick=_doClose;cl.appendChild(cb);
-  if(_usePagCssTag){
-    var tg=D.createElement('span');tg.textContent='engine v2';
+  {
+    var tg=D.createElement('span');tg.textContent=_pagLegacyTag?'engine v1 (legacy)':'engine v2';
     tg.style.cssText='font:600 10px Calibri,sans-serif;color:#455A64;background:rgba(255,255,255,.85);padding:2px 8px;border-radius:8px;';
     cl.appendChild(tg);
   }
@@ -2105,11 +2105,18 @@ try{
   };
   var _fit=function(){
     var s=1/_zoom();
-    var ox=0,oy=0,vw=w.innerWidth;
-    try{if(w.visualViewport){ox=w.visualViewport.offsetLeft;oy=w.visualViewport.offsetTop;vw=w.visualViewport.width;}}catch(_f1){}
+    // Anchor by RIGHT/BOTTOM with transform-origin bottom right: the scaled box
+    // shrinks toward its own anchored corner, so it can never overhang the
+    // viewport at any zoom (the top-right/left-anchored version could).
+    var rOff=14,bOff=14;
+    try{if(w.visualViewport){
+      rOff=(w.innerWidth-(w.visualViewport.offsetLeft+w.visualViewport.width))+14*s;
+      bOff=(w.innerHeight-(w.visualViewport.offsetTop+w.visualViewport.height))+14*s;
+    }else{rOff=14*s;bOff=14*s;}}catch(_f1){rOff=14*s;bOff=14*s;}
     cl.style.transform='scale('+s+')';
-    cl.style.top=(oy+10*s)+'px';
-    cl.style.left=(ox+vw-(cl.offsetWidth*s)-10*s)+'px';
+    cl.style.right=rOff+'px';
+    cl.style.bottom=bOff+'px';
+    cl.style.top='';cl.style.left='';
   };
   w.addEventListener('resize',_fit);
   try{w.visualViewport.addEventListener('resize',_fit);w.visualViewport.addEventListener('scroll',_fit);}catch(_f2){}
@@ -2552,15 +2559,16 @@ _stampKeepWithNext(contentBlocks);
 // orphan structurally). Flag OFF -> the legacy path below runs unchanged
 // (byte-identical output). Body-flow only; Previously-Closed + appendices +
 // capture are untouched (this feeds the SAME pages[] via _finalizePage).
-// FLAG SOURCE (S457 review fix): the print window `w` is about:blank — its
-// location NEVER carries the flag. Read the FRT app's own URL (pdf.js executes
-// in app context), so ?pag=css on the app URL is what activates the new pager.
-var _usePagCss=false;
-try{ _usePagCss=/[?&]pag=css(&|$)/.test(String(window.location.search||'')); }catch(_e){}
-if(_usePagCss){
-  _layoutBodyMeasured(contentBlocks);
-}else{
+// S457 DEFAULT FLIP (Mark): the position-sliced flow engine is now the DEFAULT
+// for everyone. The legacy walker remains reachable via ?pag=legacy on the app
+// URL as a temporary escape hatch, scheduled for deletion after the burn-in.
+// (?pag=css is still accepted as a no-op alias of the default.)
+var _useLegacyPager=false;
+try{ _useLegacyPager=/[?&]pag=legacy(&|$)/.test(String(window.location.search||'')); }catch(_e){}
+if(_useLegacyPager){
   contentBlocks.forEach(_flowBlock);
+}else{
+  _layoutBodyMeasured(contentBlocks);
 }
 // S341 (Mark): the closing "further deficiencies may be noted" note was here at
 // the end of the body, where it kept orphaning onto its own blank page before
@@ -2633,7 +2641,7 @@ if(recBlocks.length){
   _aTradeHtml='';_aCtrHtml='';
   _startPage();
   _stampKeepWithNext(recBlocks); // S284: rec bands get the same keep-with-next
-  recBlocks.forEach(_flowBlock);
+  if(_useLegacyPager){recBlocks.forEach(_flowBlock);}else{_layoutBodyMeasured(recBlocks);}
   _finalizePage();
 }
 
