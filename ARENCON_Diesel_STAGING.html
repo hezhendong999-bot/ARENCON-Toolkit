@@ -5352,6 +5352,13 @@ var DslLightbox = (function(){
     var cv=_el('dlb-canvas');
     if(cv){ cv.style.pointerEvents='none'; cv.style.display='none'; }
     var _mb2=_el('dlb-markupbar'); _mb2.style.display='none'; void _mb2.offsetHeight;   // S304: reflow, then re-fit to the regrown area
+    // Hide the orphaned ✓/✗ selection confirm bar (it lives outside the markup bar,
+    // so hiding the markup bar alone left it stranded on close). Clear any pending
+    // tap-selection too so a re-open starts with no ghost selection.
+    try{
+      var _cb=_el('dlb-mk-confirm'); if(_cb) _cb.style.display='none';
+      if(window.DieselMarkup && DieselMarkup.cancelSelect) DieselMarkup.cancelSelect();
+    }catch(_e){}
     _el('dlb-area').style.cursor='grab';
     _markupActive=false;
     _calcFit(); _scale=_fitScale; _panX=0; _panY=0;
