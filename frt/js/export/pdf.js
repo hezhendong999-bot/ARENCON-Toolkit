@@ -2073,9 +2073,47 @@ try{
   ht.style.cssText='color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';bar.appendChild(ht);
   var cb=D.createElement('button');cb.innerHTML='\u2715 Close';
   cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
-  cb.onclick=function(){w.close();};bar.appendChild(cb);
+  // S457: Close now empties the heavy preview DOM before closing — the preview
+  // holds hundreds of images; releasing them at close removes the memory spike
+  // that was crash-killing the tab on mobile ("Can't open this page").
+  var _doClose=function(){
+    try{var pc=D.getElementById('pages-container');if(pc)pc.innerHTML='';
+        var mz=D.getElementById('measure-zone');if(mz)mz.innerHTML='';}catch(_e){}
+    try{w.close();}catch(_e2){}
+  };
+  cb.onclick=_doClose;bar.appendChild(cb);
   barFix.appendChild(bar);
   D.body.insertBefore(barFix,D.body.firstChild);D.body.style.paddingTop='56px';
+  // ── S457 mobile export cluster ────────────────────────────────────────────
+  // On coarse pointers the full-width banner is replaced by a compact floating
+  // cluster pinned to the top-right of the VISIBLE screen via visualViewport,
+  // counter-scaled so it stays the same on-screen size at any pinch zoom.
+  // (S338 stands for desktop: page-zoom is unreadable there, banner unchanged.)
+  try{
+    var _coarse=false;
+    try{_coarse=w.matchMedia&&w.matchMedia('(pointer:coarse)').matches;}catch(_m){}
+    if(_coarse&&w.visualViewport){
+      barFix.style.display='none';D.body.style.paddingTop='0';
+      var cl=D.createElement('div');cl.id='pdf-btn-cluster';
+      cl.style.cssText='position:fixed;z-index:99999;display:flex;gap:8px;transform-origin:top right;';
+      var pb2=D.createElement('button');pb2.innerHTML='\uD83D\uDCC4 Export PDF';
+      pb2.style.cssText='padding:10px 18px;background:#2E9E72;color:#fff;border:none;border-radius:22px;font:700 14px Calibri,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+      pb2.onclick=function(){_captureExportPDF(w,D);};cl.appendChild(pb2);
+      var cb2=D.createElement('button');cb2.innerHTML='\u2715';
+      cb2.style.cssText='width:42px;height:42px;background:#455A64;color:#fff;border:none;border-radius:50%;font:700 16px Calibri,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+      cb2.onclick=_doClose;cl.appendChild(cb2);
+      D.body.appendChild(cl);
+      var _fit=function(){
+        var vv=w.visualViewport;var s=1/(vv.scale||1);
+        cl.style.transform='scale('+s+')';
+        cl.style.top=(vv.offsetTop+8*s)+'px';
+        cl.style.left=(vv.offsetLeft+vv.width-(cl.offsetWidth*s)-8*s)+'px';
+      };
+      w.visualViewport.addEventListener('resize',_fit);
+      w.visualViewport.addEventListener('scroll',_fit);
+      _fit();setTimeout(_fit,300);
+    }
+  }catch(_vc){}
   // S338 (#32): the page-zoom counter-scale is REMOVED. It tried to invert the
   // bar against zoom via devicePixelRatio, but Chrome's page-zoom control does
   // NOT move visualViewport.scale / devicePixelRatio in a way JS can read, so the
@@ -2269,6 +2307,16 @@ function _layoutBodyMeasured(blocks){
   // segment (string-assembled segments are outside the continuous flow).
   var anchor=-1,pageBase=0,pageHasBody=false,groupOpen=false;
   function newPage(){_finalizePage();_startPage();_restamp();anchor=-1;pageHasBody=false;}
+  // Break BEFORE a band group: the incoming band IS the page's header, so the
+  // outgoing context must not be re-stamped (that produced stale "(cont.)"
+  // bands with nothing under them). A new tradeHeader replaces the whole
+  // context (stamp nothing); a new ctr/rec sub-band keeps its parent trade
+  // (stamp the trade "(cont.)" only).
+  function newPageForBand(t){
+    _finalizePage();_startPage();
+    anchor=-1;pageHasBody=false;
+    if(t!=='tradeHeader'&&_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=realH(_aTradeHtml);}
+  }
   function placeBlock(k){
     if(anchor===-1){anchor=k;pageBase=curUsed;}
     curPageHtml+=blocks[k].html;
@@ -2284,7 +2332,7 @@ function _layoutBodyMeasured(blocks){
       // splits IN PLACE beneath its bands. A break can therefore never occur
       // between a band and its first item — the orphan is structurally impossible.
       var end=keepEnd(idx);var gExt=extent(idx,end-1);
-      if(gExt>avail&&pageHasBody)newPage();
+      if(gExt>avail&&pageHasBody)newPageForBand(blocks[idx].type);
       while(idx<end&&isBand(blocks[idx].type)){placeBlock(idx);note(blocks[idx]);idx++;}
       groupOpen=(idx<end); // the group's card follows immediately
       continue;
@@ -2292,9 +2340,20 @@ function _layoutBodyMeasured(blocks){
     // defCard / leaf
     var ext=extent(idx,idx);
     if(ext<=PAGE_H-curUsed){placeBlock(idx);groupOpen=false;idx++;continue;}
-    if(!groupOpen&&pageHasBody)newPage();
+    // Flow policy (Mark, S457): a splittable card whose head + first row fit
+    // the remaining space starts HERE and continues via "(cont.)" — never a
+    // page-sized void just to keep a card whole. Only unsplittable cards (or
+    // heads too tall for the gap) move whole.
     var parts=_splitCardParts(blocks[idx].html);
-    if(ext<=PAGE_H-curUsed||!parts||!G[idx].rows||!G[idx].rows.length){
+    var canFlow=!!(parts&&G[idx].rows&&G[idx].rows.length);
+    var flowHere=false;
+    if(canFlow&&pageHasBody){
+      var rpF=G[idx].rows;
+      var hF=(rpF[0].t-G[idx].t)+G[idx].mT;
+      flowHere=(hF+(rpF[0].b-rpF[0].t))<=(PAGE_H-curUsed);
+    }
+    if(!groupOpen&&pageHasBody&&!flowHere)newPage();
+    if(ext<=PAGE_H-curUsed||!canFlow){
       // fits the (possibly fresh) page whole, or is not row-splittable.
       placeBlock(idx);groupOpen=false;idx++;continue;
     }
