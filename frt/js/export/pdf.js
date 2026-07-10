@@ -2328,6 +2328,29 @@ function _layoutBodyMeasured(blocks){
     }
     groupOpen=false;idx++;
   }
+  // ── EXPORT SELF-CHECK (S457, permanent guardrail) ─────────────────────────
+  // Every page this engine produced must have perfectly balanced <div>
+  // structure with never-negative running depth — the property whose violation
+  // let content escape the page frame. Verified on EVERY export so structural
+  // corruption can never ship silently; staff see a clear banner instead of
+  // unknowingly issuing a broken report.
+  try{
+    var _bad=[];
+    var _chk=function(html,label){
+      var d2=0,mn=0;var re2=/<div\b|<\/div>/g;var m2;
+      while((m2=re2.exec(html))){d2+=(m2[0]==='<div')?1:-1;if(d2<mn)mn=d2;}
+      if(d2!==0||mn<0)_bad.push(label+' (net '+d2+', min '+mn+')');
+    };
+    for(var pv=0;pv<pages.length;pv++)_chk(pages[pv].html||pages[pv],'page '+(pv+1));
+    if(curPageHtml)_chk(curPageHtml,'open page');
+    if(_bad.length){
+      console.error('[FRT export self-check] STRUCTURE FAULT:',_bad.join('; '));
+      var _bn=D.createElement('div');
+      _bn.style.cssText='position:fixed;top:48px;left:0;right:0;z-index:99999;background:#C0445F;color:#fff;font:700 11pt Calibri,sans-serif;padding:10px 16px;text-align:center;';
+      _bn.textContent='EXPORT CHECK FAILED \u2014 page structure fault detected ('+_bad.length+'). Do not issue this report. Note the project and tell Mark.';
+      D.body.appendChild(_bn);
+    }
+  }catch(_ve){}
 }
 // S142 Batch 3-2: extracted from `contentBlocks.forEach(...)` into a
 // named function so the SAME pagination machinery (page-fit, restamp,
