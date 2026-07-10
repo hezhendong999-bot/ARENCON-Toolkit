@@ -349,7 +349,9 @@
       // S455-parity: radius is screen-constant (uiScale) so hi-res photos erase
       // with the same on-screen brush as compressed ones.
       var _u = this._uiScale ? this._uiScale() : 1;
-      var r = ((this.size||3) + 10) * _u;
+      // Drawing-viewer parity: eraser brush = lineWidth*1.5 (narrow path-breaker),
+      // NOT size+10 (that wiped big chunks). Screen-constant via uiScale.
+      var r = Math.max(3, (this.size||3) * 1.5) * _u;
       var r2 = r*r;
       function distToSeg(px,py, ax,ay, bx,by){
         var dx=bx-ax, dy=by-ay;
@@ -541,7 +543,7 @@
     // CHOSEN bg colour (default 'none' = clean). Sticky colours persist via
     // self._lastTextColor / self._lastTextBg. editId re-opens an existing text stroke.
     // Returns a controller object so the lightbox bar can drive it.
-    _SIZE_STEPS: [12,14,16,20,24,28,32,40,48],
+    _SIZE_STEPS: [12,14,16,20,24,28,32,40,48,56,64,72],
     _PALETTE: ['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'],
     _textPrompt: function(p, _createEv, editId){
       var self = this;
@@ -549,7 +551,10 @@
 
       var editStroke = editId ? self._findStroke(editId) : null;
       var startText  = editStroke ? (editStroke.text||'') : '';
-      var startSizePx= (editStroke ? (editStroke.size||3) : (self.size||3)) * 4;
+      // S458: chip sizes are nominal SCREEN px. Stored stroke size is in natural
+      // units (pre-scaled by uiScale at commit), so editing divides back out.
+      var uT = self._uiScale ? self._uiScale() : 1;
+      var startSizePx= editStroke ? Math.round((editStroke.size||3)*4/uT) : (self.size||3)*4;
       var startColor = editStroke ? (editStroke.color||self._lastTextColor||self.color) : (self._lastTextColor||self.color);
       var startBg    = editStroke ? (editStroke.bg||'none') : (self._lastTextBg||'none');
       if (editStroke){ editStroke._editing = true; self._render(); }
@@ -570,7 +575,7 @@
       self._textInput = box;
       if (startText){ box.textContent = startText; }
 
-      function screenFont(){ return sizePx * scaleY; }
+      function screenFont(){ return sizePx * scaleY * uT; }   // ≈ nominal screen px
       function positionBox(){
         // place box so its first text line baseline ~ anchor point
         var sf = screenFont();
@@ -605,11 +610,11 @@
         var r2 = self.canvas.getBoundingClientRect();
         var br = box.getBoundingClientRect();
         var sx2 = r2.width/self.w, sy2 = r2.height/self.h;
-        var ascent = sizePx * sy2;
+        var ascent = sizePx * sy2 * uT;
         var lx = (br.left + 4 - r2.left) / sx2;
         var ly = (br.top  + 0 - r2.top + ascent) / sy2;
         var v = (box.innerText || box.textContent || '').replace(/[ \t]+$/,'').replace(/\n+$/,'');
-        var newSize = sizePx/4;
+        var newSize = (sizePx/4) * uT;   // S458: store natural-unit size (screen-constant render)
         // persist sticky colours
         self._lastTextColor = curColor; self._lastTextBg = curBg;
         if (editStroke){
@@ -619,7 +624,7 @@
           self.redoStack=[]; if(self._onDirty) self._onDirty(); self._render(); cleanup(); return;
         }
         if (v.trim()){
-          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, bg:curBg, size:newSize*(self._uiScale?self._uiScale():1), opacity:self.opacity });
+          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, bg:curBg, size:newSize, opacity:self.opacity });
           self.redoStack=[]; if(self._onDirty) self._onDirty();
         }
         self._render(); cleanup();
