@@ -15,8 +15,15 @@
 <script src="../shared/auth-gate.js"></script>
 <link rel="stylesheet" href="css/frt.css?v=667">
 <script>
-// Service Worker registration — network-first HTML, cache-first CDN assets
+// Service Worker registration — DISABLED ON STAGING so the SW cannot serve
+// cached live assets over the staging files (that was breaking markup). Staging
+// also actively unregisters any existing SW + clears caches so a prior live SW
+// doesn't keep controlling this scope.
 if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ r.unregister(); }); });
+  if(window.caches && caches.keys){ caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); }); }
+}
+if(false && 'serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('../sw.js').then(function(reg){
       setInterval(function(){
@@ -1003,8 +1010,8 @@ function ensurePdfJs(cb){
 </div>
 
 <!-- ═══ MODULE ENTRY POINT ═══ -->
-<script src="../lib/ui/markupTools.js?v=1"></script>
-<script src="js/viewer/markupEngine.staging.js?v=1"></script>
+<script src="../lib/ui/markupTools.js?v=2"></script>
+<script src="js/viewer/markupEngine.staging.js?v=2"></script>
 <script src="js/viewer/webglMarkup.js?v=8"></script>
 <script src="js/ui/pinsGL.js?v=13"></script>
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
