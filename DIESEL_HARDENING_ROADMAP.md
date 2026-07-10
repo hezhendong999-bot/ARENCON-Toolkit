@@ -180,3 +180,47 @@ Diesel's structure, not copy-pasted. Read-only first; no auto-fix on a data path
 
 Each item: build on a `/home/claude/` copy → `node --check` clean → Mark field-verifies on a
 throwaway 7155-style project → then push. Never two data-path items in one push.
+
+
+---
+
+## CROSS-TOOL — Shared markup/lightbox engine extraction (HIGH VALUE, deliberate arc)
+
+**Why this is here:** As of July 2026, the photo lightbox + markup engine is **NOT shared**.
+Diesel carries its own inline `DieselMarkup`/`DslLightbox` (in the single-file). FRT carries a
+completely separate `frt/js/viewer/markup.js` + `markupEngine.js` + `webglMarkup.js` +
+`lightbox.js`. `lib/ui/photoEngine.js` (~17KB) is an early partial extraction but NOT the full
+shared markup engine.
+
+**Consequence today:** Every markup/lightbox bug must be fixed TWICE — once in Diesel, once in
+FRT. The phantom-delete block and the confirm-bar cleanup done in this arc are **Diesel-only**;
+FRT is unaffected and would need separate fixes.
+
+**The goal Mark wants:** fix once, all tools reflect. That requires a canonical
+`lib/ui/markupEngine.js` (+ `lib/ui/lightbox.js`) that both Diesel and FRT import, replacing
+their inline/separate copies. Same pattern as the S455 shared header-engine extraction.
+
+**Why NOT now (sequencing):**
+- The urgent field problem (phantom photo loss) is Diesel-ONLY — staff aren't losing FRT
+  photos — so the fire genuinely only needs Diesel. No duplication cost on the urgent fix.
+- Extracting the markup engine touches TWO sets of LOCKED markup code. A bad extraction breaks
+  markup in BOTH tools at once — worse than a bug in one. This deserves its own demo-first arc,
+  not a rush job bolted onto the phantom-delete fix.
+
+**How to do it (when scheduled):**
+1. Inventory both engines' public surfaces (Diesel `DieselMarkup.*`, FRT `markup.js` exports);
+   find the common core vs. tool-specific bits (FRT's WebGL path, tiled-PDF viewer are FRT-only).
+2. Build `lib/ui/markupEngine.js` as the canonical stroke/selection/persist core. Keep the
+   never-bake + clean-original-in-Site-Records model (locked semantics).
+3. Wire ONE tool first (Diesel, since it's simpler + already single-file), demo-first, field-verify.
+4. Wire FRT second, reconciling its WebGL/tile extras as adapters over the shared core.
+5. From then on: markup fixes land in `lib/ui/markupEngine.js` once → both tools inherit.
+
+**Priority:** After the Diesel photo-safety P0/P1 items are stable and live. This is the
+structural fix that ends the fix-it-twice tax — high value, but only done deliberately.
+
+**Note on Bug 1 (delete-selected markup needs Save; add does not):** deferred to its own
+markup-semantics session (demo-first). Recommendation was consistency = "Save commits, X cancels"
+for both add and delete — but that changes established behavior and touches locked persistence,
+so it waits. Not a data-loss bug (nothing vanishes; user just hits Save). Best folded INTO the
+shared-engine extraction so the fix lands once for both tools.
