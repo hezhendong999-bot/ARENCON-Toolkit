@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#E6E3E9">
+<link rel="manifest" href="../manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
+<link rel="apple-touch-icon" href="../arencon-icon-192.png">
+<title>ARENCON — Field Review Tool</title>
+<!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
+<script src="../shared/auth-gate.js"></script>
+<link rel="stylesheet" href="css/frt.css?v=667">
+<script>
+// Service Worker registration — network-first HTML, cache-first CDN assets
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('../sw.js').then(function(reg){
+      setInterval(function(){
+        // reg.update() throws InvalidStateError if the SW is mid-install/activate
+        // (e.g. a new CACHE_NAME still settling). Guard + swallow so a transient
+        // state never surfaces as an uncaught promise rejection. Benign — the next
+        // 30-min tick retries once the worker has settled.
+        try{ var p=reg.update(); if(p&&p.catch){ p.catch(function(){}); } }
+        catch(e){ /* SW not in a state to update yet; ignore */ }
+      },30*60*1000);
+    }).catch(function(err){console.warn('[SW] Registration failed:',err);});
+  });
+}
+</script>
+<script>
+// Lazy pdf.js loader — only loads when a PDF is actually uploaded
+var _pdfjsLoaded=false;
+function ensurePdfJs(cb){
+  if(_pdfjsLoaded&&typeof pdfjsLib!=='undefined'){cb();return;}
+  var s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.crossOrigin='anonymous';
+  s.onload=function(){
+    if(typeof pdfjsLib!=='undefined'){
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      _pdfjsLoaded=true;
+      cb();
+    }else{console.warn('pdf.js failed to load');cb();}
+  };
+  s.onerror=function(){console.warn('pdf.js CDN load failed — PDF upload will not work offline');cb();};
+  document.head.appendChild(s);
+}
+</script>
+<!-- S95 crash instrumentation removed in S96 Fix #4. The architectural fixes
+     (viewport-sized markup canvas, offline tile cache, tile working-set shrink)
+     resolved the iPad crash root cause; runtime instrumentation no longer
+     needed. To re-enable for future debugging, restore the `dbg=1` loader
+     block + the /frt/debug/ folder from git history. -->
+</head>
+<body>
+
+
+<!-- ═══ OFFLINE BAR ═══ -->
+<div class="offline-bar" id="offline-bar">📡 You are offline — data is saved locally</div>
+
+<!-- ═══ APP HEADER ═══ -->
+<div class="app-header">
+  <div class="header-top">
+    <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;overflow:visible;position:relative;z-index:11;">
+      <button class="back-btn" id="back-btn" style="display:none;flex-shrink:0;">← Back</button>
+      <a href="../index.html" class="logo-area" id="logo-link" title="Back to Toolkit" style="flex-shrink:0;">
+        <img id="logo-img" src="" alt="ARENCON Inc." class="header-logo">
+      </a>
+      <span class="app-title" id="header-app-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Field Review Tool</span>
+      <span id="header-filename" style="display:none;"></span>
+    </div>
+    <div class="header-actions">
+      <!-- S117-A: Presence chip — appears only when other users are also in this project -->
+      <span id="presence-chip" class="presence-chip" style="display:none;align-items:center;gap:5px;font-size:calc(11px + var(--ts));padding:4px 10px;border-radius:6px;cursor:pointer;flex-shrink:0;color:rgba(255,255,255,.9);background:rgba(122,91,160,.22);border:1px solid rgba(122,91,160,.45);" title="Others in this project">
+        <span style="font-size:calc(12px + var(--ts));">👥</span>
+        <span id="presence-chip-text">0 others here</span>
+      </span>
+      <!-- S114 P6: moved here from the left group so the title can no longer shift
+           when status text changes width. Status reads as quiet right-side state. -->
+      <span id="cloud-status" style="display:none;align-items:center;gap:5px;font-size:calc(11px + var(--ts));color:rgba(255,255,255,.7);flex-shrink:0;cursor:pointer;touch-action:manipulation;" onclick="if(window._showCloudDiagnostic)window._showCloudDiagnostic()" title="Tap for cloud diagnostic">
+        <span id="cloud-dot" style="width:9px;height:9px;border-radius:50%;background:#34D399;display:inline-block;flex-shrink:0;transition:background .4s;"></span>
+        <span id="cloud-status-text">Saved to cloud</span>
+        <span id="last-sync-text" style="display:none;font-size:calc(10px + var(--ts));margin-left:6px;opacity:.85;"></span>
+      </span>
+      <span id="r2-upload-badge" style="display:none;font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;"></span>
+      <span class="header-save-ts" id="header-save-ts"></span>
+      <div class="sync-indicator" id="sync-indicator"><span class="sync-dot no-folder"></span><span id="sync-label">No folder</span></div>
+      <!-- S114 P6: undo/redo relocated to sit just left of the IDB indicator per Mark -->
+      <span class="header-nav-arrows" id="header-nav-arrows" style="flex-shrink:0;">
+        <button class="hdr-sm" id="btn-undo" title="Undo (Ctrl+Z)" style="opacity:0.4;">↩</button>
+        <button class="hdr-sm" id="btn-redo" title="Redo (Ctrl+Y)" style="opacity:0.4;">↪</button>
+      </span>
+      <div id="storage-display" class="storage-bar" title="Browser storage usage" style="cursor:help;">
+        <div class="storage-bar-track"><div class="storage-bar-fill" style="width:0%"></div></div>
+        <span class="storage-label" style="font-size:9px;color:rgba(255,255,255,.45);white-space:nowrap;">IDB</span>
+      </div>
+      <div class="inspector-chip" id="inspector-chip" title="Change inspector"><span class="ic-icon">👤</span><span class="ic-name" id="inspector-chip-name">Set Name</span></div>
+      <!-- Dashboard buttons -->
+      <button class="hdr-btn hdr-load" id="btn-load" title="Load JSON">📂 Load</button>
+      <button class="hdr-btn hdr-export-all" id="btn-export-all" title="Export All Projects">📦 Export All</button>
+      <!-- Project buttons (hidden on dashboard, shown in project) -->
+      <div style="position:relative;display:inline-block;" id="btn-ai-wrap" style="display:none;">
+        <button class="hdr-btn hdr-ai" id="btn-ai-review" style="display:none;background:#7B2D8E;" title="AI Review">✨ AI Review ▾</button>
+        <div class="ai-mode-menu" id="ai-mode-menu">
+          <button id="ai-mode-rewrite">✨ Full Rewrite <span>Professional report language (Sonnet)</span></button>
+          <div style="height:1px;background:#eee;margin:2px 0;"></div>
+          <button id="btn-ai-usage">📊 Usage &amp; Costs <span>View AI token usage &amp; costs</span></button>
+        </div>
+      </div>
+      <div style="position:relative;display:inline-block;" id="btn-reports-wrap">
+        <button class="hdr-btn" id="btn-reports-parent" style="display:none;background:#1A237E;" title="Reports">📄 Reports ▾</button>
+        <div class="ai-mode-menu" id="reports-mode-menu">
+          <button id="btn-issue" style="background:transparent;color:inherit;">📋 Issue <span>Bump revision (A01 → A02)</span></button>
+          <button id="btn-pdf" style="background:transparent;color:inherit;">📄 Export PDF <span>Generate Field Review Report</span></button>
+        </div>
+      </div>
+      <!-- ⚙️ More dropdown -->
+      <div class="hdr-repair-wrap" id="btn-more-wrap" style="display:none;position:relative;">
+        <button class="hdr-btn" style="background:#455A64;" title="More options">⚙️ More ▾</button>
+        <div class="hdr-repair-menu" id="more-menu">
+          <button id="btn-export">💾 Download JSON <span>Save project data to file</span></button>
+          <button id="btn-load-more">📂 Load Project <span>Open a JSON project file</span></button>
+          <div style="height:1px;background:#eee;margin:2px 0;"></div>
+          <div id="more-repair-section" style="display:none;">
+            <button type="button" id="btn-repair-toggle" class="more-repair-toggle">🔧 Repair <span class="more-repair-caret">▸</span></button>
+            <div id="more-repair-items" class="more-repair-collapsed">
+            <button>☁️ Re-upload All <span>Push all drawings &amp; photos to R2</span></button>
+            <button>📄 Fix Blurry <span>Re-upload PDFs at full resolution</span></button>
+            <button class="admin-only">🖼️ Repair Photos <span>Remove duplicate pool photos &amp; re-home orphans</span></button>
+            <button class="admin-only">🧹 R2 Cleanup <span>Delete orphaned cloud files</span></button>
+            <button class="admin-only">🔗 Repair R2 Links <span>Fix photo/drawing filename mismatches</span></button>
+            </div>
+            <div style="height:1px;background:#eee;margin:2px 0;"></div>
+          </div>
+          <!-- S161 P3: surface the existing _showCloudDiagnostic modal via a dedicated
+               button so field inspectors can review system state (cloud auth, sync
+               instance, photo subsystem health, memory) without needing dev console access. -->
+          <button id="btn-diagnostics" style="display:none;">🩺 Diagnostics <span>Check cloud, sync, photo subsystem state</span></button>
+          <button id="btn-qr-more">📱 QR Code <span>Scan to open this tool on another device</span></button>
+          <div style="height:1px;background:#eee;margin:2px 0;"></div>
+          <button id="btn-reset-current-tab">🗑️ Reset Current Tab <span>Clear this tab's data</span></button>
+          <button style="color:#C62828;">⚠️ Reset Entire Project <span>Delete all project data</span></button>
+        </div>
+      </div>
+      <button id="dark-toggle" title="Toggle Dark Mode"><img src="data:image/png;base64,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" width="22" height="22" alt="Light mode" style="vertical-align:middle;display:inline-block;"></button>
+      <button class="hdr-btn text-size-toggle" id="btn-text-size" title="Text size: Small / Medium / Large">M</button>
+      <!-- S250 §7: perf-overlay button hidden from the header (callable via
+           console: window._frtTogglePerfOverlay()). display:none removes its
+           flex slot so following buttons flow left — no reserved gap. -->
+      <button class="hdr-btn" id="btn-perf-toggle" title="Toggle performance overlay" style="display:none;" onclick="if(window._frtTogglePerfOverlay)window._frtTogglePerfOverlay();">📊</button>
+      <button class="hdr-btn" id="btn-signout" style="display:none;background:#0F766E;" title="Sign Out">🔓 Sign Out</button>
+      <button id="mobile-menu-btn">☰</button>
+    </div>
+  </div>
+<script>
+(function(){
+  // S77: Unified header dropdown manager — mutual exclusion across AI Review / Reports / More
+  var TRIGGERS=['btn-ai-review','btn-reports-parent'];
+  var MENUS=['ai-mode-menu','reports-mode-menu','more-menu'];
+  function closeAllExcept(keepId){
+    MENUS.forEach(function(id){
+      if(id===keepId)return;
+      var m=document.getElementById(id);
+      if(m){m.classList.remove('open');m.classList.remove('show');}
+    });
+  }
+  // Capture-phase: close others BEFORE the menu's own toggle handler runs
+  document.addEventListener('click',function(e){
+    var t=e.target;
+    // AI Review trigger
+    var aiBtn=document.getElementById('btn-ai-review');
+    if(aiBtn&&(t===aiBtn||aiBtn.contains(t))){closeAllExcept('ai-mode-menu');return;}
+    // Reports trigger
+    var rBtn=document.getElementById('btn-reports-parent');
+    if(rBtn&&(t===rBtn||rBtn.contains(t))){closeAllExcept('reports-mode-menu');return;}
+    // More trigger (button inside #btn-more-wrap)
+    var mWrap=document.getElementById('btn-more-wrap');
+    if(mWrap&&mWrap.contains(t)){
+      var mMenu=document.getElementById('more-menu');
+      if(mMenu&&!mMenu.contains(t)){closeAllExcept('more-menu');return;}
+    }
+    // Click outside any menu — close all
+    var insideAny=MENUS.some(function(id){var m=document.getElementById(id);return m&&m.contains(t);});
+    if(!insideAny)closeAllExcept(null);
+  },true);
+  // Reports toggle (preserved from prior session — its show class)
+  document.addEventListener('click',function(e){
+    var menu=document.getElementById('reports-mode-menu');
+    var parent=document.getElementById('btn-reports-parent');
+    if(!menu||!parent)return;
+    if(e.target===parent||parent.contains(e.target)){
+      e.stopPropagation();
+      menu.classList.toggle('show');
+      menu.classList.toggle('open');
+    }else if(!menu.contains(e.target)){
+      menu.classList.remove('show');menu.classList.remove('open');
+    }
+  });
+  var pdf=document.getElementById('btn-pdf');
+  var parent=document.getElementById('btn-reports-parent');
+  if(pdf&&parent){
+    var sync=function(){
+      var shown=pdf.style.display!=='none'&&pdf.style.display!=='';
+      if(pdf.style.display==='')shown=true;
+      parent.style.display=shown?'inline-flex':'none';
+    };
+    new MutationObserver(sync).observe(pdf,{attributes:true,attributeFilter:['style']});
+    setTimeout(sync,300);
+    setTimeout(sync,1500);
+  }
+  // S77: mirror desktop button visibility to mobile group headers (poll computed display)
+  function mmSync(){
+    var pdf=document.getElementById('btn-pdf');
+    var mPdf=document.getElementById('mobile-pdf-btn');
+    var mIssue=document.getElementById('mobile-issue-btn');
+    var mRH=document.getElementById('mm-reports-header');
+    var ai=document.getElementById('btn-ai-review');
+    var mAH=document.getElementById('mm-ai-header');
+    var mAR=document.getElementById('mobile-ai-rewrite');
+    var mAU=document.getElementById('mobile-ai-usage');
+    var pdfShown=pdf&&getComputedStyle(pdf).display!=='none';
+    var aiShown=ai&&getComputedStyle(ai).display!=='none';
+    if(mPdf)mPdf.style.display=pdfShown?'flex':'none';
+    if(mIssue)mIssue.style.display=pdfShown?'flex':'none';
+    if(mRH)mRH.style.display=pdfShown?'flex':'none';
+    if(mAH)mAH.style.display=aiShown?'flex':'none';
+    if(mAR)mAR.style.display=aiShown?'flex':'none';
+    if(mAU)mAU.style.display=aiShown?'flex':'none';
+  }
+  setInterval(mmSync,800);
+  setTimeout(mmSync,300);
+  setTimeout(mmSync,1200);
+  // Group header toggle (AI / Reports / More) — capture phase to beat .mobile-menu stopPropagation
+  document.addEventListener('click',function(e){
+    var hdr=e.target.closest&&e.target.closest('.mm-group-header');
+    if(!hdr)return;
+    e.stopPropagation();
+    var grp=hdr.getAttribute('data-mm-group');
+    var body=document.getElementById('mm-'+grp+'-body');
+    var caret=hdr.querySelector('.mm-caret');
+    if(!body)return;
+    var open=body.style.display==='block';
+    body.style.display=open?'none':'block';
+    if(caret)caret.textContent=open?'▸':'▾';
+  },true);
+  // S77: Repair submenu toggle inside More menu — capture phase to beat More's click-to-close
+  document.addEventListener('click',function(e){
+    var t=e.target.closest&&e.target.closest('#btn-repair-toggle');
+    if(!t)return;
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    var items=document.getElementById('more-repair-items');
+    var caret=t.querySelector('.more-repair-caret');
+    if(!items)return;
+    var open=items.classList.toggle('more-repair-open');
+    items.classList.toggle('more-repair-collapsed',!open);
+    if(caret)caret.textContent=open?'▾':'▸';
+  },true);
+  // S77: view-pill active state manager (Table/Board) — overrides inline style writes via CSS !important
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest&&e.target.closest('.view-pill-btn');
+    if(!btn)return;
+    var pill=btn.closest('.view-pill');
+    if(!pill)return;
+    pill.querySelectorAll('.view-pill-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+  },true);
+})();
+</script>
+
+  <!-- ═══ PROJECT BAR ═══ -->
+  <div class="project-bar" id="project-bar">
+    <span class="pb-badge" id="pb-badge" title="Click to change status">DRAFT</span>
+    <span class="pb-inst" id="pb-inst" title="Current FRT instance number" style="font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#2C4A6B;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;display:none;">FRT #1</span>
+    <span class="pb-filename" id="pb-filename" title="Click to rename project"></span>
+    <span class="pb-cloud" id="pb-cloud" style="display:none!important;cursor:pointer;touch-action:manipulation;" onclick="if(window._showCloudDiagnostic)window._showCloudDiagnostic()">
+      <span id="pb-cloud-dot" style="width:8px;height:8px;border-radius:50%;background:#34D399;display:inline-block;transition:background .4s;"></span>
+      <span id="pb-cloud-text">Saved to cloud</span>
+    </span>
+  </div>
+
+  <!-- ═══ LOCKED BANNER ═══ -->
+  <div id="locked-banner">
+    <div class="lb-left">
+      <span>🔒</span>
+      <span>This project is published and locked.</span>
+      <span class="lb-rev" id="locked-banner-rev"></span>
+    </div>
+    <button class="btn-unlock">🔓 Admin Unlock</button>
+  </div>
+
+  <!-- ═══ READONLY BANNER ═══ -->
+  <div id="readonly-banner" style="display:none;padding:10px 18px;background:#FFF3CD;border:1.5px solid #FFD54F;color:#7A5D00;font-size:calc(13px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;align-items:center;gap:10px;margin:0;">
+    <span>🔒</span>
+    <span id="readonly-banner-text">This file is open in read-only mode.</span>
+  </div>
+
+  <!-- ═══ REVIEW BANNER ═══ -->
+  <div id="review-banner" style="display:none;">
+    <span>📝 Review Mode</span>
+  </div>
+
+  <!-- ═══ TAB NAVIGATION ═══ -->
+  <div class="section-nav" id="section-nav" style="display:none;">
+    <div class="nav-tab active" data-tab="info">Project Info</div>
+    <div class="nav-tab" data-tab="drawings">Drawings</div>
+    <div class="nav-tab" data-tab="deficiencies">Deficiencies</div>
+    <div class="nav-tab" data-tab="photos">Photos</div>
+  </div>
+</div>
+
+<!-- ═══ MOBILE MENU OVERLAY ═══ -->
+<div class="mobile-menu-overlay" id="mobile-menu-overlay">
+  <div class="mobile-menu" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 style="font-size:16px;margin:0;">Menu</h3>
+      <button id="mobile-menu-close" style="background:none;border:none;font-size:20px;color:var(--silver);cursor:pointer;padding:4px;">✕</button>
+    </div>
+    <!-- AI Review group (collapsible) -->
+    <button class="btn mm-btn mm-group-header" id="mm-ai-header" style="display:none;" data-mm-group="ai">✨ AI Review <span class="mm-caret">▸</span></button>
+    <div class="mm-group-body" id="mm-ai-body" style="display:none;">
+      <button class="btn mm-btn mm-sub" id="mobile-ai-rewrite" style="display:none;">✨ Full Rewrite</button>
+      <button class="btn mm-btn mm-sub" id="mobile-ai-usage" style="display:none;">📊 AI Usage</button>
+    </div>
+    <!-- Reports group (collapsible) -->
+    <button class="btn mm-btn mm-group-header" id="mm-reports-header" style="display:none;" data-mm-group="reports">📄 Reports <span class="mm-caret">▸</span></button>
+    <div class="mm-group-body" id="mm-reports-body" style="display:none;">
+      <button class="btn mm-btn mm-sub" id="mobile-issue-btn" style="display:none;" onclick="var b=document.getElementById('btn-issue');if(b)b.click();">📋 Issue</button>
+      <button class="btn mm-btn mm-sub" id="mobile-pdf-btn" style="display:none;">📄 Export PDF</button>
+    </div>
+    <!-- More group (collapsible) -->
+    <button class="btn mm-btn mm-group-header" id="mm-more-header" data-mm-group="more">⚙️ More <span class="mm-caret">▸</span></button>
+    <div class="mm-group-body" id="mm-more-body" style="display:none;">
+      <button class="btn mm-btn mm-sub" id="mobile-export-btn">💾 Download JSON</button>
+      <button class="btn mm-btn mm-sub" id="mobile-load-btn">📂 Load Project</button>
+      <button class="btn mm-btn mm-sub" id="mobile-export-all" style="display:none;">📦 Export All</button>
+      <div id="mobile-repair-section" style="display:none;">
+        <button class="btn mm-btn mm-sub" id="mobile-repair-toggle" style="font-size:12px;">🔧 Repair Tools ▾</button>
+        <div id="mobile-repair-tools" style="display:none;padding-left:8px;">
+          <button class="btn mm-btn mm-sub">☁️ Re-upload All</button>
+          <button class="btn mm-btn mm-sub">📄 Fix Blurry</button>
+          <button class="btn mm-btn mm-sub admin-only">🖼️ Repair Photos</button>
+          <button class="btn mm-btn mm-sub admin-only">🧹 R2 Cleanup</button>
+          <button class="btn mm-btn mm-sub admin-only">🔗 Repair R2 Links</button>
+        </div>
+      </div>
+      <div class="mm-divider"></div>
+      <button class="btn mm-btn mm-sub" id="mobile-reset-tab-btn" onclick="var b=document.getElementById('btn-reset-current-tab');if(b)b.click();">🗑️ Reset Current Tab</button>
+      <button class="btn mm-btn mm-sub mm-danger" id="mobile-reset-btn">⚠️ Reset Project</button>
+    </div>
+    <button class="btn mm-btn mm-signout" id="mobile-signout-btn" style="display:none;">🔓 Sign Out</button>
+    <!-- 3-icon utility row -->
+    <div class="mm-icon-row">
+      <button class="btn mm-icon-btn" id="mobile-qr-btn" style="display:none;" title="QR Code">📱</button>
+      <button class="btn mm-icon-btn" id="mobile-text-size-btn" title="Text Size">M</button>
+      <button class="btn mm-icon-btn" id="mobile-dark-btn" onclick="var d=document.getElementById('dark-toggle');if(d)d.click();" title="Dark Mode"><img src="data:image/png;base64,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" width="22" height="22" alt="Light mode" style="vertical-align:middle;display:inline-block;"></button>
+    </div>
+    <div class="mm-divider"></div>
+    <!-- Storage at the very bottom -->
+    <div id="mobile-storage-info" style="padding:4px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
+      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#5F8068;width:0%;border-radius:2px;transition:width .3s;"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HIDDEN FILE INPUTS ═══ -->
+<input type="file" id="load-input" accept=".json" style="display:none">
+<input type="file" id="drawing-file-input" accept="image/*,.pdf" multiple style="display:none">
+<input type="file" id="photo-file-input" accept="image/*" multiple capture="environment" style="display:none">
+
+<!-- ═══ MAIN CONTENT ═══ -->
+<div id="view-project" style="display:none;">
+  <div class="main-wrap">
+
+    <!-- PROJECT INFO PANEL -->
+    <div class="panel active" id="panel-info">
+      <div class="card">
+        <div class="card-header">📋 Project Information</div>
+        <div class="card-body">
+          <div class="proj-grid">
+            <div class="field-group"><label>Project No.</label><input type="text" id="field-projectNumber" data-field="projectNumber" placeholder=""></div>
+            <div class="field-group"><label>Client</label><input type="text" id="field-client" data-field="client" placeholder="e.g. Caplink Ltd"></div>
+            <div class="field-group"><label>Building & Project Scope</label><input type="text" id="field-projectName" data-field="projectName" placeholder="e.g. Enterprise Sprinkler & Fire Alarm Upgrade"></div>
+            <div class="field-group" style="grid-column:span 3"><label>Project Address</label><input type="text" data-field="address" placeholder="e.g. 6885 Langstaff Rd., Vaughan, ON"></div>
+            <div class="field-group"><label>Prepared By</label><input type="text" data-field="inspectorName" placeholder=""></div>
+            <div class="field-group"><label>Date of Inspection</label><input type="date" id="field-visitDate" data-field="visitDate"></div>
+            <div class="field-group"><label>Revision</label><input type="text" id="field-revision" data-field="revision" placeholder="A01" style="font-weight:700;font-size:calc(15px + var(--ts));text-align:center;max-width:100px;"></div>
+            <div class="field-group"><label>Date of Issue</label><input type="date" data-field="dateOfIssue"></div>
+            <div class="field-group"><label>Date Modified</label><input type="text" data-field="dateModified" readonly style="background:var(--smoke);color:var(--silver);" id="field-date-modified"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAWINGS PANEL -->
+    <div class="panel" id="panel-drawings">
+      <div class="card">
+        <div class="card-header">📐 Drawings</div>
+        <div class="card-body">
+          <div class="dwg-header-bar">
+            <div class="dwg-btn-cluster dwg-btn-cluster-left">
+              <button class="btn btn-outline btn-sm" id="btn-new-folder">+ New Folder</button>
+              <button class="btn btn-outline btn-sm" id="btn-dwg-select-all" title="Select all drawings">☑ Select All</button>
+              <button class="btn btn-outline btn-sm" id="btn-dwg-actions">Actions ▾</button>
+            </div>
+            <div class="dwg-btn-cluster dwg-btn-cluster-right">
+              <!-- S328 (#36): "Compact" button removed — phones now show a clean
+                   2-per-row vertical card grid, so the compact toggle is moot. -->
+              <!-- S159: 'Purge Old' button removed entirely. Orphan-detection
+                   was unsafe — it would delete any drawing no deficiency
+                   pointed at, including freshly-uploaded plans not yet
+                   marked up. The destructive orphan-purge handler at
+                   ui/drawings.js btn-dwg-purge branch is also removed. -->
+              <!-- S116 Push 15: surface-level access to _frtRecoverTiles for legacy
+                   projects that lost their tile pyramid (e.g., 1490.04). Re-fires
+                   Azure render for the newest PDF in R2 + polls for manifest.
+                   Mark can now trigger pyramid rebuild from the UI without
+                   browser console. -->
+              <button class="btn btn-outline btn-sm" id="btn-dwg-build-tiles" title="Re-build tile pyramid from R2 PDF (Hub mode only)">🔧 Build Tiles</button>
+              <button class="btn btn-outline btn-sm" id="btn-dwg-filters">⚙ Filters</button>
+            </div>
+          </div>
+          <!-- Upload zone -->
+          <div class="upload-box" id="dwg-upload-zone"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');if(window._handleDrawingDrop)window._handleDrawingDrop(event.dataTransfer.files);">
+            <div style="text-align:center;padding:20px 16px;">
+              <div style="font-size:24px;margin-bottom:4px;opacity:.3;">📐</div>
+              <div style="font-weight:600;font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:4px;">Drag and drop your plans here</div>
+              <div style="font-size:calc(12px + var(--ts));color:var(--silver);margin-bottom:8px;">or</div>
+              <button class="btn btn-primary btn-sm" onclick="document.getElementById('drawing-file-input').click()">Select files</button>
+            </div>
+          </div>
+          <!-- Loading indicator -->
+          <div id="drawing-loading" style="display:none;align-items:center;gap:8px;padding:10px;font-size:calc(13px + var(--ts));color:var(--steel);"></div>
+          <!-- Search -->
+          <div style="display:flex;align-items:center;gap:8px;margin:10px 0;">
+            <input type="text" id="dwg-search" placeholder="Search drawings..." style="flex:1;max-width:280px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;background:var(--smoke);color:var(--fg);">
+          </div>
+          <div id="drawings-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEFICIENCIES PANEL -->
+    <div class="panel" id="panel-deficiencies">
+      <!-- Trade Board (S136 Phase 1b — own top-level card; reordered first in S137-polish: roster precedes the scoreboard whose rows ARE these contractors) -->
+      <div class="card" style="margin-bottom:4px;" id="trade-board-card">
+        <div class="card-header">🏗 Contractor Roster</div>
+        <div class="card-body" id="contractors-on-site" style="padding:0;"></div>
+      </div>
+      <!-- Deficiency Log summary table -->
+      <!-- S154 §2.1 (Option A): collapsed-by-default. Header is now a
+           tap target with an inline summary ("Log — N total · M outstanding
+           · K closed ▾") and a chevron. data-collapsed drives table
+           visibility via CSS. Initial state restored from localStorage
+           (key: arencon-frt-log-collapsed; '1'=collapsed/default,
+           '0'=expanded). Render path:
+           1. _renderDeficLog populates #defic-log-summary text + the table.
+           2. CSS hides #defic-log-container when data-collapsed=1.
+           3. Click delegate on #defic-log-header toggles + persists. -->
+      <div class="card" style="margin-bottom:4px;" id="defic-log-card" data-collapsed="1">
+        <div class="card-header" id="defic-log-header" style="cursor:pointer;display:flex;align-items:center;gap:10px;user-select:none;">
+          <span>📋 Deficiency Log</span>
+          <span id="defic-log-summary" style="font-weight:normal;font-size:.85em;opacity:.85;flex:1;"></span>
+          <span id="defic-log-chev" style="transition:transform .15s ease;font-size:.9em;">▾</span>
+        </div>
+        <div class="card-body" id="defic-log-container" style="padding:0;"></div>
+      </div>
+      <!-- Deficiency List section (renamed from "Deficiencies Identified" S137-polish — parallels "Deficiency Log") -->
+      <div class="card" style="margin-bottom:4px;">
+        <div class="card-header">⚠ Deficiency List</div>
+        <div class="card-body" style="padding:10px 0 0 0;">
+          <!-- S137-polish: #defic-toolbar removed. AI Group / Select / Fold All were
+               dead markup — S135 retired the underlying features and left no handlers. -->
+          <!-- S139 Phase 3: Renumber removed from the control bar and merged into
+               the PDF export modal ("Renumber before export", default ON). The
+               #defic-renumber-btn document-delegate handler in deficiencies.js is
+               left defined-but-inert per the S137 no-rewrite discipline (never
+               reached now that the button is gone). -->
+          <!-- Unified control bar — lifecycle pivot + filters + view toggle.
+               Replaces #defic-lifecycle-tabs (dlc-tabs) and the old toolbar search. -->
+          <div class="defic-control-bar" id="defic-control-bar" style="display:none;">
+            <!-- S250 §4 / S336: single category filter row (All · Outstanding ·
+                 Recommendations · Site Records · Closed) with live counts.
+                 Replaces BOTH the old Active/Closed pivot AND the old
+                 Deficiencies/Recommendations/Site Records/All row. S336 (Mark):
+                 restored the "All" segment so a user can see EVERYTHING in one
+                 view, while each of the other four still shows only its own
+                 category (separate tabs, plus an All escape hatch). The .row
+                 wrapper is one flat strip on desktop and wraps cleanly on phone
+                 portrait (CSS @media 560px). data-catfilter maps to the
+                 (pivot + recmode) axes in _setCatFilter; 'all' = neutral pivot
+                 + 'all' recmode (every item, any status). -->
+            <div class="dfx-catfilter" role="group" aria-label="Filter by category">
+              <div class="row">
+                <button class="dfx-cat-btn" data-catfilter="all">All <span class="dfx-cat-count" id="dfx-cc-all">0</span></button>
+                <button class="dfx-cat-btn active" data-catfilter="outstanding">Outstanding <span class="dfx-cat-count" id="dfx-cc-outstanding">0</span></button>
+                <button class="dfx-cat-btn" data-catfilter="rec">Recommendations <span class="dfx-cat-count" id="dfx-cc-rec">0</span></button>
+                <button class="dfx-cat-btn" data-catfilter="siterec">Site Records <span class="dfx-cat-count" id="dfx-cc-siterec">0</span></button>
+                <button class="dfx-cat-btn" data-catfilter="closed">Closed <span class="dfx-cat-count" id="dfx-cc-closed">0</span></button>
+              </div>
+            </div>
+            <div class="defic-filters">
+              <input type="text" class="dfx-filter-input" id="dfx-search" placeholder="🔍 Search...">
+              <select class="dfx-filter-input" id="dfx-ctr"><option value="">All contractors</option></select>
+              <select class="dfx-filter-input" id="dfx-pri">
+                <option value="">All priorities</option>
+                <option value="high">High</option>
+                <option value="low">Low</option>
+              </select>
+              <!-- S250 §6 (Option A): list-action cluster, right-aligned on the
+                   filter row. The combined view renders Edit categories · Re-sort
+                   · Collapse all into here (#dfx-list-actions) instead of a
+                   separate row above the list — kills the wasted gap. -->
+              <div class="dfx-list-actions" id="dfx-list-actions"></div>
+            </div>
+            <!-- S154 §2.3: "Initials" toggle removed from the live board.
+                 The on-screen chip render guard (_showInspChip in
+                 deficiencies.js) is intentionally left intact for backward
+                 compat with users who had it ON in localStorage; the
+                 control-bar UI is gone because its only real use case is
+                 internal review reports, which now happens via the
+                 "Inspector attribution" picker in the PDF export dialog.
+                 The orphaned #dfx-insp-toggle delegate in deficiencies.js
+                 stays defined-but-inert per S137. -->
+            <!-- S250 §4: Detailed/Board view-toggle REMOVED — Board is gone,
+                 it is one combined view. _deficView is forced 'detailed' and
+                 _renderBoardView left defined-but-inert per S137 discipline. -->
+          </div>
+          <div id="deficiencies-container" class="defic-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S135: Summary tab (#panel-pins) retired. Table + Board views
+         migrate to the Deficiencies tab in Phase 2 via view toggle. -->
+
+    <!-- PHOTOS PANEL -->
+    <div class="panel" id="panel-photos">
+      <div class="card">
+        <div class="card-header">📷 Photo Gallery</div>
+        <div class="card-body">
+          <div class="photo-zone" id="site-photo-upload"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');if(window._handleSitePhotoDrop)window._handleSitePhotoDrop(event.dataTransfer.files);">
+            <div style="text-align:center;padding:16px;">
+              <div style="font-size:calc(12px + var(--ts));color:var(--steel);">Drag &amp; drop photos, or <a href="#" id="site-photo-upload-link" style="color:#5F8068;font-weight:600;text-decoration:underline;">upload from your device</a></div>
+              <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;">Select multiple at once</div>
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:center;">
+                <!-- S331 #photo-buttons — explicit Upload + Camera (was single merged
+                     "Add Photos"). Gallery omitted here: this IS the gallery. -->
+                <button class="pz-upload" id="site-photo-upload-btn" style="border:none;background:#5A6E80;color:white;padding:6px 16px;border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">📎 Upload</button>
+                <button class="pz-camera" id="site-photo-add-btn" style="border:none;background:#5F8068;color:white;padding:6px 16px;border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">📷 Camera</button>
+              </div>
+            </div>
+          </div>
+          <input type="file" id="site-photo-input" accept="image/*" multiple style="display:none">
+          <input type="file" id="site-photo-camera" accept="image/*" multiple capture="environment" style="display:none">
+          <div id="photos-container"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ DRAWING VIEWER OVERLAY ═══ -->
+<div class="drawing-viewer-overlay" id="drawing-viewer-overlay">
+  <div class="dv-toolbar" id="dv-toolbar">
+    <button id="dv-close" class="back-btn dv-close-btn" title="Back">← Back</button>
+    <!-- S81: cloud status in viewer header too (mirrors main app header) -->
+    <span id="dv-cloud-status" class="dv-cloud-status" title="Tap for cloud diagnostic" onclick="if(window._showCloudDiagnostic)window._showCloudDiagnostic()">
+      <span id="dv-cloud-dot" class="dv-cloud-dot" style="background:#34D399;"></span>
+      <span id="dv-cloud-text" class="dv-cloud-text">Saved to cloud</span>
+      <!-- S116 Push 14: mirror of #last-sync-text from main header. -->
+      <span id="dv-last-sync-text" style="display:none;"></span>
+    </span>
+    <button class="dv-nav-btn" id="dv-prev" title="Previous drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">◀</button>
+    <button class="dv-nav-btn" id="dv-next" title="Next drawing" style="padding:4px 10px;font-size:calc(14px + var(--ts));">▶</button>
+    <div class="dv-title-wrap"><span class="dv-title" id="dv-title"></span><button id="dv-rename-btn" title="Rename drawing" class="dv-rename-btn">✏️</button></div>
+    <!-- Layers -->
+    <div style="position:relative;display:inline-block;">
+      <button id="dv-layers-btn" title="Layers"><span class="dv-lb-icon" style="font-size:calc(17px + var(--ts));line-height:1;">&#9776;</span><span class="dv-lb-txt"> Layers</span></button>
+      <div id="dv-layers-menu" class="dv-more-menu" style="display:none;min-width:180px;padding:10px 14px;">
+        <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:8px;">SHOW</div>
+        <label class="dv-layer-row"><input type="checkbox" id="layer-all" checked> All layers</label>
+        <label class="dv-layer-row"><input type="checkbox" id="layer-tasks" checked> <span style="color:#A85959;">📌</span> Tasks</label>
+        <label class="dv-layer-row"><input type="checkbox" id="layer-markups" checked> <span style="color:#2196F3;">✏️</span> Markups</label>
+        <div id="dv-ctr-highlight-group" style="display:none;border-top:1px solid var(--hairline,rgba(0,0,0,.12));margin-top:8px;padding-top:8px;">
+          <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:6px;">HIGHLIGHT CONTRACTOR</div>
+          <div id="dv-ctr-highlight-rows"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Field Heights (promoted to toolbar — used often in field reviews).
+         The red dot appears when this drawing has non-default heights. -->
+    <button id="dv-heights-btn" class="dv-heights-toggle" data-dv-action="heights" title="Field Heights" style="position:relative;">📐<span id="dv-heights-dot" class="dv-heights-dot" style="display:none;"></span></button>
+    <!-- More menu -->
+    <div style="position:relative;display:inline-block;">
+      <button id="dv-more-btn" title="More options">⋯</button>
+      <div id="dv-more-menu" class="dv-more-menu" style="display:none;">
+        <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
+        <button data-dv-action="tasks" class="dv-menu-item">📌 Tasks</button>
+      </div>
+    </div>
+    <span id="dv-spacer-v75"></span>
+    <button id="dv-undo-v75" title="Undo">↩</button>
+    <button id="dv-redo-v75" title="Redo">↪</button>
+    <button id="dv-actions-v75" title="Actions">Actions ▾</button>
+    <button id="dv-dark-toggle" title="Toggle Dark Mode" style="font-size:calc(14px + var(--ts));"><img src="data:image/png;base64,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" width="22" height="22" alt="Light mode" style="vertical-align:middle;display:inline-block;"></button>
+  </div>
+  <!-- MOBILE CONTEXT BAR -->
+  <div id="dv-mobile-context" class="dv-mobile-context">
+    <div class="ctx-group" id="ctx-color-group">
+      <div class="ctx-color-swatch" id="ctx-color-dot" style="background:#A85959;"></div>
+    </div>
+    <div class="ctx-group" id="ctx-size-group">
+      <span class="ctx-label">W</span>
+      <button class="ctx-btn" data-ctx="size-down">−</button>
+      <span class="ctx-val" id="ctx-size-val">3</span>
+      <button class="ctx-btn" data-ctx="size-up">+</button>
+    </div>
+    <div class="ctx-group" id="ctx-opacity-group">
+      <span class="ctx-label">α</span>
+      <button class="ctx-btn" data-ctx="opacity-down">−</button>
+      <span class="ctx-val" id="ctx-opacity-val" title="Click to type (10–100)" style="cursor:text;">100</span>
+      <button class="ctx-btn" data-ctx="opacity-up">+</button>
+    </div>
+    <div class="ctx-group" id="ctx-text-group" style="display:none;">
+      <span class="ctx-label">T</span>
+      <button class="ctx-btn" data-ctx="textsize-down">−</button>
+      <span class="ctx-val" id="ctx-text-val">20</span>
+      <button class="ctx-btn" data-ctx="textsize-up">+</button>
+    </div>
+    <!-- S126 #7 — Text decoration toggles (border + hatch). Visible only
+         while text tool is active or a text object is selected. -->
+    <div class="ctx-group" id="ctx-text-deco-group" style="display:none;">
+      <button class="ctx-btn ctx-text-toggle" data-ctx="text-border" title="Border around text">▢ Border</button>
+      <button class="ctx-btn ctx-text-toggle" data-ctx="text-hatch" title="Hatch fill behind text">▦ Hatch</button>
+    </div>
+    <div class="ctx-group" style="border-right:none;">
+      <button class="ctx-btn" data-ctx="undo" title="Undo">↩</button>
+      <button class="ctx-btn" data-ctx="redo" title="Redo">↪</button>
+    </div>
+    <div class="ctx-group" id="ctx-delete-group" style="border-right:none;display:none;">
+      <button class="ctx-btn" data-ctx="delete" style="background:rgba(192,57,43,.35);color:#f09090;" title="Delete selected">🗑</button>
+    </div>
+  </div>
+  <div class="dv-main">
+    <!-- LEFT SIDEBAR TOOLS -->
+    <div class="dv-sidebar-tools" id="dv-sidebar-tools">
+      <button id="mk-pin" class="tool-btn" data-mk-tool="pin" data-tip="Pin / Navigate">
+        <svg viewBox="0 0 28 36" width="20" height="26"><path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="currentColor"/></svg>
+      </button>
+      <button id="mk-select" class="tool-btn" data-mk-tool="select" data-tip="Select markups">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+      </button>
+      <div class="tool-sep"></div>
+      <!-- PEN GROUP -->
+      <div class="tool-group" id="tool-pen-group">
+        <button class="tool-btn tool-group-btn" id="mk-pen-btn" data-mk-group="pen" data-tip="Drawing tools">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          <span class="tool-group-arrow">▸</span>
+        </button>
+        <div class="tool-submenu" id="pen-submenu">
+          <button class="tool-btn sub-tool-btn" data-mk-tool="pen" data-tip="Pen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="highlight" data-tip="Highlighter"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="line" data-tip="Line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="arrow" data-tip="Arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="polyline" data-tip="Polyline"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,20 8,8 14,14 19,4"/></svg></button>
+        </div>
+      </div>
+      <!-- SHAPE GROUP -->
+      <div class="tool-group" id="tool-shapes-group">
+        <button class="tool-btn tool-group-btn" id="mk-shapes-btn" data-mk-group="shapes" data-tip="Shapes">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          <span class="tool-group-arrow">▸</span>
+        </button>
+        <div class="tool-submenu" id="shapes-submenu">
+          <button class="tool-btn sub-tool-btn" data-mk-tool="rect" data-tip="Rectangle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="fillrect" data-tip="Filled Rect"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="circle" data-tip="Circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="fillcircle" data-tip="Filled Circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="triangle" data-tip="Triangle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3L22 21H2z"/></svg></button>
+          <button class="tool-btn sub-tool-btn" data-mk-tool="cloud" data-tip="Cloud"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 1 0 0-9h-.1A5.5 5.5 0 0 0 7 13.5 3.5 3.5 0 0 0 3.5 17 3.5 3.5 0 0 0 7 20.5h10.5"/></svg></button>
+        </div>
+      </div>
+      <button id="mk-text" class="tool-btn" data-mk-tool="text" data-tip="Text">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+      </button>
+      <!-- S124 A1 — Dimension tool: 2-point dimensioned line with calibration -->
+      <button id="mk-dimension" class="tool-btn" data-mk-tool="dimension" data-tip="Dimension">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16"/><path d="M4 8v8"/><path d="M20 8v8"/><path d="M8 14l-4-2 4-2"/><path d="M16 10l4 2-4 2"/></svg>
+      </button>
+      <button id="mk-eraser" class="tool-btn" data-mk-tool="eraser" data-tip="Eraser">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/></svg>
+      </button>
+      <div class="tool-sep"></div>
+      <div class="tool-group" id="tool-color-group">
+        <button class="tool-btn tool-group-btn" id="mk-color-btn" data-tip="Color" style="padding:0;">
+          <div id="mk-color-swatch" style="width:20px;height:20px;border-radius:50%;background:#A85959;border:2px solid #fff;"></div>
+        </button>
+        <div class="tool-submenu color-submenu" id="color-submenu">
+          <div class="color-row">
+            <div class="dv-color-dot" data-mk-color="#A85959" style="background:#A85959;" title="Red"></div>
+            <div class="dv-color-dot" data-mk-color="#E74C3C" style="background:#E74C3C;" title="Bright Red"></div>
+            <div class="dv-color-dot" data-mk-color="#FF9800" style="background:#FF9800;" title="Orange"></div>
+            <div class="dv-color-dot" data-mk-color="#F1C40F" style="background:#F1C40F;" title="Yellow"></div>
+          </div>
+          <div class="color-row">
+            <div class="dv-color-dot" data-mk-color="#2196F3" style="background:#2196F3;" title="Blue"></div>
+            <div class="dv-color-dot" data-mk-color="#1565C0" style="background:#1565C0;" title="Dark Blue"></div>
+            <div class="dv-color-dot" data-mk-color="#4CAF50" style="background:#4CAF50;" title="Green"></div>
+            <div class="dv-color-dot" data-mk-color="#9C27B0" style="background:#9C27B0;" title="Purple"></div>
+          </div>
+          <div class="color-row">
+            <div class="dv-color-dot" data-mk-color="#1C2333" style="background:#1C2333;" title="Black"></div>
+            <div class="dv-color-dot" data-mk-color="#607D8B" style="background:#607D8B;" title="Gray"></div>
+            <div class="dv-color-dot" data-mk-color="#FFFFFF" style="background:#FFFFFF;border:1px solid #555;" title="White"></div>
+            <input type="color" id="mk-custom-color" style="width:20px;height:20px;border-radius:50%;border:none;cursor:pointer;padding:0;" title="Custom">
+          </div>
+        </div>
+      </div>
+      <div class="tool-sep"></div>
+      <div class="tool-stepper-wrap" data-tip="Size (stroke width / text size)">
+        <span style="font-size:8px;color:#888;letter-spacing:.5px;">SIZE</span>
+        <button class="tool-step-btn" data-ctx="size-up">+</button>
+        <span id="mk-size-val" style="font-size:11px;color:var(--steel);min-width:22px;text-align:center;">3</span>
+        <button class="tool-step-btn" data-ctx="size-down">−</button>
+      </div>
+      <div class="tool-stepper-wrap" data-tip="Opacity">
+        <span style="font-size:8px;color:#888;letter-spacing:.5px;">OPAC</span>
+        <button class="tool-step-btn" data-ctx="opacity-up">+</button>
+        <span id="mk-opacity-val" title="Click to type (10–100)" style="font-size:11px;color:var(--steel);min-width:22px;text-align:center;cursor:text;">100</span>
+        <button class="tool-step-btn" data-ctx="opacity-down">−</button>
+      </div>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" id="mk-undo" data-tip="Undo (Ctrl+Z)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+      </button>
+      <button class="tool-btn" id="mk-redo" data-tip="Redo (Ctrl+Y)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+      </button>
+    </div>
+    <!-- Session 75 Push 3.1: tool row + style strip (mockup-exact) -->
+    <div id="dv-toolrow-v75">
+      <button class="dv-tr-btn dv-tr-pin" data-mk-target="mk-pin" title="Pin"><svg width="14" height="18" viewBox="0 0 28 36"><path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill="currentColor"/><circle cx="14" cy="13" r="5.5" fill="rgba(0,0,0,0.25)"/></svg></button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-select" title="Select">▸</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-pen-btn" title="Pen">✎</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-shapes-btn" title="Rectangle">▢</button>
+      <button class="dv-tr-btn dv-tr-sq dv-tr-serif" data-mk-target="mk-text" title="Text">T</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-dimension" title="Dimension">📐</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-eraser" title="Eraser">⌫</button>
+      <!-- S79: color moved to style strip (S331) to free a slot for dimension -->
+      <span class="dv-tr-sep" aria-hidden="true"></span>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-undo" title="Undo">↶</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-redo" title="Redo">↷</button>
+    </div>
+    <div id="dv-stylestrip-v75">
+      <span class="dv-ss-group"><span class="dv-ss-lbl">SIZE</span><button class="dv-ss-step" data-ss="size" data-d="-1">−</button><span id="dv-ss-size-v75" class="dv-ss-val">3</span><button class="dv-ss-step" data-ss="size" data-d="1">+</button></span>
+      <span class="dv-ss-group"><span class="dv-ss-lbl">OPAC</span><button class="dv-ss-step" data-ss="opacity" data-d="-1">−</button><span id="dv-ss-op-v75" class="dv-ss-val">100</span><button class="dv-ss-step" data-ss="opacity" data-d="1">+</button></span>
+      <span class="dv-ss-group"><span class="dv-ss-lbl dv-ss-lbl-color">COLOR</span><button class="dv-tr-btn dv-tr-color dv-ss-color" data-mk-target="mk-color-btn" title="Color"><span class="dv-tr-color-dot" id="dv-tr-color-dot"></span></button></span>
+    </div>
+    <!-- DRAWING CANVAS -->
+    <div class="dv-canvas-area" id="dv-canvas-area" oncontextmenu="return false;">
+      <div class="dv-img-wrap" id="dv-img-wrap" oncontextmenu="return false;">
+        <img id="dv-image" alt="" draggable="false" oncontextmenu="return false;" style="display:block;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;pointer-events:none;">
+        <canvas id="markup-canvas" oncontextmenu="return false;"></canvas>
+        <div id="dv-pins-layer"></div>
+      </div>
+      <!-- S126 #6 — Dimension sub-toolbar. Hidden by default; shown when
+           dimension tool is active. Calibrate triggers 2-click calibration
+           flow; Add returns to draw mode; chain pill switches between
+           Single / Continuous / Running modes. -->
+      <div id="dim-sub-toolbar" class="dim-sub-toolbar dim-sub-v3" style="display:none;">
+        <!-- Dimension = primary (burgundy when active). dim-add-btn id kept for wiring. -->
+        <button id="dim-add-btn" class="dim-v3-primary active" data-tip="Draw a dimension: click start → end → offset">
+          <span class="dim-v3-ic">📐</span><span class="dim-v3-txt">Dimension</span>
+        </button>
+        <div class="dim-mode-pill dim-v3-pill">
+          <button class="dim-mode-btn active" data-dim-mode="single" data-tip="Single">Single</button>
+          <button class="dim-mode-btn" data-dim-mode="continuous" data-tip="Continuous">Cont.</button>
+          <button class="dim-mode-btn" data-dim-mode="running" data-tip="Running">Run</button>
+        </div>
+        <div class="dim-unit-pill dim-v3-pill">
+          <button class="dim-unit-btn active" data-dim-unit="imperial">ft</button>
+          <button class="dim-unit-btn" data-dim-unit="metric">m</button>
+        </div>
+        <button id="dim-calibrate-btn" class="dim-v3-cal" data-tip="Optional — draw across a known distance to set scale">📏</button>
+      </div>
+      <!-- S407 — Polyline sub-toolbar (mirrors the dimension pattern; V4 from
+           the open list). Hidden by default; shown while the polyline tool is
+           active. ✓ finishes the polyline AS DRAWN (open — unlike tapping the
+           first point, which closes the loop), ↩ removes the last placed
+           point, ✕ discards the in-progress polyline. Reuses dim-v3 classes —
+           no new CSS, same touch targets. -->
+      <div id="poly-sub-toolbar" class="dim-sub-toolbar dim-sub-v3" style="display:none;">
+        <button id="poly-commit-btn" class="dim-v3-primary" data-tip="Finish the polyline as drawn">
+          <span class="dim-v3-ic">✓</span><span class="dim-v3-txt">Finish</span>
+        </button>
+        <button id="poly-undo-pt-btn" class="dim-v3-cal" data-tip="Remove the last point">↩</button>
+        <button id="poly-cancel-btn" class="dim-v3-cal" data-tip="Discard the in-progress polyline">✕</button>
+      </div>
+      <!-- S330 #37 — Dimension value keypad (units OUTSIDE; metric hides
+           feet/inch keys). Floating on desktop, bottom-dock on touch. -->
+      <div id="dim-kp" class="dim-kp">
+        <div class="dim-kp-disp">
+          <input id="dim-kp-input" type="text" inputmode="text" autocomplete="off" placeholder="enter length" />
+          <span class="dim-kp-flag imp" id="dim-kp-flag">IMP</span>
+          <button class="dim-kp-close" id="dim-kp-close" title="Close" aria-label="Close">✕</button>
+        </div>
+        <div class="dim-kp-interp" id="dim-kp-interp">&nbsp;</div>
+        <div class="dim-kp-keys">
+          <button data-dk="7">7</button><button data-dk="8">8</button><button data-dk="9">9</button><button class="k-sym k-imponly" data-dk="'">&#39;</button>
+          <button data-dk="4">4</button><button data-dk="5">5</button><button data-dk="6">6</button><button class="k-sym k-imponly" data-dk="&quot;">&quot;</button>
+          <button data-dk="1">1</button><button data-dk="2">2</button><button data-dk="3">3</button><button class="k-sym k-imponly" data-dk="-">-</button>
+          <button data-dk="0">0</button><button class="k-sym" data-dk=".">.</button><button class="k-sym k-imponly" data-dk="/">/</button><button class="k-act" data-dk="BK">⌫</button>
+          <button class="k-rev span2" data-dk="REV">↺ revert to measured</button>
+          <button class="k-act span2" data-dk="OK">✓ Done</button>
+        </div>
+        <div class="dim-kp-tip" id="dim-kp-tip">Type here or tap keys. Start the next dimension and this locks in automatically. Non-numbers (TYP., EQ) are kept as a note.</div>
+      </div>
+      <!-- S330 #37 — Finish chip (between dims in continuous/running) -->
+      <div id="dim-finchip" class="dim-finchip"><button id="dim-fin-x" title="Done — stop here"><span class="dim-fin-ic">✕</span><span class="dim-fin-lbl">Done</span></button></div>
+      <!-- S330 #37 — Pickup picker modal -->
+      <div id="dim-pick-back" class="dim-modal-back"><div class="dim-modal">
+        <div class="dim-modal-head"><button class="dim-modal-close" data-dim-close="dim-pick-back">✕</button><h3 id="dim-pick-title">Continuous dimension</h3><p>Where should this chain begin?</p></div>
+        <div class="dim-modal-body"><div class="dim-choice">
+          <button id="dim-pick-prev" class="def"><b>Continue from previous</b><span>Pick up from where the last dimension ended.</span></button>
+          <button id="dim-pick-point"><b>Pick a point</b><span>Tap any existing dimension point to start from there — then draw in any direction.</span></button>
+          <button id="dim-pick-fresh"><b>Start fresh</b><span>Begin a brand-new dimension with two new clicks.</span></button>
+        </div></div>
+      </div></div>
+      <!-- S330 #37 — Recalibrate choice modal -->
+      <div id="dim-recal-back" class="dim-modal-back"><div class="dim-modal">
+        <div class="dim-modal-head"><button class="dim-modal-close" data-dim-close="dim-recal-back">✕</button><h3>Drawing already calibrated</h3><p>You set a new scale. Update existing dimensions?</p></div>
+        <div class="dim-modal-body"><div class="dim-choice">
+          <button id="dim-recal-measured" class="def"><b>Update measured dimensions only</b><span>Rescale measured dims; manual overrides keep their values. (Default)</span></button>
+          <button id="dim-recal-all"><b>Update all dimensions</b><span>Rescale everything, including numeric overrides, to the new measured value.</span></button>
+          <button id="dim-recal-none"><b>Don’t update existing</b><span>New scale applies only to dimensions drawn from now on.</span></button>
+        </div></div>
+      </div></div>
+      <!-- Inline text input for text tool -->
+      <textarea id="mk-text-input" class="mk-text-input" style="display:none;" placeholder="Type here..."></textarea>
+      <div class="dv-nav-controls" id="dv-nav-controls">
+        <button id="dv-nav-prev" title="Previous drawing">◀</button>
+        <button id="dv-nav-next" title="Next drawing">▶</button>
+      </div>
+      <div class="zoom-controls" id="zoom-controls">
+        <button data-zoom="in" title="Zoom in">+</button>
+        <button data-zoom="out" title="Zoom out">−</button>
+        <button data-zoom="fit" title="Fit to screen" style="font-size:calc(12px + var(--ts));">⊡</button>
+      </div>
+    </div>
+    <!-- TASKS PANEL (right sidebar) -->
+    <div class="dv-tasks-panel" id="dv-tasks-panel">
+      <div class="dv-tasks-header">
+        <span>📌 Tasks</span>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button id="dv-tasks-filter" class="dv-tasks-filter-btn" title="Filter">Pinned</button>
+          <span id="dv-tasks-count" style="font-size:calc(11px + var(--ts));color:var(--silver);">0</span>
+          <button id="dv-tasks-fold-btn" style="background:none;border:none;color:inherit;cursor:pointer;font-size:16px;" title="Collapse">▼</button>
+        </div>
+      </div>
+      <div class="dv-tasks-list" id="dv-tasks-list"></div>
+    </div>
+  </div>
+  <!-- HEIGHTS PANEL (overlay) -->
+  <div id="dv-heights-panel" class="dv-heights-panel" style="display:none;">
+    <div class="dv-heights-header">
+      <span>📐 Field Heights</span>
+      <button id="dv-heights-close" style="background:none;border:none;color:inherit;cursor:pointer;font-size:18px;">✕</button>
+    </div>
+    <div class="dv-heights-copy">
+      <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:6px;">COPY FROM DRAWING</div>
+      <select id="dv-heights-copy-select" class="pe-select" style="width:100%;">
+        <option value="">— Select a drawing to copy from —</option>
+      </select>
+    </div>
+    <div class="dv-heights-rows" id="dv-heights-rows"></div>
+    <div class="dv-heights-footer">
+      <button id="dv-heights-add" class="dv-heights-add-btn">+ Add Row</button>
+      <button id="dv-heights-save" class="dv-heights-save-btn">💾 Save</button>
+    </div>
+  </div>
+    <!-- Session 75 Push 4: bottom bar (page nav + name pill + Tasks pill)
+         S113: layout finalized as nav | namepill | zoom | tasks.
+         - Prev/next stays on the left
+         - Title in the center (already)
+         - Zoom +/-/fit moved to the RIGHT of title (was leftmost)
+         - Redundant fit button (formerly inside .dv-bb-nav) removed -->
+    <div id="dv-bottombar-v75">
+      <div class="dv-bb-nav">
+        <button id="dv-bb-prev" title="Previous drawing">◀</button>
+        <button id="dv-bb-next" title="Next drawing">▶</button>
+      </div>
+      <div id="dv-bb-namepill" class="dv-bb-namepill">
+        <span id="dv-bb-name" class="dv-bb-name"></span>
+        <button id="dv-bb-rename" class="dv-bb-rename" title="Rename">✏️</button>
+      </div>
+      <div class="dv-bb-zoom" title="Zoom controls">
+        <button data-zoom="in" title="Zoom in">+</button>
+        <button data-zoom="out" title="Zoom out">−</button>
+        <button data-zoom="fit" title="Fit to screen">⊡</button>
+      </div>
+      <button id="dv-bb-tasks" class="dv-bb-tasks" title="Tasks">
+        <span class="dv-bb-tasks-icon">📌</span>
+        <span id="dv-bb-tasks-count" class="dv-bb-tasks-count">0</span>
+      </button>
+    </div>
+    <!-- Session 75 Push 5: Tasks bottom sheet -->
+    <div id="dv-tasks-sheet-v75">
+      <div id="dv-tsv75-handle"></div>
+      <div id="dv-tsv75-header"><span id="dv-tsv75-title">📌 Tasks (0)</span><button id="dv-tsv75-collapse">▼ collapse</button></div>
+      <div id="dv-tsv75-list"></div>
+      <button id="dv-tsv75-new">+ New Task</button>
+    </div>
+</div>
+
+<!-- ═══ PHOTO LIGHTBOX OVERLAY ═══ -->
+<div class="lightbox-overlay" id="lightbox-overlay">
+  <div class="lb-toolbar">
+    <span id="lb-info" style="flex:1;font-size:calc(13px + var(--ts));color:#d0d8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" title="Click to edit caption"></span>
+    <span id="lb-counter" style="font-size:calc(12px + var(--ts));color:#8a94b0;margin-right:8px;"></span>
+    <button id="lb-close" class="lb-close-btn" title="Close">✕</button>
+  </div>
+  <div class="lb-canvas" id="lb-canvas">
+    <div class="lb-img-wrap" id="lb-img-wrap">
+      <img id="lb-image" alt="" style="display:block;">
+    </div>
+    <button class="lb-nav-btn lb-nav-prev" id="lb-prev" title="Previous">◀</button>
+    <button class="lb-nav-btn lb-nav-next" id="lb-next" title="Next">▶</button>
+  </div>
+</div>
+
+<!-- ═══ PIN EDITOR MODAL ═══ -->
+<div id="pin-editor-overlay" class="pin-editor-overlay" style="display:none;">
+  <div class="pin-editor-modal">
+    <div class="pin-editor-header">
+      <span id="pe-title">Pin #1 — High Priority</span>
+      <button id="pe-close" class="pe-close-btn">✕</button>
+    </div>
+    <div class="pe-split">
+      <!-- LEFT: S213 unified observation editor mount. The legacy compact-row
+           (contractor/date/status/IAR), OBSERVATIONS tab strip, PRIORITY/TYPE
+           buttons, standalone textarea, photo strip + Upload/Camera/Gallery
+           buttons, and mobile MOVE-TO select were removed — the shared
+           _buildObsEditor (withHeader) now renders the entire left column into
+           #pe-obs-content. -->
+      <div class="pe-fields">
+        <div class="pe-obs-content" id="pe-obs-content"></div>
+        <!-- Mobile only: drawing shown here (collapses below on tablets).
+             MOVE TO is now in the editor's ⋯ More menu. -->
+        <div class="pe-mobile-drawing">
+          <div class="pe-section">
+            <label class="pe-label">LOCATION ON DRAWING</label>
+            <div class="pe-location-thumb" id="pe-location-thumb-mobile"></div>
+          </div>
+        </div>
+      </div>
+      <!-- RIGHT: Big drawing (desktop only). S213d: interactive — Fit/zoom
+           toolbar + drag-to-move-pin. MOVE TO (another drawing) is in ⋯ More. -->
+      <div class="pe-drawing-panel">
+        <div class="pe-draw-head">
+          <label class="pe-label" style="margin-bottom:0;">LOCATION ON DRAWING</label>
+          <div class="pe-draw-toolbar">
+            <button type="button" id="pe-draw-fit" class="pe-draw-tb" title="Fit drawing to view">⤢ Fit</button>
+            <button type="button" id="pe-draw-zin" class="pe-draw-tb" title="Zoom in">＋</button>
+            <button type="button" id="pe-draw-zout" class="pe-draw-tb" title="Zoom out">－</button>
+          </div>
+        </div>
+        <div class="pe-location-big" id="pe-location-thumb"></div>
+        <div class="pe-draw-cap">📍 Pin location is editable here — drag the pin to move it; use ⋯ More to move it to another drawing.</div>
+      </div>
+    </div>
+    <div class="pin-editor-footer">
+      <!-- S238: Save button added (manual save; editor still auto-saves).
+           Close button removed — the header ✕ closes. Delete stays exposed. -->
+      <button id="pe-save" class="pe-save-btn" title="Save changes">Save</button>
+      <button id="pe-delete" class="pe-delete-btn" title="Permanently delete this deficiency">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TOAST CONTAINER ═══ -->
+<div id="toast-container" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;"></div>
+
+<!-- ═══ LOADING OVERLAY ═══ -->
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:white;padding:28px 36px;border-radius:12px;text-align:center;box-shadow:var(--shadow-lg);">
+    <div style="width:36px;height:36px;border:3px solid #ddd;border-top-color:#9C2742;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px;"></div>
+    <div id="loading-text" style="font-family:Calibri,sans-serif;font-size:14px;color:#4A5568;">Loading...</div>
+  </div>
+</div>
+
+<!-- ═══ MODULE ENTRY POINT ═══ -->
+<script src="../lib/ui/markupTools.js?v=1"></script>
+<script src="js/viewer/markupEngine.staging.js?v=1"></script>
+<script src="js/viewer/webglMarkup.js?v=8"></script>
+<script src="js/ui/pinsGL.js?v=13"></script>
+<!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
+     showCalibrationPrompt, renderObject). Loaded as plain JS before app.js
+     so it's ready by the time markup.js dispatches a 'dimension' object. -->
+<script src="js/viewer/dimensionTool.js?v=15"></script>
+<script type="module" src="js/app.js"></script>
+
+<!-- S97 — Session recorder. Self-gates on ?dbg=1 or localStorage._frtDbg='1'.
+     Zero overhead when flag is off. Loads async so it doesn't block app boot. -->
+<script src="js/diag/recorder.js?v=2" async></script>
+
+<!-- S120 P9 — Photo-pool integrity checker. Always-on (cheap, debounced).
+     Runs after Model events and on project load; reports stale references,
+     orphans, broken photos, and cascade failures. ?dbg=1 shows a badge. -->
+<script src="js/diag/integrity.js?v=3" async></script>
+
+<!-- S120 P18 — Drawing migration tool (console-driven).
+     Exposes window._drawingMigrate.{preview, plan, apply, undo}. Walks
+     drawings, pairs old-broken with new-tiled by (folder, name, page),
+     rewrites pin drawingId 1:1. Snapshot to localStorage for undo. -->
+<script src="js/diag/drawingMigrate.js?v=4" async></script>
+
+<!-- S124 A4 — R2 orphan cleanup (console-driven).
+     Exposes window._r2cleanup.{scan, inventory, deleteOrphans, cancel}.
+     Walks R2 via the new /listall worker endpoint, classifies orphans
+     by category (photos, pdfbufs, tiles), 2-step confirm before delete. -->
+<script src="js/diag/r2cleanup.js?v=1" async></script>
+
+<script>
+/* Session 75 Push 2 — proxy wiring for new toolbar buttons */
+(function(){
+  function wire(){
+    var u=document.getElementById('dv-undo-v75');
+    var r=document.getElementById('dv-redo-v75');
+    var a=document.getElementById('dv-actions-v75');
+    if(!u||!r||!a) return setTimeout(wire,300);
+    if(u.dataset.wired) return;
+    u.dataset.wired=r.dataset.wired=a.dataset.wired='1';
+    u.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-undo');if(t)t.click();});
+    r.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-redo');if(t)t.click();});
+    a.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var t=document.getElementById('dv-more-btn');if(t)t.click();});
+    /* Push 3.2: copy legacy button innerHTML into new tool row buttons */
+    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
+      var leg=document.getElementById(b.dataset.mkTarget);
+      if(leg&&leg.innerHTML.trim()){
+        b.innerHTML=leg.innerHTML;
+      }
+    });
+    /* Push 3: tool row proxies — S79 fix: stopPropagation so the close-on-outside
+       handler in viewer.js doesn't fire after opening the submenu.
+       Also repositions the submenu to appear near the clicked mobile button. */
+    var _mkTargetToSub={
+      'mk-pen-btn':'pen-submenu',
+      'mk-shapes-btn':'shapes-submenu',
+      'mk-color-btn':'color-submenu'
+    };
+    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
+      if(b.dataset.wired)return;b.dataset.wired='1';
+      b.addEventListener('click',function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var t=document.getElementById(b.dataset.mkTarget);
+        if(t)t.click();
+        // Reposition submenu near the clicked mobile button (not bottom sheet, not off-screen PC position)
+        var subId=_mkTargetToSub[b.dataset.mkTarget];
+        if(subId){
+          setTimeout(function(){
+            var sub=document.getElementById(subId);
+            if(!sub)return;
+            // Only reposition if open
+            if(!sub.classList.contains('open'))return;
+            var rect=b.getBoundingClientRect();
+            var vw=window.innerWidth;
+            // Measure submenu to center it on the button when possible
+            var subW=sub.offsetWidth||260;
+            var left=Math.max(8, Math.min(vw-subW-8, rect.left+(rect.width-subW)/2));
+            // Place ABOVE the button (toolrow is near top of viewport, submenu would go off-screen below)
+            // But if there's not enough room above, place below.
+            var top;
+            if(rect.top > 180){
+              top=rect.top-(sub.offsetHeight||60)-8;
+            } else {
+              top=rect.bottom+8;
+            }
+            sub.style.setProperty('position','fixed','important');
+            sub.style.setProperty('top',top+'px','important');
+            sub.style.setProperty('left',left+'px','important');
+            sub.style.setProperty('right','auto','important');
+            sub.style.setProperty('bottom','auto','important');
+            sub.style.setProperty('width','auto','important');
+            sub.style.setProperty('max-width',(vw-16)+'px','important');
+          },0);
+        }
+      });
+      b.addEventListener('touchend',function(e){e.stopPropagation();});
+    });
+    /* Push 3: active-state mirror via MutationObserver on legacy tool buttons */
+    var legacyMap={'mk-pin':0,'mk-select':0,'mk-pen-btn':0,'mk-shapes-btn':0,'mk-text':0,'mk-eraser':0};
+    function syncActive(){
+      document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
+        var leg=document.getElementById(b.dataset.mkTarget);
+        if(!leg)return;
+        var act=leg.classList.contains('active')||leg.getAttribute('aria-pressed')==='true';
+        b.classList.toggle('active',act);
+      });
+    }
+    Object.keys(legacyMap).forEach(function(id){
+      var el=document.getElementById(id);if(!el)return;
+      new MutationObserver(syncActive).observe(el,{attributes:true,attributeFilter:['class','aria-pressed']});
+    });
+    syncActive();
+    /* Push 3: style strip steppers — proxy via legacy +/- if present */
+    document.querySelectorAll('#dv-stylestrip-v75 .dv-ss-step').forEach(function(b){
+      if(b.dataset.wired)return;b.dataset.wired='1';
+      b.addEventListener('click',function(e){
+        e.preventDefault();
+        var k=b.dataset.ss,d=parseInt(b.dataset.d,10);
+        var valEl=document.getElementById(k==='size'?'dv-ss-size-v75':'dv-ss-op-v75');
+        var legVal=document.getElementById(k==='size'?'mk-size-val':'mk-opacity-val');
+        if(legVal){
+          var cur=parseInt(legVal.textContent,10)||0;
+          var nxt=Math.max(1,Math.min(k==='opacity'?100:50,cur+d*(k==='opacity'?10:1)));
+          legVal.textContent=nxt;
+          if(valEl)valEl.textContent=nxt;
+          legVal.dispatchEvent(new Event('change',{bubbles:true}));
+        }
+      });
+    });
+    /* S331 — click the SIZE/OPAC number to type a value directly (not just +/-). */
+    [['dv-ss-size-v75','mk-size-val','size',1,50],['dv-ss-op-v75','mk-opacity-val','opacity',1,100]].forEach(function(cfg){
+      var span=document.getElementById(cfg[0]);
+      if(!span||span.dataset.editWired)return;span.dataset.editWired='1';
+      span.style.cursor='text';
+      span.addEventListener('click',function(e){
+        e.preventDefault();e.stopPropagation();
+        if(span.querySelector('input'))return;
+        var cur=parseInt(span.textContent,10)||0;
+        var inp=document.createElement('input');
+        inp.type='text';inp.inputMode='numeric';inp.value=cur;
+        inp.style.cssText='width:40px;font:inherit;text-align:center;border:1px solid #9C2742;border-radius:4px;padding:1px 2px;background:#fff;color:#222;';
+        span.textContent='';span.appendChild(inp);
+        inp.focus();inp.select();
+        function commit(){
+          var n=parseInt(inp.value,10);
+          var min=cfg[3],max=cfg[4];
+          if(isNaN(n))n=cur;
+          n=Math.max(min,Math.min(max,n));
+          span.textContent=n;
+          var legVal=document.getElementById(cfg[1]);
+          if(legVal){legVal.textContent=n;legVal.dispatchEvent(new Event('change',{bubbles:true}));}
+        }
+        inp.addEventListener('blur',commit);
+        inp.addEventListener('keydown',function(ev){
+          if(ev.key==='Enter'){ev.preventDefault();inp.blur();}
+          else if(ev.key==='Escape'){ev.preventDefault();span.textContent=cur;}
+        });
+      });
+    });
+    /* S79: sync mobile toolrow color dot with PC mk-color-swatch */
+    (function syncMobileColor(){
+      var mob=document.getElementById('dv-tr-color-dot');
+      var pc=document.getElementById('mk-color-swatch');
+      if(!mob||!pc)return;
+      function pull(){var bg=pc.style.background||pc.style.backgroundColor;if(bg)mob.style.background=bg;}
+      pull();
+      try{new MutationObserver(pull).observe(pc,{attributes:true,attributeFilter:['style']});}catch(e){}
+      /* Also sync the stylestrip swatch if present */
+      var ss=document.getElementById('dv-ss-color-v75');
+      if(ss){function pull2(){var bg=pc.style.background||pc.style.backgroundColor;if(bg)ss.style.background=bg;}pull2();try{new MutationObserver(pull2).observe(pc,{attributes:true,attributeFilter:['style']});}catch(e){}}
+    })();
+    /* S79: on mobile, re-route the PC top-bar Tasks button to toggle the mobile tasks sheet
+       instead of the PC panel (which is display:none on mobile). Uses capture phase so the
+       original PC handler still fires (keeps .active state mirror) but we ALSO open the sheet. */
+    (function wireMobileTasks(){
+      var tb=document.getElementById('dv-tasks-btn');
+      if(!tb||tb.dataset.mobWired)return;
+      tb.dataset.mobWired='1';
+      tb.addEventListener('click',function(){
+        if(window.matchMedia && window.matchMedia('(max-width: 900px)').matches){
+          var sh=document.getElementById('dv-tasks-sheet-v75');
+          if(sh){
+            sh.classList.toggle('open');
+            // Keep .active class synced to sheet visibility (visual feedback)
+            tb.classList.toggle('active', sh.classList.contains('open'));
+          }
+        }
+      });
+    })();
+    /* S82: Layers button text is now a <span class="dv-lb-txt"> — pure-CSS hide
+       via media queries (see frt.css), resize-safe. JS only adjusts the tasks pin. */
+    (function setMobileTopbarIcons(){
+      if(!window.matchMedia||!window.matchMedia('(max-width: 900px)').matches)return;
+      var tb=document.getElementById('dv-tasks-btn');
+      if(tb && !tb.dataset.mobText){tb.dataset.mobText='1';tb.textContent='\uD83D\uDCCC';}
+    })();
+    /* Push 4: bottom bar proxies + mirrors */
+    /* S82: blur() after every tap so :focus/:hover doesn't stick.
+       Adds .tap-flash class for 150ms so tap feedback is reliably visible
+       even on quick taps where :active wouldn't be long enough to see. */
+    function _bbTap(srcId, targetIdOrFn){
+      var b=document.getElementById(srcId); if(!b||b.dataset.wired)return;
+      b.dataset.wired='1';
+      b.addEventListener('click',function(e){
+        e.preventDefault();
+        b.classList.add('tap-flash');
+        setTimeout(function(){ b.classList.remove('tap-flash'); }, 150);
+        if(typeof targetIdOrFn==='function'){targetIdOrFn();}
+        else if(targetIdOrFn){var t=document.getElementById(targetIdOrFn);if(t)t.click();}
+        try{ b.blur(); }catch(_){}
+      });
+    }
+    _bbTap('dv-bb-prev','dv-prev');
+    _bbTap('dv-bb-next','dv-next');
+    /* S82: bb-fit has data-zoom="fit" — markup.js delegation already handles
+       the actual zoom. Pass null target so we ONLY do the flash + blur, not
+       a second proxy click (which was double-firing zoom and breaking pins). */
+    _bbTap('dv-bb-fit', null);
+    _bbTap('dv-nav-prev','dv-prev');
+    _bbTap('dv-nav-next','dv-next');
+    _bbTap('dv-bb-rename','dv-rename-btn');
+    var bbTasks=document.getElementById('dv-bb-tasks');
+    if(bbTasks&&!bbTasks.dataset.wired){bbTasks.dataset.wired='1';bbTasks.addEventListener('click',function(e){e.preventDefault();var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.toggle('open');try{bbTasks.blur();}catch(_){}});}
+    /* Push 5: tasks sheet collapse + handle + new task proxy */
+    var tsCol=document.getElementById('dv-tsv75-collapse');
+    var tsHandle=document.getElementById('dv-tsv75-handle');
+    var tsNew=document.getElementById('dv-tsv75-new');
+    function closeSheet(){var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.remove('open');}
+    if(tsCol&&!tsCol.dataset.wired){tsCol.dataset.wired='1';tsCol.addEventListener('click',function(e){e.preventDefault();closeSheet();});}
+    if(tsHandle&&!tsHandle.dataset.wired){tsHandle.dataset.wired='1';tsHandle.addEventListener('click',function(e){e.preventDefault();closeSheet();});}
+    if(tsNew&&!tsNew.dataset.wired){tsNew.dataset.wired='1';tsNew.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-new-task');if(t)t.click();});}
+    /* Mirror legacy task list into sheet */
+    function syncTaskList(){
+      var src=document.getElementById('dv-tasks-list');
+      var dst=document.getElementById('dv-tsv75-list');
+      var ttl=document.getElementById('dv-tsv75-title');
+      if(!src||!dst)return;
+      dst.innerHTML='';
+      var items=src.children;
+      for(var i=0;i<items.length;i++){
+        var el=items[i];
+        var card=document.createElement('div');
+        card.className='dv-tsv75-card';
+        var txt=el.textContent.trim();
+        var cls=el.className||'';
+        if(/closed|done|complete/i.test(cls+' '+txt))card.classList.add('ok');
+        else if(/warn|medium|orange/i.test(cls))card.classList.add('warn');
+        var t=document.createElement('div');t.className='dv-tsv75-card-title';t.textContent=txt.split('\n')[0].slice(0,80);
+        card.appendChild(t);
+        card.addEventListener('click',function(legEl){return function(){legEl.click();};}(el));
+        dst.appendChild(card);
+      }
+      if(ttl){var c=document.getElementById('dv-bb-tasks-count');ttl.textContent='📌 Tasks ('+((c&&c.textContent)||items.length||0)+')';}
+    }
+    var tlEl=document.getElementById('dv-tasks-list');
+    if(tlEl)new MutationObserver(syncTaskList).observe(tlEl,{childList:true,subtree:true,characterData:true});
+    syncTaskList();
+    /* Push 7: relocate #dv-close into top of #dv-sidebar-tools on desktop */
+    /* DISABLED in Push 8 — Mark wants Close to stay in top toolbar */
+    if(false&&window.matchMedia('(min-width: 769px)').matches){
+      var closeBtn=document.getElementById('dv-close');
+      var sidebar=document.getElementById('dv-sidebar-tools');
+      if(closeBtn&&sidebar&&closeBtn.parentElement!==sidebar){
+        sidebar.insertBefore(closeBtn,sidebar.firstChild);
+      }
+    }
+    /* Mirror title text into name pill + tasks count */
+    function syncBB(){
+      var title=document.getElementById('dv-title');
+      var nm=document.getElementById('dv-bb-name');
+      if(title&&nm)nm.textContent=title.textContent||'';
+      var tc=document.getElementById('dv-tasks-count');
+      var bbc=document.getElementById('dv-bb-tasks-count');
+      if(tc&&bbc)bbc.textContent=(tc.textContent||'0').replace(/[^\d]/g,'')||'0';
+    }
+    var titleEl=document.getElementById('dv-title');
+    if(titleEl)new MutationObserver(syncBB).observe(titleEl,{childList:true,characterData:true,subtree:true});
+    var tcEl=document.getElementById('dv-tasks-count');
+    if(tcEl)new MutationObserver(syncBB).observe(tcEl,{childList:true,characterData:true,subtree:true});
+    syncBB();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wire);
+  else wire();
+
+  /* S82: Input-type tracker — toggles body class based on most recent input.
+     CSS uses body:not(.input-touch) ... :hover for hover red, so touch never
+     triggers hover red even on hybrid devices or sticky-hover Android browsers. */
+  (function(){
+    function setTouch(){ document.body.classList.add('input-touch'); }
+    function setMouse(){ document.body.classList.remove('input-touch'); }
+    document.addEventListener('touchstart', setTouch, {passive:true, capture:true});
+    document.addEventListener('pointerdown', function(e){
+      if(e.pointerType==='touch' || e.pointerType==='pen') setTouch();
+      else setMouse();
+    }, {passive:true, capture:true});
+    document.addEventListener('mousemove', setMouse, {passive:true, capture:true});
+  })();
+})();
+</script>
+
+<!-- S113 Push 7 — Floating debug-panel toggle. Only renders when debug
+     mode is on (?dbg=1 or localStorage._frtDbg='1'). Top-right corner,
+     small + faded. Click toggles `body.diag-show` which the CSS uses to
+     show/hide the LIFE green panel and S97 recorder panel together. -->
+<button type="button" id="diag-toggle" title="Toggle debug panels" style="display:none;">🔍</button>
+<script>
+(function(){
+  // S250 §13: the debug-panel toggle is now hidden even in dbg=1 mode (Mark
+  // doesn't want it). It requires an explicit separate opt-in:
+  //   localStorage._frtPanels='1'  (set via console when needed, then reload).
+  var panelsOn = false;
+  try { panelsOn = (window.localStorage && localStorage.getItem('_frtPanels') === '1'); } catch(_e) {}
+  var btn = document.getElementById('diag-toggle');
+  if (!btn) return;
+  if (!panelsOn) { return; }
+  btn.style.display = 'flex';
+  btn.addEventListener('click', function(){
+    document.body.classList.toggle('diag-show');
+  });
+})();
+</script>
+<script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
