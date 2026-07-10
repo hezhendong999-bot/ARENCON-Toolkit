@@ -2061,6 +2061,8 @@ function _captureExportPDF(w,D){
     }
   })();
 }
+var _usePagCssTag=false;
+try{_usePagCssTag=/[?&]pag=css(&|$)/.test(String(window.location.search||''));}catch(_te){}
 try{
   var barFix=D.createElement('div');barFix.id='pdf-btn-bar';
   barFix.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;overflow:hidden;background:#2C4770;box-shadow:0 2px 8px rgba(0,0,0,.3);';
@@ -2069,7 +2071,7 @@ try{
   var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
   pb.style.cssText='padding:8px 24px;background:#2E9E72;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
   pb.onclick=function(){_captureExportPDF(w,D);};bar.appendChild(pb);
-  var ht=D.createElement('span');ht.textContent='Click to save the report as a PDF (matches this preview exactly).';
+  var ht=D.createElement('span');ht.textContent='Click to save the report as a PDF (matches this preview exactly).'+(_usePagCssTag?' \u00b7 engine v2':'');
   ht.style.cssText='color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';bar.appendChild(ht);
   var cb=D.createElement('button');cb.innerHTML='\u2715 Close';
   cb.style.cssText='padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
@@ -2366,8 +2368,21 @@ function _layoutBodyMeasured(blocks){
   while(idx<blocks.length){
     var avail=PAGE_H-curUsed;
     if(isBand(blocks[idx].type)){
-      var end=keepEnd(idx);var gExt=extent(idx,end-1);
-      if(gExt>avail&&pageHasBody)newPageForBand(blocks[idx].type);
+      var end=keepEnd(idx);
+      // Group demand = bands + what the member card actually NEEDS to land:
+      // its full extent if it fits/can't split, else its first natural seam
+      // (a meaningful landing) — the card then FLOWS under its bands, filling
+      // the gap instead of dragging the whole group (and a void) to the next
+      // page. Bands still can never be stranded: the landing lands with them.
+      var gReq=extent(idx,end-2>=idx?end-2:idx); // bands run
+      if(end-1>idx&&blocks[end-1].type==='defCard'){
+        var cExt=extent(end-1,end-1);
+        var cLand=cExt;
+        var cc=_breakCandidates(firstEls[end-1]);
+        if(cc.length&&cc[0].y<cExt)cLand=cc[0].y;
+        gReq=(G[end-1].b-G[idx].t)+G[idx].mT-(cExt-cLand);
+      }
+      if(gReq>avail&&pageHasBody)newPageForBand(blocks[idx].type);
       while(idx<end&&isBand(blocks[idx].type)){placeBlock(idx);note(blocks[idx]);idx++;}
       groupOpen=(idx<end);
       continue;
