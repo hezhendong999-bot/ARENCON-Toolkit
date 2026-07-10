@@ -2158,17 +2158,54 @@ function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_
 // downstream (Previously Closed, appendices, capture, links, AcroForm) is
 // untouched. Selected by ?pag=css on the APP url; otherwise fully dormant.
 function _splitCardParts(cardHtml){
-  // Legacy markup contract, verbatim (from the dc-split branch of _flowBlock).
+  // Structure-COMPUTED split contract (S457 fix). The legacy version guessed the
+  // close-stack (5 divs for cards matching /crb-bd/, else 3) and appended it
+  // after the final row — whose string already carried the card's own closing
+  // tags. The surplus closers closed the .page itself early, so any block
+  // placed after a split card on the same page rendered OUTSIDE the page frame
+  // (floating card / lost header / phantom blank). Latent in legacy (masked by
+  // its always-fresh-page-after-split habit); fatal once space is reused.
+  // Fix: parse cH's REAL unclosed <div> stack. cF = exactly that many closers.
+  // The final row is normalized (its trailing duplicate closers stripped) so
+  // EVERY segment is assembled the same way and is exactly balanced.
   var sp=cardHtml.split(/<div class="dc-split/);
   if(sp.length<=1)return null;
-  var cH=sp[0];var isCrb=/class="crb-bd"/.test(cH);
-  var cF=isCrb?'</div></div></div></div></div>':'</div></div></div>';
+  var cH=sp[0];
+  // real unclosed open-tag stack of the head
+  var stack=[];var tk=/<div\b[^>]*>|<\/div>/g;var m;
+  while((m=tk.exec(cH))){ if(m[0]==='</div>')stack.pop(); else stack.push(m[0]); }
+  var depth=stack.length;
+  var cF=new Array(depth+1).join('</div>');
+  // generic continued head: reopen the SAME unclosed chain, injecting the
+  // continued band + thread(cont.) header at their structural anchors — this
+  // reproduces the bespoke output for both known flavors and is correct for any
+  // future nesting.
   var _cim=(cH.match(/<span class="dc-itemnum">([\s\S]*?)<\/span>/)||[])[1]||'';
   var _cpr=(cH.match(/<span class="pinref-dark">([\s\S]*?)<\/span>/)||[])[1]||'';
   var _hasMini=/dc-mini/.test(cH);
-  var contHead='<div class="dc"><div class="dc-inner">'+(_hasMini?'<div class="dc-mini-cont"></div>':'')+'<div class="dc-content"><div class="item-contband"><span class="dc-itemnum">'+_cim+'</span>'+(_cpr?' <span class="pinref-dark">'+_cpr+'</span>':'')+' <span class="cont">continued</span></div>'+(isCrb?'<div class="crb"><div class="crb-hd">Contractor Response \u2014 thread (cont.)</div><div class="crb-bd">':'');
+  var contBand='<div class="item-contband"><span class="dc-itemnum">'+_cim+'</span>'+(_cpr?' <span class="pinref-dark">'+_cpr+'</span>':'')+' <span class="cont">continued</span></div>';
+  var contHead='';
+  for(var s=0;s<stack.length;s++){
+    var tag=stack[s];contHead+=tag;
+    var cls=(tag.match(/class="([^"]*)"/)||[])[1]||'';
+    if(/\bdc-inner\b/.test(cls)&&_hasMini)contHead+='<div class="dc-mini-cont"></div>';
+    if(/\bdc-content\b/.test(cls))contHead+=contBand;
+    if(/\bcrb\b/.test(cls)&&!/\bcrb-bd\b/.test(cls)&&!/\bcrb-hd\b/.test(cls))
+      contHead+='<div class="crb-hd">Contractor Response \u2014 thread (cont.)</div>';
+  }
   var breakNote='<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;text-align:right;margin-top:6px;">continues on next page \u2192</div>';
   var rows=[];for(var k=1;k<sp.length;k++)rows.push('<div class="dc-split'+sp[k]);
+  // normalize the final row: strip the card's own trailing closers (exactly
+  // `depth` of them) so every segment ends with the computed cF and no more.
+  if(rows.length){
+    var lastR=rows[rows.length-1];var stripped=0;
+    while(stripped<depth){
+      var t2=lastR.replace(/\s*<\/div>\s*$/,'');
+      if(t2===lastR)break;
+      lastR=t2;stripped++;
+    }
+    rows[rows.length-1]=lastR;
+  }
   return{cH:cH,cF:cF,contHead:contHead,breakNote:breakNote,rows:rows};
 }
 function _layoutBodyMeasured(blocks){
