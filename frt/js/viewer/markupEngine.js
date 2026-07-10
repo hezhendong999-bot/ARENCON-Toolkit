@@ -425,6 +425,14 @@
       var x1=a.x*sx, y1=a.y*sy, x2=b.x*sx, y2=b.y*sy;
       ctx.lineCap='round'; ctx.lineJoin='round';
       ctx.strokeStyle = s.color; ctx.lineWidth = s.size * ((sx+sy)/2);
+      // Shared shape definitions (lib/ui/markupTools.js) are the single source of
+      // truth for rect/circle/triangle/line (+ fills). drawShape() returns true if
+      // it handled the tool; cloud + arrow stay FRT-local (arrow uses FRT's own
+      // arrowhead sizing; cloud is the S339 lightbox design, per A3). Stroke storage
+      // is untouched — this only changes HOW a shape is painted, never-bake intact.
+      if (window.MarkupTools && s.tool !== 'cloud' && s.tool !== 'arrow'){
+        if (window.MarkupTools.drawShape(ctx, s.tool, x1, y1, x2, y2)) return;
+      }
       ctx.beginPath();
       if (s.tool==='line'){
         ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();

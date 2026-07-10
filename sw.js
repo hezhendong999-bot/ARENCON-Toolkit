@@ -60,6 +60,7 @@ var APP_FILES = [
   'frt/js/ui/photoPicker.js',
   'frt/js/viewer/viewer.js',
   'frt/js/viewer/markup.js',
+  'lib/ui/markupTools.js',
   'frt/js/viewer/markupEngine.js',
   'frt/js/viewer/webglMarkup.js',
   'frt/js/viewer/tiledPdf.js',
