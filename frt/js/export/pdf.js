@@ -8,6 +8,7 @@ import { IDB } from '../data/idb.js';
 import { R2 } from '../data/r2.js';
 import { showAlert } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';
+import { mountExportChrome, createFlowLayout } from '../../../lib/export/exportPreview.js';
 import { CARLITO_REG_B64 } from './carlitoReg.js';
 import { CARLITO_BOLD_B64 } from './carlitoBold.js';
 // Real-data Contractor Response render (crbRender.js). S455: invoked behind
@@ -2061,67 +2062,9 @@ function _captureExportPDF(w,D){
     }
   })();
 }
-var _pagLegacyTag=false;
-try{_pagLegacyTag=/[?&]pag=legacy(&|$)/.test(String(window.location.search||''));}catch(_te){}
-// ── S457 unified export cluster ───────────────────────────────────────────────
-// The old full-width banner lived inside the zoomable document, so it scaled
-// with the drawings (unusable tiny/huge, and stretched to 11x17 width). Now a
-// compact floating cluster — green Export pill + round Close — pinned to the
-// top-right of the VISIBLE screen and counter-scaled so it stays a constant
-// on-screen size at any zoom, any device:
-//   effective zoom = desktop page zoom (outerWidth/innerWidth — readable,
-//   unlike the DPR approach S338 removed) × pinch zoom (visualViewport.scale).
-// Updates on resize/viewport events only — no polling (S338's other objection).
-try{
-  var _doClose=function(){
-    try{var pc=D.getElementById('pages-container');if(pc)pc.innerHTML='';
-        var mz=D.getElementById('measure-zone');if(mz)mz.innerHTML='';}catch(_e){}
-    try{w.close();}catch(_e2){}
-  };
-  var cl=D.createElement('div');cl.id='pdf-btn-cluster';
-  cl.style.cssText='position:fixed;z-index:99999;display:flex;align-items:center;gap:8px;transform-origin:bottom right;';
-  var pb=D.createElement('button');pb.innerHTML='\uD83D\uDCC4 Export PDF';
-  pb.title='Click to save the report as a PDF (matches this preview exactly).';
-  pb.style.cssText='padding:10px 18px;background:#2E9E72;color:#fff;border:none;border-radius:22px;font:700 14px Calibri,sans-serif;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);';
-  pb.onclick=function(){_captureExportPDF(w,D);};cl.appendChild(pb);
-  var cb=D.createElement('button');cb.innerHTML='\u2715';cb.title='Close preview';
-  cb.style.cssText='width:42px;height:42px;background:#455A64;color:#fff;border:none;border-radius:50%;font:700 16px Calibri,sans-serif;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);';
-  cb.onclick=_doClose;cl.appendChild(cb);
-  {
-    var tg=D.createElement('span');tg.textContent=_pagLegacyTag?'engine v1 (legacy)':'engine v2';
-    tg.style.cssText='font:600 10px Calibri,sans-serif;color:#455A64;background:rgba(255,255,255,.85);padding:2px 8px;border-radius:8px;';
-    cl.appendChild(tg);
-  }
-  D.body.appendChild(cl);
-  var _zoom=function(){
-    var pz=1;
-    try{if(w.outerWidth&&w.innerWidth)pz=w.outerWidth/w.innerWidth;}catch(_z1){}
-    if(!isFinite(pz)||pz<=0)pz=1;
-    var vv=1;
-    try{if(w.visualViewport&&w.visualViewport.scale)vv=w.visualViewport.scale;}catch(_z2){}
-    var z=pz*vv;
-    if(z<0.3)z=0.3;if(z>6)z=6;
-    return Math.round(z*20)/20; // quantize to kill sub-pixel jitter
-  };
-  var _fit=function(){
-    var s=1/_zoom();
-    // Anchor by RIGHT/BOTTOM with transform-origin bottom right: the scaled box
-    // shrinks toward its own anchored corner, so it can never overhang the
-    // viewport at any zoom (the top-right/left-anchored version could).
-    var rOff=14,bOff=14;
-    try{if(w.visualViewport){
-      rOff=(w.innerWidth-(w.visualViewport.offsetLeft+w.visualViewport.width))+14*s;
-      bOff=(w.innerHeight-(w.visualViewport.offsetTop+w.visualViewport.height))+14*s;
-    }else{rOff=14*s;bOff=14*s;}}catch(_f1){rOff=14*s;bOff=14*s;}
-    cl.style.transform='scale('+s+')';
-    cl.style.right=rOff+'px';
-    cl.style.bottom=bOff+'px';
-    cl.style.top='';cl.style.left='';
-  };
-  w.addEventListener('resize',_fit);
-  try{w.visualViewport.addEventListener('resize',_fit);w.visualViewport.addEventListener('scroll',_fit);}catch(_f2){}
-  _fit();setTimeout(_fit,300);
-}catch(_uc){}
+// S457: export chrome (Export/Close cluster, counter-scaled, close-cleanup)
+// now lives in the shared library — lib/export/exportPreview.js.
+try{ mountExportChrome(w,D,{onExport:function(){_captureExportPDF(w,D);}}); }catch(_uc){}
 // S457: the S338 full-width banner is retired. Its zoom problem is now solved
 // by the unified counter-scaled cluster above (page zoom measured via
 // outerWidth/innerWidth — the readable signal S338's DPR attempt lacked —
@@ -2197,230 +2140,23 @@ function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_
 // Feeds the SAME pages[] via _finalizePage/_startPage/_restamp; everything
 // downstream (Previously Closed, appendices, capture, links, AcroForm) is
 // untouched. Selected by ?pag=css on the APP url; otherwise fully dormant.
-// ── S457 flow engine (Mark's design, locked this session) ────────────────────
-// POLICY: a page fuller than FILL_OK may move a non-fitting card whole (small
-// gap is acceptable). An emptier page must be FILLED: the card starts there and
-// flows across pages at natural seams — between thread entries, between photo
-// rows, between description paragraphs — never mid-line, never a sliver
-// (a landing must be at least MIN_LAND tall, i.e. header + a real content
-// block). FILL_OK is a named editorial knob, not a hidden heuristic.
-var FILL_OK=0.72;   // page-fullness above which a whole-card move is acceptable
-var MIN_LAND=110;   // px: minimum meaningful landing (header + one content block)
-function _cardMeta(el){
-  var num=(el.querySelector('.dc-itemnum')||{}).innerHTML||'';
-  var pin=(el.querySelector('.pinref-dark')||{}).innerHTML||'';
-  return{
-    num:num,pin:pin,
-    hasMini:!!el.querySelector('[class*="dc-mini"]'),
-    contBand:'<div class="item-contband"><span class="dc-itemnum">'+num+'</span>'+(pin?' <span class="pinref-dark">'+pin+'</span>':'')+' <span class="cont">continued</span></div>',
-    breakNote:'<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;text-align:right;margin-top:6px;">continues on next page \u2192</div>'
-  };
-}
-// Natural break candidates within a card, from its REAL laid-out structure:
-// thread rows (.dc-split), photo-grid row starts (tiles whose top begins a new
-// visual row — including the first, i.e. between description and photos), and
-// description block boundaries (children of .dc-desc after the first).
-function _breakCandidates(el){
-  var base=el.getBoundingClientRect().top;var out=[];
-  function push(n){var y=n.getBoundingClientRect().top-base;if(y>=MIN_LAND)out.push({node:n,y:y});}
-  var th=el.querySelectorAll('.dc-split');for(var i=0;i<th.length;i++)push(th[i]);
-  var gs=el.querySelectorAll('.dp-grid');
-  for(var g=0;g<gs.length;g++){
-    var prev=null,ch=gs[g].children;
-    for(var c=0;c<ch.length;c++){
-      var t=ch[c].getBoundingClientRect().top;
-      if(prev===null||t>prev+1){push(ch[c]);prev=t;}
-    }
-  }
-  var ds=el.querySelectorAll('.dc-desc');
-  for(var d2=0;d2<ds.length;d2++){var ks=ds[d2].children;for(var k2=1;k2<ks.length;k2++)push(ks[k2]);}
-  out.sort(function(a,b){return a.y-b.y;});
-  // dedupe identical nodes (a dc-split may also be first grid row etc.)
-  var seen=[],ded=[];
-  for(var q=0;q<out.length;q++){if(seen.indexOf(out[q].node)===-1){seen.push(out[q].node);ded.push(out[q]);}}
-  return ded;
-}
-// Split a card ELEMENT before `node`. Returns {aHtml, bEl}: A = everything
-// before the node (with break note), B = the node onward as a live element
-// (continuation band injected, thread/mini context re-opened). DOM cloning
-// guarantees perfectly balanced markup on both sides by construction.
-function _splitDomBefore(srcEl,node,meta){
-  var path=[];var n=node;
-  while(n!==srcEl){var p=n.parentElement,ix=0,s=n;while((s=s.previousElementSibling))ix++;path.unshift(ix);n=p;}
-  function at(root){var e=root;for(var i=0;i<path.length;i++)e=e.children[path[i]];return e;}
-  var A=srcEl.cloneNode(true),B=srcEl.cloneNode(true);
-  var nA=at(A),nB=at(B);
-  // A: strip nA and everything after it along the spine
-  var c=nA;
-  while(c!==A){var pa=c.parentElement;while(c.nextElementSibling)pa.removeChild(c.nextElementSibling);c=pa;}
-  nA.parentElement.removeChild(nA);
-  // B: strip everything before nB along the spine (nB itself is kept)
-  c=nB;
-  while(c!==B){var pb=c.parentElement;while(c.previousElementSibling)pb.removeChild(c.previousElementSibling);c=pb;}
-  // A: break note at the tail of the content column
-  var host=A.querySelector('.dc-content')||A;
-  var bn=srcEl.ownerDocument.createElement('div');bn.innerHTML=meta.breakNote;host.appendChild(bn.firstChild);
-  // B: continuation band first in content; mini spacer if the card had a map;
-  // thread header re-opened as "(cont.)" if the cut landed inside the thread.
-  var bc=B.querySelector('.dc-content')||B;
-  var cb=srcEl.ownerDocument.createElement('div');cb.innerHTML=meta.contBand;bc.insertBefore(cb.firstChild,bc.firstChild);
-  if(meta.hasMini&&!B.querySelector('[class*="dc-mini"]')){
-    var inr=B.querySelector('.dc-inner');
-    if(inr){var sp=srcEl.ownerDocument.createElement('div');sp.className='dc-mini-cont';inr.insertBefore(sp,inr.firstChild);}
-  }
-  var crb=B.querySelector('.crb');
-  if(crb&&!crb.querySelector('.crb-hd')){
-    var hd=srcEl.ownerDocument.createElement('div');hd.className='crb-hd';
-    hd.innerHTML='Contractor Response \u2014 thread (cont.)';crb.insertBefore(hd,crb.firstChild);
-  }
-  return{aHtml:A.outerHTML,bEl:B};
-}
-function _layoutBodyMeasured(blocks){
-  if(!blocks.length)return;
-  var host=D.createElement('div');
-  host.style.cssText='position:absolute;left:-99999px;top:0;width:7.3in;visibility:hidden;';
-  var counts=[];var tpl=D.createElement('template');var all='';
-  for(var i=0;i<blocks.length;i++){
-    tpl.innerHTML=blocks[i].html;
-    counts.push(Math.max(1,tpl.content?tpl.content.childElementCount:1));
-    all+=blocks[i].html;
-  }
-  host.innerHTML=all;D.body.appendChild(host);
-  var kids=host.children;var hostTop=host.getBoundingClientRect().top;
-  var G=[];var cursor=0;var firstEls=[];
-  for(var b2=0;b2<blocks.length;b2++){
-    var first=kids[cursor];var last=kids[Math.min(cursor+counts[b2]-1,kids.length-1)];
-    G.push({
-      t:first.getBoundingClientRect().top-hostTop,
-      b:last.getBoundingClientRect().bottom-hostTop,
-      mT:parseFloat(w.getComputedStyle(first).marginTop)||0
-    });
-    firstEls.push(first);
-    cursor+=counts[b2];
-  }
-  function extent(f,k){return (G[k].b-G[f].t)+G[f].mT;}
-  function isBand(t){return t==='tradeHeader'||t==='ctrHeader'||t==='recHeader';}
-  function keepEnd(k){
-    if(!isBand(blocks[k].type))return k+1;
-    var j=k+1;
-    if(j<blocks.length&&(blocks[j].type==='ctrHeader'||blocks[j].type==='recHeader'))j++;
-    if(j<blocks.length&&blocks[j].type==='defCard')j++;
-    return j;
-  }
-  function note(b){
-    if(b.type==='tradeHeader'){_aTradeHtml=b.htmlCont||b.html;_aCtrHtml='';}
-    else if(b.type==='ctrHeader'||b.type==='recHeader'){_aCtrHtml=b.htmlCont||b.html;}
-  }
-  function realH(frag){
-    var p=D.createElement('div');
-    p.style.cssText='position:absolute;left:-99999px;top:0;width:7.3in;visibility:hidden;';
-    p.innerHTML=frag;D.body.appendChild(p);
-    var h=p.getBoundingClientRect().height;D.body.removeChild(p);return h;
-  }
-  var anchor=-1,pageBase=0,pageHasBody=false,groupOpen=false;
-  function newPage(){_finalizePage();_startPage();_restamp();anchor=-1;pageHasBody=false;}
-  function newPageForBand(t){
-    _finalizePage();_startPage();
-    anchor=-1;pageHasBody=false;
-    if(t!=='tradeHeader'&&_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=realH(_aTradeHtml);}
-  }
-  function placeBlock(k){
-    if(anchor===-1){anchor=k;pageBase=curUsed;}
-    curPageHtml+=blocks[k].html;
-    curUsed=pageBase+extent(anchor,k);
-    pageHasBody=true;
-  }
-  // Flow a card: place what fits at each page's natural seams, continue with
-  // "(cont.)" until done. Decisions come from the live element's real geometry.
-  function flowCard(idx0){
-    var meta=_cardMeta(firstEls[idx0]);
-    var cur=firstEls[idx0].cloneNode(true);
-    var probe=D.createElement('div');
-    probe.style.cssText='position:absolute;left:-99999px;top:0;width:7.3in;visibility:hidden;';
-    D.body.appendChild(probe);
-    var guard=0;var triedFresh=false;
-    for(;;){
-      if(++guard>200){probe.appendChild(cur);curPageHtml+=cur.outerHTML;curUsed+=cur.getBoundingClientRect().height;pageHasBody=true;break;}
-      probe.appendChild(cur); // live layout for this (possibly continued) segment
-      var h=cur.getBoundingClientRect().height;
-      var lim=PAGE_H-curUsed;
-      if(h<=lim){curPageHtml+=cur.outerHTML;curUsed+=h;pageHasBody=true;anchor=-1;break;}
-      var cands=_breakCandidates(cur);
-      var pick=null;
-      for(var q=cands.length-1;q>=0;q--){if(cands[q].y<=lim){pick=cands[q];break;}}
-      if(!pick){
-        // one guaranteed fresh-page attempt per segment (a page may be full of
-        // prior-section content); after that, force progress.
-        if(!triedFresh){probe.removeChild(cur);newPage();triedFresh=true;continue;}
-        if(cands.length)pick=cands[0];
-        else{curPageHtml+=cur.outerHTML;curUsed+=h;pageHasBody=true;anchor=-1;break;} // unsplittable overflow
-      }
-      var sp=_splitDomBefore(cur,pick.node,meta);
-      probe.removeChild(cur);
-      curPageHtml+=sp.aHtml;curUsed+=realH(sp.aHtml);pageHasBody=true;anchor=-1;
-      newPage();
-      cur=sp.bEl;triedFresh=true; // continuation already starts on a fresh page
-    }
-    if(probe.parentNode)D.body.removeChild(probe);
-    if(cur.parentNode===probe){} // handled above
-  }
-  var idx=0;
-  while(idx<blocks.length){
-    var avail=PAGE_H-curUsed;
-    if(isBand(blocks[idx].type)){
-      var end=keepEnd(idx);
-      // Group demand = bands + what the member card actually NEEDS to land:
-      // its full extent if it fits/can't split, else its first natural seam
-      // (a meaningful landing) — the card then FLOWS under its bands, filling
-      // the gap instead of dragging the whole group (and a void) to the next
-      // page. Bands still can never be stranded: the landing lands with them.
-      var gReq=extent(idx,end-2>=idx?end-2:idx); // bands run
-      if(end-1>idx&&blocks[end-1].type==='defCard'){
-        var cExt=extent(end-1,end-1);
-        var cLand=cExt;
-        var cc=_breakCandidates(firstEls[end-1]);
-        if(cc.length&&cc[0].y<cExt)cLand=cc[0].y;
-        gReq=(G[end-1].b-G[idx].t)+G[idx].mT-(cExt-cLand);
-      }
-      if(gReq>avail&&pageHasBody)newPageForBand(blocks[idx].type);
-      while(idx<end&&isBand(blocks[idx].type)){placeBlock(idx);note(blocks[idx]);idx++;}
-      groupOpen=(idx<end);
-      continue;
-    }
-    var ext=extent(idx,idx);
-    if(ext<=PAGE_H-curUsed){placeBlock(idx);groupOpen=false;idx++;continue;}
-    // Card doesn't fit the remaining space.
-    // Policy: nearly-full page → move whole (small gap, acceptable);
-    // emptier page (or a band group just opened) → FLOW into the gap.
-    // fullness counts ALL page content (dashboard, prior sections), not just
-    // blocks this run placed — so the test is curUsed alone.
-    if(!groupOpen&&curUsed>=PAGE_H*FILL_OK){
-      newPage();
-      if(ext<=PAGE_H-curUsed){placeBlock(idx);groupOpen=false;idx++;continue;}
-    }
-    flowCard(idx);
-    groupOpen=false;idx++;
-  }
-  D.body.removeChild(host);
-  // ── EXPORT SELF-CHECK (S457, permanent guardrail) ─────────────────────────
-  try{
-    var _bad=[];
-    var _chk=function(html,label){
-      var d2=0,mn=0;var re2=/<div\b|<\/div>/g;var m2;
-      while((m2=re2.exec(html))){d2+=(m2[0]==='<div')?1:-1;if(d2<mn)mn=d2;}
-      if(d2!==0||mn<0)_bad.push(label+' (net '+d2+', min '+mn+')');
-    };
-    for(var pv=0;pv<pages.length;pv++)_chk(pages[pv].html||pages[pv],'page '+(pv+1));
-    if(curPageHtml)_chk(curPageHtml,'open page');
-    if(_bad.length){
-      console.error('[FRT export self-check] STRUCTURE FAULT:',_bad.join('; '));
-      var _bn=D.createElement('div');
-      _bn.style.cssText='position:fixed;top:48px;left:0;right:0;z-index:99999;background:#C0445F;color:#fff;font:700 11pt Calibri,sans-serif;padding:10px 16px;text-align:center;';
-      _bn.textContent='EXPORT CHECK FAILED \u2014 page structure fault detected ('+_bad.length+'). Do not issue this report. Note the project and tell Mark.';
-      D.body.appendChild(_bn);
-    }
-  }catch(_ve){}
-}
+// S457: the position-sliced flow engine now lives in the shared library
+// (lib/export/exportPreview.js) so every tool can adopt it. FRT wires its page
+// machinery below; behavior is identical to the in-file version it replaces
+// (the design lock, both policy knobs, seam splitting, DOM-clone balance
+// guarantee, and the per-export structural self-check all live in the module).
+var _layoutBodyMeasured=createFlowLayout({
+  w:w,D:D,PAGE_H:PAGE_H,
+  finalizePage:function(){_finalizePage();},
+  startPage:function(){_startPage();},
+  restamp:function(){_restamp();},
+  getUsed:function(){return curUsed;},setUsed:function(v){curUsed=v;},
+  append:function(h){curPageHtml+=h;},
+  getPages:function(){return pages;},getOpenHtml:function(){return curPageHtml;},
+  bands:{getTrade:function(){return _aTradeHtml;},
+         setTrade:function(v){_aTradeHtml=v;_aCtrHtml='';},
+         setCtr:function(v){_aCtrHtml=v;}}
+});
 // S142 Batch 3-2: extracted from `contentBlocks.forEach(...)` into a
 // named function so the SAME pagination machinery (page-fit, restamp,
 // dc-split) can flow the pooled Recommendations blocks on their own
