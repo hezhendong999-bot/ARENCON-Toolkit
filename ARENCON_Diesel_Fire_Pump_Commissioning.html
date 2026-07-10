@@ -5352,6 +5352,13 @@ var DslLightbox = (function(){
     var cv=_el('dlb-canvas');
     if(cv){ cv.style.pointerEvents='none'; cv.style.display='none'; }
     var _mb2=_el('dlb-markupbar'); _mb2.style.display='none'; void _mb2.offsetHeight;   // S304: reflow, then re-fit to the regrown area
+    // Hide the orphaned ✓/✗ selection confirm bar (it lives outside the markup bar,
+    // so hiding the markup bar alone left it stranded on close). Clear any pending
+    // tap-selection too so a re-open starts with no ghost selection.
+    try{
+      var _cb=_el('dlb-mk-confirm'); if(_cb) _cb.style.display='none';
+      if(window.DieselMarkup && DieselMarkup.cancelSelect) DieselMarkup.cancelSelect();
+    }catch(_e){}
     _el('dlb-area').style.cursor='grab';
     _markupActive=false;
     _calcFit(); _scale=_fitScale; _panX=0; _panY=0;
@@ -7039,7 +7046,7 @@ function _flowEqDelete(j){
   var arr=_flowEqArr(); if(!arr||!arr[j])return; var p=arr[j];
   if(p.id){ deletePhotoEverywhere({photoId:p.id}, function(){ _renderFlowEquipModal(); }); return; }
   _aConfirm('Move this photo to Recently Deleted? You can restore it for '+_TRASH_RETENTION_DAYS+' days.', function(){
-    if(typeof _markPhotoDeleted==='function') _markPhotoDeleted(p);
+    if(typeof _markPhotoDeleted==='function') _markPhotoDeleted(p, {force:true});
     if(typeof _renderRecordZones==='function') _renderRecordZones();
     _renderFlowEquipModal();
     if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
@@ -16639,31 +16646,42 @@ function _photoCreatedTs(ph){
   // id pattern: ph_<ms-timestamp>_<rand>. Fall back to 0 if unparseable.
   try{ var m=String(ph&&ph.id||'').match(/^ph_(\d{10,})_/); return m?parseInt(m[1],10):0; }catch(e){ return 0; }
 }
-function _markPhotoDeleted(ph){
+function _markPhotoDeleted(ph, opts){
   if(!ph) return false;
   if(_isPhotoDeleted(ph)) return false;           // idempotent
+  // opts.force === true means an explicit user Delete action (a real Delete button
+  // tap). Any caller WITHOUT force is treated as programmatic (merge propagation,
+  // cleanup, etc.) and is NOT allowed to delete a freshly-captured photo — that is
+  // the phantom-delete signature that lost field photos on 7155.51.
+  var _force = !!(opts && opts.force);
   // ── diagnostic capture (before flags are written) ──
+  var _ageMs = -1, _entry = null;
   try{
     var created=_photoCreatedTs(ph), now=Date.now();
-    var ageMs=created?(now-created):-1;
+    _ageMs = created?(now-created):-1;
     var stack='';
     try{ stack=(new Error('del')).stack||''; }catch(_e){}
     // trim stack to the 3 frames after this function for readability
     var caller=stack.split('\n').slice(2,5).join(' « ').replace(/https?:\/\/[^ )]+\//g,'');
-    var entry={ id:ph.id||'(no id)', name:ph.n||'', ageMs:ageMs, at:new Date(now).toISOString(), caller:caller };
-    window._dslDelDiag.push(entry);
+    _entry={ id:ph.id||'(no id)', name:ph.n||'', ageMs:_ageMs, at:new Date(now).toISOString(), caller:caller, forced:_force };
+    window._dslDelDiag.push(_entry);
     if(window._dslDelDiag.length>50) window._dslDelDiag.shift();
-    console.warn('[del-diag]', entry);
-    if(ageMs>=0 && ageMs<10000){
-      // PHANTOM: a photo deleted within 10s of being created.
-      console.error('[del-diag] PHANTOM DELETE — fresh photo removed', entry);
-      if(typeof showToast==='function') showToast('\u26A0 Phantom delete caught: '+(ph.n||ph.id||'photo')+' removed '+(ageMs/1000).toFixed(1)+'s after capture. Diagnostics saved.', 6000);
-    }
+    console.warn('[del-diag]', _entry);
   }catch(_e){}
+  // ── PHANTOM GUARD (P0-1) ──
+  // A non-forced (programmatic) delete of a photo younger than 10s is blocked. The
+  // photo stays live; the ring-buffer entry above records the caller stack so the
+  // exact offending code path is captured for the field.
+  if(!_force && _ageMs>=0 && _ageMs<10000){
+    console.error('[del-diag] PHANTOM DELETE BLOCKED — fresh photo kept', _entry);
+    if(_entry) _entry.blocked = true;
+    if(typeof showToast==='function') showToast('\u26A0 Phantom delete blocked: kept '+(ph.n||ph.id||'photo')+' ('+(_ageMs/1000).toFixed(1)+'s after capture). See Photo Delete Log.', 6000);
+    return false;
+  }
   // ── canonical soft-delete ──
   ph.delState = 'deleted';
   ph.delAt = new Date().toISOString();
-  ph.deleted = true; ph.deletedDate = ph.delAt; ph.deletedBy = 'user'; // legacy mirror
+  ph.deleted = true; ph.deletedDate = ph.delAt; ph.deletedBy = _force ? 'user' : 'system'; // legacy mirror
   return true;
 }
 // S341 (Bug 1 diag): in-app viewer for the photo-delete ring buffer. Newest-first;
@@ -16753,8 +16771,11 @@ function _pgTrashDaysLeft(iso){
 }
 // Soft-delete a single photo object in place (idempotent). Returns true if it
 // flipped live→deleted. S354: routes through the canonical writer.
-function _pgSoftDelete(ph){
-  return _markPhotoDeleted(ph);
+// All callers are explicit user Delete actions (post-confirm gallery/bulk delete),
+// so force defaults to true here — a user tapping Delete may legitimately remove a
+// photo they just took. The phantom guard only protects against programmatic paths.
+function _pgSoftDelete(ph, opts){
+  return _markPhotoDeleted(ph, { force: !opts || opts.force !== false });
 }
 // Restore: return a soft-deleted photo to live. Routed by pid through the full list.
 function _pgRestorePhoto(pid){
