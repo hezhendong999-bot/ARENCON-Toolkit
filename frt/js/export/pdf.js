@@ -2128,6 +2128,170 @@ var _aCtrHtml='';var _aTradeHtml='';
 // at the top of a continued page so a section spanning pages keeps its
 // full Trade -> Contractor context. Mirrors the pre-S139 _aCtrHtml restamp.
 function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_aTradeHtml);}if(_aCtrHtml){curPageHtml+=_aCtrHtml;curUsed+=_measure(_aCtrHtml);}}
+// ── S457 position-sliced body layout ────────────────────────────────────────
+// PERMANENT DESIGN (S457 root-cause rewrite). The legacy _flowBlock walker broke
+// repeatedly because it DECIDED page breaks from guessed heights: per-fragment
+// _measure() sums (which exclude margins and drift cumulatively), a stack of
+// keep-heuristics, and magic thresholds. This engine removes the guessing:
+//
+//   1. Render the ENTIRE body once as one continuous column at true page-content
+//      width (7.3in) inside the real print document (same stylesheets as the
+//      captured pages).
+//   2. Read every block's REAL top/bottom from that settled layout
+//      (getBoundingClientRect) — the browser's own answer, margins included.
+//   3. Slice pages by those real positions. Space consumed by blocks f..k on a
+//      page is (bottom(k) − top(f)) + marginTop(f): an exact number, never an
+//      accumulated estimate. No PAGE_H*x thresholds, no per-fragment measuring
+//      for placement decisions, no second source of truth.
+//
+// Invariants made structural (not heuristic):
+//   • A band (trade/contractor/rec header) is grouped with its first item by
+//     REAL group extent and moved whole — a band can never be last on a page.
+//   • "New page" happens only if the current page already holds a body block —
+//     replacing the PAGE_H*0.15 "nearly empty" guess with a boolean fact.
+//   • A card taller than a fresh page splits between its .dc-split rows using
+//     the rows' REAL positions; each assembled page-segment is then verified
+//     against the page once (self-correcting), and the legacy markup contract
+//     (cF close stack, continued head, break note, first-row-welded-to-head) is
+//     preserved verbatim.
+// Feeds the SAME pages[] via _finalizePage/_startPage/_restamp; everything
+// downstream (Previously Closed, appendices, capture, links, AcroForm) is
+// untouched. Selected by ?pag=css on the APP url; otherwise fully dormant.
+function _splitCardParts(cardHtml){
+  // Legacy markup contract, verbatim (from the dc-split branch of _flowBlock).
+  var sp=cardHtml.split(/<div class="dc-split/);
+  if(sp.length<=1)return null;
+  var cH=sp[0];var isCrb=/class="crb-bd"/.test(cH);
+  var cF=isCrb?'</div></div></div></div></div>':'</div></div></div>';
+  var _cim=(cH.match(/<span class="dc-itemnum">([\s\S]*?)<\/span>/)||[])[1]||'';
+  var _cpr=(cH.match(/<span class="pinref-dark">([\s\S]*?)<\/span>/)||[])[1]||'';
+  var _hasMini=/dc-mini/.test(cH);
+  var contHead='<div class="dc"><div class="dc-inner">'+(_hasMini?'<div class="dc-mini-cont"></div>':'')+'<div class="dc-content"><div class="item-contband"><span class="dc-itemnum">'+_cim+'</span>'+(_cpr?' <span class="pinref-dark">'+_cpr+'</span>':'')+' <span class="cont">continued</span></div>'+(isCrb?'<div class="crb"><div class="crb-hd">Contractor Response \u2014 thread (cont.)</div><div class="crb-bd">':'');
+  var breakNote='<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;text-align:right;margin-top:6px;">continues on next page \u2192</div>';
+  var rows=[];for(var k=1;k<sp.length;k++)rows.push('<div class="dc-split'+sp[k]);
+  return{cH:cH,cF:cF,contHead:contHead,breakNote:breakNote,rows:rows};
+}
+function _layoutBodyMeasured(blocks){
+  if(!blocks.length)return;
+  // 1. One continuous layout of the whole body in the REAL print document.
+  // Blocks are direct siblings (no wrappers — wrappers would block margin
+  // collapse and falsify geometry). Boundaries recovered via per-block
+  // top-level node counts.
+  var host=D.createElement('div');
+  host.style.cssText='position:absolute;left:-99999px;top:0;width:7.3in;visibility:hidden;';
+  var counts=[];var tpl=D.createElement('template');var all='';
+  for(var i=0;i<blocks.length;i++){
+    tpl.innerHTML=blocks[i].html;
+    counts.push(Math.max(1,tpl.content?tpl.content.childElementCount:1));
+    all+=blocks[i].html;
+  }
+  host.innerHTML=all;D.body.appendChild(host);
+  var kids=host.children;var hostTop=host.getBoundingClientRect().top;
+  // 2. Real extents per block + real row positions inside splittable cards.
+  var G=[];var cursor=0;
+  for(var b2=0;b2<blocks.length;b2++){
+    var first=kids[cursor];var last=kids[Math.min(cursor+counts[b2]-1,kids.length-1)];
+    var rT=first.getBoundingClientRect().top-hostTop;
+    var rB=last.getBoundingClientRect().bottom-hostTop;
+    var mT=parseFloat(w.getComputedStyle(first).marginTop)||0;
+    var rowPos=null;
+    if(blocks[b2].type==='defCard'){
+      var rEls=first.querySelectorAll('.dc-split');
+      if(rEls.length){rowPos=[];for(var r=0;r<rEls.length;r++){var rc=rEls[r].getBoundingClientRect();rowPos.push({t:rc.top-hostTop,b:rc.bottom-hostTop});}}
+    }
+    G.push({t:rT,b:rB,mT:mT,rows:rowPos});
+    cursor+=counts[b2];
+  }
+  D.body.removeChild(host);
+  // Space a run of blocks f..k really occupies when placed together on a page.
+  function extent(f,k){return (G[k].b-G[f].t)+G[f].mT;}
+  function isBand(t){return t==='tradeHeader'||t==='ctrHeader'||t==='recHeader';}
+  function keepEnd(k){ // band(+subband)+first card = one keep unit
+    if(!isBand(blocks[k].type))return k+1;
+    var j=k+1;
+    if(j<blocks.length&&(blocks[j].type==='ctrHeader'||blocks[j].type==='recHeader'))j++;
+    if(j<blocks.length&&blocks[j].type==='defCard')j++;
+    return j;
+  }
+  function note(b){
+    if(b.type==='tradeHeader'){_aTradeHtml=b.htmlCont||b.html;_aCtrHtml='';}
+    else if(b.type==='ctrHeader'||b.type==='recHeader'){_aCtrHtml=b.htmlCont||b.html;}
+  }
+  // Real height of one assembled fragment (used ONLY to verify split segments
+  // and advance curUsed for downstream — never to decide whole-block placement).
+  function realH(frag){
+    var p=D.createElement('div');
+    p.style.cssText='position:absolute;left:-99999px;top:0;width:7.3in;visibility:hidden;';
+    p.innerHTML=frag;D.body.appendChild(p);
+    var h=p.getBoundingClientRect().height;D.body.removeChild(p);return h;
+  }
+  // 3. Slice by real positions — EXACT run accounting: consecutive blocks on a
+  // page advance curUsed by the run's true extent from the page's anchor block
+  // (bottom(k) − top(anchor)), so inter-block margins are counted, not summed
+  // from per-block guesses. anchor resets on every page and after any split
+  // segment (string-assembled segments are outside the continuous flow).
+  var anchor=-1,pageBase=0,pageHasBody=false,groupOpen=false;
+  function newPage(){_finalizePage();_startPage();_restamp();anchor=-1;pageHasBody=false;}
+  function placeBlock(k){
+    if(anchor===-1){anchor=k;pageBase=curUsed;}
+    curPageHtml+=blocks[k].html;
+    curUsed=pageBase+extent(anchor,k);
+    pageHasBody=true;
+  }
+  var idx=0;
+  while(idx<blocks.length){
+    var avail=PAGE_H-curUsed;
+    if(isBand(blocks[idx].type)){
+      // ATOMIC keep-group: decide the break ONCE at the leading band, then place
+      // every band member without re-evaluating; the member card either fits or
+      // splits IN PLACE beneath its bands. A break can therefore never occur
+      // between a band and its first item — the orphan is structurally impossible.
+      var end=keepEnd(idx);var gExt=extent(idx,end-1);
+      if(gExt>avail&&pageHasBody)newPage();
+      while(idx<end&&isBand(blocks[idx].type)){placeBlock(idx);note(blocks[idx]);idx++;}
+      groupOpen=(idx<end); // the group's card follows immediately
+      continue;
+    }
+    // defCard / leaf
+    var ext=extent(idx,idx);
+    if(ext<=PAGE_H-curUsed){placeBlock(idx);groupOpen=false;idx++;continue;}
+    if(!groupOpen&&pageHasBody)newPage();
+    var parts=_splitCardParts(blocks[idx].html);
+    if(ext<=PAGE_H-curUsed||!parts||!G[idx].rows||!G[idx].rows.length){
+      // fits the (possibly fresh) page whole, or is not row-splittable.
+      placeBlock(idx);groupOpen=false;idx++;continue;
+    }
+    // Oversized card: split between rows by REAL row positions. If groupOpen,
+    // the first segment (head+rows) starts on THIS page, under its bands.
+    var rp=G[idx].rows;var cardTop=G[idx].t;
+    var headH=(rp[0].t-cardTop)+G[idx].mT;
+    var contHeadH=realH(parts.contHead+parts.cF);
+    var pos=0;var isCont=false;
+    while(pos<rp.length){
+      var openH=isCont?contHeadH:headH;
+      var lim=PAGE_H-curUsed;
+      var segTop=rp[pos].t;var take=0;
+      while(pos+take<rp.length&&openH+(rp[pos+take].b-segTop)<=lim)take++;
+      if(take===0)take=1; // always progress; first row welded to head (legacy si>1)
+      var lastSeg=(pos+take>=rp.length);
+      var seg=(isCont?parts.contHead:parts.cH);
+      for(var q=0;q<take;q++)seg+=parts.rows[pos+q];
+      seg+=(lastSeg?'':parts.breakNote)+parts.cF;
+      var segH=realH(seg);
+      while(take>1&&segH>lim){ // verify assembled reality; defer overrun rows
+        take--;lastSeg=false;
+        seg=(isCont?parts.contHead:parts.cH);
+        for(var q2=0;q2<take;q2++)seg+=parts.rows[pos+q2];
+        seg+=parts.breakNote+parts.cF;
+        segH=realH(seg);
+      }
+      curPageHtml+=seg;curUsed+=segH;pageHasBody=true;anchor=-1;
+      pos+=take;isCont=true;
+      if(pos<rp.length)newPage();
+    }
+    groupOpen=false;idx++;
+  }
+}
 // S142 Batch 3-2: extracted from `contentBlocks.forEach(...)` into a
 // named function so the SAME pagination machinery (page-fit, restamp,
 // dc-split) can flow the pooled Recommendations blocks on their own
@@ -2260,7 +2424,22 @@ function _stampKeepWithNext(blocks){
   }
 }
 _stampKeepWithNext(contentBlocks);
-contentBlocks.forEach(_flowBlock);
+// ── S457 CSS-measured pager (flagged) ────────────────────────────────────────
+// ?pag=css selects the measure-driven layout that reads REAL box geometry
+// instead of the legacy forward-guess heuristics (fixes the floating-band
+// orphan structurally). Flag OFF -> the legacy path below runs unchanged
+// (byte-identical output). Body-flow only; Previously-Closed + appendices +
+// capture are untouched (this feeds the SAME pages[] via _finalizePage).
+// FLAG SOURCE (S457 review fix): the print window `w` is about:blank — its
+// location NEVER carries the flag. Read the FRT app's own URL (pdf.js executes
+// in app context), so ?pag=css on the app URL is what activates the new pager.
+var _usePagCss=false;
+try{ _usePagCss=/[?&]pag=css(&|$)/.test(String(window.location.search||'')); }catch(_e){}
+if(_usePagCss){
+  _layoutBodyMeasured(contentBlocks);
+}else{
+  contentBlocks.forEach(_flowBlock);
+}
 // S341 (Mark): the closing "further deficiencies may be noted" note was here at
 // the end of the body, where it kept orphaning onto its own blank page before
 // the appendix. It now lives directly under the Deficiency Summary table on
