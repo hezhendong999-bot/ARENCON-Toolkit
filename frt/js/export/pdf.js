@@ -2195,63 +2195,86 @@ function _restamp(){if(_aTradeHtml){curPageHtml+=_aTradeHtml;curUsed+=_measure(_
 // Feeds the SAME pages[] via _finalizePage/_startPage/_restamp; everything
 // downstream (Previously Closed, appendices, capture, links, AcroForm) is
 // untouched. Selected by ?pag=css on the APP url; otherwise fully dormant.
-function _splitCardParts(cardHtml){
-  // Structure-COMPUTED split contract (S457 fix). The legacy version guessed the
-  // close-stack (5 divs for cards matching /crb-bd/, else 3) and appended it
-  // after the final row — whose string already carried the card's own closing
-  // tags. The surplus closers closed the .page itself early, so any block
-  // placed after a split card on the same page rendered OUTSIDE the page frame
-  // (floating card / lost header / phantom blank). Latent in legacy (masked by
-  // its always-fresh-page-after-split habit); fatal once space is reused.
-  // Fix: parse cH's REAL unclosed <div> stack. cF = exactly that many closers.
-  // The final row is normalized (its trailing duplicate closers stripped) so
-  // EVERY segment is assembled the same way and is exactly balanced.
-  var sp=cardHtml.split(/<div class="dc-split/);
-  if(sp.length<=1)return null;
-  var cH=sp[0];
-  // real unclosed open-tag stack of the head
-  var stack=[];var tk=/<div\b[^>]*>|<\/div>/g;var m;
-  while((m=tk.exec(cH))){ if(m[0]==='</div>')stack.pop(); else stack.push(m[0]); }
-  var depth=stack.length;
-  var cF=new Array(depth+1).join('</div>');
-  // generic continued head: reopen the SAME unclosed chain, injecting the
-  // continued band + thread(cont.) header at their structural anchors — this
-  // reproduces the bespoke output for both known flavors and is correct for any
-  // future nesting.
-  var _cim=(cH.match(/<span class="dc-itemnum">([\s\S]*?)<\/span>/)||[])[1]||'';
-  var _cpr=(cH.match(/<span class="pinref-dark">([\s\S]*?)<\/span>/)||[])[1]||'';
-  var _hasMini=/dc-mini/.test(cH);
-  var contBand='<div class="item-contband"><span class="dc-itemnum">'+_cim+'</span>'+(_cpr?' <span class="pinref-dark">'+_cpr+'</span>':'')+' <span class="cont">continued</span></div>';
-  var contHead='';
-  for(var s=0;s<stack.length;s++){
-    var tag=stack[s];contHead+=tag;
-    var cls=(tag.match(/class="([^"]*)"/)||[])[1]||'';
-    if(/\bdc-inner\b/.test(cls)&&_hasMini)contHead+='<div class="dc-mini-cont"></div>';
-    if(/\bdc-content\b/.test(cls))contHead+=contBand;
-    if(/\bcrb\b/.test(cls)&&!/\bcrb-bd\b/.test(cls)&&!/\bcrb-hd\b/.test(cls))
-      contHead+='<div class="crb-hd">Contractor Response \u2014 thread (cont.)</div>';
-  }
-  var breakNote='<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;text-align:right;margin-top:6px;">continues on next page \u2192</div>';
-  var rows=[];for(var k=1;k<sp.length;k++)rows.push('<div class="dc-split'+sp[k]);
-  // normalize the final row: strip the card's own trailing closers (exactly
-  // `depth` of them) so every segment ends with the computed cF and no more.
-  if(rows.length){
-    var lastR=rows[rows.length-1];var stripped=0;
-    while(stripped<depth){
-      var t2=lastR.replace(/\s*<\/div>\s*$/,'');
-      if(t2===lastR)break;
-      lastR=t2;stripped++;
+// ── S457 flow engine (Mark's design, locked this session) ────────────────────
+// POLICY: a page fuller than FILL_OK may move a non-fitting card whole (small
+// gap is acceptable). An emptier page must be FILLED: the card starts there and
+// flows across pages at natural seams — between thread entries, between photo
+// rows, between description paragraphs — never mid-line, never a sliver
+// (a landing must be at least MIN_LAND tall, i.e. header + a real content
+// block). FILL_OK is a named editorial knob, not a hidden heuristic.
+var FILL_OK=0.72;   // page-fullness above which a whole-card move is acceptable
+var MIN_LAND=110;   // px: minimum meaningful landing (header + one content block)
+function _cardMeta(el){
+  var num=(el.querySelector('.dc-itemnum')||{}).innerHTML||'';
+  var pin=(el.querySelector('.pinref-dark')||{}).innerHTML||'';
+  return{
+    num:num,pin:pin,
+    hasMini:!!el.querySelector('[class*="dc-mini"]'),
+    contBand:'<div class="item-contband"><span class="dc-itemnum">'+num+'</span>'+(pin?' <span class="pinref-dark">'+pin+'</span>':'')+' <span class="cont">continued</span></div>',
+    breakNote:'<div style="font-size:8.5pt;color:#928E9C;font-weight:700;font-style:italic;text-align:right;margin-top:6px;">continues on next page \u2192</div>'
+  };
+}
+// Natural break candidates within a card, from its REAL laid-out structure:
+// thread rows (.dc-split), photo-grid row starts (tiles whose top begins a new
+// visual row — including the first, i.e. between description and photos), and
+// description block boundaries (children of .dc-desc after the first).
+function _breakCandidates(el){
+  var base=el.getBoundingClientRect().top;var out=[];
+  function push(n){var y=n.getBoundingClientRect().top-base;if(y>=MIN_LAND)out.push({node:n,y:y});}
+  var th=el.querySelectorAll('.dc-split');for(var i=0;i<th.length;i++)push(th[i]);
+  var gs=el.querySelectorAll('.dp-grid');
+  for(var g=0;g<gs.length;g++){
+    var prev=null,ch=gs[g].children;
+    for(var c=0;c<ch.length;c++){
+      var t=ch[c].getBoundingClientRect().top;
+      if(prev===null||t>prev+1){push(ch[c]);prev=t;}
     }
-    rows[rows.length-1]=lastR;
   }
-  return{cH:cH,cF:cF,contHead:contHead,breakNote:breakNote,rows:rows};
+  var ds=el.querySelectorAll('.dc-desc');
+  for(var d2=0;d2<ds.length;d2++){var ks=ds[d2].children;for(var k2=1;k2<ks.length;k2++)push(ks[k2]);}
+  out.sort(function(a,b){return a.y-b.y;});
+  // dedupe identical nodes (a dc-split may also be first grid row etc.)
+  var seen=[],ded=[];
+  for(var q=0;q<out.length;q++){if(seen.indexOf(out[q].node)===-1){seen.push(out[q].node);ded.push(out[q]);}}
+  return ded;
+}
+// Split a card ELEMENT before `node`. Returns {aHtml, bEl}: A = everything
+// before the node (with break note), B = the node onward as a live element
+// (continuation band injected, thread/mini context re-opened). DOM cloning
+// guarantees perfectly balanced markup on both sides by construction.
+function _splitDomBefore(srcEl,node,meta){
+  var path=[];var n=node;
+  while(n!==srcEl){var p=n.parentElement,ix=0,s=n;while((s=s.previousElementSibling))ix++;path.unshift(ix);n=p;}
+  function at(root){var e=root;for(var i=0;i<path.length;i++)e=e.children[path[i]];return e;}
+  var A=srcEl.cloneNode(true),B=srcEl.cloneNode(true);
+  var nA=at(A),nB=at(B);
+  // A: strip nA and everything after it along the spine
+  var c=nA;
+  while(c!==A){var pa=c.parentElement;while(c.nextElementSibling)pa.removeChild(c.nextElementSibling);c=pa;}
+  nA.parentElement.removeChild(nA);
+  // B: strip everything before nB along the spine (nB itself is kept)
+  c=nB;
+  while(c!==B){var pb=c.parentElement;while(c.previousElementSibling)pb.removeChild(c.previousElementSibling);c=pb;}
+  // A: break note at the tail of the content column
+  var host=A.querySelector('.dc-content')||A;
+  var bn=srcEl.ownerDocument.createElement('div');bn.innerHTML=meta.breakNote;host.appendChild(bn.firstChild);
+  // B: continuation band first in content; mini spacer if the card had a map;
+  // thread header re-opened as "(cont.)" if the cut landed inside the thread.
+  var bc=B.querySelector('.dc-content')||B;
+  var cb=srcEl.ownerDocument.createElement('div');cb.innerHTML=meta.contBand;bc.insertBefore(cb.firstChild,bc.firstChild);
+  if(meta.hasMini&&!B.querySelector('[class*="dc-mini"]')){
+    var inr=B.querySelector('.dc-inner');
+    if(inr){var sp=srcEl.ownerDocument.createElement('div');sp.className='dc-mini-cont';inr.insertBefore(sp,inr.firstChild);}
+  }
+  var crb=B.querySelector('.crb');
+  if(crb&&!crb.querySelector('.crb-hd')){
+    var hd=srcEl.ownerDocument.createElement('div');hd.className='crb-hd';
+    hd.innerHTML='Contractor Response \u2014 thread (cont.)';crb.insertBefore(hd,crb.firstChild);
+  }
+  return{aHtml:A.outerHTML,bEl:B};
 }
 function _layoutBodyMeasured(blocks){
   if(!blocks.length)return;
-  // 1. One continuous layout of the whole body in the REAL print document.
-  // Blocks are direct siblings (no wrappers — wrappers would block margin
-  // collapse and falsify geometry). Boundaries recovered via per-block
-  // top-level node counts.
   var host=D.createElement('div');
   host.style.cssText='position:absolute;left:-99999px;top:0;width:7.3in;visibility:hidden;';
   var counts=[];var tpl=D.createElement('template');var all='';
@@ -2262,26 +2285,20 @@ function _layoutBodyMeasured(blocks){
   }
   host.innerHTML=all;D.body.appendChild(host);
   var kids=host.children;var hostTop=host.getBoundingClientRect().top;
-  // 2. Real extents per block + real row positions inside splittable cards.
-  var G=[];var cursor=0;
+  var G=[];var cursor=0;var firstEls=[];
   for(var b2=0;b2<blocks.length;b2++){
     var first=kids[cursor];var last=kids[Math.min(cursor+counts[b2]-1,kids.length-1)];
-    var rT=first.getBoundingClientRect().top-hostTop;
-    var rB=last.getBoundingClientRect().bottom-hostTop;
-    var mT=parseFloat(w.getComputedStyle(first).marginTop)||0;
-    var rowPos=null;
-    if(blocks[b2].type==='defCard'){
-      var rEls=first.querySelectorAll('.dc-split');
-      if(rEls.length){rowPos=[];for(var r=0;r<rEls.length;r++){var rc=rEls[r].getBoundingClientRect();rowPos.push({t:rc.top-hostTop,b:rc.bottom-hostTop});}}
-    }
-    G.push({t:rT,b:rB,mT:mT,rows:rowPos});
+    G.push({
+      t:first.getBoundingClientRect().top-hostTop,
+      b:last.getBoundingClientRect().bottom-hostTop,
+      mT:parseFloat(w.getComputedStyle(first).marginTop)||0
+    });
+    firstEls.push(first);
     cursor+=counts[b2];
   }
-  D.body.removeChild(host);
-  // Space a run of blocks f..k really occupies when placed together on a page.
   function extent(f,k){return (G[k].b-G[f].t)+G[f].mT;}
   function isBand(t){return t==='tradeHeader'||t==='ctrHeader'||t==='recHeader';}
-  function keepEnd(k){ // band(+subband)+first card = one keep unit
+  function keepEnd(k){
     if(!isBand(blocks[k].type))return k+1;
     var j=k+1;
     if(j<blocks.length&&(blocks[j].type==='ctrHeader'||blocks[j].type==='recHeader'))j++;
@@ -2292,26 +2309,14 @@ function _layoutBodyMeasured(blocks){
     if(b.type==='tradeHeader'){_aTradeHtml=b.htmlCont||b.html;_aCtrHtml='';}
     else if(b.type==='ctrHeader'||b.type==='recHeader'){_aCtrHtml=b.htmlCont||b.html;}
   }
-  // Real height of one assembled fragment (used ONLY to verify split segments
-  // and advance curUsed for downstream — never to decide whole-block placement).
   function realH(frag){
     var p=D.createElement('div');
     p.style.cssText='position:absolute;left:-99999px;top:0;width:7.3in;visibility:hidden;';
     p.innerHTML=frag;D.body.appendChild(p);
     var h=p.getBoundingClientRect().height;D.body.removeChild(p);return h;
   }
-  // 3. Slice by real positions — EXACT run accounting: consecutive blocks on a
-  // page advance curUsed by the run's true extent from the page's anchor block
-  // (bottom(k) − top(anchor)), so inter-block margins are counted, not summed
-  // from per-block guesses. anchor resets on every page and after any split
-  // segment (string-assembled segments are outside the continuous flow).
   var anchor=-1,pageBase=0,pageHasBody=false,groupOpen=false;
   function newPage(){_finalizePage();_startPage();_restamp();anchor=-1;pageHasBody=false;}
-  // Break BEFORE a band group: the incoming band IS the page's header, so the
-  // outgoing context must not be re-stamped (that produced stale "(cont.)"
-  // bands with nothing under them). A new tradeHeader replaces the whole
-  // context (stamp nothing); a new ctr/rec sub-band keeps its parent trade
-  // (stamp the trade "(cont.)" only).
   function newPageForBand(t){
     _finalizePage();_startPage();
     anchor=-1;pageHasBody=false;
@@ -2323,76 +2328,66 @@ function _layoutBodyMeasured(blocks){
     curUsed=pageBase+extent(anchor,k);
     pageHasBody=true;
   }
+  // Flow a card: place what fits at each page's natural seams, continue with
+  // "(cont.)" until done. Decisions come from the live element's real geometry.
+  function flowCard(idx0){
+    var meta=_cardMeta(firstEls[idx0]);
+    var cur=firstEls[idx0].cloneNode(true);
+    var probe=D.createElement('div');
+    probe.style.cssText='position:absolute;left:-99999px;top:0;width:7.3in;visibility:hidden;';
+    D.body.appendChild(probe);
+    var guard=0;var triedFresh=false;
+    for(;;){
+      if(++guard>200){probe.appendChild(cur);curPageHtml+=cur.outerHTML;curUsed+=cur.getBoundingClientRect().height;pageHasBody=true;break;}
+      probe.appendChild(cur); // live layout for this (possibly continued) segment
+      var h=cur.getBoundingClientRect().height;
+      var lim=PAGE_H-curUsed;
+      if(h<=lim){curPageHtml+=cur.outerHTML;curUsed+=h;pageHasBody=true;anchor=-1;break;}
+      var cands=_breakCandidates(cur);
+      var pick=null;
+      for(var q=cands.length-1;q>=0;q--){if(cands[q].y<=lim){pick=cands[q];break;}}
+      if(!pick){
+        // one guaranteed fresh-page attempt per segment (a page may be full of
+        // prior-section content); after that, force progress.
+        if(!triedFresh){probe.removeChild(cur);newPage();triedFresh=true;continue;}
+        if(cands.length)pick=cands[0];
+        else{curPageHtml+=cur.outerHTML;curUsed+=h;pageHasBody=true;anchor=-1;break;} // unsplittable overflow
+      }
+      var sp=_splitDomBefore(cur,pick.node,meta);
+      probe.removeChild(cur);
+      curPageHtml+=sp.aHtml;curUsed+=realH(sp.aHtml);pageHasBody=true;anchor=-1;
+      newPage();
+      cur=sp.bEl;triedFresh=true; // continuation already starts on a fresh page
+    }
+    if(probe.parentNode)D.body.removeChild(probe);
+    if(cur.parentNode===probe){} // handled above
+  }
   var idx=0;
   while(idx<blocks.length){
     var avail=PAGE_H-curUsed;
     if(isBand(blocks[idx].type)){
-      // ATOMIC keep-group: decide the break ONCE at the leading band, then place
-      // every band member without re-evaluating; the member card either fits or
-      // splits IN PLACE beneath its bands. A break can therefore never occur
-      // between a band and its first item — the orphan is structurally impossible.
       var end=keepEnd(idx);var gExt=extent(idx,end-1);
       if(gExt>avail&&pageHasBody)newPageForBand(blocks[idx].type);
       while(idx<end&&isBand(blocks[idx].type)){placeBlock(idx);note(blocks[idx]);idx++;}
-      groupOpen=(idx<end); // the group's card follows immediately
+      groupOpen=(idx<end);
       continue;
     }
-    // defCard / leaf
     var ext=extent(idx,idx);
     if(ext<=PAGE_H-curUsed){placeBlock(idx);groupOpen=false;idx++;continue;}
-    // Flow policy (Mark, S457): a splittable card whose head + first row fit
-    // the remaining space starts HERE and continues via "(cont.)" — never a
-    // page-sized void just to keep a card whole. Only unsplittable cards (or
-    // heads too tall for the gap) move whole.
-    var parts=_splitCardParts(blocks[idx].html);
-    var canFlow=!!(parts&&G[idx].rows&&G[idx].rows.length);
-    var flowHere=false;
-    if(canFlow&&pageHasBody){
-      var rpF=G[idx].rows;
-      var hF=(rpF[0].t-G[idx].t)+G[idx].mT;
-      flowHere=(hF+(rpF[0].b-rpF[0].t))<=(PAGE_H-curUsed);
+    // Card doesn't fit the remaining space.
+    // Policy: nearly-full page → move whole (small gap, acceptable);
+    // emptier page (or a band group just opened) → FLOW into the gap.
+    // fullness counts ALL page content (dashboard, prior sections), not just
+    // blocks this run placed — so the test is curUsed alone.
+    if(!groupOpen&&curUsed>=PAGE_H*FILL_OK){
+      newPage();
+      if(ext<=PAGE_H-curUsed){placeBlock(idx);groupOpen=false;idx++;continue;}
     }
-    if(!groupOpen&&pageHasBody&&!flowHere)newPage();
-    if(ext<=PAGE_H-curUsed||!canFlow){
-      // fits the (possibly fresh) page whole, or is not row-splittable.
-      placeBlock(idx);groupOpen=false;idx++;continue;
-    }
-    // Oversized card: split between rows by REAL row positions. If groupOpen,
-    // the first segment (head+rows) starts on THIS page, under its bands.
-    var rp=G[idx].rows;var cardTop=G[idx].t;
-    var headH=(rp[0].t-cardTop)+G[idx].mT;
-    var contHeadH=realH(parts.contHead+parts.cF);
-    var pos=0;var isCont=false;
-    while(pos<rp.length){
-      var openH=isCont?contHeadH:headH;
-      var lim=PAGE_H-curUsed;
-      var segTop=rp[pos].t;var take=0;
-      while(pos+take<rp.length&&openH+(rp[pos+take].b-segTop)<=lim)take++;
-      if(take===0)take=1; // always progress; first row welded to head (legacy si>1)
-      var lastSeg=(pos+take>=rp.length);
-      var seg=(isCont?parts.contHead:parts.cH);
-      for(var q=0;q<take;q++)seg+=parts.rows[pos+q];
-      seg+=(lastSeg?'':parts.breakNote)+parts.cF;
-      var segH=realH(seg);
-      while(take>1&&segH>lim){ // verify assembled reality; defer overrun rows
-        take--;lastSeg=false;
-        seg=(isCont?parts.contHead:parts.cH);
-        for(var q2=0;q2<take;q2++)seg+=parts.rows[pos+q2];
-        seg+=parts.breakNote+parts.cF;
-        segH=realH(seg);
-      }
-      curPageHtml+=seg;curUsed+=segH;pageHasBody=true;anchor=-1;
-      pos+=take;isCont=true;
-      if(pos<rp.length)newPage();
-    }
+    flowCard(idx);
     groupOpen=false;idx++;
   }
+  D.body.removeChild(host);
   // ── EXPORT SELF-CHECK (S457, permanent guardrail) ─────────────────────────
-  // Every page this engine produced must have perfectly balanced <div>
-  // structure with never-negative running depth — the property whose violation
-  // let content escape the page frame. Verified on EVERY export so structural
-  // corruption can never ship silently; staff see a clear banner instead of
-  // unknowingly issuing a broken report.
   try{
     var _bad=[];
     var _chk=function(html,label){
