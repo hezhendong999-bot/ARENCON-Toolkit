@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S365 (lightbox download fetch-as-blob instead of window.open new-page; download button on flow-equip tiles via _dslDownloadPhoto; admin role cached from profile so Delete forever works for principals) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S459 (lightbox photo markup shape rendering now delegates to the shared lib/ui/markupTools.js module — square/circle/triangle/line and their fills drawn from the single source of truth via aliases; arrow and cloud stay Diesel-local; guarded fallback to local branches if the module is absent. Deployed bytes were at S398 despite this marker reading S365 — trust the blob) reconstructs the deterministic R2 URL from photo id when blob+r2Url missing — self-heals records whose upload pointer was lost; cannot be clobbered by stale device. Drawer QR + day/night buttons extended to full width). Build history lives in the DIESEL_* handoff docs; keep this comment SINGLE and UNNESTED (a nested comment here leaked "404 storm…" as visible page text — field report S316). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -18,6 +18,8 @@
 <script src="aiusage_panel.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
+<!-- S459: shared markup shape definitions (single source of truth across FRT + Diesel lightboxes + drawing viewer). Same-origin ARENCON asset, not a CDN dep. DieselMarkup delegates shape rendering to window.MarkupTools when present; if this fails to load (rare offline first-load), DieselMarkup's own identical shape branches run — markup cannot break. -->
+<script src="lib/ui/markupTools.js"></script>
 <style>
 
 
@@ -4290,6 +4292,18 @@ var DieselMarkup = (function(){
       ctx.lineCap='round'; ctx.lineJoin='round';
       ctx.globalAlpha = (s.alpha==null?1:s.alpha);
       ctx.strokeStyle=s.color; ctx.fillStyle=s.color; ctx.lineWidth=(s.size||6)*((sx+sy)/2);
+      // S459: shared shape geometry (lib/ui/markupTools.js) is the single source of
+      // truth for square/circle/triangle/line (+ their fills). Names normalize via
+      // aliases inside drawShape (square->rect, square-fill->rect-fill). ARROW stays
+      // Diesel-local (filled arrowhead differs) and CLOUD stays Diesel-local (S344
+      // rect-scallop, A3); pen/highlight/text are not shapes. Guarded: if MarkupTools
+      // is absent (offline first-load) the local branches below run — markup can't break.
+      // drawShape is pure and uses the ctx state already set above (stroke/fill/lineWidth/
+      // alpha/rotation); _drawStroke opened a ctx.save(), so restore before the return.
+      if(window.MarkupTools && s.tool!=='cloud' && s.tool!=='arrow' && s.tool!=='pen' && s.tool!=='highlight' && s.tool!=='text'){
+        var _ms1=s.pts[0], _ms2=s.pts[1]||s.pts[0];
+        if(window.MarkupTools.drawShape(ctx, s.tool, _ms1.x*sx, _ms1.y*sy, _ms2.x*sx, _ms2.y*sy)){ ctx.restore(); return; }
+      }
       if(s.tool==='pen'){
         if(s.pts.length>=2){ ctx.beginPath(); ctx.moveTo(s.pts[0].x*sx,s.pts[0].y*sy);
           for(var i=1;i<s.pts.length;i++) ctx.lineTo(s.pts[i].x*sx,s.pts[i].y*sy); ctx.stroke(); }
@@ -18940,7 +18954,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S398';
+var DIESEL_BUILD = 'S459';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
