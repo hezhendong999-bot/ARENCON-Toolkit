@@ -123,3 +123,39 @@ markup uses canonical names. **No existing report breaks** — aliases guarantee
 Phase 1: build `lib/ui/markupTools.js` from the drawing viewer's shape code (verbatim), wire the
 drawing viewer to it on a staging FRT copy, Mark field-verifies drawing-viewer markup is unchanged.
 Nothing else touched until that's confirmed.
+
+
+---
+
+## STATUS UPDATE (July 2026) + Lightbox parity backlog (fix ONCE, in shared module)
+
+**Done:** `lib/ui/markupTools.js` shipped; FRT lightbox `_drawShape` delegates the 6 matching
+shapes to it (verified pixel-identical on staging with real project 1490.04, then flipped live;
+SW v1068 precaches the module). Arrow + cloud remain FRT-local by design (arrowhead sizing /
+S339 cloud, per A3). Diesel wiring = next phase.
+
+**Field-test findings (Mark, staging, July 10).** All are PRE-EXISTING lightbox engine gaps —
+verified NOT caused by the shape delegation (diff = 8 lines, shapes only). Each must be fixed
+ONCE in the shared layer as lightbox↔drawing-viewer parity work, then inherited by both
+lightboxes (and FRT/Diesel stay in lockstep):
+
+1. **Tap-select: single item cannot be moved after ✓.** Root cause found: group-move requires
+   `_selectedIds.length > 1`; a tap on the lone committed item re-opens it as a pick and
+   REMOVES it (reads as "deselect"). Fix: allow move-drag for a single committed selection
+   (press inside bounds = move; tap-toggle only with a modifier or on a different stroke).
+   Most annoying in the field — do first.
+2. **Tap-pick marquee too thin** — near-invisible vs. the rubber-band visuals. Unify selection
+   chrome line-weights (DPR/uiScale-aware) with the drawing viewer's.
+3. **Eraser parity** — lightbox eraser deletes the whole stroke on click; drawing viewer does
+   path-erase. Port the drawing viewer's path-erase (canonical, per "viewer is template").
+4. **Text tool sizing** — text renders tiny even at 48. Scale font size with image/display
+   scale like the drawing viewer does.
+5. **Marked-photo blank tile right after Save** — R2/CDN propagation lag makes the fresh marked
+   image 404 briefly ("image load failed, trying fallback"); looks like a deleted photo. NOT
+   data loss (verified object lands, never-bake originals intact, photo count 31→32 correct).
+   Fix: keep the local dataURL as the display source until the R2 URL is confirmed loadable
+   (FRT-side keepD-class hardening; mirror of Diesel P0-2).
+
+**Rule for all five:** implement in the shared markup layer (markupTools.js or the shared
+select/eraser/text core as it grows) so Diesel's lightbox inherits the fix at wiring time —
+never patch one lightbox alone.
