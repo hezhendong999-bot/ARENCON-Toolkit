@@ -3712,8 +3712,12 @@ var DieselMarkup = (function(){
           // module failed to load, fall back to the legacy per-move whole-delete.
           if(window.MarkupEraser){
             self._drawing=true;
-            var _ek=self._uiK();
-            self._curr={tool:'erase', pts:[p], size:(st.size||2), _ew:(st.size||2)*3*_ek};
+            // VIEWER-EXACT (S459c): eraser width = (size)×3 in STROKE units (natural px,
+            // the same units stroke sizes are stored in) — the drawing viewer's exact
+            // formula, giving a fixed 3:1 eraser-to-stroke ratio at any zoom/resolution.
+            // Do NOT make this screen-constant (×uiScale): that made the eraser k× fatter
+            // relative to the strokes on hi-res photos and wiped chunks (S459b field report).
+            self._curr={tool:'erase', pts:[p], size:(st.size||2), _ew:(st.size||2)*3};
             return;
           }
           self._drawing=true; self._eraseAtLegacy(p); return;
@@ -3836,14 +3840,6 @@ var DieselMarkup = (function(){
       return {x1:x1,y1:y1,x2:x2,y2:y2};
     },
     // Shared geometry for handles — ONE source for both hit-test and chrome draw (always aligned)
-    // S459: _uiK = natural px per screen px (same formula as _selGeom's k), clamped like
-    // FRT's _uiScale. Used so eraser width/radius reads screen-constant on hi-res photos.
-    _uiK:function(){
-      if(!this.canvas) return 1;
-      var r=this.canvas.getBoundingClientRect();
-      var k=this.nw/Math.max(1,r.width);
-      return Math.max(0.5, Math.min(12, k||1));
-    },
     _selGeom:function(){
       var b=this._groupBounds(); if(!b||!this.canvas) return null;
       var rect=this.canvas.getBoundingClientRect();
@@ -19079,7 +19075,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S459b';
+var DIESEL_BUILD = 'S459c';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
