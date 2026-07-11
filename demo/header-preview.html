@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARENCON — New Shared Header (preview)</title>
+<style>
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:Calibri,sans-serif; background:#EFEDF0; color:#1B1A22; }
+  #mount-wrap{ position:sticky; top:0; z-index:6000; }
+  .projectbar{ position:sticky; top:0; z-index:5000; background:#1B2438; color:#fff;
+    padding:8px 14px; font:700 13px Calibri,sans-serif; display:flex; gap:10px; align-items:center; }
+  .pill{ font:700 10px Calibri,sans-serif; padding:2px 8px; border-radius:999px; }
+  .pill.g{ background:#2E9E72; } .pill.b{ background:#2C4770; }
+  .tabs{ position:sticky; top:36px; z-index:5000; background:#243048; color:#cdd3e0;
+    display:flex; gap:18px; padding:10px 14px; font:600 13px Calibri,sans-serif;
+    overflow-x:auto; white-space:nowrap; }
+  .tabs .on{ color:#fff; border-bottom:2px solid #C9476A; padding-bottom:4px; }
+  .card{ max-width:760px; margin:14px auto; background:#fff; border:1px solid #DFDCE4;
+    border-radius:12px; padding:16px; }
+  .card h2{ font:700 15px Calibri,sans-serif; margin:0 0 8px; color:#9C2742; }
+  .card li{ font:400 13.5px Calibri,sans-serif; margin:7px 0; color:#3a3742; }
+  .card b{ color:#1B1A22; }
+  .row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .row button{ font:600 13px Calibri,sans-serif; padding:9px 14px; cursor:pointer;
+    border:1px solid #C9CDD4; border-radius:8px; background:#F4F2F6; color:#1B1A22; }
+  #apilog{ font:400 12px Calibri,sans-serif; color:#5E5B68; max-height:110px; overflow:auto;
+    margin-top:8px; }
+  .filler p{ font:400 13px Calibri,sans-serif; color:#928E9C; max-width:760px; margin:12px auto; }
+</style>
+</head>
+<body>
+
+<!-- the new shared header, running your real Diesel config -->
+<div id="mount-wrap"><div id="hdr2-mount"></div></div>
+
+<!-- a Diesel-style project bar + tabs so the page feels like the real tool -->
+<div class="projectbar"><span class="pill g">ISSUED</span><span class="pill b">DFP #1</span>
+  1490.04 IMCC 610 Sprucewood Attic Space Sprkl Upgrade</div>
+<div class="tabs"><span class="on">1. Pre-Comm</span><span>2. Visual Inspection</span>
+  <span>3. Controller Tests</span><span>4. Performance Test</span>
+  <span>5. FA &amp; Signaling</span><span>6. Deficiencies</span></div>
+
+<div class="card">
+  <h2>This is the new shared header</h2>
+  <ol>
+    <li><b>Look at it.</b> It should look and feel exactly like Diesel's header — same buttons,
+        same menus with icons and sub-text, same order.</li>
+    <li><b>Tap the menus</b> (AI Review, Reports, More) — every item is wired; taps show in the
+        log below.</li>
+    <li><b>Tap ☰</b> (it appears when the screen is too narrow for all buttons) — the drawer must
+        slide over this page's bars, nothing covering it.</li>
+    <li><b>Tap the sun/moon</b> — day and night both need to look right.</li>
+    <li><b>Rotate your phone</b> — buttons should fold into ☰ and come back, in the same order
+        as always (QR and day/night hold out longest).</li>
+  </ol>
+  <div class="row">
+    <button onclick="hub(true)">Show Hub mode (Back button + cloud)</button>
+    <button onclick="hub(false)">Standalone mode</button>
+    <button onclick="demoBusy()">Simulate live tool (IDB fill, name, cloud sync)</button>
+  </div>
+  <div id="apilog">Tap log: (nothing yet)</div>
+</div>
+
+<div class="filler">
+  <p>Scroll — the header and bars stay pinned like the real tool.</p>
+  <p>If this header looks right and everything above behaves, the new engine is approved and
+     Electric migrates onto it next, then Diesel, then FRT — and header problems get fixed once,
+     for every tool, forever.</p>
+  <p>Filler · Filler · Filler</p><p>Filler · Filler · Filler</p><p>Filler · Filler · Filler</p>
+  <p>Filler · Filler · Filler</p><p>Filler · Filler · Filler</p><p>Filler · Filler · Filler</p>
+</div>
+
+<script type="module">
+  import { buildHeader2 } from '/lib/ui/headerEngine2.js';
+  import { dieselHeaderConfig } from '/lib/ui/headerConfigs.js';
+
+  const log = m => { const f = document.getElementById('apilog');
+    f.innerHTML = 'Tap log: ' + m + '<br>' + f.innerHTML.replace(/^Tap log: /,''); };
+
+  const cfg = dieselHeaderConfig({
+    logoSrc:'/arencon-icon-192.png',
+    onBack:()=>log('Back'), onHome:()=>log('Logo'),
+    onUndo:()=>log('Undo'), onRedo:()=>log('Redo'),
+    onInspector:()=>log('Inspector chip'),
+    onAiReviewAll:()=>log('AI Review — Full Review'), onAiUsage:()=>log('AI Usage & Costs'),
+    onIssue:()=>log('Issue Report'), onExportPDF:()=>log('Export PDF'),
+    onDownloadJSON:()=>log('Download JSON'), onExportDocs:()=>log('Export Project Docs'),
+    onImportJSON:()=>log('Import JSON'), onReupload:()=>log('Re-upload All Photos'),
+    onR2Cleanup:()=>log('R2 Orphan Report'), onDelDiag:()=>log('Photo Delete Log'),
+    onResetPage:()=>log('Reset Current Page'), onResetAll:()=>log('Reset All Pages'),
+    onQR:()=>log('QR'),
+    onToggleTheme:()=>window.ctl.setTheme(window.ctl.getTheme()==='dark'?'light':'dark'),
+    onTextSize:()=>log('Text size'), onSignout:()=>log('Sign Out')
+  });
+
+  window.ctl = buildHeader2(document.getElementById('hdr2-mount'), cfg);
+
+  window.hub = on => { window.ctl.setHubMode({ hub:on, backVisible:on,
+      logoHref: on ? '/ARENCON_Project_Hub.html' : '/index.html' });
+    window.ctl.setCloud(on ? {visible:true,state:'ok',text:'Cloud',lastSync:'· Synced 10:41'}
+                          : {visible:false});
+    log(on ? 'Hub mode ON' : 'Standalone'); };
+
+  window.demoBusy = () => {
+    window.ctl.setStorage({ pct:37, label:'IDB 37%' });
+    window.ctl.setInspector({ name:'MH' });
+    window.ctl.setCloud({ visible:true, state:'sync', text:'Syncing…' });
+    setTimeout(()=>window.ctl.setCloud({ visible:true, state:'ok', text:'Cloud',
+      lastSync:'· Synced just now' }), 1400);
+    window.ctl.setUndoRedo({ canUndo:true, canRedo:false });
+    log('Simulated live tool state'); };
+</script>
+</body>
+</html>
