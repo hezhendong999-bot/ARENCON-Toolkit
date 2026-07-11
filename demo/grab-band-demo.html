@@ -1,211 +1,307 @@
 <!DOCTYPE html>
-<!-- ARENCON demo v2 — markup selection: tight signage frames + wide grab band on the GROUPED (rubber-band) selection. Feel demo only; no engine code changed. -->
+<!-- ARENCON demo v3 — CONTOUR selection: the selection indicator traces the mark's own shape (no bounding box). Side-by-side: dashed contour outline vs soft halo. Grab follows the contour; grouped selection keeps a wide invisible band. Feel demo only; no engine code changed. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>ARENCON — Group Grab Demo</title>
+<title>ARENCON — Contour Selection Demo</title>
 <style>
 :root{ --arencon:#9C2742; --slate:#2C3440; --steel:#5A6473; --silver:#8A93A0; --border:#DDE2E8; }
 *{box-sizing:border-box; margin:0; padding:0;}
 body{font-family:Calibri,sans-serif; background:#EFEDF0; color:var(--slate); padding:14px; -webkit-user-select:none; user-select:none;}
 h1{font-size:19px;} h1 b{color:var(--arencon);}
 .sub{font-size:13px; color:var(--steel); margin:2px 0 10px;}
-.wrap{max-width:780px; margin:0 auto;}
+.wrap{max-width:1120px; margin:0 auto;}
 .panel{background:#fff; border:1.5px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:10px;}
-.row{display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
-.opts{display:flex; border:1.5px solid var(--border); border-radius:9px; overflow:hidden;}
-.opts button{border:none; background:#fff; padding:9px 14px; font:700 13.5px Calibri; color:var(--steel); cursor:pointer; border-right:1px solid var(--border);}
-.opts button:last-child{border-right:none;}
-.opts button.on{background:var(--arencon); color:#fff;}
+.row{display:flex; gap:14px; align-items:center; flex-wrap:wrap;}
 label.ctl{font:600 12.5px Calibri; color:var(--steel); display:flex; align-items:center; gap:7px;}
-input[type=range]{width:112px; accent-color:var(--arencon);}
+input[type=range]{width:110px; accent-color:var(--arencon);}
 .val{font-weight:800; color:var(--arencon); min-width:36px; font-variant-numeric:tabular-nums;}
+.pair{display:flex; gap:10px; flex-wrap:wrap;}
+.half{flex:1 1 480px; min-width:340px;}
+.cap{display:flex; align-items:baseline; gap:8px; margin-bottom:6px;}
+.cap h2{font-size:15px; color:var(--arencon);}
+.cap span{font-size:12.5px; color:var(--silver);}
 canvas{display:block; width:100%; border-radius:10px; touch-action:none; cursor:crosshair; background:#777;}
 .steps{font-size:12.8px; color:var(--steel); line-height:1.55; margin-top:8px;}
 .steps b{color:var(--slate);}
-.stats{display:flex; gap:14px; font-size:13px; color:var(--steel); margin-top:8px; flex-wrap:wrap; align-items:center;}
-.stats b{font-variant-numeric:tabular-nums;}
-.good b{color:#2E9E72;} .bad b{color:#C0445F;}
+.pick{display:flex; gap:0; border:1.5px solid var(--border); border-radius:9px; overflow:hidden; margin-top:10px;}
+.pick button{border:none; background:#fff; padding:9px 16px; font:700 13.5px Calibri; color:var(--steel); cursor:pointer; border-right:1px solid var(--border);}
+.pick button:last-child{border-right:none;}
+.pick button.on{background:var(--arencon); color:#fff;}
 button.mini{border:1px solid var(--border); background:#fff; border-radius:7px; padding:4px 10px; font:600 12px Calibri; color:var(--steel); cursor:pointer;}
-.flash{position:fixed; left:50%; top:14px; transform:translateX(-50%); background:#2C3440; color:#fff; font:600 13px Calibri; padding:8px 14px; border-radius:8px; opacity:0; transition:opacity .18s; pointer-events:none; z-index:9;}
-.flash.show{opacity:.95;}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1><b>ARENCON</b> — Grouped-selection grab demo</h1>
-  <div class="sub">Frames are signage only (tight, thin). The <i>group</i> gets the big invisible grab band.</div>
+  <h1><b>ARENCON</b> — Contour selection</h1>
+  <div class="sub">No bounding box. The selection indicator traces the mark's own shape — a triangle gets a triangle, a squiggle gets a squiggle.</div>
 
   <div class="panel">
     <div class="row">
-      <div class="opts">
-        <button id="o-A" onclick="setOpt('A')">A · no group outline</button>
-        <button id="o-B" class="on" onclick="setOpt('B')">B · thin group outline</button>
-        <button id="o-C" onclick="setOpt('C')">C · outline only</button>
-      </div>
+      <label class="ctl">Offset from ink <input type="range" id="off" min="3" max="18" value="8" oninput="cfg.off=+this.value; offVal.textContent=this.value+'px'; drawAll();"> <span class="val" id="offVal">8px</span></label>
+      <label class="ctl">Grab reach <input type="range" id="grab" min="10" max="50" value="26" oninput="cfg.grab=+this.value; grabVal.textContent=this.value+'px'; drawAll();"> <span class="val" id="grabVal">26px</span></label>
+      <label class="ctl"><input type="checkbox" id="sg" checked onchange="cfg.showGrab=this.checked; drawAll();"> Show grab zone</label>
+      <label class="ctl"><input type="checkbox" id="gb" checked onchange="cfg.groupBand=this.checked; drawAll();"> Group band when 2+ selected</label>
+      <button class="mini" onclick="reset(); drawAll();">reset marks</button>
     </div>
-    <div class="row" style="margin-top:10px;">
-      <label class="ctl">Group grab band <input type="range" id="band" min="16" max="60" value="34" oninput="cfg.band=+this.value; bandVal.textContent=this.value+'px'; draw();"> <span class="val" id="bandVal">34px</span></label>
-      <label class="ctl">Frame tightness <input type="range" id="fpad" min="2" max="10" value="4" oninput="cfg.fpad=+this.value; fpadVal.textContent=this.value+'px'; draw();"> <span class="val" id="fpadVal">4px</span></label>
-      <label class="ctl"><input type="checkbox" id="showband" checked onchange="cfg.show=this.checked; draw();"> Show grab zone</label>
+    <div class="steps" style="margin-top:8px;">
+      <b>Tap a mark</b> to select it (tap another to add to the group). <b>Drag near it</b> — anywhere in the grab zone, not on the ink — to move it. <b>Drag on empty photo</b> to rubber-band. <b>Tap far away</b> to deselect.
     </div>
   </div>
 
-  <div class="panel" style="padding:8px;">
-    <canvas id="cv" width="1000" height="700"></canvas>
-    <div class="steps">
-      <b>1.</b> Drag on empty photo to rubber-band a few marks &rarr; they group.&nbsp;
-      <b>2.</b> Drag the group by pressing in the band, well <i>away</i> from any ink.&nbsp;
-      <b>3.</b> Tap empty space past the band to clear the group.
+  <div class="pair">
+    <div class="panel half">
+      <div class="cap"><h2>1 · Dashed contour</h2><span>a dashed line running parallel to the stroke</span></div>
+      <canvas id="cvA" width="820" height="640"></canvas>
     </div>
-    <div class="stats">
-      <span class="good">Group drags: <b id="okN">0</b></span>
-      <span class="bad">Lost the group by mistake: <b id="badN">0</b></span>
-      <span>Landed on a stray mark: <b id="mkN">0</b></span>
-      <button class="mini" onclick="stats={ok:0,bad:0,mk:0}; paintStats();">reset counts</button>
-      <button class="mini" onclick="reset(); draw();">reset marks</button>
+    <div class="panel half">
+      <div class="cap"><h2>2 · Soft halo</h2><span>a translucent glow hugging the ink</span></div>
+      <canvas id="cvB" width="820" height="640"></canvas>
     </div>
   </div>
 </div>
-<div class="flash" id="flash"></div>
 
 <script>
 'use strict';
-var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
-var coarse=matchMedia('(pointer:coarse)').matches;
-var cfg={ opt:'B', band:34, fpad:4, show:true };
-var stats={ ok:0, bad:0, mk:0 };
-var flashT=null;
-function flash(m){ var f=document.getElementById('flash'); f.textContent=m; f.classList.add('show'); clearTimeout(flashT); flashT=setTimeout(function(){f.classList.remove('show');},900); }
-function paintStats(){ okN.textContent=stats.ok; badN.textContent=stats.bad; mkN.textContent=stats.mk; }
-function setOpt(o){ cfg.opt=o; ['A','B','C'].forEach(function(x){ document.getElementById('o-'+x).classList.toggle('on', x===o); }); draw(); }
+var coarse = matchMedia('(pointer:coarse)').matches;
+var cfg = { off:8, grab:26, showGrab:true, groupBand:true };
 
-function mkSq(ox,oy,s,n){ var p=[],t,N=n||34; for(t=0;t<=N;t++){ p.push({x:ox+Math.sin(t*.5)*26*s+t*4*s, y:oy+Math.cos(t*.33)*22*s+t*2*s}); } return p; }
-var marks=[], selIds=[];
-function reset(){
-  marks=[
-    {id:'m1', c:'#D93025', w:7, pts:mkSq(300,180,1.05)},
-    {id:'m2', c:'#D93025', w:6, pts:[{x:640,y:400},{x:720,y:545},{x:560,y:545},{x:640,y:400}]},
-    {id:'m3', c:'#F4C20D', w:6, pts:mkSq(200,450,.6)},
-    {id:'m4', c:'#F4C20D', w:5, pts:mkSq(520,230,.5,22)},
-    {id:'m5', c:'#D93025', w:6, pts:[{x:150,y:610},{x:300,y:610},{x:225,y:530},{x:150,y:610}]}
+function mkSq(ox,oy,s,n){ var p=[],t,N=n||30; for(t=0;t<=N;t++){ p.push({x:ox+Math.sin(t*.5)*24*s+t*4*s, y:oy+Math.cos(t*.33)*20*s+t*2*s}); } return p; }
+function baseMarks(){
+  return [
+    { id:'m1', c:'#D93025', w:7, closed:false, pts: mkSq(190,150,1.0) },
+    { id:'m2', c:'#D93025', w:6, closed:true,  pts: [{x:560,y:300},{x:660,y:470},{x:460,y:470}] },
+    { id:'m3', c:'#F4C20D', w:6, closed:false, pts: mkSq(140,420,.62) },
+    { id:'m4', c:'#F4C20D', w:5, closed:false, pts: [{x:600,y:120},{x:700,y:170},{x:660,y:135},{x:700,y:170},{x:658,y:180}] },
+    { id:'m5', c:'#D93025', w:6, closed:true,  pts: [{x:330,y:560},{x:470,y:560},{x:470,y:500},{x:330,y:500}] }
   ];
-  selIds=[];
-}
-function byId(id){ return marks.filter(function(m){return m.id===id;})[0]; }
-function bbox(m){ var x1=1e9,y1=1e9,x2=-1e9,y2=-1e9; m.pts.forEach(function(p){x1=Math.min(x1,p.x);y1=Math.min(y1,p.y);x2=Math.max(x2,p.x);y2=Math.max(y2,p.y);}); return {x1:x1,y1:y1,x2:x2,y2:y2}; }
-function groupBox(){ if(!selIds.length) return null;
-  var x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
-  selIds.forEach(function(id){ var m=byId(id); if(!m) return; var b=bbox(m); x1=Math.min(x1,b.x1);y1=Math.min(y1,b.y1);x2=Math.max(x2,b.x2);y2=Math.max(y2,b.y2); });
-  return {x1:x1,y1:y1,x2:x2,y2:y2};
-}
-function hitInk(m,p){ var s=coarse?13:8,i;
-  for(i=1;i<m.pts.length;i++){ var a=m.pts[i-1],b=m.pts[i],dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy||1,
-    t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/L)),qx=a.x+t*dx,qy=a.y+t*dy;
-    if((p.x-qx)*(p.x-qx)+(p.y-qy)*(p.y-qy)<s*s) return true; }
-  return false; }
-function inRect(p,b,pad){ return p.x>=b.x1-pad&&p.x<=b.x2+pad&&p.y>=b.y1-pad&&p.y<=b.y2+pad; }
-
-function backdrop(){
-  var g=ctx.createLinearGradient(0,0,0,700); g.addColorStop(0,'#8f8b86'); g.addColorStop(1,'#6e6a66');
-  ctx.fillStyle=g; ctx.fillRect(0,0,1000,700);
-  ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1;
-  for(var y=40;y<700;y+=52){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(1000,y); ctx.stroke(); }
-  ctx.fillStyle='#1f2125'; ctx.fillRect(0,140,1000,54);
-  ctx.fillStyle='#2a2d33'; ctx.fillRect(770,140,44,430);
-  ctx.fillStyle='#b23b1f'; ctx.beginPath(); ctx.arc(792,168,44,0,7); ctx.fill();
-  ctx.fillStyle='#3a3d44'; ctx.fillRect(430,510,26,190);
-  ctx.fillStyle='#c1c3c6'; ctx.fillRect(880,410,17,290); ctx.fillRect(918,420,17,280);
-  for(var ly=430; ly<690; ly+=36){ ctx.fillRect(884,ly,48,7); }
 }
 
-function draw(){
-  backdrop();
-  marks.forEach(function(m){
-    ctx.strokeStyle=m.c; ctx.lineWidth=m.w; ctx.lineCap='round'; ctx.lineJoin='round';
-    ctx.beginPath(); ctx.moveTo(m.pts[0].x,m.pts[0].y);
-    for(var i=1;i<m.pts.length;i++) ctx.lineTo(m.pts[i].x,m.pts[i].y);
-    ctx.stroke();
-  });
-  var g=groupBox();
-  if(g){
-    var bp=cfg.band;
-    if(cfg.show){
-      ctx.fillStyle='rgba(70,140,220,.14)';
-      ctx.beginPath();
-      ctx.rect(g.x1-bp,g.y1-bp,(g.x2-g.x1)+2*bp,(g.y2-g.y1)+2*bp);
-      ctx.rect(g.x1-2,g.y1-2,(g.x2-g.x1)+4,(g.y2-g.y1)+4);
-      ctx.fill('evenodd');
+// ── each canvas is an independent world so you can compare feel ──
+function World(canvasId, style){
+  var self = this;
+  this.cv = document.getElementById(canvasId);
+  this.ctx = this.cv.getContext('2d');
+  this.style = style;                 // 'outline' | 'halo'
+  this.marks = baseMarks();
+  this.sel = [];
+  this.drag = null; this.rub = null; this.downP = null; this.hadSel = false;
+
+  this.pos = function(e){ var r=self.cv.getBoundingClientRect(), t=e.touches?e.touches[0]:e;
+    return { x:(t.clientX-r.left)*(self.cv.width/r.width), y:(t.clientY-r.top)*(self.cv.height/r.height) }; };
+  this.byId = function(id){ return self.marks.filter(function(m){return m.id===id;})[0]; };
+
+  // distance from p to the mark's polyline (the ONE geometry both drawing and hit-testing use)
+  this.distToInk = function(m,p){
+    var best = 1e9, i, n = m.pts.length;
+    var lim = m.closed ? n : n-1;
+    for(i=0;i<lim;i++){
+      var a=m.pts[i], b=m.pts[(i+1)%n];
+      var dx=b.x-a.x, dy=b.y-a.y, L=dx*dx+dy*dy||1;
+      var t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/L));
+      var qx=a.x+t*dx, qy=a.y+t*dy;
+      var d=Math.sqrt((p.x-qx)*(p.x-qx)+(p.y-qy)*(p.y-qy));
+      if(d<best) best=d;
     }
-    if(cfg.opt!=='C'){
-      var fp=cfg.fpad;
-      selIds.forEach(function(id){
-        var m=byId(id); if(!m) return; var b=bbox(m);
-        ctx.strokeStyle='#E6A23C'; ctx.lineWidth=1.4; ctx.setLineDash([5,4]);
-        ctx.strokeRect(b.x1-fp,b.y1-fp,(b.x2-b.x1)+2*fp,(b.y2-b.y1)+2*fp);
-        ctx.setLineDash([]);
+    return best;
+  };
+  this.hitInk = function(m,p){ return self.distToInk(m,p) <= (m.w/2) + (coarse?12:8); };
+  // grab = within the contour reach of the ink — follows the SHAPE, no bounding box
+  this.grabbable = function(m,p){ return self.distToInk(m,p) <= (m.w/2) + cfg.off + cfg.grab; };
+  this.bbox = function(m){ var x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+    m.pts.forEach(function(p){x1=Math.min(x1,p.x);y1=Math.min(y1,p.y);x2=Math.max(x2,p.x);y2=Math.max(y2,p.y);});
+    return {x1:x1,y1:y1,x2:x2,y2:y2}; };
+  this.groupBox = function(){ if(self.sel.length<2) return null;
+    var x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+    self.sel.forEach(function(id){ var m=self.byId(id); if(!m) return; var b=self.bbox(m);
+      x1=Math.min(x1,b.x1);y1=Math.min(y1,b.y1);x2=Math.max(x2,b.x2);y2=Math.max(y2,b.y2); });
+    return {x1:x1,y1:y1,x2:x2,y2:y2}; };
+
+  this.path = function(m){
+    var c=self.ctx; c.beginPath(); c.moveTo(m.pts[0].x,m.pts[0].y);
+    for(var i=1;i<m.pts.length;i++) c.lineTo(m.pts[i].x,m.pts[i].y);
+    if(m.closed) c.closePath();
+  };
+
+  this.backdrop = function(){
+    var c=self.ctx, W=self.cv.width, H=self.cv.height;
+    var g=c.createLinearGradient(0,0,0,H); g.addColorStop(0,'#8f8b86'); g.addColorStop(1,'#6e6a66');
+    c.fillStyle=g; c.fillRect(0,0,W,H);
+    c.strokeStyle='rgba(255,255,255,.06)'; c.lineWidth=1;
+    for(var y=40;y<H;y+=52){ c.beginPath(); c.moveTo(0,y); c.lineTo(W,y); c.stroke(); }
+    c.fillStyle='#1f2125'; c.fillRect(0,60,W,44);
+    c.fillStyle='#2a2d33'; c.fillRect(700,60,38,400);
+    c.fillStyle='#b23b1f'; c.beginPath(); c.arc(719,84,36,0,7); c.fill();
+    c.fillStyle='#c1c3c6'; c.fillRect(760,360,15,280); c.fillRect(795,370,15,270);
+    for(var ly=380; ly<630; ly+=34){ c.fillRect(764,ly,44,6); }
+  };
+
+  this.draw = function(){
+    var c=self.ctx;
+    self.backdrop();
+
+    // grab zone visualization — a fat translucent stroke along the SHAPE (this IS the grab area)
+    if(cfg.showGrab && self.sel.length){
+      self.sel.forEach(function(id){
+        var m=self.byId(id); if(!m) return;
+        c.save();
+        c.strokeStyle = 'rgba(230,162,60,.16)';
+        c.lineWidth = m.w + 2*(cfg.off + cfg.grab);
+        c.lineCap='round'; c.lineJoin='round';
+        self.path(m); c.stroke();
+        c.restore();
       });
     }
-    if(cfg.opt!=='A'){
-      ctx.strokeStyle='rgba(70,140,220,.95)'; ctx.lineWidth=1.6; ctx.setLineDash([9,6]);
-      ctx.strokeRect(g.x1-8,g.y1-8,(g.x2-g.x1)+16,(g.y2-g.y1)+16);
-      ctx.setLineDash([]);
+
+    // the marks
+    self.marks.forEach(function(m){
+      c.strokeStyle=m.c; c.lineWidth=m.w; c.lineCap='round'; c.lineJoin='round';
+      self.path(m); c.stroke();
+    });
+
+    // CONTOUR selection indicator — traces the mark's own shape
+    self.sel.forEach(function(id){
+      var m=self.byId(id); if(!m) return;
+      c.save(); c.lineCap='round'; c.lineJoin='round';
+      if(self.style==='halo'){
+        // soft halo: a wide translucent stroke on the same path, drawn UNDER-looking via alpha
+        c.strokeStyle='rgba(230,162,60,.42)';
+        c.lineWidth = m.w + 2*cfg.off;
+        self.path(m); c.stroke();
+        c.strokeStyle='rgba(230,162,60,.85)';
+        c.lineWidth = 1.2;
+        c.setLineDash([]);
+        // thin crisp edge on the halo's outer rim
+        c.lineWidth = m.w + 2*cfg.off; c.globalAlpha=.0; self.path(m); c.stroke(); c.globalAlpha=1;
+      } else {
+        // dashed contour: two parallel dashed strokes — outer rim of an offset band
+        c.strokeStyle='#E6A23C';
+        c.setLineDash([7,5]);
+        c.lineWidth = 1.6;
+        // outer contour: stroke the path with a fat transparent stroke, then rim it
+        c.save();
+        c.strokeStyle='rgba(230,162,60,0)'; c.lineWidth=m.w+2*cfg.off; self.path(m); c.stroke();
+        c.restore();
+        // emulate an offset outline: stroke the same path at (w + 2*off) with a dashed stroke,
+        // then knock out the middle with the photo… simpler: draw dashed at the offset width but
+        // only its silhouette edge via composite
+        c.save();
+        c.lineCap='round'; c.lineJoin='round';
+        c.strokeStyle='#E6A23C'; c.lineWidth=m.w+2*cfg.off;
+        c.setLineDash([7,5]);
+        c.globalAlpha=.9;
+        c.globalCompositeOperation='source-over';
+        self.path(m); c.stroke();
+        // knock the interior back out so only a dashed BAND remains (the contour)
+        c.globalCompositeOperation='destination-out';
+        c.globalAlpha=1; c.setLineDash([]);
+        c.lineWidth = m.w + 2*cfg.off - 3.0;
+        self.path(m); c.stroke();
+        c.restore();
+        // repaint the ink on top (the knockout also erased it)
+        c.save(); c.setLineDash([]);
+        c.strokeStyle=m.c; c.lineWidth=m.w; c.lineCap='round'; c.lineJoin='round';
+        self.path(m); c.stroke(); c.restore();
+      }
+      c.restore();
+    });
+
+    // group band (only when 2+ selected — this is the "move the whole group" room)
+    var g = self.groupBox();
+    if(g && cfg.groupBand){
+      var bp = cfg.grab + cfg.off;
+      if(cfg.showGrab){
+        c.fillStyle='rgba(70,140,220,.10)';
+        c.beginPath();
+        c.rect(g.x1-bp,g.y1-bp,(g.x2-g.x1)+2*bp,(g.y2-g.y1)+2*bp);
+        c.rect(g.x1-4,g.y1-4,(g.x2-g.x1)+8,(g.y2-g.y1)+8);
+        c.fill('evenodd');
+      }
+      c.strokeStyle='rgba(70,140,220,.9)'; c.lineWidth=1.4; c.setLineDash([9,6]);
+      c.strokeRect(g.x1-6,g.y1-6,(g.x2-g.x1)+12,(g.y2-g.y1)+12);
+      c.setLineDash([]);
+      c.fillStyle='rgba(44,52,64,.92)'; c.fillRect(g.x1-6,g.y1-30,86,20);
+      c.fillStyle='#fff'; c.font='700 11.5px Calibri'; c.textBaseline='middle';
+      c.fillText(self.sel.length+' selected', g.x1+2, g.y1-20);
     }
-    ctx.fillStyle='rgba(44,52,64,.92)';
-    ctx.fillRect(g.x1-8, g.y1-34, 90, 22);
-    ctx.fillStyle='#fff'; ctx.font='700 12px Calibri'; ctx.textBaseline='middle';
-    ctx.fillText(selIds.length+' selected', g.x1+1, g.y1-23);
-  }
-  if(rub){
-    ctx.strokeStyle='rgba(70,140,220,.95)'; ctx.setLineDash([5,4]); ctx.lineWidth=1.5;
-    ctx.strokeRect(Math.min(rub.x0,rub.x1),Math.min(rub.y0,rub.y1),Math.abs(rub.x1-rub.x0),Math.abs(rub.y1-rub.y0));
-    ctx.setLineDash([]);
-  }
+
+    if(self.rub){
+      c.strokeStyle='rgba(70,140,220,.95)'; c.setLineDash([5,4]); c.lineWidth=1.5;
+      c.strokeRect(Math.min(self.rub.x0,self.rub.x1),Math.min(self.rub.y0,self.rub.y1),
+                   Math.abs(self.rub.x1-self.rub.x0),Math.abs(self.rub.y1-self.rub.y0));
+      c.setLineDash([]);
+    }
+  };
+
+  this.down = function(e){
+    e.preventDefault();
+    var p = self.pos(e); self.downP = p; self.hadSel = self.sel.length>0;
+
+    // 1) grouped: inside the group band → drag the whole group
+    var g = self.groupBox();
+    if(g && cfg.groupBand){
+      var bp = cfg.grab + cfg.off;
+      if(p.x>=g.x1-bp && p.x<=g.x2+bp && p.y>=g.y1-bp && p.y<=g.y2+bp){
+        self.drag = { ids:self.sel.slice(), lx:p.x, ly:p.y, moved:false }; return;
+      }
+    }
+    // 2) within the CONTOUR grab reach of an already-selected mark → drag it (shape-following)
+    var hitSel = null;
+    self.sel.forEach(function(id){ var m=self.byId(id); if(m && !hitSel && self.grabbable(m,p)) hitSel=m; });
+    if(hitSel){ self.drag = { ids:[hitSel.id], lx:p.x, ly:p.y, moved:false }; return; }
+    // 3) on any mark's ink → select it (add to group) and arm drag
+    var onInk = null;
+    self.marks.forEach(function(m){ if(!onInk && self.hitInk(m,p)) onInk=m; });
+    if(onInk){
+      if(self.sel.indexOf(onInk.id)===-1) self.sel.push(onInk.id);
+      self.drag = { ids:[onInk.id], lx:p.x, ly:p.y, moved:false };
+      self.draw(); return;
+    }
+    // 4) empty → rubber band
+    self.rub = { x0:p.x, y0:p.y, x1:p.x, y1:p.y };
+  };
+  this.move = function(e){
+    if(!self.drag && !self.rub) return;
+    e.preventDefault();
+    var p = self.pos(e);
+    if(self.drag){
+      var dx=p.x-self.drag.lx, dy=p.y-self.drag.ly;
+      if(Math.abs(p.x-self.downP.x)+Math.abs(p.y-self.downP.y)>3) self.drag.moved=true;
+      self.drag.ids.forEach(function(id){ var m=self.byId(id); if(m) m.pts.forEach(function(q){ q.x+=dx; q.y+=dy; }); });
+      self.drag.lx=p.x; self.drag.ly=p.y; self.draw(); return;
+    }
+    self.rub.x1=p.x; self.rub.y1=p.y; self.draw();
+  };
+  this.up = function(){
+    if(self.drag){ self.drag=null; self.draw(); return; }
+    if(self.rub){
+      var moved = Math.abs(self.rub.x1-self.rub.x0)+Math.abs(self.rub.y1-self.rub.y0) > 6;
+      if(moved){
+        var r={ x1:Math.min(self.rub.x0,self.rub.x1), y1:Math.min(self.rub.y0,self.rub.y1),
+                x2:Math.max(self.rub.x0,self.rub.x1), y2:Math.max(self.rub.y0,self.rub.y1) };
+        self.sel=[];
+        self.marks.forEach(function(m){ var b=self.bbox(m);
+          if(b.x1<r.x2 && b.x2>r.x1 && b.y1<r.y2 && b.y2>r.y1) self.sel.push(m.id); });
+      } else if(self.hadSel){ self.sel=[]; }
+      self.rub=null; self.draw();
+    }
+  };
+
+  this.cv.addEventListener('mousedown', this.down);
+  this.cv.addEventListener('mousemove', this.move);
+  window.addEventListener('mouseup', this.up);
+  this.cv.addEventListener('touchstart', this.down, {passive:false});
+  this.cv.addEventListener('touchmove', this.move, {passive:false});
+  this.cv.addEventListener('touchend', this.up);
 }
 
-var drag=null, rub=null, downP=null, hadGroup=false;
-function pos(e){ var r=cv.getBoundingClientRect(), t=e.touches?e.touches[0]:e;
-  return {x:(t.clientX-r.left)*(cv.width/r.width), y:(t.clientY-r.top)*(cv.height/r.height)}; }
-
-function down(e){ e.preventDefault(); var p=pos(e); downP=p; hadGroup=selIds.length>0;
-  var g=groupBox();
-  if(g && inRect(p,g,cfg.band)){
-    var onInk=null; marks.forEach(function(m){ if(!onInk && hitInk(m,p)) onInk=m; });
-    if(onInk && selIds.indexOf(onInk.id)===-1) stats.mk++;
-    drag={ids:selIds.slice(), lx:p.x, ly:p.y, moved:false};
-    paintStats(); return;
-  }
-  rub={x0:p.x,y0:p.y,x1:p.x,y1:p.y};
-}
-function move(e){ if(!drag&&!rub) return; e.preventDefault(); var p=pos(e);
-  if(drag){
-    var dx=p.x-drag.lx, dy=p.y-drag.ly;
-    if(Math.abs(p.x-downP.x)+Math.abs(p.y-downP.y)>3) drag.moved=true;
-    drag.ids.forEach(function(id){ var m=byId(id); if(m) m.pts.forEach(function(q){ q.x+=dx; q.y+=dy; }); });
-    drag.lx=p.x; drag.ly=p.y; draw(); return;
-  }
-  rub.x1=p.x; rub.y1=p.y; draw();
-}
-function up(){
-  if(drag){ if(drag.moved) stats.ok++; drag=null; paintStats(); draw(); return; }
-  if(rub){
-    var moved=Math.abs(rub.x1-rub.x0)+Math.abs(rub.y1-rub.y0)>6;
-    if(moved){
-      var r={x1:Math.min(rub.x0,rub.x1),y1:Math.min(rub.y0,rub.y1),x2:Math.max(rub.x0,rub.x1),y2:Math.max(rub.y0,rub.y1)};
-      selIds=[];
-      marks.forEach(function(m){ var b=bbox(m); if(b.x1<r.x2&&b.x2>r.x1&&b.y1<r.y2&&b.y2>r.y1) selIds.push(m.id); });
-      flash(selIds.length ? selIds.length+' selected' : 'nothing in band');
-    } else if(hadGroup){ selIds=[]; stats.bad++; flash('Group cleared'); }
-    rub=null; paintStats(); draw();
-  }
-}
-cv.addEventListener('mousedown',down); cv.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
-cv.addEventListener('touchstart',down,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); cv.addEventListener('touchend',up);
-
-reset();
-selIds=['m1','m4'];
-draw(); paintStats();
+var A = new World('cvA','outline');
+var B = new World('cvB','halo');
+function reset(){ A.marks = baseMarks(); A.sel=[]; B.marks = baseMarks(); B.sel=[]; }
+function drawAll(){ A.draw(); B.draw(); }
+A.sel=['m2']; B.sel=['m2'];     // start with the TRIANGLE selected — the whole point
+drawAll();
 </script>
 </body>
 </html>
