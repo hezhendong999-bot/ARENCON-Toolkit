@@ -24,7 +24,7 @@
     _origBlob: null,                      // pristine source for Revert
     _onDirty: null,
     // ── Select-mode state (ported from drawing viewer markup.js) ──
-    _selectedIds: [],                     // ids of selected strokes (group model)
+    selIds: [],                     // ids of selected strokes (group model)
     _dragState: null,                     // {type:'move'|'resize'|'rotate'|'rubberband', ...}
     _rubberBand: null,                    // {x1,y1,x2,y2} during drag-select
     // S339 — Select sub-tool model (LOCKED_SELECT_DRAW_MODEL_S339). Select is a
@@ -62,6 +62,7 @@
       // needlessly re-flatten + re-upload). Updated by _onDirty edits via the getter.
       this._attachSig = JSON.stringify(this.strokes);
       this._rotation = 0;   // S352: lightbox sets this so pt() can un-rotate input
+      this.nw = this.w; this.nh = this.h;   // S459l: shared-module aliases (module reads nw)
       this._sync();   // sets w/h and _render()s — re-paints the reloaded strokes
       this._bind();
       window.addEventListener('resize', this._syncBound = this._sync.bind(this));
@@ -146,7 +147,7 @@
       this.canvas = null; this.ctx = null; this.host = null; this.img = null;
       this.strokes = []; this.redoStack = []; this._hist = []; this._histRedo = []; this._drawing = false; this._curr = null;
       this._shapePending = null;
-      this._selectedIds = []; this._dragState = null; this._rubberBand = null;
+      this.selIds = []; this._dragState = null; this._rubberBand = null;
       this._pickIds = [];
     },
 
@@ -175,49 +176,18 @@
       this._render();
     },
 
-    setTool:  function(t){ this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this._selectedIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
+    setTool:  function(t){ this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this.selIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
 
-    // S339 — arm a Select sub-tool. Keeps any committed selection; resets an
-    // in-progress tap pick / rubber band / drag (changing sub-tool mid-pick).
-    setSelectSub: function(sub){
-      if (sub!=='single' && sub!=='rubber' && sub!=='tap') return;
-      this._selectSub = sub; this.tool = 'select';
-      this._pickIds = []; this._dragState = null; this._rubberBand = null;
-      if (this.ctx) this._render(); this._emitSel();
-    },
-    getSelectSub: function(){ return this._selectSub; },
-
-    // S339 — tap-mode ✓: collapse individual picks into ONE committed group.
-    confirmPick: function(){
-      if (!this._pickIds.length) return;
-      this._selectedIds = this._pickIds.slice();
-      this._pickIds = [];
-      if (this.ctx) this._render(); this._emitSel();
-    },
-    // S339 — ✗ cancel (all modes): clear committed selection AND any in-progress
-    // pick / rubber band. The only deliberate clear (empty taps are sticky).
-    cancelSelect: function(){
-      this._selectedIds = []; this._pickIds = [];
-      this._dragState = null; this._rubberBand = null;
-      if (this.ctx) this._render(); this._emitSel();
-    },
-    // True whenever the ✗ (and, in tap mode, ✓) bar should be visible.
-    hasActiveSelection: function(){ return (this._selectedIds && this._selectedIds.length>0) || (this._pickIds && this._pickIds.length>0); },
-    isPicking: function(){ return this._selectSub==='tap' && this._pickIds && this._pickIds.length>0; },
-    pickCount: function(){ return this._pickIds ? this._pickIds.length : 0; },
-    selectionCount: function(){ return this._selectedIds ? this._selectedIds.length : 0; },
-    onSelChange: function(fn){ this._onSelChange = fn || null; },
-    _emitSel: function(){ if (this._onSelChange){ try{ this._onSelChange(); }catch(_){} } },
     setColor: function(c){ this.color = c; this._applyToSelection('color', c); },
     setSize:  function(s){ this.size = s; },
     setOpacity: function(v){ v = Math.max(0.1, Math.min(1, v)); this.opacity = v; this._applyToSelection('opacity', v); },
 
     // Live-apply colour/opacity to the current selection (so the bar edits selected strokes)
     _applyToSelection: function(field, val){
-      if (!this._selectedIds || !this._selectedIds.length) return;
+      if (!this.selIds || !this.selIds.length) return;
       var changed = false;
       for (var i=0;i<this.strokes.length;i++){
-        if (this._selectedIds.indexOf(this.strokes[i].id) !== -1){ this.strokes[i][field] = val; changed = true; }
+        if (this.selIds.indexOf(this.strokes[i].id) !== -1){ this.strokes[i][field] = val; changed = true; }
       }
       if (changed){ this._render(); if (this._onDirty) this._onDirty(); }
     },
@@ -285,7 +255,7 @@
         }
         if (self.tool === 'text'){ self._textPrompt(p, ev); return; }  // no preventDefault — let focus land
         ev.preventDefault();
-        if (self.tool === 'select'){ self._selectDown(p, ev); return; }
+        if (self.tool === 'select'){ if (self._selDown) self._selDown(p, ev); return; }   // shared MarkupSelection (S459l)
         if (self.tool === 'eraser'){
           // S459 shared eraser (lib/ui/markupEraser.js): nothing deletes during the
           // drag — a grey path shows live; the erase applies once at pointer-up.
@@ -325,7 +295,7 @@
           }
           return;
         }
-        if (self.tool === 'select'){ if (self._dragState){ ev.preventDefault(); self._selectMove(pt(ev)); } return; }
+        if (self.tool === 'select'){ if (self._dragState && self._selMove){ ev.preventDefault(); self._selMove(pt(ev)); } return; }
         if (!self._drawing) return;
         ev.preventDefault();
         var p = pt(ev);
@@ -346,7 +316,7 @@
         self._render();
       }
       function up(){
-        if (self.tool === 'select'){ if (self._dragState) self._selectUp(); return; }
+        if (self.tool === 'select'){ if (self._dragState && self._selUp) self._selUp(); return; }
         if (!self._drawing) return;
         self._drawing = false;
         if (self._curr && self._curr.tool==='eraser'){
@@ -644,131 +614,6 @@
     // Returns a controller object so the lightbox bar can drive it.
     _SIZE_STEPS: [12,14,16,20,24,28,32,40,48,56,64,72],
     _PALETTE: ['#A85959','#E74C3C','#FF9800','#F1C40F','#2196F3','#1565C0','#4CAF50','#9C27B0','#1C2333','#607D8B','#FFFFFF'],
-    _textPrompt: function(p, _createEv, editId){
-      var self = this;
-      if (self._textInput) { try { self._textInput.parentNode.removeChild(self._textInput); } catch(_){} self._textInput=null; }
-
-      var editStroke = editId ? self._findStroke(editId) : null;
-      var startText  = editStroke ? (editStroke.text||'') : '';
-      // S458: chip sizes are nominal SCREEN px. Stored stroke size is in natural
-      // units (pre-scaled by uiScale at commit), so editing divides back out.
-      var uT = self._uiScale ? self._uiScale() : 1;
-      var startSizePx= editStroke ? Math.round((editStroke.size||3)*4/uT) : (self.size||3)*4;
-      var startColor = editStroke ? (editStroke.color||self._lastTextColor||self.color) : (self._lastTextColor||self.color);
-      var startBg    = editStroke ? (editStroke.bg||'none') : (self._lastTextBg||'none');
-      if (editStroke){ editStroke._editing = true; self._render(); }
-
-      var r = self.canvas.getBoundingClientRect();
-      var scaleX = r.width  / self.w, scaleY = r.height / self.h;
-      var anchor = editStroke ? { x: editStroke.pts[0].x, y: editStroke.pts[0].y } : { x: p.x, y: p.y };
-      var sizePx = startSizePx;
-      var curColor = startColor, curBg = startBg;
-
-      // on-photo editable box (no toolbar; the lightbox docked bar drives it)
-      var box = document.createElement('div');
-      box.className = 'mk-text-box';
-      box.contentEditable = 'true';
-      box.spellcheck = false;
-      box.setAttribute('data-empty-placeholder','Type\u2026');
-      document.body.appendChild(box);
-      self._textInput = box;
-      if (startText){ box.textContent = startText; }
-
-      function screenFont(){ return sizePx * scaleY * uT; }   // ≈ nominal screen px
-      function positionBox(){
-        // place box so its first text line baseline ~ anchor point
-        var sf = screenFont();
-        var sx = r.left + anchor.x * scaleX;
-        var sy = r.top  + anchor.y * scaleY;
-        box.style.left = Math.max(2, sx - 4) + 'px';
-        box.style.top  = Math.max(2, sy - sf) + 'px';
-      }
-      function applyStyle(){
-        box.style.fontSize = screenFont() + 'px';
-        box.style.color = curColor;
-        // editing backing: always a faint dark pill while typing (readability),
-        // regardless of chosen bg. The chosen bg shows on the COMMITTED stroke.
-        box.style.background = 'rgba(20,18,24,.55)';
-        positionBox();
-      }
-      applyStyle();
-      box.focus();
-      requestAnimationFrame(function(){ try{ box.focus(); placeCaretEnd(); }catch(_){} });
-      function placeCaretEnd(){ try{ var rg=document.createRange(); rg.selectNodeContents(box); rg.collapse(false);
-        var s=window.getSelection(); s.removeAllRanges(); s.addRange(rg);}catch(_){} }
-
-      var resolved = false;
-      function cleanup(){
-        if (box.parentNode) box.parentNode.removeChild(box);
-        if (self._textInput === box) self._textInput = null;
-        if (editStroke){ delete editStroke._editing; }
-        if (self._onTextEnd) self._onTextEnd();   // tell lightbox to restore tool row
-      }
-      function commit(){
-        if (resolved) return; resolved = true;
-        var r2 = self.canvas.getBoundingClientRect();
-        var br = box.getBoundingClientRect();
-        var sx2 = r2.width/self.w, sy2 = r2.height/self.h;
-        var ascent = sizePx * sy2 * uT;
-        var lx = (br.left + 4 - r2.left) / sx2;
-        var ly = (br.top  + 0 - r2.top + ascent) / sy2;
-        var v = (box.innerText || box.textContent || '').replace(/[ \t]+$/,'').replace(/\n+$/,'');
-        var newSize = (sizePx/4) * uT;   // S458: store natural-unit size (screen-constant render)
-        // persist sticky colours
-        self._lastTextColor = curColor; self._lastTextBg = curBg;
-        if (editStroke){
-          if (!v.trim()){ var ix=self.strokes.indexOf(editStroke); if(ix>=0) self.strokes.splice(ix,1); }
-          else { editStroke.text=v; editStroke.size=newSize; editStroke.color=curColor; editStroke.bg=curBg; editStroke.pts[0]={x:lx,y:ly}; }
-          delete editStroke._editing;
-          self.redoStack=[]; if(self._onDirty) self._onDirty(); self._render(); cleanup(); return;
-        }
-        if (v.trim()){
-          self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, bg:curBg, size:newSize, opacity:self.opacity });
-          self._histPush({t:'add'});
-          self.redoStack=[]; if(self._onDirty) self._onDirty();
-        }
-        self._render(); cleanup();
-      }
-      function cancel(){ if (resolved) return; resolved = true; self._render(); cleanup(); }
-
-      box.addEventListener('keydown', function(e){
-        if (e.key === 'Escape'){ e.preventDefault(); cancel(); }
-        e.stopPropagation();   // Enter = newline (contentEditable default)
-      });
-      // NOTE: do NOT reposition the box on 'input'. The box's top-left anchor never
-      // changes as text grows (multi-line grows downward from the fixed top), so
-      // re-running positionBox is a no-op on desktop but a BUG on mobile: once the
-      // keyboard is open the visual viewport shifts the position:fixed origin, so
-      // re-applying the (viewport-relative) top/left yanks the box off the tapped
-      // spot on the first keystroke. Place once (applyStyle above) and leave it.
-
-      // controller the lightbox docked bar drives
-      var controller = {
-        isActive: function(){ return !resolved; },
-        getSize: function(){ return sizePx; },
-        getColor: function(){ return curColor; },
-        getBg: function(){ return curBg; },
-        palette: self._PALETTE,
-        stepSize: function(dir){
-          var steps=self._SIZE_STEPS, i=0, best=1e9;
-          for (var k=0;k<steps.length;k++){ var d=Math.abs(steps[k]-sizePx); if(d<best){best=d;i=k;} }
-          i=Math.max(0,Math.min(steps.length-1,i+dir)); sizePx=steps[i]; applyStyle(); box.focus();
-          return sizePx;
-        },
-        setColor: function(c){ curColor=c; self._lastTextColor=c; box.style.color=c; box.focus(); },
-        setBg: function(c){ curBg=c; self._lastTextBg=c; box.focus(); },   // bg shows on commit
-        insertNewline: function(){
-          box.focus();
-          try{ document.execCommand('insertLineBreak'); }catch(_){ document.execCommand('insertText',false,'\n'); }
-          // no positionBox() — box top-left is fixed; recomputing it drifts on mobile.
-        },
-        commit: commit,
-        cancel: cancel
-      };
-      self._textController = controller;
-      if (self._onTextStart) self._onTextStart(controller);
-      return controller;
-    },
 
     // S339 (Mark): MULTI-LINE TEXT. Text may contain '\n'. One shared metric helper
     // so every bounds/hit/rotation site agrees on the box. Width = widest line,
@@ -912,27 +757,6 @@
       return {x1:x1,y1:y1,x2:x2,y2:y2};
     },
 
-    _groupBounds: function(){
-      var x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity, self=this;
-      this._selectedIds.forEach(function(id){
-        var s=self._findStroke(id); if(!s) return; var b=self._strokeBounds(s); if(!b) return;
-        if(b.x1<x1)x1=b.x1; if(b.y1<y1)y1=b.y1; if(b.x2>x2)x2=b.x2; if(b.y2>y2)y2=b.y2;
-      });
-      if (x1===Infinity) return null;
-      return {x1:x1,y1:y1,x2:x2,y2:y2};
-    },
-
-    _hitStroke: function(p){
-      // S455-parity: tolerance is screen-constant (uiScale) — a fixed 6 natural px
-      // was ~1 screen px on hi-res photos, making strokes nearly untappable.
-      var tol=6*(this._uiScale?this._uiScale():1);
-      for (var i=this.strokes.length-1;i>=0;i--){
-        var b=this._strokeBounds(this.strokes[i]);
-        if (b && p.x>=b.x1-tol && p.x<=b.x2+tol && p.y>=b.y1-tol && p.y<=b.y2+tol) return this.strokes[i];
-      }
-      return null;
-    },
-
     // S364 — selection-chrome scale compensation. The canvas is sized to the
     // photo's NATURAL pixel dimensions (self.w) and CSS-scaled down by the wrap to
     // fit the screen (S358 single-transform model). Handles drawn in logical px
@@ -951,321 +775,7 @@
       } catch(e){ return 1; }
     },
 
-    _hitResize: function(p){
-      var b=this._groupBounds(); if(!b) return -1;
-      var u=this._uiScale(), pad=6*u;
-      var bx=b.x1-pad, by=b.y1-pad, bw=b.x2-b.x1+pad*2, bh=b.y2-b.y1+pad*2;
-      var cor=[[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]];
-      var tol=11*u;
-      for (var i=0;i<4;i++){ if (Math.abs(p.x-cor[i][0])<=tol && Math.abs(p.y-cor[i][1])<=tol) return i; }
-      return -1;
-    },
-    _hitRotate: function(p){
-      var b=this._groupBounds(); if(!b) return false;
-      var u=this._uiScale(), pad=6*u, rcx=(b.x1+b.x2)/2, rcy=b.y1-pad-24*u;
-      return Math.sqrt((p.x-rcx)*(p.x-rcx)+(p.y-rcy)*(p.y-rcy)) <= 14*u;
-    },
-    _hitDelete: function(p){
-      var b=this._groupBounds(); if(!b) return false;
-      var u=this._uiScale(), pad=6*u, dx=b.x2+pad+(4+8)*u, dy=b.y1-pad-(14-8)*u;
-      return Math.sqrt((p.x-dx)*(p.x-dx)+(p.y-dy)*(p.y-dy)) <= 12*u;
-    },
-    // S339 — copy handle: filled circle centered below the bottom edge, mirroring
-    // the rotate handle's top-center stem. Generous radius on coarse pointers.
-    _hitCopy: function(p){
-      var b=this._groupBounds(); if(!b) return false;
-      var u=this._uiScale(), pad=6*u, ccx=(b.x1+b.x2)/2, ccy=b.y2+pad+34*u;
-      var coarse=(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-      var rad=(coarse?20:14)*u;
-      return Math.sqrt((p.x-ccx)*(p.x-ccx)+(p.y-ccy)*(p.y-ccy)) <= rad;
-    },
 
-    _selectDown: function(p, ev){
-      // copy handle (bottom-center) — must be tested BEFORE delete/resize/rotate/move
-      // so tapping it duplicates the selection instead of starting a drag. S339.
-      if (this._selectedIds.length && this._hitCopy(p)){
-        this._cloneSelection(); return;
-      }
-      // delete button
-      if (this._selectedIds.length && this._hitDelete(p)){
-        var sel=this._selectedIds; this.strokes=this.strokes.filter(function(s){return sel.indexOf(s.id)===-1;});
-        this._selectedIds=[]; this.redoStack=[]; this._render(); if(this._onDirty)this._onDirty(); this._emitSel(); return;
-      }
-      // resize corner
-      if (this._selectedIds.length){
-        var corner=this._hitResize(p);
-        if (corner>=0){
-          var gb=this._groupBounds();
-          var anchors=[[gb.x2,gb.y2],[gb.x1,gb.y2],[gb.x2,gb.y1],[gb.x1,gb.y1]];
-          this._dragState={ type:'resize', anchorX:anchors[corner][0], anchorY:anchors[corner][1],
-            origBounds:{x1:gb.x1,y1:gb.y1,x2:gb.x2,y2:gb.y2},
-            orig:JSON.parse(JSON.stringify(this._selectedIds.map(this._findStroke.bind(this)).filter(Boolean))) };
-          return;
-        }
-        // rotate handle
-        if (this._hitRotate(p)){
-          var gb2=this._groupBounds(), cx=(gb2.x1+gb2.x2)/2, cy=(gb2.y1+gb2.y2)/2;
-          this._dragState={ type:'rotate', centerX:cx, centerY:cy, startAngle:Math.atan2(p.y-cy,p.x-cx),
-            orig:JSON.parse(JSON.stringify(this._selectedIds.map(this._findStroke.bind(this)).filter(Boolean))) };
-          return;
-        }
-      }
-      var hit=this._hitStroke(p);
-      var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
-      // S339 — TAP-SELECT sub-mode: each tap toggles an individual pick (own box);
-      // committed selection stays empty until ✓. Empty taps ignored (sticky).
-      if (this._selectSub==='tap'){
-        // S455-parity: a committed (\u2713) selection is MOVABLE by pressing inside
-        // its bounds — including a SINGLE item (old code required >1, and a tap on
-        // the lone member dropped it, so singles were immovable). A press that
-        // doesn't actually move still performs the S410 tap-toggle on release
-        // (see _selectUp) so additive grouping is preserved.
-        if (this._selectedIds.length){
-          var gbt=this._groupBounds();
-          var uT=this._uiScale?this._uiScale():1, padT=6*uT;
-          if (gbt && p.x>=gbt.x1-padT && p.x<=gbt.x2+padT && p.y>=gbt.y1-padT && p.y<=gbt.y2+padT){
-            this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false, tapToggleId:(hit?hit.id:null) };
-            return;
-          }
-        }
-        if (hit){
-          // S410: post-commit ADDITIVE grouping (S341 verified gap). A tap after
-          // ✓ used to wipe the committed group and start a fresh pick; now the
-          // committed group RE-OPENS as picks, so new taps add to it (and tapping
-          // a member removes it), then ✓ recommits the enlarged group.
-          if (!this._pickIds.length && this._selectedIds.length) this._pickIds = this._selectedIds.slice();
-          var pix=this._pickIds.indexOf(hit.id);
-          if (pix!==-1) this._pickIds.splice(pix,1); else this._pickIds.push(hit.id);
-          this._selectedIds=[];           // tap builds pick, not committed group, until ✓
-          this._dragState=null; this._render(); this._emitSel();
-        }
-        // empty tap → sticky, do nothing
-        return;
-      }
-      // If a (multi-)selection exists and the press is INSIDE the group bounds —
-      // even in empty space between strokes — start a group move rather than
-      // clearing and rubber-banding. Without this, dragging a rubber-band group
-      // only worked when you pressed exactly on one stroke's tight hit-box.
-      if (!multi && this._selectedIds.length > 1){
-        var gbm=this._groupBounds();
-        if (gbm && p.x>=gbm.x1-6 && p.x<=gbm.x2+6 && p.y>=gbm.y1-6 && p.y<=gbm.y2+6){
-          this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false };
-          return;
-        }
-      }
-      // S339 — RUBBER-BAND sub-mode: hit-in-selection = move; press on empty arms a
-      // rubber band that only commits if it MOVES past threshold (sticky tap).
-      if (this._selectSub==='rubber'){
-        if (multi && hit){
-          var rix=this._selectedIds.indexOf(hit.id);
-          if (rix!==-1) this._selectedIds.splice(rix,1); else this._selectedIds.push(hit.id);
-          this._dragState=null; this._render(); this._emitSel(); return;
-        }
-        if (hit && this._selectedIds.indexOf(hit.id)!==-1){
-          this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false }; return;
-        }
-        if (hit){
-          this._selectedIds=[hit.id];
-          this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false };
-          this._render(); this._emitSel(); return;
-        }
-        // empty press → arm rubber band; a stationary tap = sticky (no clear in _selectUp)
-        this._rubberBand={x1:p.x,y1:p.y,x2:p.x,y2:p.y};
-        this._dragState={type:'rubberband'}; this._render(); return;
-      }
-      // S339 — SINGLE sub-mode (default): tap a mark = select just it; empty = sticky.
-      if (hit){
-        if (multi){
-          var ix=this._selectedIds.indexOf(hit.id);
-          if (ix!==-1) this._selectedIds.splice(ix,1); else this._selectedIds.push(hit.id);
-          this._dragState=null; this._render(); this._emitSel(); return;
-        }
-        if (this._selectedIds.indexOf(hit.id)===-1) this._selectedIds=[hit.id];
-        this._dragState={ type:'move', startX:p.x, startY:p.y, moved:false };
-        this._render(); this._emitSel();
-      }
-      // empty tap in single → sticky, do nothing
-    },
-
-    _selectMove: function(p){
-      var ds=this._dragState; if(!ds) return; var self=this;
-      if (ds.type==='rubberband'){ this._rubberBand.x2=p.x; this._rubberBand.y2=p.y; this._render(); return; }
-      if (ds.type==='move'){
-        var dx=p.x-ds.startX, dy=p.y-ds.startY;
-        if (Math.abs(dx)<2 && Math.abs(dy)<2 && !ds.moved) return;
-        ds.moved=true;
-        this._selectedIds.forEach(function(id){ var s=self._findStroke(id); if(!s)return;
-          s.pts.forEach(function(pt){ pt.x+=dx; pt.y+=dy; });
-          if (s.eraserMask && window.MarkupEraser) window.MarkupEraser.xformMask(s, function(pt){ return {x:pt.x+dx, y:pt.y+dy}; }); });   // S459: masks follow
-        ds.startX=p.x; ds.startY=p.y; this._render(); return;
-      }
-      if (ds.type==='resize'){
-        var ob=ds.origBounds, ax=ds.anchorX, ay=ds.anchorY, ow=ob.x2-ob.x1, oh=ob.y2-ob.y1;
-        if (ow<1||oh<1) return;
-        var sx=Math.abs(p.x-ax)/ow, sy=Math.abs(p.y-ay)/oh, s=Math.max(0.1,(sx+sy)/2);
-        ds.orig.forEach(function(o){ var st=self._findStroke(o.id); if(!st)return;
-          st.pts=o.pts.map(function(pt){ return {x:ax+(pt.x-ax)*s, y:ay+(pt.y-ay)*s}; });
-          if (o.size) st.size=Math.max(1, o.size*s);
-          if (o.eraserMask){ st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
-            if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return {x:ax+(pt.x-ax)*s, y:ay+(pt.y-ay)*s}; }, s); }   // S459
-        });
-        this._render(); return;
-      }
-      if (ds.type==='rotate'){
-        var cx=ds.centerX, cy=ds.centerY, cur=Math.atan2(p.y-cy,p.x-cx), dA=cur-ds.startAngle;
-        var cs=Math.cos(dA), sn=Math.sin(dA);
-        function rot(px,py){ return {x:cx+(px-cx)*cs-(py-cy)*sn, y:cy+(px-cx)*sn+(py-cy)*cs}; }
-        ds.orig.forEach(function(o){ var st=self._findStroke(o.id); if(!st)return;
-          if (o.tool==='pen'||o.tool==='highlight'){
-            st.pts=o.pts.map(function(pt){ return rot(pt.x,pt.y); });          // bake into points
-            if (o.eraserMask){ st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
-              if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return rot(pt.x,pt.y); }); }   // S459: world-frame masks bake too
-          } else if (o.tool==='text'){
-            var _rm=this._textMetrics(o), fs=_rm.fs, estW=_rm.w;
-            var ocx=o.pts[0].x+estW/2, ocy=o.pts[0].y-fs+_rm.h/2, nc=rot(ocx,ocy);
-            st.pts[0]={x:nc.x-estW/2, y:nc.y-_rm.h/2+fs};
-            if (o.eraserMask){ var _tdx=st.pts[0].x-o.pts[0].x, _tdy=st.pts[0].y-o.pts[0].y;
-              st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
-              if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return {x:pt.x+_tdx, y:pt.y+_tdy}; }); }   // S459: local-frame masks ride the center move
-            st.rotation=(o.rotation||0)+dA;
-          } else {
-            var a=o.pts[0], b=o.pts[1];
-            var ocxs=(a.x+b.x)/2, ocys=(a.y+b.y)/2, ncs=rot(ocxs,ocys);
-            var hw=Math.abs(b.x-a.x)/2, hh=Math.abs(b.y-a.y)/2;
-            st.pts[0]={x:ncs.x-hw, y:ncs.y-hh}; st.pts[1]={x:ncs.x+hw, y:ncs.y+hh};
-            if (o.eraserMask){ var _sdx=ncs.x-ocxs, _sdy=ncs.y-ocys;
-              st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
-              if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return {x:pt.x+_sdx, y:pt.y+_sdy}; }); }   // S459
-            st.rotation=(o.rotation||0)+dA;
-          }
-        });
-        this._render(); return;
-      }
-    },
-
-    _selectUp: function(){
-      var ds=this._dragState; if(!ds) return; var self=this;
-      if (ds.type==='rubberband' && this._rubberBand){
-        var r=this._rubberBand, rx1=Math.min(r.x1,r.x2), ry1=Math.min(r.y1,r.y2), rx2=Math.max(r.x1,r.x2), ry2=Math.max(r.y1,r.y2);
-        // S339 — only a REAL drag (>4px) selects; a stationary empty tap is sticky
-        // (selection unchanged), never clears. Removes the old clear-on-empty bug.
-        if (Math.abs(rx2-rx1)>4 || Math.abs(ry2-ry1)>4){
-          var hits=[]; this.strokes.forEach(function(s){ var b=self._strokeBounds(s); if(!b)return;
-            if (b.x2>=rx1 && b.x1<=rx2 && b.y2>=ry1 && b.y1<=ry2) hits.push(s.id); });
-          if (hits.length) this._selectedIds=hits;
-        }
-        this._rubberBand=null;
-      }
-      // S455-parity: a press-inside-committed-bounds that did NOT move is a TAP —
-      // perform the S410 additive toggle (re-open group as picks, toggle the
-      // tapped member). Drag = move; tap = toggle. Both behaviors preserved.
-      if (ds.type==='move' && ds.moved===false && ds.tapToggleId && this._selectSub==='tap'){
-        if (!this._pickIds.length && this._selectedIds.length) this._pickIds=this._selectedIds.slice();
-        var _tix=this._pickIds.indexOf(ds.tapToggleId);
-        if (_tix!==-1) this._pickIds.splice(_tix,1); else this._pickIds.push(ds.tapToggleId);
-        this._selectedIds=[];
-      }
-      if ((ds.type==='move'||ds.type==='resize'||ds.type==='rotate') && (ds.moved!==false)){
-        if (this._onDirty) this._onDirty();
-      }
-      this._dragState=null; this._render(); this._emitSel();
-    },
-
-    // S339 — duplicate the current selection. Each clone gets a fresh id, a deep
-    // copy of its pts[] (no aliasing), every coord offset by (+28,+28), and all
-    // visual fields copied verbatim. The new strokes become the active selection
-    // so the user can immediately drag-to-place and chain another copy.
-    // NOTE: this engine's undo is a per-stroke LIFO (strokes.pop()), so a
-    // multi-select copy that pushes N strokes undoes one stroke per Undo press.
-    // Single-object copy (the common case) undoes cleanly in one press.
-    _cloneSelection: function(){
-      if (!this._selectedIds || !this._selectedIds.length) return;
-      var self=this, OFF=28, newIds=[];
-      this._selectedIds.forEach(function(id){
-        var s=self._findStroke(id); if(!s) return;
-        var c={ id:self._uid(), tool:s.tool, color:s.color, size:s.size,
-                opacity:s.opacity, text:s.text, rotation:s.rotation, bg:s.bg };
-        // deep-copy + offset the only coordinate array this engine uses
-        c.pts = (s.pts||[]).map(function(pt){ return { x:pt.x+OFF, y:pt.y+OFF }; });
-        // S459: erased gaps travel with the clone
-        if (s.eraserMask) c.eraserMask = s.eraserMask.map(function(m){
-          return { points:(m.points||[]).map(function(pt){ return {x:pt.x+OFF, y:pt.y+OFF}; }), size:m.size }; });
-        // drop undefined optional fields so cloned objects stay clean
-        if (c.text===undefined) delete c.text;
-        if (c.rotation===undefined) delete c.rotation;
-        if (c.bg===undefined) delete c.bg;
-        self.strokes.push(c); self._histPush({t:'add'}); newIds.push(c.id);
-      });
-      if (!newIds.length) return;
-      this._selectedIds = newIds;
-      this.redoStack = [];           // a new action invalidates redo (engine canon)
-      this._render();
-      if (this._onDirty) this._onDirty();
-      this._emitSel();
-    },
-    _drawSelection: function(ctx){
-      // S339 — tap-mode individual pick boxes (pre-✓ group): green dashed + ✓ badge.
-      if (this._pickIds && this._pickIds.length){
-        var self=this;
-        this._pickIds.forEach(function(id){
-          var s=self._findStroke(id); if(!s) return;
-          var b=self._strokeBounds(s); if(!b) return;
-          var uP=self._uiScale?self._uiScale():1;   // S455-parity: screen-constant pick chrome
-          ctx.save();
-          ctx.setLineDash([4*uP,3*uP]); ctx.strokeStyle='#3FD08A'; ctx.lineWidth=2*uP; ctx.globalAlpha=1;
-          ctx.strokeRect(b.x1-5*uP,b.y1-5*uP,b.x2-b.x1+10*uP,b.y2-b.y1+10*uP);
-          ctx.setLineDash([]);
-          ctx.fillStyle='#3FD08A'; ctx.beginPath(); ctx.arc(b.x2+5*uP,b.y1-5*uP,7*uP,0,Math.PI*2); ctx.fill();
-          ctx.fillStyle='#0b2018'; ctx.font='bold '+Math.round(10*uP)+'px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText('\u2713', b.x2+5*uP, b.y1-4*uP);
-          ctx.restore();
-        });
-      }
-      if (this._rubberBand){
-        var r=this._rubberBand;
-        var uR=this._uiScale?this._uiScale():1;
-        ctx.save(); ctx.setLineDash([4*uR,3*uR]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=Math.max(1,1.5*uR); ctx.globalAlpha=1;
-        ctx.strokeRect(Math.min(r.x1,r.x2),Math.min(r.y1,r.y2),Math.abs(r.x2-r.x1),Math.abs(r.y2-r.y1));
-        ctx.setLineDash([]); ctx.restore();
-      }
-      var b=this._groupBounds(); if(!b) return;
-      var u=this._uiScale();   // S364: screen-constant chrome
-      var pad=6*u, bx=b.x1-pad, by=b.y1-pad, bw=b.x2-b.x1+pad*2, bh=b.y2-b.y1+pad*2;
-      ctx.save();
-      ctx.setLineDash([5*u,4*u]); ctx.strokeStyle='#2196F3'; ctx.lineWidth=2*u; ctx.globalAlpha=1;
-      ctx.strokeRect(bx,by,bw,bh); ctx.setLineDash([]);
-      var hs=11*u; ctx.fillStyle='white'; ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.5*u;
-      [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]].forEach(function(p){
-        ctx.fillRect(p[0]-hs/2,p[1]-hs/2,hs,hs); ctx.strokeRect(p[0]-hs/2,p[1]-hs/2,hs,hs); });
-      var rcx=bx+bw/2, rcy=by-24*u;
-      ctx.beginPath(); ctx.moveTo(bx+bw/2,by); ctx.lineTo(rcx,rcy+9*u); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1*u; ctx.stroke();
-      ctx.beginPath(); ctx.arc(rcx,rcy,9*u,0,Math.PI*2); ctx.fillStyle='white'; ctx.fill(); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.5*u; ctx.stroke();
-      ctx.beginPath(); ctx.arc(rcx,rcy,5*u,-0.3,Math.PI*1.4); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1.2*u; ctx.stroke();
-      var dx=bx+bw+4*u, dy=by-14*u;
-      ctx.fillStyle='#E53E3E'; ctx.beginPath(); ctx.arc(dx+8*u,dy+8*u,9*u,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='white'; ctx.font='bold '+(12*u)+'px Calibri,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('\u2715', dx+8*u, dy+8*u);
-      // S339 — copy handle: bottom-center, stem mirrors the rotate handle's stem
-      var ccx=bx+bw/2, ccy=by+bh+34*u;
-      ctx.beginPath(); ctx.moveTo(bx+bw/2,by+bh); ctx.lineTo(ccx,ccy-9*u); ctx.strokeStyle='#2196F3'; ctx.lineWidth=1*u; ctx.stroke();
-      ctx.beginPath(); ctx.arc(ccx,ccy,9*u,0,Math.PI*2); ctx.fillStyle='#1565C0'; ctx.fill();
-      ctx.strokeStyle='#1565C0'; ctx.lineWidth=1.5*u; ctx.stroke();
-      // two-rect copy glyph (white): back rect offset up-left, front rect down-right
-      ctx.strokeStyle='white'; ctx.lineWidth=1.3*u;
-      ctx.strokeRect(ccx-4*u, ccy-4*u, 5*u, 6*u);
-      ctx.fillStyle='#1565C0'; ctx.fillRect(ccx-1*u, ccy-1*u, 5*u, 6*u);
-      ctx.strokeRect(ccx-1*u, ccy-1*u, 5*u, 6*u);
-      ctx.restore();
-    },
-
-    // Public: delete current selection (Delete key from lightbox)
-    deleteSelection: function(){
-      if (!this._selectedIds || !this._selectedIds.length) return;
-      var sel = this._selectedIds;
-      this.strokes = this.strokes.filter(function(s){ return sel.indexOf(s.id) === -1; });
-      this._selectedIds = []; this.redoStack = [];
-      this._render(); if (this._onDirty) this._onDirty(); this._emitSel();
-    },
 
     _render: function(){
       if (!this.ctx) return;
@@ -1359,7 +869,7 @@
         if (tx.tool==='text') this._drawTextR(ctx, tx);
       }
       // Pass 5: selection overlay (select mode only)
-      if (this.tool === 'select') this._drawSelection(ctx);
+      if (this.tool === 'select' && this._drawSelChrome) this._drawSelChrome(ctx);   // shared chrome (S459e pad + S459f tight amber)
     },
 
     // Wrap shape draw with opacity + rotation about bbox center (screen render only, sx=sy=1)
@@ -1435,6 +945,25 @@
         this.strokes = JSON.parse(op.before);
         this._render(); if (this._onDirty) this._onDirty(); return;
       }
+      if (op && op.t==='mod'){   // S459l: shared-text edit op
+        this._histRedo.push(op);
+        var jm=(op.idx>=0&&op.idx<this.strokes.length)?op.idx:this.strokes.findIndex(function(st){return st.id===JSON.parse(op.before).id;});
+        if(jm>=0) this.strokes[jm]=JSON.parse(op.before);
+        this._render(); if (this._onDirty) this._onDirty(); return;
+      }
+      if (op && op.t==='del'){   // S459l: shared-text delete-empty op
+        this._histRedo.push(op);
+        this.strokes.splice(Math.min(op.idx,this.strokes.length),0,op.stroke);
+        this._render(); if (this._onDirty) this._onDirty(); return;
+      }
+      if (op && (op.t==='gmod'||op.t==='gdel'||op.t==='gadd')){   // S459l: shared-selection group ops
+        var selfU=this; this._histRedo.push(op);
+        if (op.t==='gmod'){ op.ids.forEach(function(id,i){ var j=selfU.strokes.findIndex(function(st){return st.id===id;}); if(j>=0) selfU.strokes[j]=JSON.parse(op.before[i]); }); }
+        else if (op.t==='gdel'){ op.items.forEach(function(it){ selfU.strokes.splice(Math.min(it.idx,selfU.strokes.length),0,it.stroke); }); }
+        else { var addIds=op.items.map(function(it){return it.stroke.id;}); this.strokes=this.strokes.filter(function(st){return addIds.indexOf(st.id)===-1;}); }
+        this.selIds=[]; this._pickIds=[]; this._dragState=null; this._rubberBand=null;
+        this._render(); if (this._onDirty) this._onDirty(); this._emitSel && this._emitSel(); return;
+      }
       if (!this.strokes.length) return;
       if (op) this._histRedo.push(op);
       this.redoStack.push(this.strokes.pop());
@@ -1447,6 +976,25 @@
         this._hist.push(op);
         this.strokes = JSON.parse(op.after);
         this._render(); if (this._onDirty) this._onDirty(); return;
+      }
+      if (op && op.t==='mod'){
+        this._hist.push(op);
+        var jr=(op.idx>=0&&op.idx<this.strokes.length)?op.idx:this.strokes.findIndex(function(st){return st.id===JSON.parse(op.after).id;});
+        if(jr>=0) this.strokes[jr]=JSON.parse(op.after);
+        this._render(); if (this._onDirty) this._onDirty(); return;
+      }
+      if (op && op.t==='del'){
+        this._hist.push(op);
+        var rid=op.stroke.id; this.strokes=this.strokes.filter(function(st){return st.id!==rid;});
+        this._render(); if (this._onDirty) this._onDirty(); return;
+      }
+      if (op && (op.t==='gmod'||op.t==='gdel'||op.t==='gadd')){   // S459l
+        var selfR=this; this._hist.push(op);
+        if (op.t==='gmod'){ op.ids.forEach(function(id,i){ var j=selfR.strokes.findIndex(function(st){return st.id===id;}); if(j>=0) selfR.strokes[j]=JSON.parse(op.after[i]); }); }
+        else if (op.t==='gdel'){ var rmIds=op.items.map(function(it){return it.stroke.id;}); this.strokes=this.strokes.filter(function(st){return rmIds.indexOf(st.id)===-1;}); }
+        else { op.items.forEach(function(it){ selfR.strokes.splice(Math.min(it.idx,selfR.strokes.length),0,it.stroke); }); }
+        this.selIds=[]; this._pickIds=[]; this._dragState=null; this._rubberBand=null;
+        this._render(); if (this._onDirty) this._onDirty(); this._emitSel && this._emitSel(); return;
       }
       if (!this.redoStack.length){ if (op) this._histRedo.push(op); return; }
       this.strokes.push(this.redoStack.pop());
@@ -1652,4 +1200,80 @@
   };
 
   window.MarkupEngine = MarkupEngine;
+  // ── S459l: shared selection engine (lib/ui/markupSelection.js v2) ──
+  // FRT injects its own transform semantics; everything else (two-SET model,
+  // rubber-band, chrome with S459e grab-band + S459f tight amber, clone, delete,
+  // S410 additive) comes from the ONE shared module both lightboxes run.
+  if (window.MarkupSelection){
+    window.MarkupSelection.install(MarkupEngine, {
+      aabb: function(st){ return this._strokeBounds(st); },   // rotation-aware FRT bounds
+      applyRotate: function(st, o, dA, rot){
+        // FRT rotation model (verbatim from the pre-extraction engine):
+        // pen/highlight BAKE rotation into points; shapes/text keep .rotation.
+        if (o.tool==='pen'||o.tool==='highlight'){
+          st.pts=o.pts.map(function(pt){ return rot(pt); });
+          if (o.eraserMask){ st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
+            if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return rot(pt); }); }
+        } else if (o.tool==='text'){
+          var _rm=this._textMetrics(o), fs=_rm.fs, estW=_rm.w;
+          var oc={x:o.pts[0].x+estW/2, y:o.pts[0].y-fs+_rm.h/2}, nc=rot(oc);
+          st.pts[0]={x:nc.x-estW/2, y:nc.y-_rm.h/2+fs};
+          if (o.eraserMask){ var _tdx=st.pts[0].x-o.pts[0].x, _tdy=st.pts[0].y-o.pts[0].y;
+            st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
+            if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return {x:pt.x+_tdx, y:pt.y+_tdy}; }); }
+          st.rotation=(o.rotation||0)+dA;
+        } else {
+          var a=o.pts[0], b=o.pts[1];
+          var ocx=(a.x+b.x)/2, ocy=(a.y+b.y)/2, ncs=rot({x:ocx,y:ocy});
+          var hw=Math.abs(b.x-a.x)/2, hh=Math.abs(b.y-a.y)/2;
+          st.pts[0]={x:ncs.x-hw, y:ncs.y-hh}; st.pts[1]={x:ncs.x+hw, y:ncs.y+hh};
+          if (o.eraserMask){ var _sdx=ncs.x-ocx, _sdy=ncs.y-ocy;
+            st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
+            if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return {x:pt.x+_sdx, y:pt.y+_sdy}; }); }
+          st.rotation=(o.rotation||0)+dA;
+        }
+      }
+    });
+    MarkupEngine.render = function(){ this._render(); };            // module calls render()
+    MarkupEngine._pushOp = function(op){ this._histPush(op); };     // g-ops flow into _hist
+    MarkupEngine.selectionCount = MarkupEngine.selCount;            // lightbox API compat
+    MarkupEngine.deleteSelection = MarkupEngine.deleteSelected;     // lightbox API compat
+  } if (window.MarkupText){
+    // ── S459l: shared text engine (lib/ui/markupText.js v2) ──
+    // FRT hooks: size schema (stored s.size = fontN/4, S458 screen-constant sizing),
+    // steps in nominal SCREEN px, place-ONCE on document.body (S403 keyboard rule).
+    window.MarkupText.install(MarkupEngine, {
+      readFontN: function(es){ return ((es&&es.size)||3)*4; },                       // natural px
+      newFontN: function(){ var uT=this._uiScale?this._uiScale():1; return ((this.size||3)*4)*uT; },
+      storeFont: function(t, fontN){ t.size = fontN/4; },
+      stepFontN: function(fontN, dir){
+        var uT=this._uiScale?this._uiScale():1;
+        var sPx=fontN/Math.max(0.0001,uT);
+        var steps=this._SIZE_STEPS, i=0, best=1e9;
+        for(var k=0;k<steps.length;k++){ var d=Math.abs(steps[k]-sPx); if(d<best){best=d;i=k;} }
+        i=Math.max(0,Math.min(steps.length-1,i+dir));
+        return steps[i]*uT;
+      },
+      displaySize: function(fontN){ var uT=this._uiScale?this._uiScale():1; return Math.round(fontN/Math.max(0.0001,uT)); },
+      placement: function(){
+        // viewport rect captured ONCE at open; never re-derived (S403: repositioning
+        // after the mobile keyboard opens yanks the box off the tapped spot).
+        var r=this.canvas.getBoundingClientRect(), self=this;
+        return { host:document.body,
+                 origin:function(){ return {x:r.left, y:r.top}; },
+                 sx:function(){ return r.width/self.w; },
+                 sy:function(){ return r.height/self.h; },
+                 track:false };
+      },
+      buildStroke: function(v, fontN, color, bg, lx, ly){
+        return { id:this._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:color, bg:bg, size:fontN/4, opacity:this.opacity };
+      },
+      applyEdit: function(es, v, fontN, color, bg, lx, ly){
+        es.text=v; es.size=fontN/4; es.color=color; es.bg=bg; es.pts[0]={x:lx,y:ly};
+      }
+    });
+    MarkupEngine._textPrompt = function(p, _ev, editId){ return this._promptText(p, {tool:'text', alpha:this.opacity}, editId); };   // routing + host-style adapter
+  } else {
+    console.error('[MarkupEngine] lib/ui/markupSelection.js missing — selection tool disabled');
+  }
 })();
