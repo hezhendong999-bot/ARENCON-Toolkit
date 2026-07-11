@@ -488,13 +488,18 @@ body.dark-mode .hdr-menu button span{ color:#8a94b0; }
 .more-toggle.has-folded{ display:inline-flex; }
 
 .oflow-backdrop{
-  display:none; position:fixed; inset:0; z-index:var(--z-drawer);
+  /* S460: hosts' legacy sticky chrome (Diesel app-header z:1000-5000, legacy menus/
+     overlays z:10001-10002) painted OVER the drawer at token z:400 - the project bar
+     and section tabs covered the open drawer's top items. The drawer is transient,
+     top-of-chrome UI; pin it above the legacy overlay range (old Diesel drawer was
+     10002/10001, the proven values). */
+  display:none; position:fixed; inset:0; z-index:10009;
   background:rgba(0,0,0,.55);
 }
 .oflow-backdrop.open{ display:block; }
 .oflow-drawer{
   display:none; position:fixed; top:0; right:0; height:100%; width:min(320px,86vw);
-  z-index:calc(var(--z-drawer) + 1);
+  z-index:10010;
   background:var(--b-chrome-bg); color:var(--b-chrome-fg);
   border-left:1px solid var(--b-chrome-rule); box-shadow:-4px 0 24px rgba(0,0,0,.28);
   flex-direction:column; padding:14px; gap:8px; box-sizing:border-box;
