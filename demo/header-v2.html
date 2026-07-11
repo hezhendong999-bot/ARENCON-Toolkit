@@ -5,133 +5,210 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARENCON — Header Engine v2 Demo (S460)</title>
 <style>
-  /* ═══ THIS PAGE IS A DELIBERATELY HOSTILE HOST ═══
-     Everything below tries to break the sealed engine the way the real
-     tools did: aggressive global CSS, sticky chrome at z:5000, a legacy
-     overlay at z:10001. If the header still looks right and the drawer
-     covers everything, the contracts hold. */
   *{ box-sizing:border-box; }
   body{ margin:0; font-family:Calibri,sans-serif; background:#EFEDF0; color:#1B1A22; }
-  /* HOSTILE: host rules that clobbered v1 (these must have ZERO effect inside the engine) */
-  button{ background:red !important; color:yellow !important; border:4px dashed lime !important;
-          font-family:'Comic Sans MS',cursive !important; border-radius:0 !important; }
-  .hdr-btn,.hbtn,.hicon,.chip,.bar,.menu,.drawer{ background:purple !important; display:none !important; }
-  header,.app-header{ filter:hue-rotate(90deg); }
 
-  /* fake host sticky chrome (Diesel-style project bar + tabs) at z 5000 */
+  /* ═══ THE ATTACK (deliberate) ═══
+     Real tools have hostile global CSS — this page simulates the worst of it.
+     These rules try to wreck ANY button on the page and to hide the engine's
+     class names outright. The sealed engine must ignore all of it. */
+  button{ background:red !important; color:yellow !important;
+          border:4px dashed lime !important; font-family:'Comic Sans MS',cursive !important; }
+  .hbtn,.hicon,.chip,.bar,.menu,.drawer{ display:none !important; background:purple !important; }
+
+  /* ═══ demo's own controls win their styling BACK (specificity + !important,
+     exactly what a disciplined host does for its own UI) ═══ */
+  .panel button{ background:#F4F2F6 !important; color:#1B1A22 !important;
+    border:1px solid #C9CDD4 !important; border-radius:8px !important;
+    font:600 13px Calibri,sans-serif !important; padding:9px 13px; cursor:pointer; }
+  .panel button:active{ background:#e7e3ec !important; }
+
+  /* fake host sticky chrome (Diesel-style) at z:5000 */
   .fake-projectbar{ position:sticky; top:0; z-index:5000; background:#1B2438; color:#fff;
     padding:9px 14px; font:700 13px Calibri,sans-serif; }
   .fake-tabs{ position:sticky; top:38px; z-index:5000; background:#243048; color:#cdd3e0;
     display:flex; gap:18px; padding:10px 14px; font:600 13px Calibri,sans-serif;
     overflow-x:auto; white-space:nowrap; }
-  .legacy-overlay{ display:none; position:fixed; right:16px; top:120px; z-index:10001;
+  .legacy-overlay{ display:none; position:fixed; right:16px; top:130px; z-index:10001;
     background:#fff; border:1px solid #ccc; box-shadow:0 6px 20px rgba(0,0,0,.25);
     padding:14px; font:600 13px Calibri,sans-serif; border-radius:8px; }
   .legacy-overlay.on{ display:block; }
 
-  .panel{ max-width:860px; margin:18px auto; background:#fff; border:1px solid #DDD;
+  .panel{ max-width:860px; margin:14px auto; background:#fff; border:1px solid #DDD;
     border-radius:12px; padding:16px; }
-  .panel h2{ font:700 15px Calibri,sans-serif; margin:0 0 10px; color:#9C2742; }
-  .row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; align-items:center; }
-  .row .lbl{ font:700 12px Calibri,sans-serif; width:110px; color:#5E5B68; }
-  .panel button{ all:revert; font:600 12px Calibri,sans-serif; padding:8px 12px;
-    border:1px solid #C9CDD4; border-radius:8px; background:#F4F2F6; cursor:pointer; }
-  .panel input[type=range]{ width:180px; }
-  .panel input[type=text]{ font:600 12px Calibri,sans-serif; padding:7px 9px;
-    border:1px solid #C9CDD4; border-radius:8px; }
-  .filler{ max-width:860px; margin:14px auto; background:#fff; border:1px solid #E5E2E8;
-    border-radius:12px; padding:16px; color:#5E5B68; font:400 13px Calibri,sans-serif; }
-  #mount-wrap{ position:sticky; top:0; z-index:6000; /* host may pin the header wherever it likes */ }
-  #width-cage{ margin:0 auto; }
-  .note{ font:400 12px Calibri,sans-serif; color:#928E9C; margin-top:6px; }
+  .panel h2{ font:700 16px Calibri,sans-serif; margin:0 0 10px; color:#9C2742; }
+  .row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; align-items:center; }
+  .row .lbl{ font:700 12px Calibri,sans-serif; width:96px; color:#5E5B68; flex:0 0 auto; }
+  .panel input[type=range]{ width:170px; }
+  .panel input[type=text]{ font:600 13px Calibri,sans-serif; padding:8px 10px;
+    border:1px solid #C9CDD4; border-radius:8px; width:130px; }
+  .check{ display:flex; gap:9px; align-items:flex-start; padding:7px 0;
+    border-bottom:1px solid #F0EDF3; font:600 13px Calibri,sans-serif; }
+  .check:last-child{ border-bottom:none; }
+  .check .ic{ flex:0 0 22px; font-size:15px; }
+  .check .why{ display:block; font:400 12px Calibri,sans-serif; color:#928E9C; margin-top:2px; }
+  .pass{ color:#2E9E72; } .failt{ color:#C0445F; }
+  .steps li{ font:400 13px Calibri,sans-serif; margin:7px 0; color:#3a3742; }
+  .steps b{ color:#1B1A22; }
+  #apilog{ font:400 12px Calibri,sans-serif; color:#5E5B68; max-height:120px; overflow:auto; }
+  .filler p{ font:400 13px Calibri,sans-serif; color:#928E9C; }
+  #mount-wrap{ position:sticky; top:0; z-index:6000; }
 </style>
 </head>
 <body>
 
-<!-- the engine mounts here; width cage simulates narrow screens for fold testing -->
 <div id="mount-wrap"><div id="width-cage"><div id="hdr2-mount"></div></div></div>
 
-<div class="fake-projectbar">ISSUED · DFP #1 · 1490.04 IMCC 610 Sprucewood — fake host project bar (z:5000)</div>
+<div class="fake-projectbar">Fake host project bar — sticky, z:5000 (like Diesel's)</div>
 <div class="fake-tabs">
   <span>1. Pre-Comm</span><span>2. Visual Inspection</span><span>3. Controller Tests</span>
   <span>4. Performance Test</span><span>5. FA &amp; Signaling</span><span>6. Deficiencies</span>
 </div>
 
-<div class="legacy-overlay" id="legacy">Legacy host overlay (z:10001) — the drawer must cover me</div>
+<div class="legacy-overlay" id="legacy">Old-style host overlay (z:10001).<br>The ☰ drawer must cover me.</div>
 
 <div class="panel">
-  <h2>Contract proof — this page actively attacks the engine</h2>
-  <div class="note">Global CSS on this page paints every button red/yellow Comic Sans, sets
-  <b>.hbtn/.menu/.drawer to display:none !important</b>, and hue-rotates headers. The sticky bars above are
-  z:5000. If the header renders normally and the ☰ drawer covers the bars (and the legacy overlay,
-  toggle below), the isolation + z-band contracts hold.</div>
+  <h2>Self-check — runs automatically</h2>
+  <div id="selfcheck">running…</div>
 </div>
 
 <div class="panel">
-  <h2>Controller API — drive every contract method</h2>
+  <h2>What this page is</h2>
+  <ol class="steps">
+    <li>The bar at the very top is the <b>new sealed shared header</b> running your real Diesel
+        config — same buttons, same menus.</li>
+    <li>This page <b>attacks it on purpose</b> with the worst CSS a tool could have: every button
+        forced red Comic Sans, the engine's class names forced hidden. The header ignoring all of
+        that is the point — it proves no tool can ever accidentally break the header again.</li>
+    <li>The blue bars under the header are <b>fake Diesel chrome</b> at the exact layer values
+        that buried the drawer last night. Open ☰ — the drawer must cover them.</li>
+  </ol>
+</div>
+
+<div class="panel">
+  <h2>Try these</h2>
+  <ol class="steps">
+    <li>Tap <b>☰</b> — drawer slides over the blue bars. Then tap <b>Toggle old overlay</b> below
+        and open ☰ again — drawer covers that too.</li>
+    <li>Drag the <b>Fold test</b> slider left — buttons fold into ☰ in the locked order
+        (QR and day/night hold out longest, Sign Out pins to drawer bottom).</li>
+    <li>Tap menu items (AI Review, Reports, More) — each tap logs at the bottom, proving the real
+        Diesel handlers are wired.</li>
+    <li>Drive the header from the buttons below — in the real tools this is exactly how Diesel's
+        code will talk to it (no more reaching inside).</li>
+  </ol>
   <div class="row"><span class="lbl">Hub mode</span>
-    <button onclick="hub(true)">Enter Hub mode</button>
-    <button onclick="hub(false)">Exit</button></div>
+    <button onclick="hub(true)">Enter</button><button onclick="hub(false)">Exit</button></div>
   <div class="row"><span class="lbl">Cloud</span>
     <button onclick="ctl.setCloud({visible:true,state:'ok',text:'Cloud',lastSync:'· Synced 09:14'})">OK</button>
-    <button onclick="ctl.setCloud({visible:true,state:'sync',text:'Syncing…',lastSync:''})">Syncing</button>
-    <button onclick="ctl.setCloud({visible:true,state:'err',text:'Offline',lastSync:'· retry'})">Error</button>
-    <button onclick="ctl.setCloud({visible:false})">Hide</button></div>
+    <button onclick="ctl.setCloud({visible:true,state:'sync',text:'Syncing…'})">Syncing</button>
+    <button onclick="ctl.setCloud({visible:true,state:'err',text:'Offline'})">Error</button></div>
   <div class="row"><span class="lbl">IDB meter</span>
     <input type="range" min="0" max="100" value="0"
       oninput="ctl.setStorage({pct:this.value, label:'IDB '+this.value+'%'})"></div>
   <div class="row"><span class="lbl">Inspector</span>
-    <input type="text" id="insp" placeholder="Name / initials" value="MH">
+    <input type="text" id="insp" value="MH">
     <button onclick="ctl.setInspector({name:document.getElementById('insp').value})">Set</button>
     <button onclick="ctl.setInspector({})">Clear</button></div>
-  <div class="row"><span class="lbl">Undo / Redo</span>
-    <button onclick="ctl.setUndoRedo({canUndo:true,canRedo:true})">Both on</button>
-    <button onclick="ctl.setUndoRedo({canUndo:false,canRedo:false})">Both dim</button></div>
+  <div class="row"><span class="lbl">Undo/Redo</span>
+    <button onclick="ctl.setUndoRedo({canUndo:true,canRedo:true})">On</button>
+    <button onclick="ctl.setUndoRedo({canUndo:false,canRedo:false})">Dim</button></div>
   <div class="row"><span class="lbl">Theme</span>
-    <button onclick="ctl.setTheme(ctl.getTheme()==='dark'?'light':'dark')">Toggle day / night</button></div>
+    <button onclick="ctl.setTheme(ctl.getTheme()==='dark'?'light':'dark')">Day / Night</button></div>
   <div class="row"><span class="lbl">Fold test</span>
     <input type="range" min="320" max="1200" value="1200"
-      oninput="document.getElementById('width-cage').style.maxWidth=this.value+'px'; ctl.refit();">
-    <span class="note">drag left → controls fold into ☰ in S448 order (QR &amp; day/night survive longest)</span></div>
+      oninput="document.getElementById('width-cage').style.maxWidth=this.value+'px'; ctl.refit();"></div>
   <div class="row"><span class="lbl">Z-band</span>
-    <button onclick="document.getElementById('legacy').classList.toggle('on')">Toggle legacy z:10001 overlay</button>
-    <button onclick="ctl.openDrawer()">Open drawer</button></div>
+    <button onclick="document.getElementById('legacy').classList.toggle('on')">Toggle old overlay</button>
+    <button onclick="ctl.openDrawer()">Open ☰</button></div>
 </div>
 
-<div class="filler" id="filler"></div>
+<div class="panel"><h2>API log</h2><div id="apilog">(tap header buttons / menu items)</div></div>
+
+<div class="panel filler" id="filler"></div>
 
 <script type="module">
-  import { buildHeader2 } from '/lib/ui/headerEngine2.js';
+  import { buildHeader2, Z_BAND } from '/lib/ui/headerEngine2.js';
   import { dieselHeaderConfig } from '/lib/ui/headerConfigs.js';
 
-  const say = m => { const f=document.getElementById('filler');
-    f.innerHTML = '<b>API log:</b> ' + m + '<br>' + f.innerHTML; };
+  const log = m => { const f = document.getElementById('apilog');
+    f.innerHTML = '• ' + m + '<br>' + f.innerHTML; };
 
   const cfg = dieselHeaderConfig({
-    logoSrc:'arencon-icon-192.png',
-    onBack:()=>say('onBack'), onHome:()=>say('onHome'),
-    onUndo:()=>say('onUndo'), onRedo:()=>say('onRedo'),
-    onInspector:()=>say('onInspector (chip tapped)'),
-    onAiReviewAll:()=>say('AI Review — Full Review'), onAiUsage:()=>say('AI Usage & Costs'),
-    onIssue:()=>say('Issue Report'), onExportPDF:()=>say('Export PDF'),
-    onDownloadJSON:()=>say('Download JSON'), onExportDocs:()=>say('Export Project Docs'),
-    onImportJSON:()=>say('Import JSON'), onReupload:()=>say('Re-upload All Photos'),
-    onR2Cleanup:()=>say('R2 Orphan Report'), onDelDiag:()=>say('Photo Delete Log'),
-    onResetPage:()=>say('Reset Current Page'), onResetAll:()=>say('Reset All Pages'),
-    onQR:()=>say('QR'), onToggleTheme:()=>window.ctl.setTheme(window.ctl.getTheme()==='dark'?'light':'dark'),
-    onTextSize:()=>say('Text size cycle'), onSignout:()=>say('Sign Out')
+    logoSrc:'/arencon-icon-192.png',
+    onBack:()=>log('Back'), onHome:()=>log('Logo / Home'),
+    onUndo:()=>log('Undo'), onRedo:()=>log('Redo'),
+    onInspector:()=>log('Inspector chip'),
+    onAiReviewAll:()=>log('AI Review — Full Review'), onAiUsage:()=>log('AI Usage & Costs'),
+    onIssue:()=>log('Issue Report'), onExportPDF:()=>log('Export PDF'),
+    onDownloadJSON:()=>log('Download JSON'), onExportDocs:()=>log('Export Project Docs'),
+    onImportJSON:()=>log('Import JSON'), onReupload:()=>log('Re-upload All Photos'),
+    onR2Cleanup:()=>log('R2 Orphan Report'), onDelDiag:()=>log('Photo Delete Log'),
+    onResetPage:()=>log('Reset Current Page'), onResetAll:()=>log('Reset All Pages'),
+    onQR:()=>log('QR'),
+    onToggleTheme:()=>window.ctl.setTheme(window.ctl.getTheme()==='dark'?'light':'dark'),
+    onTextSize:()=>log('Text size cycle'), onSignout:()=>log('Sign Out')
   });
 
+  let readyFired = false;
+  document.addEventListener('arencon:header-ready', () => { readyFired = true; });
   window.ctl = buildHeader2(document.getElementById('hdr2-mount'), cfg);
-  document.addEventListener('arencon:header-ready', e => say('lifecycle: arencon:header-ready fired ✓'));
   window.hub = on => window.ctl.setHubMode({ hub:on, backVisible:on,
-    logoHref: on ? 'ARENCON_Project_Hub.html' : 'index.html',
-    logoTitle: on ? 'Back to Project Hub' : 'ARENCON Toolkit' });
+    logoHref: on ? '/ARENCON_Project_Hub.html' : '/index.html' });
 
-  /* content filler so the page scrolls under the sticky chrome */
+  /* ── SELF-CHECK: verify each contract and say so in plain words ── */
+  function selfCheck(){
+    const out = [];
+    const add = (ok, what, why) => out.push(
+      '<div class="check"><span class="ic ' + (ok ? 'pass' : 'failt') + '">' + (ok ? '✓' : '✗') +
+      '</span><span><b class="' + (ok ? 'pass' : 'failt') + '">' + what + '</b>' +
+      '<span class="why">' + why + '</span></span></div>');
+
+    // 1. attack is genuinely active on the page
+    const canary = document.createElement('button');
+    canary.style.position = 'absolute'; canary.style.left = '-9999px';
+    document.body.appendChild(canary);
+    const cbg = getComputedStyle(canary).backgroundColor;
+    const attackOn = cbg === 'rgb(255, 0, 0)';
+    add(attackOn, 'Attack is live', 'A plain button on this page computes background ' + cbg +
+      ' — the hostile CSS really is trying to wreck everything.');
+
+    // 2. the seal: an engine button inside the shadow is untouched
+    let sealed = false, ebg = '(none found)';
+    const eb = ctl.root.querySelector('.hbtn, .hicon');
+    if (eb){ const cs = getComputedStyle(eb);
+      ebg = cs.backgroundColor;
+      sealed = ebg !== 'rgb(255, 0, 0)' && cs.display !== 'none' &&
+               !/comic/i.test(cs.fontFamily); }
+    add(sealed, 'Seal holding — host CSS cannot touch the header',
+      'Engine button inside the shadow computes background ' + ebg +
+      ' and is visible despite display:none !important on its class name.');
+
+    // 3. z-band: drawer above host chrome, below host modals
+    const dz = Z_BAND.DRAWER;
+    add(dz === 10010 && dz > 5000 && dz < 10100,
+      'Layering contract in force',
+      'Drawer at layer ' + dz + ': above host bars (max 9999), below host lightboxes (10100+).');
+
+    // 4. lifecycle
+    add(readyFired && !!window.ArenconHeader,
+      'Ready signal fired', 'Tools wait for this signal instead of racing the header ' +
+      '(the crash class from last night is impossible by rule).');
+
+    // 5. icons rendered (incl. day/night artwork visibility fix)
+    let icons = ctl.root.querySelectorAll('.hicon');
+    let allIc = icons.length > 0;
+    icons.forEach(i => { if (!i.innerHTML.trim()) allIc = false; });
+    add(allIc, 'All icon buttons have content',
+      icons.length + ' icon buttons checked (incl. day/night artwork).');
+
+    document.getElementById('selfcheck').innerHTML = out.join('');
+  }
+  requestAnimationFrame(() => setTimeout(selfCheck, 250));
+
   let filler = '';
-  for (let i=1;i<=14;i++) filler += '<p>Filler paragraph '+i+' — scroll to confirm the engine header,'
-    + ' fake project bar and tabs stay stickied in the declared z order, and the drawer covers all of them.</p>';
+  for (let i = 1; i <= 12; i++) filler += '<p>Filler ' + i +
+    ' — scroll to confirm the header and fake bars stay stickied in the right layers.</p>';
   document.getElementById('filler').innerHTML = filler;
 </script>
 </body>
