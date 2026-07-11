@@ -1850,9 +1850,19 @@ function _applyEraser(eraserPts, lineWidth) {
     if (!obj || !obj.type) continue;
 
     if (obj.type === 'pen') {
-      // Fragment split — thin strokes get clean separation
-      var frags = _splitStrokeByEraser(obj, eraserPts, eraserR2);
-      for (var j = 0; j < frags.length; j++) next.push(frags[j]);
+      // S459 (shared markupEraser decision — keep all three markup surfaces matched):
+      // pen = MASK carve, not vertex-split. Split removes WHOLE segments adjacent to
+      // a dropped vertex — on sparse-vertex strokes (fast drags) a 12px eraser cut
+      // 60px chunks, and a crossing BETWEEN vertices erased nothing (S459 harness
+      // cases 4/5, field-confirmed in the Diesel lightbox). The mask carves the
+      // exact eraser path — the same mechanism polyline/highlight already use here.
+      // lib/ui/markupEraser.js is the canonical statement of this rule.
+      var penHalfW = ((obj.size || 2)) / 2;
+      var penR = eraserR + penHalfW;
+      if (_strokeHitByEraser(obj, eraserPts, penR * penR)) {
+        _pushMask(obj, eraserPts, lineWidth);
+      }
+      next.push(obj);
     }
     else if (obj.type === 'highlight') {
       // Highlight renders at (size||2)*4 wide. Spine hit-test must be inflated
