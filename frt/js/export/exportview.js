@@ -153,6 +153,9 @@ function _styleOnce() {
 export var initExportView = {
 
   open: function() {
+    // S462: idempotent — if the modal is already open, never stack a second
+    // copy (double-wired buttons previously opened two overlays per click).
+    if (document.getElementById('exv-ov')) return;
     var proj = Model.getProject();
     if (!proj) return;
     _styleOnce();

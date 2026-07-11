@@ -392,11 +392,9 @@ function wireLoadExport() {
     if (tools) tools.style.display = tools.style.display === 'none' ? '' : 'none';
   });
 
-  // Mobile PDF
-  var mobilePdf = document.getElementById('mobile-pdf-btn');
-  if (mobilePdf) mobilePdf.addEventListener('click', function() {
-    closeMobileMenu(); initExportView.open();
-  });
+  // Mobile PDF — listener moved to the main wiring block (S462). A second
+  // registration here stacked two export modals per click (double backdrop,
+  // X needed twice). initExportView.open() is also idempotent now.
 
   // More menu buttons — delegate
   var moreMenu = document.getElementById('more-menu');
@@ -2192,7 +2190,7 @@ function _countUntaggedForBand(proj) {
 }
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S461';
+var FRT_BUILD = 'S462';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
