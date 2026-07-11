@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARENCON — Header Engine v2 Demo (S460)</title>
+<style>
+  /* ═══ THIS PAGE IS A DELIBERATELY HOSTILE HOST ═══
+     Everything below tries to break the sealed engine the way the real
+     tools did: aggressive global CSS, sticky chrome at z:5000, a legacy
+     overlay at z:10001. If the header still looks right and the drawer
+     covers everything, the contracts hold. */
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:Calibri,sans-serif; background:#EFEDF0; color:#1B1A22; }
+  /* HOSTILE: host rules that clobbered v1 (these must have ZERO effect inside the engine) */
+  button{ background:red !important; color:yellow !important; border:4px dashed lime !important;
+          font-family:'Comic Sans MS',cursive !important; border-radius:0 !important; }
+  .hdr-btn,.hbtn,.hicon,.chip,.bar,.menu,.drawer{ background:purple !important; display:none !important; }
+  header,.app-header{ filter:hue-rotate(90deg); }
+
+  /* fake host sticky chrome (Diesel-style project bar + tabs) at z 5000 */
+  .fake-projectbar{ position:sticky; top:0; z-index:5000; background:#1B2438; color:#fff;
+    padding:9px 14px; font:700 13px Calibri,sans-serif; }
+  .fake-tabs{ position:sticky; top:38px; z-index:5000; background:#243048; color:#cdd3e0;
+    display:flex; gap:18px; padding:10px 14px; font:600 13px Calibri,sans-serif;
+    overflow-x:auto; white-space:nowrap; }
+  .legacy-overlay{ display:none; position:fixed; right:16px; top:120px; z-index:10001;
+    background:#fff; border:1px solid #ccc; box-shadow:0 6px 20px rgba(0,0,0,.25);
+    padding:14px; font:600 13px Calibri,sans-serif; border-radius:8px; }
+  .legacy-overlay.on{ display:block; }
+
+  .panel{ max-width:860px; margin:18px auto; background:#fff; border:1px solid #DDD;
+    border-radius:12px; padding:16px; }
+  .panel h2{ font:700 15px Calibri,sans-serif; margin:0 0 10px; color:#9C2742; }
+  .row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; align-items:center; }
+  .row .lbl{ font:700 12px Calibri,sans-serif; width:110px; color:#5E5B68; }
+  .panel button{ all:revert; font:600 12px Calibri,sans-serif; padding:8px 12px;
+    border:1px solid #C9CDD4; border-radius:8px; background:#F4F2F6; cursor:pointer; }
+  .panel input[type=range]{ width:180px; }
+  .panel input[type=text]{ font:600 12px Calibri,sans-serif; padding:7px 9px;
+    border:1px solid #C9CDD4; border-radius:8px; }
+  .filler{ max-width:860px; margin:14px auto; background:#fff; border:1px solid #E5E2E8;
+    border-radius:12px; padding:16px; color:#5E5B68; font:400 13px Calibri,sans-serif; }
+  #mount-wrap{ position:sticky; top:0; z-index:6000; /* host may pin the header wherever it likes */ }
+  #width-cage{ margin:0 auto; }
+  .note{ font:400 12px Calibri,sans-serif; color:#928E9C; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<!-- the engine mounts here; width cage simulates narrow screens for fold testing -->
+<div id="mount-wrap"><div id="width-cage"><div id="hdr2-mount"></div></div></div>
+
+<div class="fake-projectbar">ISSUED · DFP #1 · 1490.04 IMCC 610 Sprucewood — fake host project bar (z:5000)</div>
+<div class="fake-tabs">
+  <span>1. Pre-Comm</span><span>2. Visual Inspection</span><span>3. Controller Tests</span>
+  <span>4. Performance Test</span><span>5. FA &amp; Signaling</span><span>6. Deficiencies</span>
+</div>
+
+<div class="legacy-overlay" id="legacy">Legacy host overlay (z:10001) — the drawer must cover me</div>
+
+<div class="panel">
+  <h2>Contract proof — this page actively attacks the engine</h2>
+  <div class="note">Global CSS on this page paints every button red/yellow Comic Sans, sets
+  <b>.hbtn/.menu/.drawer to display:none !important</b>, and hue-rotates headers. The sticky bars above are
+  z:5000. If the header renders normally and the ☰ drawer covers the bars (and the legacy overlay,
+  toggle below), the isolation + z-band contracts hold.</div>
+</div>
+
+<div class="panel">
+  <h2>Controller API — drive every contract method</h2>
+  <div class="row"><span class="lbl">Hub mode</span>
+    <button onclick="hub(true)">Enter Hub mode</button>
+    <button onclick="hub(false)">Exit</button></div>
+  <div class="row"><span class="lbl">Cloud</span>
+    <button onclick="ctl.setCloud({visible:true,state:'ok',text:'Cloud',lastSync:'· Synced 09:14'})">OK</button>
+    <button onclick="ctl.setCloud({visible:true,state:'sync',text:'Syncing…',lastSync:''})">Syncing</button>
+    <button onclick="ctl.setCloud({visible:true,state:'err',text:'Offline',lastSync:'· retry'})">Error</button>
+    <button onclick="ctl.setCloud({visible:false})">Hide</button></div>
+  <div class="row"><span class="lbl">IDB meter</span>
+    <input type="range" min="0" max="100" value="0"
+      oninput="ctl.setStorage({pct:this.value, label:'IDB '+this.value+'%'})"></div>
+  <div class="row"><span class="lbl">Inspector</span>
+    <input type="text" id="insp" placeholder="Name / initials" value="MH">
+    <button onclick="ctl.setInspector({name:document.getElementById('insp').value})">Set</button>
+    <button onclick="ctl.setInspector({})">Clear</button></div>
+  <div class="row"><span class="lbl">Undo / Redo</span>
+    <button onclick="ctl.setUndoRedo({canUndo:true,canRedo:true})">Both on</button>
+    <button onclick="ctl.setUndoRedo({canUndo:false,canRedo:false})">Both dim</button></div>
+  <div class="row"><span class="lbl">Theme</span>
+    <button onclick="ctl.setTheme(ctl.getTheme()==='dark'?'light':'dark')">Toggle day / night</button></div>
+  <div class="row"><span class="lbl">Fold test</span>
+    <input type="range" min="320" max="1200" value="1200"
+      oninput="document.getElementById('width-cage').style.maxWidth=this.value+'px'; ctl.refit();">
+    <span class="note">drag left → controls fold into ☰ in S448 order (QR &amp; day/night survive longest)</span></div>
+  <div class="row"><span class="lbl">Z-band</span>
+    <button onclick="document.getElementById('legacy').classList.toggle('on')">Toggle legacy z:10001 overlay</button>
+    <button onclick="ctl.openDrawer()">Open drawer</button></div>
+</div>
+
+<div class="filler" id="filler"></div>
+
+<script type="module">
+  import { buildHeader2 } from '/lib/ui/headerEngine2.js';
+  import { dieselHeaderConfig } from '/lib/ui/headerConfigs.js';
+
+  const say = m => { const f=document.getElementById('filler');
+    f.innerHTML = '<b>API log:</b> ' + m + '<br>' + f.innerHTML; };
+
+  const cfg = dieselHeaderConfig({
+    logoSrc:'arencon-icon-192.png',
+    onBack:()=>say('onBack'), onHome:()=>say('onHome'),
+    onUndo:()=>say('onUndo'), onRedo:()=>say('onRedo'),
+    onInspector:()=>say('onInspector (chip tapped)'),
+    onAiReviewAll:()=>say('AI Review — Full Review'), onAiUsage:()=>say('AI Usage & Costs'),
+    onIssue:()=>say('Issue Report'), onExportPDF:()=>say('Export PDF'),
+    onDownloadJSON:()=>say('Download JSON'), onExportDocs:()=>say('Export Project Docs'),
+    onImportJSON:()=>say('Import JSON'), onReupload:()=>say('Re-upload All Photos'),
+    onR2Cleanup:()=>say('R2 Orphan Report'), onDelDiag:()=>say('Photo Delete Log'),
+    onResetPage:()=>say('Reset Current Page'), onResetAll:()=>say('Reset All Pages'),
+    onQR:()=>say('QR'), onToggleTheme:()=>window.ctl.setTheme(window.ctl.getTheme()==='dark'?'light':'dark'),
+    onTextSize:()=>say('Text size cycle'), onSignout:()=>say('Sign Out')
+  });
+
+  window.ctl = buildHeader2(document.getElementById('hdr2-mount'), cfg);
+  document.addEventListener('arencon:header-ready', e => say('lifecycle: arencon:header-ready fired ✓'));
+  window.hub = on => window.ctl.setHubMode({ hub:on, backVisible:on,
+    logoHref: on ? 'ARENCON_Project_Hub.html' : 'index.html',
+    logoTitle: on ? 'Back to Project Hub' : 'ARENCON Toolkit' });
+
+  /* content filler so the page scrolls under the sticky chrome */
+  let filler = '';
+  for (let i=1;i<=14;i++) filler += '<p>Filler paragraph '+i+' — scroll to confirm the engine header,'
+    + ' fake project bar and tabs stay stickied in the declared z order, and the drawer covers all of them.</p>';
+  document.getElementById('filler').innerHTML = filler;
+</script>
+</body>
+</html>
