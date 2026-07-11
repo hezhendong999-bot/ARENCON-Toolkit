@@ -211,6 +211,9 @@ var AUTO_SAVE_MS = 15000;
 // Total length is ~25 chars after the prefix — slightly longer than before
 // but readable and grep-friendly. Format: prefix_<ms>_<counter>_<rand8>.
 var _uidCounter = 0;
+// S461: shared today-string helper (module previously inlined this per call site).
+function _todayStr() { return new Date().toISOString().split('T')[0]; }
+
 function _uid(prefix) {
   _uidCounter = (_uidCounter + 1) & 0xFFFFFF;
   var rand = Math.random().toString(36).slice(2, 10);
@@ -2422,6 +2425,140 @@ export var Model = {
       return true;
     }
     return false;
+  },
+
+  // ── S461: Contractor Response thread primitives (CRB Phase 1a) ──
+  // The model layer that guarantees anything written to a contractor thread
+  // is merge-safe and photo-safe. Proven by the S461 live-merge probe:
+  //   • every entry and every nested photo MUST carry a stable `id` (merge
+  //     ID_FIELDS=['id','_id']) or arrays route to the withoutId append-both
+  //     path → duplicated rounds on sync (probe Case B).
+  //   • rectPhotos[]/followupPhotos[] MUST be id-keyed arrays or two devices
+  //     touching the same round's photos hit the scalar-conflict path and
+  //     LOSE a photo (probe Case A — 4380.24 photo-loss class).
+  // These primitives ONLY init/append. No editing of contractor text, ever
+  // (locked invariant: ARENCON's voice = the review row only). No UI here —
+  // the Phase 2 thread manager calls these.
+
+  // Ensure the thread arrays exist on an observation (idempotent).
+  _ensureThreadArrays: function(obs) {
+    if (!obs) return;
+    if (!Array.isArray(obs.responses)) obs.responses = [];
+    if (!Array.isArray(obs.arenconReviews)) obs.arenconReviews = [];
+  },
+
+  // Round math (locked §1.3): round = (currentFrtInstance - obs.notedOnInstance) + 1.
+  _threadRound: function(obs) {
+    var inst = (_project && _project.currentFrtInstance) || 1;
+    var noted = (obs && obs.notedOnInstance) || 1;
+    var r = (Number(inst) || 1) - (Number(noted) || 1) + 1;
+    return r < 1 ? 1 : r;
+  },
+
+  // Append a frozen contractor round. `data` carries the contractor's claim
+  // verbatim; we never edit it later. rectPhotos are id-stamped here so they
+  // survive cross-device merge. Returns the created entry, or null.
+  addContractorResponse: function(deficId, obsIdx, data) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return null;
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs) return null;
+    this._ensureThreadArrays(obs);
+    data = data || {};
+    var inst = (_project && _project.currentFrtInstance) || 1;
+    var entry = {
+      id: _uid('r'),                                   // merge-safe stable id
+      round: (typeof data.round === 'number') ? data.round : this._threadRound(obs),
+      frtInstance: (typeof data.frtInstance === 'number') ? data.frtInstance : inst,
+      company: data.company || '',
+      date: data.date || _todayStr(),
+      statusReported: data.statusReported || 'Other',  // Addressed|In Progress|Not in Scope|Other
+      text: data.text || '',                           // contractor's claim — NEVER edited
+      source: data.source || 'manual',                 // portal|manual|pdf
+      receiptNo: data.receiptNo || null,
+      noResponse: !!data.noResponse,
+      emailPending: !!data.emailPending,               // soft email gate (§3)
+      rectPhotos: (Array.isArray(data.rectPhotos) ? data.rectPhotos : []).map(function(ph) {
+        ph = ph || {};
+        return { id: ph.id || _uid('rph'), r2Key: ph.r2Key || null, r2Url: ph.r2Url || null, caption: ph.caption || '' };
+      })
+    };
+    obs.responses.push(entry);
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', { action: 'add-response', deficId: deficId, obsIdx: obsIdx, entry: entry });
+    return entry;
+  },
+
+  // Append an ARENCON review row (the only authoritative/coloured row).
+  // `status` maps to the real FRT pill: 'high'|'low'|'closed'.
+  addArenconReview: function(deficId, obsIdx, data) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return null;
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs) return null;
+    this._ensureThreadArrays(obs);
+    data = data || {};
+    var inst = (_project && _project.currentFrtInstance) || 1;
+    var entry = {
+      id: _uid('ar'),                                  // merge-safe stable id
+      round: (typeof data.round === 'number') ? data.round : this._threadRound(obs),
+      frtInstance: (typeof data.frtInstance === 'number') ? data.frtInstance : inst,
+      status: data.status || 'high',                   // high|low|closed → pill-h/pill-l/pill-c
+      text: data.text || '',
+      date: data.date || _todayStr(),
+      followupPhotos: (Array.isArray(data.followupPhotos) ? data.followupPhotos : []).map(function(ph) {
+        ph = ph || {};
+        return { id: ph.id || _uid('fph'), r2Key: ph.r2Key || null, r2Url: ph.r2Url || null, caption: ph.caption || '' };
+      })
+    };
+    obs.arenconReviews.push(entry);
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', { action: 'add-review', deficId: deficId, obsIdx: obsIdx, entry: entry });
+    return entry;
+  },
+
+  // Attach a rectification photo to an existing contractor round (id-stamped).
+  addRectificationPhoto: function(deficId, obsIdx, responseId, photoData) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return null;
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs || !Array.isArray(obs.responses)) return null;
+    var resp = null;
+    for (var i = 0; i < obs.responses.length; i++) {
+      if (obs.responses[i] && obs.responses[i].id === responseId) { resp = obs.responses[i]; break; }
+    }
+    if (!resp) return null;
+    if (!Array.isArray(resp.rectPhotos)) resp.rectPhotos = [];
+    photoData = photoData || {};
+    var ph = { id: photoData.id || _uid('rph'), r2Key: photoData.r2Key || null, r2Url: photoData.r2Url || null, caption: photoData.caption || '' };
+    resp.rectPhotos.push(ph);
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', { action: 'add-rectphoto', deficId: deficId, obsIdx: obsIdx, responseId: responseId, photo: ph });
+    return ph;
+  },
+
+  // Attach a follow-up photo to an existing ARENCON review (id-stamped).
+  addReviewFollowupPhoto: function(deficId, obsIdx, reviewId, photoData) {
+    var f = this.findDeficiency(deficId);
+    if (!f) return null;
+    var obs = (f.defic.observations || [])[obsIdx];
+    if (!obs || !Array.isArray(obs.arenconReviews)) return null;
+    var rev = null;
+    for (var i = 0; i < obs.arenconReviews.length; i++) {
+      if (obs.arenconReviews[i] && obs.arenconReviews[i].id === reviewId) { rev = obs.arenconReviews[i]; break; }
+    }
+    if (!rev) return null;
+    if (!Array.isArray(rev.followupPhotos)) rev.followupPhotos = [];
+    photoData = photoData || {};
+    var ph = { id: photoData.id || _uid('fph'), r2Key: photoData.r2Key || null, r2Url: photoData.r2Url || null, caption: photoData.caption || '' };
+    rev.followupPhotos.push(ph);
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', { action: 'add-followupphoto', deficId: deficId, obsIdx: obsIdx, reviewId: reviewId, photo: ph });
+    return ph;
   },
 
   // ── S205: cross-pin photo move / copy + reference query ──
