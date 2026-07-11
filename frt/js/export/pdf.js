@@ -1356,7 +1356,14 @@ function _buildDefCard(r,hdrExtra){
   if(window._frtCrbLive && r.obs && !_isSrCard && !_isRec){
     var _rt=crbBuildRealThread({
       obs:r.obs, currentInstance:((Model.getProject&&Model.getProject())||{}).currentFrtInstance||1,
-      closed:thisClosed, flagSvg:_CRB_FLAG, fillHtml:_CRB_FILL,
+      // S463 (CRB 1d return path): stamp the observation's stable id into the
+      // fill block so the AcroForm fields are named with real item identity
+      // (resp_{obsId}_…) instead of a sequential counter. The importer resolves
+      // obs.id back to deficId+obsIdx — survives renumbering, unlike item Nos.
+      closed:thisClosed, flagSvg:_CRB_FLAG,
+      fillHtml:_CRB_FILL
+        .replace('data-crbgroup="1"','data-crbgroup="'+String(r.obs.id).replace(/"/g,'')+'"')
+        .replace('data-crbcomment="1"','data-crbcomment="'+String(r.obs.id).replace(/"/g,'')+'"'),
       pillClsResolver:function(s){return s==='closed'?'pill-c':s==='low'?'pill-l':'pill-h';},
       // resolvePhoto: resolve a CRB photo {r2Key,r2Url,caption} to a displayable url.
       // Mirrors _pdfPhotoSrc's cache order so CRB rectification/follow-up tiles use
@@ -1963,8 +1970,12 @@ function _captureExportPDF(w,D){
             var _fBord=PDFLib.rgb(0.290,0.333,0.408);   // #4A5568
             [].slice.call(pageEl.querySelectorAll('[data-crbgroup]')).forEach(function(gEl){
               _crbFieldIdx++;
-              var _gi=_crbFieldIdx;
-              // Field name per option: resp_{idx}_status_{Option} (import-mappable).
+              // S463: prefer stable item identity (obs.id stamped by the live
+              // path) over the sequential counter; counter remains the fallback
+              // for the sample-preview path (attribute still "1").
+              var _gAttr=gEl.getAttribute('data-crbgroup');
+              var _gi=(_gAttr&&_gAttr!=='1')?_gAttr:_crbFieldIdx;
+              // Field name per option: resp_{obsId|idx}_status_{Option} (import-mappable).
               var _opts=[].slice.call(gEl.querySelectorAll('[data-crbopt]'));
               var _names=_opts.map(function(o){
                 return 'resp_'+_gi+'_status_'+String(o.getAttribute('data-crbopt')||'').replace(/[^A-Za-z0-9]+/g,'_');
@@ -1989,9 +2000,12 @@ function _captureExportPDF(w,D){
             [].slice.call(pageEl.querySelectorAll('[data-crbcomment]')).forEach(function(cEl){
               var rr=cEl.getBoundingClientRect(); if(rr.width<2||rr.height<2)return;
               _crbFieldIdx++;
+              // S463: same identity rule as the status group above.
+              var _cAttr=cEl.getAttribute('data-crbcomment');
+              var _ci=(_cAttr&&_cAttr!=='1')?_cAttr:_crbFieldIdx;
               var cx=(rr.left-pr.left)*sx, cy=(rr.top-pr.top)*sy, cw=rr.width*sx, chh=rr.height*sy;
               try{
-                var _tf=_form.createTextField('resp_'+_crbFieldIdx+'_comment');
+                var _tf=_form.createTextField('resp_'+_ci+'_comment');
                 _tf.enableMultiline();
                 _tf.addToPage(pg,{x:cx,y:ph-(cy+chh),width:cw,height:chh,backgroundColor:_fFill,borderColor:_fBord,borderWidth:1.5});
                 // Option B (S455): fixed 10pt, shrink-ONLY on overflow. The old

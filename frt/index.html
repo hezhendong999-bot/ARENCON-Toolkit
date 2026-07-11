@@ -116,6 +116,7 @@ function ensurePdfJs(cb){
         <div class="ai-mode-menu" id="reports-mode-menu">
           <button id="btn-issue" style="background:transparent;color:inherit;">📋 Issue <span>Bump revision (A01 → A02)</span></button>
           <button id="btn-pdf" style="background:transparent;color:inherit;">📄 Export PDF <span>Generate Field Review Report</span></button>
+          <button id="btn-crb-import" style="background:transparent;color:inherit;">📥 Import Responses <span>Read a contractor-filled report PDF</span></button>
         </div>
       </div>
       <!-- ⚙️ More dropdown -->
@@ -332,6 +333,7 @@ function ensurePdfJs(cb){
     <div class="mm-group-body" id="mm-reports-body" style="display:none;">
       <button class="btn mm-btn mm-sub" id="mobile-issue-btn" style="display:none;" onclick="var b=document.getElementById('btn-issue');if(b)b.click();">📋 Issue</button>
       <button class="btn mm-btn mm-sub" id="mobile-pdf-btn" style="display:none;">📄 Export PDF</button>
+      <button class="btn mm-btn mm-sub" id="mobile-crb-import-btn" style="display:none;">📥 Import Responses</button>
     </div>
     <!-- More group (collapsible) -->
     <button class="btn mm-btn mm-group-header" id="mm-more-header" data-mm-group="more">⚙️ More <span class="mm-caret">▸</span></button>

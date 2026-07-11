@@ -20,6 +20,7 @@ import { Presence } from './data/presence.js';
 // path. Stub-only in S169; real behavior lands incrementally in
 // S170+. See FIX_A_ARCHITECTURE.md.
 import { BinaryOutbox } from './data/photoOutbox.js';
+import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
 import { toast } from './shared/toast.js';
 import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js';
@@ -2126,6 +2127,13 @@ function wireEvents() {
   if (mobilePdfBtn) mobilePdfBtn.addEventListener('click', function() {
     closeMobileMenu(); initExportView.open();
   });
+  // S463: Import contractor-filled report PDF (CRB 1d return path)
+  var crbImpBtn = document.getElementById('btn-crb-import');
+  if (crbImpBtn) crbImpBtn.addEventListener('click', function() { openCrbImport(); });
+  var mCrbImpBtn = document.getElementById('mobile-crb-import-btn');
+  if (mCrbImpBtn) mCrbImpBtn.addEventListener('click', function() {
+    closeMobileMenu(); openCrbImport();
+  });
 
   // QR Code button
   // S441: header QR button removed — QR now lives in the More ▾ menu (desktop)
@@ -2216,7 +2224,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S462';
+var FRT_BUILD = 'S463';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
@@ -2482,6 +2490,8 @@ function boot() {
     // Show mobile PDF button in project mode
     var mp = document.getElementById('mobile-pdf-btn');
     if (mp) mp.style.display = '';
+    var mci = document.getElementById('mobile-crb-import-btn');
+    if (mci) mci.style.display = '';   // S463: shown alongside Export PDF
     var mq = document.getElementById('mobile-qr-btn');
     if (mq) mq.style.display = ''; // S441: was hub-gated; header QR removed, so the menu entry now covers all project modes
 
