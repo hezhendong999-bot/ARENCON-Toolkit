@@ -21,6 +21,7 @@
 <!-- S459: shared markup shape definitions (single source of truth across FRT + Diesel lightboxes + drawing viewer). Same-origin ARENCON asset, not a CDN dep. DieselMarkup delegates shape rendering to window.MarkupTools when present; if this fails to load (rare offline first-load), DieselMarkup's own identical shape branches run — markup cannot break. -->
 <script src="lib/ui/markupTools.js"></script>
 <script src="lib/ui/markupEraser.js"></script>
+<script src="lib/ui/markupSelection.js"></script>
 <style>
 
 
@@ -3696,7 +3697,7 @@ var DieselMarkup = (function(){
         if(self._textInput){ return; }
         var st=self._styleFn(); var p=self._pt(ev);
         if(!st.tool) return;   // S295: no active tool (ESC-deactivated) — clicks draw nothing
-        if(st.tool==='select'){ self._drawing=true; self._selDrag=true; self._selDown(p, ev); return; }   // S314 group select
+        if(st.tool==='select'){ if(!self._selDown) return; self._drawing=true; self._selDrag=true; self._selDown(p, ev); return; }   // S314 group select (shared module, S459g)
         if(self.hasSel()) self.deselect();   // S314: drawing with any other tool drops the selection
         if(st.tool==='text'){
           // S344 Phase 4 (FRT parity): tapping an existing text mark re-opens it for editing
@@ -3731,7 +3732,7 @@ var DieselMarkup = (function(){
         ev.preventDefault();
         var p=self._pt(ev);
         var st=self._styleFn();
-        if(st.tool==='select'){ self._selMove(p); return; }   // S314: group move/resize/rotate/rubber-band
+        if(st.tool==='select'){ if(self._selMove) self._selMove(p); return; }   // S314 (shared module)
         if(st.tool==='erase'){
           if(!(window.MarkupEraser&&self._curr&&self._curr.tool==='erase')){ self._eraseAtLegacy(p); return; }
           // live drag path: append + render (grey preview drawn by _drawStroke)
@@ -3745,7 +3746,7 @@ var DieselMarkup = (function(){
       function up(){
         if(!self._drawing) return;
         self._drawing=false;
-        if(self._selDrag){ self._selDrag=false; self._selUp(); return; }   // S314: finalize group op (op-logged)
+        if(self._selDrag){ self._selDrag=false; if(self._selUp) self._selUp(); return; }   // S314 (shared module)
         if(self._curr){
           if(self._curr.tool==='erase'){
             // S459: commit the erase (viewer parity). Pen → split; highlight/shapes/
@@ -3814,380 +3815,12 @@ var DieselMarkup = (function(){
     _rotPt:function(q,c,a){ var dx=q.x-c.x, dy=q.y-c.y, ca=Math.cos(a), sa=Math.sin(a);
       return {x:c.x+dx*ca-dy*sa, y:c.y+dx*sa+dy*ca}; },
 
-    // ── S314: GROUP selection API (FRT markupEngine port — multi-select, rubber-band,
-    //          delete handle, group move/resize/rotate, per-object style via applySel).
-    //          Diesel op-log undo + s.rot render model RETAINED; FRT group semantics adopted. ──
-    _uid:function(){ return 'mk'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); },
-    _ensureIds:function(){ var self=this; this.strokes.forEach(function(s){ if(!s.id) s.id=self._uid(); }); },
-    _findStroke:function(id){ for(var i=0;i<this.strokes.length;i++){ if(this.strokes[i].id===id) return this.strokes[i]; } return null; },
-    _snapSel:function(){ var self=this; return this.selIds.map(function(id){ return JSON.stringify(self._findStroke(id)); }); },
-    // Visual AABB of one stroke (rotation-aware: rotate bbox corners by s.rot about stroke center)
-    _strokeAABB:function(s){
-      var b=this._strokeBBox(s); if(!s.rot) return b;
-      var c={x:(b.x1+b.x2)/2,y:(b.y1+b.y2)/2}, self=this;
-      var x1=1e15,y1=1e15,x2=-1e15,y2=-1e15;
-      [{x:b.x1,y:b.y1},{x:b.x2,y:b.y1},{x:b.x2,y:b.y2},{x:b.x1,y:b.y2}].forEach(function(q){
-        var r=self._rotPt(q,c,s.rot);
-        if(r.x<x1)x1=r.x; if(r.y<y1)y1=r.y; if(r.x>x2)x2=r.x; if(r.y>y2)y2=r.y; });
-      return {x1:x1,y1:y1,x2:x2,y2:y2};
-    },
-    _groupBounds:function(){
-      var x1=1e15,y1=1e15,x2=-1e15,y2=-1e15, self=this, any=false;
-      this.selIds.forEach(function(id){
-        var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s); any=true;
-        if(b.x1<x1)x1=b.x1; if(b.y1<y1)y1=b.y1; if(b.x2>x2)x2=b.x2; if(b.y2>y2)y2=b.y2; });
-      if(!any) return null;
-      return {x1:x1,y1:y1,x2:x2,y2:y2};
-    },
-    // Shared geometry for handles — ONE source for both hit-test and chrome draw (always aligned)
-    _selGeom:function(){
-      var b=this._groupBounds(); if(!b||!this.canvas) return null;
-      var rect=this.canvas.getBoundingClientRect();
-      var k=this.nw/Math.max(1,rect.width);                 // natural px per screen px
-      var coarse=(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-      // S459e (Mark field report): pad widened 8→22 (30 touch). _hitStrokeSel tests the
-      // stroke's AABB+7px — for boxy shapes the whole interior is "the mark", so the only
-      // move-grab area is the ring between AABB+7 and this frame. At pad 8 that ring was
-      // ~1 screen px → every press toggled the mark instead of moving it. The pad must
-      // stay comfortably larger than the 7px hit inflation.
-      var pad=(coarse?30:22)*k, hs=11*k;
-      var bx1=b.x1-pad, by1=b.y1-pad, bx2=b.x2+pad, by2=b.y2+pad;
-      return { k:k, pad:pad, hs:hs, b:{x1:bx1,y1:by1,x2:bx2,y2:by2},
-        corners:[{x:bx1,y:by1},{x:bx2,y:by1},{x:bx2,y:by2},{x:bx1,y:by2}],
-        rot:{x:(bx1+bx2)/2, y:by1-24*k, r:9*k},
-        del:{x:bx2+14*k, y:by1-14*k, r:9*k},
-        // S344 Phase 2c: copy handle — bottom-center, below the box. Generous radius on touch.
-        copy:{x:(bx1+bx2)/2, y:by2+34*k, r:(coarse?20:11)*k} };
-    },
-    hasSel:function(){ return !!(this.selIds&&this.selIds.length); },
-    deselect:function(){ this.selIds=[]; this._pickIds=[]; this._grouped=false; this._groupActiveId=null; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
-    // ── S344 Phase 2a: FRT S339 select sub-tool + confirm API ──
-    setSelectSub:function(sub){ if(sub==='single') sub='rubber'; this._selectSub=sub; this._pickIds=[]; this._grouped=false; this._groupActiveId=null; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
-    getSelectSub:function(){ return this._selectSub; },
-    // ✓ merges the PICK set into the grouped (moveable) selection — the ONLY way to group.
-    confirmPick:function(){ if(!this._pickIds||!this._pickIds.length) return; var self=this; this._pickIds.forEach(function(id){ if(self.selIds.indexOf(id)===-1) self.selIds.push(id); }); this._pickIds=[]; this._groupActiveId=null; if(this.ctx) this.render(); this._emitSel(); },
-    cancelSelect:function(){ this.selIds=[]; this._pickIds=[]; this._grouped=false; this._groupActiveId=null; this._dragState=null; this._rubberBand=null; if(this.ctx) this.render(); this._emitSel(); },
-    // Ungroup: pull the currently-active grouped mark back out of the group (it stays on the photo).
-    groupActiveId:function(){ return this._groupActiveId; },
-    ungroupActive:function(){ if(!this._groupActiveId) return; var i=this.selIds.indexOf(this._groupActiveId); if(i!==-1) this.selIds.splice(i,1); this._groupActiveId=null; if(this.ctx) this.render(); this._emitSel(); },
-    hasActiveSelection:function(){ return (this.selIds&&this.selIds.length>0)||(this._pickIds&&this._pickIds.length>0); },
-    // "picking" = there are marks in the PICK set → drives the ✓/✗ bar.
-    isPicking:function(){ return this._selectSub==='tap' && this._pickIds && this._pickIds.length>0; },
-    pickCount:function(){ return this._pickIds?this._pickIds.length:0; },
-    selCount:function(){ return this.selIds?this.selIds.length:0; },
-    onSelChange:function(fn){ this._onSelChange=fn||null; },
-    _emitSel:function(){ if(this._onSelChange){ try{ this._onSelChange(); }catch(_){} } },
-    deleteSelected:function(){
-      if(!this.hasSel()) return;
-      var sel=this.selIds, items=[];
-      for(var i=this.strokes.length-1;i>=0;i--){
-        if(sel.indexOf(this.strokes[i].id)!==-1) items.unshift({idx:i, stroke:this.strokes.splice(i,1)[0]});
-      }
-      this._pushOp({t:'gdel', items:items});
-      this.selIds=[]; this._dragState=null; this._rubberBand=null;
-      if(this._onDirty) this._onDirty(); this.render();
-    },
-    // S344 Phase 2c: duplicate the current selection. Each clone gets a fresh id, a deep
-    // copy of pts[] offset by (+28,+28), and becomes the new selection so the user can
-    // drag-to-place and chain another copy. Op-logged ('gadd') so one Undo removes the clones.
-    _cloneSelection:function(){
-      if(!this.hasSel()) return;
-      var self=this, OFF=28, newIds=[], added=[];
-      this.selIds.forEach(function(id){
-        var s=self._findStroke(id); if(!s) return;
-        var c=JSON.parse(JSON.stringify(s));   // deep copy (pts, optional fields)
-        c.id=self._uid();
-        if(c.pts) c.pts=c.pts.map(function(q){ return {x:q.x+OFF, y:q.y+OFF}; });
-        if(c.eraserMask && window.MarkupEraser) window.MarkupEraser.xformMask(c, function(q){ return {x:q.x+OFF, y:q.y+OFF}; });   // S459: masks follow the clone offset
-        self.strokes.push(c); newIds.push(c.id); added.push({idx:self.strokes.length-1, stroke:c});
-      });
-      if(!newIds.length) return;
-      this.selIds=newIds; this.redo=[]; this.redoOps=[];
-      this._pushOp({t:'gadd', items:added});
-      if(this._onDirty) this._onDirty();
-      this.render(); this._emitSel();
-    },
-    // Apply a style field to the current selection. log=false → live preview (slider input);
-    // commitSel(snap) pushes one gmod for the whole gesture. Swatch clicks pass log=true.
-    applySel:function(field, val, log){
-      if(!this.hasSel()) return false;
-      var self=this, ids=this.selIds.slice();
-      var before=log?this._snapSel():null;
-      ids.forEach(function(id){ var s=self._findStroke(id); if(!s) return;
-        s[field]=(typeof val==='function')?val(s):val; });
-      if(log){
-        var after=this._snapSel();
-        if(after.join('\u0001')!==before.join('\u0001')) this._pushOp({t:'gmod', ids:ids, before:before, after:after});
-      }
-      if(this._onDirty) this._onDirty(); this.render(); return true;
-    },
-    snapSel:function(){ return this.hasSel()?{ids:this.selIds.slice(), before:this._snapSel()}:null; },
-    commitSel:function(snap){
-      if(!snap||!snap.ids||!snap.ids.length) return;
-      var self=this;
-      var after=snap.ids.map(function(id){ return JSON.stringify(self._findStroke(id)); });
-      if(after.join('\u0001')!==snap.before.join('\u0001')) this._pushOp({t:'gmod', ids:snap.ids, before:snap.before, after:after});
-    },
-    // S344 Phase 4: topmost TEXT stroke under p → its id (for tap-to-edit). Generous
-    // screen-constant hit padding, glove-friendly.
-    _hitTextAt:function(p){
-      var rect=this.canvas.getBoundingClientRect();
-      var hr=10*(this.nw/Math.max(1,rect.width));
-      for(var i=this.strokes.length-1;i>=0;i--){
-        var s=this.strokes[i]; if(s.tool!=='text') continue;
-        var b=this._strokeAABB(s);
-        if(p.x>=b.x1-hr&&p.x<=b.x2+hr&&p.y>=b.y1-hr&&p.y<=b.y2+hr) return s.id;
-      }
-      return null;
-    },
-    _hitStrokeSel:function(p){
-      var rect=this.canvas.getBoundingClientRect();
-      var hr=14*(this.nw/Math.max(1,rect.width));          // glove-friendly, screen-constant
-      for(var i=this.strokes.length-1;i>=0;i--){
-        var b=this._strokeAABB(this.strokes[i]);
-        if(p.x>=b.x1-hr/2&&p.x<=b.x2+hr/2&&p.y>=b.y1-hr/2&&p.y<=b.y2+hr/2) return this.strokes[i];
-      }
-      return null;
-    },
-    _selDown:function(p, ev){
-      var g=this.hasSel()?this._selGeom():null;
-      function d(a,bx,by){ var dx=a.x-bx, dy=a.y-by; return Math.sqrt(dx*dx+dy*dy); }
-      if(g){
-        // S344 Phase 2c: copy handle (✎ duplicate) — tested BEFORE all other handles so a
-        // tap duplicates the selection instead of starting a move/resize.
-        if(g.copy && d(p,g.copy.x,g.copy.y)<=g.copy.r+5*g.k){ this._cloneSelection(); return; }
-        // delete handle (✕)
-        if(d(p,g.del.x,g.del.y)<=g.del.r+5*g.k){ this.deleteSelected(); return; }
-        // corner scale handles — anchor is the OPPOSITE corner (FRT model)
-        for(var ci=0;ci<4;ci++){
-          if(Math.abs(p.x-g.corners[ci].x)<=g.hs&&Math.abs(p.y-g.corners[ci].y)<=g.hs){
-            var anchors=[[g.b.x2,g.b.y2],[g.b.x1,g.b.y2],[g.b.x2,g.b.y1],[g.b.x1,g.b.y1]];
-            this._dragState={type:'resize', anchorX:anchors[ci][0], anchorY:anchors[ci][1],
-              startX:p.x, startY:p.y,   // S314b: scale is ratioed to the PRESS point, not the bounds corner
-              origBounds:{x1:g.b.x1,y1:g.b.y1,x2:g.b.x2,y2:g.b.y2}, orig:this._snapSel()};
-            return;
-          }
-        }
-        // rotate handle
-        if(d(p,g.rot.x,g.rot.y)<=g.rot.r+5*g.k){
-          var cx=(g.b.x1+g.b.x2)/2, cy=(g.b.y1+g.b.y2)/2;
-          this._dragState={type:'rotate', centerX:cx, centerY:cy,
-            startAngle:Math.atan2(p.y-cy,p.x-cx), orig:this._snapSel()};
-          return;
-        }
-      }
-      var hit=this._hitStrokeSel(p);
-      // S344 two-SET TAP model (Mark's final spec):
-      //  • TAP always toggles a mark in the PICK set (_pickIds) — individual glow + green check.
-      //    Tapping NEVER groups and NEVER joins an existing group.
-      //  • ✓ merges _pickIds into the grouped selection (selIds) — the only way to group.
-      //  • A grouped selection (selIds) shows the box + handles and is DRAG-moveable.
-      if(this._selectSub==='tap'){
-        // GROUPED: pressing inside the group box on empty space (no mark hit) arms a move.
-        if(this.selIds.length && g && !hit && p.x>=g.b.x1&&p.x<=g.b.x2&&p.y>=g.b.y1&&p.y<=g.b.y2){
-          this._dragState={type:'move', startX:p.x, startY:p.y, moved:false, orig:this._snapSel()};
-          return;
-        }
-        if(hit){
-          if(this.selIds.indexOf(hit.id)!==-1){
-            // tapped a mark that's ALREADY in the group → make it the "active" grouped mark
-            // (shows the round amber Ungroup button so this one can be pulled out of the group).
-            this._groupActiveId = (this._groupActiveId===hit.id) ? null : hit.id;
-            this._dragState=null; this.render(); this._emitSel();
-            return;
-          }
-          // tap an UNGROUPED mark → toggle it in the PICK set (cyan glow + green check).
-          this._groupActiveId=null;
-          var pix=this._pickIds.indexOf(hit.id);
-          if(pix!==-1) this._pickIds.splice(pix,1); else this._pickIds.push(hit.id);
-          this._dragState=null; this.render(); this._emitSel();
-        }
-        return;   // empty-area tap (outside box): sticky — never rubber-band, never lose picks
-      }
-      var multi=!!(ev&&(ev.ctrlKey||ev.metaKey));
-      // Press inside a multi-selection's bounds (even empty space between strokes)
-      // starts a group move, not a rubber-band (FRT lesson).
-      if(!multi && this.selIds.length>1 && g){
-        if(p.x>=g.b.x1&&p.x<=g.b.x2&&p.y>=g.b.y1&&p.y<=g.b.y2){
-          this._dragState={type:'move', startX:p.x, startY:p.y, moved:false, orig:this._snapSel()};
-          return;
-        }
-      }
-      if(hit){
-        if(multi){
-          var ix=this.selIds.indexOf(hit.id);
-          if(ix!==-1) this.selIds.splice(ix,1); else this.selIds.push(hit.id);
-          this._dragState=null; this.render(); return;
-        }
-        if(this.selIds.indexOf(hit.id)===-1) this.selIds=[hit.id];
-        this._dragState={type:'move', startX:p.x, startY:p.y, moved:false, orig:this._snapSel()};
-        this.render();
-      } else {
-        this.selIds=[]; this._rubberBand={x1:p.x,y1:p.y,x2:p.x,y2:p.y};
-        this._dragState={type:'rubberband'}; this.render();
-      }
-    },
-    _selMove:function(p){
-      var ds=this._dragState; if(!ds) return; var self=this;
-      if(ds.type==='rubberband'){ this._rubberBand.x2=p.x; this._rubberBand.y2=p.y; this.render(); return; }
-      if(ds.type==='move'){
-        var dx=p.x-ds.startX, dy=p.y-ds.startY;
-        if(Math.abs(dx)<2&&Math.abs(dy)<2&&!ds.moved) return;
-        ds.moved=true;
-        for(var i=0;i<this.selIds.length;i++){
-          var s=this._findStroke(this.selIds[i]); if(!s) continue;
-          var o=JSON.parse(ds.orig[i]);
-          s.pts=o.pts.map(function(q){return {x:q.x+dx, y:q.y+dy};});
-          if(o.eraserMask){ s.eraserMask=JSON.parse(JSON.stringify(o.eraserMask)); if(window.MarkupEraser) window.MarkupEraser.xformMask(s, function(q){return {x:q.x+dx, y:q.y+dy};}); }   // S459: masks follow
-        }
-        this.render(); return;
-      }
-      if(ds.type==='resize'){
-        // S314b FIX (field report): the corner handle has a ±11px hit zone; the old
-        // factor |p-anchor|/boundsWidth started <1 when the press landed inside the
-        // zone, so the markup visibly shrank ON CONTACT before any drag. Ratio the
-        // scale to the press point instead — exactly 1.0 at the moment of touch.
-        var ax=ds.anchorX, ay=ds.anchorY;
-        function _dA(x,y){ var dx=x-ax, dy=y-ay; return Math.sqrt(dx*dx+dy*dy); }
-        var f=Math.max(0.1,Math.min(10,_dA(p.x,p.y)/Math.max(1,_dA(ds.startX,ds.startY))));
-        if(Math.abs(f-1)<0.01 && !ds.moved) return;   // dead-zone: ignore press jitter
-        ds.moved=true;
-        for(var ri=0;ri<this.selIds.length;ri++){
-          var rs=this._findStroke(this.selIds[ri]); if(!rs) continue;
-          var ro=JSON.parse(ds.orig[ri]);
-          rs.pts=ro.pts.map(function(q){return {x:ax+(q.x-ax)*f, y:ay+(q.y-ay)*f};});
-          if(ro.eraserMask){ rs.eraserMask=JSON.parse(JSON.stringify(ro.eraserMask)); if(window.MarkupEraser) window.MarkupEraser.xformMask(rs, function(q){return {x:ax+(q.x-ax)*f, y:ay+(q.y-ay)*f};}, f); }   // S459: masks follow
-          if(ro.size) rs.size=Math.max(1, ro.size*f);
-          if(ro.fontSize) rs.fontSize=Math.max(8, ro.fontSize*f);
-        }
-        this.render(); return;
-      }
-      if(ds.type==='rotate'){
-        var cx=ds.centerX, cy=ds.centerY, cur=Math.atan2(p.y-cy,p.x-cx), dA=cur-ds.startAngle;
-        ds.moved=true;
-        for(var ti=0;ti<this.selIds.length;ti++){
-          var ts=this._findStroke(this.selIds[ti]); if(!ts) continue;
-          var to=JSON.parse(ds.orig[ti]);
-          var oc=this._strokeCenter(to);                      // center of ORIGINAL stroke
-          var nc=this._rotPt(oc,{x:cx,y:cy},dA);
-          var mdx=nc.x-oc.x, mdy=nc.y-oc.y;
-          ts.pts=to.pts.map(function(q){return {x:q.x+mdx, y:q.y+mdy};});
-          if(to.eraserMask){ ts.eraserMask=JSON.parse(JSON.stringify(to.eraserMask)); if(window.MarkupEraser) window.MarkupEraser.xformMask(ts, function(q){return {x:q.x+mdx, y:q.y+mdy};}); }   // S459: masks are local-frame — translate with pts; s.rot spins them at render
-          ts.rot=(to.rot||0)+dA;                              // Diesel render model: rotate at draw time
-        }
-        this.render(); return;
-      }
-    },
-    _selUp:function(){
-      var ds=this._dragState; var self=this;
-      if(ds && ds.type==='rubberband' && this._rubberBand){
-        var r=this._rubberBand, rx1=Math.min(r.x1,r.x2), ry1=Math.min(r.y1,r.y2),
-            rx2=Math.max(r.x1,r.x2), ry2=Math.max(r.y1,r.y2);
-        if(Math.abs(rx2-rx1)>4||Math.abs(ry2-ry1)>4){
-          var hits=[];
-          this.strokes.forEach(function(s){
-            var b=self._strokeAABB(s);
-            if(b.x2>=rx1&&b.x1<=rx2&&b.y2>=ry1&&b.y1<=ry2) hits.push(s.id);
-          });
-          this.selIds=hits;
-        }
-        this._rubberBand=null;
-      }
-      if(ds && (ds.type==='move'||ds.type==='resize'||ds.type==='rotate') && ds.moved && ds.orig){
-        var after=this._snapSel();
-        if(after.join('\u0001')!==ds.orig.join('\u0001')){
-          this._pushOp({t:'gmod', ids:this.selIds.slice(), before:ds.orig, after:after});
-          if(this._onDirty) this._onDirty();
-        }
-      }
-      this._dragState=null; this.render(); this._emitSel();
-    },
-    _drawSelChrome:function(ctx){
-      // S344 two-SET tap: the PICK set (_pickIds) shows a per-mark cyan glow + green check so
-      // you see exactly which individuals are picked. The GROUP box (selIds) draws further below.
-      var inTap=(this._selectSub==='tap');
-      if(inTap && this._pickIds && this._pickIds.length){
-        var self=this, pk=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width);
-        ctx.save();
-        // glow boxes
-        this._pickIds.forEach(function(id){ var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s);
-          var x=b.x1-3*pk, y=b.y1-3*pk, w=(b.x2-b.x1)+6*pk, h=(b.y2-b.y1)+6*pk;
-          ctx.shadowColor='#46C5E8'; ctx.shadowBlur=10*pk;
-          ctx.strokeStyle='#46C5E8'; ctx.lineWidth=Math.max(1.6,1.8*pk); ctx.globalAlpha=1;
-          ctx.strokeRect(x,y,w,h);
-          ctx.shadowBlur=0; ctx.strokeRect(x,y,w,h);
-        });
-        // green ✓ badge at the top of each picked mark
-        var br=9*pk;
-        this._pickIds.forEach(function(id){ var s=self._findStroke(id); if(!s) return; var b=self._strokeAABB(s);
-          var bx=(b.x1+b.x2)/2, by=b.y1-3*pk-br;
-          ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fillStyle='#3FD08A'; ctx.fill();
-          ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1.4,1.8*pk); ctx.lineCap='round'; ctx.lineJoin='round';
-          ctx.beginPath(); ctx.moveTo(bx-br*0.45,by); ctx.lineTo(bx-br*0.1,by+br*0.4); ctx.lineTo(bx+br*0.5,by-br*0.4); ctx.stroke();
-        });
-        ctx.restore();
-      }
-      if(this._rubberBand){
-        var rb=this._rubberBand, rk=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width);
-        ctx.save(); ctx.setLineDash([4*rk,3*rk]); ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=Math.max(1,1*rk); ctx.globalAlpha=1;
-        ctx.strokeRect(Math.min(rb.x1,rb.x2),Math.min(rb.y1,rb.y2),Math.abs(rb.x2-rb.x1),Math.abs(rb.y2-rb.y1));
-        ctx.setLineDash([]); ctx.restore();
-      }
-      // S344: GROUPED marks (selIds) each get an amber frame so they read as "in the group",
-      // distinct from the cyan/green PICK state. The tapped "active" grouped mark gets a thicker
-      // solid amber frame (it's the one the round Ungroup button will pull out).
-      if(inTap && this.selIds && this.selIds.length){
-        var selfG=this, pkG=this.nw/Math.max(1,this.canvas.getBoundingClientRect().width), actId=this._groupActiveId;
-        ctx.save();
-        this.selIds.forEach(function(id){ var s=selfG._findStroke(id); if(!s) return; var b=selfG._strokeAABB(s);
-          // S459f (Mark): amber member frames sit as TIGHT to the ink as possible (1px);
-          // the wide grab gap belongs to the blue GROUP box (S459e pad), not these.
-          var x=b.x1-1*pkG, y=b.y1-1*pkG, w=(b.x2-b.x1)+2*pkG, h=(b.y2-b.y1)+2*pkG;
-          if(id===actId){
-            ctx.setLineDash([]); ctx.shadowColor='#EF9F27'; ctx.shadowBlur=10*pkG;
-            ctx.strokeStyle='#EF9F27'; ctx.lineWidth=Math.max(2,2.4*pkG);
-            ctx.strokeRect(x,y,w,h); ctx.shadowBlur=0; ctx.strokeRect(x,y,w,h);
-          } else {
-            ctx.shadowBlur=0; ctx.setLineDash([5*pkG,3*pkG]);
-            ctx.strokeStyle='#BA7517'; ctx.lineWidth=Math.max(1.4,1.6*pkG);
-            ctx.strokeRect(x,y,w,h);
-          }
-        });
-        ctx.setLineDash([]); ctx.restore();
-      }
-      if(!this.hasSel()) return;   // group box only when there IS a grouped selection (selIds)
-      var g=this._selGeom(); if(!g) return;
-      var lw=Math.max(1.5,1.5*g.k);
-      ctx.save(); ctx.globalAlpha=1;
-      // dashed group box
-      ctx.setLineDash([lw*3,lw*2]); ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=lw;
-      ctx.strokeRect(g.b.x1,g.b.y1,g.b.x2-g.b.x1,g.b.y2-g.b.y1); ctx.setLineDash([]);
-      // corner scale handles
-      ctx.fillStyle='#fff'; ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=lw;
-      g.corners.forEach(function(q){ ctx.fillRect(q.x-g.hs/2,q.y-g.hs/2,g.hs,g.hs); ctx.strokeRect(q.x-g.hs/2,q.y-g.hs/2,g.hs,g.hs); });
-      // rotate handle (stem + circle)
-      ctx.beginPath(); ctx.moveTo((g.b.x1+g.b.x2)/2,g.b.y1); ctx.lineTo(g.rot.x,g.rot.y+g.rot.r); ctx.stroke();
-      ctx.beginPath(); ctx.arc(g.rot.x,g.rot.y,g.rot.r,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.arc(g.rot.x,g.rot.y,g.rot.r*0.55,-0.3,Math.PI*1.4); ctx.stroke();
-      // delete handle (muted red ✕)
-      ctx.beginPath(); ctx.arc(g.del.x,g.del.y,g.del.r,0,Math.PI*2); ctx.fillStyle='#C0445F'; ctx.fill();
-      ctx.fillStyle='#fff'; ctx.font='bold '+Math.round(g.del.r*1.15)+'px Calibri,sans-serif';
-      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('\u2715',g.del.x,g.del.y+g.k*0.5);
-      // S344 Phase 2c: copy handle (blue circle + two-rect glyph, bottom-center, stem)
-      if(g.copy){
-        ctx.strokeStyle='#3F6E9C'; ctx.lineWidth=lw;
-        ctx.beginPath(); ctx.moveTo((g.b.x1+g.b.x2)/2,g.b.y2); ctx.lineTo(g.copy.x,g.copy.y-g.copy.r); ctx.stroke();
-        ctx.beginPath(); ctx.arc(g.copy.x,g.copy.y,g.copy.r,0,Math.PI*2); ctx.fillStyle='#2C5E8E'; ctx.fill();
-        ctx.strokeStyle='#2C5E8E'; ctx.stroke();
-        // two-rect copy glyph (white): back rect up-left, front rect down-right
-        var u=g.copy.r*0.42;
-        ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(1,lw*0.9);
-        ctx.strokeRect(g.copy.x-u*1.4, g.copy.y-u*1.4, u*1.8, u*2.2);
-        ctx.fillStyle='#2C5E8E'; ctx.fillRect(g.copy.x-u*0.2, g.copy.y-u*0.2, u*1.8, u*2.2);
-        ctx.strokeRect(g.copy.x-u*0.2, g.copy.y-u*0.2, u*1.8, u*2.2);
-      }
-      ctx.restore();
-    },
+    // ── SELECTION ENGINE: extracted VERBATIM to lib/ui/markupSelection.js (S459g) ──
+    // The S314 group API + S344 two-SET pick/group model + S459e/f chrome now install
+    // from the shared module (window.MarkupSelection.install below the object). One
+    // fix lands everywhere. Host surface it consumes: strokes/canvas/ctx/nw/render/
+    // _findStroke/_strokeBBox/_strokeCenter/_rotPt/_uid/_pushOp (+ MarkupEraser for
+    // mask-follow). Do NOT re-add selection methods here.
 
     // S344 Phase 2d: on-photo editable text box (FRT _textPrompt port). A contentEditable
     // div sits in screen space over the canvas; the lightbox docked text bar drives size,
@@ -4641,6 +4274,14 @@ var DieselMarkup = (function(){
   return E;
 })();
 if(typeof window!=='undefined') window.DieselMarkup = DieselMarkup;
+// S459g: install the shared selection engine (canonical two-SET model). Selection is
+// a hard shared dependency like the header engine — if the module failed to load the
+// select tool is disabled (routing below guards), drawing/erasing keep working, and
+// nothing can corrupt data.
+if(typeof window!=='undefined'){
+  if(window.MarkupSelection){ window.MarkupSelection.install(DieselMarkup); }
+  else { console.error('[DieselMarkup] lib/ui/markupSelection.js missing — selection tool disabled'); }
+}
 
 // ═══ S283: DslLightbox — the FRT lightbox, ported wholesale ═══
 // Replaces ALL prior Diesel lightbox generations (basic lightbox + bitmap
@@ -19118,7 +18759,7 @@ try{
 </script>
 <script>
 // S302: build banner — first thing to check when behavior looks stale.
-var DIESEL_BUILD = 'S459f';
+var DIESEL_BUILD = 'S459g';
 console.info('%c[DIESEL] build ' + DIESEL_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 </script>
 <script>
