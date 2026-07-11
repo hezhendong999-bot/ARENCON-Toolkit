@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S461-NEXT (PARALLEL VERIFICATION BUILD, not the live tool: checklist engine extracted to shared lib/ui/checklist.js (ArcChecklist — cid, S367 schema migration, item walk, renderChecklist/buildItem, setStatus, detail toggle, thumbs) and the whole DslLightbox viewer chrome extracted verbatim to shared lib/ui/lightbox.js (LightboxShell). Same pixels, same behavior — this file binds the modules to the unchanged Diesel global names. Base = live S459 blob 25340972. Live tool switches over only after Mark field-verifies this copy. Keep this comment SINGLE and UNNESTED — field report S316) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S461-NEXT (PARALLEL VERIFICATION BUILD, not the live tool: checklist engine extracted to shared lib/ui/checklist.js (ArcChecklist — cid, S367 schema migration, item walk, renderChecklist/buildItem, setStatus, detail toggle, thumbs) and the whole DslLightbox viewer chrome extracted verbatim to shared lib/ui/lightbox.js (LightboxShell). Same pixels, same behavior — this file binds the modules to the unchanged Diesel global names. Photo mint path unified: 30 duplicated photo-object+enqueue blocks now call shared lib/data/photoMint.js (ArcPhoto.mint — schema + R2 enqueue in ONE place). Base = live S459 blob 25340972. Live tool switches over only after Mark field-verifies this copy. Keep this comment SINGLE and UNNESTED — field report S316) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -26,6 +26,7 @@
 <!-- S461: shared checklist engine + lightbox shell (extraction wave — fix once, inherit everywhere). Same-origin ARENCON assets, not CDN deps. -->
 <script src="lib/ui/checklist.js"></script>
 <script src="lib/ui/lightbox.js"></script>
+<script src="lib/data/photoMint.js"></script>
 <style>
 
 
@@ -3228,7 +3229,7 @@ function deficRespTimelineDrop(ev, name, idx, ci) {
   Array.from(files).forEach(function(f) {
     if(!f.type.startsWith('image/')) return;
     var r = new FileReader();
-    r.onload = function(ev2) { compressImage(ev2.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
+    r.onload = function(ev2) { compressImage(ev2.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push(ArcPhoto.mint(compressed,f.name)); renderDeficGroup(name); }); };
     r.readAsDataURL(f);
   });
 }
@@ -3238,7 +3239,7 @@ function deficRespTimelineUpload(name, idx, ci) {
     if(!deficiencies[name][idx].responses[ci].photos) deficiencies[name][idx].responses[ci].photos=[];
     Array.from(inp.files).forEach(function(f) {
       var r = new FileReader();
-      r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
+      r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push(ArcPhoto.mint(compressed,f.name)); renderDeficGroup(name); }); };
       r.readAsDataURL(f);
     });
   }; inp.click();
@@ -3247,7 +3248,7 @@ function _pfDeficResp(name, idx, ci, f){
   if(!deficiencies[name][idx].responses[ci].photos) deficiencies[name][idx].responses[ci].photos=[];
   if(!f || !f.type || f.type.indexOf('image/')!==0) return;
   var r = new FileReader();
-  r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
+  r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push(ArcPhoto.mint(compressed,f.name)); renderDeficGroup(name); }); };
   r.readAsDataURL(f);
 }
 function deficRespTimelineCamera(name, idx, ci) {
@@ -3260,7 +3261,7 @@ function deficRespTimelineCameraLegacy(name, idx, ci) {
     if(!deficiencies[name][idx].responses[ci].photos) deficiencies[name][idx].responses[ci].photos=[];
     var f = inp.files[0]; if(!f) return;
     var r = new FileReader();
-    r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); setTimeout(function(){inp.value='';inp.click();},300); }); };
+    r.onload = function(ev) { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].responses[ci].photos.push(ArcPhoto.mint(compressed,f.name)); renderDeficGroup(name); setTimeout(function(){inp.value='';inp.click();},300); }); };
     r.readAsDataURL(f);
   }; inp.click();
 }
@@ -4180,7 +4181,7 @@ document.getElementById('global-file-input').addEventListener('change', function
     Array.from(files).forEach(function(f){
       if(!f.type.startsWith('image/')) return;
       const r=new FileReader();
-      r.onload=ev=>{ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); };
+      r.onload=ev=>{ flowTestPhotosPld.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbsPld(); };
       r.readAsDataURL(f);
     });
     reset(); return;
@@ -4191,7 +4192,7 @@ document.getElementById('global-file-input').addEventListener('change', function
     Array.from(files).forEach(function(f){
       if(!f.type.startsWith('image/')) return;
       const r=new FileReader();
-      r.onload=ev=>{ flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbs(); };
+      r.onload=ev=>{ flowTestPhotos.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbs(); };
       r.readAsDataURL(f);
     });
     reset(); return;
@@ -4214,7 +4215,7 @@ document.getElementById('global-file-input').addEventListener('change', function
         _photoDateFromExif(f).then(function(photoDate){
         const r=new FileReader();
         r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
-          deficiencies[t.name][t.idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:photoDate,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          deficiencies[t.name][t.idx].photos.push(ArcPhoto.mint(compressed,f.name,{date:photoDate}));
           renderDeficGroup(t.name);
           if(typeof updateDeficSummary==='function') updateDeficSummary();
         }); };
@@ -4235,7 +4236,7 @@ document.getElementById('global-file-input').addEventListener('change', function
       const r=new FileReader();
       r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
         if(!clState[id]) return; // never auto-vivify; a real item always exists before upload
-        clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:photoDate,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+        clState[id].photos.push(ArcPhoto.mint(compressed,f.name,{date:photoDate}));
         var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
         var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
         var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
@@ -4262,7 +4263,7 @@ function handleFiles(id, files, isDefic) {
           // nothing saved). Same guard the restore path at _restore already uses.
           if(!deficiencies[id]) return;
           if(!Array.isArray(deficiencies[id].photos)) deficiencies[id].photos=[];
-          deficiencies[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:photoDate,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          deficiencies[id].photos.push(ArcPhoto.mint(compressed,f.name,{date:photoDate}));
           renderDeficThumbs(id);
           updateDeficSummary();
         } else {
@@ -4273,7 +4274,7 @@ function handleFiles(id, files, isDefic) {
           // "camera opens, photo taken, nothing saves" bug.)
           if(!clState[id]) clState[id] = { status:null, comment:'', photos:[], customText:'' };
           if(!Array.isArray(clState[id].photos)) clState[id].photos=[];
-          clState[id].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:photoDate,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+          clState[id].photos.push(ArcPhoto.mint(compressed,f.name,{date:photoDate}));
           var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
           var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
           var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
@@ -4951,12 +4952,11 @@ function _flowPhotoAddFile(file){
   var r=new FileReader();
   r.onload=function(ev){
     compressImage(ev.target.result, 1600, 0.85, function(c){
-      var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+      var _ph=ArcPhoto.mint(c, file.name, {extra:{
                tag:_flowPhotoActiveReading||'suction',
                mode:(_flowPhotoTbl==='pld'?(_GAUGE_DIRECT_ONLY[_flowPhotoActiveReading]?'direct':_flowPhotoActiveMode):null),
-               caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
+               caption:''}});
       row.photos.push(_ph);
-      _r2EnqueuePhoto(_ph);
       if(typeof renderStdTable==='function') renderStdTable();
       if(typeof renderPldTable==='function') renderPldTable();
       _renderFlowPhotoModal();
@@ -4975,12 +4975,11 @@ function _flowPhotoAddFromSource(srcPhoto){
   var row=_flowPhotoRow(_flowPhotoTbl,_flowPhotoIdx); if(!row||!srcPhoto) return;
   if(!row.photos) row.photos=[];
   function _commit(dataUrl){
-    var _ph={d:dataUrl, n:(srcPhoto.n||'gallery.jpg'), id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+    var _ph=ArcPhoto.mint(dataUrl, (srcPhoto.n||'gallery.jpg'), {extra:{
              tag:_flowPhotoActiveReading||'suction',
              mode:(_flowPhotoTbl==='pld'?(_GAUGE_DIRECT_ONLY[_flowPhotoActiveReading]?'direct':_flowPhotoActiveMode):null),
-             caption:'', date:new Date().toISOString(), r2Key:'', r2Status:'', r2Url:''};
+             caption:''}});               // own key — never borrow source R2 URL
     row.photos.push(_ph);
-    _r2EnqueuePhoto(_ph);               // own key — never borrow source R2 URL
     if(typeof renderStdTable==='function') renderStdTable();
     if(typeof renderPldTable==='function') renderPldTable();
     _flowPhotoCloseGallery();
@@ -5131,7 +5130,7 @@ function _galleryReuseDeficResp(name, idx, ci){
   var cur=(deficiencies[name]&&deficiencies[name][idx]&&deficiencies[name][idx].responses&&deficiencies[name][idx].responses[ci]&&deficiencies[name][idx].responses[ci].photos)||[];
   _openPhotoReusePicker(function(file){
     var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
-      deficiencies[name][idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      deficiencies[name][idx].responses[ci].photos.push(ArcPhoto.mint(compressed,file.name));
       renderDeficGroup(name); if(typeof debounceAutosave==='function')debounceAutosave();
     }); }; r.readAsDataURL(file);
   }, {excludeIds:cur.map(function(p){return p&&p.id;})});
@@ -5141,7 +5140,7 @@ function _galleryReuseGenDefic(idx){
   _openPhotoReusePicker(function(file){
     var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
       if(!generalDeficiencies[idx].photos)generalDeficiencies[idx].photos=[];
-      generalDeficiencies[idx].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      generalDeficiencies[idx].photos.push(ArcPhoto.mint(compressed,file.name));
       if(typeof renderDeficGroups==='function')renderDeficGroups(); if(typeof debounceAutosave==='function')debounceAutosave();
     }); }; r.readAsDataURL(file);
   }, {excludeIds:cur.map(function(p){return p&&p.id;})});
@@ -5151,7 +5150,7 @@ function _galleryReuseGenDeficResp(idx, ci){
   _openPhotoReusePicker(function(file){
     var r=new FileReader(); r.onload=function(ev){ compressImage(ev.target.result,1600,0.85,function(compressed){
       if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];
-      generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:compressed,n:file.name,id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:'',r2Status:'',r2Url:''};_r2EnqueuePhoto(_ph);return _ph;})());
+      generalDeficiencies[idx].responses[ci].photos.push(ArcPhoto.mint(compressed,file.name));
       if(typeof renderDeficGroups==='function')renderDeficGroups(); if(typeof debounceAutosave==='function')debounceAutosave();
     }); }; r.readAsDataURL(file);
   }, {excludeIds:cur.map(function(p){return p&&p.id;})});
@@ -5370,11 +5369,8 @@ function _flowEqSetCat(k){ _flowEqActiveCat=k; _renderFlowEquipModal(); }
 
 function _flowEqAddPhotoObj(dataUrl, name){
   var arr=_flowEqArr(); if(!arr) return;
-  var _ph={d:dataUrl, n:name||'photo.jpg', id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-           tag:_flowEqActiveCat||'flow_chart', caption:'', date:new Date().toISOString(),
-           r2Key:'', r2Status:'', r2Url:''};
+  var _ph=ArcPhoto.mint(dataUrl, name||'photo.jpg', {extra:{tag:_flowEqActiveCat||'flow_chart', caption:''}});
   arr.push(_ph);
-  if(typeof _r2EnqueuePhoto==='function') _r2EnqueuePhoto(_ph);
   if(typeof _renderRecordZones==='function') _renderRecordZones();
   _renderFlowEquipModal();
   if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
@@ -7566,7 +7562,7 @@ function deficDrop(e, name, idx) {
   e.preventDefault(); e.stopPropagation();
   Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).forEach(f => {
     const r = new FileReader();
-    r.onload = ev => { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].photos.push((function(){var _ph={d:compressed,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderDeficGroup(name); }); };
+    r.onload = ev => { compressImage(ev.target.result, 1600, 0.85, function(compressed){ deficiencies[name][idx].photos.push(ArcPhoto.mint(compressed,f.name)); renderDeficGroup(name); }); };
     r.readAsDataURL(f);
   });
 }
@@ -7787,16 +7783,16 @@ function buildGeneralDeficItem(d, i) {
 }
 
 // General deficiency photo handlers
-function genDeficDrop(e, idx) { e.preventDefault(); Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){ _photoDateFromExif(f).then(function(_pd){var r=new FileReader(); r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:_pd,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }); }
-function genDeficUpload(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){Array.from(inp.files).forEach(function(f){_photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:_pd,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});});};inp.click(); }
-function _pfGenDefic(idx, f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; _photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:_pd,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }
+function genDeficDrop(e, idx) { e.preventDefault(); Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){ _photoDateFromExif(f).then(function(_pd){var r=new FileReader(); r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push(ArcPhoto.mint(c,f.name,{date:_pd}));renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }); }
+function genDeficUpload(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){Array.from(inp.files).forEach(function(f){_photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push(ArcPhoto.mint(c,f.name,{date:_pd}));renderGeneralDeficGroup();});}; r.readAsDataURL(f);});});};inp.click(); }
+function _pfGenDefic(idx, f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; _photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push(ArcPhoto.mint(c,f.name,{date:_pd}));renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }
 function genDeficCamera(idx) { if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfGenDefic(idx, f); }); return; } genDeficCameraLegacy(idx); }
-function genDeficCameraLegacy(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();setTimeout(function(){inp.value='';inp.click();},300);});}; r.readAsDataURL(f);};inp.click(); }
-function genDeficRespDrop(e,idx,ci) { e.preventDefault(); if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[]; Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){_photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:_pd,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});}); }
-function genDeficRespUpload(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];Array.from(inp.files).forEach(function(f){_photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:_pd,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});});};inp.click(); }
-function _pfGenDeficResp(idx, ci, f){ if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[]; if(!f||!f.type||f.type.indexOf('image/')!==0) return; _photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:_pd,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }
+function genDeficCameraLegacy(idx) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].photos.push(ArcPhoto.mint(c,f.name));renderGeneralDeficGroup();setTimeout(function(){inp.value='';inp.click();},300);});}; r.readAsDataURL(f);};inp.click(); }
+function genDeficRespDrop(e,idx,ci) { e.preventDefault(); if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[]; Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}).forEach(function(f){_photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push(ArcPhoto.mint(c,f.name,{date:_pd}));renderGeneralDeficGroup();});}; r.readAsDataURL(f);});}); }
+function genDeficRespUpload(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];Array.from(inp.files).forEach(function(f){_photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push(ArcPhoto.mint(c,f.name,{date:_pd}));renderGeneralDeficGroup();});}; r.readAsDataURL(f);});});};inp.click(); }
+function _pfGenDeficResp(idx, ci, f){ if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[]; if(!f||!f.type||f.type.indexOf('image/')!==0) return; _photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push(ArcPhoto.mint(c,f.name,{date:_pd}));renderGeneralDeficGroup();});}; r.readAsDataURL(f);}); }
 function genDeficRespCamera(idx,ci) { if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfGenDeficResp(idx, ci, f); }); return; } genDeficRespCameraLegacy(idx,ci); }
-function genDeficRespCameraLegacy(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];var f=inp.files[0];if(!f)return;_photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push((function(){var _ph={d:c,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:_pd,r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());renderGeneralDeficGroup();});}; r.readAsDataURL(f);});};inp.click(); }
+function genDeficRespCameraLegacy(idx,ci) { var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.setAttribute('capture','environment');inp.onchange=function(){if(!generalDeficiencies[idx].responses[ci].photos)generalDeficiencies[idx].responses[ci].photos=[];var f=inp.files[0];if(!f)return;_photoDateFromExif(f).then(function(_pd){var r=new FileReader();r.onload=function(ev){compressImage(ev.target.result,1600,0.85,function(c){generalDeficiencies[idx].responses[ci].photos.push(ArcPhoto.mint(c,f.name,{date:_pd}));renderGeneralDeficGroup();});}; r.readAsDataURL(f);});};inp.click(); }
 
 // ═══ DEFICIENCY VIEW TOGGLE ═══
 var _deficViewMode = 'contractor';
@@ -11220,7 +11216,7 @@ let flowTestPhotoInput = document.getElementById('global-file-input');
 // 4b independent flow test photo upload
 let flowTestPhotosPld = [];
 function triggerFlowTestPhotoPld() { openFlowEquipModal('pld'); }
-function _pfFlowTestPld(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); }; r.readAsDataURL(f); }
+function _pfFlowTestPld(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ flowTestPhotosPld.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbsPld(); }; r.readAsDataURL(f); }
 function triggerFlowTestCameraPld() {
   if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfFlowTestPld(f); }); return; }
   const fi = document.getElementById('global-file-input');
@@ -11231,7 +11227,7 @@ function handleFlowTestDropPld(e) {
   e.preventDefault();
   Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/')).forEach(f=>{
     const r=new FileReader();
-    r.onload=ev=>{ flowTestPhotosPld.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbsPld(); };
+    r.onload=ev=>{ flowTestPhotosPld.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbsPld(); };
     r.readAsDataURL(f);
   });
 }
@@ -11246,7 +11242,7 @@ function renderFlowTestThumbsPld() {
     </div>`).join('');
 }
 function triggerFlowTestPhoto() { openFlowEquipModal('std'); }
-function _pfFlowTest(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})()); renderFlowTestThumbs(); }; r.readAsDataURL(f); }
+function _pfFlowTest(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ flowTestPhotos.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbs(); }; r.readAsDataURL(f); }
 function triggerFlowTestCamera() {
   if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfFlowTest(f); }); return; }
   currentPhotoId = '__flowtest';
@@ -11262,7 +11258,7 @@ function handleFlowTestDrop(e) {
     if(!f.type.startsWith('image/')) return;
     const r = new FileReader();
     r.onload = ev => {
-      flowTestPhotos.push((function(){var _ph={d:ev.target.result,n:f.name,id:"ph_"+Date.now()+"_"+Math.random().toString(36).substr(2,6),date:new Date().toISOString(),r2Key:"",r2Status:"",r2Url:""};_r2EnqueuePhoto(_ph);return _ph;})());
+      flowTestPhotos.push(ArcPhoto.mint(ev.target.result,f.name));
       renderFlowTestThumbs();
     };
     r.readAsDataURL(f);
@@ -15967,10 +15963,8 @@ function _recAddFile(file, kind){
     var r=new FileReader();
     r.onload=function(ev){
       compressImage(ev.target.result, 1600, 0.85, function(c){
-        var _ph={d:c, n:file.name, id:'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
-                 kind:kind, caption:'', date:photoDate, r2Key:'', r2Status:'', r2Url:''};
+        var _ph=ArcPhoto.mint(c, file.name, {date:photoDate, extra:{kind:kind, caption:''}});
         recordPhotos.push(_ph);
-        _r2EnqueuePhoto(_ph);
         _renderRecordZones();
         if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
       });
