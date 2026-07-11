@@ -18,6 +18,7 @@
     opacity: 1,                           // current draw opacity (0.1–1) — Diesel-style, stamped per stroke at commit
     strokes: [],                          // committed strokes
     redoStack: [],
+    _hist: [], _histRedo: [],   // S459: unified action log — {t:'add'} per stroke push, {t:'erase',before,after} snapshots
     _drawing: false, _curr: null,
     _shapePending: null,                  // S329 #23 — in-progress two-click shape
     _origBlob: null,                      // pristine source for Revert
@@ -55,7 +56,7 @@
       this.strokes = (initStrokes && initStrokes.length)
         ? JSON.parse(JSON.stringify(initStrokes))
         : [];
-      this.redoStack = [];
+      this.redoStack = []; this._hist = []; this._histRedo = [];
       // Baseline signature of the just-loaded strokes — lets the lightbox tell a
       // genuine edit from a no-op reopen (so closing without changes doesn't
       // needlessly re-flatten + re-upload). Updated by _onDirty edits via the getter.
@@ -104,9 +105,13 @@
       if (!steps || !strokes || !strokes.length) return { w: w0, h: h0 };
       var w = w0, h = h0;
       // normalize to fractions of the starting frame
+      function _maskPts(st){ var out=[]; if(!st.eraserMask) return out;
+        for (var q=0;q<st.eraserMask.length;q++){ var mp=st.eraserMask[q].points||[]; for (var r2=0;r2<mp.length;r2++) out.push(mp[r2]); }
+        return out; }
       for (var a = 0; a < strokes.length; a++){
         var st = strokes[a]; if (!st.pts) continue;
         for (var b = 0; b < st.pts.length; b++){ st.pts[b].x /= w; st.pts[b].y /= h; }
+        var _ma=_maskPts(st); for (var b2=0;b2<_ma.length;b2++){ _ma[b2].x /= w; _ma[b2].y /= h; }   // S459
       }
       // rotate in fraction space, swapping the frame each step
       for (var s = 0; s < steps; s++){
@@ -119,6 +124,8 @@
               p.x = nx; p.y = ny;
             }
           }
+          var _mk=_maskPts(k);
+          for (var j2 = 0; j2 < _mk.length; j2++){ var p2=_mk[j2]; var nx2=1-p2.y, ny2=p2.x; p2.x=nx2; p2.y=ny2; }   // S459
           if (k.rotation != null) k.rotation += Math.PI / 2;
         }
         var t = w; w = h; h = t;
@@ -127,6 +134,7 @@
       for (var c = 0; c < strokes.length; c++){
         var sc = strokes[c]; if (!sc.pts) continue;
         for (var e = 0; e < sc.pts.length; e++){ sc.pts[e].x *= w; sc.pts[e].y *= h; }
+        var _mc=_maskPts(sc); for (var e2=0;e2<_mc.length;e2++){ _mc[e2].x *= w; _mc[e2].y *= h; }   // S459
       }
       return { w: w, h: h };
     },
@@ -136,7 +144,7 @@
       if (this._syncBound) { window.removeEventListener('resize', this._syncBound); this._syncBound = null; }
       if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
       this.canvas = null; this.ctx = null; this.host = null; this.img = null;
-      this.strokes = []; this.redoStack = []; this._drawing = false; this._curr = null;
+      this.strokes = []; this.redoStack = []; this._hist = []; this._histRedo = []; this._drawing = false; this._curr = null;
       this._shapePending = null;
       this._selectedIds = []; this._dragState = null; this._rubberBand = null;
       this._pickIds = [];
@@ -278,7 +286,20 @@
         if (self.tool === 'text'){ self._textPrompt(p, ev); return; }  // no preventDefault — let focus land
         ev.preventDefault();
         if (self.tool === 'select'){ self._selectDown(p, ev); return; }
-        if (self.tool === 'eraser'){ self._eraseAt(p); self._drawing = true; return; }
+        if (self.tool === 'eraser'){
+          // S459 shared eraser (lib/ui/markupEraser.js): nothing deletes during the
+          // drag — a grey path shows live; the erase applies once at pointer-up.
+          // Width = (chip size)*3*uiScale = 3x a same-chip stroke's STORED width
+          // (FRT stores sizes pre-scaled by uiScale, unlike Diesel — same 3:1 rule).
+          if (window.MarkupEraser){
+            self._drawing = true;
+            var _eu = self._uiScale ? self._uiScale() : 1;
+            self._curr = { tool:'eraser', pts:[p], _ew:(self.size||3)*3*_eu };
+            self.redoStack = []; self._histRedo = [];
+            return;
+          }
+          self._eraseAtLegacy(p); self._drawing = true; return;
+        }
         if (isShape(self.tool)){
           // S339 — press-drag-release flow (was two-click). Start point on press;
           // pts[1] tracks the pointer during move; commit on up if dragged past
@@ -308,7 +329,10 @@
         if (!self._drawing) return;
         ev.preventDefault();
         var p = pt(ev);
-        if (self.tool === 'eraser'){ self._eraseAt(p); return; }
+        if (self.tool === 'eraser'){
+          if (!(window.MarkupEraser && self._curr && self._curr.tool==='eraser')){ self._eraseAtLegacy(p); return; }
+          // live drag path: fall through to the freehand append + render below
+        }
         if (!self._curr) return;
         if (isShape(self._curr.tool)){
           // S339 — drag updates the second corner; render live rubber-band preview.
@@ -325,6 +349,28 @@
         if (self.tool === 'select'){ if (self._dragState) self._selectUp(); return; }
         if (!self._drawing) return;
         self._drawing = false;
+        if (self._curr && self._curr.tool==='eraser'){
+          // S459: commit the erase — every stroke type gets an exact-path mask carve.
+          var eps=self._curr.pts, ew=self._curr._ew||((self.size||3)*3);
+          self._curr=null;
+          if (window.MarkupEraser && eps.length>1){
+            var _before=JSON.stringify(self.strokes);
+            var res=window.MarkupEraser.applyEraser(self.strokes, eps, ew, {
+              toCanonical:(window.MarkupTools&&window.MarkupTools.toCanonical)||null,
+              halfWidth:function(hs){ return ((hs.size||3)*4)/2; },   // FRT highlight renders at size*4
+              bbox:function(bs){ return self._localBBox(bs); },
+              center:function(cs){ return self._rotCenter(cs); },
+              rot:function(rs){ return rs.rotation||0; },             // shapes/text; pen/highlight bake -> 0
+              newId:function(){ return self._uid(); }
+            });
+            if (res.changed){
+              self.strokes=res.strokes;
+              self._histPush({t:'erase', before:_before, after:JSON.stringify(self.strokes)});
+              if (self._onDirty) self._onDirty();
+            }
+          }
+          self._render(); return;
+        }
         if (self._curr){
           var ok = false;
           if (isShape(self._curr.tool)){
@@ -333,7 +379,7 @@
           } else {
             ok = self._curr.pts.length > 1;
           }
-          if (ok){ self.strokes.push(self._curr); if (self._onDirty) self._onDirty(); }
+          if (ok){ self.strokes.push(self._curr); self._histPush({t:'add'}); if (self._onDirty) self._onDirty(); }
         }
         self._curr = null;
         self._render();
@@ -345,7 +391,60 @@
       window.addEventListener('touchend', up);
     },
 
-    _eraseAt: function(p){
+    _histPush: function(op){ this._hist.push(op); if (this._hist.length>80) this._hist.shift(); this._histRedo=[]; },
+    // Unrotated/local-frame bbox + rotation center for the shared eraser's hit tests.
+    _localBBox: function(s){
+      if (s.tool==='text'){ var m=this._textMetrics(s), tp=s.pts[0];
+        return {x1:tp.x-4, y1:tp.y-m.fs-2, x2:tp.x+m.w+4, y2:tp.y-m.fs+m.h+4}; }
+      var xs=s.pts.map(function(p){return p.x;}), ys=s.pts.map(function(p){return p.y;});
+      return {x1:Math.min.apply(null,xs), y1:Math.min.apply(null,ys),
+              x2:Math.max.apply(null,xs), y2:Math.max.apply(null,ys)};
+    },
+    _rotCenter: function(s){
+      if (s.tool==='text'){ var m=this._textMetrics(s);
+        return {x:s.pts[0].x+m.w/2, y:s.pts[0].y-m.fs+m.h/2}; }   // same center _drawTextR rotates about
+      var b=this._localBBox(s); return {x:(b.x1+b.x2)/2, y:(b.y1+b.y2)/2};
+    },
+    // S459: per-object offscreen destination-out carve (shared markupEraser model).
+    // rotFn re-applies the SAME rotation transform the raw draw used, so masks stored
+    // in the stroke's local frame carve in place and follow rotation. Base transform
+    // copied from the destination ctx (dpr on screen, identity on save canvases).
+    _drawMasked: function(ctx, s, sx, sy, rawFn, rotFn){
+      sx=sx||1; sy=sy||1;
+      var off=this._maskCanvas||(this._maskCanvas=document.createElement('canvas'));
+      if (off.width!==ctx.canvas.width||off.height!==ctx.canvas.height){ off.width=ctx.canvas.width; off.height=ctx.canvas.height; }
+      var oc=off.getContext('2d');
+      oc.setTransform(1,0,0,1,0,0); oc.clearRect(0,0,off.width,off.height);
+      try { var tr=ctx.getTransform(); oc.setTransform(tr); }
+      catch(_){ if (ctx===this.ctx) oc.setTransform(this.dpr||1,0,0,this.dpr||1,0,0); }
+      rawFn(oc);
+      oc.save();
+      if (rotFn) rotFn(oc);
+      oc.globalCompositeOperation='destination-out';
+      oc.lineCap='round'; oc.lineJoin='round'; oc.globalAlpha=1;
+      for (var mi=0; mi<s.eraserMask.length; mi++){
+        var m=s.eraserMask[mi]; if(!m.points||m.points.length<2) continue;
+        oc.lineWidth=(m.size||2)*((sx+sy)/2);
+        oc.beginPath(); oc.moveTo(m.points[0].x*sx, m.points[0].y*sy);
+        for (var mj=1; mj<m.points.length; mj++) oc.lineTo(m.points[mj].x*sx, m.points[mj].y*sy);
+        oc.stroke();
+      }
+      oc.restore();
+      ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(off,0,0); ctx.restore();
+    },
+    _drawPenR: function(ctx, s){
+      var self=this;
+      if (s.eraserMask && s.eraserMask.length){
+        this._drawMasked(ctx, s, 1, 1, function(oc){
+          oc.globalAlpha=(s.opacity!=null)?s.opacity:1; self._strokePath(oc, s);
+        }, null);
+        return;
+      }
+      ctx.save(); ctx.globalAlpha=(s.opacity!=null)?s.opacity:1; this._strokePath(ctx, s); ctx.restore();
+    },
+    // S459: LEGACY eraser — kept ONLY as the fallback when lib/ui/markupEraser.js
+    // failed to load. The live path is the shared mask-carve model above.
+    _eraseAtLegacy: function(p){
       // S455-parity: radius is screen-constant (uiScale) so hi-res photos erase
       // with the same on-screen brush as compressed ones.
       var _u = this._uiScale ? this._uiScale() : 1;
@@ -625,6 +724,7 @@
         }
         if (v.trim()){
           self.strokes.push({ id:self._uid(), tool:'text', pts:[{x:lx,y:ly}], text:v, color:curColor, bg:curBg, size:newSize, opacity:self.opacity });
+          self._histPush({t:'add'});
           self.redoStack=[]; if(self._onDirty) self._onDirty();
         }
         self._render(); cleanup();
@@ -995,7 +1095,8 @@
         if (Math.abs(dx)<2 && Math.abs(dy)<2 && !ds.moved) return;
         ds.moved=true;
         this._selectedIds.forEach(function(id){ var s=self._findStroke(id); if(!s)return;
-          s.pts.forEach(function(pt){ pt.x+=dx; pt.y+=dy; }); });
+          s.pts.forEach(function(pt){ pt.x+=dx; pt.y+=dy; });
+          if (s.eraserMask && window.MarkupEraser) window.MarkupEraser.xformMask(s, function(pt){ return {x:pt.x+dx, y:pt.y+dy}; }); });   // S459: masks follow
         ds.startX=p.x; ds.startY=p.y; this._render(); return;
       }
       if (ds.type==='resize'){
@@ -1005,6 +1106,8 @@
         ds.orig.forEach(function(o){ var st=self._findStroke(o.id); if(!st)return;
           st.pts=o.pts.map(function(pt){ return {x:ax+(pt.x-ax)*s, y:ay+(pt.y-ay)*s}; });
           if (o.size) st.size=Math.max(1, o.size*s);
+          if (o.eraserMask){ st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
+            if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return {x:ax+(pt.x-ax)*s, y:ay+(pt.y-ay)*s}; }, s); }   // S459
         });
         this._render(); return;
       }
@@ -1015,16 +1118,24 @@
         ds.orig.forEach(function(o){ var st=self._findStroke(o.id); if(!st)return;
           if (o.tool==='pen'||o.tool==='highlight'){
             st.pts=o.pts.map(function(pt){ return rot(pt.x,pt.y); });          // bake into points
+            if (o.eraserMask){ st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
+              if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return rot(pt.x,pt.y); }); }   // S459: world-frame masks bake too
           } else if (o.tool==='text'){
             var _rm=this._textMetrics(o), fs=_rm.fs, estW=_rm.w;
             var ocx=o.pts[0].x+estW/2, ocy=o.pts[0].y-fs+_rm.h/2, nc=rot(ocx,ocy);
             st.pts[0]={x:nc.x-estW/2, y:nc.y-_rm.h/2+fs};
+            if (o.eraserMask){ var _tdx=st.pts[0].x-o.pts[0].x, _tdy=st.pts[0].y-o.pts[0].y;
+              st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
+              if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return {x:pt.x+_tdx, y:pt.y+_tdy}; }); }   // S459: local-frame masks ride the center move
             st.rotation=(o.rotation||0)+dA;
           } else {
             var a=o.pts[0], b=o.pts[1];
             var ocxs=(a.x+b.x)/2, ocys=(a.y+b.y)/2, ncs=rot(ocxs,ocys);
             var hw=Math.abs(b.x-a.x)/2, hh=Math.abs(b.y-a.y)/2;
             st.pts[0]={x:ncs.x-hw, y:ncs.y-hh}; st.pts[1]={x:ncs.x+hw, y:ncs.y+hh};
+            if (o.eraserMask){ var _sdx=ncs.x-ocxs, _sdy=ncs.y-ocys;
+              st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
+              if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return {x:pt.x+_sdx, y:pt.y+_sdy}; }); }   // S459
             st.rotation=(o.rotation||0)+dA;
           }
         });
@@ -1073,13 +1184,17 @@
       this._selectedIds.forEach(function(id){
         var s=self._findStroke(id); if(!s) return;
         var c={ id:self._uid(), tool:s.tool, color:s.color, size:s.size,
-                opacity:s.opacity, text:s.text, rotation:s.rotation };
+                opacity:s.opacity, text:s.text, rotation:s.rotation, bg:s.bg };
         // deep-copy + offset the only coordinate array this engine uses
         c.pts = (s.pts||[]).map(function(pt){ return { x:pt.x+OFF, y:pt.y+OFF }; });
+        // S459: erased gaps travel with the clone
+        if (s.eraserMask) c.eraserMask = s.eraserMask.map(function(m){
+          return { points:(m.points||[]).map(function(pt){ return {x:pt.x+OFF, y:pt.y+OFF}; }), size:m.size }; });
         // drop undefined optional fields so cloned objects stay clean
         if (c.text===undefined) delete c.text;
         if (c.rotation===undefined) delete c.rotation;
-        self.strokes.push(c); newIds.push(c.id);
+        if (c.bg===undefined) delete c.bg;
+        self.strokes.push(c); self._histPush({t:'add'}); newIds.push(c.id);
       });
       if (!newIds.length) return;
       this._selectedIds = newIds;
@@ -1177,6 +1292,32 @@
           oc.setTransform(this.dpr,0,0,this.dpr,0,0);
           for (var i=0;i<grp.list.length;i++){
             var s = grp.list[i];
+            if (s.eraserMask && s.eraserMask.length){
+              // S459: carve this highlight's own mask on a scratch (isolated), then
+              // accumulate opaque onto the group layer — no-stack model preserved.
+              var scr=this._hlScratch||(this._hlScratch=document.createElement('canvas'));
+              if (scr.width!==off.width||scr.height!==off.height){ scr.width=off.width; scr.height=off.height; }
+              var sc2=scr.getContext('2d');
+              sc2.setTransform(1,0,0,1,0,0); sc2.clearRect(0,0,scr.width,scr.height);
+              sc2.setTransform(this.dpr,0,0,this.dpr,0,0);
+              sc2.lineCap='round'; sc2.lineJoin='round';
+              sc2.strokeStyle=s.color; sc2.lineWidth=(s.size||3)*4;
+              sc2.beginPath(); sc2.moveTo(s.pts[0].x,s.pts[0].y);
+              for (var j2=1;j2<s.pts.length;j2++) sc2.lineTo(s.pts[j2].x,s.pts[j2].y);
+              sc2.stroke();
+              sc2.save(); sc2.globalCompositeOperation='destination-out'; sc2.globalAlpha=1;
+              for (var mi2=0;mi2<s.eraserMask.length;mi2++){
+                var m2=s.eraserMask[mi2]; if(!m2.points||m2.points.length<2) continue;
+                sc2.lineWidth=(m2.size||2);
+                sc2.beginPath(); sc2.moveTo(m2.points[0].x,m2.points[0].y);
+                for (var mj2=1;mj2<m2.points.length;mj2++) sc2.lineTo(m2.points[mj2].x,m2.points[mj2].y);
+                sc2.stroke();
+              }
+              sc2.restore();
+              oc.save(); oc.setTransform(1,0,0,1,0,0); oc.globalAlpha=1; oc.drawImage(scr,0,0);
+              oc.setTransform(this.dpr,0,0,this.dpr,0,0); oc.restore();
+              continue;
+            }
             oc.lineCap='round'; oc.lineJoin='round';
             oc.strokeStyle = s.color; oc.lineWidth = (s.size||3)*4;
             oc.beginPath(); oc.moveTo(s.pts[0].x,s.pts[0].y);
@@ -1193,9 +1334,19 @@
       // Pass 2: pen strokes on top (per-object opacity)
       for (var k=0;k<this.strokes.length;k++){
         var st = this.strokes[k];
-        if (st.tool==='pen'){ ctx.save(); ctx.globalAlpha = (st.opacity!=null)?st.opacity:1; this._strokePath(ctx, st); ctx.restore(); }
+        if (st.tool==='pen') this._drawPenR(ctx, st);   // S459: mask-aware
       }
       if (this._curr && this._curr.tool==='pen'){ ctx.save(); ctx.globalAlpha=(this._curr.opacity!=null)?this._curr.opacity:1; this._strokePath(ctx, this._curr); ctx.restore(); }
+      // S459: live eraser drag path — grey preview, never persisted (viewer parity)
+      if (this._curr && this._curr.tool==='eraser' && this._curr.pts.length>1){
+        var _ec=this._curr;
+        ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+        ctx.strokeStyle=(window.MarkupEraser&&window.MarkupEraser.PREVIEW&&window.MarkupEraser.PREVIEW.color)||'#8a94b0';
+        ctx.globalAlpha=0.85; ctx.lineWidth=_ec._ew||9;
+        ctx.beginPath(); ctx.moveTo(_ec.pts[0].x,_ec.pts[0].y);
+        for (var _ei=1;_ei<_ec.pts.length;_ei++) ctx.lineTo(_ec.pts[_ei].x,_ec.pts[_ei].y);
+        ctx.stroke(); ctx.restore();
+      }
       // Pass 3: shapes (per-object opacity + rotation)
       for (var m=0;m<this.strokes.length;m++){
         var sh = this.strokes[m];
@@ -1213,6 +1364,20 @@
 
     // Wrap shape draw with opacity + rotation about bbox center (screen render only, sx=sy=1)
     _drawShapeR: function(ctx, s){
+      var self=this;
+      if (s.eraserMask && s.eraserMask.length){
+        // S459: masked shape — draw (with its rotation) on an offscreen, carve the
+        // local-frame masks INSIDE the same rotation transform, composite.
+        var rotFn=null;
+        if (s.rotation){ var ra=s.pts[0], rb=s.pts[1], rcx=(ra.x+rb.x)/2, rcy=(ra.y+rb.y)/2;
+          rotFn=function(oc){ oc.translate(rcx,rcy); oc.rotate(s.rotation); oc.translate(-rcx,-rcy); }; }
+        this._drawMasked(ctx, s, 1, 1, function(oc){
+          oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+          if (rotFn) rotFn(oc);
+          self._drawShape(oc, s); oc.restore();
+        }, rotFn);
+        return;
+      }
       ctx.save();
       ctx.globalAlpha = (s.opacity!=null)?s.opacity:1;
       if (s.rotation){
@@ -1226,6 +1391,19 @@
     // Wrap text draw with opacity + rotation about visual center
     _drawTextR: function(ctx, s){
       if (s._editing) return;   // S339: hidden on canvas while open in the edit chip
+      var self=this;
+      if (s.eraserMask && s.eraserMask.length){
+        var rotFnT=null;
+        if (s.rotation){ var _tm=this._textMetrics(s), tfs=_tm.fs, tw=_tm.w;
+          var tcx=s.pts[0].x+tw/2, tcy=s.pts[0].y-tfs+_tm.h/2;
+          rotFnT=function(oc){ oc.translate(tcx,tcy); oc.rotate(s.rotation); oc.translate(-tcx,-tcy); }; }
+        this._drawMasked(ctx, s, 1, 1, function(oc){
+          oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+          if (rotFnT) rotFnT(oc);
+          self._drawText(oc, s); oc.restore();
+        }, rotFnT);
+        return;
+      }
       ctx.save();
       ctx.globalAlpha = (s.opacity!=null)?s.opacity:1;
       if (s.rotation){
@@ -1246,22 +1424,39 @@
       return JSON.stringify(this.strokes) !== (this._attachSig || '[]');
     },
 
+    // S459: op-aware undo/redo. 'add' entries mirror the classic pop model exactly;
+    // 'erase' entries restore whole-array snapshots so one drag = one undo. Strokes
+    // loaded at attach have no log — undo falls through to the classic pop (parity).
     undo: function(){
       if (this._shapePending){ this._shapePending = null; this._curr = null; this._render(); return; }
+      var op = (this._hist && this._hist.length) ? this._hist.pop() : null;
+      if (op && op.t==='erase'){
+        this._histRedo.push(op);
+        this.strokes = JSON.parse(op.before);
+        this._render(); if (this._onDirty) this._onDirty(); return;
+      }
       if (!this.strokes.length) return;
+      if (op) this._histRedo.push(op);
       this.redoStack.push(this.strokes.pop());
       this._render();
       if (this._onDirty) this._onDirty();
     },
     redo: function(){
-      if (!this.redoStack.length) return;
+      var op = (this._histRedo && this._histRedo.length) ? this._histRedo.pop() : null;
+      if (op && op.t==='erase'){
+        this._hist.push(op);
+        this.strokes = JSON.parse(op.after);
+        this._render(); if (this._onDirty) this._onDirty(); return;
+      }
+      if (!this.redoStack.length){ if (op) this._histRedo.push(op); return; }
       this.strokes.push(this.redoStack.pop());
+      if (op) this._hist.push(op);
       this._render();
       if (this._onDirty) this._onDirty();
     },
 
     clear: function(){
-      this.strokes = []; this.redoStack = []; this._shapePending = null; this._curr = null; this._render();
+      this.strokes = []; this.redoStack = []; this._hist=[]; this._histRedo=[]; this._shapePending = null; this._curr = null; this._render();
       if (this._onDirty) this._onDirty();
     },
 
@@ -1309,6 +1504,26 @@
               var off = document.createElement('canvas'); off.width=nw; off.height=nh;
               var hctx = off.getContext('2d'); hctx.lineCap='round'; hctx.lineJoin='round';
               hg.list.forEach(function(s){
+                if (s.eraserMask && s.eraserMask.length){
+                  // S459: carve on a scratch so the mask cuts only THIS highlight
+                  var hscr=document.createElement('canvas'); hscr.width=nw; hscr.height=nh;
+                  var hsc=hscr.getContext('2d'); hsc.lineCap='round'; hsc.lineJoin='round';
+                  hsc.strokeStyle=s.color; hsc.lineWidth=(s.size||3)*4*savg;
+                  hsc.beginPath(); hsc.moveTo(s.pts[0].x*sx, s.pts[0].y*sy);
+                  for (var jm=1;jm<s.pts.length;jm++) hsc.lineTo(s.pts[jm].x*sx, s.pts[jm].y*sy);
+                  hsc.stroke();
+                  hsc.save(); hsc.globalCompositeOperation='destination-out'; hsc.globalAlpha=1;
+                  for (var hmi=0;hmi<s.eraserMask.length;hmi++){
+                    var hm=s.eraserMask[hmi]; if(!hm.points||hm.points.length<2) continue;
+                    hsc.lineWidth=(hm.size||2)*savg;
+                    hsc.beginPath(); hsc.moveTo(hm.points[0].x*sx, hm.points[0].y*sy);
+                    for (var hmj=1;hmj<hm.points.length;hmj++) hsc.lineTo(hm.points[hmj].x*sx, hm.points[hmj].y*sy);
+                    hsc.stroke();
+                  }
+                  hsc.restore();
+                  hctx.drawImage(hscr,0,0);
+                  return;
+                }
                 hctx.strokeStyle=s.color; hctx.lineWidth=(s.size||3)*4*savg;
                 hctx.beginPath(); hctx.moveTo(s.pts[0].x*sx, s.pts[0].y*sy);
                 for (var j=1;j<s.pts.length;j++) hctx.lineTo(s.pts[j].x*sx, s.pts[j].y*sy);
@@ -1320,26 +1535,43 @@
           // Pen on top (per-object opacity)
           oc.lineCap='round'; oc.lineJoin='round';
           self.strokes.filter(function(s){return s.tool==='pen';}).forEach(function(s){
-            oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
-            oc.strokeStyle=s.color; oc.lineWidth=s.size*savg;
-            oc.beginPath(); oc.moveTo(s.pts[0].x*sx, s.pts[0].y*sy);
-            for (var j=1;j<s.pts.length;j++) oc.lineTo(s.pts[j].x*sx, s.pts[j].y*sy);
-            oc.stroke(); oc.restore();
+            function _rawPen(tc){
+              tc.lineCap='round'; tc.lineJoin='round';
+              tc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+              tc.strokeStyle=s.color; tc.lineWidth=s.size*savg;
+              tc.beginPath(); tc.moveTo(s.pts[0].x*sx, s.pts[0].y*sy);
+              for (var j=1;j<s.pts.length;j++) tc.lineTo(s.pts[j].x*sx, s.pts[j].y*sy);
+              tc.stroke();
+            }
+            if (s.eraserMask && s.eraserMask.length){ self._drawMasked(oc, s, sx, sy, _rawPen, null); return; }
+            oc.save(); _rawPen(oc); oc.restore();
           });
           // Shapes on top (per-object opacity + rotation about scaled bbox center)
           self.strokes.filter(function(s){return isShapeTool(s.tool);}).forEach(function(s){
-            oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+            var rotFn=null;
             if (s.rotation){ var a=s.pts[0],b=s.pts[1], cx=((a.x+b.x)/2)*sx, cy=((a.y+b.y)/2)*sy;
-              oc.translate(cx,cy); oc.rotate(s.rotation); oc.translate(-cx,-cy); }
-            self._drawShape(oc, s, sx, sy); oc.restore();
+              rotFn=function(tc){ tc.translate(cx,cy); tc.rotate(s.rotation); tc.translate(-cx,-cy); }; }
+            function _rawShape(tc){
+              tc.save(); tc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+              if (rotFn) rotFn(tc);
+              self._drawShape(tc, s, sx, sy); tc.restore();
+            }
+            if (s.eraserMask && s.eraserMask.length){ self._drawMasked(oc, s, sx, sy, _rawShape, rotFn); return; }
+            _rawShape(oc);
           });
           // Text labels on top (per-object opacity + rotation about scaled visual center)
           self.strokes.filter(function(s){return s.tool==='text';}).forEach(function(s){
-            oc.save(); oc.globalAlpha=(s.opacity!=null)?s.opacity:1;
-            if (s.rotation){ var _bm=this._textMetrics(s), fs=_bm.fs, estW=_bm.w;
+            var rotFnT=null;
+            if (s.rotation){ var _bm=self._textMetrics(s), fs=_bm.fs, estW=_bm.w;   // S459: was this._textMetrics (undefined here) — self
               var cx=(s.pts[0].x+estW/2)*sx, cy=(s.pts[0].y-fs+_bm.h/2)*sy;
-              oc.translate(cx,cy); oc.rotate(s.rotation); oc.translate(-cx,-cy); }
-            self._drawText(oc, s, sx, sy); oc.restore();
+              rotFnT=function(tc){ tc.translate(cx,cy); tc.rotate(s.rotation); tc.translate(-cx,-cy); }; }
+            function _rawText(tc){
+              tc.save(); tc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+              if (rotFnT) rotFnT(tc);
+              self._drawText(tc, s, sx, sy); tc.restore();
+            }
+            if (s.eraserMask && s.eraserMask.length){ self._drawMasked(oc, s, sx, sy, _rawText, rotFnT); return; }
+            _rawText(oc);
           });
           out.toBlob(function(b){ b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/jpeg', 0.92);
         } catch(e){ reject(e); }
@@ -1360,6 +1592,24 @@
           var off=document.createElement('canvas'); off.width=W; off.height=H;
           var hc=off.getContext('2d'); hc.lineCap='round'; hc.lineJoin='round';
           g.list.forEach(function(s){
+            if (s.eraserMask && s.eraserMask.length){
+              var rscr=document.createElement('canvas'); rscr.width=W; rscr.height=H;
+              var rc2=rscr.getContext('2d'); rc2.lineCap='round'; rc2.lineJoin='round';
+              rc2.strokeStyle=s.color; rc2.lineWidth=(s.size||3)*4;
+              rc2.beginPath(); rc2.moveTo(s.pts[0].x,s.pts[0].y);
+              for (var jr=1;jr<s.pts.length;jr++) rc2.lineTo(s.pts[jr].x,s.pts[jr].y);
+              rc2.stroke();
+              rc2.save(); rc2.globalCompositeOperation='destination-out'; rc2.globalAlpha=1;
+              for (var rmi=0;rmi<s.eraserMask.length;rmi++){
+                var rm=s.eraserMask[rmi]; if(!rm.points||rm.points.length<2) continue;
+                rc2.lineWidth=(rm.size||2);
+                rc2.beginPath(); rc2.moveTo(rm.points[0].x,rm.points[0].y);
+                for (var rmj=1;rmj<rm.points.length;rmj++) rc2.lineTo(rm.points[rmj].x,rm.points[rmj].y);
+                rc2.stroke();
+              }
+              rc2.restore(); hc.drawImage(rscr,0,0);
+              return;
+            }
             hc.strokeStyle=s.color; hc.lineWidth=(s.size||3)*4;
             hc.beginPath(); hc.moveTo(s.pts[0].x,s.pts[0].y);
             for (var j=1;j<s.pts.length;j++) hc.lineTo(s.pts[j].x,s.pts[j].y);
@@ -1370,24 +1620,33 @@
       }
       ctx.lineCap='round'; ctx.lineJoin='round';
       strokes.filter(function(s){return s.tool==='pen';}).forEach(function(s){
-        ctx.save(); ctx.globalAlpha=(s.opacity!=null)?s.opacity:1;
-        ctx.strokeStyle=s.color; ctx.lineWidth=s.size;
-        ctx.beginPath(); ctx.moveTo(s.pts[0].x,s.pts[0].y);
-        for (var j=1;j<s.pts.length;j++) ctx.lineTo(s.pts[j].x,s.pts[j].y);
-        ctx.stroke(); ctx.restore();
+        function _rp(tc){ tc.lineCap='round'; tc.lineJoin='round';
+          tc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+          tc.strokeStyle=s.color; tc.lineWidth=s.size;
+          tc.beginPath(); tc.moveTo(s.pts[0].x,s.pts[0].y);
+          for (var j=1;j<s.pts.length;j++) tc.lineTo(s.pts[j].x,s.pts[j].y);
+          tc.stroke(); }
+        if (s.eraserMask && s.eraserMask.length){ self._drawMasked(ctx, s, 1, 1, _rp, null); return; }
+        ctx.save(); _rp(ctx); ctx.restore();
       });
       strokes.filter(function(s){return isShapeTool(s.tool);}).forEach(function(s){
-        ctx.save(); ctx.globalAlpha=(s.opacity!=null)?s.opacity:1;
+        var rotF=null;
         if (s.rotation){ var a=s.pts[0],b=s.pts[1], cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
-          ctx.translate(cx,cy); ctx.rotate(s.rotation); ctx.translate(-cx,-cy); }
-        self._drawShape(ctx, s, 1, 1); ctx.restore();
+          rotF=function(tc){ tc.translate(cx,cy); tc.rotate(s.rotation); tc.translate(-cx,-cy); }; }
+        function _rs(tc){ tc.save(); tc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+          if (rotF) rotF(tc); self._drawShape(tc, s, 1, 1); tc.restore(); }
+        if (s.eraserMask && s.eraserMask.length){ self._drawMasked(ctx, s, 1, 1, _rs, rotF); return; }
+        _rs(ctx);
       });
       strokes.filter(function(s){return s.tool==='text';}).forEach(function(s){
-        ctx.save(); ctx.globalAlpha=(s.opacity!=null)?s.opacity:1;
+        var rotFT=null;
         if (s.rotation){ var _bm=self._textMetrics(s), fs=_bm.fs, estW=_bm.w;
           var cx=s.pts[0].x+estW/2, cy=s.pts[0].y-fs+_bm.h/2;
-          ctx.translate(cx,cy); ctx.rotate(s.rotation); ctx.translate(-cx,-cy); }
-        self._drawText(ctx, s, 1, 1); ctx.restore();
+          rotFT=function(tc){ tc.translate(cx,cy); tc.rotate(s.rotation); tc.translate(-cx,-cy); }; }
+        function _rt(tc){ tc.save(); tc.globalAlpha=(s.opacity!=null)?s.opacity:1;
+          if (rotFT) rotFT(tc); self._drawText(tc, s, 1, 1); tc.restore(); }
+        if (s.eraserMask && s.eraserMask.length){ self._drawMasked(ctx, s, 1, 1, _rt, rotFT); return; }
+        _rt(ctx);
       });
     }
   };
