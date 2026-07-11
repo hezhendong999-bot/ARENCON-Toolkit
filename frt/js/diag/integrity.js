@@ -178,6 +178,12 @@
     if (key === _lastSummaryKey) return;   // nothing changed since last run
     _lastSummaryKey = key;
     console.warn('[Integrity] ' + parts.join('; ') + '. Run window._frtIntegrityReport() for detail.');
+    // S462: broken photos (zero sources) also raise the visible attention
+    // banner — this class must never again live only in the console.
+    try {
+      var bp = byClass['broken-photo'];
+      if (bp && bp.count && window._frtPhotoAttention) window._frtPhotoAttention(bp.count);
+    } catch (_) {}
   }
 
   function runCheck() {

@@ -356,6 +356,17 @@ function _stripBlobUrls(proj) {
     (arr || []).forEach(function(p) {
       if (p && typeof p.dataUrl === 'string' && p.dataUrl.indexOf('blob:') === 0) {
         delete p.dataUrl;
+        // ── S462 durability save rule ──────────────────────────
+        // blob: URLs die with the page, so stripping is correct — but if
+        // this was the record's ONLY source, the strip used to be the
+        // silent moment a ghost was born. The state is stamped so the
+        // integrity pass and the attention banner surface it immediately
+        // instead of it being discovered at export weeks later.
+        if (!p.r2Key && !p.thumb && !p.deleted) {
+          p._sourceLostAt = p._sourceLostAt || new Date().toISOString();
+          console.error('[Model] photo ' + p.id + ' reduced to ZERO sources at save ' +
+            '(blob-only record, upload not yet durable). Stamped _sourceLostAt.');
+        }
       }
     });
   }
@@ -2109,6 +2120,19 @@ export var Model = {
       addedDate: new Date().toISOString().split('T')[0],
       createdBy: _currentUserId || null
     };
+    // ── S462 durability birth rule ──────────────────────────────
+    // A photo record may not be created with ZERO sources (no r2Key, no
+    // dataUrl, no thumb). That state is the exact signature of the ghost
+    // records (grey "Photo unavailable" boxes) — a record that exists and
+    // syncs everywhere while its image exists nowhere. Every legitimate
+    // creation path supplies at least one source at birth; refusing here
+    // makes the illegal state unrepresentable instead of merely unlikely.
+    if (!photo.r2Key && !photo.dataUrl && !photo.thumb) {
+      console.error('[Model] REFUSED sourceless photo creation on ' + deficId +
+        ' — no r2Key/dataUrl/thumb supplied. This would create a permanent ghost record.');
+      try { this._notify('photo', { action: 'refused-sourceless', deficId: deficId }); } catch (_) {}
+      return null;
+    }
     f.defic.photos.push(photo);
     f.defic._photoPoolMigrated = true; // mark migrated since we now have pool entries
     _dirty = true;

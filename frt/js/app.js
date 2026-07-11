@@ -2189,6 +2189,32 @@ function _countUntaggedForBand(proj) {
   return n;
 }
 
+// ── S462: Photo-attention banner ─────────────────────────
+// The permanent, visible surface for photo-durability problems. Ghost
+// records festered for six weeks because failures only whispered to the
+// console; this pill makes any sourceless/at-risk photo state impossible
+// to miss on every device that opens the project. Idempotent — callers
+// (sync verify pass, integrity boot summary) just report a count.
+window._frtPhotoAttention = function(n) {
+  var el = document.getElementById('frt-photo-attn');
+  if (!n || n < 1) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('button');
+    el.id = 'frt-photo-attn';
+    el.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:9000;' +
+      'background:#C98A4A;color:#fff;border:none;border-radius:20px;' +
+      'padding:10px 16px;font-family:Calibri,sans-serif;font-size:14px;font-weight:bold;' +
+      'box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;min-height:44px;';
+    el.addEventListener('click', function(){
+      try { if (window._frtIntegrityReport) window._frtIntegrityReport(); } catch(_){}
+      el.remove();  // dismiss for this session; reappears next boot if unresolved
+    });
+    document.body.appendChild(el);
+  }
+  el.textContent = '\u26A0 ' + n + ' photo' + (n === 1 ? '' : 's') + ' need attention \u2014 ' +
+    'open this project on the device that took ' + (n === 1 ? 'it' : 'them');
+};
+
 // ── Boot Sequence ────────────────────────────────────────
 var FRT_BUILD = 'S462';
 function boot() {

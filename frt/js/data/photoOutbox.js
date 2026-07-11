@@ -1177,9 +1177,38 @@ export var BinaryOutbox = {
       });
     });
     return chain.then(function(){
-      if (res.checked) console.log('[R2Heal] ' + proj.id.slice(0,8) + '\u2026 checked:' + res.checked +
-        ' ok:' + res.ok + ' healed:' + res.healed + ' nulled:' + res.nulled);
-      return res;
+      // ── S462 durability rescue stage ─────────────────────────
+      // The r2Url loop above only heals photos that HAVE a key that 404s.
+      // Zero-source records (no r2Key, no dataUrl, no thumb — the ghost
+      // class) were invisible to it. This stage gives every such record
+      // one recovery attempt per session: if this device's photoBlobs
+      // store still holds the original bytes, _r2HealOne re-uploads them
+      // and restores the keys. Whichever device captured the photo heals
+      // the project automatically the next time it opens it.
+      var ghosts = photos.filter(function(ph){
+        return ph && !ph.deleted && !ph.r2Key && !ph.dataUrl && !ph.thumb;
+      });
+      res.sourceless = ghosts.length;
+      res.rescued = 0;
+      var rchain = Promise.resolve();
+      ghosts.forEach(function(ph){
+        rchain = rchain.then(function(){
+          var before = res.healed;
+          return _r2HealOne(proj.id, ph, res).then(function(){
+            if (res.healed > before && ph.r2Key) {
+              res.rescued++;
+              delete ph._sourceLostAt;
+              console.log('[R2Heal] RESCUED sourceless photo ' + ph.id + ' from local bytes');
+            }
+          });
+        });
+      });
+      return rchain.then(function(){
+        if (res.checked || res.sourceless) console.log('[R2Heal] ' + proj.id.slice(0,8) + '\u2026 checked:' + res.checked +
+          ' ok:' + res.ok + ' healed:' + res.healed + ' nulled:' + res.nulled +
+          (res.sourceless ? (' sourceless:' + res.sourceless + ' rescued:' + res.rescued) : ''));
+        return res;
+      });
     });
   },
 

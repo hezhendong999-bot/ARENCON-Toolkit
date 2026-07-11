@@ -596,6 +596,12 @@ export var SyncEngine = {
           if (BinaryOutbox && BinaryOutbox.verifyR2Keys) {
             BinaryOutbox.verifyR2Keys(Model.getProject()).then(function(r){
               if (r && (r.healed || r.nulled)) { Model.saveNow(); }
+              // S462: surface any zero-source photos the rescue stage could
+              // NOT recover on this device — visible banner, never console-only.
+              if (r && typeof r.sourceless === 'number') {
+                var remaining = r.sourceless - (r.rescued || 0);
+                try { if (window._frtPhotoAttention) window._frtPhotoAttention(remaining); } catch(_){}
+              }
             }).catch(function(){});
           }
         } catch (e) {
