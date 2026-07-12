@@ -5762,14 +5762,17 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-remove') {
-    var _rmE = Model.removeThreadEntry(
-      el.getAttribute('data-defic-id'),
-      parseInt(el.getAttribute('data-obs-idx') || '0', 10),
-      el.getAttribute('data-entry-id'),
-      (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null
-    );
-    if (_rmE) { Model.saveNow(); _crbtRefresh(el, el.getAttribute('data-defic-id')); toast('Comment removed \u2014 Undo is on the stub'); }
-    else { toast('This comment was printed in an issued report \u2014 it can\u2019t be removed. Reply instead.'); }
+    // S476 (Mark, universal rule): every destructive action confirms first —
+    // one modal tap, even though removal is soft and undoable.
+    var _rmDefic = el.getAttribute('data-defic-id');
+    var _rmObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _rmId = el.getAttribute('data-entry-id');
+    showConfirm('Remove this comment? It folds into "removed comments" with Undo available until the next report is issued.', function() {
+      var _rmE = Model.removeThreadEntry(_rmDefic, _rmObs, _rmId,
+        (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null);
+      if (_rmE) { Model.saveNow(); _crbtRefresh(el, _rmDefic); toast('Comment removed \u2014 Undo is under "removed comments"'); }
+      else { toast('This comment was printed in an issued report \u2014 it can\u2019t be removed. Reply instead.'); }
+    });
     return;
   }
   if (action === 'crbt-showstubs') {
