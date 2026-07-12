@@ -10800,3 +10800,65 @@ body.dark-mode .ph-trash-tile{background:var(--card);border-color:var(--border);
 body.dark-mode .ph-trash-tile .tphoto{background:#1a181f;}
 body.dark-mode .ph-trash-tile.selected{outline-color:#C9476A;}
 body.dark-mode .ph-trash-tile.selected .ph-trash-check{background:#C9476A;}
+
+/* ════════════════════════════════════════════════════════════════════
+   PART — CRB THREAD (S471) · read-only thread on the deficiency card
+   Design authority: LOCKED_CRB_THREAD_UI.md + crb_thread_final.html.
+   Grammar: contractor rows blue-tinted; ARENCON rows card bg + 3px
+   burgundy left edge (burgundy is a signal, not a default); sitelog rows
+   grey; replies nest ONE level. Light values from the locked demo palette;
+   dark via body.dark-mode per FRT convention.
+   ════════════════════════════════════════════════════════════════════ */
+.crbt{margin-top:6px;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.crbt-round{border-bottom:1px solid var(--border);}
+.crbt-round:last-child{border-bottom:none;}
+.crbt-rhead{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#F7F5F8;
+  font-size:calc(10px + var(--ts));font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#5E5B68;}
+.crbt-rhead-log{color:#928E9C;}
+.crbt-rnum{font-size:calc(9.5px + var(--ts));background:#fff;border:1px solid #E4E1E8;border-radius:5px;padding:1px 6px;color:#1B1A22;}
+.crbt-issuedtag{font-size:calc(9px + var(--ts));font-weight:700;color:#928E9C;border:1px solid #E4E1E8;border-radius:4px;padding:1px 6px;letter-spacing:.05em;}
+.crbt-drafttag{font-size:calc(9px + var(--ts));font-weight:700;color:#2C7FB8;border:1px solid #DCE8F2;background:#EAF4FB;border-radius:4px;padding:1px 6px;letter-spacing:.05em;}
+.crbt-pair{padding:9px 12px;}
+.crbt-side{padding:9px 11px;border-radius:9px;margin-bottom:7px;position:relative;}
+.crbt-side:last-child{margin-bottom:0;}
+.crbt-c{background:#F4F8FC;border:1px solid #DCE8F2;}
+.crbt-a{background:#fff;border:1px solid #E4E1E8;border-left:3px solid #9C2742;}
+.crbt-log{background:#F7F5F8;border:1px dashed #E4E1E8;}
+.crbt-who{font-size:calc(9.5px + var(--ts));font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  display:flex;align-items:center;gap:7px;margin-bottom:4px;flex-wrap:wrap;}
+.crbt-c .crbt-who{color:#2C7FB8;}
+.crbt-a .crbt-who{color:#9C2742;}
+.crbt-who-log{color:#928E9C;}
+.crbt-when{font-weight:400;color:#928E9C;letter-spacing:0;text-transform:none;margin-left:auto;font-variant-numeric:tabular-nums;}
+.crbt-t{font-size:calc(12.5px + var(--ts));line-height:1.5;color:var(--fg);}
+.crbt-src{font-size:calc(8.5px + var(--ts));font-weight:700;border:1px solid currentColor;border-radius:4px;padding:0 5px;letter-spacing:.04em;opacity:.85;}
+.crbt-edited{font-size:calc(10.5px + var(--ts));color:#928E9C;font-style:italic;}
+.crbt-noresp{color:#928E9C;font-style:italic;}
+.crbt-withdrawn{font-size:calc(10.5px + var(--ts));color:#C98A4A;font-style:italic;}
+.crbt-orphan{font-size:calc(10.5px + var(--ts));color:#928E9C;font-style:italic;}
+.crbt-pill{font-size:calc(10px + var(--ts));font-weight:700;padding:2px 9px;border-radius:11px;white-space:nowrap;}
+.crbt-pill-h{background:#FBEAEE;color:#C0445F;}
+.crbt-pill-l{background:#FDF3E7;color:#C98A4A;}
+.crbt-pill-c{background:#E6F5EE;color:#2E9E72;}
+.crbt-replies{margin:7px 0 0 20px;border-left:2px solid #F1EFF3;padding-left:11px;}
+.crbt-photos{display:flex;gap:5px;margin-top:7px;align-items:center;flex-wrap:wrap;}
+.crbt-ph{width:52px;height:40px;border-radius:6px;background-color:#E7E3EA;border:1px solid #E4E1E8;background-size:cover;background-position:center;}
+.crbt-ph-empty{display:flex;align-items:center;justify-content:center;font-size:calc(8px + var(--ts));color:#928E9C;}
+/* dark mode — locked demo dark palette */
+body.dark-mode .crbt{border-color:#2a2830;}
+body.dark-mode .crbt-round{border-color:#2a2830;}
+body.dark-mode .crbt-rhead{background:#1d1c22;color:#a09aa8;}
+body.dark-mode .crbt-rnum{background:#16151a;border-color:#2a2830;color:#f4f3f6;}
+body.dark-mode .crbt-issuedtag{color:#6b6674;border-color:#2a2830;}
+body.dark-mode .crbt-drafttag{color:#46C5E8;border-color:#24404d;background:#132836;}
+body.dark-mode .crbt-c{background:#14222a;border-color:#24404d;}
+body.dark-mode .crbt-c .crbt-who{color:#46C5E8;}
+body.dark-mode .crbt-a{background:#16151a;border-color:#2a2830;border-left-color:#C9476A;}
+body.dark-mode .crbt-a .crbt-who{color:#C9476A;}
+body.dark-mode .crbt-log{background:#1d1c22;border-color:#2a2830;}
+body.dark-mode .crbt-when,body.dark-mode .crbt-orphan,body.dark-mode .crbt-edited{color:#6b6674;}
+body.dark-mode .crbt-pill-h{background:#2a151b;color:#E26076;}
+body.dark-mode .crbt-pill-l{background:#2a2016;color:#E0A36A;}
+body.dark-mode .crbt-pill-c{background:#14261d;color:#3FD08A;}
+body.dark-mode .crbt-replies{border-color:#232128;}
+body.dark-mode .crbt-ph{background-color:#2a2830;border-color:#2a2830;}
