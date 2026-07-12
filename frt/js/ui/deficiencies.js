@@ -18,7 +18,7 @@ import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app c
 import { R2 } from '../data/r2.js';
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
-import { buildThreadHtml } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar)
+import { buildThreadHtml, buildComposerHtml } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar)
 import { AIAssist } from '../ai/assistant.js';
 import { esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local copy; byte-identical)
 
@@ -913,18 +913,18 @@ function _buildPinGroupCard(d, ctrId) {
     var _proj471 = Model.getProject() || {};
     var _ctr471 = (( _proj471.contractors) || []).find(function(c) { return c && c.id === ctrId; });
     var _threadHtml = _obsObj ? buildThreadHtml({
-      defic: d, obs: _obsObj, company: (_ctr471 && _ctr471.name) || '',
+      defic: d, obs: _obsObj, obsIdx: oi, closed: !!_obsObj.addressed,
+      company: (_ctr471 && _ctr471.name) || '',
       currentInstance: _proj471.currentFrtInstance || 1
     }) : '';
     { // S137-polish (Mark): per-obs Thread / +Response / +Comment now
       // renders for ALL pins so single-obs == multi-obs. Was `if (multiObs)`.
       h += '<div class="defic-obs-act-thread" data-obs-letter="' + _obsLetter + '" style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--border);">';
       h += '<div style="font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">';
-      h += '<span>Thread \u2014 Obs ' + _obsLetter + (_obsActs.length ? ' (' + _obsActs.length + ')' : '') + '</span>';
-      h += '<span style="display:flex;gap:4px;">';
-      h += '<button class="defic-act-btn act-response" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response" data-obs-ref="' + _obsLetter + '" style="font-size:calc(10px + var(--ts));padding:2px 7px;">+ Response</button>';
-      h += '<button class="defic-act-btn act-comment" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON" data-obs-ref="' + _obsLetter + '" style="font-size:calc(10px + var(--ts));padding:2px 7px;">+ Comment</button>';
-      h += '</span></div>';
+      h += '<span>Thread \u2014 Obs ' + _obsLetter + (_obsActs.length ? ' (' + _obsActs.length + ')' : '') + '</span></div>';
+      // S473: the per-obs "+ Response"/"+ Comment" modal buttons are retired —
+      // the thread's open-round footer (+ Add comment / Record no reply) is the
+      // single write path now (locked §2).
       h += _threadHtml;
       _obsActs.forEach(function(a) { h += _buildActEntryHtml(a, d.id); });
       h += '</div>';
@@ -2824,7 +2824,8 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   var _proj471b = Model.getProject() || {};
   var _ctr471b = ((_proj471b.contractors) || []).find(function(c) { return c && c.id === ctrId; });
   var _threadHtml471 = o ? buildThreadHtml({
-    defic: d, obs: o, company: (_ctr471b && _ctr471b.name) || '',
+    defic: d, obs: o, obsIdx: oi, closed: !!o.addressed,
+    company: (_ctr471b && _ctr471b.name) || '',
     currentInstance: _proj471b.currentFrtInstance || 1
   }) : '';
   h += '<div class="defic-obs-act-thread" data-obs-letter="' + _obsLetter + '" style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--border);">';
@@ -2843,8 +2844,7 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     // status star lives in the header. Auto-save (no Save button). More holds
     // Move pin · Move pin to drawing · Duplicate · Remove pin.
     h += '<div class="dfx-or-actions dfx-ed-actions">';
-    h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response" data-obs-ref="' + _obsLetter + '">+ Response</button>';
-    h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON" data-obs-ref="' + _obsLetter + '">+ Comment</button>';
+    // S473: + Response / + Comment retired — the thread footer is the write path.
     h += '<div class="dfx-or-more-wrap" style="position:relative;margin-left:auto;">';
     h += '<button class="dfx-or-act" data-action="toggle-more" data-defic-id="' + esc(d.id) + '" title="More">\u22EF More</button>';
     h += '<div class="defic-more-popup" id="more-' + esc(d.id) + '">';
@@ -2875,8 +2875,7 @@ function _buildObsEditor(d, oi, ctrId, opts) {
   } else {
     h += '<button class="dfx-or-act" data-action="place-pin" data-defic-id="' + esc(d.id) + '" title="Place this pin on a drawing">\uD83D\uDCCC Place pin</button>';
   }
-  h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="Contractor Response" data-obs-ref="' + _obsLetter + '">+ Response</button>';
-  h += '<button class="dfx-or-act" data-action="show-add-activity" data-defic-id="' + esc(d.id) + '" data-label="ARENCON" data-obs-ref="' + _obsLetter + '">+ Comment</button>';
+  // S473: + Response / + Comment retired — the thread footer is the write path.
   // S210 (Mark): "View all" removed — tapping a photo already opens the
   // lightbox scoped to this deficiency's photos with swipe (open-lightbox).
   h += '<button class="dfx-or-act" data-action="reassign-defic" data-defic-id="' + esc(d.id) + '" title="Move to another section / contractor">\u21C4 Move</button>';
@@ -4267,6 +4266,18 @@ function _deriveCatFilter() {
 
 // Sync the control bar to current state: pivot counts, active classes,
 // contractor dropdown options, filter input values.
+
+// S473 (A1): refresh after a thread write. Inside the focused-pin modal the
+// full list render would tear the modal down — use its own refresh instead.
+function _crbtRefresh(el) {
+  try {
+    if (el && el.closest && el.closest('#pinfocus-overlay') && typeof _refreshPinFocus === 'function') {
+      _refreshPinFocus(); return;
+    }
+  } catch (e) {}
+  initDeficiencies.render();
+}
+
 function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
   var ea = document.getElementById('dfx-pc-active');
   var ec = document.getElementById('dfx-pc-closed');
@@ -5657,6 +5668,165 @@ document.addEventListener('click', function(e) {
     // Pass it as a 4th arg to pre-select "Regarding" in the modal.
     var preObsRef = el.getAttribute('data-obs-ref') || null;
     _showActivityModal(deficId, label, null, preObsRef);
+  }
+
+  // ══ S473 (A1): CRB THREAD ACTIONS — the write path for the thread ═══════
+  // Locked grammar (LOCKED_CRB_THREAD_UI.md): inline composer, never a modal;
+  // voice toggle (ARENCON default / Contractor = MANUAL transcription); reply
+  // one level; edit ARENCON drafts only; removal soft + undoable; the issued
+  // line is enforced by the MODEL (edit/remove refuse on printed rows) — the
+  // UI greys, the model guards.
+  if (action === 'crbt-reply' || action === 'crbt-addcomment') {
+    var _cDefic = el.getAttribute('data-defic-id');
+    var _cObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _cReplyTo = (action === 'crbt-reply') ? el.getAttribute('data-entry-id') : null;
+    var _cRound = parseInt(el.getAttribute('data-round') || '0', 10);
+    if (_cReplyTo) {
+      // A reply inherits its parent's round — position IS meaning (locked §2).
+      var _pHit = Model._findThreadEntry(_cDefic, _cObs, _cReplyTo);
+      _cRound = (_pHit && _pHit.entry && _pHit.entry.round) || _cRound || 1;
+    }
+    // One composer at a time.
+    document.querySelectorAll('.crbt-composer').forEach(function(n) { n.remove(); });
+    var _wrap = document.createElement('div');
+    _wrap.innerHTML = buildComposerHtml({ deficId: _cDefic, obsIdx: _cObs, replyTo: _cReplyTo, round: _cRound || 1, voice: 'a' });
+    var _comp = _wrap.firstChild;
+    if (_cReplyTo) {
+      var _row = el.closest('.crbt-side');
+      var _acts = _row && _row.querySelector('.crbt-acts');
+      if (_acts) _acts.after(_comp); else if (_row) _row.appendChild(_comp);
+    } else {
+      var _or = el.closest('.crbt-openround');
+      if (_or) _or.appendChild(_comp);
+    }
+    var _ta = _comp.querySelector('.crbt-ta');
+    if (_ta) setTimeout(function() { _ta.focus(); }, 50);
+    return;
+  }
+  if (action === 'crbt-voice') {
+    var _vc = el.closest('.crbt-composer');
+    if (_vc) {
+      _vc.querySelectorAll('.crbt-vopt').forEach(function(b) { b.classList.remove('crbt-von'); });
+      el.classList.add('crbt-von');
+      var _vta = _vc.querySelector('.crbt-ta');
+      if (_vta) _vta.placeholder = (el.getAttribute('data-v') === 'c')
+        ? 'Contractor\u2019s words, verbatim \u2014 logged as MANUAL, attributed to you.'
+        : (_vc.getAttribute('data-reply-to') ? 'Your response to this comment\u2026' : 'Your comment\u2026');
+    }
+    return;
+  }
+  if (action === 'crbt-cancel') {
+    var _cc = el.closest('.crbt-composer'); if (_cc) _cc.remove();
+    return;
+  }
+  if (action === 'crbt-submit') {
+    var _sc = el.closest('.crbt-composer'); if (!_sc) return;
+    var _sTa = _sc.querySelector('.crbt-ta');
+    var _sTxt = (_sTa && _sTa.value || '').trim();
+    if (!_sTxt) { toast('Enter a comment'); return; }
+    var _sDefic = _sc.getAttribute('data-defic-id');
+    var _sObs = parseInt(_sc.getAttribute('data-obs-idx') || '0', 10);
+    var _sReply = _sc.getAttribute('data-reply-to') || null;
+    var _sRound = parseInt(_sc.getAttribute('data-round') || '1', 10) || 1;
+    var _sVoiceEl = _sc.querySelector('.crbt-vopt.crbt-von');
+    var _sVoice = (_sVoiceEl && _sVoiceEl.getAttribute('data-v')) === 'c' ? 'c' : 'a';
+    var _who = (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null;
+    var _curInst = (Model.getProject() || {}).currentFrtInstance || 1;
+    var _entry = null;
+    if (_sVoice === 'c') {
+      var _fHit = Model.findDeficiency(_sDefic);
+      _entry = Model.addContractorResponse(_sDefic, _sObs, {
+        company: (_fHit && _fHit.contractor && _fHit.contractor.name) || '',
+        statusReported: null,                 // transcription carries no checkbox claim
+        text: _sTxt, source: 'manual', author: _who,
+        round: _sRound, frtInstance: _curInst, replyTo: _sReply
+      });
+    } else {
+      _entry = Model.addArenconReview(_sDefic, _sObs, {
+        status: null,                          // a comment/reply sets no pill (S473)
+        text: _sTxt, author: _who,
+        round: _sRound, frtInstance: _curInst, replyTo: _sReply
+      });
+    }
+    if (_entry) {
+      Model.saveNow();
+      _crbtRefresh(el);
+      toast(_sReply ? 'Reply added' : 'Comment added');
+    } else { toast('Could not add \u2014 see console'); }
+    return;
+  }
+  if (action === 'crbt-remove') {
+    var _rmE = Model.removeThreadEntry(
+      el.getAttribute('data-defic-id'),
+      parseInt(el.getAttribute('data-obs-idx') || '0', 10),
+      el.getAttribute('data-entry-id'),
+      (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null
+    );
+    if (_rmE) { Model.saveNow(); _crbtRefresh(el); toast('Comment removed \u2014 Undo is on the stub'); }
+    else { toast('This comment was printed in an issued report \u2014 it can\u2019t be removed. Reply instead.'); }
+    return;
+  }
+  if (action === 'crbt-restore') {
+    var _rsE = Model.restoreThreadEntry(
+      el.getAttribute('data-defic-id'),
+      parseInt(el.getAttribute('data-obs-idx') || '0', 10),
+      el.getAttribute('data-entry-id')
+    );
+    if (_rsE) { Model.saveNow(); _crbtRefresh(el); toast('Comment restored'); }
+    return;
+  }
+  if (action === 'crbt-noreply') {
+    var _nrDefic = el.getAttribute('data-defic-id');
+    var _nrObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _nrRound = parseInt(el.getAttribute('data-round') || '1', 10) || 1;
+    showConfirm('Record that no response was received from the contractor for this round?', function() {
+      var _nrHit = Model.findDeficiency(_nrDefic);
+      var _nrE = Model.addContractorResponse(_nrDefic, _nrObs, {
+        company: (_nrHit && _nrHit.contractor && _nrHit.contractor.name) || '',
+        noResponse: true, statusReported: null, text: '',
+        source: 'manual',
+        author: (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null,
+        round: _nrRound, frtInstance: (Model.getProject() || {}).currentFrtInstance || 1
+      });
+      if (_nrE) { Model.saveNow(); _crbtRefresh(el); toast('No-response recorded for round ' + _nrRound); }
+    });
+    return;
+  }
+  if (action === 'crbt-edit') {
+    var _edRow = el.closest('.crbt-side'); if (!_edRow) return;
+    var _edT = _edRow.querySelector('.crbt-t'); if (!_edT || _edRow.querySelector('.crbt-editbox')) return;
+    var _edBox = document.createElement('div');
+    _edBox.className = 'crbt-editbox';
+    _edBox.innerHTML = '<textarea class="crbt-ta">' + (_edT.textContent || '').replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</textarea>'
+      + '<div class="crbt-cfoot"><span class="crbt-sp"></span>'
+      + '<button class="crbt-btn" data-action="crbt-editcancel">Cancel</button>'
+      + '<button class="crbt-btn crbt-primary" data-action="crbt-editsave"'
+      + ' data-defic-id="' + el.getAttribute('data-defic-id') + '"'
+      + ' data-obs-idx="' + el.getAttribute('data-obs-idx') + '"'
+      + ' data-entry-id="' + el.getAttribute('data-entry-id') + '">Save</button></div>';
+    _edT.style.display = 'none';
+    _edT.after(_edBox);
+    var _edTa = _edBox.querySelector('.crbt-ta'); if (_edTa) setTimeout(function() { _edTa.focus(); }, 50);
+    return;
+  }
+  if (action === 'crbt-editcancel') {
+    var _ecB = el.closest('.crbt-editbox');
+    if (_ecB) { var _ecT = _ecB.previousElementSibling; if (_ecT) _ecT.style.display = ''; _ecB.remove(); }
+    return;
+  }
+  if (action === 'crbt-editsave') {
+    var _esB = el.closest('.crbt-editbox'); if (!_esB) return;
+    var _esTxt = (_esB.querySelector('.crbt-ta').value || '').trim();
+    if (!_esTxt) { toast('Enter a comment'); return; }
+    var _esE = Model.editThreadEntry(
+      el.getAttribute('data-defic-id'),
+      parseInt(el.getAttribute('data-obs-idx') || '0', 10),
+      el.getAttribute('data-entry-id'), _esTxt,
+      (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null
+    );
+    if (_esE) { Model.saveNow(); _crbtRefresh(el); toast('Comment updated'); }
+    else { toast('This comment can\u2019t be edited \u2014 see the tooltip on its Edit button.'); }
+    return;
   }
 
   // S122 Push 5 — edit existing activity entry (reuses _showActivityModal in edit mode).

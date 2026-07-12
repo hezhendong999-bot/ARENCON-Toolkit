@@ -2744,7 +2744,7 @@ export var Model = {
       id: _uid('ar'),                                  // merge-safe stable id
       round: (typeof data.round === 'number') ? data.round : this._threadRound(obs),
       frtInstance: (typeof data.frtInstance === 'number') ? data.frtInstance : inst,
-      status: data.status || 'high',                   // high|low|closed → pill-h/pill-l/pill-c
+      status: (data.status===undefined ? 'high' : data.status), // S473: explicit null = no pill (a reply/question is not a review verdict); undefined keeps the legacy 'high' default
       text: data.text || '',
       date: data.date || _todayStr(),
       source: data.source || 'arencon',                // arencon|sitelog (migrated history)

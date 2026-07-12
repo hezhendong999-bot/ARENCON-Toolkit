@@ -100,8 +100,40 @@ function _sitelogRow(e){
     +'<span class="crbt-when">'+_esc(e.date||'')+'</span></div>';
   h+='<div class="crbt-t">'+_esc(e.text||'')+'</div>';
   h+=_photoStrip(e.followupPhotos);
+  return h; // caller appends the action row, then closes .crbt-side
+}
+
+// ── S473 (A1): action row per comment — locked order ↩ Reply · ✎ Edit · 🗑.
+// (+ Photo arrives with A2; a dead button is worse than an absent one.)
+// Frozen (issued) comments: Reply stays live, the rest grey with a tooltip
+// stating why. Edit only on ARENCON's own draft comments — contractor words
+// are never ours to rewrite, even in draft (remove and re-add instead).
+function _actionRow(e, kind, ids){
+  var frozen = e.issuedOnInstance!=null;
+  var base=' data-defic-id="'+_esc(ids.deficId)+'" data-obs-idx="'+ids.obsIdx+'" data-entry-id="'+_esc(e.id)+'"';
+  var h='<div class="crbt-acts">';
+  h+='<button class="crbt-act" data-action="crbt-reply"'+base+'>\u21A9 Reply</button>';
+  if(kind==='a'&&e.source!=='sitelog'){
+    h+= frozen
+      ? '<button class="crbt-act crbt-frozen" title="Printed in FRT #'+_esc(e.issuedOnInstance)+' \u2014 the record can\u2019t be edited">\u270E Edit</button>'
+      : '<button class="crbt-act" data-action="crbt-edit"'+base+'>\u270E Edit</button>';
+  }else if(kind==='c'){
+    h+='<button class="crbt-act crbt-frozen" title="Contractor\u2019s words \u2014 not ours to edit. Remove and re-add.">\u270E Edit</button>';
+  }
+  h+= frozen
+    ? '<button class="crbt-act crbt-frozen" title="Printed in FRT #'+_esc(e.issuedOnInstance)+' \u2014 the record can\u2019t be removed">\uD83D\uDDD1</button>'
+    : '<button class="crbt-act crbt-danger" data-action="crbt-remove"'+base+' title="Remove (undoable)">\uD83D\uDDD1</button>';
   h+='</div>';
   return h;
+}
+
+// S473: a removed draft renders as a collapsed grey stub — attributed, dated,
+// with Undo one tap away. Nothing vanishes silently (locked §3).
+function _removedStub(e, ids){
+  return '<div class="crbt-removedstub" data-entry-id="'+_esc(e.id)+'">'
+    +'Comment removed'+(e.removedBy?(' by '+_esc(e.removedBy)):'')+(e.removedAt?(' \u00b7 '+_esc(e.removedAt)):'')
+    +' <button class="crbt-act" data-action="crbt-restore" data-defic-id="'+_esc(ids.deficId)+'" data-obs-idx="'+ids.obsIdx+'" data-entry-id="'+_esc(e.id)+'">Undo</button>'
+    +'</div>';
 }
 
 /**
@@ -113,12 +145,17 @@ function _sitelogRow(e){
 export function buildThreadHtml(opts){
   var obs=opts.obs||{};
   var curInst=Number(opts.currentInstance)||1;
-  var responses=(obs.responses||[]).filter(function(r){return r&&!r.removed;});
-  var allRev=(obs.arenconReviews||[]).filter(function(v){return v&&!v.removed;});
+  var ids={deficId:(opts.defic&&opts.defic.id)||'',obsIdx:(opts.obsIdx!=null?opts.obsIdx:0)};
+  var closed=!!opts.closed;
+  // S473: removed entries render as Undo stubs on the card (locked §3 —
+  // attributed, dated, undoable), so they stay in the working sets here.
+  var responses=(obs.responses||[]).filter(function(r){return !!r;});
+  var allRev=(obs.arenconReviews||[]).filter(function(v){return !!v;});
   var sitelogs=allRev.filter(function(v){return v.source==='sitelog';})
     .sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));});
   var reviews=allRev.filter(function(v){return v.source!=='sitelog';});
-  if(!responses.length&&!reviews.length&&!sitelogs.length) return '';
+  var hasContent=!!(responses.length||reviews.length||sitelogs.length);
+  if(!hasContent&&closed) return '';
 
   // Split top-level comments from replies (one level, locked §2).
   var byId={};
@@ -132,7 +169,9 @@ export function buildThreadHtml(opts){
     return out;
   }
   function renderWithReplies(e,kind){
+    if(e.removed) return _removedStub(e,ids);
     var h=(kind==='c')?_ctrSide(e,opts.company):_arcSide(e);
+    h+=_actionRow(e,kind,ids);
     var reps=repliesTo(e.id);
     if(reps.length){
       h+='<div class="crbt-replies">';
@@ -152,10 +191,14 @@ export function buildThreadHtml(opts){
   reviews.forEach(function(e){if(isTop(e)){(byRound[e.round]=byRound[e.round]||[]).push({e:e,kind:'a'});}});
   var rounds=Object.keys(byRound).map(Number).sort(function(a,b){return a-b;});
 
-  var h='<div class="crbt">';
+  var h='<div class="crbt" data-defic-id="'+_esc(ids.deficId)+'" data-obs-idx="'+ids.obsIdx+'">';
   if(sitelogs.length){
     h+='<div class="crbt-round"><div class="crbt-rhead crbt-rhead-log">Site log \u2014 pre-thread history</div><div class="crbt-pair">';
-    sitelogs.forEach(function(sl){h+=_sitelogRow(sl);});
+    sitelogs.forEach(function(sl){
+      if(sl.removed){h+=_removedStub(sl,ids);return;}
+      // Sitelog rows: verbatim history — no Edit; Reply + 🗑 live (drafts).
+      h+=_sitelogRow(sl)+_actionRow(sl,'log',ids)+'</div>';
+    });
     h+='</div></div>';
   }
   rounds.forEach(function(rn){
@@ -164,10 +207,11 @@ export function buildThreadHtml(opts){
       if(x.kind!==y.kind)return x.kind==='c'?-1:1;                 // contractor first
       return String(x.e.date||'').localeCompare(String(y.e.date||''));
     });
-    // Round state: ISSUED when every top-level comment in it is stamped;
-    // DRAFT (prints on the current report) otherwise. Locked §1 grammar.
-    var allIssued=cell.every(function(x){return x.e.issuedOnInstance!=null;});
-    var issuedInst=allIssued?cell[0].e.issuedOnInstance:null;
+    // Round state considers only rows still standing (a removed draft must
+    // not hold a round in DRAFT forever).
+    var live=cell.filter(function(x){return !x.e.removed;});
+    var allIssued=live.length>0&&live.every(function(x){return x.e.issuedOnInstance!=null;});
+    var issuedInst=allIssued?live[0].e.issuedOnInstance:null;
     var tag=allIssued
       ? '<span class="crbt-issuedtag">ISSUED \u00b7 FRT #'+_esc(issuedInst)+'</span>'
       : '<span class="crbt-drafttag">DRAFT \u00b7 prints on FRT #'+_esc(curInst)+'</span>';
@@ -177,6 +221,42 @@ export function buildThreadHtml(opts){
     cell.forEach(function(x){h+=renderWithReplies(x.e,x.kind);});
     h+='</div></div>';
   });
+  // ── S473 (A1): open-round footer — the entry point for new comments.
+  // Renders whenever the item is open, INCLUDING an empty thread (otherwise
+  // there is no way to start one). Locked §2: "+ Add comment" (quiet) and
+  // "Record no reply"; the old burgundy modal buttons are retired.
+  if(!closed){
+    var openRound=1;
+    rounds.forEach(function(rn){if(rn>=openRound)openRound=rn+1;});
+    var curRound=Math.max(openRound,(curInst-(Number(obs.notedOnInstance)||1))+1);
+    h+='<div class="crbt-openround">';
+    h+='<div class="crbt-openlbl">Round '+curRound+' \u2014 respond</div>';
+    h+='<div class="crbt-openbtns">';
+    h+='<button class="crbt-btn crbt-quiet" data-action="crbt-addcomment" data-defic-id="'+_esc(ids.deficId)+'" data-obs-idx="'+ids.obsIdx+'" data-round="'+curRound+'">+ Add comment</button>';
+    h+='<button class="crbt-btn crbt-quiet" data-action="crbt-noreply" data-defic-id="'+_esc(ids.deficId)+'" data-obs-idx="'+ids.obsIdx+'" data-round="'+curRound+'">Record no reply</button>';
+    h+='</div></div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+// ── S473 (A1): the inline composer — built on demand by the delegate, one at
+// a time, never a modal (locked §6). Voice toggle: ARENCON default, Contractor
+// = transcription (source manual, attributed to the signed-in inspector).
+export function buildComposerHtml(o){
+  var v=o.voice==='c'?'c':'a';
+  var h='<div class="crbt-composer" data-defic-id="'+_esc(o.deficId)+'" data-obs-idx="'+o.obsIdx+'"'
+      +(o.replyTo?(' data-reply-to="'+_esc(o.replyTo)+'"'):'')
+      +' data-round="'+_esc(o.round)+'">';
+  h+='<div class="crbt-voice"><span class="crbt-vlab">'+(o.replyTo?'Reply as':'Comment as')+'</span>'
+    +'<button class="crbt-vopt crbt-va'+(v==='a'?' crbt-von':'')+'" data-action="crbt-voice" data-v="a">ARENCON</button>'
+    +'<button class="crbt-vopt crbt-vc'+(v==='c'?' crbt-von':'')+'" data-action="crbt-voice" data-v="c">Contractor</button></div>';
+  h+='<textarea class="crbt-ta" placeholder="'+(v==='c'
+      ? 'Contractor\u2019s words, verbatim \u2014 logged as MANUAL, attributed to you.'
+      : (o.replyTo?'Your response to this comment\u2026':'Your comment\u2026'))+'"></textarea>';
+  h+='<div class="crbt-cfoot"><span class="crbt-sp"></span>'
+    +'<button class="crbt-btn" data-action="crbt-cancel">Cancel</button>'
+    +'<button class="crbt-btn crbt-primary" data-action="crbt-submit">'+(o.replyTo?'Add reply':'Add comment')+'</button></div>';
   h+='</div>';
   return h;
 }

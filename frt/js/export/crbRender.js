@@ -116,7 +116,7 @@ function crbContractorRow(resp){
   // round (incl. the S463 PDF imports) rendered body-less in the report.
   var _rBody = (resp.text!=null&&resp.text!=='') ? resp.text : resp.comment;
   h += '<div class="claim cflex"><span class="ctext">'+(_rBody?_crbEsc(_rBody):'')+'</span>'
-     + '<span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span></div>';
+     + (resp.statusReported?('<span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span>'):'')+'</div>';
   // rectification photos (already resolved to {url,caption})
   var rp = resp.rectPhotos||[];
   if(rp.length){
@@ -140,11 +140,15 @@ function crbContractorRow(resp){
 // pillFor(status) is passed from pdf.js so pill class canon stays single-source.
 function crbReviewRow(rev, pillClsResolver){
   var meta = 'ARENCON REVIEW \u00b7 FRT #'+_crbEsc(rev.frtInstance)+' \u00b7 '+_crbEsc(rev.date);
-  var pillCls = pillClsResolver ? pillClsResolver(rev.status)
-              : (rev.status==='closed'?'pill-c':rev.status==='low'?'pill-l':'pill-h');
-  var pillTxt = rev.status==='closed'?'Closed':'Outstanding';
-  var h = '<div class="tr-row arv"><div class="tr-meta"><b>'+meta+'</b>&nbsp;'
-        + '<span class="pill '+pillCls+'">'+pillTxt+'</span></div>';
+  // S473: a null status is a comment/question, not a verdict — no pill.
+  var pillHtml='';
+  if(rev.status){
+    var pillCls = pillClsResolver ? pillClsResolver(rev.status)
+                : (rev.status==='closed'?'pill-c':rev.status==='low'?'pill-l':'pill-h');
+    var pillTxt = rev.status==='closed'?'Closed':'Outstanding';
+    pillHtml='&nbsp;<span class="pill '+pillCls+'">'+pillTxt+'</span>';
+  }
+  var h = '<div class="tr-row arv"><div class="tr-meta"><b>'+meta+'</b>'+pillHtml+'</div>';
   // S467: accept `text` (S461 primitive schema) alongside legacy `comment`.
   var _vBody = (rev.text!=null&&rev.text!=='') ? rev.text : rev.comment;
   if(_vBody) h += '<p>'+_crbEsc(_vBody)+'</p>';
