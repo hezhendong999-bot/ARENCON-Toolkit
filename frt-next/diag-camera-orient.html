@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FRT Camera Orientation Test</title>
+<style>
+  :root{
+    --bg:#EFEDF0; --card:#ffffff; --ink:#1B1A22; --ink2:#5E5B68; --ink3:#928E9C;
+    --line:#e2dfe6; --burg:#9C2742; --ok:#2E9E72; --info:#2C7FB8; --warn:#C98A4A;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:Calibri,'Segoe UI',system-ui,sans-serif;font-size:16px;line-height:1.4}
+  .wrap{max-width:820px;margin:0 auto;padding:16px 14px 60px}
+  h1{font-size:20px;margin:0 0 2px;color:var(--burg);font-weight:700}
+  .sub{color:var(--ink2);font-size:13px;margin:0 0 14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:14px;margin:0 0 14px;box-shadow:0 2px 10px rgba(20,10,25,.05)}
+  .steps{font-size:13.5px;color:var(--ink2);margin:0 0 14px;padding-left:18px}
+  .steps li{margin:3px 0}
+  .big-btn{display:block;width:100%;min-height:58px;background:var(--burg);color:#fff;
+    border:none;border-radius:14px;font-size:18px;font-weight:700;
+    font-family:inherit;cursor:pointer}
+  .big-btn:active{opacity:.85}
+  .liveband{font-size:12.5px;color:var(--ink3);text-align:center;margin:10px 0 0}
+  .liveband b{color:var(--info)}
+
+  /* result card */
+  .rhead{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 8px}
+  .rhead .n{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--ink3);
+    border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+  .readout{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--ink2);
+    background:#f6f4f8;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0 0 12px;
+    white-space:pre-wrap;word-break:break-word}
+  .readout .k{color:var(--ink3)} .readout .v{color:var(--ink);font-weight:700}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:560px){.pair{grid-template-columns:1fr}}
+  .imgbox{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#faf9fb}
+  .imgbox .lbl{font-size:12px;font-weight:700;padding:5px 8px;border-bottom:1px solid var(--line)}
+  .imgbox.raw .lbl{color:var(--warn)} .imgbox.corr .lbl{color:var(--ok)}
+  .imgbox img{display:block;width:100%;height:auto;background:#fff}
+  .cands{margin:12px 0 0}
+  .cands .title{font-size:12.5px;color:var(--ink2);margin:0 0 6px}
+  .cands .row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .cand{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#faf9fb;text-align:center}
+  .cand .cl{font-size:11px;font-weight:700;color:var(--info);padding:3px 0;border-bottom:1px solid var(--line)}
+  .cand img{display:block;width:100%;height:auto}
+  .hint{font-size:12.5px;color:var(--ink2);margin:12px 0 0;padding:10px;border-radius:8px;
+    background:rgba(46,158,114,.08);border:1px solid rgba(46,158,114,.25)}
+  .hint b{color:var(--ok)}
+  .foot{font-size:12px;color:var(--ink3);text-align:center;margin:18px 0 0}
+
+  /* camera modal */
+  #cam{position:fixed;inset:0;background:#000;z-index:9999;display:none;flex-direction:column}
+  #cam.open{display:flex}
+  #camVidWrap{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000;min-height:0}
+  #camVid{width:100%;height:100%;object-fit:contain}
+  #camFlash{position:absolute;inset:0;background:#fff;opacity:0;transition:opacity .08s;pointer-events:none}
+  #camOrient{position:absolute;top:10px;left:0;right:0;text-align:center;color:#fff;font-size:13px;
+    text-shadow:0 1px 3px #000;pointer-events:none}
+  #camBar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;gap:12px;background:#0a0a0c}
+  #camBar button{font-family:inherit}
+  #camCancel{min-width:92px;min-height:52px;background:transparent;color:#a09aa8;
+    border:1px solid rgba(255,255,255,.2);border-radius:12px;font-size:16px;cursor:pointer}
+  #camShutter{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.35);cursor:pointer;flex:none}
+  #camShutter:active{transform:scale(.94)}
+  #camDone{min-width:92px;min-height:52px;background:var(--ok);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FRT Camera Orientation Test</h1>
+  <p class="sub">Mirrors FRT's exact capture. Tells us the one transform that keeps every photo upright on <i>this</i> tablet.</p>
+
+  <div class="card">
+    <ol class="steps">
+      <li>Tap <b>Open Camera</b>.</li>
+      <li>Hold the tablet <b>upright (portrait)</b>, point at anything with a clear top/bottom (a sign, a door), tap the shutter.</li>
+      <li>Rotate the tablet <b>90° left</b> (landscape), shoot the same thing. Then <b>90° right</b>. Then <b>upside-down</b>.</li>
+      <li>Tap <b>Done</b>. For each shot, tell me which image is upright — or just screenshot this page and send it.</li>
+    </ol>
+    <button class="big-btn" id="openBtn">Open Camera</button>
+    <div class="liveband" id="liveBand">live orientation: <b id="liveOri">—</b></div>
+  </div>
+
+  <div id="banner" style="display:none;margin:0 0 14px;padding:12px 14px;border-radius:12px;
+    font-size:14px;background:rgba(201,138,74,.12);border:1px solid rgba(201,138,74,.4);color:#7a4d1a"></div>
+
+  <div id="results"></div>
+  <div class="foot" id="uaFoot"></div>
+</div>
+
+<!-- camera modal -->
+<div id="cam">
+  <div id="camVidWrap">
+    <video id="camVid" autoplay muted playsinline></video>
+    <div id="camFlash"></div>
+    <div id="camOrient">—</div>
+  </div>
+  <div id="camBar">
+    <button id="camCancel">Cancel</button>
+    <button id="camShutter" aria-label="Shutter"></button>
+    <button id="camDone">Done</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var video   = document.getElementById('camVid');
+  var camEl   = document.getElementById('cam');
+  var flash   = document.getElementById('camFlash');
+  var results = document.getElementById('results');
+  var liveOri = document.getElementById('liveOri');
+  var camOri  = document.getElementById('camOrient');
+  var stream=null, shotN=0, busy=false;
+
+  document.getElementById('uaFoot').textContent = navigator.userAgent;
+  var bannerEl = document.getElementById('banner');
+  function banner(msg){ bannerEl.textContent = msg; bannerEl.style.display = 'block'; }
+
+  // ---- orientation signal reader ----------------------------------------
+  function angle(){
+    if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+    if (typeof window.orientation === 'number') return (window.orientation + 360) % 360;
+    return null;
+  }
+  function otype(){
+    if (screen.orientation && screen.orientation.type) return screen.orientation.type;
+    try { return window.matchMedia('(orientation: portrait)').matches ? 'portrait(mm)' : 'landscape(mm)'; }
+    catch(e){ return '(unknown)'; }
+  }
+  function liveStr(){
+    var a=angle();
+    return (a===null?'n/a':a+'\u00B0') + ' \u00B7 ' + otype();
+  }
+  function tickLive(){ liveOri.textContent=liveStr(); camOri.textContent='orientation '+liveStr(); }
+  setInterval(tickLive, 400); tickLive();
+  if (screen.orientation && screen.orientation.addEventListener)
+    screen.orientation.addEventListener('change', tickLive);
+  window.addEventListener('orientationchange', tickLive);
+
+  // ---- camera open/close (mirrors FRT getUserMedia) ---------------------
+  document.getElementById('openBtn').addEventListener('click', openCam);
+  document.getElementById('camCancel').addEventListener('click', closeCam);
+  document.getElementById('camDone').addEventListener('click', closeCam);
+  document.getElementById('camShutter').addEventListener('click', function(){
+    if (busy) return; busy=true; setTimeout(grabFrame, 0);
+  });
+
+  function openCam(){
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+      banner('No camera available in this context (this happens in an embedded preview). Open this page directly on the tablet: arencon.app/frt/diag-camera-orient.html');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1920 }, height:{ ideal:1080 } }
+    }).then(function(s){
+      stream=s; video.srcObject=s; camEl.classList.add('open');
+      document.body.style.overflow='hidden';
+      var pp = video.play(); if (pp && pp.catch) pp.catch(function(){}); // iOS needs an explicit play()
+    }).catch(function(err){ banner('Camera error: '+(err&&err.message||err)+'  \u2014 if this is a permission prompt, allow camera and tap Open Camera again.'); });
+  }
+  function closeCam(){
+    camEl.classList.remove('open');
+    document.body.style.overflow='';
+    if (stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
+  }
+
+  // ---- rotate a source canvas by deg (0/90/180/270) ---------------------
+  function rotate(src, deg){
+    deg = ((deg % 360) + 360) % 360;
+    if (deg === 0) return src;
+    var w=src.width, h=src.height, swap = (deg===90||deg===270);
+    var out=document.createElement('canvas');
+    out.width  = swap ? h : w;
+    out.height = swap ? w : h;
+    var c=out.getContext('2d');
+    c.translate(out.width/2, out.height/2);
+    c.rotate(deg*Math.PI/180);
+    c.drawImage(src, -w/2, -h/2);
+    return out;
+  }
+
+  // ---- the exact FRT grab, plus normalization candidates ----------------
+  function grabFrame(){
+    try {
+      if (video.readyState < 2 || !video.videoWidth){
+        banner('Camera still starting (readyState '+video.readyState+', frame '+video.videoWidth+'\u00D7'+video.videoHeight+') \u2014 wait a second and tap the shutter again.');
+        return;
+      }
+      var a = angle();
+      var vw = video.videoWidth, vh = video.videoHeight;
+      var MAX = 1920, scale = Math.min(1, MAX / Math.max(vw, vh));
+      var cw = Math.round(vw*scale), ch = Math.round(vh*scale);
+
+      // RAW — identical to FRT cameraBurst _grabFrame()
+      var raw = document.createElement('canvas');
+      raw.width=cw; raw.height=ch;
+      var ctx = raw.getContext('2d');
+      try{ ctx.imageSmoothingQuality='high'; }catch(e){}
+      ctx.drawImage(video, 0, 0, cw, ch);
+
+      // CORRECTED — normalize by device angle (rotate raw by -angle)
+      var corrDeg = (a===null) ? 0 : ((360 - a) % 360);
+      var corr = rotate(raw, corrDeg);
+
+      // flash + render
+      flash.style.opacity='.7'; setTimeout(function(){flash.style.opacity='0';},90);
+      render({
+        n:++shotN, angle:a, type:otype(), vw:vw, vh:vh, cw:cw, ch:ch,
+        corrDeg:corrDeg, raw:raw, corr:corr
+      });
+    } catch(e){
+      banner('Capture failed: '+(e&&e.message||e)+' \u2014 screenshot this and send to Mark.');
+    } finally {
+      busy=false;  // ALWAYS reset so the shutter never gets stuck
+    }
+  }
+
+  function url(cv){ return cv.toDataURL('image/jpeg',0.85); }
+
+  function render(r){
+    var card=document.createElement('div'); card.className='card';
+    var aspect = (r.vw>r.vh)?'landscape frame':((r.vw<r.vh)?'portrait frame':'square');
+    card.innerHTML =
+      '<div class="rhead"><b>Shot '+r.n+'</b><span class="n">rot applied '+r.corrDeg+'\u00B0</span></div>'+
+      '<div class="readout">'+
+        '<span class="k">screen.orientation.angle </span><span class="v">'+(r.angle===null?'n/a':r.angle+'\u00B0')+'</span>\n'+
+        '<span class="k">orientation.type       </span><span class="v">'+r.type+'</span>\n'+
+        '<span class="k">video frame            </span><span class="v">'+r.vw+'\u00D7'+r.vh+' ('+aspect+')</span>\n'+
+        '<span class="k">grabbed canvas         </span><span class="v">'+r.cw+'\u00D7'+r.ch+'</span>'+
+      '</div>'+
+      '<div class="pair">'+
+        '<div class="imgbox raw"><div class="lbl">RAW (what FRT saves today)</div><img src="'+url(r.raw)+'"></div>'+
+        '<div class="imgbox corr"><div class="lbl">CORRECTED (angle-normalized)</div><img src="'+url(r.corr)+'"></div>'+
+      '</div>'+
+      '<div class="cands"><div class="title">All four rotations of the raw grab \u2014 point me to the upright one if CORRECTED is wrong:</div>'+
+        '<div class="row">'+
+          candHTML(r.raw,0)+candHTML(r.raw,90)+candHTML(r.raw,180)+candHTML(r.raw,270)+
+        '</div></div>'+
+      '<div class="hint">If <b>CORRECTED</b> is upright in every shot \u2192 I bake <b>rotate(\u2212angle)</b> at capture, done. '+
+        'If a different candidate is always the upright one, that mapping is the fix.</div>';
+    results.insertBefore(card, results.firstChild);
+  }
+  function candHTML(src,deg){
+    return '<div class="cand"><div class="cl">'+deg+'\u00B0</div><img src="'+url(rotate(src,deg))+'"></div>';
+  }
+})();
+</script>
+</body>
+</html>
