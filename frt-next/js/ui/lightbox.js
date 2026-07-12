@@ -603,7 +603,11 @@ function _buildMarkupBar(overlay){
   [subRubber,subTap].forEach(function(b){
     b.addEventListener('click',function(e){
       e.stopPropagation();
-      if (window.MarkupEngine) window.MarkupEngine.setSelectSub(b.dataset.sub);
+      // S461i (Mark, frt-next field report): picking a sub-mode never actually
+      // ARMED the select tool — setActive() is visual-only, so the button lit
+      // up while MarkupEngine.tool stayed on the previous tool and drags DREW
+      // PEN STROKES instead of selecting. Arm it for real.
+      if (window.MarkupEngine){ window.MarkupEngine.setTool('select'); window.MarkupEngine.setSelectSub(b.dataset.sub); }
       setActive(bSel); _activeBtn=bSel; markSub(b.dataset.sub);
       closeFly(); _refreshConfirmBar();
     });

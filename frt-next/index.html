@@ -18,6 +18,9 @@
 // Service Worker registration — network-first HTML, cache-first CDN assets
 // S461 FRT-NEXT: SW registration DISABLED in this parallel verification copy.
 // Only the live frt/ registers the origin SW — two registrants would fight over
+// scope. Lib tags carry ?fn= cache-busters: the ROOT SW (registered by live FRT)
+// controls this page too and would otherwise serve PRECACHED /lib/ modules,
+// making every engine fix invisible to verification until a CACHE_NAME bump.
 // scope, and this copy must always load FRESH from the network for verification.
 if(false && 'serviceWorker' in navigator){
   window.addEventListener('load',function(){
@@ -1009,9 +1012,9 @@ function ensurePdfJs(cb){
 
 <!-- ═══ MODULE ENTRY POINT ═══ -->
 <script src="../lib/ui/markupTools.js?v=1"></script>
-<script src="../lib/ui/markupEraser.js"></script>
-<script src="../lib/ui/markupSelection.js"></script>
-<script src="../lib/ui/markupText.js"></script>
+<script src="../lib/ui/markupEraser.js?fn=3"></script>
+<script src="../lib/ui/markupSelection.js?fn=3"></script>
+<script src="../lib/ui/markupText.js?fn=3"></script>
 <script src="js/viewer/markupEngine.js?v=32"></script>
 <script src="js/viewer/webglMarkup.js?v=8"></script>
 <script src="js/ui/pinsGL.js?v=13"></script>
