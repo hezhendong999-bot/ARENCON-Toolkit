@@ -111,11 +111,11 @@ function crbContractorRow(resp){
           : resp.source==='manual' ? ' \u00b7 manual entry'
           : '';
   var h = '<div class="tr-row"><div class="tr-meta"><b>'+meta+'</b>'+src+'</div>';
-  // claim line: emit .cflex directly (comment/empty in ctext, status right in rep)
-  // so status right-alignment does NOT depend on a comment existing — the _crbBox
-  // post-hoc regex only rewrites the sample-preview (non-cflex) shape, so a
-  // comment-less real round would otherwise stay left-aligned. (S449 fold.)
-  h += '<div class="claim cflex"><span class="ctext">'+(resp.comment?_crbEsc(resp.comment):'')+'</span>'
+  // S467: the S461 primitives store the body in `text`; this module's S448-era
+  // schema said `comment`. Accept both — without this every primitive-written
+  // round (incl. the S463 PDF imports) rendered body-less in the report.
+  var _rBody = (resp.text!=null&&resp.text!=='') ? resp.text : resp.comment;
+  h += '<div class="claim cflex"><span class="ctext">'+(_rBody?_crbEsc(_rBody):'')+'</span>'
      + '<span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span></div>';
   // rectification photos (already resolved to {url,caption})
   var rp = resp.rectPhotos||[];
@@ -145,7 +145,9 @@ function crbReviewRow(rev, pillClsResolver){
   var pillTxt = rev.status==='closed'?'Closed':'Outstanding';
   var h = '<div class="tr-row arv"><div class="tr-meta"><b>'+meta+'</b>&nbsp;'
         + '<span class="pill '+pillCls+'">'+pillTxt+'</span></div>';
-  if(rev.comment) h += '<p>'+_crbEsc(rev.comment)+'</p>';
+  // S467: accept `text` (S461 primitive schema) alongside legacy `comment`.
+  var _vBody = (rev.text!=null&&rev.text!=='') ? rev.text : rev.comment;
+  if(_vBody) h += '<p>'+_crbEsc(_vBody)+'</p>';
   var fp = rev.followupPhotos||[];
   if(fp.length){
     h += '<div class="rect-lbl">ARENCON FOLLOW-UP PHOTOS ('+fp.length+')</div>';
@@ -157,6 +159,21 @@ function crbReviewRow(rev, pillClsResolver){
     });
     h += '</div>';
   }
+  h += '</div>';
+  return h;
+}
+
+// S467: render ONE migrated site-log row (source:'sitelog' — pre-thread history
+// carried in from the old activity[] system by the S464 migration). Locked
+// grammar: grey, quiet, visually distinct from formal rounds; NO status pill and
+// no "ARENCON REVIEW" label — a casual site note is not the authoritative review
+// row, and printing one as such would rewrite history as something it wasn't.
+function crbSitelogRow(entry){
+  var meta = 'SITE LOG \u00b7 '+_crbEsc(entry.author||'ARENCON')+' \u00b7 '+_crbEsc(entry.date)
+           + (entry.frtInstance?(' \u00b7 FRT #'+_crbEsc(entry.frtInstance)):'');
+  var body = (entry.text!=null&&entry.text!=='') ? entry.text : entry.comment;
+  var h = '<div class="tr-row"><div class="tr-meta" style="color:#928E9C"><b>'+meta+'</b></div>';
+  if(body) h += '<div class="claim" style="color:#6B7280">'+_crbEsc(body)+'</div>';
   h += '</div>';
   return h;
 }
@@ -198,12 +215,21 @@ function crbCompressionRow(collapsed, prevInstance){
 function crbBuildRealThread(opts){
   // opts: { obs, currentInstance, closed, pillClsResolver, flagSvg, fillHtml, resolvePhoto }
   var obs = opts.obs || {};
-  var responses = obs.responses || [];
-  var reviews   = obs.arenconReviews || [];
+  // S467: three stream rules before round-merging —
+  //   • removed (soft-deleted, S464 model) entries never print;
+  //   • source:'sitelog' reviews are pre-thread history: extracted here and
+  //     rendered FIRST as grey rows. They must not enter byRound: they all
+  //     carry round 0, and byRound keeps ONE review per round — multiple
+  //     sitelog entries would silently clobber each other.
+  var responses = (obs.responses || []).filter(function(r){ return r && !r.removed; });
+  var _allRev   = (obs.arenconReviews || []).filter(function(v){ return v && !v.removed; });
+  var sitelogs  = _allRev.filter(function(v){ return v.source==='sitelog'; })
+                         .sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+  var reviews   = _allRev.filter(function(v){ return v.source!=='sitelog'; });
   var closed    = !!opts.closed;
 
   // Nothing to show and item is closed with no history → skip the box entirely.
-  if(!responses.length && !reviews.length && closed) return null;
+  if(!responses.length && !reviews.length && !sitelogs.length && closed) return null;
 
   var noted = obs.notedOnInstance || 1;
   var chip  = crbRoundChip(opts.currentInstance, noted, opts.flagSvg);
@@ -248,6 +274,8 @@ function crbBuildRealThread(opts){
   if(collapsed.length < 2){ tail = collapsed.map(function(c){return c.round;}).concat(tail); collapsed = []; }
 
   var body = '';
+  // S467: migrated site-log history prints first — it predates the thread.
+  sitelogs.forEach(function(sl){ body += crbSitelogRow(sl); });
   if(collapsed.length){
     body += crbCompressionRow(collapsed, prevInst);
   }
@@ -279,13 +307,13 @@ function crbBuildRealThread(opts){
 // Export for pdf.js. ES module + a window fallback so a classic-script include
 // also works. Nothing here runs on import.
 export {
-  crbRoundChip, crbHeaderLabel, crbContractorRow, crbReviewRow, crbBuildRealThread
+  crbRoundChip, crbHeaderLabel, crbContractorRow, crbReviewRow, crbSitelogRow, crbBuildRealThread
 };
 if(typeof window!=='undefined'){
   window._crbRender = {
     crbRoundChip: crbRoundChip, crbHeaderLabel: crbHeaderLabel,
     crbContractorRow: crbContractorRow, crbReviewRow: crbReviewRow,
-    crbBuildRealThread: crbBuildRealThread
+    crbSitelogRow: crbSitelogRow, crbBuildRealThread: crbBuildRealThread
   };
 }
 
