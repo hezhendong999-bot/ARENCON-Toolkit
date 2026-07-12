@@ -82,9 +82,84 @@ if (window.MarkupSelection) {
     if (this.hasSel()) _tombstone(this.selIds);
     _engineDeleteSel();
   };
-  SelHost.onSelChange(function () { _syncTextDecoButtons(); });
+  SelHost.onSelChange(function () { _syncTextDecoButtons(); _dvRefreshSelConfirm(); });
 } else {
   console.error('[Markup] lib/ui/markupSelection.js missing — Select tool disabled');
+}
+
+// ── S461e: Select sub-tool flyout + ✓/✗ confirm bar — PORTED from the FRT
+// lightbox (S339 block in frt/js/ui/lightbox.js), same styles, same engine
+// APIs (setSelectSub / confirmPick / cancelSelect / isPicking / pickCount).
+// Not a new design — the lightbox feature, now on the drawing viewer.
+var _dvSelFly = null, _dvSelBar = null, _dvSelCnt = null, _dvSelOk = null;
+function _dvEnsureSelChrome() {
+  if (_dvSelFly) return;
+  var host = document.getElementById('drawing-viewer-overlay') || document.body;
+  _dvSelFly = document.createElement('div'); _dvSelFly.id = 'dv-mk-subfly';
+  _dvSelFly.style.cssText = 'position:fixed;z-index:10025;display:none;flex-direction:column;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:200px;';
+  function subBtn(sub, glyph, name, desc) {
+    var b = document.createElement('button'); b.dataset.sub = sub;
+    b.style.cssText = 'display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,255,255,.06);color:#fff;border:none;height:48px;padding:0 12px;border-radius:10px;cursor:pointer;font:600 14px Calibri,sans-serif;';
+    b.innerHTML = '<span style="width:22px;text-align:center;font-size:16px;">' + glyph + '</span>' +
+      '<span style="line-height:1.05;">' + name + '<span style="display:block;font-weight:400;font-size:11px;color:#a9a4b2;margin-top:1px;">' + desc + '</span></span>';
+    return b;
+  }
+  var subRubber = subBtn('rubber', '\u25C9', 'Rubber-band', 'Tap a mark, or drag a box');
+  var subTap    = subBtn('tap',    '\u2713', 'Tap select',  'Tap to pick, then confirm');
+  _dvSelFly.appendChild(subRubber); _dvSelFly.appendChild(subTap);
+  host.appendChild(_dvSelFly);
+  function markSub(sub) {
+    [subRubber, subTap].forEach(function (b) { b.style.background = (b.dataset.sub === sub) ? '#9C2742' : 'rgba(255,255,255,.06)'; });
+  }
+  [subRubber, subTap].forEach(function (b) {
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      SelHost.setSelectSub(b.dataset.sub);
+      markSub(b.dataset.sub);
+      _dvSelFly.style.display = 'none';
+      _dvRefreshSelConfirm();
+    });
+  });
+  markSub('rubber');
+  // confirm bar — verbatim lightbox styling
+  _dvSelBar = document.createElement('div'); _dvSelBar.id = 'dv-mk-confirm';
+  _dvSelBar.style.cssText = 'position:fixed;left:50%;bottom:84px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;z-index:10021;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+  _dvSelCnt = document.createElement('span'); _dvSelCnt.style.cssText = 'font:600 13px Calibri,sans-serif;color:#cfcad6;';
+  _dvSelOk = document.createElement('button'); _dvSelOk.innerHTML = '\u2713'; _dvSelOk.title = 'Confirm \u2014 group these';
+  _dvSelOk.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
+  var no = document.createElement('button'); no.innerHTML = '\u2715'; no.title = 'Cancel \u2014 clear selection';
+  no.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  _dvSelBar.appendChild(_dvSelCnt); _dvSelBar.appendChild(_dvSelOk); _dvSelBar.appendChild(no);
+  host.appendChild(_dvSelBar);
+  _dvSelOk.addEventListener('click', function () { SelHost.confirmPick(); _dvRefreshSelConfirm(); });
+  no.addEventListener('click', function () { SelHost.cancelSelect(); _dvRefreshSelConfirm(); });
+  // outside tap closes the flyout (mouse + touch — never rely on :hover)
+  function _outside(ev) {
+    if (_dvSelFly.style.display !== 'flex') return;
+    var sel = document.getElementById('mk-select');
+    if (_dvSelFly.contains(ev.target) || (sel && sel.contains(ev.target))) return;
+    _dvSelFly.style.display = 'none';
+  }
+  document.addEventListener('mousedown', _outside);
+  document.addEventListener('touchstart', _outside, { passive: true });
+}
+function _dvToggleSelFly() {
+  _dvEnsureSelChrome();
+  if (_dvSelFly.style.display === 'flex') { _dvSelFly.style.display = 'none'; return; }
+  var sel = document.getElementById('mk-select');
+  if (sel) {
+    var r = sel.getBoundingClientRect();
+    _dvSelFly.style.left = (r.right + 10) + 'px';
+    _dvSelFly.style.top = Math.max(8, r.top - 6) + 'px';
+  }
+  _dvSelFly.style.display = 'flex';
+}
+function _dvRefreshSelConfirm() {
+  if (!_dvSelBar) { if (!SelHost.hasActiveSelection || !SelHost.hasActiveSelection()) return; _dvEnsureSelChrome(); }
+  if (_tool !== 'select' || !SelHost.hasActiveSelection()) { _dvSelBar.style.display = 'none'; return; }
+  _dvSelBar.style.display = 'flex';
+  if (SelHost.isPicking()) { _dvSelOk.style.display = 'flex'; _dvSelCnt.textContent = SelHost.pickCount() + ' picked'; }
+  else { _dvSelOk.style.display = 'none'; _dvSelCnt.textContent = SelHost.selCount() + ' selected'; }
 }
 var _penPoints = [];
 var _polyPoints = [];
@@ -2990,6 +3065,7 @@ function _handlePolylineClick(e) {
     }
   }
   _polyPoints.push(pos);
+  _dvPositionPolyPill();   // S461e: pill follows the polyline (last placed point)
 
   var ov = _ensureOverlay();
   if (ov && _polyPoints.length >= 2) {
@@ -3051,12 +3127,46 @@ function _cancelPolyline() {
   }
   _renderAll();
 }
+// ── S461e: polyline pill — restyled to MATCH the ✓/✗ confirm bar (same
+// family as tap-select) and ANCHORED beside the last placed point instead of
+// floating far away (Mark, frt-next field report). Styles applied once.
+function _dvStylePolyPill(pill) {
+  if (pill._dvStyled) return; pill._dvStyled = true;
+  pill.style.cssText += ';position:fixed;z-index:10021;display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+  var ok = document.getElementById('poly-commit-btn');
+  if (ok) {
+    ok.style.cssText = 'border:none;height:42px;padding:0 16px;border-radius:21px;cursor:pointer;font:700 14px Calibri,sans-serif;color:#fff;background:#3FD08A;display:flex;align-items:center;gap:6px;';
+  }
+  var un = document.getElementById('poly-undo-pt-btn');
+  if (un) un.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;';
+  var no = document.getElementById('poly-cancel-btn');
+  if (no) no.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+}
+// Position the pill beside the LAST placed point (logical → screen, clamped).
+function _dvPositionPolyPill() {
+  var pill = document.getElementById('poly-sub-toolbar');
+  if (!pill || !_polyPoints.length) return;
+  _dvStylePolyPill(pill);
+  var mc = _getCanvas(); if (!mc) return;
+  var r = mc.getBoundingClientRect();
+  var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
+  var p = _polyPoints[_polyPoints.length - 1];
+  var sx = r.left + (p.x / lw) * r.width + 24;
+  var sy = r.top + (p.y / lh) * r.height - 21;
+  var pw = pill.offsetWidth || 210, ph = pill.offsetHeight || 58;
+  sx = Math.max(8, Math.min(window.innerWidth - pw - 8, sx));
+  sy = Math.max(8, Math.min(window.innerHeight - ph - 8, sy));
+  pill.style.left = sx + 'px'; pill.style.top = sy + 'px';
+  pill.style.right = 'auto'; pill.style.bottom = 'auto';
+}
+
 // ↩ Undo removes only the LAST placed point and repaints the preview —
 // fixes a misclick without redrawing the whole polyline.
 function _undoPolyPoint() {
   if (!_polyPoints.length) return;
   _polyPoints.pop();
   _redrawPolyOverlay();
+  _dvPositionPolyPill();   // S461e: pill follows back
 }
 // Repaint the placed-segments preview from _polyPoints (same drawing
 // contract as _handlePolylineClick: lineTo only, round caps/joins).
@@ -3732,6 +3842,12 @@ function _setActiveTool(tool) {
   // same contract as _resetDimensionFlow above.
   var polySub = document.getElementById('poly-sub-toolbar');
   if (polySub) polySub.style.display = (tool === 'polyline') ? 'flex' : 'none';
+  if (tool === 'polyline' && polySub) _dvStylePolyPill(polySub);   // S461e: confirm-bar look
+  // S461e: leaving Select hides its chrome
+  if (tool !== 'select') {
+    if (_dvSelBar) _dvSelBar.style.display = 'none';
+    if (_dvSelFly) _dvSelFly.style.display = 'none';
+  }
   if (tool !== 'polyline' && _polyPoints.length) _cancelPolyline();
 
   // Update sidebar button states
@@ -3938,6 +4054,9 @@ function _wireEvents() {
     var btn = e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
     if (btn) {
       var tool = btn.getAttribute('data-mk-tool');
+      // S461e: tapping Select while it's ALREADY active opens the sub-tool
+      // flyout (Rubber-band / Tap select) — the lightbox S339 pattern.
+      if (tool === 'select' && _tool === 'select') { _dvToggleSelFly(); return; }
       // If from pen submenu, update main button icon, remember, close menu
       var penSub = document.getElementById('pen-submenu');
       if (penSub && penSub.contains(btn)) {
