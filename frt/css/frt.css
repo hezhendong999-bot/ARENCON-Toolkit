@@ -10809,9 +10809,12 @@ body.dark-mode .ph-trash-tile.selected .ph-trash-check{background:#C9476A;}
    grey; replies nest ONE level. Light values from the locked demo palette;
    dark via body.dark-mode per FRT convention.
    ════════════════════════════════════════════════════════════════════ */
-.crbt{margin-top:6px;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
-.crbt-round{border-bottom:1px solid var(--border);}
-.crbt-round:last-child{border-bottom:none;}
+/* S472 (Mark: box-in-box): the thread is FLAT per the locked demo — no outer
+   container border, no per-round boxes. Rounds are sections separated by the
+   grey rhead strip + a hairline; the only boxes are the comment rows. */
+.crbt{margin-top:6px;}
+.crbt-round{border-top:1px solid var(--border);}
+.crbt-round:first-child{border-top:none;}
 .crbt-rhead{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#F7F5F8;
   font-size:calc(10px + var(--ts));font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#5E5B68;}
 .crbt-rhead-log{color:#928E9C;}
