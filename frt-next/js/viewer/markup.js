@@ -333,7 +333,7 @@ function _resetDimensionFlow() {
   // S330 #37 — clear the finish chip and close any open value keypad
   if (typeof _dimKpOpen === 'function' && _dimKpOpen()) _dimKpCommit(true);
   var _fc = document.getElementById('dim-finchip');
-  if (_fc) _fc.classList.remove('show');
+  if (_fc) { _fc.classList.remove('show'); _fc.style.display = 'none'; }
   var ov = _getOverlay();
   if (ov) {
     ov.style.display = 'none';
@@ -608,19 +608,37 @@ function _dimKpClose() { if (_dimKpOpen()) _dimKpCommit(false); }
 // S330 #37 — Finish ✕ chip. Shown between dimensions in continuous/running
 // (state 'awaitB' with an anchor), never during the offset stage, so
 // reaching for it can't drag the offset. Tapping it ends the chain.
+function _dvStyleDimFinChip(chip) {
+  // S461i (Mark): the red "✕ Done" chip becomes the SAME dark pill family as
+  // the polyline pill / confirm bar — ✓ Finish (green) + ✕ (red). One visual
+  // language for every "in-progress → commit/cancel" surface.
+  if (chip._dvStyled) return; chip._dvStyled = true;
+  chip.style.cssText += ';display:none;align-items:center;gap:10px;padding:8px 10px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;box-shadow:0 6px 20px rgba(0,0,0,.55);z-index:10021;';
+  chip.innerHTML = '';
+  var ok = document.createElement('button');
+  ok.id = 'dim-finchip-ok';
+  ok.innerHTML = '\u2713 <span style="margin-left:4px;">Finish</span>';
+  ok.style.cssText = 'border:none;height:42px;padding:0 16px;border-radius:21px;cursor:pointer;font:700 14px Calibri,sans-serif;color:#fff;background:#3FD08A;display:flex;align-items:center;';
+  var no = document.createElement('button');
+  no.id = 'dim-finchip-no';
+  no.innerHTML = '\u2715';
+  no.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  chip.appendChild(ok); chip.appendChild(no);
+}
 function _updateDimFinChip() {
   var chip = document.getElementById('dim-finchip');
   var dim = window._dimTool;
   if (!chip || !dim) return;
+  _dvStyleDimFinChip(chip);
   var anchor = dim.chainFinishAnchor ? dim.chainFinishAnchor() : null;
   var mode = dim.getMode ? dim.getMode() : 'single';
   if (!anchor || mode === 'single' || _tool !== 'dimension') {
-    chip.classList.remove('show', 'pulse');
+    chip.classList.remove('show', 'pulse'); chip.style.display = 'none';
     _dimFinChipWasShowing = false;
     return;
   }
   var mc = _getCanvas();
-  if (!mc) { chip.classList.remove('show', 'pulse'); _dimFinChipWasShowing = false; return; }
+  if (!mc) { chip.classList.remove('show', 'pulse'); chip.style.display = 'none'; _dimFinChipWasShowing = false; return; }
   // S342: the Done chip used to sit 16px right / 24px above the chain anchor —
   // i.e. right on top of the point you're drawing from, blocking the live line
   // (Mark's complaint). It does NOT need to track the anchor: tapping it just
@@ -638,7 +656,7 @@ function _updateDimFinChip() {
   var y = Math.max(12, r.top + 12);
   chip.style.left = x + 'px';
   chip.style.top = y + 'px';
-  chip.classList.add('show');
+  chip.classList.add('show'); chip.style.display = 'flex';
   // S331 #37 — pulse once when a chain FIRST starts waiting (discoverability),
   // not on every render while it sits there.
   if (!_dimFinChipWasShowing) {
@@ -698,11 +716,17 @@ function _wireDimensionV4() {
   var kpClose = document.getElementById('dim-kp-close');
   if (kpClose) kpClose.addEventListener('click', function (e) { e.stopPropagation(); _dimKpCommit(false); });
 
-  // finish chip
-  var finX = document.getElementById('dim-fin-x');
-  if (finX) finX.addEventListener('click', function (e) { e.stopPropagation(); _dimFinChipEnd(); });
+  // finish chip — S461i: delegated, because the chip's innerHTML is rebuilt
+  // by _dvStyleDimFinChip (✓ Finish + ✕; both end the chain — endChain and
+  // cancel are the same reset in the dim module, segments commit immediately).
   var finChip = document.getElementById('dim-finchip');
   if (finChip) {
+    finChip.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (e.target.closest && (e.target.closest('#dim-finchip-ok') || e.target.closest('#dim-finchip-no') || e.target.closest('#dim-fin-x'))) {
+        _dimFinChipEnd();
+      }
+    });
     finChip.addEventListener('mousedown', function (e) { e.stopPropagation(); });
     finChip.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
   }
@@ -3148,8 +3172,9 @@ function _dvStylePolyPill(pill) {
   if (ok) {
     ok.style.cssText = 'border:none;height:42px;padding:0 16px;border-radius:21px;cursor:pointer;font:700 14px Calibri,sans-serif;color:#fff;background:#3FD08A;display:flex;align-items:center;gap:6px;';
   }
+  // S461i (Mark): the pill is ✓ Finish + ✕ only — the ↩ undo-point button is gone.
   var un = document.getElementById('poly-undo-pt-btn');
-  if (un) un.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;';
+  if (un) un.style.display = 'none';
   var no = document.getElementById('poly-cancel-btn');
   if (no) no.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
 }
