@@ -96,20 +96,30 @@ function _dvEnsureSelChrome() {
   if (_dvSelFly) return;
   var host = document.getElementById('drawing-viewer-overlay') || document.body;
   _dvSelFly = document.createElement('div'); _dvSelFly.id = 'dv-mk-subfly';
-  _dvSelFly.style.cssText = 'position:fixed;z-index:10025;display:none;flex-direction:column;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:200px;';
-  function subBtn(sub, glyph, name, desc) {
-    var b = document.createElement('button'); b.dataset.sub = sub;
-    b.style.cssText = 'display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,255,255,.06);color:#fff;border:none;height:48px;padding:0 12px;border-radius:10px;cursor:pointer;font:600 14px Calibri,sans-serif;';
-    b.innerHTML = '<span style="width:22px;text-align:center;font-size:16px;">' + glyph + '</span>' +
-      '<span style="line-height:1.05;">' + name + '<span style="display:block;font-weight:400;font-size:11px;color:#a9a4b2;margin-top:1px;">' + desc + '</span></span>';
+  // S461m (Mark): matches the app's OTHER submenus (pen/shape flyouts) — white
+  // rounded card with bordered icon buttons. Icons that mean something: DASHED
+  // SQUARE = rubber-band, POINTING HAND = tap select.
+  _dvSelFly.style.cssText = 'position:fixed;z-index:10025;display:none;gap:8px;padding:8px;background:#fff;border:1px solid #D5D2D8;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.18);';
+  var _svgRubber = '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#1B1A22" stroke-width="1.8"><rect x="3.5" y="3.5" width="15" height="15" rx="1.5" stroke-dasharray="3.4 2.6"/></svg>';
+  var _svgTap = '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#1B1A22" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10.5V4.8a1.7 1.7 0 0 1 3.4 0v5.2l3.6.9c1 .25 1.7 1.15 1.7 2.18v1.9A4 4 0 0 1 13.7 19h-2.2a4 4 0 0 1-3.3-1.75L5.3 13.1a1.55 1.55 0 0 1 2.4-1.95L9 12.6"/></svg>';
+  function subBtn(sub, svg, tip) {
+    var b = document.createElement('button'); b.dataset.sub = sub; b.title = tip; b.setAttribute('data-tip', tip);
+    b.style.cssText = 'display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#fff;border:1px solid #D5D2D8;border-radius:10px;cursor:pointer;';
+    b.innerHTML = svg;
     return b;
   }
-  var subRubber = subBtn('rubber', '\u25C9', 'Rubber-band', 'Tap a mark, or drag a box');
-  var subTap    = subBtn('tap',    '\u2713', 'Tap select',  'Tap to pick, then confirm');
+  var subRubber = subBtn('rubber', _svgRubber, 'Rubber-band \u2014 tap a mark, or drag a box');
+  var subTap    = subBtn('tap',    _svgTap,    'Tap select \u2014 tap to pick, then confirm');
   _dvSelFly.appendChild(subRubber); _dvSelFly.appendChild(subTap);
   host.appendChild(_dvSelFly);
   function markSub(sub) {
-    [subRubber, subTap].forEach(function (b) { b.style.background = (b.dataset.sub === sub) ? '#9C2742' : 'rgba(255,255,255,.06)'; });
+    [subRubber, subTap].forEach(function (b) {
+      var on = (b.dataset.sub === sub);
+      b.style.background = on ? '#9C2742' : '#fff';
+      b.style.borderColor = on ? '#9C2742' : '#D5D2D8';
+      var ps = b.querySelectorAll('svg, svg [stroke]');
+      for (var i = 0; i < ps.length; i++) ps[i].setAttribute('stroke', on ? '#fff' : '#1B1A22');
+    });
   }
   [subRubber, subTap].forEach(function (b) {
     b.addEventListener('click', function (e) {
@@ -146,22 +156,18 @@ function _dvEnsureSelChrome() {
 function _dvToggleSelFly() {
   _dvEnsureSelChrome();
   if (_dvSelFly.style.display === 'flex') { _dvSelFly.style.display = 'none'; return; }
+  // S461m (Mark): anchored right UNDER the Select button, like the pen submenu.
   var sel = document.getElementById('mk-select');
-  var coarse = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-  if (coarse || !sel) {
-    // S461j (Mark): on mobile the beside-the-button placement never showed.
-    // Coarse pointers get a CENTERED sheet below the toolbar — position that
-    // cannot miss, same idea as the lightbox's centered subFly.
-    _dvSelFly.style.left = '50%';
-    _dvSelFly.style.top = '';
-    _dvSelFly.style.transform = 'translateX(-50%)';
-    var tb = sel ? sel.getBoundingClientRect() : null;
-    _dvSelFly.style.top = ((tb ? tb.bottom : 96) + 10) + 'px';
-  } else {
+  _dvSelFly.style.transform = '';
+  if (sel) {
     var r = sel.getBoundingClientRect();
-    _dvSelFly.style.transform = '';
-    _dvSelFly.style.left = (r.right + 10) + 'px';
-    _dvSelFly.style.top = Math.max(8, r.top - 6) + 'px';
+    var fw = 8 + 44 + 8 + 44 + 8;
+    var lx = Math.min(Math.max(8, r.left), window.innerWidth - fw - 8);
+    _dvSelFly.style.left = lx + 'px';
+    _dvSelFly.style.top = (r.bottom + 8) + 'px';
+  } else {
+    _dvSelFly.style.left = '50%'; _dvSelFly.style.transform = 'translateX(-50%)';
+    _dvSelFly.style.top = '96px';
   }
   _dvSelFly.style.display = 'flex';
 }
