@@ -276,9 +276,45 @@ export function buildComposerHtml(o){
   h+='<textarea class="crbt-ta" placeholder="'+(v==='c'
       ? 'Contractor\u2019s words, verbatim \u2014 logged as MANUAL, attributed to you.'
       : (o.replyTo?'Your response to this comment\u2026':'Your comment\u2026'))+'"></textarea>';
+  // ── S477 (A2) — PHOTOS ON A THREAD COMMENT ─────────────────────────────
+  // Mandatory three-way standard (project canon): drag-and-drop is the DEFAULT
+  // surface, plus an Upload button and a Camera button. Never a click-only zone.
+  //
+  // Staging, not attaching. A photo dropped here has NO comment to attach to yet
+  // — the entry does not exist until Submit. So files land in a staging tray keyed
+  // to this composer node, and are flushed onto the entry only AFTER the model has
+  // created it and stamped it with an id. Attaching before the entry exists is how
+  // a photo gets silently dropped by merge (an id-less photo is discarded).
+  h+='<div class="crbt-pz" data-action="crbt-ph-upload">'
+    +'<div class="crbt-pz-hint">Drag photos here</div>'
+    +'<div class="crbt-pz-btns">'
+      +'<button class="crbt-btn crbt-pz-b" data-action="crbt-ph-upload">Upload</button>'
+      +'<button class="crbt-btn crbt-pz-b" data-action="crbt-ph-camera">Camera</button>'
+    +'</div>'
+  +'</div>';
+  h+='<div class="crbt-tray"></div>';   // staging thumbnails render here
   h+='<div class="crbt-cfoot"><span class="crbt-sp"></span>'
     +'<button class="crbt-btn" data-action="crbt-cancel">Cancel</button>'
     +'<button class="crbt-btn crbt-primary" data-action="crbt-submit">'+(o.replyTo?'Add reply':'Add comment')+'</button></div>';
   h+='</div>';
+  return h;
+}
+
+// ── S477 (A2) — staging tray render ──────────────────────────────────────
+// `items` are staged, NOT-yet-persisted photos: {tmpId, dataUrl, file, name}.
+// Rendered from the dataUrl only — nothing here has an R2 key yet, by design.
+export function buildTrayHtml(items){
+  var ls=(items||[]);
+  if(!ls.length) return '';
+  var h='<div class="crbt-tray-in">';
+  ls.forEach(function(p){
+    h+='<div class="crbt-tph" style="background-image:url(\''+_esc(p.dataUrl||'')+'\')">'
+      +'<button class="crbt-tph-x" data-action="crbt-ph-drop" data-tmp-id="'+_esc(p.tmpId)+'" '
+      +'title="Remove this photo" aria-label="Remove this photo">\u00D7</button>'
+      +'</div>';
+  });
+  h+='</div>';
+  h+='<div class="crbt-tray-note">'+ls.length+' photo'+(ls.length===1?'':'s')
+    +' will upload when you add the comment</div>';
   return h;
 }

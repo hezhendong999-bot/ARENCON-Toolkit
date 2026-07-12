@@ -18,7 +18,7 @@ import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app c
 import { R2 } from '../data/r2.js';
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
-import { buildThreadHtml, buildComposerHtml } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar)
+import { buildThreadHtml, buildComposerHtml, buildTrayHtml } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar) · S477: staging tray
 import { AIAssist } from '../ai/assistant.js';
 import { esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local copy; byte-identical)
 
@@ -4284,6 +4284,139 @@ function _crbtRefresh(el, deficId) {
   try { if (deficId) _frtRefreshPinFocusIf(deficId); } catch (e) {}
 }
 
+// ══ S477 (A2) — THREAD-COMMENT PHOTO STAGING ═══════════════════════════════
+// Keyed by the composer NODE, not by deficiency id: only one composer is open at
+// a time, and the buffer must die with the DOM node it belongs to (Cancel, or a
+// re-render, must not leave photos stranded for the next comment). A WeakMap lets
+// the browser collect the buffer the moment the composer node is dropped.
+var _crbtStage = new WeakMap();
+
+function _crbtTmpId() {
+  return 'stg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+// Compress on the way IN (same worker + settings as the deficiency-photo path,
+// so a thread photo is never heavier than an evidence photo), then hold BOTH the
+// compressed dataUrl (for the tray + in-app render + PDF embed) and the ORIGINAL
+// File (S389: R2 receives the untouched original, never the recompressed copy).
+function _crbtStageFiles(comp, files) {
+  if (!comp || !files || !files.length) return;
+  var buf = _crbtStage.get(comp);
+  if (!buf) { buf = []; _crbtStage.set(comp, buf); }
+  var n = 0;
+  for (var i = 0; i < files.length; i++) {
+    (function(file) {
+      ImageWorkerHost.compressFile(file, { maxW: 1600, quality: 0.8 })
+        .then(function(r) {
+          var cur = _crbtStage.get(comp);
+          if (!cur) return;                       // composer closed mid-compress — drop it
+          cur.push({ tmpId: _crbtTmpId(), dataUrl: r.dataUrl, file: file, name: file.name || '' });
+          _crbtRenderTray(comp);
+        })
+        .catch(function(err) {
+          console.warn('[CRB] thread photo compression failed:', err);
+          var em = (err && err.message) || 'unknown error';
+          if (em.length > 60) em = em.slice(0, 57) + '\u2026';
+          toast('\u26A0 Photo failed: ' + em, 8000);
+        });
+      n++;
+    })(files[i]);
+  }
+  if (n) toast(n + ' photo' + (n === 1 ? '' : 's') + ' staged');
+}
+
+function _crbtRenderTray(comp) {
+  if (!comp) return;
+  var tray = comp.querySelector('.crbt-tray');
+  if (!tray) return;
+  tray.innerHTML = buildTrayHtml(_crbtStage.get(comp) || []);
+}
+
+// Flush the staging buffer onto a JUST-CREATED entry.
+//
+// CANON — THE 4380.24 RULE. Every staged photo is uploaded to R2 as its OWN
+// blob under its OWN key. We never borrow an r2Url from a source photo: cloud
+// sync strips dataUrl, and a borrowed key breaks silently the moment the source
+// is deleted or purged. The record is written FIRST (id-stamped, with dataUrl so
+// the photo renders and survives offline), and the R2 key is patched in when the
+// PUT lands. If the PUT fails, the photo still exists locally and is flagged —
+// exactly like a deficiency photo — rather than vanishing.
+function _crbtFlushPhotos(comp, deficId, obsIdx, entryId, who) {
+  var buf = comp && _crbtStage.get(comp);
+  if (!buf || !buf.length) return 0;
+  var pid = new URLSearchParams(window.location.search).get('project');
+  var count = 0;
+
+  buf.forEach(function(st) {
+    // 1. Record it. dataUrl carries the binary until R2 confirms — a photo is
+    //    never a bare pointer to something that may not have uploaded yet.
+    var ph = Model.addThreadPhoto(deficId, obsIdx, entryId, {
+      dataUrl: st.dataUrl, addedBy: who
+    });
+    if (!ph) { console.warn('[CRB] addThreadPhoto refused — entry not found:', entryId); return; }
+    count++;
+
+    // 2. Upload its OWN blob under its OWN key. Standalone mode (no project in
+    //    the URL) has no R2 — the dataUrl in IDB is the whole record, which is
+    //    correct and complete for that mode.
+    if (!pid) return;
+    R2.upload(pid, 'original', st.file, 'crb_' + ph.id + '.jpg').then(function(res) {
+      // Re-resolve by id — the thread may have re-rendered during the PUT, so a
+      // held object reference could be stale (writing to it would write to a
+      // detached copy and the key would be lost on the next save).
+      var live = Model.findThreadPhoto(deficId, obsIdx, entryId, ph.id);
+      if (!live || !res) return;
+      live.r2Key = res.r2Key;
+      live.r2Url = res.r2Url;
+      Model.saveNow();
+    }).catch(function(err) {
+      var live = Model.findThreadPhoto(deficId, obsIdx, entryId, ph.id);
+      if (live) {
+        live._r2UploadFailed = true;
+        live._r2UploadError = (err && err.message) || String(err);
+        live._r2UploadFailedAt = new Date().toISOString();
+        try { Model.saveNow(); } catch (_) {}
+      }
+      console.warn('[CRB] thread photo R2 upload failed:', err, 'photo:', ph.id);
+      var em = (err && err.message) || 'unknown error';
+      if (em.length > 60) em = em.slice(0, 57) + '\u2026';
+      toast('\u26A0 Photo cloud upload failed: ' + em + ' \u2014 the photo is saved on this device.', 8000);
+    });
+  });
+
+  _crbtStage.delete(comp);
+  return count;
+}
+
+// Drag-and-drop — the DEFAULT surface (project canon: never a click-only zone).
+// Delegated on the document so it survives every thread re-render without
+// rebinding. dragover MUST preventDefault or the browser navigates to the file.
+document.addEventListener('dragover', function(e) {
+  var pz = e.target.closest && e.target.closest('.crbt-pz');
+  if (!pz) return;
+  e.preventDefault();
+  pz.classList.add('crbt-pz-over');
+});
+document.addEventListener('dragleave', function(e) {
+  var pz = e.target.closest && e.target.closest('.crbt-pz');
+  if (pz) pz.classList.remove('crbt-pz-over');
+});
+document.addEventListener('drop', function(e) {
+  var pz = e.target.closest && e.target.closest('.crbt-pz');
+  if (!pz) return;
+  e.preventDefault();
+  pz.classList.remove('crbt-pz-over');
+  var comp = pz.closest('.crbt-composer');
+  var dt = e.dataTransfer;
+  if (!comp || !dt || !dt.files || !dt.files.length) return;
+  var imgs = [];
+  for (var i = 0; i < dt.files.length; i++) {
+    if (/^image\//.test(dt.files[i].type)) imgs.push(dt.files[i]);
+  }
+  if (!imgs.length) { toast('Only image files can be attached'); return; }
+  _crbtStageFiles(comp, imgs);
+});
+
 function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
   var ea = document.getElementById('dfx-pc-active');
   var ec = document.getElementById('dfx-pc-closed');
@@ -5682,6 +5815,45 @@ document.addEventListener('click', function(e) {
   // one level; edit ARENCON drafts only; removal soft + undoable; the issued
   // line is enforced by the MODEL (edit/remove refuse on printed rows) — the
   // UI greys, the model guards.
+  // ══ S477 (A2) — PHOTOS ON A THREAD COMMENT ═════════════════════════════
+  // Three-way input per project canon: drag-drop (default) + Upload + Camera.
+  //
+  // Files are STAGED, not attached. A photo dropped into the composer has no
+  // entry to attach to — the comment does not exist until Submit. So it lives in
+  // _crbtStage until the model has created the entry and returned its id; only
+  // then is it recorded and uploaded. Attaching to a not-yet-existent entry, or
+  // recording an id-less photo, is silently discarded by merge.
+  if (action === 'crbt-ph-upload' || action === 'crbt-ph-camera') {
+    var _pzComp = el.closest('.crbt-composer');
+    if (!_pzComp) return;
+    if (action === 'crbt-ph-camera') {
+      openCameraBurst().then(function(files) {
+        if (files === null) { toast('Camera unavailable \u2014 use the Upload button instead'); return; }
+        _crbtStageFiles(_pzComp, files);
+      }).catch(function() { toast('Camera unavailable \u2014 use the Upload button instead'); });
+      return;
+    }
+    var _pzInp = document.createElement('input');
+    _pzInp.type = 'file'; _pzInp.accept = 'image/*'; _pzInp.multiple = true;
+    _pzInp.onchange = function() {
+      if (_pzInp.files && _pzInp.files.length) _crbtStageFiles(_pzComp, _pzInp.files);
+    };
+    _pzInp.click();
+    return;
+  }
+  if (action === 'crbt-ph-drop') {
+    var _dComp = el.closest('.crbt-composer');
+    var _dTmp = el.getAttribute('data-tmp-id');
+    if (!_dComp || !_dTmp) return;
+    var _dBuf = _crbtStage.get(_dComp);
+    if (_dBuf) {
+      for (var _di = 0; _di < _dBuf.length; _di++) {
+        if (_dBuf[_di].tmpId === _dTmp) { _dBuf.splice(_di, 1); break; }
+      }
+      _crbtRenderTray(_dComp);
+    }
+    return;
+  }
   if (action === 'crbt-reply' || action === 'crbt-addcomment') {
     var _cDefic = el.getAttribute('data-defic-id');
     var _cObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
@@ -5722,7 +5894,11 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-cancel') {
-    var _cc = el.closest('.crbt-composer'); if (_cc) _cc.remove();
+    var _cc = el.closest('.crbt-composer');
+    // S477: discard the staging buffer with the composer. Nothing was uploaded
+    // and nothing was written to the model, so there is nothing to clean up in
+    // R2 or IDB — but the buffer MUST NOT survive to the next comment.
+    if (_cc) { _crbtStage.delete(_cc); _cc.remove(); }
     return;
   }
   if (action === 'crbt-submit') {
@@ -5755,9 +5931,16 @@ document.addEventListener('click', function(e) {
       });
     }
     if (_entry) {
+      // S477 (A2): the entry now EXISTS and carries an id — only now may staged
+      // photos be attached. Flushing before this point would attach to nothing;
+      // an id-less photo is silently dropped by merge.
+      var _nPh = 0;
+      try { _nPh = _crbtFlushPhotos(_sc, _sDefic, _sObs, _entry.id, _who); }
+      catch (_phErr) { console.warn('[CRB] photo flush failed:', _phErr); }
       Model.saveNow();
       _crbtRefresh(el, _sDefic);
-      toast(_sReply ? 'Reply added' : 'Comment added');
+      toast((_sReply ? 'Reply added' : 'Comment added')
+            + (_nPh ? ' \u00B7 ' + _nPh + ' photo' + (_nPh === 1 ? '' : 's') : ''));
     } else { toast('Could not add \u2014 see console'); }
     return;
   }

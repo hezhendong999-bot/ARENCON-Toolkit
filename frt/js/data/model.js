@@ -2916,6 +2916,62 @@ export var Model = {
     return hit.entry;
   },
 
+  // ══ S477 (A2) — PHOTOS ON A THREAD COMMENT ═══════════════════════════
+  // addRectificationPhoto / addReviewFollowupPhoto each require the caller to
+  // already KNOW which array the entry lives in (a round vs a review). The
+  // composer does not: it creates an entry, gets an id back, and must attach
+  // photos to whatever that turned out to be. This resolves by id across BOTH
+  // arrays and writes to the correct photo field for the kind it finds.
+  //
+  // CANON (the 4380.24 lesson): the photo passed in MUST already own its blob —
+  // uploaded to R2 under ITS OWN key. Never a url borrowed from a source photo.
+  // Cloud sync strips dataUrl; a borrowed r2Url goes dead silently. This
+  // function does not upload — it records — so the CALLER carries that duty.
+  //
+  // The photo is id-stamped here if it arrives without one. An id-less photo is
+  // silently discarded by merge, so this is not optional.
+  addThreadPhoto: function(deficId, obsIdx, entryId, photoData) {
+    var hit = this._findThreadEntry(deficId, obsIdx, entryId);
+    if (!hit) return null;
+    var isResp = (hit.kind === 'response');
+    var field = isResp ? 'rectPhotos' : 'followupPhotos';
+    if (!Array.isArray(hit.entry[field])) hit.entry[field] = [];
+    photoData = photoData || {};
+    var ph = {
+      id: photoData.id || _uid(isResp ? 'rph' : 'fph'),
+      r2Key: photoData.r2Key || null,
+      r2Url: photoData.r2Url || null,
+      dataUrl: photoData.dataUrl || null,
+      caption: photoData.caption || '',
+      addedAt: photoData.addedAt || new Date().toISOString(),
+      addedBy: photoData.addedBy || null
+    };
+    hit.entry[field].push(ph);
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', {
+      action: 'add-threadphoto', deficId: deficId, obsIdx: obsIdx,
+      entryId: entryId, kind: hit.kind, photo: ph
+    });
+    return ph;
+  },
+
+  // Find a thread photo by its id — needed by the R2 upload callback, which
+  // resolves the record AFTER the async PUT returns (the entry may have been
+  // re-rendered in between, so we must never hold a stale object reference).
+  findThreadPhoto: function(deficId, obsIdx, entryId, photoId) {
+    var hit = this._findThreadEntry(deficId, obsIdx, entryId);
+    if (!hit) return null;
+    var arrs = [hit.entry.rectPhotos, hit.entry.followupPhotos];
+    for (var a = 0; a < arrs.length; a++) {
+      var L = arrs[a] || [];
+      for (var i = 0; i < L.length; i++) {
+        if (L[i] && L[i].id === photoId) return L[i];
+      }
+    }
+    return null;
+  },
+
   // Mark a comment as no longer present in the contractor's re-sent sheet.
   // WITHDRAWN IS NOT DELETED (locked §5): an import may never destroy a
   // record — only a person may, deliberately.

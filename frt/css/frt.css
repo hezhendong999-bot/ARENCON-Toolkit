@@ -10913,3 +10913,75 @@ body.dark-mode .crbt-openlbl{color:#E0A36A;}
 .crbt-stubtoggle{text-decoration:underline;font-style:normal;}
 .crbt-stublist{margin-top:4px;}
 body.dark-mode .crbt-stubfold>.crbt-act{color:#6b6674;}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PART — CRB THREAD PHOTOS (S477 / A2)
+   Photos on a thread comment. The photo zone follows the mandatory
+   three-way standard: drag-and-drop is the DEFAULT surface, with Upload
+   and Camera buttons alongside. Never a click-only zone.
+   Touch: the zone is tappable in its entirety (data-action on the wrapper),
+   so a coarse pointer never depends on hitting a small button — and the
+   drag hint is hidden on coarse pointers, where dragging is not a thing.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* The drop zone. Dashed = "this accepts things", the universal affordance. */
+.crbt-pz{
+  margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 12px;border:1.5px dashed #D6D2DB;border-radius:10px;
+  background:#FAF9FB;cursor:pointer;transition:border-color .12s,background .12s;
+}
+.crbt-pz:hover{border-color:#9C2742;background:#F7F5F8;}
+.crbt-pz-over{border-color:#9C2742;background:#F3E9EC;border-style:solid;}
+.crbt-pz-hint{
+  flex:1;min-width:110px;font-size:calc(11px + var(--ts));color:#928E9C;
+  user-select:none;pointer-events:none;
+}
+.crbt-pz-btns{display:flex;gap:6px;flex-shrink:0;}
+/* Generous targets — gloves. 44px is the floor, not the aspiration. */
+.crbt-pz-b{min-height:34px;padding:6px 14px;}
+
+/* Coarse pointer: there is no drag. Say what the surface actually does. */
+@media (pointer:coarse){
+  .crbt-pz{padding:12px;}
+  .crbt-pz-hint{display:none;}
+  .crbt-pz-btns{flex:1;}
+  .crbt-pz-b{flex:1;min-height:44px;font-size:calc(12px + var(--ts));}
+}
+
+/* Staging tray — photos held BEFORE the comment exists. Deliberately reads as
+   provisional (dashed thumbs, an explicit note) so nobody believes a staged
+   photo is saved. It is not, until Add. */
+.crbt-tray:empty{display:none;}
+.crbt-tray-in{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.crbt-tph{
+  position:relative;width:62px;height:62px;border-radius:8px;
+  background-size:cover;background-position:center;
+  border:1.5px dashed #C9C4CE;
+}
+.crbt-tph-x{
+  position:absolute;top:-6px;right:-6px;width:22px;height:22px;
+  border-radius:50%;border:1px solid #E4E1E8;background:#fff;color:#5E5B68;
+  font-size:14px;line-height:1;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 3px rgba(0,0,0,.16);
+}
+.crbt-tph-x:hover{background:#C0445F;color:#fff;border-color:#C0445F;}
+/* Touch: the ✕ needs a real hit area even though it paints small (M3 rule). */
+@media (pointer:coarse){
+  .crbt-tph{width:70px;height:70px;}
+  .crbt-tph-x{width:26px;height:26px;font-size:16px;}
+  .crbt-tph-x::after{content:'';position:absolute;top:-9px;left:-9px;right:-9px;bottom:-9px;}
+}
+.crbt-tray-note{
+  margin-top:5px;font-size:calc(10px + var(--ts));color:#928E9C;font-style:italic;
+}
+
+/* Dark mode — same structure, switched values (never a duplicate component). */
+body.dark-mode .crbt-pz{border-color:#3a3540;background:rgba(255,255,255,.02);}
+body.dark-mode .crbt-pz:hover{border-color:#C9476A;background:rgba(201,71,106,.06);}
+body.dark-mode .crbt-pz-over{border-color:#C9476A;background:rgba(201,71,106,.12);}
+body.dark-mode .crbt-pz-hint{color:#6b6674;}
+body.dark-mode .crbt-tph{border-color:#4a4450;}
+body.dark-mode .crbt-tph-x{background:#241f28;border-color:#4a4450;color:#a09aa8;}
+body.dark-mode .crbt-tph-x:hover{background:#E26076;border-color:#E26076;color:#fff;}
+body.dark-mode .crbt-tray-note{color:#6b6674;}
