@@ -2539,6 +2539,13 @@ function _buildObsRow(d, oi, ctrId, opts) {
 // Remove routes through dfx-remove-obsrow (this obs only; whole pin only on
 // the last obs).
 function _buildObsEditor(d, oi, ctrId, opts) {
+  // S474: the on-drawing pin editor (viewer.js) can hand this builder a defic
+  // snapshot cached at open time. Thread writes land on the LIVE model object,
+  // so a stale snapshot renders a thread missing its newest rows (field
+  // report: reply added in the viewer editor "disappeared" on reopen while
+  // the deficiencies page showed it). Re-fetch the live object by id; fall
+  // back to the argument if the id doesn't resolve.
+  try { var _live474 = Model.findDeficiency(d && d.id); if (_live474 && _live474.defic) d = _live474.defic; } catch (e474) {}
   opts = opts || {};
   var obs = d.observations || [];
   var o = obs[oi] || {};
@@ -4267,15 +4274,14 @@ function _deriveCatFilter() {
 // Sync the control bar to current state: pivot counts, active classes,
 // contractor dropdown options, filter input values.
 
-// S473 (A1): refresh after a thread write. Inside the focused-pin modal the
-// full list render would tear the modal down — use its own refresh instead.
-function _crbtRefresh(el) {
-  try {
-    if (el && el.closest && el.closest('#pinfocus-overlay') && typeof _refreshPinFocus === 'function') {
-      _refreshPinFocus(); return;
-    }
-  } catch (e) {}
+// S473 (A1) / S474: refresh after a thread write — the established S235 trio,
+// so ALL THREE surfaces stay live: the deficiencies list, the on-drawing pin
+// editor (viewer.js exposes window._frtRefreshPinEditor for exactly this —
+// viewer.js itself is never-touch), and the focused-pin modal.
+function _crbtRefresh(el, deficId) {
   initDeficiencies.render();
+  try { if (window._frtRefreshPinEditor) window._frtRefreshPinEditor(); } catch (e) {}
+  try { if (deficId) _frtRefreshPinFocusIf(deficId); } catch (e) {}
 }
 
 function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
@@ -5750,7 +5756,7 @@ document.addEventListener('click', function(e) {
     }
     if (_entry) {
       Model.saveNow();
-      _crbtRefresh(el);
+      _crbtRefresh(el, _sDefic);
       toast(_sReply ? 'Reply added' : 'Comment added');
     } else { toast('Could not add \u2014 see console'); }
     return;
@@ -5762,7 +5768,7 @@ document.addEventListener('click', function(e) {
       el.getAttribute('data-entry-id'),
       (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null
     );
-    if (_rmE) { Model.saveNow(); _crbtRefresh(el); toast('Comment removed \u2014 Undo is on the stub'); }
+    if (_rmE) { Model.saveNow(); _crbtRefresh(el, el.getAttribute('data-defic-id')); toast('Comment removed \u2014 Undo is on the stub'); }
     else { toast('This comment was printed in an issued report \u2014 it can\u2019t be removed. Reply instead.'); }
     return;
   }
@@ -5772,7 +5778,7 @@ document.addEventListener('click', function(e) {
       parseInt(el.getAttribute('data-obs-idx') || '0', 10),
       el.getAttribute('data-entry-id')
     );
-    if (_rsE) { Model.saveNow(); _crbtRefresh(el); toast('Comment restored'); }
+    if (_rsE) { Model.saveNow(); _crbtRefresh(el, el.getAttribute('data-defic-id')); toast('Comment restored'); }
     return;
   }
   if (action === 'crbt-noreply') {
@@ -5788,7 +5794,7 @@ document.addEventListener('click', function(e) {
         author: (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null,
         round: _nrRound, frtInstance: (Model.getProject() || {}).currentFrtInstance || 1
       });
-      if (_nrE) { Model.saveNow(); _crbtRefresh(el); toast('No-response recorded for round ' + _nrRound); }
+      if (_nrE) { Model.saveNow(); _crbtRefresh(el, _nrDefic); toast('No-response recorded for round ' + _nrRound); }
     });
     return;
   }
@@ -5824,7 +5830,7 @@ document.addEventListener('click', function(e) {
       el.getAttribute('data-entry-id'), _esTxt,
       (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null
     );
-    if (_esE) { Model.saveNow(); _crbtRefresh(el); toast('Comment updated'); }
+    if (_esE) { Model.saveNow(); _crbtRefresh(el, el.getAttribute('data-defic-id')); toast('Comment updated'); }
     else { toast('This comment can\u2019t be edited \u2014 see the tooltip on its Edit button.'); }
     return;
   }

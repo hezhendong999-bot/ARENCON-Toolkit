@@ -169,7 +169,15 @@ export function buildThreadHtml(opts){
     return out;
   }
   function renderWithReplies(e,kind){
-    if(e.removed) return _removedStub(e,ids);
+    if(e.removed){
+      // S474 (Mark: "when does removal become hard?"): it never does — but the
+      // UNDO WINDOW closes at the issued line. A draft removed before it ever
+      // printed was never part of any record; once its report cycle has issued
+      // (the project's instance moved past the one it was drafted for), the
+      // stub stops rendering. Data is retained — no hard delete, no merge risk.
+      if((Number(e.frtInstance)||1) < curInst) return '';
+      return _removedStub(e,ids);
+    }
     var h=(kind==='c')?_ctrSide(e,opts.company):_arcSide(e);
     h+=_actionRow(e,kind,ids);
     var reps=repliesTo(e.id);
@@ -195,7 +203,7 @@ export function buildThreadHtml(opts){
   if(sitelogs.length){
     h+='<div class="crbt-round"><div class="crbt-rhead crbt-rhead-log">Site log \u2014 pre-thread history</div><div class="crbt-pair">';
     sitelogs.forEach(function(sl){
-      if(sl.removed){h+=_removedStub(sl,ids);return;}
+      if(sl.removed){ if((Number(sl.frtInstance)||1)<curInst) return; h+=_removedStub(sl,ids); return; }
       // Sitelog rows: verbatim history — no Edit; Reply + 🗑 live (drafts).
       h+=_sitelogRow(sl)+_actionRow(sl,'log',ids)+'</div>';
     });
