@@ -60,7 +60,7 @@
  */
 'use strict';
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 
 // Canonical → FRT-v1 legacy name (persisted-format stability: a drawing saved
 // with 'fillrect' must save back as 'fillrect', never 'rect-fill'). FRT v1
@@ -305,38 +305,12 @@ export function buildHooks(host) {
       if (t === 'line' || t === 'arrow') {
         return dSeg(q.x, q.y, a2.x, a2.y, b2.x, b2.y) <= half + (t === 'arrow' ? 6 : 0);
       }
-      if (t === 'circle' || s.tool === 'circle') {
-        const cx2 = (L + R) / 2, cy2 = (T + B) / 2, rx = (R - L) / 2 || 1, ry = (B - T) / 2 || 1;
-        // normalized ellipse ring: |dist-1| within tolerance scaled to radii
-        const nx = (q.x - cx2) / rx, ny = (q.y - cy2) / ry;
-        const d = Math.sqrt(nx * nx + ny * ny);
-        return Math.abs(d - 1) * Math.min(rx, ry) <= half;
-      }
-      if (t === 'fillcircle' || s.tool === 'circle-fill') {
-        const cx3 = (L + R) / 2, cy3 = (T + B) / 2, rx3 = (R - L) / 2 || 1, ry3 = (B - T) / 2 || 1;
-        const nx3 = (q.x - cx3) / rx3, ny3 = (q.y - cy3) / ry3;
-        return Math.sqrt(nx3 * nx3 + ny3 * ny3) <= 1 + half / Math.min(rx3, ry3);
-      }
-      if (t === 'triangle') {
-        const apex = { x: (L + R) / 2, y: T };
-        return nearPolyline(q, [apex, { x: R, y: B }, { x: L, y: B }], true, half);
-      }
-      if (t === 'filltriangle') {
-        if (!inside) return false;
-        // barycentric-ish: below both slanted edges
-        const apex2 = { x: (L + R) / 2, y: T };
-        const s1 = (q.x - apex2.x) * (B - T) - (q.y - T) * (R - apex2.x);
-        const s2 = (q.x - apex2.x) * (B - T) - (q.y - T) * (L - apex2.x);
-        return s1 <= half * (B - T) && s2 >= -half * (B - T);
-      }
-      if (filled) return inside;                       // fillrect
-      if (t === 'rect' || t === 'cloud' || s.tool === 'rect') {
-        // hollow: perimeter only — the empty interior is NOT the mark
-        if (!inside) return false;
-        const edge = Math.min(q.x - L, R - q.x, q.y - T, B - q.y);
-        return edge <= half + (t === 'cloud' ? 8 : 0);  // cloud arcs bulge off the rect
-      }
-      return inside;                                    // unknown type: safe fallback
+      // S461g (Mark, verbatim): "I never said to not grab for hollow shape
+      // markups." Shapes hit ANYWHERE inside their box — the perimeter-only
+      // rule was over-designed and is reverted. Precise treatment stays ONLY
+      // where it solved his actual complaint: dimensions (line/legs/chip) and
+      // freehand strokes (so empty sheet areas still rubber-band).
+      return inside;
     }
   };
 }

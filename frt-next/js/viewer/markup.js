@@ -725,7 +725,7 @@ function _wireDimensionV4() {
   if (pickPrev) pickPrev.addEventListener('click', function (e) {
     e.stopPropagation();
     document.getElementById('dim-pick-back').classList.remove('show');
-    if (dim.startContinueFromPrevious) dim.startContinueFromPrevious(_objects);
+    if (dim.startContinueFromPrevious) dim.startContinueFromPrevious(_objects.map(toV1));   // S461g
     _renderDimensionPreview(); _updateDimFinChip();
   });
   if (pickPoint) pickPoint.addEventListener('click', function (e) {
@@ -747,7 +747,9 @@ function _wireDimensionV4() {
   var recN = document.getElementById('dim-recal-none');
   function _doRecal(mode) {
     if (_pendingRecalCal) {
-      dim.recalibrateAll(_objects, _pendingRecalCal, mode);
+      var _recalV2 = _objects.map(toV1);   // S461g: writes → v1 round-trip
+      dim.recalibrateAll(_recalV2, _pendingRecalCal, mode);
+      _objects = _recalV2.map(toStroke);
       _pendingRecalCal = null;
     }
     document.getElementById('dim-recal-back').classList.remove('show');
@@ -1356,7 +1358,7 @@ function _renderAll() {
       if (_dobj && _dobj.type === 'dimension' &&
           window._dimTool && typeof window._dimTool.renderObject === 'function'){
         ctx.save();
-        window._dimTool.renderObject(ctx, _dobj);
+        window._dimTool.renderObject(ctx, toV1(_dobj));   // S461g: _dimTool speaks v1 — raw strokes rendered NOTHING (invisible dims)
         ctx.restore();
       }
     }
@@ -2271,7 +2273,11 @@ function _startDraw(e) {
           var rb = document.getElementById('dim-recal-back');
           if (rb) { rb.classList.add('show'); return; }
         }
-        dim.recalibrateAll(_objects, result.calibration, 'measured');
+        // S461g: recalibrateAll WRITES dim fields — run it on v1 views, then
+        // re-import wholesale (ids preserved, so selection state stays valid).
+        var _recalV = _objects.map(toV1);
+        dim.recalibrateAll(_recalV, result.calibration, 'measured');
+        _objects = _recalV.map(toStroke);
         _pushHistory();
         _renderAll();
         _markDirty();
@@ -2316,7 +2322,7 @@ function _startDraw(e) {
     if (_dimKpOpen()) _dimKpCommit(true);
 
     if (TiledPdf.isActive()) TiledPdf.pause();
-    var res = dim.handleClick(posD, drNow, _objects);
+    var res = dim.handleClick(posD, drNow, _objects.map(toV1));   // S461g: v1 views (chain snapping reads mx*)
     if (res.action === 'lockedA' || res.action === 'lockedB') {
       // Show / refresh the overlay preview
       _renderDimensionPreview();
@@ -3151,8 +3157,15 @@ function _dvPositionPolyPill() {
   var r = mc.getBoundingClientRect();
   var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
   var p = _polyPoints[_polyPoints.length - 1];
-  var sx = r.left + (p.x / lw) * r.width + 24;
-  var sy = r.top + (p.y / lh) * r.height - 21;
+  // S461g (Mark): the pill landed EXACTLY on the tap point, covering the
+  // markup. Offset it well below-right of the point; if that would clip off
+  // the right edge, flip to below-LEFT — never centered on the ink.
+  var px2 = r.left + (p.x / lw) * r.width;
+  var py2 = r.top + (p.y / lh) * r.height;
+  var pw0 = pill.offsetWidth || 210;
+  var sx = px2 + 56;
+  if (sx + pw0 > window.innerWidth - 8) sx = px2 - pw0 - 56;
+  var sy = py2 + 64;
   var pw = pill.offsetWidth || 210, ph = pill.offsetHeight || 58;
   sx = Math.max(8, Math.min(window.innerWidth - pw - 8, sx));
   sy = Math.max(8, Math.min(window.innerHeight - ph - 8, sy));
@@ -4054,9 +4067,13 @@ function _wireEvents() {
     var btn = e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
     if (btn) {
       var tool = btn.getAttribute('data-mk-tool');
-      // S461e: tapping Select while it's ALREADY active opens the sub-tool
-      // flyout (Rubber-band / Tap select) — the lightbox S339 pattern.
-      if (tool === 'select' && _tool === 'select') { _dvToggleSelFly(); return; }
+      // S461g (Mark): a SINGLE tap on Select both arms the tool AND opens the
+      // sub-tool flyout (Rubber-band / Tap select) — no double-tap needed.
+      if (tool === 'select') {
+        if (_tool !== 'select') _setTool('select');
+        _dvToggleSelFly();
+        return;
+      }
       // If from pen submenu, update main button icon, remember, close menu
       var penSub = document.getElementById('pen-submenu');
       if (penSub && penSub.contains(btn)) {
