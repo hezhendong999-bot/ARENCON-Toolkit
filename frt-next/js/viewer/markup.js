@@ -94,44 +94,56 @@ if (window.MarkupSelection) {
 var _dvSelFly = null, _dvSelBar = null, _dvSelCnt = null, _dvSelOk = null;
 function _dvEnsureSelChrome() {
   if (_dvSelFly) return;
-  var host = document.getElementById('drawing-viewer-overlay') || document.body;
-  _dvSelFly = document.createElement('div'); _dvSelFly.id = 'dv-mk-subfly';
-  // S461m (Mark): matches the app's OTHER submenus (pen/shape flyouts) — white
-  // rounded card with bordered icon buttons. Icons that mean something: DASHED
-  // SQUARE = rubber-band, POINTING HAND = tap select.
-  _dvSelFly.style.cssText = 'position:fixed;z-index:10025;display:none;gap:8px;padding:8px;background:#fff;border:1px solid #D5D2D8;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.18);';
-  var _svgRubber = '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#1B1A22" stroke-width="1.8"><rect x="3.5" y="3.5" width="15" height="15" rx="1.5" stroke-dasharray="3.4 2.6"/></svg>';
-  var _svgTap = '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#1B1A22" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10.5V4.8a1.7 1.7 0 0 1 3.4 0v5.2l3.6.9c1 .25 1.7 1.15 1.7 2.18v1.9A4 4 0 0 1 13.7 19h-2.2a4 4 0 0 1-3.3-1.75L5.3 13.1a1.55 1.55 0 0 1 2.4-1.95L9 12.6"/></svg>';
-  function subBtn(sub, svg, tip) {
-    var b = document.createElement('button'); b.dataset.sub = sub; b.title = tip; b.setAttribute('data-tip', tip);
-    b.style.cssText = 'display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#fff;border:1px solid #D5D2D8;border-radius:10px;cursor:pointer;';
-    b.innerHTML = svg;
-    return b;
-  }
-  var subRubber = subBtn('rubber', _svgRubber, 'Rubber-band \u2014 tap a mark, or drag a box');
-  var subTap    = subBtn('tap',    _svgTap,    'Tap select \u2014 tap to pick, then confirm');
-  _dvSelFly.appendChild(subRubber); _dvSelFly.appendChild(subTap);
-  host.appendChild(_dvSelFly);
+  // ── S461n (Mark, repeatedly): the select sub-menu is a REAL .tool-submenu,
+  // built exactly like #pen-submenu / #shapes-submenu — same wrapper, same
+  // classes, same open/close mechanism, same _positionSubmenu(). Previous
+  // rounds hand-built a floating fixed-position div and tried to IMITATE the
+  // look; it could never match on PC or touch. Do not reintroduce that.
+  var selBtn = document.getElementById('mk-select');
+  if (!selBtn) return;
+
+  // Wrap the existing Select button in a .tool-group (the pen/shape pattern)
+  var grp = document.createElement('div');
+  grp.className = 'tool-group';
+  grp.id = 'tool-select-group';
+  selBtn.parentNode.insertBefore(grp, selBtn);
+  grp.appendChild(selBtn);
+  var arrow = document.createElement('span');
+  arrow.className = 'tool-group-arrow';
+  arrow.textContent = '\u25B8';
+  selBtn.appendChild(arrow);
+
+  _dvSelFly = document.createElement('div');
+  _dvSelFly.className = 'tool-submenu';       // inherits ALL submenu styling
+  _dvSelFly.id = 'select-submenu';
+  // Same button class as every other sub-tool. Icons: dashed square =
+  // rubber-band, pointing hand = tap select.
+  _dvSelFly.innerHTML =
+    '<button class="tool-btn sub-tool-btn" data-sel-sub="rubber" data-tip="Rubber-band">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+      '<rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"/></svg></button>' +
+    '<button class="tool-btn sub-tool-btn" data-sel-sub="tap" data-tip="Tap select">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11l3.4.9c.9.2 1.6 1 1.6 2v2a4 4 0 0 1-4 4h-2a4 4 0 0 1-3.2-1.6l-3-4a1.4 1.4 0 0 1 2.2-1.7L9 13"/></svg></button>';
+  grp.appendChild(_dvSelFly);
+
   function markSub(sub) {
-    [subRubber, subTap].forEach(function (b) {
-      var on = (b.dataset.sub === sub);
-      b.style.background = on ? '#9C2742' : '#fff';
-      b.style.borderColor = on ? '#9C2742' : '#D5D2D8';
-      var ps = b.querySelectorAll('svg, svg [stroke]');
-      for (var i = 0; i < ps.length; i++) ps[i].setAttribute('stroke', on ? '#fff' : '#1B1A22');
+    _dvSelFly.querySelectorAll('[data-sel-sub]').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.selSub === sub);   // same 'active' class the app uses
     });
   }
-  [subRubber, subTap].forEach(function (b) {
-    b.addEventListener('click', function (e) {
-      e.stopPropagation();
-      SelHost.setSelectSub(b.dataset.sub);
-      markSub(b.dataset.sub);
-      _dvSelFly.style.display = 'none';
-      _dvRefreshSelConfirm();
-    });
+  _dvSelFly.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-sel-sub]');
+    if (!b) return;
+    e.stopPropagation();
+    SelHost.setSelectSub(b.dataset.selSub);
+    markSub(b.dataset.selSub);
+    _dvSelFly.classList.remove('open');
+    _dvRefreshSelConfirm();
   });
   markSub('rubber');
-  // confirm bar — verbatim lightbox styling
+
+  // Confirm bar — the shared pill metrics (unchanged).
   _dvSelBar = document.createElement('div'); _dvSelBar.id = 'dv-mk-confirm';
   _dvSelBar.style.cssText = _DV_PILL_BOX + 'left:50%;bottom:84px;transform:translateX(-50%);display:none;padding-left:12px;';
   _dvSelCnt = document.createElement('span'); _dvSelCnt.style.cssText = 'font:600 12px Calibri,sans-serif;color:#cfcad6;';
@@ -140,36 +152,22 @@ function _dvEnsureSelChrome() {
   var no = document.createElement('button'); no.innerHTML = '\u2715'; no.title = 'Cancel \u2014 clear selection';
   no.style.cssText = _DV_PILL_X;
   _dvSelBar.appendChild(_dvSelCnt); _dvSelBar.appendChild(_dvSelOk); _dvSelBar.appendChild(no);
-  host.appendChild(_dvSelBar);
+  (document.getElementById('drawing-viewer-overlay') || document.body).appendChild(_dvSelBar);
   _dvSelOk.addEventListener('click', function () { SelHost.confirmPick(); _dvRefreshSelConfirm(); });
   no.addEventListener('click', function () { SelHost.cancelSelect(); _dvRefreshSelConfirm(); });
-  // outside tap closes the flyout (mouse + touch — never rely on :hover)
-  function _outside(ev) {
-    if (_dvSelFly.style.display !== 'flex') return;
-    var sel = document.getElementById('mk-select');
-    if (_dvSelFly.contains(ev.target) || (sel && sel.contains(ev.target))) return;
-    _dvSelFly.style.display = 'none';
-  }
-  document.addEventListener('mousedown', _outside);
-  document.addEventListener('touchstart', _outside, { passive: true });
 }
 function _dvToggleSelFly() {
   _dvEnsureSelChrome();
-  if (_dvSelFly.style.display === 'flex') { _dvSelFly.style.display = 'none'; return; }
-  // S461m (Mark): anchored right UNDER the Select button, like the pen submenu.
-  var sel = document.getElementById('mk-select');
-  _dvSelFly.style.transform = '';
-  if (sel) {
-    var r = sel.getBoundingClientRect();
-    var fw = 8 + 44 + 8 + 44 + 8;
-    var lx = Math.min(Math.max(8, r.left), window.innerWidth - fw - 8);
-    _dvSelFly.style.left = lx + 'px';
-    _dvSelFly.style.top = (r.bottom + 8) + 'px';
-  } else {
-    _dvSelFly.style.left = '50%'; _dvSelFly.style.transform = 'translateX(-50%)';
-    _dvSelFly.style.top = '96px';
+  if (!_dvSelFly) return;
+  // Identical to the pen/shape group handler: close siblings, toggle 'open',
+  // and let the app's own _positionSubmenu place it (PC and touch alike).
+  var ps = document.getElementById('pen-submenu'); if (ps) ps.classList.remove('open');
+  var ss = document.getElementById('shapes-submenu'); if (ss) ss.classList.remove('open');
+  var wasOpen = _dvSelFly.classList.contains('open');
+  _dvSelFly.classList.toggle('open');
+  if (!wasOpen && typeof _positionSubmenu === 'function') {
+    _positionSubmenu(_dvSelFly, document.getElementById('mk-select'));
   }
-  _dvSelFly.style.display = 'flex';
 }
 function _dvRefreshSelConfirm() {
   if (!_dvSelBar) { if (!SelHost.hasActiveSelection || !SelHost.hasActiveSelection()) return; _dvEnsureSelChrome(); }
@@ -3937,7 +3935,7 @@ function _setActiveTool(tool) {
   // S461e: leaving Select hides its chrome
   if (tool !== 'select') {
     if (_dvSelBar) _dvSelBar.style.display = 'none';
-    if (_dvSelFly) _dvSelFly.style.display = 'none';
+    if (_dvSelFly) _dvSelFly.classList.remove('open');   // S461n: submenu uses the .open class
   }
   if (tool !== 'polyline' && _polyPoints.length) _cancelPolyline();
 

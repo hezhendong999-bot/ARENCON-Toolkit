@@ -176,7 +176,42 @@
       this._render();
     },
 
-    setTool:  function(t){ this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this.selIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
+    // ── S461n POLYLINE API (lightbox parity with the drawing viewer) ──
+    // Same stroke shape as pen (tool:'polyline', pts[]) so render, hit-testing,
+    // selection, eraser and undo all work with no extra cases.
+    finishPolyline: function(){
+      var pts = this._polyPts || [];
+      if (pts.length >= 2){
+        this.strokes.push({
+          id: this._uid(), tool: 'polyline', color: this.color,
+          size: this.size * (this._uiScale ? this._uiScale() : 1),
+          opacity: this.opacity, pts: pts.slice()
+        });
+        this._histPush({ t:'add' });
+        this.redoStack = [];
+        if (this._onDirty) this._onDirty();
+      }
+      this._polyPts = []; this._polyCursor = null; this._polyArmed = false;
+      if (this.ctx) this._render();
+      if (this._onPolyChange) this._onPolyChange(0);
+    },
+    undoPolyPoint: function(){
+      if (!this._polyPts || !this._polyPts.length) return;
+      this._polyPts.pop();
+      if (this.ctx) this._render();
+      if (this._onPolyChange) this._onPolyChange(this._polyPts.length);
+    },
+    cancelPolyline: function(){
+      this._polyPts = []; this._polyCursor = null; this._polyArmed = false;
+      if (this.ctx) this._render();
+      if (this._onPolyChange) this._onPolyChange(0);
+    },
+    polyCount: function(){ return this._polyPts ? this._polyPts.length : 0; },
+    onPolyChange: function(fn){ this._onPolyChange = fn || null; },
+    setTool:  function(t){
+      // S461n: leaving polyline mid-draw discards the pending points.
+      if (this.tool === 'polyline' && t !== 'polyline' && this._polyPts && this._polyPts.length) this.cancelPolyline();
+      this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this.selIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
 
     setColor: function(c){ this.color = c; this._applyToSelection('color', c); },
     setSize:  function(s){ this.size = s; },
@@ -280,6 +315,14 @@
           self._render();
           return;
         }
+        // S461n — POLYLINE: points commit on RELEASE (press-drag-release), the
+        // same input model the drawing viewer uses. Down only arms the preview.
+        if (self.tool === 'polyline'){
+          self._polyArmed = true;
+          self._polyCursor = { x:p.x, y:p.y };
+          self._render();
+          return;
+        }
         // Freehand (pen/highlight) — drag flow.
         self._drawing = true;
         self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size*(self._uiScale?self._uiScale():1), opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
@@ -287,6 +330,14 @@
         self.redoStack = [];
       }
       function move(ev){
+        // S461n — polyline live preview: the pending segment follows the pointer
+        // whether or not a button is down (so PC hover-preview works too).
+        if (self.tool === 'polyline' && self._polyPts && self._polyPts.length){
+          var _pp = pt(ev);
+          self._polyCursor = { x:_pp.x, y:_pp.y };
+          self._render();
+          if (!self._polyArmed) return;
+        }
         // S329: 2+ fingers — stop drawing, let the pinch/pan move bubble to lightbox.
         if (ev.touches && ev.touches.length >= 2){
           if (self._drawing || self._curr || self._shapePending){
@@ -317,6 +368,28 @@
       }
       function up(){
         if (self.tool === 'select'){ if (self._dragState && self._selUp) self._selUp(); return; }
+        // S461n — POLYLINE: release places the point.
+        if (self.tool === 'polyline'){
+          if (!self._polyArmed) return;
+          self._polyArmed = false;
+          var np = self._polyCursor;
+          if (!np) return;
+          if (!self._polyPts) self._polyPts = [];
+          // Tap near the first point closes the loop and finishes.
+          if (self._polyPts.length >= 2){
+            var d0x = np.x - self._polyPts[0].x, d0y = np.y - self._polyPts[0].y;
+            var tol = 15 * (self._uiScale ? self._uiScale() : 1);
+            if (Math.sqrt(d0x*d0x + d0y*d0y) < tol){
+              self._polyPts.push({ x:self._polyPts[0].x, y:self._polyPts[0].y });
+              self.finishPolyline();
+              return;
+            }
+          }
+          self._polyPts.push({ x:np.x, y:np.y });
+          self._render();
+          if (self._onPolyChange) self._onPolyChange(self._polyPts.length);
+          return;
+        }
         if (!self._drawing) return;
         self._drawing = false;
         if (self._curr && self._curr.tool==='eraser'){
@@ -739,7 +812,7 @@
         return {x1:bx1,y1:by1,x2:bx2,y2:by2};
       }
       // pen/highlight: rotation baked into points → AABB of points is visual AABB
-      if (s.tool === 'pen' || s.tool === 'highlight'){
+      if (s.tool === 'pen' || s.tool === 'highlight' || s.tool === 'polyline'){   // S461n: same polyline path
         var xs=s.pts.map(function(p){return p.x;}), ys=s.pts.map(function(p){return p.y;});
         return {x1:Math.min.apply(null,xs),y1:Math.min.apply(null,ys),x2:Math.max.apply(null,xs),y2:Math.max.apply(null,ys)};
       }
@@ -869,6 +942,25 @@
         if (tx.tool==='text') this._drawTextR(ctx, tx);
       }
       // Pass 5: selection overlay (select mode only)
+      // S461n — in-progress polyline: committed segments + the live preview leg.
+      if (this.tool === 'polyline' && this._polyPts && this._polyPts.length){
+        var pk = this._uiScale ? this._uiScale() : 1;
+        ctx.save();
+        ctx.strokeStyle = this.color; ctx.globalAlpha = this.opacity;
+        ctx.lineWidth = this.size * pk; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(this._polyPts[0].x, this._polyPts[0].y);
+        for (var _pi = 1; _pi < this._polyPts.length; _pi++) ctx.lineTo(this._polyPts[_pi].x, this._polyPts[_pi].y);
+        if (this._polyCursor) ctx.lineTo(this._polyCursor.x, this._polyCursor.y);   // lineTo only — never quadraticCurveTo
+        ctx.stroke();
+        // vertex dots so the user can see what's placed
+        ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.strokeStyle = this.color; ctx.lineWidth = 1.5 * pk;
+        for (var _pd = 0; _pd < this._polyPts.length; _pd++){
+          ctx.beginPath(); ctx.arc(this._polyPts[_pd].x, this._polyPts[_pd].y, 4 * pk, 0, Math.PI * 2);
+          ctx.fill(); ctx.stroke();
+        }
+        ctx.restore();
+      }
       if (this.tool === 'select' && this._drawSelChrome) this._drawSelChrome(ctx);   // shared chrome (S459e pad + S459f tight amber)
     },
 
