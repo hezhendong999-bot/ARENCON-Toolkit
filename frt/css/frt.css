@@ -1087,13 +1087,13 @@ body.dark-mode .contractor-chip{background:#1e2230;border-color:#2a3040;color:#b
 body.dark-mode .defic-group{border-color:#2a2e38;}
 body.dark-mode .defic-group-header{background:#14171e;color:#d8dce8;}
 body.dark-mode .hdr-btn{opacity:1;box-shadow:0 1px 4px rgba(0,0,0,.4);}body.dark-mode .hdr-btn:hover{opacity:1;filter:brightness(1.2);}
-/* S77: #btn-pdf and #btn-issue live inside Reports dropdown — force-match AI Review submenu styling */
-.ai-mode-menu #btn-pdf,.ai-mode-menu #btn-issue{background:transparent!important;color:var(--fg)!important;border:none!important;display:block!important;width:100%!important;padding:10px 14px!important;text-align:left!important;font-family:Calibri,sans-serif!important;font-size:calc(13px + var(--ts))!important;font-weight:400!important;height:auto!important;min-height:0!important;line-height:1.3!important;}
-.ai-mode-menu #btn-pdf span,.ai-mode-menu #btn-issue span{display:block!important;font-size:calc(11px + var(--ts))!important;color:var(--silver)!important;margin-top:2px!important;font-weight:400!important;}
-.ai-mode-menu #btn-pdf:hover,.ai-mode-menu #btn-issue:hover{background:var(--smoke)!important;}
-body.dark-mode .ai-mode-menu #btn-pdf,body.dark-mode .ai-mode-menu #btn-issue{color:#d0d8f0!important;}
-body.dark-mode .ai-mode-menu #btn-pdf span,body.dark-mode .ai-mode-menu #btn-issue span{color:#8a94b0!important;}
-body.dark-mode .ai-mode-menu #btn-pdf:hover,body.dark-mode .ai-mode-menu #btn-issue:hover{background:var(--b-chrome2)!important;}
+/* S77 (+S469: #btn-crb-import added — S463 forgot it, so Import Responses fell through to generic button styling): #btn-pdf and #btn-issue live inside Reports dropdown — force-match AI Review submenu styling */
+.ai-mode-menu #btn-pdf,.ai-mode-menu #btn-issue,.ai-mode-menu #btn-crb-import{background:transparent!important;color:var(--fg)!important;border:none!important;display:block!important;width:100%!important;padding:10px 14px!important;text-align:left!important;font-family:Calibri,sans-serif!important;font-size:calc(13px + var(--ts))!important;font-weight:400!important;height:auto!important;min-height:0!important;line-height:1.3!important;}
+.ai-mode-menu #btn-pdf span,.ai-mode-menu #btn-issue span,.ai-mode-menu #btn-crb-import span{display:block!important;font-size:calc(11px + var(--ts))!important;color:var(--silver)!important;margin-top:2px!important;font-weight:400!important;}
+.ai-mode-menu #btn-pdf:hover,.ai-mode-menu #btn-issue:hover,.ai-mode-menu #btn-crb-import:hover{background:var(--smoke)!important;}
+body.dark-mode .ai-mode-menu #btn-pdf,body.dark-mode .ai-mode-menu #btn-issue,body.dark-mode .ai-mode-menu #btn-crb-import{color:#d0d8f0!important;}
+body.dark-mode .ai-mode-menu #btn-pdf span,body.dark-mode .ai-mode-menu #btn-issue span,body.dark-mode .ai-mode-menu #btn-crb-import span{color:#8a94b0!important;}
+body.dark-mode .ai-mode-menu #btn-pdf:hover,body.dark-mode .ai-mode-menu #btn-issue:hover,body.dark-mode .ai-mode-menu #btn-crb-import:hover{background:var(--b-chrome2)!important;}
 /* S77: Repair submenu collapse inside More menu */
 .more-repair-collapsed{display:none!important;}
 .more-repair-open{display:block!important;}
