@@ -2306,7 +2306,7 @@ function _startDraw(e) {
     if (dim.isPickAwaiting && dim.isPickAwaiting()) {
       var snap = dim.nearestVertex ? dim.nearestVertex(posD, _objects.map(toV1), 28) : null;   // S461
       var seedPt = snap || posD;
-      if (dim.seedFromPoint) dim.seedFromPoint(seedPt);
+      if (dim.seedFromPoint) dim.seedFromPoint(seedPt, _objects.map(toV1));   // S461h: views let it adopt the picked dim's offset
       _renderDimensionPreview();
       _updateDimFinChip();
       return;
@@ -3095,6 +3095,9 @@ function _handlePolylineClick(e) {
 }
 
 function _finishPolyline() {
+  // S461h: drawing is done — the pill goes away with it.
+  var _fpPill = document.getElementById('poly-sub-toolbar');
+  if (_fpPill) _fpPill.style.display = 'none';
   if (_polyPoints.length >= 2) {
     _objects.push(toStroke({
       id: _newId(), type: 'polyline', points: _polyPoints.slice(),
@@ -3123,6 +3126,8 @@ function _commitPolyline() {
 }
 // ✕ Cancel discards all in-progress points (nothing committed to _objects).
 function _cancelPolyline() {
+  var _cpPill = document.getElementById('poly-sub-toolbar');
+  if (_cpPill) _cpPill.style.display = 'none';   // S461h
   _polyPoints = [];
   var ov = _getOverlay();
   if (ov) {
@@ -3162,6 +3167,7 @@ function _dvPositionPolyPill() {
   // the right edge, flip to below-LEFT — never centered on the ink.
   var px2 = r.left + (p.x / lw) * r.width;
   var py2 = r.top + (p.y / lh) * r.height;
+  pill.style.display = 'flex';   // S461h: appears with the first placed point
   var pw0 = pill.offsetWidth || 210;
   var sx = px2 + 56;
   if (sx + pw0 > window.innerWidth - 8) sx = px2 - pw0 - 56;
@@ -3854,8 +3860,11 @@ function _setActiveTool(tool) {
   // Leaving the polyline tool discards any in-progress (uncommitted) points —
   // same contract as _resetDimensionFlow above.
   var polySub = document.getElementById('poly-sub-toolbar');
-  if (polySub) polySub.style.display = (tool === 'polyline') ? 'flex' : 'none';
-  if (tool === 'polyline' && polySub) _dvStylePolyPill(polySub);   // S461e: confirm-bar look
+  // S461h (Mark): the pill shows ONLY while a polyline is actually in
+  // progress — it appears on the first placed point (_dvPositionPolyPill)
+  // and hides on Finish / Cancel / tool switch. Never idles on screen.
+  if (polySub) polySub.style.display = 'none';
+  if (tool === 'polyline' && polySub) _dvStylePolyPill(polySub);
   // S461e: leaving Select hides its chrome
   if (tool !== 'select') {
     if (_dvSelBar) _dvSelBar.style.display = 'none';
@@ -4070,8 +4079,13 @@ function _wireEvents() {
       // S461g (Mark): a SINGLE tap on Select both arms the tool AND opens the
       // sub-tool flyout (Rubber-band / Tap select) — no double-tap needed.
       if (tool === 'select') {
-        if (_tool !== 'select') _setTool('select');
+        // S461h: _setTool never existed — the dispatcher's real function is
+        // _setActiveTool. The bad name threw a ReferenceError on every Select
+        // click and killed the whole handler ("nothing happens"). One tap now
+        // arms select AND opens the Rubber-band / Tap-select flyout.
+        if (_tool !== 'select') _setActiveTool('select');
         _dvToggleSelFly();
+        e.stopPropagation();
         return;
       }
       // If from pen submenu, update main button icon, remember, close menu

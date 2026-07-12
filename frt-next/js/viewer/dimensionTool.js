@@ -710,17 +710,41 @@
     if (_mode === 'running') { _chainAnchor = { x: a.x, y: a.y }; _pA = { x: a.x, y: a.y }; }
     else { _pA = { x: b.x, y: b.y }; _chainAnchor = null; }
     _state = 'awaitB';
+    // S461h (Mark, frt-next field report): ADOPT the previous dimension's
+    // signed offset so the green align guide works on the FIRST continued
+    // dim too — resetState() above wiped _lastOffset, so the guide only
+    // appeared from the 2nd chain link onward. The offset is signed along
+    // the segment's own perpendicular, so this snaps in ANY direction the
+    // previous dim ran (horizontal, vertical, diagonal) — not just up/down.
+    if (typeof last.offset === 'number') _lastOffset = last.offset;
     return true;
   }
   function startPickPoint() { resetState(); _pickAwait = true; }
   function startFresh() { resetState(); }
   function isPickAwaiting() { return _pickAwait; }
   // Seed the chain from an explicitly tapped vertex.
-  function seedFromPoint(p) {
+  function seedFromPoint(p, objects) {
     _pickAwait = false;
     if (_mode === 'running') { _chainAnchor = { x: p.x, y: p.y }; _pA = { x: p.x, y: p.y }; }
     else { _pA = { x: p.x, y: p.y }; _chainAnchor = null; }
     _state = 'awaitB';
+    // S461h (Mark): if the picked vertex belongs to an existing dimension,
+    // adopt THAT dim's signed offset so the first dim drawn from it gets the
+    // green align guide (any direction — the offset rides the segment's own
+    // perpendicular). Caller passes the v1 object views.
+    if (objects) {
+      for (var i = objects.length - 1; i >= 0; i--) {
+        var o = objects[i];
+        if (!o || o.type !== 'dimension') continue;
+        var ax = (o.mx1 != null) ? o.mx1 : o.x1, ay = (o.mx1 != null) ? o.my1 : o.y1;
+        var bx = (o.mx1 != null) ? o.mx2 : o.x2, by = (o.mx1 != null) ? o.my2 : o.y2;
+        if ((Math.abs(p.x - ax) < 0.5 && Math.abs(p.y - ay) < 0.5) ||
+            (Math.abs(p.x - bx) < 0.5 && Math.abs(p.y - by) < 0.5)) {
+          if (typeof o.offset === 'number') _lastOffset = o.offset;
+          break;
+        }
+      }
+    }
   }
   function _lastDim(objects) {
     if (!objects) return null;
