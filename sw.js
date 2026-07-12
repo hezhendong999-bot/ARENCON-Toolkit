@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v1084';
+var CACHE_NAME = 'arencon-frt-v1085';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -27,6 +27,11 @@ var APP_FILES = [
   'shared/auth-gate.js',
   // FRT v2 modular files
   'frt/index.html',
+  // S461f — toolkit-wide PWA (Mark: "everything is supposed to be PWA").
+  // One root SW serves the whole toolkit; these shells now work offline.
+  'ARENCON_Diesel_Fire_Pump_Commissioning.html',
+  'ARENCON_Electric_Fire_Pump_Commissioning.html',
+  'index.html',
   'frt/css/frt.css',
   'frt/js/app.js',
   'frt/js/data/model.js',
@@ -60,7 +65,12 @@ var APP_FILES = [
   'frt/js/ui/photoPicker.js',
   'frt/js/viewer/viewer.js',
   'frt/js/viewer/markup.js',
+  'frt/js/viewer/markupSelBridge.js',
   'lib/ui/markupTools.js',
+  'lib/ui/checklist.js',
+  'lib/ui/lightbox.js',
+  'lib/ui/signaturePad.js',
+  'lib/data/photoMint.js',
   'lib/ui/markupEraser.js',
   'lib/ui/markupSelection.js',
   'lib/ui/markupText.js',

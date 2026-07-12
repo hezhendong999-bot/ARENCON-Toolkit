@@ -8530,7 +8530,7 @@ function applyTextSize(size){
 <!-- ══ SERVICE WORKER REGISTRATION (Session 53) ══ -->
 <script>
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw-electric.js').then(function(r){
+  navigator.serviceWorker.register('sw.js')  /* S461f: sw-electric.js never existed (404 every boot) — the root sw.js is the toolkit worker */.then(function(r){
     console.log('[SW] Registered:', r.scope);
   }).catch(function(e){
     console.log('[SW] Not available (offline caching disabled)');
