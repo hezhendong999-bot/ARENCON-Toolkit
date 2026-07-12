@@ -628,7 +628,7 @@ function _dvStyleDimFinChip(chip) {
   chip.innerHTML = '';
   var ok = document.createElement('button');
   ok.id = 'dim-finchip-ok';
-  ok.innerHTML = '\u2713 <span style="margin-left:4px;">Finish</span>';
+  ok.innerHTML = '\u2713';   // S461k: circle only — matches the polyline pill exactly
   ok.style.cssText = _DV_PILL_FINISH;
   var no = document.createElement('button');
   no.id = 'dim-finchip-no';
@@ -657,17 +657,12 @@ function _updateDimFinChip() {
   // behaves identically on mobile and PC. Pin it to the TOP-CENTRE of the canvas
   // area, just below the toolbar, where it never overlaps the drawing zone and
   // is always within easy thumb reach. (Kept position:fixed; only x/y change.)
-  var r = mc.getBoundingClientRect();
-  var chipW = chip.offsetWidth || 110;
-  var x = Math.round(r.left + r.width / 2 - chipW / 2);
-  // Clamp horizontally so it never runs off either edge on a narrow phone.
-  x = Math.min(Math.max(8, x), window.innerWidth - chipW - 8);
-  // Sit a fixed gap below the top of the canvas viewport (clears the toolbar);
-  // never higher than 12px from the window top.
-  var y = Math.max(12, r.top + 12);
-  chip.style.left = x + 'px';
-  chip.style.top = y + 'px';
-  chip.classList.add('show'); chip.style.display = 'flex';
+  // S461k (Mark): identical placement logic to the polyline pill — mobile
+  // fixed bottom-center, PC follows the chain anchor, hard-clamped.
+  var anchorL = null;
+  try { var _a0 = dim.chainFinishAnchor(); if (_a0) anchorL = { x: _a0.x, y: _a0.y }; } catch (e0) {}
+  chip.classList.add('show');
+  _dvPlacePill(chip, anchorL);
   // S331 #37 — pulse once when a chain FIRST starts waiting (discoverability),
   // not on every render while it sits there.
   if (!_dimFinChipWasShowing) {
@@ -2213,7 +2208,11 @@ var _startX = 0, _startY = 0, _endX = 0, _endY = 0;
 function _startDraw(e) {
   if (!_tool || _tool === 'select') return;
   if (_tool === 'text') { _handleTextPlace(e); return; }
-  if (_tool === 'polyline') { _handlePolylineClick(e); return; }
+  // S461k (Mark): polyline points commit on RELEASE, not press — press-drag
+  // shows the live segment, releasing confirms the point. Fixes the touch
+  // "jumping point" bug: press used to commit immediately, the drag only
+  // moved a preview, and the next press snapped the frozen preview to it.
+  if (_tool === 'polyline') { return; }
 
   // S126 #6 — Dimension tool click flow. Routes through the dimensionTool
   // state machine (handleClick). Three click roles:
@@ -2347,9 +2346,24 @@ function _startDraw(e) {
       return;
     }
 
-    // (4) Normal chain click. Per locked spec, an uncalibrated drawing is
-    //     NOT auto-scaled — it stays "not to scale" and the user types each
-    //     value via the keypad. Calibration is optional, never a gate.
+    // (4) Normal chain click — S461k: DEFERRED TO RELEASE (Mark: press-drag-
+    //     release for endpoint placement instead of eyeballing a blind tap).
+    //     Vertex drags, calibration, dim-hit and pick-seed stay on press.
+    _dimChainPressPending = true;
+    return;
+  }
+
+  _startDrawShapePath(e);
+}
+
+var _dimChainPressPending = false;
+function _dimChainRelease(e) {
+  var posD = _getPos(e);
+  var dim = window._dimTool;
+  if (!dim) return;
+  {
+    // Per locked spec, an uncalibrated drawing is NOT auto-scaled — it stays
+    // "not to scale" and the user types each value via the keypad.
     var drNow = _getCurrentDrawing();
 
     // If the value keypad is open from a previous dimension, starting the
@@ -2398,7 +2412,9 @@ function _startDraw(e) {
     }
     return;
   }
+}
 
+function _startDrawShapePath(e) {
   // S126 #5 — Click-to-draw for shape tools. Two-click pattern replaces
   // drag. First click locks point A and shows a zero-length preview dot;
   // second click commits the shape from A to current cursor.
@@ -3180,7 +3196,7 @@ function _dvStylePolyPill(pill) {
   if (pill._dvStyled) return; pill._dvStyled = true;
   pill.style.cssText += ';' + _DV_PILL_BOX;
   var ok = document.getElementById('poly-commit-btn');
-  if (ok) ok.style.cssText = _DV_PILL_FINISH;
+  if (ok) { ok.innerHTML = '\u2713'; ok.style.cssText = _DV_PILL_FINISH; }   // S461k: circle only
   // S461j: ↩ RESTORED (Mark: "I didn't say to remove ↩ from polyline" — only
   // the NEW pills [dim finish, selection confirm] are Finish + ✕).
   var un = document.getElementById('poly-undo-pt-btn');
@@ -3194,30 +3210,36 @@ function _dvStylePolyPill(pill) {
 var _DV_PILL_BOX    = 'position:fixed;z-index:10021;display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,.55);';
 var _DV_PILL_FINISH = 'border:none;height:36px;padding:0 14px;border-radius:18px;cursor:pointer;font:700 13px Calibri,sans-serif;color:#fff;background:#3FD08A;display:flex;align-items:center;gap:5px;';
 var _DV_PILL_X      = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
-// Position the pill beside the LAST placed point (logical → screen, clamped).
+// S461k (Mark): ONE placement rule for every pill. Touch devices → FIXED
+// bottom-center (never jumps, never leaves the screen). Fine pointers (PC)
+// → follow near the anchor point, hard-clamped inside the viewport.
+function _dvPlacePill(pill, anchorLogical) {
+  var coarse = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+  pill.style.display = 'flex';
+  if (coarse || !anchorLogical) {
+    pill.style.left = '50%'; pill.style.transform = 'translateX(-50%)';
+    pill.style.top = 'auto'; pill.style.bottom = '84px'; pill.style.right = 'auto';
+    return;
+  }
+  var mc = _getCanvas(); if (!mc) return;
+  var r = mc.getBoundingClientRect();
+  var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
+  var px2 = r.left + (anchorLogical.x / lw) * r.width;
+  var py2 = r.top + (anchorLogical.y / lh) * r.height;
+  var pw = pill.offsetWidth || 170, ph = pill.offsetHeight || 50;
+  var sx = px2 + 56;
+  if (sx + pw > window.innerWidth - 8) sx = px2 - pw - 56;
+  var sy = py2 + 56;
+  sx = Math.max(8, Math.min(window.innerWidth - pw - 8, sx));
+  sy = Math.max(8, Math.min(window.innerHeight - ph - 8, sy));
+  pill.style.transform = ''; pill.style.bottom = 'auto'; pill.style.right = 'auto';
+  pill.style.left = sx + 'px'; pill.style.top = sy + 'px';
+}
 function _dvPositionPolyPill() {
   var pill = document.getElementById('poly-sub-toolbar');
   if (!pill || !_polyPoints.length) return;
   _dvStylePolyPill(pill);
-  var mc = _getCanvas(); if (!mc) return;
-  var r = mc.getBoundingClientRect();
-  var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
-  var p = _polyPoints[_polyPoints.length - 1];
-  // S461g (Mark): the pill landed EXACTLY on the tap point, covering the
-  // markup. Offset it well below-right of the point; if that would clip off
-  // the right edge, flip to below-LEFT — never centered on the ink.
-  var px2 = r.left + (p.x / lw) * r.width;
-  var py2 = r.top + (p.y / lh) * r.height;
-  pill.style.display = 'flex';   // S461h: appears with the first placed point
-  var pw0 = pill.offsetWidth || 210;
-  var sx = px2 + 56;
-  if (sx + pw0 > window.innerWidth - 8) sx = px2 - pw0 - 56;
-  var sy = py2 + 64;
-  var pw = pill.offsetWidth || 210, ph = pill.offsetHeight || 58;
-  sx = Math.max(8, Math.min(window.innerWidth - pw - 8, sx));
-  sy = Math.max(8, Math.min(window.innerHeight - ph - 8, sy));
-  pill.style.left = sx + 'px'; pill.style.top = sy + 'px';
-  pill.style.right = 'auto'; pill.style.bottom = 'auto';
+  _dvPlacePill(pill, _polyPoints[_polyPoints.length - 1]);
 }
 
 // ↩ Undo removes only the LAST placed point and repaints the preview —
@@ -4568,10 +4590,16 @@ function _wireEvents() {
   });
   mc.addEventListener('mouseup', function(e) {
     if (_tool === 'select') { _handleSelectUp(); return; }
+    // S461k: release-commit for polyline points + dimension chain clicks
+    if (_tool === 'polyline' && !_isDrawing) { _handlePolylineClick(e); return; }
+    if (_tool === 'dimension' && _dimChainPressPending && !_isDrawing) {
+      _dimChainPressPending = false; _dimChainRelease(e); return;
+    }
     _endDraw(e);
   });
   mc.addEventListener('mouseleave', function() {
     if (_eraserCursor) _eraserCursor.style.display = 'none';
+    _dimChainPressPending = false;   // S461k: never commit a chain click off-canvas
     if (_isDrawing && _tool !== 'select') _endDraw({});
   });
 
@@ -4613,6 +4641,11 @@ function _wireEvents() {
   mc.addEventListener('touchend', function(e) {
     if (!_tool || _tool === 'pin') return;
     if (_tool === 'select') { _handleSelectUp(); return; }
+    // S461k: release-commit (uses changedTouches — _getPos handles touchend)
+    if (_tool === 'polyline' && !_isDrawing) { _handlePolylineClick(e); return; }
+    if (_tool === 'dimension' && _dimChainPressPending && !_isDrawing) {
+      _dimChainPressPending = false; _dimChainRelease(e); return;
+    }
     _endDraw(e);
   });
 
