@@ -57,6 +57,7 @@ function _resolveObs(proj, obsId) {
 function _parseForm(PDFLib, pdfDoc) {
   var byId = {};   // obsId → { status, comment }
   var unmatchedNames = [];
+  var exportId = null;   // S470: identity stamp written by the export side
   var form;
   try { form = pdfDoc.getForm(); } catch (e) { return { byId: byId, unmatchedNames: unmatchedNames, noForm: true }; }
   var fields = [];
@@ -64,6 +65,10 @@ function _parseForm(PDFLib, pdfDoc) {
   fields.forEach(function(f) {
     var name = '';
     try { name = f.getName(); } catch (e) { return; }
+    if (name === 'arencon_export_id') {
+      try { exportId = f.getText() || null; } catch (e) {}
+      return;
+    }
     var m = name.match(/^resp_(.+)_status_(Addressed|In_Progress|Not_in_Scope|Other)$/);
     if (m) {
       var checked = false;
@@ -86,11 +91,11 @@ function _parseForm(PDFLib, pdfDoc) {
     }
     // Non-CRB fields in the PDF are ignored silently.
   });
-  return { byId: byId, unmatchedNames: unmatchedNames };
+  return { byId: byId, unmatchedNames: unmatchedNames, exportId: exportId };
 }
 
 // ── Preview-confirm dialog (self-contained custom modal) ─────────────────
-function _showPreview(rows, unresolved, onConfirm) {
+function _showPreview(rows, unresolved, dupes, noStamp, onConfirm) {
   var old = document.getElementById('crbimp-ov'); if (old) old.remove();
   var ov = document.createElement('div');
   ov.id = 'crbimp-ov';
@@ -103,6 +108,20 @@ function _showPreview(rows, unresolved, onConfirm) {
       (r.comment ? ' \u2014 \u201C' + _esc(r.comment.length > 120 ? r.comment.slice(0, 120) + '\u2026' : r.comment) + '\u201D' : '') +
       '</div></div>';
   }).join('');
+  // S470: already-imported items — greyed, explicitly skipped, never silent.
+  var dupesHtml = (dupes && dupes.length)
+    ? '<div style="margin-top:10px;font-size:12px;color:#928E9C;font-weight:bold;letter-spacing:.4px;">ALREADY IMPORTED \u2014 WILL BE SKIPPED</div>' +
+      dupes.map(function(r) {
+        return '<div style="padding:6px 0;border-bottom:1px solid #f2f2f2;color:#928E9C;">' +
+          '<div>' + _esc(r.itemLabel) + ' \u00b7 previously imported from this PDF</div></div>';
+      }).join('') +
+      '<div style="font-size:12px;color:#928E9C;margin-top:4px;">If the contractor corrected one of these, remove the earlier round from the item\u2019s thread first, then re-import.</div>'
+    : '';
+  // S470: legacy export without an identity stamp — say so, don't block.
+  var stampNote = noStamp
+    ? '<div style="margin-top:10px;padding:8px;background:#F4F6F8;border:1px solid #C7CDD4;border-radius:6px;font-size:13px;color:#4A5568;">' +
+      'This PDF predates duplicate protection (older export). Importing it twice would duplicate rounds \u2014 import it once.</div>'
+    : '';
   var unres = unresolved.length
     ? '<div style="margin-top:10px;padding:8px;background:#FDF3E7;border:1px solid #C98A4A;border-radius:6px;font-size:13px;">' +
       '\u26A0 ' + unresolved.length + ' filled item(s) could not be matched to this project ' +
@@ -113,7 +132,7 @@ function _showPreview(rows, unresolved, onConfirm) {
       '<div style="background:#9C2742;color:#fff;padding:14px 18px;font-weight:bold;font-size:16px;">Import Contractor Responses</div>' +
       '<div style="padding:14px 18px;overflow-y:auto;flex:1;">' +
         '<div style="font-size:14px;margin-bottom:8px;">' + rows.length + ' filled item(s) found. Each will be added to its item\u2019s thread as a contractor round (source: PDF). Contractor text is stored verbatim.</div>' +
-        rowsHtml + unres +
+        rowsHtml + dupesHtml + stampNote + unres +
       '</div>' +
       '<div style="padding:12px 18px;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;">' +
         '<button id="crbimp-cancel" style="padding:10px 18px;border:1px solid #ccc;background:#fff;border-radius:6px;cursor:pointer;min-height:44px;font-family:Calibri,sans-serif;">Cancel</button>' +
@@ -162,7 +181,16 @@ export function openCrbImport() {
     }).then(function(pdfDoc) {
       var parsed = _parseForm(window.PDFLib, pdfDoc);
       if (parsed.noForm) { _notice('This PDF has no fillable form fields. Make sure it is the exported ARENCON report (not a print-to-PDF copy).'); return; }
-      var rows = [], unresolved = [];
+      // S470: duplicate detection keyed per (exportId, obsId). The realistic
+      // workflow is a contractor part-filling, sending, filling MORE, and
+      // re-sending the SAME PDF — so the grain is per item, never per file:
+      // new items import, already-imported ones are skipped and SAID so. If
+      // an item was filled DIFFERENTLY on the re-send (a correction), the
+      // skip is surfaced — a person removes the earlier round deliberately;
+      // an import never overwrites a record (locked §5).
+      var _expId = parsed.exportId || null;
+      var _seen = (proj.exportIds || []);
+      var rows = [], unresolved = [], dupes = [];
       Object.keys(parsed.byId).forEach(function(obsId) {
         var v = parsed.byId[obsId];
         // Skip untouched blocks: no status checked AND no comment typed.
@@ -170,19 +198,26 @@ export function openCrbImport() {
         var hit = _resolveObs(proj, obsId);
         if (!hit) { unresolved.push(obsId); return; }
         var obsTxt = (hit.obs.text || '').slice(0, 60);
-        rows.push({
+        var row = {
           deficId: hit.deficId, obsIdx: hit.obsIdx, company: hit.company,
           status: v.status || null, comment: v.comment || '',
-          itemLabel: obsTxt || ('Observation ' + (hit.obsIdx + 1))
-        });
+          itemLabel: obsTxt || ('Observation ' + (hit.obsIdx + 1)),
+          dedupeKey: _expId ? (_expId + '|' + obsId) : null
+        };
+        if (row.dedupeKey && _seen.indexOf(row.dedupeKey) >= 0) { dupes.push(row); return; }
+        rows.push(row);
       });
-      if (!rows.length) {
+      if (!rows.length && !dupes.length) {
         _notice(unresolved.length
           ? 'Filled fields were found but none match items in this project. This PDF may be from an older export (re-export the report and have the contractor fill the new copy) or belong to a different project.'
           : 'No filled contractor responses found in this PDF.');
         return;
       }
-      _showPreview(rows, unresolved, function() {
+      if (!rows.length && dupes.length) {
+        _notice('All ' + dupes.length + ' filled item(s) in this PDF were already imported. Nothing new to add. (If the contractor corrected an earlier answer, remove that round from the item\u2019s thread first, then re-import.)');
+        return;
+      }
+      _showPreview(rows, unresolved, dupes, !_expId, function() {
         var ok = 0, fail = 0;
         rows.forEach(function(r) {
           var entry = Model.addContractorResponse(r.deficId, r.obsIdx, {
@@ -191,13 +226,19 @@ export function openCrbImport() {
             text: r.comment,
             source: 'pdf'
           });
-          if (entry) ok++; else fail++;
+          if (entry) {
+            ok++;
+            // Register AFTER a successful write, so a failed write stays importable.
+            if (r.dedupeKey) { try { Model.registerExportId(r.dedupeKey); } catch (e) {} }
+          } else fail++;
         });
         try { if (Model.saveNow) Model.saveNow(); } catch (e) {}
         _notice('Imported ' + ok + ' contractor response(s) into item threads.' +
+          (dupes.length ? ' ' + dupes.length + ' already-imported item(s) skipped.' : '') +
           (fail ? ' ' + fail + ' failed \u2014 see console.' : '') +
           ' They will appear in the next exported report\u2019s thread history.');
         console.log('[CRBImport] wrote ' + ok + ' response(s), ' + fail + ' failed, ' +
+          dupes.length + ' duplicate(s) skipped, ' +
           unresolved.length + ' unresolved field id(s)', unresolved);
       });
     }).catch(function(e) {

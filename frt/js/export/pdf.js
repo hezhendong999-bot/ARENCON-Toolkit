@@ -2029,6 +2029,25 @@ function _captureExportPDF(w,D){
         }catch(e){}
       }
       _capStatus(D,'Saving PDF…');
+      // ── S470: export identity stamp (re-import protection) ──────────────
+      // A hidden, read-only text field carrying a unique id for THIS export.
+      // The importer keys duplicate detection on (exportId, obsId) — so the
+      // same PDF re-sent with MORE items filled imports the new items and
+      // skips the already-imported ones, instead of silently duplicating
+      // rounds. Hidden (/F 2) + read-only so fill apps carry it untouched.
+      try{
+        var _expId='exp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+        var _idForm=pdfDoc.getForm();
+        var _idF=_idForm.createTextField('arencon_export_id');
+        _idF.setText(_expId);
+        _idF.enableReadOnly();
+        var _pg0=pdfDoc.getPage(0);
+        _idF.addToPage(_pg0,{x:1,y:1,width:1,height:1,borderWidth:0});
+        try{
+          var _idW=_idF.acroField.getWidgets()[0];
+          _idW.dict.set(PDFLib.PDFName.of('F'),PDFLib.PDFNumber.of(2));   // hidden
+        }catch(_ih){}
+      }catch(_eid){}
       var bytes=await pdfDoc.save();
       var blob=new Blob([bytes],{type:'application/pdf'});
       var fname=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
