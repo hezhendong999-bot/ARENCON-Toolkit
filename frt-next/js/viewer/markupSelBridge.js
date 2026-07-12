@@ -60,7 +60,7 @@
  */
 'use strict';
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.2.0';
 
 // Canonical → FRT-v1 legacy name (persisted-format stability: a drawing saved
 // with 'fillrect' must save back as 'fillrect', never 'rect-fill'). FRT v1
@@ -97,8 +97,16 @@ export function toStroke(v1) {
     s.pts = [{ x: v1.x1, y: v1.y1 }];
     delete s.x1; delete s.y1;
   } else if (t === 'dimension') {
-    s.pts = [{ x: v1.mx1, y: v1.my1 }, { x: v1.mx2, y: v1.my2 }];
-    delete s.mx1; delete s.my1; delete s.mx2; delete s.my2;
+    // Two persisted flavors exist in the field (markup.js guards `mx1 != null`
+    // everywhere): newer dims use mx1..my2, LEGACY dims use x1..y2. Read either;
+    // _v1keys remembers which, so toV1 emits the original flavor byte-exactly.
+    if (v1.mx1 != null) {
+      s.pts = [{ x: v1.mx1, y: v1.my1 }, { x: v1.mx2, y: v1.my2 }];
+      delete s.mx1; delete s.my1; delete s.mx2; delete s.my2;
+    } else {
+      s.pts = [{ x: v1.x1, y: v1.y1 }, { x: v1.x2, y: v1.y2 }];
+      delete s.x1; delete s.y1; delete s.x2; delete s.y2;
+    }
   } else {
     // shapes (rect/fillrect/circle/fillcircle/arrow/line/triangle/filltriangle/cloud)
     s.pts = [{ x: v1.x1, y: v1.y1 }, { x: v1.x2, y: v1.y2 }];
@@ -122,8 +130,16 @@ export function toV1(stroke) {
     geo.y1 = pts[0] ? pts[0].y : 0;
     // NEVER write x2/y2 on text — see markup.js rotate handler bug note.
   } else if (t === 'dimension') {
-    geo.mx1 = pts[0] ? pts[0].x : 0; geo.my1 = pts[0] ? pts[0].y : 0;
-    geo.mx2 = pts[1] ? pts[1].x : 0; geo.my2 = pts[1] ? pts[1].y : 0;
+    // Emit the flavor this dim was persisted with (legacy x1..y2 vs mx1..my2).
+    // Strokes born in-engine (clones) inherit _v1keys from their parent.
+    const legacyDim = stroke._v1keys ? stroke._v1keys.indexOf('mx1') === -1 : false;
+    if (legacyDim) {
+      geo.x1 = pts[0] ? pts[0].x : 0; geo.y1 = pts[0] ? pts[0].y : 0;
+      geo.x2 = pts[1] ? pts[1].x : 0; geo.y2 = pts[1] ? pts[1].y : 0;
+    } else {
+      geo.mx1 = pts[0] ? pts[0].x : 0; geo.my1 = pts[0] ? pts[0].y : 0;
+      geo.mx2 = pts[1] ? pts[1].x : 0; geo.my2 = pts[1] ? pts[1].y : 0;
+    }
   } else {
     geo.x1 = pts[0] ? pts[0].x : 0; geo.y1 = pts[0] ? pts[0].y : 0;
     geo.x2 = pts[1] ? pts[1].x : 0; geo.y2 = pts[1] ? pts[1].y : 0;
@@ -202,6 +218,125 @@ export function buildHooks(host) {
     // Committed group op → exactly what markup.js already does at the same
     // moment (see _handleSelectUp): push a full-state undo snapshot and mark
     // the drawing dirty for autosave. Behavior preserved verbatim.
-    logOp: function (_op) { host.pushHistory(); host.markDirty(); }
+    logOp: function (_op) { host.pushHistory(); host.markDirty(); },
+
+    // ── S461d: INK-PRECISE hit test (drawing viewer) ────────────────────────
+    // On a drawing, bounding boxes are enormous — a dimension's AABB spans the
+    // whole bay, a tall scribble covers half the sheet. AABB-hit selected marks
+    // the user never touched (the S461 dimension-deletion incident) and made
+    // empty-space drags grab instead of rubber-banding. This tests the INK:
+    //   freehand / line / arrow → distance to the polyline/segment ≤ size/2+tol
+    //   hollow shapes           → distance to the PERIMETER (interior = miss!)
+    //   filled shapes / text    → inside the box IS the ink
+    //   cloud                   → its rect perimeter (arcs ride the boundary)
+    //   dimension               → near the OFFSET dim line, its extension legs,
+    //                             or inside the label chip (matches _getBounds
+    //                             chip geometry: mid ± 28×14)
+    // Rotated shapes/text: the POINT is inverse-rotated about the stroke center
+    // (same pivot the renderer uses), then tested in unrotated space.
+    hitInk: function (s, p, tol) {
+      const t = s._v1type || s.tool;
+      const pts = s.pts || [];
+      if (!pts.length) return false;
+      const half = (s.size || 2) / 2 + tol;
+
+      function dSeg(px, py, ax, ay, bx, by) {
+        const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
+        const u = L ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L)) : 0;
+        const qx = ax + u * dx, qy = ay + u * dy;
+        return Math.sqrt((px - qx) * (px - qx) + (py - qy) * (py - qy));
+      }
+      function nearPolyline(q, arr, closed, r) {
+        const n = arr.length, lim = closed ? n : n - 1;
+        if (n === 1) return Math.hypot(q.x - arr[0].x, q.y - arr[0].y) <= r;
+        for (let i = 0; i < lim; i++) {
+          const a = arr[i], b = arr[(i + 1) % n];
+          if (dSeg(q.x, q.y, a.x, a.y, b.x, b.y) <= r) return true;
+        }
+        return false;
+      }
+
+      // freehand + eraser strokes: the polyline IS the ink
+      if (t === 'pen' || t === 'highlight' || t === 'polyline' || t === 'eraser') {
+        return nearPolyline(p, pts, false, half);
+      }
+
+      if (t === 'dimension') {
+        const a = pts[0], b = pts[1];
+        const dx = b.x - a.x, dy = b.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const px = -dy / len, py = dx / len, off = s.offset || 0;
+        const oa = { x: a.x + px * off, y: a.y + py * off };
+        const ob = { x: b.x + px * off, y: b.y + py * off };
+        // offset dim line + the two extension legs
+        if (dSeg(p.x, p.y, oa.x, oa.y, ob.x, ob.y) <= half + 2) return true;
+        if (dSeg(p.x, p.y, a.x, a.y, oa.x, oa.y) <= half + 2) return true;
+        if (dSeg(p.x, p.y, b.x, b.y, ob.x, ob.y) <= half + 2) return true;
+        // label chip (same geometry _getBounds uses)
+        const mx = (a.x + b.x) / 2 + px * off, my = (a.y + b.y) / 2 + py * off;
+        return p.x >= mx - 28 - tol && p.x <= mx + 28 + tol && p.y >= my - 14 - tol && p.y <= my + 14 + tol;
+      }
+
+      // shapes + text: normalize the box; inverse-rotate the point if rotated
+      const a2 = pts[0], b2 = pts[1] || pts[0];
+      let q = p;
+      if (s.rotation) {
+        let cx, cy;
+        if (t === 'text') {
+          const fs = s.fontSize || 20, estW = (s.text || '').length * fs * 0.55;
+          cx = a2.x + estW / 2; cy = a2.y - fs / 2;   // renderer's pivot
+        } else {
+          cx = (a2.x + b2.x) / 2; cy = (a2.y + b2.y) / 2;
+        }
+        const c = Math.cos(-s.rotation), sn = Math.sin(-s.rotation);
+        q = { x: cx + (p.x - cx) * c - (p.y - cy) * sn, y: cy + (p.x - cx) * sn + (p.y - cy) * c };
+      }
+
+      if (t === 'text') {
+        const fs = s.fontSize || 20, estW = (s.text || '').length * fs * 0.55;
+        return q.x >= a2.x - tol && q.x <= a2.x + estW + tol && q.y >= a2.y - fs - tol && q.y <= a2.y + 4 + tol;
+      }
+
+      const L = Math.min(a2.x, b2.x), R = Math.max(a2.x, b2.x);
+      const T = Math.min(a2.y, b2.y), B = Math.max(a2.y, b2.y);
+      const filled = (t === 'fillrect' || t === 'fillcircle' || t === 'filltriangle' ||
+                      s.tool === 'rect-fill' || s.tool === 'circle-fill' || s.tool === 'triangle-fill');
+      const inside = q.x >= L - tol && q.x <= R + tol && q.y >= T - tol && q.y <= B + tol;
+
+      if (t === 'line' || t === 'arrow') {
+        return dSeg(q.x, q.y, a2.x, a2.y, b2.x, b2.y) <= half + (t === 'arrow' ? 6 : 0);
+      }
+      if (t === 'circle' || s.tool === 'circle') {
+        const cx2 = (L + R) / 2, cy2 = (T + B) / 2, rx = (R - L) / 2 || 1, ry = (B - T) / 2 || 1;
+        // normalized ellipse ring: |dist-1| within tolerance scaled to radii
+        const nx = (q.x - cx2) / rx, ny = (q.y - cy2) / ry;
+        const d = Math.sqrt(nx * nx + ny * ny);
+        return Math.abs(d - 1) * Math.min(rx, ry) <= half;
+      }
+      if (t === 'fillcircle' || s.tool === 'circle-fill') {
+        const cx3 = (L + R) / 2, cy3 = (T + B) / 2, rx3 = (R - L) / 2 || 1, ry3 = (B - T) / 2 || 1;
+        const nx3 = (q.x - cx3) / rx3, ny3 = (q.y - cy3) / ry3;
+        return Math.sqrt(nx3 * nx3 + ny3 * ny3) <= 1 + half / Math.min(rx3, ry3);
+      }
+      if (t === 'triangle') {
+        const apex = { x: (L + R) / 2, y: T };
+        return nearPolyline(q, [apex, { x: R, y: B }, { x: L, y: B }], true, half);
+      }
+      if (t === 'filltriangle') {
+        if (!inside) return false;
+        // barycentric-ish: below both slanted edges
+        const apex2 = { x: (L + R) / 2, y: T };
+        const s1 = (q.x - apex2.x) * (B - T) - (q.y - T) * (R - apex2.x);
+        const s2 = (q.x - apex2.x) * (B - T) - (q.y - T) * (L - apex2.x);
+        return s1 <= half * (B - T) && s2 >= -half * (B - T);
+      }
+      if (filled) return inside;                       // fillrect
+      if (t === 'rect' || t === 'cloud' || s.tool === 'rect') {
+        // hollow: perimeter only — the empty interior is NOT the mark
+        if (!inside) return false;
+        const edge = Math.min(q.x - L, R - q.x, q.y - T, B - q.y);
+        return edge <= half + (t === 'cloud' ? 8 : 0);  // cloud arcs bulge off the rect
+      }
+      return inside;                                    // unknown type: safe fallback
+    }
   };
 }
