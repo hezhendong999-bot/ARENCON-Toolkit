@@ -5772,6 +5772,17 @@ document.addEventListener('click', function(e) {
     else { toast('This comment was printed in an issued report \u2014 it can\u2019t be removed. Reply instead.'); }
     return;
   }
+  if (action === 'crbt-showstubs') {
+    var _sf = el.closest('.crbt-stubfold');
+    var _sl = _sf && _sf.querySelector('.crbt-stublist');
+    var _st = _sf && _sf.querySelector('.crbt-stubtoggle');
+    if (_sl) {
+      var _open = _sl.style.display !== 'none';
+      _sl.style.display = _open ? 'none' : '';
+      if (_st) _st.textContent = _open ? 'Show' : 'Hide';
+    }
+    return;
+  }
   if (action === 'crbt-restore') {
     var _rsE = Model.restoreThreadEntry(
       el.getAttribute('data-defic-id'),

@@ -168,16 +168,17 @@ export function buildThreadHtml(opts){
     out.sort(function(x,y){return String(x.e.date||'').localeCompare(String(y.e.date||''));});
     return out;
   }
+  // S475 (Mark: a chain of stubs wastes space): removed entries are POOLED
+  // into one folded line at the thread's foot — "N removed · Show" — instead
+  // of holding their positions. Undo stays one tap away; the S474 issued-line
+  // window still retires them entirely at the next Issue.
+  var _removedPool=[];
+  function _poolRemoved(e){
+    if((Number(e.frtInstance)||1) < curInst) return;   // S474 window closed
+    _removedPool.push(e);
+  }
   function renderWithReplies(e,kind){
-    if(e.removed){
-      // S474 (Mark: "when does removal become hard?"): it never does — but the
-      // UNDO WINDOW closes at the issued line. A draft removed before it ever
-      // printed was never part of any record; once its report cycle has issued
-      // (the project's instance moved past the one it was drafted for), the
-      // stub stops rendering. Data is retained — no hard delete, no merge risk.
-      if((Number(e.frtInstance)||1) < curInst) return '';
-      return _removedStub(e,ids);
-    }
+    if(e.removed){ _poolRemoved(e); return ''; }
     var h=(kind==='c')?_ctrSide(e,opts.company):_arcSide(e);
     h+=_actionRow(e,kind,ids);
     var reps=repliesTo(e.id);
@@ -203,7 +204,7 @@ export function buildThreadHtml(opts){
   if(sitelogs.length){
     h+='<div class="crbt-round"><div class="crbt-rhead crbt-rhead-log">Site log \u2014 pre-thread history</div><div class="crbt-pair">';
     sitelogs.forEach(function(sl){
-      if(sl.removed){ if((Number(sl.frtInstance)||1)<curInst) return; h+=_removedStub(sl,ids); return; }
+      if(sl.removed){ _poolRemoved(sl); return; }
       // Sitelog rows: verbatim history — no Edit; Reply + 🗑 live (drafts).
       h+=_sitelogRow(sl)+_actionRow(sl,'log',ids)+'</div>';
     });
@@ -211,6 +212,10 @@ export function buildThreadHtml(opts){
   }
   rounds.forEach(function(rn){
     var cell=byRound[rn];
+    if(cell.every(function(x){return x.e.removed;})){
+      cell.forEach(function(x){_poolRemoved(x.e);});
+      return;   // a round of nothing but removed drafts renders no header
+    }
     cell.sort(function(x,y){
       if(x.kind!==y.kind)return x.kind==='c'?-1:1;                 // contractor first
       return String(x.e.date||'').localeCompare(String(y.e.date||''));
@@ -229,6 +234,15 @@ export function buildThreadHtml(opts){
     cell.forEach(function(x){h+=renderWithReplies(x.e,x.kind);});
     h+='</div></div>';
   });
+  if(_removedPool.length){
+    h+='<div class="crbt-stubfold">'
+      +'<button class="crbt-act" data-action="crbt-showstubs">'
+      +_removedPool.length+' removed comment'+(_removedPool.length>1?'s':'')
+      +' \u00b7 <span class="crbt-stubtoggle">Show</span></button>'
+      +'<div class="crbt-stublist" style="display:none;">';
+    _removedPool.forEach(function(e){h+=_removedStub(e,ids);});
+    h+='</div></div>';
+  }
   // ── S473 (A1): open-round footer — the entry point for new comments.
   // Renders whenever the item is open, INCLUDING an empty thread (otherwise
   // there is no way to start one). Locked §2: "+ Add comment" (quiet) and

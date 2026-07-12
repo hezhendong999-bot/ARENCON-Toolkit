@@ -10907,3 +10907,9 @@ body.dark-mode .crbt-btn{border-color:#2a2830;background:#16151a;color:#f4f3f6;}
 body.dark-mode .crbt-btn.crbt-primary{border-color:#C9476A;color:#C9476A;}
 body.dark-mode .crbt-openround{background:#1d1c22;border-top-color:#E0A36A;}
 body.dark-mode .crbt-openlbl{color:#E0A36A;}
+/* S475: folded removed-comments line */
+.crbt-stubfold{padding:2px 12px 6px;}
+.crbt-stubfold>.crbt-act{color:#928E9C;font-style:italic;font-weight:400;font-size:calc(11px + var(--ts));}
+.crbt-stubtoggle{text-decoration:underline;font-style:normal;}
+.crbt-stublist{margin-top:4px;}
+body.dark-mode .crbt-stubfold>.crbt-act{color:#6b6674;}
