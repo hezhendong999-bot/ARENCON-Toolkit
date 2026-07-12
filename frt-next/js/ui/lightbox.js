@@ -338,12 +338,14 @@ function _buildMarkupBar(overlay){
   // active (deliberate clear, since empty taps are now sticky); ✓ only in tap mode
   // while picking (collapses individual picks into one group).
   var cBar=document.createElement('div'); cBar.id='lb-mk-confirm';
-  cBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
-  var cCnt=document.createElement('span'); cCnt.style.cssText='font:600 13px Calibri,sans-serif;color:#cfcad6;';
+  // S461j (Mark): the confirm bar matches the POLYLINE PILL metrics exactly
+  // (36px buttons, compact padding) — one pill design across the toolkit.
+  cBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:6px 8px 6px 12px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+  var cCnt=document.createElement('span'); cCnt.style.cssText='font:600 12px Calibri,sans-serif;color:#cfcad6;';
   var cOk=document.createElement('button'); cOk.innerHTML='\u2713'; cOk.title='Confirm \u2014 group these';
-  cOk.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
+  cOk.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
   var cNo=document.createElement('button'); cNo.innerHTML='\u2715'; cNo.title='Cancel \u2014 clear selection';
-  cNo.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  cNo.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
   cBar.appendChild(cCnt); cBar.appendChild(cOk); cBar.appendChild(cNo);
   overlay.appendChild(cBar);
   // ===== Row 2: size · opacity · color · | · save/clear/revert (Option B icons) =====

@@ -60,7 +60,7 @@
  */
 'use strict';
 
-export const VERSION = '1.3.0';
+export const VERSION = '1.4.0';
 
 // Canonical → FRT-v1 legacy name (persisted-format stability: a drawing saved
 // with 'fillrect' must save back as 'fillrect', never 'rect-fill'). FRT v1
@@ -213,6 +213,31 @@ export function buildHooks(host) {
           size: m.size
         }));
       }
+    },
+
+    // ── S461j: DIMENSION CONTOUR for the member/pick glow ──────────────────
+    // The engine's default halo traces shapes (canonical renderer) and freehand
+    // polylines but has no idea what a dimension looks like. This lays down the
+    // dim's true ink: offset dim line + the two extension legs + the label chip
+    // outline — the same geometry the hitInk test uses. Non-dimension types
+    // return undefined so the engine's default logic runs.
+    haloPath: function (ctx, s) {
+      const t = s._v1type || s.tool;
+      if (t !== 'dimension') return undefined;
+      const pts = s.pts || [];
+      if (pts.length < 2) return false;
+      const a = pts[0], b = pts[1];
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const px = -dy / len, py = dx / len, off = s.offset || 0;
+      const oa = { x: a.x + px * off, y: a.y + py * off };
+      const ob = { x: b.x + px * off, y: b.y + py * off };
+      ctx.beginPath();
+      ctx.moveTo(oa.x, oa.y); ctx.lineTo(ob.x, ob.y);   // offset dim line
+      ctx.moveTo(a.x, a.y); ctx.lineTo(oa.x, oa.y);     // extension legs
+      ctx.moveTo(b.x, b.y); ctx.lineTo(ob.x, ob.y);
+      const mx = (a.x + b.x) / 2 + px * off, my = (a.y + b.y) / 2 + py * off;
+      ctx.rect(mx - 28, my - 14, 56, 28);               // label chip outline
+      return true;
     },
 
     // Committed group op → exactly what markup.js already does at the same

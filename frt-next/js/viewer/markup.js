@@ -123,12 +123,12 @@ function _dvEnsureSelChrome() {
   markSub('rubber');
   // confirm bar — verbatim lightbox styling
   _dvSelBar = document.createElement('div'); _dvSelBar.id = 'dv-mk-confirm';
-  _dvSelBar.style.cssText = 'position:fixed;left:50%;bottom:84px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;z-index:10021;box-shadow:0 6px 20px rgba(0,0,0,.55);';
-  _dvSelCnt = document.createElement('span'); _dvSelCnt.style.cssText = 'font:600 13px Calibri,sans-serif;color:#cfcad6;';
+  _dvSelBar.style.cssText = _DV_PILL_BOX + 'left:50%;bottom:84px;transform:translateX(-50%);display:none;padding-left:12px;';
+  _dvSelCnt = document.createElement('span'); _dvSelCnt.style.cssText = 'font:600 12px Calibri,sans-serif;color:#cfcad6;';
   _dvSelOk = document.createElement('button'); _dvSelOk.innerHTML = '\u2713'; _dvSelOk.title = 'Confirm \u2014 group these';
-  _dvSelOk.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
+  _dvSelOk.style.cssText = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
   var no = document.createElement('button'); no.innerHTML = '\u2715'; no.title = 'Cancel \u2014 clear selection';
-  no.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  no.style.cssText = _DV_PILL_X;
   _dvSelBar.appendChild(_dvSelCnt); _dvSelBar.appendChild(_dvSelOk); _dvSelBar.appendChild(no);
   host.appendChild(_dvSelBar);
   _dvSelOk.addEventListener('click', function () { SelHost.confirmPick(); _dvRefreshSelConfirm(); });
@@ -147,8 +147,19 @@ function _dvToggleSelFly() {
   _dvEnsureSelChrome();
   if (_dvSelFly.style.display === 'flex') { _dvSelFly.style.display = 'none'; return; }
   var sel = document.getElementById('mk-select');
-  if (sel) {
+  var coarse = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+  if (coarse || !sel) {
+    // S461j (Mark): on mobile the beside-the-button placement never showed.
+    // Coarse pointers get a CENTERED sheet below the toolbar — position that
+    // cannot miss, same idea as the lightbox's centered subFly.
+    _dvSelFly.style.left = '50%';
+    _dvSelFly.style.top = '';
+    _dvSelFly.style.transform = 'translateX(-50%)';
+    var tb = sel ? sel.getBoundingClientRect() : null;
+    _dvSelFly.style.top = ((tb ? tb.bottom : 96) + 10) + 'px';
+  } else {
     var r = sel.getBoundingClientRect();
+    _dvSelFly.style.transform = '';
     _dvSelFly.style.left = (r.right + 10) + 'px';
     _dvSelFly.style.top = Math.max(8, r.top - 6) + 'px';
   }
@@ -613,16 +624,16 @@ function _dvStyleDimFinChip(chip) {
   // the polyline pill / confirm bar — ✓ Finish (green) + ✕ (red). One visual
   // language for every "in-progress → commit/cancel" surface.
   if (chip._dvStyled) return; chip._dvStyled = true;
-  chip.style.cssText += ';display:none;align-items:center;gap:10px;padding:8px 10px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;box-shadow:0 6px 20px rgba(0,0,0,.55);z-index:10021;';
+  chip.style.cssText += ';' + _DV_PILL_BOX + 'display:none;';
   chip.innerHTML = '';
   var ok = document.createElement('button');
   ok.id = 'dim-finchip-ok';
   ok.innerHTML = '\u2713 <span style="margin-left:4px;">Finish</span>';
-  ok.style.cssText = 'border:none;height:42px;padding:0 16px;border-radius:21px;cursor:pointer;font:700 14px Calibri,sans-serif;color:#fff;background:#3FD08A;display:flex;align-items:center;';
+  ok.style.cssText = _DV_PILL_FINISH;
   var no = document.createElement('button');
   no.id = 'dim-finchip-no';
   no.innerHTML = '\u2715';
-  no.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  no.style.cssText = _DV_PILL_X;
   chip.appendChild(ok); chip.appendChild(no);
 }
 function _updateDimFinChip() {
@@ -3167,17 +3178,22 @@ function _cancelPolyline() {
 // floating far away (Mark, frt-next field report). Styles applied once.
 function _dvStylePolyPill(pill) {
   if (pill._dvStyled) return; pill._dvStyled = true;
-  pill.style.cssText += ';position:fixed;z-index:10021;display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+  pill.style.cssText += ';' + _DV_PILL_BOX;
   var ok = document.getElementById('poly-commit-btn');
-  if (ok) {
-    ok.style.cssText = 'border:none;height:42px;padding:0 16px;border-radius:21px;cursor:pointer;font:700 14px Calibri,sans-serif;color:#fff;background:#3FD08A;display:flex;align-items:center;gap:6px;';
-  }
-  // S461i (Mark): the pill is ✓ Finish + ✕ only — the ↩ undo-point button is gone.
+  if (ok) ok.style.cssText = _DV_PILL_FINISH;
+  // S461j: ↩ RESTORED (Mark: "I didn't say to remove ↩ from polyline" — only
+  // the NEW pills [dim finish, selection confirm] are Finish + ✕).
   var un = document.getElementById('poly-undo-pt-btn');
-  if (un) un.style.display = 'none';
+  if (un) un.style.cssText = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;';
   var no = document.getElementById('poly-cancel-btn');
-  if (no) no.style.cssText = 'border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  if (no) no.style.cssText = _DV_PILL_X;
 }
+// S461j — ONE pill design (Mark: "match polyline pill design exactly").
+// Every in-progress pill [polyline / dim finish / selection confirm] clones
+// these metrics; only the button set differs (polyline keeps ↩).
+var _DV_PILL_BOX    = 'position:fixed;z-index:10021;display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+var _DV_PILL_FINISH = 'border:none;height:36px;padding:0 14px;border-radius:18px;cursor:pointer;font:700 13px Calibri,sans-serif;color:#fff;background:#3FD08A;display:flex;align-items:center;gap:5px;';
+var _DV_PILL_X      = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
 // Position the pill beside the LAST placed point (logical → screen, clamped).
 function _dvPositionPolyPill() {
   var pill = document.getElementById('poly-sub-toolbar');
