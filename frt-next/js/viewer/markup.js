@@ -153,7 +153,7 @@ function _dvEnsureSelChrome() {
   no.style.cssText = _DV_PILL_X;
   _dvSelBar.appendChild(_dvSelCnt); _dvSelBar.appendChild(_dvSelOk); _dvSelBar.appendChild(no);
   (document.getElementById('drawing-viewer-overlay') || document.body).appendChild(_dvSelBar);
-  _dvSelOk.addEventListener('click', function () { SelHost.confirmPick(); _dvRefreshSelConfirm(); });
+  _dvSelOk.addEventListener('click', function () { (SelHost.confirmSelection || SelHost.confirmPick).call(SelHost); _dvRefreshSelConfirm(); });
   no.addEventListener('click', function () { SelHost.cancelSelect(); _dvRefreshSelConfirm(); });
 }
 function _dvToggleSelFly() {
@@ -173,8 +173,10 @@ function _dvRefreshSelConfirm() {
   if (!_dvSelBar) { if (!SelHost.hasActiveSelection || !SelHost.hasActiveSelection()) return; _dvEnsureSelChrome(); }
   if (_tool !== 'select' || !SelHost.hasActiveSelection()) { _dvSelBar.style.display = 'none'; return; }
   _dvSelBar.style.display = 'flex';
-  if (SelHost.isPicking()) { _dvSelOk.style.display = 'flex'; _dvSelCnt.textContent = SelHost.pickCount() + ' picked'; }
-  else { _dvSelOk.style.display = 'none'; _dvSelCnt.textContent = SelHost.selCount() + ' selected'; }
+  // S461t (Mark): ✓ stays through the whole lifecycle — confirm picks, then
+  // confirm (finalize) the group after moving. Same rule as the lightbox.
+  _dvSelOk.style.display = 'flex';
+  _dvSelCnt.textContent = SelHost.isPicking() ? (SelHost.pickCount() + ' picked') : (SelHost.selCount() + ' selected');
 }
 var _penPoints = [];
 // S461q: _polyPoints retired — the shared module owns polyline state.

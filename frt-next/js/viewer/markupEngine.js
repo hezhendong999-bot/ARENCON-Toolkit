@@ -176,7 +176,14 @@
       this._render();
     },
 
-    setTool:  function(t){ this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this.selIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
+    setTool:  function(t){
+      // S461t: leaving polyline mid-draw discards pending points AND the arm
+      // flags — nothing may leak into another tool's press/move/release.
+      if (this.tool === 'polyline' && t !== 'polyline'){
+        if (this._polyTool && this._polyTool.count()) this._polyTool.cancel();
+        this._polyDown = false; this._polyCursor = null;
+      }
+      this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this.selIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
 
     setColor: function(c){ this.color = c; this._applyToSelection('color', c); },
     setSize:  function(s){ this.size = s; },
@@ -280,6 +287,15 @@
           self._render();
           return;
         }
+        // S461t — POLYLINE: press arms; RELEASE places the point (the drawing
+        // viewer's locked input model). Strictly gated on tool === 'polyline';
+        // touches nothing shared. Points live in the shared module.
+        if (self.tool === 'polyline'){
+          self._polyDown = true;
+          self._polyCursor = { x:p.x, y:p.y };
+          self._render();
+          return;
+        }
         // Freehand (pen/highlight) — drag flow.
         self._drawing = true;
         self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size*(self._uiScale?self._uiScale():1), opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
@@ -287,6 +303,17 @@
         self.redoStack = [];
       }
       function move(ev){
+        // S461t — polyline: the pending leg follows the pointer. Renders only
+        // when there are placed points; never touches other tools' flow.
+        if (self.tool === 'polyline'){
+          // S329 parity: a second finger = pinch/pan, not drawing — disarm so
+          // the release places NO point, and let the gesture bubble.
+          if (ev.touches && ev.touches.length >= 2){ self._polyDown = false; return; }
+          var _pm = pt(ev);
+          self._polyCursor = { x:_pm.x, y:_pm.y };
+          if (self._polyTool && self._polyTool.count()) self._render();
+          return;
+        }
         // S329: 2+ fingers — stop drawing, let the pinch/pan move bubble to lightbox.
         if (ev.touches && ev.touches.length >= 2){
           if (self._drawing || self._curr || self._shapePending){
@@ -317,6 +344,16 @@
       }
       function up(){
         if (self.tool === 'select'){ if (self._dragState && self._selUp) self._selUp(); return; }
+        // S461t — POLYLINE: release places the point (module owns close-loop:
+        // within 15 units of point 0 → snap + finish). Gated on tool + its own
+        // down flag; consumed here, never read by another tool.
+        if (self.tool === 'polyline'){
+          if (!self._polyDown) return;
+          self._polyDown = false;
+          var _pu = self._poly();
+          if (_pu && self._polyCursor) _pu.addPoint(self._polyCursor);
+          return;
+        }
         if (!self._drawing) return;
         self._drawing = false;
         if (self._curr && self._curr.tool==='eraser'){
@@ -687,6 +724,45 @@
     },
 
 
+    // ── S461t: POLYLINE — the shared module (lib/ui/markupPolyline.js), the
+    // same one the drawing viewer runs on. In-progress state lives in the
+    // module (mirroring how _curr holds an in-progress pen stroke) and is
+    // painted inline during _render, at the same slot _curr is painted.
+    _poly: function(){
+      if (this._polyTool) return this._polyTool;
+      if (!window.MarkupPolyline) return null;
+      var self = this;
+      this._polyTool = window.MarkupPolyline.create({
+        getOverlay: function(){ return null; },   // no overlay layer — painted in _render
+        hideOverlay: function(){},
+        style: function(){
+          return { color: self.color,
+                   size: self.size * (self._uiScale ? self._uiScale() : 1),
+                   opacity: self.opacity };
+        },
+        commit: function(pts){
+          // This host's stroke shape: {tool,pts[]} — identical to pen, so render,
+          // hit-testing, selection, eraser and undo all work with no new cases.
+          self.strokes.push({
+            id: self._uid(), tool: 'polyline', color: self.color,
+            size: self.size * (self._uiScale ? self._uiScale() : 1),
+            opacity: self.opacity, pts: pts
+          });
+          self._histPush({ t:'add' });
+          self.redoStack = [];
+          if (self._onDirty) self._onDirty();
+        },
+        afterChange: function(n){ if (self._onPolyChange) self._onPolyChange(n); },
+        render: function(){ if (self.ctx) self._render(); }
+      });
+      return this._polyTool;
+    },
+    finishPolyline: function(){ var p=this._poly(); if(p) p.finish(); },
+    undoPolyPoint:  function(){ var p=this._poly(); if(p) p.undoPoint(); },
+    cancelPolyline: function(){ var p=this._poly(); if(p) p.cancel(); },
+    polyCount:      function(){ return (this._polyTool ? this._polyTool.count() : 0); },
+    onPolyChange:   function(fn){ this._onPolyChange = fn || null; },
+
     _strokePath: function(ctx, s){
       if (s.pts.length < 2) return;
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -844,9 +920,35 @@
       // Pass 2: pen strokes on top (per-object opacity)
       for (var k=0;k<this.strokes.length;k++){
         var st = this.strokes[k];
-        if (st.tool==='pen') this._drawPenR(ctx, st);   // S459: mask-aware
+        if (st.tool==='pen' || st.tool==='polyline') this._drawPenR(ctx, st);   // S459: mask-aware (S461t: polyline shares the pen path)
       }
       if (this._curr && this._curr.tool==='pen'){ ctx.save(); ctx.globalAlpha=(this._curr.opacity!=null)?this._curr.opacity:1; this._strokePath(ctx, this._curr); ctx.restore(); }
+      // S461t — in-progress POLYLINE, painted at the _curr slot from the shared
+      // module's state: placed segments + rubber-band leg to the cursor + the
+      // close indicator on point 0 (the drawing viewer's preview, verbatim).
+      if (this.tool === 'polyline' && this._polyTool && this._polyTool.count()){
+        var _pl = this._polyTool.points();
+        var _pu2 = this._uiScale ? this._uiScale() : 1;
+        ctx.save();
+        ctx.globalAlpha = (this.opacity != null) ? this.opacity : 1;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = this.size * _pu2;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(_pl[0].x, _pl[0].y);
+        for (var _pj = 1; _pj < _pl.length; _pj++) ctx.lineTo(_pl[_pj].x, _pl[_pj].y);   // lineTo only
+        if (this._polyCursor) ctx.lineTo(this._polyCursor.x, this._polyCursor.y);
+        ctx.stroke();
+        if (this._polyCursor && _pl.length >= 2){
+          var _dxp = this._polyCursor.x - _pl[0].x, _dyp = this._polyCursor.y - _pl[0].y;
+          if (Math.sqrt(_dxp*_dxp + _dyp*_dyp) < 15){
+            ctx.beginPath();
+            ctx.arc(_pl[0].x, _pl[0].y, 8 * _pu2, 0, Math.PI * 2);
+            ctx.fillStyle = this.color; ctx.globalAlpha = 0.3; ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
       // S459: live eraser drag path — grey preview, never persisted (viewer parity)
       if (this._curr && this._curr.tool==='eraser' && this._curr.pts.length>1){
         var _ec=this._curr;
