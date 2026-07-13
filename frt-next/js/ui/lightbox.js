@@ -299,8 +299,7 @@ function _buildMarkupBar(overlay){
     check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 6"/></svg>',
     trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>',
     revert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/><path d="M9 21h8"/></svg>'
-  ,
-    polyline:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,20 8,8 14,14 19,4"/></svg>'};
+  };
   function _sized(svg){ return svg.replace('<svg ', '<svg width="21" height="21" '); }
   function iconBtn(id,key,title,caret){
     var b=document.createElement('button'); b.id=id; b.title=title;
@@ -339,14 +338,12 @@ function _buildMarkupBar(overlay){
   // active (deliberate clear, since empty taps are now sticky); ✓ only in tap mode
   // while picking (collapses individual picks into one group).
   var cBar=document.createElement('div'); cBar.id='lb-mk-confirm';
-  // S461j (Mark): the confirm bar matches the POLYLINE PILL metrics exactly
-  // (36px buttons, compact padding) — one pill design across the toolkit.
-  cBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:6px 8px 6px 12px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
-  var cCnt=document.createElement('span'); cCnt.style.cssText='font:600 12px Calibri,sans-serif;color:#cfcad6;';
+  cBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+  var cCnt=document.createElement('span'); cCnt.style.cssText='font:600 13px Calibri,sans-serif;color:#cfcad6;';
   var cOk=document.createElement('button'); cOk.innerHTML='\u2713'; cOk.title='Confirm \u2014 group these';
-  cOk.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
+  cOk.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
   var cNo=document.createElement('button'); cNo.innerHTML='\u2715'; cNo.title='Cancel \u2014 clear selection';
-  cNo.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  cNo.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
   cBar.appendChild(cCnt); cBar.appendChild(cOk); cBar.appendChild(cNo);
   overlay.appendChild(cBar);
   // ===== Row 2: size · opacity · color · | · save/clear/revert (Option B icons) =====
@@ -533,9 +530,7 @@ function _buildMarkupBar(overlay){
       f.appendChild(b); });
     overlay.appendChild(f); return f;
   }
-  // S461n (Mark: "my lightbox is missing the polyline feature") — polyline now
-  // sits in the pen group, exactly like the drawing viewer's pen submenu.
-  var penFly=groupFly([['pen','Pen'],['highlight','Highlighter'],['line','Line'],['arrow','Arrow'],['polyline','Polyline']], bPenGrp);
+  var penFly=groupFly([['pen','Pen'],['highlight','Highlighter'],['line','Line'],['arrow','Arrow']], bPenGrp);
   var shapeFly=groupFly([['rect','Rectangle'],['rect-fill','Filled Rect'],['circle','Circle'],['circle-fill','Filled Circle'],['triangle','Triangle']], bShapeGrp);
 
   function setActive(btn){
@@ -608,11 +603,7 @@ function _buildMarkupBar(overlay){
   [subRubber,subTap].forEach(function(b){
     b.addEventListener('click',function(e){
       e.stopPropagation();
-      // S461i (Mark, frt-next field report): picking a sub-mode never actually
-      // ARMED the select tool — setActive() is visual-only, so the button lit
-      // up while MarkupEngine.tool stayed on the previous tool and drags DREW
-      // PEN STROKES instead of selecting. Arm it for real.
-      if (window.MarkupEngine){ window.MarkupEngine.setTool('select'); window.MarkupEngine.setSelectSub(b.dataset.sub); }
+      if (window.MarkupEngine) window.MarkupEngine.setSelectSub(b.dataset.sub);
       setActive(bSel); _activeBtn=bSel; markSub(b.dataset.sub);
       closeFly(); _refreshConfirmBar();
     });
@@ -635,32 +626,13 @@ function _buildMarkupBar(overlay){
     if (!E || E.tool!=='select' || !E.hasActiveSelection()){ cBar.style.display='none'; return; }
     cBar.style.bottom=_barClearance()+'px';
     cBar.style.display='flex';
+    // S461q (Mark): the ✓ shows whenever there's something to confirm — the
+    // drawing-viewer rule. It used to appear ONLY in tap mode, so rubber-band
+    // selections had no confirm button at all.
     var picking = E.isPicking && E.isPicking();
-    if (picking){ cOk.style.display='flex'; cCnt.textContent=E.pickCount()+' picked'; }
-    else { cOk.style.display='none'; cCnt.textContent=E.selectionCount()+' selected'; }
+    cOk.style.display='flex';
+    cCnt.textContent = picking ? (E.pickCount()+' picked') : (E.selectionCount()+' selected');
   }
-  // ── S461n: polyline pill — SAME design family as the drawing viewer's
-  // (dark bar, 36px circle buttons, ✓ Finish / ↩ undo-point / ✕ cancel).
-  // Touch: fixed bottom-centre. Appears with the first placed point.
-  var pBar=document.createElement('div');
-  pBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:6px 8px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
-  var pOk=document.createElement('button'); pOk.innerHTML='\u2713'; pOk.title='Finish';
-  pOk.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
-  var pUn=document.createElement('button'); pUn.innerHTML='\u21A9'; pUn.title='Remove the last point';
-  pUn.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;';
-  var pNo=document.createElement('button'); pNo.innerHTML='\u2715'; pNo.title='Cancel';
-  pNo.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
-  pBar.appendChild(pOk); pBar.appendChild(pUn); pBar.appendChild(pNo);
-  bar.parentNode.appendChild(pBar);
-  pOk.addEventListener('click',function(e){ e.stopPropagation(); if(window.MarkupEngine) window.MarkupEngine.finishPolyline(); });
-  pUn.addEventListener('click',function(e){ e.stopPropagation(); if(window.MarkupEngine) window.MarkupEngine.undoPolyPoint(); });
-  pNo.addEventListener('click',function(e){ e.stopPropagation(); if(window.MarkupEngine) window.MarkupEngine.cancelPolyline(); });
-  pBar.addEventListener('mousedown',function(e){ e.stopPropagation(); });
-  pBar.addEventListener('touchstart',function(e){ e.stopPropagation(); },{passive:true});
-  if (window.MarkupEngine && window.MarkupEngine.onPolyChange){
-    window.MarkupEngine.onPolyChange(function(n){ pBar.style.display = n > 0 ? 'flex' : 'none'; });
-  }
-
   cOk.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.confirmPick(); } _refreshConfirmBar(); });
   cNo.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.cancelSelect(); } _refreshConfirmBar(); });
   if (window.MarkupEngine) window.MarkupEngine.onSelChange(_refreshConfirmBar);

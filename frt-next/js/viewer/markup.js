@@ -177,7 +177,7 @@ function _dvRefreshSelConfirm() {
   else { _dvSelOk.style.display = 'none'; _dvSelCnt.textContent = SelHost.selCount() + ' selected'; }
 }
 var _penPoints = [];
-var _polyPoints = [];
+// S461q: _polyPoints retired — the shared module owns polyline state.
 var _isDrawing = false;
 var _dirty = false;
 
@@ -3114,85 +3114,45 @@ function _dvHideTextBar() {
 
 // ── Polyline Tool ───────────────────────────────────────
 
-function _handlePolylineClick(e) {
-  var pos = _getPos(e);
-  // Click near first point → finish polyline (close loop)
-  if (_polyPoints.length >= 2) {
-    var dx = pos.x - _polyPoints[0].x, dy = pos.y - _polyPoints[0].y;
-    if (Math.sqrt(dx * dx + dy * dy) < 15) {
-      _polyPoints.push({ x: _polyPoints[0].x, y: _polyPoints[0].y }); // Close to exact first point
-      _finishPolyline();
-      return;
-    }
-  }
-  _polyPoints.push(pos);
-  _dvPositionPolyPill();   // S461e: pill follows the polyline (last placed point)
-
-  var ov = _ensureOverlay();
-  if (ov && _polyPoints.length >= 2) {
-    ov.style.display = 'block';
-    ov.style.opacity = '1';
-    var ctx = ov.getContext('2d');
-    var d = ov._dpr || 1;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ov.width, ov.height);
-    ctx.setTransform(d, 0, 0, d, 0, 0);
-    ctx.strokeStyle = _color;
-    ctx.lineWidth = _lineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalAlpha = _opacity;
-    ctx.beginPath();
-    ctx.moveTo(_polyPoints[0].x, _polyPoints[0].y);
-    for (var i = 1; i < _polyPoints.length; i++) ctx.lineTo(_polyPoints[i].x, _polyPoints[i].y);
-    ctx.stroke();
-  }
-}
-
-function _finishPolyline() {
-  // S461h: drawing is done — the pill goes away with it.
-  var _fpPill = document.getElementById('poly-sub-toolbar');
-  if (_fpPill) _fpPill.style.display = 'none';
-  if (_polyPoints.length >= 2) {
+// ── S461q: POLYLINE runs on the SHARED module (lib/ui/markupPolyline.js).
+// The module was EXTRACTED FROM THIS CODE — the drawing viewer is the source of
+// truth — so behaviour is unchanged: 15-unit close tolerance, exact copy of
+// point 0 on close, preview from 2 points, ✓ commits as-drawn, ↩ pops one point,
+// ✕ discards. The photo lightbox drives the SAME module with its own config, so
+// there is now ONE polyline tool, not two.
+var PolyHost = (window.MarkupPolyline && window.MarkupPolyline.create({
+  getOverlay: function () { return _ensureOverlay(); },
+  hideOverlay: function () {
+    var ov = _getOverlay();
+    if (!ov) return;
+    ov.style.display = 'none';
+    var c = ov.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, ov.width, ov.height);
+  },
+  style: function () { return { color: _color, size: _lineWidth, opacity: _opacity }; },
+  commit: function (pts) {
+    // The host mints its OWN format — the module knows nothing about v1 objects.
     _objects.push(toStroke({
-      id: _newId(), type: 'polyline', points: _polyPoints.slice(),
+      id: _newId(), type: 'polyline', points: pts,
       color: _color, size: _lineWidth, opacity: _opacity
     }));
     _pushHistory();
     _markDirty();
-  }
-  _polyPoints = [];
-  var ov = _getOverlay();
-  if (ov) {
-    ov.style.display = 'none';
-    var c = ov.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, ov.width, ov.height);
-  }
-  _renderAll();
-}
+  },
+  afterChange: function (n) {
+    var pill = document.getElementById('poly-sub-toolbar');
+    if (!pill) return;
+    if (n > 0) _dvPositionPolyPill();       // appears with point 1, follows the last
+    else pill.style.display = 'none';       // finished or cancelled
+  },
+  render: function () { _renderAll(); }
+})) || null;
 
-// ── S407: polyline sub-toolbar actions ──────────────────────────────
-// ✓ Finish commits the polyline AS DRAWN (open) — tapping near the first
-// point still closes the loop as before; the two finishes coexist.
-function _commitPolyline() {
-  if (_polyPoints.length >= 2) { _finishPolyline(); }
-  else { _cancelPolyline(); }
-}
-// ✕ Cancel discards all in-progress points (nothing committed to _objects).
-function _cancelPolyline() {
-  var _cpPill = document.getElementById('poly-sub-toolbar');
-  if (_cpPill) _cpPill.style.display = 'none';   // S461h
-  _polyPoints = [];
-  var ov = _getOverlay();
-  if (ov) {
-    ov.style.display = 'none';
-    var c = ov.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, ov.width, ov.height);
-  }
-  _renderAll();
-}
+function _handlePolylineClick(e) { if (PolyHost) PolyHost.addPoint(_getPos(e)); }
+function _finishPolyline()      { if (PolyHost) PolyHost.finish(); }
+function _commitPolyline()      { if (PolyHost) PolyHost.finish(); }   // <2 pts → module cancels
+function _cancelPolyline()      { if (PolyHost) PolyHost.cancel(); }
 // ── S461e: polyline pill — restyled to MATCH the ✓/✗ confirm bar (same
 // family as tap-select) and ANCHORED beside the last placed point instead of
 // floating far away (Mark, frt-next field report). Styles applied once.
@@ -3241,79 +3201,22 @@ function _dvPlacePill(pill, anchorLogical) {
 }
 function _dvPositionPolyPill() {
   var pill = document.getElementById('poly-sub-toolbar');
-  if (!pill || !_polyPoints.length) return;
+  var last = PolyHost && PolyHost.lastPoint();
+  if (!pill || !last) return;
   _dvStylePolyPill(pill);
-  _dvPlacePill(pill, _polyPoints[_polyPoints.length - 1]);
+  _dvPlacePill(pill, last);
 }
 
 // ↩ Undo removes only the LAST placed point and repaints the preview —
 // fixes a misclick without redrawing the whole polyline.
-function _undoPolyPoint() {
-  if (!_polyPoints.length) return;
-  _polyPoints.pop();
-  _redrawPolyOverlay();
-  _dvPositionPolyPill();   // S461e: pill follows back
-}
-// Repaint the placed-segments preview from _polyPoints (same drawing
-// contract as _handlePolylineClick: lineTo only, round caps/joins).
-function _redrawPolyOverlay() {
-  var ov = _ensureOverlay();
-  if (!ov) return;
-  var ctx = ov.getContext('2d');
-  var d = ov._dpr || 1;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, ov.width, ov.height);
-  if (_polyPoints.length < 2) { if (!_polyPoints.length) ov.style.display = 'none'; return; }
-  ov.style.display = 'block';
-  ov.style.opacity = '1';
-  ctx.setTransform(d, 0, 0, d, 0, 0);
-  ctx.strokeStyle = _color;
-  ctx.lineWidth = _lineWidth;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = _opacity;
-  ctx.beginPath();
-  ctx.moveTo(_polyPoints[0].x, _polyPoints[0].y);
-  for (var i = 1; i < _polyPoints.length; i++) ctx.lineTo(_polyPoints[i].x, _polyPoints[i].y);
-  ctx.stroke();
-}
+function _undoPolyPoint() { if (PolyHost) PolyHost.undoPoint(); }
+// S461q: _redrawPolyOverlay retired — the shared module repaints the preview.
+function _redrawPolyOverlay() { if (PolyHost) PolyHost.redraw(); }
 
 function _drawPolylinePreview(e) {
-  var pos = _getPos(e);
-  var ov = _ensureOverlay();
-  if (!ov) return;
-  ov.style.display = 'block';
-  ov.style.opacity = '1';
-  var ctx = ov.getContext('2d');
-  var d = ov._dpr || 1;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, ov.width, ov.height);
-  ctx.setTransform(d, 0, 0, d, 0, 0);
-  ctx.strokeStyle = _color;
-  ctx.lineWidth = _lineWidth;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = _opacity;
-  // Draw placed segments
-  ctx.beginPath();
-  ctx.moveTo(_polyPoints[0].x, _polyPoints[0].y);
-  for (var i = 1; i < _polyPoints.length; i++) ctx.lineTo(_polyPoints[i].x, _polyPoints[i].y);
-  // Rubber-band to cursor
-  ctx.lineTo(pos.x, pos.y);
-  ctx.stroke();
-  // Close indicator: circle on first point when cursor is near
-  if (_polyPoints.length >= 2) {
-    var dx = pos.x - _polyPoints[0].x, dy = pos.y - _polyPoints[0].y;
-    if (Math.sqrt(dx * dx + dy * dy) < 15) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(_polyPoints[0].x, _polyPoints[0].y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = _color;
-      ctx.globalAlpha = 0.3;
-      ctx.fill();
-      ctx.restore();
-    }
-  }
+  // S461q: the shared module draws the preview — placed segments + the
+  // rubber-band leg to the cursor + the close indicator on point 0.
+  if (PolyHost) PolyHost.preview(_getPos(e));
 }
 
 // ── Select Tool ─────────────────────────────────────────
@@ -3906,7 +3809,7 @@ function _setActiveTool(tool) {
   if (_dvTextBox && _dvTextCtl && _dvTextCtl.isActive()) {
     _dvTextCtl.commit();
   }
-  if (_tool === 'polyline' && _polyPoints.length >= 2 && tool !== 'polyline') {
+  if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 2 && tool !== 'polyline') {
     _finishPolyline();
   }
 
@@ -3937,7 +3840,7 @@ function _setActiveTool(tool) {
     if (_dvSelBar) _dvSelBar.style.display = 'none';
     if (_dvSelFly) _dvSelFly.classList.remove('open');   // S461n: submenu uses the .open class
   }
-  if (tool !== 'polyline' && _polyPoints.length) _cancelPolyline();
+  if (tool !== 'polyline' && PolyHost && PolyHost.isActive()) _cancelPolyline();
 
   // Update sidebar button states
   var sidebar = document.getElementById('dv-sidebar-tools');
@@ -4586,7 +4489,7 @@ function _wireEvents() {
     _updateEraserCursor(e);
     if (_tool === 'select') { _handleSelectMove(e); return; }
     // Polyline rubber-band preview
-    if (_tool === 'polyline' && _polyPoints.length >= 1 && !_isDrawing) {
+    if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 1 && !_isDrawing) {
       _drawPolylinePreview(e);
       return;
     }
@@ -4635,7 +4538,7 @@ function _wireEvents() {
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'select') { _handleSelectMove(e); return; }
-    if (_tool === 'polyline' && _polyPoints.length >= 1 && !_isDrawing) {
+    if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 1 && !_isDrawing) {
       _drawPolylinePreview(e);
       return;
     }
@@ -4655,7 +4558,7 @@ function _wireEvents() {
 
   // Double-click: finishes polyline OR edits text object OR ends dim chain
   mc.addEventListener('dblclick', function(e) {
-    if (_tool === 'polyline' && _polyPoints.length >= 2) {
+    if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 2) {
       _finishPolyline();
       return;
     }
@@ -4734,7 +4637,7 @@ function _wireEvents() {
         return;
       }
       // If polyline in progress: finish it
-      if (_tool === 'polyline' && _polyPoints.length >= 2) { _finishPolyline(); e.stopPropagation(); return; }
+      if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 2) { _finishPolyline(); e.stopPropagation(); return; }
       // If objects selected: clear selection first
       if (SelHost.hasActiveSelection()) {
         SelHost.deselect();   // S461 (renders)
