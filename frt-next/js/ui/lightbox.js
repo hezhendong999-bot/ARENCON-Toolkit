@@ -299,8 +299,7 @@ function _buildMarkupBar(overlay){
     check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 6"/></svg>',
     trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>',
     revert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/><path d="M9 21h8"/></svg>'
-  ,
-    polyline:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,20 8,8 14,14 19,4"/></svg>'};
+  };
   function _sized(svg){ return svg.replace('<svg ', '<svg width="21" height="21" '); }
   function iconBtn(id,key,title,caret){
     var b=document.createElement('button'); b.id=id; b.title=title;
@@ -531,8 +530,7 @@ function _buildMarkupBar(overlay){
       f.appendChild(b); });
     overlay.appendChild(f); return f;
   }
-  // S461r: polyline joins the pen group — same list as the drawing viewer's pen submenu.
-  var penFly=groupFly([['pen','Pen'],['highlight','Highlighter'],['line','Line'],['arrow','Arrow'],['polyline','Polyline']], bPenGrp);
+  var penFly=groupFly([['pen','Pen'],['highlight','Highlighter'],['line','Line'],['arrow','Arrow']], bPenGrp);
   var shapeFly=groupFly([['rect','Rectangle'],['rect-fill','Filled Rect'],['circle','Circle'],['circle-fill','Filled Circle'],['triangle','Triangle']], bShapeGrp);
 
   function setActive(btn){
@@ -628,34 +626,10 @@ function _buildMarkupBar(overlay){
     if (!E || E.tool!=='select' || !E.hasActiveSelection()){ cBar.style.display='none'; return; }
     cBar.style.bottom=_barClearance()+'px';
     cBar.style.display='flex';
-    // S461q (Mark): the ✓ shows whenever there's something to confirm — the
-    // drawing-viewer rule. It used to appear ONLY in tap mode, so rubber-band
-    // selections had no confirm button at all.
     var picking = E.isPicking && E.isPicking();
-    cOk.style.display='flex';
-    cCnt.textContent = picking ? (E.pickCount()+' picked') : (E.selectionCount()+' selected');
+    if (picking){ cOk.style.display='flex'; cCnt.textContent=E.pickCount()+' picked'; }
+    else { cOk.style.display='none'; cCnt.textContent=E.selectionCount()+' selected'; }
   }
-  // ── S461r: polyline pill — the SAME design as the drawing viewer's
-  // (dark bar, 36px circle buttons: ✓ Finish · ↩ undo-point · ✕ cancel).
-  // Appears with the first placed point, hides on finish/cancel.
-  var pBar=document.createElement('div');
-  pBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:6px 8px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
-  function _pb(html,bg,tip){ var b=document.createElement('button'); b.innerHTML=html; b.title=tip;
-    b.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;color:#fff;background:'+bg+';display:flex;align-items:center;justify-content:center;'; return b; }
-  var pOk=_pb('\u2713','#3FD08A','Finish');
-  var pUn=_pb('\u21A9','rgba(255,255,255,.14)','Remove the last point');
-  var pNo=_pb('\u2715','#C0445F','Cancel');
-  pBar.appendChild(pOk); pBar.appendChild(pUn); pBar.appendChild(pNo);
-  cBar.parentNode.appendChild(pBar);
-  pOk.addEventListener('click',function(e){ e.stopPropagation(); window.MarkupEngine&&window.MarkupEngine.finishPolyline(); });
-  pUn.addEventListener('click',function(e){ e.stopPropagation(); window.MarkupEngine&&window.MarkupEngine.undoPolyPoint(); });
-  pNo.addEventListener('click',function(e){ e.stopPropagation(); window.MarkupEngine&&window.MarkupEngine.cancelPolyline(); });
-  pBar.addEventListener('mousedown',function(e){ e.stopPropagation(); });
-  pBar.addEventListener('touchstart',function(e){ e.stopPropagation(); },{passive:true});
-  if (window.MarkupEngine && window.MarkupEngine.onPolyChange){
-    window.MarkupEngine.onPolyChange(function(n){ pBar.style.display = n>0 ? 'flex' : 'none'; });
-  }
-
   cOk.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.confirmPick(); } _refreshConfirmBar(); });
   cNo.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.cancelSelect(); } _refreshConfirmBar(); });
   if (window.MarkupEngine) window.MarkupEngine.onSelChange(_refreshConfirmBar);
