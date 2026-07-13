@@ -659,7 +659,13 @@ function _buildMarkupBar(overlay){
   pBar.addEventListener('mousedown',function(e){ e.stopPropagation(); });
   pBar.addEventListener('touchstart',function(e){ e.stopPropagation(); },{passive:true});
   if (window.MarkupEngine && window.MarkupEngine.onPolyChange){
-    window.MarkupEngine.onPolyChange(function(n){ pBar.style.display = n>0 ? 'flex' : 'none'; });
+    window.MarkupEngine.onPolyChange(function(n){
+      // S461u (Mark): sit ABOVE the toolbar — the same _barClearance() every
+      // other floating element in this file uses. 74px hardcoded landed the
+      // pill on top of the tool row.
+      if (n > 0) pBar.style.bottom = _barClearance() + 'px';
+      pBar.style.display = n > 0 ? 'flex' : 'none';
+    });
   }
   if (window.MarkupEngine) window.MarkupEngine.onSelChange(_refreshConfirmBar);
   bUn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.undo();});
