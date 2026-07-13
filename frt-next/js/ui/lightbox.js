@@ -603,6 +603,11 @@ function _buildMarkupBar(overlay){
   [subRubber,subTap].forEach(function(b){
     b.addEventListener('click',function(e){
       e.stopPropagation();
+      // S461s (Mark, repeatedly): ARM THE SELECT TOOL. This handler set the
+      // sub-mode and lit the button but NEVER called setTool('select'), so the
+      // engine stayed on the previous tool and every drag drew PEN. No code
+      // path in this file armed select at all — this line is the entire fix.
+      if (window.MarkupEngine) window.MarkupEngine.setTool('select');
       if (window.MarkupEngine) window.MarkupEngine.setSelectSub(b.dataset.sub);
       setActive(bSel); _activeBtn=bSel; markSub(b.dataset.sub);
       closeFly(); _refreshConfirmBar();
