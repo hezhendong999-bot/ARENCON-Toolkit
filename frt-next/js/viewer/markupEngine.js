@@ -473,7 +473,7 @@
       for (var i=this.strokes.length-1; i>=0; i--){
         var s = this.strokes[i];
         var tool = s.tool;
-        if (tool === 'pen' || tool === 'highlight'){
+        if (tool === 'pen' || tool === 'highlight' || tool === 'polyline'){   // S461u: polyline path-erases like pen
           // S455-parity with drawing viewer: PATH-ERASE. Instead of deleting the
           // whole freehand stroke, remove only the points under the brush and
           // split the survivors into separate strokes. Shapes/text keep
@@ -814,8 +814,11 @@
         }
         return {x1:bx1,y1:by1,x2:bx2,y2:by2};
       }
-      // pen/highlight: rotation baked into points → AABB of points is visual AABB
-      if (s.tool === 'pen' || s.tool === 'highlight'){
+      // pen/highlight/polyline: rotation baked into points → AABB of points is
+      // the visual AABB. (S461u, Mark: the selection box hugged only the FIRST
+      // SEGMENT — polyline was falling into the shapes branch below, which
+      // reads pts[0]/pts[1] only.)
+      if (s.tool === 'pen' || s.tool === 'highlight' || s.tool === 'polyline'){
         var xs=s.pts.map(function(p){return p.x;}), ys=s.pts.map(function(p){return p.y;});
         return {x1:Math.min.apply(null,xs),y1:Math.min.apply(null,ys),x2:Math.max.apply(null,xs),y2:Math.max.apply(null,ys)};
       }
@@ -1312,7 +1315,7 @@
       applyRotate: function(st, o, dA, rot){
         // FRT rotation model (verbatim from the pre-extraction engine):
         // pen/highlight BAKE rotation into points; shapes/text keep .rotation.
-        if (o.tool==='pen'||o.tool==='highlight'){
+        if (o.tool==='pen'||o.tool==='highlight'||o.tool==='polyline'){   // S461u: shapes branch would collapse a polyline to 2 points
           st.pts=o.pts.map(function(pt){ return rot(pt); });
           if (o.eraserMask){ st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
             if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return rot(pt); }); }

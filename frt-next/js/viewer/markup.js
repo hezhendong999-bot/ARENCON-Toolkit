@@ -116,15 +116,16 @@ function _dvEnsureSelChrome() {
   _dvSelFly = document.createElement('div');
   _dvSelFly.className = 'tool-submenu';       // inherits ALL submenu styling
   _dvSelFly.id = 'select-submenu';
-  // Same button class as every other sub-tool. Icons: dashed square =
-  // rubber-band, pointing hand = tap select.
+  // S461u (Mark): redesigned icons — MARQUEE (dashed box + solid corner
+  // handles, mirroring the real selection chrome; solid corners keep it crisp)
+  // and TAP RIPPLE (fingertip dot + arcs — no hands). currentColor throughout
+  // so active-state styling recolors both stroke and fills. The lightbox uses
+  // THIS EXACT pair — one icon set, both hosts.
   _dvSelFly.innerHTML =
     '<button class="tool-btn sub-tool-btn" data-sel-sub="rubber" data-tip="Rubber-band">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-      '<rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"/></svg></button>' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path stroke-dasharray="3.2 2.8" d="M8.5 4h7M8.5 20h7M4 8.5v7M20 8.5v7"/><rect x="2" y="2" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="17.4" y="2" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="2" y="17.4" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="17.4" y="17.4" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/></svg></button>' +
     '<button class="tool-btn sub-tool-btn" data-sel-sub="tap" data-tip="Tap select">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11l3.4.9c.9.2 1.6 1 1.6 2v2a4 4 0 0 1-4 4h-2a4 4 0 0 1-3.2-1.6l-3-4a1.4 1.4 0 0 1 2.2-1.7L9 13"/></svg></button>';
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="15.5" r="3.2" fill="currentColor" stroke="none"/><path d="M7.6 9.2a6.2 6.2 0 0 1 8.8 0"/><path d="M4.9 6a10 10 0 0 1 14.2 0"/></svg></button>';
   grp.appendChild(_dvSelFly);
 
   function markSub(sub) {
