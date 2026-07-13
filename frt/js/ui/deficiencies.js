@@ -881,15 +881,21 @@ function _buildPinGroupCard(d, ctrId) {
       h += '</div>';
       h += '<div class="obs-media-divider"></div>';
     }
-    h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + '</div>';
-    h += '<div class="obs-media-btns">';
-    // S342 (Mark): unified Camera + Gallery (Upload retired). Camera = burst
-    // (file-picker fallback when unsupported, see photo-add handler); the zone
-    // itself is also click-to-add + droppable. Matches Diesel photo-zone.
-    h += '<button class="obs-drop-btn is-camera" data-action="photo-add" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photos with the burst camera">\uD83D\uDCF7 Camera</button>';
-    h += '<button class="obs-drop-btn is-gallery" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F Gallery</button>';
-    h += '</div>';
-    h += '</div></div>';
+    // S478d — THE PIN EDITOR NOW CALLS THE SHARED ENGINE.
+    // This used to hand-build the hint + Camera/Gallery buttons here. That was
+    // the SECOND implementation of a photo zone; the engine was the first. Two
+    // code paths that merely agreed with each other are not shared — they are
+    // synchronised, and they desync the moment anyone edits one of them (which
+    // is exactly what happened three times this session).
+    // The thumbnails ABOVE stay here, because they are this surface's own
+    // content (sync badges, AI, delete, move-to-pin, ghosts, undo chips) — they
+    // ride into the engine through `inner`. The ZONE is the engine's.
+    h += PhotoInput.html({
+      ns: 'obs',
+      hint: (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here'),
+      ctx: { 'defic-id': d.id, 'obs-idx': oi },
+      zoneOnly: true          // the wrapper/thumbs are already open above
+    });
     h += '</div>'; // /obs-layout-merged
 
     // AI scratchpad
@@ -2776,24 +2782,16 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     h += '</div>';
     h += '<div class="obs-media-divider"></div>';
   }
-  h += '<div class="obs-media-hint">' + (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here') + (opts.withHeader ? '' : '') + '</div>';
-  h += '<div class="obs-media-btns">';
-  // S328 (#17): the combined-view card editor (withHeader false) previously
-  // rendered these as cramped icon-only buttons to save space. Mark wants them
-  // to MATCH every other Add Photos / Gallery button (full icon + label, same
-  // shape/size) for consistency. Force the labelled, non-icon-only variant on
-  // all surfaces — the space-saving branch is retired.
-  var _icl = '';
-  var _al = ' Camera';
-  var _gl = ' Gallery';
-  // S342 (Mark): "Add Photos" relabelled "Camera" — burst camera primary,
-  // file-picker fallback (see photo-add handler). Camera + Gallery is the
-  // unified two-button photo-zone shared with Diesel; the zone is also
-  // click-to-add + droppable. Upload retired.
-  h += '<button class="obs-drop-btn is-camera' + _icl + '" data-action="photo-add" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Take photos with the burst camera">\uD83D\uDCF7' + _al + '</button>';
-  h += '<button class="obs-drop-btn is-gallery' + _icl + '" data-action="photo-gallery-pick" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" title="Pick from project site photos">\uD83D\uDDBC\uFE0F' + _gl + '</button>';
-  h += '</div>';
-  h += '</div></div>'; // /obs-media-zone /obs-media-col
+  // S478d — SHARED ENGINE (see the note on the other zone). The hint + the
+  // Camera/Upload/Gallery buttons are no longer built here. This surface keeps
+  // its own thumbnails above (ghosts, copy chips, undo tokens); the zone tail is
+  // the engine's, and it is now the ONLY place in the codebase that draws one.
+  h += PhotoInput.html({
+    ns: 'obs',
+    hint: (obsPhotos.length ? 'Drop photos to add' : 'Drop photos here'),
+    ctx: { 'defic-id': d.id, 'obs-idx': oi },
+    zoneOnly: true
+  });
   if (_cvCard) {
     h += '</div>'; // /cv-ed-left  (text + photos stacked, LEFT column)
     // RIGHT column = the drawing mini-map, full height. DESKTOP panel
@@ -4412,6 +4410,41 @@ function _crbtFlushPhotos(comp, deficId, obsIdx, entryId, who) {
 //
 // Registered at module load, delegated on document — survives every thread
 // re-render without rebinding (and the thread re-renders on every model change).
+// ── S478d — THE PIN EDITOR'S PHOTO ZONE, on the shared engine ──────────────
+// The buttons in the obs/pin editor are now rendered by PhotoInput. Their
+// BEHAVIOUR is unchanged: each one calls the same field-proven handler it always
+// did (_compressAndAdd -> R2 -> the S393 photo-loss protections). The engine
+// replaced the MARKUP, not the storage path — deliberately. Changing how a
+// deficiency photo is picked is cosmetic; changing how it is stored is how
+// photos die.
+//
+// Camera and Gallery keep their exact existing routes. Upload is genuinely new
+// on this surface (it was retired in S342, when there was no shared standard to
+// retire it FROM) and feeds the identical pipeline as Camera's fallback picker.
+PhotoInput.mount({
+  ns: 'obs',
+  onFiles: function(files, ctx) {
+    var did = ctx['defic-id'];
+    var oi = parseInt(ctx['obs-idx'] || '0', 10);
+    if (!did) return;
+    for (var i = 0; i < files.length; i++) _compressAndAdd(files[i], did, oi);
+  },
+  onGallery: function(ctx) {
+    // Route to the EXISTING gallery-pick handler rather than reimplementing it.
+    var did = ctx['defic-id'];
+    var oi = parseInt(ctx['obs-idx'] || '0', 10);
+    if (!did) return;
+    var proxy = document.createElement('button');
+    proxy.setAttribute('data-action', 'photo-gallery-pick');
+    proxy.setAttribute('data-defic-id', did);
+    proxy.setAttribute('data-obs-idx', String(oi));
+    proxy.style.display = 'none';
+    document.body.appendChild(proxy);
+    proxy.click();
+    setTimeout(function() { proxy.remove(); }, 0);
+  }
+});
+
 PhotoInput.mount({
   ns: 'crbt',
   onFiles: function(files, ctx, zone) {

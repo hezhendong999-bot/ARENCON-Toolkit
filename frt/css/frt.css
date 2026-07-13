@@ -11013,11 +11013,13 @@ body.dark-mode .crbt-tray-note{color:#6b6674;}
    see `.obs-drop-btn.is-upload` in the button family above.
    ══════════════════════════════════════════════════════════════════════ */
 
-/* The engine's zone is a drop target that is NOT inside an obs editor, so it
-   has no height context to flex into. The pin editor's zone gets min-height
-   from its column; a standalone one must ask for it. This is the sole rule
-   the shared markup cannot inherit — and it changes no colour, no spacing,
-   no type. */
+/* S478d: the pin editor now CALLS this engine (zoneOnly) instead of hand-building
+   its own hint + buttons. There is exactly one photo zone implementation in the
+   codebase. Every surface inherits the same rules above; nothing to restyle.
+
+   The only rule the shared markup cannot inherit: an engine-built zone that is
+   NOT inside an obs editor has no column to flex into, so it must ask for its
+   own box. Changes no colour, no spacing, no type. */
 .obs-media-col[data-pi-ns]{display:block;margin-top:8px;}
 .obs-media-col[data-pi-ns] .obs-media-zone{min-height:0;}
 
