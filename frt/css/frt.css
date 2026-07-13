@@ -10987,41 +10987,45 @@ body.dark-mode .crbt-tph-x:hover{background:#E26076;border-color:#E26076;color:#
 body.dark-mode .crbt-tray-note{color:#6b6674;}
 
 /* ══════════════════════════════════════════════════════════════════════
-   PART — SHARED PHOTO INPUT ENGINE (S478c)   lib/ui/photoInput.js
+   PART — SHARED PHOTO INPUT ENGINE (S478e)   lib/ui/photoInput.js
 
-   This PART is almost EMPTY, and that is the point.
+   The engine renders the app's existing markup (.obs-media-col >
+   .obs-media-zone > .obs-media-hint + .obs-media-btns, with .obs-drop-btn)
+   so every surface inherits the existing styling. Almost nothing belongs
+   in this PART — and what IS here must not reach into the pin editor.
 
-   The engine renders the app's existing photo-zone markup verbatim —
-   .obs-media-col > .obs-media-zone > .obs-media-hint + .obs-media-btns,
-   with .obs-drop-btn.is-camera / .is-gallery — all of which are already
-   defined ABOVE. It therefore inherits that styling exactly, in both
-   modes, including .drag-over, .dfx-ed-mode overrides and the touch rules.
-   Nothing to restyle. Nothing that can drift.
+   S478e — TWO BUGS, BOTH FROM THIS BLOCK, BOTH MINE:
 
-   Two earlier cuts got this wrong and Mark caught both:
-     S478  — invented a parallel .pi-btn family (own glyphs, own colours)
-     S478b — kept the real buttons but invented a parallel .pi-zone
-             (hint 12px vs 11px, gap 5px vs 6px, no font-weight, wrong
-             button padding). It LOOKED close. It was not the same thing.
-   A shared engine that renders its own lookalike of the surface it exists
-   to unify has unified nothing. If a rule below is needed at all, it is
-   because the pin editor needed it too — so it goes in the shared family,
-   not here.
+   1. `.obs-drop-btn.is-upload` VANISHED. It is the one genuinely new rule
+      the engine adds (the app had no Upload button to inherit). S478c
+      rewrote this PART wholesale and dropped it. Upload then fell through
+      to the base `.obs-drop-btn { color:white }` with NO background —
+      white text on white. An invisible button, live, on Mark's tablet.
 
-   ONE new declaration exists in the whole engine: the Upload button, which
-   the app genuinely did not have. It lives with its siblings, not here:
-   see `.obs-drop-btn.is-upload` in the button family above.
+   2. `.obs-media-hint + .obs-media-btns { display:block }` BROKE THE PIN
+      EDITOR. `.obs-media-btns` is a flex ROW; forcing display:block
+      destroyed it and the buttons collapsed onto the photo grid above.
+      That rule was written for a standalone zone and leaked onto every
+      surface, because it was never scoped to one.
+
+   The lesson both share: a rule in the SHARED part reaches EVERY surface.
+   Anything that is not universally true must be scoped with [data-pi-ns]
+   (engine-built wrappers only) — never left global.
    ══════════════════════════════════════════════════════════════════════ */
 
-/* S478d: the pin editor now CALLS this engine (zoneOnly) instead of hand-building
-   its own hint + buttons. There is exactly one photo zone implementation in the
-   codebase. Every surface inherits the same rules above; nothing to restyle.
+/* The one new member of the button family. Dusty blue, per Mark.
+   Lives with is-camera / is-gallery conceptually; declared here because the
+   engine is what introduced it. Same specificity as its siblings, so it wins
+   and loses on exactly the same terms — no !important needed, and none used. */
+.obs-drop-btn.is-upload{background:#4F6788;}
+body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color:var(--b-pb-u,#fff);}
 
-   The only rule the shared markup cannot inherit: an engine-built zone that is
-   NOT inside an obs editor has no column to flex into, so it must ask for its
-   own box. Changes no colour, no spacing, no type. */
+/* Engine-BUILT wrappers only ([data-pi-ns]). The pin editor opens its own
+   .obs-media-col (zoneOnly) and therefore carries NO data-pi-ns — so none of
+   this touches it, which is precisely the point. A standalone zone has no
+   editor column to flex inside, so it must ask for its own box. */
 .obs-media-col[data-pi-ns]{display:block;margin-top:8px;}
-.obs-media-col[data-pi-ns] .obs-media-zone{min-height:0;}
+.obs-media-col[data-pi-ns] .obs-media-zone{min-height:0;flex:none;}
 
 /* ══════════════════════════════════════════════════════════════════════
    PART — CRB THREAD, S478 REDESIGN
