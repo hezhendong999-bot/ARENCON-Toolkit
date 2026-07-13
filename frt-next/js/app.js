@@ -6,41 +6,41 @@
  * logo loading, module init, event wiring, boot sequence.
  */
 
-import { Model } from './data/model.js?fn=6';
-import { IDB } from './data/idb.js?fn=6';
-import { SyncEngine } from './data/sync.js?fn=6';
-import './data/merge.js?fn=6'; // S123 P6A — registers window._frt_mergeDiag for diagnostic / Push B usage
-import { applyResolutions as mergeApplyResolutions } from './data/merge.js?fn=6';
-import { R2 } from './data/r2.js?fn=6';
-import { TileCache } from './data/tileCache.js?fn=6';
-import { Presence } from './data/presence.js?fn=6';
+import { Model } from './data/model.js';
+import { IDB } from './data/idb.js';
+import { SyncEngine } from './data/sync.js';
+import './data/merge.js'; // S123 P6A — registers window._frt_mergeDiag for diagnostic / Push B usage
+import { applyResolutions as mergeApplyResolutions } from './data/merge.js';
+import { R2 } from './data/r2.js';
+import { TileCache } from './data/tileCache.js';
+import { Presence } from './data/presence.js';
 // S169 (Fix A foundation) — durable in-flight photo upload tracker.
 // Imported here so the module loads (registers window.BinaryOutbox for
 // DevTools diagnostic access) but is NOT yet invoked from any code
 // path. Stub-only in S169; real behavior lands incrementally in
 // S170+. See FIX_A_ARCHITECTURE.md.
-import { BinaryOutbox } from './data/photoOutbox.js?fn=6';
-import { openCrbImport } from './export/crbImport.js?fn=6'; // S463: CRB 1d return path
-import { Auth } from './shared/auth.js?fn=6';
-import { toast } from './shared/toast.js?fn=6';
-import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js?fn=6';
-import { lockScroll, unlockScroll } from './shared/scrollLock.js?fn=6';
-import { initProjectInfo } from './ui/projectInfo.js?fn=6';
-import { initDeficiencies } from './ui/deficiencies.js?fn=6';
-import { initDrawings } from './ui/drawings.js?fn=6';
-import { initPhotos } from './ui/photos.js?fn=6';
+import { BinaryOutbox } from './data/photoOutbox.js';
+import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
+import { Auth } from './shared/auth.js';
+import { toast } from './shared/toast.js';
+import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js';
+import { lockScroll, unlockScroll } from './shared/scrollLock.js';
+import { initProjectInfo } from './ui/projectInfo.js';
+import { initDeficiencies } from './ui/deficiencies.js';
+import { initDrawings } from './ui/drawings.js';
+import { initPhotos } from './ui/photos.js';
 // S135: initPins/pins.js import removed — Summary tab retired.
 // Table/Board views migrate into the Deficiencies tab in Phase 2.
-import { initViewer } from './viewer/viewer.js?fn=6';
-import { Markup } from './viewer/markup.js?fn=6';
-import { initPDFExport } from './export/pdf.js?fn=6';
-import { initExportView } from './export/exportview.js?fn=6'; // S145 P5: Export view replaces _openPDFPicker
-import { initJSONExport } from './export/json.js?fn=6';
+import { initViewer } from './viewer/viewer.js';
+import { Markup } from './viewer/markup.js';
+import { initPDFExport } from './export/pdf.js';
+import { initExportView } from './export/exportview.js'; // S145 P5: Export view replaces _openPDFPicker
+import { initJSONExport } from './export/json.js';
 // S126 Phase D — memory + sync diagnostics. Pure instrumentation; no
 // behavior change. Boot-time module load registers global window._frtDiag
 // and starts the 60-second probe.
-import { Diag } from './diag/memory.js?fn=6';
-import { AIAssist } from './ai/assistant.js?fn=6';
+import { Diag } from './diag/memory.js';
+import { AIAssist } from './ai/assistant.js';
 // ── Side-effect imports ──
 // These modules don't expose anything app.js calls directly, but their
 // loading has side effects we depend on:
@@ -51,9 +51,9 @@ import { AIAssist } from './ai/assistant.js?fn=6';
 // Push 11 erroneously dropped these as "unused"; restored in Push 13. The
 // integrity scanner from Push 9 catches data issues but not module-load
 // side-effect dependencies — added a comment for the next reviewer.
-import './ui/lightbox.js?fn=6';
-import './viewer/markup.js?fn=6';
-import { AIUsage } from './ai/usage.js?fn=6';
+import './ui/lightbox.js';
+import './viewer/markup.js';
+import { AIUsage } from './ai/usage.js';
 
 // ── Constants ────────────────────────────────────────────
 var LS_DARK = 'arencon-frt-dark';
@@ -2224,7 +2224,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S464';
+var FRT_BUILD = 'S478';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
