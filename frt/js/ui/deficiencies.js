@@ -4415,7 +4415,11 @@ function _crbtFlushPhotos(comp, deficId, obsIdx, entryId, who) {
 PhotoInput.mount({
   ns: 'crbt',
   onFiles: function(files, ctx, zone) {
-    var comp = zone && zone.closest('.crbt-composer');
+    // S478c: the photo host is the composer OR an edit box — both stage the
+    // same way and both flush through the same R2 own-key path. Anchoring only
+    // on .crbt-composer would have silently dropped every photo added while
+    // editing (staged into a buffer nothing ever flushed).
+    var comp = zone && zone.closest('.crbt-composer, .crbt-editbox');
     if (comp) _crbtStageFiles(comp, files);
   },
   onGallery: function(ctx, zone) {
@@ -5879,7 +5883,7 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-ph-drop') {
-    var _dComp = el.closest('.crbt-composer');
+    var _dComp = el.closest('.crbt-composer, .crbt-editbox');   // S478c: edit box stages too
     var _dTmp = el.getAttribute('data-tmp-id');
     if (!_dComp || !_dTmp) return;
     var _dBuf = _crbtStage.get(_dComp);
@@ -6069,15 +6073,26 @@ document.addEventListener('click', function(e) {
   if (action === 'crbt-edit') {
     var _edRow = el.closest('.crbt-side'); if (!_edRow) return;
     var _edT = _edRow.querySelector('.crbt-t'); if (!_edT || _edRow.querySelector('.crbt-editbox')) return;
+    var _edDefic = el.getAttribute('data-defic-id');
+    var _edObs   = el.getAttribute('data-obs-idx');
+    var _edEntry = el.getAttribute('data-entry-id');
     var _edBox = document.createElement('div');
     _edBox.className = 'crbt-editbox';
+    // S478c (Mark: "when I hit edit, I need to also be able to upload more
+    // pictures, this can't be frozen"). Editing a draft used to be text-only —
+    // you could fix a typo but not add the photo you forgot, which is the more
+    // common thing to have missed. The zone is the SAME shared engine the
+    // composer uses (same ns, so the same staging + upload path), which is
+    // exactly why it costs three lines here instead of a second implementation.
     _edBox.innerHTML = '<textarea class="crbt-ta">' + (_edT.textContent || '').replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</textarea>'
+      + PhotoInput.html({ ns: 'crbt', ctx: { 'defic-id': _edDefic, 'obs-idx': _edObs } })
+      + '<div class="crbt-tray"></div>'
       + '<div class="crbt-cfoot"><span class="crbt-sp"></span>'
       + '<button class="crbt-btn" data-action="crbt-editcancel">Cancel</button>'
       + '<button class="crbt-btn crbt-primary" data-action="crbt-editsave"'
-      + ' data-defic-id="' + el.getAttribute('data-defic-id') + '"'
-      + ' data-obs-idx="' + el.getAttribute('data-obs-idx') + '"'
-      + ' data-entry-id="' + el.getAttribute('data-entry-id') + '">Save</button></div>';
+      + ' data-defic-id="' + _edDefic + '"'
+      + ' data-obs-idx="' + _edObs + '"'
+      + ' data-entry-id="' + _edEntry + '">Save</button></div>';
     _edT.style.display = 'none';
     _edT.after(_edBox);
     var _edTa = _edBox.querySelector('.crbt-ta'); if (_edTa) setTimeout(function() { _edTa.focus(); }, 50);
@@ -6085,7 +6100,11 @@ document.addEventListener('click', function(e) {
   }
   if (action === 'crbt-editcancel') {
     var _ecB = el.closest('.crbt-editbox');
-    if (_ecB) { var _ecT = _ecB.previousElementSibling; if (_ecT) _ecT.style.display = ''; _ecB.remove(); }
+    if (_ecB) {
+      _crbtStage.delete(_ecB);   // S478c: staged photos die with the edit box
+      var _ecT = _ecB.previousElementSibling; if (_ecT) _ecT.style.display = '';
+      _ecB.remove();
+    }
     return;
   }
   if (action === 'crbt-editsave') {
@@ -6098,7 +6117,23 @@ document.addEventListener('click', function(e) {
       el.getAttribute('data-entry-id'), _esTxt,
       (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null
     );
-    if (_esE) { Model.saveNow(); _crbtRefresh(el, el.getAttribute('data-defic-id')); toast('Comment updated'); }
+    if (_esE) {
+      // S478c: flush any photos staged during the edit. The entry ALREADY exists
+      // and already has an id, so unlike the composer there is no ordering
+      // hazard — attach straight onto it. Same staging buffer, same R2
+      // own-key upload path (_crbtFlushPhotos); no second implementation.
+      var _esPh = 0;
+      try {
+        _esPh = _crbtFlushPhotos(_esB,
+          el.getAttribute('data-defic-id'),
+          parseInt(el.getAttribute('data-obs-idx') || '0', 10),
+          el.getAttribute('data-entry-id'),
+          (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null);
+      } catch (_ePhErr) { console.warn('[CRB] edit photo flush failed:', _ePhErr); }
+      Model.saveNow();
+      _crbtRefresh(el, el.getAttribute('data-defic-id'));
+      toast('Comment updated' + (_esPh ? ' \u00B7 ' + _esPh + ' photo' + (_esPh === 1 ? '' : 's') + ' added' : ''));
+    }
     else { toast('This comment can\u2019t be edited \u2014 see the tooltip on its Edit button.'); }
     return;
   }

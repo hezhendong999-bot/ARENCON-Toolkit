@@ -10987,53 +10987,39 @@ body.dark-mode .crbt-tph-x:hover{background:#E26076;border-color:#E26076;color:#
 body.dark-mode .crbt-tray-note{color:#6b6674;}
 
 /* ══════════════════════════════════════════════════════════════════════
-   PART — SHARED PHOTO INPUT ENGINE (S478b)   lib/ui/photoInput.js
-   THE photo surface for every ARENCON tool: drag-drop (the zone itself)
-   + 📷 Camera + ⬆️ Upload + 🖼️ Gallery.
+   PART — SHARED PHOTO INPUT ENGINE (S478c)   lib/ui/photoInput.js
 
-   S478b CORRECTION. The first cut of this PART defined a parallel `.pi-btn`
-   family that merely IMITATED the pin editor's buttons — different glyphs,
-   different colours, same job. That is the one thing a shared engine must
-   never do: a module that reimplements the thing it exists to unify has not
-   unified anything, it has created a second system that will drift from the
-   first. Deleted.
+   This PART is almost EMPTY, and that is the point.
 
-   The engine now renders the app's EXISTING `.obs-drop-btn` family
-   (is-camera #5C7A65, is-gallery #8A7689 — already defined above, already
-   dark-mode tokenised). Only ONE genuinely new thing is added here:
-   `is-upload`, in dusty blue, because the app had no Upload button to reuse.
+   The engine renders the app's existing photo-zone markup verbatim —
+   .obs-media-col > .obs-media-zone > .obs-media-hint + .obs-media-btns,
+   with .obs-drop-btn.is-camera / .is-gallery — all of which are already
+   defined ABOVE. It therefore inherits that styling exactly, in both
+   modes, including .drag-over, .dfx-ed-mode overrides and the touch rules.
+   Nothing to restyle. Nothing that can drift.
+
+   Two earlier cuts got this wrong and Mark caught both:
+     S478  — invented a parallel .pi-btn family (own glyphs, own colours)
+     S478b — kept the real buttons but invented a parallel .pi-zone
+             (hint 12px vs 11px, gap 5px vs 6px, no font-weight, wrong
+             button padding). It LOOKED close. It was not the same thing.
+   A shared engine that renders its own lookalike of the surface it exists
+   to unify has unified nothing. If a rule below is needed at all, it is
+   because the pin editor needed it too — so it goes in the shared family,
+   not here.
+
+   ONE new declaration exists in the whole engine: the Upload button, which
+   the app genuinely did not have. It lives with its siblings, not here:
+   see `.obs-drop-btn.is-upload` in the button family above.
    ══════════════════════════════════════════════════════════════════════ */
 
-/* The only new button in the family. Dusty blue, per Mark. */
-.obs-drop-btn.is-upload{background:#4F6788;}
-body.dark-mode .obs-drop-btn.is-upload{background:#5A76A0!important;color:#fff!important;}
-
-/* The drop zone that hosts them. Matches the pin editor's photo zone grammar:
-   quiet dashed surround, centred hint above centred buttons. */
-.pi-zone{
-  margin-top:8px;padding:12px;
-  border:1.5px dashed #D6D2DB;border-radius:10px;background:#FAF9FB;
-  text-align:center;
-  transition:border-color .12s,background .12s;
-}
-.pi-zone:hover{border-color:#B9B3C0;background:#F7F5F8;}
-/* Drag-over must visibly ACCEPT before you let go. */
-.pi-over{border-color:#4F6788;border-style:solid;background:#EDF1F6;}
-.pi-hint{
-  font-size:calc(12px + var(--ts));color:#928E9C;
-  margin-bottom:8px;user-select:none;pointer-events:none;
-}
-.pi-btns{display:flex;flex-direction:row;gap:5px;justify-content:center;flex-wrap:wrap;}
-
-/* Coarse pointer: no drag, and gloves need real targets. */
-@media (pointer:coarse){
-  .pi-zone .obs-drop-btn{min-height:44px;}
-}
-
-body.dark-mode .pi-zone{border-color:#3a3540;background:rgba(255,255,255,.02);}
-body.dark-mode .pi-zone:hover{border-color:#4a4450;background:rgba(255,255,255,.04);}
-body.dark-mode .pi-over{border-color:#46C5E8;background:rgba(70,197,232,.10);}
-body.dark-mode .pi-hint{color:#6b6674;}
+/* The engine's zone is a drop target that is NOT inside an obs editor, so it
+   has no height context to flex into. The pin editor's zone gets min-height
+   from its column; a standalone one must ask for it. This is the sole rule
+   the shared markup cannot inherit — and it changes no colour, no spacing,
+   no type. */
+.obs-media-col[data-pi-ns]{display:block;margin-top:8px;}
+.obs-media-col[data-pi-ns] .obs-media-zone{min-height:0;}
 
 /* ══════════════════════════════════════════════════════════════════════
    PART — CRB THREAD, S478 REDESIGN
