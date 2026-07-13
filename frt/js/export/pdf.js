@@ -1372,9 +1372,23 @@ function _buildDefCard(r,hdrExtra){
       resolvePhoto:function(ph){
         if(!ph)return {url:null,caption:null};
         var u='';
+        // S478 (Mark: "the attached photo is compressed"). TWO defects here:
+        //
+        //  1. The 'small:' cache entry is the THUMBNAIL. Preferring it meant a
+        //     thread photo printed at thumbnail resolution while the deficiency
+        //     photo beside it printed full-res — visibly worse in the same report.
+        //     Full-res R2 blob first now; 'small:' only as a last-resort fallback.
+        //
+        //  2. There was NO dataUrl fallback. A photo whose R2 upload had not yet
+        //     landed (offline, or just added) resolved to '' and printed as NOTHING
+        //     — silently absent from the report, with no error. The local copy was
+        //     sitting right there the whole time. Cloud owns structure; LOCAL OWNS
+        //     BINARY. Never let a missing cloud key hide a photo we already hold.
         if(r2Cache&&ph.r2Url){
-          u=r2Cache['small:'+ph.r2Url]||r2Cache[ph.r2Url]||'';
+          u=r2Cache[ph.r2Url]||'';
         }
+        if(!u)u=ph.dataUrl||'';
+        if(!u&&r2Cache&&ph.r2Url)u=r2Cache['small:'+ph.r2Url]||'';
         if(!u)u=ph.r2Url||'';
         return {url:u||null,caption:ph.caption||null};
       }

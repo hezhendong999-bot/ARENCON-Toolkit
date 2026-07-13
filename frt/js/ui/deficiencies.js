@@ -19,6 +19,7 @@ import { R2 } from '../data/r2.js';
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { buildThreadHtml, buildComposerHtml, buildTrayHtml } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar) · S477: staging tray
+import { PhotoInput } from '../../../lib/ui/photoInput.js';           // S478: THE shared photo surface — every tool renders this one
 import { AIAssist } from '../ai/assistant.js';
 import { esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local copy; byte-identical)
 
@@ -4278,6 +4279,22 @@ function _deriveCatFilter() {
 // so ALL THREE surfaces stay live: the deficiencies list, the on-drawing pin
 // editor (viewer.js exposes window._frtRefreshPinEditor for exactly this —
 // viewer.js itself is never-touch), and the focused-pin modal.
+// ══ S478 — TAP-TO-ENGAGE A THREAD ROW (touch) ═════════════════════════════
+// Row actions (Reply · Edit · 🗑) are quiet until the row is engaged. On a fine
+// pointer that is :hover. Touch has no hover — so tapping a row makes it the
+// active one, and ONLY that one. Without this, the coarse-pointer fallback would
+// have to show every row's actions at once, which is the eighteen-buttons
+// problem all over again.
+document.addEventListener('click', function(e) {
+  var side = e.target.closest && e.target.closest('.crbt-side');
+  // Don't steal the tap from a real control inside the row.
+  if (e.target.closest && e.target.closest('[data-action]')) return;
+  document.querySelectorAll('.crbt-side.crbt-on').forEach(function(n) {
+    if (n !== side) n.classList.remove('crbt-on');
+  });
+  if (side) side.classList.toggle('crbt-on');
+});
+
 function _crbtRefresh(el, deficId) {
   initDeficiencies.render();
   try { if (window._frtRefreshPinEditor) window._frtRefreshPinEditor(); } catch (e) {}
@@ -4388,34 +4405,32 @@ function _crbtFlushPhotos(comp, deficId, obsIdx, entryId, who) {
   return count;
 }
 
-// Drag-and-drop — the DEFAULT surface (project canon: never a click-only zone).
-// Delegated on the document so it survives every thread re-render without
-// rebinding. dragover MUST preventDefault or the browser navigates to the file.
-document.addEventListener('dragover', function(e) {
-  var pz = e.target.closest && e.target.closest('.crbt-pz');
-  if (!pz) return;
-  e.preventDefault();
-  pz.classList.add('crbt-pz-over');
-});
-document.addEventListener('dragleave', function(e) {
-  var pz = e.target.closest && e.target.closest('.crbt-pz');
-  if (pz) pz.classList.remove('crbt-pz-over');
-});
-document.addEventListener('drop', function(e) {
-  var pz = e.target.closest && e.target.closest('.crbt-pz');
-  if (!pz) return;
-  e.preventDefault();
-  pz.classList.remove('crbt-pz-over');
-  var comp = pz.closest('.crbt-composer');
-  var dt = e.dataTransfer;
-  if (!comp || !dt || !dt.files || !dt.files.length) return;
-  var imgs = [];
-  for (var i = 0; i < dt.files.length; i++) {
-    if (/^image\//.test(dt.files[i].type)) imgs.push(dt.files[i]);
+// ══ S478 — MOUNT THE SHARED PHOTO ENGINE ══════════════════════════════════
+// The S477 hand-rolled drag/drop/camera/upload listeners are DELETED. The engine
+// owns all of that now, identically for every tool. We register only the two
+// things that are OURS: what to do with the files, and what Gallery means here.
+//
+// Registered at module load, delegated on document — survives every thread
+// re-render without rebinding (and the thread re-renders on every model change).
+PhotoInput.mount({
+  ns: 'crbt',
+  onFiles: function(files, ctx, zone) {
+    var comp = zone && zone.closest('.crbt-composer');
+    if (comp) _crbtStageFiles(comp, files);
+  },
+  onGallery: function(ctx, zone) {
+    // Gallery = pull a photo that already exists in the project into this
+    // comment. NOT YET BUILT — and the honest thing is to say so rather than
+    // ship a button that quietly does nothing.
+    //
+    // When it lands it must COPY the photo (its own R2 key, its own blob), never
+    // point at the source. A borrowed pointer works perfectly right up until the
+    // source photo is deleted, and then a photo you needed for a report is gone
+    // with no error anywhere. That is the 4380.24 failure exactly.
+    toast('Gallery pick for thread comments is coming \u2014 use Camera or Upload for now');
   }
-  if (!imgs.length) { toast('Only image files can be attached'); return; }
-  _crbtStageFiles(comp, imgs);
 });
+
 
 function _syncDfxControls(pcActive, pcClosed, proj, catCounts) {
   var ea = document.getElementById('dfx-pc-active');
@@ -5823,22 +5838,44 @@ document.addEventListener('click', function(e) {
   // _crbtStage until the model has created the entry and returned its id; only
   // then is it recorded and uploaded. Attaching to a not-yet-existent entry, or
   // recording an id-less photo, is silently discarded by merge.
-  if (action === 'crbt-ph-upload' || action === 'crbt-ph-camera') {
-    var _pzComp = el.closest('.crbt-composer');
-    if (!_pzComp) return;
-    if (action === 'crbt-ph-camera') {
-      openCameraBurst().then(function(files) {
-        if (files === null) { toast('Camera unavailable \u2014 use the Upload button instead'); return; }
-        _crbtStageFiles(_pzComp, files);
-      }).catch(function() { toast('Camera unavailable \u2014 use the Upload button instead'); });
-      return;
+  // ══ S478 — the photo surface is now the SHARED ENGINE ═════════════════
+  // The hand-rolled S477 upload/camera/drop handlers are GONE. lib/ui/photoInput.js
+  // owns the surface (three buttons + drag-drop, identical in every tool); this
+  // file owns only what happens to the files, because the storage path is where
+  // the S393 photo-loss protections live and an engine must never own that.
+  // Mounted once at module load via PhotoInput.mount() — see above.
+  // S478 (Mark): tapping a thread photo opens the lightbox. Thread photos do NOT
+  // live in obs.photos[], so the existing open-lightbox handler cannot see them —
+  // it resolves against the observation's photo pool. This builds a lightweight
+  // photo list from the thread entry itself and hands it to the same viewer.
+  if (action === 'crbt-ph-open') {
+    var _lpDefic = el.getAttribute('data-defic-id');
+    var _lpObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _lpEntry = el.getAttribute('data-entry-id');
+    var _lpIdx = parseInt(el.getAttribute('data-photo-idx') || '0', 10);
+    var _lpHit = Model._findThreadEntry(_lpDefic, _lpObs, _lpEntry);
+    if (!_lpHit) return;
+    var _lpList = (_lpHit.kind === 'response')
+      ? (_lpHit.entry.rectPhotos || [])
+      : (_lpHit.entry.followupPhotos || []);
+    _lpList = _lpList.filter(function(p) { return p && !p.deleted && !p.purged; });
+    if (!_lpList.length) return;
+    // The real API — window._frtLightbox.open(photos, idx) — same viewer the
+    // deficiency and gallery photos use, so a thread photo pinches, pans and
+    // swipes exactly like every other photo in the app. (Verified against
+    // lightbox.js rather than assumed: an invented function name here would have
+    // thrown on first tap, on a tablet, in a warehouse.)
+    if (window._frtLightbox && window._frtLightbox.open) {
+      try {
+        window._frtLightbox.open(_lpList, _lpIdx);
+        return;
+      } catch (_lbErr) {
+        console.warn('[CRB] lightbox open failed:', _lbErr);
+      }
     }
-    var _pzInp = document.createElement('input');
-    _pzInp.type = 'file'; _pzInp.accept = 'image/*'; _pzInp.multiple = true;
-    _pzInp.onchange = function() {
-      if (_pzInp.files && _pzInp.files.length) _crbtStageFiles(_pzComp, _pzInp.files);
-    };
-    _pzInp.click();
+    // Last resort — never leave a tap doing nothing.
+    var _u = _lpList[_lpIdx] && (_lpList[_lpIdx].dataUrl || _lpList[_lpIdx].r2Url);
+    if (_u) window.open(_u, '_blank');
     return;
   }
   if (action === 'crbt-ph-drop') {
@@ -5854,6 +5891,7 @@ document.addEventListener('click', function(e) {
     }
     return;
   }
+
   if (action === 'crbt-reply' || action === 'crbt-addcomment') {
     var _cDefic = el.getAttribute('data-defic-id');
     var _cObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
@@ -5864,8 +5902,11 @@ document.addEventListener('click', function(e) {
       var _pHit = Model._findThreadEntry(_cDefic, _cObs, _cReplyTo);
       _cRound = (_pHit && _pHit.entry && _pHit.entry.round) || _cRound || 1;
     }
-    // One composer at a time.
+    // One composer at a time. S478: restore any round whose Respond button we
+    // previously hid — closing one composer by opening another must not leave a
+    // round with no way to act on it.
     document.querySelectorAll('.crbt-composer').forEach(function(n) { n.remove(); });
+    document.querySelectorAll('.crbt-openbtns.crbt-hid').forEach(function(n) { n.classList.remove('crbt-hid'); });
     var _wrap = document.createElement('div');
     _wrap.innerHTML = buildComposerHtml({ deficId: _cDefic, obsIdx: _cObs, replyTo: _cReplyTo, round: _cRound || 1, voice: 'a' });
     var _comp = _wrap.firstChild;
@@ -5875,7 +5916,15 @@ document.addEventListener('click', function(e) {
       if (_acts) _acts.after(_comp); else if (_row) _row.appendChild(_comp);
     } else {
       var _or = el.closest('.crbt-openround');
-      if (_or) _or.appendChild(_comp);
+      if (_or) {
+        // S478 — THE fix for "too many buttons". The Respond button and the
+        // composer it opens must NEVER be on screen together: that duplication
+        // is what produced two "Add comment"s and two "Cancel"s on one card.
+        // Hidden, not removed, so Cancel can put it straight back.
+        var _ob = _or.querySelector('.crbt-openbtns');
+        if (_ob) _ob.classList.add('crbt-hid');
+        _or.appendChild(_comp);
+      }
     }
     var _ta = _comp.querySelector('.crbt-ta');
     if (_ta) setTimeout(function() { _ta.focus(); }, 50);
@@ -5898,7 +5947,14 @@ document.addEventListener('click', function(e) {
     // S477: discard the staging buffer with the composer. Nothing was uploaded
     // and nothing was written to the model, so there is nothing to clean up in
     // R2 or IDB — but the buffer MUST NOT survive to the next comment.
-    if (_cc) { _crbtStage.delete(_cc); _cc.remove(); }
+    // S478: put the round's Respond button back, or the round becomes a dead end.
+    if (_cc) {
+      var _cOr = _cc.closest('.crbt-openround');
+      var _cOb = _cOr && _cOr.querySelector('.crbt-openbtns');
+      if (_cOb) _cOb.classList.remove('crbt-hid');
+      _crbtStage.delete(_cc);
+      _cc.remove();
+    }
     return;
   }
   if (action === 'crbt-submit') {
@@ -5947,14 +6003,29 @@ document.addEventListener('click', function(e) {
   if (action === 'crbt-remove') {
     // S476 (Mark, universal rule): every destructive action confirms first —
     // one modal tap, even though removal is soft and undoable.
+    //
+    // S478 FIX: showConfirm(title, message) returns a PROMISE — it takes no
+    // callback. S477 passed the callback as the `message` arg, so the modal
+    // printed the function's SOURCE as its body text and the Yes button
+    // resolved a promise nobody awaited. Removal was dead on the live build.
     var _rmDefic = el.getAttribute('data-defic-id');
     var _rmObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
     var _rmId = el.getAttribute('data-entry-id');
-    showConfirm('Remove this comment? It folds into "removed comments" with Undo available until the next report is issued.', function() {
+    var _rmEl = el;
+    showConfirm(
+      'Remove this comment?',
+      'It folds into "removed comments" with Undo available until the next report is issued.'
+    ).then(function(ok) {
+      if (!ok) return;
       var _rmE = Model.removeThreadEntry(_rmDefic, _rmObs, _rmId,
         (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null);
-      if (_rmE) { Model.saveNow(); _crbtRefresh(el, _rmDefic); toast('Comment removed \u2014 Undo is under "removed comments"'); }
-      else { toast('This comment was printed in an issued report \u2014 it can\u2019t be removed. Reply instead.'); }
+      if (_rmE) {
+        Model.saveNow();
+        _crbtRefresh(_rmEl, _rmDefic);
+        toast('Comment removed \u2014 Undo is under "removed comments"');
+      } else {
+        toast('This comment was printed in an issued report \u2014 it can\u2019t be removed. Reply instead.');
+      }
     });
     return;
   }
