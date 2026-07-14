@@ -301,19 +301,24 @@ export var initExportView = {
       + '<option value="letter">Letter portrait</option>'
       + '<option value="24x36">24\u00D736 landscape</option></select></div>';
     h += '<div class="exv-eb" style="margin-top:14px;">Options</div>';
-    // S479h: the _crbAdmin gate variable retired with both CRB checkboxes.
+    // S479i: _crbAdmin restored — Mark's preview diagnostic is back (S479h
+    // wrongly retired it as a scope expansion; the tool is how Mark checks
+    // the response-section look on demand).
+    var _crbAdmin=false; try{_crbAdmin=!!(Auth&&Auth.isAdmin&&Auth.isAdmin());}catch(_e){}
     h += '<div class="exv-opts">'
       + '<label class="exv-chk"><input type="checkbox" id="exv-final"> Final commissioning</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-closed" checked> Closed Items Summary</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-siterec"> Site Records only (internal)</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-renum" checked> Renumber before export</label>'
-      // S479h (Mark, supersedes S479g): there is NO CRB checkbox at all.
-      // The contractor response box is part of what an ARENCON report IS —
-      // "user should not be able to pdf without it." The flag is hard-wired ON
-      // at generate time (see the generate handler). The admin-only preview
-      // (sample thread) checkbox retired with it: preview was mutually
-      // exclusive with live, and live can no longer be off, so the control
-      // could never do anything again.
+      // S479h (Mark): there is NO live-CRB checkbox — the contractor response
+      // box is part of what an ARENCON report IS ("user should not be able to
+      // pdf without it"). Live is hard-wired ON at generate time.
+      // S479i (Mark): the admin-only PREVIEW checkbox is RESTORED — S479h
+      // wrongly retired it. New semantics fitting the always-on world: ticked,
+      // the report renders the SAMPLE thread instead of real data, so Mark can
+      // check the response-section look on any project. Unticked (and for all
+      // non-admins, always): real data, no switch.
+      + (_crbAdmin ? '<label class="exv-chk"><input type="checkbox" id="exv-crbpreview"> Contractor Response \u2014 preview (sample thread, admin)</label>' : '')
       + '</div>';
     // untagged control (parity)
     if (utc > 0) {
@@ -539,11 +544,13 @@ export var initExportView = {
       // CRB live (real obs.responses[]/arenconReviews[]) takes precedence over the
       // sample preview in _buildDefCard. Both flags are set; when live is on we also
       // force preview off so the export options read unambiguously (real vs sample).
-      // S479h (Mark): CRB live is UNCONDITIONAL — every report carries the
-      // response thread + boxes; no user-facing switch exists anywhere.
-      // Preview is permanently false (it was exclusive with live by design).
-      window._frtCrbLive = true;
-      window._frtCrbPreview = false;
+      // S479i: real data is unconditional for everyone — EXCEPT when an admin
+      // explicitly ticks preview, which swaps in the sample thread (the look-
+      // check tool). Implemented by flipping the pair, so pdf.js's existing
+      // live/else-preview precedence renders the right path with zero changes.
+      var _pvOn = !!(ov.querySelector('#exv-crbpreview') && ov.querySelector('#exv-crbpreview').checked);
+      window._frtCrbLive = !_pvOn;
+      window._frtCrbPreview = _pvOn;
       initPDFExport.generate(type, {
         ctrFilter: ctrFilter,
         isFinalComm: isFinalComm,
