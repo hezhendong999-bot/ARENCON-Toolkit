@@ -94,8 +94,25 @@
     var pdfBufKeys = new Set();
     var drawingIds = new Set();
 
+    // S479f ROOT CAUSE FIX (the 6360.08 Obs 1A deletion, twice-broken photo).
+    // Records store keys as  photos/{pid}/frt/...  while the bucket (and the
+    // /list/ endpoint) use    {pid}/photos/frt/... — the documented format
+    // asymmetry. _classify compared raw BUCKET keys against a set of raw
+    // RECORD keys: the two can never be equal, so EVERY live photo in EVERY
+    // project scanned as "orphan — no live photo references this r2Key", and
+    // deleteOrphans('photos') would delete the whole gallery. Both forms of
+    // every reference now enter the set, so a referenced object matches no
+    // matter which format either side speaks.
+    function _bothForms(k) {
+      photoKeys.add(k);
+      var m = /^photos\/([^/]+)\/(.+)$/.exec(k);        // record → bucket
+      if (m) photoKeys.add(m[1] + '/photos/' + m[2]);
+      var b = /^([^/]+)\/photos\/(.+)$/.exec(k);        // bucket → record
+      if (b) photoKeys.add('photos/' + b[1] + '/' + b[2]);
+    }
+
     function addPhoto(ph) {
-      if (ph && ph.r2Key && !ph.deleted) photoKeys.add(ph.r2Key);
+      if (ph && ph.r2Key && !ph.deleted) _bothForms(ph.r2Key);
     }
 
     (proj.photos || []).forEach(addPhoto);
@@ -120,7 +137,7 @@
       if (!d || d._migratedAwayTo) return;
       if (d.id) drawingIds.add(d.id);
       if (d.pdfBufKey) pdfBufKeys.add(d.pdfBufKey);
-      if (d.r2Key) photoKeys.add(d.r2Key);
+      if (d.r2Key) _bothForms(d.r2Key);   // S479f: same dual-form treatment
     });
 
     return { photoKeys: photoKeys, pdfBufKeys: pdfBufKeys, drawingIds: drawingIds };
@@ -256,6 +273,28 @@
       }
       if (totalOrphans > 0) {
         console.log('%c  Run _r2cleanup.deleteOrphans() to remove them (2-step confirm).', 'color:#B07F5A');
+      }
+      // S479f SANITY BREAKER (independent of the format fix above): if MOST
+      // photos in the bucket classify as orphans, the overwhelmingly likely
+      // truth is that the COMPARISON is broken (format drift, stale project
+      // state), not that the bucket is full of garbage. A lying inventory
+      // behind a confirm dialog is how the 6360.08 photo died. Poison the
+      // photos scope: report it, refuse to let deleteOrphans arm on it.
+      var _phTotal = 0;
+      (result.objects || []).forEach(function (o) {
+        if (o && o.key && o.key.indexOf('/photos/frt/') >= 0) _phTotal++;
+      });
+      if (inv.orphans.photos.length > 5 && _phTotal > 0 &&
+          inv.orphans.photos.length > _phTotal * 0.5) {
+        console.error('%c[r2cleanup] SCAN INVALID for photos: ' +
+          inv.orphans.photos.length + ' of ' + _phTotal +
+          ' photo objects classified orphan (>50%). That pattern means the ' +
+          'reference comparison is broken, NOT that the photos are orphans. ' +
+          'Photos scope is DISABLED for this inventory.', 'color:#A85959;font-weight:bold');
+        inv.orphansInvalid = inv.orphansInvalid || {};
+        inv.orphansInvalid.photos = inv.orphans.photos;
+        inv.orphans.photos = [];
+        inv.orphanBytes.photos = 0;
       }
       _inventory = inv;
       return inv;
