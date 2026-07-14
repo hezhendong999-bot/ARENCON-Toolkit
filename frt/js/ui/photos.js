@@ -11,7 +11,8 @@ import { Auth } from '../shared/auth.js';
 import { R2 } from '../data/r2.js';
 import { IDB } from '../data/idb.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
-import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark)
+import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark) — also sets window.openCameraBurst for the engine (S479e)
+import { PhotoInput } from '../../../lib/ui/photoInput.js'; // S479e: THE shared photo surface — gallery renders this one, not its own
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 // S431: display-layer host rewrite (same as lightbox's _r2Host). Local model
@@ -350,6 +351,15 @@ export var initPhotos = {
   render: function() {
     var container = document.getElementById('photos-container');
     if (!container) return;
+    // S479e: the upload zone is THE shared engine — rendered once, mounted
+    // once (delegated handlers survive re-renders). gallery:false — this IS
+    // the gallery. onFiles routes into the SAME _handleSitePhotoFiles path
+    // every photo has always taken; the engine owns the surface, never storage.
+    var zoneEl = document.getElementById('site-photo-upload');
+    if (zoneEl && !zoneEl.firstChild && window.PhotoInput) {
+      zoneEl.innerHTML = PhotoInput.html({ ns: 'gal', gallery: false, hint: 'Drop photos to add' });
+      PhotoInput.mount({ ns: 'gal', onFiles: function(files) { _handleSitePhotoFiles(files); } });
+    }
     var proj = Model.getProject();
     if (!proj) { container.innerHTML = ''; return; }
 
@@ -1624,8 +1634,9 @@ function _handleSitePhotoFiles(files) {
   });
 }
 
-// Expose for drag-drop
-window._handleSitePhotoDrop = _handleSitePhotoFiles;
+// S479e: window._handleSitePhotoDrop exposure retired — the inline ondrop that
+// called it died with the hand-built zone; the engine's delegated drop feeds
+// _handleSitePhotoFiles directly via onFiles.
 
 // ── S79: Photo bulk-action helpers ──────────────────────
 function _collectSelected() {
@@ -1973,35 +1984,12 @@ document.addEventListener('click', function(e) {
 
 // Wire upload buttons
 // Photo Gallery toolbar — delegated wiring (S78 fix: top-level getElementById ran before DOM existed)
+// S479e: the upload-link / Upload / Camera branches are RETIRED — the shared
+// engine (data-action="gal-pi-*") owns every way a photo enters this page.
 document.addEventListener('click', function(e) {
-  // Upload link (anchor, not a button) — opens the file picker
-  if (e.target && e.target.id === 'site-photo-upload-link') {
-    e.preventDefault();
-    var fiL = document.getElementById('site-photo-input');
-    if (fiL) fiL.click();
-    return;
-  }
   var t = e.target.closest && e.target.closest('button');
   if (!t || !t.id) return;
-  if (t.id === 'site-photo-upload-btn') {
-    // S331 #photo-buttons — explicit Upload (file picker, no camera capture).
-    var fiU = document.getElementById('site-photo-input');
-    if (fiU) fiU.click();
-    return;
-  }
-  if (t.id === 'site-photo-add-btn') {
-    // Merged Add Photos: burst camera is the primary path (all camera = burst,
-    // S314 Mark). If no camera (desktop) or denied, fall back to the file picker
-    // so the single button still always lets you add photos.
-    openCameraBurst().then(function(files) {
-      if (files === null) {           // unsupported/denied → upload fallback
-        var fi2 = document.getElementById('site-photo-input');
-        if (fi2) fi2.click();
-        return;
-      }
-      if (files.length) _handleSitePhotoFiles(files);
-    });
-  } else if (t.id === 'photo-actions-btn') {
+  if (t.id === 'photo-actions-btn') {
     var ex = document.getElementById('photo-actions-pop');
     if (ex) { ex.remove(); return; }
     var pop = document.createElement('div');
@@ -2102,17 +2090,10 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Legacy file/camera input change handlers (kept top-level — inputs exist at module load via index.html)
-var fileInput = document.getElementById('site-photo-input');
-var cameraInput = document.getElementById('site-photo-camera');
-if (fileInput) fileInput.addEventListener('change', function(e) {
-  if (e.target.files) _handleSitePhotoFiles(e.target.files);
-  e.target.value = '';
-});
-if (cameraInput) cameraInput.addEventListener('change', function(e) {
-  if (e.target.files) _handleSitePhotoFiles(e.target.files);
-  e.target.value = '';
-});
+// S479e: the legacy hidden-input change handlers and the window drop hook are
+// RETIRED with the hand-built zone — the shared engine owns file pick, camera,
+// and drag & drop on its own .obs-media-col. _handleSitePhotoFiles remains the
+// single storage entry the engine feeds.
 
 // ────────────────────────────────────────────────────────────────────────
 // Markup SAVE handler (frt-markup-saved) — NEVER-BAKE model (S351+).

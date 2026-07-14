@@ -742,3 +742,10 @@ function _openUI(stream, done) {
 
   renderStrip(); _updateUI();
 }
+
+// S479e (engine-adoption review): the shared photo engine's Camera button
+// calls window.openCameraBurst and silently falls back to the plain file
+// picker when it is absent. FRT only ever ES-exported this function, so the
+// engine-converted pin editor has been on the FALLBACK since S478 — masked
+// on tablets because their file picker offers a camera. Owned here, once.
+if (typeof window !== 'undefined') window.openCameraBurst = openCameraBurst;

@@ -550,23 +550,12 @@ function ensurePdfJs(cb){
       <div class="card">
         <div class="card-header">📷 Photo Gallery</div>
         <div class="card-body">
-          <div class="photo-zone" id="site-photo-upload"
-               ondragover="event.preventDefault();this.classList.add('drag-over')"
-               ondragleave="this.classList.remove('drag-over')"
-               ondrop="event.preventDefault();this.classList.remove('drag-over');if(window._handleSitePhotoDrop)window._handleSitePhotoDrop(event.dataTransfer.files);">
-            <div style="text-align:center;padding:16px;">
-              <div style="font-size:calc(12px + var(--ts));color:var(--steel);">Drag &amp; drop photos, or <a href="#" id="site-photo-upload-link" style="color:#5F8068;font-weight:600;text-decoration:underline;">upload from your device</a></div>
-              <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;">Select multiple at once</div>
-              <div style="margin-top:8px;display:flex;gap:8px;justify-content:center;">
-                <!-- S331 #photo-buttons — explicit Upload + Camera (was single merged
-                     "Add Photos"). Gallery omitted here: this IS the gallery. -->
-                <button class="pz-upload" id="site-photo-upload-btn" style="border:none;background:#5A6E80;color:white;padding:6px 16px;border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">📎 Upload</button>
-                <button class="pz-camera" id="site-photo-add-btn" style="border:none;background:#5F8068;color:white;padding:6px 16px;border-radius:6px;font-size:calc(12px + var(--ts));font-family:Calibri,sans-serif;font-weight:600;cursor:pointer;">📷 Camera</button>
-              </div>
-            </div>
-          </div>
-          <input type="file" id="site-photo-input" accept="image/*" multiple style="display:none">
-          <input type="file" id="site-photo-camera" accept="image/*" multiple capture="environment" style="display:none">
+          <!-- S479e: the photo zone is THE shared engine (lib/ui/photoInput.js),
+               rendered by photos.js at first render. The hand-built zone, its
+               inline drag handlers, and both hidden inputs are RETIRED — one
+               implementation (S478 rule). Gallery button omitted: this IS the
+               gallery. -->
+          <div id="site-photo-upload"></div>
           <div id="photos-container"></div>
         </div>
       </div>

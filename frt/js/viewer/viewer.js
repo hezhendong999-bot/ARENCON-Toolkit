@@ -2248,39 +2248,12 @@ function _peRenderObsContentLegacy(d, idx) {
   // overlay logic (Model.getObsPhotoMarkup) is preserved in default mode.
   _peRenderPhotoZone(d, idx);
 
-  // S116 Push 1 (E): wire the .pe-photo-zone (Upload / Camera / + Gallery
-  // buttons + drop target) to the active deficiency + obs index. Re-using
-  // the deficiencies-tab data-action handlers means photo records, R2
-  // upload, and Model notifications all behave identically regardless of
-  // where the upload was initiated.
-  var zone = document.querySelector('.pe-photo-zone');
-  if (zone) {
-    zone.setAttribute('data-action', 'photo-drop');
-    zone.setAttribute('data-defic-id', _peDeficId || '');
-    zone.setAttribute('data-obs-idx', String(idx));
-    var upBtn = document.getElementById('pe-upload-btn');
-    if (upBtn) {
-      upBtn.setAttribute('data-action', 'photo-upload');
-      upBtn.setAttribute('data-defic-id', _peDeficId || '');
-      upBtn.setAttribute('data-obs-idx', String(idx));
-    }
-    var camBtn = document.getElementById('pe-camera-btn');
-    if (camBtn) {
-      camBtn.setAttribute('data-action', 'photo-camera');
-      camBtn.setAttribute('data-defic-id', _peDeficId || '');
-      camBtn.setAttribute('data-obs-idx', String(idx));
-    }
-    var galBtn = document.getElementById('pe-gallery-btn');
-    if (galBtn) {
-      galBtn.setAttribute('data-action', 'photo-gallery-pick');
-      galBtn.setAttribute('data-defic-id', _peDeficId || '');
-      galBtn.setAttribute('data-obs-idx', String(idx));
-    }
-    // Local dragover styling — the deficiencies.js drop handler adds the
-    // photo to the model; we just provide the visual feedback here.
-    zone.ondragover = function(ev) { ev.preventDefault(); zone.classList.add('drag-over'); };
-    zone.ondragleave = function() { zone.classList.remove('drag-over'); };
-  }
+  // S479e DEAD CODE REMOVED (S478 finding, verified again today by tree-wide
+  // grep): a ~30-line block here wired `.pe-photo-zone` / #pe-upload-btn /
+  // #pe-camera-btn / #pe-gallery-btn — elements NOTHING in the repo renders.
+  // The `if (zone)` never fired once. The drawing-viewer pin editor is
+  // Editor A (_buildObsEditor) and gets its photo surface from the shared
+  // engine via deficiencies.js.
 
   // S116 Push 2: "Split to new pin" — extract the active observation into
   // its own brand-new pin at the same coords. Visible only when the source
