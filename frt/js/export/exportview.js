@@ -308,7 +308,12 @@ export var initExportView = {
       + '<label class="exv-chk"><input type="checkbox" id="exv-siterec"> Site Records only (internal)</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-renum" checked> Renumber before export</label>'
       + (_crbAdmin ? '<label class="exv-chk"><input type="checkbox" id="exv-crbpreview"> Contractor Response \u2014 preview (sample thread)</label>' : '')
-      + (_crbAdmin ? '<label class="exv-chk"><input type="checkbox" id="exv-crblive"> Contractor Response \u2014 live (real data)</label>' : '')
+      // S479g (Mark, ship decision): live CRB is GA for all staff and ON by
+      // default — the default PDF now carries the response thread + boxes.
+      // Known accepted risks at ship time (Mark informed, decided): B office
+      // recovery tools not yet built; refresh-window comment loss open.
+      // Preview (sample thread) stays admin-only above.
+      + '<label class="exv-chk"><input type="checkbox" id="exv-crblive" checked> Contractor Response \u2014 live (real data)</label>'
       + '</div>';
     // untagged control (parity)
     if (utc > 0) {
