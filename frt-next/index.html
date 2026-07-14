@@ -1072,7 +1072,11 @@ function ensurePdfJs(cb){
     var _mkTargetToSub={
       'mk-pen-btn':'pen-submenu',
       'mk-shapes-btn':'shapes-submenu',
-      'mk-color-btn':'color-submenu'
+      'mk-color-btn':'color-submenu',
+      'mk-select':'select-submenu'   /* S479 (Mark 5.1): select flyout gets the SAME mobile
+        repositioning as pen/shapes. Without this entry the forwarded click opened the flyout
+        anchored to the HIDDEN desktop #mk-select (rect 0,0) — top-left, under the header,
+        invisible on touch. */
     };
     document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
       if(b.dataset.wired)return;b.dataset.wired='1';

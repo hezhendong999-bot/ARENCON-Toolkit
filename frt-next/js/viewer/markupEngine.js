@@ -62,7 +62,23 @@
       // needlessly re-flatten + re-upload). Updated by _onDirty edits via the getter.
       this._attachSig = JSON.stringify(this.strokes);
       this._rotation = 0;   // S352: lightbox sets this so pt() can un-rotate input
-      this.nw = this.w; this.nh = this.h;   // S459l: shared-module aliases (module reads nw)
+      // S479 (Mark 7.2): chrome-scale PARITY with the drawing viewer. The engine
+      // sizes selection chrome as k = nw/rect.width. The DV supplies nw via a live
+      // getter equal to _uiScale()*rect (S342: chrome is screen-constant zoomed
+      // out, grows with zoom-in). This host used to pin nw = natural width, which
+      // pins chrome at a constant 11 CSS px at EVERY zoom — correct math, tiny
+      // handles. Same policy, expressed in this host's terms: nw = max(natural,
+      // on-screen) — identical k to the DV at every zoom. Installed ONCE as a
+      // getter (rect changes as the user pinches; a snapshot would go stale).
+      // _fixNW's repair-write can never fire against it: the getter returns >= 1.
+      if (!this._nwPolicyInstalled){
+        this._nwPolicyInstalled = true;
+        Object.defineProperty(this, 'nw', { configurable: true, get: function(){
+          var r = (this.canvas && this.canvas.getBoundingClientRect().width) || 0;
+          return Math.max(this.w || 1, r || 1);
+        }});
+        Object.defineProperty(this, 'nh', { configurable: true, get: function(){ return this.h || 1; }});
+      }
       this._sync();   // sets w/h and _render()s — re-paints the reloaded strokes
       this._bind();
       window.addEventListener('resize', this._syncBound = this._sync.bind(this));
