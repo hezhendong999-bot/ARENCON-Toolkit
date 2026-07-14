@@ -889,7 +889,8 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 /* Header filename — unified display replacing duplicate titles */
 /* header-filename moved to project-bar */
 
-/* Mobile — hamburger ALWAYS visible; hides other btns ≤1024px */
+/* Mobile — hamburger shows ONLY below the 1200px collapse breakpoint (S479,
+   Mark: no menu button on PC — the full-width header fits every button). */
 @media(max-width:1200px){
   /* Hide header action buttons — keep dark toggle + hamburger + cloud status.
      S262: raised 1024->1200. The full action row is ~1137px wide; below ~1200px
@@ -10437,8 +10438,27 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .header-actions > #btn-signout{ display:none !important; }
   #mobile-menu-btn, .header-actions > #mobile-menu-btn{ display:inline-flex !important; }
 }
-@media(min-width:1025px){ #mobile-menu-btn, .header-actions > #mobile-menu-btn, .app-header #mobile-menu-btn{ display:inline-flex !important; } }
+/* S479 (Mark, item I): the min-width:1025 force-show is RETIRED. Above the
+   1200px collapse breakpoint the full header fits, so the hamburger has no
+   job on PC — the ≤1200 block (line ~892) is now the ONLY thing that shows it. */
 .mobile-menu #mobile-signout-btn, .mobile-menu .mm-btn.mm-signout{ background:#0F766E !important; color:#fff !important; border-color:#0F766E !important; }
+/* ── S479 (Mark, item I) ────────────────────────────────────────────────
+   (a) HEADER STORAGE BAR — first styling it has ever had. #storage-display
+   was unstyled DOM: a zero-height track next to the JS-written MB label, so
+   the header showed text with no bar. Mirrors the drawer bar (4px green fill)
+   at header scale. The ≤480px phone hide at line ~1715 still applies.       */
+.storage-bar{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.storage-bar .storage-bar-track{ width:64px; height:4px; background:rgba(255,255,255,.18); border-radius:2px; overflow:hidden; }
+body:not(.dark-mode) .storage-bar .storage-bar-track{ background:var(--border); }
+.storage-bar .storage-bar-fill{ height:100%; background:#5F8068; border-radius:2px; transition:width .3s; }
+/* (b) DRAWER = the HEADER's buttons, not a second design. Same background,
+   same white text, per group — colours copied verbatim from the header
+   markup: AI #7B2D8E · Reports #1A237E · More #455A64. Sign-out (#0F766E)
+   already matched above. The S/M text label fix is in app.js.              */
+.mobile-menu #mm-ai-header{ background:#7B2D8E !important; color:#fff !important; border-color:#7B2D8E !important; }
+.mobile-menu #mm-reports-header{ background:#1A237E !important; color:#fff !important; border-color:#1A237E !important; }
+.mobile-menu #mm-more-header{ background:#455A64 !important; color:#fff !important; border-color:#455A64 !important; }
+/* ── end S479 item I ──────────────────────────────────────────────────── */
 /* ── end S259 header button system ──────────────────────────────────── */
 
 /* ════════════════════════════════════════════════════════════════════

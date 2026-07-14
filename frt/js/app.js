@@ -302,7 +302,7 @@ function applyTextSize(size) {
   var btn = document.getElementById('btn-text-size');
   if (btn) btn.textContent = size;
   var mob = document.getElementById('mobile-text-size-btn');
-  if (mob) mob.textContent = 'Text: ' + TEXT_LABELS[size];
+  if (mob) mob.textContent = size;   // S479 (Mark, item I): same bare S/M/L as the header button — never a reworded label
 }
 
 function restoreTextSize() {
@@ -2259,6 +2259,18 @@ function boot() {
   // — preemptive refresh (Item 1) catches near-expiry tokens, and the
   // remaining failure modes are rare (revoked / wholly invalid tokens).
   var hasToken = _hubMode && _projectId && !!localStorage.getItem('sb-access-token');
+  // S479 (Mark, item I): the sign-out buttons show whenever this DEVICE holds
+  // a signed-in session (tokens present) — hub or standalone. The reveal used
+  // to live ONLY inside the ?project= boot path, so at frt/ without a project
+  // the header never had a sign-out button. Mark's report stands as written.
+  // Clicking routes through the existing Auth.signOut(), which clears tokens
+  // whether or not a session object was restored this boot.
+  if (localStorage.getItem('sb-access-token')) {
+    var _soBoot = document.getElementById('btn-signout');
+    if (_soBoot) _soBoot.style.display = '';
+    var _msoBoot = document.getElementById('mobile-signout-btn');
+    if (_msoBoot) _msoBoot.style.display = '';
+  }
   var idbReady = IDB.init();
   var authReady = hasToken ? Auth.restoreSession() : Promise.resolve(null);
 
