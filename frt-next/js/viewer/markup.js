@@ -125,7 +125,7 @@ function _dvEnsureSelChrome() {
     '<button class="tool-btn sub-tool-btn" data-sel-sub="rubber" data-tip="Rubber-band">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path stroke-dasharray="3.2 2.8" d="M8.5 4h7M8.5 20h7M4 8.5v7M20 8.5v7"/><rect x="2" y="2" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="17.4" y="2" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="2" y="17.4" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="17.4" y="17.4" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/></svg></button>' +
     '<button class="tool-btn sub-tool-btn" data-sel-sub="tap" data-tip="Tap select">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="15.5" r="3.2" fill="currentColor" stroke="none"/><path d="M7.6 9.2a6.2 6.2 0 0 1 8.8 0"/><path d="M4.9 6a10 10 0 0 1 14.2 0"/></svg></button>';
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg></button>';
   grp.appendChild(_dvSelFly);
 
   function markSub(sub) {
@@ -3175,7 +3175,7 @@ function _dvStylePolyPill(pill) {
 // Every in-progress pill [polyline / dim finish / selection confirm] clones
 // these metrics; only the button set differs (polyline keeps ↩).
 var _DV_PILL_BOX    = 'position:fixed;z-index:10021;display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,.55);';
-var _DV_PILL_FINISH = 'border:none;height:36px;padding:0 14px;border-radius:18px;cursor:pointer;font:700 13px Calibri,sans-serif;color:#fff;background:#3FD08A;display:flex;align-items:center;gap:5px;';
+var _DV_PILL_FINISH = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';   // S479 (Mark, B): TRUE circle — was a lozenge (padding+radius:18), the one off-family shape in the pill set
 var _DV_PILL_X      = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
 // S461k (Mark): ONE placement rule for every pill. Touch devices → FIXED
 // bottom-center (never jumps, never leaves the screen). Fine pointers (PC)
