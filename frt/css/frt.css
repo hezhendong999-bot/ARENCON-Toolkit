@@ -11093,8 +11093,20 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
 }
 .crbt-link:hover{color:#C0445F;}
 @media (pointer:coarse){ .crbt-link{padding:10px 0;} }
-.crbt-cfoot{display:flex;align-items:center;gap:10px;margin-top:10px;}
+.crbt-cfoot{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;}
 .crbt-sp{flex:1;}
+/* S480: narrow-screen composer footer — the No-reply link + Cancel + primary
+   used to sit in one non-wrapping row; on a phone the primary button was
+   shoved past the card's padded edge (it "escaped the box"). Below 520px the
+   footer becomes a column: the quiet link on its own line, then the two
+   action buttons full-width and side by side, always inside the card. Scoped
+   to .crbt-cfoot only — touches nothing else. */
+@media (max-width:520px){
+  .crbt-cfoot{flex-direction:column;align-items:stretch;gap:8px;}
+  .crbt-cfoot .crbt-sp{display:none;}
+  .crbt-cfoot .crbt-link{align-self:flex-start;}
+  .crbt-cfoot .crbt-btn{flex:1 1 0;min-width:0;}
+}
 
 /* Row actions: quiet until the row is engaged. Six comments used to paint
    eighteen buttons standing at attention. They are always in the DOM —

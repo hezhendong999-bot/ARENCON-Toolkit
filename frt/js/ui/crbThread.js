@@ -273,7 +273,16 @@ export function buildThreadHtml(opts){
   // "Record no reply"; the old burgundy modal buttons are retired.
   if(!closed){
     var openRound=1;
-    rounds.forEach(function(rn){if(rn>=openRound)openRound=rn+1;});
+    // S480: only rounds that render (have at least one live comment) advance
+    // the counter. A round whose comments were ALL removed renders no header
+    // (see the rounds.forEach filter above) — counting it here pushed the
+    // composer to "Round 2" on a thread that visibly shows nothing, which a
+    // single removed test comment triggered. Mirror the render filter.
+    rounds.forEach(function(rn){
+      var cell=byRound[rn]||[];
+      var anyLive=cell.some(function(x){return !x.e.removed;});
+      if(anyLive && rn>=openRound)openRound=rn+1;
+    });
     var curRound=Math.max(openRound,(curInst-(Number(obs.notedOnInstance)||1))+1);
     // S478 (Mark: "too many buttons — overwhelming where to click"): the open
     // round is now ONE control. Previously it showed "+ Add comment" AND
@@ -346,7 +355,7 @@ export function buildComposerHtml(o){
     +'<button type="button" class="crbt-link" data-action="crbt-noreply" data-defic-id="'+_esc(o.deficId)+'" data-obs-idx="'+o.obsIdx+'" data-round="'+_esc(o.round)+'">No reply received</button>'
     +'<span class="crbt-sp"></span>'
     +'<button type="button" class="crbt-btn" data-action="crbt-cancel">Cancel</button>'
-    +'<button type="button" class="crbt-btn crbt-primary" data-action="crbt-submit">'+(o.replyTo?'Add reply':'Add comment')+'</button>'
+    +'<button type="button" class="crbt-btn crbt-primary" data-action="crbt-submit">'+(o.replyTo?'Add reply':'Post response')+'</button>'
   +'</div>';
   h+='</div>';
   return h;
@@ -370,3 +379,4 @@ export function buildTrayHtml(items){
     +' will upload when you add the comment</div>';
   return h;
 }
+
