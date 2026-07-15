@@ -176,6 +176,70 @@ function _isIdKeyedArray(arr) {
  *   - Else if both plain objects → field-level recurse
  *   - Else → conflict (both changed to different scalars/arrays)
  */
+// S481 PHOTO POINTER-PROTECTION (Mark: permanent fix). "Cloud owns structure,
+// local owns binary" applied at the pointer level: given a merged photo item
+// and the two source versions, a GOOD (non-null string) r2Key must never be
+// left wiped (null) when either source had one. Returns the (possibly repaired)
+// value. Scoped to non-deleted photo items; all other values pass through
+// untouched. Idempotent and deterministic — safe to apply on every merge path.
+function _protectPhotoPointer(value, mine, theirs, _depth) {
+  if (!value || typeof value !== 'object') return value;
+  _depth = _depth || 0;
+  if (_depth > 6) return value;   // bound: project→contractors→defics→obs→photos is ≤5
+  // Recurse through id-keyed arrays (e.g. a whole photos[] taken wholesale on
+  // the one-side-changed short-circuit): protect each item against its id-match
+  // on the other side. This is the path that let a wiped photos[] win when the
+  // other side's array equalled base.
+  if (Array.isArray(value)) {
+    if (_isIdKeyedArray(value)) {
+      var mIdx = Array.isArray(mine)   ? _indexById(mine)   : { byId: {} };
+      var tIdx = Array.isArray(theirs) ? _indexById(theirs) : { byId: {} };
+      value.forEach(function(item){
+        var id = _idOf(item);
+        if (id === null) return;
+        _protectPhotoPointer(item, mIdx.byId[id], tIdx.byId[id], _depth + 1);
+      });
+    }
+    return value;
+  }
+  if (_isDeletedItem(value)) return value;   // deletion-wins is authoritative
+  var looksLikePhoto = (value.r2Status !== undefined || value.r2Key !== undefined) &&
+                       (value.id !== undefined || (mine && mine.id) || (theirs && theirs.id));
+  if (!looksLikePhoto) {
+    // Not a photo item itself — but it may be a CONTAINER (project, contractor,
+    // deficiency, observation) holding id-keyed photo arrays. Descend into
+    // id-keyed-array fields and nested container objects so a wholesale-taken
+    // container still gets per-item pointer-protection. Depth-bounded; only
+    // walks objects/id-keyed-arrays (never scalars), so cost is proportional
+    // to the photo-bearing structure, not the whole blob.
+    Object.keys(value).forEach(function(k){
+      var fv = value[k];
+      if (fv && typeof fv === 'object') {
+        var mSub = (mine   && typeof mine   === 'object' && !Array.isArray(mine))   ? mine[k]   : undefined;
+        var tSub = (theirs && typeof theirs === 'object' && !Array.isArray(theirs)) ? theirs[k] : undefined;
+        if (Array.isArray(fv)) {
+          if (_isIdKeyedArray(fv)) _protectPhotoPointer(fv, mSub, tSub, _depth + 1);
+        } else {
+          _protectPhotoPointer(fv, mSub, tSub, _depth + 1);
+        }
+      }
+    });
+    return value;
+  }
+  var valKeyGood = (typeof value.r2Key === 'string' && value.r2Key);
+  if (valKeyGood) return value;   // already good — nothing to protect
+  var mineKeyGood  = mine   && typeof mine.r2Key === 'string'   && mine.r2Key;
+  var theirsKeyGood = theirs && typeof theirs.r2Key === 'string' && theirs.r2Key;
+  var good = mineKeyGood ? mine : (theirsKeyGood ? theirs : null);
+  if (!good) return value;
+  value.r2Key = good.r2Key;
+  if (typeof good.r2Url === 'string' && good.r2Url) value.r2Url = good.r2Url;
+  if (typeof good.thumb === 'string' && good.thumb && !(typeof value.thumb === 'string' && value.thumb)) value.thumb = good.thumb;
+  if (good.r2Status) value.r2Status = good.r2Status;
+  console.warn('[Merge] S481 pointer-protection: restored good r2Key over a wiped one for photo ' + (value.id || '?'));
+  return value;
+}
+
 function _merge3Value(base, mine, theirs, pathStr) {
   // Equal on both sides — no change anywhere.
   if (_deepEq(mine, theirs)) {
@@ -184,11 +248,15 @@ function _merge3Value(base, mine, theirs, pathStr) {
 
   // Only one side changed — take that side. This is the common case
   // (different inspectors editing different parts of the project).
+  // S481: even here, apply photo pointer-protection — "only one side changed"
+  // is EXACTLY the wipe case (a bytes-less device nulls the key = its only
+  // change; the other side still equals base with a good key). Taking that
+  // side wholesale would re-introduce the loss the object-merge guard blocks.
   if (_deepEq(mine, base)) {
-    return { value: _clone(theirs), conflicts: [] };
+    return { value: _protectPhotoPointer(_clone(theirs), mine, theirs), conflicts: [] };
   }
   if (_deepEq(theirs, base)) {
-    return { value: _clone(mine), conflicts: [] };
+    return { value: _protectPhotoPointer(_clone(mine), mine, theirs), conflicts: [] };
   }
 
   // Both sides changed. Try to merge structurally.
@@ -328,6 +396,12 @@ function _merge3Object(base, mine, theirs, pathStr) {
     if (sub.value !== undefined) result[key] = sub.value;
     Array.prototype.push.apply(conflicts, sub.conflicts);
   });
+
+  // ── S481 PHOTO POINTER-PROTECTION (Mark: permanent fix) ──────────────
+  // Applied here for the both-changed field-merge path; the same helper runs
+  // on the one-side-changed short-circuit paths in _merge3Value. Together they
+  // close every route by which a wiped (null) r2Key could clobber a good one.
+  _protectPhotoPointer(result, mine, theirs);
 
   return { value: result, conflicts: conflicts };
 }
@@ -802,6 +876,36 @@ if (typeof window !== 'undefined') {
       );
       var p14 = r14.merged.photos.find(function(p){ return p.id === 'x'; });
       assert('S43x: delete beats a stale local edit', p14 && p14.deleted === true);
+
+      // ── S481 pointer-protection tests (the recurring photo-loss guarantee) ──
+      // Test 15: a wiped (null) r2Key on THEIRS must not clobber a good key on MINE.
+      var GK = 'photos/proj_x/frt/original/orig_ph1.jpg';
+      var r15 = merge3(
+        { photos: [ { id: 'ph1', r2Key: GK, r2Url: 'https://files.arencon.app/' + GK, r2Status: 'uploaded' } ] },
+        { photos: [ { id: 'ph1', r2Key: GK, r2Url: 'https://files.arencon.app/' + GK, r2Status: 'uploaded' } ] },
+        { photos: [ { id: 'ph1', r2Key: null, r2Url: null, r2Status: 'uploaded' } ] }
+      );
+      var p15 = r15.merged.photos.find(function(p){ return p.id === 'ph1'; });
+      assert('S481: good r2Key survives a wiped THEIRS', p15 && p15.r2Key === GK);
+
+      // Test 16: symmetric — wiped on MINE, good on THEIRS.
+      var r16 = merge3(
+        { photos: [ { id: 'ph2', r2Key: GK, r2Status: 'uploaded' } ] },
+        { photos: [ { id: 'ph2', r2Key: null, r2Url: null, r2Status: 'uploaded' } ] },
+        { photos: [ { id: 'ph2', r2Key: GK, r2Url: 'https://files.arencon.app/' + GK, r2Status: 'uploaded' } ] }
+      );
+      var p16 = r16.merged.photos.find(function(p){ return p.id === 'ph2'; });
+      assert('S481: good r2Key survives a wiped MINE', p16 && p16.r2Key === GK);
+
+      // Test 17: a deliberately DELETED photo is NOT rescued by pointer-protection
+      // (deletion-wins must still hold — protection is scoped to non-deleted items).
+      var r17 = merge3(
+        { photos: [ { id: 'ph3', r2Key: GK } ] },
+        { photos: [ { id: 'ph3', r2Key: GK } ] },
+        { photos: [ { id: 'ph3', r2Key: null, deleted: true, purged: true } ] }
+      );
+      var p17 = r17.merged.photos.find(function(p){ return p.id === 'ph3'; });
+      assert('S481: pointer-protection does not resurrect a purged photo', p17 && p17.deleted === true);
 
       console.log('--- ' + pass + ' passed, ' + fail + ' failed ---');
       return { pass: pass, fail: fail };

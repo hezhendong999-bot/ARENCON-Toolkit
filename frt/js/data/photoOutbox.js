@@ -214,7 +214,7 @@ var _retryTimers = {};
 // S414: session caches for the R2 dead-key heal (verifyR2Keys).
 var _r2VerifiedProjects = {};
 var _r2VerifiedKeys = {};
-function _r2HealOne(projectId, ph, res) {
+function _r2HealOne(projectId, ph, res, proj) {
   // Confirmed 404. Prefer original bytes from photoBlobs; fall back to the
   // compressed dataUrl; otherwise null the key (record kept).
   return IDB.get('photoBlobs', ph.id).then(function(rec){
@@ -227,6 +227,65 @@ function _r2HealOne(projectId, ph, res) {
     }
     if (ph.dataUrl) {
       return R2.uploadPhoto(projectId, ph, 'original').then(function(r){ if (r) res.healed++; });
+    }
+    // S481 DATA-LOSS FIX (Mark, 1490.04 Obs 4A): before nulling, probe the
+    // PREDICTABLE markup-backup address. Markup-save (photos.js CASE 2) parks
+    // a clean original at photos/{slug}/frt/original/orig_{photoId}.jpg. If a
+    // backup exists there, this record can be REPOINTED (repair) instead of
+    // nulled (loss). This is why nulling here was destroying repairs: the
+    // rescue copy was reachable all along; the heal just never looked.
+    // Probe the record's own key-derived slug AND the current projectId slug
+    // (cross-generation backups may sit under either — the Obs 4A rescue lived
+    // under the legacy internal-id slug, not the UUID). 1-byte Range GET only;
+    // repoint solely on a real hit. Never delete anything here.
+    var _wk = (R2 && R2.WORKER_URL) ? R2.WORKER_URL : '';
+    var _cands = [];
+    // BEST source (exact, generation-proof): the backup RECORD's own r2Key.
+    // markup-save links the working photo to its clean backup via _origBackupId;
+    // if that record still lives in the gallery, its r2Key is the true backup
+    // address — no slug guessing. This survives the 3-generation slug mess that
+    // slug-derivation alone cannot (the Obs 4A rescue sat under a legacy slug
+    // exposed by neither the record's key nor the projectId).
+    if (proj && ph._origBackupId) {
+      var _all = [];
+      (proj.photos || []).forEach(function(p){ _all.push(p); });
+      (proj.contractors || []).forEach(function(c){ (c.deficiencies || []).forEach(function(d){ (d.photos || []).forEach(function(p){ _all.push(p); }); }); });
+      var _bk = _all.filter(function(p){ return p && p.id === ph._origBackupId && p.r2Key; })[0];
+      if (_bk && _bk.r2Key && _cands.indexOf(_bk.r2Key) < 0) _cands.push(_bk.r2Key);
+    }
+    // FALLBACK: probe the predictable backup filename under any slug we can see.
+    var _slugs = [];
+    var _keySlug = (ph.r2Key || '').split('/frt/')[0].replace(/^photos\//, '');
+    if (_keySlug) _slugs.push(_keySlug);
+    if (projectId && _slugs.indexOf(projectId) < 0) _slugs.push(projectId);
+    _slugs.forEach(function(sl){
+      var k = 'photos/' + sl + '/frt/original/orig_' + ph.id + '.jpg';
+      if (_cands.indexOf(k) < 0) _cands.push(k);
+    });
+    if (_wk && _cands.length) {
+      var _probe = Promise.resolve(false);
+      _cands.forEach(function(key){
+        _probe = _probe.then(function(found){
+          if (found) return found;
+          var url = _wk + '/' + key;
+          return fetch(url, { method: 'GET', headers: { 'Range': 'bytes=0-0' } })
+            .then(function(r){
+              if (r && r.ok) {
+                ph.r2Key = key; ph.r2Url = url; ph.r2Status = 'uploaded';
+                if (typeof res.rescued === 'number') res.rescued++; else res.rescued = 1;
+                console.log('[R2Heal] REPOINTED ' + ph.id + ' to backup ' + key + ' (avoided null)');
+                return true;
+              }
+              return false;
+            })
+            .catch(function(){ return false; });
+        });
+      });
+      return _probe.then(function(found){
+        if (found) return;
+        ph.r2Key = null; ph.r2Url = null; res.nulled++;
+        console.warn('[R2Heal] no local bytes AND no backup for ' + ph.id + ' \u2014 key nulled (record kept)');
+      });
     }
     ph.r2Key = null; ph.r2Url = null; res.nulled++;
     console.warn('[R2Heal] no local bytes for ' + ph.id + ' \u2014 key nulled (record kept)');
@@ -1172,7 +1231,7 @@ export var BinaryOutbox = {
         return fetch(ph.r2Url, { method: 'GET', headers: { 'Range': 'bytes=0-0' } }).then(function(r){
           if (r.ok) { _r2VerifiedKeys[ph.r2Key] = true; res.ok++; return; }
           if (r.status !== 404) { res.ok++; return; }   // transient — do not heal on non-404
-          return _r2HealOne(proj.id, ph, res);
+          return _r2HealOne(proj.id, ph, res, proj);
         }).catch(function(){ /* network blip — never heal on failure to reach */ });
       });
     });
@@ -1194,7 +1253,7 @@ export var BinaryOutbox = {
       ghosts.forEach(function(ph){
         rchain = rchain.then(function(){
           var before = res.healed;
-          return _r2HealOne(proj.id, ph, res).then(function(){
+          return _r2HealOne(proj.id, ph, res, proj).then(function(){
             if (res.healed > before && ph.r2Key) {
               res.rescued++;
               delete ph._sourceLostAt;

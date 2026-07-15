@@ -355,7 +355,12 @@
     var chain = Promise.resolve();
     targets.forEach(function (t) {
       chain = chain.then(function () {
-        return R2.del(t.key).then(function (ok) {
+        // S481: route through the guard. The cleaner has already proven these
+        // are orphans (S461 both-format check + >50% sanity brake upstream),
+        // so force:true is correct — but the guard remains the single audited
+        // photo-delete verb across the whole app.
+        var _del = (R2.delPhotoGuarded ? R2.delPhotoGuarded(t.key, { force: true }) : R2.del(t.key));
+        return _del.then(function (ok) {
           if (ok) deleted++; else failed++;
         });
       });

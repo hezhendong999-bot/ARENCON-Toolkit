@@ -73,3 +73,55 @@ describe('merge3 — pure 3-way merge', () => {
     expect(merged.projectInfo).toBeDefined();
   });
 });
+
+// ── S481 PHOTO POINTER-PROTECTION ─────────────────────────────────────────
+// The permanent guarantee against the recurring photo-loss class. A device
+// that lost its local bytes may null a photo's r2Key/r2Url pointer. That wiped
+// pointer must NEVER overwrite a good (non-null) pointer held by another device
+// during a 3-way merge. Reproduces the exact loss sequence (markup → revert →
+// bytes-less device nulls → merge) at the merge boundary. If this regresses,
+// the photo-loss class is back — this suite turns the commit red first.
+describe('merge3 — S481 photo pointer-protection', () => {
+  const GK = 'photos/proj_x/frt/original/orig_ph1.jpg';
+  const GURL = 'https://files.arencon.app/' + GK;
+
+  it('a good r2Key survives a wiped pointer on THEIRS', () => {
+    const base   = { photos: [{ id: 'ph1', r2Key: GK, r2Url: GURL, r2Status: 'uploaded' }] };
+    const mine   = { photos: [{ id: 'ph1', r2Key: GK, r2Url: GURL, r2Status: 'uploaded' }] }; // == base
+    const theirs = { photos: [{ id: 'ph1', r2Key: null, r2Url: null, r2Status: 'uploaded' }] }; // wiped
+    const { merged } = merge3(base, mine, theirs);
+    const p = merged.photos.find(x => x.id === 'ph1');
+    expect(p.r2Key).toBe(GK);
+    expect(p.r2Url).toBe(GURL);
+  });
+
+  it('a good r2Key survives a wiped pointer on MINE (symmetric)', () => {
+    const base   = { photos: [{ id: 'ph2', r2Key: GK, r2Status: 'uploaded' }] };
+    const mine   = { photos: [{ id: 'ph2', r2Key: null, r2Url: null, r2Status: 'uploaded' }] }; // wiped
+    const theirs = { photos: [{ id: 'ph2', r2Key: GK, r2Url: GURL, r2Status: 'uploaded' }] };
+    const { merged } = merge3(base, mine, theirs);
+    const p = merged.photos.find(x => x.id === 'ph2');
+    expect(p.r2Key).toBe(GK);
+  });
+
+  it('protection is scoped to non-deleted photos — never resurrects a purged one', () => {
+    const base   = { photos: [{ id: 'ph3', r2Key: GK }] };
+    const mine   = { photos: [{ id: 'ph3', r2Key: GK }] };
+    const theirs = { photos: [{ id: 'ph3', r2Key: null, deleted: true, purged: true }] };
+    const { merged } = merge3(base, mine, theirs);
+    const p = merged.photos.find(x => x.id === 'ph3');
+    expect(p.deleted).toBe(true);
+  });
+
+  it('protects photos nested under contractors[].deficiencies[]', () => {
+    const mk = (key) => ({
+      contractors: [{ id: 'c1', deficiencies: [
+        { id: 'd1', photos: [{ id: 'dp1', r2Key: key, r2Url: key ? GURL : null, r2Status: 'uploaded' }] }
+      ] }]
+    });
+    const base = mk(GK), mine = mk(GK), theirs = mk(null); // theirs wiped the nested photo
+    const { merged } = merge3(base, mine, theirs);
+    const p = merged.contractors[0].deficiencies[0].photos.find(x => x.id === 'dp1');
+    expect(p.r2Key).toBe(GK);
+  });
+});

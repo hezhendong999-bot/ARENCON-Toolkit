@@ -32,6 +32,11 @@ const TRIPWIRES = [
   ['R2 photo layer',        null,                       /R2Photos/],          // anywhere under frt/js
   ['WebGL pin renderer',    null,                       /pinsGL/],
   ['markup engine',         null,                       /markupEngine/],
+  // S481 photo-loss guarantees — these MUST survive every future edit. If a
+  // concurrent-push revert erases any, the recurring photo-loss class is back.
+  ['S481 no-orphan-delete guard',   'frt/js/data/r2.js',        /delPhotoGuarded/],
+  ['S481 merge pointer-protection', 'frt/js/data/merge.js',     /_protectPhotoPointer/],
+  ['S481 heal probe-before-null',   'frt/js/data/photoOutbox.js', /REPOINTED/],
 ];
 
 function srcOf(rel) { try { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch (e) { return null; } }

@@ -1,0 +1,48 @@
+name: Nightly Photo Integrity Sweep
+
+# S481 — the office-side early-warning net for photo loss.
+# Reads every tool_data row (all projects) and probes each photo's R2 pointer.
+# A broken pointer fails the run (red X + email) so it surfaces at the office
+# within a day — behind the structural guards (no-orphan-delete + merge
+# pointer-protection), not instead of them. READ-ONLY; never mutates data.
+#
+# Required repo secret:
+#   SUPABASE_SERVICE_ROLE_KEY — same secret the backup workflow uses.
+#
+# Manual run: Actions tab → "Nightly Photo Integrity Sweep" → Run workflow.
+
+on:
+  schedule:
+    - cron: '30 5 * * *'   # 5:30am UTC daily (after the 4am backup)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # to commit the report file
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Run photo integrity sweep
+        env:
+          SUPABASE_URL: https://xsemvinxsyphjiaqgywv.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node tools/photo_integrity_sweep.mjs
+
+      - name: Commit report (always, even on failure)
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/photo-integrity.json || true
+          if git diff --staged --quiet; then
+            echo "No report change."
+            exit 0
+          fi
+          STAMP=$(date -u +'%Y-%m-%dT%H:%MZ')
+          git commit -m "Photo integrity report ${STAMP}"
+          git push

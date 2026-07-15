@@ -1704,8 +1704,17 @@ function _doBulkDelete() {
     toDelete.sort(function(a,b){ return b.idx - a.idx; });
     toDelete.forEach(function(d){
       Model.removeSitePhoto(d.idx);
-      if (d.r2Key) R2.del(d.r2Key).catch(function(){});
-      if (d.id) IDB.del('photoBlobs', d.id).catch(function(){});
+      // S481: route through the no-orphan-delete guard. User trash IS a
+      // deliberate delete (force:true), but still compute remaining refs so
+      // we never yank a key another live photo still shares, and only drop
+      // local bytes when nothing else references the image.
+      var _refs = (d.r2Key && Model.findPhotosByR2Key) ? Model.findPhotosByR2Key(d.r2Key).filter(function(s){ return s && s.photo; }).length : 0;
+      if (d.r2Key && R2 && R2.delPhotoGuarded) {
+        R2.delPhotoGuarded(d.r2Key, { force: (_refs === 0), refCount: _refs, photoId: d.id }).catch(function(){});
+      } else if (d.r2Key && R2 && R2.del && _refs === 0) {
+        R2.del(d.r2Key).catch(function(){});
+      }
+      if (d.id && _refs === 0) IDB.del('photoBlobs', d.id).catch(function(){});
     });
     _toggleSelectMode(false);
     initPhotos.render();
@@ -2541,7 +2550,9 @@ document.addEventListener('frt-markup-reverted', function(e) {
       // user also reset it. (Markup revert removes MARKS, not rotation.)
     });
     Model.removeSitePhotoById(backup.id);
-    try { IDB.del('photoBlobs', photo.id).catch(function(){}); } catch(_){}
+    // S481 DATA-LOSS FIX: do NOT delete local original bytes on revert (see
+    // the sibling note in the legacy branch below). The local copy is the
+    // parachute; keep it. (Removed: IDB.del('photoBlobs', photo.id))
     Model.saveNow();
     if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
     return;
@@ -2580,10 +2591,26 @@ document.addEventListener('frt-markup-reverted', function(e) {
 
   Model.removeSitePhotoById(backup.id);
 
-  if (markedKey && markedKey !== origKey && R2 && R2.del) {
-    try { R2.del(markedKey).catch(function(){}); } catch(_){}
+  // S481 DATA-LOSS FIX (Mark, 1490.04 Obs 4A): revert must NOT delete the
+  // cloud file merely because the working key differs from the backup key.
+  // Under the never-bake model (S351+) the working key is usually the ONLY
+  // original — there is no disposable /marked/ copy. Deleting it here 404s
+  // the photo, then a bytes-less device nulls the pointer on next open =
+  // permanent loss. ONLY delete a file whose own key proves it is a
+  // disposable marked copy (a real /marked/ path). Address inequality alone
+  // is NOT proof of disposability.
+  if (markedKey && markedKey !== origKey && markedKey.indexOf('/marked/') >= 0 && R2 && R2.delPhotoGuarded) {
+    // /marked/ path = a genuine disposable marked copy, and the original is
+    // restored above — so this is a deliberate delete. Guard still verifies a
+    // survivor before removing (belt and suspenders).
+    var _rmRefs = (Model.findPhotosByR2Key ? Model.findPhotosByR2Key(markedKey).filter(function(s){ return s && s.photo; }).length : 0);
+    try { R2.delPhotoGuarded(markedKey, { force: true, refCount: _rmRefs, photoId: photo.id }).catch(function(){}); } catch(_){}
   }
-  try { IDB.del('photoBlobs', photo.id).catch(function(){}); } catch(_){}
+  // S481 DATA-LOSS FIX: NEVER delete this device's local original bytes on
+  // revert. That local copy is the parachute every rescue/self-heal path
+  // depends on (it is what recovered 6360.08 and produced the Obs 4A rescue
+  // upload). Locked rule: local store is a permanent backup, not a cache.
+  // (IDB.del removed — was: IDB.del('photoBlobs', photo.id))
 
   Model.saveNow();
   if (typeof initPhotos !== 'undefined' && initPhotos.render) initPhotos.render();
