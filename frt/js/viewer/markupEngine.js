@@ -196,6 +196,7 @@
       var self = this, c = this.canvas;
       function pt(ev){
         var r = c.getBoundingClientRect();
+        self._lastRectW = r.width;   // S482: zoom-under-stroke guard reads this
         var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX);
         var cy = (ev.touches ? ev.touches[0].clientY : ev.clientY);
         // S358 SINGLE-TRANSFORM INVERSE (matches FRT_ROTATION_REBUILD_DEMO _toFrame):
@@ -240,6 +241,7 @@
           return;
         }
         var p = pt(ev);
+        self._strokeRefW = self._lastRectW;   // S482: zoom-under-stroke guard baseline
         // S339 (Mark): if a text box is already open, swallow ALL canvas presses —
         // tapping empty space must NOT drop a second box or discard the text in the
         // open one (fat-finger fix). Only the bar's ✓ (commit) / ✕ (discard) exit.
@@ -299,6 +301,17 @@
         if (!self._drawing) return;
         ev.preventDefault();
         var p = pt(ev);
+        // S482: the photo zoomed/resized UNDER an in-progress stroke. The 2-finger
+        // check above only sees touches on THIS canvas — a pinch whose second
+        // finger lands on the surrounding viewer keeps zooming the wrap while the
+        // canvas still reports one touch. Points would then map against a moving
+        // rect and land displaced ("teleporting marks", Nasim 7310.17). Abort the
+        // stroke, same cleanup as the 2-finger branch.
+        if (self._strokeRefW && self._lastRectW && Math.abs(self._lastRectW - self._strokeRefW) > 0.5){
+          self._drawing = false; self._curr = null; self._shapePending = null;
+          self._render();
+          return;
+        }
         if (self.tool === 'eraser'){
           if (!(window.MarkupEraser && self._curr && self._curr.tool==='eraser')){ self._eraseAtLegacy(p); return; }
           // live drag path: fall through to the freehand append + render below
@@ -307,13 +320,13 @@
         if (isShape(self._curr.tool)){
           // S339 — drag updates the second corner; render live rubber-band preview.
           self._curr.pts[1] = p;
-          self._render();
+          self._renderSoon();   // S482: frame-batched
           return;
         }
         var last = self._curr.pts[self._curr.pts.length-1];
         if (Math.abs(p.x-last.x) + Math.abs(p.y-last.y) < 1) return;
         self._curr.pts.push(p);
-        self._render();
+        self._renderSoon();   // S482: frame-batched — points still append per event
       }
       function up(){
         if (self.tool === 'select'){ if (self._dragState && self._selUp) self._selUp(); return; }
@@ -777,6 +790,18 @@
 
 
 
+    // S482: frame-batched repaint for the live-draw path. touchmove fires far
+    // faster than the screen refreshes (120Hz+ on tablets); repainting the whole
+    // canvas per EVENT is the pen lag. Points still append on every event (zero
+    // fidelity loss) — we just paint at most once per animation frame. Everything
+    // outside the live drag keeps calling _render() directly.
+    _renderSoon: function(){
+      if (this._rafQueued) return;
+      if (typeof requestAnimationFrame !== 'function'){ this._render(); return; }
+      var self = this;
+      self._rafQueued = true;
+      requestAnimationFrame(function(){ self._rafQueued = false; self._render(); });
+    },
     _render: function(){
       if (!this.ctx) return;
       var ctx = this.ctx;
@@ -795,10 +820,20 @@
         for (var gk in groups){
           if (!groups.hasOwnProperty(gk)) continue;
           var grp = groups[gk];
-          var off = document.createElement('canvas');
-          off.width = Math.max(1, Math.round(this.w*this.dpr));
-          off.height= Math.max(1, Math.round(this.h*this.dpr));
+          // S482: reuse ONE cached group canvas. This used to allocate a brand-new
+          // full-resolution canvas EVERY render — and _render runs per pointer
+          // event while drawing, so a photo with any highlight allocated ~w*dpr ×
+          // h*dpr RGBA (tens of MB) per finger movement. That allocation storm is
+          // the tablet pen lag + a driver of the Android OOM "Aw, Snap" (Nasim,
+          // 7310.17). Each group composites to the main ctx before the next group
+          // starts (drawImage below, same loop pass), so clearing + reusing one
+          // canvas is output-identical.
+          var _gw = Math.max(1, Math.round(this.w*this.dpr));
+          var _gh = Math.max(1, Math.round(this.h*this.dpr));
+          var off = this._hlGroup || (this._hlGroup = document.createElement('canvas'));
           var oc = off.getContext('2d');
+          if (off.width !== _gw || off.height !== _gh) { off.width = _gw; off.height = _gh; }
+          else { oc.setTransform(1,0,0,1,0,0); oc.clearRect(0,0,_gw,_gh); }
           oc.setTransform(this.dpr,0,0,this.dpr,0,0);
           for (var i=0;i<grp.list.length;i++){
             var s = grp.list[i];

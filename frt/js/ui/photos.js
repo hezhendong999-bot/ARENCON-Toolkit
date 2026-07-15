@@ -257,7 +257,11 @@ function _cloudIcon(ph) {
       }
     } catch (e) { /* defensive */ }
     var photoTs = 0;
-    var m = String(ph.id || '').match(/^[a-z]+_(\d{13})/i);
+    // S482: was /^[a-z]+_(\d{13})/ — anchored single-segment prefix. Backup
+    // records (sph_orig_<ts>_) never matched, so photoTs stayed 0 and the else
+    // branch below painted them "awaiting cloud sync" FOREVER (Mark's stuck
+    // yellow, 1490.04). Match the first 13-digit run after any underscore.
+    var m = String(ph.id || '').match(/_(\d{13})(?:_|$)/);
     if (m) photoTs = parseInt(m[1], 10);
     var syncTs = lastSync ? new Date(lastSync).getTime() : 0;
     // A null/zero watermark means we simply haven't heard back from the cloud
@@ -266,7 +270,9 @@ function _cloudIcon(ph) {
     // R2 photo to orange in that case (caused the false "awaiting" badge on
     // load). Only show pending when we HAVE a watermark and the photo is newer
     // than it (the genuine silent-sync-failure signal is preserved).
-    if ((photoTs && syncTs && photoTs <= syncTs) || (!syncTs)) {
+    // S482: same unknown-rule for an UNPARSEABLE id (photoTs 0) — we cannot
+    // prove it pending, and its binary is already confirmed up in this branch.
+    if ((!photoTs) || (!syncTs) || (photoTs <= syncTs)) {
       status = 'Synced'; color = '#5F8068';
       glyph = '<path d="M8 12.5l2.5 2.5L16 9.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
     } else {
