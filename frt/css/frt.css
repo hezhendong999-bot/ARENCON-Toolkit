@@ -11083,7 +11083,18 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
 .crbt-seg .crbt-vopt+.crbt-vopt{border-left:1px solid #E4E1E8;}
 .crbt-seg .crbt-von{background:#fff;color:#9C2742;box-shadow:inset 0 -2px 0 #9C2742;}
 @media (pointer:coarse){ .crbt-seg .crbt-vopt{min-height:40px;padding:8px 16px;} }
-
+/* S480: narrow-screen "Comment as" strip. The label + segmented control was a
+   single non-wrapping row; at ~350px the second option ("Contractor") clipped
+   off the card's right edge. Allow the row to wrap so the segment drops under
+   the label, and below 520px let the segment span the full width with the two
+   options splitting it evenly — nothing escapes the card. Scoped to the voice
+   strip only. */
+.crbt-voice{flex-wrap:wrap;}
+@media (max-width:520px){
+  .crbt-voice{gap:6px 8px;}
+  .crbt-voice .crbt-seg{display:flex;width:100%;}
+  .crbt-voice .crbt-seg .crbt-vopt{flex:1 1 0;min-width:0;text-align:center;}
+}
 /* "No reply" is not a peer of "respond" — it is one thing you might do while
    responding. A quiet link on the footer, not a button shouting alongside. */
 .crbt-link{
