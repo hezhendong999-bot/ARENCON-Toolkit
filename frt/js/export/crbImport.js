@@ -181,6 +181,26 @@ export function openCrbImport() {
     }).then(function(pdfDoc) {
       var parsed = _parseForm(window.PDFLib, pdfDoc);
       if (parsed.noForm) { _notice('This PDF has no fillable form fields. Make sure it is the exported ARENCON report (not a print-to-PDF copy).'); return; }
+      // ── S480: THE IMPORT GATE — only a sheet from the LATEST ISSUED report
+      // may come back (locked design: contractors respond to issued reports
+      // only; the gate has no back door). Round identity comes from the SHEET
+      // via the export registry, never from the clock — a late import can
+      // never stamp the wrong round.
+      var _gate = Model.validateImportSheet ? Model.validateImportSheet(parsed.exportId || null)
+                                            : { ok: true, code: 'ok', sheetFrt: null, latestIssued: 0 };
+      if (!_gate.ok) {
+        var _gmsg = {
+          'no-stamp': 'This PDF carries no ARENCON identity stamp, so it can\u2019t be matched to an issued report. Re-export the current report and have the contractor fill the new copy.',
+          'unknown': 'This sheet doesn\u2019t belong to this project, or predates round protection. Re-export the current report for the contractor.',
+          'not-issued': 'This is a working copy of FRT #' + _gate.sheetFrt + ' \u2014 it was never issued. Contractors respond to issued reports only. Issue the report first, then import responses against the issued sheet.',
+          'stale': 'This is a response to FRT #' + _gate.sheetFrt + ', which has been superseded (latest issued report is FRT #' + _gate.latestIssued + '). Enter any still-relevant answers manually in the item threads as current-round responses.',
+          'nothing-issued': 'No report has been issued from this project yet \u2014 there is nothing for a contractor to respond to.'
+        };
+        _notice(_gmsg[_gate.code] || 'This sheet can\u2019t be imported.');
+        return;
+      }
+      var _sheetFrt = _gate.sheetFrt || (proj.currentFrtInstance || 1);
+      var _impId = 'imp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
       // S470: duplicate detection keyed per (exportId, obsId). The realistic
       // workflow is a contractor part-filling, sending, filling MORE, and
       // re-sending the SAME PDF — so the grain is per item, never per file:
@@ -202,7 +222,11 @@ export function openCrbImport() {
           deficId: hit.deficId, obsIdx: hit.obsIdx, company: hit.company,
           status: v.status || null, comment: v.comment || '',
           itemLabel: obsTxt || ('Observation ' + (hit.obsIdx + 1)),
-          dedupeKey: _expId ? (_expId + '|' + obsId) : null
+          dedupeKey: _expId ? (_expId + '|' + obsId) : null,
+          // S480: round from the SHEET — these are answers to FRT #_sheetFrt,
+          // regardless of what instance the project has moved to since.
+          frtInstance: _sheetFrt,
+          round: Math.max(1, (_sheetFrt - ((hit.obs && Number(hit.obs.notedOnInstance)) || 1)) + 1)
         };
         if (row.dedupeKey && _seen.indexOf(row.dedupeKey) >= 0) { dupes.push(row); return; }
         rows.push(row);
@@ -224,7 +248,10 @@ export function openCrbImport() {
             company: r.company,
             statusReported: r.status || 'Other',
             text: r.comment,
-            source: 'pdf'
+            source: 'pdf',
+            importId: _impId,          // S480: batch receipt (undo grain)
+            frtInstance: r.frtInstance, // S480: round from the sheet, not the clock
+            round: r.round
           });
           if (entry) {
             ok++;
@@ -232,6 +259,7 @@ export function openCrbImport() {
             if (r.dedupeKey) { try { Model.registerExportId(r.dedupeKey); } catch (e) {} }
           } else fail++;
         });
+        try { if (ok && Model.logImport) Model.logImport({ importId: _impId, exportId: _expId, frt: _sheetFrt, count: ok }); } catch (e) {}
         try { if (Model.saveNow) Model.saveNow(); } catch (e) {}
         _notice('Imported ' + ok + ' contractor response(s) into item threads.' +
           (dupes.length ? ' ' + dupes.length + ' already-imported item(s) skipped.' : '') +

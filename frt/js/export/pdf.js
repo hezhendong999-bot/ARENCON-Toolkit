@@ -2106,6 +2106,37 @@ function _captureExportPDF(w,D){
       if(bar) bar.style.display='';
       _capStatus(D,_awaitingShare?'PDF ready — tap "Save / Open PDF" above to send it to Files or Adobe.':(_savedViaPicker?'Done — PDF saved. It matches this preview exactly.':'Done — PDF downloaded. It matches this preview exactly.'));
       setTimeout(function(){_capHideStatus(D);},4000);
+      // ── S480: EXPORT REGISTRY + issued-vs-working. Every export registers
+      // its identity stamp (the import gate checks this registry — round comes
+      // from the SHEET, never the clock). Marking ISSUED also draws the issued
+      // line (stampThreadIssued): every printed thread comment is frozen as
+      // the record — the lifecycle the locked CRB design assumes. A working
+      // copy registers as not-issued, so a filled working copy is refused at
+      // import with the right message.
+      try{
+        if(typeof _expId==='string'&&_expId&&Model.registerExport){
+          Model.registerExport(_expId,false); // known immediately; upgraded to issued on confirm below
+          var _iso=D.createElement('div');
+          _iso.style.cssText='position:fixed;inset:0;background:rgba(27,26,34,.45);z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;';
+          _iso.innerHTML='<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;padding:20px;font-family:Calibri,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.25);">'
+            +'<div style="font-size:17px;font-weight:700;color:#1B1A22;margin-bottom:8px;">Is this the issued copy?</div>'
+            +'<div style="font-size:14px;color:#5E5B68;line-height:1.45;margin-bottom:16px;">If this PDF is being issued to the client/contractor, its thread comments are frozen as the printed record, and contractor responses will only be accepted against this sheet. A working copy changes nothing.</div>'
+            +'<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">'
+            +'<button id="frt-iss-no" style="padding:12px 18px;border:1px solid #d8d5dd;background:#fff;border-radius:10px;font-size:14px;color:#1B1A22;cursor:pointer;font-family:Calibri,sans-serif;">Working copy</button>'
+            +'<button id="frt-iss-yes" style="padding:12px 18px;border:0;background:#9C2742;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Issued copy</button>'
+            +'</div></div>';
+          D.body.appendChild(_iso);
+          _iso.querySelector('#frt-iss-no').addEventListener('click',function(){_iso.remove();});
+          _iso.querySelector('#frt-iss-yes').addEventListener('click',function(){
+            _iso.remove();
+            try{
+              Model.registerExport(_expId,true);
+              var _iin=((Model.getProject&&Model.getProject())||{}).currentFrtInstance||1;
+              if(Model.stampThreadIssued) Model.stampThreadIssued(_iin);
+            }catch(_em){try{console.error('[S480 issue]',_em);}catch(_e2){}}
+          });
+        }
+      }catch(_er){try{console.error('[S480 registry]',_er);}catch(_e3){}}
     }catch(err){
       if(bar) bar.style.display='';
       _capStatus(D,'Export error: '+(err&&err.message?err.message:err));

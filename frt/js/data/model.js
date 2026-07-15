@@ -2711,6 +2711,7 @@ export var Model = {
       text: data.text || '',                           // contractor's claim — NEVER edited
       source: data.source || 'manual',                 // portal|manual|pdf|sitelog
       receiptNo: data.receiptNo || null,
+      importId: data.importId || null,                 // S480: batch receipt — which import EVENT wrote this (undo grain)
       noResponse: !!data.noResponse,
       emailPending: !!data.emailPending,               // soft email gate (§3)
       // ── S464 Phase 2 fields ──
@@ -3023,6 +3024,78 @@ export var Model = {
     _dirty = true;
     _queueSave();
     return true;
+  },
+
+  // ── S480: EXPORT REGISTRY — every exported PDF is registered with the FRT
+  // instance it came from and whether it was ISSUED (sent to the client) or a
+  // working copy. The import gate derives round identity and legality from
+  // this registry: round comes from the SHEET, never from the clock.
+  registerExport: function(exportId, issued) {
+    if (!_project || !exportId) return null;
+    if (!_project.exportRegistry || typeof _project.exportRegistry !== 'object' || Array.isArray(_project.exportRegistry)) _project.exportRegistry = {};
+    var inst = _project.currentFrtInstance || 1;
+    var rec = _project.exportRegistry[exportId] || { frt: inst, at: new Date().toISOString(), issued: false };
+    if (!rec.frt) rec.frt = inst;
+    if (issued) { rec.issued = true; rec.issuedAt = new Date().toISOString(); }
+    _project.exportRegistry[exportId] = rec;
+    _dirty = true;
+    _queueSave();
+    return rec;
+  },
+
+  // Latest ISSUED FRT instance per the registry (0 = nothing issued yet).
+  latestIssuedInstance: function() {
+    if (!_project) return 0;
+    var reg = _project.exportRegistry || {};
+    var max = 0;
+    Object.keys(reg).forEach(function(k) {
+      var r = reg[k];
+      if (r && r.issued && Number(r.frt) > max) max = Number(r.frt);
+    });
+    return max;
+  },
+
+  // ── S480: THE IMPORT GATE — only a sheet from the LATEST ISSUED report may
+  // come back (locked design: contractors respond to issued reports only; the
+  // gate has no back door). Returns { ok, code, sheetFrt, latestIssued }:
+  //   'ok'             → proceed (sheet is from the latest issued report)
+  //   'no-stamp'       → sheet carries no identity stamp (legacy / foreign PDF)
+  //   'unknown'        → stamp not in this project's registry (wrong project
+  //                      or an export that predates the registry)
+  //   'not-issued'     → sheet is a working copy — the report was never issued
+  //   'stale'          → sheet is from an older issued report (superseded)
+  //   'nothing-issued' → project has never issued a report
+  validateImportSheet: function(exportId) {
+    if (!_project) return { ok: false, code: 'unknown', sheetFrt: null, latestIssued: 0 };
+    var latest = this.latestIssuedInstance();
+    if (!exportId) return { ok: false, code: 'no-stamp', sheetFrt: null, latestIssued: latest };
+    var rec = (_project.exportRegistry || {})[exportId];
+    if (!rec) return { ok: false, code: 'unknown', sheetFrt: null, latestIssued: latest };
+    var sheetFrt = Number(rec.frt) || 1;
+    if (!rec.issued) return { ok: false, code: 'not-issued', sheetFrt: sheetFrt, latestIssued: latest };
+    if (latest === 0) return { ok: false, code: 'nothing-issued', sheetFrt: sheetFrt, latestIssued: 0 };
+    if (sheetFrt < latest) return { ok: false, code: 'stale', sheetFrt: sheetFrt, latestIssued: latest };
+    return { ok: true, code: 'ok', sheetFrt: sheetFrt, latestIssued: latest };
+  },
+
+  // ── S480: IMPORT LOG — one receipt per import EVENT (batch). Every entry an
+  // import writes carries the batch's importId; this log is the user-visible
+  // record of batches and powers undo-import (next phase).
+  logImport: function(rec) {
+    if (!_project || !rec) return null;
+    if (!Array.isArray(_project.importLog)) _project.importLog = [];
+    var row = {
+      importId: rec.importId || null,
+      exportId: rec.exportId || null,
+      frt: rec.frt || null,
+      at: new Date().toISOString(),
+      count: rec.count || 0,
+      by: rec.by || null
+    };
+    _project.importLog.push(row);
+    _dirty = true;
+    _queueSave();
+    return row;
   },
 
   // ── S205: cross-pin photo move / copy + reference query ──
