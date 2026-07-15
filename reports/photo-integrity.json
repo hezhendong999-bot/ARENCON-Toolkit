@@ -1,0 +1,75 @@
+{
+  "generatedAt": "2026-07-15T07:30:25.764Z",
+  "rows": 38,
+  "photoPointers": 321,
+  "uniqueUrls": 264,
+  "brokenCount": 6,
+  "broken": [
+    {
+      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
+      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+      "tool_key": "frt",
+      "instance": 1,
+      "photoId": "dp_1773668633630_5qczdj",
+      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
+      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
+      "ctx": "ctr:ctr_1773668668940:defic:def_1773668604785_pfru",
+      "status": "404"
+    },
+    {
+      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
+      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+      "tool_key": "frt",
+      "instance": 1,
+      "photoId": "dp_1773668651007_egoc9r",
+      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668651009_y0emng.jpg",
+      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668651009_y0emng.jpg",
+      "ctx": "ctr:ctr_1773668668940:defic:def_1773668604785_pfru",
+      "status": "404"
+    },
+    {
+      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
+      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+      "tool_key": "frt",
+      "instance": 1,
+      "photoId": "dp_1773668659286_qwgyi2",
+      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
+      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
+      "ctx": "ctr:ctr_1773668668940:defic:def_1773668604785_pfru",
+      "status": "404"
+    },
+    {
+      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
+      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+      "tool_key": "frt",
+      "instance": 1,
+      "photoId": "dp_1773668633630_5qczdj",
+      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
+      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
+      "ctx": "ctr:ctr_1773668668940:entry",
+      "status": "404"
+    },
+    {
+      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
+      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+      "tool_key": "frt",
+      "instance": 1,
+      "photoId": "dp_1773668659286_qwgyi2",
+      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
+      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
+      "ctx": "ctr:ctr_1773668668940:entry",
+      "status": "404"
+    },
+    {
+      "row_id": "7499abdc-7d58-45f8-b9f5-392b69f37883",
+      "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
+      "tool_key": "frt",
+      "instance": 1,
+      "photoId": "dp_1774751677732_8dp5pw",
+      "r2Key": "photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg",
+      "r2Url": "https://files.arencon.app/photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg",
+      "ctx": "ctr:ctr_1774406575672_3a9c:obs",
+      "status": "404"
+    }
+  ]
+}
