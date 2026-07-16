@@ -321,12 +321,16 @@ function _buildMarkupBar(overlay){
   [bSel,bPenGrp,bShapeGrp,bTx,bEr,sepU,bUn,bRd].forEach(function(e){row1.appendChild(e);});
   // S339 — Select sub-tool flyout (tap-to-open, finger-friendly; LOCKED_SELECT_DRAW_MODEL_S339)
   var subFly=document.createElement('div'); subFly.id='lb-mk-subfly';
-  subFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:column;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:200px;';
+  // S486 (Mark): icon-ONLY sub-tools — same presentation as the drawing
+  // viewer's select submenu. Row of squares, no text cards; the old
+  // name/description wording survives as the hover tooltip (title).
+  subFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:row;gap:6px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
   function subBtn(sub,glyph,name,desc){
     var b=document.createElement('button'); b.dataset.sub=sub;
-    b.style.cssText='display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,255,255,.06);color:#fff;border:none;height:48px;padding:0 12px;border-radius:10px;cursor:pointer;font:600 14px Calibri,sans-serif;';
-    b.innerHTML='<span style="width:22px;text-align:center;font-size:16px;">'+glyph+'</span>'+
-      '<span style="line-height:1.05;">'+name+'<span style="display:block;font-weight:400;font-size:11px;color:#a9a4b2;margin-top:1px;">'+desc+'</span></span>';
+    b.title=name+' — '+desc;
+    b.setAttribute('aria-label',name);
+    b.style.cssText='display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);color:#fff;border:none;width:48px;height:48px;border-radius:10px;cursor:pointer;';
+    b.innerHTML=glyph;
     return b;
   }
   // S339 (Mark): Single mode removed — Rubber-band already does tap-one-to-select
