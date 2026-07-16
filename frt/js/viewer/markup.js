@@ -1023,24 +1023,31 @@ function _ensureOverlay() {
   // during pen / shape / dimension drawing) was once capped at 3 MP — an
   // iPad-era leftover that made live preview render at 3× browser upscale
   // (visible fuzz while holding the mouse down).
-  // S131 priority #1 — the overlay once shared the device-class budget via
-  // deviceMaxPixels() (phone 8 / tablet 12 / desktop 30 MP). A flat 30 MP
-  // here re-introduced GPU pressure on field tablets during drawing even
-  // after the two main-canvas budget sites were fixed.
-  // S484 — root cause of the field pen lag (Nasim 7310.17, Mark repro): even
-  // at the tablet's 12 MP budget, every touchmove strokes a ~48 MB layer the
-  // GPU re-composites at finger rate. This overlay is ONLY the transient
-  // live-drag preview — the committed stroke re-renders at full quality on
-  // the real markup layer on release — and a preview cannot display more
-  // pixels than the screen (~2-4 MP). Cap the PREVIEW at 4 MP: visually
-  // identical, ~3x less compositing. Do NOT raise this back toward the
-  // device budget; sharpness complaints about the *committed* stroke are a
-  // different canvas.
-  var ovMax = Math.min(deviceMaxPixels(), 4000000);
-  var ovPx = lw * lh;
-  var ovScale = ovPx > ovMax ? Math.sqrt(ovMax / ovPx) : 1;
-  ov.width = Math.round(lw * ovScale);
-  ov.height = Math.round(lh * ovScale);
+  // S484 — root cause of the field pen lag (Nasim 7310.17, Mark repro): every
+  // touchmove strokes a huge layer the GPU re-composites at finger rate. This
+  // overlay is ONLY the transient live-drag preview — the committed stroke
+  // re-renders at full quality on the real markup layer on release.
+  // S485 — the fixed 4 MP cap made the preview smooth but fuzzy at zoom (the
+  // documented S125-era symptom, reintroduced). Fix: ADAPTIVE resolution —
+  // 1 overlay px = 1 physical screen px whenever affordable. A preview cannot
+  // usefully exceed screen pixels, so this is the sharpest it can look AND
+  // the fewest pixels that achieve it: lighter than 4 MP at fit zoom, sharp
+  // at working zooms, clamped at the device budget only at extreme zoom
+  // (where the old fixed budget was equally fuzzy — no regression).
+  var _zPhys = 1;
+  try {
+    var _zr = mc.getBoundingClientRect();
+    var _z = (_zr.width / lw) * (window.devicePixelRatio || 1);
+    if (isFinite(_z) && _z > 0) _zPhys = _z;
+  } catch (_eZ) {}
+  var ovScale = Math.min(1, _zPhys);
+  var ovMax = deviceMaxPixels();
+  if (lw * lh * ovScale * ovScale > ovMax) ovScale = Math.sqrt(ovMax / (lw * lh));
+  // Resize only when dims actually change — assigning canvas.width always
+  // clears/reallocs even at the same value, and _paintLive ensures per frame.
+  var _tw = Math.round(lw * ovScale), _th = Math.round(lh * ovScale);
+  if (ov.width !== _tw) ov.width = _tw;
+  if (ov.height !== _th) ov.height = _th;
   ov._dpr = ovScale;
   ov._logicalW = lw;
   ov._logicalH = lh;
