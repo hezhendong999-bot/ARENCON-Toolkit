@@ -1023,11 +1023,20 @@ function _ensureOverlay() {
   // during pen / shape / dimension drawing) was once capped at 3 MP — an
   // iPad-era leftover that made live preview render at 3× browser upscale
   // (visible fuzz while holding the mouse down).
-  // S131 priority #1 — the overlay now shares the device-class budget via
+  // S131 priority #1 — the overlay once shared the device-class budget via
   // deviceMaxPixels() (phone 8 / tablet 12 / desktop 30 MP). A flat 30 MP
   // here re-introduced GPU pressure on field tablets during drawing even
   // after the two main-canvas budget sites were fixed.
-  var ovMax = deviceMaxPixels();
+  // S484 — root cause of the field pen lag (Nasim 7310.17, Mark repro): even
+  // at the tablet's 12 MP budget, every touchmove strokes a ~48 MB layer the
+  // GPU re-composites at finger rate. This overlay is ONLY the transient
+  // live-drag preview — the committed stroke re-renders at full quality on
+  // the real markup layer on release — and a preview cannot display more
+  // pixels than the screen (~2-4 MP). Cap the PREVIEW at 4 MP: visually
+  // identical, ~3x less compositing. Do NOT raise this back toward the
+  // device budget; sharpness complaints about the *committed* stroke are a
+  // different canvas.
+  var ovMax = Math.min(deviceMaxPixels(), 4000000);
   var ovPx = lw * lh;
   var ovScale = ovPx > ovMax ? Math.sqrt(ovMax / ovPx) : 1;
   ov.width = Math.round(lw * ovScale);
@@ -2626,42 +2635,54 @@ function _moveDraw(e) {
   var d = ov._dpr || 1;
 
   if (_tool === 'pen' || _tool === 'highlight' || _tool === 'eraser') {
+    // S484 — points still record on EVERY event (zero fidelity loss), but the
+    // preview paints at most once per animation frame. Touch events fire at
+    // 60-120Hz+ on tablets; painting per EVENT was half the field pen lag.
+    // Full-path repaint per frame also matches the committed render (uniform
+    // alpha along the stroke) better than the old per-segment stroke did.
     _penPoints.push(pos);
     if (_penPoints.length < 2) return;
-
-    if (_tool === 'highlight') {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, ov.width, ov.height);
-      ctx.setTransform(d, 0, 0, d, 0, 0);
-      ctx.strokeStyle = _color;
-      ctx.lineWidth = _lineWidth * 4;
-      ctx.globalAlpha = 1;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(_penPoints[0].x, _penPoints[0].y);
-      for (var i = 1; i < _penPoints.length; i++) ctx.lineTo(_penPoints[i].x, _penPoints[i].y);
-      ctx.stroke();
-    } else {
-      var n = _penPoints.length;
-      var p0 = _penPoints[n - 2], p1 = _penPoints[n - 1];
-      ctx.setTransform(d, 0, 0, d, 0, 0);
-      ctx.save();
-      ctx.strokeStyle = _tool === 'eraser' ? '#8a94b0' : _color;
-      ctx.lineWidth = _tool === 'eraser' ? _lineWidth * 3 : _lineWidth;
-      if (_tool === 'pen') ctx.globalAlpha = _opacity;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.lineTo(p1.x, p1.y);
-      ctx.stroke();
-      ctx.restore();
-    }
+    _lastLivePos = pos;
+    _scheduleLivePaint();
   } else {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ov.width, ov.height);
-    ctx.setTransform(d, 0, 0, d, 0, 0);
+    _lastLivePos = pos;
+    _scheduleLivePaint();
+  }
+}
+
+// S484 — frame-batched live preview painter (see _moveDraw). One repaint per
+// rAF, from recorded state. Never touches committed strokes.
+var _lastLivePos = null;
+var _livePaintQueued = false;
+function _scheduleLivePaint() {
+  if (_livePaintQueued) return;
+  if (typeof requestAnimationFrame !== 'function') { _paintLive(); return; }
+  _livePaintQueued = true;
+  requestAnimationFrame(function () { _livePaintQueued = false; _paintLive(); });
+}
+function _paintLive() {
+  if (!_isDrawing) return; // stroke ended/aborted before this frame — nothing to show
+  var ov = _ensureOverlay();
+  if (!ov) return;
+  var ctx = ov.getContext('2d');
+  var d = ov._dpr || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  if (_tool === 'pen' || _tool === 'highlight' || _tool === 'eraser') {
+    if (_penPoints.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = _tool === 'eraser' ? '#8a94b0' : _color;
+    ctx.lineWidth = _tool === 'highlight' ? _lineWidth * 4 : (_tool === 'eraser' ? _lineWidth * 3 : _lineWidth);
+    ctx.globalAlpha = (_tool === 'pen') ? _opacity : 1;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(_penPoints[0].x, _penPoints[0].y);
+    for (var i = 1; i < _penPoints.length; i++) ctx.lineTo(_penPoints[i].x, _penPoints[i].y);
+    ctx.stroke();
+    ctx.restore();
+  } else if (_lastLivePos) {
     ctx.save();
     ctx.globalAlpha = _opacity;
     ctx.strokeStyle = _color;
@@ -2669,7 +2690,7 @@ function _moveDraw(e) {
     ctx.lineWidth = _lineWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    _drawShapeObj(ctx, _tool, _startX, _startY, pos.x, pos.y);
+    _drawShapeObj(ctx, _tool, _startX, _startY, _lastLivePos.x, _lastLivePos.y);
     ctx.restore();
   }
 }
