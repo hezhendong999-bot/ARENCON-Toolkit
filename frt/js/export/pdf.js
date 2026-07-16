@@ -1856,7 +1856,7 @@ function _captureExportPDF(w,D){
       // across the render, write at the end (proven in standalone repro).
       // Cancel = stop cleanly, no render, no download.
       if(_pickerSupported){
-        var _sName=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
+        var _sName=(D.title||'ARENCON Report').replace(/[^\w.-]+/g,' ').replace(/\s+/g,' ').trim()+'.pdf';
         try{
           _saveHandle=await w.showSaveFilePicker({
             suggestedName:_sName,
@@ -2064,7 +2064,7 @@ function _captureExportPDF(w,D){
       }catch(_eid){}
       var bytes=await pdfDoc.save();
       var blob=new Blob([bytes],{type:'application/pdf'});
-      var fname=(D.title||'ARENCON_Report').replace(/[^\w.-]+/g,'_')+'.pdf';
+      var fname=(D.title||'ARENCON Report').replace(/[^\w.-]+/g,' ').replace(/\s+/g,' ').trim()+'.pdf';
       // S400: write to the handle already chosen at the top (fresh-click picker).
       // If we have a handle → write there (the folder/name the user picked). If
       // not (unsupported device, or picker errored non-cancel) → anchor download.
