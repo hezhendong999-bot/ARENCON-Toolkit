@@ -10816,3 +10816,14 @@ body.dark-mode .ph-trash-tile.selected .ph-trash-check{background:#C9476A;}
   .drawing-viewer-overlay .dv-sidebar-tools .tool-btn:hover:not(.active){background:transparent !important;}
   .lb-tool-btn:hover:not(.active){background:transparent !important;}
 }
+
+/* ── S487g F6: select/pen/shapes SUB-TOOL icons sharpened ────────────────────
+   The sub-icons were pinned 16px by their svg width/height attributes while
+   the touch buttons grew to 40px — fine detail (marquee dashes, corner
+   handles, tap ring) rendered at ~1.3px strokes that anti-alias to soft grey,
+   reading as "blurry" (pixel-verified, S278 method). Vector fix: size the
+   icon WITH the button. CSS width/height beats the svg attributes. */
+.tool-submenu .sub-tool-btn svg{width:20px;height:20px;}
+@media (max-width: 900px){
+  .tool-submenu .sub-tool-btn svg{width:24px;height:24px;}
+}
