@@ -269,6 +269,7 @@ function _buildToolbar() {
 }
 
 var _markupActive = false;
+var _lbDisarmTool = null;   // F8 (S487h): set by _buildMarkupBar; disarms tool + clears chrome
 var _closeAfterPersist = false;   // S305-style: commit triggered by closing the lightbox
 var _markupBar = null;
 function _buildMarkupBar(overlay){
@@ -639,6 +640,11 @@ function _buildMarkupBar(overlay){
     });
   });
   markSub('rubber');
+  // F8 (S487h): Escape needs to disarm from OUTSIDE this closure — expose one hook.
+  _lbDisarmTool = function(){
+    var E=window.MarkupEngine; if(E) E.setTool('');
+    clearActive(); _activeBtn=null; closeAllFlys(); _refreshConfirmBar();
+  };
   // close any flyout on outside tap (mouse + touch)
   function _anyFlyOpen(){ return subFly.style.display==='flex'||penFly.style.display==='flex'||shapeFly.style.display==='flex'||colorFly.style.display==='flex'; }
   function _flyOutside(ev){
@@ -1313,7 +1319,16 @@ document.addEventListener('click', function(e) {
 // Keyboard
 document.addEventListener('keydown', function(e) {
   if (!_isOpen) return;
-  if (e.key === 'Escape') { if (_markupActive) { _toggleMarkup(); } else { _close(); } e.preventDefault(); return; }
+  if (e.key === 'Escape') {
+    // F8 (S487h): armed tool cancels FIRST; markup mode exits second; the
+    // lightbox closes ONLY when nothing is armed — drawing-viewer canon
+    // extended to the lightbox (Escape never closes past an armed tool).
+    var _EK = window.MarkupEngine;
+    if (_markupActive && _EK && _EK.tool) { if (_lbDisarmTool) _lbDisarmTool(); else _EK.setTool(''); }
+    else if (_markupActive) { _toggleMarkup(); }
+    else { _close(); }
+    e.preventDefault(); return;
+  }
   if (_markupActive && (e.ctrlKey || e.metaKey)) {
     if (e.key === 'z' || e.key === 'Z') { window.MarkupEngine && window.MarkupEngine.undo(); e.preventDefault(); return; }
     if (e.key === 'y' || e.key === 'Y') { window.MarkupEngine && window.MarkupEngine.redo(); e.preventDefault(); return; }
