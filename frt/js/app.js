@@ -2110,8 +2110,19 @@ function wireEvents() {
   (function _installBackTrap() {
     try {
       _btTopUp();
+      var _btLastPeel = 0;
       window.addEventListener('popstate', function () {
+        var _now = Date.now();
+        // S487j (F9): absorb Android back-gesture bounce — a pop landing within
+        // the settle window after a successful peel is the same gesture; the
+        // second pop was falling through to switchTab('info') ("tab 1").
+        if (_now - _btLastPeel < 600) {
+          _btTopUp();
+          try { console.info('[BackTrap] absorbed bounce pop (' + (_now - _btLastPeel) + 'ms after peel)'); } catch (eB) {}
+          return;
+        }
         var handled = _btPeel();
+        if (handled) _btLastPeel = _now;
         _btTopUp();   // re-arm guards after every pop
         if (!handled) {
           // Nothing left to peel → one tier up via the canonical leave flow
@@ -2237,7 +2248,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S487b';
+var FRT_BUILD = 'S487j';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');

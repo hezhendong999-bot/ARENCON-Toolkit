@@ -2097,8 +2097,22 @@ function wireEvents() {
   (function _installBackTrap() {
     try {
       _btTopUp();
+      var _btLastPeel = 0;
       window.addEventListener('popstate', function () {
+        var _now = Date.now();
+        // S487j (F9, Mark's field report): Android back-gesture BOUNCE fires a
+        // second popstate right after the first. Pop #1 peels the open layer
+        // (modal/lightbox/viewer) — correct. Pop #2 found nothing open and fell
+        // through the tiers to switchTab('info') — "closing a modal throws me
+        // to tab 1". A pop landing within the settle window after a successful
+        // peel is the SAME gesture, not a new back: absorb it, re-arm guards.
+        if (_now - _btLastPeel < 600) {
+          _btTopUp();
+          try { console.info('[BackTrap] absorbed bounce pop (' + (_now - _btLastPeel) + 'ms after peel)'); } catch (eB) {}
+          return;
+        }
         var handled = _btPeel();
+        if (handled) _btLastPeel = _now;
         _btTopUp();   // re-arm guards after every pop
         if (!handled) {
           // Nothing left to peel → one tier up via the canonical leave flow
@@ -2224,7 +2238,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S487i';
+var FRT_BUILD = 'S487j';
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
