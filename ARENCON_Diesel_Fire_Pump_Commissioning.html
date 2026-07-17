@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S461 (MODULARIZATION SWITCHOVER: the checklist engine, the whole lightbox viewer chrome, the photo mint path, and the signature pad now live in shared /lib/ modules instead of inline here — fix once, inherit everywhere. Checklist -> lib/ui/checklist.js (ArcChecklist). Lightbox -> lib/ui/lightbox.js (LightboxShell). Photo creation -> lib/data/photoMint.js (ArcPhoto.mint: ONE path, was 30 copy-pasted blocks; the R2 enqueue call stays BARE and never typeof-guarded, because a silent skip is exactly the photo-loss class). Signatures -> lib/ui/signaturePad.js (SigPad: vector strokes, forced dark ink in PDF export). Selection chrome -> lib/ui/markupSelection.js v2.2.0 (contour halo tracing each mark's true shape + high-visibility colours). All extracted VERBATIM from the S459 build and field-verified as a parallel deployed copy before this switchover; state (clState / customItems / deletedItems / _sigStrokes) stays host-owned. Keep this comment SINGLE and UNNESTED — a nested comment here once leaked visible page text, field report S316) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S462 (MODULARIZATION SWITCHOVER: the checklist engine, the whole lightbox viewer chrome, the photo mint path, and the signature pad now live in shared /lib/ modules instead of inline here — fix once, inherit everywhere. Checklist -> lib/ui/checklist.js (ArcChecklist). Lightbox -> lib/ui/lightbox.js (LightboxShell). Photo creation -> lib/data/photoMint.js (ArcPhoto.mint: ONE path, was 30 copy-pasted blocks; the R2 enqueue call stays BARE and never typeof-guarded, because a silent skip is exactly the photo-loss class). Signatures -> lib/ui/signaturePad.js (SigPad: vector strokes, forced dark ink in PDF export). Selection chrome -> lib/ui/markupSelection.js v2.2.0 (contour halo tracing each mark's true shape + high-visibility colours). All extracted VERBATIM from the S459 build and field-verified as a parallel deployed copy before this switchover; state (clState / customItems / deletedItems / _sigStrokes) stays host-owned. Keep this comment SINGLE and UNNESTED — a nested comment here once leaked visible page text, field report S316) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -16293,17 +16293,23 @@ async function _pgZipDownload(items){
 // Mark-present session and is NOT built here.
 // ─────────────────────────────────────────────────
 var _EXPORT_TOOLCODE = 'DFP';              // Diesel Fire Pump
-var _EXPORT_VERSION   = 'S371';            // stamped into README + JSON wrapper
+var _EXPORT_VERSION   = 'S462';            // stamped into README + JSON wrapper
 
 function _expSanitize(s){
-  // Deterministic, Windows/Mac-safe. Same input → same output (collision-stable).
-  return String(s||'').replace(/[\/\\:*?"<>|\u0000-\u001F]/g,'-').replace(/\s+/g,'_').replace(/-+/g,'-').replace(/^[-_.]+|[-_.]+$/g,'').trim();
+  // SHARED-ENGINE PARITY (Tier 2, matches /lib/export/projectDocs.js expSanitize):
+  // Windows/Mac-safe, deterministic. SPACES PRESERVED (not collapsed to '_') —
+  // this is the S483 spaces-not-underscores rule that FRT's export follows.
+  return String(s==null?'':s)
+    .replace(/[\/\\:*?"<>|\u0000-\u001F]/g,'-')  // illegal → hyphen
+    .replace(/\s+/g,' ')                          // collapse runs of space
+    .replace(/-+/g,'-')                           // collapse runs of hyphen
+    .replace(/^[-.\s]+|[-.\s]+$/g,'')             // trim edge punctuation/space
+    .trim();
 }
 function _expClientShort(){
   // ~8 char abbreviation of the client name. "Iron Mountain Canada Corp" → "IronMtn".
   var raw=''; try{ var el=document.getElementById('pi-client'); raw=el?el.value||'':''; }catch(e){}
   if(!raw) return 'Client';
-  // Take first letters of words, cap 8; fall back to first 8 chars if it collapses.
   var words=raw.replace(/[^A-Za-z0-9 ]/g,' ').split(/\s+/).filter(Boolean);
   var abbr='';
   if(words.length>=2){ abbr=words[0].slice(0,4); for(var i=1;i<words.length && abbr.length<8;i++){ abbr+=words[i].slice(0,2); } }
@@ -16315,23 +16321,33 @@ function _expProjNum(){ try{ var el=document.getElementById('pi-projno'); return
 function _expInstance(){ try{ return (typeof CloudSync!=='undefined' && CloudSync.instanceNumber) ? CloudSync.instanceNumber : 1; }catch(e){ return 1; } }
 function _expDateISO(d){ try{ return (d?new Date(d):new Date()).toISOString().substring(0,10); }catch(e){ return new Date().toISOString().substring(0,10); } }
 function _expFolderName(){
-  return _expProjNum()+'_'+_expClientShort()+'_'+_EXPORT_TOOLCODE+'-'+_expInstance()+'_'+_expDateISO();
+  // Spaces, not underscores (shared-engine parity).
+  return _expProjNum()+' '+_expClientShort()+' '+_EXPORT_TOOLCODE+' '+_expInstance()+' '+_expDateISO();
 }
 function _expItemRef(item){
-  // Prefer the gallery badge (Obs-1A, Checklist-1.3, etc.) — already the report
-  // location. Fall back to the raw type so nothing is unlabeled.
+  // Diesel keeps its OWN richer vocabulary (Checklist, Placard, Pump, FlowTest,
+  // Obs) — Diesel is a single commissioning event, it has no FRT-style finding
+  // round/close lifecycle, so NO status/round tag is applied (that data does not
+  // exist on Diesel records; inventing it would mislabel the report).
   var ref = (item && item.badge) ? item.badge
           : (item && item.type) ? ({flowtest:'FlowTest','flowtest-pld':'FlowTest-PLD',checklist:'Checklist',deficiency:'Obs',response:'Response',placard:'Placard',pump:'Pump'}[item.type]||item.type)
           : 'Photo';
-  return _expSanitize(ref).slice(0,24)||'Photo';
+  return _expSanitize(ref).slice(0,40)||'Photo';
 }
 function _expPhotoBucket(p){
-  // Capture-date bucket. Photo .date is an editable ISO-ish field; bad/missing → undated.
+  // Capture-date bucket → { key, label }. Diesel photo .date is a single editable
+  // ISO-ish field (no FRT-style parent-inheritance chain — Diesel photos are not
+  // nested under carried-forward findings). Bad/missing → "No date" (shared-engine
+  // parity; FRT uses the same label).
   var raw=(p && p.date) ? String(p.date).trim() : '';
-  if(!raw) return 'undated';
-  var t=new Date(raw).getTime();
-  if(!t || isNaN(t)) return 'undated';
-  return new Date(t).toISOString().substring(0,10);
+  if(!raw) return { key:'zzzz-no-date', label:'No date' };
+  var dt;
+  var dateOnly = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(dateOnly){ dt=new Date(parseInt(dateOnly[1],10), parseInt(dateOnly[2],10)-1, parseInt(dateOnly[3],10)); }
+  else { dt=new Date(raw); }
+  if(isNaN(dt.getTime())) return { key:'zzzz-no-date', label:'No date' };
+  var yy=dt.getFullYear(), mm=String(dt.getMonth()+1).padStart(2,'0'), dd=String(dt.getDate()).padStart(2,'0');
+  return { key: yy+'-'+mm+'-'+dd, label: dt.toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) };
 }
 // Marked variant URL for a photo (S366 model: marked baked into p.d when annotated,
 // else R2 marked/marked_{id}.jpg in Hub mode). Returns '' if no distinct marked file.
@@ -16347,10 +16363,10 @@ function _expMarkedSrc(p){
 }
 async function _expAddImage(folder, src, name, usedNames){
   // De-dupe within the folder; fetch+validate the same way the gallery does so we
-  // never zip a corrupt R2 error body as a fake .jpg.
+  // never zip a corrupt R2 error body as a fake .jpg. Spaces in the de-dupe suffix.
   if(!src) return false;
   var base=name, n=1;
-  while(usedNames[folder.root+'/'+name]){ var dot=base.lastIndexOf('.'); name=(dot>0?base.slice(0,dot):base)+'_'+(n++)+(dot>0?base.slice(dot):'.jpg'); }
+  while(usedNames[folder.root+'/'+name]){ var dot=base.lastIndexOf('.'); name=(dot>0?base.slice(0,dot):base)+' '+(n++)+(dot>0?base.slice(dot):'.jpg'); }
   usedNames[folder.root+'/'+name]=1;
   try{
     if(src.startsWith('data:')){
@@ -16376,15 +16392,15 @@ function _expReadme(stats){
   L.push('');
   L.push('CONTENTS');
   L.push('--------');
-  L.push('  '+_expProjNum()+'_..._data.json   Full re-loadable report data (photos embedded).');
+  L.push('  '+_expProjNum()+' ... data.json   Full re-loadable report data (photos embedded).');
   L.push('                              Load it back via ⚙️ More → Import JSON.');
   L.push('  photos/<date>/              Photos grouped by capture date.');
-  L.push('  photos/undated/             Photos with no/odd capture date.');
+  L.push('  photos/No date/             Photos with no/odd capture date.');
   L.push('');
   L.push('PHOTO FILE NAMES');
   L.push('----------------');
-  L.push('  <ItemRef>_NN.jpg            original photo (NN = counter for that item)');
-  L.push('  <ItemRef>_NN-marked.jpg     same photo with on-site markup baked in');
+  L.push('  <ItemRef> NN.jpg            original photo (NN = counter for that item)');
+  L.push('  <ItemRef> NN-marked.jpg     same photo with on-site markup baked in');
   L.push('  ItemRef = where it lives in the report, e.g. Obs-1A (observation/deficiency),');
   L.push('            Checklist-1.3, Placard, Pump, FlowTest.');
   L.push('');
@@ -16424,29 +16440,31 @@ async function _expGo(){
     var stats={added:0, skipped:0};
 
     // 1) Photos — live only (deleted excluded), date-bucketed, original + marked.
-    // Counter is keyed on the item's SECTION (globally unique: def_<ctr>_<di>,
-    // cl_<id>, etc.) — NOT the badge, which can repeat (two groups both showing
-    // "D1"). This keeps each item's photos numbered independently and prevents
-    // two different items collapsing onto the same filename (spec 1.4).
+    // Counter keyed on the item's SECTION (globally unique: def_<ctr>_<di>, cl_<id>,
+    // etc.) — NOT the badge, which can repeat. SPACES in filenames (shared-engine
+    // parity). Buckets sorted by date key so folders read chronologically.
     var all=(typeof _collectAllPhotos==='function')? _collectAllPhotos() : [];
     var live=all.filter(function(a){ return !(typeof _isPhotoDeleted==='function' && _isPhotoDeleted(a.photo)); });
+    live=live.map(function(it,i){ it._ord=i; return it; }).sort(function(a,b){
+      var ak=_expPhotoBucket(a.photo).key, bk=_expPhotoBucket(b.photo).key;
+      if(ak<bk) return -1; if(ak>bk) return 1; return a._ord-b._ord;
+    });
     var itemCount={};   // section → running NN
     for(var i=0;i<live.length;i++){
       var item=live[i], p=item.photo;
-      var bucket=_expPhotoBucket(p);
+      var bk=_expPhotoBucket(p);
+      var bucket=_expSanitize(bk.label)||'No date';
       var ref=_expItemRef(item);
       var sectionKey=(item.section||ref)+'';
       var nn=(itemCount[sectionKey]=(itemCount[sectionKey]||0)+1);
       var nnStr=(nn<10?'0':'')+nn;
       var folderPath=root+'/photos/'+bucket;
       var folder={ zf: top.folder('photos').folder(bucket), root: folderPath };
-      // original
       var origSrc=_photoSrc(p);
-      if(await _expAddImage(folder, origSrc, ref+'_'+nnStr+'.jpg', used)) stats.added++; else stats.skipped++;
-      // marked variant (only if distinct from original)
+      if(await _expAddImage(folder, origSrc, ref+' '+nnStr+'.jpg', used)) stats.added++; else stats.skipped++;
       var mkSrc=_expMarkedSrc(p);
       if(mkSrc && mkSrc!==origSrc){
-        if(await _expAddImage(folder, mkSrc, ref+'_'+nnStr+'-marked.jpg', used)) stats.added++;
+        if(await _expAddImage(folder, mkSrc, ref+' '+nnStr+'-marked.jpg', used)) stats.added++;
       }
     }
 
@@ -16456,15 +16474,11 @@ async function _expGo(){
       var wrapped={ _arenconExport:{ tool:'diesel', toolCode:_EXPORT_TOOLCODE, version:_EXPORT_VERSION,
                      exportedAt:new Date().toISOString(), project:_expProjNum(), instance:_expInstance() },
                     data: state };
-      top.file(_expProjNum()+'_'+_EXPORT_TOOLCODE+'-'+_expInstance()+'_data.json', JSON.stringify(wrapped,null,2));
+      top.file(_expProjNum()+' '+_EXPORT_TOOLCODE+'-'+_expInstance()+' data.json', JSON.stringify(wrapped,null,2));
     }catch(e){ console.warn('[export] JSON failed', e&&e.message); top.file('JSON_EXPORT_FAILED.txt','collectState() failed: '+(e&&e.message)); }
 
     // 3) README.
     top.file('README.txt', _expReadme(stats));
-
-    if(stats.added===0 && stats.skipped===0){
-      // No photos at all — still a valid export (JSON + README), just note it.
-    }
 
     var zblob=await zip.generateAsync({type:'blob'});
     var url=URL.createObjectURL(zblob);
