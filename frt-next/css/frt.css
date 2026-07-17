@@ -10800,3 +10800,19 @@ body.dark-mode .ph-trash-tile{background:var(--card);border-color:var(--border);
 body.dark-mode .ph-trash-tile .tphoto{background:#1a181f;}
 body.dark-mode .ph-trash-tile.selected{outline-color:#C9476A;}
 body.dark-mode .ph-trash-tile.selected .ph-trash-check{background:#C9476A;}
+
+/* ── S487f: sticky-hover neutralizer (Mark: "light red stays after disarm") ──
+   On touch and touch emulation, a tap applies :hover and it STICKS until the
+   next tap elsewhere — so a just-disarmed tool kept the pale 8% burgundy hover
+   fill. On coarse/no-hover pointers, hover fills on toolbar buttons are
+   neutralized; .active (armed) styling is untouched so armed stays burgundy.
+   Real mice keep normal hover. Appended override (source-order wins). */
+@media (hover: none), (pointer: coarse){
+  .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn:hover:not(.active){background:transparent !important;color:inherit !important;}
+  body.dark-mode .drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn:hover:not(.active){background:transparent !important;color:inherit !important;}
+  .dv-sidebar-tools .tool-btn:hover:not(.active){background:transparent !important;}
+  body.dark-mode .dv-sidebar-tools .tool-btn:hover:not(.active){background:transparent !important;}
+  .drawing-viewer-overlay #dv-sidebar-tools .tool-btn:hover:not(.active),
+  .drawing-viewer-overlay .dv-sidebar-tools .tool-btn:hover:not(.active){background:transparent !important;}
+  .lb-tool-btn:hover:not(.active){background:transparent !important;}
+}
