@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=679">
+<link rel="stylesheet" href="css/frt.css?v=680">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -999,14 +999,15 @@ function ensurePdfJs(cb){
 <script src="../lib/ui/markupTools.js?v=1"></script>
 <script src="../lib/ui/markupEraser.js"></script>
 <script src="../lib/ui/markupSelection.js"></script>
+<script src="../lib/ui/markupPolyline.js?fn=3"></script>
 <script src="../lib/ui/markupText.js"></script>
-<script src="js/viewer/markupEngine.js?v=32"></script>
+<script src="js/viewer/markupEngine.js?v=33"></script>
 <script src="js/viewer/webglMarkup.js?v=8"></script>
 <script src="js/ui/pinsGL.js?v=13"></script>
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
      showCalibrationPrompt, renderObject). Loaded as plain JS before app.js
      so it's ready by the time markup.js dispatches a 'dimension' object. -->
-<script src="js/viewer/dimensionTool.js?v=15"></script>
+<script src="js/viewer/dimensionTool.js?v=16"></script>
 <script type="module" src="js/app.js"></script>
 
 <!-- S97 — Session recorder. Self-gates on ?dbg=1 or localStorage._frtDbg='1'.
@@ -1056,7 +1057,11 @@ function ensurePdfJs(cb){
     var _mkTargetToSub={
       'mk-pen-btn':'pen-submenu',
       'mk-shapes-btn':'shapes-submenu',
-      'mk-color-btn':'color-submenu'
+      'mk-color-btn':'color-submenu',
+      'mk-select':'select-submenu'   /* S479 (Mark 5.1): select flyout gets the SAME mobile
+        repositioning as pen/shapes. Without this entry the forwarded click opened the flyout
+        anchored to the HIDDEN desktop #mk-select (rect 0,0) — top-left, under the header,
+        invisible on touch. */
     };
     document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
       if(b.dataset.wired)return;b.dataset.wired='1';
@@ -1065,6 +1070,7 @@ function ensurePdfJs(cb){
         e.stopPropagation();
         var t=document.getElementById(b.dataset.mkTarget);
         if(t)t.click();
+        b.blur();   /* S487e (Mark): no lingering pale focus tint after toggle-off */
         // Reposition submenu near the clicked mobile button (not bottom sheet, not off-screen PC position)
         var subId=_mkTargetToSub[b.dataset.mkTarget];
         if(subId){

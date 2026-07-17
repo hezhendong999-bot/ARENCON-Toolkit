@@ -231,6 +231,34 @@
   function setOrthoSnap(on) { _orthoSnap = !!on; }
   function isOrthoSnap() { return _orthoSnap; }
   function isOrthoActive() { return _orthoActive; }
+  // ── S479 (Mark 3.1 extension) — align-to-EXISTING-dims cache ──────────
+  // The FIRST dimension of a session had no guide help at diagonals: ortho
+  // only knows the 45° grid, and offset-snap only knew the chain's own
+  // _lastOffset. This cache holds, for every dimension already on the
+  // drawing, (a) its segment ANGLE and (b) one point ON its dimension LINE.
+  // _applyOrtho snaps the 2nd point parallel to any cached angle; _snapOffset
+  // snaps the 3rd point onto any parallel dim's row. Both reuse the existing
+  // green guides — no new rendering. Refreshed on every click/seed that
+  // carries the v1 object views (move-time snap uses the last cache).
+  var _alignDims = [];   // [{ ang, lx, ly }]
+  function _cacheAlignDims(objects) {
+    _alignDims = [];
+    if (!objects) return;
+    for (var i = 0; i < objects.length; i++) {
+      var o = objects[i];
+      if (!o || o.type !== 'dimension') continue;
+      var ax = (o.mx1 != null) ? o.mx1 : o.x1, ay = (o.mx1 != null) ? o.my1 : o.y1;
+      var bx = (o.mx1 != null) ? o.mx2 : o.x2, by = (o.mx1 != null) ? o.my2 : o.y2;
+      var f = _abFrame(ax, ay, bx, by);
+      if (!f) continue;
+      var off = (typeof o.offset === 'number') ? o.offset : 0;
+      _alignDims.push({
+        ang: Math.atan2(by - ay, bx - ax),
+        lx: (ax + bx) / 2 + f.px * off,     // midpoint displaced onto the dim LINE
+        ly: (ay + by) / 2 + f.py * off
+      });
+    }
+  }
   // Snap a moving point `p` relative to anchor `a`. Returns the (possibly
   // adjusted) point and sets _orthoActive. Snap angles: every 45°.
   function _applyOrtho(a, p) {
@@ -251,6 +279,20 @@
     if (Math.abs(d) <= ORTHO_TOL_DEG * Math.PI / 180) {
       _orthoActive = true;
       return { x: a.x + Math.cos(snapAng) * len, y: a.y + Math.sin(snapAng) * len };
+    }
+    // S479 (Mark 3.1 extension): not on the 45° grid — try running PARALLEL
+    // to an existing dimension (either direction), same ±1.5° tolerance.
+    // This is what makes diagonals repeatable: dim #2+ locks to dim #1's
+    // exact angle instead of being eyeballed. Reuses the same green guide.
+    for (var i = 0; i < _alignDims.length; i++) {
+      var dd = ang - _alignDims[i].ang;
+      while (dd > Math.PI / 2) dd -= Math.PI;    // fold: parallel OR anti-parallel
+      while (dd < -Math.PI / 2) dd += Math.PI;
+      if (Math.abs(dd) <= ORTHO_TOL_DEG * Math.PI / 180) {
+        _orthoActive = true;
+        var sa = ang - dd;                        // exact parallel ray through a
+        return { x: a.x + Math.cos(sa) * len, y: a.y + Math.sin(sa) * len };
+      }
     }
     return p;
   }
@@ -665,12 +707,30 @@
   // exactly so consecutive dimension lines sit on ONE row (not a staircase).
   // Last-dim-only by design. Returns the (possibly snapped) signed offset and
   // sets _offsetSnapOn for the green guide.
-  function _snapOffset(rawOffset) {
+  function _snapOffset(rawOffset, ax, ay, bx, by) {
     _offsetSnapOn = false;
-    if (_lastOffset == null) return rawOffset;
-    if (Math.abs(rawOffset - _lastOffset) <= OFFSET_SNAP_PX) {
+    if (_lastOffset != null && Math.abs(rawOffset - _lastOffset) <= OFFSET_SNAP_PX) {
       _offsetSnapOn = true;
       return _lastOffset;
+    }
+    // S479 (Mark 3.1 extension): FIRST dim of a session has no _lastOffset —
+    // snap instead onto the row of any EXISTING dimension that runs parallel
+    // to this segment (within the ortho tolerance). The candidate offset is
+    // that dim's line-point projected into THIS segment's frame, so it is
+    // exact at any angle. Chain-own offset above keeps priority.
+    if (ax != null && _alignDims.length) {
+      var ang = Math.atan2(by - ay, bx - ax);
+      for (var i = 0; i < _alignDims.length; i++) {
+        var dd = ang - _alignDims[i].ang;
+        while (dd > Math.PI / 2) dd -= Math.PI;
+        while (dd < -Math.PI / 2) dd += Math.PI;
+        if (Math.abs(dd) > ORTHO_TOL_DEG * Math.PI / 180) continue;   // not parallel
+        var cand = _projectOffset(ax, ay, bx, by, _alignDims[i].lx, _alignDims[i].ly);
+        if (Math.abs(rawOffset - cand) <= OFFSET_SNAP_PX) {
+          _offsetSnapOn = true;
+          return cand;
+        }
+      }
     }
     return rawOffset;
   }
@@ -703,6 +763,7 @@
   // because resetState clears it — order matters (locked-spec note §3).
   function startContinueFromPrevious(objects) {
     resetState();
+    _cacheAlignDims(objects);   // S479: guide available during the first drag, not just at commit
     var last = _lastDim(objects);
     if (!last) { return false; }
     var a = (last.mx1 != null) ? { x: last.mx1, y: last.my1 } : { x: last.x1, y: last.y1 };
@@ -710,17 +771,42 @@
     if (_mode === 'running') { _chainAnchor = { x: a.x, y: a.y }; _pA = { x: a.x, y: a.y }; }
     else { _pA = { x: b.x, y: b.y }; _chainAnchor = null; }
     _state = 'awaitB';
+    // S461h (Mark, frt-next field report): ADOPT the previous dimension's
+    // signed offset so the green align guide works on the FIRST continued
+    // dim too — resetState() above wiped _lastOffset, so the guide only
+    // appeared from the 2nd chain link onward. The offset is signed along
+    // the segment's own perpendicular, so this snaps in ANY direction the
+    // previous dim ran (horizontal, vertical, diagonal) — not just up/down.
+    if (typeof last.offset === 'number') _lastOffset = last.offset;
     return true;
   }
   function startPickPoint() { resetState(); _pickAwait = true; }
   function startFresh() { resetState(); }
   function isPickAwaiting() { return _pickAwait; }
   // Seed the chain from an explicitly tapped vertex.
-  function seedFromPoint(p) {
+  function seedFromPoint(p, objects) {
     _pickAwait = false;
+    _cacheAlignDims(objects);   // S479: guide available during the first drag, not just at commit
     if (_mode === 'running') { _chainAnchor = { x: p.x, y: p.y }; _pA = { x: p.x, y: p.y }; }
     else { _pA = { x: p.x, y: p.y }; _chainAnchor = null; }
     _state = 'awaitB';
+    // S461h (Mark): if the picked vertex belongs to an existing dimension,
+    // adopt THAT dim's signed offset so the first dim drawn from it gets the
+    // green align guide (any direction — the offset rides the segment's own
+    // perpendicular). Caller passes the v1 object views.
+    if (objects) {
+      for (var i = objects.length - 1; i >= 0; i--) {
+        var o = objects[i];
+        if (!o || o.type !== 'dimension') continue;
+        var ax = (o.mx1 != null) ? o.mx1 : o.x1, ay = (o.mx1 != null) ? o.my1 : o.y1;
+        var bx = (o.mx1 != null) ? o.mx2 : o.x2, by = (o.mx1 != null) ? o.my2 : o.y2;
+        if ((Math.abs(p.x - ax) < 0.5 && Math.abs(p.y - ay) < 0.5) ||
+            (Math.abs(p.x - bx) < 0.5 && Math.abs(p.y - by) < 0.5)) {
+          if (typeof o.offset === 'number') _lastOffset = o.offset;
+          break;
+        }
+      }
+    }
   }
   function _lastDim(objects) {
     if (!objects) return null;
@@ -775,6 +861,7 @@
    */
   function handleClick(pos, drawing, objects) {
     if (!pos) return { committed: false, action: 'noop' };
+    _cacheAlignDims(objects);   // S479: refresh align-to-existing-dims cache (see §S331h block)
     var cal = getCalibration(drawing);
     _curCal = cal;
     // Gentle snap to a nearby existing vertex so chains close cleanly
@@ -817,7 +904,7 @@
     if (_state === 'awaitOffset') {
       var ax = _pA.x, ay = _pA.y, bx = _pB.x, by = _pB.y;
       var offset = _projectOffset(ax, ay, bx, by, pos.x, pos.y);
-      offset = _snapOffset(offset);   // S331 #37 — align consecutive dims onto one row
+      offset = _snapOffset(offset, _pA.x, _pA.y, _pB.x, _pB.y);   // S331 #37 + S479 — chain row, else any parallel existing dim's row
       var lab = computeLabel(ax, ay, bx, by, cal);
       var isGuess = !!(cal && cal._guessed);
       var obj = {
@@ -907,7 +994,7 @@
       _drawTick(ctx, _pA.x, _pA.y, _cursor.x, _cursor.y);
     } else if (_state === 'awaitOffset' && _pB) {
       var offset = _cursor ? _projectOffset(_pA.x, _pA.y, _pB.x, _pB.y, _cursor.x, _cursor.y) : 0;
-      offset = _snapOffset(offset);   // S331 #37 — preview snaps just like the commit
+      offset = _snapOffset(offset, _pA.x, _pA.y, _pB.x, _pB.y);   // S331 #37 + S479 — preview snaps exactly like the commit
       var ends = _offsetEndpoints(_pA.x, _pA.y, _pB.x, _pB.y, offset);
       if (!ends) { ctx.restore(); return; }
       // Measure axis (dashed, thin) — visible reminder of what's being measured

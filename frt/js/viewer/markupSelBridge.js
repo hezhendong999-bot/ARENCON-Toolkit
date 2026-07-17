@@ -60,7 +60,7 @@
  */
 'use strict';
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.5.0';   // 1.5.0 = S487 F2 shape-contour haloPath
 
 // Canonical → FRT-v1 legacy name (persisted-format stability: a drawing saved
 // with 'fillrect' must save back as 'fillrect', never 'rect-fill'). FRT v1
@@ -223,6 +223,85 @@ export function buildHooks(host) {
     // return undefined so the engine's default logic runs.
     haloPath: function (ctx, s) {
       const t = s._v1type || s.tool;
+      // ── F2 (S487): SHAPE CONTOURS for the member/pick glow ────────────────
+      // The engine's default shape tracer relies on MarkupTools.drawShape laying
+      // a re-strokeable path — but for rect that's strokeRect/fillRect, which
+      // paints WITHOUT leaving a path, so the re-stroke hits an empty path; and
+      // cloud is deliberately not in drawShape at all (A3). Result on the
+      // drawing viewer: shape glows fell to the AABB box instead of the ink.
+      // Fix at the host (the dimension precedent, right below): lay each
+      // shape's TRUE ink path using the renderer's exact geometry — KEEP IN
+      // SYNC with markup.js _drawShapeObj / _drawCloudObj — including the
+      // renderer's rotation transform (about the pts center).
+      const c = _canon(t);
+      const ca = _canon(t);
+      if (ca === 'line' || ca === 'arrow') {
+        // F2b (S487c): arrow/line were falling to the engine default, which calls
+        // MarkupTools.drawShape — and drawShape's arrow branch does beginPath()
+        // for the head, DISCARDING the shaft path, so only the head glowed
+        // (Mark: "arrow only glows the top, not the tail"). Trace the full ink
+        // here: shaft always; for arrow, the two head legs too (drawShape's exact
+        // geometry). markup.js renders line/arrow WITHOUT rotation, so no transform.
+        const sp = s.pts || [];
+        if (sp.length < 2) return false;
+        const x1 = sp[0].x, y1 = sp[0].y, x2 = sp[1].x, y2 = sp[1].y;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);          // shaft (the tail)
+        if (ca === 'arrow') {
+          const ang = Math.atan2(y2 - y1, x2 - x1);
+          const hl = 15 + (s.size || 2) * 2;             // drawShape head length
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - hl * Math.cos(ang - Math.PI / 6), y2 - hl * Math.sin(ang - Math.PI / 6));
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - hl * Math.cos(ang + Math.PI / 6), y2 - hl * Math.sin(ang + Math.PI / 6));
+        }
+        return true;
+      }
+      if (c === 'rect' || c === 'rect-fill' || c === 'circle' || c === 'circle-fill' ||
+          c === 'triangle' || c === 'triangle-fill' || c === 'cloud') {
+        const sp = s.pts || [];
+        if (sp.length < 2) return false;                 // malformed → AABB fallback
+        const x1 = sp[0].x, y1 = sp[0].y, x2 = sp[1].x, y2 = sp[1].y;
+        if (s.rotation) {                                // renderer's exact transform
+          const rcx = (x1 + x2) / 2, rcy = (y1 + y2) / 2;
+          ctx.translate(rcx, rcy); ctx.rotate(s.rotation); ctx.translate(-rcx, -rcy);
+        }
+        if (c === 'rect' || c === 'rect-fill') {
+          ctx.beginPath(); ctx.rect(x1, y1, x2 - x1, y2 - y1);
+          return true;
+        }
+        if (c === 'circle' || c === 'circle-fill') {
+          const crx = Math.abs(x2 - x1) / 2, cry = Math.abs(y2 - y1) / 2;
+          ctx.beginPath();
+          ctx.ellipse(x1 + (x2 - x1) / 2, y1 + (y2 - y1) / 2, crx, cry, 0, 0, Math.PI * 2);
+          return true;
+        }
+        if (c === 'triangle' || c === 'triangle-fill') {
+          ctx.beginPath();
+          ctx.moveTo(x1 + (x2 - x1) / 2, y1); ctx.lineTo(x2, y2); ctx.lineTo(x1, y2);
+          ctx.closePath();
+          return true;
+        }
+        // cloud — the scalloped perimeter (_drawCloudObj geometry, path only)
+        const w = x2 - x1, h = y2 - y1;
+        const ccx = x1 + w / 2, ccy = y1 + h / 2;
+        const rx = Math.abs(w) / 2, ry = Math.abs(h) / 2;
+        if (rx < 5 || ry < 5) return false;              // renderer draws nothing this small
+        ctx.beginPath();
+        const bumps = Math.max(8, Math.floor((rx + ry) / 10));
+        for (let i = 0; i < bumps; i++) {
+          const a2 = i * 2 * Math.PI / bumps;
+          const na = (i + 1) * 2 * Math.PI / bumps;
+          const ma = (a2 + na) / 2;
+          const px1 = ccx + rx * Math.cos(a2), py1 = ccy + ry * Math.sin(a2);
+          const px2 = ccx + rx * Math.cos(na), py2 = ccy + ry * Math.sin(na);
+          const cpx = ccx + (rx + 12) * Math.cos(ma), cpy = ccy + (ry + 12) * Math.sin(ma);
+          if (i === 0) ctx.moveTo(px1, py1);
+          ctx.quadraticCurveTo(cpx, cpy, px2, py2);
+        }
+        ctx.closePath();
+        return true;
+      }
       if (t !== 'dimension') return undefined;
       const pts = s.pts || [];
       if (pts.length < 2) return false;

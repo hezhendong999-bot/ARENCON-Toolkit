@@ -24,6 +24,10 @@ import { showConfirm } from '../shared/dialogs.js';
 import { TiledPdf } from './tiledPdf.js';
 import { Diag } from '../diag/memory.js';
 import { deviceClass, deviceMaxPixels } from '../shared/deviceBudget.js';
+// S461: drawing-viewer selection convergence — in-memory model = engine strokes,
+// persisted v1 format byte-unchanged. Conversion + FRT hook pack live in the
+// bridge (harnessed 55/55 against this file's own _getBounds / rotate oracles).
+import { toStroke, toV1, buildHooks as buildSelHooks } from './markupSelBridge.js';
 
 // S82 diagnostic removed — bug was CSS pointer-events:none on mobile sidebar
 // parent leaking to open submenus. Fixed in frt.css ~line 2242.
@@ -44,9 +48,146 @@ var _tombstones = [];
 var _undoStack = [];
 var _redoStack = [];
 var _maxUndo = 30;
-var _selectedIds = [];
+// S461 — the drawing viewer's selection is the SHARED engine
+// (lib/ui/markupSelection.js), the same one behind the Diesel lightbox and the
+// FRT photo lightbox: a selection fix lands once, everywhere. Selection state
+// (selIds, drag, rubber-band) lives ON SelHost; the persisted v1 drawing format
+// is untouched (conversion at the boundaries — see the bridge import above).
+var SelHost = {
+  get strokes() { return _objects; },            // live ref — engine splices/pushes it
+  get canvas() { return _getCanvas(); },
+  get ctx() { var c = _getCanvas(); return c ? c.getContext('2d') : null; },
+  // Engine chrome scale is k = nw / rect.width. This getter makes k equal
+  // _uiScale() EXACTLY, so selection chrome keeps the drawing viewer's
+  // screen-constant sizing at every zoom (S342 rule) with zero engine changes.
+  get nw() { var c = _getCanvas(); var w = c ? (c.getBoundingClientRect().width || 1) : 1; return _uiScale() * Math.max(1, w); },
+  render: function() { _renderAll(); },
+  _findStroke: function(id) { return _findObj(id); },
+  _strokeBBox: function(s) { return _getBounds(toV1(s)); },
+  _strokeCenter: function(s) { var b = this._strokeBBox(s); return { x: (b.x1 + b.x2) / 2, y: (b.y1 + b.y2) / 2 }; },
+  _uid: function() { return _newId(); },
+  _pushOp: function() { /* superseded by the logOp hook (→ _pushHistory + _markDirty) */ }
+};
+if (window.MarkupSelection) {
+  window.MarkupSelection.install(SelHost, buildSelHooks({
+    getBounds: _getBounds, pushHistory: _pushHistory, markDirty: _markDirty
+  }));
+  SelHost._selectSub = 'rubber';   // drawing viewer = classic rubber+click (no TAP UI)
+  // S129 — deletions MUST tombstone (cross-inspector deletion sync). The engine
+  // doesn't know tombstones, so wrap its delete: tombstone first, then the engine
+  // splices + op-logs (logOp → _pushHistory captures objects AND tombstones
+  // atomically, same order as the old inline delete path).
+  var _engineDeleteSel = SelHost.deleteSelected.bind(SelHost);
+  SelHost.deleteSelected = function () {
+    if (this.hasSel()) _tombstone(this.selIds);
+    _engineDeleteSel();
+  };
+  SelHost.onSelChange(function () { _syncTextDecoButtons(); _dvRefreshSelConfirm(); });
+} else {
+  console.error('[Markup] lib/ui/markupSelection.js missing — Select tool disabled');
+}
+
+// ── S461e: Select sub-tool flyout + ✓/✗ confirm bar — PORTED from the FRT
+// lightbox (S339 block in frt/js/ui/lightbox.js), same styles, same engine
+// APIs (setSelectSub / confirmPick / cancelSelect / isPicking / pickCount).
+// Not a new design — the lightbox feature, now on the drawing viewer.
+var _dvSelFly = null, _dvSelBar = null, _dvSelCnt = null, _dvSelOk = null;
+function _dvEnsureSelChrome() {
+  if (_dvSelFly) return;
+  // ── S461n (Mark, repeatedly): the select sub-menu is a REAL .tool-submenu,
+  // built exactly like #pen-submenu / #shapes-submenu — same wrapper, same
+  // classes, same open/close mechanism, same _positionSubmenu(). Previous
+  // rounds hand-built a floating fixed-position div and tried to IMITATE the
+  // look; it could never match on PC or touch. Do not reintroduce that.
+  var selBtn = document.getElementById('mk-select');
+  if (!selBtn) return;
+
+  // Wrap the existing Select button in a .tool-group (the pen/shape pattern)
+  var grp = document.createElement('div');
+  grp.className = 'tool-group';
+  grp.id = 'tool-select-group';
+  selBtn.parentNode.insertBefore(grp, selBtn);
+  grp.appendChild(selBtn);
+  var arrow = document.createElement('span');
+  arrow.className = 'tool-group-arrow';
+  arrow.textContent = '\u25B8';
+  selBtn.appendChild(arrow);
+
+  _dvSelFly = document.createElement('div');
+  _dvSelFly.className = 'tool-submenu';       // inherits ALL submenu styling
+  _dvSelFly.id = 'select-submenu';
+  // S461u (Mark): redesigned icons — MARQUEE (dashed box + solid corner
+  // handles, mirroring the real selection chrome; solid corners keep it crisp)
+  // and TAP RIPPLE (fingertip dot + arcs — no hands). currentColor throughout
+  // so active-state styling recolors both stroke and fills. The lightbox uses
+  // THIS EXACT pair — one icon set, both hosts.
+  _dvSelFly.innerHTML =
+    '<button class="tool-btn sub-tool-btn" data-sel-sub="rubber" data-tip="Rubber-band">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path stroke-dasharray="3.2 2.8" d="M8.5 4h7M8.5 20h7M4 8.5v7M20 8.5v7"/><rect x="2" y="2" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="17.4" y="2" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="2" y="17.4" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="17.4" y="17.4" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/></svg></button>' +
+    '<button class="tool-btn sub-tool-btn" data-sel-sub="tap" data-tip="Tap select">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg></button>';
+  grp.appendChild(_dvSelFly);
+
+  function markSub(sub) {
+    _dvSelFly.querySelectorAll('[data-sel-sub]').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.selSub === sub);   // same 'active' class the app uses
+    });
+  }
+  _dvSelFly.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-sel-sub]');
+    if (!b) return;
+    e.stopPropagation();
+    SelHost.setSelectSub(b.dataset.selSub);
+    markSub(b.dataset.selSub);
+    // S487d (Mark): the parent Select button adopts the picked sub-tool's icon,
+    // exactly like the pen/shapes group buttons do — one pattern, all groups.
+    var selMain = document.getElementById('mk-select');
+    if (selMain) {
+      var svg = b.querySelector('svg');
+      selMain.innerHTML = (svg ? svg.outerHTML : b.innerHTML) + '<span class="tool-group-arrow">\u25B8</span>';
+    }
+    _dvSelFly.classList.remove('open');
+    _dvRefreshSelConfirm();
+  });
+  markSub('rubber');
+
+  // Confirm bar — the shared pill metrics (unchanged).
+  _dvSelBar = document.createElement('div'); _dvSelBar.id = 'dv-mk-confirm';
+  _dvSelBar.style.cssText = _DV_PILL_BOX + 'left:50%;bottom:84px;transform:translateX(-50%);display:none;padding-left:12px;';
+  _dvSelCnt = document.createElement('span'); _dvSelCnt.style.cssText = 'font:600 12px Calibri,sans-serif;color:#cfcad6;';
+  _dvSelOk = document.createElement('button'); _dvSelOk.innerHTML = '\u2713'; _dvSelOk.title = 'Confirm \u2014 group these';
+  _dvSelOk.style.cssText = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
+  var no = document.createElement('button'); no.innerHTML = '\u2715'; no.title = 'Cancel \u2014 clear selection';
+  no.style.cssText = _DV_PILL_X;
+  _dvSelBar.appendChild(_dvSelCnt); _dvSelBar.appendChild(_dvSelOk); _dvSelBar.appendChild(no);
+  (document.getElementById('drawing-viewer-overlay') || document.body).appendChild(_dvSelBar);
+  _dvSelOk.addEventListener('click', function () { (SelHost.confirmSelection || SelHost.confirmPick).call(SelHost); _dvRefreshSelConfirm(); });
+  no.addEventListener('click', function () { SelHost.cancelSelect(); _dvRefreshSelConfirm(); });
+}
+function _dvToggleSelFly() {
+  _dvEnsureSelChrome();
+  if (!_dvSelFly) return;
+  // Identical to the pen/shape group handler: close siblings, toggle 'open',
+  // and let the app's own _positionSubmenu place it (PC and touch alike).
+  var ps = document.getElementById('pen-submenu'); if (ps) ps.classList.remove('open');
+  var ss = document.getElementById('shapes-submenu'); if (ss) ss.classList.remove('open');
+  var wasOpen = _dvSelFly.classList.contains('open');
+  _dvSelFly.classList.toggle('open');
+  if (!wasOpen && typeof _positionSubmenu === 'function') {
+    _positionSubmenu(_dvSelFly, document.getElementById('mk-select'));
+  }
+}
+function _dvRefreshSelConfirm() {
+  if (!_dvSelBar) { if (!SelHost.hasActiveSelection || !SelHost.hasActiveSelection()) return; _dvEnsureSelChrome(); }
+  if (_tool !== 'select' || !SelHost.hasActiveSelection()) { _dvSelBar.style.display = 'none'; return; }
+  _dvSelBar.style.display = 'flex';
+  // S461t (Mark): ✓ stays through the whole lifecycle — confirm picks, then
+  // confirm (finalize) the group after moving. Same rule as the lightbox.
+  _dvSelOk.style.display = 'flex';
+  _dvSelCnt.textContent = SelHost.isPicking() ? (SelHost.pickCount() + ' picked') : (SelHost.selCount() + ' selected');
+}
 var _penPoints = [];
-var _polyPoints = [];
+// S461q: _polyPoints retired — the shared module owns polyline state.
 var _isDrawing = false;
 var _dirty = false;
 
@@ -217,7 +358,7 @@ function _resetDimensionFlow() {
   // S330 #37 — clear the finish chip and close any open value keypad
   if (typeof _dimKpOpen === 'function' && _dimKpOpen()) _dimKpCommit(true);
   var _fc = document.getElementById('dim-finchip');
-  if (_fc) _fc.classList.remove('show');
+  if (_fc) { _fc.classList.remove('show'); _fc.style.display = 'none'; }
   var ov = _getOverlay();
   if (ov) {
     ov.style.display = 'none';
@@ -426,9 +567,9 @@ function _editDimensionLabel(obj) {
   if (!isTouch) {
     var mc = _getCanvas();
     if (mc) {
-      var ax, ay, bx, by, offset;
-      if (obj.mx1 != null) { ax = obj.mx1; ay = obj.my1; bx = obj.mx2; by = obj.my2; offset = obj.offset || 0; }
-      else { ax = obj.x1; ay = obj.y1; bx = obj.x2; by = obj.y2; offset = 0; }
+      // S461: stroke model — both dim flavors live in pts[0]/pts[1]; legacy dims
+      // carry no offset field, so `|| 0` preserves the old forced-zero behavior.
+      var ax = obj.pts[0].x, ay = obj.pts[0].y, bx = obj.pts[1].x, by = obj.pts[1].y, offset = obj.offset || 0;
       var dx = bx - ax, dy = by - ay, len = Math.sqrt(dx * dx + dy * dy) || 1;
       var px = -dy / len, py = dx / len;
       var midX = (ax + bx) / 2 + px * offset, midY = (ay + by) / 2 + py * offset;
@@ -492,19 +633,37 @@ function _dimKpClose() { if (_dimKpOpen()) _dimKpCommit(false); }
 // S330 #37 — Finish ✕ chip. Shown between dimensions in continuous/running
 // (state 'awaitB' with an anchor), never during the offset stage, so
 // reaching for it can't drag the offset. Tapping it ends the chain.
+function _dvStyleDimFinChip(chip) {
+  // S461i (Mark): the red "✕ Done" chip becomes the SAME dark pill family as
+  // the polyline pill / confirm bar — ✓ Finish (green) + ✕ (red). One visual
+  // language for every "in-progress → commit/cancel" surface.
+  if (chip._dvStyled) return; chip._dvStyled = true;
+  chip.style.cssText += ';' + _DV_PILL_BOX + 'display:none;';
+  chip.innerHTML = '';
+  var ok = document.createElement('button');
+  ok.id = 'dim-finchip-ok';
+  ok.innerHTML = '\u2713';   // S461k: circle only — matches the polyline pill exactly
+  ok.style.cssText = _DV_PILL_FINISH;
+  var no = document.createElement('button');
+  no.id = 'dim-finchip-no';
+  no.innerHTML = '\u2715';
+  no.style.cssText = _DV_PILL_X;
+  chip.appendChild(ok); chip.appendChild(no);
+}
 function _updateDimFinChip() {
   var chip = document.getElementById('dim-finchip');
   var dim = window._dimTool;
   if (!chip || !dim) return;
+  _dvStyleDimFinChip(chip);
   var anchor = dim.chainFinishAnchor ? dim.chainFinishAnchor() : null;
   var mode = dim.getMode ? dim.getMode() : 'single';
   if (!anchor || mode === 'single' || _tool !== 'dimension') {
-    chip.classList.remove('show', 'pulse');
+    chip.classList.remove('show', 'pulse'); chip.style.display = 'none';
     _dimFinChipWasShowing = false;
     return;
   }
   var mc = _getCanvas();
-  if (!mc) { chip.classList.remove('show', 'pulse'); _dimFinChipWasShowing = false; return; }
+  if (!mc) { chip.classList.remove('show', 'pulse'); chip.style.display = 'none'; _dimFinChipWasShowing = false; return; }
   // S342: the Done chip used to sit 16px right / 24px above the chain anchor —
   // i.e. right on top of the point you're drawing from, blocking the live line
   // (Mark's complaint). It does NOT need to track the anchor: tapping it just
@@ -512,17 +671,12 @@ function _updateDimFinChip() {
   // behaves identically on mobile and PC. Pin it to the TOP-CENTRE of the canvas
   // area, just below the toolbar, where it never overlaps the drawing zone and
   // is always within easy thumb reach. (Kept position:fixed; only x/y change.)
-  var r = mc.getBoundingClientRect();
-  var chipW = chip.offsetWidth || 110;
-  var x = Math.round(r.left + r.width / 2 - chipW / 2);
-  // Clamp horizontally so it never runs off either edge on a narrow phone.
-  x = Math.min(Math.max(8, x), window.innerWidth - chipW - 8);
-  // Sit a fixed gap below the top of the canvas viewport (clears the toolbar);
-  // never higher than 12px from the window top.
-  var y = Math.max(12, r.top + 12);
-  chip.style.left = x + 'px';
-  chip.style.top = y + 'px';
+  // S461k (Mark): identical placement logic to the polyline pill — mobile
+  // fixed bottom-center, PC follows the chain anchor, hard-clamped.
+  var anchorL = null;
+  try { var _a0 = dim.chainFinishAnchor(); if (_a0) anchorL = { x: _a0.x, y: _a0.y }; } catch (e0) {}
   chip.classList.add('show');
+  _dvPlacePill(chip, anchorL);
   // S331 #37 — pulse once when a chain FIRST starts waiting (discoverability),
   // not on every render while it sits there.
   if (!_dimFinChipWasShowing) {
@@ -537,7 +691,12 @@ function _dimFinChipEnd() {
   if (_dimKpOpen()) _dimKpCommit(true);
   if (dim && dim.endChain) dim.endChain();
   var chip = document.getElementById('dim-finchip');
-  if (chip) chip.classList.remove('show');
+  // F5 (S487): _dvPlacePill shows the pill via INLINE display:flex, so removing
+  // the 'show' class alone leaves it on screen. Hide exactly the way the
+  // _updateDimFinChip hide path does, and reset the one-time pulse gate so the
+  // next chain pulses again.
+  if (chip) { chip.classList.remove('show', 'pulse'); chip.style.display = 'none'; }
+  _dimFinChipWasShowing = false;
   var ov = _getOverlay();
   if (ov) {
     ov.style.display = 'none';
@@ -582,11 +741,17 @@ function _wireDimensionV4() {
   var kpClose = document.getElementById('dim-kp-close');
   if (kpClose) kpClose.addEventListener('click', function (e) { e.stopPropagation(); _dimKpCommit(false); });
 
-  // finish chip
-  var finX = document.getElementById('dim-fin-x');
-  if (finX) finX.addEventListener('click', function (e) { e.stopPropagation(); _dimFinChipEnd(); });
+  // finish chip — S461i: delegated, because the chip's innerHTML is rebuilt
+  // by _dvStyleDimFinChip (✓ Finish + ✕; both end the chain — endChain and
+  // cancel are the same reset in the dim module, segments commit immediately).
   var finChip = document.getElementById('dim-finchip');
   if (finChip) {
+    finChip.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (e.target.closest && (e.target.closest('#dim-finchip-ok') || e.target.closest('#dim-finchip-no') || e.target.closest('#dim-fin-x'))) {
+        _dimFinChipEnd();
+      }
+    });
     finChip.addEventListener('mousedown', function (e) { e.stopPropagation(); });
     finChip.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
   }
@@ -609,7 +774,7 @@ function _wireDimensionV4() {
   if (pickPrev) pickPrev.addEventListener('click', function (e) {
     e.stopPropagation();
     document.getElementById('dim-pick-back').classList.remove('show');
-    if (dim.startContinueFromPrevious) dim.startContinueFromPrevious(_objects);
+    if (dim.startContinueFromPrevious) dim.startContinueFromPrevious(_objects.map(toV1));   // S461g
     _renderDimensionPreview(); _updateDimFinChip();
   });
   if (pickPoint) pickPoint.addEventListener('click', function (e) {
@@ -631,7 +796,9 @@ function _wireDimensionV4() {
   var recN = document.getElementById('dim-recal-none');
   function _doRecal(mode) {
     if (_pendingRecalCal) {
-      dim.recalibrateAll(_objects, _pendingRecalCal, mode);
+      var _recalV2 = _objects.map(toV1);   // S461g: writes → v1 round-trip
+      dim.recalibrateAll(_recalV2, _pendingRecalCal, mode);
+      _objects = _recalV2.map(toStroke);
       _pendingRecalCal = null;
     }
     document.getElementById('dim-recal-back').classList.remove('show');
@@ -1023,17 +1190,19 @@ function _ensureOverlay() {
   // during pen / shape / dimension drawing) was once capped at 3 MP — an
   // iPad-era leftover that made live preview render at 3× browser upscale
   // (visible fuzz while holding the mouse down).
+  // S131 priority #1 — the overlay now shares the device-class budget via
+  // deviceMaxPixels() (phone 8 / tablet 12 / desktop 30 MP). A flat 30 MP
+  // here re-introduced GPU pressure on field tablets during drawing even
+  // after the two main-canvas budget sites were fixed.
   // S484 — root cause of the field pen lag (Nasim 7310.17, Mark repro): every
   // touchmove strokes a huge layer the GPU re-composites at finger rate. This
   // overlay is ONLY the transient live-drag preview — the committed stroke
   // re-renders at full quality on the real markup layer on release.
-  // S485 — the fixed 4 MP cap made the preview smooth but fuzzy at zoom (the
+  // S485 — the fixed cap made the preview smooth but fuzzy at zoom (the
   // documented S125-era symptom, reintroduced). Fix: ADAPTIVE resolution —
-  // 1 overlay px = 1 physical screen px whenever affordable. A preview cannot
-  // usefully exceed screen pixels, so this is the sharpest it can look AND
-  // the fewest pixels that achieve it: lighter than 4 MP at fit zoom, sharp
-  // at working zooms, clamped at the device budget only at extreme zoom
-  // (where the old fixed budget was equally fuzzy — no regression).
+  // 1 overlay px = 1 physical screen px whenever affordable, clamped at the
+  // device budget only at extreme zoom. [S487h: ported into frt-next — flip
+  // prerequisite per FRT_HANDOFF_S482-S486 §4.1.]
   var _zPhys = 1;
   try {
     var _zr = mc.getBoundingClientRect();
@@ -1128,7 +1297,7 @@ function _undo() {
   var snap = _decodeHistorySnapshot(_undoStack.pop());
   _objects = snap.objects;
   _tombstones = snap.tombstones;
-  _selectedIds = [];
+  SelHost.deselect();   // S461: clears selIds + drag + rubber-band, renders
   _renderAll();
   _markDirty();
   _updateUndoButtons();
@@ -1142,7 +1311,7 @@ function _redo() {
   var snap = _decodeHistorySnapshot(_redoStack.pop());
   _objects = snap.objects;
   _tombstones = snap.tombstones;
-  _selectedIds = [];
+  SelHost.deselect();   // S461: clears selIds + drag + rubber-band, renders
   _renderAll();
   _markDirty();
   _updateUndoButtons();
@@ -1230,7 +1399,7 @@ function _renderAll() {
       // skips it in _drawObject (obj._editing), but WebGL renders committed objects
       // directly and never saw that skip, so the edited text showed doubled behind
       // the live box. Filter here to match the 2D behaviour.
-      var _wglObjs = _objects.filter(function(o){ return !o._editing; });
+      var _wglObjs = _objects.filter(function(o){ return !o._editing; }).map(toV1);   // S461: WebGL renderer speaks v1
       window.WebGLMarkupRenderer.render(_wglObjs, { dpr: dpr, hlAlpha: 0.3 });
     } catch(err){
       console.warn('[Markup] WebGL render threw — disabling for this session:', err);
@@ -1256,7 +1425,7 @@ function _renderAll() {
       if (_dobj && _dobj.type === 'dimension' &&
           window._dimTool && typeof window._dimTool.renderObject === 'function'){
         ctx.save();
-        window._dimTool.renderObject(ctx, _dobj);
+        window._dimTool.renderObject(ctx, toV1(_dobj));   // S461g: _dimTool speaks v1 — raw strokes rendered NOTHING (invisible dims)
         ctx.restore();
       }
     }
@@ -1304,7 +1473,7 @@ function _renderAll() {
         var off2 = _ensureObjCanvas(mc);
         var oc2 = off2.getContext('2d');
         grp.objs.forEach(function(obj) {
-          if (!obj.points || obj.points.length < 2) return;
+          if (!obj.pts || obj.pts.length < 2) return;
           // Clear and set up _objCanvas at dpr transform
           oc2.setTransform(1, 0, 0, 1, 0, 0);
           oc2.clearRect(0, 0, off2.width, off2.height);
@@ -1316,8 +1485,8 @@ function _renderAll() {
           oc2.globalAlpha = 1;
           oc2.globalCompositeOperation = 'source-over';
           oc2.beginPath();
-          oc2.moveTo(obj.points[0].x, obj.points[0].y);
-          for (var i = 1; i < obj.points.length; i++) oc2.lineTo(obj.points[i].x, obj.points[i].y);
+          oc2.moveTo(obj.pts[0].x, obj.pts[0].y);
+          for (var i = 1; i < obj.pts.length; i++) oc2.lineTo(obj.pts[i].x, obj.pts[i].y);
           oc2.stroke();
           // Apply this highlight's own mask (cuts only this highlight's pixels)
           if (obj.eraserMask && obj.eraserMask.length) {
@@ -1356,26 +1525,9 @@ function _renderAll() {
     }
   }
 
-  // Selection handles + rubber-band — ALWAYS rendered in 2D on top of WebGL
-  if (_selectedIds.length) {
-    _drawGroupedSelection(ctx);
-  }
-
-  if (_rubberBand) {
-    ctx.save();
-    var rbS = _uiScale();
-    ctx.setLineDash([4 * rbS, 4 * rbS]);
-    ctx.strokeStyle = '#2196F3';
-    ctx.fillStyle = 'rgba(33,150,243,.08)';
-    ctx.lineWidth = 1 * rbS;
-    var rx = Math.min(_rubberBand.x1, _rubberBand.x2);
-    var ry = Math.min(_rubberBand.y1, _rubberBand.y2);
-    var rw = Math.abs(_rubberBand.x2 - _rubberBand.x1);
-    var rh = Math.abs(_rubberBand.y2 - _rubberBand.y1);
-    ctx.fillRect(rx, ry, rw, rh);
-    ctx.strokeRect(rx, ry, rw, rh);
-    ctx.restore();
-  }
+  // S461: selection chrome + rubber-band — the SHARED engine draws them,
+  // always in 2D on top of WebGL. No-op when the select tool is idle.
+  SelHost._drawSelChrome(ctx);
 
   // S126 #6 — Vertex handles overlay. Drawn last so they sit on top of all
   // markup. Visible whenever the user has tapped a dimension while NOT in
@@ -1383,7 +1535,7 @@ function _renderAll() {
   if (_dimVertexEditId != null && window._dimTool && window._dimTool.renderVertexHandles) {
     var editDim = _findObj(_dimVertexEditId);
     if (editDim && editDim.type === 'dimension') {
-      window._dimTool.renderVertexHandles(ctx, editDim);
+      window._dimTool.renderVertexHandles(ctx, toV1(editDim));   // S461: _dimTool speaks v1
     } else {
       _dimVertexEditId = null;
     }
@@ -1392,7 +1544,7 @@ function _renderAll() {
   // S330 #37 — pickup picker "pick a point" highlights: burgundy rings on
   // every existing dimension vertex, so the user can tap one to start.
   if (window._dimTool && window._dimTool.isPickAwaiting && window._dimTool.isPickAwaiting()) {
-    var verts = window._dimTool.allVertices ? window._dimTool.allVertices(_objects) : [];
+    var verts = window._dimTool.allVertices ? window._dimTool.allVertices(_objects.map(toV1)) : [];   // S461
     ctx.save();
     ctx.lineWidth = 2;
     ctx.strokeStyle = '#9C2742';
@@ -1483,10 +1635,10 @@ function _drawObjectRaw(ctx, obj) {
   var t = obj.type;
 
   if (t === 'pen') {
-    if (!obj.points || obj.points.length < 2) { ctx.restore(); return; }
+    if (!obj.pts || obj.pts.length < 2) { ctx.restore(); return; }
     ctx.beginPath();
-    ctx.moveTo(obj.points[0].x, obj.points[0].y);
-    for (var k = 1; k < obj.points.length; k++) ctx.lineTo(obj.points[k].x, obj.points[k].y);
+    ctx.moveTo(obj.pts[0].x, obj.pts[0].y);
+    for (var k = 1; k < obj.pts.length; k++) ctx.lineTo(obj.pts[k].x, obj.pts[k].y);
     ctx.stroke();
   }
   else if (t === 'highlight') {
@@ -1503,7 +1655,7 @@ function _drawObjectRaw(ctx, obj) {
     if (obj.rotation) {
       var fs_t = obj.fontSize || 20;
       var estW_t = (obj.text || '').length * fs_t * 0.55;
-      var tcx = obj.x1 + estW_t / 2, tcy = obj.y1 - fs_t / 2;
+      var tcx = obj.pts[0].x + estW_t / 2, tcy = obj.pts[0].y - fs_t / 2;
       ctx.translate(tcx, tcy);
       ctx.rotate(obj.rotation);
       ctx.translate(-tcx, -tcy);
@@ -1515,8 +1667,8 @@ function _drawObjectRaw(ctx, obj) {
     var fsTx = obj.fontSize || 20;
     var estWTx = ctx.measureText(obj.text || '').width;
     var padTx = 4;
-    var bxLeft = obj.x1 - padTx;
-    var bxTop = obj.y1 - fsTx - padTx + 2;
+    var bxLeft = obj.pts[0].x - padTx;
+    var bxTop = obj.pts[0].y - fsTx - padTx + 2;
     var bxW = estWTx + padTx * 2;
     var bxH = fsTx + padTx * 2;
     // S390: optional background pill (ported from lightbox). Committed text shows
@@ -1524,7 +1676,7 @@ function _drawObjectRaw(ctx, obj) {
     // Default 'none'/undefined = no pill (clean text — matches all pre-S390 objects).
     if (obj.bg && obj.bg !== 'none') {
       var _pbgX = fsTx * 0.28, _pbgY = fsTx * 0.20;
-      var _pbx = obj.x1 - _pbgX, _pby = obj.y1 - fsTx - _pbgY;
+      var _pbx = obj.pts[0].x - _pbgX, _pby = obj.pts[0].y - fsTx - _pbgY;
       var _pbw = estWTx + _pbgX * 2, _pbh = fsTx + _pbgY * 2;
       var _prad = Math.min(8, _pbh / 2);
       ctx.save();
@@ -1566,22 +1718,22 @@ function _drawObjectRaw(ctx, obj) {
       ctx.strokeRect(bxLeft, bxTop, bxW, bxH);
       ctx.restore();
     }
-    ctx.fillText(obj.text || '', obj.x1, obj.y1);
+    ctx.fillText(obj.text || '', obj.pts[0].x, obj.pts[0].y);
   }
   else if (t === 'eraser') {
-    if (!obj.points || obj.points.length < 2) { ctx.restore(); return; }
+    if (!obj.pts || obj.pts.length < 2) { ctx.restore(); return; }
     ctx.globalCompositeOperation = 'destination-out';
     ctx.lineWidth = (obj.size || 2) * 3;
     ctx.beginPath();
-    ctx.moveTo(obj.points[0].x, obj.points[0].y);
-    for (var e2 = 1; e2 < obj.points.length; e2++) ctx.lineTo(obj.points[e2].x, obj.points[e2].y);
+    ctx.moveTo(obj.pts[0].x, obj.pts[0].y);
+    for (var e2 = 1; e2 < obj.pts.length; e2++) ctx.lineTo(obj.pts[e2].x, obj.pts[e2].y);
     ctx.stroke();
   }
   else if (t === 'polyline') {
-    if (!obj.points || obj.points.length < 2) { ctx.restore(); return; }
+    if (!obj.pts || obj.pts.length < 2) { ctx.restore(); return; }
     ctx.beginPath();
-    ctx.moveTo(obj.points[0].x, obj.points[0].y);
-    for (var pl = 1; pl < obj.points.length; pl++) ctx.lineTo(obj.points[pl].x, obj.points[pl].y);
+    ctx.moveTo(obj.pts[0].x, obj.pts[0].y);
+    for (var pl = 1; pl < obj.pts.length; pl++) ctx.lineTo(obj.pts[pl].x, obj.pts[pl].y);
     ctx.stroke();
   }
   // S124 A1 — Dimension tool. Delegates to window._dimTool.renderObject
@@ -1589,19 +1741,19 @@ function _drawObjectRaw(ctx, obj) {
   else if (t === 'dimension') {
     ctx.restore();
     if (window._dimTool && typeof window._dimTool.renderObject === 'function') {
-      window._dimTool.renderObject(ctx, obj);
+      window._dimTool.renderObject(ctx, toV1(obj));   // S461: _dimTool speaks v1
     }
     return;
   }
   else {
     // Apply rotation for shapes if present
     if (obj.rotation) {
-      var scx = (obj.x1 + obj.x2) / 2, scy = (obj.y1 + obj.y2) / 2;
+      var scx = (obj.pts[0].x + obj.pts[1].x) / 2, scy = (obj.pts[0].y + obj.pts[1].y) / 2;
       ctx.translate(scx, scy);
       ctx.rotate(obj.rotation);
       ctx.translate(-scx, -scy);
     }
-    _drawShapeObj(ctx, t, obj.x1, obj.y1, obj.x2, obj.y2);
+    _drawShapeObj(ctx, t, obj.pts[0].x, obj.pts[0].y, obj.pts[1].x, obj.pts[1].y);
   }
   ctx.restore();
 }
@@ -1778,7 +1930,7 @@ function _pointHitByEraser(px, py, eraserPts, eraserR2) {
 
 // Split a freehand stroke (pen/highlight/polyline) into fragments, dropping runs of erased points
 function _splitStrokeByEraser(obj, eraserPts, eraserR2) {
-  var pts = obj.points;
+  var pts = obj.pts;
   if (!pts || pts.length < 2) return [obj];
   // Flag each point as erased or kept
   var kept = new Array(pts.length);
@@ -1800,20 +1952,20 @@ function _splitStrokeByEraser(obj, eraserPts, eraserR2) {
 
   if (fragments.length === 0) return [];        // entire stroke erased
   return fragments.map(function(frag, idx) {
-    return {
+    return toStroke({                            // S461: fragments minted as engine strokes
       id: idx === 0 ? obj.id : _newId(),         // first fragment keeps the original id
       type: obj.type,
       points: frag,
       color: obj.color,
       size: obj.size,
       opacity: obj.opacity
-    };
+    });
   });
 }
 
 // Check if shape/text bounds overlap the eraser path (using obj's _getBounds)
 function _shapeHitByEraser(obj, eraserPts, eraserR2) {
-  var b = _getBounds(obj);
+  var b = _getBounds(toV1(obj));   // S461: _getBounds speaks v1 (the oracle)
   if (!b) return false;
   // Inflate the shape bbox by eraser radius so near-misses don't clip
   var r = Math.sqrt(eraserR2);
@@ -1919,10 +2071,10 @@ function _applyEraser(eraserPts, lineWidth) {
 
   _objects = next;
   // Drop selection of anything that no longer exists (only possible via pen full-erase)
-  if (_selectedIds.length) {
+  if (SelHost.selIds && SelHost.selIds.length) {
     var alive = {};
     for (var k = 0; k < _objects.length; k++) alive[_objects[k].id] = true;
-    _selectedIds = _selectedIds.filter(function(id) { return alive[id]; });
+    SelHost.selIds = SelHost.selIds.filter(function(id) { return alive[id]; });
   }
   // S331 (C1): true only if the erase actually altered the drawing.
   return JSON.stringify(_objects) !== _beforeSig;
@@ -1933,7 +2085,7 @@ function _applyEraser(eraserPts, lineWidth) {
 // either side. Falls back to vertex-only test for degenerate single-point
 // strokes.
 function _strokeHitByEraser(obj, eraserPts, eraserR2) {
-  var pts = obj.points;
+  var pts = obj.pts;
   if (!pts || pts.length < 1) return false;
   // Single-point stroke: only point-to-segment / point-to-point checks
   if (pts.length === 1) {
@@ -1958,152 +2110,23 @@ function _strokeHitByEraser(obj, eraserPts, eraserR2) {
 }
 
 // ── Rubber-band state ───────────────────────────────────
-var _rubberBand = null; // {x1,y1,x2,y2} during drag-select
+// S461: _rubberBand removed — engine-owned on SelHost.
 
-function _getGroupBounds() {
-  var x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-  _selectedIds.forEach(function(id) {
-    var obj = _findObj(id);
-    if (!obj) return;
-    var b = _getBounds(obj);
-    if (!b) return;
-    if (b.x1 < x1) x1 = b.x1;
-    if (b.y1 < y1) y1 = b.y1;
-    if (b.x2 > x2) x2 = b.x2;
-    if (b.y2 > y2) y2 = b.y2;
-  });
-  if (x1 === Infinity) return null;
-  return { x1: x1, y1: y1, x2: x2, y2: y2 };
-}
+// S461: _getGroupBounds removed — the shared selection engine (lib/ui/markupSelection.js)
+// owns selection chrome, handle hit-testing, and clone. See SelHost below line 50.
 
-function _drawGroupedSelection(ctx) {
-  var b = _getGroupBounds();
-  if (!b) return;
-  // S342: scale ALL selection affordances by _uiScale() so they stay a constant
-  // size ON SCREEN regardless of viewer zoom. Previously handles/rotation/delete
-  // used FIXED canvas-pixel sizes (hs=11, r=9), so when zoomed out the markup —
-  // and these controls with it — shrank to near-untappable on the tablet (Mark
-  // couldn't hit the red ✕ in portrait at fit-zoom). The file's own _uiScale
-  // comment already lists these as the things it's FOR; they just weren't using
-  // it. Hit-tests below use the identical scaled geometry so tap target == paint.
-  var us = _uiScale();
-  var pad = 6 * us;
-  var bx = b.x1 - pad, by = b.y1 - pad, bw = b.x2 - b.x1 + pad * 2, bh = b.y2 - b.y1 + pad * 2;
-  ctx.save();
-  // Dashed border
-  ctx.setLineDash([5 * us, 4 * us]);
-  ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 2 * us;
-  ctx.globalAlpha = 1;
-  ctx.strokeRect(bx, by, bw, bh);
-  ctx.setLineDash([]);
-  // Corner resize handles
-  var hs = 11 * us;
-  ctx.fillStyle = 'white';
-  ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1.5 * us;
-  [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].forEach(function(p) {
-    ctx.fillRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs);
-    ctx.strokeRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs);
-  });
-  // Rotation handle (circle above top-center, Microsoft-style)
-  var rcx = bx + bw / 2, rcy = by - 24 * us;
-  ctx.beginPath();
-  ctx.moveTo(bx + bw / 2, by);
-  ctx.lineTo(rcx, rcy + 9 * us);
-  ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1 * us;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(rcx, rcy, 9 * us, 0, Math.PI * 2);
-  ctx.fillStyle = 'white';
-  ctx.fill();
-  ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1.5 * us;
-  ctx.stroke();
-  // Rotation arrow icon inside circle
-  ctx.beginPath();
-  ctx.arc(rcx, rcy, 5 * us, -0.3, Math.PI * 1.4);
-  ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1.2 * us;
-  ctx.stroke();
-  // Delete button (red X) — top-right outside box
-  var dx = bx + bw + 4 * us, dy = by - 14 * us;
-  ctx.fillStyle = '#E53E3E';
-  ctx.beginPath();
-  ctx.arc(dx + 8 * us, dy + 8 * us, 9 * us, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'white';
-  ctx.font = 'bold ' + (12 * us) + 'px Calibri,sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('\u2715', dx + 8 * us, dy + 8 * us);
-  // S342 — copy handle: filled circle centred below the bottom edge (a corner not
-  // used by rotate top-centre / delete top-right), with a two-rect copy glyph.
-  // Visible whenever a selection exists in select mode; tapping it duplicates the
-  // selection (see _hitCopyHandle / _cloneSelection). Scaled by us so it matches
-  // the other handles' constant on-screen size at any zoom.
-  var ccx = bx + bw / 2, ccy = by + bh + 28 * us;
-  ctx.beginPath();
-  ctx.moveTo(bx + bw / 2, by + bh);
-  ctx.lineTo(ccx, ccy - 9 * us);
-  ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 1 * us;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(ccx, ccy, 9 * us, 0, Math.PI * 2);
-  ctx.fillStyle = '#2196F3';
-  ctx.fill();
-  // two-rect copy glyph (white outline): back rect up-left, front rect down-right
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 1.3 * us;
-  var _g = 2.8 * us;
-  ctx.strokeRect(ccx - _g * 1.3, ccy - _g * 1.3, _g * 2, _g * 2);
-  ctx.strokeRect(ccx - _g * 0.2, ccy - _g * 0.2, _g * 2, _g * 2);
-  ctx.restore();
-}
+// S461: _drawGroupedSelection removed — the shared selection engine (lib/ui/markupSelection.js)
+// owns selection chrome, handle hit-testing, and clone. See SelHost below line 50.
 
 // Returns corner index (0=TL,1=TR,2=BL,3=BR) or -1
-function _hitResizeHandle(pos) {
-  var b = _getGroupBounds();
-  if (!b) return -1;
-  // S342: match the scaled paint geometry + guarantee a ~44px screen touch
-  // target. _uiScale() converts CSS px → canvas px, so a 44px screen target is
-  // 22*us radius in canvas space (clamped so it never shrinks below the visual).
-  var us = _uiScale();
-  var pad = 6 * us;
-  var bx = b.x1 - pad, by = b.y1 - pad, bw = b.x2 - b.x1 + pad * 2, bh = b.y2 - b.y1 + pad * 2;
-  var hitR = Math.max(11 * us, 22 * us);
-  var corners = [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]];
-  for (var i = 0; i < corners.length; i++) {
-    if (Math.abs(pos.x - corners[i][0]) <= hitR && Math.abs(pos.y - corners[i][1]) <= hitR) return i;
-  }
-  return -1;
-}
+// S461: _hitResizeHandle removed — the shared selection engine (lib/ui/markupSelection.js)
+// owns selection chrome, handle hit-testing, and clone. See SelHost below line 50.
 
-function _hitRotateHandle(pos) {
-  var b = _getGroupBounds();
-  if (!b) return false;
-  var us = _uiScale();
-  var pad = 6 * us;
-  var rcx = (b.x1 + b.x2) / 2, rcy = b.y1 - pad - 24 * us;
-  var dist = Math.sqrt((pos.x - rcx) * (pos.x - rcx) + (pos.y - rcy) * (pos.y - rcy));
-  return dist <= 22 * us; // ~44px screen touch target
-}
+// S461: _hitRotateHandle removed — the shared selection engine (lib/ui/markupSelection.js)
+// owns selection chrome, handle hit-testing, and clone. See SelHost below line 50.
 
-function _hitDeleteButton(pos) {
-  var b = _getGroupBounds();
-  if (!b) return false;
-  var us = _uiScale();
-  var pad = 6 * us;
-  var bw = b.x2 - b.x1 + pad * 2;
-  var bx = b.x1 - pad;
-  // Centre of the delete circle in the scaled paint geometry:
-  var dcx = bx + bw + 4 * us + 8 * us;
-  var dcy = (b.y1 - pad) - 14 * us + 8 * us;
-  var dist = Math.sqrt((pos.x - dcx) * (pos.x - dcx) + (pos.y - dcy) * (pos.y - dcy));
-  return dist <= 22 * us; // ~44px screen touch target (was fixed 12 canvas px)
-}
+// S461: _hitDeleteButton removed — the shared selection engine (lib/ui/markupSelection.js)
+// owns selection chrome, handle hit-testing, and clone. See SelHost below line 50.
 
 // S342 — copy handle hit-test (ported from markupEngine S339 _hitCopy, per
 // LOCKED_COPY_MARKUP_DESIGN). Filled circle centred BELOW the selection box
@@ -2111,16 +2134,8 @@ function _hitDeleteButton(pos) {
 // Scaled by _uiScale() so it stays a constant, finger-friendly size at any zoom
 // (matches the S342 handle-sizing fix). Tested BEFORE delete/resize/rotate/move
 // in _handleSelectDown so tapping it duplicates instead of starting a drag.
-function _hitCopyHandle(pos) {
-  var b = _getGroupBounds();
-  if (!b) return false;
-  var us = _uiScale();
-  var pad = 6 * us;
-  var ccx = (b.x1 + b.x2) / 2;
-  var ccy = b.y2 + pad + 28 * us; // below the box, mirrors rotate's stem above
-  var dist = Math.sqrt((pos.x - ccx) * (pos.x - ccx) + (pos.y - ccy) * (pos.y - ccy));
-  return dist <= 22 * us; // ~44px screen touch target
-}
+// S461: _hitCopyHandle removed — the shared selection engine (lib/ui/markupSelection.js)
+// owns selection chrome, handle hit-testing, and clone. See SelHost below line 50.
 
 // S342 — deep-clone the current selection, offset by (+28,+28) image-space px,
 // and make the clones the new active selection so the user can immediately
@@ -2128,38 +2143,8 @@ function _hitCopyHandle(pos) {
 // Coordinate fields offset PER TYPE (mk.js model): x1/y1/x2/y2 (rect/line/arrow/
 // circle/text), mx1/my1/mx2/my2 (dimension), every point in points[], and every
 // point in each eraserMask[].points[]. All arrays DEEP-copied (no aliasing).
-function _cloneSelection() {
-  if (!_selectedIds.length) return;
-  var DX = 28, DY = 28;
-  var newIds = [];
-  _selectedIds.map(function(id) { return _findObj(id); }).filter(Boolean).forEach(function(src) {
-    var c = JSON.parse(JSON.stringify(src)); // deep copy (incl. points/eraserMask arrays)
-    c.id = _newId();
-    // Offset the simple coordinate fields when present.
-    if (c.x1 != null) { c.x1 += DX; c.x2 = (c.x2 != null ? c.x2 + DX : c.x2); }
-    if (c.y1 != null) { c.y1 += DY; c.y2 = (c.y2 != null ? c.y2 + DY : c.y2); }
-    // Dimension objects carry their own measured-endpoint coords.
-    if (c.mx1 != null) { c.mx1 += DX; c.mx2 += DX; c.my1 += DY; c.my2 += DY; }
-    // Pen/highlight/eraser stroke points.
-    if (c.points && c.points.length) {
-      for (var i = 0; i < c.points.length; i++) { c.points[i].x += DX; c.points[i].y += DY; }
-    }
-    // Eraser masks (array of { points:[{x,y}...] }).
-    if (c.eraserMask && c.eraserMask.length) {
-      for (var m = 0; m < c.eraserMask.length; m++) {
-        var mp = c.eraserMask[m].points;
-        if (mp) for (var j = 0; j < mp.length; j++) { mp[j].x += DX; mp[j].y += DY; }
-      }
-    }
-    _objects.push(c);
-    newIds.push(c.id);
-  });
-  if (!newIds.length) return;
-  _selectedIds = newIds;
-  _pushHistory();
-  _renderAll();
-  _markDirty();
-}
+// S461: _cloneSelection removed — the shared selection engine (lib/ui/markupSelection.js)
+// owns selection chrome, handle hit-testing, and clone. See SelHost below line 50.
 
 function _getBounds(obj) {
   // S331g — Dimension objects use mx1/my1/mx2/my2 (+ offset), not x1/x2, so
@@ -2260,7 +2245,11 @@ var _startX = 0, _startY = 0, _endX = 0, _endY = 0;
 function _startDraw(e) {
   if (!_tool || _tool === 'select') return;
   if (_tool === 'text') { _handleTextPlace(e); return; }
-  if (_tool === 'polyline') { _handlePolylineClick(e); return; }
+  // S461k (Mark): polyline points commit on RELEASE, not press — press-drag
+  // shows the live segment, releasing confirms the point. Fixes the touch
+  // "jumping point" bug: press used to commit immediately, the drag only
+  // moved a preview, and the next press snapped the frozen preview to it.
+  if (_tool === 'polyline') { return; }
 
   // S126 #6 — Dimension tool click flow. Routes through the dimensionTool
   // state machine (handleClick). Three click roles:
@@ -2355,7 +2344,11 @@ function _startDraw(e) {
           var rb = document.getElementById('dim-recal-back');
           if (rb) { rb.classList.add('show'); return; }
         }
-        dim.recalibrateAll(_objects, result.calibration, 'measured');
+        // S461g: recalibrateAll WRITES dim fields — run it on v1 views, then
+        // re-import wholesale (ids preserved, so selection state stays valid).
+        var _recalV = _objects.map(toV1);
+        dim.recalibrateAll(_recalV, result.calibration, 'measured');
+        _objects = _recalV.map(toStroke);
         _pushHistory();
         _renderAll();
         _markDirty();
@@ -2371,7 +2364,7 @@ function _startDraw(e) {
     //     the chain is idle so we don't hijack a mid-chain click.
     var st0 = dim.getState();
     if (st0.state === 'idle') {
-      var dimHit = dim.hitTestDimension(posD, _objects);
+      var dimHit = dim.hitTestDimension(posD, _objects.map(toV1));   // S461: v1 views (id-only use)
       if (dimHit) {
         _dimVertexEditId = dimHit.id;
         _renderAll();
@@ -2382,17 +2375,32 @@ function _startDraw(e) {
     // (3.5) Pickup picker "pick a point" — awaiting a vertex tap. Snap to
     //       the nearest existing dimension vertex and seed the chain there.
     if (dim.isPickAwaiting && dim.isPickAwaiting()) {
-      var snap = dim.nearestVertex ? dim.nearestVertex(posD, _objects, 28) : null;
+      var snap = dim.nearestVertex ? dim.nearestVertex(posD, _objects.map(toV1), 28) : null;   // S461
       var seedPt = snap || posD;
-      if (dim.seedFromPoint) dim.seedFromPoint(seedPt);
+      if (dim.seedFromPoint) dim.seedFromPoint(seedPt, _objects.map(toV1));   // S461h: views let it adopt the picked dim's offset
       _renderDimensionPreview();
       _updateDimFinChip();
       return;
     }
 
-    // (4) Normal chain click. Per locked spec, an uncalibrated drawing is
-    //     NOT auto-scaled — it stays "not to scale" and the user types each
-    //     value via the keypad. Calibration is optional, never a gate.
+    // (4) Normal chain click — S461k: DEFERRED TO RELEASE (Mark: press-drag-
+    //     release for endpoint placement instead of eyeballing a blind tap).
+    //     Vertex drags, calibration, dim-hit and pick-seed stay on press.
+    _dimChainPressPending = true;
+    return;
+  }
+
+  _startDrawShapePath(e);
+}
+
+var _dimChainPressPending = false;
+function _dimChainRelease(e) {
+  var posD = _getPos(e);
+  var dim = window._dimTool;
+  if (!dim) return;
+  {
+    // Per locked spec, an uncalibrated drawing is NOT auto-scaled — it stays
+    // "not to scale" and the user types each value via the keypad.
     var drNow = _getCurrentDrawing();
 
     // If the value keypad is open from a previous dimension, starting the
@@ -2400,7 +2408,7 @@ function _startDraw(e) {
     if (_dimKpOpen()) _dimKpCommit(true);
 
     if (TiledPdf.isActive()) TiledPdf.pause();
-    var res = dim.handleClick(posD, drNow, _objects);
+    var res = dim.handleClick(posD, drNow, _objects.map(toV1));   // S461g: v1 views (chain snapping reads mx*)
     if (res.action === 'lockedA' || res.action === 'lockedB') {
       // Show / refresh the overlay preview
       _renderDimensionPreview();
@@ -2413,6 +2421,7 @@ function _startDraw(e) {
       newObj.color = _color;
       newObj.size = _lineWidth;
       newObj.opacity = _opacity;
+      newObj = toStroke(newObj);   // S461: mint as engine stroke (same ref flows to label edit below)
       _objects.push(newObj);
       _pushHistory();
       _renderAll();
@@ -2440,7 +2449,9 @@ function _startDraw(e) {
     }
     return;
   }
+}
 
+function _startDrawShapePath(e) {
   // S126 #5 — Click-to-draw for shape tools. Two-click pattern replaces
   // drag. First click locks point A and shows a zero-length preview dot;
   // second click commits the shape from A to current cursor.
@@ -2518,30 +2529,26 @@ function _moveDraw(e) {
         // Capture the OLD pixel length before we move the handle — needed to
         // back out the implied scale for a not-to-scale (uncalibrated) measured
         // dimension so dragging still re-measures proportionally (S331h).
-        var _oax = dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1;
-        var _oay = dragObj.mx1 != null ? dragObj.my1 : dragObj.y1;
-        var _obx = dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2;
-        var _oby = dragObj.mx1 != null ? dragObj.my2 : dragObj.y2;
+        var _oax = dragObj.pts[0].x;
+        var _oay = dragObj.pts[0].y;
+        var _obx = dragObj.pts[1].x;
+        var _oby = dragObj.pts[1].y;
         var _oldPx = Math.sqrt((_obx - _oax) * (_obx - _oax) + (_oby - _oay) * (_oby - _oay));
         var _oldTrueM = (window._dimTool && window._dimTool.dimTrueMeters)
-          ? window._dimTool.dimTrueMeters(dragObj) : (typeof dragObj.trueM === 'number' ? dragObj.trueM : null);
+          ? window._dimTool.dimTrueMeters(toV1(dragObj)) : (typeof dragObj.trueM === 'number' ? dragObj.trueM : null);   // S461: _dimTool speaks v1
 
         var _orthoAnchor = null;
         if (_dimVertexDragHandle === 0) {
           // dragging endpoint A — snap relative to the fixed endpoint B
-          var _anchorB = { x: (dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2),
-                           y: (dragObj.mx1 != null ? dragObj.my2 : dragObj.y2) };
+          var _anchorB = { x: dragObj.pts[1].x, y: dragObj.pts[1].y };
           var _sp0 = (dim.applyOrtho ? dim.applyOrtho(_anchorB, { x: posDM.x, y: posDM.y }) : posDM);
-          if (dragObj.mx1 != null) { dragObj.mx1 = _sp0.x; dragObj.my1 = _sp0.y; }
-          else { dragObj.x1 = _sp0.x; dragObj.y1 = _sp0.y; }
+          dragObj.pts[0] = { x: _sp0.x, y: _sp0.y };
           _orthoAnchor = _anchorB;
         } else {
           // dragging endpoint B — snap relative to the fixed endpoint A
-          var _anchorA = { x: (dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1),
-                           y: (dragObj.mx1 != null ? dragObj.my1 : dragObj.y1) };
+          var _anchorA = { x: dragObj.pts[0].x, y: dragObj.pts[0].y };
           var _sp1 = (dim.applyOrtho ? dim.applyOrtho(_anchorA, { x: posDM.x, y: posDM.y }) : posDM);
-          if (dragObj.mx1 != null) { dragObj.mx2 = _sp1.x; dragObj.my2 = _sp1.y; }
-          else { dragObj.x2 = _sp1.x; dragObj.y2 = _sp1.y; }
+          dragObj.pts[1] = { x: _sp1.x, y: _sp1.y };
           _orthoAnchor = _anchorA;
         }
 
@@ -2554,10 +2561,10 @@ function _moveDraw(e) {
                            (typeof dragObj.ovrM === 'number') ||
                            (dragObj.overrideLabel != null && dragObj.overrideLabel !== '');
         if (!_hasOverride) {
-          var aax = dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1;
-          var aay = dragObj.mx1 != null ? dragObj.my1 : dragObj.y1;
-          var bbx = dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2;
-          var bby = dragObj.mx1 != null ? dragObj.my2 : dragObj.y2;
+          var aax = dragObj.pts[0].x;
+          var aay = dragObj.pts[0].y;
+          var bbx = dragObj.pts[1].x;
+          var bby = dragObj.pts[1].y;
           var newPx = Math.sqrt((bbx - aax) * (bbx - aax) + (bby - aay) * (bby - aay));
           var drDM = _getCurrentDrawing();
           var calDM = dim.getCalibration(drDM);
@@ -2585,8 +2592,8 @@ function _moveDraw(e) {
         // sits on top; only when the snap is actually engaged.
         if (dim.isOrthoActive && dim.isOrthoActive() && _orthoAnchor) {
           var movedPt = (_dimVertexDragHandle === 0)
-            ? { x: (dragObj.mx1 != null ? dragObj.mx1 : dragObj.x1), y: (dragObj.mx1 != null ? dragObj.my1 : dragObj.y1) }
-            : { x: (dragObj.mx1 != null ? dragObj.mx2 : dragObj.x2), y: (dragObj.mx1 != null ? dragObj.my2 : dragObj.y2) };
+            ? { x: dragObj.pts[0].x, y: dragObj.pts[0].y }
+            : { x: dragObj.pts[1].x, y: dragObj.pts[1].y };
           _drawOrthoGuide(_orthoAnchor, movedPt);
         }
       }
@@ -2638,15 +2645,13 @@ function _moveDraw(e) {
 
   var ov = _getOverlay();
   if (!ov) return;
-  var ctx = ov.getContext('2d');
-  var d = ov._dpr || 1;
 
   if (_tool === 'pen' || _tool === 'highlight' || _tool === 'eraser') {
-    // S484 — points still record on EVERY event (zero fidelity loss), but the
-    // preview paints at most once per animation frame. Touch events fire at
-    // 60-120Hz+ on tablets; painting per EVENT was half the field pen lag.
-    // Full-path repaint per frame also matches the committed render (uniform
-    // alpha along the stroke) better than the old per-segment stroke did.
+    // S484 [ported S487h] — points still record on EVERY event (zero fidelity
+    // loss), but the preview paints at most once per animation frame. Touch
+    // events fire at 60-120Hz+ on tablets; painting per EVENT was half the
+    // field pen lag. Full-path repaint per frame also matches the committed
+    // render (uniform alpha along the stroke) better than per-segment did.
     _penPoints.push(pos);
     if (_penPoints.length < 2) return;
     _lastLivePos = pos;
@@ -2657,8 +2662,8 @@ function _moveDraw(e) {
   }
 }
 
-// S484 — frame-batched live preview painter (see _moveDraw). One repaint per
-// rAF, from recorded state. Never touches committed strokes.
+// S484 [ported S487h] — frame-batched live preview painter (see _moveDraw).
+// One repaint per rAF, from recorded state. Never touches committed strokes.
 var _lastLivePos = null;
 var _livePaintQueued = false;
 function _scheduleLivePaint() {
@@ -2739,8 +2744,8 @@ function _endDraw(e) {
       if (TiledPdf.isActive()) { TiledPdf.resume(); TiledPdf.scheduleRender(); }
       var _sdx=(typeof _endX==='number')?(_endX-_startX):0, _sdy=(typeof _endY==='number')?(_endY-_startY):0;
       if (Math.sqrt(_sdx*_sdx + _sdy*_sdy) >= 3) {
-        _objects.push({ id:_newId(), type:_tool, x1:_startX, y1:_startY, x2:_endX, y2:_endY,
-          color:_color, size:_lineWidth, opacity:_opacity });
+        _objects.push(toStroke({ id:_newId(), type:_tool, x1:_startX, y1:_startY, x2:_endX, y2:_endY,
+          color:_color, size:_lineWidth, opacity:_opacity }));
         _pushHistory(); _markDirty();
       }
       _clickFirstPt = null; _shapeDrag = false; _renderAll();
@@ -2775,10 +2780,10 @@ function _endDraw(e) {
     }
   } else if (type === 'pen' || type === 'highlight') {
     if (_penPoints.length > 1) {
-      _objects.push({
+      _objects.push(toStroke({
         id: _newId(), type: type, points: _penPoints.slice(),
         color: _color, size: _lineWidth, opacity: _opacity
-      });
+      }));
       _changed = true;
     }
   }
@@ -2791,11 +2796,11 @@ function _endDraw(e) {
     var _hasExtent = (typeof _endX === 'number' && typeof _endY === 'number') &&
                      (_endX !== _startX || _endY !== _startY);
     if (_hasExtent) {
-      _objects.push({
+      _objects.push(toStroke({
         id: _newId(), type: type,
         x1: _startX, y1: _startY, x2: _endX, y2: _endY,
         color: _color, size: _lineWidth, opacity: _opacity
-      });
+      }));
       _changed = true;
     }
   }
@@ -2870,7 +2875,7 @@ function _handleTextPlace(e) {
 function _dvOpenTextBox(logicalPt, editObj) {
   if (_dvTextBox) { if (_dvTextCtl) _dvTextCtl.cancel(); }
 
-  var anchor = editObj ? { x: editObj.x1, y: editObj.y1 } : { x: logicalPt.x, y: logicalPt.y };
+  var anchor = editObj ? { x: editObj.pts[0].x, y: editObj.pts[0].y } : { x: logicalPt.x, y: logicalPt.y };
   var sizePx = editObj ? (editObj.fontSize || 20) : _fontSize;           // logical font px
   var curColor = editObj ? (editObj.color || _dvLastTextColor || _color) : (_dvLastTextColor || _color);
   var curBg = editObj ? (editObj.bg || 'none') : _dvLastTextBg;
@@ -2957,17 +2962,17 @@ function _dvOpenTextBox(logicalPt, editObj) {
       if (!v.trim()) { var ix = _objects.indexOf(editObj); if (ix >= 0) _objects.splice(ix, 1); }
       else {
         editObj.text = v; editObj.fontSize = sizePx; editObj.color = curColor;
-        editObj.bold = curBold; editObj.bg = curBg; editObj.x1 = lx; editObj.y1 = ly;
+        editObj.bold = curBold; editObj.bg = curBg; editObj.pts[0] = { x: lx, y: ly };
       }
       delete editObj._editing;
       _pushHistory(); _renderAll(); _markDirty(); cleanup(); return;
     }
     if (v.trim()) {
-      _objects.push({
+      _objects.push(toStroke({
         id: _newId(), type: 'text', text: v,
         x1: lx, y1: ly, color: curColor, fontSize: sizePx,
         bold: curBold, opacity: _opacity, bg: curBg
-      });
+      }));
       _pushHistory(); _renderAll(); _markDirty();
     }
     cleanup();
@@ -3152,155 +3157,120 @@ function _dvHideTextBar() {
 
 // ── Polyline Tool ───────────────────────────────────────
 
-function _handlePolylineClick(e) {
-  var pos = _getPos(e);
-  // Click near first point → finish polyline (close loop)
-  if (_polyPoints.length >= 2) {
-    var dx = pos.x - _polyPoints[0].x, dy = pos.y - _polyPoints[0].y;
-    if (Math.sqrt(dx * dx + dy * dy) < 15) {
-      _polyPoints.push({ x: _polyPoints[0].x, y: _polyPoints[0].y }); // Close to exact first point
-      _finishPolyline();
-      return;
-    }
-  }
-  _polyPoints.push(pos);
-
-  var ov = _ensureOverlay();
-  if (ov && _polyPoints.length >= 2) {
-    ov.style.display = 'block';
-    ov.style.opacity = '1';
-    var ctx = ov.getContext('2d');
-    var d = ov._dpr || 1;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ov.width, ov.height);
-    ctx.setTransform(d, 0, 0, d, 0, 0);
-    ctx.strokeStyle = _color;
-    ctx.lineWidth = _lineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalAlpha = _opacity;
-    ctx.beginPath();
-    ctx.moveTo(_polyPoints[0].x, _polyPoints[0].y);
-    for (var i = 1; i < _polyPoints.length; i++) ctx.lineTo(_polyPoints[i].x, _polyPoints[i].y);
-    ctx.stroke();
-  }
-}
-
-function _finishPolyline() {
-  if (_polyPoints.length >= 2) {
-    _objects.push({
-      id: _newId(), type: 'polyline', points: _polyPoints.slice(),
+// ── S461q: POLYLINE runs on the SHARED module (lib/ui/markupPolyline.js).
+// The module was EXTRACTED FROM THIS CODE — the drawing viewer is the source of
+// truth — so behaviour is unchanged: 15-unit close tolerance, exact copy of
+// point 0 on close, preview from 2 points, ✓ commits as-drawn, ↩ pops one point,
+// ✕ discards. The photo lightbox drives the SAME module with its own config, so
+// there is now ONE polyline tool, not two.
+var PolyHost = (window.MarkupPolyline && window.MarkupPolyline.create({
+  getOverlay: function () { return _ensureOverlay(); },
+  hideOverlay: function () {
+    var ov = _getOverlay();
+    if (!ov) return;
+    ov.style.display = 'none';
+    var c = ov.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, ov.width, ov.height);
+  },
+  style: function () { return { color: _color, size: _lineWidth, opacity: _opacity }; },
+  commit: function (pts) {
+    // The host mints its OWN format — the module knows nothing about v1 objects.
+    _objects.push(toStroke({
+      id: _newId(), type: 'polyline', points: pts,
       color: _color, size: _lineWidth, opacity: _opacity
-    });
+    }));
     _pushHistory();
     _markDirty();
+  },
+  afterChange: function (n) {
+    var pill = document.getElementById('poly-sub-toolbar');
+    if (!pill) return;
+    if (n > 0) _dvPositionPolyPill();       // appears with point 1, follows the last
+    else pill.style.display = 'none';       // finished or cancelled
+  },
+  render: function () { _renderAll(); }
+})) || null;
+
+function _handlePolylineClick(e) { if (PolyHost) PolyHost.addPoint(_getPos(e)); }
+function _finishPolyline()      { if (PolyHost) PolyHost.finish(); }
+function _commitPolyline()      { if (PolyHost) PolyHost.finish(); }   // <2 pts → module cancels
+function _cancelPolyline()      { if (PolyHost) PolyHost.cancel(); }
+// ── S461e: polyline pill — restyled to MATCH the ✓/✗ confirm bar (same
+// family as tap-select) and ANCHORED beside the last placed point instead of
+// floating far away (Mark, frt-next field report). Styles applied once.
+function _dvStylePolyPill(pill) {
+  if (pill._dvStyled) return; pill._dvStyled = true;
+  pill.style.cssText += ';' + _DV_PILL_BOX;
+  var ok = document.getElementById('poly-commit-btn');
+  if (ok) { ok.innerHTML = '\u2713'; ok.style.cssText = _DV_PILL_FINISH; }   // S461k: circle only
+  // S461j: ↩ RESTORED (Mark: "I didn't say to remove ↩ from polyline" — only
+  // the NEW pills [dim finish, selection confirm] are Finish + ✕).
+  var un = document.getElementById('poly-undo-pt-btn');
+  if (un) un.style.cssText = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;';
+  var no = document.getElementById('poly-cancel-btn');
+  if (no) no.style.cssText = _DV_PILL_X;
+}
+// S461j — ONE pill design (Mark: "match polyline pill design exactly").
+// Every in-progress pill [polyline / dim finish / selection confirm] clones
+// these metrics; only the button set differs (polyline keeps ↩).
+var _DV_PILL_BOX    = 'position:fixed;z-index:10021;display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+var _DV_PILL_FINISH = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';   // S479 (Mark, B): TRUE circle — was a lozenge (padding+radius:18), the one off-family shape in the pill set
+var _DV_PILL_X      = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+// S461k (Mark): ONE placement rule for every pill. Touch devices → FIXED
+// bottom-center (never jumps, never leaves the screen). Fine pointers (PC)
+// → follow near the anchor point, hard-clamped inside the viewport.
+function _dvPlacePill(pill, anchorLogical) {
+  var coarse = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+  pill.style.display = 'flex';
+  if (coarse || !anchorLogical) {
+    pill.style.left = '50%'; pill.style.transform = 'translateX(-50%)';
+    pill.style.top = 'auto'; pill.style.bottom = '84px'; pill.style.right = 'auto';
+    return;
   }
-  _polyPoints = [];
-  var ov = _getOverlay();
-  if (ov) {
-    ov.style.display = 'none';
-    var c = ov.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, ov.width, ov.height);
-  }
-  _renderAll();
+  var mc = _getCanvas(); if (!mc) return;
+  var r = mc.getBoundingClientRect();
+  var lw = mc._logicalW || mc.width, lh = mc._logicalH || mc.height;
+  var px2 = r.left + (anchorLogical.x / lw) * r.width;
+  var py2 = r.top + (anchorLogical.y / lh) * r.height;
+  var pw = pill.offsetWidth || 170, ph = pill.offsetHeight || 50;
+  var sx = px2 + 56;
+  if (sx + pw > window.innerWidth - 8) sx = px2 - pw - 56;
+  var sy = py2 + 56;
+  sx = Math.max(8, Math.min(window.innerWidth - pw - 8, sx));
+  sy = Math.max(8, Math.min(window.innerHeight - ph - 8, sy));
+  pill.style.transform = ''; pill.style.bottom = 'auto'; pill.style.right = 'auto';
+  pill.style.left = sx + 'px'; pill.style.top = sy + 'px';
+}
+function _dvPositionPolyPill() {
+  var pill = document.getElementById('poly-sub-toolbar');
+  var last = PolyHost && PolyHost.lastPoint();
+  if (!pill || !last) return;
+  _dvStylePolyPill(pill);
+  _dvPlacePill(pill, last);
 }
 
-// ── S407: polyline sub-toolbar actions ──────────────────────────────
-// ✓ Finish commits the polyline AS DRAWN (open) — tapping near the first
-// point still closes the loop as before; the two finishes coexist.
-function _commitPolyline() {
-  if (_polyPoints.length >= 2) { _finishPolyline(); }
-  else { _cancelPolyline(); }
-}
-// ✕ Cancel discards all in-progress points (nothing committed to _objects).
-function _cancelPolyline() {
-  _polyPoints = [];
-  var ov = _getOverlay();
-  if (ov) {
-    ov.style.display = 'none';
-    var c = ov.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, ov.width, ov.height);
-  }
-  _renderAll();
-}
 // ↩ Undo removes only the LAST placed point and repaints the preview —
 // fixes a misclick without redrawing the whole polyline.
-function _undoPolyPoint() {
-  if (!_polyPoints.length) return;
-  _polyPoints.pop();
-  _redrawPolyOverlay();
-}
-// Repaint the placed-segments preview from _polyPoints (same drawing
-// contract as _handlePolylineClick: lineTo only, round caps/joins).
-function _redrawPolyOverlay() {
-  var ov = _ensureOverlay();
-  if (!ov) return;
-  var ctx = ov.getContext('2d');
-  var d = ov._dpr || 1;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, ov.width, ov.height);
-  if (_polyPoints.length < 2) { if (!_polyPoints.length) ov.style.display = 'none'; return; }
-  ov.style.display = 'block';
-  ov.style.opacity = '1';
-  ctx.setTransform(d, 0, 0, d, 0, 0);
-  ctx.strokeStyle = _color;
-  ctx.lineWidth = _lineWidth;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = _opacity;
-  ctx.beginPath();
-  ctx.moveTo(_polyPoints[0].x, _polyPoints[0].y);
-  for (var i = 1; i < _polyPoints.length; i++) ctx.lineTo(_polyPoints[i].x, _polyPoints[i].y);
-  ctx.stroke();
-}
+function _undoPolyPoint() { if (PolyHost) PolyHost.undoPoint(); }
+// S461q: _redrawPolyOverlay retired — the shared module repaints the preview.
+function _redrawPolyOverlay() { if (PolyHost) PolyHost.redraw(); }
 
 function _drawPolylinePreview(e) {
-  var pos = _getPos(e);
-  var ov = _ensureOverlay();
-  if (!ov) return;
-  ov.style.display = 'block';
-  ov.style.opacity = '1';
-  var ctx = ov.getContext('2d');
-  var d = ov._dpr || 1;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, ov.width, ov.height);
-  ctx.setTransform(d, 0, 0, d, 0, 0);
-  ctx.strokeStyle = _color;
-  ctx.lineWidth = _lineWidth;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = _opacity;
-  // Draw placed segments
-  ctx.beginPath();
-  ctx.moveTo(_polyPoints[0].x, _polyPoints[0].y);
-  for (var i = 1; i < _polyPoints.length; i++) ctx.lineTo(_polyPoints[i].x, _polyPoints[i].y);
-  // Rubber-band to cursor
-  ctx.lineTo(pos.x, pos.y);
-  ctx.stroke();
-  // Close indicator: circle on first point when cursor is near
-  if (_polyPoints.length >= 2) {
-    var dx = pos.x - _polyPoints[0].x, dy = pos.y - _polyPoints[0].y;
-    if (Math.sqrt(dx * dx + dy * dy) < 15) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(_polyPoints[0].x, _polyPoints[0].y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = _color;
-      ctx.globalAlpha = 0.3;
-      ctx.fill();
-      ctx.restore();
-    }
-  }
+  // S461q: the shared module draws the preview — placed segments + the
+  // rubber-band leg to the cursor + the close indicator on point 0.
+  if (PolyHost) PolyHost.preview(_getPos(e));
 }
 
 // ── Select Tool ─────────────────────────────────────────
 
-var _dragState = null;
+// S461: _dragState removed — drag state lives on SelHost (engine-owned).
 
 function _hitTestObjects(pos) {
+  // S461: kept for the text tap/double-tap-to-edit paths (selection hit-testing
+  // itself lives in the shared engine now). _getBounds speaks v1 — hand it views.
   for (var i = _objects.length - 1; i >= 0; i--) {
-    var b = _getBounds(_objects[i]);
+    var b = _getBounds(toV1(_objects[i]));
     if (b && pos.x >= b.x1 - 6 && pos.x <= b.x2 + 6 && pos.y >= b.y1 - 6 && pos.y <= b.y2 + 6) {
       return _objects[i];
     }
@@ -3309,109 +3279,12 @@ function _hitTestObjects(pos) {
 }
 
 function _handleSelectDown(e) {
-  if (_tool !== 'select') return;
-  // S399: if a text edit box is open, any canvas interaction commits it first
-  // (matches tap-elsewhere-commits) rather than starting a selection/drag on the
-  // object being edited — that was the path that let the edited copy be dragged.
-  if (_dvTextBox) { if (_dvTextCtl) _dvTextCtl.commit(); return; }
+  // S461: selection is the SHARED engine. Multi = the S113 Ctrl/Cmd toggle,
+  // routed as the engine's multi flag (identical semantics: toggle membership,
+  // no drag starts on a modifier click). Copy/delete/resize/rotate handles,
+  // group move, and rubber-band all live in the engine now.
   var pos = _getPos(e);
-
-  // S342 — copy handle FIRST (before delete/resize/rotate/move) so tapping it
-  // duplicates the selection rather than starting a drag. Ported from the photo
-  // markup engine (markupEngine S339) per LOCKED_COPY_MARKUP_DESIGN.
-  if (_selectedIds.length && _hitCopyHandle(pos)) {
-    _cloneSelection();
-    return;
-  }
-
-  // Check if clicking the grouped delete button
-  if (_selectedIds.length && _hitDeleteButton(pos)) {
-    _tombstone(_selectedIds);  // S129 1.1
-    _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
-    _selectedIds = [];
-    _pushHistory();
-    _renderAll();
-    _markDirty();
-    return;
-  }
-
-  // Check if clicking a resize corner handle
-  if (_selectedIds.length) {
-    var corner = _hitResizeHandle(pos);
-    if (corner >= 0) {
-      var gb = _getGroupBounds();
-      if (gb) {
-        // Anchor is the opposite corner
-        var anchors = [[gb.x2, gb.y2], [gb.x1, gb.y2], [gb.x2, gb.y1], [gb.x1, gb.y1]];
-        _dragState = {
-          type: 'resize', corner: corner,
-          anchorX: anchors[corner][0], anchorY: anchors[corner][1],
-          origBounds: { x1: gb.x1, y1: gb.y1, x2: gb.x2, y2: gb.y2 },
-          startX: pos.x, startY: pos.y,
-          origObjects: JSON.parse(JSON.stringify(_selectedIds.map(function(id) { return _findObj(id); }).filter(Boolean)))
-        };
-        return;
-      }
-    }
-
-    // Check if clicking rotation handle
-    if (_hitRotateHandle(pos)) {
-      var gb2 = _getGroupBounds();
-      if (gb2) {
-        var cx = (gb2.x1 + gb2.x2) / 2;
-        var cy = (gb2.y1 + gb2.y2) / 2;
-        _dragState = {
-          type: 'rotate',
-          centerX: cx, centerY: cy,
-          startAngle: Math.atan2(pos.y - cy, pos.x - cx),
-          origObjects: JSON.parse(JSON.stringify(_selectedIds.map(function(id) { return _findObj(id); }).filter(Boolean)))
-        };
-        return;
-      }
-    }
-  }
-
-  var hit = _hitTestObjects(pos);
-  if (hit) {
-    // S113: Ctrl/Cmd+click toggles membership in the multi-selection.
-    // Desktop convention — Ctrl on Windows/Linux, Cmd on macOS. No drag
-    // is started on toggle; the user picks all the objects they want
-    // first, then drags any one of them (without modifier) to move the
-    // group.
-    var multiKey = !!(e && (e.ctrlKey || e.metaKey));
-    if (multiKey) {
-      var existingIdx = _selectedIds.indexOf(hit.id);
-      if (existingIdx !== -1) {
-        // Already in selection — remove it
-        _selectedIds.splice(existingIdx, 1);
-      } else {
-        // Add to selection
-        _selectedIds.push(hit.id);
-      }
-      _dragState = null;
-      _syncTextDecoButtons();
-      _renderAll();
-      return;
-    }
-    // Clicked an object — select it for move (including text)
-    if (_selectedIds.indexOf(hit.id) !== -1) {
-      // Already selected — start dragging the group
-      _dragState = { type: 'move', startX: pos.x, startY: pos.y, moved: false };
-    } else {
-      // New selection (replace, not add)
-      _selectedIds = [hit.id];
-      _dragState = { type: 'move', startX: pos.x, startY: pos.y, moved: false };
-    }
-    _syncTextDecoButtons();
-    _renderAll();
-  } else {
-    // Clicked empty space — start rubber-band
-    _selectedIds = [];
-    _rubberBand = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
-    _dragState = { type: 'rubberband' };
-    _syncTextDecoButtons();
-    _renderAll();
-  }
+  SelHost._selDown(pos, !!(e && (e.ctrlKey || e.metaKey)));
 }
 
 function _editTextObject(obj, e) {
@@ -3427,8 +3300,11 @@ function _editTextObject(obj, e) {
   var lw = mc._logicalW || mc.width;
   var lh = mc._logicalH || mc.height;
   var zoomE = r.width / lw;                         // CSS px per logical unit
-  var screenX = r.left + (obj.x1 / lw) * r.width;
-  var screenY = r.top + ((obj.y1 - (obj.fontSize || 20)) / lh) * r.height;
+  // S461: pts model. NOTE — this function appears to have no callers post-S390
+  // (the dv-text-box chip engine owns text editing); converted anyway so no
+  // stale v1 reads survive in the file.
+  var screenX = r.left + (obj.pts[0].x / lw) * r.width;
+  var screenY = r.top + ((obj.pts[0].y - (obj.fontSize || 20)) / lh) * r.height;
 
   _color = obj.color || _color;
   _fontSize = obj.fontSize || 20;
@@ -3462,7 +3338,7 @@ function _editTextObject(obj, e) {
   function _growE(){ _measE.textContent = input.value || ''; input.style.width = (_measE.offsetWidth + 4) + 'px'; }
   _growE();
 
-  input._mkX = obj.x1;
+  input._mkX = obj.pts[0].x;
   input._mkY = obj.y1;
   input._editObjId = obj.id;
 
@@ -3503,171 +3379,14 @@ function _editTextObject(obj, e) {
 }
 
 function _handleSelectMove(e) {
-  if (!_dragState) return;
-  var pos = _getPos(e);
-
-  if (_dragState.type === 'rubberband') {
-    _rubberBand.x2 = pos.x;
-    _rubberBand.y2 = pos.y;
-    _renderAll();
-    return;
-  }
-
-  if (_dragState.type === 'move') {
-    var dx = pos.x - _dragState.startX;
-    var dy = pos.y - _dragState.startY;
-    if (Math.abs(dx) < 2 && Math.abs(dy) < 2 && !_dragState.moved) return;
-    _dragState.moved = true;
-
-    // Move all selected objects
-    _selectedIds.forEach(function(id) {
-      var obj = _findObj(id);
-      if (!obj) return;
-      if (obj.points) {
-        obj.points.forEach(function(p) { p.x += dx; p.y += dy; });
-      }
-      if (obj.x1 != null) { obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy; }
-      // S331g — dimensions store mx1/my1/mx2/my2; translate those too so a
-      // selected dimension moves with the group (offset is relative, unchanged).
-      if (obj.type === 'dimension' && obj.mx1 != null) {
-        obj.mx1 += dx; obj.my1 += dy; obj.mx2 += dx; obj.my2 += dy;
-      }
-      // Eraser masks travel with the object (holes stay in the same spot on the shape)
-      if (obj.eraserMask && obj.eraserMask.length) {
-        obj.eraserMask.forEach(function(m) {
-          m.points.forEach(function(p) { p.x += dx; p.y += dy; });
-        });
-      }
-    });
-
-    _dragState.startX = pos.x;
-    _dragState.startY = pos.y;
-    _renderAll();
-  }
-
-  if (_dragState.type === 'resize') {
-    var ob = _dragState.origBounds;
-    var ax = _dragState.anchorX, ay = _dragState.anchorY;
-    var ow = ob.x2 - ob.x1, oh = ob.y2 - ob.y1;
-    if (ow < 1 || oh < 1) return;
-    var sx = Math.abs(pos.x - ax) / ow;
-    var sy = Math.abs(pos.y - ay) / oh;
-    var s = Math.max(0.1, (sx + sy) / 2);
-    _dragState.origObjects.forEach(function(orig) {
-      var obj = _findObj(orig.id);
-      if (!obj) return;
-      if (orig.points) {
-        obj.points = orig.points.map(function(p) {
-          return { x: ax + (p.x - ax) * s, y: ay + (p.y - ay) * s };
-        });
-      }
-      if (orig.x1 != null) {
-        obj.x1 = ax + (orig.x1 - ax) * s;
-        obj.y1 = ay + (orig.y1 - ay) * s;
-        if (orig.x2 != null) {
-          obj.x2 = ax + (orig.x2 - ax) * s;
-          obj.y2 = ay + (orig.y2 - ay) * s;
-        }
-      }
-      if (orig.size) obj.size = Math.max(1, Math.round(orig.size * s));
-      if (orig.fontSize) obj.fontSize = Math.max(8, Math.round(orig.fontSize * s));
-      // Scale eraser masks along with the object
-      if (orig.eraserMask && orig.eraserMask.length) {
-        obj.eraserMask = orig.eraserMask.map(function(m) {
-          return {
-            points: m.points.map(function(p) {
-              return { x: ax + (p.x - ax) * s, y: ay + (p.y - ay) * s };
-            }),
-            size: Math.max(1, m.size * s)
-          };
-        });
-      }
-    });
-    _renderAll();
-  }
-
-  if (_dragState.type === 'rotate') {
-    var cx = _dragState.centerX, cy = _dragState.centerY;
-    var curAngle = Math.atan2(pos.y - cy, pos.x - cx);
-    var dAngle = curAngle - _dragState.startAngle;
-    var cosA = Math.cos(dAngle), sinA = Math.sin(dAngle);
-    _dragState.origObjects.forEach(function(orig) {
-      var obj = _findObj(orig.id);
-      if (!obj) return;
-      function rot(px, py) { return { x: cx + (px - cx) * cosA - (py - cy) * sinA, y: cy + (px - cx) * sinA + (py - cy) * cosA }; }
-      if (orig.points) {
-        // Point-based objects: rotate actual coordinates (pen, highlight, polyline, eraser)
-        obj.points = orig.points.map(function(p) { return rot(p.x, p.y); });
-      } else if (orig.type === 'text') {
-        // Text: visual center is (x1 + estW/2, y1 - fs/2). Rotate that
-        // point around the group pivot to get the new visual center,
-        // derive the new anchor from it, accumulate obj.rotation. Do NOT
-        // write x2/y2 — text doesn't carry them, and the previous shape
-        // branch was corrupting text data by treating undefined x2/y2 as 0.
-        var fs_r = orig.fontSize || 20;
-        var estW_r = (orig.text || '').length * fs_r * 0.55;
-        var origCxT = orig.x1 + estW_r / 2;
-        var origCyT = orig.y1 - fs_r / 2;
-        var newCT = rot(origCxT, origCyT);
-        obj.x1 = newCT.x - estW_r / 2;
-        obj.y1 = newCT.y + fs_r / 2;
-        obj.rotation = (orig.rotation || 0) + dAngle;
-      } else if (orig.x1 != null) {
-        // Shape objects: store rotation angle, keep coordinates unchanged
-        // Rotate center position around the group center
-        var origCx = ((orig.x1 || 0) + (orig.x2 || 0)) / 2;
-        var origCy = ((orig.y1 || 0) + (orig.y2 || 0)) / 2;
-        var newC = rot(origCx, origCy);
-        var hw = Math.abs((orig.x2 || 0) - (orig.x1 || 0)) / 2;
-        var hh = Math.abs((orig.y2 || 0) - (orig.y1 || 0)) / 2;
-        obj.x1 = newC.x - hw; obj.y1 = newC.y - hh;
-        obj.x2 = newC.x + hw; obj.y2 = newC.y + hh;
-        obj.rotation = (orig.rotation || 0) + dAngle;
-      }
-      // Rotate eraser masks around the same pivot (holes follow the object's spin)
-      if (orig.eraserMask && orig.eraserMask.length) {
-        obj.eraserMask = orig.eraserMask.map(function(m) {
-          return { points: m.points.map(function(p) { return rot(p.x, p.y); }), size: m.size };
-        });
-      }
-    });
-    _renderAll();
-  }
+  SelHost._selMove(_getPos(e));
 }
 
 function _handleSelectUp() {
-  if (!_dragState) return;
-
-  if (_dragState.type === 'rubberband' && _rubberBand) {
-    var rx1 = Math.min(_rubberBand.x1, _rubberBand.x2);
-    var ry1 = Math.min(_rubberBand.y1, _rubberBand.y2);
-    var rx2 = Math.max(_rubberBand.x1, _rubberBand.x2);
-    var ry2 = Math.max(_rubberBand.y1, _rubberBand.y2);
-    if (Math.abs(rx2 - rx1) > 4 || Math.abs(ry2 - ry1) > 4) {
-      var hits = [];
-      _objects.forEach(function(obj) {
-        var b = _getBounds(obj);
-        if (!b) return;
-        if (b.x2 >= rx1 && b.x1 <= rx2 && b.y2 >= ry1 && b.y1 <= ry2) {
-          hits.push(obj.id);
-        }
-      });
-      _selectedIds = hits;
-    }
-    _rubberBand = null;
-    _syncTextDecoButtons();
-    _renderAll();
-  }
-
-  if (_dragState.type === 'move' && _dragState.moved) {
-    _pushHistory();
-    _markDirty();
-  }
-  if (_dragState.type === 'resize' || _dragState.type === 'rotate') {
-    _pushHistory();
-    _markDirty();
-  }
-  _dragState = null;
+  // Engine finishes the drag: rubber-band select (aabb-hook intersect),
+  // op-log on moved commits (logOp → _pushHistory + _markDirty), render,
+  // onSelChange → _syncTextDecoButtons. Full parity with the old handler.
+  SelHost._selUp();
 }
 
 // ── Eraser Visual Cursor ────────────────────────────────
@@ -3768,7 +3487,8 @@ function _saveMarkup() {
   // different R2 folder than the rest of the project's assets.
   var projectId = (new URLSearchParams(window.location.search).get('project')) || proj.id;
   var drawingId = _drawingId;
-  var snapshot = JSON.parse(JSON.stringify(_objects));
+  // S461: persisted format stays v1 byte-for-byte — strokes → v1 at the boundary.
+  var snapshot = JSON.parse(JSON.stringify(_objects.map(toV1)));
   // S129 Item 1.1 — snapshot tombstones alongside objects for atomic upload.
   var tombSnapshot = _tombstones.slice();
 
@@ -3846,7 +3566,7 @@ function _loadMarkup(drawingId) {
   _tombstones = [];  // S129 1.1
   _undoStack = [];
   _redoStack = [];
-  _selectedIds = [];
+  SelHost.deselect();   // S461
 
   // S130 — Resolution chain. ORDERING FIX:
   //   1. IDB markupObjects store  ← LOCAL SOURCE OF TRUTH, checked FIRST
@@ -3908,7 +3628,7 @@ function _loadMarkupFromR2(drawingId, drawing, projectId) {
         return;
       }
       if (blob && blob.objects && (blob.objects.length || blob.deletedIds.length)) {
-        _objects = blob.objects;
+        _objects = (Array.isArray(blob.objects) ? blob.objects : []).map(toStroke);   // S461: v1 → engine strokes
         // S133 — backward-compat normalize (R2 may hold legacy string entries).
         _tombstones = _normalizeTombstones(blob.deletedIds);
         console.log('[Markup] Loaded ' + _objects.length + ' objects + ' +
@@ -3973,7 +3693,7 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
       (rec.objects && rec.objects.length) ||
       (Array.isArray(rec.deletedIds) && rec.deletedIds.length)
     )) {
-      _objects = Array.isArray(rec.objects) ? rec.objects : [];
+      _objects = (Array.isArray(rec.objects) ? rec.objects : []).map(toStroke);   // S461: v1 → engine strokes
       // S129 1.1 — restore tombstones from IDB record (defensive on shape).
       // S133 — normalize legacy string entries to {id, t} for the new format.
       _tombstones = _normalizeTombstones(rec.deletedIds);
@@ -3984,7 +3704,7 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
     }
     // Path 3 — legacy field on the drawing
     if (drawing && drawing.markupObjects && drawing.markupObjects.length) {
-      _objects = JSON.parse(JSON.stringify(drawing.markupObjects));
+      _objects = JSON.parse(JSON.stringify(drawing.markupObjects)).map(toStroke);   // S461: v1 → engine strokes
       // No tombstones in legacy format — leave _tombstones = [] from _loadMarkup.
       console.log('[Markup] Loaded ' + _objects.length + ' legacy objects — migrating to R2');
       _renderWhenReady();
@@ -3992,7 +3712,7 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
       // empty tombstones (legacy never had any).
       if (projectId && !_markupUploadInflight) {
         _markupUploadInflight = true;
-        R2.uploadMarkup(projectId, drawingId, _objects, []).then(function(result) {
+        R2.uploadMarkup(projectId, drawingId, _objects.map(toV1), []).then(function(result) {   // S461: v1 view
           _markupUploadInflight = false;
           if (result) {
             var live = Model.getProject();
@@ -4068,8 +3788,8 @@ function _updateSizeLabels() {
 function _setOpacityPct(pct) {
   pct = Math.max(10, Math.min(100, Math.round(pct)));
   var frac = pct / 100;
-  if (_selectedIds.length) {
-    _selectedIds.forEach(function(id) {
+  if (SelHost.selIds.length) {
+    SelHost.selIds.forEach(function(id) {
       var obj = _findObj(id);
       if (obj) obj.opacity = frac;
     });
@@ -4106,10 +3826,10 @@ function _syncTextDecoButtons() {
     visible = true;
     bOn = !!_textBorderDefault;
     hOn = !!_textHatchDefault;
-  } else if (_tool === 'select' && _selectedIds.length) {
+  } else if (_tool === 'select' && SelHost.selIds.length) {
     var textObjs = [];
-    for (var i = 0; i < _selectedIds.length; i++) {
-      var o = _findObj(_selectedIds[i]);
+    for (var i = 0; i < SelHost.selIds.length; i++) {
+      var o = _findObj(SelHost.selIds[i]);
       if (o && o.type === 'text') textObjs.push(o);
     }
     if (textObjs.length) {
@@ -4132,13 +3852,12 @@ function _setActiveTool(tool) {
   if (_dvTextBox && _dvTextCtl && _dvTextCtl.isActive()) {
     _dvTextCtl.commit();
   }
-  if (_tool === 'polyline' && _polyPoints.length >= 2 && tool !== 'polyline') {
+  if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 2 && tool !== 'polyline') {
     _finishPolyline();
   }
 
   _tool = tool;
-  _selectedIds = [];
-  _rubberBand = null;
+  SelHost.deselect();   // S461
   _isDrawing = false;
   // S126 #5 — Switching tools cancels any in-progress click-to-draw shape
   _cancelClickToDraw();
@@ -4154,8 +3873,17 @@ function _setActiveTool(tool) {
   // Leaving the polyline tool discards any in-progress (uncommitted) points —
   // same contract as _resetDimensionFlow above.
   var polySub = document.getElementById('poly-sub-toolbar');
-  if (polySub) polySub.style.display = (tool === 'polyline') ? 'flex' : 'none';
-  if (tool !== 'polyline' && _polyPoints.length) _cancelPolyline();
+  // S461h (Mark): the pill shows ONLY while a polyline is actually in
+  // progress — it appears on the first placed point (_dvPositionPolyPill)
+  // and hides on Finish / Cancel / tool switch. Never idles on screen.
+  if (polySub) polySub.style.display = 'none';
+  if (tool === 'polyline' && polySub) _dvStylePolyPill(polySub);
+  // S461e: leaving Select hides its chrome
+  if (tool !== 'select') {
+    if (_dvSelBar) _dvSelBar.style.display = 'none';
+    if (_dvSelFly) _dvSelFly.classList.remove('open');   // S461n: submenu uses the .open class
+  }
+  if (tool !== 'polyline' && PolyHost && PolyHost.isActive()) _cancelPolyline();
 
   // Update sidebar button states
   var sidebar = document.getElementById('dv-sidebar-tools');
@@ -4288,6 +4016,9 @@ function _wireEvents() {
       if (shMain) shMain.innerHTML = btn.innerHTML + '<span class="tool-group-arrow">\u25B8</span>';
       shapesSub.classList.remove('open');
     }
+    // F4 (S487): select-submenu is a sibling too — close it on any sub-tool pick.
+    var selSubT = document.getElementById('select-submenu');
+    if (selSubT) selSubT.classList.remove('open');
     if (tool === _tool) _setActiveTool(null); else _setActiveTool(tool);
   }
   // S82: Module-level flag — touchend on sub-tool btn sets this to true;
@@ -4361,6 +4092,27 @@ function _wireEvents() {
     var btn = e.target.closest && e.target.closest('#dv-sidebar-tools .tool-btn[data-mk-tool]');
     if (btn) {
       var tool = btn.getAttribute('data-mk-tool');
+      // S461g (Mark): a SINGLE tap on Select both arms the tool AND opens the
+      // sub-tool flyout (Rubber-band / Tap select) — no double-tap needed.
+      if (tool === 'select') {
+        // S461h: _setTool never existed — the dispatcher's real function is
+        // _setActiveTool. The bad name threw a ReferenceError on every Select
+        // click and killed the whole handler ("nothing happens"). One tap now
+        // arms select AND opens the Rubber-band / Tap-select flyout.
+        // S487d (Mark): clicking Select while ALREADY armed now DISARMS it —
+        // single click arms, single click again disarms, same as every other
+        // sidebar tool. (_setActiveTool(null) also closes the flyout + chrome.)
+        if (_tool === 'select') {
+          _setActiveTool(null);
+          if (btn && btn.blur) btn.blur();   // S487e: drop the pale focus tint
+          e.stopPropagation();
+          return;
+        }
+        _setActiveTool('select');
+        _dvToggleSelFly();
+        e.stopPropagation();
+        return;
+      }
       // If from pen submenu, update main button icon, remember, close menu
       var penSub = document.getElementById('pen-submenu');
       if (penSub && penSub.contains(btn)) {
@@ -4399,6 +4151,9 @@ function _wireEvents() {
         // Close shapes submenu if open
         var ss = document.getElementById('shapes-submenu');
         if (ss) ss.classList.remove('open');
+        // F4 (S487): close the select flyout too — full sibling set.
+        var selA = document.getElementById('select-submenu');
+        if (selA) selA.classList.remove('open');
         var isOpen = penSm.classList.contains('open');
         penSm.classList.toggle('open');
         if (!isOpen) _positionSubmenu(penSm, penGroupBtn);
@@ -4415,6 +4170,9 @@ function _wireEvents() {
         // Close pen submenu if open
         var ps = document.getElementById('pen-submenu');
         if (ps) ps.classList.remove('open');
+        // F4 (S487): close the select flyout too — full sibling set.
+        var selB = document.getElementById('select-submenu');
+        if (selB) selB.classList.remove('open');
         var isOpen = sm.classList.contains('open');
         sm.classList.toggle('open');
         if (!isOpen) _positionSubmenu(sm, shapesGroupBtn);
@@ -4522,8 +4280,8 @@ function _wireEvents() {
     var colorDot = e.target.closest && e.target.closest('[data-mk-color]');
     if (colorDot) {
       _color = colorDot.getAttribute('data-mk-color');
-      if (_selectedIds.length) {
-        _selectedIds.forEach(function(id) {
+      if (SelHost.selIds.length) {
+        SelHost.selIds.forEach(function(id) {
           var obj = _findObj(id);
           if (obj) obj.color = _color;
         });
@@ -4608,9 +4366,9 @@ function _wireEvents() {
       }
       if (action === 'size-up' || action === 'size-down') {
         var sizeDir = action === 'size-up' ? 1 : -1;
-        if (_selectedIds.length) {
+        if (SelHost.selIds.length) {
           // Modify selected objects' size/fontSize
-          _selectedIds.forEach(function(id) {
+          SelHost.selIds.forEach(function(id) {
             var obj = _findObj(id);
             if (!obj) return;
             if (obj.type === 'text') {
@@ -4629,8 +4387,8 @@ function _wireEvents() {
       }
       else if (action === 'opacity-up' || action === 'opacity-down') {
         var opDir = action === 'opacity-up' ? 0.1 : -0.1;
-        if (_selectedIds.length) {
-          _selectedIds.forEach(function(id) {
+        if (SelHost.selIds.length) {
+          SelHost.selIds.forEach(function(id) {
             var obj = _findObj(id);
             if (!obj) return;
             obj.opacity = Math.max(0.1, Math.min(1, (obj.opacity != null ? obj.opacity : 1) + opDir));
@@ -4644,13 +4402,10 @@ function _wireEvents() {
       else if (action === 'undo') { _undo(); return; }
       else if (action === 'redo') { _redo(); return; }
       else if (action === 'delete') {
-        if (_selectedIds.length) {
-          _tombstone(_selectedIds);  // S129 1.1
-          _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
-          _selectedIds = [];
-          _pushHistory();
-          _renderAll();
-          _markDirty();
+        if (SelHost.hasSel()) {
+          // S461: engine delete — the wrapper tombstones first (S129), then the
+          // engine splices + op-logs (logOp → _pushHistory/_markDirty) + renders.
+          SelHost.deleteSelected();
         }
         return;
       }
@@ -4665,10 +4420,10 @@ function _wireEvents() {
         if (_tool === 'text') {
           if (field === 'border') _textBorderDefault = !_textBorderDefault;
           else _textHatchDefault = !_textHatchDefault;
-        } else if (_tool === 'select' && _selectedIds.length) {
+        } else if (_tool === 'select' && SelHost.selIds.length) {
           var textTargets = [];
-          for (var ti = 0; ti < _selectedIds.length; ti++) {
-            var to = _findObj(_selectedIds[ti]);
+          for (var ti = 0; ti < SelHost.selIds.length; ti++) {
+            var to = _findObj(SelHost.selIds[ti]);
             if (to && to.type === 'text') textTargets.push(to);
           }
           if (textTargets.length) {
@@ -4743,6 +4498,10 @@ function _wireEvents() {
       if (sm2) sm2.classList.remove('open');
       var cm2 = document.getElementById('color-submenu');
       if (cm2) cm2.classList.remove('open');
+      // F4 (S487): the select flyout is a .tool-submenu like the others —
+      // clicks inside it are already exempt via the closest() guard above.
+      var sel2 = document.getElementById('select-submenu');
+      if (sel2) sel2.classList.remove('open');
     }
     if (!e.target.closest || !e.target.closest('#dv-more-btn')) {
       var mm2 = document.getElementById('dv-more-menu');
@@ -4754,8 +4513,8 @@ function _wireEvents() {
   document.addEventListener('input', function(e) {
     if (e.target.id === 'mk-custom-color') {
       _color = e.target.value;
-      if (_selectedIds.length) {
-        _selectedIds.forEach(function(id) {
+      if (SelHost.selIds.length) {
+        SelHost.selIds.forEach(function(id) {
           var obj = _findObj(id);
           if (obj) obj.color = _color;
         });
@@ -4795,7 +4554,7 @@ function _wireEvents() {
     _updateEraserCursor(e);
     if (_tool === 'select') { _handleSelectMove(e); return; }
     // Polyline rubber-band preview
-    if (_tool === 'polyline' && _polyPoints.length >= 1 && !_isDrawing) {
+    if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 1 && !_isDrawing) {
       _drawPolylinePreview(e);
       return;
     }
@@ -4803,10 +4562,16 @@ function _wireEvents() {
   });
   mc.addEventListener('mouseup', function(e) {
     if (_tool === 'select') { _handleSelectUp(); return; }
+    // S461k: release-commit for polyline points + dimension chain clicks
+    if (_tool === 'polyline' && !_isDrawing) { _handlePolylineClick(e); return; }
+    if (_tool === 'dimension' && _dimChainPressPending && !_isDrawing) {
+      _dimChainPressPending = false; _dimChainRelease(e); return;
+    }
     _endDraw(e);
   });
   mc.addEventListener('mouseleave', function() {
     if (_eraserCursor) _eraserCursor.style.display = 'none';
+    _dimChainPressPending = false;   // S461k: never commit a chain click off-canvas
     if (_isDrawing && _tool !== 'select') _endDraw({});
   });
 
@@ -4838,7 +4603,7 @@ function _wireEvents() {
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'select') { _handleSelectMove(e); return; }
-    if (_tool === 'polyline' && _polyPoints.length >= 1 && !_isDrawing) {
+    if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 1 && !_isDrawing) {
       _drawPolylinePreview(e);
       return;
     }
@@ -4848,12 +4613,17 @@ function _wireEvents() {
   mc.addEventListener('touchend', function(e) {
     if (!_tool || _tool === 'pin') return;
     if (_tool === 'select') { _handleSelectUp(); return; }
+    // S461k: release-commit (uses changedTouches — _getPos handles touchend)
+    if (_tool === 'polyline' && !_isDrawing) { _handlePolylineClick(e); return; }
+    if (_tool === 'dimension' && _dimChainPressPending && !_isDrawing) {
+      _dimChainPressPending = false; _dimChainRelease(e); return;
+    }
     _endDraw(e);
   });
 
   // Double-click: finishes polyline OR edits text object OR ends dim chain
   mc.addEventListener('dblclick', function(e) {
-    if (_tool === 'polyline' && _polyPoints.length >= 2) {
+    if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 2) {
       _finishPolyline();
       return;
     }
@@ -4864,11 +4634,13 @@ function _wireEvents() {
       var dimDbl = window._dimTool;
       if (dimDbl && dimDbl.hitTestDimension) {
         var posDbl = _getPos(e);
-        var hitDbl = dimDbl.hitTestDimension(posDbl, _objects);
+        var hitDbl = dimDbl.hitTestDimension(posDbl, _objects.map(toV1));   // S461: v1 views
         if (hitDbl) {
           _dimVertexEditId = hitDbl.id;
           _renderAll();
-          _editDimensionLabel(hitDbl);
+          // S461: hitDbl is a v1 VIEW (a copy) — resolve the live stroke so the
+          // keypad reads pts and label writes land on the real object.
+          _editDimensionLabel(_findObj(hitDbl.id) || hitDbl);
         }
       }
       return;
@@ -4881,7 +4653,7 @@ function _wireEvents() {
         // S399: drop selection first. Editing + transform handles must not be
         // live on the same object simultaneously — otherwise the selected copy
         // stays painted and draggable behind the edit box (redundant/doubled text).
-        _selectedIds = [];
+        SelHost.deselect();   // S461
         _dvOpenTextBox(null, hit);
       }
     }
@@ -4930,11 +4702,10 @@ function _wireEvents() {
         return;
       }
       // If polyline in progress: finish it
-      if (_tool === 'polyline' && _polyPoints.length >= 2) { _finishPolyline(); e.stopPropagation(); return; }
+      if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 2) { _finishPolyline(); e.stopPropagation(); return; }
       // If objects selected: clear selection first
-      if (_selectedIds.length) {
-        _selectedIds = [];
-        _rubberBand = null;
+      if (SelHost.hasActiveSelection()) {
+        SelHost.deselect();   // S461 (renders)
         _renderAll();
         e.stopPropagation();
         return;
@@ -4962,13 +4733,8 @@ function _wireEvents() {
       if (_redoStack.length) { e.preventDefault(); _redo(); return; }
     }
 
-    if ((e.key === 'Delete' || e.key === 'Backspace') && _selectedIds.length && _tool === 'select') {
-      _tombstone(_selectedIds);  // S129 1.1
-      _objects = _objects.filter(function(o) { return _selectedIds.indexOf(o.id) === -1; });
-      _selectedIds = [];
-      _pushHistory();
-      _renderAll();
-      _markDirty();
+    if ((e.key === 'Delete' || e.key === 'Backspace') && SelHost.hasSel() && _tool === 'select') {
+      SelHost.deleteSelected();   // S461: wrapper tombstones (S129) then engine deletes
       e.preventDefault();
     }
   });
@@ -5115,8 +4881,7 @@ export var Markup = {
     _tombstones = [];  // S129 1.1
     _undoStack = [];
     _redoStack = [];
-    _selectedIds = [];
-    _rubberBand = null;
+    SelHost.deselect();   // S461
     _isDrawing = false;
     _tool = null;
 

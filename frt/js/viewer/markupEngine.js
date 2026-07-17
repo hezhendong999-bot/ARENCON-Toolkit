@@ -62,7 +62,23 @@
       // needlessly re-flatten + re-upload). Updated by _onDirty edits via the getter.
       this._attachSig = JSON.stringify(this.strokes);
       this._rotation = 0;   // S352: lightbox sets this so pt() can un-rotate input
-      this.nw = this.w; this.nh = this.h;   // S459l: shared-module aliases (module reads nw)
+      // S479 (Mark 7.2): chrome-scale PARITY with the drawing viewer. The engine
+      // sizes selection chrome as k = nw/rect.width. The DV supplies nw via a live
+      // getter equal to _uiScale()*rect (S342: chrome is screen-constant zoomed
+      // out, grows with zoom-in). This host used to pin nw = natural width, which
+      // pins chrome at a constant 11 CSS px at EVERY zoom — correct math, tiny
+      // handles. Same policy, expressed in this host's terms: nw = max(natural,
+      // on-screen) — identical k to the DV at every zoom. Installed ONCE as a
+      // getter (rect changes as the user pinches; a snapshot would go stale).
+      // _fixNW's repair-write can never fire against it: the getter returns >= 1.
+      if (!this._nwPolicyInstalled){
+        this._nwPolicyInstalled = true;
+        Object.defineProperty(this, 'nw', { configurable: true, get: function(){
+          var r = (this.canvas && this.canvas.getBoundingClientRect().width) || 0;
+          return Math.max(this.w || 1, r || 1);
+        }});
+        Object.defineProperty(this, 'nh', { configurable: true, get: function(){ return this.h || 1; }});
+      }
       this._sync();   // sets w/h and _render()s — re-paints the reloaded strokes
       this._bind();
       window.addEventListener('resize', this._syncBound = this._sync.bind(this));
@@ -176,7 +192,14 @@
       this._render();
     },
 
-    setTool:  function(t){ this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this.selIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
+    setTool:  function(t){
+      // S461t: leaving polyline mid-draw discards pending points AND the arm
+      // flags — nothing may leak into another tool's press/move/release.
+      if (this.tool === 'polyline' && t !== 'polyline'){
+        if (this._polyTool && this._polyTool.count()) this._polyTool.cancel();
+        this._polyDown = false; this._polyCursor = null;
+      }
+      this.tool = t; if (this._shapePending){ this._shapePending = null; this._curr = null; } if (t !== 'select'){ this.selIds = []; this._dragState = null; this._rubberBand = null; this._pickIds = []; if (this.ctx) this._render(); } else { this._pickIds = []; if (this.ctx) this._render(); } this._emitSel(); },
 
     setColor: function(c){ this.color = c; this._applyToSelection('color', c); },
     setSize:  function(s){ this.size = s; },
@@ -196,7 +219,7 @@
       var self = this, c = this.canvas;
       function pt(ev){
         var r = c.getBoundingClientRect();
-        self._lastRectW = r.width;   // S482: zoom-under-stroke guard reads this
+        self._lastRectW = r.width;   // S482 [ported S487k]: zoom-under-stroke guard reads this
         var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX);
         var cy = (ev.touches ? ev.touches[0].clientY : ev.clientY);
         // S358 SINGLE-TRANSFORM INVERSE (matches FRT_ROTATION_REBUILD_DEMO _toFrame):
@@ -241,7 +264,7 @@
           return;
         }
         var p = pt(ev);
-        self._strokeRefW = self._lastRectW;   // S482: zoom-under-stroke guard baseline
+        self._strokeRefW = self._lastRectW;   // S482 [ported S487k]: zoom-under-stroke guard baseline
         // S339 (Mark): if a text box is already open, swallow ALL canvas presses —
         // tapping empty space must NOT drop a second box or discard the text in the
         // open one (fat-finger fix). Only the bar's ✓ (commit) / ✕ (discard) exit.
@@ -282,6 +305,15 @@
           self._render();
           return;
         }
+        // S461t — POLYLINE: press arms; RELEASE places the point (the drawing
+        // viewer's locked input model). Strictly gated on tool === 'polyline';
+        // touches nothing shared. Points live in the shared module.
+        if (self.tool === 'polyline'){
+          self._polyDown = true;
+          self._polyCursor = { x:p.x, y:p.y };
+          self._render();
+          return;
+        }
         // Freehand (pen/highlight) — drag flow.
         self._drawing = true;
         self._curr = { id:self._uid(), tool:self.tool, color:self.color, size:self.size*(self._uiScale?self._uiScale():1), opacity:self.opacity, pts:[p, {x:p.x,y:p.y}] };
@@ -289,6 +321,17 @@
         self.redoStack = [];
       }
       function move(ev){
+        // S461t — polyline: the pending leg follows the pointer. Renders only
+        // when there are placed points; never touches other tools' flow.
+        if (self.tool === 'polyline'){
+          // S329 parity: a second finger = pinch/pan, not drawing — disarm so
+          // the release places NO point, and let the gesture bubble.
+          if (ev.touches && ev.touches.length >= 2){ self._polyDown = false; return; }
+          var _pm = pt(ev);
+          self._polyCursor = { x:_pm.x, y:_pm.y };
+          if (self._polyTool && self._polyTool.count()) self._render();
+          return;
+        }
         // S329: 2+ fingers — stop drawing, let the pinch/pan move bubble to lightbox.
         if (ev.touches && ev.touches.length >= 2){
           if (self._drawing || self._curr || self._shapePending){
@@ -301,12 +344,11 @@
         if (!self._drawing) return;
         ev.preventDefault();
         var p = pt(ev);
-        // S482: the photo zoomed/resized UNDER an in-progress stroke. The 2-finger
-        // check above only sees touches on THIS canvas — a pinch whose second
-        // finger lands on the surrounding viewer keeps zooming the wrap while the
-        // canvas still reports one touch. Points would then map against a moving
-        // rect and land displaced ("teleporting marks", Nasim 7310.17). Abort the
-        // stroke, same cleanup as the 2-finger branch.
+        // S482 [ported S487k]: photo zoomed/resized UNDER an in-progress stroke.
+        // A pinch whose 2nd finger lands on the surrounding viewer keeps zooming
+        // the wrap while THIS canvas still reports one touch; points then map
+        // against a moving rect and land displaced ("teleporting marks", Nasim
+        // 7310.17). Abort the stroke, same cleanup as the 2-finger branch.
         if (self._strokeRefW && self._lastRectW && Math.abs(self._lastRectW - self._strokeRefW) > 0.5){
           self._drawing = false; self._curr = null; self._shapePending = null;
           self._render();
@@ -320,16 +362,26 @@
         if (isShape(self._curr.tool)){
           // S339 — drag updates the second corner; render live rubber-band preview.
           self._curr.pts[1] = p;
-          self._renderSoon();   // S482: frame-batched
+          self._renderSoon();   // S482 [ported S487k]: frame-batched
           return;
         }
         var last = self._curr.pts[self._curr.pts.length-1];
         if (Math.abs(p.x-last.x) + Math.abs(p.y-last.y) < 1) return;
         self._curr.pts.push(p);
-        self._renderSoon();   // S482: frame-batched — points still append per event
+        self._renderSoon();   // S482 [ported S487k]: frame-batched — points append per event
       }
       function up(){
         if (self.tool === 'select'){ if (self._dragState && self._selUp) self._selUp(); return; }
+        // S461t — POLYLINE: release places the point (module owns close-loop:
+        // within 15 units of point 0 → snap + finish). Gated on tool + its own
+        // down flag; consumed here, never read by another tool.
+        if (self.tool === 'polyline'){
+          if (!self._polyDown) return;
+          self._polyDown = false;
+          var _pu = self._poly();
+          if (_pu && self._polyCursor) _pu.addPoint(self._polyCursor);
+          return;
+        }
         if (!self._drawing) return;
         self._drawing = false;
         if (self._curr && self._curr.tool==='eraser'){
@@ -449,7 +501,7 @@
       for (var i=this.strokes.length-1; i>=0; i--){
         var s = this.strokes[i];
         var tool = s.tool;
-        if (tool === 'pen' || tool === 'highlight'){
+        if (tool === 'pen' || tool === 'highlight' || tool === 'polyline'){   // S461u: polyline path-erases like pen
           // S455-parity with drawing viewer: PATH-ERASE. Instead of deleting the
           // whole freehand stroke, remove only the points under the brush and
           // split the survivors into separate strokes. Shapes/text keep
@@ -700,6 +752,45 @@
     },
 
 
+    // ── S461t: POLYLINE — the shared module (lib/ui/markupPolyline.js), the
+    // same one the drawing viewer runs on. In-progress state lives in the
+    // module (mirroring how _curr holds an in-progress pen stroke) and is
+    // painted inline during _render, at the same slot _curr is painted.
+    _poly: function(){
+      if (this._polyTool) return this._polyTool;
+      if (!window.MarkupPolyline) return null;
+      var self = this;
+      this._polyTool = window.MarkupPolyline.create({
+        getOverlay: function(){ return null; },   // no overlay layer — painted in _render
+        hideOverlay: function(){},
+        style: function(){
+          return { color: self.color,
+                   size: self.size * (self._uiScale ? self._uiScale() : 1),
+                   opacity: self.opacity };
+        },
+        commit: function(pts){
+          // This host's stroke shape: {tool,pts[]} — identical to pen, so render,
+          // hit-testing, selection, eraser and undo all work with no new cases.
+          self.strokes.push({
+            id: self._uid(), tool: 'polyline', color: self.color,
+            size: self.size * (self._uiScale ? self._uiScale() : 1),
+            opacity: self.opacity, pts: pts
+          });
+          self._histPush({ t:'add' });
+          self.redoStack = [];
+          if (self._onDirty) self._onDirty();
+        },
+        afterChange: function(n){ if (self._onPolyChange) self._onPolyChange(n); },
+        render: function(){ if (self.ctx) self._render(); }
+      });
+      return this._polyTool;
+    },
+    finishPolyline: function(){ var p=this._poly(); if(p) p.finish(); },
+    undoPolyPoint:  function(){ var p=this._poly(); if(p) p.undoPoint(); },
+    cancelPolyline: function(){ var p=this._poly(); if(p) p.cancel(); },
+    polyCount:      function(){ return (this._polyTool ? this._polyTool.count() : 0); },
+    onPolyChange:   function(fn){ this._onPolyChange = fn || null; },
+
     _strokePath: function(ctx, s){
       if (s.pts.length < 2) return;
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -751,8 +842,11 @@
         }
         return {x1:bx1,y1:by1,x2:bx2,y2:by2};
       }
-      // pen/highlight: rotation baked into points → AABB of points is visual AABB
-      if (s.tool === 'pen' || s.tool === 'highlight'){
+      // pen/highlight/polyline: rotation baked into points → AABB of points is
+      // the visual AABB. (S461u, Mark: the selection box hugged only the FIRST
+      // SEGMENT — polyline was falling into the shapes branch below, which
+      // reads pts[0]/pts[1] only.)
+      if (s.tool === 'pen' || s.tool === 'highlight' || s.tool === 'polyline'){
         var xs=s.pts.map(function(p){return p.x;}), ys=s.pts.map(function(p){return p.y;});
         return {x1:Math.min.apply(null,xs),y1:Math.min.apply(null,ys),x2:Math.max.apply(null,xs),y2:Math.max.apply(null,ys)};
       }
@@ -790,12 +884,12 @@
 
 
 
-    // S482: frame-batched repaint for the live-draw path. touchmove fires far
-    // faster than the screen refreshes (120Hz+ on tablets); repainting the whole
-    // canvas per EVENT is the pen lag. Points still append on every event (zero
-    // fidelity loss) — we just paint at most once per animation frame. Everything
-    // outside the live drag keeps calling _render() directly.
     _renderSoon: function(){
+      // S482 [ported S487k]: frame-batch the live-draw repaint. touchmove fires
+      // far faster than the display; painting per EVENT (the pre-port behavior)
+      // was the photo-markup pen lag (Nasim 7310.17). Points still append on
+      // every event (zero fidelity loss) — we paint at most once per frame.
+      // Everything outside the live drag keeps calling _render() directly.
       if (this._rafQueued) return;
       if (typeof requestAnimationFrame !== 'function'){ this._render(); return; }
       var self = this;
@@ -820,20 +914,10 @@
         for (var gk in groups){
           if (!groups.hasOwnProperty(gk)) continue;
           var grp = groups[gk];
-          // S482: reuse ONE cached group canvas. This used to allocate a brand-new
-          // full-resolution canvas EVERY render — and _render runs per pointer
-          // event while drawing, so a photo with any highlight allocated ~w*dpr ×
-          // h*dpr RGBA (tens of MB) per finger movement. That allocation storm is
-          // the tablet pen lag + a driver of the Android OOM "Aw, Snap" (Nasim,
-          // 7310.17). Each group composites to the main ctx before the next group
-          // starts (drawImage below, same loop pass), so clearing + reusing one
-          // canvas is output-identical.
-          var _gw = Math.max(1, Math.round(this.w*this.dpr));
-          var _gh = Math.max(1, Math.round(this.h*this.dpr));
-          var off = this._hlGroup || (this._hlGroup = document.createElement('canvas'));
+          var off = document.createElement('canvas');
+          off.width = Math.max(1, Math.round(this.w*this.dpr));
+          off.height= Math.max(1, Math.round(this.h*this.dpr));
           var oc = off.getContext('2d');
-          if (off.width !== _gw || off.height !== _gh) { off.width = _gw; off.height = _gh; }
-          else { oc.setTransform(1,0,0,1,0,0); oc.clearRect(0,0,_gw,_gh); }
           oc.setTransform(this.dpr,0,0,this.dpr,0,0);
           for (var i=0;i<grp.list.length;i++){
             var s = grp.list[i];
@@ -879,9 +963,35 @@
       // Pass 2: pen strokes on top (per-object opacity)
       for (var k=0;k<this.strokes.length;k++){
         var st = this.strokes[k];
-        if (st.tool==='pen') this._drawPenR(ctx, st);   // S459: mask-aware
+        if (st.tool==='pen' || st.tool==='polyline') this._drawPenR(ctx, st);   // S459: mask-aware (S461t: polyline shares the pen path)
       }
       if (this._curr && this._curr.tool==='pen'){ ctx.save(); ctx.globalAlpha=(this._curr.opacity!=null)?this._curr.opacity:1; this._strokePath(ctx, this._curr); ctx.restore(); }
+      // S461t — in-progress POLYLINE, painted at the _curr slot from the shared
+      // module's state: placed segments + rubber-band leg to the cursor + the
+      // close indicator on point 0 (the drawing viewer's preview, verbatim).
+      if (this.tool === 'polyline' && this._polyTool && this._polyTool.count()){
+        var _pl = this._polyTool.points();
+        var _pu2 = this._uiScale ? this._uiScale() : 1;
+        ctx.save();
+        ctx.globalAlpha = (this.opacity != null) ? this.opacity : 1;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = this.size * _pu2;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(_pl[0].x, _pl[0].y);
+        for (var _pj = 1; _pj < _pl.length; _pj++) ctx.lineTo(_pl[_pj].x, _pl[_pj].y);   // lineTo only
+        if (this._polyCursor) ctx.lineTo(this._polyCursor.x, this._polyCursor.y);
+        ctx.stroke();
+        if (this._polyCursor && _pl.length >= 2){
+          var _dxp = this._polyCursor.x - _pl[0].x, _dyp = this._polyCursor.y - _pl[0].y;
+          if (Math.sqrt(_dxp*_dxp + _dyp*_dyp) < 15){
+            ctx.beginPath();
+            ctx.arc(_pl[0].x, _pl[0].y, 8 * _pu2, 0, Math.PI * 2);
+            ctx.fillStyle = this.color; ctx.globalAlpha = 0.3; ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
       // S459: live eraser drag path — grey preview, never persisted (viewer parity)
       if (this._curr && this._curr.tool==='eraser' && this._curr.pts.length>1){
         var _ec=this._curr;
@@ -1245,7 +1355,7 @@
       applyRotate: function(st, o, dA, rot){
         // FRT rotation model (verbatim from the pre-extraction engine):
         // pen/highlight BAKE rotation into points; shapes/text keep .rotation.
-        if (o.tool==='pen'||o.tool==='highlight'){
+        if (o.tool==='pen'||o.tool==='highlight'||o.tool==='polyline'){   // S461u: shapes branch would collapse a polyline to 2 points
           st.pts=o.pts.map(function(pt){ return rot(pt); });
           if (o.eraserMask){ st.eraserMask=JSON.parse(JSON.stringify(o.eraserMask));
             if (window.MarkupEraser) window.MarkupEraser.xformMask(st, function(pt){ return rot(pt); }); }

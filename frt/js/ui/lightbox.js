@@ -269,6 +269,7 @@ function _buildToolbar() {
 }
 
 var _markupActive = false;
+var _lbDisarmTool = null;   // F8 (S487h): set by _buildMarkupBar; disarms tool + clears chrome
 var _closeAfterPersist = false;   // S305-style: commit triggered by closing the lightbox
 var _markupBar = null;
 function _buildMarkupBar(overlay){
@@ -299,7 +300,8 @@ function _buildMarkupBar(overlay){
     check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 6"/></svg>',
     trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>',
     revert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/><path d="M9 21h8"/></svg>'
-  };
+  ,
+    polyline:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,20 8,8 14,14 19,4"/></svg>'};
   function _sized(svg){ return svg.replace('<svg ', '<svg width="21" height="21" '); }
   function iconBtn(id,key,title,caret){
     var b=document.createElement('button'); b.id=id; b.title=title;
@@ -320,18 +322,24 @@ function _buildMarkupBar(overlay){
   [bSel,bPenGrp,bShapeGrp,bTx,bEr,sepU,bUn,bRd].forEach(function(e){row1.appendChild(e);});
   // S339 — Select sub-tool flyout (tap-to-open, finger-friendly; LOCKED_SELECT_DRAW_MODEL_S339)
   var subFly=document.createElement('div'); subFly.id='lb-mk-subfly';
-  subFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:column;gap:4px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:200px;';
+  // S486 (Mark): icon-ONLY sub-tools — same presentation as the drawing
+  // viewer's select submenu. Row of squares, no text cards; the old
+  // name/description wording survives as the hover tooltip (title).
+  subFly.style.cssText='position:absolute;z-index:25;display:none;flex-direction:row;gap:6px;padding:6px;background:rgba(28,28,38,.98);border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.6);';
   function subBtn(sub,glyph,name,desc){
     var b=document.createElement('button'); b.dataset.sub=sub;
-    b.style.cssText='display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,255,255,.06);color:#fff;border:none;height:48px;padding:0 12px;border-radius:10px;cursor:pointer;font:600 14px Calibri,sans-serif;';
-    b.innerHTML='<span style="width:22px;text-align:center;font-size:16px;">'+glyph+'</span>'+
-      '<span style="line-height:1.05;">'+name+'<span style="display:block;font-weight:400;font-size:11px;color:#a9a4b2;margin-top:1px;">'+desc+'</span></span>';
+    b.title=name+' — '+desc;
+    b.setAttribute('aria-label',name);
+    b.style.cssText='display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);color:#fff;border:none;width:48px;height:48px;border-radius:10px;cursor:pointer;';
+    b.innerHTML=glyph;
     return b;
   }
   // S339 (Mark): Single mode removed — Rubber-band already does tap-one-to-select
   // PLUS drag-a-box, so Single was redundant. Default sub-tool is now Rubber-band.
-  var subRubber=subBtn('rubber','\u25C9','Rubber-band','Tap a mark, or drag a box');
-  var subTap   =subBtn('tap','\u2713','Tap select','Tap to pick, then confirm');
+  // S461u (Mark): SAME icon pair as the drawing viewer's select submenu —
+  // one icon set, both hosts. Marquee = rubber-band; tap ripple = tap select.
+  var subRubber=subBtn('rubber','<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path stroke-dasharray="3.2 2.8" d="M8.5 4h7M8.5 20h7M4 8.5v7M20 8.5v7"/><rect x="2" y="2" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="17.4" y="2" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="2" y="17.4" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/><rect x="17.4" y="17.4" width="4.6" height="4.6" rx="0.8" fill="currentColor" stroke="none"/></svg>','Rubber-band','Tap a mark, or drag a box');
+  var subTap   =subBtn('tap','<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>','Tap select','Tap to pick, then confirm');
   subFly.appendChild(subRubber); subFly.appendChild(subTap);
   overlay.appendChild(subFly);
   // S339 — ✓/✗ confirm bar. ✗ present in ALL select modes when a selection/pick is
@@ -530,7 +538,8 @@ function _buildMarkupBar(overlay){
       f.appendChild(b); });
     overlay.appendChild(f); return f;
   }
-  var penFly=groupFly([['pen','Pen'],['highlight','Highlighter'],['line','Line'],['arrow','Arrow']], bPenGrp);
+  // S461t: polyline joins the pen group — same list as the drawing viewer.
+  var penFly=groupFly([['pen','Pen'],['highlight','Highlighter'],['line','Line'],['arrow','Arrow'],['polyline','Polyline']], bPenGrp);
   var shapeFly=groupFly([['rect','Rectangle'],['rect-fill','Filled Rect'],['circle','Circle'],['circle-fill','Filled Circle'],['triangle','Triangle']], bShapeGrp);
 
   function setActive(btn){
@@ -589,8 +598,18 @@ function _buildMarkupBar(overlay){
   function closeFly(){ closeAllFlys(); }
   bSel.addEventListener('click',function(e){
     e.stopPropagation();
+    // S487d (Mark): tap Select while armed → DISARM, same toggle as every other
+    // tool. First tap arms select (current sub-mode) AND opens the flyout —
+    // the drawing viewer's S461g pattern, now both hosts.
+    if (_activeBtn===bSel){
+      if (window.MarkupEngine) window.MarkupEngine.setTool('');
+      clearActive(); _activeBtn=null; closeAllFlys(); _refreshConfirmBar(); return;
+    }
+    if (window.MarkupEngine) window.MarkupEngine.setTool('select');
+    setActive(bSel); _activeBtn=bSel;
     if (subFly.style.display==='flex'){ closeAllFlys(); }
     else { closeAllFlys(); positionFly(); subFly.style.display='flex'; }
+    _refreshConfirmBar();
   });
   colorBtn.addEventListener('click',function(e){
     e.stopPropagation();
@@ -603,12 +622,29 @@ function _buildMarkupBar(overlay){
   [subRubber,subTap].forEach(function(b){
     b.addEventListener('click',function(e){
       e.stopPropagation();
+      // S461s (Mark, repeatedly): ARM THE SELECT TOOL. This handler set the
+      // sub-mode and lit the button but NEVER called setTool('select'), so the
+      // engine stayed on the previous tool and every drag drew PEN. No code
+      // path in this file armed select at all — this line is the entire fix.
+      if (window.MarkupEngine) window.MarkupEngine.setTool('select');
       if (window.MarkupEngine) window.MarkupEngine.setSelectSub(b.dataset.sub);
       setActive(bSel); _activeBtn=bSel; markSub(b.dataset.sub);
+      // S487d (Mark): parent Select button adopts the picked sub-mode's icon —
+      // the same convention as the pen/shapes group buttons. Caret preserved.
+      var _pickedSvg = b.querySelector('svg');
+      if (_pickedSvg){
+        bSel.innerHTML = _pickedSvg.outerHTML.replace('width="26" height="26"','width="21" height="21"')
+          + '<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#aaa;line-height:1;">\u25BE</span>';
+      }
       closeFly(); _refreshConfirmBar();
     });
   });
   markSub('rubber');
+  // F8 (S487h): Escape needs to disarm from OUTSIDE this closure — expose one hook.
+  _lbDisarmTool = function(){
+    var E=window.MarkupEngine; if(E) E.setTool('');
+    clearActive(); _activeBtn=null; closeAllFlys(); _refreshConfirmBar();
+  };
   // close any flyout on outside tap (mouse + touch)
   function _anyFlyOpen(){ return subFly.style.display==='flex'||penFly.style.display==='flex'||shapeFly.style.display==='flex'||colorFly.style.display==='flex'; }
   function _flyOutside(ev){
@@ -626,12 +662,40 @@ function _buildMarkupBar(overlay){
     if (!E || E.tool!=='select' || !E.hasActiveSelection()){ cBar.style.display='none'; return; }
     cBar.style.bottom=_barClearance()+'px';
     cBar.style.display='flex';
+    // S461t (Mark): the green check STAYS for the whole selection lifecycle —
+    // confirm picks into a group, then confirm the group (finalize) after
+    // moving. One engine rule (confirmSelection) drives both.
     var picking = E.isPicking && E.isPicking();
-    if (picking){ cOk.style.display='flex'; cCnt.textContent=E.pickCount()+' picked'; }
-    else { cOk.style.display='none'; cCnt.textContent=E.selectionCount()+' selected'; }
+    cOk.style.display='flex';
+    cCnt.textContent = picking ? (E.pickCount()+' picked') : (E.selectionCount()+' selected');
   }
-  cOk.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.confirmPick(); } _refreshConfirmBar(); });
+  cOk.addEventListener('click',function(){ if(window.MarkupEngine){ (window.MarkupEngine.confirmSelection||window.MarkupEngine.confirmPick).call(window.MarkupEngine); } _refreshConfirmBar(); });
   cNo.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.cancelSelect(); } _refreshConfirmBar(); });
+  // ── S461t: polyline pill — the shared design (dark bar, 36px circles:
+  // ✓ Finish · ↩ undo-point · ✕ cancel). Appears with the first placed point.
+  var pBar=document.createElement('div');
+  pBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:6px 8px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
+  function _pb(html,bg,tip){ var b=document.createElement('button'); b.innerHTML=html; b.title=tip;
+    b.style.cssText='border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;color:#fff;background:'+bg+';display:flex;align-items:center;justify-content:center;'; return b; }
+  var pOk=_pb('\u2713','#3FD08A','Finish');
+  var pUn=_pb('\u21A9','rgba(255,255,255,.14)','Remove the last point');
+  var pNo=_pb('\u2715','#C0445F','Cancel');
+  pBar.appendChild(pOk); pBar.appendChild(pUn); pBar.appendChild(pNo);
+  cBar.parentNode.appendChild(pBar);
+  pOk.addEventListener('click',function(e){ e.stopPropagation(); window.MarkupEngine&&window.MarkupEngine.finishPolyline&&window.MarkupEngine.finishPolyline(); });
+  pUn.addEventListener('click',function(e){ e.stopPropagation(); window.MarkupEngine&&window.MarkupEngine.undoPolyPoint&&window.MarkupEngine.undoPolyPoint(); });
+  pNo.addEventListener('click',function(e){ e.stopPropagation(); window.MarkupEngine&&window.MarkupEngine.cancelPolyline&&window.MarkupEngine.cancelPolyline(); });
+  pBar.addEventListener('mousedown',function(e){ e.stopPropagation(); });
+  pBar.addEventListener('touchstart',function(e){ e.stopPropagation(); },{passive:true});
+  if (window.MarkupEngine && window.MarkupEngine.onPolyChange){
+    window.MarkupEngine.onPolyChange(function(n){
+      // S461u (Mark): sit ABOVE the toolbar — the same _barClearance() every
+      // other floating element in this file uses. 74px hardcoded landed the
+      // pill on top of the tool row.
+      if (n > 0) pBar.style.bottom = _barClearance() + 'px';
+      pBar.style.display = n > 0 ? 'flex' : 'none';
+    });
+  }
   if (window.MarkupEngine) window.MarkupEngine.onSelChange(_refreshConfirmBar);
   bUn .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.undo();});
   bRd .addEventListener('click',function(){window.MarkupEngine&&window.MarkupEngine.redo();});
@@ -1255,7 +1319,16 @@ document.addEventListener('click', function(e) {
 // Keyboard
 document.addEventListener('keydown', function(e) {
   if (!_isOpen) return;
-  if (e.key === 'Escape') { if (_markupActive) { _toggleMarkup(); } else { _close(); } e.preventDefault(); return; }
+  if (e.key === 'Escape') {
+    // F8 (S487h): armed tool cancels FIRST; markup mode exits second; the
+    // lightbox closes ONLY when nothing is armed — drawing-viewer canon
+    // extended to the lightbox (Escape never closes past an armed tool).
+    var _EK = window.MarkupEngine;
+    if (_markupActive && _EK && _EK.tool) { if (_lbDisarmTool) _lbDisarmTool(); else _EK.setTool(''); }
+    else if (_markupActive) { _toggleMarkup(); }
+    else { _close(); }
+    e.preventDefault(); return;
+  }
   if (_markupActive && (e.ctrlKey || e.metaKey)) {
     if (e.key === 'z' || e.key === 'Z') { window.MarkupEngine && window.MarkupEngine.undo(); e.preventDefault(); return; }
     if (e.key === 'y' || e.key === 'Y') { window.MarkupEngine && window.MarkupEngine.redo(); e.preventDefault(); return; }
