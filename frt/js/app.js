@@ -36,6 +36,7 @@ import { Markup } from './viewer/markup.js';
 import { initPDFExport } from './export/pdf.js';
 import { initExportView } from './export/exportview.js'; // S145 P5: Export view replaces _openPDFPicker
 import { initJSONExport } from './export/json.js';
+import { initProjectDocsExport } from './export/projectDocs.adapter.js';
 // S126 Phase D — memory + sync diagnostics. Pure instrumentation; no
 // behavior change. Boot-time module load registers global window._frtDiag
 // and starts the 60-second probe.
@@ -349,6 +350,13 @@ function wireLoadExport() {
     closeMoreMenu();
   });
 
+  // Export Project Docs (ZIP: photos + JSON + README) — More menu + mobile
+  var btnExportDocs = document.getElementById('btn-export-docs');
+  if (btnExportDocs) btnExportDocs.addEventListener('click', function() {
+    closeMoreMenu();
+    initProjectDocsExport.run();
+  });
+
   // Load button in More menu
   var btnLoadMore = document.getElementById('btn-load-more');
   if (btnLoadMore) btnLoadMore.addEventListener('click', function() {
@@ -372,6 +380,11 @@ function wireLoadExport() {
   if (mobileExport) mobileExport.addEventListener('click', function() {
     initJSONExport.exportJSON();
     closeMobileMenu();
+  });
+  var mobileExportDocs = document.getElementById('mobile-export-docs-btn');
+  if (mobileExportDocs) mobileExportDocs.addEventListener('click', function() {
+    closeMobileMenu();
+    initProjectDocsExport.run();
   });
   var mobileLoad = document.getElementById('mobile-load-btn');
   if (mobileLoad) mobileLoad.addEventListener('click', function() {
@@ -2224,7 +2237,8 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S485';
+var FRT_BUILD = 'S486';
+try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
