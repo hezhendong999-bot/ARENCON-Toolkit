@@ -96,6 +96,30 @@ function _projNum(proj) {
   return String(raw || '').trim() || 'Project';
 }
 
+// ── Round + status tag for a finding's photo filename, read from the OBSERVATION's
+// own provenance (not the pin's — a multi-obs deficiency can be half-closed).
+//   raised round  = o.notedOnInstance (stable across carry-forward)
+//   closed round  = o.addressedOnInstance, ONLY when o.addressed is true
+//                   (reopen clears addressedOnInstance + sets addressed=false,
+//                    so a reopened obs correctly reads as open again)
+// Produces:
+//   open:                 "Obs 1A - FRT #1"
+//   closed later round:   "Closed Obs 1A - FRT #1\u21922"
+//   closed same round:    "Closed Obs 1A - FRT #1"   (collapse 1\u21921)
+// obs may be undefined (site pool photos) — caller passes the pin's own stamps.
+function _nameParts(baseRef, obs, defic) {
+  var raised = (obs && obs.notedOnInstance) || (defic && defic.notedOnInstance) || 1;
+  var isClosed = obs ? !!obs.addressed
+                     : !!(defic && defic.closedOnInstance);   // site/pin fallback
+  var closedAt = obs ? (obs.addressed ? obs.addressedOnInstance : null)
+                     : (defic ? defic.closedOnInstance : null);
+  var round = '#' + raised;
+  if (isClosed && closedAt && closedAt !== raised) round += '\u2192' + closedAt;
+  var name = baseRef + ' - FRT ' + round;
+  if (isClosed) name = 'Closed ' + name;
+  return name;
+}
+
 function _instance(proj) {
   try {
     if (typeof SyncEngine !== 'undefined' && SyncEngine.instanceNumber) return SyncEngine.instanceNumber;
@@ -147,7 +171,8 @@ function _collectPhotos(proj) {
     obsList.forEach(function(o, oi) {
       var effective = Model.getEffectivePhotos ? (Model.getEffectivePhotos(defic, oi) || []) : (o.photos || []);
       var obsLetter = multiObs ? String.fromCharCode(65 + oi) : '';
-      var ref = prefix + (defic.num != null ? defic.num : 'x') + obsLetter;
+      var baseRef = prefix + (defic.num != null ? defic.num : 'x') + obsLetter;
+      var ref = _nameParts(baseRef, o, defic);
       effective.forEach(function(ph, phi) {
         if (!ph || ph.deleted) return;
         var dk = _dayKey(ph, defic);
