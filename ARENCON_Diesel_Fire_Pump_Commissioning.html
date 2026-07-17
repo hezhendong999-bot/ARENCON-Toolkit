@@ -16325,12 +16325,14 @@ function _expFolderName(){
   return _expProjNum()+' '+_expClientShort()+' '+_EXPORT_TOOLCODE+' '+_expInstance()+' '+_expDateISO();
 }
 function _expItemRef(item){
-  // Diesel keeps its OWN richer vocabulary (Checklist, Placard, Pump, FlowTest,
-  // Obs) — Diesel is a single commissioning event, it has no FRT-style finding
-  // round/close lifecycle, so NO status/round tag is applied (that data does not
-  // exist on Diesel records; inventing it would mislabel the report).
+  // Diesel keeps its OWN vocabulary. Real records already arrive with a badge
+  // (D1, G1, Checklist 1.3, 3·Placard, Pump, 3·Flow…); the badge wins. The map
+  // below is only a fallback for a record with no badge, and uses DIESEL terms —
+  // NOT FRT's "Obs" (Diesel has no observations; findings are Deficiencies D#).
+  // Diesel is a single commissioning event: no FRT-style finding round/close
+  // lifecycle, so NO status/round tag is applied (that data does not exist here).
   var ref = (item && item.badge) ? item.badge
-          : (item && item.type) ? ({flowtest:'FlowTest','flowtest-pld':'FlowTest-PLD',checklist:'Checklist',deficiency:'Obs',response:'Response',placard:'Placard',pump:'Pump'}[item.type]||item.type)
+          : (item && item.type) ? ({flowtest:'FlowTest','flowtest-pld':'FlowTest-PLD',checklist:'Checklist',deficiency:'Deficiency',response:'Response','general-defic':'General',record:'Record',placard:'Placard',pump:'Pump',gauge:'Gauge','gauge-pld':'Gauge'}[item.type]||item.type)
           : 'Photo';
   return _expSanitize(ref).slice(0,40)||'Photo';
 }

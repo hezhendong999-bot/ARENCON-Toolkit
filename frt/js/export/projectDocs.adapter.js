@@ -103,19 +103,25 @@ function _projNum(proj) {
 //                   (reopen clears addressedOnInstance + sets addressed=false,
 //                    so a reopened obs correctly reads as open again)
 // Produces:
-//   open:                 "Obs 1A - FRT #1"
+//   open, with round:     "Obs 1A - FRT #1"
 //   closed later round:   "Closed Obs 1A - FRT #1\u21922"
 //   closed same round:    "Closed Obs 1A - FRT #1"   (collapse 1\u21921)
-// obs may be undefined (site pool photos) — caller passes the pin's own stamps.
+//   open, NO round data:  "Obs 1A"                    (never fabricate "#1")
+//   closed, NO round data:"Closed Obs 1A"
+// Round tag is shown ONLY when the finding actually carries notedOnInstance, so a
+// legacy/site record with no round lifecycle is never stamped with a made-up round.
 function _nameParts(baseRef, obs, defic) {
-  var raised = (obs && obs.notedOnInstance) || (defic && defic.notedOnInstance) || 1;
+  var raised = (obs && obs.notedOnInstance) || (defic && defic.notedOnInstance) || null;
   var isClosed = obs ? !!obs.addressed
-                     : !!(defic && defic.closedOnInstance);   // site/pin fallback
+                     : !!(defic && defic.closedOnInstance);
   var closedAt = obs ? (obs.addressed ? obs.addressedOnInstance : null)
                      : (defic ? defic.closedOnInstance : null);
-  var round = '#' + raised;
-  if (isClosed && closedAt && closedAt !== raised) round += '\u2192' + closedAt;
-  var name = baseRef + ' - FRT ' + round;
+  var name = baseRef;
+  if (raised) {
+    var round = '#' + raised;
+    if (isClosed && closedAt && closedAt !== raised) round += '\u2192' + closedAt;
+    name += ' - FRT ' + round;
+  }
   if (isClosed) name = 'Closed ' + name;
   return name;
 }
@@ -155,22 +161,24 @@ function _collectPhotos(proj) {
     });
   });
 
-  // 2) Deficiency / observation photos (effective photos per obs — what the
-  //    gallery shows). ItemRef mirrors the gallery badge (num + obs letter).
-  var contractors = proj.contractors || [];
-  var allDefics = [];
-  contractors.forEach(function(c) { (c.deficiencies || []).forEach(function(d) { if (d && !d.deleted) allDefics.push({ defic: d, site: false }); }); });
-  // Site-records bucket deficiencies live under generalDeficiencies — labeled "Site".
-  (proj.generalDeficiencies || []).forEach(function(d) { if (d && !d.deleted) allDefics.push({ defic: d, site: true }); });
-
+  // 2) Deficiency / observation photos. Use the SAME unified walk the gallery uses
+  //    (Model.getAllDeficiencies) so the site-vs-observation split is identical:
+  //    a finding with NO contractor (contractorId == null) is a Site Record and
+  //    reads "Site N"; a finding under a contractor reads "Obs N". This is the
+  //    gallery's own rule (photos.js _isSiteRecordPin), not a guess from which
+  //    array the finding lives in.
+  var allDefics = Model.getAllDeficiencies ? (Model.getAllDeficiencies(proj) || []) : [];
   allDefics.forEach(function(entry) {
     var defic = entry.defic;
-    var prefix = entry.site ? 'Site ' : 'Obs ';
+    if (!defic || defic.deleted) return;
+    var isSiteRecord = (entry.contractorId == null);
+    var prefix = isSiteRecord ? 'Site ' : 'Obs ';
     var obsList = defic.observations || [];
-    var multiObs = obsList.length > 1;
     obsList.forEach(function(o, oi) {
       var effective = Model.getEffectivePhotos ? (Model.getEffectivePhotos(defic, oi) || []) : (o.photos || []);
-      var obsLetter = multiObs ? String.fromCharCode(65 + oi) : '';
+      // S324/S346: always show the obs letter (uniform "1A","2A"); site records
+      // read "Site 3A", contractor findings "Obs 12A".
+      var obsLetter = String.fromCharCode(65 + oi);
       var baseRef = prefix + (defic.num != null ? defic.num : 'x') + obsLetter;
       var ref = _nameParts(baseRef, o, defic);
       effective.forEach(function(ph, phi) {
