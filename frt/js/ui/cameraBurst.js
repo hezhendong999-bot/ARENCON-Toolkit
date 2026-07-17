@@ -216,6 +216,47 @@ function _openUI(stream, done) {
   video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .16s ease-out,filter .2s;';
   video.srcObject = stream;
   vidWrap.appendChild(video);
+  // ═══ S487l — FIRST-FRAME WATCHDOG (black-screen field reports: Nasim + Thomas,
+  // pre-S482 12MP era; neither reproducible since the 2048 re-cap). Mechanism it
+  // catches: getUserMedia RESOLVES (overlay opens) but the camera HAL never
+  // delivers a frame — the one path that shows as silent black with no recovery
+  // and no evidence. Now: breadcrumb + visible one-tap retry (stop tracks,
+  // reacquire at the safe 2048 profile, re-attach + re-hook mute handlers). ═══
+  var _ffMsg = document.createElement('div');
+  _ffMsg.style.cssText = 'display:none;position:absolute;inset:0;z-index:6;background:rgba(0,0,0,.78);color:#fff;flex-direction:column;align-items:center;justify-content:center;gap:14px;font:16px Calibri,sans-serif;text-align:center;padding:20px;';
+  _ffMsg.innerHTML = '<div>Camera didn&#8217;t start</div>'
+    + '<button id="cam-ff-retry" style="padding:12px 26px;border-radius:10px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.12);color:#fff;font:16px Calibri,sans-serif;cursor:pointer;">Tap to retry</button>'
+    + '<div style="font-size:13px;opacity:.75;">If it stays black, close (&#10005;) and use Upload instead.</div>';
+  vidWrap.appendChild(_ffMsg);
+  var _ffTimer = null, _ffFired = false;
+  function _ffArm() {
+    if (_ffTimer) clearTimeout(_ffTimer);
+    _ffTimer = setTimeout(function () {
+      if (_ffFired) return;
+      try { console.warn('[CamBurst] WATCHDOG: no first frame within 4s (stream live, zero frames) — showing retry. facing=' + facing); } catch (eW) {}
+      _ffMsg.style.display = 'flex';
+    }, 4000);
+  }
+  function _ffOk() { _ffFired = true; if (_ffTimer) { clearTimeout(_ffTimer); _ffTimer = null; } _ffMsg.style.display = 'none'; }
+  video.addEventListener('loadeddata', _ffOk);
+  _ffArm();
+  _ffMsg.querySelector('#cam-ff-retry').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    try { ((video.srcObject && video.srcObject.getTracks && video.srcObject.getTracks()) || []).forEach(function (t) { try { t.stop(); } catch (eS) {} }); } catch (eT) {}
+    _ffMsg.style.display = 'none'; _ffFired = false; _ffArm();
+    navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 2048 }, height: { ideal: 1536 }, facingMode: facing }, audio: false })
+      .then(function (s) {
+        stream = s; video.srcObject = s; track = s.getVideoTracks()[0];
+        try { if (track && track.addEventListener) { track.addEventListener('mute', _showAdjusting); track.addEventListener('unmute', _hideAdjusting); } } catch (eH) {}
+        try { console.info('[CamBurst] WATCHDOG: reacquired stream OK'); } catch (eI) {}
+      })
+      .catch(function (err) {
+        try { console.warn('[CamBurst] WATCHDOG: reacquire FAILED — ' + (err && err.name) + ': ' + (err && err.message)); } catch (eE) {}
+        if (_ffTimer) clearTimeout(_ffTimer);
+        _ffMsg.style.display = 'flex';
+        _ffMsg.firstChild.textContent = 'Camera unavailable';
+      });
+  });
   function _updateStageAspect() {} // no-op: raw feed has no forced aspect; kept for _onOrient
   var flash = document.createElement('div'); // capture blink (used by _addShot)
   flash.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s;';
