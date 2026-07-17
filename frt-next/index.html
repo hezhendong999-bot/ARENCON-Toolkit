@@ -1013,7 +1013,7 @@ function ensurePdfJs(cb){
 <!-- ═══ MODULE ENTRY POINT ═══ -->
 <script src="../lib/ui/markupTools.js?v=1"></script>
 <script src="../lib/ui/markupEraser.js?fn=3"></script>
-<script src="../lib/ui/markupSelection.js?fn=4"></script>
+<script src="../lib/ui/markupSelection.js?fn=5"></script>
   <script src="../lib/ui/markupPolyline.js?fn=3"></script>
 <script src="../lib/ui/markupText.js?fn=3"></script>
 <script src="js/viewer/markupEngine.js?v=32"></script>
@@ -1085,6 +1085,7 @@ function ensurePdfJs(cb){
         e.stopPropagation();
         var t=document.getElementById(b.dataset.mkTarget);
         if(t)t.click();
+        b.blur();   /* S487e (Mark): no lingering pale focus tint after toggle-off */
         // Reposition submenu near the clicked mobile button (not bottom sheet, not off-screen PC position)
         var subId=_mkTargetToSub[b.dataset.mkTarget];
         if(subId){
@@ -1126,11 +1127,18 @@ function ensurePdfJs(cb){
         if(!leg)return;
         var act=leg.classList.contains('active')||leg.getAttribute('aria-pressed')==='true';
         b.classList.toggle('active',act);
+        /* S487e (Mark): group buttons (select/pen/shapes) change ICON when a
+           sub-tool is picked — mirror icon content LIVE, not just the one-time
+           startup copy above, so the visible proxy row shows the picked tool. */
+        if((b.dataset.mkTarget==='mk-select'||b.dataset.mkTarget==='mk-pen-btn'||b.dataset.mkTarget==='mk-shapes-btn')
+           && leg.innerHTML.trim() && b.innerHTML!==leg.innerHTML){
+          b.innerHTML=leg.innerHTML;
+        }
       });
     }
     Object.keys(legacyMap).forEach(function(id){
       var el=document.getElementById(id);if(!el)return;
-      new MutationObserver(syncActive).observe(el,{attributes:true,attributeFilter:['class','aria-pressed']});
+      new MutationObserver(syncActive).observe(el,{attributes:true,attributeFilter:['class','aria-pressed'],childList:true,subtree:true});   /* S487e: childList so icon swaps mirror */
     });
     syncActive();
     /* Push 3: style strip steppers — proxy via legacy +/- if present */

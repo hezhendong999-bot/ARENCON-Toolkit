@@ -4076,6 +4076,7 @@ function _wireEvents() {
         // sidebar tool. (_setActiveTool(null) also closes the flyout + chrome.)
         if (_tool === 'select') {
           _setActiveTool(null);
+          if (btn && btn.blur) btn.blur();   // S487e: drop the pale focus tint
           e.stopPropagation();
           return;
         }
