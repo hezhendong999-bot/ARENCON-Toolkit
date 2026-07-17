@@ -234,6 +234,29 @@ export function buildHooks(host) {
       // SYNC with markup.js _drawShapeObj / _drawCloudObj — including the
       // renderer's rotation transform (about the pts center).
       const c = _canon(t);
+      const ca = _canon(t);
+      if (ca === 'line' || ca === 'arrow') {
+        // F2b (S487c): arrow/line were falling to the engine default, which calls
+        // MarkupTools.drawShape — and drawShape's arrow branch does beginPath()
+        // for the head, DISCARDING the shaft path, so only the head glowed
+        // (Mark: "arrow only glows the top, not the tail"). Trace the full ink
+        // here: shaft always; for arrow, the two head legs too (drawShape's exact
+        // geometry). markup.js renders line/arrow WITHOUT rotation, so no transform.
+        const sp = s.pts || [];
+        if (sp.length < 2) return false;
+        const x1 = sp[0].x, y1 = sp[0].y, x2 = sp[1].x, y2 = sp[1].y;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);          // shaft (the tail)
+        if (ca === 'arrow') {
+          const ang = Math.atan2(y2 - y1, x2 - x1);
+          const hl = 15 + (s.size || 2) * 2;             // drawShape head length
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - hl * Math.cos(ang - Math.PI / 6), y2 - hl * Math.sin(ang - Math.PI / 6));
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - hl * Math.cos(ang + Math.PI / 6), y2 - hl * Math.sin(ang + Math.PI / 6));
+        }
+        return true;
+      }
       if (c === 'rect' || c === 'rect-fill' || c === 'circle' || c === 'circle-fill' ||
           c === 'triangle' || c === 'triangle-fill' || c === 'cloud') {
         const sp = s.pts || [];
