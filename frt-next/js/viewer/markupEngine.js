@@ -219,6 +219,7 @@
       var self = this, c = this.canvas;
       function pt(ev){
         var r = c.getBoundingClientRect();
+        self._lastRectW = r.width;   // S482 [ported S487k]: zoom-under-stroke guard reads this
         var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX);
         var cy = (ev.touches ? ev.touches[0].clientY : ev.clientY);
         // S358 SINGLE-TRANSFORM INVERSE (matches FRT_ROTATION_REBUILD_DEMO _toFrame):
@@ -263,6 +264,7 @@
           return;
         }
         var p = pt(ev);
+        self._strokeRefW = self._lastRectW;   // S482 [ported S487k]: zoom-under-stroke guard baseline
         // S339 (Mark): if a text box is already open, swallow ALL canvas presses —
         // tapping empty space must NOT drop a second box or discard the text in the
         // open one (fat-finger fix). Only the bar's ✓ (commit) / ✕ (discard) exit.
@@ -342,6 +344,16 @@
         if (!self._drawing) return;
         ev.preventDefault();
         var p = pt(ev);
+        // S482 [ported S487k]: photo zoomed/resized UNDER an in-progress stroke.
+        // A pinch whose 2nd finger lands on the surrounding viewer keeps zooming
+        // the wrap while THIS canvas still reports one touch; points then map
+        // against a moving rect and land displaced ("teleporting marks", Nasim
+        // 7310.17). Abort the stroke, same cleanup as the 2-finger branch.
+        if (self._strokeRefW && self._lastRectW && Math.abs(self._lastRectW - self._strokeRefW) > 0.5){
+          self._drawing = false; self._curr = null; self._shapePending = null;
+          self._render();
+          return;
+        }
         if (self.tool === 'eraser'){
           if (!(window.MarkupEraser && self._curr && self._curr.tool==='eraser')){ self._eraseAtLegacy(p); return; }
           // live drag path: fall through to the freehand append + render below
@@ -350,13 +362,13 @@
         if (isShape(self._curr.tool)){
           // S339 — drag updates the second corner; render live rubber-band preview.
           self._curr.pts[1] = p;
-          self._render();
+          self._renderSoon();   // S482 [ported S487k]: frame-batched
           return;
         }
         var last = self._curr.pts[self._curr.pts.length-1];
         if (Math.abs(p.x-last.x) + Math.abs(p.y-last.y) < 1) return;
         self._curr.pts.push(p);
-        self._render();
+        self._renderSoon();   // S482 [ported S487k]: frame-batched — points append per event
       }
       function up(){
         if (self.tool === 'select'){ if (self._dragState && self._selUp) self._selUp(); return; }
@@ -872,6 +884,18 @@
 
 
 
+    _renderSoon: function(){
+      // S482 [ported S487k]: frame-batch the live-draw repaint. touchmove fires
+      // far faster than the display; painting per EVENT (the pre-port behavior)
+      // was the photo-markup pen lag (Nasim 7310.17). Points still append on
+      // every event (zero fidelity loss) — we paint at most once per frame.
+      // Everything outside the live drag keeps calling _render() directly.
+      if (this._rafQueued) return;
+      if (typeof requestAnimationFrame !== 'function'){ this._render(); return; }
+      var self = this;
+      self._rafQueued = true;
+      requestAnimationFrame(function(){ self._rafQueued = false; self._render(); });
+    },
     _render: function(){
       if (!this.ctx) return;
       var ctx = this.ctx;
