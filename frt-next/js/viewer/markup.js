@@ -684,7 +684,12 @@ function _dimFinChipEnd() {
   if (_dimKpOpen()) _dimKpCommit(true);
   if (dim && dim.endChain) dim.endChain();
   var chip = document.getElementById('dim-finchip');
-  if (chip) chip.classList.remove('show');
+  // F5 (S487): _dvPlacePill shows the pill via INLINE display:flex, so removing
+  // the 'show' class alone leaves it on screen. Hide exactly the way the
+  // _updateDimFinChip hide path does, and reset the one-time pulse gate so the
+  // next chain pulses again.
+  if (chip) { chip.classList.remove('show', 'pulse'); chip.style.display = 'none'; }
+  _dimFinChipWasShowing = false;
   var ov = _getOverlay();
   if (ov) {
     ov.style.display = 'none';
@@ -3976,6 +3981,9 @@ function _wireEvents() {
       if (shMain) shMain.innerHTML = btn.innerHTML + '<span class="tool-group-arrow">\u25B8</span>';
       shapesSub.classList.remove('open');
     }
+    // F4 (S487): select-submenu is a sibling too — close it on any sub-tool pick.
+    var selSubT = document.getElementById('select-submenu');
+    if (selSubT) selSubT.classList.remove('open');
     if (tool === _tool) _setActiveTool(null); else _setActiveTool(tool);
   }
   // S82: Module-level flag — touchend on sub-tool btn sets this to true;
@@ -4099,6 +4107,9 @@ function _wireEvents() {
         // Close shapes submenu if open
         var ss = document.getElementById('shapes-submenu');
         if (ss) ss.classList.remove('open');
+        // F4 (S487): close the select flyout too — full sibling set.
+        var selA = document.getElementById('select-submenu');
+        if (selA) selA.classList.remove('open');
         var isOpen = penSm.classList.contains('open');
         penSm.classList.toggle('open');
         if (!isOpen) _positionSubmenu(penSm, penGroupBtn);
@@ -4115,6 +4126,9 @@ function _wireEvents() {
         // Close pen submenu if open
         var ps = document.getElementById('pen-submenu');
         if (ps) ps.classList.remove('open');
+        // F4 (S487): close the select flyout too — full sibling set.
+        var selB = document.getElementById('select-submenu');
+        if (selB) selB.classList.remove('open');
         var isOpen = sm.classList.contains('open');
         sm.classList.toggle('open');
         if (!isOpen) _positionSubmenu(sm, shapesGroupBtn);
@@ -4440,6 +4454,10 @@ function _wireEvents() {
       if (sm2) sm2.classList.remove('open');
       var cm2 = document.getElementById('color-submenu');
       if (cm2) cm2.classList.remove('open');
+      // F4 (S487): the select flyout is a .tool-submenu like the others —
+      // clicks inside it are already exempt via the closest() guard above.
+      var sel2 = document.getElementById('select-submenu');
+      if (sel2) sel2.classList.remove('open');
     }
     if (!e.target.closest || !e.target.closest('#dv-more-btn')) {
       var mm2 = document.getElementById('dv-more-menu');
