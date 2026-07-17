@@ -597,8 +597,18 @@ function _buildMarkupBar(overlay){
   function closeFly(){ closeAllFlys(); }
   bSel.addEventListener('click',function(e){
     e.stopPropagation();
+    // S487d (Mark): tap Select while armed → DISARM, same toggle as every other
+    // tool. First tap arms select (current sub-mode) AND opens the flyout —
+    // the drawing viewer's S461g pattern, now both hosts.
+    if (_activeBtn===bSel){
+      if (window.MarkupEngine) window.MarkupEngine.setTool('');
+      clearActive(); _activeBtn=null; closeAllFlys(); _refreshConfirmBar(); return;
+    }
+    if (window.MarkupEngine) window.MarkupEngine.setTool('select');
+    setActive(bSel); _activeBtn=bSel;
     if (subFly.style.display==='flex'){ closeAllFlys(); }
     else { closeAllFlys(); positionFly(); subFly.style.display='flex'; }
+    _refreshConfirmBar();
   });
   colorBtn.addEventListener('click',function(e){
     e.stopPropagation();
@@ -618,6 +628,13 @@ function _buildMarkupBar(overlay){
       if (window.MarkupEngine) window.MarkupEngine.setTool('select');
       if (window.MarkupEngine) window.MarkupEngine.setSelectSub(b.dataset.sub);
       setActive(bSel); _activeBtn=bSel; markSub(b.dataset.sub);
+      // S487d (Mark): parent Select button adopts the picked sub-mode's icon —
+      // the same convention as the pen/shapes group buttons. Caret preserved.
+      var _pickedSvg = b.querySelector('svg');
+      if (_pickedSvg){
+        bSel.innerHTML = _pickedSvg.outerHTML.replace('width="18" height="18"','width="21" height="21"')
+          + '<span class="mk-caret" style="position:absolute;right:2px;bottom:2px;font-size:9px;color:#aaa;line-height:1;">\u25BE</span>';
+      }
       closeFly(); _refreshConfirmBar();
     });
   });

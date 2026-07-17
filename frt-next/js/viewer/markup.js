@@ -139,6 +139,13 @@ function _dvEnsureSelChrome() {
     e.stopPropagation();
     SelHost.setSelectSub(b.dataset.selSub);
     markSub(b.dataset.selSub);
+    // S487d (Mark): the parent Select button adopts the picked sub-tool's icon,
+    // exactly like the pen/shapes group buttons do — one pattern, all groups.
+    var selMain = document.getElementById('mk-select');
+    if (selMain) {
+      var svg = b.querySelector('svg');
+      selMain.innerHTML = (svg ? svg.outerHTML : b.innerHTML) + '<span class="tool-group-arrow">\u25B8</span>';
+    }
     _dvSelFly.classList.remove('open');
     _dvRefreshSelConfirm();
   });
@@ -4064,7 +4071,15 @@ function _wireEvents() {
         // _setActiveTool. The bad name threw a ReferenceError on every Select
         // click and killed the whole handler ("nothing happens"). One tap now
         // arms select AND opens the Rubber-band / Tap-select flyout.
-        if (_tool !== 'select') _setActiveTool('select');
+        // S487d (Mark): clicking Select while ALREADY armed now DISARMS it —
+        // single click arms, single click again disarms, same as every other
+        // sidebar tool. (_setActiveTool(null) also closes the flyout + chrome.)
+        if (_tool === 'select') {
+          _setActiveTool(null);
+          e.stopPropagation();
+          return;
+        }
+        _setActiveTool('select');
         _dvToggleSelFly();
         e.stopPropagation();
         return;
