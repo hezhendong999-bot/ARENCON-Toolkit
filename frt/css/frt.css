@@ -11198,3 +11198,9 @@ body.dark-mode .crbt-ph-empty{background:rgba(255,255,255,.03);color:#6b6674;}
   .tool-submenu .sub-tool-btn svg{width:24px;height:24px;}
 }
 
+/* ═══ S488 Wave 3 — sealed header host wrapper ═══════════════════════════════
+   The engine bar (Shadow DOM inside #hdr-mount) paints its own navy + shadow.
+   The legacy .app-header wrapper stays only as the sticky container for the
+   engine bar + FRT's host-owned project bar; its own chrome would double the
+   bar shadow, so it goes transparent when it hosts the mount. */
+.app-header:has(#hdr-mount){background:transparent!important;box-shadow:none!important;border-bottom:none!important;}

@@ -22,6 +22,8 @@ import { Presence } from './data/presence.js';
 import { BinaryOutbox } from './data/photoOutbox.js';
 import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
+import { buildHeader2 } from '../../lib/ui/headerEngine2.js';   /* S488 Wave 3: sealed header */
+import { frtHeaderConfig } from '../../lib/ui/headerConfigs.js';
 import { toast } from './shared/toast.js';
 import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js';
 import { lockScroll, unlockScroll } from './shared/scrollLock.js';
@@ -121,15 +123,9 @@ function detectHubMode() {
   if (pid) {
     _hubMode = true;
     _projectId = pid;
-    var logoLink = document.getElementById('logo-link');
-    if (logoLink) logoLink.href = _hubDashboardUrl();   // S412: logo = HOME (dashboard)
-    var backBtn = document.getElementById('back-btn');
-    if (backBtn) {
-      backBtn.style.display = '';
-      backBtn.addEventListener('click', function() {
-        _leaveTool();   // S412: one tier up (detail page), save-guarded
-      });
-    }
+    /* S488 Wave 3: back-button + logo routing live in the sealed header now —
+       _buildHeader() reads _hubMode and wires ctl.setHubMode + the S412
+       save-guarded _leaveTool path. The old light-DOM pokes are gone. */
     console.log('[FRT v2] Hub mode \u2014 project:', pid);
   } else {
     _hubMode = false;
@@ -272,8 +268,7 @@ var _MOON_ICON = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC4AAA
 function updateDarkToggleIcon() {
   var isDark = document.body.classList.contains('dark-mode');
   var icon = isDark ? _MOON_ICON : _SUN_ICON;
-  var dt = document.getElementById('dark-toggle');
-  if (dt) dt.innerHTML = icon;
+  if (_hdrCtl) _hdrCtl.setTheme(isDark ? 'dark' : 'light');   /* engine swaps its own sun/moon */
   var dvdt = document.getElementById('dv-dark-toggle');
   if (dvdt) dvdt.innerHTML = icon;
   var mdt = document.getElementById('mobile-dark-btn');
@@ -300,8 +295,7 @@ function applyTextSize(size) {
   document.body.classList.remove('text-m', 'text-l');
   var cls = TEXT_CLASSES[size];
   if (cls) document.body.classList.add(cls);
-  var btn = document.getElementById('btn-text-size');
-  if (btn) btn.textContent = size;
+  if (_hdrCtl) _hdrCtl.setControlIcon('ts', size);
   var mob = document.getElementById('mobile-text-size-btn');
   if (mob) mob.textContent = size;   // S479 (Mark, item I): same bare S/M/L as the header button — never a reworded label
 }
@@ -623,10 +617,8 @@ function _updateStorageDisplay() {
     var usedMB = Math.round((est.usage || 0) / 1024 / 1024);
     var totalMB = Math.round((est.quota || 0) / 1024 / 1024);
     var pct = totalMB > 0 ? Math.round(usedMB / totalMB * 100) : 0;
-    var fill = document.querySelector('.storage-bar-fill');
-    if (fill) fill.style.width = pct + '%';
-    var label = document.querySelector('.storage-label');
-    if (label) label.textContent = usedMB + 'MB / ' + totalMB + 'MB (' + pct + '%)';
+    if (_hdrCtl) _hdrCtl.setStorage({ pct: pct,
+      label: usedMB + 'MB / ' + totalMB + 'MB (' + pct + '%)' });
     var mobText = document.getElementById('mobile-storage-text');
     if (mobText) mobText.textContent = usedMB + ' MB used / ' + totalMB + ' MB available';
     var mobBar = document.getElementById('mobile-storage-bar');
@@ -656,8 +648,7 @@ function getInspectorName() { return localStorage.getItem(LS_INSPECTOR) || ''; }
 
 function _updateInspectorChip() {
   var name = getInspectorName();
-  var chip = document.getElementById('inspector-chip-name');
-  if (chip) chip.textContent = name || 'Set Name';
+  if (_hdrCtl) _hdrCtl.setInspector(name ? { name: '\uD83D\uDC64 ' + name } : { placeholder: '\uD83D\uDC64 Set Name' });
 }
 
 function _showInspectorModal() {
@@ -665,8 +656,7 @@ function _showInspectorModal() {
   // authenticated user's profiles.full_name. Editing it here would create
   // local drift between what the chip displays and what the user actually
   // is in Supabase. Bail out silently if the chip is locked.
-  var chip = document.getElementById('inspector-chip');
-  if (chip && chip.classList.contains('inspector-chip-locked')) {
+  if (_inspectorLocked) {
     var current = getInspectorName();
     toast('Inspector is set from your account: ' + (current || 'unknown') + ' \u2014 sign out to change it', 'info');
     return;
@@ -912,17 +902,14 @@ function _updateHeaderForProject() {
     pbBadge.style.cursor = 'pointer';
   }
 
-  // Toggle header buttons: hide dashboard, show project
-  var dashBtns = ['btn-load', 'btn-export-all'];
-  var projBtns = ['btn-pdf', 'btn-issue', 'btn-more-wrap', 'btn-ai-review'];
-  dashBtns.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  projBtns.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = '';
-  });
+  // S488 Wave 3: header mode via the sealed engine — project open hides the
+  // dashboard controls and reveals AI/Reports/More (config hubOnly).
+  if (_hdrCtl){
+    _hdrCtl.setHubMode({ hub:true, backVisible:_hubMode,
+      logoHref:'#', logoTitle:_hubMode ? 'Project dashboard' : 'Back to Toolkit' });
+    _hdrCtl.setControlHidden('load', true);
+    _hdrCtl.setControlHidden('exportall', true);
+  }
 
   // Show AI usage button for all users (everyone tracks their own project costs)
   var aiUsageBtn = document.getElementById('btn-ai-usage');
@@ -943,12 +930,9 @@ function _updateHeaderForProject() {
   // field users from destructive recovery actions (R2 Cleanup, Repair R2
   // Links, Photo Pool Repair) and state-heavy diagnostic surfaces.
   if (Auth && Auth.isSuperAdmin && Auth.isSuperAdmin()) {
-    var repairSec = document.getElementById('more-repair-section');
-    if (repairSec) repairSec.style.display = '';
+    if (_hdrCtl) _hdrCtl.setAdmin(true);   /* S488: Repair section + Diagnostics (S284 gate) */
     var mobileRepair = document.getElementById('mobile-repair-section');
     if (mobileRepair) mobileRepair.style.display = '';
-    var diagBtnSA = document.getElementById('btn-diagnostics');
-    if (diagBtnSA) diagBtnSA.style.display = '';
   }
 
   // Update page title
@@ -1272,12 +1256,9 @@ function _formatTimeAgo(ms) {
 }
 
 function _updateLastSyncIndicator() {
-  var el = document.getElementById('last-sync-text');
-  // S116 Push 14: also mirror onto the drawing-viewer header.
   var dvEl = document.getElementById('dv-last-sync-text');
-  if (!el && !dvEl) return;
   if (!_lastSyncedAt) {
-    if (el) { el.textContent = ''; el.style.display = 'none'; }
+    if (_hdrCtl) _hdrCtl.setCloud({ lastSync:'' });
     if (dvEl) { dvEl.textContent = ''; dvEl.style.display = 'none'; }
     return;
   }
@@ -1287,11 +1268,8 @@ function _updateLastSyncIndicator() {
   var color = diff < 60000 ? '#5F8068'    // muted green: <1 min
             : diff < 300000 ? '#B07F5A'   // muted amber: 1-5 min
             : '#A85959';                   // muted red:   >5 min
-  if (el) {
-    el.style.display = '';
-    el.textContent = label;
-    el.style.color = color;
-  }
+  if (_hdrCtl) _hdrCtl.setCloud({ lastSync: label });   /* S488: engine slot (freshness
+     colors simplified to the engine's quiet style — dv mirror keeps them) */
   if (dvEl) {
     dvEl.style.display = '';
     dvEl.textContent = label;
@@ -1788,28 +1766,13 @@ function _showOutboxModal() {
 // Shows "👥 N here" pill in main header when other users are active in this
 // project. Click → modal listing names. Hidden when nobody else is here.
 function _renderPresenceChip(others) {
-  var chip = document.getElementById('presence-chip');
-  if (!chip) return;
   var n = (others || []).length;
-  if (!n) {
-    chip.style.display = 'none';
-    return;
-  }
-  chip.style.display = 'inline-flex';
-  var label = document.getElementById('presence-chip-text');
-  if (label) label.textContent = n + ' other' + (n === 1 ? '' : 's') + ' here';
-  // Build tooltip + click-modal content from names
-  var names = others.map(function(o){
+  _presenceNames = (others || []).map(function(o){
     var nm = (o.full_name || '').trim();
-    if (!nm) nm = (o.user_id || '').slice(0, 8);
-    return nm;
+    return nm || (o.user_id || '').slice(0, 8);
   });
-  chip.title = 'Also here: ' + names.join(', ');
-  chip.onclick = function() {
-    if (typeof showAlert === 'function') {
-      showAlert('Currently in this project:\n\n• ' + names.join('\n• '));
-    }
-  };
+  if (_hdrCtl) _hdrCtl.setPresence({ visible: n > 0,
+    text: n + ' other' + (n === 1 ? '' : 's') + ' here' });
 }
 window._renderPresenceChip = _renderPresenceChip;
 
@@ -1817,10 +1780,7 @@ function _setCloudStatus(status, text) {
   _lastCloudStatus = status;
   _lastCloudText   = text || '';
   if (status === 'synced') _lastSyncedAt = Date.now();
-  var dot = document.getElementById('cloud-dot');
-  var label = document.getElementById('cloud-status-text');
-  var wrap = document.getElementById('cloud-status');
-  if (wrap) wrap.style.display = 'flex';
+  /* S488 Wave 3: header cloud slot is engine-owned; dv-* mirrors stay host. */
   // S116 Push 16: don't blank the text when status updates with empty text —
   // Mark image 1 showed "(dot)  · last sync: just now" with no "Saved to cloud"
   // between them, creating a weird gap. The label slot was rendered as empty
@@ -1835,11 +1795,12 @@ function _setCloudStatus(status, text) {
     status === 'error'   ? 'Sync error'     :
     'Saved to cloud'
   );
-  if (label) label.textContent = safeText;
   if (dvText) dvText.textContent = safeText;
   var colors = { synced: '#34D399', saving: '#FBBF24', pending: '#F59E0B', error: '#EF4444', offline: '#9CA3AF' };
   var color = colors[status] || '#9CA3AF';
-  if (dot) dot.style.background = color;
+  if (_hdrCtl) _hdrCtl.setCloud({ visible:true, text:safeText,
+    state: status === 'synced' ? 'ok' : (status === 'error' ? 'err' :
+           (status === 'offline' ? 'off' : 'sync')) });
   // Mirror on the project-bar mini dot
   var pbDot = document.getElementById('pb-cloud-dot');
   if (pbDot) pbDot.style.background = color;
@@ -1973,6 +1934,9 @@ function wireEvents() {
   document.querySelectorAll('.nav-tab').forEach(function(tab) {
     tab.addEventListener('click', function() { switchTab(this.dataset.tab); });
   });
+
+  _buildHeader();   /* S488 Wave 3: sealed header first — everything below that
+     touched old header IDs is null-guarded and self-disables. */
 
   // Dark mode
   var darkBtn = document.getElementById('dark-toggle');
@@ -2203,6 +2167,61 @@ function wireEvents() {
   });
 }
 
+// ─── S488 Wave 3: sealed shared header (locked navy unification) ──────────
+var _hdrCtl = null;
+var _presenceNames = [];
+var _inspectorLocked = false;
+function _buildHeader(){
+  var mount = document.getElementById('hdr-mount');
+  if (!mount || _hdrCtl) return;
+  var cfg = frtHeaderConfig({
+    onBack: function(){ _leaveTool(); },                       /* S412 save-guarded */
+    onHome: function(){
+      var href = _hubMode ? _hubDashboardUrl() : '../index.html';
+      if (_hubMode && Model.hasUnsavedChanges()){ _showLeaveDialog(href); return; }
+      window.location.href = href;
+    },
+    onCloudClick: function(){ if (typeof _showCloudDiagnostic === 'function') _showCloudDiagnostic(); },
+    onPresenceClick: function(){
+      if (_presenceNames.length && typeof showAlert === 'function')
+        showAlert('Currently in this project:\n\n\u2022 ' + _presenceNames.join('\n\u2022 '));
+    },
+    onInspector: _showInspectorModal,
+    onLoad: function(){ var li = document.getElementById('load-input'); if (li) li.click(); },
+    onExportAll: null,                                          /* live parity: unwired */
+    onAiRewrite: function(){ AIAssist.reviewAll('rewrite'); },
+    onAiUsage: function(){ AIUsage.open(); },
+    onIssue: function(){ _issueReport(); },
+    onExportPDF: function(){ initExportView.open(); },
+    onCrbImport: function(){ openCrbImport(); },
+    onDownloadJSON: function(){ initJSONExport.exportJSON(); },
+    onExportDocs: function(){ initProjectDocsExport.run(); },
+    onLoadProject: function(){ var li = document.getElementById('load-input'); if (li) li.click(); },
+    onReupload: function(){ _reuploadAll(); },
+    onFixBlurry: null, onRepairPhotos: function(){ _repairPhotos(); },
+    onR2Cleanup: null, onRepairLinks: null,                     /* live parity: unwired */
+    onDiagnostics: function(){ if (typeof _showCloudDiagnostic === 'function') _showCloudDiagnostic(); },
+    onQR: function(){ _showQR(); },
+    onResetTab: function(){ _resetCurrentTab(); },
+    onResetProject: function(){ _resetProject(); },
+    onToggleTheme: toggleDarkMode,
+    onTextSize: cycleTextSize,
+    onSignout: function(){ _signOut(); }
+  });
+  _hdrCtl = buildHeader2(mount, cfg);
+  window._frtHeaderCtl = _hdrCtl;   /* other modules + console access */
+  /* seed state */
+  _hdrCtl.setTheme(document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+  _hdrCtl.setControlIcon('ts', localStorage.getItem(LS_TEXT_SIZE) || 'S');
+  _hdrCtl.setControlHidden('signout', !localStorage.getItem('sb-access-token'));
+  fetch('../logo_base64.txt').then(function(r){ return r.text(); })
+    .then(function(b64){ _hdrCtl.setLogo(b64.trim()); }).catch(function(){});
+  if (_hubMode){
+    _hdrCtl.setHubMode({ hub:true, backVisible:true, logoHref:'#', logoTitle:'Project dashboard' });
+    _hdrCtl.setCloud({ visible:true });
+  }
+}
+
 // S139 Phase 3: count pins that would land in the "Other Trade Items"
 // band (untagged = first-obs trade empty). Contractor defics always count
 // (incl. recs — they show with a REC chip in the band). General defics
@@ -2248,7 +2267,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S488';
+var FRT_BUILD = 'S488w3';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
@@ -2291,8 +2310,7 @@ function boot() {
   // Clicking routes through the existing Auth.signOut(), which clears tokens
   // whether or not a session object was restored this boot.
   if (localStorage.getItem('sb-access-token')) {
-    var _soBoot = document.getElementById('btn-signout');
-    if (_soBoot) _soBoot.style.display = '';
+    if (_hdrCtl) _hdrCtl.setControlHidden('signout', false);
     var _msoBoot = document.getElementById('mobile-signout-btn');
     if (_msoBoot) _msoBoot.style.display = '';
   }
@@ -2394,11 +2412,7 @@ function boot() {
         // Lock chip in Hub mode — inspector identity is the authenticated
         // user's real name. Free-form editing in standalone mode still
         // works (no project URL param = no auth path).
-        var chip = document.getElementById('inspector-chip');
-        if (chip) {
-          chip.classList.add('inspector-chip-locked');
-          chip.title = 'Inspector: ' + fullName + ' (signed in)';
-        }
+        _inspectorLocked = true;   /* S488: engine chip — lock flag replaces the class */
         // S117-A: kick off presence heartbeat. Self-disables silently if
         // the project_presence table doesn't exist yet (i.e. before Mark
         // deploys supabase/project_presence.sql).
@@ -2416,9 +2430,8 @@ function boot() {
         try { Presence.start(_projectId, user, emailPrefix || ''); } catch(_){}
         try { Presence.onChange(_renderPresenceChip); } catch(_){}
       });
-      // Show sign-out button
-      var soBtn = document.getElementById('btn-signout');
-      if (soBtn) soBtn.style.display = '';
+      // Show sign-out button (engine)
+      if (_hdrCtl) _hdrCtl.setControlHidden('signout', false);
       var mso = document.getElementById('mobile-signout-btn');
       if (mso) mso.style.display = '';
       // Read instance from URL
