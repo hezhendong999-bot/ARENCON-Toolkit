@@ -120,8 +120,7 @@ function _leaveTool() {
   // forward (Hub-side, cloud-backed) read the STALE value. Mark's repro:
   // set an obs to Closed, hit Back immediately, create FRT #N+1 -> item
   // still Outstanding. _frtHasPendingCloudPush() exposes that pending state.
-  if (_hubMode && (Model.hasUnsavedChanges() || _frtHasPendingCloudPush())) { _showLeaveDialog(dest); }
-  else { window.location.href = dest; }
+  _flushAndLeave(dest);   /* S489c: always flush (incl. the S489 pending-push case), never prompt */
 }
 
 // ── Hub Mode Detection ───────────────────────────────────
@@ -820,66 +819,36 @@ function _showRenameDialog() {
 }
 
 // ── Leave Dialog (3-button, Hub mode) ───────────────────
-function _showLeaveDialog(destUrl) {
-  var h = '<div id="leave-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;">';
-  h += '<div style="background:white;border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:300px;max-width:380px;width:90%;">';
-  h += '<div style="text-align:center;margin-bottom:16px;">';
-  h += '<div style="font-size:32px;margin-bottom:8px;">\uD83D\uDCBE</div>';
-  h += '<div style="font-size:14px;color:#718096;">You have unsaved changes.</div>';
-  h += '</div>';
-  h += '<div style="display:flex;flex-direction:column;gap:8px;">';
-  h += '<button id="leave-save" class="btn-muted-ok" style="width:100%;">Save & Leave</button>';
-  h += '<button id="leave-nosave" class="btn-muted-neutral" style="width:100%;">Leave without saving</button>';
-  h += '<button id="leave-cancel" class="btn-muted-cancel" style="width:100%;">Cancel \u2014 go back</button>';
-  h += '</div></div></div>';
-
-  var div = document.createElement('div');
-  div.innerHTML = h;
-  var overlay = div.firstChild;
-  document.body.appendChild(overlay);
-
-  overlay.querySelector('#leave-save').addEventListener('click', function() {
-    // S489: this path is now also the fix for the "pending cloud push" case,
-    // so its failure behaviour matters more than before. Previously a
-    // rejected push left the promise chain dead: the overlay stayed up and
-    // the user was trapped with no feedback. Now a failed push still lets
-    // the user leave (local IDB is already flushed by saveNow, so nothing is
-    // lost) but says so first, rather than silently pretending it synced.
-    var btn = this;
-    btn.disabled = true;
-    btn.textContent = 'Saving\u2026';
+/* S489c (Mark): FLUSH ON LEAVE — no save modal, anywhere.
+   The 3-button dialog is DELETED. It was a pre-cloud fossil and was already
+   unreachable in normal use: it fired only while a dirty flag was set, and the
+   debounced IDB save clears that flag ~1.5s after any edit — long before a hand
+   reaches Back. S489 had widened the trigger to catch the pending-cloud-push
+   window (Mark's repro: close an item, hit Back, create FRT #N+1, item still
+   Outstanding). That fix is PRESERVED and made unconditional here: instead of
+   asking, leaving now always performs the same flush the dialog's "Save & Leave"
+   button did — local IDB save, then the cloud push when one is actually pending —
+   and only then navigates. _frtHasPendingCloudPush() still owns that state.
+   Failure behaviour (S489's concern): a rejected push must never trap an
+   inspector on site, and the edit is already safe in IDB, so we navigate anyway
+   and let the next open reconcile. A 4s watchdog covers a hung network. */
+function _flushAndLeave(dest) {
+  var gone = false;
+  var go = function(){ if (gone) return; gone = true; window.location.href = dest; };
+  setTimeout(go, 4000);
+  try {
+    var needPush = _frtHasPendingCloudPush() || Model.hasUnsavedChanges();
+    try { _setCloudStatus('saving', 'Saving\u2026'); } catch (_) {}
     Model.saveNow().then(function() {
-      if (_hubMode && _projectId) return SyncEngine.push(_projectId);
+      if (needPush && _hubMode && _projectId && typeof SyncEngine !== 'undefined') {
+        return SyncEngine.push(_projectId);
+      }
       return null;
-    }).then(function() {
-      overlay.remove();
-      window.location.href = destUrl;
-    }).catch(function(err) {
-      console.warn('[FRT v2] Save & Leave cloud push failed:', err);
-      try { toast('Saved on this device, but the cloud sync failed \u2014 reopen on this device when back online', 'error', 6000); } catch(_) {}
-      overlay.remove();
-      window.location.href = destUrl;
+    }).then(go, function(err) {
+      console.warn('[FRT] leave-flush push failed; local IDB holds the edit:', err);
+      go();
     });
-  });
-  overlay.querySelector('#leave-nosave').addEventListener('click', function() {
-    // S163 Fix E (V-8): persist local IDB before navigating away. The dialog
-    // choice only controls whether the cloud push fires, NOT whether local
-    // IDB state survives. Previously, photos added within the 1.5s autosave-
-    // debounce window were lost from local IDB on this path even though R2
-    // already had the binary — the cloud row then "wins" on next pull,
-    // erasing them from in-memory state. saveNow() flushes the debounce
-    // timer and writes synchronously. If saveNow rejects we navigate anyway
-    // so the user is never trapped in the modal. The cloud push is
-    // intentionally skipped — that's the user's expressed intent.
-    Model.saveNow().catch(function(){}).then(function() {
-      overlay.remove();
-      window.location.href = destUrl;
-    });
-  });
-  overlay.querySelector('#leave-cancel').addEventListener('click', function() {
-    overlay.remove();
-  });
-  overlay.addEventListener('click', function(e) { /* backdrop-click close disabled (accidental dismiss) */ if(false){} });
+  } catch (e) { go(); }
 }
 function handleBeforeUnload(e) {
   // S125 hotfix 8 — Flush in-progress markup to Model+IDB before unload
@@ -2052,14 +2021,8 @@ function wireEvents() {
   // hub-mode handler (which navigated with NO save dialog). The single
   // registration in the hub-mode init now routes through _leaveTool().
 
-  // Logo click with leave dialog in Hub mode
-  var logoLink = document.getElementById('logo-link');
-  if (logoLink) logoLink.addEventListener('click', function(e) {
-    if (_hubMode && Model.hasUnsavedChanges()) {
-      e.preventDefault();
-      _showLeaveDialog(logoLink.href);
-    }
-  });
+  /* S489c: the logo lives inside the sealed header (S488 Wave 3) and routes
+     through the config's onHome -> _flushAndLeave. This listener is retired. */
 
   // ── S411: TIERED BACK-TRAP (ports Diesel's S332/S333 pattern) ─────────
   // Android/TWA back (or swipe-back) peels ONE layer at a time instead of
@@ -2209,8 +2172,7 @@ function _buildHeader(){
     onBack: function(){ _leaveTool(); },                       /* S412 save-guarded */
     onHome: function(){
       var href = _hubMode ? _hubDashboardUrl() : '../index.html';
-      if (_hubMode && Model.hasUnsavedChanges()){ _showLeaveDialog(href); return; }
-      window.location.href = href;
+      _flushAndLeave(href);   /* S489c: always flush, never prompt */
     },
     onCloudClick: function(){ if (typeof _showCloudDiagnostic === 'function') _showCloudDiagnostic(); },
     onPresenceClick: function(){
@@ -2298,7 +2260,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S489b';
+var FRT_BUILD = 'S489c';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
@@ -2676,8 +2638,8 @@ document.addEventListener('keydown', function(e) {
     'ai-fs-overlay',           // AI full-screen field selector
     'ai-ps-overlay',           // legacy AI photo-suggest modal
     'insp-overlay',            // inspector picker
-    'qr-overlay',              // QR code overlay
-    'leave-overlay'            // 3-button leave dialog
+    'qr-overlay'               // QR code overlay
+    /* S489c: 'leave-overlay' removed — the 3-button leave dialog no longer exists. */
   ];
   for (var i = 0; i < modalIds.length; i++) {
     var el = document.getElementById(modalIds[i]);

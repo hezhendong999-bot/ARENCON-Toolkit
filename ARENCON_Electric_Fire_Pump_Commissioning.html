@@ -6989,41 +6989,28 @@ async function issueReport() {
 }
 
 // ═══ SAVE & LEAVE MODAL (Hub mode) ═══
-function _showSaveLeaveModal(destUrl) {
-  var ex = document.getElementById('save-leave-modal'); if(ex) ex.remove();
-  var ov = document.createElement('div');
-  ov.id = 'save-leave-modal';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(28,35,51,.85);z-index:20000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
-  var box = document.createElement('div');
-  box.style.cssText = 'background:var(--smoke);border-radius:12px;padding:28px;max-width:380px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.4);font-family:Calibri,sans-serif;';
-  box.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--slate);margin-bottom:8px;">Save before leaving?</div>'
-    + '<div style="font-size:13px;color:var(--silver);margin-bottom:20px;line-height:1.5;">Your report auto-saves every 30 seconds, but you may have recent changes that haven\'t synced yet.</div>'
-    + '<div style="display:flex;flex-direction:column;gap:8px;">'
-    + '<button id="sl-save-btn" style="width:100%;padding:11px;background:#1A7A4A;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">💾 Save & Leave</button>'
-    + '<button id="sl-leave-btn" style="width:100%;padding:11px;background:var(--smoke);color:var(--slate);border:1.5px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Leave without saving</button>'
-    + '<button id="sl-cancel-btn" style="width:100%;padding:9px;background:none;border:none;color:var(--silver);font-size:12px;cursor:pointer;font-family:Calibri,sans-serif;">Cancel — go back</button>'
-    + '</div>';
-  ov.appendChild(box);
-  document.body.appendChild(ov);
-  if(document.body.classList.contains('dark-mode')) {
-    box.style.background = '#1e2028';
-    box.querySelector('div').style.color = '#d4d4d4';
-  }
-  document.getElementById('sl-save-btn').onclick = async function() {
-    this.textContent = 'Saving...'; this.disabled = true;
-    try {
-      if(typeof CloudSync !== 'undefined' && CloudSync.projectId) {
-        await CloudSync.save(JSON.stringify(_collectCloudState()));
-      } else { saveState(); }
-    } catch(e) {}
-    window.location.href = destUrl;
-  };
-  document.getElementById('sl-leave-btn').onclick = function() { window.location.href = destUrl; };
-  document.getElementById('sl-cancel-btn').onclick = function() { ov.remove(); };
-  ov.onclick = function(e) { /* backdrop close disabled */ };
-  ov.addEventListener('keydown', function(e) { if(e.key === 'Escape') ov.remove(); });
+/* S488 (Mark): FLUSH ON LEAVE — no save modal, anywhere. The 3-button
+   "Save before leaving?" dialog is DELETED. Electric was the only tool that
+   actually showed it (every Hub-mode exit), asking a question the app already
+   knows the answer to. Leaving now mirrors Diesel's S264 behaviour: force a
+   full cloud save, then navigate. The 4s safety timer guarantees a hung save
+   can never trap an inspector on site. Name kept so all call sites work. */
+function _showSaveLeaveModal(destUrl) { _flushAndLeave(destUrl); }
+async function _flushAndLeave(destUrl) {
+  var gone = false;
+  var go = function(){ if (gone) return; gone = true; window.location.href = destUrl; };
+  setTimeout(go, 4000);
+  try {
+    var _c = window.__elecHeaderCtl;
+    if (_c) _c.setCloud({ visible:true, state:'sync', text:'Saving\u2026' });
+  } catch(e) {}
+  try {
+    if (typeof CloudSync !== 'undefined' && CloudSync.projectId) {
+      await CloudSync.save(JSON.stringify(_collectCloudState()));
+    } else { saveState(); }
+  } catch(e) { /* offline/quota — autosave + outbox reconcile */ }
+  go();
 }
-
 function _wireNavIntercepts() {
   /* S488 Wave 1: header intercepts retired — #back-btn/#logo-link live inside the
      sealed engine's shadow root now. The Save & Leave protection moved into
