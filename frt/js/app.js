@@ -2298,7 +2298,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S489';
+var FRT_BUILD = 'S489b';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');

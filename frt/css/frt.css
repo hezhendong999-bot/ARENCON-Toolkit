@@ -11210,3 +11210,28 @@ body.dark-mode .crbt-ph-empty{background:rgba(255,255,255,.03);color:#6b6674;}
      collapsed to header height, page cards painted over it). backdrop-filter on a
      transparent wrapper is meaningless anyway — the engine bar paints itself. */
   backdrop-filter:none!important;filter:none!important;}
+
+/* ── S489: roster trade count badges (Mark) ─────────────────────────────
+   .crx-tagn appears inside both the strip pill (.crx-tpill — project-wide
+   obs count) and the contractor tag chip (.crx-tag — that contractor's obs
+   count). Quiet number in a low-alpha round chip, tinted from the trade's
+   own --tc-fg var so it never introduces a new colour. Hidden in pick mode
+   alongside the × (same reason: the pill is a pure tap target there). */
+.crx-tagn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 5px;
+  border-radius: 8px;
+  font-size: calc(10.5px + var(--ts, 0px));
+  font-weight: 700;
+  line-height: 1;
+  background: rgba(0, 0, 0, .08);
+  color: inherit;
+  opacity: .85;
+}
+body.dark-mode .crx-tagn { background: rgba(255, 255, 255, .14); }
+body.crx-picking .crx-tpill .crx-tagn { display: none; }

@@ -1002,6 +1002,14 @@ export var Model = {
       .filter(function(c) { return !!c; });
     (proj.contractors || []).forEach(function(c) {
       if (!Array.isArray(c.trades)) c.trades = [];
+      // S489: tradesAuto lists roster trades that were derived FROM an
+      // observation's trade (the write-back), as opposed to trades a person
+      // added by hand on the roster/Board. Auto entries are eligible for
+      // silent cleanup when no observation of this contractor uses them any
+      // more; manual entries are never auto-removed. If a merge ever drops
+      // this array the failure direction is safe: every trade is treated as
+      // manual and simply stops being auto-pruned.
+      if (!Array.isArray(c.tradesAuto)) c.tradesAuto = [];
       if (!c.color) {
         c.color = nextContractorColor(_usedCtrColors);
         _usedCtrColors.push(c.color);
@@ -1674,6 +1682,128 @@ export var Model = {
     _queueSave();
     this._notify('contractor', { action: 'trades', ctrId: ctrId, trades: ctr.trades.slice() });
     return true;
+  },
+
+  // ── S489: observation→roster trade write-back ──────────────────────
+  // Design (Mark, this session): the roster mirrors live field data.
+  // Setting an observation's trade populates the assigned contractor's
+  // roster; correcting or deleting the observation withdraws the entry
+  // again IF nothing else justifies it. Direction is strictly
+  // observation→roster; roster edits never rewrite observations.
+
+  // Count observations under a contractor that carry the given trade.
+  // Powers the roster count badges AND the auto-prune reference check.
+  countObsWithTrade: function(ctrId, trade) {
+    if (!_project || !trade) return 0;
+    var ctr = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
+    if (!ctr) return 0;
+    var n = 0;
+    (ctr.deficiencies || []).forEach(function(d) {
+      (d.observations || []).forEach(function(o) {
+        if ((o.trade || '') === trade) n++;
+      });
+    });
+    return n;
+  },
+
+  // addContractorToTrade + stamp the entry as observation-derived so the
+  // prune pass may later withdraw it. If the trade was ALREADY on the
+  // roster (added manually), the manual standing wins and no stamp is made.
+  addContractorToTradeAuto: function(ctrId, trade) {
+    var ctr = (_project && _project.contractors || []).find(function(c) { return c.id === ctrId; });
+    if (!ctr) return false;
+    var already = Array.isArray(ctr.trades) && ctr.trades.indexOf(trade) >= 0;
+    var ok = this.addContractorToTrade(ctrId, trade);
+    if (ok && !already) {
+      if (!Array.isArray(ctr.tradesAuto)) ctr.tradesAuto = [];
+      if (ctr.tradesAuto.indexOf(trade) < 0) ctr.tradesAuto.push(trade);
+    }
+    return ok;
+  },
+
+  // Silent housekeeping: drop any AUTO roster trade of this contractor
+  // that no observation of theirs references any more. Manual entries
+  // (not in tradesAuto) are never touched. Returns array of removed names.
+  pruneAutoTrades: function(ctrId) {
+    if (!_project) return [];
+    var ctr = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
+    if (!ctr || !Array.isArray(ctr.tradesAuto) || !ctr.tradesAuto.length) return [];
+    var self = this, removed = [];
+    ctr.tradesAuto.slice().forEach(function(t) {
+      if (self.countObsWithTrade(ctrId, t) === 0) {
+        var ti = (ctr.trades || []).indexOf(t);
+        if (ti >= 0) ctr.trades.splice(ti, 1);
+        var ai = ctr.tradesAuto.indexOf(t);
+        if (ai >= 0) ctr.tradesAuto.splice(ai, 1);
+        removed.push(t);
+      }
+    });
+    if (removed.length) {
+      _dirty = true;
+      _queueSave();
+      this._notify('contractor', { action: 'trades', ctrId: ctrId, trades: (ctr.trades || []).slice() });
+    }
+    return removed;
+  },
+
+  // The write-back evaluation for one observation. Fires after either the
+  // trade OR the contractor changes (order-independence: both edit orders
+  // converge here). Returns:
+  //   null                       — nothing to do (Site Records, no trade,
+  //                                or already listed)
+  //   {added:true, trade, ctr}   — silently written (empty-roster rule)
+  //   {confirm:true, trade, ctr} — caller must ask (existing roster,
+  //                                trade missing) and on yes call
+  //                                addContractorToTradeAuto itself.
+  evalTradeWriteBack: function(deficId, obsIdx) {
+    var f = this.findDeficiency(deficId);
+    if (!f || !f.contractor) return null;            // Site Records: no target
+    var obs = (f.defic.observations || [])[obsIdx];
+    var trade = obs && obs.trade;
+    // Always prune first — a correction is remove-then-add in one pass.
+    this.pruneAutoTrades(f.contractor.id);
+    if (!trade) return null;
+    var ctr = f.contractor;
+    if ((ctr.trades || []).indexOf(trade) >= 0) return null;   // already listed
+    if (!(ctr.trades || []).length) {
+      // Empty roster (typically a contractor just created from this very
+      // deficiency): nothing to fat-finger over — write silently (rule B).
+      this.addContractorToTradeAuto(ctr.id, trade);
+      return { added: true, trade: trade, ctr: ctr };
+    }
+    return { confirm: true, trade: trade, ctr: ctr };
+  },
+
+  // S489: blank a trade off every observation it appears on. Scope 'ctr'
+  // limits to one contractor's pins; scope 'project' walks every pin
+  // including Site Records. This is the "clear to blank for manual fix"
+  // action behind the roster deletion warnings (Mark: blank is the default,
+  // never bulk-reassign from a dialog — blank is visible and undamaging,
+  // a wrong reassign hides). tradeSource stays 'manual' so the AI tagger
+  // won't refill a deliberate clear. Returns the number of obs cleared.
+  clearObsTrade: function(trade, scope, ctrId) {
+    if (!_project || !trade) return 0;
+    var n = 0;
+    function _walk(defArr) {
+      (defArr || []).forEach(function(d) {
+        (d.observations || []).forEach(function(o) {
+          if (o && (o.trade || '') === trade) { o.trade = ''; o.tradeSource = 'manual'; n++; }
+        });
+      });
+    }
+    if (scope === 'ctr') {
+      var ctr = (_project.contractors || []).find(function(c) { return c.id === ctrId; });
+      if (ctr) _walk(ctr.deficiencies);
+    } else {
+      (_project.contractors || []).forEach(function(c) { _walk(c.deficiencies); });
+      _walk(_project.generalDeficiencies);
+    }
+    if (n) {
+      _dirty = true;
+      _queueSave();
+      this._notify('observation', { action: 'trade-cleared', trade: trade, count: n });
+    }
+    return n;
   },
 
   /**
@@ -3685,6 +3815,12 @@ export var Model = {
     _dirty = true;
     _queueSave();
     this._notify('deficiency', { action: 'remove', deficId: deficId });
+    // S489: a deleted pin withdraws any roster trade that existed only on
+    // its account (Mark's ruling: deletion is the same rule as correction —
+    // a mirror with residue is worse than no mirror). Manual roster entries
+    // and trades still used by another pin are untouched. undoLast
+    // re-derives the pruned entries when it restores the pin.
+    if (f.contractor) this.pruneAutoTrades(f.contractor.id);
     return true;
   },
 
@@ -3709,6 +3845,17 @@ export var Model = {
       _dirty = true;
       _queueSave();
       this._notify('deficiency', { action: 'undo-delete', defic: entry.defic });
+      // S489: the delete pruned any roster trade that lived only on this pin;
+      // undo restores the pin, so re-derive those entries. Silent by design —
+      // the user asked for the prior state back, and these entries were part
+      // of it. Only fires for a contractor-owned pin (Site Records has no
+      // roster target), and addContractorToTradeAuto is idempotent.
+      if (entry.contractorId) {
+        var _self = this;
+        (entry.defic.observations || []).forEach(function(o) {
+          if (o && o.trade) _self.addContractorToTradeAuto(entry.contractorId, o.trade);
+        });
+      }
       console.log('[Model] Undo: restored deficiency #' + entry.defic.num);
       return entry;
     }
@@ -3888,6 +4035,10 @@ export var Model = {
     _dirty = true;
     _queueSave();
     this._notify('deficiency', { action: 'reassign', deficId: deficId, newCtrId: newCtrId });
+    // S489: the pin left its old contractor — withdraw any roster trade that
+    // existed only on this pin's account. Runs AFTER the splice so the count
+    // reflects the post-move truth. Old contractor id came from f (pre-move).
+    if (f.contractor && f.contractor.id !== newCtrId) this.pruneAutoTrades(f.contractor.id);
     return true;
   },
 
@@ -4308,3 +4459,4 @@ export var Model = {
 
 // S340: expose Model for console diagnostics (read-only debugging hook).
 try { if (typeof window !== 'undefined') window._frtModel = Model; } catch(_){}
+

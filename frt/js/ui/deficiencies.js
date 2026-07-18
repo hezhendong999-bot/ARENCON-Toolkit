@@ -1405,8 +1405,18 @@ function _renderTradeBoard(proj) {
   h += '<div class="crx-trades">';
   trades.forEach(function(t) {
     var taken = !!pickCtr && pickHas.indexOf(t) !== -1;
+    // S489: strip pill badge = project-wide observation count on this trade
+    // (all contractors + Site Records) — the number the project-wide delete
+    // warning will quote, visible before the tap.
+    var _spN = 0;
+    (function() {
+      function _cnt(arr) { (arr || []).forEach(function(d) { (d.observations || []).forEach(function(o) { if (o && (o.trade || '') === t) _spN++; }); }); }
+      ctrs.forEach(function(c) { _cnt(c.deficiencies); });
+      _cnt(proj.generalDeficiencies);
+    })();
     h += '<span class="crx-tpill' + (taken ? ' crx-taken' : '') + '" data-action="crx-pill" data-trade="' + esc(t) + '" style="' + _tradeVars(t) + '">';
     h += esc(t);
+    if (_spN > 0) h += '<span class="crx-tagn" title="' + _spN + ' observation' + (_spN === 1 ? '' : 's') + ' project-wide">' + _spN + '</span>';
     h += '<button class="crx-px" data-action="crx-del-trade" data-trade="' + esc(t) + '" title="Delete trade everywhere">\u00D7</button>';
     h += '</span>';
   });
@@ -1450,7 +1460,12 @@ function _renderTradeBoard(proj) {
       if (_un) h += '<span class="crx-unflag">Unassigned</span>';
       h += '<span class="crx-tagwrap">';
       _ct.forEach(function(t) {
+        // S489 (Mark): count badge = how many of THIS contractor's
+        // observations carry this trade. Reads the deletion stakes at a
+        // glance; 0 marks the entry as safe to remove.
+        var _tcN = Model.countObsWithTrade(c.id, t);
         h += '<span class="crx-tag" style="' + _tradeVars(t) + '">' + esc(t);
+        if (_tcN > 0) h += '<span class="crx-tagn" title="' + _tcN + ' observation' + (_tcN === 1 ? '' : 's') + ' on this trade">' + _tcN + '</span>';
         h += '<button class="crx-tx" data-action="crx-untag" data-ctr-id="' + esc(c.id) + '" data-trade="' + esc(t) + '" title="Un-assign ' + esc(ctrLabel(c.name)) + ' from ' + esc(t) + '">\u00D7</button>';
         h += '</span>';
       });
@@ -4208,6 +4223,9 @@ function _openAddDeficModal(prefillCtrId, prefillTrade) {
     Model.updateObsPriority(d.id, 0, ov.querySelector('#adf-pri').value || 'high');
     var tr = ov.querySelector('#adf-trade').value || '';
     Model.updateObsTrade(d.id, 0, tr, 'manual');
+    // S489: a brand-new pin created WITH a contractor + trade seeds the
+    // roster immediately (usually the silent empty-roster case).
+    if (tr && ctrId) _tradeWriteBack(d.id, 0);
     // Additive fields — set on the returned live defic (spin-off precedent).
     // S327 (B1 root cause): route rec through setRecommendation so obs[0] AND the
     // pin-level rollup are both written. Setting d.isRecommendation directly left
@@ -5254,6 +5272,26 @@ document.addEventListener('click', function(e) {
     var _utId = el.getAttribute('data-ctr-id');
     var _utT = el.getAttribute('data-trade');
     if (_utId && _utT) {
+      // S489 (Mark): un-tagging a trade the contractor still has live
+      // observations on must warn — otherwise the roster silently disagrees
+      // with the field data driving report grouping. Chosen resolution is
+      // "clear to blank for manual fix" (never bulk-reassign from a dialog).
+      var _utN = Model.countObsWithTrade(_utId, _utT);
+      if (_utN > 0) {
+        showConfirm('Un-assign \u201C' + _utT + '\u201D?',
+          _utN + ' observation' + (_utN === 1 ? '' : 's') + ' under this contractor ' +
+          (_utN === 1 ? 'is' : 'are') + ' set to \u201C' + _utT + '\u201D. Un-assigning will also CLEAR ' +
+          (_utN === 1 ? 'its trade' : 'their trades') + ' to blank for manual fix \u2014 the pins themselves are untouched. Continue?')
+          .then(function(yes) {
+            if (!yes) return;
+            Model.clearObsTrade(_utT, 'ctr', _utId);
+            Model.removeContractorFromTrade(_utId, _utT);
+            Model.pruneAutoTrades(_utId);
+            initDeficiencies.render();
+            toast('Un-assigned from ' + _utT + ' \u00B7 ' + _utN + ' obs trade' + (_utN === 1 ? '' : 's') + ' cleared');
+          });
+        return;
+      }
       Model.removeContractorFromTrade(_utId, _utT);
       initDeficiencies.render();
       toast('Un-assigned from ' + _utT);
@@ -5270,11 +5308,31 @@ document.addEventListener('click', function(e) {
     if (!_dtT) return;
     var _dtP = Model.getProject();
     var _dtN = ((_dtP && _dtP.contractors) || []).filter(function(c) { return (c.trades || []).indexOf(_dtT) !== -1; }).length;
-    var _dtMsg = _dtN > 0
-      ? 'Delete the "' + _dtT + '" trade everywhere? ' + _dtN + ' contractor' + (_dtN === 1 ? '' : 's') + ' will be un-tagged from it (contractor records and their deficiencies are preserved).'
-      : 'Delete the "' + _dtT + '" trade? (No contractors are on it.)';
+    // S489: project-wide deletion is the WIDE version of the un-tag warning —
+    // count every observation on this trade (all contractors + Site Records)
+    // and clear them to blank on confirm, so no obs is left pointing at a
+    // trade the project no longer has. Blank-for-manual-fix, never reassign.
+    var _dtObs = 0;
+    (function() {
+      function _cnt(arr) { (arr || []).forEach(function(d) { (d.observations || []).forEach(function(o) { if (o && (o.trade || '') === _dtT) _dtObs++; }); }); }
+      (((_dtP && _dtP.contractors) || [])).forEach(function(c) { _cnt(c.deficiencies); });
+      _cnt(_dtP && _dtP.generalDeficiencies);
+    })();
+    var _dtMsg;
+    if (_dtN > 0 || _dtObs > 0) {
+      _dtMsg = 'Delete the "' + _dtT + '" trade everywhere? ' + _dtN + ' contractor' + (_dtN === 1 ? '' : 's') + ' will be un-tagged from it';
+      if (_dtObs > 0) _dtMsg += ', and ' + _dtObs + ' observation' + (_dtObs === 1 ? '' : 's') + ' currently set to it will be CLEARED to blank for manual fix';
+      _dtMsg += ' (contractor records and the pins themselves are preserved).';
+    } else {
+      _dtMsg = 'Delete the "' + _dtT + '" trade? (Nothing is on it.)';
+    }
     showConfirm('Delete Trade', _dtMsg).then(function(yes) {
-      if (yes) { Model.removeProjectTrade(_dtT); initDeficiencies.render(); toast('Deleted trade: ' + _dtT); }
+      if (yes) {
+        if (_dtObs > 0) Model.clearObsTrade(_dtT, 'project');
+        Model.removeProjectTrade(_dtT);
+        initDeficiencies.render();
+        toast('Deleted trade: ' + _dtT + (_dtObs ? ' \u00B7 ' + _dtObs + ' obs cleared' : ''));
+      }
     });
     return;
   }
@@ -6604,7 +6662,14 @@ document.addEventListener('change', function(e) {
           return;
         }
         var _ctr = Model.addContractor(_name);
-        if (_ctr && _cdid) Model.reassignDeficiency(_cdid, _ctr.id);
+        if (_ctr && _cdid) {
+          Model.reassignDeficiency(_cdid, _ctr.id);
+          // S489 order-independence: trade may have been set BEFORE the
+          // contractor existed. A just-created contractor has an empty
+          // roster, so this is always the silent rule-B write. Whole-pin:
+          // every observation's trade seeds the fresh roster.
+          _tradeWriteBackAll(_cdid);
+        }
         Model.saveNow();
         // refresh the open pin editor (B/C) if present, plus the Detailed list
         if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
@@ -6615,6 +6680,11 @@ document.addEventListener('change', function(e) {
     }
     if (_cdid) {
       Model.reassignDeficiency(_cdid, _cval || null);
+      // S489 order-independence: assigning a contractor to a pin whose
+      // observations already carry trades evaluates the same write-back
+      // rule as setting each trade would (reassignDeficiency has already
+      // pruned the OLD contractor's orphaned auto entries).
+      if (_cval) _tradeWriteBackAll(_cdid);
       Model.saveNow();
       if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
       _frtRefreshPinFocusIf(_cdid);
@@ -6626,6 +6696,11 @@ document.addEventListener('change', function(e) {
     var _toi = parseInt(e.target.getAttribute('data-obs-idx') || '0', 10);
     var _tval = e.target.value || '';
     Model.updateObsTrade(_tdid, _toi, _tval, 'manual');
+    // S489: mirror this observation's trade onto the contractor's roster
+    // (and withdraw a previous auto entry the correction orphaned). Fires
+    // for BOTH render sites of this dropdown — pin editor and Deficiencies
+    // tab — per Mark's "both" ruling. No render here (S247 rule stands).
+    _tradeWriteBack(_tdid, _toi);
     Model.saveNow();
     // S247: removed redundant initDeficiencies.render() here. The trade is
     // saved above (updateObsTrade + saveNow). The full-list re-render was
@@ -6635,6 +6710,69 @@ document.addEventListener('change', function(e) {
     // so trade grouping stays correct. Pure render-dedup; no data change.
   }
 });
+
+// ── S489: observation→roster trade write-back (UI half) ────────────────
+// Runs Model.evalTradeWriteBack for one observation and handles the three
+// outcomes: silent add (empty-roster rule B) → quiet toast; confirm case
+// (existing contractor missing this trade) → the SAME one-tap prompt Mark
+// approved for the Board pill in S153 B3; already-listed / Site Records /
+// no trade → nothing. Deliberately does NOT call initDeficiencies.render()
+// itself — callers own their render timing (the pin-editor path must stay
+// render-free per the S247 photo-grid-freeze rule; the roster repaints on
+// its next open, and the model notify keeps live listeners current).
+function _tradeWriteBack(deficId, obsIdx) {
+  var r = Model.evalTradeWriteBack(deficId, obsIdx);
+  if (!r) return;
+  if (r.added) {
+    toast('\u2714 ' + (ctrLabel(r.ctr.name) || 'Contractor') + ' added to ' + r.trade);
+    return;
+  }
+  if (r.confirm) {
+    showConfirm('Add to contractor roster?',
+      (ctrLabel(r.ctr.name) || 'This contractor') + ' isn\u2019t listed for \u201C' + r.trade +
+      '\u201D yet \u2014 add it to their roster too? (No keeps the observation\u2019s trade and leaves the roster unchanged.)')
+      .then(function(yes) {
+        if (yes) {
+          Model.addContractorToTradeAuto(r.ctr.id, r.trade);
+          toast('\u2714 ' + (ctrLabel(r.ctr.name) || 'Contractor') + ' added to ' + r.trade);
+        }
+      });
+  }
+}
+
+// S489: whole-pin variant for CONTRACTOR changes — a pin can carry several
+// observations with different trades, and all of them just moved to the new
+// contractor. Evaluates each unique obs trade once. Multiple confirm cases
+// are folded into ONE prompt listing every missing trade (a prompt per trade
+// would be exactly the nag Mark rejected).
+function _tradeWriteBackAll(deficId) {
+  var f = Model.findDeficiency(deficId);
+  if (!f || !f.contractor) return;
+  Model.pruneAutoTrades(f.contractor.id);
+  var ctr = f.contractor;
+  var missing = [];
+  (f.defic.observations || []).forEach(function(o) {
+    var t = o && o.trade;
+    if (t && (ctr.trades || []).indexOf(t) < 0 && missing.indexOf(t) < 0) missing.push(t);
+  });
+  if (!missing.length) return;
+  if (!(ctr.trades || []).length) {
+    missing.forEach(function(t) { Model.addContractorToTradeAuto(ctr.id, t); });
+    toast('\u2714 ' + (ctrLabel(ctr.name) || 'Contractor') + ' added to ' + missing.join(', '));
+    return;
+  }
+  var _list = missing.map(function(t) { return '\u201C' + t + '\u201D'; }).join(', ');
+  showConfirm('Add to contractor roster?',
+    (ctrLabel(ctr.name) || 'This contractor') + ' isn\u2019t listed for ' + _list +
+    ' yet \u2014 add ' + (missing.length === 1 ? 'it' : 'them') + ' to their roster too? (No keeps the observations\u2019 trades and leaves the roster unchanged.)')
+    .then(function(yes) {
+      if (yes) {
+        missing.forEach(function(t) { Model.addContractorToTradeAuto(ctr.id, t); });
+        toast('\u2714 ' + (ctrLabel(ctr.name) || 'Contractor') + ' added to ' + missing.join(', '));
+        initDeficiencies.render();
+      }
+    });
+}
 
 // S263: grow a textarea to fit its content (no internal scrollbar). Set height
 // to auto first so shrinking works too, then to the content's scrollHeight.
@@ -7378,7 +7516,7 @@ document.addEventListener('click', function(e) {
         'Set this observation\u2019s trade to \u201c' + _tr + '\u201d. ' + (ctrLabel(_tc.name) || 'This contractor') +
         ' isn\u2019t listed for \u201c' + _tr + '\u201d yet \u2014 add it to their roster too? (No keeps the observation\u2019s trade and leaves the roster unchanged.)')
         .then(function(yes) {
-          if (yes) { Model.addContractorToTrade(_tc.id, _tr); initDeficiencies.render(); toast('\u2714 Trade \u2192 ' + _tr + ' \u00B7 ' + ctrLabel(_tc.name) + ' added to ' + _tr); }
+          if (yes) { Model.addContractorToTradeAuto(_tc.id, _tr); initDeficiencies.render(); toast('\u2714 Trade \u2192 ' + _tr + ' \u00B7 ' + ctrLabel(_tc.name) + ' added to ' + _tr); }
           else toast('\u2714 Observation trade \u2192 ' + _tr);
         });
     } else {
@@ -7650,4 +7788,5 @@ window._frtOpenDetailedRow = function(deficId, obsIdx) {
     }
   }, 60);
 };
+
 
