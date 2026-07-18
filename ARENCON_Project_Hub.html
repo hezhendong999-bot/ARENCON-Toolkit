@@ -2183,6 +2183,32 @@ async function createNewReport(key) {
     if (existing && existing.length > 0) nextNum = existing[0].instance_number + 1;
   } catch(e) {}
 
+  // S488 CARRY-FORWARD FIX (root cause of "FRT #2 born empty", 1490.04):
+  // this insert shipped data:{} — a blank report — while the FRT side's
+  // _showNewInstanceDialog told users the Hub "seeds the new row from this
+  // one so open items carry forward (N+1 rule)". The Hub never did. FRT #N+1
+  // is now seeded from #N's blob (already fetched by the query above):
+  // contractors, trades, drawings (pins + their deficiencies, still tagged
+  // notedOnInstance N so the carried-vs-new filters work), photos (R2 pool is
+  // per-project, pointers stay valid), info, settings, signatures,
+  // distribution all carry. Stripped: the prior report's own artifacts —
+  // exportRegistry/exportIds (CRB round math ties them to the noting report)
+  // and the _s217/_s464 point-in-time backups. FRT ONLY — commissioning
+  // tools (diesel/electric/IST) are genuinely per-visit and stay blank.
+  var seedData = {};
+  if (key === 'frt' && nextNum > 1 && existing && existing.length > 0 && existing[0].data) {
+    try {
+      seedData = JSON.parse(JSON.stringify(existing[0].data));
+      delete seedData.exportRegistry;
+      delete seedData.exportIds;
+      delete seedData._s217Backup;
+      delete seedData._s464Backup;
+      seedData.currentFrtInstance = String(nextNum);
+      seedData.status = 'draft';
+      seedData.modified = new Date().toISOString();
+    } catch (eSeed) { seedData = {}; }
+  }
+
   // Create the row
   try {
     var userId = _user ? _user.id : null;
@@ -2190,7 +2216,7 @@ async function createNewReport(key) {
       project_id: proj.id,
       tool_key: key,
       instance_number: nextNum,
-      data: {},
+      data: seedData,
       status: 'draft',
       created_by: userId,
       updated_by: userId
