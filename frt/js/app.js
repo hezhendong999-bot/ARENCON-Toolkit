@@ -112,7 +112,15 @@ function _hubDashboardUrl() {
 // navigated directly and bypassed the save dialog entirely.
 function _leaveTool() {
   var dest = _hubMode ? _hubUrl() : '../index.html';
-  if (_hubMode && Model.hasUnsavedChanges()) { _showLeaveDialog(dest); }
+  // S489: leaving must consider BOTH local and cloud state. Model's _dirty
+  // clears the moment IDB writes (~800ms), but the cloud push waits a
+  // further 5s after that 'saved' event. In the window between the two the
+  // app looked clean, skipped this dialog, and destroyed the tab with the
+  // push still pending — the edit lived only in local IDB while carry-
+  // forward (Hub-side, cloud-backed) read the STALE value. Mark's repro:
+  // set an obs to Closed, hit Back immediately, create FRT #N+1 -> item
+  // still Outstanding. _frtHasPendingCloudPush() exposes that pending state.
+  if (_hubMode && (Model.hasUnsavedChanges() || _frtHasPendingCloudPush())) { _showLeaveDialog(dest); }
   else { window.location.href = dest; }
 }
 
@@ -831,9 +839,24 @@ function _showLeaveDialog(destUrl) {
   document.body.appendChild(overlay);
 
   overlay.querySelector('#leave-save').addEventListener('click', function() {
+    // S489: this path is now also the fix for the "pending cloud push" case,
+    // so its failure behaviour matters more than before. Previously a
+    // rejected push left the promise chain dead: the overlay stayed up and
+    // the user was trapped with no feedback. Now a failed push still lets
+    // the user leave (local IDB is already flushed by saveNow, so nothing is
+    // lost) but says so first, rather than silently pretending it synced.
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Saving\u2026';
     Model.saveNow().then(function() {
       if (_hubMode && _projectId) return SyncEngine.push(_projectId);
+      return null;
     }).then(function() {
+      overlay.remove();
+      window.location.href = destUrl;
+    }).catch(function(err) {
+      console.warn('[FRT v2] Save & Leave cloud push failed:', err);
+      try { toast('Saved on this device, but the cloud sync failed \u2014 reopen on this device when back online', 'error', 6000); } catch(_) {}
       overlay.remove();
       window.location.href = destUrl;
     });
@@ -963,6 +986,14 @@ var _lastPulledUpdatedAt = null; // ISO timestamp; updated on every successful p
 // the entire idle-IO win — push timer interval unchanged at 15s, presence
 // untouched per Mark.
 var _pushDirty = false;
+// S489: read-only accessor for the "changed locally but not yet pushed to
+// cloud" state. _pushDirty is module-scoped and set by the 'saved' listener;
+// the leave path needs it to decide whether the 3-button dialog is required.
+// Deliberately a function, not an exported flag, so there is exactly one
+// owner of the value.
+function _frtHasPendingCloudPush() {
+  return !!(_hubMode && _projectId && _pushDirty);
+}
 
 function _startCloudSync(didLoad) {
   if (_cloudSyncTimer) clearInterval(_cloudSyncTimer);
@@ -2267,7 +2298,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S488w3';
+var FRT_BUILD = 'S489';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
@@ -3035,3 +3066,4 @@ window._frtCheckRemote = function(){
     }).catch(function(){ resolve({ checked:false, remoteNewer:false, pulled:false, reason:'error' }); });
   });
 };
+
