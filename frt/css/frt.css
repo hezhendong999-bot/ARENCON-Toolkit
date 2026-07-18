@@ -11203,4 +11203,10 @@ body.dark-mode .crbt-ph-empty{background:rgba(255,255,255,.03);color:#6b6674;}
    The legacy .app-header wrapper stays only as the sticky container for the
    engine bar + FRT's host-owned project bar; its own chrome would double the
    bar shadow, so it goes transparent when it hosts the mount. */
-.app-header:has(#hdr-mount){background:transparent!important;box-shadow:none!important;border-bottom:none!important;}
+.app-header:has(#hdr-mount){background:transparent!important;box-shadow:none!important;border-bottom:none!important;
+  /* S488 z-FIX (Mark, Playwright-proven): the Bold restyle's backdrop-filter:blur(10px)
+     on .app-header made it the CONTAINING BLOCK for fixed descendants — the sealed
+     engine's drawer/backdrop/menus were imprisoned inside the header's box (drawer
+     collapsed to header height, page cards painted over it). backdrop-filter on a
+     transparent wrapper is meaningless anyway — the engine bar paints itself. */
+  backdrop-filter:none!important;filter:none!important;}
