@@ -130,9 +130,23 @@ protections must not be routed through shared code.
 
 ---
 
-## 7. Open items for Mark
+## 7. Selection sub-mode — TAP ONLY (locked)
 
-1. Armed banner — right, too heavy, or too subtle?
-2. Should trash mode also allow rubber-band selection, or tap-only? *(Demo is tap-only. Recommendation:
-   tap-only — rubber-band over a dense drawing risks catching marks the inspector didn't intend, and
-   the whole point is fewer, safer steps.)*
+**Trash mode is tap-only. No rubber-band.** Mark, S489: *"No rubber band, tap only is good."*
+
+This is a deliberate divergence from the Select tool, which offers both sub-modes. Rationale:
+rubber-band over dense markup catches marks the inspector did not intend, and the entire point of
+trash mode is fewer, safer steps. A destructive mode should not have a bulk-capture gesture.
+
+**Consequence for the build:** arming 🗑 must NOT show the rubber-band/tap sub-mode flyout that the
+Select button opens. There is no sub-mode choice in trash mode — that skipped step is part of how
+5 steps becomes 2.
+
+---
+
+## 8. Open items for Mark
+
+1. **Armed-state prominence** — the red inset canvas border + red banner strip that appear on arming.
+   Right, too heavy, or too subtle? Mark to judge on a real screen from the S489 demo.
+   *(Terminology note: "armed banner" was Claude's coinage, not an existing ARENCON term — it means
+   the red strip reading "Delete mode — tap marks to select, then confirm.")*
