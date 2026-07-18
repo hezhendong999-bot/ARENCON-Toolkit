@@ -1,0 +1,28 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+:root{ --ts:0px; --b-chrome-bg:#E6E3E9; --b-chrome-fg:#1B1A22; --b-chrome2:#EFEDF0;
+ --b-chrome-rule:#D2CEDB; --b-chrome-hover:rgba(0,0,0,.05); --b-btn-shadow:0 1px 2px rgba(0,0,0,.08);
+ --hdr-h:34px; --hdr-px:12px; --hdr-radius:6px; --hdr-gap:6px; --back-slot-w:84px; }
+body{margin:0;font-family:Calibri,sans-serif}
+</style></head><body>
+<div class="app-header" style="position:sticky;top:0;z-index:1000;backdrop-filter:blur(8px);"><div id="hdr-mount"></div></div>
+<div class="card" style="background:white;border-radius:16px;border:1.5px solid #DDE1E7;box-shadow:0 4px 24px rgba(27,26,34,.08);backdrop-filter:blur(8px);margin:20px;height:600px;position:relative;">
+  <div style="padding:20px;font-weight:700">Project Information</div>
+</div>
+<script type="module">
+import { buildHeader2 } from './headerEngine2.js';
+import { frtHeaderConfig } from './headerConfigs.js';
+const cfg = frtHeaderConfig({ onBack(){}, onHome(){}, onInspector(){}, onToggleTheme(){}, onTextSize(){} });
+const ctl = buildHeader2(document.getElementById('hdr-mount'), cfg);
+window.ctl = ctl;
+/* seed exactly as FRT app.js does in hub mode */
+ctl.setTheme('light');
+ctl.setControlIcon('ts','S');
+ctl.setHubMode({ hub:true, backVisible:true });
+ctl.setControlHidden('load', true); ctl.setControlHidden('exportall', true);
+ctl.setCloud({ visible:true, text:'Saved to cloud', lastSync:'· last sync: just now', state:'ok' });
+ctl.setStorage({ pct:0, label:'24MB / 10264MB (0%)' });
+ctl.setInspector({ name:'\uD83D\uDC64 Mark He' });
+ctl.setAdmin(true);
+window.__ready = true;
+</script></body></html>
