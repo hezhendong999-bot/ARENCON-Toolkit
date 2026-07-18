@@ -83,12 +83,23 @@ remove, and a dedicated button makes destructive intent explicit from the first 
 Follows the existing toolbar toggle convention in both hosts: tapping the armed 🗑 disarms it, same as
 every other tool (lightbox S487d, viewer S461g).
 
-**Armed state — deliberately unmistakable:**
-- Red inset border on the canvas frame (`#C0445F`)
-- A banner: *"🗑 Delete mode — tap marks to select, then confirm. Tap 🗑 again to exit."*
+**Armed state — the button ONLY (locked, Mark option A):**
 
-Rationale: field tablets are shared. A mis-armed delete mode destroys field evidence, so ambiguity is
-expensive. **Open item — Mark to confirm the banner is right, too heavy, or too subtle.**
+The 🗑 button lights red (`#C0445F`) when armed. **No banner. No canvas frame tint.** This is the same
+signal every other tool in the toolbar already uses when it arms.
+
+Rationale, and it corrects Claude's first proposal: an initial design added a red banner and inset
+frame border on the grounds that a mis-armed delete mode on a shared tablet destroys field evidence.
+Mark pushed back, and the pushback was right — **tapping a mark in trash mode does not delete
+anything.** It only adds the mark to the pick set. Destruction requires the red trash confirm AND
+clearing the confirm modal. So the "someone else picks up an armed tablet" case ends at a cancellable
+selection, not lost work.
+
+The confirm modal is the real gate. A banner is a second warning about a thing that already warns you,
+and — more importantly — it would be **a new visual idiom this toolbar does not otherwise use**,
+which is exactly the "new invention" Mark ruled out.
+
+Revisit only if field use shows accidental arming. Easy to add later; not justified now.
 
 **Confirm pill:** existing bar position and shape. Reads *"N selected"*, red 🗑 confirm, grey ✕ cancel.
 Touch targets 42–46px throughout (gloves).
@@ -146,7 +157,8 @@ Select button opens. There is no sub-mode choice in trash mode — that skipped 
 
 ## 8. Open items for Mark
 
-1. **Armed-state prominence** — the red inset canvas border + red banner strip that appear on arming.
-   Right, too heavy, or too subtle? Mark to judge on a real screen from the S489 demo.
-   *(Terminology note: "armed banner" was Claude's coinage, not an existing ARENCON term — it means
-   the red strip reading "Delete mode — tap marks to select, then confirm.")*
+None. Design is fully locked: dedicated 🗑 button, tap-only selection, button-only armed state,
+existing confirm bar with the tick swapped for a red trash icon, one-tap confirm modal, undo toast.
+
+Remaining work is the build itself, which is gated on the `frt/**` code lane and on field-verify
+(deleting markup is a data path — Mark present).
