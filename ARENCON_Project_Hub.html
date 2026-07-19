@@ -2126,7 +2126,14 @@ async function _loadAndRenderInstances(proj) {
         var ownChip = isMine
           ? '<span style="font-size:calc(9.5px + var(--ts));font-weight:700;color:#2E9E72;background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.35);border-radius:20px;padding:1px 8px;">Mine</span>'
           : (creatorName ? '<span style="font-size:calc(9.5px + var(--ts));font-weight:600;color:var(--steel);background:rgba(128,128,140,.10);border:1px solid rgba(128,128,140,.25);border-radius:20px;padding:1px 8px;">' + esc(creatorName) + '</span>' : '');
-        _riMeta[inst.id] = { mine: !!isMine, name: creatorName || '' };
+        _riMeta[inst.id] = { mine: !!isMine, name: creatorName || '',
+          /* S492: the rename dialog needs the CURRENT name. Recorded here at
+             render time because the row markup carries no instance id, and
+             .ri-title also holds the deficiency counts — scraping it would
+             pull "(3 noted, 1 open...)" into the rename box.
+             label = the custom name if one was set; title = what the row
+             actually reads right now (auto-generated when label is empty). */
+          label: inst.label || '', title: title };
         var actionsHtml = isViewer ? '' :
           '<span class="ri-actions">'
           + '<select class="ri-status-sel" onclick="event.stopPropagation()" onchange="changeInstanceStatus(\'' + inst.id + '\',this.value)">'
@@ -2436,7 +2443,31 @@ async function toggleArchiveProject() {
   }
   var newStatus = proj.status === 'archived' ? 'active' : 'archived';
   var action = newStatus === 'archived' ? 'archive' : 'unarchive';
-  if (!confirm('Are you sure you want to ' + action + ' project ' + (proj.project_number || '') + '?')) return;
+  // S492: native confirm() replaced with the shared dialog engine.
+  // Archiving hides a project from the working board, so it is destructive
+  // enough to need the danger family — which REQUIRES saying where the undo
+  // lives. Unarchiving only restores, so it is an ordinary confirm.
+  var _label = (proj.project_number || '') + (proj.name ? '  ' + proj.name : '');
+  var _ok;
+  if (newStatus === 'archived') {
+    _ok = await Dlg.confirmDanger({
+      title: 'Archive project',
+      message: 'Archive ' + _label + '?',
+      detail: 'It leaves the active board. Reports and photos are untouched.',
+      undoNote: 'Switch the board to Archived and open this project to restore it.',
+      confirmText: 'Archive',
+      icon: '\u{1F4E6}'
+    });
+  } else {
+    _ok = await Dlg.confirm({
+      title: 'Restore project',
+      message: 'Return ' + _label + ' to the active board?',
+      confirmText: 'Restore',
+      accent: 'ok',
+      icon: '\u21A9'
+    });
+  }
+  if (!_ok) return;
   try {
     await _sb.from('projects').eq('id', proj.id).update({ status: newStatus });
     proj.status = newStatus;
@@ -2809,7 +2840,29 @@ async function toggleUserActive(userId) {
   if (!u) return;
   const newState = !u.is_active;
   const action = newState ? 'activate' : 'deactivate';
-  if (!confirm('Are you sure you want to ' + action + ' ' + u.full_name + '?')) return;
+  // S492: native confirm() replaced. Deactivating locks a colleague out of
+  // every ARENCON tool, so it takes the danger family and must state the way
+  // back. Activating is restorative — ordinary confirm.
+  let _ok;
+  if (!newState) {
+    _ok = await Dlg.confirmDanger({
+      title: 'Deactivate user',
+      message: 'Deactivate ' + u.full_name + '?',
+      detail: 'They lose access to the Hub and every tool at their next sign-in. Their reports, photos and history stay exactly as they are.',
+      undoNote: 'Reactivate them any time from this same Admin list — nothing is deleted.',
+      confirmText: 'Deactivate',
+      icon: '\u{1F512}'
+    });
+  } else {
+    _ok = await Dlg.confirm({
+      title: 'Activate user',
+      message: 'Give ' + u.full_name + ' access again?',
+      confirmText: 'Activate',
+      accent: 'ok',
+      icon: '\u{1F513}'
+    });
+  }
+  if (!_ok) return;
 
   try {
     await _sb.from('profiles').eq('id', userId).update({ is_active: newState });
@@ -3020,7 +3073,18 @@ async function bulkExport() {
 
 async function bulkArchive() {
   if (_bulkSelected.length === 0) { toast('No projects selected', 'error'); return; }
-  if (!confirm('Archive ' + _bulkSelected.length + ' project(s)?')) return;
+  // S492: native confirm() replaced. Bulk actions hit many projects at once,
+  // which is exactly where a grey browser box gets clicked through.
+  var _n = _bulkSelected.length;
+  var _ok = await Dlg.confirmDanger({
+    title: 'Archive projects',
+    message: 'Archive ' + _n + (_n === 1 ? ' project' : ' projects') + '?',
+    detail: 'They leave the active board together. Reports and photos are untouched.',
+    undoNote: 'Switch the board to Archived to find them and restore any one of them.',
+    confirmText: 'Archive ' + _n,
+    icon: '\u{1F4E6}'
+  });
+  if (!_ok) return;
   var count = 0;
   for (var i = 0; i < _bulkSelected.length; i++) {
     try {
@@ -3036,7 +3100,20 @@ async function bulkArchive() {
 
 async function bulkDelete() {
   if (_bulkSelected.length === 0) { toast('No projects selected', 'error'); return; }
-  if (!confirm('Move ' + _bulkSelected.length + ' project(s) to trash?')) return;
+  // S492: native confirm() replaced. This is a soft delete — the projects go
+  // to the Deleted view, nothing is destroyed — and the dialog says so, so
+  // nobody reads "delete" and panics, and nobody assumes it is permanent when
+  // it is not.
+  var _n = _bulkSelected.length;
+  var _ok = await Dlg.confirmDanger({
+    title: 'Move to trash',
+    message: 'Move ' + _n + (_n === 1 ? ' project' : ' projects') + ' to trash?',
+    detail: 'They disappear from the active board. Nothing is destroyed and no report or photo is deleted.',
+    undoNote: 'Switch the board to Deleted to find them and restore any one of them.',
+    confirmText: 'Move ' + _n + ' to trash',
+    icon: '\u{1F5D1}'
+  });
+  if (!_ok) return;
   var now = new Date().toISOString();
   var uid = _profile ? _profile.id : null;
   var count = 0;
@@ -3054,7 +3131,22 @@ async function bulkDelete() {
 
 /* ═══ Report Instance Actions ═══ */
 async function renameInstance(instanceId) {
-  var newLabel = prompt('Enter new report name:');
+  // S492: native prompt() replaced. The browser box opened EMPTY, so renaming
+  // meant retyping from memory.
+  // Pre-fill is the CUSTOM label only. Reports with no custom name show their
+  // auto-generated name as placeholder instead — pre-filling that would mean
+  // pressing Save turns an auto name into a frozen manual one, so the report
+  // would stop following the project if its number or scope later changed.
+  var _meta = (typeof _riMeta === 'object' && _riMeta) ? (_riMeta[instanceId] || {}) : {};
+  var newLabel = await Dlg.prompt({
+    title: 'Rename report',
+    label: 'Report name',
+    value: _meta.label || '',
+    placeholder: _meta.title || 'e.g. Field Review #2',
+    required: true,
+    confirmText: 'Rename',
+    icon: '\u270E'
+  });
   if (!newLabel || !newLabel.trim()) return;
   try {
     await _sb.from('tool_data').eq('id', instanceId).update({ label: newLabel.trim() });
@@ -3351,7 +3443,17 @@ async function exportSingleProject(projectId) {
 async function exportAllProjects() {
   var active = _projects.filter(function(p) { return !p.deleted_at; });
   if (active.length === 0) { toast('No projects to export', 'error'); return; }
-  if (!confirm('Export ' + active.length + ' project(s) as individual JSON files?')) return;
+  // S492: native confirm() replaced. Not destructive, so the ordinary confirm
+  // family — but it does fire one download per project, which is worth saying
+  // before the browser starts stacking them up.
+  var _ok = await Dlg.confirm({
+    title: 'Export all projects',
+    message: 'Export ' + active.length + ' projects as individual files?',
+    detail: 'That is ' + active.length + ' separate downloads, one after another. It can take a minute.',
+    confirmText: 'Export ' + active.length,
+    icon: '\u{1F4E5}'
+  });
+  if (!_ok) return;
   toast('Exporting ' + active.length + ' projects...', 'info');
   for (var i = 0; i < active.length; i++) {
     var proj = active[i];
@@ -5151,6 +5253,12 @@ function _pgEscHtml(s) {
 ═══════════════════════════════════════════════════════════════════════════ */
 
 import { Dlg } from '/lib/ui/dialogEngine.js';
+/* S492: the six remaining native browser popups live in the Hub's CLASSIC
+   scripts, which cannot see a module's bindings. Exposing Dlg is what lets
+   those call sites use the shared engine instead of confirm()/prompt().
+   Safe by ordering: modules run after parse, and every one of those call
+   sites fires on a user click, long after this line. */
+window.Dlg = Dlg;
 import { downloadProjectBundle, TOOL_SOURCES } from '/lib/export/projectDocsSources.js';
 
 const _EPD_TOOL_LABEL = {
