@@ -1,57 +1,18 @@
 /**
- * ARENCON FRT v2 — Toast Notifications
- * ═════════════════════════════════════
- * 
- * Lightweight toast notifications.
- * This module is fully functional in Phase 0.
+ * ARENCON FRT v2 — Toast Notifications  →  SHIM
+ * ══════════════════════════════════════════════
+ * S490d (library audit step 1): FRT no longer implements toasts. This file is
+ * a thin re-export of the shared engine at lib/shared/toast.js, exactly the
+ * pattern already proven by frt/js/ui/cameraBurst.js.
+ *
+ * The shim exists so FRT's ~200 existing `import { toast } from '.../toast.js'`
+ * call sites keep working unchanged — the import path is unchanged, only the
+ * implementation moved. Do NOT re-add a local implementation here: if this file
+ * ever grows a function body again, the fork is back.
+ *
+ * The shared version is a true merge of both former forks — it keeps FRT's
+ * field-tuned appearance and motion, and gains the self-creating container
+ * (so it no longer silently no-ops when #toast-container is absent).
  */
 
-/**
- * Show a toast message.
- * @param {string} msg - Message text
- * @param {number} [duration=2500] - Duration in ms before fade
- */
-export function toast(msg, duration) {
-  if (!msg) return;
-  duration = duration || 2500;
-
-  var container = document.getElementById('toast-container');
-  if (!container) return;
-
-  var el = document.createElement('div');
-  el.textContent = msg;
-  el.style.cssText = [
-    'background: rgba(30,37,51,.92)',
-    'color: white',
-    'padding: 8px 18px',
-    'border-radius: 8px',
-    'font-family: Calibri, sans-serif',
-    'font-size: 13px',
-    'font-weight: 600',
-    'pointer-events: auto',
-    'opacity: 0',
-    'transform: translateY(8px)',
-    'transition: opacity .25s, transform .25s',
-    'box-shadow: 0 4px 16px rgba(0,0,0,.25)',
-    'max-width: 90vw',
-    'text-align: center',
-    'white-space: nowrap'
-  ].join(';');
-
-  container.appendChild(el);
-
-  // Animate in
-  requestAnimationFrame(function() {
-    el.style.opacity = '1';
-    el.style.transform = 'translateY(0)';
-  });
-
-  // Animate out after duration
-  setTimeout(function() {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(-8px)';
-    setTimeout(function() {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, 300);
-  }, duration);
-}
+export { toast } from '../../../lib/shared/toast.js';
