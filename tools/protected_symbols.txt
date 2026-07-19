@@ -106,3 +106,10 @@ _canDeleteProjects
 
 @ Trash retention + purge gating — kept until an admin purges; purge is admin/super_admin only (Mark, S493)
 _canPurgeProjects
+
+@ PM avatar badge + initials-only + My-Projects PM-or-creator filter (Mark, Jun 2026, restored S493 after loss in a revert)
+_pmAvatar
+_pmColour
+_userInitials
+_PM_PALETTE
+.pm-avatar

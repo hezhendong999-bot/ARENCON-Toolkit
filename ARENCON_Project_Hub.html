@@ -170,9 +170,7 @@ body.dark-mode .epd-pick,body.dark-mode .epd-pick-band{background:var(--card)}
 .tool-icon-btn{font-size:calc(15px + var(--ts));cursor:default;padding:1px;line-height:1;opacity:.8;transition:opacity .15s}
 .tool-icon-btn:hover{opacity:1}
 .project-card-bottom .progress-chip{margin-left:auto}
-.backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto;margin-right:60px}
-/* S493: clearance for the export + trash buttons that sit bottom-right of the
-   card — the status text was rendering underneath them. */
+.backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto}
 .backup-status.not-backed{color:var(--warn)}
 /* ── R2 Storage Status Panel ── */
 .r2-row{margin-bottom:14px;}
@@ -516,18 +514,20 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 /* ═══ EXPORT ═══ */
 .dash-btn.export{background:linear-gradient(135deg,#1D4ED8,#1E40AF);color:#fff;box-shadow:0 2px 6px rgba(29,78,216,.2)}
 .dash-btn.export:hover{box-shadow:0 4px 12px rgba(29,78,216,.3);transform:translateY(-1px)}
-.project-card-export{position:absolute;bottom:12px;right:12px;background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:0;transition:all .2s;padding:4px;line-height:1;z-index:2}
-.project-card:hover .project-card-export{opacity:1}
+/* S493: export + trash are INLINE items at the end of the card's bottom row —
+   no absolute overlay, so they can never sit on top of the status text, and
+   they are always visible (which also fixes their invisibility on the field
+   tablets: they were hover-revealed and tablets have no hover). */
+.project-card-export,.project-card-trash{background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:.45;transition:all .2s;padding:4px 2px;line-height:1;flex-shrink:0}
+.project-card:hover .project-card-export,.project-card:hover .project-card-trash{opacity:1}
 .project-card-export:hover{color:#1D4ED8}
-.project-card-trash{position:absolute;bottom:12px;right:44px;background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:0;transition:all .2s;padding:4px;line-height:1;z-index:2}
-.project-card:hover .project-card-trash{opacity:1}
 .project-card-trash:hover{color:#DC2626}
-/* S493: these are hover-revealed, and the field tablets have no hover — the
-   export button has been INVISIBLE on touch since it shipped. Standing rule:
-   hover-reveal controls MUST have a pointer:coarse fallback. */
 @media (pointer:coarse){
-  .project-card-export,.project-card-trash{opacity:.55}
+  .project-card-export,.project-card-trash{opacity:.7}
 }
+/* S493 restore — PM avatar badge (June design): initials in a small muted
+   circle; identity reads as a shape distinct from the semantic pills. */
+.pm-avatar{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.4px;margin-left:auto;flex-shrink:0;font-family:Calibri,'Segoe UI',system-ui,sans-serif}
 .backup-status{font-size:calc(10px + var(--ts));padding:0 18px 8px;color:var(--silver);font-weight:500}
 .backup-status.not-backed{color:var(--warn)}
 /* ═══ PROJECT PHOTO GALLERY ═══ */
@@ -1117,6 +1117,29 @@ let _profile = null;       // Current user profile {id,full_name,email,role,is_a
 let _projects = [];        // Loaded projects
 let _allUsers = [];        // Admin: all user profiles
 let _userMap = {};         // {userId: full_name} — loaded for all users on init
+let _userInitials = {};    // {userId: initials} — from profiles.initials (Admin-set)
+/* ═══ S493 restore — PM avatar badge (Mark, June 2026; lost in a revert) ═══
+   Initials come from the Admin panel (profiles.initials), never derived from
+   the name — Admin setup is the source of truth. Colour: curated muted
+   palette, keyed off the initials so it is stable across name edits; anyone
+   without Admin-set initials gets no badge rather than a wrong one. The
+   own-badge recolour (own-eyes only) Mark chose in June is NOT yet rebuilt —
+   this restores the system-assigned default. Initials-only is Mark's standing
+   rule: no full names on cards. */
+var _PM_PALETTE = ['#9C2742','#2C7FB8','#3E8E6E','#C98A4A','#6E4FA0','#347B7B','#B5694E','#4F7AA0'];
+function _pmColour(userId) {
+  var ini = _userInitials[userId];
+  if (!ini) return 'var(--silver)';
+  var h = 0;
+  for (var i = 0; i < ini.length; i++) h = (h * 31 + ini.charCodeAt(i)) >>> 0;
+  return _PM_PALETTE[h % _PM_PALETTE.length];
+}
+function _pmAvatar(userId) {
+  if (!userId) return '';
+  var ini = _userInitials[userId];
+  if (!ini) return '';
+  return '<span class="pm-avatar" style="background:' + _pmColour(userId) + '" title="' + esc(_userMap[userId] || '') + '">' + esc(ini) + '</span>';
+}
 let _filterMode = 'my';   // 'my' or 'all' or 'starred'
 let _showArchived = false;
 let _showDeleted = false;
@@ -1534,11 +1557,13 @@ async function loadProfile() {
 // ── Load lightweight user map (for all roles, not just admin) ──
 async function loadUserMap() {
   try {
-    var rows = await _sb.from('profiles').select('id,full_name,email').execute();
+    var rows = await _sb.from('profiles').select('id,full_name,email,initials').execute();
     _userMap = {};
+    _userInitials = {};
     if (rows && rows.length) {
       rows.forEach(function(u) {
         _userMap[u.id] = u.full_name || u.email || '—';
+        if (u.initials) _userInitials[u.id] = u.initials;
       });
     }
   } catch (e) {
@@ -1783,7 +1808,13 @@ function renderProjects() {
     else { if (isDeleted) return false; }
     if (!_showDeleted && !_showArchived && p.status === 'archived') return false;
     if (!_showDeleted && _showArchived && p.status !== 'archived') return false;
-    if (_filterMode === 'my' && _profile && p.created_by !== _profile.id) return false;
+    if (_filterMode === 'my' && _profile) {
+      // S493 restore — Mark's June rule, lost in a revert: a project belongs to
+      // its assigned PM; only unassigned projects fall back to the creator.
+      // Keying off created_by put projects under whoever happened to open them.
+      var _mine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
+      if (!_mine) return false;
+    }
     if (search) {
       var haystack = ((p.project_number || '') + ' ' + (p.project_name || '') + ' ' + (p.client || '') + ' ' + (p.address || '') + ' ' + (_userMap[p.project_manager] || '')).toLowerCase();
       if (haystack.indexOf(search) < 0) return false;
@@ -1966,14 +1997,13 @@ function _renderProjectCard(p, myId) {
 
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
-    + exportBtnHtml
     + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span>'
     + '<button class="project-card-pin' + pinClass + '" onclick="event.stopPropagation();togglePin(\'' + esc(p.id) + '\')" title="' + (isPinned ? 'Unpin' : 'Pin for everyone') + '">' + pinIcon + '</button>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
     + '</div>'
     + (client ? '<div class="project-card-client">' + client + '</div>' : '')
-    + '<div class="project-card-row">' + statusBadge + '<span class="project-card-date">' + date + '</span>' + (pmName ? '<span class="project-card-pm">' + esc(pmName) + '</span>' : '') + '</div>'
-    + '<div class="project-card-bottom">' + toolIcons + progressHtml + backupHtml + '</div>'
+    + '<div class="project-card-row">' + statusBadge + '<span class="project-card-date">' + date + '</span>' + _pmAvatar(p.project_manager) + '</div>'
+    + '<div class="project-card-bottom">' + toolIcons + progressHtml + backupHtml + exportBtnHtml + '</div>'
     + '</div>';
 }
 
