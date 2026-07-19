@@ -125,6 +125,15 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .band-count{font-size:calc(11px + var(--ts));color:var(--silver);font-weight:500}
 .band-header:hover .band-range{border-color:var(--arencon);color:var(--arencon)}
 .band-header.collapsed .band-range{opacity:.75}
+/* S493 restore — band-filter chips (June design): only non-empty bands, counts. */
+.band-chips{display:flex;flex-wrap:wrap;gap:7px;padding:2px 24px 8px}
+.band-chips:empty{display:none}
+.band-chip{font-family:Consolas,'Courier New',monospace;font-size:calc(11px + var(--ts));font-weight:700;letter-spacing:.4px;color:var(--steel);background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:5px 12px;cursor:pointer;min-height:30px;transition:all .15s}
+.band-chip:hover{border-color:var(--arencon);color:var(--arencon)}
+.band-chip.on{background:var(--arencon);border-color:var(--arencon);color:#fff}
+.stat-click{background:none;border:1px solid transparent;border-radius:12px;cursor:pointer;font-family:inherit;padding:3px 9px;transition:all .15s}
+.stat-click:hover{border-color:var(--warn)}
+.stat-click.on{background:var(--warn);color:#fff;border-color:var(--warn)}
 /* S493 Export Project Docs picker — Hub-owned, searchable, banded. */
 .epd-pick-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:9600;display:flex;align-items:center;justify-content:center;padding:20px}
 .epd-pick{background:var(--card,#fff);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 48px rgba(0,0,0,.24);width:560px;max-width:100%;max-height:82vh;display:flex;flex-direction:column;font-family:Calibri,'Segoe UI',system-ui,sans-serif;overflow:hidden}
@@ -763,6 +772,7 @@ body.text-l{--ts:4px;}
     </div>
     <!-- Stats strip -->
     <div class="stats-strip" id="stats-strip"></div>
+    <div class="band-chips" id="band-chips"></div>
     <!-- Pinned section — shared, everyone sees -->
     <div class="pinned-section" id="pinned-section" style="display:none">
       <div class="pinned-section-header">📌 Pinned Projects</div>
@@ -1751,6 +1761,14 @@ function _bandLo(num) {
 function _bandLabel(lo) {
   return lo === null ? 'No project number' : (lo + '\u2013' + (lo + 999));
 }
+/* S493 restore — band-filter chips + clickable not-backed-up filter (Mark,
+   June 2026; built then, lost in the same revert as the avatars). Chips are
+   built only from bands that actually have projects, each with a count. */
+var _activeBand = 'all';
+var _nbOnly = false;
+function setBandFilter(k) { _activeBand = k; renderProjects(); }
+function toggleNbFilter() { _nbOnly = !_nbOnly; renderProjects(); }
+
 var _bandCollapsed = {};
 try { _bandCollapsed = JSON.parse(localStorage.getItem('arencon_hub_bands') || '{}') || {}; }
 catch (e) { _bandCollapsed = {}; }
@@ -1901,6 +1919,36 @@ function renderProjects() {
   }
 
   empty.style.display = 'none';
+  // S493: band chips + NB filter apply to the regular list only — Pinned and
+  // Starred are deliberate overrides and stay unfiltered.
+  var _chipsHost = document.getElementById('band-chips');
+  if (_chipsHost) {
+    if (_showDeleted || _showArchived) { _chipsHost.innerHTML = ''; }
+    else {
+      var _counts = {}, _ord = [];
+      regular.forEach(function(p){
+        var lo=_bandLo(p.project_number); var k=(lo===null?'none':String(lo));
+        if(!(k in _counts)){_counts[k]=0;_ord.push(k);} _counts[k]++;
+      });
+      _ord.sort(function(x,y){ if(x==='none')return 1; if(y==='none')return -1; return (+x)-(+y); });
+      if (_activeBand !== 'all' && !(_activeBand in _counts)) _activeBand = 'all';
+      var _ch = '<button class="band-chip'+(_activeBand==='all'?' on':'')+'" onclick="setBandFilter(\'all\')">All</button>';
+      _ord.forEach(function(k){
+        var lab = (k==='none'?'No #':_bandLabel(+k));
+        _ch += '<button class="band-chip'+(_activeBand===k?' on':'')+'" onclick="setBandFilter(\''+k+'\')">'+lab+' ('+_counts[k]+')</button>';
+      });
+      _chipsHost.innerHTML = _ch;
+    }
+  }
+  if (_nbOnly && !_showDeleted && !_showArchived) {
+    regular = regular.filter(function(p){ return !p.last_exported_at; });
+  }
+  if (_activeBand !== 'all') {
+    regular = regular.filter(function(p){
+      var lo=_bandLo(p.project_number);
+      return (lo===null?'none':String(lo)) === _activeBand;
+    });
+  }
   /* S493: the regular grid is now BANDED. Pinned and Starred stay flat — they
      are deliberate overrides of the filing order, so grouping them by file
      number would defeat their purpose. */
@@ -1930,8 +1978,10 @@ function _renderStatsStrip() {
   var notBacked = active.filter(function(p) { return !p.last_exported_at; });
   var html = '<span class="stat-item"><span class="stat-num">' + active.length + '</span> active project' + (active.length !== 1 ? 's' : '') + '</span>';
   if (notBacked.length > 0) {
-    html += '<span class="stat-item stat-warn">⚠ ' + notBacked.length + ' not backed up</span>';
+    // S493 restore: clickable — filters the board to only what needs backing up.
+    html += '<button class="stat-item stat-warn stat-click' + (_nbOnly ? ' on' : '') + '" onclick="toggleNbFilter()" title="' + (_nbOnly ? 'Show all projects' : 'Show only projects not backed up') + '">⚠ ' + notBacked.length + ' not backed up</button>';
   }
+  if (notBacked.length === 0 && _nbOnly) _nbOnly = false;
   strip.innerHTML = html;
   strip.style.display = (_showDeleted || _showArchived) ? 'none' : 'flex';
 }

@@ -113,3 +113,12 @@ _pmColour
 _userInitials
 _PM_PALETTE
 .pm-avatar
+
+@ Band-filter chips + clickable not-backed-up filter (Mark, Jun 2026, restored S493)
+setBandFilter
+toggleNbFilter
+_activeBand
+_nbOnly
+.band-chip
+.band-chips
+.stat-click
