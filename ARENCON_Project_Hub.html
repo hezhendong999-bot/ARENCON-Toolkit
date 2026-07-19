@@ -963,26 +963,7 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- ═══════════ EDIT ROLE MODAL ═══════════ -->
-<div class="modal-overlay" id="edit-role-modal">
-  <div class="modal-card">
-    <h3>Change Role</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-role-user"></p>
-    <div class="modal-field">
-      <label>New Role</label>
-      <select id="edit-role-select">
-        <option value="super_admin">Super Admin</option>
-        <option value="admin">Admin</option>
-        <option value="inspector">Inspector</option>
-        <option value="viewer">Viewer</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditRoleModal()">Cancel</button>
-      <button class="dash-btn primary" onclick="saveRoleChange()">Save</button>
-    </div>
-  </div>
-</div>
-
+<!-- S493: edit-role modal now drawn by the shared dialog engine (Dlg.form) -->
 <!-- ═══════════ EDIT PROJECT MODAL ═══════════ -->
 <div class="modal-overlay" id="edit-project-modal">
   <div class="modal-card">
@@ -1140,7 +1121,6 @@ let _userMap = {};         // {userId: full_name} — loaded for all users on in
 let _filterMode = 'my';   // 'my' or 'all' or 'starred'
 let _showArchived = false;
 let _showDeleted = false;
-let _editRoleUserId = null;
 let _darkMode = localStorage.getItem('ARENCON_Dark') === '1';
 
 // ── Supabase Client (lightweight REST wrapper — no SDK needed) ──
@@ -2515,10 +2495,35 @@ function openEditProjectModal() {
   document.getElementById('ep-pm').value = proj.project_manager || '';
   document.getElementById('ep-construction-type').value = proj.construction_type || '';
   document.getElementById('edit-project-modal').classList.add('show');
+  // S493: snapshot what the form opened with, so Cancel can tell edited from
+  // untouched and only interrupt when something would actually be lost.
+  _epSnapshot = _epReadFields();
   setTimeout(function() { document.getElementById('ep-number').focus(); }, 100);
 }
 
-function closeEditProjectModal() {
+var _epSnapshot = null;
+function _epReadFields() {
+  var ids = ['ep-number','ep-name','ep-client','ep-address','ep-building-desc','ep-pm','ep-construction-type'];
+  return ids.map(function(id){ var el = document.getElementById(id); return el ? el.value : ''; }).join('\u0001');
+}
+
+async function closeEditProjectModal(force) {
+  /* S493 — the shared leave family (3-button standard: Save & Leave / Leave
+     without saving / Cancel). Cancelling this modal used to discard edits
+     silently. Untouched forms still close instantly; the dialog appears only
+     when closing would actually lose something. saveEditProject passes
+     force=true because saving IS the resolution. */
+  if (!force && _epSnapshot !== null && _epReadFields() !== _epSnapshot
+      && window.Dlg && typeof Dlg.leave === 'function') {
+    var r = await Dlg.leave({
+      title: 'Unsaved changes',
+      message: 'You changed this project\u2019s details but have not saved.'
+    });
+    if (r === 'cancel') return;
+    if (r === 'save') { saveEditProject(); return; }
+    // 'discard' falls through and closes
+  }
+  _epSnapshot = null;
   document.getElementById('edit-project-modal').classList.remove('show');
 }
 
@@ -2553,7 +2558,7 @@ async function saveEditProject() {
     await _sb.from('projects').eq('id', proj.id).update(updates);
     // Update local
     Object.assign(proj, updates);
-    closeEditProjectModal();
+    closeEditProjectModal(true);
     // Refresh detail view
     openProject(proj.id);
     toast('Project updated', 'success');
@@ -2682,40 +2687,27 @@ async function restoreProject(projectId) {
 // existing 'Move to Trash' modal at line 889 but built on the fly so
 // it can serve both single-project and bulk-purge code paths.
 function _typeToConfirmPurge(title, message, onConfirm) {
-  var existing = document.getElementById('purge-confirm-modal');
-  if (existing) existing.remove();
-  var ov = document.createElement('div');
-  ov.id = 'purge-confirm-modal';
-  ov.className = 'modal-overlay show';
-  ov.innerHTML = '<div class="modal-card">'
-    + '<h3 style="color:#DC2626;">\uD83D\uDDD1\uFE0F ' + title + '</h3>'
-    + '<p style="font-size:calc(13px + var(--ts));color:var(--steel);margin:8px 0 4px;">' + message + '</p>'
-    + '<p style="font-size:calc(13px + var(--ts));margin:8px 0;">Type <strong style="color:#DC2626">DELETE</strong> to confirm:</p>'
-    + '<input type="text" class="delete-confirm-input" id="purge-confirm-input" placeholder="Type DELETE here" autocomplete="off">'
-    + '<div id="purge-error" style="display:none;font-size:calc(12px + var(--ts));color:#DC2626;font-weight:600;margin:4px 0;"></div>'
-    + '<div class="modal-actions">'
-    + '<button class="dash-btn secondary" id="purge-cancel-btn">Cancel</button>'
-    + '<button class="dash-btn" id="purge-ok-btn" style="background:linear-gradient(135deg,#DC2626,#B91C1C);color:white;">Permanently Delete</button>'
-    + '</div></div>';
-  document.body.appendChild(ov);
-  var inp = ov.querySelector('#purge-confirm-input');
-  var err = ov.querySelector('#purge-error');
-  function close() { ov.remove(); }
-  ov.querySelector('#purge-cancel-btn').onclick = close;
-  ov.querySelector('#purge-ok-btn').onclick = function() {
-    if (inp.value.trim().toUpperCase() !== 'DELETE') {
-      err.textContent = 'Please type DELETE to confirm.';
-      err.style.display = 'block';
-      return;
-    }
-    close();
-    onConfirm();
-  };
-  inp.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') ov.querySelector('#purge-ok-btn').click();
-    if (e.key === 'Escape') close();
+  /* S493 — converted to the SHARED dialog engine (Mark's say-so this session).
+     This function stays as the entry point — its symbol is protected and both
+     purge paths call it — but it no longer draws anything. The hand-built
+     modal (S119) is deleted; the shared typeToConfirm family draws the dialog,
+     so purge now looks and behaves like every other ARENCON dialog.
+
+     One deliberate difference: the old modal accepted "delete" in any case;
+     the shared family requires the exact phrase DELETE. Stricter on a
+     permanent-destruction gate, never looser. */
+  if (!window.Dlg || typeof Dlg.typeToConfirm !== 'function') {
+    toast('Dialog engine not loaded \u2014 refresh the page', 'error');
+    return;
+  }
+  Dlg.typeToConfirm({
+    title: title,
+    icon: '\uD83D\uDDD1\uFE0F',
+    message: message,
+    phrase: 'DELETE',
+    confirmText: 'Permanently Delete',
+    onConfirm: onConfirm
   });
-  setTimeout(function() { inp.focus(); }, 50);
 }
 
 async function purgeProject(projectId) {
@@ -2933,33 +2925,37 @@ async function createUser() {
   }
 }
 
-/* ═══ Edit Role ═══ */
-function openEditRole(userId) {
-  _editRoleUserId = userId;
+/* ═══ Edit Role ═══
+   S493 — converted to the shared dialog engine's form family (Mark's say-so
+   this session). The hand-built modal markup, closeEditRoleModal and
+   saveRoleChange are gone; the save logic lives in onSubmit unchanged. One
+   deliberate behaviour difference: the Super Admin option used to show as
+   disabled for non-super-admins; it is now simply not offered — a role you
+   cannot grant is not a choice, so it should not look like one. */
+async function openEditRole(userId) {
   const u = _allUsers.find(x => x.id === userId);
   if (!u) return;
-  document.getElementById('edit-role-user').textContent = u.full_name + ' (' + u.email + ')';
-  document.getElementById('edit-role-select').value = u.role;
-
-  // Super admin option only available to super admins
-  const opts = document.querySelectorAll('#edit-role-select option');
-  opts[0].disabled = _profile.role !== 'super_admin';
-
-  document.getElementById('edit-role-modal').classList.add('show');
-}
-
-function closeEditRoleModal() {
-  document.getElementById('edit-role-modal').classList.remove('show');
-  _editRoleUserId = null;
-}
-
-async function saveRoleChange() {
-  if (!_editRoleUserId) return;
-  const newRole = document.getElementById('edit-role-select').value;
+  if (!window.Dlg || typeof Dlg.form !== 'function') {
+    toast('Dialog engine not loaded \u2014 refresh the page', 'error');
+    return;
+  }
+  const roles = [];
+  if (_profile.role === 'super_admin') roles.push({ value: 'super_admin', label: 'Super Admin' });
+  roles.push({ value: 'admin', label: 'Admin' },
+             { value: 'inspector', label: 'Inspector' },
+             { value: 'viewer', label: 'Viewer' });
+  const vals = await Dlg.form({
+    title: 'Change Role',
+    icon: '\uD83D\uDC64',
+    message: u.full_name + ' (' + u.email + ')',
+    fields: [{ key: 'role', label: 'New Role', type: 'select', options: roles, value: u.role }],
+    submitText: 'Save'
+  });
+  if (!vals) return;
+  if (vals.role === u.role) return; // nothing changed
   try {
-    await _sb.from('profiles').eq('id', _editRoleUserId).update({ role: newRole });
-    toast('Role updated to ' + formatRole(newRole), 'success');
-    closeEditRoleModal();
+    await _sb.from('profiles').eq('id', userId).update({ role: vals.role });
+    toast('Role updated to ' + formatRole(vals.role), 'success');
     await loadAdminUsers();
   } catch (e) {
     toast('Failed: ' + e.message, 'error');
@@ -3590,7 +3586,13 @@ async function _stampExported(projectId) {
 async function exportSingleProject(projectId) {
   var proj = _projects.find(function(p) { return p.id === projectId; });
   if (!proj) { toast('Project not found', 'error'); return; }
-  await _epdRun(proj);
+  // S493: _epdRun lives in the export module; call it via window. If the module
+  // failed to load, say so instead of dying silently.
+  if (typeof window._epdRun !== 'function') {
+    toast('Export module not loaded — refresh the page', 'error');
+    return;
+  }
+  await window._epdRun(proj);
 }
 
 async function exportAllProjects() {
@@ -5538,6 +5540,13 @@ window.exportProjectDocsFromHub = function () {
 };
 
 /** Tier 4 — from the dashboard, pick the project first. */
+/* S493 fix — the card button is a CLASSIC-script caller. _epdRun lives in this
+   MODULE, and module functions are not global, so the card's call threw a
+   ReferenceError and the button was simply dead. Root cause, not symptom: the
+   module now exposes _epdRun on window, same as it already does for the
+   dashboard entry point one line below. */
+window._epdRun = _epdRun;
+
 window.exportProjectDocsFromDashboard = async function () {
   /* S493 — rebuilt as a Hub-owned picker.
 

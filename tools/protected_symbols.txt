@@ -62,3 +62,37 @@ photoIdentityKey
 bucketFromRaw
 commissioningPhotos
 ddPhotos
+
+@ Photo data-integrity core — audited delete, pointer protection, tombstones (S481/S393; catastrophic if lost)
+delPhotoGuarded
+_protectPhotoPointer
+_makePurgedTombstone
+mint
+
+@ Lightbox selection engine — pick/group/unlink canon, locked S344 (unlink is never delete)
+confirmPick
+ungroupActive
+groupActiveId
+pickCount
+isPicking
+_groupBounds
+
+@ Shared photo input — Camera + Upload + Gallery standard, one implementation (S478/S479)
+PhotoInput
+
+@ Shared dialog engine — all ten families; every tool's modals route here
+typeToConfirm
+confirmDanger
+leave
+form
+pickList
+progress
+
+@ Whole-project bundle builder (shared lib; Hub + tools consume it)
+buildAndDownload
+defaultReadme
+
+@ Hub edit-role via shared form family; edit-project unsaved-changes guard (S493, Mark's say-so)
+openEditRole
+_epSnapshot
+_epReadFields

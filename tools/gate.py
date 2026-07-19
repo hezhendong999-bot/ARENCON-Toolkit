@@ -72,6 +72,9 @@ def js_symbols(text):
         r'export\s+(?:const|let|var|function)\s+([A-Za-z_$][\w$]*)',
         r'^\s*([A-Za-z_$][\w$]*)\s*:\s*function',    # foo: function()  (methods)
         r'^\s*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{',  # foo() {  (shorthand)
+        # S493: async methods — `async foo(args) {` — were invisible to the
+        # extractor, which made manifest protection for them an illusion.
+        r'^\s*async\s+([A-Za-z_$][\w$]*)\s*\(',
     ]
     for p in pats:
         for m in re.finditer(p, text, flags=re.M):
