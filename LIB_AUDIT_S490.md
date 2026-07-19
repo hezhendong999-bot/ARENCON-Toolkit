@@ -1,4 +1,4 @@
-# LIBRARY AUDIT — S490 (2026-07-18)
+# LIBRARY AUDIT — S490 (2026-07-18, rev B per Mark: FRT · Diesel · Electric · Hub only, with share verdicts)
 
 **What this is:** a live-HEAD audit (`5bdef941`) of what actually lives in `/lib/`, what each
 tool really consumes from it, what is duplicated, and what that means for Mark's goal:
@@ -10,51 +10,50 @@ content scans — not from handoff prose or memory.
 
 ---
 
-## 1. The tools today, at a glance
+## 1. The four surfaces, at a glance
 
-| Tool | Total lines | of which JS | Loads from `/lib/` | Plain-language state |
+| Surface | Total lines | of which JS | Loads from `/lib/` | Plain-language state |
 |---|---|---|---|---|
 | **FRT** | ~54 modules | — | 7 ES imports + 5 markup script tags | Ahead of everyone — but carries private forks of 14 modules that also exist in `/lib/` |
-| **Diesel** | 18,115 | 15,134 | 11 modules | Half-converted. Photos/markup/lightbox/camera/checklist/signature are shared; the entire data layer and small utilities are still local |
-| **Electric** | 8,492 | 6,894 | 2 modules (header only — and the OLD v1 engine) | Barely started. Everything except the header is local, including its photo handling — the outstanding field-safety port |
-| **IST** | 2,365 | — | 0 | Fully standalone; no cloud, no lib |
-| **OBC** | 3,144 | — | 0 | Fully standalone |
-| **DD** | 2,212 | — | 0 | Fully standalone; has local photo input + lightbox |
+| **Diesel** | 18,115 | 15,134 | 11 modules | Half-converted. Photos/markup/lightbox/camera/checklist/signature shared; entire data layer + small utilities still local |
+| **Electric** | 8,492 | 6,894 | 2 (header only — and the OLD v1 engine) | Barely started. Everything else local, including its photo path — the outstanding field-safety port |
+| **Hub / Dashboard** | 5,097 | 3,999 | 0 | Uses NOTHING shared. Own toast, 7 native browser popups (a standing violation of the custom-modal rule), 2 embedded logo copies, own R2 calls, own lightbox-ish photo viewing |
+
+(The index portal is 59 lines of redirect — nothing to share; excluded.)
 
 ---
 
-## 2. What `/lib/` contains vs who actually uses it
+## 2. Concern-by-concern: who has it, and SHOULD it be shared?
 
-YES = consumes the lib copy · **local** = implements its own · stub = thin re-export of lib (the correct pattern) · – = doesn't have the concern at all
+Verdicts: **SHARE** = one lib implementation, tools import as-is · **SHARE+CONFIG** = one
+engine, per-tool personality via a config object (the header-engine pattern) · **KEEP
+PER-TOOL** = deliberately not shared · **N/A** = tool doesn't have the concern.
 
-| `/lib/` module | What it does, plainly | FRT | Diesel | Electric | IST | OBC | DD |
-|---|---|---|---|---|---|---|---|
-| `ui/markupSelection/Tools/Eraser/Text/Polyline` | Drawing-markup family | YES | YES (no Polyline) | local | – | – | – |
-| `ui/photoInput.js` | The 3-way photo surface (drag/upload/camera) | YES | local | local | – | – | local |
-| `ui/cameraBurst.js` | In-app camera (12MP-crash-safe) | **stub ✓** | YES | – | – | – | – |
-| `ui/lightbox.js` | Photo lightbox | **local (11KB bigger)** | YES | local | – | – | local |
-| `ui/checklist.js` | Checklist engine | – | YES | local | local | – | local |
-| `ui/signaturePad.js` | Signature capture | – | YES | local | local | local | local |
-| `ui/headerEngine2.js` + `headerConfigs` | Sealed Shadow-DOM header | YES | config only¹ | **old v1 engine** | – | – | – |
-| `export/projectDocs.js` | Export Project Docs ZIP | YES | YES | – | – | – | – |
-| `export/exportPreview.js` | Export preview | YES | – | – | – | – | – |
-| `data/photoMint.js` | Photo record minting | – | YES | – | – | – | – |
-| `data/sync.js` | Cloud sync engine | **local fork** | local | local | – | – | – |
-| `data/merge.js` | 3-way merge | **local fork** | local | local | – | – | – |
-| `data/r2.js` | R2 photo client | **local fork** | local | local | – | – | – |
-| `data/photoOutbox.js` | Durable upload outbox | **local fork** | local | local | – | – | – |
-| `data/idb.js` | IndexedDB layer | **local fork** | local | local | – | – | local |
-| `data/uploadQueue.js` | Upload queue | **identical ✓** | – | – | – | – | – |
-| `shared/dialogs.js` | Confirm/prompt dialogs | **local fork (2.5×)** | local | local | native | native | native |
-| `shared/toast.js` | Toasts | **local fork** | local | local | local | local | local |
-| `shared/auth.js` | Auth | **local fork** | (auth-gate) | (auth-gate) | (auth-gate) | (auth-gate) | (auth-gate) |
-| `shared/scrollLock.js` | Scroll lock | **identical ✓** | partial | – | – | – | – |
-| `assets/logo.js` | The ARENCON logo, once | unused | **4 embedded base64 copies** | embedded | embedded | embedded | embedded |
-| `workers/imageWorker(+Host)` | Image resize worker | **local fork** | – | – | – | – | – |
-| `ui/photoEngine.js` | Photo engine | unused by anyone | | | | | |
-| `ui/header.js` / `ui/headerEngine.js` | Header generations 1 & 2 | unused / unused | – | v1 | – | – | – |
+| Concern | FRT | Diesel | Electric | Hub | Verdict | Why, plainly |
+|---|---|---|---|---|---|---|
+| **Data layer** (sync · merge · R2 · outbox · IDB) | local fork (canonical) | local | local | own R2 calls | **SHARE** — after `/lib/data/` is refreshed FROM FRT | One sync brain for the whole firm. FRT's is the field-proven one; today's lib copy is stale. Biggest single line-count win in Diesel/Electric (~3.5–5k lines each) |
+| **Dialogs / confirms / leave dialog** | local (2.5× lib) | local | local | **7 native popups** | **SHARE+CONFIG** — via `dialogEngine.js` (approved S488, unbuilt) | One dialog engine, per-tool icon/accent config. Hub's native popups violate the standing custom-modal rule and go first. Tools configure, never restyle |
+| **Toast** | local fork | local | local | local | **SHARE** | Four copies of a 60-line utility. Zero per-tool personality needed |
+| **Photo input surface** (drag/upload/camera) | lib ✓ | local | local | N/A | **SHARE** — `photoInput.js`, proven in FRT since S478 | The mandatory 3-way standard should exist exactly once |
+| **Camera burst** | stub→lib ✓ | lib ✓ | N/A | N/A | **SHARE** (done where it applies) | Diesel's remaining inline cameras still carry the 12MP crash FRT shed — finish the port |
+| **Lightbox** | local (11KB ahead) | lib ✓ | local | own viewer | **SHARE+CONFIG** — after lib copy is refreshed from FRT's | FRT's is newer (S487 fixes). Refresh lib from FRT, then Diesel re-verifies, Electric+Hub adopt. Per-tool config: which action buttons show |
+| **Markup engine family** | lib ✓ | lib ✓ | local | N/A | **SHARE** (Electric adopts at photo port) | Already the proven model. Electric gets it when its photo path converts |
+| **Header** | lib v2 ✓ | config (re-land owed) | **lib v1 (old)** | none | **SHARE+CONFIG** — v2 everywhere | The engine exists precisely for this. Electric moves v1→v2; Hub gets a config; v1 retires after |
+| **Checklist engine** | N/A | lib ✓ | local | N/A | **SHARE** | Electric adopts Diesel's proven module |
+| **Signature pad** | N/A | lib ✓ | local | minor | **SHARE** | Same |
+| **Logo** | unused lib copy | **4 embedded copies** | embedded | **2 embedded** | **SHARE** — `lib/assets/logo.js` already exists, nobody uses it | Eight embedded base64 blobs firm-wide for one PNG. Pure deletion, zero risk |
+| **Auth** | local fork | auth-gate | auth-gate | auth-gate | **SHARE** — reconcile `lib/shared/auth.js` with `shared/auth-gate.js` into one | Two auth implementations is one too many; decide the survivor at re-sync |
+| **Scroll lock** | lib-identical ✓ | partial | none | none | **SHARE** | Already identical; finish the rollout |
+| **Export Project Docs** | lib ✓ | lib ✓ | pending | pending (whole-project mode) | **SHARE+CONFIG** (already the plan) | Per-tool mode + Hub whole-project mode per the S483 plan |
+| **PDF report generation** | own `pdf.js` | own | own | N/A | **KEEP PER-TOOL** (engine parts only shared) | Report LAYOUT is each tool's personality — an FRT deficiency report and a Diesel commissioning report are different documents. Share only neutral machinery (exportPreview, zoomMath, tile rendering); never a common "report writer" |
+| **Photo/data SAVE paths** | own | own | own | own | **KEEP PER-TOOL** — locked canon | S393/S481: engines hand back File objects; each host keeps its field-proven save path. Sharing the save path is how a regression reaches every tool at once |
+| **Tool data model** (deficiencies vs pump tests vs projects) | own | own | own | own | **KEEP PER-TOOL** | This IS each tool. A pump test is not a pin. Only the storage/sync machinery beneath it is shared |
+| **Tool-specific UI** (pin editor, placard scan, test tables, Hub cards) | own | own | own | own | **KEEP PER-TOOL** | Personality, not engine |
+| **Boot / mode detection** (`?project=` Hub-mode) | own | own | own | own | **KEEP PER-TOOL** (pattern shared, code small) | ~30 lines each; a shared bootstrapper would couple every tool's startup to one file — highest blast radius for the smallest saving |
 
-¹ Diesel's header wiring was clobbered by a concurrent session — the Wave 2 re-land is still owed.
+**The dividing line, in one sentence:** if two tools would ever want the code to behave
+*differently*, it's personality and stays per-tool; if a difference between tools could only
+ever be a bug (sync logic, merge rules, a toast, the logo), it's engine and gets shared.
 
 ---
 
@@ -119,7 +118,10 @@ The order matters more than the speed. Wrong order = converting tools onto stale
 4. **Diesel conversion** — data layer, dialogs, photoInput, logo, header re-land, scrollLock.
    Field-verify-gated; Mark present for the data-path flip.
 5. **Electric** — follows Diesel's proven recipe; photo port first.
-6. **Retire dead generations** — `header.js`, `headerEngine.js` (after Electric moves to v2),
+6. **Hub** — dialogEngine adoption (kills the 7 native popups), header config, logo module,
+   shared lightbox for its photo viewing, toast. Hub is the lowest-risk consumer — no field
+   data path of its own beyond R2 reads.
+7. **Retire dead generations** — `header.js`, `headerEngine.js` (after Electric moves to v2),
    `photoEngine.js` if truly unused — with Mark's OK, as with all repo cleanup.
 
 **Hard rules carried from canon:** storage stays per-host where the spec says so (S393/S481
