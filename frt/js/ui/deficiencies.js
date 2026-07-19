@@ -867,9 +867,15 @@ function _buildPinGroupCard(d, ctrId) {
         // photo had actually been recorded. Now the card renders with a
         // camera-glyph placeholder and the sync icon shows live state.
         var pid = ph.id || '';
+        // S491: vector-markup marker for the shared compositor (same contract
+        // as the gallery). Under never-bake, markup is strokes on the record,
+        // not a baked image — the getObsPhotoMarkup path above is legacy and
+        // returns null for every photo written since S347d.
+        var _mkAttrs = (pid ? ' data-thumb-pid="' + esc(pid) + '"' : '')
+          + ((ph._markupStrokes && ph._markupStrokes.length) ? ' data-thumb-mk="1"' : '');
         h += '<div class="obs-photo-wrap' + (src ? '' : ' obs-photo-noimg') + '">';
         if (src) {
-          h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
+          h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '"' + _mkAttrs + ' src="' + esc(src) + '" loading="lazy">';
         } else {
           h += '<div class="obs-photo-placeholder" data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" title="Photo data not yet loaded">\uD83D\uDCF7</div>';
         }
@@ -2758,9 +2764,13 @@ function _buildObsEditor(d, oi, ctrId, opts) {
       var mk = (Model.getObsPhotoMarkup ? Model.getObsPhotoMarkup(d, oi, ph.id) : null);
       var src = (mk && mk.markedR2Key) ? mk.markedR2Key : (ph.thumb || ph.dataUrl || ph.r2Url || '');
       var pid = ph.id || '';
+      // S491: vector-markup marker — see the site above. Legacy
+      // getObsPhotoMarkup stays as a fallback for any pre-S347d baked record.
+      var _mkAttrs = (pid ? ' data-thumb-pid="' + esc(pid) + '"' : '')
+        + ((ph._markupStrokes && ph._markupStrokes.length) ? ' data-thumb-mk="1"' : '');
       h += '<div class="obs-photo-wrap' + (src ? '' : ' obs-photo-noimg') + '">';
       if (src) {
-        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" src="' + esc(src) + '" loading="lazy">';
+        h += '<img data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '"' + _mkAttrs + ' src="' + esc(src) + '" loading="lazy">';
       } else {
         h += '<div class="obs-photo-placeholder" data-action="open-lightbox" data-defic-id="' + esc(d.id) + '" data-obs-idx="' + oi + '" data-photo-idx="' + phi + '" data-photo-id="' + esc(pid) + '" title="Photo data not yet loaded">\uD83D\uDCF7</div>';
       }
@@ -3238,6 +3248,18 @@ function _renderCombinedView(proj, container) {
   }
 
   container.innerHTML = h;
+
+  // S491: composite vector markup onto the observation thumbnails using the
+  // SAME engine the gallery uses (photos.js). Markup is strokes on the record
+  // under never-bake, so a plain <img src> shows the clean original; this
+  // swaps in the marked composite. Dynamic import avoids a static cycle
+  // (photos.js already imports from this module's neighbours) and keeps the
+  // failure mode benign — thumbnails simply stay clean if it can't load.
+  try {
+    import('./photos.js').then(function (m) {
+      if (m && m.compositeMarkupThumbs) m.compositeMarkupThumbs(container, Model.getProject());
+    }).catch(function () {});
+  } catch (_) {}
 
   // S339 (Mark): kill the expanded-card "flash" on filter-tab switch. The card
   // paints at one height, then a rAF below renders the pin mini-map + autosizes
@@ -7821,3 +7843,47 @@ window._frtOpenDetailedRow = function(deficId, obsIdx) {
 };
 
 
+
+// ─────────────────────────────────────────────────────────────
+// S491 — vector-markup thumbnails on EVERY observation photo strip
+// ─────────────────────────────────────────────────────────────
+// Under never-bake (S347d/S351) markup is stored as vector strokes on the
+// photo record (_markupStrokes + _mkFrame), not as a baked marked image.
+// The gallery composites those strokes at display time; the deficiency and
+// pin-editor strips did not, so markup was invisible there while visible in
+// the gallery (verified live: getObsPhotoMarkup returned null for all 15
+// photos — nothing has written photoMarkups since S347d).
+//
+// A single delegated observer covers ALL strips (main list, pin editor,
+// focused editor) instead of patching each render site — a new strip can't
+// silently miss the treatment. Debounced; no-ops when nothing is tagged.
+(function () {
+  var _mkTimer = null;
+  function _sweepMarkupThumbs() {
+    if (_mkTimer) return;               // already scheduled
+    _mkTimer = setTimeout(function () {
+      _mkTimer = null;
+      try {
+        var pending = document.querySelectorAll('.obs-photo-wrap img[data-thumb-mk="1"][data-thumb-pid]');
+        if (!pending.length) return;
+        import('./photos.js').then(function (m) {
+          if (!m || !m.compositeMarkupThumbs) return;
+          var proj = Model.getProject();
+          if (!proj) return;
+          // Sweep each strip's own container so the compositor's exact-id
+          // re-resolve guard still applies per element.
+          m.compositeMarkupThumbs(document.body, proj);
+        }).catch(function () {});
+      } catch (_) {}
+    }, 60);
+  }
+  if (typeof document !== 'undefined' && document.body) {
+    try {
+      new MutationObserver(_sweepMarkupThumbs)
+        .observe(document.body, { childList: true, subtree: true });
+    } catch (_) {}
+    // Re-composite after a markup save so the strip updates without a reload.
+    document.addEventListener('frt-markup-saved', _sweepMarkupThumbs);
+    document.addEventListener('frt-markup-reverted', _sweepMarkupThumbs);
+  }
+})();

@@ -2458,6 +2458,13 @@ function _compositeThumbnails(container, proj){
   var imgs=container.querySelectorAll('img[data-thumb-mk="1"][data-thumb-pid]');
   [].forEach.call(imgs, function(imgEl){
     var pid=imgEl.getAttribute('data-thumb-pid'); if(!pid) return;
+    // S491: idempotence guard. The compositor rewrites src, which itself is a
+    // DOM mutation — without this, a MutationObserver-driven caller (the
+    // deficiency strips) would re-composite the composite forever, drawing
+    // strokes on top of strokes and pinning the CPU. The stamp records WHICH
+    // stroke set was baked, so a later edit (different count) re-composites.
+    var _sig = pid + ':' + ((_findPhotoByIdAnywhere(proj, pid) || {})._markupStrokes || []).length;
+    if (imgEl.getAttribute('data-thumb-done') === _sig) return;
     var ph=_findPhotoByIdAnywhere(proj, pid); if(!ph) return;
     var strokes=(ph._markupStrokes&&ph._markupStrokes.length)?ph._markupStrokes:null;
     if(!strokes) return;
@@ -2472,9 +2479,26 @@ function _compositeThumbnails(container, proj){
       if(imgEl.getAttribute('data-thumb-pid')!==pid) return;
       if(!imgEl.isConnected) return;
       imgEl.src=durl;
+      imgEl.setAttribute('data-thumb-done', _sig);   // S491 idempotence stamp
       imgEl.style.transform='';   // composite is pre-rotated — drop the CSS rotate
     }).catch(function(){});
   });
+}
+
+// S491 — the deficiency/observation photo strip needs the SAME stroke
+// compositing the gallery already does. Under never-bake (S347d/S351) markup
+// lives as vector strokes on the photo record (_markupStrokes + _mkFrame),
+// NOT as a baked marked image. The strip was still asking the dead
+// getObsPhotoMarkup/photoMarkups question (nothing writes it — verified live:
+// every photo returned markup 'none'), so it always fell back to the clean
+// original and markup never appeared on deficiency thumbnails while the
+// gallery showed it correctly.
+//
+// Exported rather than duplicated: ONE implementation, per shared-engine
+// discipline. Callers tag their <img> with data-thumb-pid + data-thumb-mk="1"
+// (same contract as the gallery) and call this after render.
+export function compositeMarkupThumbs(container, proj){
+  return _compositeThumbnails(container, proj);
 }
 
 document.addEventListener('frt-markup-reverted', function(e) {
