@@ -1306,23 +1306,37 @@ function setupConnDot() {
 }
 
 // ── Keyboard shortcuts ──
+// S493. This runs IN THE BOOT SEQUENCE, ahead of tryRestoreSession(). It reached
+// for three login-screen inputs unguarded — the exact shape of the S492 hotfix
+// documented above: one missing element throws, everything queued behind it dies,
+// and the Hub boots BLANK for every user including those with a valid session.
+// Each binding is now independent, so losing one input costs one keyboard
+// shortcut instead of the whole application.
 function setupKeyboardShortcuts() {
-  document.getElementById('login-pass').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
-  });
-  document.getElementById('login-email').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('login-pass').focus();
-  });
-  document.getElementById('forgot-email').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doForgotPassword();
-  });
+  function _onEnter(id, fn){
+    var el = document.getElementById(id);
+    if (!el) { console.warn('[Hub] shortcut target missing:', id); return; }
+    el.addEventListener('keydown', function(e){ if (e.key === 'Enter') fn(); });
+  }
+  _onEnter('login-pass',   function(){ doLogin(); });
+  _onEnter('login-email',  function(){ var p=document.getElementById('login-pass'); if(p) p.focus(); });
+  _onEnter('forgot-email', function(){ doForgotPassword(); });
 }
 
 // ── Session restore ──
+/* S493: both exits of this function revealed the login screen with an unguarded
+   lookup. A throw on the last line of the boot path leaves the user staring at
+   nothing with no way to sign in — and no console error they would ever see. */
+function _showLoginScreen(){
+  var el = document.getElementById('login-screen');
+  if (el) el.style.display = 'flex';
+  else console.error('[Hub] login-screen missing — cannot present sign-in');
+}
+
 async function tryRestoreSession() {
   // If user explicitly signed out (from FRT or Hub), don't auto-restore
   if (sessionStorage.getItem('ARENCON_signed_out') === '1') {
-    document.getElementById('login-screen').style.display = 'flex';
+    _showLoginScreen();
     return;
   }
   // Try getUser first
@@ -1353,7 +1367,7 @@ async function tryRestoreSession() {
     console.warn('[Hub] refreshSession failed:', e.message || e);
   }
   // Show login
-  document.getElementById('login-screen').style.display = 'flex';
+  _showLoginScreen();
 }
 
 // ── Login ──
@@ -1547,8 +1561,27 @@ function _populatePMDropdowns() {
 var _hubPopstateReady = false;
 var _pendingOpenId = null;
 function showApp() {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-wrap').style.display = 'block';
+  /* S493 — THESE TWO LINES GATE THE ENTIRE APPLICATION.
+     They were the only unguarded lookups left in the sign-in path, and they sit
+     ABOVE everything else in this function. If either element were ever missing
+     the throw would kill showApp() before showDashboard() ran: sign-in succeeds,
+     dashboard never renders, blank page. Same failure class that blanked Diesel
+     (S488) and the Hub sign-in block (S491) — three times now, always the same
+     shape. Both elements exist today; this is the guard so a future markup edit
+     cannot turn a cosmetic change into a dead application.
+
+     The S491 _hSet/_hDisp helpers that used to live below were REMOVED, not
+     replaced: S492 moved the header into the shared engine's shadow root and
+     deleted every call site, leaving the helpers defined with zero callers.
+     Dead code that reads as protection is worse than no protection — the S492
+     ledger recorded this path as "hardened" on the strength of helpers that
+     could not run. */
+  var _ls = document.getElementById('login-screen');
+  var _aw = document.getElementById('app-wrap');
+  if (_ls) _ls.style.display = 'none';
+  else console.warn('[Hub] page element missing: login-screen');
+  if (_aw) _aw.style.display = 'block';
+  else console.error('[Hub] page element missing: app-wrap — dashboard cannot be shown');
 
   // Capture ?open= BEFORE replaceState strips query string
   try {
@@ -1559,12 +1592,13 @@ function showApp() {
   // S492: the header is now the shared engine. Its internals live in a shadow
   // root and are NOT reachable by id — by design, so one tool cannot restyle
   // another's header. Everything below goes through the controller.
-  // The S491 guards are kept for the elements that still exist on the page, and
-  // the header calls are wrapped the same way: if the header has not mounted
-  // yet, we record the state and initHubHeader() applies it on arrival. A
-  // missing header must never abort this function before showDashboard().
-  function _hSet(id, prop, val){ var e=document.getElementById(id); if(e) e[prop]=val; else console.warn('[Hub] page element missing:', id); }
-  function _hDisp(id, val){ var e=document.getElementById(id); if(e) e.style.display=val; else console.warn('[Hub] page element missing:', id); }
+  // The header calls are wrapped: if the header has not mounted yet, we record
+  // the state and initHubHeader() applies it on arrival. A missing header must
+  // never abort this function before showDashboard().
+  // S493: the S491 _hSet/_hDisp helpers were removed here — they had zero call
+  // sites once S492 moved the header elements into the shadow root. The real
+  // unguarded lookups in this function were the two app-reveal lines at the
+  // top, now guarded.
 
   // Update header user info
   const name = _profile ? _profile.full_name : 'User';
