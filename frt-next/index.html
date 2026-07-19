@@ -13,6 +13,10 @@
 <title>ARENCON — Field Review Tool — NEXT (verify)</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
+<!-- S490c: BETA PROJECT GATE. Must load BEFORE js/app.js so no Model/
+     CloudSync/IDB/R2 path is ever reached for a non-allowlisted project.
+     frt-next shares origin+database+bucket with live frt. -->
+<script src="js/betaGate.js?v=1"></script>
 <link rel="stylesheet" href="css/frt.css?v=669">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets

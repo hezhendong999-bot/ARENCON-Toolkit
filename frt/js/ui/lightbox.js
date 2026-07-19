@@ -1150,6 +1150,32 @@ function _resetView() {
   _applyTransform();
 }
 
+// S490c (F3 root cause): the lightbox had NO window resize listener at all.
+// _calcFitScale() correctly uses BOTH axes — Math.min(w/nw, h/nh) — but it only
+// ran when a photo was shown. Resizing the window changed the canvas box while
+// the photo kept its stale _fitScale, so the image tracked the height change and
+// appeared to scale on the vertical axis only. The fix is to re-measure, not to
+// touch the (correct) two-axis math.
+//
+// Preserves the user's zoom intent: a photo left at fit stays at fit; a photo
+// the user had zoomed keeps its zoom RATIO relative to fit, so a resize never
+// silently throws away a zoomed-in inspection view. Debounced to one pass per
+// settle (Android rotate fires a burst), and inert while closed.
+var _lbResizeT = 0;
+window.addEventListener('resize', function () {
+  if (!_isOpen) return;
+  clearTimeout(_lbResizeT);
+  _lbResizeT = setTimeout(function () {
+    if (!_isOpen) return;
+    var prevFit = _fitScale || 1;
+    var ratio = (_scale && prevFit) ? (_scale / prevFit) : 1;
+    _calcFitScale();
+    _scale = _fitScale * (ratio > 0 ? ratio : 1);
+    _clampPan();
+    _applyTransform();
+  }, 120);
+});
+
 function _showPhoto(idx) {
   if (idx < 0 || idx >= _photos.length) return;
   _idx = idx;

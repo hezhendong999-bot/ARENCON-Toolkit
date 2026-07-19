@@ -6370,6 +6370,14 @@ document.addEventListener('click', function(e) {
         popup.style.left = Math.max(8, Math.min(window.innerWidth - popupW - 8, r.right - popupW)) + 'px';
         popup.style.zIndex = '10001';                                       // above dialogs (10000) and pinfocus overlay (9998)
         popup.classList.add('open');
+        // S490c (F10 root cause): popupW above is an ESTIMATE (180). The popup
+        // has min-width:140px but its real width is content-driven — "Split to
+        // its own pin" renders well past 180 — so the horizontal clamp
+        // under-measured and the right edge ran off-screen on narrow viewports.
+        // Re-clamp against the MEASURED width now that it's visible. Fixes the
+        // cause (a wrong measurement), not the symptom.
+        var realW = popup.offsetWidth || popupW;
+        popup.style.left = Math.max(8, Math.min(window.innerWidth - realW - 8, r.right - realW)) + 'px';
         // Re-clamp once visible (now that offsetHeight is accurate).
         var realH = popup.offsetHeight;
         if (realH && realH !== estH) {
