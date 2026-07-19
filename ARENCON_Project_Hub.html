@@ -115,6 +115,38 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 
 /* Project grid */
 .project-grid{padding:4px 24px 24px}
+/* S493 band grouping. .is-banded turns OFF grid on the wrapper so band sections
+   stack vertically; each band renders its own .project-grid-inner. */
+.project-grid-inner.is-banded{display:block}
+.band-section{margin-bottom:22px}
+.band-header{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;padding:6px 2px 8px;margin-bottom:2px;cursor:pointer;font-family:Calibri,'Segoe UI',system-ui,sans-serif;text-align:left;border-bottom:1px solid var(--border);min-height:38px}
+.band-caret{color:var(--silver);font-size:calc(11px + var(--ts));width:11px;flex-shrink:0}
+.band-range{font-family:Consolas,'Courier New',monospace;font-size:calc(12px + var(--ts));font-weight:700;letter-spacing:.6px;color:var(--steel);border:1px solid var(--border);border-radius:6px;padding:2px 9px}
+.band-count{font-size:calc(11px + var(--ts));color:var(--silver);font-weight:500}
+.band-header:hover .band-range{border-color:var(--arencon);color:var(--arencon)}
+.band-header.collapsed .band-range{opacity:.75}
+/* S493 Export Project Docs picker — Hub-owned, searchable, banded. */
+.epd-pick-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:9600;display:flex;align-items:center;justify-content:center;padding:20px}
+.epd-pick{background:var(--card,#fff);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 48px rgba(0,0,0,.24);width:560px;max-width:100%;max-height:82vh;display:flex;flex-direction:column;font-family:Calibri,'Segoe UI',system-ui,sans-serif;overflow:hidden}
+.epd-pick-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.epd-pick-icon{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:rgba(44,127,184,.12);color:#2C7FB8;font-size:15px;flex-shrink:0}
+.epd-pick-title{font-size:calc(15px + var(--ts));font-weight:700;color:var(--text)}
+.epd-pick-body{padding:14px 20px 4px;display:flex;flex-direction:column;min-height:0}
+.epd-pick-msg{margin:0 0 10px;font-size:calc(13px + var(--ts));color:var(--steel)}
+.epd-pick-search{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:calc(13px + var(--ts));background:var(--bg);color:var(--text);outline:none;margin-bottom:10px}
+.epd-pick-search:focus{border-color:var(--arencon);box-shadow:0 0 0 3px var(--arencon-glow)}
+.epd-pick-list{overflow-y:auto;min-height:0;padding-bottom:8px}
+.epd-pick-band{font-family:Consolas,'Courier New',monospace;font-size:calc(11px + var(--ts));font-weight:700;letter-spacing:.6px;color:var(--silver);padding:10px 2px 5px;border-bottom:1px solid var(--border);margin-bottom:6px;position:sticky;top:0;background:var(--card,#fff)}
+.epd-pick-row{display:block;width:100%;text-align:left;background:none;border:1px solid transparent;border-radius:9px;padding:9px 12px;margin-bottom:4px;cursor:pointer;font-family:inherit;min-height:44px}
+.epd-pick-row:hover,.epd-pick-row:focus-visible{background:var(--bg);border-color:var(--border);outline:none}
+.epd-pick-num{font-weight:700;color:var(--arencon);font-size:calc(13px + var(--ts));margin-right:8px}
+.epd-pick-name{color:var(--text);font-size:calc(13px + var(--ts))}
+.epd-pick-sub{display:block;color:var(--silver);font-size:calc(11.5px + var(--ts));margin-top:2px}
+.epd-pick-none{padding:22px 4px;text-align:center;color:var(--silver);font-size:calc(13px + var(--ts))}
+.epd-pick-foot{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end}
+.epd-pick-cancel{padding:8px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--steel);font-family:inherit;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;min-height:40px}
+.epd-pick-cancel:hover{border-color:var(--arencon);color:var(--arencon)}
+body.dark-mode .epd-pick,body.dark-mode .epd-pick-band{background:var(--card)}
 .project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
 .project-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .25s;overflow:hidden;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.06);-webkit-user-select:none;user-select:none;padding:16px 18px 14px}
 .project-card:hover{border-color:var(--arencon);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
@@ -1696,6 +1728,66 @@ async function loadProjects() {
   }
 }
 
+/* ═══ S493 — 1000-SERIES BAND GROUPING (restored) ═══
+   Mark's server filing groups jobs by thousand-band: 1000-1999, 2000-2999, and
+   so on. Band = the integer thousands BEFORE the dot, so 1490.04 is 1000s and
+   7375.13 is 7000s; the .04 / .13 sub-job suffix does not affect the band.
+   Specified and built ~June 2026, then lost from the Hub without being asked
+   for. Restored here.
+
+   Structural note, because this broke once before: band sections must NOT be
+   children of a display:grid container or each band becomes a single grid cell
+   and they render side by side instead of stacked. Each band therefore renders
+   its own inner grid, and the bands stack inside a wrapper whose grid is off. */
+function _bandLo(num) {
+  var n = parseInt(String(num || '').split('.')[0], 10);
+  if (isNaN(n)) return null;
+  return Math.floor(n / 1000) * 1000;
+}
+function _bandLabel(lo) {
+  return lo === null ? 'No project number' : (lo + '\u2013' + (lo + 999));
+}
+var _bandCollapsed = {};
+try { _bandCollapsed = JSON.parse(localStorage.getItem('arencon_hub_bands') || '{}') || {}; }
+catch (e) { _bandCollapsed = {}; }
+
+function toggleBand(key) {
+  _bandCollapsed[key] = !_bandCollapsed[key];
+  try { localStorage.setItem('arencon_hub_bands', JSON.stringify(_bandCollapsed)); } catch (e) {}
+  renderProjects();
+}
+
+function _renderBanded(list, myId) {
+  var bands = {}, order = [];
+  list.forEach(function (p) {
+    var lo = _bandLo(p.project_number);
+    var key = (lo === null ? 'none' : String(lo));
+    if (!bands[key]) { bands[key] = { lo: lo, items: [] }; order.push(key); }
+    bands[key].items.push(p);
+  });
+  order.sort(function (x, y) {
+    if (bands[x].lo === null) return 1;
+    if (bands[y].lo === null) return -1;
+    return bands[x].lo - bands[y].lo;
+  });
+  return order.map(function (key) {
+    var band = bands[key];
+    var collapsed = !!_bandCollapsed[key];
+    var n = band.items.length;
+    return '<div class="band-section">'
+      + '<button class="band-header' + (collapsed ? ' collapsed' : '') + '" onclick="toggleBand(\'' + key + '\')" '
+      + 'title="' + (collapsed ? 'Show' : 'Hide') + ' this group">'
+      + '<span class="band-caret">' + (collapsed ? '\u25B8' : '\u25BE') + '</span>'
+      + '<span class="band-range">' + _bandLabel(band.lo) + '</span>'
+      + '<span class="band-count">' + n + (n === 1 ? ' project' : ' projects') + '</span>'
+      + '</button>'
+      + (collapsed ? '' : '<div class="project-grid-inner">'
+          + band.items.map(function (p) { return _renderProjectCard(p, myId); }).join('')
+          + '</div>')
+      + '</div>';
+  }).join('');
+}
+
 function renderProjects() {
   var grid = document.getElementById('project-grid-inner');
   var starredGrid = document.getElementById('starred-grid-inner');
@@ -1788,10 +1880,15 @@ function renderProjects() {
   }
 
   empty.style.display = 'none';
+  /* S493: the regular grid is now BANDED. Pinned and Starred stay flat — they
+     are deliberate overrides of the filing order, so grouping them by file
+     number would defeat their purpose. */
   if (regular.length === 0) {
     grid.innerHTML = '';
+    grid.classList.remove('is-banded');
   } else {
-    grid.innerHTML = regular.map(function(p) { return _renderProjectCard(p, myId); }).join('');
+    grid.innerHTML = _renderBanded(regular, myId);
+    grid.classList.add('is-banded');
   }
   _renderStatsStrip();
 }
@@ -1860,7 +1957,8 @@ function _renderProjectCard(p, myId) {
   }
 
   // Export button
-  var exportBtnHtml = '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export JSON">📥</button>';
+  // S493: tooltip corrected — this is the full bundle now, not a JSON.
+  var exportBtnHtml = '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export Project Docs — every report, photos, data and README as one ZIP">📦</button>';
 
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
@@ -3475,16 +3573,24 @@ async function _stampExported(projectId) {
   } catch (e) { /* non-critical */ }
 }
 
+/* S493 — ONE EXPORT, ONE MEANING.
+
+   This button used to produce a bare metadata JSON — under 1 KB, no photos, no
+   reports — while the Export Project Docs path produced a full bundle with
+   every photo. Two buttons, near-identical icons, a 50-fold difference in what
+   came out. Anyone who grabbed the small one believed they had the project.
+   That is a silent data-integrity trap, not a UI wart, so the small export is
+   gone rather than relabelled.
+
+   It also fixes a second, quieter bug: the card's backup date and the
+   "N not backed up" counter were stamped ONLY by this small export. The full
+   bundle never stamped anything, so a project could have a complete bundle
+   exported and still be reported as never backed up. Backup state now means
+   "a real bundle was taken", and _epdRun stamps it on success. */
 async function exportSingleProject(projectId) {
   var proj = _projects.find(function(p) { return p.id === projectId; });
   if (!proj) { toast('Project not found', 'error'); return; }
-  toast('Exporting...', 'info');
-  var toolData = await _fetchProjectToolData(projectId);
-  var payload = Object.assign({}, proj, { tool_data: toolData, _schemaVersion: HUB_SCHEMA_VERSION, _exportedAt: new Date().toISOString() });
-  _downloadJSON(payload, _buildProjectFilename(proj));
-  await _stampExported(projectId);
-  renderProjects();
-  toast('Project exported', 'success');
+  await _epdRun(proj);
 }
 
 async function exportAllProjects() {
@@ -5399,6 +5505,14 @@ async function _epdRun(proj) {
              '. Nothing in them was changed — try exporting those directly.';
     }
 
+    /* S493: a completed bundle is what "backed up" should mean. Only stamp on a
+       clean run — if reports failed or the user cancelled, the project is NOT
+       backed up and must keep saying so. */
+    if (!out.failedTools.length) {
+      try { await _stampExported(proj.id); renderProjects(); }
+      catch (e) { console.warn('[export] bundle written but backup date not stamped', e); }
+    }
+
     await Dlg.alert({
       title: 'Export complete',
       icon: '\u2713',
@@ -5425,41 +5539,125 @@ window.exportProjectDocsFromHub = function () {
 
 /** Tier 4 — from the dashboard, pick the project first. */
 window.exportProjectDocsFromDashboard = async function () {
-  /* S493 — two defects fixed here, both found by reading the Hub's own rules
-     rather than trusting this block:
+  /* S493 — rebuilt as a Hub-owned picker.
 
-     1. FIELD NAME. This read p.name, which does not exist anywhere in the Hub
-        — every other site uses p.project_name. Every row therefore showed its
-        number followed by nothing, so two projects for the same client were
-        indistinguishable and picking the wrong one meant exporting the wrong
-        bundle. Same class as the S492 rename bug: an invented field shipped
-        without checking it against the real record.
+     The shared pickList renders a flat unsorted list with no search. At 24
+     projects and growing that meant scrolling a jumbled list to find a job,
+     which Mark rightly called unusable. The shared engine is sealed to another
+     lane, so search lives here instead; a `searchable` option has been
+     requested upstream so every tool eventually gets it.
 
-     2. ARCHIVED LEAKED IN. The board's own definition of the working set is
-        `!deleted_at && status !== 'archived'` (see _renderStatsStrip). This
-        filtered deleted only, so archived projects appeared mixed in with
-        active ones and looked identical. Archived projects are still
-        exportable on purpose — that is a legitimate need — so they are kept
-        in the list but sorted last and labelled, rather than hidden. */
+     Three fixes: sorted (mirrors the board's own sort, falling back to project
+     number A-Z), grouped into 1000-series bands like the board and the server
+     filing, and type-to-search across number, name and client. Archived
+     projects stay exportable but sort last and are labelled. */
   const all = (_projects || []).filter(p => p && !p.deleted_at);
   if (!all.length) { toast('No projects to export', 'info'); return; }
 
   const isArch = p => p.status === 'archived';
-  const list = [...all.filter(p => !isArch(p)), ...all.filter(isArch)];
 
-  const pick = await Dlg.pickList({
-    title: 'Export Project Docs',
-    icon: '\u25A6', accent: 'info', width: 520,
-    message: 'Which project would you like to download?',
-    items: list.map(p => ({
-      id: p.id,
-      label: (p.project_number || '\u2014') + '  ' + (p.project_name || 'Untitled'),
-      sub: (p.client || '') + (isArch(p) ? (p.client ? '  \u00B7  ' : '') + 'Archived' : '')
-    }))
-  });
+  // D-with-A-fallback: follow the board's current sort; if it is not a
+  // project-number sort, fall back to number A-Z so the picker is predictable.
+  let mode = 'number-asc';
+  const sel = document.getElementById('dash-sort');
+  if (sel && sel.value) mode = sel.value;
+  const byNum = (a, b) => (a.project_number || '\uffff').localeCompare(b.project_number || '\uffff');
+  const cmp = (a, b) => {
+    if (mode === 'number-desc') return -byNum(a, b);
+    if (mode === 'name')    return (a.project_name || '').localeCompare(b.project_name || '');
+    if (mode === 'client')  return (a.client || 'zzz').localeCompare(b.client || 'zzz');
+    return byNum(a, b);
+  };
+  const sorted = [...all.filter(p => !isArch(p)).sort(cmp), ...all.filter(isArch).sort(cmp)];
+
+  const pick = await _epdPickProject(sorted, isArch);
   if (!pick) return;
-  _epdRun(list.find(p => p.id === pick));
+  _epdRun(sorted.find(p => p.id === pick));
 };
+
+/* Hub-owned project picker with search + 1000-series bands.
+   Resolves the chosen project id, or null if cancelled. */
+function _epdPickProject(list, isArch) {
+  return new Promise(function (resolve) {
+    var ov = document.createElement('div');
+    ov.className = 'epd-pick-ov';
+    var done = false;
+    function finish(val) {
+      if (done) return;
+      done = true;
+      document.removeEventListener('keydown', onKey);
+      ov.remove();
+      resolve(val);
+    }
+    function onKey(e) { if (e.key === 'Escape') finish(null); }
+
+    ov.innerHTML =
+      '<div class="epd-pick" role="dialog" aria-modal="true" aria-label="Export Project Docs">'
+      + '<div class="epd-pick-head"><span class="epd-pick-icon">\u25A6</span>'
+      + '<span class="epd-pick-title">Export Project Docs</span></div>'
+      + '<div class="epd-pick-body">'
+      + '<p class="epd-pick-msg">Which project would you like to download?</p>'
+      + '<input id="epd-pick-q" class="epd-pick-search" type="text" autocomplete="off" '
+      + 'placeholder="Type to search number, name or client\u2026">'
+      + '<div id="epd-pick-list" class="epd-pick-list"></div>'
+      + '</div>'
+      + '<div class="epd-pick-foot"><button type="button" class="epd-pick-cancel">Cancel</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+
+    var listEl = ov.querySelector('#epd-pick-list');
+    var qEl = ov.querySelector('#epd-pick-q');
+
+    function draw(q) {
+      q = (q || '').trim().toLowerCase();
+      var rows = list.filter(function (p) {
+        if (!q) return true;
+        return ((p.project_number || '') + ' ' + (p.project_name || '') + ' ' + (p.client || ''))
+          .toLowerCase().indexOf(q) >= 0;
+      });
+      if (!rows.length) {
+        listEl.innerHTML = '<div class="epd-pick-none">No project matches \u201C' + esc(q) + '\u201D</div>';
+        return;
+      }
+      // Group into the same 1000-series bands as the board.
+      var bands = {}, order = [];
+      rows.forEach(function (p) {
+        var lo = _bandLo(p.project_number);
+        var key = (lo === null ? 'none' : String(lo));
+        if (!bands[key]) { bands[key] = { lo: lo, items: [] }; order.push(key); }
+        bands[key].items.push(p);
+      });
+      order.sort(function (x, y) {
+        if (bands[x].lo === null) return 1;
+        if (bands[y].lo === null) return -1;
+        return bands[x].lo - bands[y].lo;
+      });
+      listEl.innerHTML = order.map(function (key) {
+        var band = bands[key];
+        return '<div class="epd-pick-band">' + esc(_bandLabel(band.lo)) + '</div>'
+          + band.items.map(function (p) {
+              var sub = (p.client || '') + (isArch(p) ? (p.client ? '  \u00B7  ' : '') + 'Archived' : '');
+              return '<button type="button" class="epd-pick-row" data-id="' + esc(p.id) + '">'
+                + '<span class="epd-pick-num">' + esc(p.project_number || '\u2014') + '</span>'
+                + '<span class="epd-pick-name">' + esc(p.project_name || 'Untitled') + '</span>'
+                + (sub ? '<span class="epd-pick-sub">' + esc(sub) + '</span>' : '')
+                + '</button>';
+            }).join('');
+      }).join('');
+    }
+
+    draw('');
+    qEl.addEventListener('input', function () { draw(qEl.value); });
+    listEl.addEventListener('click', function (e) {
+      var b = e.target.closest('.epd-pick-row');
+      if (b) finish(b.getAttribute('data-id'));
+    });
+    ov.querySelector('.epd-pick-cancel').addEventListener('click', function () { finish(null); });
+    ov.addEventListener('click', function (e) { if (e.target === ov) finish(null); });
+    document.addEventListener('keydown', onKey);
+    setTimeout(function () { try { qEl.focus(); } catch (e) {} }, 30);
+  });
+}
 
 console.log('[Hub] Export Project Docs parent layer ready (Tier 3 + Tier 4)');
 </script>
