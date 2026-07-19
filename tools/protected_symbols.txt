@@ -1,0 +1,64 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# ARENCON PROTECTED SYMBOLS — features Mark specified. THE GATE WILL NOT LET
+# THESE DIE. --kill does not work on them. The ONLY way to remove one is Mark
+# editing this file himself.
+#
+# WHY (S493): the 1000-series band grouping Mark specified in June 2026 was
+# silently removed by a later session — likely a revert/cleanup that could not
+# tell "feature Mark asked for" from "leftover experiment" — and had to be
+# recovered from past-session search. Several features have died this way.
+# Handoffs go stale; this file lives in the repo, so every session hits it.
+#
+# FORMAT: one symbol per line. A line starting with @ names the feature the
+# following symbols belong to (shown in the block message so the session knows
+# WHAT it was about to destroy). Blank lines and # comments ignored.
+#
+# DISCIPLINE: every new Mark-specified feature gets its load-bearing symbols
+# added here AS PART OF SHIPPING — same as the cache bump. Unlisted = unprotected.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@ 1000-series band grouping on the Hub dashboard (server filing order; Mark, Jun 2026, restored S493)
+_bandLo
+_bandLabel
+_renderBanded
+toggleBand
+.band-header
+.band-section
+.band-range
+.band-count
+.project-grid-inner.is-banded
+
+@ Export Project Docs — whole-project bundle from Hub detail, dashboard, and card (one export, one meaning; S488-S493)
+_epdRun
+_epdPickProject
+exportProjectDocsFromDashboard
+exportSingleProject
+.epd-pick
+.epd-pick-search
+.epd-pick-row
+.epd-pick-band
+
+@ Backup stamping — "backed up" means a real bundle was taken (S493)
+_stampExported
+
+@ Project notes never lost to the save debounce (S493)
+_notesPending
+_debounceSaveNotes
+_saveNotes
+
+@ Sign-in boot path guards — a missing element must not blank the Hub (S493)
+_showLoginScreen
+showApp
+setupKeyboardShortcuts
+tryRestoreSession
+
+@ Purge type-to-confirm — permanent delete can never be one mistap (S119)
+_typeToConfirmPurge
+purgeProject
+
+@ Photo-loss protections in the shared export reader (S493 — Electric/DD photos were silently dropped)
+srcOf
+photoIdentityKey
+bucketFromRaw
+commissioningPhotos
+ddPhotos

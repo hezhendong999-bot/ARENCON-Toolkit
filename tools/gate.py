@@ -82,12 +82,38 @@ def js_symbols(text):
     return {s for s in syms if s not in noise}
 
 
+def load_protected():
+    """tools/protected_symbols.txt — Mark-specified features. Symbols listed
+    there cannot be removed by ANY session; --kill does not apply. The only
+    way past is Mark editing the manifest himself. Searched next to this
+    script first, then the working directory, so it works from any cwd."""
+    import os
+    here = os.path.dirname(os.path.abspath(__file__))
+    protected = {}          # symbol -> feature label
+    feature = '(unlabelled)'
+    for cand in (os.path.join(here, 'protected_symbols.txt'),
+                 'protected_symbols.txt',
+                 os.path.join('tools', 'protected_symbols.txt')):
+        if os.path.exists(cand):
+            for line in open(cand, encoding='utf-8'):
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if line.startswith('@'):
+                    feature = line[1:].strip()
+                    continue
+                protected[line] = feature
+            return protected, cand
+    return protected, None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--old', required=True, help='live file (pre-edit)')
     ap.add_argument('--new', required=True, help='edited file')
     ap.add_argument('--kill', default='',
-                    help='comma-separated symbols INTENTIONALLY removed')
+                    help='comma-separated symbols INTENTIONALLY removed '
+                         '(does NOT work on protected symbols)')
     a = ap.parse_args()
 
     old = open(a.old, encoding='utf-8', errors='replace').read()
@@ -101,6 +127,32 @@ def main():
 
     removed = o - n
     added = n - o
+
+    # ── PROTECTED SYMBOLS (S493) ──
+    # Checked BEFORE the kill list is honoured: --kill has no power here.
+    # A protected symbol present in the live file and absent from the edit is
+    # an unconditional block, whatever the session believes about cleanup.
+    protected, manifest_path = load_protected()
+    prot_hit = {r: protected[r] for r in removed if r in protected}
+    if prot_hit:
+        print(f"── {a.new}")
+        print(f"\n   ✗✗ BLOCKED — {len(prot_hit)} PROTECTED SYMBOL(S) WOULD BE DELETED:")
+        by_feat = {}
+        for sym, feat in prot_hit.items():
+            by_feat.setdefault(feat, []).append(sym)
+        for feat in sorted(by_feat):
+            print(f"\n       FEATURE: {feat}")
+            for sym in sorted(by_feat[feat]):
+                print(f"         {sym}")
+        print("\n   These carry features Mark specified. --kill does not apply.")
+        print("   Reverts and cleanups are NOT authorization. STOP and ask Mark;")
+        print(f"   only he may remove entries from {manifest_path}.")
+        print("\n   (S493: the 1000-series band grouping died exactly this way.)")
+        return 1
+    if manifest_path is None:
+        print("   ⚠ protected_symbols.txt NOT FOUND — feature protection is OFF.")
+        print("     Fetch tools/protected_symbols.txt from the repo before pushing.")
+
     unnamed = {r for r in removed if r not in kill}
 
     label = 'SELECTORS' if is_css else 'SYMBOLS'
