@@ -1536,27 +1536,36 @@ function showApp() {
     _pendingOpenId = _urlP.get('open') || _urlP.get('project') || null; // S413: also accept ?project= - the param every tool's back-flow sends (FRT _hubUrl S331, Diesel's detail path). One-word mismatch ('open' vs 'project') broke the tool -> project-detail tier; back landed on the dashboard instead. Hub now honors both.
   } catch(e) { _pendingOpenId = null; }
 
+  // S491: guarded header/menu writes. These 13 lookups were unguarded and chained
+  // (getElementById(...).style / .textContent). If any element is absent — renamed,
+  // removed, or replaced by the shared header engine — the throw kills the REST of
+  // this function, and showDashboard() below never runs: the Hub renders nothing.
+  // This is the exact failure that blanked Diesel in S488. Guarded, so a missing
+  // element degrades to "that control isn't shown" instead of "the Hub is dead."
+  function _hSet(id, prop, val){ var e=document.getElementById(id); if(e) e[prop]=val; else console.warn('[Hub] header element missing:', id); }
+  function _hDisp(id, val){ var e=document.getElementById(id); if(e) e.style.display=val; else console.warn('[Hub] header element missing:', id); }
+
   // Update header user info
   const name = _profile ? _profile.full_name : 'User';
   const role = _profile ? formatRole(_profile.role) : '';
-  document.getElementById('hdr-user-name').textContent = name;
-  document.getElementById('hdr-user-role').textContent = role;
-  document.getElementById('hdr-user').style.display = 'flex';
-  document.getElementById('btn-logout').style.display = '';
-  document.getElementById('mob-user-name').textContent = name;
-  document.getElementById('mob-user-role').textContent = role;
-  document.getElementById('mob-user-info').style.display = 'block';
-  document.getElementById('mob-div-user').style.display = 'block';
-  document.getElementById('mob-logout').style.display = '';
+  _hSet('hdr-user-name','textContent',name);
+  _hSet('hdr-user-role','textContent',role);
+  _hDisp('hdr-user','flex');
+  _hDisp('btn-logout','');
+  _hSet('mob-user-name','textContent',name);
+  _hSet('mob-user-role','textContent',role);
+  _hDisp('mob-user-info','block');
+  _hDisp('mob-div-user','block');
+  _hDisp('mob-logout','');
 
   // Show admin button for super_admin/admin
   const isAdmin = _profile && (_profile.role === 'super_admin' || _profile.role === 'admin');
-  document.getElementById('btn-admin').style.display = isAdmin ? '' : 'none';
-  document.getElementById('mob-admin').style.display = isAdmin ? '' : 'none';
+  _hDisp('btn-admin', isAdmin ? '' : 'none');
+  _hDisp('mob-admin', isAdmin ? '' : 'none');
 
   // Show profile and bulk buttons for all logged-in users
-  document.getElementById('btn-profile').style.display = '';
-  document.getElementById('mob-profile').style.display = '';
+  _hDisp('btn-profile','');
+  _hDisp('mob-profile','');
 
   // Clean URL of ?open= param (already captured above)
   try { history.replaceState({view:'dashboard'}, '', window.location.pathname); } catch(e){}
