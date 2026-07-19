@@ -1,301 +1,39 @@
 /**
- * ARENCON FRT v2 — IndexedDB Abstraction
- * ═══════════════════════════════════════
- * 
- * Key improvements over v1:
- *   1. Auto-creates all stores on first open (fixes P4: IDB Version 1 / No Stores)
- *   2. Proper versioned migrations — stores always exist
- *   3. Graceful degradation — if IDB fails, returns null instead of throwing
- *   4. Read-before-write for blob stores — never overwrites existing data
- *   5. Normalized stores: each entity type gets its own store
- * 
- * Stores (Phase 1 schema):
- *   projects       → { id, name, number, client, ... }
- *   contractors    → { id, projectId, name }
- *   deficiencies   → { id, projectId, contractorId, ... }
- *   observations   → { id, deficiencyId, text, ... }
- *   drawings       → { id, projectId, name, folder, ... }
- *   drawingBlobs   → { id, dataBlob }
- *   markupObjects  → { id, drawingId, objects: [...] }
- *   photos         → { id, projectId, entityType, entityId, r2Key, ... }
- *   photoBlobs     → { id, dataBlob }
- *   markupBlobs    → { id, dataBlob }  (S201b — rendered markup binaries)
- *   activityLog    → { id, deficiencyId, date, label, text, ... }
- *   syncQueue      → { id, entityType, entityId, action, timestamp, data }
+ * ARENCON FRT — IndexedDB (SHIM, S491)
+ * ════════════════════════════════════
+ * The implementation lives in lib/data/idb.js (parameterized factory,
+ * S445 extraction + S491 reconcile: read-before-write blob guard restored,
+ * isReady/getStoreNames parity added). This file instantiates it with
+ * FRT's own database identity and re-exports the singleton — all 6 FRT
+ * call sites (`import { IDB }`) are unchanged.
+ *
+ * DB identity is FRT's verbatim: name ARENCON_FRT_V2, version 5
+ * (S169 outbox bump → S201b markupBlobs bump — never goes backwards),
+ * 15 stores in original declaration order. Upgrades stay additive-only.
+ *
+ * S490d rule: this shim's lib target MUST be in the SW precache list
+ * (sw.js) in the same push, or it 404s offline.
  */
+import { createIDB } from '../../../lib/data/idb.js';
 
-const DB_NAME = 'ARENCON_FRT_V2';
-// S169 (Fix A foundation) — bumped 3 → 4 to add the `photoOutbox` store.
-// S201b (Phase A G2/G3 foundation, 2026-05-27) — bumped 4 → 5 to add the
-// `markupBlobs` store, paired storage for the rendered marked-up-drawing
-// binaries that S201c/d+ will route through `BinaryOutbox` for durable
-// upload tracking. `drawingBlobs` already exists since v1 and is reused
-// as-is; only `markupBlobs` is genuinely new at v5. The kind-field
-// normalization for legacy photoOutbox rows continues to be lazy in
-// `BinaryOutbox.init()` (S200a) — no row modification at upgrade time.
-//
-// Upgrade is additive-only: createObjectStore in onupgradeneeded skips any
-// store that already exists, so devices on v3 or v4 will simply have the
-// new store added on first load. No existing-store schema changes. If the
-// upgrade fails for any reason, the device remains on its current version
-// with all existing stores intact and the app continues to function
-// (markupBlobs is dormant in S201b — no code path requires its existence
-// yet; S201c/d+ will route uploads through it).
-const DB_VERSION = 5;
-
-const STORES = [
-  'projects',
-  'contractors',
-  'deficiencies',
-  'observations',
-  'drawings',
-  'drawingBlobs',
-  'pdfBufs',
-  'markupObjects',
-  'photos',
-  'photoBlobs',
-  'activityLog',
-  'syncQueue',
-  // S124 A3 — persisted sync metadata for optimistic-concurrency tracking
-  // across page reloads. Records keyed by `<toolKey>:<projectId>:<instanceId>`
-  // hold {id, updatedAt, snapshot, savedAt}. See sync.js `_persistSyncMeta`.
-  'syncMeta',
-  // S169 (Fix A foundation) — durable in-flight upload tracker. Rows
-  // keyed by their own outbox id; one row per in-flight photo upload.
-  // Lifecycle: pending → uploading → r2_confirmed → cloud_confirmed.
-  // The outbox is parallel to `projects` and is NEVER touched by
-  // `Model.setProject()`, which is what makes Enhancement 2 (atomicity
-  // through cloud push) work. See frt/js/data/photoOutbox.js and
-  // FIX_A_ARCHITECTURE.md §4. Empty in S169 — no code writes to it yet.
-  'photoOutbox',
-  // S201b (Phase A G2/G3 foundation) — paired storage for rendered
-  // marked-up-drawing binaries. Mirrors `drawingBlobs` / `photoBlobs`
-  // shape: { id, dataBlob }. Dormant in S201b — populated by S201c/d+
-  // when markup uploads route through BinaryOutbox. drawingBlobs is
-  // reused as-is for drawing uploads (no new store needed there).
-  'markupBlobs'
-];
-
-let _db = null;
-
-export const IDB = {
-
-  /**
-   * Initialize the database. Creates all stores if they don't exist.
-   * Safe to call multiple times — returns existing connection if open.
-   */
-  async init() {
-    if (_db) return _db;
-
-    return new Promise(function(resolve, reject) {
-      var request = indexedDB.open(DB_NAME, DB_VERSION);
-      var _settled = false;
-      var _blockedTimer = null;
-
-      request.onupgradeneeded = function(e) {
-        var db = e.target.result;
-        console.log('[IDB] Upgrade needed — creating stores (v' + e.oldVersion + ' → v' + e.newVersion + ')');
-        STORES.forEach(function(storeName) {
-          if (!db.objectStoreNames.contains(storeName)) {
-            db.createObjectStore(storeName, { keyPath: 'id' });
-            console.log('[IDB] Created store:', storeName);
-          }
-        });
-        // Force-close on version change from other tabs so they don't block future upgrades
-        db.onversionchange = function() {
-          console.warn('[IDB] Version change requested — closing connection');
-          db.close();
-          _db = null;
-        };
-      };
-
-      request.onsuccess = function(e) {
-        if (_settled) { try { e.target.result.close(); } catch (_) {} return; }
-        _settled = true;
-        if (_blockedTimer) clearTimeout(_blockedTimer);
-        _db = e.target.result;
-
-        _db.onversionchange = function() {
-          console.warn('[IDB] Another tab requested upgrade — closing');
-          _db.close();
-          _db = null;
-        };
-        _db.onclose = function() {
-          console.warn('[IDB] Connection closed unexpectedly');
-          _db = null;
-        };
-
-        console.log('[IDB] Opened successfully — version', _db.version,
-          '— stores:', Array.from(_db.objectStoreNames));
-        resolve(_db);
-      };
-
-      request.onerror = function(e) {
-        if (_settled) return;
-        _settled = true;
-        if (_blockedTimer) clearTimeout(_blockedTimer);
-        console.error('[IDB] Open failed:', e.target.error);
-        reject(e.target.error);
-      };
-
-      request.onblocked = function() {
-        console.warn('[IDB] Open blocked — another tab holds an older version. Waiting 3s then failing open.');
-        // Don't hang the app. Fail open after 3s so the UI can render;
-        // the user will see a banner to close other tabs.
-        _blockedTimer = setTimeout(function() {
-          if (_settled) return;
-          _settled = true;
-          console.error('[IDB] Still blocked after 3s — rejecting init so app can render degraded');
-          reject(new Error('IDB blocked — close other ARENCON tabs and refresh'));
-        }, 3000);
-      };
-    });
-  },
-
-  /**
-   * Get a record by ID from a store.
-   * Returns null if not found or if store doesn't exist.
-   */
-  async get(storeName, id) {
-    if (!_db) {
-      try { await this.init(); } catch (e) { return null; }
-    }
-    if (!_db || !_db.objectStoreNames.contains(storeName)) return null;
-
-    return new Promise(function(resolve) {
-      try {
-        var tx = _db.transaction(storeName, 'readonly');
-        var store = tx.objectStore(storeName);
-        var req = store.get(id);
-        req.onsuccess = function() { resolve(req.result || null); };
-        req.onerror = function() { resolve(null); };
-      } catch (e) {
-        console.warn('[IDB] get error:', storeName, id, e);
-        resolve(null);
-      }
-    });
-  },
-
-  /**
-   * Get all records from a store.
-   * Returns empty array if store doesn't exist.
-   */
-  async getAll(storeName) {
-    if (!_db) {
-      try { await this.init(); } catch (e) { return []; }
-    }
-    if (!_db || !_db.objectStoreNames.contains(storeName)) return [];
-
-    return new Promise(function(resolve) {
-      try {
-        var tx = _db.transaction(storeName, 'readonly');
-        var store = tx.objectStore(storeName);
-        var req = store.getAll();
-        req.onsuccess = function() { resolve(req.result || []); };
-        req.onerror = function() { resolve([]); };
-      } catch (e) {
-        console.warn('[IDB] getAll error:', storeName, e);
-        resolve([]);
-      }
-    });
-  },
-
-  /**
-   * Put a record into a store (upsert).
-   * Returns true on success, false on failure.
-   */
-  async put(storeName, record) {
-    if (!_db) {
-      try { await this.init(); } catch (e) { return false; }
-    }
-    if (!_db || !_db.objectStoreNames.contains(storeName)) return false;
-
-    return new Promise(function(resolve) {
-      try {
-        var tx = _db.transaction(storeName, 'readwrite');
-        var store = tx.objectStore(storeName);
-        store.put(record);
-        tx.oncomplete = function() { resolve(true); };
-        tx.onerror = function() { resolve(false); };
-      } catch (e) {
-        console.warn('[IDB] put error:', storeName, e);
-        resolve(false);
-      }
-    });
-  },
-
-  /**
-   * Delete a record from a store.
-   * Returns true on success, false on failure.
-   */
-  async del(storeName, id) {
-    if (!_db) {
-      try { await this.init(); } catch (e) { return false; }
-    }
-    if (!_db || !_db.objectStoreNames.contains(storeName)) return false;
-
-    return new Promise(function(resolve) {
-      try {
-        var tx = _db.transaction(storeName, 'readwrite');
-        var store = tx.objectStore(storeName);
-        store.delete(id);
-        tx.oncomplete = function() { resolve(true); };
-        tx.onerror = function() { resolve(false); };
-      } catch (e) {
-        console.warn('[IDB] del error:', storeName, e);
-        resolve(false);
-      }
-    });
-  },
-
-  /**
-   * Save a blob with read-before-write protection.
-   * If the record exists and has a dataBlob, preserves it
-   * unless the new record also has a dataBlob.
-   */
-  async saveBlob(storeName, record) {
-    if (!record || !record.id) return false;
-
-    // Read existing record to preserve blob if present
-    var existing = await this.get(storeName, record.id);
-    if (existing && existing.dataBlob && !record.dataBlob) {
-      record.dataBlob = existing.dataBlob;
-    }
-
-    return this.put(storeName, record);
-  },
-
-  /**
-   * Clear all records in a store.
-   */
-  async clear(storeName) {
-    if (!_db) return false;
-    if (!_db.objectStoreNames.contains(storeName)) return false;
-
-    return new Promise(function(resolve) {
-      try {
-        var tx = _db.transaction(storeName, 'readwrite');
-        tx.objectStore(storeName).clear();
-        tx.oncomplete = function() { resolve(true); };
-        tx.onerror = function() { resolve(false); };
-      } catch (e) {
-        resolve(false);
-      }
-    });
-  },
-
-  /**
-   * Check if the database is connected.
-   */
-  isReady() {
-    return !!_db;
-  },
-
-  /**
-   * Get list of store names.
-   */
-  getStoreNames() {
-    if (!_db) return [];
-    return Array.from(_db.objectStoreNames);
-  }
-};
+export const IDB = createIDB({
+  dbName: 'ARENCON_FRT_V2',
+  version: 5,
+  stores: [
+    'projects',
+    'contractors',
+    'deficiencies',
+    'observations',
+    'drawings',
+    'drawingBlobs',
+    'pdfBufs',
+    'markupObjects',
+    'photos',
+    'photoBlobs',
+    'activityLog',
+    'syncQueue',
+    'syncMeta',
+    'photoOutbox',
+    'markupBlobs'
+  ]
+});
