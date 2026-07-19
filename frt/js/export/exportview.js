@@ -22,6 +22,7 @@
 import { Model, isSiteRecordsName } from '../data/model.js';
 import { initPDFExport } from './pdf.js';
 import { initDeficiencies } from '../ui/deficiencies.js';
+import { initViewer } from '../viewer/viewer.js'; // S492: contact-sheet click → open that drawing (no import cycle — viewer.js verified not to import exportview.js)
 import { toast } from '../shared/toast.js';
 import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
 import { Auth } from '../shared/auth.js';
@@ -333,22 +334,49 @@ export var initExportView = {
       + '<div class="row"><span class="k">Drawings</span><span class="v">' + _drawCount + '</span></div>'
       + '<div class="row"><span class="k" id="exv-sum-k4">Site records</span><span class="v" id="exv-sum-v4">' + _siteRecCount + '</span></div>'
       + '</div>';
-    // ── SEAL REDACTION WARN (S492 — decided: WARN, never block; Mark, repeatedly).
-    // Lists appendix-bound drawings (any pinned item) carrying NO redaction
-    // cover. A warning, not a gate: many drawings legitimately carry no seal,
-    // and a block that fires on those trains people to click through it.
-    var _sealWarn = [];
+    // ── SEAL REDACTION — CONTACT SHEET (S492, LOCKED_SEAL_REDACTION_VISIBILITY.md).
+    // Every appendix-bound drawing (any pinned item) as a thumbnail, MARKER
+    // rendering on top (the print cover is invisible at this size — Mark).
+    // Thumbs reuse d.thumb, the existing synced 400px JPEG (_lazyGenThumbs):
+    // NO drawing decode, NO tile fetch. Uncovered sheets flagged amber
+    // (Mark's call). WARN only — export always proceeds. Click → open sheet.
+    var _sealRows = [];
     try {
       var _adAll = Model.getAllDeficiencies(proj);
       (proj.drawings || []).forEach(function(dw) {
         var pinned = _adAll.some(function(r) { return r.defic && r.defic.drawingId === dw.id && r.defic.pinX != null; });
-        if (pinned && !(dw.redactions && dw.redactions.length)) _sealWarn.push(dw.name || 'Untitled');
+        if (pinned) _sealRows.push(dw);
       });
     } catch (_se) {}
-    if (_sealWarn.length) {
-      h += '<div style="margin-top:12px;padding:10px 12px;border:1.5px solid #C98A4A;border-radius:9px;background:rgba(201,138,74,.08);font-size:calc(12px + var(--ts,0px));color:#8A5A1E;line-height:1.45;">'
-        + '<b>\u26A0 No seal cover on:</b> ' + _sealWarn.map(function(n){return _esc(n);}).join(', ')
-        + '<div style="margin-top:3px;color:#A07840;">If these sheets carry a P.Eng seal it will appear in the report. Drawings tab \u2192 \u22EE \u2192 Seal redaction\u2026 to cover it. This is a warning only \u2014 export proceeds.</div></div>';
+    if (_sealRows.length) {
+      var _covered = _sealRows.filter(function(d) { return d.redactions && d.redactions.length; });
+      var _bare = _sealRows.filter(function(d) { return !(d.redactions && d.redactions.length); });
+      h += '<div class="exv-eb" style="margin-top:14px;">Appendix drawings \u2014 seal check'
+        + '<span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--steel,#4A5568);">' + _covered.length + ' of ' + _sealRows.length + ' covered</span></div>';
+      h += '<div class="exv-seal-grid">';
+      _sealRows.forEach(function(dw) {
+        var covers = dw.redactions || [];
+        var has = covers.length > 0;
+        h += '<div class="exv-seal-item' + (has ? '' : ' flagged') + '" data-seal-open="' + _esc(dw.id) + '">'
+          + '<div class="exv-seal-thumb">'
+          + (dw.thumb ? '<img src="' + dw.thumb + '" alt="">'
+                      : '<span style="font-size:11px;color:var(--silver,#928E9C);">no preview</span>');
+        covers.forEach(function(b) {
+          h += '<div class="seal-mark" style="left:' + (b.x*100) + '%;top:' + (b.y*100) + '%;width:' + (b.w*100) + '%;height:' + (b.h*100) + '%;">'
+            + '<span class="seal-mark-tab">\uD83D\uDD12</span></div>';
+        });
+        if (has) h += '<div class="seal-count">\uD83D\uDD12 ' + covers.length + '</div>';
+        else h += '<div class="seal-nocover">\u26A0 NO COVER</div>';
+        h += '</div><div class="exv-seal-foot"><span class="exv-seal-name">' + _esc(dw.name || 'Untitled') + '</span>'
+          + (has ? '<span class="exv-seal-b-lock">\uD83D\uDD12 Covered</span>' : '<span class="exv-seal-b-flag">\u26A0 No cover</span>')
+          + '</div></div>';
+      });
+      h += '</div>';
+      if (_bare.length) {
+        h += '<div style="padding:9px 12px;border:1.5px solid #C98A4A;border-radius:9px;background:rgba(201,138,74,.08);font-size:calc(12px + var(--ts,0px));color:#8A5A1E;line-height:1.45;">'
+          + '<b>\u26A0 No seal cover on:</b> ' + _bare.map(function(d){return _esc(d.name || 'Untitled');}).join(', ')
+          + '<div style="margin-top:3px;color:#A07840;">If these sheets carry a seal it will appear in the report. Tap a thumbnail above to open the sheet, then \uD83D\uDD12 in the toolbar. Warning only \u2014 export proceeds.</div></div>';
+      }
     }
     h += '</div>'; // right col
     h += '</div>'; // cols
@@ -369,6 +397,14 @@ export var initExportView = {
     (function(){ var _r = false, _o = ov.remove.bind(ov);
       ov.remove = function(){ if (_r) return _o(); _r = true; _o(); unlockScroll(); }; })();
 
+    // S492: contact-sheet click → close export, open that drawing in the viewer.
+    ov.addEventListener('click', function(e) {
+      var it = e.target.closest && e.target.closest('[data-seal-open]');
+      if (!it) return;
+      var did = it.getAttribute('data-seal-open');
+      ov.remove();
+      try { initViewer.open(did); } catch (_e) {}
+    });
     var rosterEl = ov.querySelector('#exv-roster');
     var hidden = ov.querySelector('#exv-ctr');
     var goBtn = ov.querySelector('#exv-go');

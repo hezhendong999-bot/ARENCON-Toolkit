@@ -531,6 +531,8 @@ function buildDrawingCard(d, allDefics) {
     h += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;background:var(--smoke);">\uD83D\uDCC4</div>';
   }
   if (pins > 0) h += '<div class="pin-badge">' + pins + '</div>';
+  // S492 seal-visibility: which sheets are done, at a glance (locked demo).
+  if (d.redactions && d.redactions.length) h += '<div class="tile-badge seal">\uD83D\uDD12 Seal covered</div>';
   // S86: tile processing/failed badge (bottom-right corner of thumb)
   var tileBadge = _buildTileBadgeHtml(d.tileStatus, d.pdfBufKey);
   if (tileBadge) h += tileBadge;
@@ -796,6 +798,47 @@ function _closeActiveMenu() {
    The viewer NEVER shows covers (locked §4) — they exist only in pdf.js at
    render time. Interactions reuse the familiar box-drawing feel: drag empty
    space to draw, drag a box to move, drag its corner to resize, \u2715 to delete. */
+/* ═══ S492 SEAL MARKERS IN THE VIEWER (LOCKED_SEAL_REDACTION_VISIBILITY.md) ═══
+   MARKER rendering (dashed burgundy + \uD83D\uDD12), never the print cover \u2014 the sheet
+   stays readable underneath. The layer lives inside #dv-img-wrap so pan/zoom
+   is inherited; boxes are percent-positioned so fractions need no math.
+   NOT markup objects: eraser/select cannot touch them. viewer.js untouched \u2014
+   a MutationObserver on #dv-image src re-renders on every drawing switch. */
+function _renderSealMarkersInViewer() {
+  var layer = document.getElementById('dv-seal-layer');
+  if (!layer) return;
+  layer.innerHTML = '';
+  var dwg = null;
+  try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
+  var covers = (dwg && dwg.redactions) || [];
+  covers.forEach(function(b) {
+    var el = document.createElement('div');
+    el.className = 'seal-mark';
+    el.style.left = (b.x * 100) + '%'; el.style.top = (b.y * 100) + '%';
+    el.style.width = (b.w * 100) + '%'; el.style.height = (b.h * 100) + '%';
+    el.innerHTML = '<span class="seal-mark-tab">\uD83D\uDD12</span>';
+    layer.appendChild(el);
+  });
+  var btn = document.getElementById('dv-seal-btn');
+  if (btn) {
+    btn.classList.toggle('has-covers', covers.length > 0);
+    if (!btn.querySelector('.seal-dot')) {
+      var dot = document.createElement('span'); dot.className = 'seal-dot'; btn.appendChild(dot);
+    }
+  }
+}
+window._frtRefreshSealMarkers = _renderSealMarkersInViewer;
+(function _watchViewerForSeal() {
+  function arm() {
+    var img = document.getElementById('dv-image');
+    if (!img) { setTimeout(arm, 500); return; }
+    new MutationObserver(function() { _renderSealMarkersInViewer(); })
+      .observe(img, { attributes: true, attributeFilter: ['src'] });
+    _renderSealMarkersInViewer();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
+})();
+
 function _openRedactionEditor(dwg) {
   // Resolve the sheet image through the SAME chain the PDF export uses:
   // in-record dataUrl \u2192 IDB drawingBlobs \u2192 R2.
@@ -935,6 +978,8 @@ function _openRedactionEditor(dwg) {
       .map(function(b) { return { x: +b.x.toFixed(4), y: +b.y.toFixed(4), w: +b.w.toFixed(4), h: +b.h.toFixed(4) }; });
     Model.saveNow();
     _close();
+    _renderSealMarkersInViewer();                      // S492: viewer marker + toolbar dot
+    try { initDrawings.render(); } catch (_e) {}       // S492: card badge refresh
     toast(dwg.redactions.length
       ? '\u2713 ' + dwg.redactions.length + ' seal cover' + (dwg.redactions.length > 1 ? 's' : '') + ' saved \u2014 applied in PDF exports only'
       : 'No covers \u2014 the sheet will export as-is');

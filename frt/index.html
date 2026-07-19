@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=686">
+<link rel="stylesheet" href="css/frt.css?v=687">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -510,6 +510,7 @@ function ensurePdfJs(cb){
     </div>
     <!-- Field Heights (promoted to toolbar — used often in field reviews).
          The red dot appears when this drawing has non-default heights. -->
+    <button id="dv-seal-btn" data-dv-action="redact" title="Seal redaction — covers print in the PDF only">🔒</button>
     <button id="dv-heights-btn" class="dv-heights-toggle" data-dv-action="heights" title="Field Heights" style="position:relative;">📐<span id="dv-heights-dot" class="dv-heights-dot" style="display:none;"></span></button>
     <!-- More menu -->
     <div style="position:relative;display:inline-block;">
@@ -684,6 +685,11 @@ function ensurePdfJs(cb){
         <img id="dv-image" alt="" draggable="false" oncontextmenu="return false;" style="display:block;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;pointer-events:none;">
         <canvas id="markup-canvas" oncontextmenu="return false;"></canvas>
         <div id="dv-pins-layer"></div>
+        <!-- S492: seal-cover MARKERS (dashed burgundy outline + 🔒). Lives INSIDE
+             #dv-img-wrap so it inherits the pan/zoom transform for free — zero
+             viewer.js changes. pointer-events:none: never blocks markup gestures.
+             Populated by drawings.js (_renderSealMarkersInViewer). -->
+        <div id="dv-seal-layer" style="position:absolute;inset:0;pointer-events:none;z-index:5;"></div>
       </div>
       <!-- S126 #6 — Dimension sub-toolbar. Hidden by default; shown when
            dimension tool is active. Calibrate triggers 2-click calibration

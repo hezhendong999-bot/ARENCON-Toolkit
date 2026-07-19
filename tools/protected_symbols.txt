@@ -96,29 +96,12 @@ defaultReadme
 openEditRole
 _epSnapshot
 _epReadFields
-
-@ Move-to-trash shared path + card trash control (Mark, S493 — one-tap, undo stated; purge alone keeps type-to-confirm)
-_softDeleteProject
-deleteProjectFromCard
-confirmDeleteProject
-_canDeleteProjects
-.project-card-trash
-
-@ Trash retention + purge gating — kept until an admin purges; purge is admin/super_admin only (Mark, S493)
-_canPurgeProjects
-
-@ PM avatar badge + initials-only + My-Projects PM-or-creator filter (Mark, Jun 2026, restored S493 after loss in a revert)
-_pmAvatar
-_pmColour
-_userInitials
-_PM_PALETTE
-.pm-avatar
-
-@ Band-filter chips + clickable not-backed-up filter (Mark, Jun 2026, restored S493)
-setBandFilter
-toggleNbFilter
-_activeBand
-_nbOnly
-.band-chip
-.band-chips
-.stat-click
+@ Seal redaction — PDF appendix covers (S492, Mark-specified; LOCKED_SEAL_REDACTION.md; decided WARN)
+_drawSealCovers
+_drawSealCoversCropped
+_openRedactionEditor
+SEAL_COVER_LABEL
+@ Seal redaction visibility — markers/badges/contact sheet (S492, Mark-approved demo; LOCKED_SEAL_REDACTION_VISIBILITY.md)
+_renderSealMarkersInViewer
+_frtRefreshSealMarkers
+_sealRows
