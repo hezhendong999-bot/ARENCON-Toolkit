@@ -333,6 +333,23 @@ export var initExportView = {
       + '<div class="row"><span class="k">Drawings</span><span class="v">' + _drawCount + '</span></div>'
       + '<div class="row"><span class="k" id="exv-sum-k4">Site records</span><span class="v" id="exv-sum-v4">' + _siteRecCount + '</span></div>'
       + '</div>';
+    // ── SEAL REDACTION WARN (S492 — decided: WARN, never block; Mark, repeatedly).
+    // Lists appendix-bound drawings (any pinned item) carrying NO redaction
+    // cover. A warning, not a gate: many drawings legitimately carry no seal,
+    // and a block that fires on those trains people to click through it.
+    var _sealWarn = [];
+    try {
+      var _adAll = Model.getAllDeficiencies(proj);
+      (proj.drawings || []).forEach(function(dw) {
+        var pinned = _adAll.some(function(r) { return r.defic && r.defic.drawingId === dw.id && r.defic.pinX != null; });
+        if (pinned && !(dw.redactions && dw.redactions.length)) _sealWarn.push(dw.name || 'Untitled');
+      });
+    } catch (_se) {}
+    if (_sealWarn.length) {
+      h += '<div style="margin-top:12px;padding:10px 12px;border:1.5px solid #C98A4A;border-radius:9px;background:rgba(201,138,74,.08);font-size:calc(12px + var(--ts,0px));color:#8A5A1E;line-height:1.45;">'
+        + '<b>\u26A0 No seal cover on:</b> ' + _sealWarn.map(function(n){return _esc(n);}).join(', ')
+        + '<div style="margin-top:3px;color:#A07840;">If these sheets carry a P.Eng seal it will appear in the report. Drawings tab \u2192 \u22EE \u2192 Seal redaction\u2026 to cover it. This is a warning only \u2014 export proceeds.</div></div>';
+    }
     h += '</div>'; // right col
     h += '</div>'; // cols
     h += '</div>'; // exv-b

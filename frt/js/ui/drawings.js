@@ -15,7 +15,8 @@ import { showConfirm } from '../shared/dialogs.js';
 import { showPrompt } from '../shared/dialogs.js';
 import { showTypeToConfirm } from '../shared/dialogs.js';
 import { initViewer } from '../viewer/viewer.js';
-import { esc, esc as _escHtml } from '../lib/esc.js'; // S454: shared HTML-escape (both local copies were identical; 0-case unreachable here)
+import { esc, esc as _escHtml } from '../lib/esc.js';
+import { lockScroll, unlockScroll } from '../shared/scrollLock.js'; // S492: seal-redaction editor overlay // S454: shared HTML-escape (both local copies were identical; 0-case unreachable here)
 
 // esc() imported from ../lib/esc.js (S454 — shared)
 
@@ -786,6 +787,167 @@ function _closeActiveMenu() {
   document.removeEventListener('click', _closeActiveMenu);
 }
 
+/* ═══ SEAL REDACTION EDITOR (S492 — LOCKED_SEAL_REDACTION.md) ═══════════════
+   Sheet-level property of the DRAWING RECORD — deliberately NOT a markup
+   object (locked §5): markup renders on the tablet and can be erased by a
+   field tap; a seal cover that a field tap can silently remove is worse than
+   no feature. This editor writes dwg.redactions = [{x,y,w,h}] as FRACTIONS of
+   the sheet, which ride in the synced project data (tiny, no binaries).
+   The viewer NEVER shows covers (locked §4) — they exist only in pdf.js at
+   render time. Interactions reuse the familiar box-drawing feel: drag empty
+   space to draw, drag a box to move, drag its corner to resize, \u2715 to delete. */
+function _openRedactionEditor(dwg) {
+  // Resolve the sheet image through the SAME chain the PDF export uses:
+  // in-record dataUrl \u2192 IDB drawingBlobs \u2192 R2.
+  function _sheetUrl() {
+    if (dwg.dataUrl) return Promise.resolve(dwg.dataUrl);
+    return IDB.get('drawingBlobs', dwg.id).then(function(rec) {
+      if (rec && rec.dataBlob && rec.dataBlob.size > 0) {
+        return new Promise(function(res) {
+          var rd = new FileReader();
+          rd.onload = function() { res(rd.result); };
+          rd.onerror = function() { res(null); };
+          rd.readAsDataURL(rec.dataBlob);
+        });
+      }
+      if (dwg.r2Url) {
+        return fetch(dwg.r2Url).then(function(r) { return r.blob(); }).then(function(b) {
+          return new Promise(function(res) {
+            var rd = new FileReader();
+            rd.onload = function() { res(rd.result); };
+            rd.onerror = function() { res(null); };
+            rd.readAsDataURL(b);
+          });
+        }).catch(function() { return null; });
+      }
+      return null;
+    }).catch(function() { return dwg.r2Url || null; });
+  }
+
+  var LABEL = 'Seal redacted \u2014 refer to original issued drawing';
+  // Working copy — Cancel discards, Save commits.
+  var boxes = (dwg.redactions || []).map(function(r) { return { x: r.x, y: r.y, w: r.w, h: r.h }; });
+
+  var ov = document.createElement('div');
+  ov.id = 'seal-redact-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(12,14,20,.82);display:flex;flex-direction:column;font-family:Calibri,sans-serif;';
+  ov.innerHTML =
+    '<div style="flex:none;display:flex;align-items:center;gap:12px;padding:12px 18px;background:#1B2438;color:#fff;">'
+    + '<div style="font-size:16px;font-weight:700;">\uD83D\uDD12 Seal Redaction \u2014 ' + esc(dwg.name || 'Untitled') + '</div>'
+    + '<div style="font-size:12px;color:#9FB0CC;flex:1;">Drag on the sheet to draw a cover \u00B7 drag a cover to move \u00B7 drag its corner to resize. Covers appear in the PDF report only \u2014 the stored drawing and the viewer are never altered.</div>'
+    + '<button id="sr-cancel" style="padding:8px 16px;border:1px solid #4A5568;background:none;color:#CBD5E1;border-radius:8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>'
+    + '<button id="sr-save" style="padding:8px 18px;border:0;background:#9C2742;color:#fff;border-radius:8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save</button>'
+    + '</div>'
+    + '<div id="sr-stage-wrap" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;">'
+    + '<div id="sr-loading" style="color:#9FB0CC;font-size:14px;">Loading sheet\u2026</div>'
+    + '<div id="sr-stage" style="position:relative;display:none;touch-action:none;-webkit-user-select:none;user-select:none;box-shadow:0 8px 40px rgba(0,0,0,.5);">'
+    + '<img id="sr-img" style="display:block;max-width:min(96vw,1600px);max-height:calc(100vh - 120px);width:auto;height:auto;" draggable="false">'
+    + '<div id="sr-layer" style="position:absolute;inset:0;cursor:crosshair;"></div>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  lockScroll();
+  function _close() { ov.remove(); unlockScroll(); }
+
+  var stage = ov.querySelector('#sr-stage');
+  var layer = ov.querySelector('#sr-layer');
+  var imgEl = ov.querySelector('#sr-img');
+
+  function _renderBoxes() {
+    layer.innerHTML = '';
+    var W = layer.clientWidth, H = layer.clientHeight;
+    boxes.forEach(function(b, i) {
+      var el = document.createElement('div');
+      el.setAttribute('data-sr-box', String(i));
+      el.style.cssText = 'position:absolute;background:rgba(255,255,255,.95);border:1.5px dashed #9AA1AB;box-sizing:border-box;cursor:move;display:flex;align-items:center;justify-content:center;overflow:hidden;'
+        + 'left:' + (b.x * W) + 'px;top:' + (b.y * H) + 'px;width:' + (b.w * W) + 'px;height:' + (b.h * H) + 'px;';
+      var fs = Math.max(9, Math.min((b.w * W) / 12, (b.h * H) / 2.6));
+      el.innerHTML =
+        '<div style="pointer-events:none;text-align:center;color:#6B7280;font-weight:700;font-size:' + fs + 'px;line-height:1.25;padding:2px 4px;">' + esc(LABEL) + '</div>'
+        + '<button data-sr-del="' + i + '" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:20px;padding:0;cursor:pointer;">\u2715</button>'
+        + '<div data-sr-rs="' + i + '" style="position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;background:#9C2742;border:2px solid #fff;border-radius:4px;cursor:nwse-resize;"></div>';
+      layer.appendChild(el);
+    });
+  }
+
+  // ── pointer interactions (touch + mouse; setPointerCapture keeps the drag) ──
+  var _drag = null; // {mode:'draw'|'move'|'resize', i, startX, startY, orig}
+  function _frac(ev) {
+    var r = layer.getBoundingClientRect();
+    return { x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
+             y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) };
+  }
+  layer.addEventListener('pointerdown', function(ev) {
+    var del = ev.target.closest && ev.target.closest('[data-sr-del]');
+    if (del) {
+      var di = parseInt(del.getAttribute('data-sr-del'), 10);
+      // Universal rule: every delete confirms — one tap, custom modal.
+      showConfirm('Remove cover', 'Remove this seal cover? The seal will appear in the PDF again unless a new cover is drawn.').then(function(yes) {
+        if (yes) { boxes.splice(di, 1); _renderBoxes(); }
+      });
+      return;
+    }
+    var p = _frac(ev);
+    var rs = ev.target.closest && ev.target.closest('[data-sr-rs]');
+    var bx = ev.target.closest && ev.target.closest('[data-sr-box]');
+    if (rs) {
+      var ri = parseInt(rs.getAttribute('data-sr-rs'), 10);
+      _drag = { mode: 'resize', i: ri, start: p, orig: Object.assign({}, boxes[ri]) };
+    } else if (bx) {
+      var bi = parseInt(bx.getAttribute('data-sr-box'), 10);
+      _drag = { mode: 'move', i: bi, start: p, orig: Object.assign({}, boxes[bi]) };
+    } else {
+      boxes.push({ x: p.x, y: p.y, w: 0, h: 0 });
+      _drag = { mode: 'draw', i: boxes.length - 1, start: p, orig: { x: p.x, y: p.y, w: 0, h: 0 } };
+    }
+    try { layer.setPointerCapture(ev.pointerId); } catch (_e) {}
+    ev.preventDefault();
+  });
+  layer.addEventListener('pointermove', function(ev) {
+    if (!_drag) return;
+    var p = _frac(ev), b = boxes[_drag.i], o = _drag.orig;
+    if (_drag.mode === 'draw') {
+      b.x = Math.min(_drag.start.x, p.x); b.y = Math.min(_drag.start.y, p.y);
+      b.w = Math.abs(p.x - _drag.start.x); b.h = Math.abs(p.y - _drag.start.y);
+    } else if (_drag.mode === 'move') {
+      b.x = Math.min(Math.max(0, o.x + (p.x - _drag.start.x)), 1 - o.w);
+      b.y = Math.min(Math.max(0, o.y + (p.y - _drag.start.y)), 1 - o.h);
+    } else { // resize from bottom-right corner
+      b.w = Math.min(Math.max(0.01, o.w + (p.x - _drag.start.x)), 1 - o.x);
+      b.h = Math.min(Math.max(0.01, o.h + (p.y - _drag.start.y)), 1 - o.y);
+    }
+    _renderBoxes();
+  });
+  function _endDrag() {
+    if (!_drag) return;
+    if (_drag.mode === 'draw') {
+      var b = boxes[_drag.i];
+      if (b.w < 0.008 || b.h < 0.008) boxes.splice(_drag.i, 1); // accidental tap, not a box
+    }
+    _drag = null; _renderBoxes();
+  }
+  layer.addEventListener('pointerup', _endDrag);
+  layer.addEventListener('pointercancel', _endDrag);
+
+  ov.querySelector('#sr-cancel').addEventListener('click', _close);
+  ov.querySelector('#sr-save').addEventListener('click', function() {
+    dwg.redactions = boxes
+      .filter(function(b) { return b.w > 0.004 && b.h > 0.004; })
+      .map(function(b) { return { x: +b.x.toFixed(4), y: +b.y.toFixed(4), w: +b.w.toFixed(4), h: +b.h.toFixed(4) }; });
+    Model.saveNow();
+    _close();
+    toast(dwg.redactions.length
+      ? '\u2713 ' + dwg.redactions.length + ' seal cover' + (dwg.redactions.length > 1 ? 's' : '') + ' saved \u2014 applied in PDF exports only'
+      : 'No covers \u2014 the sheet will export as-is');
+  });
+
+  _sheetUrl().then(function(u) {
+    var ld = ov.querySelector('#sr-loading');
+    if (!u) { if (ld) ld.textContent = 'Could not load the sheet image.'; return; }
+    imgEl.onload = function() { if (ld) ld.remove(); stage.style.display = ''; _renderBoxes(); };
+    imgEl.src = u;
+  });
+}
+
 function _showDrawingContextMenu(drawingId, anchorEl) {
   _closeActiveMenu();
   var menu = document.createElement('div');
@@ -794,6 +956,7 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
   menu.innerHTML = '<button data-ctx="rename">\u270F\uFE0F Rename</button>'
     + '<button data-ctx="move">\uD83D\uDCC1 Move to folder...</button>'
     + '<button data-ctx="rotate">\uD83D\uDD04 Rotate 90\u00B0</button>'
+    + '<button data-ctx="redact">\uD83D\uDD12 Seal redaction\u2026</button>'
     + '<div class="separator"></div>'
     + '<button data-ctx="replace">\uD83D\uDD27 Replace image (file)</button>'
     + '<button data-ctx="newversion">\u2B06\uFE0F Upload new version</button>'
@@ -831,6 +994,8 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
       });
     } else if (act === 'rotate') {
       toast('Rotate: requires viewer — open drawing first');
+    } else if (act === 'redact') {
+      _openRedactionEditor(dwg);
     } else if (act === 'replace' || act === 'newversion') {
       // S116 Push 17: 'newversion' was unhandled (Mark: "doesn't work at all").
       // Route both 'replace' and 'newversion' through the same file picker —

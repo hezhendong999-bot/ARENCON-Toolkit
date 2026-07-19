@@ -96,3 +96,8 @@ defaultReadme
 openEditRole
 _epSnapshot
 _epReadFields
+@ Seal redaction — PDF appendix covers (S492, Mark-specified; LOCKED_SEAL_REDACTION.md; decided WARN)
+_drawSealCovers
+_drawSealCoversCropped
+_openRedactionEditor
+SEAL_COVER_LABEL

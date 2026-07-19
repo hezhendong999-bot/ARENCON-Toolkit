@@ -88,7 +88,67 @@ function _getDecodedDrawing(dataUrl){
     img.src=dataUrl;
   });
 }
-function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
+// ═══ SEAL REDACTION (S492 — LOCKED_SEAL_REDACTION.md, decided: WARN) ═══
+// COVER, never erase: the stored drawing is untouched; an opaque labelled box
+// is drawn at PDF-render time only, between the sheet and the pins. Being
+// export-side by construction — not a flag — is what makes "PDF-only"
+// structurally true. Boxes are FRACTIONS of sheet dimensions {x,y,w,h}, so
+// covers stay correct at every export DPI and page size.
+var SEAL_COVER_LABEL='Seal redacted \u2014 refer to original issued drawing';
+function _drawSealCovers(ctx,w,h,redactions){
+  if(!redactions||!redactions.length)return;
+  redactions.forEach(function(r){
+    var bx=r.x*w, by=r.y*h, bw=r.w*w, bh=r.h*h;
+    if(bw<2||bh<2)return;
+    ctx.save();
+    // opaque white cover
+    ctx.fillStyle='#FFFFFF';ctx.fillRect(bx,by,bw,bh);
+    // thin grey dashed border
+    ctx.strokeStyle='#9AA1AB';ctx.lineWidth=Math.max(1,w*0.0008);
+    ctx.setLineDash([Math.max(4,w*0.004),Math.max(3,w*0.003)]);
+    ctx.strokeRect(bx,by,bw,bh);
+    ctx.setLineDash([]);
+    // centred wrapped label, font scaled to box width (demo canon: box/12,
+    // floor 10px at demo scale — generalised so it stays legible in print).
+    // If the box is too small for even one legible line (e.g. minimap crops),
+    // the cover draws WITHOUT the label rather than with unreadable ink.
+    var fs=Math.max(10,Math.min(bw/12,bh/2.6));
+    var fits=null;
+    while(fs>=8){
+      ctx.font='700 '+fs+'px Calibri, Carlito, sans-serif';
+      var words=SEAL_COVER_LABEL.split(' ');var lines=[];var cur='';
+      for(var i=0;i<words.length;i++){
+        var t=cur?cur+' '+words[i]:words[i];
+        if(ctx.measureText(t).width<=bw-Math.max(8,fs)){cur=t;}
+        else{if(cur)lines.push(cur);cur=words[i];}
+      }
+      if(cur)lines.push(cur);
+      var lh=fs*1.25;
+      var tooWide=lines.some(function(L){return ctx.measureText(L).width>bw-4;});
+      if(!tooWide&&lines.length*lh<=bh-4){fits={lines:lines,fs:fs,lh:lh};break;}
+      fs-=1;
+    }
+    if(fits){
+      ctx.fillStyle='#6B7280';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font='700 '+fits.fs+'px Calibri, Carlito, sans-serif';
+      var y0=by+bh/2-((fits.lines.length-1)*fits.lh)/2;
+      fits.lines.forEach(function(L,li){ctx.fillText(L,bx+bw/2,y0+li*fits.lh);});
+    }
+    ctx.restore();
+  });
+}
+// Minimap crops: map fractional covers through the crop window so a seal that
+// falls inside a per-card locator image is covered there too — a stamp in a
+// 200px minimap is still a stamp in the report.
+function _drawSealCoversCropped(ctx,imgW,imgH,sx,sy,outScale,redactions){
+  if(!redactions||!redactions.length)return;
+  var mapped=redactions.map(function(r){
+    return{x:(r.x*imgW-sx)*outScale/ (ctx.canvas.width) , y:(r.y*imgH-sy)*outScale/(ctx.canvas.height),
+           w:(r.w*imgW*outScale)/(ctx.canvas.width), h:(r.h*imgH*outScale)/(ctx.canvas.height)};
+  }).filter(function(m){return m.x+m.w>0&&m.y+m.h>0&&m.x<1&&m.y<1;});
+  _drawSealCovers(ctx,ctx.canvas.width,ctx.canvas.height,mapped);
+}
+function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord,redactions){
   _getDecodedDrawing(dwgDataUrl).then(function(img){
     if(!img){callback(dwgDataUrl);return;}
     var cropFrac=0.291;
@@ -100,6 +160,7 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
     var outW=Math.min(800,cropW);var outScale=outW/cropW;var outH=Math.round(cropH*outScale);
     var canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,sx,sy,cropW,cropH,0,0,outW,outH);
+    _drawSealCoversCropped(ctx,img.width,img.height,sx,sy,outScale,redactions); // S492: sheet → covers → pin
     var pinCX=(px-sx)*outScale;var pinCY=(py-sy)*outScale;
     var pinW=Math.max(49,outW*0.1215);
     _drawTeardropPin(ctx,pinCX,pinCY,pinW,pinData,isSiteRecord);
@@ -107,13 +168,14 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord){
   });
 }
 
-function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize){
+function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize,redactions){
   _getDecodedDrawing(dwgDataUrl).then(function(img){
     if(!img){callback(dwgDataUrl);return;}
     var MAX_PX=5000000;var scale=Math.min(1,Math.sqrt(MAX_PX/(img.width*img.height)));
     var w=Math.round(img.width*scale);var h=Math.round(img.height*scale);
     var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
+    _drawSealCovers(ctx,w,h,redactions); // S492: sheet \u2192 covers \u2192 pins (pins stay visible over a cover)
     var _pinFrac=(pageSize==='24x36')?0.014:(pageSize==='11x17')?0.022:0.028;
     var pinW=Math.max(28,w*_pinFrac);
     pins.forEach(function(rr){
@@ -2702,14 +2764,14 @@ if(isField){
   var dwgMap={};
   _appendixImgJobs.forEach(function(job){
     if(!dwgMap[job.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===job.drawingId;});
-      if(dObj)dwgMap[job.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null};}
+      if(dObj)dwgMap[job.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null,redactions:(dObj.redactions||[])};}
   });
   // Also collect per-card minimap pins from ALL report rows (every body card with
   // a drawing pin has an mm-* image), independent of appendix membership.
   var _mmPins=[];
   reportDefs.forEach(function(r){if(r.d&&r.d.drawingId&&r.d.pinX!=null)_mmPins.push(r);});
   // Ensure every minimap drawing's dataUrl is loaded too (not just appendix drawings).
-  _mmPins.forEach(function(r){if(!dwgMap[r.d.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===r.d.drawingId;});if(dObj)dwgMap[r.d.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null};}});
+  _mmPins.forEach(function(r){if(!dwgMap[r.d.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===r.d.drawingId;});if(dObj)dwgMap[r.d.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null,redactions:(dObj.redactions||[])};}});
   var dIds=Object.keys(dwgMap);
   _armMinimapsReady(); // S402: pending until the render chain below finishes
   if(!dIds.length){ _signalMinimapsReady(); }
@@ -2731,7 +2793,7 @@ if(isField){
         _renderDrawingWithPins(du,job.pins,function(rendered){
           try{var ae=D.getElementById(job.imgId);if(ae)ae.src=rendered;}catch(x){}
           qi++;nextJob();
-        },_drawPageSize);
+        },_drawPageSize,dwgMap[job.drawingId].redactions);
       }
       // Per-card minimap teardrops (one image per obs row across the report body).
       function _renderMinimaps(){
@@ -2745,7 +2807,7 @@ if(isField){
           _mmDone[_mmKey]=1;
           try{var els=D.querySelectorAll('[data-mm="'+_mmKey+'"]');
             var _isSr=isSiteRecordsName(r.ctr);
-            if(els&&els.length){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{for(var ei=0;ei<els.length;ei++){els[ei].src=su;}}catch(x){}mi++;nextMm();},_isSr);}
+            if(els&&els.length){_renderDrawingWithSinglePin(info.dataUrl,r.d,function(su){try{for(var ei=0;ei<els.length;ei++){els[ei].src=su;}}catch(x){}mi++;nextMm();},_isSr,info.redactions);}
             else{mi++;nextMm();}
           }catch(x){mi++;nextMm();}
         }
