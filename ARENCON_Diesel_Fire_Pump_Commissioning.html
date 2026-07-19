@@ -1790,6 +1790,9 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
        from here the ONLY thing that may fall back is a genuine device refusal
        (no camera / permission denied), and even that says so out loud. */
     window._camBurst = function(onFile){
+      /* S488: remember this invocation so the Try-again button re-runs the exact
+         same camera request instead of dumping the user back to the form. */
+      window.__dslCamLastTarget = function(){ window._camBurst(onFile); };
       openCameraBurst().then(function(files){
         if (files === null){
           /* Genuine device-level refusal. Per the module contract we must NOT
@@ -1810,10 +1813,53 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
         console.error('[camera] burst failed:', err);
       });
     };
-    function _dslCamProblem(title, what){
+    /* S488 (Mark: "add a refresh/reopen button… or do we have to close the app").
+       A blanket Retry is misleading: it works for a stuck camera but does NOTHING
+       when permission is permanently blocked, because the browser will not even
+       prompt again. So we ASK the browser which case we are in
+       (navigator.permissions) and offer only the action that can actually work.
+       This is a PWA/browser permission model issue, not a PWA weakness per se —
+       a native app hits the same wall; the difference is only where the setting
+       lives. Nothing here requires closing the app: worst case is one reload. */
+    async function _dslCamState(){
+      try {
+        if (!navigator.permissions || !navigator.permissions.query) return 'unknown';
+        var st = await navigator.permissions.query({ name: 'camera' });
+        return st.state;          /* 'granted' | 'prompt' | 'denied' */
+      } catch (e) { return 'unknown'; }
+    }
+    async function _dslCamProblem(title, what){
       console.error('[camera] ' + title + ' ' + what);
-      if (typeof showToast === 'function') showToast(title + ' ' + what, 6000);
-      else alert(title + '\n\n' + what);
+      var state = await _dslCamState();
+      var ov = document.createElement('div');
+      ov.id = 'dsl-cam-help';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:30000;background:rgba(20,18,26,.72);' +
+        'display:flex;align-items:center;justify-content:center;padding:20px;font-family:Calibri,sans-serif;';
+      var blocked = (state === 'denied');
+      var body = blocked
+        ? 'Camera access is <b>blocked</b> for this site, so the app cannot re-ask. ' +
+          'Tap the padlock (or \u24D8) in the address bar \u2192 <b>Site settings</b> \u2192 <b>Camera</b> \u2192 <b>Allow</b>, then Reload. ' +
+          'On the tablet app: Android <b>Settings \u2192 Apps \u2192 Project Hub \u2192 Permissions \u2192 Camera</b>.'
+        : what + '<br><br>Most often the camera is still held by another app or a previous shot \u2014 <b>Try again</b> usually clears it.';
+      ov.innerHTML =
+        '<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:22px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.4);">' +
+          '<div style="font-size:17px;font-weight:700;color:#1B1A22;margin-bottom:8px;">\uD83D\uDCF7 ' + title + '</div>' +
+          '<div style="font-size:13.5px;line-height:1.6;color:#5E5B68;margin-bottom:18px;">' + body + '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            (blocked ? '' : '<button id="dcam-retry" style="padding:11px;border:none;border-radius:9px;background:#2E9E72;color:#fff;font:700 14px Calibri;cursor:pointer;">Try again</button>') +
+            '<button id="dcam-reload" style="padding:11px;border:1px solid #D2CEDB;border-radius:9px;background:#EFEDF0;color:#1B1A22;font:600 13px Calibri;cursor:pointer;">Reload the app</button>' +
+            '<button id="dcam-close" style="padding:9px;border:none;background:none;color:#928E9C;font:400 12.5px Calibri;cursor:pointer;">Use Upload / Gallery instead</button>' +
+          '</div></div>';
+      document.body.appendChild(ov);
+      var kill = function(){ try { ov.remove(); } catch(_){} };
+      var rt = ov.querySelector('#dcam-retry');
+      if (rt) rt.addEventListener('click', function(){ kill(); if (window.__dslCamLastTarget) window.__dslCamLastTarget(); });
+      ov.querySelector('#dcam-reload').addEventListener('click', function(){
+        /* flush first — a reload must never cost the inspector unsaved work */
+        try { _flushAutosave(); } catch(_){}
+        setTimeout(function(){ window.location.reload(); }, 250);
+      });
+      ov.querySelector('#dcam-close').addEventListener('click', kill);
     }
     function call(n, ev){ var f = window[n]; if (typeof f === 'function') return f(ev); }
     var cfg = dieselHeaderConfig({
