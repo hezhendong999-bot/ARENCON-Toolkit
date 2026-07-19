@@ -96,8 +96,10 @@ defaultReadme
 openEditRole
 _epSnapshot
 _epReadFields
-@ Seal redaction — PDF appendix covers (S492, Mark-specified; LOCKED_SEAL_REDACTION.md; decided WARN)
-_drawSealCovers
-_drawSealCoversCropped
-_openRedactionEditor
-SEAL_COVER_LABEL
+
+@ Move-to-trash shared path + card trash control (Mark, S493 — one-tap, undo stated; purge alone keeps type-to-confirm)
+_softDeleteProject
+deleteProjectFromCard
+confirmDeleteProject
+_canDeleteProjects
+.project-card-trash

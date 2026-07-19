@@ -517,6 +517,15 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 .project-card-export{position:absolute;bottom:12px;right:12px;background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:0;transition:all .2s;padding:4px;line-height:1;z-index:2}
 .project-card:hover .project-card-export{opacity:1}
 .project-card-export:hover{color:#1D4ED8}
+.project-card-trash{position:absolute;bottom:12px;right:44px;background:none;border:none;font-size:calc(14px + var(--ts));cursor:pointer;color:var(--silver);opacity:0;transition:all .2s;padding:4px;line-height:1;z-index:2}
+.project-card:hover .project-card-trash{opacity:1}
+.project-card-trash:hover{color:#DC2626}
+/* S493: these are hover-revealed, and the field tablets have no hover — the
+   export button has been INVISIBLE on touch since it shipped. Standing rule:
+   hover-reveal controls MUST have a pointer:coarse fallback. */
+@media (pointer:coarse){
+  .project-card-export,.project-card-trash{opacity:.55}
+}
 .backup-status{font-size:calc(10px + var(--ts));padding:0 18px 8px;color:var(--silver);font-weight:500}
 .backup-status.not-backed{color:var(--warn)}
 /* ═══ PROJECT PHOTO GALLERY ═══ */
@@ -947,20 +956,7 @@ body.text-l{--ts:4px;}
   </div>
 </div>
 
-<!-- ═══════════ DELETE PROJECT MODAL ═══════════ -->
-<div class="modal-overlay" id="delete-project-modal">
-  <div class="modal-card">
-    <h3 style="color:#DC2626;">🗑️ Move Project to Trash</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin:8px 0 4px;">This will move <strong id="del-proj-num">—</strong> to the trash. You can restore it later from the Deleted view.</p>
-    <p style="font-size:calc(13px + var(--ts));margin:8px 0;">Type <strong style="color:#DC2626">DELETE</strong> to confirm:</p>
-    <input type="text" class="delete-confirm-input" id="del-confirm-input" placeholder="Type DELETE here" autocomplete="off">
-    <div id="del-error" style="display:none;font-size:calc(12px + var(--ts));color:#DC2626;font-weight:600;margin:4px 0;"></div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeDeleteModal()">Cancel</button>
-      <button class="dash-btn" style="background:linear-gradient(135deg,#DC2626,#B91C1C);color:white;" onclick="executeDeleteProject()">Move to Trash</button>
-    </div>
-  </div>
-</div>
+<!-- S493: move-to-trash modal removed — drawn by the shared dialog engine now -->
 
 <!-- ═══════════ EDIT ROLE MODAL ═══════════ -->
 <!-- S493: edit-role modal now drawn by the shared dialog engine (Dlg.form) -->
@@ -1939,6 +1935,11 @@ function _renderProjectCard(p, myId) {
   // Export button
   // S493: tooltip corrected — this is the full bundle now, not a JSON.
   var exportBtnHtml = '<button class="project-card-export" onclick="event.stopPropagation();exportSingleProject(\'' + esc(p.id) + '\')" title="Export Project Docs — every report, photos, data and README as one ZIP">📦</button>';
+  // S493: per-card move-to-trash. Not rendered in Trash view (Restore/Delete
+  // Forever own that view) and not rendered for roles that cannot delete.
+  if (!_showDeleted && _canDeleteProjects()) {
+    exportBtnHtml += '<button class="project-card-trash" onclick="event.stopPropagation();deleteProjectFromCard(\'' + esc(p.id) + '\')" title="Move to trash — recoverable from the Deleted view">🗑️</button>';
+  }
 
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
@@ -2617,52 +2618,62 @@ async function toggleArchiveProject() {
 }
 
 /* ═══ Delete Project ═══ */
-function confirmDeleteProject() {
-  if (!_detailProjectId) return;
-  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
-  if (!proj) return;
+/* ═══ Move to Trash — shared path (S493, Mark's say-so this session) ═══
+   The hand-built modal is gone, and with it the type-to-confirm step: typing
+   DELETE for a SOFT delete violated the one-tap rule and made move-to-trash
+   feel identical to purge, when the whole point of the distinction is that
+   one is recoverable and one is not. Move to trash = one tap on the shared
+   danger dialog, undo location stated. Purge alone keeps type-to-confirm.
+   Same dialog, same wording family as bulkDelete — one meaning everywhere.
+   Role gating preserved exactly as it was (viewer/staff blocked). */
+function _canDeleteProjects() {
+  return !(_profile && (_profile.role === 'viewer' || _profile.role === 'staff'));
+}
 
-  // Viewer/staff check — only admin/super_admin can delete
-  if (_profile && (_profile.role === 'viewer' || _profile.role === 'staff')) {
+async function _softDeleteProject(proj, afterOk) {
+  if (!proj) return;
+  if (!_canDeleteProjects()) {
     toast('Only administrators can delete projects', 'error');
     return;
   }
-
-  document.getElementById('del-proj-num').textContent = proj.project_number || '—';
-  document.getElementById('del-confirm-input').value = '';
-  document.getElementById('del-error').style.display = 'none';
-  document.getElementById('delete-project-modal').classList.add('show');
-}
-
-function closeDeleteModal() {
-  document.getElementById('delete-project-modal').classList.remove('show');
-}
-
-async function executeDeleteProject() {
-  if (!_detailProjectId) return;
-  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
-  if (!proj) return;
-
-  var typed = document.getElementById('del-confirm-input').value.trim();
-  if (typed.toUpperCase() !== 'DELETE') {
-    var errEl = document.getElementById('del-error');
-    errEl.textContent = 'Please type DELETE to confirm.';
-    errEl.style.display = 'block';
+  if (!window.Dlg || typeof Dlg.confirmDanger !== 'function') {
+    toast('Dialog engine not loaded \u2014 refresh the page', 'error');
     return;
   }
-
+  var label = (proj.project_number || '') + (proj.project_name ? '  ' + proj.project_name : '');
+  var ok = await Dlg.confirmDanger({
+    title: 'Move to trash',
+    message: 'Move ' + label + ' to trash?',
+    detail: 'It disappears from the active board. Nothing is destroyed and no report or photo is deleted.',
+    undoNote: 'Switch the board to Deleted to find it and restore it.',
+    confirmText: 'Move to trash',
+    icon: '\u{1F5D1}'
+  });
+  if (!ok) return;
   try {
     var now = new Date().toISOString();
     await _sb.from('projects').eq('id', proj.id).update({ deleted_at: now, deleted_by: _profile ? _profile.id : null });
     proj.deleted_at = now;
     proj.deleted_by = _profile ? _profile.id : null;
     toast('Project "' + (proj.project_number || '') + '" moved to trash', 'success');
-    closeDeleteModal();
-    closeDetail();
+    if (afterOk) afterOk();
     renderProjects();
   } catch(e) {
     toast('Delete failed: ' + e.message, 'error');
   }
+}
+
+function confirmDeleteProject() {
+  if (!_detailProjectId) return;
+  var proj = _projects.find(function(p){ return p.id === _detailProjectId; });
+  _softDeleteProject(proj, closeDetail);
+}
+
+/* S493 — dashboard cards get a trash control (Mark: delete was only reachable
+   by opening the project). Same shared path, same one-tap dialog. */
+function deleteProjectFromCard(projectId) {
+  var proj = _projects.find(function(p){ return p.id === projectId; });
+  _softDeleteProject(proj, null);
 }
 
 /* ═══ Restore from Trash ═══ */
