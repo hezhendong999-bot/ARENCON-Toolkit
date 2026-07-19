@@ -3382,6 +3382,9 @@ function applyDark(on) {
   // shared key, so every ARENCON tool on this device agrees.
   try { if (window.__hubHdr) window.__hubHdr.setTheme(on ? 'dark' : 'light'); }
   catch(e){ console.warn('[Hub] header theme mirror failed:', e); }
+  /* the role badge carries literal colours, so it must be repainted per mode */
+  try { if (window.__hubPaintRoleBadge) window.__hubPaintRoleBadge(); }
+  catch(e){ console.warn('[Hub] role badge repaint failed:', e); }
 }
 
 /* ═══ Text Size Toggle — S/M/L ═══ */
@@ -5349,6 +5352,27 @@ function initHubHeader(){
   window.addEventListener('online',  paintConn);
   window.addEventListener('offline', paintConn);
 
+  /* S492 COLOUR FIX (Mark). The role badge previously used ONE colour pair —
+     a bright cyan tuned for the dark header. On the light header that is pale
+     blue on pale blue: present, unreadable. The badge takes literal colours,
+     so it must be repainted when the mode changes; a single value cannot serve
+     both. Pair below is the canonical muted blue from the S341 button system,
+     day and night, so it matches every other blue in the toolkit. */
+  function paintRoleBadge(){
+    const st = window._hubHdrState || {};
+    if (!st.signedIn || !st.role){ try { ctl.setR2Badge({ visible:false }); } catch(e){} return; }
+    const dark = document.body.classList.contains('dark-mode');
+    try {
+      ctl.setR2Badge({
+        visible: true,
+        text: String(st.role).toUpperCase(),
+        bg:    dark ? 'rgba(70,150,200,.20)' : '#D6E8F4',
+        color: dark ? '#7FB8DD'              : '#226699'
+      });
+    } catch(e){ console.warn('[Hub] role badge paint failed:', e); }
+  }
+  window.__hubPaintRoleBadge = paintRoleBadge;
+
   /* Signed-out until told otherwise: Admin, Profile, Logout and the user chip
      stay hidden. ONE controller call each, replacing the unguarded element
      writes that could abort the sign-in block before the dashboard rendered. */
@@ -5365,8 +5389,7 @@ function initHubHeader(){
         /* NAME in the chip, ROLE in the badge beside it: the engine caps the
            chip at 140px and would ellipsis "Name . Super Admin" mid-word. */
         ctl.setControlIcon('user', '\u{1F464} ' + (st.name || 'User'));
-        ctl.setR2Badge({ visible: !!st.role, text: (st.role || '').toUpperCase(),
-                         bg:'rgba(70,197,232,.16)', color:'#46C5E8' });
+        paintRoleBadge();
       } else {
         ctl.setR2Badge({ visible:false });
       }
