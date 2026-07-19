@@ -3314,8 +3314,19 @@ async function changePassword() {
 
 /* ═══ Project Notes ═══ */
 var _notesSaveTimer = null;
+/* S493 — the note text is now captured HERE, at typing time, and held until the
+   save runs. Previously _saveNotes read the textarea 1.5s later, unguarded. If
+   the user left the project screen inside that window the box was gone, the
+   read threw, and THE NOTE THEY JUST TYPED WAS SILENTLY LOST — no error, no
+   status change. Every other lookup in this pair was already guarded; this was
+   the one that mattered. Capturing the value up front means the save no longer
+   depends on the element still being on screen. */
+var _notesPending = null;
 
 function _debounceSaveNotes() {
+  var box = document.getElementById('detail-notes');
+  if (!box) return;
+  _notesPending = box.value;
   var el = document.getElementById('notes-save-status');
   if (el) el.textContent = 'Saving...';
   clearTimeout(_notesSaveTimer);
@@ -3324,7 +3335,9 @@ function _debounceSaveNotes() {
 
 async function _saveNotes() {
   if (!_detailProjectId) return;
-  var notes = document.getElementById('detail-notes').value;
+  var box = document.getElementById('detail-notes');
+  var notes = box ? box.value : _notesPending;
+  if (notes == null) return;
   var el = document.getElementById('notes-save-status');
   try {
     await _sb.from('projects').eq('id', _detailProjectId).update({ notes: notes });
@@ -5378,8 +5391,27 @@ window.exportProjectDocsFromHub = function () {
 
 /** Tier 4 — from the dashboard, pick the project first. */
 window.exportProjectDocsFromDashboard = async function () {
-  const list = (_projects || []).filter(p => p && !p.deleted_at);
-  if (!list.length) { toast('No projects to export', 'info'); return; }
+  /* S493 — two defects fixed here, both found by reading the Hub's own rules
+     rather than trusting this block:
+
+     1. FIELD NAME. This read p.name, which does not exist anywhere in the Hub
+        — every other site uses p.project_name. Every row therefore showed its
+        number followed by nothing, so two projects for the same client were
+        indistinguishable and picking the wrong one meant exporting the wrong
+        bundle. Same class as the S492 rename bug: an invented field shipped
+        without checking it against the real record.
+
+     2. ARCHIVED LEAKED IN. The board's own definition of the working set is
+        `!deleted_at && status !== 'archived'` (see _renderStatsStrip). This
+        filtered deleted only, so archived projects appeared mixed in with
+        active ones and looked identical. Archived projects are still
+        exportable on purpose — that is a legitimate need — so they are kept
+        in the list but sorted last and labelled, rather than hidden. */
+  const all = (_projects || []).filter(p => p && !p.deleted_at);
+  if (!all.length) { toast('No projects to export', 'info'); return; }
+
+  const isArch = p => p.status === 'archived';
+  const list = [...all.filter(p => !isArch(p)), ...all.filter(isArch)];
 
   const pick = await Dlg.pickList({
     title: 'Export Project Docs',
@@ -5387,8 +5419,8 @@ window.exportProjectDocsFromDashboard = async function () {
     message: 'Which project would you like to download?',
     items: list.map(p => ({
       id: p.id,
-      label: (p.project_number || '\u2014') + '  ' + (p.name || ''),
-      sub: p.client || ''
+      label: (p.project_number || '\u2014') + '  ' + (p.project_name || 'Untitled'),
+      sub: (p.client || '') + (isArch(p) ? (p.client ? '  \u00B7  ' : '') + 'Archived' : '')
     }))
   });
   if (!pick) return;
