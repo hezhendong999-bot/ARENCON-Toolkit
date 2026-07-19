@@ -650,10 +650,19 @@ Always read the live value before bumping — never trust a number in a document
 **Mark deferred this explicitly (S492).** It is not blocking anything and is not
 an open question. Do not raise it again unless Mark raises it.
 
-## 6. SEAL REDACTION — STILL OPEN (the ONE genuinely open FRT decision).
+## 6. SEAL REDACTION — DECIDED: **WARN**. NOT OPEN. (Mark, repeatedly.)
 
-Warn vs. block. **Standing recommendation: WARN.** Spec exists
-(`LOCKED_SEAL_REDACTION.md`). This is the only FRT item awaiting a Mark decision.
+**Mark has answered this many times: WARN, not block.** It was recorded as
+"open" anyway — including, absurdly, in the first cut of THIS PART, whose entire
+purpose is to stop losing Mark's decisions. It is not open. Do not ask again.
+
+**The decision:** the export screen lists any appendix drawing with no redaction
+box as a **WARNING**. It does **NOT** hard-block issuance. Many drawings
+legitimately carry no seal; a block that fires on those trains inspectors to
+click through the gate, which destroys the value of the gate.
+
+`LOCKED_SEAL_REDACTION.md` §8 still reads "OPEN — Mark to confirm" — that line is
+**STALE AND WRONG**; this PART supersedes it. Build to WARN.
 
 ## 7. PHOTO INPUT — CANON FOR EVERY TOOL, CURRENT AND FUTURE (Mark, S492).
 
@@ -730,15 +739,16 @@ past-session search before telling Mark something is done, undone, or agreed.
 1. **Field-verify S490–S490d** (needs Mark on a device): trade write-back "No"
    path · ⋯ More in the footer · F10 menu on a narrow tablet · F3 lightbox
    resize keeping zoom.
-2. **Seal redaction decision** — warn vs. block (recommendation: warn).
-3. That is all. **There is no switchover. There is no F1–F10 queue.**
+2. That is all. **There is no switchover. There is no F1–F10 queue. Seal
+   redaction is DECIDED (warn) and needs building, not deciding.**
 
 **Deferred by Mark (do not re-raise):** beta sandbox project UUID · Hub client
 suggestion · AI agents (training + site-review copilot; knowledge-boundary
 question unanswered).
 
 **Specced, ready, deliberately deferred until library work settles:** trash mode
-(`LOCKED_TRASH_MODE.md`) · seal redaction (`LOCKED_SEAL_REDACTION.md`) · HD photo
+(`LOCKED_TRASH_MODE.md`) · seal redaction (`LOCKED_SEAL_REDACTION.md` — **decided:
+WARN**; build it, do not re-ask) · HD photo
 tiers — **root-cause check owed FIRST:** does export render drawings from full
 source or a cached preview bitmap? If the latter, that is the real blur cause and
 DPI tuning will appear not to work.
