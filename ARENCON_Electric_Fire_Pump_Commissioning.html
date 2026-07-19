@@ -14,6 +14,7 @@
 <script src="shared/auth-gate.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script type="module" src="lib/ui/photoInput.js"></script>  <!-- S492: THE shared photo surface -->
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
 <!-- S455: shared header chrome. The engine builds header DOM that needs these
      styles; the s455-header-override block (after the inline styles) neutralizes
@@ -646,6 +647,64 @@ body.dark-mode .project-bar{background:#151a24;border-top-color:rgba(255,255,255
   .safe-x{padding-left:max(14px,env(safe-area-inset-left,0px)) !important;padding-right:max(14px,env(safe-area-inset-right,0px)) !important;}
   .sketch-entry-header,.sketch-toolbar{padding-top:max(14px,env(safe-area-inset-top,0px));}
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PART — SHARED PHOTO INPUT ENGINE   lib/ui/photoInput.js        (S492)
+
+   Ported VERBATIM from FRT's live frt.css (the values below are copied,
+   not re-derived — a "matching" copy is how the previous cut drifted:
+   hint 12px vs 11px, gap 5px vs 6px, wrong padding, and Mark spotted it
+   instantly). This is the same button family FRT renders, so a photo zone
+   in this tool IS a photo zone in FRT.
+
+   TWO BUGS ARE PRE-EMPTED HERE, both recorded in FRT's own PART:
+     1. `.obs-drop-btn.is-upload` must exist. It is the ONE genuinely new
+        rule the engine adds — the app had no Upload button to inherit.
+        Drop it and Upload falls through to the base `color:white` with no
+        background: white text on white, an invisible live button.
+     2. NOTHING here may force `.obs-media-btns` to display:block. It is a
+        flex ROW. A rule written for a standalone zone that leaks globally
+        collapses the buttons onto the photo grid.
+   Anything not universally true is scoped with [data-pi-ns] — the engine
+   only sets that on wrappers IT builds, so host-built zones are untouched.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.obs-drop-btns{display:flex;flex-direction:row;gap:5px;justify-content:center;flex-wrap:wrap;}
+.obs-drop-btn{padding:7px 14px;border-radius:7px;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;letter-spacing:.3px;cursor:pointer;border:none;color:white;transition:filter .15s;}
+.obs-drop-btn:hover{filter:brightness(1.10);}
+.obs-drop-btn.is-camera{background:#5C7A65;}
+.obs-drop-btn.is-gallery{background:#8A7689;}
+/* The one new member of the family. Dusty blue, per Mark. Same specificity
+   as its siblings — wins and loses on the same terms, no !important. */
+.obs-drop-btn.is-upload{background:#4F6788;}
+
+.obs-media-col{display:flex;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+.obs-media-col.drag-over .obs-media-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
+.obs-media-zone{flex:1;border:2px dashed var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--smoke);min-height:140px;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;}
+.obs-media-hint{font-size:calc(11px + var(--ts));color:var(--silver);text-align:center;font-weight:600;line-height:1.2;flex:1;display:flex;align-items:center;justify-content:center;min-height:24px;}
+.obs-media-btns{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2;}
+.obs-media-btns .obs-drop-btn{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;padding:6px 12px;font-size:calc(12px + var(--ts));position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;}
+
+/* Engine-BUILT wrappers only. A standalone zone has no editor column to
+   flex inside, so it asks for its own box. Host-built (zoneOnly) wrappers
+   carry no data-pi-ns and are deliberately unaffected. */
+.obs-media-col[data-pi-ns]{display:block;margin-top:8px;}
+.obs-media-col[data-pi-ns] .obs-media-zone{min-height:0;flex:none;}
+
+/* Dark mode — matches FRT. Falls back to the light value when the tool has
+   not defined the Bold token, so a button is never unstyled. */
+body.dark-mode .obs-drop-btn{color:white;}
+body.dark-mode .obs-drop-btn.is-camera{background:var(--b-pb-c-bg,#5C7A65)!important;color:var(--b-pb-c,#fff)!important;}
+body.dark-mode .obs-drop-btn.is-gallery{background:var(--b-pb-g-bg,#8A7689)!important;color:var(--b-pb-g,#fff)!important;}
+body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color:var(--b-pb-u,#fff);}
+
+/* Gloves / coarse pointer — the buttons are the only way in on a tablet,
+   so they never depend on :hover. (Project rule: hover-reveal controls
+   MUST have a pointer:coarse fallback.) */
+@media (pointer:coarse){
+  .obs-media-btns .obs-drop-btn{min-height:38px;padding:8px 14px;}
+}
+
 </style>
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
      host override blocks (that was the point of Shadow DOM). -->
@@ -942,11 +1001,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
           </div>
           <div>
             <div class="detail-label" style="margin-bottom:8px;">Flow Test Chart / Hose Monster Chart Photo</div>
-          <div class="photo-zone-compact" id="flow-test-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handleFlowTestDrop(event)">
-            <span>Drop flow test photos or</span>
-            <button class="pz-upload" onclick="triggerFlowTestPhoto()">📎 Upload</button>
-            <button class="pz-camera" onclick="triggerFlowTestCamera()">📷 Camera</button>
-          </div>
+          <div id="flow-test-zone-host"></div>  <!-- S492: filled by lib/ui/photoInput.js -->
           <div id="flow-test-thumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
           </div>
         </div>
@@ -1170,11 +1225,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
           </div>
           <div>
             <div class="detail-label" style="margin-bottom:8px;">Flow Test Chart / Hose Monster Chart Photo</div>
-            <div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handleFlowTestDropPld(event)">
-              <span>Drop flow test photos or</span>
-              <button class="pz-upload" onclick="triggerFlowTestPhotoPld()">📎 Upload</button>
-              <button class="pz-camera" onclick="triggerFlowTestCameraPld()">📷 Camera</button>
-            </div>
+            <div id="flow-test-zone-pld-host"></div>  <!-- S492: filled by lib/ui/photoInput.js -->
             <div id="flow-test-thumbs-pld" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
           </div>
         </div>
@@ -2094,12 +2145,18 @@ function buildItem(id, item, section, idx, isCustom) {
       </div>
       <div>
         <div class="detail-label">Photos</div>
-        <div class="photo-zone-compact" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');handleDrop(event,'${id}')">
-          <span>Drop photos or</span>
-          <button class="pz-upload" onclick="triggerPhoto('${id}')">📎 Upload</button>
-          <button class="pz-camera" onclick="triggerCamera('${id}')">📷 Camera</button>
-        </div>
-        <div class="photo-grid" id="pg-${id}">${renderThumbs(id)}</div>
+        <!-- S492: rendered by THE shared engine lib/ui/photoInput.js — the same
+             surface FRT and Diesel use. Electric's hand-rolled zone is GONE.
+             Gallery hidden: no gallery pick path in Electric yet; a dead
+             button is worse than no button. Flip gallery:true + add onGallery
+             when the photo architecture is ported. -->
+        ${(window.PhotoInput
+          ? window.PhotoInput.html({
+              ns: 'cl', ctx: { 'cl-id': id }, gallery: false,
+              hint: 'Drop photos here',
+              inner: `<div class="photo-grid" id="pg-${id}">${renderThumbs(id)}</div>`
+            })
+          : '<div style="color:var(--silver);font-size:12px;">Photo input engine not loaded</div>')}
       </div>
     </div>`;
   return div;
@@ -2452,6 +2509,37 @@ document.getElementById('global-file-input').addEventListener('change', function
   if(currentPhotoId) handleFiles(currentPhotoId, e.target.files, false);
   else if(deficPhotoCurrentId !== null) handleFiles(deficPhotoCurrentId, e.target.files, true);
 });
+/* S492: SHARED PHOTO INPUT ENGINE mount. Storage stays Electric's — the
+   engine hands back File objects only; they go into the existing proven
+   paths. Gallery not mounted (no pick path yet). */
+(function _mountPhotoInput(){
+  function go(){
+    if(!window.PhotoInput){ setTimeout(go,50); return; }
+    window.PhotoInput.mount({
+      ns:'cl',
+      onFiles:function(files,ctx){
+        var id=ctx&&ctx['cl-id'];
+        if(!id||!files||!files.length) return;
+        handleFiles(id,files,false);
+      }
+    });
+    [['ft','flow-test-zone-host'],['ftp','flow-test-zone-pld-host']].forEach(function(pair){
+      var host=document.getElementById(pair[1]);
+      if(!host) return;
+      host.innerHTML=window.PhotoInput.html({ns:pair[0],gallery:false,hint:'Drop flow test photos here'});
+      window.PhotoInput.mount({
+        ns:pair[0],
+        onFiles:function(files){
+          if(!files||!files.length) return;
+          var ev={preventDefault:function(){},currentTarget:{classList:{remove:function(){}}},dataTransfer:{files:files}};
+          if(pair[0]==='ft') handleFlowTestDrop(ev); else handleFlowTestDropPld(ev);
+        }
+      });
+    });
+  }
+  go();
+})();
+
 function handleFiles(id, files, isDefic) {
   Array.from(files).forEach(f => {
     if(!f.type.startsWith('image/')) return;

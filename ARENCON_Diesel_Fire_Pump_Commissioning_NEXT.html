@@ -33,6 +33,7 @@ if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</scrip
 <script src="lib/ui/markupSelection.js"></script>
 <script src="lib/ui/markupText.js"></script>
 <!-- S461: shared checklist engine + lightbox shell (extraction wave — fix once, inherit everywhere). Same-origin ARENCON assets, not CDN deps. -->
+<script type="module" src="lib/ui/photoInput.js"></script>  <!-- S492: THE shared photo surface. Publishes window.PhotoInput; checklist.js renders it. -->
 <script src="lib/ui/checklist.js"></script>
 <script src="lib/ui/lightbox.js"></script>
 <script src="lib/data/photoMint.js"></script>
@@ -3669,6 +3670,41 @@ var _CLENG = window.ArcChecklist.create({
   }
 });
 const CL_SCHEMA_VER = _CLENG.schemaVer;
+
+/* ══ S492: SHARED PHOTO INPUT ENGINE — mount (ns:'cl') ═══════════════════
+   The checklist zone is rendered by lib/ui/photoInput.js. Diesel draws no
+   photo buttons of its own anywhere in the checklist any more.
+
+   STORAGE STAYS DIESEL'S — deliberately, and this is load-bearing. The engine
+   hands back File objects and nothing else; every one of them goes into
+   handleFiles(), the exact field-proven path Camera/drop/upload already used
+   (EXIF date capture, compression, ArcPhoto.mint, R2 own-key upload, IDB).
+   An engine that saved photos for its hosts would have to know all of them,
+   and the first time one changed a photo would vanish untraceably.
+
+   Camera and Gallery keep their EXISTING routes — _camBurst via
+   triggerCamera(), and _galleryReuseChecklist(). Upload is genuinely new on
+   this surface and feeds the identical pipeline. Mounted once at load;
+   the engine is idempotent per-ns and survives every re-render. ══ */
+(function _mountChecklistPhotoInput(){
+  function go(){
+    if(!window.PhotoInput){ setTimeout(go, 50); return; }   // module scripts are deferred
+    window.PhotoInput.mount({
+      ns: 'cl',
+      onFiles: function(files, ctx){
+        var id = ctx && ctx['cl-id'];
+        if(!id || !files || !files.length) return;
+        handleFiles(id, files, false);
+      },
+      onGallery: function(ctx){
+        var id = ctx && ctx['cl-id'];
+        if(!id) return;
+        if(typeof _galleryReuseChecklist==='function') _galleryReuseChecklist(id);
+      }
+    });
+  }
+  go();
+})();
 function cid(section, idx) { return _CLENG.cid(section, idx); }
 function _migrateClState(loaded, savedVer){ return _CLENG.migrate(loaded, savedVer); }
 
@@ -17972,6 +18008,64 @@ body.dark-mode #dark-toggle, body.dark-mode #btn-qr, body.dark-mode .text-size-t
 
 /* body bg uses retuned smoke */
 body{background:var(--smoke);color:var(--slate);}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   PART — SHARED PHOTO INPUT ENGINE   lib/ui/photoInput.js        (S492)
+
+   Ported VERBATIM from FRT's live frt.css (the values below are copied,
+   not re-derived — a "matching" copy is how the previous cut drifted:
+   hint 12px vs 11px, gap 5px vs 6px, wrong padding, and Mark spotted it
+   instantly). This is the same button family FRT renders, so a photo zone
+   in this tool IS a photo zone in FRT.
+
+   TWO BUGS ARE PRE-EMPTED HERE, both recorded in FRT's own PART:
+     1. `.obs-drop-btn.is-upload` must exist. It is the ONE genuinely new
+        rule the engine adds — the app had no Upload button to inherit.
+        Drop it and Upload falls through to the base `color:white` with no
+        background: white text on white, an invisible live button.
+     2. NOTHING here may force `.obs-media-btns` to display:block. It is a
+        flex ROW. A rule written for a standalone zone that leaks globally
+        collapses the buttons onto the photo grid.
+   Anything not universally true is scoped with [data-pi-ns] — the engine
+   only sets that on wrappers IT builds, so host-built zones are untouched.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.obs-drop-btns{display:flex;flex-direction:row;gap:5px;justify-content:center;flex-wrap:wrap;}
+.obs-drop-btn{padding:7px 14px;border-radius:7px;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;letter-spacing:.3px;cursor:pointer;border:none;color:white;transition:filter .15s;}
+.obs-drop-btn:hover{filter:brightness(1.10);}
+.obs-drop-btn.is-camera{background:#5C7A65;}
+.obs-drop-btn.is-gallery{background:#8A7689;}
+/* The one new member of the family. Dusty blue, per Mark. Same specificity
+   as its siblings — wins and loses on the same terms, no !important. */
+.obs-drop-btn.is-upload{background:#4F6788;}
+
+.obs-media-col{display:flex;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+.obs-media-col.drag-over .obs-media-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
+.obs-media-zone{flex:1;border:2px dashed var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--smoke);min-height:140px;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;}
+.obs-media-hint{font-size:calc(11px + var(--ts));color:var(--silver);text-align:center;font-weight:600;line-height:1.2;flex:1;display:flex;align-items:center;justify-content:center;min-height:24px;}
+.obs-media-btns{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2;}
+.obs-media-btns .obs-drop-btn{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;padding:6px 12px;font-size:calc(12px + var(--ts));position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;}
+
+/* Engine-BUILT wrappers only. A standalone zone has no editor column to
+   flex inside, so it asks for its own box. Host-built (zoneOnly) wrappers
+   carry no data-pi-ns and are deliberately unaffected. */
+.obs-media-col[data-pi-ns]{display:block;margin-top:8px;}
+.obs-media-col[data-pi-ns] .obs-media-zone{min-height:0;flex:none;}
+
+/* Dark mode — matches FRT. Falls back to the light value when the tool has
+   not defined the Bold token, so a button is never unstyled. */
+body.dark-mode .obs-drop-btn{color:white;}
+body.dark-mode .obs-drop-btn.is-camera{background:var(--b-pb-c-bg,#5C7A65)!important;color:var(--b-pb-c,#fff)!important;}
+body.dark-mode .obs-drop-btn.is-gallery{background:var(--b-pb-g-bg,#8A7689)!important;color:var(--b-pb-g,#fff)!important;}
+body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color:var(--b-pb-u,#fff);}
+
+/* Gloves / coarse pointer — the buttons are the only way in on a tablet,
+   so they never depend on :hover. (Project rule: hover-reveal controls
+   MUST have a pointer:coarse fallback.) */
+@media (pointer:coarse){
+  .obs-media-btns .obs-drop-btn{min-height:38px;padding:8px 14px;}
+}
 
 </style>
 <script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>
