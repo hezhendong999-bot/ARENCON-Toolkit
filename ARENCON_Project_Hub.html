@@ -1284,14 +1284,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ── Connection dot ──
+// S492 HOTFIX. The dot element left with the old header, but this function
+// still reached for it UNGUARDED and ran in the boot sequence — the throw
+// killed everything queued behind it, including tryRestoreSession(), so the
+// Hub booted to a blank page. Same failure class as S488 Diesel and the S491
+// sign-in block; the sweep that should have caught it is now mechanical
+// (every getElementById target checked against every id in the file).
+// The online/offline state now lives in the shared header's cloud slot; the
+// orange offline bar is kept and guarded.
 function setupConnDot() {
-  const dot = document.getElementById('conn-dot');
   const bar = document.getElementById('offline-bar');
   function update() {
     const on = navigator.onLine;
-    dot.className = 'conn-dot' + (on ? '' : ' offline');
-    dot.title = on ? 'Online' : 'Offline';
-    bar.style.display = on ? 'none' : 'block';
+    if (bar) bar.style.display = on ? 'none' : 'block';
+    try { if (window.__hubHdr) window.__hubHdr.setCloud({ visible:true, state:on?'ok':'err', text:on?'Online':'Offline' }); }
+    catch(e){ console.warn('[Hub] conn state mirror failed:', e); }
   }
   window.addEventListener('online', update);
   window.addEventListener('offline', update);
