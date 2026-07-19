@@ -6773,15 +6773,27 @@ function _tradeWriteBackAll(deficId) {
     return;
   }
   var _list = missing.map(function(t) { return '\u201C' + t + '\u201D'; }).join(', ');
-  showConfirm('Add to contractor roster?',
+  showConfirm('Assign ' + (missing.length === 1 ? 'this trade' : 'these trades') + '?',
     (ctrLabel(ctr.name) || 'This contractor') + ' isn\u2019t listed for ' + _list +
-    ' yet \u2014 add ' + (missing.length === 1 ? 'it' : 'them') + ' to their roster too? (No keeps the observations\u2019 trades and leaves the roster unchanged.)')
+    ' \u2014 assign ' + (missing.length === 1 ? 'it' : 'them') + ' and add to their roster? (No clears ' + (missing.length === 1 ? 'that trade' : 'those trades') + ' from this pin\u2019s observations and leaves the roster unchanged.)')
     .then(function(yes) {
       if (yes) {
         missing.forEach(function(t) { Model.addContractorToTradeAuto(ctr.id, t); });
         toast('\u2714 ' + (ctrLabel(ctr.name) || 'Contractor') + ' added to ' + missing.join(', '));
         initDeficiencies.render();
+        return;
       }
+      // S490 (Mark: "everything unified as default"): No clears the missing
+      // trades from THIS pin's observations only \u2014 same meaning as the
+      // single-obs No. Trades the contractor already carries are untouched.
+      // tradeSource stays 'manual' so the AI tagger won't refill.
+      (f.defic.observations || []).forEach(function(o) {
+        if (o && o.trade && missing.indexOf(o.trade) >= 0) { o.trade = ''; o.tradeSource = 'manual'; }
+      });
+      Model.saveNow();
+      if (window._frtRefreshPinEditor) window._frtRefreshPinEditor();
+      initDeficiencies.render();
+      toast((missing.length === 1 ? 'Trade' : 'Trades') + ' cleared \u2014 not assigned');
     });
 }
 

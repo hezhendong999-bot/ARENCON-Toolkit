@@ -2117,6 +2117,20 @@ function _peRenderUnifiedEditor(d, idx) {
     withHeader: true,
     pinNum: (d.num != null ? d.num : '?')
   });
+  // S490 (Mark, demo-approved): relocate the \u22EF More wrap into the static
+  // pin-editor footer, hard right \u2014 reclaims the row it owned. The popup
+  // travels inside the wrap and toggle-more resolves it by sibling lookup
+  // (S192), so it keeps working from the footer, and the popup already opens
+  // upward (bottom:100%). Re-render safe: a previously-moved wrap is removed
+  // first. Scoped to THIS host only \u2014 the focused modal (Editor C) keeps
+  // its inline row.
+  var _peFtr = document.querySelector('#pin-editor-overlay .pin-editor-footer');
+  if (_peFtr) {
+    var _oldMW = _peFtr.querySelector('.dfx-or-more-wrap');
+    if (_oldMW) _oldMW.remove();
+    var _newMW = mount.querySelector('.dfx-or-more-wrap');
+    if (_newMW) { _newMW.style.marginLeft = 'auto'; _peFtr.appendChild(_newMW); }
+  }
 }
 
 // S213: live focus guard for external Model-driven re-renders. Returns true

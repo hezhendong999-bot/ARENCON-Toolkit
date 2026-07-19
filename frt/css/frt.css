@@ -11235,3 +11235,10 @@ body.dark-mode .crbt-ph-empty{background:rgba(255,255,255,.03);color:#6b6674;}
 }
 body.dark-mode .crx-tagn { background: rgba(255, 255, 255, .14); }
 body.crx-picking .crx-tpill .crx-tagn { display: none; }
+
+/* ── S490 (item 7, Mark demo-approved): the pin-editor unified-editor action
+   row's only occupant (the \u22EF More wrap) is relocated into the static
+   .pin-editor-footer at render time (viewer.js). The vacated row collapses.
+   Editor C (focused modal) keeps its wrap inline, so its row is never empty
+   and never hides. ── */
+.dfx-ed-actions:empty{display:none;}
