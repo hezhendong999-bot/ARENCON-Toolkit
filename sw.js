@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v1141';
+var CACHE_NAME = 'arencon-frt-v1142';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -290,7 +290,16 @@ self.addEventListener('fetch', function(e) {
         }
         return resp;
       }).catch(function() {
-        return caches.match(e.request).then(function(cached) {
+        /* S488 OFFLINE ROOT FIX (Mark's intermittent "sometimes offline works,
+           sometimes it doesn't", pattern finally explained): tool URLs carry
+           ?project=&instance=&pn=… — but this fallback matched by EXACT URL,
+           and the precache stores the bare pathname. So offline navigation to
+           any params URL the runtime cache hadn't seen VERBATIM missed, and the
+           user got the 503 below despite a completed precache ("I saw the
+           offline-available message"). His reconnect→load→disconnect→refresh
+           ritual worked only because it runtime-cached that one exact URL.
+           ignoreSearch matches the cached file regardless of params. */
+        return caches.match(e.request, { ignoreSearch: true }).then(function(cached) {
           return cached || new Response('Offline — open FRT on Wi-Fi first to enable offline mode.', {
             status: 503,
             headers: { 'Content-Type': 'text/plain' }
