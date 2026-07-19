@@ -948,6 +948,29 @@ function _openRedactionEditor(dwg) {
   });
 }
 
+/* S492: the SAME seal-redaction editor, reachable from the DRAWING VIEWER's
+   ⋯ menu (Mark: "There is no seal redaction in menu" — he was in the viewer
+   with the sheet open, which is the natural place to reach for it; the
+   Drawings-tab ⋮ menu alone made him hunt for it).
+   The handler lives HERE, not in viewer.js, because viewer.js is on the
+   never-touch list and this module already owns the editor. index.html
+   contributes only the button. Resolves the drawing from the viewer's
+   current-drawing id, whichever global the viewer exposes it under. */
+document.addEventListener('click', function(e) {
+  var hit = e.target.closest && e.target.closest('[data-dv-action="redact"]');
+  if (!hit) return;
+  var mm = document.getElementById('dv-more-menu');
+  if (mm) mm.style.display = 'none';
+  // initViewer.getCurrentDrawing() is the viewer's OWN accessor (S124 A1) and
+  // returns the live drawing reference from its list — the same object
+  // Model.saveNow() persists. _currentDrawingIdx is module-private, so
+  // guessing at a window global would have silently returned undefined.
+  var dwg = null;
+  try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
+  if (!dwg) { toast('Open a drawing first'); return; }
+  _openRedactionEditor(dwg);
+});
+
 function _showDrawingContextMenu(drawingId, anchorEl) {
   _closeActiveMenu();
   var menu = document.createElement('div');
