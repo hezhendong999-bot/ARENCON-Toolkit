@@ -699,6 +699,7 @@ body.text-l{--ts:4px;}
           <button id="btn-deleted" onclick="toggleDeleted();closeDashMore()">🗑️ Deleted</button>
           <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
           <button onclick="exportAllProjects();closeDashMore()">📥 Export All</button>
+          <button onclick="exportProjectDocsFromDashboard();closeDashMore()">📦 Export Project Docs</button>
         </div>
       </div>
       <button class="dash-btn primary" onclick="openNewProjectModal()">+ New Project</button>
@@ -800,6 +801,7 @@ body.text-l{--ts:4px;}
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
         <div class="detail-sub" id="detail-sub" style="flex:1;min-width:0;">—</div>
+        <button id="detail-export-docs-btn" onclick="exportProjectDocsFromHub()" style="flex-shrink:0;background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;color:var(--silver);white-space:nowrap;" title="Download every report in this project — photos, data and README — as one ZIP">📦 Export Project Docs</button>
         <button id="detail-fold-all-btn" onclick="toggleAllDetailSections()" style="flex-shrink:0;background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;color:var(--silver);white-space:nowrap;" title="Fold/Unfold all sections">▼ Fold All</button>
       </div>
     </div>
@@ -5091,7 +5093,167 @@ function _pgEscHtml(s) {
   }
 })();
 </script>
+<script type="module">
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPORT PROJECT DOCS — WHOLE-PROJECT PARENT LAYER (Tier 3 + Tier 4)
+   ═══════════════════════════════════════════════════════════════════════════
+   One action gives you every report in a project — photos in capture-date
+   folders, each report's re-loadable record, and a README — as a single ZIP
+   for the S: drive.
+
+   Source of truth is the SYNCED CLOUD RECORD (Mark's S483 Option A ruling),
+   not a live tool. Unsynced edits sitting on a device are deliberately
+   excluded: they belong to that device's own single-tool export.
+
+   READ-ONLY. Reads tool_data rows and fetches photo bytes from R2. Writes
+   nothing, changes nothing, touches no save path.
+
+   Naming/date rules come from lib/export/projectDocsSources.js — the single
+   owner of that rule — and the ZIP itself is built by the shared engine.
+   Nothing about filenames is decided in this file.
+═══════════════════════════════════════════════════════════════════════════ */
+
+import { Dlg } from '/lib/ui/dialogEngine.js';
+import { downloadProjectBundle, TOOL_SOURCES } from '/lib/export/projectDocsSources.js';
+
+const _EPD_TOOL_LABEL = {
+  frt: 'Field Review', diesel: 'Diesel Fire Pump', electric: 'Electric Fire Pump',
+  ist: 'IST', obc: 'OBC Report', dd: 'DD Checklist'
+};
+
+async function _epdFetchRows(projectId) {
+  const rows = await _sb.from('tool_data').eq('project_id', projectId).execute();
+  return (rows || []).filter(r => r && TOOL_SOURCES[r.tool_key]);
+}
+
+/** Shared runner: confirm → progress → download → result. */
+async function _epdRun(proj) {
+  if (!proj) { toast('Project not found', 'error'); return; }
+
+  let rows;
+  try {
+    rows = await _epdFetchRows(proj.id);
+  } catch (e) {
+    console.error('[export] could not read project records', e);
+    await Dlg.alert({
+      title: 'Could not read the project',
+      accent: 'fail', icon: '\u2715',
+      message: 'The project\'s reports could not be read from the cloud.\nNothing was changed. Check your connection and try again.'
+    });
+    return;
+  }
+
+  if (!rows.length) {
+    await Dlg.alert({
+      title: 'Nothing to export',
+      message: 'This project has no reports yet.'
+    });
+    return;
+  }
+
+  const withPhotos = rows.filter(r => TOOL_SOURCES[r.tool_key].hasPhotos);
+  const noPhotos = rows.filter(r => !TOOL_SOURCES[r.tool_key].hasPhotos);
+
+  let detail = rows.length + ' report' + (rows.length === 1 ? '' : 's') + ' will be included, each in its own folder.';
+  if (noPhotos.length) {
+    const names = [...new Set(noPhotos.map(r => _EPD_TOOL_LABEL[r.tool_key] || r.tool_key))].join(', ');
+    detail += '\n' + names + ' store no photos, so those folders hold the report data only.';
+  }
+  detail += '\nPhotos come from the synced cloud copy. Anything still unsynced on a tablet is not included.';
+
+  const ok = await Dlg.confirm({
+    title: 'Export Project Docs',
+    icon: '\u25A6', accent: 'info', width: 520,
+    message: 'Download every report in ' + (proj.project_number || 'this project') +
+             ' as one ZIP — photos, data and a README.',
+    detail: detail,
+    confirmText: 'Export',
+    cancelText: 'Cancel'
+  });
+  if (!ok) return;
+
+  const prog = Dlg.progress({
+    title: 'Building export\u2026',
+    message: 'Collecting photos from the cloud. Large projects can take a few minutes.',
+    status: 'Starting\u2026',
+    cancellable: true
+  });
+
+  try {
+    const out = await downloadProjectBundle(rows, proj, {
+      shouldCancel: () => prog.cancelled,
+      onProgress: (done, total, label) => {
+        const pct = total ? Math.round((done / total) * 100) : null;
+        prog.update(pct, label === 'Compressing'
+          ? 'Compressing the ZIP\u2026'
+          : ('Report ' + Math.min(done + 1, total) + ' of ' + total + '  \u00B7  ' + label));
+      }
+    });
+    prog.close();
+
+    if (prog.cancelled) {
+      toast('Export cancelled', 'info');
+      return;
+    }
+
+    let msg = out.added + ' photo' + (out.added === 1 ? '' : 's') + ' across ' +
+              out.entries.length + ' report' + (out.entries.length === 1 ? '' : 's') + '.';
+    if (out.skipped) {
+      msg += '\n' + out.skipped + ' photo' + (out.skipped === 1 ? ' was' : 's were') +
+             ' unavailable and skipped rather than written as broken files. The README lists the totals.';
+    }
+    if (out.failedTools.length) {
+      msg += '\nThese reports could not be exported: ' + out.failedTools.join(', ') +
+             '. Nothing in them was changed — try exporting those directly.';
+    }
+
+    await Dlg.alert({
+      title: 'Export complete',
+      icon: '\u2713',
+      accent: (out.skipped || out.failedTools.length) ? 'warn' : 'ok',
+      message: msg
+    });
+  } catch (e) {
+    prog.close();
+    console.error('[export] whole-project export failed', e);
+    await Dlg.alert({
+      title: 'Export failed',
+      accent: 'fail', icon: '\u2715',
+      message: 'The export could not be completed.\nNothing in the project was changed.\n\n' +
+               ((e && e.message) || String(e))
+    });
+  }
+}
+
+/** Tier 3 — from an open project. */
+window.exportProjectDocsFromHub = function () {
+  const proj = _detailProjectId ? _projects.find(p => p.id === _detailProjectId) : null;
+  _epdRun(proj);
+};
+
+/** Tier 4 — from the dashboard, pick the project first. */
+window.exportProjectDocsFromDashboard = async function () {
+  const list = (_projects || []).filter(p => p && !p.deleted_at);
+  if (!list.length) { toast('No projects to export', 'info'); return; }
+
+  const pick = await Dlg.pickList({
+    title: 'Export Project Docs',
+    icon: '\u25A6', accent: 'info', width: 520,
+    message: 'Which project would you like to download?',
+    items: list.map(p => ({
+      id: p.id,
+      label: (p.project_number || '\u2014') + '  ' + (p.name || ''),
+      sub: p.client || ''
+    }))
+  });
+  if (!pick) return;
+  _epdRun(list.find(p => p.id === pick));
+};
+
+console.log('[Hub] Export Project Docs parent layer ready (Tier 3 + Tier 4)');
+</script>
 <script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>
 </body>
 </html>
+
 
