@@ -2009,6 +2009,135 @@ function _applyInspectorName(name){
 }
 function initDarkMode(){var s=localStorage.getItem('ARENCON_Dark');if(s==='1'||(s===null&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.body.classList.add('dark-mode');updateDarkToggleIcon();}
 function toggleDarkMode(){document.body.classList.toggle('dark-mode');localStorage.setItem('ARENCON_Dark',document.body.classList.contains('dark-mode')?'1':'0');updateDarkToggleIcon();if(typeof applyChartDarkMode==='function')applyChartDarkMode();_refreshDarkButtons();}
+/* ══ S492 RESTORE — HOST-CONTRACT GLOBALS (regression fix) ══
+   These five were deleted in the S492 dead-code sweep. That sweep counted
+   references inside THIS FILE only, so it could not see that the SHARED
+   modules call them BY NAME from generated on* attributes and late-bound
+   lookups:
+     lib/ui/checklist.js  → triggerPhoto, handleDrop, _galleryReuseChecklist,
+                            removePhoto  (its header states these stay HOST)
+     lib/ui/lightbox.js   → _dslMarkupRevert
+   Field symptom (Mark, S492 verify): the checklist photo zone was completely
+   inert — no click-to-upload, no drag-drop, Gallery dead, thumbnail ✕ dead.
+   Restored VERBATIM from the live tool at HEAD — not rewritten.
+   RULE EARNED: before deleting any function from a tool that consumes /lib/,
+   grep EVERY lib module too. A shared engine's host contract is invisible to
+   a single-file reference scan. ══ */
+
+function triggerPhoto(id) { const fi = document.getElementById('global-file-input'); _clearPhotoTargets(fi); currentPhotoId = id; fi.removeAttribute('capture'); fi.multiple=true; fi.value=''; fi.click(); }
+
+function handleDrop(e,id){ e.preventDefault(); e.currentTarget.classList.remove('drag-over'); handleFiles(id,e.dataTransfer.files,false); }
+
+function _galleryReuseChecklist(id){
+  var cur=(clState[id]&&clState[id].photos)||[];
+  _openPhotoReusePicker(function(file){ handleFiles(id, [file], false); }, {excludeIds:cur.map(function(p){return p&&p.id;})});
+}
+
+function removePhoto(id,i){
+  // S264: was an instant no-confirm splice that also left the gallery stale. Route
+  // through the authoritative delete (confirm + both surfaces + R2 + save) by id.
+  var p = clState[id] && clState[id].photos ? clState[id].photos[i] : null;
+  if(!p){ return; }
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else {
+    // legacy photo with no id — confirm then splice directly (can't route by id)
+    _aConfirm('Delete this photo? This cannot be undone.', function(){
+      clState[id].photos.splice(i,1);
+      var el=document.getElementById('pg-'+id); if(el) el.innerHTML=renderThumbs(id);
+      refreshItemPhotoUI(id);
+      if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
+      if(typeof saveState==='function') saveState();
+    },'Delete');
+  }
+}
+
+function _dslMarkupRevert(p){
+  if(!p || !p._origBackupId) return false;
+  var backup = (typeof recordPhotos!=='undefined') ?
+    recordPhotos.filter(function(b){ return b && b.id === p._origBackupId; })[0] : null;
+  if(!backup){
+    console.warn('[DLB] revert: backup record not found — clearing flags only');
+    delete p._origBackupId; delete p._annotated;
+    return true;
+  }
+  var origKey = backup.r2Key || '', markedKey = p.r2Key || '';
+  // FRT S115 P8 corruption guards — never delete the only remaining copy.
+  if(origKey.indexOf('/marked/') >= 0){
+    // S373: the backup's cloud key is corrupt (points at /marked/, a legacy state
+    // from before the S372.4 persist guards). The OLD behavior abandoned revert
+    // entirely. But the corrupt key only means the CLOUD object is unreliable — the
+    // backup may still carry CLEAN local bytes (backup.d). Recover from those when
+    // they are demonstrably NOT the marked image (i.e. distinct from the photo's
+    // current marked display source). Only keep the marked version when there is no
+    // distinct clean source anywhere — so we never restore the marked image as a
+    // false "original" (the corruption this guard exists to prevent).
+    var markedSrc = (p._mkDisplay || '') ;
+    var cleanLocal = (backup.d && backup.d.indexOf('data:')===0 && backup.d !== markedSrc) ? backup.d : '';
+    if(cleanLocal){
+      console.warn('[DLB] revert: backup cloud key corrupt (/marked/) but clean local bytes present and distinct — recovering from backup.d, repointing to a fresh /original/ key.');
+      var rvTsC = Date.now();
+      var restoreC = function(sp){
+        sp._mkTs = rvTsC;
+        sp.d = cleanLocal;
+        // drop the corrupt cloud reference; re-upload under a fresh /original/ key
+        // so the recovered clean photo is durable across devices.
+        sp.r2Key = ''; sp.r2Url = ''; sp.r2Status = '';
+        if(backup.date) sp.date = backup.date;
+        delete sp._annotated; delete sp._origBackupId; delete sp.mk; delete sp._mkDisplay;
+      };
+      _dslStampSiblings(p, restoreC);
+      // give the recovered photo its own durable /original/ object (hub only)
+      if(p.d && typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2EnqueuePhoto==='function'){
+        try{ _r2EnqueuePhoto(p); }catch(e){ console.warn('[DLB] revert: recovered-photo upload enqueue failed', e); }
+      }
+      var biC = recordPhotos.indexOf(backup); if(biC>=0) recordPhotos.splice(biC,1);
+      if(typeof showToast==='function') showToast('Reverted — recovered the clean original from the local backup.');
+      if(typeof saveState==='function') try{ saveState(); }catch(_e){}
+      if(typeof debounceAutosave==='function') debounceAutosave();
+      if(typeof _csHubMode!=='undefined' && _csHubMode && typeof CloudSync!=='undefined' && CloudSync.save && typeof _collectCloudState==='function'){ try{ CloudSync.save(_collectCloudState()); }catch(_e){} }
+      if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces();
+      return true;
+    }
+    console.error('[DLB] revert: CORRUPTED BACKUP — backup r2Key is /marked/ and no distinct clean bytes. Keeping marked version.');
+    if(typeof showToast==='function') showToast('Cannot revert: the original backup is corrupted. Keeping the marked version.');
+    delete p._origBackupId; delete p._annotated;
+    var bi0 = recordPhotos.indexOf(backup); if(bi0>=0) recordPhotos.splice(bi0,1);
+    return true;
+  }
+  if(markedKey && markedKey === origKey){
+    console.error('[DLB] revert: CORRUPTED STATE — photo and backup share r2Key. Refusing.');
+    if(typeof showToast==='function') showToast('Cannot revert: photo and backup share the same cloud file.');
+    delete p._origBackupId; delete p._annotated;
+    var bi1 = recordPhotos.indexOf(backup); if(bi1>=0) recordPhotos.splice(bi1,1);
+    return true;
+  }
+  console.info('[DLB] revert', {id:p.id, backupId:backup.id, origKey:origKey?origKey.slice(-40):''});
+  // ── Restore the photo (and same-id references) to the original ──
+  var rvTs = Date.now();   // S301: revert is also an annotation-state change
+  var restore = function(sp){
+    sp._mkTs = rvTs;
+    if(backup.d) sp.d = backup.d; else delete sp.d;
+    sp.r2Key = origKey; sp.r2Url = backup.r2Url || '';
+    sp.r2Status = origKey ? 'uploaded' : '';
+    if(backup.date) sp.date = backup.date;   // S372.4: marking moves the photo to TODAY, so revert rolls it BACK to the backup's original capture date
+    delete sp._annotated; delete sp._origBackupId; delete sp.mk;
+    delete sp._mkDisplay;   // NEVER-BAKE (S372): drop the composited display cache → clean photo shows
+  };
+  _dslStampSiblings(p, restore);
+  // ── Remove the backup record from Site Records ──
+  var bi = recordPhotos.indexOf(backup); if(bi>=0) recordPhotos.splice(bi,1);
+  // ── Delete the marked R2 object (background, orphan-safe) ──
+  if(markedKey && markedKey !== origKey && markedKey.indexOf('/marked/')>=0 &&
+     typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2FolderId!=='undefined' && _r2FolderId &&
+     typeof R2Photos!=='undefined' && R2Photos.remove){
+    var fname = markedKey.split('/').pop();
+    try { R2Photos.remove(_r2FolderId, 'diesel', 'marked', decodeURIComponent(fname)).catch(function(e){
+      console.warn('[DLB] revert: marked R2 delete failed (orphan until purge):', e&&e.message);
+    }); } catch(e){ console.warn('[DLB] revert: marked R2 delete threw:', e&&e.message); }
+  }
+  return true;
+}
+
 /* S492: _DT_SUN / _DT_MOON removed — the sealed header engine has owned the
    sun/moon artwork since S488 (setTheme swaps it). These two inline PNG
    payloads (~12KB of base64) were declared but never read by any call site. */
