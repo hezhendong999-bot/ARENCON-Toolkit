@@ -103,3 +103,6 @@ deleteProjectFromCard
 confirmDeleteProject
 _canDeleteProjects
 .project-card-trash
+
+@ Trash retention + purge gating — kept until an admin purges; purge is admin/super_admin only (Mark, S493)
+_canPurgeProjects

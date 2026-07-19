@@ -170,7 +170,9 @@ body.dark-mode .epd-pick,body.dark-mode .epd-pick-band{background:var(--card)}
 .tool-icon-btn{font-size:calc(15px + var(--ts));cursor:default;padding:1px;line-height:1;opacity:.8;transition:opacity .15s}
 .tool-icon-btn:hover{opacity:1}
 .project-card-bottom .progress-chip{margin-left:auto}
-.backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto}
+.backup-status{font-size:9.5px;color:var(--silver);font-weight:500;margin-left:auto;margin-right:60px}
+/* S493: clearance for the export + trash buttons that sit bottom-right of the
+   card — the status text was rendering underneath them. */
 .backup-status.not-backed{color:var(--warn)}
 /* ── R2 Storage Status Panel ── */
 .r2-row{margin-bottom:14px;}
@@ -729,6 +731,7 @@ body.text-l{--ts:4px;}
         <option value="number-asc">Sort: Project # A→Z</option>
         <option value="number-desc">Sort: Project # Z→A</option>
         <option value="updated">Sort: Last Updated</option>
+        <option value="backup">Sort: Backup needed</option>
         <option value="created-new">Sort: Created (Newest)</option>
         <option value="created-old">Sort: Created (Oldest)</option>
         <option value="client">Sort: Client Name</option>
@@ -1797,6 +1800,14 @@ function renderProjects() {
     if (sortMode === 'pm') return (_userMap[a.project_manager] || 'zzz').localeCompare(_userMap[b.project_manager] || 'zzz');
     if (sortMode === 'created-new') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     if (sortMode === 'created-old') return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+    if (sortMode === 'backup') {
+      // S493 (Mark): surface what needs backing up. Never-backed-up projects
+      // first, then stalest backup to freshest — so "not in 30 days" and
+      // "never" both rise to the top in one ordering.
+      var ax = a.last_exported_at ? new Date(a.last_exported_at).getTime() : -1;
+      var bx = b.last_exported_at ? new Date(b.last_exported_at).getTime() : -1;
+      return ax - bx;
+    }
     return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
   };
 
@@ -1841,7 +1852,10 @@ function renderProjects() {
     empty.style.display = 'block';
     if (_showDeleted) {
       empty.querySelector('h3').textContent = 'Trash is empty';
-      empty.querySelector('p').textContent = 'Deleted projects will appear here for 30 days';
+      // S493: this used to say "for 30 days" — no such auto-purge exists or ever
+      // did. Deleted projects are kept until an administrator permanently
+      // deletes them (Mark's policy, this session).
+      empty.querySelector('p').textContent = 'Deleted projects stay here until an administrator permanently deletes them';
     } else if (_showArchived) {
       empty.querySelector('h3').textContent = 'No archived projects';
       empty.querySelector('p').textContent = 'Archived projects will appear here';
@@ -1862,9 +1876,18 @@ function renderProjects() {
   if (regular.length === 0) {
     grid.innerHTML = '';
     grid.classList.remove('is-banded');
-  } else {
+  } else if (sortMode === 'number-asc' || sortMode === 'number-desc') {
+    // Bands mirror the server filing, which is a project-number order. They
+    // apply on the number sorts (the default view).
     grid.innerHTML = _renderBanded(regular, myId);
     grid.classList.add('is-banded');
+  } else {
+    /* S493: on any OTHER sort, render flat in true sort order. With bands as
+       the outer structure, a non-number sort could only reorder WITHIN each
+       band — "Backup needed" would leave never-backed-up projects buried in
+       their bands, which defeats the sort's whole purpose. */
+    grid.innerHTML = regular.map(function(p) { return _renderProjectCard(p, myId); }).join('');
+    grid.classList.remove('is-banded');
   }
   _renderStatsStrip();
 }
@@ -1920,7 +1943,7 @@ function _renderProjectCard(p, myId) {
       + '<div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-bottom:6px">Deleted ' + delDate + ' by ' + esc(delBy) + '</div>'
       + '<div style="display:flex;gap:8px">'
       + '<button style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--yes);background:var(--yes-bg);color:var(--yes);font-weight:600;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();restoreProject(\'' + esc(p.id) + '\')">↩️ Restore</button>'
-      + '<button style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--red);background:var(--no-bg);color:var(--red);font-weight:600;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();purgeProject(\'' + esc(p.id) + '\')">🗑️ Delete Forever</button>'
+      + (_canPurgeProjects() ? '<button style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--red);background:var(--no-bg);color:var(--red);font-weight:600;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();purgeProject(\'' + esc(p.id) + '\')">🗑️ Delete Forever</button>' : '')
       + '</div></div>';
   }
 
@@ -2721,7 +2744,20 @@ function _typeToConfirmPurge(title, message, onConfirm) {
   });
 }
 
+/* S493 — purge gating (Mark's direction this session). Permanent deletion had
+   NO role check at all: move-to-trash blocked viewers while Delete Forever —
+   the unrecoverable one — was open to everyone including inspectors. Purge is
+   now admin + super_admin only, checked in the functions (not just hidden in
+   the UI) so no other entry point can reach it. */
+function _canPurgeProjects() {
+  return !!(_profile && (_profile.role === 'admin' || _profile.role === 'super_admin'));
+}
+
 async function purgeProject(projectId) {
+  if (!_canPurgeProjects()) {
+    toast('Only administrators can permanently delete projects', 'error');
+    return;
+  }
   var proj = _projects.find(function(p){ return p.id === projectId; });
   if (!proj) return;
   _typeToConfirmPurge(
@@ -2741,6 +2777,10 @@ async function purgeProject(projectId) {
 }
 
 async function bulkPurge() {
+  if (!_canPurgeProjects()) {
+    toast('Only administrators can permanently delete projects', 'error');
+    return;
+  }
   if (_bulkSelected.length === 0) { toast('No projects selected', 'error'); return; }
   var n = _bulkSelected.length;
   _typeToConfirmPurge(
