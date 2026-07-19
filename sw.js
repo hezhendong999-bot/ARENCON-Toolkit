@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v1143';
+var CACHE_NAME = 'arencon-frt-v1144';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -84,6 +84,11 @@ var APP_FILES = [
   'frt/js/export/json.js',
   'frt/js/export/projectDocs.adapter.js',
   'lib/export/projectDocs.js',
+  // S490d library step 1 — shim targets MUST be precached or the shims 404 offline:
+  'lib/shared/toast.js',
+  'lib/shared/auth.js',
+  'lib/workers/imageWorker.js',
+  'lib/workers/imageWorkerHost.js',
   'frt/js/export/exportview.js',
   'frt/js/export/carlitoReg.js',
   'frt/js/export/carlitoBold.js',
