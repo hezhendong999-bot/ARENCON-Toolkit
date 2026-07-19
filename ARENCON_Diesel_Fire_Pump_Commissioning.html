@@ -13816,22 +13816,28 @@ window.addEventListener('load', () => {
         if(info && info.userId){ _updateInspectorChip(); _deriveInspectorIdentity(info.userId); }
         // Load data from cloud/IDB
         return CloudSync.load();
-      }).then(function(result){
+      }).then(async function(result){
         if(result && result.state){
-          // S281 B2: on the INITIAL cloud load, merge local IDB binaries into the
-          // cloud structure the same way the heartbeat does. Cloud strips photo
-          // data URLs (keeps only n/id/r2* metadata), so applying the raw cloud
-          // copy left recordPhotos/checklist photos with no local `d` — they only
-          // came back if R2 prefetch succeeded, which the B1 bad keys broke. By
-          // merging local-first here, a locally-captured photo survives a reload
-          // even before R2 confirms. Canon: cloud owns structure, local owns binary.
+          /* S488 ROOT FIX for Mark's field repro (photo -> pull-to-refresh -> gone,
+             airplane AND online): the S281 B2 merge below is the right idea and the
+             S335 union inside _mergeCloudLocal is fully capable of rescuing a
+             local-only fresh capture — but this block fed it the WRONG LOCAL.
+             `collectState()` at boot reads the not-yet-populated DOM: an EMPTY
+             state. The merge ran faithfully against nothing and rescued nothing;
+             the IDB autosave (where photoMint v1.1.0 durably saved the photo at
+             birth) was never read at all on the hub path. And when CloudSync
+             served its own cached copy (airplane mode), source !== 'cloud'
+             skipped the merge entirely — applying a stripped snapshot raw.
+             Now: local = the actual IDB autosave, merged on EVERY source
+             (a cached CloudSync state is cloud-shaped and equally stripped).
+             Canon holds: cloud owns structure, local owns binary — with the
+             real local this time. */
           var _toApply = result.state;
-          if(result.source === 'cloud'){
-            try {
-              var _localNow = collectState();
-              _toApply = _mergeCloudLocal(result.state, _localNow);
-            } catch(e){ console.warn('[S281 B2] initial-load merge skipped:', e && e.message); _toApply = result.state; }
-          }
+          try {
+            var _rawLocal = await _idbGet(getProjectSaveKey()).catch(function(){ return null; });
+            var _localNow = _rawLocal ? JSON.parse(_rawLocal) : null;
+            if(_localNow){ _toApply = _mergeCloudLocal(result.state, _localNow); }
+          } catch(e){ console.warn('[S488] boot merge fallback (applying cloud raw):', e && e.message); _toApply = result.state; }
           _applyLoadedState(JSON.stringify(_toApply));
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
