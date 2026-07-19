@@ -2117,8 +2117,12 @@ function _peRenderUnifiedEditor(d, idx) {
     withHeader: true,
     pinNum: (d.num != null ? d.num : '?')
   });
-  // S490 (Mark, demo-approved): relocate the \u22EF More wrap into the static
-  // pin-editor footer, hard right \u2014 reclaims the row it owned. The popup
+  // S490/S491 (Mark, demo-approved): relocate the \u22EF More wrap into the
+  // static pin-editor footer \u2014 reclaims the row it owned. S491 (Mark's
+  // markup): it sits in the LEFT group after Delete, separated by a
+  // deliberate 28px gap (footer gap is 10px) so it is visually grouped with
+  // the actions but never fat-finger-adjacent to Delete. Do NOT restore
+  // margin-left:auto \u2014 hard-right was rejected. The popup
   // travels inside the wrap and toggle-more resolves it by sibling lookup
   // (S192), so it keeps working from the footer, and the popup already opens
   // upward (bottom:100%). Re-render safe: a previously-moved wrap is removed
@@ -2129,7 +2133,7 @@ function _peRenderUnifiedEditor(d, idx) {
     var _oldMW = _peFtr.querySelector('.dfx-or-more-wrap');
     if (_oldMW) _oldMW.remove();
     var _newMW = mount.querySelector('.dfx-or-more-wrap');
-    if (_newMW) { _newMW.style.marginLeft = 'auto'; _peFtr.appendChild(_newMW); }
+    if (_newMW) { _newMW.style.marginLeft = '28px'; _peFtr.appendChild(_newMW); }
   }
 }
 
