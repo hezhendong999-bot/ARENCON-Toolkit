@@ -256,6 +256,15 @@ var _pendingScale = null;
 // ── WebGL state (Phase 5) ───────────────────────────────
 var _webglCanvas = null;
 var _webglReady = false;
+// S491 — TRUE while Markup.destroy() is deliberately tearing down the WebGL
+// renderer. Pixi's destroy releases the GL context on purpose (freeing GPU
+// memory), and the browser announces that release with the SAME
+// webglcontextlost event a genuine GPU crash fires. Without this flag every
+// routine drawing-page switch was logged as a context loss, inflated the
+// Diag crash counter, and — the real bug — tripped the S131 tablet rule
+// ("first loss = GPU out of memory, abandon WebGL"), silently downgrading
+// tablets to Canvas 2D for the rest of the session after one page switch.
+var _webglTearingDown = false;
 var _webglInitPromise = null;
 var _useWebGL = (function(){
   try {
@@ -951,6 +960,16 @@ function _allocateCanvas() {
         // is available. The restored handler re-runs init so Pixi rebuilds
         // its textures.
         _webglCanvas.addEventListener('webglcontextlost', function(e) {
+          // S491 — deliberate teardown (Markup.destroy → Pixi destroy →
+          // planned context release). Not a crash: no warn, no Diag count,
+          // no tablet WebGL abandonment. Genuine losses arrive with the
+          // flag down and get the full recovery path below.
+          if (_webglTearingDown) return;
+          // S491 — the browser may deliver this event AFTER destroy()
+          // finished and the flag is already lowered. A stale event from a
+          // discarded canvas identifies itself: its target is no longer the
+          // live _webglCanvas (which is null, or a fresh canvas, by then).
+          if (e.target !== _webglCanvas) return;
           console.warn('[Markup] WebGL CONTEXT_LOST — attempting recovery on restore');
           // S126 Phase D — record for diagnostics. Counter survives the
           // Markup.destroy() teardown so post-mortem analysis is possible.
@@ -4898,6 +4917,11 @@ export var Markup = {
     if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
 
     // Tear down WebGL renderer + canvas (Phase 5)
+    // S491 — raise the intentional-teardown flag BEFORE destroying the
+    // renderer: Pixi's destroy releases the GL context and the resulting
+    // webglcontextlost event may dispatch after the canvas is detached.
+    // Lower it after the canvas reference is dropped.
+    _webglTearingDown = true;
     if (window.WebGLMarkupRenderer && _webglReady){
       try { window.WebGLMarkupRenderer.destroy(); } catch(_){}
     }
@@ -4907,6 +4931,7 @@ export var Markup = {
     _webglCanvas = null;
     _webglReady = false;
     _webglInitPromise = null;
+    _webglTearingDown = false;
 
     if (_eraserCursor) _eraserCursor.style.display = 'none';
 
