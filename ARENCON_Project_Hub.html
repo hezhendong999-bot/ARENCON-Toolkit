@@ -119,6 +119,125 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
    stack vertically; each band renders its own .project-grid-inner. */
 .project-grid-inner.is-banded{display:block}
 .band-section{margin-bottom:22px}
+/* ═══ S494 — LOCKED JUNE LIST VIEW, restored from pre-wipe blob 4e8837a1 (commit 318b6992).
+   Recovered after the S391 stale-file push silently deleted it (S493 failure mode).
+   Verbatim except: body.bold scoping re-pointed at the live theme classes, and every
+   rule confined to .view-list so cards view and all S493 features are untouched. ═══ */
+.hub-view-toggle{display:inline-flex;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:2px;gap:1px}
+.hub-view-toggle button{border:none;background:none;color:var(--steel);font-size:calc(12.5px + var(--ts));font-weight:600;font-family:Calibri,sans-serif;padding:6px 12px;border-radius:6px;cursor:pointer;line-height:1;white-space:nowrap}
+.hub-view-toggle button.active{background:#3A5470;color:#fff}
+body.dark-mode .hub-view-toggle{background:var(--card)}
+.view-list .band-body,.view-list .project-grid-inner{display:flex;flex-direction:column;gap:0;border:none;border-radius:0;overflow:visible}
+.view-list .project-card{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:0;border:none;border-bottom:1px solid var(--border)}
+.view-list .project-card:hover{transform:none}
+.view-list .project-card:last-child{border-bottom:none}
+.view-list .project-card::after{display:none}
+/* star first, pulled out of card-top to the very front */
+.view-list .project-card-star{order:1;flex:none;font-size:calc(15px + var(--ts));margin:0}
+/* number + client + name read left-to-right */
+.view-list .project-card-top{display:contents}
+.view-list .project-card-number{order:2;flex:none;min-width:74px;font-size:calc(14px + var(--ts))}
+.view-list .project-card-client{order:3;margin:0;flex:none;width:200px;min-width:200px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11.5px + var(--ts));color:var(--steel);font-weight:500;text-transform:none}
+.view-list .project-card-number{order:2;flex:none;width:74px;min-width:74px;font-size:calc(14px + var(--ts))}
+.view-list .project-card-name{order:4;flex:1;min-width:140px;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(13.5px + var(--ts));font-weight:700;color:var(--fg)}
+.view-list .project-card-date{display:none}
+/* status strip → just the avatar (no Active pill, no date) */
+.view-list .project-card-row{order:8;margin:0;flex:none;width:36px;min-width:36px;display:flex;align-items:center;justify-content:flex-end;gap:0;background:none;padding:0}
+.view-list .project-card-row .project-badge,.view-list .project-card-row .project-card-date,.view-list .project-card-row .project-card-pm{display:none}
+.view-list .pm-avatar{width:30px;height:30px;font-size:calc(11px + var(--ts))}
+/* Fixed-slot tool columns: each tool keeps a reserved column so pills line up vertically. */
+.view-list .project-card-bottom{order:7;margin:0;flex:none;display:grid;grid-template-columns:repeat(6,54px) 92px;gap:6px;align-items:center}
+.view-list .project-card-bottom .tool-pill{width:100%;justify-content:center;margin:0;font-size:calc(11px + var(--ts))}
+.view-list .project-card-bottom .tool-pill.tp-frt{grid-column:1}
+.view-list .project-card-bottom .tool-pill.tp-diesel{grid-column:2}
+.view-list .project-card-bottom .tool-pill.tp-electric{grid-column:3}
+.view-list .project-card-bottom .tool-pill.tp-ist{grid-column:4}
+.view-list .project-card-bottom .tool-pill.tp-obc{grid-column:5}
+.view-list .project-card-bottom .tool-pill.tp-dd{grid-column:6}
+/* progress chip + backup share the 7th fixed column, single line, no wrap */
+.view-list .project-card .project-card-bottom .progress-chip{grid-column:7;grid-row:1;margin:0;justify-self:start;white-space:nowrap;font-size:calc(10.5px + var(--ts))}
+.view-list .project-card .project-card-bottom .backup-status{grid-column:7;grid-row:1;margin:0;justify-self:start;white-space:nowrap;font-size:calc(11px + var(--ts))}
+.view-list .project-card-bottom>span[style]:not(.tool-pill):not(.progress-chip):not(.backup-status){display:none}/* hide only the "No tools" placeholder */
+/* list view: compress the long "Not backed up" to an icon to save width */
+.view-list .backup-status.not-backed{font-size:0 !important}
+.view-list .backup-status.not-backed::before{content:'⚠';font-size:calc(13px + var(--ts));color:var(--warn,#E0A36A)}
+.view-list .backup-status{color:var(--silver)}
+/* demo-black list surface (override the greyish card fill) */
+body.dark-mode .view-list .project-card{background:transparent !important;border:none !important;border-bottom:1px solid rgba(255,255,255,.06) !important;box-shadow:none !important;border-radius:0 !important}
+body.dark-mode .view-list .project-card:last-child{border-bottom:none !important}
+body.dark-mode .view-list .band-body,body.dark-mode .view-list .project-grid-inner{background:rgba(255,255,255,.022) !important;border:1px solid rgba(255,255,255,.08) !important;border-radius:14px !important;overflow:hidden !important;box-shadow:0 6px 20px rgba(0,0,0,.35) !important}
+body:not(.dark-mode) .view-list .project-card{background:transparent !important;border:none !important;border-bottom:1px solid rgba(27,26,34,.09) !important;box-shadow:none !important;border-radius:0 !important}
+body:not(.dark-mode) .view-list .project-card:last-child{border-bottom:none !important}
+body:not(.dark-mode) .view-list .band-body,body:not(.dark-mode) .view-list .project-grid-inner{background:#ffffff !important;border:1px solid rgba(27,26,34,.12) !important;border-radius:14px !important;overflow:hidden !important;box-shadow:0 1px 3px rgba(40,30,50,.06),0 6px 18px rgba(40,30,50,.07) !important}
+.view-list .project-card::after{display:none !important}
+.view-list .project-card-export{display:none}
+.view-list .project-card-check{top:50%;transform:translateY(-50%)}
+/* ── Phone portrait: two-row list card. Row 1: ★ #### name · avatar. Row 2: client · pills · backup. ── */
+@media(max-width:560px){
+  .view-list .band-body,.view-list .project-grid-inner{grid-template-columns:1fr !important;border:none;border-radius:0;overflow:visible}
+  /* card becomes a 2-row grid */
+  .view-list .project-card{display:grid !important;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;
+    column-gap:9px;row-gap:5px;align-items:center;
+    padding:11px 14px;min-height:0;border:none;border-bottom:1px solid var(--border) !important;border-radius:0 !important;
+    background:transparent !important;box-shadow:none !important}
+  .view-list .project-card:last-child{border-bottom:none !important}
+  .view-list .project-card::after{display:none !important}
+  /* ROW 1 — star · (number + name) · avatar */
+  .view-list .project-card-top{grid-row:1;grid-column:2;display:flex;align-items:baseline;gap:8px;min-width:0;margin:0}
+  .view-list .project-card-star{grid-row:1;grid-column:1;flex:none;font-size:calc(16px + var(--ts));margin:0}
+  .view-list .project-card-number{flex:none;font-size:calc(15px + var(--ts));font-weight:800;white-space:nowrap}
+  .view-list .project-card-name{flex:1;min-width:0;font-size:calc(14.5px + var(--ts));font-weight:700;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:1;display:block;margin:0;max-width:none}
+  .view-list .project-card-row{grid-row:1;grid-column:3;display:flex !important;flex:none;align-items:center;margin:0;padding:0;background:none;justify-self:end}
+  .view-list .project-card-row .project-badge,
+  .view-list .project-card-row .project-card-date,
+  .view-list .project-card-row .project-card-pm{display:none !important}
+  .view-list .project-card-row .project-card-pm-av{margin:0}
+  .view-list .pm-avatar{width:30px;height:30px;font-size:calc(11px + var(--ts))}
+  /* ROW 2 — client · pills · backup */
+  .view-list .project-card-client{grid-row:2;grid-column:1 / -1;display:flex !important;flex-wrap:wrap;align-items:center;gap:7px;
+    margin:0;max-width:100%;white-space:normal;overflow:visible;
+    font-size:calc(12.5px + var(--ts));color:var(--fg);font-weight:600}
+  .view-list .project-card-bottom{grid-row:3;grid-column:1 / -1;display:flex !important;flex-wrap:wrap;align-items:center;gap:6px;margin:0}
+  .view-list .project-card-bottom .tool-pill{display:inline-flex !important;width:auto;grid-column:auto;font-size:calc(11px + var(--ts))}
+  /* mobile list: keep TOOL pills, drop Draft/Issued counts + date, backup = icon only */
+  .view-list .project-card .project-card-bottom .progress-chip{display:none !important}
+  .view-list .project-card .project-card-bottom .backup-status{grid-column:auto;grid-row:auto;margin-left:auto;font-size:0 !important;display:inline-flex;align-items:center;line-height:1}
+  .view-list .project-card-bottom .backup-status::before{content:'📥';font-size:calc(13px + var(--ts));line-height:1;display:inline-flex;align-items:center;}
+  .view-list .project-card-bottom .backup-status.not-backed::before{content:'⚠';color:var(--warn);}
+  .view-list .project-card-date{display:none !important}
+  /* Mobile Cards view (incl. starred-on-top): compact — drop Draft/Issued counts, date→icon, keep tools */
+  .view-cards .project-card-bottom{flex-wrap:wrap;gap:6px}
+  .view-cards .project-card-bottom .progress-chip{display:none !important}
+  .view-cards .project-card-row .project-card-date{display:none !important}
+  .view-cards .project-card-export{display:none !important}/* kill duplicate absolute export icon on mobile */
+  .view-cards .project-card-bottom{align-items:center}
+  .view-cards .project-card-bottom .backup-status{margin-left:auto;font-size:0 !important;display:inline-flex;align-items:center;line-height:1}
+  .view-cards .project-card-bottom .backup-status::before{content:'📥';font-size:calc(13px + var(--ts));line-height:1;display:inline-flex;align-items:center;}
+  .view-cards .project-card-bottom .backup-status.not-backed::before{content:'⚠';color:var(--warn);}
+}
+
+.view-list .project-card-trash,.view-list .project-card-pin{display:none}
+:root{--d-frt:#3F51B5;--d-dfp:#E08600;--d-efp:#1AA0C8;--d-ist:#0E9594;--d-obc:#2E8B57;--d-dd:#8E44AD;
+  --d-draft:#2C7FB8;--d-review:#C98A4A;--d-issued:#3E8E6E;}
+body.dark-mode{--d-frt:#7B8AE0;--d-dfp:#F0A93C;--d-efp:#48C5E8;--d-ist:#3FC9C7;--d-obc:#52C07E;--d-dd:#B57BD8;
+  --d-draft:#46C5E8;--d-review:#E0A36A;--d-issued:#48C896;}
+/* Base tinted tool-pill shell (override solid inline bg) */
+.view-list .tool-pill{
+  background:transparent !important;border:1px solid;border-radius:999px;
+  padding:3px 10px 3px 9px;gap:5px;font-weight:700;letter-spacing:.2px;}
+.view-list .tool-pill svg{display:none;} /* demo uses a dot, not the icon glyph */
+.view-list .tool-pill::before{content:'';width:6px;height:6px;border-radius:50%;display:inline-block;background:currentColor;}
+/* Per-tool tints — matched by the inline colour the JS sets, via attribute would be ideal;
+   instead we colour all tool-pills with a data hook added in JS (see tool-pill class additions). */
+.view-list .tool-pill.tp-frt{color:var(--d-frt);background:color-mix(in srgb,var(--d-frt) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-frt) 35%,transparent);}
+.view-list .tool-pill.tp-diesel{color:var(--d-dfp);background:color-mix(in srgb,var(--d-dfp) 14%,transparent) !important;border-color:color-mix(in srgb,var(--d-dfp) 36%,transparent);}
+.view-list .tool-pill.tp-electric{color:var(--d-efp);background:color-mix(in srgb,var(--d-efp) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-efp) 34%,transparent);}
+.view-list .tool-pill.tp-ist{color:var(--d-ist);background:color-mix(in srgb,var(--d-ist) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-ist) 35%,transparent);}
+.view-list .tool-pill.tp-obc{color:var(--d-obc);background:color-mix(in srgb,var(--d-obc) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-obc) 34%,transparent);}
+.view-list .tool-pill.tp-dd{color:var(--d-dd);background:color-mix(in srgb,var(--d-dd) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-dd) 35%,transparent);}
+.view-list .pm-avatar{color:var(--avc,#888)!important;background:color-mix(in srgb,var(--avc,#888) 16%,transparent)!important;border:1px solid color-mix(in srgb,var(--avc,#888) 38%,transparent)!important;font-weight:800;letter-spacing:-.2px}
+
 .band-header{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;padding:6px 2px 8px;margin-bottom:2px;cursor:pointer;font-family:Calibri,'Segoe UI',system-ui,sans-serif;text-align:left;border-bottom:1px solid var(--border);min-height:38px}
 .band-caret{color:var(--silver);font-size:calc(11px + var(--ts));width:11px;flex-shrink:0}
 .band-range{font-family:Consolas,'Courier New',monospace;font-size:calc(12px + var(--ts));font-weight:700;letter-spacing:.6px;color:var(--steel);border:1px solid var(--border);border-radius:6px;padding:2px 9px}
@@ -736,6 +855,10 @@ body.text-l{--ts:4px;}
         <button data-state="archived" onclick="setBoardView('archived')">📦 Archived</button>
         <button class="recessive" data-state="deleted" onclick="setBoardView('deleted')">🗑️ Deleted</button>
       </div>
+      <div class="hub-view-toggle" id="hub-view-toggle">
+        <button data-view="cards" class="active" onclick="setHubView('cards')" title="Cards view">▤ Cards</button>
+        <button data-view="list" onclick="setHubView('list')" title="List view">☰ List</button>
+      </div>
       <select class="dash-sort" id="dash-sort" onchange="onSortChange()">
         <option value="number-asc">Sort: Project # A→Z</option>
         <option value="number-desc">Sort: Project # Z→A</option>
@@ -1148,9 +1271,18 @@ function _pmAvatar(userId) {
   if (!userId) return '';
   var ini = _userInitials[userId];
   if (!ini) return '';
-  return '<span class="pm-avatar" style="background:' + _pmColour(userId) + '" title="' + esc(_userMap[userId] || '') + '">' + esc(ini) + '</span>';
+  return '<span class="pm-avatar" style="--avc:' + _pmColour(userId) + ';background:' + _pmColour(userId) + '" title="' + esc(_userMap[userId] || '') + '">' + esc(ini) + '</span>';
 }
-let _filterMode = 'my';   // 'my' or 'all' or 'starred'
+let _filterMode = 'my';
+/* S494: Cards/List view — locked June feature, restored. Persists per device. */
+let _hubView = (function(){ try { var v = localStorage.getItem('arencon-hub-view'); return (v === 'cards' || v === 'list') ? v : 'cards'; } catch(e){ return 'cards'; } })();
+function setHubView(v) {
+  _hubView = v;
+  try { localStorage.setItem('arencon-hub-view', v); } catch (e) {}
+  var btns = document.querySelectorAll('#hub-view-toggle button');
+  btns.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-view') === v); });
+  renderProjects();
+}   // 'my' or 'all' or 'starred'
 let _showArchived = false;
 let _showDeleted = false;
 let _darkMode = localStorage.getItem('ARENCON_Dark') === '1';
@@ -1952,6 +2084,9 @@ function renderProjects() {
   /* S493: the regular grid is now BANDED. Pinned and Starred stay flat — they
      are deliberate overrides of the filing order, so grouping them by file
      number would defeat their purpose. */
+  /* S494: list view applies to the REGULAR grid only — Pinned and Starred stay
+     as cards (June-locked behaviour; pinned cards are a live feature, untouched). */
+  grid.classList.toggle('view-list', _hubView === 'list' && !_showDeleted);
   if (regular.length === 0) {
     grid.innerHTML = '';
     grid.classList.remove('is-banded');
@@ -1965,7 +2100,10 @@ function renderProjects() {
        the outer structure, a non-number sort could only reorder WITHIN each
        band — "Backup needed" would leave never-backed-up projects buried in
        their bands, which defeats the sort's whole purpose. */
-    grid.innerHTML = regular.map(function(p) { return _renderProjectCard(p, myId); }).join('');
+    /* S494: flat render — in list view, wrap in an inner .project-grid-inner so the
+       descendant list rules hit rows exactly as they do inside a band. */
+    var _flat = regular.map(function(p) { return _renderProjectCard(p, myId); }).join('');
+    grid.innerHTML = (_hubView === 'list' && !_showDeleted) ? '<div class="project-grid-inner">' + _flat + '</div>' : _flat;
     grid.classList.remove('is-banded');
   }
   _renderStatsStrip();
@@ -2007,7 +2145,7 @@ function _renderProjectCard(p, myId) {
   // Tool icons (hover for name)
   var tools = (p.enabled_tools || []);
   var toolIcons = tools.length > 0
-    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-pill" style="background:' + ti.color + '" title="' + esc(ti.name) + '">' + ti.svg + ti.short + '</span>' : ''; }).join('')
+    ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-pill tp-' + t + '" style="background:' + ti.color + '" title="' + esc(ti.name) + '">' + ti.svg + ti.short + '</span>' : ''; }).join('')
     : '<span style="font-size:calc(10px + var(--ts));color:var(--silver)">No tools</span>';
 
   // Progress chips

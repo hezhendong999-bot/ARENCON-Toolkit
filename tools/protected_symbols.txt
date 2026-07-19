@@ -105,3 +105,9 @@ SEAL_COVER_LABEL
 _renderSealMarkersInViewer
 _frtRefreshSealMarkers
 _sealRows
+
+@ Cards/List view toggle — locked June list view, recovered from pre-wipe blob 4e8837a1 and restored (S494, Mark: "This is it. Wire it")
+setHubView
+_hubView
+.hub-view-toggle
+.view-list
