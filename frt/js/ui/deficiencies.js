@@ -6700,7 +6700,7 @@ document.addEventListener('change', function(e) {
     // (and withdraw a previous auto entry the correction orphaned). Fires
     // for BOTH render sites of this dropdown — pin editor and Deficiencies
     // tab — per Mark's "both" ruling. No render here (S247 rule stands).
-    _tradeWriteBack(_tdid, _toi);
+    _tradeWriteBack(_tdid, _toi, e.target);
     Model.saveNow();
     // S247: removed redundant initDeficiencies.render() here. The trade is
     // saved above (updateObsTrade + saveNow). The full-list re-render was
@@ -6720,7 +6720,7 @@ document.addEventListener('change', function(e) {
 // itself — callers own their render timing (the pin-editor path must stay
 // render-free per the S247 photo-grid-freeze rule; the roster repaints on
 // its next open, and the model notify keeps live listeners current).
-function _tradeWriteBack(deficId, obsIdx) {
+function _tradeWriteBack(deficId, obsIdx, selEl) {
   var r = Model.evalTradeWriteBack(deficId, obsIdx);
   if (!r) return;
   if (r.added) {
@@ -6728,14 +6728,25 @@ function _tradeWriteBack(deficId, obsIdx) {
     return;
   }
   if (r.confirm) {
-    showConfirm('Add to contractor roster?',
+    showConfirm('Assign this trade?',
       (ctrLabel(r.ctr.name) || 'This contractor') + ' isn\u2019t listed for \u201C' + r.trade +
-      '\u201D yet \u2014 add it to their roster too? (No keeps the observation\u2019s trade and leaves the roster unchanged.)')
+      '\u201D \u2014 assign it and add it to their roster? (No clears the trade from this observation and leaves the roster unchanged.)')
       .then(function(yes) {
         if (yes) {
           Model.addContractorToTradeAuto(r.ctr.id, r.trade);
           toast('\u2714 ' + (ctrLabel(r.ctr.name) || 'Contractor') + ' added to ' + r.trade);
+          return;
         }
+        // S490 (Mark's ruling, field-verify S489b test 3): No is an answer
+        // about the ASSIGNMENT, and the pill represents the assignment. The
+        // observation reverts to blank so the pill never displays a declined
+        // decision, and re-picking the same trade re-evaluates \u2014 which
+        // re-asks. tradeSource stays 'manual' so the AI tagger won't refill
+        // the deliberate clear (same rule as clearObsTrade).
+        Model.updateObsTrade(deficId, obsIdx, '', 'manual');
+        Model.saveNow();
+        if (selEl && selEl.isConnected) selEl.value = '';
+        toast('Trade cleared \u2014 not assigned');
       });
   }
 }
