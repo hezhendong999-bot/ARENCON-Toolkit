@@ -154,3 +154,13 @@ _injectModalX
 .rctl
 .rempty
 
+@ Deleted Reports Stage 1 — report delete is a SOFT delete (deleted_at/deleted_by), restorable from the project; deleted reports filtered at the SOURCE so they never leak into exports; permanent delete is admin-only (Mark, design S494, shipped S495 Lane B)
+_loadAndRenderDeletedInstances
+restoreInstance
+purgeInstance
+_canPurgeReports
+detail-deleted-section
+detail-deleted-instances
+deleted-reports-count
+.rrow.is-deleted
+

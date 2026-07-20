@@ -462,6 +462,10 @@ body.dark-mode .tw.off .tw-sw{background:#2a3040;}
 .rrow .rmeta{display:flex;align-items:center;gap:8px;font-size:calc(10.5px + var(--ts));color:var(--silver);flex-wrap:wrap;}
 .rctl{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .rempty{border:1.5px dashed var(--border);border-radius:10px;padding:14px;text-align:center;color:var(--silver);font-size:calc(11.5px + var(--ts));margin-bottom:7px;}
+/* S495: deleted rows read as inactive — muted, not alarming. They are recoverable. */
+.rrow.is-deleted{cursor:default;opacity:.72;background:transparent;border-style:dashed;}
+.rrow.is-deleted:hover{transform:none;border-color:var(--border);}
+.rrow.is-deleted .rtitle{font-weight:600;}
 body.dark-mode .rrow{background:var(--smoke);}
 @media(max-width:560px){.rctl .ri-status-sel{display:none;}}
 /* Delete project confirm */
@@ -1091,6 +1095,18 @@ body.text-l{--ts:4px;}
         <div id="detail-instances"></div>
       </div>
     </div>
+    <!-- S495: Deleted Reports. Hidden entirely unless this project has some —
+         an always-visible empty "Deleted" section invites curiosity clicks on a
+         recovery surface nobody needs 99% of the time. -->
+    <div class="detail-section" id="detail-deleted-section" style="display:none">
+      <div class="detail-section-header" onclick="toggleDetailSection('detail-deleted-section')">
+        <h3>🗑️ Deleted Reports <span id="deleted-reports-count" class="rg-cnt"></span></h3>
+        <span class="detail-fold-arrow" id="fold-arrow-detail-deleted-section">▾</span>
+      </div>
+      <div class="detail-section-body collapsed" id="body-detail-deleted-section">
+        <div id="detail-deleted-instances"></div>
+      </div>
+    </div>
     <div class="detail-section" id="detail-gallery-section">
       <div class="detail-section-header" onclick="toggleDetailSection('detail-gallery-section')">
         <h3>📸 Project Photos</h3>
@@ -1561,6 +1577,14 @@ function createSupabaseClient(url, key) {
         select(cols) { _select = cols || '*'; return builder; },
         eq(col, val) { _filters.push(`${col}=eq.${val}`); return builder; },
         neq(col, val) { _filters.push(`${col}=neq.${val}`); return builder; },
+        /* S495: needed for soft-delete. Deleted rows must be excluded at the
+           SOURCE (the query), never merely hidden in the UI — a UI-only filter
+           leaks deleted reports into Export Project Docs bundles and any future
+           consumer that forgets to re-filter. PostgREST spells this `is.null`. */
+        is(col, val) { _filters.push(`${col}=is.${val === null ? 'null' : val}`); return builder; },
+        /* S495: the inverse — used only by the Deleted Reports section, which is
+           the one surface that deliberately reads soft-deleted rows. */
+        notIs(col, val) { _filters.push(`${col}=not.is.${val === null ? 'null' : val}`); return builder; },
         ilike(col, val) { _filters.push(`${col}=ilike.${encodeURIComponent(val)}`); return builder; },
         order(col, opts = {}) { _order = col + (opts.ascending === false ? '.desc' : '.asc'); return builder; },
         single() { _single = true; return builder; },
@@ -2500,6 +2524,7 @@ function openProject(projectId) {
   _renderDetailInfo(proj);
   _renderDetailTools(proj);
   _loadAndRenderInstances(proj);
+  _loadAndRenderDeletedInstances(proj);
   pgLoad(proj.id);
   r2RefreshStatus();
 
@@ -2515,7 +2540,11 @@ function openProject(projectId) {
   document.getElementById('btn-archive-proj').style.display = isTrashed ? 'none' : '';
   document.getElementById('btn-delete-proj').style.display = isTrashed ? 'none' : '';
   document.getElementById('btn-restore-proj').style.display = isTrashed ? '' : 'none';
-  document.getElementById('btn-purge-proj').style.display = isTrashed ? '' : 'none';
+  // S495: the FUNCTION gate (S493) already blocks non-admins, but the button
+  // still rendered for them — an inspector saw "Delete Forever" and got only an
+  // error toast on tap. A dangerous control must never be visible to someone who
+  // cannot use it. Visibility now mirrors _canPurgeProjects() exactly.
+  document.getElementById('btn-purge-proj').style.display = (isTrashed && _canPurgeProjects()) ? '' : 'none';
 }
 
 function _renderDetailTools(proj) {
@@ -2627,7 +2656,7 @@ async function _loadAndRenderInstances(proj) {
   // Fetch all instances for this project
   var allInstances = [];
   try {
-    var rows = await _sb.from('tool_data').eq('project_id', proj.id).order('tool_key').order('instance_number').execute();
+    var rows = await _sb.from('tool_data').eq('project_id', proj.id).is('deleted_at', null).order('tool_key').order('instance_number').execute();
     if (rows) allInstances = rows;
   } catch(e) {
     container.innerHTML = '<div class="ri-loading">Could not load reports — check connection.</div>';
@@ -2700,7 +2729,11 @@ async function _loadAndRenderInstances(proj) {
              pull "(3 noted, 1 open...)" into the rename box.
              label = the custom name if one was set; title = what the row
              actually reads right now (auto-generated when label is empty). */
-          label: inst.label || '', title: title };
+          label: inst.label || '', title: title,
+          /* S495: the delete dialog warns harder when a report has been ISSUED
+             (it went to a client). Recorded here because the row markup carries
+             no status the dialog can read back. */
+          status: status, issuedDate: (status === 'issued' ? date : '') };
         var actionsHtml = isViewer ? '' :
           '<span class="rctl">'
           + '<select class="ri-status-sel" onclick="event.stopPropagation()" onchange="changeInstanceStatus(\'' + inst.id + '\',this.value)">'
@@ -2739,6 +2772,59 @@ async function _loadAndRenderInstances(proj) {
 }
 
 var _riMeta = {};   // instanceId -> {mine, name} — populated on picker render (S397)
+
+/* S495 — DELETED REPORTS. Reads the rows every other query now excludes.
+   Shows what was deleted, who deleted it and when, with Restore always
+   available and permanent deletion gated to admins. The whole section stays
+   hidden when the project has no deleted reports. */
+async function _loadAndRenderDeletedInstances(proj) {
+  var sec = document.getElementById('detail-deleted-section');
+  var container = document.getElementById('detail-deleted-instances');
+  var cntEl = document.getElementById('deleted-reports-count');
+  if (!sec || !container) return;
+
+  var rows = [];
+  try {
+    rows = await _sb.from('tool_data').eq('project_id', proj.id)
+      .notIs('deleted_at', null).order('tool_key').order('instance_number').execute();
+  } catch (e) {
+    sec.style.display = 'none';
+    return;
+  }
+  if (!rows || rows.length === 0) { sec.style.display = 'none'; return; }
+
+  sec.style.display = '';
+  if (cntEl) cntEl.textContent = rows.length === 1 ? '1 report' : rows.length + ' reports';
+
+  var sfn = buildSmartFilename(proj);
+  var canPurge = _canPurgeReports();
+  var html = '';
+  rows.forEach(function(inst) {
+    var t = AVAILABLE_TOOLS[inst.tool_key];
+    var prefix = _TOOL_PREFIXES[inst.tool_key] || String(inst.tool_key).toUpperCase();
+    var shortName = _TOOL_SHORT_NAMES[inst.tool_key] || (t ? t.name : inst.tool_key);
+    var defaultTitle = sfn ? (sfn + ' ' + prefix + ' #' + inst.instance_number)
+                           : (shortName + ' Report #' + inst.instance_number);
+    var title = inst.label || defaultTitle;
+    var who = inst.deleted_by ? (_userMap[inst.deleted_by] || 'someone') : 'someone';
+    var when = inst.deleted_at ? new Date(inst.deleted_at).toLocaleDateString('en-CA') : '—';
+    var safeTitle = esc(title).replace(/'/g, "\\'");
+    html += '<div class="rrow is-deleted" style="--tc:' + (t ? t.color : 'var(--silver)') + '">'
+      + '<div class="rmain">'
+      + '<div class="rtitle">' + esc(title) + '</div>'
+      + '<div class="rmeta">'
+      + '<span>Deleted by ' + esc(who) + ' \u00B7 ' + when + '</span>'
+      + '<span class="ri-status ' + (inst.status || 'draft') + '">' + (inst.status || 'draft') + '</span>'
+      + '</div>'
+      + '</div>'
+      + '<span class="rctl">'
+      + '<button class="btn-new" onclick="event.stopPropagation();restoreInstance(\'' + inst.id + '\',\'' + safeTitle + '\')">\u21A9 Restore</button>'
+      + (canPurge ? '<button class="ri-act-btn danger" title="Delete forever" onclick="event.stopPropagation();purgeInstance(\'' + inst.id + '\',\'' + safeTitle + '\')">\uD83D\uDDD1\uFE0F</button>' : '')
+      + '</span>'
+      + '</div>';
+  });
+  container.innerHTML = html;
+}
 // OWNERSHIP WARN (S397): opening a colleague's report lets your device autosave
 // over their work — the exact multi-device pile-on that reconciled away photos on
 // 7155.51. Warn (in-DOM modal, never browser confirm) before opening a report you
@@ -2787,7 +2873,13 @@ async function createNewReport(key) {
   var t = AVAILABLE_TOOLS[key];
   if (!t) return;
 
-  // Find next instance number
+  // Find next instance number.
+  // S495 — DELIBERATELY NOT filtered by deleted_at, unlike every other
+  // tool_data query. Report numbers must stay unique across the project's whole
+  // history: if FRT #3 were deleted and this query skipped it, the next report
+  // would also be #3, and restoring the original would leave two reports
+  // numbered #3 in one project. A deleted report still owns its number.
+  // Do not "fix" this to match the other queries.
   var nextNum = 1;
   try {
     var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).order('instance_number', {ascending:false}).execute();
@@ -2806,10 +2898,20 @@ async function createNewReport(key) {
   // exportRegistry/exportIds (CRB round math ties them to the noting report)
   // and the _s217/_s464 point-in-time backups. FRT ONLY — commissioning
   // tools (diesel/electric/IST) are genuinely per-visit and stay blank.
+  // S495: the numbering query above intentionally includes deleted reports, so
+  // existing[0] may BE a deleted one. Seeding from it would silently resurrect
+  // work someone deliberately removed. The number comes from all rows; the seed
+  // comes from the newest report still live.
+  var _seedSrc = null;
+  if (existing && existing.length > 0) {
+    for (var _si = 0; _si < existing.length; _si++) {
+      if (!existing[_si].deleted_at) { _seedSrc = existing[_si]; break; }
+    }
+  }
   var seedData = {};
-  if (key === 'frt' && nextNum > 1 && existing && existing.length > 0 && existing[0].data) {
+  if (key === 'frt' && nextNum > 1 && _seedSrc && _seedSrc.data) {
     try {
-      seedData = JSON.parse(JSON.stringify(existing[0].data));
+      seedData = JSON.parse(JSON.stringify(_seedSrc.data));
       delete seedData.exportRegistry;
       delete seedData.exportIds;
       delete seedData._s217Backup;
@@ -3784,7 +3886,7 @@ function _syncBulkVisuals() {
     document.getElementById('bulk-btn-export').style.display = inTrash ? 'none' : '';
     document.getElementById('bulk-btn-delete').style.display = inTrash ? 'none' : '';
     document.getElementById('bulk-btn-restore').style.display = inTrash ? '' : 'none';
-    document.getElementById('bulk-btn-purge').style.display = inTrash ? '' : 'none';
+    document.getElementById('bulk-btn-purge').style.display = (inTrash && _canPurgeProjects()) ? '' : 'none';
   }
 }
 
@@ -3979,21 +4081,101 @@ async function renameInstance(instanceId) {
 }
 
 async function deleteInstance(instanceId, title) {
-  // S122 Push 9 — promoted from raw confirm() to type-DELETE modal since the
-  // delete is irreversible. Reuses _typeToConfirmPurge introduced for project
-  // purge. User must type DELETE before the OK button enables.
+  // S495 — DELETED REPORTS STAGE 1. This used to hard-DELETE the row: a staff
+  // member could permanently destroy a site visit with no restore path. It now
+  // sets deleted_at/deleted_by, mirroring the project soft-delete that already
+  // works. The row is never removed by a staff action; only an admin can purge.
+  // One tap, not type-to-confirm — the standing rule is that recoverable
+  // actions confirm once and the dialog says where the undo lives.
+  if (!window.Dlg || typeof Dlg.confirmDanger !== 'function') {
+    toast('Dialog engine not loaded \u2014 refresh the page', 'error');
+    return;
+  }
+  var _m = _riMeta[instanceId] || {};
+  // An issued report went to a client. Warn harder than for a draft.
+  var _detail = (_m.status === 'issued')
+    ? 'This report was ISSUED' + (_m.issuedDate ? ' on ' + _m.issuedDate : '')
+      + ' \u2014 it has gone to a client. It disappears from the project and from '
+      + 'exports. Nothing is destroyed.'
+    : 'It disappears from the project and from exports. Nothing is destroyed \u2014 '
+      + 'no photo and no entry is deleted.';
+  var _ok = await Dlg.confirmDanger({
+    title: 'Move report to Deleted',
+    message: 'Move \u201C' + (title || 'Untitled') + '\u201D to Deleted Reports?',
+    detail: _detail,
+    undoNote: 'Open the Deleted Reports section on this project to restore it.',
+    confirmText: 'Move to Deleted',
+    icon: '\u{1F5D1}'
+  });
+  if (!_ok) return;
+  try {
+    await _sb.from('tool_data').eq('id', instanceId).update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: _user ? _user.id : null
+    });
+    toast('Report moved to Deleted \u2014 restore from this project', 'success');
+    if (_detailProjectId) {
+      var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+      if (proj) { _loadAndRenderInstances(proj); _loadAndRenderDeletedInstances(proj); }
+    }
+  } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+}
+
+/* ═══ S495 — Deleted Reports: restore + admin-only permanent delete ═══ */
+
+async function restoreInstance(instanceId, title) {
+  if (!window.Dlg || typeof Dlg.confirm !== 'function') {
+    toast('Dialog engine not loaded \u2014 refresh the page', 'error');
+    return;
+  }
+  var _ok = await Dlg.confirm({
+    title: 'Restore report',
+    message: 'Restore \u201C' + (title || 'Untitled') + '\u201D back into the project?',
+    detail: 'It returns to its tool group unchanged, keeping its original report number.',
+    confirmText: 'Restore',
+    accent: 'ok',
+    icon: '\u21A9'
+  });
+  if (!_ok) return;
+  try {
+    await _sb.from('tool_data').eq('id', instanceId).update({
+      deleted_at: null, deleted_by: null
+    });
+    toast('Report restored', 'success');
+    if (_detailProjectId) {
+      var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+      if (proj) { _loadAndRenderInstances(proj); _loadAndRenderDeletedInstances(proj); }
+    }
+  } catch (e) { toast('Restore failed: ' + e.message, 'error'); }
+}
+
+// Permanent report deletion is admin/super_admin only, checked in the FUNCTION
+// (not merely hidden in the UI) so no other entry point can reach it — same
+// pattern as project purge (S493).
+function _canPurgeReports() {
+  return !!(_profile && (_profile.role === 'admin' || _profile.role === 'super_admin'));
+}
+
+async function purgeInstance(instanceId, title) {
+  if (!_canPurgeReports()) {
+    toast('Only administrators can permanently delete reports', 'error');
+    return;
+  }
+  // Unrecoverable, so this one keeps type-to-confirm — same gate as project
+  // purge. The one-tap rule applies to recoverable actions.
   _typeToConfirmPurge(
-    'Delete Report',
-    'This will permanently delete report "' + (title || 'Untitled') + '". This cannot be undone.',
+    'Permanently Delete Report',
+    'This will PERMANENTLY delete \u201C' + (title || 'Untitled') + '\u201D and its data. '
+      + 'This cannot be undone and it cannot be restored from Deleted Reports.',
     async function() {
       try {
         await _sb.from('tool_data').eq('id', instanceId).delete();
-        toast('Report deleted', 'success');
+        toast('Report permanently deleted', 'success');
         if (_detailProjectId) {
           var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
-          if (proj) _loadAndRenderInstances(proj);
+          if (proj) _loadAndRenderDeletedInstances(proj);
         }
-      } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+      } catch (e) { toast('Purge failed: ' + e.message, 'error'); }
     }
   );
 }
@@ -4024,7 +4206,7 @@ async function loadRecentActivity() {
   var list = document.getElementById('activity-list');
   if (!section || !list) return;
   try {
-    var rows = await _sb.from('tool_data').select('id,project_id,tool_key,label,instance_number,status,updated_by,updated_at').order('updated_at', { ascending: false }).execute();
+    var rows = await _sb.from('tool_data').select('id,project_id,tool_key,label,instance_number,status,updated_by,updated_at').is('deleted_at', null).order('updated_at', { ascending: false }).execute();
     if (!rows || rows.length === 0) { section.style.display = 'none'; return; }
     _activityCache = rows.slice(0, 15);
     section.style.display = 'block';
@@ -4056,7 +4238,7 @@ var _projectInstanceCounts = {};
 
 async function loadAllInstanceCounts() {
   try {
-    var rows = await _sb.from('tool_data').select('project_id,status').execute();
+    var rows = await _sb.from('tool_data').select('project_id,status').is('deleted_at', null).execute();
     _projectInstanceCounts = {};
     if (rows && rows.length) {
       rows.forEach(function(r) {
@@ -4246,7 +4428,7 @@ function _downloadJSON(data, filename) {
 
 async function _fetchProjectToolData(projectId) {
   try {
-    var rows = await _sb.from('tool_data').eq('project_id', projectId).execute();
+    var rows = await _sb.from('tool_data').eq('project_id', projectId).is('deleted_at', null).execute();
     return (rows && rows.data) ? rows.data : [];
   } catch (e) { return []; }
 }
@@ -5029,7 +5211,7 @@ async function pgLoad(projectId) {
   });
 
   try {
-    var rows = await _sb.from('tool_data').eq('project_id', projectId).order('tool_key').order('instance_number').execute();
+    var rows = await _sb.from('tool_data').eq('project_id', projectId).is('deleted_at', null).order('tool_key').order('instance_number').execute();
     if (rows) {
       rows.forEach(function(row) {
         var extracted = _pgExtractPhotos(row);
@@ -6140,7 +6322,7 @@ const _EPD_TOOL_LABEL = {
 };
 
 async function _epdFetchRows(projectId) {
-  const rows = await _sb.from('tool_data').eq('project_id', projectId).execute();
+  const rows = await _sb.from('tool_data').eq('project_id', projectId).is('deleted_at', null).execute();
   return (rows || []).filter(r => r && TOOL_SOURCES[r.tool_key]);
 }
 
