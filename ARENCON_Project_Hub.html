@@ -160,9 +160,14 @@ body.dark-mode .hub-view-toggle{background:var(--card)}
 /* S494: board never shows Draft/Issued \u2014 nothing may share column 7 with backup. */
 .project-card-bottom .progress-chip{display:none!important}
 .view-list .project-card-bottom>span[style]:not(.tool-pill):not(.progress-chip):not(.backup-status){display:none}/* hide only the "No tools" placeholder */
-/* list view: compress the long "Not backed up" to an icon to save width */
-.view-list .backup-status.not-backed{font-size:0 !important}
-.view-list .backup-status.not-backed::before{content:'⚠';font-size:calc(13px + var(--ts));color:var(--warn,#E0A36A)}
+/* S494 (Mark): the backup column is 92px wide either way, so on desktop the full
+   "⚠ Not backed up" text shows — the bare icon just left an odd gap. Under 900px
+   the text collapses back to the icon so the column still fits. */
+.view-list .backup-status.not-backed{font-size:calc(10.5px + var(--ts));color:var(--warn,#E0A36A);font-weight:600;white-space:nowrap}
+@media(max-width:900px){
+  .view-list .backup-status.not-backed{font-size:0 !important}
+  .view-list .backup-status.not-backed::before{content:'⚠';font-size:calc(13px + var(--ts));color:var(--warn,#E0A36A)}
+}
 .view-list .backup-status{color:var(--silver)}
 /* demo-black list surface (override the greyish card fill) */
 body.dark-mode .view-list .project-card{background:transparent !important;border:none !important;border-bottom:1px solid rgba(255,255,255,.06) !important;box-shadow:none !important;border-radius:0 !important}
@@ -1234,24 +1239,12 @@ body.text-l{--ts:4px;}
       <label>Address</label>
       <input type="text" id="ep-address">
     </div>
-    <div class="modal-field">
-      <label>Building Description</label>
-      <textarea id="ep-building-desc" rows="2" style="resize:vertical"></textarea>
-    </div>
+    <!-- S494 (Mark): Building Description field removed from Edit Project -->
     <div class="modal-field">
       <label>Project Manager</label>
       <select id="ep-pm"><option value="">— Select —</option></select>
     </div>
-    <div class="modal-field">
-      <label>Construction Type</label>
-      <select id="ep-construction-type">
-        <option value="">— Select —</option>
-        <option value="Combustible">Combustible</option>
-        <option value="Non-Combustible">Non-Combustible</option>
-        <option value="Heavy Timber">Heavy Timber</option>
-        <option value="Mixed">Mixed</option>
-      </select>
-    </div>
+    <!-- S494 (Mark): Construction Type field removed from Edit Project -->
     <div class="modal-actions">
       <button class="dash-btn secondary" onclick="closeEditProjectModal()">Cancel</button>
       <button class="dash-btn primary" id="ep-save-btn" onclick="saveEditProject()">Save Changes</button>
@@ -2901,9 +2894,7 @@ function openEditProjectModal() {
   document.getElementById('ep-name').value = proj.project_name || '';
   document.getElementById('ep-client').value = proj.client || '';
   document.getElementById('ep-address').value = proj.address || '';
-  document.getElementById('ep-building-desc').value = proj.building_description || '';
   document.getElementById('ep-pm').value = proj.project_manager || '';
-  document.getElementById('ep-construction-type').value = proj.construction_type || '';
   document.getElementById('edit-project-modal').classList.add('show');
   // S493: snapshot what the form opened with, so Cancel can tell edited from
   // untouched and only interrupt when something would actually be lost.
@@ -2913,7 +2904,7 @@ function openEditProjectModal() {
 
 var _epSnapshot = null;
 function _epReadFields() {
-  var ids = ['ep-number','ep-name','ep-client','ep-address','ep-building-desc','ep-pm','ep-construction-type'];
+  var ids = ['ep-number','ep-name','ep-client','ep-address','ep-pm']; /* S494: desc/ctype fields removed */
   return ids.map(function(id){ var el = document.getElementById(id); return el ? el.value : ''; }).join('\u0001');
 }
 
@@ -2945,10 +2936,8 @@ async function saveEditProject() {
   var name = document.getElementById('ep-name').value.trim();
   var client = document.getElementById('ep-client').value.trim();
   var address = document.getElementById('ep-address').value.trim();
-  var bldgDesc = document.getElementById('ep-building-desc').value.trim();
-  var pmVal = document.getElementById('ep-pm').value || null;
-  var consType = document.getElementById('ep-construction-type').value;
-  if (!num || !name) {
+    var pmVal = document.getElementById('ep-pm').value || null;
+    if (!num || !name) {
     toast('Project number and name are required', 'error');
     return;
   }
@@ -2961,9 +2950,9 @@ async function saveEditProject() {
       project_name: name,
       client: client || null,
       address: address || null,
-      building_description: bldgDesc || null,
-      project_manager: pmVal,
-      construction_type: consType || null
+      project_manager: pmVal
+      /* S494 (Mark): building_description / construction_type dropped from the form.
+         Keys omitted entirely so any existing values in the DB are left untouched. */
     };
     await _sb.from('projects').eq('id', proj.id).update(updates);
     // Update local
