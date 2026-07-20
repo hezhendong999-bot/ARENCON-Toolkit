@@ -157,6 +157,8 @@ body.dark-mode .hub-view-toggle{background:var(--card)}
 /* progress chip + backup share the 7th fixed column, single line, no wrap */
 .view-list .project-card .project-card-bottom .progress-chip{grid-column:7;grid-row:1;margin:0;justify-self:start;white-space:nowrap;font-size:calc(10.5px + var(--ts))}
 .view-list .project-card .project-card-bottom .backup-status{grid-column:7;grid-row:1;margin:0;justify-self:start;white-space:nowrap;font-size:calc(11px + var(--ts))}
+/* S494: board never shows Draft/Issued \u2014 nothing may share column 7 with backup. */
+.project-card-bottom .progress-chip{display:none!important}
 .view-list .project-card-bottom>span[style]:not(.tool-pill):not(.progress-chip):not(.backup-status){display:none}/* hide only the "No tools" placeholder */
 /* list view: compress the long "Not backed up" to an icon to save width */
 .view-list .backup-status.not-backed{font-size:0 !important}
@@ -2197,7 +2199,13 @@ function _renderProjectCard(p, myId) {
     : '<span style="font-size:calc(10px + var(--ts));color:var(--silver)">No tools</span>';
 
   // Progress chips
-  var progressHtml = _getProgressChipsHtml(p.id);
+  /* S494 (Mark): Draft/Issued chips dropped from the board \u2014 June-locked decision,
+     detail page only. They shared grid-column 7 with the backup stamp in list view,
+     so a Draft chip widened the cell and shoved the tool pills out of their fixed
+     columns \u2014 the exact vertical alignment the list exists for.
+     _getProgressChipsHtml and _projectInstanceCounts stay: the header notification
+     badge still counts drafts. */
+  var progressHtml = '';
 
   // Trash view
   if (_showDeleted && p.deleted_at) {
