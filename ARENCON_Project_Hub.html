@@ -739,6 +739,20 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 .pm-avatar{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.4px;margin-left:auto;flex-shrink:0;font-family:Calibri,'Segoe UI',system-ui,sans-serif}
 .backup-status{font-size:calc(10px + var(--ts));padding:0 18px 8px;color:var(--silver);font-weight:500}
 .backup-status.not-backed{color:var(--warn)}
+/* S495 — backup age tiers. Text tint ONLY. Never card fills or left edges:
+   colour that covers everything stops meaning anything. Ordered least→most
+   severe; 'not-backed' already reads as warn and is treated as worst. */
+.backup-status.age-30{color:var(--warn,#B7791F);font-weight:600}
+.backup-status.age-60{color:#C98A4A;font-weight:600}
+.backup-status.age-90{color:#C0445F;font-weight:700}
+body.dark-mode .backup-status.age-30{color:#E0A36A}
+body.dark-mode .backup-status.age-60{color:#E0A36A}
+body.dark-mode .backup-status.age-90{color:#E26076}
+/* Compact/list views collapse the label to an icon — keep the tier colour on it. */
+.view-list .backup-status.age-90::before,.view-cards .backup-status.age-90::before{color:#C0445F}
+.view-list .backup-status.age-60::before,.view-cards .backup-status.age-60::before{color:#C98A4A}
+.view-list .backup-status.age-30::before,.view-cards .backup-status.age-30::before{color:var(--warn,#B7791F)}
+body.dark-mode .view-list .backup-status.age-90::before,body.dark-mode .view-cards .backup-status.age-90::before{color:#E26076}
 /* ═══ PROJECT PHOTO GALLERY ═══ */
 .pg-filter-group{display:flex;gap:4px;background:var(--surface,#f0f2f5);border-radius:8px;padding:3px;}
 .pg-filter{padding:5px 13px;border:none;background:transparent;border-radius:6px;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;color:var(--fg-muted,#666);font-family:Calibri,sans-serif;transition:all .15s;}
@@ -970,6 +984,7 @@ body.text-l{--ts:4px;}
           <button class="dash-btn secondary" onclick="selectAllVisible()" title="Select all visible">All</button>
           <button class="dash-btn secondary" onclick="selectAllPinned()" title="Select pinned">📌 Pinned</button>
           <button class="dash-btn secondary" onclick="selectAllStarred()" title="Select starred">⭐ Starred</button>
+          <button class="dash-btn secondary" onclick="selectNotBackedUp()" title="Select every project that has never been backed up">⚠ Not backed up</button>
         </div>
       </div>
       <button class="dash-btn primary" onclick="openNewProjectModal()">+ New Project</button>
@@ -2406,11 +2421,22 @@ function _renderProjectCard(p, myId) {
   }
 
   // Backup status
+  /* S495 — backup AGE tiers (Mark's roadmap ask). A date alone doesn't tell you
+     whether it's stale; "2026-04-02" means nothing at a glance. Tiers: fresh
+     (<30d, quiet), 30d+ (amber), 60d+ (stronger amber), 90d+ and never (red).
+     DELIBERATELY text-tint only — no card fills, no left edges. Mark's rule: if
+     colour covers whole cards the board becomes a warning wall and colour stops
+     meaning anything. The tier is also exposed as a title tooltip so the age is
+     readable without doing date arithmetic. */
   var backupHtml = '';
   if (p.last_exported_at) {
-    backupHtml = '<span class="backup-status">📥 ' + formatDate(p.last_exported_at) + '</span>';
+    var _days = Math.floor((Date.now() - new Date(p.last_exported_at).getTime()) / 86400000);
+    var _tier = _days >= 90 ? ' age-90' : (_days >= 60 ? ' age-60' : (_days >= 30 ? ' age-30' : ''));
+    var _ageTxt = _days <= 0 ? 'today' : (_days === 1 ? '1 day ago' : _days + ' days ago');
+    backupHtml = '<span class="backup-status' + _tier + '" title="Last backed up ' + _ageTxt + '">📥 '
+      + formatDate(p.last_exported_at) + '</span>';
   } else {
-    backupHtml = '<span class="backup-status not-backed">⚠ Not backed up</span>';
+    backupHtml = '<span class="backup-status not-backed" title="This project has never been backed up">⚠ Not backed up</span>';
   }
 
   // Export button
@@ -4044,6 +4070,22 @@ function selectAllUnstarred() {
   var uid = _profile.id;
   _bulkSelected = [];
   _projects.forEach(function(p) { if (!p.deleted_at && (p.starred_by || []).indexOf(uid) < 0) _bulkSelected.push(p.id); });
+  _syncBulkVisuals();
+}
+
+/* S495 (Mark's roadmap ask): the stats strip already counts what needs backing
+   up and the sort already surfaces it, but selecting those projects still meant
+   ticking them one by one. This closes the loop: one tap selects everything
+   never exported, then the existing Export button backs them all up and stamps
+   each one. Archived projects are excluded — they are deliberate filing, not
+   live work waiting on a backup. */
+function selectNotBackedUp() {
+  _bulkSelected = [];
+  _projects.forEach(function(p) {
+    if (p.deleted_at || p.status === 'archived') return;
+    if (!p.last_exported_at) _bulkSelected.push(p.id);
+  });
+  if (_bulkSelected.length === 0) toast('Everything is backed up', 'success');
   _syncBulkVisuals();
 }
 

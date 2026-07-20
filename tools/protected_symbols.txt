@@ -175,3 +175,9 @@ np-dupe-warn
 .np-suggest-chip
 .np-note-warn
 
+@ Backup discipline — one-tap select of every never-backed-up project, and backup AGE tiers (30/60/90/never) as TEXT TINT ONLY, never card fills or left edges (Mark, roadmap, shipped S495 Lane B)
+selectNotBackedUp
+.backup-status.age-30
+.backup-status.age-60
+.backup-status.age-90
+
