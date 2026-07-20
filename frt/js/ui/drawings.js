@@ -821,23 +821,142 @@ function _renderSealMarkersInViewer() {
   var dwg = null;
   try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
   var covers = (dwg && dwg.redactions) || [];
-  covers.forEach(function(b) {
+  var W = layer.clientWidth || 1, H = layer.clientHeight || 1;
+  covers.forEach(function(b, idx) {
     var el = document.createElement('div');
-    el.className = 'seal-mark';
+    el.className = 'seal-mark' + (_sealEditMode ? ' seal-editing' : '');
+    el.setAttribute('data-seal-i', String(idx));
     el.style.left = (b.x * 100) + '%'; el.style.top = (b.y * 100) + '%';
     el.style.width = (b.w * 100) + '%'; el.style.height = (b.h * 100) + '%';
-    el.innerHTML = '<span class="seal-mark-tab">\uD83D\uDD12 SEAL COVERED</span>';
+    /* Mark (S492): the viewer cover carries the SAME label the PDF prints —
+       "Seal redacted — refer to original issued drawing" — sized to the box
+       in SHEET space (like print), so what you see is what exports. */
+    var bw = b.w * W, bh = b.h * H;
+    var fs = Math.max(8, Math.min(bw / 12, bh / 2.6));
+    el.innerHTML = '<div class="seal-mark-label" style="font-size:' + fs + 'px;">Seal redacted \u2014 refer to original issued drawing</div>'
+      + (_sealEditMode
+        ? '<button class="seal-del" data-seal-del="' + idx + '">\u2715</button>'
+          + '<div class="seal-rs" data-seal-rs="' + idx + '"></div>'
+        : '');
     layer.appendChild(el);
   });
-  _syncSealScale();
   var btn = document.getElementById('dv-seal-btn');
   if (btn) {
     btn.classList.toggle('has-covers', covers.length > 0);
+    btn.classList.toggle('seal-armed', _sealEditMode);
     if (!btn.querySelector('.seal-dot')) {
       var dot = document.createElement('span'); dot.className = 'seal-dot'; btn.appendChild(dot);
     }
   }
+  layer.style.pointerEvents = _sealEditMode ? 'auto' : 'none';
+  layer.style.cursor = _sealEditMode ? 'crosshair' : '';
+  _syncSealScale();
 }
+
+/* ═══ INLINE SEAL EDITING (Mark, S492: "no need for this additional page —
+   draw it on the drawing viewer page alone"). The full-screen editor overlay
+   is GONE. The \uD83D\uDD12 toolbar button ARMS edit mode on the viewer's own marker
+   layer: drag empty sheet to draw a cover, drag a cover to move, drag its
+   corner to resize, \u2715 to delete (one-tap confirm — universal rule). Every
+   completed gesture saves via Model.saveNow(). Pan/zoom is suspended while
+   armed (the layer eats pointers); tap \uD83D\uDD12 again to finish and pan freely.
+   Fractions come from getBoundingClientRect, which already reflects the
+   wrap's zoom transform — no coordinate math against viewer internals. ═══ */
+var _sealEditMode = false;
+var _sealDrag = null;
+
+function _toggleSealEditMode() {
+  var dwg = null;
+  try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
+  if (!dwg) { toast('Open a drawing first'); return; }
+  _sealEditMode = !_sealEditMode;
+  _renderSealMarkersInViewer();
+  if (_sealEditMode) {
+    toast('\uD83D\uDD12 Seal mode \u2014 drag on the sheet to draw a cover. Tap \uD83D\uDD12 again to finish.');
+  } else {
+    try { initDrawings.render(); } catch (_e) {}   // card markers/badges catch up
+  }
+}
+
+function _sealFrac(ev, layer) {
+  var r = layer.getBoundingClientRect();
+  return { x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
+           y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) };
+}
+
+function _sealCommit(dwg) {
+  dwg.redactions = (dwg.redactions || [])
+    .filter(function(b) { return b.w > 0.004 && b.h > 0.004; })
+    .map(function(b) { return { x: +b.x.toFixed(4), y: +b.y.toFixed(4), w: +b.w.toFixed(4), h: +b.h.toFixed(4) }; });
+  Model.saveNow();
+  _renderSealMarkersInViewer();
+}
+
+(function _wireSealLayer() {
+  function arm() {
+    var layer = document.getElementById('dv-seal-layer');
+    if (!layer) { setTimeout(arm, 500); return; }
+    layer.addEventListener('pointerdown', function(ev) {
+      if (!_sealEditMode) return;
+      var dwg = null;
+      try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
+      if (!dwg) return;
+      if (!dwg.redactions) dwg.redactions = [];
+      var del = ev.target.closest && ev.target.closest('[data-seal-del]');
+      if (del) {
+        var di = parseInt(del.getAttribute('data-seal-del'), 10);
+        showConfirm('Remove cover', 'Remove this seal cover? The seal will appear in the PDF again unless a new cover is drawn.').then(function(yes) {
+          if (yes) { dwg.redactions.splice(di, 1); _sealCommit(dwg); }
+        });
+        ev.preventDefault(); return;
+      }
+      var p = _sealFrac(ev, layer);
+      var rs = ev.target.closest && ev.target.closest('[data-seal-rs]');
+      var bx = ev.target.closest && ev.target.closest('[data-seal-i]');
+      if (rs) {
+        var ri = parseInt(rs.getAttribute('data-seal-rs'), 10);
+        _sealDrag = { mode: 'resize', i: ri, start: p, orig: Object.assign({}, dwg.redactions[ri]) };
+      } else if (bx) {
+        var bi = parseInt(bx.getAttribute('data-seal-i'), 10);
+        _sealDrag = { mode: 'move', i: bi, start: p, orig: Object.assign({}, dwg.redactions[bi]) };
+      } else {
+        dwg.redactions.push({ x: p.x, y: p.y, w: 0, h: 0 });
+        _sealDrag = { mode: 'draw', i: dwg.redactions.length - 1, start: p, orig: { x: p.x, y: p.y, w: 0, h: 0 } };
+      }
+      try { layer.setPointerCapture(ev.pointerId); } catch (_e) {}
+      ev.preventDefault();
+    });
+    layer.addEventListener('pointermove', function(ev) {
+      if (!_sealEditMode || !_sealDrag) return;
+      var dwg = null;
+      try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
+      if (!dwg || !dwg.redactions) return;
+      var p = _sealFrac(ev, layer), b = dwg.redactions[_sealDrag.i], o = _sealDrag.orig;
+      if (!b) return;
+      if (_sealDrag.mode === 'draw') {
+        b.x = Math.min(_sealDrag.start.x, p.x); b.y = Math.min(_sealDrag.start.y, p.y);
+        b.w = Math.abs(p.x - _sealDrag.start.x); b.h = Math.abs(p.y - _sealDrag.start.y);
+      } else if (_sealDrag.mode === 'move') {
+        b.x = Math.min(Math.max(0, o.x + (p.x - _sealDrag.start.x)), 1 - o.w);
+        b.y = Math.min(Math.max(0, o.y + (p.y - _sealDrag.start.y)), 1 - o.h);
+      } else {
+        b.w = Math.min(Math.max(0.01, o.w + (p.x - _sealDrag.start.x)), 1 - o.x);
+        b.h = Math.min(Math.max(0.01, o.h + (p.y - _sealDrag.start.y)), 1 - o.y);
+      }
+      _renderSealMarkersInViewer();
+    });
+    function done() {
+      if (!_sealEditMode || !_sealDrag) return;
+      var dwg = null;
+      try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
+      _sealDrag = null;
+      if (dwg) _sealCommit(dwg);
+    }
+    layer.addEventListener('pointerup', done);
+    layer.addEventListener('pointercancel', done);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
+})();
 /* Field bug (Mark, S492): the marker layer inherits #dv-img-wrap's zoom
    transform — correct for POSITION, wrong for CHROME. At the fit-to-screen
    scale of a full-size sheet (often 0.2–0.4) the 2px dashed border and the
@@ -856,6 +975,22 @@ function _syncSealScale() {
   var inv = Math.min(14, Math.max(0.25, 1 / sc));
   layer.style.setProperty('--seal-inv', String(inv));
 }
+/* ═══ JUMP-RETURN (Mark, S492): anything that JUMPS the user into the viewer
+   sets window._frtJumpReturn = { reopen: fn } before opening. When the user
+   taps the viewer's \u2190 Back, the viewer closes normally (untouched) and the
+   origin is reopened on top \u2014 back goes to WHERE YOU CAME FROM, not the
+   Drawings tab. Consumed once; plain Back behaves as always when unset.
+   Pattern is generic: export contact sheet uses it now; deficiency-pin and
+   any future jump should set the same hook. */
+document.addEventListener('click', function(e) {
+  var back = e.target.closest && e.target.closest('#dv-close');
+  if (!back || !window._frtJumpReturn) return;
+  var ret = window._frtJumpReturn;
+  window._frtJumpReturn = null;
+  if (_sealEditMode) { _sealEditMode = false; }
+  setTimeout(function() { try { ret.reopen(); } catch (_e) {} }, 80);
+}, true);
+
 window._frtRefreshSealMarkers = _renderSealMarkersInViewer;
 (function _watchViewerForSeal() {
   function arm() {
@@ -872,157 +1007,12 @@ window._frtRefreshSealMarkers = _renderSealMarkersInViewer;
 })();
 
 function _openRedactionEditor(dwg) {
-  // Resolve the sheet image through the SAME chain the PDF export uses:
-  // in-record dataUrl \u2192 IDB drawingBlobs \u2192 R2.
-  function _sheetUrl() {
-    if (dwg.dataUrl) return Promise.resolve(dwg.dataUrl);
-    return IDB.get('drawingBlobs', dwg.id).then(function(rec) {
-      if (rec && rec.dataBlob && rec.dataBlob.size > 0) {
-        return new Promise(function(res) {
-          var rd = new FileReader();
-          rd.onload = function() { res(rd.result); };
-          rd.onerror = function() { res(null); };
-          rd.readAsDataURL(rec.dataBlob);
-        });
-      }
-      if (dwg.r2Url) {
-        return fetch(dwg.r2Url).then(function(r) { return r.blob(); }).then(function(b) {
-          return new Promise(function(res) {
-            var rd = new FileReader();
-            rd.onload = function() { res(rd.result); };
-            rd.onerror = function() { res(null); };
-            rd.readAsDataURL(b);
-          });
-        }).catch(function() { return null; });
-      }
-      return null;
-    }).catch(function() { return dwg.r2Url || null; });
-  }
-
-  var LABEL = 'Seal redacted \u2014 refer to original issued drawing';
-  // Working copy — Cancel discards, Save commits.
-  var boxes = (dwg.redactions || []).map(function(r) { return { x: r.x, y: r.y, w: r.w, h: r.h }; });
-
-  var ov = document.createElement('div');
-  ov.id = 'seal-redact-ov';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(12,14,20,.82);display:flex;flex-direction:column;font-family:Calibri,sans-serif;';
-  ov.innerHTML =
-    '<div style="flex:none;display:flex;align-items:center;gap:12px;padding:12px 18px;background:#1B2438;color:#fff;">'
-    + '<div style="font-size:16px;font-weight:700;">\uD83D\uDD12 Seal Redaction \u2014 ' + esc(dwg.name || 'Untitled') + '</div>'
-    + '<div style="font-size:12px;color:#9FB0CC;flex:1;">Drag on the sheet to draw a cover \u00B7 drag a cover to move \u00B7 drag its corner to resize. Covers appear in the PDF report only \u2014 the stored drawing and the viewer are never altered.</div>'
-    + '<button id="sr-cancel" style="padding:8px 16px;border:1px solid #4A5568;background:none;color:#CBD5E1;border-radius:8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>'
-    + '<button id="sr-save" style="padding:8px 18px;border:0;background:#9C2742;color:#fff;border-radius:8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save</button>'
-    + '</div>'
-    + '<div id="sr-stage-wrap" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;">'
-    + '<div id="sr-loading" style="color:#9FB0CC;font-size:14px;">Loading sheet\u2026</div>'
-    + '<div id="sr-stage" style="position:relative;display:none;touch-action:none;-webkit-user-select:none;user-select:none;box-shadow:0 8px 40px rgba(0,0,0,.5);">'
-    + '<img id="sr-img" style="display:block;max-width:min(96vw,1600px);max-height:calc(100vh - 120px);width:auto;height:auto;" draggable="false">'
-    + '<div id="sr-layer" style="position:absolute;inset:0;cursor:crosshair;"></div>'
-    + '</div></div>';
-  document.body.appendChild(ov);
-  lockScroll();
-  function _close() { ov.remove(); unlockScroll(); }
-
-  var stage = ov.querySelector('#sr-stage');
-  var layer = ov.querySelector('#sr-layer');
-  var imgEl = ov.querySelector('#sr-img');
-
-  function _renderBoxes() {
-    layer.innerHTML = '';
-    var W = layer.clientWidth, H = layer.clientHeight;
-    boxes.forEach(function(b, i) {
-      var el = document.createElement('div');
-      el.setAttribute('data-sr-box', String(i));
-      el.style.cssText = 'position:absolute;background:rgba(255,255,255,.95);border:1.5px dashed #9AA1AB;box-sizing:border-box;cursor:move;display:flex;align-items:center;justify-content:center;overflow:hidden;'
-        + 'left:' + (b.x * W) + 'px;top:' + (b.y * H) + 'px;width:' + (b.w * W) + 'px;height:' + (b.h * H) + 'px;';
-      var fs = Math.max(9, Math.min((b.w * W) / 12, (b.h * H) / 2.6));
-      el.innerHTML =
-        '<div style="pointer-events:none;text-align:center;color:#6B7280;font-weight:700;font-size:' + fs + 'px;line-height:1.25;padding:2px 4px;">' + esc(LABEL) + '</div>'
-        + '<button data-sr-del="' + i + '" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:20px;padding:0;cursor:pointer;">\u2715</button>'
-        + '<div data-sr-rs="' + i + '" style="position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;background:#9C2742;border:2px solid #fff;border-radius:4px;cursor:nwse-resize;"></div>';
-      layer.appendChild(el);
-    });
-  }
-
-  // ── pointer interactions (touch + mouse; setPointerCapture keeps the drag) ──
-  var _drag = null; // {mode:'draw'|'move'|'resize', i, startX, startY, orig}
-  function _frac(ev) {
-    var r = layer.getBoundingClientRect();
-    return { x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
-             y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) };
-  }
-  layer.addEventListener('pointerdown', function(ev) {
-    var del = ev.target.closest && ev.target.closest('[data-sr-del]');
-    if (del) {
-      var di = parseInt(del.getAttribute('data-sr-del'), 10);
-      // Universal rule: every delete confirms — one tap, custom modal.
-      showConfirm('Remove cover', 'Remove this seal cover? The seal will appear in the PDF again unless a new cover is drawn.').then(function(yes) {
-        if (yes) { boxes.splice(di, 1); _renderBoxes(); }
-      });
-      return;
-    }
-    var p = _frac(ev);
-    var rs = ev.target.closest && ev.target.closest('[data-sr-rs]');
-    var bx = ev.target.closest && ev.target.closest('[data-sr-box]');
-    if (rs) {
-      var ri = parseInt(rs.getAttribute('data-sr-rs'), 10);
-      _drag = { mode: 'resize', i: ri, start: p, orig: Object.assign({}, boxes[ri]) };
-    } else if (bx) {
-      var bi = parseInt(bx.getAttribute('data-sr-box'), 10);
-      _drag = { mode: 'move', i: bi, start: p, orig: Object.assign({}, boxes[bi]) };
-    } else {
-      boxes.push({ x: p.x, y: p.y, w: 0, h: 0 });
-      _drag = { mode: 'draw', i: boxes.length - 1, start: p, orig: { x: p.x, y: p.y, w: 0, h: 0 } };
-    }
-    try { layer.setPointerCapture(ev.pointerId); } catch (_e) {}
-    ev.preventDefault();
-  });
-  layer.addEventListener('pointermove', function(ev) {
-    if (!_drag) return;
-    var p = _frac(ev), b = boxes[_drag.i], o = _drag.orig;
-    if (_drag.mode === 'draw') {
-      b.x = Math.min(_drag.start.x, p.x); b.y = Math.min(_drag.start.y, p.y);
-      b.w = Math.abs(p.x - _drag.start.x); b.h = Math.abs(p.y - _drag.start.y);
-    } else if (_drag.mode === 'move') {
-      b.x = Math.min(Math.max(0, o.x + (p.x - _drag.start.x)), 1 - o.w);
-      b.y = Math.min(Math.max(0, o.y + (p.y - _drag.start.y)), 1 - o.h);
-    } else { // resize from bottom-right corner
-      b.w = Math.min(Math.max(0.01, o.w + (p.x - _drag.start.x)), 1 - o.x);
-      b.h = Math.min(Math.max(0.01, o.h + (p.y - _drag.start.y)), 1 - o.y);
-    }
-    _renderBoxes();
-  });
-  function _endDrag() {
-    if (!_drag) return;
-    if (_drag.mode === 'draw') {
-      var b = boxes[_drag.i];
-      if (b.w < 0.008 || b.h < 0.008) boxes.splice(_drag.i, 1); // accidental tap, not a box
-    }
-    _drag = null; _renderBoxes();
-  }
-  layer.addEventListener('pointerup', _endDrag);
-  layer.addEventListener('pointercancel', _endDrag);
-
-  ov.querySelector('#sr-cancel').addEventListener('click', _close);
-  ov.querySelector('#sr-save').addEventListener('click', function() {
-    dwg.redactions = boxes
-      .filter(function(b) { return b.w > 0.004 && b.h > 0.004; })
-      .map(function(b) { return { x: +b.x.toFixed(4), y: +b.y.toFixed(4), w: +b.w.toFixed(4), h: +b.h.toFixed(4) }; });
-    Model.saveNow();
-    _close();
-    _renderSealMarkersInViewer();                      // S492: viewer marker + toolbar dot
-    try { initDrawings.render(); } catch (_e) {}       // S492: card badge refresh
-    toast(dwg.redactions.length
-      ? '\u2713 ' + dwg.redactions.length + ' seal cover' + (dwg.redactions.length > 1 ? 's' : '') + ' saved \u2014 applied in PDF exports only'
-      : 'No covers \u2014 the sheet will export as-is');
-  });
-
-  _sheetUrl().then(function(u) {
-    var ld = ov.querySelector('#sr-loading');
-    if (!u) { if (ld) ld.textContent = 'Could not load the sheet image.'; return; }
-    imgEl.onload = function() { if (ld) ld.remove(); stage.style.display = ''; _renderBoxes(); };
-    imgEl.src = u;
-  });
+  /* S492 (Mark): the full-screen redaction editor page is GONE — covers are
+     drawn directly on the drawing viewer. This entry (Drawings-tab \u22EE menu)
+     now routes there: open the sheet, arm seal mode. Symbol kept — it is in
+     tools/protected_symbols.txt; the FEATURE lives on, the page does not. */
+  try { initViewer.open(dwg.id); } catch (_e) {}
+  setTimeout(function() { if (!_sealEditMode) _toggleSealEditMode(); }, 350);
 }
 
 /* S492: the SAME seal-redaction editor, reachable from the DRAWING VIEWER's
@@ -1038,6 +1028,9 @@ document.addEventListener('click', function(e) {
   if (!hit) return;
   var mm = document.getElementById('dv-more-menu');
   if (mm) mm.style.display = 'none';
+  _toggleSealEditMode();
+  return;
+  /* unreachable — kept so the old accessor comment survives below */
   // initViewer.getCurrentDrawing() is the viewer's OWN accessor (S124 A1) and
   // returns the live drawing reference from its list — the same object
   // Model.saveNow() persists. _currentDrawingIdx is module-private, so

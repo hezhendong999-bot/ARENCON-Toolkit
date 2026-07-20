@@ -11299,3 +11299,35 @@ body.dark-mode .exv-seal-thumb{background:#15171d;}
    Drawings-tab \u22EE entry still reach the editor. Field tablets (landscape,
    \u22651024px) keep the button. */
 @media (max-width:900px){ #dv-seal-btn{display:none;} }
+
+
+/* ── S492 round 2 (Mark) ─────────────────────────────────────────────────
+   1. The viewer cover now reads like the PRINT cover: translucent white +
+      grey dashed border + the full label — what you see is what exports.
+      (The burgundy-outline treatment and its \uD83D\uDD12 tab are retired; the label
+      IS the indicator, and two lock glyphs were redundant.)
+   2. Inline edit chrome (\u2715 / corner handle) counter-scales so it stays
+      tappable at any zoom.
+   3. Card-thumbnail markers were invisible because the global
+      .card-thumb img{width:100%;height:100%;object-fit:cover} crops the
+      sheet AND defeats the shrink-wrap (an img forced to 100% of a wrap
+      that sizes from the img is circular). Inside the wrap the img is
+      contained instead — the card shows the whole sheet, exactly like the
+      export contact sheet, and fractions align. */
+.seal-mark{border:2px dashed #9AA1AB;background:rgba(255,255,255,.93);border-radius:2px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.seal-mark .seal-mark-label{color:#6B7280;font-weight:700;line-height:1.22;text-align:center;
+  font-family:Calibri,Carlito,sans-serif;padding:2px 4px;pointer-events:none;}
+body.dark-mode .seal-mark{background:rgba(255,255,255,.90);}
+#dv-seal-layer .seal-mark{border-width:calc(2px * var(--seal-inv,1));}
+.seal-mark.seal-editing{border-color:var(--arencon,#9C2742);}
+.seal-del{position:absolute;top:calc(2px * var(--seal-inv,1));right:calc(2px * var(--seal-inv,1));
+  width:calc(22px * var(--seal-inv,1));height:calc(22px * var(--seal-inv,1));border:0;border-radius:50%;
+  background:rgba(0,0,0,.55);color:#fff;font-size:calc(12px * var(--seal-inv,1));line-height:1;padding:0;cursor:pointer;}
+.seal-rs{position:absolute;right:calc(-3px * var(--seal-inv,1));bottom:calc(-3px * var(--seal-inv,1));
+  width:calc(18px * var(--seal-inv,1));height:calc(18px * var(--seal-inv,1));background:var(--arencon,#9C2742);
+  border:calc(2px * var(--seal-inv,1)) solid #fff;border-radius:4px;cursor:nwse-resize;}
+#dv-seal-btn.seal-armed{background:var(--arencon,#9C2742);color:#fff;}
+.seal-thumb-wrap>img{width:auto!important;height:auto!important;max-width:100%;max-height:100%;object-fit:contain;}
+.seal-mark-mini{border-width:1.5px;}
+.seal-mark-mini .seal-mark-label{display:none;}

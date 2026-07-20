@@ -371,9 +371,10 @@ export var initExportView = {
         }
         if (has) h += '<div class="seal-count">\uD83D\uDD12 ' + covers.length + '</div>';
         else h += '<div class="seal-nocover">\u26A0 NO COVER</div>';
-        h += '</div><div class="exv-seal-foot"><span class="exv-seal-name">' + _esc(dw.name || 'Untitled') + '</span>'
-          + (has ? '<span class="exv-seal-b-lock">\uD83D\uDD12 Covered</span>' : '<span class="exv-seal-b-flag">\u26A0 No cover</span>')
-          + '</div></div>';
+        // S492 (Mark): ONE indicator per tile. The on-thumb element carries the
+        // state (\uD83D\uDD12 count when covered / amber NO COVER band when not) and it
+        // pairs naturally with its negative \u2014 the footer pill duplicated it.
+        h += '</div><div class="exv-seal-foot"><span class="exv-seal-name">' + _esc(dw.name || 'Untitled') + '</span></div></div>';
       });
       h += '</div>';
       if (_bare.length) {
@@ -407,6 +408,9 @@ export var initExportView = {
       if (!it) return;
       var did = it.getAttribute('data-seal-open');
       ov.remove();
+      // S492 jump-return: Back from the viewer reopens THIS dialog, not the
+      // Drawings tab. Generic hook — see drawings.js.
+      window._frtJumpReturn = { reopen: function() { initExportView.open(); } };
       try { initViewer.open(did); } catch (_e) {}
     });
     var rosterEl = ov.querySelector('#exv-roster');

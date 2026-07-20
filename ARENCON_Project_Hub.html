@@ -786,7 +786,7 @@ body.text-l{--ts:4px;}
      The old markup carried: logo, title, conn dot, user name + role, Admin,
      Profile, Tools, day/night, QR, text size, Logout, hamburger. All of it is
      reproduced by the config; nothing was dropped. -->
-<div id="hub-header"></div>
+<div id="hub-header" style="display:none;"></div><!-- S492: hidden until showApp() — the shared header (with admin controls and the signed-in user) was rendering ON TOP OF the sign-in screen -->
 
 <!-- S492: the Hub's own mobile menu is RETIRED. The shared header engine owns
      the narrow-screen drawer for every tool, and two overflow systems on one
@@ -1520,6 +1520,8 @@ function setupKeyboardShortcuts() {
 function _showLoginScreen(){
   var el = document.getElementById('login-screen');
   if (el) el.style.display = 'flex';
+  var hh = document.getElementById('hub-header');           /* S492: no header while signed out */
+  if (hh) hh.style.display = 'none';
   else console.error('[Hub] login-screen missing — cannot present sign-in');
 }
 
@@ -1753,6 +1755,8 @@ function _populatePMDropdowns() {
 var _hubPopstateReady = false;
 var _pendingOpenId = null;
 function showApp() {
+  var _hh = document.getElementById('hub-header');          /* S492: header appears WITH the app */
+  if (_hh) _hh.style.display = '';
   /* S493 — THESE TWO LINES GATE THE ENTIRE APPLICATION.
      They were the only unguarded lookups left in the sign-in path, and they sit
      ABOVE everything else in this function. If either element were ever missing

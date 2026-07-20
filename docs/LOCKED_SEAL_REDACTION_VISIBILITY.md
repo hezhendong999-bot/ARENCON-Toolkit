@@ -48,3 +48,25 @@ counts as covered until a human taps it. A miss must not be able to hide.
 Copy-cover-to-sheets: draw once, apply to the rest of the set (sets carry
 the seal in the same spot). Kills the repetitive work with zero silent-miss
 path. Build AFTER visibility is field-verified.
+
+## AMENDMENTS — S492 round 2 (Mark, field-verify)
+- The separate full-screen redaction editor page is REMOVED. Covers are drawn
+  INLINE on the drawing viewer: toolbar 🔒 arms edit mode (draw/move/resize/
+  delete on the sheet itself); tap 🔒 again to finish. _openRedactionEditor
+  survives as the router (open sheet + arm) — the protected symbol lives on.
+- The viewer marker is now the LABELLED cover: translucent white, grey dashed
+  border, full "Seal redacted — refer to original issued drawing" text sized
+  in sheet space — what you see is what exports. The burgundy-outline + 🔒-tab
+  treatment is retired (two lock glyphs were redundant). §1 of this lock is
+  superseded accordingly; the PDF print rendering itself is unchanged.
+- Export contact-sheet tiles carry ONE indicator: on-thumb 🔒 count when
+  covered / amber NO COVER band when not. Footer pills removed.
+- JUMP-RETURN pattern (generic): any feature that jumps into the viewer sets
+  window._frtJumpReturn={reopen:fn}; viewer Back reopens the origin instead of
+  landing on the Drawings tab. Export contact sheet wired now; deficiency-pin
+  and future jumps must use the same hook.
+- Card thumbnails: inside .seal-thumb-wrap the image is CONTAINED (whole sheet
+  visible, like the contact sheet) — the global cover-crop rule defeated the
+  shrink-wrap and hid the markers entirely.
+- Hub: the shared header is hidden until showApp() — it was rendering, with
+  admin controls and the signed-in user, on top of the sign-in screen.
