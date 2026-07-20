@@ -1913,7 +1913,11 @@ function _bandLabel(lo) {
 var _activeBand = 'all';
 var _toolFilter = 'any';   // S494: tool filter chips (resets each visit, like band chips)
 var _nbOnly = false;
-function setBandFilter(k) { _activeBand = k; renderProjects(); }
+/* S494 (Mark): band chips toggle like the tool chips \u2014 tap to arm, tap the armed
+   chip again to disarm back to All. Previously they only ever assigned, so once a
+   band was armed the only way out was finding the All chip. 'All' is the cleared
+   state itself, so re-tapping it is a no-op rather than a toggle to nothing. */
+function setBandFilter(k) { _activeBand = (k !== 'all' && _activeBand === k) ? 'all' : k; renderProjects(); }
 function setToolFilter(k) { _toolFilter = (_toolFilter === k ? 'any' : k); renderProjects(); }
 function toggleNbFilter() { _nbOnly = !_nbOnly; renderProjects(); }
 
