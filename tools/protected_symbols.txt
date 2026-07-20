@@ -164,3 +164,14 @@ detail-deleted-instances
 deleted-reports-count
 .rrow.is-deleted
 
+@ New Project client suggestion by number series + duplicate project-number warning — suggests clients already used under that series (canonical spelling ranks first), warns on a duplicate full number without blocking, PM defaults to creator (Mark, requested S489, shipped S495 Lane B)
+_npSeriesOf
+_npClientsForSeries
+_npOnNumberInput
+_npPickClient
+np-client-suggest
+np-dupe-warn
+.np-suggest
+.np-suggest-chip
+.np-note-warn
+

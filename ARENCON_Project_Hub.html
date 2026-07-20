@@ -468,6 +468,17 @@ body.dark-mode .tw.off .tw-sw{background:#2a3040;}
 .rrow.is-deleted .rtitle{font-weight:600;}
 body.dark-mode .rrow{background:var(--smoke);}
 @media(max-width:560px){.rctl .ri-status-sel{display:none;}}
+/* S495 — New Project client suggestion + duplicate-number warning */
+.np-note{margin-top:6px;font-size:calc(11px + var(--ts));line-height:1.4;padding:7px 10px;border-radius:8px;}
+.np-note-warn{color:#92400E;background:#FEF3C7;border:1px solid rgba(183,121,31,.35);}
+body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);border-color:rgba(224,163,106,.30);}
+.np-suggest{margin-top:7px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.np-suggest-lbl{font-size:calc(10.5px + var(--ts));color:var(--silver);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.np-suggest-chip{display:inline-flex;align-items:center;gap:5px;font-family:Calibri,sans-serif;font-size:calc(11.5px + var(--ts));font-weight:600;padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--steel);cursor:pointer;transition:all .15s;min-height:30px;}
+.np-suggest-chip:hover{border-color:var(--arencon);color:var(--arencon);}
+.np-suggest-chip.on{border-color:var(--arencon);color:var(--arencon);background:var(--arencon-glow);}
+.np-suggest-n{font-size:calc(9.5px + var(--ts));color:var(--silver);background:rgba(128,128,140,.14);border-radius:10px;padding:0 5px;}
+@media(pointer:coarse){.np-suggest-chip{min-height:38px;padding:6px 13px;}}
 /* Delete project confirm */
 .delete-confirm-input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-weight:400;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;margin:8px 0;background:var(--bg);color:var(--fg);}
 .delete-confirm-input:focus{outline:none;border-color:#DC2626;box-shadow:0 0 0 3px rgba(220,38,38,.08)}
@@ -1160,7 +1171,8 @@ body.text-l{--ts:4px;}
     <h3>New Project</h3>
     <div class="modal-field">
       <label>Project Number</label>
-      <input type="text" id="np-number" placeholder="e.g. 12345.01" maxlength="10">
+      <input type="text" id="np-number" placeholder="e.g. 12345.01" maxlength="10" oninput="_npOnNumberInput()">
+      <div id="np-dupe-warn" class="np-note np-note-warn" style="display:none"></div>
     </div>
     <div class="modal-field">
       <label>Project Name</label>
@@ -1169,6 +1181,7 @@ body.text-l{--ts:4px;}
     <div class="modal-field">
       <label>Client</label>
       <input type="text" id="np-client" placeholder="e.g. ABC Property Management">
+      <div id="np-client-suggest" class="np-suggest" style="display:none"></div>
     </div>
     <div class="modal-field">
       <label>Address</label>
@@ -3353,6 +3366,98 @@ async function bulkRestore() {
 }
 
 /* ═══ New Project Modal ═══ */
+/* ═══ S495 — New Project: client suggestion by number series ═══
+   Mark's request, first raised ~S489 and deferred since. Typing a project
+   number's leading digits suggests the client(s) already used under that series,
+   because ARENCON files by number and a series almost always belongs to one
+   client. Live data showed the real payoff is not typing effort but CONSISTENCY:
+   7310 was recorded as both "Give & Go" and "G&G", 6360 as "K&N" and "K+N",
+   7318 as "New Directions Aromatic" and "...Aromatics". Free-typing the client
+   every time fragments the firm's own records. Suggestions are offered, never
+   forced — the field stays fully editable and a new client can always be typed. */
+
+function _npSeriesOf(num) {
+  // The series is the part before the decimal: "7310.05" -> "7310".
+  return String(num || '').trim().split('.')[0];
+}
+
+function _npClientsForSeries(series) {
+  if (!series) return [];
+  var seen = {};
+  var out = [];
+  (_projects || []).forEach(function(p) {
+    if (p.deleted_at) return;                       // trashed projects don't teach us anything
+    if (_npSeriesOf(p.project_number) !== series) return;
+    var c = (p.client || '').trim();
+    if (!c) return;
+    var key = c.toLowerCase();
+    if (seen[key]) { seen[key].n++; return; }
+    seen[key] = { name: c, n: 1 };
+    out.push(seen[key]);
+  });
+  // Most-used first, so the canonical spelling of a client outranks a one-off typo.
+  out.sort(function(a, b) { return b.n - a.n; });
+  return out;
+}
+
+function _npOnNumberInput() {
+  var numEl = document.getElementById('np-number');
+  var sugEl = document.getElementById('np-client-suggest');
+  var dupEl = document.getElementById('np-dupe-warn');
+  var clientEl = document.getElementById('np-client');
+  if (!numEl || !sugEl || !dupEl) return;
+  var raw = numEl.value.trim();
+
+  /* Duplicate check on the FULL number including decimals. Nothing in the Hub
+     stopped two people creating the same project number, which is how a project
+     ends up split across two records. Warn, never block — a legitimate re-use
+     exists (a genuinely new project reusing a retired number), so Mark's rule is
+     warn and offer create-anyway. */
+  var dupe = raw ? (_projects || []).find(function(p) {
+    return !p.deleted_at && String(p.project_number || '').trim() === raw;
+  }) : null;
+  if (dupe) {
+    dupEl.innerHTML = '\u26A0 <b>' + esc(raw) + '</b> already exists \u2014 '
+      + esc(dupe.project_name || 'Untitled')
+      + (dupe.client ? ' (' + esc(dupe.client) + ')' : '')
+      + '. You can still create it, but check you are not duplicating a project.';
+    dupEl.style.display = '';
+  } else {
+    dupEl.style.display = 'none';
+  }
+
+  // Suggest clients once the series is long enough to mean something.
+  var series = _npSeriesOf(raw);
+  var list = series.length >= 3 ? _npClientsForSeries(series) : [];
+  if (list.length === 0) { sugEl.style.display = 'none'; sugEl.innerHTML = ''; return; }
+  // Don't nag once the user has typed their own client.
+  if (clientEl && clientEl.value.trim() && !clientEl.dataset.npFromSuggest) {
+    sugEl.style.display = 'none'; return;
+  }
+  var html = '<span class="np-suggest-lbl">Used on ' + esc(series) + ':</span>';
+  list.slice(0, 4).forEach(function(c) {
+    html += '<button type="button" class="np-suggest-chip" onclick="_npPickClient(this)" '
+      + 'data-client="' + esc(c.name) + '">' + esc(c.name)
+      + (c.n > 1 ? '<span class="np-suggest-n">' + c.n + '</span>' : '') + '</button>';
+  });
+  sugEl.innerHTML = html;
+  sugEl.style.display = '';
+}
+
+function _npPickClient(btn) {
+  var clientEl = document.getElementById('np-client');
+  if (!clientEl || !btn) return;
+  clientEl.value = btn.getAttribute('data-client') || '';
+  clientEl.dataset.npFromSuggest = '1';
+  var sugEl = document.getElementById('np-client-suggest');
+  if (sugEl) {
+    // Keep the row visible so a mis-pick can be corrected with one more tap.
+    Array.prototype.forEach.call(sugEl.querySelectorAll('.np-suggest-chip'), function(b) {
+      b.classList.toggle('on', b === btn);
+    });
+  }
+}
+
 function openNewProjectModal() {
   if (_profile && _profile.role === 'viewer') {
     toast('Viewers cannot create projects', 'error');
@@ -3360,9 +3465,19 @@ function openNewProjectModal() {
   }
   document.getElementById('np-number').value = '';
   document.getElementById('np-name').value = '';
-  document.getElementById('np-client').value = '';
+  var _npClient = document.getElementById('np-client');
+  _npClient.value = '';
+  delete _npClient.dataset.npFromSuggest;
   document.getElementById('np-address').value = '';
-  document.getElementById('np-pm').value = '';
+  // S495 (Mark, S489): PM defaults to whoever creates the project — that is who
+  // it belongs to until someone says otherwise. Still editable here and later.
+  var _npPm = document.getElementById('np-pm');
+  _npPm.value = (_profile && _profile.id) ? _profile.id : '';
+  if (_npPm.value && _npPm.selectedIndex < 0) _npPm.value = '';
+  var _npSug = document.getElementById('np-client-suggest');
+  if (_npSug) { _npSug.style.display = 'none'; _npSug.innerHTML = ''; }
+  var _npDup = document.getElementById('np-dupe-warn');
+  if (_npDup) _npDup.style.display = 'none';
   document.getElementById('new-project-modal').classList.add('show');
   setTimeout(() => document.getElementById('np-number').focus(), 100);
 }
