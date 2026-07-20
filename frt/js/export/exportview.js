@@ -301,6 +301,16 @@ export var initExportView = {
       + '<option value="11x17">11\u00D717 landscape</option>'
       + '<option value="letter">Letter portrait</option>'
       + '<option value="24x36">24\u00D736 landscape</option></select></div>';
+    // S496 EXPORT QUALITY (Mark-specified). Deliberately a plain <select> matching
+    // the fields above — a preference, not a mode, so no segmented control and no
+    // burgundy (burgundy is reserved for primary CTAs and active states; Generate
+    // PDF is the only CTA on this screen). The option text carries the consequence,
+    // so no explanation line is needed underneath.
+    h += '<div class="exv-fld"><label>Photo &amp; drawing quality</label><select id="exv-quality">'
+      + '<option value="balanced">Balanced \u2014 photos 1400 px, drawings 175 DPI</option>'
+      + '<option value="high">High \u2014 photos 1800 px, drawings 250 DPI</option>'
+      + '<option value="max">Maximum \u2014 photos 2200 px, drawings 300 DPI</option>'
+      + '</select></div>';
     h += '<div class="exv-eb" style="margin-top:14px;">Options</div>';
     // S479i: _crbAdmin restored — Mark's preview diagnostic is back (S479h
     // wrongly retired it as a scope expansion; the tool is how Mark checks
@@ -374,7 +384,18 @@ export var initExportView = {
         // S492 (Mark): ONE indicator per tile. The on-thumb element carries the
         // state (\uD83D\uDD12 count when covered / amber NO COVER band when not) and it
         // pairs naturally with its negative \u2014 the footer pill duplicated it.
-        h += '</div><div class="exv-seal-foot"><span class="exv-seal-name">' + _esc(dw.name || 'Untitled') + '</span></div></div>';
+        h += '</div><div class="exv-seal-foot"><span class="exv-seal-name">' + _esc(dw.name || 'Untitled') + '</span></div>';
+        // S496 (Mark): per-sheet export detail lives HERE, in the seal tile, not in
+        // a separate list — this grid already shows WHICH sheet you are setting, so
+        // you are never choosing from a filename. Value is left blank (= inherit the
+        // quality select) until the slider is actually moved.
+        h += '<div class="exq-tile">'
+          + '<div class="exq-tile-top"><span class="exq-tile-lb">Detail</span>'
+          + '<span class="exq-tile-v" data-exq-v="' + _esc(dw.id) + '">\u2014</span></div>'
+          + '<input type="range" class="exq-sl" min="100" max="300" step="5"'
+          + ' data-exq-sl="' + _esc(dw.id) + '" aria-label="Export detail for ' + _esc(dw.name || 'drawing') + '">'
+          + '</div>';
+        h += '</div>';
       });
       h += '</div>';
       if (_bare.length) {
@@ -402,8 +423,52 @@ export var initExportView = {
     (function(){ var _r = false, _o = ov.remove.bind(ov);
       ov.remove = function(){ if (_r) return _o(); _r = true; _o(); unlockScroll(); }; })();
 
+    // ── S496 EXPORT QUALITY state ──────────────────────────────────────────
+    // _exqDpi holds ONLY sheets the user actually moved. An untouched sheet is
+    // absent, which means "follow the quality select" — so changing the select
+    // still moves every sheet the user has not deliberately pinned.
+    var _exqDpi = {};
+    var _exqMarks = [100,150,175,250,300], _exqSnap = 8;
+    function _exqTierDpi(){
+      var el = ov.querySelector('#exv-quality');
+      var v = el ? el.value : 'balanced';
+      return v==='max' ? 300 : v==='high' ? 250 : 175;
+    }
+    function _exqPaint(){
+      var def = _exqTierDpi();
+      Array.prototype.forEach.call(ov.querySelectorAll('[data-exq-sl]'), function(sl){
+        var id = sl.getAttribute('data-exq-sl');
+        var pinned = (_exqDpi[id] != null);
+        var val = pinned ? _exqDpi[id] : def;
+        sl.value = val;
+        var lab = ov.querySelector('[data-exq-v="' + id.replace(/"/g,'\\"') + '"]');
+        if (lab) {
+          lab.textContent = val + ' DPI';
+          // Grey = following the quality select. Solid = deliberately pinned.
+          lab.classList.toggle('below', !pinned || val < def);
+        }
+      });
+    }
+    ov.addEventListener('input', function(e){
+      var sl = e.target.closest && e.target.closest('[data-exq-sl]');
+      if (!sl) return;
+      var v = parseInt(sl.value,10) || _exqTierDpi();
+      for (var i=0;i<_exqMarks.length;i++){
+        if (Math.abs(v-_exqMarks[i]) <= _exqSnap) { v = _exqMarks[i]; break; }
+      }
+      _exqDpi[sl.getAttribute('data-exq-sl')] = v;
+      _exqPaint();
+    });
+    var _qEl = ov.querySelector('#exv-quality');
+    if (_qEl) _qEl.addEventListener('change', _exqPaint);
+    _exqPaint();
+
     // S492: contact-sheet click → close export, open that drawing in the viewer.
     ov.addEventListener('click', function(e) {
+      // S496: the detail slider lives INSIDE the tile, and the tile opens the
+      // viewer on click. Without this guard, dragging the slider would close the
+      // export dialog and jump to the drawing — losing the whole roster selection.
+      if (e.target.closest && e.target.closest('.exq-tile')) return;
       var it = e.target.closest && e.target.closest('[data-seal-open]');
       if (!it) return;
       var did = it.getAttribute('data-seal-open');
@@ -487,6 +552,15 @@ export var initExportView = {
         goBtn.innerHTML = '\uD83D\uDCC4 Generate PDF';
         var none = (repFilter === '');
         goBtn.disabled = none; goBtn.style.opacity = none ? '0.5' : ''; goBtn.style.cursor = none ? 'not-allowed' : '';
+        // S496 (Mark, S496 field report): the button used to grey out with NO
+        // reason given, which reads as "the tool is broken" rather than "nothing
+        // is selected". Say why — in the tooltip AND in the count line, because
+        // tablets have no hover.
+        goBtn.title = none ? 'Select at least one contractor in the Deficiency column' : '';
+        if (none) {
+          countEl.className = 'exv-count';
+          countEl.innerHTML = '<b>Select at least one contractor</b> in the Deficiency column to export';
+        }
       }
     }
 
@@ -622,7 +696,11 @@ export var initExportView = {
         internalMode: internal,
         inspTag: inspTag,
         untaggedMode: untaggedMode,
-        drawingPageSize: drawingPageSize
+        drawingPageSize: drawingPageSize,
+        // S496: tier + per-sheet DPI overrides. dwgDpi carries ONLY sheets the
+        // user pinned; everything else follows the tier inside pdf.js.
+        qualityTier: (ov.querySelector('#exv-quality') || {}).value || 'balanced',
+        dwgDpi: _exqDpi
       });
       }
     });

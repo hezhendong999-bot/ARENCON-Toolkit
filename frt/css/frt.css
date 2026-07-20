@@ -11290,6 +11290,26 @@ body.dark-mode .exv-seal-thumb{background:#15171d;}
 #dv-seal-layer .seal-mark .seal-mark-tab{font-size:calc(10px * var(--seal-inv,1));padding:calc(3px * var(--seal-inv,1)) calc(5px * var(--seal-inv,1));border-radius:0 0 0 calc(5px * var(--seal-inv,1));white-space:nowrap;}
 .seal-thumb-wrap{position:relative;display:inline-block;line-height:0;max-width:100%;max-height:100%;}
 .seal-thumb-wrap>img{max-width:100%;max-height:100%;display:block;}
+/* ── S496 EXPORT QUALITY — per-sheet detail control inside the seal tile.
+   Mark-specified. NO burgundy: this is a preference, not a CTA or an active
+   state, and Generate PDF must stay the only thing pulling the eye on that
+   screen. Slate/steel only, in both themes. ── */
+.exq-tile{padding:5px 9px 7px;border-top:1px solid var(--hairline,rgba(0,0,0,.10));}
+.exq-tile-top{display:flex;align-items:baseline;gap:6px;}
+.exq-tile-lb{flex:1;font-size:calc(10px + var(--ts,0px));text-transform:uppercase;letter-spacing:.4px;color:var(--silver,#928E9C);font-weight:700;}
+.exq-tile-v{font-size:calc(11.5px + var(--ts,0px));font-weight:700;color:var(--steel,#4A5568);font-variant-numeric:tabular-nums;}
+.exq-tile-v.below{color:var(--silver,#928E9C);font-weight:600;}
+.exq-sl{width:100%;-webkit-appearance:none;appearance:none;background:transparent;margin:0;height:22px;cursor:pointer;display:block;}
+.exq-sl::-webkit-slider-runnable-track{height:4px;border-radius:3px;background:var(--border,#D5DBE3);}
+.exq-sl::-moz-range-track{height:4px;border-radius:3px;background:var(--border,#D5DBE3);}
+.exq-sl::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#5E6B80;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.28);margin-top:-7px;}
+.exq-sl::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#5E6B80;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.28);}
+body.dark-mode .exq-sl::-webkit-slider-thumb{background:#8A94A6;border-color:#1b1e26;}
+body.dark-mode .exq-sl::-moz-range-thumb{background:#8A94A6;border-color:#1b1e26;}
+/* Gloves: the thumb must be reachable without precision. */
+@media(pointer:coarse){.exq-sl{height:30px;}
+  .exq-sl::-webkit-slider-thumb{width:26px;height:26px;margin-top:-11px;}
+  .exq-sl::-moz-range-thumb{width:26px;height:26px;}}
 .seal-mark-mini{border-width:1.5px;}
 .seal-mark-mini .seal-mark-tab{display:none;}
 .tile-badge.seal-warn{background:rgba(201,138,74,.94);color:#fff;}

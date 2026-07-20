@@ -231,3 +231,13 @@ toggleDarkMode
 cycleTextSize
 signOutSession
 updateDarkToggleIcon
+
+@ EXPORT QUALITY — FRT (Mark-specified, S496). Per-export photo/drawing quality tiers plus PER-SHEET drawing DPI overrides, replacing the flat 5 MP drawing cap that rendered every sheet at ~63 DPI regardless of size. Mark specified 175 DPI as the baseline and specifically required per-sheet control ("some dwg doesnt need high dpi"). _qDrawingMaxPx also carries the device memory budget that stops a large sheet crashing an export on a field tablet — removing it reintroduces a crash-on-site risk, not just a quality regression. The seal-tile slider markup (.exq-tile / data-exq-sl) is the ONLY surface for the per-sheet control; deleting it strands the feature with no UI.
+PDF_TIERS
+PDF_SHEET_IN
+_qTierDef
+_qPeakMB
+_qBudgetMB
+_qDrawingMaxPx
+_applyExportQuality
+_getQualityNotes

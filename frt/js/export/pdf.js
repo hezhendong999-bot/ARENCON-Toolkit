@@ -168,10 +168,14 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord,re
   });
 }
 
-function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize,redactions){
+function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize,redactions,drawingId){
   _getDecodedDrawing(dwgDataUrl).then(function(img){
     if(!img){callback(dwgDataUrl);return;}
-    var MAX_PX=5000000;var scale=Math.min(1,Math.sqrt(MAX_PX/(img.width*img.height)));
+    // S496: was a flat MAX_PX=5000000 for every sheet at every size — ~63 DPI on
+    // an 11x17, which is what made linework and small text mushy. The ceiling is
+    // now derived per sheet from the tier + any per-sheet override, then clamped
+    // to the device memory budget. See the S496 EXPORT QUALITY block above.
+    var MAX_PX=_qDrawingMaxPx(drawingId,pageSize);var scale=Math.min(1,Math.sqrt(MAX_PX/(img.width*img.height)));
     var w=Math.round(img.width*scale);var h=Math.round(img.height*scale);
     var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
     var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
@@ -184,7 +188,14 @@ function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize,redactions){
       var _isSr=isSiteRecordsName(rr.ctr);
       _drawTeardropPin(ctx,px,py,pinW,d,_isSr);
     });
-    callback(canvas.toDataURL('image/jpeg',0.92));
+    // S496: line drawings are the pathological case for JPEG — hard black-on-white
+    // edges are exactly what it smears. PNG is lossless and, on mostly-white line
+    // art, frequently SMALLER than JPEG at these resolutions. Balanced stays JPEG
+    // (marginally lighter for a tablet-bound export); High/Maximum go lossless.
+    // Mini-maps (_renderDrawingWithSinglePin) deliberately stay JPEG — they are
+    // ~800px thumbnails where PNG would add weight for no visible gain.
+    callback(_qTier==='balanced' ? canvas.toDataURL('image/jpeg',0.94)
+                                 : canvas.toDataURL('image/png'));
   });
 }
 
@@ -313,10 +324,108 @@ function _drawTeardropPin(ctx,anchorX,anchorY,pinW,d,isSiteRecord){
   ctx.restore();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// S496 EXPORT QUALITY — Mark-specified. PROTECTED (tools/protected_symbols.txt).
+//
+// WHY THIS EXISTS. Before S496 the export had two hardcoded quality ceilings and
+// no way to change either:
+//   • photos  — 1000 px long edge, JPEG 0.80
+//   • drawings— a flat 5 MP cap, JPEG 0.92
+// The 5 MP cap is the one that hurt: on an 11x17 sheet it works out to ~63 DPI of
+// real detail, so small text and thin linework went mushy on EVERY export. Mark's
+// original spec asked for "175 DPI"; a DPI selector alone would have done nothing,
+// because the 5 MP cap discards the extra pixels regardless. The fix is to make the
+// ceiling itself the control.
+//
+// TWO LEVELS, deliberately:
+//   1. exportTier  — one choice for the whole export (photos + a default sheet DPI)
+//   2. dwgDpi[id]  — a per-sheet override, because some sheets genuinely don't need
+//                    detail (a riser diagram at 120 vs a floor plan at 175)
+//
+// MEMORY BUDGET — the reason this isn't just a slider. A canvas costs W*H*4 bytes
+// of raw RGBA, live at once. 11x17 @175 DPI = 5.7 MP = ~23 MB; 24x36 @300 DPI =
+// 78 MP = ~311 MB. Field tablets are 2-3 GB, shared, running Chrome with the whole
+// report DOM already resident. Exceeding the budget crashes the export ON SITE,
+// which is strictly worse than a soft drawing. So a sheet that would blow the
+// budget is stepped down until it fits — and _lastQualityNotes records it so the
+// UI can say so. NEVER downgrade silently.
+// ─────────────────────────────────────────────────────────────────────────────
+var PDF_TIERS = {
+  // S496 photoQ REVISED against measured evidence. Fieldwire's "optimized"
+  // download (Ian/Shaun, S496) turned out to be 3060px -> 1200px re-encoded at
+  // ~q97 with NO chroma subsampling — i.e. it spends 1.74x MORE bytes per pixel
+  // than the full-res original. The lesson: CUT RESOLUTION, PROTECT QUALITY.
+  // The first draft here did the opposite (q0.72) to pay for the extra pixels,
+  // which is wrong for Shaun's actual complaint — low q shows as artifacts in
+  // the flat wall/ceiling areas that dominate fire-protection photos, and a
+  // PRINTED report has no photo hyperlink to fall back on.
+  balanced: { photoPx:1400, photoQ:0.82, dpi:175 },
+  high:     { photoPx:1800, photoQ:0.85, dpi:250 },
+  max:      { photoPx:2200, photoQ:0.88, dpi:300 }
+};
+var PDF_SHEET_IN = { letter:[8.5,11], '11x17':[11,17], '24x36':[24,36] };
+
+// Job-scoped quality state. Set by _applyExportQuality() at the start of every
+// export; reset to defaults so a stale value can never leak into a later job.
+var _qTier    = 'balanced';
+var _qDwgDpi  = {};     // { drawingId: dpi }  — per-sheet overrides only
+var _qPageSize= '11x17';
+var _lastQualityNotes = [];
+
+function _qTierDef(){ return PDF_TIERS[_qTier] || PDF_TIERS.balanced; }
+
+// Peak raw-canvas cost in MB for a sheet rendered at `dpi`.
+function _qPeakMB(dpi, pageSize){
+  var s = PDF_SHEET_IN[pageSize] || PDF_SHEET_IN['11x17'];
+  return ((s[0]*dpi) * (s[1]*dpi) * 4) / 1048576;
+}
+
+// Device memory budget. navigator.deviceMemory reports in coarse buckets and is
+// absent on desktop Safari/Firefox — treat absence as the CONSERVATIVE case, not
+// the generous one. A wrong guess high is a crash; a wrong guess low is a slightly
+// softer sheet. FIELD-TUNE THIS on Mark's actual tablet before trusting it.
+function _qBudgetMB(){
+  var gb = 0;
+  try { gb = navigator.deviceMemory || 0; } catch(e) { gb = 0; }
+  if (!gb) return 120;              // unknown -> assume a field tablet
+  if (gb <= 2) return 80;
+  if (gb <= 4) return 120;
+  if (gb <= 8) return 240;
+  return 400;
+}
+
+// Resolve the pixel ceiling for one sheet: per-sheet override -> tier default,
+// then step down until it fits the budget. Returns px, and records any reduction.
+function _qDrawingMaxPx(drawingId, pageSize){
+  var ps  = pageSize || _qPageSize || '11x17';
+  var s   = PDF_SHEET_IN[ps] || PDF_SHEET_IN['11x17'];
+  var want= (drawingId!=null && _qDwgDpi[drawingId]) ? _qDwgDpi[drawingId] : _qTierDef().dpi;
+  var dpi = want, budget = _qBudgetMB();
+  while (dpi > 100 && _qPeakMB(dpi, ps) > budget) dpi -= 5;
+  if (dpi < want) {
+    _lastQualityNotes.push({ id:drawingId, asked:want, used:dpi, reason:'device-memory' });
+  }
+  return Math.round((s[0]*dpi) * (s[1]*dpi));
+}
+
+// Called once per export by exportview before rendering begins.
+function _applyExportQuality(opts){
+  opts = opts || {};
+  _qTier     = PDF_TIERS[opts.tier] ? opts.tier : 'balanced';
+  _qDwgDpi   = opts.dwgDpi || {};
+  _qPageSize = opts.pageSize || '11x17';
+  _lastQualityNotes = [];
+  PDF_PHOTO_MAX = _qTierDef().photoPx;
+}
+function _getQualityNotes(){ return _lastQualityNotes.slice(); }
+
 // S343 (#4A) — downscale a photo for IN-REPORT embedding. The report grid shows
 // each photo at ~200-350px wide; embedding the full-res original (3-5 MB phone
 // JPEGs) is what made the PDF ~95 MB for 40 photos. Draw to a canvas capped at
-// PDF_PHOTO_MAX px long edge at JPEG 0.8 -> ~150-250 KB each, still crisp in print.
+// PDF_PHOTO_MAX px long edge -> still crisp in print.
+// S496: PDF_PHOTO_MAX and the JPEG quality are now set per-export by the tier
+// (_applyExportQuality). The 1000/0.80 below are the FALLBACK defaults, used only
+// if an export somehow runs without a tier being applied.
 // Returns a Promise<dataURL>; on any failure resolves the ORIGINAL src.
 var PDF_PHOTO_MAX = 1000;
 function _downscalePhotoForPDF(src){
@@ -335,7 +444,11 @@ function _downscalePhotoForPDF(src){
         var cx=cv.getContext('2d');
         try{cx.imageSmoothingQuality='high';}catch(e){}
         cx.drawImage(img,0,0,cw,ch);
-        var out=cv.toDataURL('image/jpeg',0.8);
+        // S496: quality follows the tier, and it RISES with the tier rather than
+        // falling. Measured against Fieldwire's optimized export: resolution is
+        // what you cut, quality is what you protect. A printed report has no
+        // clickable link to the full photo, so the embedded copy must stand alone.
+        var out=cv.toDataURL('image/jpeg', _qTierDef().photoQ);
         cv.width=0;cv.height=0;
         resolve(out||src);
       }catch(e){resolve(src);}
@@ -838,13 +951,21 @@ function _buildCSS(fontB64){
   return c;
 }
 
-function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter,inspTag,drawingPageSize,internalMode){
+// S496: quality arrives as ONE trailing options object, not an 18th positional
+// argument — the signature is already at the limit of what is safely callable.
+// Shape: { tier:'balanced'|'high'|'max', dwgDpi:{ [drawingId]:dpi } }
+// Absent/undefined is safe: _applyExportQuality falls back to Balanced.
+function _exportPDFWithCache(p,logo,isField,mode,r2Cache,ctrFilter,isFinalComm,showClosedSummary,fontB64,untaggedMode,includeRecs,recsMode,includeSiteRecords,recFooter,inspTag,drawingPageSize,internalMode,qualityOpts){
 var date=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
 // S(this): chosen appendix drawing-sheet size. Controls ONLY the appendix
 // drawing sheets in the mixed-page renderer; report body always stays Letter
 // portrait. Plumbing only this step — value is carried + validated but the
 // appendix still renders Letter until the mixed-page render pass lands (step 2).
 var _drawPageSize=(drawingPageSize==='11x17'||drawingPageSize==='24x36')?drawingPageSize:'letter';
+// S496: set job-scoped quality BEFORE any photo or drawing is rendered. Must run
+// every export — it also RESETS state, so a per-sheet override from a previous
+// export can never leak into this one.
+_applyExportQuality({ tier:(qualityOpts&&qualityOpts.tier), dwgDpi:(qualityOpts&&qualityOpts.dwgDpi), pageSize:_drawPageSize });
 // S139 Phase 3: untagged-trade routing.
 //   _untaggedMode 'show'   -> untagged pins render in an "Other Trade Items"
 //                              band, after all real trades.
@@ -2793,7 +2914,7 @@ if(isField){
         _renderDrawingWithPins(du,job.pins,function(rendered){
           try{var ae=D.getElementById(job.imgId);if(ae)ae.src=rendered;}catch(x){}
           qi++;nextJob();
-        },_drawPageSize,dwgMap[job.drawingId].redactions);
+        },_drawPageSize,dwgMap[job.drawingId].redactions,job.drawingId); // S496: id -> per-sheet DPI
       }
       // Per-card minimap teardrops (one image per obs row across the report body).
       function _renderMinimaps(){
@@ -2869,7 +2990,7 @@ export const initPDFExport={
             });
           }
           try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter',!!opts.internalMode);
+          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter',!!opts.internalMode,{tier:opts.qualityTier,dwgDpi:opts.dwgDpi}); // S496
         });
         });
       });
