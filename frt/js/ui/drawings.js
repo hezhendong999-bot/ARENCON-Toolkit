@@ -836,6 +836,7 @@ function _renderSealMarkersInViewer() {
     el.innerHTML = '<div class="seal-mark-label" style="font-size:' + fs + 'px;">Seal redacted \u2014 refer to original issued drawing</div>'
       + (_sealEditMode
         ? '<button class="seal-del" data-seal-del="' + idx + '">\u2715</button>'
+          + '<button class="seal-all" data-seal-all="' + idx + '" title="Apply this cover to every page of this set">\u29C9 All pages</button>'
           + '<div class="seal-rs" data-seal-rs="' + idx + '"></div>'
         : '');
     layer.appendChild(el);
@@ -868,13 +869,35 @@ var _sealUndo = [];   /* S492: snapshots of dwg.redactions, newest last (max 30)
 function _sealSnapshot(dwg){
   try { _sealUndo.push(JSON.stringify(dwg.redactions || []));
         if (_sealUndo.length > 30) _sealUndo.shift(); } catch(_e){}
+  _sealPaintUndoState();
 }
 
+var _sealUndoBtnPrev = null;   /* inline opacities to restore on disarm */
+function _sealUndoButtons() {
+  return Array.prototype.slice.call(document.querySelectorAll('#mk-undo, #dv-undo-v75, [data-mk-target="mk-undo"]'));
+}
+/* Markup's own convention (markup.js _updateUndoButtons): opacity 1 when the
+   stack has entries, 0.3 when empty. While seal mode is armed these buttons
+   are seal's, so they light for the SEAL stack; originals restored on disarm
+   so markup's state resumes untouched. */
+function _sealPaintUndoState() {
+  if (!_sealEditMode) return;
+  var on = _sealUndo.length > 0;
+  _sealUndoButtons().forEach(function(b) { b.style.opacity = on ? '1' : '0.3'; });
+}
 function _toggleSealEditMode() {
   var dwg = null;
   try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
   if (!dwg) { toast('Open a drawing first'); return; }
   _sealEditMode = !_sealEditMode;
+  if (_sealEditMode) {
+    _sealUndoBtnPrev = _sealUndoButtons().map(function(b) { return [b, b.style.opacity]; });
+    _sealUndo.length = 0;                       /* fresh session, fresh stack */
+    _sealPaintUndoState();
+  } else if (_sealUndoBtnPrev) {
+    _sealUndoBtnPrev.forEach(function(p) { p[0].style.opacity = p[1]; });
+    _sealUndoBtnPrev = null;
+  }
   _renderSealMarkersInViewer();
   if (_sealEditMode) {
     toast('\uD83D\uDD12 Seal mode \u2014 drag on the sheet to draw a cover. Tap \uD83D\uDD12 again to finish.');
@@ -887,6 +910,47 @@ function _sealFrac(ev, layer) {
   var r = layer.getBoundingClientRect();
   return { x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
            y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) };
+}
+
+/* S492 (Mark): APPLY TO ALL PAGES \u2014 the button lives on the cover itself.
+   Multi-sheet sets carry the seal in the same title-block spot, so one drawn
+   cover fans out to the SIBLING PAGES of the same set and the user adjusts
+   per page after. Siblings = drawings whose name shares this drawing's base
+   (name minus a trailing "- Page N"), else same folder. Existing covers on
+   target pages are KEPT; an identical box is skipped (idempotent). This is
+   the deliberate-human path \u2014 auto-DETECTION stays out per the lock: a
+   detector that misses one sheet hides the miss behind a green badge. */
+function _sealApplyAll(dwg, idx) {
+  var box = dwg.redactions && dwg.redactions[idx];
+  if (!box) return;
+  var base = String(dwg.name || '').replace(/\s*[-\u2013\u2014]\s*Page\s*\d+\s*$/i, '').trim();
+  var all = [];
+  try { all = Model.getDrawings() || []; } catch (_e) {}
+  var sibs = all.filter(function(d) {
+    if (d.id === dwg.id) return false;
+    var b2 = String(d.name || '').replace(/\s*[-\u2013\u2014]\s*Page\s*\d+\s*$/i, '').trim();
+    if (base && b2 === base) return true;
+    return !!(dwg.folderId && d.folderId === dwg.folderId);
+  });
+  if (!sibs.length) { toast('No other pages in this set'); return; }
+  showConfirm('Apply to all pages',
+    'Copy this cover to ' + sibs.length + ' other page' + (sibs.length > 1 ? 's' : '') + ' of this set, in the same position? '
+    + 'Existing covers on those pages are kept. Open each page after to adjust \u2014 a copied cover deletes like any other (\u2715).')
+  .then(function(yes) {
+    if (!yes) return;
+    var added = 0;
+    sibs.forEach(function(d) {
+      if (!d.redactions) d.redactions = [];
+      var dup = d.redactions.some(function(r) {
+        return Math.abs(r.x - box.x) < 0.002 && Math.abs(r.y - box.y) < 0.002
+            && Math.abs(r.w - box.w) < 0.002 && Math.abs(r.h - box.h) < 0.002;
+      });
+      if (!dup) { d.redactions.push({ x: box.x, y: box.y, w: box.w, h: box.h }); added++; }
+    });
+    Model.saveNow();
+    try { initDrawings.render(); } catch (_e) {}
+    toast('\u2713 Cover applied to ' + added + ' page' + (added === 1 ? '' : 's') + ' \u2014 open each to adjust');
+  });
 }
 
 function _sealCommit(dwg) {
@@ -907,6 +971,11 @@ function _sealCommit(dwg) {
       try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
       if (!dwg) return;
       if (!dwg.redactions) dwg.redactions = [];
+      var all = ev.target.closest && ev.target.closest('[data-seal-all]');
+      if (all) {
+        _sealApplyAll(dwg, parseInt(all.getAttribute('data-seal-all'), 10));
+        ev.preventDefault(); return;
+      }
       var del = ev.target.closest && ev.target.closest('[data-seal-del]');
       if (del) {
         var di = parseInt(del.getAttribute('data-seal-del'), 10);
@@ -997,6 +1066,7 @@ document.addEventListener('click', function(e) {
   try { dwg.redactions = JSON.parse(_sealUndo.pop()); } catch(_e){ return; }
   Model.saveNow();
   _renderSealMarkersInViewer();
+  _sealPaintUndoState();
 }, true);
 
 /* S492 (Mark): SMART POPOVER EXCLUSIVITY in the viewer header \u2014 opening one
@@ -1036,8 +1106,17 @@ window._frtRefreshSealMarkers = _renderSealMarkersInViewer;
   function arm() {
     var img = document.getElementById('dv-image');
     if (!img) { setTimeout(arm, 500); return; }
-    new MutationObserver(function() { _renderSealMarkersInViewer(); })
-      .observe(img, { attributes: true, attributeFilter: ['src'] });
+    /* S492 ghost-cover fix (Mark): on a jump (export contact sheet, defic
+       view-pin) the img src can change BEFORE the viewer's internal
+       current-drawing index does. A single immediate render then paints the
+       PREVIOUS sheet's covers onto the new sheet (and misses the new sheet's
+       own). Re-render after the index has settled; three shots cover slow
+       tile/img loads. Cheap: the layer holds a handful of divs. */
+    new MutationObserver(function() {
+      _renderSealMarkersInViewer();
+      setTimeout(_renderSealMarkersInViewer, 150);
+      setTimeout(_renderSealMarkersInViewer, 450);
+    }).observe(img, { attributes: true, attributeFilter: ['src'] });
     var wrap = document.getElementById('dv-img-wrap');
     if (wrap) new MutationObserver(function() { _syncSealScale(); })
       .observe(wrap, { attributes: true, attributeFilter: ['style'] });

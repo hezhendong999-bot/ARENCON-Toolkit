@@ -106,6 +106,7 @@ _renderSealMarkersInViewer
 _sealUndo
 _sealSnapshot
 _toggleSealEditMode
+_sealApplyAll
 _frtRefreshSealMarkers
 _sealRows
 
