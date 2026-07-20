@@ -111,3 +111,8 @@ setHubView
 _hubView
 .hub-view-toggle
 .view-list
+
+@ Tool filter chips — filter the board by which tool a project uses (S494, Mark-specified; search cannot do this)
+setToolFilter
+_toolFilter
+.tool-chip

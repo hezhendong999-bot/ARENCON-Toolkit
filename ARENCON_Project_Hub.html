@@ -250,6 +250,18 @@ body.dark-mode{--d-frt:#7B8AE0;--d-dfp:#F0A93C;--d-efp:#48C5E8;--d-ist:#3FC9C7;-
 .band-chip{font-family:Consolas,'Courier New',monospace;font-size:calc(11px + var(--ts));font-weight:700;letter-spacing:.4px;color:var(--steel);background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:5px 12px;cursor:pointer;min-height:30px;transition:all .15s}
 .band-chip:hover{border-color:var(--arencon);color:var(--arencon)}
 .band-chip.on{background:var(--arencon);border-color:var(--arencon);color:#fff}
+/* S494: tool filter chips — same shape/row as band chips, tinted in each tool's
+   own colour so the chip reads as the pill it filters for. Toolbar-level control,
+   consistent with band chips / My-All / state segment; works in cards AND list. */
+.tool-chip{font-family:Calibri,'Segoe UI',sans-serif;font-size:calc(11px + var(--ts));font-weight:700;letter-spacing:.3px;
+  border-radius:14px;padding:5px 12px;cursor:pointer;min-height:30px;transition:all .15s;
+  color:var(--tc,#888);background:color-mix(in srgb,var(--tc,#888) 11%,transparent);
+  border:1px solid color-mix(in srgb,var(--tc,#888) 30%,transparent)}
+.tool-chip:hover{background:color-mix(in srgb,var(--tc,#888) 20%,transparent);border-color:color-mix(in srgb,var(--tc,#888) 52%,transparent)}
+.tool-chip.on{background:var(--tc,#888);border-color:var(--tc,#888);color:#fff}
+.tool-chip.empty{opacity:.38}
+.chip-sep{width:1px;align-self:stretch;background:var(--border);margin:2px 4px}
+@media(pointer:coarse){.tool-chip{min-height:36px}}
 .stat-click{background:none;border:1px solid transparent;border-radius:12px;cursor:pointer;font-family:inherit;padding:3px 9px;transition:all .15s}
 .stat-click:hover{border-color:var(--warn)}
 .stat-click.on{background:var(--warn);color:#fff;border-color:var(--warn)}
@@ -1897,8 +1909,10 @@ function _bandLabel(lo) {
    June 2026; built then, lost in the same revert as the avatars). Chips are
    built only from bands that actually have projects, each with a count. */
 var _activeBand = 'all';
+var _toolFilter = 'any';   // S494: tool filter chips (resets each visit, like band chips)
 var _nbOnly = false;
 function setBandFilter(k) { _activeBand = k; renderProjects(); }
+function setToolFilter(k) { _toolFilter = (_toolFilter === k ? 'any' : k); renderProjects(); }
 function toggleNbFilter() { _nbOnly = !_nbOnly; renderProjects(); }
 
 var _bandCollapsed = {};
@@ -2002,6 +2016,11 @@ function renderProjects() {
     if (isPinned) pinned.push(p);
     else if (isStarred) starred.push(p);
     else regular.push(p);
+    /* S494 (June-locked): a starred project ALSO appears in its numeric position
+       in the regular list, so scanning a file band finds everything filed there.
+       Pinned stays a pure override — it is not duplicated. The duplicate carries
+       the same solid-orange star, so it reads as "this is starred", not a clone. */
+    if (isStarred && !isPinned) regular.push(p);
   });
   pinned.sort(sortFn);
   starred.sort(sortFn);
@@ -2069,8 +2088,37 @@ function renderProjects() {
         var lab = (k==='none'?'No #':_bandLabel(+k));
         _ch += '<button class="band-chip'+(_activeBand===k?' on':'')+'" onclick="setBandFilter(\''+k+'\')">'+lab+' ('+_counts[k]+')</button>';
       });
+      /* S494: tool chips share the band-chip row, separated by a hairline.
+         Counts come from the band-filtered scope so they answer "how many of
+         what I'm looking at now", not a global total. A tool with zero matches
+         dims but stays put, so the row never reflows under your finger. */
+      var _tScope = regular;
+      if (_nbOnly) _tScope = _tScope.filter(function(p){ return !p.last_exported_at; });
+      if (_activeBand !== 'all') {
+        _tScope = _tScope.filter(function(p){
+          var lo=_bandLo(p.project_number);
+          return (lo===null?'none':String(lo)) === _activeBand;
+        });
+      }
+      var _tc = {};
+      _tScope.forEach(function(p){ (p.enabled_tools||[]).forEach(function(k){ _tc[k]=(_tc[k]||0)+1; }); });
+      if (_toolFilter !== 'any' && !(_toolFilter in _tc)) _toolFilter = 'any';
+      var _tHtml = '<span class="chip-sep"></span>';
+      Object.keys(AVAILABLE_TOOLS).forEach(function(k){
+        var ti = AVAILABLE_TOOLS[k], n = _tc[k] || 0;
+        _tHtml += '<button class="tool-chip' + (_toolFilter===k?' on':'') + (n===0?' empty':'')
+          + '" style="--tc:' + ti.color + '" onclick="setToolFilter(\'' + k + '\')"'
+          + ' title="' + esc(ti.name) + ' — ' + n + ' project' + (n===1?'':'s') + '">'
+          + ti.short + ' ' + n + '</button>';
+      });
+      _ch += _tHtml;
       _chipsHost.innerHTML = _ch;
     }
+  }
+  if (_toolFilter !== 'any' && !_showDeleted) {
+    /* S494: tool filter — regular list only, matching band-chip/NB scope.
+       Pinned and Starred are deliberate overrides and stay unfiltered. */
+    regular = regular.filter(function(p){ return (p.enabled_tools || []).indexOf(_toolFilter) >= 0; });
   }
   if (_nbOnly && !_showDeleted && !_showArchived) {
     regular = regular.filter(function(p){ return !p.last_exported_at; });
