@@ -11293,3 +11293,9 @@ body.dark-mode .exv-seal-thumb{background:#15171d;}
 .seal-mark-mini{border-width:1.5px;}
 .seal-mark-mini .seal-mark-tab{display:none;}
 .tile-badge.seal-warn{background:rgba(201,138,74,.94);color:#fff;}
+
+/* ── S492 mobile fit (Mark's phone screenshot: toolbar overflowed, sun icon
+   clipped). Below 900px the toolbar \uD83D\uDD12 hides — the \u22EF menu entry and the
+   Drawings-tab \u22EE entry still reach the editor. Field tablets (landscape,
+   \u22651024px) keep the button. */
+@media (max-width:900px){ #dv-seal-btn{display:none;} }
