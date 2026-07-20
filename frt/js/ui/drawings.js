@@ -864,6 +864,11 @@ function _renderSealMarkersInViewer() {
    wrap's zoom transform — no coordinate math against viewer internals. ═══ */
 var _sealEditMode = false;
 var _sealDrag = null;
+var _sealUndo = [];   /* S492: snapshots of dwg.redactions, newest last (max 30) */
+function _sealSnapshot(dwg){
+  try { _sealUndo.push(JSON.stringify(dwg.redactions || []));
+        if (_sealUndo.length > 30) _sealUndo.shift(); } catch(_e){}
+}
 
 function _toggleSealEditMode() {
   var dwg = null;
@@ -906,10 +911,11 @@ function _sealCommit(dwg) {
       if (del) {
         var di = parseInt(del.getAttribute('data-seal-del'), 10);
         showConfirm('Remove cover', 'Remove this seal cover? The seal will appear in the PDF again unless a new cover is drawn.').then(function(yes) {
-          if (yes) { dwg.redactions.splice(di, 1); _sealCommit(dwg); }
+          if (yes) { _sealSnapshot(dwg); dwg.redactions.splice(di, 1); _sealCommit(dwg); }
         });
         ev.preventDefault(); return;
       }
+      _sealSnapshot(dwg);   /* S492: undo point before draw/move/resize */
       var p = _sealFrac(ev, layer);
       var rs = ev.target.closest && ev.target.closest('[data-seal-rs]');
       var bx = ev.target.closest && ev.target.closest('[data-seal-i]');
@@ -975,6 +981,40 @@ function _syncSealScale() {
   var inv = Math.min(14, Math.max(0.25, 1 / sc));
   layer.style.setProperty('--seal-inv', String(inv));
 }
+/* S492 (Mark): while seal mode is ARMED, the viewer's undo buttons undo SEAL
+   actions (draw/move/resize/delete), not markup. Capture-phase so it runs
+   before markup's own handler; markup.js untouched. Disarm seal mode and the
+   buttons are markup's again. */
+document.addEventListener('click', function(e) {
+  if (!_sealEditMode) return;
+  var u = e.target.closest && e.target.closest('#mk-undo, #dv-undo-v75, [data-mk-target="mk-undo"]');
+  if (!u) return;
+  e.preventDefault(); e.stopPropagation();
+  var dwg = null;
+  try { dwg = initViewer.getCurrentDrawing(); } catch(_e){}
+  if (!dwg) return;
+  if (!_sealUndo.length) { toast('Nothing to undo'); return; }
+  try { dwg.redactions = JSON.parse(_sealUndo.pop()); } catch(_e){ return; }
+  Model.saveNow();
+  _renderSealMarkersInViewer();
+}, true);
+
+/* S492 (Mark): SMART POPOVER EXCLUSIVITY in the viewer header \u2014 opening one
+   of the sibling popovers (Field Heights / Layers / \u22EF More) closes the other
+   two; arming seal mode closes all three. Clicks INSIDE a panel never close
+   it, and each button's own toggle still runs \u2014 this only closes SIBLINGS,
+   so nothing fights the owners' handlers (viewer.js untouched). */
+document.addEventListener('click', function(e) {
+  var trig = e.target.closest && e.target.closest('#dv-heights-btn, #dv-layers-btn, #dv-more-btn, #dv-seal-btn');
+  if (!trig) return;
+  var panels = { 'dv-heights-btn':'dv-heights-panel', 'dv-layers-btn':'dv-layers-menu', 'dv-more-btn':'dv-more-menu' };
+  Object.keys(panels).forEach(function(btnId) {
+    if (trig.id === btnId) return;                 /* own panel: owner toggles it */
+    var p = document.getElementById(panels[btnId]);
+    if (p) p.style.display = 'none';
+  });
+}, true);
+
 /* ═══ JUMP-RETURN (Mark, S492): anything that JUMPS the user into the viewer
    sets window._frtJumpReturn = { reopen: fn } before opening. When the user
    taps the viewer's \u2190 Back, the viewer closes normally (untouched) and the

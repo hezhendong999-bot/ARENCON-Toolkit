@@ -5643,11 +5643,24 @@ document.addEventListener('click', function(e) {
     // Launched from the Detailed list (not the focus modal) when the focus
     // overlay is closed AND we're on the Deficiencies tab in Detailed view.
     var _fromDetailed = !_wasFocused && _origTab === 'deficiencies' && _deficView === 'detailed';
-    if ((_wasFocused || _fromDetailed) && window._frtSetReturnPin) {
-      window._frtSetReturnPin(deficId, _origTab, {
-        obsIdx: _origObsIdx,
-        toRow: _fromDetailed   // true → return to the Detailed row; false → reopen focus modal
-      });
+    if (_wasFocused || _fromDetailed) {
+      /* S492 (Mark): the "\u2190 Back to pin #N" chip is RETIRED \u2014 an extra button
+         the user never asked to press. The viewer's own \u2190 Back now returns to
+         the exact origin via the generic jump-return hook (drawings.js). The
+         LANDING code is unchanged: the same S151/S210 helpers the chip used \u2014
+         _frtOpenPinFocus (focus modal) / _frtOpenDetailedRow (exact obs row).
+         _frtSetReturnPin is no longer called, so the chip never renders;
+         viewer.js untouched. */
+      var _jrDefic = deficId, _jrObs = _origObsIdx,
+          _jrTab = _origTab || 'deficiencies', _jrRow = _fromDetailed;
+      window._frtJumpReturn = { reopen: function() {
+        var tb = document.querySelector('.nav-tab[data-tab="' + _jrTab + '"]');
+        if (tb) tb.click();
+        setTimeout(function() {
+          if (_jrRow) { if (window._frtOpenDetailedRow) window._frtOpenDetailedRow(_jrDefic, _jrObs); }
+          else if (window._frtOpenPinFocus) { window._frtOpenPinFocus(_jrDefic); }
+        }, 120);
+      } };
     }
     _closePinFocus(); // S142 B4-3: drop the focus panel when jumping to the drawing
     if (window._frtNavigateToPin) {

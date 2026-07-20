@@ -11331,3 +11331,28 @@ body.dark-mode .seal-mark{background:rgba(255,255,255,.90);}
 .seal-thumb-wrap>img{width:auto!important;height:auto!important;max-width:100%;max-height:100%;object-fit:contain;}
 .seal-mark-mini{border-width:1.5px;}
 .seal-mark-mini .seal-mark-label{display:none;}
+
+
+/* ── S492 round 3 (Mark) ─────────────────────────────────────────────────
+   1. Viewer/thumbnail covers: BLUE fill (Mark: "change the hatch background
+      to blue, not the border" — white-on-white was invisible everywhere on
+      screen). Border stays grey dashed like print; the PDF itself is
+      untouched and still prints the white labelled cover.
+   2. THE ✕/move/resize BUG: base .seal-mark carries pointer-events:none
+      (correct when just viewing — markup gestures pass through). In EDIT
+      mode that same rule let every tap fall through the cover to the layer
+      beneath, whose empty-space branch DRAWS — so ✕ "drew on top" and covers
+      could not be moved or resized. Editing covers are interactive again.
+   3. Pin-editor ⋯ More: hard right in the footer, no longer beside Delete.
+   4. Seal chrome de-burgundied → blue, matching the cover family. */
+.seal-mark{background:rgba(44,127,184,.28);}
+body.dark-mode .seal-mark{background:rgba(70,197,232,.26);}
+.seal-mark .seal-mark-label{color:#1D5A86;}
+body.dark-mode .seal-mark .seal-mark-label{color:#0F3A5C;}
+.seal-mark.seal-editing{pointer-events:auto;border-color:#2C7FB8;}
+.seal-mark.seal-editing .seal-del,.seal-mark.seal-editing .seal-rs{pointer-events:auto;}
+.seal-rs{background:#2C7FB8;}
+#dv-seal-btn.seal-armed{background:#2C7FB8;color:#fff;}
+#dv-seal-btn .seal-dot{background:#2C7FB8;}
+.seal-mark-mini{background:rgba(44,127,184,.34);}
+.pin-editor-footer #pe-more-btn,.pin-editor-footer .dfx-or-more-wrap{margin-left:auto;}

@@ -103,6 +103,9 @@ _openRedactionEditor
 SEAL_COVER_LABEL
 @ Seal redaction visibility — markers/badges/contact sheet (S492, Mark-approved demo; LOCKED_SEAL_REDACTION_VISIBILITY.md)
 _renderSealMarkersInViewer
+_sealUndo
+_sealSnapshot
+_toggleSealEditMode
 _frtRefreshSealMarkers
 _sealRows
 
