@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=692">
+<link rel="stylesheet" href="css/frt.css?v=693">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -518,7 +518,6 @@ function ensurePdfJs(cb){
       <div id="dv-more-menu" class="dv-more-menu" style="display:none;">
         <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
         <button data-dv-action="tasks" class="dv-menu-item">📌 Tasks</button>
-        <button data-dv-action="redact" class="dv-menu-item">🔒 Seal redaction…</button>  <!-- S492: same editor as Drawings tab ⋮ menu; handler lives in drawings.js -->
       </div>
     </div>
     <span id="dv-spacer-v75"></span>

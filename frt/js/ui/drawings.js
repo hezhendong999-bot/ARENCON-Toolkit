@@ -1106,16 +1106,25 @@ window._frtRefreshSealMarkers = _renderSealMarkersInViewer;
   function arm() {
     var img = document.getElementById('dv-image');
     if (!img) { setTimeout(arm, 500); return; }
-    /* S492 ghost-cover fix (Mark): on a jump (export contact sheet, defic
-       view-pin) the img src can change BEFORE the viewer's internal
-       current-drawing index does. A single immediate render then paints the
-       PREVIOUS sheet's covers onto the new sheet (and misses the new sheet's
-       own). Re-render after the index has settled; three shots cover slow
-       tile/img loads. Cheap: the layer holds a handful of divs. */
+    /* S492 ghost-cover fix, SECOND root cause (Mark's field verify): the
+       first fix watched #dv-image src \u2014 but TILED drawings render through
+       TiledPdf's own canvas and NEVER touch the img src, so page switches
+       on tiled sets fired no event at all. Markers froze on whichever page
+       last triggered a render \u2014 covers "showed on every page" and vanished
+       from the page that owned them. The trigger is now the DRAWING ID
+       ITSELF: poll initViewer.getCurrentDrawing() (4/s, trivially cheap) and
+       re-render the moment the id changes. Works identically for img, tiled,
+       prev/next, and jump paths; the src observer stays as a fast path. */
+    var _lastSealDrawId = null;
+    setInterval(function() {
+      var d = null;
+      try { d = initViewer.getCurrentDrawing(); } catch (_e) {}
+      var id = d ? d.id : null;
+      if (id !== _lastSealDrawId) { _lastSealDrawId = id; _renderSealMarkersInViewer(); }
+    }, 250);
     new MutationObserver(function() {
       _renderSealMarkersInViewer();
       setTimeout(_renderSealMarkersInViewer, 150);
-      setTimeout(_renderSealMarkersInViewer, 450);
     }).observe(img, { attributes: true, attributeFilter: ['src'] });
     var wrap = document.getElementById('dv-img-wrap');
     if (wrap) new MutationObserver(function() { _syncSealScale(); })

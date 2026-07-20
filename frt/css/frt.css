@@ -11371,3 +11371,13 @@ body.dark-mode .seal-mark .seal-mark-label{color:#0F3A5C;}
   font-family:Calibri,Carlito,sans-serif;font-weight:700;font-size:calc(10px * var(--seal-inv,1));
   padding:calc(3px * var(--seal-inv,1)) calc(6px * var(--seal-inv,1));cursor:pointer;white-space:nowrap;}
 .seal-all:hover{filter:brightness(1.12);}
+
+
+/* ── S492 round 5 (Mark, third time on this button — my errors, both) ────
+   The pin-editor footer spans the FULL modal, so margin-left:auto shoved
+   \u22EF More under the DRAWING pane — the one place Mark explicitly excluded,
+   twice, with markup. Target is the right edge of the LEFT (form) pane:
+   the split is 52% / 46% with a 340px floor on the drawing side, so the
+   wrap reserves that much on its right. Mirrors .pe-drawing-panel exactly. */
+.pin-editor-footer .dfx-or-more-wrap{margin-right:max(46%,340px);}
+@media (max-width:900px){ .pin-editor-footer .dfx-or-more-wrap{margin-right:0;} } /* stacked layout: no right pane to avoid */
