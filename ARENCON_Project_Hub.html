@@ -426,6 +426,44 @@ body.dark-mode .tlc-qr:hover{border-color:var(--arencon);background:rgba(156,39,
 body.dark-mode .ri-row:hover{background:var(--card);}
 body.dark-mode .ri-new{color:#f4a1b5;border-color:#3a4050;}body.dark-mode .ri-new:hover{border-color:var(--arencon);background:rgba(156,39,66,.15);}
 body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-meta{color:var(--steel);}
+/* ═══ S495 — Tools & Reports redesign (approved demo, locked) ═══
+   Hierarchy was inverted: one-time tool ACTIVATION had big colourful cards while
+   the daily REPORTS were small text rows, so staff pressed the wrong thing and
+   never found "+ New Report". Activation is now a slim settings strip; reports
+   are the stars. Rules pinned in ARENCON_Style_Guide_DELTA_S494.css. */
+.tool-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;background:rgba(128,128,140,.06);border:1px dashed var(--border);border-radius:9px;margin-bottom:16px;}
+.tool-strip .ts-lbl{font-size:calc(10px + var(--ts));font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--silver);margin-right:2px;}
+.tw{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:16px;font-size:calc(11.5px + var(--ts));font-weight:700;border:1px solid;cursor:pointer;user-select:none;font-family:Calibri,sans-serif;background:transparent;min-height:30px;}
+.tw .tw-sw{width:26px;height:15px;border-radius:8px;position:relative;transition:background .15s;flex-shrink:0;}
+.tw .tw-sw::after{content:'';position:absolute;top:1.5px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.tw.on .tw-sw::after{left:12px;}
+.tw.off{color:var(--silver);border-color:var(--border);}
+.tw.off .tw-sw{background:var(--border);}
+.tw.viewer{cursor:default;}
+@media(pointer:coarse){.tw{min-height:38px;padding:6px 12px;}}
+body.dark-mode .tool-strip{background:rgba(128,128,140,.08);}
+body.dark-mode .tw.off{color:#6b7280;border-color:#2a3040;}
+body.dark-mode .tw.off .tw-sw{background:#2a3040;}
+
+.rgroup{margin-bottom:14px;}
+.rghead{display:flex;align-items:center;gap:9px;margin:0 0 7px;flex-wrap:wrap;}
+.rghead .rg-ic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:calc(12px + var(--ts));flex-shrink:0;}
+.rghead .rg-ic svg{width:14px;height:14px;}
+.rghead .rg-name{font-weight:700;font-size:calc(13.5px + var(--ts));color:var(--fg);}
+.rghead .rg-cnt{font-size:calc(11px + var(--ts));color:var(--silver);}
+/* SMALL AND QUIET — never burgundy, never large. Rejected twice at full size. */
+.btn-new{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--steel);font-weight:700;font-size:calc(11.5px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;min-height:30px;transition:all .15s;}
+.btn-new:hover{border-color:var(--steel);color:var(--fg);}
+@media(pointer:coarse){.btn-new{min-height:38px;padding:6px 13px;}}
+.rrow{display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-left:4px solid var(--tc,var(--arencon));border-radius:10px;padding:13px 14px;margin-bottom:7px;cursor:pointer;min-height:56px;transition:all .14s;overflow:hidden;}
+.rrow:hover{border-color:var(--tc,var(--arencon));transform:translateX(2px);}
+.rrow .rmain{flex:1;min-width:0;}
+.rrow .rtitle{font-weight:700;font-size:calc(13.5px + var(--ts));line-height:1.25;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg);}
+.rrow .rmeta{display:flex;align-items:center;gap:8px;font-size:calc(10.5px + var(--ts));color:var(--silver);flex-wrap:wrap;}
+.rctl{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.rempty{border:1.5px dashed var(--border);border-radius:10px;padding:14px;text-align:center;color:var(--silver);font-size:calc(11.5px + var(--ts));margin-bottom:7px;}
+body.dark-mode .rrow{background:var(--smoke);}
+@media(max-width:560px){.rctl .ri-status-sel{display:none;}}
 /* Delete project confirm */
 .delete-confirm-input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-weight:400;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;margin:8px 0;background:var(--bg);color:var(--fg);}
 .delete-confirm-input:focus{outline:none;border-color:#DC2626;box-shadow:0 0 0 3px rgba(220,38,38,.08)}
@@ -1049,7 +1087,7 @@ body.text-l{--ts:4px;}
         <span class="detail-fold-arrow" id="fold-arrow-detail-tools-section">▾</span>
       </div>
       <div class="detail-section-body" id="body-detail-tools-section">
-        <div class="tool-launch-grid" id="detail-tools"></div>
+        <div class="tool-strip" id="detail-tools"></div>
         <div id="detail-instances"></div>
       </div>
     </div>
@@ -2491,24 +2529,23 @@ function _renderDetailTools(proj) {
   Object.keys(AVAILABLE_TOOLS).forEach(function(key) {
     var t = AVAILABLE_TOOLS[key];
     var enabled = tools.indexOf(key) >= 0;
-    var toggleHtml = isViewer ? '' :
-      '<button class="tlc-toggle' + (enabled ? ' on' : '') + '" onclick="event.stopPropagation();toggleTool(\'' + key + '\')" title="' + (enabled ? 'Disable' : 'Enable') + ' ' + esc(t.name) + '"></button>';
-
-    var qrHtml = ''; // QR moved to each tool's own header (Rule 185)
-
-    html += '<div class="tool-launch-card' + (enabled ? '' : ' disabled') + '" id="tlc-' + key + '"'
-      + (enabled ? ' onclick="launchTool(\'' + key + '\')"' : '')
-      + ' title="' + (enabled ? 'Click to open ' + esc(t.name) : 'Toggle switch to enable') + '">'
-      + '<div class="tlc-icon" style="background:' + t.color + '">' + t.svg + '</div>'
-      + '<div><div class="tlc-name">' + esc(t.name) + '</div>'
-      + (enabled ? '' : '<div class="tlc-badge">Not enabled</div>')
-      + '</div>'
-      + qrHtml
-      + toggleHtml
-      + '</div>';
+    // S495: activation is a slim settings strip, not a launch card. Tapping the
+    // pill toggles the tool; it never launches. Launching happens from the
+    // report rows below, which is where staff actually work.
+    var shortLbl = t.short || key.toUpperCase();
+    var onStyle = enabled
+      ? ' style="color:' + t.color + ';border-color:' + t.color + '55;background:' + t.color + '14"'
+      : '';
+    var swStyle = enabled ? ' style="background:' + t.color + '"' : '';
+    html += '<span class="tw ' + (enabled ? 'on' : 'off') + (isViewer ? ' viewer' : '') + '" id="tlc-' + key + '"' + onStyle
+      + (isViewer ? '' : ' onclick="toggleTool(\'' + key + '\')"')
+      + ' title="' + esc(t.name) + (isViewer ? '' : (enabled ? ' — tap to disable' : ' — tap to enable')) + '">'
+      + '<span>' + esc(shortLbl) + '</span>'
+      + '<span class="tw-sw"' + swStyle + '></span>'
+      + '</span>';
   });
 
-  grid.innerHTML = html;
+  grid.innerHTML = '<span class="ts-lbl">Tool activation</span>' + html;
 }
 
 function launchTool(key) {
@@ -2601,14 +2638,27 @@ async function _loadAndRenderInstances(proj) {
   var userMap = _userMap;
 
   var html = '';
+  var isViewer = _profile && _profile.role === 'viewer';
   tools.forEach(function(key) {
     var t = AVAILABLE_TOOLS[key];
     if (!t) return;
     var instances = allInstances.filter(function(r){ return r.tool_key === key; });
     var shortName = _TOOL_SHORT_NAMES[key] || t.name;
 
-    html += '<div id="ri-sec-' + key + '" style="margin-top:14px;scroll-margin-top:12px;"><div style="font-size:calc(13px + var(--ts));font-weight:700;color:var(--fg);display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
-      + t.icon + ' ' + esc(t.name) + '</div>';
+    // S495: reports are the primary action. Group header carries the tool's
+    // colour chip, the name, a live count, and the SMALL quiet "＋ New Report"
+    // button — small on purpose; the big burgundy version was rejected twice.
+    var _cnt = instances.length === 0 ? 'no reports yet'
+             : (instances.length === 1 ? '1 report' : instances.length + ' reports');
+    var _newBtn = isViewer ? '' :
+      '<button class="btn-new" onclick="createNewReport(\'' + key + '\')">＋ New Report</button>';
+    html += '<div class="rgroup" id="ri-sec-' + key + '" style="scroll-margin-top:12px;">'
+      + '<div class="rghead">'
+      + '<span class="rg-ic" style="background:' + t.color + '">' + t.svg + '</span>'
+      + '<span class="rg-name">' + esc(t.name) + '</span>'
+      + '<span class="rg-cnt">' + _cnt + '</span>'
+      + _newBtn
+      + '</div>';
 
     if (instances.length > 0) {
       var sfn = buildSmartFilename(proj);
@@ -2630,10 +2680,9 @@ async function _loadAndRenderInstances(proj) {
           var _closed = _allD.filter(function(df) { return df.status === 'closed' || df.status === 'Addressed & Closed'; }).length;
           var _noted = _allD.filter(function(df) { return (df.notedOnInstance || 1) === inst.instance_number; }).length;
           if (_allD.length > 0) {
-            deficBadge = '<span style="font-size:calc(10px + var(--ts));color:rgba(255,255,255,.6);margin-left:4px;">(' + _noted + ' noted, ' + _open + ' open, ' + _closed + ' closed)</span>';
+            deficBadge = '<span style="font-size:calc(10.5px + var(--ts));color:var(--silver);">' + _noted + ' noted · ' + _open + ' open · ' + _closed + ' closed</span>';
           }
         }
-        var isViewer = _profile && _profile.role === 'viewer';
         // OWNERSHIP CHIP (S396): inspectors were piling onto one shared report row
         // because nothing distinguished whose report was whose — multi-device
         // autosave on one record then reconciled away each other's photos. Show a
@@ -2653,7 +2702,7 @@ async function _loadAndRenderInstances(proj) {
              actually reads right now (auto-generated when label is empty). */
           label: inst.label || '', title: title };
         var actionsHtml = isViewer ? '' :
-          '<span class="ri-actions">'
+          '<span class="rctl">'
           + '<select class="ri-status-sel" onclick="event.stopPropagation()" onchange="changeInstanceStatus(\'' + inst.id + '\',this.value)">'
           + '<option value="draft"' + (status === 'draft' ? ' selected' : '') + '>Draft</option>'
           + '<option value="review"' + (status === 'review' ? ' selected' : '') + '>Review</option>'
@@ -2662,21 +2711,27 @@ async function _loadAndRenderInstances(proj) {
           + '<button class="ri-act-btn" onclick="event.stopPropagation();renameInstance(\'' + inst.id + '\')" title="Rename">✏️</button>'
           + '<button class="ri-act-btn danger" onclick="event.stopPropagation();deleteInstance(\'' + inst.id + '\',\'' + esc(title).replace(/'/g, "\\'") + '\')" title="Delete">🗑️</button>'
           + '</span>';
-        html += '<div class="ri-row" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\')" title="Open ' + esc(title) + '">'
-          + '<span class="ri-icon">→</span>'
-          + '<span class="ri-title">' + esc(title) + deficBadge + '</span>'
+        html += '<div class="rrow" style="--tc:' + t.color + '" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\')" title="Open ' + esc(title) + '">'
+          + '<div class="rmain">'
+          + '<div class="rtitle">' + esc(title) + '</div>'
+          + '<div class="rmeta">'
           + ownChip
-          + '<span class="ri-meta">'
           + '<span>' + date + '</span>'
-          + (by !== '—' ? '<span title="Last saved by">edited · ' + esc(by) + '</span>' : '<span>—</span>')
+          + (by !== '—' ? '<span title="Last saved by">edited · ' + esc(by) + '</span>' : '')
           + '<span class="ri-status ' + status + '">' + status + '</span>'
+          + deficBadge
+          + '</div>'
+          + '</div>'
           + actionsHtml
-          + '</span>'
           + '</div>';
       });
     }
 
-    html += '<button class="ri-new" onclick="createNewReport(\'' + key + '\')">＋ New Report</button>';
+    // Empty groups must never look like a dead end — the button is always visible
+    // in the header above, and this line points straight at it.
+    if (instances.length === 0) {
+      html += '<div class="rempty">No reports yet — tap <b>＋ New Report</b> to start one.</div>';
+    }
     html += '</div>';
   });
 

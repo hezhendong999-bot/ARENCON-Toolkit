@@ -136,3 +136,21 @@ genTempPassword
 _injectModalX
 .modal-x
 
+@ Tools & Reports hierarchy — activation demoted to a slim settings strip, reports promoted to accent-bar rows, "+ New Report" small and quiet (never burgundy, never large — rejected twice) (Mark, approved S494, shipped S495 Lane B)
+.tool-strip
+.ts-lbl
+.tw
+.tw-sw
+.rgroup
+.rghead
+.rg-ic
+.rg-name
+.rg-cnt
+.btn-new
+.rrow
+.rmain
+.rtitle
+.rmeta
+.rctl
+.rempty
+
