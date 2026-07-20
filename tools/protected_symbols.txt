@@ -103,7 +103,6 @@ _openRedactionEditor
 SEAL_COVER_LABEL
 @ Seal redaction visibility — markers/badges/contact sheet (S492, Mark-approved demo; LOCKED_SEAL_REDACTION_VISIBILITY.md)
 _renderSealMarkersInViewer
-_syncSealScale
 _frtRefreshSealMarkers
 _sealRows
 
@@ -117,3 +116,19 @@ _hubView
 setToolFilter
 _toolFilter
 .tool-chip
+
+@ Admin roster fields — User #, Initials, Edit Name, Reset Password (Mark-specified June; deleted by S391 stale push; restored verbatim S494 from pre-wipe blob 4e8837a1)
+openEditNum
+saveUserNum
+openEditInit
+saveUserInit
+openEditName
+saveUserName
+openResetPw
+submitResetPw
+genTempPassword
+
+@ Modal safety — backdrop clicks never close modals; every modal carries an X routed through its own Cancel path (Mark, S494)
+_injectModalX
+.modal-x
+

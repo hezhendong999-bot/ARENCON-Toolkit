@@ -220,6 +220,9 @@ body:not(.dark-mode) .view-list .band-body,body:not(.dark-mode) .view-list .proj
 }
 
 .view-list .project-card-trash,.view-list .project-card-pin{display:none}
+/* S494 fix: in flat (non-number) sorts the outer grid stayed display:grid, so the
+   wrapped list collapsed into ONE ~330px grid cell. List mode forces block. */
+#project-grid-inner.view-list{display:block}
 :root{--d-frt:#3F51B5;--d-dfp:#E08600;--d-efp:#1AA0C8;--d-ist:#0E9594;--d-obc:#2E8B57;--d-dd:#8E44AD;
   --d-draft:#2C7FB8;--d-review:#C98A4A;--d-issued:#3E8E6E;}
 body.dark-mode{--d-frt:#7B8AE0;--d-dfp:#F0A93C;--d-efp:#48C5E8;--d-ist:#3FC9C7;--d-obc:#52C07E;--d-dd:#B57BD8;
@@ -461,6 +464,9 @@ body.dark-mode .ri-row .ri-title{color:var(--fg);}body.dark-mode .ri-row .ri-met
 /* ═══ MODALS ═══ */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center}
 .modal-overlay.show{display:flex}
+.modal-x{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--no) 45%,transparent);background:color-mix(in srgb,var(--no) 12%,transparent);color:var(--no);font-size:19px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:5}
+.modal-x:hover{background:var(--no);color:#fff}
+@media(pointer:coarse){.modal-x{width:38px;height:38px}}
 .modal-card{background:var(--card);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.2);padding:32px;width:90%;max-width:440px;border:1px solid var(--border)}
 .modal-card h3{font-size:18px;font-weight:800;color:var(--fg);margin-bottom:18px;letter-spacing:-.2px}
 .modal-field{margin-bottom:16px}
@@ -832,7 +838,7 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- QR Modal -->
-<div class="qr-modal-overlay" id="qr-modal-overlay" onclick="if(event.target===this)closeQRModal()">
+<div class="qr-modal-overlay" id="qr-modal-overlay" >
   <div class="qr-modal-box">
     <h3>Open on Mobile</h3>
     <p>Scan with your phone camera to open the Hub</p>
@@ -949,6 +955,14 @@ body.text-l{--ts:4px;}
             <label>Full Name</label>
             <input type="text" id="new-user-name" placeholder="e.g. John Smith">
           </div>
+          <div class="form-group" style="max-width:110px">
+            <label>User #</label>
+            <input type="text" id="new-user-num" placeholder="e.g. 07">
+          </div>
+          <div class="form-group" style="max-width:110px">
+            <label>Initials</label>
+            <input type="text" id="new-user-init" placeholder="e.g. JS" maxlength="3" style="text-transform:uppercase">
+          </div>
           <div class="form-group" style="flex:1;min-width:200px">
             <label>Email (@arencon.com)</label>
             <input type="email" id="new-user-email" placeholder="jsmith@arencon.com">
@@ -978,6 +992,8 @@ body.text-l{--ts:4px;}
           <thead>
             <tr>
               <th>Name</th>
+              <th>User #</th>
+              <th>Initials</th>
               <th>Email</th>
               <th>Role</th>
               <th>Status</th>
@@ -1005,13 +1021,14 @@ body.text-l{--ts:4px;}
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
         <div class="detail-sub" id="detail-sub" style="flex:1;min-width:0;">—</div>
-        <button id="detail-export-docs-btn" onclick="exportProjectDocsFromHub()" style="flex-shrink:0;background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;color:var(--silver);white-space:nowrap;" title="Download every report in this project — photos, data and README — as one ZIP">📦 Export Project Docs</button>
+        <!-- S494 (Mark): duplicate Export Project Docs button removed — the More menu owns it -->
         <button id="detail-fold-all-btn" onclick="toggleAllDetailSections()" style="flex-shrink:0;background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer;color:var(--silver);white-space:nowrap;" title="Fold/Unfold all sections">▼ Fold All</button>
       </div>
     </div>
     <div class="detail-section" id="detail-info-section">
       <div class="detail-section-header" onclick="toggleDetailSection('detail-info-section')">
         <h3>📋 Project Info</h3>
+        <button class="btn-action" id="btn-edit-proj" onclick="event.stopPropagation();openEditProjectModal()" style="margin-left:auto;margin-right:10px;padding:4px 12px;font-size:calc(12px + var(--ts))">✏️ Edit Project</button>
         <span class="detail-fold-arrow" id="fold-arrow-detail-info-section">▾</span>
       </div>
       <div class="detail-section-body" id="body-detail-info-section">
@@ -1064,7 +1081,7 @@ body.text-l{--ts:4px;}
       </div>
     </div>
     <div class="detail-section detail-actions" id="detail-danger-zone">
-      <button class="btn-action" id="btn-edit-proj" onclick="openEditProjectModal()">✏️ Edit Project</button>
+      <!-- S494 (Mark): Edit Project relocated to the Project Info card header -->
       <button class="btn-action" id="btn-qr-proj" onclick="openProjectQR(_detailProjectId)" title="QR Code for this project">📱 QR</button>
       <button class="btn-archive" id="btn-archive-proj" onclick="toggleArchiveProject()">📦 Archive</button>
       <button class="btn-action" id="btn-restore-proj" style="display:none;background:var(--yes-bg);color:var(--yes);border-color:var(--yes)" onclick="restoreFromDetail()">↩️ Restore</button>
@@ -1111,6 +1128,93 @@ body.text-l{--ts:4px;}
 <!-- ═══════════ EDIT ROLE MODAL ═══════════ -->
 <!-- S493: edit-role modal now drawn by the shared dialog engine (Dlg.form) -->
 <!-- ═══════════ EDIT PROJECT MODAL ═══════════ -->
+<div class="modal-overlay" id="edit-num-modal">
+  <div class="modal-card">
+    <h3>Set Project / User #</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-num-user"></p>
+    <div class="modal-field">
+      <label>Project / User #</label>
+      <input type="text" id="edit-num-input" placeholder="e.g. 1042 (leave blank to clear)">
+    </div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary cancel" onclick="closeEditNumModal()">Cancel</button>
+      <button class="dash-btn primary" onclick="saveUserNum()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ EDIT INITIALS MODAL ═══════════ -->
+<div class="modal-overlay" id="edit-init-modal">
+  <div class="modal-card">
+    <h3>Set Initials</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-init-user"></p>
+    <div class="modal-field">
+      <label>Initials</label>
+      <input type="text" id="edit-init-input" placeholder="e.g. MH (leave blank to clear)" maxlength="6">
+    </div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary cancel" onclick="closeEditInitModal()">Cancel</button>
+      <button class="dash-btn primary" onclick="saveUserInit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ EDIT NAME MODAL ═══════════ -->
+<div class="modal-overlay" id="edit-name-modal">
+  <div class="modal-card">
+    <h3>Edit Name</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-name-user"></p>
+    <div class="modal-field">
+      <label>Full Name</label>
+      <input type="text" id="edit-name-input" placeholder="e.g. Stacy Goindhan">
+    </div>
+    <p style="font-size:calc(11.5px + var(--ts));color:var(--silver);margin:-4px 0 14px">Updates the name shown across all ARENCON tools. Login email is managed in the Authentication tab.</p>
+    <div class="modal-actions">
+      <button class="dash-btn secondary cancel" onclick="closeEditNameModal()">Cancel</button>
+      <button class="dash-btn primary" onclick="saveUserName()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ OWNER-TRACK PICKER MODAL (S335) ═══════════ -->
+<div class="modal-overlay" id="owner-track-modal">
+  <div class="modal-card">
+    <h3>New Report</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="owner-track-tool"></p>
+    <div class="modal-field">
+      <label>Whose report is this?</label>
+      <select id="owner-track-select"></select>
+    </div>
+    <p style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">A shared report isn't tied to a person — anyone's reports list it under "Shared".</p>
+    <div class="modal-actions">
+      <button class="dash-btn secondary cancel" onclick="closeOwnerTrackModal()">Cancel</button>
+      <button class="dash-btn primary" onclick="confirmOwnerTrack()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ RESET PASSWORD MODAL ═══════════ -->
+<div class="modal-overlay" id="reset-pw-modal">
+  <div class="modal-card">
+    <h3>Reset Password</h3>
+    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="reset-pw-user"></p>
+    <div class="modal-field">
+      <label>Temporary Password</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="reset-pw-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="flex:1">
+        <button class="admin-act-btn" type="button" onclick="regenTempPw()" title="Generate a new one">↻ New</button>
+        <button class="admin-act-btn" type="button" onclick="copyTempPw()" title="Copy to clipboard">Copy</button>
+      </div>
+    </div>
+    <p id="reset-pw-note" style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">Give this to the user. They sign in with it, then change it from their Profile.</p>
+    <div id="reset-pw-success" style="display:none;background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.35);color:var(--yes);padding:9px 11px;border-radius:8px;font-size:calc(12.5px + var(--ts));margin-top:8px;line-height:1.4">✓ Password updated. Copy it above and send it to the user.</div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary cancel" id="reset-pw-cancel" onclick="closeResetPwModal()">Cancel</button>
+      <button class="dash-btn primary" id="reset-pw-go" onclick="resetPwPrimary()">Set Password</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="edit-project-modal">
   <div class="modal-card">
     <h3>Edit Project</h3>
@@ -3172,6 +3276,204 @@ async function loadAdminUsers() {
   renderAdminUsers();
 }
 
+let _editInitUserId = null;
+let _editNameUserId = null;
+let _resetPwDone = false;
+let _resetPwUserId = null;
+const AUTH_WORKER_URL = 'https://arencon-auth-worker.hezhendong999.workers.dev';
+function genTempPassword() {
+  // 12 chars, mixed classes, ambiguous characters (0/O/1/l/I) removed for readability
+  var U = 'ABCDEFGHJKLMNPQRSTUVWXYZ', L = 'abcdefghijkmnpqrstuvwxyz', D = '23456789', S = '!@#$%&*';
+  var all = U + L + D + S;
+  function pick(set) { return set[Math.floor(Math.random() * set.length)]; }
+  var out = [pick(U), pick(L), pick(D), pick(S)];
+  for (var i = 0; i < 8; i++) out.push(pick(all));
+  for (var j = out.length - 1; j > 0; j--) { var k = Math.floor(Math.random() * (j + 1)); var t = out[j]; out[j] = out[k]; out[k] = t; }
+  return out.join('');
+}
+let _editNumUserId = null;
+function openEditNum(userId) {
+  _editNumUserId = userId;
+  const u = _allUsers.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('edit-num-user').textContent = u.full_name + ' (' + u.email + ')';
+  document.getElementById('edit-num-input').value = u.user_number || '';
+  document.getElementById('edit-num-modal').classList.add('show');
+}
+
+function closeEditNumModal() {
+  document.getElementById('edit-num-modal').classList.remove('show');
+  _editNumUserId = null;
+}
+
+async function saveUserNum() {
+  if (!_editNumUserId) return;
+  const newNum = document.getElementById('edit-num-input').value.trim();
+  try {
+    await _sb.from('profiles').eq('id', _editNumUserId).update({ user_number: newNum || null });
+    toast(newNum ? 'User # set to ' + newNum : 'User # cleared', 'success');
+    closeEditNumModal();
+    await loadAdminUsers();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+/* ═══ Set Initials ═══ */
+function openEditInit(userId) {
+  _editInitUserId = userId;
+  const u = _allUsers.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('edit-init-user').textContent = u.full_name + ' (' + u.email + ')';
+  document.getElementById('edit-init-input').value = u.initials || '';
+  document.getElementById('edit-init-modal').classList.add('show');
+}
+
+function closeEditInitModal() {
+  document.getElementById('edit-init-modal').classList.remove('show');
+  _editInitUserId = null;
+}
+
+async function saveUserInit() {
+  if (!_editInitUserId) return;
+  // Store uppercased, trimmed. Blank clears (falls back to name-derived initials).
+  const newInit = document.getElementById('edit-init-input').value.trim().toUpperCase();
+  try {
+    await _sb.from('profiles').eq('id', _editInitUserId).update({ initials: newInit || null });
+    toast(newInit ? 'Initials set to ' + newInit : 'Initials cleared', 'success');
+    closeEditInitModal();
+    await loadAdminUsers();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+/* ═══ Edit Name ═══ */
+function openEditName(userId) {
+  _editNameUserId = userId;
+  const u = _allUsers.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('edit-name-user').textContent = u.email || '';
+  document.getElementById('edit-name-input').value = u.full_name || '';
+  document.getElementById('edit-name-modal').classList.add('show');
+}
+
+function closeEditNameModal() {
+  document.getElementById('edit-name-modal').classList.remove('show');
+  _editNameUserId = null;
+}
+
+async function saveUserName() {
+  if (!_editNameUserId) return;
+  const newName = document.getElementById('edit-name-input').value.trim();
+  if (!newName) { toast('Name cannot be blank', 'error'); return; }
+  try {
+    await _sb.from('profiles').eq('id', _editNameUserId).update({ full_name: newName });
+    // keep the in-memory name map in sync so other Hub views update without a full reload
+    if (typeof _userMap === 'object' && _userMap) _userMap[_editNameUserId] = newName;
+    toast('Name updated to ' + newName, 'success');
+    closeEditNameModal();
+    await loadAdminUsers();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+/* ═══ Reset Password (admin → temp password via arencon-auth-worker) ═══ */
+function genTempPassword() {
+  // 12 chars, mixed classes, ambiguous characters (0/O/1/l/I) removed for readability
+  var U = 'ABCDEFGHJKLMNPQRSTUVWXYZ', L = 'abcdefghijkmnpqrstuvwxyz', D = '23456789', S = '!@#$%&*';
+  var all = U + L + D + S;
+  function pick(set) { return set[Math.floor(Math.random() * set.length)]; }
+  var out = [pick(U), pick(L), pick(D), pick(S)];
+  for (var i = 0; i < 8; i++) out.push(pick(all));
+  for (var j = out.length - 1; j > 0; j--) { var k = Math.floor(Math.random() * (j + 1)); var t = out[j]; out[j] = out[k]; out[k] = t; }
+  return out.join('');
+}
+
+function openResetPw(userId) {
+  _resetPwUserId = userId;
+  _resetPwDone = false;
+  var u = _allUsers.find(function (x) { return x.id === userId; });
+  if (!u) return;
+  document.getElementById('reset-pw-user').textContent = u.full_name + ' (' + u.email + ')';
+  var inp = document.getElementById('reset-pw-input');
+  inp.value = genTempPassword();
+  inp.readOnly = false;
+  document.getElementById('reset-pw-success').style.display = 'none';
+  document.getElementById('reset-pw-note').style.display = 'block';
+  document.getElementById('reset-pw-cancel').style.display = '';
+  var go = document.getElementById('reset-pw-go');
+  go.textContent = 'Set Password';
+  go.disabled = false;
+  document.getElementById('reset-pw-modal').classList.add('show');
+}
+
+function closeResetPwModal() {
+  document.getElementById('reset-pw-modal').classList.remove('show');
+  _resetPwUserId = null;
+  _resetPwDone = false;
+}
+
+function regenTempPw() {
+  document.getElementById('reset-pw-input').value = genTempPassword();
+}
+
+function copyTempPw() {
+  var v = document.getElementById('reset-pw-input').value;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(v).then(function () { toast('Password copied', 'success'); })
+      .catch(function () { toast('Copy failed — select and copy manually', 'error'); });
+  } else {
+    var el = document.getElementById('reset-pw-input');
+    el.readOnly = false; el.select();
+    try { document.execCommand('copy'); toast('Password copied', 'success'); }
+    catch (e) { toast('Copy failed — select and copy manually', 'error'); }
+  }
+}
+
+function resetPwPrimary() {
+  if (_resetPwDone) { closeResetPwModal(); return; }
+  submitResetPw();
+}
+
+async function submitResetPw() {
+  if (!_resetPwUserId) return;
+  var pw = document.getElementById('reset-pw-input').value;
+  if (!pw || pw.length < 8) { toast('Password must be at least 8 characters', 'error'); return; }
+  var go = document.getElementById('reset-pw-go');
+  go.disabled = true;
+  var orig = go.textContent;
+  go.textContent = 'Setting…';
+  try {
+    var token = localStorage.getItem('sb-access-token');
+    var res = await fetch(AUTH_WORKER_URL + '/admin/set-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ userId: _resetPwUserId, password: pw })
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok || !data.ok) { throw new Error(data.error || ('HTTP ' + res.status)); }
+    // Success — keep the password on screen so it can be copied/sent
+    _resetPwDone = true;
+    document.getElementById('reset-pw-input').readOnly = true;
+    document.getElementById('reset-pw-note').style.display = 'none';
+    document.getElementById('reset-pw-success').style.display = 'block';
+    document.getElementById('reset-pw-cancel').style.display = 'none';
+    go.disabled = false;
+    go.textContent = 'Done';
+    toast('Password reset', 'success');
+  } catch (e) {
+    go.disabled = false;
+    go.textContent = orig;
+    toast('Reset failed: ' + e.message, 'error');
+  }
+}
+
+/* S494: renderAdminUsers restored verbatim from pre-wipe blob 4e8837a1 —
+   User #, Initials, Edit Name and Reset PW columns were deleted by the S391
+   stale-file push. Role/Deactivate handlers are unchanged names; the Change Role
+   dialog Mark just field-verified keeps working. */
 function renderAdminUsers() {
   const tbody = document.getElementById('admin-user-list');
   const emptyEl = document.getElementById('admin-empty');
@@ -3189,13 +3491,16 @@ function renderAdminUsers() {
     const statusClass = u.is_active ? '' : ' role-deactivated';
 
     return '<tr>'
-      + '<td>' + esc(u.full_name || '—') + (isSelf ? ' <span style="color:var(--arencon);font-size:calc(11px + var(--ts))">(you)</span>' : '') + '</td>'
+      + '<td>' + esc(u.full_name || '—') + (isSelf ? ' <span style="color:var(--arencon);font-size:calc(11px + var(--ts))">(you)</span>' : '') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditName(\'' + u.id + '\')">Edit</button>' : '') + '</td>'
+      + '<td>' + esc(u.user_number || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditNum(\'' + u.id + '\')">Set #</button>' : '') + '</td>'
+      + '<td>' + esc(u.initials || '—') + (canEdit ? ' <button class="admin-act-btn" style="padding:1px 7px;font-size:calc(10px + var(--ts))" onclick="openEditInit(\'' + u.id + '\')">Set</button>' : '') + '</td>'
       + '<td>' + esc(u.email || '—') + '</td>'
       + '<td><span class="admin-role-badge ' + roleClass(u.role) + statusClass + '">' + formatRole(u.role) + '</span></td>'
       + '<td>' + (u.is_active ? '<span style="color:var(--yes)">Active</span>' : '<span style="color:var(--no)">Deactivated</span>') + '</td>'
       + '<td style="font-size:calc(12px + var(--ts));color:var(--silver)">' + (u.last_login ? formatDate(u.last_login) : 'Never') + '</td>'
       + '<td><div class="admin-actions">'
       + (canEdit && !isSelf ? '<button class="admin-act-btn" onclick="openEditRole(\'' + u.id + '\')">Role</button>' : '')
+      + (canEdit && !isSelf ? '<button class="admin-act-btn" onclick="openResetPw(\'' + u.id + '\')">Reset PW</button>' : '')
       + (canEdit && !isSelf ? '<button class="admin-act-btn danger" onclick="toggleUserActive(\'' + u.id + '\')">' + (u.is_active ? 'Deactivate' : 'Activate') + '</button>' : '')
       + '</div></td>'
       + '</tr>';
@@ -3203,8 +3508,11 @@ function renderAdminUsers() {
 }
 
 /* ═══ Create User ═══ */
+/* S494: createUser restored verbatim from pre-wipe — User # + Initials capture. */
 async function createUser() {
   const nameVal = document.getElementById('new-user-name').value.trim();
+  const numVal = document.getElementById('new-user-num').value.trim();
+  const initVal = document.getElementById('new-user-init').value.trim().toUpperCase();
   const emailVal = document.getElementById('new-user-email').value.trim().toLowerCase();
   const passVal = document.getElementById('new-user-pass').value;
   const roleVal = document.getElementById('new-user-role').value;
@@ -3243,6 +3551,8 @@ async function createUser() {
         full_name: nameVal,
         email: emailVal,
         role: roleVal,
+        user_number: numVal || null,
+        initials: initVal || null,
         is_active: true
       });
     } catch (profileErr) {
@@ -3250,6 +3560,8 @@ async function createUser() {
     }
     toast('User created: ' + nameVal + ' (' + emailVal + ')', 'success');
     document.getElementById('new-user-name').value = '';
+    document.getElementById('new-user-num').value = '';
+    document.getElementById('new-user-init').value = '';
     document.getElementById('new-user-email').value = '';
     document.getElementById('new-user-pass').value = '';
     await loadAdminUsers();
@@ -4043,12 +4355,38 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-CA');
 }
 
-/* ═══ Close modals on outside click ═══ */
-document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-overlay')) {
-    e.target.classList.remove('show');
-  }
-});
+/* ═══ Close modals on outside click — REMOVED S494 ═══ */
+/* S494 (Mark): backdrop clicks NO LONGER close modals. The old delegated
+   listener force-hid any open modal on an outside click — no guard, no save,
+   silently discarding e.g. a half-edited project. Modals now close only via
+   their own buttons (guarded where a guard exists), the X, or Escape. */
+
+/* S494 (Mark): every modal gets a red X, old-school. The X is NOT a force-close:
+   it clicks the modal's own Cancel/Close button, so guarded modals (Edit Project's
+   unsaved-changes dialog) keep their guard. Fallback for buttonless modals: hide. */
+function _injectModalX(){
+  document.querySelectorAll('.modal-overlay').forEach(function(ov){
+    var card = ov.firstElementChild;
+    if (!card || card.querySelector('.modal-x')) return;
+    var x = document.createElement('button');
+    x.className = 'modal-x';
+    x.setAttribute('aria-label','Close');
+    x.innerHTML = '&times;';
+    x.onclick = function(ev){
+      ev.stopPropagation();
+      var btns = card.querySelectorAll('button');
+      for (var i=0;i<btns.length;i++){
+        var b=btns[i], oc=(b.getAttribute('onclick')||''), tx=(b.textContent||'').trim().toLowerCase();
+        if (b.classList.contains('modal-x')) continue;
+        if (/close|cancel/i.test(oc) || tx==='cancel' || tx.indexOf('cancel')===0){ b.click(); return; }
+      }
+      ov.classList.remove('show');
+    };
+    if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
+    card.appendChild(x);
+  });
+}
+document.addEventListener('DOMContentLoaded', _injectModalX);
 
 /* ═══ Token refresh timer ═══ */
 var _refreshFailCount = 0;
