@@ -11379,5 +11379,11 @@ body.dark-mode .seal-mark .seal-mark-label{color:#0F3A5C;}
    twice, with markup. Target is the right edge of the LEFT (form) pane:
    the split is 52% / 46% with a 340px floor on the drawing side, so the
    wrap reserves that much on its right. Mirrors .pe-drawing-panel exactly. */
-.pin-editor-footer .dfx-or-more-wrap{margin-right:max(46%,340px);}
+.pin-editor-footer .dfx-or-more-wrap{margin-right:calc(48% + 12px);}
 @media (max-width:900px){ .pin-editor-footer .dfx-or-more-wrap{margin-right:0;} } /* stacked layout: no right pane to avoid */
+
+/* S492 round 6 (Mark, 4th attempt on this button — the arithmetic, finally):
+   .pe-fields is 52%, .pe-drawing-panel is 46% — they do NOT sum to 100, so
+   reserving 46% left the button's right edge ~6% PAST the divider, still
+   inside the excluded zone. Reserving 48%+12px ends the button BEFORE the
+   divider line with clearance. The right edge must never cross the middle. */
