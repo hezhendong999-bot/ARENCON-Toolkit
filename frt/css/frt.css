@@ -11276,3 +11276,20 @@ body.dark-mode .exv-seal-thumb{background:#15171d;}
 
 /* Drawings-tab card badge (tile-badge base class already exists) */
 .tile-badge.seal{background:rgba(95,128,104,.92);color:#fff;}
+
+
+/* ── S492 addendum (field-verify round 1, Mark) ──────────────────────────
+   1. Viewer marker chrome counter-scales via --seal-inv (set by drawings.js
+      from the wrap's zoom): border + tab hold constant SCREEN size at every
+      zoom. Without this, fit-to-screen scale (~0.3) shrank them to nothing —
+      the marker read as a bare pink hatch.
+   2. .seal-thumb-wrap shrink-wraps a thumb <img> so percent-positioned mini
+      markers align with the SHEET, not the letterboxed tile.
+   3. Card amber badge for appendix-bound sheets with no cover. */
+#dv-seal-layer .seal-mark{border-width:calc(2px * var(--seal-inv,1));}
+#dv-seal-layer .seal-mark .seal-mark-tab{font-size:calc(10px * var(--seal-inv,1));padding:calc(3px * var(--seal-inv,1)) calc(5px * var(--seal-inv,1));border-radius:0 0 0 calc(5px * var(--seal-inv,1));white-space:nowrap;}
+.seal-thumb-wrap{position:relative;display:inline-block;line-height:0;max-width:100%;max-height:100%;}
+.seal-thumb-wrap>img{max-width:100%;max-height:100%;display:block;}
+.seal-mark-mini{border-width:1.5px;}
+.seal-mark-mini .seal-mark-tab{display:none;}
+.tile-badge.seal-warn{background:rgba(201,138,74,.94);color:#fff;}

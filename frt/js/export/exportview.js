@@ -359,12 +359,16 @@ export var initExportView = {
         var has = covers.length > 0;
         h += '<div class="exv-seal-item' + (has ? '' : ' flagged') + '" data-seal-open="' + _esc(dw.id) + '">'
           + '<div class="exv-seal-thumb">'
-          + (dw.thumb ? '<img src="' + dw.thumb + '" alt="">'
+          + (dw.thumb ? '<span class="seal-thumb-wrap"><img src="' + dw.thumb + '" alt="">'
                       : '<span style="font-size:11px;color:var(--silver,#928E9C);">no preview</span>');
-        covers.forEach(function(b) {
-          h += '<div class="seal-mark" style="left:' + (b.x*100) + '%;top:' + (b.y*100) + '%;width:' + (b.w*100) + '%;height:' + (b.h*100) + '%;">'
-            + '<span class="seal-mark-tab">\uD83D\uDD12</span></div>';
-        });
+        // Markers INSIDE the shrink-wrap span: percent-of-IMG, so boxes align
+        // with the sheet even when the thumb is letterboxed in the tile.
+        if (dw.thumb) {
+          covers.forEach(function(b) {
+            h += '<span class="seal-mark seal-mark-mini" style="left:' + (b.x*100) + '%;top:' + (b.y*100) + '%;width:' + (b.w*100) + '%;height:' + (b.h*100) + '%;"></span>';
+          });
+          h += '</span>';
+        }
         if (has) h += '<div class="seal-count">\uD83D\uDD12 ' + covers.length + '</div>';
         else h += '<div class="seal-nocover">\u26A0 NO COVER</div>';
         h += '</div><div class="exv-seal-foot"><span class="exv-seal-name">' + _esc(dw.name || 'Untitled') + '</span>'

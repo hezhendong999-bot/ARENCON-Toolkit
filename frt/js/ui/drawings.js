@@ -526,13 +526,23 @@ function buildDrawingCard(d, allDefics) {
   // Card thumb with pin badge + select check overlays
   h += '<div class="card-thumb drawing-thumb" data-action="open-viewer" data-drawing-id="' + esc(d.id) + '">';
   if (imgSrc) {
-    h += '<img src="' + esc(imgSrc) + '" alt="' + esc(d.name) + '" loading="lazy" decoding="async">';
+    // S492 seal-visibility fix 2: markers ride ON the thumb image. The wrapper
+    // shrink-wraps the img so percent-positioned boxes align with the SHEET,
+    // not the letterboxed .card-thumb container.
+    h += '<span class="seal-thumb-wrap"><img src="' + esc(imgSrc) + '" alt="' + esc(d.name) + '" loading="lazy" decoding="async">';
+    (d.redactions || []).forEach(function(b) {
+      h += '<span class="seal-mark seal-mark-mini" style="left:' + (b.x*100) + '%;top:' + (b.y*100) + '%;width:' + (b.w*100) + '%;height:' + (b.h*100) + '%;"></span>';
+    });
+    h += '</span>';
   } else {
     h += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--silver);font-size:32px;background:var(--smoke);">\uD83D\uDCC4</div>';
   }
   if (pins > 0) h += '<div class="pin-badge">' + pins + '</div>';
   // S492 seal-visibility: which sheets are done, at a glance (locked demo).
+  // Amber only on APPENDIX-BOUND sheets (pins > 0) — flagging every unpinned
+  // upload ("download.jpg") would be noise; the contact-sheet rule, mirrored.
   if (d.redactions && d.redactions.length) h += '<div class="tile-badge seal">\uD83D\uDD12 Seal covered</div>';
+  else if (pins > 0) h += '<div class="tile-badge seal-warn">\u26A0 No seal cover</div>';
   // S86: tile processing/failed badge (bottom-right corner of thumb)
   var tileBadge = _buildTileBadgeHtml(d.tileStatus, d.pdfBufKey);
   if (tileBadge) h += tileBadge;
@@ -816,9 +826,10 @@ function _renderSealMarkersInViewer() {
     el.className = 'seal-mark';
     el.style.left = (b.x * 100) + '%'; el.style.top = (b.y * 100) + '%';
     el.style.width = (b.w * 100) + '%'; el.style.height = (b.h * 100) + '%';
-    el.innerHTML = '<span class="seal-mark-tab">\uD83D\uDD12</span>';
+    el.innerHTML = '<span class="seal-mark-tab">\uD83D\uDD12 SEAL COVERED</span>';
     layer.appendChild(el);
   });
+  _syncSealScale();
   var btn = document.getElementById('dv-seal-btn');
   if (btn) {
     btn.classList.toggle('has-covers', covers.length > 0);
@@ -827,6 +838,24 @@ function _renderSealMarkersInViewer() {
     }
   }
 }
+/* Field bug (Mark, S492): the marker layer inherits #dv-img-wrap's zoom
+   transform — correct for POSITION, wrong for CHROME. At the fit-to-screen
+   scale of a full-size sheet (often 0.2–0.4) the 2px dashed border and the
+   \uD83D\uDD12 tab were scaled into invisibility: all that survived was the faint
+   pink fill ("that pink hatch"). Fix: read the wrap's scale and publish its
+   inverse as --seal-inv on the layer; CSS multiplies border-width and the
+   tab's font by it, so marker chrome holds constant SCREEN size at every
+   zoom while the box itself keeps tracking the sheet. */
+function _syncSealScale() {
+  var layer = document.getElementById('dv-seal-layer');
+  var wrap = document.getElementById('dv-img-wrap');
+  if (!layer || !wrap) return;
+  var sc = 1;
+  var m = /scale\(([0-9.]+)\)/.exec(wrap.style.transform || '');
+  if (m) sc = parseFloat(m[1]) || 1;
+  var inv = Math.min(14, Math.max(0.25, 1 / sc));
+  layer.style.setProperty('--seal-inv', String(inv));
+}
 window._frtRefreshSealMarkers = _renderSealMarkersInViewer;
 (function _watchViewerForSeal() {
   function arm() {
@@ -834,6 +863,9 @@ window._frtRefreshSealMarkers = _renderSealMarkersInViewer;
     if (!img) { setTimeout(arm, 500); return; }
     new MutationObserver(function() { _renderSealMarkersInViewer(); })
       .observe(img, { attributes: true, attributeFilter: ['src'] });
+    var wrap = document.getElementById('dv-img-wrap');
+    if (wrap) new MutationObserver(function() { _syncSealScale(); })
+      .observe(wrap, { attributes: true, attributeFilter: ['style'] });
     _renderSealMarkersInViewer();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
