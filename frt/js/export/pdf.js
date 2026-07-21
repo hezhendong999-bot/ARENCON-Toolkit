@@ -2145,16 +2145,29 @@ function _captureExportPDF(w,D){
         // (auto-height appendix pages, off-screen pages, zero-size, etc.).
         if(!isFinite(ew)||ew<=0) ew=816;   // 8.5in @96dpi
         if(!isFinite(eh)||eh<=0) eh=1056;  // 11in  @96dpi
-        var canvas=await h2c(pageEl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:ew,height:eh,windowWidth:ew,windowHeight:eh,scrollX:0,scrollY:0});
-        // Size the PDF page from the ACTUAL canvas pixels (scale:2 -> /2 back to
-        // CSS px -> 72/96 to points). canvas dims are always finite integers, so
-        // this can never feed NaN into addPage. Fall back to Letter if somehow 0.
-        var cssW=(canvas.width||ew*2)/2, cssH=(canvas.height||eh*2)/2;
+        // S497b — THE actual photo-quality fix (Mark: "picked Max, PDF photos
+        // still blurry, preview crisp"). Body pages export as whole-page
+        // rasters, so photo sharpness is set by THIS scale, not by the photo
+        // JPEGs embedded in the DOM: at scale 2 a 3-across cell is ~460 px
+        // (~192 DPI printed) for every tier — the dropdown could not matter.
+        // Photo-bearing Letter pages now raster at scale 3 (~288 DPI cell) and
+        // encode as JPEG at the tier's photoQ: photographic pages in PNG were
+        // also why 23 pages weighed 13 MB. Text-only and appendix pages keep
+        // scale 2 + PNG (crisp line work, small, and no 24×36 scale-3 canvas
+        // memory bomb — appendix sheets carry .app-dwg, not .dp-grid).
+        var _isPhotoPage = !!pageEl.querySelector('.dp-grid img, .rphotos img');
+        var _pgScale = _isPhotoPage ? 3 : 2;
+        var canvas=await h2c(pageEl,{scale:_pgScale,useCORS:true,backgroundColor:'#ffffff',logging:false,width:ew,height:eh,windowWidth:ew,windowHeight:eh,scrollX:0,scrollY:0});
+        var cssW=(canvas.width||ew*_pgScale)/_pgScale, cssH=(canvas.height||eh*_pgScale)/_pgScale;
         var pw=(cssW/96)*72, ph=(cssH/96)*72;
         if(!isFinite(pw)||pw<=0) pw=612;   // 8.5in in points
         if(!isFinite(ph)||ph<=0) ph=792;   // 11in  in points
         var png;
-        try{ png=await pdfDoc.embedPng(canvas.toDataURL('image/png')); }
+        try{
+          png = _isPhotoPage
+            ? await pdfDoc.embedJpg(canvas.toDataURL('image/jpeg', _qTierDef().photoQ))
+            : await pdfDoc.embedPng(canvas.toDataURL('image/png'));
+        }
         catch(ep){ _capStatus(D,'Skipped a blank page ('+(i+1)+').'); continue; }
         var pg;
         var _pwN=Number(pw), _phN=Number(ph);
