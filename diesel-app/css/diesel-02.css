@@ -1,0 +1,391 @@
+
+/* ════════════════════════════════════════════════════════════════════
+   ARENCON BOLD — HEAVY REskin OVERLAY  (appended; CSS-only, additive)
+   Transforms the REAL components into the approved Bold demo language:
+   glassy 16px cards · 01· section-number chips · blue→blue bars ·
+   glassy completion/KPI card · semantic pills · living glow background.
+   NO HTML structure change · NO panel reorder · NO JS · NO feature change.
+   Toggle existing ☀️/🌙 (#dark-toggle) for Bold·Light <-> Bold·Dark.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ---------- TOKENS ---------- */
+:root{
+  --smoke:#EFEDF0; --border:#E2DFE8; --surface:#FFFFFF; --card:#FFFFFF;
+  --slate:#1B1A22; --slate-mid:#2C3E50; --steel:#5E5B68; --silver:#928E9C;
+  --arencon:#9C2742; --arencon-mid:#7d1f35;
+  --yes:#2E9E72; --yes-bg:#DBF3E9; --no:#C0445F; --no-bg:#FBE3E9;
+  --na:#2C7FB8; --na-bg:#D6E8F4; --warn:#D98A1E; --warn-bg:#FBEDD3;
+  --b-info:#2C7FB8; --b-info-bg:#DEEEF8; --b-rec:#D98A1E;
+  --shadow:0 2px 6px rgba(40,30,50,.07),0 10px 30px rgba(40,30,50,.08);
+  --shadow-lg:0 18px 50px rgba(40,30,50,.16);
+  --b-bar-a:#5BC0EB; --b-bar-b:#2C7FB8;
+  --b-glow1:radial-gradient(60% 50% at 8% 0%,rgba(156,39,66,.06),transparent 70%);
+  --b-glow2:radial-gradient(55% 45% at 95% 4%,rgba(44,127,184,.06),transparent 70%);
+  --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.93),rgba(255,255,255,.76));
+  --b-fieldbg:#FFFFFF;
+  --b-chiphdr:#EFEDF0; --b-chipink:#1B1A22; --b-chipnum:#5E5B68;
+  /* S245 Slice 1 — LOCKED Bold DAY chrome (two-skin, ref LOCKED_DIESEL_BOLD_RESKIN_S245.md / frt.css v503) */
+  --b-chrome-bg:#E6E3E9; --b-chrome2:#EFEDF0; --b-chrome-fg:#1B1A22; --b-chrome-rule:#D2CEDB; --b-chrome-hover:rgba(0,0,0,.05);
+  --b-bar-bg:#ECEAF0; --b-bar-fg:#1B1A22; --b-bar-rule:#D2CEDB; --b-bar-accent:#9C2742;
+  --b-btn-shadow:0 1px 3px rgba(40,30,50,.12),0 2px 6px rgba(40,30,50,.10);
+}
+body.dark-mode{
+  --smoke:#0b0a0d; --border:rgba(255,255,255,.10); --surface:rgba(255,255,255,.04); --card:rgba(255,255,255,.04);
+  --slate:#f4f3f6; --slate-mid:#0e0d12; --steel:#a09aa8; --silver:#6b6674;
+  --arencon:#C9476A; --arencon-mid:#9C2742;
+  --yes:#3FD08A; --yes-bg:rgba(63,208,138,.15); --no:#E26076; --no-bg:rgba(226,96,118,.16);
+  --na:#7FB8DD; --na-bg:rgba(70,150,200,.20); --warn:#E6A23C; --warn-bg:rgba(230,162,60,.16);
+  --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
+  --info:#46C5E8; --gr-rpm:#A593E0;
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px rgba(0,0,0,.4);
+  --shadow-lg:0 24px 60px rgba(0,0,0,.55);
+  --b-bar-a:#5BC0EB; --b-bar-b:#2C7FB8;
+  --b-glow1:radial-gradient(50% 45% at 6% 0%,rgba(156,39,66,.20),transparent 70%);
+  --b-glow2:radial-gradient(48% 42% at 96% 4%,rgba(70,197,232,.13),transparent 70%);
+  --b-cardgrad:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  --b-fieldbg:rgba(255,255,255,.05);
+  --b-chiphdr:rgba(255,255,255,.02); --b-chipink:#F4F3F6; --b-chipnum:#9A95A3;
+  /* S245 Slice 1 — LOCKED Bold DARK chrome (near-black two-skin) */
+  --b-chrome-bg:#1d1b24; --b-chrome2:#221f29; --b-chrome-fg:#F4F3F6; --b-chrome-rule:rgba(255,255,255,.12); --b-chrome-hover:rgba(255,255,255,.10);
+  --b-bar-bg:#23212b; --b-bar-fg:#F4F3F6; --b-bar-rule:rgba(255,255,255,.10); --b-bar-accent:#C9476A;
+  --b-btn-shadow:0 2px 6px rgba(0,0,0,.40);
+  background:#0b0a0d; color:#f4f3f6;
+}
+
+/* ---------- LIVING BACKGROUND ---------- */
+/* Prevent tab-to-tab horizontal jump: always show the vertical scrollbar track so a
+   tall panel and a short one have identical content width. (scrollbar-gutter:stable
+   was tried but the full-width sticky header bars respected the reserved gutter while
+   the body background did not, leaving a dead strip on the right.) */
+html{overflow-y:scroll;}
+body{position:relative;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:var(--b-glow1),var(--b-glow2);}
+.app-header,.phase-bar,.section-nav,.panel,#mobile-page-nav,.summary-bar{position:relative;z-index:1;}
+
+/* ---------- HEADER + NAV — S245 Slice 1: Bold two-skin chrome (light day / near-black dark) ---------- */
+/* S341e: header z-index lowered 10000 → 5000 so it sits ABOVE page content
+   (phase-bar/panels/summary z:1-3, bottom nav z:100) but BELOW every modal
+   overlay (lowest modal overlay is z:8999). This is the root fix for modals
+   sliding under the sticky header (AI Usage, etc.) — no per-modal bumps needed.
+   Z-INDEX SCALE (keep modals above 8999): page content 0-100 · header 5000 ·
+   modal overlays 8999+ · mobile drawer 10002 · toasts 9999. New modals must
+   use an overlay z-index of at least 9000. */
+.app-header{background:var(--b-chrome-bg)!important;color:var(--b-chrome-fg)!important;border-bottom:1px solid var(--b-chrome-rule);box-shadow:0 1px 3px rgba(40,30,50,.10)!important;z-index:5000!important;}
+body.dark-mode .app-header{background:var(--b-chrome-bg)!important;color:var(--b-chrome-fg)!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;}
+.app-title{color:var(--b-chrome-fg)!important;}
+.section-nav{background:var(--b-chrome-bg)!important;border-bottom:1px solid var(--b-chrome-rule);}
+body.dark-mode .section-nav{background:var(--b-chrome-bg)!important;}
+.nav-tab{color:var(--b-chrome-fg);opacity:.55;}
+.nav-tab:hover{opacity:.85;color:var(--b-chrome-fg);}
+.nav-tab.active{opacity:1;border-bottom-color:var(--arencon);color:var(--b-chrome-fg);}
+body.dark-mode .nav-tab{color:var(--b-chrome-fg);opacity:.55;}
+body.dark-mode .nav-tab.active{opacity:1;color:var(--b-chrome-fg);border-bottom-color:var(--arencon);}
+.phase-bar{background:var(--b-chrome2)!important;}
+.phase-tab{color:var(--b-chrome-fg)!important;opacity:.55;}
+.phase-tab:hover{opacity:.85;}
+.phase-tab.active{opacity:1!important;border-bottom-color:var(--arencon)!important;}
+.phase-tab.active .ph-name{color:var(--b-chrome-fg)!important;}
+.phase-tab .ph-sub{color:var(--b-chrome-fg)!important;}
+
+/* ---------- CARDS -> glassy 16px ---------- */
+.card{background:var(--b-cardgrad)!important;border:1px solid var(--border)!important;border-radius:16px!important;
+  box-shadow:var(--shadow)!important;backdrop-filter:blur(8px);margin-bottom:18px;}
+/* card-header -> light section-chip bar with 01· monospaced number, NOT a heavy burgundy slab */
+.card-header{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;
+  border-bottom:2px solid var(--arencon)!important;border-radius:16px 16px 0 0;
+  font-weight:700;letter-spacing:.3px;padding:12px 18px!important;}
+.card-header svg{color:var(--arencon)!important;opacity:1;}
+/* S355: 01/02/03 section-number chip removed per request — header titles stand alone. */
+/* DARK MODE — beat the tool's hard-coded burgundy header gradients (lines 776-780, two-selector !important).
+   Must match that specificity: body.dark-mode .card-header */
+body.dark-mode .card-header,
+body.dark-mode .card-header.mid,
+body.dark-mode .card-header.red{
+  background:var(--b-chiphdr)!important;            /* near-transparent -> blends into near-black body */
+  color:var(--b-chipink)!important;
+  border-bottom:1px solid var(--border)!important;  /* hairline, no burgundy */
+}
+body.dark-mode .card-header svg{color:var(--arencon)!important;}
+body.dark-mode .ov-hd{
+  background:#23212b!important;
+  color:#f4f3f6!important;
+  border-bottom:1px solid var(--border)!important;
+  border-left:3px solid var(--arencon)!important;
+}
+body.dark-mode .ov-hd svg{color:var(--arencon)!important;}
+body.dark-mode .ov-hd .ov-pct{color:#fff!important;}
+/* a left burgundy hairline accent on every card for the "alive" demo feel */
+.card{position:relative;}
+.card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:16px 0 0 16px;
+  background:linear-gradient(180deg,var(--arencon),var(--b-info));opacity:.55;}
+
+/* ---------- COMPLETION / KPI CARD (.ov-card) -> glassy, gradient ring-bar ---------- */
+.ov-card{background:var(--b-cardgrad)!important;border:1px solid var(--border)!important;border-radius:16px!important;
+  box-shadow:var(--shadow)!important;backdrop-filter:blur(8px);}
+.ov-hd{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;border-bottom:2px solid var(--arencon)!important;}
+.ov-hd svg{color:var(--arencon)!important;}
+.ov-hd .ov-pct{color:var(--arencon)!important;} /* S280: was #fff — white-on-light chip header made the % invisible; burgundy reads on the light bar */
+.ov-bar{background:color-mix(in srgb,var(--slate) 9%,transparent);height:10px;}
+.ov-bar > i{background:linear-gradient(90deg,var(--arencon),var(--b-info))!important;}
+.ov-row{border-bottom:1px solid var(--border);}
+.ov-row:hover{background:color-mix(in srgb,var(--arencon) 5%,transparent);}
+.ov-attn-strip{background:var(--no-bg)!important;border-top:1px solid color-mix(in srgb,var(--no) 25%,transparent)!important;border-radius:0 0 16px 16px;}
+
+/* ---------- ALL BARS -> burgundy->cyan (per locked demo) ---------- */
+.sum-bar-fill,.ov-bar>i,.progress-bar>span,.bar>span,[class*="-bar-fill"],[class*="bar-fill"]{
+  background:linear-gradient(90deg,var(--arencon),var(--b-info))!important;}
+
+/* ---------- DATA TABLES -> rounded, glassy header ---------- */
+.data-table{border-radius:12px;overflow:hidden;border:1px solid var(--border);}
+.data-table th{background:color-mix(in srgb,var(--slate-mid) 90%,var(--arencon))!important;color:#fff!important;letter-spacing:.4px;}
+body:not(.dark-mode) .data-table tr:nth-child(even) td{background:#FAF9FC;}
+body.dark-mode .data-table tr:nth-child(even) td{background:rgba(255,255,255,.025);}
+.data-table td{border-bottom:1px solid var(--border);color:var(--slate);}
+.data-table .calc-cell{background:color-mix(in srgb,var(--b-info) 10%,transparent)!important;color:var(--slate)!important;}
+.data-table tr.total-row td{background:color-mix(in srgb,var(--arencon) 7%,transparent)!important;}
+.data-table input[type=number],.data-table input[type=text]{background:var(--b-fieldbg);color:var(--slate);border:1px solid var(--border);border-radius:8px;}
+.data-table input:focus{border-color:var(--arencon);box-shadow:0 0 0 3px color-mix(in srgb,var(--arencon) 18%,transparent);}
+
+/* ---------- FIELDS ---------- */
+/* FIELD LABELS -> true ink, matching the crisp checklist text (beat .field-group label{--silver} + body.dark-mode .field-group label{#8a90a0}) */
+body:not(.dark-mode) .field-group label{color:#1B1A22!important;}
+body.dark-mode .field-group label{color:#F4F3F6!important;}
+/* DAY MODE inputs — solid black ink (override base .field-group input color:var(--slate)) */
+body:not(.dark-mode) input,body:not(.dark-mode) select,body:not(.dark-mode) textarea,
+body:not(.dark-mode) .field-group input,body:not(.dark-mode) .field-group select,body:not(.dark-mode) .field-group textarea{
+  background:#FFFFFF!important;color:#1B1A22!important;-webkit-text-fill-color:#1B1A22!important;
+  border:1px solid var(--border)!important;border-radius:9px!important;}
+body:not(.dark-mode) input::placeholder,body:not(.dark-mode) textarea::placeholder{color:#A8A4B0!important;-webkit-text-fill-color:#A8A4B0!important;font-style:italic;}
+/* DARK MODE inputs — solid white ink (must beat body.dark-mode input{color:#d0d8f0!important}) */
+body.dark-mode input,body.dark-mode select,body.dark-mode textarea,
+body.dark-mode .field-group input,body.dark-mode .field-group select,body.dark-mode .field-group textarea{
+  background:rgba(255,255,255,.05)!important;color:#F4F3F6!important;-webkit-text-fill-color:#F4F3F6!important;
+  border:1px solid var(--border)!important;border-radius:9px!important;}
+body.dark-mode input::placeholder,body.dark-mode textarea::placeholder{color:#6b6674!important;-webkit-text-fill-color:#6b6674!important;font-style:italic;}
+/* readonly fields (Date Modified) — keep readable ink, not washed grey, both modes */
+body:not(.dark-mode) input[readonly]{color:#1B1A22!important;-webkit-text-fill-color:#1B1A22!important;background:#F4F1F5!important;}
+body.dark-mode input[readonly]{color:#F4F3F6!important;-webkit-text-fill-color:#F4F3F6!important;background:rgba(255,255,255,.04)!important;}
+/* focus ring burgundy, both modes */
+input:focus,textarea:focus,select:focus{outline:none!important;border-color:var(--arencon)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--arencon) 18%,transparent)!important;}
+.field-group input:focus,.field-group select:focus,.field-group textarea:focus,
+input:focus,textarea:focus,select:focus{outline:none!important;border-color:var(--arencon)!important;
+  background:var(--surface)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--arencon) 18%,transparent)!important;}
+
+/* ---------- BUTTONS -> Bold ---------- */
+.btn-primary{border:1px solid #2E9E72!important;background:#DCF1E8!important;color:#1F8A60!important;border-radius:7px!important;box-shadow:none!important;}
+.btn-primary:hover{background:#CFEBDF!important;}
+body.dark-mode .btn-primary{border:1px solid #3FD08A!important;background:rgba(63,208,138,.15)!important;color:#3FD08A!important;}
+body.dark-mode .btn-primary:hover{background:rgba(63,208,138,.22)!important;}
+.btn-danger{border:1px solid #C0445F!important;background:#FBE3E9!important;color:#A83A50!important;border-radius:7px!important;box-shadow:none!important;}
+.btn-danger:hover{background:#F8D7DF!important;}
+body.dark-mode .btn-danger{border:1px solid #E26076!important;background:rgba(226,96,118,.14)!important;color:#E8788C!important;}
+body.dark-mode .btn-danger:hover{background:rgba(226,96,118,.2)!important;}
+.btn-outline,.btn-secondary{border:1px solid #2E8C8C!important;background:#DCEFEF!important;color:#1F7373!important;border-radius:7px!important;box-shadow:none!important;}
+.btn-outline:hover,.btn-secondary:hover{background:#CFE8E8!important;}
+body.dark-mode .btn-outline,body.dark-mode .btn-secondary{border:1px solid #3FB8B8!important;background:rgba(63,184,184,.15)!important;color:#5FCBCB!important;}
+body.dark-mode .btn-outline:hover,body.dark-mode .btn-secondary:hover{background:rgba(63,184,184,.22)!important;}
+.btn-outline:active,.btn-secondary:active,.btn-primary:active,.btn-danger:active{transform:translateY(1px);}
+.btn-amber,.btn-cancel,.btn-muted-cancel{border:1px solid #C98A4A!important;background:#F6E8D6!important;color:#9A6A28!important;border-radius:7px!important;box-shadow:none!important;}
+.btn-amber:hover,.btn-cancel:hover,.btn-muted-cancel:hover{background:#F1DEC4!important;}
+body.dark-mode .btn-amber,body.dark-mode .btn-cancel,body.dark-mode .btn-muted-cancel{border:1px solid #E0A36A!important;background:rgba(224,163,106,.16)!important;color:#E0A36A!important;}
+body.dark-mode .btn-amber:hover,body.dark-mode .btn-cancel:hover,body.dark-mode .btn-muted-cancel:hover{background:rgba(224,163,106,.24)!important;}
+
+/* ---------- PASS/FAIL/NA + Y/N/NA -> semantic pills (glow in dark) ---------- */
+.fig-readout .ro .chip.pass{background:var(--yes-bg)!important;color:var(--yes)!important;border:1px solid color-mix(in srgb,var(--yes) 35%,transparent)!important;}
+.fig-readout .ro .chip.fail{background:var(--no-bg)!important;color:var(--no)!important;border:1px solid color-mix(in srgb,var(--no) 35%,transparent)!important;}
+.fig-readout .ro .chip.na{background:var(--na-bg)!important;color:var(--silver)!important;}
+/* Y/N/NA — real classes are .tog / .tog-yes.on / .tog-no.on / .tog-na.on (active = .on) */
+.tog-yes.on{background:var(--yes-bg)!important;color:var(--yes)!important;border-color:var(--yes)!important;}
+.tog-no.on{background:var(--no-bg)!important;color:var(--no)!important;border-color:var(--no)!important;}
+.tog-na.on{background:var(--na-bg)!important;color:var(--na)!important;border-color:var(--na)!important;}
+/* DAY MODE: the resting rule `body:not(.dark-mode) .tog` is (0,0,2,1) and was
+   beating the active `.tog-X.on` (0,0,2,0), so selected toggles stayed grey.
+   Scope the active rules under body:not(.dark-mode) too -> (0,0,3,0), wins. */
+body:not(.dark-mode) .tog-yes.on{background:var(--yes-bg)!important;color:var(--yes)!important;border-color:var(--yes)!important;}
+body:not(.dark-mode) .tog-no.on{background:var(--no-bg)!important;color:var(--no)!important;border-color:var(--no)!important;}
+body:not(.dark-mode) .tog-na.on{background:var(--na-bg)!important;color:var(--na)!important;border-color:var(--na)!important;}
+body.dark-mode .tog-yes.on{background:var(--yes-bg)!important;color:var(--yes)!important;border-color:var(--yes)!important;}
+body.dark-mode .tog-no.on{background:var(--no-bg)!important;color:var(--no)!important;border-color:var(--no)!important;}
+body.dark-mode .tog-na.on{background:var(--na-bg)!important;color:var(--na)!important;border-color:var(--na)!important;}
+/* resting tog -> Bold neutral, both modes */
+body:not(.dark-mode) .tog{background:var(--b-fieldbg)!important;color:#5E5B68!important;border:1px solid var(--border)!important;}
+body.dark-mode .tog{background:var(--b-fieldbg)!important;color:#a09aa8!important;border:1px solid var(--border)!important;}
+
+/* tab count badge / dots */
+.nav-tab .tab-count{background:var(--no)!important;}
+.nav-tab .tab-count.allclear{background:var(--yes)!important;}
+
+/* ---------- PHOTO ZONES + GALLERY ---------- */
+.photo-zone,.photo-zone-compact{background:var(--b-fieldbg)!important;border:2px dashed var(--border)!important;border-radius:12px!important;}
+.photo-zone.drag-over,.photo-zone-compact.drag-over{border-color:var(--arencon)!important;background:color-mix(in srgb,var(--arencon) 6%,transparent)!important;}
+#photos-gallery img,#photos-gallery .photo-tile,.gallery-tile{border-radius:12px!important;box-shadow:var(--shadow)!important;border:1px solid var(--border)!important;}
+
+/* ---------- HEADER DROPDOWN MENUS -> solid opaque (never see-through) ---------- */
+/* The Reports/More menus were compositing as glassy and content showed through.
+   Pin a solid background on the menu AND its buttons, no backdrop-filter, both modes. */
+.hdr-repair-menu{background:#FFFFFF!important;backdrop-filter:none!important;
+  border:1px solid var(--border)!important;box-shadow:var(--shadow-lg)!important;}
+.hdr-repair-menu button{background:#FFFFFF!important;color:var(--slate)!important;backdrop-filter:none!important;}
+.hdr-repair-menu button:hover{background:#F4F1F5!important;}
+.hdr-repair-menu button span{color:var(--steel)!important;}
+body.dark-mode .hdr-repair-menu{background:#15131a!important;border:1px solid var(--border)!important;}
+body.dark-mode .hdr-repair-menu button{background:#15131a!important;color:#F4F3F6!important;}
+body.dark-mode .hdr-repair-menu button:hover{background:#221f29!important;}
+body.dark-mode .hdr-repair-menu button span{color:#a09aa8!important;}
+
+/* ---------- PROJECT (AUTONAMING) BAR -> S245 Slice 1: Bold two-skin chrome ---------- */
+.project-bar{background:var(--b-chrome2)!important;
+  border-top:1px solid var(--b-chrome-rule)!important;backdrop-filter:blur(8px);}
+body.dark-mode .project-bar{background:var(--b-chrome2)!important;
+  border-top:1px solid var(--b-chrome-rule)!important;}
+.project-bar .pb-filename{color:var(--b-chrome-fg)!important;}
+
+/* ---------- MOBILE PAGE NAV ---------- */
+#mobile-page-nav{background:var(--b-chrome-bg)!important;border-top:3px solid var(--arencon)!important;}
+/* S267: Prev/Next buttons had inline white text on a near-transparent white fill — invisible
+   once the Bold theme flipped the bar background to light. Restyle to readable Bold chrome:
+   Prev = neutral surface, Next = burgundy CTA, both with a clear disabled state. */
+#mobile-page-nav #nav-prev{background:var(--b-chrome2)!important;color:var(--b-chrome-fg)!important;border:1px solid var(--b-chrome-rule)!important;box-shadow:var(--b-btn-shadow)!important;}
+#mobile-page-nav #nav-next{background:var(--b-chrome2)!important;color:var(--b-chrome-fg)!important;border:1px solid var(--b-chrome-rule)!important;box-shadow:var(--b-btn-shadow)!important;}
+#mobile-page-nav #nav-prev:disabled,#mobile-page-nav #nav-next:disabled{opacity:.4!important;cursor:default!important;box-shadow:none!important;}
+#mobile-page-nav #nav-label{color:var(--b-chrome-fg)!important;opacity:.7;}
+
+/* ---------- FLOW-CHART HEADER (.fig-hd) -> match the Bold black slab ---------- */
+/* It kept the old burgundy (var(--arencon)) bar while every .card-header became the
+   dark slab + burgundy underline. Bring it in line. Both modes. */
+.fig-hd{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;
+  border-bottom:2px solid var(--arencon)!important;}
+.fig-hd .fig-ic{color:var(--arencon)!important;opacity:1;}
+.fig-hd .fig-t{color:var(--b-chipink)!important;}
+body.dark-mode .fig-hd{background:var(--b-chiphdr)!important;color:var(--b-chipink)!important;
+  border-bottom:1px solid var(--border)!important;}
+body.dark-mode .fig-hd .fig-ic{color:var(--arencon)!important;}
+
+/* ---------- PHOTOS NAV-TAB CAMERA-EMOJI ALIGNMENT ---------- */
+/* The 📷 glyph in the Photos tab label has a taller line box, dropping that tab's
+   text ~1px vs the others and making the Closeout row look uneven. Centering each
+   tab's inner content (the parent .section-nav is already display:flex) removes it. */
+.nav-tab{display:flex;align-items:center;line-height:1;}
+
+/* ════════════════════════════════════════════════════════════════════
+   S225c — CHROME REFINEMENT (supersedes earlier overlay chrome rules)
+   Goal: match FRT button family, dark header same-family, two-tier nav
+   with a CLEAR parent/child rank, full-width sub-nav, visible day hover,
+   clean solid verdict bar. Last in the overlay so these win.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* AI Review button -> FRT purple (#7B2D8E), not the burgundy it was */
+.hdr-ai-active{background:#7B2D8E!important;}
+.hdr-ai-active:hover{filter:brightness(1.12);}
+
+/* DARK header -> S245 Slice 1: Bold two-skin near-black chrome (was burgundy gradient) */
+body.dark-mode .app-header{background:var(--b-chrome-bg)!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;}
+
+/* ── TWO-TIER NAV: make phase bar (parent/context) read as a DIFFERENT rank
+   than the sub-tabs (child/working level). Before: two near-identical dark
+   strips competed and the day-mode white strip was narrow + misaligned. ── */
+
+/* phase bar = quiet, recessed context */
+.phase-bar{background:rgba(0,0,0,.18)!important;padding:0!important;gap:0!important;}
+body.dark-mode .phase-bar{background:rgba(0,0,0,.30)!important;}
+.phase-tab{color:var(--b-chrome-fg)!important;opacity:.5!important;}
+/* S250: phase bar (Setup/Tests/Closeout) removed per Mark — all section tabs show in one scrollable row. Markup kept inert for caller compatibility. */
+.phase-bar,#phase-bar{display:none!important;}
+.phase-tab .ph-sub{color:var(--b-chrome-fg)!important;opacity:.55!important;}
+.phase-tab.active{color:var(--b-chrome-fg)!important;opacity:1!important;background:transparent!important;border-bottom-color:var(--arencon)!important;}
+.phase-tab.active .ph-name{color:var(--b-chrome-fg)!important;}
+.phase-tab.active .ph-sub{color:var(--b-chrome-fg)!important;opacity:.8!important;}
+.phase-tab:not(.active):hover{color:var(--b-chrome-fg)!important;opacity:.8!important;}
+
+/* autoname / project bar = recessed context strip between header and phase bar
+   (was leftover navy #2C3E50 / rgba(255,255,255,.02), untouched by the Bold overlay) */
+/* autoname / project bar = S245 Slice 1 Bold two-skin chrome (this is the source-order winner) */
+.project-bar{background:var(--b-chrome2)!important;border-top:1px solid var(--b-chrome-rule)!important;}
+body.dark-mode .project-bar{background:var(--b-chrome2)!important;border-top-color:var(--b-chrome-rule)!important;}
+.project-bar .pb-filename{color:var(--b-chrome-fg)!important;}
+.project-bar .pb-badge{background:#E67E22;color:#fff!important;}
+
+/* sub-tabs = S245 Slice 1 Bold two-skin chrome (source-order winner) */
+.section-nav{width:100%!important;}
+body:not(.dark-mode) .section-nav{background:var(--b-chrome-bg)!important;border-bottom:1px solid var(--b-chrome-rule)!important;}
+body.dark-mode .section-nav{background:var(--b-chrome-bg)!important;border-bottom:1px solid var(--b-chrome-rule)!important;}
+/* nav tab = chrome ink at .55, active full + burgundy underline. Never white-on-white (the disappearing-text bug). */
+body:not(.dark-mode) .nav-tab{color:var(--b-chrome-fg)!important;opacity:.55!important;}
+body:not(.dark-mode) .nav-tab:hover{opacity:.85!important;color:var(--b-chrome-fg)!important;}
+body:not(.dark-mode) .nav-tab.active{opacity:1!important;color:var(--b-chrome-fg)!important;border-bottom-color:var(--arencon)!important;}
+body.dark-mode .nav-tab{color:var(--b-chrome-fg)!important;opacity:.55!important;}
+body.dark-mode .nav-tab:hover{opacity:.85!important;color:var(--b-chrome-fg)!important;}
+body.dark-mode .nav-tab.active{opacity:1!important;color:var(--b-chrome-fg)!important;border-bottom-color:var(--arencon)!important;}
+
+/* ── S248: NEUTRAL HEADER BUTTONS — FRT S249p shadow style (Mark-locked).
+   Subtle filled --b-chrome2 surface so the shadow reads + adaptive shadow + tactile press.
+   Applies to day/night toggle, QR, and S/L (text-size). #dark-toggle & #btn-qr have inline
+   white-alpha bg from the old navy header — !important beats the inline. Colored CTAs keep their fill. ── */
+#dark-toggle, #btn-qr, .text-size-toggle{
+  background:var(--b-chrome2)!important;
+  border:1px solid var(--b-chrome-rule)!important;
+  color:var(--b-chrome-fg)!important;
+  box-shadow:var(--b-btn-shadow)!important;
+  transition:box-shadow .15s, transform .08s, background .15s!important;
+}
+body.dark-mode #dark-toggle, body.dark-mode #btn-qr, body.dark-mode .text-size-toggle{
+  background:var(--b-chrome2)!important;
+  border:1px solid var(--b-chrome-rule)!important;
+  color:var(--b-chrome-fg)!important;
+}
+#dark-toggle:active, #btn-qr:active, .text-size-toggle:active{
+  transform:translateY(1px);
+  box-shadow:0 1px 2px rgba(0,0,0,.22)!important;
+}
+/* S263: square icon buttons matched to FRT exactly — flat 34px desktop / 38px touch
+   (FRT frt.css line 1901/1907). Replaces diesel's calc(28px+--ts) which rendered smaller
+   than FRT. Font flat per FRT. */
+#dark-toggle, #btn-qr, .mobile-menu-btn{
+  width:34px!important; height:34px!important;
+  min-width:34px!important; min-height:34px!important; max-width:34px!important; max-height:34px!important;
+  padding:0!important;
+  font-size:calc(16px + var(--ts))!important;
+  display:inline-flex!important; align-items:center!important; justify-content:center!important;
+  line-height:1!important; border-radius:6px!important; flex-shrink:0!important;
+}
+/* S278: day/night icon replaced with inline SVG (sun/moon) — the 61px PNG was being
+   flattened when downscaled to 18px in the field/PC WebView (box measured square via
+   getBoundingClientRect, but the painted bitmap was vertically compressed; PNG attr/CSS/
+   clamp tweaks could not fix a bitmap-resample distortion). SVG is vector: it renders
+   sharp and perfectly round at any size/DPR/GPU path, like the QR emoji glyph next to it.
+   _DT_SUN/_DT_MOON now hold SVG strings; updateDarkToggleIcon() swaps them unchanged. */
+#dark-toggle img{ width:18px!important; height:18px!important; }
+#dark-toggle svg{ width:18px!important; height:18px!important; display:block!important; }
+@media(pointer:coarse){
+  #dark-toggle, #btn-qr, .mobile-menu-btn{ width:36px!important; height:36px!important; min-width:36px!important; min-height:36px!important; max-width:36px!important; max-height:36px!important; font-size:16px!important; line-height:1!important; }
+}
+@media(hover:hover){
+  #dark-toggle:hover, #btn-qr:hover, .text-size-toggle:hover{background:#9C2742!important;color:#fff!important;border-color:#9C2742!important;}
+  body.dark-mode #dark-toggle:hover, body.dark-mode #btn-qr:hover, body.dark-mode .text-size-toggle:hover{background:#9C2742!important;color:#fff!important;border-color:#9C2742!important;}
+}
+/* S264: undo/redo (.hdr-sm) matched to FRT exactly — chrome shadow-box, 34x34
+   (FRT frt.css line 9728). Same neutral surface + border + press-dip as the icon buttons. */
+.app-header .hdr-sm{
+  background:var(--b-chrome2)!important; color:var(--b-chrome-fg)!important;
+  border:1px solid var(--b-chrome-rule)!important; box-shadow:var(--b-btn-shadow)!important;
+  border-radius:6px!important; width:34px!important; height:34px!important; min-height:0!important;
+  padding:0!important; font-size:calc(15px + var(--ts))!important;
+  display:inline-flex!important; align-items:center!important; justify-content:center!important;
+  cursor:pointer!important; transition:box-shadow .15s,transform .08s,background .15s!important;
+}
+.header-nav-arrows{display:inline-flex;align-items:center;gap:6px;}
+@media(hover:hover){ .app-header .hdr-sm:hover{ background:#9C2742!important; color:#fff!important; border-color:#9C2742!important; } }
+.app-header .hdr-sm:active{ transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22)!important; }
+@media(pointer:coarse){ .app-header .hdr-sm{ width:36px!important; height:36px!important; min-width:36px!important; } }
+/* Colored CTAs (AI Review, Reports, More, Sign Out): flat + colored, gain the soft press-shadow + tactile dip. Never the neutral surface. */
+.hdr-ai-active, #btn-reports-parent, #btn-signout, .hdr-btn[onclick*="MoreMenu"]{box-shadow:var(--b-btn-shadow)!important;transition:box-shadow .15s,transform .08s,filter .15s!important;}
+.hdr-ai-active:active, #btn-reports-parent:active, #btn-signout:active, .hdr-btn[onclick*="MoreMenu"]:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22)!important;}
+
+/* VERDICT banner -> clean solid (the inline el.style.background sets the hue;
+   ensure no glassy/gradient bleed sits under it) */
+.summary-bar,#overall-result,[id*="overall"]{backdrop-filter:none!important;}
+
+/* body bg uses retuned smoke */
+body{background:var(--smoke);color:var(--slate);}
+
