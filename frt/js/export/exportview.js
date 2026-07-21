@@ -147,6 +147,7 @@ function _styleOnce() {
     '.exv-f{flex-wrap:wrap;}',
     '.exv-fleft{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}',
     '.exq-est-foot{margin-top:0;padding:6px 11px;align-items:center;}',
+    '.exq-est-foot .dot{margin-top:0;}',
     '.exq-est-foot .sub{display:inline;margin-top:0;margin-left:4px;}',
     /* S496d: on narrow screens the pill takes its own full row instead of
        squeezing beside the count — no wrapping inside the pill, ever. */
@@ -379,11 +380,12 @@ export var initExportView = {
     // you adjust sliders while the right column is scrolled off-screen. It
     // belongs in the footer, the one bar that never leaves. Built into a
     // variable here, emitted into .exv-f below. IDs unchanged.
-    // S496d: NO status dot. It broke twice (orphaned below the grid, then
-    // overlapping the text at narrow widths) — per the two-strikes rule the
-    // element is deleted, not re-styled. The pill's border/background colour
-    // already carries normal-vs-amber state.
-    var _estHtml = '<span class="exq-est exq-est-foot" id="exv-est">'
+    // S496e: dot RESTORED. Root cause of both "dot bugs" was never the markup —
+    // frt.css?v= was not bumped on any S496 push, so devices served stale CSS
+    // without the pill's flex rules and the dot flowed inline through the text.
+    // The standing rule (SW CACHE_NAME and CSS ?v= bump TOGETHER) exists for
+    // exactly this; S496d deleted a working element to silence a deploy failure.
+    var _estHtml = '<span class="exq-est exq-est-foot" id="exv-est"><span class="dot"></span>'
       + '<span><span id="exv-est-main"></span><span class="sub" id="exv-est-sub"></span></span></span>';
     // ── SEAL REDACTION — CONTACT SHEET (S492, LOCKED_SEAL_REDACTION_VISIBILITY.md).
     // S496c (completing Option B): this whole section is captured into _bandHtml

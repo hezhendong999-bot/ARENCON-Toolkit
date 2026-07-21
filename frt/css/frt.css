@@ -228,7 +228,12 @@ body.dv-open{overflow:hidden!important;}
   outline:1.5px solid #9C2742;caret-color:#9C2742;-webkit-user-select:text;user-select:text;-webkit-touch-callout:none;}
 body.dark-mode .dv-text-box{color:#f4f3f6;background:rgba(20,18,24,.55);outline-color:#C9476A;caret-color:#C9476A;}
 .dv-text-box:empty::before{content:attr(data-empty-placeholder);color:#928E9C;font-weight:400;}
-.dv-toolbar{background:var(--b-chrome-bg);padding:6px 10px;display:flex;align-items:center;gap:6px;z-index:30;flex-shrink:0;position:relative;border-bottom:1px solid var(--b-chrome-rule);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+/* S496e (Mark): viewer band matched to the sealed engine's chrome-skin bar —
+   padding 8px 14px, min-height 51px (34px button + 8+8 pad + 1px rule), same
+   shadow. Values PINNED from lib/ui/headerEngine2.js (read-only); when the
+   cross-lane header unification lands these literals should be replaced by the
+   engine's shared token so they can never drift again. */
+.dv-toolbar{background:var(--b-chrome-bg);padding:8px 14px;min-height:51px;box-sizing:border-box;display:flex;align-items:center;gap:6px;z-index:30;flex-shrink:0;position:relative;border-bottom:1px solid var(--b-chrome-rule);box-shadow:0 1px 3px rgba(40,30,50,.10);}
 body.dark-mode .dv-toolbar{background:var(--b-chrome-bg);box-shadow:none;border-bottom-color:var(--b-chrome-rule);}
 .dv-toolbar .dv-title-wrap{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;padding:0 8px;}
 .dv-toolbar .dv-title{color:var(--b-chrome-fg);font-weight:600;font-size:calc(13px + var(--ts));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
