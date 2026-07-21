@@ -544,6 +544,13 @@ function _repairPhotos() {
 }
 
 function _reuploadAll() {
+  // S497f (Mark): runtime gate, not just menu hiding — staff must not touch
+  // R2 in any form. Mirrors the _repairPhotos guard. Menu visibility is
+  // cosmetics; this line is the actual protection.
+  if (!(Auth && Auth.isSuperAdmin && Auth.isSuperAdmin())) {
+    showAlert('Restricted', 'Re-upload is restricted to the administrator.');
+    return;
+  }
   var pid = new URLSearchParams(window.location.search).get('project');
   if (!pid) { toast('Only available in Hub mode'); return; }
   var proj = Model.getProject();
@@ -2260,7 +2267,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S497e';
+var FRT_BUILD = 'S497f';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
