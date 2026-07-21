@@ -117,10 +117,49 @@ def main():
     ap.add_argument('--kill', default='',
                     help='comma-separated symbols INTENTIONALLY removed '
                          '(does NOT work on protected symbols)')
+    ap.add_argument('--htmlold', default='',
+                    help='frt.css only: LIVE frt/index.html (proves ?v= state)')
+    ap.add_argument('--htmlnew', default='',
+                    help='frt.css only: EDITED frt/index.html (proves ?v= bump)')
     a = ap.parse_args()
 
     old = open(a.old, encoding='utf-8', errors='replace').read()
     new = open(a.new, encoding='utf-8', errors='replace').read()
+
+    # ── frt.css ?v= GATE (S497) ──
+    # S496 pushed frt.css three times with CACHE_NAME bumped but frt.css?v=
+    # never touched. Devices served stale CSS all night; two "bugs" were
+    # chased and one working element deleted before the cause was found.
+    # A paragraph in a handoff is not a mechanism; this is. Any diff that
+    # changes frt.css must PROVE, in the same gate run, that the ?v= query
+    # in frt/index.html was bumped: pass --htmlold (live) and --htmlnew
+    # (edited). No proof, no push.
+    import os as _os
+    if _os.path.basename(a.new) == 'frt.css' and old != new:
+        _vre = re.compile(r'frt\.css\?v=(\d+)')
+        if not (a.htmlold and a.htmlnew):
+            print('── frt.css ?v= gate')
+            print('   ✗ BLOCKED — frt.css changed but no --htmlold/--htmlnew given.')
+            print('     Pass the LIVE and EDITED frt/index.html so the gate can')
+            print('     verify the frt.css?v= bump shipped in the same push.')
+            print('     (S496: three frt.css pushes without a ?v= bump cost a night.)')
+            return 1
+        _ho = open(a.htmlold, encoding='utf-8', errors='replace').read()
+        _hn = open(a.htmlnew, encoding='utf-8', errors='replace').read()
+        _mo, _mn = _vre.search(_ho), _vre.search(_hn)
+        if not _mo or not _mn:
+            print('── frt.css ?v= gate')
+            print('   ✗ BLOCKED — frt.css?v= tag not found in '
+                  + ('the LIVE' if not _mo else 'the EDITED') + ' index.html.')
+            return 1
+        _vo, _vn = int(_mo.group(1)), int(_mn.group(1))
+        if _vn <= _vo:
+            print('── frt.css ?v= gate')
+            print(f'   ✗ BLOCKED — frt.css changed but ?v= not bumped '
+                  f'(live v={_vo}, edited v={_vn}).')
+            print('     Bump frt.css?v= in frt/index.html in the SAME push.')
+            return 1
+        print(f'── frt.css ?v= gate: ✓ bumped v={_vo} → v={_vn}')
 
     is_css = a.new.endswith('.css')
     extract = css_symbols if is_css else js_symbols
