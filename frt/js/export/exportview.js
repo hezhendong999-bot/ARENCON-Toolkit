@@ -516,7 +516,11 @@ export var initExportView = {
     // the tier's quality: roughly 40-60 KB. The old px-based formula priced
     // standalone JPEG embeds that never reach the PDF (13 MB real vs 2.8 MB
     // "estimate" on Mark's 65-photo export).
-    var _exqPhoto = { balanced:{kb:40,q:0.82}, high:{kb:50,q:0.85}, max:{kb:60,q:0.88} };
+    // S497c calibration — fitted against the dissected real export (page-level
+    // image weights from Mark's 17 MB PDF), projected onto the scale-3 JPEG
+    // path: densest 9-photo page ≈ 1 MB → ~90 KB/photo at Max q, less at
+    // lower q; rastered page chrome ≈ 180 KB per deficiency page.
+    var _exqPhoto = { balanced:{kb:55,q:0.82}, high:{kb:70,q:0.85}, max:{kb:90,q:0.88} };
     var _exqSheetIn = { letter:[8.5,11], '11x17':[11,17], '24x36':[24,36] };
     function _exqPhotoTier(){
       var el = ov.querySelector('#exv-quality');
@@ -556,7 +560,7 @@ export var initExportView = {
       // of text/chrome (~110 KB) + its photos' share of the raster (per-photo
       // KB by tier, sized off the scale-3 JPEG cell). Still approximate — line
       // density and text volume vary — so it SAYS "rough".
-      var def = _exqTierDpi(), kb = _exqPhotoKB() * _photoCount + _deficCount * 110, over = false;
+      var def = _exqTierDpi(), kb = _exqPhotoKB() * _photoCount + _deficCount * 180, over = false;
       if (drawingsOn) {
         _sealRows.forEach(function(dw){
           var dpi = (_exqDpi[dw.id] != null) ? _exqDpi[dw.id] : def;

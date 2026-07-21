@@ -2155,7 +2155,12 @@ function _captureExportPDF(w,D){
         // also why 23 pages weighed 13 MB. Text-only and appendix pages keep
         // scale 2 + PNG (crisp line work, small, and no 24×36 scale-3 canvas
         // memory bomb — appendix sheets carry .app-dwg, not .dp-grid).
-        var _isPhotoPage = !!pageEl.querySelector('.dp-grid img, .rphotos img');
+        // S497c — the S497b detector matched NOTHING: report photos are not
+        // <img> elements, they are <div class="dp"> tiles with CSS background
+        // images (verified by dissecting Mark's actual 17 MB PDF: every page
+        // was still a scale-2 PNG, so the "fix" never fired — blur and weight
+        // unchanged). Match the tiles that actually exist.
+        var _isPhotoPage = !!pageEl.querySelector('.dp, .rphotos img, .dp-grid img');
         var _pgScale = _isPhotoPage ? 3 : 2;
         var canvas=await h2c(pageEl,{scale:_pgScale,useCORS:true,backgroundColor:'#ffffff',logging:false,width:ew,height:eh,windowWidth:ew,windowHeight:eh,scrollX:0,scrollY:0});
         var cssW=(canvas.width||ew*_pgScale)/_pgScale, cssH=(canvas.height||eh*_pgScale)/_pgScale;
