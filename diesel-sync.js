@@ -457,6 +457,24 @@ const CloudSync = (function () {
     try {
       const remote = await engine.getRemoteUpdatedAt(_projectId, engine.instanceId || _instanceId);
       if (remote && remote !== engine.lastSeenUpdatedAt) {
+        /* S496 PUSH-BEFORE-PULL — Mark's field repro, diagnosed by Mark himself:
+           type in window A → local save lands in ~0.7s but the CLOUD push waits
+           for the 30s interval → this 15s pull sees window B's newer cloud copy
+           → the apply routes through _mergeCloudLocal, where cloud is
+           authoritative for scalars → the unpushed comment is REPLACED by B's
+           older text. Whether an edit survived depended purely on whether its
+           push happened to beat the next pull.
+           Fix: if local edits are pending, PUSH FIRST. With the PT412 trigger,
+           a push into newer cloud data 412s → 3-way merges against the last-seen
+           base → non-overlapping edits (A typed 1.1, B typed 1.3) both survive
+           silently; only a true same-field collision asks. THEN pull, which now
+           applies the merged truth instead of clobbering the pending edit. */
+        if (_collectStateFn) {
+          try {
+            const localNow = JSON.stringify(_collectStateFn());
+            if (localNow !== _lastSavedJson) await save(localNow);
+          } catch (e) { console.warn('[DieselSync] pre-pull push failed:', e && e.message); }
+        }
         await engine.pull(_projectId, engine.instanceId || _instanceId);   // silent — stale-guard active
         const ctl = window.__dslHeaderCtl;
         if (ctl) {
