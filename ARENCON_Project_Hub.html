@@ -354,7 +354,11 @@ body.dark-mode .epd-pick,body.dark-mode .epd-pick-band{background:var(--card)}
 .project-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .badge-active{background:var(--yes-bg);color:var(--yes)}
 .badge-archived{background:var(--na-bg);color:var(--na)}
-.badge-dup{display:block;width:fit-content;margin-top:3px;font-size:calc(9px + var(--ts));line-height:1.4;padding:1px 7px;background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+.badge-dup{display:block;width:fit-content;margin:3px auto 0;font-size:calc(9px + var(--ts));line-height:1.4;padding:1px 7px;background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+/* S497d (Mark): margin auto centres the chip within the number's own box.
+   Deliberately NOT text-align on the cell — the list view's fixed 74px number
+   column is what keeps every row aligned, and centring the cell would shift
+   every project number, duplicate or not, to fix a chip on two rows. */
 /* S497c: the chip sits on its own line BELOW the number — inline it collided
    with the number and, in list view, the project name. */
 .badge-role{background:#DBEAFE;color:#1D4ED8}
