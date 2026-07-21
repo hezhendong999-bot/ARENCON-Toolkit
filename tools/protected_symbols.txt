@@ -242,3 +242,11 @@ _qDrawingMaxPx
 _applyExportQuality
 _getQualityNotes
 _qDwgTierDef
+@ Hidden-report badge — a tool switched OFF that still holds reports shows a count badge; work is never silently hidden. enabled_tools filters the SCREEN ONLY, never exports (Mark, S495)
+_toolReportCounts
+.tw-hid
+.tw.has-hidden
+
+@ Export must contain report data — _fetchProjectToolData reads the array execute() returns; a failed read must NOT stamp the project as backed up (S495 bug fix)
+_fetchProjectToolData
+

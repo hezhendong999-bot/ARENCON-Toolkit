@@ -451,10 +451,18 @@ body.dark-mode .tw.off .tw-sw{background:#2a3040;}
 .rghead .rg-ic svg{width:14px;height:14px;}
 .rghead .rg-name{font-weight:700;font-size:calc(13.5px + var(--ts));color:var(--fg);}
 .rghead .rg-cnt{font-size:calc(11px + var(--ts));color:var(--silver);}
-/* SMALL AND QUIET — never burgundy, never large. Rejected twice at full size. */
-.btn-new{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--steel);font-weight:700;font-size:calc(11.5px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;min-height:30px;transition:all .15s;}
-.btn-new:hover{border-color:var(--steel);color:var(--fg);}
+/* S495 (Mark): the button was too hard to find at full grey. It borrows the
+   tool's own colour on the frame and text — findable, still small and outlined,
+   never a filled burgundy block. --tc is set per group by the renderer. */
+.btn-new{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:7px;border:1.5px solid var(--tc,var(--border));background:transparent;color:var(--tc,var(--steel));font-weight:700;font-size:calc(11.5px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;min-height:30px;transition:all .15s;}
+.btn-new:hover{background:color-mix(in srgb, var(--tc,var(--steel)) 10%, transparent);}
 @media(pointer:coarse){.btn-new{min-height:38px;padding:6px 13px;}}
+/* Disabled tool that still holds reports — the work announces itself rather
+   than vanishing silently. Exports are unaffected either way. */
+.tw .tw-hid{font-size:calc(9.5px + var(--ts));font-weight:800;line-height:1;padding:2px 5px;border-radius:9px;background:var(--warn,#B7791F);color:#fff;}
+.tw.has-hidden{border-style:dashed;border-color:var(--warn,#B7791F);color:var(--warn,#B7791F);}
+body.dark-mode .tw .tw-hid{background:#E0A36A;color:#1B1A22;}
+body.dark-mode .tw.has-hidden{border-color:#E0A36A;color:#E0A36A;}
 .rrow{display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-left:4px solid var(--tc,var(--arencon));border-radius:10px;padding:13px 14px;margin-bottom:7px;cursor:pointer;min-height:56px;transition:all .14s;overflow:hidden;}
 .rrow:hover{border-color:var(--tc,var(--arencon));transform:translateX(2px);}
 .rrow .rmain{flex:1;min-width:0;}
@@ -2561,6 +2569,9 @@ function openProject(projectId) {
   _updateDetailStar(proj);
   _updateDetailPin(proj);
   _renderDetailInfo(proj);
+  // S495: clear last project's counts before the strip paints, so a badge from
+  // the previously-open project can never appear against this one.
+  _toolReportCounts = {};
   _renderDetailTools(proj);
   _loadAndRenderInstances(proj);
   _loadAndRenderDeletedInstances(proj);
@@ -2586,6 +2597,12 @@ function openProject(projectId) {
   document.getElementById('btn-purge-proj').style.display = (isTrashed && _canPurgeProjects()) ? '' : 'none';
 }
 
+/* S495: reports per tool_key for THIS project, including tools currently
+   switched off. Populated by _loadAndRenderInstances (which already fetches
+   every row) and read by _renderDetailTools to badge disabled tools that still
+   hold work. Reset on project open so counts never bleed between projects. */
+var _toolReportCounts = {};
+
 function _renderDetailTools(proj) {
   var tools = proj.enabled_tools || [];
   var grid = document.getElementById('detail-tools');
@@ -2605,10 +2622,24 @@ function _renderDetailTools(proj) {
       ? ' style="color:' + t.color + ';border-color:' + t.color + '55;background:' + t.color + '14"'
       : '';
     var swStyle = enabled ? ' style="background:' + t.color + '"' : '';
-    html += '<span class="tw ' + (enabled ? 'on' : 'off') + (isViewer ? ' viewer' : '') + '" id="tlc-' + key + '"' + onStyle
+    /* S495 (Mark): switching a tool OFF hides its report group. That used to be
+       silent — real field work vanished from the project with no trace, and
+       someone tidying the strip would never know. A disabled tool that still
+       holds reports now carries a count badge, so the work announces itself.
+       Nothing is deleted and nothing is lost: switching the tool back on
+       restores the group untouched. Exports ignore this toggle entirely —
+       enabled_tools filters the SCREEN, never the archive. */
+    var _orphan = (!enabled && _toolReportCounts[key]) ? _toolReportCounts[key] : 0;
+    html += '<span class="tw ' + (enabled ? 'on' : 'off') + (isViewer ? ' viewer' : '')
+      + (_orphan ? ' has-hidden' : '') + '" id="tlc-' + key + '"' + onStyle
       + (isViewer ? '' : ' onclick="toggleTool(\'' + key + '\')"')
-      + ' title="' + esc(t.name) + (isViewer ? '' : (enabled ? ' — tap to disable' : ' — tap to enable')) + '">'
+      + ' title="' + esc(t.name)
+      + (_orphan ? ' \u2014 ' + _orphan + (_orphan === 1 ? ' report is' : ' reports are')
+                   + ' hidden while this tool is off (still exported; switch on to see them)'
+                 : '')
+      + (isViewer ? '' : (enabled ? ' \u2014 tap to disable' : ' \u2014 tap to enable')) + '">'
       + '<span>' + esc(shortLbl) + '</span>'
+      + (_orphan ? '<span class="tw-hid">' + _orphan + '</span>' : '')
       + '<span class="tw-sw"' + swStyle + '></span>'
       + '</span>';
   });
@@ -2685,20 +2716,33 @@ async function _loadAndRenderInstances(proj) {
   var container = document.getElementById('detail-instances');
   if (!container) return;
   var tools = proj.enabled_tools || [];
-  if (tools.length === 0) {
-    container.innerHTML = '<div class="ri-loading">Enable tools above to create reports.</div>';
-    return;
-  }
 
   container.innerHTML = '<div class="ri-loading">Loading reports...</div>';
 
   // Fetch all instances for this project
+  /* S495: fetched BEFORE the "no tools enabled" early return. Counting must
+     happen even when every tool is switched off, otherwise a project whose
+     tools were all toggled off would hide its reports with no badge to say
+     they exist — which is the silent-loss case this badge is here to prevent. */
   var allInstances = [];
   try {
     var rows = await _sb.from('tool_data').eq('project_id', proj.id).is('deleted_at', null).order('tool_key').order('instance_number').execute();
     if (rows) allInstances = rows;
   } catch(e) {
     container.innerHTML = '<div class="ri-loading">Could not load reports — check connection.</div>';
+    return;
+  }
+
+  // Per-tool counts for the activation strip's hidden-report badges.
+  _toolReportCounts = {};
+  allInstances.forEach(function(r) {
+    if (!r || !r.tool_key) return;
+    _toolReportCounts[r.tool_key] = (_toolReportCounts[r.tool_key] || 0) + 1;
+  });
+  _renderDetailTools(proj);   // repaint the strip now that counts are known
+
+  if (tools.length === 0) {
+    container.innerHTML = '<div class="ri-loading">Enable tools above to create reports.</div>';
     return;
   }
 
@@ -2720,7 +2764,7 @@ async function _loadAndRenderInstances(proj) {
              : (instances.length === 1 ? '1 report' : instances.length + ' reports');
     var _newBtn = isViewer ? '' :
       '<button class="btn-new" onclick="createNewReport(\'' + key + '\')">＋ New Report</button>';
-    html += '<div class="rgroup" id="ri-sec-' + key + '" style="scroll-margin-top:12px;">'
+    html += '<div class="rgroup" id="ri-sec-' + key + '" style="scroll-margin-top:12px;--tc:' + t.color + ';">'
       + '<div class="rghead">'
       + '<span class="rg-ic" style="background:' + t.color + '">' + t.svg + '</span>'
       + '<span class="rg-name">' + esc(t.name) + '</span>'
@@ -4136,17 +4180,30 @@ async function bulkExport() {
   if (_bulkSelected.length === 0) { toast('No projects selected', 'error'); return; }
   toast('Exporting ' + _bulkSelected.length + ' projects...', 'info');
   var count = 0;
+  var failed = 0;
   for (var i = 0; i < _bulkSelected.length; i++) {
     var proj = _projects.find(function(x) { return x.id === _bulkSelected[i]; });
     if (!proj) continue;
-    var toolData = await _fetchProjectToolData(proj.id);
+    /* S495: only stamp what actually exported. A read failure used to fall
+       through to [] and still mark the project backed up. */
+    var toolData;
+    try {
+      toolData = await _fetchProjectToolData(proj.id);
+    } catch (e) {
+      failed++;
+      continue;
+    }
     var payload = Object.assign({}, proj, { tool_data: toolData, _schemaVersion: HUB_SCHEMA_VERSION, _exportedAt: new Date().toISOString() });
     _downloadJSON(payload, _buildProjectFilename(proj));
     await _stampExported(proj.id);
     await new Promise(function(r) { setTimeout(r, 300); });
     count++;
   }
-  toast(count + ' project(s) exported', 'success');
+  if (failed > 0) {
+    toast(count + ' exported \u00B7 ' + failed + ' failed and were NOT marked backed up', 'error');
+  } else {
+    toast(count + ' project(s) exported', 'success');
+  }
   clearBulkSelection(); renderProjects();
 }
 
@@ -4584,10 +4641,16 @@ function _downloadJSON(data, filename) {
 }
 
 async function _fetchProjectToolData(projectId) {
-  try {
-    var rows = await _sb.from('tool_data').eq('project_id', projectId).is('deleted_at', null).execute();
-    return (rows && rows.data) ? rows.data : [];
-  } catch (e) { return []; }
+  /* S495 BUG FIX — this read `rows.data`, but the Supabase wrapper's execute()
+     returns the PostgREST array DIRECTLY (there is no .data envelope). So this
+     always returned [] and every JSON project export shipped with `tool_data:
+     []` — project metadata only, not one report — while _stampExported still
+     marked the project "backed up". A backup that silently contains nothing is
+     worse than no backup, because the board says you are covered.
+     Throws on failure rather than returning [], so the caller can refuse to
+     stamp a project it could not actually read. */
+  var rows = await _sb.from('tool_data').eq('project_id', projectId).is('deleted_at', null).execute();
+  return Array.isArray(rows) ? rows : [];
 }
 
 async function _stampExported(projectId) {
@@ -4641,17 +4704,30 @@ async function exportAllProjects() {
   });
   if (!_ok) return;
   toast('Exporting ' + active.length + ' projects...', 'info');
+  var _okCount = 0, _failCount = 0;
   for (var i = 0; i < active.length; i++) {
     var proj = active[i];
-    var toolData = await _fetchProjectToolData(proj.id);
+    // S495: a project whose reports could not be read is NOT marked backed up.
+    var toolData;
+    try {
+      toolData = await _fetchProjectToolData(proj.id);
+    } catch (e) {
+      _failCount++;
+      continue;
+    }
     var payload = Object.assign({}, proj, { tool_data: toolData, _schemaVersion: HUB_SCHEMA_VERSION, _exportedAt: new Date().toISOString() });
     _downloadJSON(payload, _buildProjectFilename(proj));
     await _stampExported(proj.id);
+    _okCount++;
     // Small delay so browser doesn't block multiple downloads
     await new Promise(function(r) { setTimeout(r, 300); });
   }
   renderProjects();
-  toast(active.length + ' project(s) exported', 'success');
+  if (_failCount > 0) {
+    toast(_okCount + ' exported \u00B7 ' + _failCount + ' failed and were NOT marked backed up', 'error');
+  } else {
+    toast(_okCount + ' project(s) exported', 'success');
+  }
 }
 
 /* ═══ Dark Mode ═══ */
