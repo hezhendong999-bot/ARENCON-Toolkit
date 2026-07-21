@@ -17306,6 +17306,21 @@ var R2Outbox=(function(){'use strict';
        apply (S25 empty-cloud guard + S335 photo union + S488 real-local canon).
    See the diesel-sync.js header for the full contract. ══ */
 </script>
+<script>
+/* S497 LIVE-BUG FIX (found by the Phase 4 split's tokenizer): the S496 Phase 2
+   IIFE-removal stub above ended with its own closing script tag, but the ~8.9KB of host
+   code that followed (More/Reports dropdown handlers, session soft-lock and
+   sign-out timers, downloadJSON/importJSON — both PROTECTED symbols the sealed
+   header engine calls by name — and the text-size cycler) was left OUTSIDE any
+   script element, terminated by a now-orphaned closer. Browsers therefore
+   rendered it as page text and none of it executed: every More-menu action
+   silently no-oped in live since the Phase 2 push. Nothing caught it because
+   node --check ran on regex-extracted spans that paired the stub's opener with
+   the ORPHAN closer (parsing fine), while the browser pairs the stub's opener
+   with the stub's closer. This opener re-encloses the block; the closer below
+   is the original one. Region re-verified: single definitions (no later
+   copies), node --check clean, and its four CloudSync calls (save /
+   stopAutoSave / destroy / isInitialized) all exist on the S496 facade. */
 
 
 // ═══ MORE DROPDOWN ═══
