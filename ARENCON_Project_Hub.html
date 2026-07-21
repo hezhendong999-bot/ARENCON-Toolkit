@@ -2242,6 +2242,38 @@ function renderProjects() {
   starred.sort(sortFn);
   regular.sort(sortFn);
 
+  /* S495: chip counts must describe the WHOLE scope and must NOT shrink when a
+     filter is engaged — otherwise picking "1000" collapses every other chip to
+     zero and you cannot navigate back out. Snapshot before filtering. */
+  var _chipBase = baseFiltered.slice();
+
+  /* S495 (Mark): the chip row counts the WHOLE scope now, so an ACTIVE filter
+     must narrow the whole scope — otherwise a chip reads "1000 (1)" while the
+     1000-band project is pinned and the filtered list below comes up empty.
+     Pinned/Starred stay UNFILTERED while nothing is selected: that is the
+     June-locked override behaviour and it is untouched. The moment you pick a
+     band or a tool you are saying "show me only these", and a card from another
+     band sitting on screen makes the filter look broken. Must run BEFORE the
+     pinned/starred sections render, a few lines below. */
+  if (_activeBand !== 'all') {
+    var _bandKeep = function(p){
+      var lo=_bandLo(p.project_number);
+      return (lo===null?'none':String(lo)) === _activeBand;
+    };
+    pinned = pinned.filter(_bandKeep);
+    starred = starred.filter(_bandKeep);
+  }
+  if (_toolFilter !== 'any' && !_showDeleted) {
+    var _toolKeep = function(p){ return (p.enabled_tools || []).indexOf(_toolFilter) >= 0; };
+    pinned = pinned.filter(_toolKeep);
+    starred = starred.filter(_toolKeep);
+  }
+  if (_nbOnly && !_showDeleted && !_showArchived) {
+    var _nbKeep = function(p){ return !p.last_exported_at; };
+    pinned = pinned.filter(_nbKeep);
+    starred = starred.filter(_nbKeep);
+  }
+
   // Render pinned section
   var pinnedGrid = document.getElementById('pinned-grid-inner');
   var pinnedSection = document.getElementById('pinned-section');
@@ -2292,8 +2324,21 @@ function renderProjects() {
   if (_chipsHost) {
     if (_showDeleted || _showArchived) { _chipsHost.innerHTML = ''; }
     else {
+      /* S495 (Mark): chips were built from `regular` — the list AFTER pinned and
+         starred are pulled out. Pinned projects are a pure override and are NOT
+         duplicated back into regular, so a scope whose only projects are pinned
+         produced an EMPTY chip row: "My Projects" showed no range bands at all
+         while "All Projects" showed them, for the same underlying data. The
+         ranges are a map of what is in view, so they are now built from the
+         whole scope (`baseFiltered`), deduped — a starred project appears twice
+         in `regular` by design and must not be counted twice here. */
+      var _seenChip = {};
+      var _chipScope = _chipBase.filter(function(p){
+        if (_seenChip[p.id]) return false;
+        _seenChip[p.id] = 1; return true;
+      });
       var _counts = {}, _ord = [];
-      regular.forEach(function(p){
+      _chipScope.forEach(function(p){
         var lo=_bandLo(p.project_number); var k=(lo===null?'none':String(lo));
         if(!(k in _counts)){_counts[k]=0;_ord.push(k);} _counts[k]++;
       });
@@ -2308,7 +2353,7 @@ function renderProjects() {
          Counts come from the band-filtered scope so they answer "how many of
          what I'm looking at now", not a global total. A tool with zero matches
          dims but stays put, so the row never reflows under your finger. */
-      var _tScope = regular;
+      var _tScope = _chipScope;
       if (_nbOnly) _tScope = _tScope.filter(function(p){ return !p.last_exported_at; });
       if (_activeBand !== 'all') {
         _tScope = _tScope.filter(function(p){
