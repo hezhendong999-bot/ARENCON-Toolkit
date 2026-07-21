@@ -264,3 +264,6 @@ _retentionOf
 .ret-warn
 .ret-expired
 
+@ One tab per report — clicking a report already open FOCUSES its tab instead of opening a second one; two tabs on one report both autosave to the same row and the loser's work is lost silently. Middle/ctrl/right-click still opens a deliberate second copy (Mark, original design restored S495)
+arencon_rpt_
+

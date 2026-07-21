@@ -3046,7 +3046,25 @@ function launchToolInstance(key, instanceId, force) {
     + '&client=' + encodeURIComponent(proj.client || '')
     + '&addr=' + encodeURIComponent(proj.address || '')
     + '&sfn=' + encodeURIComponent(sfn);
-  window.open(url, '_blank');
+  /* S495 (Mark) — ONE TAB PER REPORT. This passed '_blank', which forces a new
+     tab on every click, so clicking the same report twice opened it twice. Two
+     tabs on one report is a DATA HAZARD, not just clutter: both autosave to the
+     same row, last write wins, and the loser's work disappears with no warning —
+     the same pile-on that reconciled away photos on 7155.51, on one machine.
+     Naming the window per instance makes the browser REUSE that tab: the second
+     click focuses the tab already showing the report instead of duplicating it.
+     Deliberate escape hatch preserved: middle-click / ctrl-click / right-click →
+     "Open in new tab" bypasses window.open entirely and still opens a second
+     copy, for anyone who genuinely wants two views. The name must be sanitised —
+     a UUID contains hyphens, and window names must not contain characters the
+     browser treats specially. */
+  var winName = 'arencon_rpt_' + String(instanceId).replace(/[^A-Za-z0-9_]/g, '_');
+  var w = window.open(url, winName);
+  // If the tab already existed, window.open returns it WITHOUT navigating or
+  // raising it on some browsers — focus() brings it forward so the click feels
+  // like "go to that report", not "nothing happened".
+  try { if (w) w.focus(); } catch (e) {}
+  if (!w) toast('Pop-up blocked — allow pop-ups for arencon.app to open reports', 'error');
 }
 
 async function createNewReport(key) {
