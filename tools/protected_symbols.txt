@@ -271,3 +271,8 @@ arencon_rpt_
 _chipBase
 _chipScope
 
+@ PIN REMOVED — star is the only project override. Pin was GLOBAL (one person's pin sat on everyone's board); star is per-user. Mark: explicit and final, S495. Do NOT reintroduce a global pin; if firm-wide attention is ever needed that is a separate announcement feature, not a sort order. is_pinned remains in the DB, unread.
+starred-section
+toggleStar
+selectAllStarred
+

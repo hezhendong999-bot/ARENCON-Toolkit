@@ -349,13 +349,9 @@ body.dark-mode .epd-pick,body.dark-mode .epd-pick-band{background:var(--card)}
 /* Pin button on cards */
 .project-card-pin{background:none;border:none;font-size:calc(13px + var(--ts));cursor:pointer;color:var(--silver);transition:all .2s;padding:2px;line-height:1;flex-shrink:0}
 .project-card-pin:hover{color:var(--arencon);transform:scale(1.15)}
-.project-card-pin.pinned{color:var(--arencon)}
 .detail-header .project-card-pin,.detail-header .project-card-star{position:static;font-size:20px}
 
 /* Pinned section */
-.pinned-section{padding:4px 24px 8px}
-.pinned-section-header{font-size:calc(12px + var(--ts));font-weight:700;color:var(--arencon);margin-bottom:10px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.6px;padding-left:10px;border-left:3px solid var(--arencon)}
-.pinned-section .project-grid-inner{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
 
 /* Sort dropdown */
 .dash-sort{padding:7px 14px;border:1.5px solid var(--border);border-radius:8px;font-weight:500;font-size:calc(12.5px + var(--ts));font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--steel);cursor:pointer;outline:none;transition:all .2s}
@@ -616,7 +612,7 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
   .mobile-menu-btn{display:flex}
   .dash-toolbar{padding:12px 16px}
   .project-grid{padding:4px 16px 16px}
-  .pinned-section,.starred-section{padding:4px 16px 8px}
+  .starred-section{padding:4px 16px 8px}
   .hdr{padding:8px 12px;gap:8px;}
   .hdr-title{font-size:calc(14px + var(--ts));}
 }
@@ -985,8 +981,6 @@ body.text-l{--ts:4px;}
         <button class="dash-btn secondary" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Select</button>
         <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
           <span class="bulk-count" id="bulk-count">0</span>
-          <button id="bulk-btn-pin" onclick="bulkPin(true)" title="Pin">📌</button>
-          <button id="bulk-btn-unpin" onclick="bulkPin(false)" title="Unpin">📍</button>
           <button id="bulk-btn-star" onclick="bulkStar(true)" title="Star">⭐</button>
           <button id="bulk-btn-unstar" onclick="bulkStar(false)" title="Unstar">☆</button>
           <button id="bulk-btn-archive" onclick="bulkArchive()" title="Archive">📦</button>
@@ -998,7 +992,6 @@ body.text-l{--ts:4px;}
         </div>
         <div class="bulk-quick-select" id="bulk-quick-select" style="display:none">
           <button class="dash-btn secondary" onclick="selectAllVisible()" title="Select all visible">All</button>
-          <button class="dash-btn secondary" onclick="selectAllPinned()" title="Select pinned">📌 Pinned</button>
           <button class="dash-btn secondary" onclick="selectAllStarred()" title="Select starred">⭐ Starred</button>
           <button class="dash-btn secondary" onclick="selectNotBackedUp()" title="Select every project that has never been backed up">⚠ Not backed up</button>
         </div>
@@ -1009,10 +1002,6 @@ body.text-l{--ts:4px;}
     <div class="stats-strip" id="stats-strip"></div>
     <div class="band-chips" id="band-chips"></div>
     <!-- Pinned section — shared, everyone sees -->
-    <div class="pinned-section" id="pinned-section" style="display:none">
-      <div class="pinned-section-header">📌 Pinned Projects</div>
-      <div class="project-grid-inner" id="pinned-grid-inner"></div>
-    </div>
     <!-- Starred section — always visible if starred projects exist -->
     <div class="starred-section" id="starred-section" style="display:none">
       <div class="starred-section-header">⭐ Starred Projects</div>
@@ -1108,7 +1097,6 @@ body.text-l{--ts:4px;}
     <div class="detail-header">
       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
         <h2 id="detail-title" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">—</h2>
-        <button class="project-card-pin" id="detail-pin-btn" onclick="togglePinFromDetail()" title="Pin for everyone">📍</button>
         <button class="project-card-star" id="detail-star-btn" onclick="toggleStarFromDetail()" title="Star this project">☆</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
@@ -2222,23 +2210,27 @@ function renderProjects() {
     return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
   };
 
-  // Split into pinned, starred, and regular
-  var pinned = [];
+  // Split into starred and regular (S495: pin removed)
   var starred = [];
   var regular = [];
+  /* S495 (Mark, explicit and final): PIN REMOVED. Pin was GLOBAL — one person
+     pinning their project put it on top of everyone's board, including people
+     with no stake in it. Star is PER-USER, so it gives the same "keep this
+     handy" behaviour without occupying anyone else's screen. Star is now the
+     only override. Mark cleared every pin before this shipped (verified 0
+     is_pinned rows), so nothing was stranded.
+     `is_pinned` is deliberately LEFT IN THE DATABASE, unread — dropping a column
+     is irreversible and buys nothing; ignoring it is free. */
   baseFiltered.forEach(function(p) {
-    var isPinned = !!p.is_pinned;
     var isStarred = myId && (p.starred_by || []).indexOf(myId) >= 0;
-    if (isPinned) pinned.push(p);
-    else if (isStarred) starred.push(p);
+    if (isStarred) starred.push(p);
     else regular.push(p);
     /* S494 (June-locked): a starred project ALSO appears in its numeric position
        in the regular list, so scanning a file band finds everything filed there.
-       Pinned stays a pure override — it is not duplicated. The duplicate carries
-       the same solid-orange star, so it reads as "this is starred", not a clone. */
-    if (isStarred && !isPinned) regular.push(p);
+       The duplicate carries the same solid-orange star, so it reads as "this is
+       starred", not a clone. */
+    if (isStarred) regular.push(p);
   });
-  pinned.sort(sortFn);
   starred.sort(sortFn);
   regular.sort(sortFn);
 
@@ -2260,29 +2252,15 @@ function renderProjects() {
       var lo=_bandLo(p.project_number);
       return (lo===null?'none':String(lo)) === _activeBand;
     };
-    pinned = pinned.filter(_bandKeep);
     starred = starred.filter(_bandKeep);
   }
   if (_toolFilter !== 'any' && !_showDeleted) {
     var _toolKeep = function(p){ return (p.enabled_tools || []).indexOf(_toolFilter) >= 0; };
-    pinned = pinned.filter(_toolKeep);
     starred = starred.filter(_toolKeep);
   }
   if (_nbOnly && !_showDeleted && !_showArchived) {
     var _nbKeep = function(p){ return !p.last_exported_at; };
-    pinned = pinned.filter(_nbKeep);
     starred = starred.filter(_nbKeep);
-  }
-
-  // Render pinned section
-  var pinnedGrid = document.getElementById('pinned-grid-inner');
-  var pinnedSection = document.getElementById('pinned-section');
-  if (pinned.length > 0 && !_showArchived) {
-    pinnedSection.style.display = 'block';
-    pinnedGrid.innerHTML = pinned.map(function(p) { return _renderProjectCard(p, myId); }).join('');
-  } else {
-    pinnedSection.style.display = 'none';
-    pinnedGrid.innerHTML = '';
   }
 
   // Render starred section
@@ -2295,7 +2273,7 @@ function renderProjects() {
   }
 
   // Render main grid
-  if (regular.length === 0 && starred.length === 0 && pinned.length === 0) {
+  if (regular.length === 0 && starred.length === 0) {
     grid.innerHTML = '';
     empty.style.display = 'block';
     if (_showDeleted) {
@@ -2444,9 +2422,6 @@ function _renderProjectCard(p, myId) {
   var isStarred = myId && (p.starred_by || []).indexOf(myId) >= 0;
   var starIcon = isStarred ? '★' : '☆';
   var starClass = isStarred ? ' starred' : '';
-  var isPinned = !!p.is_pinned;
-  var pinIcon = isPinned ? '📌' : '📍';
-  var pinClass = isPinned ? ' pinned' : '';
   var pmName = p.project_manager ? (_userMap[p.project_manager] || '') : '';
   var bulkCheckHtml = '<div class="project-card-check' + (_bulkSelected.indexOf(p.id) >= 0 ? ' checked' : '') + '" id="bchk-' + esc(p.id) + '" onclick="event.stopPropagation();toggleBulkCheck(\'' + esc(p.id) + '\',event)">' + (_bulkSelected.indexOf(p.id) >= 0 ? '✓' : '') + '</div>';
   var cardClick = 'openProject(\'' + esc(p.id) + '\')';
@@ -2526,7 +2501,6 @@ function _renderProjectCard(p, myId) {
   return '<div class="project-card" onclick="' + cardClick + '">'
     + bulkCheckHtml
     + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span>'
-    + '<button class="project-card-pin' + pinClass + '" onclick="event.stopPropagation();togglePin(\'' + esc(p.id) + '\')" title="' + (isPinned ? 'Unpin' : 'Pin for everyone') + '">' + pinIcon + '</button>'
     + '<button class="project-card-star' + starClass + '" onclick="event.stopPropagation();toggleStar(\'' + esc(p.id) + '\')" title="' + (isStarred ? 'Unstar' : 'Star') + '">' + starIcon + '</button>'
     + '</div>'
     + (client ? '<div class="project-card-client">' + client + '</div>' : '')
@@ -2634,7 +2608,6 @@ function openProject(projectId) {
     (proj.client || '—') + (proj.address ? ' — ' + proj.address : '');
 
   _updateDetailStar(proj);
-  _updateDetailPin(proj);
   _renderDetailInfo(proj);
   // S495: clear last project's counts before the strip paints, so a badge from
   // the previously-open project can never appear against this one.
@@ -3228,32 +3201,8 @@ function _updateDetailStar(proj) {
 }
 
 /* ═══ Pin Toggle (shared — everyone sees) ═══ */
-async function togglePin(projectId) {
-  if (!_profile) return;
-  var proj = _projects.find(function(p) { return p.id === projectId; });
-  if (!proj) return;
-  var newVal = !proj.is_pinned;
-  proj.is_pinned = newVal;
-  try {
-    await _sb.from('projects').eq('id', proj.id).update({ is_pinned: newVal });
-  } catch (e) {
-    toast('Failed to update pin: ' + e.message, 'error');
-  }
-  renderProjects();
-  if (_detailProjectId === projectId) _updateDetailPin(proj);
-}
-
-function togglePinFromDetail() {
-  if (_detailProjectId) togglePin(_detailProjectId);
-}
-
-function _updateDetailPin(proj) {
-  var btn = document.getElementById('detail-pin-btn');
-  if (!btn) return;
-  var isPinned = !!proj.is_pinned;
-  btn.textContent = isPinned ? '📌' : '📍';
-  btn.className = 'project-card-pin' + (isPinned ? ' pinned' : '');
-}
+/* S495: togglePin / togglePinFromDetail / _updateDetailPin removed with the
+   pin feature (Mark, explicit and final). Star is the only override. */
 
 function restoreFromDetail() {
   if (_detailProjectId) {
@@ -4226,8 +4175,6 @@ function _syncBulkVisuals() {
   bar.style.display = hasSelection ? 'flex' : 'none';
   if (hasSelection) {
     var inTrash = _showDeleted;
-    document.getElementById('bulk-btn-pin').style.display = inTrash ? 'none' : '';
-    document.getElementById('bulk-btn-unpin').style.display = inTrash ? 'none' : '';
     document.getElementById('bulk-btn-star').style.display = inTrash ? 'none' : '';
     document.getElementById('bulk-btn-unstar').style.display = inTrash ? 'none' : '';
     document.getElementById('bulk-btn-archive').style.display = inTrash ? 'none' : '';
@@ -4255,12 +4202,6 @@ function clearBulkSelection() {
 
 function selectAllVisible() {
   _bulkSelected = _getVisibleProjectIds().slice();
-  _syncBulkVisuals();
-}
-
-function selectAllPinned() {
-  _bulkSelected = [];
-  _projects.forEach(function(p) { if (p.is_pinned && !p.deleted_at) _bulkSelected.push(p.id); });
   _syncBulkVisuals();
 }
 
@@ -4299,22 +4240,6 @@ function selectNotBackedUp() {
 function _updateBulkCount() {
   var el = document.getElementById('bulk-count');
   if (el) el.textContent = _bulkSelected.length;
-}
-
-async function bulkPin(pinState) {
-  if (_bulkSelected.length === 0) { toast('No projects selected', 'error'); return; }
-  var label = pinState ? 'Pin' : 'Unpin';
-  var count = 0;
-  for (var i = 0; i < _bulkSelected.length; i++) {
-    try {
-      await _sb.from('projects').eq('id', _bulkSelected[i]).update({ is_pinned: pinState });
-      var p = _projects.find(function(x) { return x.id === _bulkSelected[i]; });
-      if (p) p.is_pinned = pinState;
-      count++;
-    } catch (e) { /* skip */ }
-  }
-  toast(count + ' project(s) ' + (pinState ? 'pinned' : 'unpinned'), 'success');
-  clearBulkSelection(); renderProjects();
 }
 
 async function bulkStar(starState) {
