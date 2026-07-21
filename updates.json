@@ -10,7 +10,10 @@
         "New 📊 Insights button on the dashboard: backup coverage, backup age, and active projects per person at a glance.",
         "This ❔ Help panel — update notes plus a quick guide to the Hub. An amber dot on the Help button means there is news you haven't seen.",
         "Projects sharing a number now carry an amber Duplicate chip (the first-created one doesn't) — the intent is one project per number; use New Report inside the original instead.",
-        "The client field in New Project now suggests every client on record as you type, so the same client isn't spelled three different ways."
+        "The client field in New Project now suggests every client on record as you type, so the same client isn't spelled three different ways.",
+        "Duplicate project numbers are now blocked at creation — one project per number; add a New Report inside the existing project instead.",
+        "Admin panel: Client Name Cleanup — merges spelling variations of the same client (K&N vs K & N) in one tap; only the client text changes, never reports or photos.",
+        "Admin panel: R2 Storage Reclamation — shows the nightly report of purged, unreferenced photo files and lets an admin permanently reclaim that exact list."
       ]
     },
     {

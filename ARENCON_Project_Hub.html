@@ -153,6 +153,15 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .help-tabs{display:flex;gap:6px;margin-bottom:16px}
 .help-tabs button{padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--steel);font-weight:700;font-size:calc(12px + var(--ts));cursor:pointer;font-family:inherit}
 .help-tabs button.active{background:color-mix(in srgb,var(--arencon) 12%,transparent);color:var(--arencon);border-color:color-mix(in srgb,var(--arencon) 35%,transparent)}
+/* S497d — admin Client Cleanup + R2 Reclamation */
+.cc-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:calc(12.5px + var(--ts));color:var(--fg)}
+.cc-pick{display:flex;flex-wrap:wrap;gap:8px}
+.cc-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;font-size:calc(12px + var(--ts));color:var(--fg);cursor:pointer;min-height:32px}
+.cc-chip input{margin:0}
+.cc-chip .cc-n{color:var(--silver);font-weight:700}
+.rr-row{display:flex;justify-content:space-between;gap:10px;padding:7px 12px;border-bottom:1px solid var(--border);font-size:calc(11.5px + var(--ts))}
+.rr-row .rr-f{color:var(--fg);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rr-row .rr-m{color:var(--silver);white-space:nowrap}
 
 /* Project grid */
 .project-grid{padding:4px 24px 24px}
@@ -1075,6 +1084,25 @@ body.text-l{--ts:4px;}
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button class="dash-btn secondary" onclick="showDashboard()">← Back to Dashboard</button>
       <h2 style="font-size:20px;font-weight:700;color:var(--fg)">Admin Panel</h2>
+    </div>
+
+    <!-- S497d — Client Name Cleanup (Mark: fix K&N / K & N type deviations
+         without retyping projects one by one). Renders on open; merges rename
+         the client TEXT only — project numbers, reports, photos and R2 keys
+         are never touched, and every change is one confirm away. -->
+    <div class="admin-section">
+      <div class="admin-section-header">Client Name Cleanup</div>
+      <div class="admin-section-body" id="cc-body"><span style="color:var(--silver)">Loading…</span></div>
+    </div>
+
+    <!-- S497d — R2 Storage Reclamation (Stage 3 complete, Mark present &
+         instructing). The list is the nightly dry-run report: tombstone-driven,
+         reference-counted against every current report. The delete button only
+         ever acts on that list, requires admin + typed DELETE, and calls the
+         authenticated worker delete per object. -->
+    <div class="admin-section">
+      <div class="admin-section-header">R2 Storage Reclamation</div>
+      <div class="admin-section-body" id="rr-body"><span style="color:var(--silver)">Loading…</span></div>
     </div>
 
     <!-- Create User -->
@@ -2141,6 +2169,8 @@ function showAdmin() {
   document.getElementById('project-detail').style.display = 'none';
   _detailProjectId = null;
   loadAdminUsers();
+  try { renderClientCleanup(); } catch(e){ console.warn('[cc]', e); }
+  try { renderReclamation(); } catch(e){ console.warn('[rr]', e); }
 }
 
 /* ═══ Load Projects ═══ */
@@ -2598,7 +2628,7 @@ function _renderHubGuide() {
     + '<div class="hg-sec"><h4>One tab per report</h4>'
     + '<p>Clicking a report that is already open focuses its existing tab instead of opening a second copy — two tabs on one report silently overwrite each other\u2019s work. Middle-click or Ctrl+click if you deliberately need a second window.</p></div>'
     + '<div class="hg-sec"><h4>New projects</h4>'
-    + '<p>Typing a project number suggests the clients already used under that series, and typing in the client field matches against every client on record — pick a suggestion so the same client isn\u2019t spelled three different ways. A warning appears if the full project number already exists, and any later copy carries an amber Duplicate chip on the board — the intent is one project per number. The project manager defaults to whoever creates the project and can be changed at any time.</p></div>';
+    + '<p>Typing a project number suggests the clients already used under that series, and typing in the client field matches against every client on record — pick a suggestion so the same client isn\u2019t spelled three different ways. Duplicate project numbers are blocked — one project per number; add a New Report inside the existing project instead. Older duplicates carry an amber Duplicate chip on the board — the intent is one project per number. The project manager defaults to whoever creates the project and can be changed at any time.</p></div>';
 }
 function openHelp() {
   _renderWn();
@@ -3735,6 +3765,208 @@ function _canPurgeProjects() {
   return !!(_profile && (_profile.role === 'admin' || _profile.role === 'super_admin'));
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   S497d — CLIENT NAME CLEANUP (Mark: K&N vs K & N, Give & Go vs G&G).
+   Two mechanisms, one rule — MARK DECIDES, THE TOOL TYPES:
+   • Auto clusters: spellings identical after stripping case/punctuation
+     (K&N ≡ K & N) are grouped with a one-tap merge into the most-used
+     spelling. Only Mark's tap executes it.
+   • Manual merge: genuinely different spellings of the same client
+     (Give & Go vs G&G) can never be detected safely by an algorithm, so they
+     are picked by hand: tick the spellings, choose which one is canonical,
+     merge.
+   A merge is UPDATE projects SET client=<canonical> — text only. It never
+   touches project numbers, reports, photos or R2 keys, which is why this is
+   safe where merging duplicate PROJECTS is not. Trashed projects are included
+   so a restore comes back consistent.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function _ccNorm(s){ return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+function _ccSpellings(){
+  var by = {};   // raw spelling -> {count, ids[]}
+  (_projects || []).forEach(function(p){
+    var c = (p.client || '').trim();
+    if (!c) return;
+    if (!by[c]) by[c] = { count: 0, ids: [] };
+    by[c].count++; by[c].ids.push(p.id);
+  });
+  return by;
+}
+
+function renderClientCleanup(){
+  var host = document.getElementById('cc-body');
+  if (!host) return;
+  if (!_canPurgeProjects()){ host.innerHTML = '<span style="color:var(--silver)">Administrators only.</span>'; return; }
+  var by = _ccSpellings();
+  var raws = Object.keys(by);
+  // auto clusters: normalized key with 2+ distinct raw spellings
+  var norm = {};
+  raws.forEach(function(r){ var k = _ccNorm(r); (norm[k] = norm[k] || []).push(r); });
+  var clusters = Object.keys(norm).filter(function(k){ return norm[k].length > 1; });
+  var html = '';
+  if (clusters.length){
+    html += '<div style="font-weight:700;color:var(--steel);font-size:calc(12px + var(--ts));text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Likely the same client</div>';
+    clusters.forEach(function(k){
+      var group = norm[k].slice().sort(function(a,b){ return by[b].count - by[a].count; });
+      var canonical = group[0];
+      var label = group.map(function(r){ return '<b>' + esc(r) + '</b> (' + by[r].count + ')'; }).join(' · ');
+      html += '<div class="cc-row">'
+        + '<span style="flex:1;min-width:0">' + label + '</span>'
+        + '<button class="dash-btn secondary" onclick="ccMergeCluster(\'' + esc(k) + '\')">Merge \u2192 \u201C' + esc(canonical) + '\u201D</button>'
+        + '</div>';
+    });
+  } else {
+    html += '<div style="color:var(--silver);font-size:calc(12.5px + var(--ts));margin-bottom:6px">No automatic matches \u2014 no two clients differ only by case or punctuation.</div>';
+  }
+  // manual merge over all distinct spellings
+  html += '<div style="font-weight:700;color:var(--steel);font-size:calc(12px + var(--ts));text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">Manual merge (abbreviations, renames)</div>'
+    + '<div style="color:var(--silver);font-size:calc(11.5px + var(--ts));margin-bottom:8px">Tick the spellings that are really one client, pick which name is correct, merge. Only the client text changes \u2014 never numbers, reports or photos.</div>'
+    + '<div class="cc-pick">';
+  raws.sort(function(a,b){ return a.toLowerCase().localeCompare(b.toLowerCase()); }).forEach(function(r){
+    html += '<label class="cc-chip"><input type="checkbox" value="' + esc(r) + '" onchange="ccPickChanged()">' + esc(r) + ' <span class="cc-n">' + by[r].count + '</span></label>';
+  });
+  html += '</div><div id="cc-merge-bar" style="display:none;margin-top:10px;align-items:center;gap:8px;flex-wrap:wrap">'
+    + '<span style="font-size:calc(12px + var(--ts));color:var(--fg)">Correct name:</span>'
+    + '<select id="cc-canonical" class="dash-sort"></select>'
+    + '<button class="dash-btn primary" onclick="ccMergeManual()">Merge selected</button>'
+    + '</div>';
+  host.innerHTML = html;
+}
+
+function ccPickChanged(){
+  var checked = Array.prototype.slice.call(document.querySelectorAll('#cc-body .cc-pick input:checked')).map(function(i){ return i.value; });
+  var bar = document.getElementById('cc-merge-bar');
+  var sel = document.getElementById('cc-canonical');
+  if (!bar || !sel) return;
+  if (checked.length < 2){ bar.style.display = 'none'; return; }
+  sel.innerHTML = checked.map(function(c){ return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
+  bar.style.display = 'flex';
+}
+
+async function _ccExecuteMerge(canonical, others){
+  var by = _ccSpellings();
+  var ids = [];
+  others.forEach(function(r){ if (by[r]) ids = ids.concat(by[r].ids); });
+  var done = 0;
+  for (var i = 0; i < ids.length; i++){
+    try {
+      await _sb.from('projects').eq('id', ids[i]).update({ client: canonical });
+      var p = _projects.find(function(x){ return x.id === ids[i]; });
+      if (p) p.client = canonical;
+      done++;
+    } catch(e){ console.warn('[cc] update failed', ids[i], e); }
+  }
+  toast(done + ' project(s) now read \u201C' + canonical + '\u201D', done === ids.length ? 'success' : 'error');
+  renderClientCleanup(); renderProjects();
+}
+
+function ccMergeCluster(normKey){
+  if (!_canPurgeProjects()) return;
+  var by = _ccSpellings();
+  var group = Object.keys(by).filter(function(r){ return _ccNorm(r) === normKey; })
+    .sort(function(a,b){ return by[b].count - by[a].count; });
+  if (group.length < 2) return;
+  var canonical = group[0], others = group.slice(1);
+  var n = others.reduce(function(s,r){ return s + by[r].count; }, 0);
+  if (!window.Dlg || typeof Dlg.confirm !== 'function'){ toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  Dlg.confirm({
+    title: 'Merge client spellings',
+    icon: '\uD83E\uDDF9',
+    message: others.map(function(r){ return '\u201C' + r + '\u201D'; }).join(', ') + ' \u2192 \u201C' + canonical + '\u201D on ' + n + ' project(s). Only the client text changes; this can be re-edited any time.',
+    confirmText: 'Merge',
+    onConfirm: function(){ _ccExecuteMerge(canonical, others); }
+  });
+}
+
+function ccMergeManual(){
+  if (!_canPurgeProjects()) return;
+  var checked = Array.prototype.slice.call(document.querySelectorAll('#cc-body .cc-pick input:checked')).map(function(i){ return i.value; });
+  var sel = document.getElementById('cc-canonical');
+  if (checked.length < 2 || !sel || !sel.value) return;
+  var canonical = sel.value;
+  var others = checked.filter(function(r){ return r !== canonical; });
+  var by = _ccSpellings();
+  var n = others.reduce(function(s,r){ return s + (by[r] ? by[r].count : 0); }, 0);
+  if (!window.Dlg || typeof Dlg.confirm !== 'function'){ toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  Dlg.confirm({
+    title: 'Merge client spellings',
+    icon: '\uD83E\uDDF9',
+    message: others.map(function(r){ return '\u201C' + r + '\u201D'; }).join(', ') + ' \u2192 \u201C' + canonical + '\u201D on ' + n + ' project(s). Only the client text changes; this can be re-edited any time.',
+    confirmText: 'Merge',
+    onConfirm: function(){ _ccExecuteMerge(canonical, others); }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   S497d — R2 RECLAMATION, STAGE 3 COMPLETE (Mark present and instructing).
+   The nightly dry-run report (tools/r2_reclamation_report.mjs) remains the
+   ONLY source of what may be deleted: tombstone-driven, reference-counted
+   against every current report, live and soft-deleted. This UI shows that
+   report and, for admins, deletes EXACTLY the report's still-existing
+   candidates via the authenticated worker \u2014 nothing else, ever. Typed
+   DELETE confirm: this is permanent destruction of field photos, same
+   severity family as project purge (S119/S493 convention).
+   ═══════════════════════════════════════════════════════════════════════════ */
+var _rrReport = null;
+async function renderReclamation(){
+  var host = document.getElementById('rr-body');
+  if (!host) return;
+  if (!_canPurgeProjects()){ host.innerHTML = '<span style="color:var(--silver)">Administrators only.</span>'; return; }
+  try {
+    var r = await fetch('reports/r2-reclamation.json?t=' + Date.now());
+    if (!r.ok) throw new Error('no report');
+    _rrReport = await r.json();
+  } catch(e){
+    host.innerHTML = '<span style="color:var(--silver)">No reclamation report yet \u2014 it runs nightly at 6:00 UTC.</span>';
+    return;
+  }
+  var rep = _rrReport;
+  var live = (rep.candidates || []).filter(function(c){ return c.exists === true; });
+  var mb = ((rep.candidateBytes || 0) / 1048576).toFixed(1);
+  var html = '<div style="font-size:calc(12.5px + var(--ts));color:var(--fg);margin-bottom:10px">'
+    + 'Report from ' + esc((rep.generatedAt || '').slice(0, 16).replace('T', ' ')) + ' UTC \u2014 '
+    + '<b>' + (rep.heldCount || 0) + '</b> purged photo file(s) still referenced by live reports (held), '
+    + '<b>' + ((rep.candidates || []).length) + '</b> unreferenced candidate(s), '
+    + '<b>' + live.length + '</b> still in storage (' + mb + ' MB).</div>';
+  if (!live.length){
+    html += '<div style="color:var(--yes);font-weight:700;font-size:calc(13px + var(--ts))">\u2713 Nothing reclaimable \u2014 every purged photo is either still in use by a live report or already gone.</div>';
+    host.innerHTML = html; return;
+  }
+  html += '<div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:10px">';
+  live.forEach(function(c){
+    var ctx = (c.contexts && c.contexts[0]) || {};
+    html += '<div class="rr-row"><span class="rr-f">' + esc(c.fname) + '</span>'
+      + '<span class="rr-m">' + esc(ctx.tool || '') + (ctx.instance ? ' #' + ctx.instance : '') + ' \u00B7 purged ' + esc(String(ctx.purged_at || '').slice(0, 10)) + ' \u00B7 ' + (c.size_bytes ? (c.size_bytes / 1024).toFixed(0) + ' KB' : '?') + '</span></div>';
+  });
+  html += '</div><button class="btn-danger" onclick="rrDelete()">\uD83D\uDDD1\uFE0F Delete ' + live.length + ' file(s) from storage forever</button>';
+  host.innerHTML = html;
+}
+
+async function rrDelete(){
+  if (!_canPurgeProjects() || !_rrReport) return;
+  var live = (_rrReport.candidates || []).filter(function(c){ return c.exists === true && /^https?:\/\//.test(c.pointer); });
+  if (!live.length) return;
+  _typeToConfirmPurge(
+    'Reclaim R2 Storage',
+    'This will PERMANENTLY delete ' + live.length + ' photo file(s) from cloud storage. Every one was purged from its report, is referenced by nothing current, and cannot be recovered after this.',
+    async function(){
+      var token = '';
+      try { token = localStorage.getItem('sb-access-token') || ''; } catch(e){}
+      if (!token){ toast('No session token \u2014 sign in again', 'error'); return; }
+      var ok = 0, fail = 0;
+      for (var i = 0; i < live.length; i++){
+        try {
+          var resp = await fetch(live[i].pointer, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+          if (resp.ok) ok++; else fail++;
+        } catch(e){ fail++; }
+      }
+      toast(ok + ' file(s) reclaimed' + (fail ? ', ' + fail + ' failed' : ''), fail ? 'error' : 'success');
+      renderReclamation(); // re-probe view; the nightly report confirms tomorrow
+    }
+  );
+}
+
+
 async function purgeProject(projectId) {
   if (!_canPurgeProjects()) {
     toast('Only administrators can permanently delete projects', 'error');
@@ -3842,19 +4074,20 @@ function _npOnNumberInput() {
   if (!numEl || !sugEl || !dupEl) return;
   var raw = numEl.value.trim();
 
-  /* Duplicate check on the FULL number including decimals. Nothing in the Hub
-     stopped two people creating the same project number, which is how a project
-     ends up split across two records. Warn, never block — a legitimate re-use
-     exists (a genuinely new project reusing a retired number), so Mark's rule is
-     warn and offer create-anyway. */
+  /* Duplicate check on the FULL number including decimals. S497d (Mark,
+     explicit): duplicates are now BLOCKED, not warned — "going forward, do
+     not allow duplicate project numbers." One project per number; more work on
+     the same number is a New Report inside the existing project. This
+     supersedes the S495 warn-and-allow rule. Existing duplicates are Mark's to
+     resolve manually; the board's Duplicate chip keeps them visible meanwhile. */
   var dupe = raw ? (_projects || []).find(function(p) {
     return !p.deleted_at && String(p.project_number || '').trim() === raw;
   }) : null;
   if (dupe) {
-    dupEl.innerHTML = '\u26A0 <b>' + esc(raw) + '</b> already exists \u2014 '
+    dupEl.innerHTML = '\u26D4 <b>' + esc(raw) + '</b> already exists \u2014 '
       + esc(dupe.project_name || 'Untitled')
       + (dupe.client ? ' (' + esc(dupe.client) + ')' : '')
-      + '. You can still create it, but check you are not duplicating a project.';
+      + '. Duplicate numbers can\u2019t be created \u2014 open the existing project and add a New Report instead.';
     dupEl.style.display = '';
   } else {
     dupEl.style.display = 'none';
@@ -3979,6 +4212,16 @@ async function createProject() {
 
   if (!number || !name) {
     toast('Project number and name are required', 'error');
+    return;
+  }
+
+  /* S497d (Mark): duplicate project numbers are BLOCKED. Checked here, not
+     just in the input warning — the message is advice, this is the gate. */
+  var _dup = (_projects || []).find(function(p) {
+    return !p.deleted_at && String(p.project_number || '').trim() === number;
+  });
+  if (_dup) {
+    toast('Project ' + number + ' already exists (' + (_dup.project_name || 'Untitled') + '). Open it and add a New Report instead.', 'error');
     return;
   }
 
