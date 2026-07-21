@@ -194,8 +194,8 @@ function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize,redactions,dra
     // (marginally lighter for a tablet-bound export); High/Maximum go lossless.
     // Mini-maps (_renderDrawingWithSinglePin) deliberately stay JPEG — they are
     // ~800px thumbnails where PNG would add weight for no visible gain.
-    callback(_qTier==='balanced' ? canvas.toDataURL('image/jpeg',0.94)
-                                 : canvas.toDataURL('image/png'));
+    callback(_qDwgTier==='balanced' ? canvas.toDataURL('image/jpeg',0.94)
+                                    : canvas.toDataURL('image/png'));
   });
 }
 
@@ -368,11 +368,13 @@ var PDF_SHEET_IN = { letter:[8.5,11], '11x17':[11,17], '24x36':[24,36] };
 // Job-scoped quality state. Set by _applyExportQuality() at the start of every
 // export; reset to defaults so a stale value can never leak into a later job.
 var _qTier    = 'balanced';
+var _qDwgTier = 'balanced';   // S496b: drawings have their OWN tier now
 var _qDwgDpi  = {};     // { drawingId: dpi }  — per-sheet overrides only
 var _qPageSize= '11x17';
 var _lastQualityNotes = [];
 
 function _qTierDef(){ return PDF_TIERS[_qTier] || PDF_TIERS.balanced; }
+function _qDwgTierDef(){ return PDF_TIERS[_qDwgTier] || PDF_TIERS.balanced; }
 
 // Peak raw-canvas cost in MB for a sheet rendered at `dpi`.
 function _qPeakMB(dpi, pageSize){
@@ -399,7 +401,7 @@ function _qBudgetMB(){
 function _qDrawingMaxPx(drawingId, pageSize){
   var ps  = pageSize || _qPageSize || '11x17';
   var s   = PDF_SHEET_IN[ps] || PDF_SHEET_IN['11x17'];
-  var want= (drawingId!=null && _qDwgDpi[drawingId]) ? _qDwgDpi[drawingId] : _qTierDef().dpi;
+  var want= (drawingId!=null && _qDwgDpi[drawingId]) ? _qDwgDpi[drawingId] : _qDwgTierDef().dpi;
   var dpi = want, budget = _qBudgetMB();
   while (dpi > 100 && _qPeakMB(dpi, ps) > budget) dpi -= 5;
   if (dpi < want) {
@@ -412,6 +414,7 @@ function _qDrawingMaxPx(drawingId, pageSize){
 function _applyExportQuality(opts){
   opts = opts || {};
   _qTier     = PDF_TIERS[opts.tier] ? opts.tier : 'balanced';
+  _qDwgTier  = PDF_TIERS[opts.dwgTier] ? opts.dwgTier : _qTier;   // S496b
   _qDwgDpi   = opts.dwgDpi || {};
   _qPageSize = opts.pageSize || '11x17';
   _lastQualityNotes = [];
@@ -2990,7 +2993,7 @@ export const initPDFExport={
             });
           }
           try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
-          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter',!!opts.internalMode,{tier:opts.qualityTier,dwgDpi:opts.dwgDpi}); // S496
+          _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter',!!opts.internalMode,{tier:opts.qualityTier,dwgTier:opts.dwgTier,dwgDpi:opts.dwgDpi}); // S496
         });
         });
       });

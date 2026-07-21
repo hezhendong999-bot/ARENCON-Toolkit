@@ -301,15 +301,20 @@ export var initExportView = {
       + '<option value="11x17">11\u00D717 landscape</option>'
       + '<option value="letter">Letter portrait</option>'
       + '<option value="24x36">24\u00D736 landscape</option></select></div>';
-    // S496 EXPORT QUALITY (Mark-specified). Deliberately a plain <select> matching
-    // the fields above — a preference, not a mode, so no segmented control and no
-    // burgundy (burgundy is reserved for primary CTAs and active states; Generate
-    // PDF is the only CTA on this screen). The option text carries the consequence,
-    // so no explanation line is needed underneath.
-    h += '<div class="exv-fld"><label>Photo &amp; drawing quality</label><select id="exv-quality">'
-      + '<option value="balanced">Balanced \u2014 photos 1400 px, drawings 175 DPI</option>'
-      + '<option value="high">High \u2014 photos 1800 px, drawings 250 DPI</option>'
-      + '<option value="max">Maximum \u2014 photos 2200 px, drawings 300 DPI</option>'
+    // S496b (Mark): photo quality and drawing detail SPLIT into two controls.
+    // They are independent decisions with different drivers — Shaun's complaint
+    // was photo clarity, the drawing problem was the DPI cap — and a report
+    // typically has many photos against few drawings, so combining them meant
+    // you could not raise one without paying for the other.
+    h += '<div class="exv-fld"><label>Photo quality</label><select id="exv-quality">'
+      + '<option value="balanced">Balanced \u2014 1400 px</option>'
+      + '<option value="high">High \u2014 1800 px</option>'
+      + '<option value="max">Maximum \u2014 2200 px</option>'
+      + '</select></div>';
+    h += '<div class="exv-fld" id="exv-dwgq-fld"><label>Drawing detail</label><select id="exv-dwgquality">'
+      + '<option value="balanced">Balanced \u2014 175 DPI</option>'
+      + '<option value="high">High \u2014 250 DPI</option>'
+      + '<option value="max">Maximum \u2014 300 DPI</option>'
       + '</select></div>';
     h += '<div class="exv-eb" style="margin-top:14px;">Options</div>';
     // S479i: _crbAdmin restored — Mark's preview diagnostic is back (S479h
@@ -344,6 +349,13 @@ export var initExportView = {
       + '<div class="row"><span class="k">Drawings</span><span class="v">' + _drawCount + '</span></div>'
       + '<div class="row"><span class="k" id="exv-sum-k4">Site records</span><span class="v" id="exv-sum-v4">' + _siteRecCount + '</span></div>'
       + '</div>';
+    // S496b: SIZE ESTIMATE. Designed in S496 and shown in every demo, but never
+    // wired — Mark caught the gap. Projection only (count x per-item average per
+    // tier), NOT a trial render: rendering the report twice just to weigh it would
+    // double the cost of every export. Directionally right, not exact — PNG on
+    // line art varies a lot with how much white space a sheet carries.
+    h += '<div class="exq-est" id="exv-est"><span class="dot"></span>'
+      + '<span><span id="exv-est-main"></span><span class="sub" id="exv-est-sub"></span></span></div>';
     // ── SEAL REDACTION — CONTACT SHEET (S492, LOCKED_SEAL_REDACTION_VISIBILITY.md).
     // Every appendix-bound drawing (any pinned item) as a thumbnail, MARKER
     // rendering on top (the print cover is invisible at this size — Mark).
@@ -361,8 +373,12 @@ export var initExportView = {
     if (_sealRows.length) {
       var _covered = _sealRows.filter(function(d) { return d.redactions && d.redactions.length; });
       var _bare = _sealRows.filter(function(d) { return !(d.redactions && d.redactions.length); });
-      h += '<div class="exv-eb" style="margin-top:14px;">Appendix drawings \u2014 seal check'
-        + '<span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--steel,#4A5568);">' + _covered.length + ' of ' + _sealRows.length + ' covered</span></div>';
+      h += '<div class="exv-eb" style="margin-top:14px;">Appendix drawings \u2014 seal check &amp; detail'
+        + '<span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--steel,#4A5568);">'
+        // S496b: "Reset all" clears every per-sheet pin at once — the case you hit
+        // after experimenting. Hidden entirely while nothing is pinned.
+        + '<button type="button" id="exv-rstall" class="exq-rstall" style="display:none;">\u21BA Reset all</button>'
+        + '<span id="exv-sealcov">' + _covered.length + ' of ' + _sealRows.length + ' covered</span></span></div>';
       h += '<div class="exv-seal-grid">';
       _sealRows.forEach(function(dw) {
         var covers = dw.redactions || [];
@@ -391,7 +407,13 @@ export var initExportView = {
         // quality select) until the slider is actually moved.
         h += '<div class="exq-tile">'
           + '<div class="exq-tile-top"><span class="exq-tile-lb">Detail</span>'
-          + '<span class="exq-tile-v" data-exq-v="' + _esc(dw.id) + '">\u2014</span></div>'
+          + '<span class="exq-tile-v" data-exq-v="' + _esc(dw.id) + '">\u2014</span>'
+          // S496b: reset appears ONLY on a pinned sheet — returns it to following
+          // the Drawing detail dropdown. Hidden (not disabled) when inherited, so
+          // an untouched grid carries no extra chrome.
+          + '<button type="button" class="exq-rst" data-exq-rst="' + _esc(dw.id) + '"'
+          + ' title="Follow the Drawing detail setting again" aria-label="Reset detail">\u21BA</button>'
+          + '</div>'
           + '<input type="range" class="exq-sl" min="100" max="300" step="5"'
           + ' data-exq-sl="' + _esc(dw.id) + '" aria-label="Export detail for ' + _esc(dw.name || 'drawing') + '">'
           + '</div>';
@@ -429,25 +451,85 @@ export var initExportView = {
     // still moves every sheet the user has not deliberately pinned.
     var _exqDpi = {};
     var _exqMarks = [100,150,175,250,300], _exqSnap = 8;
-    function _exqTierDpi(){
+    // Photo tier -> long edge / JPEG quality. Mirrors PDF_TIERS in pdf.js; kept in
+    // sync by hand because exportview must estimate WITHOUT importing the renderer.
+    var _exqPhoto = { balanced:{px:1400,q:0.82}, high:{px:1800,q:0.85}, max:{px:2200,q:0.88} };
+    var _exqSheetIn = { letter:[8.5,11], '11x17':[11,17], '24x36':[24,36] };
+    function _exqPhotoTier(){
       var el = ov.querySelector('#exv-quality');
+      return _exqPhoto[el ? el.value : 'balanced'] || _exqPhoto.balanced;
+    }
+    function _exqTierDpi(){
+      var el = ov.querySelector('#exv-dwgquality');
       var v = el ? el.value : 'balanced';
       return v==='max' ? 300 : v==='high' ? 250 : 175;
     }
+    function _exqPageSize(){
+      var el = ov.querySelector('#exv-drawpage');
+      return el ? el.value : 'letter';
+    }
+    // Approximate encoded weight of one photo at the current tier.
+    function _exqPhotoKB(){
+      var t = _exqPhotoTier();
+      return Math.round((t.px * t.px * 0.19 * t.q) / 1024 / 6);
+    }
+    // Approximate weight of one appendix sheet. Line art compresses with how much
+    // INK is on it, which we cannot know without decoding — so this uses a mid
+    // density. Sparse schematics come in lighter, dense floor plans heavier.
+    function _exqDwgKB(dpi){
+      var s = _exqSheetIn[_exqPageSize()] || _exqSheetIn['11x17'];
+      var mp = (s[0]*dpi) * (s[1]*dpi) / 1e6;
+      return Math.round(mp * 72);
+    }
+    function _exqEstimate(){
+      var el = ov.querySelector('#exv-est');
+      if (!el) return;
+      var drawingsOn = (function(){ var d=ov.querySelector('#exv-type'); return !d || d.value!=='plain'; })();
+      var def = _exqTierDpi(), kb = _exqPhotoKB() * _photoCount, over = false;
+      if (drawingsOn) {
+        _sealRows.forEach(function(dw){
+          var dpi = (_exqDpi[dw.id] != null) ? _exqDpi[dw.id] : def;
+          kb += _exqDwgKB(dpi);
+          var s = _exqSheetIn[_exqPageSize()] || _exqSheetIn['11x17'];
+          if (((s[0]*dpi)*(s[1]*dpi)*4)/1048576 > 120) over = true;
+        });
+      }
+      var mb = kb / 1024;
+      var main = ov.querySelector('#exv-est-main'), sub = ov.querySelector('#exv-est-sub');
+      main.innerHTML = 'Estimated size <span class="sz">' + (mb<10 ? mb.toFixed(1) : Math.round(mb)) + ' MB</span>';
+      el.classList.remove('warn');
+      var txt = _photoCount + ' photo' + (_photoCount===1?'':'s')
+              + (drawingsOn && _sealRows.length ? ', ' + _sealRows.length + ' drawing' + (_sealRows.length===1?'':'s') : '')
+              + ' \u00b7 about ' + _exqPhotoKB() + ' KB per photo';
+      if (over) {
+        el.classList.add('warn');
+        txt = 'Some sheets exceed this device\u2019s memory at the chosen detail \u2014 they will render lower. Reduce those sheets to stay in control.';
+      } else if (mb > 24) {
+        el.classList.add('warn');
+        txt += ' \u00b7 may be too large to email';
+      }
+      sub.textContent = txt;
+    }
     function _exqPaint(){
-      var def = _exqTierDpi();
+      var def = _exqTierDpi(), anyPinned = false;
       Array.prototype.forEach.call(ov.querySelectorAll('[data-exq-sl]'), function(sl){
         var id = sl.getAttribute('data-exq-sl');
         var pinned = (_exqDpi[id] != null);
+        if (pinned) anyPinned = true;
         var val = pinned ? _exqDpi[id] : def;
         sl.value = val;
+        // S496b colour coding: a PINNED sheet reads solid and carries the accent;
+        // an inherited one stays grey. At a glance you can see which sheets you
+        // deliberately set and which are just following the dropdown.
+        sl.classList.toggle('pinned', pinned);
         var lab = ov.querySelector('[data-exq-v="' + id.replace(/"/g,'\\"') + '"]');
-        if (lab) {
-          lab.textContent = val + ' DPI';
-          // Grey = following the quality select. Solid = deliberately pinned.
-          lab.classList.toggle('below', !pinned || val < def);
-        }
+        if (lab) { lab.textContent = val + ' DPI'; lab.classList.toggle('below', !pinned); }
+        var rst = ov.querySelector('[data-exq-rst="' + id.replace(/"/g,'\\"') + '"]');
+        if (rst) rst.style.display = pinned ? '' : 'none';
       });
+      var all = ov.querySelector('#exv-rstall');
+      if (all) all.style.display = anyPinned ? '' : 'none';
+      _exqEstimate();
     }
     ov.addEventListener('input', function(e){
       var sl = e.target.closest && e.target.closest('[data-exq-sl]');
@@ -459,8 +541,22 @@ export var initExportView = {
       _exqDpi[sl.getAttribute('data-exq-sl')] = v;
       _exqPaint();
     });
+    // Reset: unpin one sheet, or all of them. Deleting the key (rather than
+    // writing the current default) is what makes the sheet FOLLOW the dropdown
+    // again rather than freezing at today's value.
+    ov.addEventListener('click', function(e){
+      var one = e.target.closest && e.target.closest('[data-exq-rst]');
+      if (one) { e.stopPropagation(); delete _exqDpi[one.getAttribute('data-exq-rst')]; _exqPaint(); return; }
+      if (e.target.closest && e.target.closest('#exv-rstall')) { e.stopPropagation(); _exqDpi = {}; _exqPaint(); }
+    });
     var _qEl = ov.querySelector('#exv-quality');
     if (_qEl) _qEl.addEventListener('change', _exqPaint);
+    var _qdEl = ov.querySelector('#exv-dwgquality');
+    if (_qdEl) _qdEl.addEventListener('change', _exqPaint);
+    var _dpEl = ov.querySelector('#exv-drawpage');
+    if (_dpEl) _dpEl.addEventListener('change', _exqPaint);
+    var _tyEl = ov.querySelector('#exv-type');
+    if (_tyEl) _tyEl.addEventListener('change', _exqPaint);
     _exqPaint();
 
     // S492: contact-sheet click → close export, open that drawing in the viewer.
@@ -700,6 +796,8 @@ export var initExportView = {
         // S496: tier + per-sheet DPI overrides. dwgDpi carries ONLY sheets the
         // user pinned; everything else follows the tier inside pdf.js.
         qualityTier: (ov.querySelector('#exv-quality') || {}).value || 'balanced',
+        // S496b: drawing detail is now its OWN control, so it travels separately.
+        dwgTier: (ov.querySelector('#exv-dwgquality') || {}).value || 'balanced',
         dwgDpi: _exqDpi
       });
       }
