@@ -483,7 +483,7 @@ function ensurePdfJs(cb){
 <!-- ═══ DRAWING VIEWER OVERLAY ═══ -->
 <div class="drawing-viewer-overlay" id="drawing-viewer-overlay">
   <div class="dv-toolbar" id="dv-toolbar">
-    <button id="dv-close" class="back-btn dv-close-btn" title="Back">← Back</button>
+    <button id="dv-close" class="back-btn dv-close-btn" title="Back"><span class="bb-ar">←</span><span class="bb-txt">Back</span></button><!-- S496d: split spans; the single text node put the ← glyph's optical centre below the text's (Mark: "Back looks higher"). CSS nudges .bb-txt down. -->
     <!-- S81: cloud status in viewer header too (mirrors main app header) -->
     <span id="dv-cloud-status" class="dv-cloud-status" title="Tap for cloud diagnostic" onclick="if(window._showCloudDiagnostic)window._showCloudDiagnostic()">
       <span id="dv-cloud-dot" class="dv-cloud-dot" style="background:#34D399;"></span>

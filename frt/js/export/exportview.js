@@ -147,8 +147,10 @@ function _styleOnce() {
     '.exv-f{flex-wrap:wrap;}',
     '.exv-fleft{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}',
     '.exq-est-foot{margin-top:0;padding:6px 11px;align-items:center;}',
-    '.exq-est-foot .dot{margin-top:0;}',
     '.exq-est-foot .sub{display:inline;margin-top:0;margin-left:4px;}',
+    /* S496d: on narrow screens the pill takes its own full row instead of
+       squeezing beside the count — no wrapping inside the pill, ever. */
+    '@media(max-width:700px){.exq-est-foot{flex-basis:100%;}}',
     '.exv-cancel{padding:9px 18px;border:1px solid var(--border,#D5DBE3);background:var(--card,#fff);color:#5E5B68;border-radius:8px;font-size:calc(13px + var(--ts,0px));font-weight:700;cursor:pointer;}',
     '.exv-go{padding:9px 20px;border:0;background:#243048;color:#fff;border-radius:8px;font-size:calc(14px + var(--ts,0px));font-weight:700;cursor:pointer;letter-spacing:.2px;}',
     '.exv-go:hover{background:#1B2438;}',
@@ -377,7 +379,11 @@ export var initExportView = {
     // you adjust sliders while the right column is scrolled off-screen. It
     // belongs in the footer, the one bar that never leaves. Built into a
     // variable here, emitted into .exv-f below. IDs unchanged.
-    var _estHtml = '<span class="exq-est exq-est-foot" id="exv-est"><span class="dot"></span>'
+    // S496d: NO status dot. It broke twice (orphaned below the grid, then
+    // overlapping the text at narrow widths) — per the two-strikes rule the
+    // element is deleted, not re-styled. The pill's border/background colour
+    // already carries normal-vs-amber state.
+    var _estHtml = '<span class="exq-est exq-est-foot" id="exv-est">'
       + '<span><span id="exv-est-main"></span><span class="sub" id="exv-est-sub"></span></span></span>';
     // ── SEAL REDACTION — CONTACT SHEET (S492, LOCKED_SEAL_REDACTION_VISIBILITY.md).
     // S496c (completing Option B): this whole section is captured into _bandHtml

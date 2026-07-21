@@ -173,6 +173,11 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
    (height comes from padding like diesel: 30px@S / 33px@L), border 1px #D2CEDB. */
 .back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid #D2CEDB;color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;box-sizing:border-box;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
 body.dark-mode .back-btn{border:1px solid var(--b-chrome-rule);box-shadow:none;}
+/* S496d (Mark): optical centering inside .back-btn. As a single text node the
+   ← glyph's visual centre sat below the text's, making "Back" read high.
+   Split into spans (index.html), text nudged down; gap replaces the space. */
+.back-btn .bb-ar{line-height:1;}
+.back-btn .bb-txt{line-height:1;transform:translateY(0.5px);}
 .section-nav{background:var(--b-chrome-bg);display:flex;gap:0;overflow-x:auto;padding:0 14px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav .nav-tab:first-child{padding-left:0;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:rgba(244,243,246,.6);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:var(--b-chrome-fg);}.nav-tab.active{color:var(--b-chrome-fg);border-bottom-color:var(--b-bar-accent);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
