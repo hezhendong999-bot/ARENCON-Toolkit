@@ -14169,6 +14169,33 @@ function _mergeCloudLocal(cloud, local){
         }
       }
     }
+    /* S496 item 10 — ONE photo-preserve implementation for the deficiency family.
+       The identical 5-line body (preserve d, preserve r2Url+r2Key, _preserveMk)
+       was hand-written FIVE times: contractor deficiency photos, contractor
+       response photos, general-deficiency photos, general-deficiency response
+       photos, and checklist-item photos. S314's own comment records that the
+       general-deficiency copy was MISSING for months — every cloud apply wiped
+       those photo binaries until someone noticed. Five hand-maintained copies of
+       a photo-protection rule is a bug generator: the next photo location added
+       will silently miss the pass the same way. All five now call this.
+       PAIRING (S353 canon): match strictly by id when the cloud photo carries
+       one — index pairing copied one photo's binary/markup onto another when two
+       devices held the arrays in different orders. Photos minted before ids
+       existed fall back to index so legacy binaries still rescue; an id-bearing
+       photo can never cross-copy. */
+    function _preservePhotoArr(cloudArr, localArr){
+      if(!Array.isArray(cloudArr) || !Array.isArray(localArr)) return;
+      var byId={};
+      localArr.forEach(function(p){ if(p && p.id) byId[p.id]=p; });
+      cloudArr.forEach(function(cp, pi){
+        if(!cp) return;
+        var lp = cp.id ? byId[cp.id] : localArr[pi];
+        if(!lp) return;
+        if(!cp.d && lp.d) cp.d = lp.d;
+        if(!cp.r2Url && lp.r2Url){ cp.r2Url = lp.r2Url; cp.r2Key = lp.r2Key; }
+        _preserveMk(cp, lp);
+      });
+    }
     // Preserve flow test photos (S353: match strictly by id — never by array
     // index. Index pairing copied one photo's binary/markup onto another when the
     // two devices held the arrays in different orders.)
@@ -14210,55 +14237,36 @@ function _mergeCloudLocal(cloud, local){
         _preserveMk(cp, lp);
       });
     }
-    // Preserve deficiency photos
+    // Preserve deficiency photos — S496 item 10: routed through _preservePhotoArr
     if(local.deficiencies && cloud.deficiencies){
       Object.keys(cloud.deficiencies).forEach(function(ctr){
         if(!local.deficiencies[ctr]) return;
         (cloud.deficiencies[ctr]||[]).forEach(function(cd,di){
           var ld = (local.deficiencies[ctr]||[])[di];
           if(!ld) return;
-          (cd.photos||[]).forEach(function(cp,pi){
-            var lp = (ld.photos||[])[pi];
-            if(lp && !cp.d && lp.d) cp.d = lp.d;
-            if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
-            _preserveMk(cp, lp);
-          });
+          _preservePhotoArr(cd.photos, ld.photos);
           // Preserve response photos
           (cd.responses||[]).forEach(function(cr,ri){
             var lr = (ld.responses||[])[ri];
             if(!lr) return;
-            (cr.photos||[]).forEach(function(cp,pi){
-              var lp = (lr.photos||[])[pi];
-              if(lp && !cp.d && lp.d) cp.d = lp.d;
-              if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
-              _preserveMk(cp, lp);
-            });
+            _preservePhotoArr(cr.photos, lr.photos);
           });
         });
       });
     }
     // S314 Gap B: generalDeficiencies photos had NO preserve pass — every cloud
-    // apply wiped live general-deficiency photo binaries. Mirror of the
-    // contractor deficiencies pass above.
+    // apply wiped live general-deficiency photo binaries. S496 item 10: routed
+    // through _preservePhotoArr (the shared implementation exists precisely so
+    // this omission cannot recur).
     if(local.generalDeficiencies && cloud.generalDeficiencies){
       (cloud.generalDeficiencies||[]).forEach(function(cd,di){
         var ld = (local.generalDeficiencies||[])[di];
         if(!cd||!ld) return;
-        (cd.photos||[]).forEach(function(cp,pi){
-          var lp = (ld.photos||[])[pi];
-          if(lp && !cp.d && lp.d) cp.d = lp.d;
-          if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
-          _preserveMk(cp, lp);
-        });
+        _preservePhotoArr(cd.photos, ld.photos);
         (cd.responses||[]).forEach(function(cr,ri){
           var lr = (ld.responses||[])[ri];
           if(!lr) return;
-          (cr.photos||[]).forEach(function(cp,pi){
-            var lp = (lr.photos||[])[pi];
-            if(lp && !cp.d && lp.d) cp.d = lp.d;
-            if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
-            _preserveMk(cp, lp);
-          });
+          _preservePhotoArr(cr.photos, lr.photos);
         });
       });
     }
@@ -14267,16 +14275,12 @@ function _mergeCloudLocal(cloud, local){
     // NOT `checklistDetails` — that key never existed in collectState() output,
     // so this preserve pass was silently a no-op and checklist photo binaries
     // were lost on every cloud apply. Keyed on clState now.
+    // S496 item 10: fifth copy of the same body — routed through _preservePhotoArr.
     if(local.clState && cloud.clState){
       Object.keys(cloud.clState).forEach(function(k){
         var cc=cloud.clState[k], lc=local.clState[k];
         if(!lc||!cc) return;
-        (cc.photos||[]).forEach(function(cp,pi){
-          var lp=(lc.photos||[])[pi];
-          if(lp && !cp.d && lp.d) cp.d = lp.d;
-          if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
-          _preserveMk(cp, lp);
-        });
+        _preservePhotoArr(cc.photos, lc.photos);
       });
     }
     // S239: Preserve local flow-test row edits (stdData/pldData/pump curves).
