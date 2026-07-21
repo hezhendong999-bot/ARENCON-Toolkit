@@ -250,3 +250,6 @@ _toolReportCounts
 @ Export must contain report data — _fetchProjectToolData reads the array execute() returns; a failed read must NOT stamp the project as backed up (S495 bug fix)
 _fetchProjectToolData
 
+@ Backup honesty — an export containing zero reports downloads but is NOT stamped as a backup, and read failures are reported; a stamp on a hollow file is a false all-clear (S495, root cause of the S127/S495 hollow-export class)
+_exportHasReportData
+

@@ -4181,6 +4181,7 @@ async function bulkExport() {
   toast('Exporting ' + _bulkSelected.length + ' projects...', 'info');
   var count = 0;
   var failed = 0;
+  var empty = 0;
   for (var i = 0; i < _bulkSelected.length; i++) {
     var proj = _projects.find(function(x) { return x.id === _bulkSelected[i]; });
     if (!proj) continue;
@@ -4195,14 +4196,24 @@ async function bulkExport() {
     }
     var payload = Object.assign({}, proj, { tool_data: toolData, _schemaVersion: HUB_SCHEMA_VERSION, _exportedAt: new Date().toISOString() });
     _downloadJSON(payload, _buildProjectFilename(proj));
-    await _stampExported(proj.id);
+    // S495: an empty project still downloads (that is legitimate), but it is not
+    // recorded as a backup — a stamp on a file with no reports is a false all-clear.
+    if (_exportHasReportData(toolData)) {
+      await _stampExported(proj.id);
+      count++;
+    } else {
+      empty++;
+    }
     await new Promise(function(r) { setTimeout(r, 300); });
-    count++;
   }
+  var _msg = count + ' project(s) exported';
+  if (empty > 0) _msg += ' \u00B7 ' + empty + ' had no reports (not marked backed up)';
   if (failed > 0) {
-    toast(count + ' exported \u00B7 ' + failed + ' failed and were NOT marked backed up', 'error');
+    toast(_msg + ' \u00B7 ' + failed + ' FAILED', 'error');
+  } else if (empty > 0) {
+    toast(_msg, 'info');
   } else {
-    toast(count + ' project(s) exported', 'success');
+    toast(_msg, 'success');
   }
   clearBulkSelection(); renderProjects();
 }
@@ -4653,8 +4664,18 @@ async function _fetchProjectToolData(projectId) {
   return Array.isArray(rows) ? rows : [];
 }
 
-async function _stampExported(projectId) {
-  var now = new Date().toISOString();
+/* S495 — backup honesty guard.
+   The S127/S495 hollow-export bug stayed invisible because a file containing
+   zero reports still stamped the project "backed up", so the board said you
+   were covered when you were not. A project with genuinely no reports is
+   legitimate, so zero rows is not an error — but it must NOT be recorded as a
+   data backup, because there is no data in it. One place decides this so the
+   rule cannot drift between the two export paths. */
+function _exportHasReportData(toolData) {
+  return Array.isArray(toolData) && toolData.length > 0;
+}
+
+async function _stampExported(projectId) {  var now = new Date().toISOString();
   var uid = _profile ? _profile.id : null;
   try {
     await _sb.from('projects').eq('id', projectId).update({ last_exported_at: now, last_exported_by: uid });
@@ -4704,7 +4725,7 @@ async function exportAllProjects() {
   });
   if (!_ok) return;
   toast('Exporting ' + active.length + ' projects...', 'info');
-  var _okCount = 0, _failCount = 0;
+  var _okCount = 0, _failCount = 0, _emptyCount = 0;
   for (var i = 0; i < active.length; i++) {
     var proj = active[i];
     // S495: a project whose reports could not be read is NOT marked backed up.
@@ -4717,16 +4738,21 @@ async function exportAllProjects() {
     }
     var payload = Object.assign({}, proj, { tool_data: toolData, _schemaVersion: HUB_SCHEMA_VERSION, _exportedAt: new Date().toISOString() });
     _downloadJSON(payload, _buildProjectFilename(proj));
-    await _stampExported(proj.id);
-    _okCount++;
+    // S495: see _exportHasReportData — a file with no reports is not a backup.
+    if (_exportHasReportData(toolData)) { await _stampExported(proj.id); _okCount++; }
+    else { _emptyCount++; }
     // Small delay so browser doesn't block multiple downloads
     await new Promise(function(r) { setTimeout(r, 300); });
   }
   renderProjects();
+  var _m = _okCount + ' project(s) exported';
+  if (_emptyCount > 0) _m += ' \u00B7 ' + _emptyCount + ' had no reports (not marked backed up)';
   if (_failCount > 0) {
-    toast(_okCount + ' exported \u00B7 ' + _failCount + ' failed and were NOT marked backed up', 'error');
+    toast(_m + ' \u00B7 ' + _failCount + ' FAILED', 'error');
+  } else if (_emptyCount > 0) {
+    toast(_m, 'info');
   } else {
-    toast(_okCount + ' project(s) exported', 'success');
+    toast(_m, 'success');
   }
 }
 
