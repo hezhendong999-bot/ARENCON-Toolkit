@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607211030';
+var CACHE_NAME = 'arencon-frt-202607210532';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -111,10 +111,16 @@ var APP_FILES = [
   // button's save does nothing. Precached so a cold/offline start still syncs.
   'diesel-sync.js',
   'lib/ui/dialogEngine.js',
+  // S497 Diesel Phase 3 — the dialog personality layer, the shared scroll lock,
+  // and the one-source logo. Same offline rule as above: a module the tool
+  // imports MUST be precached or an offline boot 404s the whole module block
+  // (which also carries the header + IDB bridge).
+  'lib/ui/dialogConfigs.js',
+  'lib/shared/scrollLock.js',
+  'lib/assets/logo.js',
   'lib/data/syncWorker.js',
   'lib/data/syncWorkerHost.js',
   'frt/js/export/exportview.js',
-  'frt/js/export/sealDetect.js',
   'frt/js/export/carlitoReg.js',
   'frt/js/export/carlitoBold.js',
   'frt/js/shared/auth.js',
