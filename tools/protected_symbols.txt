@@ -276,3 +276,6 @@ starred-section
 toggleStar
 selectAllStarred
 
+@ sw.js CACHE_NAME is a UTC TIMESTAMP, never a counter — a counter let two lanes silently revert each other's bump (near-miss S495, both picked v1174). Bump = set to current UTC yyyymmddhhmm. Do NOT reintroduce an incrementing version (Mark, S495)
+CACHE_NAME
+

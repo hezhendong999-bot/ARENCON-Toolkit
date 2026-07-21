@@ -1,6 +1,17 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v1196';
+// S495 (Mark) — COLLISION-PROOF CACHE IDENTITY.
+// This was a hand-incremented counter, and sw.js is a shared file that every
+// lane bumps on every push. Two lanes that both read v1196 both write v1197:
+// whoever pushes second silently reverts the other's bump, and the file still
+// LOOKS correct, so nothing catches it. That near-miss happened for real in
+// S495 (both lanes independently picked v1174; identical by luck only).
+// The value is opaque — only opened as a cache key, compared with !== in the
+// activate-purge filter, and echoed in the sw-updated message. Never parsed,
+// never ordered. A per-push timestamp works identically and cannot collide.
+// FORMAT: arencon-frt-<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
+// Do NOT go back to a counter.
+var CACHE_NAME = 'arencon-frt-202607210456';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
