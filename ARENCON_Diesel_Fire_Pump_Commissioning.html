@@ -14094,56 +14094,23 @@ async function _syncHeartbeat(){
   if(!navigator.onLine) return;
   _heartbeatRunning = true;
   try {
-    var row = await CloudSync.load();
-    if(!row || !row.row || !row.row.updated_at || !row.row.data){ _heartbeatRunning=false; return; }
-    var cloudTime = new Date(row.row.updated_at).getTime();
-    // Self-trigger prevention: if we just pushed, cloud timestamp will match _cloudSyncedAt
-    if(_cloudSyncedAt && Math.abs(cloudTime - _cloudSyncedAt) < 5000){
-      _heartbeatRunning=false; return;
-    }
-    var localSyncedAt = localStorage.getItem('_diesel_cloudSyncedAt_'+_csProjectId);
-    var localTime = localSyncedAt ? new Date(localSyncedAt).getTime() : 0;
-    // Only apply if cloud is >5s newer than last known sync
-    if(cloudTime > localTime + 5000){
-      // S321: never merge-apply over a live edit — a stale cloud scalar would
-      // visibly revert what the user just typed. Defer to the next beat; with
-      // global autosave the edit will have saved and pushed by then.
-      var _ae=document.activeElement;
-      var _editing=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');
-      if(_editing || _autosaveTimer){
-        console.info('[Heartbeat] deferred — edit in progress');
-        _heartbeatRunning = false; return;
-      }
-      _syncLock = true;
-      // Merge: cloud owns structure, local owns binary data (R2 fields)
-      var cloudState = typeof row.row.data === 'string' ? JSON.parse(row.row.data) : row.row.data;
-      var localState = collectState();
-      // ── S25 EMPTY-CLOUD GUARD ──
-      // Never let a materially-empty cloud row overwrite a non-empty local report.
-      // (S25 incident: blank cloud clobbered local; 6-hour recovery.) Local wins
-      // and re-populates cloud on the next autosave push.
-      if(!_stateHasContent(cloudState) && _stateHasContent(localState)){
-        console.warn('[Heartbeat] S25 guard: cloud row is empty but local has content — skipping apply.');
-        localStorage.setItem('_diesel_cloudSyncedAt_'+_csProjectId, row.row.updated_at);
-        _syncLock = false; _heartbeatRunning = false; return;
-      }
-      var merged = _mergeCloudLocal(cloudState, localState);
-      _applyLoadedState(JSON.stringify(merged));
-      localStorage.setItem('_diesel_cloudSyncedAt_'+_csProjectId, row.row.updated_at);
-      _syncLock = false;
-      // Flash blue cloud dot briefly (FRT-family: drive via data-state)
-      var _cf = window.__dslHeaderCtl;
-      if(_cf){ _cf.setCloud({ state:'pull' });
-        setTimeout(function(){ _cf.setCloud({ state:'ok' }); }, 2000); }
-    } else {
-      if(cloudTime > localTime){
-        localStorage.setItem('_diesel_cloudSyncedAt_'+_csProjectId, row.row.updated_at);
-      }
-    }
-  } catch(e){
-    console.warn('[Heartbeat] Error:', e);
-    _syncLock = false;
-  }
+    /* S496 Phase 2 — THE 4TH HOST EDIT (missed in the first Phase 2 push, which
+       ported only 3; Mark's two-window test caught it: nothing ever synced in).
+       The old body here called CloudSync.load() and read row.row.data — but the
+       facade's load() returns row METADATA only (id/status/updated_at, no data),
+       so `!row.row.data` was true on every tick and the heartbeat silently
+       no-oped forever. Pulls were dead; each window only ever saw itself.
+
+       The periodic pull now runs through the SHARED engine:
+       CloudSync.heartbeatTick() = cheap updated_at probe against the engine's
+       last-seen concurrency token -> silent pull -> the facade's model routes
+       the applied state through Diesel's protective merge (_mergeCloudLocal
+       union + S25 empty-cloud guard) via _applyCloudSilent before any apply.
+       S321 edit-deferral (active input OR pending autosave debounce) is
+       enforced INSIDE the tick, before the pull. Pulling also refreshes the
+       engine's If-Match token, so the next push preconditions correctly. */
+    await CloudSync.heartbeatTick();
+  } catch(e){ console.warn('[Heartbeat] Error:', e); }
   _heartbeatRunning = false;
 }
 // S25 guard: does a state object carry real report content?
