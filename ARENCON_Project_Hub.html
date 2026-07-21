@@ -2399,7 +2399,8 @@ function _renderProjectCard(p, myId) {
   var cardClick = 'openProject(\'' + esc(p.id) + '\')';
 
   // Tool icons (hover for name)
-  var tools = (p.enabled_tools || []);
+  // S495: canonical order (FRT, DFP, EFP…), not the order tools were switched on.
+  var tools = _orderTools(p.enabled_tools);
   var toolIcons = tools.length > 0
     ? tools.map(function(t) { var ti = AVAILABLE_TOOLS[t]; return ti ? '<span class="tool-pill tp-' + t + '" style="background:' + ti.color + '" title="' + esc(ti.name) + '">' + ti.svg + ti.short + '</span>' : ''; }).join('')
     : '<span style="font-size:calc(10px + var(--ts));color:var(--silver)">No tools</span>';
@@ -2603,6 +2604,23 @@ function openProject(projectId) {
    hold work. Reset on project open so counts never bleed between projects. */
 var _toolReportCounts = {};
 
+/* S495 — ONE canonical tool order for the whole Hub.
+   AVAILABLE_TOOLS declares FRT, DFP, EFP, IST, OBC, DD in that sequence and the
+   activation strip has always iterated it. Anything else that lists tools must
+   go through here rather than reading enabled_tools directly, because that
+   column preserves the order tools were switched on, not the order they should
+   be shown in. Unknown keys are kept at the end so a future tool never silently
+   disappears from a list before it is added to AVAILABLE_TOOLS. */
+function _orderTools(list) {
+  var enabled = list || [];
+  var canon = Object.keys(AVAILABLE_TOOLS);
+  var out = canon.filter(function(k) { return enabled.indexOf(k) >= 0; });
+  enabled.forEach(function(k) {
+    if (out.indexOf(k) < 0) out.push(k);
+  });
+  return out;
+}
+
 function _renderDetailTools(proj) {
   var tools = proj.enabled_tools || [];
   var grid = document.getElementById('detail-tools');
@@ -2715,7 +2733,14 @@ var _TOOL_SHORT_NAMES = { frt:'Field Review Report', diesel:'Diesel Pump Commiss
 async function _loadAndRenderInstances(proj) {
   var container = document.getElementById('detail-instances');
   if (!container) return;
-  var tools = proj.enabled_tools || [];
+  /* S495 (Mark): report groups must appear in the SAME order as the activation
+     strip — FRT, DFP, EFP, IST, OBC, DD — on every project, every time.
+     enabled_tools is stored in whichever order the tools happened to be
+     switched on (1490.04 is stored as diesel, electric, frt), so rendering
+     straight from it produced a different group order per project. The strip
+     iterates AVAILABLE_TOOLS, which is the single canonical order; the groups
+     now derive from the same source instead of from storage order. */
+  var tools = _orderTools(proj.enabled_tools);
 
   container.innerHTML = '<div class="ri-loading">Loading reports...</div>';
 
@@ -2881,6 +2906,17 @@ async function _loadAndRenderDeletedInstances(proj) {
 
   var sfn = buildSmartFilename(proj);
   var canPurge = _canPurgeReports();
+  /* S495: the query orders by tool_key, which is alphabetical (diesel, dd,
+     electric, frt…). Re-sort into the same canonical order the live report
+     groups and the activation strip use, so this list never reads differently
+     from the section above it. */
+  var _canon = Object.keys(AVAILABLE_TOOLS);
+  rows = rows.slice().sort(function(a, b) {
+    var ai = _canon.indexOf(a.tool_key), bi = _canon.indexOf(b.tool_key);
+    if (ai < 0) ai = 999; if (bi < 0) bi = 999;
+    if (ai !== bi) return ai - bi;
+    return (a.instance_number || 0) - (b.instance_number || 0);
+  });
   var html = '';
   rows.forEach(function(inst) {
     var t = AVAILABLE_TOOLS[inst.tool_key];

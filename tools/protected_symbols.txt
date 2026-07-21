@@ -253,3 +253,6 @@ _fetchProjectToolData
 @ Backup honesty — an export containing zero reports downloads but is NOT stamped as a backup, and read failures are reported; a stamp on a hollow file is a false all-clear (S495, root cause of the S127/S495 hollow-export class)
 _exportHasReportData
 
+@ Canonical tool order — report groups, dashboard tool pills and Deleted Reports all follow AVAILABLE_TOOLS (FRT, DFP, EFP, IST, OBC, DD), never enabled_tools storage order (Mark, S495)
+_orderTools
+
