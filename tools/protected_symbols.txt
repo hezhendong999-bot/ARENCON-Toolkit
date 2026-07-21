@@ -297,3 +297,7 @@ _isDupProject
 @ Global client autocomplete in New Project — typing matches every client on record, most-used spelling first, offered never forced (Mark, field test S497b)
 _npOnClientInput
 _npAllClients
+@ Portal shared header — index.html header is the sealed engine + lib/ui/portalHeaderConfig.js; theme on the shared device key so the portal matches every other tool (Mark, field test S497c). The hand-rolled portal header/toggle is retired and must not return.
+portalHeaderConfig
+.imx-head
+.imx-body

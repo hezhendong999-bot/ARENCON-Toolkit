@@ -114,11 +114,19 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .stats-strip .stat-warn{color:var(--warn);font-weight:600}
 /* ═══ S497 — Insights panel + What's New / Hub Guide (Mark, roadmap items) ═══
    Colours are the existing muted board palette — never new decoration. */
-.ins-modal-card{max-width:680px;max-height:86vh;overflow-y:auto}
-.ins-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-@media(max-width:640px){.ins-grid{grid-template-columns:1fr}}
+/* S497c (Mark's tablet test): the two panel modals could exceed the viewport
+   width — horizontal scroll, and the ✕ drifted with it. Structure fix, not a
+   patch: the card is a flex column capped to the viewport; a non-scrolling
+   header owns the title and ✕; only the body scrolls, vertically only. */
+.ins-modal-card{max-width:min(680px,calc(100vw - 24px))}
+.ins-modal-card,.help-modal-card{max-height:86vh;display:flex;flex-direction:column;overflow:hidden;padding:0}
+.imx-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 24px 10px;flex-shrink:0}
+.imx-head h3{margin:0}
+.imx-head .modal-x{position:static;flex-shrink:0}
+.imx-body{overflow-y:auto;overflow-x:hidden;padding:6px 24px 22px}
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
 .ins-block h4{font-size:calc(12px + var(--ts));font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
-.ins-donut-wrap{display:flex;align-items:center;gap:16px}
+.ins-donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .ins-legend{display:flex;flex-direction:column;gap:5px;font-size:calc(12px + var(--ts))}
 .ins-legend .lg{display:flex;align-items:center;gap:7px;color:var(--fg)}
 .ins-legend .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0}
@@ -133,7 +141,7 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .ins-bar-row .ct{font-weight:700;color:var(--fg);text-align:right}
 .ins-note{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:14px}
 .wn-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
-.help-modal-card{max-width:640px;max-height:86vh;overflow-y:auto}
+.help-modal-card{max-width:min(640px,calc(100vw - 24px))}
 .wn-entry{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:color-mix(in srgb,var(--card) 60%,transparent)}
 .wn-entry .wn-date{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .wn-entry .wn-title{font-size:calc(14px + var(--ts));font-weight:800;color:var(--fg);margin:2px 0 8px}
@@ -346,7 +354,9 @@ body.dark-mode .epd-pick,body.dark-mode .epd-pick-band{background:var(--card)}
 .project-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .badge-active{background:var(--yes-bg);color:var(--yes)}
 .badge-archived{background:var(--na-bg);color:var(--na)}
-.badge-dup{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+.badge-dup{display:block;width:fit-content;margin-top:3px;font-size:calc(9px + var(--ts));line-height:1.4;padding:1px 7px;background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+/* S497c: the chip sits on its own line BELOW the number — inline it collided
+   with the number and, in list view, the project name. */
 .badge-role{background:#DBEAFE;color:#1D4ED8}
 .project-card-date{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:500}
 .project-card-pm{font-size:calc(10px + var(--ts));color:var(--steel);font-weight:500;margin-left:auto}
@@ -1223,25 +1233,27 @@ body.text-l{--ts:4px;}
 <!-- ═══════════ NEW PROJECT MODAL ═══════════ -->
 <!-- S497 — Insights panel (computed live from the loaded board; no extra queries) -->
 <div class="modal-overlay" id="insights-modal">
-  <div class="modal-card ins-modal-card" style="position:relative">
-    <button class="modal-x" onclick="closeInsights()" title="Close">×</button>
-    <h3>📊 Insights</h3>
-    <div id="insights-body"></div>
-    <div class="ins-note">Counts cover active projects only (archived and deleted excluded). Backup age runs from each project's last export.</div>
+  <div class="modal-card ins-modal-card">
+    <div class="imx-head"><h3>📊 Insights</h3><button class="modal-x" onclick="closeInsights()" title="Close">×</button></div>
+    <div class="imx-body">
+      <div id="insights-body"></div>
+      <div class="ins-note">Counts cover active projects only (archived and deleted excluded). Backup age runs from each project's last export.</div>
+    </div>
   </div>
 </div>
 <!-- S497 — What's New + Hub quick guide. Entries come from updates.json; that
      file is edited ONLY when Mark says so — never automatically. -->
 <div class="modal-overlay" id="help-modal">
-  <div class="modal-card help-modal-card" style="position:relative">
-    <button class="modal-x" onclick="closeHelp()" title="Close">×</button>
-    <h3>❔ Help</h3>
-    <div class="help-tabs">
-      <button id="help-tab-wn" class="active" onclick="setHelpTab('wn')">What's New</button>
-      <button id="help-tab-hg" onclick="setHelpTab('hg')">Hub Guide</button>
+  <div class="modal-card help-modal-card">
+    <div class="imx-head"><h3>❔ Help</h3><button class="modal-x" onclick="closeHelp()" title="Close">×</button></div>
+    <div class="imx-body">
+      <div class="help-tabs">
+        <button id="help-tab-wn" class="active" onclick="setHelpTab('wn')">What's New</button>
+        <button id="help-tab-hg" onclick="setHelpTab('hg')">Hub Guide</button>
+      </div>
+      <div id="help-body-wn"></div>
+      <div id="help-body-hg" style="display:none"></div>
     </div>
-    <div id="help-body-wn"></div>
-    <div id="help-body-hg" style="display:none"></div>
   </div>
 </div>
 <div class="modal-overlay" id="new-project-modal">
@@ -2251,8 +2263,14 @@ function renderProjects() {
 
   // Sort function
   var sortFn = function(a, b) {
-    if (sortMode === 'number-asc') return (a.project_number || '').localeCompare(b.project_number || '');
-    if (sortMode === 'number-desc') return (b.project_number || '').localeCompare(a.project_number || '');
+    /* S497c (Mark): projects sharing a number sort by creation — the ORIGINAL
+       (first-created) always on top, its duplicates directly below it, in both
+       number directions. */
+    if (sortMode === 'number-asc' || sortMode === 'number-desc') {
+      var _na = a.project_number || '', _nb = b.project_number || '';
+      if (_na === _nb) return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      return sortMode === 'number-asc' ? _na.localeCompare(_nb) : _nb.localeCompare(_na);
+    }
     if (sortMode === 'name') return (a.project_name || '').localeCompare(b.project_name || '');
     if (sortMode === 'client') return (a.client || 'zzz').localeCompare(b.client || 'zzz');
     if (sortMode === 'pm') return (_userMap[a.project_manager] || 'zzz').localeCompare(_userMap[b.project_manager] || 'zzz');
@@ -2498,7 +2516,7 @@ function openInsights() {
     { n: 'Fresh (under 30 days)', v: fresh, c: 'var(--yes)' },
     /* S497b (Mark): 30+ was amber like 60+ — now a muted yellow so the two
        tiers read apart at a glance. Aging runs green → yellow → orange → red. */
-    { n: '30+ days old', v: a30, c: '#B5A21F' },
+    { n: '30+ days old', v: a30, c: '#DCC94F' },
     { n: '60+ days old', v: a60, c: '#C98A4A' },
     { n: '90+ days old', v: a90, c: 'var(--no)' }
   ];
