@@ -524,6 +524,24 @@ const CloudSync = (function () {
 })();
 
 window.CloudSync = CloudSync;
+
+/* ── S496 Phase 2: host-contract continuity ────────────────────────────────
+ * The removed inline IIFE defined `_idbKey()` and `_idbGet2()` as page-level
+ * globals. One host site still calls them: the record-photo binary recovery
+ * fallback (`_photoSrc` path), which — when a photo has lost its bytes but
+ * still has an id/r2Key — scans the CloudSync cache copy of the report for a
+ * matching photo before falling back to a network R2 fetch.
+ *
+ * That call is `typeof`-guarded, so dropping these would NOT have thrown. It
+ * would have silently removed one rung of the photo-recovery ladder — the
+ * exact class of invisible regression the S492 sweep caused. Republished here
+ * with identical semantics (same arencon_cloud_cache DB, same
+ * `projectId|toolKey|instanceId` key format), so the ladder is unchanged. */
+window._idbKey = function () {
+  return (CloudSync.projectId || '') + '|' + (CloudSync.toolKey || '')
+       + '|' + (CloudSync.instanceId || 'new');
+};
+window._idbGet2 = function (key) { return _cacheGet(key); };
 console.log('%c[DieselSync] merge-based sync engine active (S492)',
   'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;');
 

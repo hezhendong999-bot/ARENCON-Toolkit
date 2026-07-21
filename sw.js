@@ -1,6 +1,6 @@
 // ARENCON Field Review Tool — Service Worker
 // Strategy: network-first for HTML/JS/CSS (always get latest), cache-first for CDN assets
-var CACHE_NAME = 'arencon-frt-v1188';
+var CACHE_NAME = 'arencon-frt-v1189';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -94,6 +94,12 @@ var APP_FILES = [
   'lib/data/photoOutbox.js',
   'lib/data/sync.js',
   'lib/data/merge.js',
+  // S496 Phase 2 — Diesel's merge-based sync facade and the conflict dialog it
+  // imports. WITHOUT these an offline (or stale-cache) boot 404s the module and
+  // _cloudSyncInit retries forever in SILENCE: no error, no toast, and the Back
+  // button's save does nothing. Precached so a cold/offline start still syncs.
+  'diesel-sync.js',
+  'lib/ui/dialogEngine.js',
   'lib/data/syncWorker.js',
   'lib/data/syncWorkerHost.js',
   'frt/js/export/exportview.js',

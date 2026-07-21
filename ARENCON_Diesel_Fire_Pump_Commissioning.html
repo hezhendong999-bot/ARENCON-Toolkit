@@ -16,6 +16,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link rel="stylesheet" href="aiusage_panel.css">
 <script src="aiusage_panel.js" defer></script>
+<script type="module" src="lib/ui/photoInput.js"></script>  <!-- S496: THE shared photo surface. lib/ui/checklist.js renders its per-item photo zone through window.PhotoInput and falls back to a "Photo input engine not loaded" hint without it — which is exactly what live Diesel was showing, so checklist photos could not be attached at all. Electric has loaded this since S492; Diesel never did. -->
+<script type="module" src="diesel-sync.js"></script>  <!-- S492/S496 Phase 2: shared MERGE-BASED sync engine. Publishes window.CloudSync with the same public API the ~40 inline call sites already use; replaces the inline last-write-wins IIFE (removed below). Module scripts are deferred, so _cloudSyncInit waits for window.CloudSync to exist. -->
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
 <!-- S459: shared markup shape definitions (single source of truth across FRT + Diesel lightboxes + drawing viewer). Same-origin ARENCON asset, not a CDN dep. DieselMarkup delegates shape rendering to window.MarkupTools when present; if this fails to load (rare offline first-load), DieselMarkup's own identical shape branches run — markup cannot break. -->
@@ -4339,6 +4341,37 @@ document.getElementById('global-file-input').addEventListener('change', function
   }
   reset();
 });
+/* S496: SHARED PHOTO INPUT ENGINE mount (ns 'cl' — checklist items).
+   lib/ui/checklist.js renders each item's photo zone via window.PhotoInput and
+   otherwise prints "Photo input engine not loaded" — which is what live Diesel
+   was showing, so checklist photos could not be attached AT ALL. Electric has
+   mounted this since S492; Diesel never did.
+
+   STORAGE STAYS DIESEL'S: the engine hands back File objects only. They go
+   straight into handleFiles(id, files, false) — the existing, field-proven path
+   (EXIF date → compress → ArcPhoto.mint → thumbs). No photo model change, no
+   new save path. Only the INPUT SURFACE (drag-drop + Upload + Camera) is shared.
+
+   Only ns 'cl' is mounted: Diesel keeps its own flow-test photo UI (it has no
+   flow-test-zone-host elements — that is Electric's layout, not Diesel's).
+
+   The retry loop mirrors Electric's: photoInput.js is a deferred module, so it
+   is not present when this classic script runs during parse. */
+(function _mountPhotoInput(){
+  function go(){
+    if(!window.PhotoInput){ setTimeout(go,50); return; }
+    window.PhotoInput.mount({
+      ns:'cl',
+      onFiles:function(files,ctx){
+        var id=ctx&&ctx['cl-id'];
+        if(!id||!files||!files.length) return;
+        if(typeof _validClKey==='function' && !_validClKey(id)) return;  // never auto-vivify a clState orphan
+        handleFiles(id,files,false);
+      }
+    });
+  }
+  go();
+})();
 function handleFiles(id, files, isDefic) {
   Array.from(files).forEach(f => {
     if(!f.type.startsWith('image/')) return;
@@ -13804,7 +13837,10 @@ window.addEventListener('load', () => {
 
   // ── CloudSync or Standalone Init ──
   function _cloudSyncInit(){
-    if(!_idb_db){ setTimeout(_cloudSyncInit, 50); return; }
+    /* S496 Phase 2: also wait for diesel-sync.js. It is a MODULE script, so it
+       runs deferred — after this classic inline code. Without this guard the
+       first _cloudSyncInit tick would see CloudSync undefined and throw. */
+    if(!_idb_db || typeof CloudSync==='undefined'){ setTimeout(_cloudSyncInit, 50); return; }
 
     var params = CloudSync.readUrlParams();
 
@@ -17205,32 +17241,34 @@ var R2Outbox=(function(){'use strict';
 })();
 </script>
 
-<!-- ══ CLOUDSYNC MODULE v1 ══ -->
+<!-- ══ CLOUDSYNC — now provided by diesel-sync.js (S496 Phase 2) ══ -->
 <script>
-var CloudSync=(function(){'use strict';var SUPABASE_URL='https://xsemvinxsyphjiaqgywv.supabase.co';var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';var IDB_NAME='arencon_cloud_cache';var IDB_VERSION=1;var IDB_STORE='tool_state';var AUTOSAVE_MS=15000;var _projectId=null;var _toolKey=null;var _instanceId=null;var _instanceNumber=1;var _collectStateFn=null;var _onStatusChange=null;var _autoSaveTimer=null;var _idb=null;var _online=navigator.onLine;var _pendingSync=false;var _userId=null;var _projectInfo=null;var _lastSavedJson='';var _initialized=false;
-function _headers(){var h={'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=representation'};var token=localStorage.getItem('sb-access-token');if(token)h['Authorization']='Bearer '+token;else h['Authorization']='Bearer '+SUPABASE_ANON_KEY;return h;}
-async function _request(path,opts){opts=opts||{};var res=await fetch(SUPABASE_URL+path,{method:opts.method||'GET',headers:Object.assign({},_headers(),opts.headers||{}),body:opts.body?JSON.stringify(opts.body):undefined,keepalive:(opts.method==='PATCH'||opts.method==='POST')});if(!res.ok){var err;try{err=await res.json();}catch(e){err={message:res.statusText};}throw new Error(err.message||err.msg||err.error_description||res.statusText);}var text=await res.text();return text?JSON.parse(text):null;}
-function _openIDB(){return new Promise(function(resolve,reject){var req=indexedDB.open(IDB_NAME,IDB_VERSION);req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);};req.onsuccess=function(e){_idb=e.target.result;resolve(_idb);};req.onerror=function(e){reject(e.target.error);};});}
-function _idbKey(){return _projectId+'|'+_toolKey+'|'+(_instanceId||'new');}
-function _idbGet2(key){return new Promise(function(resolve,reject){if(!_idb){resolve(null);return;}var tx=_idb.transaction(IDB_STORE,'readonly');var req=tx.objectStore(IDB_STORE).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});}
-function _idbPut2(key,val){return new Promise(function(resolve,reject){if(!_idb){resolve();return;}var tx=_idb.transaction(IDB_STORE,'readwrite');var req=tx.objectStore(IDB_STORE).put(val,key);req.onsuccess=function(){resolve();};req.onerror=function(){reject(req.error);};});}
-function _setStatus(status,msg){if(_onStatusChange)_onStatusChange(status,msg);}
-async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!token)return null;try{return await _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+token}});}catch(e){var rt=localStorage.getItem('sb-refresh-token');if(!rt)return null;try{var data=await _request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:rt},headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}});if(data&&data.access_token){localStorage.setItem('sb-access-token',data.access_token);localStorage.setItem('sb-refresh-token',data.refresh_token);return _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+data.access_token}});}}catch(e2){}return null;}}
-async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=updated_at.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
-async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:typeof stateJson==='string'?JSON.parse(stateJson):stateJson,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
-async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
-async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
-async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
-function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn;stopAutoSave();_autoSaveTimer=setInterval(function(){if(!_collectStateFn)return;try{var state=_collectStateFn();save(state);}catch(e){console.error('[CloudSync] Auto-save error:',e);}},intervalMs||AUTOSAVE_MS);}
-function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
-function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
-function _onOffline(){_online=false;_setStatus('offline','Working offline');}
-function readUrlParams(){var p=new URLSearchParams(window.location.search);return{projectId:p.get('project')||null,instanceId:p.get('instance')||null,projectNumber:p.get('pn')||null,projectName:p.get('pname')||null,client:p.get('client')||null,address:p.get('addr')||null,smartFilename:p.get('sfn')||null};}
-async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');if(rows&&rows.length>0)return rows[0].instance_number+1;}catch(e){}return 1;}
-async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
-function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
-async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
-return{init:init,load:load,save:save,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,syncNow:syncNow,destroy:destroy,readUrlParams:readUrlParams,get projectInfo(){return _projectInfo;},get projectId(){return _projectId;},get toolKey(){return _toolKey;},get instanceId(){return _instanceId;},get instanceNumber(){return _instanceNumber;},get userId(){return _userId;},get isOnline(){return _online;},get hasPendingSync(){return _pendingSync;},get isInitialized(){return _initialized;},request:_request};})();
+/* ══ CLOUDSYNC (S492 module, landed S496 Phase 2): the inline last-write-wins
+   IIFE that lived here has been REMOVED. window.CloudSync is now published by
+   diesel-sync.js (loaded as a module in <head>) — the SAME public API the ~40
+   inline call sites already use, backed by the shared merge-based engine
+   (lib/data/sync.js + lib/data/merge.js) with If-Match optimistic concurrency
+   and a conflict dialog.
+
+   WHY THIS CHANGED (Mark's decision, S491): the old PATCH carried no
+   precondition, so two people in one report meant the second save silently
+   erased the first — no error, no warning. Every push now carries If-Match on
+   the last-seen cloud timestamp. If someone else saved first, PostgREST
+   answers 412, and a 3-way merge runs against the last-seen snapshot:
+   non-overlapping edits merge silently; true same-field conflicts raise ONE
+   dialog where the inspector chooses per field. Bounded to 3 retries; on
+   abandonment the save stays pending and retries on the next save or
+   reconnect — never lost, never silently overwritten.
+
+   WHAT DID NOT MOVE (deliberate, per-tool personality):
+     · _collectCloudState keeps the S393 _keepD photo rule — diesel-sync's
+       serializePush is CLONE-ONLY and must never apply FRT's stripBinaries
+       walk (different photo model; Diesel's byte field is `.d`).
+     · ADB / ARENCON_DIESEL, R2Photos and R2Outbox are untouched.
+     · _mergeCloudLocal remains the protective layer on every silent cloud
+       apply (S25 empty-cloud guard + S335 photo union + S488 real-local canon).
+   See the diesel-sync.js header for the full contract. ══ */
+</script>
 
 
 // ═══ MORE DROPDOWN ═══
