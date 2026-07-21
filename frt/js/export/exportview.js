@@ -27,6 +27,7 @@ import { toast } from '../shared/toast.js';
 import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
 import { Auth } from '../shared/auth.js';
 import { esc as _esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local; byte-identical)
+import { detectSeals } from './sealDetect.js'; // S497: confirm-first seal suggestions (LOCKED_SEAL_REDACTION_VISIBILITY.md §5)
 
 // Replicated verbatim from app.js _countUntaggedForBand (pure fn; copied
 // rather than imported to avoid an app.js <-> exportview.js cycle).
@@ -414,6 +415,11 @@ export var initExportView = {
         + '<span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--steel,#4A5568);">'
         // S496b: "Reset all" clears every per-sheet pin at once — the case you hit
         // after experimenting. Hidden entirely while nothing is pinned.
+        // S497: seal detection — SUGGESTIONS ONLY, per the lock's §5 revisit
+        // shape (assigned by Mark, S495 §3). The button scans the same 400px
+        // thumbs the grid already shows; results paint amber and count as
+        // NOTHING until a human taps each one. Blue = seal-family chrome.
+        + '<button type="button" id="exv-sealdetect" class="exq-detect">\u2728 Detect seals</button>'
         + '<button type="button" id="exv-rstall" class="exq-rstall" style="display:none;">\u21BA Reset all</button>'
         + '<span id="exv-sealcov">' + _covered.length + ' of ' + _sealRows.length + ' covered</span></span></div>';
       h += '<div class="exv-seal-grid">';
@@ -457,11 +463,18 @@ export var initExportView = {
         h += '</div>';
       });
       h += '</div>';
-      if (_bare.length) {
-        h += '<div style="padding:9px 12px;border:1.5px solid #C98A4A;border-radius:9px;background:rgba(201,138,74,.08);font-size:calc(12px + var(--ts,0px));color:#8A5A1E;line-height:1.45;">'
-          + '<b>\u26A0 No seal cover on:</b> ' + _bare.map(function(d){return _esc(d.name || 'Untitled');}).join(', ')
-          + '<div style="margin-top:3px;color:#A07840;">If these sheets carry a seal it will appear in the report. Tap a thumbnail above to open the sheet, then \uD83D\uDD12 in the toolbar. Warning only \u2014 export proceeds.</div></div>';
-      }
+      // S497: the strip carries ids so a confirmed suggestion can refresh the
+      // names list in place (and hide the strip when the last bare sheet is
+      // covered) — same content, now live. Rendered even when empty so the
+      // element exists to un-hide if a cover is ever removed mid-session.
+      h += '<div id="exv-sealwarn" style="padding:9px 12px;border:1.5px solid #C98A4A;border-radius:9px;background:rgba(201,138,74,.08);font-size:calc(12px + var(--ts,0px));color:#8A5A1E;line-height:1.45;'
+        + (_bare.length ? '' : 'display:none;') + '">'
+        + '<b>\u26A0 No seal cover on:</b> <span id="exv-sealwarn-names">' + _bare.map(function(d){return _esc(d.name || 'Untitled');}).join(', ') + '</span>'
+        + '<div style="margin-top:3px;color:#A07840;">If these sheets carry a seal it will appear in the report. Tap a thumbnail above to open the sheet, then \uD83D\uDD12 in the toolbar. Warning only \u2014 export proceeds.</div></div>';
+      // S497: detection outcome line. States what was found AND what was not —
+      // a sheet where detection found nothing still needs a human eye, and this
+      // line says so out loud. A miss must not be able to hide.
+      h += '<div id="exv-sugline" style="display:none;margin-top:8px;padding:8px 12px;border:1px solid #B8D4E8;border-radius:9px;background:rgba(44,127,184,.07);font-size:calc(12px + var(--ts,0px));color:#2C5C80;line-height:1.45;"></div>';
     }
     // S496c: end of captured seal section — restore the accumulator.
     var _bandHtml = h; h = _hMain;
@@ -497,9 +510,13 @@ export var initExportView = {
     // still moves every sheet the user has not deliberately pinned.
     var _exqDpi = {};
     var _exqMarks = [100,150,175,250,300], _exqSnap = 8;
-    // Photo tier -> long edge / JPEG quality. Mirrors PDF_TIERS in pdf.js; kept in
-    // sync by hand because exportview must estimate WITHOUT importing the renderer.
-    var _exqPhoto = { balanced:{px:1400,q:0.82}, high:{px:1800,q:0.85}, max:{px:2200,q:0.88} };
+    // Photo tier -> effective embedded long edge / JPEG quality. Mirrors the
+    // S497 print-size model in pdf.js (PDF_TIERS.photoDpi × PDF_PHOTO_CELL_IN):
+    // photos are sized to their PRINTED 3-across cell (~2.4in), so a typical
+    // photo embeds at cellW × photoDpi = 720/840/960px, not the old flat
+    // 1400/1800/2200 ceilings. Kept in sync BY HAND because exportview must
+    // estimate WITHOUT importing the renderer — change both files or neither.
+    var _exqPhoto = { balanced:{px:720,q:0.82}, high:{px:840,q:0.85}, max:{px:960,q:0.88} };
     var _exqSheetIn = { letter:[8.5,11], '11x17':[11,17], '24x36':[24,36] };
     function _exqPhotoTier(){
       var el = ov.querySelector('#exv-quality');
@@ -607,6 +624,11 @@ export var initExportView = {
 
     // S492: contact-sheet click → close export, open that drawing in the viewer.
     ov.addEventListener('click', function(e) {
+      // S497: a tap on an amber suggestion box CONFIRMS it as a cover — the
+      // only suggestion → cover path (lock §5). Handled before the viewer-jump
+      // so confirming never closes the dialog.
+      var sg = e.target.closest && e.target.closest('.seal-sug');
+      if (sg) { _sugConfirm(sg.getAttribute('data-sug-dw'), +sg.getAttribute('data-sug-i')); return; }
       // S496: the detail slider lives INSIDE the tile, and the tile opens the
       // viewer on click. Without this guard, dragging the slider would close the
       // export dialog and jump to the drawing — losing the whole roster selection.
@@ -619,6 +641,124 @@ export var initExportView = {
       // Drawings tab. Generic hook — see drawings.js.
       window._frtJumpReturn = { reopen: function() { initExportView.open(); } };
       try { initViewer.open(did); } catch (_e) {}
+    });
+
+    // ── S497 SEAL DETECTION — confirm-first, per LOCKED_SEAL_REDACTION_VISIBILITY.md §5.
+    // _sealSug is EPHEMERAL, scoped to this open(): suggestions never persist,
+    // never sync, never export, and die with the dialog. Only a confirmed tap
+    // writes to dw.redactions — the exact shape _sealCommit uses (4dp fractions,
+    // Model.saveNow). Detection runs on d.thumb (400px, already loaded): no
+    // drawing decode, no tile fetch, no network.
+    var _sealSug = {};   /* drawingId -> [{x,y,w,h}] awaiting a human tap */
+    function _sugOverlap(a, b) {
+      var ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+      var iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+      return (ix * iy) / ((a.w * a.h) || 1);
+    }
+    function _sugPaint() {
+      ov.querySelectorAll('.seal-sug').forEach(function(el) { el.remove(); });
+      Object.keys(_sealSug).forEach(function(dwId) {
+        var wrap = ov.querySelector('.exv-seal-item[data-seal-open="' + (window.CSS && CSS.escape ? CSS.escape(dwId) : dwId) + '"] .seal-thumb-wrap');
+        if (!wrap) return;
+        _sealSug[dwId].forEach(function(b, i) {
+          var s = document.createElement('span');
+          s.className = 'seal-sug';
+          s.setAttribute('data-sug-dw', dwId);
+          s.setAttribute('data-sug-i', i);
+          s.style.left = (b.x * 100) + '%'; s.style.top = (b.y * 100) + '%';
+          s.style.width = (b.w * 100) + '%'; s.style.height = (b.h * 100) + '%';
+          s.title = 'Suggested seal \u2014 tap to confirm as a cover';
+          s.innerHTML = '<span class="sg-ck">\u2713?</span>';
+          wrap.appendChild(s);
+        });
+      });
+    }
+    function _sugRefreshTile(dw) {
+      // repaint ONE tile's covered state after a confirm — the same indicators
+      // the initial render draws, updated in place.
+      var sel = '.exv-seal-item[data-seal-open="' + (window.CSS && CSS.escape ? CSS.escape(dw.id) : dw.id) + '"]';
+      var tile = ov.querySelector(sel);
+      if (!tile) return;
+      var covers = dw.redactions || [];
+      tile.classList.toggle('flagged', !covers.length);
+      var wrap = tile.querySelector('.seal-thumb-wrap');
+      if (wrap) {
+        wrap.querySelectorAll('.seal-mark-mini').forEach(function(el) { el.remove(); });
+        covers.forEach(function(b) {
+          var s = document.createElement('span');
+          s.className = 'seal-mark seal-mark-mini';
+          s.style.left = (b.x * 100) + '%'; s.style.top = (b.y * 100) + '%';
+          s.style.width = (b.w * 100) + '%'; s.style.height = (b.h * 100) + '%';
+          wrap.appendChild(s);
+        });
+      }
+      var thumbBox = tile.querySelector('.exv-seal-thumb');
+      if (thumbBox) {
+        var nc = thumbBox.querySelector('.seal-nocover'); if (nc) nc.remove();
+        var cnt = thumbBox.querySelector('.seal-count');
+        if (covers.length) {
+          if (!cnt) { cnt = document.createElement('div'); cnt.className = 'seal-count'; thumbBox.appendChild(cnt); }
+          cnt.textContent = '\uD83D\uDD12 ' + covers.length;
+        } else if (cnt) { cnt.remove(); }
+      }
+      // covered counter + amber strip
+      var cov = _sealRows.filter(function(d) { return d.redactions && d.redactions.length; });
+      var covEl = ov.querySelector('#exv-sealcov');
+      if (covEl) covEl.textContent = cov.length + ' of ' + _sealRows.length + ' covered';
+      var bare = _sealRows.filter(function(d) { return !(d.redactions && d.redactions.length); });
+      var warn = ov.querySelector('#exv-sealwarn'), names = ov.querySelector('#exv-sealwarn-names');
+      if (warn) warn.style.display = bare.length ? '' : 'none';
+      if (names) names.textContent = bare.map(function(d) { return d.name || 'Untitled'; }).join(', ');
+    }
+    function _sugConfirm(dwId, i) {
+      var boxes = _sealSug[dwId];
+      var b = boxes && boxes[i];
+      if (!b) return;
+      var dw = _sealRows.filter(function(d) { return d.id === dwId; })[0];
+      if (!dw) return;
+      if (!dw.redactions) dw.redactions = [];
+      dw.redactions.push({ x: b.x, y: b.y, w: b.w, h: b.h });
+      try { Model.saveNow(); } catch (_e) {}
+      boxes.splice(i, 1);
+      if (!boxes.length) delete _sealSug[dwId];
+      _sugPaint();
+      _sugRefreshTile(dw);
+      toast('\u2713 Cover confirmed \u2014 open the sheet to fine-tune if needed');
+    }
+    var _detBtn = ov.querySelector('#exv-sealdetect');
+    if (_detBtn) _detBtn.addEventListener('click', function() {
+      if (_detBtn.disabled) return;
+      _detBtn.disabled = true; _detBtn.textContent = 'Scanning\u2026';
+      var jobs = _sealRows.filter(function(dw) { return !!dw.thumb; });
+      var noThumb = _sealRows.length - jobs.length;
+      var found = 0, sheetsWith = 0, noneOn = 0;
+      var chain = Promise.resolve();
+      jobs.forEach(function(dw) {
+        chain = chain.then(function() { return detectSeals(dw.thumb); }).then(function(boxes) {
+          // drop suggestions already substantially covered
+          var covers = dw.redactions || [];
+          boxes = boxes.filter(function(b) {
+            return !covers.some(function(c) { return _sugOverlap(b, c) > 0.3; });
+          });
+          if (boxes.length) { _sealSug[dw.id] = boxes; found += boxes.length; sheetsWith++; }
+          else { noneOn++; }
+        });
+      });
+      chain.then(function() {
+        _sugPaint();
+        _detBtn.textContent = '\u2728 Detect seals'; _detBtn.disabled = false;
+        var line = ov.querySelector('#exv-sugline');
+        if (line) {
+          var t = '';
+          if (found) t += '<b>' + found + ' suggestion' + (found === 1 ? '' : 's') + '</b> on ' + sheetsWith + ' sheet' + (sheetsWith === 1 ? '' : 's')
+            + ' \u2014 tap an amber box to confirm it as a cover, then open the sheet to fine-tune. Nothing is covered until you tap it.';
+          if (noneOn) t += (t ? '<br>' : '') + 'Nothing found on ' + noneOn + ' sheet' + (noneOn === 1 ? '' : 's')
+            + ' \u2014 detection can miss (especially rectangular stamps); those sheets still need your eye.';
+          if (noThumb) t += (t ? '<br>' : '') + noThumb + ' sheet' + (noThumb === 1 ? '' : 's') + ' had no preview to scan.';
+          line.innerHTML = t || 'No sheets to scan.';
+          line.style.display = '';
+        }
+      });
     });
     var rosterEl = ov.querySelector('#exv-roster');
     var hidden = ov.querySelector('#exv-ctr');

@@ -11459,3 +11459,29 @@ body.dark-mode .seal-mark .seal-mark-label{color:#0F3A5C;}
    reserving 46% left the button's right edge ~6% PAST the divider, still
    inside the excluded zone. Reserving 48%+12px ends the button BEFORE the
    divider line with clearance. The right edge must never cross the middle. */
+
+/* ═══ S497 — SEAL DETECTION SUGGESTIONS (confirm-first, lock §5) ═══
+   Amber = unconfirmed. A suggestion is inert chrome until tapped; the tap
+   (handled in exportview.js) turns it into a real cover. Amber family is
+   the existing attention colour (#C98A4A), NOT deficiency red. */
+.seal-sug{position:absolute;box-sizing:border-box;border:2px dashed #C98A4A;
+  background:rgba(201,138,74,.16);border-radius:3px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  min-width:20px;min-height:20px;z-index:3;}
+.seal-sug:hover{background:rgba(201,138,74,.28);}
+.seal-sug:active{background:rgba(201,138,74,.34);}
+.seal-sug .sg-ck{font-family:Calibri,sans-serif;font-size:10px;font-weight:700;
+  color:#8A5A1E;background:rgba(255,255,255,.88);border-radius:8px;
+  padding:0 4px;line-height:14px;pointer-events:none;}
+/* gloves: suggestion boxes can be small on a thumb — guarantee the tap */
+@media(pointer:coarse){.seal-sug{min-width:28px;min-height:28px;}}
+
+/* Detect button — blue seal-family feature chrome (S495 §7), sized like
+   the band's Reset all so the header reads as one control row. */
+.exq-detect{font-family:Calibri,sans-serif;font-size:calc(11px + var(--ts,0px));
+  font-weight:700;text-transform:none;letter-spacing:0;
+  border:1px solid #2C7FB8;background:rgba(44,127,184,.08);color:#2C7FB8;
+  border-radius:6px;padding:3px 9px;cursor:pointer;margin-right:10px;min-height:26px;}
+.exq-detect:hover{background:rgba(44,127,184,.16);}
+.exq-detect:disabled{opacity:.55;cursor:default;}
+@media(pointer:coarse){.exq-detect{min-height:34px;padding:5px 12px;}}

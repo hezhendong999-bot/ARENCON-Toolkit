@@ -359,10 +359,22 @@ var PDF_TIERS = {
   // which is wrong for Shaun's actual complaint — low q shows as artifacts in
   // the flat wall/ceiling areas that dominate fire-protection photos, and a
   // PRINTED report has no photo hyperlink to fall back on.
-  balanced: { photoPx:1400, photoQ:0.82, dpi:175 },
-  high:     { photoPx:1800, photoQ:0.85, dpi:250 },
-  max:      { photoPx:2200, photoQ:0.88, dpi:300 }
+  // S497 (Mark's queue item: print-size photo scaling). photoPx is now a
+  // CEILING, not the target. The real driver is photoDpi — the print density
+  // at the photo's PRINTED size. Every in-report photo prints in a 3-across
+  // grid cell (~2.4in wide on the 7.3in Letter content area; .rphotos and
+  // .dp-grid are both repeat(3,1fr)); embedding 1400-2200px into a 2.4in
+  // cell buys nothing a printer can show. 300 DPI at that cell is ~720px —
+  // the "≈700px" from the S496 Fieldwire analysis. Higher tiers raise the
+  // print density (sharper under a loupe / on-screen zoom), not the waste.
+  balanced: { photoPx:1400, photoQ:0.82, dpi:175, photoDpi:300 },
+  high:     { photoPx:1800, photoQ:0.85, dpi:250, photoDpi:350 },
+  max:      { photoPx:2200, photoQ:0.88, dpi:300, photoDpi:400 }
 };
+// Printed geometry of the 3-across photo cell (4:3, object-fit cover):
+// (7.3in content − 2 gaps) / 3 ≈ 2.4in wide, 1.8in tall. If the report's
+// photo grid ever changes shape, change THIS, not the tiers.
+var PDF_PHOTO_CELL_IN = { w:2.4, h:1.8 };
 var PDF_SHEET_IN = { letter:[8.5,11], '11x17':[11,17], '24x36':[24,36] };
 
 // Job-scoped quality state. Set by _applyExportQuality() at the start of every
@@ -440,7 +452,18 @@ function _downscalePhotoForPDF(src){
       try{
         var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
         if(!w||!h){resolve(src);return;}
-        var scale=Math.min(1, PDF_PHOTO_MAX/Math.max(w,h));
+        // S497 — size to the PRINTED cell, not a flat long-edge cap. The cell
+        // is 4:3 landscape with object-fit cover, so exactly ONE dimension of
+        // the photo binds (the other is cropped): width for portrait/normal
+        // photos (aspect <= 4/3), height for wide panoramas. Give the binding
+        // dimension photoDpi pixels-per-printed-inch and stop — anything more
+        // is invisible on paper and pure file weight. The tier's photoPx stays
+        // as a belt-and-suspenders ceiling (it also catches the panorama case
+        // where the un-cropped dimension would otherwise balloon).
+        var _t=_qTierDef();
+        var _cw=PDF_PHOTO_CELL_IN.w*(_t.photoDpi||300), _ch=PDF_PHOTO_CELL_IN.h*(_t.photoDpi||300);
+        var _need=(w/h<=4/3)?(_cw/w):(_ch/h);
+        var scale=Math.min(1, _need, PDF_PHOTO_MAX/Math.max(w,h));
         if(scale>=1){resolve(src);return;}
         var cw=Math.round(w*scale), ch=Math.round(h*scale);
         var cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
