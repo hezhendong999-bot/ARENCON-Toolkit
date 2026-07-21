@@ -256,3 +256,11 @@ _exportHasReportData
 @ Canonical tool order — report groups, dashboard tool pills and Deleted Reports all follow AVAILABLE_TOOLS (FRT, DFP, EFP, IST, OBC, DD), never enabled_tools storage order (Mark, S495)
 _orderTools
 
+@ Retention Stage 2 — 90-day countdown chips on deleted reports and trashed projects; nightly reporter tools/retention_sweep.mjs has NO delete verb (reports only, anomaly cap goes red); purge audit records the purger via the existing DELETE snapshot trigger (Mark, design S494, shipped S495 Lane B)
+RETENTION_DAYS
+RETENTION_WARN_DAYS
+_retentionOf
+.ret-chip
+.ret-warn
+.ret-expired
+

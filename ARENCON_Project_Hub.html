@@ -470,6 +470,14 @@ body.dark-mode .tw.has-hidden{border-color:#E0A36A;color:#E0A36A;}
 .rrow .rmeta{display:flex;align-items:center;gap:8px;font-size:calc(10.5px + var(--ts));color:var(--silver);flex-wrap:wrap;}
 .rctl{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .rempty{border:1.5px dashed var(--border);border-radius:10px;padding:14px;text-align:center;color:var(--silver);font-size:calc(11.5px + var(--ts));margin-bottom:7px;}
+/* S495 STAGE 2 — retention chips. Amber = inside the 14-day warning window;
+   red = past 90 days, eligible for admin purge. Chip-sized per the design
+   system: accent text on low-alpha fill, never a heavy badge. */
+.ret-chip{display:inline-flex;align-items:center;font-size:calc(10px + var(--ts));font-weight:700;padding:1px 8px;border-radius:10px;border:1px solid;white-space:nowrap;}
+.ret-warn{color:#92400E;background:rgba(183,121,31,.10);border-color:rgba(183,121,31,.35);}
+.ret-expired{color:#C0445F;background:rgba(192,68,95,.10);border-color:rgba(192,68,95,.35);}
+body.dark-mode .ret-warn{color:#E0A36A;background:rgba(224,163,106,.10);border-color:rgba(224,163,106,.30);}
+body.dark-mode .ret-expired{color:#E26076;background:rgba(226,96,118,.10);border-color:rgba(226,96,118,.30);}
 /* S495: deleted rows read as inactive — muted, not alarming. They are recoverable. */
 .rrow.is-deleted{cursor:default;opacity:.72;background:transparent;border-style:dashed;}
 .rrow.is-deleted:hover{transform:none;border-color:var(--border);}
@@ -2418,11 +2426,24 @@ function _renderProjectCard(p, myId) {
   if (_showDeleted && p.deleted_at) {
     var delDate = formatDate(p.deleted_at);
     var delBy = p.deleted_by ? (_userMap[p.deleted_by] || '—') : '—';
+    // S495 Stage 2: same 90-day policy as reports, same calculator, same chips.
+    var _pr = _retentionOf(p.deleted_at);
+    var _prChip = '';
+    if (_pr.eligible) {
+      _prChip = ' <span class="ret-chip ret-expired" title="Deleted more than ' + RETENTION_DAYS
+        + ' days ago. An administrator may permanently delete it. Restorable until they do.">'
+        + _pr.days + ' days \u00B7 purge-eligible</span>';
+    } else if (_pr.warn) {
+      _prChip = ' <span class="ret-chip ret-warn" title="Becomes eligible for admin purge in '
+        + _pr.daysLeft + ' day' + (_pr.daysLeft === 1 ? '' : 's') + '. Restore it to keep it.">'
+        + 'purge-eligible in ' + _pr.daysLeft + 'd</span>';
+    }
     return '<div class="project-card" onclick="' + cardClick + '">'
       + bulkCheckHtml
       + '<div class="project-card-top"><span class="project-card-number">' + num + '</span><span class="project-card-name">' + name + '</span></div>'
       + (client ? '<div class="project-card-client">' + client + '</div>' : '')
-      + '<div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-bottom:6px">Deleted ' + delDate + ' by ' + esc(delBy) + '</div>'
+      + '<div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-bottom:6px">Deleted ' + delDate + ' by ' + esc(delBy)
+      + (_pr.days >= 1 ? ' \u00B7 ' + _pr.days + 'd ago' : '') + _prChip + '</div>'
       + '<div style="display:flex;gap:8px">'
       + '<button style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--yes);background:var(--yes-bg);color:var(--yes);font-weight:600;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();restoreProject(\'' + esc(p.id) + '\')">↩️ Restore</button>'
       + (_canPurgeProjects() ? '<button style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--red);background:var(--no-bg);color:var(--red);font-weight:600;font-size:calc(11px + var(--ts));font-family:Calibri,sans-serif;cursor:pointer" onclick="event.stopPropagation();purgeProject(\'' + esc(p.id) + '\')">🗑️ Delete Forever</button>' : '')
@@ -2881,6 +2902,29 @@ async function _loadAndRenderInstances(proj) {
 
 var _riMeta = {};   // instanceId -> {mine, name} — populated on picker render (S397)
 
+/* ═══ S495 STAGE 2 — RETENTION POLICY (design DESIGN_DELETED_REPORTS_AND_RETENTION_S494) ═══
+   90 days of soft-delete retention for reports and projects. The clock runs
+   from deleted_at ONLY. At 90 days an item becomes ELIGIBLE for manual admin
+   purge — nothing in the system deletes on a timer. The nightly GitHub Action
+   (tools/retention_sweep.mjs) REPORTS eligibility; it cannot delete — the
+   verb was deliberately withheld, copying photo_integrity_sweep.mjs. Archived
+   projects never expire (archive is deliberate filing, not deletion). */
+var RETENTION_DAYS = 90;
+var RETENTION_WARN_DAYS = 14;
+
+function _retentionOf(deletedAt) {
+  if (!deletedAt) return { days: 0, daysLeft: RETENTION_DAYS, warn: false, eligible: false };
+  var days = Math.floor((Date.now() - new Date(deletedAt).getTime()) / 86400000);
+  if (days < 0) days = 0;
+  var daysLeft = RETENTION_DAYS - days;
+  return {
+    days: days,
+    daysLeft: daysLeft > 0 ? daysLeft : 0,
+    warn: daysLeft > 0 && daysLeft <= RETENTION_WARN_DAYS,
+    eligible: daysLeft <= 0
+  };
+}
+
 /* S495 — DELETED REPORTS. Reads the rows every other query now excludes.
    Shows what was deleted, who deleted it and when, with Restore always
    available and permanent deletion gated to admins. The whole section stays
@@ -2927,13 +2971,33 @@ async function _loadAndRenderDeletedInstances(proj) {
     var title = inst.label || defaultTitle;
     var who = inst.deleted_by ? (_userMap[inst.deleted_by] || 'someone') : 'someone';
     var when = inst.deleted_at ? new Date(inst.deleted_at).toLocaleDateString('en-CA') : '—';
+    /* S495 STAGE 2 — retention countdown. Policy: 90 days from deleted_at
+       (NEVER updated_at — a quiet project is not a dead one), after which a
+       report is ELIGIBLE for admin purge. Nothing is deleted automatically —
+       the nightly job only reports, a human presses the button — so the chip
+       says "purge-eligible", not "will be deleted". Rule 5: nothing may vanish
+       without having been visible first, so the countdown shows for everyone,
+       inside the 14-day warning window, and the eligible state is loud. */
+    var _ret = _retentionOf(inst.deleted_at);
+    var _retChip = '';
+    if (_ret.eligible) {
+      _retChip = '<span class="ret-chip ret-expired" title="Deleted more than ' + RETENTION_DAYS
+        + ' days ago. An administrator may permanently delete it. It is still fully restorable until they do.">'
+        + _ret.days + ' days \u00B7 purge-eligible</span>';
+    } else if (_ret.warn) {
+      _retChip = '<span class="ret-chip ret-warn" title="In ' + _ret.daysLeft
+        + ' day' + (_ret.daysLeft === 1 ? '' : 's') + ' this report becomes eligible for admin purge. Restore it to keep it.">'
+        + 'purge-eligible in ' + _ret.daysLeft + 'd</span>';
+    }
     var safeTitle = esc(title).replace(/'/g, "\\'");
     html += '<div class="rrow is-deleted" style="--tc:' + (t ? t.color : 'var(--silver)') + '">'
       + '<div class="rmain">'
       + '<div class="rtitle">' + esc(title) + '</div>'
       + '<div class="rmeta">'
-      + '<span>Deleted by ' + esc(who) + ' \u00B7 ' + when + '</span>'
+      + '<span>Deleted by ' + esc(who) + ' \u00B7 ' + when
+      + (_ret.days >= 1 ? ' \u00B7 ' + _ret.days + 'd ago' : '') + '</span>'
       + '<span class="ri-status ' + (inst.status || 'draft') + '">' + (inst.status || 'draft') + '</span>'
+      + _retChip
       + '</div>'
       + '</div>'
       + '<span class="rctl">'
@@ -4430,6 +4494,16 @@ async function purgeInstance(instanceId, title) {
       + 'This cannot be undone and it cannot be restored from Deleted Reports.',
     async function() {
       try {
+        /* S495 STAGE 2 — purge audit (rule 6: who, what, when). The DB trigger
+           trg_snapshot_tool_data already archives the FULL row into
+           tool_data_history on every DELETE, with reason 'delete' — "what" and
+           "when" are free. But it records row_updated_by, i.e. the last EDITOR,
+           not the purger. Setting updated_by to the purger immediately before
+           the delete makes the existing snapshot carry the purger's identity.
+           Uses the mechanism that exists rather than building a parallel audit
+           table. (The UPDATE itself creates no extra snapshot: the trigger only
+           snapshots UPDATEs when the data blob changed, and it does not.) */
+        await _sb.from('tool_data').eq('id', instanceId).update({ updated_by: _profile ? _profile.id : null });
         await _sb.from('tool_data').eq('id', instanceId).delete();
         toast('Report permanently deleted', 'success');
         if (_detailProjectId) {
