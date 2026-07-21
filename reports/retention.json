@@ -1,0 +1,108 @@
+{
+  "generated_at": "2026-07-21T07:57:50.470Z",
+  "policy": {
+    "retention_days": 90,
+    "warn_days": 14,
+    "clock": "deleted_at"
+  },
+  "note": "REPORT ONLY. Nothing here has been deleted. Purge is manual, admin-only, from the Hub.",
+  "totals": {
+    "reports_deleted": 1,
+    "projects_deleted": 6,
+    "eligible_for_purge": 2,
+    "in_warning_window": 0
+  },
+  "anomaly": null,
+  "reports": {
+    "eligible": [],
+    "warning": [],
+    "holding": [
+      {
+        "kind": "report",
+        "id": "fe0e0789-0f3b-48cd-a422-664b1c517da1",
+        "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
+        "tool_key": "diesel",
+        "instance": 2,
+        "label": null,
+        "status": "draft",
+        "deleted_at": "2026-07-21T00:47:18.066+00:00",
+        "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+        "days_deleted": 0,
+        "days_until_eligible": 90
+      }
+    ]
+  },
+  "projects": {
+    "eligible": [
+      {
+        "kind": "project",
+        "id": "90f63ab1-0328-478b-bd1b-18508057a053",
+        "project_number": "4380.24",
+        "project_name": "South Warehouse",
+        "client": "Sun Pharma",
+        "deleted_at": "2026-03-23T04:20:29.39+00:00",
+        "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+        "days_deleted": 120,
+        "days_until_eligible": 0
+      },
+      {
+        "kind": "project",
+        "id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+        "project_number": "7000.00",
+        "project_name": "asdasd",
+        "client": "asdsadasd",
+        "deleted_at": "2026-03-23T04:20:29.39+00:00",
+        "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+        "days_deleted": 120,
+        "days_until_eligible": 0
+      }
+    ],
+    "warning": [],
+    "holding": [
+      {
+        "kind": "project",
+        "id": "a1abe642-0078-4d2c-80c5-8fc439ce0e28",
+        "project_number": "9970",
+        "project_name": "SPRINKLER DESIGN",
+        "client": "ARENCON",
+        "deleted_at": "2026-05-22T02:59:23.426+00:00",
+        "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+        "days_deleted": 60,
+        "days_until_eligible": 30
+      },
+      {
+        "kind": "project",
+        "id": "9173a374-f157-4f67-9ea0-7fd40982e413",
+        "project_number": "7155.51",
+        "project_name": "Fenmar",
+        "client": "Caplink",
+        "deleted_at": "2026-06-23T18:35:00.008+00:00",
+        "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+        "days_deleted": 27,
+        "days_until_eligible": 63
+      },
+      {
+        "kind": "project",
+        "id": "6173fc2a-f915-4d3b-b3e8-21edaf546b86",
+        "project_number": "123456789",
+        "project_name": "test",
+        "client": null,
+        "deleted_at": "2026-07-19T17:19:00.986+00:00",
+        "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+        "days_deleted": 1,
+        "days_until_eligible": 89
+      },
+      {
+        "kind": "project",
+        "id": "077a19c0-2ae9-4b7b-97ee-944e7cdac2bf",
+        "project_number": "1234556",
+        "project_name": "test123",
+        "client": null,
+        "deleted_at": "2026-07-19T17:38:18.653+00:00",
+        "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+        "days_deleted": 1,
+        "days_until_eligible": 89
+      }
+    ]
+  }
+}
