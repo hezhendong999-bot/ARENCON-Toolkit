@@ -1,0 +1,56 @@
+name: Nightly R2 Reclamation Report (dry-run)
+
+# S497 STAGE 3, DRY-RUN ONLY — reference-counted R2 reclamation ELIGIBILITY.
+# Same doctrine as the retention and photo-integrity jobs: THE SCHEDULED JOB
+# REPORTS, IT DOES NOT DELETE. tools/r2_reclamation_report.mjs contains no
+# delete verb and issues only GET requests — the capability is withheld.
+#
+# Candidates are tombstone-driven (tool_data_history delete snapshots whose
+# row is gone), reference-counted against EVERY current report (live AND
+# soft-deleted) before appearing. FRT reports share R2 objects, so a photo is
+# a candidate only when NOTHING current mentions it. Actual reclamation, if
+# ever built, is a separate manual Mark-present step — not this job.
+#
+# A red run means ANOMALY (candidate count spiked past the cap), not "objects
+# are reclaimable" — candidates alone are a normal green run.
+#
+# Required repo secret:
+#   SUPABASE_SERVICE_ROLE_KEY — same secret the other sweeps use.
+#
+# Manual run: Actions tab → "Nightly R2 Reclamation Report" → Run workflow.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 6:00am UTC daily (after retention report at 5:45)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # to commit the report file
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Run R2 reclamation dry-run report
+        env:
+          SUPABASE_URL: https://xsemvinxsyphjiaqgywv.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node tools/r2_reclamation_report.mjs
+
+      - name: Commit report (always, even on failure)
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/r2-reclamation.json || true
+          if git diff --staged --quiet; then
+            echo "No report change."
+            exit 0
+          fi
+          STAMP=$(date -u +'%Y-%m-%dT%H:%MZ')
+          git commit -m "R2 reclamation dry-run report ${STAMP}"
+          git push
