@@ -2042,6 +2042,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
+var PDF_PIPELINE_BUILD='S497e';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2080,7 +2081,13 @@ function _captureExportPDF(w,D){
           _saveHandle=null;
         }
       }
-      _capStatus(D,'Loading export libraries…');
+      // S497e — pipeline self-identification. Tonight three fixes "shipped"
+      // while Mark's device ran a stale copy of THIS file: the SW cache
+      // installed a fresh app.js (badge looked right) next to a CDN-stale
+      // pdf.js, so the badge vouched for a build that wasn't running. The
+      // engine now announces its own version in the export status bar —
+      // version skew is visible at the moment it matters, every export.
+      _capStatus(D,'Loading export libraries… (PDF engine '+PDF_PIPELINE_BUILD+')');
       await _capLoad(w,_CAP_H2C_CDN,'html2canvas');
       // S398: pdf-lib MUST instantiate in the MAIN window. Inside the
       // window.open('') popup realm, PDFDocument.create() yields a corrupt
