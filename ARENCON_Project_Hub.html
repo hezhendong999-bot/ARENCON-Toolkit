@@ -3591,6 +3591,7 @@ async function saveEditProject() {
       /* S494 (Mark): building_description / construction_type dropped from the form.
          Keys omitted entirely so any existing values in the DB are left untouched. */
     };
+    var _prevClient = proj.client || '';
     await _sb.from('projects').eq('id', proj.id).update(updates);
     // Update local
     Object.assign(proj, updates);
@@ -3598,6 +3599,43 @@ async function saveEditProject() {
     // Refresh detail view
     openProject(proj.id);
     toast('Project updated', 'success');
+
+    /* S497e (Mark's mechanism): "the inspector needs to get 1 client name
+       right" — and then the fix propagates. If the saved client matches other
+       projects' client after normalization but is SPELLED differently, this is
+       a correction: offer to update the rest in one tap. PM-facing — anyone
+       who can edit a project can already edit them all one by one; this only
+       saves the taps. Declining leaves everything as typed. */
+    if (client && client !== _prevClient && window.Dlg && typeof Dlg.confirm === 'function') {
+      var _n = _ccNorm(client);
+      var _others = (_projects || []).filter(function(p){
+        return p.id !== proj.id && p.client && _ccNorm(p.client) === _n && p.client !== client;
+      });
+      if (_others.length) {
+        var _spellings = {};
+        _others.forEach(function(p){ _spellings[p.client] = 1; });
+        Dlg.confirm({
+          title: 'Apply this client name everywhere?',
+          icon: '\uD83E\uDDF9',
+          message: _others.length + ' other project(s) spell this client '
+            + Object.keys(_spellings).map(function(s){ return '\u201C' + s + '\u201D'; }).join(', ')
+            + '. Update them to \u201C' + client + '\u201D too? Only the client text changes.',
+          confirmText: 'Update all',
+          onConfirm: async function(){
+            var done = 0;
+            for (var i = 0; i < _others.length; i++){
+              try {
+                await _sb.from('projects').eq('id', _others[i].id).update({ client: client });
+                _others[i].client = client;
+                done++;
+              } catch(e){ console.warn('[ripple]', e); }
+            }
+            toast(done + ' project(s) now read \u201C' + client + '\u201D', done === _others.length ? 'success' : 'error');
+            renderProjects();
+          }
+        });
+      }
+    }
   } catch (e) {
     toast('Failed to save: ' + e.message, 'error');
   }
@@ -3781,6 +3819,19 @@ function _canPurgeProjects() {
    so a restore comes back consistent.
    ═══════════════════════════════════════════════════════════════════════════ */
 function _ccNorm(s){ return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+/* S497e — most-used existing spelling that matches `raw` after normalization,
+   or null if this client has never been seen. Used by the create-time snap and
+   the edit-time ripple; PM-facing, no admin gate. */
+function _clientCanonicalFor(raw){
+  var n = _ccNorm(raw);
+  if (!n) return null;
+  var by = _ccSpellings();
+  var group = Object.keys(by).filter(function(r){ return _ccNorm(r) === n; });
+  if (!group.length) return null;
+  group.sort(function(a, b){ return by[b].count - by[a].count; });
+  return group[0];
+}
 
 function _ccSpellings(){
   var by = {};   // raw spelling -> {count, ids[]}
@@ -4206,7 +4257,20 @@ function closeNewProjectModal() {
 async function createProject() {
   const number = document.getElementById('np-number').value.trim();
   const name = document.getElementById('np-name').value.trim();
-  const client = document.getElementById('np-client').value.trim();
+  var client = document.getElementById('np-client').value.trim();
+  /* S497e (Mark): entry-time guard for EVERYONE, not just admins. If the typed
+     client differs from an existing spelling only by case or punctuation
+     ("FGF Brands inc." vs "FGF Brands Inc."), it IS that client — snap to the
+     most-used spelling so a typo never becomes a new client. Deliberate
+     corrections happen in Edit Project, where fixing one project offers to
+     ripple the fix across the rest. */
+  if (client && typeof _clientCanonicalFor === 'function') {
+    var _canon = _clientCanonicalFor(client);
+    if (_canon && _canon !== client) {
+      toast('Client matched to existing spelling \u201C' + _canon + '\u201D', 'success');
+      client = _canon;
+    }
+  }
   const address = document.getElementById('np-address').value.trim();
   const pm = document.getElementById('np-pm').value || null;
 

@@ -308,3 +308,5 @@ ccMergeManual
 _ccNorm
 renderReclamation
 rrDelete
+@ Client-name guards for everyone, not admin-only (Mark, S497e): create-time snap to existing spelling on case/punctuation match; edit-time ripple offering to propagate a corrected client name to every project spelling it the old way
+_clientCanonicalFor
