@@ -285,6 +285,14 @@ export var initExportView = {
     h += '<div class="exv-add"><input type="text" id="exv-newrec" placeholder="Add a recipient \u2014 e.g. base-building contractor, PM\u2026">'
       + '<button id="exv-addbtn">+ Add to pool</button></div>';
     h += '<div class="exv-prev" id="exv-prevbox"><div class="lbl">Distribution line</div><div class="names" id="exv-prevnames"></div></div>';
+    // S496c OPTION B (Mark): Options + no-trade control move HERE, under the
+    // roster, instead of stacking in the right column. Left = what you DECIDE,
+    // right = SCOPE. Closes the empty gap that sat under a short roster while
+    // the right column ran seven blocks deep. The markup is emitted via
+    // _optsHtml below (built later because it needs utc/_crbAdmin) and injected
+    // into this slot after the modal mounts — IDs are unchanged, so every
+    // existing ov.querySelector('#exv-final') etc. keeps working.
+    h += '<div id="exv-optslot"></div>';
     h += '</div>';
 
     // RIGHT: scope + options + summary
@@ -316,12 +324,14 @@ export var initExportView = {
       + '<option value="high">High \u2014 250 DPI</option>'
       + '<option value="max">Maximum \u2014 300 DPI</option>'
       + '</select></div>';
-    h += '<div class="exv-eb" style="margin-top:14px;">Options</div>';
+    // (S496c: the Options header now lives in _optsHtml, left column)
     // S479i: _crbAdmin restored — Mark's preview diagnostic is back (S479h
     // wrongly retired it as a scope expansion; the tool is how Mark checks
     // the response-section look on demand).
     var _crbAdmin=false; try{_crbAdmin=!!(Auth&&Auth.isAdmin&&Auth.isAdmin());}catch(_e){}
-    h += '<div class="exv-opts">'
+    // S496c: built into _optsHtml, injected into #exv-optslot (left column).
+    var _optsHtml = '<div class="exv-eb" style="margin-top:16px;">Options</div>';
+    _optsHtml += '<div class="exv-opts">'
       + '<label class="exv-chk"><input type="checkbox" id="exv-final"> Final commissioning</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-closed" checked> Closed Items Summary</label>'
       + '<label class="exv-chk"><input type="checkbox" id="exv-siterec"> Site Records only (internal)</label>'
@@ -336,9 +346,9 @@ export var initExportView = {
       // non-admins, always): real data, no switch.
       + (_crbAdmin ? '<label class="exv-chk"><input type="checkbox" id="exv-crbpreview"> Contractor Response \u2014 preview (sample thread, admin)</label>' : '')
       + '</div>';
-    // untagged control (parity)
+    // untagged control (parity) — S496c: travels with Options to the left column
     if (utc > 0) {
-      h += '<div class="exv-ut" id="exv-ut-wrap"><div class="uh">Items with no trade (' + utc + ')</div>'
+      _optsHtml += '<div class="exv-ut" id="exv-ut-wrap"><div class="uh">Items with no trade (' + utc + ')</div>'
         + '<label><input type="radio" name="exv-ut" value="show" checked> Show as \u201COther Trade Items\u201d band</label>'
         + '<label><input type="radio" name="exv-ut" value="exclude"> Exclude from report</label></div>';
     }
@@ -441,6 +451,11 @@ export var initExportView = {
     wrap.innerHTML = h;
     var ov = wrap.firstChild;
     document.body.appendChild(ov);
+    // S496c: mount the relocated Options block into the left column. Done after
+    // append so the slot exists; IDs inside are unchanged, so every later
+    // querySelector works exactly as before the move.
+    var _slot = ov.querySelector('#exv-optslot');
+    if (_slot) _slot.innerHTML = _optsHtml;
     lockScroll();
     (function(){ var _r = false, _o = ov.remove.bind(ov);
       ov.remove = function(){ if (_r) return _o(); _r = true; _o(); unlockScroll(); }; })();
