@@ -112,6 +112,37 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .stats-strip .stat-item{display:flex;align-items:center;gap:4px}
 .stats-strip .stat-num{font-weight:700;color:var(--fg)}
 .stats-strip .stat-warn{color:var(--warn);font-weight:600}
+/* ═══ S497 — Insights panel + What's New / Hub Guide (Mark, roadmap items) ═══
+   Colours are the existing muted board palette — never new decoration. */
+.ins-modal-card{max-width:680px;max-height:86vh;overflow-y:auto}
+.ins-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:640px){.ins-grid{grid-template-columns:1fr}}
+.ins-block h4{font-size:calc(12px + var(--ts));font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
+.ins-donut-wrap{display:flex;align-items:center;gap:16px}
+.ins-legend{display:flex;flex-direction:column;gap:5px;font-size:calc(12px + var(--ts))}
+.ins-legend .lg{display:flex;align-items:center;gap:7px;color:var(--fg)}
+.ins-legend .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.ins-legend .ct{margin-left:auto;font-weight:700;padding-left:10px}
+.ins-bars{display:flex;flex-direction:column;gap:8px}
+.ins-bar-row{display:grid;grid-template-columns:minmax(90px,130px) 1fr 28px;align-items:center;gap:8px;font-size:calc(12px + var(--ts))}
+.ins-bar-row .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins-bar-row .tr{height:12px;border-radius:6px;background:color-mix(in srgb,var(--steel) 12%,transparent);overflow:hidden}
+.ins-bar-row .fl{height:100%;border-radius:6px;background:color-mix(in srgb,var(--arencon) 55%,transparent)}
+.ins-bar-row .ct{font-weight:700;color:var(--fg);text-align:right}
+.ins-note{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:14px}
+.wn-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.help-modal-card{max-width:640px;max-height:86vh;overflow-y:auto}
+.wn-entry{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:color-mix(in srgb,var(--card) 60%,transparent)}
+.wn-entry .wn-date{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.wn-entry .wn-title{font-size:calc(14px + var(--ts));font-weight:800;color:var(--fg);margin:2px 0 8px}
+.wn-entry ul{margin:0;padding-left:18px}
+.wn-entry li{font-size:calc(12.5px + var(--ts));color:var(--fg);margin-bottom:4px;line-height:1.4}
+.hg-sec{margin-bottom:14px}
+.hg-sec h4{font-size:calc(12px + var(--ts));font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin:0 0 6px}
+.hg-sec p{font-size:calc(12.5px + var(--ts));color:var(--fg);line-height:1.45;margin:0 0 6px}
+.help-tabs{display:flex;gap:6px;margin-bottom:16px}
+.help-tabs button{padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--steel);font-weight:700;font-size:calc(12px + var(--ts));cursor:pointer;font-family:inherit}
+.help-tabs button.active{background:color-mix(in srgb,var(--arencon) 12%,transparent);color:var(--arencon);border-color:color-mix(in srgb,var(--arencon) 35%,transparent)}
 
 /* Project grid */
 .project-grid{padding:4px 24px 24px}
@@ -977,6 +1008,8 @@ body.text-l{--ts:4px;}
         <option value="pm">Sort: Project Manager</option>
         <option value="name">Sort: Name</option>
       </select>
+      <button class="dash-btn secondary" onclick="openInsights()" title="Backup coverage and workload at a glance">📊 Insights</button>
+      <button class="dash-btn secondary" id="btn-help" style="position:relative" onclick="openHelp()" title="What's new and the Hub quick guide">❔ Help<span class="wn-dot" id="wn-dot" style="display:none"></span></button>
       <div class="bulk-select-wrap" id="bulk-select-wrap">
         <button class="dash-btn secondary" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Select</button>
         <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
@@ -1185,6 +1218,29 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- ═══════════ NEW PROJECT MODAL ═══════════ -->
+<!-- S497 — Insights panel (computed live from the loaded board; no extra queries) -->
+<div class="modal-overlay" id="insights-modal">
+  <div class="modal-card ins-modal-card" style="position:relative">
+    <button class="modal-x" onclick="closeInsights()" title="Close">×</button>
+    <h3>📊 Insights</h3>
+    <div id="insights-body"></div>
+    <div class="ins-note">Counts cover active projects only (archived and deleted excluded). Backup age runs from each project's last export.</div>
+  </div>
+</div>
+<!-- S497 — What's New + Hub quick guide. Entries come from updates.json; that
+     file is edited ONLY when Mark says so — never automatically. -->
+<div class="modal-overlay" id="help-modal">
+  <div class="modal-card help-modal-card" style="position:relative">
+    <button class="modal-x" onclick="closeHelp()" title="Close">×</button>
+    <h3>❔ Help</h3>
+    <div class="help-tabs">
+      <button id="help-tab-wn" class="active" onclick="setHelpTab('wn')">What's New</button>
+      <button id="help-tab-hg" onclick="setHelpTab('hg')">Hub Guide</button>
+    </div>
+    <div id="help-body-wn"></div>
+    <div id="help-body-hg" style="display:none"></div>
+  </div>
+</div>
 <div class="modal-overlay" id="new-project-modal">
   <div class="modal-card">
     <h3>New Project</h3>
@@ -2395,6 +2451,143 @@ function renderProjects() {
   }
   _renderStatsStrip();
 }
+
+/* ═══ S497 — INSIGHTS PANEL (roadmap: backup coverage + projects per PM) ═══
+   Everything is computed from the already-loaded _projects array — zero extra
+   network. Donuts are hand-drawn SVG (no chart library, per toolkit rule). */
+function _donutSvg(segs, size) {
+  var total = 0; segs.forEach(function (s) { total += s.v; });
+  if (!total) return '<svg width="' + size + '" height="' + size + '"></svg>';
+  var r = (size / 2) - 9, C = 2 * Math.PI * r, off = C * 0.25; // start at 12 o'clock
+  var rings = '';
+  segs.forEach(function (s) {
+    if (!s.v) return;
+    var frac = s.v / total, len = C * frac;
+    rings += '<circle cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + r + '" fill="none"'
+      + ' stroke="' + s.c + '" stroke-width="14"'
+      + ' stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '"'
+      + ' stroke-dashoffset="' + off.toFixed(2) + '"></circle>';
+    off -= len;
+  });
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' + rings + '</svg>';
+}
+function _insLegend(segs) {
+  return '<div class="ins-legend">' + segs.map(function (s) {
+    return '<span class="lg"><span class="sw" style="background:' + s.c + '"></span>' + esc(s.n) + '<span class="ct">' + s.v + '</span></span>';
+  }).join('') + '</div>';
+}
+function openInsights() {
+  var body = document.getElementById('insights-body');
+  if (!body) return;
+  var active = _projects.filter(function (p) { return !p.deleted_at && p.status !== 'archived'; });
+  var now = Date.now();
+  var never = 0, fresh = 0, a30 = 0, a60 = 0, a90 = 0;
+  active.forEach(function (p) {
+    if (!p.last_exported_at) { never++; return; }
+    var d = Math.floor((now - new Date(p.last_exported_at).getTime()) / 86400000);
+    if (d >= 90) a90++; else if (d >= 60) a60++; else if (d >= 30) a30++; else fresh++;
+  });
+  var covSegs = [
+    { n: 'Backed up', v: active.length - never, c: 'var(--yes)' },
+    { n: 'Never backed up', v: never, c: 'var(--no)' }
+  ];
+  var ageSegs = [
+    { n: 'Fresh (under 30 days)', v: fresh, c: 'var(--yes)' },
+    { n: '30+ days old', v: a30, c: 'var(--warn)' },
+    { n: '60+ days old', v: a60, c: '#C98A4A' },
+    { n: '90+ days old', v: a90, c: 'var(--no)' }
+  ];
+  /* Projects per PM — falls back to the creator when no PM is set (the board's
+     own "Mine" rule), and to Unassigned when neither resolves to a person. */
+  var byPm = {};
+  active.forEach(function (p) {
+    var id = p.project_manager || p.created_by || '';
+    var nm = (id && _userMap[id]) || 'Unassigned';
+    byPm[nm] = (byPm[nm] || 0) + 1;
+  });
+  var pmRows = Object.keys(byPm).map(function (k) { return { n: k, v: byPm[k] }; })
+    .sort(function (a, b) { return b.v - a.v || a.n.localeCompare(b.n); });
+  var maxPm = pmRows.length ? pmRows[0].v : 1;
+  var barsHtml = pmRows.map(function (r) {
+    return '<div class="ins-bar-row"><span class="nm" title="' + esc(r.n) + '">' + esc(r.n) + '</span>'
+      + '<span class="tr"><span class="fl" style="width:' + Math.max(4, Math.round(r.v / maxPm * 100)) + '%"></span></span>'
+      + '<span class="ct">' + r.v + '</span></div>';
+  }).join('');
+  body.innerHTML =
+    '<div class="ins-grid">'
+    + '<div class="ins-block"><h4>Backup coverage</h4><div class="ins-donut-wrap">' + _donutSvg(covSegs, 120) + _insLegend(covSegs) + '</div></div>'
+    + '<div class="ins-block"><h4>Backup age</h4><div class="ins-donut-wrap">' + _donutSvg(ageSegs, 120) + _insLegend(ageSegs) + '</div></div>'
+    + '</div>'
+    + '<div class="ins-block" style="margin-top:20px"><h4>Active projects per person</h4><div class="ins-bars">' + (barsHtml || '<span style="color:var(--silver)">No active projects.</span>') + '</div></div>';
+  document.getElementById('insights-modal').classList.add('show');
+}
+function closeInsights() { document.getElementById('insights-modal').classList.remove('show'); }
+
+/* ═══ S497 — WHAT'S NEW + HUB GUIDE ═══
+   What's New is fed by updates.json at the repo root. THE FILE CHANGES ONLY
+   WHEN MARK SAYS SO — never automatically (Mark's standing rule). The Help
+   button grows an amber dot when the newest entry hasn't been seen on this
+   device; opening Help clears it. */
+var _wnEntries = [];
+var _WN_SEEN_KEY = 'arencon_hub_wn_seen';
+function _wnCheck() {
+  fetch('updates.json?t=' + Date.now()).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j || !Array.isArray(j.entries) || !j.entries.length) return;
+      _wnEntries = j.entries;
+      var latest = _wnEntries[0] && _wnEntries[0].id;
+      var seen = '';
+      try { seen = localStorage.getItem(_WN_SEEN_KEY) || ''; } catch (e) {}
+      var dot = document.getElementById('wn-dot');
+      if (dot && latest && latest !== seen) dot.style.display = 'block';
+    }).catch(function () { /* offline / missing file — Help still opens with the guide */ });
+}
+function _renderWn() {
+  var host = document.getElementById('help-body-wn');
+  if (!host) return;
+  if (!_wnEntries.length) {
+    host.innerHTML = '<p style="color:var(--silver);font-size:calc(12.5px + var(--ts))">No update notes are available right now.</p>';
+    return;
+  }
+  host.innerHTML = _wnEntries.map(function (e) {
+    return '<div class="wn-entry"><div class="wn-date">' + esc(e.date || '') + '</div>'
+      + '<div class="wn-title">' + esc(e.title || '') + '</div>'
+      + '<ul>' + (e.items || []).map(function (it) { return '<li>' + esc(it) + '</li>'; }).join('') + '</ul></div>';
+  }).join('');
+}
+function _renderHubGuide() {
+  var host = document.getElementById('help-body-hg');
+  if (!host || host.innerHTML) return; // static — render once
+  host.innerHTML =
+      '<div class="hg-sec"><h4>Projects board</h4>'
+    + '<p>Projects group by their thousand-series band. Star (⭐) keeps a project at the top of <em>your</em> board only. Use the Active / Archived / Deleted switch to change what the board shows — Archive is filing (nothing is lost), Delete moves a project to the recovery bin.</p></div>'
+    + '<div class="hg-sec"><h4>Backups</h4>'
+    + '<p>Exporting a project is its backup. The date under each project tints amber as a backup ages and red past 90 days; "⚠ Not backed up" means it has never been exported. In Select mode, the "⚠ Not backed up" quick-select picks every such project so one Export backs them all up.</p></div>'
+    + '<div class="hg-sec"><h4>Reports</h4>'
+    + '<p>Open a project and use ＋ New Report inside a tool\u2019s group — one project can hold several reports per tool, so there is no need to create a duplicate project. Deleting a report is reversible: it moves to the Deleted Reports section, where anyone can restore it. Only admins can delete forever.</p></div>'
+    + '<div class="hg-sec"><h4>One tab per report</h4>'
+    + '<p>Clicking a report that is already open focuses its existing tab instead of opening a second copy — two tabs on one report silently overwrite each other\u2019s work. Middle-click or Ctrl+click if you deliberately need a second window.</p></div>'
+    + '<div class="hg-sec"><h4>New projects</h4>'
+    + '<p>Typing a project number suggests the clients already used under that series — pick the suggestion so the same client isn\u2019t spelled three different ways. A warning appears if the full project number already exists. The project manager defaults to whoever creates the project and can be changed at any time.</p></div>';
+}
+function openHelp() {
+  _renderWn();
+  _renderHubGuide();
+  setHelpTab('wn');
+  document.getElementById('help-modal').classList.add('show');
+  var latest = _wnEntries[0] && _wnEntries[0].id;
+  if (latest) { try { localStorage.setItem(_WN_SEEN_KEY, latest); } catch (e) {} }
+  var dot = document.getElementById('wn-dot');
+  if (dot) dot.style.display = 'none';
+}
+function closeHelp() { document.getElementById('help-modal').classList.remove('show'); }
+function setHelpTab(t) {
+  document.getElementById('help-body-wn').style.display = (t === 'wn') ? 'block' : 'none';
+  document.getElementById('help-body-hg').style.display = (t === 'hg') ? 'block' : 'none';
+  document.getElementById('help-tab-wn').classList.toggle('active', t === 'wn');
+  document.getElementById('help-tab-hg').classList.toggle('active', t === 'hg');
+}
+try { _wnCheck(); } catch (e) {}
 
 function _renderStatsStrip() {
   var strip = document.getElementById('stats-strip');

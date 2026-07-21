@@ -1,0 +1,28 @@
+{
+  "_readme": "What's New feed for the Project Hub Help panel. Entries are newest-first. This file is edited ONLY when Mark says an update is significant enough to announce — never automatically. Each entry: id (unique, stable), date (shown), title, items (plain-language bullet points).",
+  "entries": [
+    {
+      "id": "2026-07-21-portal-insights",
+      "date": "July 21, 2026",
+      "title": "Tools portal, Insights and this Help panel",
+      "items": [
+        "The Tools button in the header now opens a proper toolkit portal listing every ARENCON tool by category, with a light/dark switch.",
+        "New 📊 Insights button on the dashboard: backup coverage, backup age, and active projects per person at a glance.",
+        "This ❔ Help panel — update notes plus a quick guide to the Hub. An amber dot on the Help button means there is news you haven't seen."
+      ]
+    },
+    {
+      "id": "2026-07-s495-s496",
+      "date": "July 2026",
+      "title": "Reports, backups and board improvements",
+      "items": [
+        "Reports are now front and centre inside a project — bigger rows with owner, date and status; tool switches moved to a slim settings strip.",
+        "Deleting a report is no longer permanent: it moves to a Deleted Reports section where anyone can restore it. Only admins can delete forever.",
+        "Clicking a report that's already open now focuses its existing tab instead of opening a duplicate — duplicates were silently overwriting each other's work.",
+        "New Project now suggests the clients already used under a number series and warns if the full project number already exists — one project can hold several reports, so duplicates aren't needed.",
+        "Backup dates now tint amber as they age and red past 90 days, and a \"⚠ Not backed up\" quick-select backs up every never-exported project in one go.",
+        "Star (⭐) replaces Pin — starring keeps a project at the top of your own board without moving it on anyone else's."
+      ]
+    }
+  ]
+}

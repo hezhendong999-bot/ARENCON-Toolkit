@@ -279,3 +279,11 @@ selectAllStarred
 @ sw.js CACHE_NAME is a UTC TIMESTAMP, never a counter — a counter let two lanes silently revert each other's bump (near-miss S495, both picked v1174). Bump = set to current UTC yyyymmddhhmm. Do NOT reintroduce an incrementing version (Mark, S495)
 CACHE_NAME
 
+@ Insights panel — backup coverage, backup age and active-projects-per-person, computed from the loaded board with hand-drawn SVG donuts, no chart library (Mark, roadmap item, shipped S497 Lane B)
+openInsights
+_donutSvg
+
+@ What's New + Hub Guide — Help panel fed by updates.json, which is edited ONLY when Mark says so, never automatically; amber unseen-update dot per device (Mark, roadmap item, shipped S497 Lane B)
+openHelp
+_wnCheck
+.wn-dot
