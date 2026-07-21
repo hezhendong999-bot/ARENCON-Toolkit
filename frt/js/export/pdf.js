@@ -2145,6 +2145,53 @@ function _captureExportPDF(w,D){
         // (auto-height appendix pages, off-screen pages, zero-size, etc.).
         if(!isFinite(ew)||ew<=0) ew=816;   // 8.5in @96dpi
         if(!isFinite(eh)||eh<=0) eh=1056;  // 11in  @96dpi
+        // ── S497d PHOTO OVERLAYS — the actual fix for "preview crisp, PDF
+        // blurry". Each .dp photo tile is loaded from its real source
+        // (720-960px per tier), centre cover-cropped to the tile's aspect,
+        // embedded as its OWN JPEG object, and later drawn over the page
+        // raster at the tile's exact position (same rect→PDF-point mapping
+        // the link annotations already use). Order matters for safety: the
+        // tile is only blanked out of the raster AFTER its replacement is
+        // successfully embedded — a photo that fails to load or embed keeps
+        // its rastered look instead of leaving a grey hole.
+        var _phOverlays=[];
+        try{
+          var _tiles=[].slice.call(pageEl.querySelectorAll('.dp'));
+          for(var _ti=0;_ti<_tiles.length;_ti++){
+            var _tile=_tiles[_ti];
+            var _bg=(_tile.style&&_tile.style.backgroundImage)||'';
+            var _bm=/url\(["']?([^"')]+)["']?\)/.exec(_bg);
+            if(!_bm||!_bm[1]) continue;             // placeholder tile — skip
+            var _turl=_bm[1];
+            var _tim=await new Promise(function(res){
+              var im=new Image();
+              if(!/^data:/.test(_turl)) im.crossOrigin='anonymous';
+              im.onload=function(){res(im);}; im.onerror=function(){res(null);};
+              im.src=_turl;
+            });
+            if(!_tim||!_tim.naturalWidth||!_tim.naturalHeight) continue;
+            var _tr=_tile.getBoundingClientRect();
+            if(_tr.width<4||_tr.height<4) continue;
+            var _tt=_qTierDef();
+            // centre cover-crop the source to the tile's aspect
+            var _ar=_tr.width/_tr.height, _sw=_tim.naturalWidth, _sh=_tim.naturalHeight;
+            var _cw2,_ch2,_sx3,_sy3;
+            if(_sw/_sh>_ar){ _ch2=_sh; _cw2=Math.max(1,Math.round(_sh*_ar)); _sx3=Math.round((_sw-_cw2)/2); _sy3=0; }
+            else{ _cw2=_sw; _ch2=Math.max(1,Math.round(_sw/_ar)); _sx3=0; _sy3=Math.round((_sh-_ch2)/2); }
+            // tier resolution at the printed cell; never upscale the source
+            var _ow=Math.min(_cw2, Math.round(PDF_PHOTO_CELL_IN.w*(_tt.photoDpi||300)));
+            var _oh=Math.max(1,Math.round(_ow/_ar));
+            var _cv=document.createElement('canvas'); _cv.width=_ow; _cv.height=_oh;
+            _cv.getContext('2d').drawImage(_tim,_sx3,_sy3,_cw2,_ch2,0,0,_ow,_oh);
+            var _jb;
+            try{ _jb=await pdfDoc.embedJpg(_cv.toDataURL('image/jpeg',_tt.photoQ||0.85)); }
+            catch(_ej){ _cv.width=0;_cv.height=0; continue; }
+            _cv.width=0;_cv.height=0;
+            _phOverlays.push({rect:_tr,img:_jb});
+            _tile.style.backgroundImage='none';
+            _tile.style.backgroundColor='#ECEAE6';
+          }
+        }catch(_po){ _phOverlays=[]; }
         // S497b — THE actual photo-quality fix (Mark: "picked Max, PDF photos
         // still blurry, preview crisp"). Body pages export as whole-page
         // rasters, so photo sharpness is set by THIS scale, not by the photo
@@ -2155,24 +2202,20 @@ function _captureExportPDF(w,D){
         // also why 23 pages weighed 13 MB. Text-only and appendix pages keep
         // scale 2 + PNG (crisp line work, small, and no 24×36 scale-3 canvas
         // memory bomb — appendix sheets carry .app-dwg, not .dp-grid).
-        // S497c — the S497b detector matched NOTHING: report photos are not
-        // <img> elements, they are <div class="dp"> tiles with CSS background
-        // images (verified by dissecting Mark's actual 17 MB PDF: every page
-        // was still a scale-2 PNG, so the "fix" never fired — blur and weight
-        // unchanged). Match the tiles that actually exist.
-        var _isPhotoPage = !!pageEl.querySelector('.dp, .rphotos img, .dp-grid img');
-        var _pgScale = _isPhotoPage ? 3 : 2;
-        var canvas=await h2c(pageEl,{scale:_pgScale,useCORS:true,backgroundColor:'#ffffff',logging:false,width:ew,height:eh,windowWidth:ew,windowHeight:eh,scrollX:0,scrollY:0});
-        var cssW=(canvas.width||ew*_pgScale)/_pgScale, cssH=(canvas.height||eh*_pgScale)/_pgScale;
+        // S497d — pages return to uniform scale-2 PNG. Two rounds of "raster
+        // the page sharper" (S497b/c) proved the dead end: photos inside a
+        // page screenshot can never match the preview, whatever the scale.
+        // Photos are now drawn OVER the raster as their own tier-resolution
+        // JPEG objects (see _phOverlays below), so the raster only needs to
+        // carry crisp text — and the photo tiles are blanked before capture
+        // so their pixels aren't paid for twice.
+        var canvas=await h2c(pageEl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:ew,height:eh,windowWidth:ew,windowHeight:eh,scrollX:0,scrollY:0});
+        var cssW=(canvas.width||ew*2)/2, cssH=(canvas.height||eh*2)/2;
         var pw=(cssW/96)*72, ph=(cssH/96)*72;
         if(!isFinite(pw)||pw<=0) pw=612;   // 8.5in in points
         if(!isFinite(ph)||ph<=0) ph=792;   // 11in  in points
         var png;
-        try{
-          png = _isPhotoPage
-            ? await pdfDoc.embedJpg(canvas.toDataURL('image/jpeg', _qTierDef().photoQ))
-            : await pdfDoc.embedPng(canvas.toDataURL('image/png'));
-        }
+        try{ png=await pdfDoc.embedPng(canvas.toDataURL('image/png')); }
         catch(ep){ _capStatus(D,'Skipped a blank page ('+(i+1)+').'); continue; }
         var pg;
         var _pwN=Number(pw), _phN=Number(ph);
@@ -2185,6 +2228,17 @@ function _captureExportPDF(w,D){
           continue;
         }
         pg.drawImage(png,{x:0,y:0,width:pw,height:ph});
+        // S497d: photos drawn over the raster as real images (prep above).
+        if(_phOverlays.length){ try{
+          var _ppr=pageEl.getBoundingClientRect();
+          var _psx=pw/(_ppr.width||cssW), _psy=ph/(_ppr.height||cssH);
+          _phOverlays.forEach(function(o){
+            var _x0=(o.rect.left-_ppr.left)*_psx, _yT=(o.rect.top-_ppr.top)*_psy;
+            var _ww=o.rect.width*_psx, _hh=o.rect.height*_psy;
+            if(!isFinite(_x0)||!isFinite(_yT)||_ww<=0||_hh<=0) return;
+            pg.drawImage(o.img,{x:_x0,y:ph-(_yT+_hh),width:_ww,height:_hh});
+          });
+        }catch(_od){} }
         try{
           var pr=pageEl.getBoundingClientRect();
           var sx=pw/(pr.width||cssW), sy=ph/(pr.height||cssH);
