@@ -142,6 +142,13 @@ function _styleOnce() {
     '.exv-count b{color:var(--fg,#1C2333);font-variant-numeric:tabular-nums;}',
     '.exv-count.internal{color:#9C2742;font-weight:700;}',
     '.exv-acts{display:flex;gap:10px;}',
+    /* S496c — completing Option B: full-width drawings band + footer estimate */
+    '.exv-dwgband{margin-top:18px;padding-top:16px;border-top:1px solid var(--border,#E4E8EE);}',
+    '.exv-f{flex-wrap:wrap;}',
+    '.exv-fleft{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}',
+    '.exq-est-foot{margin-top:0;padding:6px 11px;align-items:center;}',
+    '.exq-est-foot .dot{margin-top:0;}',
+    '.exq-est-foot .sub{display:inline;margin-top:0;margin-left:4px;}',
     '.exv-cancel{padding:9px 18px;border:1px solid var(--border,#D5DBE3);background:var(--card,#fff);color:#5E5B68;border-radius:8px;font-size:calc(13px + var(--ts,0px));font-weight:700;cursor:pointer;}',
     '.exv-go{padding:9px 20px;border:0;background:#243048;color:#fff;border-radius:8px;font-size:calc(14px + var(--ts,0px));font-weight:700;cursor:pointer;letter-spacing:.2px;}',
     '.exv-go:hover{background:#1B2438;}',
@@ -364,9 +371,21 @@ export var initExportView = {
     // tier), NOT a trial render: rendering the report twice just to weigh it would
     // double the cost of every export. Directionally right, not exact — PNG on
     // line art varies a lot with how much white space a sheet carries.
-    h += '<div class="exq-est" id="exv-est"><span class="dot"></span>'
-      + '<span><span id="exv-est-main"></span><span class="sub" id="exv-est-sub"></span></span></div>';
+    // S496c (completing Option B — the first push moved only Options and left
+    // this in the right column, which Mark caught against the approved demo):
+    // the estimate is a WHOLE-EXPORT figure, and with the drawings band below
+    // you adjust sliders while the right column is scrolled off-screen. It
+    // belongs in the footer, the one bar that never leaves. Built into a
+    // variable here, emitted into .exv-f below. IDs unchanged.
+    var _estHtml = '<span class="exq-est exq-est-foot" id="exv-est"><span class="dot"></span>'
+      + '<span><span id="exv-est-main"></span><span class="sub" id="exv-est-sub"></span></span></span>';
     // ── SEAL REDACTION — CONTACT SHEET (S492, LOCKED_SEAL_REDACTION_VISIBILITY.md).
+    // S496c (completing Option B): this whole section is captured into _bandHtml
+    // and emitted BELOW the columns at full modal width, instead of inside the
+    // right column where 9 sheets stacked one-per-row down a half-width gutter.
+    // Accumulator swap keeps every statement inside the block byte-identical —
+    // same technique as the Options move, zero rewrites of locked S492 markup.
+    var _hMain = h; h = '';
     // Every appendix-bound drawing (any pinned item) as a thumbnail, MARKER
     // rendering on top (the print cover is invisible at this size — Mark).
     // Thumbs reuse d.thumb, the existing synced 400px JPEG (_lazyGenThumbs):
@@ -436,12 +455,16 @@ export var initExportView = {
           + '<div style="margin-top:3px;color:#A07840;">If these sheets carry a seal it will appear in the report. Tap a thumbnail above to open the sheet, then \uD83D\uDD12 in the toolbar. Warning only \u2014 export proceeds.</div></div>';
       }
     }
+    // S496c: end of captured seal section — restore the accumulator.
+    var _bandHtml = h; h = _hMain;
     h += '</div>'; // right col
     h += '</div>'; // cols
+    // Full-width drawings band, per the approved Option B demo.
+    if (_bandHtml) h += '<div class="exv-dwgband">' + _bandHtml + '</div>';
     h += '</div>'; // exv-b
 
     h += '<div class="exv-f">'
-      + '<span class="exv-count" id="exv-count"></span>'
+      + '<div class="exv-fleft"><span class="exv-count" id="exv-count"></span>' + _estHtml + '</div>'
       + '<div class="exv-acts"><button class="exv-cancel" id="exv-cancel">Cancel</button>'
       + '<button class="exv-go" id="exv-go">\uD83D\uDCC4 Generate PDF</button></div></div>';
 
