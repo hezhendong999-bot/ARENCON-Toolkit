@@ -8,7 +8,9 @@
       "items": [
         "The Tools button in the header now opens a proper toolkit portal listing every ARENCON tool by category, with a light/dark switch.",
         "New 📊 Insights button on the dashboard: backup coverage, backup age, and active projects per person at a glance.",
-        "This ❔ Help panel — update notes plus a quick guide to the Hub. An amber dot on the Help button means there is news you haven't seen."
+        "This ❔ Help panel — update notes plus a quick guide to the Hub. An amber dot on the Help button means there is news you haven't seen.",
+        "Projects sharing a number now carry an amber Duplicate chip (the first-created one doesn't) — the intent is one project per number; use New Report inside the original instead.",
+        "The client field in New Project now suggests every client on record as you type, so the same client isn't spelled three different ways."
       ]
     },
     {

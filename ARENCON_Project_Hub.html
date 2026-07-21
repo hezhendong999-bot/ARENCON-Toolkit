@@ -126,8 +126,10 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .ins-bars{display:flex;flex-direction:column;gap:8px}
 .ins-bar-row{display:grid;grid-template-columns:minmax(90px,130px) 1fr 28px;align-items:center;gap:8px;font-size:calc(12px + var(--ts))}
 .ins-bar-row .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ins-bar-row .tr{height:12px;border-radius:6px;background:color-mix(in srgb,var(--steel) 12%,transparent);overflow:hidden}
-.ins-bar-row .fl{height:100%;border-radius:6px;background:color-mix(in srgb,var(--arencon) 55%,transparent)}
+.ins-bar-row .tr{display:block;height:12px;border-radius:6px;background:color-mix(in srgb,var(--steel) 12%,transparent);overflow:hidden}
+.ins-bar-row .fl{display:block;height:100%;border-radius:6px;background:color-mix(in srgb,var(--arencon) 55%,transparent)}
+/* S497b (Mark's field test): .fl/.tr are spans — inline elements ignore width/
+   height, so every bar painted empty. display:block is the root fix, not a patch. */
 .ins-bar-row .ct{font-weight:700;color:var(--fg);text-align:right}
 .ins-note{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:14px}
 .wn-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
@@ -344,6 +346,7 @@ body.dark-mode .epd-pick,body.dark-mode .epd-pick-band{background:var(--card)}
 .project-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .badge-active{background:var(--yes-bg);color:var(--yes)}
 .badge-archived{background:var(--na-bg);color:var(--na)}
+.badge-dup{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
 .badge-role{background:#DBEAFE;color:#1D4ED8}
 .project-card-date{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:500}
 .project-card-pm{font-size:calc(10px + var(--ts));color:var(--steel);font-weight:500;margin-left:auto}
@@ -1255,7 +1258,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="modal-field">
       <label>Client</label>
-      <input type="text" id="np-client" placeholder="e.g. ABC Property Management">
+      <input type="text" id="np-client" placeholder="e.g. ABC Property Management" oninput="_npOnClientInput()">
       <div id="np-client-suggest" class="np-suggest" style="display:none"></div>
     </div>
     <div class="modal-field">
@@ -2493,7 +2496,9 @@ function openInsights() {
   ];
   var ageSegs = [
     { n: 'Fresh (under 30 days)', v: fresh, c: 'var(--yes)' },
-    { n: '30+ days old', v: a30, c: 'var(--warn)' },
+    /* S497b (Mark): 30+ was amber like 60+ — now a muted yellow so the two
+       tiers read apart at a glance. Aging runs green → yellow → orange → red. */
+    { n: '30+ days old', v: a30, c: '#B5A21F' },
     { n: '60+ days old', v: a60, c: '#C98A4A' },
     { n: '90+ days old', v: a90, c: 'var(--no)' }
   ];
@@ -2507,10 +2512,13 @@ function openInsights() {
   });
   var pmRows = Object.keys(byPm).map(function (k) { return { n: k, v: byPm[k] }; })
     .sort(function (a, b) { return b.v - a.v || a.n.localeCompare(b.n); });
-  var maxPm = pmRows.length ? pmRows[0].v : 1;
+  /* S497b (Mark): bar length = person's share of ALL active projects, so the
+     bars mean workload share, not rank-vs-leader. The total is only the
+     denominator — it is deliberately not displayed. */
+  var totalActive = active.length || 1;
   var barsHtml = pmRows.map(function (r) {
     return '<div class="ins-bar-row"><span class="nm" title="' + esc(r.n) + '">' + esc(r.n) + '</span>'
-      + '<span class="tr"><span class="fl" style="width:' + Math.max(4, Math.round(r.v / maxPm * 100)) + '%"></span></span>'
+      + '<span class="tr"><span class="fl" style="width:' + Math.max(3, Math.round(r.v / totalActive * 100)) + '%"></span></span>'
       + '<span class="ct">' + r.v + '</span></div>';
   }).join('');
   body.innerHTML =
@@ -2568,7 +2576,7 @@ function _renderHubGuide() {
     + '<div class="hg-sec"><h4>One tab per report</h4>'
     + '<p>Clicking a report that is already open focuses its existing tab instead of opening a second copy — two tabs on one report silently overwrite each other\u2019s work. Middle-click or Ctrl+click if you deliberately need a second window.</p></div>'
     + '<div class="hg-sec"><h4>New projects</h4>'
-    + '<p>Typing a project number suggests the clients already used under that series — pick the suggestion so the same client isn\u2019t spelled three different ways. A warning appears if the full project number already exists. The project manager defaults to whoever creates the project and can be changed at any time.</p></div>';
+    + '<p>Typing a project number suggests the clients already used under that series, and typing in the client field matches against every client on record — pick a suggestion so the same client isn\u2019t spelled three different ways. A warning appears if the full project number already exists, and any later copy carries an amber Duplicate chip on the board — the intent is one project per number. The project manager defaults to whoever creates the project and can be changed at any time.</p></div>';
 }
 function openHelp() {
   _renderWn();
@@ -2604,8 +2612,37 @@ function _renderStatsStrip() {
   strip.style.display = (_showDeleted || _showArchived) ? 'none' : 'flex';
 }
 
+/* ═══ S497b — DUPLICATE PROJECT INDICATOR (Mark's field test) ═══
+   The intent is ONE project per number. Creation already warns (S495) but never
+   blocks, so duplicates can legitimately exist — this makes them visible on the
+   board instead of silent. Every project sharing a number with an earlier-created
+   one gets an amber "Duplicate" chip; the FIRST-created project of a number is
+   the original and gets nothing. Trashed projects neither carry nor cause the
+   badge. Existing duplicates stay untouched — this indicates, it never mutates. */
+var _dupFirstIds = null, _dupSrc = null, _dupSrcN = 0;
+function _isDupProject(p) {
+  if (!p || !p.project_number || p.deleted_at) return false;
+  if (_dupSrc !== _projects || _dupSrcN !== (_projects || []).length) {
+    _dupFirstIds = {};
+    (_projects || []).forEach(function (q) {
+      if (q.deleted_at) return;
+      var n = String(q.project_number || '').trim();
+      if (!n) return;
+      var cur = _dupFirstIds[n];
+      var t = q.created_at || q.updated_at || '';
+      if (!cur || t < cur.t) _dupFirstIds[n] = { id: q.id, t: t, count: (cur ? cur.count : 0) + 1 };
+      else cur.count++;
+    });
+    _dupSrc = _projects; _dupSrcN = (_projects || []).length;
+  }
+  var rec = _dupFirstIds[String(p.project_number).trim()];
+  return !!(rec && rec.count > 1 && rec.id !== p.id);
+}
+
 function _renderProjectCard(p, myId) {
   var num = esc(p.project_number || '—');
+  // S497b: later-created projects sharing a number carry a Duplicate chip.
+  if (_isDupProject(p)) num += ' <span class="project-badge badge-dup" title="Another project was created first with this number — the intent is one project per number. Use New Report inside the original instead.">Duplicate</span>';
   var name = esc(p.project_name || 'Untitled');
   var client = esc(p.client || '');
   var statusBadge = p.status === 'archived'
@@ -3831,6 +3868,56 @@ function _npPickClient(btn) {
       b.classList.toggle('on', b === btn);
     });
   }
+}
+
+/* ═══ S497b — GLOBAL CLIENT AUTOCOMPLETE (Mark's field test) ═══
+   The series suggester (above) only helps when the series already has projects.
+   A brand-new series meant free-typing — exactly where spelling deviations are
+   born. Typing in the client field now matches against EVERY client the firm has
+   ever recorded (the client "database" IS the project list — a new client typed
+   here becomes a project row and is remembered automatically, nothing extra to
+   maintain). Canonical spellings outrank one-off typos because suggestions are
+   ordered by how often each spelling was used. Offered, never forced. */
+function _npAllClients() {
+  var seen = {}, out = [];
+  (_projects || []).forEach(function(p) {
+    if (p.deleted_at) return;
+    var c = (p.client || '').trim();
+    if (!c) return;
+    var key = c.toLowerCase();
+    if (seen[key]) { seen[key].n++; return; }
+    seen[key] = { name: c, n: 1 };
+    out.push(seen[key]);
+  });
+  out.sort(function(a, b) { return b.n - a.n; });
+  return out;
+}
+
+function _npOnClientInput() {
+  var clientEl = document.getElementById('np-client');
+  var sugEl = document.getElementById('np-client-suggest');
+  if (!clientEl || !sugEl) return;
+  delete clientEl.dataset.npFromSuggest;   // hand-typing overrides a prior pick
+  var q = clientEl.value.trim().toLowerCase();
+  if (q.length < 2) {
+    // Fall back to the series suggestions (or nothing) when the field empties.
+    sugEl.style.display = 'none'; sugEl.innerHTML = '';
+    if (q.length === 0) _npOnNumberInput();
+    return;
+  }
+  var matches = _npAllClients().filter(function(c) {
+    var lc = c.name.toLowerCase();
+    return lc !== q && lc.indexOf(q) >= 0;
+  });
+  if (matches.length === 0) { sugEl.style.display = 'none'; sugEl.innerHTML = ''; return; }
+  var html = '<span class="np-suggest-lbl">Known clients:</span>';
+  matches.slice(0, 4).forEach(function(c) {
+    html += '<button type="button" class="np-suggest-chip" onclick="_npPickClient(this)" '
+      + 'data-client="' + esc(c.name) + '">' + esc(c.name)
+      + (c.n > 1 ? '<span class="np-suggest-n">' + c.n + '</span>' : '') + '</button>';
+  });
+  sugEl.innerHTML = html;
+  sugEl.style.display = '';
 }
 
 function openNewProjectModal() {
