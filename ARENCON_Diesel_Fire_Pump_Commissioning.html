@@ -1762,6 +1762,79 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
 .app-header:has(#hdr-mount){background:transparent!important;box-shadow:none!important;
   border-bottom:none!important;backdrop-filter:none!important;filter:none!important;}
 @media print{ #hdr-mount{display:none!important;} }
+
+/* ═══ S496: SHARED PHOTO INPUT ENGINE surface styles — PORTED FROM ELECTRIC ═══
+   lib/ui/photoInput.js injects NO CSS by design; the HOST carries the
+   .obs-media-* / .obs-drop-btn family. Electric has carried these 21 rules
+   since S492; the S496 Diesel wiring shipped the module + mount WITHOUT them,
+   so the checklist photo zone rendered collapsed and unstyled (raw browser
+   buttons — Mark's screenshot). Block below is Electric's verbatim, including
+   its two pre-empted bugs (is-upload must exist; never force .obs-media-btns
+   to display:block) and the pointer:coarse touch targets. ═══ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   PART — SHARED PHOTO INPUT ENGINE   lib/ui/photoInput.js        (S492)
+
+   Ported VERBATIM from FRT's live frt.css (the values below are copied,
+   not re-derived — a "matching" copy is how the previous cut drifted:
+   hint 12px vs 11px, gap 5px vs 6px, wrong padding, and Mark spotted it
+   instantly). This is the same button family FRT renders, so a photo zone
+   in this tool IS a photo zone in FRT.
+
+   TWO BUGS ARE PRE-EMPTED HERE, both recorded in FRT's own PART:
+     1. `.obs-drop-btn.is-upload` must exist. It is the ONE genuinely new
+        rule the engine adds — the app had no Upload button to inherit.
+        Drop it and Upload falls through to the base `color:white` with no
+        background: white text on white, an invisible live button.
+     2. NOTHING here may force `.obs-media-btns` to display:block. It is a
+        flex ROW. A rule written for a standalone zone that leaks globally
+        collapses the buttons onto the photo grid.
+   Anything not universally true is scoped with [data-pi-ns] — the engine
+   only sets that on wrappers IT builds, so host-built zones are untouched.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.obs-drop-btns{display:flex;flex-direction:row;gap:5px;justify-content:center;flex-wrap:wrap;}
+.obs-drop-btn{padding:7px 14px;border-radius:7px;font-size:calc(12.5px + var(--ts));font-family:Calibri,sans-serif;font-weight:700;letter-spacing:.3px;cursor:pointer;border:none;color:white;transition:filter .15s;}
+.obs-drop-btn:hover{filter:brightness(1.10);}
+.obs-drop-btn.is-camera{background:#5C7A65;}
+.obs-drop-btn.is-gallery{background:#8A7689;}
+/* The one new member of the family. Dusty blue, per Mark. Same specificity
+   as its siblings — wins and loses on the same terms, no !important. */
+.obs-drop-btn.is-upload{background:#4F6788;}
+
+.obs-media-col{display:flex;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+.obs-media-col.drag-over .obs-media-zone{border-color:#9C2742;background:rgba(156,39,66,.08);}
+.obs-media-zone{flex:1;border:2px dashed var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--smoke);min-height:140px;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;}
+.obs-media-hint{font-size:calc(11px + var(--ts));color:var(--silver);text-align:center;font-weight:600;line-height:1.2;flex:1;display:flex;align-items:center;justify-content:center;min-height:24px;}
+.obs-media-btns{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2;}
+.obs-media-btns .obs-drop-btn{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;padding:6px 12px;font-size:calc(12px + var(--ts));position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;}
+
+/* Engine-BUILT wrappers only. A standalone zone has no editor column to
+   flex inside, so it asks for its own box. Host-built (zoneOnly) wrappers
+   carry no data-pi-ns and are deliberately unaffected. */
+.obs-media-col[data-pi-ns]{display:block;margin-top:8px;}
+.obs-media-col[data-pi-ns] .obs-media-zone{min-height:0;flex:none;}
+
+/* Dark mode — matches FRT. Falls back to the light value when the tool has
+   not defined the Bold token, so a button is never unstyled. */
+body.dark-mode .obs-drop-btn{color:white;}
+body.dark-mode .obs-drop-btn.is-camera{background:var(--b-pb-c-bg,#5C7A65)!important;color:var(--b-pb-c,#fff)!important;}
+body.dark-mode .obs-drop-btn.is-gallery{background:var(--b-pb-g-bg,#8A7689)!important;color:var(--b-pb-g,#fff)!important;}
+body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color:var(--b-pb-u,#fff);}
+
+/* Gloves / coarse pointer — the buttons are the only way in on a tablet,
+   so they never depend on :hover. (Project rule: hover-reveal controls
+   MUST have a pointer:coarse fallback.) */
+@media (pointer:coarse){
+  .obs-media-btns .obs-drop-btn{min-height:38px;padding:8px 14px;}
+}
+
+</style>
+<!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
+     host override blocks (that was the point of Shadow DOM). -->
+</head>
+<body>
+
 </style>
 </head>
 <body>
@@ -4367,6 +4440,17 @@ document.getElementById('global-file-input').addEventListener('change', function
         if(!id||!files||!files.length) return;
         if(typeof _validClKey==='function' && !_validClKey(id)) return;  // never auto-vivify a clState orphan
         handleFiles(id,files,false);
+      },
+      /* S496 fix: the first mount omitted onGallery entirely. The engine hides
+         nothing — the Gallery button renders regardless and its click checks
+         `if (h.onGallery)`, so with no callback the button was rendered DEAD.
+         Routed to Diesel's existing site-photo reuse picker, same as the ✓
+         host-contract symbol the shared checklist has always named. */
+      onGallery:function(ctx){
+        var id=ctx&&ctx['cl-id'];
+        if(!id) return;
+        if(typeof _validClKey==='function' && !_validClKey(id)) return;
+        if(typeof _galleryReuseChecklist==='function') _galleryReuseChecklist(id);
       }
     });
   }
