@@ -13547,6 +13547,18 @@ function _applyLoadedState(raw) {
       contractorSignRows.length = 0;
       s.contractorSignRows.forEach(r => contractorSignRows.push(r));
     }
+    /* S496 audit fix: witnessSignRows was COLLECTED on every save but never
+       RESTORED here — the only state key with that asymmetry. Round-trip damage:
+       add a witness (AHJ / owner rep) row -> it saves to cloud -> reload -> the
+       in-memory array is empty, the UI shows no witness rows, and the NEXT save
+       pushes the empty array back, permanently erasing the witness signatures
+       from the cloud as well. renderAllSignRows() below already rebuilds the
+       witness container and restores witness signature ink (canvas c-100+); the
+       array restore was the single missing link. */
+    if (s.witnessSignRows) {
+      witnessSignRows.length = 0;
+      s.witnessSignRows.forEach(r => witnessSignRows.push(r));
+    }
     if (s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ _sigStrokes[k]=s.sigStrokes[k]; }); }
     // flowTestPhotos
     if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(p=>flowTestPhotosPld.push(p)); renderFlowTestThumbsPld(); }
@@ -13705,6 +13717,17 @@ function resetCurrentPage() {
       });
       delete customItems[active];
       renderChecklist(items, 'cl-'+active, active);
+      /* S496 audit fix: the FA page is TWO checklist sections — the Mandatory
+         FACP block (s5m, items 5.1–5.3) plus the regular s5 list (5.4+). This
+         reset only cleared s5, so "Reset Current Page" on FA left 5.1–5.3
+         holding their answers. Same missing-s5m family as the load-repaint bug. */
+      if (active === 's5' && typeof S5_mandatory !== 'undefined') {
+        S5_mandatory.forEach(function(_,idx) {
+          clState[cid('s5m',idx)] = {status:null, comment:'', photos:[], customText:''};
+        });
+        delete customItems['s5m'];
+        renderChecklist(S5_mandatory, 'cl-s5-mandatory', 's5m');
+      }
     }
   }
   debounceAutosave();
