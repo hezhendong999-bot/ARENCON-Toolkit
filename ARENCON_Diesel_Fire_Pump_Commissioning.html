@@ -13605,11 +13605,20 @@ function _applyLoadedState(raw) {
       _refreshS4Charts();
     }
     // Re-render checklists
-    ['s1','s2','s3','s4','s4pld','s5'].forEach(sec => {
-      const cont = document.getElementById('cl-'+sec);
+    /* S496 ROOT FIX (Mark's field repro: FA items 5.1-5.3 "won't stick"):
+       this list omitted 's5m' (Mandatory FACP, S5_mandatory -> #cl-s5-mandatory),
+       so after every load those three items kept their PRE-LOAD empty render while
+       clState correctly held the loaded statuses. They always LOOKED unset; saves
+       worked; the next load hid them again. Worse: tapping YES on an item that
+       looked unset but internally held 'yes' hit the toggle-to-clear rule
+       ((prev===status) ? null : status) and silently ERASED the saved answer.
+       The heartbeat's own re-render map (L~11119) always included s5m — only this
+       boot-apply list was short. Lists now identical. */
+    ['s1','s2','s3','s4','s4pld','s5m','s5'].forEach(sec => {
+      const cont = document.getElementById({s5m:'cl-s5-mandatory'}[sec] || ('cl-'+sec));
       if (!cont) return;
-      const sMap = {s1:S1,s2:S2,s3:S3,s4:S4_items,s4pld:S4_items,s5:S5};
-      if(sMap[sec]) renderChecklist(sMap[sec], 'cl-'+sec, sec);
+      const sMap = {s1:S1,s2:S2,s3:S3,s4:S4_items,s4pld:S4_items,s5m:S5_mandatory,s5:S5};
+      if(sMap[sec]) renderChecklist(sMap[sec], {s5m:'cl-s5-mandatory'}[sec] || ('cl-'+sec), sec);
     });
     setTimeout(function(){ updateProgress(); updateVerdict(); try{ if(typeof _pgPurgeExpired==='function') _pgPurgeExpired(); }catch(_e){} try{ if(typeof _rebuildAllMkDisplays==='function') _rebuildAllMkDisplays(); }catch(_e){} }, 200);
   } catch(e) {
