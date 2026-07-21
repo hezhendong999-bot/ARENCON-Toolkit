@@ -1774,6 +1774,14 @@ body.dark-mode .ai-usage-table th{background:rgba(255,255,255,.04);}
     import { buildHeader2 } from '/lib/ui/headerEngine2.js';
     import { dieselHeaderConfig } from '/lib/ui/headerConfigs.js';
     import { openCameraBurst } from '/lib/ui/cameraBurst.js';
+    /* S496: publish the shared IDB factory for the classic-script ADB module below.
+       ADB.open() awaits window.ARENCON_IDB._ready (created during parse) rather than
+       probing for the factory — a probe would always lose the race against this
+       deferred module block and silently leave Diesel on its inline fallback. */
+    import { createIDB } from '/lib/data/idb.js';
+    window.ARENCON_IDB = window.ARENCON_IDB || {};
+    window.ARENCON_IDB.createIDB = createIDB;
+    if (window.ARENCON_IDB._resolve) window.ARENCON_IDB._resolve(createIDB);
     /* S488 (Mark): FRT's burst camera wired to Diesel. Every camera function in
        this file already probes `typeof _camBurst === 'function'` and falls back
        to the legacy single-shot <input capture> — the hook was pre-built and
@@ -11391,25 +11399,99 @@ window.addEventListener('online',updateOfflineStatus);
 window.addEventListener('offline',updateOfflineStatus);
 updateOfflineStatus();
 
-// ══ ADB MODULE (Full IndexedDB Persistence Layer — Session 53) ══
+// ══ ADB MODULE (IndexedDB Persistence Layer — Session 53; S496: shared engine) ══
+/* S496 — ADB.open now delegates to the SHARED factory (lib/data/idb.js) instead of
+   hand-rolling indexedDB.open. Same database, same version, same live store — this is
+   a wiring change, not a data change, and it needs NO migration.
+
+   WHY the shared factory could not be used before: it hardcoded keyPath 'id' for every
+   store, but Diesel's `state` store keys on 'k'. A keyPath is fixed at creation and
+   cannot be changed by reopening the DB, so pointing Diesel at the old factory would
+   NOT have thrown — the store already exists, creation is skipped, and reads/writes
+   then disagree about where the key lives. Silent wrong data on a field tablet. The
+   factory gained per-store keyPath in S496 precisely so this adoption is safe.
+
+   S496 (Mark approved): `projects`, `photos` and `pdfData` are NO LONGER DECLARED.
+   All three were created in every tablet's database and had ZERO read/write call sites
+   in the entire tool. Dropping them from the declaration does NOT delete them from
+   existing databases — the factory never drops undeclared stores; verifyShape() reports
+   them as `extra` and leaves them untouched. They simply stop being recreated on new
+   devices. Nothing reads them, so nothing can miss them.
+
+   What is deliberately NOT shared: ADB.put/get/delete/getAll keep their own thin
+   promise wrappers below, because `state` records are shaped {k,v} and the rest of the
+   tool calls ADB.* directly. The engine owns OPENING the database; Diesel keeps its
+   field-proven read/write verbs. */
+/* S496: the shared IDB factory is bridged onto window.ARENCON_IDB by the module
+   block near the top of <body>. Module blocks are DEFERRED, but ADB.open() is
+   called from a classic inline script during parse — so the engine is NOT yet
+   present at first call. ADB.open() therefore AWAITS the bridge's ready promise
+   rather than probing for it: probing would always lose the race and silently
+   leave Diesel on the fallback forever, which is a no-op nobody would notice.
+   Everything downstream already awaits ADB.open()'s promise, so waiting costs
+   nothing. */
+window.ARENCON_IDB = window.ARENCON_IDB || {};
+window.ARENCON_IDB._ready = window.ARENCON_IDB._ready || new Promise(function(res){
+  window.ARENCON_IDB._resolve = res;
+});
 var ADB = {};
 ADB.DB_NAME = 'ARENCON_DIESEL';
 ADB.DB_VERSION = 3;
 ADB._db = null;
+ADB._engine = null;
+ADB._opening = null;
 ADB.open = function(){
-  return new Promise(function(resolve,reject){
-    if(ADB._db){resolve(ADB._db);return;}
-    if(!window.indexedDB){reject('IndexedDB not available');return;}
-    var req = indexedDB.open(ADB.DB_NAME, ADB.DB_VERSION);
-    req.onupgradeneeded = function(e){
-      var db = e.target.result;
-      if(!db.objectStoreNames.contains('state')) db.createObjectStore('state',{keyPath:'k'});
-      if(!db.objectStoreNames.contains('projects')) db.createObjectStore('projects',{keyPath:'id'});
-      if(!db.objectStoreNames.contains('photos')) db.createObjectStore('photos',{keyPath:'id'});
-      if(!db.objectStoreNames.contains('pdfData')) db.createObjectStore('pdfData',{keyPath:'id'});
-    };
-    req.onsuccess = function(e){ADB._db=e.target.result;resolve(ADB._db);};
-    req.onerror = function(e){reject(e);};
+  if(ADB._db) return Promise.resolve(ADB._db);
+  if(!window.indexedDB) return Promise.reject('IndexedDB not available');
+  /* S496: single-flight guard. `_db` is only set once the open COMPLETES, so the
+     original code let every call that arrived before then start its own
+     indexedDB.open() — and Diesel makes 5 ADB.open() calls at boot. Extra
+     connections keep a `versionchange` from ever completing, which is how an
+     upgrade silently hangs. One in-flight promise, shared by every caller. */
+  if(ADB._opening) return ADB._opening;
+  ADB._opening = ADB._openInternal().then(function(db){
+    ADB._opening = null; return db;
+  }, function(e){ ADB._opening = null; throw e; });
+  return ADB._opening;
+};
+ADB._openInternal = function(){
+  /* Wait for the bridge, but never hang: if the module fails to load the timeout
+     resolves null and we fall back to the original inline open. A missing shared
+     module must never cost an inspector their report. */
+  var guard = new Promise(function(res){ setTimeout(function(){ res(null); }, 4000); });
+  return Promise.race([ window.ARENCON_IDB._ready, guard ]).then(function(mk){
+    if(ADB._db) return ADB._db;
+    if(!mk){
+      console.warn('[ADB] shared IDB engine unavailable — using inline fallback.');
+      return new Promise(function(resolve,reject){
+        var req = indexedDB.open(ADB.DB_NAME, ADB.DB_VERSION);
+        req.onupgradeneeded = function(e){
+          var db = e.target.result;
+          if(!db.objectStoreNames.contains('state')) db.createObjectStore('state',{keyPath:'k'});
+        };
+        req.onsuccess = function(e){ ADB._db=e.target.result; resolve(ADB._db); };
+        req.onerror = function(e){ reject(e); };
+      });
+    }
+    if(!ADB._engine){
+      ADB._engine = mk({
+        dbName: ADB.DB_NAME,
+        version: ADB.DB_VERSION,
+        stores: [ { name:'state', keyPath:'k' } ]
+      });
+    }
+    return ADB._engine.init().then(function(db){
+      ADB._db = db;
+      /* Adoption self-check: reads the REAL database and reports any keyPath that
+         disagrees with what we declared. Logs only — never blocks the tool. */
+      try {
+        ADB._engine.verifyShape().then(function(r){
+          if(r && !r.ok) console.error('[ADB] KEYPATH MISMATCH', r.mismatches);
+          else if(r) console.log('[ADB] shared engine active. extra stores:', r.extra);
+        }).catch(function(){});
+      } catch(_){}
+      return db;
+    });
   });
 };
 ADB.put = function(store,data){
