@@ -1,0 +1,33 @@
+# tools/precache_extra.txt — precache entries static analysis CANNOT derive.
+# One repo path per line. Read by tools/gen_precache.py; nonexistent paths are
+# dropped with a loud report (that is how deleted features leave the cache).
+# S497: seeded from the last hand-maintained APP_FILES during adoption.
+
+# ── Shells & root ─────────────────────────────────────────────────────────
+./
+frt/index.html
+ARENCON_Diesel_Fire_Pump_Commissioning.html
+ARENCON_Electric_Fire_Pump_Commissioning.html
+ARENCON_Project_Hub.html
+index.html
+# Legacy v1 FRT — still linked from index.html (verified S497). Remove from
+# here only when that link is retired.
+ARENCON_Field_Review_Tool.html
+
+# ── Auth gate — loaded FIRST by frt/index.html via plain <script src>, which
+#    the scanner sees, but kept explicit because a cold-offline boot without it
+#    locks the user out (S331).
+shared/auth-gate.js
+
+# ── Worker scripts — loaded via new Worker(new URL(...)), invisible to the
+#    import scanner. Missing one = silent offline sync/image failure.
+frt/js/data/syncWorker.js
+frt/js/workers/imageWorker.js
+lib/data/syncWorker.js
+lib/workers/imageWorker.js
+
+# ── Unreferenced but existing (S497 audit): nothing imports these anywhere.
+#    Kept pending Mark's call — precaching an orphan costs bytes, not bugs.
+#    If Mark retires the files, they fall out of here automatically.
+frt/js/data/hubBridge.js
+frt/js/diag/preflight.js

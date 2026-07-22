@@ -226,6 +226,33 @@ def main():
         return 1
 
     print("   ✓ no silent deletions")
+
+    # ── S497: sw.js is MACHINE-OWNED. Whenever the file under the gate is
+    # sw.js, the precache list must match what tools/gen_precache.py derives
+    # from the tools' real imports. A hand edit or a stale-base rebuild fails
+    # HERE, in every lane, before any push — this is what makes the two S497
+    # clobber incidents mechanically impossible rather than merely unlikely.
+    import os, subprocess
+    # Content-based detection, NOT filename-based: lanes name working copies
+    # freely (sw_push2.js, sw_fix.js, /tmp/anything). If the file being gated
+    # IS the service worker — identified by its CACHE_NAME signature — the
+    # precache check runs, whatever the file is called.
+    if "var CACHE_NAME = 'arencon-frt-" in new:
+        gen = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           'gen_precache.py')
+        if os.path.exists(gen):
+            r = subprocess.run([sys.executable, gen, '--check',
+                                '--sw', os.path.abspath(a.new)],
+                               capture_output=True, text=True,
+                               cwd=os.path.dirname(os.path.dirname(gen)))
+            print('   ── precache check (gen_precache --check) ──')
+            for ln in (r.stdout + r.stderr).strip().splitlines():
+                print('   ' + ln)
+            if r.returncode != 0:
+                print('   ✗ BLOCKED — sw.js precache does not match the derived list.')
+                print('   Run: python3 tools/gen_precache.py --write   (from repo root,')
+                print('   with the CURRENT live sw.js in place) and re-gate.')
+                return 1
     return 0
 
 

@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607220506';
+var CACHE_NAME = 'arencon-frt-202607220519';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -28,113 +28,109 @@ function isTileRequest(url) {
 
 // Files to precache on install
 var APP_FILES = [
+  /* ═══ BEGIN GENERATED PRECACHE — tools/gen_precache.py owns this block.
+     Hand edits are discarded on the next --write. Add unscannable files
+     to tools/precache_extra.txt instead. ═══ */
   './',
-  'ARENCON_Field_Review_Tool.html',
-  'ARENCON_Project_Hub.html',
-  'index.html',
-  // S331 #auth — universal sign-in gate (loaded first by frt/index.html as
-  // ../shared/auth-gate.js). Precache so a cold-offline boot still has the gate
-  // and a previously-validated session can pass it within the grace window.
-  'shared/auth-gate.js',
-  // FRT v2 modular files
   'frt/index.html',
-  // S461f — toolkit-wide PWA (Mark: "everything is supposed to be PWA").
-  // One root SW serves the whole toolkit; these shells now work offline.
   'ARENCON_Diesel_Fire_Pump_Commissioning.html',
   'ARENCON_Electric_Fire_Pump_Commissioning.html',
+  'ARENCON_Project_Hub.html',
   'index.html',
-  'frt/css/frt.css',
-  'frt/js/app.js',
-  'frt/js/data/model.js',
-  'frt/js/data/idb.js',
-  'frt/js/data/sync.js',
+  'ARENCON_Field_Review_Tool.html',
+  'shared/auth-gate.js',
   'frt/js/data/syncWorker.js',
-  'frt/js/data/syncWorkerHost.js',
-  'frt/js/data/merge.js',
-  'frt/js/data/r2.js',
-  'frt/js/data/uploadQueue.js',
-  'frt/js/data/tileCache.js',
-  'frt/js/data/hubBridge.js',
-  // S220: presence.js is a static (blocking) import in app.js but was absent
-  // from the precache list. Online use self-heals via runtime cache, but a
-  // cold-offline first boot on a freshly-activated SW would 503 the import and
-  // fail the module graph. Precaching closes that gap.
-  'frt/js/data/presence.js',
-  // S169 (Fix A foundation) — stub module, no behavior. Cached so devices
-  // pick it up on next SW activate.
-  'frt/js/data/photoOutbox.js',
-  'frt/js/diag/memory.js',
   'frt/js/workers/imageWorker.js',
-  'frt/js/workers/imageWorkerHost.js',
-  'frt/js/ui/projectInfo.js',
-  'frt/js/ui/deficiencies.js',
-  'frt/js/ui/drawings.js',
-  'frt/js/ui/photos.js',
-  'frt/js/ui/cameraBurst.js',
-  'frt/js/ui/pinsGL.js',
-  'frt/js/ui/lightbox.js',
-  'frt/js/ui/photoPicker.js',
-  'frt/js/viewer/viewer.js',
-  'frt/js/viewer/markup.js',
-  'frt/js/viewer/markupSelBridge.js',
-  'lib/ui/photoInput.js',   // S478: THE shared photo surface (every tool)
-  'lib/ui/markupTools.js',
-  'lib/ui/checklist.js',
-  'lib/ui/lightbox.js',
-  'lib/ui/signaturePad.js',
-  'lib/data/photoMint.js',
-  'lib/ui/markupEraser.js',
-  'lib/ui/markupSelection.js',
-  'lib/ui/markupText.js',
-  'frt/js/viewer/markupEngine.js',
-  'frt/js/viewer/webglMarkup.js',
-  'frt/js/viewer/tiledPdf.js',
-  'frt/js/export/pdf.js',
-  'frt/js/export/crbRender.js',
-  'frt/js/export/crbImport.js',
-  'frt/js/export/json.js',
-  'frt/js/export/projectDocs.adapter.js',
-  'lib/export/projectDocs.js',
-  // S490d library step 1 — shim targets MUST be precached or the shims 404 offline:
-  'lib/shared/toast.js',
-  'lib/shared/auth.js',
-  'lib/workers/imageWorker.js',
-  'lib/workers/imageWorkerHost.js',
-  'lib/data/idb.js',
-  'lib/data/r2.js',
-  'lib/data/photoOutbox.js',
-  'lib/data/sync.js',
-  'lib/data/merge.js',
-  // S496 Phase 2 — Diesel's merge-based sync facade and the conflict dialog it
-  // imports. WITHOUT these an offline (or stale-cache) boot 404s the module and
-  // _cloudSyncInit retries forever in SILENCE: no error, no toast, and the Back
-  // button's save does nothing. Precached so a cold/offline start still syncs.
-  'diesel-sync.js',
-  'lib/ui/dialogEngine.js',
-  // S497 Diesel Phase 3 — RESTORED. These three were pushed in d507996c and
-  // silently dropped by 12a2da49 (seal-detection removal rebuilt sw.js from a
-  // pre-Phase-3 copy). Diesel imports all three; without them an offline boot
-  // 404s the module block that carries the header + IDB bridge. Sealed-engine
-  // dialogs would then be absent, and _aConfirm fail-safes BLOCK destructive
-  // actions — i.e. offline Diesel would refuse deletes with no visible reason.
-  'lib/ui/dialogConfigs.js',
-  'lib/shared/scrollLock.js',
-  'lib/assets/logo.js',
   'lib/data/syncWorker.js',
-  'lib/data/syncWorkerHost.js',
-  'frt/js/export/exportview.js',
-  'frt/js/export/carlitoReg.js',
-  'frt/js/export/carlitoBold.js',
-  'frt/js/shared/auth.js',
-  'frt/js/shared/dialogs.js',
-  'frt/js/shared/toast.js',
-  'frt/js/lib/esc.js',
+  'lib/workers/imageWorker.js',
+  'frt/js/data/hubBridge.js',
+  'frt/js/diag/preflight.js',
+  'aiusage_panel.css',
+  'aiusage_panel.js',
+  'diesel-sync.js',
+  'frt/css/frt.css',
   'frt/js/ai/assistant.js',
   'frt/js/ai/usage.js',
-  'frt/js/diag/recorder.js',
-  'frt/js/diag/integrity.js',
+  'frt/js/app.js',
+  'frt/js/data/idb.js',
+  'frt/js/data/merge.js',
+  'frt/js/data/model.js',
+  'frt/js/data/photoOutbox.js',
+  'frt/js/data/presence.js',
+  'frt/js/data/r2.js',
+  'frt/js/data/sync.js',
+  'frt/js/data/syncWorkerHost.js',
+  'frt/js/data/thumbCache.js',
+  'frt/js/data/tileCache.js',
+  'frt/js/data/uploadQueue.js',
   'frt/js/diag/drawingMigrate.js',
-  'frt/js/diag/preflight.js'
+  'frt/js/diag/integrity.js',
+  'frt/js/diag/memory.js',
+  'frt/js/diag/r2cleanup.js',
+  'frt/js/diag/recorder.js',
+  'frt/js/export/carlitoBold.js',
+  'frt/js/export/carlitoReg.js',
+  'frt/js/export/crbImport.js',
+  'frt/js/export/crbRender.js',
+  'frt/js/export/exportview.js',
+  'frt/js/export/json.js',
+  'frt/js/export/pdf.js',
+  'frt/js/export/projectDocs.adapter.js',
+  'frt/js/lib/esc.js',
+  'frt/js/shared/auth.js',
+  'frt/js/shared/deviceBudget.js',
+  'frt/js/shared/dialogs.js',
+  'frt/js/shared/scrollLock.js',
+  'frt/js/shared/toast.js',
+  'frt/js/ui/cameraBurst.js',
+  'frt/js/ui/crbThread.js',
+  'frt/js/ui/deficiencies.js',
+  'frt/js/ui/drawings.js',
+  'frt/js/ui/lightbox.js',
+  'frt/js/ui/photoPicker.js',
+  'frt/js/ui/photos.js',
+  'frt/js/ui/pinsGL.js',
+  'frt/js/ui/projectInfo.js',
+  'frt/js/viewer/dimensionTool.js',
+  'frt/js/viewer/markup.js',
+  'frt/js/viewer/markupEngine.js',
+  'frt/js/viewer/markupSelBridge.js',
+  'frt/js/viewer/tiledPdf.js',
+  'frt/js/viewer/viewer.js',
+  'frt/js/viewer/webglMarkup.js',
+  'frt/js/workers/imageWorkerHost.js',
+  'lib/assets/logo.js',
+  'lib/data/idb.js',
+  'lib/data/merge.js',
+  'lib/data/photoMint.js',
+  'lib/data/photoOutbox.js',
+  'lib/data/r2.js',
+  'lib/data/sync.js',
+  'lib/data/syncWorkerHost.js',
+  'lib/export/exportPreview.js',
+  'lib/export/projectDocs.js',
+  'lib/export/projectDocsSources.js',
+  'lib/shared/auth.js',
+  'lib/shared/scrollLock.js',
+  'lib/shared/toast.js',
+  'lib/ui/cameraBurst.js',
+  'lib/ui/checklist.js',
+  'lib/ui/dialogConfigs.js',
+  'lib/ui/dialogEngine.js',
+  'lib/ui/headerConfigs.js',
+  'lib/ui/headerEngine2.js',
+  'lib/ui/hubHeaderConfig.js',
+  'lib/ui/lightbox.js',
+  'lib/ui/markupEraser.js',
+  'lib/ui/markupPolyline.js',
+  'lib/ui/markupSelection.js',
+  'lib/ui/markupText.js',
+  'lib/ui/markupTools.js',
+  'lib/ui/photoInput.js',
+  'lib/ui/portalHeaderConfig.js',
+  'lib/ui/signaturePad.js',
+  'lib/workers/imageWorkerHost.js',
+  /* ═══ END GENERATED PRECACHE ═══ */
 ];
 
 // CDN assets to precache (pdf.js etc)
