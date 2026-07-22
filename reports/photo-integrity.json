@@ -1,65 +1,10 @@
 {
-  "generatedAt": "2026-07-21T07:55:41.483Z",
-  "rows": 42,
-  "photoPointers": 341,
-  "uniqueUrls": 284,
-  "brokenCount": 6,
+  "generatedAt": "2026-07-22T07:55:31.802Z",
+  "rows": 39,
+  "photoPointers": 336,
+  "uniqueUrls": 281,
+  "brokenCount": 1,
   "broken": [
-    {
-      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
-      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "dp_1773668633630_5qczdj",
-      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
-      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
-      "ctx": "ctr:ctr_1773668668940:defic:def_1773668604785_pfru",
-      "status": "404"
-    },
-    {
-      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
-      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "dp_1773668651007_egoc9r",
-      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668651009_y0emng.jpg",
-      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668651009_y0emng.jpg",
-      "ctx": "ctr:ctr_1773668668940:defic:def_1773668604785_pfru",
-      "status": "404"
-    },
-    {
-      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
-      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "dp_1773668659286_qwgyi2",
-      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
-      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
-      "ctx": "ctr:ctr_1773668668940:defic:def_1773668604785_pfru",
-      "status": "404"
-    },
-    {
-      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
-      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "dp_1773668633630_5qczdj",
-      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
-      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
-      "ctx": "ctr:ctr_1773668668940:entry",
-      "status": "404"
-    },
-    {
-      "row_id": "7a2d05e8-cf15-4b3d-870b-bb5a0c89affc",
-      "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "dp_1773668659286_qwgyi2",
-      "r2Key": "photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
-      "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
-      "ctx": "ctr:ctr_1773668668940:entry",
-      "status": "404"
-    },
     {
       "row_id": "7499abdc-7d58-45f8-b9f5-392b69f37883",
       "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
