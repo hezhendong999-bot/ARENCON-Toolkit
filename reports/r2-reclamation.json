@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-07-21T08:03:17.762Z",
+  "generatedAt": "2026-07-22T08:03:57.569Z",
   "note": "DRY-RUN REPORT ONLY. Nothing here deletes or authorizes deletion. Reclamation, if ever built, is a separate manual Mark-present step driven from this tombstone-based list — never a bucket scan.",
-  "currentRows": 42,
-  "referencedFilenames": 676,
-  "tombstoneSnapshots": 11,
-  "purgedDistinctFilenames": 75,
+  "currentRows": 39,
+  "referencedFilenames": 671,
+  "tombstoneSnapshots": 14,
+  "purgedDistinctFilenames": 80,
   "heldCount": 75,
-  "candidateCount": 0,
+  "candidateCount": 5,
   "candidatesStillInR2": 0,
   "candidateBytes": 0,
   "held": [
@@ -311,5 +311,144 @@
       "reason": "still referenced by a current report"
     }
   ],
-  "candidates": []
+  "candidates": [
+    {
+      "fname": "dwg_1773668369845_z2dmhj.jpg.png",
+      "pointer": "photos/7000.00_asdasd/frt/drawings/dwg_1773668369845_z2dmhj.jpg.png",
+      "contexts": [
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        }
+      ],
+      "exists": "unknown",
+      "probe_status": "key-only-pointer (not probeable without worker auth)"
+    },
+    {
+      "fname": "mkup_1773668752322_1yqgp1.jpg",
+      "pointer": "photos/7000.00_asdasd/frt/original/mkup_1773668752322_1yqgp1.jpg",
+      "contexts": [
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        }
+      ],
+      "exists": "unknown",
+      "probe_status": "key-only-pointer (not probeable without worker auth)"
+    },
+    {
+      "fname": "defic_1773668633631_uptns1.jpg",
+      "pointer": "photos/7000.00_asdasd/frt/original/defic_1773668633631_uptns1.jpg",
+      "contexts": [
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        }
+      ],
+      "exists": "unknown",
+      "probe_status": "key-only-pointer (not probeable without worker auth)"
+    },
+    {
+      "fname": "defic_1773668651009_y0emng.jpg",
+      "pointer": "photos/7000.00_asdasd/frt/original/defic_1773668651009_y0emng.jpg",
+      "contexts": [
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        }
+      ],
+      "exists": "unknown",
+      "probe_status": "key-only-pointer (not probeable without worker auth)"
+    },
+    {
+      "fname": "defic_1773668659286_ain6nc.jpg",
+      "pointer": "photos/7000.00_asdasd/frt/original/defic_1773668659286_ain6nc.jpg",
+      "contexts": [
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        },
+        {
+          "hist_id": 579,
+          "project_id": "280ef0c0-fe56-4faf-8caa-e354e8019516",
+          "tool": "frt",
+          "instance": 1,
+          "purged_at": "2026-07-21T21:19:37.917112+00:00"
+        }
+      ],
+      "exists": "unknown",
+      "probe_status": "key-only-pointer (not probeable without worker auth)"
+    }
+  ]
 }
