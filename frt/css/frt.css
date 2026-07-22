@@ -11479,3 +11479,115 @@ body.dark-mode .seal-mark .seal-mark-label{color:#0F3A5C;}
    inside the excluded zone. Reserving 48%+12px ends the button BEFORE the
    divider line with clearance. The right edge must never cross the middle. */
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PART S498c — SEAL REDACTION EDIT CHROME REWORK (Mark)
+   Later PART supersedes earlier: this replaces the S492 single-corner .seal-rs
+   chrome and the inside-the-box buttons.
+   1. ✕ floats OUTSIDE the box (top-right), red round — selection-box family.
+   2. "⧉ All pages" floats OUTSIDE, centred BELOW the box (where the selection
+      box parks its copy handle). It can no longer cover the ✕ on small boxes.
+   3. 8 handles (corners + edge midpoints), selection-box style. No rotation.
+   4. #dv-seal-btn armed = ARENCON red, same convention as other active tools.
+   5. #dv-seal-banner — persistent mode banner, replaces the vanishing toast.
+   All chrome multiplies by --seal-inv so it holds constant SCREEN size at any
+   sheet zoom (S492 field fix, unchanged).
+   ═══════════════════════════════════════════════════════════════════════ */
+/* the old single corner handle is gone — kill it wherever earlier PARTs
+   painted it, in case a stale element survives a partial re-render */
+.seal-rs{display:none !important;}
+
+/* boxes must not clip their floating chrome */
+#dv-seal-layer .seal-mark{overflow:visible;}
+
+/* 1 ── floating red ✕, outside top-right */
+.seal-mark .seal-del{
+  position:absolute;
+  top:calc(-13px * var(--seal-inv,1));
+  right:calc(-13px * var(--seal-inv,1));
+  left:auto; bottom:auto;
+  width:calc(26px * var(--seal-inv,1));
+  height:calc(26px * var(--seal-inv,1));
+  border-radius:50%;
+  background:#C0445F; color:#fff;
+  border:calc(2px * var(--seal-inv,1)) solid #fff;
+  font-size:calc(13px * var(--seal-inv,1));
+  line-height:1; padding:0;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.35);
+  pointer-events:auto; z-index:3;
+}
+body.dark-mode .seal-mark .seal-del{background:#E26076; border-color:#16151a;}
+
+/* 2 ── "All pages", outside bottom-centre */
+.seal-mark .seal-all{
+  position:absolute;
+  bottom:calc(-30px * var(--seal-inv,1));
+  left:50%;
+  transform:translateX(-50%) scale(var(--seal-inv,1));
+  transform-origin:top center;
+  top:auto; right:auto;
+  white-space:nowrap;
+  background:#2C7FB8; color:#fff;
+  border:1px solid rgba(255,255,255,.75);
+  border-radius:12px;
+  font:700 11px Calibri,sans-serif;
+  padding:4px 10px;
+  cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.3);
+  pointer-events:auto; z-index:3;
+}
+body.dark-mode .seal-mark .seal-all{background:#46C5E8; color:#0b0a0d; border-color:rgba(0,0,0,.4);}
+
+/* 3 ── 8 selection-style handles */
+.seal-h{
+  position:absolute;
+  width:calc(10px * var(--seal-inv,1));
+  height:calc(10px * var(--seal-inv,1));
+  background:#2C7FB8;
+  border:calc(1.5px * var(--seal-inv,1)) solid #fff;
+  border-radius:2px;
+  pointer-events:auto; z-index:2;
+  touch-action:none;
+}
+body.dark-mode .seal-h{background:#46C5E8; border-color:#0b0a0d;}
+/* corners */
+.seal-h-nw{top:calc(-5px * var(--seal-inv,1));left:calc(-5px * var(--seal-inv,1));cursor:nwse-resize;}
+.seal-h-ne{top:calc(-5px * var(--seal-inv,1));right:calc(-5px * var(--seal-inv,1));cursor:nesw-resize;}
+.seal-h-sw{bottom:calc(-5px * var(--seal-inv,1));left:calc(-5px * var(--seal-inv,1));cursor:nesw-resize;}
+.seal-h-se{bottom:calc(-5px * var(--seal-inv,1));right:calc(-5px * var(--seal-inv,1));cursor:nwse-resize;}
+/* edge midpoints */
+.seal-h-n{top:calc(-5px * var(--seal-inv,1));left:50%;margin-left:calc(-5px * var(--seal-inv,1));cursor:ns-resize;}
+.seal-h-s{bottom:calc(-5px * var(--seal-inv,1));left:50%;margin-left:calc(-5px * var(--seal-inv,1));cursor:ns-resize;}
+.seal-h-w{left:calc(-5px * var(--seal-inv,1));top:50%;margin-top:calc(-5px * var(--seal-inv,1));cursor:ew-resize;}
+.seal-h-e{right:calc(-5px * var(--seal-inv,1));top:50%;margin-top:calc(-5px * var(--seal-inv,1));cursor:ew-resize;}
+/* gloves: bigger touch targets without bigger visuals */
+@media (pointer:coarse){
+  .seal-h::after{content:'';position:absolute;inset:calc(-8px * var(--seal-inv,1));}
+  .seal-mark .seal-del::after{content:'';position:absolute;inset:calc(-8px * var(--seal-inv,1));border-radius:50%;}
+}
+
+/* 4 ── armed toolbar button: ARENCON red, matching other active tools */
+#dv-seal-btn.seal-armed{
+  background:var(--arencon,#9C2742) !important;
+  color:#fff !important;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.3);
+}
+body.dark-mode #dv-seal-btn.seal-armed{background:var(--arencon,#C9476A) !important;}
+
+/* 5 ── persistent mode banner */
+#dv-seal-banner{
+  position:fixed;
+  top:58px; left:50%;
+  transform:translateX(-50%);
+  z-index:100000;
+  background:var(--arencon,#9C2742); color:#fff;
+  font:600 13px Calibri,sans-serif;
+  padding:8px 16px;
+  border-radius:18px;
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
+  pointer-events:none;
+  white-space:nowrap;
+}
+#dv-seal-banner b{font-weight:700;}
+body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
+@media (max-width:640px){#dv-seal-banner{font-size:11.5px;white-space:normal;max-width:88vw;text-align:center;}}

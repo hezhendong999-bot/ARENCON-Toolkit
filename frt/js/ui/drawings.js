@@ -15,6 +15,7 @@ import { showConfirm } from '../shared/dialogs.js';
 import { showPrompt } from '../shared/dialogs.js';
 import { showTypeToConfirm } from '../shared/dialogs.js';
 import { initViewer } from '../viewer/viewer.js';
+import { Markup } from '../viewer/markup.js'; // S498c: seal mode disarms the active markup tool (mutual exclusivity, Mark)
 import { esc, esc as _escHtml } from '../lib/esc.js';
 import { lockScroll, unlockScroll } from '../shared/scrollLock.js'; // S492: seal-redaction editor overlay // S454: shared HTML-escape (both local copies were identical; 0-case unreachable here)
 
@@ -833,11 +834,25 @@ function _renderSealMarkersInViewer() {
        in SHEET space (like print), so what you see is what exports. */
     var bw = b.w * W, bh = b.h * H;
     var fs = Math.max(8, Math.min(bw / 12, bh / 2.6));
+    /* S498c (Mark): edit chrome reworked to match the selection-box feel.
+       — ✕ is a red round button FLOATING OUTSIDE the box (top-right corner,
+         like the selection box's red ✕) so nothing inside can cover it.
+       — "⧉ All pages" FLOATS OUTSIDE too (centred BELOW the box, where the
+         selection box parks its copy handle). On small boxes or zoomed-out
+         sheets it used to sit inside and covered the ✕ — the reason for
+         this rework.
+       — 8 resize handles (4 corners + 4 edge midpoints), selection-box
+         style. No rotation (Mark: not required).
+       All chrome counter-scales via --seal-inv so it holds constant screen
+       size at any zoom. */
+    var _dirs = ['nw','n','ne','e','se','s','sw','w'];
     el.innerHTML = '<div class="seal-mark-label" style="font-size:' + fs + 'px;">Seal redacted \u2014 refer to original issued drawing</div>'
       + (_sealEditMode
-        ? '<button class="seal-del" data-seal-del="' + idx + '">\u2715</button>'
+        ? '<button class="seal-del" data-seal-del="' + idx + '" title="Remove this cover">\u2715</button>'
           + '<button class="seal-all" data-seal-all="' + idx + '" title="Apply this cover to every page of this set">\u29C9 All pages</button>'
-          + '<div class="seal-rs" data-seal-rs="' + idx + '"></div>'
+          + _dirs.map(function(dd){
+              return '<div class="seal-h seal-h-' + dd + '" data-seal-rs="' + idx + '" data-seal-dir="' + dd + '"></div>';
+            }).join('')
         : '');
     layer.appendChild(el);
   });
@@ -885,12 +900,39 @@ function _sealPaintUndoState() {
   var on = _sealUndo.length > 0;
   _sealUndoButtons().forEach(function(b) { b.style.opacity = on ? '1' : '0.3'; });
 }
+/* S498c (Mark): a PERSISTENT mode banner replaces the old toast. The toast
+   vanished after seconds — "nobody will notice it" — so the only trace of
+   being armed was a subtle button state. The banner stays pinned for the
+   whole armed session and is removed on disarm. */
+function _sealBanner(show) {
+  var b = document.getElementById('dv-seal-banner');
+  if (!show) { if (b) b.remove(); return; }
+  if (b) return;
+  b = document.createElement('div');
+  b.id = 'dv-seal-banner';
+  b.innerHTML = '\uD83D\uDD12 <b>Seal redaction mode active</b> \u2014 drag on the sheet to draw a cover \u00B7 tap \uD83D\uDD12 to finish';
+  document.body.appendChild(b);
+}
+
+/* S498c (Mark): MUTUAL EXCLUSIVITY — seal mode and markup tools can never be
+   armed together. Arming seal deactivates the current markup tool; picking
+   any markup tool disarms seal (see the capture listener below). */
+function _sealDisarmMarkupTools() {
+  try { Markup.setTool(null); } catch (_e) {}
+  try {
+    document.querySelectorAll(
+      '[data-mk-tool].active, #mk-pin.active, #mk-select.active, #mk-pen-btn.active, #mk-shapes-btn.active'
+    ).forEach(function(btn) { btn.classList.remove('active'); });
+  } catch (_e) {}
+}
+
 function _toggleSealEditMode() {
   var dwg = null;
   try { dwg = initViewer.getCurrentDrawing(); } catch (_e) {}
   if (!dwg) { toast('Open a drawing first'); return; }
   _sealEditMode = !_sealEditMode;
   if (_sealEditMode) {
+    _sealDisarmMarkupTools();                   /* S498c: seal in, tools out */
     _sealUndoBtnPrev = _sealUndoButtons().map(function(b) { return [b, b.style.opacity]; });
     _sealUndo.length = 0;                       /* fresh session, fresh stack */
     _sealPaintUndoState();
@@ -899,12 +941,31 @@ function _toggleSealEditMode() {
     _sealUndoBtnPrev = null;
   }
   _renderSealMarkersInViewer();
-  if (_sealEditMode) {
-    toast('\uD83D\uDD12 Seal mode \u2014 drag on the sheet to draw a cover. Tap \uD83D\uDD12 again to finish.');
-  } else {
+  _sealBanner(_sealEditMode);                   /* S498c: persistent, not a toast */
+  if (!_sealEditMode) {
     try { initDrawings.render(); } catch (_e) {}   // card markers/badges catch up
   }
 }
+
+/* S498c: the reverse direction — tapping ANY markup tool while seal mode is
+   armed disarms seal first, then the tap proceeds to arm that tool normally.
+   Capture phase so it runs before markup's own handlers. Undo/redo are
+   deliberately EXCLUDED: while armed they are seal's own undo (S492). */
+document.addEventListener('pointerdown', function(e) {
+  if (!_sealEditMode) return;
+  var t = e.target.closest && e.target.closest(
+    '[data-mk-tool], #mk-pin, #mk-select, #mk-pen-btn, #mk-shapes-btn, #dim-add-btn, #dim-calibrate-btn, #dv-heights-btn'
+  );
+  if (!t) return;
+  _toggleSealEditMode();   /* disarms (we are armed); the click continues to the tool */
+}, true);
+
+/* S498c: closing the viewer while armed must disarm — the banner is fixed to
+   the BODY and would otherwise outlive the viewer it describes. */
+document.addEventListener('click', function(e) {
+  if (!_sealEditMode) return;
+  if (e.target.closest && e.target.closest('#dv-close')) _toggleSealEditMode();
+}, true);
 
 function _sealFrac(ev, layer) {
   var r = layer.getBoundingClientRect();
@@ -990,7 +1051,10 @@ function _sealCommit(dwg) {
       var bx = ev.target.closest && ev.target.closest('[data-seal-i]');
       if (rs) {
         var ri = parseInt(rs.getAttribute('data-seal-rs'), 10);
-        _sealDrag = { mode: 'resize', i: ri, start: p, orig: Object.assign({}, dwg.redactions[ri]) };
+        /* S498c: 8 directional handles — remember WHICH edge/corner is being
+           dragged so pointermove can move the right sides of the box. */
+        _sealDrag = { mode: 'resize', i: ri, start: p, dir: rs.getAttribute('data-seal-dir') || 'se',
+                      orig: Object.assign({}, dwg.redactions[ri]) };
       } else if (bx) {
         var bi = parseInt(bx.getAttribute('data-seal-i'), 10);
         _sealDrag = { mode: 'move', i: bi, start: p, orig: Object.assign({}, dwg.redactions[bi]) };
@@ -1015,8 +1079,18 @@ function _sealCommit(dwg) {
         b.x = Math.min(Math.max(0, o.x + (p.x - _sealDrag.start.x)), 1 - o.w);
         b.y = Math.min(Math.max(0, o.y + (p.y - _sealDrag.start.y)), 1 - o.h);
       } else {
-        b.w = Math.min(Math.max(0.01, o.w + (p.x - _sealDrag.start.x)), 1 - o.x);
-        b.h = Math.min(Math.max(0.01, o.h + (p.y - _sealDrag.start.y)), 1 - o.y);
+        /* S498c: direction-aware resize. Each handle moves only its own
+           edge(s); the opposite edge stays anchored — selection-box feel.
+           MIN keeps a box grabbable; clamps keep it on the sheet. */
+        var MIN = 0.01;
+        var dx = p.x - _sealDrag.start.x, dy = p.y - _sealDrag.start.y;
+        var dir = _sealDrag.dir || 'se';
+        var L = o.x, T = o.y, R = o.x + o.w, B = o.y + o.h;
+        if (dir.indexOf('w') >= 0) L = Math.min(Math.max(0, o.x + dx), R - MIN);
+        if (dir.indexOf('e') >= 0) R = Math.max(Math.min(1, o.x + o.w + dx), L + MIN);
+        if (dir.indexOf('n') >= 0) T = Math.min(Math.max(0, o.y + dy), B - MIN);
+        if (dir.indexOf('s') >= 0) B = Math.max(Math.min(1, o.y + o.h + dy), T + MIN);
+        b.x = L; b.y = T; b.w = R - L; b.h = B - T;
       }
       _renderSealMarkersInViewer();
     });

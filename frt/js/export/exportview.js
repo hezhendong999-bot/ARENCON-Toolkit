@@ -644,6 +644,31 @@ export var initExportView = {
     if (_dpEl) _dpEl.addEventListener('change', _exqPaint);
     var _tyEl = ov.querySelector('#exv-type');
     if (_tyEl) _tyEl.addEventListener('change', _exqPaint);
+    // ── S498c (Mark): Photo quality + Drawing detail REMEMBER their last
+    // values across exports. The modal rebuilt from defaults every open, so
+    // Max/Max had to be re-picked every single export. Per-device preference
+    // (localStorage) — a quality choice belongs to the person exporting, not
+    // to the project data, so it deliberately does NOT ride cloud sync.
+    // Applied BEFORE the first _exqPaint so the size estimate is right.
+    (function(){
+      var KEY='frt_export_prefs';
+      var saved=null;
+      try{ saved=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(_e){}
+      function _apply(el,val){
+        if(!el||!val) return;
+        var ok=[].some.call(el.options,function(o){return o.value===val;});
+        if(ok) el.value=val;   /* never force a value the build no longer offers */
+      }
+      if(saved){ _apply(_qEl,saved.photoQuality); _apply(_qdEl,saved.drawingDetail); }
+      function _save(){
+        try{ localStorage.setItem(KEY,JSON.stringify({
+          photoQuality:_qEl?_qEl.value:undefined,
+          drawingDetail:_qdEl?_qdEl.value:undefined
+        })); }catch(_e){}
+      }
+      if(_qEl) _qEl.addEventListener('change',_save);
+      if(_qdEl) _qdEl.addEventListener('change',_save);
+    })();
     _exqPaint();
 
     // S492: contact-sheet click → close export, open that drawing in the viewer.
