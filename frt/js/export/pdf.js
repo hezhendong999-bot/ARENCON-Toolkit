@@ -2042,7 +2042,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S498a';
+var PDF_PIPELINE_BUILD='S498b';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2162,6 +2162,26 @@ function _captureExportPDF(w,D){
         // successfully embedded — a photo that fails to load or embed keeps
         // its rastered look instead of leaving a grey hole.
         var _phOverlays=[];
+        // S498b: tiles blanked for the overlay pass, with their original inline
+        // styles, so the LIVE preview can be restored after the PDF is built.
+        var _phRestore=[];
+        // One restorer, called on EVERY exit from this page — success or the
+        // two `continue` paths below. A page that fails to render must not
+        // leave the preview's photos blanked (that is what made the export
+        // look like it destroyed the photos).
+        var _phPutBack=function(){
+          if(!_phRestore.length) return;
+          try{
+            _phRestore.forEach(function(t){
+              try{
+                t.el.style.backgroundImage=t.bg||'';
+                t.el.style.backgroundColor=t.bc||'';
+                t.el.style.color=t.col||'';
+              }catch(_e1){}
+            });
+          }catch(_rs){}
+          _phRestore=[];
+        };
         try{
           // S497g — CRB thread photos (.rphoto) join the overlay path. Two
           // differences from .dp that the code must respect:
@@ -2233,6 +2253,17 @@ function _captureExportPDF(w,D){
             // twice, and hide the tile's own caption text — it now lives
             // inside the overlay JPEG, so leaving it here would double-print
             // it (raster copy sitting under the sharp baked copy).
+            // S498b: remember the tile's ORIGINAL inline values first so the
+            // live preview can be put back exactly as it was once the PDF is
+            // built. Without this the preview keeps the blanked look until the
+            // user reloads, which reads as "the export broke my photos"
+            // (Mark reported exactly that). Restored in _phRestore below.
+            _phRestore.push({
+              el:_tile,
+              bg:_tile.style.backgroundImage,
+              bc:_tile.style.backgroundColor,
+              col:_tile.style.color
+            });
             _tile.style.backgroundImage='none';
             _tile.style.backgroundColor='#ECEAE6';
             if(_cap) _tile.style.color='transparent';
@@ -2262,7 +2293,7 @@ function _captureExportPDF(w,D){
         if(!isFinite(ph)||ph<=0) ph=792;   // 11in  in points
         var png;
         try{ png=await pdfDoc.embedPng(canvas.toDataURL('image/png')); }
-        catch(ep){ _capStatus(D,'Skipped a blank page ('+(i+1)+').'); continue; }
+        catch(ep){ _phPutBack(); _capStatus(D,'Skipped a blank page ('+(i+1)+').'); continue; }
         var pg;
         var _pwN=Number(pw), _phN=Number(ph);
         if(!isFinite(_pwN)||_pwN<=0)_pwN=612;
@@ -2270,6 +2301,7 @@ function _captureExportPDF(w,D){
         try{ pg=pdfDoc.addPage([_pwN,_phN]); }
         catch(eap){
           try{console.warn('[PDF] Skipped page '+(i+1)+' (render error):',eap&&eap.message);}catch(_){}
+          _phPutBack();
           _capStatus(D,'Skipped a page that failed to render ('+(i+1)+').');
           continue;
         }
@@ -2297,6 +2329,9 @@ function _captureExportPDF(w,D){
             pg.drawImage(o.img,{x:_x0,y:_yB,width:_ww,height:_hh});
           });
         }catch(_od){} }
+        // S498b: put the LIVE preview back exactly as it was. Outside the
+        // draw's catch, so a draw failure can never strand the blanked state.
+        _phPutBack();
         try{
           var pr=pageEl.getBoundingClientRect();
           var sx=pw/(pr.width||cssW), sy=ph/(pr.height||cssH);
