@@ -26,8 +26,10 @@ frt/js/workers/imageWorker.js
 lib/data/syncWorker.js
 lib/workers/imageWorker.js
 
-# ── Unreferenced but existing (S497 audit): nothing imports these anywhere.
-#    Kept pending Mark's call — precaching an orphan costs bytes, not bugs.
-#    If Mark retires the files, they fall out of here automatically.
-frt/js/data/hubBridge.js
-frt/js/diag/preflight.js
+# ── S497: hubBridge.js and preflight.js RETIRED on Mark's call. Both were
+#    never-shipped scaffolding: hubBridge was an S126 API skeleton whose six
+#    functions all throw (Phase 7-A/7-B never built), preflight was an S130
+#    one-off console script for verifying a boot optimisation on a tablet —
+#    paste-into-console, never imported. Nothing referenced either.
+#    migrations/001_normalized_frt.sql is KEPT: it is the schema design for
+#    the normalized frt_* tables, still the reference if that work resumes.
