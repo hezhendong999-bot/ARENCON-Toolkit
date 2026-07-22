@@ -361,6 +361,53 @@ export function buildComposerHtml(o){
   return h;
 }
 
+// ── S498 — PENDING-REVIEW DERIVATION (read-only, no writes anywhere) ──────
+// "Needs review" = a contractor round exists with no ARENCON review against
+// it. DERIVED on every read, never stored: a stored pending flag would go
+// stale, drift between devices, and need its own merge rules. The thread IS
+// the source of truth.
+//
+// NOTE on `removed`: buildThreadHtml above deliberately KEEPS removed entries
+// (they render as Undo stubs, locked §3). Pending state must not — a removed
+// claim asks nothing, and a removed review answers nothing. So this filters
+// removed on BOTH sides, matching crbBuildRealThread's print semantics rather
+// than the card's undo-stub semantics. The two differ on purpose.
+//
+// Rules:
+//   • removed entries never count (either side);
+//   • source:'sitelog' reviews are pre-thread history at round 0 — they can
+//     never resolve a real contractor round;
+//   • a closed observation is never pending (no open round on a closed item).
+// Returns ascending round numbers awaiting review; [] when nothing pends.
+export function crbPendingRounds(obs, closed){
+  if(!obs || closed) return [];
+  var responses=(obs.responses||[]).filter(function(r){ return r && !r.removed; });
+  if(!responses.length) return [];
+  var reviewed={};
+  (obs.arenconReviews||[]).forEach(function(v){
+    if(v && !v.removed && v.source!=='sitelog') reviewed[v.round]=true;
+  });
+  var out=[];
+  responses.forEach(function(r){ if(!reviewed[r.round]) out.push(r.round); });
+  return out.sort(function(a,b){ return a-b; });
+}
+
+// Does this observation await an ARENCON review?
+export function crbNeedsReview(obs, closed){
+  return crbPendingRounds(obs, closed).length>0;
+}
+
+// How many OBSERVATIONS in a list await review. getClosed(obs) lets the caller
+// supply the tool's own closed test; defaults to the obs.addressed convention.
+export function crbCountPending(observations, getClosed){
+  var n=0;
+  (observations||[]).forEach(function(o){
+    var cl=getClosed?!!getClosed(o):!!(o&&o.addressed);
+    if(crbNeedsReview(o,cl)) n++;
+  });
+  return n;
+}
+
 // ── S477 (A2) — staging tray render ──────────────────────────────────────
 // `items` are staged, NOT-yet-persisted photos: {tmpId, dataUrl, file, name}.
 // Rendered from the dataUrl only — nothing here has an R2 key yet, by design.

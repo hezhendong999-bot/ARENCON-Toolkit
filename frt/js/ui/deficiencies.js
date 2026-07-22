@@ -18,7 +18,7 @@ import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app c
 import { R2 } from '../data/r2.js';
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
-import { buildThreadHtml, buildComposerHtml, buildTrayHtml } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar) · S477: staging tray
+import { buildThreadHtml, buildComposerHtml, buildTrayHtml, crbCountPending } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar) · S477: staging tray · S498: pending-review count (read-only)
 import { PhotoInput } from '../../../lib/ui/photoInput.js';           // S478: THE shared photo surface — every tool renders this one
 import { AIAssist } from '../ai/assistant.js';
 import { esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local copy; byte-identical)
@@ -657,6 +657,21 @@ function _buildPinGroupCard(d, ctrId) {
         ? '<svg class="frt-rd-flag" width="9" height="11" viewBox="0 0 11 13" fill="none" aria-hidden="true"><path d="M2 12V1.5M2 2h7.5l-1.8 2.4L9.5 7H2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
         : '';
       h += '<span class="frt-inst-chip frt-rd-chip ' + _rCls + '" title="Outstanding for ' + _rounds + ' report' + (_rounds === 1 ? '' : 's') + ' \u2014 first noted FRT #' + _cfNoted + (d.notedDate ? ' on ' + esc(d.notedDate) : '') + '">' + _rFlag + _rOrd + ' rd</span>';
+    }
+    // S498: amber "NEEDS REVIEW" chip — a contractor responded and no ARENCON
+    // review answers that round yet. READ-ONLY and fully derived from the
+    // thread (crbThread.js:crbPendingRounds) — nothing is stored, so it can
+    // never go stale or disagree between devices. It is a QUEUE marker, not a
+    // status: the item's real status pill is untouched until a review sets it
+    // (Mark, S498). The pin strip covers every observation on the pin, so the
+    // chip aggregates — one chip when ANY observation awaits review, with the
+    // count when it's more than one.
+    var _nrPend = crbCountPending(obs, function(o){ return !!(o && o.addressed); });
+    if (_nrPend > 0) {
+      h += '<span class="frt-inst-chip crbt-needs-chip" title="'
+        + _nrPend + ' observation' + (_nrPend === 1 ? '' : 's') + ' on this pin '
+        + (_nrPend === 1 ? 'has' : 'have') + ' a contractor response awaiting ARENCON review">'
+        + 'NEEDS REVIEW' + (_nrPend > 1 ? ' \u00B7 ' + _nrPend : '') + '</span>';
     }
     // S338: blue "Reopened" marker — ALWAYS shown when set (no hide toggle,
     // Mark's call: it documents that a prior closure was undone, which protects

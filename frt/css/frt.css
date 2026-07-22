@@ -5530,6 +5530,25 @@ body.dark-mode .frt-rd-chip.r-g{ color:#a09aa8; background:rgba(160,154,168,.10)
 .frt-rd-chip.r-r{ color:#A85959; background:rgba(168,89,89,.14); border-color:rgba(168,89,89,.42); }
 body.dark-mode .frt-rd-chip.r-r{ color:#E26076; background:rgba(226,96,118,.16); border-color:rgba(226,96,118,.44); }
 
+/* S498 — "NEEDS REVIEW" queue chip. A contractor responded and no ARENCON
+   review answers that round yet. Amber = attention/pending (palette canon),
+   deliberately the SAME family as the low/attention tokens so it reads as
+   "waiting on us", never as a deficiency status. It is a QUEUE marker only:
+   the item's real status pill is untouched until a review sets it.
+   Fully derived per render (crbThread.js:crbPendingRounds) — nothing stored. */
+.crbt-needs-chip{
+  color:#C98A4A;
+  background:rgba(201,138,74,.12);
+  border-color:rgba(201,138,74,.40);
+  font-weight:700;
+  letter-spacing:.4px;
+}
+body.dark-mode .crbt-needs-chip{
+  color:#E0A36A;
+  background:rgba(224,163,106,.14);
+  border-color:rgba(224,163,106,.42);
+}
+
 /* Dark-mode tuning */
 body.dark-mode .obs-pill-text{ color:#d4d8e8; }
 body.dark-mode .obs-pill-text.addressed{ color:#7BC894; }
