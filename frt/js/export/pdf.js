@@ -2042,7 +2042,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S497e';
+var PDF_PIPELINE_BUILD='S497g';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2163,13 +2163,29 @@ function _captureExportPDF(w,D){
         // its rastered look instead of leaving a grey hole.
         var _phOverlays=[];
         try{
-          var _tiles=[].slice.call(pageEl.querySelectorAll('.dp'));
+          // S497g — CRB thread photos (.rphoto) join the overlay path. Two
+          // differences from .dp that the code must respect:
+          //  1. CAPTIONS live INSIDE the tile as white text. The overlay would
+          //     cover them, so a captioned tile keeps its text by drawing the
+          //     photo FIRST and leaving the caption in the raster on top — we
+          //     do that by NOT blanking captioned tiles' text, only their
+          //     background image (textContent stays, so html2canvas still
+          //     paints the caption over our JPEG).
+          //  2. .rphoto has a decorative SVG PLACEHOLDER as its CSS background
+          //     when no url exists. That is a data: URL and must never be
+          //     upscaled into a "photo" — only tiles whose background is a real
+          //     http(s)/blob/data-photo source are overlaid.
+          var _tiles=[].slice.call(pageEl.querySelectorAll('.dp, .rphoto'));
           for(var _ti=0;_ti<_tiles.length;_ti++){
             var _tile=_tiles[_ti];
             var _bg=(_tile.style&&_tile.style.backgroundImage)||'';
             var _bm=/url\(["']?([^"')]+)["']?\)/.exec(_bg);
             if(!_bm||!_bm[1]) continue;             // placeholder tile — skip
             var _turl=_bm[1];
+            // S497g: .rphoto's empty state is a decorative inline SVG. Never
+            // treat it as a photograph — it would be upscaled into a blurry
+            // "image" and would also replace the caption backdrop.
+            if(/^data:image\/svg/i.test(_turl)) continue;
             var _tim=await new Promise(function(res){
               var im=new Image();
               if(!/^data:/.test(_turl)) im.crossOrigin='anonymous';
@@ -2189,14 +2205,37 @@ function _captureExportPDF(w,D){
             var _ow=Math.min(_cw2, Math.round(PDF_PHOTO_CELL_IN.w*(_tt.photoDpi||300)));
             var _oh=Math.max(1,Math.round(_ow/_ar));
             var _cv=document.createElement('canvas'); _cv.width=_ow; _cv.height=_oh;
-            _cv.getContext('2d').drawImage(_tim,_sx3,_sy3,_cw2,_ch2,0,0,_ow,_oh);
+            var _cx2=_cv.getContext('2d');
+            _cx2.drawImage(_tim,_sx3,_sy3,_cw2,_ch2,0,0,_ow,_oh);
+            // S497g: a CRB caption lives INSIDE the tile as white text. The
+            // overlay would hide it and the raster can't be drawn on top (it
+            // is opaque), so the caption is baked into the overlay itself,
+            // mirroring .rphoto's styling: bold white, bottom-left, dark
+            // scrim for legibility on bright photos. Scaled to the overlay's
+            // own pixel size so it stays sharp at any tier.
+            var _cap=(_tile.textContent||'').trim();
+            if(_cap){ try{
+              var _fpx=Math.max(9, Math.round(_oh*0.052));
+              _cx2.font='700 '+_fpx+'px Calibri, sans-serif';
+              _cx2.textBaseline='alphabetic';
+              var _bh2=Math.round(_fpx*1.9);
+              _cx2.fillStyle='rgba(0,0,0,0.42)';
+              _cx2.fillRect(0,_oh-_bh2,_ow,_bh2);
+              _cx2.fillStyle='#ffffff';
+              _cx2.fillText(_cap, Math.round(_fpx*0.6), _oh-Math.round(_bh2*0.32), _ow-Math.round(_fpx*1.2));
+            }catch(_cp){} }
             var _jb;
             try{ _jb=await pdfDoc.embedJpg(_cv.toDataURL('image/jpeg',_tt.photoQ||0.85)); }
             catch(_ej){ _cv.width=0;_cv.height=0; continue; }
             _cv.width=0;_cv.height=0;
             _phOverlays.push({rect:_tr,img:_jb});
+            // Blank ONLY the background image so the photo isn't rastered
+            // twice, and hide the tile's own caption text — it now lives
+            // inside the overlay JPEG, so leaving it here would double-print
+            // it (raster copy sitting under the sharp baked copy).
             _tile.style.backgroundImage='none';
             _tile.style.backgroundColor='#ECEAE6';
+            if(_cap) _tile.style.color='transparent';
           }
         }catch(_po){ _phOverlays=[]; }
         // S497b — THE actual photo-quality fix (Mark: "picked Max, PDF photos
@@ -2235,7 +2274,10 @@ function _captureExportPDF(w,D){
           continue;
         }
         pg.drawImage(png,{x:0,y:0,width:pw,height:ph});
-        // S497d: photos drawn over the raster as real images (prep above).
+        // S497g: photos over the raster (the raster is captured on an OPAQUE
+        // white background, so it must go down first or it would erase every
+        // photo). Captioned CRB tiles therefore need their caption re-drawn
+        // ON TOP of the photo — handled below via o.cap.
         if(_phOverlays.length){ try{
           var _ppr=pageEl.getBoundingClientRect();
           var _psx=pw/(_ppr.width||cssW), _psy=ph/(_ppr.height||cssH);
@@ -2243,7 +2285,7 @@ function _captureExportPDF(w,D){
             var _x0=(o.rect.left-_ppr.left)*_psx, _yT=(o.rect.top-_ppr.top)*_psy;
             var _ww=o.rect.width*_psx, _hh=o.rect.height*_psy;
             if(!isFinite(_x0)||!isFinite(_yT)||_ww<=0||_hh<=0) return;
-            pg.drawImage(o.img,{x:_x0,y:ph-(_yT+_hh),width:_ww,height:_hh});
+            pg.drawImage(o.img,{x:_x0,y:_yB,width:_ww,height:_hh});
           });
         }catch(_od){} }
         try{

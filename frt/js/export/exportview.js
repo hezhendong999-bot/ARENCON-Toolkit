@@ -520,7 +520,14 @@ export var initExportView = {
     // cover-crops at tier q), so per-photo cost is a real, knowable JPEG:
     // ~65/85/115 KB. Page rasters carry blanked photo tiles, so page chrome
     // is text-weight PNG (~220 KB per deficiency page).
-    var _exqPhoto = { balanced:{kb:65,q:0.82}, high:{kb:85,q:0.85}, max:{kb:115,q:0.88} };
+    // S497g — CALIBRATED against a verified real export (Mark, S497e engine):
+    // 65 photos @ Maximum + 25 deficiency pages + 3 sheets @175 DPI 11x17
+    // measured 15.0 MB. Solving with chrome held at 220 KB/page and the
+    // existing drawing formula (1.2 MB for those 3 sheets) gives 133 KB per
+    // photo at Max; Balanced/High scale by their JPEG quality ratio. This is
+    // the first tier table fitted to measured output rather than estimated
+    // from first principles — do not "clean up" these numbers.
+    var _exqPhoto = { balanced:{kb:96,q:0.82}, high:{kb:115,q:0.85}, max:{kb:133,q:0.88} };
     var _exqSheetIn = { letter:[8.5,11], '11x17':[11,17], '24x36':[24,36] };
     function _exqPhotoTier(){
       var el = ov.querySelector('#exv-quality');
