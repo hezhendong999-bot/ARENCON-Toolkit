@@ -406,6 +406,22 @@ function wireLoadExport() {
     var tools = document.getElementById('mobile-repair-tools');
     if (tools) tools.style.display = tools.style.display === 'none' ? '' : 'none';
   });
+  // S497h: the mobile Repair rows had no handlers at all — every tap in the
+  // drawer did nothing. They now call the SAME functions as the desktop menu,
+  // each of which re-checks super-admin at runtime, so the tablet path is
+  // neither more nor less privileged than the desktop one.
+  (function _wireMobileRepair() {
+    function _bind(id, fn) {
+      var b = document.getElementById(id);
+      if (b) b.addEventListener('click', function() {
+        closeMobileMenu();   /* canonical helper — right id + unlockScroll */
+        fn();
+      });
+    }
+    _bind('mobile-reupload-btn', function() { _reuploadAll(); });
+    _bind('mobile-repair-photos-btn', function() { _repairPhotos(); });
+    _bind('mobile-r2cleanup-btn', function() { _r2CleanupMenu(); });
+  })();
 
   // Mobile PDF — listener moved to the main wiring block (S462). A second
   // registration here stacked two export modals per click (double backdrop,
@@ -487,6 +503,72 @@ function _resetCurrentTab() {
 // Dedup always runs (always safe). Re-home is the recommended path (S265:
 // re-home > delete for unique orphans). Field-verify gated — runs against the
 // live project, saves via the model's normal cycle (push rides next sync).
+function _r2CleanupMenu() {
+  // S497h (Mark, "wire it") — the R2 Cleanup menu row was inert: it rendered
+  // but onR2Cleanup was null, so tapping it did nothing. The engine has
+  // existed since S124 at frt/js/diag/r2cleanup.js (loaded by index.html on
+  // every page) but was console-only: scan() then deleteOrphans() twice
+  // within 30s. This wraps it in the tool's own confirm UI — scan first,
+  // show REAL counts and bytes, delete only on an explicit tap. Nothing is
+  // deleted without Mark seeing exactly what and how much.
+  if (!(Auth && Auth.isSuperAdmin && Auth.isSuperAdmin())) {
+    showAlert('Restricted', 'R2 Cleanup is restricted to the administrator.');
+    return;
+  }
+  var pid = new URLSearchParams(window.location.search).get('project');
+  if (!pid) { showAlert('Hub mode only', 'R2 Cleanup needs a cloud project. Open this report from the Hub.'); return; }
+  var C = window._r2cleanup;
+  if (!C || typeof C.scan !== 'function') {
+    showAlert('Unavailable', 'The cleanup engine did not load. Reload the page and try again.');
+    return;
+  }
+  toast('Scanning cloud storage\u2026');
+  Promise.resolve(C.scan()).then(function (inv) {
+    if (!inv) { showAlert('Scan failed', 'Could not list cloud storage \u2014 this is usually a network or sign-in issue. Nothing was changed.'); return; }
+    var o = inv.orphans || {};
+    var n = ['photos','pdfbufs','tiles','other'].reduce(function (s, k) { return s + ((o[k] || []).length); }, 0);
+    var bytes = ['photos','pdfbufs','tiles','other'].reduce(function (s, k) { return s + ((inv.orphanBytes || {})[k] || 0); }, 0);
+    var mb = (bytes / 1048576);
+    if (!n) {
+      showAlert('Cloud storage is clean', 'Scanned ' + inv.totalR2Objects + ' file' + (inv.totalR2Objects === 1 ? '' : 's') + ' for this project. Nothing is orphaned \u2014 no action needed.');
+      return;
+    }
+    var lines = [];
+    if ((o.photos || []).length)  lines.push('\u2022 ' + o.photos.length + ' photo file' + (o.photos.length === 1 ? '' : 's') + ' no longer used by any deficiency');
+    if ((o.pdfbufs || []).length) lines.push('\u2022 ' + o.pdfbufs.length + ' stored PDF' + (o.pdfbufs.length === 1 ? '' : 's') + ' whose drawing was removed');
+    if ((o.tiles || []).length)   lines.push('\u2022 ' + o.tiles.length + ' drawing preview tile' + (o.tiles.length === 1 ? '' : 's') + ' from removed drawings');
+    if ((o.other || []).length)   lines.push('\u2022 ' + o.other.length + ' other unrecognised file' + (o.other.length === 1 ? '' : 's'));
+    var msg = 'Scanned ' + inv.totalR2Objects + ' cloud file' + (inv.totalR2Objects === 1 ? '' : 's') + ' for this project.\n\n'
+            + 'Not referenced by anything in this report:\n' + lines.join('\n')
+            + '\n\nTotal ' + n + ' file' + (n === 1 ? '' : 's') + ', about ' + (mb < 10 ? mb.toFixed(1) : Math.round(mb)) + ' MB.'
+            + '\n\nDeleting these frees cloud storage. It cannot be undone \u2014 but nothing still in use is touched.';
+    showDialog({
+      title: 'Clean up cloud storage',
+      message: msg,
+      buttons: [
+        { label: 'Cancel', outline: true, action: function () {} },
+        { label: 'Delete ' + n + ' file' + (n === 1 ? '' : 's'), color: '#C0445F', action: function () {
+            toast('Deleting\u2026');
+            // The engine arms on first call and deletes on the second within
+            // 30s. Mark has already confirmed here, so drive both steps.
+            Promise.resolve(C.deleteOrphans()).then(function () {
+              return Promise.resolve(C.deleteOrphans());
+            }).then(function (r) {
+              if (r && typeof r.deleted === 'number') {
+                toast('Deleted ' + r.deleted + ' of ' + n + ' file' + (n === 1 ? '' : 's')
+                  + (r.failed ? (' \u2014 ' + r.failed + ' failed') : ''));
+              } else { toast('Cleanup finished'); }
+            }).catch(function (e) {
+              showAlert('Cleanup error', 'Some files may not have been removed. Nothing in use was affected.\n\n' + (e && e.message ? e.message : ''));
+            });
+          } }
+      ]
+    });
+  }).catch(function (e) {
+    showAlert('Scan error', 'Could not scan cloud storage. Nothing was changed.\n\n' + (e && e.message ? e.message : ''));
+  });
+}
+
 function _repairPhotos() {
   if (!(Auth && Auth.isSuperAdmin && Auth.isSuperAdmin())) {
     showAlert('Restricted', 'Photo Repair is restricted to the administrator.');
@@ -2198,8 +2280,11 @@ function _buildHeader(){
     onExportDocs: function(){ initProjectDocsExport.run(); },
     onLoadProject: function(){ var li = document.getElementById('load-input'); if (li) li.click(); },
     onReupload: function(){ _reuploadAll(); },
-    onFixBlurry: null, onRepairPhotos: function(){ _repairPhotos(); },
-    onR2Cleanup: null, onRepairLinks: null,                     /* live parity: unwired */
+    onRepairPhotos: function(){ _repairPhotos(); },
+    /* S497h: R2 Cleanup wired to the S124 engine via _r2CleanupMenu (scan →
+       show real counts → delete on confirm). onFixBlurry/onRepairLinks are
+       gone with their menu rows — never implemented, so never wired. */
+    onR2Cleanup: function(){ _r2CleanupMenu(); },
     onDiagnostics: function(){ if (typeof _showCloudDiagnostic === 'function') _showCloudDiagnostic(); },
     onQR: function(){ _showQR(); },
     onResetTab: function(){ _resetCurrentTab(); },
@@ -2267,7 +2352,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S497g';
+var FRT_BUILD = 'S497h';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');

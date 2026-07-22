@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=697">
+<link rel="stylesheet" href="css/frt.css?v=695">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -260,11 +260,14 @@ function ensurePdfJs(cb){
       <div id="mobile-repair-section" style="display:none;">
         <button class="btn mm-btn mm-sub" id="mobile-repair-toggle" style="font-size:12px;">🔧 Repair Tools ▾</button>
         <div id="mobile-repair-tools" style="display:none;padding-left:8px;">
-          <button class="btn mm-btn mm-sub">☁️ Re-upload All</button>
-          <button class="btn mm-btn mm-sub">📄 Fix Blurry</button>
-          <button class="btn mm-btn mm-sub admin-only">🖼️ Repair Photos</button>
-          <button class="btn mm-btn mm-sub admin-only">🧹 R2 Cleanup</button>
-          <button class="btn mm-btn mm-sub admin-only">🔗 Repair R2 Links</button>
+          <!-- S497h: these rows had no ids and no handlers — the whole mobile
+               Repair drawer was decorative, so every tap did nothing. Now they
+               carry ids and are wired in app.js to the same functions the
+               desktop menu uses. 'Fix Blurry' and 'Repair R2 Links' are gone:
+               no implementation has ever existed for either. -->
+          <button class="btn mm-btn mm-sub admin-only" id="mobile-reupload-btn">☁️ Re-upload All</button>
+          <button class="btn mm-btn mm-sub admin-only" id="mobile-repair-photos-btn">🖼️ Repair Photos</button>
+          <button class="btn mm-btn mm-sub admin-only" id="mobile-r2cleanup-btn">🧹 R2 Cleanup</button>
         </div>
       </div>
       <div class="mm-divider"></div>
