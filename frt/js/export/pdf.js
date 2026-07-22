@@ -2042,7 +2042,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S497g';
+var PDF_PIPELINE_BUILD='S498a';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2285,6 +2285,15 @@ function _captureExportPDF(w,D){
             var _x0=(o.rect.left-_ppr.left)*_psx, _yT=(o.rect.top-_ppr.top)*_psy;
             var _ww=o.rect.width*_psx, _hh=o.rect.height*_psy;
             if(!isFinite(_x0)||!isFinite(_yT)||_ww<=0||_hh<=0) return;
+            // S498 FIX: PDF coordinates are BOTTOM-UP; getBoundingClientRect is
+            // TOP-DOWN. This flip was missing and the draw referenced an
+            // undefined `_yB`, so EVERY photo overlay threw a ReferenceError on
+            // the first tile, the forEach aborted, and the enclosing catch
+            // swallowed it silently — every photo in every deficiency exported
+            // as a grey placeholder while the preview looked correct. Same
+            // conversion the link-annotation block below uses (yBottom).
+            var _yB=ph-(_yT+_hh);
+            if(!isFinite(_yB)) return;
             pg.drawImage(o.img,{x:_x0,y:_yB,width:_ww,height:_hh});
           });
         }catch(_od){} }
