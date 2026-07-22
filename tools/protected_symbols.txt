@@ -310,3 +310,17 @@ renderReclamation
 rrDelete
 @ Client-name guards for everyone, not admin-only (Mark, S497e): create-time snap to existing spelling on case/punctuation match; edit-time ripple offering to propagate a corrected client name to every project spelling it the old way
 _clientCanonicalFor
+# ── S498 Lane B (Mark): client rename across projects + correction requests ──
+openClientRename
+_crnApply
+_crnOnName
+_notifInit
+_notifRenderCard
+_notifAccept
+_notifAcceptAll
+_notifDeclineRow
+_notifReview
+crn-open
+notif-stack
+client-rename-modal
+notif-review-modal

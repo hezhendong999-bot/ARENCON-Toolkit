@@ -547,6 +547,56 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
 .np-suggest-chip:hover{border-color:var(--arencon);color:var(--arencon);}
 .np-suggest-chip.on{border-color:var(--arencon);color:var(--arencon);background:var(--arencon-glow);}
 .np-suggest-n{font-size:calc(9.5px + var(--ts));color:var(--silver);background:rgba(128,128,140,.14);border-radius:10px;padding:0 5px;}
+/* S498 — near-miss "Did you mean" chip: attention colour so it reads as
+   "nearly what you typed", not just another known client. */
+.np-suggest-chip.near{border-color:var(--warn);color:var(--warn);background:var(--warn-glow,rgba(201,138,74,.10));}
+.np-suggest-chip.near:hover{border-color:var(--warn);color:var(--warn);filter:brightness(1.05);}
+.np-suggest-lbl.near{color:var(--warn);}
+/* S498 — client rename/merge modal */
+.crn-open{display:inline-flex;align-items:center;gap:5px;margin-top:6px;background:transparent;border:none;color:var(--arencon);font-family:Calibri,'Segoe UI',system-ui,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;padding:4px 0;min-height:32px}
+.crn-open:hover{text-decoration:underline}
+.crn-intro{font-size:calc(12.8px + var(--ts));color:var(--steel);line-height:1.6;margin-bottom:12px}
+.crn-intro b{color:var(--fg)}
+.crn-merge{background:var(--warn-glow,rgba(201,138,74,.10));border:1px solid var(--warn);color:var(--fg);border-radius:9px;padding:10px 12px;font-size:calc(12.5px + var(--ts));line-height:1.55;margin:4px 0 12px}
+.crn-selbar{display:flex;gap:10px;align-items:center;margin:10px 0 6px;flex-wrap:wrap}
+.crn-lnk{background:transparent;border:none;color:var(--arencon);cursor:pointer;font-weight:600;font-size:calc(12px + var(--ts));font-family:Calibri,'Segoe UI',system-ui,sans-serif;padding:4px 0;min-height:32px}
+.crn-count{font-size:calc(12px + var(--ts));color:var(--silver);margin-left:auto}
+.crn-list{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.crn-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:calc(12.8px + var(--ts))}
+.crn-item:last-child{border-bottom:none}
+.crn-item input{width:17px;height:17px;accent-color:var(--arencon);flex:0 0 auto;cursor:pointer}
+.crn-item .num{font-weight:700;color:var(--fg);min-width:64px}
+.crn-item .nm{color:var(--steel);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crn-sec{padding:6px 12px;font-size:calc(10.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--silver);background:var(--bg);border-bottom:1px solid var(--border)}
+.crn-sec.others{color:var(--warn)}
+.crn-note{font-size:calc(11.8px + var(--ts));color:var(--silver);line-height:1.55;margin-top:10px}
+@media(pointer:coarse){.crn-item{padding:12px}.crn-item input{width:21px;height:21px}}
+/* S498 — Steam-style corner correction card. Bottom-RIGHT; toasts own centre. */
+.notif-stack{position:fixed;right:18px;bottom:0;z-index:400;display:flex;flex-direction:column;align-items:flex-end;pointer-events:none}
+.notif-card{width:min(340px,calc(100vw - 36px));background:var(--card);border:1px solid var(--border);border-radius:13px 13px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.22);pointer-events:auto;transform:translateY(110%);transition:transform .34s cubic-bezier(.22,.9,.3,1);overflow:hidden}
+.notif-card.up{transform:translateY(0)}
+.notif-card.folded{transform:translateY(calc(100% - 38px))}
+.notif-head{display:flex;align-items:center;gap:9px;padding:10px 13px;cursor:pointer;border-bottom:1px solid var(--border);background:var(--card)}
+.notif-card.folded .notif-head{border-bottom-color:transparent}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:0 0 auto}
+.notif-ttl{font-size:calc(12.5px + var(--ts));font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.notif-more{font-size:calc(10.5px + var(--ts));font-weight:700;color:var(--silver);background:rgba(128,128,140,.16);border-radius:9px;padding:1px 6px}
+.notif-chev{color:var(--silver);font-size:12px;transition:transform .3s}
+.notif-card.folded .notif-chev{transform:rotate(180deg)}
+.notif-body{padding:12px 13px 13px}
+.notif-from{font-size:calc(11.5px + var(--ts));color:var(--silver);margin-bottom:9px}
+.notif-chg{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 9px;font-size:calc(13px + var(--ts));font-weight:600}
+.notif-old{color:var(--silver);text-decoration:line-through}
+.notif-new{color:var(--yes)}
+.notif-arr{color:var(--silver)}
+.notif-line{font-size:calc(12.4px + var(--ts));color:var(--steel);line-height:1.5;margin-bottom:10px}
+.notif-acts{display:flex;gap:7px;flex-wrap:wrap}
+.notif-btn{font-family:Calibri,'Segoe UI',system-ui,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--steel);min-height:36px;transition:all .16s}
+.notif-btn:hover{border-color:var(--arencon);color:var(--arencon)}
+.notif-btn.ok{background:var(--yes);border-color:var(--yes);color:#fff}
+.notif-btn.ok:hover{filter:brightness(1.07);color:#fff}
+.notif-btn.no:hover{border-color:var(--no);color:var(--no)}
+@media(pointer:coarse){.notif-btn{min-height:42px;padding:9px 14px}}
 @media(pointer:coarse){.np-suggest-chip{min-height:38px;padding:6px 13px;}}
 /* Delete project confirm */
 .delete-confirm-input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-weight:400;font-size:calc(14px + var(--ts));font-family:Calibri,sans-serif;margin:8px 0;background:var(--bg);color:var(--fg);}
@@ -1356,6 +1406,67 @@ body.text-l{--ts:4px;}
   </div>
 </div>
 
+<!-- ═══════════ S498: CLIENT RENAME / MERGE MODAL ═══════════
+     Opened from Edit Project. Fixing a typo and merging two spellings are the
+     SAME action: if the corrected name already exists, the modal says so and
+     the button reads Merge. Own projects rename directly; other PMs' projects
+     become correction requests (hub_notifications) — never a silent rewrite. -->
+<div class="modal-overlay" id="client-rename-modal">
+  <div class="modal-card">
+    <div class="imx-head"><h3>&#9998; Rename client</h3><button class="modal-x" onclick="closeClientRename()" title="Close">×</button></div>
+    <div class="imx-body">
+      <div class="crn-intro" id="crn-intro"></div>
+      <div class="modal-field">
+        <label>Correct spelling</label>
+        <input type="text" id="crn-name" autocomplete="off" oninput="_crnOnName()">
+      </div>
+      <div id="crn-sug" class="np-suggest" style="display:none"></div>
+      <div id="crn-merge" class="crn-merge" style="display:none"></div>
+      <div class="crn-selbar">
+        <button type="button" class="crn-lnk" onclick="_crnSelAll(true)">Select all</button>
+        <button type="button" class="crn-lnk" onclick="_crnSelAll(false)">Select none</button>
+        <span class="crn-count" id="crn-count"></span>
+      </div>
+      <div class="crn-list" id="crn-list"></div>
+      <div class="crn-note" id="crn-note"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary" onclick="closeClientRename()">Cancel</button>
+      <button class="dash-btn primary" id="crn-go" onclick="_crnApply()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ S498: CORNER CORRECTION CARD (Steam-style) ═══════════
+     Slides up bottom-right when a correction request is pending for the
+     signed-in PM. Folding is NOT dismissing — a folded card peeks as a tab and
+     slides up again next session. Only Accept or Decline clears it. Existing
+     toasts are bottom-CENTRE; this corner is theirs alone. -->
+<div class="notif-stack" id="notif-stack"></div>
+
+<!-- S498: correction review — the recipient can accept on SOME of their
+     projects and not others. Their data, their call, per Mark. -->
+<div class="modal-overlay" id="notif-review-modal">
+  <div class="modal-card">
+    <div class="imx-head"><h3>Review correction</h3><button class="modal-x" onclick="closeNotifReview()" title="Close">×</button></div>
+    <div class="imx-body">
+      <div class="crn-intro" id="nrv-intro"></div>
+      <div class="notif-chg" id="nrv-chg"></div>
+      <div class="crn-selbar">
+        <button type="button" class="crn-lnk" onclick="_nrvSelAll(true)">Select all</button>
+        <button type="button" class="crn-lnk" onclick="_nrvSelAll(false)">Select none</button>
+        <span class="crn-count" id="nrv-count"></span>
+      </div>
+      <div class="crn-list" id="nrv-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="dash-btn secondary" onclick="_notifDecline()">Decline</button>
+      <button class="dash-btn secondary" onclick="closeNotifReview()">Not now</button>
+      <button class="dash-btn primary" id="nrv-go" onclick="_notifAccept()">Accept</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ EDIT NAME MODAL ═══════════ -->
 <div class="modal-overlay" id="edit-name-modal">
   <div class="modal-card">
@@ -1426,6 +1537,10 @@ body.text-l{--ts:4px;}
     <div class="modal-field">
       <label>Client</label>
       <input type="text" id="ep-client">
+      <!-- S498 (Mark): fix a client typo everywhere it appears, not just here.
+           Own projects rename directly; other PMs' projects get a correction
+           request they accept or decline — never a silent rewrite. -->
+      <button type="button" class="crn-open" onclick="openClientRename()">&#9998; Rename this client across projects…</button>
     </div>
     <div class="modal-field">
       <label>Address</label>
@@ -2182,6 +2297,9 @@ async function loadProjects() {
     _projects = [];
   }
   renderProjects();
+  /* S498 — pending correction requests slide up bottom-right once the board
+     is in. Fire-and-forget: the board never waits on it. */
+  _notifInit();
   // Check for pending ?open= param (captured before replaceState in showApp)
   if (_pendingOpenId) {
     var _oid = _pendingOpenId;
@@ -4184,12 +4302,31 @@ function _npOnClientInput() {
     if (q.length === 0) _npOnNumberInput();
     return;
   }
+  /* S498 — near-miss detection. Same name after ignoring spacing and
+     punctuation only (_ccNorm): "FGF Brands, Inc" surfaces "FGF Brands Inc.".
+     A differing WORD (LLC vs Inc) survives _ccNorm and is never offered.
+     Suggestion only — nothing the user typed is ever changed for them. */
+  var qn = _ccNorm(clientEl.value);
+  var near = _npAllClients().filter(function(c) {
+    return _ccNorm(c.name) === qn && c.name.toLowerCase() !== q;
+  });
+  var nearNames = {};
+  near.forEach(function(c) { nearNames[c.name] = 1; });
   var matches = _npAllClients().filter(function(c) {
     var lc = c.name.toLowerCase();
-    return lc !== q && lc.indexOf(q) >= 0;
+    return lc !== q && lc.indexOf(q) >= 0 && !nearNames[c.name];
   });
-  if (matches.length === 0) { sugEl.style.display = 'none'; sugEl.innerHTML = ''; return; }
-  var html = '<span class="np-suggest-lbl">Known clients:</span>';
+  if (matches.length === 0 && near.length === 0) { sugEl.style.display = 'none'; sugEl.innerHTML = ''; return; }
+  var html = '';
+  if (near.length) {
+    html += '<span class="np-suggest-lbl near">Did you mean:</span>';
+    near.slice(0, 3).forEach(function(c) {
+      html += '<button type="button" class="np-suggest-chip near" onclick="_npPickClient(this)" '
+        + 'data-client="' + esc(c.name) + '">' + esc(c.name)
+        + (c.n > 1 ? '<span class="np-suggest-n">' + c.n + '</span>' : '') + '</button>';
+    });
+  }
+  if (matches.length) html += '<span class="np-suggest-lbl">Known clients:</span>';
   matches.slice(0, 4).forEach(function(c) {
     html += '<button type="button" class="np-suggest-chip" onclick="_npPickClient(this)" '
       + 'data-client="' + esc(c.name) + '">' + esc(c.name)
@@ -5164,6 +5301,366 @@ function _getProgressChipsHtml(projectId) {
   if (c.issued > 0) chips += '<span class="progress-chip issued">' + c.issued + ' Issued</span>';
   if (!chips) return '';
   return '<div class="project-card-progress">' + chips + '</div>';
+}
+
+/* ═══ S498: Client rename across projects + correction requests (Mark) ═══
+   Fixing a typo and merging two spellings are the SAME action. Own projects
+   rename immediately (same per-id path as _ccExecuteMerge). Other PMs'
+   projects are NEVER silently rewritten — a correction request lands in
+   hub_notifications and the owning PM accepts or declines it in their Hub. */
+var _crnCtx = null;
+
+function openClientRename() {
+  if (!_detailProjectId || !_profile) return;
+  var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+  if (!proj) return;
+  var oldName = (proj.client || '').trim();
+  if (!oldName) { toast('This project has no client name yet', 'error'); return; }
+  var mine = [], others = [];
+  _projects.forEach(function(p) {
+    if ((p.client || '').trim() !== oldName) return;
+    var isMine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
+    (isMine ? mine : others).push(p);
+  });
+  _crnCtx = { oldName: oldName, mine: mine, others: others };
+  var tot = mine.length + others.length;
+  document.getElementById('crn-intro').innerHTML =
+    'Currently <b>' + esc(oldName) + '</b>, used on <b>' + tot + '</b> project' + (tot === 1 ? '' : 's')
+    + '. Type the correct spelling, then choose which projects to update. Only the client name changes '
+    + '&mdash; numbers, reports, photos and drawings are untouched.';
+  var nn = document.getElementById('crn-name');
+  nn.value = oldName;
+  var html = '';
+  if (mine.length) {
+    html += '<div class="crn-sec">Your projects &mdash; renamed immediately</div>';
+    mine.forEach(function(p) { html += _crnRow(p, true); });
+  }
+  if (others.length) {
+    html += '<div class="crn-sec others">Other PMs &mdash; sent as a correction request</div>';
+    others.forEach(function(p) { html += _crnRow(p, false); });
+  }
+  document.getElementById('crn-list').innerHTML = html;
+  document.getElementById('crn-note').textContent = others.length
+    ? 'Other PMs are never rewritten silently: their ticked projects get a request they accept or decline in their own Hub.'
+    : '';
+  document.getElementById('crn-merge').style.display = 'none';
+  document.getElementById('crn-sug').style.display = 'none';
+  _crnOnName();
+  document.getElementById('client-rename-modal').classList.add('show');
+  setTimeout(function() { nn.focus(); nn.select(); }, 80);
+}
+
+function _crnRow(p, mine) {
+  return '<label class="crn-item"><input type="checkbox" checked value="' + esc(p.id) + '" data-mine="'
+    + (mine ? '1' : '0') + '" onchange="_crnCount()">'
+    + '<span class="num">' + esc(p.project_number || '\u2014') + '</span>'
+    + '<span class="nm">' + esc(p.project_name || '') + '</span></label>';
+}
+
+function closeClientRename() {
+  document.getElementById('client-rename-modal').classList.remove('show');
+  _crnCtx = null;
+}
+
+function _crnSelAll(v) {
+  var boxes = document.querySelectorAll('#crn-list input');
+  Array.prototype.forEach.call(boxes, function(b) { b.checked = v; });
+  _crnCount();
+}
+
+function _crnChecked() {
+  var mine = [], others = [];
+  Array.prototype.forEach.call(document.querySelectorAll('#crn-list input:checked'), function(b) {
+    (b.dataset.mine === '1' ? mine : others).push(b.value);
+  });
+  return { mine: mine, others: others };
+}
+
+function _crnCount() {
+  var sel = _crnChecked();
+  var n = sel.mine.length + sel.others.length;
+  var tot = document.querySelectorAll('#crn-list input').length;
+  var cEl = document.getElementById('crn-count');
+  if (cEl) cEl.textContent = n + ' of ' + tot + ' selected';
+  var raw = document.getElementById('crn-name').value.trim();
+  var go = document.getElementById('crn-go');
+  if (go) go.disabled = (!raw || n === 0 || (_crnCtx && raw === _crnCtx.oldName));
+}
+
+function _crnOnName() {
+  if (!_crnCtx) return;
+  var raw = document.getElementById('crn-name').value.trim();
+  var mrg = document.getElementById('crn-merge');
+  var sug = document.getElementById('crn-sug');
+  var go = document.getElementById('crn-go');
+  var by = _ccSpellings();
+  /* exact existing spelling (other than the one being renamed) => merge */
+  var exact = Object.keys(by).filter(function(r) {
+    return r !== _crnCtx.oldName && r.toLowerCase() === raw.toLowerCase();
+  })[0];
+  if (exact) {
+    var sel = _crnChecked();
+    var mineN = sel.mine.length + sel.others.length;
+    var theirs = by[exact].count;
+    mrg.innerHTML = '<b>These will become one client.</b> \u201C' + esc(exact) + '\u201D already exists on <b>'
+      + theirs + '</b> project' + (theirs === 1 ? '' : 's') + '. The <b>' + mineN + '</b> selected will join it.';
+    mrg.style.display = '';
+    if (go) go.textContent = 'Merge';
+  } else {
+    mrg.style.display = 'none';
+    if (go) go.textContent = 'Rename';
+  }
+  /* near-miss chips: same after ignoring spacing/punctuation only */
+  var qn = _ccNorm(raw);
+  var near = Object.keys(by).filter(function(r) {
+    return r !== _crnCtx.oldName && _ccNorm(r) === qn && r.toLowerCase() !== raw.toLowerCase();
+  });
+  if (near.length && !exact) {
+    var h = '<span class="np-suggest-lbl near">Did you mean:</span>';
+    near.slice(0, 3).forEach(function(r) {
+      h += '<button type="button" class="np-suggest-chip near" onclick="_crnPickName(this)" data-n="'
+        + esc(r) + '">' + esc(r) + '<span class="np-suggest-n">' + by[r].count + '</span></button>';
+    });
+    sug.innerHTML = h; sug.style.display = '';
+  } else { sug.style.display = 'none'; sug.innerHTML = ''; }
+  _crnCount();
+}
+
+function _crnPickName(btn) {
+  document.getElementById('crn-name').value = btn.getAttribute('data-n') || '';
+  _crnOnName();
+}
+
+async function _crnApply() {
+  if (!_crnCtx || !_profile) return;
+  var raw = document.getElementById('crn-name').value.trim();
+  if (!raw || raw === _crnCtx.oldName) return;
+  var sel = _crnChecked();
+  if (sel.mine.length + sel.others.length === 0) return;
+  var go = document.getElementById('crn-go');
+  if (go) go.disabled = true;
+
+  /* my projects: rename now, per id, same path as _ccExecuteMerge */
+  var done = 0;
+  for (var i = 0; i < sel.mine.length; i++) {
+    try {
+      await _sb.from('projects').eq('id', sel.mine[i]).update({ client: raw });
+      var p = _projects.find(function(x) { return x.id === sel.mine[i]; });
+      if (p) p.client = raw;
+      done++;
+    } catch (e) { console.warn('[crn] update failed', sel.mine[i], e); }
+  }
+
+  /* other PMs: one correction request per owning PM, never a rewrite */
+  var byPm = {};
+  sel.others.forEach(function(id) {
+    var p = _projects.find(function(x) { return x.id === id; });
+    if (!p) return;
+    var pm = p.project_manager || p.created_by;
+    if (!pm) return;
+    (byPm[pm] = byPm[pm] || []).push(id);
+  });
+  var sent = 0, sendFail = 0;
+  var pms = Object.keys(byPm);
+  for (var j = 0; j < pms.length; j++) {
+    try {
+      await _sb.from('hub_notifications').insert({
+        kind: 'client_correction',
+        to_user: pms[j],
+        from_user: _profile.id,
+        payload: { old: _crnCtx.oldName, neu: raw, project_ids: byPm[pms[j]] }
+      });
+      sent++;
+    } catch (e) { sendFail++; console.warn('[crn] request failed for pm', pms[j], e); }
+  }
+
+  var msg = done + ' project' + (done === 1 ? '' : 's') + ' now read \u201C' + raw + '\u201D';
+  if (sent) msg += ' \u00B7 ' + sent + ' correction request' + (sent === 1 ? '' : 's') + ' sent';
+  toast(msg, sendFail ? 'error' : 'success');
+  var epc = document.getElementById('ep-client');
+  if (epc && sel.mine.length) epc.value = raw;
+  closeClientRename();
+  renderProjects();
+}
+
+/* ═══ S498: corner correction card (Steam-style, bottom-right) ═══
+   Folding is NOT dismissing: a folded card peeks as a tab and slides up again
+   next session. Only Accept or Decline clears it. Toasts own bottom-centre. */
+var _notifRows = [];
+var _notifOpen = null;   /* row being reviewed in the modal */
+
+async function _notifInit() {
+  if (!_profile || !_sb) return;
+  try {
+    _notifRows = await _sb.from('hub_notifications').eq('to_user', _profile.id)
+      .eq('status', 'pending').order('created_at').execute() || [];
+  } catch (e) { _notifRows = []; return; }
+  _notifRenderCard();
+}
+
+function _notifRenderCard() {
+  var st = document.getElementById('notif-stack');
+  if (!st) return;
+  if (!_notifRows.length) { st.innerHTML = ''; return; }
+  var r = _notifRows[0];
+  var extra = _notifRows.length - 1;
+  var pl = r.payload || {};
+  var from = _userMap[r.from_user] || 'A colleague';
+  var body;
+  if (r.kind === 'correction_declined') {
+    body = '<div class="notif-from">' + esc(_userMap[r.from_user] || '') + '</div>'
+      + '<div class="notif-line">Your correction \u201C' + esc(pl.old || '') + '\u201D \u2192 \u201C'
+      + esc(pl.neu || '') + '\u201D was declined. Nothing was changed.</div>'
+      + '<div class="notif-acts"><button class="notif-btn" onclick="_notifDismiss()">Dismiss</button></div>';
+  } else {
+    var nIds = (pl.project_ids || []).length;
+    body = '<div class="notif-from">' + esc(from) + ' \u00B7 ' + nIds + ' of your project' + (nIds === 1 ? '' : 's') + '</div>'
+      + '<div class="notif-chg"><span class="notif-old">' + esc(pl.old || '') + '</span>'
+      + '<span class="notif-arr">\u2192</span><span class="notif-new">' + esc(pl.neu || '') + '</span></div>'
+      + '<div class="notif-acts">'
+      + '<button class="notif-btn ok" onclick="_notifAcceptAll()">Accept</button>'
+      + '<button class="notif-btn" onclick="_notifReview()">Review</button>'
+      + '<button class="notif-btn no" onclick="_notifDeclineTop()">Decline</button>'
+      + '</div>';
+  }
+  st.innerHTML = '<div class="notif-card" id="notif-card">'
+    + '<div class="notif-head" onclick="_notifToggleFold()">'
+    + '<span class="notif-dot"></span>'
+    + '<span class="notif-ttl">' + (r.kind === 'correction_declined' ? 'Correction declined' : 'Client name correction') + '</span>'
+    + (extra > 0 ? '<span class="notif-more">+' + extra + '</span>' : '')
+    + '<span class="notif-chev">\u25BC</span>'
+    + '</div><div class="notif-body">' + body + '</div></div>';
+  requestAnimationFrame(function() {
+    var c = document.getElementById('notif-card');
+    if (c) c.classList.add('up');
+  });
+}
+
+function _notifToggleFold() {
+  var c = document.getElementById('notif-card');
+  if (c) c.classList.toggle('folded');
+}
+
+function _notifTop() { return _notifRows.length ? _notifRows[0] : null; }
+
+function _notifReview() {
+  var r = _notifTop();
+  if (!r) return;
+  _notifOpen = r;
+  var pl = r.payload || {};
+  var ids = pl.project_ids || [];
+  document.getElementById('nrv-intro').innerHTML =
+    '<b>' + esc(_userMap[r.from_user] || 'A colleague') + '</b> suggests a client name correction on '
+    + ids.length + ' of your project' + (ids.length === 1 ? '' : 's')
+    + '. Accept on all of them, or only the ones you mean \u2014 your data, your call.';
+  document.getElementById('nrv-chg').innerHTML =
+    '<span class="notif-old">' + esc(pl.old || '') + '</span><span class="notif-arr">\u2192</span>'
+    + '<span class="notif-new">' + esc(pl.neu || '') + '</span>';
+  var html = '';
+  ids.forEach(function(id) {
+    var p = _projects.find(function(x) { return x.id === id; });
+    if (!p) return;
+    var stale = (p.client || '').trim() !== (pl.old || '');
+    html += '<label class="crn-item"><input type="checkbox" ' + (stale ? '' : 'checked') + ' value="' + esc(id) + '" onchange="_nrvCount()">'
+      + '<span class="num">' + esc(p.project_number || '\u2014') + '</span>'
+      + '<span class="nm">' + esc(p.project_name || '') + (stale ? ' \u00B7 already renamed' : '') + '</span></label>';
+  });
+  document.getElementById('nrv-list').innerHTML = html;
+  _nrvCount();
+  var c = document.getElementById('notif-card');
+  if (c) c.classList.add('folded');
+  document.getElementById('notif-review-modal').classList.add('show');
+}
+
+function closeNotifReview() {
+  document.getElementById('notif-review-modal').classList.remove('show');
+  _notifOpen = null;
+}
+
+function _nrvSelAll(v) {
+  Array.prototype.forEach.call(document.querySelectorAll('#nrv-list input'), function(b) { b.checked = v; });
+  _nrvCount();
+}
+
+function _nrvCount() {
+  var n = document.querySelectorAll('#nrv-list input:checked').length;
+  var tot = document.querySelectorAll('#nrv-list input').length;
+  var el = document.getElementById('nrv-count');
+  if (el) el.textContent = n + ' of ' + tot + ' selected';
+  var go = document.getElementById('nrv-go');
+  if (go) go.disabled = (n === 0);
+}
+
+async function _notifResolve(r, status, extraPayload) {
+  try {
+    var patch = { status: status, resolved_at: new Date().toISOString() };
+    if (extraPayload) patch.payload = Object.assign({}, r.payload || {}, extraPayload);
+    await _sb.from('hub_notifications').eq('id', r.id).update(patch);
+  } catch (e) { console.warn('[notif] resolve failed', e); }
+  _notifRows = _notifRows.filter(function(x) { return x.id !== r.id; });
+  _notifRenderCard();
+}
+
+async function _notifApply(r, ids) {
+  var pl = r.payload || {};
+  var done = 0;
+  for (var i = 0; i < ids.length; i++) {
+    var p = _projects.find(function(x) { return x.id === ids[i]; });
+    /* stale-safe: only touch projects still carrying the old spelling */
+    if (!p || (p.client || '').trim() !== (pl.old || '')) continue;
+    try {
+      await _sb.from('projects').eq('id', ids[i]).update({ client: pl.neu });
+      p.client = pl.neu;
+      done++;
+    } catch (e) { console.warn('[notif] apply failed', ids[i], e); }
+  }
+  return done;
+}
+
+async function _notifAcceptAll() {
+  var r = _notifTop();
+  if (!r) return;
+  var done = await _notifApply(r, (r.payload || {}).project_ids || []);
+  await _notifResolve(r, 'accepted', { applied: done });
+  toast(done + ' project' + (done === 1 ? '' : 's') + ' updated to \u201C' + esc((r.payload || {}).neu || '') + '\u201D', 'success');
+  renderProjects();
+}
+
+async function _notifAccept() {
+  var r = _notifOpen;
+  if (!r) return;
+  var ids = Array.prototype.slice.call(document.querySelectorAll('#nrv-list input:checked'))
+    .map(function(b) { return b.value; });
+  closeNotifReview();
+  var done = await _notifApply(r, ids);
+  await _notifResolve(r, 'accepted', { applied: done });
+  toast(done + ' project' + (done === 1 ? '' : 's') + ' updated to \u201C' + esc((r.payload || {}).neu || '') + '\u201D', 'success');
+  renderProjects();
+}
+
+async function _notifDeclineRow(r) {
+  await _notifResolve(r, 'declined');
+  /* tell the proposer — a silent decline just gets re-proposed in 3 months */
+  try {
+    await _sb.from('hub_notifications').insert({
+      kind: 'correction_declined',
+      to_user: r.from_user,
+      from_user: _profile.id,
+      payload: { old: (r.payload || {}).old, neu: (r.payload || {}).neu }
+    });
+  } catch (e) { console.warn('[notif] decline notice failed', e); }
+  toast('Declined \u2014 nothing changed', 'info');
+}
+
+async function _notifDeclineTop() { var r = _notifTop(); if (r) await _notifDeclineRow(r); }
+async function _notifDecline() {
+  var r = _notifOpen;
+  closeNotifReview();
+  if (r) await _notifDeclineRow(r);
+}
+async function _notifDismiss() {
+  var r = _notifTop();
+  if (r) await _notifResolve(r, 'dismissed');
 }
 
 /* ═══ Notification Badge ═══ */
