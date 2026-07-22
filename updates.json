@@ -14,8 +14,7 @@
         "Duplicate project numbers are now blocked at creation — one project per number; add a New Report inside the existing project instead.",
         "Admin panel: Client Name Cleanup — merges spelling variations of the same client (K&N vs K & N) in one tap; only the client text changes, never reports or photos.",
         "Admin panel: R2 Storage Reclamation — shows the nightly report of purged, unreferenced photo files and lets an admin permanently reclaim that exact list.",
-        "Typing a client that matches an existing one apart from case or punctuation now snaps to the existing spelling automatically.",
-        "Correcting a client name in Edit Project now offers to apply the fix to every other project spelling that client the old way — get it right once, one tap fixes the rest."
+        "The client field suggests existing clients as you type — suggestions only; what you type is always what gets saved."
       ]
     },
     {

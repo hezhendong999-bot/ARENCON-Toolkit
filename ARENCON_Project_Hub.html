@@ -3600,42 +3600,15 @@ async function saveEditProject() {
     openProject(proj.id);
     toast('Project updated', 'success');
 
-    /* S497e (Mark's mechanism): "the inspector needs to get 1 client name
-       right" — and then the fix propagates. If the saved client matches other
-       projects' client after normalization but is SPELLED differently, this is
-       a correction: offer to update the rest in one tap. PM-facing — anyone
-       who can edit a project can already edit them all one by one; this only
-       saves the taps. Declining leaves everything as typed. */
-    if (client && client !== _prevClient && window.Dlg && typeof Dlg.confirm === 'function') {
-      var _n = _ccNorm(client);
-      var _others = (_projects || []).filter(function(p){
-        return p.id !== proj.id && p.client && _ccNorm(p.client) === _n && p.client !== client;
-      });
-      if (_others.length) {
-        var _spellings = {};
-        _others.forEach(function(p){ _spellings[p.client] = 1; });
-        Dlg.confirm({
-          title: 'Apply this client name everywhere?',
-          icon: '\uD83E\uDDF9',
-          message: _others.length + ' other project(s) spell this client '
-            + Object.keys(_spellings).map(function(s){ return '\u201C' + s + '\u201D'; }).join(', ')
-            + '. Update them to \u201C' + client + '\u201D too? Only the client text changes.',
-          confirmText: 'Update all',
-          onConfirm: async function(){
-            var done = 0;
-            for (var i = 0; i < _others.length; i++){
-              try {
-                await _sb.from('projects').eq('id', _others[i].id).update({ client: client });
-                _others[i].client = client;
-                done++;
-              } catch(e){ console.warn('[ripple]', e); }
-            }
-            toast(done + ' project(s) now read \u201C' + client + '\u201D', done === _others.length ? 'success' : 'error');
-            renderProjects();
-          }
-        });
-      }
-    }
+    /* S497f (Mark, explicit): the edit-time RIPPLE IS DISABLED alongside the
+       create-time snap. It was opt-in, but "Update all" over a Public Storage
+       style cluster would rewrite entries that were already CORRECT — the same
+       over-aggressive _ccNorm matching underneath. Saving an edit now changes
+       exactly the project being edited and nothing else.
+       Redesign pending: offer the other projects as a CHECKLIST with each one
+       untickable, never all-or-nothing, and only for true typo-variants.
+       Bulk repair remains available to admins in Client Name Cleanup, where
+       every cluster is reviewed before it is applied. */
   } catch (e) {
     toast('Failed to save: ' + e.message, 'error');
   }
@@ -4258,19 +4231,19 @@ async function createProject() {
   const number = document.getElementById('np-number').value.trim();
   const name = document.getElementById('np-name').value.trim();
   var client = document.getElementById('np-client').value.trim();
-  /* S497e (Mark): entry-time guard for EVERYONE, not just admins. If the typed
-     client differs from an existing spelling only by case or punctuation
-     ("FGF Brands inc." vs "FGF Brands Inc."), it IS that client — snap to the
-     most-used spelling so a typo never becomes a new client. Deliberate
-     corrections happen in Edit Project, where fixing one project offers to
-     ripple the fix across the rest. */
-  if (client && typeof _clientCanonicalFor === 'function') {
-    var _canon = _clientCanonicalFor(client);
-    if (_canon && _canon !== client) {
-      toast('Client matched to existing spelling \u201C' + _canon + '\u201D', 'success');
-      client = _canon;
-    }
-  }
+  /* S497f (Mark, explicit): the create-time SNAP IS DISABLED.
+     It silently rewrote what the user typed. _ccNorm strips ALL non-alphanumerics,
+     so "Public Storage LLC" / "Public Storage Inc" / "Public Storage Canada LLC" —
+     DIFFERENT LEGAL ENTITIES — collapse toward each other, and the snap would
+     overwrite a correct entry with the wrong one. Whatever the PM types is saved.
+     PRINCIPLE (standing): SUGGEST, NEVER SNAP. Never auto-change typed input.
+     The client field's type-ahead suggestions remain and are unaffected — they
+     offer, they do not act.
+     Redesign pending Mark's approval: match on whitespace/punctuation only with
+     the word sequence unchanged (so a differing WORD reads as a different client),
+     then PROMPT "Use existing 'X'?" → Use / Keep what I typed.
+     _clientCanonicalFor() is retained for the admin Client Name Cleanup screen,
+     where Mark reviews every cluster before anything changes. */
   const address = document.getElementById('np-address').value.trim();
   const pm = document.getElementById('np-pm').value || null;
 
