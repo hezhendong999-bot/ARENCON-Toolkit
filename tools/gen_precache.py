@@ -38,9 +38,20 @@ import os, re, sys, datetime, posixpath
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Deployed tool shells whose module graphs define the precache.
-# frt-next/ and diesel-app/ are BETA lanes — deliberately not precached.
+# frt-next/ is a BETA lane — deliberately not precached.
+#
+# S499: diesel-app/ MOVED FROM BETA TO PRODUCTION. The Hub's diesel pointer now
+# targets diesel-app/index.html, so this is the build the field actually opens.
+# While it was excluded, NONE of its 21 files were precached: a device that had
+# opened Diesel before still worked offline (same-origin fetches are
+# network-first and populate the runtime cache), but a COLD device — new tablet,
+# cleared storage, or a first open on site — had nothing to fall back on and
+# would fail with no signal. Offline is the whole point of a field tool, so the
+# shell that ships to the field must be precached, not the one that no longer
+# does. The monolith stays listed below as the direct-URL fallback.
 ENTRIES = [
     'frt/index.html',
+    'diesel-app/index.html',
     'ARENCON_Diesel_Fire_Pump_Commissioning.html',
     'ARENCON_Electric_Fire_Pump_Commissioning.html',
     'ARENCON_Project_Hub.html',

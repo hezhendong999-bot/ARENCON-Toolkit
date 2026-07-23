@@ -7,6 +7,11 @@
 ./
 frt/index.html
 ARENCON_Diesel_Fire_Pump_Commissioning.html
+diesel-app/index.html
+# ^ S499: the MODULAR Diesel shell. The Hub now points here, so this is what
+#   the field opens. Listed as a shell (like frt/index.html) so a COLD device
+#   with no prior visit can still open Diesel with no signal. The monolith
+#   above stays precached as the direct-URL fallback.
 ARENCON_Electric_Fire_Pump_Commissioning.html
 ARENCON_Project_Hub.html
 index.html
