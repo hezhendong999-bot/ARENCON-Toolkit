@@ -88,6 +88,87 @@ function _getDecodedDrawing(dataUrl){
     img.src=dataUrl;
   });
 }
+// ═══ INVISIBLE TEXT LAYER (S498d — Mark: "I want the texts to be searchable") ═══
+// Body pages export as page rasters (S384: the browser print path re-paginated
+// and blanked pages; capture is deliberate and stays). The cost was that every
+// page carried ZERO real text — nothing searchable, selectable, or readable by
+// assistive tools (verified: 23/23 pages of 6360.08 B01 had 0 extractable
+// chars). This layer fixes that WITHOUT touching the raster: every text run in
+// the page DOM is re-drawn as REAL PDF text at its exact position, fully
+// transparent. The eye sees the raster; Ctrl+F, selection, copy and screen
+// readers see the text. Same technique as OCR'd scans — except we skip the
+// "recognition" step because the browser is still holding the real text.
+//   • Per-LINE runs (a wrapped paragraph = one run per visual line) so
+//     alignment error cannot accumulate across wraps.
+//   • Helvetica (pdf-lib standard font, zero embed bytes). Widths differ
+//     slightly from Calibri — bounded per line, irrelevant to search.
+//   • WinAnsi cannot encode every glyph (arrows, locks, dashes); runs are
+//     sanitised to close ASCII equivalents first, and a per-page failure
+//     COUNTER is logged — never a silent swallow (the S498a lesson).
+//   • Appendix drawing SHEETS are images with no text nodes, so they are
+//     naturally excluded; the pin text panels beside them are DOM text and
+//     come along for free.
+function _txtSanitizeWinAnsi(s){
+  s=String(s||'')
+    .replace(/[\u2014\u2013]/g,'-').replace(/[\u2018\u2019\u02BC]/g,"'")
+    .replace(/[\u201C\u201D]/g,'"').replace(/\u00B7/g,'.').replace(/\u2022/g,'*')
+    .replace(/\u2192/g,'>').replace(/\u2190/g,'<').replace(/\u21A9/g,'<')
+    .replace(/[\u2715\u00D7\u2716]/g,'x').replace(/\u2713|\u2714/g,'v')
+    .replace(/\u00A0/g,' ');
+  var out='';
+  for(var i=0;i<s.length;i++){
+    var c=s.charCodeAt(i);
+    if((c>=32&&c<=126)||(c>=160&&c<=255)) out+=s[i];
+  }
+  return out.replace(/\s+/g,' ').trim();
+}
+// Walk pageEl's text nodes; return per-visual-line runs:
+// [{text,left,top,width,height,fs}] in viewport CSS px (caller maps to PDF).
+function _collectTextRuns(pageEl){
+  var runs=[];
+  var walker=document.createTreeWalker(pageEl,NodeFilter.SHOW_TEXT,{
+    acceptNode:function(n){
+      if(!n.nodeValue||!n.nodeValue.trim())return NodeFilter.FILTER_REJECT;
+      var el=n.parentElement;
+      if(!el)return NodeFilter.FILTER_REJECT;
+      var tag=el.tagName;
+      if(tag==='SCRIPT'||tag==='STYLE'||tag==='NOSCRIPT')return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }});
+  var node;
+  while((node=walker.nextNode())){
+    var el=node.parentElement;
+    var cs; try{ cs=getComputedStyle(el); }catch(_e){ cs=null; }
+    if(cs&&(cs.display==='none'||cs.visibility==='hidden'))continue;
+    var fs=cs?parseFloat(cs.fontSize)||11:11;
+    var text=node.nodeValue;
+    // word rectangles → group into visual lines
+    var re=/\S+/g,m,words=[];
+    while((m=re.exec(text))){
+      var rg=document.createRange();
+      try{ rg.setStart(node,m.index); rg.setEnd(node,m.index+m[0].length); }catch(_e){ continue; }
+      var r=rg.getBoundingClientRect();
+      if(r.width<0.5||r.height<0.5)continue;
+      words.push({w:m[0],r:r});
+    }
+    if(!words.length)continue;
+    var line=null;
+    for(var wi=0;wi<words.length;wi++){
+      var W=words[wi];
+      if(line&&Math.abs(W.r.top-line.top)<2){
+        line.text+=' '+W.w;
+        line.width=Math.max(line.width,(W.r.right-line.left));
+        line.height=Math.max(line.height,W.r.height);
+      }else{
+        if(line)runs.push(line);
+        line={text:W.w,left:W.r.left,top:W.r.top,width:W.r.width,height:W.r.height,fs:fs};
+      }
+    }
+    if(line)runs.push(line);
+  }
+  return runs;
+}
+
 // ═══ SEAL REDACTION (S492 — LOCKED_SEAL_REDACTION.md, decided: WARN) ═══
 // COVER, never erase: the stored drawing is untouched; an opaque labelled box
 // is drawn at PDF-render time only, between the sheet and the pins. Being
@@ -2042,7 +2123,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S498b';
+var PDF_PIPELINE_BUILD='S498d';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2143,6 +2224,13 @@ function _captureExportPDF(w,D){
         var _pc=pdfDoc.getPageCount();
         if(typeof _pc!=='number'||!isFinite(_pc)){ pdfDoc=await PDFLib.PDFDocument.create(); }
       }catch(_shim){ try{ pdfDoc=await PDFLib.PDFDocument.create(); }catch(_s2){} }
+      // S498d: one standard font for the invisible text layer (zero embed
+      // bytes — Helvetica ships with every PDF viewer). Failure is loud, not
+      // fatal: the export still produces a correct-looking PDF without the
+      // search layer, and the console says exactly what was lost.
+      var _txtFont=null;
+      try{ _txtFont=await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica); }
+      catch(_tf0){ try{ console.warn('[PDF] text layer disabled - font embed failed:',_tf0&&_tf0.message); }catch(_){} }
 
       for(var i=0;i<pages.length;i++){
         _capStatus(D,'Rendering page '+(i+1)+' of '+pages.length+'…');
@@ -2415,6 +2503,32 @@ function _captureExportPDF(w,D){
             });
           }catch(_cw){}
         }catch(e){}
+        // ── S498d: INVISIBLE TEXT LAYER for this page ─────────────────────
+        // Same pr/sx/sy fraction mapping the links and fields use (transform-
+        // and zoom-proof). Drawn transparent: the raster stays the visible
+        // page; this is what Ctrl+F, selection, and screen readers consume.
+        // Failures COUNT and LOG — a page quietly losing its text is exactly
+        // the class of silent failure that shipped the S498a photo bug.
+        if(_txtFont){ try{
+          var _tpr=pageEl.getBoundingClientRect();
+          var _tsx=pw/(_tpr.width||cssW), _tsy=ph/(_tpr.height||cssH);
+          var _truns=_collectTextRuns(pageEl);
+          var _tFail=0;
+          _truns.forEach(function(run){
+            var s=_txtSanitizeWinAnsi(run.text);
+            if(!s)return;
+            var fsPt=Math.max(4,Math.min(36,run.fs*_tsy));
+            var x=(run.left-_tpr.left)*_tsx;
+            var yTop=(run.top-_tpr.top)*_tsy, hh=run.height*_tsy;
+            // drawText's y is the BASELINE; ~80% down the line box approximates
+            // it closely enough for search/selection at these sizes.
+            var y=ph-(yTop+hh*0.8);
+            if(!isFinite(x)||!isFinite(y))return;
+            try{ pg.drawText(s,{x:x,y:y,size:fsPt,font:_txtFont,opacity:0}); }
+            catch(_td){ _tFail++; }
+          });
+          if(_tFail){ try{ console.warn('[PDF] text layer: '+_tFail+' of '+_truns.length+' runs failed on page '+(i+1)); }catch(_){} }
+        }catch(_tl){ try{ console.warn('[PDF] text layer failed on page '+(i+1)+':',_tl&&_tl.message); }catch(_){} } }
       }
       _capStatus(D,'Saving PDF…');
       // ── S470: export identity stamp (re-import protection) ──────────────
