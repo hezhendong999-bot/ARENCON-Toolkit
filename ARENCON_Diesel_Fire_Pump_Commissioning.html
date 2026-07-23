@@ -13,6 +13,8 @@
 <meta name="apple-mobile-web-app-title" content="ARENCON FP">
 <meta name="theme-color" content="#9C2742">
 <title>ARENCON — Diesel Fire Pump Commissioning Report</title>
+<!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
+<script src="shared/auth-gate.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link rel="stylesheet" href="aiusage_panel.css">
 <script src="aiusage_panel.js" defer></script>
@@ -4421,7 +4423,20 @@ document.getElementById('global-file-input').addEventListener('change', function
    flow-test-zone-host elements — that is Electric's layout, not Diesel's).
 
    The retry loop mirrors Electric's: photoInput.js is a deferred module, so it
-   is not present when this classic script runs during parse. */
+   is not present when this classic script runs during parse.
+
+   S498 ROOT FIX (Mark, field-reported on diesel-app: "I can't attach photos"):
+   the boot renderChecklist() calls above run DURING PARSE — before any deferred
+   module executes — so every item's photo zone is baked with the "Photo input
+   engine not loaded" hint, and NOTHING repainted them afterwards. Clicking NO
+   merely reveals a zone that was baked wrong at boot. Electric never had this
+   bug because its engine surfaces are painted AFTER the engine arrives
+   (host.innerHTML = PhotoInput.html(...)) — the one property the S496 port did
+   not carry over. The heal below uses the EXISTING S301 verb that re-renders
+   every photo surface; renderChecklist rebuilds each container from scratch, so
+   one call the moment the engine lands repaints every baked hint into a real
+   zone. clState is already initialized by the boot render and the user cannot
+   have interacted yet at module-execution time, so the rebuild is safe. */
 (function _mountPhotoInput(){
   function go(){
     if(!window.PhotoInput){ setTimeout(go,50); return; }
@@ -4445,6 +4460,9 @@ document.getElementById('global-file-input').addEventListener('change', function
         if(typeof _galleryReuseChecklist==='function') _galleryReuseChecklist(id);
       }
     });
+    /* S498: heal the boot-baked hints (see block comment above). Existing verb,
+       full repaint of every photo surface, exactly once, engine now present. */
+    if(typeof _dslRefreshPhotoSurfaces==='function') _dslRefreshPhotoSurfaces();
   }
   go();
 })();

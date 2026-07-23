@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607230059';
+var CACHE_NAME = 'arencon-frt-202607230258';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -43,6 +43,11 @@ var APP_FILES = [
   'frt/js/workers/imageWorker.js',
   'lib/data/syncWorker.js',
   'lib/workers/imageWorker.js',
+  'frt/fonts/Carlito-Regular.ttf',
+  'frt/fonts/Carlito-Bold.ttf',
+  'frt/fonts/Carlito-Italic.ttf',
+  'frt/fonts/Carlito-BoldItalic.ttf',
+  'frt/vendor/fontkit.umd.min.js',
   'aiusage_panel.css',
   'aiusage_panel.js',
   'diesel-sync.js',
