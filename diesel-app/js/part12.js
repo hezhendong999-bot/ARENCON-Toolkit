@@ -132,7 +132,7 @@ function _doSignOut(){
     try{CloudSync.stopAutoSave();CloudSync.destroy();}catch(e){}
   }
   sessionStorage.setItem('ARENCON_signed_out','1');
-  window.location.href='../ARENCON_Project_Hub.html';
+  window.location.href='ARENCON_Project_Hub.html';
 }
 
 function signOutSession(){
@@ -142,6 +142,35 @@ function signOutSession(){
 }
 
 // ═══ DOWNLOAD JSON (backup) ═══
+/* S497 (Mark, field-reported): the JSON backup downloaded as
+   "149004_IMCC_610_Sprucewood..._backup.json" — two defects in one line.
+   (1) The character filter had no '.' in its allow-list, so project number
+       1490.04 was mangled to 149004. FRT's filter (frt/js/export/json.js)
+       allows '.' — this was a stale copy that never got the fix. A wrong
+       project number on a client deliverable is the serious half.
+   (2) The name carried no report identity, so DFP #1 and DFP #2 of the same
+       project produced the SAME filename and silently overwrote each other
+       in the downloads folder.
+   Fixed at root by reusing the identity the PDF cover ALREADY builds
+   (_pdfTitle: smart filename + instance + revision). One naming rule per
+   report, shared by both outputs, so JSON and PDF cannot disagree again. */
+function _dslReportFilename(){
+  var sfn = (window._csHubSfn || '').trim();
+  if(!sfn){
+    // Standalone / pre-Hub boot: rebuild from the fields on screen.
+    var pn = (document.getElementById('projnum')||{}).value || '';
+    var nm = (document.getElementById('projname')||{}).value || '';
+    sfn = (pn + ' ' + nm).trim() || 'Diesel Pump Report';
+  }
+  var inst = 1;
+  try{ if(typeof CloudSync!=='undefined' && CloudSync.instanceNumber) inst = CloudSync.instanceNumber; }catch(_){}
+  var rev = '';
+  try{ var r=(document.getElementById('revision')||{}).value; if(r) rev=' '+String(r).trim(); }catch(_){}
+  var name = sfn + ' DFP#' + inst + rev;
+  /* Allow-list matches FRT's json.js EXACTLY — note the '.' that was missing.
+     Windows-illegal characters are still excluded. */
+  return name.replace(/[^a-zA-Z0-9._\-# ]/g, '_').replace(/\s+/g, ' ').trim();
+}
 function downloadJSON(){
   _aConfirm('Download a JSON backup of this report?',function(){
     try{
@@ -150,8 +179,7 @@ function downloadJSON(){
       var blob=new Blob([json],{type:'application/json'});
       var a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      var sfn=window._csHubSfn||'pump_report';
-      a.download=sfn.replace(/[^a-zA-Z0-9_\- ]/g,'')+'_backup.json';
+      a.download=_dslReportFilename()+' backup.json';
       document.body.appendChild(a);a.click();document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
     }catch(e){showToast('Download failed: '+e.message,3000);}

@@ -86,37 +86,44 @@
       } catch (e) { return 'unknown'; }
     }
     async function _dslCamProblem(title, what){
+      /* S497 batch 1: engine panel (v1.2.0). Was a hand-drawn overlay — the ✕,
+         theming, touch targets and Esc now come from the shared chrome. The
+         three actions are unchanged: Try again (only when not hard-denied),
+         Reload (autosave flush FIRST — a reload must never cost the inspector
+         unsaved work), and the quiet "use Upload/Gallery instead" exit, which
+         is also what Esc/✕ mean here. Module scope: engine imported directly. */
       console.error('[camera] ' + title + ' ' + what);
       var state = await _dslCamState();
-      var ov = document.createElement('div');
-      ov.id = 'dsl-cam-help';
-      ov.style.cssText = 'position:fixed;inset:0;z-index:30000;background:rgba(20,18,26,.72);' +
-        'display:flex;align-items:center;justify-content:center;padding:20px;font-family:Calibri,sans-serif;';
       var blocked = (state === 'denied');
-      var body = blocked
-        ? 'Camera access is <b>blocked</b> for this site, so the app cannot re-ask. ' +
-          'Tap the padlock (or \u24D8) in the address bar \u2192 <b>Site settings</b> \u2192 <b>Camera</b> \u2192 <b>Allow</b>, then Reload. ' +
-          'On the tablet app: Android <b>Settings \u2192 Apps \u2192 Project Hub \u2192 Permissions \u2192 Camera</b>.'
-        : what + '<br><br>Most often the camera is still held by another app or a previous shot \u2014 <b>Try again</b> usually clears it.';
-      ov.innerHTML =
-        '<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:22px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.4);">' +
-          '<div style="font-size:17px;font-weight:700;color:#1B1A22;margin-bottom:8px;">\uD83D\uDCF7 ' + title + '</div>' +
-          '<div style="font-size:13.5px;line-height:1.6;color:#5E5B68;margin-bottom:18px;">' + body + '</div>' +
-          '<div style="display:flex;flex-direction:column;gap:8px;">' +
-            (blocked ? '' : '<button id="dcam-retry" style="padding:11px;border:none;border-radius:9px;background:#2E9E72;color:#fff;font:700 14px Calibri;cursor:pointer;">Try again</button>') +
-            '<button id="dcam-reload" style="padding:11px;border:1px solid #D2CEDB;border-radius:9px;background:#EFEDF0;color:#1B1A22;font:600 13px Calibri;cursor:pointer;">Reload the app</button>' +
-            '<button id="dcam-close" style="padding:9px;border:none;background:none;color:#928E9C;font:400 12.5px Calibri;cursor:pointer;">Use Upload / Gallery instead</button>' +
-          '</div></div>';
-      document.body.appendChild(ov);
-      var kill = function(){ try { ov.remove(); } catch(_){} };
-      var rt = ov.querySelector('#dcam-retry');
-      if (rt) rt.addEventListener('click', function(){ kill(); if (window.__dslCamLastTarget) window.__dslCamLastTarget(); });
-      ov.querySelector('#dcam-reload').addEventListener('click', function(){
-        /* flush first — a reload must never cost the inspector unsaved work */
-        try { _flushAutosave(); } catch(_){}
+      function _escP(t){ var e=document.createElement('span'); e.textContent=String(t==null?'':t); return e.innerHTML; }
+      var buttons = [];
+      if (!blocked) buttons.push({ label: 'Try again', kind: 'primary', onClick: function(api){
+        api.close('retry');
+        if (window.__dslCamLastTarget) window.__dslCamLastTarget();
+        return false;
+      }});
+      buttons.push({ label: 'Reload the app', onClick: function(){
+        try { if (typeof window._flushAutosave === 'function') window._flushAutosave(); } catch(_){}
         setTimeout(function(){ window.location.reload(); }, 250);
+        return false; /* page is going away; keep panel up so nothing flashes */
+      }});
+      buttons.push({ label: 'Use Upload / Gallery instead', kind: 'cancel' });
+      Dlg.panel({
+        title: title,
+        icon: '\uD83D\uDCF7',
+        accent: blocked ? 'fail' : 'warn',
+        build: function(bd){
+          var d = document.createElement('div');
+          /* Trusted internal markup only (bold keywords); `what` is escaped. */
+          d.innerHTML = blocked
+            ? 'Camera access is <b>blocked</b> for this site, so the app cannot re-ask. ' +
+              'Tap the padlock (or \u24D8) in the address bar \u2192 <b>Site settings</b> \u2192 <b>Camera</b> \u2192 <b>Allow</b>, then Reload. ' +
+              'On the tablet app: Android <b>Settings \u2192 Apps \u2192 Project Hub \u2192 Permissions \u2192 Camera</b>.'
+            : _escP(what) + '<br><br>Most often the camera is still held by another app or a previous shot \u2014 <b>Try again</b> usually clears it.';
+          bd.appendChild(d);
+        },
+        buttons: buttons
       });
-      ov.querySelector('#dcam-close').addEventListener('click', kill);
     }
     function call(n, ev){ var f = window[n]; if (typeof f === 'function') return f(ev); }
     var cfg = dieselHeaderConfig({

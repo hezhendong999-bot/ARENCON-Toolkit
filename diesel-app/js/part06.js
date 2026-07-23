@@ -5378,13 +5378,19 @@ function _exportContractorNames(){
   });
   return out;
 }
+/* S498: the panel body lives inside the engine's SHADOW ROOT, so document-level
+   lookups cannot see these nodes. _exmRoot is the body element handed over by
+   the panel's build(); every helper scopes its queries to it. Null when closed. */
+var _exmRoot=null;
+function _exmQ(sel){ return _exmRoot ? _exmRoot.querySelector(sel) : null; }
+function _exmQA(sel){ return _exmRoot ? _exmRoot.querySelectorAll(sel) : []; }
 function _exportModalSelected(){
   var names=[];
-  document.querySelectorAll('#exm-ov .exm-chip.on').forEach(function(c){ names.push(c.getAttribute('data-name')); });
+  _exmQA('.exm-chip.on').forEach(function(c){ names.push(c.getAttribute('data-name')); });
   return names;
 }
 function _exportModalLine(){
-  var dl=document.getElementById('exm-dl'); if(dl) dl.textContent=_exportModalSelected().join(', ')||'\u2014';
+  var dl=_exmQ('#exm-dl'); if(dl) dl.textContent=_exportModalSelected().join(', ')||'\u2014';
 }
 function _exportModalToggle(el){
   el.classList.toggle('on');
@@ -5392,13 +5398,13 @@ function _exportModalToggle(el){
   _exportModalLine();
 }
 function _exportAddRecipient(){
-  var inp=document.getElementById('exm-newrec'); if(!inp) return;
+  var inp=_exmQ('#exm-newrec'); if(!inp) return;
   var n=(inp.value||'').trim(); if(!n) return;
-  var pool=document.getElementById('exm-other'); if(!pool) return;
+  var pool=_exmQ('#exm-other'); if(!pool) return;
   // de-dupe against existing chips
-  var dup=false; document.querySelectorAll('#exm-ov .exm-chip').forEach(function(c){ if((c.getAttribute('data-name')||'').toLowerCase()===n.toLowerCase()) dup=true; });
+  var dup=false; _exmQA('.exm-chip').forEach(function(c){ if((c.getAttribute('data-name')||'').toLowerCase()===n.toLowerCase()) dup=true; });
   if(dup){ inp.value=''; return; }
-  var grp=document.getElementById('exm-other-grp'); if(grp) grp.style.display='';
+  var grp=_exmQ('#exm-other-grp'); if(grp) grp.style.display='';
   pool.insertAdjacentHTML('beforeend',_exmChip(n,'on',true));
   inp.value='';
   _exportModalLine();
@@ -5426,7 +5432,25 @@ function _exmChip(name,state,removable,color){
 }
 function _exmEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _exportModalOpen(){
-  _exportModalClose();
+  /* S498 batch 2a (Mark-approved demo): the hand-drawn #exm-ov overlay is
+     retired in favour of the shared engine's panel family. The CONTENT is
+     unchanged — same distribution chips, same live distribution line, same
+     Report Photos summary — but the CHROME is now engine-owned: header wash +
+     hairline, the ✕ (which this modal never had), Cancel forced leftmost,
+     theming that follows data-theme, scroll lock, and Esc/✕ parity.
+     Body padding is overridden to 24px so the layout does not tighten against
+     the engine's 16px default (Mark, S498).
+     Fail-safe DIFFERS from _aConfirm on purpose: blocking a delete costs
+     nothing, but blocking an export strands an inspector with a dead Export
+     button. If the engine is somehow absent we fall straight through to the
+     PDF using the last SAVED distribution — a report still comes out. */
+  var D = window.ArenconDlg;
+  if(!D || !D.panel){
+    try{ console.error('[Diesel] dialog engine not loaded \u2014 exporting with the last saved distribution'); }catch(_){}
+    _exportPDFGo();
+    return;
+  }
+
   var owner=((document.getElementById('pi-client')||{}).value||'').trim();
   var ctrs=_exportContractorNames();
   // pre-select set: saved distribution[] if present, else owner + all contractors
@@ -5454,43 +5478,98 @@ function _exportModalOpen(){
     +'<div class="exm-glbl">Other recipients</div><div class="exm-chips" id="exm-other">'
     +others.map(function(n){return _exmChip(n,'on',true,_EXM_OTHER_C);}).join('')+'</div></div>';
 
-  var ov=document.createElement('div'); ov.id='exm-ov';
-  ov.style.cssText='position:fixed;inset:0;z-index:99992;background:rgba(16,20,30,.62);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Calibri,sans-serif;';
-  ov.innerHTML=
-    '<div class="exm-card" style="border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">'
-    +'<div class="exm-head">'
-      +'<div class="exm-title">Export Report</div>'
-      +'<div class="exm-sub">'+_exmEsc(subtitle)+'</div></div>'
-    +'<div style="flex:1 1 auto;overflow-y:auto;padding:6px 24px 8px;">'
-      +'<div class="exm-sec-lbl">Distribution</div>'
-      +ownerHtml+ctrHtml+otherHtml
-      +'<div class="exm-addrow"><input type="text" id="exm-newrec" placeholder="Add a recipient \u2014 e.g. base-building service contractor, construction PM\u2026" onkeydown="if(event.key===\'Enter\'){_exportAddRecipient();event.preventDefault();}"><button onclick="_exportAddRecipient()">+ Add to pool</button></div>'
-      +'<div class="exm-dline"><div class="exm-dl-l">Distribution line</div><div class="exm-dl-v" id="exm-dl"></div></div>'
-      +'<div class="exm-sec-lbl" style="margin-top:14px;">Report Photos</div>'
-      +'<div class="exm-photos"><span class="exm-ph-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
-        +'<span style="flex:1;"><b id="exm-photo-count" style="display:block;font-size:13.5px;">'+(ptot?(incl===ptot?('All '+ptot+' photo'+(ptot===1?'':'s')+' will print'):(incl+' of '+ptot+' photos will print')):'No report photos yet')+'</b>'
-        +'<span class="exm-ph-sub">Included by default \u2014 review only if you want to exclude some</span></span>'
-        +(ptot?'<button onclick="_prePrintFromMenu()">Review photos\u2026</button>':'')+'</div>'
-    +'</div>'
-    +'<div class="exm-foot">'
-      +'<button class="exm-btn exm-cancel" onclick="_exportModalClose()">Cancel</button><span style="flex:1;"></span>'
-      +'<button class="exm-btn exm-go" onclick="_exportModalGenerate()">\uD83D\uDCC4 Generate PDF</button></div>'
-    +'</div>';
-  document.body.appendChild(ov);
-  ov._prevOverflow=document.body.style.overflow; document.body.style.overflow='hidden';
-  _exportModalLine();
+  D.panel({
+    title:'Export Report',
+    sub:subtitle,
+    icon:'\u2b07',
+    accent:'info',
+    width:760,
+    build:function(bd){
+      /* The engine owns chrome; these styles are CONTENT (chips, distribution
+         line, photo row) and are scoped inside the panel body. Declared here so
+         they travel with the markup into the engine's shadow root, where the
+         host page's #exm-ov rules cannot reach. */
+      var st=document.createElement('style');
+      st.textContent=_EXM_BODY_CSS;
+      bd.appendChild(st);
+      var w=document.createElement('div');
+      w.id='exm-ov';                 /* keeps _exportModalSelected/_exportModalLine selectors working */
+      w.className='exm-panelbody';
+      w.innerHTML=
+         '<div class="exm-sec-lbl">Distribution</div>'
+        +ownerHtml+ctrHtml+otherHtml
+        +'<div class="exm-addrow"><input type="text" id="exm-newrec" placeholder="Add a recipient \u2014 e.g. base-building service contractor, construction PM\u2026" onkeydown="if(event.key===\'Enter\'){_exportAddRecipient();event.preventDefault();}"><button onclick="_exportAddRecipient()">+ Add to pool</button></div>'
+        +'<div class="exm-dline"><div class="exm-dl-l">Distribution line</div><div class="exm-dl-v" id="exm-dl"></div></div>'
+        +'<div class="exm-sec-lbl" style="margin-top:14px;">Report Photos</div>'
+        +'<div class="exm-photos"><span class="exm-ph-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
+          +'<span style="flex:1;"><b id="exm-photo-count" style="display:block;font-size:13.5px;">'+(ptot?(incl===ptot?('All '+ptot+' photo'+(ptot===1?'':'s')+' will print'):(incl+' of '+ptot+' photos will print')):'No report photos yet')+'</b>'
+          +'<span class="exm-ph-sub">Included by default \u2014 review only if you want to exclude some</span></span>'
+          +(ptot?'<button onclick="_prePrintFromMenu()">Review photos\u2026</button>':'')+'</div>';
+      bd.appendChild(w);
+      /* The panel body lives in a shadow root, so document.getElementById can no
+         longer find these nodes. Hand the helpers a direct reference instead. */
+      _exmRoot = w;
+      _exportModalLine();
+    },
+    buttons:[
+      { label:'Cancel', kind:'cancel' },
+      { label:'\uD83D\uDCC4 Generate PDF', kind:'primary', onClick:function(api){
+          _exportModalCommit();
+          api.close('generate');
+          _exportPDFGo();
+          return false;   /* already closed above */
+        } }
+    ]
+  }).then(function(){ _exmRoot=null; });
 }
+/* S498: content-only styles for the panel body. Chrome (card, header, footer,
+   ✕, buttons) belongs to the engine and is deliberately NOT redeclared here.
+   Colours reference the engine's own tokens so both modes come for free. */
+var _EXM_BODY_CSS=
+  '.exm-panelbody{padding:0 8px 4px;}'
+ +'.exm-sec-lbl{font-size:11px;font-weight:700;letter-spacing:1.1px;color:var(--dlg-ink-3);text-transform:uppercase;margin:14px 0 8px;}'
+ +'.exm-sec-lbl:first-child{margin-top:2px;}'
+ +'.exm-grp{margin-bottom:10px;}'
+ +'.exm-glbl{font-size:10.5px;font-weight:700;letter-spacing:1px;color:var(--dlg-ink-3);text-transform:uppercase;margin-bottom:6px;}'
+ +'.exm-chips{display:flex;flex-wrap:wrap;gap:8px;}'
+ +'.exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--dlg-btn-line);background:var(--dlg-card-2);color:var(--dlg-ink);transition:background .12s,border-color .12s,color .12s;}'
+ +'.exm-chip.on{background:var(--c,#5F8068);border-color:var(--c,#5F8068);color:#fff;}'
+ +'.exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid var(--c,var(--dlg-ink-3));display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:transparent;}'
+ +'.exm-chip.on .exm-dot{background:#fff;border-color:#fff;color:var(--c,#5F8068);}'
+ +'.exm-chip .exm-rm{margin-left:3px;color:var(--dlg-ink-3);font-weight:700;font-size:15px;line-height:1;padding:0 3px;border-radius:4px;}'
+ +'.exm-chip.on .exm-rm{color:rgba(255,255,255,.8);}'
+ +'.exm-chip .exm-rm:hover{color:var(--dlg-fail);background:color-mix(in srgb, var(--dlg-fail) 16%, transparent);}'
+ +'.exm-addrow{display:flex;gap:8px;margin:10px 0 8px;}'
+ +'.exm-addrow input{flex:1;background:var(--dlg-card-2);border:1px solid var(--dlg-btn-line);border-radius:8px;color:var(--dlg-ink);padding:10px 13px;font:14px Calibri,sans-serif;-webkit-appearance:none;appearance:none;outline:none;}'
+ +'.exm-addrow input::placeholder{color:var(--dlg-ink-3);opacity:1;}'
+ +'.exm-addrow input:focus{border-color:color-mix(in srgb, var(--acc) 55%, transparent);box-shadow:0 0 0 3px color-mix(in srgb, var(--acc) 16%, transparent);}'
+ +'.exm-addrow button{background:var(--dlg-btn-face);color:var(--dlg-btn-ink);border:1px solid var(--dlg-btn-line);border-radius:8px;padding:0 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;min-height:42px;}'
+ +'.exm-addrow button:hover{border-color:color-mix(in srgb, var(--dlg-ink) 34%, transparent);}'
+ +'.exm-dline{background:var(--dlg-card-2);border:1px solid var(--dlg-line);border-radius:9px;padding:11px 14px;}'
+ +'.exm-dl-l{font-size:10.5px;font-weight:700;letter-spacing:1px;color:var(--dlg-ink-3);text-transform:uppercase;margin-bottom:4px;}'
+ +'.exm-dl-v{font-size:13.5px;line-height:1.4;color:var(--dlg-ink);}'
+ +'.exm-photos{display:flex;align-items:center;gap:14px;background:var(--dlg-card-2);border:1px solid var(--dlg-line);border-radius:9px;padding:13px 14px;}'
+ +'.exm-photos .exm-ph-icon{flex:0 0 auto;display:inline-flex;color:var(--dlg-ink-2);}'
+ +'.exm-photos .exm-ph-sub{font-size:12px;color:var(--dlg-ink-2);}'
+ +'.exm-photos b{color:var(--dlg-ink);}'
+ +'.exm-photos button{background:var(--dlg-btn-face);color:var(--dlg-btn-ink);border:1px solid var(--dlg-btn-line);border-radius:8px;padding:9px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;min-height:42px;}'
+ +'.exm-photos button:hover{border-color:color-mix(in srgb, var(--dlg-ink) 34%, transparent);}'
+ +'@media (pointer:coarse){.exm-chip{padding:10px 15px;font-size:14px;}.exm-addrow input{padding:12px 13px;font-size:15px;}}';
 function _exportModalClose(){
-  var ov=document.getElementById('exm-ov');
-  if(ov){ document.body.style.overflow=ov._prevOverflow||''; ov.remove(); }
+  /* S498: the engine owns dismissal now. Kept because the name is referenced
+     elsewhere and callers expect it to exist. The engine exposes no imperative
+     close for an open panel, so we use the same Esc dispatch _tieredBack tier 2a
+     uses — the engine's own key handler resolves the panel promise. */
+  if(_exmRoot){
+    try{ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'})); }catch(_){}
+    _exmRoot=null;
+  }
 }
-function _exportModalGenerate(){
+function _exportModalCommit(){
   distribution.length=0;
   _exportModalSelected().forEach(function(n){ distribution.push(n); });
   if(typeof saveState==='function') saveState();
   if(typeof debounceAutosave==='function') debounceAutosave();
-  _exportModalClose();
-  _exportPDFGo();
 }
 function exportPDF(){ _exportModalOpen(); }   // S328: open Export Report modal (Distribution + Photos) then Generate PDF -> _exportPDFGo
 function _prePrintFromMenu(){
@@ -10616,16 +10695,43 @@ window.addEventListener('load', () => {
       // tell the user to open the report from the Hub (where the picker mints/loads
       // a specific ?instance=). Fixed overlay only — never touch .main-wrap.
       if(!params.instanceId){
+        /* S497 batch 1: engine panel, dismissable:false — this is a HARD BLOCK,
+           not a dialog. No ✕, no Esc, no scrim exit: the ONLY way forward is
+           the Hub button, because dismissing it would let the user interact
+           with a report the isolation rule refuses to load. Timing safe by
+           construction: _cloudSyncInit self-defers until CloudSync (a module)
+           exists, and modules run as a batch — if CloudSync is defined, the
+           engine bridge is too. Fail-safe unchanged either way: the `return`
+           below refuses cloud init whether or not anything renders. The plain
+           fallback stays deliberately: a hard block that fails to RENDER must
+           still visibly block — an invisible refusal over a dead report is
+           worse than duplicated markup. */
         try{
-          var _ov=document.createElement('div');
-          _ov.id='no-instance-block';
-          _ov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,10,13,.72);backdrop-filter:blur(6px);font-family:Calibri,sans-serif;padding:24px;';
-          _ov.innerHTML='<div style="max-width:420px;background:#fff;border-radius:16px;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center;">'
-            +'<div style="font-size:15px;font-weight:700;color:#9C2742;margin-bottom:10px;">Open this report from the Project Hub</div>'
-            +'<div style="font-size:13px;line-height:1.5;color:#5E5B68;margin-bottom:18px;">This link is missing a specific report. To keep each inspector\u2019s report separate, open the Diesel report from its project in the Hub \u2014 pick an existing report or create a new one.</div>'
-            +'<a href="../ARENCON_Project_Hub.html" style="display:inline-block;background:#9C2742;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:10px 22px;border-radius:10px;">Go to Project Hub</a>'
-            +'</div>';
-          document.body.appendChild(_ov);
+          var _D=window.ArenconDlg;
+          if(_D && _D.panel){
+            _D.panel({
+              title:'Open this report from the Project Hub',
+              icon:'\u26D4', accent:'fail', dismissable:false,
+              build:function(bd){
+                var d=document.createElement('div');
+                d.textContent='This link is missing a specific report. To keep each inspector\u2019s report separate, open the Diesel report from its project in the Hub \u2014 pick an existing report or create a new one.';
+                bd.appendChild(d);
+              },
+              buttons:[{label:'Go to Project Hub', kind:'primary', onClick:function(){
+                window.location.href='../ARENCON_Project_Hub.html'; return false;
+              }}]
+            });
+          } else {
+            var _ov=document.createElement('div');
+            _ov.id='no-instance-block';
+            _ov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,10,13,.72);backdrop-filter:blur(6px);font-family:Calibri,sans-serif;padding:24px;';
+            _ov.innerHTML='<div style="max-width:420px;background:#fff;border-radius:16px;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center;">'
+              +'<div style="font-size:15px;font-weight:700;color:#9C2742;margin-bottom:10px;">Open this report from the Project Hub</div>'
+              +'<div style="font-size:13px;line-height:1.5;color:#5E5B68;margin-bottom:18px;">This link is missing a specific report. To keep each inspector\u2019s report separate, open the Diesel report from its project in the Hub \u2014 pick an existing report or create a new one.</div>'
+              +'<a href="ARENCON_Project_Hub.html" style="display:inline-block;background:#9C2742;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:10px 22px;border-radius:10px;">Go to Project Hub</a>'
+              +'</div>';
+            document.body.appendChild(_ov);
+          }
         }catch(_e){}
         return;   // no cloud init, no autosave, no load — cannot clobber a shared row
       }
@@ -10804,39 +10910,36 @@ window.addEventListener('load', () => {
 updateProgress();
 
 /* ──── QR Code Button (Hub mode only, lazy qrcodejs) ──── */
-var _toolQrLastUrl = null;
 function _openToolQR(){
-  var ov = document.getElementById('tool-qr-overlay');
-  if(!ov){
-    ov = document.createElement('div');
-    ov.id = 'tool-qr-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
-    ov.innerHTML = '<div style="background:white;border-radius:14px;padding:28px;text-align:center;max-width:320px;width:90vw;position:relative;">'
-      + '<div style="font-weight:700;font-size:15px;margin-bottom:12px;font-family:Calibri,sans-serif;">Scan to open this tool</div>'
-      + '<div id="tool-qr-container" style="display:inline-block;margin-bottom:12px;"></div>'
-      + '<div style="font-size:11px;color:#666;word-break:break-all;margin-bottom:14px;font-family:Calibri,sans-serif;" id="tool-qr-url"></div>'
-      + '<button onclick="document.getElementById(\'tool-qr-overlay\').style.display=\'none\';_toolQrLastUrl=null;" style="padding:8px 24px;border-radius:8px;border:none;background:#455A64;color:white;font-weight:600;font-size:13px;cursor:pointer;font-family:Calibri,sans-serif;">Close</button>'
-      + '</div>';
-    document.body.appendChild(ov);
-    ov.addEventListener('click', function(e){ if(e.target===ov){ ov.style.display='none'; _toolQrLastUrl=null; }});
-    document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&ov.style.display!=='none'){ ov.style.display='none'; _toolQrLastUrl=null; }});
-  }
-  ov.style.display = 'flex';
+  /* S497 batch 1: engine panel (v1.2.0). Was a hand-drawn, display-toggled
+     overlay whose Esc listener stayed installed forever; the engine now owns
+     open/close/Esc/✕. The URL-cache that skipped QR regeneration is dropped:
+     the panel rebuilds each open and the QR render is milliseconds — the cache
+     only existed because the old overlay was reused instead of recreated.
+     qrcodejs stays lazy-loaded (CDN). */
+  var D=window.ArenconDlg;
+  if(!D||!D.panel){ try{ console.error('[QR] dialog engine not loaded'); }catch(_){} return; }
   var url = window.location.href;
-  document.getElementById('tool-qr-url').textContent = url;
-  if(url === _toolQrLastUrl) return;
-  _toolQrLastUrl = url;
-  var container = document.getElementById('tool-qr-container');
-  container.innerHTML = '';
-  // Lazy load qrcodejs
-  if(typeof QRCode === 'undefined'){
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    s.onload = function(){ new QRCode(container, {text:url, width:200, height:200}); };
-    document.head.appendChild(s);
-  } else {
-    new QRCode(container, {text:url, width:200, height:200});
-  }
+  D.panel({
+    title:'Scan to open this tool',
+    icon:'\u2317', accent:'info', width:360,
+    build:function(bd){
+      var box=document.createElement('div');
+      box.style.cssText='text-align:center;';
+      var qr=document.createElement('div');
+      qr.style.cssText='display:inline-block;margin:2px 0 12px;background:#fff;padding:8px;border-radius:8px;';
+      var u=document.createElement('div');
+      u.style.cssText='font-size:11px;color:var(--dlg-ink-3,#928E9C);word-break:break-all;';
+      u.textContent=url;
+      box.appendChild(qr); box.appendChild(u); bd.appendChild(box);
+      var draw=function(){ try{ new QRCode(qr,{text:url,width:200,height:200}); }catch(_){} };
+      if(typeof QRCode==='undefined'){
+        var sc=document.createElement('script');
+        sc.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        sc.onload=draw; document.head.appendChild(sc);
+      } else draw();
+    }
+  });
 }
 
 /* ──── Heartbeat Sync with Guards (Session 53 — FRT pattern) ──── */

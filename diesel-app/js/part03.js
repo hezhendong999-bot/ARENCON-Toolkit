@@ -103,34 +103,11 @@ initDarkMode();
 // S341b: shared Cancel-button style — muted-burgundy ghost matching FRT's
 // .btn-muted-cancel (Mark: all Cancel buttons consistent across tools). Light:
 // faint burgundy fill, #A85959 text/ring. Dark: #2e1a1a fill, #e08080 text.
-function _acCancelStyle(isDark){
-  // S341: canonical Cancel — muted amber (back-out), matched shape with _acOkStyle.
-  return isDark
-    ? 'padding:7px 15px;border:1px solid #E0A36A;border-radius:7px;background:rgba(224,163,106,.16);color:#E0A36A;font-weight:700;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;letter-spacing:.3px;'
-    : 'padding:7px 15px;border:1px solid #C98A4A;border-radius:7px;background:#F6E8D6;color:#9A6A28;font-weight:700;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;letter-spacing:.3px;';
-}
-// S341c: intent-aware OK/primary button colour. Destructive actions (Delete,
-// Reset, Revert, Remove, Clear, Purge, Discard) stay brand-burgundy as the
-// danger signal; neutral utility actions (Export, Download, Close, Save, OK,
-// Import, Confirm, Restore…) use a calm slate-blue so the brand red is reserved
-// for destruction + true CTAs. Colour is derived from the button LABEL, so new
-// modals pick the right colour automatically.
-function _acOkStyle(okText, isDark){
-  // S341: intent-aware OK colour from the LABEL, on the canonical muted system.
-  var t=String(okText||'').toLowerCase();
-  var base='padding:7px 15px;border-radius:7px;font-weight:700;font-size:13px;font-family:Calibri,sans-serif;cursor:pointer;letter-spacing:.3px;';
-  var destructive=/\b(delete|reset|revert|remove|clear|purge|discard|wipe|erase)\b/.test(t);
-  var confirm=/\b(save|confirm|apply|ok|yes|proceed|continue|create|add|done|submit|mark)\b/.test(t);
-  if(destructive) return base+(isDark
-    ? 'border:1px solid #E26076;background:rgba(226,96,118,.14);color:#E8788C;'
-    : 'border:1px solid #C0445F;background:#FBE3E9;color:#A83A50;');
-  if(confirm) return base+(isDark
-    ? 'border:1px solid #3FD08A;background:rgba(63,208,138,.15);color:#3FD08A;'
-    : 'border:1px solid #2E9E72;background:#DCF1E8;color:#1F8A60;');
-  return base+(isDark
-    ? 'border:1px solid #3FB8B8;background:rgba(63,184,184,.15);color:#5FCBCB;'
-    : 'border:1px solid #2E8C8C;background:#DCEFEF;color:#1F7373;');
-}
+/* S497 batch 1: _acCancelStyle/_acOkStyle deleted (declared to the gate).
+   They built inline button styles for the hand-drawn dialog chrome; every
+   consumer is now on the sealed engine (the last, _aConfirmHtml, moved to
+   the panel family), so the engine stylesheet owns button appearance
+   everywhere. */
 function _aConfirm(msg,onOk,okText){
   /* S497 (Modal Unification Wave 3, design Mark-approved S488): delegates to the
      sealed dialog engine — the host no longer draws dialog chrome. Signature is
@@ -148,33 +125,29 @@ function _aConfirm(msg,onOk,okText){
   D.confirm({ title:'Confirm', icon:def.icon, accent:accent, message:msg,
               confirmText:(okText||'OK'), onConfirm:onOk });
 }
-// S341c: rich-HTML variant of _aConfirm for INTERNAL, pre-built markup (diagnostics,
-// logs) — does NOT escape, so callers must pass trusted HTML only (never user input).
-// Wider shell + scrollable body. If onOk is falsy it renders a single dismiss button
-// (info modal). Shares the same theme-aware button colours as _aConfirm.
-// S497: DELIBERATELY NOT converted to the sealed dialog engine. The engine's v1.0.0
-// families all render text via textContent (no raw-HTML body), and the plan's own rule
-// says a missing need means the ENGINE gains a family with Mark's sign-off — the tool
-// does not invent one, and the lib tree is sealed this session. So this stays the last
-// host-drawn dialog (diagnostics/logs only) until Mark rules on an engine 'panel'
-// family. It is also the only remaining producer of ._a-modal-ov, which tier 2b of
-// _tieredBack() still handles. _acCancelStyle/_acOkStyle exist solely for it now.
+// S341c → S497 batch 1: rich-HTML dialog for INTERNAL, pre-built markup
+// (diagnostics, logs). Phase 3 left this host-drawn because the engine had no
+// custom-body family; Mark ordered the modal migration, the engine gained
+// panel (v1.2.0), and this became a thin delegate.
 function _aConfirmHtml(htmlMsg, onOk, okText){
-  var isDark=document.body.classList.contains('dark-mode');
-  var bg=isDark?'#16151b':'#fff',fg=isDark?'#d0d8f0':'#1C2333',bdr=isDark?'rgba(255,255,255,.14)':'#DDE1E7';
-  var ov=document.createElement('div');ov.className='_a-modal-ov';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
-  var h='<div style="background:'+bg+';border-radius:12px;padding:24px 28px;max-width:560px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25);color:'+fg+';border:1px solid '+bdr+';">';
-  h+='<div style="font-size:14px;line-height:1.5;margin-bottom:18px;max-height:62vh;overflow:auto;">'+htmlMsg+'</div>';
-  h+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
-  if(onOk) h+='<button class="_ac-cancel" style="'+_acCancelStyle(isDark)+'">Cancel</button>';
-  h+='<button class="_ac-ok" style="'+_acOkStyle(okText,isDark)+'">'+(_escHtml(okText||'OK'))+'</button>';
-  h+='</div></div>';
-  ov.innerHTML=h;
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
-  var cx=ov.querySelector('._ac-cancel'); if(cx) cx.onclick=function(){ov.remove();};
-  ov.querySelector('._ac-ok').onclick=function(){ov.remove();if(onOk)onOk();};
-  document.body.appendChild(ov);ov.querySelector('._ac-ok').focus();
+  /* S497 batch 1: thin delegate to the engine's panel family (v1.2.0) — the
+     family whose absence kept this host-drawn in Phase 3. Trust contract
+     unchanged: TRUSTED internal markup only (diagnostics, logs), never user
+     input; the caller owns escaping. With this, the last producer of
+     ._a-modal-ov is gone — tier 2b of _tieredBack matches zero elements and
+     stays only as a harmless safety net. */
+  var D=window.ArenconDlg;
+  if(!D||!D.panel){ try{ console.error('[Diesel] dialog engine not loaded \u2014 diagnostics panel unavailable'); }catch(_){} return; }
+  var buttons = onOk
+    ? [{label:'Cancel', kind:'cancel'},
+       {label:(okText||'OK'), kind:'primary', onClick:function(api){ api.close('ok'); onOk(); return false; }}]
+    : [{label:(okText||'Close'), kind:'cancel'}];
+  D.panel({
+    title:'Details',
+    icon:'\u2263', accent:'slate', width:640,
+    build:function(bd){ var d=document.createElement('div'); d.innerHTML=htmlMsg; bd.appendChild(d); },
+    buttons:buttons
+  });
 }
 function _aPrompt(msg,defVal,onOk){
   /* S497: sealed-engine prompt. Behaviour note: the engine trims the submitted
@@ -253,14 +226,24 @@ function _tieredBack(){
   //    its own teardown (scrim animation + scroll unlock), so we must NEVER
   //    remove its host element directly — that would strand the scroll lock.
   //    Its Esc handler listens on document; a synthetic Escape closes it cleanly.
+  //    S497 batch 1: NON-DISMISSABLE dialogs (card.no-x — the instance hard
+  //    block, progress) are deliberately Esc-proof; dispatching Escape would do
+  //    nothing and `return true` would swallow the back gesture forever. For
+  //    those, fall THROUGH so back keeps its page-leave meaning. Shadow root
+  //    is open-mode, so the card is inspectable from the host.
   var eng=document.querySelector('div[data-arencon-dialog]');
-  if(eng){ try{ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'})); }catch(_){ } return true; }
+  if(eng){
+    var _nx=false; try{ _nx=!!(eng.shadowRoot&&eng.shadowRoot.querySelector('.card.no-x')); }catch(_){}
+    if(!_nx){ try{ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'})); }catch(_){ } return true; }
+  }
   // 2b. Legacy _a-modal-ov modals (only _aConfirmHtml still draws these)
   var am=document.querySelectorAll('._a-modal-ov');
   if(am.length){ am[am.length-1].remove(); return true; }
-  // 3. Export modal
+  // 3. Export modal — S498: now an engine panel, so tier 2a above already
+  // caught it (Esc dispatch) and this never matches. Kept as a harmless net
+  // in case a stale cached copy of the old overlay is still in the DOM.
   var exm=document.getElementById('exm-ov');
-  if(exm){ if(typeof _exportModalClose==='function')_exportModalClose(); else exm.remove(); return true; }
+  if(exm && exm.parentNode===document.body){ exm.remove(); return true; }
   // 3b. Issue/Report-Status modal (S366)
   var ism=document.getElementById('issue-modal-overlay');
   if(ism){ ism.remove(); return true; }
