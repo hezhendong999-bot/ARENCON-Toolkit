@@ -190,6 +190,40 @@ function _collectTextWords(pageEl){
     while((mt=re.exec(text))){
       var rg=doc.createRange();
       try{ rg.setStart(node,mt.index); rg.setEnd(node,mt.index+mt[0].length); }catch(_e){ continue; }
+      // S499b: a word that wraps mid-word (hyphenated "floor-level") spans
+      // TWO line boxes; getBoundingClientRect() returns their union, whose
+      // left/top is the PREVIOUS line's start - the word then overprints
+      // whatever really lives there (pin-15: 'floor-level' stamped onto
+      // 'specified' at identical x/y in the S498f/S499a exports). Guarded:
+      // words in a single line box (all but wrapped ones) keep the exact
+      // old path. Wrapped words are split into per-line-box fragments by
+      // probing sub-ranges; each fragment carries its own true rect.
+      var rl=null; try{ rl=rg.getClientRects(); }catch(_e){}
+      var rlN=0, rli;
+      if(rl){ for(rli=0;rli<rl.length;rli++){ if(rl[rli].width>=0.4&&rl[rli].height>=0.4) rlN++; } }
+      if(rlN>1){
+        var pos=mt.index, endAll=mt.index+mt[0].length, guard=0, first=true;
+        while(pos<endAll&&guard++<40){
+          var lo=1, hi=endAll-pos, best=1;
+          while(lo<=hi){
+            var mid=(lo+hi)>>1, sub=doc.createRange(), n1=0, sr, sj;
+            try{ sub.setStart(node,pos); sub.setEnd(node,pos+mid); sr=sub.getClientRects(); }catch(_e2){ sr=null; }
+            if(sr){ for(sj=0;sj<sr.length;sj++){ if(sr[sj].width>=0.4&&sr[sj].height>=0.4) n1++; } }
+            if(n1<=1){ best=mid; lo=mid+1; } else { hi=mid-1; }
+          }
+          var fr=doc.createRange(), fRect=null;
+          try{ fr.setStart(node,pos); fr.setEnd(node,pos+best); fRect=fr.getBoundingClientRect(); }catch(_e3){}
+          if(fRect&&fRect.width>=0.4&&fRect.height>=0.4){
+            var wf={t:text.slice(pos,pos+best),l:fRect.left,top:fRect.top,w:fRect.width,h:fRect.height,
+                   fs:m.fs,bold:m.bold,ital:m.ital,cr:m.r,cg:m.g,cb:m.b,ca:m.a,ls:m.ls,mk:false};
+            if(first&&liEl&&!liFirst.get(liEl)){ wf.mk=true; liFirst.set(liEl,true);
+              var lmf=elMeta(liEl)||m; wf.mr=lmf.r; wf.mg=lmf.g; wf.mb=lmf.b; }
+            words.push(wf); first=false;
+          }
+          pos+=best;
+        }
+        continue;
+      }
       var r=rg.getBoundingClientRect();
       if(r.width<0.4||r.height<0.4)continue;
       var w={t:mt[0],l:r.left,top:r.top,w:r.width,h:r.height,
@@ -2157,7 +2191,34 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S499a';
+var PDF_PIPELINE_BUILD='S499b';
+// S499b: neutralize the font's GSUB (glyph substitution) table before
+// embedding. fontkit's layout engine applies Carlito's 'liga' feature by
+// default, replacing t+i with ligature glyph 2210 - but pdf-lib's
+// subset:false embedder builds the PDF width table from the cmap character
+// set only, and ligature glyphs have no codepoint, so glyph 2210 gets the
+// 1000/em default width instead of its real 557/em. Result: a half-character
+// gap after every "ti" in the document ("penetrati ng", "recti fy"...).
+// fi/fl survived because U+FB01/FB02 exist in the cmap. Renaming the GSUB
+// directory tag makes fontkit skip substitution entirely: every character
+// maps 1:1 through the cmap and every width exists. Machine-verified:
+// 11-word test sentence painted as 12 ink fragments before, exactly 11
+// after; 0 missing width entries. No offsets move; checksums are not
+// verified by fontkit or by PDF viewers.
+function _neutralizeGSUB(bytes){
+  try{
+    var b=new Uint8Array(bytes); // copy - never mutate the fetched buffer
+    var num=(b[4]<<8)|b[5];
+    for(var i=0;i<num;i++){
+      var off=12+i*16;
+      if(b[off]===0x47&&b[off+1]===0x53&&b[off+2]===0x55&&b[off+3]===0x42){ // 'GSUB'
+        b[off]=0x58; // 'X' -> tag becomes 'XSUB', unknown to fontkit/viewers
+        break;
+      }
+    }
+    return b;
+  }catch(_e){ return bytes; }
+}
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2282,7 +2343,7 @@ function _captureExportPDF(w,D){
         // structural checks. subset:false embeds the shipped TTF byte-intact
         // (0 corrupt glyphs, pixel-verified). Cost: ~2.7MB across 4 faces.
         for(var _fi=0;_fi<_fkeys.length;_fi++){
-          _txtFaces[_fkeys[_fi]]=await pdfDoc.embedFont(_fbytes[_fi],{subset:false});
+          _txtFaces[_fkeys[_fi]]=await pdfDoc.embedFont(_neutralizeGSUB(_fbytes[_fi]),{subset:false});
         }
         _txtMode='vector';
       }catch(_tf1){
@@ -3767,8 +3828,9 @@ async function _betaRender(p,r2Cache,linkByUrl,mintStats){
   doc.registerFontkit(window.fontkit);
   // S499a: subset:false - fontkit's subsetter corrupts Carlito glyph
   // outlines (see the vector-text embed block above for the measurements).
-  var fReg=await doc.embedFont(reg,{subset:false});
-  var fBold=await doc.embedFont(bold,{subset:false});
+  // S499b: GSUB neutralized - see _neutralizeGSUB.
+  var fReg=await doc.embedFont(_neutralizeGSUB(reg),{subset:false});
+  var fBold=await doc.embedFont(_neutralizeGSUB(bold),{subset:false});
 
   var W=612,H=792,MX=43,MT=50;
   var burg=PDFLib.rgb(0.612,0.153,0.259);
