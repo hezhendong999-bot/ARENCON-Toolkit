@@ -2157,7 +2157,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S498e';
+var PDF_PIPELINE_BUILD='S498f';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2600,13 +2600,25 @@ function _captureExportPDF(w,D){
         // space (Mark: header selection overshot). Failures COUNT and LOG.
         if(_txtMode==='vector'&&_txtWords&&_txtWords.length){ try{
           var _vsx=pw/(_txtPr.width||cssW), _vsy=ph/(_txtPr.height||cssH);
+          // S498f (Shaun's broken export, root cause): POSITION mapping is a
+          // fraction of the page rect, so any uniform visual scale on the page
+          // (display scaling, fit-to-window, zoom counter-transforms) cancels
+          // out. SIZE did NOT cancel: it multiplied LAYOUT px (computed
+          // font-size) by VISUAL geometry (ph/rect.height), so a page shown at
+          // scale s drew every word 1/s too large - words collided, ran into
+          // photo strips, labels cramped ("SprinklerUpgrade"), while the
+          // raster underneath stayed correct. Mark's machine (s=1, and his
+          // export fell back to search mode anyway) never showed it. Fix:
+          // size and letter-spacing convert layout px -> points DIRECTLY
+          // (72/96 via pw/cssW), touching no visual geometry at all.
+          var _vpt=pw/(cssW||816);
           var _vFail=0;
           _txtWords.forEach(function(wd){
             var face=_txtFaces[(wd.bold?'b':'')+(wd.ital?'i':'')||'r']||_txtFaces.r;
-            var size=wd.fs*_vsy;
+            var size=wd.fs*_vpt;
             if(!isFinite(size)||size<=0)return;
             var x=(wd.l-_txtPr.left)*_vsx;
-            var yBase=ph-(((wd.top-_txtPr.top)+wd.fs*_txtAsc(face))*_vsy);
+            var yBase=ph-(((wd.top-_txtPr.top)*_vsy)+(wd.fs*_txtAsc(face)*_vpt));
             if(!isFinite(x)||!isFinite(yBase))return;
             var col=PDFLib.rgb(wd.cr,wd.cg,wd.cb);
             function draw(str,dx){
@@ -2637,7 +2649,7 @@ function _captureExportPDF(w,D){
               // broke word grouping and Ctrl+F could not find the label
               // (measured in pdfium, Chrome's engine). Falls back to per-char
               // placement only if this pdf-lib build lacks the operator.
-              var lsPt=wd.ls*_vsx;
+              var lsPt=wd.ls*_vpt;   /* S498f: layout px -> pt, scale-immune */
               if(PDFLib.setCharacterSpacing){
                 try{
                   pg.pushOperators(PDFLib.setCharacterSpacing(lsPt));
@@ -2668,7 +2680,7 @@ function _captureExportPDF(w,D){
           _truns.forEach(function(run){
             var s=_txtSanitizeWinAnsi(run.t);
             if(!s)return;
-            var fsPt=Math.max(4,Math.min(36,run.fs*_tsy));
+            var fsPt=Math.max(4,Math.min(36,run.fs*(pw/(cssW||816))));   /* S498f: scale-immune */
             // width cap: never let invisible Helvetica overrun the word box
             try{ var hw=_txtFont.widthOfTextAtSize(s,fsPt), tw=run.w*_tsx;
                  if(hw>tw&&hw>0) fsPt=Math.max(3,fsPt*tw/hw); }catch(_wc){}
