@@ -111,9 +111,55 @@ function _getDecodedDrawing(dataUrl){
 // Helvetica (still searchable); that failing → raster-only, console says so.
 var _TXT_FONT_FILES={
   r:'../../fonts/Carlito-Regular.ttf', b:'../../fonts/Carlito-Bold.ttf',
-  i:'../../fonts/Carlito-Italic.ttf', bi:'../../fonts/Carlito-BoldItalic.ttf'
+  i:'../../fonts/Carlito-Italic.ttf', bi:'../../fonts/Carlito-BoldItalic.ttf',
+  // S499d: the report is set in exactly three families (verified by auditing
+  // every font-family rule in the builder). Text was previously ALL redrawn
+  // in Carlito regardless, so the cover title (wordmark font) and the address
+  // block (Arial) were positioned with one font's letter widths and painted
+  // with another's - words landed in slots too wide and only partly filled
+  // them. Embedding the real faces makes the drawn text match the screen
+  // exactly (measured: title line 1 was 190px short, now pixel-identical).
+  // Blair has no GSUB; Liberation Sans is metrically identical to Arial.
+  blair:'../../fonts/Blair.ttf', arial:'../../fonts/LiberationSans-Regular.ttf'
 };
 var _txtBytesCache={};           // face key -> Promise<ArrayBuffer>, survives exports
+// S499d: per-family drawable-codepoint sets, rebuilt each export right after
+// the faces embed. Consulted by the reproducibility gate above.
+var _txtCover=null;
+function _txtCoversText(s,famKey){
+  var set=_txtCover&&_txtCover[famKey];
+  if(!set)return true;                       // no map yet -> gate stays open
+  s=String(s||'');
+  for(var i=0;i<s.length;i++){
+    var cp=s.codePointAt(i);
+    if(cp>0xFFFF)i++;                        // surrogate pair consumed
+    if(cp===9||cp===10||cp===13||cp===32)continue;
+    if(!set.has(cp))return false;
+  }
+  return true;
+}
+function _txtBuildCover(faces){
+  var out={};
+  Object.keys(faces).forEach(function(k){
+    var f=faces[k], fx=f&&f.embedder&&f.embedder.font;
+    if(!fx)return;
+    var key=(k==='blair'||k==='arial')?k:'cal';
+    var set=out[key]||(out[key]=new Set());
+    // cal is the INTERSECTION of the four Carlito faces: a character is only
+    // safe if every weight/style we might pick can draw it.
+    var cs=fx.characterSet||[];
+    if(key==='cal'&&out._calSeen){
+      var keep=new Set();
+      cs.forEach(function(cp){ if(set.has(cp))keep.add(cp); });
+      out[key]=keep;
+    }else{
+      cs.forEach(function(cp){ set.add(cp); });
+      if(key==='cal')out._calSeen=1;
+    }
+  });
+  delete out._calSeen;
+  return out;
+}
 function _txtFetchFace(k){
   if(!_txtBytesCache[k]){
     var u=new URL(_TXT_FONT_FILES[k],import.meta.url).href;
@@ -165,9 +211,34 @@ function _collectTextWords(pageEl){
       var alpha=colm[4]===undefined?1:parseFloat(colm[4]);
       if(alpha<=0.01){ meta.set(el,null); return null; }   // already hidden (baked captions)
       var ls=cs.letterSpacing==='normal'?0:parseFloat(cs.letterSpacing)||0;
+      // ═══ S499d REPRODUCIBILITY GATE ═══════════════════════════════════
+      // The vector layer may only claim text it can reproduce EXACTLY. Two
+      // ways it cannot: (a) the element is set in a family we have no face
+      // for, so its measured word slots would be filled with the wrong
+      // letter widths; (b) the text contains a character no embedded face
+      // can draw (the report uses eight such symbols - ruler, checks,
+      // warning, return arrow...), which painted as a "missing character"
+      // box. Either way we return null: the element is never captured and
+      // never hidden, so it stays in the page image and prints EXACTLY as
+      // the browser drew it on this machine. True form by construction -
+      // nothing is substituted or approximated.
+      var _fam=String(cs.fontFamily||'').split(',')[0].replace(/["']/g,'').trim().toLowerCase();
+      var _famKey = _fam.indexOf('blair')>=0 ? 'blair'
+                  : _fam.indexOf('arial')>=0 ? 'arial'
+                  : (!_fam||_fam.indexOf('calibri')>=0||_fam.indexOf('carlito')>=0
+                     ||_fam.indexOf('sans-serif')>=0||_fam.indexOf('serif')>=0) ? 'cal'
+                  : null;
+      if(_famKey===null){ meta.set(el,null); return null; }
+      // Blair and the Arial face ship regular only; bold/italic in those
+      // families cannot be reproduced, so they stay raster too.
+      var _isBold=(parseInt(cs.fontWeight,10)||400)>=600;
+      var _isItal=/italic|oblique/.test(cs.fontStyle);
+      if(_famKey!=='cal'&&(_isBold||_isItal)){ meta.set(el,null); return null; }
+      if(_txtCover&&!_txtCoversText(el.textContent,_famKey)){ meta.set(el,null); return null; }
       m={fs:parseFloat(cs.fontSize)||11,
-         bold:(parseInt(cs.fontWeight,10)||400)>=600,
-         ital:/italic|oblique/.test(cs.fontStyle),
+         famKey:_famKey,
+         bold:_isBold,
+         ital:_isItal,
          r:(+colm[1])/255,g:(+colm[2])/255,b:(+colm[3])/255,a:alpha,
          ls:ls,
          // S499c: capture text-transform. The browser RENDERS the transformed
@@ -229,7 +300,7 @@ function _collectTextWords(pageEl){
           try{ fr.setStart(node,pos); fr.setEnd(node,pos+best); fRect=fr.getBoundingClientRect(); }catch(_e3){}
           if(fRect&&fRect.width>=0.4&&fRect.height>=0.4){
             var wf={t:_applyTT(text.slice(pos,pos+best),m.tt),l:fRect.left,top:fRect.top,w:fRect.width,h:fRect.height,
-                   fs:m.fs,bold:m.bold,ital:m.ital,cr:m.r,cg:m.g,cb:m.b,ca:m.a,ls:m.ls,mk:false};
+                   fs:m.fs,bold:m.bold,ital:m.ital,cr:m.r,cg:m.g,cb:m.b,ca:m.a,ls:m.ls,famKey:m.famKey,mk:false};
             if(first&&liEl&&!liFirst.get(liEl)){ wf.mk=true; liFirst.set(liEl,true);
               var lmf=elMeta(liEl)||m; wf.mr=lmf.r; wf.mg=lmf.g; wf.mb=lmf.b; }
             words.push(wf); first=false;
@@ -241,7 +312,7 @@ function _collectTextWords(pageEl){
       var r=rg.getBoundingClientRect();
       if(r.width<0.4||r.height<0.4)continue;
       var w={t:_applyTT(mt[0],m.tt),l:r.left,top:r.top,w:r.width,h:r.height,
-             fs:m.fs,bold:m.bold,ital:m.ital,cr:m.r,cg:m.g,cb:m.b,ca:m.a,ls:m.ls,mk:false};
+             fs:m.fs,bold:m.bold,ital:m.ital,cr:m.r,cg:m.g,cb:m.b,ca:m.a,ls:m.ls,famKey:m.famKey,mk:false};
       if(liEl&&!liFirst.get(liEl)){ w.mk=true; liFirst.set(liEl,true);
         var lm=elMeta(liEl)||m; w.mr=lm.r; w.mg=lm.g; w.mb=lm.b; }
       words.push(w);
@@ -2205,34 +2276,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S499c';
-// S499b: neutralize the font's GSUB (glyph substitution) table before
-// embedding. fontkit's layout engine applies Carlito's 'liga' feature by
-// default, replacing t+i with ligature glyph 2210 - but pdf-lib's
-// subset:false embedder builds the PDF width table from the cmap character
-// set only, and ligature glyphs have no codepoint, so glyph 2210 gets the
-// 1000/em default width instead of its real 557/em. Result: a half-character
-// gap after every "ti" in the document ("penetrati ng", "recti fy"...).
-// fi/fl survived because U+FB01/FB02 exist in the cmap. Renaming the GSUB
-// directory tag makes fontkit skip substitution entirely: every character
-// maps 1:1 through the cmap and every width exists. Machine-verified:
-// 11-word test sentence painted as 12 ink fragments before, exactly 11
-// after; 0 missing width entries. No offsets move; checksums are not
-// verified by fontkit or by PDF viewers.
-function _neutralizeGSUB(bytes){
-  try{
-    var b=new Uint8Array(bytes); // copy - never mutate the fetched buffer
-    var num=(b[4]<<8)|b[5];
-    for(var i=0;i<num;i++){
-      var off=12+i*16;
-      if(b[off]===0x47&&b[off+1]===0x53&&b[off+2]===0x55&&b[off+3]===0x42){ // 'GSUB'
-        b[off]=0x58; // 'X' -> tag becomes 'XSUB', unknown to fontkit/viewers
-        break;
-      }
-    }
-    return b;
-  }catch(_e){ return bytes; }
-}
+var PDF_PIPELINE_BUILD='S499d';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2348,7 +2392,7 @@ function _captureExportPDF(w,D){
       try{
         await _capLoad(window,new URL('../../vendor/fontkit.umd.min.js',import.meta.url).href,'fontkit');
         pdfDoc.registerFontkit(window.fontkit);
-        var _fkeys=['r','b','i','bi'];
+        var _fkeys=['r','b','i','bi','blair','arial'];
         var _fbytes=await Promise.all(_fkeys.map(_txtFetchFace));
         // S499a: subset MUST stay false. fontkit's TrueType subsetter emits
         // corrupt glyph outlines for Carlito (measured: 84/97 glyphs
@@ -2357,10 +2401,20 @@ function _captureExportPDF(w,D){
         // reject the font and paint NO text; search/extract still work because
         // the ToUnicode map is intact, so the failure is invisible to
         // structural checks. subset:false embeds the shipped TTF byte-intact
-        // (0 corrupt glyphs, pixel-verified). Cost: ~2.7MB across 4 faces.
+        // (0 corrupt glyphs, pixel-verified).
+        // S499d: ligatures off via pdf-lib's DOCUMENTED features option
+        // (replaces the S499b font-table byte patch - same result, proven
+        // identical across all faces and the full report vocabulary, but
+        // supported API rather than surgery on the font). Without this,
+        // fontkit joins t+i into one ligature glyph that has no codepoint,
+        // so pdf-lib - which builds the PDF width table from the character
+        // map - records no width for it and viewers guess ~2x too wide:
+        // the half-character hole after every "ti" in the report.
         for(var _fi=0;_fi<_fkeys.length;_fi++){
-          _txtFaces[_fkeys[_fi]]=await pdfDoc.embedFont(_neutralizeGSUB(_fbytes[_fi]),{subset:false});
+          _txtFaces[_fkeys[_fi]]=await pdfDoc.embedFont(_fbytes[_fi],
+            {subset:false,features:{liga:false,dlig:false,clig:false,rlig:false,hlig:false,ccmp:false,calt:false}});
         }
+        _txtCover=_txtBuildCover(_txtFaces);
         _txtMode='vector';
       }catch(_tf1){
         try{ console.warn('[PDF] real-text fonts unavailable ('+(_tf1&&_tf1.message)+') - falling back to invisible search layer'); }catch(_){}
@@ -2718,7 +2772,8 @@ function _captureExportPDF(w,D){
             }
           }catch(_ovE){}
           _txtWords.forEach(function(wd){
-            var _fk=(wd.bold?'b':'')+(wd.ital?'i':'')||'r';
+            var _fk=(wd.famKey&&wd.famKey!=='cal')?wd.famKey
+                    :((wd.bold?'b':'')+(wd.ital?'i':'')||'r');
             var face=_txtFaces[_fk]||_txtFaces.r;
             (_vfyStr[_fk]||(_vfyStr[_fk]=Object.create(null)))[wd.t]=1;
             var size=wd.fs*_vpt;
@@ -3918,9 +3973,9 @@ async function _betaRender(p,r2Cache,linkByUrl,mintStats){
   doc.registerFontkit(window.fontkit);
   // S499a: subset:false - fontkit's subsetter corrupts Carlito glyph
   // outlines (see the vector-text embed block above for the measurements).
-  // S499b: GSUB neutralized - see _neutralizeGSUB.
-  var fReg=await doc.embedFont(_neutralizeGSUB(reg),{subset:false});
-  var fBold=await doc.embedFont(_neutralizeGSUB(bold),{subset:false});
+  var _F5={subset:false,features:{liga:false,dlig:false,clig:false,rlig:false,hlig:false,ccmp:false,calt:false}};
+  var fReg=await doc.embedFont(reg,_F5);
+  var fBold=await doc.embedFont(bold,_F5);
 
   var W=612,H=792,MX=43,MT=50;
   var burg=PDFLib.rgb(0.612,0.153,0.259);

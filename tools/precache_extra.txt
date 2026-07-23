@@ -47,3 +47,5 @@ frt/fonts/Carlito-Bold.ttf
 frt/fonts/Carlito-Italic.ttf
 frt/fonts/Carlito-BoldItalic.ttf
 frt/vendor/fontkit.umd.min.js
+frt/fonts/Blair.ttf
+frt/fonts/LiberationSans-Regular.ttf
