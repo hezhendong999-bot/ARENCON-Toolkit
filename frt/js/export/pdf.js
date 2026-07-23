@@ -170,9 +170,23 @@ function _collectTextWords(pageEl){
          ital:/italic|oblique/.test(cs.fontStyle),
          r:(+colm[1])/255,g:(+colm[2])/255,b:(+colm[3])/255,a:alpha,
          ls:ls,
+         // S499c: capture text-transform. The browser RENDERS the transformed
+         // text (and the measured rects are the transformed widths) but
+         // node.nodeValue is the source text - drawing the source produced
+         // lowercase where the screen shows UPPERCASE (.fu-grp, .crb-hd,
+         // Previously-Closed table headers), at uppercase-width anchors.
+         tt:(cs.textTransform&&cs.textTransform!=='none')?cs.textTransform:null,
          li:cs.display==='list-item'&&cs.listStyleType!=='none'};
     }catch(_e){ m=null; }
     meta.set(el,m); return m;
+  }
+  // S499c: mirror CSS text-transform so the PDF draws what the screen shows.
+  function _applyTT(str,tt){
+    if(!tt)return str;
+    if(tt==='uppercase')return str.toUpperCase();
+    if(tt==='lowercase')return str.toLowerCase();
+    if(tt==='capitalize')return str.replace(/[A-Za-z0-9\u00C0-\u024F]+/g,function(w){return w.charAt(0).toUpperCase()+w.slice(1);});
+    return str;
   }
   var walker=doc.createTreeWalker(pageEl,NodeFilter.SHOW_TEXT,{
     acceptNode:function(n){
@@ -214,7 +228,7 @@ function _collectTextWords(pageEl){
           var fr=doc.createRange(), fRect=null;
           try{ fr.setStart(node,pos); fr.setEnd(node,pos+best); fRect=fr.getBoundingClientRect(); }catch(_e3){}
           if(fRect&&fRect.width>=0.4&&fRect.height>=0.4){
-            var wf={t:text.slice(pos,pos+best),l:fRect.left,top:fRect.top,w:fRect.width,h:fRect.height,
+            var wf={t:_applyTT(text.slice(pos,pos+best),m.tt),l:fRect.left,top:fRect.top,w:fRect.width,h:fRect.height,
                    fs:m.fs,bold:m.bold,ital:m.ital,cr:m.r,cg:m.g,cb:m.b,ca:m.a,ls:m.ls,mk:false};
             if(first&&liEl&&!liFirst.get(liEl)){ wf.mk=true; liFirst.set(liEl,true);
               var lmf=elMeta(liEl)||m; wf.mr=lmf.r; wf.mg=lmf.g; wf.mb=lmf.b; }
@@ -226,7 +240,7 @@ function _collectTextWords(pageEl){
       }
       var r=rg.getBoundingClientRect();
       if(r.width<0.4||r.height<0.4)continue;
-      var w={t:mt[0],l:r.left,top:r.top,w:r.width,h:r.height,
+      var w={t:_applyTT(mt[0],m.tt),l:r.left,top:r.top,w:r.width,h:r.height,
              fs:m.fs,bold:m.bold,ital:m.ital,cr:m.r,cg:m.g,cb:m.b,ca:m.a,ls:m.ls,mk:false};
       if(liEl&&!liFirst.get(liEl)){ w.mk=true; liFirst.set(liEl,true);
         var lm=elMeta(liEl)||m; w.mr=lm.r; w.mg=lm.g; w.mb=lm.b; }
@@ -2191,7 +2205,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S499b';
+var PDF_PIPELINE_BUILD='S499c';
 // S499b: neutralize the font's GSUB (glyph substitution) table before
 // embedding. fontkit's layout engine applies Carlito's 'liga' feature by
 // default, replacing t+i with ligature glyph 2210 - but pdf-lib's
@@ -2329,6 +2343,8 @@ function _captureExportPDF(w,D){
       // vector (real text) → search (S498d invisible Helvetica) → off.
       var _txtFont=null;
       var _txtMode='off', _txtFaces={};
+      // S499c export text self-check accumulators (verifier runs after save).
+      var _vfyStr={}, _vfyOverlap=0, _vfyOvSamp=[];
       try{
         await _capLoad(window,new URL('../../vendor/fontkit.umd.min.js',import.meta.url).href,'fontkit');
         pdfDoc.registerFontkit(window.fontkit);
@@ -2682,8 +2698,29 @@ function _captureExportPDF(w,D){
           // (72/96 via pw/cssW), touching no visual geometry at all.
           var _vpt=pw/(cssW||816);
           var _vFail=0;
+          // ═══ S499c SELF-CHECK (pin-15 family): no two words may occupy the
+          // same spot. Sorted top-window scan; >70% mutual overlap in BOTH
+          // axes = collector geometry error. Detection only - never blocks.
+          try{
+            var _ov=_txtWords.slice().sort(function(a,b){return a.top-b.top||a.l-b.l;});
+            for(var _oa=0;_oa<_ov.length;_oa++){
+              var _wA=_ov[_oa];
+              for(var _ob=_oa+1;_ob<_ov.length;_ob++){
+                var _wB=_ov[_ob];
+                if(_wB.top>=_wA.top+_wA.h*0.7)break;
+                var _ix=Math.min(_wA.l+_wA.w,_wB.l+_wB.w)-Math.max(_wA.l,_wB.l);
+                var _iy=Math.min(_wA.top+_wA.h,_wB.top+_wB.h)-Math.max(_wA.top,_wB.top);
+                if(_ix>0.7*Math.min(_wA.w,_wB.w)&&_iy>0.7*Math.min(_wA.h,_wB.h)){
+                  _vfyOverlap++;
+                  if(_vfyOvSamp.length<2)_vfyOvSamp.push(_wA.t+'~'+_wB.t);
+                }
+              }
+            }
+          }catch(_ovE){}
           _txtWords.forEach(function(wd){
-            var face=_txtFaces[(wd.bold?'b':'')+(wd.ital?'i':'')||'r']||_txtFaces.r;
+            var _fk=(wd.bold?'b':'')+(wd.ital?'i':'')||'r';
+            var face=_txtFaces[_fk]||_txtFaces.r;
+            (_vfyStr[_fk]||(_vfyStr[_fk]=Object.create(null)))[wd.t]=1;
             var size=wd.fs*_vpt;
             if(!isFinite(size)||size<=0)return;
             var x=(wd.l-_txtPr.left)*_vsx;
@@ -2783,6 +2820,59 @@ function _captureExportPDF(w,D){
         }catch(_ih){}
       }catch(_eid){}
       var bytes=await pdfDoc.save();
+      // ═══ S499c EXPORT TEXT SELF-CHECK ═══ Runs on EVERY export; never
+      // blocks or alters the file. Catches the three defect families that
+      // shipped invisible in S498f/S499a: (1) glyph substitution re-enabled
+      // (the ti-ligature class - string length vs glyph count must be 1:1
+      // with GSUB neutralized); (2) any drawn glyph missing from the
+      // produced file's own /W width tables (the exact mechanism of the
+      // half-character ti gaps - checked against the REAL bytes, not
+      // pdf-lib's intentions); (3) characters the font cannot draw
+      // (notdef -> tofu). Overlapping words (pin-15 family) are counted
+      // during the page loop above. Any failure paints the status bar
+      // burgundy and console.error's the specifics.
+      if(_txtMode==='vector'){
+        try{
+          var _vErr=[], _vNotdef=Object.create(null), _vSub=0, _vMiss=Object.create(null), _vGlyphs=0;
+          Object.keys(_vfyStr).forEach(function(fk){
+            var f=_txtFaces[fk]; if(!f)return;
+            var fx=f.embedder&&f.embedder.font; if(!fx||!fx.layout)return;
+            // pdf-lib derives the PDF width table from the font's character
+            // set (cmap): a glyph only gets a width entry if some codepoint
+            // maps to it. The ti-ligature had no codepoint -> no width ->
+            // half-character gaps. So the checkable invariant is REACHABILITY:
+            // every glyph layout() emits must be the cmap target of a real
+            // character. (The saved bytes can't be scanned - pdf-lib packs
+            // dictionaries into compressed object streams.)
+            var _reach=Object.create(null);
+            try{ (fx.characterSet||[]).forEach(function(cp){
+              try{ var g=fx.glyphForCodePoint(cp); if(g)_reach[g.id]=1; }catch(_g1){}
+            }); }catch(_g0){}
+            Object.keys(_vfyStr[fk]).forEach(function(s){
+              var run=fx.layout(s), gl=(run&&run.glyphs)||[];
+              if(gl.length!==s.length)_vSub++;
+              for(var gi=0;gi<gl.length;gi++){
+                _vGlyphs++;
+                if(gl[gi].id===0)_vNotdef[s.charAt(gi)||'?']=1;
+                else if(!_reach[gl[gi].id])_vMiss[gl[gi].id]=1;
+              }
+            });
+          });
+          var _missK=Object.keys(_vMiss);
+          if(_missK.length)_vErr.push(_missK.length+' glyph(s) with no width entry in the PDF (gid '+_missK.slice(0,5).join(',')+')');
+          if(_vSub)_vErr.push(_vSub+' string(s) glyph-substituted \u2014 ligatures active again');
+          var _nd=Object.keys(_vNotdef);
+          if(_nd.length)_vErr.push('character(s) the PDF font cannot draw: '+_nd.slice(0,8).join(' '));
+          if(_vfyOverlap)_vErr.push(_vfyOverlap+' overlapping word pair(s)'+(_vfyOvSamp.length?' e.g. '+_vfyOvSamp.join(', '):''));
+          if(_vErr.length){
+            try{ console.error('[PDF VERIFY] TEXT SELF-CHECK FAILED \u2014 '+_vErr.join(' | ')); }catch(_c){}
+            _capStatus(D,'\u26A0 PDF text self-check flagged: '+_vErr.join(' | ')+' \u2014 report this to Mark');
+            try{ var _sEl=D.getElementById('cap-status'); if(_sEl)_sEl.style.background='#9C2742'; }catch(_sc){}
+          }else{
+            try{ console.log('[PDF VERIFY] text self-check clean \u2014 '+_vGlyphs+' glyphs checked, all widths present, 0 overlaps, 0 unsupported chars'); }catch(_c2){}
+          }
+        }catch(_vfyE){ try{ console.warn('[PDF VERIFY] self-check errored (export unaffected):',_vfyE&&_vfyE.message); }catch(_c3){} }
+      }
       var blob=new Blob([bytes],{type:'application/pdf'});
       var fname=(D.title||'ARENCON Report').replace(/[^\w.-]+/g,' ').replace(/\s+/g,' ').trim()+'.pdf';
       // S400: write to the handle already chosen at the top (fresh-click picker).
