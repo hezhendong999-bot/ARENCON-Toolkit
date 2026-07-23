@@ -88,26 +88,43 @@ function _getDecodedDrawing(dataUrl){
     img.src=dataUrl;
   });
 }
-// ═══ INVISIBLE TEXT LAYER (S498d — Mark: "I want the texts to be searchable") ═══
-// Body pages export as page rasters (S384: the browser print path re-paginated
-// and blanked pages; capture is deliberate and stays). The cost was that every
-// page carried ZERO real text — nothing searchable, selectable, or readable by
-// assistive tools (verified: 23/23 pages of 6360.08 B01 had 0 extractable
-// chars). This layer fixes that WITHOUT touching the raster: every text run in
-// the page DOM is re-drawn as REAL PDF text at its exact position, fully
-// transparent. The eye sees the raster; Ctrl+F, selection, copy and screen
-// readers see the text. Same technique as OCR'd scans — except we skip the
-// "recognition" step because the browser is still holding the real text.
-//   • Per-LINE runs (a wrapped paragraph = one run per visual line) so
-//     alignment error cannot accumulate across wraps.
-//   • Helvetica (pdf-lib standard font, zero embed bytes). Widths differ
-//     slightly from Calibri — bounded per line, irrelevant to search.
-//   • WinAnsi cannot encode every glyph (arrows, locks, dashes); runs are
-//     sanitised to close ASCII equivalents first, and a per-page failure
-//     COUNTER is logged — never a silent swallow (the S498a lesson).
-//   • Appendix drawing SHEETS are images with no text nodes, so they are
-//     naturally excluded; the pin text panels beside them are DOM text and
-//     come along for free.
+// ═══ REAL TEXT LAYER (S498e — Mark: "I want real texts", not a search wrapper) ═══
+// S498d made pages searchable with an INVISIBLE text layer over the raster; the
+// visible glyphs were still raster pixels — fuzzy at zoom, and the invisible
+// Helvetica ran wider than the rendered Calibri, so selection reached into
+// empty space (both reported by Mark within the hour). S498e replaces it:
+//   • Text is HIDDEN from the raster (color:transparent — the ONLY hiding
+//     h2c honours; -webkit-text-fill-color is ignored by h2c, measured) so
+//     backgrounds, bands, pills and rules still raster normally;
+//   • every word is drawn as REAL, VISIBLE vector text at its measured
+//     position, in CARLITO — metric-compatible with Calibri (SIL OFL), so
+//     widths match the layout the browser already computed. Crisp at any
+//     zoom, searchable, selectable, and selection hugs the actual words.
+//   • bullets: markers are ::marker pseudo-elements and vanish with the
+//     hide (they inherit color — measured); each list-item's first word
+//     gets a real \u2022 drawn at the marker position from font metrics.
+//   • PAGE BREAKS UNTOUCHED: pagination runs on the DOM before any of this;
+//     this swaps which layer carries glyph PIXELS, never geometry.
+// Faces: Regular/Bold/Italic/BoldItalic picked from computed style; colors
+// and letter-spacing from computed style (letter-spaced runs draw per-char).
+// Failure is LOUD and degrades in steps: fonts unavailable → S498d invisible
+// Helvetica (still searchable); that failing → raster-only, console says so.
+var _TXT_FONT_FILES={
+  r:'../../fonts/Carlito-Regular.ttf', b:'../../fonts/Carlito-Bold.ttf',
+  i:'../../fonts/Carlito-Italic.ttf', bi:'../../fonts/Carlito-BoldItalic.ttf'
+};
+var _txtBytesCache={};           // face key -> Promise<ArrayBuffer>, survives exports
+function _txtFetchFace(k){
+  if(!_txtBytesCache[k]){
+    var u=new URL(_TXT_FONT_FILES[k],import.meta.url).href;
+    _txtBytesCache[k]=fetch(u).then(function(r){
+      if(!r.ok)throw new Error('font '+k+' HTTP '+r.status);
+      return r.arrayBuffer();
+    });
+    _txtBytesCache[k].catch(function(){ delete _txtBytesCache[k]; });
+  }
+  return _txtBytesCache[k];
+}
 function _txtSanitizeWinAnsi(s){
   s=String(s||'')
     .replace(/[\u2014\u2013]/g,'-').replace(/[\u2018\u2019\u02BC]/g,"'")
@@ -122,51 +139,68 @@ function _txtSanitizeWinAnsi(s){
   }
   return out.replace(/\s+/g,' ').trim();
 }
-// Walk pageEl's text nodes; return per-visual-line runs:
-// [{text,left,top,width,height,fs}] in viewport CSS px (caller maps to PDF).
-function _collectTextRuns(pageEl){
-  var runs=[];
-  var walker=document.createTreeWalker(pageEl,NodeFilter.SHOW_TEXT,{
-    acceptNode:function(n){
-      if(!n.nodeValue||!n.nodeValue.trim())return NodeFilter.FILTER_REJECT;
-      var el=n.parentElement;
-      if(!el)return NodeFilter.FILTER_REJECT;
-      var tag=el.tagName;
-      if(tag==='SCRIPT'||tag==='STYLE'||tag==='NOSCRIPT')return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
-    }});
-  var node;
-  while((node=walker.nextNode())){
-    var el=node.parentElement;
-    var cs; try{ cs=getComputedStyle(el); }catch(_e){ cs=null; }
-    if(cs&&(cs.display==='none'||cs.visibility==='hidden'))continue;
-    var fs=cs?parseFloat(cs.fontSize)||11:11;
-    var text=node.nodeValue;
-    // word rectangles → group into visual lines
-    var re=/\S+/g,m,words=[];
-    while((m=re.exec(text))){
-      var rg=document.createRange();
-      try{ rg.setStart(node,m.index); rg.setEnd(node,m.index+m[0].length); }catch(_e){ continue; }
-      var r=rg.getBoundingClientRect();
-      if(r.width<0.5||r.height<0.5)continue;
-      words.push({w:m[0],r:r});
-    }
-    if(!words.length)continue;
-    var line=null;
-    for(var wi=0;wi<words.length;wi++){
-      var W=words[wi];
-      if(line&&Math.abs(W.r.top-line.top)<2){
-        line.text+=' '+W.w;
-        line.width=Math.max(line.width,(W.r.right-line.left));
-        line.height=Math.max(line.height,W.r.height);
-      }else{
-        if(line)runs.push(line);
-        line={text:W.w,left:W.r.left,top:W.r.top,width:W.r.width,height:W.r.height,fs:fs};
+// Per-WORD collection (not per-line): visible glyphs must sit exactly where
+// the browser laid them, and per-word placement means width error can never
+// accumulate past one word. Returns {words:[...], els:[...]} where els is the
+// de-duplicated list of elements to hide (color:transparent) before capture.
+function _collectTextWords(pageEl){
+  var doc=pageEl.ownerDocument||document;             // popup-realm correct (S498e)
+  var win=doc.defaultView||window;
+  var words=[], els=[], elSeen=[];
+  var meta=new Map();                                  // element -> style meta | null=skip
+  function elMeta(el){
+    if(meta.has(el))return meta.get(el);
+    var m=null;
+    try{
+      var cs=win.getComputedStyle(el);
+      if(cs.display==='none'||cs.visibility==='hidden'){ meta.set(el,null); return null; }
+      // transformed subtrees (rotated chips, svg innards) stay raster —
+      // their glyph geometry is not what Range rects report.
+      var a=el;
+      while(a&&a!==pageEl){
+        if(win.getComputedStyle(a).transform!=='none'){ meta.set(el,null); return null; }
+        a=a.parentElement;
       }
-    }
-    if(line)runs.push(line);
+      var colm=/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/.exec(cs.color)||[0,0,0,0,1];
+      var alpha=colm[4]===undefined?1:parseFloat(colm[4]);
+      if(alpha<=0.01){ meta.set(el,null); return null; }   // already hidden (baked captions)
+      var ls=cs.letterSpacing==='normal'?0:parseFloat(cs.letterSpacing)||0;
+      m={fs:parseFloat(cs.fontSize)||11,
+         bold:(parseInt(cs.fontWeight,10)||400)>=600,
+         ital:/italic|oblique/.test(cs.fontStyle),
+         r:(+colm[1])/255,g:(+colm[2])/255,b:(+colm[3])/255,a:alpha,
+         ls:ls,
+         li:cs.display==='list-item'&&cs.listStyleType!=='none'};
+    }catch(_e){ m=null; }
+    meta.set(el,m); return m;
   }
-  return runs;
+  var walker=doc.createTreeWalker(pageEl,NodeFilter.SHOW_TEXT,{
+    acceptNode:function(n){
+      return (n.nodeValue&&n.nodeValue.trim()&&n.parentElement)
+        ?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;
+    }});
+  var node, liFirst=new Map();
+  while((node=walker.nextNode())){
+    var el=node.parentElement, m=elMeta(el);
+    if(!m)continue;
+    // the LI flag lives on the list-item ancestor, not necessarily on el
+    var liEl=null, a2=el;
+    while(a2&&a2!==pageEl){ var mm=elMeta(a2); if(mm&&mm.li){liEl=a2;break;} a2=a2.parentElement; }
+    var text=node.nodeValue, re=/\S+/g, mt;
+    while((mt=re.exec(text))){
+      var rg=doc.createRange();
+      try{ rg.setStart(node,mt.index); rg.setEnd(node,mt.index+mt[0].length); }catch(_e){ continue; }
+      var r=rg.getBoundingClientRect();
+      if(r.width<0.4||r.height<0.4)continue;
+      var w={t:mt[0],l:r.left,top:r.top,w:r.width,h:r.height,
+             fs:m.fs,bold:m.bold,ital:m.ital,cr:m.r,cg:m.g,cb:m.b,ca:m.a,ls:m.ls,mk:false};
+      if(liEl&&!liFirst.get(liEl)){ w.mk=true; liFirst.set(liEl,true);
+        var lm=elMeta(liEl)||m; w.mr=lm.r; w.mg=lm.g; w.mb=lm.b; }
+      words.push(w);
+    }
+    if(elSeen.indexOf(el)<0){ elSeen.push(el); els.push(el); }
+  }
+  return {words:words,els:els};
 }
 
 // ═══ SEAL REDACTION (S492 — LOCKED_SEAL_REDACTION.md, decided: WARN) ═══
@@ -2123,7 +2157,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S498d';
+var PDF_PIPELINE_BUILD='S498e';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2228,9 +2262,28 @@ function _captureExportPDF(w,D){
       // bytes — Helvetica ships with every PDF viewer). Failure is loud, not
       // fatal: the export still produces a correct-looking PDF without the
       // search layer, and the console says exactly what was lost.
+      // S498e: REAL text needs custom fonts (Carlito, metric-compatible with
+      // Calibri) which need fontkit registered in PDFLib's realm (the MAIN
+      // window — PDFLib comes from window, not the popup). Degrades in steps:
+      // vector (real text) → search (S498d invisible Helvetica) → off.
       var _txtFont=null;
-      try{ _txtFont=await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica); }
-      catch(_tf0){ try{ console.warn('[PDF] text layer disabled - font embed failed:',_tf0&&_tf0.message); }catch(_){} }
+      var _txtMode='off', _txtFaces={};
+      try{
+        await _capLoad(window,new URL('../../vendor/fontkit.umd.min.js',import.meta.url).href,'fontkit');
+        pdfDoc.registerFontkit(window.fontkit);
+        var _fkeys=['r','b','i','bi'];
+        var _fbytes=await Promise.all(_fkeys.map(_txtFetchFace));
+        for(var _fi=0;_fi<_fkeys.length;_fi++){
+          _txtFaces[_fkeys[_fi]]=await pdfDoc.embedFont(_fbytes[_fi],{subset:true});
+        }
+        _txtMode='vector';
+      }catch(_tf1){
+        try{ console.warn('[PDF] real-text fonts unavailable ('+(_tf1&&_tf1.message)+') - falling back to invisible search layer'); }catch(_){}
+        try{ _txtFont=await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica); _txtMode='search'; }
+        catch(_tf0){ try{ console.warn('[PDF] text layer disabled - font embed failed:',_tf0&&_tf0.message); }catch(_){} }
+      }
+      // ascent/em per face for baseline placement (fontkit font object).
+      function _txtAsc(f){ try{ return f.embedder.font.ascent/f.embedder.font.unitsPerEm; }catch(_e){ return 0.79; } }
 
       for(var i=0;i<pages.length;i++){
         _capStatus(D,'Rendering page '+(i+1)+' of '+pages.length+'…');
@@ -2262,9 +2315,10 @@ function _captureExportPDF(w,D){
           try{
             _phRestore.forEach(function(t){
               try{
-                t.el.style.backgroundImage=t.bg||'';
-                t.el.style.backgroundColor=t.bc||'';
-                t.el.style.color=t.col||'';
+                if(t.bg!==undefined)t.el.style.backgroundImage=t.bg||'';
+                if(t.bc!==undefined)t.el.style.backgroundColor=t.bc||'';
+                if(t.col!==undefined)t.el.style.color=t.col||'';
+                if(t.bd!==undefined)t.el.style.borderColor=t.bd||'';
               }catch(_e1){}
             });
           }catch(_rs){}
@@ -2357,6 +2411,41 @@ function _captureExportPDF(w,D){
             if(_cap) _tile.style.color='transparent';
           }
         }catch(_po){ _phOverlays=[]; }
+        // ── S498e: REAL-TEXT pre-capture pass ─────────────────────────────
+        // Collect every word's position/style NOW (colors still real, photo
+        // captions already transparent so they self-exclude), then hide the
+        // glyphs from the raster. color:transparent is the only hiding h2c
+        // honours (measured; -webkit-text-fill-color is ignored). Backgrounds
+        // and borders keep rasterising; only glyph pixels move to the vector
+        // pass after the fields. Restore rides _phPutBack on every exit.
+        var _txtWords=null,_txtPr=null;
+        if(_txtMode==='vector'){ try{
+          var _tc=_collectTextWords(pageEl);
+          _txtWords=_tc.words;
+          _txtPr=pageEl.getBoundingClientRect();
+          _txtPr={left:_txtPr.left,top:_txtPr.top,width:_txtPr.width,height:_txtPr.height};
+          _tc.els.forEach(function(elh){
+            _phRestore.push({el:elh,col:elh.style.color});
+            elh.style.color='transparent';
+          });
+        }catch(_tw){ _txtWords=null;
+          try{ console.warn('[PDF] text collect failed on page '+(i+1)+':',_tw&&_tw.message); }catch(_){} } }
+        // ── S498e: CHECKBOX SQUARES leave the raster ──────────────────────
+        // Root fix for the "two checkboxes side by side" report (Shaun, via
+        // Mark, PDF-XChange): the raster carried the DOM's painted square AND
+        // the AcroForm widget drew its own. Adobe/Chrome paint our widget
+        // appearance exactly over the raster square so it looked single;
+        // PDF-XChange substitutes its own widget appearance beside it —
+        // BOTH visible. The widget is now the ONLY checkbox: the DOM square
+        // is blanked out of the capture, so every viewer draws exactly one
+        // box — its own. Restore rides _phPutBack.
+        try{
+          [].slice.call(pageEl.querySelectorAll('[data-crbopt]')).forEach(function(bxEl){
+            _phRestore.push({el:bxEl,bc:bxEl.style.backgroundColor,bd:bxEl.style.borderColor});
+            bxEl.style.backgroundColor='transparent';
+            bxEl.style.borderColor='transparent';
+          });
+        }catch(_bx){}
         // S497b — THE actual photo-quality fix (Mark: "picked Max, PDF photos
         // still blurry, preview crisp"). Body pages export as whole-page
         // rasters, so photo sharpness is set by THIS scale, not by the photo
@@ -2503,26 +2592,88 @@ function _captureExportPDF(w,D){
             });
           }catch(_cw){}
         }catch(e){}
-        // ── S498d: INVISIBLE TEXT LAYER for this page ─────────────────────
-        // Same pr/sx/sy fraction mapping the links and fields use (transform-
-        // and zoom-proof). Drawn transparent: the raster stays the visible
-        // page; this is what Ctrl+F, selection, and screen readers consume.
-        // Failures COUNT and LOG — a page quietly losing its text is exactly
-        // the class of silent failure that shipped the S498a photo bug.
-        if(_txtFont){ try{
+        // ── S498e: TEXT for this page ─────────────────────────────────────
+        // vector mode: draw every collected word VISIBLY in Carlito at its
+        // measured position/size/color — the crisp glyphs Mark asked for.
+        // search mode (font fallback): the S498d invisible Helvetica layer,
+        // width-capped per run so selection can no longer reach into empty
+        // space (Mark: header selection overshot). Failures COUNT and LOG.
+        if(_txtMode==='vector'&&_txtWords&&_txtWords.length){ try{
+          var _vsx=pw/(_txtPr.width||cssW), _vsy=ph/(_txtPr.height||cssH);
+          var _vFail=0;
+          _txtWords.forEach(function(wd){
+            var face=_txtFaces[(wd.bold?'b':'')+(wd.ital?'i':'')||'r']||_txtFaces.r;
+            var size=wd.fs*_vsy;
+            if(!isFinite(size)||size<=0)return;
+            var x=(wd.l-_txtPr.left)*_vsx;
+            var yBase=ph-(((wd.top-_txtPr.top)+wd.fs*_txtAsc(face))*_vsy);
+            if(!isFinite(x)||!isFinite(yBase))return;
+            var col=PDFLib.rgb(wd.cr,wd.cg,wd.cb);
+            function draw(str,dx){
+              pg.drawText(str,{x:x+dx,y:yBase,size:size,font:face,color:col,opacity:wd.ca});
+            }
+            function drawSafe(str,dx){
+              try{ draw(str,dx); return true; }
+              catch(_e1){
+                var s2=_txtSanitizeWinAnsi(str);
+                if(s2){ try{ draw(s2,dx); return true; }catch(_e2){} }
+                _vFail++; return false;
+              }
+            }
+            // synthesized bullet: ::marker died with the hide (inherits color,
+            // measured) — draw a real \u2022 ending one space before the word,
+            // exactly where Chrome lays the marker text.
+            if(wd.mk){
+              try{
+                var mAdv=face.widthOfTextAtSize('\u2022 ',size);
+                pg.drawText('\u2022',{x:Math.max(0,x-mAdv),y:yBase,size:size,font:face,
+                  color:PDFLib.rgb(wd.mr!==undefined?wd.mr:wd.cr,wd.mg!==undefined?wd.mg:wd.cg,wd.mb!==undefined?wd.mb:wd.cb)});
+              }catch(_mk){}
+            }
+            if(wd.ls>0.05){
+              // letter-spaced label (e.g. CONTRACTOR RESPONSE): reproduce the
+              // CSS tracking with the PDF's native character-spacing operator
+              // (Tc) so the word remains ONE text object — per-character draws
+              // broke word grouping and Ctrl+F could not find the label
+              // (measured in pdfium, Chrome's engine). Falls back to per-char
+              // placement only if this pdf-lib build lacks the operator.
+              var lsPt=wd.ls*_vsx;
+              if(PDFLib.setCharacterSpacing){
+                try{
+                  pg.pushOperators(PDFLib.setCharacterSpacing(lsPt));
+                  drawSafe(wd.t,0);
+                }finally{
+                  try{ pg.pushOperators(PDFLib.setCharacterSpacing(0)); }catch(_t0){}
+                }
+              }else{
+                var cx=0;
+                for(var ci=0;ci<wd.t.length;ci++){
+                  var ch=wd.t[ci];
+                  if(!drawSafe(ch,cx))break;
+                  try{ cx+=face.widthOfTextAtSize(ch,size)+lsPt; }
+                  catch(_wz){ cx+=size*0.55+lsPt; }
+                }
+              }
+            }else{
+              drawSafe(wd.t,0);
+            }
+          });
+          if(_vFail){ try{ console.warn('[PDF] real-text: '+_vFail+' of '+_txtWords.length+' words failed on page '+(i+1)); }catch(_){} }
+        }catch(_vt){ try{ console.warn('[PDF] real-text failed on page '+(i+1)+':',_vt&&_vt.message); }catch(_){} } }
+        else if(_txtMode==='search'&&_txtFont){ try{
           var _tpr=pageEl.getBoundingClientRect();
           var _tsx=pw/(_tpr.width||cssW), _tsy=ph/(_tpr.height||cssH);
-          var _truns=_collectTextRuns(pageEl);
+          var _truns=_collectTextWords(pageEl).words;
           var _tFail=0;
           _truns.forEach(function(run){
-            var s=_txtSanitizeWinAnsi(run.text);
+            var s=_txtSanitizeWinAnsi(run.t);
             if(!s)return;
             var fsPt=Math.max(4,Math.min(36,run.fs*_tsy));
-            var x=(run.left-_tpr.left)*_tsx;
-            var yTop=(run.top-_tpr.top)*_tsy, hh=run.height*_tsy;
-            // drawText's y is the BASELINE; ~80% down the line box approximates
-            // it closely enough for search/selection at these sizes.
-            var y=ph-(yTop+hh*0.8);
+            // width cap: never let invisible Helvetica overrun the word box
+            try{ var hw=_txtFont.widthOfTextAtSize(s,fsPt), tw=run.w*_tsx;
+                 if(hw>tw&&hw>0) fsPt=Math.max(3,fsPt*tw/hw); }catch(_wc){}
+            var x=(run.l-_tpr.left)*_tsx;
+            var y=ph-(((run.top-_tpr.top)+run.h*0.8)*_tsy);
             if(!isFinite(x)||!isFinite(y))return;
             try{ pg.drawText(s,{x:x,y:y,size:fsPt,font:_txtFont,opacity:0}); }
             catch(_td){ _tFail++; }

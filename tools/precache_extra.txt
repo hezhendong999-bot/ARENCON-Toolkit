@@ -33,3 +33,12 @@ lib/workers/imageWorker.js
 #    paste-into-console, never imported. Nothing referenced either.
 #    migrations/001_normalized_frt.sql is KEPT: it is the schema design for
 #    the normalized frt_* tables, still the reference if that work resumes.
+# ── S498e: REAL-TEXT export layer — fetched at export time via fetch()/URL,
+#    invisible to the import scanner. Missing offline = exports fall back to
+#    the invisible-Helvetica search layer (raster-looking text, still
+#    searchable), so precache these to keep field exports full quality.
+frt/fonts/Carlito-Regular.ttf
+frt/fonts/Carlito-Bold.ttf
+frt/fonts/Carlito-Italic.ttf
+frt/fonts/Carlito-BoldItalic.ttf
+frt/vendor/fontkit.umd.min.js
