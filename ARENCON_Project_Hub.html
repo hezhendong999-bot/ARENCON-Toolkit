@@ -7409,9 +7409,20 @@ function _pgEscHtml(s) {
     _pinAttempts = 0;
 
     // Set logo
-    var logo = document.querySelector('.hdr img');
+    /* S498 FIX. This read '.hdr img' — the page header. Since S492 the header
+       is rendered by the shared engine inside a SEALED SHADOW ROOT, and
+       querySelector cannot see into one, so this returned null, the src stayed
+       empty, and the lock screen showed a broken-image icon. The login screen's
+       mark is in the ordinary DOM and is the same asset, so read that instead
+       and fall back to the header engine's own logoSrc if it is ever absent. */
+    var logo = document.querySelector('.login-logo img, .login-card img');
     var lockLogo = document.getElementById('pin-lock-logo');
-    if (logo && lockLogo) lockLogo.src = logo.src;
+    if (lockLogo) {
+      var src = logo ? logo.src : '';
+      if (!src) { try { src = (window.__hubHdr && window.__hubHdr.logoSrc) || ''; } catch (e) {} }
+      if (src) lockLogo.src = src;
+      lockLogo.style.display = src ? '' : 'none';   /* never show a broken image */
+    }
 
     // Set user name
     var sub = document.getElementById('pin-lock-user');

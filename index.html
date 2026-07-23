@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
+<!-- S498 #auth (Mark: "gate all of it"): universal sign-in gate. Must load FIRST,
+     before any tool script, so no content paints before the session is confirmed. -->
+<script src="shared/auth-gate.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
