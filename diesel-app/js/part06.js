@@ -3419,8 +3419,14 @@ function _lowestActiveCap(pfx){
   });
   return lowest;
 }
+/* S499 CARVE: the curve maths moved to lib/calc/curveData.js, pinned by
+   tests/unit/curveData.test.js (21 tests + a 10,000-case differential proving
+   these delegates are identical to the code they replaced). The GLOBAL and DOM
+   reads stay here on purpose — that separation is what makes the maths
+   testable. Inline fallback only for a failed module load. */
 function _measuredDischargePts(pfx){
   var src = (pfx==='pld-') ? (typeof pldData!=='undefined'?pldData:[]) : (typeof stdData!=='undefined'?stdData:[]);
+  if(window.CurveData) return window.CurveData.measuredDischargePts(src, pfx==='pld-', (typeof rowFlow==='function')?rowFlow:null);
   return src.map(function(r){
     var f = (typeof rowFlow==='function') ? rowFlow(r) : parseFloat(r.flow);
     var d = parseFloat(pfx==='pld-' ? (r.dis_w!=null?r.dis_w:r.discharge) : r.discharge);
@@ -3441,10 +3447,13 @@ function _interpCurve(curve, flow){
   }
   return curve[curve.length-1].y;
 }
+/* S499 CARVE: see _measuredDischargePts above. Cap lookup stays here (it reads
+   the DOM); the clipping maths is owned by lib/calc/curveData.js. */
 function _goldenCurve(pfx){
   var dis=_measuredDischargePts(pfx);
   if(!dis.length) return [];
   var cap=_lowestActiveCap(pfx);
+  if(window.CurveData) return window.CurveData.goldenCurve(dis, cap);
   var pts=[];
   for(var i=0;i<dis.length;i++){
     var x=dis[i].x, y=dis[i].y;
