@@ -1666,7 +1666,14 @@ function _nfpa20Gate(pct, adjNet, ratedNet){
 }
 // §14.2.4.2 ±1% certified-curve deviation flag for one point (vs that point's OWN placard).
 // Returns true if the point is OUTSIDE the ±1% calibrated-gauge band (→ ⚑ flag).
+/* S499 CARVE: the maths now lives in lib/calc/pumpCurve.js and is pinned by
+   tests/unit/pumpCurve.test.js (21 tests + a 9,800-case differential proving
+   this delegate is behaviourally identical to the code it replaced).
+   THIN DELEGATE, not a second implementation — the shared module owns the one
+   copy. The inline fallback exists only so a failed module load cannot strand
+   an inspector mid-commissioning. */
 function _curveDevOver1pct(adjNet, pointPlacard){
+  if(window.PumpCurve) return window.PumpCurve.curveDevOver1pct(adjNet, pointPlacard);
   if(adjNet==null || isNaN(adjNet) || isNaN(pointPlacard) || pointPlacard<=0) return false;
   return Math.abs(adjNet - pointPlacard) > pointPlacard*0.01;
 }
@@ -3421,7 +3428,10 @@ function _measuredDischargePts(pfx){
     return {x:f, y:d};
   }).filter(Boolean).sort(function(a,b){return a.x-b.x;});
 }
+/* S499 CARVE: see _curveDevOver1pct above. Maths owned by
+   lib/calc/pumpCurve.js; this delegates. Fallback for a failed module load. */
 function _interpCurve(curve, flow){
+  if(window.PumpCurve) return window.PumpCurve.interpCurve(curve, flow);
   if(!curve||!curve.length) return null;
   if(flow<=curve[0].x) return curve[0].y;
   if(flow>=curve[curve.length-1].x) return curve[curve.length-1].y;

@@ -22,7 +22,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./frt/tests/setup.js'],
-    include: ['frt/tests/**/*.test.js'],
+    // S499: `tests/**` is the SHARED-LIB suite (lib/**), starting with the
+    // Diesel carve. FRT keeps its own tree; both run in one command so a
+    // shared-engine change cannot pass by only testing one tool.
+    include: ['frt/tests/**/*.test.js', 'tests/**/*.test.js'],
     // Generous timeout for contract tests that hit prod
     testTimeout: 10000,
     // Vitest reports per-file; the GH Actions summary catches the totals.

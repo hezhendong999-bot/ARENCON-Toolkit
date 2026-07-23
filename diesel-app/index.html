@@ -23,6 +23,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="js/part01.js"></script>
 <!-- S459: shared markup shape definitions (single source of truth across FRT + Diesel lightboxes + drawing viewer). Same-origin ARENCON asset, not a CDN dep. DieselMarkup delegates shape rendering to window.MarkupTools when present; if this fails to load (rare offline first-load), DieselMarkup's own identical shape branches run — markup cannot break. -->
+<!-- S499 CARVE: pump-curve maths extracted from the monolith into a shared
+     module. Classic script (not a module) because the delegates read
+     window.PumpCurve synchronously during chart/report rendering. -->
+<script src="../lib/calc/pumpCurve.js"></script>
 <script src="../lib/ui/markupTools.js"></script>
 <script src="../lib/ui/markupEraser.js"></script>
 <script src="../lib/ui/markupSelection.js"></script>
