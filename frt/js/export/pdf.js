@@ -2157,7 +2157,7 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S498f';
+var PDF_PIPELINE_BUILD='S499a';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){
@@ -2273,8 +2273,16 @@ function _captureExportPDF(w,D){
         pdfDoc.registerFontkit(window.fontkit);
         var _fkeys=['r','b','i','bi'];
         var _fbytes=await Promise.all(_fkeys.map(_txtFetchFace));
+        // S499a: subset MUST stay false. fontkit's TrueType subsetter emits
+        // corrupt glyph outlines for Carlito (measured: 84/97 glyphs
+        // unparseable in the S498f field export; reproduced in Node with the
+        // same vendored fontkit + the same TTFs - 42/59 corrupt). Viewers
+        // reject the font and paint NO text; search/extract still work because
+        // the ToUnicode map is intact, so the failure is invisible to
+        // structural checks. subset:false embeds the shipped TTF byte-intact
+        // (0 corrupt glyphs, pixel-verified). Cost: ~2.7MB across 4 faces.
         for(var _fi=0;_fi<_fkeys.length;_fi++){
-          _txtFaces[_fkeys[_fi]]=await pdfDoc.embedFont(_fbytes[_fi],{subset:true});
+          _txtFaces[_fkeys[_fi]]=await pdfDoc.embedFont(_fbytes[_fi],{subset:false});
         }
         _txtMode='vector';
       }catch(_tf1){
@@ -3757,8 +3765,10 @@ async function _betaRender(p,r2Cache,linkByUrl,mintStats){
   var bold=_betaB64ToBytes(CARLITO_BOLD_B64);
   var doc=await PDFLib.PDFDocument.create();
   doc.registerFontkit(window.fontkit);
-  var fReg=await doc.embedFont(reg,{subset:true});
-  var fBold=await doc.embedFont(bold,{subset:true});
+  // S499a: subset:false - fontkit's subsetter corrupts Carlito glyph
+  // outlines (see the vector-text embed block above for the measurements).
+  var fReg=await doc.embedFont(reg,{subset:false});
+  var fBold=await doc.embedFont(bold,{subset:false});
 
   var W=612,H=792,MX=43,MT=50;
   var burg=PDFLib.rgb(0.612,0.153,0.259);
