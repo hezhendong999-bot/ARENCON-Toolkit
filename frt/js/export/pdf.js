@@ -1,3 +1,4 @@
+export var PDF_PIPELINE_BUILD='S499d'; // S499e: module-level so app.js imports the RESIDENT engine build for the boot line
 /**
  * ARENCON FRT v2 — PDF Export
  * Ported from v1 _exportPDFWithCache — pixel-identical output.
@@ -2276,7 +2277,6 @@ function _capLoad(win,src,glob){
     win.document.head.appendChild(s);
   });
 }
-var PDF_PIPELINE_BUILD='S499d';
 function _capStatus(D,txt){
   var s=D.getElementById('cap-status');
   if(!s){

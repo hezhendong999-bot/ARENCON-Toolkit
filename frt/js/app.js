@@ -35,7 +35,7 @@ import { initPhotos } from './ui/photos.js';
 // Table/Board views migrate into the Deficiencies tab in Phase 2.
 import { initViewer } from './viewer/viewer.js';
 import { Markup } from './viewer/markup.js';
-import { initPDFExport } from './export/pdf.js';
+import { initPDFExport, PDF_PIPELINE_BUILD } from './export/pdf.js';
 import { initExportView } from './export/exportview.js'; // S145 P5: Export view replaces _openPDFPicker
 import { initJSONExport } from './export/json.js';
 import { initProjectDocsExport } from './export/projectDocs.adapter.js';
@@ -2352,10 +2352,15 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S498c';
+var FRT_BUILD = 'S499e';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
-  console.info('%c[FRT] build ' + FRT_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
+  // S499e: the engine string comes from the STATICALLY IMPORTED pdf.js
+  // module - so this line reports the build the export will actually run,
+  // from the resident module itself, not whatever the server happens to
+  // hold. If this line says an old engine, the fix is NOT on this machine
+  // yet, full stop. Shell bumps on every FRT push from S499e onward.
+  console.info('%c[FRT] shell ' + FRT_BUILD + ' | pdf engine ' + PDF_PIPELINE_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
   var t0 = performance.now();
 
