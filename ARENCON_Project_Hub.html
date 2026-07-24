@@ -579,6 +579,40 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
 .crn-sec.others{color:var(--warn)}
 .crn-note{font-size:calc(11.8px + var(--ts));color:var(--silver);line-height:1.55;margin-top:10px}
 @media(pointer:coarse){.crn-item{padding:12px}.crn-item input{width:21px;height:21px}}
+/* ═══ S499 — Review Client Names (admin). Series-conflict flagging.
+   A number series is one client, so two spellings inside one series is
+   near-certain a typo. Fixing routes through the SAME consent path as the
+   rename modal: admin's own projects change now, other PMs get a request. ═══ */
+.rcn-sum{font-size:calc(12.8px + var(--ts));color:var(--steel);line-height:1.6;margin-bottom:14px}
+.rcn-sum b{color:var(--fg)}
+.rcn-clean{display:flex;align-items:center;gap:9px;padding:16px;background:var(--yes-bg);border:1px solid var(--yes);border-radius:var(--radius);color:#14603a;font-size:calc(13px + var(--ts));font-weight:600}
+.rcn-flag{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;background:var(--white)}
+.rcn-flag.pending{opacity:.85;background:var(--bg)}
+.rcn-fhead{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--bg);border-bottom:1px solid var(--border);cursor:pointer;min-height:44px}
+.rcn-series{font-family:Consolas,'Courier New',monospace;font-size:calc(12.5px + var(--ts));font-weight:700;letter-spacing:.6px;color:var(--fg);border:1px solid var(--border);background:var(--white);border-radius:6px;padding:3px 10px;flex:0 0 auto}
+.rcn-fmeta{flex:1;min-width:0;font-size:calc(12.5px + var(--ts));color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcn-fmeta b{color:var(--fg);font-weight:600}
+.rcn-chip{flex:0 0 auto;font-size:calc(11px + var(--ts));font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:.2px}
+.rcn-chip.conflict{color:var(--warn);background:rgba(183,121,31,.11);border:1px solid rgba(183,121,31,.34)}
+.rcn-chip.pending{color:var(--steel);background:var(--na-bg);border:1px solid rgba(90,100,115,.28)}
+.rcn-caret{color:var(--silver);font-size:calc(11px + var(--ts));width:12px;flex:0 0 auto}
+.rcn-fbody{display:none}
+.rcn-flag.open .rcn-fbody{display:block}
+.rcn-grp{border-bottom:1px solid var(--border)}
+.rcn-grp:last-of-type{border-bottom:none}
+.rcn-ghead{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--white)}
+.rcn-gname{font-size:calc(13px + var(--ts));font-weight:700;color:var(--fg)}
+.rcn-gcount{font-size:calc(11.5px + var(--ts));color:var(--silver)}
+.rcn-keep{margin-left:auto;font-size:calc(11.5px + var(--ts));font-weight:700;color:var(--yes);background:var(--yes-bg);border:1px solid rgba(26,122,74,.3);border-radius:999px;padding:3px 10px}
+.rcn-proj{display:flex;align-items:center;gap:10px;padding:8px 13px 8px 26px;font-size:calc(12.8px + var(--ts));border-top:1px solid var(--smoke)}
+.rcn-proj .num{font-family:Consolas,'Courier New',monospace;font-weight:700;color:var(--fg);flex:0 0 auto;min-width:66px;font-size:calc(12px + var(--ts))}
+.rcn-proj .nm{color:var(--steel);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.rcn-proj .pm{color:var(--silver);flex:0 0 auto;font-size:calc(11.5px + var(--ts))}
+.rcn-proj .pm.own{color:var(--yes);font-weight:700}
+.rcn-act{display:flex;align-items:center;gap:9px;padding:11px 13px;background:var(--bg);border-top:1px solid var(--border);flex-wrap:wrap}
+.rcn-act .hint{font-size:calc(11.8px + var(--ts));color:var(--silver);flex:1;min-width:160px;line-height:1.5}
+@media(pointer:coarse){.rcn-proj{padding:11px 13px 11px 26px}.rcn-fhead{min-height:52px}}
+@media(max-width:560px){.rcn-proj .pm{display:none}.rcn-fmeta{white-space:normal}}
 /* S498 — Steam-style corner correction card. Bottom-RIGHT; toasts own centre. */
 .notif-stack{position:fixed;right:18px;bottom:0;z-index:400;display:flex;flex-direction:column;align-items:flex-end;pointer-events:none}
 .notif-card{width:min(340px,calc(100vw - 36px));background:var(--card);border:1px solid var(--border);border-radius:13px 13px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.22);pointer-events:auto;transform:translateY(110%);transition:transform .34s cubic-bezier(.22,.9,.3,1);overflow:hidden}
@@ -1151,6 +1185,16 @@ body.text-l{--ts:4px;}
     <div class="admin-section">
       <div class="admin-section-header">Client Name Cleanup</div>
       <div class="admin-section-body" id="cc-body"><span style="color:var(--silver)">Loading…</span></div>
+    </div>
+
+    <!-- S499 — Review Client Names (Mark, approved S499). Replaces the flat
+         spelling list with project-anchored flagging: a number series is one
+         client, so two spellings inside one series is near-certainly a typo.
+         Fixing reuses the rename consent path — admin's own projects change
+         immediately, other PMs receive a request they accept or decline. -->
+    <div class="admin-section">
+      <div class="admin-section-header">Review Client Names</div>
+      <div class="admin-section-body" id="rcn-body"><span style="color:var(--silver)">Loading…</span></div>
     </div>
 
     <!-- S497d — R2 Storage Reclamation (Stage 3 complete, Mark present &
@@ -2293,6 +2337,7 @@ function showAdmin() {
   _detailProjectId = null;
   loadAdminUsers();
   try { renderClientCleanup(); } catch(e){ console.warn('[cc]', e); }
+  try { renderReviewClientNames(); } catch(e){ console.warn('[rcn]', e); }
   try { renderReclamation(); } catch(e){ console.warn('[rr]', e); }
 }
 
@@ -4054,6 +4099,197 @@ function ccMergeManual(){
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   S499 — REVIEW CLIENT NAMES (Mark, approved S499; option A = series only).
+   Detection is deliberately narrow: a project NUMBER SERIES (digits before
+   the dot) is one client by definition, so two client spellings inside one
+   series is near-certainly a typo. String similarity alone is NOT used — it
+   produces false flags ("Iron Mountain Canada Corp" vs "Iron Mountain Storage
+   Inc" are different clients) and a screen that cries wolf gets ignored.
+
+   Fixing does NOT bulk-overwrite. It opens the existing rename modal, which
+   already splits by ownership: the admin's own projects rename immediately,
+   other PMs get a correction request they accept or decline in their own Hub.
+   A series with an outstanding request shows as pending, so it stops nagging.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function _rcnSeries(pn){ var m = String(pn || '').match(/^(\d+)/); return m ? m[1] : null; }
+
+function _rcnConflicts(){
+  var bySeries = {};
+  (_projects || []).forEach(function(p){
+    var s = _rcnSeries(p.project_number); if (!s) return;
+    var c = (p.client || '').trim(); if (!c) return;
+    (bySeries[s] = bySeries[s] || []).push(p);
+  });
+  var out = [];
+  Object.keys(bySeries).sort().forEach(function(s){
+    var ps = bySeries[s], spell = {};
+    ps.forEach(function(p){ var c = (p.client || '').trim(); (spell[c] = spell[c] || []).push(p); });
+    var names = Object.keys(spell);
+    if (names.length < 2) return;                       /* one spelling = clean */
+    names.sort(function(a,b){ return spell[b].length - spell[a].length || a.localeCompare(b); });
+    /* "most used" is only meaningful when one spelling genuinely leads. On a
+       tie every spelling has equal weight, so claiming a winner would mislead
+       the admin into accepting an arbitrary alphabetical pick. */
+    var clearWinner = spell[names[0]].length > spell[names[1]].length;
+    out.push({ series: s, spellings: names, groups: spell, total: ps.length,
+               clearWinner: clearWinner,
+               pending: (_rcnPending && _rcnPending[s]) || null });
+  });
+  return out;
+}
+
+/* series -> outstanding correction request, built from hub_notifications */
+var _rcnPending = {};
+
+async function _rcnLoadPending(){
+  _rcnPending = {};
+  if (!_sb) return;
+  try {
+    var rows = await _sb.from('hub_notifications')
+      .eq('kind', 'client_correction').eq('status', 'pending').execute() || [];
+    (rows || []).forEach(function(n){
+      var ids = (n.payload && n.payload.project_ids) || [];
+      ids.forEach(function(id){
+        var p = (_projects || []).find(function(x){ return x.id === id; });
+        if (!p) return;
+        var s = _rcnSeries(p.project_number); if (!s) return;
+        _rcnPending[s] = { from: (n.payload && n.payload.old) || '',
+                           to:   (n.payload && n.payload.neu) || '',
+                           pm:   n.to_user };
+      });
+    });
+  } catch(e){ console.warn('[rcn] pending lookup failed', e); }
+}
+
+async function renderReviewClientNames(){
+  var host = document.getElementById('rcn-body');
+  if (!host) return;
+  if (!_canPurgeProjects()){ host.innerHTML = '<span style="color:var(--silver)">Administrators only.</span>'; return; }
+
+  await _rcnLoadPending();
+
+  var flags = _rcnConflicts();
+  var seen = {};
+  (_projects || []).forEach(function(p){ var s = _rcnSeries(p.project_number); if (s) seen[s] = 1; });
+  var nSeries = Object.keys(seen).length;
+
+  var html = '<div class="rcn-sum">Checked <b>' + (_projects || []).length + '</b> projects across <b>'
+    + nSeries + '</b> number series. A series is one client, so two spellings inside one series is almost '
+    + 'always a typo &mdash; those are flagged below. Fixing sends a request to other PMs rather than '
+    + 'overwriting their projects.</div>';
+
+  if (!flags.length){
+    host.innerHTML = html + '<div class="rcn-clean">\u2713 No conflicts \u2014 every project series uses one client spelling.</div>';
+    return;
+  }
+
+  var live = flags.filter(function(f){ return !f.pending; });
+  var pend = flags.filter(function(f){ return f.pending; });
+
+  live.concat(pend).forEach(function(f){
+    var isPend = !!f.pending;
+    html += '<div class="rcn-flag' + (isPend ? ' pending' : '') + '" id="rcn-flag-' + esc(f.series) + '">'
+         +    '<div class="rcn-fhead" onclick="_rcnTog(\'' + esc(f.series) + '\')">'
+         +      '<span class="rcn-caret">\u25B6</span>'
+         +      '<span class="rcn-series">' + esc(f.series) + '</span>'
+         +      '<span class="rcn-fmeta"><b>' + f.spellings.length + ' spellings</b> across ' + f.total
+         +        ' projects \u2014 ' + f.spellings.map(esc).join(' \u00B7 ') + '</span>'
+         +      (isPend ? '<span class="rcn-chip pending">Request sent</span>'
+                        : '<span class="rcn-chip conflict">Needs review</span>')
+         +    '</div><div class="rcn-fbody">';
+
+    f.spellings.forEach(function(name, i){
+      var ps = f.groups[name];
+      html += '<div class="rcn-grp"><div class="rcn-ghead">'
+           +    '<span class="rcn-gname">' + esc(name) + '</span>'
+           +    '<span class="rcn-gcount">' + ps.length + ' project' + (ps.length === 1 ? '' : 's') + '</span>'
+           +    (i === 0 && f.clearWinner ? '<span class="rcn-keep">most used</span>' : '')
+           +  '</div>';
+      ps.forEach(function(p){
+        var mine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
+        html += '<div class="rcn-proj">'
+             +    '<span class="num">' + esc(p.project_number || '\u2014') + '</span>'
+             +    '<span class="nm">' + esc(p.project_name || '') + '</span>'
+             +    '<span class="pm' + (mine ? ' own' : '') + '">' + (mine ? 'You' : esc(_rcnPmName(p))) + '</span>'
+             +  '</div>';
+      });
+      html += '</div>';
+    });
+
+    html += '<div class="rcn-act">';
+    if (isPend){
+      html += '<span class="hint">Waiting on ' + esc(_rcnUserName(f.pending.pm)) + ' \u2014 asked to change \u201C'
+           +  esc(f.pending.from) + '\u201D to \u201C' + esc(f.pending.to)
+           +  '\u201D. Nothing more to do until they answer.</span>';
+    } else {
+      html += '<span class="hint">Your projects change right away. Other PMs get a request they can accept or decline.</span>'
+           +  '<button class="dash-btn primary" onclick="_rcnFix(\'' + esc(f.series) + '\')">Fix this series</button>';
+    }
+    html += '</div></div></div>';
+  });
+
+  host.innerHTML = html;
+}
+
+function _rcnPmName(p){
+  return _rcnUserName(p.project_manager || p.created_by);
+}
+function _rcnUserName(id){
+  return (typeof _userMap !== 'undefined' && _userMap[id]) ? _userMap[id] : '\u2014';
+}
+
+function _rcnTog(s){
+  var el = document.getElementById('rcn-flag-' + s);
+  if (!el) return;
+  el.classList.toggle('open');
+  var c = el.querySelector('.rcn-caret');
+  if (c) c.textContent = el.classList.contains('open') ? '\u25BC' : '\u25B6';
+}
+
+/* Opens the EXISTING rename modal seeded with this series' projects, so the
+   consent split and the write path are the rename's, not a second copy. */
+function _rcnFix(series){
+  var f = _rcnConflicts().filter(function(x){ return x.series === series; })[0];
+  if (!f || !_profile) return;
+  var all = [];
+  f.spellings.forEach(function(n){ f.groups[n].forEach(function(p){ all.push(p); }); });
+  var mine = [], others = [];
+  all.forEach(function(p){
+    var isMine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
+    (isMine ? mine : others).push(p);
+  });
+  _crnCtx = { oldName: f.spellings[0], mine: mine, others: others };
+
+  document.getElementById('crn-intro').innerHTML =
+    'Series <b>' + esc(series) + '</b> uses <b>' + f.spellings.length + '</b> different spellings across <b>'
+    + all.length + '</b> project' + (all.length === 1 ? '' : 's')
+    + '. Type the correct spelling, then choose which projects to update. Only the client name changes '
+    + '&mdash; numbers, reports, photos and drawings are untouched.';
+
+  var nn = document.getElementById('crn-name');
+  nn.value = f.spellings[0];
+
+  var html = '';
+  if (mine.length){
+    html += '<div class="crn-sec">Your projects &mdash; renamed immediately</div>';
+    mine.forEach(function(p){ html += _crnRow(p, true); });
+  }
+  if (others.length){
+    html += '<div class="crn-sec others">Other PMs &mdash; sent as a correction request</div>';
+    others.forEach(function(p){ html += _crnRow(p, false); });
+  }
+  document.getElementById('crn-list').innerHTML = html;
+  document.getElementById('crn-note').textContent = others.length
+    ? 'Other PMs are never rewritten silently: their ticked projects get a request they accept or decline in their own Hub.'
+    : '';
+  document.getElementById('crn-merge').style.display = 'none';
+  document.getElementById('crn-sug').style.display = 'none';
+  _crnOnName();
+  document.getElementById('client-rename-modal').classList.add('show');
+  setTimeout(function(){ nn.focus(); nn.select(); }, 80);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    S497d — R2 RECLAMATION, STAGE 3 COMPLETE (Mark present and instructing).
    The nightly dry-run report (tools/r2_reclamation_report.mjs) remains the
    ONLY source of what may be deleted: tombstone-driven, reference-counted
@@ -5495,6 +5731,13 @@ async function _crnApply() {
   if (epc && sel.mine.length) epc.value = raw;
   closeClientRename();
   renderProjects();
+  /* S499 — if the admin fixed from Review Client Names, refresh it so the
+     resolved series drops off (or flips to pending) without a reload. */
+  if (document.getElementById('rcn-body') &&
+      document.getElementById('admin-panel') &&
+      document.getElementById('admin-panel').style.display === 'block') {
+    try { renderReviewClientNames(); } catch(e){ console.warn('[rcn]', e); }
+  }
 }
 
 /* ═══ S498: corner correction card (Steam-style, bottom-right) ═══

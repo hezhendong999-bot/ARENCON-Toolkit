@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607240331';
+var CACHE_NAME = 'arencon-frt-202607240340';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -34,7 +34,6 @@ var APP_FILES = [
   './',
   'frt/index.html',
   'ARENCON_Diesel_Fire_Pump_Commissioning.html',
-  'diesel-app/index.html',
   'ARENCON_Electric_Fire_Pump_Commissioning.html',
   'ARENCON_Project_Hub.html',
   'index.html',
@@ -49,28 +48,8 @@ var APP_FILES = [
   'frt/fonts/Carlito-Italic.ttf',
   'frt/fonts/Carlito-BoldItalic.ttf',
   'frt/vendor/fontkit.umd.min.js',
-  'frt/fonts/Blair.ttf',
-  'frt/fonts/LiberationSans-Regular.ttf',
   'aiusage_panel.css',
   'aiusage_panel.js',
-  'diesel-app/css/diesel-01.css',
-  'diesel-app/css/diesel-02.css',
-  'diesel-app/js/part01.js',
-  'diesel-app/js/part02.js',
-  'diesel-app/js/part03.js',
-  'diesel-app/js/part04.js',
-  'diesel-app/js/part05.js',
-  'diesel-app/js/part06.js',
-  'diesel-app/js/part07.js',
-  'diesel-app/js/part08.js',
-  'diesel-app/js/part09.js',
-  'diesel-app/js/part10.js',
-  'diesel-app/js/part11.js',
-  'diesel-app/js/part12.js',
-  'diesel-app/js/part13.js',
-  'diesel-app/js/part14.js',
-  'diesel-app/js/part15.js',
-  'diesel-app/js/part16.js',
   'diesel-sync.js',
   'frt/css/frt.css',
   'frt/js/ai/assistant.js',
@@ -124,7 +103,6 @@ var APP_FILES = [
   'frt/js/viewer/webglMarkup.js',
   'frt/js/workers/imageWorkerHost.js',
   'lib/assets/logo.js',
-  'lib/calc/curveData.js',
   'lib/calc/pumpCurve.js',
   'lib/data/idb.js',
   'lib/data/merge.js',
