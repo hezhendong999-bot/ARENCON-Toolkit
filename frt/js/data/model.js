@@ -2842,6 +2842,7 @@ export var Model = {
       source: data.source || 'manual',                 // portal|manual|pdf|sitelog
       receiptNo: data.receiptNo || null,
       importId: data.importId || null,                 // S480: batch receipt — which import EVENT wrote this (undo grain)
+      dedupeKey: data.dedupeKey || null,               // S500: exportId|obsId — undo un-registers this so the PDF can be re-imported
       noResponse: !!data.noResponse,
       emailPending: !!data.emailPending,               // soft email gate (§3)
       // ── S464 Phase 2 fields ──
@@ -3304,6 +3305,71 @@ export var Model = {
     _dirty = true;
     _queueSave();
     return row;
+  },
+
+  // ── S500: UNDO AN IMPORT BATCH ──────────────────────────────────────────
+  // Removes every contractor response written by one import EVENT (importId).
+  // Mark's decision (A): a response nobody has replied to is HARD-removed — it
+  // leaves no trace, so import→look→undo is a clean demo loop. A response you
+  // HAVE replied to (your ARENCON review hangs off it) is SOFT-removed instead
+  // — your review is your own work and is never destroyed; it folds to the
+  // undo stub, flagged orphaned. Either way the item's dedupeKey is pulled back
+  // out of exportIds so the SAME PDF can be re-imported afterward (this is what
+  // makes it an undo and not a delete). Returns a summary for the caller's
+  // notice: { hard, soft, total, kept:[texts] }.
+  undoImportBatch: function(importId) {
+    if (!_project || !importId) return { hard: 0, soft: 0, total: 0, kept: [] };
+    var self = this;
+    var hard = 0, soft = 0, kept = [], unreg = [];
+    var defics = (_project.deficiencies || []).concat(_project.generalDeficiencies || []);
+    // A response has a reply if any entry (either array) points replyTo at it.
+    function _hasReply(obs, entryId) {
+      var arrs = [obs.responses || [], obs.arenconReviews || []], a, i;
+      for (a = 0; a < arrs.length; a++) {
+        for (i = 0; i < arrs[a].length; i++) {
+          if (arrs[a][i] && arrs[a][i].replyTo === entryId && !arrs[a][i].removed) return true;
+        }
+      }
+      return false;
+    }
+    defics.forEach(function(f) {
+      (f.observations || []).forEach(function(obs) {
+        var resp = obs.responses || [];
+        // Iterate over a snapshot of matches; hard-remove splices, so collect first.
+        var matches = resp.filter(function(e) { return e && e.importId === importId; });
+        matches.forEach(function(e) {
+          if (e.dedupeKey && unreg.indexOf(e.dedupeKey) < 0) unreg.push(e.dedupeKey);
+          if (_hasReply(obs, e.id)) {
+            // Preserve — soft-remove, keep the review, orphan-flag its replies.
+            if (!e.removed) {
+              e.removed = true; e.removedBy = null; e.removedAt = _todayStr();
+              ['responses', 'arenconReviews'].forEach(function(arrName) {
+                (obs[arrName] || []).forEach(function(x) {
+                  if (x && x.replyTo === e.id && !x.removed) x.orphaned = true;
+                });
+              });
+              soft++; kept.push(e.text || '');
+            }
+          } else {
+            // No dependents — hard-remove: splice it out entirely.
+            var idx = obs.responses.indexOf(e);
+            if (idx >= 0) { obs.responses.splice(idx, 1); hard++; }
+          }
+        });
+      });
+    });
+    // Un-register the dedupe keys so the same PDF is importable again.
+    if (Array.isArray(_project.exportIds) && unreg.length) {
+      _project.exportIds = _project.exportIds.filter(function(k) { return unreg.indexOf(k) < 0; });
+    }
+    // Mark the batch undone in the import log (kept, not deleted — audit trail).
+    (_project.importLog || []).forEach(function(r) {
+      if (r.importId === importId) { r.undone = true; r.undoneAt = new Date().toISOString(); }
+    });
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', { action: 'undo-import', importId: importId, hard: hard, soft: soft });
+    return { hard: hard, soft: soft, total: hard + soft, kept: kept };
   },
 
   // ── S205: cross-pin photo move / copy + reference query ──

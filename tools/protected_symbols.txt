@@ -360,3 +360,7 @@ crbt-unlock
 crbt-revert
 crbt-history
 amendedAfterIssue
+
+@ CRB import-batch undo — pull a whole contractor-PDF import back out in one tap; hard-removes untouched rows, preserves rows you've reviewed (Mark, S500-C)
+undoImportBatch
+_noticeUndo

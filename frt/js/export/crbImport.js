@@ -160,6 +160,38 @@ function _notice(msg) {
   document.body.appendChild(ov);
 }
 
+// S500: success notice that also offers "Undo this import" — the batch id lets
+// us pull the whole import back out in one tap (clean for a demo; the real
+// safety net for the wrong-PDF day). Undo hard-removes untouched imports and
+// soft-removes any you've already replied to (your review is preserved), then
+// re-arms the PDF for re-import.
+function _noticeUndo(msg, importId) {
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9500;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  ov.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:460px;width:90%;padding:20px;">' +
+    '<div style="font-size:15px;margin-bottom:14px;">' + _esc(msg) + '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+      '<button id="crbimp-undo" style="padding:10px 16px;border:1px solid #C0445F;background:#fff;color:#C0445F;border-radius:6px;font-weight:600;cursor:pointer;min-height:44px;font-family:Calibri,sans-serif;">\u21A9 Undo this import</button>' +
+      '<button id="crbimp-okok" style="padding:10px 18px;border:none;background:#9C2742;color:#fff;border-radius:6px;font-weight:bold;cursor:pointer;min-height:44px;font-family:Calibri,sans-serif;">OK</button>' +
+    '</div></div>';
+  ov.querySelector('#crbimp-okok').addEventListener('click', function() { ov.remove(); });
+  ov.querySelector('#crbimp-undo').addEventListener('click', function() {
+    var r = Model.undoImportBatch ? Model.undoImportBatch(importId) : null;
+    try { if (Model.saveNow) Model.saveNow(); } catch (e) {}
+    ov.remove();
+    // Repaint the deficiencies view so the removed rows disappear immediately.
+    try { if (typeof window !== 'undefined' && window.Deficiencies && window.Deficiencies.render) window.Deficiencies.render(); } catch (e) {}
+    var m = 'Import undone.';
+    if (r) {
+      m = 'Import undone \u2014 ' + r.total + ' response(s) removed';
+      if (r.soft) m += ' (' + r.soft + ' kept as removed because you had replied to them; your reviews are intact)';
+      m += '. This PDF can be imported again.';
+    }
+    _notice(m);
+  });
+  document.body.appendChild(ov);
+}
+
 // ── Public entry ──────────────────────────────────────────────────────────
 export function openCrbImport() {
   var proj = Model.getProject && Model.getProject();
@@ -250,6 +282,7 @@ export function openCrbImport() {
             text: r.comment,
             source: 'pdf',
             importId: _impId,          // S480: batch receipt (undo grain)
+            dedupeKey: r.dedupeKey || null, // S500: so undo can un-register this item's export key
             frtInstance: r.frtInstance, // S480: round from the sheet, not the clock
             round: r.round
           });
@@ -261,10 +294,10 @@ export function openCrbImport() {
         });
         try { if (ok && Model.logImport) Model.logImport({ importId: _impId, exportId: _expId, frt: _sheetFrt, count: ok }); } catch (e) {}
         try { if (Model.saveNow) Model.saveNow(); } catch (e) {}
-        _notice('Imported ' + ok + ' contractor response(s) into item threads.' +
+        _noticeUndo('Imported ' + ok + ' contractor response(s) into item threads.' +
           (dupes.length ? ' ' + dupes.length + ' already-imported item(s) skipped.' : '') +
           (fail ? ' ' + fail + ' failed \u2014 see console.' : '') +
-          ' They will appear in the next exported report\u2019s thread history.');
+          ' They will appear in the next exported report\u2019s thread history.', _impId);
         console.log('[CRBImport] wrote ' + ok + ' response(s), ' + fail + ' failed, ' +
           dupes.length + ' duplicate(s) skipped, ' +
           unresolved.length + ' unresolved field id(s)', unresolved);
