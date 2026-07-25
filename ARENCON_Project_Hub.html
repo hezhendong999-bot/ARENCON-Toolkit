@@ -118,7 +118,7 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
    width — horizontal scroll, and the ✕ drifted with it. Structure fix, not a
    patch: the card is a flex column capped to the viewport; a non-scrolling
    header owns the title and ✕; only the body scrolls, vertically only. */
-.ins-modal-card{max-width:min(880px,calc(100vw - 24px))}
+#insights-modal .ins-modal-card{width:min(880px,calc(100vw - 24px));max-width:min(880px,calc(100vw - 24px))}
 .ins-modal-card,.help-modal-card{max-height:86vh;display:flex;flex-direction:column;overflow:hidden;padding:0}
 .imx-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 24px 10px;flex-shrink:0}
 .imx-head h3{margin:0}
@@ -141,7 +141,12 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .ins-bar-row .ct{font-weight:700;color:var(--fg);text-align:right}
 .ins-note{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:14px}
 .wn-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
-.help-modal-card{max-width:min(880px,calc(100vw - 24px))}
+/* S502 fix: the element is class="modal-card help-modal-card". Both selectors are
+   single-class, so .modal-card's later max-width:440px + width:90% won the tie by
+   source order and clamped the panel — the 880px never applied. Scope by the ID'd
+   overlay so it wins on specificity regardless of order (ID beats class), and set
+   width too so .modal-card's width:90% can't re-narrow it. */
+#help-modal .help-modal-card{width:min(880px,calc(100vw - 24px));max-width:min(880px,calc(100vw - 24px))}
 /* S500 — Help engine card/chip/search/tab styling (ported from the approved
    demo DEMO_help_unified_S499.html, renamed to the engine's emitted classes:
    .help-tabs/.help-tab, .help-search*, .help-grouphdr, .help-card*, .help-chip,
