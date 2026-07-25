@@ -1266,23 +1266,7 @@ function _recDelete(i){
 }
 // S264: confirm-delete helpers for the inline ✕ buttons that previously spliced with
 // no confirmation. Route through the authoritative path by id when possible.
-function removeDeficRespPhoto(safe, i, ci, ri, dispName){
-  var d=deficiencies[safe] && deficiencies[safe][i]; var r=d && d.responses && d.responses[ci];
-  var p=r && r.photos ? r.photos[ri] : null; if(!p) return;
-  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
-  else { _aConfirm('Delete this photo? This cannot be undone.', function(){ r.photos.splice(ri,1); renderDeficGroup(dispName||safe); if(typeof _renderPhotoGallery==='function')_renderPhotoGallery(); if(typeof saveState==='function')saveState(); },'Delete'); }
-}
-function removeGenDeficPhoto(i, j){
-  var d=generalDeficiencies[i]; var p=d && d.photos ? d.photos[j] : null; if(!p) return;
-  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
-  else { _aConfirm('Delete this photo? This cannot be undone.', function(){ d.photos.splice(j,1); renderGeneralDeficGroup(); if(typeof _renderPhotoGallery==='function')_renderPhotoGallery(); if(typeof saveState==='function')saveState(); },'Delete'); }
-}
-function removeGenDeficRespPhoto(i, ci, ri){
-  var d=generalDeficiencies[i]; var r=d && d.responses ? d.responses[ci] : null;
-  var p=r && r.photos ? r.photos[ri] : null; if(!p) return;
-  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
-  else { _aConfirm('Delete this photo? This cannot be undone.', function(){ r.photos.splice(ri,1); renderGeneralDeficGroup(); if(typeof _renderPhotoGallery==='function')_renderPhotoGallery(); if(typeof saveState==='function')saveState(); },'Delete'); }
-}
+// ── Defic photo removers → lib/ui/deficiencies.js (S500) ──
 function _recLightbox(i){ openLightbox(recordPhotos, i, {renderer:_renderRecordZones}); }
 
 function _renderPhotoGallery(){
