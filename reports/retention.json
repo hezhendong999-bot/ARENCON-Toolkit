@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-24T07:57:25.260Z",
+  "generated_at": "2026-07-25T07:36:02.671Z",
   "policy": {
     "retention_days": 90,
     "warn_days": 14,
@@ -27,8 +27,8 @@
         "status": "draft",
         "deleted_at": "2026-07-21T00:47:18.066+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 3,
-        "days_until_eligible": 87
+        "days_deleted": 4,
+        "days_until_eligible": 86
       },
       {
         "kind": "report",
@@ -40,8 +40,8 @@
         "status": "draft",
         "deleted_at": "2026-07-23T00:40:53.312+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 1,
-        "days_until_eligible": 89
+        "days_deleted": 2,
+        "days_until_eligible": 88
       }
     ]
   },
@@ -57,8 +57,8 @@
         "client": "ARENCON",
         "deleted_at": "2026-05-22T02:59:23.426+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 63,
-        "days_until_eligible": 27
+        "days_deleted": 64,
+        "days_until_eligible": 26
       },
       {
         "kind": "project",
@@ -68,8 +68,8 @@
         "client": "Caplink",
         "deleted_at": "2026-06-23T18:35:00.008+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 30,
-        "days_until_eligible": 60
+        "days_deleted": 31,
+        "days_until_eligible": 59
       },
       {
         "kind": "project",
@@ -79,8 +79,8 @@
         "client": null,
         "deleted_at": "2026-07-19T17:19:00.986+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 4,
-        "days_until_eligible": 86
+        "days_deleted": 5,
+        "days_until_eligible": 85
       },
       {
         "kind": "project",
@@ -90,8 +90,8 @@
         "client": null,
         "deleted_at": "2026-07-19T17:38:18.653+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 4,
-        "days_until_eligible": 86
+        "days_deleted": 5,
+        "days_until_eligible": 85
       }
     ]
   }
