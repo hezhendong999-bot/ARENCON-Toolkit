@@ -125,6 +125,11 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .imx-head .modal-x{position:static;flex-shrink:0}
 .imx-body{overflow-y:auto;overflow-x:hidden;padding:6px 24px 22px}
 .ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+/* S503b (Mark): .ins-block never had a box — only its h4 was styled, so with the
+   expanded dashboard every section ran together flat on white. Give it the card
+   treatment from the approved demo. var(--card) carries its own light/dark value,
+   so this works in both themes. */
+.ins-block{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(27,26,34,.04)}
 .ins-block h4{font-size:calc(12px + var(--ts));font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
 .ins-donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .ins-legend{display:flex;flex-direction:column;gap:5px;font-size:calc(12px + var(--ts))}
@@ -143,6 +148,14 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 /* ═══ S503 — expanded Insights (Mark) ═══ */
 .ins-sec-h{font-size:calc(12px + var(--ts));font-weight:800;letter-spacing:.6px;color:var(--arencon);text-transform:uppercase;margin:24px 0 12px;padding-bottom:7px;border-bottom:2px solid color-mix(in srgb,var(--arencon) 20%,transparent)}
 .ins-sec-h:first-child{margin-top:0}
+/* S503b (Mark): the two flagged lists are the most ACTIONABLE content but were
+   the faintest — plain rows on white. Give warning cards a warm tint + a red
+   left accent so they read as alerts. Low-alpha fill keeps it within the muted
+   palette (not a loud block). */
+.ins-block.alert{border-color:color-mix(in srgb,var(--no) 30%,var(--border));border-left:4px solid var(--no);background:color-mix(in srgb,var(--no) 5%,var(--card))}
+.ins-block.alert h4{color:var(--no)}
+.ins-block.alert.clear{border-left-color:var(--yes);border-color:color-mix(in srgb,var(--yes) 25%,var(--border));background:color-mix(in srgb,var(--yes) 4%,var(--card))}
+.ins-block.alert.clear h4{color:var(--yes)}
 .ins-donut-wrap svg{flex-shrink:0}
 .ins-donut-c{position:relative;display:inline-flex;align-items:center;justify-content:center}
 .ins-donut-c .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
@@ -2954,9 +2967,9 @@ async function openInsights() {
     + '<div class="ins-legend-inline">' + AGE_DEFS.map(function (d) { return '<span><span class="sw" style="background:' + d.c + '"></span>' + d.label + '</span>'; }).join('') + '</div>'
     + _insStackBars(pmAgeRows, AGE_DEFS, true)
     + '<div class="ins-note">Each PM\u2019s active projects by backup age. The green % is how <b>current</b> they are (backed up within 60 days). Sorted, oldest-carrying first.</div></div>'
-    + '<div class="ins-block" style="margin-top:16px"><h4>\u26A0 Projects needing a backup</h4>' + _insFlagList(staleFlags, 'No projects over 60 days without a backup.')
+    + '<div class="ins-block alert' + (staleFlags.length ? '' : ' clear') + '" style="margin-top:16px"><h4>\u26A0 Projects needing a backup</h4>' + _insFlagList(staleFlags, 'No projects over 60 days without a backup.')
     + '<div class="ins-note">Projects flagged with their responsible PM. Days since last export.</div></div>'
-    + '<div class="ins-block" style="margin-top:16px"><h4>\u26A0 Issued but not backed up</h4>' + _insFlagList(riskFlags, 'No issued reports are missing a recent backup.')
+    + '<div class="ins-block alert' + (riskFlags.length ? '' : ' clear') + '" style="margin-top:16px"><h4>\u26A0 Issued but not backed up</h4>' + _insFlagList(riskFlags, 'No issued reports are missing a recent backup.')
     + '<div class="ins-note">Delivered reports whose project has no recent backup \u2014 a real liability.</div></div>'
 
     + '<div class="ins-sec-h">Project work</div>'
