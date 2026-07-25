@@ -67,6 +67,24 @@ function _crbEsc(s){
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;');
 }
+// S500: when a comment was amended AFTER it was printed in an issued report,
+// the report must not silently show the new wording — the AHJ/contractor only
+// ever see the paper. This prints the current text (done by the caller) with a
+// quiet line beneath giving the amendment date and the ORIGINAL issued wording,
+// so the correction is on the record, not just in the app. The original is the
+// first edit's `from` in the amendment history (same value revert restores).
+// Returns '' for comments never amended after issue — no visual change for them.
+function _crbAmendNote(entry){
+  if(!entry || !entry.amendedAfterIssue) return '';
+  var hist = entry.history || [], orig = null, when = null, i;
+  for(i=0;i<hist.length;i++){ if(hist[i].action==='edit'){ orig = hist[i].from; when = hist[i].at; break; } }
+  var whenStr = '';
+  if(when){ try { whenStr = new Date(when).toISOString().slice(0,10); } catch(e){ whenStr=''; } }
+  var issuedFrt = (entry.issuedOnInstance!=null) ? (' in FRT #'+_crbEsc(entry.issuedOnInstance)) : '';
+  var was = (orig!=null && orig!=='') ? ('; as issued'+issuedFrt+' this read: \u201C'+_crbEsc(orig)+'\u201D') : '';
+  return '<div class="crb-amend" style="font-size:9px;color:#5E5B68;font-style:italic;margin-top:2px;">'
+    + 'Amended'+(whenStr?(' '+whenStr):'')+was+'</div>';
+}
 function _crbRound(frtInstance, notedOnInstance){
   var r = (Number(frtInstance)||1) - (Number(notedOnInstance)||1) + 1;
   return r < 1 ? 1 : r;
@@ -117,6 +135,7 @@ function crbContractorRow(resp){
   var _rBody = (resp.text!=null&&resp.text!=='') ? resp.text : resp.comment;
   h += '<div class="claim cflex"><span class="ctext">'+(_rBody?_crbEsc(_rBody):'')+'</span>'
      + (resp.statusReported?('<span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span>'):'')+'</div>';
+  h += _crbAmendNote(resp);
   // rectification photos (already resolved to {url,caption})
   var rp = resp.rectPhotos||[];
   if(rp.length){
@@ -152,6 +171,7 @@ function crbReviewRow(rev, pillClsResolver){
   // S467: accept `text` (S461 primitive schema) alongside legacy `comment`.
   var _vBody = (rev.text!=null&&rev.text!=='') ? rev.text : rev.comment;
   if(_vBody) h += '<p>'+_crbEsc(_vBody)+'</p>';
+  h += _crbAmendNote(rev);
   var fp = rev.followupPhotos||[];
   if(fp.length){
     h += '<div class="rect-lbl">ARENCON FOLLOW-UP PHOTOS ('+fp.length+')</div>';

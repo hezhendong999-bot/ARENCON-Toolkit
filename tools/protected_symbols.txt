@@ -364,3 +364,7 @@ amendedAfterIssue
 @ CRB import-batch undo — pull a whole contractor-PDF import back out in one tap; hard-removes untouched rows, preserves rows you've reviewed (Mark, S500-C)
 undoImportBatch
 _noticeUndo
+
+@ CRB report-side amendment printing — an amended-after-issue comment prints its original issued wording in the next report, so the paper record isn't silently changed (Mark, S500-D)
+_crbAmendNote
+crb-amend
