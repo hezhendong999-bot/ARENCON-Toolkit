@@ -268,6 +268,12 @@ body:not(.dark-mode) .view-list .band-body,body:not(.dark-mode) .view-list .proj
 .view-list .project-card::after{display:none !important}
 .view-list .project-card-export{display:none}
 .view-list .project-card-check{top:50%;transform:translateY(-50%)}
+/* In list view the row is a flex container and the star is order:1 at the far
+   left — exactly where the absolute checkbox sits. The grid-view shim
+   (padding-left on .project-card-top) does nothing here because .project-card-top
+   is display:contents and holds no box. Pad the row itself so the checkbox clears
+   the star instead of covering it. */
+body.select-mode .view-list .project-card{padding-left:42px}
 /* ── Phone portrait: two-row list card. Row 1: ★ #### name · avatar. Row 2: client · pills · backup. ── */
 @media(max-width:560px){
   .view-list .band-body,.view-list .project-grid-inner{grid-template-columns:1fr !important;border:none;border-radius:0;overflow:visible}
@@ -2176,6 +2182,10 @@ async function doForgotPassword() {
 
 // ── Logout ──
 async function doLogout() {
+  // Disarm select mode before tearing down — otherwise _selectMode stays true and
+  // the body.select-mode class survives into the next sign-in (no page reload
+  // happens on logout), so the board comes back with select still armed.
+  try { clearBulkSelection(); } catch (e) {}
   sessionStorage.setItem('ARENCON_signed_out', '1');
   await _sb.auth.signOut();
   _user = null;
@@ -2386,6 +2396,8 @@ function showDashboard() {
 }
 
 function showAdmin() {
+  // Leaving the board disarms select mode (same reason as openProject).
+  if (_selectMode) { try { clearBulkSelection(); } catch (e) {} }
   document.getElementById('dash-view').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'block';
   document.getElementById('project-detail').style.display = 'none';
@@ -3073,6 +3085,11 @@ function openProject(projectId) {
     toast('Project not found', 'error');
     return;
   }
+  // Leaving the board disarms select mode — otherwise it stays armed behind you
+  // and the board comes back with stale ticks + the bulk bar (a fat-finger hazard
+  // on shared tablets). Filtering ON the board keeps select mode; only leaving
+  // clears it. Guarded so it's a no-op (no wasted render) when not selecting.
+  if (_selectMode) { try { clearBulkSelection(); } catch (e) {} }
   _detailProjectId = projectId;
 
   // Push history state so browser back returns to dashboard
