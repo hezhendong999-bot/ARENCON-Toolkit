@@ -140,6 +140,35 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
    height, so every bar painted empty. display:block is the root fix, not a patch. */
 .ins-bar-row .ct{font-weight:700;color:var(--fg);text-align:right}
 .ins-note{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:14px}
+/* ═══ S503 — expanded Insights (Mark) ═══ */
+.ins-sec-h{font-size:calc(12px + var(--ts));font-weight:800;letter-spacing:.6px;color:var(--arencon);text-transform:uppercase;margin:24px 0 12px;padding-bottom:7px;border-bottom:2px solid color-mix(in srgb,var(--arencon) 20%,transparent)}
+.ins-sec-h:first-child{margin-top:0}
+.ins-donut-wrap svg{flex-shrink:0}
+.ins-donut-c{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.ins-donut-c .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.ins-donut-c .ctr .big{font-size:calc(22px + var(--ts));font-weight:800;color:var(--fg);line-height:1}
+.ins-donut-c .ctr .cap{font-size:calc(9px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+.ins-legend-inline{display:flex;gap:14px;flex-wrap:wrap;font-size:calc(11px + var(--ts));color:var(--steel);margin-bottom:10px}
+.ins-legend-inline span{display:inline-flex;align-items:center;gap:5px}
+.ins-legend-inline .sw{width:10px;height:10px;border-radius:3px}
+.ins-sbar-row{display:grid;grid-template-columns:minmax(90px,130px) 1fr auto;align-items:center;gap:8px;font-size:calc(12px + var(--ts));margin-bottom:8px}
+.ins-sbar-row .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins-sbar-row .tr{display:flex;height:13px;border-radius:7px;overflow:hidden;background:color-mix(in srgb,var(--steel) 12%,transparent)}
+.ins-sbar-row .seg{height:100%}
+.ins-sbar-row .ct{font-weight:700;color:var(--fg);text-align:right;white-space:nowrap}
+.ins-sbar-row .pct{color:var(--yes);font-weight:700;font-size:calc(10.5px + var(--ts));margin-left:6px}
+.ins-flag{display:flex;flex-direction:column}
+.ins-flag .fr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:calc(12px + var(--ts))}
+.ins-flag .fr:last-child{border-bottom:none}
+.ins-flag .warn{color:var(--no);font-size:calc(13px + var(--ts))}
+.ins-flag .proj{font-weight:700;color:var(--fg)}
+.ins-flag .pm{color:var(--steel);font-size:calc(11px + var(--ts))}
+.ins-flag .age{font-weight:800;color:var(--no);white-space:nowrap}
+.ins-flag .age .u{color:var(--silver);font-weight:600;font-size:calc(10px + var(--ts))}
+.ins-flag .empty{color:var(--silver);padding:6px 0}
+.ins-compute{text-align:center;padding:20px}
+.ins-compute button{background:var(--arencon);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-family:inherit;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;min-height:40px}
+.ins-compute .ins-note{margin-top:8px}
 .wn-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
 /* S502 fix: the element is class="modal-card help-modal-card". Both selectors are
    single-class, so .modal-card's later max-width:440px + width:90% won the tie by
@@ -2774,15 +2803,56 @@ function _insLegend(segs) {
     return '<span class="lg"><span class="sw" style="background:' + s.c + '"></span>' + esc(s.n) + '<span class="ct">' + s.v + '</span></span>';
   }).join('') + '</div>';
 }
-function openInsights() {
+/* S503 — donut with a headline number in the hole. Wraps the existing _donutSvg
+   (unchanged, so every prior call still works) in a positioned box with a center
+   overlay. big = the number, cap = a short caption under it. */
+function _donutCtr(segs, size, big, cap) {
+  return '<div class="ins-donut-c">' + _donutSvg(segs, size)
+    + '<span class="ctr"><span class="big">' + esc(String(big)) + '</span>'
+    + (cap ? '<span class="cap">' + esc(cap) + '</span>' : '') + '</span></div>';
+}
+/* S503 — stacked horizontal bar rows (one row per person). segdefs: [{key,c,label}].
+   showPct adds a green "% good" figure after the total. */
+function _insStackBars(rows, segdefs, showPct) {
+  if (!rows.length) return '<span style="color:var(--silver)">No data.</span>';
+  return rows.map(function (r) {
+    var tot = 0; segdefs.forEach(function (s) { tot += (r.vals[s.key] || 0); });
+    var denom = tot || 1;
+    var segs = segdefs.map(function (s) {
+      var v = r.vals[s.key] || 0;
+      return v ? '<span class="seg" style="width:' + (v / denom * 100) + '%;background:' + s.c + '" title="' + esc(s.label) + ': ' + v + '"></span>' : '';
+    }).join('');
+    var pct = showPct ? '<span class="pct">' + r.pct + '%</span>' : '';
+    return '<div class="ins-sbar-row"><span class="nm" title="' + esc(r.n) + '">' + esc(r.n) + '</span>'
+      + '<span class="tr">' + segs + '</span><span class="ct">' + tot + pct + '</span></div>';
+  }).join('');
+}
+/* S503 — flagged-project list. Flags PROJECTS (not people) but names the
+   responsible PM on each row so a principal can act. rows: [{proj,pm,age}]. */
+function _insFlagList(rows, emptyMsg) {
+  if (!rows.length) return '<div class="ins-flag"><span class="empty">' + esc(emptyMsg || 'Nothing flagged — all good.') + '</span></div>';
+  return '<div class="ins-flag">' + rows.map(function (r) {
+    return '<div class="fr"><span class="warn">⚠</span>'
+      + '<span><span class="proj">' + esc(r.proj) + '</span><br><span class="pm">PM: ' + esc(r.pm) + '</span></span>'
+      + '<span class="age">' + r.age + '<span class="u"> d</span></span></div>';
+  }).join('') + '</div>';
+}
+async function openInsights() {
   var body = document.getElementById('insights-body');
   if (!body) return;
+  document.getElementById('insights-modal').classList.add('show');
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--silver)">Loading…</div>';
+
   var active = _projects.filter(function (p) { return !p.deleted_at && p.status !== 'archived'; });
   var now = Date.now();
+  function pmName(p) { var id = p.project_manager || p.created_by || ''; return (id && _userMap[id]) || 'Unassigned'; }
+  function ageDays(p) { return p.last_exported_at ? Math.floor((now - new Date(p.last_exported_at).getTime()) / 86400000) : null; }
+
+  // ── Backup: firm totals ──
   var never = 0, fresh = 0, a30 = 0, a60 = 0, a90 = 0;
   active.forEach(function (p) {
-    if (!p.last_exported_at) { never++; return; }
-    var d = Math.floor((now - new Date(p.last_exported_at).getTime()) / 86400000);
+    var d = ageDays(p);
+    if (d === null) { never++; return; }
     if (d >= 90) a90++; else if (d >= 60) a60++; else if (d >= 30) a30++; else fresh++;
   });
   var covSegs = [
@@ -2791,40 +2861,168 @@ function openInsights() {
   ];
   var ageSegs = [
     { n: 'Fresh (under 30 days)', v: fresh, c: 'var(--yes)' },
-    /* S497b (Mark): 30+ was amber like 60+ — now a muted yellow so the two
-       tiers read apart at a glance. Aging runs green → yellow → orange → red. */
     { n: '30+ days old', v: a30, c: '#DCC94F' },
     { n: '60+ days old', v: a60, c: '#C98A4A' },
     { n: '90+ days old', v: a90, c: 'var(--no)' }
   ];
-  /* Projects per PM — falls back to the creator when no PM is set (the board's
-     own "Mine" rule), and to Unassigned when neither resolves to a person. */
-  var byPm = {};
+
+  // ── Backup age per PM (+ % current) ──
+  var pmAge = {};
   active.forEach(function (p) {
-    var id = p.project_manager || p.created_by || '';
-    var nm = (id && _userMap[id]) || 'Unassigned';
-    byPm[nm] = (byPm[nm] || 0) + 1;
+    var nm = pmName(p), d = ageDays(p);
+    var b = pmAge[nm] || (pmAge[nm] = { fresh: 0, d30: 0, d60: 0, d90: 0, never: 0 });
+    if (d === null) b.never++; else if (d >= 90) b.d90++; else if (d >= 60) b.d60++; else if (d >= 30) b.d30++; else b.fresh++;
   });
+  var AGE_DEFS = [
+    { key: 'fresh', c: 'var(--yes)', label: 'Fresh' }, { key: 'd30', c: '#DCC94F', label: '30+' },
+    { key: 'd60', c: '#C98A4A', label: '60+' }, { key: 'd90', c: 'var(--no)', label: '90+' },
+    { key: 'never', c: '#B0B4BB', label: 'Never' }
+  ];
+  var pmAgeRows = Object.keys(pmAge).map(function (nm) {
+    var b = pmAge[nm], tot = b.fresh + b.d30 + b.d60 + b.d90 + b.never;
+    var current = b.fresh + b.d30; // "current" = backed up within 60 days
+    return { n: nm, vals: b, pct: tot ? Math.round(current / tot * 100) : 0, _stale: b.d60 + b.d90 + b.never };
+  }).sort(function (a, b) { return b._stale - a._stale || a.n.localeCompare(b.n); });
+
+  // ── Flagged projects (name the PM) ──
+  var staleFlags = active.filter(function (p) { var d = ageDays(p); return d !== null && d >= 60; })
+    .map(function (p) { return { proj: p.project_number + ' · ' + (p.project_name || ''), pm: pmName(p), age: ageDays(p) }; })
+    .sort(function (a, b) { return b.age - a.age; }).slice(0, 8);
+
+  // ── Active projects per person ──
+  var byPm = {};
+  active.forEach(function (p) { var nm = pmName(p); byPm[nm] = (byPm[nm] || 0) + 1; });
+  var totalActive = active.length || 1;
   var pmRows = Object.keys(byPm).map(function (k) { return { n: k, v: byPm[k] }; })
     .sort(function (a, b) { return b.v - a.v || a.n.localeCompare(b.n); });
-  /* S497b (Mark): bar length = person's share of ALL active projects, so the
-     bars mean workload share, not rank-vs-leader. The total is only the
-     denominator — it is deliberately not displayed. */
-  var totalActive = active.length || 1;
   var barsHtml = pmRows.map(function (r) {
     return '<div class="ins-bar-row"><span class="nm" title="' + esc(r.n) + '">' + esc(r.n) + '</span>'
       + '<span class="tr"><span class="fl" style="width:' + Math.max(3, Math.round(r.v / totalActive * 100)) + '%"></span></span>'
       + '<span class="ct">' + r.v + '</span></div>';
   }).join('');
+
+  // ── Reports (one lightweight query, blobs NOT loaded) ──
+  var reports = [];
+  try {
+    reports = await _sb.from('tool_data').select('id,project_id,tool_key,status,updated_by').is('deleted_at', null).execute() || [];
+  } catch (e) { console.warn('[insights] report query failed', e); }
+  var projActive = {}; active.forEach(function (p) { projActive[p.id] = p; });
+
+  // reports by tool — use short codes (FRT/DFP/EFP…) so the legend fits; the
+  // long _TOOL_SHORT_NAMES are report titles, not chart labels.
+  var TOOL_CODE = { frt: 'FRT', diesel: 'Diesel', electric: 'Electric', ist: 'IST', obc: 'OBC', dd: 'DD' };
+  var byTool = {};
+  reports.forEach(function (r) { var t = TOOL_CODE[r.tool_key] || (r.tool_key || '—'); byTool[t] = (byTool[t] || 0) + 1; });
+  var TOOL_C = { 'FRT': '#9C2742', 'Diesel': '#E65100', 'Electric': '#1565C0', 'IST': '#C62828', 'OBC': '#2E7D32', 'DD': '#5E35B1' };
+  var toolSegs = Object.keys(byTool).sort(function (a, b) { return byTool[b] - byTool[a]; })
+    .map(function (t) { return { n: t, v: byTool[t], c: TOOL_C[t] || 'var(--steel)' }; });
+
+  // report status
+  var st = { draft: 0, review: 0, issued: 0, revision: 0 };
+  reports.forEach(function (r) { var s = r.status || 'draft'; if (st[s] === undefined) st[s] = 0; st[s]++; });
+  var statusSegs = [
+    { n: 'Draft', v: st.draft || 0, c: '#DCC94F' }, { n: 'Review', v: st.review || 0, c: '#2C7FB8' },
+    { n: 'Issued', v: st.issued || 0, c: 'var(--yes)' }, { n: 'Revision', v: st.revision || 0, c: '#C98A4A' }
+  ];
+
+  // reports per person, draft vs issued
+  var pmRep = {};
+  reports.forEach(function (r) {
+    var nm = _userMap[r.updated_by] || 'Unassigned';
+    var b = pmRep[nm] || (pmRep[nm] = { draftx: 0, issued: 0 });
+    if (r.status === 'issued') b.issued++; else b.draftx++;
+  });
+  var pmRepRows = Object.keys(pmRep).map(function (nm) {
+    var b = pmRep[nm]; return { n: nm, vals: b, _tot: b.draftx + b.issued };
+  }).sort(function (a, b) { return b._tot - a._tot || a.n.localeCompare(b.n); });
+
+  // issued-but-not-backed-up risk (needs both report status + project backup)
+  var issuedProjIds = {};
+  reports.forEach(function (r) { if (r.status === 'issued') issuedProjIds[r.project_id] = true; });
+  var riskFlags = active.filter(function (p) { var d = ageDays(p); return issuedProjIds[p.id] && (d === null || d >= 60); })
+    .map(function (p) { var d = ageDays(p); return { proj: p.project_number + ' · ' + (p.project_name || ''), pm: pmName(p), age: d === null ? '∞' : d }; })
+    .sort(function (a, b) { return (b.age === '∞' ? 99999 : b.age) - (a.age === '∞' ? 99999 : a.age); }).slice(0, 8);
+
+  // ── Render ──
   body.innerHTML =
-    '<div class="ins-grid">'
-    + '<div class="ins-block"><h4>Backup coverage</h4><div class="ins-donut-wrap">' + _donutSvg(covSegs, 120) + _insLegend(covSegs) + '</div></div>'
-    + '<div class="ins-block"><h4>Backup age</h4><div class="ins-donut-wrap">' + _donutSvg(ageSegs, 120) + _insLegend(ageSegs) + '</div></div>'
+    '<div class="ins-sec-h">Backup status</div>'
+    + '<div class="ins-grid">'
+    + '<div class="ins-block"><h4>Backup coverage</h4><div class="ins-donut-wrap">' + _donutCtr(covSegs, 120, active.length, 'projects') + _insLegend(covSegs) + '</div></div>'
+    + '<div class="ins-block"><h4>Backup age</h4><div class="ins-donut-wrap">' + _donutCtr(ageSegs, 120, (a60 + a90 + never), 'stale') + _insLegend(ageSegs) + '</div></div>'
     + '</div>'
-    + '<div class="ins-block" style="margin-top:20px"><h4>Active projects per person</h4><div class="ins-bars">' + (barsHtml || '<span style="color:var(--silver)">No active projects.</span>') + '</div></div>';
-  document.getElementById('insights-modal').classList.add('show');
+    + '<div class="ins-block" style="margin-top:16px"><h4>Backup age by PM</h4>'
+    + '<div class="ins-legend-inline">' + AGE_DEFS.map(function (d) { return '<span><span class="sw" style="background:' + d.c + '"></span>' + d.label + '</span>'; }).join('') + '</div>'
+    + _insStackBars(pmAgeRows, AGE_DEFS, true)
+    + '<div class="ins-note">Each PM\u2019s active projects by backup age. The green % is how <b>current</b> they are (backed up within 60 days). Sorted, oldest-carrying first.</div></div>'
+    + '<div class="ins-block" style="margin-top:16px"><h4>\u26A0 Projects needing a backup</h4>' + _insFlagList(staleFlags, 'No projects over 60 days without a backup.')
+    + '<div class="ins-note">Projects flagged with their responsible PM. Days since last export.</div></div>'
+    + '<div class="ins-block" style="margin-top:16px"><h4>\u26A0 Issued but not backed up</h4>' + _insFlagList(riskFlags, 'No issued reports are missing a recent backup.')
+    + '<div class="ins-note">Delivered reports whose project has no recent backup \u2014 a real liability.</div></div>'
+
+    + '<div class="ins-sec-h">Project work</div>'
+    + '<div class="ins-grid">'
+    + '<div class="ins-block"><h4>Reports by tool</h4><div class="ins-donut-wrap">' + _donutCtr(toolSegs, 120, reports.length, 'reports') + _insLegend(toolSegs) + '</div></div>'
+    + '<div class="ins-block"><h4>Report status</h4><div class="ins-donut-wrap">' + _donutCtr(statusSegs, 120, (st.issued || 0), 'issued') + _insLegend(statusSegs) + '</div></div>'
+    + '</div>'
+
+    + '<div class="ins-sec-h">Workload</div>'
+    + '<div class="ins-block"><h4>Reports per person \u2014 draft vs issued</h4>'
+    + '<div class="ins-legend-inline"><span><span class="sw" style="background:#DCC94F"></span>Draft/Review</span><span><span class="sw" style="background:var(--yes)"></span>Issued</span></div>'
+    + _insStackBars(pmRepRows, [{ key: 'draftx', c: '#DCC94F', label: 'Draft' }, { key: 'issued', c: 'var(--yes)', label: 'Issued' }], false)
+    + '<div class="ins-note">Report work in flight (yellow) vs finished (green). Raw counts.</div></div>'
+    + '<div class="ins-block" style="margin-top:16px"><h4>Active projects per person</h4><div class="ins-bars">' + (barsHtml || '<span style="color:var(--silver)">No active projects.</span>') + '</div></div>'
+
+    + '<div class="ins-sec-h">Deficiencies</div>'
+    + '<div class="ins-block ins-compute" id="ins-defic-gate"><button onclick="computeInsightsDeficiencies()">\u2699 Compute deficiencies</button>'
+    + '<div class="ins-note">Reads every FRT report\u2019s full data \u2014 behind a button so it doesn\u2019t slow the everyday view.</div></div>'
+    + '<div id="ins-defic-out"></div>';
 }
 function closeInsights() { document.getElementById('insights-modal').classList.remove('show'); }
+/* S503 — deficiency counts. Heavy: reads every FRT report's full data blob, so it
+   only runs when the user presses "Compute deficiencies". Open/closed logic is
+   COPIED from the live report-list badge (search 'Outstanding'/'Addressed & Closed')
+   so these totals match what the tool shows elsewhere — one source of truth. */
+async function computeInsightsDeficiencies() {
+  var gate = document.getElementById('ins-defic-gate');
+  var out = document.getElementById('ins-defic-out');
+  if (!out) return;
+  if (gate) gate.innerHTML = '<div style="color:var(--silver)">Loading report data…</div>';
+  var open = 0, closed = 0, pmDef = {};
+  try {
+    // Full blobs, FRT only (deficiencies live in FRT reports).
+    var rows = await _sb.from('tool_data').select('project_id,tool_key,data,updated_by').eq('tool_key', 'frt').is('deleted_at', null).execute() || [];
+    rows.forEach(function (r) {
+      var d = r.data;
+      if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
+      if (!d || !d.contractors) return;
+      var nm = _userMap[r.updated_by] || 'Unassigned';
+      var b = pmDef[nm] || (pmDef[nm] = { open: 0, closed: 0 });
+      d.contractors.forEach(function (c) {
+        (c.deficiencies || []).forEach(function (df) {
+          if (df.status === 'open' || df.status === 'Outstanding') { open++; b.open++; }
+          else if (df.status === 'closed' || df.status === 'Addressed & Closed') { closed++; b.closed++; }
+        });
+      });
+    });
+  } catch (e) {
+    console.warn('[insights] deficiency compute failed', e);
+    if (gate) gate.innerHTML = '<div style="color:var(--no)">Could not load report data. Try again.</div>';
+    return;
+  }
+  if (gate) gate.style.display = 'none';
+  var deficSegs = [{ n: 'Open', v: open, c: 'var(--no)' }, { n: 'Closed', v: closed, c: 'var(--yes)' }];
+  var pmDefRows = Object.keys(pmDef).map(function (nm) {
+    var b = pmDef[nm], tot = b.open + b.closed;
+    return { n: nm, vals: b, pct: tot ? Math.round(b.closed / tot * 100) : 0, _open: b.open };
+  }).sort(function (a, b) { return b._open - a._open || a.n.localeCompare(b.n); });
+  out.innerHTML =
+    '<div class="ins-grid"><div class="ins-block"><h4>Open vs closed \u2014 firm</h4><div class="ins-donut-wrap">'
+    + _donutCtr(deficSegs, 120, open, 'open') + _insLegend(deficSegs) + '</div></div></div>'
+    + '<div class="ins-block" style="margin-top:16px"><h4>Deficiencies per person</h4>'
+    + '<div class="ins-legend-inline"><span><span class="sw" style="background:var(--no)"></span>Open</span><span><span class="sw" style="background:var(--yes)"></span>Closed</span></div>'
+    + _insStackBars(pmDefRows, [{ key: 'open', c: 'var(--no)', label: 'Open' }, { key: 'closed', c: 'var(--yes)', label: 'Closed' }], true)
+    + '<div class="ins-note">Green % = share already closed. Counts match the report list\u2019s open/closed logic.</div></div>';
+}
 
 /* ═══ S500 — HELP PANEL (shared engine) ═══
    The Help panel is now rendered by the shared Help engine
