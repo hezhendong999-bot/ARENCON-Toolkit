@@ -324,3 +324,15 @@ crn-open
 notif-stack
 client-rename-modal
 notif-review-modal
+
+@ Flow-point gauge/RPM photo modal — extracted to lib/ui/flowPhotoModal.js (Mark, S500; With/Without-PLD modes, reading tags, reassign, gallery reuse)
+openFlowPhotos
+closeFlowPhotos
+_renderFlowPhotoModal
+_flowPhotoAddFile
+_flowPhotoIcon
+_flowPhotoOpenGallery
+_flowPhotoOpenReassign
+_flowPhotoSetActiveMode
+_GAUGE_READINGS
+_GAUGE_TAG_LABEL
