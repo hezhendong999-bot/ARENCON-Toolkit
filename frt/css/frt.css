@@ -10922,6 +10922,19 @@ body.dark-mode .crbt-ph{background-color:#2a2830;border-color:#2a2830;}
 .crbt-act.crbt-danger:hover{color:#C0445F;background:#FBEAEE;}
 .crbt-act.crbt-frozen{opacity:.4;cursor:not-allowed;}
 .crbt-act.crbt-frozen:hover{color:#928E9C;background:none;}
+/* S500: Unlock is a deliberate, weighty action on the issued record — burgundy
+   as a SIGNAL (canon-compliant use), not a routine control. */
+.crbt-act.crbt-unlock{color:#9C2742;font-weight:700;}
+.crbt-act.crbt-unlock:hover{color:#9C2742;background:#FBEAEE;}
+.crbt-act.crbt-histlink{color:#928E9C;font-weight:400;}
+.crbt-act.crbt-revert{color:#5E5B68;font-weight:600;}
+.crbt-act.crbt-revert:hover{color:#2E9E72;background:#E6F5EE;}
+body.dark-mode .crbt-act.crbt-revert{color:#a09aa8;}
+body.dark-mode .crbt-act.crbt-revert:hover{color:#3FD08A;background:#14261d;}
+.crbt-amended{font-size:calc(10.5px + var(--ts));color:#C98A4A;font-style:italic;font-weight:600;}
+body.dark-mode .crbt-act.crbt-unlock{color:#C9476A;}
+body.dark-mode .crbt-act.crbt-unlock:hover{color:#C9476A;background:#2a151b;}
+body.dark-mode .crbt-amended{color:#E0A36A;}
 @media(pointer:coarse){.crbt-act{min-height:44px;padding:8px 11px;}}
 .crbt-removedstub{margin:4px 0;padding:6px 10px;border:1px dashed #E4E1E8;border-radius:8px;font-size:calc(11px + var(--ts));color:#928E9C;font-style:italic;display:flex;align-items:center;gap:8px;}
 .crbt-composer{margin-top:8px;border:1px solid #DCE8F2;background:#fff;border-radius:10px;padding:10px 11px;}

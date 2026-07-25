@@ -2972,25 +2972,101 @@ export var Model = {
     return !!(entry && entry.issuedOnInstance != null);
   },
 
-  // Edit an ARENCON comment's text. Refuses on:
-  //   • a frozen (issued) comment — it is the record
-  //   • ANY contractor entry — their words are never ours to rewrite, even in
-  //     draft (locked §1 corollary). Junk from an import is removed and re-added.
+  // ══ S500 — AMENDMENT LOG + UNLOCK ═══════════════════════════════════════
+  // Mark's decision (S500): a printed comment stays frozen by default, but the
+  // record is amendable through a DELIBERATE unlock, never a silent edit. Every
+  // unlock/edit/remove/restore on an entry is appended to entry.history[],
+  // kept forever, shown on a click. The issued PDF remains the external record;
+  // this log is what CLEARS a PM ever accused of altering a comment, and is why
+  // amendment is allowed at all. Contractor comments are amendable too (S500) —
+  // overriding the locked §1 corollary — but only via the same unlock gate.
+  //
+  // history entry: { at, by, action, from?, to? }. Merge-safe: it rides the
+  // entry's own _uid, so it syncs with the comment and never forms a new merge
+  // surface (per Mark's data-model choice A).
+  _logAmend: function(entry, action, from, to, who) {
+    if (!entry) return;
+    if (!Array.isArray(entry.history)) entry.history = [];
+    entry.history.push({
+      at: new Date().toISOString(),
+      by: who || null,
+      action: action,
+      from: (from == null ? null : from),
+      to: (to == null ? null : to)
+    });
+  },
+
+  // Deliberately unlock a printed (frozen) comment so it can be amended. Does
+  // NOT change the text — it lifts the freeze and records the intent. The UI
+  // shows the warning BEFORE calling this. An unlocked entry carries
+  // amendedAfterIssue=true so the thread (and, later, the report) can show it
+  // was changed after it went out. issuedOnInstance is PRESERVED — we never
+  // forget which report printed it; unlocked just means "amendment allowed".
+  unlockThreadEntry: function(deficId, obsIdx, entryId, who) {
+    var hit = this._findThreadEntry(deficId, obsIdx, entryId);
+    if (!hit) return null;
+    if (!this.isThreadEntryFrozen(hit.entry)) return hit.entry; // already editable
+    hit.entry.unlocked = true;
+    hit.entry.amendedAfterIssue = true;
+    this._logAmend(hit.entry, 'unlock', null, null, who);
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', { action: 'unlock', deficId: deficId, obsIdx: obsIdx, entry: hit.entry });
+    return hit.entry;
+  },
+
+  // Revert an unlocked comment back to its issued state and re-lock it. If the
+  // comment was edited while unlocked, the text is restored to what was printed
+  // (the last edit's `from`, walked back through any chain of edits). The revert
+  // is LOGGED — the trail is never erased, so a silent unlock-look-relock leaves
+  // a record. amendedAfterIssue clears only if no surviving amendment remains.
+  revertThreadEntry: function(deficId, obsIdx, entryId, who) {
+    var hit = this._findThreadEntry(deficId, obsIdx, entryId);
+    if (!hit) return null;
+    if (hit.entry.unlocked !== true) return hit.entry; // nothing to revert
+    var hist = hit.entry.history || [];
+    // Walk back to the earliest edit's `from` = the issued wording.
+    var issuedText = null, i;
+    for (i = 0; i < hist.length; i++) {
+      if (hist[i].action === 'edit') { issuedText = hist[i].from; break; }
+    }
+    var didRestore = false;
+    if (issuedText != null && issuedText !== hit.entry.text) {
+      hit.entry.text = issuedText;
+      didRestore = true;
+    }
+    hit.entry.unlocked = false;                 // re-freeze
+    hit.entry.amendedAfterIssue = false;         // back to matching the record
+    hit.entry.edited = false;
+    this._logAmend(hit.entry, 'revert', (didRestore ? null : null), null, who);
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', { action: 'revert', deficId: deficId, obsIdx: obsIdx, entry: hit.entry });
+    return hit.entry;
+  },
+
+  // Edit an ARENCON or (S500) contractor comment's text. Refuses on:
+  //   • a frozen comment that has NOT been unlocked — it is the record
+  //   • a contractor entry that has NOT been unlocked — their words are not
+  //     ours to rewrite casually; unlock states the intent and logs it.
+  // The prior text is preserved in history[] on every edit.
   editThreadEntry: function(deficId, obsIdx, entryId, newText, who) {
     var hit = this._findThreadEntry(deficId, obsIdx, entryId);
     if (!hit) return null;
-    if (hit.kind === 'response') {
-      console.warn('[CRB] Refused: contractor text is never editable. Remove and re-add.');
+    if (hit.kind === 'response' && hit.entry.unlocked !== true) {
+      console.warn('[CRB] Refused: contractor text — unlock first to amend (it will be logged).');
       return null;
     }
-    if (this.isThreadEntryFrozen(hit.entry)) {
-      console.warn('[CRB] Refused: comment was printed in FRT #' + hit.entry.issuedOnInstance + ' — the record cannot be edited. Reply instead.');
+    if (!this._threadEntryAmendable(hit.entry)) {
+      console.warn('[CRB] Refused: comment was printed in FRT #' + hit.entry.issuedOnInstance + ' — unlock it first to amend the record. Or Reply instead.');
       return null;
     }
+    var _from = hit.entry.text || '';
     hit.entry.text = newText || '';
     hit.entry.edited = true;
     hit.entry.editedBy = who || null;
     hit.entry.editedAt = _todayStr();
+    this._logAmend(hit.entry, 'edit', _from, hit.entry.text, who);
     _dirty = true;
     _queueSave();
     this._notify('crb', { action: 'edit', deficId: deficId, obsIdx: obsIdx, entry: hit.entry });
@@ -3007,13 +3083,14 @@ export var Model = {
   removeThreadEntry: function(deficId, obsIdx, entryId, who) {
     var hit = this._findThreadEntry(deficId, obsIdx, entryId);
     if (!hit) return null;
-    if (this.isThreadEntryFrozen(hit.entry)) {
-      console.warn('[CRB] Refused: comment was printed in FRT #' + hit.entry.issuedOnInstance + ' — the record cannot be removed.');
+    if (!this._threadEntryAmendable(hit.entry)) {
+      console.warn('[CRB] Refused: comment was printed in FRT #' + hit.entry.issuedOnInstance + ' — unlock it first to remove the record.');
       return null;
     }
     hit.entry.removed = true;
     hit.entry.removedBy = who || null;
     hit.entry.removedAt = _todayStr();
+    this._logAmend(hit.entry, 'remove', null, null, who);
 
     // Flag (never delete) any reply that pointed at it.
     var orphaned = 0, self = this;
@@ -3035,6 +3112,7 @@ export var Model = {
     hit.entry.removed = false;
     hit.entry.removedBy = null;
     hit.entry.removedAt = null;
+    this._logAmend(hit.entry, 'restore', null, null, null);
     var self = this;
     ['responses', 'arenconReviews'].forEach(function(arrName) {
       (hit.obs[arrName] || []).forEach(function(e) {

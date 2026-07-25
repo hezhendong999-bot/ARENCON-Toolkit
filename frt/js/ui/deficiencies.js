@@ -6188,6 +6188,101 @@ document.addEventListener('click', function(e) {
     }
     return;
   }
+  if (action === 'crbt-unlock') {
+    // S500: unlock a printed (frozen) comment so the record can be amended.
+    // Deliberate, warned, and logged — never a silent edit of issued text.
+    var _ulDefic = el.getAttribute('data-defic-id');
+    var _ulObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _ulId = el.getAttribute('data-entry-id');
+    var _ulInst = el.getAttribute('title') || '';
+    var _ulEl = el;
+    // Pull the instance number out of the button title for the warning text.
+    var _ulFrt = (_ulInst.match(/FRT #(\d+)/) || [])[1] || '';
+    showConfirm(
+      'Unlock this printed comment?',
+      'This was printed in FRT #' + _ulFrt + '. Editing it means your saved record no longer matches the report the contractor holds. The original wording is kept, and this change is logged with your name. The issued PDF remains the external record.'
+    ).then(function(ok) {
+      if (!ok) return;
+      var _ulE = Model.unlockThreadEntry(_ulDefic, _ulObs, _ulId,
+        (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null);
+      if (_ulE) {
+        Model.saveNow();
+        _crbtRefresh(_ulEl, _ulDefic);
+        toast('Unlocked \u2014 Edit and Remove are now available. This change is logged.');
+      }
+    });
+    return;
+  }
+  if (action === 'crbt-revert') {
+    var _rvDefic = el.getAttribute('data-defic-id');
+    var _rvObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _rvId = el.getAttribute('data-entry-id');
+    var _rvEl = el;
+    showConfirm(
+      'Revert to the issued wording?',
+      'This discards any change made since you unlocked the comment, restores exactly what was printed, and re-locks it. The unlock and this revert stay in the history.'
+    ).then(function(ok) {
+      if (!ok) return;
+      var _rvE = Model.revertThreadEntry(_rvDefic, _rvObs, _rvId,
+        (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null);
+      if (_rvE) {
+        Model.saveNow();
+        _crbtRefresh(_rvEl, _rvDefic);
+        toast('Reverted to the issued wording and re-locked.');
+      }
+    });
+    return;
+  }
+  if (action === 'crbt-history') {
+    var _hDefic = el.getAttribute('data-defic-id');
+    var _hObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
+    var _hId = el.getAttribute('data-entry-id');
+    var _hHit = Model._findThreadEntry
+      ? Model._findThreadEntry(_hDefic, _hObs, _hId)
+      : null;
+    var _hList = (_hHit && _hHit.entry && Array.isArray(_hHit.entry.history)) ? _hHit.entry.history : [];
+    var _hEsc = function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+    var _hVerb = { unlock:'Unlocked', edit:'Edited', remove:'Removed', restore:'Restored', revert:'Reverted to issued' };
+    // S500: full-text word-level diff. Shows the ENTIRE comment, with the
+    // changed run marked inline — removed words struck red where they were,
+    // added words amber in their place — and the unchanged head/tail in normal
+    // ink. Nothing is clipped: you read the whole comment and see exactly what
+    // moved. A wholesale rewrite (no shared ends) shows removed-then-added,
+    // which is still the full text of each.
+    var _hDiff = function(from, to){
+      var a = String(from||'').split(/(\s+)/), b = String(to||'').split(/(\s+)/);
+      var i = 0, j = a.length - 1, k = b.length - 1;
+      while (i < a.length && i < b.length && a[i] === b[i]) i++;
+      while (j >= i && k >= i && a[j] === b[k]) { j--; k--; }
+      var head = _hEsc(a.slice(0, i).join(''));           // full unchanged lead-in
+      var tail = _hEsc(a.slice(j + 1).join(''));          // full unchanged lead-out
+      var removed = _hEsc(a.slice(i, j + 1).join(''));    // words present in `from` only
+      var added   = _hEsc(b.slice(i, k + 1).join(''));    // words present in `to` only
+      var out = '<div style="font-size:13px;margin-top:4px;line-height:1.55;color:var(--fg,#1B1A22);">' + head;
+      if (removed.trim()) out += '<span style="color:#C0445F;text-decoration:line-through;">' + removed + '</span>';
+      if (removed.trim() && added.trim()) out += ' ';
+      if (added.trim())   out += '<span style="color:#B7791F;font-weight:600;">' + added + '</span>';
+      out += tail + '</div>';
+      return out;
+    };
+    var _hRows = _hList.map(function(rec){
+      var when = '';
+      try { when = new Date(rec.at).toLocaleString(); } catch (e) { when = _hEsc(rec.at); }
+      var line = '<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.08);">'
+        + '<div style="font-size:13px;"><b>' + _hEsc(_hVerb[rec.action] || rec.action) + '</b>'
+        + (rec.by ? ' by ' + _hEsc(rec.by) : '') + ' <span style="color:#928E9C;">\u00b7 ' + _hEsc(when) + '</span></div>';
+      if (rec.action === 'edit') { line += _hDiff(rec.from, rec.to); }
+      line += '</div>';
+      return line;
+    }).join('');
+    if (!_hRows) _hRows = '<div style="color:#928E9C;font-size:13px;">No changes recorded.</div>';
+    showDialog({
+      title: 'Amendment history',
+      message: '<div style="max-height:50vh;overflow:auto;text-align:left;">' + _hRows + '</div>',
+      buttons: [{ label: 'Close', outline: true }]
+    });
+    return;
+  }
   if (action === 'crbt-restore') {
     var _rsE = Model.restoreThreadEntry(
       el.getAttribute('data-defic-id'),
@@ -6228,7 +6323,16 @@ document.addEventListener('click', function(e) {
     // common thing to have missed. The zone is the SAME shared engine the
     // composer uses (same ns, so the same staging + upload path), which is
     // exactly why it costs three lines here instead of a second implementation.
-    _edBox.innerHTML = '<textarea class="crbt-ta">' + (_edT.textContent || '').replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</textarea>'
+    // S500 FIX: seed the textarea from the STORED comment text, never from
+    // .crbt-t's textContent — the rendered node also carries the status pill and
+    // the edited/amended/orphan markers, which textContent scrapes into the box
+    // and Save then bakes into the comment ("…deflector.Outstanding"). The model
+    // holds the true text; the DOM holds text-plus-decoration.
+    var _edSeed = '';
+    var _edHit = Model._findThreadEntry ? Model._findThreadEntry(_edDefic, parseInt(_edObs||'0',10), _edEntry) : null;
+    if (_edHit && _edHit.entry) { _edSeed = _edHit.entry.text || ''; }
+    else { _edSeed = (_edT.textContent || ''); } // fallback only if lookup fails
+    _edBox.innerHTML = '<textarea class="crbt-ta">' + _edSeed.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</textarea>'
       + PhotoInput.html({ ns: 'crbt', ctx: { 'defic-id': _edDefic, 'obs-idx': _edObs } })
       + '<div class="crbt-tray"></div>'
       + '<div class="crbt-cfoot"><span class="crbt-sp"></span>'

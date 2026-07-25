@@ -103,6 +103,7 @@ function _arcSide(e, ids){
   h+='<div class="crbt-who">'+who+'</div>';
   h+='<div class="crbt-t">'+_esc(e.text||'')+pill
     +(e.edited?' <span class="crbt-edited">edited</span>':'')
+    +(e.amendedAfterIssue?' <span class="crbt-amended" title="Changed after it was printed in an issued report">amended after issue</span>':'')
     +(e.orphaned?' <span class="crbt-orphan">\u2014 the comment this answered was removed</span>':'')
     +'</div>';
   h+=_photoStrip(e.followupPhotos, ids, e.id);
@@ -134,19 +135,45 @@ function _sitelogRow(e, ids){
 // nothing is unreachable and no keyboard/AT path is broken.
 function _actionRow(e, kind, ids){
   var frozen = e.issuedOnInstance!=null;
+  var unlocked = e.unlocked===true;
+  // S500: a printed comment is frozen by DEFAULT, but a deliberate Unlock lifts
+  // the freeze (with a warning, and every change logged). Once unlocked, the
+  // live Edit/Remove return. Contractor comments are amendable too now, but only
+  // through the same Unlock gate — never a casual edit of someone's words.
+  var amendable = !frozen || unlocked;
   var base=' data-defic-id="'+_esc(ids.deficId)+'" data-obs-idx="'+ids.obsIdx+'" data-entry-id="'+_esc(e.id)+'"';
   var h='<div class="crbt-acts">';
   h+='<button class="crbt-act" data-action="crbt-reply"'+base+'>\u21A9 Reply</button>';
-  if(kind==='a'&&e.source!=='sitelog'){
-    h+= frozen
-      ? '<button class="crbt-act crbt-frozen" title="Printed in FRT #'+_esc(e.issuedOnInstance)+' \u2014 the record can\u2019t be edited">\u270E Edit</button>'
-      : '<button class="crbt-act" data-action="crbt-edit"'+base+'>\u270E Edit</button>';
-  }else if(kind==='c'){
-    h+='<button class="crbt-act crbt-frozen" title="Contractor\u2019s words \u2014 not ours to edit. Remove and re-add.">\u270E Edit</button>';
+
+  if(frozen && !unlocked){
+    // Single deliberate control replaces the two dead buttons.
+    h+='<button class="crbt-act crbt-unlock" data-action="crbt-unlock"'+base
+      +' title="Printed in FRT #'+_esc(e.issuedOnInstance)+' \u2014 unlock to amend the record (logged)">\uD83D\uDD13 Unlock</button>';
+  } else {
+    // Editable: draft, or a printed comment that has been unlocked.
+    // Edit is offered on ARENCON comments always, and on contractor comments
+    // only once unlocked (S500 override of the locked \u00a71 corollary).
+    var canEdit = (kind==='a'&&e.source!=='sitelog') || (kind==='c'&&unlocked);
+    if(canEdit){
+      h+='<button class="crbt-act" data-action="crbt-edit"'+base+'>\u270E Edit</button>';
+    } else if(kind==='c'){
+      h+='<button class="crbt-act crbt-frozen" title="Contractor\u2019s words \u2014 not ours to edit. Remove and re-add.">\u270E Edit</button>';
+    }
+    h+='<button class="crbt-act crbt-danger" data-action="crbt-remove"'+base+' title="Remove (undoable)">\uD83D\uDDD1</button>';
+    // S500: an unlocked (previously-issued) comment can be reverted — restores
+    // the printed wording and re-locks it. Logged, never silent.
+    if(unlocked){
+      h+='<button class="crbt-act crbt-revert" data-action="crbt-revert"'+base
+        +' title="Discard changes and re-lock to the issued wording">\u21A9 Revert to issued</button>';
+    }
   }
-  h+= frozen
-    ? '<button class="crbt-act crbt-frozen" title="Printed in FRT #'+_esc(e.issuedOnInstance)+' \u2014 the record can\u2019t be removed">\uD83D\uDDD1</button>'
-    : '<button class="crbt-act crbt-danger" data-action="crbt-remove"'+base+' title="Remove (undoable)">\uD83D\uDDD1</button>';
+
+  // History link — only when there is something to show. Opens the audit trail
+  // (unlock / edit before-after / remove / restore) for this comment.
+  if(Array.isArray(e.history) && e.history.length){
+    h+='<button class="crbt-act crbt-histlink" data-action="crbt-history"'+base
+      +' title="Amendment history">\uD83D\uDD52 History</button>';
+  }
   h+='</div>';
   return h;
 }

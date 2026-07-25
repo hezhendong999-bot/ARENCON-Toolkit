@@ -350,3 +350,13 @@ _renderChecklistFindings
 deficiencies
 generalDeficiencies
 deficPhotoTarget
+
+@ CRB unlock / amend / revert / history — printed comments editable via deliberate unlock with a forever audit log (Mark, S500; overrides locked §1 freeze-all)
+unlockThreadEntry
+revertThreadEntry
+_logAmend
+_threadEntryAmendable
+crbt-unlock
+crbt-revert
+crbt-history
+amendedAfterIssue
