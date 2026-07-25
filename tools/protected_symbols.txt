@@ -368,3 +368,13 @@ _noticeUndo
 @ CRB report-side amendment printing — an amended-after-issue comment prints its original issued wording in the next report, so the paper record isn't silently changed (Mark, S500-D)
 _crbAmendNote
 crb-amend
+
+@ Diesel deficiency status pill — FRT S263 port (Mark-locked, S502; one tappable pill, 5-state popover, rec/site classification flags, data mapping)
+_deficStatusPill
+_deficPickStatus
+_deficChoice
+_deficEnsureMenu
+_deficTogglePillMenu
+_CV_CHOICES
+isRecommendation
+isSiteRecord

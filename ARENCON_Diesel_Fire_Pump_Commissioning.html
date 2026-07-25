@@ -17469,6 +17469,52 @@ body.dark-mode #dark-toggle, body.dark-mode #btn-qr, body.dark-mode .text-size-t
 /* body bg uses retuned smoke */
 body{background:var(--smoke);color:var(--slate);}
 
+/* ════ S502: FRT S263 deficiency status pill (verbatim from frt.css) ════ */
+:root{
+  --b-high:#C0445F; --b-high-bg:#F3D9DE; --b-low:#C98A4A; --b-low-bg:#FBEDD3;
+  --b-cat-rec-bg:#DDD8CB; --b-cat-rec-fg:#5E5440;
+  --b-cat-site-bg:#DEDDEF; --b-cat-site-fg:#3F4470;
+  --b-cat-closed-bg:#D2EBDC; --b-cat-closed-fg:#426B4F;
+  --b-pill-bd:#E4E2E9; --b-pill-seg-fg:#928E9C;
+}
+body.dark-mode{
+  --b-high:#E26076; --b-high-bg:rgba(226,96,118,.16); --b-low:#E0A36A; --b-low-bg:rgba(224,163,106,.16);
+  --b-cat-rec-bg:rgba(157,138,90,.18); --b-cat-rec-fg:#C9B68A;
+  --b-cat-site-bg:#22203a; --b-cat-site-fg:#A9A4E0;
+  --b-cat-closed-bg:#0d2a1a; --b-cat-closed-fg:#6FCF97;
+  --b-pill-bd:rgba(255,255,255,.12);
+}
+.dfx-or-chip{display:inline-flex;align-items:center;border-radius:12px;padding:4px 11px;font-size:12.5px;font-weight:700;font-family:Calibri,sans-serif;}
+.dfx-cs-high{background:var(--b-high-bg);color:var(--b-high);}
+.dfx-cs-low{background:var(--b-low-bg);color:var(--b-low);}
+.dfx-cs-closed{background:var(--b-cat-closed-bg);color:var(--b-cat-closed-fg);}
+.dfx-cs-site{background:var(--b-cat-site-bg);color:var(--b-cat-site-fg);}
+.dfx-cs-rec{background:var(--b-cat-rec-bg);color:var(--b-cat-rec-fg);}
+.cv-pill-anchor{position:relative;display:inline-flex;align-items:center;gap:6px;flex-shrink:0;}
+.dfx-or-chip.cv-pill{display:inline-flex;align-items:center;gap:5px;cursor:pointer;border:1px solid transparent;user-select:none;transition:filter .12s,box-shadow .12s;}
+.dfx-or-chip.cv-pill:hover{filter:brightness(.98);}
+.dfx-or-chip.cv-pill:active{filter:brightness(.95);}
+.cv-pill-caret{font-size:8px;opacity:.6;margin-left:1px;line-height:1;transition:transform .14s;}
+.dfx-or-chip.cv-pill.cv-pill-active{filter:brightness(.94);box-shadow:0 0 0 2px var(--card,#fff),0 0 0 4px currentColor;}
+body.dark-mode .dfx-or-chip.cv-pill.cv-pill-active{box-shadow:0 0 0 2px #16151a,0 0 0 4px currentColor;}
+.dfx-or-chip.cv-pill.cv-pill-active .cv-pill-caret{transform:rotate(180deg);opacity:.9;}
+.dfx-or-chip.cv-pill.dfx-cs-high{border-color:color-mix(in srgb,var(--b-high) 28%,transparent);}
+.dfx-or-chip.cv-pill.dfx-cs-low{border-color:color-mix(in srgb,var(--b-low) 30%,transparent);}
+.dfx-or-chip.cv-pill.dfx-cs-rec{border-color:color-mix(in srgb,var(--b-cat-rec-fg) 30%,transparent);}
+.dfx-or-chip.cv-pill.dfx-cs-site{border-color:color-mix(in srgb,var(--b-cat-site-fg) 30%,transparent);}
+.dfx-or-chip.cv-pill.dfx-cs-closed{border-color:color-mix(in srgb,var(--b-cat-closed-fg) 30%,transparent);}
+@media(pointer:coarse){.dfx-or-chip.cv-pill{padding:7px 12px;}}
+.cv-statusmenu{position:fixed;z-index:9000;display:none;flex-direction:column;gap:4px;min-width:188px;padding:6px;border-radius:12px;background:var(--card,#fff);border:1px solid var(--b-pill-bd,#E4E2E9);box-shadow:0 8px 28px rgba(27,26,34,.16);}
+body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.12);box-shadow:0 10px 32px rgba(0,0,0,.5);}
+.cv-statusmenu.open{display:flex;}
+.cv-statusmenu-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--b-pill-seg-fg,#928E9C);padding:3px 10px 1px;}
+.cv-statusmenu-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;white-space:nowrap;font-family:Calibri,sans-serif;font-size:13px;font-weight:600;line-height:1.1;padding:8px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:transform .08s,filter .12s;}
+.cv-statusmenu-item:hover{filter:brightness(.98);}
+.cv-statusmenu-item .cv-statusmenu-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:currentColor;}
+.cv-statusmenu-item.sel{outline:2px solid color-mix(in srgb,currentColor 45%,transparent);outline-offset:-2px;}
+@media(pointer:coarse){.cv-statusmenu-item{padding:11px 12px;}.cv-statusmenu{min-width:208px;}}
+/* ════ end S502 pill ════ */
+
 </style>
 <script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>
 </body>
