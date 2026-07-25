@@ -142,17 +142,50 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .ins-note{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:14px}
 .wn-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
 .help-modal-card{max-width:min(640px,calc(100vw - 24px))}
-.wn-entry{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:color-mix(in srgb,var(--card) 60%,transparent)}
-.wn-entry .wn-date{font-size:calc(10px + var(--ts));color:var(--silver);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-.wn-entry .wn-title{font-size:calc(14px + var(--ts));font-weight:800;color:var(--fg);margin:2px 0 8px}
-.wn-entry ul{margin:0;padding-left:18px}
-.wn-entry li{font-size:calc(12.5px + var(--ts));color:var(--fg);margin-bottom:4px;line-height:1.4}
-.hg-sec{margin-bottom:14px}
-.hg-sec h4{font-size:calc(12px + var(--ts));font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin:0 0 6px}
-.hg-sec p{font-size:calc(12.5px + var(--ts));color:var(--fg);line-height:1.45;margin:0 0 6px}
-.help-tabs{display:flex;gap:6px;margin-bottom:16px}
-.help-tabs button{padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--steel);font-weight:700;font-size:calc(12px + var(--ts));cursor:pointer;font-family:inherit}
-.help-tabs button.active{background:color-mix(in srgb,var(--arencon) 12%,transparent);color:var(--arencon);border-color:color-mix(in srgb,var(--arencon) 35%,transparent)}
+/* S500 — Help engine card/chip/search/tab styling (ported from the approved
+   demo DEMO_help_unified_S499.html, renamed to the engine's emitted classes:
+   .help-tabs/.help-tab, .help-search*, .help-grouphdr, .help-card*, .help-chip,
+   .help-empty). Uses existing Hub tokens only — no new colours. */
+.help-tabs{display:flex;gap:8px;margin-bottom:14px}
+.help-tab{font-family:inherit;font-size:calc(12.5px + var(--ts));font-weight:600;padding:6px 15px;border-radius:999px;border:1px solid var(--border);background:var(--white);color:var(--steel);cursor:pointer;min-height:34px}
+.help-tab.active{background:var(--arencon-light);border-color:var(--arencon);color:var(--arencon)}
+.help-search{margin-bottom:14px}
+.help-search-box{position:relative}
+.help-search-box input{width:100%;padding:10px 34px 10px 34px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:calc(13px + var(--ts));color:var(--fg);background:var(--white)}
+.help-search-box input:focus{outline:none;border-color:var(--arencon);box-shadow:0 0 0 3px var(--arencon-glow)}
+.help-search-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--silver);font-size:13px;pointer-events:none}
+.help-search-clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--silver);cursor:pointer;font-size:15px;display:none;padding:4px 6px;min-height:30px}
+.help-search-clr.on{display:block}
+.help-search-hint{font-size:calc(11.5px + var(--ts));color:var(--silver);margin-top:7px;line-height:1.5}
+.help-grouphdr{font-size:calc(10.5px + var(--ts));font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--silver);margin:4px 0 11px}
+.help-grouphdr.areahdr{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.help-grouphdr.areahdr:first-child{margin-top:0;padding-top:0;border-top:none}
+.help-card{border:1px solid var(--border);border-radius:12px;background:var(--white);padding:14px;margin-bottom:13px}
+.help-card-h{font-size:calc(15.5px + var(--ts));font-weight:700;letter-spacing:-.2px;margin:0 0 10px}
+.help-card-tool{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver)}
+.help-card-split{display:flex;gap:14px;align-items:flex-start}
+.help-card-shot{flex:0 0 46%;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--smoke)}
+.help-card-shot svg{display:block;width:100%;height:auto}
+.help-card-pts{flex:1;min-width:0;margin:0;padding:0;list-style:none}
+.help-card-pts li{position:relative;padding-left:13px;margin-bottom:7px;font-size:calc(12.6px + var(--ts));line-height:1.5;color:var(--steel)}
+.help-card-pts li:last-child{margin-bottom:0}
+.help-card-pts li::before{content:'';position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:50%;background:var(--arencon)}
+.help-card-pts b{color:var(--fg);font-weight:600}
+.help-card-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.help-chip{font-size:calc(10.5px + var(--ts));font-weight:700;padding:3px 9px;border-radius:6px}
+.help-chip.c-new{background:var(--yes-bg);color:var(--yes)}
+.help-chip.c-where{background:var(--na-bg);color:var(--na)}
+.help-chip.c-admin{background:var(--warn-bg);color:var(--warn)}
+.help-card.compact .help-card-split{gap:12px;align-items:center}
+.help-card.compact .help-card-shot{flex:0 0 66px;border:none;background:transparent}
+.help-card.compact .help-card-h{margin-bottom:7px}
+.help-empty{font-size:calc(12.5px + var(--ts));color:var(--silver);line-height:1.5;padding:8px 0}
+@media(max-width:560px){
+  .help-card-split{flex-direction:column}
+  .help-card-shot{flex:none;width:100%}
+  .help-card.compact .help-card-split{flex-direction:row}
+  .help-card.compact .help-card-shot{flex:0 0 56px}
+}
 /* S497d — admin Client Cleanup + R2 Reclamation */
 .cc-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:calc(12.5px + var(--ts));color:var(--fg)}
 .cc-pick{display:flex;flex-wrap:wrap;gap:8px}
@@ -1401,18 +1434,14 @@ body.text-l{--ts:4px;}
     </div>
   </div>
 </div>
-<!-- S497 — What's New + Hub quick guide. Entries come from updates.json; that
-     file is edited ONLY when Mark says so — never automatically. -->
+<!-- S500 — Help panel rendered by the shared Help engine (lib/ui/helpEngine.js).
+     The Hub's own cards live in lib/ui/hubHelpCards.js; the engine renders its
+     own What's New / Guide tabs and plain-language search into #help-host. -->
 <div class="modal-overlay" id="help-modal">
   <div class="modal-card help-modal-card">
     <div class="imx-head"><h3>❔ Help</h3><button class="modal-x" onclick="closeHelp()" title="Close">×</button></div>
     <div class="imx-body">
-      <div class="help-tabs">
-        <button id="help-tab-wn" class="active" onclick="setHelpTab('wn')">What's New</button>
-        <button id="help-tab-hg" onclick="setHelpTab('hg')">Hub Guide</button>
-      </div>
-      <div id="help-body-wn"></div>
-      <div id="help-body-hg" style="display:none"></div>
+      <div id="help-host"></div>
     </div>
   </div>
 </div>
@@ -2780,69 +2809,38 @@ function openInsights() {
 }
 function closeInsights() { document.getElementById('insights-modal').classList.remove('show'); }
 
-/* ═══ S497 — WHAT'S NEW + HUB GUIDE ═══
-   What's New is fed by updates.json at the repo root. THE FILE CHANGES ONLY
-   WHEN MARK SAYS SO — never automatically (Mark's standing rule). The Help
-   button grows an amber dot when the newest entry hasn't been seen on this
-   device; opening Help clears it. */
-var _wnEntries = [];
-var _WN_SEEN_KEY = 'arencon_hub_wn_seen';
+/* ═══ S500 — HELP PANEL (shared engine) ═══
+   The Help panel is now rendered by the shared Help engine
+   (lib/ui/helpEngine.js). The Hub's own cards live in lib/ui/hubHelpCards.js,
+   registered at module load. The engine draws its own What's New / Guide tabs
+   and plain-language search into #help-host, so the Hub no longer builds that
+   markup itself and no longer reads updates.json.
+
+   The amber "unseen update" dot on the Help button now comes from the engine's
+   hasUnseen() (newest card id vs last-seen, per device) instead of an
+   updates.json fetch; opening Help clears it via markSeen(). The engine
+   bindings are reached through the window bridge set up in the module import
+   block (window._helpMount / _helpHasUnseen / _helpMarkSeen). */
 function _wnCheck() {
-  fetch('updates.json?t=' + Date.now()).then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (j) {
-      if (!j || !Array.isArray(j.entries) || !j.entries.length) return;
-      _wnEntries = j.entries;
-      var latest = _wnEntries[0] && _wnEntries[0].id;
-      var seen = '';
-      try { seen = localStorage.getItem(_WN_SEEN_KEY) || ''; } catch (e) {}
-      var dot = document.getElementById('wn-dot');
-      if (dot && latest && latest !== seen) dot.style.display = 'block';
-    }).catch(function () { /* offline / missing file — Help still opens with the guide */ });
+  try {
+    var dot = document.getElementById('wn-dot');
+    if (dot && window._helpHasUnseen && window._helpHasUnseen()) dot.style.display = 'block';
+  } catch (e) { /* engine not ready / offline — Help still opens normally */ }
 }
-function _renderWn() {
-  var host = document.getElementById('help-body-wn');
-  if (!host) return;
-  if (!_wnEntries.length) {
-    host.innerHTML = '<p style="color:var(--silver);font-size:calc(12.5px + var(--ts))">No update notes are available right now.</p>';
-    return;
-  }
-  host.innerHTML = _wnEntries.map(function (e) {
-    return '<div class="wn-entry"><div class="wn-date">' + esc(e.date || '') + '</div>'
-      + '<div class="wn-title">' + esc(e.title || '') + '</div>'
-      + '<ul>' + (e.items || []).map(function (it) { return '<li>' + esc(it) + '</li>'; }).join('') + '</ul></div>';
-  }).join('');
-}
-function _renderHubGuide() {
-  var host = document.getElementById('help-body-hg');
-  if (!host || host.innerHTML) return; // static — render once
-  host.innerHTML =
-      '<div class="hg-sec"><h4>Projects board</h4>'
-    + '<p>Projects group by their thousand-series band. Star (⭐) keeps a project at the top of <em>your</em> board only. Use the Active / Archived / Deleted switch to change what the board shows — Archive is filing (nothing is lost), Delete moves a project to the recovery bin.</p></div>'
-    + '<div class="hg-sec"><h4>Backups</h4>'
-    + '<p>Exporting a project is its backup. The date under each project tints amber as a backup ages and red past 90 days; "⚠ Not backed up" means it has never been exported. In Select mode, the "⚠ Not backed up" quick-select picks every such project so one Export backs them all up.</p></div>'
-    + '<div class="hg-sec"><h4>Reports</h4>'
-    + '<p>Open a project and use ＋ New Report inside a tool\u2019s group — one project can hold several reports per tool, so there is no need to create a duplicate project. Deleting a report is reversible: it moves to the Deleted Reports section, where anyone can restore it. Only admins can delete forever.</p></div>'
-    + '<div class="hg-sec"><h4>One tab per report</h4>'
-    + '<p>Clicking a report that is already open focuses its existing tab instead of opening a second copy — two tabs on one report silently overwrite each other\u2019s work. Middle-click or Ctrl+click if you deliberately need a second window.</p></div>'
-    + '<div class="hg-sec"><h4>New projects</h4>'
-    + '<p>Typing a project number suggests the clients already used under that series, and typing in the client field matches against every client on record — pick a suggestion so the same client isn\u2019t spelled three different ways. Duplicate project numbers are blocked — one project per number; add a New Report inside the existing project instead. Older duplicates carry an amber Duplicate chip on the board — the intent is one project per number. The project manager defaults to whoever creates the project and can be changed at any time.</p></div>';
-}
+var _helpCtl = null;
 function openHelp() {
-  _renderWn();
-  _renderHubGuide();
-  setHelpTab('wn');
   document.getElementById('help-modal').classList.add('show');
-  var latest = _wnEntries[0] && _wnEntries[0].id;
-  if (latest) { try { localStorage.setItem(_WN_SEEN_KEY, latest); } catch (e) {} }
+  try {
+    var host = document.getElementById('help-host');
+    if (host && window._helpMount) _helpCtl = window._helpMount(host, { tab: 'wn' });
+  } catch (e) {}
+  try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch (e) {}
   var dot = document.getElementById('wn-dot');
   if (dot) dot.style.display = 'none';
 }
-function closeHelp() { document.getElementById('help-modal').classList.remove('show'); }
-function setHelpTab(t) {
-  document.getElementById('help-body-wn').style.display = (t === 'wn') ? 'block' : 'none';
-  document.getElementById('help-body-hg').style.display = (t === 'hg') ? 'block' : 'none';
-  document.getElementById('help-tab-wn').classList.toggle('active', t === 'wn');
-  document.getElementById('help-tab-hg').classList.toggle('active', t === 'hg');
+function closeHelp() {
+  document.getElementById('help-modal').classList.remove('show');
+  try { if (_helpCtl && _helpCtl.destroy) { _helpCtl.destroy(); _helpCtl = null; } } catch (e) {}
 }
 try { _wnCheck(); } catch (e) {}
 
@@ -8045,6 +8043,21 @@ import { Dlg } from '/lib/ui/dialogEngine.js';
    sites fires on a user click, long after this line. */
 window.Dlg = Dlg;
 import { downloadProjectBundle, TOOL_SOURCES } from '/lib/export/projectDocsSources.js';
+/* S500: the shared Help engine + the Hub's own card registry. hubHelpCards.js
+   calls registerHelp() on import, so importing it is what loads the 16 Hub cards.
+   The Help panel is opened by the Hub's CLASSIC openHelp(), which cannot see a
+   module's bindings — so the three engine calls it needs are exposed on window,
+   the same bridge pattern as Dlg above. Safe by ordering: the module runs after
+   parse; openHelp only ever fires on a user click, long after this line. */
+import { mountHelp, hasUnseen, markSeen } from '/lib/ui/helpEngine.js';
+import '/lib/ui/hubHelpCards.js';
+window._helpMount = mountHelp;
+window._helpHasUnseen = hasUnseen;
+window._helpMarkSeen = markSeen;
+/* cards are registered now (hubHelpCards.js ran on import) — re-run the Hub's
+   amber-dot check, since its first pass at classic-parse time ran before this
+   module set the bridge. */
+try { if (typeof _wnCheck === 'function') _wnCheck(); } catch (e) {}
 
 const _EPD_TOOL_LABEL = {
   frt: 'Field Review', diesel: 'Diesel Fire Pump', electric: 'Electric Fire Pump',
