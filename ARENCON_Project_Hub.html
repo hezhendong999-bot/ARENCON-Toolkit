@@ -208,6 +208,13 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
 .help-grouphdr.areahdr{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
 .help-grouphdr.areahdr:first-child{margin-top:0;padding-top:0;border-top:none}
 .help-card{border:1px solid var(--border);border-radius:12px;background:var(--white);padding:14px;margin-bottom:13px}
+/* S504 — "coming soon" placeholder (helpEngine.comingSoonHtml). Shown by a tool
+   whose guide isn't built yet. The Hub itself has cards so never shows this; the
+   style ships now so the shared cross-tool rollout can reuse it. */
+.help-soon{text-align:center;padding:38px 20px;color:var(--steel)}
+.help-soon-ico{font-size:40px;margin-bottom:14px}
+.help-soon-title{font-size:calc(15px + var(--ts));font-weight:700;color:var(--fg);margin-bottom:8px}
+.help-soon-sub{font-size:calc(12.5px + var(--ts));color:var(--silver);line-height:1.5;max-width:340px;margin:0 auto}
 .help-card-h{font-size:calc(15.5px + var(--ts));font-weight:700;letter-spacing:-.2px;margin:0 0 10px}
 .help-card-tool{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver)}
 .help-card-split{display:flex;gap:14px;align-items:flex-start}
@@ -1238,8 +1245,10 @@ body.text-l{--ts:4px;}
         <option value="pm">Sort: Project Manager</option>
         <option value="name">Sort: Name</option>
       </select>
-      <button class="dash-btn secondary" onclick="openInsights()" title="Backup coverage and workload at a glance">📊 Insights</button>
-      <button class="dash-btn secondary" id="btn-help" style="position:relative" onclick="openHelp()" title="What's new and the Hub quick guide">❔ Help<span class="wn-dot" id="wn-dot" style="display:none"></span></button>
+      <!-- S504 (Mark): Insights + Help moved to the header (icon buttons, fold
+           early). They are reference tools, not board controls — the toolbar now
+           holds only filters / view / actions. Help keeps its openHelp() wiring;
+           the amber-? + unseen-dot lives on the header button now. -->
       <div class="bulk-select-wrap" id="bulk-select-wrap">
         <button class="dash-btn secondary" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Select</button>
         <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
@@ -3048,11 +3057,19 @@ async function computeInsightsDeficiencies() {
    hasUnseen() (newest card id vs last-seen, per device) instead of an
    updates.json fetch; opening Help clears it via markSeen(). The engine
    bindings are reached through the window bridge set up in the module import
-   block (window._helpMount / _helpHasUnseen / _helpMarkSeen). */
+   block (window._helpMount / _helpHasUnseen / _helpMarkSeen).
+
+   S504: Help now lives in the HEADER (shadow root), not the toolbar, so there is
+   no #wn-dot in the light DOM. We drive the dot through the header engine's
+   setControlIcon('help', html) API instead. _HELP_ICON_* are the two states. */
+var _HELP_ICON_PLAIN = '<span class="help-q">?</span><span class="wn-dot" style="display:none"></span>';
+var _HELP_ICON_NEW   = '<span class="help-q">?</span><span class="wn-dot wn-pulse"></span>';
+function _helpSetDot(on) {
+  try { if (window.__hubHdr && window.__hubHdr.setControlIcon) window.__hubHdr.setControlIcon('help', on ? _HELP_ICON_NEW : _HELP_ICON_PLAIN); } catch (e) {}
+}
 function _wnCheck() {
   try {
-    var dot = document.getElementById('wn-dot');
-    if (dot && window._helpHasUnseen && window._helpHasUnseen()) dot.style.display = 'block';
+    if (window._helpHasUnseen && window._helpHasUnseen()) _helpSetDot(true);
   } catch (e) { /* engine not ready / offline — Help still opens normally */ }
 }
 var _helpCtl = null;
@@ -3063,8 +3080,7 @@ function openHelp() {
     if (host && window._helpMount) _helpCtl = window._helpMount(host, { tab: 'wn' });
   } catch (e) {}
   try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch (e) {}
-  var dot = document.getElementById('wn-dot');
-  if (dot) dot.style.display = 'none';
+  _helpSetDot(false);
 }
 function closeHelp() {
   document.getElementById('help-modal').classList.remove('show');
@@ -8590,6 +8606,8 @@ function initHubHeader(){
     onQR:         () => { try { openHubQR(); } catch(e){ console.warn(e); } },
     onToggleTheme:() => { try { toggleDark(); } catch(e){ console.warn(e); } },
     onTextSize:   () => { try { cycleTextSize(); } catch(e){ console.warn(e); } },
+    onInsights:   () => { try { openInsights(); } catch(e){ console.warn(e); } },
+    onHelp:       () => { try { openHelp(); } catch(e){ console.warn(e); } },
     onLogout:     () => { try { doLogout(); } catch(e){ console.warn(e); } }
   });
 
@@ -8599,6 +8617,9 @@ function initHubHeader(){
   /* The PAGE owns the mode; the header mirrors it. See applyDark(). */
   try { ctl.setTheme(document.body.classList.contains('dark-mode') ? 'dark' : 'light'); } catch(e){}
   try { ctl.setControlIcon('ts', localStorage.getItem('arencon-text-size') || 'M'); } catch(e){}
+  /* S504: header exists now — (re)paint the Help unseen-dot on its header button.
+     The early _wnCheck at parse time ran before the header was built. */
+  try { if (typeof _wnCheck === 'function') _wnCheck(); } catch(e){}
 
   /* Online / offline dot — the old #conn-dot, now the engine's cloud slot. */
   const paintConn = () => {
