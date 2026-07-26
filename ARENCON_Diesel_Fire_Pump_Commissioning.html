@@ -7488,14 +7488,22 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
       var text = el.textContent || '';
       if(!text) return;
       var lines = text.split('\n');
-      // S368: bigger than the 10px on-screen overlay so labels stay legible at the
-      // PDF's reduced chart width. 12.5px base + matching line height.
-      var fpx = 12.5 * sy;
+      // S503: match the on-screen label 1:1 — read the label's OWN computed font-size,
+      // line-height and padding (cs already read above) and scale by the bitmap ratio.
+      // window._annBump (default 1.0) is a live print-legibility multiplier: 1.0 = exact
+      // screen match; >1 nudges labels up for the PDF's reduced chart width. (Prior S368
+      // hardcoded 12.5/15.5 px = ~2.5× the 10px screen label → oversized/overlapping.)
+      var _annBump = (typeof window!=='undefined' && +window._annBump) || 1;
+      var _baseFont = parseFloat(cs.fontSize) || 10;
+      var _baseLine = parseFloat(cs.lineHeight) || _baseFont * 1.25;
+      var _basePadX = parseFloat(cs.paddingLeft); if(isNaN(_basePadX)) _basePadX = 5;
+      var _basePadY = parseFloat(cs.paddingTop);  if(isNaN(_basePadY)) _basePadY = 1;
+      var fpx = _baseFont * sy * _annBump;
       ctx.font = '600 ' + fpx.toFixed(1) + 'px Calibri, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      var lineH = 15.5 * sy;          // matches the larger font
-      var padX = 6 * sx, padY = 3 * sy;
+      var lineH = _baseLine * sy * _annBump;
+      var padX = _basePadX * sx, padY = _basePadY * sy;
       var maxW = 0;
       lines.forEach(function(l){ var w=ctx.measureText(l).width; if(w>maxW) maxW=w; });
       // anchor (bottom-centre) in bitmap space
@@ -8044,6 +8052,14 @@ function _ensureChartsForExport(){
 function _exportPDFGo() {
   window._apxBandEmitted = false;   // S372.5: reset per-export; _appendixHTML / flow-test / sketch set it true when the Photo Appendix band is emitted
   var _chartRestore=_ensureChartsForExport();   // S316
+  // S503: warm the annotation overlay before baking. On a COLD export (S4 tab never
+  // opened) the first renderChartAnnotations hits the self-heal path, which disables
+  // Chart.js datalabels and schedules the real overlay render on an 80ms timeout — so a
+  // synchronous bake read an EMPTY overlay and the PDF lost every label. Pre-rendering
+  // here hooks each chart first; the bake's own render call then populates synchronously.
+  [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){
+    try{ if(p[1] && typeof renderChartAnnotations==='function') renderChartAnnotations(p[1],p[0]); }catch(_){}
+  });
   [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
   setTimeout(function(){
     _realExportPDF();

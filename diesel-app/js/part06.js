@@ -4183,14 +4183,22 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
       var text = el.textContent || '';
       if(!text) return;
       var lines = text.split('\n');
-      // S368: bigger than the 10px on-screen overlay so labels stay legible at the
-      // PDF's reduced chart width. 12.5px base + matching line height.
-      var fpx = 12.5 * sy;
+      // S503: match the on-screen label 1:1 — read the label's OWN computed font-size,
+      // line-height and padding (cs already read above) and scale by the bitmap ratio.
+      // window._annBump (default 1.0) is a live print-legibility multiplier: 1.0 = exact
+      // screen match; >1 nudges labels up for the PDF's reduced chart width. (Prior S368
+      // hardcoded 12.5/15.5 px = ~2.5× the 10px screen label → oversized/overlapping.)
+      var _annBump = (typeof window!=='undefined' && +window._annBump) || 1;
+      var _baseFont = parseFloat(cs.fontSize) || 10;
+      var _baseLine = parseFloat(cs.lineHeight) || _baseFont * 1.25;
+      var _basePadX = parseFloat(cs.paddingLeft); if(isNaN(_basePadX)) _basePadX = 5;
+      var _basePadY = parseFloat(cs.paddingTop);  if(isNaN(_basePadY)) _basePadY = 1;
+      var fpx = _baseFont * sy * _annBump;
       ctx.font = '600 ' + fpx.toFixed(1) + 'px Calibri, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      var lineH = 15.5 * sy;          // matches the larger font
-      var padX = 6 * sx, padY = 3 * sy;
+      var lineH = _baseLine * sy * _annBump;
+      var padX = _basePadX * sx, padY = _basePadY * sy;
       var maxW = 0;
       lines.forEach(function(l){ var w=ctx.measureText(l).width; if(w>maxW) maxW=w; });
       // anchor (bottom-centre) in bitmap space
