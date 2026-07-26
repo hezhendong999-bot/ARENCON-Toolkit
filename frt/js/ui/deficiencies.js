@@ -3276,6 +3276,10 @@ function _renderCombinedView(proj, container) {
     }).catch(function () {});
   } catch (_) {}
 
+  // S502: shrink-to-fit contractor display comments into their locked 4-row box.
+  // rAF so layout (widths, fonts) is settled before we measure scrollHeight.
+  requestAnimationFrame(function(){ _fitContractorComments(container); });
+
   // S339 (Mark): kill the expanded-card "flash" on filter-tab switch. The card
   // paints at one height, then a rAF below renders the pin mini-map + autosizes
   // comment boxes → a visible reflow one frame later. When a row is OPEN, hide the
@@ -3284,7 +3288,7 @@ function _renderCombinedView(proj, container) {
   // lists (nothing to reflow) are unaffected.
   if (_openObsKey) {
     container.style.visibility = 'hidden';
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ container.style.visibility = ''; }); });
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ _fitContractorComments(container); container.style.visibility = ''; }); });
   }
 
   // S250 §6 (Option A): inject the list-action cluster (Collapse all · Re-sort)
@@ -6965,6 +6969,39 @@ function _cvAutosizeTextarea(ta) {
   if (!ta) return;
   ta.style.height = 'auto';
   ta.style.height = ta.scrollHeight + 'px';
+}
+
+// S502: shrink-to-fit the READ-ONLY contractor comment display within a locked
+// 4-row box (Mark). CSS caps the box at 6em (4 rows @ line-height 1.5) and gives
+// it overflow:auto as the floor safety net. Here we measure: if the comment
+// overflows those 4 rows at the base font, step the font DOWN toward a readable
+// floor until it fits — the box NEVER grows. If it still overflows at the floor,
+// CSS lets it scroll (better than illegible micro-type on a daylight tablet).
+// This is the inverse of the S263 textarea auto-grow: box fixed, text adapts.
+// Read-only contractor DISPLAY only (.crbt-c .crbt-t) — never the compose box,
+// never the ARENCON review side.
+var _CRB_FIT_FLOOR_PX = 9;   // readability floor on the field tablet
+function _fitContractorComment(el) {
+  if (!el) return;
+  // reset to inherit so re-fits (re-render, font-scale change) start clean
+  el.style.fontSize = '';
+  el.classList.remove('crbt-fitted');
+  // fits already? nothing to do — leave at full size, mark fitted (hide scroll)
+  if (el.scrollHeight <= el.clientHeight + 1) { el.classList.add('crbt-fitted'); return; }
+  // measure the resolved base size, then step down toward the floor
+  var base = parseFloat(getComputedStyle(el).fontSize) || 16;
+  var px = base;
+  while (px > _CRB_FIT_FLOOR_PX) {
+    px -= 0.5;
+    el.style.fontSize = px + 'px';
+    if (el.scrollHeight <= el.clientHeight + 1) { el.classList.add('crbt-fitted'); return; }
+  }
+  // still overflowing at the floor: pin to floor and let CSS scroll it
+  el.style.fontSize = _CRB_FIT_FLOOR_PX + 'px';
+}
+function _fitContractorComments(root) {
+  var scope = root || document;
+  scope.querySelectorAll('.crbt-c .crbt-t').forEach(_fitContractorComment);
 }
 
 // S263: size all visible auto-grow textareas to their pre-filled content. Call

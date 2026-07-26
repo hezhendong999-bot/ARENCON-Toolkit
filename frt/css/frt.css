@@ -10883,6 +10883,15 @@ body.dark-mode .ph-trash-tile.selected .ph-trash-check{background:#C9476A;}
 .crbt-who-log{color:#928E9C;}
 .crbt-when{font-weight:400;color:#928E9C;letter-spacing:0;text-transform:none;margin-left:auto;font-variant-numeric:tabular-nums;}
 .crbt-t{font-size:calc(12.5px + var(--ts));line-height:1.5;color:var(--fg);}
+/* S502: contractor DISPLAY comment clamps to 4 rows. Box height is locked; the
+   JS fit pass (_fitContractorComments) shrinks the font toward a readable floor
+   so the whole comment stays visible without the box growing. line-height:1.5,
+   so 4 rows = 6em — max-height in em tracks whatever font size the fit pass sets.
+   overflow-y auto is the safety net: at the font floor a very long paste scrolls
+   inside the 4-row box rather than shrinking into illegibility. Scoped to the
+   contractor side only — ARENCON review text (.crbt-a .crbt-t) is untouched. */
+.crbt-c .crbt-t{max-height:6em;overflow-y:auto;overflow-x:hidden;}
+.crbt-c .crbt-t.crbt-fitted{overflow-y:hidden;}
 .crbt-src{font-size:calc(8.5px + var(--ts));font-weight:700;border:1px solid currentColor;border-radius:4px;padding:0 5px;letter-spacing:.04em;opacity:.85;}
 .crbt-edited{font-size:calc(10.5px + var(--ts));color:#928E9C;font-style:italic;}
 .crbt-noresp{color:#928E9C;font-style:italic;}
