@@ -8075,16 +8075,24 @@ function _ensureChartsForExport(){
 function _exportPDFGo() {
   window._apxBandEmitted = false;   // S372.5: reset per-export; _appendixHTML / flow-test / sketch set it true when the Photo Appendix band is emitted
   var _chartRestore=_ensureChartsForExport();   // S316
-  // S503: warm the annotation overlay before baking. On a COLD export (S4 tab never
-  // opened) the first renderChartAnnotations hits the self-heal path, which disables
-  // Chart.js datalabels and schedules the real overlay render on an 80ms timeout — so a
-  // synchronous bake read an EMPTY overlay and the PDF lost every label. Pre-rendering
-  // here hooks each chart first; the bake's own render call then populates synchronously.
-  [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){
-    try{ if(p[1] && typeof renderChartAnnotations==='function') renderChartAnnotations(p[1],p[0]); }catch(_){}
-  });
-  [['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]].forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
+  // S503d COLD-EXPORT FIX (harness-verified with a true cold start): on export from a
+  // tab where the Performance panel was NEVER opened, the annotation overlay div does
+  // not exist — hookChartAnnotations only runs when the panel first shows, and
+  // renderChartAnnotations bails on its first line without an overlay. So every prior
+  // warm/bake call was a silent no-op on the cold path and the PDF had no labels.
+  // Sequence (all synchronous inside the settle timeout, nothing can interleave):
+  var _chartPairs=[['chart3pt',chart3pt],['netChart3pt',netChart3pt],['pldChart',pldChart],['pldNetChart',pldNetChart]];
   setTimeout(function(){
+    // 1) create the overlay if missing (idempotent) + first render — the render's own
+    //    self-heal hooks the chart, captures formatters, disables Chart.js datalabels
+    _chartPairs.forEach(function(p){ try{ if(p[1] && typeof initChartAnnotationOverlay==='function') initChartAnnotationOverlay(p[1],p[0]); }catch(_){} });
+    _chartPairs.forEach(function(p){ try{ if(p[1] && typeof renderChartAnnotations==='function') renderChartAnnotations(p[1],p[0]); }catch(_){} });
+    // 2) clean synchronous redraw via the UN-patched update: repaints the chart without
+    //    the now-disabled plugin labels and schedules no deferred overlay wipe
+    _chartPairs.forEach(function(p){ try{ if(p[1]) (p[1].__origUpdate||p[1].update).call(p[1],'none'); }catch(_){} });
+    // 3) re-render the overlay from settled chart geometry, bake, capture — back-to-back
+    _chartPairs.forEach(function(p){ try{ if(p[1] && typeof renderChartAnnotations==='function') renderChartAnnotations(p[1],p[0]); }catch(_){} });
+    _chartPairs.forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
     _realExportPDF();
     // Clear baked annotations from canvases by re-rendering
     setTimeout(function(){
@@ -8093,7 +8101,7 @@ function _exportPDFGo() {
       });
       _chartRestore();   // S316: hide the panel again if we revealed it
     }, 300);
-  }, 100);
+  }, 180);   // S503d: was 100 — clear the resize's ~80ms deferred overlay render before warm+bake+capture
 }
 function _realExportPDF() {
   try {
