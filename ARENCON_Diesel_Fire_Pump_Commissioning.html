@@ -1881,6 +1881,18 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
     import { ARENCON_LOGO } from '/lib/assets/logo.js';
     window.ArenconDlg = Dlg;
     window.ArenconDlgDef = function(family){ return dialogDefaults('diesel', family); };
+    /* S505: shared Help engine + Diesel's own help cards. The engine is locked
+       (registered per-tool, never modified here); importing dieselHelpCards runs
+       its registerHelp() once. openHelp()/_helpSetDot() live in the classic host
+       and reach the engine through these window handles, exactly as the Hub does —
+       a classic function can't see module imports directly. */
+    import { mountHelp, hasUnseen, markSeen, hasCards, comingSoonHtml } from '/lib/ui/helpEngine.js';
+    import '/lib/ui/dieselHelpCards.js';
+    window._helpMount = mountHelp;
+    window._helpHasUnseen = hasUnseen;
+    window._helpMarkSeen = markSeen;
+    window._helpHasCards = hasCards;
+    window._helpComingSoon = comingSoonHtml;
     window.ArenconToast = _libToast;
     window.ArenconScroll = { lock: _libLock, unlock: _libUnlock };
     /* One logo, one source: lib/assets/logo.js (full data: prefix included).
@@ -2009,6 +2021,7 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
       onReupload: function(){ call('_r2ReuploadAll'); },
       onR2Cleanup: function(){ call('_dieselR2OrphanReport'); },
       onDelDiag: function(){ call('dslDiag'); },
+      onHelp: function(){ call('openHelp'); },
       onQR: function(){ call('_openToolQR'); },
       onToggleTheme: function(){ call('toggleDarkMode'); },
       onTextSize: function(){ call('cycleTextSize'); },
@@ -2025,6 +2038,9 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
     window.__dslHeaderCtl.setTheme(document.body.classList.contains('dark-mode') ? 'dark' : 'light');
     try { var _ts = localStorage.getItem('ARENCON_TextSize');
       if (_ts) window.__dslHeaderCtl.setControlIcon('ts', _ts); } catch(e){}
+    /* S505: paint the Help "?" unseen-dot AFTER the header exists (the button lives
+       in the header's shadow root, so it can't be touched at parse time). */
+    try { if (typeof _helpSetDot === 'function' && window._helpHasUnseen) _helpSetDot(window._helpHasUnseen()); } catch(e){}
   </script>
   <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);"></div>
   <!-- S267(C) v2: fullscreen chart overlay. Only the chart canvas wrapper is moved into .fig-fs-stage
@@ -13307,6 +13323,36 @@ function _openToolQR(){
   });
 }
 
+/* S505: Help & guide. Opens the shared, searchable Help engine inside Diesel's own
+   sealed dialog (window.ArenconDlg.panel) — same engine the Hub uses, same cards
+   schema, Diesel's own content registered from lib/ui/dieselHelpCards.js. The engine
+   fns are published on window by the part02 module block. If Diesel's cards ever
+   fail to register, the named coming-soon placeholder shows instead of a blank panel. */
+var _HELP_ICON_PLAIN = '<span class="help-q">?</span><span class="wn-dot" style="display:none"></span>';
+var _HELP_ICON_NEW   = '<span class="help-q">?</span><span class="wn-dot wn-pulse"></span>';
+function _helpSetDot(on){
+  try { window.__dslHeaderCtl.setControlIcon('help', on ? _HELP_ICON_NEW : _HELP_ICON_PLAIN); } catch(e){}
+}
+function openHelp(){
+  var D = window.ArenconDlg;
+  if(!D || !D.panel){ try{ console.error('[help] dialog engine not loaded'); }catch(_){} return; }
+  D.panel({
+    title:'Help & guide',
+    icon:'?', accent:'slate', width:880,
+    build:function(bd){
+      if (window._helpHasCards && window._helpHasCards('Diesel')){
+        window._helpMount(bd, { tab:'wn' });
+        try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch(_){}
+        _helpSetDot(false);
+      } else {
+        bd.innerHTML = window._helpComingSoon
+          ? window._helpComingSoon('Diesel Fire Pump Commissioning')
+          : '<div class="help-soon"><div class="help-soon-title">Guide coming soon</div></div>';
+      }
+    }
+  });
+}
+
 /* ──── Heartbeat Sync with Guards (Session 53 — FRT pattern) ──── */
 var _heartbeatRunning = false;
 var _syncLock = false;
@@ -17114,6 +17160,12 @@ window.AIUsage = AIUsage;
   --smoke:#EFEDF0; --border:#E2DFE8; --surface:#FFFFFF; --card:#FFFFFF;
   --slate:#1B1A22; --slate-mid:#2C3E50; --steel:#5E5B68; --silver:#928E9C;
   --arencon:#9C2742; --arencon-mid:#7d1f35;
+  /* S505: aliases so the shared Help panel CSS (authored against the Hub's var
+     names) resolves on Diesel without rewriting 40 rules. --white=card surface,
+     --fg=primary text; light/glow derive from --arencon so both themes track. */
+  --white:var(--card); --fg:var(--slate);
+  --arencon-light:color-mix(in srgb,var(--arencon) 12%,transparent);
+  --arencon-glow:color-mix(in srgb,var(--arencon) 25%,transparent);
   --yes:#2E9E72; --yes-bg:#DBF3E9; --no:#C0445F; --no-bg:#FBE3E9;
   --na:#2C7FB8; --na-bg:#D6E8F4; --warn:#D98A1E; --warn-bg:#FBEDD3;
   --b-info:#2C7FB8; --b-info-bg:#DEEEF8; --b-rec:#D98A1E;
@@ -17134,6 +17186,10 @@ body.dark-mode{
   --smoke:#0b0a0d; --border:rgba(255,255,255,.10); --surface:rgba(255,255,255,.04); --card:rgba(255,255,255,.04);
   --slate:#f4f3f6; --slate-mid:#0e0d12; --steel:#a09aa8; --silver:#6b6674;
   --arencon:#C9476A; --arencon-mid:#9C2742;
+  /* S505: Help-panel aliases (dark). Same names, dark values via --card/--slate/--arencon. */
+  --white:var(--card); --fg:var(--slate);
+  --arencon-light:color-mix(in srgb,var(--arencon) 15%,transparent);
+  --arencon-glow:color-mix(in srgb,var(--arencon) 30%,transparent);
   --yes:#3FD08A; --yes-bg:rgba(63,208,138,.15); --no:#E26076; --no-bg:rgba(226,96,118,.16);
   --na:#7FB8DD; --na-bg:rgba(70,150,200,.20); --warn:#E6A23C; --warn-bg:rgba(230,162,60,.16);
   --b-info:#46C5E8; --b-info-bg:rgba(70,197,232,.15); --b-rec:#E6A23C;
@@ -17535,6 +17591,58 @@ body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.
 .cv-statusmenu-item.sel{outline:2px solid color-mix(in srgb,currentColor 45%,transparent);outline-offset:-2px;}
 @media(pointer:coarse){.cv-statusmenu-item{padding:11px 12px;}.cv-statusmenu{min-width:208px;}}
 /* ════ end S502 pill ════ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   S505 — Help & guide panel (shared engine body). Ported VERBATIM from the Hub's
+   shipped help CSS (S504). Mounts inside Diesel's sealed dialog (ArenconDlg.panel).
+   The header "?" button styles (.help-q/.wn-dot/wn-pulse) already live in the
+   SHARED headerEngine2.js shadow root — not here. Var aliases (--white/--fg/
+   --arencon-light/--arencon-glow) defined in both theme blocks above.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.help-tabs{display:flex;gap:8px;margin-bottom:14px}
+.help-tab{font-family:inherit;font-size:calc(12.5px + var(--ts));font-weight:600;padding:6px 15px;border-radius:999px;border:1px solid var(--border);background:var(--white);color:var(--steel);cursor:pointer;min-height:34px}
+.help-tab.active{background:var(--arencon-light);border-color:var(--arencon);color:var(--arencon)}
+.help-search{margin-bottom:14px}
+.help-search-box{position:relative}
+.help-search-box input{width:100%;padding:10px 34px 10px 34px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:calc(13px + var(--ts));color:var(--fg);background:var(--white)}
+.help-search-box input:focus{outline:none;border-color:var(--arencon);box-shadow:0 0 0 3px var(--arencon-glow)}
+.help-search-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--silver);font-size:13px;pointer-events:none}
+.help-search-clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--silver);cursor:pointer;font-size:15px;display:none;padding:4px 6px;min-height:30px}
+.help-search-clr.on{display:block}
+.help-search-hint{font-size:calc(11.5px + var(--ts));color:var(--silver);margin-top:7px;line-height:1.5}
+.help-grouphdr{font-size:calc(10.5px + var(--ts));font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--silver);margin:4px 0 11px}
+.help-grouphdr.areahdr{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.help-grouphdr.areahdr:first-child{margin-top:0;padding-top:0;border-top:none}
+.help-card{border:1px solid var(--border);border-radius:12px;background:var(--white);padding:14px;margin-bottom:13px}
+.help-soon{text-align:center;padding:38px 20px;color:var(--steel)}
+.help-soon-ico{font-size:40px;margin-bottom:14px}
+.help-soon-title{font-size:calc(15px + var(--ts));font-weight:700;color:var(--fg);margin-bottom:8px}
+.help-soon-sub{font-size:calc(12.5px + var(--ts));color:var(--silver);line-height:1.5;max-width:340px;margin:0 auto}
+.help-card-h{font-size:calc(15.5px + var(--ts));font-weight:700;letter-spacing:-.2px;margin:0 0 10px}
+.help-card-tool{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver)}
+.help-card-split{display:flex;gap:14px;align-items:flex-start}
+.help-card-shot{flex:0 0 52%;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--smoke)}
+.help-card-shot svg{display:block;width:100%;height:auto}
+.help-card-pts{flex:1;min-width:0;margin:0;padding:0;list-style:none}
+.help-card-pts li{position:relative;padding-left:13px;margin-bottom:7px;font-size:calc(12.6px + var(--ts));line-height:1.5;color:var(--steel)}
+.help-card-pts li:last-child{margin-bottom:0}
+.help-card-pts li::before{content:'';position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:50%;background:var(--arencon)}
+.help-card-pts b{color:var(--fg);font-weight:600}
+.help-card-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.help-chip{font-size:calc(10.5px + var(--ts));font-weight:700;padding:3px 9px;border-radius:6px}
+.help-chip.c-new{background:var(--yes-bg);color:var(--yes)}
+.help-chip.c-where{background:var(--na-bg);color:var(--na)}
+.help-chip.c-admin{background:var(--warn-bg);color:var(--warn)}
+.help-card.compact .help-card-split{gap:12px;align-items:center}
+.help-card.compact .help-card-shot{flex:0 0 66px;border:none;background:transparent}
+.help-card.compact .help-card-h{margin-bottom:7px}
+.help-empty{font-size:calc(12.5px + var(--ts));color:var(--silver);line-height:1.5;padding:8px 0}
+@media(max-width:560px){
+  .help-card-split{flex-direction:column}
+  .help-card-shot{flex:none;width:100%}
+  .help-card.compact .help-card-split{flex-direction:row}
+  .help-card.compact .help-card-shot{flex:0 0 56px}
+}
 
 </style>
 <script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>

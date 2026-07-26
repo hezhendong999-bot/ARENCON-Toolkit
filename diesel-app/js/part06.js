@@ -8473,6 +8473,36 @@ function _openToolQR(){
   });
 }
 
+/* S505: Help & guide. Opens the shared, searchable Help engine inside Diesel's own
+   sealed dialog (window.ArenconDlg.panel) — same engine the Hub uses, same cards
+   schema, Diesel's own content registered from lib/ui/dieselHelpCards.js. The engine
+   fns are published on window by the part02 module block. If Diesel's cards ever
+   fail to register, the named coming-soon placeholder shows instead of a blank panel. */
+var _HELP_ICON_PLAIN = '<span class="help-q">?</span><span class="wn-dot" style="display:none"></span>';
+var _HELP_ICON_NEW   = '<span class="help-q">?</span><span class="wn-dot wn-pulse"></span>';
+function _helpSetDot(on){
+  try { window.__dslHeaderCtl.setControlIcon('help', on ? _HELP_ICON_NEW : _HELP_ICON_PLAIN); } catch(e){}
+}
+function openHelp(){
+  var D = window.ArenconDlg;
+  if(!D || !D.panel){ try{ console.error('[help] dialog engine not loaded'); }catch(_){} return; }
+  D.panel({
+    title:'Help & guide',
+    icon:'?', accent:'slate', width:880,
+    build:function(bd){
+      if (window._helpHasCards && window._helpHasCards('Diesel')){
+        window._helpMount(bd, { tab:'wn' });
+        try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch(_){}
+        _helpSetDot(false);
+      } else {
+        bd.innerHTML = window._helpComingSoon
+          ? window._helpComingSoon('Diesel Fire Pump Commissioning')
+          : '<div class="help-soon"><div class="help-soon-title">Guide coming soon</div></div>';
+      }
+    }
+  });
+}
+
 /* ──── Heartbeat Sync with Guards (Session 53 — FRT pattern) ──── */
 var _heartbeatRunning = false;
 var _syncLock = false;

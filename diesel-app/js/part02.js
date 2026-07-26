@@ -25,6 +25,18 @@
     import { ARENCON_LOGO } from '/lib/assets/logo.js';
     window.ArenconDlg = Dlg;
     window.ArenconDlgDef = function(family){ return dialogDefaults('diesel', family); };
+    /* S505: shared Help engine + Diesel's own help cards. The engine is locked
+       (registered per-tool, never modified here); importing dieselHelpCards runs
+       its registerHelp() once. openHelp()/_helpSetDot() live in the classic host
+       (part06) and reach the engine through these window handles, exactly as the
+       Hub does — a classic function can't see module imports directly. */
+    import { mountHelp, hasUnseen, markSeen, hasCards, comingSoonHtml } from '/lib/ui/helpEngine.js';
+    import '/lib/ui/dieselHelpCards.js';
+    window._helpMount = mountHelp;
+    window._helpHasUnseen = hasUnseen;
+    window._helpMarkSeen = markSeen;
+    window._helpHasCards = hasCards;
+    window._helpComingSoon = comingSoonHtml;
     window.ArenconToast = _libToast;
     window.ArenconScroll = { lock: _libLock, unlock: _libUnlock };
     /* One logo, one source: lib/assets/logo.js (full data: prefix included).
@@ -153,6 +165,7 @@
       onReupload: function(){ call('_r2ReuploadAll'); },
       onR2Cleanup: function(){ call('_dieselR2OrphanReport'); },
       onDelDiag: function(){ call('dslDiag'); },
+      onHelp: function(){ call('openHelp'); },
       onQR: function(){ call('_openToolQR'); },
       onToggleTheme: function(){ call('toggleDarkMode'); },
       onTextSize: function(){ call('cycleTextSize'); },
@@ -169,4 +182,7 @@
     window.__dslHeaderCtl.setTheme(document.body.classList.contains('dark-mode') ? 'dark' : 'light');
     try { var _ts = localStorage.getItem('ARENCON_TextSize');
       if (_ts) window.__dslHeaderCtl.setControlIcon('ts', _ts); } catch(e){}
+    /* S505: paint the Help "?" unseen-dot AFTER the header exists (the button lives
+       in the header's shadow root, so it can't be touched at parse time). */
+    try { if (typeof _helpSetDot === 'function' && window._helpHasUnseen) _helpSetDot(window._helpHasUnseen()); } catch(e){}
   
