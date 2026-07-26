@@ -24,6 +24,13 @@ import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return pa
 import { Auth } from './shared/auth.js';
 import { buildHeader2 } from '../../lib/ui/headerEngine2.js';   /* S488 Wave 3: sealed header */
 import { frtHeaderConfig } from '../../lib/ui/headerConfigs.js';
+/* S505g: Help & guide. Same shared engine and same sealed dialog the Hub and
+   Diesel use — one implementation. Importing frtHelpCards runs its registerHelp()
+   once, under the scope 'FRT'; the panel therefore shows FRT cards only (Mark's
+   standing rule: one panel = one scope, never mixed). */
+import { Dlg } from '../../lib/ui/dialogEngine.js';
+import { mountHelp, hasUnseen, markSeen, hasCards, comingSoonHtml } from '../../lib/ui/helpEngine.js';
+import '../../lib/ui/frtHelpCards.js';
 import { toast } from './shared/toast.js';
 import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js';
 import { lockScroll, unlockScroll } from './shared/scrollLock.js';
@@ -2252,6 +2259,46 @@ function wireEvents() {
 
 // ─── S488 Wave 3: sealed shared header (locked navy unification) ──────────
 var _hdrCtl = null;
+
+/* ── S505g: Help & guide ──────────────────────────────────────────────────────
+   Opens the shared searchable Help engine inside the shared sealed dialog. The
+   dialog is a SHADOW DOM host, so page CSS cannot reach the panel body — the
+   panel's stylesheet is linked INSIDE the shadow root (theme custom properties
+   still inherit through the boundary, so light/dark tracks automatically).
+   Scope 'FRT' throughout: What's New, the Guide, search and the unseen dot all
+   show FRT and nothing else. */
+var _HELP_ICON_PLAIN = '<span class="help-q">?</span><span class="wn-dot" style="display:none"></span>';
+var _HELP_ICON_NEW   = '<span class="help-q">?</span><span class="wn-dot wn-pulse"></span>';
+function _helpSetDot(on){
+  try { if (_hdrCtl && _hdrCtl.setControlIcon) _hdrCtl.setControlIcon('help', on ? _HELP_ICON_NEW : _HELP_ICON_PLAIN); } catch(e){}
+}
+function openHelp(){
+  if (!Dlg || !Dlg.panel){ try { console.error('[help] dialog engine not loaded'); } catch(e){} return; }
+  Dlg.panel({
+    title:'Help & guide',
+    icon:'?', accent:'slate', width:880,
+    build:function(bd){
+      try {
+        var sr = bd.getRootNode();
+        if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')){
+          var lk = document.createElement('link');
+          lk.rel = 'stylesheet';
+          lk.href = '/lib/ui/helpPanel.css?v=505g';
+          lk.setAttribute('data-help-css','1');
+          sr.appendChild(lk);
+        }
+      } catch(e){}
+      if (hasCards('FRT')){
+        mountHelp(bd, { scope:'FRT', tab:'wn' });
+        try { markSeen('FRT'); } catch(e){}
+        _helpSetDot(false);
+      } else {
+        bd.innerHTML = comingSoonHtml ? comingSoonHtml('Field Review Tool')
+          : '<div class="help-soon"><div class="help-soon-title">Guide coming soon</div></div>';
+      }
+    }
+  });
+}
 var _presenceNames = [];
 var _inspectorLocked = false;
 function _buildHeader(){
@@ -2286,6 +2333,7 @@ function _buildHeader(){
        gone with their menu rows — never implemented, so never wired. */
     onR2Cleanup: function(){ _r2CleanupMenu(); },
     onDiagnostics: function(){ if (typeof _showCloudDiagnostic === 'function') _showCloudDiagnostic(); },
+    onHelp: function(){ openHelp(); },
     onQR: function(){ _showQR(); },
     onResetTab: function(){ _resetCurrentTab(); },
     onResetProject: function(){ _resetProject(); },
@@ -2298,6 +2346,9 @@ function _buildHeader(){
   /* seed state */
   _hdrCtl.setTheme(document.body.classList.contains('dark-mode') ? 'dark' : 'light');
   _hdrCtl.setControlIcon('ts', localStorage.getItem(LS_TEXT_SIZE) || 'S');
+  /* S505g: the Help "?" lives in the header's shadow root, so its unseen-dot can
+     only be painted once the header exists. Scoped to FRT. */
+  try { _helpSetDot(hasUnseen('FRT')); } catch(e){}
   _hdrCtl.setControlHidden('signout', !localStorage.getItem('sb-access-token'));
   fetch('../logo_base64.txt').then(function(r){ return r.text(); })
     .then(function(b64){ _hdrCtl.setLogo(b64.trim()); }).catch(function(){});

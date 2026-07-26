@@ -386,3 +386,7 @@ _runImport
 @ Diesel Help & guide — shared searchable Help engine mounted in Diesel's sealed dialog (ArenconDlg.panel), Diesel's own cards in lib/ui/dieselHelpCards.js, "?" button folds with the icon trio. openHelp/_helpSetDot live in BOTH twins (monolith + diesel-app beta) and are invoked by name from the shared header config's onHelp — a grep of Diesel alone shows the header wiring as the only caller. Coming-soon fallback if cards fail to register. (Mark, S505, help/guide roadmap seed)
 openHelp
 _helpSetDot
+
+@ FRT Help & guide — shared searchable Help engine in the shared sealed dialog, FRT's own cards in lib/ui/frtHelpCards.js, scope 'FRT' (one panel = one scope, never mixed). openHelp/_helpSetDot are invoked by name from the shared header config's onHelp, so a grep of app.js shows the header wiring as the only caller. Coming-soon fallback if cards fail to register. (Mark, S505g)
+openHelp
+_helpSetDot
