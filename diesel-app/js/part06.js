@@ -8508,7 +8508,7 @@ function openHelp(){
         if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')){
           var lk = document.createElement('link');
           lk.rel = 'stylesheet';
-          lk.href = '/lib/ui/helpPanel.css?v=505d';
+          lk.href = '/lib/ui/helpPanel.css?v=505e';
           lk.setAttribute('data-help-css','1');
           sr.appendChild(lk);
         }

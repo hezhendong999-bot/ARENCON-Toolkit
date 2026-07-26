@@ -30,7 +30,10 @@
 .help-soon-ico{font-size:40px;margin-bottom:14px}
 .help-soon-title{font-size:calc(15px + var(--ts,0px));font-weight:700;color:var(--fg);margin-bottom:8px}
 .help-soon-sub{font-size:calc(12.5px + var(--ts,0px));color:var(--silver);line-height:1.5;max-width:340px;margin:0 auto}
-.help-card-h{font-size:calc(15.5px + var(--ts,0px));font-weight:700;letter-spacing:-.2px;margin:0 0 10px;color:var(--fg)}
+.help-card-h{font-size:15.5px;font-weight:700;letter-spacing:-.2px;margin:0 0 10px;color:var(--fg)}
+/* ^ FIXED 15.5px, matching the dialog engine's .ttl exactly (Mark, S505e): the
+   card titles must never render larger than the "Help & guide" panel title.
+   They deliberately do NOT scale with --ts — neither does the dialog title. */
 .help-card-tool{font-size:calc(10px + var(--ts,0px));font-weight:700;color:var(--silver)}
 .help-card-split{display:flex;gap:14px;align-items:flex-start}
 .help-card-shot{flex:0 0 52%;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--smoke)}
