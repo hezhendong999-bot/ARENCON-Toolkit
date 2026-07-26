@@ -171,13 +171,23 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 /* dark toggle uses hdr-btn class */
 /* S261: back-btn matched EXACTLY to Diesel — pad 5px 12px, no fixed min-height
    (height comes from padding like diesel: 30px@S / 33px@L), border 1px #D2CEDB. */
-.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid #D2CEDB;color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;box-sizing:border-box;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
-body.dark-mode .back-btn{border:1px solid var(--b-chrome-rule);box-shadow:none;}
+.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid #D2CEDB;color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;box-shadow:var(--b-btn-shadow);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;box-sizing:border-box;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
+/* S504: dark mode keeps the shadow (token carries a deeper value there) —
+   previously box-shadow:none left Back flat beside raised neighbours. */
+body.dark-mode .back-btn{border:1px solid var(--b-chrome-rule);}
 /* S496d (Mark): optical centering inside .back-btn. As a single text node the
    ← glyph's visual centre sat below the text's, making "Back" read high.
    Split into spans (index.html), text nudged down; gap replaces the space. */
 .back-btn .bb-ar{line-height:1;}
 .back-btn .bb-txt{line-height:1;transform:translateY(0.5px);}
+/* S504 (Mark): Back is ARROW ONLY. The word ate ~44px of header width that is
+   better spent keeping buttons out of the fold. Markup keeps the .bb-txt span
+   (reversible); it is simply not rendered. Applies to the main-header Back and
+   the drawing-viewer Back alike — one Back everywhere. */
+.back-btn .bb-txt{display:none;}
+.back-btn{width:40px;padding:0;gap:0;justify-content:center;}
+.back-btn .bb-ar{font-size:calc(16px + var(--ts));}
+@media(pointer:coarse){.back-btn{min-width:44px;width:44px;}}
 .section-nav{background:var(--b-chrome-bg);display:flex;gap:0;overflow-x:auto;padding:0 14px;cursor:grab;scrollbar-width:none;position:relative;z-index:1;}.section-nav .nav-tab:first-child{padding-left:0;}.section-nav::-webkit-scrollbar{display:none;}
 .nav-tab{padding:11px 18px;font-family:Calibri,sans-serif;font-weight:600;font-size:calc(15px + var(--ts));letter-spacing:.4px;color:rgba(244,243,246,.6);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .18s;user-select:none;}.nav-tab:hover{color:var(--b-chrome-fg);}.nav-tab.active{color:var(--b-chrome-fg);border-bottom-color:var(--b-bar-accent);}
 #issue-status-badge{transition:filter .15s,transform .15s;}#issue-status-badge:hover{filter:brightness(1.2);transform:scale(1.05);}
@@ -327,8 +337,8 @@ body.dark-mode .dv-mobile-context{background:#2a2d35;border-top-color:#3a3e48;}
 /* MORE MENU */
 .dv-menu-item{width:100%;padding:10px 16px;border:none;background:transparent;color:#1C2333;text-align:left;font-size:calc(13px + var(--ts));cursor:pointer;font-family:Calibri,sans-serif;display:flex;align-items:center;gap:10px;}.dv-menu-item:hover{background:rgba(0,0,0,.06);}
 body.dark-mode .dv-menu-item{color:white;}body.dark-mode .dv-menu-item:hover{background:rgba(255,255,255,.08);}
-.dv-more-menu{position:absolute;right:0;top:calc(100% + 6px);background:#ffffff;border:1px solid #eef0f4;border-radius:10px;box-shadow:0 6px 24px rgba(28,35,51,.12);min-width:220px;z-index:9500;padding:6px 0;font-family:Calibri,sans-serif;}
-body.dark-mode .dv-more-menu{background:#2a2d35;border-color:#3a3e48;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.dv-more-menu{position:absolute;right:0;top:calc(100% + 6px);background:#ffffff;border:none;border-radius:8px;box-shadow:0 6px 24px rgba(28,35,51,.12);min-width:220px;z-index:9500;padding:6px 0;font-family:Calibri,sans-serif;}
+body.dark-mode .dv-more-menu{background:#2a2d35;border:none;box-shadow:0 8px 24px rgba(0,0,0,.5);}
 #markup-overlay{z-index:4;}
 @media(pointer:coarse){
   .dv-sidebar-tools .tool-btn{width:42px;height:42px;}
@@ -10088,7 +10098,13 @@ body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
    bottom-nav drop shadow; apply where applicable). Shadow adapts per mode:
    stronger in dark, softer in light so it reads on the light day chrome. ═══════ */
 /* shadow token: soft in day, deeper in dark */
-:root{ --b-btn-shadow:0 1px 3px rgba(40,30,50,.12),0 2px 6px rgba(40,30,50,.10); }
+/* S504 (Mark): the pronounced viewer-Back shadow becomes THE default for every
+   NEUTRAL/chrome button platform-wide — help, QR, day-night, text-size, undo/redo,
+   Back, viewer toolbar buttons, seal/redaction, menu, more. Coloured CTAs
+   (AI Review, Reports, Sign Out, More) carry NO shadow — see the CTA rule below,
+   which is why this token change is safe. Dark keeps a deeper value so the shadow
+   still reads against a dark surface. */
+:root{ --b-btn-shadow:0 1px 4px rgba(0,0,0,.2); }
 body.dark-mode{ --b-btn-shadow:0 2px 6px rgba(0,0,0,.40); }
 /* apply to: toolbar tool icons, sidebar tools, size/opac steppers, stylestrip,
    bottom nav + name pill. NOT to: text-label buttons (Back), the big primary CTAs. */
@@ -10247,8 +10263,10 @@ body.dark-mode .hdr-sm{
 @media(pointer:coarse){ .app-header .hdr-btn{ min-height:40px; padding:8px 14px!important; } }
 /* (icon geometry owned by S259 §2 — do not set width/height here) */
 /* colored CTAs: keep Diesel fills + soft press-shadow + tactile dip (never the neutral surface) */
+/* colored CTAs: Diesel fills + tactile dip, but NO shadow (S504 Mark: shadow is
+   the neutral-button signature; coloured fills stay flat so they read as fills). */
 .hdr-ai-active, #btn-reports-parent, #btn-signout, #btn-more-wrap > button{
-  box-shadow:var(--b-btn-shadow)!important; transition:box-shadow .15s,transform .08s,filter .15s!important;
+  box-shadow:none!important; transition:box-shadow .15s,transform .08s,filter .15s!important;
 }
 .hdr-ai-active:active, #btn-reports-parent:active, #btn-signout:active{
   transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22)!important;
