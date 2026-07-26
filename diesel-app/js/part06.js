@@ -8497,6 +8497,22 @@ function openHelp(){
     title:'Help & guide',
     icon:'?', accent:'slate', width:880,
     build:function(bd){
+      /* S505d ROOT-CAUSE FIX: the dialog engine is a SEALED SHADOW DOM — host
+         stylesheets can never reach this body, which is why the panel rendered
+         completely unstyled (full-width giant SVGs, bare text chips). The
+         panel's stylesheet must be linked INSIDE the shadow root. CSS custom
+         properties still inherit through the boundary, so the host theme vars
+         (--arencon/--white/--fg/…) keep light/dark tracking automatically. */
+      try {
+        var sr = bd.getRootNode();
+        if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')){
+          var lk = document.createElement('link');
+          lk.rel = 'stylesheet';
+          lk.href = '/lib/ui/helpPanel.css?v=505d';
+          lk.setAttribute('data-help-css','1');
+          sr.appendChild(lk);
+        }
+      } catch(e){}
       if (window._helpHasCards && window._helpHasCards('Diesel')){
         window._helpMount(bd, { tab:'wn' });
         try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch(_){}

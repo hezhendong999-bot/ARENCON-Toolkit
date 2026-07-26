@@ -13347,6 +13347,22 @@ function openHelp(){
     title:'Help & guide',
     icon:'?', accent:'slate', width:880,
     build:function(bd){
+      /* S505d ROOT-CAUSE FIX: the dialog engine is a SEALED SHADOW DOM — host
+         stylesheets can never reach this body, which is why the panel rendered
+         completely unstyled (full-width giant SVGs, bare text chips). The
+         panel's stylesheet must be linked INSIDE the shadow root. CSS custom
+         properties still inherit through the boundary, so the host theme vars
+         (--arencon/--white/--fg/…) keep light/dark tracking automatically. */
+      try {
+        var sr = bd.getRootNode();
+        if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')){
+          var lk = document.createElement('link');
+          lk.rel = 'stylesheet';
+          lk.href = '/lib/ui/helpPanel.css?v=505d';
+          lk.setAttribute('data-help-css','1');
+          sr.appendChild(lk);
+        }
+      } catch(e){}
       if (window._helpHasCards && window._helpHasCards('Diesel')){
         window._helpMount(bd, { tab:'wn' });
         try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch(_){}
@@ -17599,57 +17615,11 @@ body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.
 @media(pointer:coarse){.cv-statusmenu-item{padding:11px 12px;}.cv-statusmenu{min-width:208px;}}
 /* ════ end S502 pill ════ */
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   S505 — Help & guide panel (shared engine body). Ported VERBATIM from the Hub's
-   shipped help CSS (S504). Mounts inside Diesel's sealed dialog (ArenconDlg.panel).
-   The header "?" button styles (.help-q/.wn-dot/wn-pulse) already live in the
-   SHARED headerEngine2.js shadow root — not here. Var aliases (--white/--fg/
-   --arencon-light/--arencon-glow) defined in both theme blocks above.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.help-tabs{display:flex;gap:8px;margin-bottom:14px}
-.help-tab{font-family:inherit;font-size:calc(12.5px + var(--ts));font-weight:600;padding:6px 15px;border-radius:999px;border:1px solid var(--border);background:var(--white);color:var(--steel);cursor:pointer;min-height:34px}
-.help-tab.active{background:var(--arencon-light);border-color:var(--arencon);color:var(--arencon)}
-.help-search{margin-bottom:14px}
-.help-search-box{position:relative}
-.help-search-box input{width:100%;padding:10px 34px 10px 34px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:calc(13px + var(--ts));color:var(--fg);background:var(--white)}
-.help-search-box input:focus{outline:none;border-color:var(--arencon);box-shadow:0 0 0 3px var(--arencon-glow)}
-.help-search-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--silver);font-size:13px;pointer-events:none}
-.help-search-clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--silver);cursor:pointer;font-size:15px;display:none;padding:4px 6px;min-height:30px}
-.help-search-clr.on{display:block}
-.help-search-hint{font-size:calc(11.5px + var(--ts));color:var(--silver);margin-top:7px;line-height:1.5}
-.help-grouphdr{font-size:calc(10.5px + var(--ts));font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--silver);margin:4px 0 11px}
-.help-grouphdr.areahdr{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
-.help-grouphdr.areahdr:first-child{margin-top:0;padding-top:0;border-top:none}
-.help-card{border:1px solid var(--border);border-radius:12px;background:var(--white);padding:14px;margin-bottom:13px}
-.help-soon{text-align:center;padding:38px 20px;color:var(--steel)}
-.help-soon-ico{font-size:40px;margin-bottom:14px}
-.help-soon-title{font-size:calc(15px + var(--ts));font-weight:700;color:var(--fg);margin-bottom:8px}
-.help-soon-sub{font-size:calc(12.5px + var(--ts));color:var(--silver);line-height:1.5;max-width:340px;margin:0 auto}
-.help-card-h{font-size:calc(15.5px + var(--ts));font-weight:700;letter-spacing:-.2px;margin:0 0 10px}
-.help-card-tool{font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver)}
-.help-card-split{display:flex;gap:14px;align-items:flex-start}
-.help-card-shot{flex:0 0 52%;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--smoke)}
-.help-card-shot svg{display:block;width:100%;height:auto}
-.help-card-pts{flex:1;min-width:0;margin:0;padding:0;list-style:none}
-.help-card-pts li{position:relative;padding-left:13px;margin-bottom:7px;font-size:calc(12.6px + var(--ts));line-height:1.5;color:var(--steel)}
-.help-card-pts li:last-child{margin-bottom:0}
-.help-card-pts li::before{content:'';position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:50%;background:var(--arencon)}
-.help-card-pts b{color:var(--fg);font-weight:600}
-.help-card-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.help-chip{font-size:calc(10.5px + var(--ts));font-weight:700;padding:3px 9px;border-radius:6px}
-.help-chip.c-new{background:var(--yes-bg);color:var(--yes)}
-.help-chip.c-where{background:var(--na-bg);color:var(--na)}
-.help-chip.c-admin{background:var(--warn-bg);color:var(--warn)}
-.help-card.compact .help-card-split{gap:12px;align-items:center}
-.help-card.compact .help-card-shot{flex:0 0 66px;border:none;background:transparent}
-.help-card.compact .help-card-h{margin-bottom:7px}
-.help-empty{font-size:calc(12.5px + var(--ts));color:var(--silver);line-height:1.5;padding:8px 0}
-@media(max-width:560px){
-  .help-card-split{flex-direction:column}
-  .help-card-shot{flex:none;width:100%}
-  .help-card.compact .help-card-split{flex-direction:row}
-  .help-card.compact .help-card-shot{flex:0 0 56px}
-}
+/* ── Help & guide panel styles: MOVED to /lib/ui/helpPanel.css (S505d). ──
+   The dialog engine is a sealed SHADOW DOM, so rules here can never reach the
+   panel body — openHelp() links helpPanel.css inside the shadow root instead.
+   Only the theme var aliases above (--white/--fg/--arencon-light/--arencon-glow)
+   matter to Help from this file: custom properties inherit through the boundary. */
 
 </style>
 <script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>
