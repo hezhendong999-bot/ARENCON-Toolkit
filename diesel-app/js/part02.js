@@ -184,5 +184,5 @@
       if (_ts) window.__dslHeaderCtl.setControlIcon('ts', _ts); } catch(e){}
     /* S505: paint the Help "?" unseen-dot AFTER the header exists (the button lives
        in the header's shadow root, so it can't be touched at parse time). */
-    try { if (typeof _helpSetDot === 'function' && window._helpHasUnseen) _helpSetDot(window._helpHasUnseen()); } catch(e){}
+    try { if (typeof _helpSetDot === 'function' && window._helpHasUnseen) _helpSetDot(window._helpHasUnseen('Diesel')); } catch(e){}
   

@@ -8514,8 +8514,11 @@ function openHelp(){
         }
       } catch(e){}
       if (window._helpHasCards && window._helpHasCards('Diesel')){
-        window._helpMount(bd, { tab:'wn' });
-        try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch(_){}
+        /* S505f (Mark, standing rule): one panel = one scope, never mixed.
+           Diesel declares its scope explicitly rather than relying on only its
+           own cards happening to be loaded. */
+        window._helpMount(bd, { scope:'Diesel', tab:'wn' });
+        try { if (window._helpMarkSeen) window._helpMarkSeen('Diesel'); } catch(_){}
         _helpSetDot(false);
       } else {
         bd.innerHTML = window._helpComingSoon

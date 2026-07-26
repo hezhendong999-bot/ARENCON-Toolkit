@@ -3006,9 +3006,14 @@ var _HELP_ICON_NEW   = '<span class="help-q">?</span><span class="wn-dot wn-puls
 function _helpSetDot(on) {
   try { if (window.__hubHdr && window.__hubHdr.setControlIcon) window.__hubHdr.setControlIcon('help', on ? _HELP_ICON_NEW : _HELP_ICON_PLAIN); } catch (e) {}
 }
+/* S505f: which page am I on? Mark's terms exactly — "Dashboard" is the page
+   listing ALL projects; "Hub page" is the per-project page you land on after
+   clicking a project. _detailProjectId is non-null only on the latter. */
+function _helpScope() { return _detailProjectId ? 'Hub page' : 'Dashboard'; }
 function _wnCheck() {
   try {
-    if (window._helpHasUnseen && window._helpHasUnseen()) _helpSetDot(true);
+    var _sc = _helpScope();
+    _helpSetDot(!!(window._helpHasUnseen && window._helpHasUnseen(_sc)));
   } catch (e) { /* engine not ready / offline — Help still opens normally */ }
 }
 function openHelp() {
@@ -3033,8 +3038,13 @@ function openHelp() {
           sr.appendChild(lk);
         }
       } catch (e) {}
-      try { if (window._helpMount) window._helpMount(bd, { tab: 'wn' }); } catch (e) {}
-      try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch (e) {}
+      /* S505f (Mark, standing rule): a Help panel shows ONE scope, never mixed.
+         This file serves TWO pages — the Dashboard (all projects) and the Hub
+         page (one project, showing which report to use) — so the scope follows
+         whichever is on screen. _detailProjectId is set only on the Hub page. */
+      var _sc = _helpScope();
+      try { if (window._helpMount) window._helpMount(bd, { scope: _sc, tab: 'wn' }); } catch (e) {}
+      try { if (window._helpMarkSeen) window._helpMarkSeen(_sc); } catch (e) {}
       _helpSetDot(false);
     }
   });
@@ -3276,6 +3286,9 @@ function openProject(projectId) {
   // clears it. Guarded so it's a no-op (no wasted render) when not selecting.
   if (_selectMode) { try { clearBulkSelection(); } catch (e) {} }
   _detailProjectId = projectId;
+  /* S505f: scope just changed to the Hub page — repaint the Help dot against
+     THIS page's cards, not the Dashboard's. */
+  try { _wnCheck(); } catch (e) {}
 
   // Push history state so browser back returns to dashboard
   try { history.pushState({view:'project',id:projectId}, '', window.location.pathname); } catch(e){}
@@ -3445,6 +3458,7 @@ async function toggleTool(key) {
 
 function closeDetail() {
   _detailProjectId = null;
+  try { _wnCheck(); } catch (e) {}   /* S505f: back to Dashboard scope */
   document.getElementById('project-detail').style.display = 'none';
   document.getElementById('dash-view').style.display = 'block';
   renderProjects();

@@ -2040,7 +2040,7 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
       if (_ts) window.__dslHeaderCtl.setControlIcon('ts', _ts); } catch(e){}
     /* S505: paint the Help "?" unseen-dot AFTER the header exists (the button lives
        in the header's shadow root, so it can't be touched at parse time). */
-    try { if (typeof _helpSetDot === 'function' && window._helpHasUnseen) _helpSetDot(window._helpHasUnseen()); } catch(e){}
+    try { if (typeof _helpSetDot === 'function' && window._helpHasUnseen) _helpSetDot(window._helpHasUnseen('Diesel')); } catch(e){}
   </script>
   <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);"></div>
   <!-- S267(C) v2: fullscreen chart overlay. Only the chart canvas wrapper is moved into .fig-fs-stage
@@ -13372,8 +13372,11 @@ function openHelp(){
         }
       } catch(e){}
       if (window._helpHasCards && window._helpHasCards('Diesel')){
-        window._helpMount(bd, { tab:'wn' });
-        try { if (window._helpMarkSeen) window._helpMarkSeen(); } catch(_){}
+        /* S505f (Mark, standing rule): one panel = one scope, never mixed.
+           Diesel declares its scope explicitly rather than relying on only its
+           own cards happening to be loaded. */
+        window._helpMount(bd, { scope:'Diesel', tab:'wn' });
+        try { if (window._helpMarkSeen) window._helpMarkSeen('Diesel'); } catch(_){}
         _helpSetDot(false);
       } else {
         bd.innerHTML = window._helpComingSoon
