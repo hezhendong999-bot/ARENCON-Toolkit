@@ -1841,6 +1841,13 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
 </style>
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
      host override blocks (that was the point of Shadow DOM). -->
+<script type="module">
+/* S503e: bridge the SHARED export chrome (an ES module) onto window so the classic
+   export script can call it. Touches no shared or FRT file — FRT keeps importing
+   lib/export/exportPreview.js directly; Diesel calls the exact same function. */
+import { mountExportChrome } from './lib/export/exportPreview.js';
+window.__mountExportChrome = mountExportChrome;
+</script>
 </head>
 <body>
 
@@ -8692,53 +8699,38 @@ function _realExportPDF() {
     const imgs = w.document.images;
     let toLoad = imgs.length;
   }, 600);
-  // Add Export PDF toolbar IMMEDIATELY (outside setTimeout so it always shows)
+  // S503e: shared export chrome. The bespoke dark-blue top bar (+ its 400ms polling
+  // resize timer) is retired; Diesel now mounts the SAME floating Export/Close cluster
+  // FRT uses — lib/export/exportPreview.js :: mountExportChrome(). One implementation,
+  // not a lookalike: the module is bridged onto window by the page's module shim.
+  // Step 1 of the FRT convergence — the button still runs the browser print dialog;
+  // the capture pipeline (real .pdf + text layer + photo links) lands in step 2.
   try {
-    // S329 (#32, Mark): FIXED WRAPPER + SCALED INNER. A transform on a fixed element
-    // breaks `fixed` on mobile (scrolls like absolute); outer wrapper stays fixed with
-    // NO transform, inner child carries the zoom counter-scale. Verified on Mark's phone.
-    var btnFix = w.document.createElement('div');
-    btnFix.id = 'pdf-btn-bar';
-    btnFix.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;overflow:hidden;background:#2C4770;box-shadow:0 2px 8px rgba(0,0,0,.3);';
-    var btnBar = w.document.createElement('div');
-    btnBar.id = 'pdf-btn-bar-inner';
-    btnBar.style.cssText = 'transform-origin:top left;box-sizing:border-box;background:#2C4770;padding:10px 20px;display:flex;align-items:center;gap:12px;will-change:transform,width;';
-    var printBtn = w.document.createElement('button');
-    printBtn.textContent = '\uD83D\uDCC4 Export PDF';
-    printBtn.style.cssText = 'padding:8px 24px;background:#5F8068;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;';
-    printBtn.onclick = function(){ w.print(); };
-    btnBar.appendChild(printBtn);
-    var hint = w.document.createElement('span');
-    hint.textContent = 'Click to save as PDF via your browser print dialog.';
-    hint.style.cssText = 'color:rgba(255,255,255,.7);font-size:13px;font-family:Calibri,sans-serif;flex:1;';
-    btnBar.appendChild(hint);
-    var closeBtn = w.document.createElement('button');
-    closeBtn.textContent = '\u2715 Close';
-    closeBtn.style.cssText = 'padding:8px 20px;background:#455A64;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;';
-    closeBtn.onclick = function(){ w.close(); };
-    btnBar.appendChild(closeBtn);
-    btnFix.appendChild(btnBar);
-    w.document.body.insertBefore(btnFix, w.document.body.firstChild);
+    var _mec = (typeof window!=='undefined') && window.__mountExportChrome;
+    if (typeof _mec === 'function') {
+      _mec(w, w.document, { onExport: function(){ w.print(); } });
+    } else {
+      // Fallback: the shared module failed to load. Never leave the preview with no
+      // way out — mount a minimal pill so export/close still work.
+      var fb = w.document.createElement('div');
+      fb.id = 'pdf-btn-cluster';
+      fb.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;align-items:center;gap:8px;';
+      var fbP = w.document.createElement('button');
+      fbP.innerHTML = '\uD83D\uDCC4 Export PDF';
+      fbP.style.cssText = 'padding:10px 18px;background:#2E9E72;color:#fff;border:none;border-radius:22px;font:700 14px Calibri,sans-serif;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+      fbP.onclick = function(){ w.print(); };
+      fb.appendChild(fbP);
+      var fbC = w.document.createElement('button');
+      fbC.innerHTML = '\u2715';
+      fbC.style.cssText = 'width:42px;height:42px;background:#455A64;color:#fff;border:none;border-radius:50%;font:700 16px Calibri,sans-serif;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+      fbC.onclick = function(){ try{ w.close(); }catch(_c){} };
+      fb.appendChild(fbC);
+      w.document.body.appendChild(fb);
+      try{ console.warn('[Diesel] shared export chrome unavailable — fallback cluster mounted'); }catch(_lw){}
+    }
     var hideStyle = w.document.createElement('style');
-    hideStyle.textContent = '@media print { #pdf-btn-bar { display:none !important; } body { padding-top:0 !important; } }';
+    hideStyle.textContent = '@media print { #pdf-btn-bar, #pdf-btn-cluster, #cap-status { display:none !important; } body { padding-top:0 !important; } }';
     w.document.head.appendChild(hideStyle);
-    // Counter-scale inner against page zoom; size wrapper to scaled height.
-    try {
-      var _dBaseDPR = w.devicePixelRatio || 1;
-      var _dFitBar = function(){
-        try {
-          var z = (w.devicePixelRatio || 1) / _dBaseDPR; if(!isFinite(z) || z<=0) z=1;
-          var inv = 1/z;
-          btnBar.style.transform = 'scale(' + inv + ')';
-          btnBar.style.width = ((w.innerWidth || w.document.documentElement.clientWidth) * z) + 'px';
-          var nh = btnBar.offsetHeight; if(nh) btnFix.style.height = Math.round(nh*inv) + 'px';
-        } catch(_zx){}
-      };
-      w.addEventListener('resize', _dFitBar);
-      var _dFitIv = w.setInterval(_dFitBar, 400);
-      try { w.addEventListener('beforeunload', function(){ try{ w.clearInterval(_dFitIv); }catch(_c){} }); } catch(_b){}
-      _dFitBar();
-    } catch(_zerr){}
   } catch(btnErr) { console.error('PDF btn error:', btnErr); }
   // ── PAGINATION ENGINE (Session 53) ──
   // After images load, paginate content into pages with compact headers
