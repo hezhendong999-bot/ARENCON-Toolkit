@@ -171,7 +171,7 @@ body.dark-mode .mobile-menu #mobile-qr-btn{background:#1a1d24;border-color:#2a30
 /* dark toggle uses hdr-btn class */
 /* S261: back-btn matched EXACTLY to Diesel — pad 5px 12px, no fixed min-height
    (height comes from padding like diesel: 30px@S / 33px@L), border 1px #D2CEDB. */
-.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid #D2CEDB;color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;box-shadow:var(--b-btn-shadow);transition:box-shadow .15s,transform .08s,background .15s;margin-right:10px;white-space:nowrap;flex-shrink:0;box-sizing:border-box;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
+.back-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--b-chrome2);border:1px solid #D2CEDB;color:var(--b-chrome-fg);padding:5px 12px;border-radius:6px;font-family:Calibri,sans-serif;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:box-shadow .15s,transform .08s,background .15s;position:relative;z-index:1;margin-right:10px;white-space:nowrap;flex-shrink:0;box-sizing:border-box;}.back-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.22);}.back-btn:hover{background:rgba(255,255,255,.22);}
 /* S504: dark mode keeps the shadow (token carries a deeper value there) —
    previously box-shadow:none left Back flat beside raised neighbours. */
 body.dark-mode .back-btn{border:1px solid var(--b-chrome-rule);}
@@ -10315,7 +10315,9 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   background:var(--b-chrome2) !important;
   color:var(--b-chrome-fg) !important;
   border:1px solid var(--b-chrome-rule) !important;
-  box-shadow:var(--b-btn-shadow) !important;
+  /* S505: shadow HARDCODED (see .back-btn note) — token indirection is what
+     left Back flat on tools that never defined the variable. */
+  box-shadow:0 1px 4px rgba(0,0,0,.2) !important;
   border-radius:6px !important;
   height:34px !important; min-height:0 !important;
   padding:0 12px !important; margin:0 4px 0 0 !important;

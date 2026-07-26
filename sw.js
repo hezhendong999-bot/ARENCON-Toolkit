@@ -9,13 +9,13 @@
 // The value is opaque — only opened as a cache key, compared with !== in the
 // activate-purge filter, and echoed in the sw-updated message. Never parsed,
 // never ordered. A per-push timestamp works identically and cannot collide.
-// FORMAT: arencon-frt-202607271200<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
+// FORMAT: arencon-frt-202607271335<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607271200';
+var CACHE_NAME = 'arencon-frt-202607271335';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
-var TILE_CACHE = 'arencon-frt-202607271200tiles-v1';
+var TILE_CACHE = 'arencon-frt-202607271335tiles-v1';
 
 // Is this a tile URL served by the Cloudflare R2 Worker?
 // Pattern: https://arencon-r2-worker.*/workers.dev/{pid}/tiles/{drawingId}/...
