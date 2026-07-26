@@ -4153,6 +4153,13 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
     var dy = (oR.top  - cR.top);
 
     ctx.save();
+    // S503c FIX (root cause, harness-verified): Chart.js retinaScale leaves a persistent
+    // setTransform(dpr,0,0,dpr,0,0) on the chart's context. The bake's own sx/sy already
+    // map CSS->bitmap pixels, so painting through the chart transform double-scaled
+    // everything (dpr^2): labels drifted right/down proportionally to position and drew
+    // at 2x size on retina displays — the exact misplacement + giant pills seen in the
+    // exported PDF. Neutralize to identity; ctx.restore() below reinstates Chart.js's.
+    ctx.setTransform(1,0,0,1,0,0);
 
     // 2) Leader lines first (SVG <line> children), so labels paint over them.
     overlay.querySelectorAll('svg line').forEach(function(ln){
