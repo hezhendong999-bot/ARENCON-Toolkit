@@ -128,13 +128,16 @@ function crbContractorRow(resp){
           : resp.source==='pdf'    ? ' \u00b7 via returned PDF'
           : resp.source==='manual' ? ' \u00b7 manual entry'
           : '';
-  var h = '<div class="tr-row"><div class="tr-meta"><b>'+meta+'</b>'+src+'</div>';
+  // S501: contractor self-reported status moves onto the meta/header line as a
+  // quiet chip. It must never compete with the ARENCON pill (the only coloured
+  // status verdict on the row), so it rides the grey meta run, not the body.
+  var rep = resp.statusReported?(' \u00b7 <span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span>'):'';
+  var h = '<div class="tr-row"><div class="tr-meta"><b>'+meta+'</b>'+src+rep+'</div>';
   // S467: the S461 primitives store the body in `text`; this module's S448-era
   // schema said `comment`. Accept both — without this every primitive-written
   // round (incl. the S463 PDF imports) rendered body-less in the report.
   var _rBody = (resp.text!=null&&resp.text!=='') ? resp.text : resp.comment;
-  h += '<div class="claim cflex"><span class="ctext">'+(_rBody?_crbEsc(_rBody):'')+'</span>'
-     + (resp.statusReported?('<span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span>'):'')+'</div>';
+  h += '<div class="claim"><span class="ctext">'+(_rBody?_crbEsc(_rBody):'')+'</span></div>';
   h += _crbAmendNote(resp);
   // rectification photos (already resolved to {url,caption})
   var rp = resp.rectPhotos||[];
