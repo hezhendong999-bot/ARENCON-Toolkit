@@ -378,3 +378,7 @@ _deficTogglePillMenu
 _CV_CHOICES
 isRecommendation
 isSiteRecord
+
+@ CRB stale-sheet acknowledgement — a contractor PDF answering an older report than the project's current round no longer hard-blocks; warns and files on the current round by default, backfill-anyway available (Mark, S500-E)
+_confirmStale
+_runImport

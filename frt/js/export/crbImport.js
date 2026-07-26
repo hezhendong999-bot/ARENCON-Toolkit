@@ -95,6 +95,36 @@ function _parseForm(PDFLib, pdfDoc) {
 }
 
 // ── Preview-confirm dialog (self-contained custom modal) ─────────────────
+// S500: STALE-SHEET ACKNOWLEDGEMENT. The contractor answered an older report
+// than the project has moved to. Default is to file on the CURRENT round (their
+// late reply joins the live conversation); "anyway" backfills the old round the
+// sheet was for. Only fires on a genuine round mismatch — never on a normal
+// same-round import — so it stays a meaningful speed bump, not noise.
+function _confirmStale(sheetFrt, latestIssued, currentRound, onChoose) {
+  var old = document.getElementById('crbimp-stale-ov'); if (old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = 'crbimp-stale-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9500;display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:12px;max-width:480px;width:92%;overflow:hidden;">' +
+      '<div style="background:#C98A4A;color:#fff;padding:13px 18px;font-weight:bold;font-size:15px;">Older report responses</div>' +
+      '<div style="padding:16px 18px;font-size:14px;line-height:1.55;color:#1B1A22;">' +
+        'This PDF is the contractor\u2019s response to <b>FRT #' + _esc(sheetFrt) + '</b>, but the project has since moved to <b>FRT #' + _esc(currentRound) + '</b>.' +
+        '<div style="margin-top:10px;">Filing under <b>FRT #' + _esc(currentRound) + '</b> (recommended) adds these as current-round responses \u2014 a late reply joining the live conversation. FRT #' + _esc(sheetFrt) + ' is not reopened or changed.</div>' +
+        '<div style="margin-top:10px;color:#5E5B68;font-size:13px;">Filing under FRT #' + _esc(sheetFrt) + ' instead adds them to a report you already issued. The original PDF\u2019s content is never changed; they are recorded as received after that report was issued.</div>' +
+      '</div>' +
+      '<div style="padding:12px 18px;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">' +
+        '<button id="crbst-cancel" style="padding:10px 16px;border:1px solid #ccc;background:#fff;border-radius:6px;cursor:pointer;min-height:44px;font-family:Calibri,sans-serif;">Cancel</button>' +
+        '<button id="crbst-old" style="padding:10px 16px;border:1px solid #C98A4A;background:#fff;color:#8a5a1e;border-radius:6px;cursor:pointer;min-height:44px;font-family:Calibri,sans-serif;">File as FRT #' + _esc(sheetFrt) + ' anyway</button>' +
+        '<button id="crbst-cur" style="padding:10px 18px;border:none;background:#9C2742;color:#fff;border-radius:6px;font-weight:bold;cursor:pointer;min-height:44px;font-family:Calibri,sans-serif;">File as FRT #' + _esc(currentRound) + '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#crbst-cancel').addEventListener('click', function() { ov.remove(); });
+  ov.querySelector('#crbst-cur').addEventListener('click', function() { ov.remove(); onChoose(currentRound); });
+  ov.querySelector('#crbst-old').addEventListener('click', function() { ov.remove(); onChoose(sheetFrt); });
+}
+
 function _showPreview(rows, unresolved, dupes, noStamp, onConfirm) {
   var old = document.getElementById('crbimp-ov'); if (old) old.remove();
   var ov = document.createElement('div');
@@ -220,18 +250,38 @@ export function openCrbImport() {
       // never stamp the wrong round.
       var _gate = Model.validateImportSheet ? Model.validateImportSheet(parsed.exportId || null)
                                             : { ok: true, code: 'ok', sheetFrt: null, latestIssued: 0 };
+      // S500 (Mark): a STALE sheet — the contractor answered an OLDER report
+      // than the project has since moved to (e.g. they finally reply to FRT #1
+      // after you've already issued FRT #2) — is no longer a hard block. It is
+      // a speed bump: warn plainly, then file the answers on the CURRENT round
+      // by default, so a late reply joins the live conversation instead of
+      // reopening a closed, issued report. The other gate failures stay hard
+      // blocks — they are different problems (no stamp, never issued, etc.).
+      if (!_gate.ok && _gate.code === 'stale') {
+        var _cur = (proj.currentFrtInstance || 1);
+        _confirmStale(_gate.sheetFrt, _gate.latestIssued, _cur, function(useRound) {
+          // useRound: the current instance (default) or the old sheet round (backfill anyway).
+          _runImport(useRound);
+        });
+        return;
+      }
       if (!_gate.ok) {
         var _gmsg = {
           'no-stamp': 'This PDF carries no ARENCON identity stamp, so it can\u2019t be matched to an issued report. Re-export the current report and have the contractor fill the new copy.',
           'unknown': 'This sheet doesn\u2019t belong to this project, or predates round protection. Re-export the current report for the contractor.',
           'not-issued': 'This is a working copy of FRT #' + _gate.sheetFrt + ' \u2014 it was never issued. Contractors respond to issued reports only. Issue the report first, then import responses against the issued sheet.',
-          'stale': 'This is a response to FRT #' + _gate.sheetFrt + ', which has been superseded (latest issued report is FRT #' + _gate.latestIssued + '). Enter any still-relevant answers manually in the item threads as current-round responses.',
           'nothing-issued': 'No report has been issued from this project yet \u2014 there is nothing for a contractor to respond to.'
         };
         _notice(_gmsg[_gate.code] || 'This sheet can\u2019t be imported.');
         return;
       }
-      var _sheetFrt = _gate.sheetFrt || (proj.currentFrtInstance || 1);
+      _runImport(_gate.sheetFrt || (proj.currentFrtInstance || 1));
+
+      // Everything from round-assignment through preview+write, callable with an
+      // explicit round so the stale-acknowledgement path can file on the current
+      // instance. sheetFrt is the round the responses will be recorded against.
+      function _runImport(sheetFrt) {
+      var _sheetFrt = sheetFrt;
       var _impId = 'imp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
       // S470: duplicate detection keyed per (exportId, obsId). The realistic
       // workflow is a contractor part-filling, sending, filling MORE, and
@@ -302,6 +352,7 @@ export function openCrbImport() {
           dupes.length + ' duplicate(s) skipped, ' +
           unresolved.length + ' unresolved field id(s)', unresolved);
       });
+      } // end _runImport
     }).catch(function(e) {
       console.error('[CRBImport] failed:', e);
       _notice('Could not read that PDF: ' + (e && e.message ? e.message : 'unknown error'));

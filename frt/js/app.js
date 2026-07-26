@@ -2352,7 +2352,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S500c';
+var FRT_BUILD = 'S500d';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 function boot() {
   // S499e: the engine string comes from the STATICALLY IMPORTED pdf.js
