@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607261439';
+var CACHE_NAME = 'arencon-frt-202607261545';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -134,6 +134,7 @@ var APP_FILES = [
   'lib/ui/markupSelection.js',
   'lib/ui/markupText.js',
   'lib/ui/markupTools.js',
+  'lib/ui/pdfExport.js',
   'lib/ui/photoInput.js',
   'lib/ui/portalHeaderConfig.js',
   'lib/ui/signaturePad.js',
