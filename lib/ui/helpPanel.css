@@ -52,6 +52,15 @@
 .help-card.compact .help-card-shot{flex:0 0 66px;border:none;background:transparent}
 .help-card.compact .help-card-h{margin-bottom:7px}
 .help-empty{font-size:calc(12.5px + var(--ts,0px));color:var(--silver);line-height:1.5;padding:8px 0}
+/* ── S508 contextual help ─────────────────────────────────────────────────────
+   When Help is opened from a "?" beside a specific control, the engine scrolls
+   that card (or its section header) into view and rings it for a couple of
+   seconds, so the eye lands on the right thing instead of on the top of a long
+   guide. scroll-margin keeps the target off the very top edge of the panel. */
+.help-card{scroll-margin-top:8px;transition:border-color .18s ease,box-shadow .18s ease}
+.help-grouphdr.areahdr{scroll-margin-top:8px}
+.help-card.help-focus{border-color:var(--arencon);box-shadow:0 0 0 3px var(--arencon-glow)}
+.help-grouphdr.help-focus{color:var(--arencon)}
 @media(max-width:560px){
   .help-card-split{flex-direction:column}
   .help-card-shot{flex:none;width:100%}

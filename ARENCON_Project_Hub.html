@@ -757,6 +757,13 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
 @media(pointer:coarse){.modal-x{width:38px;height:38px}}
 .modal-card{background:var(--card);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.2);padding:32px;width:90%;max-width:440px;border:1px solid var(--border)}
 .modal-card h3{font-size:18px;font-weight:800;color:var(--fg);margin-bottom:18px;letter-spacing:-.2px}
+/* S508 contextual help (Mark): a small "?" sitting beside a panel's own title,
+   opening the guide AT that panel's card instead of at the top. Amber at rest
+   to match the header Help button; never burgundy — it is not a CTA. Touch
+   target grows on coarse pointers (gloves). */
+.modal-q{margin-left:9px;width:24px;height:24px;border-radius:50%;border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);font-family:inherit;font-size:13px;font-weight:800;line-height:1;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex-shrink:0}
+.modal-q:hover{background:var(--warn);color:#fff}
+@media(pointer:coarse){.modal-q{width:34px;height:34px;font-size:15px}}
 .modal-field{margin-bottom:16px}
 .modal-field label{display:block;font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px}
 .modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-weight:400;font-size:calc(14px + var(--ts));font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--fg);outline:none;transition:all .2s}
@@ -1436,7 +1443,7 @@ body.text-l{--ts:4px;}
 <!-- S497 — Insights panel (computed live from the loaded board; no extra queries) -->
 <div class="modal-overlay" id="insights-modal">
   <div class="modal-card ins-modal-card">
-    <div class="imx-head"><h3>📊 Insights</h3><button class="modal-x" onclick="closeInsights()" title="Close">×</button></div>
+    <div class="imx-head"><h3>📊 Insights<button class="modal-q" onclick="openHelp({card:'insights'})" title="What this panel shows" aria-label="Help with Insights">?</button></h3><button class="modal-x" onclick="closeInsights()" title="Close">×</button></div>
     <div class="imx-body">
       <div id="insights-body"></div>
       <div class="ins-note">Counts cover active projects only (archived and deleted excluded). Backup age runs from each project's last export.</div>
@@ -1448,7 +1455,7 @@ body.text-l{--ts:4px;}
      own What's New / Guide tabs and plain-language search into #help-host. -->
 <div class="modal-overlay" id="new-project-modal">
   <div class="modal-card">
-    <h3>New Project</h3>
+    <h3>New Project<button class="modal-q" onclick="openHelp({card:'new-project'})" title="How project numbers, clients and PMs work" aria-label="Help with New Project">?</button></h3>
     <div class="modal-field">
       <label>Project Number</label>
       <input type="text" id="np-number" placeholder="e.g. 12345.01" maxlength="10" oninput="_npOnNumberInput()">
@@ -3016,7 +3023,16 @@ function _wnCheck() {
     _helpSetDot(!!(window._helpHasUnseen && window._helpHasUnseen(_sc)));
   } catch (e) { /* engine not ready / offline — Help still opens normally */ }
 }
-function openHelp() {
+function openHelp(at) {
+  /* S508 CONTEXTUAL HELP (Mark): openHelp() with no argument behaves exactly as
+     before — the panel for whichever page you are on, opening on What's New.
+     Passed { card:'<id>' } or { area:'<name>' } — from a "?" that sits beside a
+     specific panel — it opens the Guide scrolled to that entry instead. The
+     header "?" passes nothing; the in-place "?" buttons pass their card.
+     Anything that is not an object with card/area is ignored, so a stray click
+     event handed in by a future caller can never change the behaviour. */
+  var _at = (at && typeof at === 'object' && (at.card || at.area))
+    ? { card: at.card || '', area: at.area || '' } : null;
   /* S505e (Mark): the Hub's bespoke light-DOM help modal is RETIRED — Help now
      opens in the same sealed shared dialog as Diesel, one implementation across
      the platform. The engine's shadow root blocks host CSS, so the panel's
@@ -3033,7 +3049,7 @@ function openHelp() {
         if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')) {
           var lk = document.createElement('link');
           lk.rel = 'stylesheet';
-          lk.href = '/lib/ui/helpPanel.css?v=505e';
+          lk.href = '/lib/ui/helpPanel.css?v=508a';
           lk.setAttribute('data-help-css', '1');
           sr.appendChild(lk);
         }
@@ -3043,7 +3059,11 @@ function openHelp() {
          page (one project, showing which report to use) — so the scope follows
          whichever is on screen. _detailProjectId is set only on the Hub page. */
       var _sc = _helpScope();
-      try { if (window._helpMount) window._helpMount(bd, { scope: _sc, tab: 'wn' }); } catch (e) {}
+      var _mo = { scope: _sc, tab: 'wn' };
+      /* S508: a contextual target implies the Guide tab — the engine switches
+         itself when card/area is present and tab is not forced. */
+      if (_at) { _mo = { scope: _sc, card: _at.card, area: _at.area }; }
+      try { if (window._helpMount) window._helpMount(bd, _mo); } catch (e) {}
       try { if (window._helpMarkSeen) window._helpMarkSeen(_sc); } catch (e) {}
       _helpSetDot(false);
     }
