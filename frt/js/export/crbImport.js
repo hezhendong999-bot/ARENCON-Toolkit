@@ -223,6 +223,177 @@ function _noticeUndo(msg, importId) {
 }
 
 // ── Public entry ──────────────────────────────────────────────────────────
+// The ONE place an imported row becomes a contractor round. Both the normal
+// commit and every diff-resolution branch call this — there is no second
+// writer to drift out of step with it.
+function _writeRow(row, ctx, opts) {
+  opts = opts || {};
+  var data = {
+    company: row.company,
+    statusReported: row.status || 'Other',
+    text: row.comment,
+    source: 'pdf',
+    importId: ctx.impId,             // batch receipt (undo grain)
+    dedupeKey: row.dedupeKey || null,
+    frtInstance: row.frtInstance,    // round from the SHEET, not the clock
+    round: row.round
+  };
+  // A revision to an ALREADY ISSUED answer is not a correction to that round —
+  // it is a new thing said later. It files on the current round so the issued
+  // record stands untouched beside it.
+  if (opts.asNewRound) { delete data.frtInstance; delete data.round; }
+  var entry = Model.addContractorResponse(row.deficId, row.obsIdx, data);
+  if (entry && row.dedupeKey) { try { Model.registerExportId(row.dedupeKey); } catch (e) {} }
+  return entry;
+}
+
+// ══ S508 — RE-IMPORT DIFF ═══════════════════════════════════════════════
+// Until now an already-imported item was simply dropped on the floor. That is
+// correct only when nothing changed. A contractor who re-sends a sheet may
+// have corrected an answer, or answered something you deliberately removed —
+// and silence in either direction is wrong on a record an AHJ may read.
+//
+// Every already-seen item is classified into exactly one of four buckets:
+//   silent   — unchanged, or removed-and-already-declined at this wording
+//   offerBack— you removed it; the contractor still says it. Ask, one tap.
+//   reworded — live UNISSUED draft, different wording. Replace or keep both.
+//   newRound — live ISSUED answer, different wording. The issued wording is
+//              the record and is NEVER overwritten; the revision lands as a
+//              new round (locked §5).
+function _classifyDupes(dupes) {
+  var out = { silent: [], offerBack: [], reworded: [], newRound: [] };
+  (dupes || []).forEach(function(r) {
+    if (!r.dedupeKey) { out.silent.push(r); return; }
+    var live = null, decision = 'none';
+    try { live = Model.findLiveResponseByDedupe(r.dedupeKey); } catch (e) { live = null; }
+    try { decision = Model.tombDecisionFor(r.dedupeKey, r.comment || ''); } catch (e) { decision = 'none'; }
+
+    if (!live) {
+      // Not in the thread. Either deliberately removed (tombstone), or removed
+      // before tombstones existed. Never silent unless this exact wording was
+      // already declined — when in doubt, ask rather than swallow.
+      if (decision === 'silent') out.silent.push(r);
+      else { r._tomb = (decision === 'offer'); out.offerBack.push(r); }
+      return;
+    }
+
+    var a = Model._normTombText(live.entry.text || '');
+    var b = Model._normTombText(r.comment || '');
+    if (a === b) { out.silent.push(r); return; }          // genuinely unchanged
+
+    r._live = live;
+    // ⚠ Issued is checked BEFORE any skip logic. An earlier build let an
+    // issued item with no recorded decision fall through a skip fallback,
+    // silently dropping a contractor's revision to an issued answer.
+    if (live.entry.issuedOnInstance != null) out.newRound.push(r);
+    else out.reworded.push(r);
+  });
+  return out;
+}
+
+// Sequential, one decision per screen. Never a batch checklist — each of these
+// is a judgment about a specific item's record.
+function _resolveDiffQueue(buckets, ctx, onDone) {
+  var queue = [];
+  buckets.offerBack.forEach(function(r) { queue.push({ kind: 'offerBack', row: r }); });
+  buckets.reworded.forEach(function(r) { queue.push({ kind: 'reworded', row: r }); });
+  var applied = { broughtBack: 0, declined: 0, replaced: 0, keptBoth: 0, newRounds: 0 };
+
+  // Issued revisions are not a question — the record cannot be overwritten, so
+  // there is only one lawful outcome. They are written first and reported.
+  buckets.newRound.forEach(function(r) {
+    var entry = _writeRow(r, ctx, { asNewRound: true });
+    if (entry) applied.newRounds++;
+  });
+
+  var i = 0;
+  function next() {
+    if (i >= queue.length) { onDone(applied); return; }
+    var step = queue[i++];
+    if (step.kind === 'offerBack') _confirmOfferBack(step.row, ctx, applied, next);
+    else _confirmReworded(step.row, ctx, applied, next);
+  }
+  next();
+}
+
+function _diffOverlay(headerColor, title, bodyHtml, buttons) {
+  var old = document.getElementById('crbimp-diff-ov'); if (old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = 'crbimp-diff-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9600;display:flex;' +
+    'align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:12px;max-width:520px;width:92%;overflow:hidden;">' +
+      '<div style="background:' + headerColor + ';color:#fff;padding:13px 18px;font-weight:bold;font-size:15px;">' + _esc(title) + '</div>' +
+      '<div style="padding:16px 18px;font-size:14px;line-height:1.55;color:#1B1A22;max-height:56vh;overflow-y:auto;">' + bodyHtml + '</div>' +
+      '<div id="crbdiff-btns" style="padding:12px 18px;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;"></div>' +
+    '</div>';
+  var bar = ov.querySelector('#crbdiff-btns');
+  buttons.forEach(function(b) {
+    var el = document.createElement('button');
+    el.textContent = b.label;
+    el.style.cssText = 'padding:10px 16px;border-radius:6px;cursor:pointer;min-height:44px;font-family:Calibri,sans-serif;' +
+      (b.primary ? 'border:none;background:#9C2742;color:#fff;font-weight:bold;padding:10px 18px;'
+                 : 'border:1px solid #ccc;background:#fff;color:#1B1A22;');
+    el.addEventListener('click', function() { ov.remove(); b.onClick(); });
+    bar.appendChild(el);
+  });
+  document.body.appendChild(ov);
+  return ov;
+}
+
+function _quoteBlock(label, text, tint) {
+  return '<div style="margin-top:10px;">' +
+    '<div style="font-size:12px;font-weight:bold;color:#5E5B68;text-transform:uppercase;letter-spacing:.04em;">' + _esc(label) + '</div>' +
+    '<div style="margin-top:4px;padding:8px 10px;background:' + (tint || '#F6F5F8') + ';border-radius:6px;white-space:pre-wrap;">' +
+      _esc(text || '(no comment)') + '</div></div>';
+}
+
+// You removed this answer. The contractor has sent it again.
+function _confirmOfferBack(row, ctx, applied, next) {
+  _diffOverlay('#C98A4A', 'A removed response is back',
+    'You removed this contractor answer from <b>' + _esc(row.itemLabel) + '</b>. Their re-sent sheet still contains it.' +
+    _quoteBlock('What they say now', row.comment) +
+    '<div style="margin-top:10px;color:#5E5B68;font-size:13px;">Bringing it back adds it to the item\u2019s thread as a contractor round. Leaving it out keeps the item as it is \u2014 and an identical re-send will not ask again, though a changed answer will.</div>',
+    [
+      { label: 'Leave it out', onClick: function() {
+          try { Model.dismissCommentTomb(row.dedupeKey, row.comment || ''); } catch (e) {}
+          applied.declined++; next();
+        } },
+      { label: 'Bring it back', primary: true, onClick: function() {
+          var entry = _writeRow(row, ctx, {});
+          if (entry) { try { Model.clearCommentTomb(row.dedupeKey); } catch (e) {} applied.broughtBack++; }
+          next();
+        } }
+    ]);
+}
+
+// A live, not-yet-printed imported draft whose wording changed on the re-send.
+function _confirmReworded(row, ctx, applied, next) {
+  var live = row._live;
+  _diffOverlay('#2C7FB8', 'Answer changed on the re-sent sheet',
+    'The contractor\u2019s answer for <b>' + _esc(row.itemLabel) + '</b> is different this time. It has <b>not</b> been printed yet, so it can be corrected in place.' +
+    _quoteBlock('Currently in the thread', live && live.entry ? live.entry.text : '') +
+    _quoteBlock('On the new sheet', row.comment, '#EAF3F9') +
+    '<div style="margin-top:10px;color:#5E5B68;font-size:13px;">Replace swaps the wording and keeps one round. Keep both records the new wording as an additional round, leaving the earlier one visible.</div>',
+    [
+      { label: 'Keep both', onClick: function() {
+          var entry = _writeRow(row, ctx, {});
+          if (entry) applied.keptBoth++;
+          next();
+        } },
+      { label: 'Replace', primary: true, onClick: function() {
+          var r2 = null;
+          try {
+            r2 = Model.replaceUnissuedImportedDraft(live.deficId, live.obsIdx, live.entry.id, row.comment || '', ctx.who);
+          } catch (e) { r2 = null; }
+          if (r2) applied.replaced++;
+          else console.warn('[CRBImport] replace refused — falling back to leaving the thread unchanged.');
+          next();
+        } }
+    ]);
+}
+
 export function openCrbImport() {
   var proj = Model.getProject && Model.getProject();
   if (!proj) { _notice('Open a project first, then import the filled PDF.'); return; }
@@ -313,45 +484,55 @@ export function openCrbImport() {
         if (row.dedupeKey && _seen.indexOf(row.dedupeKey) >= 0) { dupes.push(row); return; }
         rows.push(row);
       });
+      // S508: shared write context, and the already-seen items sorted into
+      // unchanged / removed / reworded / issued-revision.
+      var _ctx = { impId: _impId, sheetFrt: _sheetFrt, expId: _expId,
+        who: (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null };
+      var _buckets = _classifyDupes(dupes);
+      var _actionable = _buckets.offerBack.length + _buckets.reworded.length + _buckets.newRound.length;
       if (!rows.length && !dupes.length) {
         _notice(unresolved.length
           ? 'Filled fields were found but none match items in this project. This PDF may be from an older export (re-export the report and have the contractor fill the new copy) or belong to a different project.'
           : 'No filled contractor responses found in this PDF.');
         return;
       }
-      if (!rows.length && dupes.length) {
-        _notice('All ' + dupes.length + ' filled item(s) in this PDF were already imported. Nothing new to add. (If the contractor corrected an earlier answer, remove that round from the item\u2019s thread first, then re-import.)');
+      if (!rows.length && dupes.length && !_actionable) {
+        _notice('All ' + dupes.length + ' filled item(s) in this PDF were already imported, and none of them changed. Nothing to add. (Removed or reworded answers are handled automatically on re-import.)');
         return;
       }
-      _showPreview(rows, unresolved, dupes, !_expId, function() {
+      // Writes the new items, then walks the changed/removed ones one at a
+      // time, then commits once. Nothing is left half-resolved.
+      function _commit() {
         var ok = 0, fail = 0;
         rows.forEach(function(r) {
-          var entry = Model.addContractorResponse(r.deficId, r.obsIdx, {
-            company: r.company,
-            statusReported: r.status || 'Other',
-            text: r.comment,
-            source: 'pdf',
-            importId: _impId,          // S480: batch receipt (undo grain)
-            dedupeKey: r.dedupeKey || null, // S500: so undo can un-register this item's export key
-            frtInstance: r.frtInstance, // S480: round from the sheet, not the clock
-            round: r.round
-          });
-          if (entry) {
-            ok++;
-            // Register AFTER a successful write, so a failed write stays importable.
-            if (r.dedupeKey) { try { Model.registerExportId(r.dedupeKey); } catch (e) {} }
-          } else fail++;
+          // Registration happens inside _writeRow, AFTER a successful write, so
+          // a failed write stays importable.
+          if (_writeRow(r, _ctx, {})) ok++; else fail++;
         });
-        try { if (ok && Model.logImport) Model.logImport({ importId: _impId, exportId: _expId, frt: _sheetFrt, count: ok }); } catch (e) {}
-        try { if (Model.saveNow) Model.saveNow(); } catch (e) {}
-        _noticeUndo('Imported ' + ok + ' contractor response(s) into item threads.' +
-          (dupes.length ? ' ' + dupes.length + ' already-imported item(s) skipped.' : '') +
-          (fail ? ' ' + fail + ' failed \u2014 see console.' : '') +
-          ' They will appear in the next exported report\u2019s thread history.', _impId);
-        console.log('[CRBImport] wrote ' + ok + ' response(s), ' + fail + ' failed, ' +
-          dupes.length + ' duplicate(s) skipped, ' +
-          unresolved.length + ' unresolved field id(s)', unresolved);
-      });
+        _resolveDiffQueue(_buckets, _ctx, function(applied) {
+          var extra = applied.broughtBack + applied.replaced + applied.keptBoth + applied.newRounds;
+          try { if ((ok + extra) && Model.logImport) Model.logImport({ importId: _impId, exportId: _expId, frt: _sheetFrt, count: ok + extra }); } catch (e) {}
+          try { if (Model.saveNow) Model.saveNow(); } catch (e) {}
+          var parts = [];
+          if (ok) parts.push('Imported ' + ok + ' new contractor response(s).');
+          if (applied.broughtBack) parts.push(applied.broughtBack + ' removed response(s) brought back.');
+          if (applied.replaced) parts.push(applied.replaced + ' corrected in place.');
+          if (applied.keptBoth) parts.push(applied.keptBoth + ' added as an extra round.');
+          if (applied.newRounds) parts.push(applied.newRounds + ' revision(s) to already-issued answers added as a new round \u2014 the issued wording is unchanged.');
+          if (applied.declined) parts.push(applied.declined + ' left out.');
+          if (_buckets.silent.length) parts.push(_buckets.silent.length + ' unchanged item(s) skipped.');
+          if (fail) parts.push(fail + ' failed \u2014 see console.');
+          if (!parts.length) parts.push('Nothing changed.');
+          _noticeUndo(parts.join(' ') + ' They will appear in the next exported report\u2019s thread history.', _impId);
+          console.log('[CRBImport] wrote ' + ok + ' new, resolved ' + JSON.stringify(applied) +
+            ', ' + _buckets.silent.length + ' unchanged, ' +
+            unresolved.length + ' unresolved field id(s)', unresolved);
+        });
+      }
+
+      // Nothing new on the sheet — go straight to the changed/removed items.
+      if (!rows.length) { _commit(); return; }
+      _showPreview(rows, unresolved, dupes, !_expId, _commit);
       } // end _runImport
     }).catch(function(e) {
       console.error('[CRBImport] failed:', e);

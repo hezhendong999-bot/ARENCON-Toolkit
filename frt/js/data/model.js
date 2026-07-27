@@ -3093,6 +3093,14 @@ export var Model = {
     hit.entry.removedAt = _todayStr();
     this._logAmend(hit.entry, 'remove', null, null, who);
 
+    // S508: this is the ONLY deliberate-removal path, and it is already
+    // confirm-gated in the UI with `who` attribution — the correct hook for
+    // the tombstone. Only IMPORTED contractor comments get one: a manually
+    // typed comment has no sheet to be re-imported from.
+    if (hit.kind === 'response' && hit.entry.dedupeKey) {
+      this._writeCommentTomb(hit.entry.dedupeKey, hit.entry.text || '', who);
+    }
+
     // Flag (never delete) any reply that pointed at it.
     var orphaned = 0, self = this;
     ['responses', 'arenconReviews'].forEach(function(arrName) {
@@ -3114,6 +3122,10 @@ export var Model = {
     hit.entry.removedBy = null;
     hit.entry.removedAt = null;
     this._logAmend(hit.entry, 'restore', null, null, null);
+    // S508: it is back in the thread — the tombstone has nothing left to guard.
+    if (hit.kind === 'response' && hit.entry.dedupeKey) {
+      try { this.clearCommentTomb(hit.entry.dedupeKey); } catch (e) {}
+    }
     var self = this;
     ['responses', 'arenconReviews'].forEach(function(arrName) {
       (hit.obs[arrName] || []).forEach(function(e) {
@@ -3123,6 +3135,138 @@ export var Model = {
     _dirty = true;
     _queueSave();
     this._notify('crb', { action: 'restore', deficId: deficId, obsIdx: obsIdx, entry: hit.entry });
+    return hit.entry;
+  },
+
+  // ══ S508 — COMMENT TOMBSTONES + RE-IMPORT DIFF PRIMITIVES ════════════
+  // A contractor comment that a person DELIBERATELY removed must not be
+  // silently re-added by the next import of the same sheet, and must not be
+  // silently ignored either. The tombstone records that the removal was a
+  // decision, and the wording it was removed at, so a re-import can ask.
+  // Lazily initialised on the project exactly like exportIds — no migration.
+  _ensureCommentTombs: function() {
+    if (!_project) return null;
+    if (!_project.commentTombstones || typeof _project.commentTombstones !== 'object'
+        || Array.isArray(_project.commentTombstones)) _project.commentTombstones = {};
+    return _project.commentTombstones;
+  },
+
+  // Wording comparison is whitespace- and case-insensitive: a contractor
+  // re-sending the identical answer with a stray newline is NOT a revision.
+  _normTombText: function(s) {
+    return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase();
+  },
+
+  _writeCommentTomb: function(dedupeKey, text, who) {
+    var tombs = this._ensureCommentTombs();
+    if (!tombs || !dedupeKey) return null;
+    var rec = tombs[dedupeKey] || { key: dedupeKey, declined: [] };
+    rec.text = text || '';
+    rec.at = new Date().toISOString();
+    rec.by = who || null;
+    if (!Array.isArray(rec.declined)) rec.declined = [];
+    tombs[dedupeKey] = rec;
+    _dirty = true;
+    _queueSave();
+    return rec;
+  },
+
+  findCommentTomb: function(dedupeKey) {
+    var tombs = this._ensureCommentTombs();
+    if (!tombs || !dedupeKey) return null;
+    return tombs[dedupeKey] || null;
+  },
+
+  // The person was offered the removed comment back and said no. Record the
+  // WORDING declined, not just the fact — so an identical re-send stays quiet
+  // but a genuinely changed answer re-surfaces (anti-fatigue, locked §3).
+  dismissCommentTomb: function(dedupeKey, text) {
+    var rec = this.findCommentTomb(dedupeKey);
+    if (!rec) return null;
+    var n = this._normTombText(text);
+    if (!Array.isArray(rec.declined)) rec.declined = [];
+    if (rec.declined.indexOf(n) < 0) rec.declined.push(n);
+    _dirty = true;
+    _queueSave();
+    return rec;
+  },
+
+  // The comment is back in the thread — the tombstone has served its purpose.
+  clearCommentTomb: function(dedupeKey) {
+    var tombs = this._ensureCommentTombs();
+    if (!tombs || !dedupeKey) return false;
+    if (!tombs[dedupeKey]) return false;
+    delete tombs[dedupeKey];
+    _dirty = true;
+    _queueSave();
+    return true;
+  },
+
+  // 'none'   — never removed; treat as a normal new/duplicate item
+  // 'silent' — removed, and this exact wording was already declined
+  // 'offer'  — removed, and this wording has not been declined
+  tombDecisionFor: function(dedupeKey, newText) {
+    var rec = this.findCommentTomb(dedupeKey);
+    if (!rec) return 'none';
+    var n = this._normTombText(newText);
+    if ((rec.declined || []).indexOf(n) >= 0) return 'silent';
+    return 'offer';
+  },
+
+  // Find a live (not removed) imported contractor response by its dedupeKey.
+  // ⚠ Deficiencies are NOT a flat array. They live under
+  // contractors[].deficiencies AND generalDeficiencies. A flat scan of
+  // _project.deficiencies silently returns nothing and the reworded branch
+  // never fires — this cost a whole build once. Walk both, same as
+  // stampThreadIssued does.
+  findLiveResponseByDedupe: function(dedupeKey) {
+    if (!_project || !dedupeKey) return null;
+    var found = null;
+    function walk(d) {
+      if (found) return;
+      (d.observations || []).forEach(function(o, oi) {
+        if (found) return;
+        (o.responses || []).forEach(function(e) {
+          if (found) return;
+          if (e && !e.removed && e.dedupeKey === dedupeKey) {
+            found = { deficId: d.id, obsIdx: oi, obs: o, entry: e };
+          }
+        });
+      });
+    }
+    (_project.contractors || []).forEach(function(c) { (c.deficiencies || []).forEach(walk); });
+    (_project.generalDeficiencies || []).forEach(walk);
+    return found;
+  },
+
+  // Replace the text of an UNISSUED imported contractor draft in place.
+  //
+  // editThreadEntry cannot be used for this: it refuses contractor text
+  // unless `unlocked === true`, and unlocking is a deliberate, logged act of
+  // amending the record — which this is not. This is the contractor
+  // correcting their own answer before it was ever printed.
+  //
+  // Hard-guarded on purpose. Refuses if the entry is not an imported
+  // contractor response, and refuses if it has been issued. Writes NO removal
+  // tombstone — nothing was removed.
+  replaceUnissuedImportedDraft: function(deficId, obsIdx, entryId, newText, who) {
+    var hit = this._findThreadEntry(deficId, obsIdx, entryId);
+    if (!hit) return null;
+    if (hit.kind !== 'response' || !hit.entry.dedupeKey) {
+      console.warn('[CRB] Refused: not an imported contractor response.');
+      return null;
+    }
+    if (hit.entry.issuedOnInstance != null) {
+      console.warn('[CRB] Refused: printed in FRT #' + hit.entry.issuedOnInstance +
+        ' — an issued answer is the record; a revision lands as a new round.');
+      return null;
+    }
+    var _from = hit.entry.text || '';
+    hit.entry.text = newText || '';
+    this._logAmend(hit.entry, 'reimport-replace', _from, hit.entry.text, who);
+    _dirty = true;
+    _queueSave();
+    this._notify('crb', { action: 'edit', deficId: deficId, obsIdx: obsIdx, entry: hit.entry });
     return hit.entry;
   },
 

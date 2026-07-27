@@ -390,3 +390,21 @@ _helpSetDot
 @ FRT Help & guide — shared searchable Help engine in the shared sealed dialog, FRT's own cards in lib/ui/frtHelpCards.js, scope 'FRT' (one panel = one scope, never mixed). openHelp/_helpSetDot are invoked by name from the shared header config's onHelp, so a grep of app.js shows the header wiring as the only caller. Coming-soon fallback if cards fail to register. (Mark, S505g)
 openHelp
 _helpSetDot
+
+@ CRB re-import diff — a re-sent contractor sheet is reconciled instead of silently dropped. Deliberate removal of an IMPORTED comment writes a tombstone (wording included); a re-import then offers it back one-tap, and declining records the declined wording so an identical re-send stays quiet while a changed one re-surfaces. Reworded answers split on issued state: an unissued draft offers Replace/Keep-both, an ALREADY ISSUED answer is never overwritten and lands as a new round. findLiveResponseByDedupe MUST walk contractors[].deficiencies AND generalDeficiencies — there is no flat _project.deficiencies. _writeRow is the single writer for every branch; do not add a second one. (Mark, S508)
+_ensureCommentTombs
+_normTombText
+_writeCommentTomb
+findCommentTomb
+dismissCommentTomb
+clearCommentTomb
+tombDecisionFor
+findLiveResponseByDedupe
+replaceUnissuedImportedDraft
+_classifyDupes
+_resolveDiffQueue
+_confirmOfferBack
+_confirmReworded
+_writeRow
+_diffOverlay
+_quoteBlock
