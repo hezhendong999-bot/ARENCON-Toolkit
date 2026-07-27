@@ -233,7 +233,17 @@ def main():
     if is_css:
         extract = css_symbols
     elif low.endswith(('.html', '.htm')):
-        extract = lambda t: js_symbols(t) | css_symbols(t)
+        # S511 — scan the <style> BLOCKS for selectors, not the whole document. The
+        # S510 fix unioned css_symbols over the entire HTML file, which made prose
+        # inside comments look like selectors: relocating one <script> tag produced
+        # two "silent deletions" whose names were sentence fragments. A gate that
+        # cries wolf on a comment edit is a gate people start bypassing, and a
+        # bypassed gate protects nothing. Selectors are only ever declared inside
+        # <style>, so that is the only place worth reading them from.
+        def extract(t):
+            styles = ''.join(re.findall(r'<style[^>]*>(.*?)</style>', t,
+                                        flags=re.S | re.I))
+            return js_symbols(t) | (css_symbols(styles) if styles else set())
     else:
         extract = js_symbols
 

@@ -66,6 +66,7 @@ diesel-app/js/part02.js
 diesel-app/js/part03.js
 diesel-app/js/part04.js
 diesel-app/js/part05.js
+diesel-app/js/pdfExport.js
 diesel-app/js/part06.js
 diesel-app/js/part07.js
 diesel-app/js/part08.js

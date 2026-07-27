@@ -39,7 +39,7 @@
 <script src="../lib/ui/signaturePad.js"></script>
 <script src="../lib/ui/flowPhotoModal.js"></script>  <!-- S500: per-flow-point gauge photo modal, extracted verbatim; globals by design -->
 <script src="../lib/ui/deficiencies.js"></script>  <!-- S500: Deficiencies panel, extracted verbatim; globals by design -->
-<script src="../lib/ui/pdfExport.js"></script>  <!-- S503: PDF export + photo appendix + pagination engine, extracted verbatim from part06; globals by design -->
+<script src="js/pdfExport.js"></script>  <!-- S503: PDF export + photo appendix + pagination engine, extracted verbatim from part06; globals by design. S511: moved out of lib/ui/ — Diesel is its only consumer. -->
 <script type="module">
 /* S503e: bridge the SHARED export chrome (an ES module) onto window so the classic
    export script can call it. Touches no shared or FRT file — FRT keeps importing

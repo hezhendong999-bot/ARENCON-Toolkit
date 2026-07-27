@@ -1,11 +1,23 @@
-/* ARENCON — PDF Export / Photo Appendix engine (shared: lib/ui/)
+/* ARENCON — PDF Export / Photo Appendix engine (Diesel-owned: diesel-app/js/)
    Extracted VERBATIM from diesel-app/js/part06.js at S503 (Lane C).
    Classic script; all symbols global by design (inline onclick handlers + cross-file
-   calls reference them by name). Loaded by both the Diesel monolith and the beta.
+   calls reference them by name). Loaded by the Diesel beta build; the Diesel monolith
+   carries a byte-identical inline copy — edit BOTH or they drift.
    Owns: pre-print photo-selection screen, appendix HTML, export/distribution modal,
    _realExportPDF() and its section-aware live-measured pagination engine.
-   PLACED IN lib/ui/ per Mark (S503) on the commitment that Electric's export path is
-   converted to CALL this next — until then it is Diesel-only despite the shared path.
+
+   S511 — MOVED OUT OF lib/ui/. It was placed there at S503 on the commitment that
+   Electric's export path would be converted to call it "next". That did not happen, and
+   for the whole time in between a 180KB Diesel-only file sat in the shared folder
+   presenting itself as a shared engine. A path is a claim about who uses something; this
+   one was false, and the cost of a false claim in lib/ is a future session assuming an
+   edit here is safe for other tools, or assuming Electric already routes through it.
+   Nothing in this file is general: the report template, the section names, the placard
+   and flow-test appendices and the pass/fail box are all Diesel's.
+   If Electric is ever genuinely converted to call this, move it back to lib/ AS PART OF
+   that work — not before, and not on a promise. Verified at the time of the move: the
+   only references anywhere in the repo were diesel-app/index.html, sw.js and one comment
+   in the monolith.
    DO NOT rewrite blocks here — surgical str_replace only, edit BOTH builds, bump SW+CSS. */
 /* ════ S315 F1: PRE-PRINT PHOTO SELECTION (LOCKED design, Diesel PK) ════
    Full-screen, one category per row, select-all + per-category, default

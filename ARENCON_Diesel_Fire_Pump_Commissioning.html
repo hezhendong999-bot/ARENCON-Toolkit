@@ -7600,7 +7600,7 @@ function _bakeAnnotationsOntoCanvas(ci, canvasId) {
   }
 }
 </script>
-<!-- S503: PDF export + photo appendix + pagination engine — isolated as its own module (byte-identical to lib/ui/pdfExport.js in the beta). Classic script, shared global scope. -->
+<!-- S503: PDF export + photo appendix + pagination engine — isolated as its own module (byte-identical to diesel-app/js/pdfExport.js in the beta (S511: moved out of lib/ui/ — Diesel is its only consumer)). Classic script, shared global scope. -->
 <script id="diesel-pdf-export">
 /* ════ S315 F1: PRE-PRINT PHOTO SELECTION (LOCKED design, Diesel PK) ════
    Full-screen, one category per row, select-all + per-category, default
