@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=701">
+<link rel="stylesheet" href="css/frt.css?v=702">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -515,6 +515,9 @@ function ensurePdfJs(cb){
          The red dot appears when this drawing has non-default heights. -->
     <button id="dv-seal-btn" data-dv-action="redact" title="Seal redaction — covers print in the PDF only">🔒</button>
     <button id="dv-heights-btn" class="dv-heights-toggle" data-dv-action="heights" title="Field Heights" style="position:relative;">📐<span id="dv-heights-dot" class="dv-heights-dot" style="display:none;"></span></button>
+    <!-- S510 contextual help (Mark): opens the guide AT the Drawing viewer
+         section instead of the top. Bridge lives in app.js (window._frtHelpAt). -->
+    <button id="dv-help-btn" title="Guide — drawing viewer" onclick="if(window._frtHelpAt)window._frtHelpAt({area:'Drawing viewer'})">?</button>
     <!-- More menu -->
     <div style="position:relative;display:inline-block;">
       <button id="dv-more-btn" title="More options">⋯</button>

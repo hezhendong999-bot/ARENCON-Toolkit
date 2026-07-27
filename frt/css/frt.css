@@ -8394,6 +8394,14 @@ body.dark-mode .dfx-or-act { background: #2A2E36; color: #C8CDD6; border-color: 
    only. Star golds on BOTH .on (initial render) and .is-rec (the in-place
    toggle-rec flip toggles .is-rec — see deficiencies.js). ── */
 .dfx-ed-header { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+/* S510 contextual help: small amber "?" beside the pin label, opening the guide
+   at the Pins section. Amber like the header Help button — never burgundy, it is
+   not a CTA. Grows on coarse pointers (gloves). */
+.dfx-ed-help{width:22px;height:22px;border-radius:50%;border:1px solid rgba(183,121,31,.45);background:rgba(183,121,31,.12);color:#B7791F;font-family:inherit;font-size:12px;font-weight:800;line-height:1;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+.dfx-ed-help:hover{background:#B7791F;color:#fff;}
+body.dark-mode .dfx-ed-help{border-color:rgba(224,163,106,.5);background:rgba(224,163,106,.14);color:#E0A36A;}
+body.dark-mode .dfx-ed-help:hover{background:#E0A36A;color:#1B1A22;}
+@media(pointer:coarse){.dfx-ed-help{width:32px;height:32px;font-size:14px;}}
 .dfx-ed-star {
   font-size: calc(20px + var(--ts)); line-height: 1; color: #C9CDD6;
   background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;

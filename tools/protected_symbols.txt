@@ -408,3 +408,9 @@ _quoteBlock
 _sizeChartsForPrint
 _dslVerdict
 _dslVerdictFacts
+
+@ Help system S509-S510 (Mark) — task-style guides + contextual "?" across the platform. Dashboard (23 cards) and Hub page (13) rebuilt with real-screen replica art and Mark's invented cast — NO real staff/client/project data may return to any guide drawing. Diesel rebuilt task-style (15 cards); Electric wired for the first time (8 cards, verified surfaces only — expand with the photo-architecture port, never ahead of it). Existing card ids, search-term strings and dates are carried VERBATIM on any future rebuild. In-place "?" buttons: Hub New Project + Insights, FRT drawing-viewer toolbar (#dv-help-btn) and pin editor (.dfx-ed-help) via the window._frtHelpAt bridge in frt/js/app.js. tools/check_help_art.py must pass (0 collisions) after touching any guide drawing.
+_frtHelpAt
+.dfx-ed-help
+ART.hpPage
+electricHelpCards

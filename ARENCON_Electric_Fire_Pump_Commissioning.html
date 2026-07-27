@@ -724,7 +724,46 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
 <script type="module">
   import { buildHeader2 } from '/lib/ui/headerEngine2.js';   /* S488 Wave 1: sealed v2 */
   import { electricHeaderConfig } from '/lib/ui/headerConfigs.js';
+  /* S510 (Mark): Help wired into Electric — the last tool without it. Same
+     pattern as Diesel/FRT: sealed dialog panel + shared engine + Electric's own
+     cards (lib/ui/electricHelpCards.js, scope 'Electric'). */
+  import { Dlg } from '/lib/ui/dialogEngine.js';
+  import { mountHelp, hasCards, markSeen, hasUnseen, comingSoonHtml } from '/lib/ui/helpEngine.js';
+  import '/lib/ui/electricHelpCards.js';
   function call(name, ev){ var f = window[name]; if (typeof f === 'function') return f(ev); }
+
+  var _HELP_ICON_PLAIN = '<span class="help-q">?</span><span class="wn-dot" style="display:none"></span>';
+  var _HELP_ICON_NEW   = '<span class="help-q">?</span><span class="wn-dot wn-pulse"></span>';
+  function _helpSetDot(on){
+    try { var c = window.__elecHeaderCtl; if (c && c.setControlIcon) c.setControlIcon('help', on ? _HELP_ICON_NEW : _HELP_ICON_PLAIN); } catch(e){}
+  }
+  function openHelp(){
+    if (!Dlg || !Dlg.panel){ try { console.error('[help] dialog engine not loaded'); } catch(e){} return; }
+    Dlg.panel({
+      title:'Help & guide',
+      icon:'?', accent:'slate', width:880,
+      build:function(bd){
+        try {
+          var sr = bd.getRootNode();
+          if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')){
+            var lk = document.createElement('link');
+            lk.rel = 'stylesheet';
+            lk.href = '/lib/ui/helpPanel.css?v=510';
+            lk.setAttribute('data-help-css','1');
+            sr.appendChild(lk);
+          }
+        } catch(e){}
+        if (hasCards('Electric')){
+          mountHelp(bd, { scope:'Electric', tab:'wn' });
+          try { markSeen('Electric'); } catch(e){}
+          _helpSetDot(false);
+        } else {
+          bd.innerHTML = comingSoonHtml ? comingSoonHtml('Electric Fire Pump Commissioning')
+            : '<div class="help-soon"><div class="help-soon-title">Guide coming soon</div></div>';
+        }
+      }
+    });
+  }
 
   var cfg = electricHeaderConfig({
     logoSrc: window.__ARENCON_LOGO__ || '',
@@ -732,6 +771,7 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
     onBack:        function(){ call('goBackToHub'); },
     onHome:        function(){ call('goBackToHub'); },
     onIssue:       function(){ call('issueReport'); },
+    onHelp:        function(){ openHelp(); },
     onExportPDF:   function(){ call('exportPDF'); },
     onDownloadJSON:function(){ call('downloadJSON'); },
     onImportJSON:  function(){ call('importJSON'); },
@@ -748,6 +788,8 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
   window.__elecHeaderCtl = buildHeader2(document.getElementById('hdr-mount'), cfg);
   /* S488: engine owns the day/night artwork — seed it from the host's current mode. */
   window.__elecHeaderCtl.setTheme(document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+  /* S510: unseen-content amber dot on the ? — same contract as Diesel/FRT. */
+  try { if (hasUnseen('Electric')) _helpSetDot(true); } catch(e){}
 </script>
 <div id="mobile-menu-backdrop" onclick="if(typeof closeMobileMenu==='function')closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,.55);"></div>
   <script>

@@ -2610,6 +2610,10 @@ function _buildObsEditor(d, oi, ctrId, opts) {
     // status pill's recommendation option, which is how Mark marks recs. The
     // header row is now just Pin # · on-drawing link.
     h += '<span class="dfx-ed-pinlabel">Pin #' + esc(_pinNum) + '</span>';
+    /* S510 contextual help (Mark): a small "?" beside the pin label opens the
+       guide AT the Pins section (window._frtHelpAt bridge in app.js — inline
+       onclick resolves globals even inside the sealed dialog's shadow root). */
+    h += '<button type="button" class="dfx-ed-help" onclick="if(window._frtHelpAt)window._frtHelpAt({area:\'Pins\'})" title="Guide — pins" aria-label="Help with pins">?</button>';
     // reserved on-drawing link slot (C passes opts.onDrawingLink; B does not)
     if (opts.onDrawingLink && opts.onDrawingLink.label) {
       h += '<button type="button" class="dfx-ed-dlink" data-action="view-pin" data-defic-id="' + esc(d.id) + '" title="Open on drawing">on ' + esc(opts.onDrawingLink.label) + ' \u2197</button>';

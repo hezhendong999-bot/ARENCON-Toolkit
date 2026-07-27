@@ -2272,7 +2272,14 @@ var _HELP_ICON_NEW   = '<span class="help-q">?</span><span class="wn-dot wn-puls
 function _helpSetDot(on){
   try { if (_hdrCtl && _hdrCtl.setControlIcon) _hdrCtl.setControlIcon('help', on ? _HELP_ICON_NEW : _HELP_ICON_PLAIN); } catch(e){}
 }
-function openHelp(){
+function openHelp(at){
+  /* S510 CONTEXTUAL HELP (Mark): openHelp() with no argument behaves exactly as
+     before (What's New first). Passed { card:'<id>' } or { area:'<name>' } —
+     from a "?" sitting inside a deep surface — it opens the Guide scrolled to
+     that entry and rings it (engine S508). Anything that is not an object with
+     card/area is ignored, so a stray event handed in can never change behaviour. */
+  var _at = (at && typeof at === 'object' && (at.card || at.area))
+    ? { card: at.card || '', area: at.area || '' } : null;
   if (!Dlg || !Dlg.panel){ try { console.error('[help] dialog engine not loaded'); } catch(e){} return; }
   Dlg.panel({
     title:'Help & guide',
@@ -2283,13 +2290,14 @@ function openHelp(){
         if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')){
           var lk = document.createElement('link');
           lk.rel = 'stylesheet';
-          lk.href = '/lib/ui/helpPanel.css?v=505g';
+          lk.href = '/lib/ui/helpPanel.css?v=510';
           lk.setAttribute('data-help-css','1');
           sr.appendChild(lk);
         }
       } catch(e){}
       if (hasCards('FRT')){
-        mountHelp(bd, { scope:'FRT', tab:'wn' });
+        mountHelp(bd, _at ? { scope:'FRT', card:_at.card, area:_at.area }
+                          : { scope:'FRT', tab:'wn' });
         try { markSeen('FRT'); } catch(e){}
         _helpSetDot(false);
       } else {
@@ -2299,6 +2307,11 @@ function openHelp(){
     }
   });
 }
+/* S510: bridge for in-place "?" buttons living in classic markup (frt/index.html
+   drawing-viewer toolbar) and other modules (pin editor) — same window-bridge
+   pattern as _showCloudDiagnostic. Inline onclick handlers resolve globals, so
+   no cross-module import is needed. */
+window._frtHelpAt = function(at){ try { openHelp(at); } catch(e){} };
 var _presenceNames = [];
 var _inspectorLocked = false;
 function _buildHeader(){
