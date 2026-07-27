@@ -8058,8 +8058,53 @@ function _ppxGenerate(){ _ppxDone(); }   // S296-era entry — INERT since S316,
    instantiated when #panel-s4 first shows, and toBase64Image() of a chart in a
    display:none panel is blank anyway. Fix: make the panel measurable off-screen,
    force-init + resize + sync-render all four charts, snapshot, then restore. */
+/* S508: PRINTED CHART TEXT SIZE — root cause and fix.
+   The PDF captures the LIVE chart canvas and then scales that whole picture down to the
+   ~6.96in the chart occupies on the page. Every mark on it — annotation labels, axis
+   numbers, axis titles — shrinks by the same ratio, so the printed text size was a
+   function of how wide the operator's chart happened to be on screen. At the usual
+   1063px stage the 10px label printed at ~4.7pt, roughly half the report's 8.5pt table
+   text and unreadable; a colleague on a narrower window got a different (larger) size
+   from the same report. Nobody chose either.
+   Fix: size every chart to the PRINTED proportions immediately before capture — one
+   fixed width, each chart's own aspect preserved, so the printed page geometry is
+   unchanged — then restore. Printed text then lands at a consistent size for every user
+   on every screen: 10px label/tick -> ~7pt, 11-12px axis titles -> ~7.7-8.4pt, sitting
+   just under the report's 8.5pt table text.
+   Returns a restore function; the caller MUST call it. */
+function _sizeChartsForPrint(){
+  var PRINT_STAGE_W = 716;   // CSS px. Printed size of a 10px mark = 72*10*6.96/716 = 7.0pt.
+  var PRINT_DPR     = 3;     // 716 x 3 = 2148px across 6.96in = ~308dpi, so the smaller canvas stays crisp.
+  var saved=[];
+  [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(c){
+    try{
+      if(!c || !c.canvas) return;
+      var stage=c.canvas.parentElement; if(!stage) return;
+      var w=stage.clientWidth||0, h=stage.clientHeight||0; if(!w || !h) return;
+      saved.push({c:c,stage:stage,style:stage.getAttribute('style'),
+                  dpr:(c.options?c.options.devicePixelRatio:undefined)});
+      stage.style.width  = PRINT_STAGE_W+'px';
+      stage.style.height = Math.round(h*(PRINT_STAGE_W/w))+'px';   // same aspect => same printed height
+      if(c.options) c.options.devicePixelRatio = PRINT_DPR;
+      c.resize();
+      (c.__origUpdate||c.update).call(c,'none');
+    }catch(_){}
+  });
+  return function(){
+    saved.forEach(function(s){
+      try{
+        if(s.style===null) s.stage.removeAttribute('style'); else s.stage.setAttribute('style',s.style);
+        if(s.c.options){ if(s.dpr===undefined) delete s.c.options.devicePixelRatio; else s.c.options.devicePixelRatio=s.dpr; }
+        s.c.resize();
+        (s.c.__origUpdate||s.c.update).call(s.c,'none');
+        // labels were positioned against the print-width chart — re-place them for the screen
+        if(typeof renderChartAnnotations==='function' && s.c.canvas) renderChartAnnotations(s.c, s.c.canvas.id);
+      }catch(_){}
+    });
+  };
+}
 function _ensureChartsForExport(){
-  var panel=document.getElementById('panel-s4'), restored=null;
+  var panel=document.getElementById('panel-s4'), restored=null, printSized=null;
   try{
     if(panel && getComputedStyle(panel).display==='none'){
       restored=panel.getAttribute('style')||'';
@@ -8071,9 +8116,11 @@ function _ensureChartsForExport(){
     if(!pldNetChart && typeof initPldNetChart==='function') initPldNetChart();
     [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(c){ try{ if(c){ c.resize(); c.update('none'); } }catch(_){} });
     if(typeof refreshAllCharts==='function') refreshAllCharts();
+    printSized=_sizeChartsForPrint();   // S508: last, so it measures the settled stage
   }catch(e){ console.warn('[export] chart ensure failed', e); }
   return function(){
     try{
+      if(printSized) printSized();      // S508: undo print sizing while the panel is still measurable
       if(panel && restored!==null){ if(restored) panel.setAttribute('style',restored); else panel.removeAttribute('style'); }
       [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(c){ try{ if(c) c.resize(); }catch(_){} });
     }catch(_){}

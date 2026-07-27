@@ -408,9 +408,4 @@ _confirmReworded
 _writeRow
 _diffOverlay
 _quoteBlock
-
-@ Contextual Help — a "?" beside a panel opens the guide AT that panel's entry instead of at the top of a long guide. The engine anchors every card (data-help-card) and every section header (data-help-area); mountHelp accepts { card } or { area }, which implies the Guide tab, scrolls the target into view and rings it briefly (_focusPending). openAt does the same on an already-open panel. The Hub's openHelp passes a target from the in-place "?" in the New Project box and the Insights panel; called with nothing it behaves exactly as before. Shared by every tool. (Mark, S508)
-_focusPending
-openAt
-.help-card.help-focus
-.help-grouphdr.help-focus
+_sizeChartsForPrint
