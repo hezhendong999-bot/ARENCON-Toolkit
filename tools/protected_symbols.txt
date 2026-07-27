@@ -409,3 +409,5 @@ _writeRow
 _diffOverlay
 _quoteBlock
 _sizeChartsForPrint
+_dslVerdict
+_dslVerdictFacts

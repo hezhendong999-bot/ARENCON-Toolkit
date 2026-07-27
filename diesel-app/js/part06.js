@@ -2311,123 +2311,121 @@ function removePumpCurvePoint(i) { pumpCurvePoints.splice(i,1); renderPumpCurveT
 // CHART
 // ══════════════════════════════════════════════════
 
+/* ════════ S509 — OVERALL VERDICT, ONE SOURCE OF TRUTH ════════
+   Rules signed off by Mark against the S509 demo. First match wins:
+     1  consultant set the test result to Fail            -> FAIL
+     2  any OUTSTANDING deficiency                        -> FAIL
+     3  any performance point missed its NFPA 20 gate     -> FAIL
+     4  any checklist item answered No                    -> CONDITIONAL
+     5  consultant set the test result to Conditional     -> CONDITIONAL
+     6  otherwise                                         -> PASS
+   OUTSTANDING = status !== 'resolved' AND NOT isRecommendation AND NOT isSiteRecord.
+   Recommendations and Site Records are advisory: they are counted and named in the
+   wording but can NEVER hold a report back (Mark, S509 Q1).
+   IAR is retired from the verdict entirely (Mark, S509 Q2) — iarStatus is no longer read
+   anywhere here. The dead helpers it left behind come out in their own commit.
+   PERFORMANCE reads WHICHEVER test carries data. Before S509 both the banner and the PDF
+   read stdData ONLY, so on a 7-Point job the pump's real results never reached the verdict:
+   a 7-pt pump that met every gate printed "CONDITIONAL / FAIL", and worse, a consultant
+   Pass printed PASS with no performance ever checked. 3-pt rows are scored by
+   _calcFlowPoint and 7-pt rows by updatePldVerdictObj — the two are NEVER crossed
+   (different field names; crossing them returns blank/wrong).
+   Both the on-screen banner and the printed report call this. They must never diverge
+   again — that is the whole point of the single function. */
+function _dslVerdictFacts(){
+  var f={outstanding:0,recs:0,records:0,perfTotal:0,perfMissed:0,checklistNo:0,anyResponse:false,tcc:''};
+  try{
+    var allDefs=(typeof contractors!=='undefined'?contractors:[])
+      .flatMap(function(n){ return (typeof deficiencies!=='undefined' && deficiencies[n])||[]; })
+      .concat(typeof generalDeficiencies!=='undefined'?generalDeficiencies:[]);
+    allDefs.forEach(function(d){
+      if(!d || d.status==='resolved') return;
+      if(d.isRecommendation){ f.recs++; return; }
+      if(d.isSiteRecord){ f.records++; return; }
+      f.outstanding++;
+    });
+  }catch(_e1){}
+  try{
+    if(typeof stdData!=='undefined' && typeof _calcFlowPoint==='function'){
+      stdData.forEach(function(r){
+        var c=_calcFlowPoint(r); if(!c || c.verdict==='na' || !c.verdict) return;
+        f.perfTotal++; if(c.verdict!=='pass') f.perfMissed++;
+      });
+    }
+  }catch(_e2){}
+  try{
+    if(typeof pldData!=='undefined' && typeof updatePldVerdictObj==='function'){
+      pldData.forEach(function(r,i){
+        var c=updatePldVerdictObj(r,i); if(!c || c.verdict==='na' || !c.verdict) return;
+        f.perfTotal++; if(c.verdict!=='pass') f.perfMissed++;
+      });
+    }
+  }catch(_e3){}
+  try{
+    ['s1','s2','s3','s4','s4pld','s5'].forEach(function(sec){
+      var srcMap={s1:S1,s2:S2,s3:S3,s5:S5}, items=srcMap[sec]; if(!items) return;
+      items.forEach(function(_it,idx){
+        var st=clState[cid(sec,idx)] && clState[cid(sec,idx)].status;
+        if(st) f.anyResponse=true;
+        if(st==='no') f.checklistNo++;
+      });
+    });
+  }catch(_e4){}
+  try{ f.tcc=(document.getElementById('test-result')||{}).value||''; }catch(_e5){}
+  return f;
+}
+function _dslVerdict(){
+  var f=_dslVerdictFacts();
+  var plural=function(c,one,many){ return c+' '+(c===1?one:many); };
+  // advisory tail — named so the reader knows they exist, never part of the decision
+  var aside='';
+  var bits=[];
+  if(f.recs) bits.push(plural(f.recs,'recommendation','recommendations'));
+  if(f.records) bits.push(plural(f.records,'site record','site records'));
+  if(bits.length) aside=' Also recorded for information (no effect on the result): '+bits.join(', ')+'.';
+  var perfLine = !f.perfTotal ? 'No pump performance points have been scored.'
+    : f.perfTotal===1 ? 'The pump performance point met the NFPA 20 acceptance criteria.'
+    : 'All '+f.perfTotal+' pump performance points met the NFPA 20 acceptance criteria.';
+  if(!f.anyResponse && !f.perfTotal && !f.outstanding && !f.recs && !f.records)
+    return {status:'none',label:'',desc:'',banner:'',icon:''};
+  if(f.tcc==='fail')
+    return {status:'fail',icon:'\u2717',label:'FAIL',
+      banner:'OVERALL: FAIL \u2014 Consultant recorded the test result as Fail',
+      desc:'The consultant recorded the test result as Fail.'+aside};
+  if(f.outstanding)
+    return {status:'fail',icon:'\u2717',label:'FAIL',
+      banner:'OVERALL: FAIL \u2014 '+plural(f.outstanding,'outstanding deficiency','outstanding deficiencies'),
+      desc:plural(f.outstanding,'outstanding deficiency remains','outstanding deficiencies remain')+' open. All deficiencies must be addressed and closed before this report can pass.'+aside};
+  if(f.perfMissed)
+    return {status:'fail',icon:'\u2717',label:'FAIL',
+      banner:'OVERALL: FAIL \u2014 '+f.perfMissed+' of '+f.perfTotal+' performance points did not meet the NFPA 20 criteria',
+      desc:f.perfMissed+' of '+f.perfTotal+' pump performance points did not meet the NFPA 20 acceptance criteria (churn \u2264 140%, rated \u2265 100%, 150% \u2265 65% of rated net).'+aside};
+  if(f.checklistNo)
+    return {status:'cond',icon:'\u26A0',label:'CONDITIONAL',
+      banner:'OVERALL: CONDITIONAL \u2014 '+plural(f.checklistNo,'checklist item','checklist items')+' answered No',
+      desc:plural(f.checklistNo,'checklist item was','checklist items were')+' answered No. '+perfLine+' All deficiencies are closed.'+aside};
+  if(f.tcc==='conditional')
+    return {status:'cond',icon:'\u26A0',label:'CONDITIONAL',
+      banner:'OVERALL: CONDITIONAL \u2014 Consultant recorded the test result as Conditional',
+      desc:'The consultant recorded the test result as Conditional. '+perfLine+' All deficiencies are closed.'+aside};
+  return {status:'pass',icon:'\u2713',label:'PASS',
+    banner:'OVERALL: PASS \u2014 '+(f.perfTotal?'All performance points met the NFPA 20 criteria, all deficiencies closed':'All recorded items complete, all deficiencies closed'),
+    desc:perfLine+' All recorded deficiencies are closed.'+aside};
+}
 function updateVerdict() {
   const el = document.getElementById('report-verdict');
   if (!el) return;
-
-  // 1. Check all checklist sections
-  var allSections = ['s1','s2','s3','s4','s4pld','s5'];
-  var hasAnyNo = false;
-  var hasAnyResponse = false;
-  allSections.forEach(function(sec){
-    var srcMap = {s1:S1,s2:S2,s3:S3,s5:S5};
-    var items = srcMap[sec];
-    if(!items) return;
-    items.forEach(function(_,idx){
-      var id = cid(sec,idx);
-      var st = clState[id] && clState[id].status;
-      if(st) hasAnyResponse = true;
-      if(st === 'no') hasAnyNo = true;
-    });
-  });
-
-  // 2. Check deficiencies
-  var allDefs = contractors.flatMap(function(n){ return deficiencies[n]||[]; }).concat(generalDeficiencies);
-  var hasDeficiencies = allDefs.length > 0;
-  var openIAR = allDefs.some(function(d){ return d.iarStatus && d.status !== 'resolved'; });
-  var hasNonIARDefic = allDefs.some(function(d){ return !d.iarStatus && d.status !== 'resolved'; });
-
-  // 3. Get TCC selection
-  var tccVal = (document.getElementById('test-result')||{}).value || '';
-
-  // 4. Performance check — uses the same affinity+placard rule as the on-screen cards
-  var perfResults = stdData.map(function(r){
-    var c = _calcFlowPoint(r);
-    return (c.verdict==='na') ? null : (c.verdict==='pass');
-  }).filter(function(x){ return x !== null; });
-
-  // Don't show verdict if nothing entered
-  if(!hasAnyResponse && perfResults.length === 0 && !hasDeficiencies) {
+  var v = _dslVerdict();
+  if(v.status==='none'){
     el.style.display = 'none';
     var _lbl0 = document.getElementById('report-verdict-label'); if(_lbl0) _lbl0.style.display='none';
     var _dot0 = document.getElementById('verdict-tab-dot'); if(_dot0) _dot0.className='verdict-dot';
     return;
   }
-
-  var resultText, bgCol;
-
-  // Rule: Any checklist 'No' -> downgrade to conditional pass at best
-  if(hasAnyNo && openIAR) {
-    resultText = '\u2717  OVERALL: FAIL \u2014 Checklist items marked NO + unresolved IAR deficiencies';
-    bgCol = '#A85959';
-  }
-  else if(hasAnyNo && tccVal==='fail') {
-    resultText = '\u2717  OVERALL: FAIL \u2014 Consultant selected FAIL';
-    bgCol = '#A85959';
-  }
-  else if(hasAnyNo) {
-    resultText = '\u26A0  OVERALL: CONDITIONAL PASS \u2014 One or more checklist items marked NO';
-    bgCol = '#E67E22';
-  }
-  // Rule: Open IAR deficiency -> FAIL
-  else if(openIAR) {
-    resultText = '\u2717  OVERALL: FAIL \u2014 Unresolved IAR deficiencies';
-    bgCol = '#A85959';
-  }
-  // Rule: All yes/NA, no deficiencies → PASS
-  else if(!hasDeficiencies && !hasAnyNo && perfResults.length > 0 && perfResults.every(function(r){return r===true;})) {
-    resultText = '\u2713  OVERALL: PASS \u2014 All performance points met, no deficiencies';
-    bgCol = '#5F8068';
-  }
-  // Rule: Non-IAR deficiencies exist → consultant chooses from dropdown
-  else if(hasNonIARDefic || hasDeficiencies) {
-    if(tccVal === 'pass') {
-      resultText = '\u2713  OVERALL: PASS \u2014 Deficiencies noted but not IAR, consultant approved';
-      bgCol = '#5F8068';
-    } else if(tccVal === 'conditional') {
-      resultText = '\u26A0  OVERALL: CONDITIONAL PASS \u2014 Non-IAR deficiencies noted';
-      bgCol = '#E67E22';
-    } else if(tccVal === 'fail') {
-      resultText = '\u2717  OVERALL: FAIL \u2014 Major deficiencies identified';
-      bgCol = '#A85959';
-    } else {
-      resultText = '\u26A0  Select test result above \u2014 Non-IAR deficiencies require consultant decision';
-      bgCol = '#78909C';
-    }
-  }
-  // Rule: Performance not fully met
-  else if(perfResults.length > 0 && !perfResults.every(function(r){return r===true;})) {
-    if(tccVal === 'conditional') {
-      resultText = '\u26A0  OVERALL: CONDITIONAL PASS \u2014 Performance data does not fully meet cutsheet';
-      bgCol = '#E67E22';
-    } else if(tccVal === 'fail') {
-      resultText = '\u2717  OVERALL: FAIL \u2014 Performance requirements not met';
-      bgCol = '#A85959';
-    } else {
-      resultText = '\u26A0  Review required \u2014 Performance data does not meet cutsheet';
-      bgCol = '#E67E22';
-    }
-  }
-  // Default: PASS
-  else {
-    resultText = '\u2713  OVERALL: PASS \u2014 All requirements met';
-    bgCol = '#5F8068';
-  }
-
-  // S280: map bgCol -> semantic status class; CSS now owns all theming (light + dark),
-  // replacing the old inline colour juggling. Logic above is unchanged.
-  var statusCls = bgCol==='#5F8068' ? 'pass'
-                : bgCol==='#E67E22' ? 'cond'
-                : bgCol==='#A85959' ? 'fail'
-                : 'review';
-  // Split the leading glyph (icon) from the message text so the icon can be styled.
-  var icon = '', msg = resultText;
-  var m = resultText.match(/^(\S+)\s+(.*)$/);
-  if(m){ icon = m[1]; msg = m[2]; }
-
+  var statusCls = v.status;
   el.className = 'report-verdict ' + statusCls;
   el.style.display = 'flex';
-  el.innerHTML = (icon ? '<span class="vicon">'+icon+'</span>' : '') + '<span>'+msg+'</span>';
+  el.innerHTML = '<span class="vicon">'+v.icon+'</span><span>'+v.banner+'</span>';
   var lbl = document.getElementById('report-verdict-label');
   if(lbl) lbl.style.display = 'block';
 
@@ -2440,7 +2438,6 @@ function updateVerdict() {
 
   if(typeof updateCompletionOverview==='function') updateCompletionOverview();
 }
-
 function renderPldPumpCurveTable() {
   const tbody = document.getElementById('pld-pump-curve-tbody');
   if (!tbody) return;
