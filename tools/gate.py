@@ -219,8 +219,23 @@ def main():
             return 1
         print(f'── frt.css ?v= gate: ✓ bumped v={_vo} → v={_vn}')
 
-    is_css = a.new.endswith('.css')
-    extract = css_symbols if is_css else js_symbols
+    # S510 — an .html tool carries BOTH: script blocks and a large inline <style>.
+    # Selecting one extractor by extension meant every .html file was scanned with
+    # js_symbols alone, so protected CSS selectors living inside a tool's <style>
+    # block — .band-header, .epd-pick, .hub-view-toggle and ~60 more on the manifest
+    # — could be deleted with the gate reporting "no silent deletions". This is the
+    # same class of hole as the S509b comment stripper, and the same class of loss
+    # the manifest's own `.obs-drop-btn.is-upload` note records. Union both readers
+    # for HTML: a false positive costs one kill-list line, a false negative costs a
+    # control that vanishes off a tablet.
+    low = a.new.lower()
+    is_css = low.endswith('.css')
+    if is_css:
+        extract = css_symbols
+    elif low.endswith(('.html', '.htm')):
+        extract = lambda t: js_symbols(t) | css_symbols(t)
+    else:
+        extract = js_symbols
 
     o, n = extract(old), extract(new)
     kill = {k.strip() for k in a.kill.split(',') if k.strip()}
@@ -234,6 +249,22 @@ def main():
     # an unconditional block, whatever the session believes about cleanup.
     protected, manifest_path = load_protected()
     prot_hit = {r: protected[r] for r in removed if r in protected}
+
+    # S510 — LITERAL FALLBACK. The extractors only recognise DECLARATIONS. Thirty
+    # manifest entries are not declarations at all: element ids the shared engines
+    # look up by name (np-client-suggest, notif-stack), storage-key prefixes
+    # (arencon_rpt_), and data fields carried through cloud sync (isRecommendation,
+    # amendedAfterIssue). Every one of those sat on the manifest fully unenforced —
+    # deleting the markup or the field would have passed the gate clean. If an entry
+    # is not a symbol the extractors know, fall back to plain presence: it was in the
+    # live file, it must still be in the edited one.
+    _sym_space = o | n
+    for entry, feat in protected.items():
+        if entry in _sym_space:
+            continue                      # already covered by the symbol comparison
+        if entry in old and entry not in new:
+            prot_hit[entry] = feat
+
     if prot_hit:
         print(f"── {a.new}")
         print(f"\n   ✗✗ BLOCKED — {len(prot_hit)} PROTECTED SYMBOL(S) WOULD BE DELETED:")
