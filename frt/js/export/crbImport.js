@@ -235,6 +235,7 @@ function _writeRow(row, ctx, opts) {
     source: 'pdf',
     importId: ctx.impId,             // batch receipt (undo grain)
     dedupeKey: row.dedupeKey || null,
+    workingCopy: !!(ctx && ctx.workingCopy),   // S509: permanent draft-sheet marker
     frtInstance: row.frtInstance,    // round from the SHEET, not the clock
     round: row.round
   };
@@ -244,6 +245,9 @@ function _writeRow(row, ctx, opts) {
   if (opts.asNewRound) { delete data.frtInstance; delete data.round; }
   var entry = Model.addContractorResponse(row.deficId, row.obsIdx, data);
   if (entry && row.dedupeKey) { try { Model.registerExportId(row.dedupeKey); } catch (e) {} }
+  // S508: remember where a comment actually landed, so respond-in-flow can walk
+  // exactly the items that got one — never the whole project.
+  if (entry && ctx && ctx.written) ctx.written.push({ deficId: row.deficId, obsIdx: row.obsIdx });
   return entry;
 }
 
@@ -387,7 +391,10 @@ function _confirmReworded(row, ctx, applied, next) {
           try {
             r2 = Model.replaceUnissuedImportedDraft(live.deficId, live.obsIdx, live.entry.id, row.comment || '', ctx.who);
           } catch (e) { r2 = null; }
-          if (r2) applied.replaced++;
+          if (r2) {
+            applied.replaced++;
+            if (ctx && ctx.written) ctx.written.push({ deficId: live.deficId, obsIdx: live.obsIdx });
+          }
           else console.warn('[CRBImport] replace refused — falling back to leaving the thread unchanged.');
           next();
         } }
@@ -432,26 +439,44 @@ export function openCrbImport() {
         var _cur = (proj.currentFrtInstance || 1);
         _confirmStale(_gate.sheetFrt, _gate.latestIssued, _cur, function(useRound) {
           // useRound: the current instance (default) or the old sheet round (backfill anyway).
-          _runImport(useRound);
+          _runImport(useRound, false);
         });
+        return;
+      }
+      if (!_gate.ok && _gate.code === 'not-issued') {
+        // S509 (Mark): a filled WORKING copy is importable now — the block was
+        // a workflow assumption, not a data-safety rule. The contractor's words
+        // are their words either way, and the sheet's round is known from the
+        // registry, so nothing mis-numbers. But the fact is recorded forever:
+        // every round from this sheet carries a permanent working-copy marker,
+        // in the app AND on printed reports.
+        _diffOverlay('#C98A4A', 'This sheet is a working copy',
+          'This PDF is a <b>draft</b> of FRT #' + _esc(_gate.sheetFrt) + ' \u2014 it was never issued. The contractor answered a working copy.' +
+          '<div style="margin-top:10px;">You can import these answers. Every response from this sheet will be permanently marked <b>WORKING COPY</b> in the thread and on printed reports.</div>' +
+          '<div style="margin-top:10px;color:#5E5B68;font-size:13px;">If this draft went out by mistake, the cleaner path is to issue the report properly and have the contractor fill the issued sheet.</div>',
+          [
+            { label: 'Cancel', onClick: function() {} },
+            { label: 'Import as working copy', primary: true, onClick: function() {
+                _runImport(_gate.sheetFrt || (proj.currentFrtInstance || 1), true);
+              } }
+          ]);
         return;
       }
       if (!_gate.ok) {
         var _gmsg = {
           'no-stamp': 'This PDF carries no ARENCON identity stamp, so it can\u2019t be matched to an issued report. Re-export the current report and have the contractor fill the new copy.',
           'unknown': 'This sheet doesn\u2019t belong to this project, or predates round protection. Re-export the current report for the contractor.',
-          'not-issued': 'This is a working copy of FRT #' + _gate.sheetFrt + ' \u2014 it was never issued. Contractors respond to issued reports only. Issue the report first, then import responses against the issued sheet.',
           'nothing-issued': 'No report has been issued from this project yet \u2014 there is nothing for a contractor to respond to.'
         };
         _notice(_gmsg[_gate.code] || 'This sheet can\u2019t be imported.');
         return;
       }
-      _runImport(_gate.sheetFrt || (proj.currentFrtInstance || 1));
+      _runImport(_gate.sheetFrt || (proj.currentFrtInstance || 1), false);
 
       // Everything from round-assignment through preview+write, callable with an
       // explicit round so the stale-acknowledgement path can file on the current
       // instance. sheetFrt is the round the responses will be recorded against.
-      function _runImport(sheetFrt) {
+      function _runImport(sheetFrt, isWorkingCopy) {
       var _sheetFrt = sheetFrt;
       var _impId = 'imp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
       // S470: duplicate detection keyed per (exportId, obsId). The realistic
@@ -486,7 +511,8 @@ export function openCrbImport() {
       });
       // S508: shared write context, and the already-seen items sorted into
       // unchanged / removed / reworded / issued-revision.
-      var _ctx = { impId: _impId, sheetFrt: _sheetFrt, expId: _expId,
+      var _ctx = { impId: _impId, sheetFrt: _sheetFrt, expId: _expId, written: [],
+        workingCopy: !!isWorkingCopy,
         who: (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null };
       var _buckets = _classifyDupes(dupes);
       var _actionable = _buckets.offerBack.length + _buckets.reworded.length + _buckets.newRound.length;
@@ -512,7 +538,19 @@ export function openCrbImport() {
         _resolveDiffQueue(_buckets, _ctx, function(applied) {
           var extra = applied.broughtBack + applied.replaced + applied.keptBoth + applied.newRounds;
           try { if ((ok + extra) && Model.logImport) Model.logImport({ importId: _impId, exportId: _expId, frt: _sheetFrt, count: ok + extra }); } catch (e) {}
-          try { if (Model.saveNow) Model.saveNow(); } catch (e) {}
+
+          // ⚠ CRASH FENCE (locked decision 4). The import must be fully
+          // committed AND saved before respond-in-flow opens. A flow running
+          // over a half-saved project would let a crash lose comments the
+          // inspector believes are recorded. Everything below waits on the
+          // save promise; if saveNow gives us nothing to wait on, we still
+          // fall through — but never before the write calls have returned.
+          var _saved;
+          try { _saved = Model.saveNow(); } catch (e) { _saved = null; }
+          Promise.resolve(_saved).catch(function(e) {
+            console.warn('[CRBImport] save reported an error; not opening the respond flow:', e);
+            return '__failed__';
+          }).then(function(res) {
           var parts = [];
           if (ok) parts.push('Imported ' + ok + ' new contractor response(s).');
           if (applied.broughtBack) parts.push(applied.broughtBack + ' removed response(s) brought back.');
@@ -527,6 +565,14 @@ export function openCrbImport() {
           console.log('[CRBImport] wrote ' + ok + ' new, resolved ' + JSON.stringify(applied) +
             ', ' + _buckets.silent.length + ' unchanged, ' +
             unresolved.length + ' unresolved field id(s)', unresolved);
+
+          // Now — and only now — walk the inspector through responding.
+          if (res === '__failed__') return;
+          if (!_ctx.written.length) return;
+          try {
+            if (window._frtStartRespondFlow) window._frtStartRespondFlow(_ctx.written);
+          } catch (e) { console.warn('[CRBImport] could not open the respond flow:', e); }
+          });
         });
       }
 

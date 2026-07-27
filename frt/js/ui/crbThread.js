@@ -81,7 +81,9 @@ function _ctrSide(e, company, ids){
     ? '<span class="crbt-noresp">No response received from contractor \u2014 reviewed on site by ARENCON.</span>'
     : ((e.statusReported?('<b>'+_esc(e.statusReported)+'</b>'+((e.text)?' \u2014 ':'')):'')+_esc(e.text||''));
   var h='<div class="crbt-side crbt-c" data-entry-id="'+_esc(e.id)+'">';
-  h+='<div class="crbt-who">'+who+'</div>';
+  h+='<div class="crbt-who">'+who
+    +(e.workingCopy?' <span class="crbt-wcopy" style="color:#8a5a1e;background:rgba(201,138,74,.14);border:1px solid rgba(201,138,74,.45);border-radius:4px;padding:0 5px;font-weight:700;font-size:10px;letter-spacing:.03em;">WORKING COPY</span>':'')
+    +'</div>';
   h+='<div class="crbt-t">'+body
     +(e.withdrawn?' <span class="crbt-withdrawn">withdrawn from re-sent sheet</span>':'')
     +(e.orphaned?' <span class="crbt-orphan">\u2014 the comment this answered was removed</span>':'')

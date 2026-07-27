@@ -2322,6 +2322,28 @@ function _captureExportPDF(w,D){
       // pdf.js, so the badge vouched for a build that wasn't running. The
       // engine now announces its own version in the export status bar —
       // version skew is visible at the moment it matters, every export.
+      // ── S509 (Mark): the issued/working question moves to BEFORE generation.
+      // It used to be asked after pdfDoc.save() — by which point the file
+      // already existed, so a working copy could never be watermarked and the
+      // freeze rode along as a side effect of a modal at the end. Asking first
+      // makes it a deliberate choice and lets a draft carry its DRAFT COPY
+      // watermark in the actual PDF bytes.
+      var _issuedCopy = await new Promise(function(res){
+        try{
+          var _iso=D.createElement('div');
+          _iso.style.cssText='position:fixed;inset:0;background:rgba(27,26,34,.45);z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;';
+          _iso.innerHTML='<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;padding:20px;font-family:Calibri,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.25);">'
+            +'<div style="font-size:17px;font-weight:700;color:#1B1A22;margin-bottom:8px;">Issued copy, or working copy?</div>'
+            +'<div style="font-size:14px;color:#5E5B68;line-height:1.45;margin-bottom:16px;">An <b>issued copy</b> is the reviewed record: its thread comments soft-lock (any inspector can unlock and edit, with a warning). A <b>working copy</b> locks nothing and prints with a DRAFT COPY watermark across every page.</div>'
+            +'<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">'
+            +'<button id="frt-iss-no" style="padding:12px 18px;border:1px solid #d8d5dd;background:#fff;border-radius:10px;font-size:14px;color:#1B1A22;cursor:pointer;font-family:Calibri,sans-serif;">Working copy</button>'
+            +'<button id="frt-iss-yes" style="padding:12px 18px;border:0;background:#9C2742;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Issued copy</button>'
+            +'</div></div>';
+          D.body.appendChild(_iso);
+          _iso.querySelector('#frt-iss-no').addEventListener('click',function(){_iso.remove();res(false);});
+          _iso.querySelector('#frt-iss-yes').addEventListener('click',function(){_iso.remove();res(true);});
+        }catch(_e){res(false);}   // if the ask itself fails, the SAFE answer is working copy — never freeze by accident
+      });
       _capStatus(D,'Loading export libraries… (PDF engine '+PDF_PIPELINE_BUILD+')');
       await _capLoad(w,_CAP_H2C_CDN,'html2canvas');
       // S398: pdf-lib MUST instantiate in the MAIN window. Inside the
@@ -2875,6 +2897,37 @@ function _captureExportPDF(w,D){
           _idW.dict.set(PDFLib.PDFName.of('F'),PDFLib.PDFNumber.of(2));   // hidden
         }catch(_ih){}
       }catch(_eid){}
+      // ── S509 (Mark): DRAFT COPY watermark. A working copy must be
+      // unmistakable if it ever escapes by email — large, grey, diagonal,
+      // on EVERY page, drawn into the PDF bytes themselves (a CSS overlay
+      // would not survive this capture pipeline). Issued copies get nothing.
+      if(!_issuedCopy){
+        try{
+          var _wmFont=null;
+          try{ _wmFont=(_txtFaces&&(_txtFaces.bold||_txtFaces.reg))||_txtFont||null; }catch(_wf){}
+          if(!_wmFont){ try{ _wmFont=await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold); }catch(_wf2){} }
+          if(_wmFont){
+            var _wmTxt='DRAFT COPY';
+            pdfDoc.getPages().forEach(function(_wp){
+              var _pw=_wp.getWidth(),_ph=_wp.getHeight();
+              var _ang=Math.atan2(_ph,_pw);                       // along the page diagonal
+              var _sz=Math.min(_pw,_ph)*0.16;
+              var _tw=_wmFont.widthOfTextAtSize(_wmTxt,_sz);
+              var _diag=Math.sqrt(_pw*_pw+_ph*_ph);
+              if(_tw>_diag*0.82){ _sz*= (_diag*0.82)/_tw; _tw=_wmFont.widthOfTextAtSize(_wmTxt,_sz); }
+              var _cx=_pw/2,_cy=_ph/2;
+              _wp.drawText(_wmTxt,{
+                x:_cx-(_tw/2)*Math.cos(_ang)+(_sz*0.36)*Math.sin(_ang),
+                y:_cy-(_tw/2)*Math.sin(_ang)-(_sz*0.36)*Math.cos(_ang),
+                size:_sz,font:_wmFont,
+                rotate:PDFLib.degrees(_ang*180/Math.PI),
+                color:PDFLib.rgb(0.58,0.57,0.61),                 // grey (ink-2 family), per Mark
+                opacity:0.22
+              });
+            });
+          }
+        }catch(_wm){try{console.error('[S509 watermark]',_wm);}catch(_w2){}}
+      }
       var bytes=await pdfDoc.save();
       // ═══ S499c EXPORT TEXT SELF-CHECK ═══ Runs on EVERY export; never
       // blocks or alters the file. Catches the three defect families that
@@ -2972,35 +3025,19 @@ function _captureExportPDF(w,D){
       if(bar) bar.style.display='';
       _capStatus(D,_awaitingShare?'PDF ready — tap "Save / Open PDF" above to send it to Files or Adobe.':(_savedViaPicker?'Done — PDF saved. It matches this preview exactly.':'Done — PDF downloaded. It matches this preview exactly.'));
       setTimeout(function(){_capHideStatus(D);},4000);
-      // ── S480: EXPORT REGISTRY + issued-vs-working. Every export registers
-      // its identity stamp (the import gate checks this registry — round comes
-      // from the SHEET, never the clock). Marking ISSUED also draws the issued
-      // line (stampThreadIssued): every printed thread comment is frozen as
-      // the record — the lifecycle the locked CRB design assumes. A working
-      // copy registers as not-issued, so a filled working copy is refused at
-      // import with the right message.
+      // ── S480/S509: EXPORT REGISTRY. The choice was made BEFORE generation
+      // (see the pre-ask at the top of this function); here it is only
+      // recorded. Issuing draws the issued line — a SOFT lock: any inspector
+      // can unlock and edit afterwards, with a warning (Mark, S509). A working
+      // copy registers as not-issued and its pages already carry the DRAFT
+      // COPY watermark.
       try{
         if(typeof _expId==='string'&&_expId&&Model.registerExport){
-          Model.registerExport(_expId,false); // known immediately; upgraded to issued on confirm below
-          var _iso=D.createElement('div');
-          _iso.style.cssText='position:fixed;inset:0;background:rgba(27,26,34,.45);z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;';
-          _iso.innerHTML='<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;padding:20px;font-family:Calibri,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.25);">'
-            +'<div style="font-size:17px;font-weight:700;color:#1B1A22;margin-bottom:8px;">Is this the issued copy?</div>'
-            +'<div style="font-size:14px;color:#5E5B68;line-height:1.45;margin-bottom:16px;">If this PDF is being issued to the client/contractor, its thread comments are frozen as the printed record, and contractor responses will only be accepted against this sheet. A working copy changes nothing.</div>'
-            +'<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">'
-            +'<button id="frt-iss-no" style="padding:12px 18px;border:1px solid #d8d5dd;background:#fff;border-radius:10px;font-size:14px;color:#1B1A22;cursor:pointer;font-family:Calibri,sans-serif;">Working copy</button>'
-            +'<button id="frt-iss-yes" style="padding:12px 18px;border:0;background:#9C2742;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;">Issued copy</button>'
-            +'</div></div>';
-          D.body.appendChild(_iso);
-          _iso.querySelector('#frt-iss-no').addEventListener('click',function(){_iso.remove();});
-          _iso.querySelector('#frt-iss-yes').addEventListener('click',function(){
-            _iso.remove();
-            try{
-              Model.registerExport(_expId,true);
-              var _iin=((Model.getProject&&Model.getProject())||{}).currentFrtInstance||1;
-              if(Model.stampThreadIssued) Model.stampThreadIssued(_iin);
-            }catch(_em){try{console.error('[S480 issue]',_em);}catch(_e2){}}
-          });
+          Model.registerExport(_expId,!!_issuedCopy);
+          if(_issuedCopy){
+            var _iin=((Model.getProject&&Model.getProject())||{}).currentFrtInstance||1;
+            if(Model.stampThreadIssued) Model.stampThreadIssued(_iin,{});
+          }
         }
       }catch(_er){try{console.error('[S480 registry]',_er);}catch(_e3){}}
     }catch(err){

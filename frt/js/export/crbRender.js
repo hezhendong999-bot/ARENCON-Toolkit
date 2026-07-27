@@ -132,13 +132,22 @@ function crbContractorRow(resp){
   // quiet chip. It must never compete with the ARENCON pill (the only coloured
   // status verdict on the row), so it rides the grey meta run, not the body.
   var rep = resp.statusReported?(' \u00b7 <span class="rep">Reported \u00b7 '+_crbEsc(resp.statusReported)+'</span>'):'';
-  var h = '<div class="tr-row"><div class="tr-meta"><b>'+meta+'</b>'+src+rep+'</div>';
+  // S509 (Mark): a round that answered a DRAFT sheet is marked on the report
+  // itself — amber, permanent. Hiding it would let a draft-sourced answer pass
+  // as a response to an issued report.
+  var wc = resp.workingCopy?(' \u00b7 <span class="wcopy" style="color:#8a5a1e;background:rgba(201,138,74,.14);border:1px solid rgba(201,138,74,.45);border-radius:4px;padding:0 5px;font-weight:700;font-size:8.5px;letter-spacing:.03em;">WORKING COPY</span>'):'';
+  var h = '<div class="tr-row"><div class="tr-meta"><b>'+meta+'</b>'+src+rep+wc+'</div>';
   // S467: the S461 primitives store the body in `text`; this module's S448-era
   // schema said `comment`. Accept both — without this every primitive-written
   // round (incl. the S463 PDF imports) rendered body-less in the report.
   var _rBody = (resp.text!=null&&resp.text!=='') ? resp.text : resp.comment;
   h += '<div class="claim"><span class="ctext">'+(_rBody?_crbEsc(_rBody):'')+'</span></div>';
-  h += _crbAmendNote(resp);
+  // S509 (Mark): the amendment note NO LONGER PRINTS. Issuing is an internal
+  // review handoff here, so an "Amended / as issued this read …" line on the
+  // report would expose the firm's own revision history to the contractor,
+  // client and AHJ. Revision history is in-app only. _crbAmendNote is retained
+  // (unused) so the decision is reversible in one line — do not re-add the call
+  // without Mark's say-so.
   // rectification photos (already resolved to {url,caption})
   var rp = resp.rectPhotos||[];
   if(rp.length){
@@ -174,7 +183,8 @@ function crbReviewRow(rev, pillClsResolver){
   // S467: accept `text` (S461 primitive schema) alongside legacy `comment`.
   var _vBody = (rev.text!=null&&rev.text!=='') ? rev.text : rev.comment;
   if(_vBody) h += '<p>'+_crbEsc(_vBody)+'</p>';
-  h += _crbAmendNote(rev);
+  // S509 (Mark): amendment note does not print — see the note on the round
+  // renderer above. In-app history only.
   var fp = rev.followupPhotos||[];
   if(fp.length){
     h += '<div class="rect-lbl">ARENCON FOLLOW-UP PHOTOS ('+fp.length+')</div>';

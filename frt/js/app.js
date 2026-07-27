@@ -2336,6 +2336,7 @@ function _buildHeader(){
     onIssue: function(){ _issueReport(); },
     onExportPDF: function(){ initExportView.open(); },
     onCrbImport: function(){ openCrbImport(); },
+    onIssueHistory: function(){ if (window._frtIssueHistory) window._frtIssueHistory(); },   /* S509 */
     onDownloadJSON: function(){ initJSONExport.exportJSON(); },
     onExportDocs: function(){ initProjectDocsExport.run(); },
     onLoadProject: function(){ var li = document.getElementById('load-input'); if (li) li.click(); },

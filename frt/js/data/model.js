@@ -2844,6 +2844,7 @@ export var Model = {
       importId: data.importId || null,                 // S480: batch receipt — which import EVENT wrote this (undo grain)
       dedupeKey: data.dedupeKey || null,               // S500: exportId|obsId — undo un-registers this so the PDF can be re-imported
       noResponse: !!data.noResponse,
+      workingCopy: !!data.workingCopy,                 // S509: answered a DRAFT sheet — permanent marker, prints on reports
       emailPending: !!data.emailPending,               // soft email gate (§3)
       // ── S464 Phase 2 fields ──
       replyTo: data.replyTo || null,                   // id of the comment this answers (one level deep)
@@ -3343,15 +3344,25 @@ export var Model = {
   // Called by the export path at the moment a report is issued — this is what
   // draws the issued line. Idempotent: already-stamped entries keep their
   // original instance (a comment is issued ONCE, by the report that printed it).
-  stampThreadIssued: function(instance) {
+  stampThreadIssued: function(instance, opts) {
     if (!_project) return 0;
+    opts = opts || {};
     var inst = Number(instance) || _project.currentFrtInstance || 1;
     var n = 0;
+    // S509: every issue click gets a receipt, and each comment it freezes
+    // remembers WHICH click froze it. That is what lets "unfreeze" mean this
+    // one issue rather than everything currently frozen — unfreezing FRT #2
+    // must never disturb FRT #1's record.
+    var issueId = 'iss_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     function walk(d) {
       (d.observations || []).forEach(function(o) {
         ['responses', 'arenconReviews'].forEach(function(arrName) {
           (o[arrName] || []).forEach(function(e) {
-            if (e && !e.removed && e.issuedOnInstance == null) { e.issuedOnInstance = inst; n++; }
+            if (e && !e.removed && e.issuedOnInstance == null) {
+              e.issuedOnInstance = inst;
+              e._issueId = issueId;
+              n++;
+            }
           });
         });
       });
@@ -3361,9 +3372,92 @@ export var Model = {
     if (n > 0) {
       _dirty = true;
       _queueSave();
+      this._logIssueEvent({ issueId: issueId, action: 'issue', instance: inst, count: n, by: opts.who || null });
       console.log('[CRB] Issued line drawn: ' + n + ' comment(s) frozen at FRT #' + inst + '.');
-      this._notify('crb', { action: 'issued', instance: inst, count: n });
+      this._notify('crb', { action: 'issued', instance: inst, count: n, issueId: issueId });
     }
+    return n;
+  },
+
+  // ══ S509 — ISSUE LOG + UNFREEZE ════════════════════════════════════════
+  // ⚠ THE ISSUE LOG IS INTERNAL TO THE APP. FOREVER. (Mark, S509)
+  // It is never printed on a report, never included in an export, and never
+  // shown to a contractor, client or AHJ. What leaves the firm is tracked by
+  // email, not by this. If you are writing report or export code and reach
+  // for anything in here, that is the mistake — stop.
+  _ensureIssueLog: function() {
+    if (!_project) return null;
+    if (!Array.isArray(_project.issueLog)) _project.issueLog = [];
+    return _project.issueLog;
+  },
+
+  _logIssueEvent: function(rec) {
+    var log = this._ensureIssueLog();
+    if (!log || !rec) return null;
+    rec.at = new Date().toISOString();
+    log.push(rec);
+    _dirty = true;
+    _queueSave();
+    return rec;
+  },
+
+  // In-app display only. Newest first.
+  getIssueEvents: function() {
+    var log = this._ensureIssueLog();
+    return log ? log.slice().reverse() : [];
+  },
+
+  // Lift the freeze applied by ONE issue event. Comments frozen by any other
+  // issue are untouched.
+  //
+  // The comment REMEMBERS it was issued (wasIssuedOnInstance) even though it is
+  // editable again — Mark's decision. Nothing is printed from that; it exists so
+  // the app can tell you an item once went out for review.
+  unfreezeIssue: function(issueId, who) {
+    if (!_project || !issueId) return 0;
+    var n = 0;
+    function walk(d) {
+      (d.observations || []).forEach(function(o) {
+        ['responses', 'arenconReviews'].forEach(function(arrName) {
+          (o[arrName] || []).forEach(function(e) {
+            if (e && e._issueId === issueId && e.issuedOnInstance != null) {
+              e.wasIssuedOnInstance = e.issuedOnInstance;
+              e.issuedOnInstance = null;
+              delete e._issueId;
+              n++;
+            }
+          });
+        });
+      });
+    }
+    (_project.contractors || []).forEach(function(c) { (c.deficiencies || []).forEach(walk); });
+    (_project.generalDeficiencies || []).forEach(walk);
+    if (n > 0) {
+      _dirty = true;
+      _queueSave();
+      this._logIssueEvent({ issueId: issueId, action: 'unfreeze', count: n, by: who || null });
+      console.log('[CRB] Unfroze ' + n + ' comment(s) from issue ' + issueId + '.');
+      this._notify('crb', { action: 'unfrozen', count: n, issueId: issueId });
+    }
+    return n;
+  },
+
+  // How many comments a given issue currently holds frozen — so the warning can
+  // say what unfreezing will actually affect before the inspector commits.
+  countFrozenByIssue: function(issueId) {
+    if (!_project || !issueId) return 0;
+    var n = 0;
+    function walk(d) {
+      (d.observations || []).forEach(function(o) {
+        ['responses', 'arenconReviews'].forEach(function(arrName) {
+          (o[arrName] || []).forEach(function(e) {
+            if (e && e._issueId === issueId && e.issuedOnInstance != null) n++;
+          });
+        });
+      });
+    }
+    (_project.contractors || []).forEach(function(c) { (c.deficiencies || []).forEach(walk); });
+    (_project.generalDeficiencies || []).forEach(walk);
     return n;
   },
 
@@ -3465,7 +3559,14 @@ export var Model = {
     if (!_project || !importId) return { hard: 0, soft: 0, total: 0, kept: [] };
     var self = this;
     var hard = 0, soft = 0, kept = [], unreg = [];
-    var defics = (_project.deficiencies || []).concat(_project.generalDeficiencies || []);
+    // S509 FIX — the flat-array trap, again. This scanned _project.deficiencies,
+    // WHICH DOES NOT EXIST (deficiencies live under contractors[].deficiencies
+    // + generalDeficiencies). Result: undo only ever cleaned general items;
+    // anything imported under a contractor silently survived "undo". Same trap
+    // findLiveResponseByDedupe documents. Walk both trees, like stampThreadIssued.
+    var defics = [];
+    (_project.contractors || []).forEach(function(c) { (c.deficiencies || []).forEach(function(d) { defics.push(d); }); });
+    (_project.generalDeficiencies || []).forEach(function(d) { defics.push(d); });
     // A response has a reply if any entry (either array) points replyTo at it.
     function _hasReply(obs, entryId) {
       var arrs = [obs.responses || [], obs.arenconReviews || []], a, i;
@@ -3506,6 +3607,10 @@ export var Model = {
     if (Array.isArray(_project.exportIds) && unreg.length) {
       _project.exportIds = _project.exportIds.filter(function(k) { return unreg.indexOf(k) < 0; });
     }
+    // S509 (Mark): "cleanly delete" means CLEAN. Hard-removing an imported
+    // comment here must not leave a tombstone behind, or a later re-import of
+    // the same sheet would offer back a comment the person deliberately undid.
+    unreg.forEach(function(k) { try { self.clearCommentTomb(k); } catch (e) {} });
     // Mark the batch undone in the import log (kept, not deleted — audit trail).
     (_project.importLog || []).forEach(function(r) {
       if (r.importId === importId) { r.undone = true; r.undoneAt = new Date().toISOString(); }

@@ -414,3 +414,15 @@ _frtHelpAt
 .dfx-ed-help
 ART.hpPage
 electricHelpCards
+
+@ Issue soft-lock lifecycle + working-copy imports + DRAFT watermark. Issuing is asked BEFORE export generation; a working copy gets a grey diagonal DRAFT COPY watermark drawn into the PDF bytes of every page. Issuing soft-locks via a per-issue receipt (_issueId); unfreezeIssue releases ONLY that issue's comments and they remember (wasIssuedOnInstance). The issue log is IN-APP ONLY — never printed, never exported. Working-copy sheets import with a warning and a permanent WORKING COPY marker that DOES print. undoImportBatch walks contractors[].deficiencies AND generalDeficiencies (flat-scan defect fixed S509) and clears the batch's comment tombstones. Amendment notes NO LONGER print (_crbAmendNote retained unused, do not re-wire without Mark). (Mark, S509)
+stampThreadIssued
+unfreezeIssue
+countFrozenByIssue
+_logIssueEvent
+_ensureIssueLog
+getIssueEvents
+openIssueHistory
+onIssueHistory
+_issuedCopy
+workingCopy

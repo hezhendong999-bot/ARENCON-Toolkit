@@ -2207,6 +2207,9 @@ export var initDeficiencies = {
     // is a no-op when no panel is open and skips rebuilds while a textarea
     // inside the panel has focus.
     _refreshPinFocus();
+    // S508: respond-in-flow. DOM-only — see _respondFlowRenderHook. Placed last
+    // so the card it opens is the finished one, not a half-built list.
+    try { _respondFlowRenderHook(); } catch (e) { console.warn('[CRB] flow hook:', e); }
   }
 };
 
@@ -4365,6 +4368,229 @@ function _crbtRefresh(el, deficId) {
   try { if (deficId) _frtRefreshPinFocusIf(deficId); } catch (e) {}
 }
 
+// ══ S508 — RESPOND-IN-FLOW ═════════════════════════════════════════════════
+// After a contractor import commits AND the save settles, walk the inspector
+// through replying to each freshly imported comment, one at a time.
+//
+// Two hard constraints, both learned:
+//
+// 1. THE QUEUE IS DATA ONLY — {deficId, obsIdx}. Every submit triggers a full
+//    re-render that replaces the DOM wholesale, so anything holding a node
+//    reference would be dead on the second step.
+//
+// 2. IT DRIVES THE REAL COMPOSER. The flow opens the existing
+//    `crbt-addcomment` button; it does not build a parallel composer. A second
+//    composer would need its own photo staging, voice toggle, round maths and
+//    submit path — four things to drift out of step with the real one.
+//
+// Non-trapping by design: Skip this and Do the rest later are always present,
+// and because a re-render rebuilds the card from scratch, skipping always
+// leaves that round's normal Respond button exactly where it was.
+var _rifQueue = [];      // [{deficId, obsIdx}]
+var _rifIdx = 0;
+var _rifActive = false;
+var _rifRendering = false;   // guard: _rifRender must never be re-entered
+
+function _rifKey(t) { return String(t.deficId) + ':' + (t.obsIdx | 0); }
+
+// Render ONCE, from here only. The render hook below is deliberately DOM-only
+// and never calls render() — that is what keeps this non-re-entrant. If you
+// ever add a render() call inside the hook, you have rebuilt the loop.
+function _rifRender() {
+  if (_rifRendering) return;
+  _rifRendering = true;
+  try { initDeficiencies.render(); }
+  finally { _rifRendering = false; }
+}
+
+function _rifCurrent() { return _rifActive ? (_rifQueue[_rifIdx] || null) : null; }
+
+function _rifEnd(msg) {
+  _rifActive = false; _rifQueue = []; _rifIdx = 0;
+  _rifRemoveBar();
+  _rifRender();
+  if (msg) { try { toast(msg); } catch (e) {} }
+}
+
+function _rifAdvance() {
+  _rifIdx++;
+  if (_rifIdx >= _rifQueue.length) { _rifEnd('Imported comments \u2014 all done'); return; }
+  _rifOpenCurrent();
+}
+
+// Open the target observation through the EXISTING expand-one state, then
+// render once. The hook does the rest.
+function _rifOpenCurrent() {
+  var t = _rifCurrent();
+  if (!t) { _rifEnd(); return; }
+  try { _openObsKey = _obsKey(t.deficId, t.obsIdx); } catch (e) {}
+  _rifRender();
+}
+
+// Called by the submit handler BEFORE its own refresh, so the index has already
+// moved on by the time the hook runs and it opens the NEXT item, not this one.
+function _rifNoteSubmitted(deficId, obsIdx) {
+  var t = _rifCurrent();
+  if (!t) return false;
+  if (String(t.deficId) !== String(deficId) || (t.obsIdx | 0) !== (obsIdx | 0)) return false;
+  _rifIdx++;
+  if (_rifIdx >= _rifQueue.length) {
+    _rifActive = false; _rifQueue = []; _rifIdx = 0;
+    _rifRemoveBar();
+    return false;                    // the caller's own refresh is enough
+  }
+  var nx = _rifQueue[_rifIdx];
+  try { _openObsKey = _obsKey(nx.deficId, nx.obsIdx); } catch (e) {}
+  return true;
+}
+
+function _rifRemoveBar() {
+  var b = document.getElementById('crbflow-bar');
+  if (b) b.remove();
+}
+
+function _rifMountBar() {
+  var t = _rifCurrent();
+  if (!t) { _rifRemoveBar(); return; }
+  var bar = document.getElementById('crbflow-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'crbflow-bar';
+    // Inline-styled on purpose: this is transient chrome that exists only
+    // during a flow, and it must not depend on a stylesheet being cached.
+    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9400;' +
+      'background:#1B1A22;color:#f4f3f6;font-family:Calibri,sans-serif;' +
+      'padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;' +
+      'box-shadow:0 -2px 10px rgba(0,0,0,.25);';
+    bar.innerHTML =
+      '<div id="crbflow-label" style="flex:1 1 200px;font-size:14px;min-width:0;"></div>' +
+      '<button id="crbflow-skip" style="padding:10px 14px;min-height:44px;border-radius:6px;' +
+        'border:1px solid #6b6674;background:transparent;color:#f4f3f6;cursor:pointer;' +
+        'font-family:Calibri,sans-serif;">Skip this</button>' +
+      '<button id="crbflow-later" style="padding:10px 14px;min-height:44px;border-radius:6px;' +
+        'border:none;background:#9C2742;color:#fff;font-weight:bold;cursor:pointer;' +
+        'font-family:Calibri,sans-serif;">Do the rest later</button>';
+    document.body.appendChild(bar);
+    bar.querySelector('#crbflow-skip').addEventListener('click', function() {
+      _rifAdvance();
+    });
+    bar.querySelector('#crbflow-later').addEventListener('click', function() {
+      _rifEnd('Stopped \u2014 the remaining items keep their Respond button');
+    });
+  }
+  var lab = bar.querySelector('#crbflow-label');
+  if (lab) lab.textContent = 'Respond to imported comments \u2014 ' +
+    (_rifIdx + 1) + ' of ' + _rifQueue.length;
+}
+
+// DOM-ONLY. Runs at the end of every render. Never calls render().
+function _respondFlowRenderHook() {
+  if (!_rifActive) { _rifRemoveBar(); return; }
+  var t = _rifCurrent();
+  if (!t) { _rifRemoveBar(); return; }
+  _rifMountBar();
+  try {
+    var dsel = (window.CSS && CSS.escape) ? CSS.escape(String(t.deficId)) : String(t.deficId);
+    // Already composing on this item? Leave the inspector's typing alone.
+    if (document.querySelector('.crbt-composer')) return;
+    var btn = document.querySelector('[data-action="crbt-addcomment"][data-defic-id="' +
+      dsel + '"][data-obs-idx="' + (t.obsIdx | 0) + '"]');
+    if (btn) {
+      if (btn.scrollIntoView) btn.scrollIntoView({ block: 'center' });
+      btn.click();
+    }
+    // If the button isn't on screen (filtered out of the current view), the bar
+    // still shows and Skip still works — the flow never traps.
+  } catch (e) { console.warn('[CRB] respond-flow hook:', e); }
+}
+
+// Entry point, called by the import once its save has settled. Exposed on
+// window because the import module must not import the deficiencies UI.
+function _frtStartRespondFlow(targets) {
+  var seen = {}, q = [];
+  (targets || []).forEach(function(t) {
+    if (!t || !t.deficId) return;
+    var k = _rifKey(t);
+    if (seen[k]) return;                 // one step per observation, not per comment
+    seen[k] = 1;
+    q.push({ deficId: t.deficId, obsIdx: t.obsIdx | 0 });
+  });
+  if (!q.length) return false;
+  _rifQueue = q; _rifIdx = 0; _rifActive = true;
+  _rifOpenCurrent();
+  return true;
+}
+try { window._frtStartRespondFlow = _frtStartRespondFlow; } catch (e) {}
+
+// ══ S509 — ISSUE HISTORY + UNFREEZE (in-app ONLY) ══════════════════════════
+// Shows every issue/unfreeze event and lets an inspector lift the freeze from
+// ONE issue. ⚠ This log never leaves the app — no report, no export, no
+// contractor/client/AHJ surface, ever (Mark, S509).
+//
+// Exposed as window._frtIssueHistory; a visible button gets wired only after
+// Mark approves placement (demo-first rule). Console-callable meanwhile.
+//
+// Uses the shared engine's panel directly (dynamic import of the same module
+// the dialogs shim wraps): the shim's showDialog only renders a message string
+// and cannot host this list body.
+function openIssueHistory() {
+  import('../../../lib/ui/dialogEngine.js').then(function(mod) {
+    var Dlg = mod.Dlg;
+    var evts = (Model.getIssueEvents && Model.getIssueEvents()) || [];
+  var body = document.createElement('div');
+  body.style.cssText = 'font-family:Calibri,sans-serif;font-size:14px;max-height:52vh;overflow-y:auto;';
+  if (!evts.length) {
+    body.innerHTML = '<div style="color:#5E5B68;padding:8px 0;">No reports have been issued from this project yet.</div>';
+  }
+  evts.forEach(function(ev) {
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #eee;flex-wrap:wrap;';
+    var when = ''; try { when = new Date(ev.at).toLocaleString(); } catch (e) { when = ev.at || ''; }
+    var desc = (ev.action === 'issue')
+      ? ('<b>Issued</b> \u2014 FRT #' + (ev.instance || '?') + ' \u00b7 ' + (ev.count || 0) + ' comment(s) locked')
+      : ('<b>Unfrozen</b> \u2014 ' + (ev.count || 0) + ' comment(s) released');
+    row.innerHTML = '<div style="flex:1 1 220px;min-width:0;">' + desc +
+      '<div style="color:#928E9C;font-size:12px;">' + when + (ev.by ? (' \u00b7 by ' + ev.by) : '') + '</div></div>';
+    if (ev.action === 'issue') {
+      var still = (Model.countFrozenByIssue && Model.countFrozenByIssue(ev.issueId)) || 0;
+      if (still > 0) {
+        var btn = document.createElement('button');
+        btn.textContent = 'Unfreeze (' + still + ')';
+        btn.style.cssText = 'padding:8px 12px;min-height:40px;border-radius:6px;border:1px solid #C98A4A;background:#fff;color:#8a5a1e;cursor:pointer;font-family:Calibri,sans-serif;font-weight:700;';
+        btn.addEventListener('click', function() {
+          showConfirm('Unfreeze this issue?',
+            'The ' + still + ' comment(s) locked by this issue become editable again. ' +
+            'Comments locked by other issues are not touched. The app remembers they were once issued.'
+          ).then(function(yes) {
+            if (!yes) return;
+            var who = (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null;
+            var n = Model.unfreezeIssue(ev.issueId, who);
+            Model.saveNow();
+            initDeficiencies.render();
+            toast(n ? ('Unfrozen \u2014 ' + n + ' comment(s) editable again') : 'Nothing left to unfreeze');
+          });
+        });
+        row.appendChild(btn);
+      } else {
+        var done = document.createElement('span');
+        done.textContent = 'unfrozen';
+        done.style.cssText = 'color:#928E9C;font-size:12px;';
+        row.appendChild(done);
+      }
+    }
+    body.appendChild(row);
+  });
+    Dlg.panel({
+      title: 'Issue history (internal)',
+      accent: 'slate', icon: 'i',
+      buttons: [{ label: 'Close', kind: 'primary' }],
+      build: function(host) { host.appendChild(body); }
+    });
+  }).catch(function(e) { console.warn('[CRB] issue history:', e); });
+}
+try { window._frtIssueHistory = openIssueHistory; } catch (e) {}
+
+
 // ══ S477 (A2) — THREAD-COMMENT PHOTO STAGING ═══════════════════════════════
 // Keyed by the composer NODE, not by deficiency id: only one composer is open at
 // a time, and the buffer must die with the DOM node it belongs to (Cancel, or a
@@ -6150,6 +6376,9 @@ document.addEventListener('click', function(e) {
       try { _nPh = _crbtFlushPhotos(_sc, _sDefic, _sObs, _entry.id, _who); }
       catch (_phErr) { console.warn('[CRB] photo flush failed:', _phErr); }
       Model.saveNow();
+      // S508: advance the flow BEFORE refreshing, so the render that follows
+      // opens the NEXT item rather than re-opening the one just answered.
+      try { _rifNoteSubmitted(_sDefic, _sObs); } catch (_rifErr) { console.warn('[CRB] flow advance:', _rifErr); }
       _crbtRefresh(el, _sDefic);
       toast((_sReply ? 'Reply added' : 'Comment added')
             + (_nPh ? ' \u00B7 ' + _nPh + ' photo' + (_nPh === 1 ? '' : 's') : ''));
