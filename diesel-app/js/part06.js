@@ -2400,6 +2400,15 @@ function _dslVerdict(){
     return {status:'fail',icon:'\u2717',label:'FAIL',
       banner:'OVERALL: FAIL \u2014 '+f.perfMissed+' of '+f.perfTotal+' performance points did not meet the NFPA 20 criteria',
       desc:f.perfMissed+' of '+f.perfTotal+' pump performance points did not meet the NFPA 20 acceptance criteria (churn \u2264 140%, rated \u2265 100%, 150% \u2265 65% of rated net).'+aside};
+  // S509b (Mark): a report can never assert a result the pump was never tested for.
+  // Until at least one performance point is scored, the overall result is NOT CONFIRMED
+  // — not a pass, not a conditional pass. This sits BELOW the three fail rules on
+  // purpose: an outstanding deficiency, a missed gate or a consultant Fail are all
+  // conclusions the recorded data does support, and they still fail the report.
+  if(!f.perfTotal)
+    return {status:'review',icon:'\u26A0',label:'NOT CONFIRMED',
+      banner:'Not confirmed \u2014 no pump performance points have been scored',
+      desc:'No pump performance points have been scored, so the pump\'s performance has not been assessed. The overall result cannot be confirmed until the flow test is recorded.'+aside};
   if(f.checklistNo)
     return {status:'cond',icon:'\u26A0',label:'CONDITIONAL',
       banner:'OVERALL: CONDITIONAL \u2014 '+plural(f.checklistNo,'checklist item','checklist items')+' answered No',

@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-202607271900<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607280815';
+var CACHE_NAME = 'arencon-frt-202607280900';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -143,6 +143,43 @@ var APP_FILES = [
   'lib/ui/signaturePad.js',
   'lib/workers/imageWorkerHost.js',
   /* ═══ END GENERATED PRECACHE ═══ */
+
+  /* ═══ S509b — THE MODULAR DIESEL BUILD (diesel-app/**) ═══
+     The Hub points the field at this build, and NOT ONE of its files was in the
+     cache. A warm device never noticed: same-origin requests are network-first and
+     populate the runtime cache as a side effect of normal use, which is exactly why
+     airplane-mode testing kept passing. A COLD device — new tablet, cleared storage,
+     first open on a site with no signal — had nothing to fall back to and would fail
+     outright with no useful message.
+     diesel-app/index.html has been listed in tools/precache_extra.txt since S499, so
+     the intent was recorded; the generated block above simply never picked it up (its
+     scanner follows ES module graphs, and this build loads plain <script src> tags).
+     Every path below is verified present in the repo and is mirrored into
+     tools/precache_extra.txt, so a future `gen_precache.py --write` reproduces them
+     inside the generated block rather than dropping them.
+     CSS is listed WITHOUT its ?v= stamp on purpose: the offline fallback matches with
+     ignoreSearch, so the bare path serves any stamped request. */
+  'diesel-app/index.html',
+  'diesel-app/css/diesel-01.css',
+  'diesel-app/css/diesel-02.css',
+  'diesel-app/js/part01.js',
+  'diesel-app/js/part02.js',
+  'diesel-app/js/part03.js',
+  'diesel-app/js/part04.js',
+  'diesel-app/js/part05.js',
+  'diesel-app/js/part06.js',
+  'diesel-app/js/part07.js',
+  'diesel-app/js/part08.js',
+  'diesel-app/js/part09.js',
+  'diesel-app/js/part10.js',
+  'diesel-app/js/part11.js',
+  'diesel-app/js/part12.js',
+  'diesel-app/js/part13.js',
+  'diesel-app/js/part14.js',
+  'diesel-app/js/part15.js',
+  'diesel-app/js/part16.js',
+  'lib/calc/curveData.js',
+  'arencon-icon-192.png',
 ];
 
 // CDN assets to precache (pdf.js etc)

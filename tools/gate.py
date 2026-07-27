@@ -60,11 +60,64 @@ def css_symbols(text):
     return syms
 
 
+def _code_only(text):
+    """Blank out comments and string bodies with a character scan.
+
+    S509b — WHY THIS EXISTS. js_symbols used to strip block comments with
+    `re.sub(r'/\\*[\\s\\S]*?\\*/', '', text)`. That regex has no idea what a string
+    is, and this codebase is full of HTML built in JS:
+
+        inp.accept = 'image/*';
+
+    The `/*` inside that string opens a comment as far as the regex is concerned,
+    and everything up to the next real `*/` is deleted. Measured on the live
+    diesel-app/js/part06.js: two such strings swallowed spans of 64,341 and 40,119
+    characters. Roughly 125 real symbols — including ones on the protected
+    manifest — were invisible to the extractor, so their removal could never have
+    been caught. The gate reported "no silent deletions" over code it could not see.
+
+    This scanner tracks the states that actually matter (line comment, block
+    comment, and the three string kinds, with escapes) and blanks everything that
+    is not code, preserving offsets and newlines so the ^-anchored patterns still
+    line up. Regex literals are NOT parsed — a regex containing a quote could still
+    desync this scan, which is exactly why js_symbols also runs its patterns over
+    the RAW text and unions the two results. A false positive costs one line on a
+    kill list. A false negative costs a live bug on a tablet.
+    """
+    out = []
+    i, n = 0, len(text)
+    state = None          # None | 'line' | 'block' | "'" | '"' | '`'
+    while i < n:
+        c = text[i]
+        nxt = text[i + 1] if i + 1 < n else ''
+        if state is None:
+            if c == '/' and nxt == '/':
+                state = 'line'; out.append('  '); i += 2; continue
+            if c == '/' and nxt == '*':
+                state = 'block'; out.append('  '); i += 2; continue
+            if c in ('"', "'", '`'):
+                state = c; out.append(' '); i += 1; continue
+            out.append(c); i += 1; continue
+        if state == 'line':
+            if c == '\n': state = None; out.append('\n')
+            else: out.append(' ')
+            i += 1; continue
+        if state == 'block':
+            if c == '*' and nxt == '/':
+                state = None; out.append('  '); i += 2; continue
+            out.append('\n' if c == '\n' else ' '); i += 1; continue
+        # inside a string
+        if c == '\\':
+            out.append('  '); i += 2; continue
+        if c == state:
+            state = None; out.append(' '); i += 1; continue
+        out.append('\n' if c == '\n' else ' '); i += 1
+    return ''.join(out)
+
+
 def js_symbols(text):
     """Every named binding. Deliberately greedy: a false positive costs one line
     on the kill list; a false NEGATIVE costs a live bug on a tablet."""
-    text = re.sub(r'/\*[\s\S]*?\*/', '', text)
-    text = re.sub(r'^\s*//.*$', '', text, flags=re.M)
     syms = set()
     pats = [
         r'function\s+([A-Za-z_$][\w$]*)',            # function foo()
@@ -76,9 +129,14 @@ def js_symbols(text):
         # extractor, which made manifest protection for them an illusion.
         r'^\s*async\s+([A-Za-z_$][\w$]*)\s*\(',
     ]
-    for p in pats:
-        for m in re.finditer(p, text, flags=re.M):
-            syms.add(m.group(1))
+    # S509b: scan the code with strings/comments blanked, AND the raw text, and
+    # union. Either pass alone can be blinded by input it does not model; the
+    # union cannot lose a symbol that either pass can see. The cost is phantom
+    # symbols from commented-out code, which surface only as a kill-list line.
+    for source in (_code_only(text), text):
+        for p in pats:
+            for m in re.finditer(p, source, flags=re.M):
+                syms.add(m.group(1))
     # noise that is never a real symbol
     noise = {'if', 'for', 'while', 'switch', 'catch', 'return', 'function',
              'typeof', 'else', 'do', 'try'}

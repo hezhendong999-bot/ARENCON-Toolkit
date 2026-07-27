@@ -343,9 +343,6 @@ buildDeficItem
 renderGeneralDeficGroup
 buildGeneralDeficItem
 updateDeficSummary
-exportAllDeficCSV
-setDeficPriority
-toggleIAR
 _renderChecklistFindings
 deficiencies
 generalDeficiencies

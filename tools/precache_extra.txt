@@ -49,3 +49,33 @@ frt/fonts/Carlito-BoldItalic.ttf
 frt/vendor/fontkit.umd.min.js
 frt/fonts/Blair.ttf
 frt/fonts/LiberationSans-Regular.ttf
+
+# ── S509b: the MODULAR Diesel build's own assets ──────────────────────────
+# diesel-app/index.html was listed above from S499, but the generated block
+# never carried it or ANY of its files: the scanner follows ES module graphs
+# and this build loads plain <script src> tags, which it cannot see. Result —
+# the build the Hub sends the field to had zero cache coverage. A warm device
+# hid it (same-origin is network-first and fills the runtime cache during
+# normal use); a cold tablet on a site with no signal would simply fail.
+# CSS listed without its ?v= stamp — the offline fallback matches with
+# ignoreSearch, so the bare path serves any stamped request.
+diesel-app/css/diesel-01.css
+diesel-app/css/diesel-02.css
+diesel-app/js/part01.js
+diesel-app/js/part02.js
+diesel-app/js/part03.js
+diesel-app/js/part04.js
+diesel-app/js/part05.js
+diesel-app/js/part06.js
+diesel-app/js/part07.js
+diesel-app/js/part08.js
+diesel-app/js/part09.js
+diesel-app/js/part10.js
+diesel-app/js/part11.js
+diesel-app/js/part12.js
+diesel-app/js/part13.js
+diesel-app/js/part14.js
+diesel-app/js/part15.js
+diesel-app/js/part16.js
+lib/calc/curveData.js
+arencon-icon-192.png
