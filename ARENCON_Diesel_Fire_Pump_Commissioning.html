@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S462 (MODULARIZATION SWITCHOVER: the checklist engine, the whole lightbox viewer chrome, the photo mint path, and the signature pad now live in shared /lib/ modules instead of inline here — fix once, inherit everywhere. Checklist -> lib/ui/checklist.js (ArcChecklist). Lightbox -> lib/ui/lightbox.js (LightboxShell). Photo creation -> lib/data/photoMint.js (ArcPhoto.mint: ONE path, was 30 copy-pasted blocks; the R2 enqueue call stays BARE and never typeof-guarded, because a silent skip is exactly the photo-loss class). Signatures -> lib/ui/signaturePad.js (SigPad: vector strokes, forced dark ink in PDF export). Selection chrome -> lib/ui/markupSelection.js v2.2.0 (contour halo tracing each mark's true shape + high-visibility colours). All extracted VERBATIM from the S459 build and field-verified as a parallel deployed copy before this switchover; state (clState / customItems / deletedItems / _sigStrokes) stays host-owned. Keep this comment SINGLE and UNNESTED — a nested comment here once leaked visible page text, field report S316) -->
+<!-- ARENCON Diesel Fire Pump Commissioning — build S509c (marker brought current: it read S462 for ~45 sessions, so it could not tell anyone which build a tablet was actually running. S508-S509c shipped: page-break budget corrected to the full sheet; charts sized to printed proportions before capture; overall verdict rewritten to one engine shared by screen and report, NFPA 20 wording, no IAR; placard scan no longer forwards undecodable bytes. Historical note from the S462 build follows.) (MODULARIZATION SWITCHOVER: the checklist engine, the whole lightbox viewer chrome, the photo mint path, and the signature pad now live in shared /lib/ modules instead of inline here — fix once, inherit everywhere. Checklist -> lib/ui/checklist.js (ArcChecklist). Lightbox -> lib/ui/lightbox.js (LightboxShell). Photo creation -> lib/data/photoMint.js (ArcPhoto.mint: ONE path, was 30 copy-pasted blocks; the R2 enqueue call stays BARE and never typeof-guarded, because a silent skip is exactly the photo-loss class). Signatures -> lib/ui/signaturePad.js (SigPad: vector strokes, forced dark ink in PDF export). Selection chrome -> lib/ui/markupSelection.js v2.2.0 (contour halo tracing each mark's true shape + high-visibility colours). All extracted VERBATIM from the S459 build and field-verified as a parallel deployed copy before this switchover; state (clState / customItems / deletedItems / _sigStrokes) stays host-owned. Keep this comment SINGLE and UNNESTED — a nested comment here once leaked visible page text, field report S316) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -5661,7 +5661,7 @@ function removePumpCurvePoint(i) { pumpCurvePoints.splice(i,1); renderPumpCurveT
    Both the on-screen banner and the printed report call this. They must never diverge
    again — that is the whole point of the single function. */
 function _dslVerdictFacts(){
-  var f={outstanding:0,recs:0,records:0,perfTotal:0,perfMissed:0,checklistNo:0,anyResponse:false,tcc:''};
+  var f={outstanding:0,recs:0,records:0,perfTotal:0,perfMissed:0,perfRows:0,ratedNet:false,checklistNo:0,anyResponse:false,tcc:''};
   try{
     var allDefs=(typeof contractors!=='undefined'?contractors:[])
       .flatMap(function(n){ return (typeof deficiencies!=='undefined' && deficiencies[n])||[]; })
@@ -5699,6 +5699,28 @@ function _dslVerdictFacts(){
       });
     });
   }catch(_e4){}
+  // S509c: when nothing is scorable, say WHY. The verdict is unchanged by this —
+  // it only decides which NOT CONFIRMED sentence the report prints. A tech who
+  // recorded every reading but never entered the placard was previously told "no
+  // performance points have been scored", which reads as "you recorded nothing".
+  // The gates cannot be evaluated without the rated net (placard at the 100% row),
+  // so name that instead of blaming the readings.
+  try{
+    if(typeof stdData!=='undefined') stdData.forEach(function(r){
+      if(r && !isNaN(parseFloat(r.suction)) && !isNaN(parseFloat(r.discharge))) f.perfRows++;
+    });
+    if(typeof pldData!=='undefined') pldData.forEach(function(r){
+      if(!r) return;
+      var okNo=!isNaN(parseFloat(r.suc_no)) && !isNaN(parseFloat(r.dis_no));
+      var okW =!isNaN(parseFloat(r.suc_w))  && !isNaN(parseFloat(r.dis_w));
+      if(okNo||okW) f.perfRows++;
+    });
+    if(typeof _ratedNetFrom==='function'){
+      var rnStd=(typeof stdData!=='undefined')?_ratedNetFrom(stdData):null;
+      var rnPld=(typeof pldData!=='undefined')?_ratedNetFrom(pldData):null;
+      f.ratedNet=(rnStd!=null)||(rnPld!=null);
+    }
+  }catch(_e6){}
   try{ f.tcc=(document.getElementById('test-result')||{}).value||''; }catch(_e5){}
   return f;
 }
@@ -5736,7 +5758,12 @@ function _dslVerdict(){
   if(!f.perfTotal)
     return {status:'review',icon:'\u26A0',label:'NOT CONFIRMED',
       banner:'Not confirmed \u2014 no pump performance points have been scored',
-      desc:'No pump performance points have been scored, so the pump\'s performance has not been assessed. The overall result cannot be confirmed until the flow test is recorded.'+aside};
+      desc:(!f.perfRows
+             ? 'No pump performance readings have been recorded, so the pump\'s performance has not been assessed.'
+             : !f.ratedNet
+               ? 'Pump readings are recorded, but the rated pressure has not been entered from the pump placard at the 100% flow point. Without it the NFPA 20 acceptance criteria cannot be evaluated.'
+               : 'Pump readings are recorded, but none of them fall on a scored flow point (0%, 100% or 150% of rated flow), so the NFPA 20 acceptance criteria cannot be evaluated.')
+           +' The overall result cannot be confirmed until that is corrected.'+aside};
   if(f.checklistNo)
     return {status:'cond',icon:'\u26A0',label:'CONDITIONAL',
       banner:'OVERALL: CONDITIONAL \u2014 '+plural(f.checklistNo,'checklist item','checklist items')+' answered No',
@@ -15003,7 +15030,7 @@ function _downscaleForVision(img){
       im.onload=function(){
         try{
           var w=im.naturalWidth||im.width, h=im.naturalHeight||im.height;
-          if(!w||!h){ resolve(img); return; }
+          if(!w||!h){ resolve({__unreadable:true}); return; }   // S509c: decoded to nothing — same as a decode failure
           var scale=Math.min(1, MAX/Math.max(w,h));
           // skip re-encoding ONLY if already small AND already a VALID image type
           if(scale>=1 && _validType(img.media_type)){ resolve(img); return; }
@@ -15016,7 +15043,12 @@ function _downscaleForVision(img){
           else { resolve(img); }
         }catch(_e){ resolve(img); }
       };
-      im.onerror=function(){ resolve(img); };
+      // S509c: a photo the browser cannot decode used to resolve with its ORIGINAL
+      // bytes, which were then posted to the vision service — 400 upstream, 502 from
+      // the proxy, and a cryptic on-screen error the inspector could do nothing with
+      // (the S502 case: a soft-deleted PNG sitting in the 3-pt placard slot). Garbage
+      // in is never worth sending: mark it unreadable and let the caller say so.
+      im.onerror=function(){ resolve({__unreadable:true}); };
       im.src='data:'+(_validType(img.media_type)?img.media_type:'image/jpeg')+';base64,'+img.data;
     }catch(_e){ resolve(img); }
   });
@@ -15112,17 +15144,30 @@ function _placardScan(btn, mode){
   }
   var origTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Reading '+take.length+' placard photo'+(take.length>1?'s':'')+'\u2026'; }
   function done(){ if(btn){ btn.disabled=false; btn.textContent=origTxt; } }
-  var imgs=[], chain=Promise.resolve();
+  var imgs=[], _unreadable=0, chain=Promise.resolve();
   take.forEach(function(p){
     chain=chain.then(function(){ return new Promise(function(res){
       _placardPhotoData(p,function(img){
         if(!img){ res(); return; }
-        _downscaleForVision(img).then(function(small){ imgs.push(small||img); res(); });
+        _downscaleForVision(img).then(function(small){
+          if(small && small.__unreadable){ _unreadable++; }        // S509c: never queue undecodable bytes
+          else imgs.push(small||img);
+          res();
+        });
       });
     }); });
   });
   chain.then(function(){
-    if(!imgs.length){ done(); showToast('Placard photo not synced yet \u2014 reopen this report after it syncs, then scan.'); return; }
+    if(!imgs.length){
+      done();
+      // S509c: distinguish "not synced yet" from "this file cannot be read at all".
+      // Both used to print the sync message, which sent the inspector to wait for a
+      // sync that would never fix anything.
+      showToast(_unreadable
+        ? 'This placard photo could not be read on this device \u2014 take a new photo of the placard and scan again.'
+        : 'Placard photo not synced yet \u2014 reopen this report after it syncs, then scan.');
+      return;
+    }
     // S338: readUrlParams lives inside the CloudSync IIFE — call it via CloudSync so
     // projectNumber is actually populated (was bare readUrlParams() → undefined →
     // AI usage log showed '-' for project #).

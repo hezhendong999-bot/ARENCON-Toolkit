@@ -770,7 +770,7 @@ function _downscaleForVision(img){
       im.onload=function(){
         try{
           var w=im.naturalWidth||im.width, h=im.naturalHeight||im.height;
-          if(!w||!h){ resolve(img); return; }
+          if(!w||!h){ resolve({__unreadable:true}); return; }   // S509c: decoded to nothing — same as a decode failure
           var scale=Math.min(1, MAX/Math.max(w,h));
           // skip re-encoding ONLY if already small AND already a VALID image type
           if(scale>=1 && _validType(img.media_type)){ resolve(img); return; }
@@ -783,7 +783,12 @@ function _downscaleForVision(img){
           else { resolve(img); }
         }catch(_e){ resolve(img); }
       };
-      im.onerror=function(){ resolve(img); };
+      // S509c: a photo the browser cannot decode used to resolve with its ORIGINAL
+      // bytes, which were then posted to the vision service — 400 upstream, 502 from
+      // the proxy, and a cryptic on-screen error the inspector could do nothing with
+      // (the S502 case: a soft-deleted PNG sitting in the 3-pt placard slot). Garbage
+      // in is never worth sending: mark it unreadable and let the caller say so.
+      im.onerror=function(){ resolve({__unreadable:true}); };
       im.src='data:'+(_validType(img.media_type)?img.media_type:'image/jpeg')+';base64,'+img.data;
     }catch(_e){ resolve(img); }
   });
@@ -879,17 +884,30 @@ function _placardScan(btn, mode){
   }
   var origTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Reading '+take.length+' placard photo'+(take.length>1?'s':'')+'\u2026'; }
   function done(){ if(btn){ btn.disabled=false; btn.textContent=origTxt; } }
-  var imgs=[], chain=Promise.resolve();
+  var imgs=[], _unreadable=0, chain=Promise.resolve();
   take.forEach(function(p){
     chain=chain.then(function(){ return new Promise(function(res){
       _placardPhotoData(p,function(img){
         if(!img){ res(); return; }
-        _downscaleForVision(img).then(function(small){ imgs.push(small||img); res(); });
+        _downscaleForVision(img).then(function(small){
+          if(small && small.__unreadable){ _unreadable++; }        // S509c: never queue undecodable bytes
+          else imgs.push(small||img);
+          res();
+        });
       });
     }); });
   });
   chain.then(function(){
-    if(!imgs.length){ done(); showToast('Placard photo not synced yet \u2014 reopen this report after it syncs, then scan.'); return; }
+    if(!imgs.length){
+      done();
+      // S509c: distinguish "not synced yet" from "this file cannot be read at all".
+      // Both used to print the sync message, which sent the inspector to wait for a
+      // sync that would never fix anything.
+      showToast(_unreadable
+        ? 'This placard photo could not be read on this device \u2014 take a new photo of the placard and scan again.'
+        : 'Placard photo not synced yet \u2014 reopen this report after it syncs, then scan.');
+      return;
+    }
     // S338: readUrlParams lives inside the CloudSync IIFE — call it via CloudSync so
     // projectNumber is actually populated (was bare readUrlParams() → undefined →
     // AI usage log showed '-' for project #).

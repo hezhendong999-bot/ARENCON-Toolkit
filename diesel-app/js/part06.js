@@ -2333,7 +2333,7 @@ function removePumpCurvePoint(i) { pumpCurvePoints.splice(i,1); renderPumpCurveT
    Both the on-screen banner and the printed report call this. They must never diverge
    again — that is the whole point of the single function. */
 function _dslVerdictFacts(){
-  var f={outstanding:0,recs:0,records:0,perfTotal:0,perfMissed:0,checklistNo:0,anyResponse:false,tcc:''};
+  var f={outstanding:0,recs:0,records:0,perfTotal:0,perfMissed:0,perfRows:0,ratedNet:false,checklistNo:0,anyResponse:false,tcc:''};
   try{
     var allDefs=(typeof contractors!=='undefined'?contractors:[])
       .flatMap(function(n){ return (typeof deficiencies!=='undefined' && deficiencies[n])||[]; })
@@ -2371,6 +2371,28 @@ function _dslVerdictFacts(){
       });
     });
   }catch(_e4){}
+  // S509c: when nothing is scorable, say WHY. The verdict is unchanged by this —
+  // it only decides which NOT CONFIRMED sentence the report prints. A tech who
+  // recorded every reading but never entered the placard was previously told "no
+  // performance points have been scored", which reads as "you recorded nothing".
+  // The gates cannot be evaluated without the rated net (placard at the 100% row),
+  // so name that instead of blaming the readings.
+  try{
+    if(typeof stdData!=='undefined') stdData.forEach(function(r){
+      if(r && !isNaN(parseFloat(r.suction)) && !isNaN(parseFloat(r.discharge))) f.perfRows++;
+    });
+    if(typeof pldData!=='undefined') pldData.forEach(function(r){
+      if(!r) return;
+      var okNo=!isNaN(parseFloat(r.suc_no)) && !isNaN(parseFloat(r.dis_no));
+      var okW =!isNaN(parseFloat(r.suc_w))  && !isNaN(parseFloat(r.dis_w));
+      if(okNo||okW) f.perfRows++;
+    });
+    if(typeof _ratedNetFrom==='function'){
+      var rnStd=(typeof stdData!=='undefined')?_ratedNetFrom(stdData):null;
+      var rnPld=(typeof pldData!=='undefined')?_ratedNetFrom(pldData):null;
+      f.ratedNet=(rnStd!=null)||(rnPld!=null);
+    }
+  }catch(_e6){}
   try{ f.tcc=(document.getElementById('test-result')||{}).value||''; }catch(_e5){}
   return f;
 }
@@ -2408,7 +2430,12 @@ function _dslVerdict(){
   if(!f.perfTotal)
     return {status:'review',icon:'\u26A0',label:'NOT CONFIRMED',
       banner:'Not confirmed \u2014 no pump performance points have been scored',
-      desc:'No pump performance points have been scored, so the pump\'s performance has not been assessed. The overall result cannot be confirmed until the flow test is recorded.'+aside};
+      desc:(!f.perfRows
+             ? 'No pump performance readings have been recorded, so the pump\'s performance has not been assessed.'
+             : !f.ratedNet
+               ? 'Pump readings are recorded, but the rated pressure has not been entered from the pump placard at the 100% flow point. Without it the NFPA 20 acceptance criteria cannot be evaluated.'
+               : 'Pump readings are recorded, but none of them fall on a scored flow point (0%, 100% or 150% of rated flow), so the NFPA 20 acceptance criteria cannot be evaluated.')
+           +' The overall result cannot be confirmed until that is corrected.'+aside};
   if(f.checklistNo)
     return {status:'cond',icon:'\u26A0',label:'CONDITIONAL',
       banner:'OVERALL: CONDITIONAL \u2014 '+plural(f.checklistNo,'checklist item','checklist items')+' answered No',
