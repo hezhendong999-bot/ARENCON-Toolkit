@@ -403,6 +403,59 @@ function _renderDrawingWithSinglePin(dwgDataUrl,pinData,callback,isSiteRecord,re
   });
 }
 
+// ══ S511 (Mark) — TILED SHEETS EXPORT AT FULL RESOLUTION ══════════════════
+// Root cause of "illegible drawings even at max quality": a tile-rendered
+// sheet has NO local raster, NO drawingBlobs entry and usually NO r2Url, so
+// the appendix fell through every source and printed whatever image existed —
+// the 400px card thumbnail (~23 DPI on 11x17). No quality tier could touch
+// that. The fix: at export, rebuild the sheet from the Azure tile pyramid —
+// fetch the manifest, pick the highest level within a memory budget, fetch its
+// tiles (bounded concurrency), stitch onto one canvas, and hand a PNG data
+// URL to the normal pipeline. One lossy encode total (the final page JPEG).
+function _stitchTiledDrawing(info){
+  if(!info||!info.tileManifestUrl||!info.tileServer)return Promise.resolve(null);
+  var T=512, BUDGET=60e6;   // px budget: ~240MB RGBA transient, desktop-export scale
+  return fetch(info.tileManifestUrl).then(function(r){if(!r.ok)throw new Error('manifest '+r.status);return r.json();})
+  .then(function(man){
+    var pages=man.pages||[];if(!pages.length)throw new Error('empty manifest');
+    var pg=null,pn=info.pageNumber;
+    for(var i=0;i<pages.length;i++){if(pn!=null&&pages[i].pageNumber===pn){pg=pages[i];break;}}
+    if(!pg)pg=pages[0];
+    var lv=pg.levels||[];if(!lv.length)throw new Error('no levels');
+    var pick=0;
+    for(var L=0;L<lv.length;L++){if(lv[L].width*lv[L].height<=BUDGET)pick=L;}
+    var lvl=lv[pick];
+    var cols=Math.ceil(lvl.width/T),rows=Math.ceil(lvl.height/T);
+    var canvas=document.createElement('canvas');canvas.width=lvl.width;canvas.height=lvl.height;
+    var ctx=canvas.getContext('2d');if(!ctx)throw new Error('canvas ctx (memory)');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,lvl.width,lvl.height);
+    var reqs=[];
+    for(var rr=0;rr<rows;rr++)for(var cc=0;cc<cols;cc++)reqs.push({c:cc,r:rr});
+    var base=info.tileServer+'/'+man.pid+'/tiles/'+man.drawingId+'/page-'+pg.pageNumber+'/level-'+pick+'/';
+    var qi=0,fails=0;
+    function one(){
+      if(qi>=reqs.length)return Promise.resolve();
+      var t=reqs[qi++];
+      return new Promise(function(res){
+        var im=new Image();im.crossOrigin='anonymous';
+        im.onload=function(){try{ctx.drawImage(im,t.c*T,t.r*T);}catch(_d){fails++;}res();};
+        im.onerror=function(){fails++;res();};
+        im.src=base+t.c+'-'+t.r+'.webp';
+      }).then(one);
+    }
+    var lanes=[];for(var k=0;k<8;k++)lanes.push(one());
+    return Promise.all(lanes).then(function(){
+      // A few missing tiles print as white patches — tolerable. A mostly-missing
+      // sheet is NOT: fall back rather than ship a blank page.
+      if(fails>reqs.length*0.25)throw new Error(fails+'/'+reqs.length+' tiles failed');
+      var du=canvas.toDataURL('image/png');
+      canvas.width=1;canvas.height=1;
+      console.log('[S511] stitched tiled sheet '+man.drawingId+' p'+pg.pageNumber+' at level '+pick+' ('+lvl.width+'x'+lvl.height+', '+fails+' tile fails)');
+      return du;
+    });
+  }).catch(function(e){console.error('[S511] tile stitch failed, appendix will use best available image:',e);return null;});
+}
+
 function _renderDrawingWithPins(dwgDataUrl,pins,callback,pageSize,redactions,drawingId){
   _getDecodedDrawing(dwgDataUrl).then(function(img){
     if(!img){callback(dwgDataUrl);return;}
@@ -3605,14 +3658,14 @@ if(isField){
   var dwgMap={};
   _appendixImgJobs.forEach(function(job){
     if(!dwgMap[job.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===job.drawingId;});
-      if(dObj)dwgMap[job.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null,redactions:(dObj.redactions||[])};}
+      if(dObj)dwgMap[job.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null,redactions:(dObj.redactions||[]),tileManifestUrl:dObj.tileManifestUrl||null,tileServer:dObj.tileServer||null,pageNumber:dObj.pageNumber||dObj.tilePage||null};}
   });
   // Also collect per-card minimap pins from ALL report rows (every body card with
   // a drawing pin has an mm-* image), independent of appendix membership.
   var _mmPins=[];
   reportDefs.forEach(function(r){if(r.d&&r.d.drawingId&&r.d.pinX!=null)_mmPins.push(r);});
   // Ensure every minimap drawing's dataUrl is loaded too (not just appendix drawings).
-  _mmPins.forEach(function(r){if(!dwgMap[r.d.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===r.d.drawingId;});if(dObj)dwgMap[r.d.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null,redactions:(dObj.redactions||[])};}});
+  _mmPins.forEach(function(r){if(!dwgMap[r.d.drawingId]){var dObj=(p.drawings||[]).find(function(x){return x.id===r.d.drawingId;});if(dObj)dwgMap[r.d.drawingId]={dataUrl:dObj.dataUrl||null,r2Url:dObj.r2Url||null,redactions:(dObj.redactions||[]),tileManifestUrl:dObj.tileManifestUrl||null,tileServer:dObj.tileServer||null,pageNumber:dObj.pageNumber||dObj.tilePage||null};}});
   var dIds=Object.keys(dwgMap);
   _armMinimapsReady(); // S402: pending until the render chain below finishes
   if(!dIds.length){ _signalMinimapsReady(); }
@@ -3622,6 +3675,8 @@ if(isField){
       fp.push(IDB.get('drawingBlobs',id).then(function(rec){
         if(rec&&rec.dataBlob&&rec.dataBlob.size>0){return new Promise(function(res){var rd=new FileReader();rd.onload=function(){info.dataUrl=rd.result;res();};rd.onerror=function(){res();};rd.readAsDataURL(rec.dataBlob);});}
         else if(info.r2Url){return fetch(info.r2Url).then(function(r){return r.blob();}).then(function(b){return new Promise(function(res){var rd=new FileReader();rd.onload=function(){info.dataUrl=rd.result;res();};rd.onerror=function(){res();};rd.readAsDataURL(b);});});}
+        // S511: TILED sheet — no raster anywhere. Stitch from the tile pyramid.
+        else if(info.tileManifestUrl&&info.tileServer){return _stitchTiledDrawing(info).then(function(du){if(du)info.dataUrl=du;});}
       }).catch(function(){}));
     });
     Promise.all(fp).then(function(){

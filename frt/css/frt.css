@@ -11641,3 +11641,12 @@ body.dark-mode #dv-seal-btn.seal-armed{background:var(--arencon,#C9476A) !import
 #dv-seal-banner b{font-weight:700;}
 body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
 @media (max-width:640px){#dv-seal-banner{font-size:11.5px;white-space:normal;max-width:88vw;text-align:center;}}
+
+/* ═══ S511 (Mark) — seal edit chrome un-clipped ═══
+   A late contact-sheet rule set overflow:hidden on the bare .seal-mark
+   selector, which also caught the VIEWER's marks — clipping the ✕ and
+   "⧉ All pages" buttons that S498c deliberately floats OUTSIDE the box.
+   The clip is correct for contact-sheet/mini contexts (label containment);
+   in the viewer layer the chrome must overhang. Scoped override, clip kept
+   everywhere else. The label keeps its own containment via the box bounds. */
+#dv-seal-layer .seal-mark{overflow:visible;}

@@ -429,3 +429,6 @@ workingCopy
 
 @ Header Help label S512 (Mark, explicit go on the LOCKED headerEngine2.js). The word "Help" is rendered by CSS on the button (#btn-help::after), NOT in the icon HTML — every host rewrites that HTML when it toggles the unseen dot via setControlIcon('help', ...), so a label placed there would vanish on the first dot flip. Do not move it into the icon strings. The engine now applies each action's configured id to icon buttons (S512); the stylesheet's #btn-help rules depend on that and had never matched anything before it. Measured cost: Help folds to the drawer at 1131px instead of 1098px.
 #btn-help::after
+
+@ S511 drawing fidelity + seal visibility (Mark). Tiled sheets stitch full-res from the Azure tile pyramid at export (_stitchTiledDrawing) — before this they printed from the 400px thumbnail. Uploads store PNG (one lossy generation total) at an 8192px cap (iPhone ceiling obsolete; 24x36 now 227 DPI). Seal poll heals painted-vs-data mismatch (covers no longer vanish on same-sheet reopen). #dv-seal-layer .seal-mark{overflow:visible} keeps the floating edit chrome unclipped. Export DPI labels state the achievable ceiling per sheet size.
+_stitchTiledDrawing

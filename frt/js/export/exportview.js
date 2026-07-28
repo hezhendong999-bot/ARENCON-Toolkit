@@ -330,10 +330,10 @@ export var initExportView = {
       + '<option value="max">Maximum \u2014 2200 px</option>'
       + '</select></div>';
     h += '<div class="exv-fld" id="exv-dwgq-fld"><label>Drawing detail</label><select id="exv-dwgquality">'
-      + '<option value="balanced">Balanced \u2014 175 DPI</option>'
-      + '<option value="high">High \u2014 250 DPI</option>'
-      + '<option value="max">Maximum \u2014 300 DPI</option>'
-      + '</select></div>';
+      + '<option value="balanced">Balanced</option>'
+      + '<option value="high">High</option>'
+      + '<option value="max">Maximum</option>'
+      + '</select><div id="exv-dwgq-note" class="exv-hint" style="margin-top:4px;font-size:11px;color:#5E5B68;"></div></div>';
     // (S496c: the Options header now lives in _optsHtml, left column)
     // S479i: _crbAdmin restored — Mark's preview diagnostic is back (S479h
     // wrongly retired it as a scope expansion; the tool is how Mark checks
@@ -599,6 +599,37 @@ export var initExportView = {
     }
     function _exqPaint(){
       var def = _exqTierDpi(), anyPinned = false;
+      // ── S511 (Mark): tell the truth about DPI. The export scales a stored
+      // drawing by min(1, …) — it can shrink but NEVER enlarge. Drawings are
+      // rasterised on upload at 4x the sheet's own size, capped at 6144 px on
+      // the long edge, so each sheet size has a hard ceiling:
+      //   Letter / 11x17 -> 288 DPI      24x36 -> 171 DPI      30x42 -> 146 DPI
+      // Labelling the top tier "300 DPI" was therefore wrong everywhere, and on
+      // 24x36 all three tiers produce an IDENTICAL file. The picker now states
+      // the achievable number instead of the requested one.
+      try{
+        var _szEl = ov.querySelector('#exv-drawpage');
+        var _sz = (_szEl && _szEl.value) || '11x17';
+        var _dims = { 'letter':[8.5,11], '11x17':[11,17], '24x36':[24,36] }[_sz] || [11,17];
+        var _hi = Math.min(4.0, 6144/(_dims[0]*72), 6144/(_dims[1]*72));
+        var _ceil = Math.round(_hi * 72);
+        var _note = ov.querySelector('#exv-dwgq-note');
+        var _qd = ov.querySelector('#exv-dwgquality');
+        if (_qd) {
+          [['balanced',175],['high',250],['max',300]].forEach(function(t){
+            var o = _qd.querySelector('option[value="'+t[0]+'"]');
+            if (!o) return;
+            var eff = Math.min(t[1], _ceil);
+            var label = t[0]==='balanced'?'Balanced':(t[0]==='high'?'High':'Maximum');
+            o.textContent = label + ' \u2014 ' + eff + ' DPI' + (eff < t[1] ? ' (sheet limit)' : '');
+          });
+        }
+        if (_note) {
+          _note.textContent = (_ceil < 175)
+            ? ('This sheet size tops out at ' + _ceil + ' DPI \u2014 all three settings produce the same file.')
+            : ('Stored drawings for this sheet size top out at ' + _ceil + ' DPI.');
+        }
+      }catch(_dq){}
       Array.prototype.forEach.call(ov.querySelectorAll('[data-exq-sl]'), function(sl){
         var id = sl.getAttribute('data-exq-sl');
         var pinned = (_exqDpi[id] != null);
