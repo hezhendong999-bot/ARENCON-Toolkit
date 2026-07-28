@@ -7657,16 +7657,45 @@ function _r2PrefetchPhotos(){
   if(typeof flowTestPhotosPld!=='undefined')_scan(flowTestPhotosPld);
   if(!queue.length)return;
   var total=queue.length,done=0,fail=0;
-  showToast('\uD83D\uDCE5 Caching for offline 0/'+total+'\u2026',60000);
+  /* S518 — TOAST SPAM ON EVERY OPEN. This fired showToast() PER PHOTO with a
+     60-SECOND duration, and toasts stack rather than replace: a report with
+     eight cached photos put eight 60s banners on screen, which on a phone
+     covers most of the tool every single time it opens. It also violates the
+     standing rule — background operations get a subtle indicator, never
+     toasts. The prefetch itself is correct and stays; only its reporting
+     changes. One quiet header pill (the same surface sync already uses),
+     removed when finished, and a single 3s toast ONLY if something actually
+     failed — a failure is news, routine caching is not. */
+  var _pillId='r2-prefetch-pill';
+  function _pill(txt){
+    try{
+      var host=document.getElementById('cloud-status')||document.querySelector('.app-header');
+      if(!host) return;
+      var el=document.getElementById(_pillId);
+      if(!txt){ if(el&&el.parentNode) el.parentNode.removeChild(el); return; }
+      if(!el){
+        el=document.createElement('span');
+        el.id=_pillId;
+        el.style.cssText='margin-left:8px;font:600 11px Calibri,sans-serif;color:var(--ink-3,#928E9C);'
+          +'border:1px solid rgba(146,142,156,.35);border-radius:20px;padding:2px 8px;white-space:nowrap;opacity:.85;';
+        host.appendChild(el);
+      }
+      el.textContent=txt;
+    }catch(_){}
+  }
+  _pill('\u2193 offline 0/'+total);
   function _next(){
     if(!queue.length){
-      if(done)showToast('\u2705 '+done+' item'+(done!==1?'s':'')+' offline ready'+(fail?' ('+fail+' failed)':''),3000);
+      if(done+fail>=total){
+        _pill('');
+        if(fail) showToast('\u26A0 '+fail+' photo'+(fail!==1?'s':'')+' could not be cached for offline use',3000);
+      }
       return;
     }
     var p=queue.shift();
     fetch(p.r2Url).then(function(r){if(!r.ok)throw new Error(r.status);return r.blob();}).then(function(blob){
       var reader=new FileReader();
-      reader.onload=function(){p.d=reader.result;done++;showToast('\uD83D\uDCE5 Caching for offline '+done+'/'+total+'\u2026',60000);_next();};
+      reader.onload=function(){p.d=reader.result;done++;_pill('\u2193 offline '+done+'/'+total);_next();};
       reader.onerror=function(){fail++;_next();};
       reader.readAsDataURL(blob);
     }).catch(function(){fail++;_next();});
