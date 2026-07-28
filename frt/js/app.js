@@ -24,7 +24,6 @@ import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return pa
 import { Auth } from './shared/auth.js';
 import { buildHeader2 } from '../../lib/ui/headerEngine2.js';   /* S488 Wave 3: sealed header */
 import { frtHeaderConfig } from '../../lib/ui/headerConfigs.js';
-import { upgradeBackButton, watchBackTheme } from '../../lib/ui/backButton.js'; // S521: THE shared back button (sealed)
 /* S505g: Help & guide. Same shared engine and same sealed dialog the Hub and
    Diesel use — one implementation. Importing frtHelpCards runs its registerHelp()
    once, under the scope 'FRT'; the panel therefore shows FRT cards only (Mark's
@@ -2064,13 +2063,6 @@ function wireEvents() {
 
   // Drawing viewer close
   var dvClose = document.getElementById('dv-close');
-  /* S521 (Mark): the viewer back is now THE SAME BUTTON as the header back —
-     rendered from lib/ui/backButton.js inside a SEALED shadow root, so no page
-     stylesheet can reach it. Upgrading keeps the element and its id, and click
-     handling here and in viewer.js is delegated on #dv-close (composed events
-     retarget to the shadow host), so every existing handler keeps working. */
-  try { dvClose = upgradeBackButton(dvClose) || dvClose; watchBackTheme(); }
-  catch (e) { console.warn('[S521] shared back button not applied:', e); }
   if (dvClose) dvClose.addEventListener('click', function() {
     var overlay = document.getElementById('drawing-viewer-overlay');
     if (overlay) overlay.classList.remove('open');

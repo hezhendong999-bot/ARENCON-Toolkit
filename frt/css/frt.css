@@ -267,16 +267,8 @@ body.dark-mode .dv-nav-group{background:rgba(0,0,0,.25);}
 body.dark-mode .dv-nav-group .dv-nav-btn{color:white;}
 .dv-nav-group .dv-nav-btn:hover{background:rgba(0,0,0,.08);}
 body.dark-mode .dv-nav-group .dv-nav-btn:hover{background:rgba(255,255,255,.2);}
-.dv-toolbar button{padding:0 10px;border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;min-width:44px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:5px;}.dv-toolbar button:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}.dv-toolbar button.active{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
-body.dark-mode .dv-toolbar button{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}body.dark-mode .dv-toolbar button:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+.dv-toolbar button{background:rgba(255,255,255,.08);border:1px solid var(--b-chrome-rule);color:var(--b-chrome-fg);padding:0 10px;border-radius:7px;font-family:Calibri,sans-serif;font-size:calc(12px + var(--ts));font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;min-width:44px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:5px;}.dv-toolbar button:hover{border-color:var(--b-bar-accent);background:rgba(255,255,255,.16);}.dv-toolbar button.active{background:var(--b-bar-accent);color:#fff;}
+body.dark-mode .dv-toolbar button{background:rgba(255,255,255,.12);color:white;}body.dark-mode .dv-toolbar button:hover{background:rgba(255,255,255,.25);}
 .dv-main{display:flex;flex:1;overflow:hidden;position:relative;}
 .dv-canvas-area{flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}.dv-canvas-area.panning{cursor:grabbing;}
 @media(max-width:900px){.dv-canvas-area{padding-bottom:0;}}
@@ -2517,7 +2509,7 @@ body.dark-mode .photos-sel-status { background: rgba(156,39,66,.25); color: #e8a
 }
 
 /* Session 72 — Toolbar group separators (add class dv-sep between button groups) */
-.dv-toolbar .dv-sep{width:1px;align-self:stretch;margin:4px 2px;flex-shrink:0;}
+.dv-toolbar .dv-sep{width:1px;align-self:stretch;background:var(--b-bar-rule);margin:4px 2px;flex-shrink:0;}
 body.dark-mode .dv-toolbar .dv-sep{background:rgba(255,255,255,.15);}
 
 /* Session 72 — Floating action buttons (undo/redo) over canvas */
@@ -2561,6 +2553,8 @@ body.dark-mode .drawing-viewer-overlay .dv-toolbar{background:var(--b-chrome-bg)
 
 /* Close button — dark slate pill */
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
+  background:transparent !important;
+  color:var(--b-chrome-fg) !important;
   border-radius:6px;
   padding:0 14px;
   min-height:40px;
@@ -2572,16 +2566,21 @@ body.dark-mode .drawing-viewer-overlay .dv-toolbar{background:var(--b-chrome-bg)
 
 /* All other toolbar buttons — dark slate squares with burgundy hover border */
 .drawing-viewer-overlay .dv-toolbar button{
+  background:var(--b-pill-bg);
+  color:#fff;
+  border:1px solid transparent;
   border-radius:6px;
   min-height:40px;
   min-width:40px;
   font-weight:500;
 }
 .drawing-viewer-overlay .dv-toolbar button:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:#36425c;
+  border-color:#9C2742;
 }
 .drawing-viewer-overlay .dv-toolbar button.active{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:#9C2742;
+  color:#fff;
 }
 .drawing-viewer-overlay .dv-toolbar .dv-tasks-toggle.active{
   background:#9C2742 !important;
@@ -2718,6 +2717,9 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   /* S82: on curved-edge Samsung devices the Edge Panel handle clips the rightmost
      toolbar button (moon/dark toggle). max() above ensures ≥16px clearance. */
   .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
+    background:transparent !important;
+    border:1px solid transparent !important;
+    color:var(--b-chrome-fg) !important;
     padding:0 12px 0 0 !important;
     border-radius:6px !important;
     font-family:Calibri,sans-serif !important;
@@ -2732,11 +2734,12 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   }
   /* S79: Tasks button on mobile should NOT show .active burgundy fill (match PC look) */
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+    background:rgba(255,255,255,.12) !important;
+    color:#fff !important;
+  }
   body.dark-mode .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+    background:rgba(255,255,255,.2) !important;
+  }
   /* Dropdown menus: ensure they surface above canvas/sidebar on mobile */
   .drawing-viewer-overlay #dv-layers-menu,
   .drawing-viewer-overlay #dv-more-menu{z-index:9600 !important;}
@@ -3008,9 +3011,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 }
 .drawing-viewer-overlay .dv-toolbar #dv-title,
 .drawing-viewer-overlay .dv-toolbar .dv-title{color:var(--b-chrome-fg);}
-.drawing-viewer-overlay .dv-toolbar button{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+.drawing-viewer-overlay .dv-toolbar button{color:var(--b-chrome-fg);}
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn{
   background:transparent;color:var(--b-chrome-fg);border:none;border-radius:6px;
 }
@@ -3021,16 +3022,15 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle,
-.drawing-viewer-overlay .dv-toolbar #dv-rename-btn{border-radius:6px;
+.drawing-viewer-overlay .dv-toolbar #dv-rename-btn{
+  background:var(--b-pill-bg);color:#fff;border:1px solid var(--b-pill-bd);border-radius:6px;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-prev:hover,
 .drawing-viewer-overlay .dv-toolbar #dv-next:hover,
 .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:hover,
 .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:hover,
 .drawing-viewer-overlay .dv-toolbar #dv-more-btn:hover,
-.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{background:#9C2742;}
 
 /* === Session 75 Push 5 — Tasks bottom sheet (mobile only) === */
 @media (max-width: 900px){
@@ -3302,11 +3302,17 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
     display:flex !important;
     align-items:center;justify-content:center;gap:6px;
+    width:calc(100% - 8px);
     margin:6px 4px 10px;
-    cursor:pointer}
-  .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{
-  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
-}
+    padding:8px 6px;
+    background:var(--b-chrome-btn) !important;
+    color:var(--b-chrome-fg) !important;
+    border:1px solid var(--b-chrome-btn-bd) !important;
+    border-radius:6px;
+    font-family:Calibri,sans-serif;font-size:13px;font-weight:500;
+    cursor:pointer;
+  }
+  .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
   /* Bigger size/opacity steppers in sidebar */
   .drawing-viewer-overlay #dv-sidebar-tools button.mk-size-btn,
   .drawing-viewer-overlay #dv-sidebar-tools button.mk-opacity-btn,
@@ -3325,14 +3331,16 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 /* Revert Push 7: bring #dv-close back to top toolbar */
 @media (min-width: 901px){
   .drawing-viewer-overlay .dv-toolbar #dv-close{
-    display:inline-flex !important;align-items:center;justify-content:center;margin:0 0 0 6px !important}
-  .drawing-viewer-overlay .dv-toolbar #dv-close:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+    display:inline-flex !important;align-items:center;justify-content:center;
+    background:transparent !important;color:var(--b-chrome-fg) !important;
+    border:1px solid transparent !important;border-radius:6px !important;
+    padding:0 12px !important;margin:0 0 0 6px !important;width:auto !important;
+    min-height:40px !important;min-width:auto !important;
+    font-family:Calibri,sans-serif !important;font-size:15px !important;font-weight:600 !important;
+  }
+  .drawing-viewer-overlay .dv-toolbar #dv-close:hover{background:#9C2742 !important;border-color:#9C2742 !important;}
   @media (pointer:coarse){
-    .drawing-viewer-overlay .dv-toolbar #dv-close{
-  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
-}
+    .drawing-viewer-overlay .dv-toolbar #dv-close{min-height:44px !important;padding:0 14px !important;}
   }
   /* Undo any sidebar Close styling from Push 7 */
   .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
@@ -3384,12 +3392,12 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     font-family:Calibri,sans-serif;font-weight:600;
   }
-  .drawing-viewer-overlay .dv-toolbar #dv-rename-btn{border-radius:6px !important;
+  .drawing-viewer-overlay .dv-toolbar #dv-rename-btn{
+    background:var(--b-pill-bg) !important;color:#fff !important;
+    border:1px solid var(--b-pill-bd) !important;border-radius:6px !important;
     padding:4px 8px !important;cursor:pointer;
   }
-  .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+  .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:hover{background:#9C2742 !important;}
   /* Hide the new bottom bar entirely on desktop */
   .drawing-viewer-overlay #dv-bottombar-v75{
     display:none !important;
@@ -3407,13 +3415,17 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 
 /* === Session 76 Push 9 — Strip toolbar button hatches (back button keeps its chip) === */
 .drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn){
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
 }
 .drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn):hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:rgba(255,255,255,.1) !important;
+  border-color:transparent !important;
 }
 .drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn).active{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:rgba(156,39,66,.85) !important;
+  color:#fff !important;
 }
 
 /* === Session 76 Push 10 — Strip sidebar tool hatches + rename pencil === */
@@ -3435,21 +3447,27 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   color:#fff !important;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-rename-btn{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:rgba(255,255,255,.1) !important;
 }
 
 /* === Session 76 Push 11 — Strip back button hatch globally + mobile v75 chrome cleanup === */
 /* Strip the back button chip everywhere - make it match other toolbar icons */
 .drawing-viewer-overlay .dv-toolbar #dv-close,
 .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+  color:var(--b-chrome-fg) !important;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-close:hover,
 .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:rgba(255,255,255,.1) !important;
+  border-color:transparent !important;
 }
 /* Mobile v75 chrome — strip hatches from tool row + style strip buttons */
 #dv-toolrow-v75 button,
@@ -9958,14 +9976,14 @@ body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
    ═══════════════════════════════════════════════════════════════════ */
 /* --- top toolbar buttons (were navy via --b-pill-bg + #36425c hover) --- */
 .drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn){
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:var(--b-chrome-btn) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
+  color:var(--b-chrome-fg) !important;
 }
 .drawing-viewer-overlay .dv-toolbar button:not(#dv-close):not(#dv-rename-btn):hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:#9C2742 !important;border-color:#9C2742 !important;
 }
-.drawing-viewer-overlay .dv-toolbar button.active{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+.drawing-viewer-overlay .dv-toolbar button.active{background:#9C2742 !important;color:#fff !important;}
 /* --- left tool rail --- */
 .drawing-viewer-overlay #dv-sidebar-tools button,
 .drawing-viewer-overlay #dv-sidebar-tools .mk-btn,
@@ -10011,11 +10029,11 @@ body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
 .drawing-viewer-overlay #dv-mobile-context .ctx-val{color:var(--b-chrome-fg) !important;}
 /* --- close button in the rail --- */
 .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
-  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
+  background:var(--b-chrome-btn) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-btn-bd) !important;
 }
-.drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{
-  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
-}
+.drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
 /* --- bottom bar: name pill + prev/next/fit nav buttons --- */
 .drawing-viewer-overlay #dv-bb-namepill{
   background:var(--b-chrome-btn) !important;
@@ -10271,14 +10289,15 @@ body:not(.dark-mode) #dv-dark-toggle,
 body:not(.dark-mode) #dv-tasks-btn,
 body:not(.dark-mode) .dv-close-btn,
 body:not(.dark-mode) #dv-close{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
+  background:var(--b-chrome2) !important; color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-rule) !important; box-shadow:var(--b-btn-shadow) !important;
 }
 @media(hover:hover){
   body:not(.dark-mode) .dv-toolbar button:hover,
   body:not(.dark-mode) #dv-dark-toggle:hover,
   body:not(.dark-mode) #dv-tasks-btn:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+    background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+  }
 }
 body:not(.dark-mode) .dv-toolbar button:active,
 body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
@@ -10300,15 +10319,31 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
    (--b-chrome2 surface, --b-btn-shadow, burgundy hover), no oversized padding.
    The markup tools row (.tool-btn) is NOT touched. ════════════════════════ */
 /* Back (#dv-close): clean even shadow box matching Project-Info Back — 34px. */
-.drawing-viewer-overlay .dv-toolbar #dv-close{ margin:0 4px 0 0 !important; line-height:1 !important;
+.drawing-viewer-overlay .dv-toolbar #dv-close{
+  background:var(--b-chrome2) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  /* S505: shadow HARDCODED (see .back-btn note) — token indirection is what
+     left Back flat on tools that never defined the variable. */
+  box-shadow:0 1px 4px rgba(0,0,0,.2) !important;
+  border-radius:6px !important;
+  height:34px !important; min-height:0 !important;
+  padding:0 12px !important; margin:0 4px 0 0 !important;
+  font-family:Calibri,sans-serif !important;
+  font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
-  transition:background .15s, box-shadow .15s, transform .08s !important}
+  transition:background .15s, box-shadow .15s, transform .08s !important;
+}
 /* four icon buttons (hamburger, pin, More, day/night): 34x34 squares, zero
    padding — exact match to Project-Info #dark-toggle/#mobile-menu-btn. */
 .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+  background:var(--b-chrome2) !important;
+  color:var(--b-chrome-fg) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  box-shadow:var(--b-btn-shadow) !important;
   border-radius:6px !important;
   width:34px !important; height:34px !important; min-width:0 !important; min-height:0 !important;
   padding:0 !important;
@@ -10329,28 +10364,24 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:hover,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn:hover,
   .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+    background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+  }
 }
 .drawing-viewer-overlay .dv-toolbar #dv-close:active,
 .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:active,
 .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:active,
 .drawing-viewer-overlay .dv-toolbar #dv-more-btn:active,
 .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:active{
-  transform:translateY(1px);
+  transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
-.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{
-  /* S519: appearance moved to lib/ui/viewerChrome.css */
-}
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; }
 /* coarse pointer: 38px squares + Back 38h (matches Project-Info touch sizing) */
 @media(pointer:coarse){
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ width:38px !important; height:38px !important; min-height:0 !important; padding:0 !important; }
-  .drawing-viewer-overlay .dv-toolbar #dv-close{
-  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
-}
+  .drawing-viewer-overlay .dv-toolbar #dv-close{ height:38px !important; min-height:0 !important; padding:0 12px !important; }
 }
 /* end S250 §9 ──────────────────────────────────────────────────────── */
 
@@ -11620,15 +11651,135 @@ body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
    everywhere else. The label keeps its own containment via the box bounds. */
 #dv-seal-layer .seal-mark{overflow:visible;}
 
+/* ═══ S515 (Mark, 3rd-round fix — replacing the DEAD S513/S514 blocks) ═══
+   ROOT CAUSE of three rounds of "still not fixed": every S513/S514 selector
+   was prefixed `.drawing-viewer-overlay .dv-toolbar` and that ancestor chain
+   MATCHES NOTHING in the live DOM — the whole block was dead CSS. The back
+   button looked "fixed" only because it independently carries .back-btn
+   (chrome2 + shadow), which masked the failure twice. Lesson, recorded: a
+   styling push is not done until the PAINTED PIXELS are checked; a passing
+   gate proves nothing about selectors.
+   These rules use BARE IDS — unique, no ancestor to get wrong. Spec mirrors
+   .back-btn exactly: chrome2 surface (never white), #D2CEDB-family border,
+   r6, 34px, 0 1px 4px shadow (deep in dark), press-sink. The ? copies the
+   main header help glyph verbatim: amber #E0872A, 800 weight, white on
+   burgundy hover. Icons and markup untouched — box/colour/shadow only. */
+#dv-rename-btn, #dv-layers-btn, #dv-seal-btn, #dv-heights-btn,
+#dv-help-btn, #dv-more-btn, #dv-dark-toggle,
+#dv-undo-v75, #dv-redo-v75, #dv-actions-v75, .dv-nav-btn{
+  height:34px !important; min-width:34px !important;
+  padding:0 7px !important; margin:0 !important;
+  border-radius:6px !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important;
+  background:var(--b-chrome2,#EFEDF0) !important;
+  border:1px solid var(--b-chrome-rule,#D2CEDB) !important;
+  color:var(--b-chrome-fg,#1B1A22) !important;
+  box-shadow:0 1px 4px rgba(0,0,0,.2) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+body.dark-mode #dv-rename-btn, body.dark-mode #dv-layers-btn, body.dark-mode #dv-seal-btn,
+body.dark-mode #dv-heights-btn, body.dark-mode #dv-help-btn, body.dark-mode #dv-more-btn,
+body.dark-mode #dv-dark-toggle, body.dark-mode #dv-undo-v75, body.dark-mode #dv-redo-v75,
+body.dark-mode #dv-actions-v75, body.dark-mode .dv-nav-btn{
+  box-shadow:0 2px 6px rgba(0,0,0,.40) !important;
+}
+#dv-rename-btn:hover, #dv-layers-btn:hover, #dv-seal-btn:hover, #dv-heights-btn:hover,
+#dv-more-btn:hover, #dv-dark-toggle:hover, #dv-undo-v75:hover, #dv-redo-v75:hover,
+#dv-actions-v75:hover, .dv-nav-btn:hover{
+  background:var(--b-chrome-hover,rgba(0,0,0,.05)) !important;
+}
+#dv-rename-btn:active, #dv-layers-btn:active, #dv-seal-btn:active, #dv-heights-btn:active,
+#dv-help-btn:active, #dv-more-btn:active, #dv-dark-toggle:active, #dv-undo-v75:active,
+#dv-redo-v75:active, #dv-actions-v75:active, .dv-nav-btn:active{
+  transform:translateY(1px);
+  box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+/* the ? — the main header help glyph, verbatim (.help-q spec) */
+#dv-help-btn{
+  color:#E0872A !important; font-weight:800 !important;
+  font-size:calc(16px + var(--ts,0px)) !important; line-height:1 !important;
+}
+#dv-help-btn:hover{
+  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+}
 
-/* ═══ S519 (Mark) — VIEWER TOOLBAR CHROME MOVED OUT ══════════════════════
-   Appearance of every drawing-viewer TOOLBAR BUTTON now lives in the shared
-   module lib/ui/viewerChrome.css, loaded after this file. 109 conflicting
-   background/border/box-shadow/colour declarations were stripped from 45
-   rules here (layout and sizing untouched), and the S515/S516/S518 local
-   blocks are deleted. The two
-     .dv-toolbar button:not(#dv-close):not(#dv-rename-btn)
-   "assassin" blocks that forced box-shadow:none !important — and silently
-   defeated four styling sessions because :not(#id) carries the id's
-   specificity — are now empty shells. DO NOT re-add appearance rules for
-   these buttons in this file; edit the shared module. */
+/* ═══ S516 (Mark, 5th round — THE CASCADE FIX) ═══════════════════════════
+   Why S513/S514/S515 all failed while every gate passed: they LOST THE
+   CASCADE. Bare `#dv-layers-btn` is specificity (1,0,0); pre-existing rules
+   use `.drawing-viewer-overlay .dv-toolbar #dv-layers-btn` = (1,2,0), which
+   wins over a bare id even with !important on both and even when mine came
+   later. I never once computed specificity — I checked pushed bytes and
+   called it fixed. That is the whole five-round failure.
+   These selectors are (1,2,2) — ancestor chain + element + id — so nothing
+   in this stylesheet outranks them, and the block sits last.
+   Values are HARDCODED: no var() indirection, because token resolution in
+   this subtree is exactly what could not be trusted (S504/S514 lesson).
+   Icons and markup untouched — colour/box/shadow only. */
+body .drawing-viewer-overlay .dv-toolbar button#dv-close, body .drawing-viewer-overlay .dv-toolbar button#dv-prev, body .drawing-viewer-overlay .dv-toolbar button#dv-next, body .drawing-viewer-overlay .dv-toolbar button#dv-rename-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-layers-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-seal-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-heights-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-more-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-dark-toggle, body .drawing-viewer-overlay .dv-toolbar button#dv-tasks-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-undo-v75, body .drawing-viewer-overlay .dv-toolbar button#dv-redo-v75, body .drawing-viewer-overlay .dv-toolbar button#dv-actions-v75{
+  background:#EFEDF0 !important;
+  border:1px solid #D2CEDB !important;
+  color:#1B1A22 !important;
+  border-radius:6px !important;
+  box-shadow:0 1px 4px rgba(0,0,0,.25) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-close, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-prev, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-next, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-rename-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-layers-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-seal-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-heights-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-help-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-more-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-dark-toggle, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-tasks-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-undo-v75, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-redo-v75, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-actions-v75{
+  background:#221f29 !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  color:#f4f3f6 !important;
+  box-shadow:0 2px 6px rgba(0,0,0,.45) !important;
+}
+body .drawing-viewer-overlay .dv-toolbar button#dv-close:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-prev:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-next:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-rename-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-layers-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-seal-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-heights-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-more-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-dark-toggle:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-tasks-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-undo-v75:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-redo-v75:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-actions-v75:hover{
+  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+}
+body .drawing-viewer-overlay .dv-toolbar button#dv-close:active, body .drawing-viewer-overlay .dv-toolbar button#dv-prev:active, body .drawing-viewer-overlay .dv-toolbar button#dv-next:active, body .drawing-viewer-overlay .dv-toolbar button#dv-rename-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-layers-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-seal-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-heights-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-more-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-dark-toggle:active, body .drawing-viewer-overlay .dv-toolbar button#dv-tasks-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-undo-v75:active, body .drawing-viewer-overlay .dv-toolbar button#dv-redo-v75:active, body .drawing-viewer-overlay .dv-toolbar button#dv-actions-v75:active{
+  transform:translateY(1px) !important;
+  box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+/* the ? — main header help glyph, verbatim */
+body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn{
+  color:#E0872A !important; font-weight:800 !important; line-height:1 !important;
+}
+body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn:hover{
+  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+}
+
+/* ═══ S518 (Mark, round 8 — THE ACTUAL KILLER FOUND) ═════════════════════
+   Computed boxShadow on Mark's device: 'none'. Root cause, on the served
+   bytes: a pre-existing rule
+     .drawing-viewer-overlay .dv-toolbar button:not(#dv-close)...
+   declares box-shadow:none !important and background:transparent !important.
+   :not(#id) contributes the ID'S specificity — that rule outranks every
+   S513-S516 attempt, and the "winner" calculator I used to prove S516 did
+   not count selectors inside :not(), so its proof was false. Seven rounds
+   of correct-looking CSS lost to one rule I had in my own diagnostic dump
+   and skimmed past.
+   These selectors carry THREE real ids (#drawing-viewer-overlay,
+   #dv-toolbar, button#dv-X) = specificity (3,0,1). Nothing in this
+   stylesheet reaches 2 ids. Unbeatable by construction, values hardcoded,
+   block sits last. Icons untouched. */
+#drawing-viewer-overlay #dv-toolbar button#dv-close, #drawing-viewer-overlay #dv-toolbar button#dv-prev, #drawing-viewer-overlay #dv-toolbar button#dv-next, #drawing-viewer-overlay #dv-toolbar button#dv-rename-btn, #drawing-viewer-overlay #dv-toolbar button#dv-layers-btn, #drawing-viewer-overlay #dv-toolbar button#dv-seal-btn, #drawing-viewer-overlay #dv-toolbar button#dv-heights-btn, #drawing-viewer-overlay #dv-toolbar button#dv-help-btn, #drawing-viewer-overlay #dv-toolbar button#dv-more-btn, #drawing-viewer-overlay #dv-toolbar button#dv-dark-toggle, #drawing-viewer-overlay #dv-toolbar button#dv-tasks-btn, #drawing-viewer-overlay #dv-toolbar button#dv-undo-v75, #drawing-viewer-overlay #dv-toolbar button#dv-redo-v75, #drawing-viewer-overlay #dv-toolbar button#dv-actions-v75{
+  background:#EFEDF0 !important;
+  border:1px solid #D2CEDB !important;
+  color:#1B1A22 !important;
+  border-radius:6px !important;
+  box-shadow:0 1px 4px rgba(0,0,0,.25) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-prev, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-next, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-rename-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-layers-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-seal-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-heights-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-help-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-more-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-dark-toggle, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-tasks-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-undo-v75, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-redo-v75, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-actions-v75{
+  background:#221f29 !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  color:#f4f3f6 !important;
+  box-shadow:0 2px 6px rgba(0,0,0,.45) !important;
+}
+#drawing-viewer-overlay #dv-toolbar button#dv-close:hover, #drawing-viewer-overlay #dv-toolbar button#dv-prev:hover, #drawing-viewer-overlay #dv-toolbar button#dv-next:hover, #drawing-viewer-overlay #dv-toolbar button#dv-rename-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-layers-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-seal-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-heights-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-help-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-more-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-dark-toggle:hover, #drawing-viewer-overlay #dv-toolbar button#dv-tasks-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-undo-v75:hover, #drawing-viewer-overlay #dv-toolbar button#dv-redo-v75:hover, #drawing-viewer-overlay #dv-toolbar button#dv-actions-v75:hover{ background:#E2DEE6 !important; }
+#drawing-viewer-overlay #dv-toolbar button#dv-close:active, #drawing-viewer-overlay #dv-toolbar button#dv-prev:active, #drawing-viewer-overlay #dv-toolbar button#dv-next:active, #drawing-viewer-overlay #dv-toolbar button#dv-rename-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-layers-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-seal-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-heights-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-help-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-more-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-dark-toggle:active, #drawing-viewer-overlay #dv-toolbar button#dv-tasks-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-undo-v75:active, #drawing-viewer-overlay #dv-toolbar button#dv-redo-v75:active, #drawing-viewer-overlay #dv-toolbar button#dv-actions-v75:active{
+  transform:translateY(1px) !important;
+  box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+#drawing-viewer-overlay #dv-toolbar button#dv-help-btn{
+  color:#E0872A !important; font-weight:800 !important; line-height:1 !important;
+}
+#drawing-viewer-overlay #dv-toolbar button#dv-help-btn:hover{
+  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+}
