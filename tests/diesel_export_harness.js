@@ -131,14 +131,14 @@ const p06  = read('diesel-app/js/part06.js');
 }
 
 
-// ── 8. S515 photo-link key format (the "clickable but dead" bug) ───────────
+// ── 8. S516 photo-link key form — discovered, not assumed ─────────────────
 {
   const mint = read('lib/data/photoLinkMint.js');
-  check('8. toBucketKey is identity — stored key IS the bucket path',
-        /return k\.replace\(\/\^\\\/\+\/, ''\);/.test(mint) || mint.includes("return k.replace(/^\\/+/, '');"));
-  check('8a. the segment swap is gone', !mint.includes("parts[1] + '/photos/'"));
-  check('8b. token cache key bumped past the poisoned entries', mint.includes("arencon-plm-tokens-v2"));
-  check('8c. a minted link is probed before the report trusts it', mint.includes("method: 'HEAD'") && mint.includes('verified'));
+  check('8. both key forms are minted as candidates', mint.includes('export function keyCandidates') && mint.includes("parts[1] + '/photos/'"));
+  check('8a. the winning form is chosen by probing the worker', mint.includes("method: 'HEAD'") && mint.includes('win.idx'));
+  check('8b. neither form resolving suppresses links (never ship dead links)', mint.includes('neither key form resolves'));
+  check('8c. unreachable probe keeps links on the documented form', mint.includes('probe unreachable, links kept'));
+  check('8d. token cache key bumped past both poisoned generations', mint.includes('arencon-plm-tokens-v3'));
 }
 
 console.log(failures === 0 ? '\nALL EXPORT-PATH CHECKS PASS' : `\n*** ${failures} FAILURE(S) ***`);
