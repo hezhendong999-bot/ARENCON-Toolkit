@@ -1,0 +1,77 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   lib/ui/viewerChrome.css — SHARED VIEWER/TOOLBAR BUTTON CHROME
+   Owner: the shared header engine layer. Consumed by FRT (drawing viewer)
+   and available to Diesel / Electric / Hub for any equivalent toolbar.
+
+   WHY THIS FILE EXISTS (Mark, S519): the same six buttons took EIGHT
+   attempts to style because ~200 accumulated rules in frt.css fought each
+   other, two of them forcing `box-shadow:none !important` through
+   `button:not(#dv-close):not(#dv-rename-btn)` — and `:not(#id)` carries the
+   ID's specificity, so it silently outranked every ordinary fix. Appearance
+   for these buttons is now defined ONCE, here.
+
+   RULES FOR THIS FILE
+   · Values are HARDCODED. No var() indirection into host pages — a host may
+     define a token weakly (the Hub defines --b-btn-shadow as an invisible
+     0 1px 2px rgba(0,0,0,.08)) and a defined token beats any fallback.
+     Two scars: S504 Back button, S514 Hub icons.
+   · Specificity is kept deliberately LOW and flat. It works because the
+     competing declarations were stripped from frt.css — not because it
+     out-ranks them. If a future rule beats this file, DELETE that rule;
+     do not escalate here. Escalation is what produced eight rounds.
+   · Box / colour / shadow only. Never icons, never markup, never layout —
+     sizing and spacing stay with the host (spacing rides the toolbar's
+     native gap; an added margin STACKS on it).
+   · Both themes defined together. Never one without the other.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── base: every button in the viewer top toolbar ── */
+.drawing-viewer-overlay .dv-toolbar button{
+  background:#EFEDF0;
+  border:1px solid #D2CEDB;
+  color:#1B1A22;
+  border-radius:6px;
+  box-shadow:0 1px 4px rgba(0,0,0,.25);
+  transition:box-shadow .15s, transform .08s, background .15s;
+}
+.drawing-viewer-overlay .dv-toolbar button:hover{
+  background:#E2DEE6;
+}
+.drawing-viewer-overlay .dv-toolbar button:active{
+  transform:translateY(1px);
+  box-shadow:0 1px 2px rgba(0,0,0,.22);
+}
+/* active/armed state keeps the brand burgundy (unchanged meaning) */
+.drawing-viewer-overlay .dv-toolbar button.active{
+  background:#9C2742;
+  border-color:#9C2742;
+  color:#fff;
+}
+
+/* ── dark theme ── */
+body.dark-mode .drawing-viewer-overlay .dv-toolbar button{
+  background:#221f29;
+  border:1px solid rgba(255,255,255,.14);
+  color:#f4f3f6;
+  box-shadow:0 2px 6px rgba(0,0,0,.45);
+}
+body.dark-mode .drawing-viewer-overlay .dv-toolbar button:hover{
+  background:#2d2a35;
+}
+body.dark-mode .drawing-viewer-overlay .dv-toolbar button.active{
+  background:#C9476A;
+  border-color:#C9476A;
+  color:#fff;
+}
+
+/* ── help (?) — the main header's help glyph, verbatim (.help-q spec) ── */
+.drawing-viewer-overlay .dv-toolbar #dv-help-btn{
+  color:#E0872A;
+  font-weight:800;
+  line-height:1;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-help-btn:hover{
+  background:#9C2742;
+  border-color:#9C2742;
+  color:#fff;
+}
