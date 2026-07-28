@@ -11702,3 +11702,44 @@ body.dark-mode #dv-actions-v75, body.dark-mode .dv-nav-btn{
 #dv-help-btn:hover{
   background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
 }
+
+/* ═══ S516 (Mark, 5th round — THE CASCADE FIX) ═══════════════════════════
+   Why S513/S514/S515 all failed while every gate passed: they LOST THE
+   CASCADE. Bare `#dv-layers-btn` is specificity (1,0,0); pre-existing rules
+   use `.drawing-viewer-overlay .dv-toolbar #dv-layers-btn` = (1,2,0), which
+   wins over a bare id even with !important on both and even when mine came
+   later. I never once computed specificity — I checked pushed bytes and
+   called it fixed. That is the whole five-round failure.
+   These selectors are (1,2,2) — ancestor chain + element + id — so nothing
+   in this stylesheet outranks them, and the block sits last.
+   Values are HARDCODED: no var() indirection, because token resolution in
+   this subtree is exactly what could not be trusted (S504/S514 lesson).
+   Icons and markup untouched — colour/box/shadow only. */
+body .drawing-viewer-overlay .dv-toolbar button#dv-close, body .drawing-viewer-overlay .dv-toolbar button#dv-prev, body .drawing-viewer-overlay .dv-toolbar button#dv-next, body .drawing-viewer-overlay .dv-toolbar button#dv-rename-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-layers-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-seal-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-heights-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-more-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-dark-toggle, body .drawing-viewer-overlay .dv-toolbar button#dv-tasks-btn, body .drawing-viewer-overlay .dv-toolbar button#dv-undo-v75, body .drawing-viewer-overlay .dv-toolbar button#dv-redo-v75, body .drawing-viewer-overlay .dv-toolbar button#dv-actions-v75{
+  background:#EFEDF0 !important;
+  border:1px solid #D2CEDB !important;
+  color:#1B1A22 !important;
+  border-radius:6px !important;
+  box-shadow:0 1px 4px rgba(0,0,0,.25) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-close, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-prev, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-next, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-rename-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-layers-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-seal-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-heights-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-help-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-more-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-dark-toggle, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-tasks-btn, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-undo-v75, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-redo-v75, body.dark-mode .drawing-viewer-overlay .dv-toolbar button#dv-actions-v75{
+  background:#221f29 !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  color:#f4f3f6 !important;
+  box-shadow:0 2px 6px rgba(0,0,0,.45) !important;
+}
+body .drawing-viewer-overlay .dv-toolbar button#dv-close:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-prev:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-next:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-rename-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-layers-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-seal-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-heights-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-more-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-dark-toggle:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-tasks-btn:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-undo-v75:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-redo-v75:hover, body .drawing-viewer-overlay .dv-toolbar button#dv-actions-v75:hover{
+  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+}
+body .drawing-viewer-overlay .dv-toolbar button#dv-close:active, body .drawing-viewer-overlay .dv-toolbar button#dv-prev:active, body .drawing-viewer-overlay .dv-toolbar button#dv-next:active, body .drawing-viewer-overlay .dv-toolbar button#dv-rename-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-layers-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-seal-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-heights-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-more-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-dark-toggle:active, body .drawing-viewer-overlay .dv-toolbar button#dv-tasks-btn:active, body .drawing-viewer-overlay .dv-toolbar button#dv-undo-v75:active, body .drawing-viewer-overlay .dv-toolbar button#dv-redo-v75:active, body .drawing-viewer-overlay .dv-toolbar button#dv-actions-v75:active{
+  transform:translateY(1px) !important;
+  box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+/* the ? — main header help glyph, verbatim */
+body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn{
+  color:#E0872A !important; font-weight:800 !important; line-height:1 !important;
+}
+body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn:hover{
+  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+}
