@@ -1275,8 +1275,33 @@ function _realExportPDF() {
            never become impossible because a module is missing. */
         var _cap = (typeof window!=='undefined') && window.__capturePdfFromPreview;
         if (typeof _cap === 'function') {
-          try { _cap(w, w.document); return; }
-          catch(e){ try{ console.warn('[export] capture failed, falling back to print', e); }catch(_){} }
+          /* S519 — THE FALLBACK USED TO BE A LIE. This try/catch only caught a
+             SYNCHRONOUS throw, but the capture does its work inside its own
+             async IIFE: when it died on a missing constant, the error surfaced
+             in the capture's internal handler, this catch never ran, and the
+             user got an error banner and NO PDF instead of the print dialog we
+             promised as a safety net. An export must always produce something.
+             Now: watch for the capture's own error banner, and if it appears
+             within 8s and no PDF was produced, fall back to print. Also still
+             catch a synchronous throw. */
+          var _capFellOver = false;
+          try {
+            _cap(w, w.document);
+            setTimeout(function(){
+              try {
+                if (_capFellOver || !w || w.closed) return;
+                var errBar = w.document.querySelector('[data-cap-error], .cap-error');
+                var bodyTxt = (w.document.body && w.document.body.textContent) || '';
+                if (errBar || bodyTxt.indexOf('Export error') !== -1){
+                  _capFellOver = true;
+                  try{ console.warn('[export] capture reported an error — falling back to the print dialog'); }catch(_){}
+                  w.print();
+                }
+              } catch(_){}
+            }, 8000);
+            return;
+          }
+          catch(e){ try{ console.warn('[export] capture threw synchronously, falling back to print', e); }catch(_){} }
         }
         w.print();
       } });

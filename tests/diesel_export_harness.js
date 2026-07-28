@@ -142,5 +142,24 @@ const p06  = read('diesel-app/js/part06.js');
   check('8c. token cache key bumped past every poisoned generation', mint.includes('arencon-plm-tokens-v4'));
 }
 
+// ── 9. S519 extraction completeness + honest fallback ──────────────────────
+{
+  const cap = read('lib/export/capturePdf.js');
+  // every bare CONSTANT the capture references must be declared in this module.
+  // PDF_PIPELINE_BUILD was missed because FRT declares it as `export var` and the
+  // extraction scan only matched plain `var` — every export died on it.
+  check('9. PDF_PIPELINE_BUILD is declared in the module', /(?:^|\n)\s*var PDF_PIPELINE_BUILD\s*=/.test(cap));
+  const refs = new Set((cap.match(/(?<![\w$.'"])[A-Z][A-Z0-9_]{4,}(?![\w$])/g) || []));
+  const declared = new Set((cap.match(/^\s*(?:export\s+)?(?:var|const|let)\s+([A-Z][A-Z0-9_]{4,})/gm) || [])
+    .map(s => s.trim().split(/\s+/).pop()));
+  const known = new Set(['PDFLib','CHECK','DECODE','PNG','PDF','DOM','EXPORT','NOW','MissingDAEntry','UTF','JSON','HTML','URL','HEAD','GET','POST','RGB','JPEG','WEBP','DPI','CSS','SVG','ID','OK']);
+  const undeclared = [...refs].filter(r => !declared.has(r) && !known.has(r) && cap.includes(r + '+') || false);
+  check('9a. no ALL-CAPS constant is referenced without a declaration',
+        undeclared.length === 0, undeclared.join(', '));
+  const mod2 = read('diesel-app/js/pdfExport.js');
+  check('9b. print fallback survives an ASYNC capture failure',
+        mod2.includes('_capFellOver') && mod2.includes('Export error'));
+}
+
 console.log(failures === 0 ? '\nALL EXPORT-PATH CHECKS PASS' : `\n*** ${failures} FAILURE(S) ***`);
 process.exit(failures === 0 ? 0 : 1);
