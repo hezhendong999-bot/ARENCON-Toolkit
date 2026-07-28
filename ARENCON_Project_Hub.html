@@ -641,6 +641,9 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
 .crn-item input{width:17px;height:17px;accent-color:var(--arencon);flex:0 0 auto;cursor:pointer}
 .crn-item .num{font-weight:700;color:var(--fg);min-width:64px}
 .crn-item .nm{color:var(--steel);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* S513 (Mark): current client on each row — a series can hold more than one
+       real client, so this is what tells a typo apart from a different customer. */
+    .crn-item .cl{color:var(--fg);font-weight:600;flex:0 1 auto;max-width:42%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:10px;border-left:1px solid var(--border)}
 .crn-sec{padding:6px 12px;font-size:calc(10.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--silver);background:var(--bg);border-bottom:1px solid var(--border)}
 .crn-sec.others{color:var(--warn)}
 .crn-note{font-size:calc(11.8px + var(--ts));color:var(--silver);line-height:1.55;margin-top:10px}
@@ -5861,10 +5864,16 @@ function openClientRename() {
 }
 
 function _crnRow(p, mine) {
+  /* S513 (Mark): show the project's CURRENT client on every row. A number series
+     is usually one client but not always — 7310 carries Give & Go, G&G AND
+     Mantecon — so without the client on the row there is no way to tell which
+     project is the typo and which is a genuinely different customer that must
+     NOT be renamed. */
   return '<label class="crn-item"><input type="checkbox" checked value="' + esc(p.id) + '" data-mine="'
     + (mine ? '1' : '0') + '" onchange="_crnCount()">'
     + '<span class="num">' + esc(p.project_number || '\u2014') + '</span>'
-    + '<span class="nm">' + esc(p.project_name || '') + '</span></label>';
+    + '<span class="nm">' + esc(p.project_name || '') + '</span>'
+    + '<span class="cl">' + esc(p.client || '\u2014') + '</span></label>';
 }
 
 function closeClientRename() {
@@ -5944,9 +5953,42 @@ function _crnPickName(btn) {
 async function _crnApply() {
   if (!_crnCtx || !_profile) return;
   var raw = document.getElementById('crn-name').value.trim();
-  if (!raw || raw === _crnCtx.oldName) return;
+  if (!raw) return;
   var sel = _crnChecked();
-  if (sel.mine.length + sel.others.length === 0) return;
+  if (sel.mine.length + sel.others.length === 0) {
+    toast('Tick at least one project first', 'error');
+    return;
+  }
+
+  /* S513 ROOT CAUSE (Mark: "Fix this series doesn't work at all").
+     The old guard was `raw === _crnCtx.oldName → return` — a silent bail with no
+     toast, no error, nothing on screen. oldName is the series' FIRST (most-used)
+     spelling, and the name box is PRE-FILLED with exactly that. So the natural
+     action — open Fix this series, accept the suggested correct spelling, press
+     Rename — hit the guard and did absolutely nothing, every time.
+
+     The guard was also wrong in principle: on a series fix the target name is
+     SUPPOSED to equal the winning spelling. What matters is whether any SELECTED
+     project's client actually differs from it, not how the target compares to one
+     spelling. That is what is tested now.
+
+     Projects already reading the target are dropped from the write set, so a PM
+     never receives a correction request asking them to change a name that is
+     already correct. */
+  var toChange = function(ids){
+    return ids.filter(function(id){
+      var p = (_projects || []).find(function(x){ return x.id === id; });
+      return p && (p.client || '') !== raw;
+    });
+  };
+  var mineIds = toChange(sel.mine), otherIds = toChange(sel.others);
+  var skipped = (sel.mine.length + sel.others.length) - (mineIds.length + otherIds.length);
+  if (!mineIds.length && !otherIds.length) {
+    toast('Nothing to change \u2014 every ticked project already reads \u201C' + raw + '\u201D', 'error');
+    return;
+  }
+  sel = { mine: mineIds, others: otherIds };
+
   var go = document.getElementById('crn-go');
   if (go) go.disabled = true;
 
@@ -5986,6 +6028,7 @@ async function _crnApply() {
 
   var msg = done + ' project' + (done === 1 ? '' : 's') + ' now read \u201C' + raw + '\u201D';
   if (sent) msg += ' \u00B7 ' + sent + ' correction request' + (sent === 1 ? '' : 's') + ' sent';
+  if (skipped) msg += ' \u00B7 ' + skipped + ' already correct';
   toast(msg, sendFail ? 'error' : 'success');
   var epc = document.getElementById('ep-client');
   if (epc && sel.mine.length) epc.value = raw;
