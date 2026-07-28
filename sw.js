@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-202607271900<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607300430';
+var CACHE_NAME = 'arencon-frt-202607300600';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -125,6 +125,7 @@ var APP_FILES = [
   'lib/ui/dieselHelpCards.js',
   'lib/ui/electricHelpCards.js',
   'lib/ui/viewerChrome.css',
+  'lib/ui/backButton.js',
   'lib/ui/frtHelpCards.js',
   'lib/ui/helpPanel.css',
   'lib/ui/flowPhotoModal.js',
