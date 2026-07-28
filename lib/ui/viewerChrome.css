@@ -75,3 +75,52 @@ body.dark-mode .drawing-viewer-overlay .dv-toolbar button.active{
   border-color:#9C2742;
   color:#fff;
 }
+
+/* ═══ S520 (Mark) — VIEWER BACK BUTTON = THE MAIN HEADER BACK BUTTON ══════
+   Mark: "use the back button from the main FRT header and put it in drawing
+   viewer to match to the pixel." The viewer back carried .back-btn
+   (padding 5px 12px, 13px font, auto width) while the main header paints the
+   engine's chrome .back (40x34, padding 0, 16px glyph) — a visibly different
+   box. Every value below is COPIED VERBATIM from
+   headerEngine2.js :host([data-skin="chrome"]) .back so the two are the same
+   button. If the engine's back ever changes, change it here in the same
+   commit — these two blocks are a matched pair.
+   NOTE the shadow is 0 1px 4px rgba(0,0,0,.2) — the engine's value — NOT the
+   .25 the other toolbar buttons use. That difference is deliberate: the back
+   matches the header, its neighbours match each other. */
+.drawing-viewer-overlay .dv-toolbar #dv-close{
+  background:#EFEDF0;
+  border:1px solid #D2CEDB;
+  color:#1B1A22;
+  height:34px;
+  width:40px;
+  min-width:40px;
+  flex:0 0 40px;
+  padding:0;
+  border-radius:6px;
+  font:600 calc(16px + var(--ts,0px)) Calibri,sans-serif;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.2);
+  position:relative;
+  z-index:1;
+  transition:box-shadow .15s, transform .08s, background .15s;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-close:hover{
+  background:rgba(0,0,0,.05);
+  border-color:#D2CEDB;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-close:active{
+  transform:translateY(1px);
+  box-shadow:0 1px 2px rgba(0,0,0,.22);
+}
+body.dark-mode .drawing-viewer-overlay .dv-toolbar #dv-close{
+  background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.12);
+  color:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.2);
+}
+body.dark-mode .drawing-viewer-overlay .dv-toolbar #dv-close:hover{
+  background:rgba(255,255,255,.22);
+}

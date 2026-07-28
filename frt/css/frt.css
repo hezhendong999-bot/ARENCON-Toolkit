@@ -3302,17 +3302,11 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
     display:flex !important;
     align-items:center;justify-content:center;gap:6px;
-    width:calc(100% - 8px);
     margin:6px 4px 10px;
-    padding:8px 6px;
-    background:var(--b-chrome-btn) !important;
-    color:var(--b-chrome-fg) !important;
-    border:1px solid var(--b-chrome-btn-bd) !important;
-    border-radius:6px;
-    font-family:Calibri,sans-serif;font-size:13px;font-weight:500;
-    cursor:pointer;
-  }
-  .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
+    cursor:pointer}
+  .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{
+  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
+}
   /* Bigger size/opacity steppers in sidebar */
   .drawing-viewer-overlay #dv-sidebar-tools button.mk-size-btn,
   .drawing-viewer-overlay #dv-sidebar-tools button.mk-opacity-btn,
@@ -3331,16 +3325,14 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 /* Revert Push 7: bring #dv-close back to top toolbar */
 @media (min-width: 901px){
   .drawing-viewer-overlay .dv-toolbar #dv-close{
-    display:inline-flex !important;align-items:center;justify-content:center;border-radius:6px !important;
-    padding:0 12px !important;margin:0 0 0 6px !important;width:auto !important;
-    min-height:40px !important;min-width:auto !important;
-    font-family:Calibri,sans-serif !important;font-size:15px !important;font-weight:600 !important;
-  }
+    display:inline-flex !important;align-items:center;justify-content:center;margin:0 0 0 6px !important}
   .drawing-viewer-overlay .dv-toolbar #dv-close:hover{
   /* S519: appearance moved to lib/ui/viewerChrome.css */
 }
   @media (pointer:coarse){
-    .drawing-viewer-overlay .dv-toolbar #dv-close{min-height:44px !important;padding:0 14px !important;}
+    .drawing-viewer-overlay .dv-toolbar #dv-close{
+  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
+}
   }
   /* Undo any sidebar Close styling from Push 7 */
   .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
@@ -10019,11 +10011,11 @@ body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
 .drawing-viewer-overlay #dv-mobile-context .ctx-val{color:var(--b-chrome-fg) !important;}
 /* --- close button in the rail --- */
 .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
-  background:var(--b-chrome-btn) !important;
-  color:var(--b-chrome-fg) !important;
-  border:1px solid var(--b-chrome-btn-bd) !important;
+  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
 }
-.drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
+.drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{
+  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
+}
 /* --- bottom bar: name pill + prev/next/fit nav buttons --- */
 .drawing-viewer-overlay #dv-bb-namepill{
   background:var(--b-chrome-btn) !important;
@@ -10308,18 +10300,9 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
    (--b-chrome2 surface, --b-btn-shadow, burgundy hover), no oversized padding.
    The markup tools row (.tool-btn) is NOT touched. ════════════════════════ */
 /* Back (#dv-close): clean even shadow box matching Project-Info Back — 34px. */
-.drawing-viewer-overlay .dv-toolbar #dv-close{
-  /* S505: shadow HARDCODED (see .back-btn note) — token indirection is what
-     left Back flat on tools that never defined the variable. */
-  box-shadow:0 1px 4px rgba(0,0,0,.2) !important;
-  border-radius:6px !important;
-  height:34px !important; min-height:0 !important;
-  padding:0 12px !important; margin:0 4px 0 0 !important;
-  font-family:Calibri,sans-serif !important;
-  font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
+.drawing-viewer-overlay .dv-toolbar #dv-close{ margin:0 4px 0 0 !important; line-height:1 !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
-  transition:background .15s, box-shadow .15s, transform .08s !important;
-}
+  transition:background .15s, box-shadow .15s, transform .08s !important}
 /* four icon buttons (hamburger, pin, More, day/night): 34x34 squares, zero
    padding — exact match to Project-Info #dark-toggle/#mobile-menu-btn. */
 .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
@@ -10365,7 +10348,9 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ width:38px !important; height:38px !important; min-height:0 !important; padding:0 !important; }
-  .drawing-viewer-overlay .dv-toolbar #dv-close{ height:38px !important; min-height:0 !important; padding:0 12px !important; }
+  .drawing-viewer-overlay .dv-toolbar #dv-close{
+  /* S520: back-button chrome owned by lib/ui/viewerChrome.css */
+}
 }
 /* end S250 §9 ──────────────────────────────────────────────────────── */
 
