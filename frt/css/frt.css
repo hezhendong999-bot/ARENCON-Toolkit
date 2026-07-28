@@ -11743,3 +11743,43 @@ body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn{
 body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn:hover{
   background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
 }
+
+/* ═══ S518 (Mark, round 8 — THE ACTUAL KILLER FOUND) ═════════════════════
+   Computed boxShadow on Mark's device: 'none'. Root cause, on the served
+   bytes: a pre-existing rule
+     .drawing-viewer-overlay .dv-toolbar button:not(#dv-close)...
+   declares box-shadow:none !important and background:transparent !important.
+   :not(#id) contributes the ID'S specificity — that rule outranks every
+   S513-S516 attempt, and the "winner" calculator I used to prove S516 did
+   not count selectors inside :not(), so its proof was false. Seven rounds
+   of correct-looking CSS lost to one rule I had in my own diagnostic dump
+   and skimmed past.
+   These selectors carry THREE real ids (#drawing-viewer-overlay,
+   #dv-toolbar, button#dv-X) = specificity (3,0,1). Nothing in this
+   stylesheet reaches 2 ids. Unbeatable by construction, values hardcoded,
+   block sits last. Icons untouched. */
+#drawing-viewer-overlay #dv-toolbar button#dv-close, #drawing-viewer-overlay #dv-toolbar button#dv-prev, #drawing-viewer-overlay #dv-toolbar button#dv-next, #drawing-viewer-overlay #dv-toolbar button#dv-rename-btn, #drawing-viewer-overlay #dv-toolbar button#dv-layers-btn, #drawing-viewer-overlay #dv-toolbar button#dv-seal-btn, #drawing-viewer-overlay #dv-toolbar button#dv-heights-btn, #drawing-viewer-overlay #dv-toolbar button#dv-help-btn, #drawing-viewer-overlay #dv-toolbar button#dv-more-btn, #drawing-viewer-overlay #dv-toolbar button#dv-dark-toggle, #drawing-viewer-overlay #dv-toolbar button#dv-tasks-btn, #drawing-viewer-overlay #dv-toolbar button#dv-undo-v75, #drawing-viewer-overlay #dv-toolbar button#dv-redo-v75, #drawing-viewer-overlay #dv-toolbar button#dv-actions-v75{
+  background:#EFEDF0 !important;
+  border:1px solid #D2CEDB !important;
+  color:#1B1A22 !important;
+  border-radius:6px !important;
+  box-shadow:0 1px 4px rgba(0,0,0,.25) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-prev, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-next, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-rename-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-layers-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-seal-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-heights-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-help-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-more-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-dark-toggle, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-tasks-btn, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-undo-v75, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-redo-v75, body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-actions-v75{
+  background:#221f29 !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  color:#f4f3f6 !important;
+  box-shadow:0 2px 6px rgba(0,0,0,.45) !important;
+}
+#drawing-viewer-overlay #dv-toolbar button#dv-close:hover, #drawing-viewer-overlay #dv-toolbar button#dv-prev:hover, #drawing-viewer-overlay #dv-toolbar button#dv-next:hover, #drawing-viewer-overlay #dv-toolbar button#dv-rename-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-layers-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-seal-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-heights-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-help-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-more-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-dark-toggle:hover, #drawing-viewer-overlay #dv-toolbar button#dv-tasks-btn:hover, #drawing-viewer-overlay #dv-toolbar button#dv-undo-v75:hover, #drawing-viewer-overlay #dv-toolbar button#dv-redo-v75:hover, #drawing-viewer-overlay #dv-toolbar button#dv-actions-v75:hover{ background:#E2DEE6 !important; }
+#drawing-viewer-overlay #dv-toolbar button#dv-close:active, #drawing-viewer-overlay #dv-toolbar button#dv-prev:active, #drawing-viewer-overlay #dv-toolbar button#dv-next:active, #drawing-viewer-overlay #dv-toolbar button#dv-rename-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-layers-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-seal-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-heights-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-help-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-more-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-dark-toggle:active, #drawing-viewer-overlay #dv-toolbar button#dv-tasks-btn:active, #drawing-viewer-overlay #dv-toolbar button#dv-undo-v75:active, #drawing-viewer-overlay #dv-toolbar button#dv-redo-v75:active, #drawing-viewer-overlay #dv-toolbar button#dv-actions-v75:active{
+  transform:translateY(1px) !important;
+  box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+#drawing-viewer-overlay #dv-toolbar button#dv-help-btn{
+  color:#E0872A !important; font-weight:800 !important; line-height:1 !important;
+}
+#drawing-viewer-overlay #dv-toolbar button#dv-help-btn:hover{
+  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+}
