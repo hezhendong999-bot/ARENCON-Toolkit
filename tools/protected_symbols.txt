@@ -443,3 +443,5 @@ toBucketKey
 gated_push_check
 
 @ S513 viewer-header unified chrome (Mark). Every dv-toolbar header button (ids read from live markup, not guessed) shares one 34px/r8 spec with the adaptive --b-btn-shadow in both modes; #dv-help-btn styled to match the main header help. Box/spacing/shadow only — icons and markup untouched.
+
+@ S514 (Mark, correcting S513): viewer header buttons mirror the chrome back — --b-chrome2 surface (never white), r6, 34px, hardcoded 0 1px 4px shadow (deep in dark), native 6px toolbar gap with margins zeroed, back at 40px. Engine chrome-skin .hicon/.chip shadow fallbacks hardened from the invisible .08 to the real 0 1px 4px (the S504 weak-fallback pattern, found live on the Hub). Icons untouched.

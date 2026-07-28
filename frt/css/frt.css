@@ -11651,30 +11651,43 @@ body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
    everywhere else. The label keeps its own containment via the box bounds. */
 #dv-seal-layer .seal-mark{overflow:visible;}
 
-/* ═══ S513 (Mark) — DRAWING VIEWER HEADER: unified chrome ═══
-   Mark: the viewer header buttons (not the markup toolbar) were a mix — two
-   carried the S249p shadow, the rest none; sizes, padding and spacing all
-   drifted; the ? matched nothing. One rule set, generated from the ACTUAL
-   button ids in the toolbar markup, gives every header button the same
-   34px hit target, radius, spacing, and the adaptive --b-btn-shadow (soft
-   in day, deep in dark — both modes by construction). Icons untouched:
-   this block sets box/spacing/shadow properties only, never content. */
+/* ═══ S514 (Mark, correcting S513) — VIEWER HEADER: match the MAIN header ═══
+   S513 got three things wrong against the real spec and Mark caught all
+   three on device: (1) surface must be the chrome grey (--b-chrome2 /
+   #EFEDF0), NOT white — "look at the back button colour"; (2) radius is 6,
+   matching .back/.back-btn, not 8; (3) margin-left:8px STACKED on the
+   toolbar's native 6px gap → 14px "too far" spacing. This block mirrors the
+   engine's chrome .back exactly: same surface, border, r6, 34px height,
+   0 1px 4px shadow, press-sink; the back itself gets the back's 40px width.
+   Spacing rides the toolbar's own 6px gap — margin zeroed. Icons untouched. */
 .drawing-viewer-overlay .dv-toolbar #dv-close, .drawing-viewer-overlay .dv-toolbar #dv-prev, .drawing-viewer-overlay .dv-toolbar #dv-next, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn, .drawing-viewer-overlay .dv-toolbar #dv-help-btn, .drawing-viewer-overlay .dv-toolbar #dv-more-btn, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
   height:34px !important; min-width:34px !important;
-  padding:0 7px !important; margin-left:8px !important;
-  border-radius:8px !important;
+  padding:0 7px !important; margin:0 !important;
+  border-radius:6px !important;
   display:inline-flex !important; align-items:center !important; justify-content:center !important;
-  box-shadow:var(--b-btn-shadow) !important;
+  background:var(--b-chrome2,#EFEDF0) !important;
+  border:1px solid var(--b-chrome-rule,#D2CEDB) !important;
+  color:var(--b-chrome-fg,#1B1A22) !important;
+  box-shadow:0 1px 4px rgba(0,0,0,.2) !important;
   transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+body.dark-mode .drawing-viewer-overlay .dv-toolbar #dv-close, .drawing-viewer-overlay .dv-toolbar #dv-prev, .drawing-viewer-overlay .dv-toolbar #dv-next, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn, .drawing-viewer-overlay .dv-toolbar #dv-help-btn, .drawing-viewer-overlay .dv-toolbar #dv-more-btn, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+  box-shadow:0 2px 6px rgba(0,0,0,.40) !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-close:hover, .drawing-viewer-overlay .dv-toolbar #dv-prev:hover, .drawing-viewer-overlay .dv-toolbar #dv-next:hover, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-help-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-more-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{
+  background:var(--b-chrome-hover,rgba(0,0,0,.05)) !important;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-close:active, .drawing-viewer-overlay .dv-toolbar #dv-prev:active, .drawing-viewer-overlay .dv-toolbar #dv-next:active, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-help-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-more-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:active{
   transform:translateY(1px);
   box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
-/* the ? reads like the main header's help button: same surface + border */
+/* back matches the main-page back exactly: 40px wide */
+.drawing-viewer-overlay .dv-toolbar #dv-close{
+  width:40px !important; min-width:40px !important;
+}
+/* the ? : same chrome surface as its siblings, bold glyph, burgundy hover
+   like the main header help */
 .drawing-viewer-overlay .dv-toolbar #dv-help-btn{
-  background:var(--b-chrome2) !important;
-  border:1px solid var(--b-chrome-rule) !important;
   font-weight:700 !important;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-help-btn:hover{
