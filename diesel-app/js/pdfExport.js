@@ -37,10 +37,25 @@ function _ppxKey(item){ return (item.photo&&item.photo.id) ? item.photo.id : ('p
    as before, unlinked. The raw R2 URL is never emitted anywhere — that is
    FRT's privacy rule and it is now this report's rule too. */
 function _lnk(photo, cellHtml){
+  /* S521 — INSTRUMENTED. Five rounds have gone by without anyone establishing
+     the ONE fact that separates the two possible faults: are the anchors
+     missing from the PDF, or present but not resolving? Counting here answers
+     it from the console on the next export, with no behaviour change.
+       wrapped 0    -> the link map never reached the builder (app-side bug)
+       wrapped N    -> anchors ARE in the report; any failure is resolve-side
+     _lnkStats is read and logged by _realExportPDF when the build finishes. */
+  try{ window.__lnkStats = window.__lnkStats || {seen:0, wrapped:0, noMap:0, noToken:0}; }catch(_){}
   try{
+    var st = (typeof window!=='undefined') && window.__lnkStats;
+    if(st) st.seen++;
     var m = (typeof window!=='undefined') && window.__photoLinkHrefs;
-    var h = m && photo && m.href && m.href(photo);
-    if(h) return '<a href="'+h+'" style="display:block;width:100%;height:100%;text-decoration:none;">'+cellHtml+'</a>';
+    if(!m){ if(st) st.noMap++; return cellHtml; }
+    var h = photo && m.href && m.href(photo);
+    if(h){
+      if(st) st.wrapped++;
+      return '<a href="'+h+'" style="display:block;width:100%;height:100%;text-decoration:none;">'+cellHtml+'</a>';
+    }
+    if(st) st.noToken++;
   }catch(_){}
   return cellHtml;
 }
@@ -596,6 +611,7 @@ function _ensureChartsForExport(){
 }
 function _exportPDFGo() {
   window._apxBandEmitted = false;   // S372.5: reset per-export; _appendixHTML / flow-test / sketch set it true when the Photo Appendix band is emitted
+  try{ window.__lnkStats = {seen:0, wrapped:0, noMap:0, noToken:0}; }catch(_){}   // S521: reset link-wrap counters per export
   /* S512: mint opaque photo links BEFORE the report HTML is built, so _lnk() has
      tokens to wrap cells with. Fire-and-forget with a settle flag: the preview
      build below runs on its own timeout chain, and by the time the HTML is
@@ -1116,6 +1132,15 @@ function _realExportPDF() {
   const w = window.open('','_blank');
   if(!w||w.closed){showToast('Popup blocked — allow popups and try again');return;}
   w.document.write(html); w.document.close();
+  /* S521: report what the builder actually produced, in one line. */
+  try{
+    var _ls = window.__lnkStats || {};
+    var _anchors = w.document.querySelectorAll('a[href^="https://files.arencon.app/p/"]').length;
+    console.info('[photo links] report built: ' + (_ls.wrapped||0) + ' of ' + (_ls.seen||0) +
+      ' photo cells wrapped (' + _anchors + ' anchors in the preview DOM)' +
+      ((_ls.noMap||0) ? ' | ' + _ls.noMap + ' built BEFORE the link map arrived' : '') +
+      ((_ls.noToken||0) ? ' | ' + _ls.noToken + ' had no token (unsynced photo)' : ''));
+  }catch(_){}
   /* S513: photo anchors (S512) exist for the CAPTURE to bake into PDF links — they
      must never navigate the live preview. Without this, a fat-finger tap on any
      photo replaced the whole preview with the raw image and the report had to be
