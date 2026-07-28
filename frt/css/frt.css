@@ -11650,3 +11650,33 @@ body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
    in the viewer layer the chrome must overhang. Scoped override, clip kept
    everywhere else. The label keeps its own containment via the box bounds. */
 #dv-seal-layer .seal-mark{overflow:visible;}
+
+/* ═══ S513 (Mark) — DRAWING VIEWER HEADER: unified chrome ═══
+   Mark: the viewer header buttons (not the markup toolbar) were a mix — two
+   carried the S249p shadow, the rest none; sizes, padding and spacing all
+   drifted; the ? matched nothing. One rule set, generated from the ACTUAL
+   button ids in the toolbar markup, gives every header button the same
+   34px hit target, radius, spacing, and the adaptive --b-btn-shadow (soft
+   in day, deep in dark — both modes by construction). Icons untouched:
+   this block sets box/spacing/shadow properties only, never content. */
+.drawing-viewer-overlay .dv-toolbar #dv-close, .drawing-viewer-overlay .dv-toolbar #dv-prev, .drawing-viewer-overlay .dv-toolbar #dv-next, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn, .drawing-viewer-overlay .dv-toolbar #dv-help-btn, .drawing-viewer-overlay .dv-toolbar #dv-more-btn, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+  height:34px !important; min-width:34px !important;
+  padding:0 7px !important; margin-left:8px !important;
+  border-radius:8px !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important;
+  box-shadow:var(--b-btn-shadow) !important;
+  transition:box-shadow .15s, transform .08s, background .15s !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-close:active, .drawing-viewer-overlay .dv-toolbar #dv-prev:active, .drawing-viewer-overlay .dv-toolbar #dv-next:active, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-help-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-more-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:active{
+  transform:translateY(1px);
+  box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+/* the ? reads like the main header's help button: same surface + border */
+.drawing-viewer-overlay .dv-toolbar #dv-help-btn{
+  background:var(--b-chrome2) !important;
+  border:1px solid var(--b-chrome-rule) !important;
+  font-weight:700 !important;
+}
+.drawing-viewer-overlay .dv-toolbar #dv-help-btn:hover{
+  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
+}

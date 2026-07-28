@@ -441,3 +441,5 @@ toBucketKey
 
 @ S512 header button shadows (Mark, demo-approved). Every shared-header button reads pressable: .hbtn CTAs and the .chip user chip carry engine-owned hardcoded shadows in both themes (icons/.hicon had them since S249k). Box-shadow only — icons, markup and colours untouched. No host-token indirection (S504 lesson). tools/gated_push_check.sh is the mandatory mechanical gate: every push routes through it; a blocked gate kills the entire batch (born from the S511 push-despite-block failure).
 gated_push_check
+
+@ S513 viewer-header unified chrome (Mark). Every dv-toolbar header button (ids read from live markup, not guessed) shares one 34px/r8 spec with the adaptive --b-btn-shadow in both modes; #dv-help-btn styled to match the main header help. Box/spacing/shadow only — icons and markup untouched.
