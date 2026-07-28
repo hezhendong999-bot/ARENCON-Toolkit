@@ -1182,7 +1182,20 @@ function _realExportPDF() {
   try {
     var _mec = (typeof window!=='undefined') && window.__mountExportChrome;
     if (typeof _mec === 'function') {
-      _mec(w, w.document, { onExport: function(){ w.print(); } });
+      _mec(w, w.document, { onExport: function(){
+        /* S511: real .pdf file instead of the browser print dialog. w.print() lets
+           the BROWSER re-paginate and ignore the engine's .page boundaries, which is
+           how orphaned band titles and blank sheets got into reports. The capture
+           photographs each .page 1:1, so the file matches the preview exactly.
+           Falls back to print() if the shared module did not load — an export must
+           never become impossible because a module is missing. */
+        var _cap = (typeof window!=='undefined') && window.__capturePdfFromPreview;
+        if (typeof _cap === 'function') {
+          try { _cap(w, w.document); return; }
+          catch(e){ try{ console.warn('[export] capture failed, falling back to print', e); }catch(_){} }
+        }
+        w.print();
+      } });
     } else {
       // Fallback: the shared module failed to load. Never leave the preview with no
       // way out — mount a minimal pill so export/close still work.

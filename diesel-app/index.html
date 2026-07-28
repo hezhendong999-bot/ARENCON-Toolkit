@@ -46,6 +46,12 @@
    lib/export/exportPreview.js directly; Diesel calls the exact same function. */
 import { mountExportChrome } from '../lib/export/exportPreview.js';
 window.__mountExportChrome = mountExportChrome;
+/* S511: bridge the SHARED capture pipeline (preview -> real .pdf file, photo links
+   preserved, searchable text layer). Same pattern, same reason: the export script is
+   a classic script and cannot import a module. FRT is untouched — it keeps running
+   its own resident copy of this engine. */
+import { capturePdfFromPreview } from '../lib/export/capturePdf.js';
+window.__capturePdfFromPreview = capturePdfFromPreview;
 </script>
 <link rel="stylesheet" href="css/diesel-01.css?v=202607262340">
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no

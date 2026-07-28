@@ -80,3 +80,11 @@ diesel-app/js/part15.js
 diesel-app/js/part16.js
 lib/calc/curveData.js
 arencon-icon-192.png
+
+# ── S511: capture export (preview -> real .pdf file) ──────────────────────
+# The two libraries are vendored rather than pulled from a CDN at export time:
+# FRT accepts the CDN dependency, but a field tablet with no signal must still
+# be able to produce a report.
+lib/export/capturePdf.js
+vendor/html2canvas.min.js
+vendor/pdf-lib.min.js
