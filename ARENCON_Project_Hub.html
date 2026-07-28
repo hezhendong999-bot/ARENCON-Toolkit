@@ -646,6 +646,13 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
     .crn-item .cl{color:var(--fg);font-weight:600;flex:0 1 auto;max-width:42%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:10px;border-left:1px solid var(--border)}
 .crn-sec{padding:6px 12px;font-size:calc(10.5px + var(--ts));font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--silver);background:var(--bg);border-bottom:1px solid var(--border)}
 .crn-sec.others{color:var(--warn)}
+    /* S513 — similarity clusters inside a Review Client Names flag */
+    .rcn-cluster{border:1px solid var(--border);border-radius:10px;margin:10px 0;overflow:hidden}
+    .rcn-clhead{padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);font-weight:700;font-size:calc(12.5px + var(--ts));color:var(--fg);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .rcn-why{font-weight:400;font-size:calc(10.5px + var(--ts));color:var(--silver);font-style:italic}
+    .rcn-clact{display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;border-top:1px solid var(--border);background:var(--bg)}
+    .rcn-others{margin-top:8px;font-size:calc(11.8px + var(--ts));color:var(--silver)}
+    .rcn-others b{color:var(--steel);font-weight:600}
 .crn-note{font-size:calc(11.8px + var(--ts));color:var(--silver);line-height:1.55;margin-top:10px}
 @media(pointer:coarse){.crn-item{padding:12px}.crn-item input{width:21px;height:21px}}
 /* ═══ S499 — Review Client Names (admin). Series-conflict flagging.
@@ -4376,6 +4383,114 @@ function ccMergeManual(){
    ═══════════════════════════════════════════════════════════════════════════ */
 function _rcnSeries(pn){ var m = String(pn || '').match(/^(\d+)/); return m ? m[1] : null; }
 
+/* ═══ S513 (Mark) — SIMILARITY FLAGGING, not "two spellings = conflict". ═══
+   The old rule flagged every series with more than one spelling. Real boards
+   legitimately carry several clients in one series (7155 = Caplink Ltd AND FGF
+   Brands; 7310 = Give & Go AND Mantecon AND IFAB), so most flags were false
+   alarms — and a tool that cries wolf gets ignored, which buries the one real
+   typo. Now two spellings are suspected to be the SAME client only when:
+     • their words match once corporate suffixes (Ltd/Inc/ULC/LLC/Corp/…) and
+       punctuation are stripped — "PS Canada ULC" ≡ "PS Canada LLC" ≡ "PS Canada";
+     • one is the initials of the other — "G&G" ≡ "Give & Go"; or
+     • they differ by a 1–2 letter typo — "Aromatic" ≡ "Aromatics"
+       (2 letters only allowed on names long enough that it can't be a real
+       different word).
+   Anything else — "Caplink Ltd" vs "FGF Brands", "Public Storage" vs
+   "PS Canada" — is treated as different companies and NEVER flagged. Whether
+   two such names are really one client is Mark's judgment, not string math;
+   the tool stays quiet rather than guessing.
+   Each suspected cluster carries a "Not the same client" dismissal, stored in
+   client_flag_dismissals for ALL admins. The key is the cluster's membership,
+   so a dismissal survives reloads but a series whose spellings CHANGE gets
+   looked at fresh. */
+var _RCN_SUFFIX = { ltd:1, limited:1, inc:1, incorporated:1, llc:1, ulc:1,
+                    corp:1, corporation:1, co:1, company:1, ltee:1, plc:1,
+                    lp:1, llp:1 };
+function _rcnCore(name){
+  var words = String(name||'').toLowerCase()
+    .replace(/[&+]/g, ' and ').replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/).filter(Boolean);
+  while (words.length > 1 && _RCN_SUFFIX[words[words.length-1]]) words.pop();
+  return words.join(' ');
+}
+function _rcnInitials(name){
+  return String(name||'').toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/).filter(function(w){ return w && w !== 'and' && !_RCN_SUFFIX[w]; })
+    .map(function(w){ return w[0]; }).join('');
+}
+function _rcnLetters(name){
+  return String(name||'').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function _rcnEditDist(a, b){          /* small Levenshtein, capped use only */
+  var m = a.length, n = b.length;
+  if (Math.abs(m - n) > 2) return 99;
+  var prev = [], cur = [];
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++){
+    cur[0] = i;
+    for (var k = 1; k <= n; k++){
+      cur[k] = Math.min(prev[k] + 1, cur[k-1] + 1,
+                        prev[k-1] + (a[i-1] === b[k-1] ? 0 : 1));
+    }
+    var t = prev; prev = cur; cur = t;
+  }
+  return prev[n];
+}
+/* why-string when two spellings look like the same client, else null */
+function _rcnSameClient(a, b){
+  var ca = _rcnCore(a), cb = _rcnCore(b);
+  if (ca && ca === cb) return 'same name, different suffix/punctuation';
+  /* initials: the SHORT form's & / + are dropped, not expanded — "G&G" must
+     read as the letters "gg" to match the initials of "Give & Go". */
+  var sa = _rcnLetters(String(a||'').replace(/[&+]/g, '')),
+      sb = _rcnLetters(String(b||'').replace(/[&+]/g, ''));
+  if (sa && sb && (sa === _rcnInitials(b) || sb === _rcnInitials(a))) return 'initials of the longer name';
+  var la = _rcnLetters(ca), lb = _rcnLetters(cb);
+  if (la && lb){
+    var d = _rcnEditDist(la, lb);
+    if (d <= 1) return 'one-letter difference';
+    if (d === 2 && Math.min(la.length, lb.length) >= 8) return 'two-letter difference';
+  }
+  return null;
+}
+/* cluster a series' spellings: union-find over pairwise _rcnSameClient */
+function _rcnClusters(names){
+  var parent = {};
+  function find(x){ while (parent[x] !== x) x = parent[x] = parent[parent[x]]; return x; }
+  names.forEach(function(n){ parent[n] = n; });
+  for (var i = 0; i < names.length; i++)
+    for (var j = i + 1; j < names.length; j++)
+      if (_rcnSameClient(names[i], names[j])){
+        parent[find(names[i])] = find(names[j]);
+      }
+  var by = {};
+  names.forEach(function(n){ var r = find(n); (by[r] = by[r] || []).push(n); });
+  return Object.keys(by).map(function(r){ return by[r]; });
+}
+function _rcnClusterKey(members){
+  return members.map(_rcnCore).sort().join('|');
+}
+/* dismissals — loaded per render, shared by all admins */
+var _rcnDismissed = {};
+async function _rcnLoadDismissed(){
+  _rcnDismissed = {};
+  if (!_sb) return;
+  try {
+    var rows = await _sb.from('client_flag_dismissals').execute() || [];
+    (rows || []).forEach(function(r){ _rcnDismissed[r.series + '::' + r.cluster_key] = r.id; });
+  } catch(e){ console.warn('[rcn] dismissals lookup failed', e); }
+}
+async function _rcnDismiss(series, clusterKey){
+  if (!_sb || !_profile) return;
+  try {
+    await _sb.from('client_flag_dismissals').insert({
+      series: series, cluster_key: clusterKey, dismissed_by: _profile.id
+    });
+    toast('Noted \u2014 this series won\u2019t be flagged for those names again', 'success');
+  } catch(e){ console.warn('[rcn] dismiss failed', e); toast('Could not save the dismissal', 'error'); }
+  try { renderReviewClientNames(); } catch(e){}
+}
+
 function _rcnConflicts(){
   var bySeries = {};
   (_projects || []).forEach(function(p){
@@ -4389,15 +4504,24 @@ function _rcnConflicts(){
     ps.forEach(function(p){ var c = (p.client || '').trim(); (spell[c] = spell[c] || []).push(p); });
     var names = Object.keys(spell);
     if (names.length < 2) return;                       /* one spelling = clean */
-    names.sort(function(a,b){ return spell[b].length - spell[a].length || a.localeCompare(b); });
-    /* "most used" is only meaningful when one spelling genuinely leads. On a
-       tie every spelling has equal weight, so claiming a winner would mislead
-       the admin into accepting an arbitrary alphabetical pick. */
-    var clearWinner = spell[names[0]].length > spell[names[1]].length;
-    out.push({ series: s, spellings: names, groups: spell, total: ps.length,
-               clearWinner: clearWinner,
+    /* S513: only clusters of LOOK-ALIKE spellings flag; different clients in
+       the same series are normal and listed quietly, never nagged. */
+    var clusters = _rcnClusters(names).filter(function(c){ return c.length > 1; });
+    clusters = clusters.filter(function(c){
+      return !_rcnDismissed[s + '::' + _rcnClusterKey(c)];
+    });
+    if (!clusters.length) return;
+    clusters.forEach(function(cl){
+      cl.sort(function(a,b){ return spell[b].length - spell[a].length || a.localeCompare(b); });
+    });
+    var flat = [];
+    clusters.forEach(function(cl){ cl.forEach(function(n){ flat.push(n); }); });
+    var othersNames = names.filter(function(n){ return flat.indexOf(n) === -1; });
+    var total = 0; flat.forEach(function(n){ total += spell[n].length; });
+    out.push({ series: s, spellings: flat, groups: spell, total: total,
+               clusters: clusters, otherClients: othersNames,
                pending: (_rcnPending && _rcnPending[s]) || null });
-  });
+    });
   return out;
 }
 
@@ -4430,6 +4554,7 @@ async function renderReviewClientNames(){
   if (!_canPurgeProjects()){ host.innerHTML = '<span style="color:var(--silver)">Administrators only.</span>'; return; }
 
   await _rcnLoadPending();
+  await _rcnLoadDismissed();
 
   var flags = _rcnConflicts();
   var seen = {};
@@ -4451,33 +4576,55 @@ async function renderReviewClientNames(){
 
   live.concat(pend).forEach(function(f){
     var isPend = !!f.pending;
+    /* S513: header names only the SUSPECTED-SAME spellings; a series whose other
+       clients are genuinely different isn't accused of anything about them. */
+    var headNames = f.clusters.map(function(cl){ return cl.map(esc).join(' \u2261 '); }).join('  ·  ');
     html += '<div class="rcn-flag' + (isPend ? ' pending' : '') + '" id="rcn-flag-' + esc(f.series) + '">'
          +    '<div class="rcn-fhead" onclick="_rcnTog(\'' + esc(f.series) + '\')">'
          +      '<span class="rcn-caret">\u25B6</span>'
          +      '<span class="rcn-series">' + esc(f.series) + '</span>'
-         +      '<span class="rcn-fmeta"><b>' + f.spellings.length + ' spellings</b> across ' + f.total
-         +        ' projects \u2014 ' + f.spellings.map(esc).join(' \u00B7 ') + '</span>'
+         +      '<span class="rcn-fmeta"><b>' + (f.clusters.length === 1 ? 'Likely one client' : f.clusters.length + ' likely matches')
+         +        '</b> \u2014 ' + headNames + '</span>'
          +      (isPend ? '<span class="rcn-chip pending">Request sent</span>'
                         : '<span class="rcn-chip conflict">Needs review</span>')
          +    '</div><div class="rcn-fbody">';
 
-    f.spellings.forEach(function(name, i){
-      var ps = f.groups[name];
-      html += '<div class="rcn-grp"><div class="rcn-ghead">'
-           +    '<span class="rcn-gname">' + esc(name) + '</span>'
-           +    '<span class="rcn-gcount">' + ps.length + ' project' + (ps.length === 1 ? '' : 's') + '</span>'
-           +    (i === 0 && f.clearWinner ? '<span class="rcn-keep">most used</span>' : '')
-           +  '</div>';
-      ps.forEach(function(p){
-        var mine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
-        html += '<div class="rcn-proj">'
-             +    '<span class="num">' + esc(p.project_number || '\u2014') + '</span>'
-             +    '<span class="nm">' + esc(p.project_name || '') + '</span>'
-             +    '<span class="pm' + (mine ? ' own' : '') + '">' + (mine ? 'You' : esc(_rcnPmName(p))) + '</span>'
+    f.clusters.forEach(function(cl, ci){
+      var why = cl.length === 2 ? (_rcnSameClient(cl[0], cl[1]) || '') : 'multiple look-alike spellings';
+      html += '<div class="rcn-cluster">'
+           +  '<div class="rcn-clhead">' + cl.map(esc).join(' \u2261 ')
+           +    '<span class="rcn-why">' + esc(why) + '</span></div>';
+      cl.forEach(function(name, i){
+        var ps = f.groups[name];
+        html += '<div class="rcn-grp"><div class="rcn-ghead">'
+             +    '<span class="rcn-gname">' + esc(name) + '</span>'
+             +    '<span class="rcn-gcount">' + ps.length + ' project' + (ps.length === 1 ? '' : 's') + '</span>'
+             +    (i === 0 && ps.length > (f.groups[cl[1]] || []).length ? '<span class="rcn-keep">most used</span>' : '')
              +  '</div>';
+        ps.forEach(function(p){
+          var mine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
+          html += '<div class="rcn-proj">'
+               +    '<span class="num">' + esc(p.project_number || '\u2014') + '</span>'
+               +    '<span class="nm">' + esc(p.project_name || '') + '</span>'
+               +    '<span class="pm' + (mine ? ' own' : '') + '">' + (mine ? 'You' : esc(_rcnPmName(p))) + '</span>'
+               +  '</div>';
+        });
+        html += '</div>';
       });
+      if (!isPend){
+        html += '<div class="rcn-clact">'
+             +  '<button class="dash-btn secondary" onclick="_rcnDismiss(\'' + esc(f.series) + '\',\''
+             +    esc(_rcnClusterKey(cl)) + '\')">Not the same client</button>'
+             +  '<button class="dash-btn primary" onclick="_rcnFix(\'' + esc(f.series) + '\',' + ci + ')">Fix these names</button>'
+             +  '</div>';
+      }
       html += '</div>';
     });
+
+    if (f.otherClients.length){
+      html += '<div class="rcn-others">Also in this series, looks like different clients: <b>'
+           +  f.otherClients.map(esc).join('</b> \u00B7 <b>') + '</b></div>';
+    }
 
     html += '<div class="rcn-act">';
     if (isPend){
@@ -4485,8 +4632,7 @@ async function renderReviewClientNames(){
            +  esc(f.pending.from) + '\u201D to \u201C' + esc(f.pending.to)
            +  '\u201D. Nothing more to do until they answer.</span>';
     } else {
-      html += '<span class="hint">Your projects change right away. Other PMs get a request they can accept or decline.</span>'
-           +  '<button class="dash-btn primary" onclick="_rcnFix(\'' + esc(f.series) + '\')">Fix this series</button>';
+      html += '<span class="hint">Your projects change right away. Other PMs get a request they can accept or decline. \u201CNot the same client\u201D stops that group being flagged, for every admin.</span>';
     }
     html += '</div></div></div>';
   });
@@ -4511,35 +4657,42 @@ function _rcnTog(s){
 
 /* Opens the EXISTING rename modal seeded with this series' projects, so the
    consent split and the write path are the rename's, not a second copy. */
-function _rcnFix(series){
+function _rcnFix(series, clusterIdx){
   var f = _rcnConflicts().filter(function(x){ return x.series === series; })[0];
   if (!f || !_profile) return;
+  /* S513: the fix targets ONE look-alike cluster, not the whole series. Projects
+     whose client is in the cluster arrive TICKED; the series' other clients are
+     listed too (their client shown on the row) but UNTICKED — visible so Mark
+     can override the grouping either way, but never renamed by default. */
+  var cl = f.clusters[clusterIdx || 0] || f.clusters[0];
+  var inCluster = {}; cl.forEach(function(n){ inCluster[n] = 1; });
   var all = [];
-  f.spellings.forEach(function(n){ f.groups[n].forEach(function(p){ all.push(p); }); });
+  Object.keys(f.groups).forEach(function(n){ f.groups[n].forEach(function(p){ all.push(p); }); });
   var mine = [], others = [];
   all.forEach(function(p){
     var isMine = p.project_manager ? (p.project_manager === _profile.id) : (p.created_by === _profile.id);
     (isMine ? mine : others).push(p);
   });
-  _crnCtx = { oldName: f.spellings[0], mine: mine, others: others };
+  _crnCtx = { oldName: cl[0], mine: mine, others: others };
 
   document.getElementById('crn-intro').innerHTML =
-    'Series <b>' + esc(series) + '</b> uses <b>' + f.spellings.length + '</b> different spellings across <b>'
-    + all.length + '</b> project' + (all.length === 1 ? '' : 's')
-    + '. Type the correct spelling, then choose which projects to update. Only the client name changes '
+    'These spellings look like one client: <b>' + cl.map(esc).join('</b> \u2261 <b>') + '</b>. '
+    + 'Type the correct name, then confirm which projects to update \u2014 rows already ticked are the '
+    + 'look-alikes; other clients in the series are listed unticked. Only the client name changes '
     + '&mdash; numbers, reports, photos and drawings are untouched.';
 
   var nn = document.getElementById('crn-name');
-  nn.value = f.spellings[0];
+  nn.value = cl[0];
 
+  var tick = function(p){ return !!inCluster[(p.client || '').trim()]; };
   var html = '';
   if (mine.length){
     html += '<div class="crn-sec">Your projects &mdash; renamed immediately</div>';
-    mine.forEach(function(p){ html += _crnRow(p, true); });
+    mine.forEach(function(p){ html += _crnRow(p, true, tick(p)); });
   }
   if (others.length){
     html += '<div class="crn-sec others">Other PMs &mdash; sent as a correction request</div>';
-    others.forEach(function(p){ html += _crnRow(p, false); });
+    others.forEach(function(p){ html += _crnRow(p, false, tick(p)); });
   }
   document.getElementById('crn-list').innerHTML = html;
   document.getElementById('crn-note').textContent = others.length
@@ -4548,6 +4701,7 @@ function _rcnFix(series){
   document.getElementById('crn-merge').style.display = 'none';
   document.getElementById('crn-sug').style.display = 'none';
   _crnOnName();
+  _crnCount();
   document.getElementById('client-rename-modal').classList.add('show');
   setTimeout(function(){ nn.focus(); nn.select(); }, 80);
 }
@@ -5863,13 +6017,15 @@ function openClientRename() {
   setTimeout(function() { nn.focus(); nn.select(); }, 80);
 }
 
-function _crnRow(p, mine) {
+function _crnRow(p, mine, checked) {
   /* S513 (Mark): show the project's CURRENT client on every row. A number series
      is usually one client but not always — 7310 carries Give & Go, G&G AND
      Mantecon — so without the client on the row there is no way to tell which
      project is the typo and which is a genuinely different customer that must
-     NOT be renamed. */
-  return '<label class="crn-item"><input type="checkbox" checked value="' + esc(p.id) + '" data-mine="'
+     NOT be renamed. `checked` defaults to ticked so the plain rename path is
+     unchanged; the series-fix path unticks rows outside the look-alike cluster. */
+  var on = (checked === undefined) ? true : !!checked;
+  return '<label class="crn-item"><input type="checkbox"' + (on ? ' checked' : '') + ' value="' + esc(p.id) + '" data-mine="'
     + (mine ? '1' : '0') + '" onchange="_crnCount()">'
     + '<span class="num">' + esc(p.project_number || '\u2014') + '</span>'
     + '<span class="nm">' + esc(p.project_name || '') + '</span>'
