@@ -438,3 +438,6 @@ _lnk
 buildPhotoHrefs
 mintTokens
 toBucketKey
+
+@ S512 header button shadows (Mark, demo-approved). Every shared-header button reads pressable: .hbtn CTAs and the .chip user chip carry engine-owned hardcoded shadows in both themes (icons/.hicon had them since S249k). Box-shadow only — icons, markup and colours untouched. No host-token indirection (S504 lesson). tools/gated_push_check.sh is the mandatory mechanical gate: every push routes through it; a blocked gate kills the entire batch (born from the S511 push-despite-block failure).
+gated_push_check
