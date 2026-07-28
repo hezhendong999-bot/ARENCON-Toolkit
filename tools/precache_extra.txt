@@ -88,3 +88,4 @@ arencon-icon-192.png
 lib/export/capturePdf.js
 vendor/html2canvas.min.js
 vendor/pdf-lib.min.js
+lib/data/photoLinkMint.js

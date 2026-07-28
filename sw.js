@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-202607271900<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202607282000';
+var CACHE_NAME = 'arencon-frt-202607282015';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -169,6 +169,7 @@ var APP_FILES = [
   'diesel-app/js/part05.js',
   'diesel-app/js/pdfExport.js',   /* S511: moved out of lib/ui/ — Diesel-only */
   'lib/export/capturePdf.js',     /* S511: preview -> real .pdf capture pipeline */
+  'lib/data/photoLinkMint.js',    /* S512: opaque /p/{token} links for report photos */
   'vendor/html2canvas.min.js',    /* S511: vendored so a tablet with no signal can still export */
   'vendor/pdf-lib.min.js',
   'diesel-app/js/part06.js',

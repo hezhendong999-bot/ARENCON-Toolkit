@@ -432,3 +432,9 @@ workingCopy
 
 @ S511 drawing fidelity + seal visibility (Mark). Tiled sheets stitch full-res from the Azure tile pyramid at export (_stitchTiledDrawing) — before this they printed from the 400px thumbnail. Uploads store PNG (one lossy generation total) at an 8192px cap (iPhone ceiling obsolete; 24x36 now 227 DPI). Seal poll heals painted-vs-data mismatch (covers no longer vanish on same-sheet reopen). #dv-seal-layer .seal-mark{overflow:visible} keeps the floating edit chrome unclipped. Export DPI labels state the achievable ceiling per sheet size.
 _stitchTiledDrawing
+
+@ Clickable report photos S512 (Mark) — Diesel report photos wrap in <a href> to opaque https://files.arencon.app/p/{token} minted via POST /mintlinks (Supabase JWT); the capture export bakes them into PDF /Link annotations. Raw R2 URLs are never emitted (FRT privacy rule). No token -> the photo renders unlinked; an export is never blocked by the link service.
+_lnk
+buildPhotoHrefs
+mintTokens
+toBucketKey

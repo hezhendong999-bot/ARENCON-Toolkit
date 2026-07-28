@@ -27,6 +27,24 @@
    original export chain (_exportPDFGo). */
 var _appendixExcl = new Set();
 function _ppxKey(item){ return (item.photo&&item.photo.id) ? item.photo.id : ('pgk_'+item.section+'#'+item.idx); }
+
+/* ════ S512 — CLICKABLE PHOTOS ═══════════════════════════════════════════════
+   window.__photoLinkHrefs is populated (async, before the preview opens) by the
+   export flow: lib/data/photoLinkMint.js mints an opaque /p/{token} for every
+   synced photo. _lnk() wraps a photo cell in <a href> when a token exists; the
+   capture pipeline then bakes that anchor into a real PDF /Link annotation.
+   No token (unsynced photo, offline, mint failed) -> the cell renders exactly
+   as before, unlinked. The raw R2 URL is never emitted anywhere — that is
+   FRT's privacy rule and it is now this report's rule too. */
+function _lnk(photo, cellHtml){
+  try{
+    var m = (typeof window!=='undefined') && window.__photoLinkHrefs;
+    var h = m && photo && m.href && m.href(photo);
+    if(h) return '<a href="'+h+'" style="display:block;width:100%;height:100%;text-decoration:none;">'+cellHtml+'</a>';
+  }catch(_){}
+  return cellHtml;
+}
+
 /* ════ S315 F2: PDF PHOTO APPENDIX (LOCKED layout, Diesel PK) ════
    pump/install 3-up square NO labels \u00B7 gauge/RPM/BF 2-up grouped by flow point,
    one reading per row \u00B7 two placard cards per page \u00B7 readings/sections with
@@ -69,7 +87,7 @@ function _appendixHTML(){
       return chunk(items, size>=300?2:3).map(function(row){
         return '<div style="display:flex;gap:12px;margin-bottom:12px;">'+row.map(function(it){
           return '<div style="width:'+size+'px;height:'+size+'px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
-            +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>';
+            +_lnk(it.photo, '<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;">')+'</div>';
         }).join('')+'</div>';
       });
     }
@@ -113,7 +131,7 @@ function _appendixHTML(){
         var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){}
         return '<div style="width:230px;">'
           +'<div style="width:230px;height:185px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
-          +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
+          +_lnk(it.photo, '<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;">')+'</div>'
           +(d?'<div style="font:11px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(d)+'</div>':'')
           +'</div>';
       }
@@ -132,7 +150,7 @@ function _appendixHTML(){
         var d=''; try{ if(it.photo.date) d=new Date(it.photo.date).toLocaleDateString(); }catch(_){}
         return '<div style="width:285px;">'
           +'<div style="width:285px;height:300px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
-          +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:contain;display:block;"></div>'
+          +_lnk(it.photo, '<img src="'+it.src+'" style="width:100%;height:100%;object-fit:contain;display:block;">')+'</div>'
           +(d?'<div style="font:11px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(d)+'</div>':'')
           +'</div>';
       }
@@ -167,7 +185,7 @@ function _appendixHTML(){
         if(GT.isPld && it.photo.mode){ cap+= (it.photo.mode==='pld'?' \u00b7 w/PLD':it.photo.mode==='direct'?' \u00b7 w/o PLD':''); }
         return '<div style="width:120px;">'
           +'<div style="width:120px;height:150px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'
-          +'<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
+          +_lnk(it.photo, '<img src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;display:block;">')+'</div>'
           +'<div style="font:10px Calibri,sans-serif;color:#5E5B68;padding-top:3px;text-align:center;">'+esc(cap)+'</div>'
           +'</div>';
       }
@@ -578,6 +596,36 @@ function _ensureChartsForExport(){
 }
 function _exportPDFGo() {
   window._apxBandEmitted = false;   // S372.5: reset per-export; _appendixHTML / flow-test / sketch set it true when the Photo Appendix band is emitted
+  /* S512: mint opaque photo links BEFORE the report HTML is built, so _lnk() has
+     tokens to wrap cells with. Fire-and-forget with a settle flag: the preview
+     build below runs on its own timeout chain, and by the time the HTML is
+     assembled the mint has usually returned (tokens are also cached from prior
+     exports, so repeat exports resolve instantly and offline exports use the
+     cache). If the mint has NOT settled when the HTML builds, those photos
+     simply render unlinked this time — same failure policy as FRT: an export
+     must never wait on, or be broken by, a link service. */
+  try{
+    window.__photoLinkHrefs = null;
+    var _plm = (typeof window!=='undefined') && window.__buildPhotoHrefs;
+    if (typeof _plm === 'function' && typeof _collectAllPhotos === 'function') {
+      var _plmPhotos = _collectAllPhotos().map(function(it){ return it && it.photo; }).filter(Boolean);
+      // deficiency + response + flow-test photos live outside _collectAllPhotos
+      try{
+        (typeof contractors!=='undefined'?contractors:[]).forEach(function(n){
+          ((typeof deficiencies!=='undefined'&&deficiencies[n])||[]).forEach(function(d){
+            (d.photos||[]).forEach(function(p){ _plmPhotos.push(p); });
+            (d.responses||[]).forEach(function(r){ (r.photos||[]).forEach(function(p){ _plmPhotos.push(p); }); });
+          });
+        });
+        (typeof generalDeficiencies!=='undefined'?generalDeficiencies:[]).forEach(function(d){
+          (d.photos||[]).forEach(function(p){ _plmPhotos.push(p); });
+          (d.responses||[]).forEach(function(r){ (r.photos||[]).forEach(function(p){ _plmPhotos.push(p); }); });
+        });
+      }catch(_pl2){}
+      _plm(_plmPhotos).then(function(map){ window.__photoLinkHrefs = map; })
+                      .catch(function(){ window.__photoLinkHrefs = null; });
+    }
+  }catch(_pl){}
   var _chartRestore=_ensureChartsForExport();   // S316
   // S503b: ORDER IS EVERYTHING. _ensureChartsForExport resizes the charts; a resize
   // fires each chart's patched update(), which CLEARS the annotation overlay and
@@ -637,7 +685,7 @@ function _realExportPDF() {
     const pill = pillCls ? `<span class="pill ${pillCls}">${pillTxt}</span>` : `<span style="color:#B08948;font-weight:700;">—</span>`;
     const rowCls = sc==='no'?' class="nd-flag"':'';
     const cmHtml = cm ? `<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:3px;">${cm}</div>` : '';
-    const photosRow = photos.length ? `<tr class="ph-keep ${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`<img src="${_phSrc(p)}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`).join('')}</div></td></tr>` : '';
+    const photosRow = photos.length ? `<tr class="ph-keep ${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`${_lnk(p, `<img src="${_phSrc(p)}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`)}`).join('')}</div></td></tr>` : '';
     return `<tr${rowCls}>
       <td class="ctr" style="font-weight:600;color:#666;white-space:nowrap;font-size:9pt;width:34px;">${item.num}</td>
       <td>${txt}${cmHtml}</td>
@@ -962,7 +1010,7 @@ function _realExportPDF() {
         out += '<div style="font-size:8pt;color:#555;margin-top:2px;">Date: '+(d.date||'---')+'</div>';
         if (d.photos && d.photos.length) {
           out += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">';
-          d.photos.forEach(p => { out += '<img src="'+_phSrc(p)+'" style="width:100%;max-width:250px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'; });
+          d.photos.forEach(p => { out += _lnk(p, '<img src="'+_phSrc(p)+'" style="width:100%;max-width:250px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'); });
           out += '</div>';
         }
         // Unified responses timeline
@@ -981,7 +1029,7 @@ function _realExportPDF() {
             out += '<div style="font-size:8.5pt;padding:5px;background:white;border:1px solid #EEE;border-radius:3px;">'+(cr.comment||'(No comment)')+'</div>';
             if (cr.photos && cr.photos.length) {
               out += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
-              cr.photos.forEach(function(p){ out += '<img src="'+(_phSrc(p)||p)+'" style="width:100%;max-width:220px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'; });
+              cr.photos.forEach(function(p){ out += _lnk(p, '<img src="'+(_phSrc(p)||p)+'" style="width:100%;max-width:220px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'); });
               out += '</div>';
             }
             out += '</div>';
@@ -1125,7 +1173,7 @@ function _realExportPDF() {
         var _ftSub = '<div class="apx-subhead" data-subhead="Flow Test Charts" style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin:0 0 11px;border-bottom:1px solid #D8DCE3;">'
           + '<span style="width:4px;height:15px;background:#9C2742;border-radius:2px;display:inline-block;flex:0 0 auto;"></span>'
           + '<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">Flow Test Charts</span></div>';
-        var _ftCard = function(p){ return '<div style="width:228px;height:228px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;"><img src="'+_phSrc(p)+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'; };
+        var _ftCard = function(p){ return '<div style="width:228px;height:228px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'+_lnk(p, '<img src="'+_phSrc(p)+'" style="width:100%;height:100%;object-fit:cover;display:block;">')+'</div>'; };
         // first block = subhead + first chart (atomic); rest = 3-up rows that split freely
         ftHtml += '<div class="apx-keep">'+_ftSub+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+_ftCard(flowTestPhotos[0])+'</div></div>';
         for(var _fi=1; _fi<flowTestPhotos.length; _fi+=3){
