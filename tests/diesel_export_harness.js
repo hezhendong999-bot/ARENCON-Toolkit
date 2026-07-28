@@ -130,5 +130,16 @@ const p06  = read('diesel-app/js/part06.js');
   check('7c. mint promise stored for the build to await', j > 0);
 }
 
+
+// ── 8. S515 photo-link key format (the "clickable but dead" bug) ───────────
+{
+  const mint = read('lib/data/photoLinkMint.js');
+  check('8. toBucketKey is identity — stored key IS the bucket path',
+        /return k\.replace\(\/\^\\\/\+\/, ''\);/.test(mint) || mint.includes("return k.replace(/^\\/+/, '');"));
+  check('8a. the segment swap is gone', !mint.includes("parts[1] + '/photos/'"));
+  check('8b. token cache key bumped past the poisoned entries', mint.includes("arencon-plm-tokens-v2"));
+  check('8c. a minted link is probed before the report trusts it', mint.includes("method: 'HEAD'") && mint.includes('verified'));
+}
+
 console.log(failures === 0 ? '\nALL EXPORT-PATH CHECKS PASS' : `\n*** ${failures} FAILURE(S) ***`);
 process.exit(failures === 0 ? 0 : 1);
