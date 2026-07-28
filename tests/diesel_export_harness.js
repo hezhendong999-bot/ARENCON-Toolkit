@@ -116,5 +116,19 @@ const p06  = read('diesel-app/js/part06.js');
   check('6c. cur cleared after drag ends', doc.__annDragReg.cur === null);
 }
 
+
+// ── 7. S514 mint-wait: build waits, capped, cleanup behind the build ────────
+{
+  check('7. build waits on the mint promise', mod.includes('Promise.race([ window.__photoLinkPromise') && mono.includes('Promise.race([ window.__photoLinkPromise'));
+  const capOk = /setTimeout\(res, 4000\)/.test(mod);
+  check('7a. wait is capped (export can never stall)', capOk);
+  // cleanup must be INSIDE the then-chain, after _realExportPDF
+  const i = mod.indexOf('_lnkWait.then(function(){');
+  const seg = mod.slice(i, i + 1400);
+  check('7b. canvas cleanup ordered behind the build (S503b)', i > 0 && seg.indexOf('_realExportPDF();') > -1 && seg.indexOf('_chartRestore()') > seg.indexOf('_realExportPDF();'));
+  const j = mod.indexOf('window.__photoLinkPromise = _plm(');
+  check('7c. mint promise stored for the build to await', j > 0);
+}
+
 console.log(failures === 0 ? '\nALL EXPORT-PATH CHECKS PASS' : `\n*** ${failures} FAILURE(S) ***`);
 process.exit(failures === 0 ? 0 : 1);

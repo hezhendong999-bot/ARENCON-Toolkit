@@ -622,8 +622,9 @@ function _exportPDFGo() {
           (d.responses||[]).forEach(function(r){ (r.photos||[]).forEach(function(p){ _plmPhotos.push(p); }); });
         });
       }catch(_pl2){}
-      _plm(_plmPhotos).then(function(map){ window.__photoLinkHrefs = map; })
-                      .catch(function(){ window.__photoLinkHrefs = null; });
+      window.__photoLinkPromise = _plm(_plmPhotos)
+        .then(function(map){ window.__photoLinkHrefs = map; })
+        .catch(function(){ window.__photoLinkHrefs = null; });
     }
   }catch(_pl){}
   var _chartRestore=_ensureChartsForExport();   // S316
@@ -652,14 +653,36 @@ function _exportPDFGo() {
     // 3) re-render the overlay from settled chart geometry, bake, capture — back-to-back
     _chartPairs.forEach(function(p){ try{ if(p[1] && typeof renderChartAnnotations==='function') renderChartAnnotations(p[1],p[0]); }catch(_){} });
     _chartPairs.forEach(function(p){ _bakeAnnotationsOntoCanvas(p[1],p[0]); });
-    _realExportPDF();
-    // Clear baked annotations from canvases by re-rendering
-    setTimeout(function(){
-      [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(ci){
-        if(ci) { var origUpd = ci.__origUpdate || ci.update; origUpd.call(ci,'none'); }
-      });
-      _chartRestore();   // S316: hide the panel again if we revealed it
-    }, 300);
+    /* S514 — WHY THE FIRST EXPORT HAD NO PHOTO LINKS. The S512 mint was
+       fire-and-forget: on a first-ever export the token cache is empty, the
+       /mintlinks round-trip takes longer than the ~480ms settle chain above,
+       and the report HTML built before the map existed — so _lnk() wrapped
+       nothing and every photo rendered unlinked. Repeat exports "worked"
+       because the cache answered instantly, which is exactly the kind of
+       works-second-time bug that survives testing. The build now WAITS for
+       the mint, capped at 4s: past the cap the export proceeds with whatever
+       minted (failure policy unchanged — an export is never blocked by the
+       link service, it just links fewer photos). */
+    var _lnkWait = (typeof window!=='undefined' && window.__photoLinkPromise)
+      ? Promise.race([ window.__photoLinkPromise,
+                       new Promise(function(res){ setTimeout(res, 4000); }) ])
+      : Promise.resolve();
+    _lnkWait.then(function(){
+      _realExportPDF();
+      /* S514: this cleanup MUST stay behind the build. It un-bakes the chart
+         annotations and re-hides the panel; when the build was synchronous the
+         300ms timer always landed after it, but behind a mint wait of up to 4s
+         the timer would have fired FIRST and the report would capture wiped
+         charts — on precisely the first-export case the wait exists to fix.
+         Moved inside the chain so the order is structural, not a timing bet
+         (S503b: order is everything). */
+      setTimeout(function(){
+        [chart3pt,netChart3pt,pldChart,pldNetChart].forEach(function(ci){
+          if(ci) { var origUpd = ci.__origUpdate || ci.update; origUpd.call(ci,'none'); }
+        });
+        _chartRestore();   // S316: hide the panel again if we revealed it
+      }, 300);
+    });
   }, 180);   // S503b: was 100 — the resize's overlay re-render fires ~80ms in; wait past it with margin before warm+bake+capture
 }
 function _realExportPDF() {
