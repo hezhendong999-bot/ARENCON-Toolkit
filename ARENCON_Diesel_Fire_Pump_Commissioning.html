@@ -8772,7 +8772,22 @@ function _realExportPDF() {
     w.document.addEventListener('click', function(ev){
       var t = ev.target;
       while (t && t !== w.document && !(t.tagName === 'A' && t.getAttribute('href'))) t = t.parentNode;
-      if (t && t.tagName === 'A') { ev.preventDefault(); ev.stopPropagation(); }
+      if (t && t.tagName === 'A') {
+        /* S522 — OPEN IN A NEW TAB RATHER THAN SWALLOW THE CLICK.
+           S513 blocked photo-link clicks in the preview because a stray tap
+           replaced the whole preview with the raw image and the report had to
+           be regenerated — a real tablet hazard. But blocking outright made
+           the preview look broken: the photos are visibly links and clicking
+           them did nothing, which cost a round of "the links don't work" when
+           the exported PDF was fine all along. Blocking was the right
+           instinct, the wrong remedy. Now the preview survives AND the link is
+           verifiable before the report ever leaves the building: same-window
+           navigation is cancelled, the photo opens in a new tab. This is a
+           user-gesture window.open, so it is not treated as a popup. */
+        ev.preventDefault(); ev.stopPropagation();
+        var _href = t.getAttribute('href');
+        if (_href) { try { w.open(_href, '_blank', 'noopener'); } catch(_o){} }
+      }
     }, true);
   }catch(_na){}
   // Fill in sign-off and signature fields after DOM is ready

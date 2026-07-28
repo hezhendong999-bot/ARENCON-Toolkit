@@ -161,5 +161,15 @@ const p06  = read('diesel-app/js/part06.js');
         mod2.includes('_capFellOver') && mod2.includes('Export error'));
 }
 
+// ── 10. S522 preview links open, and never navigate the preview away ───────
+{
+  const m = read('diesel-app/js/pdfExport.js');
+  const mono = read('ARENCON_Diesel_Fire_Pump_Commissioning.html');
+  check('10. preview cancels same-window navigation', m.includes('ev.preventDefault(); ev.stopPropagation();'));
+  check('10a. preview opens the photo in a new tab instead of swallowing the click',
+        m.includes("w.open(_href, '_blank', 'noopener')"));
+  check('10b. both builds carry it', mono.includes("w.open(_href, '_blank', 'noopener')"));
+}
+
 console.log(failures === 0 ? '\nALL EXPORT-PATH CHECKS PASS' : `\n*** ${failures} FAILURE(S) ***`);
 process.exit(failures === 0 ? 0 : 1);
