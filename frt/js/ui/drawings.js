@@ -1194,20 +1194,7 @@ window._frtRefreshSealMarkers = _renderSealMarkersInViewer;
       var d = null;
       try { d = initViewer.getCurrentDrawing(); } catch (_e) {}
       var id = d ? d.id : null;
-      if (id !== _lastSealDrawId) { _lastSealDrawId = id; _renderSealMarkersInViewer(); return; }
-      /* S511 FIX — "covers sometimes disappear until the seal tool is toggled".
-         _lastSealDrawId survives closing the viewer. Reopen the SAME sheet and
-         the id never changes, so this poll stays silent — and on TILED sets the
-         img-src observer never fires either (tiles paint to their own canvas).
-         Result: covers exist in data but the layer was rebuilt empty. The id is
-         therefore not a sufficient trigger: also compare what is PAINTED against
-         what the data says, every tick, and heal any mismatch. Covers=0 with
-         marks painted heals deletions from another device the same way. */
-      var layer = document.getElementById('dv-seal-layer');
-      if (layer && d) {
-        var want = (d.redactions || []).length;
-        if (layer.childElementCount !== want) _renderSealMarkersInViewer();
-      }
+      if (id !== _lastSealDrawId) { _lastSealDrawId = id; _renderSealMarkersInViewer(); }
     }, 250);
     new MutationObserver(function() {
       _renderSealMarkersInViewer();
@@ -1967,20 +1954,12 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
     pdf.getPage(pg).then(function(page) {
       var pv = page.view;
       var pw = pv[2], ph = pv[3];
-      // S511 (Mark): cap raised 6144 → 8192. The 6144 ceiling was chosen
-      // against the iPhone memory budget — iOS is permanently abandoned, the
-      // field fleet is Android and uploads are overwhelmingly desktop. 6144
-      // limited a 24x36 to 171 DPI and a 30x42 to 146 DPI, the exact sheets
-      // with the most linework to lose; 8192 lifts those to 227 / 195 DPI
-      // (letter and 11x17 were already capped by the 4x factor at 288 and are
-      // unchanged). Failure symptom if a low-memory device ever chokes here:
-      // blank page image / null blob on upload — drop back to 6144 for that
-      // device, do not micro-tune.
-      // (S83b12 history: 4096 was too blurry for engineering drawings.)
+      // S83b12: 6144px cap. 4096 was too blurry for engineering drawings;
+      // 8192 risks iPhone memory ceiling. 6144 gives 100 MB decoded per page
       // (~300 MB headroom on iPhone's ~400 MB budget), text is readable at
       // 1.5x zoom. One page in memory at a time. Final interim-answer until
       // server-side tile-pyramid rendering is implemented (see handoff §Future).
-      var hiScale = Math.min(4.0, 8192 / pw, 8192 / ph);
+      var hiScale = Math.min(4.0, 6144 / pw, 6144 / ph);
       var hiVp = page.getViewport({ scale: hiScale });
       var hc = document.createElement('canvas');
       var hcW = Math.round(hiVp.width), hcH = Math.round(hiVp.height);
@@ -2052,12 +2031,7 @@ function _runPdfPages(pdf, bn, folder, total, arrayBuf, pdfBufKey, pdfBufR2Url) 
             _hideDwgLoading();
             toast('Error on page ' + pg + ': ' + encErr.message);
           }
-        }, 'image/png');   /* S511 (Mark): PNG, not JPEG 0.85. Drawings are thin
-           high-contrast linework — JPEG's worst case — and the export re-encodes
-           as JPEG later, so storage-side JPEG meant TWO lossy generations and
-           grey haloing on every line. PNG is lossless: one lossy step total.
-           Cost: ~3-5x file size on IDB/R2, accepted. Applies to NEW uploads
-           only; existing drawings must be re-uploaded to benefit. */
+        }, 'image/jpeg', 0.85);
       });
     });
   }
