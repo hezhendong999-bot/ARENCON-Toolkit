@@ -17,6 +17,40 @@
 <script src="../shared/auth-gate.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link rel="stylesheet" href="../aiusage_panel.css">
+<script>
+/* S513 — QUIET CONSOLE BY DEFAULT. The builds ship ~130 log/warn calls; in the
+   field the console is too loud to read when something real happens, and the
+   debugging discipline ("read live state via console") depends on being able
+   to read it. Policy: console.error ALWAYS passes; log/warn are suppressed
+   into a 400-entry ring buffer unless debugging is on. Nothing is ever lost:
+     window.arencomDebug(1)  -> live log/warn + replay nothing (persists via localStorage)
+     window.arencomDebug(0)  -> quiet again
+     window.arencomLogs()    -> dump the ring buffer (suppressed entries, newest last)
+   First script in the page ON PURPOSE, so every later file inherits the policy. */
+(function(){
+  try{
+    var on = false;
+    try{ on = localStorage.getItem('arencon-debug')==='1'; }catch(_){}
+    var buf = [];
+    var _log = console.log.bind(console), _warn = console.warn.bind(console);
+    function keep(kind, args){
+      buf.push([Date.now(), kind].concat([].slice.call(args)));
+      if (buf.length > 400) buf.shift();
+    }
+    if (!on){
+      console.log  = function(){ keep('log',  arguments); };
+      console.warn = function(){ keep('warn', arguments); };
+    }
+    window.arencomDebug = function(v){
+      try{ localStorage.setItem('arencon-debug', v ? '1' : '0'); }catch(_){}
+      if (v){ console.log = _log; console.warn = _warn; _log('[debug] console live; '+buf.length+' suppressed entries in arencomLogs()'); }
+      else  { console.log = function(){ keep('log', arguments); }; console.warn = function(){ keep('warn', arguments); }; }
+      return v ? 'debug ON' : 'debug OFF';
+    };
+    window.arencomLogs = function(){ buf.forEach(function(e){ _log.apply(null, e); }); return buf.length + ' entries'; };
+  }catch(_e){}
+})();
+</script>
 <script src="../aiusage_panel.js" defer></script>
 <script type="module" src="../lib/ui/photoInput.js"></script>  <!-- S496: THE shared photo surface. lib/ui/checklist.js renders its per-item photo zone through window.PhotoInput and falls back to a "Photo input engine not loaded" hint without it — which is exactly what live Diesel was showing, so checklist photos could not be attached at all. Electric has loaded this since S492; Diesel never did. -->
 <script type="module" src="../diesel-sync.js"></script>  <!-- S492/S496 Phase 2: shared MERGE-BASED sync engine. Publishes window.CloudSync with the same public API the ~40 inline call sites already use; replaces the inline last-write-wins IIFE (removed below). Module scripts are deferred, so _cloudSyncInit waits for window.CloudSync to exist. -->

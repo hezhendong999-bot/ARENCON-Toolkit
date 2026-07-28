@@ -1720,7 +1720,7 @@ function renderStdTable() {
     const d=document.createElement('div'); d.className='fp-card'; d.id='std-card-'+i;
     d.innerHTML=`
       <div class="fp-head">
-        <div class="pt">${row.pct} Flow <small>${row.label} · ${row.flow!==null&&row.flow!==''?row.flow+' gpm':'— gpm'}</small></div>
+        <div class="pt">${_escHtml(row.pct)} Flow <small>${_escHtml(row.label)} · ${row.flow!==null&&row.flow!==''?_escHtml(row.flow)+' gpm':'— gpm'}</small></div>
         <div class="right">
           ${_flowPhotoIcon('std',i)}
           <span class="fp-verdict ${_eff}${_manual?' manual':''}" id="std-verdict-${i}"><span class="fp-v-txt">${vtxt}</span>${_overrideDropdown('std', i, r.override||'auto')}</span>
@@ -2931,7 +2931,7 @@ function renderFigReadout3pt(){
     var dis=parseFloat(row.discharge), flow=rowFlow(row);
     var vtxt=r.verdict==='pass'?'PASS':r.verdict==='fail'?'FAIL':'—';
     var cell=document.createElement('div'); cell.className='ro';
-    cell.innerHTML='<div class="pct">'+row.pct+' · '+row.label+'</div>'
+    cell.innerHTML='<div class="pct">'+_escHtml(row.pct)+' · '+_escHtml(row.label)+'</div>'
       +'<div class="val">'+(!isNaN(dis)?dis+' psi':'—')+'</div>'
       +'<div class="sub">@ '+(!isNaN(flow)?flow.toLocaleString()+' gpm':'— gpm')+(row.rpm?' · '+row.rpm+' rpm':'')+'</div>'
       +'<span class="chip '+r.verdict+'">'+vtxt+'</span>';
@@ -5221,6 +5221,11 @@ function renderChartAnnotations(chartInstance, canvasId) {
       // already had touch handlers, worked. Factor the start/move/end into coordinate-based helpers
       // and bind BOTH mouse and touch. Mouse path is unchanged; touch now mirrors it exactly.
       function _annStart(cx, cy){
+        /* S513: this label announces itself as the active drag — the shared
+           document handlers route to whichever label started the gesture, not
+           to whichever label happened to render last. */
+        var _r = document.__annDragReg;
+        if(_r) _r.cur = { move:_annMove, end:_annEnd, state:dragState };
         dragState.dragging = true;
         dragState.startX = cx;
         dragState.startY = cy;
@@ -5266,24 +5271,32 @@ function renderChartAnnotations(chartInstance, canvasId) {
         ev.preventDefault();   // stop the chart pan/scroll from stealing the gesture
         _annStart(ev.touches[0].clientX, ev.touches[0].clientY);
       }, {passive:false});
-      document.addEventListener('mousemove', function(ev) {
-        _annMove(ev.clientX, ev.clientY);
-      });
-      document.addEventListener('touchmove', function(ev) {
-        if(!dragState.dragging) return;
-        if(!ev.touches || !ev.touches[0]) return;
-        ev.preventDefault();   // we own the gesture while dragging an annotation
-        _annMove(ev.touches[0].clientX, ev.touches[0].clientY);
-      }, {passive:false});
-      document.addEventListener('mouseup', function() {
-        _annEnd();
-      });
-      document.addEventListener('touchend', function() {
-        _annEnd();
-      });
-      document.addEventListener('touchcancel', function() {
-        _annEnd();
-      });
+      /* S513 — LISTENER LEAK, measured. These five document-level handlers were
+         added PER LABEL PER RENDER (this block sits inside ds.data.forEach), and
+         renderChartAnnotations runs on every panel show, resize and export
+         (11 call sites). One afternoon of chart work stacked hundreds of live
+         document drag handlers, every mousemove walking all of them — the
+         "tablet slows down by end of day" mechanism. One shared set is kept in
+         a registry keyed per document; each render tears down the previous
+         set FIRST, so the count can never exceed five regardless of labels,
+         datasets or renders. dragState is read via _annReg so the shared
+         handlers always see the label currently being dragged. */
+      var _annReg = document.__annDragReg || (document.__annDragReg = { bound:false, cur:null });
+      if(!_annReg.bound){
+        _annReg.bound = true;
+        document.addEventListener('mousemove', function(ev){
+          if(_annReg.cur) _annReg.cur.move(ev.clientX, ev.clientY);
+        });
+        document.addEventListener('touchmove', function(ev){
+          var c=_annReg.cur; if(!c || !c.state.dragging) return;
+          if(!ev.touches || !ev.touches[0]) return;
+          ev.preventDefault();   // we own the gesture while dragging an annotation
+          c.move(ev.touches[0].clientX, ev.touches[0].clientY);
+        }, {passive:false});
+        document.addEventListener('mouseup', function(){ if(_annReg.cur){ _annReg.cur.end(); _annReg.cur=null; } });
+        document.addEventListener('touchend', function(){ if(_annReg.cur){ _annReg.cur.end(); _annReg.cur=null; } });
+        document.addEventListener('touchcancel', function(){ if(_annReg.cur){ _annReg.cur.end(); _annReg.cur=null; } });
+      }
       
       // Double-click to delete individual annotation
       label.ondblclick = function() {

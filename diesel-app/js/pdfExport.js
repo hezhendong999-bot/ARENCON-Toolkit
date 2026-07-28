@@ -1093,6 +1093,19 @@ function _realExportPDF() {
   const w = window.open('','_blank');
   if(!w||w.closed){showToast('Popup blocked — allow popups and try again');return;}
   w.document.write(html); w.document.close();
+  /* S513: photo anchors (S512) exist for the CAPTURE to bake into PDF links — they
+     must never navigate the live preview. Without this, a fat-finger tap on any
+     photo replaced the whole preview with the raw image and the report had to be
+     regenerated (tablet field hazard). Capture uses href geometry only, so a
+     blocked click costs it nothing. Capture-phase listener (true) so no inner
+     handler sees the click first. */
+  try{
+    w.document.addEventListener('click', function(ev){
+      var t = ev.target;
+      while (t && t !== w.document && !(t.tagName === 'A' && t.getAttribute('href'))) t = t.parentNode;
+      if (t && t.tagName === 'A') { ev.preventDefault(); ev.stopPropagation(); }
+    }, true);
+  }catch(_na){}
   // Fill in sign-off and signature fields after DOM is ready
   setTimeout(() => {
     try {

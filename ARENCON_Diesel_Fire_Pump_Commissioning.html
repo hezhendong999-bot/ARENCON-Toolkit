@@ -17,6 +17,40 @@
 <script src="shared/auth-gate.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link rel="stylesheet" href="aiusage_panel.css">
+<script>
+/* S513 — QUIET CONSOLE BY DEFAULT. The builds ship ~130 log/warn calls; in the
+   field the console is too loud to read when something real happens, and the
+   debugging discipline ("read live state via console") depends on being able
+   to read it. Policy: console.error ALWAYS passes; log/warn are suppressed
+   into a 400-entry ring buffer unless debugging is on. Nothing is ever lost:
+     window.arencomDebug(1)  -> live log/warn + replay nothing (persists via localStorage)
+     window.arencomDebug(0)  -> quiet again
+     window.arencomLogs()    -> dump the ring buffer (suppressed entries, newest last)
+   First script in the page ON PURPOSE, so every later file inherits the policy. */
+(function(){
+  try{
+    var on = false;
+    try{ on = localStorage.getItem('arencon-debug')==='1'; }catch(_){}
+    var buf = [];
+    var _log = console.log.bind(console), _warn = console.warn.bind(console);
+    function keep(kind, args){
+      buf.push([Date.now(), kind].concat([].slice.call(args)));
+      if (buf.length > 400) buf.shift();
+    }
+    if (!on){
+      console.log  = function(){ keep('log',  arguments); };
+      console.warn = function(){ keep('warn', arguments); };
+    }
+    window.arencomDebug = function(v){
+      try{ localStorage.setItem('arencon-debug', v ? '1' : '0'); }catch(_){}
+      if (v){ console.log = _log; console.warn = _warn; _log('[debug] console live; '+buf.length+' suppressed entries in arencomLogs()'); }
+      else  { console.log = function(){ keep('log', arguments); }; console.warn = function(){ keep('warn', arguments); }; }
+      return v ? 'debug ON' : 'debug OFF';
+    };
+    window.arencomLogs = function(){ buf.forEach(function(e){ _log.apply(null, e); }); return buf.length + ' entries'; };
+  }catch(_e){}
+})();
+</script>
 <script src="aiusage_panel.js" defer></script>
 <script type="module" src="lib/ui/photoInput.js"></script>  <!-- S496: THE shared photo surface. lib/ui/checklist.js renders its per-item photo zone through window.PhotoInput and falls back to a "Photo input engine not loaded" hint without it — which is exactly what live Diesel was showing, so checklist photos could not be attached at all. Electric has loaded this since S492; Diesel never did. -->
 <script type="module" src="diesel-sync.js"></script>  <!-- S492/S496 Phase 2: shared MERGE-BASED sync engine. Publishes window.CloudSync with the same public API the ~40 inline call sites already use; replaces the inline last-write-wins IIFE (removed below). Module scripts are deferred, so _cloudSyncInit waits for window.CloudSync to exist. -->
@@ -5059,7 +5093,7 @@ function renderStdTable() {
     const d=document.createElement('div'); d.className='fp-card'; d.id='std-card-'+i;
     d.innerHTML=`
       <div class="fp-head">
-        <div class="pt">${row.pct} Flow <small>${row.label} · ${row.flow!==null&&row.flow!==''?row.flow+' gpm':'— gpm'}</small></div>
+        <div class="pt">${_escHtml(row.pct)} Flow <small>${_escHtml(row.label)} · ${row.flow!==null&&row.flow!==''?_escHtml(row.flow)+' gpm':'— gpm'}</small></div>
         <div class="right">
           ${_flowPhotoIcon('std',i)}
           <span class="fp-verdict ${_eff}${_manual?' manual':''}" id="std-verdict-${i}"><span class="fp-v-txt">${vtxt}</span>${_overrideDropdown('std', i, r.override||'auto')}</span>
@@ -6270,7 +6304,7 @@ function renderFigReadout3pt(){
     var dis=parseFloat(row.discharge), flow=rowFlow(row);
     var vtxt=r.verdict==='pass'?'PASS':r.verdict==='fail'?'FAIL':'—';
     var cell=document.createElement('div'); cell.className='ro';
-    cell.innerHTML='<div class="pct">'+row.pct+' · '+row.label+'</div>'
+    cell.innerHTML='<div class="pct">'+_escHtml(row.pct)+' · '+_escHtml(row.label)+'</div>'
       +'<div class="val">'+(!isNaN(dis)?dis+' psi':'—')+'</div>'
       +'<div class="sub">@ '+(!isNaN(flow)?flow.toLocaleString()+' gpm':'— gpm')+(row.rpm?' · '+row.rpm+' rpm':'')+'</div>'
       +'<span class="chip '+r.verdict+'">'+vtxt+'</span>';
@@ -8680,6 +8714,19 @@ function _realExportPDF() {
   const w = window.open('','_blank');
   if(!w||w.closed){showToast('Popup blocked — allow popups and try again');return;}
   w.document.write(html); w.document.close();
+  /* S513: photo anchors (S512) exist for the CAPTURE to bake into PDF links — they
+     must never navigate the live preview. Without this, a fat-finger tap on any
+     photo replaced the whole preview with the raw image and the report had to be
+     regenerated (tablet field hazard). Capture uses href geometry only, so a
+     blocked click costs it nothing. Capture-phase listener (true) so no inner
+     handler sees the click first. */
+  try{
+    w.document.addEventListener('click', function(ev){
+      var t = ev.target;
+      while (t && t !== w.document && !(t.tagName === 'A' && t.getAttribute('href'))) t = t.parentNode;
+      if (t && t.tagName === 'A') { ev.preventDefault(); ev.stopPropagation(); }
+    }, true);
+  }catch(_na){}
   // Fill in sign-off and signature fields after DOM is ready
   setTimeout(() => {
     try {
@@ -10165,6 +10212,11 @@ function renderChartAnnotations(chartInstance, canvasId) {
       // already had touch handlers, worked. Factor the start/move/end into coordinate-based helpers
       // and bind BOTH mouse and touch. Mouse path is unchanged; touch now mirrors it exactly.
       function _annStart(cx, cy){
+        /* S513: this label announces itself as the active drag — the shared
+           document handlers route to whichever label started the gesture, not
+           to whichever label happened to render last. */
+        var _r = document.__annDragReg;
+        if(_r) _r.cur = { move:_annMove, end:_annEnd, state:dragState };
         dragState.dragging = true;
         dragState.startX = cx;
         dragState.startY = cy;
@@ -10210,24 +10262,32 @@ function renderChartAnnotations(chartInstance, canvasId) {
         ev.preventDefault();   // stop the chart pan/scroll from stealing the gesture
         _annStart(ev.touches[0].clientX, ev.touches[0].clientY);
       }, {passive:false});
-      document.addEventListener('mousemove', function(ev) {
-        _annMove(ev.clientX, ev.clientY);
-      });
-      document.addEventListener('touchmove', function(ev) {
-        if(!dragState.dragging) return;
-        if(!ev.touches || !ev.touches[0]) return;
-        ev.preventDefault();   // we own the gesture while dragging an annotation
-        _annMove(ev.touches[0].clientX, ev.touches[0].clientY);
-      }, {passive:false});
-      document.addEventListener('mouseup', function() {
-        _annEnd();
-      });
-      document.addEventListener('touchend', function() {
-        _annEnd();
-      });
-      document.addEventListener('touchcancel', function() {
-        _annEnd();
-      });
+      /* S513 — LISTENER LEAK, measured. These five document-level handlers were
+         added PER LABEL PER RENDER (this block sits inside ds.data.forEach), and
+         renderChartAnnotations runs on every panel show, resize and export
+         (11 call sites). One afternoon of chart work stacked hundreds of live
+         document drag handlers, every mousemove walking all of them — the
+         "tablet slows down by end of day" mechanism. One shared set is kept in
+         a registry keyed per document; each render tears down the previous
+         set FIRST, so the count can never exceed five regardless of labels,
+         datasets or renders. dragState is read via _annReg so the shared
+         handlers always see the label currently being dragged. */
+      var _annReg = document.__annDragReg || (document.__annDragReg = { bound:false, cur:null });
+      if(!_annReg.bound){
+        _annReg.bound = true;
+        document.addEventListener('mousemove', function(ev){
+          if(_annReg.cur) _annReg.cur.move(ev.clientX, ev.clientY);
+        });
+        document.addEventListener('touchmove', function(ev){
+          var c=_annReg.cur; if(!c || !c.state.dragging) return;
+          if(!ev.touches || !ev.touches[0]) return;
+          ev.preventDefault();   // we own the gesture while dragging an annotation
+          c.move(ev.touches[0].clientX, ev.touches[0].clientY);
+        }, {passive:false});
+        document.addEventListener('mouseup', function(){ if(_annReg.cur){ _annReg.cur.end(); _annReg.cur=null; } });
+        document.addEventListener('touchend', function(){ if(_annReg.cur){ _annReg.cur.end(); _annReg.cur=null; } });
+        document.addEventListener('touchcancel', function(){ if(_annReg.cur){ _annReg.cur.end(); _annReg.cur=null; } });
+      }
       
       // Double-click to delete individual annotation
       label.ondblclick = function() {
