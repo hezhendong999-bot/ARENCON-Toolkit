@@ -11651,16 +11651,22 @@ body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
    everywhere else. The label keeps its own containment via the box bounds. */
 #dv-seal-layer .seal-mark{overflow:visible;}
 
-/* ═══ S514 (Mark, correcting S513) — VIEWER HEADER: match the MAIN header ═══
-   S513 got three things wrong against the real spec and Mark caught all
-   three on device: (1) surface must be the chrome grey (--b-chrome2 /
-   #EFEDF0), NOT white — "look at the back button colour"; (2) radius is 6,
-   matching .back/.back-btn, not 8; (3) margin-left:8px STACKED on the
-   toolbar's native 6px gap → 14px "too far" spacing. This block mirrors the
-   engine's chrome .back exactly: same surface, border, r6, 34px height,
-   0 1px 4px shadow, press-sink; the back itself gets the back's 40px width.
-   Spacing rides the toolbar's own 6px gap — margin zeroed. Icons untouched. */
-.drawing-viewer-overlay .dv-toolbar #dv-close, .drawing-viewer-overlay .dv-toolbar #dv-prev, .drawing-viewer-overlay .dv-toolbar #dv-next, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn, .drawing-viewer-overlay .dv-toolbar #dv-help-btn, .drawing-viewer-overlay .dv-toolbar #dv-more-btn, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+/* ═══ S515 (Mark, 3rd-round fix — replacing the DEAD S513/S514 blocks) ═══
+   ROOT CAUSE of three rounds of "still not fixed": every S513/S514 selector
+   was prefixed `.drawing-viewer-overlay .dv-toolbar` and that ancestor chain
+   MATCHES NOTHING in the live DOM — the whole block was dead CSS. The back
+   button looked "fixed" only because it independently carries .back-btn
+   (chrome2 + shadow), which masked the failure twice. Lesson, recorded: a
+   styling push is not done until the PAINTED PIXELS are checked; a passing
+   gate proves nothing about selectors.
+   These rules use BARE IDS — unique, no ancestor to get wrong. Spec mirrors
+   .back-btn exactly: chrome2 surface (never white), #D2CEDB-family border,
+   r6, 34px, 0 1px 4px shadow (deep in dark), press-sink. The ? copies the
+   main header help glyph verbatim: amber #E0872A, 800 weight, white on
+   burgundy hover. Icons and markup untouched — box/colour/shadow only. */
+#dv-rename-btn, #dv-layers-btn, #dv-seal-btn, #dv-heights-btn,
+#dv-help-btn, #dv-more-btn, #dv-dark-toggle,
+#dv-undo-v75, #dv-redo-v75, #dv-actions-v75, .dv-nav-btn{
   height:34px !important; min-width:34px !important;
   padding:0 7px !important; margin:0 !important;
   border-radius:6px !important;
@@ -11671,25 +11677,28 @@ body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
   box-shadow:0 1px 4px rgba(0,0,0,.2) !important;
   transition:box-shadow .15s, transform .08s, background .15s !important;
 }
-body.dark-mode .drawing-viewer-overlay .dv-toolbar #dv-close, .drawing-viewer-overlay .dv-toolbar #dv-prev, .drawing-viewer-overlay .dv-toolbar #dv-next, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn, .drawing-viewer-overlay .dv-toolbar #dv-help-btn, .drawing-viewer-overlay .dv-toolbar #dv-more-btn, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+body.dark-mode #dv-rename-btn, body.dark-mode #dv-layers-btn, body.dark-mode #dv-seal-btn,
+body.dark-mode #dv-heights-btn, body.dark-mode #dv-help-btn, body.dark-mode #dv-more-btn,
+body.dark-mode #dv-dark-toggle, body.dark-mode #dv-undo-v75, body.dark-mode #dv-redo-v75,
+body.dark-mode #dv-actions-v75, body.dark-mode .dv-nav-btn{
   box-shadow:0 2px 6px rgba(0,0,0,.40) !important;
 }
-.drawing-viewer-overlay .dv-toolbar #dv-close:hover, .drawing-viewer-overlay .dv-toolbar #dv-prev:hover, .drawing-viewer-overlay .dv-toolbar #dv-next:hover, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-help-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-more-btn:hover, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{
+#dv-rename-btn:hover, #dv-layers-btn:hover, #dv-seal-btn:hover, #dv-heights-btn:hover,
+#dv-more-btn:hover, #dv-dark-toggle:hover, #dv-undo-v75:hover, #dv-redo-v75:hover,
+#dv-actions-v75:hover, .dv-nav-btn:hover{
   background:var(--b-chrome-hover,rgba(0,0,0,.05)) !important;
 }
-.drawing-viewer-overlay .dv-toolbar #dv-close:active, .drawing-viewer-overlay .dv-toolbar #dv-prev:active, .drawing-viewer-overlay .dv-toolbar #dv-next:active, .drawing-viewer-overlay .dv-toolbar #dv-rename-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-seal-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-heights-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-help-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-more-btn:active, .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:active{
+#dv-rename-btn:active, #dv-layers-btn:active, #dv-seal-btn:active, #dv-heights-btn:active,
+#dv-help-btn:active, #dv-more-btn:active, #dv-dark-toggle:active, #dv-undo-v75:active,
+#dv-redo-v75:active, #dv-actions-v75:active, .dv-nav-btn:active{
   transform:translateY(1px);
   box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
-/* back matches the main-page back exactly: 40px wide */
-.drawing-viewer-overlay .dv-toolbar #dv-close{
-  width:40px !important; min-width:40px !important;
+/* the ? — the main header help glyph, verbatim (.help-q spec) */
+#dv-help-btn{
+  color:#E0872A !important; font-weight:800 !important;
+  font-size:calc(16px + var(--ts,0px)) !important; line-height:1 !important;
 }
-/* the ? : same chrome surface as its siblings, bold glyph, burgundy hover
-   like the main header help */
-.drawing-viewer-overlay .dv-toolbar #dv-help-btn{
-  font-weight:700 !important;
-}
-.drawing-viewer-overlay .dv-toolbar #dv-help-btn:hover{
+#dv-help-btn:hover{
   background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
 }
