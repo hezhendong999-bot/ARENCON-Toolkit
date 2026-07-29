@@ -455,3 +455,22 @@ syncChromeTheme
 watchChromeTheme
 upgradeViewerChrome
 VIEWER_CHROME_BUTTONS
+
+@ S524 DATA INTEGRITY GUARDS (Mark, post-7155.40 wipe incident — doctrine I-1…I-10). These four mechanisms are the only things standing between the field and another firm-wide data wipe. They were built after three inspectors lost most of a day's commissioning work on 7155.40 (crash-relaunch boot-push gutted the cloud copy; the gutted copy was then pulled down over a device's live work; every save failed silently for 110 minutes). NONE of these may be removed, simplified, "cleaned up", or reverted without Mark's explicit say-so in the CURRENT conversation. A revert, refactor, or lane cleanup is NOT authorization. See ARENCON_DATA_INTEGRITY_DOCTRINE_S524.md.
+_guardContentCollapse
+_countRowValues
+_countAnswered
+_contentCollapseGuardFires
+_stampLWW
+_mergeLWW
+_LWW_SPECS
+_lwwStrip
+_lwwKey
+_cloudConfirmed
+_showSyncBanner
+_hideSyncBanner
+_ensureStaleWatch
+_ensureRetryLoop
+_lastCloudOkAt
+_hasUnconfirmedWork
+_lastPushedJson
