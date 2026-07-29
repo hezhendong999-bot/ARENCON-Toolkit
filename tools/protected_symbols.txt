@@ -477,3 +477,8 @@ _intentionalClear
 
 @ S526 markup R2 reconcile (Mark — Ian/Stacy/Nasim field incident). The S130 load order ("IDB first, R2 only when IDB is EMPTY") means any device holding ANY IDB record for a drawing never consults R2 again — so markup authored on another device is shadowed forever and looks like data loss (sign-out doesn't touch IDB). _reconcileMarkupWithR2 runs after the instant local render: per-item union by id — adds R2 objects the device lacks, honours R2 tombstones (explicit cross-device deletes), NEVER removes a local object R2 merely lacks (absence ≠ delete, doctrine I-2), stands aside if the user has started editing. Do not restore absence-based fallback; do not make R2 win wholesale (that is the pre-S130 two-opens bug in reverse).
 _reconcileMarkupWithR2
+
+
+@ S527 on-screen markup diagnostic (Mark). Viewer ⋯ menu → Markup Diagnostic. Reports, in plain words, where THIS DEVICE thinks the markup is: what is on screen, what is in the device's own store, what the record points at, and what the cloud file actually contains — plus a forced "Merge cloud copy now" union escape hatch for a device stuck on a stale local copy. Exists because field tablets run the Android TWA where the user CANNOT type a URL param, so there was no way to see a tablet's state remotely (Ian's dimensions, S526). NEVER convert this to a URL-param debug path. The merge button must stay additive: adds what the cloud has, honours cloud deletions, never removes a local object the cloud merely lacks.
+_showMarkupDiag
+_markupDiagReport

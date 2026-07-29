@@ -3695,6 +3695,185 @@ function _reconcileMarkupWithR2(drawingId, drawing, loadToken) {
   }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S527 — ON-SCREEN MARKUP DIAGNOSTIC (Mark)
+
+   WHY: Ian's tablet would not show dimensions that his phone and PC both
+   showed. Everything I could check remotely was healthy — the cloud file,
+   the record's reference, the deployed code. The missing evidence was only
+   ever on the device, and field tablets run the Android TWA where the user
+   CANNOT type a URL param, so the usual debug hatch does not exist. This is
+   that hatch: viewer ⋯ menu → Markup Diagnostic.
+
+   It answers, in plain words, the only question that matters when markup is
+   missing: WHERE DOES THIS DEVICE THINK THE MARKUP IS, and what does each
+   copy actually contain — this device, the record, the cloud file.
+
+   Read-only, except for one deliberate button: "Merge cloud copy now",
+   which runs the same union as the automatic reconcile but ignores the
+   "device already has a local copy" shortcut. It ADDS what the cloud has and
+   honours cloud deletions; it never removes a local object the cloud merely
+   lacks. That is the escape hatch for a device stuck on a stale local copy.
+   ═══════════════════════════════════════════════════════════════════════ */
+function _markupDiagReport() {
+  var out = { drawingId: _drawingId || null, memObjects: _objects.length,
+              memTombstones: _tombstones.length, build: (window.FRT_BUILD || '?') };
+  try {
+    var proj = Model.getProject();
+    out.projectName = proj && proj.info ? (proj.info.projectNumber || '') : '';
+    var dwg = null;
+    if (proj && proj.drawings) {
+      for (var i = 0; i < proj.drawings.length; i++) {
+        if (proj.drawings[i].id === _drawingId) { dwg = proj.drawings[i]; break; }
+      }
+    }
+    out.drawingName = dwg ? (dwg.name || '') : '(drawing not found in record)';
+    out.ref = (dwg && dwg.markupR2) ? {
+      count: dwg.markupR2.count, updatedAt: dwg.markupR2.updatedAt, url: dwg.markupR2.r2Url
+    } : null;
+    out.legacy = !!(dwg && dwg.markupObjects && dwg.markupObjects.length);
+  } catch (e) { out.error = e && e.message; }
+  return out;
+}
+
+function _showMarkupDiag() {
+  var r = _markupDiagReport();
+  var old = document.getElementById('frt-markup-diag');
+  if (old) old.remove();
+
+  var wrap = document.createElement('div');
+  wrap.id = 'frt-markup-diag';
+  wrap.setAttribute('style',
+    'position:fixed;inset:0;z-index:100000;background:rgba(11,10,13,.55);' +
+    'display:flex;align-items:center;justify-content:center;padding:16px;' +
+    'font-family:Calibri,sans-serif;');
+
+  var card = document.createElement('div');
+  card.setAttribute('style',
+    'background:#EFEDF0;color:#1B1A22;border:1px solid #D2CEDB;border-radius:16px;' +
+    'box-shadow:0 8px 32px rgba(0,0,0,.35);max-width:620px;width:100%;' +
+    'max-height:88vh;overflow:auto;padding:20px 22px;');
+
+  function row(label, value, tone) {
+    var c = tone === 'bad' ? '#C0445F' : (tone === 'good' ? '#2E9E72' : '#5E5B68');
+    return '<div style="display:flex;gap:12px;padding:7px 0;border-bottom:1px solid #E4E1E8;">' +
+           '<div style="flex:0 0 44%;font-size:13px;color:#5E5B68;">' + label + '</div>' +
+           '<div style="flex:1;font-size:13px;font-weight:600;color:' + c + ';word-break:break-word;">' +
+           value + '</div></div>';
+  }
+
+  var h = '<div style="font-size:17px;font-weight:600;margin-bottom:4px;">Markup Diagnostic</div>' +
+    '<div style="font-size:12.5px;color:#5E5B68;margin-bottom:14px;line-height:1.5;">' +
+    'Where this device thinks the markup is. Read this top to bottom — the first ' +
+    'red line is the problem.</div>';
+
+  h += row('Sheet', (r.drawingName || '—') + (r.projectName ? '  ·  ' + r.projectName : ''));
+  h += row('App build', r.build, r.build === '?' ? 'bad' : 'good');
+  h += row('Showing on screen now', r.memObjects + ' marks, ' + r.memTombstones + ' deleted',
+           r.memObjects ? 'good' : 'bad');
+  h += row('This device\u2019s saved copy', '<span id="mdg-idb">checking\u2026</span>');
+  h += row('Record points at cloud file',
+           r.ref ? ('yes \u2014 ' + r.ref.count + ' marks, saved ' +
+                    (r.ref.updatedAt ? new Date(r.ref.updatedAt).toLocaleString() : '?'))
+                 : 'NO \u2014 nothing recorded for this sheet',
+           r.ref ? 'good' : 'bad');
+  h += row('Cloud file itself', '<span id="mdg-r2">checking\u2026</span>');
+  if (r.legacy) h += row('Legacy markup on record', 'yes (will migrate on open)');
+
+  h += '<div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">' +
+    '<button id="mdg-merge" style="flex:1 1 220px;height:40px;border-radius:8px;border:1px solid #9C2742;' +
+    'background:#9C2742;color:#fff;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">' +
+    'Merge cloud copy now</button>' +
+    '<button id="mdg-copy" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid #D2CEDB;' +
+    'background:#EFEDF0;color:#1B1A22;font-family:Calibri,sans-serif;font-size:14px;cursor:pointer;">Copy report</button>' +
+    '<button id="mdg-close" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid #D2CEDB;' +
+    'background:#EFEDF0;color:#1B1A22;font-family:Calibri,sans-serif;font-size:14px;cursor:pointer;">Close</button>' +
+    '</div>' +
+    '<div id="mdg-msg" style="margin-top:10px;font-size:13px;color:#5E5B68;min-height:18px;"></div>' +
+    '<div style="margin-top:10px;font-size:11.5px;color:#928E9C;line-height:1.5;">' +
+    'Merging only ADDS marks this device is missing and applies deletions made ' +
+    'elsewhere. It never removes your own work.</div>';
+
+  card.innerHTML = h;
+  wrap.appendChild(card);
+  document.body.appendChild(wrap);
+
+  var msg = card.querySelector('#mdg-msg');
+  function set(id, text, tone) {
+    var el = card.querySelector('#' + id);
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = tone === 'bad' ? '#C0445F' : (tone === 'good' ? '#2E9E72' : '#1B1A22');
+  }
+
+  IDB.get('markupObjects', r.drawingId).then(function(rec) {
+    var n = rec && rec.objects ? rec.objects.length : 0;
+    var t = rec && rec.deletedIds ? rec.deletedIds.length : 0;
+    set('mdg-idb', rec ? (n + ' marks, ' + t + ' deleted') : 'none stored on this device',
+        rec && n ? 'good' : 'bad');
+  }).catch(function(e) { set('mdg-idb', 'could not read: ' + (e && e.message), 'bad'); });
+
+  if (r.ref && r.ref.url) {
+    R2.downloadMarkup(r.ref.url).then(function(blob) {
+      var n = blob && blob.objects ? blob.objects.length : 0;
+      set('mdg-r2', blob ? (n + ' marks available in the cloud') : 'reachable but empty',
+          n ? 'good' : 'bad');
+    }).catch(function(e) {
+      set('mdg-r2', 'CANNOT REACH \u2014 ' + (e && e.message ? e.message : 'network blocked'), 'bad');
+    });
+  } else {
+    set('mdg-r2', 'no cloud file recorded for this sheet', 'bad');
+  }
+
+  card.querySelector('#mdg-close').onclick = function() { wrap.remove(); };
+  card.querySelector('#mdg-copy').onclick = function() {
+    var txt = JSON.stringify(_markupDiagReport(), null, 2);
+    try { navigator.clipboard.writeText(txt); msg.textContent = 'Report copied.'; }
+    catch (e) { msg.textContent = txt; }
+  };
+  card.querySelector('#mdg-merge').onclick = function() {
+    if (!r.drawingId) { msg.textContent = 'No sheet open.'; return; }
+    var proj = Model.getProject(), dwg = null;
+    if (proj && proj.drawings) {
+      for (var i = 0; i < proj.drawings.length; i++) {
+        if (proj.drawings[i].id === r.drawingId) { dwg = proj.drawings[i]; break; }
+      }
+    }
+    if (!dwg || !dwg.markupR2 || !dwg.markupR2.r2Url) {
+      msg.textContent = 'No cloud file recorded for this sheet \u2014 nothing to merge.';
+      return;
+    }
+    var before = _objects.length;
+    msg.textContent = 'Merging\u2026';
+    // Same union as the automatic reconcile, but forced: bypasses the
+    // "device already has a copy" shortcut and the mid-edit stand-aside.
+    var savedUndo = _undoStack, savedRedo = _redoStack;
+    _undoStack = []; _redoStack = [];
+    _reconcileMarkupWithR2(r.drawingId, dwg, _drawingId);
+    setTimeout(function() {
+      _undoStack = savedUndo; _redoStack = savedRedo;
+      var added = _objects.length - before;
+      msg.textContent = added > 0
+        ? ('Merged \u2014 ' + added + ' mark(s) added from the cloud. Close this and check the sheet.')
+        : 'Already in step with the cloud \u2014 nothing to add.';
+      msg.style.color = added > 0 ? '#2E9E72' : '#5E5B68';
+    }, 2500);
+  };
+}
+
+/* Menu wiring — delegated so it survives any re-render of the More menu. */
+document.addEventListener('click', function(e) {
+  if (e.target && e.target.closest && e.target.closest('[data-dv-action="markupdiag"]')) {
+    e.preventDefault();
+    var mm = document.getElementById('dv-more-menu');
+    if (mm) mm.style.display = 'none';
+    _showMarkupDiag();
+  }
+});
+try { window._frtMarkupDiag = _showMarkupDiag; } catch (_e) {}
+
+
 /**
  * S130 — R2 fallback. Reached from _loadMarkupFromIDB ONLY when IDB has no
  * record for this drawing — a genuine cross-device case (markup created on
