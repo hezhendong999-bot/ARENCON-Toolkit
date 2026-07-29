@@ -266,6 +266,7 @@ const CloudSync = (function () {
   let _projectInfo = null;
   let _lastSavedJson = '';
   let _lastPushedJson = '';   // S524 I-5: advances only on CONFIRMED push
+  let _pendingSince = null;   // S524 I-5: when unsent work first appeared (durable)
   let _initialized = false;
   let _pulling = false;
 
@@ -426,7 +427,17 @@ const CloudSync = (function () {
       _cachePut(_cacheKey(), {
         state: stateJson, projectId: _projectId, toolKey: _toolKey,
         instanceId: engine.instanceId || _instanceId, instanceNumber: engine.instanceNumber || _instanceNumber,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
+        /* S524 DOCTRINE I-5 — DURABLE ENTRY QUEUE.
+           Photos survived 7155.40 (220/220 through two crashes) because their
+           outbox is on disk: a crash cannot kill it. Report entries had only an
+           in-memory retry, so killing the app discarded the knowledge that work
+           was unsent — the data sat in this cache but nothing knew to send it.
+           This flag is that knowledge, written to disk with the data itself, in
+           the SAME record so the two can never disagree. It is cleared only by
+           a CONFIRMED cloud push. On relaunch, _recoverUnsentWork() finds it. */
+        pendingPush: true,
+        pendingSince: _pendingSince || (_pendingSince = new Date().toISOString())
       });
     }
     if (!_online) { _setStatus('offline', 'Saved locally (offline)'); return null; }
@@ -438,6 +449,17 @@ const CloudSync = (function () {
         _instanceId = engine.instanceId || _instanceId;
         _instanceNumber = engine.instanceNumber || _instanceNumber;
         _lastPushedJson = stateJson;   // confirmed on the server — only now
+        /* S524 I-5 — the cloud has it: clear the durable unsent marker. This is
+           the ONLY place it is cleared. A failed push, a 412, a PT409, an
+           offline queue or a crash all leave it set, so the work is still
+           found on the next launch. */
+        _pendingSince = null;
+        _cachePut(_cacheKey(), {
+          state: stateJson, projectId: _projectId, toolKey: _toolKey,
+          instanceId: engine.instanceId || _instanceId, instanceNumber: engine.instanceNumber || _instanceNumber,
+          savedAt: new Date().toISOString(),
+          pendingPush: false, pendingSince: null
+        });
         _setStatus('synced', 'Saved to cloud');
         return row;
       }
@@ -450,6 +472,54 @@ const CloudSync = (function () {
       _setStatus('pending', 'Saved locally');
       return null;
     }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     S524 DOCTRINE I-5 — RECOVER UNSENT WORK ON RELAUNCH.
+     Call AFTER load() has completed and the host has applied its boot merge.
+     Returns {recovered, minutesOld} or null.
+
+     SAFETY — why this cannot repeat the 7155.40 boot-push wipe:
+       • It NEVER pushes cached state directly. It only re-arms the retry
+         path so the host's normal collect→save runs. The state that goes up
+         is the live model AFTER the boot merge, not a raw disk blob.
+       • engine.push refuses without an If-Match baseline (I-4), so if the
+         boot pull failed, nothing is sent at all.
+       • The server wipe guard (PT409) and the pull-side guards still apply.
+       • It is a no-op when there is nothing unsent.
+     ══════════════════════════════════════════════════════════════════════ */
+  async function _recoverUnsentWork() {
+    try {
+      const rec = await _cacheGet(_cacheKey());
+      if (!rec || !rec.pendingPush) return null;
+      if (!engine.lastSeenUpdatedAt) {
+        console.warn('[DieselSync I-5] Unsent work found but NO cloud baseline yet — ' +
+                     'holding it on device; will retry once a pull succeeds.');
+        return { recovered: true, minutesOld: _ageMin(rec.pendingSince), baseline: false };
+      }
+      // Force the next collect→save to actually push: clear the push dedupe so
+      // identical content is not mistaken for "already sent".
+      _lastPushedJson = '';
+      _pendingSince = rec.pendingSince || new Date().toISOString();
+      const mins = _ageMin(rec.pendingSince);
+      console.log('[DieselSync I-5] Recovered unsent work from a previous session (' +
+                  mins + ' min old) — flushing to cloud.');
+      if (_collectStateFn && _online) {
+        try { await save(_collectStateFn()); } catch (e) {
+          console.warn('[DieselSync I-5] recovery flush failed; retry loop will continue:', e && e.message);
+        }
+      }
+      return { recovered: true, minutesOld: mins, baseline: true };
+    } catch (e) {
+      console.warn('[DieselSync I-5] recovery check skipped:', e && e.message);
+      return null;
+    }
+  }
+
+  function _ageMin(iso) {
+    if (!iso) return 0;
+    var t = Date.parse(iso);
+    return t ? Math.max(0, Math.round((Date.now() - t) / 60000)) : 0;
   }
 
   /* Heartbeat tick — periodic silent pull. Replaces the inline
@@ -539,6 +609,7 @@ const CloudSync = (function () {
   return {
     init: init, load: load, save: save,
     startAutoSave: startAutoSave, stopAutoSave: stopAutoSave,
+    recoverUnsentWork: _recoverUnsentWork,   // S524 I-5 — call after boot load()
     syncNow: syncNow, destroy: destroy, readUrlParams: readUrlParams,
     heartbeatTick: heartbeatTick, request: _request,
     get projectInfo() { return _projectInfo; },
