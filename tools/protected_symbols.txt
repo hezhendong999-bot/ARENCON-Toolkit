@@ -463,6 +463,13 @@ _contentLeaves
 _hasDeletionEvidence
 _deepCollapseGuardFires
 
+@ S524 DURABLE ENTRY QUEUE (Mark, I-5 completion). Report entries now have the crash-surviving delivery photos already had. The unsent marker is written to disk in the SAME cache record as the data so the two cannot disagree; it is cleared ONLY by a confirmed cloud push; on relaunch _recoverUnsentWork() finds it and flushes — but ONLY after a cloud baseline exists (I-4), never by pushing a raw disk blob. Removing any of these re-opens the failure that lost 110 minutes of flow-test data on 7155.40.
+_recoverUnsentWork
+_pendingSince
+_ageMin
+pendingPush
+pendingSince
+
 @ S524e intentional-clear declaration + Issue-status concurrency token (Mark). DELETION MUST ALWAYS WORK: the server wipe guard refuses a save taking deficiencies 3+ -> 0, which is right for a wipe and wrong for an inspector deliberately deleting their pins. Model.declareIntentionalClear() is called INSIDE removeDeficiency/removeContractor and from both type-to-confirm reset flows, so every present and future confirmed delete is covered in one place. Single-use on BOTH ends: the server consumes the flag on the save that carried it (S524c) and the engine strips it locally on the same confirmed push, so it can never linger and disarm the guard. Verified on a scratch row: undeclared delete-all refused, declared delete-all lands, flag consumed, guard re-armed. Also: _syncIssueStatus now sends If-Match + updated_by and re-pulls on 412 — it was the last FRT writer stamping updated_at with no token, invalidating other devices' tokens. Never remove the declaration from the model's delete methods; a guard that blocks a real delete is broken.
 declareIntentionalClear
 _intentionalClear
