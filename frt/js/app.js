@@ -23,6 +23,7 @@ import { BinaryOutbox } from './data/photoOutbox.js';
 import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
 import { buildHeader2 } from '../../lib/ui/headerEngine2.js';   /* S488 Wave 3: sealed header */
+import { upgradeChromeButton, watchChromeTheme } from '../../lib/ui/chromeButton.js';   /* S524: the seven drawing-viewer chrome buttons */
 import { frtHeaderConfig } from '../../lib/ui/headerConfigs.js';
 /* S505g: Help & guide. Same shared engine and same sealed dialog the Hub and
    Diesel use — one implementation. Importing frtHelpCards runs its registerHelp()
@@ -2417,8 +2418,44 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S506';
+var FRT_BUILD = 'S524';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
+/* ═══════════════════════════════════════════════════════════════════════
+   S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
+
+   The six header buttons and Back are upgraded to lib/ui/chromeButton.js,
+   which draws them inside a sealed shadow root. Their frt.css rules were
+   DELETED in the same push — that deletion is the point. Copying values into
+   frt.css is what failed eleven times: two definitions of one button always
+   drift, and ~200 accumulated rules in that file outrank any new one.
+
+   MUST RUN BEFORE restoreDarkMode()/wireEvents(). Upgrading swaps <button>
+   for a <span> host (a <button> cannot own a shadow root), so any listener
+   bound to the original element beforehand would be thrown away with it.
+   Delegated handlers (closest('#dv-close') etc.) are unaffected either way —
+   the host keeps the id.
+   ═══════════════════════════════════════════════════════════════════════ */
+var VIEWER_CHROME_BUTTONS = [
+  ['dv-close',       'back'],   /* ←  identical to the main header's Back */
+  ['dv-layers-btn',  'icon'],   /* ☰  what you see on the sheet          */
+  ['dv-heights-btn', 'icon'],   /* 📐 what you capture on it             */
+  ['dv-seal-btn',    'icon'],   /* 🔒 what prints                        */
+  ['dv-more-btn',    'icon'],   /* ⋯                                     */
+  ['dv-help-btn',    'help'],   /* ?  amber glyph                        */
+  ['dv-dark-toggle', 'icon']    /* ☀                                     */
+];
+
+function upgradeViewerChrome() {
+  try {
+    VIEWER_CHROME_BUTTONS.forEach(function (pair) {
+      upgradeChromeButton(document.getElementById(pair[0]), { variant: pair[1] });
+    });
+    watchChromeTheme();
+  } catch (e) {
+    console.warn('[FRT] viewer chrome upgrade failed', e);
+  }
+}
+
 function boot() {
   // S499e: the engine string comes from the STATICALLY IMPORTED pdf.js
   // module - so this line reports the build the export will actually run,
@@ -2428,6 +2465,10 @@ function boot() {
   console.info('%c[FRT] shell ' + FRT_BUILD + ' | pdf engine ' + PDF_PIPELINE_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
   console.log('[FRT v2] Booting...');
   var t0 = performance.now();
+
+  // 0. S524: swap the seven viewer chrome buttons onto the shared module.
+  //    FIRST — before anything binds a listener to the elements it replaces.
+  upgradeViewerChrome();
 
   // 1. Restore preferences (sync — before first paint)
   restoreDarkMode();

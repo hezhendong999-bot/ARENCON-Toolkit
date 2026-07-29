@@ -1792,8 +1792,7 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
 
   .dv-nav-group .dv-nav-btn{padding:8px 16px!important;font-size:18px!important;min-width:44px;min-height:44px;}
   /* Hide text labels on toolbar buttons — icon only */
-  #dv-layers-btn{font-size:0!important;padding:5px 8px!important;}
-  #dv-layers-btn svg{font-size:initial;}
+  
   #btn-tasks-toggle{font-size:calc(11px + var(--ts))!important;padding:5px 8px!important;}
   /* All Deficiencies tab header */
   #panel-pins .card-header{flex-direction:row!important;align-items:center!important;gap:8px;flex-wrap:nowrap!important;}
@@ -2695,19 +2694,13 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
   .drawing-viewer-overlay .dv-toolbar #dv-prev,
   .drawing-viewer-overlay .dv-toolbar #dv-next{padding:0 6px !important;min-width:36px !important;font-size:15px !important;}
   /* Layers / Tasks / More / Dark — trim on mobile (keep emoji+icon glyphs) */
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-heights-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
     padding:0 10px !important;min-width:44px !important;min-height:40px !important;
     font-size:calc(14px + var(--ts)) !important;
     white-space:nowrap !important;
   }
   /* JS sets textContent to icon-only on mobile (see inline script setMobileTopbarIcons).
      No max-width crop needed since content is already short — bigger buttons get bigger emoji. */
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-heights-btn,
   .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
     font-size:calc(16px + var(--ts)) !important;
   }
@@ -3018,19 +3011,13 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 .drawing-viewer-overlay .dv-toolbar .dv-close-btn:hover{background:#9C2742;}
 .drawing-viewer-overlay .dv-toolbar #dv-prev,
 .drawing-viewer-overlay .dv-toolbar #dv-next,
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
 .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-more-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle,
 .drawing-viewer-overlay .dv-toolbar #dv-rename-btn{
   background:var(--b-pill-bg);color:#fff;border:1px solid var(--b-pill-bd);border-radius:6px;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-prev:hover,
 .drawing-viewer-overlay .dv-toolbar #dv-next:hover,
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn:hover,
-.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:hover,
-.drawing-viewer-overlay .dv-toolbar #dv-more-btn:hover,
-.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{background:#9C2742;}
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:hover{background:#9C2742;}
 
 /* === Session 75 Push 5 — Tasks bottom sheet (mobile only) === */
 @media (max-width: 900px){
@@ -3297,22 +3284,8 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 /* === Session 75 Push 7 — Close to left sidebar top + bigger size steppers === */
 @media (min-width: 901px){
   /* Hide Close from top toolbar */
-  .drawing-viewer-overlay .dv-toolbar #dv-close{display:none !important;}
   /* Move Close into the top of #dv-sidebar-tools via JS — CSS just styles it */
-  .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
-    display:flex !important;
-    align-items:center;justify-content:center;gap:6px;
-    width:calc(100% - 8px);
-    margin:6px 4px 10px;
-    padding:8px 6px;
-    background:var(--b-chrome-btn) !important;
-    color:var(--b-chrome-fg) !important;
-    border:1px solid var(--b-chrome-btn-bd) !important;
-    border-radius:6px;
-    font-family:Calibri,sans-serif;font-size:13px;font-weight:500;
-    cursor:pointer;
-  }
-  .drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
+  
   /* Bigger size/opacity steppers in sidebar */
   .drawing-viewer-overlay #dv-sidebar-tools button.mk-size-btn,
   .drawing-viewer-overlay #dv-sidebar-tools button.mk-opacity-btn,
@@ -3330,22 +3303,11 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 /* === Session 75 Push 8 — REVERT Push 7 close move + mobile chrome navy === */
 /* Revert Push 7: bring #dv-close back to top toolbar */
 @media (min-width: 901px){
-  .drawing-viewer-overlay .dv-toolbar #dv-close{
-    display:inline-flex !important;align-items:center;justify-content:center;
-    background:transparent !important;color:var(--b-chrome-fg) !important;
-    border:1px solid transparent !important;border-radius:6px !important;
-    padding:0 12px !important;margin:0 0 0 6px !important;width:auto !important;
-    min-height:40px !important;min-width:auto !important;
-    font-family:Calibri,sans-serif !important;font-size:15px !important;font-weight:600 !important;
-  }
-  .drawing-viewer-overlay .dv-toolbar #dv-close:hover{background:#9C2742 !important;border-color:#9C2742 !important;}
+
   @media (pointer:coarse){
-    .drawing-viewer-overlay .dv-toolbar #dv-close{min-height:44px !important;padding:0 14px !important;}
   }
   /* Undo any sidebar Close styling from Push 7 */
-  .drawing-viewer-overlay #dv-sidebar-tools #dv-close{
-    display:none !important;
-  }
+
 }
 /* Mobile: tool row + style strip navy backgrounds */
 @media (max-width: 900px){
@@ -3457,18 +3419,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
 
 /* === Session 76 Push 11 — Strip back button hatch globally + mobile v75 chrome cleanup === */
 /* Strip the back button chip everywhere - make it match other toolbar icons */
-.drawing-viewer-overlay .dv-toolbar #dv-close,
-.drawing-viewer-overlay #dv-sidebar-tools #dv-close{
-  background:transparent !important;
-  border-color:transparent !important;
-  box-shadow:none !important;
-  color:var(--b-chrome-fg) !important;
-}
-.drawing-viewer-overlay .dv-toolbar #dv-close:hover,
-.drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{
-  background:rgba(255,255,255,.1) !important;
-  border-color:transparent !important;
-}
+
 /* Mobile v75 chrome — strip hatches from tool row + style strip buttons */
 #dv-toolrow-v75 button,
 #dv-stylestrip-v75 button:not(.mk-step-mobile){
@@ -3565,14 +3516,9 @@ body.dark-mode #reports-mode-menu button:hover{background:var(--b-pill-bg);}
 .drawing-viewer-overlay .dv-toolbar{
   padding-left:14px !important;
 }
-.drawing-viewer-overlay .dv-toolbar #dv-close{
-  margin-left:0 !important;
-  padding-left:0 !important;
-  padding-right:12px !important;
-}
+
 @media(pointer:coarse){
   .drawing-viewer-overlay .dv-toolbar{padding:max(10px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px)) !important;}
-  .drawing-viewer-overlay .dv-toolbar #dv-close{padding-left:0 !important;padding-right:12px !important;margin-left:0 !important;}
 }
 
 /* ── S78: v1-exact compact dropdown popups for toolbar Filters/Actions ── */
@@ -3879,14 +3825,7 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:var(--
 /* ═══════════════════════════════════════════════════════════════════
    S82 — Layers button: match Back button typography; hide text on mobile portrait
    ═══════════════════════════════════════════════════════════════════ */
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn{
-  font-family:Calibri,sans-serif !important;
-  font-size:calc(13px + var(--ts)) !important;
-  font-weight:600 !important;
-}
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-icon{
-  font-weight:700;display:inline-block;
-}
+
 /* Portrait mobile: hide the " Layers" text, icon only */
 @media (max-width: 900px) and (orientation:portrait){
   .drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{display:none !important;}
@@ -3957,15 +3896,7 @@ body.dark-mode .drawing-viewer-overlay .dv-nav-controls button{background:var(--
    identical styling from main FRT (font-size 15px, weight 600, etc).
    Layers matched to same size with regular weight.
    ═══════════════════════════════════════════════════════════════════ */
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn{
-  font-size:15px !important;font-weight:400 !important;
-}
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-icon{
-  font-weight:600 !important;font-size:15px !important;
-}
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{
-  font-weight:400 !important;font-size:15px !important;
-}
+
 
 /* ═══════════════════════════════════════════════════════════════════
    S113 — Drawing viewer chrome consistency (Mark feedback May 2026)
@@ -10028,12 +9959,7 @@ body.dark-mode .cv-loc-thumb{background:#0b0a0d;border-color:#3a3e48;}
 }
 .drawing-viewer-overlay #dv-mobile-context .ctx-val{color:var(--b-chrome-fg) !important;}
 /* --- close button in the rail --- */
-.drawing-viewer-overlay #dv-sidebar-tools #dv-close{
-  background:var(--b-chrome-btn) !important;
-  color:var(--b-chrome-fg) !important;
-  border:1px solid var(--b-chrome-btn-bd) !important;
-}
-.drawing-viewer-overlay #dv-sidebar-tools #dv-close:hover{background:#9C2742 !important;}
+
 /* --- bottom bar: name pill + prev/next/fit nav buttons --- */
 .drawing-viewer-overlay #dv-bb-namepill{
   background:var(--b-chrome-btn) !important;
@@ -10285,22 +10211,17 @@ body.dark-mode .hdr-sm{
    button uses rgba(255,255,255,.08) which vanishes on the light Bold toolbar).
    Day only; dark keeps the existing translucent-white look. ---- */
 body:not(.dark-mode) .dv-toolbar button,
-body:not(.dark-mode) #dv-dark-toggle,
-body:not(.dark-mode) #dv-tasks-btn,
-body:not(.dark-mode) .dv-close-btn,
-body:not(.dark-mode) #dv-close{
+body:not(.dark-mode) #dv-tasks-btn{
   background:var(--b-chrome2) !important; color:var(--b-chrome-fg) !important;
   border:1px solid var(--b-chrome-rule) !important; box-shadow:var(--b-btn-shadow) !important;
 }
 @media(hover:hover){
   body:not(.dark-mode) .dv-toolbar button:hover,
-  body:not(.dark-mode) #dv-dark-toggle:hover,
   body:not(.dark-mode) #dv-tasks-btn:hover{
     background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
   }
 }
-body:not(.dark-mode) .dv-toolbar button:active,
-body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
+body:not(.dark-mode) .dv-toolbar button:active{ transform:translateY(1px); }
 
 /* ---- (3) Sign Out → match Diesel exactly: purple #7B1FA2 fill, white text,
    with the colored-CTA press shadow (handled above). The old inline bg is the
@@ -10319,27 +10240,10 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
    (--b-chrome2 surface, --b-btn-shadow, burgundy hover), no oversized padding.
    The markup tools row (.tool-btn) is NOT touched. ════════════════════════ */
 /* Back (#dv-close): clean even shadow box matching Project-Info Back — 34px. */
-.drawing-viewer-overlay .dv-toolbar #dv-close{
-  background:var(--b-chrome2) !important;
-  color:var(--b-chrome-fg) !important;
-  border:1px solid var(--b-chrome-rule) !important;
-  /* S505: shadow HARDCODED (see .back-btn note) — token indirection is what
-     left Back flat on tools that never defined the variable. */
-  box-shadow:0 1px 4px rgba(0,0,0,.2) !important;
-  border-radius:6px !important;
-  height:34px !important; min-height:0 !important;
-  padding:0 12px !important; margin:0 4px 0 0 !important;
-  font-family:Calibri,sans-serif !important;
-  font-size:calc(12px + var(--ts)) !important; font-weight:600 !important; line-height:1 !important;
-  display:inline-flex !important; align-items:center !important; justify-content:center !important;
-  transition:background .15s, box-shadow .15s, transform .08s !important;
-}
+
 /* four icon buttons (hamburger, pin, More, day/night): 34x34 squares, zero
    padding — exact match to Project-Info #dark-toggle/#mobile-menu-btn. */
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-more-btn,
-.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{
   background:var(--b-chrome2) !important;
   color:var(--b-chrome-fg) !important;
   border:1px solid var(--b-chrome-rule) !important;
@@ -10352,36 +10256,23 @@ body:not(.dark-mode) #dv-dark-toggle:active{ transform:translateY(1px); }
   display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:0 !important;
   transition:background .15s, box-shadow .15s, transform .08s !important;
 }
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-txt{ display:none !important; }
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn .dv-lb-icon{ font-size:calc(16px + var(--ts)) !important; }
+
 .drawing-viewer-overlay .dv-toolbar{ padding-top:6px !important; padding-bottom:6px !important; }
 @media(pointer:coarse){
   .drawing-viewer-overlay .dv-toolbar{ padding-top:max(8px,env(safe-area-inset-top,0px)) !important; padding-bottom:8px !important; }
 }
 @media(hover:hover){
-  .drawing-viewer-overlay .dv-toolbar #dv-close:hover,
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn:hover,
-  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:hover,
-  .drawing-viewer-overlay .dv-toolbar #dv-more-btn:hover,
-  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:hover{
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:hover{
     background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
   }
 }
-.drawing-viewer-overlay .dv-toolbar #dv-close:active,
-.drawing-viewer-overlay .dv-toolbar #dv-layers-btn:active,
-.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:active,
-.drawing-viewer-overlay .dv-toolbar #dv-more-btn:active,
-.drawing-viewer-overlay .dv-toolbar #dv-dark-toggle:active{
+.drawing-viewer-overlay .dv-toolbar #dv-tasks-btn:active{
   transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
 .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn.active{ background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important; }
 /* coarse pointer: 38px squares + Back 38h (matches Project-Info touch sizing) */
 @media(pointer:coarse){
-  .drawing-viewer-overlay .dv-toolbar #dv-layers-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-more-btn,
-  .drawing-viewer-overlay .dv-toolbar #dv-dark-toggle{ width:38px !important; height:38px !important; min-height:0 !important; padding:0 !important; }
-  .drawing-viewer-overlay .dv-toolbar #dv-close{ height:38px !important; min-height:0 !important; padding:0 12px !important; }
+  .drawing-viewer-overlay .dv-toolbar #dv-tasks-btn{ width:38px !important; height:38px !important; min-height:0 !important; padding:0 !important; }
 }
 /* end S250 §9 ──────────────────────────────────────────────────────── */
 
@@ -11468,7 +11359,7 @@ body.dark-mode .seal-mark{background:rgba(255,255,255,.90);}
 .seal-rs{position:absolute;right:calc(-3px * var(--seal-inv,1));bottom:calc(-3px * var(--seal-inv,1));
   width:calc(18px * var(--seal-inv,1));height:calc(18px * var(--seal-inv,1));background:var(--arencon,#9C2742);
   border:calc(2px * var(--seal-inv,1)) solid #fff;border-radius:4px;cursor:nwse-resize;}
-#dv-seal-btn.seal-armed{background:var(--arencon,#9C2742);color:#fff;}
+
 .seal-thumb-wrap>img{width:auto!important;height:auto!important;max-width:100%;max-height:100%;object-fit:contain;}
 .seal-mark-mini{border-width:1.5px;}
 .seal-mark-mini .seal-mark-label{display:none;}
@@ -11493,7 +11384,7 @@ body.dark-mode .seal-mark .seal-mark-label{color:#0F3A5C;}
 .seal-mark.seal-editing{pointer-events:auto;border-color:#2C7FB8;}
 .seal-mark.seal-editing .seal-del,.seal-mark.seal-editing .seal-rs{pointer-events:auto;}
 .seal-rs{background:#2C7FB8;}
-#dv-seal-btn.seal-armed{background:#2C7FB8;color:#fff;}
+
 #dv-seal-btn .seal-dot{background:#2C7FB8;}
 .seal-mark-mini{background:rgba(44,127,184,.34);}
 .pin-editor-footer #pe-more-btn,.pin-editor-footer .dfx-or-more-wrap{margin-left:auto;}
@@ -11617,12 +11508,7 @@ body.dark-mode .seal-h{background:#46C5E8; border-color:#0b0a0d;}
 }
 
 /* 4 ── armed toolbar button: ARENCON red, matching other active tools */
-#dv-seal-btn.seal-armed{
-  background:var(--arencon,#9C2742) !important;
-  color:#fff !important;
-  box-shadow:inset 0 1px 3px rgba(0,0,0,.3);
-}
-body.dark-mode #dv-seal-btn.seal-armed{background:var(--arencon,#C9476A) !important;}
+
 
 /* 5 ── persistent mode banner */
 #dv-seal-banner{
@@ -11664,8 +11550,7 @@ body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
    r6, 34px, 0 1px 4px shadow (deep in dark), press-sink. The ? copies the
    main header help glyph verbatim: amber #E0872A, 800 weight, white on
    burgundy hover. Icons and markup untouched — box/colour/shadow only. */
-#dv-rename-btn, #dv-layers-btn, #dv-seal-btn, #dv-heights-btn,
-#dv-help-btn, #dv-more-btn, #dv-dark-toggle,
+#dv-rename-btn,
 #dv-undo-v75, #dv-redo-v75, #dv-actions-v75, .dv-nav-btn{
   height:34px !important; min-width:34px !important;
   padding:0 7px !important; margin:0 !important;
@@ -11677,31 +11562,22 @@ body.dark-mode #dv-seal-banner{background:var(--arencon,#C9476A);}
   box-shadow:0 1px 4px rgba(0,0,0,.2) !important;
   transition:box-shadow .15s, transform .08s, background .15s !important;
 }
-body.dark-mode #dv-rename-btn, body.dark-mode #dv-layers-btn, body.dark-mode #dv-seal-btn,
-body.dark-mode #dv-heights-btn, body.dark-mode #dv-help-btn, body.dark-mode #dv-more-btn,
-body.dark-mode #dv-dark-toggle, body.dark-mode #dv-undo-v75, body.dark-mode #dv-redo-v75,
+body.dark-mode #dv-rename-btn,
+body.dark-mode #dv-undo-v75, body.dark-mode #dv-redo-v75,
 body.dark-mode #dv-actions-v75, body.dark-mode .dv-nav-btn{
   box-shadow:0 2px 6px rgba(0,0,0,.40) !important;
 }
-#dv-rename-btn:hover, #dv-layers-btn:hover, #dv-seal-btn:hover, #dv-heights-btn:hover,
-#dv-more-btn:hover, #dv-dark-toggle:hover, #dv-undo-v75:hover, #dv-redo-v75:hover,
+#dv-rename-btn:hover, #dv-undo-v75:hover, #dv-redo-v75:hover,
 #dv-actions-v75:hover, .dv-nav-btn:hover{
   background:var(--b-chrome-hover,rgba(0,0,0,.05)) !important;
 }
-#dv-rename-btn:active, #dv-layers-btn:active, #dv-seal-btn:active, #dv-heights-btn:active,
-#dv-help-btn:active, #dv-more-btn:active, #dv-dark-toggle:active, #dv-undo-v75:active,
+#dv-rename-btn:active, #dv-undo-v75:active,
 #dv-redo-v75:active, #dv-actions-v75:active, .dv-nav-btn:active{
   transform:translateY(1px);
   box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
 /* the ? — the main header help glyph, verbatim (.help-q spec) */
-#dv-help-btn{
-  color:#E0872A !important; font-weight:800 !important;
-  font-size:calc(16px + var(--ts,0px)) !important; line-height:1 !important;
-}
-#dv-help-btn:hover{
-  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
-}
+
 
 /* ═══ S516 (Mark, 5th round — THE CASCADE FIX) ═══════════════════════════
    Why S513/S514/S515 all failed while every gate passed: they LOST THE
@@ -11737,12 +11613,7 @@ body .drawing-viewer-overlay .dv-toolbar button#dv-close:active, body .drawing-v
   box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
 /* the ? — main header help glyph, verbatim */
-body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn{
-  color:#E0872A !important; font-weight:800 !important; line-height:1 !important;
-}
-body .drawing-viewer-overlay .dv-toolbar button#dv-help-btn:hover{
-  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
-}
+
 
 /* ═══ S518 (Mark, round 8 — THE ACTUAL KILLER FOUND) ═════════════════════
    Computed boxShadow on Mark's device: 'none'. Root cause, on the served
@@ -11777,9 +11648,4 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
   transform:translateY(1px) !important;
   box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
-#drawing-viewer-overlay #dv-toolbar button#dv-help-btn{
-  color:#E0872A !important; font-weight:800 !important; line-height:1 !important;
-}
-#drawing-viewer-overlay #dv-toolbar button#dv-help-btn:hover{
-  background:#9C2742 !important; color:#fff !important; border-color:#9C2742 !important;
-}
+

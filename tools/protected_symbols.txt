@@ -447,3 +447,11 @@ gated_push_check
 @ S514 (Mark, correcting S513): viewer header buttons mirror the chrome back — --b-chrome2 surface (never white), r6, 34px, hardcoded 0 1px 4px shadow (deep in dark), native 6px toolbar gap with margins zeroed, back at 40px. Engine chrome-skin .hicon/.chip shadow fallbacks hardened from the invisible .08 to the real 0 1px 4px (the S504 weak-fallback pattern, found live on the Hub). Icons untouched.
 
 @ S515 (Mark, 3rd-round viewer-header fix): S513/S514 selectors were DEAD — the `.drawing-viewer-overlay .dv-toolbar` ancestor matches nothing; .back-btn's own styling masked the failure. Rules now use bare unique ids. Spec mirrors .back-btn (chrome2, never white, r6, 34px, 0 1px 4px shadow, deep in dark); #dv-help-btn copies the main-header .help-q glyph (amber #E0872A, 800, white on burgundy hover). LESSON RULE: a styling change is unverified until painted pixels are checked on device — dead selectors pass every gate.
+
+@ S524 viewer chrome = ONE shared sealed button (Mark, demo-approved 34px). The six drawing-viewer header buttons and Back render inside a sealed shadow root from lib/ui/chromeButton.js — one definition, no breakpoints, no @media(pointer:coarse), so the size cannot drift again. Their ~36 frt.css blocks were DELETED in the same push: that deletion IS the feature. Order (Mark): layers · heights · seal — more · help · theme. Upgrade MUST run before restoreDarkMode()/wireEvents(), since it swaps <button> for a <span> host and any listener bound first would be discarded. Light-DOM children stay slotted so #dv-heights-dot stays findable by id and drawings.js can still append .seal-dot. Do NOT re-add id-level chrome rules to frt.css — that is what failed eleven times.
+CHROME_BTN_CSS
+upgradeChromeButton
+syncChromeTheme
+watchChromeTheme
+upgradeViewerChrome
+VIEWER_CHROME_BUTTONS
