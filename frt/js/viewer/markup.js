@@ -3630,6 +3630,71 @@ function _loadMarkup(drawingId) {
   _loadMarkupFromIDB(drawingId, drawing, projectId);
 }
 
+
+/**
+ * S526 — background per-item reconcile of local IDB markup against the
+ * drawing's R2 copy. See the call-site comment for the field incident this
+ * closes. Additive + tombstone-honouring only; never removes a local object
+ * that R2 merely lacks.
+ */
+function _reconcileMarkupWithR2(drawingId, drawing, loadToken) {
+  try {
+    if (!drawing || !drawing.markupR2 || !drawing.markupR2.r2Url) return;
+    R2.downloadMarkup(drawing.markupR2.r2Url).then(function(blob) {
+      if (_drawingId !== loadToken) return;             // viewer moved on
+      if (_undoStack.length || _redoStack.length) return; // user edited — next open reconciles
+      if (!blob) return;
+      var remoteObjs  = Array.isArray(blob.objects) ? blob.objects : [];
+      var remoteTombs = _normalizeTombstones(blob.deletedIds);
+
+      var localIds = {}, i;
+      for (i = 0; i < _objects.length; i++) localIds[_objects[i].id] = true;
+      var localTomb = {};
+      for (i = 0; i < _tombstones.length; i++) localTomb[_tombstones[i].id] = true;
+      var remoteTomb = {};
+      for (i = 0; i < remoteTombs.length; i++) remoteTomb[remoteTombs[i].id] = true;
+
+      var added = 0, removed = 0;
+      // + objects R2 has that we don't — unless we deleted them here.
+      for (i = 0; i < remoteObjs.length; i++) {
+        var ro = remoteObjs[i];
+        if (ro && ro.id && !localIds[ro.id] && !localTomb[ro.id]) {
+          _objects.push(toStroke(ro));
+          added++;
+        }
+      }
+      // − objects R2 explicitly tombstoned — a recorded cross-device delete.
+      if (remoteTombs.length) {
+        var kept = [];
+        for (i = 0; i < _objects.length; i++) {
+          if (remoteTomb[_objects[i].id]) { removed++; } else { kept.push(_objects[i]); }
+        }
+        _objects = kept;
+      }
+      if (!added && !removed) return;                    // already in step
+
+      // union tombstones so our next upload preserves both sides' deletes
+      for (i = 0; i < remoteTombs.length; i++) {
+        if (!localTomb[remoteTombs[i].id]) _tombstones.push(remoteTombs[i]);
+      }
+      console.log('[Markup] R2 reconcile: +' + added + ' from other devices, −' +
+                  removed + ' cross-device deletions (drawing ' + drawingId + ')');
+      _renderAll();
+      _updateUndoButtons();
+      // persist the union locally so the next open is instant and complete
+      IDB.put('markupObjects', {
+        id: drawingId, drawingId: drawingId,
+        objects: JSON.parse(JSON.stringify(_objects.map(toV1))),
+        deletedIds: _tombstones.slice()
+      }).catch(function(e) { console.warn('[Markup] reconcile IDB save error:', e); });
+    }).catch(function(e) {
+      console.warn('[Markup] R2 reconcile skipped:', e && e.message);
+    });
+  } catch (e) {
+    console.warn('[Markup] R2 reconcile error:', e && e.message);
+  }
+}
+
 /**
  * S130 — R2 fallback. Reached from _loadMarkupFromIDB ONLY when IDB has no
  * record for this drawing — a genuine cross-device case (markup created on
@@ -3719,6 +3784,25 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
       console.log('[Markup] Loaded ' + _objects.length + ' objects + ' +
                   _tombstones.length + ' tombstones from IDB');
       _renderWhenReady();
+      // ── S526 DOCTRINE I-2/I-3 — RECONCILE WITH R2, DON'T SHADOW IT ────
+      // The S130 ordering ("IDB first, R2 only when IDB has NOTHING") fixed
+      // the two-opens bug but created its mirror image in the field: a
+      // device that holds ANY IDB record for a drawing never consults R2
+      // again. Ian's tablet held an early, near-empty record for Ceiling
+      // A01 pg1; Mark's PC later authored 16 dimensions to R2; the tablet's
+      // stale IDB copy shadowed them forever — sign-out/in doesn't touch
+      // IDB, so it looked exactly like data loss. "IDB is newer-or-equal to
+      // R2" is only true for markup THIS device authored.
+      // Fix: after rendering local instantly, fetch R2 in the background
+      // when the drawing carries a markupR2 ref, and UNION per item by id:
+      //   + add R2 objects we don't have (unless locally tombstoned)
+      //   − honour R2 tombstones (an explicit cross-device deletion record
+      //     — deletion beats absence, doctrine I-2)
+      //   · never remove a local object R2 merely LACKS (absence ≠ delete)
+      // Skip the merge if the user has started drawing since open
+      // (_undoStack not empty) — the next open reconciles instead. No R2
+      // re-upload here; the next ordinary save uploads the union.
+      _reconcileMarkupWithR2(drawingId, drawing, _loadToken);
       return;
     }
     // Path 3 — legacy field on the drawing
