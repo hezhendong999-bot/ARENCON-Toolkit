@@ -265,6 +265,7 @@ const CloudSync = (function () {
   let _userId = null;
   let _projectInfo = null;
   let _lastSavedJson = '';
+  let _lastPushedJson = '';   // S524 I-5: advances only on CONFIRMED push
   let _initialized = false;
   let _pulling = false;
 
@@ -411,20 +412,32 @@ const CloudSync = (function () {
    * (call sites pass the same collect, so the two are equivalent). */
   async function save(stateJson) {
     if (typeof stateJson !== 'string') stateJson = JSON.stringify(stateJson);
-    if (stateJson === _lastSavedJson) return null;
-    _lastSavedJson = stateJson;
-    _cachePut(_cacheKey(), {
-      state: stateJson, projectId: _projectId, toolKey: _toolKey,
-      instanceId: engine.instanceId || _instanceId, instanceNumber: engine.instanceNumber || _instanceNumber,
-      savedAt: new Date().toISOString()
-    });
+    /* S524 DOCTRINE I-5 — THE 110-MINUTE BUG. _lastSavedJson was set BEFORE
+       the push; when the push failed, the next autosave tick collected the
+       same content, matched the dedupe, and returned — so a failed push was
+       NEVER retried until the user typed something new, and each new attempt
+       failed the same way. On 7155.40 this ran for 110 minutes. Fix: dedupe
+       the local IDB write on _lastSavedJson as before, but gate the CLOUD
+       push on _lastPushedJson, which only advances on a confirmed push. */
+    var alreadyPushed = (stateJson === _lastPushedJson);
+    if (stateJson === _lastSavedJson && alreadyPushed) return null;
+    if (stateJson !== _lastSavedJson) {
+      _lastSavedJson = stateJson;
+      _cachePut(_cacheKey(), {
+        state: stateJson, projectId: _projectId, toolKey: _toolKey,
+        instanceId: engine.instanceId || _instanceId, instanceNumber: engine.instanceNumber || _instanceNumber,
+        savedAt: new Date().toISOString()
+      });
+    }
     if (!_online) { _setStatus('offline', 'Saved locally (offline)'); return null; }
+    if (alreadyPushed) return null;
     try {
       _setStatus('saving', 'Syncing...');
       const row = await engine.push(_projectId);
       if (row) {
         _instanceId = engine.instanceId || _instanceId;
         _instanceNumber = engine.instanceNumber || _instanceNumber;
+        _lastPushedJson = stateJson;   // confirmed on the server — only now
         _setStatus('synced', 'Saved to cloud');
         return row;
       }
