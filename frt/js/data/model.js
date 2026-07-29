@@ -1131,6 +1131,7 @@ export var Model = {
     if (!_project) return;
     var idx = _project.contractors.findIndex(function(c) { return c.id === ctrId; });
     if (idx >= 0) {
+      this.declareIntentionalClear('contractor deleted');   /* S524e */
       _project.contractors.splice(idx, 1);
       _dirty = true;
       _queueSave();
@@ -4151,9 +4152,42 @@ export var Model = {
     return res;
   },
 
+  // ── S524e DOCTRINE I-8 — DECLARE AN INTENTIONAL CLEAR ────────────────
+  // The server's wipe guard refuses any save that erases substantially all
+  // report content. That is right for a wipe and WRONG for a person doing
+  // their job: if a report holds three pins and an inspector deliberately
+  // deletes all three, the next push carries 3 -> 0 and the server refuses it
+  // with PT409. The inspector sees "save refused" for a deletion they meant.
+  //
+  // Mark's rule, and it is not negotiable: these guards exist to stop the
+  // MACHINE destroying work nobody asked it to destroy. None of them exists
+  // to second-guess a person. If Stacy decides Ian's pin is wrong, that is a
+  // professional judgement between two inspectors and the tool's only job is
+  // to record it accurately and show who did it.
+  //
+  // So every user-confirmed deletion declares itself. The flag rides out on
+  // the next push; the server honours that one save and CONSUMES the flag
+  // (single-use, S524c), and the engine strips it locally on a confirmed
+  // push — so it can never linger and silently disarm the guard.
+  //
+  // Declared here inside the model's delete methods rather than at each UI
+  // call site, so every present and future confirmed delete is covered by
+  // one place and nobody has to remember.
+  declareIntentionalClear: function(reason) {
+    if (!_project) return;
+    _project._intentionalClear = {
+      at: new Date().toISOString(),
+      by: _currentUserId || null,
+      reason: reason || 'user-confirmed deletion'
+    };
+  },
+
   removeDeficiency: function(deficId) {
     var f = this.findDeficiency(deficId);
     if (!f) return false;
+    // S524e — a deletion is a recorded act, not an absence. Declare it so the
+    // server stands aside even if this empties the report.
+    this.declareIntentionalClear('deficiency deleted');
     // S205 — release this pin's photos before splicing. For each live pool
     // photo: if NO other pin references the same binary, convert it to a site
     // photo (push to proj.photos) so it survives in the gallery. If another

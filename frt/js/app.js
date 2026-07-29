@@ -473,7 +473,13 @@ function _resetProject() {
     'This will permanently delete ALL project data — drawings, deficiencies, photos, and everything else. This cannot be undone.'
   ).then(function(yes) {
     if (yes) {
+      // S524e — the user typed to confirm a total reset. Declare it so the
+      // server's wipe guard stands aside for this one save instead of
+      // refusing it with PT409.
+      Model.declareIntentionalClear('project reset (type-to-confirm)');
       Model.newProject();
+      Model.declareIntentionalClear('project reset (type-to-confirm)');
+      Model.saveNow();
       _updateHeaderForProject();
       switchTab('info');
       toast('Project reset');
@@ -497,6 +503,8 @@ function _resetCurrentTab() {
       if (tab === 'drawings') { proj.drawings = []; }
       else if (tab === 'photos') { proj.photos = []; }
       else if (tab === 'deficiencies') { proj.contractors = []; proj.generalDeficiencies = []; }
+      // S524e — user-confirmed wholesale clear of this tab. Declare it.
+      Model.declareIntentionalClear('reset ' + tab + ' tab (type-to-confirm)');
       Model.saveNow();
       Model._notify('project', proj);
       toast(tab + ' data cleared');
@@ -2418,7 +2426,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S524';
+var FRT_BUILD = 'S524e';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3021,13 +3029,32 @@ function _doRevertDraft(newRev) {
 }
 
 function _syncIssueStatus(status) {
-  if (typeof SyncEngine !== 'undefined' && SyncEngine.instanceId) {
-    Auth.request('/rest/v1/tool_data?id=eq.' + SyncEngine.instanceId, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: status, updated_at: new Date().toISOString() }),
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }
-    }).catch(function(e) { console.error('[Issue] Status sync failed:', e); });
-  }
+  if (typeof SyncEngine === 'undefined' || !SyncEngine.instanceId) return;
+  // ── S524e DOCTRINE I-8 / I-10 — this writer was the last one in FRT going
+  // out with no concurrency token and no attribution. It cannot erase report
+  // content (it only sets `status`), but it STAMPS updated_at, which
+  // invalidates every other device's If-Match token — so a colleague's next
+  // legitimate save gets bounced into conflict handling for no reason. Now it
+  // rides the same rules as every other write: send the token we last saw,
+  // record who did it, and on a 412 re-read rather than retry blind.
+  var headers = { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+  var seen = (SyncEngine && SyncEngine.lastSeenUpdatedAt) || null;
+  if (seen) headers['If-Match'] = '"' + seen + '"';
+  var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+  Auth.request('/rest/v1/tool_data?id=eq.' + SyncEngine.instanceId, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: status,
+      updated_by: user ? user.id : null,
+      updated_at: new Date().toISOString()
+    }),
+    headers: headers
+  }).then(function(res) {
+    if (res && res.status === 412) {
+      console.warn('[Issue] Status write hit 412 — another device moved the row. Re-pulling.');
+      if (SyncEngine.pull) SyncEngine.pull(_projectId, SyncEngine.instanceId);
+    }
+  }).catch(function(e) { console.error('[Issue] Status sync failed:', e); });
 }
 
 // Wire issue button + badge clicks
