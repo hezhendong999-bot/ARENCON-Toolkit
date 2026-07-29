@@ -7330,14 +7330,28 @@ document.addEventListener('input', function(e) {
     // of a line auto-converted to "<digits>. "). The execCommand('insertText')
     // call caused a focus-flash bug — bullet appeared on focus loss instead
     // of mid-typing. Per Mark, removed entirely rather than fixed.
-    if (_obsDebounce[deficId]) clearTimeout(_obsDebounce[deficId]);
-    _obsDebounce[deficId] = setTimeout(function() {
-      Model.updateObservation(deficId, obsIdx, text);
-    }, 500);
+    // ═══ S528 ROOT CAUSE FIX (Mark: "this shouldn't be allowed at all") ═══
+    // Typed words used to live ONLY in this textarea for up to 500ms before
+    // reaching the model. That was survivable in the single-shot camera era:
+    // one photo, one render, arriving seconds after typing settled. The S284
+    // burst camera changed the physics — every arriving photo calls
+    // initDeficiencies.render(), which DEMOLISHES this textarea and rebuilds
+    // it from the model. N photos = N staggered rebuilds landing while the
+    // inspector is still working. Any words not yet committed were rebuilt
+    // away; any input event on the rebuilt empty box could then commit ""
+    // over what HAD been saved. Field signature: photos survive, comments
+    // vanish — 5224.51 (Jul 15), 4380.24 (Jul 22). Ian's 6360 predates burst,
+    // which is why it was fine: timing luck, not safety.
+    // THE RULE: the model is updated ON EVERY KEYSTROKE, synchronously. The
+    // write is a trivial assignment (_dirty + queued save; IDB persistence is
+    // already debounced downstream at 800ms). Words must never exist only in
+    // the DOM. Do not reintroduce a delay here — cosmetics (autosize, refit)
+    // stay debounced above; the MODEL WRITE does not.
+    Model.updateObservation(deficId, obsIdx, text);
     // S328 (#18): live-update the collapsed-row title for THIS obs as the user
     // types — previously it only refreshed on the next full render (blur / click
     // outside), so the card summary visibly lagged. Targeted in-place text swap,
-    // no render, no save (the 500ms debounce above still persists to the model).
+    // no render (the synchronous model write above already persisted it — S528).
     try {
       var _row = document.querySelector('.dfx-obsrow[data-defic-id="' +
         (window.CSS && CSS.escape ? CSS.escape(deficId) : deficId) +
@@ -7360,11 +7374,9 @@ document.addEventListener('input', function(e) {
   if (action === 'closed-note') {
     var deficId = e.target.getAttribute('data-defic-id');
     var text = e.target.value;
-    var key = 'cn_' + deficId;
-    if (_noteDebounce[key]) clearTimeout(_noteDebounce[key]);
-    _noteDebounce[key] = setTimeout(function() {
-      Model.updateClosedNote(deficId, text);
-    }, 500);
+    // S528 — same synchronous-commit rule as obs-text above; the closed-note
+    // box lives in the same editor and dies in the same rebuilds.
+    Model.updateClosedNote(deficId, text);
   }
 
   // S114 P1.6 — user editing the AI scratchpad textarea
@@ -7672,6 +7684,18 @@ document.addEventListener('click', function(e) {
     };
     inp.click();
   }
+});
+
+// ── S528 — flush to durable storage the moment the app is backgrounded. ──
+// Android may kill a backgrounded TWA at any time (camera open, task switch,
+// screen off). The model write is synchronous now, but the IDB persist behind
+// it is debounced ~800ms — this closes that last window. saveNow() is
+// idempotent and cheap when nothing is dirty.
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) { try { Model.saveNow(); } catch (_e) {} }
+});
+window.addEventListener('pagehide', function() {
+  try { Model.saveNow(); } catch (_e) {}
 });
 
 // Drag & drop on photo zones
