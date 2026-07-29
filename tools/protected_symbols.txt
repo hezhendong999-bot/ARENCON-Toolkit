@@ -462,3 +462,10 @@ _walkDeepCollapse
 _contentLeaves
 _hasDeletionEvidence
 _deepCollapseGuardFires
+
+@ S524 DURABLE ENTRY QUEUE (Mark, I-5 completion). Report entries now have the crash-surviving delivery photos already had. The unsent marker is written to disk in the SAME cache record as the data so the two cannot disagree; it is cleared ONLY by a confirmed cloud push; on relaunch _recoverUnsentWork() finds it and flushes — but ONLY after a cloud baseline exists (I-4), never by pushing a raw disk blob. Removing any of these re-opens the failure that lost 110 minutes of flow-test data on 7155.40.
+_recoverUnsentWork
+_pendingSince
+_ageMin
+pendingPush
+pendingSince
