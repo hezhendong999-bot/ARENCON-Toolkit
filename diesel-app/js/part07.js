@@ -1146,7 +1146,21 @@ function _placardPreview(btn, d, nPhotos, mode){
     if(typeof updatePldNetChart==='function') updatePldNetChart();
     if(typeof renderStdTable==='function') renderStdTable();
     if(typeof renderPldTable==='function') renderPldTable();
-    if(typeof saveState==='function') saveState();
+    // ═══ S530 ROOT-CAUSE FIX — scanned values reverted to the old placard ═══
+    // The nameplate/rated inputs are DOM-only (collectState() reads el.value at
+    // save time; there is no model copy). _npApplyNameplate and every fields[].apply
+    // set el.value PROGRAMMATICALLY, which fires no 'input' event — so the global
+    // input listener never scheduled an autosave. saveState() here wrote IDB ONLY.
+    // The cloud row therefore kept the OLD nameplate, and within one heartbeat tick
+    // (~30s) _mergeCloudLocal — which treats cloud as authoritative for scalars, and
+    // whose S321 edit-deferral only defers on an active input or a PENDING autosave
+    // timer, neither of which existed — repainted the stale values straight back over
+    // the scan. Next save then collected the old values off the DOM and made the
+    // revert permanent. This is Franz's 7155.40 nameplate block (wrong pump, S525-S530 §2).
+    // Fix: flush durably AND push to cloud in the same tick, so the cloud row carries
+    // the scanned values before any pull can contradict them.
+    if(typeof _flushAutosave==='function') _flushAutosave();
+    else if(typeof saveState==='function') saveState();
     card.parentNode.removeChild(card);
     showToast(n?(n+' value'+(n>1?'s':'')+' applied \u2014 verify the tables & charts'):'Nothing selected');
   });
