@@ -7256,6 +7256,14 @@ if(typeof window!=='undefined'){
   function openCameraBurst() {
     return new Promise(function(resolve) {
       if (_open) { resolve([]); return; }
+      // S529 (Mark, FRT field-loss investigation): commit + persist typed text
+      // BEFORE the camera takes over the screen. Burst holds every shot in memory
+      // until Done, so a long burst is the app's peak-memory moment and the most
+      // likely point for Android to kill it. Diesel writes text into state on
+      // every keystroke, but the durable write is 700ms behind; a hard OOM kill
+      // fires no visibilitychange/pagehide/freeze, so that tail would be lost.
+      // Flushing here makes the camera a save point instead of a risk window.
+      try { if (typeof _flushAutosave === 'function') _flushAutosave(); } catch (_e) {}
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { resolve(null); return; }
       _open = true;
       // S342: cap stream to 1080p — 4096x3072 (12MP) crashed Android WebView (OOM).
