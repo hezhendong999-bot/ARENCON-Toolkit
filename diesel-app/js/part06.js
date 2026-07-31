@@ -2724,7 +2724,12 @@ function getOhlLine() { return getOhlLine3pt(); }
 var pitotCounts={'3a':0,'4b':0};
 // Custom equipment
 var _customEquipCount = {_3a:0, _4b:0};
-function addCustomEquip(tab) {
+// S540: `id` carries a row's permanent name. These rows are rebuilt from the
+// saved report on every load, so the name has to travel THROUGH the rebuild —
+// it is stamped onto the element here and read back at collect time. Without
+// that round trip a name assigned at save time would not survive a refresh,
+// which is the same defect that lost the nameplate values.
+function addCustomEquip(tab, id) {
   var key = '_'+tab.replace('-','');
   _customEquipCount[key] = (_customEquipCount[key]||0) + 1;
   var n = _customEquipCount[key];
@@ -2732,6 +2737,7 @@ function addCustomEquip(tab) {
   if(!container) return;
   var name = tab === '3a' ? 'equip3a' : 'equip4b';
   var wrap = document.createElement('label');
+  wrap.setAttribute('data-cid', id || ('ce_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,6)));   // S540
   wrap.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;grid-column:span 2;';
   wrap.innerHTML = '<input type="checkbox" name="'+name+'" checked>'
     + '<input type="text" placeholder="Custom equipment description" style="flex:1;padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:Calibri,sans-serif;">'
@@ -2739,11 +2745,15 @@ function addCustomEquip(tab) {
   container.appendChild(wrap);
   wrap.querySelector('input[type=text]').focus();
 }
-function addPitotRow(tab){
+function addPitotRow(tab, id){
   if(pitotCounts[tab]>=8){showToast('Maximum 8 pitot rows');return;}
   pitotCounts[tab]++;var n=pitotCounts[tab];
   var c=document.getElementById('pitot-'+tab);if(!c)return;
   var row=document.createElement('div');row.id='pr-'+tab+'-'+n;
+  // S540: permanent name, stamped here and read back at collect. The DOM number
+  // n is NOT identity — removing row 3 renumbers everything after it on the next
+  // load, so two devices would pair different readings.
+  row.setAttribute('data-pid', id || ('pt_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,6)));
   row.className='pcard';
   var outletOpts='';for(var o=1;o<=6;o++)outletOpts+='<option value="'+o+'">'+o+' outlet'+(o>1?'s':'')+'</option>';
   row.innerHTML='<div class="pn">Pitot #'+n+'<button class="px" onclick="removePitotRow(\''+tab+'\','+n+')" title="Remove">✕</button></div>'
@@ -5524,7 +5534,7 @@ function _applyStateInPlace(jsonStr) {
         var c=document.getElementById('equip-custom-'+tab);
         if(c){ c.innerHTML=''; if(typeof _customEquipCount!=='undefined') _customEquipCount['_'+tab.replace('-','')]=0; }
         (s.customEquip[tab]||[]).forEach(function(r){
-          if(typeof addCustomEquip==='function') addCustomEquip(tab);
+          if(typeof addCustomEquip==='function') addCustomEquip(tab, r.id);   // S540
           var rows=c?c.querySelectorAll('label'):[];
           var w=rows[rows.length-1]; if(!w) return;
           var tx=w.querySelector('input[type=text]'); if(tx) tx.value=r.t||'';
@@ -5551,7 +5561,7 @@ function _applyStateInPlace(jsonStr) {
         if(typeof pitotCounts!=='undefined') pitotCounts[tab]=0;
         (s.pitotRows[tab]||[]).forEach(function(r){
           if(typeof addPitotRow!=='function') return;
-          addPitotRow(tab);
+          addPitotRow(tab, r.id);   // S540
           var n=pitotCounts[tab];
           var pp=document.getElementById('pp-'+tab+'-'+n); if(pp) pp.value=r.p||'';
           var pf=document.getElementById('pf-'+tab+'-'+n); if(pf) pf.value=r.f||'';
@@ -6361,6 +6371,19 @@ function _ensureDeficIds(){
     if(typeof generalDeficiencies!=='undefined' && Array.isArray(generalDeficiencies)){
       generalDeficiencies.forEach(function(d){ _stampOne(d,'gdef'); });
     }
+    // S540: contractorSignRows was ALREADY declared id-keyed in the sync spec,
+    // but no row ever carried an id — so the S535 identity guard was (correctly)
+    // skipping it and those rows had NO per-item protection at all, while the
+    // spec claimed otherwise. Config promising coverage the data cannot support
+    // is worse than no coverage. witnessSignRows is included for the same reason
+    // before it is registered.
+    [ (typeof contractorSignRows!=='undefined'?contractorSignRows:null),
+      (typeof witnessSignRows!=='undefined'?witnessSignRows:null) ].forEach(function(arr){
+      if(!Array.isArray(arr)) return;
+      arr.forEach(function(r){
+        if(r && typeof r==='object' && (!r.id || r.id==='')) r.id=_lwwNewId('sig');
+      });
+    });
     if(typeof sketchEntries!=='undefined' && Array.isArray(sketchEntries)){
       sketchEntries.forEach(function(e){
         if(e && typeof e==='object' && (!e.id || e.id==='')) e.id=_lwwNewId('sk');
@@ -6404,7 +6427,11 @@ function collectState() {
     for(var n=1;n<=((typeof pitotCounts!=='undefined'&&pitotCounts[tab])||0);n++){
       var pp=document.getElementById('pp-'+tab+'-'+n), pf=document.getElementById('pf-'+tab+'-'+n), po=document.getElementById('po-'+tab+'-'+n);
       if(!pp&&!pf&&!po) continue;   // removed row
-      rows.push({p:pp?pp.value:'', f:pf?pf.value:'', o:po?po.value:'1'});
+      // S540: carry the row's permanent name; mint for rows predating this change.
+      var _pr=document.getElementById('pr-'+tab+'-'+n);
+      var _pid=_pr?_pr.getAttribute('data-pid'):null;
+      if(!_pid){ _pid='pt_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,6); if(_pr) _pr.setAttribute('data-pid',_pid); }
+      rows.push({id:_pid, p:pp?pp.value:'', f:pf?pf.value:'', o:po?po.value:'1'});
     }
     pitotRows[tab]=rows;
   });
@@ -6414,7 +6441,10 @@ function collectState() {
     var arr=[];
     document.querySelectorAll('#equip-custom-'+tab+' label').forEach(function(w){
       var cb=w.querySelector('input[type=checkbox]'), tx=w.querySelector('input[type=text]');
-      arr.push({t:tx?tx.value:'', c:cb?cb.checked:true});
+      // S540: carry the row's permanent name; mint for rows predating this change.
+      var _cid=w.getAttribute('data-cid');
+      if(!_cid){ _cid='ce_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,6); w.setAttribute('data-cid',_cid); }
+      arr.push({id:_cid, t:tx?tx.value:'', c:cb?cb.checked:true});
     });
     customEquip[tab]=arr;
   });
