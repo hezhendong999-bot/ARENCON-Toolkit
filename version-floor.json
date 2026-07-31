@@ -1,0 +1,6 @@
+{
+  "_comment": "ARENCON version floor (S536). Values are service-worker cache stamps (YYYYMMDDHHMM) — the one build identifier bumped on every push, shared by every tool, and sortable. A client reads the stamp of the cache it is actually running from and compares it here. warnBelow shows an unmissable banner; blockBelow additionally refuses cloud writes while local saves continue and queue. Both fail OPEN: unreachable, malformed, or no service worker means the floor does not apply, so a connectivity problem can never masquerade as an out-of-date app. blockBelow stays at 0 until the push that retires a storage location — arming an untested floor is its own outage.",
+  "warnBelow": "202607250000",
+  "blockBelow": "0",
+  "message": "This app is out of date. Close it fully and reopen to update."
+}
