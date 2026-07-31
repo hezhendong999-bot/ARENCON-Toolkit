@@ -4776,7 +4776,13 @@ function _openHeights() {
   if (rows) {
     var html = '';
     heights.forEach(function(h) {
-      html += '<div class="dv-heights-row">';
+      // S539: carry each row's permanent name through the render so it survives
+      // the render -> edit -> save cycle. Without one, a height row can only be
+      // identified by its position, and "+ Add Row" plus the delete crosses mean
+      // the list genuinely reorders — so two devices could pair different rows
+      // and silently discard one inspector's measurement.
+      if (!h.id) h.id = 'ht_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,6);
+      html += '<div class="dv-heights-row" data-hid="' + h.id + '">';
       html += '<input type="text" value="' + (h.label || '').replace(/"/g,'&quot;') + '" placeholder="Label">';
       html += '<input type="text" value="' + (h.value || '').replace(/"/g,'&quot;') + '" placeholder="Value" style="max-width:70px;">';
       html += '<span class="ht-unit">' + (h.unit || 'A.F.F.') + '</span>';
@@ -4803,6 +4809,7 @@ function _addHeightRow() {
   if (!rows) return;
   var div = document.createElement('div');
   div.className = 'dv-heights-row';
+  div.setAttribute('data-hid', 'ht_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,6));   // S539
   div.innerHTML = '<input type="text" placeholder="Label"><input type="text" placeholder="Value" style="max-width:70px;"><span class="ht-unit">A.F.F.</span><button class="ht-del" title="Remove">✕</button>';
   rows.appendChild(div);
 }
@@ -4817,7 +4824,11 @@ function _saveHeights() {
   rows.querySelectorAll('.dv-heights-row').forEach(function(row) {
     var inputs = row.querySelectorAll('input');
     if (inputs[0] && inputs[0].value.trim()) {
-      heights.push({ label: inputs[0].value.trim(), value: inputs[1] ? inputs[1].value.trim() : '', unit: 'A.F.F.' });
+      // S539: preserve the row's permanent name, or mint one for a row that
+      // predates this change. Legacy rows migrate the first time they are saved.
+      var hid = row.getAttribute('data-hid');
+      if (!hid) hid = 'ht_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,6);
+      heights.push({ id: hid, label: inputs[0].value.trim(), value: inputs[1] ? inputs[1].value.trim() : '', unit: 'A.F.F.' });
     }
   });
   dwg.heights = heights;
