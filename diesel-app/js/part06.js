@@ -1497,8 +1497,19 @@ let pldChartTimer = null;
 let stdChartTimer = null;
 
 // Autosave on any other input change (non-table inputs)
+// S533: 'change' fires when a field is COMMITTED (blur / picker close), not on
+// every keystroke — so it is cheap, and it is the right moment to make the value
+// durable. Previously this only started the 4-second autosave clock: leave a
+// field, lock the tablet or lose the app inside those 4 seconds and the entry was
+// gone, because the report is assembled by reading the screen and the screen had
+// not been read yet. The nameplate and rated-value fields have no other home, so
+// they were the most exposed. saveState() writes the device copy immediately;
+// debounceAutosave() still handles the cloud push on its own schedule.
 document.addEventListener('change', function(e) {
-  if (!e.target.dataset.tbl) debounceAutosave();
+  if (!e.target.dataset.tbl) {
+    try { if (typeof saveState === 'function') saveState(); } catch(_){}
+    debounceAutosave();
+  }
 });
 
 // ══════════════════════════════════════════════════

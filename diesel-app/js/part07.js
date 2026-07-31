@@ -1981,7 +1981,13 @@ function _pgReassignSelected(){
   var selected = all.filter(function(a){ return _pgSelected.has(a.photo.id||''); });
   if(!selected.length){ showToast('No photos selected'); return; }
   // Build destination list
-  var dests = ['Flow Test (3-pt)', 'Flow Test (PLD)'];
+  // S533: the three evidence boxes were NOT offered as destinations, so a photo
+  // filed in the wrong box could only be fixed by picking the file again. They
+  // are ordinary record photos distinguished by a `kind` label, so "moving" one
+  // there is a relabel — no copy, no new stored file.
+  var dests = ['Site Photos', 'Pump', 'Placard', 'PLD Placard',
+               'Flow Test (3-pt)', 'Flow Test (PLD)'];
+  var _RECDEST = { 'Site Photos':'site', 'Pump':'pump', 'Placard':'placard', 'PLD Placard':'placard-pld' };
   Object.keys(deficiencies||{}).forEach(function(ctr){
     (deficiencies[ctr]||[]).forEach(function(d,di){
       dests.push(ctr+' Deficiency #'+(di+1));
@@ -1998,35 +2004,184 @@ function _pgReassignSelected(){
   _aConfirmHtml(html, function(){
     var destIdx = parseInt(document.getElementById('_pg_reassign_dest').value);
     var dest = dests[destIdx];
-    // Copy photos to destination
+    // ═══ S533 ROOT-CAUSE FIX — reassign was not a move, it was a bad clone ═══
+    // BEFORE: it deep-copied the record, gave the copy a NEW id while leaving the
+    // ORIGINAL's r2Key/r2Url in place, then hard-spliced the source. Three faults,
+    // each on its own capable of losing a photo:
+    //   (a) two records pointed at ONE stored file — the doctrine violation that
+    //       caused the 4380.24 loss; any cleanup that judged the old key unused
+    //       could delete a file the report still needs.
+    //   (b) the source was removed with NO deletion evidence, so another device
+    //       still holding it re-introduced it on merge — the photo ends up in two
+    //       places at once, one of them wrong.
+    //   (c) _pgRemovePhoto splices by item.idx, captured BEFORE any move ran. Move
+    //       three photos out of one array and the 2nd and 3rd splices hit whatever
+    //       shifted into those slots — silently removing photos nobody selected.
+    // AFTER: move the SAME record object. Identity, stored file, tag, caption and
+    // markup all travel with it; there is only ever one record per file, so there
+    // is nothing to orphan and nothing to resurrect. Source removal is by object
+    // identity, so batch moves cannot hit the wrong slot.
+    function _spliceRef(arr, ph){
+      if(!Array.isArray(arr)) return false;
+      var i = arr.indexOf(ph);
+      if(i < 0) return false;
+      arr.splice(i, 1);
+      return true;
+    }
+    function _detachByRef(item, ph){
+      // Mirror of _pgRemovePhoto's container walk, but splicing by identity.
+      // recordPhotos is handled by the caller: a record→record move is a relabel.
+      if(item.type==='flowtest')            return _spliceRef(flowTestPhotos, ph);
+      if(item.type==='flowtest-pld')        return _spliceRef(flowTestPhotosPld, ph);
+      if(item.type==='record')              return _spliceRef(recordPhotos, ph);
+      if(item.type==='checklist'){
+        var cid = item.section.replace('cl_','');
+        return !!(clState[cid] && clState[cid].photos && _spliceRef(clState[cid].photos, ph));
+      }
+      if(item.type==='deficiency'){
+        var p1 = item.section.replace('def_','').split('_');
+        var c1 = p1.slice(0,-1).join('_'), d1 = parseInt(p1[p1.length-1]);
+        return !!(deficiencies[c1] && deficiencies[c1][d1] && _spliceRef(deficiencies[c1][d1].photos, ph));
+      }
+      if(item.type==='response'){
+        var p2 = item.section.replace('resp_','').split('_');
+        var r2 = parseInt(p2.pop()), d2 = parseInt(p2.pop()), c2 = p2.join('_');
+        return !!(deficiencies[c2] && deficiencies[c2][d2] && deficiencies[c2][d2].responses[r2]
+                  && _spliceRef(deficiencies[c2][d2].responses[r2].photos, ph));
+      }
+      if(item.type==='general-defic'){
+        var g1 = parseInt(item.section.replace('gdef_',''));
+        return !!(generalDeficiencies[g1] && _spliceRef(generalDeficiencies[g1].photos, ph));
+      }
+      if(item.type==='gauge'){
+        var s1 = parseInt(item.section.replace('gauge_std_',''));
+        return !!(stdData[s1] && stdData[s1].photos && _spliceRef(stdData[s1].photos, ph));
+      }
+      if(item.type==='gauge-pld'){
+        var s2 = parseInt(item.section.replace('gauge_pld_',''));
+        return !!(pldData[s2] && pldData[s2].photos && _spliceRef(pldData[s2].photos, ph));
+      }
+      return false;
+    }
+    var _moved = 0, _failed = 0;
     selected.forEach(function(item){
-      var photoCopy = JSON.parse(JSON.stringify(item.photo));
-      photoCopy.id = 'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
-      if(dest === 'Flow Test (3-pt)') flowTestPhotos.push(photoCopy);
-      else if(dest === 'Flow Test (PLD)') flowTestPhotosPld.push(photoCopy);
+      var ph = item.photo;
+      if(!ph) return;
+      var destKind = _RECDEST[dest];
+      // 1) Record-box destination. A photo already in recordPhotos only needs its
+      //    label changed — no detach, no re-add, so its stored file never moves.
+      if(destKind){
+        if(item.type==='record'){ ph.kind = destKind; _moved++; return; }
+        if(!_detachByRef(item, ph)){ _failed++; return; }
+        ph.kind = destKind;
+        recordPhotos.push(ph);
+        _moved++;
+        return;
+      }
+      // 2) Every other destination: detach FIRST, and only place the photo if the
+      //    detach actually found it. A failed detach must never leave the photo in
+      //    two lists — that is how a "move" turns into a silent duplicate.
+      if(!_detachByRef(item, ph)){ _failed++; return; }
+      if(dest === 'Flow Test (3-pt)') flowTestPhotos.push(ph);
+      else if(dest === 'Flow Test (PLD)') flowTestPhotosPld.push(ph);
       else if(dest.indexOf('General Deficiency') === 0){
         var gi = parseInt(dest.replace('General Deficiency #',''))-1;
-        if(generalDeficiencies[gi]){ if(!generalDeficiencies[gi].photos) generalDeficiencies[gi].photos=[]; generalDeficiencies[gi].photos.push(photoCopy); }
+        if(generalDeficiencies[gi]){ if(!generalDeficiencies[gi].photos) generalDeficiencies[gi].photos=[]; generalDeficiencies[gi].photos.push(ph); }
       } else {
-        // Contractor deficiency
         Object.keys(deficiencies).forEach(function(ctr){
           (deficiencies[ctr]||[]).forEach(function(d,di){
-            if(dest === ctr+' Deficiency #'+(di+1)){ if(!d.photos) d.photos=[]; d.photos.push(photoCopy); }
+            if(dest === ctr+' Deficiency #'+(di+1)){ if(!d.photos) d.photos=[]; d.photos.push(ph); }
           });
         });
       }
-      // Remove from source
-      _pgRemovePhoto(item);
+      _moved++;
     });
+    if(typeof _renderRecordZones==='function') _renderRecordZones();
     _pgSelected.clear();
     _renderPhotoGallery();
     renderFlowTestThumbs();
     renderFlowTestThumbsPld();
     saveState();
-    showToast('Reassigned '+selected.length+' photos');
+    if(typeof debounceAutosave==='function') debounceAutosave();
+    // S533: report what actually moved, not what was selected. A silent
+    // discrepancy between the two is exactly how a lost photo goes unnoticed.
+    if(_failed) showToast('Moved '+_moved+' photo(s) · '+_failed+' could not be located');
+    else showToast('Moved '+_moved+' photo(s)');
   }, 'Reassign');
 }
 
 
 
 
+// ═══════════════════════════════════════════════════════════════════════════
+// S533 — UNRENDERABLE PHOTO WATCH (the "photo silently ceased to exist" case)
+// ---------------------------------------------------------------------------
+// A photo record can survive while its IMAGE does not: the bytes were dropped
+// from the cloud payload after an upload that never actually confirmed, the
+// device that held the only copy stopped syncing, or an R2 object went missing.
+// The record still counts in the badge and still occupies a tile, so nothing
+// looks wrong — the loss is only discovered when the report is assembled, often
+// weeks later. FRT surfaces this class through the shared engine's photo-attention
+// hook; Diesel could NOT, because Diesel keeps its own upload queue and passes
+// BinaryOutbox:null, so that sweep never runs here at all. This is Diesel's own
+// equivalent, deliberately using the SAME resolver the UI uses to paint a photo
+// (_photoSrc) rather than a second opinion about what "has an image" means — a
+// separate rule would drift and produce false alarms, which is worse than none.
+// Read-only: it counts and reports, it never deletes, repairs or uploads.
+var _phWatchTimer = null, _phWatchDismissed = false;
+function _phAttentionSweep(){
+  try{
+    if(typeof _collectAllPhotos!=='function' || typeof _photoSrc!=='function') return 0;
+    var all = _collectAllPhotos();
+    var n = 0;
+    all.forEach(function(it){
+      var p = it && it.photo;
+      if(!p) return;
+      if(!_photoSrc(p)) n++;
+    });
+    _phRenderBanner(n);
+    return n;
+  }catch(e){ console.warn('[S533] photo watch skipped:', e && e.message); return 0; }
+}
+function _phRenderBanner(n){
+  var el = document.getElementById('dslPhotoAttention');
+  if(!n || _phWatchDismissed){ if(el) el.style.display='none'; return; }
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'dslPhotoAttention';
+    // Inline styles only — this must render even if a stylesheet failed to load,
+    // which is one of the states in which photos go missing in the first place.
+    el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99998;'
+      + 'background:#C98A4A;color:#fff;font-family:Calibri,sans-serif;font-size:14px;'
+      + 'font-weight:700;padding:11px 46px 11px 16px;text-align:center;'
+      + 'box-shadow:0 -3px 14px rgba(0,0,0,.30);';
+    var x = document.createElement('button');
+    x.textContent = '\u2715';
+    x.title = 'Dismiss';
+    x.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);'
+      + 'background:transparent;border:none;color:#fff;font-size:17px;cursor:pointer;'
+      + 'width:30px;height:30px;line-height:30px;padding:0;';
+    x.onclick = function(){ _phWatchDismissed = true; el.style.display='none'; };
+    el.appendChild(x);
+    var txt = document.createElement('span');
+    txt.id = 'dslPhotoAttentionTxt';
+    el.insertBefore(txt, x);
+    document.body.appendChild(el);
+  }
+  var t = document.getElementById('dslPhotoAttentionTxt');
+  if(t) t.textContent = n + (n===1 ? ' photo in this report has no image on this device'
+                                   : ' photos in this report have no image on this device')
+                          + ' \u2014 do not delete them; check the device that took them is still syncing.';
+  el.style.display = 'block';
+}
+function _phStartWatch(){
+  if(_phWatchTimer) return;
+  // First pass late enough that the initial load and any first cloud apply have
+  // settled — an early pass would flag photos that simply have not arrived yet.
+  setTimeout(function(){ _phAttentionSweep(); }, 20000);
+  _phWatchTimer = setInterval(function(){ _phAttentionSweep(); }, 120000);
+}
+if(typeof window!=='undefined'){
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _phStartWatch);
+  else _phStartWatch();
+}
