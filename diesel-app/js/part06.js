@@ -6153,7 +6153,27 @@ function saveState(){
   }catch(e){console.warn('saveState error:',e);}
 }
 
+// ═══ S531 — stable ids for flow-test photos (prerequisite for per-item merge) ═══
+// The timestamp/merge engine pairs items across devices by a stable key. Photos
+// minted since ArcPhoto always carry an id, but pre-mint legacy entries do not,
+// and those fall back to POSITION. Position is not stable across a splice: delete
+// photo 2 on one device and every later photo shifts, so a merge can pair the
+// wrong two photos and let one device's photo overwrite another's. Backfilling an
+// id costs nothing, is idempotent, and makes the key stable for good. Runs on the
+// live arrays at every collect, so every save/push path is covered by one call.
+function _ensureFlowPhotoIds(){
+  try{
+    [ (typeof flowTestPhotos!=='undefined'?flowTestPhotos:null),
+      (typeof flowTestPhotosPld!=='undefined'?flowTestPhotosPld:null) ].forEach(function(arr){
+      if(!Array.isArray(arr)) return;
+      arr.forEach(function(p){
+        if(p && (!p.id || p.id==='')) p.id = 'ph_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+      });
+    });
+  }catch(e){ console.warn('[S531] flow photo id backfill skipped:', e && e.message); }
+}
 function collectState() {
+  _ensureFlowPhotoIds();
   const proj = {};
   ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
    'pi-contractor','pi-version','pi-ref','pi-revision','pi-date-modified',
