@@ -6384,6 +6384,16 @@ function _ensureDeficIds(){
         if(r && typeof r==='object' && (!r.id || r.id==='')) r.id=_lwwNewId('sig');
       });
     });
+    // S541: custom checklist items. A real in-memory structure (section -> rows),
+    // unlike the DOM-derived rows in S540, so a plain backfill is enough.
+    if(typeof customItems!=='undefined' && customItems && typeof customItems==='object'){
+      Object.keys(customItems).forEach(function(sec){
+        if(!Array.isArray(customItems[sec])) return;
+        customItems[sec].forEach(function(r){
+          if(r && typeof r==='object' && (!r.id || r.id==='')) r.id=_lwwNewId('ci');
+        });
+      });
+    }
     if(typeof sketchEntries!=='undefined' && Array.isArray(sketchEntries)){
       sketchEntries.forEach(function(e){
         if(e && typeof e==='object' && (!e.id || e.id==='')) e.id=_lwwNewId('sk');
