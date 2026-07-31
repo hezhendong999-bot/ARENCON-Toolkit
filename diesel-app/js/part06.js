@@ -6172,8 +6172,43 @@ function _ensureFlowPhotoIds(){
     });
   }catch(e){ console.warn('[S531] flow photo id backfill skipped:', e && e.message); }
 }
+// ═══ S532 — permanent identities for deficiencies, responses and sketches ═══
+// These were the last structures in the report with NO identity of their own.
+// The only thing telling deficiency #3 from #4 was its position in the list, so
+// two devices could never be merged item-by-item: insert one deficiency at the
+// top on device A and every later entry shifts, and device B's edit to "the third
+// one" lands on a different deficiency entirely. Position is not identity.
+// Assigning a permanent id costs nothing, is idempotent, and migrates existing
+// reports quietly the first time anyone opens and saves them — no DB rewrite.
+// Runs at every collect, so every save/push path is covered from one call site.
+function _lwwNewId(pfx){ return pfx+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,6); }
+function _ensureDeficIds(){
+  try{
+    function _stampOne(d, pfx){
+      if(!d || typeof d!=='object') return;
+      if(!d.id || d.id==='') d.id=_lwwNewId(pfx);
+      if(Array.isArray(d.responses)) d.responses.forEach(function(r){
+        if(r && typeof r==='object' && (!r.id || r.id==='')) r.id=_lwwNewId('resp');
+      });
+    }
+    if(typeof deficiencies!=='undefined' && deficiencies && typeof deficiencies==='object'){
+      Object.keys(deficiencies).forEach(function(ctr){
+        if(Array.isArray(deficiencies[ctr])) deficiencies[ctr].forEach(function(d){ _stampOne(d,'def'); });
+      });
+    }
+    if(typeof generalDeficiencies!=='undefined' && Array.isArray(generalDeficiencies)){
+      generalDeficiencies.forEach(function(d){ _stampOne(d,'gdef'); });
+    }
+    if(typeof sketchEntries!=='undefined' && Array.isArray(sketchEntries)){
+      sketchEntries.forEach(function(e){
+        if(e && typeof e==='object' && (!e.id || e.id==='')) e.id=_lwwNewId('sk');
+      });
+    }
+  }catch(e){ console.warn('[S532] deficiency id backfill skipped:', e && e.message); }
+}
 function collectState() {
   _ensureFlowPhotoIds();
+  _ensureDeficIds();
   const proj = {};
   ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
    'pi-contractor','pi-version','pi-ref','pi-revision','pi-date-modified',
@@ -6250,7 +6285,7 @@ function collectState() {
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
     flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,id:p.id||'',tag:p.tag||'',caption:p.caption||'',mk:p.mk||null,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
     recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
-    sketchEntries: sketchEntries.map(e=>({comment:e.comment, markupImg:e.markupImg||null})),
+    sketchEntries: sketchEntries.map(e=>({id:e.id||'', comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
     appendixExcluded: (typeof _appendixExcl!=='undefined') ? Array.from(_appendixExcl) : [],   // S315 F1
