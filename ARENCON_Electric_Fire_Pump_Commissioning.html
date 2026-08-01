@@ -1910,6 +1910,11 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 <input type="file" id="sketch-file-input" accept="image/*,.pdf" style="display:none">
 
 <script>
+// S564: build banner — first thing to check when behavior looks stale.
+// Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
+// than none, and none is still bad) applies here too. Bump every push.
+var ELEC_BUILD = 'S564';
+console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
 // ══════════════════════════════════════════════════
@@ -6758,6 +6763,18 @@ function debounceAutosave() {
   clearTimeout(_autosaveTimer);
   _autosaveTimer = setTimeout(() => { touchRevision(); saveState(); }, 15000);
 }
+/* S564: a photo is durable at birth — Diesel S488 parity.
+   Every new photo passes through _r2EnqueuePhoto; this coalesced save writes
+   the report to this device AND sweeps the photo store within ~300ms of the
+   shutter, instead of leaving the picture in memory for up to 15 seconds of
+   autosave window. Coming back from the camera is exactly when Android is most
+   likely to reclaim the app — that window is where Electric photos could still
+   vanish with nothing to rescue from. Multi-shot bursts coalesce into one save. */
+let _photoDurableTimer = null;
+function _photoDurableSave() {
+  clearTimeout(_photoDurableTimer);
+  _photoDurableTimer = setTimeout(function(){ try { touchRevision(); saveState(); } catch(e){ console.warn('photoDurableSave:', e); } }, 300);
+}
 function saveState(){
   try{
     var key=getProjectSaveKey();
@@ -6867,6 +6884,11 @@ function _collectCloudState(){
 var _r2FolderId = null; // set during Hub init
 
 function _r2EnqueuePhoto(photoObj){
+  /* S564: durability first, BEFORE the Hub-mode early return — a photo taken
+     in standalone mode or before the project folder resolves must still reach
+     disk. The 300ms defer also lets the caller's .push() land so the sweep
+     walker can see the new record. */
+  try { _photoDurableSave(); } catch(e){}
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return;
   if(!photoObj || !photoObj.d) return;
   var blob = R2Photos.dataUrlToBlob(photoObj.d);
