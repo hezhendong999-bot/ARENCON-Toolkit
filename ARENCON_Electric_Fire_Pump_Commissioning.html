@@ -731,6 +731,7 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
   import { mountHelp, hasCards, markSeen, hasUnseen, comingSoonHtml } from '/lib/ui/helpEngine.js';
   import '/lib/ui/electricHelpCards.js';
   import { createPhotoStore } from '/lib/data/photoStore.js';   /* S552 */
+  import { createBinaryOutbox } from '/lib/data/photoOutbox.js'; /* S556: rescue */
   function call(name, ev){ var f = window[name]; if (typeof f === 'function') return f(ev); }
 
   var _HELP_ICON_PLAIN = '<span class="help-q">?</span><span class="wn-dot" style="display:none"></span>';
@@ -821,6 +822,91 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
       buttons: [{ label: 'Close', kind: 'cancel' }]
     });
   };
+
+  /* ═══ S556 — ELECTRIC'S PHOTOS BECOME RESCUABLE ═══
+     S552 gave Electric its own copy of every photo it takes. Nothing read it,
+     which is coverage that looks done and is not — the same trap Diesel was in
+     before S544. This wires the SAME rescue pass Diesel uses: a photo whose
+     stored file has gone missing is re-uploaded from this device's own copy,
+     and one with no image anywhere is reported rather than left as a dead tile.
+
+     Only the rescue runs. Electric keeps its own upload queue (R2Photos), so
+     nothing is ever put into this engine's queue and its uploader stays dormant
+     — those paths walk FRT's report shape and are not Electric's. */
+  var ElectricR2 = {
+    TOOL_KEY: 'electric',
+    get WORKER_URL(){ try { return (window.R2Photos && window.R2Photos.WORKER_URL) || ''; } catch(_) { return ''; } },
+    upload: function (projectId, type, blob, filename) {
+      var R2P = window.R2Photos;
+      if (!R2P || !projectId || !blob) return Promise.resolve(null);
+      var fname = filename || R2P.generateFilename('heal');
+      return Promise.resolve(R2P.upload(projectId, 'electric', type || 'original', fname, blob))
+        .then(function () {
+          return { r2Key: 'photos/' + projectId + '/electric/' + (type || 'original') + '/' + fname,
+                   r2Url: R2P.getUrl(projectId, 'electric', type || 'original', fname) };
+        })
+        .catch(function (e) { console.warn('[S556] heal upload failed:', e && e.message); return null; });
+    },
+    uploadPhoto: function (projectId, photo, type) {
+      var R2P = window.R2Photos;
+      if (!R2P || !photo || !photo.d) return Promise.resolve(null);
+      var blob = R2P.dataUrlToBlob(photo.d);
+      if (!blob) return Promise.resolve(null);
+      return ElectricR2.upload(projectId, type || 'original', blob, R2P.generateFilename('heal'))
+        .then(function (r) {
+          if (r) { photo.r2Key = r.r2Key; photo.r2Url = r.r2Url; photo.r2Status = 'uploaded'; }
+          return photo;
+        });
+    }
+  };
+  var _elecRescue = createBinaryOutbox({
+    IDB: {
+      get:    function (st, k) { return window.ADB.get(st, k); },
+      put:    function (st, r) { return window.ADB.put(st, r); },
+      getAll: function (st)    { return window.ADB.getAll(st); },
+      'delete': function (st, k) { return window.ADB['delete'](st, k); }
+    },
+    R2: ElectricR2,
+    model: {
+      getProject: function () { try { return (typeof collectState === 'function') ? collectState() : null; } catch(_) { return null; } },
+      saveNow:    function () { try { if (typeof saveState === 'function') saveState(); } catch(_) {} }
+    },
+    toast: function (m) { try { if (typeof window.showToast === 'function') window.showToast(m); } catch(_) {} },
+    photoWalk: function () {
+      if (typeof window._collectAllPhotos !== 'function') return [];
+      return window._collectAllPhotos().map(function (it) { return it && it.photo; }).filter(Boolean);
+    },
+    photoFields: { bytes: 'd', thumb: 't' },
+    localBytes: function (id) {
+      try { return (typeof window._electricLocalBytes === 'function') ? window._electricLocalBytes(id) : Promise.resolve(null); }
+      catch (_) { return Promise.resolve(null); }
+    },
+    /* Electric's report has no id of its own either — the Hub folder is the truth. */
+    projectId: function () { try { return window._r2FolderId || null; } catch(_) { return null; } }
+  });
+  window._elecRescue = _elecRescue;
+  /* Electric's cloud layer has no post-load callback to hang this on, so it
+     waits for the report to actually be up. verifyR2Keys is once-per-session
+     per project internally, so a retry costs nothing. Deliberately late: an
+     inspector opening a report must not be made to wait on a network sweep. */
+  (function _kickRescue(tries){
+    tries = tries || 0;
+    if (tries > 20) return;
+    setTimeout(function () {
+      var ready = window._r2FolderId &&
+                  typeof window._collectAllPhotos === 'function' &&
+                  window._collectAllPhotos().length;
+      if (!ready) return _kickRescue(tries + 1);
+      try {
+        _elecRescue.verifyR2Keys(collectState()).then(function (r) {
+          if (r && (r.healed || r.nulled)) {
+            console.log('[S556] photo rescue: ' + r.healed + ' restored, ' + r.nulled + ' reported as missing');
+            try { saveState(); } catch(_) {}
+          }
+        }).catch(function (e) { console.warn('[S556] rescue skipped:', e && e.message); });
+      } catch (e) { console.warn('[S556] rescue skipped:', e && e.message); }
+    }, 8000);
+  })();
 
   var cfg = electricHeaderConfig({
     logoSrc: window.__ARENCON_LOGO__ || '',
@@ -6536,7 +6622,7 @@ function syncAllFields() {
 // ══ ADB MODULE (Full IndexedDB Persistence Layer — Session 53) ══
 var ADB = {};
 ADB.DB_NAME = 'ARENCON_ELECTRIC';
-ADB.DB_VERSION = 4;   /* S552: +photoBlobs — Electric's own copy of its photos */
+ADB.DB_VERSION = 5;   /* S552 +photoBlobs, S556 +photoOutbox (rescue bookkeeping) */
 ADB._db = null;
 ADB.open = function(){
   return new Promise(function(resolve,reject){
@@ -6554,6 +6640,8 @@ ADB.open = function(){
          stored file ever went missing there was nothing anywhere to put it back
          from. Additive: an extra store, nothing existing is touched. */
       if(!db.objectStoreNames.contains('photoBlobs')) db.createObjectStore('photoBlobs',{keyPath:'id'});
+      /* S556: bookkeeping for the shared rescue pass. Additive; holds no images. */
+      if(!db.objectStoreNames.contains('photoOutbox')) db.createObjectStore('photoOutbox',{keyPath:'id'});
     };
     req.onsuccess = function(e){ADB._db=e.target.result;resolve(ADB._db);};
     req.onerror = function(e){reject(e);};
