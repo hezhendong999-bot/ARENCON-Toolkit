@@ -4801,6 +4801,43 @@ function _openHeights() {
       }
     });
     sel.innerHTML = opts;
+    // ═══ S542 — DEAD CONTROL FIXED ═══
+    // The dropdown was populated but nothing ever listened to it: choosing a
+    // drawing did nothing at all. Wired here (onchange assigned, not
+    // addEventListener, so re-rendering the panel cannot stack duplicate
+    // handlers). Copies the source drawing's heights into the CURRENT panel as
+    // NEW rows with FRESH names — copied rows must not share a name with the
+    // rows they came from, or two drawings would claim the same identity and a
+    // merge could pair rows across drawings. Nothing is saved until the user
+    // presses Save, so the copy is reviewable and cancellable.
+    sel.onchange = function() {
+      var srcId = sel.value;
+      sel.selectedIndex = 0;                 // reset so the same source can be re-picked
+      if (!srcId) return;
+      var src = null;
+      drawings.forEach(function(d) { if (d.id === srcId) src = d; });
+      if (!src || !Array.isArray(src.heights) || !src.heights.length) {
+        if (typeof toast === 'function') toast('That drawing has no heights to copy');
+        return;
+      }
+      var rowsEl = document.getElementById('dv-heights-rows');
+      if (!rowsEl) return;
+      var html = '';
+      src.heights.forEach(function(h) {
+        var nid = 'ht_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,6);
+        // Markup MUST match the panel's own render exactly — the delete button
+        // and unit span are wired by the panel's existing click handling, so a
+        // near-miss here would produce rows whose ✕ silently does nothing.
+        html += '<div class="dv-heights-row" data-hid="' + nid + '">';
+        html += '<input type="text" value="' + String(h.label || '').replace(/"/g, '&quot;') + '" placeholder="Label">';
+        html += '<input type="text" value="' + String(h.value || '').replace(/"/g, '&quot;') + '" placeholder="Value" style="max-width:70px;">';
+        html += '<span class="ht-unit">' + (h.unit || 'A.F.F.') + '</span>';
+        html += '<button class="ht-del" title="Remove">\u2715</button>';
+        html += '</div>';
+      });
+      rowsEl.innerHTML = html;
+      if (typeof toast === 'function') toast('Copied ' + src.heights.length + ' heights \u2014 press Save to keep them');
+    };
   }
 }
 
