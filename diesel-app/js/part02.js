@@ -166,6 +166,7 @@
       onReupload: function(){ call('_r2ReuploadAll'); },
       onR2Cleanup: function(){ call('_dieselR2OrphanReport'); },
       onDelDiag: function(){ call('dslDiag'); },
+      onPhotoStore: function(){ call('_dslPhotoStoreCheck'); },
       onHelp: function(){ call('openHelp'); },
       onQR: function(){ call('_openToolQR'); },
       onToggleTheme: function(){ call('toggleDarkMode'); },
@@ -212,6 +213,61 @@
     window._stashPhotoBlobs  = function ()   { return _dslPhotoStore.sweep(); };
     window._dieselLocalBytes = function (id) { return _dslPhotoStore.localBytes(id); };
     window._photoStoreReport = function ()   { return _dslPhotoStore.report(); };
+
+    /* ═══ S549 — PHOTO STORE CHECK, ON SCREEN ═══
+       The store keeps a real image file on this device for every photo in the
+       report, and that file is the only thing that can put a photo back if its
+       cloud copy goes missing. Before the report's own embedded copy is retired,
+       somebody has to be able to SEE that the store is keeping up — on the
+       tablet that took the photos, because the store is per-device and a desktop
+       answers about the desktop.
+
+       Read-only. It counts and reports; it never writes, deletes or uploads. */
+    function _esc(t){ var e=document.createElement('span'); e.textContent=String(t==null?'':t); return e.innerHTML; }
+    window._dslPhotoStoreCheck = function () {
+      Dlg.panel({
+        title: 'Photo Store Check',
+        icon: '\uD83D\uDCBE',
+        accent: 'info',
+        build: function (bd) {
+          var d = document.createElement('div');
+          d.innerHTML = 'Checking this device\u2026';
+          bd.appendChild(d);
+          _dslPhotoStore.report().then(function (r) {
+            var total   = r.inReport || 0;
+            var held    = r.inStore || 0;
+            var missing = Math.max(0, total - held);
+            var ok      = (total > 0 && missing === 0 && !r.paused);
+            var head    = ok
+              ? '<b style="color:#2E9E72">All ' + total + ' photos in this report are backed up on this device.</b>'
+              : (total === 0
+                  ? '<b>This report has no photos yet.</b>'
+                  : '<b style="color:#C0445F">' + held + ' of ' + total +
+                    ' photos are backed up on this device.</b>');
+            var body = head + '<br><br>' +
+              'In the report: <b>' + total + '</b><br>' +
+              'Backed up as image files on this device: <b>' + held + '</b><br>' +
+              'Not backed up yet: <b>' + missing + '</b>';
+            if (r.paused) {
+              body += '<br><br><b style="color:#C98A4A">Paused \u2014 this device is low on storage.</b><br>' +
+                      'Nothing has been lost: every photo still has its copy inside the report. ' +
+                      'Free some space and reopen the report and it will catch up.';
+            } else if (missing > 0) {
+              body += '<br><br>The store fills in the background, a few photos at a time, ' +
+                      'so a report opened moments ago will still be catching up. ' +
+                      'Leave it a minute and check again.';
+            }
+            body += '<br><br><span style="color:#5E5B68">Nothing on this screen changes anything \u2014 it only counts.</span>';
+            d.innerHTML = body;
+          }).catch(function (e) {
+            d.innerHTML = '<b style="color:#C0445F">The check could not run on this device.</b><br><br>' +
+                          'This usually means the photo store did not start. Report photos are unaffected.' +
+                          (e && e.message ? '<br><br><span style="color:#928E9C">' + _esc(String(e.message)) + '</span>' : '');
+          });
+        },
+        buttons: [{ label: 'Close', kind: 'cancel' }]
+      });
+    };
     window.__dslHeaderCtl.setTheme(document.body.classList.contains('dark-mode') ? 'dark' : 'light');
     try { var _ts = localStorage.getItem('ARENCON_TextSize');
       if (_ts) window.__dslHeaderCtl.setControlIcon('ts', _ts); } catch(e){}
