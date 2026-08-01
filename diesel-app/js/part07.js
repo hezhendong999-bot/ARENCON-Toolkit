@@ -865,6 +865,20 @@ function _placardScan(btn, mode){
   var take = (mode==='pld')
     ? rp.filter(function(p){return (p.kind||'')==='placard-pld';}).slice(-1)
     : rp.filter(function(p){return (p.kind||'')==='placard';}).slice(-1);
+  /* S562 (Mark): the scan used to look ONLY in its own Placard box and answer
+     "Capture a placard photo first" while the inspector's placard shot sat in
+     plain sight in the Pump box — filed under the wrong label, which is the
+     commonest mis-file on site. Silently ignoring a visible photo reads as the
+     tool being broken. Fall back to the MOST RECENT Pump-box photo and SAY SO,
+     so a wrong guess is visible rather than silent — and the existing preview/
+     confirm still gates every value before anything is written, so a photo of
+     the pump body instead of its placard costs one worker call and produces an
+     obviously-wrong preview, never a wrong report. The tab's own placard kind
+     still wins whenever it exists (S338: each tab scans only its own pump). */
+  if(!take.length){
+    take = rp.filter(function(p){return (p.kind||'')==='pump' && !p.deleted;}).slice(-1);
+    if(take.length){ showToast('No photo in the Placard box \u2014 scanning the latest Pump-box photo instead'); }
+  }
   if(!take.length){ showToast(mode==='pld' ? 'Capture a PLD/engine placard photo first' : 'Capture a placard photo first'); return; }
   // AUTH PRE-FLIGHT (S395): decode the token's exp locally BEFORE calling the AI
   // worker. If missing/expired/near-expiry, attempt a SILENT refresh in place; on

@@ -2020,9 +2020,16 @@ function _renderFlowEquipModal(){
         if(_floweqTag(p)!==c.k) return;
         any=true;
         h+='<div class="fpm-thumb"><img src="'+_photoSrc(p)+'" onclick="_flowEqLightbox('+j+')">'
-          +'<button class="fpm-del" onclick="_flowEqDelete('+j+')" title="Remove">✕</button>'
+          /* S562 (Mark): this button was a ✕ titled "Remove" in the same viewer
+             as the header's ✕ that means CLOSE — two identical glyphs, opposite
+             meanings, one of them destructive. And "Remove" understated what it
+             does: it is a project-wide soft delete (Recently Deleted, 7 days),
+             not an unlink from this flow point. The bin glyph + honest title
+             match the lightbox and the rest of the toolkit: 🗑 deletes, ✕
+             closes, ⇄ moves. The confirm modal is unchanged. */
+          +'<button class="fpm-del" onclick="_flowEqDelete('+j+')" title="Delete photo (moves to Recently Deleted)">\uD83D\uDDD1</button>'
           +'<button class="fpm-dl" onclick="event.stopPropagation();_flowEqDownload('+j+')" title="Download">⬇</button>'
-          +'<button class="fpm-move" onclick="event.stopPropagation();_flowEqOpenReassign('+j+',this)" title="Move to another category">⇄</button></div>';
+          +'<button class="fpm-move" onclick="event.stopPropagation();_flowEqOpenReassign('+j+',this)" title="Move to another category (keeps the photo)">⇄</button></div>';
       });
       h+='</div>';
       if(!any){ h+='<div class="fpm-grp-empty">— no photos</div>'; }
