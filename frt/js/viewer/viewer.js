@@ -4738,6 +4738,7 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (e.target.closest && e.target.closest('#dv-heights-close')) {
+    _commitHeightsLive();   /* S543 — closing must never discard typed heights */
     var hp = document.getElementById('dv-heights-panel');
     if (hp) hp.style.display = 'none';
     return;
@@ -4752,6 +4753,7 @@ document.addEventListener('click', function(e) {
   }
   if (e.target.closest && e.target.closest('.ht-del')) {
     e.target.closest('.dv-heights-row').remove();
+    _commitHeightsLive();   /* S543 — a delete is a decision; persist it now */
     return;
   }
 });
@@ -4841,6 +4843,24 @@ function _openHeights() {
   }
 }
 
+
+/* S543 — delegated so it survives every repaint of the heights panel, and
+   assigned once at module scope so repeated opens cannot stack handlers.
+   'input' fires per keystroke; the model write is a trivial assignment and
+   the IDB persist behind it is already debounced downstream. */
+document.addEventListener('input', function(e) {
+  if (e.target && e.target.closest && e.target.closest('#dv-heights-rows')) {
+    _commitHeightsLive();
+  }
+});
+/* Belt and braces: Android may kill a backgrounded tab at any moment. */
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    var hp = document.getElementById('dv-heights-panel');
+    if (hp && hp.style.display !== 'none') { _commitHeightsLive(); Model.saveNow(); }
+  }
+});
+
 function _addHeightRow() {
   var rows = document.getElementById('dv-heights-rows');
   if (!rows) return;
@@ -4849,6 +4869,59 @@ function _addHeightRow() {
   div.setAttribute('data-hid', 'ht_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,6));   // S539
   div.innerHTML = '<input type="text" placeholder="Label"><input type="text" placeholder="Value" style="max-width:70px;"><span class="ht-unit">A.F.F.</span><button class="ht-del" title="Remove">✕</button>';
   rows.appendChild(div);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   S543 (Mark) — HEIGHTS ARE COMMITTED AS THEY ARE TYPED.
+
+   S539 gave every row a permanent name, which fixed rows being paired by
+   position and cross-mating two devices' measurements. It did not fix the
+   other half: until Save was pressed, a typed height existed ONLY in the
+   text box. Close the panel, get a phone call, let the tablet sleep, or
+   have the panel repaint — and a whole column of measurements was gone with
+   no warning and nothing to recover, because it had never reached the record.
+   That is the same defect as the pin-editor comments (S528), in a second
+   editor, and it was live in the field.
+
+   THE RULE, now applied in both places: cosmetics may debounce; the model
+   write may not. Every keystroke writes through to the drawing's heights,
+   keyed by the row's permanent id (never its position), so a repaint or a
+   reorder cannot cross-pair or erase anything. Save still exists and still
+   closes the panel — it just is not the only thing standing between an
+   inspector and a lost column of numbers.
+
+   Deliberately NOT changed: Save remains the moment the panel closes, and
+   the copy-from dropdown (S542, Lane C) still stages rows without saving.
+   ═══════════════════════════════════════════════════════════════════════ */
+function _commitHeightsLive() {
+  try {
+    var rows = document.getElementById('dv-heights-rows');
+    if (!rows) return;
+    var drawings = _getDrawingsList();
+    if (_currentDrawingIdx < 0 || _currentDrawingIdx >= drawings.length) return;
+    var dwg = drawings[_currentDrawingIdx];
+    var heights = [];
+    rows.querySelectorAll('.dv-heights-row').forEach(function(row) {
+      var inputs = row.querySelectorAll('input');
+      if (!inputs[0] || !inputs[0].value.trim()) return;
+      var hid = row.getAttribute('data-hid');
+      if (!hid) {
+        hid = 'ht_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,6);
+        row.setAttribute('data-hid', hid);
+      }
+      heights.push({ id: hid, label: inputs[0].value.trim(),
+                     value: inputs[1] ? inputs[1].value.trim() : '', unit: 'A.F.F.' });
+    });
+    dwg.heights = heights;
+    // Model.saveNow() is the only persistence entry point on the model —
+    // there is no markDirty(). Verified against model.js before shipping;
+    // an unchecked call would pass the syntax check and throw in the field.
+    // saveNow() is cheap and idempotent (its own IDB write is debounced).
+    Model.saveNow();
+    _updateHeightsDot();
+  } catch (e) {
+    console.warn('[Viewer] heights live-commit skipped:', e && e.message);
+  }
 }
 
 function _saveHeights() {
