@@ -75,12 +75,17 @@ describe('S134 obs schema — trade / tradeSource / repeatCount', () => {
   });
 
   describe('TRADE_LIST export', () => {
-    it('exports the 4 S135-default trades (Sprinkler / Fire Alarm / General Contracting / Building Conditions)', () => {
+    it('exports the 6 prebuilt trades (S142 §2 redesign)', () => {
+      // S560: updated on Lane A's ruling — the S142 §2 redesign deliberately
+      // replaced S135's four trades (model.js line ~446 documents the set).
+      // This test had been asserting the superseded list.
       expect(TRADE_LIST).toEqual([
         'Sprinkler',
         'Fire Alarm',
         'General Contracting',
-        'Building Conditions'
+        'Electrical',
+        'Mechanical',
+        'Civil'
       ]);
     });
   });
@@ -248,8 +253,12 @@ describe('S134 obs schema — trade / tradeSource / repeatCount', () => {
       expect(obs.tradeSource).toBe('ai');
       expect(obs.repeatCount).toBe(1);
 
-      // Legacy iar flag still present — data preserved, UI silently degrades
-      expect(obs.iar).toBe(true);
+      // S560: the model now actively CLEARS legacy iar flags on load
+      // (model.js ~717/749, counted in _iarCleared) rather than carrying them
+      // in JSON forever. The old assertion locked the superseded contract.
+      // What still matters — and still holds — is that loading does not throw
+      // and the trade fields are backfilled, asserted above.
+      expect(obs.iar).toBe(false);
     });
 
     it('backfill is idempotent — repeated setProject does not overwrite existing trade values', () => {
