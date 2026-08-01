@@ -730,6 +730,7 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
   import { Dlg } from '/lib/ui/dialogEngine.js';
   import { mountHelp, hasCards, markSeen, hasUnseen, comingSoonHtml } from '/lib/ui/helpEngine.js';
   import '/lib/ui/electricHelpCards.js';
+  import { createPhotoStore } from '/lib/data/photoStore.js';   /* S552 */
   function call(name, ev){ var f = window[name]; if (typeof f === 'function') return f(ev); }
 
   var _HELP_ICON_PLAIN = '<span class="help-q">?</span><span class="wn-dot" style="display:none"></span>';
@@ -765,6 +766,62 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
     });
   }
 
+  /* ═══ S552 — ELECTRIC JOINS THE SHARED PHOTO STORE ═══
+     Electric was the last tool whose photos could not be rescued: it kept no
+     image file of its own, so a photo whose stored copy went missing was gone.
+     This is the SAME engine Diesel uses — Electric supplies only the three
+     things Electric knows: its database, how to list its photos, and where it
+     keeps the picture. No Diesel code is copied here; a second implementation
+     is the trap that leaves one copy quietly unmaintained. */
+  var _elecPhotoStore = createPhotoStore({
+    IDB: {
+      get:    function (st, k) { return window.ADB.get(st, k); },
+      put:    function (st, r) { return window.ADB.put(st, r); },
+      getAll: function (st)    { return window.ADB.getAll(st); }
+    },
+    photoWalk: function () {
+      if (typeof window._collectAllPhotos !== 'function') return [];
+      return window._collectAllPhotos().map(function (it) { return it && it.photo; }).filter(Boolean);
+    },
+    storeName: 'photoBlobs',
+    bytesField: 'd',
+    tag: '[S552 electric]'
+  });
+  window._elecPhotoStore     = _elecPhotoStore;
+  window._stashPhotoBlobs    = function ()   { return _elecPhotoStore.sweep(); };
+  window._electricLocalBytes = function (id) { return _elecPhotoStore.localBytes(id); };
+  window._photoStoreReport   = function ()   { return _elecPhotoStore.report(); };
+
+  function _escE(t){ var e=document.createElement('span'); e.textContent=String(t==null?'':t); return e.innerHTML; }
+  window._elecPhotoStoreCheck = function () {
+    Dlg.panel({
+      title: 'Photo Store Check', icon: '\uD83D\uDCBE', accent: 'info',
+      build: function (bd) {
+        var d = document.createElement('div');
+        d.innerHTML = 'Checking this device\u2026';
+        bd.appendChild(d);
+        _elecPhotoStore.report().then(function (r) {
+          var held = r.held||0, pending = r.pending||0, cloud = r.cloudOnly||0;
+          var local = held + pending, total = r.inReport||0, body;
+          if (total === 0) body = '<b>This report has no photos yet.</b>';
+          else if (local === 0) body = '<b style="color:#2E9E72">Nothing on this device is waiting.</b><br><br>All <b>'+total+'</b> photos in this report were taken on another device and their pictures are in cloud storage.';
+          else if (pending === 0) body = '<b style="color:#2E9E72">All '+local+' photos taken on this device are held here.</b>';
+          else body = '<b style="color:#C98A4A">'+held+' of '+local+' photos taken on this device are held here.</b><br><br><b>'+pending+'</b> still to copy.';
+          if (total > 0) body += '<br><br>Taken on this device: <b>'+local+'</b><br>&nbsp;&nbsp;\u2022 held as image files here: <b>'+held+'</b><br>&nbsp;&nbsp;\u2022 still to copy: <b>'+pending+'</b><br>Pictures held only in cloud storage: <b>'+cloud+'</b>';
+          if (r.paused) body += '<br><br><b style="color:#C98A4A">Paused \u2014 this device is low on storage.</b><br>Free some space and reopen the report and it will catch up.';
+          else if (pending > 0) body += '<br><br>Copying happens as you work, a few photos at a time. Carry on and check again shortly.';
+          body += '<br><br><span style="color:#5E5B68">Cloud-only photos are normal \u2014 a picture is removed from the report once it is safely uploaded. It is not a problem to fix.</span>';
+          body += '<br><span style="color:#5E5B68">Nothing on this screen changes anything \u2014 it only counts.</span>';
+          d.innerHTML = body;
+        }).catch(function (e) {
+          d.innerHTML = '<b style="color:#C0445F">The check could not run on this device.</b><br><br>Report photos are unaffected.' +
+                        (e && e.message ? '<br><br><span style="color:#928E9C">'+_escE(String(e.message))+'</span>' : '');
+        });
+      },
+      buttons: [{ label: 'Close', kind: 'cancel' }]
+    });
+  };
+
   var cfg = electricHeaderConfig({
     logoSrc: window.__ARENCON_LOGO__ || '',
     onBadgeClick:  function(){ call('issueReport'); },
@@ -777,6 +834,7 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
     onImportJSON:  function(){ call('importJSON'); },
     onReupload:    function(){ call('_r2ReuploadAll'); },
     onR2Cleanup:   function(){ call('_r2CleanupOrphans'); },
+    onPhotoStore:  function(){ call('_elecPhotoStoreCheck'); },
     onResetPage:   function(){ call('resetCurrentPage'); },
     onResetAll:    function(){ call('resetAllPages'); },
     onQR:          function(){ call('_openToolQR'); },
@@ -6478,7 +6536,7 @@ function syncAllFields() {
 // ══ ADB MODULE (Full IndexedDB Persistence Layer — Session 53) ══
 var ADB = {};
 ADB.DB_NAME = 'ARENCON_ELECTRIC';
-ADB.DB_VERSION = 3;
+ADB.DB_VERSION = 4;   /* S552: +photoBlobs — Electric's own copy of its photos */
 ADB._db = null;
 ADB.open = function(){
   return new Promise(function(resolve,reject){
@@ -6491,6 +6549,11 @@ ADB.open = function(){
       if(!db.objectStoreNames.contains('projects')) db.createObjectStore('projects',{keyPath:'id'});
       if(!db.objectStoreNames.contains('photos')) db.createObjectStore('photos',{keyPath:'id'});
       if(!db.objectStoreNames.contains('pdfData')) db.createObjectStore('pdfData',{keyPath:'id'});
+      /* S552: until now Electric was the ONE tool with no local copy of its own
+         photos — a picture is stripped from the report when it uploads, so if the
+         stored file ever went missing there was nothing anywhere to put it back
+         from. Additive: an extra store, nothing existing is touched. */
+      if(!db.objectStoreNames.contains('photoBlobs')) db.createObjectStore('photoBlobs',{keyPath:'id'});
     };
     req.onsuccess = function(e){ADB._db=e.target.result;resolve(ADB._db);};
     req.onerror = function(e){reject(e);};
@@ -6613,6 +6676,10 @@ function saveState(){
     var json=JSON.stringify(collectState());
     _idbPut(key,json);
     updateIDBStorageBar();
+    /* S552: keep this device's own copy of any photo taken here up to date.
+       Published by the module block below; guarded so a save can never fail
+       because a shared module did not load. */
+    try { if (typeof window._stashPhotoBlobs === 'function') window._stashPhotoBlobs(); } catch(e){}
   }catch(e){console.warn('saveState error:',e);}
 }
 
