@@ -11,7 +11,7 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-202607271900<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202608010521';
+var CACHE_NAME = 'arencon-frt-202608010610';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -279,21 +279,6 @@ self.addEventListener('activate', function(e) {
 //   { type: 'TILE_CACHE_STATS', pid: '<uuid>' }             → reply with { count, pid }
 self.addEventListener('message', function(e) {
   var msg = e.data || {};
-  // S546: build identity, asked and answered.
-  //   { type: 'GET_BUILD_STAMP' }  → reply { type: 'BUILD_STAMP', cacheName }
-  // The version floor used to infer the running build by scanning every cache
-  // name on the origin and taking the newest. That is origin-wide, so a stale
-  // tool sitting next to a fresh cache from a different tool read as fresh.
-  // Only the worker actually serving this page knows which build it is serving.
-  // Replies on the MessagePort when one is supplied, otherwise to the source.
-  if (msg.type === 'GET_BUILD_STAMP') {
-    var reply = { type: 'BUILD_STAMP', cacheName: CACHE_NAME };
-    try {
-      if (e.ports && e.ports[0]) e.ports[0].postMessage(reply);
-      else if (e.source && e.source.postMessage) e.source.postMessage(reply);
-    } catch (_) {}
-    return;
-  }
   if (msg.type === 'TILE_CACHE_CLEAR') {
     caches.delete(TILE_CACHE).then(function(){
       if (e.source && e.source.postMessage) e.source.postMessage({ type: 'TILE_CACHE_CLEARED' });
