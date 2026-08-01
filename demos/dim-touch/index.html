@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>ARENCON — Dimension Touch Models</title>
+<style>
+  :root{
+    --arencon:#9C2742; --ink:#1B1A22; --ink2:#5E5B68; --ink3:#928E9C;
+    --card:#ffffff; --bg:#EFEDF0; --border:#DDE1E7;
+    --ok:#2E9E72; --info:#2C7FB8; --warn:#C98A4A;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:Calibri,Arial,sans-serif;background:var(--bg);color:var(--ink);}
+  #wrap{display:flex;flex-direction:column;height:100%;}
+
+  header{background:var(--card);border-bottom:1px solid var(--border);padding:8px 10px 9px;flex:0 0 auto;}
+  .ttl{font-size:13px;font-weight:700;letter-spacing:.2px;}
+  .ttl span{color:var(--ink3);font-weight:400;}
+  .modes{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  .mode{flex:1 1 0;min-width:74px;padding:9px 6px;border:1px solid var(--border);border-radius:10px;
+        background:#fff;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;line-height:1.25;}
+  .mode b{display:block;font-size:11px;color:var(--ink3);font-weight:700;letter-spacing:.4px;}
+  .mode.on{background:var(--arencon);border-color:var(--arencon);color:#fff;}
+  .mode.on b{color:rgba(255,255,255,.75);}
+  .row2{display:flex;gap:6px;margin-top:6px;align-items:stretch;}
+  .tog{padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;
+       font-family:inherit;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;white-space:nowrap;}
+  .tog.on{background:var(--info);border-color:var(--info);color:#fff;}
+  .hint{flex:1;display:flex;align-items:center;font-size:12px;color:var(--ink2);
+        background:#F7F8FA;border:1px solid var(--border);border-radius:10px;padding:7px 10px;line-height:1.3;}
+
+  #stage{position:relative;flex:1 1 auto;overflow:hidden;background:#fff;touch-action:none;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  #ui{position:absolute;inset:0;pointer-events:none;}
+  .fab{position:absolute;pointer-events:auto;border:none;border-radius:999px;font-family:inherit;
+       font-size:15px;font-weight:700;color:#fff;background:var(--arencon);padding:13px 22px;
+       box-shadow:0 4px 16px rgba(28,35,51,.28);cursor:pointer;}
+  .fab.ghost{background:#fff;color:var(--ink2);border:1px solid var(--border);font-weight:600;}
+  #confirmBar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:none;gap:8px;pointer-events:auto;}
+  #centerBtn{left:50%;bottom:16px;transform:translateX(-50%);display:none;}
+  #note{position:absolute;left:10px;right:10px;top:10px;background:rgba(27,26,34,.86);color:#fff;
+        border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.35;display:none;}
+
+  footer{flex:0 0 auto;background:var(--card);border-top:1px solid var(--border);padding:7px 10px;
+         display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .len{font-size:15px;font-weight:700;color:var(--arencon);}
+  .len small{color:var(--ink3);font-weight:400;font-size:12px;}
+  .clr{padding:7px 14px;border:1px solid var(--border);border-radius:9px;background:#fff;
+       font-family:inherit;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div class="ttl">Dimension tool — touch models <span>· pick the one that feels right</span></div>
+    <div class="modes" id="modes">
+      <button class="mode on" data-m="drag"><b>A</b>Press, drag, lift</button>
+      <button class="mode" data-m="handle"><b>B</b>Tap, slide the end</button>
+      <button class="mode" data-m="cross"><b>C</b>Fixed crosshair</button>
+      <button class="mode" data-m="hover"><b>D</b>Follows pen / mouse</button>
+    </div>
+    <div class="row2">
+      <button class="tog" id="loupeBtn">Magnifier: off</button>
+      <div class="hint" id="hint"></div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="dwg"></canvas>
+    <canvas id="ov"></canvas>
+    <div id="ui">
+      <div id="note"></div>
+      <button class="fab" id="centerBtn">Set point</button>
+      <div id="confirmBar">
+        <button class="fab ghost" id="cancelBtn">Cancel</button>
+        <button class="fab" id="okBtn">Place dimension</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="len" id="len">— <small>drag to measure</small></div>
+    <button class="clr" id="clr">Clear all</button>
+  </footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ── scale: arbitrary but consistent, so lengths read like a real drawing ──
+var PX_PER_FT = 11;
+function fmt(px){
+  var ft = px / PX_PER_FT;
+  var whole = Math.floor(ft), inch = Math.round((ft - whole) * 12);
+  if (inch === 12){ whole++; inch = 0; }
+  return whole + "'-" + inch + '"';
+}
+
+var stage = document.getElementById('stage');
+var dwg = document.getElementById('dwg'), ov = document.getElementById('ov');
+var dctx = dwg.getContext('2d'), octx = ov.getContext('2d');
+var hintEl = document.getElementById('hint'), lenEl = document.getElementById('len');
+var noteEl = document.getElementById('note');
+var centerBtn = document.getElementById('centerBtn'), confirmBar = document.getElementById('confirmBar');
+
+var DPR = Math.min(window.devicePixelRatio || 1, 2);
+var W = 0, H = 0;
+// pan offset, used by the crosshair model
+var panX = 0, panY = 0;
+
+function resize(){
+  var r = stage.getBoundingClientRect();
+  W = r.width; H = r.height;
+  [dwg, ov].forEach(function(c){
+    c.width = Math.round(W * DPR); c.height = Math.round(H * DPR);
+    c.getContext('2d').setTransform(DPR,0,0,DPR,0,0);
+  });
+  drawSheet(); paint();
+}
+window.addEventListener('resize', resize);
+
+// ── a synthetic sprinkler sheet, dense enough to be a fair test ──────────
+function drawSheet(){
+  dctx.setTransform(DPR,0,0,DPR,0,0);
+  dctx.clearRect(0,0,W,H);
+  dctx.save();
+  dctx.translate(panX, panY);
+  dctx.fillStyle = '#fff'; dctx.fillRect(-panX,-panY,W,H);
+
+  dctx.strokeStyle = '#EDEFF2'; dctx.lineWidth = 1;
+  for (var gx = -400; gx < W+400; gx += 26){ dctx.beginPath(); dctx.moveTo(gx,-400); dctx.lineTo(gx,H+400); dctx.stroke(); }
+  for (var gy = -400; gy < H+400; gy += 26){ dctx.beginPath(); dctx.moveTo(-400,gy); dctx.lineTo(W+400,gy); dctx.stroke(); }
+
+  // walls
+  dctx.strokeStyle = '#2b2b33'; dctx.lineWidth = 5;
+  dctx.strokeRect(34, 34, Math.max(220,W-140), Math.max(200,H-120));
+
+  // branch lines + heads
+  var rows = Math.max(3, Math.floor((H-120)/78));
+  for (var r = 0; r < rows; r++){
+    var y = 92 + r*78;
+    dctx.strokeStyle = '#C0445F'; dctx.lineWidth = 2.4;
+    dctx.beginPath(); dctx.moveTo(52, y); dctx.lineTo(W-120, y); dctx.stroke();
+    for (var x = 92; x < W-140; x += 84){
+      dctx.beginPath(); dctx.arc(x, y, 3.6, 0, Math.PI*2);
+      dctx.fillStyle = '#fff'; dctx.fill();
+      dctx.strokeStyle = '#C0445F'; dctx.lineWidth = 1.6; dctx.stroke();
+      dctx.fillStyle = '#6b6674'; dctx.font = '9px Calibri,Arial,sans-serif';
+      dctx.textAlign = 'center';
+      dctx.fillText('8\'-4"', x+42, y+13);
+      dctx.fillText('2\u00BD', x+42, y-6);
+    }
+  }
+  // riser
+  dctx.strokeStyle = '#1B1A22'; dctx.lineWidth = 4;
+  dctx.beginPath(); dctx.moveTo(W-108, 60); dctx.lineTo(W-108, H-70); dctx.stroke();
+  dctx.restore();
+}
+
+// ── state ───────────────────────────────────────────────────────────────
+var MODE = 'drag';
+var LOUPE = false;
+var committed = [];          // {a,b}
+var A = null, B = null;      // working points (screen space)
+var live = null;             // live end while aiming
+var dragging = null;         // 'new' | 'handle' | 'pan'
+var pressPt = null;
+var loupeAt = null;          // where the magnifier is looking
+
+var HINTS = {
+  drag:  'Press where it starts, drag, lift where it ends. One gesture.',
+  handle:'Tap the start. The end appears as a big handle \u2014 slide it, then confirm.',
+  cross: 'The crosshair stays put. Drag the drawing under it, then Set point. Twice.',
+  hover: 'Tap the start, then move the pen or mouse without touching. Tap to finish.'
+};
+var NOTES = {
+  hover: 'This model needs hardware that reports a hovering pen (S Pen, Apple Pencil) or a mouse. With a bare finger nothing can follow you between taps \u2014 that is the whole reason the other models exist. If nothing moves here, this model is not available on this device.'
+};
+
+function setMode(m){
+  MODE = m; reset();
+  Array.prototype.forEach.call(document.querySelectorAll('.mode'), function(b){
+    b.classList.toggle('on', b.getAttribute('data-m') === m);
+  });
+  hintEl.textContent = HINTS[m];
+  noteEl.style.display = NOTES[m] ? 'block' : 'none';
+  noteEl.textContent = NOTES[m] || '';
+  centerBtn.style.display = (m === 'cross') ? 'block' : 'none';
+  paint();
+}
+function reset(){ A = null; B = null; live = null; dragging = null; loupeAt = null; confirmBar.style.display='none'; setLen(null); paint(); }
+function setLen(px){
+  lenEl.innerHTML = (px == null) ? '\u2014 <small>' + (MODE==='cross' ? 'position the crosshair' : 'aim to measure') + '</small>'
+                                 : fmt(px) + ' <small>live</small>';
+}
+function dist(p,q){ var dx=q.x-p.x, dy=q.y-p.y; return Math.sqrt(dx*dx+dy*dy); }
+
+// ── painting the overlay ────────────────────────────────────────────────
+function dimLine(ctx, a, b, colour, alpha, showLabel){
+  ctx.save(); ctx.globalAlpha = alpha == null ? 1 : alpha;
+  ctx.strokeStyle = colour; ctx.fillStyle = colour;
+  ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  // ticks
+  var dx=b.x-a.x, dy=b.y-a.y, L=Math.sqrt(dx*dx+dy*dy)||1, ux=-dy/L, uy=dx/L, h=9;
+  [a,b].forEach(function(p){
+    ctx.beginPath(); ctx.moveTo(p.x-ux*h,p.y-uy*h); ctx.lineTo(p.x+ux*h,p.y+uy*h); ctx.stroke();
+  });
+  if (showLabel && L > 24){
+    var mx=(a.x+b.x)/2, my=(a.y+b.y)/2, t=fmt(L);
+    ctx.font='bold 13px Calibri,Arial,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    var w=ctx.measureText(t).width+12;
+    ctx.globalAlpha=1; ctx.fillStyle='#fff';
+    ctx.fillRect(mx-w/2, my-11, w, 22);
+    ctx.strokeStyle=colour; ctx.lineWidth=1.2; ctx.strokeRect(mx-w/2, my-11, w, 22);
+    ctx.fillStyle=colour; ctx.fillText(t, mx, my);
+  }
+  ctx.restore();
+}
+function marker(ctx, p, big, colour){
+  var r = big ? 15 : 9;
+  ctx.save();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=5; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(p.x-r,p.y); ctx.lineTo(p.x+r,p.y);
+  ctx.moveTo(p.x,p.y-r); ctx.lineTo(p.x,p.y+r);
+  ctx.stroke();
+  ctx.strokeStyle=colour; ctx.lineWidth=2.6; ctx.stroke();
+  ctx.beginPath(); ctx.arc(p.x,p.y, big?6:4.5, 0, Math.PI*2);
+  ctx.fillStyle=colour; ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1.6; ctx.stroke();
+  if (big){
+    ctx.beginPath(); ctx.arc(p.x,p.y, 26, 0, Math.PI*2);
+    ctx.strokeStyle=colour; ctx.globalAlpha=.28; ctx.lineWidth=2; ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawLoupe(ctx, at){
+  if (!LOUPE || !at) return;
+  var R = 58, ZOOM = 2.2;
+  var cx = at.x, cy = at.y - R - 34;           // sits above the fingertip
+  if (cy - R < 4) cy = at.y + R + 34;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.closePath();
+  ctx.save(); ctx.clip();
+  ctx.fillStyle='#fff'; ctx.fillRect(cx-R, cy-R, R*2, R*2);
+  ctx.translate(cx, cy); ctx.scale(ZOOM, ZOOM); ctx.translate(-at.x, -at.y);
+  ctx.drawImage(dwg, 0, 0, W, H);
+  // committed + live geometry inside the glass
+  committed.forEach(function(d){ dimLine(ctx, d.a, d.b, '#9C2742', 1, false); });
+  if (A && (live||B)) dimLine(ctx, A, (live||B), '#9C2742', .9, false);
+  ctx.restore();
+  // crosshair at true centre
+  ctx.strokeStyle='#C0445F'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(cx-11,cy); ctx.lineTo(cx+11,cy);
+  ctx.moveTo(cx,cy-11); ctx.lineTo(cx,cy+11); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=6; ctx.stroke();
+  ctx.strokeStyle='#9C2742'; ctx.lineWidth=2.4; ctx.stroke();
+  ctx.restore();
+}
+
+function paint(){
+  octx.setTransform(DPR,0,0,DPR,0,0);
+  octx.clearRect(0,0,W,H);
+  committed.forEach(function(d){ dimLine(octx, d.a, d.b, '#9C2742', 1, true); });
+
+  if (MODE === 'cross' && !dragging){
+    var c = {x:W/2, y:H/2};
+    octx.save();
+    octx.strokeStyle='#2C7FB8'; octx.lineWidth=1.4; octx.setLineDash([7,5]);
+    octx.beginPath(); octx.moveTo(0,c.y); octx.lineTo(W,c.y); octx.moveTo(c.x,0); octx.lineTo(c.x,H); octx.stroke();
+    octx.restore();
+    marker(octx, c, true, '#2C7FB8');
+  }
+  if (A){
+    var end = live || B;
+    if (end) dimLine(octx, A, end, '#9C2742', .95, true);
+    marker(octx, A, false, '#9C2742');
+    if (end) marker(octx, end, MODE === 'handle', '#9C2742');
+    setLen(end ? dist(A,end) : null);
+  }
+  drawLoupe(octx, loupeAt);
+}
+
+// ── input ───────────────────────────────────────────────────────────────
+function pt(e){
+  var r = stage.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function commit(){
+  if (A && (B||live)) committed.push({a:A, b:(B||live)});
+  A = null; B = null; live = null; confirmBar.style.display='none';
+  setLen(null); paint();
+}
+
+stage.addEventListener('pointerdown', function(e){
+  e.preventDefault();
+  var p = pt(e);
+  pressPt = p;
+  try { stage.setPointerCapture(e.pointerId); } catch(_){}
+
+  if (MODE === 'drag'){
+    A = p; live = p; B = null; dragging='new'; loupeAt = p; paint(); return;
+  }
+  if (MODE === 'handle'){
+    if (A && B && dist(p,B) < 46){ dragging='handle'; loupeAt = p; paint(); return; }
+    if (!A){
+      A = p;
+      // the end point APPEARS immediately, as a real thing you can grab
+      B = { x: Math.min(p.x + 130, W - 30), y: p.y };
+      confirmBar.style.display='flex';
+      paint(); return;
+    }
+    return;
+  }
+  if (MODE === 'cross'){ dragging='pan'; paint(); return; }
+  if (MODE === 'hover'){
+    if (!A){ A = p; live = p; }
+    else { B = p; commit(); }
+    paint(); return;
+  }
+});
+
+stage.addEventListener('pointermove', function(e){
+  var p = pt(e);
+  if (MODE === 'hover' && A && !dragging){ live = p; paint(); return; }   // pen hover / mouse
+  if (!dragging) return;
+  if (dragging === 'new'){ live = p; loupeAt = p; paint(); return; }
+  if (dragging === 'handle'){ B = p; loupeAt = p; paint(); return; }
+  if (dragging === 'pan'){
+    panX += e.movementX || 0; panY += e.movementY || 0;
+    drawSheet(); paint(); return;
+  }
+});
+
+function up(e){
+  var p = pt(e);
+  if (dragging === 'new'){
+    if (dist(pressPt, p) > 12){ live = p; commit(); }
+    else { A = null; live = null; setLen(null); }   // a tap in drag mode does nothing
+  }
+  dragging = null; loupeAt = null;
+  try { stage.releasePointerCapture(e.pointerId); } catch(_){}
+  paint();
+}
+stage.addEventListener('pointerup', up);
+stage.addEventListener('pointercancel', function(e){ dragging=null; loupeAt=null; paint(); });
+
+document.getElementById('okBtn').addEventListener('click', commit);
+document.getElementById('cancelBtn').addEventListener('click', reset);
+document.getElementById('centerBtn').addEventListener('click', function(){
+  var c = {x:W/2, y:H/2};
+  if (!A){ A = c; live = c; }
+  else { B = c; commit(); }
+  paint();
+});
+document.getElementById('clr').addEventListener('click', function(){ committed = []; reset(); });
+document.getElementById('loupeBtn').addEventListener('click', function(){
+  LOUPE = !LOUPE;
+  this.textContent = 'Magnifier: ' + (LOUPE ? 'on' : 'off');
+  this.classList.toggle('on', LOUPE);
+  paint();
+});
+Array.prototype.forEach.call(document.querySelectorAll('.mode'), function(b){
+  b.addEventListener('click', function(){ setMode(b.getAttribute('data-m')); });
+});
+
+resize(); setMode('drag');
+})();
+</script>
+</body>
+</html>
