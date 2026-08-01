@@ -2956,2587 +2956,6 @@
     "deleted_by": null
   },
   {
-    "id": "c6036627-3615-4dc0-bda2-bbf4c5d1c179",
-    "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
-    "tool_key": "diesel",
-    "instance_number": 1,
-    "label": null,
-    "data": {
-      "_fts": {
-        "proj": {
-          "np-bhp": 0,
-          "np-mfr": 0,
-          "pm-prv": 0,
-          "pm-rpm": 0,
-          "np-size": 0,
-          "pi-addr": 0,
-          "pi-date": 0,
-          "so-date": 0,
-          "so-name": 0,
-          "np-ctlsn": 0,
-          "np-drvsn": 0,
-          "np-model": 0,
-          "ps-fci-d": 0,
-          "ps-fci-f": 0,
-          "ps-fco-d": 0,
-          "ps-fco-f": 0,
-          "ps-jci-d": 0,
-          "ps-jci-f": 0,
-          "ps-jco-d": 0,
-          "ps-jco-f": 0,
-          "so-title": 0,
-          "np-ctlmfg": 0,
-          "np-drvmfg": 0,
-          "np-maxbhp": 0,
-          "np-serial": 0,
-          "np-stages": 0,
-          "pi-client": 0,
-          "pi-prepby": 0,
-          "pi-projno": 0,
-          "pm-relief": 0,
-          "np-bhp-pld": 0,
-          "np-mfr-pld": 0,
-          "pm-prv-pld": 0,
-          "pm-rpm-pld": 0,
-          "so-company": 0,
-          "ws-res-psi": 0,
-          "dem-spr-psi": 0,
-          "np-impeller": 0,
-          "np-size-pld": 0,
-          "pi-projname": 0,
-          "pi-revision": 0,
-          "pm-reducing": 0,
-          "test-result": 0,
-          "ws-res-flow": 0,
-          "dem-spr-flow": 0,
-          "np-ctlsn-pld": 0,
-          "np-drvsn-pld": 0,
-          "np-model-pld": 0,
-          "ps-fci-d-pld": 0,
-          "ps-fci-f-pld": 0,
-          "ps-fco-d-pld": 0,
-          "ps-fco-f-pld": 0,
-          "ps-jci-d-pld": 0,
-          "ps-jci-f-pld": 0,
-          "ps-jco-d-pld": 0,
-          "ps-jco-f-pld": 0,
-          "dem-hose-flow": 0,
-          "np-ctlmfg-pld": 0,
-          "np-drvmfg-pld": 0,
-          "np-maxbhp-pld": 0,
-          "np-serial-pld": 0,
-          "np-stages-pld": 0,
-          "pi-contractor": 0,
-          "pm-rated-flow": 0,
-          "pm-relief-pld": 0,
-          "ws-static-psi": 0,
-          "pld-ws-res-psi": 0,
-          "pm-pld-setting": 0,
-          "ws-static-flow": 0,
-          "np-impeller-pld": 0,
-          "pld-dem-spr-psi": 0,
-          "pld-ws-res-flow": 0,
-          "pm-reducing-pld": 0,
-          "pi-date-modified": 1785468129813,
-          "pld-dem-spr-flow": 0,
-          "pld-dem-hose-flow": 0,
-          "pld-ws-static-psi": 0,
-          "pm-rated-flow-pld": 0,
-          "pld-ws-static-flow": 0
-        }
-      },
-      "proj": {
-        "np-bhp": "191.3",
-        "np-mfr": "S.A. Armstrong Limited",
-        "pm-prv": "125",
-        "pm-rpm": "2350",
-        "np-size": "8x6",
-        "pi-addr": "610 Sprucewood Ave., Windsor, Ontario",
-        "pi-date": "2026-03-22",
-        "so-date": "",
-        "so-name": "Mark He, L.E.T.",
-        "np-ctlsn": "WZ1130372",
-        "np-drvsn": "90213222R",
-        "np-model": "8x6x15NF",
-        "ps-fci-d": "",
-        "ps-fci-f": "",
-        "ps-fco-d": "",
-        "ps-fco-f": "",
-        "ps-jci-d": "",
-        "ps-jci-f": "",
-        "ps-jco-d": "",
-        "ps-jco-f": "",
-        "so-title": "Licensed Engineering Technologist",
-        "np-ctlmfg": "Ronaltest",
-        "np-drvmfg": "Clarke",
-        "np-maxbhp": "199.4",
-        "np-serial": "1025260180",
-        "np-stages": "1",
-        "pi-client": "Iron Mountain Canada Corp",
-        "pi-prepby": "MH",
-        "pi-projno": "1490.04",
-        "pm-relief": "175",
-        "np-bhp-pld": "191.3",
-        "np-mfr-pld": "S.A. Armstrong Limited",
-        "pm-prv-pld": "125",
-        "pm-rpm-pld": "2350",
-        "so-company": "ARENCON Inc.",
-        "ws-res-psi": "48",
-        "dem-spr-psi": "130",
-        "np-impeller": "14.540",
-        "np-size-pld": "8x6",
-        "pi-projname": "Attic Space Sprinkler Upgrade",
-        "pi-revision": "A01",
-        "pm-reducing": "144",
-        "test-result": "fail",
-        "ws-res-flow": "3200",
-        "dem-spr-flow": "1500",
-        "np-ctlsn-pld": "WZ1130672",
-        "np-drvsn-pld": "90213222R",
-        "np-model-pld": "8x6x15NF",
-        "ps-fci-d-pld": "",
-        "ps-fci-f-pld": "",
-        "ps-fco-d-pld": "",
-        "ps-fco-f-pld": "",
-        "ps-jci-d-pld": "",
-        "ps-jci-f-pld": "",
-        "ps-jco-d-pld": "",
-        "ps-jco-f-pld": "",
-        "dem-hose-flow": "250",
-        "np-ctlmfg-pld": "Ronytect",
-        "np-drvmfg-pld": "Clarke",
-        "np-maxbhp-pld": "199.4",
-        "np-serial-pld": "1025260180",
-        "np-stages-pld": "1",
-        "pi-contractor": "Classic Fire + Life Safety",
-        "pm-rated-flow": "2000",
-        "pm-relief-pld": "",
-        "ws-static-psi": "65",
-        "pld-ws-res-psi": "48",
-        "pm-pld-setting": "165",
-        "ws-static-flow": "0",
-        "np-impeller-pld": "14.540",
-        "pld-dem-spr-psi": "130",
-        "pld-ws-res-flow": "3200",
-        "pm-reducing-pld": "",
-        "pi-date-modified": "2026-07-30",
-        "pld-dem-spr-flow": "1500",
-        "pld-dem-hose-flow": "250",
-        "pld-ws-static-psi": "65",
-        "pm-rated-flow-pld": "2000",
-        "pld-ws-static-flow": "0"
-      },
-      "_build": "S533",
-      "batData": {
-        "b1": [
-          1,
-          5,
-          2,
-          4,
-          1,
-          6
-        ],
-        "b2": [
-          1,
-          1,
-          1,
-          1,
-          1,
-          1
-        ]
-      },
-      "clState": {
-        "null": {
-          "_ts": 0,
-          "photos": [],
-          "status": null,
-          "comment": "",
-          "customText": ""
-        },
-        "s1_0": {
-          "_ts": 1785468129813,
-          "photos": [
-            {
-              "d": "",
-              "n": "camera_1782004430480_1.jpg",
-              "id": "ph_1782004432292_39n7qh",
-              "mk": null,
-              "tag": "",
-              "_mkTs": 0,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782004432292_39n7qh.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782004432292_39n7qh.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "1.1",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#5E7A8C",
-              "deletedDate": "",
-              "_origBackupId": ""
-            },
-            {
-              "d": "",
-              "n": "content.png",
-              "id": "ph_1782093222569_bi722t",
-              "mk": null,
-              "tag": "",
-              "_mkTs": 1783803927816,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1782093222569_bi722t.jpg",
-              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1782093222569_bi722t.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "1.1",
-              "deletedBy": "",
-              "_annotated": true,
-              "badgeColor": "#5E7A8C",
-              "deletedDate": "",
-              "_origBackupId": "ph_orig_1783803927814_k0sjx8"
-            }
-          ],
-          "status": "no",
-          "comment": "789789",
-          "customText": ""
-        },
-        "s1_1": {
-          "_ts": 1785468129813,
-          "photos": [
-            {
-              "d": "",
-              "n": "content.png",
-              "id": "ph_1784779870240_7n2af1",
-              "mk": null,
-              "tag": "",
-              "_mkTs": 0,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784779870240_7n2af1.jpg",
-              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784779870240_7n2af1.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "1.2",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#5E7A8C",
-              "deletedDate": "",
-              "_origBackupId": ""
-            }
-          ],
-          "status": "no",
-          "comment": "Photo taken for record. See evidence photos.",
-          "customText": ""
-        },
-        "s1_2": {
-          "_ts": 1785468129813,
-          "photos": [
-            {
-              "d": "",
-              "n": "image1.png",
-              "id": "ph_1781378318909_9txkc5",
-              "mk": null,
-              "tag": "",
-              "_mkTs": 0,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781378318909_9txkc5.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781378318909_9txkc5.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "1.3",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#5E7A8C",
-              "deletedDate": "",
-              "_origBackupId": ""
-            }
-          ],
-          "status": "no",
-          "comment": "12345",
-          "customText": ""
-        },
-        "s1_3": {
-          "_ts": 0,
-          "photos": [],
-          "status": "na",
-          "comment": "",
-          "customText": ""
-        },
-        "s1_4": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s1_5": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s1_6": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Photo taken for record. See evidence photos.",
-          "customText": ""
-        },
-        "s1_7": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s1_8": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_0": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_1": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_2": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_3": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
-          "customText": ""
-        },
-        "s2_4": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Contractor confirmed completion. Documentation provided.",
-          "customText": ""
-        },
-        "s2_5": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Verified on site. Condition acceptable.",
-          "customText": ""
-        },
-        "s2_6": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Contractor confirmed completion. Documentation provided.",
-          "customText": ""
-        },
-        "s2_7": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_8": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Slight vibration noted during operation. Within acceptable limits.",
-          "customText": ""
-        },
-        "s2_9": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s3_0": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Contractor confirmed completion. Documentation provided.",
-          "customText": ""
-        },
-        "s3_1": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "Verified on site. Condition acceptable.",
-          "customText": ""
-        },
-        "s3_2": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "customText": ""
-        },
-        "s3_3": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s3_4": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Access was restricted during test. Re-verify at follow-up.",
-          "customText": ""
-        },
-        "s3_5": {
-          "_ts": 0,
-          "photos": [],
-          "status": "na",
-          "comment": "",
-          "customText": ""
-        },
-        "s3_6": {
-          "_ts": 0,
-          "photos": [],
-          "status": "na",
-          "comment": "",
-          "customText": ""
-        },
-        "s3_7": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Slight vibration noted during operation. Within acceptable limits.",
-          "customText": ""
-        },
-        "s4_0": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
-          "customText": ""
-        },
-        "s5_0": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5_1": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5_2": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Meets NFPA 20 requirements. No deficiencies.",
-          "customText": ""
-        },
-        "s5_3": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5_4": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5_5": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Not wired",
-          "customText": ""
-        },
-        "s5_6": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5_7": {
-          "_ts": 0,
-          "photos": [],
-          "status": null,
-          "comment": "",
-          "customText": ""
-        },
-        "s5_8": {
-          "_ts": 0,
-          "photos": [],
-          "status": null,
-          "comment": "",
-          "customText": ""
-        },
-        "s5_9": {
-          "_ts": 0,
-          "photos": [],
-          "status": null,
-          "comment": "",
-          "customText": ""
-        },
-        "s2_10": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Access was restricted during test. Re-verify at follow-up.",
-          "customText": ""
-        },
-        "s2_11": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_12": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_13": {
-          "_ts": 0,
-          "photos": [],
-          "status": "na",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_14": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_15": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_16": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_17": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Meets NFPA 20 requirements. No deficiencies.",
-          "customText": ""
-        },
-        "s2_18": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "Photo taken for record. See evidence photos.",
-          "customText": ""
-        },
-        "s2_19": {
-          "_ts": 0,
-          "photos": [],
-          "status": "na",
-          "comment": "Meets NFPA 20 requirements. No deficiencies.",
-          "customText": ""
-        },
-        "s2_20": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s2_21": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "Meets NFPA 20 requirements. No deficiencies.",
-          "customText": ""
-        },
-        "s2_22": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5_10": {
-          "_ts": 0,
-          "photos": [],
-          "status": null,
-          "comment": "",
-          "customText": ""
-        },
-        "s5_11": {
-          "_ts": 0,
-          "photos": [],
-          "status": null,
-          "comment": "",
-          "customText": ""
-        },
-        "s5_12": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5_13": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5_14": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5m_0": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "Photo taken for record. See evidence photos.",
-          "customText": ""
-        },
-        "s5m_1": {
-          "_ts": 0,
-          "photos": [],
-          "status": "yes",
-          "comment": "",
-          "customText": ""
-        },
-        "s5m_2": {
-          "_ts": 1785468129813,
-          "photos": [
-            {
-              "d": "",
-              "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
-              "id": "ph_1781065669134_s5rba0",
-              "mk": null,
-              "tag": "",
-              "_mkTs": 0,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781065669134_s5rba0.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781065669134_s5rba0.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "5.3",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#5E7A8C",
-              "deletedDate": "",
-              "_origBackupId": ""
-            }
-          ],
-          "status": "no",
-          "comment": "",
-          "customText": ""
-        },
-        "s4pld_0": {
-          "_ts": 0,
-          "photos": [],
-          "status": "no",
-          "comment": "",
-          "customText": ""
-        }
-      },
-      "npshPsi": "",
-      "pldData": [
-        {
-          "_ts": 1785468129813,
-          "pct": "0%",
-          "bfUp": "",
-          "flow": 0,
-          "dis_w": "165",
-          "rpm_w": "2350",
-          "suc_w": "25",
-          "bfDown": "",
-          "dis_no": "222",
-          "photos": [
-            {
-              "d": "",
-              "n": "image1.png",
-              "id": "ph_1781065680695_rtkgqs",
-              "mk": null,
-              "tag": "bf_in",
-              "date": "2026-06-12T01:23:37.496Z",
-              "mode": null,
-              "_mkTs": 1781266454751,
-              "delAt": "2026-06-22T04:15:37.481Z",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
-              "caption": "",
-              "deleted": true,
-              "delState": "deleted",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "deletedBy": "user",
-              "_annotated": false,
-              "deletedDate": "2026-06-22T04:15:37.481Z",
-              "_origBackupId": ""
-            }
-          ],
-          "rpm_no": "2200",
-          "suc_no": "50",
-          "placard": "164.4",
-          "cutsheet": "170",
-          "defaultFlow": 0
-        },
-        {
-          "_ts": 1785468129813,
-          "pct": "25%",
-          "bfUp": "",
-          "flow": 500,
-          "dis_w": "186",
-          "rpm_w": "2350",
-          "suc_w": "21",
-          "bfDown": "",
-          "dis_no": "",
-          "photos": [
-            {
-              "d": "",
-              "n": "content.png",
-              "id": "ph_1781496532618_eozdfk",
-              "mk": null,
-              "tag": "discharge",
-              "date": "2026-06-15T04:08:52.618Z",
-              "mode": "pld",
-              "_mkTs": 0,
-              "delAt": "2026-06-22T04:32:31.174Z",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781496532618_eozdfk.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781496532618_eozdfk.jpg",
-              "caption": "",
-              "deleted": true,
-              "delState": "deleted",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "deletedBy": "user",
-              "_annotated": false,
-              "deletedDate": "2026-06-22T04:32:31.174Z",
-              "_origBackupId": ""
-            },
-            {
-              "d": "",
-              "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_4_5.jpeg",
-              "id": "ph_1781496539489_gegz97",
-              "mk": null,
-              "tag": "suction",
-              "date": "2026-06-28T23:09:56.694Z",
-              "mode": "direct",
-              "_mkTs": 1782688196694,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781496539489_gegz97.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781496539489_gegz97.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 90,
-              "badgeText": "7·25%·S",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#46C5E8",
-              "deletedDate": "",
-              "_origBackupId": ""
-            },
-            {
-              "d": "",
-              "n": "camera_1784942745334_1.jpg",
-              "id": "ph_1784942746186_tq4q7y",
-              "mk": null,
-              "tag": "bf_in",
-              "date": "2026-07-25T01:25:46.186Z",
-              "mode": "pld",
-              "_mkTs": 0,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784942746186_tq4q7y.jpg",
-              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784942746186_tq4q7y.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "7·25%·BFi·PLD",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#E6A23C",
-              "deletedDate": "",
-              "_origBackupId": ""
-            }
-          ],
-          "rpm_no": "",
-          "suc_no": "",
-          "placard": "163",
-          "cutsheet": "165",
-          "defaultFlow": 500
-        },
-        {
-          "_ts": 1785468129813,
-          "pct": "50%",
-          "bfUp": "",
-          "flow": 1000,
-          "dis_w": "178",
-          "rpm_w": "2350",
-          "suc_w": "20",
-          "bfDown": "",
-          "dis_no": "",
-          "photos": [],
-          "rpm_no": "",
-          "suc_no": "",
-          "placard": "155",
-          "cutsheet": "158",
-          "defaultFlow": 1000
-        },
-        {
-          "_ts": 1785468129813,
-          "pct": "75%",
-          "bfUp": "",
-          "flow": 1500,
-          "dis_w": "166",
-          "rpm_w": "2350",
-          "suc_w": "18",
-          "bfDown": "",
-          "dis_no": "",
-          "photos": [],
-          "rpm_no": "",
-          "suc_no": "",
-          "placard": "145",
-          "cutsheet": "148",
-          "defaultFlow": 1500
-        },
-        {
-          "_ts": 1785468129813,
-          "pct": "100%",
-          "bfUp": "",
-          "flow": 2000,
-          "dis_w": "150",
-          "rpm_w": "2350",
-          "suc_w": "14",
-          "bfDown": "",
-          "dis_no": "151",
-          "photos": [],
-          "rpm_no": "2350",
-          "suc_no": "16",
-          "placard": "125",
-          "cutsheet": "135",
-          "defaultFlow": 2000
-        },
-        {
-          "_ts": 1785468129813,
-          "pct": "125%",
-          "bfUp": "",
-          "flow": 2500,
-          "dis_w": "131",
-          "rpm_w": "2350",
-          "suc_w": "13",
-          "bfDown": "",
-          "dis_no": "",
-          "photos": [],
-          "rpm_no": "",
-          "suc_no": "",
-          "placard": "115",
-          "cutsheet": "118",
-          "defaultFlow": 2500
-        },
-        {
-          "_ts": 1785468129813,
-          "pct": "150%",
-          "bfUp": "",
-          "flow": 3000,
-          "dis_w": "105",
-          "rpm_w": "2350",
-          "suc_w": "7",
-          "bfDown": "",
-          "dis_no": "104",
-          "photos": [],
-          "rpm_no": "2350",
-          "suc_no": "9",
-          "placard": "86.4",
-          "cutsheet": "95",
-          "defaultFlow": 3000
-        }
-      ],
-      "smState": {
-        "chart3pt": {
-          "x": 48,
-          "y": 46,
-          "on": true
-        },
-        "pldChart": {
-          "x": 86.33333333333337,
-          "y": 55.666666666666515,
-          "on": true
-        }
-      },
-      "stdData": [
-        {
-          "_ts": 1785468129813,
-          "pct": "0%",
-          "rpm": "2360",
-          "bfUp": "",
-          "flow": 0,
-          "label": "Churn",
-          "bfDown": "",
-          "photos": [
-            {
-              "d": "",
-              "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
-              "id": "ph_1781064581956_5m82th",
-              "mk": null,
-              "tag": "discharge",
-              "date": "2026-06-10T04:09:41.956Z",
-              "mode": null,
-              "_mkTs": 1781266701632,
-              "delAt": "2026-06-22T04:23:35.550Z",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781064581956_5m82th.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781064581956_5m82th.jpg",
-              "caption": "",
-              "deleted": true,
-              "delState": "deleted",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "deletedBy": "user",
-              "_annotated": true,
-              "deletedDate": "2026-06-22T04:23:35.550Z",
-              "_origBackupId": "ph_orig_1781266477764_n1n3ti"
-            },
-            {
-              "d": "",
-              "n": "content.png",
-              "id": "ph_1782102787192_gk8xk6",
-              "mk": null,
-              "tag": "suction",
-              "date": "2026-06-22T04:33:07.192Z",
-              "mode": null,
-              "_mkTs": 0,
-              "delAt": "2026-06-22T04:33:11.539Z",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782102787192_gk8xk6.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782102787192_gk8xk6.jpg",
-              "caption": "",
-              "deleted": true,
-              "delState": "deleted",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "deletedBy": "user",
-              "_annotated": false,
-              "deletedDate": "2026-06-22T04:33:11.539Z",
-              "_origBackupId": ""
-            },
-            {
-              "d": "",
-              "n": "Screenshot_20260612_202451_Outlook.jpg",
-              "id": "ph_1782245851884_t6w60h",
-              "mk": null,
-              "tag": "bf_in",
-              "date": "2026-06-23T20:17:31.884Z",
-              "mode": null,
-              "_mkTs": 0,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782245851884_t6w60h.jpg",
-              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782245851884_t6w60h.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "3·0%·BFi",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#E6A23C",
-              "deletedDate": "",
-              "_origBackupId": ""
-            },
-            {
-              "d": "",
-              "n": "camera_1784942699843_1.jpg",
-              "id": "ph_1784942701339_fvjbdr",
-              "mk": null,
-              "tag": "suction",
-              "date": "2026-07-25T01:25:01.339Z",
-              "mode": null,
-              "_mkTs": 0,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784942701339_fvjbdr.jpg",
-              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784942701339_fvjbdr.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "3·0%·S",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#46C5E8",
-              "deletedDate": "",
-              "_origBackupId": ""
-            }
-          ],
-          "placard": "164.4",
-          "suction": "50",
-          "cutsheet": "150",
-          "discharge": "240"
-        },
-        {
-          "_ts": 1785468129813,
-          "pct": "100%",
-          "rpm": "2350",
-          "bfUp": "",
-          "flow": 2000,
-          "label": "Rated",
-          "bfDown": "",
-          "photos": [],
-          "placard": "125",
-          "suction": "40",
-          "cutsheet": "125",
-          "discharge": "250"
-        },
-        {
-          "_ts": 1785468129813,
-          "pct": "150%",
-          "rpm": "2350",
-          "bfUp": "",
-          "flow": 3000,
-          "label": "Overload",
-          "bfDown": "",
-          "photos": [],
-          "placard": "86.4",
-          "suction": "30",
-          "cutsheet": "81",
-          "discharge": "89"
-        }
-      ],
-      "smCapVis": {
-        "chart3pt": {
-          "relief": false,
-          "reducing": true
-        },
-        "pldChart": {
-          "pld": true,
-          "relief": true,
-          "reducing": true
-        }
-      },
-      "testType": "std",
-      "pitotRows": {
-        "3a": [],
-        "4b": []
-      },
-      "annDsForce": {
-        "chart3pt": {
-          "0": true,
-          "2": false,
-          "3": true,
-          "4": true,
-          "6": true,
-          "8": true,
-          "9": true,
-          "10": true,
-          "11": true,
-          "12": true,
-          "13": true,
-          "14": true,
-          "15": true
-        },
-        "pldChart": {
-          "0": true,
-          "2": true,
-          "3": true,
-          "5": true,
-          "6": true,
-          "7": true,
-          "10": true,
-          "13": false
-        },
-        "netChart3pt": {
-          "0": true,
-          "1": true,
-          "2": true,
-          "3": false
-        },
-        "pldNetChart": {
-          "1": true,
-          "2": true,
-          "3": true
-        }
-      },
-      "npshPsiPld": "",
-      "sigStrokes": {
-        "sig-canvas": [
-          {
-            "pts": [
-              {
-                "x": 200.20408163265307,
-                "y": 67
-              },
-              {
-                "x": 203.87755102040816,
-                "y": 71
-              },
-              {
-                "x": 205.71428571428572,
-                "y": 73
-              },
-              {
-                "x": 214.89795918367346,
-                "y": 76
-              },
-              {
-                "x": 231.42857142857144,
-                "y": 75
-              },
-              {
-                "x": 272.7551020408163,
-                "y": 54
-              },
-              {
-                "x": 316.83673469387753,
-                "y": 30
-              },
-              {
-                "x": 334.2857142857143,
-                "y": 21
-              },
-              {
-                "x": 333.36734693877554,
-                "y": 21
-              },
-              {
-                "x": 327.8571428571429,
-                "y": 28
-              },
-              {
-                "x": 312.2448979591837,
-                "y": 46
-              },
-              {
-                "x": 301.2244897959184,
-                "y": 67
-              },
-              {
-                "x": 299.38775510204084,
-                "y": 73
-              },
-              {
-                "x": 301.2244897959184,
-                "y": 72
-              },
-              {
-                "x": 317.7551020408163,
-                "y": 59
-              },
-              {
-                "x": 339.7959183673469,
-                "y": 46
-              },
-              {
-                "x": 343.46938775510205,
-                "y": 46
-              },
-              {
-                "x": 343.46938775510205,
-                "y": 49
-              },
-              {
-                "x": 338.8775510204082,
-                "y": 55
-              },
-              {
-                "x": 337.0408163265306,
-                "y": 57
-              },
-              {
-                "x": 345.3061224489796,
-                "y": 49
-              },
-              {
-                "x": 361.83673469387753,
-                "y": 40
-              },
-              {
-                "x": 370.10204081632656,
-                "y": 40
-              },
-              {
-                "x": 372.8571428571429,
-                "y": 55
-              },
-              {
-                "x": 372.8571428571429,
-                "y": 81
-              },
-              {
-                "x": 369.18367346938777,
-                "y": 94
-              },
-              {
-                "x": 369.18367346938777,
-                "y": 95
-              },
-              {
-                "x": 377.44897959183675,
-                "y": 84
-              },
-              {
-                "x": 410.51020408163265,
-                "y": 53
-              },
-              {
-                "x": 444.48979591836735,
-                "y": 33
-              },
-              {
-                "x": 448.16326530612247,
-                "y": 34
-              },
-              {
-                "x": 442.6530612244898,
-                "y": 52
-              },
-              {
-                "x": 437.14285714285717,
-                "y": 77
-              },
-              {
-                "x": 436.2244897959184,
-                "y": 94
-              },
-              {
-                "x": 438.9795918367347,
-                "y": 95
-              },
-              {
-                "x": 449.08163265306126,
-                "y": 85
-              },
-              {
-                "x": 466.53061224489795,
-                "y": 67
-              },
-              {
-                "x": 467.44897959183675,
-                "y": 66
-              },
-              {
-                "x": 467.44897959183675,
-                "y": 74
-              },
-              {
-                "x": 469.2857142857143,
-                "y": 106
-              }
-            ]
-          }
-        ],
-        "sig-canvas-c-2": [
-          {
-            "pts": [
-              {
-                "x": 247.26315789473682,
-                "y": 57
-              },
-              {
-                "x": 247.26315789473682,
-                "y": 58
-              },
-              {
-                "x": 247.26315789473682,
-                "y": 63
-              },
-              {
-                "x": 246.3157894736842,
-                "y": 69
-              },
-              {
-                "x": 241.57894736842104,
-                "y": 77
-              },
-              {
-                "x": 237.78947368421052,
-                "y": 85
-              },
-              {
-                "x": 235.89473684210526,
-                "y": 91
-              },
-              {
-                "x": 235.89473684210526,
-                "y": 96
-              },
-              {
-                "x": 238.73684210526315,
-                "y": 97
-              },
-              {
-                "x": 247.26315789473682,
-                "y": 97
-              },
-              {
-                "x": 272.84210526315786,
-                "y": 84
-              },
-              {
-                "x": 293.6842105263158,
-                "y": 70
-              },
-              {
-                "x": 307.89473684210526,
-                "y": 59
-              },
-              {
-                "x": 308.84210526315786,
-                "y": 58
-              },
-              {
-                "x": 308.84210526315786,
-                "y": 59
-              },
-              {
-                "x": 307.89473684210526,
-                "y": 64
-              },
-              {
-                "x": 307.89473684210526,
-                "y": 70
-              },
-              {
-                "x": 307.89473684210526,
-                "y": 71
-              },
-              {
-                "x": 310.7368421052631,
-                "y": 72
-              },
-              {
-                "x": 329.6842105263158,
-                "y": 73
-              },
-              {
-                "x": 354.31578947368416,
-                "y": 71
-              },
-              {
-                "x": 371.36842105263156,
-                "y": 69
-              },
-              {
-                "x": 374.2105263157895,
-                "y": 69
-              },
-              {
-                "x": 374.2105263157895,
-                "y": 74
-              },
-              {
-                "x": 375.1578947368421,
-                "y": 83
-              },
-              {
-                "x": 378,
-                "y": 85
-              },
-              {
-                "x": 379.89473684210526,
-                "y": 85
-              },
-              {
-                "x": 399.7894736842105,
-                "y": 80
-              },
-              {
-                "x": 427.2631578947368,
-                "y": 68
-              },
-              {
-                "x": 446.2105263157894,
-                "y": 63
-              },
-              {
-                "x": 448.10526315789474,
-                "y": 64
-              },
-              {
-                "x": 448.10526315789474,
-                "y": 74
-              },
-              {
-                "x": 448.10526315789474,
-                "y": 79
-              },
-              {
-                "x": 450,
-                "y": 76
-              },
-              {
-                "x": 464.2105263157894,
-                "y": 52
-              },
-              {
-                "x": 477.4736842105263,
-                "y": 33
-              },
-              {
-                "x": 478.4210526315789,
-                "y": 32
-              },
-              {
-                "x": 477.4736842105263,
-                "y": 36
-              },
-              {
-                "x": 473.6842105263158,
-                "y": 56
-              },
-              {
-                "x": 470.84210526315786,
-                "y": 71
-              },
-              {
-                "x": 469.89473684210526,
-                "y": 73
-              },
-              {
-                "x": 468.9473684210526,
-                "y": 72
-              },
-              {
-                "x": 459.4736842105263,
-                "y": 51
-              },
-              {
-                "x": 444.31578947368416,
-                "y": 24
-              },
-              {
-                "x": 434.84210526315786,
-                "y": 14
-              },
-              {
-                "x": 432.9473684210526,
-                "y": 18
-              },
-              {
-                "x": 398.84210526315786,
-                "y": 61
-              },
-              {
-                "x": 391.2631578947368,
-                "y": 64
-              }
-            ]
-          },
-          {
-            "pts": [
-              {
-                "x": 382.7368421052631,
-                "y": 63
-              },
-              {
-                "x": 383.6842105263158,
-                "y": 63
-              },
-              {
-                "x": 390.31578947368416,
-                "y": 66
-              },
-              {
-                "x": 400.7368421052631,
-                "y": 69
-              },
-              {
-                "x": 419.6842105263158,
-                "y": 71
-              },
-              {
-                "x": 458.52631578947364,
-                "y": 73
-              },
-              {
-                "x": 506.84210526315786,
-                "y": 78
-              },
-              {
-                "x": 554.2105263157895,
-                "y": 81
-              },
-              {
-                "x": 575.0526315789473,
-                "y": 81
-              },
-              {
-                "x": 579.7894736842105,
-                "y": 81
-              }
-            ]
-          }
-        ],
-        "sig-canvas-c-100": [
-          {
-            "pts": [
-              {
-                "x": 247.26315789473682,
-                "y": 118
-              },
-              {
-                "x": 247.26315789473682,
-                "y": 117
-              },
-              {
-                "x": 247.26315789473682,
-                "y": 116
-              },
-              {
-                "x": 249.15789473684208,
-                "y": 110
-              },
-              {
-                "x": 263.36842105263156,
-                "y": 88
-              },
-              {
-                "x": 282.3157894736842,
-                "y": 70
-              },
-              {
-                "x": 297.4736842105263,
-                "y": 62
-              },
-              {
-                "x": 300.3157894736842,
-                "y": 60
-              },
-              {
-                "x": 302.2105263157895,
-                "y": 65
-              },
-              {
-                "x": 305.05263157894734,
-                "y": 77
-              },
-              {
-                "x": 307.89473684210526,
-                "y": 84
-              },
-              {
-                "x": 313.57894736842104,
-                "y": 87
-              },
-              {
-                "x": 329.6842105263158,
-                "y": 84
-              },
-              {
-                "x": 353.36842105263156,
-                "y": 71
-              },
-              {
-                "x": 365.6842105263158,
-                "y": 64
-              },
-              {
-                "x": 368.52631578947364,
-                "y": 64
-              },
-              {
-                "x": 371.36842105263156,
-                "y": 70
-              },
-              {
-                "x": 374.2105263157895,
-                "y": 81
-              },
-              {
-                "x": 377.05263157894734,
-                "y": 86
-              },
-              {
-                "x": 379.89473684210526,
-                "y": 87
-              },
-              {
-                "x": 385.57894736842104,
-                "y": 86
-              },
-              {
-                "x": 394.10526315789474,
-                "y": 71
-              },
-              {
-                "x": 395.05263157894734,
-                "y": 60
-              },
-              {
-                "x": 394.10526315789474,
-                "y": 69
-              },
-              {
-                "x": 396,
-                "y": 89
-              },
-              {
-                "x": 400.7368421052631,
-                "y": 97
-              },
-              {
-                "x": 411.1578947368421,
-                "y": 97
-              },
-              {
-                "x": 435.7894736842105,
-                "y": 73
-              },
-              {
-                "x": 447.1578947368421,
-                "y": 50
-              }
-            ]
-          },
-          {
-            "pts": [
-              {
-                "x": 376.10526315789474,
-                "y": 28
-              },
-              {
-                "x": 375.1578947368421,
-                "y": 37
-              },
-              {
-                "x": 375.1578947368421,
-                "y": 65
-              },
-              {
-                "x": 378.9473684210526,
-                "y": 95
-              },
-              {
-                "x": 387.4736842105263,
-                "y": 116
-              },
-              {
-                "x": 396,
-                "y": 124
-              },
-              {
-                "x": 399.7894736842105,
-                "y": 124
-              },
-              {
-                "x": 400.7368421052631,
-                "y": 117
-              },
-              {
-                "x": 401.6842105263158,
-                "y": 105
-              },
-              {
-                "x": 400.7368421052631,
-                "y": 90
-              },
-              {
-                "x": 397.89473684210526,
-                "y": 79
-              },
-              {
-                "x": 396,
-                "y": 77
-              },
-              {
-                "x": 403.57894736842104,
-                "y": 86
-              },
-              {
-                "x": 414.9473684210526,
-                "y": 96
-              },
-              {
-                "x": 424.4210526315789,
-                "y": 100
-              },
-              {
-                "x": 434.84210526315786,
-                "y": 96
-              },
-              {
-                "x": 445.2631578947368,
-                "y": 80
-              },
-              {
-                "x": 454.7368421052631,
-                "y": 60
-              },
-              {
-                "x": 459.4736842105263,
-                "y": 46
-              },
-              {
-                "x": 460.4210526315789,
-                "y": 46
-              },
-              {
-                "x": 464.2105263157894,
-                "y": 49
-              },
-              {
-                "x": 470.84210526315786,
-                "y": 61
-              },
-              {
-                "x": 477.4736842105263,
-                "y": 70
-              },
-              {
-                "x": 481.2631578947368,
-                "y": 72
-              },
-              {
-                "x": 486.9473684210526,
-                "y": 69
-              },
-              {
-                "x": 494.52631578947364,
-                "y": 55
-              },
-              {
-                "x": 504.9473684210526,
-                "y": 41
-              },
-              {
-                "x": 518.2105263157895,
-                "y": 34
-              },
-              {
-                "x": 528.6315789473684,
-                "y": 37
-              },
-              {
-                "x": 537.1578947368421,
-                "y": 50
-              },
-              {
-                "x": 545.6842105263157,
-                "y": 63
-              },
-              {
-                "x": 550.421052631579,
-                "y": 67
-              },
-              {
-                "x": 552.3157894736842,
-                "y": 67
-              },
-              {
-                "x": 558.9473684210526,
-                "y": 61
-              },
-              {
-                "x": 579.7894736842105,
-                "y": 47
-              },
-              {
-                "x": 602.5263157894736,
-                "y": 33
-              },
-              {
-                "x": 620.5263157894736,
-                "y": 28
-              },
-              {
-                "x": 626.2105263157895,
-                "y": 30
-              },
-              {
-                "x": 630,
-                "y": 39
-              },
-              {
-                "x": 630.9473684210526,
-                "y": 44
-              },
-              {
-                "x": 630,
-                "y": 44
-              },
-              {
-                "x": 623.3684210526316,
-                "y": 39
-              },
-              {
-                "x": 619.578947368421,
-                "y": 38
-              },
-              {
-                "x": 616.7368421052631,
-                "y": 41
-              },
-              {
-                "x": 609.1578947368421,
-                "y": 57
-              },
-              {
-                "x": 592.1052631578947,
-                "y": 79
-              },
-              {
-                "x": 577.8947368421052,
-                "y": 85
-              },
-              {
-                "x": 567.4736842105262,
-                "y": 85
-              },
-              {
-                "x": 558,
-                "y": 78
-              },
-              {
-                "x": 545.6842105263157,
-                "y": 67
-              },
-              {
-                "x": 528.6315789473684,
-                "y": 51
-              },
-              {
-                "x": 512.5263157894736,
-                "y": 41
-              },
-              {
-                "x": 507.7894736842105,
-                "y": 40
-              },
-              {
-                "x": 504,
-                "y": 41
-              },
-              {
-                "x": 503.05263157894734,
-                "y": 47
-              },
-              {
-                "x": 503.05263157894734,
-                "y": 54
-              },
-              {
-                "x": 510.6315789473684,
-                "y": 64
-              },
-              {
-                "x": 529.578947368421,
-                "y": 85
-              },
-              {
-                "x": 559.8947368421052,
-                "y": 107
-              },
-              {
-                "x": 592.1052631578947,
-                "y": 118
-              },
-              {
-                "x": 613.8947368421052,
-                "y": 115
-              },
-              {
-                "x": 630,
-                "y": 104
-              },
-              {
-                "x": 638.5263157894736,
-                "y": 88
-              },
-              {
-                "x": 638.5263157894736,
-                "y": 76
-              },
-              {
-                "x": 634.7368421052631,
-                "y": 69
-              },
-              {
-                "x": 631.8947368421052,
-                "y": 67
-              }
-            ]
-          }
-        ]
-      },
-      "clSchemaVer": 2,
-      "contractors": [
-        "ABC sprinkler"
-      ],
-      "customEquip": {
-        "3a": [],
-        "4b": []
-      },
-      "customItems": {},
-      "deficiencies": {
-        "ABC sprinkler": [
-          {
-            "id": "def_ms8dmgvw_fn4ptq",
-            "_ts": 1785468129813,
-            "date": "",
-            "photos": [
-              {
-                "d": "",
-                "n": "camera_1784945947376_1.jpg",
-                "id": "ph_1784945949016_3evg7s",
-                "mk": null,
-                "tag": "",
-                "_mkTs": 0,
-                "delAt": "",
-                "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784945949016_3evg7s.jpg",
-                "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784945949016_3evg7s.jpg",
-                "caption": "",
-                "deleted": false,
-                "delState": "live",
-                "r2Status": "uploaded",
-                "rotation": 0,
-                "badgeText": "D1",
-                "deletedBy": "",
-                "_annotated": false,
-                "badgeColor": "#A85959",
-                "deletedDate": "",
-                "_origBackupId": ""
-              }
-            ],
-            "status": "open",
-            "priority": "high",
-            "iarStatus": true,
-            "responses": [],
-            "description": "Test 123",
-            "isSiteRecord": true,
-            "isRecommendation": false
-          }
-        ]
-      },
-      "deletedItems": {},
-      "distribution": [
-        "Classic Fire + Life Safety",
-        "Iron Mountain Canada Corp."
-      ],
-      "equipChecked": [],
-      "formRevision": "A02",
-      "recordPhotos": [
-        {
-          "d": "",
-          "n": "Screenshot 2024-08-21 1442501.png",
-          "id": "ph_orig_1781222077944_ofeztd",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-11T23:54:37.944Z",
-          "kind": "site",
-          "_mkTs": 0,
-          "delAt": "",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781101762978_gyo11o.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781101762978_gyo11o.jpg",
-          "caption": "Original",
-          "deleted": false,
-          "delState": "live",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "badgeText": "Site",
-          "deletedBy": "",
-          "_annotated": false,
-          "badgeColor": "#6E6AA8",
-          "deletedDate": "",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "image1.png",
-          "id": "ph_orig_1781227417496_gtqr1n",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-10T04:28:00.695Z",
-          "kind": "site",
-          "_mkTs": 0,
-          "delAt": "",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
-          "caption": "Original",
-          "deleted": false,
-          "delState": "live",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "badgeText": "Site",
-          "deletedBy": "",
-          "_annotated": false,
-          "badgeColor": "#6E6AA8",
-          "deletedDate": "",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
-          "id": "ph_orig_1781266477764_n1n3ti",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-10T04:09:41.956Z",
-          "kind": "site",
-          "_mkTs": 0,
-          "delAt": "",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781064581956_5m82th.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781064581956_5m82th.jpg",
-          "caption": "Original",
-          "deleted": false,
-          "delState": "live",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "badgeText": "Site",
-          "deletedBy": "",
-          "_annotated": false,
-          "badgeColor": "#6E6AA8",
-          "deletedDate": "",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
-          "id": "ph_orig_1781266665299_86n7nl",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-12T12:17:45.299Z",
-          "kind": "site",
-          "_mkTs": 0,
-          "delAt": "",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065669134_s5rba0.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065669134_s5rba0.jpg",
-          "caption": "Original",
-          "deleted": false,
-          "delState": "live",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "badgeText": "Site",
-          "deletedBy": "",
-          "_annotated": false,
-          "badgeColor": "#6E6AA8",
-          "deletedDate": "",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "image1.png",
-          "id": "ph_orig_1781378325600_dzmy91",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-13T19:18:45.600Z",
-          "kind": "site",
-          "_mkTs": 0,
-          "delAt": "",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781378318909_9txkc5.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781378318909_9txkc5.jpg",
-          "caption": "Original",
-          "deleted": false,
-          "delState": "live",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "badgeText": "Site",
-          "deletedBy": "",
-          "_annotated": false,
-          "badgeColor": "#6E6AA8",
-          "deletedDate": "",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "Screenshot_20260612_202451_Outlook.jpg",
-          "id": "ph_1781410885540_sm2vzf",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-14T04:21:25.540Z",
-          "kind": "placard",
-          "_mkTs": 0,
-          "delAt": "2026-07-26T06:29:53.608Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781410885540_sm2vzf.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781410885540_sm2vzf.jpg",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-26T06:29:53.608Z",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "IMG_3706.jpeg",
-          "id": "ph_1781447244739_zcfmz6",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-14T14:27:24.739Z",
-          "kind": "placard",
-          "_mkTs": 0,
-          "delAt": "2026-07-26T06:15:38.731Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781447244739_zcfmz6.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781447244739_zcfmz6.jpg",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-26T06:15:38.731Z",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "IMG_3719.png",
-          "id": "ph_1781449044607_ejxtqk",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-14T14:57:24.607Z",
-          "kind": "placard-pld",
-          "_mkTs": 0,
-          "delAt": "2026-07-26T06:16:12.346Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781449044607_ejxtqk.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781449044607_ejxtqk.jpg",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-26T06:16:12.346Z",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "IMG_3719.png",
-          "id": "ph_1781455159378_bazvp0",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-14T16:39:19.378Z",
-          "kind": "placard-pld",
-          "_mkTs": 0,
-          "delAt": "2026-07-26T06:16:10.616Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455159378_bazvp0.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455159378_bazvp0.jpg",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-26T06:16:10.616Z",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "IMG_3706.jpeg",
-          "id": "ph_1781455177653_u5kiee",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-14T16:39:37.653Z",
-          "kind": "placard-pld",
-          "_mkTs": 0,
-          "delAt": "",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455177653_u5kiee.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455177653_u5kiee.jpg",
-          "caption": "",
-          "deleted": false,
-          "delState": "live",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "badgeText": "7·Placard",
-          "deletedBy": "",
-          "_annotated": false,
-          "badgeColor": "#6E6AA8",
-          "deletedDate": "",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "content.png",
-          "id": "ph_1781459679565_jt7dnu",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-14T17:54:39.565Z",
-          "kind": "placard",
-          "_mkTs": 0,
-          "delAt": "2026-07-26T06:15:42.413Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459679565_jt7dnu.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459679565_jt7dnu.jpg",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-26T06:15:42.413Z",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
-          "id": "ph_1781459682309_4j1pok",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-14T17:54:42.309Z",
-          "kind": "placard",
-          "_mkTs": 0,
-          "delAt": "2026-07-26T06:15:40.929Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459682309_4j1pok.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459682309_4j1pok.jpg",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-26T06:15:40.929Z",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_4_5.jpeg",
-          "id": "ph_orig_1782702707124_pdmvq8",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-06-15T04:08:59.489Z",
-          "kind": "site",
-          "_mkTs": 0,
-          "delAt": "",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_orig_1782702707124_pdmvq8.jpg",
-          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_orig_1782702707124_pdmvq8.jpg",
-          "caption": "Original (original)",
-          "deleted": false,
-          "delState": "live",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "badgeText": "Site",
-          "deletedBy": "",
-          "_annotated": false,
-          "badgeColor": "#6E6AA8",
-          "deletedDate": "",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
-          "id": "ph_1783480156553_lb0ngu",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-07-08T03:09:16.534Z",
-          "kind": "site",
-          "_mkTs": 1783728270578,
-          "delAt": "2026-07-19T01:13:27.402Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_orig_1783724601372_yirnbe.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_orig_1783724601372_yirnbe.jpg",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-19T01:13:27.402Z",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "content.png",
-          "id": "ph_orig_1783803927814_k0sjx8",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-07-11T21:05:27.814Z",
-          "kind": "site",
-          "_mkTs": 0,
-          "delAt": "2026-07-19T01:13:25.350Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_orig_1783803927814_k0sjx8.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_orig_1783803927814_k0sjx8.jpg",
-          "caption": "Original",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-19T01:13:25.350Z",
-          "_isOrigBackup": true,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "camera_1784423348719_1.jpg",
-          "id": "ph_1784423349598_oxpwzq",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-07-19T01:09:09.514Z",
-          "kind": "site",
-          "_mkTs": 0,
-          "delAt": "2026-07-19T01:09:35.732Z",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784423349598_oxpwzq.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784423349598_oxpwzq.jpg",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-19T01:09:35.732Z",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        },
-        {
-          "d": "",
-          "n": "IMG_3706.jpeg",
-          "id": "ph_1785047397372_7gc6bg",
-          "mk": null,
-          "_ts": 1785468129813,
-          "date": "2026-07-26T06:29:57.360Z",
-          "kind": "placard",
-          "_mkTs": 0,
-          "delAt": "",
-          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1785047397372_7gc6bg.jpg",
-          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1785047397372_7gc6bg.jpg",
-          "caption": "",
-          "deleted": false,
-          "delState": "live",
-          "r2Status": "uploaded",
-          "rotation": 0,
-          "badgeText": "3·Placard",
-          "deletedBy": "",
-          "_annotated": false,
-          "badgeColor": "#6E6AA8",
-          "deletedDate": "",
-          "_isOrigBackup": false,
-          "_origBackupId": ""
-        }
-      ],
-      "sketchEntries": [
-        {
-          "id": "sk_ms8dmgvw_07rly1",
-          "_ts": 1785468129813,
-          "comment": "Pump room layout — diesel tank containment area showing unsealed concrete (Deficiency #1). Dike perimeter marked in red.",
-          "markupImg": null
-        },
-        {
-          "id": "sk_ms8dmgvw_oowznj",
-          "_ts": 1785468129813,
-          "comment": "",
-          "markupImg": null
-        },
-        {
-          "id": "sk_ms8dmgvw_ukoq53",
-          "_ts": 1785468129813,
-          "comment": "",
-          "markupImg": null
-        },
-        {
-          "id": "sk_ms8dmgvw_o4uhq7",
-          "_ts": 1785468129813,
-          "comment": "",
-          "markupImg": null
-        }
-      ],
-      "equipChecked4b": [],
-      "flowTestPhotos": [
-        {
-          "d": "",
-          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
-          "id": "ph_1785468128251_9qzrbr",
-          "mk": null,
-          "_ts": 1785468129813,
-          "tag": "",
-          "_mkTs": 0,
-          "delAt": "2026-07-19T01:13:35.403Z",
-          "r2Key": "",
-          "r2Url": "",
-          "caption": "",
-          "deleted": true,
-          "delState": "deleted",
-          "r2Status": "",
-          "rotation": 0,
-          "deletedBy": "user",
-          "_annotated": false,
-          "deletedDate": "2026-07-19T01:13:35.403Z",
-          "_origBackupId": ""
-        }
-      ],
-      "pumpCurvePoints": [
-        {
-          "psi": "",
-          "flow": ""
-        }
-      ],
-      "witnessSignRows": [],
-      "appendixExcluded": [],
-      "contractorTrades": {},
-      "formDateModified": "2026-07-30",
-      "flowTestPhotosPld": [],
-      "contractorSignRows": [
-        {
-          "date": "",
-          "name": "",
-          "type": "contractor",
-          "title": "",
-          "company": ""
-        }
-      ],
-      "pldPumpCurvePoints": [
-        {
-          "psi": "",
-          "flow": ""
-        }
-      ],
-      "generalDeficiencies": [
-        {
-          "id": "gdef_ms8dmgvw_p13r17",
-          "_ts": 1785468129813,
-          "date": "",
-          "photos": [
-            {
-              "d": "",
-              "n": "camera_1784944521412_1.jpg",
-              "id": "ph_1784944522292_euhcbm",
-              "mk": null,
-              "tag": "",
-              "_mkTs": 0,
-              "delAt": "",
-              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784944522292_euhcbm.jpg",
-              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784944522292_euhcbm.jpg",
-              "caption": "",
-              "deleted": false,
-              "delState": "live",
-              "r2Status": "uploaded",
-              "rotation": 0,
-              "badgeText": "G1",
-              "deletedBy": "",
-              "_annotated": false,
-              "badgeColor": "#6E86B8",
-              "deletedDate": "",
-              "_origBackupId": ""
-            }
-          ],
-          "status": "open",
-          "priority": "high",
-          "iarStatus": false,
-          "responses": [],
-          "description": "1234",
-          "isSiteRecord": false,
-          "isRecommendation": true
-        },
-        {
-          "id": "gdef_ms8dmgvw_cexadk",
-          "_ts": 1785468129813,
-          "date": "",
-          "photos": [],
-          "status": "open",
-          "priority": "low",
-          "iarStatus": false,
-          "responses": [],
-          "description": "",
-          "isSiteRecord": false,
-          "isRecommendation": false
-        },
-        {
-          "id": "gdef_ms8dmgvw_c81onj",
-          "_ts": 1785468129813,
-          "date": "",
-          "photos": [],
-          "status": "open",
-          "priority": "high",
-          "iarStatus": false,
-          "responses": [],
-          "description": "",
-          "isSiteRecord": false,
-          "isRecommendation": false
-        },
-        {
-          "id": "gdef_ms8dmgvw_gum22n",
-          "_ts": 1785468129813,
-          "date": "",
-          "photos": [],
-          "status": "resolved",
-          "priority": "high",
-          "iarStatus": false,
-          "responses": [],
-          "description": "",
-          "isSiteRecord": false,
-          "isRecommendation": false
-        }
-      ]
-    },
-    "status": "draft",
-    "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-    "updated_by": null,
-    "created_at": "2026-03-20T17:18:44.857681+00:00",
-    "updated_at": "2026-07-31T03:22:09.993573+00:00",
-    "owner_label": null,
-    "deleted_at": null,
-    "deleted_by": null
-  },
-  {
     "id": "9b1b4c91-7d74-4611-bc67-d26a95f9ef4c",
     "project_id": "cdcfd433-4242-40e3-8f39-cb98455f5c5f",
     "tool_key": "diesel",
@@ -12057,6 +9476,2587 @@
     "created_at": "2026-06-16T20:43:00.159147+00:00",
     "updated_at": "2026-06-16T20:43:01.351407+00:00",
     "owner_label": "Franz Porka",
+    "deleted_at": null,
+    "deleted_by": null
+  },
+  {
+    "id": "c6036627-3615-4dc0-bda2-bbf4c5d1c179",
+    "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
+    "tool_key": "diesel",
+    "instance_number": 1,
+    "label": null,
+    "data": {
+      "_fts": {
+        "proj": {
+          "np-bhp": 0,
+          "np-mfr": 0,
+          "pm-prv": 0,
+          "pm-rpm": 0,
+          "np-size": 0,
+          "pi-addr": 0,
+          "pi-date": 0,
+          "so-date": 0,
+          "so-name": 0,
+          "np-ctlsn": 0,
+          "np-drvsn": 0,
+          "np-model": 0,
+          "ps-fci-d": 0,
+          "ps-fci-f": 0,
+          "ps-fco-d": 0,
+          "ps-fco-f": 0,
+          "ps-jci-d": 0,
+          "ps-jci-f": 0,
+          "ps-jco-d": 0,
+          "ps-jco-f": 0,
+          "so-title": 0,
+          "np-ctlmfg": 0,
+          "np-drvmfg": 0,
+          "np-maxbhp": 0,
+          "np-serial": 0,
+          "np-stages": 0,
+          "pi-client": 0,
+          "pi-prepby": 0,
+          "pi-projno": 0,
+          "pm-relief": 0,
+          "np-bhp-pld": 0,
+          "np-mfr-pld": 0,
+          "pm-prv-pld": 0,
+          "pm-rpm-pld": 0,
+          "so-company": 0,
+          "ws-res-psi": 0,
+          "dem-spr-psi": 0,
+          "np-impeller": 0,
+          "np-size-pld": 0,
+          "pi-projname": 0,
+          "pi-revision": 0,
+          "pm-reducing": 0,
+          "test-result": 0,
+          "ws-res-flow": 0,
+          "dem-spr-flow": 0,
+          "np-ctlsn-pld": 0,
+          "np-drvsn-pld": 0,
+          "np-model-pld": 0,
+          "ps-fci-d-pld": 0,
+          "ps-fci-f-pld": 0,
+          "ps-fco-d-pld": 0,
+          "ps-fco-f-pld": 0,
+          "ps-jci-d-pld": 0,
+          "ps-jci-f-pld": 0,
+          "ps-jco-d-pld": 0,
+          "ps-jco-f-pld": 0,
+          "dem-hose-flow": 0,
+          "np-ctlmfg-pld": 0,
+          "np-drvmfg-pld": 0,
+          "np-maxbhp-pld": 0,
+          "np-serial-pld": 0,
+          "np-stages-pld": 0,
+          "pi-contractor": 0,
+          "pm-rated-flow": 0,
+          "pm-relief-pld": 0,
+          "ws-static-psi": 0,
+          "pld-ws-res-psi": 0,
+          "pm-pld-setting": 0,
+          "ws-static-flow": 0,
+          "np-impeller-pld": 0,
+          "pld-dem-spr-psi": 0,
+          "pld-ws-res-flow": 0,
+          "pm-reducing-pld": 0,
+          "pi-date-modified": 1785561600877,
+          "pld-dem-spr-flow": 0,
+          "pld-dem-hose-flow": 0,
+          "pld-ws-static-psi": 0,
+          "pm-rated-flow-pld": 0,
+          "pld-ws-static-flow": 0
+        }
+      },
+      "proj": {
+        "np-bhp": "191.3",
+        "np-mfr": "S.A. Armstrong Limited",
+        "pm-prv": "125",
+        "pm-rpm": "2350",
+        "np-size": "8x6",
+        "pi-addr": "610 Sprucewood Ave., Windsor, Ontario",
+        "pi-date": "2026-03-22",
+        "so-date": "",
+        "so-name": "Mark He, L.E.T.",
+        "np-ctlsn": "WZ1130372",
+        "np-drvsn": "90213222R",
+        "np-model": "8x6x15NF",
+        "ps-fci-d": "",
+        "ps-fci-f": "",
+        "ps-fco-d": "",
+        "ps-fco-f": "",
+        "ps-jci-d": "",
+        "ps-jci-f": "",
+        "ps-jco-d": "",
+        "ps-jco-f": "",
+        "so-title": "Licensed Engineering Technologist",
+        "np-ctlmfg": "Ronaltest",
+        "np-drvmfg": "Clarke",
+        "np-maxbhp": "199.4",
+        "np-serial": "1025260180",
+        "np-stages": "1",
+        "pi-client": "Iron Mountain Canada Corp",
+        "pi-prepby": "MH",
+        "pi-projno": "1490.04",
+        "pm-relief": "175",
+        "np-bhp-pld": "191.3",
+        "np-mfr-pld": "S.A. Armstrong Limited",
+        "pm-prv-pld": "125",
+        "pm-rpm-pld": "2350",
+        "so-company": "ARENCON Inc.",
+        "ws-res-psi": "48",
+        "dem-spr-psi": "130",
+        "np-impeller": "14.540",
+        "np-size-pld": "8x6",
+        "pi-projname": "Attic Space Sprinkler Upgrade",
+        "pi-revision": "A01",
+        "pm-reducing": "144",
+        "test-result": "fail",
+        "ws-res-flow": "3200",
+        "dem-spr-flow": "1500",
+        "np-ctlsn-pld": "WZ1130672",
+        "np-drvsn-pld": "90213222R",
+        "np-model-pld": "8x6x15NF",
+        "ps-fci-d-pld": "",
+        "ps-fci-f-pld": "",
+        "ps-fco-d-pld": "",
+        "ps-fco-f-pld": "",
+        "ps-jci-d-pld": "",
+        "ps-jci-f-pld": "",
+        "ps-jco-d-pld": "",
+        "ps-jco-f-pld": "",
+        "dem-hose-flow": "250",
+        "np-ctlmfg-pld": "Ronytect",
+        "np-drvmfg-pld": "Clarke",
+        "np-maxbhp-pld": "199.4",
+        "np-serial-pld": "1025260180",
+        "np-stages-pld": "1",
+        "pi-contractor": "Classic Fire + Life Safety",
+        "pm-rated-flow": "2000",
+        "pm-relief-pld": "",
+        "ws-static-psi": "65",
+        "pld-ws-res-psi": "48",
+        "pm-pld-setting": "165",
+        "ws-static-flow": "0",
+        "np-impeller-pld": "14.540",
+        "pld-dem-spr-psi": "130",
+        "pld-ws-res-flow": "3200",
+        "pm-reducing-pld": "",
+        "pi-date-modified": "2026-08-01",
+        "pld-dem-spr-flow": "1500",
+        "pld-dem-hose-flow": "250",
+        "pld-ws-static-psi": "65",
+        "pm-rated-flow-pld": "2000",
+        "pld-ws-static-flow": "0"
+      },
+      "_build": "S545",
+      "batData": {
+        "b1": [
+          1,
+          5,
+          2,
+          4,
+          1,
+          6
+        ],
+        "b2": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "clState": {
+        "null": {
+          "_ts": 0,
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s1_0": {
+          "_ts": 1785561762291,
+          "photos": [
+            {
+              "d": "",
+              "n": "camera_1782004430480_1.jpg",
+              "id": "ph_1782004432292_39n7qh",
+              "mk": null,
+              "tag": "",
+              "_mkTs": 0,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782004432292_39n7qh.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782004432292_39n7qh.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "badgeText": "1.1",
+              "deletedBy": "",
+              "_annotated": false,
+              "badgeColor": "#5E7A8C",
+              "deletedDate": "",
+              "_origBackupId": ""
+            },
+            {
+              "d": "",
+              "n": "content.png",
+              "id": "ph_1782093222569_bi722t",
+              "mk": null,
+              "tag": "",
+              "_mkTs": 1783803927816,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1782093222569_bi722t.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1782093222569_bi722t.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "badgeText": "1.1",
+              "deletedBy": "",
+              "_annotated": true,
+              "badgeColor": "#5E7A8C",
+              "deletedDate": "",
+              "_origBackupId": "ph_orig_1783803927814_k0sjx8"
+            }
+          ],
+          "status": "no",
+          "comment": "789789",
+          "customText": ""
+        },
+        "s1_1": {
+          "_ts": 1785561762291,
+          "photos": [
+            {
+              "d": "",
+              "n": "content.png",
+              "id": "ph_1784779870240_7n2af1",
+              "mk": null,
+              "tag": "",
+              "_mkTs": 0,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784779870240_7n2af1.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784779870240_7n2af1.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "badgeText": "1.2",
+              "deletedBy": "",
+              "_annotated": false,
+              "badgeColor": "#5E7A8C",
+              "deletedDate": "",
+              "_origBackupId": ""
+            }
+          ],
+          "status": "no",
+          "comment": "Photo taken for record. See evidence photos.",
+          "customText": ""
+        },
+        "s1_2": {
+          "_ts": 1785561762291,
+          "photos": [
+            {
+              "d": "",
+              "n": "image1.png",
+              "id": "ph_1781378318909_9txkc5",
+              "mk": null,
+              "tag": "",
+              "_mkTs": 0,
+              "delAt": "2026-08-01T05:20:12.139Z",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781378318909_9txkc5.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781378318909_9txkc5.jpg",
+              "caption": "",
+              "deleted": true,
+              "delState": "deleted",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "deletedBy": "user",
+              "_annotated": false,
+              "deletedDate": "2026-08-01T05:20:12.139Z",
+              "_origBackupId": ""
+            }
+          ],
+          "status": "no",
+          "comment": "12345",
+          "customText": ""
+        },
+        "s1_3": {
+          "_ts": 0,
+          "photos": [],
+          "status": "na",
+          "comment": "",
+          "customText": ""
+        },
+        "s1_4": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s1_5": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s1_6": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Photo taken for record. See evidence photos.",
+          "customText": ""
+        },
+        "s1_7": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s1_8": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_0": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_1": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_2": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_3": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
+          "customText": ""
+        },
+        "s2_4": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Contractor confirmed completion. Documentation provided.",
+          "customText": ""
+        },
+        "s2_5": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Verified on site. Condition acceptable.",
+          "customText": ""
+        },
+        "s2_6": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Contractor confirmed completion. Documentation provided.",
+          "customText": ""
+        },
+        "s2_7": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_8": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Slight vibration noted during operation. Within acceptable limits.",
+          "customText": ""
+        },
+        "s2_9": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s3_0": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Contractor confirmed completion. Documentation provided.",
+          "customText": ""
+        },
+        "s3_1": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "Verified on site. Condition acceptable.",
+          "customText": ""
+        },
+        "s3_2": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "customText": ""
+        },
+        "s3_3": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s3_4": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Access was restricted during test. Re-verify at follow-up.",
+          "customText": ""
+        },
+        "s3_5": {
+          "_ts": 0,
+          "photos": [],
+          "status": "na",
+          "comment": "",
+          "customText": ""
+        },
+        "s3_6": {
+          "_ts": 0,
+          "photos": [],
+          "status": "na",
+          "comment": "",
+          "customText": ""
+        },
+        "s3_7": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Slight vibration noted during operation. Within acceptable limits.",
+          "customText": ""
+        },
+        "s4_0": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "Minor corrosion noted on fitting — monitor at next visit.",
+          "customText": ""
+        },
+        "s5_0": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5_1": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5_2": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Meets NFPA 20 requirements. No deficiencies.",
+          "customText": ""
+        },
+        "s5_3": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5_4": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5_5": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Not wired",
+          "customText": ""
+        },
+        "s5_6": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5_7": {
+          "_ts": 0,
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_8": {
+          "_ts": 0,
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_9": {
+          "_ts": 0,
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s2_10": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Access was restricted during test. Re-verify at follow-up.",
+          "customText": ""
+        },
+        "s2_11": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_12": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_13": {
+          "_ts": 0,
+          "photos": [],
+          "status": "na",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_14": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_15": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_16": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_17": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Meets NFPA 20 requirements. No deficiencies.",
+          "customText": ""
+        },
+        "s2_18": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "Photo taken for record. See evidence photos.",
+          "customText": ""
+        },
+        "s2_19": {
+          "_ts": 0,
+          "photos": [],
+          "status": "na",
+          "comment": "Meets NFPA 20 requirements. No deficiencies.",
+          "customText": ""
+        },
+        "s2_20": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s2_21": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "Meets NFPA 20 requirements. No deficiencies.",
+          "customText": ""
+        },
+        "s2_22": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5_10": {
+          "_ts": 0,
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_11": {
+          "_ts": 0,
+          "photos": [],
+          "status": null,
+          "comment": "",
+          "customText": ""
+        },
+        "s5_12": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5_13": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5_14": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5m_0": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "Photo taken for record. See evidence photos.",
+          "customText": ""
+        },
+        "s5m_1": {
+          "_ts": 0,
+          "photos": [],
+          "status": "yes",
+          "comment": "",
+          "customText": ""
+        },
+        "s5m_2": {
+          "_ts": 1785561762291,
+          "photos": [
+            {
+              "d": "",
+              "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+              "id": "ph_1781065669134_s5rba0",
+              "mk": null,
+              "tag": "",
+              "_mkTs": 0,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781065669134_s5rba0.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781065669134_s5rba0.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "badgeText": "5.3",
+              "deletedBy": "",
+              "_annotated": false,
+              "badgeColor": "#5E7A8C",
+              "deletedDate": "",
+              "_origBackupId": ""
+            }
+          ],
+          "status": "no",
+          "comment": "",
+          "customText": ""
+        },
+        "s4pld_0": {
+          "_ts": 0,
+          "photos": [],
+          "status": "no",
+          "comment": "",
+          "customText": ""
+        }
+      },
+      "npshPsi": "",
+      "pldData": [
+        {
+          "_ts": 1785561762291,
+          "pct": "0%",
+          "bfUp": "",
+          "flow": 0,
+          "dis_w": "165",
+          "rpm_w": "2350",
+          "suc_w": "25",
+          "bfDown": "",
+          "dis_no": "222",
+          "photos": [
+            {
+              "d": "",
+              "n": "image1.png",
+              "id": "ph_1781065680695_rtkgqs",
+              "mk": null,
+              "tag": "bf_in",
+              "date": "2026-06-12T01:23:37.496Z",
+              "mode": null,
+              "_mkTs": 1781266454751,
+              "delAt": "2026-06-22T04:15:37.481Z",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
+              "caption": "",
+              "deleted": true,
+              "delState": "deleted",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "deletedBy": "user",
+              "_annotated": false,
+              "deletedDate": "2026-06-22T04:15:37.481Z",
+              "_origBackupId": ""
+            }
+          ],
+          "rpm_no": "2200",
+          "suc_no": "50",
+          "placard": "164.4",
+          "cutsheet": "170",
+          "defaultFlow": 0
+        },
+        {
+          "_ts": 1785561762291,
+          "pct": "25%",
+          "bfUp": "",
+          "flow": 500,
+          "dis_w": "186",
+          "rpm_w": "2350",
+          "suc_w": "21",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [
+            {
+              "d": "",
+              "n": "content.png",
+              "id": "ph_1781496532618_eozdfk",
+              "mk": null,
+              "tag": "discharge",
+              "date": "2026-06-15T04:08:52.618Z",
+              "mode": "pld",
+              "_mkTs": 0,
+              "delAt": "2026-06-22T04:32:31.174Z",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781496532618_eozdfk.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781496532618_eozdfk.jpg",
+              "caption": "",
+              "deleted": true,
+              "delState": "deleted",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "deletedBy": "user",
+              "_annotated": false,
+              "deletedDate": "2026-06-22T04:32:31.174Z",
+              "_origBackupId": ""
+            },
+            {
+              "d": "",
+              "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_4_5.jpeg",
+              "id": "ph_1781496539489_gegz97",
+              "mk": null,
+              "tag": "suction",
+              "date": "2026-06-28T23:09:56.694Z",
+              "mode": "direct",
+              "_mkTs": 1782688196694,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781496539489_gegz97.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781496539489_gegz97.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 90,
+              "badgeText": "7·25%·S",
+              "deletedBy": "",
+              "_annotated": false,
+              "badgeColor": "#46C5E8",
+              "deletedDate": "",
+              "_origBackupId": ""
+            },
+            {
+              "d": "",
+              "n": "camera_1784942745334_1.jpg",
+              "id": "ph_1784942746186_tq4q7y",
+              "mk": null,
+              "tag": "bf_in",
+              "date": "2026-07-25T01:25:46.186Z",
+              "mode": "pld",
+              "_mkTs": 0,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784942746186_tq4q7y.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784942746186_tq4q7y.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "badgeText": "7·25%·BFi·PLD",
+              "deletedBy": "",
+              "_annotated": false,
+              "badgeColor": "#E6A23C",
+              "deletedDate": "",
+              "_origBackupId": ""
+            }
+          ],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "163",
+          "cutsheet": "165",
+          "defaultFlow": 500
+        },
+        {
+          "_ts": 1785561762291,
+          "pct": "50%",
+          "bfUp": "",
+          "flow": 1000,
+          "dis_w": "178",
+          "rpm_w": "2350",
+          "suc_w": "20",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "155",
+          "cutsheet": "158",
+          "defaultFlow": 1000
+        },
+        {
+          "_ts": 1785561762291,
+          "pct": "75%",
+          "bfUp": "",
+          "flow": 1500,
+          "dis_w": "166",
+          "rpm_w": "2350",
+          "suc_w": "18",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "145",
+          "cutsheet": "148",
+          "defaultFlow": 1500
+        },
+        {
+          "_ts": 1785561762291,
+          "pct": "100%",
+          "bfUp": "",
+          "flow": 2000,
+          "dis_w": "150",
+          "rpm_w": "2350",
+          "suc_w": "14",
+          "bfDown": "",
+          "dis_no": "151",
+          "photos": [],
+          "rpm_no": "2350",
+          "suc_no": "16",
+          "placard": "125",
+          "cutsheet": "135",
+          "defaultFlow": 2000
+        },
+        {
+          "_ts": 1785561762291,
+          "pct": "125%",
+          "bfUp": "",
+          "flow": 2500,
+          "dis_w": "131",
+          "rpm_w": "2350",
+          "suc_w": "13",
+          "bfDown": "",
+          "dis_no": "",
+          "photos": [],
+          "rpm_no": "",
+          "suc_no": "",
+          "placard": "115",
+          "cutsheet": "118",
+          "defaultFlow": 2500
+        },
+        {
+          "_ts": 1785561762291,
+          "pct": "150%",
+          "bfUp": "",
+          "flow": 3000,
+          "dis_w": "105",
+          "rpm_w": "2350",
+          "suc_w": "7",
+          "bfDown": "",
+          "dis_no": "104",
+          "photos": [],
+          "rpm_no": "2350",
+          "suc_no": "9",
+          "placard": "86.4",
+          "cutsheet": "95",
+          "defaultFlow": 3000
+        }
+      ],
+      "smState": {
+        "chart3pt": {
+          "x": 48,
+          "y": 46,
+          "on": true
+        },
+        "pldChart": {
+          "x": 86.33333333333337,
+          "y": 55.666666666666515,
+          "on": true
+        }
+      },
+      "stdData": [
+        {
+          "_ts": 1785561762291,
+          "pct": "0%",
+          "rpm": "2360",
+          "bfUp": "",
+          "flow": 0,
+          "label": "Churn",
+          "bfDown": "",
+          "photos": [
+            {
+              "d": "",
+              "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+              "id": "ph_1781064581956_5m82th",
+              "mk": null,
+              "tag": "discharge",
+              "date": "2026-06-10T04:09:41.956Z",
+              "mode": null,
+              "_mkTs": 1781266701632,
+              "delAt": "2026-06-22T04:23:35.550Z",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781064581956_5m82th.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/marked/marked_ph_1781064581956_5m82th.jpg",
+              "caption": "",
+              "deleted": true,
+              "delState": "deleted",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "deletedBy": "user",
+              "_annotated": true,
+              "deletedDate": "2026-06-22T04:23:35.550Z",
+              "_origBackupId": "ph_orig_1781266477764_n1n3ti"
+            },
+            {
+              "d": "",
+              "n": "content.png",
+              "id": "ph_1782102787192_gk8xk6",
+              "mk": null,
+              "tag": "suction",
+              "date": "2026-06-22T04:33:07.192Z",
+              "mode": null,
+              "_mkTs": 0,
+              "delAt": "2026-06-22T04:33:11.539Z",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782102787192_gk8xk6.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782102787192_gk8xk6.jpg",
+              "caption": "",
+              "deleted": true,
+              "delState": "deleted",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "deletedBy": "user",
+              "_annotated": false,
+              "deletedDate": "2026-06-22T04:33:11.539Z",
+              "_origBackupId": ""
+            },
+            {
+              "d": "",
+              "n": "Screenshot_20260612_202451_Outlook.jpg",
+              "id": "ph_1782245851884_t6w60h",
+              "mk": null,
+              "tag": "bf_in",
+              "date": "2026-06-23T20:17:31.884Z",
+              "mode": null,
+              "_mkTs": 0,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782245851884_t6w60h.jpg",
+              "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1782245851884_t6w60h.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "badgeText": "3·0%·BFi",
+              "deletedBy": "",
+              "_annotated": false,
+              "badgeColor": "#E6A23C",
+              "deletedDate": "",
+              "_origBackupId": ""
+            },
+            {
+              "d": "",
+              "n": "camera_1784942699843_1.jpg",
+              "id": "ph_1784942701339_fvjbdr",
+              "mk": null,
+              "tag": "suction",
+              "date": "2026-07-25T01:25:01.339Z",
+              "mode": null,
+              "_mkTs": 0,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784942701339_fvjbdr.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784942701339_fvjbdr.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "badgeText": "3·0%·S",
+              "deletedBy": "",
+              "_annotated": false,
+              "badgeColor": "#46C5E8",
+              "deletedDate": "",
+              "_origBackupId": ""
+            }
+          ],
+          "placard": "164.4",
+          "suction": "50",
+          "cutsheet": "150",
+          "discharge": "240"
+        },
+        {
+          "_ts": 1785561762291,
+          "pct": "100%",
+          "rpm": "2350",
+          "bfUp": "",
+          "flow": 2000,
+          "label": "Rated",
+          "bfDown": "",
+          "photos": [],
+          "placard": "125",
+          "suction": "40",
+          "cutsheet": "125",
+          "discharge": "250"
+        },
+        {
+          "_ts": 1785561762291,
+          "pct": "150%",
+          "rpm": "2350",
+          "bfUp": "",
+          "flow": 3000,
+          "label": "Overload",
+          "bfDown": "",
+          "photos": [],
+          "placard": "86.4",
+          "suction": "30",
+          "cutsheet": "81",
+          "discharge": "89"
+        }
+      ],
+      "smCapVis": {
+        "chart3pt": {
+          "relief": false,
+          "reducing": true
+        },
+        "pldChart": {
+          "pld": true,
+          "relief": true,
+          "reducing": true
+        }
+      },
+      "testType": "std",
+      "pitotRows": {
+        "3a": [],
+        "4b": []
+      },
+      "annDsForce": {
+        "chart3pt": {
+          "0": true,
+          "2": false,
+          "3": true,
+          "4": true,
+          "6": true,
+          "8": true,
+          "9": true,
+          "10": true,
+          "11": true,
+          "12": true,
+          "13": true,
+          "14": true,
+          "15": true
+        },
+        "pldChart": {
+          "0": true,
+          "2": true,
+          "3": true,
+          "5": true,
+          "6": true,
+          "7": true,
+          "10": true,
+          "13": false
+        },
+        "netChart3pt": {
+          "0": true,
+          "1": true,
+          "2": true,
+          "3": false
+        },
+        "pldNetChart": {
+          "1": true,
+          "2": true,
+          "3": true
+        }
+      },
+      "npshPsiPld": "",
+      "sigStrokes": {
+        "sig-canvas": [
+          {
+            "pts": [
+              {
+                "x": 200.20408163265307,
+                "y": 67
+              },
+              {
+                "x": 203.87755102040816,
+                "y": 71
+              },
+              {
+                "x": 205.71428571428572,
+                "y": 73
+              },
+              {
+                "x": 214.89795918367346,
+                "y": 76
+              },
+              {
+                "x": 231.42857142857144,
+                "y": 75
+              },
+              {
+                "x": 272.7551020408163,
+                "y": 54
+              },
+              {
+                "x": 316.83673469387753,
+                "y": 30
+              },
+              {
+                "x": 334.2857142857143,
+                "y": 21
+              },
+              {
+                "x": 333.36734693877554,
+                "y": 21
+              },
+              {
+                "x": 327.8571428571429,
+                "y": 28
+              },
+              {
+                "x": 312.2448979591837,
+                "y": 46
+              },
+              {
+                "x": 301.2244897959184,
+                "y": 67
+              },
+              {
+                "x": 299.38775510204084,
+                "y": 73
+              },
+              {
+                "x": 301.2244897959184,
+                "y": 72
+              },
+              {
+                "x": 317.7551020408163,
+                "y": 59
+              },
+              {
+                "x": 339.7959183673469,
+                "y": 46
+              },
+              {
+                "x": 343.46938775510205,
+                "y": 46
+              },
+              {
+                "x": 343.46938775510205,
+                "y": 49
+              },
+              {
+                "x": 338.8775510204082,
+                "y": 55
+              },
+              {
+                "x": 337.0408163265306,
+                "y": 57
+              },
+              {
+                "x": 345.3061224489796,
+                "y": 49
+              },
+              {
+                "x": 361.83673469387753,
+                "y": 40
+              },
+              {
+                "x": 370.10204081632656,
+                "y": 40
+              },
+              {
+                "x": 372.8571428571429,
+                "y": 55
+              },
+              {
+                "x": 372.8571428571429,
+                "y": 81
+              },
+              {
+                "x": 369.18367346938777,
+                "y": 94
+              },
+              {
+                "x": 369.18367346938777,
+                "y": 95
+              },
+              {
+                "x": 377.44897959183675,
+                "y": 84
+              },
+              {
+                "x": 410.51020408163265,
+                "y": 53
+              },
+              {
+                "x": 444.48979591836735,
+                "y": 33
+              },
+              {
+                "x": 448.16326530612247,
+                "y": 34
+              },
+              {
+                "x": 442.6530612244898,
+                "y": 52
+              },
+              {
+                "x": 437.14285714285717,
+                "y": 77
+              },
+              {
+                "x": 436.2244897959184,
+                "y": 94
+              },
+              {
+                "x": 438.9795918367347,
+                "y": 95
+              },
+              {
+                "x": 449.08163265306126,
+                "y": 85
+              },
+              {
+                "x": 466.53061224489795,
+                "y": 67
+              },
+              {
+                "x": 467.44897959183675,
+                "y": 66
+              },
+              {
+                "x": 467.44897959183675,
+                "y": 74
+              },
+              {
+                "x": 469.2857142857143,
+                "y": 106
+              }
+            ]
+          }
+        ],
+        "sig-canvas-c-2": [
+          {
+            "pts": [
+              {
+                "x": 247.26315789473682,
+                "y": 57
+              },
+              {
+                "x": 247.26315789473682,
+                "y": 58
+              },
+              {
+                "x": 247.26315789473682,
+                "y": 63
+              },
+              {
+                "x": 246.3157894736842,
+                "y": 69
+              },
+              {
+                "x": 241.57894736842104,
+                "y": 77
+              },
+              {
+                "x": 237.78947368421052,
+                "y": 85
+              },
+              {
+                "x": 235.89473684210526,
+                "y": 91
+              },
+              {
+                "x": 235.89473684210526,
+                "y": 96
+              },
+              {
+                "x": 238.73684210526315,
+                "y": 97
+              },
+              {
+                "x": 247.26315789473682,
+                "y": 97
+              },
+              {
+                "x": 272.84210526315786,
+                "y": 84
+              },
+              {
+                "x": 293.6842105263158,
+                "y": 70
+              },
+              {
+                "x": 307.89473684210526,
+                "y": 59
+              },
+              {
+                "x": 308.84210526315786,
+                "y": 58
+              },
+              {
+                "x": 308.84210526315786,
+                "y": 59
+              },
+              {
+                "x": 307.89473684210526,
+                "y": 64
+              },
+              {
+                "x": 307.89473684210526,
+                "y": 70
+              },
+              {
+                "x": 307.89473684210526,
+                "y": 71
+              },
+              {
+                "x": 310.7368421052631,
+                "y": 72
+              },
+              {
+                "x": 329.6842105263158,
+                "y": 73
+              },
+              {
+                "x": 354.31578947368416,
+                "y": 71
+              },
+              {
+                "x": 371.36842105263156,
+                "y": 69
+              },
+              {
+                "x": 374.2105263157895,
+                "y": 69
+              },
+              {
+                "x": 374.2105263157895,
+                "y": 74
+              },
+              {
+                "x": 375.1578947368421,
+                "y": 83
+              },
+              {
+                "x": 378,
+                "y": 85
+              },
+              {
+                "x": 379.89473684210526,
+                "y": 85
+              },
+              {
+                "x": 399.7894736842105,
+                "y": 80
+              },
+              {
+                "x": 427.2631578947368,
+                "y": 68
+              },
+              {
+                "x": 446.2105263157894,
+                "y": 63
+              },
+              {
+                "x": 448.10526315789474,
+                "y": 64
+              },
+              {
+                "x": 448.10526315789474,
+                "y": 74
+              },
+              {
+                "x": 448.10526315789474,
+                "y": 79
+              },
+              {
+                "x": 450,
+                "y": 76
+              },
+              {
+                "x": 464.2105263157894,
+                "y": 52
+              },
+              {
+                "x": 477.4736842105263,
+                "y": 33
+              },
+              {
+                "x": 478.4210526315789,
+                "y": 32
+              },
+              {
+                "x": 477.4736842105263,
+                "y": 36
+              },
+              {
+                "x": 473.6842105263158,
+                "y": 56
+              },
+              {
+                "x": 470.84210526315786,
+                "y": 71
+              },
+              {
+                "x": 469.89473684210526,
+                "y": 73
+              },
+              {
+                "x": 468.9473684210526,
+                "y": 72
+              },
+              {
+                "x": 459.4736842105263,
+                "y": 51
+              },
+              {
+                "x": 444.31578947368416,
+                "y": 24
+              },
+              {
+                "x": 434.84210526315786,
+                "y": 14
+              },
+              {
+                "x": 432.9473684210526,
+                "y": 18
+              },
+              {
+                "x": 398.84210526315786,
+                "y": 61
+              },
+              {
+                "x": 391.2631578947368,
+                "y": 64
+              }
+            ]
+          },
+          {
+            "pts": [
+              {
+                "x": 382.7368421052631,
+                "y": 63
+              },
+              {
+                "x": 383.6842105263158,
+                "y": 63
+              },
+              {
+                "x": 390.31578947368416,
+                "y": 66
+              },
+              {
+                "x": 400.7368421052631,
+                "y": 69
+              },
+              {
+                "x": 419.6842105263158,
+                "y": 71
+              },
+              {
+                "x": 458.52631578947364,
+                "y": 73
+              },
+              {
+                "x": 506.84210526315786,
+                "y": 78
+              },
+              {
+                "x": 554.2105263157895,
+                "y": 81
+              },
+              {
+                "x": 575.0526315789473,
+                "y": 81
+              },
+              {
+                "x": 579.7894736842105,
+                "y": 81
+              }
+            ]
+          }
+        ],
+        "sig-canvas-c-100": [
+          {
+            "pts": [
+              {
+                "x": 247.26315789473682,
+                "y": 118
+              },
+              {
+                "x": 247.26315789473682,
+                "y": 117
+              },
+              {
+                "x": 247.26315789473682,
+                "y": 116
+              },
+              {
+                "x": 249.15789473684208,
+                "y": 110
+              },
+              {
+                "x": 263.36842105263156,
+                "y": 88
+              },
+              {
+                "x": 282.3157894736842,
+                "y": 70
+              },
+              {
+                "x": 297.4736842105263,
+                "y": 62
+              },
+              {
+                "x": 300.3157894736842,
+                "y": 60
+              },
+              {
+                "x": 302.2105263157895,
+                "y": 65
+              },
+              {
+                "x": 305.05263157894734,
+                "y": 77
+              },
+              {
+                "x": 307.89473684210526,
+                "y": 84
+              },
+              {
+                "x": 313.57894736842104,
+                "y": 87
+              },
+              {
+                "x": 329.6842105263158,
+                "y": 84
+              },
+              {
+                "x": 353.36842105263156,
+                "y": 71
+              },
+              {
+                "x": 365.6842105263158,
+                "y": 64
+              },
+              {
+                "x": 368.52631578947364,
+                "y": 64
+              },
+              {
+                "x": 371.36842105263156,
+                "y": 70
+              },
+              {
+                "x": 374.2105263157895,
+                "y": 81
+              },
+              {
+                "x": 377.05263157894734,
+                "y": 86
+              },
+              {
+                "x": 379.89473684210526,
+                "y": 87
+              },
+              {
+                "x": 385.57894736842104,
+                "y": 86
+              },
+              {
+                "x": 394.10526315789474,
+                "y": 71
+              },
+              {
+                "x": 395.05263157894734,
+                "y": 60
+              },
+              {
+                "x": 394.10526315789474,
+                "y": 69
+              },
+              {
+                "x": 396,
+                "y": 89
+              },
+              {
+                "x": 400.7368421052631,
+                "y": 97
+              },
+              {
+                "x": 411.1578947368421,
+                "y": 97
+              },
+              {
+                "x": 435.7894736842105,
+                "y": 73
+              },
+              {
+                "x": 447.1578947368421,
+                "y": 50
+              }
+            ]
+          },
+          {
+            "pts": [
+              {
+                "x": 376.10526315789474,
+                "y": 28
+              },
+              {
+                "x": 375.1578947368421,
+                "y": 37
+              },
+              {
+                "x": 375.1578947368421,
+                "y": 65
+              },
+              {
+                "x": 378.9473684210526,
+                "y": 95
+              },
+              {
+                "x": 387.4736842105263,
+                "y": 116
+              },
+              {
+                "x": 396,
+                "y": 124
+              },
+              {
+                "x": 399.7894736842105,
+                "y": 124
+              },
+              {
+                "x": 400.7368421052631,
+                "y": 117
+              },
+              {
+                "x": 401.6842105263158,
+                "y": 105
+              },
+              {
+                "x": 400.7368421052631,
+                "y": 90
+              },
+              {
+                "x": 397.89473684210526,
+                "y": 79
+              },
+              {
+                "x": 396,
+                "y": 77
+              },
+              {
+                "x": 403.57894736842104,
+                "y": 86
+              },
+              {
+                "x": 414.9473684210526,
+                "y": 96
+              },
+              {
+                "x": 424.4210526315789,
+                "y": 100
+              },
+              {
+                "x": 434.84210526315786,
+                "y": 96
+              },
+              {
+                "x": 445.2631578947368,
+                "y": 80
+              },
+              {
+                "x": 454.7368421052631,
+                "y": 60
+              },
+              {
+                "x": 459.4736842105263,
+                "y": 46
+              },
+              {
+                "x": 460.4210526315789,
+                "y": 46
+              },
+              {
+                "x": 464.2105263157894,
+                "y": 49
+              },
+              {
+                "x": 470.84210526315786,
+                "y": 61
+              },
+              {
+                "x": 477.4736842105263,
+                "y": 70
+              },
+              {
+                "x": 481.2631578947368,
+                "y": 72
+              },
+              {
+                "x": 486.9473684210526,
+                "y": 69
+              },
+              {
+                "x": 494.52631578947364,
+                "y": 55
+              },
+              {
+                "x": 504.9473684210526,
+                "y": 41
+              },
+              {
+                "x": 518.2105263157895,
+                "y": 34
+              },
+              {
+                "x": 528.6315789473684,
+                "y": 37
+              },
+              {
+                "x": 537.1578947368421,
+                "y": 50
+              },
+              {
+                "x": 545.6842105263157,
+                "y": 63
+              },
+              {
+                "x": 550.421052631579,
+                "y": 67
+              },
+              {
+                "x": 552.3157894736842,
+                "y": 67
+              },
+              {
+                "x": 558.9473684210526,
+                "y": 61
+              },
+              {
+                "x": 579.7894736842105,
+                "y": 47
+              },
+              {
+                "x": 602.5263157894736,
+                "y": 33
+              },
+              {
+                "x": 620.5263157894736,
+                "y": 28
+              },
+              {
+                "x": 626.2105263157895,
+                "y": 30
+              },
+              {
+                "x": 630,
+                "y": 39
+              },
+              {
+                "x": 630.9473684210526,
+                "y": 44
+              },
+              {
+                "x": 630,
+                "y": 44
+              },
+              {
+                "x": 623.3684210526316,
+                "y": 39
+              },
+              {
+                "x": 619.578947368421,
+                "y": 38
+              },
+              {
+                "x": 616.7368421052631,
+                "y": 41
+              },
+              {
+                "x": 609.1578947368421,
+                "y": 57
+              },
+              {
+                "x": 592.1052631578947,
+                "y": 79
+              },
+              {
+                "x": 577.8947368421052,
+                "y": 85
+              },
+              {
+                "x": 567.4736842105262,
+                "y": 85
+              },
+              {
+                "x": 558,
+                "y": 78
+              },
+              {
+                "x": 545.6842105263157,
+                "y": 67
+              },
+              {
+                "x": 528.6315789473684,
+                "y": 51
+              },
+              {
+                "x": 512.5263157894736,
+                "y": 41
+              },
+              {
+                "x": 507.7894736842105,
+                "y": 40
+              },
+              {
+                "x": 504,
+                "y": 41
+              },
+              {
+                "x": 503.05263157894734,
+                "y": 47
+              },
+              {
+                "x": 503.05263157894734,
+                "y": 54
+              },
+              {
+                "x": 510.6315789473684,
+                "y": 64
+              },
+              {
+                "x": 529.578947368421,
+                "y": 85
+              },
+              {
+                "x": 559.8947368421052,
+                "y": 107
+              },
+              {
+                "x": 592.1052631578947,
+                "y": 118
+              },
+              {
+                "x": 613.8947368421052,
+                "y": 115
+              },
+              {
+                "x": 630,
+                "y": 104
+              },
+              {
+                "x": 638.5263157894736,
+                "y": 88
+              },
+              {
+                "x": 638.5263157894736,
+                "y": 76
+              },
+              {
+                "x": 634.7368421052631,
+                "y": 69
+              },
+              {
+                "x": 631.8947368421052,
+                "y": 67
+              }
+            ]
+          }
+        ]
+      },
+      "clSchemaVer": 2,
+      "contractors": [
+        "ABC sprinkler"
+      ],
+      "customEquip": {
+        "3a": [],
+        "4b": []
+      },
+      "customItems": {},
+      "deficiencies": {
+        "ABC sprinkler": [
+          {
+            "id": "def_ms8dmgvw_fn4ptq",
+            "_ts": 1785561762291,
+            "date": "",
+            "photos": [
+              {
+                "d": "",
+                "n": "camera_1784945947376_1.jpg",
+                "id": "ph_1784945949016_3evg7s",
+                "mk": null,
+                "tag": "",
+                "_mkTs": 0,
+                "delAt": "",
+                "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784945949016_3evg7s.jpg",
+                "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784945949016_3evg7s.jpg",
+                "caption": "",
+                "deleted": false,
+                "delState": "live",
+                "r2Status": "uploaded",
+                "rotation": 0,
+                "badgeText": "D1",
+                "deletedBy": "",
+                "_annotated": false,
+                "badgeColor": "#A85959",
+                "deletedDate": "",
+                "_origBackupId": ""
+              }
+            ],
+            "status": "open",
+            "priority": "high",
+            "iarStatus": true,
+            "responses": [],
+            "description": "Test 123",
+            "isSiteRecord": true,
+            "isRecommendation": false
+          }
+        ]
+      },
+      "deletedItems": {},
+      "distribution": [
+        "Classic Fire + Life Safety",
+        "Iron Mountain Canada Corp."
+      ],
+      "equipChecked": [],
+      "formRevision": "A02",
+      "recordPhotos": [
+        {
+          "d": "",
+          "n": "Screenshot 2024-08-21 1442501.png",
+          "id": "ph_orig_1781222077944_ofeztd",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-11T23:54:37.944Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "delAt": "",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781101762978_gyo11o.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781101762978_gyo11o.jpg",
+          "caption": "Original",
+          "deleted": false,
+          "delState": "live",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "badgeText": "Site",
+          "deletedBy": "",
+          "_annotated": false,
+          "badgeColor": "#6E6AA8",
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "image1.png",
+          "id": "ph_orig_1781227417496_gtqr1n",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-10T04:28:00.695Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "delAt": "",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065680695_rtkgqs.jpg",
+          "caption": "Original",
+          "deleted": false,
+          "delState": "live",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "badgeText": "Site",
+          "deletedBy": "",
+          "_annotated": false,
+          "badgeColor": "#6E6AA8",
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+          "id": "ph_orig_1781266477764_n1n3ti",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-10T04:09:41.956Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "delAt": "",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781064581956_5m82th.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781064581956_5m82th.jpg",
+          "caption": "Original",
+          "deleted": false,
+          "delState": "live",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "badgeText": "Site",
+          "deletedBy": "",
+          "_annotated": false,
+          "badgeColor": "#6E6AA8",
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+          "id": "ph_orig_1781266665299_86n7nl",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-12T12:17:45.299Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "delAt": "",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065669134_s5rba0.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781065669134_s5rba0.jpg",
+          "caption": "Original",
+          "deleted": false,
+          "delState": "live",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "badgeText": "Site",
+          "deletedBy": "",
+          "_annotated": false,
+          "badgeColor": "#6E6AA8",
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "image1.png",
+          "id": "ph_orig_1781378325600_dzmy91",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-13T19:18:45.600Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "delAt": "",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781378318909_9txkc5.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781378318909_9txkc5.jpg",
+          "caption": "Original",
+          "deleted": false,
+          "delState": "live",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "badgeText": "Site",
+          "deletedBy": "",
+          "_annotated": false,
+          "badgeColor": "#6E6AA8",
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "Screenshot_20260612_202451_Outlook.jpg",
+          "id": "ph_1781410885540_sm2vzf",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-14T04:21:25.540Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "delAt": "2026-07-26T06:29:53.608Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781410885540_sm2vzf.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781410885540_sm2vzf.jpg",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-26T06:29:53.608Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "IMG_3706.jpeg",
+          "id": "ph_1781447244739_zcfmz6",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-14T14:27:24.739Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "delAt": "2026-07-26T06:15:38.731Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781447244739_zcfmz6.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781447244739_zcfmz6.jpg",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-26T06:15:38.731Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "IMG_3719.png",
+          "id": "ph_1781449044607_ejxtqk",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-14T14:57:24.607Z",
+          "kind": "placard-pld",
+          "_mkTs": 0,
+          "delAt": "2026-07-26T06:16:12.346Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781449044607_ejxtqk.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781449044607_ejxtqk.jpg",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-26T06:16:12.346Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "IMG_3719.png",
+          "id": "ph_1781455159378_bazvp0",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-14T16:39:19.378Z",
+          "kind": "placard-pld",
+          "_mkTs": 0,
+          "delAt": "2026-07-26T06:16:10.616Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455159378_bazvp0.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455159378_bazvp0.jpg",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-26T06:16:10.616Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "IMG_3706.jpeg",
+          "id": "ph_1781455177653_u5kiee",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-14T16:39:37.653Z",
+          "kind": "placard-pld",
+          "_mkTs": 0,
+          "delAt": "",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455177653_u5kiee.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781455177653_u5kiee.jpg",
+          "caption": "",
+          "deleted": false,
+          "delState": "live",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "badgeText": "7·Placard",
+          "deletedBy": "",
+          "_annotated": false,
+          "badgeColor": "#6E6AA8",
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "content.png",
+          "id": "ph_1781459679565_jt7dnu",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-14T17:54:39.565Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "delAt": "2026-07-26T06:15:42.413Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459679565_jt7dnu.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459679565_jt7dnu.jpg",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-26T06:15:42.413Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+          "id": "ph_1781459682309_4j1pok",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-14T17:54:42.309Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "delAt": "2026-07-26T06:15:40.929Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459682309_4j1pok.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_1781459682309_4j1pok.jpg",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-26T06:15:40.929Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_4_5.jpeg",
+          "id": "ph_orig_1782702707124_pdmvq8",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-06-15T04:08:59.489Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "delAt": "",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_orig_1782702707124_pdmvq8.jpg",
+          "r2Url": "https://files.arencon.app/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/ph_orig_1782702707124_pdmvq8.jpg",
+          "caption": "Original (original)",
+          "deleted": false,
+          "delState": "live",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "badgeText": "Site",
+          "deletedBy": "",
+          "_annotated": false,
+          "badgeColor": "#6E6AA8",
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+          "id": "ph_1783480156553_lb0ngu",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-07-08T03:09:16.534Z",
+          "kind": "site",
+          "_mkTs": 1783728270578,
+          "delAt": "2026-07-19T01:13:27.402Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_orig_1783724601372_yirnbe.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_orig_1783724601372_yirnbe.jpg",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-19T01:13:27.402Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "content.png",
+          "id": "ph_orig_1783803927814_k0sjx8",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-07-11T21:05:27.814Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "delAt": "2026-07-19T01:13:25.350Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_orig_1783803927814_k0sjx8.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_orig_1783803927814_k0sjx8.jpg",
+          "caption": "Original",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-19T01:13:25.350Z",
+          "_isOrigBackup": true,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "camera_1784423348719_1.jpg",
+          "id": "ph_1784423349598_oxpwzq",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-07-19T01:09:09.514Z",
+          "kind": "site",
+          "_mkTs": 0,
+          "delAt": "2026-07-19T01:09:35.732Z",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784423349598_oxpwzq.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784423349598_oxpwzq.jpg",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-19T01:09:35.732Z",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        },
+        {
+          "d": "",
+          "n": "IMG_3706.jpeg",
+          "id": "ph_1785047397372_7gc6bg",
+          "mk": null,
+          "_ts": 1785561762291,
+          "date": "2026-07-26T06:29:57.360Z",
+          "kind": "placard",
+          "_mkTs": 0,
+          "delAt": "",
+          "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1785047397372_7gc6bg.jpg",
+          "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1785047397372_7gc6bg.jpg",
+          "caption": "",
+          "deleted": false,
+          "delState": "live",
+          "r2Status": "uploaded",
+          "rotation": 0,
+          "badgeText": "3·Placard",
+          "deletedBy": "",
+          "_annotated": false,
+          "badgeColor": "#6E6AA8",
+          "deletedDate": "",
+          "_isOrigBackup": false,
+          "_origBackupId": ""
+        }
+      ],
+      "sketchEntries": [
+        {
+          "id": "sk_ms8dmgvw_07rly1",
+          "_ts": 1785468129813,
+          "comment": "Pump room layout — diesel tank containment area showing unsealed concrete (Deficiency #1). Dike perimeter marked in red.",
+          "markupImg": null
+        },
+        {
+          "id": "sk_ms8dmgvw_oowznj",
+          "_ts": 1785468129813,
+          "comment": "",
+          "markupImg": null
+        },
+        {
+          "id": "sk_ms8dmgvw_ukoq53",
+          "_ts": 1785468129813,
+          "comment": "",
+          "markupImg": null
+        },
+        {
+          "id": "sk_ms8dmgvw_o4uhq7",
+          "_ts": 1785468129813,
+          "comment": "",
+          "markupImg": null
+        }
+      ],
+      "equipChecked4b": [],
+      "flowTestPhotos": [
+        {
+          "d": "",
+          "n": "0a79543046919e04bd26bbc65f9a99ce_V1_0_2_3.jpeg",
+          "id": "ph_1785468128251_9qzrbr",
+          "mk": null,
+          "_ts": 1785561762291,
+          "tag": "",
+          "_mkTs": 0,
+          "delAt": "2026-07-19T01:13:35.403Z",
+          "r2Key": "",
+          "r2Url": "",
+          "caption": "",
+          "deleted": true,
+          "delState": "deleted",
+          "r2Status": "",
+          "rotation": 0,
+          "deletedBy": "user",
+          "_annotated": false,
+          "deletedDate": "2026-07-19T01:13:35.403Z",
+          "_origBackupId": ""
+        }
+      ],
+      "pumpCurvePoints": [
+        {
+          "psi": "",
+          "flow": ""
+        }
+      ],
+      "witnessSignRows": [],
+      "appendixExcluded": [],
+      "contractorTrades": {},
+      "formDateModified": "2026-08-01",
+      "flowTestPhotosPld": [],
+      "contractorSignRows": [
+        {
+          "id": "sig_ms9x9vlw_f2c7vu",
+          "_ts": 1785561600877,
+          "date": "",
+          "name": "",
+          "type": "contractor",
+          "title": "",
+          "company": ""
+        }
+      ],
+      "pldPumpCurvePoints": [
+        {
+          "psi": "",
+          "flow": ""
+        }
+      ],
+      "generalDeficiencies": [
+        {
+          "id": "gdef_ms8dmgvw_p13r17",
+          "_ts": 1785561762291,
+          "date": "",
+          "photos": [
+            {
+              "d": "",
+              "n": "camera_1784944521412_1.jpg",
+              "id": "ph_1784944522292_euhcbm",
+              "mk": null,
+              "tag": "",
+              "_mkTs": 0,
+              "delAt": "",
+              "r2Key": "photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784944522292_euhcbm.jpg",
+              "r2Url": "https://arencon-r2-worker.hezhendong999.workers.dev/photos/7249121d-463e-416e-a3aa-643910f3f6a7/diesel/original/c6036627-3615-4dc0-bda2-bbf4c5d1c179__ph_1784944522292_euhcbm.jpg",
+              "caption": "",
+              "deleted": false,
+              "delState": "live",
+              "r2Status": "uploaded",
+              "rotation": 0,
+              "badgeText": "G1",
+              "deletedBy": "",
+              "_annotated": false,
+              "badgeColor": "#6E86B8",
+              "deletedDate": "",
+              "_origBackupId": ""
+            }
+          ],
+          "status": "open",
+          "priority": "high",
+          "iarStatus": false,
+          "responses": [],
+          "description": "1234",
+          "isSiteRecord": false,
+          "isRecommendation": true
+        },
+        {
+          "id": "gdef_ms8dmgvw_cexadk",
+          "_ts": 1785468129813,
+          "date": "",
+          "photos": [],
+          "status": "open",
+          "priority": "low",
+          "iarStatus": false,
+          "responses": [],
+          "description": "",
+          "isSiteRecord": false,
+          "isRecommendation": false
+        },
+        {
+          "id": "gdef_ms8dmgvw_c81onj",
+          "_ts": 1785468129813,
+          "date": "",
+          "photos": [],
+          "status": "open",
+          "priority": "high",
+          "iarStatus": false,
+          "responses": [],
+          "description": "",
+          "isSiteRecord": false,
+          "isRecommendation": false
+        },
+        {
+          "id": "gdef_ms8dmgvw_gum22n",
+          "_ts": 1785468129813,
+          "date": "",
+          "photos": [],
+          "status": "resolved",
+          "priority": "high",
+          "iarStatus": false,
+          "responses": [],
+          "description": "",
+          "isSiteRecord": false,
+          "isRecommendation": false
+        }
+      ]
+    },
+    "status": "draft",
+    "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
+    "updated_by": null,
+    "created_at": "2026-03-20T17:18:44.857681+00:00",
+    "updated_at": "2026-08-01T05:22:42.362543+00:00",
+    "owner_label": null,
     "deleted_at": null,
     "deleted_by": null
   },
