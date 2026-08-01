@@ -526,3 +526,12 @@ createPhotoStore
 
 @ S549 Photo Store Check is ON SCREEN (More menu), not a console command. The field tablets are the installed Android app: no console, no address bar. The photo store is PER-DEVICE, so running a check on a desktop answers about the desktop — the only device whose answer matters is the one that took the photos. Without this there is no way to satisfy the copy/verify/release gate before Diesel's inline photo copy is retired, and deleting the inline copy while the store is short would destroy the last local copy of those photos. Read-only by design: it counts and reports, never writes, deletes or uploads. Keep it plain-language and keep the paused state visible — a device low on storage is the main reason the store falls behind, and it must say so rather than just showing a low number.
 _dslPhotoStoreCheck
+
+# S548 — FRT burst photo batching (Mark-specified). One repaint per burst
+# instead of one per photo; removes the redraw mechanism that destroyed typed
+# comments on 7033.13. Removing any of these puts the per-photo repaint back.
+_addPhotoFiles
+_photoBatchBegin
+_photoBatchPaint
+_photoBatchTick
+_burstCtx

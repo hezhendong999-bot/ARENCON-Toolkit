@@ -4719,7 +4719,7 @@ PhotoInput.mount({
     var did = ctx['defic-id'];
     var oi = parseInt(ctx['obs-idx'] || '0', 10);
     if (!did) return;
-    for (var i = 0; i < files.length; i++) _compressAndAdd(files[i], did, oi);
+    _addPhotoFiles(files, did, oi);   // S548: one repaint for the whole set
   },
   onGallery: function(ctx) {
     // Route to the EXISTING gallery-pick handler rather than reimplementing it.
@@ -7479,7 +7479,93 @@ Model.onChange('saved', function() {
 var _photoTargetDeficId = null;
 var _photoTargetObsIdx = 0;
 
-function _compressAndAdd(file, deficId, obsIdx) {
+// ── S548 — ONE REDRAW PER BURST, NOT ONE PER PHOTO. ───────────────────────
+// A twelve-shot burst rebuilt the entire deficiency screen twelve times and
+// fired twelve toasts. Every rebuild tore down and re-created the comment box
+// the inspector was typing into — the mechanism behind the comments lost on
+// 7033.13. Typing has committed on every keystroke since S528 so there is
+// nothing left in the box to lose, but this removes the mechanism instead of
+// leaving the guard in front of it to hold forever.
+//
+// WHAT DOES NOT CHANGE: every photo is still written to the model and queued
+// for upload the instant it is compressed. Only the repaint is deferred.
+// Data first, picture second — the S528 rule pointed the other way.
+var _photoBatch = null;   // { total, done, added }
+
+// Returns true when the caller's photos belong to a batch. A batch already in
+// flight absorbs the new files rather than starting a second counter.
+function _photoBatchBegin(n) {
+  if (n <= 1 && !_photoBatch) return false;
+  if (_photoBatch) _photoBatch.total += n;
+  else _photoBatch = { total: n, done: 0, added: 0 };
+  _photoBatchPaint();
+  return true;
+}
+
+// Quiet progress pill. Deliberately not a toast: with the per-photo repaint
+// gone the screen sits still for several seconds after Done, and silence there
+// reads as a hang and gets tapped again. Pointer-events off so it can never
+// swallow a tap.
+function _photoBatchPaint() {
+  var el = document.getElementById('frt-photo-batch');
+  if (!_photoBatch) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'frt-photo-batch';
+    el.setAttribute('aria-live', 'polite');
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+      'z-index:9600;font-family:Calibri,sans-serif;font-size:14px;font-weight:600;' +
+      'padding:8px 16px;border-radius:999px;pointer-events:none;white-space:nowrap;' +
+      'background:var(--card,#ffffff);color:var(--fg,#1C2333);' +
+      'border:1px solid var(--border,#DDE1E7);box-shadow:0 2px 12px rgba(28,35,51,.10);';
+    document.body.appendChild(el);
+  }
+  el.textContent = 'Adding photos \u2014 ' + _photoBatch.done + ' of ' + _photoBatch.total;
+}
+
+// Called exactly once per photo, success or failure. A photo that fails to
+// compress must still tick or the batch never closes and the screen never
+// repaints — the failure mode would be worse than the bug being fixed.
+function _photoBatchTick(ok) {
+  if (!_photoBatch) return;
+  _photoBatch.done++;
+  if (ok) _photoBatch.added++;
+  if (_photoBatch.done < _photoBatch.total) { _photoBatchPaint(); return; }
+  var added = _photoBatch.added, total = _photoBatch.total;
+  _photoBatch = null;
+  _photoBatchPaint();
+  initDeficiencies.render();
+  if (added === total) toast(added === 1 ? 'Photo added' : added + ' photos added');
+  else toast('\u26A0 ' + added + ' of ' + total + ' photos added', 6000);
+}
+
+// EVERY photo entry point funnels through here — camera, upload, drag-drop,
+// gallery — so batching is not something a future call site can forget.
+function _addPhotoFiles(files, deficId, obsIdx) {
+  var list = [];
+  for (var i = 0; i < (files ? files.length : 0); i++) {
+    var f = files[i];
+    if (f && (!f.type || f.type.indexOf('image/') === 0)) list.push(f);
+  }
+  if (!list.length) return;
+  var batched = _photoBatchBegin(list.length);
+  for (var j = 0; j < list.length; j++) _compressAndAdd(list[j], deficId, obsIdx, batched);
+}
+
+// S548: context for the burst camera's crash-recovery bar. Without a label it
+// offers "an interrupted session"; with one it names the deficiency the shots
+// were meant for, so an inspector recovering after a crash knows where they go.
+function _burstCtx(deficId) {
+  var pid = null, label = null;
+  try { pid = new URLSearchParams(window.location.search).get('project'); } catch (_) {}
+  try {
+    var f = Model.findDeficiency(deficId);
+    if (f && f.defic) label = 'Deficiency #' + (f.defic.num != null ? f.defic.num : '?');
+  } catch (_) {}
+  return { projectId: pid, tool: 'frt', label: label };
+}
+
+function _compressAndAdd(file, deficId, obsIdx, batched) {
   // S130 5.4: compression in worker (OffscreenCanvas). The R2 upload that
   // follows is unchanged in PROD — still routed through R2.uploadPhoto which
   // goes through UploadQueue (S130 5.1) for concurrency control.
@@ -7488,11 +7574,12 @@ function _compressAndAdd(file, deficId, obsIdx) {
   // instead. PROD behavior is byte-for-byte unchanged. The two branches
   // share the same compression + addObservationPhoto preamble; only the
   // R2-side enqueue differs.
-  ImageWorkerHost.compressFile(file, { maxW: 1600, quality: 0.8 })
+  return ImageWorkerHost.compressFile(file, { maxW: 1600, quality: 0.8 })
     .then(function(r) {
       var photo = Model.addObservationPhoto(deficId, obsIdx, r.dataUrl);
-      initDeficiencies.render();
-      toast('Photo added');
+      // S548: in a batch the screen repaints once, at the end, from the tick.
+      if (batched) _photoBatchTick(true);
+      else { initDeficiencies.render(); toast('Photo added'); }
       var pid = new URLSearchParams(window.location.search).get('project');
       if (!(pid && photo)) return;
 
@@ -7599,6 +7686,8 @@ function _compressAndAdd(file, deficId, obsIdx) {
       }
       console.warn('[Deficiencies] photo compression failed:', err, d);
       toast('\u26A0 Photo failed: ' + em + ' \u00B7 ' + bits.join(' \u00B7 '), 8000);
+      // S548: a failed photo MUST still close its slot in the batch.
+      if (batched) _photoBatchTick(false);
     });
 }
 
@@ -7626,13 +7715,13 @@ document.addEventListener('click', function(e) {
         inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
         inp.onchange = function() {
           if (!inp.files || !inp.files.length) return;
-          for (var i = 0; i < inp.files.length; i++) _compressAndAdd(inp.files[i], tgtDefic, tgtObs);
+          _addPhotoFiles(inp.files, tgtDefic, tgtObs);
         };
         inp.click();
       }
-      openCameraBurst().then(function(files) {
+      openCameraBurst(_burstCtx(tgtDefic)).then(function(files) {
         if (files === null) { _filePick(); return; } // unsupported/denied → upload fallback
-        for (var i = 0; i < files.length; i++) _compressAndAdd(files[i], tgtDefic, tgtObs);
+        _addPhotoFiles(files, tgtDefic, tgtObs);
       }).catch(function(){ _filePick(); });
     })(_photoTargetDeficId, _photoTargetObsIdx);
     return;
@@ -7655,11 +7744,9 @@ document.addEventListener('click', function(e) {
     // gesture-gated capture clicks are silently blocked — S159 V-7 lesson).
     if (action === 'photo-camera') {
       (function(tgtDefic, tgtObs) {
-        openCameraBurst().then(function(files) {
+        openCameraBurst(_burstCtx(tgtDefic)).then(function(files) {
           if (files === null) { toast('Camera unavailable \u2014 use the Upload button instead'); return; }
-          for (var i = 0; i < files.length; i++) {
-            _compressAndAdd(files[i], tgtDefic, tgtObs);
-          }
+          _addPhotoFiles(files, tgtDefic, tgtObs);
         });
       })(_photoTargetDeficId, _photoTargetObsIdx);
       return;
@@ -7678,9 +7765,7 @@ document.addEventListener('click', function(e) {
     inp.multiple = true;
     inp.onchange = function() {
       if (!inp.files || !inp.files.length) return;
-      for (var i = 0; i < inp.files.length; i++) {
-        _compressAndAdd(inp.files[i], _photoTargetDeficId, _photoTargetObsIdx);
-      }
+      _addPhotoFiles(inp.files, _photoTargetDeficId, _photoTargetObsIdx);
     };
     inp.click();
   }
@@ -7707,11 +7792,8 @@ document.addEventListener('drop', function(e) {
   var deficId = zone.getAttribute('data-defic-id');
   var obsIdx = parseInt(zone.getAttribute('data-obs-idx') || '0');
   if (!deficId || !e.dataTransfer || !e.dataTransfer.files) return;
-  for (var i = 0; i < e.dataTransfer.files.length; i++) {
-    if (e.dataTransfer.files[i].type.startsWith('image/')) {
-      _compressAndAdd(e.dataTransfer.files[i], deficId, obsIdx);
-    }
-  }
+  // S548: _addPhotoFiles applies the same image/* filter this loop did.
+  _addPhotoFiles(e.dataTransfer.files, deficId, obsIdx);
 });
 
 // S342 (Mark): click-to-add on the photo zone (matches Diesel _boxUp). Tapping
@@ -7758,7 +7840,7 @@ document.addEventListener('click', function(e) {
     inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
     inp.onchange = function() {
       if (!inp.files || !inp.files.length) return;
-      for (var i = 0; i < inp.files.length; i++) _compressAndAdd(inp.files[i], tgtDefic, tgtObs);
+      _addPhotoFiles(inp.files, tgtDefic, tgtObs);
     };
     inp.click();
   })(deficId, obsIdx);
