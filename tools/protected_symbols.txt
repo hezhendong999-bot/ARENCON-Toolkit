@@ -489,3 +489,15 @@ _markupDiagReport
 
 @ S543 Field Heights commit as typed (Mark; Ian's 7033.13 measurements). Lane C's S539 gave rows permanent ids, which stopped two devices cross-pairing rows by position. This closes the other half: until Save was pressed a typed height existed ONLY in the text box, so closing the panel, a phone call, sleep or a repaint lost a whole column with no warning and nothing to recover. _commitHeightsLive() writes through on every keystroke, on row delete, on panel close and on visibilitychange-hidden, keyed by the row's permanent data-hid, NEVER by position. Same rule as S528: cosmetics may debounce; the model write may not. Do not reintroduce Save as the only commit point in this or any editor.
 _commitHeightsLive
+
+
+@ S544 burst shots written to disk as the shutter fires (Mark, Lane C #1 — largest single-moment loss window in the toolkit). Until S544 a burst lived ENTIRELY in memory until Done: a crash, an OOM kill, a lock-screen eviction or a stray back-swipe part way through lost every shot in it, and holding N full-resolution frames is itself what pushes the WebView into the crash (why the capture ladder is capped, S482). Each shot now goes to its own IndexedDB (ARENCON_BURST) the instant it is taken and the full-resolution bytes are released in favour of a ~1280px preview; Done reads the originals back off disk and hands the caller the SAME File[] contract, so FRT/Diesel/Electric benefit with no change of their own. Records are marked handed-off ONLY once the tool has actually received them — anything left behind by an interrupted session is offered back at the next camera open ("Add" / "Keep for later", nothing deleted, nothing added without a tap). Cancel is an explicit discard and clears that session; a crash is NOT a cancel and must never take that path. Every disk failure degrades to the pre-S544 in-memory behaviour — never to a lost shot. NEVER return to holding the burst in memory, and never delete a record that has not been handed to a tool.
+_bSweep
+_bMarkHandedOff
+_discardSession
+_materialize
+
+
+@ S544 Diesel photo rescue reading from the S537 photo store (Mark, Lane C #2). S537 built Diesel's own binary copy of every photo and filled it, but nothing read from it, so Diesel photos were still not rescuable. Diesel now runs the shared photo engine's rescue pass: a photo whose stored file has gone missing is re-uploaded from THIS device's own copy the next time the report is opened here, and a photo with no image anywhere is reported rather than silently occupying a tile. ONLY the rescue pass is on — Diesel keeps its own upload queue, and the shared uploader / pull-time re-injection walk FRT's report shape and stay dormant by design. `projectId` is a REQUIRED injection for Diesel: its report payload has no top-level id (verified against the live collect), so without it verifyR2Keys quits on its first line and the registration is coverage the code does not deliver — the S532/S540 failure mode. Do not remove the resolver, and do not register another tool without first verifying where its project id actually lives.
+DieselPhotoEngine
+DieselR2

@@ -89,3 +89,12 @@ lib/export/capturePdf.js
 vendor/html2canvas.min.js
 vendor/pdf-lib.min.js
 lib/data/photoLinkMint.js
+
+# ── S544: help panel stylesheet ───────────────────────────────────────────
+# Linked at runtime by JS INSIDE a shadow root (frt/js/app.js,
+# diesel-app/js/part06.js, ARENCON_Project_Hub.html) via lk.href = '...', which
+# the static scanner cannot see — so the first generated list dropped it. Offline
+# that means an unstyled Help panel on every tool. viewerChrome.css and
+# backButton.js were dropped in the same pass and are genuinely unreferenced
+# (verified by grep across every html/js file); they stay out.
+lib/ui/helpPanel.css

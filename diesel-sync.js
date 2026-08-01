@@ -51,14 +51,19 @@
 import { Auth } from './lib/shared/auth.js';
 import { createIDB } from './lib/data/idb.js';
 import { createSync } from './lib/data/sync.js';
+import { createBinaryOutbox } from './lib/data/photoOutbox.js';   // S544: shared photo rescue
 import { merge3, applyResolutions, summarizeConflict } from './lib/data/merge.js';
 import * as Dlg from './lib/ui/dialogEngine.js';
 
 /* ── Sync-only metadata DB (NEW — never touches ARENCON_DIESEL) ─────────── */
+/* S544: version 2 adds 'photoOutbox' — the bookkeeping store the shared photo
+   engine needs. Upgrades here are additive-only (createIDB never touches an
+   existing store), and this database holds sync metadata ONLY: Diesel's report
+   database ARENCON_DIESEL, its photos and its blobs are not involved. */
 const SyncIDB = createIDB({
   dbName: 'ARENCON_DIESEL_SYNC',
-  version: 1,
-  stores: ['syncMeta', 'syncQueue']
+  version: 2,
+  stores: ['syncMeta', 'syncQueue', 'photoOutbox']
 });
 
 /* ── Worker-host adapter ────────────────────────────────────────────────────
@@ -136,6 +141,93 @@ const model = {
   }
 };
 
+/* ── S544 — DIESEL JOINS THE SHARED PHOTO ENGINE ────────────────────────────
+ * What this buys, in field terms: a photo whose stored file has gone missing
+ * (upload never really landed, object deleted, key written before the file
+ * existed) is re-uploaded automatically from THIS device's own copy of the
+ * image the next time the report is opened here — and a photo that has no
+ * image anywhere is reported instead of silently occupying a tile. S537 built
+ * the copy that makes that possible; until now nothing read from it.
+ *
+ * WHAT IS NOT TURNED ON: Diesel keeps its own upload queue (R2Outbox). Nothing
+ * is ever enqueued into this engine, so its upload processor, retry ladder and
+ * pull-time re-injection stay dormant — those paths walk FRT's report shape and
+ * are not Diesel's. The rescue pass is the part that is tool-neutral (S534),
+ * and it is the part being used.
+ *
+ * The R2 adapter below exists because the shared engine speaks a different
+ * upload signature than Diesel's R2Photos, and because Diesel photos carry
+ * their bytes in `.d` rather than `.dataUrl`. Uploading through R2Photos keeps
+ * the token-refresh behaviour Diesel already relies on in the field. */
+const DieselR2 = {
+  TOOL_KEY: 'diesel',
+  get WORKER_URL() {
+    try { return (window.R2Photos && window.R2Photos.WORKER_URL) || ''; } catch (_) { return ''; }
+  },
+  /** upload(projectId, type, blob, filename) -> {r2Key, r2Url} | null */
+  upload: function (projectId, type, blob, filename) {
+    const R2P = window.R2Photos;
+    if (!R2P || !projectId || !blob) return Promise.resolve(null);
+    const fname = filename || R2P.generateFilename('heal');
+    return Promise.resolve(R2P.upload(projectId, 'diesel', type || 'original', fname, blob))
+      .then(function () {
+        return {
+          r2Key: 'photos/' + projectId + '/diesel/' + (type || 'original') + '/' + fname,
+          r2Url: R2P.getUrl(projectId, 'diesel', type || 'original', fname)
+        };
+      })
+      .catch(function (e) {
+        console.warn('[DieselSync] heal upload failed:', e && e.message);
+        return null;
+      });
+  },
+  /** uploadPhoto(projectId, photo, type) — Diesel photos hold bytes in `.d`. */
+  uploadPhoto: function (projectId, photo, type) {
+    const R2P = window.R2Photos;
+    if (!R2P || !photo || !photo.d) return Promise.resolve(null);
+    const blob = R2P.dataUrlToBlob(photo.d);
+    if (!blob) return Promise.resolve(null);
+    return DieselR2.upload(projectId, type || 'original', blob, R2P.generateFilename('heal'))
+      .then(function (result) {
+        if (result) { photo.r2Key = result.r2Key; photo.r2Url = result.r2Url; photo.r2Status = 'uploaded'; }
+        return photo;
+      });
+  }
+};
+
+const DieselPhotoEngine = createBinaryOutbox({
+  IDB: SyncIDB,
+  R2: DieselR2,
+  Auth: Auth,
+  toast: function (m) { try { if (typeof window.showToast === 'function') window.showToast(m); } catch (_) {} },
+  model: {
+    getProject: model.getProject,
+    saveNow: model.saveNow
+  },
+  // The three S534 injection points + the S544 project resolver.
+  photoWalk: function (proj) {
+    try {
+      if (typeof window._collectAllPhotos !== 'function') return [];
+      return window._collectAllPhotos({ includeDeleted: true, includeBackups: true })
+        .map(function (it) { return it && it.photo; })
+        .filter(Boolean);
+    } catch (_) { return []; }
+  },
+  photoFields: { bytes: 'd', thumb: 't' },
+  localBytes: function (id) {
+    try {
+      return (typeof window._dieselLocalBytes === 'function')
+        ? window._dieselLocalBytes(id)
+        : Promise.resolve(null);
+    } catch (_) { return Promise.resolve(null); }
+  },
+  // Diesel's report payload has no top-level id (verified against the live
+  // collect). The R2 folder the host established at Hub init is the truth.
+  projectId: function () {
+    try { return window._r2FolderId || null; } catch (_) { return null; }
+  }
+});
+
 /* ── The shared engine instance ─────────────────────────────────────────── */
 const engine = createSync({
   toolKey: 'diesel',
@@ -143,7 +235,12 @@ const engine = createSync({
   IDB: SyncIDB,
   model: model,
   SyncWorkerHost: DieselWorkerHost,
-  BinaryOutbox: null            // Diesel's R2Outbox stays its own, untouched
+  BinaryOutbox: DieselPhotoEngine,   // S544: rescue + dead-key heal only (see above)
+  // Per-tool presentation of "photos in this report have no image on this
+  // device". The shared engine counts; Diesel's existing banner shows it.
+  onPhotoAttention: function (remaining) {
+    try { if (typeof window._phRenderBanner === 'function') window._phRenderBanner(remaining || 0); } catch (_) {}
+  }
 });
 
 /* ── Conflict screen (shared dialog engine; semantic accent, no burgundy) ──
