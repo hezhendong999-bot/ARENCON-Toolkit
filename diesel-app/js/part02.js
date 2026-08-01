@@ -7,6 +7,7 @@
        probing for the factory — a probe would always lose the race against this
        deferred module block and silently leave Diesel on its inline fallback. */
     import { createIDB } from '/lib/data/idb.js';
+    import { createPhotoStore, dataUrlToBlob } from '/lib/data/photoStore.js';
     window.ARENCON_IDB = window.ARENCON_IDB || {};
     window.ARENCON_IDB.createIDB = createIDB;
     if (window.ARENCON_IDB._resolve) window.ARENCON_IDB._resolve(createIDB);
@@ -179,6 +180,38 @@
     if (typeof openCameraBurst !== 'function') {
       console.error('[camera] burst module missing — cameras will be single-shot');
     }
+
+    /* ═══ S548 — the local photo store, built from the shared engine ═══
+       Diesel supplies the three things only Diesel knows: its own database, how
+       to list every photo in a diesel report, and where it keeps the inline
+       copy. Everything else is the shared engine. The names below are the ones
+       part06 has always called, so nothing downstream changes.
+
+       ADB is defined in part06 (a classic script, so it exists before this
+       module runs) and is read lazily on each call — never captured — because
+       ADB.open() is single-flight and may not have completed yet. */
+    var _dslPhotoStore = createPhotoStore({
+      IDB: {
+        get:    function (st, k)  { return window.ADB.get(st, k); },
+        put:    function (st, r)  { return window.ADB.put(st, r); },
+        getAll: function (st)     { return window.ADB.getAll(st); }
+      },
+      photoWalk: function () {
+        if (typeof window._collectAllPhotos !== 'function') return [];
+        return window._collectAllPhotos({ includeDeleted: true, includeBackups: true })
+          .map(function (it) { return it && it.photo; })
+          .filter(Boolean);
+      },
+      storeName: 'photoBlobs',
+      bytesField: 'd',
+      tag: '[S537]'
+    });
+    window._dslPhotoStore    = _dslPhotoStore;
+    window._dataUrlToBlob    = dataUrlToBlob;
+    window._stashRoomOk      = function ()   { return _dslPhotoStore.roomOk(); };
+    window._stashPhotoBlobs  = function ()   { return _dslPhotoStore.sweep(); };
+    window._dieselLocalBytes = function (id) { return _dslPhotoStore.localBytes(id); };
+    window._photoStoreReport = function ()   { return _dslPhotoStore.report(); };
     window.__dslHeaderCtl.setTheme(document.body.classList.contains('dark-mode') ? 'dark' : 'light');
     try { var _ts = localStorage.getItem('ARENCON_TextSize');
       if (_ts) window.__dslHeaderCtl.setControlIcon('ts', _ts); } catch(e){}

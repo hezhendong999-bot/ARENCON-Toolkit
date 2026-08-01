@@ -6173,7 +6173,10 @@ function saveState(){
     var json=JSON.stringify(collectState());
     _idbPut(key,json);
     updateIDBStorageBar();
-    _stashPhotoBlobs();   // S537 — see below; never blocks the save
+    // S548: the store engine is published by part02 (a module). If that module
+    // ever fails to load, a save must still complete — a missing shared module
+    // must never cost an inspector their report.
+    if (typeof _stashPhotoBlobs === 'function') _stashPhotoBlobs();   // never blocks the save
   }catch(e){console.warn('saveState error:',e);}
 }
 
@@ -6200,130 +6203,19 @@ function saveState(){
 // store yet. This push only builds the second copy. Removing the inline copy is
 // its own step, after the store has been proven to hold what it claims.
 // ═══════════════════════════════════════════════════════════════════════════
-var _blobStashed = {};        // photo id -> true, this session only
-var _stashBusy = false;
-var _stashPaused = false;     // set when the device is short of room
-var _STASH_PER_PASS = 5;      // small bites: this runs behind an inspector typing
+/* ═══ S548 — THE LOCAL PHOTO STORE NOW LIVES IN lib/data/photoStore.js ═══
+   124 lines of S537 moved out verbatim in behaviour. Diesel does not keep a
+   copy: part02 builds the shared engine with Diesel's database, Diesel's photo
+   walk and Diesel's inline field, and publishes it under the same names the
+   rest of this file already calls. A second copy here would be the "matching
+   copy" trap — two implementations, one of which quietly stops being
+   maintained. Electric gets the same engine by supplying its own three pieces,
+   not by inheriting a thousand lines of Diesel.
 
-function _dataUrlToBlob(d){
-  try{
-    if(!d || d.indexOf('data:')!==0) return null;
-    var comma = d.indexOf(',');
-    if(comma < 0) return null;
-    var meta = d.slice(5, comma);
-    var isB64 = meta.indexOf(';base64') !== -1;
-    var mime = meta.split(';')[0] || 'image/jpeg';
-    var body = d.slice(comma+1);
-    if(!isB64) return new Blob([decodeURIComponent(body)], {type:mime});
-    var bin = atob(body);
-    var len = bin.length;
-    var buf = new Uint8Array(len);
-    for(var i=0;i<len;i++) buf[i] = bin.charCodeAt(i);
-    return new Blob([buf], {type:mime});
-  }catch(e){ return null; }
-}
-
-// Storage headroom. Holding both copies temporarily roughly doubles local usage,
-// and an inspector mid-inspection must never be the one who discovers the tablet
-// is full. If we are within 15% of the quota, stop stashing — the inline copy is
-// still there, so nothing is lost by pausing.
-function _stashRoomOk(){
-  try{
-    if(!navigator.storage || !navigator.storage.estimate) return Promise.resolve(true);
-    return navigator.storage.estimate().then(function(est){
-      if(!est || !est.quota) return true;
-      var used = est.usage || 0;
-      var ok = (used / est.quota) < 0.85;
-      if(!ok && !_stashPaused){
-        _stashPaused = true;
-        console.warn('[S537] photo store paused — device storage above 85% (' +
-                     Math.round(used/1048576) + 'MB of ' + Math.round(est.quota/1048576) + 'MB)');
-      }
-      return ok;
-    }).catch(function(){ return true; });
-  }catch(e){ return Promise.resolve(true); }
-}
-
-function _stashPhotoBlobs(){
-  if(_stashBusy || _stashPaused) return;
-  if(typeof _collectAllPhotos!=='function' || typeof ADB==='undefined') return;
-  _stashBusy = true;
-  Promise.resolve().then(_stashRoomOk).then(function(ok){
-    if(!ok) return;
-    var todo = [];
-    try{
-      _collectAllPhotos({includeDeleted:true, includeBackups:true}).forEach(function(it){
-        var p = it && it.photo;
-        if(!p || !p.id || _blobStashed[p.id]) return;
-        if(!p.d) return;                       // nothing inline to copy
-        todo.push(p);
-      });
-    }catch(e){ return; }
-    if(!todo.length) return;
-    var batch = todo.slice(0, _STASH_PER_PASS);
-    var chain = Promise.resolve();
-    batch.forEach(function(p){
-      chain = chain.then(function(){
-        var blob = _dataUrlToBlob(p.d);
-        if(!blob || !blob.size){ _blobStashed[p.id] = true; return; }   // unreadable inline copy: do not retry forever
-        return ADB.put('photoBlobs', { id:p.id, blob:blob, bytes:blob.size, savedAt:Date.now() })
-          .then(function(){ _blobStashed[p.id] = true; })
-          .catch(function(e){
-            // Quota or transaction failure — pause rather than hammer the device.
-            _stashPaused = true;
-            console.warn('[S537] photo store write failed, pausing:', e && (e.message||e));
-          });
-      });
-    });
-    return chain;
-  }).catch(function(e){
-    console.warn('[S537] photo store sweep skipped:', e && (e.message||e));
-  }).then(function(){ _stashBusy = false; });
-}
-
-// The reader the shared photo engine needs: this device's own bytes for a photo.
-// Falls back to the inline copy while both exist, so it is already correct for
-// the period before the inline copy is removed.
-function _dieselLocalBytes(photoId){
-  try{
-    return ADB.get('photoBlobs', photoId).then(function(rec){
-      if(rec && rec.blob) return rec.blob;
-      var hit = null;
-      try{
-        _collectAllPhotos({includeDeleted:true, includeBackups:true}).forEach(function(it){
-          if(!hit && it && it.photo && it.photo.id===photoId && it.photo.d) hit = it.photo;
-        });
-      }catch(_e){}
-      return hit ? _dataUrlToBlob(hit.d) : null;
-    }).catch(function(){ return null; });
-  }catch(e){ return Promise.resolve(null); }
-}
-if(typeof window!=='undefined'){ window._dieselLocalBytes = _dieselLocalBytes; }
-
-// Read-only progress report, for checking the store is genuinely keeping up
-// before anything is allowed to rely on it.
-function _photoStoreReport(){
-  var out = { inReport:0, withInline:0, inStore:0, missing:[] };
-  try{
-    var all = _collectAllPhotos({includeDeleted:true, includeBackups:true});
-    out.inReport = all.length;
-    var ids = [];
-    all.forEach(function(it){
-      var p = it && it.photo; if(!p || !p.id) return;
-      if(p.d) out.withInline++;
-      ids.push(p.id);
-    });
-    return ADB.getAll('photoBlobs').then(function(rows){
-      var have = {}; (rows||[]).forEach(function(r){ if(r && r.id) have[r.id]=true; });
-      ids.forEach(function(id){ if(have[id]) out.inStore++; else out.missing.push(id); });
-      console.log('[S537] photo store: ' + out.inStore + ' of ' + ids.length +
-                  ' photos held as binary (' + out.withInline + ' still inline)' +
-                  (_stashPaused ? ' — PAUSED, device low on room' : ''));
-      return out;
-    });
-  }catch(e){ return Promise.resolve(out); }
-}
-if(typeof window!=='undefined'){ window._photoStoreReport = _photoStoreReport; }
+   Names still available globally, unchanged for every caller:
+     _dataUrlToBlob  _stashPhotoBlobs  _stashRoomOk  _dieselLocalBytes
+     _photoStoreReport
+   See diesel-app/js/part02.js for the wiring. */
 
 // ═══ S531 — stable ids for flow-test photos (prerequisite for per-item merge) ═══
 // The timestamp/merge engine pairs items across devices by a stable key. Photos

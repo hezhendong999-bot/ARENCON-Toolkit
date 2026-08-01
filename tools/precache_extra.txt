@@ -98,3 +98,10 @@ lib/data/photoLinkMint.js
 # backButton.js were dropped in the same pass and are genuinely unreferenced
 # (verified by grep across every html/js file); they stay out.
 lib/ui/helpPanel.css
+
+# ── S548: shared local photo store ────────────────────────────────────────
+# Imported by diesel-app/js/part02.js, which the scanner does not follow into,
+# so the generated list misses it. Without this a cold tablet with no signal
+# loads Diesel with no photo store — every photo it takes that day would be
+# unrescuable, silently. Exactly the failure this module exists to prevent.
+lib/data/photoStore.js
