@@ -234,30 +234,45 @@
           d.innerHTML = 'Checking this device\u2026';
           bd.appendChild(d);
           _dslPhotoStore.report().then(function (r) {
-            var total   = r.inReport || 0;
-            var held    = r.inStore || 0;
-            var missing = Math.max(0, total - held);
-            var ok      = (total > 0 && missing === 0 && !r.paused);
-            var head    = ok
-              ? '<b style="color:#2E9E72">All ' + total + ' photos in this report are backed up on this device.</b>'
-              : (total === 0
-                  ? '<b>This report has no photos yet.</b>'
-                  : '<b style="color:#C0445F">' + held + ' of ' + total +
-                    ' photos are backed up on this device.</b>');
-            var body = head + '<br><br>' +
-              'In the report: <b>' + total + '</b><br>' +
-              'Backed up as image files on this device: <b>' + held + '</b><br>' +
-              'Not backed up yet: <b>' + missing + '</b>';
+            /* S550: the honest version. The old panel compared the store against
+               every photo in the report and called the rest "not backed up" —
+               which read 1 of 223 on Mark's tablet and implied 222 photos were
+               at risk. They were not: their pictures are in cloud storage, and a
+               device that pulled the report down never had them to copy. */
+            var held = r.held || 0, pending = r.pending || 0, cloud = r.cloudOnly || 0;
+            var local = held + pending, total = r.inReport || 0;
+            var body;
+            if (total === 0) {
+              body = '<b>This report has no photos yet.</b>';
+            } else if (local === 0) {
+              body = '<b style="color:#2E9E72">Nothing on this device is waiting.</b><br><br>' +
+                     'All <b>' + total + '</b> photos in this report were taken on another device ' +
+                     'and their pictures are in cloud storage. There is nothing for this tablet to hold.';
+            } else if (pending === 0) {
+              body = '<b style="color:#2E9E72">All ' + local + ' photos taken on this device are held here.</b>';
+            } else {
+              body = '<b style="color:#C98A4A">' + held + ' of ' + local +
+                     ' photos taken on this device are held here.</b><br><br>' +
+                     '<b>' + pending + '</b> still to copy.';
+            }
+            if (total > 0) {
+              body += '<br><br>' +
+                'Taken on this device: <b>' + local + '</b><br>' +
+                '&nbsp;&nbsp;\u2022 held as image files here: <b>' + held + '</b><br>' +
+                '&nbsp;&nbsp;\u2022 still to copy: <b>' + pending + '</b><br>' +
+                'Pictures held only in cloud storage: <b>' + cloud + '</b>';
+            }
             if (r.paused) {
               body += '<br><br><b style="color:#C98A4A">Paused \u2014 this device is low on storage.</b><br>' +
-                      'Nothing has been lost: every photo still has its copy inside the report. ' +
                       'Free some space and reopen the report and it will catch up.';
-            } else if (missing > 0) {
-              body += '<br><br>The store fills in the background, a few photos at a time, ' +
-                      'so a report opened moments ago will still be catching up. ' +
-                      'Leave it a minute and check again.';
+            } else if (pending > 0) {
+              body += '<br><br>Copying happens as you work, a few photos at a time. ' +
+                      'Carry on and check again shortly.';
             }
-            body += '<br><br><span style="color:#5E5B68">Nothing on this screen changes anything \u2014 it only counts.</span>';
+            body += '<br><br><span style="color:#5E5B68">Cloud-only photos are normal \u2014 a picture is ' +
+                    'removed from the report once it is safely uploaded, which is why this number is ' +
+                    'usually the large one. It is not a problem to fix.</span>';
+            body += '<br><span style="color:#5E5B68">Nothing on this screen changes anything \u2014 it only counts.</span>';
             d.innerHTML = body;
           }).catch(function (e) {
             d.innerHTML = '<b style="color:#C0445F">The check could not run on this device.</b><br><br>' +

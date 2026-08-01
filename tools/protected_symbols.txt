@@ -535,3 +535,6 @@ _photoBatchBegin
 _photoBatchPaint
 _photoBatchTick
 _burstCtx
+
+
+@ S550 the Photo Store Check reports the number that is actually about risk. The S549 panel compared the store against EVERY photo in the report and called the remainder "not backed up" — on Mark's tablet that read "1 of 223 backed up", looked stuck, and was wrong. A photo's picture is STRIPPED when the report uploads (which is why a 223-photo report is ~1MB, not ~400MB), so a device that pulled the report down never had an image for those photos and has nothing it could copy. Verified against live data: all 208 recordPhotos in 7155.40 carry an empty picture field. Two separate questions now, and they must stay separate: photos TAKEN ON THIS DEVICE (held vs still to copy — the real risk number, because that is the window before a photo is safely uploaded) and photos whose picture lives only in cloud storage (normal, expected, not this device's job, and never to be presented as a shortfall). Never fold these back into one ratio.
