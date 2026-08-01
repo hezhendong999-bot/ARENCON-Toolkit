@@ -249,13 +249,17 @@
     b.id = 'frt-integrity-badge';
     b.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:9998;background:#A85959;color:white;font-family:Calibri,sans-serif;font-size:12px;padding:3px 8px;border-radius:10px;cursor:pointer;display:none;align-items:center;gap:4px;';
     b.addEventListener('click', function () {
-      console.group('[Integrity Report]');
-      var rpt = report();
-      console.log('Total findings:', rpt.totalFindings);
-      console.log('By class:', rpt.byClass);
-      console.table(rpt.findings);
-      console.groupEnd();
-      alert('Integrity report logged to console. Open DevTools to view.');
+      // S556: console output kept for desks; the on-screen panel is the real
+      // surface now — the tablets have no console and no address bar.
+      try {
+        console.group('[Integrity Report]');
+        var rpt = report();
+        console.log('Total findings:', rpt.totalFindings);
+        console.log('By class:', rpt.byClass);
+        console.table(rpt.findings);
+        console.groupEnd();
+      } catch (_e) {}
+      showReportPanel();
     });
     document.body.appendChild(b);
   }
@@ -355,6 +359,77 @@
 
   // ── Public API ──
   if (typeof window !== 'undefined') {
+    // ── S556 — THE REPORT, ON SCREEN. ──────────────────────────────────────
+    // This check answers "are this report's photos and records intact?" — a
+    // question that matters most in the field, on the device that took the
+    // photos. Until now the answer was an alert saying "open DevTools", which
+    // the installed tablets do not have; the one tool that verifies a report
+    // could not be run where reports are made. Same data, drawn as a panel.
+    // Read-only: it reports, it never repairs.
+    function showReportPanel() {
+      var prior = document.getElementById('frt-integrity-panel');
+      if (prior) prior.parentNode.removeChild(prior);
+      var rpt;
+      try { rpt = report(); } catch (e) { rpt = { totalFindings: 0, byClass: {}, findings: [] }; }
+      var ov = document.createElement('div');
+      ov.id = 'frt-integrity-panel';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:11000;background:rgba(0,0,0,.5);' +
+        'display:flex;align-items:center;justify-content:center;padding:20px;font-family:Calibri,sans-serif;';
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#fff;border-radius:16px;max-width:560px;width:100%;' +
+        'max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(28,35,51,.25);overflow:hidden;';
+      var n = rpt.totalFindings || 0;
+      var head = document.createElement('div');
+      head.style.cssText = 'padding:16px 18px 12px;border-bottom:1px solid #DDE1E7;';
+      head.innerHTML = '<div style="font-size:16px;font-weight:700;color:#1C2333;">Report integrity check</div>' +
+        '<div style="font-size:13px;color:' + (n ? '#A85959' : '#2E9E72') + ';margin-top:4px;font-weight:600;">' +
+        (n === 0 ? '\u2713 No problems found \u2014 photos and records are intact on this device.'
+                 : '\u26A0 ' + n + ' finding' + (n === 1 ? '' : 's') + ' \u2014 details below.') + '</div>';
+      card.appendChild(head);
+      var bodyEl = document.createElement('div');
+      bodyEl.style.cssText = 'padding:10px 18px;overflow-y:auto;flex:1;';
+      if (n === 0) {
+        bodyEl.innerHTML = '<div style="font-size:13px;color:#5E5B68;padding:8px 0 14px;">' +
+          'Checked photo records, drawing references and observation links for the open project. ' +
+          'This checks the copy on THIS device \u2014 each tablet answers for itself.</div>';
+      } else {
+        var by = rpt.byClass || {};
+        var rows = '';
+        for (var k in by) {
+          if (!Object.prototype.hasOwnProperty.call(by, k)) continue;
+          rows += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F0F1F4;">' +
+            '<span style="font-size:13px;color:#1C2333;">' + String(k).replace(/[<>&]/g, '') + '</span>' +
+            '<span style="font-size:13px;font-weight:700;color:#A85959;">' + by[k] + '</span></div>';
+        }
+        var det = '';
+        var fs = rpt.findings || [];
+        for (var i = 0; i < Math.min(fs.length, 30); i++) {
+          var f = fs[i] || {};
+          det += '<div style="font-size:12px;color:#5E5B68;padding:5px 0;border-bottom:1px dashed #F0F1F4;">' +
+            String(f.class || f.type || 'finding').replace(/[<>&]/g, '') + ' \u2014 ' +
+            String(f.detail || f.msg || f.id || '').replace(/[<>&]/g, '').slice(0, 120) + '</div>';
+        }
+        if (fs.length > 30) det += '<div style="font-size:12px;color:#928E9C;padding:6px 0;">\u2026and ' + (fs.length - 30) + ' more.</div>';
+        bodyEl.innerHTML = rows + '<div style="margin-top:10px;">' + det + '</div>' +
+          '<div style="font-size:12px;color:#928E9C;padding:10px 0 6px;">This check is read-only \u2014 nothing was changed. ' +
+          'Show this screen to the office if anything above looks wrong.</div>';
+      }
+      card.appendChild(bodyEl);
+      var foot = document.createElement('div');
+      foot.style.cssText = 'padding:12px 18px;border-top:1px solid #DDE1E7;text-align:right;';
+      var closeBtn = document.createElement('button');
+      closeBtn.textContent = 'Close';
+      closeBtn.style.cssText = 'background:#9C2742;color:#fff;border:none;border-radius:9px;' +
+        'padding:10px 22px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;';
+      closeBtn.addEventListener('click', function () { ov.parentNode.removeChild(ov); });
+      foot.appendChild(closeBtn);
+      card.appendChild(foot);
+      ov.appendChild(card);
+      ov.addEventListener('click', function (e) { if (e.target === ov) ov.parentNode.removeChild(ov); });
+      document.body.appendChild(ov);
+    }
+    window._frtIntegrityPanel = showReportPanel;
+
     window._frtIntegrityCheck = runCheck;
     window._frtIntegrityReport = function () {
       var rpt = report();

@@ -11649,3 +11649,16 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
   box-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
 
+
+/* ── S556 — no half-visible controls on touch. ─────────────────────────────
+   Audit of all 34 hover-reveal rules: 29 already had pointer:coarse coverage.
+   These five rested at .5–.8 opacity, waiting for a hover that never comes on
+   a tablet. Full opacity on coarse pointers; desktop keeps the quiet resting
+   state and the hover brighten. */
+@media (pointer:coarse){
+  .remove-defic-btn,
+  .dup-defic-btn,
+  .crx-tpill .crx-px,
+  .crx-tag .crx-tx,
+  .dfx-sr-pin{opacity:1;}
+}

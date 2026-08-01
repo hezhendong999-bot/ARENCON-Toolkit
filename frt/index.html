@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=718">
+<link rel="stylesheet" href="css/frt.css?v=719">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -256,6 +256,9 @@ function ensurePdfJs(cb){
       <button class="btn mm-btn mm-sub" id="mobile-export-btn">💾 Download JSON</button>
       <button class="btn mm-btn mm-sub" id="mobile-export-docs-btn">📦 Export Project Docs</button>
       <button class="btn mm-btn mm-sub" id="mobile-load-btn">📂 Load Project</button>
+      <!-- S556: the integrity check used to be console-only ("open DevTools"),
+           which the installed tablets do not have. On-screen entry, read-only. -->
+      <button class="btn mm-btn mm-sub" id="mobile-integrity-btn">🩺 Check Report Integrity</button>
       <button class="btn mm-btn mm-sub" id="mobile-export-all" style="display:none;">📦 Export All</button>
       <div id="mobile-repair-section" style="display:none;">
         <button class="btn mm-btn mm-sub" id="mobile-repair-toggle" style="font-size:12px;">🔧 Repair Tools ▾</button>

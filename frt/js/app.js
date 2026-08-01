@@ -400,6 +400,21 @@ function wireLoadExport() {
     document.getElementById('load-input').click();
     closeMobileMenu();
   });
+  // S556: on-screen integrity check. The answer is per-device — the copy on
+  // THIS tablet is the one being checked — so it must run where reports are
+  // made, not only at a desk with a console. Runs the check fresh, then shows
+  // the read-only panel.
+  var mobileIntegrity = document.getElementById('mobile-integrity-btn');
+  if (mobileIntegrity) mobileIntegrity.addEventListener('click', function() {
+    closeMobileMenu();
+    var done = function() {
+      if (window._frtIntegrityPanel) window._frtIntegrityPanel();
+    };
+    try {
+      var r = window._frtIntegrityCheck && window._frtIntegrityCheck();
+      if (r && typeof r.then === 'function') { r.then(done, done); } else { done(); }
+    } catch (e) { done(); }
+  });
 
   // Mobile Reset Project
   var mobileReset = document.getElementById('mobile-reset-btn');
@@ -2426,7 +2441,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S553';
+var FRT_BUILD = 'S556';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
