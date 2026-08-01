@@ -6177,6 +6177,13 @@ function saveState(){
     // ever fails to load, a save must still complete — a missing shared module
     // must never cost an inspector their report.
     if (typeof _stashPhotoBlobs === 'function') _stashPhotoBlobs();   // never blocks the save
+    /* S553b: once a photo's own file is safely here AND its upload confirmed,
+       drop the copy carried inside the report. Runs AFTER the stash so it can
+       never retire something the store has not taken yet, and it only touches
+       the in-memory report — this save has already been serialised, so the
+       saving happens naturally on the next one. Small bites: it runs behind
+       someone typing, same as the stash. */
+    if (typeof window._dslPhotoRetire === 'function') { try { window._dslPhotoRetire(25); } catch(e){} }
   }catch(e){console.warn('saveState error:',e);}
 }
 

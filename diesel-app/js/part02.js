@@ -219,6 +219,7 @@
     window._dslPhotoResolve  = function (p)  { return _dslPhotoStore.resolveSrc(p); };
     window._dslPhotoRetirable= function (p)  { return _dslPhotoStore.retirable(p); };
     window._dslPhotoRelease  = function ()   { return _dslPhotoStore.release(); };
+    window._dslPhotoRetire   = function (n)  { return _dslPhotoStore.retirePass(n); };
 
     /* ═══ S549 — PHOTO STORE CHECK, ON SCREEN ═══
        The store keeps a real image file on this device for every photo in the
