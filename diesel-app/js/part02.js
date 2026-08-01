@@ -164,7 +164,7 @@
       onResetPage: function(){ call('resetCurrentPage'); },
       onResetAll: function(){ call('resetAllPages'); },
       onReupload: function(){ call('_r2ReuploadAll'); },
-      onR2Cleanup: function(){ call('_dieselR2OrphanReport'); },
+      onR2Cleanup: function(){ call('_dslOrphanPanel'); },
       onDelDiag: function(){ call('dslDiag'); },
       onPhotoStore: function(){ call('_dslPhotoStoreCheck'); },
       onSaveLog:     function(){ call('_dslSaveLog'); },
@@ -222,6 +222,53 @@
     window._dslPhotoRelease  = function ()   { return _dslPhotoStore.release(); };
     window._dslPhotoRetire   = function (n)  { return _dslPhotoStore.retirePass(n); };
     window._dslPhotoHydrate  = function ()   { return _dslPhotoStore.hydratePass(); };
+
+    /* ═══ S561 — R2 ORPHAN REPORT, ON SCREEN ═══
+       The report itself (_dieselR2OrphanReport, part06d) is untouched — it
+       already returns {bucket, orphans, missing}; it just had no face except
+       the console, and the field tablets have no console. Read-only, same as
+       the Photo Store Check: the PURGE stays a console operation on purpose.
+       Deleting cloud objects is not reversible and belongs at a desk with the
+       list in front of you, not behind a tap on site. */
+    window._dslOrphanPanel = function () {
+      Dlg.panel({
+        title: 'Cloud Storage Check', icon: '\uD83E\uDDF9', accent: 'info',
+        build: function (bd) {
+          var d = document.createElement('div');
+          d.innerHTML = 'Checking cloud storage for this project\u2026 this reads every folder and can take a few seconds.';
+          bd.appendChild(d);
+          var fn = window._dieselR2OrphanReport;
+          if (typeof fn !== 'function') { d.innerHTML = '<b>The check is not available in this build.</b>'; return; }
+          Promise.resolve(fn()).then(function (r) {
+            if (!r) { d.innerHTML = '<b>This check needs the report opened from the Hub.</b><br><br>Standalone mode has no cloud folder to look in.'; return; }
+            var orph = (r.orphans || []).length, miss = (r.missing || []).length, total = (r.bucket || []).length;
+            var html = '';
+            if (!orph && !miss) {
+              html += '<b style="color:#2E9E72">Cloud storage is clean.</b><br><br>' +
+                      'All <b>' + total + '</b> stored files belong to photos in this report, and every photo\u2019s file is where its record says it is.';
+            } else {
+              if (miss) {
+                html += '<b style="color:#C0445F">' + miss + (miss === 1 ? ' photo record points' : ' photo records point') +
+                        ' at a cloud file that is not there.</b><br>' +
+                        '<span style="color:#5E5B68">Usually an upload that never finished. The rescue pass re-uploads these from a device that still holds the picture \u2014 if this number does not go down, tell Mark which photos.</span><br><br>';
+              }
+              if (orph) {
+                html += '<b style="color:#C98A4A">' + orph + (orph === 1 ? ' stored file belongs' : ' stored files belong') +
+                        ' to no photo in this report.</b><br>' +
+                        '<span style="color:#5E5B68">Left behind by deletions and re-uploads. They cost storage, not correctness \u2014 nothing in the report is affected. Removing them is a desk operation, done from the console with the list in view; it is not reversible and is deliberately not a button here.</span><br><br>';
+              }
+              html += 'Files in cloud storage for this project: <b>' + total + '</b>';
+            }
+            html += '<br><br><span style="color:#5E5B68">Nothing on this screen changes anything \u2014 it only counts. The full lists are in the console for the desk.</span>';
+            d.innerHTML = html;
+          }).catch(function (e) {
+            d.innerHTML = '<b style="color:#C0445F">The check could not run.</b>' +
+                          (e && e.message ? '<br><br><span style="color:#928E9C">' + _esc(String(e.message)) + '</span>' : '');
+          });
+        },
+        buttons: [{ label: 'Close', kind: 'cancel' }]
+      });
+    };
     /* S560: reconnect retired photos to their device files as soon as the
        report is up — before the first save would do it — otherwise a reload
        shows broken tiles offline for photos the device holds. Late and retried,
