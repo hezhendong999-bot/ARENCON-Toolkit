@@ -26,6 +26,13 @@ export default defineConfig({
     // Diesel carve. FRT keeps its own tree; both run in one command so a
     // shared-engine change cannot pass by only testing one tool.
     include: ['frt/tests/**/*.test.js', 'tests/**/*.test.js'],
+    /* S560: tests/diesel.test.js is NOT a vitest file — it is a plain-Node
+       Puppeteer harness with its own runner (.github/workflows/diesel-tests.yml,
+       `node diesel.test.js`). The tests/** glob above sweeps it in by filename,
+       vitest finds no tests inside, and that alone fails the whole run — so the
+       Tests workflow was red on every push for a reason that had nothing to do
+       with any test failing. It keeps its own workflow; it is only excluded HERE. */
+    exclude: ['**/node_modules/**', 'tests/diesel.test.js'],
     // Generous timeout for contract tests that hit prod
     testTimeout: 10000,
     // Vitest reports per-file; the GH Actions summary catches the totals.

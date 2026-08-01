@@ -11,7 +11,13 @@
 
 import { vi } from 'vitest';
 
-const WORKER_URL = 'https://arencon-r2-worker.hezhendong999.workers.dev';
+/* S560: the client moved to the files.arencon.app custom domain (frt/js/data/
+   r2.js workerHost) while this mock still stripped the old workers.dev origin —
+   so every path check missed, everything fell to the 404 catch-all, and two
+   URL-construction tests failed for reasons that had nothing to do with URLs.
+   Strip whichever origin the request actually used. */
+const WORKER_URLS = ['https://files.arencon.app',
+                     'https://arencon-r2-worker.hezhendong999.workers.dev'];
 
 export function installR2Mock(initialBucket = {}) {
   // bucket: { [r2Key]: { body: ArrayBuffer|Blob|string, size: number, contentType: string } }
@@ -19,7 +25,8 @@ export function installR2Mock(initialBucket = {}) {
 
   const fetchMock = vi.fn(async (input, init = {}) => {
     const url = typeof input === 'string' ? input : input.url;
-    const path = url.replace(WORKER_URL, '');
+    let path = url;
+    for (const o of WORKER_URLS) { if (path.startsWith(o)) { path = path.slice(o.length); break; } }
     const method = (init.method || 'GET').toUpperCase();
     const authHeader = (init.headers && (init.headers.Authorization || init.headers.authorization)) || '';
 

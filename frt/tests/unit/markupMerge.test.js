@@ -291,9 +291,20 @@ describe('R2.uploadMarkup — If-Match conditional PUT (S129 1.2)', () => {
   it('first write (404 on GET): sends If-None-Match: * and succeeds on PUT', async () => {
     const { R2 } = await import('../../js/data/r2.js');
     const calls = [];
+    // S201d added a verify GET (Range: bytes=0-0) after every successful PUT.
+    // This fake used to 404 EVERY GET, so the verify failed, the retry loop
+    // spun, and uploadMarkup fell through to null — the test then read that as
+    // the If-None-Match path being broken, which it is not. The fake now
+    // answers the verify GET like a real store: the object exists once PUT.
+    let putHappened = false;
     global.fetch = vi.fn(async (url, opts) => {
       calls.push({ url, method: (opts && opts.method) || 'GET', headers: (opts && opts.headers) || {} });
-      if (!opts || opts.method !== 'PUT') return mkResp(404, null);
+      if (!opts || opts.method !== 'PUT') {
+        const h = (opts && opts.headers) || {};
+        if (putHappened && h['Range']) return mkResp(206, {});   // verify GET
+        return mkResp(404, null);                                // pre-PUT read
+      }
+      putHappened = true;
       return mkResp(200, { success: true });
     });
     const result = await R2.uploadMarkup('pid1', 'd1', [{ id: 'a' }], []);
@@ -326,6 +337,11 @@ describe('R2.uploadMarkup — If-Match conditional PUT (S129 1.2)', () => {
     global.fetch = vi.fn(async (url, opts) => {
       const method = (opts && opts.method) || 'GET';
       if (method === 'GET') {
+        // S201d: successful PUTs are followed by a verify GET (Range header).
+        // Verify GETs are not re-reads of the document — count them apart, or
+        // the read-merge-write count is off by however many verifies ran.
+        const h = (opts && opts.headers) || {};
+        if (h['Range']) { return mkResp(206, {}); }
         getCount++;
         if (getCount === 1) {
           return mkResp(200, { objects: [{ id: 'c1' }], deletedIds: [] }, { ETag: '"v1"' });
@@ -482,5 +498,80 @@ describe('R2.downloadMarkup — format normalization (S129 1.1)', () => {
     global.fetch = vi.fn(async () => mkResp(200, { objects: [{ id: 'a' }] }));
     const result = await R2.downloadMarkup('https://x/y');
     expect(result).toEqual({ objects: [{ id: 'a' }], deletedIds: [] });
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────
+// S560 — the actual field scenario, end to end against one stateful
+// bucket: two inspectors on ONE drawing, drawing concurrently, one of
+// them erasing a stroke while the other keeps working. This is the
+// question "can two people mark up the same drawing" asked directly,
+// rather than function by function.
+// ────────────────────────────────────────────────────────────────────
+describe('S560 — two inspectors, one drawing, concurrent sessions', () => {
+  function statefulBucket() {
+    // A tiny R2: one object, real ETags, real 412s on stale If-Match.
+    let body = null, etag = null, version = 0;
+    return {
+      fetch: vi.fn(async (url, opts = {}) => {
+        const method = (opts.method || 'GET').toUpperCase();
+        const h = opts.headers || {};
+        if (method === 'GET') {
+          if (h['Range']) return new Response('', { status: body ? 206 : 404 });
+          if (!body) return new Response('Not Found', { status: 404 });
+          return new Response(JSON.stringify(body), {
+            status: 200, headers: { 'Content-Type': 'application/json', 'ETag': etag }
+          });
+        }
+        if (method === 'PUT') {
+          if (h['If-Match'] && h['If-Match'] !== etag)
+            return new Response(JSON.stringify({ error: 'Precondition Failed' }), { status: 412 });
+          if (h['If-None-Match'] === '*' && body)
+            return new Response(JSON.stringify({ error: 'Precondition Failed' }), { status: 412 });
+          body = JSON.parse(typeof opts.body === 'string' ? opts.body : await new Response(opts.body).text());
+          version++; etag = '"v' + version + '"';
+          return new Response(JSON.stringify({ success: true }), { status: 200 });
+        }
+        return new Response('Not Found', { status: 404 });
+      }),
+      state: () => body
+    };
+  }
+
+  it('both inspectors\' strokes survive, and an erase is final for both', async () => {
+    const { R2 } = await import('../../js/data/r2.js');
+    const bucket = statefulBucket();
+    global.fetch = bucket.fetch;
+
+    // Inspector A saves two strokes.
+    let r = await R2.uploadMarkup('pid1', 'dw1', [{ id: 'A1' }, { id: 'A2' }], []);
+    expect(r).not.toBeNull();
+
+    // Inspector B — who pulled BEFORE A saved, so B's local list has only
+    // B's own work — saves three strokes. Without union merge this save
+    // would clobber A's two.
+    r = await R2.uploadMarkup('pid1', 'dw1', [{ id: 'B1' }, { id: 'B2' }, { id: 'B3' }], []);
+    expect(r).not.toBeNull();
+    let cloud = bucket.state();
+    expect(cloud.objects.map(o => o.id).sort()).toEqual(['A1', 'A2', 'B1', 'B2', 'B3']);
+
+    // A erases A2 (tombstone) while still not having B's strokes locally.
+    r = await R2.uploadMarkup('pid1', 'dw1', [{ id: 'A1' }], ['A2']);
+    expect(r).not.toBeNull();
+    cloud = bucket.state();
+    expect(cloud.objects.map(o => o.id).sort()).toEqual(['A1', 'B1', 'B2', 'B3']);
+    // Tombstones carry a timestamp — { id, t } — not a bare string (medium
+    // scope, S129 1.1). Assert on the id.
+    expect(cloud.deletedIds.map(d => (d && d.id) || d)).toContain('A2');
+
+    // B keeps drawing and saves again, STILL carrying the stale A2 in B's
+    // local list (B never pulled). The tombstone must win — the erased
+    // stroke must not resurrect.
+    r = await R2.uploadMarkup('pid1', 'dw1',
+      [{ id: 'B1' }, { id: 'B2' }, { id: 'B3' }, { id: 'B4' }, { id: 'A2' }], []);
+    expect(r).not.toBeNull();
+    cloud = bucket.state();
+    expect(cloud.objects.map(o => o.id).sort()).toEqual(['A1', 'B1', 'B2', 'B3', 'B4']);
+    expect(cloud.objects.some(o => o.id === 'A2')).toBe(false);
   });
 });
