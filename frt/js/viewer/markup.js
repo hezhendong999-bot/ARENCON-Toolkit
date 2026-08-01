@@ -224,6 +224,19 @@ var _tool = null;
 var _dimFinChipWasShowing = false;  // S331 #37 — gate one-time finish-chip pulse
 var _color = '#A85959';
 var _lineWidth = 3;
+// ── S549 — TEXT SIZE BOUNDS AND STEP. ─────────────────────────────────────
+// The default below was retuned to 80 for large PDF drawings but the buttons
+// were left clamped at 72, so the FIRST tap of "bigger" made the text SMALLER
+// (snapped 80 → 72) and it could never go above 72 again. A 2px step is also
+// invisible at this scale — 2px on 80 is 2.5%, so the button read as dead.
+// Bounds now sit above the default, and the step is proportional: same 2px
+// feel at small sizes, a usable jump at drawing sizes.
+var _TEXT_MIN = 8, _TEXT_MAX = 240;
+function _stepFont(v, dir) {
+  v = v || 20;
+  var step = Math.max(2, Math.round(v * 0.08));
+  return Math.max(_TEXT_MIN, Math.min(_TEXT_MAX, v + (dir > 0 ? step : -step)));
+}
 var _fontSize = 80;  // S391: default logical text size, tuned for large PDF drawings (5184px @ ~0.22 fit ~= 18px on-screen). User steps smaller/larger via the chip bar.
 var _opacity = 1;
 
@@ -4634,8 +4647,7 @@ function _wireEvents() {
       var liveText = document.querySelector('.mk-text-input-live');
       if (liveText && (action === 'size-up' || action === 'size-down')) {
         // Adjust live text size without closing it
-        if (action === 'size-up') _fontSize = Math.min(72, _fontSize + 2);
-        else _fontSize = Math.max(8, _fontSize - 2);
+        _fontSize = _stepFont(_fontSize, action === 'size-up' ? 1 : -1);
         // Scale the on-screen preview by current zoom so it matches how the
         // committed text will render (logical fontSize × CSS-px-per-logical-unit).
         var _mcLT = _getCanvas();
@@ -4654,7 +4666,7 @@ function _wireEvents() {
             var obj = _findObj(id);
             if (!obj) return;
             if (obj.type === 'text') {
-              obj.fontSize = Math.max(8, Math.min(72, (obj.fontSize || 20) + sizeDir * 2));
+              obj.fontSize = _stepFont(obj.fontSize || 20, sizeDir);
             } else {
               obj.size = Math.max(1, Math.min(30, (obj.size || 2) + sizeDir));
             }
@@ -4662,7 +4674,7 @@ function _wireEvents() {
           _renderAll();
           _markDirty();
         } else if (_tool === 'text') {
-          _fontSize = action === 'size-up' ? Math.min(72, _fontSize + 2) : Math.max(8, _fontSize - 2);
+          _fontSize = _stepFont(_fontSize, action === 'size-up' ? 1 : -1);
         } else {
           _lineWidth = action === 'size-up' ? Math.min(30, _lineWidth + 1) : Math.max(1, _lineWidth - 1);
         }
