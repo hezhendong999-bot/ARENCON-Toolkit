@@ -11,7 +11,12 @@
 // never ordered. A per-push timestamp works identically and cannot collide.
 // FORMAT: arencon-frt-202607271900<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
-var CACHE_NAME = 'arencon-frt-202608010611';
+// S547: this worker keeps the historic 'arencon-frt-' namespace, which it now
+// owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
+// scoped to this prefix, so this worker no longer deletes another tool's offline
+// files. One intended side effect: it sweeps FRT's pre-S547 caches once.
+var CACHE_NAME = 'arencon-frt-202608010620';
+var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -245,12 +250,20 @@ self.addEventListener('install', function(e) {
   );
 });
 
-// Activate — clean up old caches (PRESERVE TILE_CACHE — survives app-cache bumps)
+// Activate — clean up old caches.
+// S547: scoped to THIS worker's namespace. Previously this deleted every cache
+// on the origin except its own, which took out other tools' offline files (and
+// any cache the app itself created). A worker may only purge its own lineage.
+// TILE_CACHE is preserved explicitly — deliberately long-lived across bumps.
 self.addEventListener('activate', function(e) {
   e.waitUntil(
     caches.keys().then(function(names) {
       return Promise.all(
-        names.filter(function(n) { return n !== CACHE_NAME && n !== TILE_CACHE; })
+        names.filter(function(n) {
+          if (n === CACHE_NAME || n === TILE_CACHE) return false;
+          if (n.indexOf('tiles') >= 0) return false;
+          return n.indexOf(CACHE_PREFIX) === 0;
+        })
              .map(function(n) { return caches.delete(n); })
       );
     }).then(function() {

@@ -15,7 +15,18 @@
 // version floor (lib/data/sync.js) could not recognise this cache at all —
 // so FRT was being judged by ANOTHER tool's cache stamp. Format restored to
 // a bare UTC stamp; the floor now asks this worker directly (GET_BUILD_STAMP).
-var CACHE_NAME = 'arencon-frt-202608010520';
+// S547 — SEPARATE NAMESPACES, OR THE TOOLS EAT EACH OTHER'S OFFLINE FILES.
+// Both this worker and the site-root worker used the SAME 'arencon-frt-' name,
+// and each one's activate step deleted every cache on the origin except its own.
+// So publishing the portal wiped the Field Review Tool's offline copy and vice
+// versa, and a tablet that went to site after a portal push had nothing cached
+// and needed signal to start. This worker now owns 'arencon-fieldreview-' and
+// purges only within that namespace; the root worker keeps 'arencon-frt-' and
+// sweeps this tool's pre-S547 caches once, which is the cleanup we want.
+// FORMAT: arencon-fieldreview-<UTC yyyymmddhhmm>. Bump = set to current UTC.
+// Do NOT go back to a counter, and do NOT share a prefix with another worker.
+var CACHE_NAME = 'arencon-fieldreview-202608010615';
+var CACHE_PREFIX = 'arencon-fieldreview-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
@@ -222,12 +233,21 @@ self.addEventListener('install', function(e) {
   );
 });
 
-// Activate — clean up old caches (PRESERVE TILE_CACHE — survives app-cache bumps)
+// Activate — clean up old caches.
+// S547: scoped to THIS worker's namespace. Previously this deleted every cache
+// on the origin except its own, which took out the other tools' offline files
+// (and any cache the app itself created). A worker may only purge its own
+// lineage. TILE_CACHE is preserved explicitly — it is deliberately long-lived
+// and survives app-cache bumps.
 self.addEventListener('activate', function(e) {
   e.waitUntil(
     caches.keys().then(function(names) {
       return Promise.all(
-        names.filter(function(n) { return n !== CACHE_NAME && n !== TILE_CACHE; })
+        names.filter(function(n) {
+          if (n === CACHE_NAME || n === TILE_CACHE) return false;
+          if (n.indexOf('tiles') >= 0) return false;
+          return n.indexOf(CACHE_PREFIX) === 0;
+        })
              .map(function(n) { return caches.delete(n); })
       );
     }).then(function() {

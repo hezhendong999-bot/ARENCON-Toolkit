@@ -336,7 +336,18 @@ def main():
     # freely (sw_push2.js, sw_fix.js, /tmp/anything). If the file being gated
     # IS the service worker — identified by its CACHE_NAME signature — the
     # precache check runs, whatever the file is called.
-    if "var CACHE_NAME = 'arencon-frt-" in new:
+    # S547: identify the ROOT worker specifically, by its cache namespace
+    # declaration. gen_precache derives the list for the site-root sw.js only.
+    # The old signature ("var CACHE_NAME = 'arencon-frt-") also matched
+    # frt/sw.js, whose precache list is FRT-specific and legitimately different —
+    # gating it from a full checkout produced a FALSE block, which is why it was
+    # only ever gated from copies where gen_precache.py was absent and the check
+    # silently skipped. Matching on CACHE_PREFIX makes the two workers
+    # distinguishable by content, whatever the working copy is called.
+    # Built by concatenation so this file does not contain the signature and
+    # therefore does not match itself when it is the file under the gate.
+    _sw_sig = "var CACHE_" + "PREFIX = 'arencon-frt-'"
+    if _sw_sig in new:
         gen = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            'gen_precache.py')
         if os.path.exists(gen):
