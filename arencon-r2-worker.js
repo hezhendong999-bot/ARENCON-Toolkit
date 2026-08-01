@@ -431,32 +431,70 @@ export default {
           const ifMatchHdr = request.headers.get('If-Match');
           const ifNoneMatchHdr = request.headers.get('If-None-Match');
           const putOpts = { httpMetadata: { contentType } };
-          if (ifMatchHdr) {
-            // S130 FIX — pass the If-Match value through UNMODIFIED.
-            // R2's onlyIf.etagMatches expects the strong-etag form exactly as
-            // R2 emitted it on GET (object.httpEtag), which INCLUDES the
-            // surrounding quotes. A previous version stripped the quotes,
-            // which made etagMatches never match R2's stored etag → every
-            // conditional markup PUT 412'd forever and deletions never synced.
-            // The client captured this value verbatim from our own GET
-            // response ETag header, so it is already in the correct form.
-            putOpts.onlyIf = { etagMatches: ifMatchHdr };
-          } else if (ifNoneMatchHdr === '*') {
-            putOpts.onlyIf = { etagDoesNotMatch: '*' };
+
+          // ── S555 — STOP GUESSING WHICH ETAG FORM R2 WANTS. ──────────────
+          // This has now been wrong in BOTH directions. S129 sent the quoted
+          // form, S130 stripped the quotes to "fix" it, and the comment left
+          // behind says stripping made every conditional PUT 412 forever.
+          // Flipping it back produced the identical symptom from the other
+          // side: on 1490.04 EVERY markup save 412'd three times and then
+          // fell through to an unconditional write with race protection off —
+          // on a single device, with nobody else editing. A guard that is
+          // always wrong is worse than no guard, because it looks armed.
+          //
+          // The fix is not a third guess. R2 has ONE stored etag; the only
+          // question is punctuation. Try the client's value exactly as sent,
+          // and if the precondition fails, try the same value with the quotes
+          // toggled BEFORE reporting a conflict. A genuine concurrent write
+          // fails both forms and still returns 412, so real race protection
+          // is unchanged — we only stop reporting a formatting mismatch as a
+          // collision. Costs one extra attempt on a path that should be rare.
+          const _etagForms = (v) => {
+            if (!v) return [];
+            const bare = v.replace(/^W\//, '').replace(/^"|"$/g, '');
+            const quoted = '"' + bare + '"';
+            // client's exact value first — that is the common case once correct
+            return v === quoted ? [quoted, bare] : [v, quoted, bare]
+              .filter((x, i, a) => a.indexOf(x) === i);
+          };
+
+          async function _conditionalPut() {
+            if (ifMatchHdr) {
+              const forms = _etagForms(ifMatchHdr);
+              for (let i = 0; i < forms.length; i++) {
+                try {
+                  const r = await env.BUCKET.put(r2Key, body, {
+                    ...putOpts, onlyIf: { etagMatches: forms[i] }
+                  });
+                  if (r !== null) {
+                    if (i > 0) console.log('[r2worker] S555: If-Match matched on alternate etag form');
+                    return r;
+                  }
+                } catch (e) { /* precondition threw — try the next form */ }
+              }
+              return null;                       // genuine conflict
+            }
+            if (ifNoneMatchHdr === '*') {
+              try {
+                return await env.BUCKET.put(r2Key, body, {
+                  ...putOpts, onlyIf: { etagDoesNotMatch: '*' }
+                });
+              } catch (e) { return null; }
+            }
+            return await env.BUCKET.put(r2Key, body, putOpts);
           }
+
           let putResult;
           try {
-            putResult = await env.BUCKET.put(r2Key, body, putOpts);
+            putResult = await _conditionalPut();
           } catch (preErr) {
-            // Some R2 SDK versions throw on precondition mismatch; others
-            // return null. Either way, 412 is the right client response.
             return jsonResponse({
               error: 'Precondition Failed',
               reason: 'concurrent_write_detected'
             }, 412, origin);
           }
           if (putResult === null && (ifMatchHdr || ifNoneMatchHdr === '*')) {
-            // Conditional put returned null → precondition failed.
+            // Every form failed → a real concurrent write, not punctuation.
             return jsonResponse({
               error: 'Precondition Failed',
               reason: 'concurrent_write_detected'
