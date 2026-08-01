@@ -1988,6 +1988,25 @@ function _pgReassignSelected(){
   var dests = ['Site Photos', 'Pump', 'Placard', 'PLD Placard',
                'Flow Test (3-pt)', 'Flow Test (PLD)'];
   var _RECDEST = { 'Site Photos':'site', 'Pump':'pump', 'Placard':'placard', 'PLD Placard':'placard-pld' };
+  // S558 (Mark): checklist items were NOT offered as destinations. A photo taken
+  // against the wrong checklist line — or filed into Site Photos when it belongs
+  // to one — could be moved anywhere EXCEPT the place it usually belongs, which
+  // is the commonest mis-file on a commissioning job. Same move semantics as
+  // every other destination here: the same record object is relocated, so the
+  // stored file never moves and nothing is duplicated.
+  // Only items that actually exist in the checklist are offered, and the label
+  // carries the item number so two lines can never be confused in the list.
+  var _CLDEST = {};
+  try{
+    Object.keys(clState||{}).forEach(function(cid){
+      var n = (typeof _clItemNum==='function') ? _clItemNum(cid) : cid;
+      var lbl = 'Checklist ' + n;
+      // Guard against two items resolving to the same visible label.
+      if(_CLDEST[lbl]) lbl = 'Checklist ' + n + ' (' + cid + ')';
+      _CLDEST[lbl] = cid;
+      dests.push(lbl);
+    });
+  }catch(e){ console.warn('[S558] checklist destinations:', e && e.message); }
   Object.keys(deficiencies||{}).forEach(function(ctr){
     (deficiencies[ctr]||[]).forEach(function(d,di){
       dests.push(ctr+' Deficiency #'+(di+1));
@@ -2084,6 +2103,15 @@ function _pgReassignSelected(){
       if(!_detachByRef(item, ph)){ _failed++; return; }
       if(dest === 'Flow Test (3-pt)') flowTestPhotos.push(ph);
       else if(dest === 'Flow Test (PLD)') flowTestPhotosPld.push(ph);
+      else if(_CLDEST[dest]){
+        // S558: the detach above already succeeded, so the photo is currently in
+        // NO list — it must land here or it is lost. Create the array if the item
+        // has never held a photo before rather than dropping it on the floor.
+        var _cid = _CLDEST[dest];
+        if(!clState[_cid]) clState[_cid] = {};
+        if(!Array.isArray(clState[_cid].photos)) clState[_cid].photos = [];
+        clState[_cid].photos.push(ph);
+      }
       else if(dest.indexOf('General Deficiency') === 0){
         var gi = parseInt(dest.replace('General Deficiency #',''))-1;
         if(generalDeficiencies[gi]){ if(!generalDeficiencies[gi].photos) generalDeficiencies[gi].photos=[]; generalDeficiencies[gi].photos.push(ph); }
