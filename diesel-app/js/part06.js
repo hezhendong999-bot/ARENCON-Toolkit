@@ -6170,8 +6170,13 @@ window.addEventListener('beforeunload', function(){ if (_wdTimer) _flushAutosave
 function saveState(){
   try{
     var key=getProjectSaveKey();
-    var json=JSON.stringify(collectState());
+    var _st=collectState();
+    var json=JSON.stringify(_st);
     _idbPut(key,json);
+    /* S555: record WHAT this save changed. Records only — it does not block or
+       alter the save. Reuses the state already collected above, so it costs one
+       object walk and no second serialisation. */
+    if (window._dslJournal) { try { window._dslJournal.record(_st, 'save'); } catch(e){} }
     updateIDBStorageBar();
     // S548: the store engine is published by part02 (a module). If that module
     // ever fails to load, a save must still complete — a missing shared module

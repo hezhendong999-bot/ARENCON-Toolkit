@@ -52,6 +52,7 @@ import { Auth } from './lib/shared/auth.js';
 import { createIDB } from './lib/data/idb.js';
 import { createSync } from './lib/data/sync.js';
 import { createBinaryOutbox } from './lib/data/photoOutbox.js';   // S544: shared photo rescue
+import { createChangeJournal } from './lib/data/changeJournal.js'; // S555: what did that save do
 import { merge3, applyResolutions, summarizeConflict } from './lib/data/merge.js';
 import * as Dlg from './lib/ui/dialogEngine.js';
 
@@ -62,8 +63,8 @@ import * as Dlg from './lib/ui/dialogEngine.js';
    database ARENCON_DIESEL, its photos and its blobs are not involved. */
 const SyncIDB = createIDB({
   dbName: 'ARENCON_DIESEL_SYNC',
-  version: 2,
-  stores: ['syncMeta', 'syncQueue', 'photoOutbox']
+  version: 3,
+  stores: ['syncMeta', 'syncQueue', 'photoOutbox', 'changeJournal']
 });
 
 /* ── Worker-host adapter ────────────────────────────────────────────────────
@@ -227,6 +228,40 @@ const DieselPhotoEngine = createBinaryOutbox({
     try { return window._r2FolderId || null; } catch (_) { return null; }
   }
 });
+
+/* ── S555 — the change journal (stage one of change-based sync) ──────────
+ * Records what each save changed. It does NOT block a save, does not travel to
+ * the server, and does not feed the merge — those come only once this has been
+ * watched against real inspections. `collections` is where Diesel says what its
+ * report is made of; the journal itself has no idea what a flow reading is.
+ * Named in plain language because these entries are read by a person on a
+ * tablet, not by a developer. */
+const DieselJournal = createChangeJournal({
+  IDB: SyncIDB,
+  collections: function (s) {
+    s = s || {};
+    var defs = 0;
+    try {
+      Object.keys(s.deficiencies || {}).forEach(function (k) {
+        if (Array.isArray(s.deficiencies[k])) defs += s.deficiencies[k].length;
+      });
+    } catch (_) {}
+    return {
+      'site photos':      s.recordPhotos,
+      'flow test photos': s.flowTestPhotos,
+      'flow readings':    s.stdData,
+      'PLD readings':     s.pldData,
+      'checklist items':  s.clState,
+      'deficiencies':     defs,
+      'general deficiencies': s.generalDeficiencies,
+      'sketches':         s.sketchEntries
+    };
+  },
+  whoami: function () { try { return (Auth.getUser && Auth.getUser().email) || ''; } catch (_) { return ''; } },
+  build:  function () { try { return window.DIESEL_BUILD || ''; } catch (_) { return ''; } },
+  tag: '[diesel]'
+});
+try { window._dslJournal = DieselJournal; } catch (_) {}
 
 /* ── The shared engine instance ─────────────────────────────────────────── */
 const engine = createSync({

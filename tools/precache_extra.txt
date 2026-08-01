@@ -105,3 +105,9 @@ lib/ui/helpPanel.css
 # loads Diesel with no photo store — every photo it takes that day would be
 # unrescuable, silently. Exactly the failure this module exists to prevent.
 lib/data/photoStore.js
+
+# ── S555: the change journal ──────────────────────────────────────────────
+# Imported by diesel-sync.js, which the scanner does not follow into. Without
+# this a cold offline tablet records nothing about what its saves did — which
+# is exactly the device you most want a record from.
+lib/data/changeJournal.js

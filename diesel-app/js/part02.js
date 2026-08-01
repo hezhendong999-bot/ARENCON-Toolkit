@@ -167,6 +167,7 @@
       onR2Cleanup: function(){ call('_dieselR2OrphanReport'); },
       onDelDiag: function(){ call('dslDiag'); },
       onPhotoStore: function(){ call('_dslPhotoStoreCheck'); },
+      onSaveLog:     function(){ call('_dslSaveLog'); },
       onHelp: function(){ call('openHelp'); },
       onQR: function(){ call('_openToolQR'); },
       onToggleTheme: function(){ call('toggleDarkMode'); },
@@ -220,6 +221,63 @@
     window._dslPhotoRetirable= function (p)  { return _dslPhotoStore.retirable(p); };
     window._dslPhotoRelease  = function ()   { return _dslPhotoStore.release(); };
     window._dslPhotoRetire   = function (n)  { return _dslPhotoStore.retirePass(n); };
+
+    /* ═══ S555 — WHAT RECENT SAVES CHANGED, on screen ═══
+       The 7155.40 wipe looked like every other save from the outside. This puts
+       the record where an inspector or Mark can actually read it — on the
+       tablet, no console — with anything that lost a lot at once called out.
+       Read-only: it reports, it does not undo. */
+    window._dslSaveLog = function () {
+      Dlg.panel({
+        title: 'Recent Saves', icon: '\uD83D\uDCDD', accent: 'info',
+        build: function (bd) {
+          var d = document.createElement('div');
+          d.innerHTML = 'Reading\u2026';
+          bd.appendChild(d);
+          var J = window._dslJournal;
+          if (!J) { d.innerHTML = '<b>No record available on this device yet.</b>'; return; }
+          J.history(30).then(function (rows) {
+            if (!rows.length) {
+              d.innerHTML = '<b>Nothing recorded yet.</b><br><br>The first save after opening a report is the starting point; changes appear from the second save onward.';
+              return;
+            }
+            var html = '';
+            var lossy = rows.filter(function (r) { return r.losses && r.losses.length; });
+            if (lossy.length) {
+              html += '<div style="background:#FDECEF;border:1px solid #E8A9B6;border-radius:8px;padding:10px 12px;margin-bottom:14px;">' +
+                      '<b style="color:#C0445F">' + lossy.length + (lossy.length === 1 ? ' save' : ' saves') +
+                      ' removed a large amount at once.</b><br>' +
+                      '<span style="color:#5E5B68">Marked below. This is the shape a wipe makes \u2014 worth checking those were deliberate.</span></div>';
+            } else {
+              html += '<div style="color:#2E9E72;font-weight:700;margin-bottom:14px;">No save has removed a large amount at once.</div>';
+            }
+            rows.forEach(function (r) {
+              var t = new Date(r.at);
+              var when = t.toLocaleDateString() + ' ' + t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+              var bad = r.losses && r.losses.length;
+              html += '<div style="border-left:3px solid ' + (bad ? '#C0445F' : '#D2CEDB') +
+                      ';padding:6px 0 6px 10px;margin-bottom:9px;">' +
+                      '<div style="font-size:13px;color:#5E5B68">' + when + (r.by ? ' \u00b7 ' + _esc(r.by) : '') +
+                      (r.build ? ' \u00b7 ' + _esc(r.build) : '') + '</div>';
+              r.changes.forEach(function (c) {
+                var lost = c.from > c.to;
+                var flagged = bad && r.losses.some(function (l) { return l.k === c.k; });
+                html += '<div style="font-size:14px;' + (flagged ? 'color:#C0445F;font-weight:700' : '') + '">' +
+                        _esc(c.k) + ': ' + c.from + ' \u2192 ' + c.to +
+                        (flagged ? '  \u25c0 lost ' + (c.from - c.to) : (lost ? '' : '')) + '</div>';
+              });
+              html += '</div>';
+            });
+            html += '<div style="color:#5E5B68;font-size:13px;margin-top:10px;">Kept on this device only, most recent 400 saves. Nothing here changes anything.</div>';
+            d.innerHTML = html;
+          }).catch(function (e) {
+            d.innerHTML = '<b style="color:#C0445F">Could not read the record.</b>' +
+                          (e && e.message ? '<br><br><span style="color:#928E9C">' + _esc(String(e.message)) + '</span>' : '');
+          });
+        },
+        buttons: [{ label: 'Close', kind: 'cancel' }]
+      });
+    };
 
     /* ═══ S549 — PHOTO STORE CHECK, ON SCREEN ═══
        The store keeps a real image file on this device for every photo in the
