@@ -281,6 +281,10 @@
         try { ready = typeof window._collectAllPhotos === 'function' && window._collectAllPhotos().length; } catch(_) {}
         if (!ready) return _kickHydrate(tries + 1);
         try { _dslPhotoStore.hydratePass(); } catch(_) {}
+        /* S563: same moment, same reason — by now the Hub folder is known, so
+           any photo taken before it was can finally be sent. Runs once per
+           load; it only enqueues photos that have no cloud key at all. */
+        try { if (typeof window._dslUploadUnsentPhotos === 'function') window._dslUploadUnsentPhotos(); } catch(_) {}
       }, 2500);
     })();
 

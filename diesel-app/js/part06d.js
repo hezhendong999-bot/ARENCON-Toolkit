@@ -2399,3 +2399,71 @@ function _skDeleteSelected(uid) {
 }
 
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   S563 — PHOTOS TAKEN BEFORE THE PROJECT FOLDER WAS KNOWN GET UPLOADED
+   ---------------------------------------------------------------------------
+   Found while closing out the placard photo-loss scope. The loss itself was
+   already fixed at S488 (ArcPhoto.mint saves and enqueues at birth, so a photo
+   is durable the instant it is taken). What that fix could NOT cover is the
+   window before the Hub folder is known: _r2EnqueuePhoto returns early when
+   _r2FolderId is null, so a photo taken in those first seconds — or in
+   standalone mode, before the report is later opened from the Hub — is saved
+   locally and then never uploaded by anything.
+
+   It is not lost: it is in the report and on the device. But it lives on ONE
+   device, and the rescue pass cannot help it either — that pass only looks at
+   photos which already have a cloud key (it verifies keys; a photo with none
+   is invisible to it). So it stays a single copy indefinitely, which is the
+   exact fragility the whole photo-store effort exists to remove.
+
+   This is the manual "Re-upload All Photos" narrowed to the photos that need
+   it and run automatically once the folder IS known. Deliberately narrow:
+     - only photos with NO cloud key at all (never re-uploads a stored photo)
+     - only photos that still carry their picture (a retired photo has its file
+       on the device but no bytes here; it also, by definition, already has a
+       confirmed upload, so it can never be in this set)
+     - never deleted photos
+   Read-then-enqueue only: it does not modify, move or remove anything.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function _dslUploadUnsentPhotos(){
+  if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined') return 0;
+  if(typeof _r2EnqueuePhoto!=='function') return 0;
+  var n = 0;
+  function _sweep(arr){
+    if(!arr) return;
+    arr.forEach(function(p){
+      if(!p || p.deleted) return;
+      if(p.r2Key) return;                 // already has a home in cloud storage
+      if(!p.d) return;                    // no picture here to send
+      _r2EnqueuePhoto(p);
+      n++;
+    });
+  }
+  try{
+    if(typeof clState!=='undefined') Object.keys(clState).forEach(function(k){ if(clState[k]) _sweep(clState[k].photos); });
+    if(typeof deficiencies!=='undefined') Object.keys(deficiencies).forEach(function(k){
+      (deficiencies[k]||[]).forEach(function(d){
+        if(!d) return;
+        _sweep(d.photos);
+        if(d.responses) d.responses.forEach(function(r){ if(r) _sweep(r.photos); });
+      });
+    });
+    if(typeof generalDeficiencies!=='undefined') generalDeficiencies.forEach(function(d){
+      if(!d) return;
+      _sweep(d.photos);
+      if(d.responses) d.responses.forEach(function(r){ if(r) _sweep(r.photos); });
+    });
+    if(typeof flowTestPhotos!=='undefined') _sweep(flowTestPhotos);
+    if(typeof flowTestPhotosPld!=='undefined') _sweep(flowTestPhotosPld);
+    if(typeof recordPhotos!=='undefined') _sweep(recordPhotos);
+    if(typeof stdData!=='undefined') stdData.forEach(function(r){ if(r) _sweep(r.photos); });
+    if(typeof pldData!=='undefined') pldData.forEach(function(r){ if(r) _sweep(r.photos); });
+  }catch(e){ console.warn('[S563] unsent sweep:', e && e.message); return n; }
+  if(n){
+    console.log('[S563] queued ' + n + ' photo(s) that had never been uploaded (taken before the project folder was known)');
+    try{ if(typeof saveState==='function') saveState(); }catch(_e){}
+  }
+  return n;
+}
+if(typeof window!=='undefined') window._dslUploadUnsentPhotos = _dslUploadUnsentPhotos;
