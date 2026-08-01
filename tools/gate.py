@@ -175,6 +175,10 @@ def main():
     ap.add_argument('--kill', default='',
                     help='comma-separated symbols INTENTIONALLY removed '
                          '(does NOT work on protected symbols)')
+    ap.add_argument('--moved-to', dest='moved_to', default='',
+                    help='comma-separated DESTINATION files a symbol moved INTO. '
+                         'A removal is excused only if the symbol is actually '
+                         'FOUND in one of them — presence is proved, not asserted.')
     ap.add_argument('--htmlold', default='',
                     help='frt.css only: LIVE frt/index.html (proves ?v= state)')
     ap.add_argument('--htmlnew', default='',
@@ -253,6 +257,56 @@ def main():
     removed = o - n
     added = n - o
 
+    # ── MOVED SYMBOLS (S564) ──────────────────────────────────────────────
+    # WHY THIS EXISTS. The gate compares ONE file to ITSELF. It has no concept
+    # of code going next door, so splitting a file reads as mass deletion —
+    # and on a protected symbol that is an unconditional block with no switch.
+    # frt/js/ui/deficiencies.js (8,397 lines) holds 6 protected declarations
+    # and 20 protected literals, which is precisely why it has never been
+    # split: the safest available operation was also the one the gate refused.
+    #
+    # This does NOT weaken the protection. --kill remains powerless on
+    # protected symbols, and --moved-to is not an assertion — the destination
+    # file is READ FROM DISK and the symbol must actually BE there. A symbol
+    # that falls between two files during a split is still missing, still
+    # unnamed, still blocks. What changes is only this: a symbol proved to
+    # exist in a declared sibling has not been deleted, so it is not reported
+    # as one.
+    #
+    # Deliberately strict:
+    #   • a destination path that does not exist    → BLOCKED (typo ≠ proof)
+    #   • a destination that is the file under gate → BLOCKED (circular proof)
+    #   • --moved-to given but nothing moved        → warned as a phantom
+    moved = {}                      # symbol -> destination path it was found in
+    dests = [p.strip() for p in a.moved_to.split(',') if p.strip()]
+    if dests:
+        import os as _os2
+        _dst_syms, _dst_text = {}, {}
+        for dp in dests:
+            if not _os2.path.exists(dp):
+                print(f"── {a.new}")
+                print(f"\n   ✗ BLOCKED — declared destination does not exist: {dp}")
+                print("     --moved-to must point at the REAL edited files the")
+                print("     symbols landed in. A path that isn't there proves nothing.")
+                return 1
+            if _os2.path.abspath(dp) in (_os2.path.abspath(a.new),
+                                         _os2.path.abspath(a.old)):
+                print(f"── {a.new}")
+                print(f"\n   ✗ BLOCKED — destination is the file under the gate: {dp}")
+                print("     A file cannot be its own proof of a move.")
+                return 1
+            _t = open(dp, encoding='utf-8', errors='replace').read()
+            _dst_text[dp] = _t
+            _dst_syms[dp] = extract(_t)
+        for r in sorted(removed):
+            for dp in dests:
+                # Same two-tier test the protected check uses: a declaration if
+                # the extractor sees one, otherwise plain presence in the text.
+                if r in _dst_syms[dp] or r in _dst_text[dp]:
+                    moved[r] = dp
+                    break
+        removed = removed - set(moved)
+
     # ── PROTECTED SYMBOLS (S493) ──
     # Checked BEFORE the kill list is honoured: --kill has no power here.
     # A protected symbol present in the live file and absent from the edit is
@@ -273,6 +327,17 @@ def main():
         if entry in _sym_space:
             continue                      # already covered by the symbol comparison
         if entry in old and entry not in new:
+            # S564: a literal that moved into a declared destination is present
+            # in the codebase, so it was not deleted. Same proof standard as
+            # above — the destination file is read, not taken on trust.
+            _landed = None
+            for dp in dests:
+                if entry in _dst_text[dp]:
+                    _landed = dp
+                    break
+            if _landed:
+                moved[entry] = _landed
+                continue
             prot_hit[entry] = feat
 
     if prot_hit:
@@ -308,6 +373,29 @@ def main():
         print(f"\n   ⚠ declared removed but STILL PRESENT ({len(phantom)}):")
         for p in sorted(phantom):
             print(f"       {p}")
+
+    if dests and not moved:
+        print(f"\n   ⚠ --moved-to given but NOTHING moved. Destinations declared:")
+        for dp in dests:
+            print(f"       {dp}")
+        print("     Either the cut didn't happen, or the wrong files were named.")
+
+    if moved:
+        _mprot = {s: protected[s] for s in moved if s in protected}
+        print(f"\n   ✓ moved, and PROVED present in the destination ({len(moved)}):")
+        _by_dest = {}
+        for sym, dp in moved.items():
+            _by_dest.setdefault(dp, []).append(sym)
+        for dp in sorted(_by_dest):
+            print(f"       → {dp}")
+            for sym in sorted(_by_dest[dp]):
+                print(f"           {sym}" + ("   [PROTECTED]" if sym in protected else ""))
+        if _mprot:
+            print(f"\n   ⚠ {len(_mprot)} of those carry PROTECTED features. They were")
+            print("     allowed only because they were found in the destination file.")
+            print("     Field-verify these before the session ends:")
+            for feat in sorted({protected[s] for s in _mprot}):
+                print(f"       · {feat[:96]}")
 
     if kill & removed:
         print(f"\n   ✓ intentional removals ({len(kill & removed)}):")
