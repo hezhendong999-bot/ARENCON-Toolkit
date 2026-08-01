@@ -70,6 +70,22 @@
   // by toggling it. Persisted by the host (markup.js) via FRT's own
   // mechanism, NOT artifact localStorage. Calibration.units still records
   // the unit the scale was entered in (used to turn pixels into metres).
+  // ── S552 — SIZED FOR FINGERS, NOT MICE. ──────────────────────────────────
+  // Every other affordance in the drawing viewer is sized in SCREEN terms via
+  // the host's _uiScale(), so it stays finger-sized however far out you zoom.
+  // The dimension tool never got that: its endpoint handles were a flat 10
+  // DRAWING units and grabbed within 12 — on a large sheet fitted to a tablet
+  // that is a dot about two pixels wide with a three-pixel grab zone, roughly
+  // a twentieth the width of a fingertip. The host now feeds its scale in.
+  var UI_SCALE = 1;
+  function setUiScale(s) { UI_SCALE = (typeof s === 'number' && s > 0) ? s : 1; }
+  function _px(n) { return n * UI_SCALE; }          // screen px → drawing units
+
+  // Touch has no fine control and no hover. Detected once; drives grab size
+  // and how close to straight counts as straight.
+  var COARSE = false;
+  try { COARSE = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches); } catch (e) {}
+
   var DISPLAY_UNIT = 'imperial';
   function getDisplayUnit() { return DISPLAY_UNIT; }
   function setDisplayUnit(u) { DISPLAY_UNIT = (u === 'metric') ? 'metric' : 'imperial'; }
@@ -227,7 +243,12 @@
   // tells the preview to draw a faint guide line.
   var _orthoSnap = true;       // feature enabled
   var _orthoActive = false;    // currently snapping (drives the guide)
+  // S552: 1.5° is a mouse tolerance. Nobody holds 1.5° with a finger on a
+  // moving tablet, so on touch the snap effectively never fired and every
+  // dimension came out very slightly skewed — with no way to correct it
+  // except grabbing the (unhittable) endpoint again.
   var ORTHO_TOL_DEG = 1.5;     // within ±1.5° of a snap angle → snap (near-perfect only)
+  function _orthoTol() { return (COARSE ? 4.5 : ORTHO_TOL_DEG) * Math.PI / 180; }
   function setOrthoSnap(on) { _orthoSnap = !!on; }
   function isOrthoSnap() { return _orthoSnap; }
   function isOrthoActive() { return _orthoActive; }
@@ -276,7 +297,7 @@
     var d = ang - snapAng;
     while (d > Math.PI) d -= 2 * Math.PI;
     while (d < -Math.PI) d += 2 * Math.PI;
-    if (Math.abs(d) <= ORTHO_TOL_DEG * Math.PI / 180) {
+    if (Math.abs(d) <= _orthoTol()) {
       _orthoActive = true;
       return { x: a.x + Math.cos(snapAng) * len, y: a.y + Math.sin(snapAng) * len };
     }
@@ -288,7 +309,7 @@
       var dd = ang - _alignDims[i].ang;
       while (dd > Math.PI / 2) dd -= Math.PI;    // fold: parallel OR anti-parallel
       while (dd < -Math.PI / 2) dd += Math.PI;
-      if (Math.abs(dd) <= ORTHO_TOL_DEG * Math.PI / 180) {
+      if (Math.abs(dd) <= _orthoTol()) {
         _orthoActive = true;
         var sa = ang - dd;                        // exact parallel ray through a
         return { x: a.x + Math.cos(sa) * len, y: a.y + Math.sin(sa) * len };
@@ -304,7 +325,7 @@
     var dx = ox - px, dy = oy - py, len = Math.sqrt(dx*dx + dy*dy);
     var ux, uy;
     if (len < 1) { ux = 1; uy = 0; } else { ux = -dy/len; uy = dx/len; } // perpendicular
-    var h = 6; // half-length of tick in px
+    var h = _px(9); // S552: half-length in SCREEN px, constant at any zoom
     ctx.save();
     ctx.setLineDash([]);
     ctx.lineWidth = 2;
@@ -724,7 +745,7 @@
         var dd = ang - _alignDims[i].ang;
         while (dd > Math.PI / 2) dd -= Math.PI;
         while (dd < -Math.PI / 2) dd += Math.PI;
-        if (Math.abs(dd) > ORTHO_TOL_DEG * Math.PI / 180) continue;   // not parallel
+        if (Math.abs(dd) > _orthoTol()) continue;   // not parallel
         var cand = _projectOffset(ax, ay, bx, by, _alignDims[i].lx, _alignDims[i].ly);
         if (Math.abs(rawOffset - cand) <= OFFSET_SNAP_PX) {
           _offsetSnapOn = true;
@@ -957,6 +978,39 @@
    */
   function renderPreview(ctx, color, lineWidth, opacity) {
     if (_state === 'idle' || !_pA) return;
+
+    // ── S552 — SHOW THE START POINT (Mark's team: "we have to guess"). ──
+    // The A→cursor preview below is gated on _cursor, which only exists once a
+    // pointer has MOVED. A mouse always has one, so on desktop the start point
+    // appears the instant you click. Touch has no hover: after the first tap
+    // the finger is gone and there is no pointer position at all, so nothing
+    // was drawn — the start point was invisible until the second touch began.
+    // Anchor marker, drawn whenever we are waiting for B and have no live
+    // cursor. Direction-independent (there is no cursor to be perpendicular
+    // to), and sized in screen px so a finger can actually see it.
+    if (_state === 'awaitB' && !_cursor) {
+      var mr = _px(COARSE ? 13 : 10);
+      ctx.save();
+      ctx.setLineDash([]);
+      ctx.lineCap = 'round';
+      // white backing so it reads on dark AND light drawings
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = _px(5);
+      ctx.beginPath();
+      ctx.moveTo(_pA.x - mr, _pA.y); ctx.lineTo(_pA.x + mr, _pA.y);
+      ctx.moveTo(_pA.x, _pA.y - mr); ctx.lineTo(_pA.x, _pA.y + mr);
+      ctx.stroke();
+      ctx.strokeStyle = color || '#9C2742'; ctx.lineWidth = _px(2.5);
+      ctx.beginPath();
+      ctx.moveTo(_pA.x - mr, _pA.y); ctx.lineTo(_pA.x + mr, _pA.y);
+      ctx.moveTo(_pA.x, _pA.y - mr); ctx.lineTo(_pA.x, _pA.y + mr);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(_pA.x, _pA.y, _px(4), 0, Math.PI * 2);
+      ctx.fillStyle = color || '#9C2742'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = _px(1.5); ctx.stroke();
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.strokeStyle = color || '#9C2742';
     ctx.fillStyle = color || '#9C2742';
@@ -1085,7 +1139,9 @@
    */
   function hitTestVertex(pos, obj, tolerance) {
     if (!pos || !obj || obj.type !== 'dimension') return null;
-    var tol = tolerance || 12;
+    // S552: the grab zone is deliberately LARGER than the painted dot, and
+    // larger again on touch — you aim at what you see, you hit what you meant.
+    var tol = tolerance || _px(COARSE ? 30 : 20);
     var tol2 = tol * tol;
     var ax, ay, bx, by;
     if (obj.mx1 != null) { ax = obj.mx1; ay = obj.my1; bx = obj.mx2; by = obj.my2; }
@@ -1110,14 +1166,14 @@
     if (obj.mx1 != null) { ax = obj.mx1; ay = obj.my1; bx = obj.mx2; by = obj.my2; }
     else { ax = obj.x1; ay = obj.y1; bx = obj.x2; by = obj.y2; }
     ctx.save();
-    ctx.lineWidth = 2;
+    ctx.lineWidth = _px(2);
     ctx.fillStyle = '#9C2742';
     ctx.strokeStyle = '#fff';
     ctx.globalAlpha = 1;
     var pts = [[ax, ay], [bx, by]];
     for (var i = 0; i < pts.length; i++) {
       ctx.beginPath();
-      ctx.arc(pts[i][0], pts[i][1], 10, 0, Math.PI * 2);
+      ctx.arc(pts[i][0], pts[i][1], _px(11), 0, Math.PI * 2);   // S552: screen-constant
       ctx.fill();
       ctx.stroke();
     }
@@ -1253,6 +1309,7 @@
       isOrthoActive: isOrthoActive,
       applyOrtho: function(a, p) { return _applyOrtho(a, p); },
       renderVertexHandles: renderVertexHandles,
+      setUiScale: setUiScale,          // S552: host feeds its screen scale in
       parseDimNumber: _parseDimNumber,
       // Display unit (display-only; persisted by host)
       getDisplayUnit: getDisplayUnit,

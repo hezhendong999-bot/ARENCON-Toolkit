@@ -408,6 +408,8 @@ function _renderDimensionPreview() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ov.width, ov.height);
   ctx.setTransform(d, 0, 0, d, 0, 0);
+  // S552: dimension chrome is screen-constant like every other affordance here.
+  if (dim.setUiScale) dim.setUiScale(_uiScale());
   dim.renderPreview(ctx, _color, _lineWidth, _opacity);
 }
 
@@ -1565,6 +1567,7 @@ function _renderAll() {
   // markup. Visible whenever the user has tapped a dimension while NOT in
   // select tool. Click+drag on a handle moves that endpoint of the dim.
   if (_dimVertexEditId != null && window._dimTool && window._dimTool.renderVertexHandles) {
+    if (window._dimTool.setUiScale) window._dimTool.setUiScale(_uiScale());   // S552
     var editDim = _findObj(_dimVertexEditId);
     if (editDim && editDim.type === 'dimension') {
       window._dimTool.renderVertexHandles(ctx, toV1(editDim));   // S461: _dimTool speaks v1
@@ -2299,6 +2302,7 @@ function _startDraw(e) {
     if (_dimVertexEditId != null) {
       var editObj = _findObj(_dimVertexEditId);
       if (editObj) {
+        if (dim.setUiScale) dim.setUiScale(_uiScale());   // S552: grab zone in screen px
         var hndl = dim.hitTestVertex(posD, editObj);
         if (hndl != null) {
           _dimVertexDragHandle = hndl;
