@@ -128,15 +128,27 @@ describe('S135 Phase 1a — contractor-scoped trade schema', () => {
     });
 
     it('preserves existing contractor.trades + .color on reload', () => {
+      // S560b — FIXTURE FIX (Lane A ruling: the code is correct, the harness was
+      // not). The fixture used '#ABCDEF', an arbitrary hex that is not a member
+      // of CONTRACTOR_COLOR_PALETTE — and S284 deliberately migrates exactly
+      // those to the locked palette at load ("remap them all", Mark). So the old
+      // assertion was demanding the opposite of a shipped, intended behaviour,
+      // and would have gone on failing however long anyone stared at model.js.
+      // Two rules are both live and both right: the auto-assign only fills a
+      // MISSING colour, and S284 remaps any NON-PALETTE colour. A hand-set
+      // colour therefore survives only when it is a palette member — which is
+      // what "hand-set colour survives reload" can mean now that the palette is
+      // locked. Verified against live logic: '#D2415C' in, '#D2415C' out;
+      // '#ABCDEF' in, '#5B5FD6' out.
       const proj = makeProject({
         contractors: [
-          { id: 'ctr_a', name: 'Acme', trades: ['Sprinkler', 'Fire Alarm'], color: '#ABCDEF', deficiencies: [] }
+          { id: 'ctr_a', name: 'Acme', trades: ['Sprinkler', 'Fire Alarm'], color: '#D2415C', deficiencies: [] }
         ]
       });
       Model.setProject(proj);
       const ctr = Model.getProject().contractors[0];
       expect(ctr.trades).toEqual(['Sprinkler', 'Fire Alarm']);
-      expect(ctr.color).toBe('#ABCDEF');
+      expect(ctr.color).toBe('#D2415C');
     });
   });
 
