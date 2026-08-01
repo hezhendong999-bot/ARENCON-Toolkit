@@ -513,3 +513,8 @@ _bBeat
 _bBeatStop
 _bLiveSessions
 _bContext
+
+
+@ S547 one confirmation card for every destructive action in the burst camera. The review-screen bin was the last one-tap delete left: it removed the photo on screen with no question asked. Lower risk than the ✕ (the photo is right in front of you) but the same class of thing that cost Mark photos, and the universal confirm rule has no exceptions. Both actions now share _confirmCard. Its z-index is 30 ON PURPOSE — at 12 it rendered UNDERNEATH the review screen (z-index 20), so the review delete would have asked a question the user could not see: the exact failure avoided by not using the host dialog engine, reintroduced inside our own overlay. Anything added to this overlay must clear 20. Never restore a one-tap delete anywhere in this camera.
+_confirmCard
+_confirmDeleteShot
