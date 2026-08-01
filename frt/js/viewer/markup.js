@@ -411,6 +411,7 @@ function _renderDimensionPreview() {
   // S552: dimension chrome is screen-constant like every other affordance here.
   if (dim.setUiScale) dim.setUiScale(_uiScale());
   dim.renderPreview(ctx, _color, _lineWidth, _opacity);
+  _drawLoupe(ctx, _loupeAt);   // S557: only draws during a coarse-pointer drag
 }
 
 // S331 #37 — Live calibration preview. After the first calibration point is
@@ -2313,6 +2314,11 @@ function _startDraw(e) {
         // Click was NOT on a handle — dismiss vertex edit. Re-render to
         // remove handles, then fall through so the click can also start
         // the next normal action (e.g. a new chain or another hit).
+        // S557: EXCEPT during the adjust-then-place stage. The provisional
+        // dimension is not committed yet; a stray tap starting a SECOND
+        // chain on top of it would stack two half-finished dimensions. The
+        // tap is simply absorbed — the pill's ✓/✗ are the only exits.
+        if (_dimAdjustObj) return;
         _dimVertexEditId = null;
         _renderAll();
       } else {
@@ -2434,8 +2440,112 @@ function _startDraw(e) {
 }
 
 var _dimChainPressPending = false;
+// ── S557 — THE LOUPE. ─────────────────────────────────────────────────────
+// A fingertip covers the exact spot being aimed at — roughly forty screen
+// pixels of pipe hidden under flesh. Every serious drawing app answers this
+// with a magnifier: a circle above the finger showing a zoomed view of what
+// is underneath. Drawn on the overlay canvas (already cleared/repainted every
+// preview frame), compositing the drawing image, the committed markup, and
+// the live preview. Shown only during an active dimension drag on a COARSE
+// pointer — mouse and pen users can see past their cursor.
+var _LOUPE_ON = (function(){ try { return !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches); } catch(e){ return false; } })();
+function _drawLoupe(ctx, at) {
+  if (!_LOUPE_ON || !at) return;
+  var mc = _getCanvas(); if (!mc) return;
+  var u = _uiScale();
+  var R = 62 * u, ZOOM = 2.2;
+  var cx = at.x, cy = at.y - R - 40 * u;          // above the fingertip
+  if (cy - R < 0) cy = at.y + R + 40 * u;         // flip below near the top edge
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.closePath();
+  ctx.save(); ctx.clip();
+  ctx.fillStyle = '#fff'; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+  ctx.translate(cx, cy); ctx.scale(ZOOM, ZOOM); ctx.translate(-at.x, -at.y);
+  // layers under the glass: drawing, then committed markup. Live preview is
+  // painted by the caller AFTER this, so the loupe shows the state one frame
+  // back for those strokes — invisible in practice at preview cadence.
+  try {
+    var img = document.getElementById('dv-image');
+    if (img && img.naturalWidth) ctx.drawImage(img, 0, 0, mc._logicalW || mc.width, mc._logicalH || mc.height);
+  } catch (e) {}
+  try { ctx.drawImage(mc, 0, 0, mc._logicalW || mc.width, mc._logicalH || mc.height); } catch (e) {}
+  ctx.restore();
+  // crosshair at the loupe centre = the exact point under the finger
+  ctx.strokeStyle = '#C0445F'; ctx.lineWidth = 1.4 * u;
+  ctx.beginPath();
+  ctx.moveTo(cx - 12 * u, cy); ctx.lineTo(cx + 12 * u, cy);
+  ctx.moveTo(cx, cy - 12 * u); ctx.lineTo(cx, cy + 12 * u);
+  ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 6 * u; ctx.stroke();
+  ctx.strokeStyle = '#9C2742'; ctx.lineWidth = 2.4 * u; ctx.stroke();
+  ctx.restore();
+}
+var _loupeAt = null;   // drawing-space point under the finger, or null
+
 var _dimPressPos = null;      // S553: drawing-space position of the press
 var _dimPressState = 'idle';  // S553: chain state at press time
+
+// ── S557 — ADJUST, THEN PLACE. ────────────────────────────────────────────
+// Lifting used to be final: an end two feet off meant delete and redo, and a
+// span longer than one comfortable drag was simply impossible. Now the lift
+// opens a correction stage — both endpoints stay as the S552 finger-sized
+// handles, the drawing can still be panned and zoomed for a closer look, and
+// nothing is final until the green check. Reuses the EXISTING vertex-edit
+// machinery (hit-test, drag, ortho re-snap) rather than a second system; the
+// only new parts are the pill and the deferred history push.
+var _dimAdjustObj = null;      // the provisional dimension, already in _objects
+var _dimAdjustBar = null;
+function _dimEnterAdjust(obj) {
+  _dimAdjustObj = obj;
+  _dimVertexEditId = obj.id;              // existing machinery takes over
+  _renderAll();
+  if (!_dimAdjustBar) {
+    _dimAdjustBar = document.createElement('div');
+    _dimAdjustBar.id = 'dv-dim-adjust';
+    _dimAdjustBar.style.cssText = _DV_PILL_BOX + 'left:50%;bottom:84px;transform:translateX(-50%);padding-left:12px;';
+    var lbl = document.createElement('span');
+    lbl.style.cssText = 'font:600 12px Calibri,sans-serif;color:#cfcad6;';
+    lbl.textContent = 'Drag an end to adjust';
+    var ok = document.createElement('button');
+    ok.innerHTML = '\u2713'; ok.title = 'Place dimension';
+    ok.style.cssText = _DV_PILL_FINISH;
+    var no = document.createElement('button');
+    no.innerHTML = '\u2715'; no.title = 'Discard';
+    no.style.cssText = _DV_PILL_X;
+    _dimAdjustBar.appendChild(lbl); _dimAdjustBar.appendChild(ok); _dimAdjustBar.appendChild(no);
+    (document.getElementById('drawing-viewer-overlay') || document.body).appendChild(_dimAdjustBar);
+    ok.addEventListener('click', function () { _dimAdjustFinish(true); });
+    no.addEventListener('click', function () { _dimAdjustFinish(false); });
+  }
+  _dimAdjustBar.style.display = 'flex';
+}
+function _dimAdjustFinish(keep) {
+  var obj = _dimAdjustObj;
+  _dimAdjustObj = null;
+  if (_dimAdjustBar) _dimAdjustBar.style.display = 'none';
+  _dimVertexEditId = null; _dimVertexDragHandle = null;
+  if (!obj) { _renderAll(); return; }
+  // S557: in continuous/running modes the offset commit re-armed the next
+  // chain link from the lift point. The adjust stage supersedes that — after
+  // ✓/✗ the tool returns to idle so the next gesture starts clean rather
+  // than chaining invisibly from a point the inspector may have just moved.
+  try { if (window._dimTool && window._dimTool.resetState) window._dimTool.resetState(); } catch (e) {}
+  if (keep) {
+    _pushHistory(); _markDirty();
+    // uncalibrated drawings: same keypad rule as the tap flow — the value is
+    // typed, never guessed. Calibrated: the measured label is already on it.
+    try {
+      var dim = window._dimTool;
+      if (dim && !dim.isCalibrated(_getCurrentDrawing())) _editDimensionLabel(obj);
+    } catch (e) {}
+  } else {
+    var ix = _objects.indexOf(obj);
+    if (ix >= 0) _objects.splice(ix, 1);   // never entered history — no ghost undo step
+  }
+  _renderAll();
+  _updateDimFinChip();
+}
 function _dimChainRelease(e) {
   var posD = _getPos(e);
   var dim = window._dimTool;
@@ -2467,7 +2577,31 @@ function _dimChainRelease(e) {
       dim.handleMove(posD);                                                      // keep the preview honest
       var resDrag = dim.handleClick(posD, drDrag, vDrag);                        // end = where it lifted
       _dimPressPos = null; _dimPressState = 'idle';
+      _loupeAt = null;
+      // S557 (corrected): the second click yields lockedB — the tool is now
+      // waiting for a THIRD click to place the label offset. Verified in
+      // dimensionTool.js: awaitB → lockedB, and only awaitOffset commits.
+      // The earlier assumption that single-mode committed here was wrong.
+      // For the drag gesture, the offset gets a sensible default (a fixed
+      // screen distance off the line via the same _projectOffset math, by
+      // clicking one row above the lift point) and the dimension goes
+      // straight into the adjust stage, where the endpoints AND the whole
+      // line remain correctable before the green check. The tap-tap-tap
+      // flow keeps its explicit third click, untouched.
       if (resDrag && resDrag.action === 'lockedB') {
+        var offPt = { x: posD.x, y: posD.y - 28 * _uiScale() };
+        var resOff = dim.handleClick(offPt, drDrag, vDrag);
+        if (resOff && resOff.committed && resOff.obj) {
+          var adjObj = resOff.obj;
+          adjObj.id = _newId(); adjObj.color = _color; adjObj.size = _lineWidth; adjObj.opacity = _opacity;
+          adjObj = toStroke(adjObj);
+          _objects.push(adjObj);
+          _renderAll();
+          _dimEnterAdjust(adjObj);   // history + dirty deferred to the ✓
+          return;
+        }
+        // offset click didn't commit (should not happen) — leave the tool in
+        // its normal awaitOffset state so the next tap places it manually.
         _renderDimensionPreview();
         _updateDimFinChip();
         return;
@@ -2603,6 +2737,7 @@ function _moveDraw(e) {
     }
     // (a) Vertex drag
     if (_dimVertexEditId != null && _dimVertexDragHandle != null && _isDrawing) {
+      _loupeAt = posDM;   // S557: magnify while adjusting an endpoint
       var dragObj = _findObj(_dimVertexEditId);
       if (dragObj) {
         // Capture the OLD pixel length before we move the handle — needed to
@@ -2682,7 +2817,26 @@ function _moveDraw(e) {
     var stDM = dim.getState();
     if (stDM.state !== 'idle') {
       dim.handleMove(posDM);
+      _loupeAt = _isDrawing || _dimChainPressPending ? posDM : null;   // S557
       _renderDimensionPreview();
+      return;
+    }
+    // S557: also magnify during the initial press-drag, before any state locks
+    if (_dimChainPressPending && _dimPressPos) {
+      _loupeAt = posDM;
+      var octx0 = (function(){ var ov=_ensureOverlay(); if(!ov) return null;
+        ov.style.display='block'; ov.style.opacity='1';
+        var c=ov.getContext('2d'), d=ov._dpr||1;
+        c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,ov.width,ov.height);
+        c.setTransform(d,0,0,d,0,0); return c; })();
+      if (octx0) {
+        // live rubber line from the press point, so the drag reads as measuring
+        octx0.save();
+        octx0.strokeStyle=_color; octx0.lineWidth=2*_uiScale(); octx0.setLineDash([6*_uiScale(),4*_uiScale()]);
+        octx0.beginPath(); octx0.moveTo(_dimPressPos.x,_dimPressPos.y); octx0.lineTo(posDM.x,posDM.y); octx0.stroke();
+        octx0.restore();
+        _drawLoupe(octx0, posDM);
+      }
       return;
     }
     return;
@@ -5205,6 +5359,10 @@ export var Markup = {
   },
 
   destroy: function() {
+    // S557: an unconfirmed adjust-stage dimension is discarded on close, the
+    // same as ✗ — it never entered history and the inspector never placed it.
+    // Resolving BEFORE the dirty-save below so it cannot ride into IDB/R2.
+    if (_dimAdjustObj) _dimAdjustFinish(false);
     if (_dirty && _drawingId) _saveMarkup();
 
     _drawingId = null;
