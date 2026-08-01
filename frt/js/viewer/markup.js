@@ -2904,138 +2904,128 @@ function _handleTextPlace(e) {
 }
 
 // editObj != null → re-edit an existing text object at its own anchor.
-function _dvOpenTextBox(logicalPt, editObj) {
-  if (_dvTextBox) { if (_dvTextCtl) _dvTextCtl.cancel(); }
-
-  var anchor = editObj ? { x: editObj.pts[0].x, y: editObj.pts[0].y } : { x: logicalPt.x, y: logicalPt.y };
-  var sizePx = editObj ? (editObj.fontSize || 20) : _fontSize;           // logical font px
-  var curColor = editObj ? (editObj.color || _dvLastTextColor || _color) : (_dvLastTextColor || _color);
-  var curBg = editObj ? (editObj.bg || 'none') : _dvLastTextBg;
-  var curBold = editObj ? !!editObj.bold : false;
-  var startText = editObj ? (editObj.text || '') : '';
-  if (editObj) { editObj._editing = true; _renderAll(); }
-
-  var box = document.createElement('div');
-  box.className = 'dv-text-box';
-  box.contentEditable = 'true';
-  box.spellcheck = false;
-  box.setAttribute('data-empty-placeholder', 'Type\u2026');
-  if (startText) box.textContent = startText;
-  var overlay = document.getElementById('drawing-viewer-overlay');
-  (overlay || document.body).appendChild(box);
-  _dvTextBox = box;
-  box._dvAnchor = anchor;
-
-  // S410 #2: EDGE-DRAG-TO-MOVE (deferred from S403). Grabbing the box within
-  // EDGE px of its border repositions the text while still editing — no tool
-  // switch. The interior keeps normal caret/selection behaviour. anchor is the
-  // SAME object commit reads, so the moved position persists. Coarse pointers
-  // (field tablets, gloves) get a wider band per the pointer:coarse rule.
-  (function(){
-    var EDGE = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches) ? 16 : 12;
-    var _edrag = null;
-    box.addEventListener('pointerdown', function(ev){
-      var r = box.getBoundingClientRect();
-      var ix = ev.clientX - r.left, iy = ev.clientY - r.top;
-      var nearEdge = ix < EDGE || iy < EDGE || (r.width - ix) < EDGE || (r.height - iy) < EDGE;
-      if (!nearEdge) return;                      // interior = normal editing
-      ev.preventDefault(); ev.stopPropagation();  // block caret placement for the grab
-      _edrag = { sx: ev.clientX, sy: ev.clientY, ax: anchor.x, ay: anchor.y, z: _dvTextZoom() || 1 };
-      try { box.setPointerCapture(ev.pointerId); } catch(_){}
-    });
-    box.addEventListener('pointermove', function(ev){
-      if (!_edrag) return;
-      anchor.x = _edrag.ax + (ev.clientX - _edrag.sx) / _edrag.z;
-      anchor.y = _edrag.ay + (ev.clientY - _edrag.sy) / _edrag.z;
-      positionBox();
-    });
-    function _endEdgeDrag(ev){ if (!_edrag) return; _edrag = null; try { box.releasePointerCapture(ev.pointerId); } catch(_){} }
-    box.addEventListener('pointerup', _endEdgeDrag);
-    box.addEventListener('pointercancel', _endEdgeDrag);
-  })();
-
-  function screenFont() { return sizePx * _dvTextZoom(); }
-  function positionBox() {
-    var sp = _dvLogicalToScreen(anchor.x, anchor.y);
-    var sf = screenFont();
-    box.style.left = Math.max(2, sp.x - 4) + 'px';
-    box.style.top = Math.max(2, sp.y - sf) + 'px';   // baseline ~ anchor
-    box.style.fontSize = sf + 'px';
-    box.style.color = curColor;
-    box.style.fontWeight = curBold ? '700' : '600';
-  }
-  positionBox();
-  box._dvReposition = positionBox;   // re-glue hook (called on pan/zoom)
-  box.focus();
-  requestAnimationFrame(function () { try { box.focus(); _dvCaretEnd(box); } catch (_) {} });
-
-  var resolved = false;
-  function cleanup() {
-    if (box.parentNode) box.parentNode.removeChild(box);
-    if (_dvTextBox === box) _dvTextBox = null;
-    if (editObj) delete editObj._editing;
-    _dvHideTextBar();
+// ── S551 — THE DRAWING VIEWER'S TEXT TOOL NOW RUNS ON THE SHARED ENGINE. ──
+// Until now the drawing viewer carried a complete second text editor, separate
+// from the one the photo markup uses. Same job, two implementations, already
+// drifting apart. This replaces the private editor with an adapter: the engine
+// is host-agnostic and asks the host where to put the box, what a size means in
+// the host's own units, and how to write the result into the host's own object
+// store. Everything below is that answer for the drawing viewer.
+//
+// NOTHING ELSE MOVES: same object store, same snapshot undo, same docked bar —
+// the bar already drove exactly the controller interface the engine returns, so
+// not one line of it changes.
+//
+// WHY WEIGHT IS THREADED THROUGH: drawing text is REGULAR weight; the engine's
+// other hosts are bold. Passing the flag keeps every drawing already marked up
+// in every report already issued rendering exactly as it does today.
+var DVTextHost = {
+  _lastTextColor: null,
+  _lastTextBg: null,
+  _textInput: null,
+  _textController: null,
+  _PALETTE: null,
+  _SIZE_STEPS: _DV_SIZE_STEPS,
+  _uid: function () { return _newId(); },
+  render: function () { _renderAll(); },
+  _findStroke: function (id) {
+    for (var i = 0; i < _objects.length; i++) if (_objects[i] && _objects[i].id === id) return _objects[i];
+    return null;
+  },
+  // The engine records individual operations; this viewer snapshots the whole
+  // drawing. Both do it AFTER the mutation, so the timing already matches every
+  // other change made here and undo behaves exactly as it always has.
+  _pushOp: function () { _pushHistory(); },
+  _onDirty: function () { _markDirty(); },
+  _onTextStart: function (ctl) {
+    _dvTextCtl = ctl;
+    _dvTextBox = DVTextHost._textInput;
+    if (_dvTextBox) {
+      _dvTextBox.classList.add('dv-text-box');                     // keep the viewer's own box styling
+      _dvTextBox._dvReposition = DVTextHost._repositionTextBox;    // pan/zoom re-glue hook
+    }
+    _dvShowTextBar(ctl);
+  },
+  _onTextEnd: function () {
+    _dvLastTextColor = DVTextHost._lastTextColor || _dvLastTextColor;
+    _dvLastTextBg    = DVTextHost._lastTextBg    || _dvLastTextBg;
     _dvTextCtl = null;
-    // auto-unarm text (S339): drop the tool so the next tap doesn't drop a box
-    _setActiveTool(null);
+    _dvTextBox = null;
+    _dvHideTextBar();
   }
-  function commit() {
-    if (resolved) return; resolved = true;
-    var mc = _getCanvas();   // S397: was referencing out-of-scope `mc` -> ReferenceError on every OK tap, box never committed
-    var r2 = mc.getBoundingClientRect();
-    var lw = mc._logicalW || mc.width, z = lw ? r2.width / lw : 1;
-    var br = box.getBoundingClientRect();
-    var ascent = sizePx * z;
-    var lx = (br.left + 4 - r2.left) / z;
-    var ly = (br.top - r2.top + ascent) / z;
-    var v = (box.innerText || box.textContent || '').replace(/[ \t]+$/, '').replace(/\n+$/, '');
-    _dvLastTextColor = curColor; _dvLastTextBg = curBg;
-    if (editObj) {
-      if (!v.trim()) { var ix = _objects.indexOf(editObj); if (ix >= 0) _objects.splice(ix, 1); }
-      else {
-        editObj.text = v; editObj.fontSize = sizePx; editObj.color = curColor;
-        editObj.bold = curBold; editObj.bg = curBg; editObj.pts[0] = { x: lx, y: ly };
-      }
-      delete editObj._editing;
-      _pushHistory(); _renderAll(); _markDirty(); cleanup(); return;
-    }
-    if (v.trim()) {
-      _objects.push(toStroke({
-        id: _newId(), type: 'text', text: v,
-        x1: lx, y1: ly, color: curColor, fontSize: sizePx,
-        bold: curBold, opacity: _opacity, bg: curBg
-      }));
-      _pushHistory(); _renderAll(); _markDirty();
-    }
-    cleanup();
-  }
-  function cancel() { if (resolved) return; resolved = true; _renderAll(); cleanup(); }
+};
+Object.defineProperty(DVTextHost, 'strokes', { get: function () { return _objects; } });
+Object.defineProperty(DVTextHost, 'canvas',  { get: function () { return _getCanvas(); } });
+Object.defineProperty(DVTextHost, 'nw', { get: function () { var m = _getCanvas(); return m ? (m._logicalW || m.width)  : 1; } });
+Object.defineProperty(DVTextHost, 'nh', { get: function () { var m = _getCanvas(); return m ? (m._logicalH || m.height) : 1; } });
+// The engine clears array-typed redo stores by assignment; empty ours IN PLACE
+// so the viewer's real redo stack is the one that gets cleared, not a copy.
+Object.defineProperty(DVTextHost, 'redoStack', {
+  get: function () { return _redoStack; },
+  set: function () { try { _redoStack.length = 0; } catch (_) {} }
+});
 
-  box.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
-    ev.stopPropagation();   // Enter = newline (contentEditable default); block viewer shortcuts
-  });
-
-  _dvTextCtl = {
-    isActive: function () { return !resolved; },
-    getSize: function () { return sizePx; },
-    getColor: function () { return curColor; },
-    getBg: function () { return curBg; },
-    stepSize: function (dir) {
+var _dvTextEngineReady = false;
+function _dvInstallTextEngine() {
+  if (_dvTextEngineReady) return true;
+  if (!window.MarkupText || !window.MarkupText.install) return false;
+  window.MarkupText.install(DVTextHost, {
+    readFontN:   function (es) { return (es && es.fontSize) || 20; },
+    newFontN:    function () { return _fontSize; },
+    storeFont:   function (t, fontN) { t.fontSize = fontN; },
+    // Verbatim the old controller's stepper: walk the tuned list, nearest first.
+    stepFontN:   function (fontN, dir) {
       var i = 0, best = 1e9;
-      for (var k = 0; k < _DV_SIZE_STEPS.length; k++) { var d = Math.abs(_DV_SIZE_STEPS[k] - sizePx); if (d < best) { best = d; i = k; } }
+      for (var k = 0; k < _DV_SIZE_STEPS.length; k++) {
+        var d = Math.abs(_DV_SIZE_STEPS[k] - fontN);
+        if (d < best) { best = d; i = k; }
+      }
       i = Math.max(0, Math.min(_DV_SIZE_STEPS.length - 1, i + dir));
-      sizePx = _DV_SIZE_STEPS[i]; positionBox(); box.focus(); return sizePx;
+      return _DV_SIZE_STEPS[i];
     },
-    setColor: function (c) { curColor = c; _dvLastTextColor = c; box.style.color = c; box.focus(); },
-    setBg: function (c) { curBg = c; _dvLastTextBg = c; box.focus(); },   // shows on commit
-    insertNewline: function () {
-      box.focus();
-      try { document.execCommand('insertLineBreak'); } catch (_) { document.execCommand('insertText', false, '\n'); }
+    displaySize: function (fontN) { return Math.round(fontN); },
+    readBold:    function (es) { return es ? !!es.bold : false; },   // new drawing text is REGULAR
+    edgeDrag:    function () { return true; },                       // S410 #2 grab-the-edge move
+    placement: function () {
+      var overlay = document.getElementById('drawing-viewer-overlay') || document.body;
+      return {
+        host: overlay,
+        origin: function () {
+          var m = _getCanvas(); if (!m) return { x: 0, y: 0 };
+          var r = m.getBoundingClientRect(), h = overlay.getBoundingClientRect();
+          return { x: r.left - h.left, y: r.top - h.top };
+        },
+        sx: function () { return _dvTextZoom() || 1; },
+        sy: function () { return _dvTextZoom() || 1; },
+        track: true      // the drawing pans and zooms under the box; keep it glued
+      };
     },
-    commit: commit, cancel: cancel
-  };
-  _dvShowTextBar(_dvTextCtl);
+    buildStroke: function (v, fontN, color, bg, lx, ly, st, bold) {
+      return toStroke({
+        id: _newId(), type: 'text', text: v,
+        x1: lx, y1: ly, color: color, fontSize: fontN,
+        bold: !!bold, opacity: _opacity, bg: bg
+      });
+    },
+    applyEdit: function (es, v, fontN, color, bg, lx, ly, bold) {
+      es.text = v; es.fontSize = fontN; es.color = color;
+      es.bg = bg; es.bold = !!bold; es.pts[0] = { x: lx, y: ly };
+    }
+  });
+  _dvTextEngineReady = true;
+  return true;
+}
+
+// editObj != null → re-edit an existing text object at its own anchor.
+function _dvOpenTextBox(logicalPt, editObj) {
+  if (!_dvInstallTextEngine()) { console.warn('[Markup] shared text engine unavailable'); return null; }
+  if (DVTextHost._textController && DVTextHost._textController.isActive()) DVTextHost._textController.cancel();
+  DVTextHost._lastTextColor = _dvLastTextColor || _color;
+  DVTextHost._lastTextBg    = _dvLastTextBg;
+  var st = { tool: 'text', color: (_dvLastTextColor || _color), alpha: _opacity, fontSize: _fontSize };
+  var pt = editObj ? { x: editObj.pts[0].x, y: editObj.pts[0].y }
+                   : { x: logicalPt.x, y: logicalPt.y };
+  return DVTextHost._promptText(pt, st, editObj ? editObj.id : null);
 }
 
 function _dvCaretEnd(box) {
