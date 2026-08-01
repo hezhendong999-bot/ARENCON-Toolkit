@@ -6445,6 +6445,10 @@ function _photoSrc(p){
   // NEVER-BAKE (S372): composited display cache wins (clean p.d + p.mk rendered).
   if(p._mkDisplay) return p._mkDisplay;
   if(p.d) return p.d;
+  /* S553: this device's own file, resolved ahead of cloud storage — it works
+     with no signal, which is the case the store exists for. _localSrc is set by
+     the resolver and is NEVER saved into the report; it is a live object URL. */
+  if(p._localSrc) return p._localSrc;
   if(p.r2Url) return p.r2Url;
   if(p.id && _r2FolderId && typeof R2Photos!=='undefined' && R2Photos.getUrl){
     try{ return R2Photos.getUrl(_r2FolderId, 'diesel', 'original', _r2Fname(p)); }catch(_e){}

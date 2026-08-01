@@ -213,6 +213,12 @@
     window._stashPhotoBlobs  = function ()   { return _dslPhotoStore.sweep(); };
     window._dieselLocalBytes = function (id) { return _dslPhotoStore.localBytes(id); };
     window._photoStoreReport = function ()   { return _dslPhotoStore.report(); };
+    /* S553: the resolver and the per-photo retirement test. Published now and
+       used by _photoSrc; nothing is retired yet — the byte-consumers have to be
+       routed through resolveSrc first, or they read an empty string. */
+    window._dslPhotoResolve  = function (p)  { return _dslPhotoStore.resolveSrc(p); };
+    window._dslPhotoRetirable= function (p)  { return _dslPhotoStore.retirable(p); };
+    window._dslPhotoRelease  = function ()   { return _dslPhotoStore.release(); };
 
     /* ═══ S549 — PHOTO STORE CHECK, ON SCREEN ═══
        The store keeps a real image file on this device for every photo in the
