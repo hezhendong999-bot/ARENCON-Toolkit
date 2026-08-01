@@ -224,18 +224,23 @@ var _tool = null;
 var _dimFinChipWasShowing = false;  // S331 #37 — gate one-time finish-chip pulse
 var _color = '#A85959';
 var _lineWidth = 3;
-// ── S549 — TEXT SIZE BOUNDS AND STEP. ─────────────────────────────────────
-// The default below was retuned to 80 for large PDF drawings but the buttons
-// were left clamped at 72, so the FIRST tap of "bigger" made the text SMALLER
-// (snapped 80 → 72) and it could never go above 72 again. A 2px step is also
-// invisible at this scale — 2px on 80 is 2.5%, so the button read as dead.
-// Bounds now sit above the default, and the step is proportional: same 2px
-// feel at small sizes, a usable jump at drawing sizes.
-var _TEXT_MIN = 8, _TEXT_MAX = 240;
+// ── S549/S559 — ONE TEXT-SIZE STEPPER. ────────────────────────────────────
+// S549 fixed the 80-default/72-cap inversion with a proportional stepper.
+// S551 then moved the editor onto the shared engine, whose docked bar walks
+// the tuned _DV_SIZE_STEPS list — leaving the sidebar SIZE buttons stepping
+// proportionally while the bar stepped the list: same button family, two
+// different behaviours. One stepper now, the tuned list, everywhere. Values
+// between steps (legacy text) snap to the nearest step on first press.
 function _stepFont(v, dir) {
   v = v || 20;
-  var step = Math.max(2, Math.round(v * 0.08));
-  return Math.max(_TEXT_MIN, Math.min(_TEXT_MAX, v + (dir > 0 ? step : -step)));
+  if (!Array.isArray(_DV_SIZE_STEPS) || !_DV_SIZE_STEPS.length) return v;  // pre-init guard
+  var i = 0, best = 1e9;
+  for (var k = 0; k < _DV_SIZE_STEPS.length; k++) {
+    var d = Math.abs(_DV_SIZE_STEPS[k] - v);
+    if (d < best) { best = d; i = k; }
+  }
+  i = Math.max(0, Math.min(_DV_SIZE_STEPS.length - 1, i + dir));
+  return _DV_SIZE_STEPS[i];
 }
 var _fontSize = 80;  // S391: default logical text size, tuned for large PDF drawings (5184px @ ~0.22 fit ~= 18px on-screen). User steps smaller/larger via the chip bar.
 var _opacity = 1;

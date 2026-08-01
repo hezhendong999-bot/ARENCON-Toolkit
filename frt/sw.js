@@ -25,7 +25,7 @@
 // sweeps this tool's pre-S547 caches once, which is the cleanup we want.
 // FORMAT: arencon-fieldreview-<UTC yyyymmddhhmm>. Bump = set to current UTC.
 // Do NOT go back to a counter, and do NOT share a prefix with another worker.
-var CACHE_NAME = 'arencon-fieldreview-202608020015';
+var CACHE_NAME = 'arencon-fieldreview-202608020120';
 var CACHE_PREFIX = 'arencon-fieldreview-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
