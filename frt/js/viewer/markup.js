@@ -2422,6 +2422,10 @@ function _startDraw(e) {
     // (4) Normal chain click — S461k: DEFERRED TO RELEASE (Mark: press-drag-
     //     release for endpoint placement instead of eyeballing a blind tap).
     //     Vertex drags, calibration, dim-hit and pick-seed stay on press.
+    // S553: remember WHERE the press landed and what state we were in, so the
+    // release can tell a tap apart from a drag (see _dimChainRelease).
+    _dimPressPos   = { x: posD.x, y: posD.y };
+    _dimPressState = dim.getState().state;
     _dimChainPressPending = true;
     return;
   }
@@ -2430,10 +2434,49 @@ function _startDraw(e) {
 }
 
 var _dimChainPressPending = false;
+var _dimPressPos = null;      // S553: drawing-space position of the press
+var _dimPressState = 'idle';  // S553: chain state at press time
 function _dimChainRelease(e) {
   var posD = _getPos(e);
   var dim = window._dimTool;
   if (!dim) return;
+
+  // ── S553 — DRAG TO MEASURE (Mark: "not natural, copy Fieldwire"). ────────
+  // Three separate taps to get one dimension is the unnatural part: tap the
+  // start, lift, aim at nothing, tap the end, lift, tap again to place it.
+  // Between taps there is no finger on the glass, so there is nothing to aim
+  // with — which is why it felt like guessing even after the start marker.
+  //
+  // A measurement is ONE GESTURE: press where it starts, drag, lift where it
+  // ends. The line and the live length follow the finger the whole way, which
+  // is how every drawing app on a tablet behaves.
+  //
+  // A tap that does not move still behaves exactly as before, so the precise
+  // two-tap flow and running/continuous chains are untouched — this only adds
+  // a meaning to a gesture that previously did nothing useful.
+  if (_dimPressState === 'idle' && _dimPressPos) {
+    var _mvx = posD.x - _dimPressPos.x, _mvy = posD.y - _dimPressPos.y;
+    var _slop = 14 * _uiScale();          // finger jitter, in screen px
+    if ((_mvx * _mvx + _mvy * _mvy) > (_slop * _slop)) {
+      var drDrag = _getCurrentDrawing();
+      if (_dimKpOpen()) _dimKpCommit(true);
+      if (TiledPdf.isActive()) TiledPdf.pause();
+      if (dim.setUiScale) dim.setUiScale(_uiScale());
+      var vDrag = _objects.map(toV1);
+      dim.handleClick({ x: _dimPressPos.x, y: _dimPressPos.y }, drDrag, vDrag);  // start = where the finger landed
+      dim.handleMove(posD);                                                      // keep the preview honest
+      var resDrag = dim.handleClick(posD, drDrag, vDrag);                        // end = where it lifted
+      _dimPressPos = null; _dimPressState = 'idle';
+      if (resDrag && resDrag.action === 'lockedB') {
+        _renderDimensionPreview();
+        _updateDimFinChip();
+        return;
+      }
+      // Anything unexpected — fall through to the normal single-click path
+      // rather than leaving the chain half-locked.
+    }
+  }
+  _dimPressPos = null; _dimPressState = 'idle';
   {
     // Per locked spec, an uncalibrated drawing is NOT auto-scaled — it stays
     // "not to scale" and the user types each value via the keypad.
