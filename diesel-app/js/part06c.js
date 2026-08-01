@@ -1997,14 +1997,22 @@ function _dslLoadBakeImage(p){
     var origSrc = '';
     if(p && p._annotated && p._origBackupId && typeof recordPhotos!=='undefined'){
       var b = recordPhotos.filter(function(r){ return r && r.id===p._origBackupId; })[0];
-      if(b){ origSrc = b.d || b.r2Url || ''; }
+      /* S560: the backup's own inline copy may itself be retired now — its
+         device file (attached as _localSrc by hydrate/retire) is the same clean
+         original and works offline, so it slots in ahead of the cloud URL. */
+      if(b){ origSrc = b.d || b._localSrc || b.r2Url || ''; }
     }
     if(p && p._annotated && !origSrc && p.id && typeof _r2FolderId!=='undefined' && _r2FolderId &&
        typeof R2Photos!=='undefined' && R2Photos.getUrl){
       try{ origSrc = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', _r2Fname(p)); }catch(_e){}
     }
 
-    var local = (!p._annotated && p.d) ? p.d : (origSrc && origSrc.indexOf('data:')===0 ? origSrc : '');
+    /* S560: a retired photo carries its picture as a blob: object URL
+       (_localSrc) instead of inline text — both decode straight into an Image
+       with no fetch, so both count as local. */
+    var _pLocal = p.d || p._localSrc || '';
+    var local = (!p._annotated && _pLocal) ? _pLocal
+              : (origSrc && (origSrc.indexOf('data:')===0 || origSrc.indexOf('blob:')===0) ? origSrc : '');
     if(local){
       var im = new Image();
       im.onload = function(){ res({img:im, revoke:function(){}}); };

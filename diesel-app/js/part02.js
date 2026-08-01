@@ -221,6 +221,21 @@
     window._dslPhotoRetirable= function (p)  { return _dslPhotoStore.retirable(p); };
     window._dslPhotoRelease  = function ()   { return _dslPhotoStore.release(); };
     window._dslPhotoRetire   = function (n)  { return _dslPhotoStore.retirePass(n); };
+    window._dslPhotoHydrate  = function ()   { return _dslPhotoStore.hydratePass(); };
+    /* S560: reconnect retired photos to their device files as soon as the
+       report is up — before the first save would do it — otherwise a reload
+       shows broken tiles offline for photos the device holds. Late and retried,
+       same shape as the rescue kick: opening a report must never wait on it. */
+    (function _kickHydrate(tries){
+      tries = tries || 0;
+      if (tries > 20) return;
+      setTimeout(function () {
+        var ready = false;
+        try { ready = typeof window._collectAllPhotos === 'function' && window._collectAllPhotos().length; } catch(_) {}
+        if (!ready) return _kickHydrate(tries + 1);
+        try { _dslPhotoStore.hydratePass(); } catch(_) {}
+      }, 2500);
+    })();
 
     /* ═══ S555 — WHAT RECENT SAVES CHANGED, on screen ═══
        The 7155.40 wipe looked like every other save from the outside. This puts
