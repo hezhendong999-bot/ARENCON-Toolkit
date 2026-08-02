@@ -4127,6 +4127,7 @@ function _pinDragCapture(deficId) {
     ? { deficId: deficId, x: f.defic.pinX, y: f.defic.pinY } : null;
 }
 var _pinDragOrig = null;
+var _pinDragLastFx = 0.5, _pinDragLastFy = 0.5;  // S570: last unclamped frame fraction
 function _pinDragRestore(reason) {
   if (!_pinDragOrig) return;
   var f = Model.findDeficiency(_pinDragOrig.deficId);
@@ -4251,13 +4252,27 @@ document.addEventListener('touchmove', function(e) {
       if (areaD) areaD.classList.add('pin-drag-mode');
     }
   }
-  // S569 — a second finger arriving MID-DRAG is a zoom, and always was. The
-  // old code only checked finger count at touchstart, so a late second finger
-  // left the drag live and the pinch dragged the pin for its whole duration
-  // ("zooming sometimes moves the pin"). Abort and RESTORE — per-frame writes
-  // mean damage was already in the model by the time the pinch is noticed.
+  // S570 (Mark) — a pinch mid-drag KEEPS the placement, it does not discard it.
+  // S569's restore protected against accidental drags, but the hold gate means
+  // an active drag is always deliberate now — and an inspector fine-placing a
+  // pin often zooms mid-gesture. Losing their placement punished exactly the
+  // person using the tool properly. The drag ends here and the position the
+  // pin is at is SAVED — validated first: if the fingertip was off the sheet
+  // at that instant, garbage still never saves and the pin restores instead.
+  // Zoom freely; re-hold to nudge further.
   if (_pinDragging && e.touches.length > 1) {
-    _pinDragRestore('pinch took over');
+    var _tol = 0.02;
+    var _fxOk = _pinDragLastFx >= -_tol && _pinDragLastFx <= 1 + _tol
+             && _pinDragLastFy >= -_tol && _pinDragLastFy <= 1 + _tol;
+    if (_fxOk) {
+      _pinViewerWriteLog('COMMIT (pinch ended drag, placement kept)',
+        Math.max(0, Math.min(1, _pinDragLastFx)), Math.max(0, Math.min(1, _pinDragLastFy)));
+      _pinDragOrig = null;
+      Model._notify('deficiency', { action: 'pin-move', deficId: _pinDragDeficId });
+      Model.saveNow();
+    } else {
+      _pinDragRestore('pinch with fingertip off-sheet');
+    }
     _pinDragging = false; _pinDragDeficId = null;
     if (_pinDragMarker) { _pinDragMarker.classList.remove('dragging'); _pinDragMarker = null; }
     var areaP = document.getElementById('dv-canvas-area');
@@ -4276,8 +4291,13 @@ document.addEventListener('touchmove', function(e) {
   if (_useGLPins){
     var f = Model.findDeficiency(_pinDragDeficId);
     if (f){
-      f.defic.pinX = Math.max(0, Math.min(1, px / _getDrawingNaturalW(img)));
-      f.defic.pinY = Math.max(0, Math.min(1, py / _getDrawingNaturalH(img)));
+      // S570: remember the UNCLAMPED fraction each frame — the per-frame clamp
+      // is fine for preview, but an interruption (pinch) needs to know whether
+      // the position it is about to KEEP was real or already off the sheet.
+      _pinDragLastFx = px / _getDrawingNaturalW(img);
+      _pinDragLastFy = py / _getDrawingNaturalH(img);
+      f.defic.pinX = Math.max(0, Math.min(1, _pinDragLastFx));
+      f.defic.pinY = Math.max(0, Math.min(1, _pinDragLastFy));
       _lastActiveId = _pinDragDeficId;
       var wasDragging = _pinDragging;
       _pinDragging = false;
