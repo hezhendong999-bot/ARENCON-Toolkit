@@ -878,9 +878,16 @@ window.__buildPhotoHrefs = buildPhotoHrefs;
 <input type="file" id="sketch-file-input" accept="image/*,.pdf" style="display:none">
 
 <script src="js/part06.js"></script>
+<!-- S568: ONE SCRIPT IN SEVEN PIECES, not seven modules. Plain scripts
+     sharing one global scope; each *2 piece is the second half of its
+     letter and MUST load immediately after it. This order is LOAD-BEARING:
+     change it and functions vanish for whoever runs first. -->
 <script src="js/part06b.js"></script>
+<script src="js/part06b2.js"></script>
 <script src="js/part06c.js"></script>
+<script src="js/part06c2.js"></script>
 <script src="js/part06d.js"></script>
+<script src="js/part06d2.js"></script>
 
 <!-- ══ BATCH 2: PHOTO SYSTEM MODULE (Session 53) ══ -->
 <script src="js/part07.js"></script>
