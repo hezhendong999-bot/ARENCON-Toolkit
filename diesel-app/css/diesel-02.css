@@ -451,3 +451,9 @@ body.dark-mode .cv-statusmenu{background:#1c1b21;border-color:rgba(255,255,255,.
    panel body — openHelp() links helpPanel.css inside the shadow root instead.
    Only the theme var aliases above (--white/--fg/--arencon-light/--arencon-glow)
    matter to Help from this file: custom properties inherit through the boundary. */
+
+
+/* S582 dark tokens — same identities, dark values */
+body.dark-mode{ --m3:#46C5E8; --m3-bg:rgba(70,197,232,.12); --m3-br:rgba(70,197,232,.36);
+  --m7:#B08AE8; --m7-bg:rgba(176,138,232,.12); --m7-br:rgba(176,138,232,.36);
+  --unset:#E0A36A; --unset-bg:rgba(224,163,106,.14); --unset-br:rgba(224,163,106,.42); }

@@ -92,7 +92,7 @@ window.__capturePdfFromPreview = capturePdfFromPreview;
 import { buildPhotoHrefs } from '../lib/data/photoLinkMint.js';
 window.__buildPhotoHrefs = buildPhotoHrefs;
 </script>
-<link rel="stylesheet" href="css/diesel-01.css?v=202608020400">
+<link rel="stylesheet" href="css/diesel-01.css?v=202608020600">
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
      host override blocks (that was the point of Shadow DOM). -->
 </head>
@@ -302,14 +302,32 @@ window.__buildPhotoHrefs = buildPhotoHrefs;
       <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Test Setup</div>
       <div class="card-body">
         <div class="ts-subsec"><span class="bar"></span><span class="t">Pump Test Type</span><span class="hint">one choice for the whole report — never mixed</span></div>
-        <div class="ts-seg pump-type-btns">
-          <button type="button" onclick="setPumpTestType('std')" data-ptype="std" class="on">3-Point Standard (w/o PLD)</button>
-          <button type="button" onclick="setPumpTestType('pld')" data-ptype="pld">7-Point with PLD</button>
+        <!-- S582 (Mark): the test type ships UNSET on a new report. The old default
+             pre-answered the first decision on the page, so the team never stopped to
+             make it — placard photos and the AI scan come first in the field, and by
+             the time they scrolled back up the toggle looked like settled state.
+             Existing reports are untouched: any saved testType marks the choice made. -->
+        <div class="ts-modepick pump-type-btns">
+          <button type="button" onclick="_ttChoose('std')" data-ptype="std" class="ts-mode">
+            <span class="tick">✓</span>
+            <span class="mt">3-Point Standard</span>
+            <span class="md">Churn · Rated · Overload — without PLD</span>
+            <span class="dots"><i></i><i></i><i></i></span>
+          </button>
+          <button type="button" onclick="_ttChoose('pld')" data-ptype="pld" class="ts-mode">
+            <span class="tick">✓</span>
+            <span class="mt">7-Point with PLD</span>
+            <span class="md">0 · 25 · 50 · 75 · 100 · 125 · 150%</span>
+            <span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          </button>
         </div>
+        <div id="tt-unset-note" class="tt-unset" style="display:none">⚠ No test type selected yet — pick one to open the sections below.</div>
         <div id="tab-type-note-4a" style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:6px;">All sections below use the selected test type.</div>
       </div>
     </div>
 
+    <div id="tt-gate" class="tt-gate" style="display:none">Choose a test type to continue
+      <small>The sections below depend on it — flow points, charts and acceptance criteria all differ.</small></div>
     <!-- ════ 3-POINT SECTION (shown when Test Type = 3-Point) ════ -->
     <div id="perf-std">
     <div class="card">
@@ -936,7 +954,7 @@ window.__buildPhotoHrefs = buildPhotoHrefs;
 <script src="js/part15.js"></script>
 
 
-<link rel="stylesheet" href="css/diesel-02.css?v=202608020400" id="arencon-bold-overlay">
+<link rel="stylesheet" href="css/diesel-02.css?v=202608020600" id="arencon-bold-overlay">
 <script src="js/part16.js"></script>
 </body>
 </html>

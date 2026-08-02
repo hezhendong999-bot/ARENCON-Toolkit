@@ -1797,3 +1797,36 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
   .obs-media-btns .obs-drop-btn{min-height:38px;padding:8px 14px;}
 }
 
+
+
+/* ═══ S582 — TEST TYPE IDENTITY + UNSET GATE (Mark) ═══
+   Each test owns a colour that means it and nothing else: blue = 3-point,
+   violet = 7-point. Burgundy is deliberately NOT used here — it stays the
+   call-to-action colour, not a state colour. A new report opens with neither
+   selected and the sections below visually inert until a person chooses. */
+:root{ --m3:#2C7FB8; --m3-bg:rgba(44,127,184,.10); --m3-br:rgba(44,127,184,.30);
+       --m7:#7A4FB8; --m7-bg:rgba(122,79,184,.10); --m7-br:rgba(122,79,184,.30);
+       --unset:#C98A4A; --unset-bg:rgba(201,138,74,.13); --unset-br:rgba(201,138,74,.40); }
+.ts-modepick{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+@media(max-width:600px){.ts-modepick{grid-template-columns:1fr;}}
+.ts-mode{position:relative;text-align:left;cursor:pointer;border-radius:13px;padding:13px 44px 13px 14px;
+  font-family:Calibri,sans-serif;border:2px solid var(--border);background:var(--smoke);transition:all .15s;}
+.ts-mode .mt{display:block;font-size:calc(15.5px + var(--ts));font-weight:700;color:var(--ink,#1B1A22);}
+.ts-mode .md{display:block;font-size:calc(11.5px + var(--ts));color:var(--silver);margin-top:4px;}
+.ts-mode .dots{display:flex;gap:4px;margin-top:9px;}
+.ts-mode .dots i{width:9px;height:9px;border-radius:50%;background:var(--silver);opacity:.35;}
+.ts-mode .tick{position:absolute;top:11px;right:12px;width:21px;height:21px;border-radius:50%;display:none;
+  align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;}
+.ts-mode[data-ptype="std"]{--mc2:var(--m3);--mbg2:var(--m3-bg);--mbr2:var(--m3-br);}
+.ts-mode[data-ptype="pld"]{--mc2:var(--m7);--mbg2:var(--m7-bg);--mbr2:var(--m7-br);}
+.ts-mode.on{background:var(--mbg2)!important;border-color:var(--mc2)!important;box-shadow:0 0 0 3px var(--mbr2);}
+.ts-mode.on .mt{color:var(--mc2);}
+.ts-mode.on .dots i{background:var(--mc2);opacity:1;}
+.ts-mode.on .tick{display:flex;background:var(--mc2);}
+.ts-mode:not(.on){background:var(--smoke)!important;}
+.tt-unset{margin-top:11px;padding:9px 12px;border-radius:9px;background:var(--unset-bg);
+  border:1.5px solid var(--unset);color:var(--unset);font-weight:700;font-size:calc(12px + var(--ts));}
+.tt-gate{text-align:center;padding:22px 16px;border:2px dashed var(--unset-br);border-radius:14px;
+  background:var(--unset-bg);color:var(--unset);font-weight:700;font-size:calc(13.5px + var(--ts));margin:0 0 14px;}
+.tt-gate small{display:block;font-weight:400;color:var(--silver);font-size:calc(11.5px + var(--ts));margin-top:5px;}
+.tt-gated{opacity:.42;filter:grayscale(.55);pointer-events:none;user-select:none;}

@@ -693,6 +693,45 @@ renderChecklist(S5,'cl-s5','s5');
 
 // Merged Performance tab: set initial section visibility (load() overrides with saved type)
 if(typeof setPumpTestType==='function') setPumpTestType('std');
+/* ── S582 (Mark) — THE TEST TYPE SHIPS UNSET ON NEW REPORTS ──────────────
+   The team kept filling the wrong chart because the first decision on the page
+   arrived pre-answered: 'std' was defaulted and looked chosen, so nobody chose.
+   Now a NEW report opens with neither mode selected and the flow sections gated
+   until a person picks. EXISTING reports are untouched — any saved testType
+   counts as the choice already made, so nothing changes under an open job.
+   MACHINERY IS UNCHANGED underneath: setPumpTestType('std') still runs at load
+   (charts and tables need a live default), the gate is a VISUAL layer on top.
+   That is deliberate — S575 proved this file executes code at load time, so the
+   safe shape is additive flags, not moved initialisation. */
+var _ttChosen = false;   // becomes true on user pick or on loading a saved testType
+function _ttChoose(type){
+  _ttChosen = true;
+  setPumpTestType(type);
+  _ttApplyGate();
+  if(typeof debounceAutosave==='function') debounceAutosave();
+}
+function _ttApplyGate(){
+  try{
+    var g=document.getElementById('tt-gate'), n=document.getElementById('tt-unset-note');
+    var std=document.getElementById('perf-std'), pld=document.getElementById('perf-pld');
+    /* 'on' is owned by setPumpTestType; the gate only strips it while unset so
+       neither card looks pre-answered. */
+    if(!_ttChosen) document.querySelectorAll('.pump-type-btns button').forEach(function(b){ b.classList.remove('on'); });
+    if(_ttChosen){
+      if(g) g.style.display='none';
+      if(n) n.style.display='none';
+      if(std) std.classList.remove('tt-gated');
+      if(pld) pld.classList.remove('tt-gated');
+    } else {
+      if(g) g.style.display='block';
+      if(n) n.style.display='block';
+      if(std){ std.classList.add('tt-gated'); }
+      if(pld){ pld.classList.add('tt-gated'); }
+    }
+  }catch(e){}
+}
+
+_ttApplyGate();
 
 // Phase nav: initial render (Setup active, Summary panel active)
 if(typeof switchPhase==='function'){
@@ -771,7 +810,12 @@ function _applyStateInPlace(jsonStr) {
       if(el) el.value = kv[1];
     });
     if(s.testType) {
+      /* S582: a saved report counts as chosen — either the person chose, or the
+         report predates the unset gate and must not be re-gated underneath them.
+         Only s.ttChosen===false (a new-era report saved before choosing) stays gated. */
+      _ttChosen = (s.ttChosen===false) ? false : true;
       setPumpTestType(s.testType);
+      if(typeof _ttApplyGate==='function') _ttApplyGate();
     }
     // S321: rebuild custom equipment rows BEFORE index-based checkbox restore
     // (saved indexes include custom rows in DOM order). Idempotent: clear first.
@@ -900,12 +944,19 @@ function setPumpTestType(type) {
   // Sync the toggle buttons + maintain the canonical `on` class (save reads `.on`)
   document.querySelectorAll('.pump-type-btns button').forEach(function(b) {
     var isAct = b.dataset.ptype === type;
-    var isDark = document.body.classList.contains('dark-mode');
-    b.classList.toggle('on', isAct);
-    b.style.background = isAct ? (isDark ? '#2a3a5c' : '#2C4770') : (isDark ? '#323a4e' : 'white');
-    b.style.color = isAct ? 'white' : (isDark ? '#d4daf0' : '#666');
-    b.style.borderColor = isAct ? (isDark ? '#3a4e78' : '#2C4770') : (isDark ? '#4a5570' : '#ccc');
-    b.textContent = b.textContent.replace(/^[⦿○]/, isAct ? '⦿' : '○');
+    b.classList.toggle('on', isAct);   // canonical — collectState reads `.on`
+    /* S582: the identity mode cards are styled entirely by CSS (.ts-mode.on).
+       The old inline background/color/border writes are skipped for them —
+       inline styles would override the card look in both skins. Legacy-shaped
+       buttons (none remain in this shell, but PDF-template copies exist) keep
+       the old path so nothing else changes appearance. */
+    if(!b.classList.contains('ts-mode')){
+      var isDark = document.body.classList.contains('dark-mode');
+      b.style.background = isAct ? (isDark ? '#2a3a5c' : '#2C4770') : (isDark ? '#323a4e' : 'white');
+      b.style.color = isAct ? 'white' : (isDark ? '#d4daf0' : '#666');
+      b.style.borderColor = isAct ? (isDark ? '#3a4e78' : '#2C4770') : (isDark ? '#4a5570' : '#ccc');
+      b.textContent = b.textContent.replace(/^[⦿○]/, isAct ? '⦿' : '○');
+    }
   });
   const note4a = document.getElementById('tab-type-note-4a');
   if(note4a) note4a.textContent = 'All sections below use the selected test type.';
@@ -1577,6 +1628,9 @@ function collectState() {
   });
   var testType = 'std';
   document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) testType=b.dataset.ptype; });
+  // S582: whether a person has actually chosen the test type. Legacy saves have
+  // no field; the load path treats a present testType as chosen (see below).
+  var ttChosen = (typeof _ttChosen!=='undefined') ? !!_ttChosen : true;
   // Equipment checkboxes
   const equipChecked = [];
   document.querySelectorAll('input[name="equip3a"]').forEach(function(cb,i){ if(cb.checked) equipChecked.push(i); });
@@ -1614,6 +1668,7 @@ function collectState() {
   return {
     proj,
     testType,
+    ttChosen,
     npshPsi,
     npshPsiPld,
     equipChecked,

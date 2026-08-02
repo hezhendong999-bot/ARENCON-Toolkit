@@ -968,6 +968,8 @@ function _applyLoadedState(raw) {
     if (s.testType) {
       const r = document.querySelector(`input[name="pump-test-type"][value="${s.testType}"]`);
       if (r) { r.checked = true; setPumpTestType(s.testType); }
+      /* S582: saved reports count as chosen; only a new-era pre-choice save stays gated. */
+      try{ _ttChosen = (s.ttChosen===false) ? false : true; if(typeof _ttApplyGate==='function') _ttApplyGate(); }catch(_e){}
     }
     // stdData — assign fields, but preserve any local photo binary the incoming copy lacks
     if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) _assignRowPreservePhotos(stdData[i], r); });
@@ -1104,6 +1106,9 @@ function _applyLoadedState(raw) {
 // RESET FUNCTIONS
 // ══════════════════════════════════════════════════
 function resetAllPages() {
+  /* S582: a full reset is a NEW report — the test type returns to unset so the
+     choice is made again deliberately, not inherited from whatever was there. */
+  try{ _ttChosen=false; if(typeof _ttApplyGate==='function') _ttApplyGate(); }catch(_e){}
   _aTypeConfirm('Reset ALL pages for this project? This permanently clears every entered value, photo reference, and deficiency across all pages. This cannot be undone.', 'reset', function(){
   if(_csHubMode && typeof CloudSync !== 'undefined'){
     // Cloud mode: will reload which triggers fresh load
