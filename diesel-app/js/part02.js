@@ -294,6 +294,10 @@
        tablet, no console — with anything that lost a lot at once called out.
        Read-only: it reports, it does not undo. */
     window._dslSaveLog = function () {
+      /* S570 stage three: opening this panel is what "reviewed" means. Clear
+         the flag first so the dot goes away the moment the person looks. */
+      try { if (window._dslJournal && window._dslJournal.markLossesSeen) window._dslJournal.markLossesSeen(); } catch (_) {}
+      try { if (typeof _dslSetSaveFlag === 'function') _dslSetSaveFlag(false); } catch (_) {}
       Dlg.panel({
         title: 'Recent Saves', icon: '\uD83D\uDCDD', accent: 'info',
         build: function (bd) {

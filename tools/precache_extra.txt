@@ -7,6 +7,13 @@
 ./
 frt/index.html
 ARENCON_Diesel_Fire_Pump_Commissioning.html
+# ^ S569: RETIRED AS AN ENTRY POINT. The portal tile and the Hub both now open
+#   diesel-app/index.html. This file's own tool code is frozen at S459i — ~110
+#   sessions behind, and critically it has NO local photo store, so photos taken
+#   in it CANNOT be rescued, and it carries none of the on-screen diagnostics.
+#   Kept precached ONLY so an existing bookmark or a cold offline device that
+#   still has it does not hit a blank page. Do not link it from anywhere. Delete
+#   it once Mark confirms no one is reaching Diesel through an old bookmark.
 diesel-app/index.html
 # ^ S499: the MODULAR Diesel shell. The Hub now points here, so this is what
 #   the field opens. Listed as a shell (like frt/index.html) so a COLD device

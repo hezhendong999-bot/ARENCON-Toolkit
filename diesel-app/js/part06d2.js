@@ -437,6 +437,34 @@ var _HELP_ICON_NEW   = '<span class="help-q">?</span><span class="wn-dot wn-puls
 function _helpSetDot(on){
   try { window.__dslHeaderCtl.setControlIcon('help', on ? _HELP_ICON_NEW : _HELP_ICON_PLAIN); } catch(e){}
 }
+/* ── S570 — CHANGE JOURNAL, STAGE THREE (the safe half) ─────────────────────
+   A save that removed a lot at once used to sit silently in a panel nobody
+   opens. It now raises a quiet flag on the More button; opening Recent Saves
+   clears it. Deliberately NOT a block, a prompt, or a delay: the threshold
+   behind it has not been watched against real inspections, and a guard firing
+   on an unwatched rule is how an inspector ends up unable to save on site. The
+   server wipe guard remains the hard backstop; this is only a nudge to look.
+   Reuses the existing What's-New dot artwork — no new visual language. */
+var _DSL_MORE_PLAIN = '\u2699\uFE0F More \u25BE<span class="wn-dot" style="display:none"></span>';
+var _DSL_MORE_FLAG  = '\u2699\uFE0F More \u25BE<span class="wn-dot wn-pulse"></span>';
+function _dslSetSaveFlag(on){
+  try {
+    var ctl = window.__dslHeaderCtl;
+    if (!ctl || !ctl.setControlIcon) return;
+    ctl.setControlIcon('more', on ? _DSL_MORE_FLAG : _DSL_MORE_PLAIN);
+  } catch(e){}
+}
+/* Called after each save records. Guarded end to end — a flag failure must
+   never cost a save, and never throws into the save path. */
+function _dslCheckSaveFlag(){
+  try {
+    var J = window._dslJournal;
+    if (!J || !J.unreviewedLosses) return;
+    J.unreviewedLosses().then(function(rows){
+      if (rows && rows.length) _dslSetSaveFlag(true);
+    }).catch(function(){});
+  } catch(e){}
+}
 function openHelp(){
   var D = window.ArenconDlg;
   if(!D || !D.panel){ try{ console.error('[help] dialog engine not loaded'); }catch(_){} return; }

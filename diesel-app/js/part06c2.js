@@ -296,6 +296,9 @@ function saveState(){
        alter the save. Reuses the state already collected above, so it costs one
        object walk and no second serialisation. */
     if (window._dslJournal) { try { window._dslJournal.record(_st, 'save'); } catch(e){} }
+    /* S570: raise the quiet flag if a save was flagged. Fire-and-forget, fully
+       guarded — never blocks, never delays, never fails the save. */
+    if (typeof _dslCheckSaveFlag === 'function') { try { _dslCheckSaveFlag(); } catch(e){} }
     updateIDBStorageBar();
     // S548: the store engine is published by part02 (a module). If that module
     // ever fails to load, a save must still complete — a missing shared module
