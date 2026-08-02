@@ -2762,11 +2762,59 @@ var _PinPan = (function() {
   }
 
   // Set pin from a TIP position (already grab-offset-corrected by caller).
+  //
+  // S568 — REFUSE THE IMPOSSIBLE, DO NOT CLAMP IT. This used to clamp the
+  // computed fraction into 0..1 and save it. Clamping is right for a finger
+  // that strays past the edge mid-drag; it is catastrophic when the panel's
+  // measurements are stale, because a wrong measurement produces a wrong
+  // fraction, and clamping turns that wrong answer into a PLAUSIBLE one that
+  // gets written to the report. Evidence (firm-wide history scan, S568):
+  // 1490.04 pin 1 jumped 0.331,0.266 -> 0.889,0.000 on 13 Jul — exactly zero
+  // vertically. A finger cannot produce exactly zero; a clamp can, and did.
+  // 087b8cf6 pin 16 shows the same shape (large X jump, Y almost unchanged).
+  // Inspectors reported pins "teleporting" with nobody dragging them.
+  //
+  // A tip outside the sheet is never a real placement. Refuse it, leave the pin
+  // where it was, and record WHY so the next occurrence names its own cause
+  // instead of being inferred from a database months later.
   function setPinFromTip(tipx, tipy) {
     var r = imgRect();
-    if (r.w <= 0 || r.h <= 0) return;
-    st.d.pinX = Math.max(0, Math.min(1, (tipx - r.x) / r.w));
-    st.d.pinY = Math.max(0, Math.min(1, (tipy - r.y) / r.h));
+    if (r.w <= 0 || r.h <= 0) return false;
+    var fx = (tipx - r.x) / r.w;
+    var fy = (tipy - r.y) / r.h;
+    // Small tolerance: a fingertip may legitimately sit a hair past the edge
+    // while dragging to the boundary. Anything beyond that is a bad rect.
+    var TOL = 0.02;
+    if (fx < -TOL || fx > 1 + TOL || fy < -TOL || fy > 1 + TOL) {
+      _pinWriteBreadcrumb('REFUSED', fx, fy, r);
+      return false;
+    }
+    st.d.pinX = Math.max(0, Math.min(1, fx));
+    st.d.pinY = Math.max(0, Math.min(1, fy));
+    return true;
+  }
+
+  // S568 — the breadcrumb. Records what the panel BELIEVED its geometry was at
+  // the moment of a pin write, which is the one fact missing from every report
+  // of this bug. Kept in memory (last 20) and reachable on the tablet, where
+  // there is no console: window._frtPinWrites().
+  function _pinWriteBreadcrumb(verdict, fx, fy, r) {
+    try {
+      if (!window._frtPinWriteLog) window._frtPinWriteLog = [];
+      window._frtPinWriteLog.push({
+        at: new Date().toISOString(),
+        verdict: verdict,
+        host: (st.canvas.parentElement && st.canvas.parentElement.id) || '?',
+        computed: { x: Math.round(fx * 1e4) / 1e4, y: Math.round(fy * 1e4) / 1e4 },
+        rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) },
+        box: { w: st.boxW, h: st.boxH },
+        scale: Math.round(st.scale * 100) / 100,
+        liveCanvas: st.canvas ? { w: st.canvas.clientWidth, h: st.canvas.clientHeight } : null,
+        deficId: st.d && st.d.id
+      });
+      if (window._frtPinWriteLog.length > 20) window._frtPinWriteLog.shift();
+      console.warn('[PinPan] pin write ' + verdict, window._frtPinWriteLog[window._frtPinWriteLog.length - 1]);
+    } catch (e) {}
   }
 
   function zoomAt(cx, cy, factor) {
@@ -2800,6 +2848,12 @@ var _PinPan = (function() {
     if (!st) return;
     // S321: pinch start — two fingers begin a zoom gesture; suppress pin/pan.
     if (e.touches && e.touches.length === 2) {
+      // S568: a pinch's second finger usually lands a moment AFTER the first.
+      // If the first one happened to land on the pin, this cancels the pending
+      // hold so the gesture becomes the zoom the inspector intended — it used
+      // to stay a pin drag, which is why "zooming sometimes moved the pin".
+      if (st.holdTimer) { clearTimeout(st.holdTimer); st.holdTimer = null; }
+      st.holdOK = false;
       var pi = pinchInfo(e);
       st.mode = 'pinch';
       st.pinchDist = pi.dist;
@@ -2811,12 +2865,29 @@ var _PinPan = (function() {
     var p = localXY(e);
     st.moved = false;
     if (nearPin(p.x, p.y)) {
-      st.mode = 'pin';
+      // S568 (Mark) — PRESS AND HOLD, same as the drawing viewer. Touching the
+      // pin used to arm a drag instantly, so any contact that then moved — a
+      // scroll through a long editor, a stray thumb, the first finger of a
+      // pinch — relocated the pin and saved it. The big viewer has required a
+      // 500 ms hold since S81; this panel never got the same guard. Same
+      // duration, same rule: movement before the hold completes cancels.
+      st.mode = 'pinHold';
+      st.holdOK = false;
+      st.downX = p.x; st.downY = p.y;
       // S213e: remember the offset between the cursor and the pin TIP so the
       // pin doesn't jump to the cursor on first move (was the "jumps up" bug).
       var pp = pinPos();
       st.grabDX = p.x - pp.x;
       st.grabDY = p.y - pp.y;
+      if (st.holdTimer) clearTimeout(st.holdTimer);
+      st.holdTimer = setTimeout(function () {
+        if (!st || st.mode !== 'pinHold') return;
+        st.holdOK = true;
+        st.mode = 'pin';
+        st.holdTimer = null;
+        try { if (navigator.vibrate) navigator.vibrate(15); } catch (_e) {}
+        draw();   // the pin repaints in its armed state
+      }, 500);
     }
     else if (st.scale > 1) { st.mode = 'pan'; st.canvas.parentElement.classList.add('dragging'); }
     else { st.mode = null; }
@@ -2841,17 +2912,36 @@ var _PinPan = (function() {
     }
     if (!st.mode) return;
     var p = localXY(e);
+    // S568: movement BEFORE the hold completes cancels the pin drag entirely —
+    // that gesture was a scroll or a stray touch, not an intent to move a pin.
+    // Falls back to pan when zoomed in, otherwise does nothing. Mirrors the
+    // drawing viewer's 5px cancel.
+    if (st.mode === 'pinHold') {
+      var mdx = Math.abs(p.x - st.downX), mdy = Math.abs(p.y - st.downY);
+      if (mdx > 5 || mdy > 5) {
+        if (st.holdTimer) { clearTimeout(st.holdTimer); st.holdTimer = null; }
+        st.mode = (st.scale > 1) ? 'pan' : null;
+        st.last = p;
+        if (st.mode === 'pan') st.canvas.parentElement.classList.add('dragging');
+      }
+      if (st.mode === 'pinHold') { e.preventDefault(); return; }
+    }
     st.moved = true;
     if (st.mode === 'pin') {
       // new tip = cursor minus the grab offset captured at down
-      setPinFromTip(p.x - st.grabDX, p.y - st.grabDY);
-      draw();
+      // S568: only repaint when the write was ACCEPTED. A refused write leaves
+      // the pin exactly where it was.
+      if (setPinFromTip(p.x - st.grabDX, p.y - st.grabDY)) draw();
     }
     else if (st.mode === 'pan' && st.scale > 1) { st.ox += p.x - st.last.x; st.oy += p.y - st.last.y; st.last = p; clampView(); draw(); }
     e.preventDefault();
   }
   function onUp(e) {
     if (!st) return;
+    // S568: a release always cancels a pending hold. Without this the timer
+    // could arm a drag after the finger had already left the glass.
+    if (st.holdTimer) { clearTimeout(st.holdTimer); st.holdTimer = null; }
+    if (st.mode === 'pinHold') { st.mode = null; st.holdOK = false; return; }
     // S321: pinch end — if one finger remains, hand off to a fresh single-touch
     // (pan if zoomed) so the gesture transitions smoothly; if none, clear.
     if (st.mode === 'pinch') {
