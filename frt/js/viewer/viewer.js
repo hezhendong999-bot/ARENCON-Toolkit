@@ -4105,6 +4105,69 @@ document.addEventListener('click', function(e) {
 });
 
 // ── Pin Drag-to-Move (long press) ───────────────────────
+// S569 — ROOT PROTECTIONS shared by EVERY pin-drag writer (touch, mouse, and
+// the editor mini-map via the same principles). Three invariants:
+//   1. INTENT IS PROVEN, never inferred. No drag starts before the 500ms hold
+//      arms it. S331w removed this on touch ("one finger on a pin is ALWAYS a
+//      drag") and every recorded teleport (17 events, 5 inspectors, 4 projects,
+//      all post-S331w) traces to that assumption: a one-finger PAN that
+//      happened to start on a pin became a silent drag.
+//   2. A GESTURE IS A PREVIEW until it ends cleanly. The drag still paints
+//      per-frame, but the pin's true position is captured at drag start and any
+//      abnormal end — a second finger arriving, a cancel — RESTORES it.
+//      Nothing invalid can persist just because a gesture was interrupted.
+//   3. IMPOSSIBLE ANSWERS ARE REFUSED, never clamped. A commit whose fraction
+//      lands outside the sheet (±2% finger tolerance) is a geometry error, not
+//      a placement: the pin goes back where it was and the event is recorded.
+//      Clamping was the mechanism that turned errors into believable saved
+//      coordinates (six writes at exactly 0.000/1.000 in the history).
+function _pinDragCapture(deficId) {
+  var f = Model.findDeficiency(deficId);
+  _pinDragOrig = (f && f.defic.pinX != null)
+    ? { deficId: deficId, x: f.defic.pinX, y: f.defic.pinY } : null;
+}
+var _pinDragOrig = null;
+function _pinDragRestore(reason) {
+  if (!_pinDragOrig) return;
+  var f = Model.findDeficiency(_pinDragOrig.deficId);
+  if (f) { f.defic.pinX = _pinDragOrig.x; f.defic.pinY = _pinDragOrig.y; }
+  _pinViewerWriteLog('RESTORED (' + reason + ')', _pinDragOrig.x, _pinDragOrig.y);
+  _pinDragOrig = null;
+  _renderPins();
+}
+// Validated commit: fraction computed WITHOUT clamping first; refused if the
+// answer is off the sheet. Returns true only when the write was accepted.
+function _pinCommit(deficId, px, py, natW, natH) {
+  var fx = px / natW, fy = py / natH;
+  var TOL = 0.02;
+  if (fx < -TOL || fx > 1 + TOL || fy < -TOL || fy > 1 + TOL) {
+    _pinViewerWriteLog('REFUSED off-sheet', fx, fy);
+    _pinDragRestore('off-sheet commit');
+    return false;
+  }
+  var f = Model.findDeficiency(deficId);
+  if (!f) return false;
+  f.defic.pinX = Math.max(0, Math.min(1, fx));
+  f.defic.pinY = Math.max(0, Math.min(1, fy));
+  _pinViewerWriteLog('COMMIT', f.defic.pinX, f.defic.pinY);
+  _pinDragOrig = null;
+  return true;
+}
+// Same on-tablet log the mini-map uses (window._frtPinWriteLog) — one stream,
+// every surface, readable where there is no console.
+function _pinViewerWriteLog(verdict, x, y) {
+  try {
+    if (!window._frtPinWriteLog) window._frtPinWriteLog = [];
+    window._frtPinWriteLog.push({
+      at: new Date().toISOString(), surface: 'drawing-viewer', verdict: verdict,
+      x: Math.round(x * 1e4) / 1e4, y: Math.round(y * 1e4) / 1e4,
+      scale: _scale, natW: _getDrawingNaturalW(document.getElementById('dv-image')),
+      natH: _getDrawingNaturalH(document.getElementById('dv-image'))
+    });
+    if (window._frtPinWriteLog.length > 40) window._frtPinWriteLog.shift();
+    if (verdict !== 'COMMIT') console.warn('[Viewer] pin ' + verdict, window._frtPinWriteLog[window._frtPinWriteLog.length - 1]);
+  } catch (e) {}
+}
 var _pinDragging = false;
 var _pinDragDeficId = null;
 var _pinLongPressTimer = null;
@@ -4158,14 +4221,26 @@ document.addEventListener('touchstart', function(e) {
 
 document.addEventListener('touchmove', function(e) {
   var touch = e.touches[0];
-  // S331w — pan is two-finger now, so a one-finger move on a grabbed pin is
-  // ALWAYS a drag (no 500ms wait, no pan fallback). Promote to active drag on
-  // the first >3px move. A release with no move still opens the editor (tap).
+  // S569 — THE S331W REGRESSION, REVERSED. S331w promoted "first >3px move"
+  // straight into a drag with no hold, on the reasoning that pan had become
+  // two-finger so a one-finger press on a pin was "unambiguously" a drag.
+  // It was not: one-finger flicks START on pins by chance on dense sheets, and
+  // every recorded teleport is that flick silently relocating the pin. The
+  // drag now requires the 500ms hold to have ARMED (blue glow) before any
+  // movement counts — restoring exactly what the S81 comment above touchstart
+  // has promised all along. Movement before the glow cancels the claim.
   if (!_pinDragging && _pinDragDeficId && touch && e.touches.length === 1) {
     var movedNow = Math.abs(touch.clientX - _pinTouchStartX) > 3 || Math.abs(touch.clientY - _pinTouchStartY) > 3;
+    if (movedNow && _lastReadyId !== _pinDragDeficId) {
+      // Moved before the hold armed — this was never a pin drag.
+      if (_pinLongPressTimer) { clearTimeout(_pinLongPressTimer); _pinLongPressTimer = null; }
+      _pinDragDeficId = null;
+      return;
+    }
     if (movedNow) {
       if (_pinLongPressTimer) { clearTimeout(_pinLongPressTimer); _pinLongPressTimer = null; }
       _pinDragging = true;
+      _pinDragCapture(_pinDragDeficId);   // S569: preview begins — true position held
       _lastActiveId = _lastReadyId || _pinDragDeficId;
       _lastReadyId = null;
       if (!_useGLPins){
@@ -4175,6 +4250,19 @@ document.addEventListener('touchmove', function(e) {
       var areaD = document.getElementById('dv-canvas-area');
       if (areaD) areaD.classList.add('pin-drag-mode');
     }
+  }
+  // S569 — a second finger arriving MID-DRAG is a zoom, and always was. The
+  // old code only checked finger count at touchstart, so a late second finger
+  // left the drag live and the pinch dragged the pin for its whole duration
+  // ("zooming sometimes moves the pin"). Abort and RESTORE — per-frame writes
+  // mean damage was already in the model by the time the pinch is noticed.
+  if (_pinDragging && e.touches.length > 1) {
+    _pinDragRestore('pinch took over');
+    _pinDragging = false; _pinDragDeficId = null;
+    if (_pinDragMarker) { _pinDragMarker.classList.remove('dragging'); _pinDragMarker = null; }
+    var areaP = document.getElementById('dv-canvas-area');
+    if (areaP) areaP.classList.remove('pin-drag-mode');
+    return;
   }
   if (!_pinDragging || !_pinDragDeficId) return;
   e.preventDefault();
@@ -4228,15 +4316,12 @@ document.addEventListener('touchend', function(e) {
       var wRect = wrap.getBoundingClientRect();
       var finalLeft = (touch.clientX - wRect.left) / _scale + _pinTouchOffsetX;
       var finalTop = (touch.clientY - wRect.top) / _scale + _pinTouchOffsetY;
-      var pinX = Math.max(0, Math.min(1, finalLeft / _getDrawingNaturalW(img)));
-      var pinY = Math.max(0, Math.min(1, finalTop / _getDrawingNaturalH(img)));
-      var f = Model.findDeficiency(_pinDragDeficId);
-      if (f) {
-        f.defic.pinX = pinX;
-        f.defic.pinY = pinY;
+      // S569: validated single commit — refused off-sheet answers restore the
+      // pin's true position instead of clamping an error onto the sheet edge.
+      if (_pinCommit(_pinDragDeficId, finalLeft, finalTop,
+                     _getDrawingNaturalW(img), _getDrawingNaturalH(img))) {
         Model._notify('deficiency', { action: 'pin-move', deficId: _pinDragDeficId });
         Model.saveNow();
-        console.log('[Viewer] Pin moved to', pinX.toFixed(3), pinY.toFixed(3));
       }
     }
   }
@@ -4332,6 +4417,7 @@ document.addEventListener('mousemove', function(e) {
     var moved = Math.abs(e.clientX - _pinMouseStartX) > 2 || Math.abs(e.clientY - _pinMouseStartY) > 2;
     if (moved) {
       _pinMouseDragging = true;
+      _pinDragCapture(_pinMouseDragDeficId);   // S569: preview begins
       _lastActiveId = _lastReadyId;
       _lastReadyId = null;
       if (_pinMouseDragMarker) _pinMouseDragMarker.classList.add('dragging');
@@ -4402,15 +4488,12 @@ document.addEventListener('mouseup', function(e) {
     var wRect = wrap.getBoundingClientRect();
     var finalLeft = (e.clientX - wRect.left) / _scale + _pinMouseOffsetX;
     var finalTop = (e.clientY - wRect.top) / _scale + _pinMouseOffsetY;
-    var pinX = Math.max(0, Math.min(1, finalLeft / _getDrawingNaturalW(img)));
-    var pinY = Math.max(0, Math.min(1, finalTop / _getDrawingNaturalH(img)));
-    var f = Model.findDeficiency(_pinMouseDragDeficId);
-    if (f) {
-      f.defic.pinX = pinX;
-      f.defic.pinY = pinY;
+    // S569: validated single commit, same rule as touch — an off-sheet answer
+    // restores the true position rather than clamping an error onto the edge.
+    if (_pinCommit(_pinMouseDragDeficId, finalLeft, finalTop,
+                   _getDrawingNaturalW(img), _getDrawingNaturalH(img))) {
       Model._notify('deficiency', { action: 'pin-move', deficId: _pinMouseDragDeficId });
       Model.saveNow();
-      console.log('[Viewer] Pin moved (mouse) to', pinX.toFixed(3), pinY.toFixed(3));
     }
   }
 
