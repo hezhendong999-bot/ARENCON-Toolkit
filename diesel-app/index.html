@@ -878,16 +878,20 @@ window.__buildPhotoHrefs = buildPhotoHrefs;
 <input type="file" id="sketch-file-input" accept="image/*,.pdf" style="display:none">
 
 <script src="js/part06.js"></script>
-<!-- S568: ONE SCRIPT IN SEVEN PIECES, not seven modules. Plain scripts
-     sharing one global scope; each *2 piece is the second half of its
-     letter and MUST load immediately after it. This order is LOAD-BEARING:
-     change it and functions vanish for whoever runs first. -->
+<!-- S575: the S568 seven-way split is REVERTED. Back to four pieces.
+     WHY, so nobody tries it again the same way: part06c.js calls
+     setPumpTestType('std') AT LOAD TIME, and that function's body calls
+     debounceAutosave, which the split had moved into the next file. Function
+     declarations hoist WITHIN a file, not across files, so the call threw
+     while part06c.js was still executing - which aborted the rest of that
+     file, including `let flowTestPhotosPld = []`, and every later reference
+     became a ReferenceError. A file that EXECUTES code at load time cannot be
+     split from the declarations that code depends on. Splitting these files
+     further requires proving load-time execution order, not just that each
+     piece parses. -->
 <script src="js/part06b.js"></script>
-<script src="js/part06b2.js"></script>
 <script src="js/part06c.js"></script>
-<script src="js/part06c2.js"></script>
 <script src="js/part06d.js"></script>
-<script src="js/part06d2.js"></script>
 
 <!-- ══ BATCH 2: PHOTO SYSTEM MODULE (Session 53) ══ -->
 <script src="js/part07.js"></script>
