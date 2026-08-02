@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608020122';
+var CACHE_NAME = 'arencon-frt-202608020123';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -128,6 +128,7 @@ var APP_FILES = [
   'frt/js/shared/dialogs.js',
   'frt/js/shared/scrollLock.js',
   'frt/js/shared/toast.js',
+  'frt/js/ui/activityModal.js',
   'frt/js/ui/cameraBurst.js',
   'frt/js/ui/crbThread.js',
   'frt/js/ui/deficiencies.js',
