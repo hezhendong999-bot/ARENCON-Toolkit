@@ -10,7 +10,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ARENCON Hub">
-<link rel="icon" type="image/png" sizes="192x192" href="arencon-icon-192.png"><!-- S559: was apple-touch only; browser tabs showed the default globe — the one tool without the ARENCON favicon -->
 <link rel="apple-touch-icon" href="arencon-icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -296,6 +295,11 @@ body.select-mode .view-list .project-card{padding-left:42px}
      flow, inline after the number, and drop the desktop row padding. */
   .view-list .project-card-number.has-dup{position:static}
   .view-list .badge-dup{position:static;display:inline-block;margin:0 0 0 6px;vertical-align:middle}
+  /* S518: the desktop rule that centres the chip on the number text is more
+     specific than the line above, so it has to be undone explicitly here or the
+     narrow-screen inline chip would slide half its own width to the left. */
+  .view-list .project-card-number.has-dup .pcn-t{display:inline}
+  .view-list .project-card-number.has-dup .pcn-t .badge-dup{position:static;left:auto;transform:none;margin:0 0 0 6px}
   .view-list .project-card.row-has-dup{padding-bottom:11px}
   .view-list .project-card-name{flex:1;min-width:0;font-size:calc(14.5px + var(--ts));font-weight:700;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:1;display:block;margin:0;max-width:none}
@@ -428,6 +432,18 @@ body.dark-mode .epd-pick,body.dark-mode .epd-pick-band{background:var(--card)}
    the row height is unchanged. */
 .badge-dup{position:absolute;left:0;right:0;top:100%;margin:2px 0 0;width:fit-content;margin-left:auto;margin-right:auto;font-size:calc(9px + var(--ts));line-height:1.4;padding:1px 7px;background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);white-space:nowrap}
 .view-list .project-card-number.has-dup{position:relative}
+/* S518 (Mark, 5th pass on this chip). Measured live before changing anything:
+   number 67→118 (centre 92.5), number column 67→141 (centre 104), chip centre
+   104.5. The chip was dead centre on the COLUMN — which is 74px wide and holds
+   every row's number on a shared left edge — while the number itself is only
+   51px and sits at that left edge. So "centred" put the chip 12px right of the
+   digits. S497c/S497d/S498/S499 each re-centred it on the column, which is why
+   it kept drifting back. The chip now anchors to .pcn-t, a wrapper exactly as
+   wide as the number text, and centres on that. Correct whether the chip is
+   wider or narrower than the number, and the column keeps holding the rows in
+   line because the wrapper is still inside it and still out of flow. */
+.view-list .project-card-number.has-dup .pcn-t{position:relative;display:inline-block}
+.view-list .project-card-number.has-dup .pcn-t .badge-dup{left:50%;right:auto;transform:translateX(-50%);margin-left:0;margin-right:0}
 /* Card (grid) view keeps the chip in flow — there is no shared column to hold,
    and rows there are tall enough that an inline chip costs nothing. */
 .view-grid .badge-dup{position:static;display:block;margin:3px auto 0}
@@ -3130,8 +3146,11 @@ function _renderProjectCard(p, myId) {
   // S497b: later-created projects sharing a number carry a Duplicate chip.
   // S498: has-dup makes the number span a centred column so the chip sits
   // directly under the number rather than off to one side (Mark, field test).
+  // S518: the number text and its chip are wrapped together in .pcn-t, which is
+  // exactly as wide as the digits. The chip anchors to THAT, so it centres on
+  // the number rather than on the fixed-width column the number sits inside.
   if (_isDupProject(p)) {
-    num += ' <span class="project-badge badge-dup" title="Another project was created first with this number — the intent is one project per number. Use New Report inside the original instead.">Duplicate</span>';
+    num = '<span class="pcn-t">' + num + '<span class="project-badge badge-dup" title="Another project was created first with this number — the intent is one project per number. Use New Report inside the original instead.">Duplicate</span></span>';
     numCls += ' has-dup';
   }
   var name = esc(p.project_name || 'Untitled');
