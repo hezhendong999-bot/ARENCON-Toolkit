@@ -36,5 +36,22 @@ export var SyncEngine = createSync({
   // S462 personality: FRT's zero-source photo banner.
   onPhotoAttention: function (remaining) {
     try { if (window._frtPhotoAttention) window._frtPhotoAttention(remaining); } catch (_) {}
+  },
+  /* S566 (Lane C, on Mark's explicit authorization — "all tools do the
+     same"): change-scoped saves ON for FRT. The engine sends only the
+     top-level sections that differ from the pinned ancestor; any doubt at
+     any step = the full-document push, byte for byte as before. Outcomes go
+     to the console until FRT grows its own on-screen record. */
+  partialSave: {
+    onPartialPush: function (info) {
+      try {
+        if (info && info.mode === 'partial') {
+          console.info('[FRT sync] change-scoped save: ' + (info.sent || []).join(', ') +
+                       ' (' + (info.sentKB || 0) + ' KB of ' + (info.fullKB || 0) + ' KB)');
+        } else if (info) {
+          console.info('[FRT sync] full save' + (info.reason ? ' (' + info.reason + ')' : ''));
+        }
+      } catch (_) {}
+    }
   }
 });

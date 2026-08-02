@@ -326,7 +326,12 @@
                  stage two; the push itself still sends the whole report. */
               if (r.kind === 'push') {
                 var line;
-                if (r.pinned && r.sent && r.sent.length) {
+                if (r.mode === 'partial' && r.sent && r.sent.length) {
+                  line = 'sent only: <b>' + r.sent.map(_esc).join(', ') + '</b>' +
+                         ' \u00b7 ' + (r.sentKB || 0) + ' KB of ' + (r.fullKB || 0) + ' KB';
+                } else if (r.mode === 'full') {
+                  line = 'sent the full document' + (r.reason ? ' (' + _esc(r.reason) + ')' : '');
+                } else if (r.pinned && r.sent && r.sent.length) {
                   line = 'would send only: <b>' + r.sent.map(_esc).join(', ') + '</b>' +
                          ' \u00b7 ' + (r.sentKB || 0) + ' KB of ' + (r.fullKB || 0) + ' KB';
                 } else if (r.pinned) {
