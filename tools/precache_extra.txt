@@ -111,3 +111,11 @@ lib/data/photoStore.js
 # this a cold offline tablet records nothing about what its saves did — which
 # is exactly the device you most want a record from.
 lib/data/changeJournal.js
+
+# ── S567: Electric's shared-engine sync facade ────────────────────────────
+# Loaded by the Electric monolith via <script type="module" src>, which the
+# scanner cannot see. Its own imports (lib/data/sync.js, merge.js, idb.js,
+# shared/auth.js, ui/dialogEngine.js) are already precached via the FRT and
+# Diesel graphs. Missing this offline = Electric boots with NO cloud layer at
+# all — no local-cache load fallback, no queued saves.
+electric-sync.js

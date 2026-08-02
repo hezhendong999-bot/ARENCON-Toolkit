@@ -1913,7 +1913,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S564';
+var ELEC_BUILD = 'S567';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -7425,6 +7425,10 @@ window.addEventListener('load', () => {
             bg:_st === 'issued' ? '#1A7A4A' : _st === 'review' ? '#1565C0' : '#E65100' } });
         }
         CloudSync.startAutoSave(_collectCloudState, 30000);
+        /* S567 — S524 I-5 parity: if a previous session saved locally but
+           crashed before the cloud push confirmed, the durable marker finds
+           that work now and sends it. Guarded: no-op on facades without it. */
+        try { if (typeof CloudSync.recoverUnsentWork === 'function') CloudSync.recoverUnsentWork(); } catch(e){}
         // Start heartbeat sync (60s)
         _startHeartbeat();
         _wireNavIntercepts();
@@ -7501,32 +7505,15 @@ async function _syncHeartbeat(){
   if(!navigator.onLine) return;
   _heartbeatRunning = true;
   try {
-    var row = await CloudSync.load();
-    if(!row || !row.row || !row.row.updated_at || !row.row.data){ _heartbeatRunning=false; return; }
-    var cloudTime = new Date(row.row.updated_at).getTime();
-    if(_cloudSyncedAt && Math.abs(cloudTime - _cloudSyncedAt) < 5000){
-      _heartbeatRunning=false; return;
-    }
-    var localSyncedAt = localStorage.getItem('_electric_cloudSyncedAt_'+_csProjectId);
-    var localTime = localSyncedAt ? new Date(localSyncedAt).getTime() : 0;
-    if(cloudTime > localTime + 5000){
-      _syncLock = true;
-      var cloudState = typeof row.row.data === 'string' ? JSON.parse(row.row.data) : row.row.data;
-      var localState = collectState();
-      var merged = _mergeCloudLocal(cloudState, localState);
-      _applyLoadedState(JSON.stringify(merged));
-      localStorage.setItem('_electric_cloudSyncedAt_'+_csProjectId, row.row.updated_at);
-      _syncLock = false;
-      /* S488: sealed header — blue 'pulled update' flash via the engine's
-         pull state (same #3B82F6, same 2s return to green). */
-      var _hc2 = window.__elecHeaderCtl;
-      if(_hc2){ _hc2.setCloud({ state:'pull' });
-        setTimeout(function(){ _hc2.setCloud({ state:'ok' }); }, 2000); }
-    } else {
-      if(cloudTime > localTime){
-        localStorage.setItem('_electric_cloudSyncedAt_'+_csProjectId, row.row.updated_at);
-      }
-    }
+    /* S567 — the shared engine owns the heartbeat now. heartbeatTick() does,
+       in order: S321 never pull over a live edit; a cheap updated_at probe
+       against the engine's own ancestor token (replacing the old localStorage
+       timestamp heuristics); S496 PUSH-BEFORE-PULL so an unpushed local edit
+       3-way merges instead of being clobbered by the pull; then a silent pull
+       that applies through the S25 empty-cloud guard + _mergeCloudLocal union
+       — the same protective apply this function used to do by hand. The
+       header pull-flash moved into the facade with it. */
+    await CloudSync.heartbeatTick();
   } catch(e){
     console.warn('[Heartbeat] Error:', e);
     _syncLock = false;
@@ -8592,31 +8579,17 @@ return{
 </script>
 
 <!-- ══ CLOUDSYNC MODULE v1 ══ -->
+<script type="module" src="electric-sync.js"></script>
 <script>
-var CloudSync=(function(){'use strict';var SUPABASE_URL='https://xsemvinxsyphjiaqgywv.supabase.co';var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';var IDB_NAME='arencon_cloud_cache';var IDB_VERSION=1;var IDB_STORE='tool_state';var AUTOSAVE_MS=15000;var _projectId=null;var _toolKey=null;var _instanceId=null;var _instanceNumber=1;var _collectStateFn=null;var _onStatusChange=null;var _autoSaveTimer=null;var _idb=null;var _online=navigator.onLine;var _pendingSync=false;var _userId=null;var _projectInfo=null;var _lastSavedJson='';var _initialized=false;
-function _headers(){var h={'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=representation'};var token=localStorage.getItem('sb-access-token');if(token)h['Authorization']='Bearer '+token;else h['Authorization']='Bearer '+SUPABASE_ANON_KEY;return h;}
-async function _request(path,opts){opts=opts||{};var res=await fetch(SUPABASE_URL+path,{method:opts.method||'GET',headers:Object.assign({},_headers(),opts.headers||{}),body:opts.body?JSON.stringify(opts.body):undefined});if(!res.ok){var err;try{err=await res.json();}catch(e){err={message:res.statusText};}throw new Error(err.message||err.msg||err.error_description||res.statusText);}var text=await res.text();return text?JSON.parse(text):null;}
-function _openIDB(){return new Promise(function(resolve,reject){var req=indexedDB.open(IDB_NAME,IDB_VERSION);req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);};req.onsuccess=function(e){_idb=e.target.result;resolve(_idb);};req.onerror=function(e){reject(e.target.error);};});}
-function _idbKey(){return _projectId+'|'+_toolKey+'|'+(_instanceId||'new');}
-function _idbGet2(key){return new Promise(function(resolve,reject){if(!_idb){resolve(null);return;}var tx=_idb.transaction(IDB_STORE,'readonly');var req=tx.objectStore(IDB_STORE).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});}
-function _idbPut2(key,val){return new Promise(function(resolve,reject){if(!_idb){resolve();return;}var tx=_idb.transaction(IDB_STORE,'readwrite');var req=tx.objectStore(IDB_STORE).put(val,key);req.onsuccess=function(){resolve();};req.onerror=function(){reject(req.error);};});}
-function _setStatus(status,msg){if(_onStatusChange)_onStatusChange(status,msg);}
-async function _getUser(){var token=localStorage.getItem('sb-access-token');if(!token)return null;try{return await _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+token}});}catch(e){var rt=localStorage.getItem('sb-refresh-token');if(!rt)return null;try{var data=await _request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:rt},headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}});if(data&&data.access_token){localStorage.setItem('sb-access-token',data.access_token);localStorage.setItem('sb-refresh-token',data.refresh_token);return _request('/auth/v1/user',{headers:{'Authorization':'Bearer '+data.access_token}});}}catch(e2){}return null;}}
-async function _cloudLoad(){if(!_projectId||!_toolKey)return null;if(_instanceId){var rows=await _request('/rest/v1/tool_data?select=*&id=eq.'+_instanceId);return(rows&&rows.length>0)?rows[0]:null;}var rows=await _request('/rest/v1/tool_data?select=*&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=updated_at.desc&limit=1');return(rows&&rows.length>0)?rows[0]:null;}
-async function _cloudSave(stateJson){if(!_projectId||!_toolKey)return null;var payload={project_id:_projectId,tool_key:_toolKey,instance_number:_instanceNumber,data:typeof stateJson==='string'?JSON.parse(stateJson):stateJson,updated_by:_userId,updated_at:new Date().toISOString()};if(_instanceId){var rows=await _request('/rest/v1/tool_data?id=eq.'+_instanceId,{method:'PATCH',body:payload});return(rows&&rows.length>0)?rows[0]:null;}else{payload.created_by=_userId;payload.status='draft';var rows=await _request('/rest/v1/tool_data',{method:'POST',body:[payload]});if(rows&&rows.length>0){_instanceId=rows[0].id;_instanceNumber=rows[0].instance_number;return rows[0];}return null;}}
-async function _loadProjectInfo(){if(!_projectId)return null;try{var rows=await _request('/rest/v1/projects?select=*&id=eq.'+_projectId,{headers:{'Accept':'application/vnd.pgrst.object+json'}});_projectInfo=rows;return rows;}catch(e){return null;}}
-async function save(stateJson){if(typeof stateJson!=='string')stateJson=JSON.stringify(stateJson);if(stateJson===_lastSavedJson)return;_lastSavedJson=stateJson;try{await _idbPut2(_idbKey(),{state:stateJson,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:new Date().toISOString()});}catch(e){console.error('[CloudSync] IDB save failed:',e);}if(_online){try{_setStatus('saving','Syncing...');var row=await _cloudSave(stateJson);_pendingSync=false;_setStatus('synced','Saved to cloud');return row;}catch(e){console.warn('[CloudSync] Cloud save failed:',e.message);_pendingSync=true;_setStatus('pending','Saved locally');}}else{_pendingSync=true;_setStatus('offline','Saved locally (offline)');}return null;}
-async function load(){var cloudRow=null;if(_online){try{cloudRow=await _cloudLoad();if(cloudRow){_instanceId=cloudRow.id;_instanceNumber=cloudRow.instance_number;var sj=typeof cloudRow.data==='string'?cloudRow.data:JSON.stringify(cloudRow.data);_lastSavedJson=sj;await _idbPut2(_idbKey(),{state:sj,projectId:_projectId,toolKey:_toolKey,instanceId:_instanceId,instanceNumber:_instanceNumber,savedAt:cloudRow.updated_at});_setStatus('synced','Loaded from cloud');return{source:'cloud',state:typeof cloudRow.data==='string'?JSON.parse(cloudRow.data):cloudRow.data,row:cloudRow};}}catch(e){console.warn('[CloudSync] Cloud load failed:',e.message);}}try{var idbData=await _idbGet2(_idbKey());if(idbData&&idbData.state){_setStatus(_online?'synced':'offline','Loaded from cache');return{source:'idb',state:typeof idbData.state==='string'?JSON.parse(idbData.state):idbData.state,row:null};}}catch(e){console.error('[CloudSync] IDB load failed:',e);}_setStatus(_online?'synced':'offline','No saved data');return null;}
-function startAutoSave(collectStateFn,intervalMs){_collectStateFn=collectStateFn;stopAutoSave();_autoSaveTimer=setInterval(function(){if(!_collectStateFn)return;try{var state=_collectStateFn();save(state);}catch(e){console.error('[CloudSync] Auto-save error:',e);}},intervalMs||AUTOSAVE_MS);}
-function stopAutoSave(){if(_autoSaveTimer){clearInterval(_autoSaveTimer);_autoSaveTimer=null;}}
-function _onOnline(){_online=true;_setStatus('saving','Reconnected...');if(_pendingSync&&_collectStateFn){try{var state=_collectStateFn();save(state);}catch(e){_setStatus('error','Sync failed');}}else{_setStatus('synced','Online');}}
-function _onOffline(){_online=false;_setStatus('offline','Working offline');}
-function readUrlParams(){var p=new URLSearchParams(window.location.search);return{projectId:p.get('project')||null,instanceId:p.get('instance')||null,projectNumber:p.get('pn')||null,projectName:p.get('pname')||null,client:p.get('client')||null,address:p.get('addr')||null,smartFilename:p.get('sfn')||null};}
-async function _getNextInstanceNumber(){if(!_online)return 1;try{var rows=await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'+_projectId+'&tool_key=eq.'+_toolKey+'&order=instance_number.desc&limit=1');if(rows&&rows.length>0)return rows[0].instance_number+1;}catch(e){}return 1;}
-async function init(opts){_toolKey=opts.toolKey;_onStatusChange=opts.onStatusChange||null;_projectId=opts.projectId||null;_instanceId=opts.instanceId||null;try{await _openIDB();}catch(e){console.error('[CloudSync] IDB open failed:',e);}try{var user=await _getUser();if(user)_userId=user.id;}catch(e){}if(_projectId&&_online){try{await _loadProjectInfo();}catch(e){}}if(_projectId&&!_instanceId){_instanceNumber=await _getNextInstanceNumber();}window.addEventListener('online',_onOnline);window.addEventListener('offline',_onOffline);_initialized=true;_setStatus(_online?'synced':'offline','Ready');return{projectInfo:_projectInfo,userId:_userId,online:_online,instanceId:_instanceId,instanceNumber:_instanceNumber};}
-function destroy(){stopAutoSave();window.removeEventListener('online',_onOnline);window.removeEventListener('offline',_onOffline);_initialized=false;}
-async function syncNow(){if(!_online){_setStatus('offline','No connection');return false;}if(!_collectStateFn)return false;try{_setStatus('saving','Syncing...');var state=_collectStateFn();await save(state);_setStatus('synced','Force sync complete');return true;}catch(e){_setStatus('error','Sync failed');return false;}}
-return{init:init,load:load,save:save,startAutoSave:startAutoSave,stopAutoSave:stopAutoSave,syncNow:syncNow,destroy:destroy,readUrlParams:readUrlParams,get projectInfo(){return _projectInfo;},get projectId(){return _projectId;},get toolKey(){return _toolKey;},get instanceId(){return _instanceId;},get instanceNumber(){return _instanceNumber;},get userId(){return _userId;},get isOnline(){return _online;},get hasPendingSync(){return _pendingSync;},get isInitialized(){return _initialized;},request:_request};})();
+/* ═══ S567 — the inline CloudSync IIFE is RETIRED ═══════════════════════════
+   Electric now runs on the SHARED sync engine via electric-sync.js (loaded as
+   a module below), the same S491/S492 move Diesel made — Mark's S566 ruling:
+   all tools the same. window.CloudSync keeps the identical public API, so
+   every call site in this file is unchanged. What Electric gains: If-Match on
+   every push (no more silent last-writer-wins), 412 → 3-way merge, ancestor
+   snapshots that survive reloads, boot discipline, durable unsent-work
+   recovery, and change-scoped saves. The offline cache DB and key format are
+   unchanged — existing device caches carry over. */
 
 
 // ═══ MORE DROPDOWN ═══
