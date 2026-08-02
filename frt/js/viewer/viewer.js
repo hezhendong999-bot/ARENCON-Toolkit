@@ -1540,6 +1540,17 @@ function _renderPins() {
       var dz = Math.min(1, (_scale - 1) / Math.max(0.001, (maxZ - 1)));
       pinScale = 1 + 0.55 * dz;            // 1.0 → 1.55
     }
+    // S571 (Mark): on TILED sheets, pins run 20% bigger at tile level L3 and
+    // 30% bigger at L4+ — at deep zoom the smooth curve alone left them too
+    // small against the sheet. NOTE this reintroduces a size step exactly at
+    // the level swap, which S-era work removed on purpose (the old 64% snap
+    // landed on the heaviest tile decode); at 20% Mark judged the trade worth
+    // it — revisit only with him. Non-tiled sheets are unchanged.
+    if (typeof TiledPdf !== 'undefined' && TiledPdf.getLevel) {
+      var _tl = TiledPdf.getLevel();
+      if (_tl >= 4) pinScale *= 1.3;
+      else if (_tl === 3) pinScale *= 1.2;
+    }
 
     // S83: Build inspector color lookup for this project.
     // Colors live in proj.ui.inspectorColors[userId] = '#xxx' (cached by Project Hub).

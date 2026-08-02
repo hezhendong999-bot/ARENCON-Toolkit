@@ -742,6 +742,8 @@ function _tileUrl(level, col, row) {
 // Simple rule: pick lowest level whose pixel width >= target width (drawW *
 // viewScale). At zoom ≥ 1, floor at index 3 (matches backdrop resolution).
 // Always returns a valid index so tiles always load (no "missing content").
+var _liveLevel = -1;   // S571: the level currently painted; -1 when inactive
+
 function _pickLevel(viewScale) {
   if (!_pageInfo || !_pageInfo.levels || !_pageInfo.levels.length) return -1;
   var levels = _pageInfo.levels;
@@ -1524,6 +1526,7 @@ function _renderVisible() {
 
   var levelIdx = _pickLevel(scale);
   if (levelIdx < 0) return;
+  _liveLevel = levelIdx;   // S571: exposed via getLevel() for pin sizing
   var lvl = _pageInfo.levels[levelIdx];
   if (!lvl) return;
   _dbgEvent('L' + levelIdx + '@' + scale.toFixed(2));
@@ -1964,7 +1967,10 @@ function _close_internal() {
   _dbgLife('close:end', { prevDrawing: prevDrawing });
 }
 
-function close() { _close_internal(); }
+function close() {
+  _liveLevel = -1;   // S571: never leak a level into the next sheet
+  _close_internal();
+}
 
 // ─── S111: Render-progress + Anomaly floating panels ──────────────────────
 //
@@ -2246,6 +2252,7 @@ export var TiledPdf = {
   pause: pause,
   resume: resume,
   isActive: isActive,
+  getLevel: function(){ return isActive() ? _liveLevel : -1; },   // S571
   getDimensions: getDimensions,
   stats: stats
 };
