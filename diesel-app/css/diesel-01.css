@@ -9,7 +9,7 @@
   --no:#A85959;  --no-bg:#F3E0DE;
   --na:#5A6473;  --na-bg:#E8ECF0;
   --warn:#B7791F; --warn-bg:#FEFCBF;
-  --info:#2C7FB8; --gr-rpm:#6E5AA8; --gr-prv:#3F7E78; --gr-prdv:#9C6FA0;
+  --info:#2C7FB8; --gr-rpm:#6E5AA8; --gr-prv:#3F7E78; --gr-prdv:#9C6FA0; --gr-pitot:#B5652A;
   --shadow:0 2px 12px rgba(28,35,51,.10);
   --shadow-lg:0 8px 32px rgba(28,35,51,.14);
 }
