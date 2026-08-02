@@ -35,6 +35,7 @@
 import { Auth } from './lib/shared/auth.js';
 import { createIDB } from './lib/data/idb.js';
 import { createSync } from './lib/data/sync.js';
+import { createChangeJournal } from './lib/data/changeJournal.js';  // S574
 import { merge3, applyResolutions, summarizeConflict } from './lib/data/merge.js';
 import * as Dlg from './lib/ui/dialogEngine.js';
 
@@ -43,8 +44,8 @@ import * as Dlg from './lib/ui/dialogEngine.js';
    blobs live in the tool's own databases and are not involved. */
 const SyncIDB = createIDB({
   dbName: 'ARENCON_ELECTRIC_SYNC',
-  version: 1,
-  stores: ['syncMeta', 'syncQueue']
+  version: 2,                                   /* S574: +changeJournal */
+  stores: ['syncMeta', 'syncQueue', 'changeJournal']
 });
 
 /* ── Worker-host adapter ────────────────────────────────────────────────────
@@ -127,6 +128,35 @@ function _applyCloudSilent(cloudState) {
     console.warn('[ElectricSync] silent apply failed:', e && e.message);
   }
 }
+
+/* ── S574 — the change journal for Electric ────────────────────────────────
+ * Same module, same rules as Diesel: one small entry per save saying what each
+ * part of the report went from and to, flagged when something loses a lot at
+ * once. Collection names are PLAIN LANGUAGE because a person reads them on a
+ * tablet. Records only; the acting half is the cloud-door gate further down. */
+const ElectricJournal = createChangeJournal({
+  IDB: SyncIDB,
+  collections: function (s) {
+    s = s || {};
+    var defs = 0;
+    try {
+      Object.keys(s.deficiencies || {}).forEach(function (k) {
+        if (Array.isArray(s.deficiencies[k])) defs += s.deficiencies[k].length;
+      });
+    } catch (_) {}
+    return {
+      'checklist items':      s.clState,
+      'deficiencies':         defs,
+      'general deficiencies': s.generalDeficiencies,
+      'flow test photos':     s.flowTestPhotos,
+      'sketches':             s.sketchEntries
+    };
+  },
+  whoami: function () { try { return (Auth.getUser && Auth.getUser().email) || ''; } catch (_) { return ''; } },
+  build:  function () { try { return window.ELEC_BUILD || ''; } catch (_) { return ''; } },
+  tag: '[electric]'
+});
+try { window._elecJournal = ElectricJournal; } catch (_) {}
 
 const model = {
   getProject: function () {
@@ -435,6 +465,67 @@ const CloudSync = (function () {
     return null;
   }
 
+  /* ── S574 — the cloud-door wipe gate (ported from Diesel S571) ────────────
+   * A save whose shape matches a wipe stops at the CLOUD door and asks once.
+   * Safe on an unwatched threshold for the same three reasons as Diesel:
+   *   1. the LOCAL save has already happened above — nobody can be stopped
+   *      from working, and nothing can be lost by pausing;
+   *   2. it FAILS OPEN — no dialog, no journal, any error = the push proceeds,
+   *      so the guard can never become a silent sync outage;
+   *   3. it asks ONCE PER LOSS SHAPE, so autosave cannot nag, while a
+   *      genuinely different loss later still gets its own question.
+   * The server wipe guard remains the hard backstop underneath. */
+  var _wipeAnswers = {};
+  var _wipeAsking = false;
+
+  function _wipeSignature(losses) {
+    return losses.map(function (l) { return l.k + ' ' + l.from + '\u2192' + l.to; }).join(' | ');
+  }
+
+  async function _wipeGateAllows(stateJson) {
+    if (!_lastPushedJson) return true;
+    var J = window._elecJournal;
+    if (!J || typeof J.assessLosses !== 'function') return true;
+    var before, after;
+    try { before = JSON.parse(_lastPushedJson); after = JSON.parse(stateJson); }
+    catch (_) { return true; }
+    try { if (after && after._intentionalClear) return true; } catch (_) {}
+    var losses = J.assessLosses(before, after);
+    if (!losses || !losses.length) return true;
+    var sig = _wipeSignature(losses);
+    if (_wipeAnswers[sig] !== undefined) return _wipeAnswers[sig];
+    if (_wipeAsking) return false;
+    if (!Dlg || typeof Dlg.confirm !== 'function') {
+      console.warn('[ElectricSync S574] wipe gate: no dialog engine — allowing push.');
+      return true;
+    }
+    _wipeAsking = true;
+    var ok = true;
+    try {
+      var lines = losses.map(function (l) {
+        return l.k + ': ' + l.from + ' \u2192 ' + l.to + '  (' + l.lost + ' removed)';
+      }).join('\n');
+      ok = await Dlg.confirm({
+        title: 'This save removes a lot at once',
+        icon: '\u26A0\uFE0F', accent: 'attention', width: 560,
+        message: 'The report on this device now has less than the copy in the cloud:\n\n' + lines +
+                 '\n\nIf you deleted these on purpose, save to the cloud. If this is unexpected, ' +
+                 'pause and check Recent Saves first.',
+        detail: 'Your work on this device is already saved either way. Pausing only leaves the ' +
+                'fuller copy in the cloud until you decide — nothing is lost by pausing.',
+        cancelText: 'Pause \u2014 let me check',
+        confirmText: 'Yes, save to cloud'
+      });
+    } catch (e) {
+      console.warn('[ElectricSync S574] wipe gate dialog failed — allowing push:', e && e.message);
+      ok = true;
+    }
+    _wipeAsking = false;
+    _wipeAnswers[sig] = ok;
+    if (!ok) console.warn('[ElectricSync S574] cloud push paused by the user for: ' + sig);
+    return ok;
+  }
+
   /* Save. The engine pushes model.getProject() — a FRESH _collectCloudState()
    * — under If-Match. stateJson is used for dedupe + the offline cache only
    * (call sites pass the same collect, so the two are equivalent). */
@@ -469,6 +560,12 @@ const CloudSync = (function () {
     }
     if (!_online) { _setStatus('offline', 'Saved locally (offline)'); return null; }
     if (alreadyPushed) return null;
+    try {
+      const _allow = await _wipeGateAllows(stateJson);
+      if (!_allow) { _setStatus('pending', 'Saved locally — cloud save paused'); return null; }
+    } catch (e) {
+      console.warn('[ElectricSync] wipe gate skipped (failing open):', e && e.message);
+    }
     try {
       _setStatus('saving', 'Syncing...');
       const row = await engine.push(_projectId);
