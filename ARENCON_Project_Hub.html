@@ -1213,8 +1213,8 @@ body.text-l{--ts:4px;}
         <button class="recessive" data-state="deleted" onclick="setBoardView('deleted')">🗑️ Deleted</button>
       </div>
       <div class="hub-view-toggle" id="hub-view-toggle">
-        <button data-view="cards" class="active" onclick="setHubView('cards')" title="Cards view">▤ Cards</button>
-        <button data-view="list" onclick="setHubView('list')" title="List view">☰ List</button>
+        <button data-view="cards" onclick="setHubView('cards')" title="Cards view">▤ Cards</button>
+        <button data-view="list" class="active" onclick="setHubView('list')" title="List view">☰ List</button>
       </div>
       <select class="dash-sort" id="dash-sort" onchange="onSortChange()">
         <option value="number-asc">Sort: Project # A→Z</option>
@@ -1836,7 +1836,13 @@ function _pmAvatar(userId) {
 }
 let _filterMode = 'my';
 /* S494: Cards/List view — locked June feature, restored. Persists per device. */
-let _hubView = (function(){ try { var v = localStorage.getItem('arencon-hub-view'); return (v === 'cards' || v === 'list') ? v : 'cards'; } catch(e){ return 'cards'; } })();
+/* S518 (Mark): default flipped cards → list. The team works in list; cards was
+   only ever reached because it was the fallback, so every new tablet, cleared
+   browser or fresh sign-in dropped people back into a view they then had to
+   switch out of by hand. Cards is NOT removed — the toggle still works and a
+   saved preference of 'cards' is still honoured. Only the no-preference
+   fallback changed. Reverting is this one word. */
+let _hubView = (function(){ try { var v = localStorage.getItem('arencon-hub-view'); return (v === 'cards' || v === 'list') ? v : 'list'; } catch(e){ return 'list'; } })();
 function setHubView(v) {
   _hubView = v;
   try { localStorage.setItem('arencon-hub-view', v); } catch (e) {}
@@ -2753,6 +2759,18 @@ function renderProjects() {
   /* S494: list view applies to the REGULAR grid only — Pinned and Starred stay
      as cards (June-locked behaviour; pinned cards are a live feature, untouched). */
   grid.classList.toggle('view-list', _hubView === 'list' && !_showDeleted);
+  /* S518: the toggle's highlight was hardcoded in the markup and only ever
+     corrected inside setHubView() — i.e. on a click. So after any reload it
+     showed whichever button the HTML happened to name, not the view actually on
+     screen: everyone who had chosen List saw "Cards" lit for as long as List has
+     existed. Syncing here, where the view is applied, keeps the button and the
+     board telling the same story on boot, on re-render and on toggle. */
+  (function(){
+    var vb = document.querySelectorAll('#hub-view-toggle button');
+    for (var i = 0; i < vb.length; i++) {
+      vb[i].classList.toggle('active', vb[i].getAttribute('data-view') === _hubView);
+    }
+  })();
   if (regular.length === 0) {
     grid.innerHTML = '';
     grid.classList.remove('is-banded');
