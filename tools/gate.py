@@ -143,6 +143,10 @@ def js_symbols(text):
     return {s for s in syms if s not in noise}
 
 
+_IDENT_CH = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                '0123456789_$')
+
+
 def load_protected():
     """tools/protected_symbols.txt — Mark-specified features. Symbols listed
     there cannot be removed by ANY session; --kill does not apply. The only
@@ -166,6 +170,43 @@ def load_protected():
                 protected[line] = feature
             return protected, cand
     return protected, None
+
+
+def literal_present(entry, text):
+    """Is this manifest entry ACTUALLY in the text — as itself, not as a
+    fragment of an unrelated word?
+
+    S565 — WHY THIS EXISTS. The literal fallback (S510) tested plain `entry in
+    text`. Four manifest entries are ordinary English words — mint, leave, form,
+    progress — so `form` matched inside `format`, and deleting a file whose only
+    sin was the word "format" in a comment reported the shared dialog engine as
+    about to be destroyed. A gate that blocks on a comment is a gate people
+    learn to argue with, and an argued-with gate protects nothing.
+
+    Accepted as present when an occurrence is either:
+      • a COMPLETE identifier — nothing identifier-ish on either side, so
+        `form` matches 'form' and kind:form but never format/perform, and
+        `crbt-unlock` still matches inside id="crbt-unlock"; or
+      • a deliberate PREFIX — entries ending in _ - or : (arencon_rpt_) are
+        written to match the start of longer names, so only the LEFT side is
+        required to be clean.
+
+    This is strictly STRICTER than `entry in text`: every match it accepts, the
+    old test also accepted. No protection is weakened — only accidental matches
+    inside unrelated words stop firing.
+    """
+    if not entry:
+        return False
+    prefixish = entry.endswith(('_', '-', ':'))
+    at = text.find(entry)
+    while at >= 0:
+        before = text[at - 1] if at else ''
+        after_i = at + len(entry)
+        after = text[after_i] if after_i < len(text) else ''
+        if before not in _IDENT_CH and (prefixish or after not in _IDENT_CH):
+            return True
+        at = text.find(entry, at + 1)
+    return False
 
 
 def main():
@@ -302,7 +343,7 @@ def main():
             for dp in dests:
                 # Same two-tier test the protected check uses: a declaration if
                 # the extractor sees one, otherwise plain presence in the text.
-                if r in _dst_syms[dp] or r in _dst_text[dp]:
+                if r in _dst_syms[dp] or literal_present(r, _dst_text[dp]):
                     moved[r] = dp
                     break
         removed = removed - set(moved)
@@ -326,13 +367,13 @@ def main():
     for entry, feat in protected.items():
         if entry in _sym_space:
             continue                      # already covered by the symbol comparison
-        if entry in old and entry not in new:
+        if literal_present(entry, old) and not literal_present(entry, new):
             # S564: a literal that moved into a declared destination is present
             # in the codebase, so it was not deleted. Same proof standard as
             # above — the destination file is read, not taken on trust.
             _landed = None
             for dp in dests:
-                if entry in _dst_text[dp]:
+                if literal_present(entry, _dst_text[dp]):
                     _landed = dp
                     break
             if _landed:
