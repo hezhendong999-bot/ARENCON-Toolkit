@@ -2975,6 +2975,29 @@ export var Model = {
     return !!(entry && entry.issuedOnInstance != null);
   },
 
+  // S567 — THE MISSING ANSWER. editThreadEntry and removeThreadEntry have both
+  // asked this question since S500 (25 Jul) and nothing has ever answered it:
+  // the calls shipped, the function never did. Every attempt to edit or remove
+  // a thread comment threw before it reached the write, so the Save button did
+  // nothing and the typed wording was silently discarded — while the old text
+  // stayed in the record that prints. Found in the field by Mark, S566.
+  //
+  // The rule is NOT invented here. It is the one crbThread.js has been drawing
+  // the buttons from all along (_actionRow: `var amendable = !frozen ||
+  // unlocked`), so screen and model now agree instead of disagreeing silently:
+  // a comment that has been PRINTED in an issued report is frozen, and stays
+  // frozen until someone deliberately unlocks it. Never a casual edit of an
+  // issued record; always possible through the logged unlock gate.
+  //
+  // Deliberately mirrors the display rule character for character. If the
+  // amendment policy ever changes, BOTH must move together — a model that is
+  // more permissive than the buttons is a silent alteration of an issued
+  // record, and a model stricter than the buttons is this bug again.
+  _threadEntryAmendable: function(entry) {
+    if (!entry) return false;
+    return !this.isThreadEntryFrozen(entry) || entry.unlocked === true;
+  },
+
   // ══ S500 — AMENDMENT LOG + UNLOCK ═══════════════════════════════════════
   // Mark's decision (S500): a printed comment stays frozen by default, but the
   // record is amendable through a DELIBERATE unlock, never a silent edit. Every
