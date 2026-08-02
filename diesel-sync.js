@@ -555,6 +555,74 @@ const CloudSync = (function () {
     return null;
   }
 
+  /* ── S571 — the cloud-door wipe gate ──────────────────────────────────────
+   * Returns true = let the push go. Answers are keyed to a SIGNATURE of the
+   * loss ("site photos 225->0|flow readings 15->9") so autosave asks once, and
+   * a genuinely different loss later still gets asked. Everything is wrapped;
+   * every failure path returns true (fail open — see save()). */
+  var _wipeAnswers = {};      // signature -> true (allowed) | false (paused)
+  var _wipeAsking = false;
+
+  function _wipeSignature(losses) {
+    return losses.map(function (l) { return l.k + ' ' + l.from + '\u2192' + l.to; }).join(' | ');
+  }
+
+  async function _wipeGateAllows(stateJson) {
+    // Nothing to compare against yet (first push of the session) — allow.
+    if (!_lastPushedJson) return true;
+    var J = window._dslJournal;
+    if (!J || typeof J.assessLosses !== 'function') return true;
+
+    var before, after;
+    try { before = JSON.parse(_lastPushedJson); after = JSON.parse(stateJson); }
+    catch (_) { return true; }
+
+    // A user-declared reset already had its own confirmation — never double-ask.
+    try { if (after && after._intentionalClear) return true; } catch (_) {}
+
+    var losses = J.assessLosses(before, after);
+    if (!losses || !losses.length) return true;
+
+    var sig = _wipeSignature(losses);
+    if (_wipeAnswers[sig] !== undefined) return _wipeAnswers[sig];
+    if (_wipeAsking) return false;      // a question is already on screen — wait for it
+
+    if (!Dlg || typeof Dlg.confirm !== 'function') {
+      console.warn('[DieselSync S571] wipe gate: no dialog engine — allowing push.');
+      return true;
+    }
+
+    _wipeAsking = true;
+    var ok = true;
+    try {
+      var lines = losses.map(function (l) {
+        return l.k + ': ' + l.from + ' \u2192 ' + l.to + '  (' + l.lost + ' removed)';
+      }).join('\n');
+      ok = await Dlg.confirm({
+        title: 'This save removes a lot at once',
+        icon: '\u26A0\uFE0F', accent: 'attention', width: 560,
+        message: 'The report on this device now has less than the copy in the cloud:\n\n' + lines +
+                 '\n\nIf you deleted these on purpose, save to the cloud. If this is unexpected, ' +
+                 'pause and check Recent Saves first.',
+        detail: 'Your work on this device is already saved either way. Pausing only leaves the ' +
+                'fuller copy in the cloud until you decide — nothing is lost by pausing.',
+        cancelText: 'Pause \u2014 let me check',
+        confirmText: 'Yes, save to cloud'
+      });
+    } catch (e) {
+      console.warn('[DieselSync S571] wipe gate dialog failed — allowing push:', e && e.message);
+      ok = true;
+    }
+    _wipeAsking = false;
+    _wipeAnswers[sig] = ok;
+    if (!ok) {
+      // Make the pause visible and point at the record that explains it.
+      try { if (typeof window._dslSetSaveFlag === 'function') window._dslSetSaveFlag(true); } catch (_) {}
+      console.warn('[DieselSync S571] cloud push paused by the user for: ' + sig);
+    }
+    return ok;
+  }
+
   /* Save. The engine pushes model.getProject() — a FRESH _collectCloudState()
    * — under If-Match. stateJson is used for dedupe + the offline cache only
    * (call sites pass the same collect, so the two are equivalent). */
@@ -589,6 +657,35 @@ const CloudSync = (function () {
     }
     if (!_online) { _setStatus('offline', 'Saved locally (offline)'); return null; }
     if (alreadyPushed) return null;
+    /* ── S571 — CHANGE JOURNAL, STAGE THREE (second half) ────────────────────
+     * A save whose shape matches a wipe now stops at the CLOUD DOOR and asks a
+     * person, once. Three properties make this safe to ship on a threshold
+     * that has not yet been watched against a week of real jobs:
+     *
+     *   1. THE LOCAL SAVE HAS ALREADY HAPPENED, above. Nothing here can cost an
+     *      inspector their work or stop them working — the report is on disk
+     *      either way. Only the cloud copy waits.
+     *   2. IT FAILS OPEN. No dialog engine, no journal, an error anywhere — the
+     *      push proceeds exactly as before. A guard that cannot render must
+     *      never become a silent sync outage (the 4380.24 lesson).
+     *   3. IT ASKS ONCE PER SHAPE. The answer is remembered against a signature
+     *      of the loss itself, so autosave cannot nag every 15 seconds, and a
+     *      DIFFERENT loss later still gets its own question.
+     *
+     * So a wrong threshold costs one dialog, not a stranded inspector — which
+     * is the objection that kept this half unbuilt until now. If the person
+     * says no, the cloud keeps the fuller previous copy and the local report is
+     * untouched, which is exactly the state they'd want while they check.
+     * The server wipe guard remains the hard backstop underneath all of it. */
+    try {
+      const _hold = await _wipeGateAllows(stateJson);
+      if (!_hold) {
+        _setStatus('pending', 'Saved locally — cloud save paused');
+        return null;
+      }
+    } catch (e) {
+      console.warn('[DieselSync] wipe gate skipped (failing open):', e && e.message);
+    }
     try {
       _setStatus('saving', 'Syncing...');
       const row = await engine.push(_projectId);
