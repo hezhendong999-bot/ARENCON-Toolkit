@@ -320,6 +320,26 @@
             rows.forEach(function (r) {
               var t = new Date(r.at);
               var when = t.toLocaleDateString() + ' ' + t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+              /* S565 — cloud-push shadow record: which sections actually
+                 differed from the last-synced ancestor, i.e. what a
+                 change-scoped save WOULD have sent. Read-only evidence for
+                 stage two; the push itself still sends the whole report. */
+              if (r.kind === 'push') {
+                var line;
+                if (r.pinned && r.sent && r.sent.length) {
+                  line = 'would send only: <b>' + r.sent.map(_esc).join(', ') + '</b>' +
+                         ' \u00b7 ' + (r.sentKB || 0) + ' KB of ' + (r.fullKB || 0) + ' KB';
+                } else if (r.pinned) {
+                  line = 'nothing changed since last sync \u00b7 full ' + (r.fullKB || 0) + ' KB';
+                } else {
+                  line = 'no pinned baseline for this push \u00b7 sent full ' + (r.fullKB || 0) + ' KB';
+                }
+                html += '<div style="border-left:3px solid #2C7FB8;padding:6px 0 6px 10px;margin-bottom:9px;">' +
+                        '<div style="font-size:13px;color:#5E5B68">' + when + ' \u00b7 \u2601 cloud push' +
+                        (r.by ? ' \u00b7 ' + _esc(r.by) : '') + (r.build ? ' \u00b7 ' + _esc(r.build) : '') + '</div>' +
+                        '<div style="font-size:14px;">' + line + '</div></div>';
+                return;
+              }
               var bad = r.losses && r.losses.length;
               html += '<div style="border-left:3px solid ' + (bad ? '#C0445F' : '#D2CEDB') +
                       ';padding:6px 0 6px 10px;margin-bottom:9px;">' +

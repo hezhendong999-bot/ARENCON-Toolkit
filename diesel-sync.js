@@ -77,16 +77,79 @@ const DieselWorkerHost = {
     return Promise.resolve(JSON.parse(text));
   },
   serializePush: function (proj) {
-    return Promise.resolve({
-      strippedData: JSON.parse(JSON.stringify(proj)),
-      jsonBody: null
-    });
+    var clone = JSON.parse(JSON.stringify(proj));
+    /* S565 — CHANGE-BASED SYNC, STAGE TWO (shadow). On every real push,
+       compute which report sections actually differ from the pinned common
+       ancestor — the exact set a change-scoped save would send — and record
+       it in the journal. RECORDS ONLY: the push itself is untouched, and any
+       failure below resolves with the plain clone exactly as before. The
+       server half (diesel_partial_save) is deployed and tested but nothing
+       calls it yet; these records are the evidence that decides when it may. */
+    return _shadowPushDiff(clone).catch(function () { /* never blocks a push */ })
+      .then(function () { return { strippedData: clone, jsonBody: null }; });
   },
   merge3Worker: function (base, mine, theirs) {
     try { return Promise.resolve(merge3(base, mine, theirs)); }
     catch (e) { return Promise.reject(e); }
   }
 };
+
+/* ── S565: the shadow diff itself ───────────────────────────────────────────
+ * Base pinning: the ancestor snapshot the engine persists to syncMeta after
+ * every pull/push. It is only trusted when its updatedAt equals the engine's
+ * in-memory lastSeenUpdatedAt — the same token the push's If-Match will carry.
+ * If they disagree (mid-pull race, fresh boot, anything), no diff is recorded
+ * for this push rather than a wrong one. Threshold-free by design: this is a
+ * set comparison against the ancestor, not a judgement about size of change —
+ * the journal's loss thresholds are a separate, still watch-only system. */
+var _SHADOW_FIELDS = [
+  ['recordPhotos',        'site photos'],
+  ['flowTestPhotos',      'flow test photos'],
+  ['stdData',             'flow readings'],
+  ['pldData',             'PLD readings'],
+  ['clState',             'checklist items'],
+  ['deficiencies',        'deficiencies'],
+  ['generalDeficiencies', 'general deficiencies'],
+  ['sketchEntries',       'sketches'],
+  ['batData',             'battery data'],
+  ['contractorSignRows',  'sign-off rows']
+];
+
+function _shadowPushDiff(mine) {
+  return Promise.resolve().then(function () {
+    var pid = (window.CloudSync && window.CloudSync.projectId) || null;
+    if (!pid || !mine) return null;
+    var key = 'diesel:' + pid + ':' + (engine.instanceId || '_default');
+    return SyncIDB.get('syncMeta', key).then(function (rec) {
+      var pinned = !!(rec && rec.snapshot && rec.updatedAt &&
+                      engine.lastSeenUpdatedAt && rec.updatedAt === engine.lastSeenUpdatedAt);
+      var base = pinned ? rec.snapshot : null;
+      if (base && typeof base === 'string') { try { base = JSON.parse(base); } catch (_) { base = null; pinned = false; } }
+      var fullStr = '';
+      try { fullStr = JSON.stringify(mine); } catch (_) {}
+      if (!pinned || !base) {
+        return DieselJournal.note({ kind: 'push', pinned: false,
+          fullKB: Math.round((fullStr.length || 0) / 1024) });
+      }
+      var sent = [], sentBytes = 0, unchanged = 0;
+      _SHADOW_FIELDS.forEach(function (f) {
+        var kf = f[0], name = f[1];
+        var a, b;
+        try { a = JSON.stringify(mine[kf]); } catch (_) { a = undefined; }
+        try { b = JSON.stringify(base[kf]); } catch (_) { b = undefined; }
+        if (a === b) { if (a !== undefined) unchanged++; return; }
+        sent.push(name);
+        sentBytes += (a ? a.length : 0);
+      });
+      return DieselJournal.note({
+        kind: 'push', pinned: true,
+        sent: sent, unchanged: unchanged,
+        sentKB: Math.round(sentBytes / 1024),
+        fullKB: Math.round((fullStr.length || 0) / 1024)
+      });
+    });
+  });
+}
 
 /* ── Model adapter (the canonical 4-method contract) ────────────────────────
  * getProject  → _collectCloudState(): the cloud-shaped payload WITH Diesel's
