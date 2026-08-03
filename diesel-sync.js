@@ -660,6 +660,38 @@ const CloudSync = (function () {
     window.addEventListener('pageshow', function () { _lifecycleKick(true); });
     window.addEventListener('focus', function () { _lifecycleKick(true); });
 
+    /* ═══ S594 — LIVE UPDATES, NO MANUAL RELAUNCH (Mark: "everything should be
+       live instantly; no commercial app has a manual update button").
+       The service worker has always taken the new version immediately and
+       broadcast 'sw-updated' to every window — FRT listened and reloaded
+       itself; Diesel and Electric never did, which is the entire reason a new
+       build needed the app killed and reopened (twice, on a bad day). Now:
+         • listen for the broadcast → flush unsent work → reload, so the new
+           build is running seconds after it deploys;
+         • never interrupt someone mid-entry: if a field is focused or an
+           autosave is pending, wait and re-check;
+         • ask the worker to look for a new version on every foreground return
+           and every 10 minutes, so a device left open all day still updates.
+       Work is flushed before the reload, so nothing typed can be lost to it. */
+    try {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', function (ev) {
+          if (!ev || !ev.data || ev.data.type !== 'sw-updated') return;
+          _liveUpdateReload();
+        });
+        var _upd = function () {
+          navigator.serviceWorker.ready.then(function (reg) {
+            if (reg && reg.update) reg.update().catch(function () {});
+          }).catch(function () {});
+        };
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') _upd();
+        });
+        setInterval(_upd, 600000);
+        _upd();
+      }
+    } catch (_) {}
+
     _initialized = true;
     _setStatus(_online ? 'synced' : 'offline', 'Ready');
     return { projectInfo: _projectInfo, userId: _userId, online: _online, instanceId: _instanceId, instanceNumber: _instanceNumber };
@@ -1175,6 +1207,32 @@ const CloudSync = (function () {
           } }
       ]
     });
+  }
+
+  /* S594 — flush, then swap to the new build. Never mid-keystroke. */
+  var _updPending = false;
+  function _liveUpdateReload() {
+    if (_updPending) return;
+    _updPending = true;
+    var attempt = function () {
+      var ae = document.activeElement;
+      var typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT');
+      if (typing || window._autosaveTimer) { setTimeout(attempt, 4000); return; }
+      Promise.resolve()
+        .then(function () {
+          if (!_collectStateFn) return null;
+          var j = JSON.stringify(_collectStateFn());
+          if (j === _lastPushedJson) return null;
+          engine.pushVia = 'pre-update';
+          return save(j);
+        })
+        .catch(function () {})
+        .then(function () {
+          console.log('[DieselSync S594] new build active — reloading into it.');
+          try { location.reload(); } catch (_) {}
+        });
+    };
+    setTimeout(attempt, 1200);
   }
 
   function destroy() { stopAutoSave(); _initialized = false; }

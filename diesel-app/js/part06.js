@@ -1476,8 +1476,26 @@ document.addEventListener('input', function(e) {
   const idx = parseInt(el.dataset.idx);
   const field = el.dataset.field;
   if(!tbl || isNaN(idx) || !field) return;
+  /* ═══ S594 — ENTRY-TIME STAMP AT THE KEYSTROKE (Mark, the original ask) ════
+     A reading's timestamp must record WHEN IT WAS NOTED IN THE FIELD, not when
+     some device later happened to save or wake. Until now the stamp was
+     INFERRED at save time by diffing the document against the last known
+     cloud state — an inference that fails exactly when it matters: a device
+     with no prior state (fresh boot, an inspector's second phone, a tablet
+     asleep for days) cannot tell changed from unchanged, so it guessed. That
+     guess put a fabricated 12:44 stamp on a days-old 250 psi and let it beat
+     genuinely newer work. S593 stopped the fabrication; this removes the
+     inference altogether.
+
+     From here the stamp is written HERE, at the input event — the instant the
+     person enters the value — and no later pass may touch it (S593 rule).
+     Consequences that matter in the field: opening a report on any number of
+     devices stamps nothing, so no device can win by merely waking up; and
+     with 5 or 100 devices open, the reading entered last on site is the one
+     that survives, because that is literally what the number records. */
   if(tbl === 'std') {
     stdData[idx][field] = el.value;
+    if (stdData[idx]) stdData[idx]._ts = Date.now();
     updateStdCalcCells(idx);
     if(['flow','suction','discharge','cutsheet'].includes(field)) {
       clearTimeout(stdChartTimer);
@@ -1485,6 +1503,7 @@ document.addEventListener('input', function(e) {
     }
   } else if(tbl === 'pld') {
     pldData[idx][field] = el.value;
+    if (pldData[idx]) pldData[idx]._ts = Date.now();   // S594: entry-time stamp
     updatePldCalcCells(idx);
     // Debounce chart updates so rapid typing doesn't freeze
     clearTimeout(pldChartTimer);
