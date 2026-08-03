@@ -174,6 +174,32 @@ ok(V.indexOf("editor switched pin") !== -1 && V.indexOf("editor closed") !== -1,
 ok(V.indexOf("st.mode === 'pin' && !st.active") !== -1,
   'a stale armed state can never write');
 
+// ── E. PLACEMENT REFUSES, NEVER CLAMPS (S586) ───────────────────────────────
+// The one signature shared by ALL six corrupted pins since inception was an
+// edge landing produced by Math.max(0,Math.min(1,…)) on a commit path.
+console.log('E. Placement validate-and-refuse');
+ok(V.indexOf('_pinPlaceValidate') !== -1, 'placement runs through the validator');
+{
+  // Doctrine: a clamp may only follow VALIDATION (a refusal branch above it in
+  // the same routine) or be a per-frame PREVIEW whose gesture end validates
+  // via _pinCommit. A clamp with neither is the raw clamp-and-save that
+  // produced every edge-parked pin since inception.
+  const re = /pin[XY]\s*=\s*Math\.max\(0,\s*Math\.min\(1/g;
+  let m, bad = [];
+  while ((m = re.exec(V))) {
+    const back = V.slice(Math.max(0, m.index - 1500), m.index);
+    const validated = back.includes('REFUSED off-sheet') ||             // _pinCommit
+                      back.includes("_pinWriteBreadcrumb('REFUSED'") || // mini-map refusal
+                      back.includes('_pinDragLastFx >= -_tol') ||       // pinch-keep (S570)
+                      back.includes('PREVIEW: validated at');           // per-frame previews
+    if (!validated) bad.push(m.index);
+  }
+  ok(bad.length === 0,
+    'every remaining clamp is validated-first or a tagged preview (' + bad.length + ' raw clamp(s) left)');
+}
+ok(V.indexOf("REFUSED ' + why + ' (off-sheet)") !== -1,
+  'an off-sheet placement is refused and logged, not parked on the edge');
+
 console.log('');
 if (failures) { console.error('\u2717 ' + failures + ' guard(s) FAILED \u2014 the teleport class may be back'); process.exit(1); }
 console.log('\u2713 all pin-teleport guards hold in the shipped code');

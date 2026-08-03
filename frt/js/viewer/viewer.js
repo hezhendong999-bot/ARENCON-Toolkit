@@ -1783,8 +1783,12 @@ function _handlePinDrop(e) {
   var rect = wrap.getBoundingClientRect();
   var clickX = (e.clientX - rect.left) / _scale;
   var clickY = (e.clientY - rect.top) / _scale;
-  var pinX = Math.max(0, Math.min(1, clickX / _getDrawingNaturalW(img)));
-  var pinY = Math.max(0, Math.min(1, clickY / _getDrawingNaturalH(img)));
+  /* S586: validate-and-refuse, never clamp-and-save (see _pinPlaceValidate). */
+  var _vp = _pinPlaceValidate(clickX / _getDrawingNaturalW(img),
+                              clickY / _getDrawingNaturalH(img), 'pin place (assign)');
+  if (!_vp) return;
+  var pinX = _vp.x;
+  var pinY = _vp.y;
 
   // Save pin to deficiency
   var drawings = _getDrawingsList();
@@ -1849,8 +1853,12 @@ function _pinToolDrop(clientX, clientY) {
   var rect = wrap.getBoundingClientRect();
   var clickX = (clientX - rect.left) / _scale;
   var clickY = (clientY - rect.top) / _scale;
-  var pinX = Math.max(0, Math.min(1, clickX / _getDrawingNaturalW(img)));
-  var pinY = Math.max(0, Math.min(1, clickY / _getDrawingNaturalH(img)));
+  /* S586: validate-and-refuse, never clamp-and-save (see _pinPlaceValidate). */
+  var _vp2 = _pinPlaceValidate(clickX / _getDrawingNaturalW(img),
+                               clickY / _getDrawingNaturalH(img), 'pin place (new defic)');
+  if (!_vp2) return;
+  var pinX = _vp2.x;
+  var pinY = _vp2.y;
 
   var drawings = _getDrawingsList();
   var drawingId = drawings[_currentDrawingIdx] ? drawings[_currentDrawingIdx].id : null;
@@ -4366,6 +4374,36 @@ function _pinCommit(deficId, px, py, natW, natH) {
 }
 // Same on-tablet log the mini-map uses (window._frtPinWriteLog) — one stream,
 // every surface, readable where there is no console.
+/* ── S586 — THE LAST CLAMP, REMOVED. Placement was the one remaining pin
+   write that CLAMPED an out-of-range position to the edge and saved it —
+   Math.max(0,Math.min(1,…)) — the exact signature of every one of the six
+   corrupted pins since inception (13 Jul, 23 Jul, 29 Jul; general AND
+   contractor copies; x clustered 0.77–0.90, y forced to an edge). A stale
+   layout rect or a mid-zoom _scale makes the computed fraction land off the
+   sheet; the clamp then parked it on the boundary as if the inspector had
+   chosen it. Doctrine, now uniform across every surface: a gesture is
+   validated at its END — inside commits exactly, a hair past the edge
+   (fingertip tolerance) clamps to the boundary deliberately, beyond
+   tolerance REFUSES, writes nothing, and logs what it believed. */
+function _pinPlaceValidate(fx, fy, why) {
+  var TOL = 0.02;
+  if (fx < -TOL || fx > 1 + TOL || fy < -TOL || fy > 1 + TOL) {
+    try {
+      if (!window._frtPinWriteLog) window._frtPinWriteLog = [];
+      window._frtPinWriteLog.push({
+        at: new Date().toISOString(),
+        surface: 'placement',
+        verdict: 'REFUSED ' + why + ' (off-sheet)',
+        computed: { x: Math.round(fx * 1e4) / 1e4, y: Math.round(fy * 1e4) / 1e4 },
+        scale: (typeof _scale === 'number') ? Math.round(_scale * 100) / 100 : null
+      });
+    } catch (eL) {}
+    try { console.warn('[Viewer] ' + why + ' REFUSED off-sheet at', fx.toFixed(3), fy.toFixed(3)); } catch (eW) {}
+    return null;
+  }
+  return { x: Math.max(0, Math.min(1, fx)), y: Math.max(0, Math.min(1, fy)) };
+}
+
 function _pinViewerWriteLog(verdict, x, y) {
   try {
     if (!window._frtPinWriteLog) window._frtPinWriteLog = [];
@@ -4507,6 +4545,8 @@ document.addEventListener('touchmove', function(e) {
       // the position it is about to KEEP was real or already off the sheet.
       _pinDragLastFx = px / _getDrawingNaturalW(img);
       _pinDragLastFy = py / _getDrawingNaturalH(img);
+      /* PREVIEW: validated at touchend via _pinCommit — an off-sheet end
+         restores; these per-frame clamps are transient screen feedback (S586) */
       f.defic.pinX = Math.max(0, Math.min(1, _pinDragLastFx));
       f.defic.pinY = Math.max(0, Math.min(1, _pinDragLastFy));
       _lastActiveId = _pinDragDeficId;
@@ -4667,6 +4707,8 @@ document.addEventListener('mousemove', function(e) {
   if (_useGLPins){
     var f = Model.findDeficiency(_pinMouseDragDeficId);
     if (f){
+      /* PREVIEW: validated at mouseup via _pinCommit — an off-sheet end
+         restores; these per-frame clamps are transient screen feedback (S586) */
       f.defic.pinX = Math.max(0, Math.min(1, px / _getDrawingNaturalW(img)));
       f.defic.pinY = Math.max(0, Math.min(1, py / _getDrawingNaturalH(img)));
       _lastActiveId = _pinMouseDragDeficId;
