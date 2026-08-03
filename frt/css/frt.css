@@ -11695,26 +11695,27 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
    .dv-toolbar button pill rule reaching the menu's buttons; these selectors
    use DOUBLE IDs so no toolbar/theme rule anywhere in this file can outrank
    them, in either theme. */
+/* S578 — the LAYERS menu is the reference (Mark's screenshot): grey chrome
+   panel, VISIBLE border, flat dark-text rows. Same tokens the layers menu
+   resolves to, so the two drawers cannot drift apart per theme. Mark's round-3
+   screenshots proved THESE double-ID rules are the winning rules on-device,
+   so the values below are what paints. Do not restyle this menu again without
+   his screenshot in hand. */
 #drawing-viewer-overlay #dv-more-menu,
 #drawing-viewer-overlay #dv-more-menu[style*="block"]{
-  background:#ffffff !important;
-  border:1px solid #dde1e7 !important;
+  background:var(--b-chrome-bg) !important;
+  border:1px solid var(--b-pill-bd) !important;
   border-radius:12px !important;
-  box-shadow:0 12px 36px rgba(0,0,0,.18) !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.22) !important;
   padding:6px 0 !important;
   overflow:hidden !important;
-}
-body.dark-mode #drawing-viewer-overlay #dv-more-menu{
-  background:#2a2d35 !important;
-  border-color:#3a3e48 !important;
-  box-shadow:0 12px 36px rgba(0,0,0,.6) !important;
 }
 #drawing-viewer-overlay #dv-more-menu button.dv-menu-item{
   background:transparent !important;
   border:none !important;
   border-radius:0 !important;
   box-shadow:none !important;
-  color:#1C2333 !important;
+  color:var(--b-chrome-fg) !important;
   font-weight:400 !important;
   width:100% !important;
   min-width:0 !important;
@@ -11722,13 +11723,7 @@ body.dark-mode #drawing-viewer-overlay #dv-more-menu{
   justify-content:flex-start !important;
   text-align:left !important;
 }
-body.dark-mode #drawing-viewer-overlay #dv-more-menu button.dv-menu-item{
-  color:#ffffff !important;
-}
 #drawing-viewer-overlay #dv-more-menu button.dv-menu-item:hover{
-  background:rgba(0,0,0,.06) !important;
+  background:var(--b-chrome-hover) !important;
   border:none !important;
-}
-body.dark-mode #drawing-viewer-overlay #dv-more-menu button.dv-menu-item:hover{
-  background:rgba(255,255,255,.08) !important;
 }
