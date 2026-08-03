@@ -215,6 +215,9 @@ const _NOISE_PATHS = { '_build': 1, 'dateModified': 1 };
 /* S583: stamp paths are bookkeeping — auto-resolve, never ask a person. */
 function _isNoisePath(p) {
   if (_NOISE_PATHS[p]) return true;
+  /* S592: the S589 device-receipt fields are bookkeeping — they were showing
+     up as "2 contested field(s)" on every collision (console, 03 Aug 12:12). */
+  if (p === '_dev' || p === '_tab' || p === '_via' || p === '_wroteAt') return true;
   return /(^|[.\[])_(ts|fts)(\]|$)/.test(p) || /\._ts$/.test(p) || /\._fts$/.test(p);
 }
 
@@ -347,12 +350,8 @@ const CloudSync = (function () {
      closed. Every foreground timing dependency the last three sessions fought
      disappears. Armed whenever unsent work is written to disk. */
   function _armBgSync() {
-    try {
-      if (!('serviceWorker' in navigator) || !('SyncManager' in window)) return;
-      navigator.serviceWorker.ready.then(function (reg) {
-        if (reg && reg.sync) reg.sync.register('arencon-flush-pending').catch(function () {});
-      }).catch(function () {});
-    } catch (_) {}
+    /* S592 — retired with the service-worker blob push. Kept as a no-op so the
+       call sites read honestly rather than being scattered-deleted. */
   }
 
   /* S587 — RADIO-SETTLE RETRY. After airplane mode, the OS reports offline for
@@ -651,11 +650,12 @@ const CloudSync = (function () {
            to push this WITHOUT the page: credentials, the concurrency token,
            and the payload (state above). If-Match discipline (I-4) carries
            over: the SW refuses to push a record without a token. */
-        bgToken: (function(){ try { return localStorage.getItem('sb-access-token'); } catch(_) { return null; } })(),
-        bgRefresh: (function(){ try { return localStorage.getItem('sb-refresh-token'); } catch(_) { return null; } })(),
+        /* S592 — credentials and token REMOVED from the cache record with the
+           service-worker blob push (see sw.js S592). Nothing may deliver a
+           stored document; delivery happens only through the page paths,
+           which collect live state and merge by entry stamp. */
         bgIfMatch: engine.lastSeenUpdatedAt || null
       });
-      _armBgSync();   // S587: OS calls back when connectivity returns — page frozen or not
     }
     if (!_netUp()) { _setStatus('offline', 'Saved locally (offline)'); _settleRetry(); return null; }   // S584
     if (alreadyPushed) return null;
@@ -755,8 +755,25 @@ const CloudSync = (function () {
       const mins = _ageMin(rec.pendingSince);
       console.log('[ElectricSync I-5] Recovered unsent work from a previous session (' +
                   mins + ' min old) — flushing to cloud.');
-      if (_collectStateFn && _online) {
-        try { await save(_collectStateFn()); } catch (e) {
+      /* S592 — RECOVERY IS A MERGE, NOT A RESURRECTION (receipts-proven, 03 Aug).
+         This flush used to send whatever the screen held at boot, with the push
+         dedupe cleared to force it through. When the cloud had moved on — as it
+         had at 12:12:24, the phone's 200 already up — that pushed a stale
+         document over newer work. Now: pull first, so the engine's 3-way merge
+         and entry stamps settle every field, and push only what survives that.
+         Genuinely newer offline entries still win (their stamps are newer);
+         a stale document loses every field and nothing is overwritten. */
+      if (_collectStateFn && _netUp()) {
+        try {
+          await engine.pull(_projectId, engine.instanceId || _instanceId);
+          const afterMerge = JSON.stringify(_collectStateFn());
+          if (afterMerge !== _lastPushedJson) {
+            engine.pushVia = 'boot-recovery';
+            await save(afterMerge);
+          } else {
+            console.log('[ElectricSync S592] recovered work already matches cloud — nothing to send.');
+          }
+        } catch (e) {
           console.warn('[ElectricSync I-5] recovery flush failed; retry loop will continue:', e && e.message);
         }
       }
