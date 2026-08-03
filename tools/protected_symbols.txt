@@ -615,3 +615,6 @@ _threadEntryAmendable
 @ S566 activity modal module (deficiency split stage 1). frt/js/ui/activityModal.js owns _showActivityModal; deficiencies.js imports it back. Verbatim move, reassembly-proved.
 _showActivityModal
 activityModal
+
+@ S587 on-tablet Pin Write Log (Mark: the crew hits pin problems in the field and only a PC console could read the evidence). A read-only ... menu panel showing every accepted/refused/ignored/disarmed pin write this session, with Copy report. Field tablets run the Android TWA with no editable address bar, so a menu row is the ONLY way in - never a URL param. Removal returns the firm to month-later forensic digs.
+_showPinWriteLog

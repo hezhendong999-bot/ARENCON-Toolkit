@@ -256,7 +256,9 @@ function _dvEnsureMoreMenu() {
     // S527: on-screen markup diagnostic — an in-app row, never a URL param
     // (field tablets run the Android TWA where the address bar is not editable).
     { label: '\uD83E\uDE7A Markup Diagnostic', sub: 'Markup counts, sync state, manual merge', action: 'markupdiag' },
-    { label: '\uD83D\uDCCC Tasks', sub: 'Open the task panel for this drawing', action: 'tasks' }
+    { label: '\uD83D\uDCCC Tasks', sub: 'Open the task panel for this drawing', action: 'tasks' },
+    // S587: on-tablet pin evidence — the crew has no console in the TWA
+    { label: '\uD83D\uDCCD Pin Write Log', sub: 'Did a pin move on its own? Check here', action: 'pinlog' }
   ];
   /* S582: shadow:true — the menu gets the same host-CSS immunity the header's
      dropdown has always had by living in a shadow root. Without it the
@@ -291,6 +293,7 @@ function _dvEnsureMoreMenu() {
 function _dvRunMoreAction(act) {
   if (act === 'download') { _downloadDrawing(); return; }
   if (act === 'markupdiag') { _showMarkupDiag(); return; }
+  if (act === 'pinlog') { _showPinWriteLog(); return; }   // S587
   if (act === 'tasks') { try { if (window._frtToggleTasks) window._frtToggleTasks(); } catch (e) {} return; }
   if (act === 'delete-all-markup') {
     showConfirm('Delete All Markup', 'Remove all markup on this drawing?').then(function (yes) {
@@ -4049,6 +4052,117 @@ function _markupDiagReport() {
   } catch (e) { out.error = e && e.message; }
   return out;
 }
+
+/* ── S587 — PIN WRITE LOG, on-tablet (Mark: the crew hit this in the field and
+   only a PC console could read the evidence). Every pin surface already logs
+   each accepted, refused, ignored and disarmed write to window._frtPinWriteLog;
+   this simply shows it. Read-only, no actions — the point is that an inspector
+   who thinks a pin moved can OPEN this and screenshot it, so "I think my pin
+   moved" becomes evidence the same day instead of a month-later forensic dig.
+   Field tablets run the Android TWA where the address bar is not editable, so
+   a menu row is the only way in — never a URL param. */
+function _showPinWriteLog() {
+  var log = [];
+  try { log = (window._frtPinWriteLog || []).slice(); } catch (e) {}
+  var old = document.getElementById('frt-pin-log');
+  if (old) old.remove();
+
+  var wrap = document.createElement('div');
+  wrap.id = 'frt-pin-log';
+  wrap.setAttribute('style',
+    'position:fixed;inset:0;z-index:100000;background:rgba(11,10,13,.55);' +
+    'display:flex;align-items:center;justify-content:center;padding:16px;' +
+    'font-family:Calibri,sans-serif;');
+
+  var card = document.createElement('div');
+  card.setAttribute('style',
+    'background:#EFEDF0;color:#1B1A22;border:1px solid #D2CEDB;border-radius:16px;' +
+    'box-shadow:0 8px 32px rgba(0,0,0,.35);max-width:620px;width:100%;' +
+    'max-height:88vh;overflow:auto;padding:20px 22px;');
+
+  var blocked = 0;
+  for (var i = 0; i < log.length; i++) {
+    var v = String(log[i].verdict || '');
+    if (v.indexOf('REFUSED') === 0 || v.indexOf('IGNORED') === 0 || v.indexOf('DISARMED') === 0) blocked++;
+  }
+
+  var h = '<div style="font-size:17px;font-weight:600;margin-bottom:4px;">Pin Write Log</div>' +
+    '<div style="font-size:12.5px;color:#5E5B68;margin-bottom:14px;line-height:1.5;">' +
+    'Every pin position this device has written or refused since the app was opened. ' +
+    'If a pin looks like it moved on its own, open this and screenshot it.</div>';
+
+  h += '<div style="display:flex;gap:12px;padding:7px 0;border-bottom:1px solid #E4E1E8;">' +
+       '<div style="flex:0 0 44%;font-size:13px;color:#5E5B68;">Entries this session</div>' +
+       '<div style="flex:1;font-size:13px;font-weight:600;color:#5E5B68;">' + log.length + '</div></div>';
+  h += '<div style="display:flex;gap:12px;padding:7px 0;border-bottom:1px solid #E4E1E8;">' +
+       '<div style="flex:0 0 44%;font-size:13px;color:#5E5B68;">Bad writes stopped</div>' +
+       '<div style="flex:1;font-size:13px;font-weight:600;color:' + (blocked ? '#2E9E72' : '#5E5B68') + ';">' +
+       blocked + (blocked ? '  \u2014 the guards did their job' : '') + '</div></div>';
+
+  if (!log.length) {
+    h += '<div style="margin:14px 0;font-size:13px;color:#5E5B68;line-height:1.6;">' +
+         'Nothing yet. Entries appear as soon as a pin is placed, moved, or a bad ' +
+         'write is refused. This clears every time the app restarts.</div>';
+  } else {
+    h += '<div style="margin-top:14px;font-size:13px;font-weight:600;">Most recent first</div>';
+    var shown = log.slice(-40).reverse();
+    for (var j = 0; j < shown.length; j++) {
+      var e = shown[j];
+      var vv = String(e.verdict || '?');
+      var bad = (vv.indexOf('REFUSED') === 0 || vv.indexOf('IGNORED') === 0);
+      var warn = (vv.indexOf('DISARMED') === 0);
+      var col = bad ? '#C0445F' : (warn ? '#C98A4A' : '#2E9E72');
+      var when = '?';
+      try { when = new Date(e.at).toLocaleTimeString(); } catch (eT) {}
+      var pos = (e.computed && typeof e.computed.x === 'number')
+        ? (e.computed.x + ', ' + e.computed.y) : '\u2014';
+      h += '<div style="padding:8px 0;border-bottom:1px solid #E4E1E8;">' +
+           '<div style="font-size:13px;font-weight:600;color:' + col + ';word-break:break-word;">' + vv + '</div>' +
+           '<div style="font-size:12px;color:#5E5B68;margin-top:2px;">' +
+           when + '  \u00b7  ' + (e.surface || e.host || 'pin') + '  \u00b7  position ' + pos + '</div></div>';
+    }
+    if (log.length > 40) {
+      h += '<div style="margin-top:8px;font-size:11.5px;color:#928E9C;">' +
+           'Showing the last 40 of ' + log.length + '.</div>';
+    }
+  }
+
+  h += '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">' +
+    '<button id="pwl-copy" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid #D2CEDB;' +
+    'background:#EFEDF0;color:#1B1A22;font-family:Calibri,sans-serif;font-size:14px;cursor:pointer;">Copy report</button>' +
+    '<button id="pwl-close" style="height:40px;padding:0 14px;border-radius:8px;border:1px solid #D2CEDB;' +
+    'background:#EFEDF0;color:#1B1A22;font-family:Calibri,sans-serif;font-size:14px;cursor:pointer;">Close</button>' +
+    '</div>' +
+    '<div id="pwl-msg" style="margin-top:10px;font-size:13px;color:#5E5B68;min-height:18px;"></div>' +
+    '<div style="margin-top:10px;font-size:11.5px;color:#928E9C;line-height:1.5;">' +
+    'Green lines are normal saved positions. Red means a bad write was stopped before ' +
+    'it could move a pin. Amber means a pin was let go safely when the camera or another ' +
+    'app interrupted you.</div>';
+
+  card.innerHTML = h;
+  wrap.appendChild(card);
+  document.body.appendChild(wrap);
+
+  var msg = card.querySelector('#pwl-msg');
+  card.querySelector('#pwl-close').addEventListener('click', function () { wrap.remove(); });
+  card.querySelector('#pwl-copy').addEventListener('click', function () {
+    var txt = 'ARENCON FRT — Pin Write Log\n' +
+      'build ' + (window.FRT_BUILD || '?') + '  ·  ' + new Date().toLocaleString() + '\n' +
+      'entries ' + log.length + '  ·  bad writes stopped ' + blocked + '\n\n' +
+      log.map(function (e) {
+        var pos = (e.computed && typeof e.computed.x === 'number') ? (e.computed.x + ',' + e.computed.y) : '-';
+        return e.at + '  ' + (e.surface || e.host || 'pin') + '  ' + e.verdict + '  ' + pos;
+      }).join('\n');
+    try {
+      navigator.clipboard.writeText(txt);
+      if (msg) msg.textContent = 'Copied. Paste it into a message to Mark.';
+    } catch (eC) {
+      if (msg) msg.textContent = 'Could not copy — screenshot this instead.';
+    }
+  });
+  wrap.addEventListener('click', function (ev) { if (ev.target === wrap) wrap.remove(); });
+}
+try { window._frtPinWriteLogPanel = _showPinWriteLog; } catch (e) {}
 
 function _showMarkupDiag() {
   var r = _markupDiagReport();
