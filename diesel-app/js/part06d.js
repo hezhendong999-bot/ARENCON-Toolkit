@@ -1497,6 +1497,9 @@ window.addEventListener('load', () => {
     }
   }
   _cloudSyncInit();
+  /* S596 — if this launch was an update swap, put the inspector back on the
+     panel and scroll position they were on. No-op on a normal launch. */
+  try { setTimeout(function(){ if(typeof _arcRestoreAfterUpdate==='function') _arcRestoreAfterUpdate(); }, 600); } catch(_) {}
 });
 
 updateProgress();

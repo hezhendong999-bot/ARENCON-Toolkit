@@ -937,30 +937,102 @@ const CloudSync = (function () {
     };
   }
 
-  /* S594 — flush, then swap to the new build. Never mid-keystroke. */
-  var _updPending = false;
+  /* ═══ S596 — UPDATES INSTALL QUIETLY, SWAP AT A SAFE MOMENT ═══════════════
+     S594 reloaded the moment a new build arrived. On a job site that throws an
+     inspector back to the top of the tool mid-inspection — unacceptable, and
+     not what any commercial app does. They stage the update and apply it when
+     it costs the user nothing.
+
+     Rule now: a new build NEVER interrupts work. It is applied only when one
+     of these is true:
+       • the app has been in the background for 20+ seconds (they left it —
+         phone pocketed, switched apps, tab in the back). This is the normal
+         case and the swap is invisible;
+       • the app has been completely idle for 5 minutes with nothing unsaved
+         (no typing, no taps) — a lunch break, a walk between risers;
+       • the person taps the quiet "Update ready" pill themselves.
+     Never while typing, never with unsent work, never with a dialog open.
+
+     And when the swap does happen, it is not a trip back to the top: the
+     current tab and scroll position are saved first and restored on the way
+     in, so the person lands exactly where they were. Unsent work is flushed
+     before the reload either way. */
+  var _updReady = false, _updApplied = false, _lastActivityAt = Date.now();
+  try {
+    ['pointerdown', 'keydown', 'input', 'touchstart'].forEach(function (evt) {
+      document.addEventListener(evt, function () { _lastActivityAt = Date.now(); }, true);
+    });
+  } catch (_) {}
+
+  function _updSafeNow() {
+    if (_updApplied) return false;
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return false;
+    if (window._autosaveTimer) return false;
+    if (document.querySelector('.dlg-backdrop, .modal.open, dialog[open]')) return false;
+    if (_lastSavedJson && _lastSavedJson !== _lastPushedJson) return false;   // unsent work
+    return true;
+  }
+
+  function _updSaveRestorePoint() {
+    try {
+      var tab = null;
+      var active = document.querySelector('.nav-tab.active');
+      if (active && active.id && active.id.indexOf('tab-') === 0) tab = active.id.slice(4);
+      sessionStorage.setItem('arencon-restore', JSON.stringify({
+        tab: tab, y: window.scrollY || 0, at: Date.now()
+      }));
+    } catch (_) {}
+  }
+
+  function _updApply(reason) {
+    if (_updApplied) return;
+    _updApplied = true;
+    Promise.resolve()
+      .then(function () {
+        if (!_collectStateFn) return null;
+        var j = JSON.stringify(_collectStateFn());
+        if (j === _lastPushedJson) return null;
+        engine.pushVia = 'pre-update';
+        return save(j);
+      })
+      .catch(function () {})
+      .then(function () {
+        _updSaveRestorePoint();
+        console.log('[ElectricSync S596] applying new build (' + reason + ').');
+        try { location.reload(); } catch (_) {}
+      });
+  }
+
+  function _updPill() {
+    try {
+      if (document.getElementById('arcUpdPill')) return;
+      var p = document.createElement('button');
+      p.id = 'arcUpdPill'; p.type = 'button';
+      p.textContent = '\u2191 Update ready';
+      p.title = 'A newer version is installed. Tap to switch now — it will keep your place.';
+      p.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9500;background:rgba(46,158,114,.14);' +
+        'color:#2E9E72;border:1px solid rgba(46,158,114,.45);border-radius:999px;padding:8px 14px;' +
+        'font:600 12.5px Calibri,sans-serif;cursor:pointer;backdrop-filter:blur(8px);min-height:36px;';
+      p.addEventListener('click', function () { _updApply('user tapped'); });
+      document.body.appendChild(p);
+    } catch (_) {}
+  }
+
   function _liveUpdateReload() {
-    if (_updPending) return;
-    _updPending = true;
-    var attempt = function () {
-      var ae = document.activeElement;
-      var typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT');
-      if (typing || window._autosaveTimer) { setTimeout(attempt, 4000); return; }
-      Promise.resolve()
-        .then(function () {
-          if (!_collectStateFn) return null;
-          var j = JSON.stringify(_collectStateFn());
-          if (j === _lastPushedJson) return null;
-          engine.pushVia = 'pre-update';
-          return save(j);
-        })
-        .catch(function () {})
-        .then(function () {
-          console.log('[ElectricSync S594] new build active — reloading into it.');
-          try { location.reload(); } catch (_) {}
-        });
-    };
-    setTimeout(attempt, 1200);
+    if (_updReady) return;
+    _updReady = true;
+    _updPill();                       // quiet, corner, non-blocking
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'hidden') return;
+      setTimeout(function () {
+        if (document.visibilityState === 'hidden' && _updSafeNow()) _updApply('app backgrounded');
+      }, 20000);
+    });
+    setInterval(function () {
+      if (!_updReady || _updApplied) return;
+      if ((Date.now() - _lastActivityAt) > 300000 && _updSafeNow()) _updApply('idle 5 min');
+    }, 60000);
   }
 
   function destroy() { stopAutoSave(); _initialized = false; }

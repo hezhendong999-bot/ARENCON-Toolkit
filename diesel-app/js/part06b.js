@@ -1717,6 +1717,23 @@ function clearGenericSig(idx) {
 // PANEL SWITCHING
 // ══════════════════════════════════════════════════
 const PANELS = ['proj','s1','s2','s3','s4','s5','defic','sign','sketch','photos'];
+/* S596 — RESTORE YOUR PLACE AFTER A BACKGROUND UPDATE SWAP. When a new build
+   is applied (only ever while the app is backgrounded or idle — see
+   diesel-sync.js S596), the tool records which panel was open and how far the
+   page was scrolled. On the way back in it returns there, so an update is
+   never a trip back to the top of the report. Expires after 10 minutes so a
+   genuinely fresh launch always starts clean. */
+function _arcRestoreAfterUpdate() {
+  try {
+    var raw = sessionStorage.getItem('arencon-restore');
+    if (!raw) return;
+    sessionStorage.removeItem('arencon-restore');
+    var r = JSON.parse(raw);
+    if (!r || !r.at || (Date.now() - r.at) > 600000) return;
+    if (r.tab && PANELS.indexOf(r.tab) !== -1) switchPanel(r.tab);
+    if (r.y) setTimeout(function () { window.scrollTo(0, r.y); }, 350);
+  } catch (_) {}
+}
 let _tabRendered = {};
 function switchPanel(id) {
   // S312: a user-initiated panel switch dismisses any lingering jump-back pill,
