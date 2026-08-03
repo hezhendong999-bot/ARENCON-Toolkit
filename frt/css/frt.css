@@ -11709,3 +11709,18 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
   display:none;
 }
 #drawing-viewer-overlay #dv-more-menu.open{ display:block; }
+
+/* ── S583 (Mark): LONG-PRESS ON THE DRAWING DOES NOTHING. AT ALL. ──────────
+   A press-and-hold on the sheet was raising the browser's own selection /
+   image-callout behaviour ("it selects the drawing"), which fights the pin
+   hold — the one place a long press SHOULD mean something. Suppressed for
+   every descendant of the canvas area, not just the image and pin layer:
+   no callout, no selection, no drag-out, no highlight. The pin's own 500ms
+   hold is unaffected — it is our code, not the browser's. */
+.dv-canvas-area, .dv-canvas-area *{
+  -webkit-touch-callout:none !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-user-drag:none !important;
+  -webkit-tap-highlight-color:transparent !important;
+}

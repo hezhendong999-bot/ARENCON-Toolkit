@@ -1167,6 +1167,44 @@ document.addEventListener('touchcancel', function(e) {
   _oneFPanReady = false; _oneFPanning = false;   // S573
 });
 
+/* S583 (Mark): a long press on the drawing must do NOTHING. The browser's
+   own long-press behaviours (selection, image callout, drag-out) were firing
+   on the sheet and competing with the pin hold — the only long press that is
+   supposed to mean anything in this viewer. Blocked at the event level as
+   well as in CSS, because Android raises selectstart/dragstart before any
+   stylesheet rule can stop the resulting drag. */
+(function _frtKillLongPressOnSheet(){
+  var area = function(){ return document.getElementById('dv-canvas-area'); };
+  ['selectstart','dragstart'].forEach(function(evt){
+    document.addEventListener(evt, function(e){
+      var a = area();
+      if (a && e.target && a.contains(e.target)) { e.preventDefault(); }
+    });
+  });
+})();
+
+/* S583 — INTERRUPTION DISARM. The camera intent, the keyboard, an app switch
+   and a notification all steal the gesture without a touchend. Every one of
+   them fires visibilitychange or blur, so both disarm every pin surface: the
+   editor mini-map AND the drawing viewer's own pin drag. Nothing is saved —
+   an interrupted gesture never had an intent to record. */
+function _frtDisarmAllPinGestures(why) {
+  try { if (window._frtPeCancelGesture) window._frtPeCancelGesture(why); } catch (e) {}
+  try {
+    if (_pinLongPressTimer) { clearTimeout(_pinLongPressTimer); _pinLongPressTimer = null; }
+    if (_pinDragging) _pinDragRestore('interrupted by ' + why);
+    _pinDragging = false; _pinDragDeficId = null; _lastReadyId = null;
+    if (_pinDragMarker) { _pinDragMarker.classList.remove('dragging'); _pinDragMarker = null; }
+    var _a = document.getElementById('dv-canvas-area');
+    if (_a) _a.classList.remove('pin-drag-mode');
+    _oneFPanReady = false; _oneFPanning = false;
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) _frtDisarmAllPinGestures('app/camera switch');
+});
+window.addEventListener('blur', function () { _frtDisarmAllPinGestures('window blur'); });
+
 // S186 helpers — replace S185's "hide pins during gesture" with "CSS-mirror
 // the wrap's transform on the PinsGL canvas during gesture." Pan-end now has
 // no visible snap; pinch-end snaps once as pins resize to correct screen-
@@ -2906,8 +2944,29 @@ var _PinPan = (function() {
     };
   }
 
+  /* S583: disarm without writing anything. Used by touchcancel and by every
+     interruption that can steal a gesture (tab hidden for the camera, window
+     blur, editor teardown). Never saves — an interrupted gesture has no
+     intent to record. */
+  function _peCancelGesture(why) {
+    if (!st) return;
+    if (st.holdTimer) { clearTimeout(st.holdTimer); st.holdTimer = null; }
+    var wasArmed = (st.mode === 'pin' || st.mode === 'pinHold');
+    st.mode = null; st.holdOK = false; st.active = false; st.moved = false;
+    try {
+      if (wasArmed && st.canvas && st.canvas.parentElement) {
+        st.canvas.parentElement.classList.remove('dragging');
+      }
+      if (wasArmed) _pinWriteBreadcrumb('DISARMED (' + why + ')', -1, -1,
+        { x: 0, y: 0, w: st.boxW, h: st.boxH });
+    } catch (e) {}
+    try { draw(); } catch (e) {}
+  }
+  try { window._frtPeCancelGesture = function (why) { _peCancelGesture(why || 'external'); }; } catch (e) {}
+
   function onDown(e) {
     if (!st) return;
+    st.active = true;   /* S583: this canvas owns a live gesture */
     // S321: pinch start — two fingers begin a zoom gesture; suppress pin/pan.
     if (e.touches && e.touches.length === 2) {
       // S568: a pinch's second finger usually lands a moment AFTER the first.
@@ -2989,6 +3048,9 @@ var _PinPan = (function() {
       if (st.mode === 'pinHold') { e.preventDefault(); return; }
     }
     st.moved = true;
+    /* S583: a 'pin' mode left over from an interrupted gesture must never
+       write. Only a gesture this canvas started and still owns may move a pin. */
+    if (st.mode === 'pin' && !st.active) { _peCancelGesture('stale armed state'); return; }
     if (st.mode === 'pin') {
       // new tip = cursor minus the grab offset captured at down
       // S568: only repaint when the write was ACCEPTED. A refused write leaves
@@ -3000,6 +3062,7 @@ var _PinPan = (function() {
   }
   function onUp(e) {
     if (!st) return;
+    st.active = false;   /* S583: gesture over — nothing may write until a new down */
     // S568: a release always cancels a pending hold. Without this the timer
     // could arm a drag after the finger had already left the glass.
     if (st.holdTimer) { clearTimeout(st.holdTimer); st.holdTimer = null; }
@@ -3120,7 +3183,7 @@ var _PinPan = (function() {
     st = {
       canvas: canvas, ctx: canvas.getContext('2d'), img: img, d: d, dpr: dpr,
       boxW: boxW, boxH: boxH, baseW: 0, baseH: 0, scale: 1, ox: 0, oy: 0,
-      PW: 30, mode: null, last: null, moved: false, grabDX: 0, grabDY: 0,
+      PW: 30, mode: null, last: null, moved: false, active: false, grabDX: 0, grabDY: 0,   /* S583: active */
       pinchDist: 0, pinchMidX: 0, pinchMidY: 0
     };
     // Fresh listeners each mount (clone-replace the canvas to drop old ones).
@@ -3134,6 +3197,22 @@ var _PinPan = (function() {
     fresh.addEventListener('touchstart', onDown, { passive: false });
     fresh.addEventListener('touchmove', onMove, { passive: false });
     fresh.addEventListener('touchend', onUp);
+    /* ── S583 — THE PIN-EDITOR TELEPORT, ROOT CAUSE (Mark's crew, verbatim:
+       "they dropped a pin, then added photos via camera or typed comments in
+       the pin editor, then the pin teleported. Nothing to do with dragging.")
+       This canvas listened for touchstart / touchmove / touchend but NEVER
+       touchcancel. On Android, when the OS takes the gesture away — the CAMERA
+       intent launching, the keyboard opening under a comment field, a
+       notification, palm rejection — the browser fires touchcancel INSTEAD of
+       touchend. onUp never ran, so an armed pin drag (mode 'pin', hold already
+       satisfied) survived the interruption indefinitely. On return, the very
+       next finger movement anywhere on this mini-map wrote the pin to that
+       point and saved it: no hold, no intent, no drag. That is the crew's
+       exact story, and it explains why it followed camera and typing rather
+       than dragging.
+       Belt and braces: any interruption disarms, and a move is only honoured
+       while a gesture this canvas actually started is still live (st.active). */
+    fresh.addEventListener('touchcancel', function () { _peCancelGesture('touchcancel'); });
     fresh.addEventListener('wheel', onWheel, { passive: false });
     // S326 FIX: window-level move/up must call the CURRENT mount's handlers.
     // Previously they were bound once to the FIRST mount's onMove/onUp closures
