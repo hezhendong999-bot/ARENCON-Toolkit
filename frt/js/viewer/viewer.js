@@ -2051,6 +2051,14 @@ function _peObsColor(i) { return _PE_OBS_COLORS[(i || 0) % _PE_OBS_COLORS.length
 function _peObsLetter(i) { return String.fromCharCode(65 + ((i || 0) % 26)); }
 
 function _openPinEditor(deficId) {
+  /* S585: opening a DIFFERENT pin disarms whatever the previous editor left
+     behind. Inspectors on a dense sheet open pin after pin; no gesture may
+     survive that transition. */
+  try {
+    if (_peDeficId && _peDeficId !== deficId && window._frtPeCancelGesture) {
+      window._frtPeCancelGesture('editor switched pin');
+    }
+  } catch (eSw) {}
   var f = Model.findDeficiency(deficId);
   if (!f) return;
   // Lock only on a genuine closed→open transition; re-opens (obs add/remove,
@@ -2394,6 +2402,8 @@ function _peRenderObsContentLegacy(d, idx) {
 }
 
 function _closePinEditor() {
+  /* S585: nothing armed survives the editor closing. */
+  try { if (window._frtPeCancelGesture) window._frtPeCancelGesture('editor closed'); } catch (eC) {}
   var overlay = document.getElementById('pin-editor-overlay');
   if (overlay) overlay.style.display = 'none';
   if (_peDeficId && typeof window._frtScrollLock === 'function') window._frtScrollLock(false);
@@ -2743,6 +2753,17 @@ function _drawPinMiniMapStatic(canvas, img, d) {
 // mirrors the approved S213d preview exactly. One live instance at a time;
 // rebound on every _openPinEditor via mount().
 var _PinPan = (function() {
+  /* S585 — st is now a POINTER to the state of the mini-map that owns the
+     CURRENT gesture, not one shared blob that every mount overwrites.
+     Each mount stores its own state on its own canvas (canvas._peState); a
+     pointer-down re-points st at the state belonging to the canvas that was
+     actually touched. That removes the clobber class the Jul 29 forensics
+     exposed: with 16 pins on one sheet, inspectors open pin after pin, each
+     open mounts a mini-map, and the last mount used to own the single shared
+     st — so a write could land on a pin nobody was looking at.
+     Density is the trigger (9 pins for a month, then 11, 12, and 16 on the
+     day it broke), and pin density keeps climbing, so this is fixed at the
+     structure rather than guarded at the write. */
   var st = null; // { canvas, ctx, img, d, dpr, baseW, baseH, scale, ox, oy, R0, mode, last, moved, boxW, boxH }
 
   function imgRect() { return { x: st.ox, y: st.oy, w: st.baseW * st.scale, h: st.baseH * st.scale }; }
@@ -2982,6 +3003,18 @@ var _PinPan = (function() {
   try { window._frtPeCancelGesture = function (why) { _peCancelGesture(why || 'external'); }; } catch (e) {}
 
   function onDown(e) {
+    /* S585: point st at the state of the canvas actually being touched. On a
+       dense sheet several mini-maps may have mounted; the one under the finger
+       is the only one allowed to own this gesture. */
+    try {
+      var _tgt = e && (e.currentTarget || e.target);
+      if (_tgt && _tgt._peState) {
+        if (st && st !== _tgt._peState && (st.mode || st.active)) {
+          _peCancelGesture('another mini-map took the gesture');
+        }
+        st = _tgt._peState;
+      }
+    } catch (eAdopt) {}
     if (!st) return;
     st.active = true;   /* S583: this canvas owns a live gesture */
     // S321: pinch start — two fingers begin a zoom gesture; suppress pin/pan.
@@ -3002,6 +3035,16 @@ var _PinPan = (function() {
     }
     var p = localXY(e);
     st.moved = false;
+    /* S585 — DENSITY GUARD. On a 16-pin sheet the pin the finger is nearest is
+       not necessarily the pin the inspector meant. This surface only ever
+       edits the deficiency the editor is open on, so a press is only a pin
+       press when it is on THAT pin; anything else falls through to pan/nothing
+       instead of arming a drag the inspector never intended. */
+    if (nearPin(p.x, p.y) && _peDeficId && st.d && st.d.id && st.d.id !== _peDeficId) {
+      _pinWriteBreadcrumb('IGNORED press (mini-map shows ' + st.d.id +
+        ', editor open on ' + _peDeficId + ')', -1, -1, { x:0, y:0, w:st.boxW, h:st.boxH });
+      st.mode = null; st.last = p; return;
+    }
     if (nearPin(p.x, p.y)) {
       // S568 (Mark) — PRESS AND HOLD, same as the drawing viewer. Touching the
       // pin used to arm a drag instantly, so any contact that then moved — a
@@ -3033,6 +3076,12 @@ var _PinPan = (function() {
     if (st.mode) e.preventDefault();
   }
   function onMove(e) {
+    /* S585: a touch move belongs to the canvas it happened on. Window-level
+       MOUSE moves carry no such target and keep the pointer set at down. */
+    try {
+      var _mt = e && e.currentTarget;
+      if (_mt && _mt._peState && st !== _mt._peState) st = _mt._peState;
+    } catch (eM) {}
     if (!st) return;
     // S321: pinch move — zoom around the live midpoint. zoomAt keeps the focal
     // point stable; clampView (called inside) holds the floor at Fit.
@@ -3207,6 +3256,9 @@ var _PinPan = (function() {
     var fresh = canvas.cloneNode(false);
     canvas.parentNode.replaceChild(fresh, canvas);
     st.canvas = fresh; st.ctx = fresh.getContext('2d');
+    /* S585: this mount's state belongs to THIS canvas. A later mount into a
+       different host no longer steals it. */
+    try { fresh._peState = st; } catch (eSt) {}
     // Clear any stale pin overlay from a previous mount in this same host.
     var _oldLayer = fresh.parentElement && fresh.parentElement.querySelector('.pe-pin-layer');
     if (_oldLayer) _oldLayer.innerHTML = '';

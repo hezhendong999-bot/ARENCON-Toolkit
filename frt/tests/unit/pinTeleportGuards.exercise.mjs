@@ -151,6 +151,29 @@ ok(r.log.length === 1 && r.log[0].verdict === 'REFUSED',
   ok(fn(30, 70) === false && st.d.pinX === 0.5, 'a zero-size panel rect (stale geometry) cannot write a pin');
 }
 
+// ── D. DENSITY / WRONG-TARGET CLASS (S583-S585) ─────────────────────────────
+// The Jul 29 forensics: 17 pin moves in five weeks, ALL on one day - the only
+// day with 6 inspectors, 11 reports and 16 pins on a single drawing. Every
+// failure mode in that class is density-dependent, so these guards are what
+// stop it recurring as pin counts keep climbing (9 -> 11 -> 12 -> 16).
+console.log('D. Density / wrong-target guards (pin editor mini-map)');
+ok(V.indexOf("fresh._peState = st") !== -1,
+  'each mini-map mount owns its OWN state (no single shared blob to clobber)');
+ok(V.indexOf('_tgt._peState') !== -1,
+  'a press re-points state at the canvas actually touched');
+ok(V.indexOf('REFUSED wrong-target') !== -1,
+  'a write is refused unless the map shows the deficiency the editor is open on');
+ok(V.indexOf('IGNORED press (mini-map shows') !== -1,
+  'a press on a stale mini-map never arms a drag');
+ok(V.indexOf("touchcancel', function () { _peCancelGesture") !== -1,
+  'touchcancel disarms (the camera/keyboard interruption path)');
+ok(V.indexOf('_frtDisarmAllPinGestures') !== -1 && V.indexOf('visibilitychange') !== -1,
+  'app/camera switch and window blur disarm every pin surface');
+ok(V.indexOf("editor switched pin") !== -1 && V.indexOf("editor closed") !== -1,
+  'opening another pin or closing the editor leaves nothing armed');
+ok(V.indexOf("st.mode === 'pin' && !st.active") !== -1,
+  'a stale armed state can never write');
+
 console.log('');
 if (failures) { console.error('\u2717 ' + failures + ' guard(s) FAILED \u2014 the teleport class may be back'); process.exit(1); }
 console.log('\u2713 all pin-teleport guards hold in the shipped code');
