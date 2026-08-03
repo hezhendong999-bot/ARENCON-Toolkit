@@ -1168,8 +1168,21 @@ const CloudSync = (function () {
       hubMode: !!_projectId, instanceNumber: engine.instanceNumber || _instanceNumber
     };
     try {
-      var u = Auth.getUser(); d.user = (u && (u.email || u.id)) || null;
+      /* S597 — the panel read Auth.getUser() only, which is populated
+         asynchronously and is empty on iOS for the first stretch of a session.
+         It therefore showed a scary red NOT SIGNED IN while the device was
+         signed in and saving fine — and it cost an hour of testing today
+         chasing a phantom. The token is the real evidence of a session, so
+         fall back to it (and to the recorded user id) before claiming the
+         person is signed out. */
+      var u = Auth.getUser(); d.user = (u && (u.email || u.id)) || _userId || null;
       var tok = Auth.getToken && Auth.getToken();
+      if (!d.user && tok) {
+        try {
+          var pu = JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+          if (pu && (pu.email || pu.sub)) d.user = pu.email || pu.sub;
+        } catch (_) {}
+      }
       if (tok) {
         var p = JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
         if (p && p.exp) d.tokenMinLeft = Math.round((p.exp * 1000 - Date.now()) / 60000);
