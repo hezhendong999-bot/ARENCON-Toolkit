@@ -1006,6 +1006,13 @@ var _touchStartPanX = 0;
 var _touchStartPanY = 0;
 var _singleTouchX = 0;
 var _singleTouchY = 0;
+// S573 — one-finger pan (neutral state only; see the touchstart branch)
+var _oneFPanReady = false;
+var _oneFPanning = false;
+var _oneFPanAnchorX = 0;
+var _oneFPanAnchorY = 0;
+var _oneFPanStartPanX = 0;
+var _oneFPanStartPanY = 0;
 
 document.addEventListener('touchstart', function(e) {
   var area = document.getElementById('dv-canvas-area');
@@ -1036,17 +1043,23 @@ document.addEventListener('touchstart', function(e) {
     // diagnostic toggle that hiding pins recovered FP-1 sprinkler to 60 FPS.
     _activatePinsGesture();
   } else if (e.touches.length === 1) {
-    // S331w — One-finger pan REMOVED. Pan now requires TWO fingers so a single
-    // finger is free for pin press-drag and markup. This is what lets the
-    // pin-drag handler own a one-finger gesture without competing with pan.
-    // (Two-finger pan is handled in the pinch branch via _touchStartPan below.)
-    // We still record the touch point for any one-finger consumers, but we do
-    // NOT start a pan here.
+    // S573 (Mark) — One-finger pan RETURNS, but ONLY when nothing is armed.
+    // S331w removed it so a single finger could belong to pins/markup — the
+    // same change that caused the pin teleports, because a stray one-finger
+    // flick landing on a pin became a drag. The S569 hold gate now decides
+    // ownership by INTENT: movement before the 500ms glow is a pan, movement
+    // after it is a pin drag. So a neutral one-finger swipe can safely pan
+    // again — the crew's complaint — while an armed tool still owns the
+    // finger (Mark: disarm→pan→rearm→redraw is more actions, not fewer).
+    // The pan never starts while a pin drag is armed/active — re-checked
+    // live in touchmove, since arming happens AFTER this press.
     if (Markup.isActive()) return;
     if (_pinModeDeficId) return;
     if (Markup.getTool() === 'pin') return;
     _singleTouchX = e.touches[0].clientX;
     _singleTouchY = e.touches[0].clientY;
+    _oneFPanReady = true;
+    _oneFPanning = false;
     _activatePinsGesture();
   }
 }, { passive: false });
@@ -1080,6 +1093,30 @@ document.addEventListener('touchmove', function(e) {
     _panY = midY - imgY * newScale;
     _applyTransform();
 
+  } else if (e.touches.length === 1 && _oneFPanReady) {
+    // S573 — one-finger pan, neutral state only. Gates re-checked LIVE every
+    // move because pin arming happens after the press: an armed (glowing) or
+    // dragging pin owns the finger and permanently ends this gesture's pan
+    // candidacy; a pin claim that has NOT armed yet is exactly the case the
+    // hold gate defines as a pan, so it pans. Slop keeps taps as taps.
+    if (_pinDragging || _lastReadyId ||
+        (typeof Markup !== 'undefined' && Markup.isActive && Markup.isActive()) ||
+        _pinModeDeficId) {
+      _oneFPanReady = false; _oneFPanning = false;
+      return;
+    }
+    var t1 = e.touches[0];
+    if (!_oneFPanning) {
+      var m1x = t1.clientX - _singleTouchX, m1y = t1.clientY - _singleTouchY;
+      if ((m1x * m1x + m1y * m1y) < 64) return;   // 8px slop
+      _oneFPanning = true;
+      _oneFPanAnchorX = t1.clientX; _oneFPanAnchorY = t1.clientY;
+      _oneFPanStartPanX = _panX; _oneFPanStartPanY = _panY;
+    }
+    e.preventDefault();
+    _panX = _oneFPanStartPanX + (t1.clientX - _oneFPanAnchorX);
+    _panY = _oneFPanStartPanY + (t1.clientY - _oneFPanAnchorY);
+    _applyTransform();
   }
 }, { passive: false });
 
@@ -1101,7 +1138,12 @@ document.addEventListener('touchend', function(e) {
   if (e.touches.length === 1) {
     _singleTouchX = e.touches[0].clientX;
     _singleTouchY = e.touches[0].clientY;
+    // S573: pinch dropped to one finger — re-anchor so a continued slide
+    // pans smoothly from here (gates re-checked in touchmove as always).
+    _oneFPanning = false;
+    _oneFPanReady = true;
   }
+  if (e.touches.length === 0) { _oneFPanReady = false; _oneFPanning = false; }
   // S185: only deactivate the pin-defer when ALL touches have lifted. A
   // pinch-down-to-1-finger transition isn't end-of-gesture — the user is
   // continuing to pan single-fingered. Don't repaint pins until they fully
@@ -1114,6 +1156,7 @@ document.addEventListener('touchend', function(e) {
 // hidden indefinitely after an aborted gesture.
 document.addEventListener('touchcancel', function(e) {
   if (e.touches.length === 0) _deactivatePinsGesture();
+  _oneFPanReady = false; _oneFPanning = false;   // S573
 });
 
 // S186 helpers — replace S185's "hide pins during gesture" with "CSS-mirror
