@@ -540,6 +540,7 @@ const CloudSync = (function () {
                       failed — it has hung. Treat it as failed and move on.
      TICK_WATCHDOG_MS    : hard ceiling on holding the busy flag.            */
   let _lastCheckAt = 0, _pullingSince = 0, _lastTickWhy = '', _lastTickAt = 0;
+  let _bootTrace = [];   // S603 — how far startup got, shown on the panel
   const TICK_NET_TIMEOUT_MS = 20000;
   const TICK_WATCHDOG_MS = 45000;
 
@@ -662,10 +663,29 @@ const CloudSync = (function () {
     _projectId = opts.projectId || null;
     _instanceId = opts.instanceId || null;
 
-    try { await SyncIDB.init(); } catch (e) { console.warn('[DieselSync] sync-meta IDB open failed:', e && e.message); }
-    try { const user = await _getUser(); if (user) _userId = user.id; } catch (e) {}
-    if (_projectId && _online) { try { await _loadProjectInfo(); } catch (e) {} }
-    if (_projectId && !_instanceId) { _instanceNumber = await _getNextInstanceNumber(); }
+    /* ═══ S603 — STARTUP CAN NO LONGER HANG (the Android root) ══════════════
+       These four awaits had no time limit. A network request that HANGS
+       instead of failing — the wifi/LTE handover shape, routine on Android —
+       left init() unresolved forever: no error, no toast, no autosave, no
+       heartbeat, a device running local-only all day while looking normal.
+       That is the owner's 03-Aug Android panel, byte for byte ("everything
+       never" while online and signed in), independently confirmed by review.
+       Every step is now time-bound, records a breadcrumb the panel can show,
+       and NOTHING can stop init() reaching _initialized = true. Degraded is
+       honest; silent is not. Harness: sim/bootstall.mjs (0/2 on S602 for all
+       three hang points → 2/2 here). */
+    async function _step(name, fn, ms) {
+      try { await _withTimeout(Promise.resolve().then(fn), ms || 10000, name); _bootTrace.push(name + ' ok'); }
+      catch (e) {
+        var why = (e && e.message) || 'failed';
+        _bootTrace.push(name + ' ' + (/timed out/.test(why) ? 'timed out' : ('failed: ' + why.slice(0, 60))));
+        console.warn('[DieselSync] init step "' + name + '":', why);
+      }
+    }
+    await _step('local-db', function () { return SyncIDB.init(); }, 8000);
+    await _step('sign-in',  async function () { const user = await _getUser(); if (user) _userId = user.id; }, 10000);
+    if (_projectId && _online) await _step('project-info', function () { return _loadProjectInfo(); }, 10000);
+    if (_projectId && !_instanceId) await _step('report-number', async function () { _instanceNumber = await _getNextInstanceNumber(); }, 10000);
 
     window.addEventListener('online', function () {
       _online = true;
@@ -807,7 +827,9 @@ const CloudSync = (function () {
       }
     } catch (_) {}
 
+    _bootTrace.push('started');
     _initialized = true;
+    _diag('boot', { trace: _bootTrace.join(' \u2192 ') });   // S603
     _setStatus(_online ? 'synced' : 'offline', 'Ready');
     return { projectInfo: _projectInfo, userId: _userId, online: _online, instanceId: _instanceId, instanceNumber: _instanceNumber };
   }
@@ -1341,6 +1363,7 @@ const CloudSync = (function () {
       lastPushOkAt: _lastPushOkAt, lastPushFailAt: _lastPushFailAt,
       lastPushFailMsg: _lastPushFailMsg, lastPullAt: _lastPullAt,
       lastCheckAt: _lastCheckAt, lastTickWhy: _lastTickWhy,   // S602
+      bootTrace: _bootTrace.join(' \u2192 ') || 'not started', engineStarted: _initialized,   // S603
       hasBaseline: !!engine.lastSeenUpdatedAt,
       hubMode: !!_projectId, instanceNumber: engine.instanceNumber || _instanceNumber
     };
@@ -1409,6 +1432,10 @@ const CloudSync = (function () {
             _fmtAgo(d.lastCheckAt) + (d.lastTickWhy ? ' — ' + d.lastTickWhy : ''),
             (d.lastCheckAt && (Date.now() - d.lastCheckAt) < 90000) ? 'good' : 'bad') +
         row('Last received from cloud', _fmtAgo(d.lastPullAt)) +
+        row('Sync engine started', d.engineStarted ? 'yes' : 'NO \u2014 startup did not finish',
+            d.engineStarted ? 'good' : 'bad') +
+        row('Startup steps', d.bootTrace,
+            /timed out|failed/.test(d.bootTrace) ? 'bad' : undefined) +
         row('Cloud baseline established', d.hasBaseline ? 'yes' : 'NO — pushes refused until a pull succeeds',
             d.hasBaseline ? 'good' : 'bad') +
         row('Mode', d.hubMode ? 'Hub (cloud sync on) — report #' + d.instanceNumber : 'Standalone (no cloud)');

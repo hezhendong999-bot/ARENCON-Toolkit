@@ -1408,6 +1408,25 @@ window.addEventListener('load', () => {
         if(el){ el.value = params.address; el.readOnly = true; el.style.opacity = '0.7'; }
       }
 
+      /* ═══ S603 — BOOT WATCHDOG (correcting S602's overstated claim) ════════
+         S602 moved the loop scheduling earlier — but still INSIDE this promise
+         chain, so a startup that never returned (the Android hang) still meant
+         no loop, ever. That claim ("nothing can kill it") was wrong upstream.
+         init() itself can no longer hang (S603 time-bounds every step), and
+         this watchdog is the independent backstop: 20 s after boot begins, if
+         the engine has not reported started, arm the save and listening loops
+         anyway. Both are idempotent and the tick self-guards, so on a healthy
+         device this timer fires into already-running loops and does nothing. */
+      setTimeout(function(){
+        try {
+          if (typeof CloudSync !== 'undefined' && !CloudSync.isInitialized) {
+            console.warn('[S603] startup incomplete after 20s — arming sync loops in degraded mode');
+            CloudSync.startAutoSave(_collectCloudState, 30000);
+            _startHeartbeat();
+          }
+        } catch(e){ console.warn('[S603] boot watchdog failed:', e && e.message); }
+      }, 20000);
+
       // Initialize CloudSync
       CloudSync.init({
         projectId: _csProjectId,

@@ -330,6 +330,7 @@ const CloudSync = (function () {
   let _pulling = false;
   /* S602 — tick health, mirrored from Diesel. */
   let _pullingSince = 0, _lastCheckAt = 0;
+  let _bootTrace = [];   // S603
   const ELEC_TICK_NET_TIMEOUT_MS = 20000;
   const ELEC_TICK_WATCHDOG_MS = 45000;
   function _elecWithTimeout(p, ms, label) {
@@ -437,10 +438,20 @@ const CloudSync = (function () {
     _projectId = opts.projectId || null;
     _instanceId = opts.instanceId || null;
 
-    try { await SyncIDB.init(); } catch (e) { console.warn('[ElectricSync] sync-meta IDB open failed:', e && e.message); }
-    try { const user = await _getUser(); if (user) _userId = user.id; } catch (e) {}
-    if (_projectId && _online) { try { await _loadProjectInfo(); } catch (e) {} }
-    if (_projectId && !_instanceId) { _instanceNumber = await _getNextInstanceNumber(); }
+    /* S603 — startup can no longer hang; mirrored from Diesel (see
+       diesel-sync.js for the full reasoning and the Android evidence). */
+    async function _step(name, fn, ms) {
+      try { await _elecWithTimeout(Promise.resolve().then(fn), ms || 10000, name); _bootTrace.push(name + ' ok'); }
+      catch (e) {
+        var why = (e && e.message) || 'failed';
+        _bootTrace.push(name + ' ' + (/timed out/.test(why) ? 'timed out' : ('failed: ' + why.slice(0, 60))));
+        console.warn('[ElectricSync] init step "' + name + '":', why);
+      }
+    }
+    await _step('local-db', function () { return SyncIDB.init(); }, 8000);
+    await _step('sign-in',  async function () { const user = await _getUser(); if (user) _userId = user.id; }, 10000);
+    if (_projectId && _online) await _step('project-info', function () { return _loadProjectInfo(); }, 10000);
+    if (_projectId && !_instanceId) await _step('report-number', async function () { _instanceNumber = await _getNextInstanceNumber(); }, 10000);
 
     window.addEventListener('online', function () {
       _online = true;
@@ -564,6 +575,7 @@ const CloudSync = (function () {
       }
     } catch (_) {}
 
+    _bootTrace.push('started');
     _initialized = true;
     _setStatus(_online ? 'synced' : 'offline', 'Ready');
     return { projectInfo: _projectInfo, userId: _userId, online: _online, instanceId: _instanceId, instanceNumber: _instanceNumber };
