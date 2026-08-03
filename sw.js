@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608030428';
+var CACHE_NAME = 'arencon-frt-202608030031';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -544,7 +544,12 @@ function _bgPushOne(db, key, rec, isRetry) {
       'If-Match': '"' + rec.bgIfMatch + '"',
       'Prefer': 'return=representation'
     },
-    body: JSON.stringify({ data: JSON.parse(rec.state), updated_at: new Date().toISOString() })
+    body: JSON.stringify({ data: (function () {
+      /* S589 — receipt: this write came from the OS background path. */
+      var d = JSON.parse(rec.state);
+      try { d._via = 'bg-sync'; d._wroteAt = new Date().toISOString(); } catch (_) {}
+      return d;
+    })(), updated_at: new Date().toISOString() })
   }).then(function (res) {
     if (res.status === 401 && !isRetry) {
       return _bgRefreshToken(rec).then(function (tok) {

@@ -388,7 +388,7 @@ const CloudSync = (function () {
       var done = _settleTries > 20 || document.visibilityState !== 'visible' ||
                  !_lastSavedJson || _lastSavedJson === _lastPushedJson;
       if (!done && (navigator.onLine !== false)) {
-        Promise.resolve(save(_lastSavedJson)).catch(function () {});
+        Promise.resolve(save(_collectStateFn ? _collectStateFn() : _lastSavedJson)).catch(function () {});   // S589: live model, never a stored snapshot
         done = true;   // one armed attempt per settle window; save() owns retries from here
       }
       if (done) { clearInterval(_settleTimer); _settleTimer = null; }
@@ -455,7 +455,13 @@ const CloudSync = (function () {
          stays false and this handler used to do nothing on reconnect. Check
          the real ledger: local saved vs cloud confirmed. */
       if (_lastSavedJson && _lastSavedJson !== _lastPushedJson) {
-        Promise.resolve(save(_lastSavedJson))
+        /* S589 — push the LIVE model, never the stored string. save(_lastSavedJson)
+           re-sent a document collected minutes earlier; if a pull had since
+           brought in another device's newer readings, that stale document was
+           pushed straight back over them. Collect fresh: whatever is on screen
+           now already contains the merged truth. */
+        engine.pushVia = 'reconnect';
+        Promise.resolve(save(_collectStateFn ? _collectStateFn() : _lastSavedJson))
           .then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); })
           .catch(function () { _setStatus('pending', 'Saved locally'); });
       } else if (engine.isPending) {
@@ -466,6 +472,28 @@ const CloudSync = (function () {
       _online = false;
       _setStatus('offline', 'Working offline');
     });
+
+    /* S589 — RE-BASELINE ON EVERY ENGINE APPLY. When the engine replaces the
+       model (pull, silent merge, resolved conflict), this device's old
+       "unsent work" marker describes a document that no longer exists. Left
+       standing, the next flush re-pushes it over the very data that just
+       arrived — the 80→150 revert. Re-point the ledger at what is now on
+       screen, and retire the durable pending flag when nothing differs. */
+    engine.onModelReplaced = function () {
+      try {
+        if (!_collectStateFn) return;
+        var now = JSON.stringify(_collectStateFn());
+        _lastSavedJson = now;
+        _lastPushedJson = now;      // the cloud round-trip that produced this IS the confirmation
+        _pendingSince = null;
+        _cachePut(_cacheKey(), {
+          state: now, projectId: _projectId, toolKey: _toolKey,
+          instanceId: engine.instanceId || _instanceId,
+          instanceNumber: engine.instanceNumber || _instanceNumber,
+          savedAt: new Date().toISOString(), pendingPush: false, pendingSince: null
+        });
+      } catch (e) { console.warn('[ElectricSync] re-baseline after cloud apply failed:', e && e.message); }
+    };
 
     /* S586 — mobile lifecycle wake-up flush (same root fix as Diesel: Android
        freezes background timers; flush + catch up the moment we're back). */
@@ -479,6 +507,7 @@ const CloudSync = (function () {
         try {
           if (_collectStateFn) {
             var j = JSON.stringify(_collectStateFn());
+            engine.pushVia = 'wake';
             if (j !== _lastPushedJson) await save(j);   // flush FIRST, sequentially
           }
           if (pullToo) await heartbeatTick();           // then catch up on pulls
@@ -785,6 +814,7 @@ const CloudSync = (function () {
         try {
           const unsentNow = JSON.stringify(_collectStateFn());
           if (unsentNow === _lastSavedJson && unsentNow !== _lastPushedJson) {
+            engine.pushVia = 'heartbeat';
             await save(unsentNow);
           }
         } catch (e) { console.warn('[ElectricSync] heartbeat flush failed:', e && e.message); }
@@ -830,7 +860,7 @@ const CloudSync = (function () {
     stopAutoSave();
     _autoSaveTimer = setInterval(function () {
       if (!_collectStateFn) return;
-      try { save(_collectStateFn()); }
+      try { engine.pushVia = 'autosave'; save(_collectStateFn()); }
       catch (e) { console.error('[ElectricSync] auto-save error:', e); }
     }, intervalMs || 15000);
   }
