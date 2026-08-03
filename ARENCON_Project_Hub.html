@@ -1461,36 +1461,12 @@ body.text-l{--ts:4px;}
 <!-- ═══════════ EDIT ROLE MODAL ═══════════ -->
 <!-- S493: edit-role modal now drawn by the shared dialog engine (Dlg.form) -->
 <!-- ═══════════ EDIT PROJECT MODAL ═══════════ -->
-<div class="modal-overlay" id="edit-num-modal">
-  <div class="modal-card">
-    <h3>Set Project / User #</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-num-user"></p>
-    <div class="modal-field">
-      <label>Project / User #</label>
-      <input type="text" id="edit-num-input" placeholder="e.g. 1042 (leave blank to clear)">
-    </div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary cancel" onclick="closeEditNumModal()">Cancel</button>
-      <button class="dash-btn primary" onclick="saveUserNum()">Save</button>
-    </div>
-  </div>
-</div>
+<!-- S518 — edit-num markup DELETED; built by open() on the shared
+     dialog engine. If a hand-built card reappears here the conversion was undone. -->
 
 <!-- ═══════════ EDIT INITIALS MODAL ═══════════ -->
-<div class="modal-overlay" id="edit-init-modal">
-  <div class="modal-card">
-    <h3>Set Initials</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-init-user"></p>
-    <div class="modal-field">
-      <label>Initials</label>
-      <input type="text" id="edit-init-input" placeholder="e.g. MH (leave blank to clear)" maxlength="6">
-    </div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary cancel" onclick="closeEditInitModal()">Cancel</button>
-      <button class="dash-btn primary" onclick="saveUserInit()">Save</button>
-    </div>
-  </div>
-</div>
+<!-- S518 — edit-init markup DELETED; built by open() on the shared
+     dialog engine. If a hand-built card reappears here the conversion was undone. -->
 
 <!-- ═══════════ S498: CLIENT RENAME / MERGE MODAL ═══════════
      Opened from Edit Project. Fixing a typo and merging two spellings are the
@@ -1554,21 +1530,8 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- ═══════════ EDIT NAME MODAL ═══════════ -->
-<div class="modal-overlay" id="edit-name-modal">
-  <div class="modal-card">
-    <h3>Edit Name</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="edit-name-user"></p>
-    <div class="modal-field">
-      <label>Full Name</label>
-      <input type="text" id="edit-name-input" placeholder="e.g. Stacy Goindhan">
-    </div>
-    <p style="font-size:calc(11.5px + var(--ts));color:var(--silver);margin:-4px 0 14px">Updates the name shown across all ARENCON tools. Login email is managed in the Authentication tab.</p>
-    <div class="modal-actions">
-      <button class="dash-btn secondary cancel" onclick="closeEditNameModal()">Cancel</button>
-      <button class="dash-btn primary" onclick="saveUserName()">Save</button>
-    </div>
-  </div>
-</div>
+<!-- S518 — edit-name markup DELETED; built by open() on the shared
+     dialog engine. If a hand-built card reappears here the conversion was undone. -->
 
 <!-- ═══════════ OWNER-TRACK PICKER MODAL (S335) ═══════════ -->
 <div class="modal-overlay" id="owner-track-modal">
@@ -5172,6 +5135,9 @@ async function loadAdminUsers() {
   renderAdminUsers();
 }
 
+/* S518: handles to the open shared panels, so closeXModal() can ask the engine
+   to close and every existing caller keeps working. */
+let _editNumApi = null, _editInitApi = null, _editNameApi = null;
 let _editInitUserId = null;
 let _editNameUserId = null;
 let _resetPwDone = false;
@@ -5192,19 +5158,42 @@ function openEditNum(userId) {
   _editNumUserId = userId;
   const u = _allUsers.find(x => x.id === userId);
   if (!u) return;
-  document.getElementById('edit-num-user').textContent = u.full_name + ' (' + u.email + ')';
-  document.getElementById('edit-num-input').value = u.user_number || '';
-  document.getElementById('edit-num-modal').classList.add('show');
+  /* S518 (Mark, all-modals conversion): on the shared dialog engine. The engine
+     owns the card, header, ✕, Esc and the footer buttons; this function owns
+     only the fields. Ids are unchanged, so the save path below is the original
+     code with its lookups routed through _dq() — which finds them inside the
+     panel's sealed root where document.getElementById() cannot. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  var _pb = null;
+  D.panel({
+    title: 'Set Project / User #', icon: '#', accent: 'slate', width: 440,
+    buttons: [
+      { label: 'Cancel', kind: 'cancel' },
+      { label: 'Save', kind: 'primary', onClick: function () { saveUserNum(); return false; } }
+    ],
+    build: function (bd, api) {
+      _pb = bd; _editNumApi = api;
+      _panelCss(bd); _panelPush(bd);
+      bd.innerHTML = '<p class="pnl-cap" id="edit-num-user"></p>'
+        + '<div class="modal-field"><label>Project / User #</label>'
+        + '<input type="text" id="edit-num-input" placeholder="e.g. 1042 (leave blank to clear)"></div>';
+      _dq('edit-num-user').textContent = u.full_name + ' (' + u.email + ')';
+      _dq('edit-num-input').value = u.user_number || '';
+      try { _dq('edit-num-input').focus(); } catch (e) {}
+    }
+  }).then(function () { _panelPop(_pb); _editNumApi = null; _editNumUserId = null; });
 }
 
 function closeEditNumModal() {
-  document.getElementById('edit-num-modal').classList.remove('show');
-  _editNumUserId = null;
+  /* S518: closing is the engine's job now — this just asks it to close, so every
+     existing caller (including the save paths) keeps working unchanged. */
+  if (_editNumApi) { var a = _editNumApi; _editNumApi = null; a.close(); }
 }
 
 async function saveUserNum() {
   if (!_editNumUserId) return;
-  const newNum = document.getElementById('edit-num-input').value.trim();
+  const newNum = _dq('edit-num-input').value.trim();
   try {
     await _sb.from('profiles').eq('id', _editNumUserId).update({ user_number: newNum || null });
     toast(newNum ? 'User # set to ' + newNum : 'User # cleared', 'success');
@@ -5220,20 +5209,43 @@ function openEditInit(userId) {
   _editInitUserId = userId;
   const u = _allUsers.find(x => x.id === userId);
   if (!u) return;
-  document.getElementById('edit-init-user').textContent = u.full_name + ' (' + u.email + ')';
-  document.getElementById('edit-init-input').value = u.initials || '';
-  document.getElementById('edit-init-modal').classList.add('show');
+  /* S518 (Mark, all-modals conversion): on the shared dialog engine. The engine
+     owns the card, header, ✕, Esc and the footer buttons; this function owns
+     only the fields. Ids are unchanged, so the save path below is the original
+     code with its lookups routed through _dq() — which finds them inside the
+     panel's sealed root where document.getElementById() cannot. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  var _pb = null;
+  D.panel({
+    title: 'Set Initials', icon: 'ID', accent: 'slate', width: 440,
+    buttons: [
+      { label: 'Cancel', kind: 'cancel' },
+      { label: 'Save', kind: 'primary', onClick: function () { saveUserInit(); return false; } }
+    ],
+    build: function (bd, api) {
+      _pb = bd; _editInitApi = api;
+      _panelCss(bd); _panelPush(bd);
+      bd.innerHTML = '<p class="pnl-cap" id="edit-init-user"></p>'
+        + '<div class="modal-field"><label>Initials</label>'
+        + '<input type="text" id="edit-init-input" placeholder="e.g. MH (leave blank to clear)" maxlength=\"6\"></div>';
+      _dq('edit-init-user').textContent = u.full_name + ' (' + u.email + ')';
+      _dq('edit-init-input').value = u.initials || '';
+      try { _dq('edit-init-input').focus(); } catch (e) {}
+    }
+  }).then(function () { _panelPop(_pb); _editInitApi = null; _editInitUserId = null; });
 }
 
 function closeEditInitModal() {
-  document.getElementById('edit-init-modal').classList.remove('show');
-  _editInitUserId = null;
+  /* S518: closing is the engine's job now — this just asks it to close, so every
+     existing caller (including the save paths) keeps working unchanged. */
+  if (_editInitApi) { var a = _editInitApi; _editInitApi = null; a.close(); }
 }
 
 async function saveUserInit() {
   if (!_editInitUserId) return;
   // Store uppercased, trimmed. Blank clears (falls back to name-derived initials).
-  const newInit = document.getElementById('edit-init-input').value.trim().toUpperCase();
+  const newInit = _dq('edit-init-input').value.trim().toUpperCase();
   try {
     await _sb.from('profiles').eq('id', _editInitUserId).update({ initials: newInit || null });
     toast(newInit ? 'Initials set to ' + newInit : 'Initials cleared', 'success');
@@ -5249,19 +5261,42 @@ function openEditName(userId) {
   _editNameUserId = userId;
   const u = _allUsers.find(x => x.id === userId);
   if (!u) return;
-  document.getElementById('edit-name-user').textContent = u.email || '';
-  document.getElementById('edit-name-input').value = u.full_name || '';
-  document.getElementById('edit-name-modal').classList.add('show');
+  /* S518 (Mark, all-modals conversion): on the shared dialog engine. The engine
+     owns the card, header, ✕, Esc and the footer buttons; this function owns
+     only the fields. Ids are unchanged, so the save path below is the original
+     code with its lookups routed through _dq() — which finds them inside the
+     panel's sealed root where document.getElementById() cannot. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  var _pb = null;
+  D.panel({
+    title: 'Edit Name', icon: 'Aa', accent: 'slate', width: 440,
+    buttons: [
+      { label: 'Cancel', kind: 'cancel' },
+      { label: 'Save', kind: 'primary', onClick: function () { saveUserName(); return false; } }
+    ],
+    build: function (bd, api) {
+      _pb = bd; _editNameApi = api;
+      _panelCss(bd); _panelPush(bd);
+      bd.innerHTML = '<p class="pnl-cap" id="edit-name-user"></p>'
+        + '<div class="modal-field"><label>Full name</label>'
+        + '<input type="text" id="edit-name-input" placeholder="Full name"></div>';
+      _dq('edit-name-user').textContent = u.email || '';
+      _dq('edit-name-input').value = u.full_name || '';
+      try { _dq('edit-name-input').focus(); } catch (e) {}
+    }
+  }).then(function () { _panelPop(_pb); _editNameApi = null; _editNameUserId = null; });
 }
 
 function closeEditNameModal() {
-  document.getElementById('edit-name-modal').classList.remove('show');
-  _editNameUserId = null;
+  /* S518: closing is the engine's job now — this just asks it to close, so every
+     existing caller (including the save paths) keeps working unchanged. */
+  if (_editNameApi) { var a = _editNameApi; _editNameApi = null; a.close(); }
 }
 
 async function saveUserName() {
   if (!_editNameUserId) return;
-  const newName = document.getElementById('edit-name-input').value.trim();
+  const newName = _dq('edit-name-input').value.trim();
   if (!newName) { toast('Name cannot be blank', 'error'); return; }
   try {
     await _sb.from('profiles').eq('id', _editNameUserId).update({ full_name: newName });

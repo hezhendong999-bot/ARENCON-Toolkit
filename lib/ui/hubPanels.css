@@ -79,3 +79,19 @@
 .ins-compute{text-align:center;padding:20px}
 .ins-compute button{background:var(--arencon);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-family:inherit;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;min-height:40px}
 .ins-compute .ins-note{margin-top:8px}
+/* ═══ SHARED FIELD + CAPTION STYLES (S518) ═══════════════════════════════
+   Used by every converted panel that has form fields. Copied here from the
+   Hub's stylesheet rather than moved, ON PURPOSE and TEMPORARILY: panels are
+   converting in batches, and the ones still hand-built need the host copy to
+   keep working. The host copy is deleted when the LAST panel converts — until
+   then these two must be kept identical. Written down so it cannot be
+   forgotten: an unclosed duplication is exactly how styling drifts apart.
+   Tokens (--border, --bg, --fg, --arencon, --ts…) inherit through the shadow
+   boundary from the Hub, so light/dark needs no restatement here. */
+.modal-field{margin-bottom:16px}
+.modal-field label{display:block;font-size:calc(10px + var(--ts));font-weight:700;color:var(--silver);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-weight:400;font-size:calc(14px + var(--ts));font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--fg);outline:none;transition:all .2s}
+.modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--arencon);box-shadow:0 0 0 3px var(--arencon-glow)}
+/* The caption line under a panel title (who is being edited). Replaces the
+   inline style the hand-built cards carried. */
+.pnl-cap{font-size:calc(13px + var(--ts));color:var(--steel);margin:0 0 14px}
