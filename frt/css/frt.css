@@ -11688,27 +11688,47 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
 .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-ur svg{width:18px;height:18px;pointer-events:none;}
 .drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-ur:disabled{opacity:.35;cursor:default;}
 
-/* ⋯ more-menu: ONE flat dark panel (the pill family every bar in this viewer
-   already uses), both themes. The box-in-box came from the toolbar's generic
-   button pill rule styling each .dv-menu-item as its own box — killed here
-   with the menu's own idiom. No white background (Mark). */
-.drawing-viewer-overlay #dv-more-menu,
-.drawing-viewer-overlay #dv-more-menu[style*="block"]{
-  background:rgba(20,20,28,.96) !important;
-  border:1px solid rgba(255,255,255,.14) !important;
+/* ── S577 (Mark, second attempt — first got it backwards): the ⋯ more-menu
+   matches the DRAWER STANDARD, i.e. exactly the .dv-heights-panel surface
+   (white panel / #dde1e7 border / radius 12 / soft shadow; dark-mode #2a2d35).
+   Items are FLAT — no per-item box. The box-in-box came from the generic
+   .dv-toolbar button pill rule reaching the menu's buttons; these selectors
+   use DOUBLE IDs so no toolbar/theme rule anywhere in this file can outrank
+   them, in either theme. */
+#drawing-viewer-overlay #dv-more-menu,
+#drawing-viewer-overlay #dv-more-menu[style*="block"]{
+  background:#ffffff !important;
+  border:1px solid #dde1e7 !important;
   border-radius:12px !important;
-  box-shadow:0 6px 20px rgba(0,0,0,.55) !important;
-  padding:4px 0 !important;
+  box-shadow:0 12px 36px rgba(0,0,0,.18) !important;
+  padding:6px 0 !important;
+  overflow:hidden !important;
 }
-.drawing-viewer-overlay #dv-more-menu .dv-menu-item{
+body.dark-mode #drawing-viewer-overlay #dv-more-menu{
+  background:#2a2d35 !important;
+  border-color:#3a3e48 !important;
+  box-shadow:0 12px 36px rgba(0,0,0,.6) !important;
+}
+#drawing-viewer-overlay #dv-more-menu button.dv-menu-item{
   background:transparent !important;
   border:none !important;
   border-radius:0 !important;
   box-shadow:none !important;
-  color:#fff !important;
+  color:#1C2333 !important;
+  font-weight:400 !important;
+  width:100% !important;
   min-width:0 !important;
-  min-height:44px !important;   /* touch-target hard rule stays */
+  min-height:44px !important;   /* glove touch targets stay */
+  justify-content:flex-start !important;
+  text-align:left !important;
 }
-.drawing-viewer-overlay #dv-more-menu .dv-menu-item:hover{
-  background:rgba(255,255,255,.10) !important;
+body.dark-mode #drawing-viewer-overlay #dv-more-menu button.dv-menu-item{
+  color:#ffffff !important;
+}
+#drawing-viewer-overlay #dv-more-menu button.dv-menu-item:hover{
+  background:rgba(0,0,0,.06) !important;
+  border:none !important;
+}
+body.dark-mode #drawing-viewer-overlay #dv-more-menu button.dv-menu-item:hover{
+  background:rgba(255,255,255,.08) !important;
 }

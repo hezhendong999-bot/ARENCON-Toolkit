@@ -1060,7 +1060,14 @@ document.addEventListener('touchstart', function(e) {
     _singleTouchY = e.touches[0].clientY;
     _oneFPanReady = true;
     _oneFPanning = false;
-    _activatePinsGesture();
+    // S577 (Mark, on-device): do NOT _activatePinsGesture() here. The defer
+    // short-circuits ALL pin painting (_renderPins early-out), so arming it on
+    // a bare one-finger press swallowed the 500ms hold GLOW and every drag
+    // frame — the pin's DATA moved and saved while its pixels stood still, on
+    // every mobile device, since S569 shipped un-field-verified. The defer is
+    // an FPS optimization for gestures that MOVE the sheet; it activates below
+    // when a pan actually starts (and in the pinch branch), never on a press
+    // that may be a pin hold.
   }
 }, { passive: false });
 
@@ -1112,6 +1119,7 @@ document.addEventListener('touchmove', function(e) {
       _oneFPanning = true;
       _oneFPanAnchorX = t1.clientX; _oneFPanAnchorY = t1.clientY;
       _oneFPanStartPanX = _panX; _oneFPanStartPanY = _panY;
+      _activatePinsGesture();   // S577: pins ride the cheap matrix during the pan (S185), painted normally otherwise
     }
     e.preventDefault();
     _panX = _oneFPanStartPanX + (t1.clientX - _oneFPanAnchorX);
@@ -4269,6 +4277,7 @@ document.addEventListener('touchstart', function(e) {
   _pinDragDeficId = deficId;
   _pinLongPressTimer = setTimeout(function() {
     _lastReadyId = deficId;
+    _deactivatePinsGesture();   // S577: a live defer would swallow this very render (and the drag frames after it)
     _renderPinsWithState();   // show blue glow
     _pinLongPressTimer = null;
   }, 500);
