@@ -1425,6 +1425,20 @@ window.addEventListener('load', () => {
       }).then(function(info){
         // S265: derive + lock inspector identity from the signed-in user (shared key with FRT).
         if(info && info.userId){ _updateInspectorChip(); _deriveInspectorIdentity(info.userId); }
+        /* ═══ S602 — THE SYNC LOOP STARTS FIRST, NOT LAST ═══════════════════
+           Until now the save loop and the cloud-listening loop were scheduled
+           at the very END of boot: after the cloud load, the merge, the apply,
+           the toast and the status badges. Any failure anywhere in that chain
+           left a tab that loads, displays, accepts typing and pushes on demand
+           — but never listens. A report rendering a badge is cosmetic; a
+           device hearing another inspector is not. Scheduled here, in its own
+           try/catch, nothing downstream can take it away. The calls at the end
+           of the chain are left in place and are harmless: both stop the
+           previous timer before starting a new one. */
+        try {
+          CloudSync.startAutoSave(_collectCloudState, 30000);
+          _startHeartbeat();
+        } catch(e){ console.warn('[S602] early sync-loop scheduling failed:', e && e.message); }
         // Load data from cloud/IDB
         return CloudSync.load();
       }).then(async function(result){

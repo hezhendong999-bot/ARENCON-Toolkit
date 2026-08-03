@@ -152,6 +152,10 @@ function _noteFlowChanges(prev, next) {
    one small row goes to sync_diag with both values, both entry stamps, and
    what was applied. Fire-and-forget, never blocks or fails a sync. This is
    read from the database; it is not a panel and needs no one's attention. */
+/* S602 — module-scope mirrors of the three identifiers _diag needs; set once
+   in init(). Kept deliberately small and write-once so they cannot drift. */
+let _diagTool = null, _diagProject = null, _diagInstance = null;
+
 function _diag(event, detail) {
   try {
     var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
@@ -162,8 +166,18 @@ function _diag(event, detail) {
                  'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({
         device: (function(){ try { return localStorage.getItem('arencon-device-id'); } catch(_) { return null; } })(),
-        tool: _toolKey, project_id: _projectId || null,
-        instance_id: engine.instanceId || _instanceId || null,
+        /* ═══ S602 — WHY THIS TABLE HAS ALWAYS BEEN EMPTY ═══════════════════
+           This function sits at module scope; _toolKey, _projectId and
+           _instanceId are declared INSIDE the CloudSync closure below. Reading
+           them from here throws ReferenceError on the very first line of the
+           payload — swallowed by the catch, so every call has failed silently
+           since the telemetry was added. S599 moved the reporting deeper in
+           order to explain an empty table; the table was empty because the
+           writer itself never ran. An empty sync_diag has therefore NOT been
+           evidence that a code path did not execute. Mirrors, set in init(),
+           are visible from here. */
+        tool: _diagTool, project_id: _diagProject || null,
+        instance_id: (engine && engine.instanceId) || _diagInstance || null,
         event: event, detail: detail
       })
     }).catch(function () {});
@@ -516,6 +530,38 @@ const CloudSync = (function () {
   let _initialized = false;
   let _pulling = false;
 
+  /* ═══ S602 — TICK HEALTH ════════════════════════════════════════════════
+     _lastCheckAt   : the device LOOKED at the cloud (whether or not anything
+                      came back). Reported separately from _lastPullAt, which
+                      only moves when something was actually received.
+     _pullingSince  : when the current check started, so a hung request can be
+                      released instead of deafening the device permanently.
+     TICK_NET_TIMEOUT_MS : a cloud check that has not answered in 20s has not
+                      failed — it has hung. Treat it as failed and move on.
+     TICK_WATCHDOG_MS    : hard ceiling on holding the busy flag.            */
+  let _lastCheckAt = 0, _pullingSince = 0, _lastTickWhy = '', _lastTickAt = 0;
+  const TICK_NET_TIMEOUT_MS = 20000;
+  const TICK_WATCHDOG_MS = 45000;
+
+  function _withTimeout(p, ms, label) {
+    return Promise.race([p, new Promise(function (_, rej) {
+      setTimeout(function () { rej(new Error(label + ' timed out after ' + Math.round(ms / 1000) + 's')); }, ms);
+    })]);
+  }
+
+  /* One line per tick, rate-limited: every change of outcome is reported, and
+     an unchanging outcome repeats at most once every two minutes. Enough to
+     read a device's whole day; not enough to flood the table. */
+  function _tickDiag(why, extra) {
+    var now = Date.now();
+    var same = (why === _lastTickWhy);
+    _lastTickWhy = why;
+    if (same && (now - _lastTickAt) < 120000 && !/^(pulled|error|probe-failed|watchdog)/.test(why)) return;
+    _lastTickAt = now;
+    try { _diag('tick', Object.assign({ why: why, sinceCheck: _lastCheckAt ? now - _lastCheckAt : null }, extra || {})); }
+    catch (_) {}
+  }
+
   function _setStatus(status, msg) {
     if (_onStatusChange) { try { _onStatusChange(status, msg); } catch (_) {} }
   }
@@ -611,6 +657,7 @@ const CloudSync = (function () {
 
   async function init(opts) {
     _toolKey = opts.toolKey;
+    _diagTool = _toolKey; _diagProject = opts.projectId || null; _diagInstance = opts.instanceId || null;   // S602
     _onStatusChange = opts.onStatusChange || null;
     _projectId = opts.projectId || null;
     _instanceId = opts.instanceId || null;
@@ -1114,7 +1161,28 @@ const CloudSync = (function () {
    *      the S25 empty-cloud guard + the _mergeCloudLocal union against the
    *      REAL current local state.  */
   async function heartbeatTick() {
-    if (!_netUp() || _pulling || !_initialized || !_projectId) return;   // S584: live OS read
+    /* ═══ S602 — THE TICK NOW SAYS WHAT IT DID ═══════════════════════════════
+       Nineteen sessions were spent choosing between four faults that all
+       produce the same panel reading ("save: just now / pull: never"): the
+       loop never starting, the cloud check failing and being read as "nothing
+       new", the busy flag sticking, and the gauge simply never reporting a
+       quiet check. Nothing in the code distinguished them, so every fix was a
+       guess. Every exit from this function now records WHY, and the busy flag
+       can no longer be held forever by a request that hangs instead of
+       failing — the exact shape a tablet produces moving between wifi and LTE.
+       Harness: sim/tickhealth.mjs (fails on S601, passes here). */
+    var _why = '';
+    if (!_netUp()) _why = 'offline';                                     // S584: live OS read
+    else if (_pulling && (Date.now() - _pullingSince) < TICK_WATCHDOG_MS) _why = 'busy';
+    else if (!_initialized) _why = 'not-initialised';
+    else if (!_projectId) _why = 'no-project';
+    if (_why) { _tickDiag(_why); return; }
+    if (_pulling) {
+      /* The previous tick never came back — a hung request, not a failed one.
+         Release it rather than going deaf for the rest of the session. */
+      _tickDiag('watchdog-release', { heldFor: Date.now() - _pullingSince });
+      _pulling = false;
+    }
     /* ═══ S595 — THE PULL WAS GATED ON FOCUS, WHICH NEVER CLEARS ═══════════
        This tick used to skip whenever ANY input held focus. On a desktop a
        field keeps focus indefinitely after one click, so a tab that had been
@@ -1131,8 +1199,16 @@ const CloudSync = (function () {
 
        So: defer only if a keystroke landed in the last 3 seconds, or an
        autosave is still in flight. Idle focus no longer blocks anything. */
-    if ((Date.now() - _lastEditAt) < 3000 || window._autosaveTimer) return;
+    if ((Date.now() - _lastEditAt) < 3000) { _tickDiag('typing'); return; }
+    if (window._autosaveTimer) { _tickDiag('autosave-pending'); return; }
     _pulling = true;
+    _pullingSince = Date.now();
+    /* S602 — "I looked" is recorded separately from "I received something".
+       The old panel only ever stamped the latter, so a healthy idle device
+       read exactly like a dead one, which is what sent every session hunting
+       a loop that may not have been broken. */
+    _lastCheckAt = Date.now();
+    var _outcome = 'no-change';
     try {
       /* S584 — UNSENT WORK FLUSHES ON EVERY BEAT. This flush previously lived
          INSIDE the remote-changed branch below: if the cloud hadn't moved
@@ -1151,8 +1227,20 @@ const CloudSync = (function () {
           }
         } catch (e) { console.warn('[DieselSync] heartbeat flush failed:', e && e.message); }
       }
-      const remote = await engine.getRemoteUpdatedAt(_projectId, engine.instanceId || _instanceId);
+      /* S602 — the probe swallows every error and returns null, which this
+         line then reads as "the cloud has not changed". An expired token, a
+         dropped connection or a blocked request therefore looked exactly like
+         a quiet cloud, forever, with no trace anywhere the field can see.
+         engine.lastProbeError now distinguishes the two, and the call is
+         time-bound so a request that hangs cannot own the tick. */
+      engine.lastProbeError = null;
+      const remote = await _withTimeout(
+        engine.getRemoteUpdatedAt(_projectId, engine.instanceId || _instanceId),
+        TICK_NET_TIMEOUT_MS, 'probe');
+      if (!remote) _outcome = engine.lastProbeError ? ('probe-failed:' + engine.lastProbeError) : 'no-row';
+      else if (remote === engine.lastSeenUpdatedAt) _outcome = 'no-change';
       if (remote && remote !== engine.lastSeenUpdatedAt) {
+        _outcome = 'pulled';
         /* S496 PUSH-BEFORE-PULL — Mark's field repro, diagnosed by Mark himself:
            type in window A → local save lands in ~0.7s but the CLOUD push waits
            for the 30s interval → this 15s pull sees window B's newer cloud copy
@@ -1181,7 +1269,8 @@ const CloudSync = (function () {
             if (localNow !== _lastPushedJson) await save(localNow);
           } catch (e) { console.warn('[DieselSync] pre-pull push failed:', e && e.message); }
         }
-        await engine.pull(_projectId, engine.instanceId || _instanceId);   // silent — stale-guard active
+        await _withTimeout(engine.pull(_projectId, engine.instanceId || _instanceId),
+                           TICK_NET_TIMEOUT_MS, 'pull');   // silent — stale-guard active
         _lastPullAt = Date.now();   // S585
         const ctl = window.__dslHeaderCtl;
         if (ctl) {
@@ -1190,9 +1279,15 @@ const CloudSync = (function () {
         }
       }
     } catch (e) {
+      _outcome = 'error:' + ((e && e.message) || 'unknown');
       console.warn('[DieselSync] heartbeat tick failed:', e && e.message);
+    } finally {
+      /* S602 — a `finally`, not a trailing statement. The old release could be
+         skipped by anything that never returned, and a device that skipped it
+         once stopped listening for the rest of the session. */
+      _pulling = false;
+      _tickDiag(_outcome, { lastSeen: engine.lastSeenUpdatedAt || null });
     }
-    _pulling = false;
   }
 
   function startAutoSave(collectStateFn, intervalMs) {
@@ -1245,6 +1340,7 @@ const CloudSync = (function () {
       pendingSince: _pendingSince || null,
       lastPushOkAt: _lastPushOkAt, lastPushFailAt: _lastPushFailAt,
       lastPushFailMsg: _lastPushFailMsg, lastPullAt: _lastPullAt,
+      lastCheckAt: _lastCheckAt, lastTickWhy: _lastTickWhy,   // S602
       hasBaseline: !!engine.lastSeenUpdatedAt,
       hubMode: !!_projectId, instanceNumber: engine.instanceNumber || _instanceNumber
     };
@@ -1304,7 +1400,15 @@ const CloudSync = (function () {
         row('Last successful cloud save', _fmtAgo(d.lastPushOkAt)) +
         (d.lastPushFailAt ? row('Last FAILED save', _fmtAgo(d.lastPushFailAt) + ' — ' +
           (d.lastPushFailMsg || 'unknown reason').slice(0, 80), 'bad') : '') +
-        row('Last pull from cloud', _fmtAgo(d.lastPullAt)) +
+        /* S602 — two lines, because they answer two different questions.
+           "Checked the cloud" is the one that says the loop is alive: on a
+           healthy idle device it is seconds old while "Received" can sit at
+           never all day and mean nothing is wrong. The old single line
+           conflated them and sent 19 sessions after the wrong fault. */
+        row('Last checked the cloud',
+            _fmtAgo(d.lastCheckAt) + (d.lastTickWhy ? ' — ' + d.lastTickWhy : ''),
+            (d.lastCheckAt && (Date.now() - d.lastCheckAt) < 90000) ? 'good' : 'bad') +
+        row('Last received from cloud', _fmtAgo(d.lastPullAt)) +
         row('Cloud baseline established', d.hasBaseline ? 'yes' : 'NO — pushes refused until a pull succeeds',
             d.hasBaseline ? 'good' : 'bad') +
         row('Mode', d.hubMode ? 'Hub (cloud sync on) — report #' + d.instanceNumber : 'Standalone (no cloud)');

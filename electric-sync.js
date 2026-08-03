@@ -328,6 +328,15 @@ const CloudSync = (function () {
   let _pendingSince = null;   // S524 I-5: when unsent work first appeared (durable)
   let _initialized = false;
   let _pulling = false;
+  /* S602 — tick health, mirrored from Diesel. */
+  let _pullingSince = 0, _lastCheckAt = 0;
+  const ELEC_TICK_NET_TIMEOUT_MS = 20000;
+  const ELEC_TICK_WATCHDOG_MS = 45000;
+  function _elecWithTimeout(p, ms, label) {
+    return Promise.race([p, new Promise(function (_, rej) {
+      setTimeout(function () { rej(new Error(label + ' timed out after ' + Math.round(ms / 1000) + 's')); }, ms);
+    })]);
+  }
 
   function _setStatus(status, msg) {
     if (_onStatusChange) { try { _onStatusChange(status, msg); } catch (_) {} }
@@ -872,7 +881,12 @@ const CloudSync = (function () {
    *      the S25 empty-cloud guard + the _mergeCloudLocal union against the
    *      REAL current local state.  */
   async function heartbeatTick() {
-    if (!_netUp() || _pulling || !_initialized || !_projectId) return;   // S584
+    /* S602 — mirrored from Diesel: the busy flag can no longer be held for the
+       rest of the session by a request that hangs instead of failing, and the
+       cloud check is time-bound. See diesel-sync.js for the full reasoning. */
+    if (!_netUp() || !_initialized || !_projectId) return;   // S584
+    if (_pulling && (Date.now() - _pullingSince) < ELEC_TICK_WATCHDOG_MS) return;
+    _pulling = false;
     /* ═══ S595 — THE PULL WAS GATED ON FOCUS, WHICH NEVER CLEARS ═══════════
        This tick used to skip whenever ANY input held focus. On a desktop a
        field keeps focus indefinitely after one click, so a tab that had been
@@ -891,6 +905,8 @@ const CloudSync = (function () {
        autosave is still in flight. Idle focus no longer blocks anything. */
     if ((Date.now() - _lastEditAt) < 3000 || window._autosaveTimer) return;
     _pulling = true;
+    _pullingSince = Date.now();
+    _lastCheckAt = Date.now();   // S602: "I looked", recorded apart from "I received"
     try {
       /* S584 — unsent work flushes on every beat, same as Diesel: it must not
          depend on whether the cloud happens to have moved. */
@@ -903,7 +919,9 @@ const CloudSync = (function () {
           }
         } catch (e) { console.warn('[ElectricSync] heartbeat flush failed:', e && e.message); }
       }
-      const remote = await engine.getRemoteUpdatedAt(_projectId, engine.instanceId || _instanceId);
+      const remote = await _elecWithTimeout(
+        engine.getRemoteUpdatedAt(_projectId, engine.instanceId || _instanceId),
+        ELEC_TICK_NET_TIMEOUT_MS, 'probe');   // S602
       if (remote && remote !== engine.lastSeenUpdatedAt) {
         /* S496 PUSH-BEFORE-PULL — Mark's field repro, diagnosed by Mark himself:
            type in window A → local save lands in ~0.7s but the CLOUD push waits
@@ -926,7 +944,8 @@ const CloudSync = (function () {
             if (localNow !== _lastPushedJson) await save(localNow);
           } catch (e) { console.warn('[ElectricSync] pre-pull push failed:', e && e.message); }
         }
-        await engine.pull(_projectId, engine.instanceId || _instanceId);   // silent — stale-guard active
+        await _elecWithTimeout(engine.pull(_projectId, engine.instanceId || _instanceId),
+                               ELEC_TICK_NET_TIMEOUT_MS, 'pull');   // S602 — silent, stale-guard active
         const ctl = window.__elecHeaderCtl;
         if (ctl) {
           ctl.setCloud({ state: 'pull' });
@@ -935,8 +954,9 @@ const CloudSync = (function () {
       }
     } catch (e) {
       console.warn('[ElectricSync] heartbeat tick failed:', e && e.message);
+    } finally {
+      _pulling = false;   // S602: a finally, so nothing can skip the release
     }
-    _pulling = false;
   }
 
   function startAutoSave(collectStateFn, intervalMs) {
