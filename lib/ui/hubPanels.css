@@ -1,0 +1,81 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   ARENCON — HUB PANEL CONTENTS  ·  lib/ui/hubPanels.css
+   ─────────────────────────────────────────────────────────────────────────
+   S518 (Mark, all-modals conversion). The Hub's panels are moving onto the
+   shared dialog engine, one at a time. That engine seals a panel's contents in
+   a shadow root, which the page's own stylesheet cannot reach — so the rules a
+   panel's CONTENT needs have to live in a stylesheet the panel links inside
+   that root. Same pattern Help has used since S505e (lib/ui/helpPanel.css).
+
+   These rules are MOVED out of ARENCON_Project_Hub.html, not copied. If a rule
+   appears in both places, that is a bug: the host copy is dead (it can never
+   reach inside the shadow) and will drift out of step with this one.
+
+   Design tokens are deliberately NOT redefined here. CSS custom properties
+   inherit through a shadow boundary, so var(--card), var(--arencon), var(--ts)
+   and the rest resolve to whatever the Hub has set for the current theme. That
+   is what keeps light/dark correct in here for free — never hardcode a colour.
+
+   Frame chrome — the card, the header, the ✕, the footer — belongs to the
+   engine and must NEVER be restated here. Only what goes INSIDE the body.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ═══ INSIGHTS (converted S518; rules originate S497/S497b/S503/S503b) ═══ */
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+/* S503b (Mark): .ins-block never had a box — only its h4 was styled, so with the
+   expanded dashboard every section ran together flat on white. Give it the card
+   treatment from the approved demo. var(--card) carries its own light/dark value,
+   so this works in both themes. */
+.ins-block{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(27,26,34,.04)}
+.ins-block h4{font-size:calc(12px + var(--ts));font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
+.ins-donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.ins-legend{display:flex;flex-direction:column;gap:5px;font-size:calc(12px + var(--ts))}
+.ins-legend .lg{display:flex;align-items:center;gap:7px;color:var(--fg)}
+.ins-legend .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.ins-legend .ct{margin-left:auto;font-weight:700;padding-left:10px}
+.ins-bars{display:flex;flex-direction:column;gap:8px}
+.ins-bar-row{display:grid;grid-template-columns:minmax(90px,130px) 1fr 28px;align-items:center;gap:8px;font-size:calc(12px + var(--ts))}
+.ins-bar-row .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins-bar-row .tr{display:block;height:12px;border-radius:6px;background:color-mix(in srgb,var(--steel) 12%,transparent);overflow:hidden}
+.ins-bar-row .fl{display:block;height:100%;border-radius:6px;background:color-mix(in srgb,var(--arencon) 55%,transparent)}
+/* S497b (Mark's field test): .fl/.tr are spans — inline elements ignore width/
+   height, so every bar painted empty. display:block is the root fix, not a patch. */
+.ins-bar-row .ct{font-weight:700;color:var(--fg);text-align:right}
+.ins-note{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:14px}
+/* ═══ S503 — expanded Insights (Mark) ═══ */
+.ins-sec-h{font-size:calc(12px + var(--ts));font-weight:800;letter-spacing:.6px;color:var(--arencon);text-transform:uppercase;margin:24px 0 12px;padding-bottom:7px;border-bottom:2px solid color-mix(in srgb,var(--arencon) 20%,transparent)}
+.ins-sec-h:first-child{margin-top:0}
+/* S503b (Mark): the two flagged lists are the most ACTIONABLE content but were
+   the faintest — plain rows on white. Give warning cards a warm tint + a red
+   left accent so they read as alerts. Low-alpha fill keeps it within the muted
+   palette (not a loud block). */
+.ins-block.alert{border-color:color-mix(in srgb,var(--no) 30%,var(--border));border-left:4px solid var(--no);background:color-mix(in srgb,var(--no) 5%,var(--card))}
+.ins-block.alert h4{color:var(--no)}
+.ins-block.alert.clear{border-left-color:var(--yes);border-color:color-mix(in srgb,var(--yes) 25%,var(--border));background:color-mix(in srgb,var(--yes) 4%,var(--card))}
+.ins-block.alert.clear h4{color:var(--yes)}
+.ins-donut-wrap svg{flex-shrink:0}
+.ins-donut-c{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.ins-donut-c .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.ins-donut-c .ctr .big{font-size:calc(22px + var(--ts));font-weight:800;color:var(--fg);line-height:1}
+.ins-donut-c .ctr .cap{font-size:calc(9px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+.ins-legend-inline{display:flex;gap:14px;flex-wrap:wrap;font-size:calc(11px + var(--ts));color:var(--steel);margin-bottom:10px}
+.ins-legend-inline span{display:inline-flex;align-items:center;gap:5px}
+.ins-legend-inline .sw{width:10px;height:10px;border-radius:3px}
+.ins-sbar-row{display:grid;grid-template-columns:minmax(90px,130px) 1fr auto;align-items:center;gap:8px;font-size:calc(12px + var(--ts));margin-bottom:8px}
+.ins-sbar-row .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins-sbar-row .tr{display:flex;height:13px;border-radius:7px;overflow:hidden;background:color-mix(in srgb,var(--steel) 12%,transparent)}
+.ins-sbar-row .seg{height:100%}
+.ins-sbar-row .ct{font-weight:700;color:var(--fg);text-align:right;white-space:nowrap}
+.ins-sbar-row .pct{color:var(--yes);font-weight:700;font-size:calc(10.5px + var(--ts));margin-left:6px}
+.ins-flag{display:flex;flex-direction:column}
+.ins-flag .fr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:calc(12px + var(--ts))}
+.ins-flag .fr:last-child{border-bottom:none}
+.ins-flag .warn{color:var(--no);font-size:calc(13px + var(--ts))}
+.ins-flag .proj{font-weight:700;color:var(--fg)}
+.ins-flag .pm{color:var(--steel);font-size:calc(11px + var(--ts))}
+.ins-flag .age{font-weight:800;color:var(--no);white-space:nowrap}
+.ins-flag .age .u{color:var(--silver);font-weight:600;font-size:calc(10px + var(--ts))}
+.ins-flag .empty{color:var(--silver);padding:6px 0}
+.ins-compute{text-align:center;padding:20px}
+.ins-compute button{background:var(--arencon);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-family:inherit;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;min-height:40px}
+.ins-compute .ins-note{margin-top:8px}

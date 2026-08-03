@@ -119,70 +119,19 @@ body.dark-mode .dash-state button.recessive.active{background:rgba(226,96,118,.3
    width — horizontal scroll, and the ✕ drifted with it. Structure fix, not a
    patch: the card is a flex column capped to the viewport; a non-scrolling
    header owns the title and ✕; only the body scrolls, vertically only. */
-#insights-modal .ins-modal-card{width:min(880px,calc(100vw - 24px));max-width:min(880px,calc(100vw - 24px))}
-.ins-modal-card{max-height:86vh;display:flex;flex-direction:column;overflow:hidden;padding:0}
+/* S518: #insights-modal / .ins-modal-card DELETED — Insights is on the shared
+   engine, which owns the card and its sizing. .imx-head/.imx-body below are
+   still LIVE: Client Rename and Notification Review are hand-built and use
+   them. They retire with the last hand-built panel, not before. */
 .imx-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 24px 10px;flex-shrink:0}
 .imx-head h3{margin:0}
 .imx-head .modal-x{position:static;flex-shrink:0}
 .imx-body{overflow-y:auto;overflow-x:hidden;padding:6px 24px 22px}
-.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
-/* S503b (Mark): .ins-block never had a box — only its h4 was styled, so with the
-   expanded dashboard every section ran together flat on white. Give it the card
-   treatment from the approved demo. var(--card) carries its own light/dark value,
-   so this works in both themes. */
-.ins-block{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(27,26,34,.04)}
-.ins-block h4{font-size:calc(12px + var(--ts));font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
-.ins-donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.ins-legend{display:flex;flex-direction:column;gap:5px;font-size:calc(12px + var(--ts))}
-.ins-legend .lg{display:flex;align-items:center;gap:7px;color:var(--fg)}
-.ins-legend .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0}
-.ins-legend .ct{margin-left:auto;font-weight:700;padding-left:10px}
-.ins-bars{display:flex;flex-direction:column;gap:8px}
-.ins-bar-row{display:grid;grid-template-columns:minmax(90px,130px) 1fr 28px;align-items:center;gap:8px;font-size:calc(12px + var(--ts))}
-.ins-bar-row .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ins-bar-row .tr{display:block;height:12px;border-radius:6px;background:color-mix(in srgb,var(--steel) 12%,transparent);overflow:hidden}
-.ins-bar-row .fl{display:block;height:100%;border-radius:6px;background:color-mix(in srgb,var(--arencon) 55%,transparent)}
-/* S497b (Mark's field test): .fl/.tr are spans — inline elements ignore width/
-   height, so every bar painted empty. display:block is the root fix, not a patch. */
-.ins-bar-row .ct{font-weight:700;color:var(--fg);text-align:right}
-.ins-note{font-size:calc(11px + var(--ts));color:var(--silver);margin-top:14px}
-/* ═══ S503 — expanded Insights (Mark) ═══ */
-.ins-sec-h{font-size:calc(12px + var(--ts));font-weight:800;letter-spacing:.6px;color:var(--arencon);text-transform:uppercase;margin:24px 0 12px;padding-bottom:7px;border-bottom:2px solid color-mix(in srgb,var(--arencon) 20%,transparent)}
-.ins-sec-h:first-child{margin-top:0}
-/* S503b (Mark): the two flagged lists are the most ACTIONABLE content but were
-   the faintest — plain rows on white. Give warning cards a warm tint + a red
-   left accent so they read as alerts. Low-alpha fill keeps it within the muted
-   palette (not a loud block). */
-.ins-block.alert{border-color:color-mix(in srgb,var(--no) 30%,var(--border));border-left:4px solid var(--no);background:color-mix(in srgb,var(--no) 5%,var(--card))}
-.ins-block.alert h4{color:var(--no)}
-.ins-block.alert.clear{border-left-color:var(--yes);border-color:color-mix(in srgb,var(--yes) 25%,var(--border));background:color-mix(in srgb,var(--yes) 4%,var(--card))}
-.ins-block.alert.clear h4{color:var(--yes)}
-.ins-donut-wrap svg{flex-shrink:0}
-.ins-donut-c{position:relative;display:inline-flex;align-items:center;justify-content:center}
-.ins-donut-c .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
-.ins-donut-c .ctr .big{font-size:calc(22px + var(--ts));font-weight:800;color:var(--fg);line-height:1}
-.ins-donut-c .ctr .cap{font-size:calc(9px + var(--ts));font-weight:700;color:var(--silver);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
-.ins-legend-inline{display:flex;gap:14px;flex-wrap:wrap;font-size:calc(11px + var(--ts));color:var(--steel);margin-bottom:10px}
-.ins-legend-inline span{display:inline-flex;align-items:center;gap:5px}
-.ins-legend-inline .sw{width:10px;height:10px;border-radius:3px}
-.ins-sbar-row{display:grid;grid-template-columns:minmax(90px,130px) 1fr auto;align-items:center;gap:8px;font-size:calc(12px + var(--ts));margin-bottom:8px}
-.ins-sbar-row .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ins-sbar-row .tr{display:flex;height:13px;border-radius:7px;overflow:hidden;background:color-mix(in srgb,var(--steel) 12%,transparent)}
-.ins-sbar-row .seg{height:100%}
-.ins-sbar-row .ct{font-weight:700;color:var(--fg);text-align:right;white-space:nowrap}
-.ins-sbar-row .pct{color:var(--yes);font-weight:700;font-size:calc(10.5px + var(--ts));margin-left:6px}
-.ins-flag{display:flex;flex-direction:column}
-.ins-flag .fr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:calc(12px + var(--ts))}
-.ins-flag .fr:last-child{border-bottom:none}
-.ins-flag .warn{color:var(--no);font-size:calc(13px + var(--ts))}
-.ins-flag .proj{font-weight:700;color:var(--fg)}
-.ins-flag .pm{color:var(--steel);font-size:calc(11px + var(--ts))}
-.ins-flag .age{font-weight:800;color:var(--no);white-space:nowrap}
-.ins-flag .age .u{color:var(--silver);font-weight:600;font-size:calc(10px + var(--ts))}
-.ins-flag .empty{color:var(--silver);padding:6px 0}
-.ins-compute{text-align:center;padding:20px}
-.ins-compute button{background:var(--arencon);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-family:inherit;font-size:calc(13px + var(--ts));font-weight:600;cursor:pointer;min-height:40px}
-.ins-compute .ins-note{margin-top:8px}
+/* ── Insights panel content styles: MOVED to /lib/ui/hubPanels.css (S518).
+   Insights now opens in the sealed shared dialog engine (Dlg.panel), whose
+   shadow root host CSS cannot reach; openInsights() links hubPanels.css inside
+   the shadow. Frame rules (.ins-modal-card/.imx-head/.imx-body) are DELETED,
+   not parked — the engine draws the card, header, ✕ and footer now. ── */
 .wn-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
 /* ── Help panel styles: MOVED to /lib/ui/helpPanel.css (S505e). The Help panel
    now opens in the sealed shared dialog engine (Dlg.panel) whose SHADOW DOM host
@@ -1468,16 +1417,10 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- ═══════════ NEW PROJECT MODAL ═══════════ -->
-<!-- S497 — Insights panel (computed live from the loaded board; no extra queries) -->
-<div class="modal-overlay" id="insights-modal">
-  <div class="modal-card ins-modal-card">
-    <div class="imx-head"><h3>📊 Insights<button class="modal-q" onclick="openHelp({card:'insights'})" title="What this panel shows" aria-label="Help with Insights">?</button></h3><button class="modal-x" onclick="closeInsights()" title="Close">×</button></div>
-    <div class="imx-body">
-      <div id="insights-body"></div>
-      <div class="ins-note">Counts cover active projects only (archived and deleted excluded). Backup age runs from each project's last export.</div>
-    </div>
-  </div>
-</div>
+<!-- S518 — Insights markup DELETED. The panel is built by openInsights() on the
+     shared dialog engine (Dlg.panel), the same one Help uses. Nothing about the
+     card, header, ✕ or footer is drawn here any more; if any of it reappears in
+     this file, the conversion has been undone. -->
 <!-- S500 — Help panel rendered by the shared Help engine (lib/ui/helpEngine.js).
      The Hub's own cards live in lib/ui/hubHelpCards.js; the engine renders its
      own What's New / Guide tabs and plain-language search into #help-host. -->
@@ -1842,6 +1785,59 @@ let _filterMode = 'my';
    switch out of by hand. Cards is NOT removed — the toggle still works and a
    saved preference of 'cards' is still honoured. Only the no-preference
    fallback changed. Reverting is this one word. */
+/* ══════════════════════════════════════════════════════════════════════════
+   S518 — SHARED-PANEL LOOKUP (Mark: convert every Hub modal to the engine)
+   ─────────────────────────────────────────────────────────────────────────
+   The shared dialog engine seals a panel's contents in a shadow root.
+   document.getElementById() cannot see inside one — it returns null, silently.
+   That is the whole risk of this conversion: a panel opens looking perfect and
+   its Save quietly does nothing, which is exactly how a week of typed thread
+   comments was lost in FRT last month.
+
+   So every converted panel registers its body here while open, and code that
+   reaches into a panel goes through _dq() instead of document.getElementById().
+   _dq() searches open panels innermost-first, then falls back to the page, so
+   the SAME call works whether an element is still in the page or has moved into
+   a panel. That is what lets panels convert one at a time without a flag day.
+
+   RULE for the remaining conversions: when a panel moves onto the engine, every
+   lookup of an id inside it must become _dq(). Grep the panel's ids afterwards —
+   a surviving document.getElementById() on one of them is a silent-failure bug,
+   not a style preference.
+
+   Attribute selector, not #id: ids here are simple, and this avoids depending
+   on CSS.escape() being present on every field device.
+   ══════════════════════════════════════════════════════════════════════════ */
+let _hubPanelRoots = [];
+function _panelPush(bd) { if (bd) _hubPanelRoots.push(bd); }
+function _panelPop(bd) {
+  var i = _hubPanelRoots.lastIndexOf(bd);
+  if (i >= 0) _hubPanelRoots.splice(i, 1);
+}
+function _dq(id) {
+  for (var i = _hubPanelRoots.length - 1; i >= 0; i--) {
+    var r = _hubPanelRoots[i];
+    if (!r || !r.querySelector) continue;
+    var el = r.querySelector('[id="' + id + '"]');
+    if (el) return el;
+  }
+  return document.getElementById(id);
+}
+/* Links the shared panel-contents stylesheet inside a panel's shadow root.
+   Host CSS cannot reach in; without this the body renders unstyled. */
+function _panelCss(bd) {
+  try {
+    var sr = bd.getRootNode();
+    if (sr && sr.querySelector && !sr.querySelector('link[data-hub-panels-css]')) {
+      var lk = document.createElement('link');
+      lk.rel = 'stylesheet';
+      lk.href = '/lib/ui/hubPanels.css?v=518a';
+      lk.setAttribute('data-hub-panels-css', '1');
+      sr.appendChild(lk);
+    }
+  } catch (e) {}
+}
+
 let _hubView = (function(){ try { var v = localStorage.getItem('arencon-hub-view'); return (v === 'cards' || v === 'list') ? v : 'list'; } catch(e){ return 'list'; } })();
 function setHubView(v) {
   _hubView = v;
@@ -2852,9 +2848,33 @@ function _insFlagList(rows, emptyMsg) {
   }).join('') + '</div>';
 }
 async function openInsights() {
-  var body = document.getElementById('insights-body');
+  /* S518 (Mark): converted to the shared dialog engine. The engine owns the
+     card, header, ✕, Esc and the footer — this function owns only what goes
+     inside. The contextual "?" that used to sit beside the title is now a Help
+     button in the footer; returning false from its handler keeps Insights open
+     underneath. Everything below the panel setup is the S497/S503 computation
+     verbatim — only where it writes changed, not what it computes. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { try { console.error('[insights] dialog engine not loaded'); } catch (e) {} return; }
+  var body = null, panelBody = null;
+  D.panel({
+    title: 'Insights',
+    icon: '📊', accent: 'slate', width: 880,
+    buttons: [
+      { label: 'Close', kind: 'cancel' },
+      { label: 'Help', onClick: function () { try { openHelp({ card: 'insights' }); } catch (e) {} return false; } }
+    ],
+    build: function (bd) {
+      panelBody = bd;
+      _panelCss(bd);
+      _panelPush(bd);
+      bd.innerHTML = '<div id="insights-body"></div>'
+        + '<div class="ins-note">Counts cover active projects only (archived and deleted excluded). '
+        + 'Backup age runs from each project\'s last export.</div>';
+      body = bd.querySelector('[id="insights-body"]');
+    }
+  }).then(function () { _panelPop(panelBody); });
   if (!body) return;
-  document.getElementById('insights-modal').classList.add('show');
   body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--silver)">Loading…</div>';
 
   var active = _projects.filter(function (p) { return !p.deleted_at && p.status !== 'archived'; });
@@ -2991,14 +3011,19 @@ async function openInsights() {
     + '<div class="ins-note">Reads every FRT report\u2019s full data \u2014 behind a button so it doesn\u2019t slow the everyday view.</div></div>'
     + '<div id="ins-defic-out"></div>';
 }
-function closeInsights() { document.getElementById('insights-modal').classList.remove('show'); }
+/* S518: closeInsights() DELETED — the shared engine owns close, ✕ and Esc.
+   Its only caller was the hand-built ✕ that went with the old markup. */
 /* S503 — deficiency counts. Heavy: reads every FRT report's full data blob, so it
    only runs when the user presses "Compute deficiencies". Open/closed logic is
    COPIED from the live report-list badge (search 'Outstanding'/'Addressed & Closed')
    so these totals match what the tool shows elsewhere — one source of truth. */
 async function computeInsightsDeficiencies() {
-  var gate = document.getElementById('ins-defic-gate');
-  var out = document.getElementById('ins-defic-out');
+  /* S518: these two live INSIDE the Insights panel, which is now sealed in the
+     engine's shadow root. document.getElementById() would return null here and
+     the button would appear to do nothing at all — no error, no output. _dq()
+     looks in the open panel first. */
+  var gate = _dq('ins-defic-gate');
+  var out = _dq('ins-defic-out');
   if (!out) return;
   if (gate) gate.innerHTML = '<div style="color:var(--silver)">Loading report data…</div>';
   var open = 0, closed = 0, pmDef = {};
