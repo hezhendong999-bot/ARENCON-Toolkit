@@ -22,7 +22,7 @@ import { Presence } from './data/presence.js';
 import { BinaryOutbox } from './data/photoOutbox.js';
 import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
-import { buildHeader2 } from '../../lib/ui/headerEngine2.js';   /* S488 Wave 3: sealed header */
+import { buildHeader2, ensureSharedMenuCSS } from '../../lib/ui/headerEngine2.js';   /* S488 Wave 3: sealed header; S580: the shared dropdown stylesheet, so the drawing viewer's ⋯ menu IS the header menu rather than a copy of it */
 import { upgradeChromeButton, watchChromeTheme } from '../../lib/ui/chromeButton.js';   /* S524: the seven drawing-viewer chrome buttons */
 import { frtHeaderConfig } from '../../lib/ui/headerConfigs.js';
 /* S505g: Help & guide. Same shared engine and same sealed dialog the Hub and
@@ -2055,6 +2055,7 @@ function wireEvents() {
     tab.addEventListener('click', function() { switchTab(this.dataset.tab); });
   });
 
+  ensureSharedMenuCSS('body.dark-mode');   /* S580: one dropdown implementation, header + drawing viewer */
   _buildHeader();   /* S488 Wave 3: sealed header first — everything below that
      touched old header IDs is null-guarded and self-disables. */
 
@@ -2441,7 +2442,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S579';
+var FRT_BUILD = 'S580';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.

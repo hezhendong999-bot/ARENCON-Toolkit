@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=726">
+<link rel="stylesheet" href="css/frt.css?v=727">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -526,14 +526,18 @@ function ensurePdfJs(cb){
          sheet controls from utilities. A gap, not a divider. -->
     <div style="position:relative;display:inline-block;margin-left:10px;">
       <button id="dv-more-btn" title="More options">⋯</button>
-      <div id="dv-more-menu" class="dv-more-menu" style="display:none;">
-        <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing</button>
+      <!-- S580: this menu is the SHARED header-engine dropdown. Classes are the
+           engine's own (mwrap/menu + label/sub rows); the CSS comes from
+           headerEngine2.menuCSS() injected by app.js — there is NO viewer-local
+           menu styling any more. Do not add any. -->
+      <div id="dv-more-menu" class="menu" style="display:none;">
+        <button data-dv-action="download" class="dv-menu-item">⬇️ Download Drawing<span>Save this sheet as an image</span></button>
         <!-- S527: on-screen markup diagnostic. In-app menu item, NOT a URL
              param — field tablets run the Android TWA where the user cannot
              edit the address bar. Read-only report + a manual cloud-merge
              escape hatch. -->
-        <button data-dv-action="markupdiag" class="dv-menu-item">🩺 Markup Diagnostic</button>
-        <button data-dv-action="tasks" class="dv-menu-item">📌 Tasks</button>
+        <button data-dv-action="markupdiag" class="dv-menu-item">🩺 Markup Diagnostic<span>Markup counts, sync state, manual merge</span></button>
+        <button data-dv-action="tasks" class="dv-menu-item">📌 Tasks<span>Open the task panel for this drawing</span></button>
       </div>
     </div>
     <!-- S510 contextual help (Mark): opens the guide AT the Drawing viewer
