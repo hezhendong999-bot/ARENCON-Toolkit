@@ -21,6 +21,7 @@ import { Model } from '../data/model.js';
 import { IDB } from '../data/idb.js';
 import { R2 } from '../data/r2.js';
 import { showConfirm } from '../shared/dialogs.js';
+import { toast } from '../shared/toast.js';   // S574: trash-mode undo hint
 import { TiledPdf } from './tiledPdf.js';
 import { Diag } from '../diag/memory.js';
 import { deviceClass, deviceMaxPixels } from '../shared/deviceBudget.js';
@@ -82,7 +83,7 @@ if (window.MarkupSelection) {
     if (this.hasSel()) _tombstone(this.selIds);
     _engineDeleteSel();
   };
-  SelHost.onSelChange(function () { _syncTextDecoButtons(); _dvRefreshSelConfirm(); });
+  SelHost.onSelChange(function () { _syncTextDecoButtons(); _dvRefreshSelConfirm(); _dvRefreshTrashBar(); });   // S574
 } else {
   console.error('[Markup] lib/ui/markupSelection.js missing — Select tool disabled');
 }
@@ -185,6 +186,59 @@ function _dvRefreshSelConfirm() {
   // confirm (finalize) the group after moving. Same rule as the lightbox.
   _dvSelOk.style.display = 'flex';
   _dvSelCnt.textContent = SelHost.isPicking() ? (SelHost.pickCount() + ' picked') : (SelHost.selCount() + ' selected');
+}
+
+// ── S574 TRASH MODE — drawing-viewer chrome (LOCKED_TRASH_MODE.md) ─────────
+// The engine owns the behaviour (setTrashMode/_trashDown/deleteTrashPicks in
+// lib/ui/markupSelection.js); this is only the host's bar — the same dark pill
+// family as the select confirm bar, tick swapped for the red trash. Deletion
+// routes through SelHost.deleteSelected, i.e. the TOMBSTONE-wrapped delete —
+// trash mode is a new entry into the existing delete path, never a second one.
+var _dvTrashBar = null, _dvTrashCnt = null;
+function _dvEnsureTrashBar() {
+  if (_dvTrashBar) return;
+  _dvTrashBar = document.createElement('div');
+  _dvTrashBar.id = 'dv-trash-confirm';
+  _dvTrashBar.style.cssText = _DV_PILL_BOX + 'left:50%;bottom:84px;transform:translateX(-50%);padding-left:14px;display:none;';
+  _dvTrashCnt = document.createElement('span');
+  _dvTrashCnt.style.cssText = 'font:600 13px Calibri,sans-serif;color:#cfcad6;';
+  var del = document.createElement('button');
+  del.id = 'dv-trash-ok';
+  del.title = 'Delete selected markups';
+  del.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>';
+  del.style.cssText = _DV_PILL_X;   // red circle — SEL.groupDelete family
+  var no = document.createElement('button');
+  no.id = 'dv-trash-no';
+  no.innerHTML = '\u2715'; no.title = 'Cancel — clear selection';
+  no.style.cssText = _DV_PILL_X.replace('#C0445F', 'rgba(255,255,255,.18)');   // grey ✕
+  _dvTrashBar.appendChild(_dvTrashCnt); _dvTrashBar.appendChild(del); _dvTrashBar.appendChild(no);
+  (document.getElementById('drawing-viewer-overlay') || document.body).appendChild(_dvTrashBar);
+  del.addEventListener('click', function () {
+    var n = SelHost.trashCount ? SelHost.trashCount() : 0;
+    if (!n) return;
+    // One-tap custom confirm modal — the real gate (never type-to-confirm).
+    showConfirm('Delete Markups', 'Delete ' + n + ' selected markup' + (n > 1 ? 's' : '') + ' from this drawing? Undo can restore them.').then(function (yes) {
+      if (!yes) return;
+      var d = SelHost.deleteTrashPicks ? SelHost.deleteTrashPicks() : 0;   // tombstones + history via the wrapped delete
+      _dvRefreshTrashBar();
+      if (d) { try { toast('Deleted ' + d + ' markup' + (d > 1 ? 's' : '') + ' \u2014 Undo restores them'); } catch (eT) {} }
+    });
+  });
+  no.addEventListener('click', function () { SelHost.cancelSelect(); _dvRefreshTrashBar(); });
+  _dvTrashBar.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  _dvTrashBar.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
+}
+function _dvRefreshTrashBar() {
+  if (_tool !== 'trash') { if (_dvTrashBar) _dvTrashBar.style.display = 'none'; return; }
+  _dvEnsureTrashBar();
+  var n = SelHost.trashCount ? SelHost.trashCount() : 0;
+  if (!n) { _dvTrashBar.style.display = 'none'; return; }
+  _dvTrashCnt.textContent = n + ' selected';
+  _dvTrashBar.style.display = 'flex';
+}
+function _handleTrashDown(e) {
+  if (SelHost._trashDown) SelHost._trashDown(_getPos(e));
+  _dvRefreshTrashBar();
 }
 var _penPoints = [];
 // S461q: _polyPoints retired — the shared module owns polyline state.
@@ -416,7 +470,6 @@ function _renderDimensionPreview() {
   // S552: dimension chrome is screen-constant like every other affordance here.
   if (dim.setUiScale) dim.setUiScale(_uiScale());
   dim.renderPreview(ctx, _color, _lineWidth, _opacity);
-  _drawLoupe(ctx, _loupeAt);   // S557: only draws during a coarse-pointer drag
 }
 
 // S331 #37 — Live calibration preview. After the first calibration point is
@@ -687,11 +740,21 @@ function _updateDimFinChip() {
   _dvStyleDimFinChip(chip);
   var anchor = dim.chainFinishAnchor ? dim.chainFinishAnchor() : null;
   var mode = dim.getMode ? dim.getMode() : 'single';
-  if (!anchor || mode === 'single' || _tool !== 'dimension') {
+  // S572 (Mark): single mode gets a CANCEL. A half-drawn dimension — the
+  // accidental tap right after finishing one — previously had NO exit at all:
+  // the pill was chain-only, Escape doesn't exist on touch, and undo ignored
+  // uncommitted state. When single mode has a point down, the same pill shows
+  // with the red ✗ alone (✓ commits chains; there is nothing to commit here).
+  var stChip = 'idle';
+  try { stChip = dim.getState().state; } catch (eChip) {}
+  var singleCancel = (mode === 'single' && stChip !== 'idle' && !_dimAdjustObj && !_dimChainPressPending);
+  if (_tool !== 'dimension' || _dimAdjustObj || (!singleCancel && (!anchor || mode === 'single'))) {
     chip.classList.remove('show', 'pulse'); chip.style.display = 'none';
     _dimFinChipWasShowing = false;
     return;
   }
+  var okChipBtn = document.getElementById('dim-finchip-ok');
+  if (okChipBtn) okChipBtn.style.display = singleCancel ? 'none' : 'flex';
   var mc = _getCanvas();
   if (!mc) { chip.classList.remove('show', 'pulse'); chip.style.display = 'none'; _dimFinChipWasShowing = false; return; }
   // S342: the Done chip used to sit 16px right / 24px above the chain anchor —
@@ -1331,6 +1394,17 @@ function _decodeHistorySnapshot(s) {
 }
 
 function _undo() {
+  // S572 (Mark): undo first dissolves any in-progress dimension. A half-drawn
+  // dimension isn't in history yet, so undo used to ignore it entirely — the
+  // most natural cancel gesture did nothing. Adjust stage → discard the
+  // provisional; a locked point/chain → same reset the ✗ pill performs.
+  if (_tool === 'dimension') {
+    try {
+      if (_dimAdjustObj) { _dimAdjustFinish(false); return; }
+      var _duT = window._dimTool;
+      if (_duT && _duT.getState && _duT.getState().state !== 'idle') { _dimFinChipEnd(); return; }
+    } catch (eDU) {}
+  }
   try { console.log('[UndoDiag] _undo CALLED — undoStack=' + _undoStack.length + ' redoStack=' + _redoStack.length + ' objectsBefore=' + _objects.length); } catch(e){}
   if (!_undoStack.length) { try { console.log('[UndoDiag] _undo NOOP — empty undoStack'); } catch(e){} return; }
   _redoStack.push(JSON.stringify({ objects: _objects, tombstones: _tombstones }));
@@ -1345,6 +1419,15 @@ function _undo() {
 }
 
 function _redo() {
+  // S572 (Mark): same rule as _undo — an in-progress dimension is dissolved
+  // before history moves, so redo can never fire "through" a half-drawn one.
+  if (_tool === 'dimension') {
+    try {
+      if (_dimAdjustObj) { _dimAdjustFinish(false); return; }
+      var _drT = window._dimTool;
+      if (_drT && _drT.getState && _drT.getState().state !== 'idle') { _dimFinChipEnd(); return; }
+    } catch (eDR) {}
+  }
   try { console.log('[UndoDiag] _redo CALLED — redoStack=' + _redoStack.length + ' objectsBefore=' + _objects.length); } catch(e){}
   if (!_redoStack.length) { try { console.log('[UndoDiag] _redo NOOP — empty redoStack'); } catch(e){} return; }
   _undoStack.push(JSON.stringify({ objects: _objects, tombstones: _tombstones }));
@@ -2445,48 +2528,8 @@ function _startDraw(e) {
 }
 
 var _dimChainPressPending = false;
-// ── S557 — THE LOUPE. ─────────────────────────────────────────────────────
-// A fingertip covers the exact spot being aimed at — roughly forty screen
-// pixels of pipe hidden under flesh. Every serious drawing app answers this
-// with a magnifier: a circle above the finger showing a zoomed view of what
-// is underneath. Drawn on the overlay canvas (already cleared/repainted every
-// preview frame), compositing the drawing image, the committed markup, and
-// the live preview. Shown only during an active dimension drag on a COARSE
-// pointer — mouse and pen users can see past their cursor.
-var _LOUPE_ON = (function(){ try { return !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches); } catch(e){ return false; } })();
-function _drawLoupe(ctx, at) {
-  if (!_LOUPE_ON || !at) return;
-  var mc = _getCanvas(); if (!mc) return;
-  var u = _uiScale();
-  var R = 62 * u, ZOOM = 2.2;
-  var cx = at.x, cy = at.y - R - 40 * u;          // above the fingertip
-  if (cy - R < 0) cy = at.y + R + 40 * u;         // flip below near the top edge
-  ctx.save();
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.closePath();
-  ctx.save(); ctx.clip();
-  ctx.fillStyle = '#fff'; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
-  ctx.translate(cx, cy); ctx.scale(ZOOM, ZOOM); ctx.translate(-at.x, -at.y);
-  // layers under the glass: drawing, then committed markup. Live preview is
-  // painted by the caller AFTER this, so the loupe shows the state one frame
-  // back for those strokes — invisible in practice at preview cadence.
-  try {
-    var img = document.getElementById('dv-image');
-    if (img && img.naturalWidth) ctx.drawImage(img, 0, 0, mc._logicalW || mc.width, mc._logicalH || mc.height);
-  } catch (e) {}
-  try { ctx.drawImage(mc, 0, 0, mc._logicalW || mc.width, mc._logicalH || mc.height); } catch (e) {}
-  ctx.restore();
-  // crosshair at the loupe centre = the exact point under the finger
-  ctx.strokeStyle = '#C0445F'; ctx.lineWidth = 1.4 * u;
-  ctx.beginPath();
-  ctx.moveTo(cx - 12 * u, cy); ctx.lineTo(cx + 12 * u, cy);
-  ctx.moveTo(cx, cy - 12 * u); ctx.lineTo(cx, cy + 12 * u);
-  ctx.stroke();
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 6 * u; ctx.stroke();
-  ctx.strokeStyle = '#9C2742'; ctx.lineWidth = 2.4 * u; ctx.stroke();
-  ctx.restore();
-}
-var _loupeAt = null;   // drawing-space point under the finger, or null
+// ── S557 loupe REMOVED (Mark, S572): the magnifier circle obstructed the
+// view more than it helped. The adjust-then-place stage below stays.
 
 var _dimPressPos = null;      // S553: drawing-space position of the press
 var _dimPressState = 'idle';  // S553: chain state at press time
@@ -2582,7 +2625,6 @@ function _dimChainRelease(e) {
       dim.handleMove(posD);                                                      // keep the preview honest
       var resDrag = dim.handleClick(posD, drDrag, vDrag);                        // end = where it lifted
       _dimPressPos = null; _dimPressState = 'idle';
-      _loupeAt = null;
       // S557 (corrected): the second click yields lockedB — the tool is now
       // waiting for a THIRD click to place the label offset. Verified in
       // dimensionTool.js: awaitB → lockedB, and only awaitOffset commits.
@@ -2742,7 +2784,6 @@ function _moveDraw(e) {
     }
     // (a) Vertex drag
     if (_dimVertexEditId != null && _dimVertexDragHandle != null && _isDrawing) {
-      _loupeAt = posDM;   // S557: magnify while adjusting an endpoint
       var dragObj = _findObj(_dimVertexEditId);
       if (dragObj) {
         // Capture the OLD pixel length before we move the handle — needed to
@@ -2822,13 +2863,11 @@ function _moveDraw(e) {
     var stDM = dim.getState();
     if (stDM.state !== 'idle') {
       dim.handleMove(posDM);
-      _loupeAt = _isDrawing || _dimChainPressPending ? posDM : null;   // S557
       _renderDimensionPreview();
       return;
     }
-    // S557: also magnify during the initial press-drag, before any state locks
+    // Live rubber line during the initial press-drag, before any state locks
     if (_dimChainPressPending && _dimPressPos) {
-      _loupeAt = posDM;
       var octx0 = (function(){ var ov=_ensureOverlay(); if(!ov) return null;
         ov.style.display='block'; ov.style.opacity='1';
         var c=ov.getContext('2d'), d=ov._dpr||1;
@@ -2840,7 +2879,6 @@ function _moveDraw(e) {
         octx0.strokeStyle=_color; octx0.lineWidth=2*_uiScale(); octx0.setLineDash([6*_uiScale(),4*_uiScale()]);
         octx0.beginPath(); octx0.moveTo(_dimPressPos.x,_dimPressPos.y); octx0.lineTo(posDM.x,posDM.y); octx0.stroke();
         octx0.restore();
-        _drawLoupe(octx0, posDM);
       }
       return;
     }
@@ -3443,8 +3481,8 @@ function _dvStylePolyPill(pill) {
 // Every in-progress pill [polyline / dim finish / selection confirm] clones
 // these metrics; only the button set differs (polyline keeps ↩).
 var _DV_PILL_BOX    = 'position:fixed;z-index:10021;display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,.55);';
-var _DV_PILL_FINISH = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';   // S479 (Mark, B): TRUE circle — was a lozenge (padding+radius:18), the one off-family shape in the pill set
-var _DV_PILL_X      = 'border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+var _DV_PILL_FINISH = 'border:none;flex:0 0 auto;width:36px;min-width:36px;height:36px;min-height:36px;border-radius:50%;cursor:pointer;font-size:17px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';   // S479 (Mark, B): TRUE circle — was a lozenge. S572 (Mark): flex:0 0 auto + min sizes — the pill row was allowed to squeeze the circles into ovals when it ran out of room
+var _DV_PILL_X      = 'border:none;flex:0 0 auto;width:36px;min-width:36px;height:36px;min-height:36px;border-radius:50%;cursor:pointer;font-size:15px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
 // S461k (Mark): ONE placement rule for every pill. Touch devices → FIXED
 // bottom-center (never jumps, never leaves the screen). Fine pointers (PC)
 // → follow near the anchor point, hard-clamped inside the viewport.
@@ -4349,6 +4387,11 @@ function _setActiveTool(tool) {
 
   _tool = tool;
   SelHost.deselect();   // S461
+  // S574: entering/leaving the trash tool drives the engine's trash mode —
+  // switching straight to ANY other tool exits it, so the forced tap sub-mode
+  // and the pick set can never leak into the next tool.
+  if (SelHost.setTrashMode) SelHost.setTrashMode(tool === 'trash');
+  if (tool !== 'trash' && _dvTrashBar) _dvTrashBar.style.display = 'none';
   _isDrawing = false;
   // S126 #5 — Switching tools cancels any in-progress click-to-draw shape
   _cancelClickToDraw();
@@ -4396,10 +4439,10 @@ function _setActiveTool(tool) {
   var mc = _getCanvas();
   if (mc) {
     mc.classList.remove('drawing-active', 'select-active', 'text-mode');
-    if (tool && tool !== 'select' && tool !== 'pin') {
+    if (tool && tool !== 'select' && tool !== 'pin' && tool !== 'trash') {
       mc.classList.add('drawing-active');
       mc.style.pointerEvents = 'auto';
-    } else if (tool === 'select') {
+    } else if (tool === 'select' || tool === 'trash') {   // S574: trash gets select-style pointer routing
       mc.classList.add('select-active');
       mc.style.pointerEvents = 'auto';
     } else {
@@ -4413,7 +4456,7 @@ function _setActiveTool(tool) {
     area.classList.remove('drawing', 'erasing', 'text-mode');
     if (tool === 'eraser') area.classList.add('erasing');
     else if (tool === 'text') area.classList.add('text-mode');
-    else if (tool && tool !== 'select') area.classList.add('drawing');
+    else if (tool && tool !== 'select' && tool !== 'trash') area.classList.add('drawing');
   }
 
   if (_eraserCursor && tool !== 'eraser') _eraserCursor.style.display = 'none';
@@ -5037,11 +5080,13 @@ function _wireEvents() {
 
   mc.addEventListener('mousedown', function(e) {
     console.log('[Markup] Canvas mousedown — tool:', _tool);
+    if (_tool === 'trash') { _handleTrashDown(e); return; }   // S574
     if (_tool === 'select') { _handleSelectDown(e); return; }
     _startDraw(e);
   });
   mc.addEventListener('mousemove', function(e) {
     _updateEraserCursor(e);
+    if (_tool === 'trash') { return; }   // S574: trash has no drags
     if (_tool === 'select') { _handleSelectMove(e); return; }
     // Polyline rubber-band preview
     if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 1 && !_isDrawing) {
@@ -5051,6 +5096,7 @@ function _wireEvents() {
     _moveDraw(e);
   });
   mc.addEventListener('mouseup', function(e) {
+    if (_tool === 'trash') { return; }   // S574: pick happened on down
     if (_tool === 'select') { _handleSelectUp(); return; }
     // S461k: release-commit for polyline points + dimension chain clicks
     if (_tool === 'polyline' && !_isDrawing) { _handlePolylineClick(e); return; }
@@ -5077,6 +5123,7 @@ function _wireEvents() {
     }
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
+    if (_tool === 'trash') { _handleTrashDown(e); return; }   // S574
     if (_tool === 'select') { _handleSelectDown(e); return; }
     _startDraw(e);
   }, { passive: false });
@@ -5092,6 +5139,7 @@ function _wireEvents() {
     }
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
+    if (_tool === 'trash') { return; }   // S574: trash has no drags
     if (_tool === 'select') { _handleSelectMove(e); return; }
     if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 1 && !_isDrawing) {
       _drawPolylinePreview(e);
@@ -5102,6 +5150,7 @@ function _wireEvents() {
 
   mc.addEventListener('touchend', function(e) {
     if (!_tool || _tool === 'pin') return;
+    if (_tool === 'trash') { return; }   // S574: pick happened on down
     if (_tool === 'select') { _handleSelectUp(); return; }
     // S461k: release-commit (uses changedTouches — _getPos handles touchend)
     if (_tool === 'polyline' && !_isDrawing) { _handlePolylineClick(e); return; }

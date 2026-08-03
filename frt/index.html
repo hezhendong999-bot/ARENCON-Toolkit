@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=721">
+<link rel="stylesheet" href="css/frt.css?v=722">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -630,6 +630,9 @@ function ensurePdfJs(cb){
       </button>
       <button id="mk-eraser" class="tool-btn" data-mk-tool="eraser" data-tip="Eraser">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/></svg>
+      </button>
+      <button id="mk-trash" class="tool-btn" data-mk-tool="trash" data-tip="Delete markups">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
       </button>
       <div class="tool-sep"></div>
       <div class="tool-group" id="tool-color-group">

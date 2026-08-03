@@ -316,10 +316,14 @@ function _buildMarkupBar(overlay){
   var bShapeGrp=iconBtn('mk-shapegrp','rect','Shapes group',true); bShapeGrp.dataset.tool='rect';
   var bTx=iconBtn('mk-text','text','Text label',false);
   var bEr=iconBtn('mk-er','eraser','Eraser',false);
+  // S574 — TRASH MODE (LOCKED_TRASH_MODE.md): dedicated button, Mark's explicit
+  // choice ("I want an own button looks like a trash bin"). Armed = red, the
+  // only departure from the burgundy arm colour — destructive intent explicit.
+  var bTrash=iconBtn('mk-trashmode','trash','Delete markups \u2014 tap marks, then confirm',false);
   var sepU=document.createElement('div'); sepU.style.cssText='width:1px;height:26px;background:rgba(255,255,255,.18);margin:0 2px;flex:0 0 auto;';
   var bUn=iconBtn('mk-undo','undo','Undo (Ctrl+Z)',false);
   var bRd=iconBtn('mk-redo','redo','Redo (Ctrl+Y)',false);
-  [bSel,bPenGrp,bShapeGrp,bTx,bEr,sepU,bUn,bRd].forEach(function(e){row1.appendChild(e);});
+  [bSel,bPenGrp,bShapeGrp,bTx,bEr,bTrash,sepU,bUn,bRd].forEach(function(e){row1.appendChild(e);});
   // S339 — Select sub-tool flyout (tap-to-open, finger-friendly; LOCKED_SELECT_DRAW_MODEL_S339)
   var subFly=document.createElement('div'); subFly.id='lb-mk-subfly';
   // S486 (Mark): icon-ONLY sub-tools — same presentation as the drawing
@@ -349,9 +353,9 @@ function _buildMarkupBar(overlay){
   cBar.style.cssText='position:absolute;left:50%;bottom:74px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(20,20,28,.96);border:1px solid rgba(255,255,255,.14);border-radius:22px;z-index:21;box-shadow:0 6px 20px rgba(0,0,0,.55);';
   var cCnt=document.createElement('span'); cCnt.style.cssText='font:600 13px Calibri,sans-serif;color:#cfcad6;';
   var cOk=document.createElement('button'); cOk.innerHTML='\u2713'; cOk.title='Confirm \u2014 group these';
-  cOk.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
+  cOk.style.cssText='border:none;flex:0 0 auto;width:42px;min-width:42px;height:42px;min-height:42px;border-radius:50%;cursor:pointer;font-size:20px;color:#fff;background:#3FD08A;display:flex;align-items:center;justify-content:center;';
   var cNo=document.createElement('button'); cNo.innerHTML='\u2715'; cNo.title='Cancel \u2014 clear selection';
-  cNo.style.cssText='border:none;width:42px;height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
+  cNo.style.cssText='border:none;flex:0 0 auto;width:42px;min-width:42px;height:42px;min-height:42px;border-radius:50%;cursor:pointer;font-size:18px;color:#fff;background:#C0445F;display:flex;align-items:center;justify-content:center;';
   cBar.appendChild(cCnt); cBar.appendChild(cOk); cBar.appendChild(cNo);
   overlay.appendChild(cBar);
   // ===== Row 2: size · opacity · color · | · save/clear/revert (Option B icons) =====
@@ -543,8 +547,11 @@ function _buildMarkupBar(overlay){
   var shapeFly=groupFly([['rect','Rectangle'],['rect-fill','Filled Rect'],['circle','Circle'],['circle-fill','Filled Circle'],['triangle','Triangle']], bShapeGrp);
 
   function setActive(btn){
-    [bSel,bPenGrp,bShapeGrp,bTx,bEr].forEach(function(b){ b.style.background='transparent'; b.style.color='#cfd2d6'; });
-    if (btn){ btn.style.background='#9C2742'; btn.style.color='#fff'; }
+    [bSel,bPenGrp,bShapeGrp,bTx,bEr,bTrash].forEach(function(b){ b.style.background='transparent'; b.style.color='#cfd2d6'; });
+    // S574: armed trash lights RED (SEL.groupDelete) — the button IS the armed
+    // state (Mark, option A: no banner, no frame tint); every other tool keeps
+    // the burgundy arm colour.
+    if (btn){ btn.style.background=(btn===bTrash)?'#C0445F':'#9C2742'; btn.style.color='#fff'; }
   }
   function clearActive(){ setActive(null); }
   // S339 — tap a tool to arm it; tap the SAME tool again to deactivate (no tool armed,
@@ -582,6 +589,7 @@ function _buildMarkupBar(overlay){
   bShapeGrp.addEventListener('click',function(e){ e.stopPropagation(); toggleGroup(bShapeGrp, shapeFly); });
   bTx.addEventListener('click',function(){toggleTool(bTx,'text');});
   bEr.addEventListener('click',function(){toggleTool(bEr,'eraser');});
+  bTrash.addEventListener('click',function(){toggleTool(bTrash,'trash');});   // S574 — engine setTool auto-enters/exits trash mode
   // S339 — all flyouts (Select sub-modes, Pen-group, Shapes-group, Colour) anchor
   // just above the toolbar, left-aligned to their button. Measured per-open so they
   // sit correctly above the two-row bar.
@@ -659,6 +667,22 @@ function _buildMarkupBar(overlay){
   // S339 — confirm bar: ✗ whenever a selection/pick is active; ✓ added in tap mode while picking.
   function _refreshConfirmBar(){
     var E=window.MarkupEngine;
+    // S574 TRASH MODE — the EXISTING bar, tick swapped for the red trash
+    // (LOCKED_TRASH_MODE.md: "existing confirm bar... green \u2713 becomes red \ud83d\uddd1").
+    if (E && E.tool==='trash'){
+      var nT=E.trashCount?E.trashCount():0;
+      if(!nT){ cBar.style.display='none'; return; }
+      cBar.style.bottom=_barClearance()+'px';
+      cBar.style.display='flex';
+      cCnt.textContent=nT+' selected';
+      cOk.innerHTML=_sized(SVG.trash); cOk.style.background='#C0445F'; cOk.title='Delete selected markups';
+      cNo.style.background='rgba(255,255,255,.18)'; cNo.title='Cancel \u2014 clear selection';
+      cOk.style.display='flex';
+      return;
+    }
+    // select mode — restore the bar's select styling (trash may have recoloured it)
+    cOk.innerHTML='\u2713'; cOk.style.background='#3FD08A'; cOk.title='Confirm \u2014 group these';
+    cNo.style.background='#C0445F'; cNo.title='Cancel \u2014 clear selection';
     if (!E || E.tool!=='select' || !E.hasActiveSelection()){ cBar.style.display='none'; return; }
     cBar.style.bottom=_barClearance()+'px';
     cBar.style.display='flex';
@@ -669,7 +693,22 @@ function _buildMarkupBar(overlay){
     cOk.style.display='flex';
     cCnt.textContent = picking ? (E.pickCount()+' picked') : (E.selectionCount()+' selected');
   }
-  cOk.addEventListener('click',function(){ if(window.MarkupEngine){ (window.MarkupEngine.confirmSelection||window.MarkupEngine.confirmPick).call(window.MarkupEngine); } _refreshConfirmBar(); });
+  cOk.addEventListener('click',function(){
+    var E=window.MarkupEngine; if(!E) return;
+    if (E.tool==='trash'){
+      // S574: the confirm modal is the real gate — one tap, custom modal,
+      // never type-to-confirm. Copy makes unambiguous that PHOTOS are safe.
+      var nDel=E.trashCount?E.trashCount():0; if(!nDel) return;
+      showConfirm('Delete Markups', 'Delete '+nDel+' selected markup'+(nDel>1?'s':'')+' from this photo? Photos and the deficiency are not affected. Undo can restore them.').then(function(yes){
+        if(!yes) return;
+        var dN=E.deleteTrashPicks?E.deleteTrashPicks():0;
+        _refreshConfirmBar();
+        if(dN) toast('Deleted '+dN+' markup'+(dN>1?'s':'')+' \u2014 Undo restores them');
+      });
+      return;
+    }
+    (E.confirmSelection||E.confirmPick).call(E); _refreshConfirmBar();
+  });
   cNo.addEventListener('click',function(){ if(window.MarkupEngine){ window.MarkupEngine.cancelSelect(); } _refreshConfirmBar(); });
   // ── S461t: polyline pill — the shared design (dark bar, 36px circles:
   // ✓ Finish · ↩ undo-point · ✕ cancel). Appears with the first placed point.

@@ -193,6 +193,11 @@
     },
 
     setTool:  function(t){
+      // S574: switching straight from trash to ANY other tool exits trash mode
+      // cleanly — otherwise the forced tap sub-mode and the pick set leak into
+      // the next tool. setTrashMode(false) restores the user's chosen sub.
+      if (this._trashMode && t !== 'trash' && this.setTrashMode) this.setTrashMode(false);
+      if (t === 'trash' && this.setTrashMode) this.setTrashMode(true);
       // S461t: leaving polyline mid-draw discards pending points AND the arm
       // flags — nothing may leak into another tool's press/move/release.
       if (this.tool === 'polyline' && t !== 'polyline'){
@@ -280,6 +285,7 @@
         }
         if (self.tool === 'text'){ self._textPrompt(p, ev); return; }  // no preventDefault — let focus land
         ev.preventDefault();
+        if (self.tool === 'trash'){ if (self._trashDown) self._trashDown(p); return; }   // S574 trash mode — tap-pick only, down-only
         if (self.tool === 'select'){ if (self._selDown) self._selDown(p, ev); return; }   // shared MarkupSelection (S459l)
         if (self.tool === 'eraser'){
           // S459 shared eraser (lib/ui/markupEraser.js): nothing deletes during the
@@ -340,6 +346,7 @@
           }
           return;
         }
+        if (self.tool === 'trash'){ return; }   // S574: trash has no drags
         if (self.tool === 'select'){ if (self._dragState && self._selMove){ ev.preventDefault(); self._selMove(pt(ev)); } return; }
         if (!self._drawing) return;
         ev.preventDefault();
@@ -371,6 +378,7 @@
         self._renderSoon();   // S482 [ported S487k]: frame-batched — points append per event
       }
       function up(){
+        if (self.tool === 'trash'){ return; }   // S574: trash has no drags
         if (self.tool === 'select'){ if (self._dragState && self._selUp) self._selUp(); return; }
         // S461t — POLYLINE: release places the point (module owns close-loop:
         // within 15 units of point 0 → snap + finish). Gated on tool + its own
@@ -1014,7 +1022,7 @@
         if (tx.tool==='text') this._drawTextR(ctx, tx);
       }
       // Pass 5: selection overlay (select mode only)
-      if (this.tool === 'select' && this._drawSelChrome) this._drawSelChrome(ctx);   // shared chrome (S459e pad + S459f tight amber)
+      if ((this.tool === 'select' || this.tool === 'trash') && this._drawSelChrome) this._drawSelChrome(ctx);   // shared chrome (S459e pad + S459f tight amber); S574 trash rides the same tap-pick chrome
     },
 
     // Wrap shape draw with opacity + rotation about bbox center (screen render only, sx=sy=1)

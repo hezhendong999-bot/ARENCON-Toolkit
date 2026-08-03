@@ -11662,3 +11662,9 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
   .crx-tag .crx-tx,
   .dfx-sr-pin{opacity:1;}
 }
+
+/* ── S574 TRASH MODE (LOCKED_TRASH_MODE.md) ── the armed 🗑 lights RED
+   (SEL.groupDelete #C0445F, NOT Bold --fail) — the button IS the armed state
+   (Mark, option A: no banner, no frame tint). Every other tool keeps the
+   standard burgundy .active. */
+#mk-trash.active { background: #C0445F; color: #fff; }
