@@ -34,7 +34,7 @@
 
 import { Auth } from './lib/shared/auth.js';
 import { createIDB } from './lib/data/idb.js';
-import { createSync } from './lib/data/sync.js';
+import { createSync, contentEquals } from './lib/data/sync.js';   // S583: canonical no-change comparison
 import { createChangeJournal } from './lib/data/changeJournal.js';  // S574
 import { merge3, applyResolutions, summarizeConflict } from './lib/data/merge.js';
 import * as Dlg from './lib/ui/dialogEngine.js';
@@ -112,6 +112,10 @@ function _applyCloudSilent(cloudState) {
   const w = window;
   try {
     const local = (typeof w._collectCloudState === 'function') ? w._collectCloudState() : null;
+    /* S583 — NO-CHANGE GATE (Mark's ruling: identical content produces total
+       silence). If the cloud copy matches what this window already shows —
+       compared canonically, bookkeeping ignored — apply NOTHING. */
+    if (local && contentEquals(cloudState, local)) return;
     // S25 EMPTY-CLOUD GUARD — never let a materially-empty cloud row
     // overwrite a non-empty local report. Local wins; the next push
     // repopulates cloud (If-Match will match — we HAVE seen this row).
@@ -208,11 +212,16 @@ const engine = createSync({
  * them on every save, so they can conflict without any human meaning) in
  * favour of MINE, and only shows the dialog for real field conflicts. */
 const _NOISE_PATHS = { '_build': 1, 'dateModified': 1 };
+/* S583: stamp paths are bookkeeping — auto-resolve, never ask a person. */
+function _isNoisePath(p) {
+  if (_NOISE_PATHS[p]) return true;
+  return /(^|[.\[])_(ts|fts)(\]|$)/.test(p) || /\._ts$/.test(p) || /\._fts$/.test(p);
+}
 
 engine.onConflict = function (conflicts, mergeResult) {
   const auto = [], real = [];
   conflicts.forEach(function (c) {
-    (_NOISE_PATHS[c.path] ? auto : real).push(c);
+    (_isNoisePath(c.path) ? auto : real).push(c);
   });
   const autoRes = auto.map(function (c) { return { path: c.path, chosen: 'mine' }; });
 
@@ -402,7 +411,14 @@ const CloudSync = (function () {
     window.addEventListener('online', function () {
       _online = true;
       _setStatus('saving', 'Reconnected...');
-      if (engine.isPending) {
+      /* S583 — an offline save never involves the engine, so engine.isPending
+         stays false and this handler used to do nothing on reconnect. Check
+         the real ledger: local saved vs cloud confirmed. */
+      if (_lastSavedJson && _lastSavedJson !== _lastPushedJson) {
+        Promise.resolve(save(_lastSavedJson))
+          .then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); })
+          .catch(function () { _setStatus('pending', 'Saved locally'); });
+      } else if (engine.isPending) {
         engine.flush().then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); });
       } else { _setStatus('synced', 'Online'); }
     });
@@ -679,7 +695,10 @@ const CloudSync = (function () {
         if (_collectStateFn) {
           try {
             const localNow = JSON.stringify(_collectStateFn());
-            if (localNow !== _lastSavedJson) await save(localNow);
+            /* S583 — same 70-psi fix as Diesel: ask the CLOUD ledger
+               (_lastPushedJson), not the local one. Offline work always
+               pushes before any pull can touch it. */
+            if (localNow !== _lastPushedJson) await save(localNow);
           } catch (e) { console.warn('[ElectricSync] pre-pull push failed:', e && e.message); }
         }
         await engine.pull(_projectId, engine.instanceId || _instanceId);   // silent — stale-guard active
