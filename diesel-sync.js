@@ -464,6 +464,11 @@ const CloudSync = (function () {
   let _userId = null;
   let _projectInfo = null;
   let _lastSavedJson = '';
+  /* S595 — last ACTUAL keystroke (not focus). See the heartbeat gate below. */
+  let _lastEditAt = 0;
+  try {
+    document.addEventListener('input', function () { _lastEditAt = Date.now(); }, true);
+  } catch (_) {}
   /* S585 — sync diagnostics timeline (feeds the on-screen Sync Status panel) */
   let _lastPushOkAt = 0, _lastPushFailAt = 0, _lastPushFailMsg = '', _lastPullAt = 0;
   let _lastPushedJson = '';   // S524 I-5: advances only on CONFIRMED push
@@ -1029,9 +1034,23 @@ const CloudSync = (function () {
    *      REAL current local state.  */
   async function heartbeatTick() {
     if (!_netUp() || _pulling || !_initialized || !_projectId) return;   // S584: live OS read
-    const ae = document.activeElement;
-    const editing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT');
-    if (editing || window._autosaveTimer) return;   // S321 deferral
+    /* ═══ S595 — THE PULL WAS GATED ON FOCUS, WHICH NEVER CLEARS ═══════════
+       This tick used to skip whenever ANY input held focus. On a desktop a
+       field keeps focus indefinitely after one click, so a tab that had been
+       clicked into simply STOPPED PULLING — forever — while continuing to
+       push. That is the shape of every "the cloud has the right number and my
+       screen doesn't" report: PC parked on 150 while the cloud held 200.
+       (Mark, 03 Aug: "local is not pulling from the cloud".)
+
+       The gate existed because a pull could once overwrite a live edit. That
+       risk is gone: since S594 a typed value is stamped at the keystroke, so
+       the merge gives it the win over anything arriving from the cloud. All
+       that is still worth deferring is the split second of active typing, to
+       avoid re-rendering a field under someone's fingers.
+
+       So: defer only if a keystroke landed in the last 3 seconds, or an
+       autosave is still in flight. Idle focus no longer blocks anything. */
+    if ((Date.now() - _lastEditAt) < 3000 || window._autosaveTimer) return;
     _pulling = true;
     try {
       /* S584 — UNSENT WORK FLUSHES ON EVERY BEAT. This flush previously lived
