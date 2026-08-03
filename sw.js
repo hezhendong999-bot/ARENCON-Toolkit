@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608032213';
+var CACHE_NAME = 'arencon-frt-202608032256';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -175,6 +175,7 @@ var APP_FILES = [
   'lib/ui/hubHeaderConfig.js',
   'lib/ui/hubHelpCards.js',
   'lib/ui/lightbox.js',
+  'lib/ui/liveUpdate.js',
   'lib/ui/markupEraser.js',
   'lib/ui/markupPolyline.js',
   'lib/ui/markupSelection.js',
@@ -433,27 +434,49 @@ self.addEventListener('fetch', function(e) {
     return;
   }
 
-  // Same-origin files — network-first (always get latest deploy, fallback to cache offline)
+  /* ═══ S588 — SAME-ORIGIN: STALE-WHILE-REVALIDATE (Mark, option A) ═════════
+     WAS network-first: every screen waited on the network before rendering.
+     Online that is fine; in a sub-grade pump room with one bar it is the worst
+     case — the browser does not fail fast, it hangs, then falls back. That is
+     the "sometimes slow, sometimes fine" underground behaviour.
+
+     Now: answer from the local copy IMMEDIATELY when we have it, and refresh
+     that copy from the network in the background. Opens are instant on any
+     signal; offline is unchanged.
+
+     Freshness is no longer this handler's job — it belongs to the worker
+     lifecycle. Every push writes a new CACHE_NAME, so the browser sees a
+     changed worker, precaches every file fresh, activates, and broadcasts
+     sw-updated; lib/ui/liveUpdate.js applies it at a safe moment. The cache is
+     replaced WHOLESALE at that swap instead of file-by-file per fetch, so
+     "fast" and "current" stop competing.
+
+     Cost, stated plainly: for a few seconds after a push a device may still
+     answer from the previous copy while the background fetch lands. Nobody
+     checks build numbers any more, so this is invisible.
+
+     S488 offline lesson PRESERVED: tool URLs carry ?project=&instance=&pn=…
+     but the precache stores bare pathnames, so every cache lookup here uses
+     ignoreSearch. Matching by exact URL was the root of Mark's intermittent
+     "sometimes offline works, sometimes it doesn't". */
   if (url.hostname === self.location.hostname) {
     e.respondWith(
-      fetch(e.request).then(function(resp) {
-        if (resp.ok) {
-          var clone = resp.clone();
-          caches.open(CACHE_NAME).then(function(c) { c.put(e.request, clone); });
+      caches.match(e.request, { ignoreSearch: true }).then(function(cached) {
+        var net = fetch(e.request).then(function(resp) {
+          if (resp && resp.ok) {
+            var clone = resp.clone();
+            caches.open(CACHE_NAME).then(function(c) { c.put(e.request, clone); });
+          }
+          return resp;
+        }).catch(function() { return null; });
+
+        if (cached) {
+          try { e.waitUntil(net); } catch (_) {}   // revalidate quietly; user already has their answer
+          return cached;
         }
-        return resp;
-      }).catch(function() {
-        /* S488 OFFLINE ROOT FIX (Mark's intermittent "sometimes offline works,
-           sometimes it doesn't", pattern finally explained): tool URLs carry
-           ?project=&instance=&pn=… — but this fallback matched by EXACT URL,
-           and the precache stores the bare pathname. So offline navigation to
-           any params URL the runtime cache hadn't seen VERBATIM missed, and the
-           user got the 503 below despite a completed precache ("I saw the
-           offline-available message"). His reconnect→load→disconnect→refresh
-           ritual worked only because it runtime-cached that one exact URL.
-           ignoreSearch matches the cached file regardless of params. */
-        return caches.match(e.request, { ignoreSearch: true }).then(function(cached) {
-          return cached || new Response('Offline — open FRT on Wi-Fi first to enable offline mode.', {
+        return net.then(function(resp) {
+          if (resp) return resp;
+          return new Response('Offline — open this tool on Wi-Fi first to enable offline mode.', {
             status: 503,
             headers: { 'Content-Type': 'text/plain' }
           });

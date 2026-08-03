@@ -8549,7 +8549,50 @@ import { downloadProjectBundle, TOOL_SOURCES } from '/lib/export/projectDocsSour
    the same bridge pattern as Dlg above. Safe by ordering: the module runs after
    parse; openHelp only ever fires on a user click, long after this line. */
 import { mountHelp, hasUnseen, markSeen } from '/lib/ui/helpEngine.js';
+import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /* S588 */
 import '/lib/ui/hubHelpCards.js';
+
+/* ── S588 LIVE UPDATE (Mark: nobody should ever check a build number again) ──
+   The Hub is deliberately FIRST: a bad swap here costs a reload at a desk, not
+   an inspection in a pump room. FRT follows once this is proven on real use.
+   The Hub has no unsent-work concept of its own (project writes go straight to
+   Supabase), so no flush hook — the engine handles the rest. */
+initLiveUpdate({
+  toolName: 'hub',
+  isBusy: function () {
+    /* Anything mid-flight that a reload would interrupt. */
+    try {
+      if (document.querySelector('.modal.open, dialog[open]')) return true;
+      if (window._hubSaving) return true;
+    } catch (e) {}
+    return false;
+  },
+  capture: function () {
+    var sc = 0;
+    try {
+      var g = document.getElementById('project-grid');
+      sc = (g && g.scrollTop) || window.scrollY || 0;
+    } catch (e) {}
+    return { view: (typeof _hubView !== 'undefined' ? _hubView : null), scroll: sc };
+  }
+});
+
+/* Put the user back where they were, once the board has rendered. */
+try {
+  var _lu = restoreAfterUpdate('hub');
+  if (_lu) {
+    if (_lu.view && typeof setHubView === 'function' && _lu.view !== _hubView) setHubView(_lu.view);
+    if (_lu.scroll) {
+      setTimeout(function () {
+        try {
+          var g = document.getElementById('project-grid');
+          if (g && g.scrollHeight > g.clientHeight) g.scrollTop = _lu.scroll;
+          else window.scrollTo(0, _lu.scroll);
+        } catch (e) {}
+      }, 250);
+    }
+  }
+} catch (e) {}
 window._helpMount = mountHelp;
 window._helpHasUnseen = hasUnseen;
 window._helpMarkSeen = markSeen;
