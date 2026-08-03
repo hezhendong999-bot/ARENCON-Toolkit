@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608030344';
+var CACHE_NAME = 'arencon-frt-202608022345';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -463,27 +463,127 @@ self.addEventListener('fetch', function(e) {
   }
 });
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   S587 — BACKGROUND SYNC: push unsent report work when connectivity returns,
+   EVEN IF the page is frozen or closed. Android freezes background timers,
+   so the page-side sync loop simply does not run while a phone is pocketed —
+   the proven root of the 1490.04 "offline edit never pushed" failures. The
+   facades arm the 'arencon-flush-pending' tag whenever unsent work is written
+   to disk; the OS fires this event when the network is back.
 
+   SAFETY — same doctrine as the page engine:
+   • If-Match REQUIRED (I-4): a record without a concurrency token is never
+     pushed from here. On 412 the record is left for the page's 3-way merge.
+   • The server wipe guard (PT409) and RLS still stand on every request.
+   • updated_by is never written as null (S583); the token's user is implied
+     by RLS, so the column is simply omitted.
+   • pendingPush is cleared ONLY on a confirmed 200 — the page's I-5 rule.
+   Limitation (accepted): this path skips the client-side stamping layer, so
+   per-item _ts on the pushed rows is whatever the state already carried. A
+   subsequent page-side full save re-stamps normally. Losing freshness on
+   stamps beats losing the inspector's readings. */
+var BG_SB_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+var BG_SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function _bgCacheDb() {
+  return new Promise(function (resolve, reject) {
+    var req = indexedDB.open('arencon_cloud_cache', 1);
+    req.onupgradeneeded = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('tool_state')) db.createObjectStore('tool_state');
+    };
+    req.onsuccess = function (e) { resolve(e.target.result); };
+    req.onerror = function (e) { reject(e.target.error); };
+  });
+}
+function _bgAllPending(db) {
+  return new Promise(function (resolve) {
+    var out = [];
+    try {
+      var st = db.transaction('tool_state', 'readonly').objectStore('tool_state');
+      var cur = st.openCursor();
+      cur.onsuccess = function (e) {
+        var c = e.target.result;
+        if (!c) { resolve(out); return; }
+        var v = c.value;
+        if (v && v.pendingPush && v.state && v.instanceId && v.bgIfMatch && v.bgToken) {
+          out.push({ key: c.key, rec: v });
+        }
+        c.continue();
+      };
+      cur.onerror = function () { resolve(out); };
+    } catch (_) { resolve(out); }
+  });
+}
+function _bgPut(db, key, rec) {
+  return new Promise(function (resolve) {
+    try {
+      var tx = db.transaction('tool_state', 'readwrite');
+      tx.objectStore('tool_state').put(rec, key);
+      tx.oncomplete = resolve; tx.onerror = resolve;
+    } catch (_) { resolve(); }
+  });
+}
+function _bgRefreshToken(rec) {
+  if (!rec.bgRefresh) return Promise.resolve(null);
+  return fetch(BG_SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST',
+    headers: { 'apikey': BG_SB_ANON, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: rec.bgRefresh })
+  }).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { return (d && d.access_token) ? d : null; })
+    .catch(function () { return null; });
+}
+function _bgPushOne(db, key, rec, isRetry) {
+  return fetch(BG_SB_URL + '/rest/v1/tool_data?id=eq.' + encodeURIComponent(rec.instanceId), {
+    method: 'PATCH',
+    headers: {
+      'apikey': BG_SB_ANON,
+      'Authorization': 'Bearer ' + rec.bgToken,
+      'Content-Type': 'application/json',
+      'If-Match': '"' + rec.bgIfMatch + '"',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({ data: JSON.parse(rec.state), updated_at: new Date().toISOString() })
+  }).then(function (res) {
+    if (res.status === 401 && !isRetry) {
+      return _bgRefreshToken(rec).then(function (tok) {
+        if (!tok) { rec.bgLastError = '401 (refresh failed)'; return _bgPut(db, key, rec); }
+        rec.bgToken = tok.access_token;
+        if (tok.refresh_token) rec.bgRefresh = tok.refresh_token;
+        return _bgPut(db, key, rec).then(function () { return _bgPushOne(db, key, rec, true); });
+      });
+    }
+    if (res.ok) {
+      return res.json().catch(function () { return null; }).then(function (rows) {
+        rec.pendingPush = false; rec.pendingSince = null;
+        rec.bgPushedAt = new Date().toISOString(); rec.bgLastError = null;
+        if (rows && rows[0] && rows[0].updated_at) rec.bgIfMatch = rows[0].updated_at;
+        console.log('[SW S587] background-pushed unsent work for', key);
+        return _bgPut(db, key, rec);
+      });
+    }
+    /* 412: cloud moved past this record\'s token — the page-side 3-way merge
+       owns it; leave pendingPush set. 409/PT409: server wipe guard refused —
+       also for the page, loudly. Anything else: note and leave for retry. */
+    rec.bgLastError = 'HTTP ' + res.status;
+    console.warn('[SW S587] background push declined (' + res.status + ') for', key);
+    return _bgPut(db, key, rec);
+  }).catch(function (e) {
+    rec.bgLastError = String(e && e.message || e);
+    return _bgPut(db, key, rec);
+  });
+}
+self.addEventListener('sync', function (e) {
+  if (e.tag !== 'arencon-flush-pending') return;
+  e.waitUntil(
+    _bgCacheDb().then(function (db) {
+      return _bgAllPending(db).then(function (list) {
+        console.log('[SW S587] background sync fired — ' + list.length + ' unsent record(s)');
+        return list.reduce(function (p, it) {
+          return p.then(function () { return _bgPushOne(db, it.key, it.rec, false); });
+        }, Promise.resolve());
+      });
+    }).catch(function (e2) { console.warn('[SW S587] background sync failed:', e2 && e2.message); })
+  );
+});

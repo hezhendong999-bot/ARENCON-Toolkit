@@ -359,6 +359,42 @@ const CloudSync = (function () {
 
   function _cacheKey() { return _projectId + '|' + _toolKey + '|' + (engine.instanceId || _instanceId || 'new'); }
 
+  /* ═══ S587 — BACKGROUND SYNC ARMING ═══════════════════════════════════════
+     Android's Background Sync API is the OS-level answer to "push it when the
+     internet comes back": once armed, the service worker's 'sync' event fires
+     on connectivity restoration EVEN IF the page is pocketed, frozen, or
+     closed. Every foreground timing dependency the last three sessions fought
+     disappears. Armed whenever unsent work is written to disk. */
+  function _armBgSync() {
+    try {
+      if (!('serviceWorker' in navigator) || !('SyncManager' in window)) return;
+      navigator.serviceWorker.ready.then(function (reg) {
+        if (reg && reg.sync) reg.sync.register('arencon-flush-pending').catch(function () {});
+      }).catch(function () {});
+    } catch (_) {}
+  }
+
+  /* S587 — RADIO-SETTLE RETRY. After airplane mode, the OS reports offline for
+     the first few seconds while the radio reattaches. A wake-up flush landing
+     in that window found "offline", was consumed, and nothing retried until
+     the next lifecycle event — tonight's residual race. While the page is
+     visible and work is unsent, retry briefly until the radio settles. */
+  var _settleTimer = null, _settleTries = 0;
+  function _settleRetry() {
+    if (_settleTimer) return;
+    _settleTries = 0;
+    _settleTimer = setInterval(function () {
+      _settleTries++;
+      var done = _settleTries > 20 || document.visibilityState !== 'visible' ||
+                 !_lastSavedJson || _lastSavedJson === _lastPushedJson;
+      if (!done && (navigator.onLine !== false)) {
+        Promise.resolve(save(_lastSavedJson)).catch(function () {});
+        done = true;   // one armed attempt per settle window; save() owns retries from here
+      }
+      if (done) { clearInterval(_settleTimer); _settleTimer = null; }
+    }, 3000);
+  }
+
   async function _getUser() {
     const token = localStorage.getItem('sb-access-token');
     if (!token) return null;
@@ -600,10 +636,18 @@ const CloudSync = (function () {
            the SAME record so the two can never disagree. It is cleared only by
            a CONFIRMED cloud push. On relaunch, _recoverUnsentWork() finds it. */
         pendingPush: true,
-        pendingSince: _pendingSince || (_pendingSince = new Date().toISOString())
+        pendingSince: _pendingSince || (_pendingSince = new Date().toISOString()),
+        /* S587 — everything the service worker's Background Sync handler needs
+           to push this WITHOUT the page: credentials, the concurrency token,
+           and the payload (state above). If-Match discipline (I-4) carries
+           over: the SW refuses to push a record without a token. */
+        bgToken: (function(){ try { return localStorage.getItem('sb-access-token'); } catch(_) { return null; } })(),
+        bgRefresh: (function(){ try { return localStorage.getItem('sb-refresh-token'); } catch(_) { return null; } })(),
+        bgIfMatch: engine.lastSeenUpdatedAt || null
       });
+      _armBgSync();   // S587: OS calls back when connectivity returns — page frozen or not
     }
-    if (!_netUp()) { _setStatus('offline', 'Saved locally (offline)'); return null; }   // S584
+    if (!_netUp()) { _setStatus('offline', 'Saved locally (offline)'); _settleRetry(); return null; }   // S584
     if (alreadyPushed) return null;
     try {
       const _allow = await _wipeGateAllows(stateJson);
