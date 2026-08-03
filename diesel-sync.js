@@ -105,6 +105,45 @@ const DieselWorkerHost = {
  * saveNow     → Diesel's own saveState (field-proven local persistence). */
 let _captureNext = false;
 
+/* ═══ S590 — CHANGE OBSERVER for the badge system (PURE READ) ══════════════
+   Whenever the engine replaces on-screen state (silent pull, silent merge,
+   resolved 412), diff the flow readings row-by-row and hand every changed
+   field to the badge module together with the incoming write's device
+   receipt (S589 _dev/_via/_wroteAt). Never touches the save path — a badge
+   bug can cost a badge, never a reading. */
+function _flowDiffEvents(prev, next) {
+  var evts = [];
+  if (!prev || !next) return evts;
+  var FIELDS = ['suction', 'discharge', 'rpm', 'flow', 'cutsheet', 'placard', 'bfUp', 'bfDown'];
+  ['stdData', 'pldData'].forEach(function (tbl) {
+    var pa = Array.isArray(prev[tbl]) ? prev[tbl] : [];
+    var na = Array.isArray(next[tbl]) ? next[tbl] : [];
+    var byPct = {};
+    pa.forEach(function (r) { if (r && r.pct != null) byPct[r.pct] = r; });
+    na.forEach(function (r, ni) {
+      if (!r || r.pct == null) return;
+      var p = byPct[r.pct]; if (!p) return;
+      FIELDS.forEach(function (f) {
+        var a = (p[f] == null) ? '' : String(p[f]);
+        var b = (r[f] == null) ? '' : String(r[f]);
+        if (a !== b) {
+          evts.push({ path: tbl + ':' + r.pct + ':' + f, tbl: tbl, idx: ni, pct: r.pct,
+                      field: f, prev: a, next: b,
+                      dev: next._dev || '', via: next._via || 'sync',
+                      wroteAt: next._wroteAt || new Date().toISOString() });
+        }
+      });
+    });
+  });
+  return evts;
+}
+function _noteFlowChanges(prev, next) {
+  try {
+    var evts = _flowDiffEvents(prev, next);
+    if (evts.length && window._dslChangeBadges) window._dslChangeBadges.noteChanges(evts);
+  } catch (e) { console.warn('[DieselSync] change-badge diff skipped:', e && e.message); }
+}
+
 function _applyCloudSilent(cloudState) {
   const w = window;
   try {
@@ -127,6 +166,7 @@ function _applyCloudSilent(cloudState) {
       ? w._mergeCloudLocal(cloudState, local)
       : cloudState;
     w._applyLoadedState(JSON.stringify(merged));
+    _noteFlowChanges(local, merged);   // S590: badge what this apply changed
   } catch (e) {
     console.warn('[DieselSync] silent apply failed:', e && e.message);
   }
@@ -144,7 +184,11 @@ const model = {
     _applyCloudSilent(data);
   },
   applyMerged: function (merged) {
-    try { window._applyLoadedState(JSON.stringify(merged)); }
+    try {
+      var _prevB = (typeof window._collectCloudState === 'function') ? window._collectCloudState() : null;
+      window._applyLoadedState(JSON.stringify(merged));
+      _noteFlowChanges(_prevB, merged);   // S590: badge what the merge changed
+    }
     catch (e) { console.warn('[DieselSync] applyMerged failed:', e && e.message); }
   },
   saveNow: function () {

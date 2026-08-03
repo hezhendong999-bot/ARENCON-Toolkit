@@ -2,6 +2,7 @@
     import { buildHeader2 } from '/lib/ui/headerEngine2.js';
     import { dieselHeaderConfig } from '/lib/ui/headerConfigs.js';
     import { openCameraBurst } from '/lib/ui/cameraBurst.js';
+    import { createChangeBadges } from '/lib/ui/changeBadges.js';   /* S590: modal replacement */
     /* S496: publish the shared IDB factory for the classic-script ADB module below.
        ADB.open() awaits window.ARENCON_IDB._ready (created during parse) rather than
        probing for the factory — a probe would always lose the race against this
@@ -176,6 +177,40 @@
       onSignout: function(){ call('signOutSession'); }
     });
     window.__dslHeaderCtl = buildHeader2(document.getElementById('hdr-mount'), cfg);
+
+    /* ═══ S590 — CHANGE BADGES (Mark's spec, demo-approved). Amber badge at the
+       exact field another device changed; stacked review for any number of
+       editors; Keep / Use; nothing deleted (cloud history keeps every value).
+       Anchored by the flow inputs' own data attributes, so it survives
+       re-renders. Pure UI — the sync engine only feeds it events. */
+    window._dslChangeBadges = createChangeBadges({
+      resolveAnchor: function (ev) {
+        var tbl = (ev.tbl === 'pldData') ? 'pld' : 'std';
+        return document.querySelector(
+          'input[data-tbl="' + tbl + '"][data-idx="' + ev.idx + '"][data-field="' + ev.field + '"]');
+      },
+      labelFor: function (ev) {
+        var names = { suction: 'Suction', discharge: 'Discharge', rpm: 'RPM', flow: 'Flow',
+                      cutsheet: 'Cutsheet', placard: 'Placard', bfUp: 'BF Up', bfDown: 'BF Down' };
+        return (names[ev.field] || ev.field) + ' · ' + ev.pct + ' Flow' +
+               (ev.tbl === 'pldData' ? ' (7-pt)' : '');
+      },
+      whoFor: function () {
+        try { return (typeof window._inspectorName === 'string' && window._inspectorName) || null; }
+        catch (_) { return null; }
+      },
+      onAdopt: function (ev) {
+        var tbl = (ev.tbl === 'pldData') ? 'pld' : 'std';
+        var input = document.querySelector(
+          'input[data-tbl="' + tbl + '"][data-idx="' + ev.idx + '"][data-field="' + ev.field + '"]');
+        if (!input) return;
+        input.value = ev.next;
+        /* fire the normal input pipeline: model update, recalc, autosave —
+           the adoption becomes a fresh entry and wins everywhere. */
+        input.dispatchEvent(new Event('input',  { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
     /* S488: prove the burst module actually arrived. If this module script fails
        to load at all (offline first-run, bad deploy, cache miss on /lib/), the
        whole block including _camBurst never defines and every camera silently
