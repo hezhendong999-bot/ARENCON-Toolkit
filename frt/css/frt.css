@@ -11695,35 +11695,48 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
    .dv-toolbar button pill rule reaching the menu's buttons; these selectors
    use DOUBLE IDs so no toolbar/theme rule anywhere in this file can outrank
    them, in either theme. */
-/* S578 — the LAYERS menu is the reference (Mark's screenshot): grey chrome
-   panel, VISIBLE border, flat dark-text rows. Same tokens the layers menu
-   resolves to, so the two drawers cannot drift apart per theme. Mark's round-3
-   screenshots proved THESE double-ID rules are the winning rules on-device,
-   so the values below are what paints. Do not restyle this menu again without
-   his screenshot in hand. */
+/* S579 — ⋯ MORE-MENU: VERBATIM the shared header engine's dropdown.
+   Every value below is copied from lib/ui/headerEngine2.js `.menu` /
+   `.menu button` / `.menu button span` (the More/Reports/AI dropdowns Mark
+   pointed at). Do NOT re-derive from Bold tokens, the layers menu, or the
+   heights panel — three rounds were lost that way. If the engine's menu
+   changes, re-copy from the engine. Double-ID selectors because Mark's
+   screenshots proved these are the rules that paint on-device. */
 #drawing-viewer-overlay #dv-more-menu,
 #drawing-viewer-overlay #dv-more-menu[style*="block"]{
-  background:var(--b-chrome-bg) !important;
-  border:1px solid var(--b-pill-bd) !important;
-  border-radius:12px !important;
-  box-shadow:0 8px 24px rgba(0,0,0,.22) !important;
-  padding:6px 0 !important;
+  background:#fff !important;
+  border:none !important;
+  border-radius:8px !important;
+  box-shadow:0 6px 24px rgba(0,0,0,.18) !important;
+  min-width:220px !important;
   overflow:hidden !important;
+  padding:0 !important;
+}
+body.dark-mode #drawing-viewer-overlay #dv-more-menu{
+  background:#16151b !important;
+  border:1px solid rgba(255,255,255,.12) !important;
 }
 #drawing-viewer-overlay #dv-more-menu button.dv-menu-item{
-  background:transparent !important;
-  border:none !important;
-  border-radius:0 !important;
-  box-shadow:none !important;
-  color:var(--b-chrome-fg) !important;
-  font-weight:400 !important;
+  display:block !important;
   width:100% !important;
   min-width:0 !important;
-  min-height:44px !important;   /* glove touch targets stay */
-  justify-content:flex-start !important;
+  padding:10px 14px !important;
+  border:none !important;
+  border-radius:0 !important;
+  background:none !important;
+  box-shadow:none !important;
   text-align:left !important;
+  justify-content:flex-start !important;
+  font:400 calc(13px + var(--ts)) Calibri,sans-serif !important;
+  color:#2F3B52 !important;
+  min-height:44px !important;   /* touch canon; invisible at this padding */
 }
 #drawing-viewer-overlay #dv-more-menu button.dv-menu-item:hover{
-  background:var(--b-chrome-hover) !important;
-  border:none !important;
+  background:#F2F0F4 !important;
+}
+body.dark-mode #drawing-viewer-overlay #dv-more-menu button.dv-menu-item{
+  background:#16151b !important; color:#d0d8f0 !important;
+}
+body.dark-mode #drawing-viewer-overlay #dv-more-menu button.dv-menu-item:hover{
+  background:#221f29 !important;
 }
