@@ -144,6 +144,39 @@ function _noteFlowChanges(prev, next) {
   } catch (e) { console.warn('[DieselSync] change-badge diff skipped:', e && e.message); }
 }
 
+/* ═══ S598 — PULL TELEMETRY (automatic; nothing for anyone to run) ═════════
+   Two days of failures have all had the same shape: the cloud holds the right
+   number, the device pulls, and the screen keeps the old one — and every
+   attempt to reproduce it off-device has passed. So the device now reports the
+   decision itself. On any pull where the cloud copy differs from the screen,
+   one small row goes to sync_diag with both values, both entry stamps, and
+   what was applied. Fire-and-forget, never blocks or fails a sync. This is
+   read from the database; it is not a panel and needs no one's attention. */
+function _diag(event, detail) {
+  try {
+    var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
+    if (!tok) return;
+    fetch(Auth.SUPABASE_URL + '/rest/v1/sync_diag', {
+      method: 'POST',
+      headers: { 'apikey': Auth.SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
+                 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        device: (function(){ try { return localStorage.getItem('arencon-device-id'); } catch(_) { return null; } })(),
+        tool: _toolKey, project_id: _projectId || null,
+        instance_id: engine.instanceId || _instanceId || null,
+        event: event, detail: detail
+      })
+    }).catch(function () {});
+  } catch (_) {}
+}
+
+function _pick100(state) {
+  try {
+    var r = (state && state.stdData || []).filter(function (x) { return x && x.pct === '100%'; })[0];
+    return r ? { disch: r.discharge, ts: r._ts } : null;
+  } catch (_) { return null; }
+}
+
 function _applyCloudSilent(cloudState) {
   const w = window;
   try {
@@ -153,7 +186,12 @@ function _applyCloudSilent(cloudState) {
        compared canonically, bookkeeping ignored — apply NOTHING: no merge, no
        _applyLoadedState, no re-render of every table. The engine-level gate
        usually catches this first; this is the belt on Diesel's own door. */
-    if (local && contentEquals(cloudState, local)) return;
+    var _c100 = _pick100(cloudState), _l100 = _pick100(local);
+    var _differs = !!(_c100 && _l100 && String(_c100.disch) !== String(_l100.disch));
+    if (local && contentEquals(cloudState, local)) {
+      if (_differs) _diag('gate_blocked_apply', { cloud: _c100, screen: _l100, build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
+      return;
+    }
     // S25 EMPTY-CLOUD GUARD — never let a materially-empty cloud row
     // overwrite a non-empty local report. Local wins; the next push
     // repopulates cloud (If-Match will match — we HAVE seen this row).
@@ -167,6 +205,8 @@ function _applyCloudSilent(cloudState) {
       : cloudState;
     w._applyLoadedState(JSON.stringify(merged));
     _noteFlowChanges(local, merged);   // S590: badge what this apply changed
+    if (_differs) _diag('applied', { cloud: _c100, screen: _l100, applied: _pick100(merged),
+      build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
   } catch (e) {
     console.warn('[DieselSync] silent apply failed:', e && e.message);
   }
