@@ -774,9 +774,27 @@ const CloudSync = (function () {
     if (_online) {
       try {
         _captureNext = true;
-        const data = await engine.pull(_projectId, _instanceId, { allowStaleOverwrite: true });
+        let data = await engine.pull(_projectId, _instanceId, { allowStaleOverwrite: true });
         _captureNext = false;
         if (data) {
+          /* ═══ S601 — BOOT GOES THROUGH THE STAMP MERGE (receipts 16:58:19:
+             a PC on S600 still wrote a stale 150 over the Android's newer 200
+             seconds after a hard refresh). Boot was the ONE door that skipped
+             the per-item entry-stamp merge: it took the cloud copy "raw"
+             (allowStaleOverwrite), the host restore then preferred the disk
+             copy for the screen, and the boot autosave pushed that un-merged
+             screen with a fresh valid token — a resurrection on every reopen,
+             which is why the harder the testing, the worse it looked. Boot
+             now merges disk vs cloud by entry stamps exactly like every
+             heartbeat pull: whichever value was ENTERED later survives, per
+             field, and that is what reaches both the screen and the cloud. */
+          try {
+            const rec = await _cacheGet(_cacheKey());
+            const localDisk = rec && rec.state
+              ? (typeof rec.state === 'string' ? JSON.parse(rec.state) : rec.state) : null;
+            const bm = engine.mergeByStamps(localDisk, data);
+            if (bm) data = bm;
+          } catch (e) { console.warn('[DieselSync S601] boot stamp-merge skipped:', e && e.message); }
           const meta = await _fetchRowMeta();
           _instanceId = engine.instanceId || _instanceId;
           _instanceNumber = engine.instanceNumber || _instanceNumber;
