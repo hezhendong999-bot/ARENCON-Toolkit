@@ -11668,3 +11668,47 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
    (Mark, option A: no banner, no frame tint). Every other tool keeps the
    standard burgundy .active. */
 #mk-trash.active { background: #C0445F; color: #fff; }
+
+/* ── S576 (Mark, on-device): mobile toolrow gains TRASH; undo/redo move to
+   the style strip; the ⋯ more-menu stops being a box of boxes. ─────────── */
+
+/* Armed trash proxy lights RED like its desktop twin (LOCKED_TRASH_MODE.md) */
+.drawing-viewer-overlay #dv-toolrow-v75 .dv-tr-btn[data-mk-target="mk-trash"].active{
+  background:#C0445F; border-color:#C0445F; color:#fff;
+}
+
+/* Undo/redo in the style strip — the strip's own idiom (bordered white
+   squares like the steppers), sized up for what they are. */
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-ur{
+  width:34px;height:34px;border-radius:6px;
+  background:#fff;border:1px solid #d6d9e0;color:#1B2438;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;padding:0;flex:0 0 auto;font-size:16px;line-height:1;
+}
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-ur svg{width:18px;height:18px;pointer-events:none;}
+.drawing-viewer-overlay #dv-stylestrip-v75 .dv-ss-ur:disabled{opacity:.35;cursor:default;}
+
+/* ⋯ more-menu: ONE flat dark panel (the pill family every bar in this viewer
+   already uses), both themes. The box-in-box came from the toolbar's generic
+   button pill rule styling each .dv-menu-item as its own box — killed here
+   with the menu's own idiom. No white background (Mark). */
+.drawing-viewer-overlay #dv-more-menu,
+.drawing-viewer-overlay #dv-more-menu[style*="block"]{
+  background:rgba(20,20,28,.96) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  border-radius:12px !important;
+  box-shadow:0 6px 20px rgba(0,0,0,.55) !important;
+  padding:4px 0 !important;
+}
+.drawing-viewer-overlay #dv-more-menu .dv-menu-item{
+  background:transparent !important;
+  border:none !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  color:#fff !important;
+  min-width:0 !important;
+  min-height:44px !important;   /* touch-target hard rule stays */
+}
+.drawing-viewer-overlay #dv-more-menu .dv-menu-item:hover{
+  background:rgba(255,255,255,.10) !important;
+}

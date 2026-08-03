@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=722">
+<link rel="stylesheet" href="css/frt.css?v=723">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -691,14 +691,18 @@ function ensurePdfJs(cb){
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-dimension" title="Dimension">📐</button>
       <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-eraser" title="Eraser">⌫</button>
       <!-- S79: color moved to style strip (S331) to free a slot for dimension -->
+      <!-- S576 (Mark): undo/redo moved to the style strip; freed slot = trash mode,
+           which the mobile row had no proxy for (it never inherits new desktop
+           buttons automatically — every tool needs its own proxy here). -->
       <span class="dv-tr-sep" aria-hidden="true"></span>
-      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-undo" title="Undo">↶</button>
-      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-redo" title="Redo">↷</button>
+      <button class="dv-tr-btn dv-tr-sq" data-mk-target="mk-trash" title="Delete markups">🗑</button>
     </div>
     <div id="dv-stylestrip-v75">
       <span class="dv-ss-group"><span class="dv-ss-lbl">SIZE</span><button class="dv-ss-step" data-ss="size" data-d="-1">−</button><span id="dv-ss-size-v75" class="dv-ss-val">3</span><button class="dv-ss-step" data-ss="size" data-d="1">+</button></span>
       <span class="dv-ss-group"><span class="dv-ss-lbl">OPAC</span><button class="dv-ss-step" data-ss="opacity" data-d="-1">−</button><span id="dv-ss-op-v75" class="dv-ss-val">100</span><button class="dv-ss-step" data-ss="opacity" data-d="1">+</button></span>
       <span class="dv-ss-group"><span class="dv-ss-lbl dv-ss-lbl-color">COLOR</span><button class="dv-tr-btn dv-tr-color dv-ss-color" data-mk-target="mk-color-btn" title="Color"><span class="dv-tr-color-dot" id="dv-tr-color-dot"></span></button></span>
+      <!-- S576 (Mark): undo/redo live HERE now, same row as size/opacity/colour -->
+      <span class="dv-ss-group"><button class="dv-ss-ur" data-mk-target="mk-undo" title="Undo">↶</button><button class="dv-ss-ur" data-mk-target="mk-redo" title="Redo">↷</button></span>
     </div>
     <!-- DRAWING CANVAS -->
     <div class="dv-canvas-area" id="dv-canvas-area" oncontextmenu="return false;">
@@ -987,7 +991,7 @@ function ensurePdfJs(cb){
     r.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('mk-redo');if(t)t.click();});
     a.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var t=document.getElementById('dv-more-btn');if(t)t.click();});
     /* Push 3.2: copy legacy button innerHTML into new tool row buttons */
-    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
+    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 [data-mk-target]').forEach(function(b){
       var leg=document.getElementById(b.dataset.mkTarget);
       if(leg&&leg.innerHTML.trim()){
         b.innerHTML=leg.innerHTML;
@@ -1005,7 +1009,7 @@ function ensurePdfJs(cb){
         anchored to the HIDDEN desktop #mk-select (rect 0,0) — top-left, under the header,
         invisible on touch. */
     };
-    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
+    document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 [data-mk-target]').forEach(function(b){
       if(b.dataset.wired)return;b.dataset.wired='1';
       b.addEventListener('click',function(e){
         e.preventDefault();
@@ -1047,9 +1051,9 @@ function ensurePdfJs(cb){
       b.addEventListener('touchend',function(e){e.stopPropagation();});
     });
     /* Push 3: active-state mirror via MutationObserver on legacy tool buttons */
-    var legacyMap={'mk-pin':0,'mk-select':0,'mk-pen-btn':0,'mk-shapes-btn':0,'mk-text':0,'mk-eraser':0};
+    var legacyMap={'mk-pin':0,'mk-select':0,'mk-pen-btn':0,'mk-shapes-btn':0,'mk-text':0,'mk-eraser':0,'mk-trash':0};
     function syncActive(){
-      document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 .dv-ss-color').forEach(function(b){
+      document.querySelectorAll('#dv-toolrow-v75 .dv-tr-btn, #dv-stylestrip-v75 [data-mk-target]').forEach(function(b){
         var leg=document.getElementById(b.dataset.mkTarget);
         if(!leg)return;
         var act=leg.classList.contains('active')||leg.getAttribute('aria-pressed')==='true';
