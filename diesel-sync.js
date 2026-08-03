@@ -537,6 +537,40 @@ const CloudSync = (function () {
       _setStatus('offline', 'Working offline');
     });
 
+    /* ═══ S586 — MOBILE LIFECYCLE: THE WAKE-UP FLUSH (the real 1490.04 root).
+       Android freezes a backgrounded page's timers COMPLETELY. The field flow
+       is: edit on the phone → pocket it / switch away → check the desktop.
+       From the switch onward the 15s autosave and heartbeat are frozen — not
+       failing, simply never running — so offline work sits unsent for exactly
+       as long as nobody is staring at the phone. Proven by harness 03 Aug:
+       the identical code pushes on the first tick when the page is awake.
+       Fix: the moment the page becomes visible / focused / restored, flush
+       unsent work and catch up on pulls IMMEDIATELY — no waiting for a tick.
+       On hide, fire one best-effort flush too (browsers grant a few seconds
+       of grace before the freeze; a save takes well under one). */
+    var _lastKickAt = 0;
+    function _lifecycleKick(pullToo) {
+      if (!_initialized) return;
+      var now = Date.now();
+      if (now - _lastKickAt < 2000) return;   // debounce event bursts
+      _lastKickAt = now;
+      (async function () {
+        try {
+          if (_collectStateFn) {
+            var j = JSON.stringify(_collectStateFn());
+            if (j !== _lastPushedJson) await save(j);   // flush FIRST, sequentially
+          }
+          if (pullToo) await heartbeatTick();           // then catch up on pulls
+        } catch (e) { /* a failed kick costs nothing; the next one retries */ }
+      })();
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') _lifecycleKick(true);
+      else _lifecycleKick(false);   // going dark: best-effort flush, no pull
+    });
+    window.addEventListener('pageshow', function () { _lifecycleKick(true); });
+    window.addEventListener('focus', function () { _lifecycleKick(true); });
+
     _initialized = true;
     _setStatus(_online ? 'synced' : 'offline', 'Ready');
     return { projectInfo: _projectInfo, userId: _userId, online: _online, instanceId: _instanceId, instanceNumber: _instanceNumber };

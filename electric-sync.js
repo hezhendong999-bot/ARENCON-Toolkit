@@ -431,6 +431,31 @@ const CloudSync = (function () {
       _setStatus('offline', 'Working offline');
     });
 
+    /* S586 — mobile lifecycle wake-up flush (same root fix as Diesel: Android
+       freezes background timers; flush + catch up the moment we're back). */
+    var _lastKickAt = 0;
+    function _lifecycleKick(pullToo) {
+      if (!_initialized) return;
+      var now = Date.now();
+      if (now - _lastKickAt < 2000) return;
+      _lastKickAt = now;
+      (async function () {
+        try {
+          if (_collectStateFn) {
+            var j = JSON.stringify(_collectStateFn());
+            if (j !== _lastPushedJson) await save(j);   // flush FIRST, sequentially
+          }
+          if (pullToo) await heartbeatTick();           // then catch up on pulls
+        } catch (e) { /* a failed kick costs nothing; the next one retries */ }
+      })();
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') _lifecycleKick(true);
+      else _lifecycleKick(false);
+    });
+    window.addEventListener('pageshow', function () { _lifecycleKick(true); });
+    window.addEventListener('focus', function () { _lifecycleKick(true); });
+
     _initialized = true;
     _setStatus(_online ? 'synced' : 'offline', 'Ready');
     return { projectInfo: _projectInfo, userId: _userId, online: _online, instanceId: _instanceId, instanceNumber: _instanceNumber };
