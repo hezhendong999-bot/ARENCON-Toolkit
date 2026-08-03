@@ -328,6 +328,10 @@ const CloudSync = (function () {
   let _autoSaveTimer = null;
   let _collectStateFn = null;
   let _online = navigator.onLine;
+  /* S584 — live OS read at every decision point; the online/offline events
+     are unreliable on Android and remain only as instant status updates.
+     Same stranded-phone fix as Diesel. */
+  function _netUp() { _online = (navigator.onLine !== false); return _online; }
   let _userId = null;
   let _projectInfo = null;
   let _lastSavedJson = '';
@@ -372,7 +376,7 @@ const CloudSync = (function () {
   }
 
   async function _getNextInstanceNumber() {
-    if (!_online) return 1;
+    if (!_netUp()) return 1;   // S584
     try {
       const rows = await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'
         + _projectId + '&tool_key=eq.' + _toolKey + '&order=instance_number.desc&limit=1');
@@ -574,7 +578,7 @@ const CloudSync = (function () {
         pendingSince: _pendingSince || (_pendingSince = new Date().toISOString())
       });
     }
-    if (!_online) { _setStatus('offline', 'Saved locally (offline)'); return null; }
+    if (!_netUp()) { _setStatus('offline', 'Saved locally (offline)'); return null; }   // S584
     if (alreadyPushed) return null;
     try {
       const _allow = await _wipeGateAllows(stateJson);
@@ -609,9 +613,37 @@ const CloudSync = (function () {
       return null;
     } catch (e) {
       console.warn('[ElectricSync] save failed:', e && e.message);
-      _setStatus('pending', 'Saved locally');
+      /* S584 — dead sign-in goes loud (same as Diesel). */
+      var _m = String((e && e.message) || '');
+      if (_m.indexOf('Unauthorized') !== -1 || _m.indexOf('refresh failed') !== -1 ||
+          _m.indexOf('JWT') !== -1 || _m.indexOf('401') !== -1) {
+        _setStatus('error', 'Signed out — reopen from the Hub to sign in. Work is saved on this device.');
+        _authDeadBanner();
+      } else {
+        _setStatus('pending', 'Saved locally');
+      }
       return null;
     }
+  }
+
+  /* S584 — one persistent, dismissible banner for a dead sign-in. */
+  var _authBannerShown = false;
+  function _authDeadBanner() {
+    if (_authBannerShown) return;
+    _authBannerShown = true;
+    try {
+      var b = document.createElement('div');
+      b.id = 'elecAuthDeadBanner';
+      b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:99999;' +
+        'background:#C0445F;color:#fff;font:600 14px Calibri,sans-serif;padding:12px 18px;' +
+        'border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.35);max-width:92vw;display:flex;gap:12px;align-items:center;';
+      b.innerHTML = '<span>Your sign-in has expired. Nothing is syncing — your work is saved on this device. ' +
+        'Close this report and reopen it from the Project Hub to sign in again.</span>' +
+        '<button style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.5);color:#fff;' +
+        'border-radius:8px;padding:6px 12px;font:600 13px Calibri;cursor:pointer" ' +
+        'onclick="this.parentNode.remove()">OK</button>';
+      document.body.appendChild(b);
+    } catch (_) {}
   }
 
   /* ══════════════════════════════════════════════════════════════════════
@@ -672,12 +704,22 @@ const CloudSync = (function () {
    *      the S25 empty-cloud guard + the _mergeCloudLocal union against the
    *      REAL current local state.  */
   async function heartbeatTick() {
-    if (!_online || _pulling || !_initialized || !_projectId) return;
+    if (!_netUp() || _pulling || !_initialized || !_projectId) return;   // S584
     const ae = document.activeElement;
     const editing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT');
     if (editing || window._autosaveTimer) return;   // S321 deferral
     _pulling = true;
     try {
+      /* S584 — unsent work flushes on every beat, same as Diesel: it must not
+         depend on whether the cloud happens to have moved. */
+      if (_collectStateFn) {
+        try {
+          const unsentNow = JSON.stringify(_collectStateFn());
+          if (unsentNow === _lastSavedJson && unsentNow !== _lastPushedJson) {
+            await save(unsentNow);
+          }
+        } catch (e) { console.warn('[ElectricSync] heartbeat flush failed:', e && e.message); }
+      }
       const remote = await engine.getRemoteUpdatedAt(_projectId, engine.instanceId || _instanceId);
       if (remote && remote !== engine.lastSeenUpdatedAt) {
         /* S496 PUSH-BEFORE-PULL — Mark's field repro, diagnosed by Mark himself:
@@ -728,7 +770,7 @@ const CloudSync = (function () {
   }
 
   async function syncNow() {
-    if (!_online) { _setStatus('offline', 'No connection'); return false; }
+    if (!_netUp()) { _setStatus('offline', 'No connection'); return false; }   // S584
     try {
       _setStatus('saving', 'Syncing...');
       const row = await engine.push(_projectId);

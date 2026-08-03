@@ -86,9 +86,9 @@ function _collectAllPhotos(opts){
     // S339: short, distinct badges — 3-pt photos are plain; 7-pt (PLD) photos
     // carry a "PLD" tag so the gallery tells the two pumps apart at a glance.
     var _k=p.kind||'site', kl, badge;
-    if(_k==='pump'){ kl='Pump'; badge='3·Pump'; }
-    else if(_k==='pump-pld'){ kl='Pump (PLD)'; badge='7·Pump'; }
-    else if(_k==='placard'){ kl='Placard'; badge='3·Placard'; }
+    if(_k==='pump'){ kl='General Pump Photos'; badge='3·Pump'; }
+    else if(_k==='pump-pld'){ kl='General Pump Photos (PLD)'; badge='7·Pump'; }
+    else if(_k==='placard'){ kl='Pump Placard & PLD Placard'; badge='3·Placard'; }
     else if(_k==='placard-pld'){ kl='Pump Placard & PLD Placard'; badge='7·Placard'; }
     else { kl='Site'; badge='Site'; }
     all.push({photo:p, type:'record', cat:'records', badge:badge, label:'Record: '+kl, section:'rec_'+_k, idx:i, src:_photoSrc(p)});
@@ -535,7 +535,7 @@ function _evTileHtml(kind){
   // of a single "latest photo" tile — you see EVERY photo, tap any to open the
   // shared lightbox, and X-delete any one. An "+ Add" tile sits at the end of the
   // grid. Empty state keeps the dashed upload zone.
-  var map={pump:['📷','Pump','tap / drop · camera'],'pump-pld':['📷','Pump','tap / drop · camera'],placard:['🏷','Placard','tap / drop · camera'],'placard-pld':['🏷','Pump Placard & PLD Placard','engine placard · control pressure'],flow:['📊','Flow Chart & Equipment','charts · gauges · calibration'],'flow-pld':['📊','Flow Chart & Equipment','charts · gauges · calibration']};
+  var map={pump:['📷','General Pump Photos','tap / drop · camera'],'pump-pld':['📷','General Pump Photos','tap / drop · camera'],placard:['🏷','Pump Placard & PLD Placard','tap / drop · camera'],'placard-pld':['🏷','Pump Placard & PLD Placard','engine placard · control pressure'],flow:['📊','Flow Chart & Equipment','charts · gauges · calibration'],'flow-pld':['📊','Flow Chart & Equipment','charts · gauges · calibration']};   // S584 (Mark): card retitles
   var def=map[kind]; if(!def) return '';
 
   if(kind==='flow' || kind==='flow-pld'){
@@ -1999,9 +1999,9 @@ function _pgReassignSelected(){
   // filed in the wrong box could only be fixed by picking the file again. They
   // are ordinary record photos distinguished by a `kind` label, so "moving" one
   // there is a relabel — no copy, no new stored file.
-  var dests = ['Site Photos', 'Pump', 'Placard', 'Pump Placard & PLD Placard',
+  var dests = ['Site Photos', 'General Pump Photos', 'Pump Placard & PLD Placard', 'PLD Placard (7-pt)',
                'Flow Test (3-pt)', 'Flow Test (PLD)'];
-  var _RECDEST = { 'Site Photos':'site', 'Pump':'pump', 'Placard':'placard', 'Pump Placard & PLD Placard':'placard-pld' };
+  var _RECDEST = { 'Site Photos':'site', 'General Pump Photos':'pump', 'Pump Placard & PLD Placard':'placard', 'PLD Placard (7-pt)':'placard-pld' };   // S584: labels follow the card retitles; PLD bucket disambiguated
   // S558 (Mark): checklist items were NOT offered as destinations. A photo taken
   // against the wrong checklist line — or filed into Site Photos when it belongs
   // to one — could be moved anywhere EXCEPT the place it usually belongs, which
