@@ -168,6 +168,7 @@
       onDelDiag: function(){ call('dslDiag'); },
       onPhotoStore: function(){ call('_dslPhotoStoreCheck'); },
       onSaveLog:     function(){ call('_dslSaveLog'); },
+      onSyncStatus:  function(){ if (window.CloudSync && CloudSync.showSyncStatus) CloudSync.showSyncStatus(); },
       onHelp: function(){ call('openHelp'); },
       onQR: function(){ call('_openToolQR'); },
       onToggleTheme: function(){ call('toggleDarkMode'); },

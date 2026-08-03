@@ -436,6 +436,8 @@ const CloudSync = (function () {
   let _userId = null;
   let _projectInfo = null;
   let _lastSavedJson = '';
+  /* S585 — sync diagnostics timeline (feeds the on-screen Sync Status panel) */
+  let _lastPushOkAt = 0, _lastPushFailAt = 0, _lastPushFailMsg = '', _lastPullAt = 0;
   let _lastPushedJson = '';   // S524 I-5: advances only on CONFIRMED push
   let _pendingSince = null;   // S524 I-5: when unsent work first appeared (durable)
   let _initialized = false;
@@ -738,6 +740,7 @@ const CloudSync = (function () {
           savedAt: new Date().toISOString(),
           pendingPush: false, pendingSince: null
         });
+        _lastPushOkAt = Date.now();   // S585
         _setStatus('synced', 'Saved to cloud');
         return row;
       }
@@ -754,6 +757,7 @@ const CloudSync = (function () {
          once, visibly, and keep saying it in the pill. Work stays safe on
          the device the whole time. */
       var _m = String((e && e.message) || '');
+      _lastPushFailAt = Date.now(); _lastPushFailMsg = _m;   // S585
       if (_m.indexOf('Unauthorized') !== -1 || _m.indexOf('refresh failed') !== -1 ||
           _m.indexOf('JWT') !== -1 || _m.indexOf('401') !== -1) {
         _setStatus('error', 'Signed out — reopen from the Hub to sign in. Work is saved on this device.');
@@ -896,6 +900,7 @@ const CloudSync = (function () {
           } catch (e) { console.warn('[DieselSync] pre-pull push failed:', e && e.message); }
         }
         await engine.pull(_projectId, engine.instanceId || _instanceId);   // silent — stale-guard active
+        _lastPullAt = Date.now();   // S585
         const ctl = window.__dslHeaderCtl;
         if (ctl) {
           ctl.setCloud({ state: 'pull' });
@@ -941,6 +946,87 @@ const CloudSync = (function () {
     };
   }
 
+  /* ═══ S585 — SYNC STATUS PANEL (the on-device console) ═══════════════════
+     The field devices are the installed app: no console, no address bar. Two
+     sync bugs in a row could not be diagnosed because nobody could see what
+     the device believed. This panel says it all on screen, in plain words:
+     build, real network state, sign-in health, unsent work, last successful
+     push, last failure and its reason, last pull. One screenshot ends the
+     guessing. */
+  function getSyncDiag() {
+    var d = {
+      build: (typeof DIESEL_BUILD !== 'undefined') ? DIESEL_BUILD : 'unknown',
+      netUp: (navigator.onLine !== false),
+      flagOnline: _online,
+      user: null, tokenMinLeft: null,
+      pendingLocal: !!(_lastSavedJson && _lastSavedJson !== _lastPushedJson),
+      pendingSince: _pendingSince || null,
+      lastPushOkAt: _lastPushOkAt, lastPushFailAt: _lastPushFailAt,
+      lastPushFailMsg: _lastPushFailMsg, lastPullAt: _lastPullAt,
+      hasBaseline: !!engine.lastSeenUpdatedAt,
+      hubMode: !!_projectId, instanceNumber: engine.instanceNumber || _instanceNumber
+    };
+    try {
+      var u = Auth.getUser(); d.user = (u && (u.email || u.id)) || null;
+      var tok = Auth.getToken && Auth.getToken();
+      if (tok) {
+        var p = JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+        if (p && p.exp) d.tokenMinLeft = Math.round((p.exp * 1000 - Date.now()) / 60000);
+      }
+    } catch (_) {}
+    return d;
+  }
+
+  function _fmtAgo(ts) {
+    if (!ts) return 'never (this session)';
+    var m = Math.round((Date.now() - ts) / 60000);
+    var t = new Date(ts); var hh = ('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2);
+    return hh + (m <= 0 ? ' (just now)' : ' (' + m + ' min ago)');
+  }
+
+  function showSyncStatus() {
+    var render = function (body) {
+      var d = getSyncDiag();
+      var row = function (label, val, tone) {
+        var c = tone === 'bad' ? '#C0445F' : tone === 'good' ? '#2E9E72' : 'inherit';
+        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;' +
+          'border-bottom:1px solid rgba(128,128,128,.18);font:14px Calibri,sans-serif">' +
+          '<span style="opacity:.75">' + label + '</span>' +
+          '<span style="font-weight:600;color:' + c + ';text-align:right">' + val + '</span></div>';
+      };
+      var signIn, signTone;
+      if (!d.user) { signIn = 'NOT SIGNED IN'; signTone = 'bad'; }
+      else if (d.tokenMinLeft !== null && d.tokenMinLeft <= 0) { signIn = d.user + ' — EXPIRED'; signTone = 'bad'; }
+      else { signIn = d.user + (d.tokenMinLeft !== null ? ' (' + d.tokenMinLeft + ' min left)' : ''); signTone = 'good'; }
+      var pend = d.pendingLocal
+        ? 'YES — waiting since ' + (d.pendingSince ? new Date(d.pendingSince).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '?')
+        : 'none — everything sent';
+      body.innerHTML =
+        row('Build', d.build) +
+        row('Network (from the OS)', d.netUp ? 'Online' : 'OFFLINE', d.netUp ? 'good' : 'bad') +
+        row('Signed in', signIn, signTone) +
+        row('Unsent work on this device', pend, d.pendingLocal ? 'bad' : 'good') +
+        row('Last successful cloud save', _fmtAgo(d.lastPushOkAt)) +
+        (d.lastPushFailAt ? row('Last FAILED save', _fmtAgo(d.lastPushFailAt) + ' — ' +
+          (d.lastPushFailMsg || 'unknown reason').slice(0, 80), 'bad') : '') +
+        row('Last pull from cloud', _fmtAgo(d.lastPullAt)) +
+        row('Cloud baseline established', d.hasBaseline ? 'yes' : 'NO — pushes refused until a pull succeeds',
+            d.hasBaseline ? 'good' : 'bad') +
+        row('Mode', d.hubMode ? 'Hub (cloud sync on) — report #' + d.instanceNumber : 'Standalone (no cloud)');
+    };
+    Dlg.panel({
+      title: 'Sync Status', icon: '\uD83D\uDCF6', accent: 'slate', width: 460,
+      build: function (body) { render(body); },
+      buttons: [
+        { label: 'Close', kind: 'cancel' },
+        { label: 'Push now', kind: 'primary', onClick: function (api) {
+            syncNow().then(function () { render(api.body); });
+            return false;   // keep the panel open; result renders in place
+          } }
+      ]
+    });
+  }
+
   function destroy() { stopAutoSave(); _initialized = false; }
 
   return {
@@ -948,6 +1034,7 @@ const CloudSync = (function () {
     startAutoSave: startAutoSave, stopAutoSave: stopAutoSave,
     recoverUnsentWork: _recoverUnsentWork,   // S524 I-5 — call after boot load()
     syncNow: syncNow, destroy: destroy, readUrlParams: readUrlParams,
+    getSyncDiag: getSyncDiag, showSyncStatus: showSyncStatus,   // S585 on-device console
     heartbeatTick: heartbeatTick, request: _request,
     get projectInfo() { return _projectInfo; },
     get projectId() { return _projectId; },
