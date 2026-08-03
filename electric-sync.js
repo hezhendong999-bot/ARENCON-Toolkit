@@ -219,53 +219,34 @@ function _isNoisePath(p) {
 }
 
 engine.onConflict = function (conflicts, mergeResult) {
-  const auto = [], real = [];
-  conflicts.forEach(function (c) {
-    (_isNoisePath(c.path) ? auto : real).push(c);
+  /* ═══ S590 — NO MODAL, EVER (Mark's ruling, stated three times, final).
+     "This report was changed by someone else" is gone. Whatever the merge
+     could not settle on its own resolves HERE, automatically:
+       • bookkeeping paths → this side (they carry no meaning);
+       • everything else → the CLOUD side. By this point the engine's stamp
+         tiebreak (S590 in merge.js) has already given every contested field
+         to the NEWER ENTRY; only stamp-less or same-instant edits reach this
+         list. Preferring cloud for those is the resurrection-safe default: a
+         stale window's copy carries old stamps and has already lost the
+         fields that matter, so nothing it holds can overwrite newer work,
+         while a person actively typing wins the very next save because their
+         entry re-stamps fresher.
+     The overwritten values are not lost — every version is in the history
+     table, which the badge system will surface for review. The push then
+     completes: reconnect → merge → "Saved to cloud", no questions asked. */
+  const res = conflicts.map(function (c) {
+    return { path: c.path, chosen: _isNoisePath(c.path) ? 'mine' : 'theirs' };
   });
-  const autoRes = auto.map(function (c) { return { path: c.path, chosen: 'mine' }; });
-
-  if (!real.length) {
-    return { merged: applyResolutions(mergeResult, autoRes) };
-  }
-
-  const SHOW_MAX = 8;
-  const shown = real.slice(0, SHOW_MAX);
-  const overflow = real.slice(SHOW_MAX)
-    .map(function (c) { return { path: c.path, chosen: 'mine' }; });
-
-  const fields = shown.map(function (c, i) {
-    const s = summarizeConflict(c);
-    return {
-      key: 'c' + i,
-      label: s.pretty,
-      type: 'select',
-      value: 'mine',
-      options: [
-        { value: 'mine',   label: 'Keep my version — ' + s.mine },
-        { value: 'theirs', label: 'Use their version — ' + s.theirs }
-      ]
-    };
-  });
-
-  return Dlg.form({
-    title: 'This report was changed by someone else',
-    icon: '\u21C4',
-    accent: 'warn',
-    message: 'Another save happened while you were editing. Everything that ' +
-             'did not overlap has been combined automatically. For each item ' +
-             'below, choose which version to keep.',
-    fields: fields,
-    okText: 'Apply & save',
-    cancelText: 'Not now'
-  }).then(function (vals) {
-    if (!vals) return null;   // user cancelled → push abandoned, stays pending
-    const picked = shown.map(function (c, i) {
-      return { path: c.path, chosen: (vals['c' + i] === 'theirs') ? 'theirs' : 'mine' };
-    });
-    const merged = applyResolutions(mergeResult, autoRes.concat(overflow, picked));
-    return { merged: merged };
-  });
+  try {
+    if (conflicts.length) {
+      console.info('[ElectricSync S590] ' + conflicts.length + ' contested field(s) auto-resolved, latest entry wins:');
+      conflicts.forEach(function (c) {
+        const s = summarizeConflict(c);
+        console.info('  · ' + s.pretty + ' → ' + (_isNoisePath(c.path) ? 'this device' : 'cloud'));
+      });
+    }
+  } catch (_) {}
+  return { merged: applyResolutions(mergeResult, res) };
 };
 
 engine.onSilentMerge = function (mergeResult) {

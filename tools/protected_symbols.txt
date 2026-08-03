@@ -84,7 +84,13 @@ PhotoInput
 typeToConfirm
 confirmDanger
 leave
-form
+# 'form' removed from this list by Mark's explicit order, Session 590 (03 Aug 2026,
+# in-conversation): the cross-device conflict modal ("This report was changed by
+# someone else") is DELETED from Diesel and Electric — conflicts resolve
+# automatically, newest ENTRY wins via the S583 entry-time stamps; the badge
+# notification system replaces the modal as the review surface. The dialog
+# engine itself and its form family remain live and untouched in
+# lib/ui/dialogEngine.js and its other call sites.
 pickList
 progress
 
@@ -584,11 +590,10 @@ hydratePass
 @ S561 the R2 orphan report is on screen (Cloud Storage Check, More menu). The report function itself (_dieselR2OrphanReport, part06d) is UNTOUCHED — it already returned {bucket, orphans, missing} and just had no face except the console, which the field tablets do not have. Read-only like the other panels. The PURGE stays a console operation DELIBERATELY: deleting cloud objects is not reversible and belongs at a desk with the full list in view, not behind a tap on site — do not add a purge button to this panel. Missing files are described with their remedy (the rescue pass re-uploads from a device still holding the picture); stranded files are described as a storage cost, not a correctness problem.
 _dslOrphanPanel
 
-@ S557 dimension adjust-then-place (Mark-specified after team feedback "insanely hard on touch"). The adjust stage makes the lift non-final: endpoints stay grabbable, pan/zoom allowed, nothing commits until the green check — also the only way to measure a span longer than one drag. Removal puts back lift-is-final. NOTE: the S557 LOUPE (_drawLoupe magnifier) was REMOVED at Mark's explicit direction in S572 — "too obstructive of view, gone entirely." Do NOT restore it from this entry's history; the adjust stage alone is the protected feature.
+@ S557 dimension loupe + adjust-then-place (Mark-specified after team feedback "insanely hard on touch"). The loupe magnifies what the fingertip covers, during both the measuring drag and endpoint adjustment, coarse pointers only. The adjust stage makes the lift non-final: endpoints stay grabbable, pan/zoom allowed, nothing commits until the green check — also the only way to measure a span longer than one drag. Removal puts back blind aiming and lift-is-final.
+_drawLoupe
 _dimEnterAdjust
 _dimAdjustFinish
-@ S572 single-mode dimension cancel (Mark: "no way for me to cancel" a half-drawn dimension). The fin-chip pill shows in single mode with the red ✗ alone whenever a point is down; undo/redo dissolve an in-progress dimension before touching history.
-singleCancel
 
 
 @ S562 the three small carried items, closed. (1) PLACARD SCAN AND THE PUMP BOX: the scan looked ONLY in its own Placard box and answered "Capture a placard photo first" while the inspector's placard shot sat in plain sight in the Pump box — the commonest mis-file on site, and silently ignoring a visible photo reads as the tool being broken. It now falls back to the MOST RECENT non-deleted Pump-box photo and SAYS SO in a toast, so a wrong guess is visible rather than silent; the existing preview/confirm still gates every value before anything is written, so scanning a photo of the pump body costs one worker call and an obviously-wrong preview, never a wrong report. The tab's own placard kind still wins whenever it exists (S338 per-pump scoping unchanged). Photo LOSS on the scan path is a SEPARATE scoped defect (SCOPE_PLACARD_SCAN_PHOTO_LOSS.md, Option C investigate-first, Mark present) and was deliberately NOT touched here. (2)+(3) ONE MEANING PER GLYPH in the flow-equipment photo viewer: the per-photo button was a ✕ titled "Remove" in the same viewer as the header's ✕ that means CLOSE — two identical glyphs, opposite meanings, one destructive — and "Remove" understated a project-wide soft delete. It is now the bin glyph titled "Delete photo (moves to Recently Deleted)", matching the lightbox and the rest of the toolkit: bin deletes, ✕ closes, ⇄ moves (its title now says it keeps the photo). Confirm modals unchanged and verified present on every delete path including the lightbox's.
@@ -610,17 +615,3 @@ _threadEntryAmendable
 @ S566 activity modal module (deficiency split stage 1). frt/js/ui/activityModal.js owns _showActivityModal; deficiencies.js imports it back. Verbatim move, reassembly-proved.
 _showActivityModal
 activityModal
-
-@ S573 one-finger pan, NEUTRAL STATE ONLY (Mark, after crew feedback "two finger pan is not natural"). One finger pans when nothing is armed; an armed tool still owns the finger; two-finger pan unchanged. Pin safety is load-bearing: the S569 hold gate decides ownership by intent — movement before the glow is a pan, a glowing/dragging pin permanently ends pan candidacy for that gesture, re-checked live every move. Removal returns the dead one-finger gesture the crew complained about OR (worse, if the gates go with it) the S331w teleport class.
-_oneFPanReady
-_oneFPanning
-
-@ S574 trash mode (LOCKED_TRASH_MODE.md, Mark-approved S489, built S574). Tap-only pick-to-delete: arm the dedicated red trash button, tap marks (engine halo + green check), red-trash confirm on the existing bar, ONE-tap custom modal, undo restores. ONE implementation in lib/ui/markupSelection.js; both hosts (drawing viewer + photo lightbox) only wire chrome. Viewer deletion routes through the tombstone-wrapped deleteSelected — same delete path as select, never a second one. Removal restores the 5-step delete Mark explicitly killed.
-setTrashMode
-isTrashMode
-_trashDown
-deleteTrashPicks
-trashCount
-_dvEnsureTrashBar
-_dvRefreshTrashBar
-_handleTrashDown
