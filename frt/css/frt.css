@@ -11698,3 +11698,14 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
    menuCSS), injected once by app.js. Four rounds were lost to private copies
    "matched" to the engine; matching is not sharing. If this menu ever looks
    wrong, fix the ENGINE — never add rules here. */
+
+/* ── S582 — the ⋯ menu HOST. The panel itself lives in a shadow root built by
+   lib/ui/headerEngine2.js (buildSharedMenu shadow mode) and is UNREACHABLE
+   from this stylesheet by design — that is what finally stopped the viewer's
+   generic toolbar button rule from drawing a border on every row. These rules
+   position the host only; never add appearance rules for the menu here. */
+#drawing-viewer-overlay #dv-more-menu{
+  position:absolute; right:0; top:calc(100% + 6px); z-index:9600;
+  display:none;
+}
+#drawing-viewer-overlay #dv-more-menu.open{ display:block; }

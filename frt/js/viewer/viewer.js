@@ -4972,11 +4972,12 @@ function _resetCtrHighlight() {
   if (window.PinsGL && window.PinsGL.setHighlightContractor) window.PinsGL.setHighlightContractor(null);
 }
 window._frtResetCtrHighlight = _resetCtrHighlight;
+try { window._frtToggleTasks = _toggleTasks; } catch (_e) {}   /* S582: shadow-menu rows call this directly */
 document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('[data-dv-action="tasks"]')) {
     _toggleTasks();
     var mmT = document.getElementById('dv-more-menu');
-    if (mmT) mmT.style.display = 'none';
+    if (mmT) mmT.classList.remove('open');   // S582: engine menus close by class
     return;
   }
   if (e.target.closest && e.target.closest('[data-dv-action="heights"]')) {

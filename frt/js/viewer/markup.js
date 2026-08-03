@@ -258,17 +258,48 @@ function _dvEnsureMoreMenu() {
     { label: '\uD83E\uDE7A Markup Diagnostic', sub: 'Markup counts, sync state, manual merge', action: 'markupdiag' },
     { label: '\uD83D\uDCCC Tasks', sub: 'Open the task panel for this drawing', action: 'tasks' }
   ];
-  var wrap = buildSharedMenu(items);
+  /* S582: shadow:true — the menu gets the same host-CSS immunity the header's
+     dropdown has always had by living in a shadow root. Without it the
+     viewer toolbar's generic button rule drew a border + pill on every row. */
+  var wrap = buildSharedMenu(items, { shadow: true });
   var menu = wrap._menu;
-  menu.id = 'dv-more-menu';
+  wrap.id = 'dv-more-menu';   /* the HOST is the toggled/positioned node now */
   // tag each engine-built row with its action for the delegated handler
   var btns = menu.querySelectorAll('button');
   for (var i = 0; i < btns.length && i < items.length; i++) {
     btns[i].setAttribute('data-dv-action', items[i].action);
+    /* Clicks inside a shadow root do bubble, but e.target is retargeted to the
+       HOST — so the document-level [data-dv-action] delegation can no longer
+       see the row. Wire each row directly; the action names are unchanged. */
+    (function (act) {
+      btns[i].addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        wrap.classList.remove('open');
+        _dvRunMoreAction(act);
+      });
+    })(items[i].action);
   }
   slot.parentNode.replaceChild(wrap, slot);
-  _dvMoreMenuEl = menu;
-  return menu;
+  _dvMoreMenuEl = wrap;
+  return wrap;
+}
+
+// S582: one place that runs a ⋯ menu action, called by the shadow-built rows
+// (whose clicks are retargeted to the host and so cannot use the document-level
+// [data-dv-action] delegation). The legacy delegation stays for any other
+// light-DOM element that still carries the attribute.
+function _dvRunMoreAction(act) {
+  if (act === 'download') { _downloadDrawing(); return; }
+  if (act === 'markupdiag') { _showMarkupDiag(); return; }
+  if (act === 'tasks') { try { if (window._frtToggleTasks) window._frtToggleTasks(); } catch (e) {} return; }
+  if (act === 'delete-all-markup') {
+    showConfirm('Delete All Markup', 'Remove all markup on this drawing?').then(function (yes) {
+      if (!yes) return;
+      _objects = []; _pushHistory(); _renderAll(); _markDirty();
+    });
+    return;
+  }
+  if (act === 'delete-all-pins') { _deleteAllPins(); return; }
 }
 
 function _handleTrashDown(e) {
