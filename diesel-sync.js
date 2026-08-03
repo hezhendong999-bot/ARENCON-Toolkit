@@ -636,7 +636,11 @@ const CloudSync = (function () {
            pushed straight back over them. Collect fresh: whatever is on screen
            now already contains the merged truth. */
         engine.pushVia = 'reconnect';
-        Promise.resolve(save(_collectStateFn ? _collectStateFn() : _lastSavedJson))
+        /* S600: reconnect is a wake by another name — same pull-first rule. */
+        Promise.resolve((async function () {
+          if (_projectId) { try { await engine.pull(_projectId, engine.instanceId || _instanceId); _lastPullAt = Date.now(); } catch (_) {} }
+          return save(_collectStateFn ? JSON.stringify(_collectStateFn()) : _lastSavedJson);
+        })())
           .then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); })
           .catch(function () { _setStatus('pending', 'Saved locally'); });
       } else if (engine.isPending) {
@@ -695,12 +699,25 @@ const CloudSync = (function () {
       _lastKickAt = now;
       (async function () {
         try {
+          /* ═══ S600 — THE WAKE FLUSH WAS THE RESURRECTION MACHINE ═══════════
+             Device receipts, 03 Aug: 13:33, 13:51, 15:11, 15:45 — every stale
+             overwrite of the day arrived `via: wake`. This flush pushed the
+             screen's document the moment the app foregrounded, with a valid
+             token, so nothing ever stamp-checked it: a day-old 250 kept
+             steamrolling the cloud's newer entry, after which every pull
+             correctly found "no difference" — no badge, no telemetry, no
+             change. PULL FIRST. The merge (honest entry stamps since S597)
+             settles every field: a genuinely newer offline entry survives and
+             pushes; a stale screen loses, gets updated, badges the change,
+             and has nothing left to send. Same rule as S592 boot recovery. */
+          if (pullToo && _netUp() && _projectId) {
+            try { await engine.pull(_projectId, engine.instanceId || _instanceId); _lastPullAt = Date.now(); } catch (_) {}
+          }
           if (_collectStateFn) {
             var j = JSON.stringify(_collectStateFn());
             engine.pushVia = 'wake';
-            if (j !== _lastPushedJson) await save(j);   // flush FIRST, sequentially
+            if (j !== _lastPushedJson) await save(j);   // only what survived the merge
           }
-          if (pullToo) await heartbeatTick();           // then catch up on pulls
         } catch (e) { /* a failed kick costs nothing; the next one retries */ }
       })();
     }
