@@ -22,6 +22,7 @@ import { IDB } from '../data/idb.js';
 import { R2 } from '../data/r2.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { toast } from '../shared/toast.js';   // S574: trash-mode undo hint
+import { buildSharedMenu } from '../../../lib/ui/headerEngine2.js';   // S581: the ⋯ menu IS the header dropdown
 import { TiledPdf } from './tiledPdf.js';
 import { Diag } from '../diag/memory.js';
 import { deviceClass, deviceMaxPixels } from '../shared/deviceBudget.js';
@@ -236,6 +237,40 @@ function _dvRefreshTrashBar() {
   _dvTrashCnt.textContent = n + ' selected';
   _dvTrashBar.style.display = 'flex';
 }
+// ── S581 — the ⋯ MENU IS THE SHARED HEADER DROPDOWN. ──────────────────────
+// buildSharedMenu() is the same function lib/ui/headerEngine2.js uses for the
+// header's own More / Reports / AI dropdowns, and menuCSS() (injected once by
+// app.js) is the same stylesheet. Rounds S577–S579 each hand-wrote rows here
+// and re-derived the styling in frt.css — a matching COPY, which is the fake
+// conversion the shared-engine rule forbids (Mark, repeatedly). The viewer now
+// contributes only its ITEMS; the engine emits every node and every pixel.
+// Items keep their data-dv-action attribute so the existing delegated action
+// handler below is untouched.
+var _dvMoreMenuEl = null;
+function _dvEnsureMoreMenu() {
+  if (_dvMoreMenuEl) return _dvMoreMenuEl;
+  var slot = document.getElementById('dv-more-menu-slot');
+  if (!slot) return null;
+  var items = [
+    { label: '\u2B07\uFE0F Download Drawing', sub: 'Save this sheet as an image', action: 'download' },
+    // S527: on-screen markup diagnostic — an in-app row, never a URL param
+    // (field tablets run the Android TWA where the address bar is not editable).
+    { label: '\uD83E\uDE7A Markup Diagnostic', sub: 'Markup counts, sync state, manual merge', action: 'markupdiag' },
+    { label: '\uD83D\uDCCC Tasks', sub: 'Open the task panel for this drawing', action: 'tasks' }
+  ];
+  var wrap = buildSharedMenu(items);
+  var menu = wrap._menu;
+  menu.id = 'dv-more-menu';
+  // tag each engine-built row with its action for the delegated handler
+  var btns = menu.querySelectorAll('button');
+  for (var i = 0; i < btns.length && i < items.length; i++) {
+    btns[i].setAttribute('data-dv-action', items[i].action);
+  }
+  slot.parentNode.replaceChild(wrap, slot);
+  _dvMoreMenuEl = menu;
+  return menu;
+}
+
 function _handleTrashDown(e) {
   if (SelHost._trashDown) SelHost._trashDown(_getPos(e));
   _dvRefreshTrashBar();
@@ -4114,7 +4149,7 @@ document.addEventListener('click', function(e) {
   if (e.target && e.target.closest && e.target.closest('[data-dv-action="markupdiag"]')) {
     e.preventDefault();
     var mm = document.getElementById('dv-more-menu');
-    if (mm) mm.style.display = 'none';
+    if (mm) mm.classList.remove('open');   // S581: engine menus open/close by class
     _showMarkupDiag();
   }
 });
@@ -4983,10 +5018,10 @@ function _wireEvents() {
     if (e.target.closest && e.target.closest('#mk-undo')) { _undo(); e.stopPropagation(); return; }
     if (e.target.closest && e.target.closest('#mk-redo')) { _redo(); e.stopPropagation(); return; }
 
-    // More menu
+    // More menu — S581: rows BUILT by the shared header engine, not written here.
     if (e.target.closest && e.target.closest('#dv-more-btn')) {
-      var mm = document.getElementById('dv-more-menu');
-      if (mm) mm.style.display = mm.style.display === 'none' ? 'block' : 'none';
+      var mm = _dvEnsureMoreMenu();
+      if (mm) mm.classList.toggle('open');
       e.stopPropagation();
       return;
     }
@@ -4994,7 +5029,7 @@ function _wireEvents() {
     if (menuItem) {
       var act = menuItem.getAttribute('data-dv-action');
       var mmenu = document.getElementById('dv-more-menu');
-      if (mmenu) mmenu.style.display = 'none';
+      if (mmenu) mmenu.classList.remove('open');   // S581: engine menus open/close by class
       if (act === 'delete-all-markup') {
         showConfirm('Delete All Markup', 'Remove all markup on this drawing?').then(function(yes) {
           if (!yes) return;
@@ -5038,7 +5073,7 @@ function _wireEvents() {
     }
     if (!e.target.closest || !e.target.closest('#dv-more-btn')) {
       var mm2 = document.getElementById('dv-more-menu');
-      if (mm2) mm2.style.display = 'none';
+      if (mm2) mm2.classList.remove('open');   // S581: close-on-outside, engine class
     }
   });
 

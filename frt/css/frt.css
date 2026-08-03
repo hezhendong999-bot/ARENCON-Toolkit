@@ -2784,7 +2784,7 @@ body.dark-mode .drawing-viewer-overlay .zoom-controls button{background:var(--b-
     width:40px !important; height:40px !important;
   }
   /* Layers / More menus positioned near their trigger button (top bar). */
-  .drawing-viewer-overlay #dv-more-menu[style*="block"]{
+  .drawing-viewer-overlay #dv-more-menu.open{   /* S581: engine menus open by CLASS, not inline display */
     position:fixed !important;
     right:10px !important; left:auto !important;
     top:50px !important;
