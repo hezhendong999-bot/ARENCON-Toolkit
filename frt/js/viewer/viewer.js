@@ -2878,6 +2878,23 @@ var _PinPan = (function() {
   // where it was, and record WHY so the next occurrence names its own cause
   // instead of being inferred from a database months later.
   function setPinFromTip(tipx, tipy) {
+    /* ── S584 — WRITE IDENTITY GUARD (found in the Jul 29 forensics, and it is
+       the crew's bug). `st` is ONE module-level state shared by every mount of
+       this mini-map, and st.d is whichever deficiency mounted last. The
+       history proves writes landed on a pin the inspector was NOT working on:
+       at 18:18 on 7033.13, two photos were added to one deficiency while a
+       DIFFERENT pin jumped to the top edge in the same save; at 19:23, three
+       pins moved at once with no photo or text change at all — impossible by
+       hand, since a finger moves one pin at a time.
+       A write is now refused unless st.d is the deficiency the editor is
+       actually open on. A stale mount can no longer move somebody else's pin. */
+    try {
+      if (_peDeficId && st && st.d && st.d.id && st.d.id !== _peDeficId) {
+        _pinWriteBreadcrumb('REFUSED wrong-target (stale mount: ' + st.d.id +
+          ' vs open ' + _peDeficId + ')', -1, -1, { x:0, y:0, w:st.boxW, h:st.boxH });
+        return false;
+      }
+    } catch (eIdent) {}
     var r = imgRect();
     if (r.w <= 0 || r.h <= 0) return false;
     var fx = (tipx - r.x) / r.w;
