@@ -654,6 +654,12 @@ const CloudSync = (function () {
        standing, the next flush re-pushes it over the very data that just
        arrived — the 80→150 revert. Re-point the ledger at what is now on
        screen, and retire the durable pending flag when nothing differs. */
+    /* S599 — the engine reports each pull decision; forward it to the database. */
+    engine.onDiag = function (event, detail) {
+      try { _diag(event, Object.assign({ build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') }, detail || {})); }
+      catch (_) {}
+    };
+
     engine.onModelReplaced = function () {
       try {
         if (!_collectStateFn) return;
