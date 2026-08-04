@@ -8591,7 +8591,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S589-b';
+const HUB_BUILD = 'S590';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
@@ -8626,12 +8626,20 @@ initLiveUpdate({
     return false;
   },
   capture: function () {
+    /* S590 (Mark, live test): the Hub is param-less — openProject() pushes
+       history state on the SAME pathname, so a reload ALWAYS lands on the
+       dashboard. My first capture only recorded view+scroll, so the update
+       swap threw him out of the project page he was reading. "Where I was"
+       on this tool means WHICH PROJECT, first and foremost. */
     var sc = 0;
-    try {
-      var g = document.getElementById('project-grid');
-      sc = (g && g.scrollTop) || window.scrollY || 0;
-    } catch (e) {}
-    return { view: (typeof _hubView !== 'undefined' ? _hubView : null), scroll: sc };
+    try { sc = window.scrollY || document.documentElement.scrollTop || 0; } catch (e) {}
+    var pid = null;
+    try { pid = (typeof _detailProjectId !== 'undefined') ? _detailProjectId : null; } catch (e) {}
+    return {
+      project: pid,
+      view: (typeof _hubView !== 'undefined' ? _hubView : null),
+      scroll: sc
+    };
   }
 });
 
@@ -8640,14 +8648,28 @@ try {
   var _lu = restoreAfterUpdate('hub');
   if (_lu) {
     if (_lu.view && typeof setHubView === 'function' && _lu.view !== _hubView) setHubView(_lu.view);
-    if (_lu.scroll) {
-      setTimeout(function () {
+    /* Reopen the project page the user was on. Projects load asynchronously,
+       so poll briefly rather than firing once into an empty list — openProject
+       toasts "Project not found" if the list has not arrived yet. */
+    if (_lu.project) {
+      var _tries = 0;
+      var _reopen = setInterval(function () {
+        _tries++;
         try {
-          var g = document.getElementById('project-grid');
-          if (g && g.scrollHeight > g.clientHeight) g.scrollTop = _lu.scroll;
-          else window.scrollTo(0, _lu.scroll);
+          if (typeof _projects !== 'undefined' && _projects && _projects.length &&
+              typeof openProject === 'function') {
+            if (_projects.some(function (p) { return p.id === _lu.project; })) {
+              clearInterval(_reopen);
+              openProject(_lu.project);
+              if (_lu.scroll) setTimeout(function () { window.scrollTo(0, _lu.scroll); }, 200);
+              return;
+            }
+          }
         } catch (e) {}
+        if (_tries > 40) clearInterval(_reopen);   // ~10s, then give up quietly
       }, 250);
+    } else if (_lu.scroll) {
+      setTimeout(function () { try { window.scrollTo(0, _lu.scroll); } catch (e) {} }, 250);
     }
   }
 } catch (e) {}
