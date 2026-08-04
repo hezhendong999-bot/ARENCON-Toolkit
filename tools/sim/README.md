@@ -1,6 +1,7 @@
 # ARENCON sync harness suite (Lane C law: no fix without a first-failing test)
 Setup: `cd tools/sim && npm i jsdom fake-indexeddb`
-Run any: `SIM_TARGET=fix node <name>.mjs` (fix = this tree; live = ../../../live3 checkout of HEAD)
+Roots are resolved from the file (S614): `SIM_TARGET=fix` = this repo; `SIM_TARGET=live` = `$SIM_LIVE` (a checkout of the build you are comparing against). No absolute paths — any lane can run these.
+Run any: `SIM_TARGET=fix node <name>.mjs`
 - tickhealth.mjs   — S602: hung-probe deafening / swallowed probe failure / quiet-check gauge
 - bootstall.mjs    — S603: init must survive a hanging network step (HANG=auth|project|instance)
 - stalemate.mjs    — S604: stamp revert + push-dedupe deadlock (the 200/150 field incident)

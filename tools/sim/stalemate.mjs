@@ -11,17 +11,26 @@
  * device last sent, not against what the cloud now holds. Cloud stays wrong
  * forever. Live: zero re-push. Fixed: the pull re-arms the push.
  *
- * RULE: FAIL on live S603 (/home/claude/live3), PASS on fix (/home/claude/work2).
+ * RULE: FAIL on the live build ($SIM_LIVE), PASS on this repo.
  * ==========================================================================*/
 import { JSDOM } from 'jsdom';
 import FDBFactory from 'fake-indexeddb/lib/FDBFactory';
 import FDBKeyRange from 'fake-indexeddb/lib/FDBKeyRange';
 import fs from 'fs';
 import path from 'path';
-import { pathToFileURL } from 'url';
+import { pathToFileURL, fileURLToPath } from 'url';
 
 const TARGET = process.env.SIM_TARGET === 'fix' ? 'fix' : 'live';
-const ROOT = TARGET === 'fix' ? '/home/claude/work2' : '/home/claude/live3';
+
+/* S614 — PORTABLE ROOTS (Lane A finding: these harnesses carried absolute
+   paths from the machine that wrote them and could not run anywhere else).
+     SIM_TARGET=fix  → the tree this file lives in (repo root, resolved)
+     SIM_TARGET=live → $SIM_LIVE, a checkout of the build you are comparing
+                       against; defaults to <repo>/../live for convenience. */
+const _HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO  = path.resolve(_HERE, '../..');
+const LIVE  = process.env.SIM_LIVE || path.resolve(REPO, '../live');
+const ROOT = TARGET === 'fix' ? REPO : LIVE;
 const TS_OLD = 1785710537327, TS_NEW = 1785719978889;
 const results = [];
 const check = (n, p, d) => { results.push(p); console.log(`  ${p ? 'PASS' : 'FAIL'}  ${n}${d ? '  — ' + d : ''}`); };

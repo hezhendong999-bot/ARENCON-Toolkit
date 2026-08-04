@@ -5,9 +5,18 @@
 import { JSDOM } from 'jsdom';
 import FDBFactory from 'fake-indexeddb/lib/FDBFactory';
 import FDBKeyRange from 'fake-indexeddb/lib/FDBKeyRange';
-import path from 'path'; import { pathToFileURL } from 'url';
+import path from 'path'; import { pathToFileURL, fileURLToPath } from 'url';
 const TARGET = process.env.SIM_TARGET === 'fix' ? 'fix' : 'live';
-const ROOT = TARGET === 'fix' ? '/home/claude/work2' : '/home/claude/live3';
+
+/* S614 — PORTABLE ROOTS (Lane A finding: these harnesses carried absolute
+   paths from the machine that wrote them and could not run anywhere else).
+     SIM_TARGET=fix  → the tree this file lives in (repo root, resolved)
+     SIM_TARGET=live → $SIM_LIVE, a checkout of the build you are comparing
+                       against; defaults to <repo>/../live for convenience. */
+const _HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO  = path.resolve(_HERE, '../..');
+const LIVE  = process.env.SIM_LIVE || path.resolve(REPO, '../live');
+const ROOT = TARGET === 'fix' ? REPO : LIVE;
 const ROW='c6036627-3615-4dc0-bda2-bbf4c5d1c179';
 const jr=b=>Promise.resolve({ok:true,status:200,headers:{get:()=>null},json:()=>Promise.resolve(b),text:()=>Promise.resolve(JSON.stringify(b))});
 const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'https://arencon.app/'});

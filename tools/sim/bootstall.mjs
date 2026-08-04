@@ -5,16 +5,25 @@
  * device runs local-only forever while looking normal.
  *
  * RULE: must FAIL on S602 live code, PASS on the S603 fix.
- *   SIM_TARGET=live → /home/claude/repo2   SIM_TARGET=fix → /home/claude/work2
+ *   SIM_TARGET=live → $SIM_LIVE   SIM_TARGET=fix → this repo
  * ==========================================================================*/
 import { JSDOM } from 'jsdom';
 import FDBFactory from 'fake-indexeddb/lib/FDBFactory';
 import FDBKeyRange from 'fake-indexeddb/lib/FDBKeyRange';
 import path from 'path';
-import { pathToFileURL } from 'url';
+import { pathToFileURL, fileURLToPath } from 'url';
 
 const TARGET = process.env.SIM_TARGET === 'fix' ? 'fix' : 'live';
-const ROOT = TARGET === 'fix' ? '/home/claude/work2' : '/home/claude/repo2';
+
+/* S614 — PORTABLE ROOTS (Lane A finding: these harnesses carried absolute
+   paths from the machine that wrote them and could not run anywhere else).
+     SIM_TARGET=fix  → the tree this file lives in (repo root, resolved)
+     SIM_TARGET=live → $SIM_LIVE, a checkout of the build you are comparing
+                       against; defaults to <repo>/../live for convenience. */
+const _HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO  = path.resolve(_HERE, '../..');
+const LIVE  = process.env.SIM_LIVE || path.resolve(REPO, '../live');
+const ROOT = TARGET === 'fix' ? REPO : LIVE;
 const HANG_STEP = process.env.HANG || 'auth';   // auth | project | instance
 
 function jsonRes(body) {
