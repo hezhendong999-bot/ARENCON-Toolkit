@@ -1068,8 +1068,16 @@ function _applyLoadedState(raw) {
     renderFlowTestThumbs();
     renderContractorTags();
     renderDeficGroups();
+    /* S606 — the General (no-contractor) group, where recommendations and
+       site records live, was the ONE section missing from this list: its data
+       has synced since S605 but the screen never redrew it without a reload
+       (Mark's "recommendation section doesn't sync at all"). */
+    if (typeof renderGeneralDeficGroup === 'function') renderGeneralDeficGroup();
     updateDeficSummary();
     renderAllSignRows();
+    /* S606 — repaint every signature pad from the just-applied strokes; the
+       rebuilt rows repaint their own pads, the consultant pad needs this. */
+    if (typeof _sigRepaintAll === 'function') setTimeout(_sigRepaintAll, 140);
     calcTotalDemand();
     calcTotalDemandPld();
     syncAllFields();
