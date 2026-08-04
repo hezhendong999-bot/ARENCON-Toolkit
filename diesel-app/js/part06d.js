@@ -1272,7 +1272,11 @@ window.addEventListener('load', () => {
   _installChartVisibilityObserver();
   initSig('sig-canvas');
   renderAllSignRows();
-  addContractorSignRow();
+  /* S611 — this unconditional add ran on EVERY load, pushing an empty id-less
+     row that collect then minted a DIFFERENT id per device; the merge unioned
+     them all — one ghost contractor per device per session (21→32 rows in
+     tool_data_history on 03-Aug). Starter row only when there are none. */
+  if (!contractorSignRows.length) addContractorSignRow();
   renderDeficGroups();
   updateDeficSummary();
   updateOfflineStatus();

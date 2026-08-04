@@ -1579,7 +1579,9 @@ const witnessSignRows = [];
 
 function addSignRow(type) {
   const arr = type==='witness' ? witnessSignRows : contractorSignRows;
-  arr.push({ name:'', title:'', company:'', date:'', type });
+  /* S611 — identity at CREATION, not at collect: collect-time minting gave
+     the same conceptual row a different id on every device (ghost-row union). */
+  arr.push({ id:'sr_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,6), name:'', title:'', company:'', date:'', type });
   _renderSignSection(type);
 }
 function removeSignRow(type, i) {
