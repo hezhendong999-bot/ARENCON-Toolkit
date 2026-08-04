@@ -1023,7 +1023,7 @@ function _applyLoadedState(raw) {
       witnessSignRows.length = 0;
       s.witnessSignRows.forEach(r => witnessSignRows.push(r));
     }
-    if (s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ _sigStrokes[k]=s.sigStrokes[k]; }); }
+    if (s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ var v=s.sigStrokes[k]; _sigStrokes[k]=(v&&!Array.isArray(v)&&Array.isArray(v.s))?v.s:v; }); }   // S605: unwrap {s:[...]}; legacy bare arrays pass through
     // flowTestPhotos
     if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(p=>flowTestPhotosPld.push(p)); renderFlowTestThumbsPld(); }
     // batData

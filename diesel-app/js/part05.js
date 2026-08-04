@@ -65,7 +65,7 @@ function updatePhaseFlags(){
   var flag = document.getElementById('phase-closeout-flag');
   if(!flag) return;
   var open = 0;
-  try { open = (contractors.flatMap(function(n){return deficiencies[n]||[];}).concat(generalDeficiencies||[])).filter(function(d){return (d.status||'open')!=='resolved';}).length; }
+  try { open = (contractors.flatMap(function(n){return deficiencies[n]||[];}).concat(generalDeficiencies||[])).filter(function(d){return !(d&&d.deleted) && (d.status||'open')!=='resolved';}).length; }
   catch(e){ open = 0; }
   if(open>0){ flag.style.display='inline-flex'; flag.textContent='\u2691 '+open; }
   else { flag.style.display='none'; }

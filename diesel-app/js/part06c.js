@@ -872,7 +872,7 @@ function _applyStateInPlace(jsonStr) {
     if(s.deficiencies) { Object.keys(deficiencies).forEach(function(k){delete deficiencies[k];}); Object.assign(deficiencies,s.deficiencies); }
     if(s.generalDeficiencies) { generalDeficiencies.length=0; s.generalDeficiencies.forEach(function(d){generalDeficiencies.push(d);}); }
     if(s.contractorSignRows) { contractorSignRows.length=0; s.contractorSignRows.forEach(function(r){contractorSignRows.push(r);}); }
-    if(s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ _sigStrokes[k]=s.sigStrokes[k]; }); }
+    if(s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ var v=s.sigStrokes[k]; _sigStrokes[k]=(v&&!Array.isArray(v)&&Array.isArray(v.s))?v.s:v; }); }   // S605: unwrap {s:[...]}; legacy bare arrays pass through
     if(s.batData) {
       if(s.batData.b1) batData.b1=s.batData.b1.map(Number);
       if(s.batData.b2) batData.b2=s.batData.b2.map(Number);
@@ -1608,6 +1608,12 @@ function _ensureDeficIds(){
 function collectState() {
   _ensureFlowPhotoIds();
   _ensureDeficIds();
+  /* S605 — permanent ids for pump-curve rows so the engine can pair them by
+     identity (S540 pattern); without ids the whole table merged last-save-wins. */
+  [typeof pumpCurvePoints!=='undefined'?pumpCurvePoints:null, typeof pldPumpCurvePoints!=='undefined'?pldPumpCurvePoints:null].forEach(function(arr){
+    if(!Array.isArray(arr)) return;
+    arr.forEach(function(p){ if(p && !p.id) p.id='cv_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,6); });
+  });
   const proj = {};
   ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
    'pi-contractor','pi-version','pi-ref','pi-revision','pi-date-modified',
@@ -1688,7 +1694,9 @@ function collectState() {
     generalDeficiencies: JSON.parse(JSON.stringify(generalDeficiencies)),
     contractorSignRows: contractorSignRows.map(r=>({...r})),
     witnessSignRows: witnessSignRows.map(r=>({...r})),
-    sigStrokes: (typeof _sigStrokes!=='undefined') ? JSON.parse(JSON.stringify(_sigStrokes)) : {},
+    /* S605 — wrapped {s:[...]} per canvas so the engine's per-key stamp
+       survives JSON; bare arrays drop attached properties on serialize. */
+    sigStrokes: (function(){ var o={}; if(typeof _sigStrokes!=='undefined') Object.keys(_sigStrokes).forEach(function(k){ o[k]={s:JSON.parse(JSON.stringify(_sigStrokes[k]||[]))}; }); return o; })(),
     // Photos stored separately to keep main state lean
     batData: {b1:[...batData.b1], b2:[...batData.b2]},
     flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,id:p.id||'',tag:p.tag||'',caption:p.caption||'',mk:p.mk||null,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
