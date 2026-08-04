@@ -26,23 +26,12 @@ PART 3 supersedes PART 2 where they touch the same subject.
 deliberate: it is a verbatim copy, and editing it to fit this file's numbering would destroy the
 guarantee that makes it trustworthy.
 
-### S493 → S545 — the thin window, and what actually happened to it
+### THE REMAINING HOLE IS S493 → S545 — and only that
 
-**ROOT CAUSE, established S617 with evidence. It was never a lost PK.** The PK body survives
-verbatim (PART 2). What the S611 cleanup destroyed was **two delta files that had never been folded
-into it** — `ARENCON_FRT_PK_DELTA_S508-S518.md` and `ARENCON_FRT_PK_DELTA_S526-S543.md` — deleted
-under the heading *"their content is in the FRT PK."* It was not. A Lane A session had reviewed both
-weeks earlier and ruled, in writing: **"KEEP — S441–S545 layer — NOT folded into the PK;
-load-bearing."** `LANE-A_ADDENDUM_DOCTRINE_S524.md` went with them.
-
-**Most of that content was recovered at S617** from the originating session transcripts and is
-folded into PART 2B, marked as transcript-recovered rather than verbatim delta. What remains
-genuinely gone is named there rather than glossed over. **For this window, cross-check against the
-git commit messages** — all 63 sessions S500–S545 are on `main` and written as documentation.
-
-**The standing lesson:** *"their content is in the PK"* must be **verified against the PK**, not
-assumed from a filename. A delta that says KEEP on its face is load-bearing until someone proves
-otherwise.
+The original PK's coverage of **S493 → S545** existed only in the lost file. Everything earlier is
+now verbatim canon again. **For that window, prefer the git commit messages over this file** — they
+are permanent, written as documentation, and cover it densely (63 sessions, S500 → S545, every one
+present on `main`). See PART 2B for the specific committed sources that cover it.
 
 ### RULE GOING FORWARD
 
@@ -1214,7 +1203,7 @@ migration.
 
 ---
 
-# ════════ PART 2B — S493 → S545 · THE THIN WINDOW (largely recovered S617) ════════
+# ════════ PART 2B — S493 → S545 · THE REMAINING HOLE ════════
 
 **⚠ This is the one window where this file is thinner than the rest — but it is no longer a blank.**
 Most of it was recovered at S617 from the originating session transcripts; see the RECOVERED section below. The original PK's narrative canon for
@@ -1417,11 +1406,128 @@ must never block cloud writes.**
   cross main sits above the feed main. Stacy's one-sentence confirmation is still owed before that
   report ships.
 
+
+---
+
+## SECOND RECOVERY PASS (S617) — doctrine, chrome, and the S524–S525a delta
+
+The S611 cleanup also destroyed `LANE-A_ADDENDUM_DOCTRINE_S524.md` and, earlier in the chain,
+`ARENCON_FRT_PK_DELTA_S524-S525a.md`. Both recovered here from their originating sessions.
+
+### THE DATA INTEGRITY DOCTRINE IS PK-LEVEL CANON (I-1 … I-13)
+
+`docs/ARENCON_DATA_INTEGRITY_DOCTRINE_S524.md` **is in the repo — read the file, do not work from
+this summary.** It governs every save / load / sync / merge / boot / photo / delete change in FRT
+with the same force as this PK. The FRT-relevant core:
+
+- the sync engine may **never destroy content in either direction**
+- **absence never deletes** — tombstones only
+- **no save before a clean cloud baseline** (I-4): FRT is read-only, visibly, until one lands
+- local changes durable **instantly**, with guaranteed delivery (I-5)
+- **sync failure must be loud** (I-6)
+- **binaries never inside the save payload** (I-7)
+- server backstops stand **regardless of client build** (I-8/I-10)
+- attribution mandatory
+- **I-11: a database change is not done until a real save is performed as an ordinary user**
+- **I-12/I-13: devices must auto-update; the version floor is part of integrity, not convenience**
+
+**ARCHITECTURE DECISION, settled — do not reopen:** standard sync patterns hand-built on our own
+stack. **No engine migration.** Build to the doctrine; do not propose alternatives.
+
+**The incident mechanism the doctrine closes, in three links:** a boot-push of stale state gutted
+the cloud → a pull then clobbered local work → a silent save failure swallowed the rest. Every
+hardening task maps to one of those three.
+
+### Lane A's doctrine orders (recovered from the deleted addendum)
+
+1. **Pull path = I-1 + I-2.** Audit FRT's pull/merge so absence never deletes — pins, deficiencies
+   (per-drawing AND general), photos (record + per-deficiency), drawings, markup strokes, contractor
+   data. Where existing array-shrinkage guards already do this, **PROVE it per category with a
+   stale-pull test and record the proof**; where they don't, extend them.
+   **Hollowed structures — arrays kept, values emptied — count as deletion attempts. Guard content,
+   not just lengths.**
+2. **Boot discipline = I-4.** Verify no boot-time writer exists (autosave timers, migration shims,
+   AI writers) that can fire before the baseline.
+3. **PT409 handling = I-8.** Surface guard rejections loudly: *"Save refused — this would have
+   erased report content. Your local data is intact."* Any clear/reset flow needs
+   `_intentionalClear` after explicit user confirmation.
+4. **If-Match on every writer = I-8/I-10.** The main sync path **and** every secondary writer —
+   background sync, photo-outbox metadata, direct PATCH. **One header-less writer re-opens
+   last-write-wins for everybody.**
+5. **Loud staleness = I-6.** Freshness pill escalates: amber at ~5 min since the last confirmed
+   cloud save, red banner at ~15 min.
+6. **Acceptance gate:** two-device torture test with Mark present — crash/relaunch, stale pulls,
+   offline queues.
+
+### Nested content collapse guard (S524c)
+
+The original guard counted **containers**. S524c extended it to count content **at every depth**, so
+a wipe that keeps the containers and empties the items inside them is now seen. This was the gap
+originally assigned to Lane A and shipped by Lane C.
+
+**Known coarseness, recorded not chased:** the server wipe guard counts *total* photo references, so
+wiping one whole section while photos survive elsewhere does not read as a collapse. **Correct
+trade** — a per-section guard would fight legitimate section deletes.
+
+### FRT's own merge chain — a real gap, still open
+
+Per the sync shim's own note, **FRT injects its own merge/worker chain rather than `lib`'s.** The
+S524 hardening was in the sync engine only; **`frt/js/data/merge.js` → `lib/data/merge.js` is
+untouched and its known gaps remain Lane A's.**
+
+### FIELD RULES IN FORCE (these superseded the old "stop entering data" instruction)
+
+Give the crew this version:
+
+> **Keep working — signal is not required to do a review.** Everything is on the device as it is
+> typed, photos have a crash-surviving queue, entries retry every 60 s, and a relaunch flushes both.
+> **If the banner appears, do not close or reload the app** — it is retrying. Do not open the same
+> report on a second device or tab until it is green. **Get to signal and see green before leaving
+> site.** If it will not go green after five minutes on good signal, call Mark — do not reload.
+
+**Same-report co-editing is an approved, supported mode**, not forbidden. Separate records remain
+the default for independent work.
+
+### Viewer chrome — one shared sealed button (`lib/ui/chromeButton.js`, S524)
+
+The six drawing-viewer header buttons and Back render from **one sealed-shadow definition — not a
+matching copy.** Eleven previous pushes failed because each copied values into `frt.css`, where ~200
+accumulated rules argue and a new rule is merely the 201st contestant.
+
+- **Sizes:** icon **34×34**, back **40×34**, wide auto×34. **No breakpoints, no
+  `@media(pointer:coarse)`, no size variation of any kind.** Mark, S524: *"I want these 6 buttons to
+  be the same size, stop changing size."*
+- **Order (Mark's workflow):** layers · heights · seal — more · help · theme. Sheet view → sheet
+  capture → print-only, then the same tail the main FRT header uses. A 10 px gap before `more`
+  separates sheet controls from utilities — **a gap, not a divider.**
+- **THE DELETION IS THE PROOF.** 36 blocks / 7,711 bytes removed from `frt.css`; 47 selectors
+  declared to the gate; live rules touching those ids went **56 → 11**. **If id-level chrome rules
+  for `#dv-close` / `#dv-layers-btn` / `#dv-seal-btn` / `#dv-heights-btn` / `#dv-help-btn` /
+  `#dv-more-btn` / `#dv-dark-toggle` ever reappear in `frt.css`, the unification is fake** — that is
+  exactly what failed eleven times.
+- **Deliberate keeps in `frt.css`:** `#dv-seal-btn .seal-dot` (+ `.has-covers`, colour);
+  `@media(max-width:900px){#dv-seal-btn{display:none}}`;
+  `> div:has(#dv-layers-btn){margin-left:auto}`; `#dv-dark-toggle{margin-left:0}`; `.dv-lb-txt` hide.
+  **Spacing and visibility stay with the host; the box does not.**
+- **Upgrade order is load-bearing:** `upgradeViewerChrome()` runs as the **FIRST** statement in
+  `boot()`, before `restoreDarkMode()` / `wireEvents()`. The upgrade swaps `<button>` → `<span>`
+  host (a `<button>` cannot own a shadow root), so any listener bound beforehand is discarded with
+  the element. Delegated handlers (`closest('#dv-close')`) are unaffected — the host keeps the id.
+- **Light-DOM children stay slotted, deliberately:** `viewer.js` reads `#dv-heights-dot` by id and
+  `drawings.js` appends `.seal-dot` into `#dv-seal-btn`. Moving that content inside the shadow would
+  break both **silently.** Runtime state classes (`.active`, `.seal-armed`, `.has-covers`) are set on
+  the host and styled from inside via `:host(.class)` — no observer, no caller changes.
+- **Values are HARDCODED — no `var()` indirection into host pages.** A host may define a token weakly
+  and **a defined token beats any fallback.** Scars: S504 Back button, S514 Hub icons. **The ONE
+  exception is `--ts`** (user text size), a real user setting that inherits through the shadow
+  boundary, so `calc(16px + var(--ts,0px))` works unchanged inside the seal.
+
 ---
 
 ## ⛔ What is genuinely unrecoverable
 
-The lost file's **retire lists and supersession notes** for this window — the "these class names are
+After two recovery passes, what is left is narrow: the lost deltas' **retire lists and
+supersession notes** for this window — the "these class names are
 dead, never reuse them" material, and the record of which decision overruled which. Those document
 what is deliberately *absent*, so they cannot be regenerated from live code by definition.
 **If you are about to reintroduce a class name, a flag, or a pattern that feels familiar but you

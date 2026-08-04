@@ -1,0 +1,168 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ARENCON STYLE GUIDE — PART S617  (Lane A / FRT)  ·  RECOVERY PART
+
+   Append as a new PART to ARENCON_Style_Guide.css. A later PART supersedes an
+   earlier one. Calibri only. Burgundy #9C2742 = primary CTAs and active states
+   ONLY. The muted report/PDF palette and the deficiency status-colour logic are
+   a separate locked system and are NOT touched here.
+
+   ───────────────────────────────────────────────────────────────────────────
+   WHY THIS PART EXISTS
+   Three style deltas were deleted by the S611 project cleanup while still
+   carrying unfolded canon. Each had been reviewed by a Lane A session weeks
+   earlier and marked, in writing, "KEEP — until appended to master":
+
+       ARENCON_Style_Guide_DELTA_S513.css   (viewer header, first attempt)
+       ARENCON_Style_Guide_DELTA_S524.css   (sealed chrome button)
+       ARENCON_Style_Guide_DELTA_S559.css   (coarse-pointer list, pills, loupe)
+
+   They were never appended. This PART recovers what could be reconstructed
+   from the originating session transcripts at S617. It is faithful but NOT
+   guaranteed byte-complete — treat any exact pixel value below as documented
+   intent, and read the live rule in lib/ui/chromeButton.js or frt.css before
+   changing one.
+
+   STANDING RULE THIS PRODUCED: a delta marked "delete only after appending to
+   master" is load-bearing until someone proves the append actually happened.
+   "Its content is in the master" must be VERIFIED AGAINST THE MASTER.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §S617-A — SHARED CHROME BUTTON  (recovers DELTA_S524)
+   Owner: lib/ui/chromeButton.js — CHROME_BTN_CSS, injected into a SEALED
+   (mode:'closed') shadow root on each host. Documented here so the appearance
+   lives in one readable place. THE MODULE DOES NOT READ THIS FILE, and no
+   stylesheet in any host page can reach the button.
+   ═══════════════════════════════════════════════════════════════════════════
+
+   WHY IT IS SEALED, AND WHY THAT MATTERS TO A DESIGNER
+   Eleven pushes went into six buttons. Every one copied the correct values into
+   frt.css, where ~200 accumulated rules argue with each other and a new rule is
+   simply the 201st contestant. Two definitions of one button always drift.
+   Sealing is what makes "shared" mean ONE IMPLEMENTATION rather than a matching
+   copy.
+
+   MEASURED ON DEVICE BEFORE THIS MODULE (touch emulation / Android):
+       layers / more / theme    38 x 38   (named in the fixed-size rule)
+       seal / heights / help    34 x 44   (never named in it)
+       viewer back  60x38 transparent 13px
+       header back  40x34 #EFEDF0 16px
+   Three buttons were named in a fixed-size CSS rule and three were not, so a
+   touch-device media query inflated one group and not the other. That is the
+   whole bug, and it was invisible on a desktop browser.
+
+   THE DELETION IS PART OF THE SPEC.
+   Adopting the module without removing the frt.css rules leaves the old system
+   in place and the drift returns. 36 blocks / 7,711 bytes were deleted in the
+   same push; 47 selectors were declared to the gate; live rules touching those
+   ids went 56 -> 11. If id-level chrome rules for #dv-close, #dv-layers-btn,
+   #dv-seal-btn, #dv-heights-btn, #dv-help-btn, #dv-more-btn or #dv-dark-toggle
+   ever reappear in frt.css, that is a REGRESSION, not a fix.
+
+   NO BREAKPOINTS. NO @media(pointer:coarse). NO SIZE VARIATION.
+   Mark, S524: "I want these 6 buttons to be the same size, stop changing size."
+   Every size drift he has reported came from a media query that covered some
+   buttons and not others. There is ONE size. This is the one place in the
+   system where the coarse-pointer target-scaling rule is deliberately NOT
+   applied: 34px matches the main FRT header, which the crew already uses in the
+   field daily, and one definition is worth more here than 4px of target.
+
+   VALUES ARE HARDCODED — no var() indirection into host pages.
+   A host may define a token WEAKLY and a defined token beats any fallback. The
+   Hub defines --b-btn-shadow as an effectively invisible
+   0 1px 2px rgba(0,0,0,.08), which is why fallbacks could never fire there.
+   Scars: S504 Back button, S514 Hub icons.
+   THE ONE EXCEPTION IS --ts (user text size) — a real user setting, which
+   inherits through the shadow boundary, so calc(16px + var(--ts,0px)) works
+   unchanged inside the seal.
+
+   ⚠ DO NOT RE-TOKENISE THE CHROME SHADOWS. This is the origin of that standing
+   warning. Token indirection here caused an 8-round shadow loop.
+
+   GEOMETRY (documented intent — read the module for the live values)
+       icon button      34 x 34
+       back button      40 x 34
+       wide button      auto x 34
+       order            layers · heights · seal — [10px gap] — more · help · theme
+                        (sheet view -> sheet capture -> print-only, then the
+                        same utility tail the main FRT header uses; the 10px is
+                        A GAP, NOT A DIVIDER)
+
+   STATE lives on the HOST and is styled from inside the shadow via :host():
+       :host(.active)      tool armed
+       :host(.seal-armed)  seal placement mode
+       :host(.has-covers)  sheet carries seal covers
+   No MutationObserver, no caller changes.
+
+   LIGHT-DOM CHILDREN STAY SLOTTED, DELIBERATELY.
+   viewer.js reads #dv-heights-dot by id; drawings.js appends .seal-dot into
+   #dv-seal-btn. Moving that content inside the shadow breaks both SILENTLY.
+
+   DELIBERATE KEEPS IN frt.css — spacing and visibility stay with the host,
+   the BOX does not:
+       #dv-seal-btn .seal-dot   (+ .has-covers, colour)
+       @media (max-width:900px) { #dv-seal-btn { display:none } }
+       > div:has(#dv-layers-btn) { margin-left:auto }
+       #dv-dark-toggle { margin-left:0 }
+       .dv-lb-txt      (hide)
+
+   UPGRADE ORDER IS LOAD-BEARING (a CSS-visible fact, not just a JS one):
+   upgradeViewerChrome() runs as the FIRST statement in boot(), before
+   restoreDarkMode() and wireEvents(). The upgrade swaps <button> for a <span>
+   host — a <button> cannot own a shadow root — so any listener bound before it
+   is discarded along with the element. Delegated handlers that use
+   closest('#dv-close') are unaffected: the host keeps the id.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §S617-B — COARSE-POINTER LISTS AND PILLS  (recovers DELTA_S559)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   THE LOUPE IS GONE. DELTA_S559 documented a magnifier for the dimension tool.
+   It was REMOVED at S572 on Mark's explicit direction and the protected-symbol
+   manifest was rewritten to stop it being restored. Any loupe CSS recovered
+   from that delta is DEAD — do not re-land it. Only the adjust-then-place stage
+   survives from that arc.
+
+   PILLS ARE UNCOMPRESSIBLE. The dimension finish/cancel pills were being
+   crushed from circles into ovals by a flex parent. The _DV_PILL_* geometry is
+   fixed and must not be made flexible: a pill that reflows is the bug.
+
+   COARSE-POINTER LISTS. Touch list rows get generous targets and hover-reveal
+   controls MUST carry an @media (pointer:coarse) fallback — a control that only
+   appears on :hover does not exist on a tablet. This is the general rule; the
+   sealed chrome button in §S617-A is the ONE deliberate exception, and it is an
+   exception about SIZE, never about reachability.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §S617-C — VIEWER HEADER SPECIFICITY  (recovers DELTA_S513, and the S512-S518
+   arc it belongs to)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Six attempts (S513, S514, S515, S516, S517, S518) went into making the
+   drawing-viewer header buttons obey. What finally worked at S518 was
+   TRIPLE-ID SELECTORS:
+
+       #drawing-viewer-overlay #dv-toolbar button#dv-close   (specificity 3,0,1)
+
+   which outrank the host's flattening rule. S517 then hardcoded the engine
+   chrome-skin .hicon / .chip shadows with NO token and NO fallback, because the
+   Hub defines --b-btn-shadow as a near-invisible .08 and a defined token beats
+   any fallback.
+
+   S513/S515/S516 selector blocks may still sit in frt.css as outranked dead
+   weight. They are superseded. Removing them is a cleanup task, and it must go
+   through the gate with the removals DECLARED — do not sweep them silently.
+
+   THE DURABLE LESSON, worth more than the selectors:
+   with !important pervasive, trace by the ELEMENT'S ID, enumerate every rule
+   that matches it with its specificity, and fix the ACTUAL WINNING RULE. Never
+   stack another !important, and never fix the most convenient class selector.
+   An ID-level rule beats class rules regardless of where it sits in the file.
+   S524 made this arc obsolete for these seven buttons by sealing them — but the
+   lesson still governs every other surface in the toolkit.
+   ═══════════════════════════════════════════════════════════════════════════ */
