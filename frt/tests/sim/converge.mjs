@@ -244,6 +244,44 @@ for (const fm of fieldMaps) {
       'got ' + (v && v.projectName));
 }
 
+/* ── R: REAL WORK MUST SURVIVE ────────────────────────────────────────────
+   The counterpart to G, and the more important of the two. Widening what
+   counts as "empty" (S613) buys ghost-row removal at the risk of throwing
+   away an inspector's in-progress row, which would be far worse than the
+   bug it fixes. So this builds rows through Model's OWN creation calls —
+   the exact shapes a tap on "+ Contractor" / "+ Deficiency" / "+
+   Observation" produces, not a hand-written fixture that could flatter the
+   result — and asserts they survive a pull from a cloud that has never seen
+   them. If FRT ever stops stamping a name/number/date on creation, this
+   fails before anyone loses work. */
+Model.newProject();
+const ctr = Model.addContractor('Acme Sprinkler');
+const def = Model.addDeficiency(ctr.id);
+Model.addObservation(def.id || def);
+const born = JSON.parse(JSON.stringify(Model.getProject()));
+born.modified = new Date(Date.parse(cloud.updatedAt) - 3600000).toISOString();
+Model.setProject(born);
+/* SHARPENED (negative control, 04 Aug): the first version set the cloud
+   arrays to [], and the check passed even with a deliberately over-aggressive
+   defaults list — because the empty-array clobber guard rescues local
+   whenever the cloud delivers an empty array, so the emptiness logic under
+   test never ran. The cloud must therefore hold an UNRELATED row of its own,
+   which puts the new local row on the l-without-c path this fix touches. */
+cloud.data = {
+  contractors: [{ id: 'ctr-cloud-other', name: 'Other Trade Co', trades: [], deficiencies: [], _ts: T_NEW }],
+  generalDeficiencies: [], photos: [], info: {}, signatures: {}
+};
+await beat();
+{
+  const p = Model.getProject() || {};
+  const c0 = (p.contractors || []).find(x => x && x.name === 'Acme Sprinkler');
+  const d0 = c0 && (c0.deficiencies || [])[0];
+  const o0 = d0 && (d0.observations || [])[0];
+  chk('contractor (real, just created)', 'R survives  ', !!c0, c0 ? 'kept "' + c0.name + '"' : 'LOST');
+  chk('deficiency (real, just created)', 'R survives  ', !!d0, d0 ? 'kept #' + d0.num : 'LOST');
+  chk('observation (real, just created)', 'R survives  ', !!o0, o0 ? 'kept (blank text, real provenance)' : 'LOST');
+}
+
 console.log('\n=== FRT CONVERGENCE (' + TARGET.toUpperCase() + ') — ' + walk.length +
             ' families (nested walk) + ' + fieldMaps.length + ' field maps ===\n' + lines.join('\n'));
 console.log('\n' + pass + ' passed, ' + fail + ' failed on ' + TARGET.toUpperCase() + '\n');
