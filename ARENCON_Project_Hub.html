@@ -1986,7 +1986,13 @@ function createSupabaseClient(url, key) {
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
-  if (_darkMode) applyDark(true);
+  /* S518: applyDark runs UNCONDITIONALLY at boot. It used to run only when the
+     saved mode was dark — but the shared header keeps its own memory of the
+     theme under a second name, and skipping the light-mode call left that
+     memory in charge: a header remembering dark rendered dark on a light page.
+     Mirroring on every boot means the page's setting always wins, whatever the
+     header last remembered. */
+  applyDark(_darkMode);
   _sb = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   setupConnDot();
   setupKeyboardShortcuts();
@@ -6770,6 +6776,22 @@ function toggleDark() {
   applyDark(_darkMode);
   localStorage.setItem('ARENCON_Dark', _darkMode ? '1' : '0');
 }
+
+/* S518 (Mark: "when I change day/night, all tools need to follow").
+   The setting was ALREADY shared — Hub, Diesel, Electric, OBC and DD all read
+   and write the same ARENCON_Dark key — but each page only read it at boot, so
+   an open tab never noticed another tab flipping it. The browser fires a
+   'storage' event in every OTHER same-origin tab when the key changes; this
+   listener is the missing half. It fires only for other tabs' changes (never
+   this tab's own toggle), so there is no echo loop. Each tool adds the same
+   six lines; the Hub is first. */
+window.addEventListener('storage', function (ev) {
+  if (!ev || ev.key !== 'ARENCON_Dark') return;
+  var on = ev.newValue === '1';
+  if (on === _darkMode) return;
+  _darkMode = on;
+  applyDark(on);
+});
 
 function applyDark(on) {
   document.body.classList.toggle('dark-mode', on);
