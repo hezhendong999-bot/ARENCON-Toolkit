@@ -1983,7 +1983,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S611';
+var ELEC_BUILD = 'S615';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -6937,19 +6937,38 @@ function collectState() {
 function _collectCloudState(){
   var s=collectState();
   // Strip base64 photo data from all photo arrays — R2 will handle these (next session)
-  function _stripPhotos(arr){if(!arr)return arr;return arr.map(function(p){return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||''};});}
-  if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos);});}
+  /* ═══ S615 — B1 BADGE STAMPS (Lane B ask; Diesel has had these since S341) ══
+     The Hub gallery LABELS what the tool tells it — it never derives. Without
+     these two fields an Electric photo reaches the Hub with no caption at all,
+     because this strip keeps only the identity/R2 keys. badgeText is what the
+     tile reads; badgeType is the semantic category the Hub colours from its own
+     design system (never a hex — the Hub has its own stylesheet). Additive:
+     nothing existing is removed, and a photo with no context still pushes. */
+  var _ELEC_GAUGE = { rpm:'RPM', suction:'Suction', discharge:'Discharge', bf_in:'BF In', bf_out:'BF Out', prv:'PRV', prdv:'PRdV' };
+  function _elecBadge(p, type, text){
+    try{
+      var t = text || '';
+      if(!t && p && p.tag && _ELEC_GAUGE[p.tag]) t = _ELEC_GAUGE[p.tag];
+      if(!t && p && p.caption) t = String(p.caption);
+      return { badgeText: t, badgeType: type };
+    }catch(e){ return { badgeText:'', badgeType: type }; }
+  }
+  function _stripPhotos(arr, type, text){if(!arr)return arr;return arr.map(function(p){
+    var b=_elecBadge(p, type||'record', text);
+    return{n:p.n||'',id:p.id||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',
+           badgeText:b.badgeText, badgeType:b.badgeType};});}
+  if(s.clState){Object.keys(s.clState).forEach(function(k){if(s.clState[k]&&s.clState[k].photos)s.clState[k].photos=_stripPhotos(s.clState[k].photos,'checklist','Checklist');});}
   if(s.deficiencies){Object.keys(s.deficiencies).forEach(function(k){if(Array.isArray(s.deficiencies[k]))s.deficiencies[k].forEach(function(d){
-    if(d.photos)d.photos=_stripPhotos(d.photos);
+    if(d.photos)d.photos=_stripPhotos(d.photos,'deficiency','Pin '+(d.num||d.id||''));
     if(d.responsePhoto)d.responsePhoto=null;
-    if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
+    if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos,'response','Response');});
   });});}
   if(s.generalDeficiencies){s.generalDeficiencies.forEach(function(d){
-    if(d.photos)d.photos=_stripPhotos(d.photos);
-    if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos);});
+    if(d.photos)d.photos=_stripPhotos(d.photos,'deficiency','Pin '+(d.num||d.id||''));
+    if(d.responses)d.responses.forEach(function(r){if(r.photos)r.photos=_stripPhotos(r.photos,'response','Response');});
   });}
-  if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos);
-  if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld);
+  if(s.flowTestPhotos)s.flowTestPhotos=_stripPhotos(s.flowTestPhotos,'flow');
+  if(s.flowTestPhotosPld)s.flowTestPhotosPld=_stripPhotos(s.flowTestPhotosPld,'flow');
   if(s.sketchEntries)s.sketchEntries.forEach(function(e){e.markupImg=null;});
   // Signatures: strip canvas data (toDataURL) — keep only metadata
   return s;

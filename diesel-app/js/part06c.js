@@ -1831,6 +1831,20 @@ function _dslPhotoBadge(p){
 // per-reading colour the gallery paints inline via _gaugeReadingColor().
 var _DSL_CAT_HEX = { checklist:'#5E7A8C', deficiency:'#A85959', general:'#6E86B8', flow:'#B07F5A', records:'#6E6AA8' };
 var _DSL_GAUGE_HEX = { rpm:'#A593E0', suction:'#46C5E8', discharge:'#E26076', bf_in:'#E6A23C', bf_out:'#3FD08A', prv:'#3F7E78', prdv:'#9C6FA0' };
+/* S615 — semantic badge category for the Hub gallery. Gauge readings report
+   'gauge' (the reading itself is already in badgeText); everything else reports
+   its own category. Values are stable strings the Hub can map to classes. */
+function _dslBadgeType(item){
+  try{
+    var p = item && item.photo;
+    if(p && p.tag && _DSL_GAUGE_HEX[p.tag]) return 'gauge';
+    var c = item && item.cat;
+    return (c==='deficiency'||c==='general') ? 'deficiency'
+         : (c==='checklist') ? 'checklist'
+         : (c==='flow') ? 'flow'
+         : (c==='records') ? 'record' : 'record';
+  }catch(e){ return 'record'; }
+}
 function _dslBadgeColorHex(item){
   try{
     var p = item && item.photo;
@@ -1847,14 +1861,20 @@ function _stampDieselBadges(s){
   var all = (typeof _collectAllPhotos==='function') ? _collectAllPhotos() : [];
   all.forEach(function(item){
     var p = item && item.photo; if(!p || !p.id) return;
-    idx[p.id] = { badgeText: item.badge || '', badgeColor: _dslBadgeColorHex(item) };
+    /* S615 — badgeType added alongside badgeColor (Lane B ask). The Hub reads
+       badgeText and picks its own class; a raw hex it cannot map. badgeType is
+       the SEMANTIC category, so the Hub colours it in its own design system
+       instead of inheriting Diesel's dark-mode palette. badgeColor stays for
+       back-compat — additive only, nothing removed. */
+    idx[p.id] = { badgeText: item.badge || '', badgeColor: _dslBadgeColorHex(item),
+                  badgeType: _dslBadgeType(item) };
   });
   function stampArr(arr){
     if(!Array.isArray(arr)) return;
     arr.forEach(function(p){
       if(!p || !p.id) return;
       var b = idx[p.id]; if(!b) return;
-      p.badgeText = b.badgeText; p.badgeColor = b.badgeColor;
+      p.badgeText = b.badgeText; p.badgeColor = b.badgeColor; p.badgeType = b.badgeType;   // S615
     });
   }
   stampArr(s.flowTestPhotos); stampArr(s.flowTestPhotosPld); stampArr(s.recordPhotos);
