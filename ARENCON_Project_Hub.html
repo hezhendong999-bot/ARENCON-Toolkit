@@ -2378,6 +2378,13 @@ function roleClass(role) {
 
 /* ═══ Dashboard / Admin toggle ═══ */
 function showDashboard() {
+  /* S591: leaving a project page clears ?project= so a reload on the dashboard
+     stays on the dashboard. Same rule in reverse. */
+  try {
+    if (window.location.search) {
+      history.replaceState({ view: 'dashboard' }, '', window.location.pathname);
+    }
+  } catch (e) {}
   document.getElementById('dash-view').style.display = 'block';
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('project-detail').style.display = 'none';
@@ -3347,8 +3354,17 @@ function openProject(projectId) {
      THIS page's cards, not the Dashboard's. */
   try { _wnCheck(); } catch (e) {}
 
-  // Push history state so browser back returns to dashboard
-  try { history.pushState({view:'project',id:projectId}, '', window.location.pathname); } catch(e){}
+  /* S591 (Mark, long-standing): a refresh on a project page dumped you back to
+     the dashboard — on ANY reload, not just an update swap. Cause: this pushed
+     history state on the BARE pathname, so the page the user was on existed
+     only in memory and died with it. The Hub already accepts ?project= on boot
+     (_pendingOpenId, S413) — it simply never put it there. Now the project IS
+     in the address bar while you are on its page, so a reload, a bookmark, a
+     pasted link and an update swap all land where they should. */
+  try {
+    history.pushState({ view: 'project', id: projectId }, '',
+      window.location.pathname + '?project=' + encodeURIComponent(projectId));
+  } catch (e) {}
 
   // Hide dashboard + admin, show detail
   document.getElementById('dash-view').style.display = 'none';
@@ -8591,7 +8607,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S590';
+const HUB_BUILD = 'S591';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
