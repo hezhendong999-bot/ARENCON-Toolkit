@@ -26,12 +26,23 @@ PART 3 supersedes PART 2 where they touch the same subject.
 deliberate: it is a verbatim copy, and editing it to fit this file's numbering would destroy the
 guarantee that makes it trustworthy.
 
-### THE REMAINING HOLE IS S493 → S545 — and only that
+### S493 → S545 — the thin window, and what actually happened to it
 
-The original PK's coverage of **S493 → S545** existed only in the lost file. Everything earlier is
-now verbatim canon again. **For that window, prefer the git commit messages over this file** — they
-are permanent, written as documentation, and cover it densely (63 sessions, S500 → S545, every one
-present on `main`). See PART 2B for the specific committed sources that cover it.
+**ROOT CAUSE, established S617 with evidence. It was never a lost PK.** The PK body survives
+verbatim (PART 2). What the S611 cleanup destroyed was **two delta files that had never been folded
+into it** — `ARENCON_FRT_PK_DELTA_S508-S518.md` and `ARENCON_FRT_PK_DELTA_S526-S543.md` — deleted
+under the heading *"their content is in the FRT PK."* It was not. A Lane A session had reviewed both
+weeks earlier and ruled, in writing: **"KEEP — S441–S545 layer — NOT folded into the PK;
+load-bearing."** `LANE-A_ADDENDUM_DOCTRINE_S524.md` went with them.
+
+**Most of that content was recovered at S617** from the originating session transcripts and is
+folded into PART 2B, marked as transcript-recovered rather than verbatim delta. What remains
+genuinely gone is named there rather than glossed over. **For this window, cross-check against the
+git commit messages** — all 63 sessions S500–S545 are on `main` and written as documentation.
+
+**The standing lesson:** *"their content is in the PK"* must be **verified against the PK**, not
+assumed from a filename. A delta that says KEEP on its face is load-bearing until someone proves
+otherwise.
 
 ### RULE GOING FORWARD
 
@@ -1203,9 +1214,10 @@ migration.
 
 ---
 
-# ════════ PART 2B — S493 → S545 · THE REMAINING HOLE ════════
+# ════════ PART 2B — S493 → S545 · THE THIN WINDOW (largely recovered S617) ════════
 
-**⚠ This is the one window where this file is incomplete.** The original PK's narrative canon for
+**⚠ This is the one window where this file is thinner than the rest — but it is no longer a blank.**
+Most of it was recovered at S617 from the originating session transcripts; see the RECOVERED section below. The original PK's narrative canon for
 S493–S545 existed only in the lost file. Everything before S493 is verbatim committed canon
 (PART 2); everything from S546 is PART 3.
 
@@ -1269,6 +1281,143 @@ FRT moved off its private `arencon-frt-dark` key onto the shared **`ARENCON_Dark
 one-time carry-over (`_frtMigrateDarkKey`) so an inspector's existing preference is not silently
 reset, plus a `storage` listener so a day/night change made in any other ARENCON tab is followed
 live. **The page owns the mode; the shared header mirrors it — never the reverse.**
+
+
+---
+
+## RECOVERED FROM SESSION TRANSCRIPTS (S617)
+
+**Provenance:** the two delta files that carried this window —
+`ARENCON_FRT_PK_DELTA_S508-S518.md` and `ARENCON_FRT_PK_DELTA_S526-S543.md` — were deleted by the
+S611 cleanup under the heading *"their content is in the FRT PK."* **It was not.** A Lane A session
+had reviewed both weeks earlier and ruled, in writing: *"KEEP — S441–S545 layer — NOT folded into
+the PK; load-bearing."* `LANE-A_ADDENDUM_DOCTRINE_S524.md` went the same way.
+
+The material below was mined back out of the originating session transcripts. It is **faithful but
+not complete** — a transcript preserves what was discussed, not necessarily every line of the delta
+that was written from it. Treat it as substantially better than the gap it replaces, and still not
+a delta file.
+
+### CRB re-import + issue lifecycle (S508–S509 — LIVE, and largely UNVERIFIED)
+
+- **CRB re-import diff (S508):** comment tombstones, a four-way classifier, and a single `_writeRow`
+  path. **An ISSUED answer is NEVER overwritten on re-import** — this is the most important
+  unverified behaviour in the system. Also: respond-in-flow drives the real composer rather than a
+  parallel one.
+- **Issue lifecycle rework (S509):** issuing is redefined as an **internal review handoff** — soft
+  lock, per-issue receipts, scoped unfreeze. The issue log is **in-app only**. Working-copy imports
+  carry a **permanent printed marker**; non-issued exports carry a **DRAFT COPY watermark**;
+  amendment notes no longer print. `undoImportBatch` flat-scan defect fixed.
+- **Field tests owed (script was in the S509 transcript):** offer-back → decline-remembered →
+  issued-never-overwritten → unissued Replace/Keep-both, plus the flow steps.
+
+### Drawing fidelity — the illegible-appendix root cause (S511)
+
+**Tiled sheets had no local raster**, so the PDF appendix printed the **400 px card thumbnail —
+about 23 DPI on 11×17**. No quality tier could reach it, which is why raising export quality never
+helped. **Fix (LIVE):** `_stitchTiledDrawing()` in `frt/js/export/pdf.js` — fetches the tile
+manifest, picks the highest level within a ~60 MP budget, fetches tiles 8 lanes wide, stitches to
+canvas and hands a PNG dataURL to the normal pipeline. Falls back to best-available if more than
+25% of tiles fail. Logs `[S511] stitched…` per sheet.
+Also live: export tiers show the **achievable** DPI per sheet size (Letter / 11×17 → 288 max;
+24×36 → "171 DPI (sheet limit)"). **Reverted and still owed:** the seal-covers-vanish heal (the poll
+must compare painted count against data, not just drawing id), the 8192 px upload cap (24×36 →
+227 DPI), and PNG-at-upload (removes the first of two lossy JPEG generations).
+
+### The viewer-header chrome saga (S512–S518) — read before touching header CSS
+
+Six attempts. What finally worked: **triple-id selectors**
+`#drawing-viewer-overlay #dv-toolbar button#dv-X` (specificity 3,0,1) beat the host's flattening
+rule. S517 hardcoded the engine chrome-skin `.hicon`/`.chip` shadows with **no token and no
+fallback**, because the Hub *defines* `--b-btn-shadow` as a near-invisible `0 1px 2px rgba(0,0,0,.08)`
+— so a fallback could never fire. **This is the origin of the standing do-not-re-tokenise warning.**
+S513/S515/S516 blocks may still sit in-file as outranked dead weight.
+
+### DOM-ONLY TEXT IS NOT SAVED WORK (S528) — the most expensive lesson in this window
+
+**16 pins across 6 inspectors and 6 projects lost their typed comments**
+(5224.51 · 7033.13 · 7155.35 · 7155.40 · 7155.52 · 7310.17) — **unrecoverable.** Verified against
+every archived version firm-wide, every sibling structure including FRT's `entries[].description`
+fallback, R2, the AI log and the incident table; the tablets had since been wiped, so no device copy
+survived either.
+**Mechanism:** typed text lived only in the DOM behind a 500 ms debounce, and a burst-camera render
+demolished the textarea before the save ran. Ian's earlier 6360 project was clean only because it
+predates the burst camera — **timing luck, not safety.** One surviving artifact tells the whole
+story: 7155.52 pin 5 reads `"Two manual pull station is"`, truncated mid-word where the redraw
+landed partway through typing.
+**LAW: cosmetics may debounce; a model write may not.** Applied at
+`Model.updateObservation` / `Model.updateClosedNote` per keystroke (`deficiencies.js`) and
+`_commitHeightsLive()` (`viewer.js`), plus `Model.saveNow()` on `visibilitychange→hidden` and
+`pagehide`.
+**TRIAGE RULE: any "it was on screen but not in the report" complaint is this family until proven
+otherwise.** FRT is audited clean — every `el.value =` writes the model first. Lane C found the same
+shape twice more in Diesel (the AI placard scan wrote via `el.value =` with the save path reading
+back off the DOM, no model copy at all).
+
+### Drawing markup — load order and reconcile (S526)
+
+Markup lives as a **separate R2 file per drawing**, not inside the report — so it is **outside the
+per-item merge engine entirely.** Three copies exist: the viewer's memory, the device's
+`markupObjects` store, and the R2 file, with `drawing.markupR2` as the record's pointer.
+**The S130 trap:** load order was "device store first, R2 only when the device has NOTHING", so a
+device holding *any* record for a drawing never consulted R2 again. Markup authored on another
+device was shadowed permanently — and **signing out does not touch local storage**, which is why
+sign-out/in never helped Ian.
+**`_reconcileMarkupWithR2` (S526)** runs in the background after the instant local render: per-item
+union by id — adds R2 objects the device lacks, honours R2 tombstones (explicit cross-device
+deletions), **never removes a local object R2 merely lacks** (absence ≠ delete), stands aside if the
+user has started editing, and persists the union locally.
+**Do NOT restore absence-based fallback and do NOT make R2 win wholesale** — that is the pre-S130
+two-opens bug in reverse.
+
+### On-screen markup diagnostic (S527)
+
+Viewer ⋯ → 🩺 **Markup Diagnostic**: reports memory / device store / record pointer / actual cloud
+file, plus **"Merge cloud copy now"** — a forced additive union for a device stuck on a stale local
+copy. **It exists because field tablets run the Android TWA where the user CANNOT edit the URL**, so
+URL-param debug paths do not exist in the field. **Never convert it to one, and the merge button
+must stay additive.**
+
+### Field Heights (S539 Lane C + S543 Lane A)
+
+Heights live at `drawings[].heights` as `{id, label, value, unit}`. S539 gave rows permanent ids so
+they merge row by row; S543 made the commit **synchronous** — the same "cosmetics may debounce, the
+model write may not" rule applied to the heights editor, because values had lived only in the text
+box until Save.
+
+### Firm-wide save outage (S524-era) — the polarity worth remembering
+
+A history-archiver trigger shipped without `SECURITY DEFINER` read a table authenticated users
+cannot access, and **every save firm-wide was rejected for four hours.** The polarity was perverse:
+**content-destroying saves still passed while content-adding saves were refused.** Fixed by
+restoring the function as `SECURITY DEFINER` with a pinned search path and the throttle read moved
+inside the exception block.
+
+### Version floor (S536) and the build-identity trap
+
+The floor identifies builds from the **service-worker cache stamp**. A Lane C note claimed "FRT has
+no build stamp" — **wrong, FRT has `FRT_BUILD`.** Verify which one the floor reads for FRT before
+arming it, or it can refuse cloud writes on healthy devices. An untrusted identity **may warn but
+must never block cloud writes.**
+
+### Still-open items carried out of this window
+
+- **Simultaneous drawing markup is UNVERIFIED.** Markup sits outside the merge engine; S526
+  reconcile protects a device against an empty cloud copy, but **two people marking the same sheet
+  at once has never been tested.** Lane A owns the viewer — do not claim it is safe until it is.
+- **`gate.py` vs `drawings.js` false positive** — the gate reported 89 silent deletions on a 4-edit
+  additive change with spot-checked symbols present in both files. This blocked three real fixes
+  (listed under S511 above). **Fix the gate; do not bypass it.**
+- **A push whose transcript does not show the gate exiting 0 is invalid** — this rule exists because
+  S511 shipped a gate-BLOCKED file when an ad-hoc script ignored the exit code.
+  `gate.py --kill` takes **one comma-separated string**, not repeated flags; repeated flags silently
+  keep only the last.
+- **Cross Main / Feed Main on 7033.13** — values swapped between the 07-29 15:23 snapshot and live;
+  **Ian confirmed he did not retype them**, and the mechanism is closed by S539+S543. Physically the
+  cross main sits above the feed main. Stacy's one-sentence confirmation is still owed before that
+  report ships.
+
+---
 
 ## ⛔ What is genuinely unrecoverable
 
