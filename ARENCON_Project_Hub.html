@@ -8591,7 +8591,13 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S589-a';
+const HUB_BUILD = 'S589-b';
+/* S589-b (Mark): log the build the same way every other tool does — one
+   burgundy badge line at boot. Support asks "what build are you on"; the
+   answer should be in the console, not something anyone hunts for on screen. */
+try {
+  console.info('%c[Hub] build ' + HUB_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
+} catch (e) {}
 try {
   window.addEventListener('load', function () {
     var b = document.createElement('div');
