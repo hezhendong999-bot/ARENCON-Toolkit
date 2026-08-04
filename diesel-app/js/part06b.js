@@ -1533,7 +1533,7 @@ function _sigPrintSrc(canvasId){ return SigPad.printSrc(canvasId); }
 function clearSig() {
   const c=document.getElementById('sig-canvas');
   c.getContext('2d').clearRect(0,0,c.width,c.height);
-  if(typeof _sigStrokes!=='undefined') _sigStrokes['sig-canvas']=[];
+  if(typeof _sigStrokes!=='undefined') _sigStrokes['sig-canvas']=[]; if(typeof debounceAutosave==='function') debounceAutosave();   /* S607: a clear is an entry too */
   const img=document.getElementById('sig-upload-img-1');
   if(img) { img.src=''; img.style.display='none'; }
   setSigMode(1,'draw');
@@ -1565,7 +1565,7 @@ function loadSigUpload(num, input) {
     if(canvas) canvas.style.display='none';
     // An uploaded image replaces any drawn strokes — drop them so a theme
     // toggle doesn't repaint old ink over the uploaded signature.
-    if(typeof _sigStrokes!=='undefined'){ _sigStrokes[num===1?'sig-canvas':('sig-canvas-c-'+num)]=[]; }
+    if(typeof _sigStrokes!=='undefined'){ _sigStrokes[num===1?'sig-canvas':('sig-canvas-c-'+num)]=[]; } if(typeof debounceAutosave==='function') debounceAutosave();   /* S607: a clear is an entry too */
     const uploadImg = document.getElementById(`sig-upload-img-${num}`);
     if(uploadImg) { uploadImg.src=ev.target.result; uploadImg.style.display='block'; }
     if(num===1 && typeof updateCompletionOverview==='function') updateCompletionOverview();
@@ -1707,7 +1707,7 @@ function renderAllSignRows() {
 function clearGenericSig(idx) {
   const c = document.getElementById(`sig-canvas-c-${idx}`);
   if(c) c.getContext('2d').clearRect(0,0,c.width,c.height);
-  if(typeof _sigStrokes!=='undefined') _sigStrokes[`sig-canvas-c-${idx}`]=[];
+  if(typeof _sigStrokes!=='undefined') _sigStrokes[`sig-canvas-c-${idx}`]=[]; if(typeof debounceAutosave==='function') debounceAutosave();   /* S607: a clear is an entry too */
   const img = document.getElementById(`sig-upload-img-${idx}`);
   if(img) { img.src=''; img.style.display='none'; }
   setSigMode(idx,'draw');
