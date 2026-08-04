@@ -1522,12 +1522,102 @@ accumulated rules argue and a new rule is merely the 201st contestant.
   exception is `--ts`** (user text size), a real user setting that inherits through the shadow
   boundary, so `calc(16px + var(--ts,0px))` works unchanged inside the seal.
 
+
+---
+
+## THIRD RECOVERY PASS (S618) — verbatim delta text, and a source that was never lost
+
+### FINDING: `tools/protected_symbols.txt` is a verbatim archive of this whole window
+
+The protected-symbols manifest — **in git, permanent, appended to at every ship** — carries **100
+prose blocks**, each written at ship time as the authoritative statement of a Mark-specified
+feature. The S508/S509 issue-lifecycle rules, the S524 chrome button, the S526 markup reconcile and
+dozens more sit in it **word-for-word as they were written on the day.** For any feature shipped in
+this window, **read its `@` block in the manifest first** — that text never left git and outranks
+any recollection, including this file's.
+
+### VERBATIM — `ARENCON_FRT_PK_DELTA_S508-S518.md` § CRB (recovered word-for-word from the
+### transcript of the session that wrote it)
+
+> **Re-import diff (S508, live):** already-imported rows are reconciled, not dropped. Classifier
+> `_classifyDupes` buckets: silent (unchanged, or removed + this exact wording already declined) ·
+> offerBack (removed, contractor still says it — one-tap Bring back / Leave out) · reworded (live
+> UNISSUED → Replace / Keep both) · newRound (live ISSUED → never overwritten; files as a new round
+> on the current instance). **Issued is checked BEFORE any skip logic.** Wording comparison is
+> whitespace/case-insensitive (`_normTombText`).
+>
+> **Comment tombstones:** deliberate removal of an IMPORTED comment (`removeThreadEntry` on kind
+> response with dedupeKey) writes `project.commentTombstones[dedupeKey] = {text, at, by,
+> declined[]}`. Declining an offer pushes the normalized wording into `declined`. Restore and
+> `undoImportBatch` clear the tombstone. API: `_writeCommentTomb`, `findCommentTomb`,
+> `dismissCommentTomb`, `clearCommentTomb`, `tombDecisionFor` → 'none' | 'silent' | 'offer'.
+>
+> **`findLiveResponseByDedupe(dedupeKey)`** walks contractors[].deficiencies AND
+> generalDeficiencies (⚠ there is NO flat `_project.deficiencies` — **third time this trap has
+> bitten**; also fixed inside `undoImportBatch`).
+>
+> **`replaceUnissuedImportedDraft`** — in-place correction of an imported, UNISSUED contractor
+> draft. Hard-refuses: issued entries, non-imported comments, ARENCON reviews. Logs
+> `reimport-replace` amend. Writes no tombstone. (Distinct from `editThreadEntry`, which requires
+> deliberate unlock.)
+>
+> **ONE writer:** `_writeRow(row, ctx, opts)` in crbImport.js is the sole path from an imported row
+> to a contractor round (normal commit + every diff branch). `opts.asNewRound` strips sheet round so
+> an issued-revision files on the current instance. Registers dedupeKey only after a successful
+> write; records `{deficId, obsIdx}` into `ctx.written` for the flow.
+>
+> **Respond-in-flow (S508 L3, live):** `window._frtStartRespondFlow(targets)` (dedup one step per
+> observation).
+
+### VERBATIM — the S509 issue-lifecycle rules (from the live manifest, never lost)
+
+> Issuing is asked **BEFORE** export generation; a working copy gets a grey diagonal DRAFT COPY
+> watermark **drawn into the PDF bytes of every page**. Issuing soft-locks via a per-issue receipt
+> (`_issueId`); `unfreezeIssue` releases ONLY that issue's comments and they remember
+> (`wasIssuedOnInstance`). The issue log is **IN-APP ONLY** — never printed, never exported.
+> Working-copy sheets import with a warning and a **permanent WORKING COPY marker that DOES print**.
+> `undoImportBatch` walks contractors[].deficiencies AND generalDeficiencies (flat-scan defect fixed
+> S509) and clears the batch's comment tombstones. **Amendment notes NO LONGER print**
+> (`_crbAmendNote` retained unused — **do not re-wire without Mark**). (Mark, S509)
+
+The reasoning behind that decision, recovered from the design conversation: "issued" in this firm
+means the **internal review handoff** to Mark or Shaun — what actually goes outside is tracked by
+email. An "Amended" line on the PDF would advertise internal review churn to the client and the AHJ.
+The trade named plainly at the time and accepted: with the lock this soft, the
+issued-never-overwritten protection only holds while a comment is actually locked — **flexibility
+over enforcement**, chosen deliberately for a firm where Mark and Shaun review everything.
+
+### Push-discipline canon from the deleted S526–S543 delta (verbatim from its opener)
+
+> Push discipline, updated after a clobber (S524e): **re-asserting HEAD is not enough. Re-fetch
+> every file you are about to overwrite from live HEAD and compare its blob SHA against the copy you
+> started editing.** If it moved, rebase onto their version and gate against theirs. Post-verify via
+> Trees API blob SHA + direct `/git/blobs/{sha}` content fetch — **never the Contents API (it serves
+> stale copies)**, never CDN.
+
+### The version floor's FRT blind spot (S543-era finding, still worth knowing)
+
+The floor identifies a build by reading the browser's offline-cache name, and it only recognises
+names shaped as *prefix + digits and nothing else*. **FRT's cache name carries an extra suffix tag,
+so the floor skips FRT entirely** — and because it fails open, it silently decides "I can't tell"
+and does nothing. Verify what the floor reads before ever arming it for FRT; an untrusted identity
+may warn but must never block cloud writes.
+
+### Codified process rules from the S512–S518 saga (verbatim, from the manifest of the day)
+
+> 1. Specificity calculators must count `:not()` contents.
+> 2. **No styling claim without a device computed-style check** — dead/outranked selectors pass
+>    syntax checks, gates, and blob verification.
+> 3. **Served bytes ≠ painted pixels.** Mark's one console line ended what seven pushes could not;
+>    **ask for it at round ONE, not round eight.**
+
 ---
 
 ## ⛔ What is genuinely unrecoverable
 
-After two recovery passes, what is left is narrow: the lost deltas' **retire lists and
-supersession notes** for this window — the "these class names are
+After three recovery passes — transcripts mined to the point where searches return only material
+already recovered — what is left is narrow: the lost deltas' **retire lists and supersession
+notes** for this window — the "these class names are
 dead, never reuse them" material, and the record of which decision overruled which. Those document
 what is deliberately *absent*, so they cannot be regenerated from live code by definition.
 **If you are about to reintroduce a class name, a flag, or a pattern that feels familiar but you
