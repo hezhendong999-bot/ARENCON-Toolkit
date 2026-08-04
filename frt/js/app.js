@@ -67,7 +67,17 @@ import './viewer/markup.js';
 import { AIUsage } from './ai/usage.js';
 
 // ── Constants ────────────────────────────────────────────
-var LS_DARK = 'arencon-frt-dark';
+/* S518 (Mark: "make FRT follow" day/night across tools).
+   FRT saved its day/night under a PRIVATE name while the Hub, Diesel,
+   Electric, OBC and DD all shared 'ARENCON_Dark'. That is why flipping the
+   mode anywhere never reached FRT — not a missing listener, a different
+   setting entirely. FRT now uses the shared name.
+   LS_DARK_OLD exists solely to carry an inspector's EXISTING preference over
+   on first launch (see _frtMigrateDarkKey). Without that migration, everyone
+   who had set dark mode in FRT would silently snap back to light on the next
+   refresh — on a tablet, in a pump room, with no explanation. */
+var LS_DARK = 'ARENCON_Dark';
+var LS_DARK_OLD = 'arencon-frt-dark';
 var LS_TEXT_SIZE = 'arencon-text-size';
 var TEXT_SIZES = ['S', 'L'];
 var TEXT_CLASSES = { S: 'text-m', L: 'text-l' };
@@ -290,11 +300,42 @@ function updateDarkToggleIcon() {
   if (mdt) mdt.innerHTML = icon;
 }
 
+/* S518: one-time carry-over of a pre-existing FRT preference onto the shared
+   key. Only fills the shared key when it has never been set on this device, so
+   a mode the inspector chose in the Hub always wins over a stale FRT value.
+   Safe to run on every boot; it does nothing once the shared key exists. */
+function _frtMigrateDarkKey() {
+  try {
+    if (localStorage.getItem(LS_DARK) === null) {
+      var old = localStorage.getItem(LS_DARK_OLD);
+      if (old !== null) localStorage.setItem(LS_DARK, old);
+    }
+  } catch (e) {}
+}
+
 function restoreDarkMode() {
-  if (localStorage.getItem(LS_DARK) === '1') document.body.classList.add('dark-mode');
+  _frtMigrateDarkKey();
+  /* S518: apply BOTH ways round, not just when dark. The shared header keeps
+     its own memory of the theme; if we only spoke up for dark, a header
+     remembering dark would render dark chrome on a light page. */
+  document.body.classList.toggle('dark-mode', localStorage.getItem(LS_DARK) === '1');
   updateDarkToggleIcon();
   _setThemeColor();
 }
+
+/* S518: follow a day/night change made in ANY other open ARENCON tool on this
+   device. The browser fires 'storage' in every OTHER same-origin tab when the
+   shared key changes, so this never echoes FRT's own toggle. */
+window.addEventListener('storage', function (ev) {
+  try {
+    if (!ev || ev.key !== LS_DARK) return;
+    var on = ev.newValue === '1';
+    if (on === document.body.classList.contains('dark-mode')) return;
+    document.body.classList.toggle('dark-mode', on);
+    updateDarkToggleIcon();
+    _setThemeColor();
+  } catch (e) {}
+});
 
 // ── Text Size ────────────────────────────────────────────
 function cycleTextSize() {
