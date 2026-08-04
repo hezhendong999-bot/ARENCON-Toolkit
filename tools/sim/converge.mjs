@@ -107,6 +107,85 @@ for(const sm of statusMaps){
   const ok=sm==='sigStrokes'?!!(v&&Array.isArray(v.s)&&v.s.length):!!(v&&v.status==='yes');
   chk({name:sm},'W no-wipe   ',ok,'');
 }
+/* ═══ DOOR A2 — THE RECONCILIATION RULES, TESTED DIRECTLY (S616) ═══════════
+ * Door A above proves the OUTCOME through the whole facade. These three prove
+ * the RULE, so a later change cannot quietly reintroduce the fault while the
+ * outcome still happens to look right. The decisive assertion is "no conflict
+ * emitted": every conflict that reaches the list is handed to the cloud by the
+ * tools' auto-resolver, so emitting one for a blank IS the wipe.
+ * ═════════════════════════════════════════════════════════════════════════*/
+const M3 = w._frt_mergeDiag;
+lines.push('  ── door A2: reconciliation rules, direct ──');
+function a2(label, base, mine, theirs, wantVal, wantConflicts) {
+  let r;
+  try { r = M3.merge3(base, mine, theirs); }
+  catch (e) { chk({name:'reconcile'}, label, false, 'threw: ' + (e && e.message)); return; }
+  const it = (r.merged && r.merged.sketchEntries && r.merged.sketchEntries[0]) || {};
+  const got = it.hasOwnProperty('comment') ? String(it.comment) : '∅';
+  const nc = r.conflicts.length;
+  chk({name:'reconcile'}, label, got === wantVal && nc === wantConflicts,
+      `val=${JSON.stringify(got)} conflicts=${nc}`);
+}
+const _row = (c, ts) => { const o = { id: 'sk-1', comment: c }; if (ts) o._ts = ts; return { sketchEntries: [o] }; };
+/* 1. A blank with no entry stamp must never take a typed value, and must not
+      even be offered as a question. */
+a2('A2 blank-loses  ', _row('orig', T_OLD - 2), _row('real', T_OLD), _row(''), 'real', 0);
+/* 2. NEGATIVE CONTROL, permanent: a genuinely newer stamped Clear MUST still
+      propagate. If rule 1 is ever widened into "blank always loses", this
+      check turns red. */
+a2('A2 stamped-clear', _row('orig', T_OLD - 2), _row('real', T_OLD), _row('', T_NEW), '', 0);
+/* 3. Absence is not a deletion event: a cloud copy that simply does not carry
+      the field never removes what this device typed. */
+a2('A2 absence-keeps', _row('orig', T_OLD - 2), _row('real', T_OLD), { sketchEntries: [{ id: 'sk-1' }] }, 'real', 0);
+
+/* ═══ DOOR B — THE BACKGROUND-REFRESH MERGE, TESTED IN ISOLATION (S616) ═════
+ * Every check above is decided by the 412 RECONCILIATION path, not the pull
+ * merge: the autosave beat always races the bumped cloud token, the push takes
+ * a 412, the 3-way merge resolves it, and by the time the pull runs the cloud
+ * is content-identical and nothing is applied. Proved by negative control —
+ * deliberately breaking the ghost-drop in _mergeLWW changed NOTHING above, so
+ * G had no teeth and the pull merge had no coverage at all.
+ * This pass drives the shipped pull merge directly (SyncEngine._lwwReplay):
+ * no network, no facade, no 412. Negative controls now bite here.
+ * ═════════════════════════════════════════════════════════════════════════*/
+const ENG = w.SyncEngine;
+lines.push('  ── door B: background-refresh merge (pull path, isolated) ──');
+function bReplay(name, localV, cloudV) {
+  try { return ENG._lwwReplay(name, localV, cloudV, []); }
+  catch (e) { return { merged: null, err: e && e.message }; }
+}
+function bRead(f, merged) { return readVal({ [f.name]: merged }, f); }
+function bCount(f, merged) { return count({ [f.name]: merged }, f); }
+for (const f of fam) {
+  let r;
+  r = bReplay(f.name, famState(f,'stale',T_OLD)[f.name], famState(f,'fresh',T_NEW)[f.name]);
+  chk(f,'bP propagate', bRead(f,r.merged)==='fresh', `got ${bRead(f,r.merged)}`);
+  r = bReplay(f.name, famState(f,'mine',T_NEW)[f.name], famState(f,'old',T_OLD)[f.name]);
+  chk(f,'bK keep-newer', bRead(f,r.merged)==='mine', `got ${bRead(f,r.merged)}`);
+  {
+    const cs = famState(f,'',0);
+    const ci = amapNames.has(f.name)?cs[f.name].Grp[0]:cs[f.name][0]; delete ci._ts;
+    r = bReplay(f.name, famState(f,'real',T_OLD)[f.name], cs[f.name]);
+    chk(f,'bW no-wipe  ', bRead(f,r.merged)==='real', `got ${bRead(f,r.merged)}`);
+  }
+  {
+    const ls = famState(f,'',0);
+    const li = amapNames.has(f.name)?ls[f.name].Grp[0]:ls[f.name][0]; delete li._ts;
+    const cs = famState(f,'kept',T_NEW);
+    const ci = amapNames.has(f.name)?cs[f.name].Grp[0]:cs[f.name][0]; ci[f.key]=f.name+'-cloudonly';
+    r = bReplay(f.name, ls[f.name], cs[f.name]);
+    chk(f,'bG no-ghost ', bCount(f,r.merged)===1, `rows=${bCount(f,r.merged)}`);
+  }
+}
+for (const sm of statusMaps) {
+  const lv = { pad1: (sm==='sigStrokes'?{s:[]}:{}) };
+  const cv = { pad1: (sm==='sigStrokes'?{s:[{pts:[{x:1,y:1}],w:900,h:130}],_ts:T_NEW}:{status:'yes',_ts:T_NEW}) };
+  const r = bReplay(sm, lv, cv);
+  const v = r.merged && r.merged.pad1;
+  const ok = sm==='sigStrokes' ? !!(v&&Array.isArray(v.s)&&v.s.length) : !!(v&&v.status==='yes');
+  chk({name:sm},'bW no-wipe  ', ok, '');
+}
+
 console.log(`\n=== CONVERGENCE (${TARGET.toUpperCase()}) — ${fam.length} families + ${statusMaps.length} maps ===\n`+lines.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed on ${TARGET.toUpperCase()}\n`);
 process.exit(TARGET==='live'?0:(fail?1:0));
