@@ -7101,9 +7101,16 @@ function _pgResolveR2Src(ph, projectId) {
       // legacy-folder photo in the Hub while FRT rendered them fine.
       // The observer's 404 fallback still tries current slug + UUID.
       var folder = parts[1] || slug;
+      /* S518 (Mark: "the hub page doesn't read any photos unless it's FRT").
+         The tool segment was hardcoded 'frt' below, so a Diesel or Electric
+         key was rebuilt into an FRT address — a 404 for every pump photo this
+         resolver ever touched. The key's own tool segment is authoritative,
+         same principle as the folder above. FRT keys still yield 'frt', so
+         FRT addresses are byte-identical to before. */
+      var toolSeg = parts[2] || 'frt';
       var type = parts[3];
       var fname = parts.slice(4).join('/');
-      return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/frt/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
+      return R2_WORKER + '/photos/' + encodeURIComponent(folder) + '/' + encodeURIComponent(toolSeg) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(fname);
     }
     return R2_WORKER + '/' + ph.r2Key;
   }
@@ -7362,19 +7369,52 @@ function _pgExtractPhotos(row) {
 
   // ── Diesel / Electric pump tools ──
   if (toolKey === 'diesel' || toolKey === 'electric') {
-    // deficiencies: { [name]: [ {photos:[{d,n}], responses:[{photos:[]}] } ] }
+    /* S518 (Mark: "the hub page doesn't read any photos unless it's FRT").
+       Root cause, verified against the LIVE 1490.04 diesel row, was double:
+       (1) this branch read only the inline image bytes (ph.d/ph.dataUrl) —
+           which cloud sync deliberately strips, leaving d:"" — and never
+           resolved the R2 reference the row actually carries. Every cloud
+           photo therefore had src:'' and was silently skipped.
+       (2) it read containers from an ancient schema. Live pump reports keep
+           site/placard photos in recordPhotos and flow-test photos in
+           flowTestPhotos / flowTestPhotosPld — none of which were read.
+       Fixed against the live shape. Tombstones (deleted/delState) are
+       honoured, same as FRT — a deleted photo must not resurrect here. The
+       old data.photos / checklistState reads are kept as a harmless fallback
+       for any truly ancient standalone row. */
+    function _pumpOne(ph, type, caption, dateHint) {
+      if (!ph) return;
+      if (ph.deleted || ph.delState === 'deleted' || ph.delAt) return;
+      var src = _pgResolveR2Src(ph, projectId);
+      if (!src) src = (typeof ph === 'object') ? (ph.d || ph.dataUrl || '') : '';
+      if (!src) return;
+      var rec = _makeRec(src, type, caption, (typeof ph === 'object' && ph.date) || dateHint || '');
+      if (!rec) return;
+      if (typeof ph === 'object' && ph.badgeText) {
+        rec.badges = [{ text: ph.badgeText,
+                        cls: type === 'deficiency' ? 'pgb-high' : 'pgb-site' }];
+      }
+      photos.push(rec);
+    }
+    // Site + placard photos (modern container)
+    (data.recordPhotos || []).forEach(function(ph) {
+      var isPlacard = ph && (ph.kind === 'placard' || ph.kind === 'placard-pld');
+      _pumpOne(ph, 'site', isPlacard ? 'Placard' : 'Site', '');
+    });
+    // Flow-test photos (modern containers; Pld is the placard-derived set)
+    (data.flowTestPhotos || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Flow Test', ''); });
+    (data.flowTestPhotosPld || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Flow Test', ''); });
+    // deficiencies: { [name]: [ {photos:[], responses:[{photos:[]}] } ] }
     function _pumpDefics(obj) {
       if (!obj || typeof obj !== 'object') return;
       Object.values(obj).forEach(function(arr) {
         (arr || []).forEach(function(d) {
           (d.photos || []).forEach(function(ph) {
-            var src = ph.d || ph.dataUrl || '';
-            if (src) photos.push(_makeRec(src, 'deficiency', 'Deficiency', ''));
+            _pumpOne(ph, 'deficiency', d.description ? d.description.substring(0, 30) : 'Deficiency', d.date || '');
           });
           (d.responses || []).forEach(function(resp) {
             (resp.photos || []).forEach(function(ph) {
-              var src = ph.d || ph.dataUrl || '';
-              if (src) photos.push(_makeRec(src, 'response', 'Response', ''));
+              _pumpOne(ph, 'response', 'Response', resp.date || d.date || '');
             });
           });
         });
@@ -7384,22 +7424,18 @@ function _pgExtractPhotos(row) {
     // general deficiencies array
     (data.generalDeficiencies || []).forEach(function(d) {
       (d.photos || []).forEach(function(ph) {
-        var src = ph.d || ph.dataUrl || '';
-        if (src) photos.push(_makeRec(src, 'deficiency', 'General Defic', ''));
+        _pumpOne(ph, 'deficiency', d.description ? d.description.substring(0, 30) : 'General Defic', d.date || '');
       });
       (d.responses || []).forEach(function(resp) {
         (resp.photos || []).forEach(function(ph) {
-          var src = ph.d || ph.dataUrl || '';
-          if (src) photos.push(_makeRec(src, 'response', 'Gen Resp', ''));
+          _pumpOne(ph, 'response', 'Gen Resp', resp.date || d.date || '');
         });
       });
     });
-    // checklist photos
+    // Legacy standalone fallbacks — pre-cloud rows only; harmless when absent
+    (data.photos || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Site', ''); });
     (data.checklistState ? Object.values(data.checklistState) : []).forEach(function(item) {
-      (item.photos || []).forEach(function(ph) {
-        var src = ph.d || ph.dataUrl || '';
-        if (src) photos.push(_makeRec(src, 'site', item.label || 'Checklist', ''));
-      });
+      (item.photos || []).forEach(function(ph) { _pumpOne(ph, 'site', item.label || 'Checklist', ''); });
     });
   }
 
