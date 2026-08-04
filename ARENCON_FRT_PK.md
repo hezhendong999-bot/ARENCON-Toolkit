@@ -1611,6 +1611,65 @@ may warn but must never block cloud writes.
 > 3. **Served bytes ≠ painted pixels.** Mark's one console line ended what seven pushes could not;
 >    **ask for it at round ONE, not round eight.**
 
+
+---
+
+## FOURTH RECOVERY PASS (S618) — the S495–S507 block
+
+Recovered from the originating sessions. These correspond to the deleted
+`LANE-A_ARENCON_FRT_PK_DELTA_S496…S500.md` and `…_S501-S506.md`.
+
+### S497 — PDF export photo quality, rearchitected (field-verified by Mark)
+
+The whole-page raster approach was **replaced with per-tile JPEG overlays drawn at tier
+resolution.** Mark field-verified the result as "much clearer" PDF photos. The overlay path was then
+extended to **CRB contractor-response thread photos** (`.rphoto` tiles), with captions baked into
+the overlay canvas. The estimate model was rebuilt and then **calibrated against Mark's measured
+15.0 MB real export** — the model is calibrated to a real measurement, not a formula; do not
+"simplify" it back.
+The export estimate-pill dot was fixed with **inline styles after five failed CSS-side attempts** —
+a standing example of the served-bytes-vs-painted-pixels rule.
+
+### S497 — gate enforcement on the CSS cache-bust
+
+`tools/gate.py` **blocks any `frt.css` push without a proven `?v=` bump.** This is mechanical, not
+advisory; do not work around it.
+
+### S497 — seal auto-detection was BUILT, FIELD-TESTED, and REMOVED on Mark's order
+
+> *"not even close where the seals are actually located — manual is faster"*
+
+**Do not rebuild it.** Manual seal placement is the decision, taken after a real field test.
+
+### S497 — menu slimming and admin hardening
+
+- FRT More menu slimmed: **Export All Projects, Download JSON, Diagnostics, QR Code removed.**
+- **All Repair tools hardened to Mark-only**, by BOTH an item-level `adminOnly` flag AND a runtime
+  `Auth.isSuperAdmin()` guard inside each destructive function. Two independent gates, deliberately.
+- **R2 Cleanup** wired to the existing S124 engine with a scan-then-confirm UI on desktop **and**
+  mobile — the mobile Repair drawer had been **entirely decorative since creation**: no ids, no
+  handlers. Worth remembering as a class of bug: a UI that exists but was never wired.
+- **Fix Blurry** and **Repair R2 Links** were removed from the menu because **no implementation has
+  ever existed for either.** They were menu items pointing at nothing. Do not re-add them as if they
+  were regressions.
+
+### S499–S507 — the shared Help system (built in Lane B, FRT is a consumer)
+
+One engine, per-tool card registries. The dialog engine uses `attachShadow`, so **host-page CSS can
+never reach the panel body** — every `.help-*` rule in a host stylesheet is silently blocked. **The
+mandatory pattern is to link the stylesheet INSIDE the shadow root** (`bd.getRootNode()
+.appendChild(lk)`).
+**Standing rule (Mark): one Help panel shows one scope and never mixes** — What's New, the Guide,
+search and the unseen dot all filter by scope. FRT carries a **45-card task-style guide** with verb
+titles and ordered steps, and card art that is a **faithful replica of real FRT screens** — generic
+glyphs were built and rejected. The brief: *teach someone who does not know the tool how to do the
+job*, not describe what the features are.
+**Terminology, corrected by Mark and never to be swapped: "Dashboard" = the all-projects board.
+"Hub page" = the per-project page.**
+Open from that arc: the contextual "?" that opens at the current section (needs an open-at-section
+addition to the engine), and the "Help" text label on the button — blocked because
+`headerEngine2.js` hard-codes 34×34 fixed squares.
+
 ---
 
 ## ⛔ What is genuinely unrecoverable
