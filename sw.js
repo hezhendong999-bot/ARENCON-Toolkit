@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608040132';
+var CACHE_NAME = 'arencon-frt-202608040133';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -461,7 +461,16 @@ self.addEventListener('fetch', function(e) {
      "sometimes offline works, sometimes it doesn't". */
   if (url.hostname === self.location.hostname) {
     e.respondWith(
-      caches.match(e.request, { ignoreSearch: true }).then(function(cached) {
+      /* S590 ROOT CAUSE of Mark's "it reloaded but the build was still the old
+         one": caches.match() searches EVERY cache in the origin, oldest first —
+         including the previous build's cache, which still exists for a moment
+         while the new worker purges it. So the reload was answered from the
+         OUTGOING cache and the swap looked like it did nothing. Scope the
+         lookup to the CURRENT cache only; if it is not in there it is not the
+         current build, and the network path below handles it. */
+      caches.open(CACHE_NAME).then(function(c) {
+        return c.match(e.request, { ignoreSearch: true });
+      }).then(function(cached) {
         var net = fetch(e.request).then(function(resp) {
           if (resp && resp.ok) {
             var clone = resp.clone();
