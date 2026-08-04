@@ -8585,6 +8585,23 @@ import { downloadProjectBundle, TOOL_SOURCES } from '/lib/export/projectDocsSour
    parse; openHelp only ever fires on a user click, long after this line. */
 import { mountHelp, hasUnseen, markSeen } from '/lib/ui/helpEngine.js';
 import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /* S588 */
+
+/* S589 — build stamp, SUPPORT ONLY (Mark's rule: the tool may report its build,
+   but reading it must never be a step in anyone's workflow). Bottom-left, tiny,
+   muted, ignores clicks. Nobody needs to look at it; it exists so a support
+   question has an answer, and so an update swap is visible while we prove the
+   engine. */
+const HUB_BUILD = 'S589-a';
+try {
+  window.addEventListener('load', function () {
+    var b = document.createElement('div');
+    b.id = 'hub-build-stamp';
+    b.textContent = 'build ' + HUB_BUILD;
+    b.style.cssText = 'position:fixed;left:10px;bottom:8px;z-index:20;pointer-events:none;' +
+      'font:400 10.5px Calibri,sans-serif;color:#928E9C;opacity:.65;';
+    document.body.appendChild(b);
+  });
+} catch (e) {}
 import '/lib/ui/hubHelpCards.js';
 
 /* ── S588 LIVE UPDATE (Mark: nobody should ever check a build number again) ──
