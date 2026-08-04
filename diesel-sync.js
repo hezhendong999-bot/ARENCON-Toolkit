@@ -1539,9 +1539,19 @@ const CloudSync = (function () {
       p.id = 'arcUpdPill'; p.type = 'button';
       p.textContent = '\u2191 Update ready';
       p.title = 'A newer version is installed. Tap to switch now — it will keep your place.';
-      p.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9500;background:rgba(46,158,114,.14);' +
+      /* S606 (Mark, cross-tool decision made in lib/ui/liveUpdate.js S595):
+         the pill lives TOP-CENTRE in every tool. Bottom-right was covering
+         THIS tool's Next button on Mark's tablet — the bottom edge belongs to
+         the tools' own action bars (Next/Save here, viewer bars in FRT, the
+         build stamp in the Hub). Top-centre under the header band is the one
+         region every tool leaves free. Same colour system, same behaviour;
+         position only. When this tool moves onto the shared engine the pill
+         comes from there and this function is deleted. */
+      p.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 68px);left:50%;' +
+        'transform:translateX(-50%);z-index:9500;background:rgba(46,158,114,.14);' +
         'color:#2E9E72;border:1px solid rgba(46,158,114,.45);border-radius:999px;padding:8px 14px;' +
-        'font:600 12.5px Calibri,sans-serif;cursor:pointer;backdrop-filter:blur(8px);min-height:36px;';
+        'font:600 12.5px Calibri,sans-serif;cursor:pointer;backdrop-filter:blur(8px);min-height:36px;' +
+        'max-width:80vw;white-space:nowrap;';
       p.addEventListener('click', function () { _updApply('user tapped'); });
       document.body.appendChild(p);
     } catch (_) {}
