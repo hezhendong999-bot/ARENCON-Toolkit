@@ -1294,6 +1294,17 @@ const CloudSync = (function () {
         await _withTimeout(engine.pull(_projectId, engine.instanceId || _instanceId),
                            TICK_NET_TIMEOUT_MS, 'pull');   // silent — stale-guard active
         _lastPullAt = Date.now();   // S585
+        /* S604 — if the merge kept newer LOCAL entries over the cloud copy,
+           this device is ahead of the cloud. Re-arm the push (the dedupe
+           compares against what WE last sent, and would otherwise stay
+           silent while the cloud keeps the losing value forever). The next
+           autosave beat pushes the winning state through the normal
+           If-Match path. */
+        if (engine.lastPullKeptLocal) {
+          _lastPushedJson = '';
+          if (!_pendingSince) _pendingSince = new Date().toISOString();
+          _outcome = 'pulled-local-ahead';
+        }
         const ctl = window.__dslHeaderCtl;
         if (ctl) {
           ctl.setCloud({ state: 'pull' });

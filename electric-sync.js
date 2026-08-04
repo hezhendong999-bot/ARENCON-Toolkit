@@ -958,6 +958,12 @@ const CloudSync = (function () {
         }
         await _elecWithTimeout(engine.pull(_projectId, engine.instanceId || _instanceId),
                                ELEC_TICK_NET_TIMEOUT_MS, 'pull');   // S602 — silent, stale-guard active
+        /* S604 — mirrored from Diesel: re-arm the push when the merge kept
+           newer local entries over the cloud copy (see diesel-sync.js). */
+        if (engine.lastPullKeptLocal) {
+          _lastPushedJson = '';
+          if (!_pendingSince) _pendingSince = new Date().toISOString();
+        }
         const ctl = window.__elecHeaderCtl;
         if (ctl) {
           ctl.setCloud({ state: 'pull' });

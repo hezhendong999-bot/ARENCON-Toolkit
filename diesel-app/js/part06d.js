@@ -1867,6 +1867,19 @@ function _mergeCloudLocal(cloud, local){
       cloudArr.forEach(function(cr, i){
         var lr = localArr[i];
         if(!cr || !lr) return;
+        /* ═══ S604 — THE REVERT, caught on camera by tonight's telemetry ═══
+           This pass took ANY non-empty local field over the cloud value with
+           no stamp comparison — written in S239 to protect a value typed
+           seconds ago, but running on EVERY apply. Sequence recorded at
+           01:00:48Z on the phone: engine stamp-merge correctly chose cloud
+           150 (newer entry); THIS pass put the screen's stale 200 back —
+           including its old _ts — and the device then pushed that reverted
+           row over the cloud's newer work. That is the 200-vs-150 stalemate.
+           Now: when both rows carry entry stamps, the newer ENTRY wins the
+           row, whichever side it is on — same doctrine as the engine merge
+           it sits behind. Only unstamped legacy rows keep S239 behaviour. */
+        var cts = Number(cr._ts)||0, lts = Number(lr._ts)||0;
+        if(cts && lts && cts >= lts) return;   // cloud entry same-or-newer: cloud row stands
         Object.keys(lr).forEach(function(k){
           if(k === 'photos') return; // photos handled by their own preserve pass
           var lv = lr[k];
