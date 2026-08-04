@@ -1424,37 +1424,8 @@ body.text-l{--ts:4px;}
 <!-- S500 — Help panel rendered by the shared Help engine (lib/ui/helpEngine.js).
      The Hub's own cards live in lib/ui/hubHelpCards.js; the engine renders its
      own What's New / Guide tabs and plain-language search into #help-host. -->
-<div class="modal-overlay" id="new-project-modal">
-  <div class="modal-card">
-    <h3>New Project<button class="modal-q" onclick="openHelp({card:'new-project'})" title="How project numbers, clients and PMs work" aria-label="Help with New Project">?</button></h3>
-    <div class="modal-field">
-      <label>Project Number</label>
-      <input type="text" id="np-number" placeholder="e.g. 12345.01" maxlength="10" oninput="_npOnNumberInput()">
-      <div id="np-dupe-warn" class="np-note np-note-warn" style="display:none"></div>
-    </div>
-    <div class="modal-field">
-      <label>Project Name</label>
-      <input type="text" id="np-name" placeholder="e.g. 100 King Street West">
-    </div>
-    <div class="modal-field">
-      <label>Client</label>
-      <input type="text" id="np-client" placeholder="e.g. ABC Property Management" oninput="_npOnClientInput()">
-      <div id="np-client-suggest" class="np-suggest" style="display:none"></div>
-    </div>
-    <div class="modal-field">
-      <label>Address</label>
-      <input type="text" id="np-address" placeholder="e.g. 100 King St W, Toronto ON">
-    </div>
-    <div class="modal-field">
-      <label>Project Manager</label>
-      <select id="np-pm"><option value="">— Select —</option></select>
-    </div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeNewProjectModal()">Cancel</button>
-      <button class="dash-btn primary" id="np-create-btn" onclick="createProject()">Create Project</button>
-    </div>
-  </div>
-</div>
+<!-- S518 - new-project-modal markup DELETED; built on the shared dialog engine.
+     If a hand-built card reappears here the conversion was undone. -->
 
 <!-- S493: move-to-trash modal removed — drawn by the shared dialog engine now -->
 
@@ -1473,31 +1444,8 @@ body.text-l{--ts:4px;}
      SAME action: if the corrected name already exists, the modal says so and
      the button reads Merge. Own projects rename directly; other PMs' projects
      become correction requests (hub_notifications) — never a silent rewrite. -->
-<div class="modal-overlay" id="client-rename-modal">
-  <div class="modal-card">
-    <div class="imx-head"><h3>&#9998; Rename client</h3><button class="modal-x" onclick="closeClientRename()" title="Close">×</button></div>
-    <div class="imx-body">
-      <div class="crn-intro" id="crn-intro"></div>
-      <div class="modal-field">
-        <label>Correct spelling</label>
-        <input type="text" id="crn-name" autocomplete="off" oninput="_crnOnName()">
-      </div>
-      <div id="crn-sug" class="np-suggest" style="display:none"></div>
-      <div id="crn-merge" class="crn-merge" style="display:none"></div>
-      <div class="crn-selbar">
-        <button type="button" class="crn-lnk" onclick="_crnSelAll(true)">Select all</button>
-        <button type="button" class="crn-lnk" onclick="_crnSelAll(false)">Select none</button>
-        <span class="crn-count" id="crn-count"></span>
-      </div>
-      <div class="crn-list" id="crn-list"></div>
-      <div class="crn-note" id="crn-note"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeClientRename()">Cancel</button>
-      <button class="dash-btn primary" id="crn-go" onclick="_crnApply()">Rename</button>
-    </div>
-  </div>
-</div>
+<!-- S518 - client-rename-modal markup DELETED; built on the shared dialog engine.
+     If a hand-built card reappears here the conversion was undone. -->
 
 <!-- ═══════════ S498: CORNER CORRECTION CARD (Steam-style) ═══════════
      Slides up bottom-right when a correction request is pending for the
@@ -1508,26 +1456,8 @@ body.text-l{--ts:4px;}
 
 <!-- S498: correction review — the recipient can accept on SOME of their
      projects and not others. Their data, their call, per Mark. -->
-<div class="modal-overlay" id="notif-review-modal">
-  <div class="modal-card">
-    <div class="imx-head"><h3>Review correction</h3><button class="modal-x" onclick="closeNotifReview()" title="Close">×</button></div>
-    <div class="imx-body">
-      <div class="crn-intro" id="nrv-intro"></div>
-      <div class="notif-chg" id="nrv-chg"></div>
-      <div class="crn-selbar">
-        <button type="button" class="crn-lnk" onclick="_nrvSelAll(true)">Select all</button>
-        <button type="button" class="crn-lnk" onclick="_nrvSelAll(false)">Select none</button>
-        <span class="crn-count" id="nrv-count"></span>
-      </div>
-      <div class="crn-list" id="nrv-list"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="_notifDecline()">Decline</button>
-      <button class="dash-btn secondary" onclick="closeNotifReview()">Not now</button>
-      <button class="dash-btn primary" id="nrv-go" onclick="_notifAccept()">Accept</button>
-    </div>
-  </div>
-</div>
+<!-- S518 - notif-review-modal markup DELETED; built on the shared dialog engine.
+     If a hand-built card reappears here the conversion was undone. -->
 
 <!-- ═══════════ EDIT NAME MODAL ═══════════ -->
 <!-- S518 — edit-name markup DELETED; built by open() on the shared
@@ -1551,118 +1481,15 @@ body.text-l{--ts:4px;}
 </div>
 
 <!-- ═══════════ RESET PASSWORD MODAL ═══════════ -->
-<div class="modal-overlay" id="reset-pw-modal">
-  <div class="modal-card">
-    <h3>Reset Password</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="reset-pw-user"></p>
-    <div class="modal-field">
-      <label>Temporary Password</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="reset-pw-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="flex:1">
-        <button class="admin-act-btn" type="button" onclick="regenTempPw()" title="Generate a new one">↻ New</button>
-        <button class="admin-act-btn" type="button" onclick="copyTempPw()" title="Copy to clipboard">Copy</button>
-      </div>
-    </div>
-    <p id="reset-pw-note" style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">Give this to the user. They sign in with it, then change it from their Profile.</p>
-    <div id="reset-pw-success" style="display:none;background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.35);color:var(--yes);padding:9px 11px;border-radius:8px;font-size:calc(12.5px + var(--ts));margin-top:8px;line-height:1.4">✓ Password updated. Copy it above and send it to the user.</div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary cancel" id="reset-pw-cancel" onclick="closeResetPwModal()">Cancel</button>
-      <button class="dash-btn primary" id="reset-pw-go" onclick="resetPwPrimary()">Set Password</button>
-    </div>
-  </div>
-</div>
+<!-- S518 - reset-pw-modal markup DELETED; built on the shared dialog engine.
+     If a hand-built card reappears here the conversion was undone. -->
 
-<div class="modal-overlay" id="edit-project-modal">
-  <div class="modal-card">
-    <h3>Edit Project</h3>
-    <div class="modal-field">
-      <label>Project Number</label>
-      <input type="text" id="ep-number" maxlength="10">
-    </div>
-    <div class="modal-field">
-      <label>Project Name</label>
-      <input type="text" id="ep-name">
-    </div>
-    <div class="modal-field">
-      <label>Client</label>
-      <input type="text" id="ep-client">
-      <!-- S498 (Mark): fix a client typo everywhere it appears, not just here.
-           Own projects rename directly; other PMs' projects get a correction
-           request they accept or decline — never a silent rewrite. -->
-      <button type="button" class="crn-open" onclick="openClientRename()">&#9998; Rename this client across projects…</button>
-    </div>
-    <div class="modal-field">
-      <label>Address</label>
-      <input type="text" id="ep-address">
-    </div>
-    <!-- S494 (Mark): Building Description field removed from Edit Project -->
-    <div class="modal-field">
-      <label>Project Manager</label>
-      <select id="ep-pm"><option value="">— Select —</option></select>
-    </div>
-    <!-- S494 (Mark): Construction Type field removed from Edit Project -->
-    <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeEditProjectModal()">Cancel</button>
-      <button class="dash-btn primary" id="ep-save-btn" onclick="saveEditProject()">Save Changes</button>
-    </div>
-  </div>
-</div>
+<!-- S518 - edit-project-modal markup DELETED; built on the shared dialog engine.
+     If a hand-built card reappears here the conversion was undone. -->
 
 <!-- ═══════════ PROFILE MODAL ═══════════ -->
-<div class="modal-overlay" id="profile-modal">
-  <div class="modal-card">
-    <h3>⚙️ My Profile</h3>
-    <div class="profile-section">
-      <label>Name</label>
-      <div class="profile-val" id="prof-name">—</div>
-    </div>
-    <div class="profile-section">
-      <label>Email</label>
-      <div class="profile-val" id="prof-email">—</div>
-    </div>
-    <div class="profile-section">
-      <label>Role</label>
-      <div class="profile-val" id="prof-role">—</div>
-    </div>
-    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
-    <h3 style="font-size:calc(15px + var(--ts));margin-bottom:12px">🔒 Change Password</h3>
-    <div class="modal-field">
-      <label>New Password</label>
-      <input type="password" id="prof-new-pass" placeholder="Min 8 characters" autocomplete="new-password">
-    </div>
-    <div class="modal-field">
-      <label>Confirm Password</label>
-      <input type="password" id="prof-confirm-pass" placeholder="Re-enter password" autocomplete="new-password">
-    </div>
-    <div class="modal-actions">
-      <button class="dash-btn secondary" onclick="closeProfileModal()">Close</button>
-      <button class="dash-btn primary" onclick="changePassword()">Update Password</button>
-    </div>
-    <div class="pin-setup-section">
-      <h3>🔑 Lock PIN</h3>
-      <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">Set a 4–8 digit PIN for automatic screen lock after inactivity</p>
-      <div class="pin-setup-row">
-        <div class="pin-setup-status" id="pin-status-text"><span class="pin-none">No PIN set</span></div>
-      </div>
-      <div id="pin-setup-form" style="display:none">
-        <div class="pin-input-group">
-          <input type="password" id="pin-current" placeholder="Current" maxlength="8" inputmode="numeric" pattern="[0-9]*" style="display:none">
-          <input type="password" id="pin-new" placeholder="New PIN" maxlength="8" inputmode="numeric" pattern="[0-9]*">
-          <input type="password" id="pin-confirm" placeholder="Confirm" maxlength="8" inputmode="numeric" pattern="[0-9]*">
-        </div>
-        <div class="modal-actions" style="margin-top:8px">
-          <button class="dash-btn secondary" onclick="_pinSetupCancel()">Cancel</button>
-          <button class="dash-btn primary" onclick="_pinSetupSave()">Save PIN</button>
-        </div>
-      </div>
-      <div id="pin-setup-actions">
-        <button class="dash-btn secondary" id="pin-set-btn" onclick="_pinSetupStart(false)">Set PIN</button>
-        <button class="dash-btn secondary" id="pin-change-btn" onclick="_pinSetupStart(true)" style="display:none">Change PIN</button>
-        <button class="dash-btn secondary" id="pin-remove-btn" onclick="_pinRemove()" style="display:none;color:var(--red);border-color:#FCA5A5">Remove PIN</button>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- S518 - profile-modal markup DELETED; built on the shared dialog engine.
+     If a hand-built card reappears here the conversion was undone. -->
 
 <!-- ═══════════ TOAST ═══════════ -->
 <div class="toast" id="toast"></div>
@@ -1794,7 +1621,7 @@ function _panelCss(bd) {
     if (sr && sr.querySelector && !sr.querySelector('link[data-hub-panels-css]')) {
       var lk = document.createElement('link');
       lk.rel = 'stylesheet';
-      lk.href = '/lib/ui/hubPanels.css?v=518a';
+      lk.href = '/lib/ui/hubPanels.css?v=518b';
       lk.setAttribute('data-hub-panels-css', '1');
       sr.appendChild(lk);
     }
@@ -2263,7 +2090,7 @@ async function loadUserMap() {
 }
 
 function _populatePMDropdowns() {
-  var selects = [document.getElementById('np-pm'), document.getElementById('ep-pm')];
+  var selects = [_dq('np-pm'), _dq('ep-pm')];
   var entries = Object.entries(_userMap).sort(function(a, b) { return a[1].localeCompare(b[1]); });
   selects.forEach(function(sel) {
     if (!sel) return;
@@ -4023,16 +3850,55 @@ function openEditProjectModal() {
     toast('Viewers cannot edit projects', 'error');
     return;
   }
-  document.getElementById('ep-number').value = proj.project_number || '';
-  document.getElementById('ep-name').value = proj.project_name || '';
-  document.getElementById('ep-client').value = proj.client || '';
-  document.getElementById('ep-address').value = proj.address || '';
-  document.getElementById('ep-pm').value = proj.project_manager || '';
-  document.getElementById('edit-project-modal').classList.add('show');
+  /* S518: shared dialog engine. dismissable:false ON PURPOSE — the engine's
+     Esc/\u2715 close silently, which would bypass the S493 unsaved-changes
+     guard and reintroduce the exact bug S493 fixed. Cancel runs the guard. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  if (_epApi) return;
+  var _pr = null;
+  D.panel({
+    title: 'Edit Project', icon: '\u270e', accent: 'slate', width: 480, dismissable: false,
+    buttons: [
+      { label: 'Cancel', kind: 'cancel', onClick: function () { closeEditProjectModal(); return false; } },
+      { label: 'Save Changes', kind: 'primary', onClick: function () { saveEditProject(); return false; } }
+    ],
+    build: function (bd, api) {
+      _epApi = api; _pr = bd.getRootNode ? bd.getRootNode() : bd;
+      _panelCss(bd); _panelPush(_pr);
+      bd.innerHTML = '<div class="modal-field">\
+      <label>Project Number</label>\
+      <input type="text" id="ep-number" maxlength="10">\
+    </div>\
+    <div class="modal-field">\
+      <label>Project Name</label>\
+      <input type="text" id="ep-name">\
+    </div>\
+    <div class="modal-field">\
+      <label>Client</label>\
+      <input type="text" id="ep-client">\
+      <button type="button" class="crn-open" onclick="openClientRename()">\u270e Rename this client across projects\u2026</button>\
+    </div>\
+    <div class="modal-field">\
+      <label>Address</label>\
+      <input type="text" id="ep-address">\
+    </div>\
+    <div class="modal-field">\
+      <label>Project Manager</label>\
+      <select id="ep-pm"><option value="">\u2014 Select \u2014</option></select>\
+    </div>';
+      var pb = api.button('Save Changes'); if (pb) pb.id = 'ep-save-btn';
+    }
+  }).then(function () { _panelPop(_pr); _epApi = null; _epSnapshot = null; });
+  _dq('ep-number').value = proj.project_number || '';
+  _dq('ep-name').value = proj.project_name || '';
+  _dq('ep-client').value = proj.client || '';
+  _dq('ep-address').value = proj.address || '';
+  _dq('ep-pm').value = proj.project_manager || '';
   // S493: snapshot what the form opened with, so Cancel can tell edited from
   // untouched and only interrupt when something would actually be lost.
   _epSnapshot = _epReadFields();
-  setTimeout(function() { document.getElementById('ep-number').focus(); }, 100);
+  setTimeout(function() { try { _dq('ep-number').focus(); } catch (e) {} }, 100);
 }
 
 var _epSnapshot = null;
@@ -4058,23 +3924,23 @@ async function closeEditProjectModal(force) {
     // 'discard' falls through and closes
   }
   _epSnapshot = null;
-  document.getElementById('edit-project-modal').classList.remove('show');
+  if (_epApi) { var a = _epApi; _epApi = null; a.close(); }
 }
 
 async function saveEditProject() {
   if (!_detailProjectId) return;
   var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
   if (!proj) return;
-  var num = document.getElementById('ep-number').value.trim();
-  var name = document.getElementById('ep-name').value.trim();
-  var client = document.getElementById('ep-client').value.trim();
-  var address = document.getElementById('ep-address').value.trim();
-    var pmVal = document.getElementById('ep-pm').value || null;
+  var num = _dq('ep-number').value.trim();
+  var name = _dq('ep-name').value.trim();
+  var client = _dq('ep-client').value.trim();
+  var address = _dq('ep-address').value.trim();
+    var pmVal = _dq('ep-pm').value || null;
     if (!num || !name) {
     toast('Project number and name are required', 'error');
     return;
   }
-  var btn = document.getElementById('ep-save-btn');
+  var btn = _dq('ep-save-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
   try {
@@ -4723,14 +4589,15 @@ function _rcnFix(series, clusterIdx){
     (isMine ? mine : others).push(p);
   });
   _crnCtx = { oldName: cl[0], mine: mine, others: others };
+  if (!_crnOpenPanel()) return;   /* S518: same shared panel as openClientRename */
 
-  document.getElementById('crn-intro').innerHTML =
+  _dq('crn-intro').innerHTML =
     'These spellings look like one client: <b>' + cl.map(esc).join('</b> \u2261 <b>') + '</b>. '
     + 'Type the correct name, then confirm which projects to update \u2014 rows already ticked are the '
     + 'look-alikes; other clients in the series are listed unticked. Only the client name changes '
     + '&mdash; numbers, reports, photos and drawings are untouched.';
 
-  var nn = document.getElementById('crn-name');
+  var nn = _dq('crn-name');
   nn.value = cl[0];
 
   var tick = function(p){ return !!inCluster[(p.client || '').trim()]; };
@@ -4743,16 +4610,15 @@ function _rcnFix(series, clusterIdx){
     html += '<div class="crn-sec others">Other PMs &mdash; sent as a correction request</div>';
     others.forEach(function(p){ html += _crnRow(p, false, tick(p)); });
   }
-  document.getElementById('crn-list').innerHTML = html;
-  document.getElementById('crn-note').textContent = others.length
+  _dq('crn-list').innerHTML = html;
+  _dq('crn-note').textContent = others.length
     ? 'Other PMs are never rewritten silently: their ticked projects get a request they accept or decline in their own Hub.'
     : '';
-  document.getElementById('crn-merge').style.display = 'none';
-  document.getElementById('crn-sug').style.display = 'none';
+  _dq('crn-merge').style.display = 'none';
+  _dq('crn-sug').style.display = 'none';
   _crnOnName();
   _crnCount();
-  document.getElementById('client-rename-modal').classList.add('show');
-  setTimeout(function(){ nn.focus(); nn.select(); }, 80);
+  setTimeout(function(){ try { nn.focus(); nn.select(); } catch (e) {} }, 80);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -4925,10 +4791,10 @@ function _npClientsForSeries(series) {
 }
 
 function _npOnNumberInput() {
-  var numEl = document.getElementById('np-number');
-  var sugEl = document.getElementById('np-client-suggest');
-  var dupEl = document.getElementById('np-dupe-warn');
-  var clientEl = document.getElementById('np-client');
+  var numEl = _dq('np-number');
+  var sugEl = _dq('np-client-suggest');
+  var dupEl = _dq('np-dupe-warn');
+  var clientEl = _dq('np-client');
   if (!numEl || !sugEl || !dupEl) return;
   var raw = numEl.value.trim();
 
@@ -4970,11 +4836,11 @@ function _npOnNumberInput() {
 }
 
 function _npPickClient(btn) {
-  var clientEl = document.getElementById('np-client');
+  var clientEl = _dq('np-client');
   if (!clientEl || !btn) return;
   clientEl.value = btn.getAttribute('data-client') || '';
   clientEl.dataset.npFromSuggest = '1';
-  var sugEl = document.getElementById('np-client-suggest');
+  var sugEl = _dq('np-client-suggest');
   if (sugEl) {
     // Keep the row visible so a mis-pick can be corrected with one more tap.
     Array.prototype.forEach.call(sugEl.querySelectorAll('.np-suggest-chip'), function(b) {
@@ -5007,8 +4873,8 @@ function _npAllClients() {
 }
 
 function _npOnClientInput() {
-  var clientEl = document.getElementById('np-client');
-  var sugEl = document.getElementById('np-client-suggest');
+  var clientEl = _dq('np-client');
+  var sugEl = _dq('np-client-suggest');
   if (!clientEl || !sugEl) return;
   delete clientEl.dataset.npFromSuggest;   // hand-typing overrides a prior pick
   var q = clientEl.value.trim().toLowerCase();
@@ -5057,33 +4923,78 @@ function openNewProjectModal() {
     toast('Viewers cannot create projects', 'error');
     return;
   }
-  document.getElementById('np-number').value = '';
-  document.getElementById('np-name').value = '';
-  var _npClient = document.getElementById('np-client');
+  /* S518 (Mark, all-modals conversion): shared dialog engine. Engine owns the
+     card, header, Esc and footer; ids are unchanged so the create path below is
+     the original code with lookups routed through _dq(). The header "?" moved
+     to a footer Help button (the engine owns the header now). */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  if (_npApi) return;
+  var _pr = null;
+  D.panel({
+    title: 'New Project', icon: '+', accent: 'slate', width: 480,
+    buttons: [
+      { label: 'Cancel', kind: 'cancel' },
+      { label: 'Help', onClick: function () { try { openHelp({ card: 'new-project' }); } catch (e) {} return false; } },
+      { label: 'Create Project', kind: 'primary', onClick: function () { createProject(); return false; } }
+    ],
+    build: function (bd, api) {
+      _npApi = api; _pr = bd.getRootNode ? bd.getRootNode() : bd;
+      _panelCss(bd); _panelPush(_pr);
+      bd.innerHTML = '<div class="modal-field">\
+      <label>Project Number</label>\
+      <input type="text" id="np-number" placeholder="e.g. 12345.01" maxlength="10" oninput="_npOnNumberInput()">\
+      <div id="np-dupe-warn" class="np-note np-note-warn" style="display:none"></div>\
+    </div>\
+    <div class="modal-field">\
+      <label>Project Name</label>\
+      <input type="text" id="np-name" placeholder="e.g. 100 King Street West">\
+    </div>\
+    <div class="modal-field">\
+      <label>Client</label>\
+      <input type="text" id="np-client" placeholder="e.g. ABC Property Management" oninput="_npOnClientInput()">\
+      <div id="np-client-suggest" class="np-suggest" style="display:none"></div>\
+    </div>\
+    <div class="modal-field">\
+      <label>Address</label>\
+      <input type="text" id="np-address" placeholder="e.g. 100 King St W, Toronto ON">\
+    </div>\
+    <div class="modal-field">\
+      <label>Project Manager</label>\
+      <select id="np-pm"><option value="">\u2014 Select \u2014</option></select>\
+    </div>';
+      /* The create path disables/relabels the primary by id; give the engine's
+         footer button that id so the original code keeps working. */
+      var pb = api.button('Create Project'); if (pb) pb.id = 'np-create-btn';
+    }
+  }).then(function () { _panelPop(_pr); _npApi = null; });
+  _dq('np-number').value = '';
+  _dq('np-name').value = '';
+  var _npClient = _dq('np-client');
   _npClient.value = '';
   delete _npClient.dataset.npFromSuggest;
-  document.getElementById('np-address').value = '';
+  _dq('np-address').value = '';
   // S495 (Mark, S489): PM defaults to whoever creates the project — that is who
   // it belongs to until someone says otherwise. Still editable here and later.
-  var _npPm = document.getElementById('np-pm');
+  var _npPm = _dq('np-pm');
   _npPm.value = (_profile && _profile.id) ? _profile.id : '';
   if (_npPm.value && _npPm.selectedIndex < 0) _npPm.value = '';
-  var _npSug = document.getElementById('np-client-suggest');
+  var _npSug = _dq('np-client-suggest');
   if (_npSug) { _npSug.style.display = 'none'; _npSug.innerHTML = ''; }
-  var _npDup = document.getElementById('np-dupe-warn');
+  var _npDup = _dq('np-dupe-warn');
   if (_npDup) _npDup.style.display = 'none';
-  document.getElementById('new-project-modal').classList.add('show');
-  setTimeout(() => document.getElementById('np-number').focus(), 100);
+  setTimeout(() => { try { _dq('np-number').focus(); } catch (e) {} }, 100);
 }
 
 function closeNewProjectModal() {
-  document.getElementById('new-project-modal').classList.remove('show');
+  /* S518: the engine owns closing; every existing caller keeps working. */
+  if (_npApi) { var a = _npApi; _npApi = null; a.close(); }
 }
 
 async function createProject() {
-  const number = document.getElementById('np-number').value.trim();
-  const name = document.getElementById('np-name').value.trim();
-  var client = document.getElementById('np-client').value.trim();
+  const number = _dq('np-number').value.trim();
+  const name = _dq('np-name').value.trim();
+  var client = _dq('np-client').value.trim();
   /* S497f (Mark, explicit): the create-time SNAP IS DISABLED.
      It silently rewrote what the user typed. _ccNorm strips ALL non-alphanumerics,
      so "Public Storage LLC" / "Public Storage Inc" / "Public Storage Canada LLC" —
@@ -5097,8 +5008,8 @@ async function createProject() {
      then PROMPT "Use existing 'X'?" → Use / Keep what I typed.
      _clientCanonicalFor() is retained for the admin Client Name Cleanup screen,
      where Mark reviews every cluster before anything changes. */
-  const address = document.getElementById('np-address').value.trim();
-  const pm = document.getElementById('np-pm').value || null;
+  const address = _dq('np-address').value.trim();
+  const pm = _dq('np-pm').value || null;
 
   if (!number || !name) {
     toast('Project number and name are required', 'error');
@@ -5115,7 +5026,7 @@ async function createProject() {
     return;
   }
 
-  const btn = document.getElementById('np-create-btn');
+  const btn = _dq('np-create-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
@@ -5160,6 +5071,7 @@ async function loadAdminUsers() {
 /* S518: handles to the open shared panels, so closeXModal() can ask the engine
    to close and every existing caller keeps working. */
 let _editNumApi = null, _editInitApi = null, _editNameApi = null;
+let _npApi = null, _crnApi = null, _nrvApi = null, _rpwApi = null, _epApi = null, _profApi = null;
 let _editInitUserId = null;
 let _editNameUserId = null;
 let _resetPwDone = false;
@@ -5349,36 +5261,65 @@ function openResetPw(userId) {
   _resetPwDone = false;
   var u = _allUsers.find(function (x) { return x.id === userId; });
   if (!u) return;
-  document.getElementById('reset-pw-user').textContent = u.full_name + ' (' + u.email + ')';
-  var inp = document.getElementById('reset-pw-input');
+  /* S518: shared dialog engine. The flow relabels/hides its own footer buttons
+     by id after success, so the engine's buttons carry the original ids. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  if (_rpwApi) return;
+  var _pr = null;
+  D.panel({
+    title: 'Reset Password', icon: '\u26bf', accent: 'slate', width: 460,
+    buttons: [
+      { label: 'Cancel', kind: 'cancel' },
+      { label: 'Set Password', kind: 'primary', onClick: function () { resetPwPrimary(); return false; } }
+    ],
+    build: function (bd, api) {
+      _rpwApi = api; _pr = bd.getRootNode ? bd.getRootNode() : bd;
+      _panelCss(bd); _panelPush(_pr);
+      bd.innerHTML = '<p class="pnl-cap" id="reset-pw-user"></p>\
+    <div class="modal-field">\
+      <label>Temporary Password</label>\
+      <div style="display:flex;gap:8px;align-items:center">\
+        <input type="text" id="reset-pw-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="flex:1">\
+        <button class="admin-act-btn" type="button" onclick="regenTempPw()" title="Generate a new one">\u21bb New</button>\
+        <button class="admin-act-btn" type="button" onclick="copyTempPw()" title="Copy to clipboard">Copy</button>\
+      </div>\
+    </div>\
+    <p id="reset-pw-note" style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">Give this to the user. They sign in with it, then change it from their Profile.</p>\
+    <div id="reset-pw-success" style="display:none;background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.35);color:var(--yes);padding:9px 11px;border-radius:8px;font-size:calc(12.5px + var(--ts));margin-top:8px;line-height:1.4">\u2713 Password updated. Copy it above and send it to the user.</div>';
+      var pb = api.button('Set Password'); if (pb) pb.id = 'reset-pw-go';
+      var cb = api.button('Cancel'); if (cb) cb.id = 'reset-pw-cancel';
+    }
+  }).then(function () { _panelPop(_pr); _rpwApi = null; _resetPwUserId = null; _resetPwDone = false; });
+  _dq('reset-pw-user').textContent = u.full_name + ' (' + u.email + ')';
+  var inp = _dq('reset-pw-input');
   inp.value = genTempPassword();
   inp.readOnly = false;
-  document.getElementById('reset-pw-success').style.display = 'none';
-  document.getElementById('reset-pw-note').style.display = 'block';
-  document.getElementById('reset-pw-cancel').style.display = '';
-  var go = document.getElementById('reset-pw-go');
+  _dq('reset-pw-success').style.display = 'none';
+  _dq('reset-pw-note').style.display = 'block';
+  _dq('reset-pw-cancel').style.display = '';
+  var go = _dq('reset-pw-go');
   go.textContent = 'Set Password';
   go.disabled = false;
-  document.getElementById('reset-pw-modal').classList.add('show');
 }
 
 function closeResetPwModal() {
-  document.getElementById('reset-pw-modal').classList.remove('show');
-  _resetPwUserId = null;
-  _resetPwDone = false;
+  /* S518: engine owns closing; state clears in the panel close handler so Esc
+     and the \u2715 clear it too. */
+  if (_rpwApi) { var a = _rpwApi; _rpwApi = null; a.close(); }
 }
 
 function regenTempPw() {
-  document.getElementById('reset-pw-input').value = genTempPassword();
+  _dq('reset-pw-input').value = genTempPassword();
 }
 
 function copyTempPw() {
-  var v = document.getElementById('reset-pw-input').value;
+  var v = _dq('reset-pw-input').value;
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(v).then(function () { toast('Password copied', 'success'); })
       .catch(function () { toast('Copy failed — select and copy manually', 'error'); });
   } else {
-    var el = document.getElementById('reset-pw-input');
+    var el = _dq('reset-pw-input');
     el.readOnly = false; el.select();
     try { document.execCommand('copy'); toast('Password copied', 'success'); }
     catch (e) { toast('Copy failed — select and copy manually', 'error'); }
@@ -5392,9 +5333,9 @@ function resetPwPrimary() {
 
 async function submitResetPw() {
   if (!_resetPwUserId) return;
-  var pw = document.getElementById('reset-pw-input').value;
+  var pw = _dq('reset-pw-input').value;
   if (!pw || pw.length < 8) { toast('Password must be at least 8 characters', 'error'); return; }
-  var go = document.getElementById('reset-pw-go');
+  var go = _dq('reset-pw-go');
   go.disabled = true;
   var orig = go.textContent;
   go.textContent = 'Setting…';
@@ -5409,10 +5350,10 @@ async function submitResetPw() {
     if (!res.ok || !data.ok) { throw new Error(data.error || ('HTTP ' + res.status)); }
     // Success — keep the password on screen so it can be copied/sent
     _resetPwDone = true;
-    document.getElementById('reset-pw-input').readOnly = true;
-    document.getElementById('reset-pw-note').style.display = 'none';
-    document.getElementById('reset-pw-success').style.display = 'block';
-    document.getElementById('reset-pw-cancel').style.display = 'none';
+    _dq('reset-pw-input').readOnly = true;
+    _dq('reset-pw-note').style.display = 'none';
+    _dq('reset-pw-success').style.display = 'block';
+    _dq('reset-pw-cancel').style.display = 'none';
     go.disabled = false;
     go.textContent = 'Done';
     toast('Password reset', 'success');
@@ -6098,6 +6039,45 @@ function _getProgressChipsHtml(projectId) {
    hub_notifications and the owning PM accepts or declines it in their Hub. */
 var _crnCtx = null;
 
+/* S518: ONE rename-panel implementation, TWO entry points — openClientRename
+   (from Edit Project) and _rcnFix (admin "Fix this series", S499/S513). Both
+   seed _crnCtx first, call this, then fill the fields through _dq. Returns
+   false if the engine is missing or the panel is already open. */
+function _crnOpenPanel() {
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return false; }
+  if (_crnApi) return false;
+  var _pr = null;
+  D.panel({
+    title: 'Rename client', icon: '\u270e', accent: 'slate', width: 560,
+    buttons: [
+      { label: 'Cancel', kind: 'cancel' },
+      { label: 'Rename', kind: 'primary', onClick: function () { _crnApply(); return false; } }
+    ],
+    build: function (bd, api) {
+      _crnApi = api; _pr = bd.getRootNode ? bd.getRootNode() : bd;
+      _panelCss(bd); _panelPush(_pr);
+      bd.innerHTML = '<div class="crn-intro" id="crn-intro"></div>\
+      <div class="modal-field">\
+        <label>Correct spelling</label>\
+        <input type="text" id="crn-name" autocomplete="off" oninput="_crnOnName()">\
+      </div>\
+      <div id="crn-sug" class="np-suggest" style="display:none"></div>\
+      <div id="crn-merge" class="crn-merge" style="display:none"></div>\
+      <div class="crn-selbar">\
+        <button type="button" class="crn-lnk" onclick="_crnSelAll(true)">Select all</button>\
+        <button type="button" class="crn-lnk" onclick="_crnSelAll(false)">Select none</button>\
+        <span class="crn-count" id="crn-count"></span>\
+      </div>\
+      <div class="crn-list" id="crn-list"></div>\
+      <div class="crn-note" id="crn-note"></div>';
+      /* _crnOnName() flips this button between Rename and Merge by id. */
+      var pb = api.button('Rename'); if (pb) pb.id = 'crn-go';
+    }
+  }).then(function () { _panelPop(_pr); _crnApi = null; _crnCtx = null; });
+  return true;
+}
+
 function openClientRename() {
   if (!_detailProjectId || !_profile) return;
   var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
@@ -6111,12 +6091,15 @@ function openClientRename() {
     (isMine ? mine : others).push(p);
   });
   _crnCtx = { oldName: oldName, mine: mine, others: others };
+  /* S518: the panel itself is built by _crnOpenPanel — shared with the admin
+     "Fix this series" path so there is exactly one implementation. */
+  if (!_crnOpenPanel()) return;
   var tot = mine.length + others.length;
-  document.getElementById('crn-intro').innerHTML =
+  _dq('crn-intro').innerHTML =
     'Currently <b>' + esc(oldName) + '</b>, used on <b>' + tot + '</b> project' + (tot === 1 ? '' : 's')
     + '. Type the correct spelling, then choose which projects to update. Only the client name changes '
     + '&mdash; numbers, reports, photos and drawings are untouched.';
-  var nn = document.getElementById('crn-name');
+  var nn = _dq('crn-name');
   nn.value = oldName;
   var html = '';
   if (mine.length) {
@@ -6127,15 +6110,14 @@ function openClientRename() {
     html += '<div class="crn-sec others">Other PMs &mdash; sent as a correction request</div>';
     others.forEach(function(p) { html += _crnRow(p, false); });
   }
-  document.getElementById('crn-list').innerHTML = html;
-  document.getElementById('crn-note').textContent = others.length
+  _dq('crn-list').innerHTML = html;
+  _dq('crn-note').textContent = others.length
     ? 'Other PMs are never rewritten silently: their ticked projects get a request they accept or decline in their own Hub.'
     : '';
-  document.getElementById('crn-merge').style.display = 'none';
-  document.getElementById('crn-sug').style.display = 'none';
+  _dq('crn-merge').style.display = 'none';
+  _dq('crn-sug').style.display = 'none';
   _crnOnName();
-  document.getElementById('client-rename-modal').classList.add('show');
-  setTimeout(function() { nn.focus(); nn.select(); }, 80);
+  setTimeout(function() { try { nn.focus(); nn.select(); } catch (e) {} }, 80);
 }
 
 function _crnRow(p, mine, checked) {
@@ -6154,19 +6136,20 @@ function _crnRow(p, mine, checked) {
 }
 
 function closeClientRename() {
-  document.getElementById('client-rename-modal').classList.remove('show');
-  _crnCtx = null;
+  /* S518: engine owns closing; _crnCtx clears in the panel's close handler so
+     Esc and the \u2715 clear it too, not just this function. */
+  if (_crnApi) { var a = _crnApi; _crnApi = null; a.close(); }
 }
 
 function _crnSelAll(v) {
-  var boxes = document.querySelectorAll('#crn-list input');
+  var boxes = _dq('crn-list').querySelectorAll('input');
   Array.prototype.forEach.call(boxes, function(b) { b.checked = v; });
   _crnCount();
 }
 
 function _crnChecked() {
   var mine = [], others = [];
-  Array.prototype.forEach.call(document.querySelectorAll('#crn-list input:checked'), function(b) {
+  Array.prototype.forEach.call(_dq('crn-list').querySelectorAll('input:checked'), function(b) {
     (b.dataset.mine === '1' ? mine : others).push(b.value);
   });
   return { mine: mine, others: others };
@@ -6175,20 +6158,20 @@ function _crnChecked() {
 function _crnCount() {
   var sel = _crnChecked();
   var n = sel.mine.length + sel.others.length;
-  var tot = document.querySelectorAll('#crn-list input').length;
-  var cEl = document.getElementById('crn-count');
+  var tot = _dq('crn-list').querySelectorAll('input').length;
+  var cEl = _dq('crn-count');
   if (cEl) cEl.textContent = n + ' of ' + tot + ' selected';
-  var raw = document.getElementById('crn-name').value.trim();
-  var go = document.getElementById('crn-go');
+  var raw = _dq('crn-name').value.trim();
+  var go = _dq('crn-go');
   if (go) go.disabled = (!raw || n === 0 || (_crnCtx && raw === _crnCtx.oldName));
 }
 
 function _crnOnName() {
   if (!_crnCtx) return;
-  var raw = document.getElementById('crn-name').value.trim();
-  var mrg = document.getElementById('crn-merge');
-  var sug = document.getElementById('crn-sug');
-  var go = document.getElementById('crn-go');
+  var raw = _dq('crn-name').value.trim();
+  var mrg = _dq('crn-merge');
+  var sug = _dq('crn-sug');
+  var go = _dq('crn-go');
   var by = _ccSpellings();
   /* exact existing spelling (other than the one being renamed) => merge */
   var exact = Object.keys(by).filter(function(r) {
@@ -6223,13 +6206,13 @@ function _crnOnName() {
 }
 
 function _crnPickName(btn) {
-  document.getElementById('crn-name').value = btn.getAttribute('data-n') || '';
+  _dq('crn-name').value = btn.getAttribute('data-n') || '';
   _crnOnName();
 }
 
 async function _crnApply() {
   if (!_crnCtx || !_profile) return;
-  var raw = document.getElementById('crn-name').value.trim();
+  var raw = _dq('crn-name').value.trim();
   if (!raw) return;
   var sel = _crnChecked();
   if (sel.mine.length + sel.others.length === 0) {
@@ -6266,7 +6249,7 @@ async function _crnApply() {
   }
   sel = { mine: mineIds, others: otherIds };
 
-  var go = document.getElementById('crn-go');
+  var go = _dq('crn-go');
   if (go) go.disabled = true;
 
   /* my projects: rename now, per id, same path as _ccExecuteMerge */
@@ -6307,7 +6290,7 @@ async function _crnApply() {
   if (sent) msg += ' \u00B7 ' + sent + ' correction request' + (sent === 1 ? '' : 's') + ' sent';
   if (skipped) msg += ' \u00B7 ' + skipped + ' already correct';
   toast(msg, sendFail ? 'error' : 'success');
-  var epc = document.getElementById('ep-client');
+  var epc = _dq('ep-client');
   if (epc && sel.mine.length) epc.value = raw;
   closeClientRename();
   renderProjects();
@@ -6384,13 +6367,40 @@ function _notifReview() {
   var r = _notifTop();
   if (!r) return;
   _notifOpen = r;
+  /* S518: shared dialog engine. Decline / Not now / Accept were the hand-built
+     footer; they are engine buttons now, same handlers. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  if (_nrvApi) return;
+  var _pr = null;
+  D.panel({
+    title: 'Review correction', icon: '\u2709', accent: 'slate', width: 560,
+    buttons: [
+      { label: 'Not now', kind: 'cancel' },
+      { label: 'Decline', onClick: function () { _notifDecline(); return false; } },
+      { label: 'Accept', kind: 'primary', onClick: function () { _notifAccept(); return false; } }
+    ],
+    build: function (bd, api) {
+      _nrvApi = api; _pr = bd.getRootNode ? bd.getRootNode() : bd;
+      _panelCss(bd); _panelPush(_pr);
+      bd.innerHTML = '<div class="crn-intro" id="nrv-intro"></div>\
+      <div class="notif-chg" id="nrv-chg"></div>\
+      <div class="crn-selbar">\
+        <button type="button" class="crn-lnk" onclick="_nrvSelAll(true)">Select all</button>\
+        <button type="button" class="crn-lnk" onclick="_nrvSelAll(false)">Select none</button>\
+        <span class="crn-count" id="nrv-count"></span>\
+      </div>\
+      <div class="crn-list" id="nrv-list"></div>';
+      var pb = api.button('Accept'); if (pb) pb.id = 'nrv-go';
+    }
+  }).then(function () { _panelPop(_pr); _nrvApi = null; _notifOpen = null; });
   var pl = r.payload || {};
   var ids = pl.project_ids || [];
-  document.getElementById('nrv-intro').innerHTML =
+  _dq('nrv-intro').innerHTML =
     '<b>' + esc(_userMap[r.from_user] || 'A colleague') + '</b> suggests a client name correction on '
     + ids.length + ' of your project' + (ids.length === 1 ? '' : 's')
     + '. Accept on all of them, or only the ones you mean \u2014 your data, your call.';
-  document.getElementById('nrv-chg').innerHTML =
+  _dq('nrv-chg').innerHTML =
     '<span class="notif-old">' + esc(pl.old || '') + '</span><span class="notif-arr">\u2192</span>'
     + '<span class="notif-new">' + esc(pl.neu || '') + '</span>';
   var html = '';
@@ -6402,29 +6412,28 @@ function _notifReview() {
       + '<span class="num">' + esc(p.project_number || '\u2014') + '</span>'
       + '<span class="nm">' + esc(p.project_name || '') + (stale ? ' \u00B7 already renamed' : '') + '</span></label>';
   });
-  document.getElementById('nrv-list').innerHTML = html;
+  _dq('nrv-list').innerHTML = html;
   _nrvCount();
   var c = document.getElementById('notif-card');
   if (c) c.classList.add('folded');
-  document.getElementById('notif-review-modal').classList.add('show');
 }
 
 function closeNotifReview() {
-  document.getElementById('notif-review-modal').classList.remove('show');
-  _notifOpen = null;
+  /* S518: engine owns closing; _notifOpen clears in the panel close handler. */
+  if (_nrvApi) { var a = _nrvApi; _nrvApi = null; a.close(); }
 }
 
 function _nrvSelAll(v) {
-  Array.prototype.forEach.call(document.querySelectorAll('#nrv-list input'), function(b) { b.checked = v; });
+  Array.prototype.forEach.call(_dq('nrv-list').querySelectorAll('input'), function(b) { b.checked = v; });
   _nrvCount();
 }
 
 function _nrvCount() {
-  var n = document.querySelectorAll('#nrv-list input:checked').length;
-  var tot = document.querySelectorAll('#nrv-list input').length;
-  var el = document.getElementById('nrv-count');
+  var n = _dq('nrv-list').querySelectorAll('input:checked').length;
+  var tot = _dq('nrv-list').querySelectorAll('input').length;
+  var el = _dq('nrv-count');
   if (el) el.textContent = n + ' of ' + tot + ' selected';
-  var go = document.getElementById('nrv-go');
+  var go = _dq('nrv-go');
   if (go) go.disabled = (n === 0);
 }
 
@@ -6466,7 +6475,7 @@ async function _notifAcceptAll() {
 async function _notifAccept() {
   var r = _notifOpen;
   if (!r) return;
-  var ids = Array.prototype.slice.call(document.querySelectorAll('#nrv-list input:checked'))
+  var ids = Array.prototype.slice.call(_dq('nrv-list').querySelectorAll('input:checked'))
     .map(function(b) { return b.value; });
   closeNotifReview();
   var done = await _notifApply(r, ids);
@@ -6517,21 +6526,87 @@ function updateNotifBadge() {
 /* ═══ Profile Modal ═══ */
 function openProfileModal() {
   if (!_profile) return;
-  document.getElementById('prof-name').textContent = _profile.full_name || '—';
-  document.getElementById('prof-email').textContent = _profile.email || '—';
-  document.getElementById('prof-role').textContent = formatRole(_profile.role);
-  document.getElementById('prof-new-pass').value = '';
-  document.getElementById('prof-confirm-pass').value = '';
-  document.getElementById('profile-modal').classList.add('show');
+  /* S518: shared dialog engine. The PIN section keeps its inline buttons in
+     the body (they manage a sub-form, not the panel); only Close and Update
+     Password moved to the engine footer. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
+  if (_profApi) return;
+  var _pr = null;
+  D.panel({
+    title: 'My Profile', icon: '\u2699', accent: 'slate', width: 480,
+    buttons: [
+      { label: 'Close', kind: 'cancel' },
+      { label: 'Update Password', kind: 'primary', onClick: function () { changePassword(); return false; } }
+    ],
+    build: function (bd, api) {
+      _profApi = api; _pr = bd.getRootNode ? bd.getRootNode() : bd;
+      _panelCss(bd); _panelPush(_pr);
+      bd.innerHTML = '<div class="profile-section">\
+      <label>Name</label>\
+      <div class="profile-val" id="prof-name">\u2014</div>\
+    </div>\
+    <div class="profile-section">\
+      <label>Email</label>\
+      <div class="profile-val" id="prof-email">\u2014</div>\
+    </div>\
+    <div class="profile-section">\
+      <label>Role</label>\
+      <div class="profile-val" id="prof-role">\u2014</div>\
+    </div>\
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">\
+    <h3 style="font-size:calc(15px + var(--ts));margin-bottom:12px">\ud83d\udd12 Change Password</h3>\
+    <div class="modal-field">\
+      <label>New Password</label>\
+      <input type="password" id="prof-new-pass" placeholder="Min 8 characters" autocomplete="new-password">\
+    </div>\
+    <div class="modal-field">\
+      <label>Confirm Password</label>\
+      <input type="password" id="prof-confirm-pass" placeholder="Re-enter password" autocomplete="new-password">\
+    </div>\
+    <div class="pin-setup-section">\
+      <h3>\ud83d\udd11 Lock PIN</h3>\
+      <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">Set a 4\u20138 digit PIN for automatic screen lock after inactivity</p>\
+      <div class="pin-setup-row">\
+        <div class="pin-setup-status" id="pin-status-text"><span class="pin-none">No PIN set</span></div>\
+      </div>\
+      <div id="pin-setup-form" style="display:none">\
+        <div class="pin-input-group">\
+          <input type="password" id="pin-current" placeholder="Current" maxlength="8" inputmode="numeric" pattern="[0-9]*" style="display:none">\
+          <input type="password" id="pin-new" placeholder="New PIN" maxlength="8" inputmode="numeric" pattern="[0-9]*">\
+          <input type="password" id="pin-confirm" placeholder="Confirm" maxlength="8" inputmode="numeric" pattern="[0-9]*">\
+        </div>\
+        <div class="modal-actions" style="margin-top:8px;justify-content:flex-start">\
+          <button class="dash-btn secondary" onclick="_pinSetupCancel()">Cancel</button>\
+          <button class="dash-btn primary" onclick="_pinSetupSave()">Save PIN</button>\
+        </div>\
+      </div>\
+      <div id="pin-setup-actions">\
+        <button class="dash-btn secondary" id="pin-set-btn" onclick="_pinSetupStart(false)">Set PIN</button>\
+        <button class="dash-btn secondary" id="pin-change-btn" onclick="_pinSetupStart(true)" style="display:none">Change PIN</button>\
+        <button class="dash-btn secondary" id="pin-remove-btn" onclick="_pinRemove()" style="display:none;color:var(--red);border-color:#FCA5A5">Remove PIN</button>\
+      </div>\
+    </div>';
+    }
+  }).then(function () { _panelPop(_pr); _profApi = null; });
+  _dq('prof-name').textContent = _profile.full_name || '\u2014';
+  _dq('prof-email').textContent = _profile.email || '—';
+  _dq('prof-role').textContent = formatRole(_profile.role);
+  _dq('prof-new-pass').value = '';
+  _dq('prof-confirm-pass').value = '';
+  /* The PIN system wraps this function from outside and refreshes its own
+     status right after it returns — the panel builds synchronously, so that
+     wrapper keeps working unchanged. */
 }
 
 function closeProfileModal() {
-  document.getElementById('profile-modal').classList.remove('show');
+  /* S518: engine owns closing. */
+  if (_profApi) { var a = _profApi; _profApi = null; a.close(); }
 }
 
 async function changePassword() {
-  var newPass = document.getElementById('prof-new-pass').value;
-  var confirmPass = document.getElementById('prof-confirm-pass').value;
+  var newPass = _dq('prof-new-pass').value;
+  var confirmPass = _dq('prof-confirm-pass').value;
   if (!newPass || newPass.length < 8) { toast('Password must be at least 8 characters', 'error'); return; }
   if (newPass !== confirmPass) { toast('Passwords do not match', 'error'); return; }
   try {
@@ -6546,8 +6621,8 @@ async function changePassword() {
       throw new Error(err.message || err.error_description || 'Failed');
     }
     toast('Password updated successfully', 'success');
-    document.getElementById('prof-new-pass').value = '';
-    document.getElementById('prof-confirm-pass').value = '';
+    _dq('prof-new-pass').value = '';
+    _dq('prof-confirm-pass').value = '';
   } catch (e) {
     toast('Failed: ' + e.message, 'error');
   }
@@ -8414,27 +8489,27 @@ function _pgEscHtml(s) {
 
   function refreshPinUI() {
     var hasPin = !!_pinHash;
-    var statusEl = document.getElementById('pin-status-text');
+    var statusEl = _dq('pin-status-text');
     if (hasPin) {
       statusEl.innerHTML = '<span class="pin-active">✓ PIN is set (' + _pinDigitCount + ' digits)</span>';
     } else {
       statusEl.innerHTML = '<span class="pin-none">No PIN set</span>';
     }
-    document.getElementById('pin-set-btn').style.display = hasPin ? 'none' : '';
-    document.getElementById('pin-change-btn').style.display = hasPin ? '' : 'none';
-    document.getElementById('pin-remove-btn').style.display = hasPin ? '' : 'none';
-    document.getElementById('pin-setup-form').style.display = 'none';
-    document.getElementById('pin-setup-actions').style.display = '';
+    _dq('pin-set-btn').style.display = hasPin ? 'none' : '';
+    _dq('pin-change-btn').style.display = hasPin ? '' : 'none';
+    _dq('pin-remove-btn').style.display = hasPin ? '' : 'none';
+    _dq('pin-setup-form').style.display = 'none';
+    _dq('pin-setup-actions').style.display = '';
   }
 
   window._pinSetupStart = function(isChange) {
     _pinSetupIsChange = isChange;
-    document.getElementById('pin-current').value = '';
-    document.getElementById('pin-new').value = '';
-    document.getElementById('pin-confirm').value = '';
-    document.getElementById('pin-current').style.display = isChange ? '' : 'none';
-    document.getElementById('pin-setup-form').style.display = '';
-    document.getElementById('pin-setup-actions').style.display = 'none';
+    _dq('pin-current').value = '';
+    _dq('pin-new').value = '';
+    _dq('pin-confirm').value = '';
+    _dq('pin-current').style.display = isChange ? '' : 'none';
+    _dq('pin-setup-form').style.display = '';
+    _dq('pin-setup-actions').style.display = 'none';
     // Focus the right input
     setTimeout(function(){
       document.getElementById(isChange ? 'pin-current' : 'pin-new').focus();
@@ -8442,13 +8517,13 @@ function _pgEscHtml(s) {
   };
 
   window._pinSetupCancel = function() {
-    document.getElementById('pin-setup-form').style.display = 'none';
-    document.getElementById('pin-setup-actions').style.display = '';
+    _dq('pin-setup-form').style.display = 'none';
+    _dq('pin-setup-actions').style.display = '';
   };
 
   window._pinSetupSave = async function() {
-    var newVal = document.getElementById('pin-new').value.trim();
-    var confirmVal = document.getElementById('pin-confirm').value.trim();
+    var newVal = _dq('pin-new').value.trim();
+    var confirmVal = _dq('pin-confirm').value.trim();
 
     // Validate: digits only, 4-8 length
     if (!/^\d{4,8}$/.test(newVal)) {
@@ -8462,7 +8537,7 @@ function _pgEscHtml(s) {
 
     // If changing, verify current PIN first
     if (_pinSetupIsChange && _pinHash) {
-      var curVal = document.getElementById('pin-current').value.trim();
+      var curVal = _dq('pin-current').value.trim();
       var curHash = await hashPin(curVal);
       if (curHash !== _pinHash) {
         toast('Current PIN is incorrect', 'error');
