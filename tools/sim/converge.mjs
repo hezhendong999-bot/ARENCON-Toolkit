@@ -186,6 +186,76 @@ for (const sm of statusMaps) {
   chk({name:sm},'bW no-wipe  ', ok, '');
 }
 
+/* ═══ DOOR B2 — THE FAMILIES THE WALKER NEVER WALKED (S616) ════════════════
+ * The walker read `arrays`, `arrayMaps` and `statusMaps` from the spec and
+ * stopped there, so `fieldMaps`, `valueSets` and every top-level scalar had
+ * no coverage at all — which is exactly why coverage_audit.py's known-gap
+ * list could sit at ten for five sessions without anything going red.
+ * Same construction rule as the rest: read the spec, walk what it declares.
+ * ═════════════════════════════════════════════════════════════════════════*/
+const scalarNames = (dseg.match(/scalars:\s*\[([^\]]*)\]/)||[,''])[1].replace(/'/g,'').split(',').map(s=>s.trim()).filter(Boolean);
+const fieldMapNames = (dseg.match(/fieldMaps:\s*\[([^\]]*)\]/)||[,''])[1].replace(/'/g,'').split(',').map(s=>s.trim()).filter(Boolean);
+const valueSetNames = (dseg.match(/valueSets:\s*\[([^\]]*)\]/)||[,''])[1].replace(/'/g,'').split(',').map(s=>s.trim()).filter(Boolean);
+lines.push('  ── door B2: scalars, fieldMaps, valueSets ──');
+/* Top-level scalars: a blank must never take a typed reading, either way round. */
+for (const sc of scalarNames) {
+  let r = bReplay(sc, 'real', '');
+  chk({name:sc},'sW no-wipe  ', r.merged === 'real', `got ${JSON.stringify(r.merged)}`);
+  r = bReplay(sc, '', 'fresh');
+  chk({name:sc},'sP propagate', r.merged === 'fresh', `got ${JSON.stringify(r.merged)}`);
+  /* PERMANENT NEGATIVE CONTROL: a genuinely newer stamped Clear must still
+     travel. If the blank rule is ever widened into "blank always loses",
+     this turns red. */
+  r = ENG._lwwReplay(sc, 'real', '', undefined, { local: { [sc]: T_OLD }, cloud: { [sc]: T_NEW } });
+  chk({name:sc},'sC stmpd-clr', r.merged === '', `got ${JSON.stringify(r.merged)}`);
+}
+/* fieldMaps: per-key arbitration. A key this device never loaded must not
+   erase the value another device typed into it. */
+for (const fm of fieldMapNames) {
+  let r = bReplay(fm, { k1: 'typed' }, { k1: '' });
+  let v = r.merged && r.merged.k1;
+  chk({name:fm},'fW no-wipe  ', v === 'typed', `got ${JSON.stringify(v)}`);
+  r = bReplay(fm, { k1: 'mine' }, { k1: 'mine', k2: 'theirs' });
+  v = r.merged || {};
+  chk({name:fm},'fP propagate', v.k1 === 'mine' && v.k2 === 'theirs', `got ${JSON.stringify(v)}`);
+}
+/* valueSets: union — an entry either side holds survives. */
+for (const vs of valueSetNames) {
+  const r = bReplay(vs, ['local-only'], ['cloud-only']);
+  const a = Array.isArray(r.merged) ? r.merged : [];
+  chk({name:vs},'vU union    ', a.indexOf('local-only')>=0 && a.indexOf('cloud-only')>=0, `got ${JSON.stringify(a)}`);
+}
+
+/* ═══ DOOR B3 — THE STALEMATE RE-ARM (S616, explains the S611 mystery) ═════
+ * Telemetry 04 Aug 01:02–01:04Z: `pull_decision` fired on ticks that reported
+ * `no-change`, unexplained since S611. Both are true at once when this device
+ * is AHEAD of the cloud: the merge rejects the cloud's stale value every tick,
+ * so the merged result equals the screen and the S583 gate applies nothing —
+ * while the cloud keeps the losing value. S605 re-arms the push from the
+ * merge's own verdict, but only counted local wins that were DIRTY versus this
+ * device's snapshot. A device holding a newer entry it already saved is not
+ * dirty, so nothing re-armed, and the cloud kept the loser forever. That is
+ * the deadlock S604 was named for, still open through an uncounted path.
+ * ═════════════════════════════════════════════════════════════════════════*/
+lines.push('  ── door B3: stalemate re-arm ──');
+{
+  const F = 'stdData';
+  const kept = s => !!(s && (s.keptLocalDirty > 0 || s.keptLocalAbsent > 0 || s.keptLocalNewer > 0));
+  /* Ahead of the cloud, clean against own snapshot → must re-arm the push. */
+  let r = ENG._lwwReplay(F,
+    [{ pct:'100%', discharge:'150', _ts:T_NEW }],
+    [{ pct:'100%', discharge:'200', _ts:T_OLD }],
+    [{ pct:'100%', discharge:'150', _ts:T_NEW }]);
+  chk({name:'stalemate'},'R re-arms   ', kept(r.stats), `stats ${JSON.stringify(r.stats)}`);
+  /* PERMANENT CONTROL: both sides already agree → must NOT re-arm, or every
+     idle tick pushes and ten quiet windows become a push storm. */
+  r = ENG._lwwReplay(F,
+    [{ pct:'100%', discharge:'150', _ts:T_NEW }],
+    [{ pct:'100%', discharge:'150', _ts:T_NEW }],
+    [{ pct:'100%', discharge:'150', _ts:T_NEW }]);
+  chk({name:'stalemate'},'R no-storm  ', !kept(r.stats), `stats ${JSON.stringify(r.stats)}`);
+}
+
 console.log(`\n=== CONVERGENCE (${TARGET.toUpperCase()}) — ${fam.length} families + ${statusMaps.length} maps ===\n`+lines.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed on ${TARGET.toUpperCase()}\n`);
 process.exit(TARGET==='live'?0:(fail?1:0));
