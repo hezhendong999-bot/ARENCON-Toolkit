@@ -31,6 +31,15 @@ import { frtHeaderConfig } from '../../lib/ui/headerConfigs.js';
    standing rule: one panel = one scope, never mixed). */
 import { Dlg } from '../../lib/ui/dialogEngine.js';
 import { mountHelp, hasUnseen, markSeen, hasCards, comingSoonHtml } from '../../lib/ui/helpEngine.js';
+/* S608 (Lane A, Mark's item 4): the shared live-update engine. FRT's own
+   S207 "Update ready / Refresh / Not now" banner asked the inspector to make
+   a decision the toolkit now makes for them — the Hub, since S588-S595,
+   updates itself silently at a safe moment and puts the user back where they
+   were. Two update behaviours in one toolkit is worse than either; the S207
+   banner + indicator are REMOVED in this build and the engine owns the swap.
+   Safe-moment rules live in the engine (field-proven S596 logic) — FRT
+   supplies only flush / isBusy / capture. */
+import { initLiveUpdate, restoreAfterUpdate } from '../../lib/ui/liveUpdate.js';
 import '../../lib/ui/frtHelpCards.js';
 import { toast } from './shared/toast.js';
 import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js';
@@ -211,6 +220,23 @@ function loadLogo() {
 function switchTab(tabName) {
   _currentTab = tabName;
 
+  /* S608 — the tab lives in the address bar (Hub mode). The Hub's S591
+     lesson, one level down: FRT carried the project in the URL but not the
+     tab, so ANY reload — refresh, update swap, crash recovery — dumped the
+     inspector back to Project Info. replaceState, not pushState: switching
+     tabs must not grow the back-stack (Back should leave the report, as it
+     always has). TWA users cannot edit URLs; this is the app writing its own
+     state, which is exactly what the platform allows. */
+  if (_hubMode) {
+    try {
+      var _u = new URL(window.location.href);
+      if (_u.searchParams.get('tab') !== tabName) {
+        _u.searchParams.set('tab', tabName);
+        history.replaceState(history.state, '', _u.toString());
+      }
+    } catch (_) {}
+  }
+
   document.querySelectorAll('.nav-tab').forEach(function(t) {
     t.classList.toggle('active', t.dataset.tab === tabName);
   });
@@ -229,19 +255,40 @@ function switchTab(tabName) {
   }
 }
 
-// S207: restore the tab + scroll the user was on before an update reload.
-// Keys are written by _doUpdateReload() (the "Refresh" button). Consumed
-// once and cleared, so a normal cold boot (no keys) still lands on 'info'.
-// Valid tabs only; anything stale/unknown falls back to 'info'. Scroll is
-// best-effort and deferred to the next frame so the panel has rendered.
+// S608: restore the tab + scroll the user was on, in priority order:
+//   1. The shared live-update engine's record (arencon-restore) — written by
+//      lib/ui/liveUpdate.js at the moment of a swap, consumed exactly once.
+//   2. The legacy S207 keys — ONE transition boot only: the reload that
+//      installs THIS build is triggered by the old code, which writes the old
+//      keys. Remove this fallback in a later session once the fleet is past
+//      S608.
+//   3. The URL ?tab= param — written by switchTab (law: page state that
+//      survives a reload belongs in the URL), so an ORDINARY refresh on
+//      Deficiencies returns to Deficiencies, not Project Info. Same class as
+//      the Hub ?project= fix in S591, one level down.
+// Valid tabs only; anything stale/unknown falls back to 'info'.
 function _restoreView() {
   var tab = null, scroll = 0;
+  // 1. Engine record (update swap)
   try {
-    tab = sessionStorage.getItem('arencon-frt-restore-tab');
-    scroll = parseInt(sessionStorage.getItem('arencon-frt-restore-scroll'), 10) || 0;
+    var rec = restoreAfterUpdate('FRT');
+    if (rec) { tab = rec.tab || null; scroll = rec.scroll || 0; }
+  } catch(_) {}
+  // 2. Legacy S207 keys (transition boot from S587 and earlier)
+  if (!tab) {
+    try {
+      tab = sessionStorage.getItem('arencon-frt-restore-tab');
+      scroll = parseInt(sessionStorage.getItem('arencon-frt-restore-scroll'), 10) || 0;
+    } catch(_) {}
+  }
+  try {
     sessionStorage.removeItem('arencon-frt-restore-tab');
     sessionStorage.removeItem('arencon-frt-restore-scroll');
   } catch(_) {}
+  // 3. Ordinary refresh — the tab lives in the address bar
+  if (!tab) {
+    try { tab = new URLSearchParams(window.location.search).get('tab'); } catch(_) {}
+  }
   var valid = ['info', 'drawings', 'deficiencies', 'photos'];
   if (!tab || valid.indexOf(tab) < 0) { switchTab('info'); return; }
   switchTab(tab);
@@ -1265,36 +1312,191 @@ function _setTilePrefetchBadge(msg, fadeAfterMs) {
   }, fadeAfterMs);
 }
 
-function _checkRemoteForChanges(){
-  if (!_hubMode || !_projectId) return;
-  // S155: pause pull when tab is hidden. The 30s interval keeps firing, but
-  // the no-op tick costs nothing; the next tick after visibility restores
-  // catches up. Presence heartbeat is intentionally NOT paused (per Mark).
-  if (typeof document !== 'undefined' && document.hidden) return;
-  var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
-  if (!user) return;
-  if (typeof SyncEngine === 'undefined' || !SyncEngine.getRemoteUpdatedAt) return;
-  SyncEngine.getRemoteUpdatedAt(_projectId, SyncEngine.instanceId).then(function(remoteTs){
-    if (!remoteTs) return;
-    if (!_lastPulledUpdatedAt){ _lastPulledUpdatedAt = remoteTs; return; }
-    if (remoteTs <= _lastPulledUpdatedAt) return; // nothing new
-    // Remote has newer data than our last pull
-    var hasLocal = (typeof Model !== 'undefined' && Model.hasUnsavedChanges) ? Model.hasUnsavedChanges() : false;
-    if (!hasLocal){
-      // Silent pull — no risk of losing local edits
-      console.log('[FRT v2] Remote newer (' + remoteTs + ') and no local changes — silent pull');
-      SyncEngine.pull(_projectId, SyncEngine.instanceId).then(function(data){
-        if (data) {
-          _lastPulledUpdatedAt = remoteTs;
-          _setCloudStatus('synced', 'Refreshed from cloud');
-          _repaintAfterPull(); // S440: land the pulled data on screen
-        }
-      });
-    } else {
-      // Local dirty — show banner, let user decide
-      _showRemoteUpdateBanner(remoteTs);
-    }
+/* ═══ S608 (Lane A) — THE TICK NOW SAYS WHAT IT DID ═══════════════════════
+   FRT's listening loop was the silent pre-S602 shape Diesel spent nineteen
+   sessions fighting: every early exit was a bare `return`, the probe
+   swallowed errors into "nothing new", and nothing bounded a request that
+   hangs instead of failing (the exact shape a tablet produces moving between
+   wifi and LTE). Ported here in the Diesel S602–S605 form:
+     • every exit records WHY (_frtTickDiag ring log — the field can read it
+       from the cloud-dot popup; notable outcomes also go to sync_diag)
+     • the busy flag cannot be held forever (watchdog release + finally)
+     • network calls are time-bound (_frtWithTimeout)
+     • unsent work flushes on EVERY beat, and pushes BEFORE any pull can
+       touch it (S496/S583: whether an edit survives must never depend on
+       push/pull timing — a push into newer cloud 412s into the 3-way merge
+       and non-overlapping edits both survive)
+     • S605 stats-based re-arm ONLY: if the merge kept newer LOCAL entries,
+       this device is ahead of the cloud — re-arm the push so the winning
+       state goes up on the next beat. Never the S604 content-compare.
+   The old "you have unsaved edits — Pull now?" banner is retired from this
+   automatic path: with per-item entry stamps live for FRT (S535) and the
+   push-before-pull order above, both devices' work settles field-by-field
+   without asking anyone to choose. The banner remains only behind the
+   explicit pull-to-refresh gesture (_frtCheckRemote), where the user asked.
+   Harness: frt/tests/sim/tickhealth.mjs (fails on S587, passes here). */
+var _frtPulling = false;
+var _frtPullingSince = 0;
+var TICK_WATCHDOG_MS = 45000;      // a pull older than this is hung, not busy
+var TICK_NET_TIMEOUT_MS = 20000;   // no single request may own the tick longer
+var _frtTickLog = [];              // ring diary, newest last, cap 100
+var _frtLastTickWhy = '';
+var _frtLastTickAt = 0;
+var _frtLastCheckAt = 0;           // "I looked" — recorded separately from
+var _frtLastPullAt = 0;            // "I received something" (S602 lesson)
+var _frtLastInputAt = 0;           // defer only around ACTIVE typing
+
+// Passive keystroke watcher for the 3s typing defer. Idle focus never blocks
+// a pull (the S595 lesson: a desktop field keeps focus forever after one
+// click, and gating on focus made that tab stop pulling for the session).
+try {
+  document.addEventListener('input', function () { _frtLastInputAt = Date.now(); },
+    { passive: true, capture: true });
+} catch (_) {}
+
+function _frtWithTimeout(p, ms, label) {
+  return new Promise(function (resolve, reject) {
+    var done = false;
+    var t = setTimeout(function () {
+      if (done) return; done = true;
+      reject(new Error(label + ' timed out after ' + ms + 'ms'));
+    }, ms);
+    Promise.resolve(p).then(function (v) {
+      if (done) return; done = true; clearTimeout(t); resolve(v);
+    }, function (e) {
+      if (done) return; done = true; clearTimeout(t); reject(e);
+    });
   });
+}
+
+/* Off-device telemetry — same table and shape as Diesel's S598 writer, with
+   the S602 lesson baked in: everything this function reads is module-scope in
+   THIS file (_projectId, SyncEngine), so it cannot repeat the silent
+   ReferenceError that kept Diesel's table empty for four sessions. Fire and
+   forget; never blocks or fails a sync. */
+function _frtSyncDiag(event, detail) {
+  try {
+    var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
+    if (!tok) return;
+    fetch(Auth.SUPABASE_URL + '/rest/v1/sync_diag', {
+      method: 'POST',
+      headers: { 'apikey': Auth.SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
+                 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        device: (function () { try { return localStorage.getItem('arencon-device-id'); } catch (_) { return null; } })(),
+        tool: 'frt',
+        project_id: _projectId || null,
+        instance_id: (typeof SyncEngine !== 'undefined' && SyncEngine.instanceId) || null,
+        event: event, detail: detail || null
+      })
+    }).catch(function () {});
+  } catch (_) {}
+}
+
+function _frtTickDiag(why, extra) {
+  var now = Date.now();
+  // Quiet-state dedupe (Diesel S585 form): an idle device repeating
+  // 'no-change' every 30s would bury the one entry that matters. Interesting
+  // outcomes always log.
+  var interesting = /^(pulled|error|probe-failed|watchdog|boot|baseline|pull-held)/.test(why);
+  if (why === _frtLastTickWhy && (now - _frtLastTickAt) < 120000 && !interesting) return;
+  _frtLastTickWhy = why; _frtLastTickAt = now;
+  _frtTickLog.push({ at: now, why: why, extra: extra || null });
+  if (_frtTickLog.length > 100) _frtTickLog.shift();
+  // Notable outcomes leave the device — these are the four faults that used
+  // to be indistinguishable, plus boot stalls.
+  if (/^(watchdog-release|probe-failed|error|pulled-local-ahead|boot-stall)/.test(why)) {
+    _frtSyncDiag(why, extra || null);
+  }
+}
+
+async function _frtHeartbeatTick() {
+  var _why = '';
+  if (!_hubMode || !_projectId) _why = 'no-project';
+  else if (!navigator.onLine) _why = 'offline';
+  else if (typeof document !== 'undefined' && document.hidden) _why = 'hidden';   // S155 gate, now visible in the diary
+  else if (_frtPulling && (Date.now() - _frtPullingSince) < TICK_WATCHDOG_MS) _why = 'busy';
+  else if (!((typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null)) _why = 'no-user';
+  if (_why) { _frtTickDiag(_why); return; }
+  if (_frtPulling) {
+    // The previous tick never came back — a hung request, not a failed one.
+    // Release it rather than going deaf for the rest of the session.
+    _frtTickDiag('watchdog-release', { heldFor: Date.now() - _frtPullingSince });
+    _frtPulling = false;
+  }
+  // Defer only around active typing / a pending IDB save debounce — never on
+  // idle focus (S595).
+  if ((Date.now() - _frtLastInputAt) < 3000) { _frtTickDiag('typing-or-saving'); return; }
+  _frtPulling = true;
+  _frtPullingSince = Date.now();
+  _frtLastCheckAt = Date.now();   // "I looked", regardless of what comes back
+  var _outcome = 'no-change';
+  try {
+    /* S584 rule — unsent work flushes on every beat, BEFORE the pull.
+       _pushToCloudNow bypasses the S426 newer-cloud skip deliberately: a push
+       into a newer cloud row 412s into the engine's 3-way merge against the
+       last-seen base, so non-overlapping edits from two tablets both survive
+       — that IS the reconciliation, done server-guarded, instead of leaving
+       this device's work hostage to pull timing. */
+    if (_pushDirty) {
+      try { await _frtWithTimeout(Promise.resolve(_pushToCloudNow()), TICK_NET_TIMEOUT_MS, 'push'); }
+      catch (e) { console.warn('[FRT sync] heartbeat flush failed:', e && e.message); }
+    }
+    /* The probe swallows every error and returns null, which used to read as
+       "the cloud has not changed" — an expired token looked exactly like a
+       quiet cloud, forever. lastProbeError distinguishes the two, and the
+       call is time-bound so a hung request cannot own the tick. */
+    SyncEngine.lastProbeError = null;
+    var remote = await _frtWithTimeout(
+      SyncEngine.getRemoteUpdatedAt(_projectId, SyncEngine.instanceId),
+      TICK_NET_TIMEOUT_MS, 'probe');
+    if (!remote) {
+      _outcome = SyncEngine.lastProbeError ? ('probe-failed:' + SyncEngine.lastProbeError) : 'no-row';
+    } else if (!_lastPulledUpdatedAt) {
+      _lastPulledUpdatedAt = remote;
+      _outcome = 'baseline-init';
+    } else if (remote <= _lastPulledUpdatedAt) {
+      _outcome = 'no-change';
+    } else {
+      _outcome = 'pulled';
+      var data = await _frtWithTimeout(
+        SyncEngine.pull(_projectId, SyncEngine.instanceId),
+        TICK_NET_TIMEOUT_MS, 'pull');
+      if (data) {
+        _lastPulledUpdatedAt = remote;
+        _frtLastPullAt = Date.now();
+        _setCloudStatus('synced', 'Refreshed from cloud');
+        _repaintAfterPull();   // S440: land the pulled data on screen
+      } else {
+        _outcome = 'pull-held';   // stale-guard or merge held it — recorded, not silent
+      }
+      /* S605 — stats-based re-arm. If the merge kept newer LOCAL entries over
+         the cloud copy, this device is AHEAD of the cloud. The push dedupe
+         compares against what WE last sent and would stay silent while the
+         cloud keeps the losing value forever; re-arm it so the next beat
+         pushes the winning state through the normal If-Match path. */
+      if (SyncEngine.lastPullKeptLocal) {
+        _pushDirty = true;
+        _outcome = 'pulled-local-ahead';
+      }
+    }
+  } catch (e) {
+    _outcome = 'error:' + ((e && e.message) || 'unknown');
+    console.warn('[FRT sync] heartbeat tick failed:', e && e.message);
+  } finally {
+    /* A `finally`, not a trailing statement — the old shape could be skipped
+       by anything that never returned, and a device that skipped it once
+       stopped listening for the rest of the session. */
+    _frtPulling = false;
+    _frtTickDiag(_outcome, { lastSeen: (SyncEngine && SyncEngine.lastSeenUpdatedAt) || null });
+  }
+}
+
+function _checkRemoteForChanges(){
+  // S608: thin shim — the listening loop is _frtHeartbeatTick now. Kept so
+  // the interval + visibility wiring below and any external caller keep
+  // working; the tick owns all gating and records every exit itself.
+  return _frtHeartbeatTick();
 }
 
 function _showRemoteUpdateBanner(remoteTs){
@@ -2003,6 +2205,42 @@ function _showCloudDiagnostic() {
     }
   } catch(_){}
   lines.push('');
+  /* ═══ S608 — SYNC TIMELINE (the on-device diary) ═══════════════════════
+     Field tablets run the installed app: no console, no address bar. When a
+     device "isn't syncing", this diary is the difference between knowing and
+     guessing — it distinguishes the four faults that all used to read the
+     same (loop never ran / probe failing / busy flag stuck / healthy but
+     quiet). "Checked" is recorded separately from "received" (S602), so a
+     healthy idle device no longer reads exactly like a dead one. Times are
+     the device's local clock — never raw UTC. */
+  lines.push('SYNC TIMELINE:');
+  lines.push('  Last checked: ' + (_frtLastCheckAt ? _formatTimeAgo(Date.now() - _frtLastCheckAt) : 'never this session'));
+  lines.push('  Last pulled:  ' + (_frtLastPullAt ? _formatTimeAgo(Date.now() - _frtLastPullAt) : 'never this session'));
+  var _tl = _frtTickLog.slice(-12).reverse();
+  if (!_tl.length) {
+    lines.push('  (no beats recorded yet)');
+  } else {
+    for (var _ti = 0; _ti < _tl.length; _ti++) {
+      var _te = _tl[_ti];
+      var _tt = '';
+      try { _tt = new Date(_te.at).toLocaleTimeString(); } catch(_) { _tt = '?'; }
+      lines.push('  ' + _tt + '  ' + _te.why +
+        (_te.extra && _te.extra.heldFor ? ' (held ' + Math.round(_te.extra.heldFor / 1000) + 's)' : ''));
+    }
+  }
+  lines.push('');
+  lines.push('BOOT STEPS:');
+  if (!_frtBootLog.length) {
+    lines.push('  (none recorded)');
+  } else {
+    for (var _bi = 0; _bi < _frtBootLog.length; _bi++) {
+      var _be = _frtBootLog[_bi];
+      lines.push('  ' + _be.step + ': ' + _be.ms + 'ms' +
+        (_be.timedOut ? '  \u26A0 STALLED \u2014 continued locally' : '') +
+        (_be.error ? '  \u26A0 ' + _be.error : ''));
+    }
+  }
+  lines.push('');
   // Project content
   var proj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
   lines.push('PROJECT DATA:');
@@ -2483,7 +2721,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S587';
+var FRT_BUILD = 'S608';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -2519,6 +2757,75 @@ function upgradeViewerChrome() {
   } catch (e) {
     console.warn('[FRT] viewer chrome upgrade failed', e);
   }
+}
+
+/* ═══ S608 (Lane A) — UNHANGABLE STARTUP ══════════════════════════════════
+   A tablet in a sub-grade pump room can stall on any network step, and on
+   one bar the browser does not fail fast — it hangs. Pre-S608 a hang in
+   sign-in or the boot pull left the inspector staring at a page that never
+   finished, with no signal and no way forward. Diesel's S602 form, ported:
+   every boot step is time-bound (_bootStep), a stalled step is RECORDED and
+   the boot continues into local-only operation, and a watchdog forces the
+   screen up if the chain as a whole goes quiet.
+
+   THE DANGEROUS CORNER, handled explicitly: a timed-out boot pull is NOT
+   "the cloud is empty". A cold device on a slow network must never fabricate
+   a blank report over real cloud data — _bootPullTimedOut gates new-project
+   creation off, and _bootPullRetry keeps asking until the cloud answers.
+   (Even if a blank were created, the engine refuses to push without an
+   If-Match baseline — doctrine I-4 — so the cloud copy was never at risk;
+   this is about never SHOWING an inspector a false blank.)
+   Harness: frt/tests/sim/bootstall.mjs (fails on S587, passes here). */
+var _frtBootLog = [];            // [{step, at, ms, timedOut, error}]
+var _bootPullTimedOut = false;   // timeout ≠ emptiness
+var _bootPullRetryTimer = null;
+
+function _bootStep(name, promise, ms) {
+  var t0 = Date.now();
+  return new Promise(function (resolve) {
+    var done = false;
+    var t = setTimeout(function () {
+      if (done) return; done = true;
+      _frtBootLog.push({ step: name, at: t0, ms: Date.now() - t0, timedOut: true });
+      console.warn('[FRT boot] step "' + name + '" stalled past ' + ms + 'ms — continuing without it');
+      _frtTickDiag('boot-stall:' + name, { ms: ms });
+      resolve({ v: null, timedOut: true });
+    }, ms);
+    Promise.resolve(promise).then(function (v) {
+      if (done) return; done = true; clearTimeout(t);
+      _frtBootLog.push({ step: name, at: t0, ms: Date.now() - t0, timedOut: false });
+      resolve({ v: v, timedOut: false });
+    }, function (e) {
+      if (done) return; done = true; clearTimeout(t);
+      _frtBootLog.push({ step: name, at: t0, ms: Date.now() - t0, timedOut: false, error: (e && e.message) || 'failed' });
+      console.warn('[FRT boot] step "' + name + '" failed:', e && e.message);
+      resolve({ v: null, timedOut: false, error: e });
+    });
+  });
+}
+
+/* Timed-out boot pull → keep asking. Plain pull (stale-guard active, 3-way
+   merge protects anything typed meanwhile), never allowStaleOverwrite — the
+   explicit-adopt bypass belongs to the boot moment only, and by the time this
+   retries the inspector may have edited the fast-path local copy. */
+function _bootPullRetry() {
+  if (_bootPullRetryTimer) return;
+  _setCloudStatus('pending', 'Waiting for connection to load latest\u2026');
+  _bootPullRetryTimer = setInterval(function () {
+    if (!navigator.onLine) return;
+    var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    if (!user) return;
+    var instanceId = new URLSearchParams(window.location.search).get('instance');
+    SyncEngine.pull(_projectId, instanceId).then(function (data) {
+      if (!data) return;   // still nothing / held — keep trying
+      clearInterval(_bootPullRetryTimer); _bootPullRetryTimer = null;
+      _bootPullTimedOut = false;
+      window._frtCloudLoaded = true;
+      _frtTickDiag('boot-retry-pulled');
+      _setCloudStatus('synced', 'Loaded from cloud');
+      try { switchTab(_currentTab); } catch (_) {}
+    }).catch(function () {});
+  }, 15000);
 }
 
 function boot() {
@@ -2575,8 +2882,40 @@ function boot() {
     var _msoBoot = document.getElementById('mobile-signout-btn');
     if (_msoBoot) _msoBoot.style.display = '';
   }
-  var idbReady = IDB.init();
-  var authReady = hasToken ? Auth.restoreSession() : Promise.resolve(null);
+  var idbStep = _bootStep('local-db', IDB.init(), 8000);
+  var idbReady = idbStep.then(function (r) { return r.v; });
+  var authReady = hasToken
+    ? _bootStep('sign-in', Auth.restoreSession(), 10000).then(function (r) {
+        /* A STALLED sign-in must not be mistaken for a FAILED one: the branch
+           below redirects to Hub login when user is null, which on a one-bar
+           tablet would bounce the inspector out of a report that is sitting
+           right there in IDB. Mark the stall so the branch can tell them
+           apart and keep working from the device copy instead. */
+        if (r.timedOut) window._frtAuthStalled = true;
+        return r.v;
+      })
+    : Promise.resolve(null);
+
+  /* S608 boot watchdog — if the chain as a whole goes quiet (a hang in a
+     step _bootStep doesn't wrap, or a promise that neither resolves nor
+     rejects), force the screen up with whatever this device holds. The
+     inspector gets their local data and an honest status instead of a page
+     that never finishes. */
+  window._frtBootDone = false;
+  setTimeout(function () {
+    if (window._frtBootDone) return;
+    _frtTickDiag('boot-stall:watchdog', { elapsedMs: Math.round(performance.now() - t0) });
+    console.warn('[FRT boot] watchdog: boot did not complete in 25s — forcing local render');
+    try {
+      if (!_localRendered && typeof Model !== 'undefined' && Model.getProject && Model.getProject()) {
+        showProjectView();
+        _updateHeaderForProject();
+        _restoreView();
+        _localRendered = true;
+      }
+    } catch (_) {}
+    _setCloudStatus('error', 'Startup stalled \u2014 working from this device');
+  }, 25000);
 
   // S170 (Fix A) — initialize the photo outbox in parallel with everything
   // else. Resume picks up rows that were uploading when the tab was last
@@ -2623,6 +2962,17 @@ function boot() {
     if (_hubMode && _projectId) {
       // Hub mode
       if (!user) {
+        /* S608 — a STALLED sign-in is not a failed one. On one bar the
+           restore request hangs rather than failing; bouncing to Hub login
+           would strand the inspector on a login page their connection cannot
+           load, while their report sits in IDB on this very device. Stay,
+           render the local copy, say so honestly. Sync stays off until a
+           real session exists (the tick records 'no-user' every beat). */
+        if (window._frtAuthStalled) {
+          console.warn('[FRT v2] Sign-in stalled \u2014 working from device copy, sync paused');
+          _setCloudStatus('error', 'Sign-in stalled \u2014 working from this device');
+          return null;
+        }
         // Either no token (already known) or token present but refresh failed.
         // In both cases, redirect to Hub login.
         if (hasToken) {
@@ -2704,7 +3054,16 @@ function boot() {
         // Initial load — adopt cloud (S263 gate bypassed; the fast-path IDB
         // snapshot sets _lastSeen* for the 3-way merge, and on first load there
         // is no in-progress local edit to protect).
-        return SyncEngine.pull(_projectId, instanceId, { allowStaleOverwrite: true });
+        // S608: time-bound. A stalled pull is NOT an empty cloud — the retry
+        // loop keeps asking, and new-project creation below is gated off.
+        return _bootStep('cloud-pull',
+          SyncEngine.pull(_projectId, instanceId, { allowStaleOverwrite: true }),
+          20000
+        ).then(function (r) {
+          _bootPullTimedOut = r.timedOut;
+          if (r.timedOut) _bootPullRetry();
+          return r.v;
+        });
       });
     } else {
       // Standalone: load from IDB
@@ -2718,8 +3077,11 @@ function boot() {
     }
   }).then(function(data) {
     if (_hubMode && _projectId) {
-      if (!data && !Model.getProject()) {
-        // No cloud data AND no fast-path snapshot — create empty project
+      if (!data && !Model.getProject() && !_bootPullTimedOut) {
+        // No cloud data AND no fast-path snapshot AND the pull genuinely
+        // ANSWERED empty (S608: a timed-out pull is not an empty cloud —
+        // fabricating a blank report here would show an inspector a false
+        // blank over real cloud work; the retry loop is already asking).
         Model.newProject();
         console.log('[FRT v2] Created new project for Hub');
       }
@@ -2794,6 +3156,7 @@ function boot() {
     } else {
       console.log('[FRT v2] Boot complete in ' + elapsed + 'ms');
     }
+    window._frtBootDone = true;   // S608: watchdog stands down
 
     // Update storage display
     _updateStorageDisplay();
@@ -3125,141 +3488,58 @@ function _syncIssueStatus(status) {
 // ── Start ────────────────────────────────────────────────
 boot();
 
-// ── S163 Fix C (V-9) / S207 update: SW update propagation ───────
-// When a new service worker activates, it broadcasts {type:'sw-updated'}
-// to every controlled client (see sw.js activate handler). The client
-// flushes Model to IDB so any in-flight unsaved state survives a later
-// reload (Fix E protects the leave-dialog path; this protects the
-// SW-driven path with the same primitive).
-//
-// S207 change: we NO LONGER force a reload. The original force-reload
-// (1200ms timer) could yank the page mid-task — mid-observation, mid
-// drawing markup, mid photo upload — which is unacceptable in the field.
-// Instead we surface a non-disruptive "Update ready" banner; the user
-// refreshes at a safe stopping point. _doUpdateReload() persists the
-// current tab + scroll position to sessionStorage first, so the refresh
-// returns them to where they were rather than the Info tab at scroll 0.
-//
-// Without an update path at all, safety-critical fixes shipped to GitHub
-// can sit unused on cached devices for up to 24 hours (SW byte-comparison
-// max-age) or indefinitely until a manual hard-refresh. The banner keeps
-// that propagation guarantee while leaving the *timing* in the user's hands.
-//
-// Once-guard: _swUpdatedHandled prevents the banner re-appearing if the
-// SW re-broadcasts (multi-tab races, repeated activations).
+/* ═══ S608 (Lane A, Mark's item 4) — LIVE UPDATE: THE SHARED ENGINE ═══════
+   The S207 "Update ready / Refresh / Not now" banner + bottom-right
+   indicator are REMOVED in this build. They asked the inspector to make a
+   decision the toolkit now makes for them: since S588–S595 the Hub updates
+   itself silently at a safe moment and puts the user back exactly where they
+   were — and two different update behaviours in one toolkit is worse than
+   either. The engine (lib/ui/liveUpdate.js) owns listening, staging, safe
+   moments, the pill, and the swap; FRT supplies only what genuinely differs.
 
-// S207: sessionStorage keys for tab/scroll restore across an update reload.
-var SS_RESTORE_TAB = 'arencon-frt-restore-tab';
-var SS_RESTORE_SCROLL = 'arencon-frt-restore-scroll';
-
-// Persist current view, then reload. Called by the banner Refresh button
-// (and the indicator's re-opened banner). Tab-level + best-effort scroll;
-// pin-level restore is not state-tracked today so we do not claim it.
-function _doUpdateReload() {
-  try {
-    sessionStorage.setItem(SS_RESTORE_TAB, _currentTab || 'info');
-    var panel = document.querySelector('.panel.active');
-    // The scrollable element is usually the active panel; fall back to the
-    // main wrap if the panel itself isn't the scroll container.
+   Safe-moment rules FRT adds on top of the engine's own (focused field /
+   open dialog / hidden mid-gesture — those are engine-owned, never
+   re-implemented here):
+     • the drawing viewer or photo lightbox is open → mid-markup, never swap
+     • photos are in flight in the outbox → never swap under an upload
+   Flush order is the engine's fixed contract: unsent work is saved to IDB
+   FIRST (Model.saveNow — the S162 field-day-loss primitive, preserved),
+   then position is captured, then the reload. The cloud push is deliberately
+   NOT part of flush: the work is already durable on the device, and the
+   heartbeat pushes it on the next beat after the swap. */
+initLiveUpdate({
+  toolName: 'FRT',
+  flush: function () {
+    return Promise.resolve().then(function () {
+      if (typeof Model !== 'undefined' && Model.saveNow) return Model.saveNow();
+    });
+  },
+  isBusy: function () {
+    try {
+      // Mid-markup: the drawing viewer overlay is open.
+      var dv = document.getElementById('drawing-viewer-overlay');
+      if (dv && dv.style.display !== 'none' && dv.offsetParent !== null) return true;
+      // Photos in flight — a swap mid-upload risks re-work at best.
+      if (typeof BinaryOutbox !== 'undefined' && BinaryOutbox.getStatusCounts) {
+        var c = BinaryOutbox.getStatusCounts();
+        if (c && (c.uploading > 0 || c.pending > 0 || c.retrying > 0)) return true;
+      }
+    } catch (_) {}
+    return false;
+  },
+  capture: function () {
     var sc = 0;
-    if (panel && panel.scrollTop) sc = panel.scrollTop;
-    if (!sc) {
-      var mw = document.querySelector('.main-wrap');
-      if (mw && mw.scrollTop) sc = mw.scrollTop;
-    }
-    sessionStorage.setItem(SS_RESTORE_SCROLL, String(sc || 0));
-  } catch(_) {}
-  // Flush once more in case anything changed after the sw-updated flush.
-  Promise.resolve()
-    .then(function(){ if (typeof Model !== 'undefined' && Model.saveNow) return Model.saveNow(); })
-    .catch(function(){})
-    .then(function(){ window.location.reload(); });
-}
-
-// Small persistent indicator (bottom-right), shown after "Not now".
-// Tapping it re-opens the banner. Matches the tile-prefetch badge style.
-function _showUpdateReadyIndicator() {
-  if (document.getElementById('frt-update-indicator')) return;
-  var d = document.createElement('div');
-  d.id = 'frt-update-indicator';
-  d.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9001;' +
-    'background:rgba(28,36,52,.94);color:#f0d6dd;font:600 12px/1.3 Calibri,sans-serif;' +
-    'padding:7px 13px;border-radius:16px;border:1px solid #9C2742;' +
-    'box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;display:flex;align-items:center;gap:6px;';
-  d.innerHTML = '<span style="font-size:13px;">\u2728</span><span>Update ready</span>';
-  d.title = 'A new version is ready — tap to refresh';
-  d.addEventListener('click', function(){
-    var ex = document.getElementById('frt-update-indicator');
-    if (ex && ex.parentNode) ex.parentNode.removeChild(ex);
-    _showUpdateReadyBanner();
-  });
-  document.body.appendChild(d);
-}
-
-// Top-center "Update ready" banner. Refresh reloads (preserving view);
-// "Not now" dismisses to the small indicator. Mirrors the remote-update
-// banner construction so styling stays consistent (Calibri, #9C2742 CTA).
-function _showUpdateReadyBanner() {
-  // Banner and indicator are mutually exclusive.
-  var ind = document.getElementById('frt-update-indicator');
-  if (ind && ind.parentNode) ind.parentNode.removeChild(ind);
-  if (document.getElementById('frt-update-ready-banner')) return;
-  var b = document.createElement('div');
-  b.id = 'frt-update-ready-banner';
-  b.style.cssText =
-    'position:fixed;top:60px;left:50%;transform:translateX(-50%);' +
-    'z-index:99999;background:#1B2438;color:#fff;border:1px solid #9C2742;' +
-    'border-radius:8px;padding:10px 14px;font:14px Calibri,sans-serif;' +
-    'box-shadow:0 4px 16px rgba(0,0,0,.4);display:flex;align-items:center;gap:12px;' +
-    'max-width:90vw;';
-  b.innerHTML =
-    '<span>\u2728 A new version is ready.</span>' +
-    '<button id="frt-update-refresh" style="background:#9C2742;color:#fff;border:none;border-radius:6px;padding:6px 12px;font:600 13px Calibri,sans-serif;cursor:pointer;">Refresh</button>' +
-    '<button id="frt-update-later" style="background:transparent;color:#c8ccd4;border:1px solid #3a4660;border-radius:6px;padding:6px 10px;font:13px Calibri,sans-serif;cursor:pointer;">Not now</button>';
-  document.body.appendChild(b);
-  document.getElementById('frt-update-refresh').addEventListener('click', function(){
-    b.remove();
-    _doUpdateReload();
-  });
-  document.getElementById('frt-update-later').addEventListener('click', function(){
-    b.remove();
-    _showUpdateReadyIndicator();
-  });
-}
-
-var _swUpdatedHandled = false;
-if ('serviceWorker' in navigator && navigator.serviceWorker.addEventListener) {
-  navigator.serviceWorker.addEventListener('message', function(e) {
-    if (!e.data || e.data.type !== 'sw-updated' || _swUpdatedHandled) return;
-    _swUpdatedHandled = true;
-    // S207: do NOT force-reload. A field inspector mid-deficiency (typing an
-    // observation, mid drawing markup, photo half-uploaded) must never have the
-    // page yanked out from under them by a background SW activation. Instead we
-    // flush Model to IDB (preserves the safety primitive that protected against
-    // the S162 field-day loss) and surface a non-disruptive "Update ready"
-    // banner. The user refreshes when *they* are at a safe stopping point.
-    // _showUpdateReadyBanner() persists current tab + scroll before reloading,
-    // so refreshing doesn't dump them back on the Info tab scrolled to top.
-    Promise.resolve()
-      .then(function() {
-        if (typeof Model !== 'undefined' && Model.saveNow) return Model.saveNow();
-      })
-      .catch(function(){})
-      .then(function() {
-        // S284c (Mark): banner fatigue fix — many concurrent build sessions
-        // bump the SW several times a day, and the top banner interrupted on
-        // every load. Policy: the interrupting banner shows at most ONCE per
-        // browser session; later updates in the same session surface only the
-        // small bottom-right indicator and apply naturally on the next reload.
-        // Model.saveNow() above still runs every time (S162 safety primitive).
-        var _seen = false;
-        try { _seen = sessionStorage.getItem('frt-upd-banner-shown') === '1'; } catch(_) {}
-        if (_seen) { _showUpdateReadyIndicator(); return; }
-        try { sessionStorage.setItem('frt-upd-banner-shown', '1'); } catch(_) {}
-        _showUpdateReadyBanner();
-      });
-  });
-}
+    try {
+      var panel = document.querySelector('.panel.active');
+      if (panel && panel.scrollTop) sc = panel.scrollTop;
+      if (!sc) {
+        var mw = document.querySelector('.main-wrap');
+        if (mw && mw.scrollTop) sc = mw.scrollTop;
+      }
+    } catch (_) {}
+    return { tab: _currentTab || 'info', scroll: sc || 0 };
+  }
+});
 
 // ── Debug exports ────────────────────────────────────────
 window._frt = {

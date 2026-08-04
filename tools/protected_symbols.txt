@@ -618,3 +618,23 @@ activityModal
 
 @ S587 on-tablet Pin Write Log (Mark: the crew hits pin problems in the field and only a PC console could read the evidence). A read-only ... menu panel showing every accepted/refused/ignored/disarmed pin write this session, with Copy report. Field tablets run the Android TWA with no editable address bar, so a menu row is the ONLY way in - never a URL param. Removal returns the firm to month-later forensic digs.
 _showPinWriteLog
+
+@ S608 (Lane A) FRT sync self-report + unhangable boot (Mark's item 3: "FRT adopts the shared sync engine"). The listening loop now records WHY on every beat (_frtTickDiag ring diary, readable on-tablet from the cloud-dot popup — field tablets have no console), a watchdog releases a hung pull instead of going deaf for the session, network calls are time-bound, unsent work pushes BEFORE any pull can touch it, and the S605 stats-based re-arm keeps this device's newer entries from losing to the push dedupe forever. Boot: every network step is time-bound (_bootStep), a stalled sign-in works from the device copy instead of bouncing to a login page the connection cannot load, a timed-out boot pull is NEVER treated as an empty cloud (no fabricated blank reports — _bootPullRetry keeps asking), and a 25s watchdog forces the local render up rather than a page that never finishes. Notable outcomes go off-device to sync_diag. Harnesses frt/tests/sim/{tickhealth,bootstall,stalemate}.mjs read the shipped code and fail if any of this regresses. Removal returns FRT to the four-indistinguishable-faults era that cost Diesel nineteen sessions.
+_frtHeartbeatTick
+_frtTickDiag
+_frtTickLog
+_frtSyncDiag
+_frtWithTimeout
+_bootStep
+_bootPullRetry
+_bootPullTimedOut
+_frtBootLog
+
+@ S608 (Lane A) FRT typed photo fields in the shared merge (the S605 treatment; Mark's item 3). FRT photo dirtiness is judged only on what a person can change — caption, rotation, delete markers, and the never-bake markup vectors — never on the device-only binary the cloud strips, which had every photo reading "locally edited" forever so another tablet's caption edit or delete could never land. _lwwStripFields serializes non-scalar typed fields canonically so a MOVED mark counts as an edit. Deficiency/observation entries deliberately left untyped until Lane C closes the deficiency-propagation investigation (see frt/tests/sim/deficsync.mjs). _lwwReplay/__lwwTestHook let the harness exercise the SHIPPED merge with no I/O.
+_lwwReplay
+__lwwTestHook
+
+@ S608 (Lane A) FRT live update on the shared engine (Mark's item 4). initLiveUpdate replaces the S207 "Update ready / Refresh / Not now" banner + bottom-right indicator, which are REMOVED at Mark's explicit direction ("its old S207 banner + indicator must be removed") — do NOT restore _showUpdateReadyBanner/_showUpdateReadyIndicator/_doUpdateReload from history; the engine owns listening, staging, safe moments and the swap, and FRT supplies only flush (Model.saveNow — the S162 primitive, preserved), isBusy (viewer open / photos in flight) and capture (tab + scroll). The tab now lives in the address bar (?tab=, written by switchTab, read by _restoreView), so ANY reload — refresh, update swap, crash — returns the inspector to the tab they were on instead of Project Info. TWA users cannot edit URLs; the app writing its own state is the sanctioned path.
+initLiveUpdate
+restoreAfterUpdate
+_restoreView
