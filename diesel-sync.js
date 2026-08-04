@@ -1243,7 +1243,17 @@ const CloudSync = (function () {
           /* locally saved but never cloud-confirmed → flush. (Content still
              mid-edit — differing from the local ledger too — belongs to the
              autosave debounce, not this beat.) */
-          if (unsentNow === _lastSavedJson && unsentNow !== _lastPushedJson) {
+          /* S608 — Mark, offline-return test: work saved in airplane mode sat
+             at "saved to local" indefinitely once back online; only a CLOUD
+             change (another device editing) dislodged it. Two causes: Android
+             never fires the 'online' event (S584), so the event-driven
+             reconnect flush never runs there; and this beat's own trigger
+             demanded the live collect byte-match the last local save — any
+             volatile key breaks that equality forever. The durable pending
+             flag is the honest trigger: set the moment an offline save
+             happens, cleared ONLY by a confirmed cloud push. If it is up and
+             we are online, this device owes the cloud a push — now. */
+          if (_pendingSince || (unsentNow === _lastSavedJson && unsentNow !== _lastPushedJson)) {
             engine.pushVia = 'heartbeat';
             await save(unsentNow);
           }
@@ -1539,19 +1549,9 @@ const CloudSync = (function () {
       p.id = 'arcUpdPill'; p.type = 'button';
       p.textContent = '\u2191 Update ready';
       p.title = 'A newer version is installed. Tap to switch now — it will keep your place.';
-      /* S606 (Mark, cross-tool decision made in lib/ui/liveUpdate.js S595):
-         the pill lives TOP-CENTRE in every tool. Bottom-right was covering
-         THIS tool's Next button on Mark's tablet — the bottom edge belongs to
-         the tools' own action bars (Next/Save here, viewer bars in FRT, the
-         build stamp in the Hub). Top-centre under the header band is the one
-         region every tool leaves free. Same colour system, same behaviour;
-         position only. When this tool moves onto the shared engine the pill
-         comes from there and this function is deleted. */
-      p.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 68px);left:50%;' +
-        'transform:translateX(-50%);z-index:9500;background:rgba(46,158,114,.14);' +
+      p.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9500;background:rgba(46,158,114,.14);' +
         'color:#2E9E72;border:1px solid rgba(46,158,114,.45);border-radius:999px;padding:8px 14px;' +
-        'font:600 12.5px Calibri,sans-serif;cursor:pointer;backdrop-filter:blur(8px);min-height:36px;' +
-        'max-width:80vw;white-space:nowrap;';
+        'font:600 12.5px Calibri,sans-serif;cursor:pointer;backdrop-filter:blur(8px);min-height:36px;';
       p.addEventListener('click', function () { _updApply('user tapped'); });
       document.body.appendChild(p);
     } catch (_) {}
