@@ -788,7 +788,19 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
 .toast.info{background:var(--navy)}
 
 /* ═══ PIN LOCK SCREEN ═══ */
-.pin-lock{display:none;position:fixed;inset:0;z-index:500;background:linear-gradient(160deg,var(--navy) 0%,#1a1a2e 40%,var(--navy-mid) 100%);align-items:center;justify-content:center;flex-direction:column}
+/* S624 (found in the S623 full review) — SECURITY. This sat at z-index:500,
+   which is BELOW every overlay the Hub can have open: the QR modal (9000), the
+   export picker (9600), and every shared panel (2147483000). An inspector or
+   PM who left Edit Project, Profile or Client Rename open and walked away got
+   an auto-lock that engaged UNDERNEATH their panel — still readable, still
+   clickable, on an unattended machine. Only reachable from S620, when the
+   inactivity lock started arming again after the Profile panel migration had
+   silently disabled it; before that the lock never engaged, so nobody could
+   have hit this. The lock is now the topmost layer in the application, above
+   the dialog engine and above the toast.
+   Open panels are deliberately NOT closed when locking: a lock must protect
+   the screen, not discard the work someone was part-way through typing. */
+.pin-lock{display:none;position:fixed;inset:0;z-index:2147483200;background:linear-gradient(160deg,var(--navy) 0%,#1a1a2e 40%,var(--navy-mid) 100%);align-items:center;justify-content:center;flex-direction:column}
 .pin-lock.show{display:flex}
 .pin-lock-card{background:var(--card);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.3);padding:36px 32px;width:90%;max-width:340px;text-align:center;position:relative;overflow:hidden}
 .pin-lock-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--arencon),#D4456A,var(--arencon))}
@@ -8879,7 +8891,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S623';
+const HUB_BUILD = 'S624';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
