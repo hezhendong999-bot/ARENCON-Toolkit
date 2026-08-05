@@ -2721,7 +2721,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S622';
+var FRT_BUILD = 'S622b';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3526,6 +3526,30 @@ initLiveUpdate({
       }
     } catch (_) {}
     return false;
+  },
+  /* S622 (Mark: "I click on this update ready but nothing happens"). The pill
+     was refusing correctly and saying nothing. The refusal stands — a reload
+     from inside the drawing viewer skips the markup save that runs when the
+     viewer CLOSES, so forcing it through would lose an inspector's markup, the
+     S528 family exactly. What changes is that the pill now says what is in the
+     way and applies itself the moment that clears. The engine owns the
+     mechanism; these words are FRT's, because only FRT knows what it is busy
+     with. Order matters: the drawing viewer is checked first because it is the
+     screen the crew actually lives on. */
+  busyReason: function () {
+    try {
+      var dv = document.getElementById('drawing-viewer-overlay');
+      if (dv && dv.style.display !== 'none' && dv.offsetParent !== null) {
+        return 'close the drawing to apply';
+      }
+      if (typeof BinaryOutbox !== 'undefined' && BinaryOutbox.getStatusCounts) {
+        var c = BinaryOutbox.getStatusCounts();
+        if (c && (c.uploading > 0 || c.pending > 0 || c.retrying > 0)) {
+          return 'photos still uploading \u2014 applies when they finish';
+        }
+      }
+    } catch (_) {}
+    return null;
   },
   capture: function () {
     var sc = 0;
