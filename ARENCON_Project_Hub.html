@@ -952,12 +952,6 @@ body.dark-mode .ri-status-sel{background:var(--smoke);border-color:var(--border)
 .bulk-actions-bar .bulk-count{font-size:calc(11px + var(--ts));font-weight:700;color:var(--arencon);min-width:18px;text-align:center;background:var(--arencon-light);padding:2px 6px;border-radius:10px}
 body.dark-mode .bulk-actions-bar{background:var(--navy-light);border-color:var(--border)}
 body.dark-mode .bulk-actions-bar button{color:var(--steel)}
-.dash-more-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);min-width:180px;z-index:10000;overflow:hidden;font-family:Calibri,sans-serif;}
-.dash-more-menu.open{display:block}
-.dash-more-menu button{width:100%;padding:10px 16px;border:none;background:none;text-align:left;font-size:calc(13px + var(--ts));cursor:pointer;font-family:inherit;color:var(--fg);transition:background .15s}
-.dash-more-menu button:hover{background:var(--smoke)}
-body.dark-mode .dash-more-menu{background:var(--navy-light);border-color:var(--border)}
-body.dark-mode .dash-more-menu button:hover{background:rgba(255,255,255,.06)}
 .project-card-check{position:absolute;top:14px;left:14px;width:20px;height:20px;border:2px solid var(--silver);border-radius:50%;background:rgba(255,255,255,.9);cursor:pointer;z-index:3;display:none;align-items:center;justify-content:center;font-size:calc(10px + var(--ts));color:transparent;transition:all .2s}
 body.select-mode .project-card-check{display:flex}
 body.select-mode .project-card-top{padding-left:30px}
@@ -1507,22 +1501,11 @@ body.text-l{--ts:4px;}
 <!-- S518 — edit-name markup DELETED; built by open() on the shared
      dialog engine. If a hand-built card reappears here the conversion was undone. -->
 
-<!-- ═══════════ OWNER-TRACK PICKER MODAL (S335) ═══════════ -->
-<div class="modal-overlay" id="owner-track-modal">
-  <div class="modal-card">
-    <h3>New Report</h3>
-    <p style="font-size:calc(13px + var(--ts));color:var(--steel);margin-bottom:14px" id="owner-track-tool"></p>
-    <div class="modal-field">
-      <label>Whose report is this?</label>
-      <select id="owner-track-select"></select>
-    </div>
-    <p style="font-size:calc(12px + var(--ts));color:var(--silver);margin-top:8px;line-height:1.4">A shared report isn't tied to a person — anyone's reports list it under "Shared".</p>
-    <div class="modal-actions">
-      <button class="dash-btn secondary cancel" onclick="closeOwnerTrackModal()">Cancel</button>
-      <button class="dash-btn primary" onclick="confirmOwnerTrack()">Create</button>
-    </div>
-  </div>
-</div>
+<!-- S624 (Mark): OWNER-TRACK PICKER MODAL (S335) REMOVED. Dead since at
+     least S519: nothing opened it, and BOTH its buttons called functions
+     that do not exist (closeOwnerTrackModal / confirmOwnerTrack), so it
+     would have thrown on either click had it ever appeared. Removed on
+     Mark's explicit instruction this session. -->
 
 <!-- ═══════════ RESET PASSWORD MODAL ═══════════ -->
 <!-- S518 - reset-pw-modal markup DELETED; built on the shared dialog engine.
@@ -2257,7 +2240,6 @@ function showApp() {
   showDashboard();
   loadUserMap();
   loadAllInstanceCounts().then(function() {
-    updateNotifBadge();
     loadProjects();
     loadRecentActivity();
   });
@@ -3200,18 +3182,13 @@ function setFilter(mode) {
   renderProjects();
 }
 
-// ── More ▾ dropdown (toolbar) ──
-function toggleDashMore(e){
-  e.stopPropagation();
-  var m=document.getElementById('dash-more-menu');if(!m)return;
-  var isOpen=m.classList.contains('open');
-  closeDashMore();
-  if(!isOpen)m.classList.add('open');
-}
-function closeDashMore(){
-  var m=document.getElementById('dash-more-menu');if(m)m.classList.remove('open');
-}
-document.addEventListener('click',function(){closeDashMore();});
+/* S624 (Mark): the toolbar "More" dropdown is REMOVED — toggleDashMore,
+   closeDashMore and their document-wide click listener. The element they drove
+   (#dash-more-menu) has not existed since the shared header took over "More",
+   so toggleDashMore was never called by anything and closeDashMore ran on
+   EVERY click anywhere in the app to hide a menu that was not there. Its six
+   style rules, including two dark-mode rules that were being maintained for
+   nothing, are removed with it. */
 
 /* S492: setBoardView replaces toggleArchived/toggleDeleted. The underlying
    model is unchanged — the Hub already treated these as ONE three-state
@@ -6621,18 +6598,13 @@ async function _notifDismiss() {
 }
 
 /* ═══ Notification Badge ═══ */
-function updateNotifBadge() {
-  var badge = document.getElementById('hdr-notif-badge');
-  if (!badge) return;
-  var draftCount = 0;
-  Object.values(_projectInstanceCounts).forEach(function(c) { draftCount += (c.draft || 0) + (c.review || 0); });
-  if (draftCount > 0) {
-    badge.textContent = draftCount > 99 ? '99+' : draftCount;
-    badge.style.display = 'inline';
-  } else {
-    badge.style.display = 'none';
-  }
-}
+/* S624 (Mark: "I don't think we need 1"): updateNotifBadge REMOVED. It counted
+   reports sitting in draft or review and painted a header badge. The element it
+   painted into (#hdr-notif-badge) stopped existing when the header moved into
+   the shared engine's sealed root, so the guard on the second line returned
+   every time and the badge has not appeared since. Not restored: the board
+   already surfaces the same standing with "N not backed up" and the
+   Notification Review panel. Removed on Mark's explicit instruction. */
 
 /* ═══ Profile Modal ═══ */
 function openProfileModal() {
@@ -8891,7 +8863,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S624';
+const HUB_BUILD = 'S625';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
