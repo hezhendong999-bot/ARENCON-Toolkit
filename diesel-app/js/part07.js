@@ -1372,7 +1372,8 @@ function _renderPhotoGallery(){
   if(nSel>0){
     html += '<span class="ph-sel-count">'+nSel+' selected</span>';
     html += '<button class="ph-btn" onclick="_pgDownloadSelected()">\u2193 Download</button>';
-    html += '<button class="ph-btn" onclick="_pgReassignSelected()">\u2197 Reassign</button>';
+    html += '<button class="ph-btn" onclick="_pgReassignSelected()">\u2197 Move to\u2026</button>';
+    html += '<button class="ph-btn" onclick="_pgReassignSelected(\'copy\')">\u29C9 Copy to\u2026</button>';
     html += '<button class="ph-btn ph-btn-danger" onclick="_pgDeleteSelected()">Delete '+nSel+'</button>';
     html += '<button class="ph-btn" onclick="_pgDeselectAll()">Clear</button>';
   } else {
@@ -1974,7 +1975,13 @@ function deletePhotoEverywhere(target, afterFn){
     item = all.filter(function(a){ return a.photo && a.photo.id===target.photoId; })[0];
   }
   if(!item){ showToast('Photo not found'); return; }
-  _aConfirm('Move this photo to Recently Deleted? You can restore it for '+_TRASH_RETENTION_DAYS+' days.', function(){
+  /* S616d — when the photo being deleted is a gallery COPY, say so: the
+     inspector should know before tapping that the original elsewhere in the
+     report is not affected. */
+  var _copyNote = (item.photo && item.photo.via === 'gallery-copy')
+    ? 'This is a copy placed from the gallery \u2014 the original photo elsewhere in this report is not affected. '
+    : '';
+  _aConfirm(_copyNote + 'Move this photo to Recently Deleted? You can restore it for '+_TRASH_RETENTION_DAYS+' days.', function(){
     var ph = item.photo;
     // S337: SOFT delete — flag in place, keep the array slot + R2 object intact.
     // The live gallery hides it; Recently Deleted surfaces it; auto-purge or an
@@ -1990,7 +1997,16 @@ function deletePhotoEverywhere(target, afterFn){
 }
 
 // ── Photo reassign ──
-function _pgReassignSelected(){
+function _pgReassignSelected(mode){
+  /* S616d (Mark) — one button was doing two jobs. 'Move to…' (no arg) keeps the
+     S533/S558 relocate semantics for MIS-FILED photos: one record, one stored
+     file, relocated. 'Copy to…' (mode==='copy') is for PLACING a photo somewhere
+     ADDITIONAL: a true duplicate with its own identity and its own stored file,
+     so nothing that ever happens to the copy — deletion included — can reach
+     the original. The field failure behind this: a photo "assigned" from the
+     gallery into another checklist item was a MOVE, so deleting it at the new
+     spot deleted the only record there was. */
+  var _copyMode = (mode === 'copy');
   var all = _collectAllPhotos();
   var selected = all.filter(function(a){ return _pgSelected.has(a.photo.id||''); });
   if(!selected.length){ showToast('No photos selected'); return; }
@@ -2030,13 +2046,92 @@ function _pgReassignSelected(){
     dests.push('General Deficiency #'+(di+1));
   });
   // Simple modal with select
-  var html = '<div style="padding:20px;max-width:400px;"><div style="font-weight:700;font-size:15px;margin-bottom:12px;">Reassign '+selected.length+' photo(s) to:</div>'
+  var html = '<div style="padding:20px;max-width:400px;"><div style="font-weight:700;font-size:15px;margin-bottom:12px;">'+(_copyMode?'Copy':'Move')+' '+selected.length+' photo(s) to:</div>'
+    + (_copyMode
+        ? '<div style="font-size:12.5px;color:var(--ink-2,#5E5B68);margin:-6px 0 10px;">Each copy is its own photo — the original stays exactly where it is.</div>'
+        : '<div style="font-size:12.5px;color:var(--ink-2,#5E5B68);margin:-6px 0 10px;">The photo is relocated — it leaves its current spot. Use Copy to\u2026 to keep it in both places.</div>')
     + '<select id="_pg_reassign_dest" style="width:100%;padding:8px;font-size:14px;border-radius:6px;border:1.5px solid var(--border);font-family:Calibri,sans-serif;">'
     + dests.map(function(d,i){ return '<option value="'+i+'">'+d+'</option>'; }).join('')
     + '</select></div>';
   _aConfirmHtml(html, function(){
     var destIdx = parseInt(document.getElementById('_pg_reassign_dest').value);
     var dest = dests[destIdx];
+    /* ═══ S616d — COPY MODE: a true duplicate, never a shared record ═════════
+       Each copy is minted as a brand-new photo: fresh bytes, its own id, and —
+       because minting enqueues its own upload keyed by that id — its own
+       stored file in the cloud. There is no object in common with the source,
+       so no deletion, tombstone, purge or merge acting on the copy can ever
+       reach the original. Placement mirrors the move path's destination table
+       below rather than refactoring it: that path is field-proven and stays
+       byte-identical (same rule as the S532/S616 engine mirrors).
+       Bytes come from what the gallery tile itself displays (d, else the
+       stored file) — identical source to the per-item Gallery button. If a
+       photo's bytes cannot be reached (offline, upload never confirmed), that
+       copy is REPORTED as failed, never minted empty. */
+    if(_copyMode){
+      var _q = selected.slice(), _copied = 0, _cfailed = 0;
+      var _placeCopy = function(cp){
+        var destKind = _RECDEST[dest];
+        if(destKind){ cp.kind = destKind; recordPhotos.push(cp); return true; }
+        if(dest === 'Flow Test (3-pt)'){ flowTestPhotos.push(cp); return true; }
+        if(dest === 'Flow Test (PLD)'){ flowTestPhotosPld.push(cp); return true; }
+        if(_CLDEST[dest]){
+          var _cid = _CLDEST[dest];
+          if(!clState[_cid]) clState[_cid] = {};
+          if(!Array.isArray(clState[_cid].photos)) clState[_cid].photos = [];
+          clState[_cid].photos.push(cp); return true;
+        }
+        if(dest.indexOf('General Deficiency') === 0){
+          var gi = parseInt(dest.replace('General Deficiency #',''))-1;
+          if(generalDeficiencies[gi]){ if(!generalDeficiencies[gi].photos) generalDeficiencies[gi].photos=[]; generalDeficiencies[gi].photos.push(cp); return true; }
+          return false;
+        }
+        var _ok = false;
+        Object.keys(deficiencies).forEach(function(ctr){
+          (deficiencies[ctr]||[]).forEach(function(d,di){
+            if(dest === ctr+' Deficiency #'+(di+1)){ if(!d.photos) d.photos=[]; d.photos.push(cp); _ok = true; }
+          });
+        });
+        return _ok;
+      };
+      var _finishCopies = function(){
+        if(typeof _renderRecordZones==='function') _renderRecordZones();
+        _pgSelected.clear();
+        _renderPhotoGallery();
+        renderFlowTestThumbs();
+        renderFlowTestThumbsPld();
+        saveState();
+        if(typeof debounceAutosave==='function') debounceAutosave();
+        if(_cfailed) showToast('Copied '+_copied+' photo(s) \u00B7 '+_cfailed+' could not be copied');
+        else showToast('Copied '+_copied+' photo(s) \u2014 originals untouched');
+      };
+      var _nextCopy = function(){
+        if(!_q.length){ _finishCopies(); return; }
+        var item = _q.shift(); var src = item && item.photo;
+        var _mintAndPlace = function(dataUrl){
+          if(!dataUrl){ _cfailed++; _nextCopy(); return; }
+          var cp = ArcPhoto.mint(dataUrl, src.n||'photo.jpg',
+            {date: src.date, extra:{caption: src.caption||'', via:'gallery-copy', srcOf: src.id||''}});
+          if(_placeCopy(cp)) _copied++; else _cfailed++;
+          _nextCopy();
+        };
+        if(!src){ _cfailed++; _nextCopy(); return; }
+        if(src.d){ _mintAndPlace(src.d); return; }
+        if(src.r2Url){
+          fetch(src.r2Url).then(function(r){ return r.ok ? r.blob() : null; }).then(function(b){
+            if(!b){ _mintAndPlace(null); return; }
+            var fr = new FileReader();
+            fr.onload = function(){ _mintAndPlace(fr.result); };
+            fr.onerror = function(){ _mintAndPlace(null); };
+            fr.readAsDataURL(b);
+          }).catch(function(){ _mintAndPlace(null); });
+          return;
+        }
+        _mintAndPlace(null);
+      };
+      _nextCopy();
+      return;
+    }
     // ═══ S533 ROOT-CAUSE FIX — reassign was not a move, it was a bad clone ═══
     // BEFORE: it deep-copied the record, gave the copy a NEW id while leaving the
     // ORIGINAL's r2Key/r2Url in place, then hard-spliced the source. Three faults,
@@ -2149,7 +2244,7 @@ function _pgReassignSelected(){
     // discrepancy between the two is exactly how a lost photo goes unnoticed.
     if(_failed) showToast('Moved '+_moved+' photo(s) · '+_failed+' could not be located');
     else showToast('Moved '+_moved+' photo(s)');
-  }, 'Reassign');
+  }, _copyMode ? 'Copy' : 'Move');
 }
 
 
