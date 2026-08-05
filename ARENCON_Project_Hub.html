@@ -1870,12 +1870,37 @@ function setupKeyboardShortcuts() {
 /* S493: both exits of this function revealed the login screen with an unguarded
    lookup. A throw on the last line of the boot path leaves the user staring at
    nothing with no way to sign in — and no console error they would ever see. */
+/* S620 — THE SINGLE WAY TO PRESENT THE SIGN-IN SCREEN.
+   ROOT CAUSE of the header leaking onto the sign-in card, twice now: showing
+   the sign-in screen was implemented in TWO places. This function, and again
+   inline inside doLogout(). The S492 fix ("no header while signed out") was
+   applied HERE only, so the header button — the path most people actually use
+   to sign out — never got it and kept the signed-in chrome on screen. A second
+   copy is not a bug that can be fixed; it is a bug that regenerates, because
+   every future fix lands in one copy and not the other.
+   doLogout() now calls this instead of repeating it. Anything that needs to
+   present sign-in calls this, and nothing else. */
 function _showLoginScreen(){
   var el = document.getElementById('login-screen');
   if (el) el.style.display = 'flex';
   else console.error('[Hub] login-screen missing — cannot present sign-in');
   var hh = document.getElementById('hub-header');           /* S492: no header while signed out */
   if (hh) hh.style.display = 'none';
+  /* S620 — the header keeps its OWN state, independent of whether its mount is
+     visible. Hiding the mount is only the picture. Without the two lines below
+     the controller still believes someone is signed in, and repaints the name,
+     the role badge and the Admin control the moment ANYTHING calls
+     applyHubHeaderState() again — a theme toggle on the sign-in screen is
+     enough to bring your name back. Picture and state are cleared together. */
+  window._hubHdrState = { signedIn:false };
+  try { if (window.applyHubHeaderState) window.applyHubHeaderState(); }
+  catch(e){ console.warn('[Hub] header state deferred:', e); }
+  /* Field reset lives here so every caller gets it, guarded per element for the
+     reason documented above setupKeyboardShortcuts(): one missing input must
+     cost one input, never the whole sign-in screen. */
+  var _em = document.getElementById('login-email');  if (_em) _em.value = '';
+  var _pw = document.getElementById('login-pass');   if (_pw) _pw.value = '';
+  var _er = document.getElementById('login-error');  if (_er) _er.classList.remove('show');
   /* S620 — showApp() does BOTH halves: hides the login screen and reveals the
      app. This did only half the reverse; it never hid the app. Invisible on a
      cold load because the app starts hidden, but any mid-session sign-out left
@@ -2036,11 +2061,14 @@ async function doLogout() {
   _profile = null;
   _projects = [];
   _allUsers = [];
-  document.getElementById('app-wrap').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('login-email').value = '';
-  document.getElementById('login-pass').value = '';
-  document.getElementById('login-error').classList.remove('show');
+  /* S620 — the duplicate copy of "present the sign-in screen" that used to live
+     here is DELETED, not amended. It hid the app and cleared the fields but left
+     the header standing with the name, role badge, Admin and Sign Out of the
+     person who had just signed out — because the S492 header fix was only ever
+     applied to _showLoginScreen(). One implementation now, so the next fix
+     cannot land in the wrong copy. (Its five element lookups were also
+     unguarded — the same shape S493 documents twice elsewhere in this file.) */
+  _showLoginScreen();
 }
 
 // ── Load profile from profiles table ──
@@ -8783,7 +8811,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S620';
+const HUB_BUILD = 'S621';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
