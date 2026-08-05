@@ -38,7 +38,7 @@
           "sigInspectorName": 0
         }
       },
-      "_tab": "hmuye",
+      "_tab": "d6x1s",
       "_via": "save",
       "info": {
         "city": "",
@@ -871,7 +871,7 @@
       ],
       "status": "issued",
       "created": "2026-05-02T22:33:53.117Z",
-      "_wroteAt": "2026-08-04T02:40:53.995Z",
+      "_wroteAt": "2026-08-05T05:51:57.123Z",
       "drawings": [
         {
           "id": "dwg_1773988484751_pg1_kf2d",
@@ -1051,7 +1051,7 @@
           "isOriginal": true
         }
       ],
-      "modified": "2026-08-04T02:40:31.183Z",
+      "modified": "2026-08-05T05:39:58.450Z",
       "settings": {
         "sketchesEnabled": false
       },
@@ -3105,7 +3105,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-16T20:00:36.555266+00:00",
-    "updated_at": "2026-08-04T02:40:54.066375+00:00",
+    "updated_at": "2026-08-05T05:51:57.212609+00:00",
     "owner_label": null,
     "deleted_at": null,
     "deleted_by": null
@@ -9651,7 +9651,7 @@
           "np-size": 0,
           "pi-addr": 0,
           "pi-date": 0,
-          "so-date": 1785822458582,
+          "so-date": 1785847140058,
           "so-name": 1785814000128,
           "np-ctlsn": 0,
           "np-drvsn": 0,
@@ -9723,9 +9723,29 @@
           "pld-ws-static-psi": 0,
           "pm-rated-flow-pld": 0,
           "pld-ws-static-flow": 0
-        }
+        },
+        "_root": {
+          "npshPsi": 0,
+          "testType": 0,
+          "npshPsiPld": 0
+        },
+        "smState": {
+          "chart3pt": 1785847140058,
+          "pldChart": 1785847140058
+        },
+        "smCapVis": {
+          "chart3pt": 1785847140058,
+          "pldChart": 0
+        },
+        "annDsForce": {
+          "chart3pt": 1785847140058,
+          "pldChart": 1785847140058,
+          "netChart3pt": 1785847140058,
+          "pldNetChart": 1785847140058
+        },
+        "contractorTrades": {}
       },
-      "_tab": "ltchk",
+      "_tab": "fnex0",
       "_via": "save",
       "proj": {
         "np-bhp": "",
@@ -9735,7 +9755,7 @@
         "np-size": "",
         "pi-addr": "610 Sprucewood Ave., Windsor, Ontario",
         "pi-date": "2026-08-04",
-        "so-date": "2026-08-04T05:47",
+        "so-date": "2026-08-04T12:38",
         "so-name": "mark",
         "np-ctlsn": "",
         "np-drvsn": "",
@@ -9808,7 +9828,7 @@
         "pm-rated-flow-pld": "",
         "pld-ws-static-flow": "0"
       },
-      "_build": "S616",
+      "_build": "S616b",
       "batData": {
         "b1": [
           1,
@@ -10516,13 +10536,13 @@
       ],
       "smState": {
         "chart3pt": {
-          "x": 48,
-          "y": 46,
+          "x": 0,
+          "y": 0,
           "on": true
         },
         "pldChart": {
-          "x": 86.33333333333337,
-          "y": 55.666666666666515,
+          "x": 0,
+          "y": 0,
           "on": true
         }
       },
@@ -10665,10 +10685,10 @@
           "discharge": "89"
         }
       ],
-      "_wroteAt": "2026-08-04T05:47:38.582Z",
+      "_wroteAt": "2026-08-04T12:39:00.058Z",
       "smCapVis": {
         "chart3pt": {
-          "relief": false,
+          "relief": true,
           "reducing": true
         },
         "pldChart": {
@@ -10684,42 +10704,10 @@
         "4b": []
       },
       "annDsForce": {
-        "chart3pt": {
-          "0": true,
-          "2": false,
-          "3": true,
-          "4": true,
-          "6": true,
-          "8": true,
-          "9": true,
-          "10": true,
-          "11": true,
-          "12": true,
-          "13": true,
-          "14": true,
-          "15": true
-        },
-        "pldChart": {
-          "0": true,
-          "2": true,
-          "3": true,
-          "5": true,
-          "6": true,
-          "7": true,
-          "10": true,
-          "13": false
-        },
-        "netChart3pt": {
-          "0": true,
-          "1": true,
-          "2": true,
-          "3": false
-        },
-        "pldNetChart": {
-          "1": true,
-          "2": true,
-          "3": true
-        }
+        "chart3pt": {},
+        "pldChart": {},
+        "netChart3pt": {},
+        "pldNetChart": {}
       },
       "npshPsiPld": "",
       "sigStrokes": {
@@ -12039,6 +12027,10 @@
         "sig-canvas-c-49": {
           "s": [],
           "_ts": 1785822458582
+        },
+        "sig-canvas-c-50": {
+          "s": [],
+          "_ts": 1785847140058
         },
         "sig-canvas-c-100": {
           "s": [
@@ -13479,6 +13471,15 @@
           "type": "contractor",
           "title": "",
           "company": ""
+        },
+        {
+          "id": "sr_msen9vau_3l1xll",
+          "_ts": 1785847140058,
+          "date": "",
+          "name": "",
+          "type": "contractor",
+          "title": "",
+          "company": ""
         }
       ],
       "pldPumpCurvePoints": [
@@ -13650,7 +13651,7 @@
     "created_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "updated_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
     "created_at": "2026-03-20T17:18:44.857681+00:00",
-    "updated_at": "2026-08-04T05:47:38.631314+00:00",
+    "updated_at": "2026-08-04T12:39:00.106199+00:00",
     "owner_label": null,
     "deleted_at": null,
     "deleted_by": null
