@@ -17,7 +17,7 @@ import { showTypeToConfirm } from '../shared/dialogs.js';
 import { initViewer } from '../viewer/viewer.js';
 import { Markup } from '../viewer/markup.js'; // S498c: seal mode disarms the active markup tool (mutual exclusivity, Mark)
 import { esc, esc as _escHtml } from '../lib/esc.js';
-import { lockScroll, unlockScroll } from '../shared/scrollLock.js'; // S492: seal-redaction editor overlay // S454: shared HTML-escape (both local copies were identical; 0-case unreachable here)
+import { lockScroll, unlockScroll } from '../../../lib/shared/scrollLock.js'; // S492: seal-redaction editor overlay // S454: shared HTML-escape (both local copies were identical; 0-case unreachable here)
 
 // esc() imported from ../lib/esc.js (S454 — shared)
 

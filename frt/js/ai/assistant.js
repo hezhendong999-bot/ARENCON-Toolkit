@@ -12,7 +12,7 @@
 
 import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
-import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
+import { lockScroll, unlockScroll } from '../../../lib/shared/scrollLock.js';
 
 var WORKER_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/ai-proxy'; // S415: Supabase Edge relay (same as Diesel S397). CF worker's CORS names github.io, blocking arencon.app; proxy relays server-side (no CORS), worker still validates the JWT.
 var _panel = null;

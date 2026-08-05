@@ -5,7 +5,7 @@
  */
 
 import { toast } from '../shared/toast.js';
-import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
+import { lockScroll, unlockScroll } from '../../../lib/shared/scrollLock.js';
 
 var SB_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
 var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';

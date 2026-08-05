@@ -43,7 +43,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '../../lib/ui/liveUpdate.js';
 import '../../lib/ui/frtHelpCards.js';
 import { toast } from './shared/toast.js';
 import { showConfirm, showAlert, showPrompt, showTypeToConfirm, showConflictModal, showDialog } from './shared/dialogs.js';
-import { lockScroll, unlockScroll } from './shared/scrollLock.js';
+import { lockScroll, unlockScroll } from '../../lib/shared/scrollLock.js';
 import { initProjectInfo } from './ui/projectInfo.js';
 import { initDeficiencies } from './ui/deficiencies.js';
 import { initDrawings } from './ui/drawings.js';
@@ -2721,7 +2721,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S623b';
+var FRT_BUILD = 'S624';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.

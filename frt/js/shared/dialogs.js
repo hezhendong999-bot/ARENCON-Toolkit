@@ -33,7 +33,7 @@
  *   showConflictModal(conflicts, mergeResult)    → unchanged (bespoke)
  */
 
-import { lockScroll, unlockScroll } from './scrollLock.js';
+import { lockScroll, unlockScroll } from '../../../lib/shared/scrollLock.js';
 import { Dlg } from '../../../lib/ui/dialogEngine.js';
 
 /**

@@ -24,7 +24,7 @@ import { initPDFExport } from './pdf.js';
 import { initDeficiencies } from '../ui/deficiencies.js';
 import { initViewer } from '../viewer/viewer.js'; // S492: contact-sheet click → open that drawing (no import cycle — viewer.js verified not to import exportview.js)
 import { toast } from '../shared/toast.js';
-import { lockScroll, unlockScroll } from '../shared/scrollLock.js';
+import { lockScroll, unlockScroll } from '../../../lib/shared/scrollLock.js';
 import { Auth } from '../shared/auth.js';
 import { esc as _esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local; byte-identical)
 
