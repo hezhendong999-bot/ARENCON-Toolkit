@@ -1688,6 +1688,12 @@ async function _syncHeartbeat(){
   if(_syncLock || _heartbeatRunning) return;
   if(!_csHubMode || !_csProjectId || typeof CloudSync==='undefined' || !CloudSync.isInitialized) return;
   if(!navigator.onLine) return;
+  /* S618 — CADENCE. Pause while the tab is hidden and stretch the beat once
+     nobody has typed for a while; snap straight back on return or on any
+     keystroke. A device holding UNSENT work is exempt and keeps the full beat,
+     so backgrounding the app can never strand an inspector's edits. Decides
+     only WHEN to check — never what data wins. */
+  try{ if(window.ArcSyncCadence && !ArcSyncCadence.shouldTick({hasPendingWork: (typeof CloudSync!=='undefined' && CloudSync.hasPendingSync)})) return; }catch(_){ }
   _heartbeatRunning = true;
   try {
     /* S496 Phase 2 — THE 4TH HOST EDIT (missed in the first Phase 2 push, which

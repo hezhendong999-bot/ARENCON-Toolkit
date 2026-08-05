@@ -15,6 +15,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script type="module" src="lib/ui/photoInput.js"></script>  <!-- S492: THE shared photo surface -->
+<script src="lib/data/syncCadence.js"></script>  <!-- S618: pause hidden, back off idle -->
 <script src="lib/ui/updateReady.js"></script>  <!-- S617: "Update ready — tap to restart" pill -->
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
 <!-- S455: shared header chrome. The engine builds header DOM that needs these
@@ -1984,7 +1985,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S617';
+var ELEC_BUILD = 'S618';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -7598,6 +7599,12 @@ async function _syncHeartbeat(){
   if(_syncLock || _heartbeatRunning) return;
   if(!_csHubMode || !_csProjectId || typeof CloudSync==='undefined' || !CloudSync.isInitialized) return;
   if(!navigator.onLine) return;
+  /* S618 — CADENCE. Pause while the tab is hidden and stretch the beat once
+     nobody has typed for a while; snap straight back on return or on any
+     keystroke. A device holding UNSENT work is exempt and keeps the full beat,
+     so backgrounding the app can never strand an inspector's edits. Decides
+     only WHEN to check — never what data wins. */
+  try{ if(window.ArcSyncCadence && !ArcSyncCadence.shouldTick({hasPendingWork: (typeof CloudSync!=='undefined' && CloudSync.hasPendingSync)})) return; }catch(_){ }
   _heartbeatRunning = true;
   try {
     /* S567 — the shared engine owns the heartbeat now. heartbeatTick() does,
