@@ -512,10 +512,18 @@ function _exmRefreshPhotoCount(){
     : (incl===tot ? ('All '+tot+' photo'+(tot===1?'':'s')+' will print')
                   : (incl+' of '+tot+' photos will print'));
 }
+/* S616c — the companion set: photos a person has explicitly put BACK IN.
+   _appendixExcl alone could only ever say "out", so a restore was
+   indistinguishable from never having been touched and lost every merge
+   against another device's exclusion. Kept as a separate set rather than
+   reshaping _appendixExcl, because every reader in this file — the eligibility
+   filter, the counts, the tile painter — is built around that set and is
+   field-proven. Nothing here changes what the PDF contains. */
+var _appendixIncl = new Set();
 function _ppxToggle(el){
   var k=el.getAttribute('data-k');
-  if(_appendixExcl.has(k)){ _appendixExcl.delete(k); el.style.opacity='1'; el.style.borderColor='#5F8068'; el.querySelector('.ppx-x').style.display='none'; }
-  else { _appendixExcl.add(k); el.style.opacity='.35'; el.style.borderColor='rgba(255,255,255,.15)'; el.querySelector('.ppx-x').style.display='flex'; }
+  if(_appendixExcl.has(k)){ _appendixExcl.delete(k); _appendixIncl.add(k); el.style.opacity='1'; el.style.borderColor='#5F8068'; el.querySelector('.ppx-x').style.display='none'; }
+  else { _appendixExcl.add(k); _appendixIncl.delete(k); el.style.opacity='.35'; el.style.borderColor='rgba(255,255,255,.15)'; el.querySelector('.ppx-x').style.display='flex'; }
   _ppxCounts();
   if(typeof debounceAutosave==='function') debounceAutosave();
 }

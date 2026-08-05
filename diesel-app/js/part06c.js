@@ -833,16 +833,42 @@ function _applyStateInPlace(jsonStr) {
       });
     }
     // Restore equipment checkboxes
-    if(s.equipChecked) {
-      var cbs = document.querySelectorAll('input[name="equip3a"]');
-      cbs.forEach(function(cb){ cb.checked = false; });
-      s.equipChecked.forEach(function(i){ if(cbs[i]) cbs[i].checked = true; });
-    }
-    if(s.equipChecked4b) {   // S321
+    /* S616c — prefer the identity-keyed answers. A report saved before this
+       build carries only the old POSITION list; it is converted here against
+       today's order, which is safe because that list of seven has never
+       changed in the tool's history (verified against every revision of the
+       shell). An id present in a save but no longer on screen is ignored
+       rather than guessed at. */
+    (function _restoreEquip(mapKey, legacyKey, sel){
+      var cbs = document.querySelectorAll(sel);
+      var map = s[mapKey];
+      if(map && typeof map === 'object' && !Array.isArray(map)){
+        cbs.forEach(function(cb,i){
+          var e = map[cb.value || ('pos'+i)];
+          cb.checked = !!(e && e.status === 'yes');
+        });
+        return;
+      }
+      if(Array.isArray(s[legacyKey])){
+        cbs.forEach(function(cb){ cb.checked = false; });
+        s[legacyKey].forEach(function(i){ if(cbs[i]) cbs[i].checked = true; });
+      }
+    })('equipState',   'equipChecked',   'input[name="equip3a"]');
+    (function _restoreEquip4b(){
       var cbs4 = document.querySelectorAll('input[name="equip4b"]');
-      cbs4.forEach(function(cb){ cb.checked = false; });
-      s.equipChecked4b.forEach(function(i){ if(cbs4[i]) cbs4[i].checked = true; });
-    }
+      var map = s.equipState4b;
+      if(map && typeof map === 'object' && !Array.isArray(map)){
+        cbs4.forEach(function(cb,i){
+          var e = map[cb.value || ('pos'+i)];
+          cb.checked = !!(e && e.status === 'yes');
+        });
+        return;
+      }
+      if(Array.isArray(s.equipChecked4b)){   // S321
+        cbs4.forEach(function(cb){ cb.checked = false; });
+        s.equipChecked4b.forEach(function(i){ if(cbs4[i]) cbs4[i].checked = true; });
+      }
+    })();
     // S321: rebuild pitot rows (idempotent — clear containers + counts first)
     if(s.pitotRows){
       ['3a','4b'].forEach(function(tab){
@@ -1638,11 +1664,37 @@ function collectState() {
   // no field; the load path treats a present testType as chosen (see below).
   var ttChosen = (typeof _ttChosen!=='undefined') ? !!_ttChosen : true;
   // Equipment checkboxes
-  const equipChecked = [];
-  document.querySelectorAll('input[name="equip3a"]').forEach(function(cb,i){ if(cb.checked) equipChecked.push(i); });
+  /* ═══ S616c — EQUIPMENT ANSWERS GET IDENTITIES ═══════════════════════════
+     These were stored as POSITIONS — "boxes 0, 3 and 5 are ticked" — with no
+     record of WHICH equipment that was. Two consequences, both silent:
+       • two inspectors in one report could not be reconciled, because a
+         position means nothing across devices, so one person's equipment
+         answers replaced the other's on whatever saved last;
+       • the day anyone edits or reorders that list, every saved report shifts
+         and reports equipment that was never used, with no error.
+     Each answer is now its own record — this item, this answer, this time —
+     the same shape the checklist uses, which the merge engine already
+     arbitrates correctly. An absent key means never answered; 'no' means
+     deliberately unticked and travels like any other answer.
+
+     The legacy position array is STILL WRITTEN, deliberately. A tablet on a
+     cached older build reads only that key, and would otherwise show a blank
+     equipment list on a report someone else had filled in. It is derived
+     output, never read back by this build (see the load path), so it cannot
+     fight the stamped map. Drop it once every device is confirmed current. */
+  const equipState = {}, equipChecked = [];
+  document.querySelectorAll('input[name="equip3a"]').forEach(function(cb,i){
+    var k = cb.value || ('pos'+i);
+    equipState[k] = { status: cb.checked ? 'yes' : 'no' };
+    if(cb.checked) equipChecked.push(i);
+  });
   // S321: the 7-pt tab's equipment was NEVER persisted
-  const equipChecked4b = [];
-  document.querySelectorAll('input[name="equip4b"]').forEach(function(cb,i){ if(cb.checked) equipChecked4b.push(i); });
+  const equipState4b = {}, equipChecked4b = [];
+  document.querySelectorAll('input[name="equip4b"]').forEach(function(cb,i){
+    var k = cb.value || ('pos'+i);
+    equipState4b[k] = { status: cb.checked ? 'yes' : 'no' };
+    if(cb.checked) equipChecked4b.push(i);
+  });
   // S321: pitot rows were NEVER persisted — readings lived only in the DOM
   const pitotRows = {};
   ['3a','4b'].forEach(function(tab){
@@ -1679,6 +1731,8 @@ function collectState() {
     npshPsiPld,
     equipChecked,
     equipChecked4b,
+    equipState,
+    equipState4b,
     pitotRows,
     customEquip,
     stdData: stdData.map(r=>({...r})),
@@ -1707,6 +1761,25 @@ function collectState() {
     formRevision,
     formDateModified,
     appendixExcluded: (typeof _appendixExcl!=='undefined') ? Array.from(_appendixExcl) : [],   // S315 F1
+    /* ═══ S616c — PUTTING A PHOTO BACK IN IS A DECISION, NOT AN ABSENCE ═════
+       The exclusions were already keyed to each photo's own id, so identity
+       was never the problem here. The problem was direction: only "excluded"
+       was ever recorded, so re-including a photo looked exactly like never
+       having touched it. Between two devices that made exclusion one-way —
+       once anyone dropped a photo from the appendix, nobody could restore it,
+       because their restore carried no evidence to beat the other device's
+       exclusion. Both answers are now recorded with the time they were made,
+       so the later decision wins whichever way it went.
+       Only photos a person has actually ruled on appear here; the map is not
+       pre-filled with every eligible photo. */
+    appendixState: (function(){
+      var out = {};
+      try {
+        if (typeof _appendixExcl !== 'undefined') _appendixExcl.forEach(function(k){ out[k] = { status:'out' }; });
+        if (typeof _appendixIncl !== 'undefined') _appendixIncl.forEach(function(k){ if(!out[k]) out[k] = { status:'in' }; });
+      } catch(_) {}
+      return out;
+    })(),
     distribution: [...distribution],   // S328: report recipients
     smState: JSON.parse(JSON.stringify(smState)),
     smCapVis: JSON.parse(JSON.stringify(smCapVis)),

@@ -947,7 +947,20 @@ function _applyLoadedState(raw) {
     raw = raw_final; // use embedded if present (save-as HTML)
     const s = JSON.parse(raw);
     if(typeof _normalizeAllPhotoDel==='function') _normalizeAllPhotoDel(s); // S354: migrate photo deletion flags to canonical model on load
-    if(Array.isArray(s.appendixExcluded) && typeof _appendixExcl!=='undefined'){ _appendixExcl = new Set(s.appendixExcluded); }   // S315 F1
+    /* S616c — prefer the per-photo decisions. Older reports carry only the
+       one-way exclusion list and are read exactly as before, so nothing about
+       an existing report changes on open. */
+    if(s.appendixState && typeof s.appendixState==='object' && !Array.isArray(s.appendixState) && typeof _appendixExcl!=='undefined'){
+      _appendixExcl = new Set();
+      if(typeof _appendixIncl!=='undefined') _appendixIncl = new Set();
+      Object.keys(s.appendixState).forEach(function(k){
+        var e = s.appendixState[k];
+        if(!e) return;
+        if(e.status==='out') _appendixExcl.add(k);
+        else if(e.status==='in' && typeof _appendixIncl!=='undefined') _appendixIncl.add(k);
+      });
+    }
+    else if(Array.isArray(s.appendixExcluded) && typeof _appendixExcl!=='undefined'){ _appendixExcl = new Set(s.appendixExcluded); }   // S315 F1
     // Project fields
     // S264 fix: when Hub-launched, the project IDENTITY fields (proj no / name /
     // client / address) are authoritative from the URL params and were set readOnly
@@ -1332,7 +1345,7 @@ window.addEventListener('load', () => {
             _ov.innerHTML='<div style="max-width:420px;background:#fff;border-radius:16px;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center;">'
               +'<div style="font-size:15px;font-weight:700;color:#9C2742;margin-bottom:10px;">Open this report from the Project Hub</div>'
               +'<div style="font-size:13px;line-height:1.5;color:#5E5B68;margin-bottom:18px;">This link is missing a specific report. To keep each inspector\u2019s report separate, open the Diesel report from its project in the Hub \u2014 pick an existing report or create a new one.</div>'
-              +'<a href="../ARENCON_Project_Hub.html" style="display:inline-block;background:#9C2742;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:10px 22px;border-radius:10px;">Go to Project Hub</a>'
+              +'<a href="ARENCON_Project_Hub.html" style="display:inline-block;background:#9C2742;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:10px 22px;border-radius:10px;">Go to Project Hub</a>'
               +'</div>';
             document.body.appendChild(_ov);
           }
