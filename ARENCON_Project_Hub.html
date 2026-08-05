@@ -40,7 +40,33 @@ body.dark-mode{
   --navy:#0f1318;--navy-mid:#1e2533;--navy-light:#2a3040;
   --shadow:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 6px rgba(0,0,0,.25);--shadow-lg:0 10px 25px rgba(0,0,0,.3);
   --arencon-light:#2D1520;--arencon-glow:rgba(156,39,66,.15);
+  /* S623 (Mark, field-reported: Review Client Names and Help & guide still
+     white on a dark board). ROOT CAUSE — these tokens were declared ONCE and
+     never flipped, so anything using them as a SURFACE could never go dark.
+     --white is the whole story for both complaints: Review Client Names paints
+     its flag boxes, series chips and group heads with it, and helpPanel.css
+     paints every help card, tab and search box with it. That file's own header
+     states the assumption out loud — custom properties inherit through the
+     shadow boundary so "light/dark theming tracks automatically" — which is
+     true for --fg, --card, --border, and false for exactly the token it uses
+     as its background. One declaration, two sections, same fault.
+     The pale status fills flip to low-alpha tints of their own accent, and
+     their paired text tokens flip with them: a dark-green word on a dark-green
+     tint would be worse than the white box it replaced. Values are the Bold
+     Dark column of the design system, not new invention. Brand burgundy is
+     deliberately NOT here — it stays put in both modes. */
+  --white:#1e2533;
+  --yes:#3FD08A;--yes-bg:rgba(63,208,138,.13);
+  --no:#E26076;--no-bg:rgba(226,96,118,.13);
+  --warn:#E0A36A;--warn-bg:rgba(224,163,106,.13);
+  --na:#a09aa8;--na-bg:rgba(160,154,168,.14);
+  --red:#E26076;
 }
+/* S623: two rules fill SOLIDLY with an accent and write white on top. The
+   accents get brighter in dark mode, so white-on-bright reads badly — these
+   take dark ink instead, per the Bold convention for a bright accent fill. */
+body.dark-mode .stat-click.on{color:#1B1A22}
+body.dark-mode .notif-btn.ok{color:#1B1A22}
 
 /* ═══ HEADER ═══ */
 .hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);display:flex;align-items:center;padding:10px 16px;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);min-width:0;}
@@ -628,7 +654,7 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
    rename modal: admin's own projects change now, other PMs get a request. ═══ */
 .rcn-sum{font-size:calc(12.8px + var(--ts));color:var(--steel);line-height:1.6;margin-bottom:14px}
 .rcn-sum b{color:var(--fg)}
-.rcn-clean{display:flex;align-items:center;gap:9px;padding:16px;background:var(--yes-bg);border:1px solid var(--yes);border-radius:var(--radius);color:#14603a;font-size:calc(13px + var(--ts));font-weight:600}
+.rcn-clean{display:flex;align-items:center;gap:9px;padding:16px;background:var(--yes-bg);border:1px solid var(--yes);border-radius:var(--radius);color:var(--yes);font-size:calc(13px + var(--ts));font-weight:600}
 .rcn-flag{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;background:var(--white)}
 .rcn-flag.pending{opacity:.85;background:var(--bg)}
 .rcn-fhead{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--bg);border-bottom:1px solid var(--border);cursor:pointer;min-height:44px}
@@ -8853,7 +8879,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S622';
+const HUB_BUILD = 'S623';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
