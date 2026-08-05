@@ -15,6 +15,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script type="module" src="lib/ui/photoInput.js"></script>  <!-- S492: THE shared photo surface -->
+<script src="lib/ui/updateReady.js"></script>  <!-- S617: "Update ready — tap to restart" pill -->
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
 <!-- S455: shared header chrome. The engine builds header DOM that needs these
      styles; the s455-header-override block (after the inline styles) neutralizes
@@ -1983,7 +1984,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S616b';
+var ELEC_BUILD = 'S617';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -8853,6 +8854,8 @@ function applyTextSize(size){
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js')  /* S461f: sw-electric.js never existed (404 every boot) — the root sw.js is the toolkit worker */.then(function(r){
+    /* S617 — "Update ready — tap to restart" (same module as Diesel). */
+    try{ if(window.ArcUpdateReady) ArcUpdateReady.init(r); }catch(_){ }
     console.log('[SW] Registered:', r.scope);
   }).catch(function(e){
     console.log('[SW] Not available (offline caching disabled)');

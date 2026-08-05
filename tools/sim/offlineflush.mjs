@@ -40,7 +40,7 @@ global.fetch=w.fetch=function(url,opts){url=String(url);const m=((opts&&opts.met
   return jr([]);};
 w.localStorage.setItem('sb-access-token','tok');w.localStorage.setItem('sb-refresh-token','ref');
 w.localStorage.setItem('arencon-device-id','sim-and');global.DIESEL_BUILD=w.DIESEL_BUILD='SIM';
-const screen={stdData:[{pct:'100%',discharge:'150',_ts:1785720000000}],volatile:String(Math.random())};
+const screen={stdData:[{pct:'100%',discharge:'150',_ts:1785720000000}],npshPsi:'',volatile:String(Math.random())};
 w._collectCloudState=()=>{screen.volatile=String(Math.random());return JSON.parse(JSON.stringify(screen));};
 await import(pathToFileURL(path.join(ROOT,'diesel-sync.js')).href);
 const CS=w.CloudSync;
@@ -50,9 +50,11 @@ await new Promise(r=>setTimeout(r,60));
 await CS.heartbeatTick(); await new Promise(r=>setTimeout(r,80));   // baseline pull
 /* airplane mode: edit + save locally */
 online=false;
-screen.stdData[0].discharge='777'; screen.stdData[0]._ts=Date.now();
+const tEdit=Date.now();
+screen.stdData[0].discharge='777'; screen.stdData[0]._ts=tEdit;
+screen.npshPsi='55';   /* S617 — a value the ENGINE stamps, not the screen */
 await CS.save(JSON.stringify(w._collectCloudState()));
-await new Promise(r=>setTimeout(r,60));
+await new Promise(r=>setTimeout(r,600));   /* offline dwell: any flush-time stamp is now ≥600ms late */
 const before=patches;
 /* back online: cloud UNCHANGED; beats must flush without any external help */
 online=true;
@@ -60,4 +62,16 @@ for(let i=0;i<4&&patches===before;i++){await CS.heartbeatTick();await new Promis
 const cd=cloud.data&&cloud.data.stdData&&cloud.data.stdData[0]&&cloud.data.stdData[0].discharge;
 const pass=patches>before&&String(cd)==='777';
 console.log(`  ${pass?'PASS':'FAIL'}  offline work pushes on the first online beat, cloud untouched  — pushes:${patches-before}, cloud:${cd}`);
-process.exit(TARGET==='live'?(pass?9:0):(pass?0:1));
+/* ═══ S617 — THE STAMP MUST CARRY THE MOMENT OF THE EDIT, NOT THE FLUSH ════
+   Field failure (Mark, 05 Aug): a value typed OFFLINE was stamped when it
+   finally SENT, so it wrongly beat a value another device typed later. The
+   engine's stamping pass only ran on the online push path; the offline branch
+   exited before it, so the edit's true time was never recorded. The value
+   above was typed at tEdit and sent ≥600ms later — a stamp within 250ms of
+   tEdit can only have been minted at edit time. */
+const rootFts=cloud.data&&cloud.data._fts&&cloud.data._fts._root||{};
+const stampAge=(rootFts.npshPsi||0)-tEdit;
+const pass2=rootFts.npshPsi>0&&stampAge>=0&&stampAge<250;
+console.log(`  ${pass2?'PASS':'FAIL'}  offline edit is stamped at EDIT time, not flush time  — stamp ${rootFts.npshPsi?stampAge+'ms after the edit':'MISSING'}`);
+const allPass=pass&&pass2;
+process.exit(TARGET==='live'?(allPass?9:0):(allPass?0:1));

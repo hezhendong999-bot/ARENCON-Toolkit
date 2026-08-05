@@ -750,7 +750,14 @@ const CloudSync = (function () {
         bgIfMatch: engine.lastSeenUpdatedAt || null
       });
     }
-    if (!_netUp()) { _setStatus('offline', 'Saved locally (offline)'); _settleRetry(); return null; }   // S584
+    if (!_netUp()) {
+      _setStatus('offline', 'Saved locally (offline)');
+      /* S617 — mirror of Diesel's fix: an offline edit must carry the moment
+         it was TYPED. Without this, its stamp was minted at first online
+         flush and wrongly beat values other devices typed later. */
+      try { if (engine && typeof engine.stampLocal === 'function') await engine.stampLocal(); } catch (_) {}
+      _settleRetry(); return null;
+    }   // S584
     if (alreadyPushed) return null;
     try {
       const _allow = await _wipeGateAllows(stateJson);

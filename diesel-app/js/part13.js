@@ -7,6 +7,11 @@
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('../sw.js').then(function(reg){
+      /* S617 — "Update ready — tap to restart". Updates already install in
+         the background; this is the missing last step: tell the person, let
+         THEM choose the moment. nudge:false — this file's own interval below
+         already checks. */
+      try{ if(window.ArcUpdateReady) ArcUpdateReady.init(reg, {nudge:false}); }catch(_){ }
       setInterval(function(){
         // reg.update() throws InvalidStateError mid-install/activate — guard +
         // swallow so a transient state never surfaces as an uncaught rejection.

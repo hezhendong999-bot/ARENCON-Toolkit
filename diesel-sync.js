@@ -1010,7 +1010,17 @@ const CloudSync = (function () {
         bgIfMatch: engine.lastSeenUpdatedAt || null
       });
     }
-    if (!_netUp()) { _setStatus('offline', 'Saved locally (offline)'); _settleRetry(); return null; }   // S584: live OS read, never the stale event latch
+    if (!_netUp()) {
+      _setStatus('offline', 'Saved locally (offline)');
+      /* S617 — this early exit is where an offline edit LOST ITS TIME: the
+         engine (and its stamping pass) was never reached, so the value was
+         only stamped at the first online flush — and wrongly beat values other
+         devices typed later (Mark's 50-vs-30 NPSH failure, 05 Aug). Stamp the
+         edit's true moment now; no network is touched. Awaited so the ledger
+         is pinned before this save resolves. */
+      try { if (engine && typeof engine.stampLocal === 'function') await engine.stampLocal(); } catch (_) {}
+      _settleRetry(); return null;
+    }   // S584: live OS read, never the stale event latch
     if (alreadyPushed) return null;
     /* ── S571 — CHANGE JOURNAL, STAGE THREE (second half) ────────────────────
      * A save whose shape matches a wipe now stops at the CLOUD DOOR and asks a

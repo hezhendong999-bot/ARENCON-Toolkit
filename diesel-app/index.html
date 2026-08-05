@@ -63,6 +63,7 @@
 <script src="../lib/calc/pumpCurve.js"></script>
 <script src="../lib/calc/curveData.js"></script>
 <script src="../lib/ui/markupTools.js"></script>
+<script src="../lib/ui/updateReady.js"></script>  <!-- S617: "Update ready — tap to restart" pill -->
 <script src="../lib/ui/markupEraser.js"></script>
 <script src="../lib/ui/markupSelection.js"></script>
 <script src="../lib/ui/markupText.js"></script>
@@ -361,13 +362,13 @@ window.__buildPhotoHrefs = buildPhotoHrefs;
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
         <div id="equip-grid-3a" class="ts-eq">
-          <label><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
-          <label><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
-          <label><input type="checkbox" name="equip3a"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
-          <label><input type="checkbox" name="equip3a"> 2" pitotless nozzle LHM</label>
-          <label><input type="checkbox" name="equip3a"> 2" pitotless nozzle OA</label>
-          <label><input type="checkbox" name="equip3a"> 1-3/4" pitotless nozzle LHM</label>
-          <label><input type="checkbox" name="equip3a"> 1-3/4" pitotless nozzle OA</label>
+          <label><input type="checkbox" name="equip3a" value="hm25-n25"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
+          <label><input type="checkbox" name="equip3a" value="hm25-n175"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
+          <label><input type="checkbox" name="equip3a" value="hm25-n118"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
+          <label><input type="checkbox" name="equip3a" value="pn2-lhm"> 2" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip3a" value="pn2-oa"> 2" pitotless nozzle OA</label>
+          <label><input type="checkbox" name="equip3a" value="pn175-lhm"> 1-3/4" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip3a" value="pn175-oa"> 1-3/4" pitotless nozzle OA</label>
           <div id="equip-custom-3a"></div>
         </div>
         <button onclick="addCustomEquip('3a')" class="btn btn-outline btn-sm" style="margin-top:8px;">+ More</button>
@@ -529,13 +530,13 @@ window.__buildPhotoHrefs = buildPhotoHrefs;
 
         <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
         <div id="equip-grid-4b" class="ts-eq">
-          <label><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
-          <label><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
-          <label><input type="checkbox" name="equip4b"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
-          <label><input type="checkbox" name="equip4b"> 2" pitotless nozzle LHM</label>
-          <label><input type="checkbox" name="equip4b"> 2" pitotless nozzle OA</label>
-          <label><input type="checkbox" name="equip4b"> 1-3/4" pitotless nozzle LHM</label>
-          <label><input type="checkbox" name="equip4b"> 1-3/4" pitotless nozzle OA</label>
+          <label><input type="checkbox" name="equip4b" value="hm25-n25"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
+          <label><input type="checkbox" name="equip4b" value="hm25-n175"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
+          <label><input type="checkbox" name="equip4b" value="hm25-n118"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
+          <label><input type="checkbox" name="equip4b" value="pn2-lhm"> 2" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip4b" value="pn2-oa"> 2" pitotless nozzle OA</label>
+          <label><input type="checkbox" name="equip4b" value="pn175-lhm"> 1-3/4" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip4b" value="pn175-oa"> 1-3/4" pitotless nozzle OA</label>
           <div id="equip-custom-4b"></div>
         </div>
         <button onclick="addCustomEquip('4b')" class="btn btn-outline btn-sm" style="margin-top:8px;">+ More</button>
