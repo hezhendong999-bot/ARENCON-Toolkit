@@ -37,6 +37,22 @@ USAGE
   python3 gate.py --old live/frt.css --new work/frt.css
   python3 gate.py --old live/x.js  --new work/x.js  --kill "_oldFn,legacyThing"
 
+  Working on a scratch copy outside the checkout (the normal pattern)? Name the
+  file so the gate can prove your base is live:
+
+  python3 gate.py --old live/part14.js --new work/part14.js \
+                  --path diesel-app/js/part14.js
+
+THE BASE MUST BE LIVE (S622c)
+─────────────────────────────
+Every protected-symbol check below reads --old. Point it at a stale copy and
+protection inherits that staleness — a symbol missing from the base was never in
+the diff, so nothing fires. That is not theory: S610 rebuilt lib/data/sync.js
+from a pre-push copy, silently dropped Lane A's S608 work, and reported ZERO
+removals. The gate now fetches the file from live HEAD and refuses to run if
+--old does not match it, byte for byte. PAT (or GITHUB_TOKEN) in the
+environment. --no-live skips the check and says so in the transcript.
+
 Exit 0 = safe to push.  Exit 1 = BLOCKED.
 """
 
@@ -209,6 +225,60 @@ def literal_present(entry, text):
     return False
 
 
+def _git_root(start):
+    """Nearest ancestor directory containing .git, or None."""
+    import os
+    d = os.path.abspath(start if os.path.isdir(start) else os.path.dirname(start) or '.')
+    while True:
+        if os.path.isdir(os.path.join(d, '.git')):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
+
+
+def _repo_rel(path):
+    """Repo-relative POSIX path for a file inside the working tree, else None."""
+    import os
+    root = _git_root(path)
+    if not root:
+        return None
+    ap = os.path.abspath(path)
+    if not ap.startswith(root + os.sep):
+        return None
+    return os.path.relpath(ap, root).replace(os.sep, '/')
+
+
+def fetch_live(repo_path, ref='main',
+               repo='hezhendong999-bot/ARENCON-Toolkit'):
+    """The file as it exists at live HEAD, as text.
+
+    Returns (text, status) where status is one of:
+      'ok'        — fetched
+      'absent'    — 404: the file does not exist at HEAD (a genuinely new file)
+      'nopat'     — no PAT in the environment
+      'neterr:…'  — anything else
+    """
+    import os
+    pat = os.environ.get('PAT') or os.environ.get('GITHUB_TOKEN')
+    if not pat:
+        return None, 'nopat'
+    import urllib.request, urllib.error
+    url = f'https://api.github.com/repos/{repo}/contents/{repo_path}?ref={ref}'
+    rq = urllib.request.Request(url)
+    rq.add_header('Authorization', 'Bearer ' + pat)
+    rq.add_header('Accept', 'application/vnd.github.raw')
+    try:
+        return urllib.request.urlopen(rq, timeout=30).read().decode('utf-8', 'replace'), 'ok'
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None, 'absent'
+        return None, f'neterr:HTTP {e.code}'
+    except Exception as e:                                   # noqa: BLE001
+        return None, 'neterr:' + str(e)[:80]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--old', required=True, help='live file (pre-edit)')
@@ -224,10 +294,81 @@ def main():
                     help='frt.css only: LIVE frt/index.html (proves ?v= state)')
     ap.add_argument('--htmlnew', default='',
                     help='frt.css only: EDITED frt/index.html (proves ?v= bump)')
+    ap.add_argument('--no-live', dest='no_live', action='store_true',
+                    help='GATE HOLE #3 ESCAPE HATCH. Skip verifying --old against '
+                         'live HEAD. Every protected-symbol check reads --old, so '
+                         'skipping this makes protection inherit whatever staleness '
+                         '--old carries. Visible in the transcript on purpose.')
+    ap.add_argument('--ref', default='main', help='ref to verify --old against')
+    ap.add_argument('--path', default='',
+                    help='repo-relative path of the file being gated, e.g. '
+                         'diesel-app/js/part14.js. Needed when --new is a scratch '
+                         'copy outside the checkout (the normal working pattern) — '
+                         'it is what lets the gate prove --old is live.')
     a = ap.parse_args()
 
     old = open(a.old, encoding='utf-8', errors='replace').read()
     new = open(a.new, encoding='utf-8', errors='replace').read()
+
+    # ── GATE HOLE #3 (S610 → found S612 → closed S622c) ──────────────────────
+    # S610 rebuilt lib/data/sync.js from a copy taken BEFORE the S608 push and
+    # gated against that copy. Lane A's work was silently dropped and the gate
+    # reported ZERO removals — correctly, by its own lights: every protected
+    # check below reads --old, so a symbol missing from a stale base was never
+    # in the diff, and protection never fired. PROTECTION INHERITS THE STALENESS
+    # OF WHATEVER BASE YOU POINT AT.
+    #
+    # The handoff called for an absolute presence check on the file being
+    # pushed. That needs to know which file owns each manifest entry, and the
+    # manifest is global — so it either needs a schema change Mark owns, or an
+    # ownership guess. Both patch the symptom. The cause is simpler and has one
+    # cure: THE BASE MUST BE PROVED LIVE. With --old byte-identical to HEAD,
+    # every existing check — the diff path AND the literal fallback — becomes
+    # sound with no new logic and no manifest change.
+    #
+    # "A paragraph in a handoff is not a mechanism." Neither is a warning:
+    # people learn to scroll past those. This BLOCKS, and the only way past is
+    # --no-live, which lands in the transcript where Mark can see it.
+    if not a.no_live:
+        _rel = a.path.strip().lstrip('./') or _repo_rel(a.new)
+        if _rel is None:
+            print(f"── {a.new}")
+            print("\n   ✗✗ BLOCKED — cannot verify the base against live HEAD.")
+            print(f"   --new ({a.new}) is a scratch copy outside the checkout, so the")
+            print("   gate has no repo path to compare --old against. That is fine and")
+            print("   normal — just name the file:")
+            print(f"\n       --path <repo/relative/path>   e.g. --path frt/js/app.js")
+            print("\n   Or pass --no-live and say why in the transcript. Do not skip it")
+            print("   quietly: every protected-symbol check below reads --old.")
+            return 1
+        _live, _st = fetch_live(_rel, a.ref)
+        if _st == 'ok':
+            if _live != old:
+                print(f"── {a.new}")
+                print("\n   ✗✗ BLOCKED — --old IS NOT LIVE HEAD.")
+                print(f"   {a.old}")
+                print(f"   differs from {_rel} at {a.ref}. Every protected-symbol check")
+                print("   below reads --old, so gating against this base would inherit")
+                print("   its staleness and silently pass a revert of someone else's")
+                print("   work. This is exactly how S610 dropped Lane A's S608 engine")
+                print("   work with a clean 'zero removals' report.")
+                print("\n   Re-fetch the file from live HEAD, re-apply your edits on top")
+                print("   of it, and run again. Do not force, and do not --no-live your")
+                print("   way past a base you know is behind.")
+                return 1
+            print(f"   base verified against live {a.ref} ✓")
+        elif _st == 'absent':
+            print(f"   note: {_rel} does not exist at live {a.ref} — treating as a NEW file.")
+        else:
+            print(f"── {a.new}")
+            print(f"\n   ✗✗ BLOCKED — could not reach live HEAD to verify the base ({_st}).")
+            if _st == 'nopat':
+                print("   Set PAT in the environment, or pass --no-live and say why.")
+            else:
+                print("   Retry, or pass --no-live and say why in the transcript.")
+            print("   An unverified base is the S610 failure waiting to happen; the")
+            print("   gate refuses rather than reporting a confidence it does not have.")
+            return 1
 
     # ── frt.css ?v= GATE (S497) ──
     # S496 pushed frt.css three times with CACHE_NAME bumped but frt.css?v=
