@@ -211,9 +211,17 @@ for (const sc of scalarNames) {
      only come from this device's ledger. Field-proven fault: every contested
      scalar reported a local stamp of ZERO on all three of Mark's devices, so
      newer local typing lost to any stamped cloud value. */
-  r = ENG._lwwReplay(sc, 'mine-newer', 'cloud-older', undefined,
-                     { cloud: { [sc]: T_OLD }, ledger: { [sc]: T_NEW } });
-  chk({name:sc},'sL ledger    ', r.merged === 'mine-newer', `got ${JSON.stringify(r.merged)}`);
+  /* S621 A — an unpushed local edit (differs from last-seen snapshot) must not
+     be overwritten by the cloud just because this device's ledger has not
+     caught up yet. Mark's "AD 12, IP right after → 12 won everywhere". */
+  r = ENG._lwwReplay(sc, 'just-typed', 'cloud-val', 'was-this',
+                     { cloud: { [sc]: T_NEW }, ledger: { [sc]: T_OLD } });
+  chk({name:sc},'sD dirty-win ', r.merged === 'just-typed', `got ${JSON.stringify(r.merged)}`);
+  /* S621 B — when this device keeps its own value, the push MUST re-arm, or
+     the cloud sits on the loser forever. Mark's offline 125555 stranded on IP
+     while the cloud kept 55. */
+  chk({name:sc},'sR re-arms   ', !!(r.stats && r.stats.keptLocalNewer > 0),
+      `stats ${JSON.stringify(r.stats)}`);
 }
 /* fieldMaps: per-key arbitration. A key this device never loaded must not
    erase the value another device typed into it. */
