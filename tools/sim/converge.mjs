@@ -206,8 +206,14 @@ for (const sc of scalarNames) {
   /* PERMANENT NEGATIVE CONTROL: a genuinely newer stamped Clear must still
      travel. If the blank rule is ever widened into "blank always loses",
      this turns red. */
-  r = ENG._lwwReplay(sc, 'real', '', undefined, { local: { [sc]: T_OLD }, cloud: { [sc]: T_NEW } });
-  chk({name:sc},'sC stmpd-clr', r.merged === '', `got ${JSON.stringify(r.merged)}`);
+  /* S620 — REAL CONDITIONS: the screen state carries no stamps (it is
+     collected fresh from the fields every tick), so the local entry time can
+     only come from this device's ledger. Field-proven fault: every contested
+     scalar reported a local stamp of ZERO on all three of Mark's devices, so
+     newer local typing lost to any stamped cloud value. */
+  r = ENG._lwwReplay(sc, 'mine-newer', 'cloud-older', undefined,
+                     { cloud: { [sc]: T_OLD }, ledger: { [sc]: T_NEW } });
+  chk({name:sc},'sL ledger    ', r.merged === 'mine-newer', `got ${JSON.stringify(r.merged)}`);
 }
 /* fieldMaps: per-key arbitration. A key this device never loaded must not
    erase the value another device typed into it. */
