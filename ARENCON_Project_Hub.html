@@ -749,7 +749,13 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
 .modal-actions .dash-btn{min-width:100px;justify-content:center}
 
 /* ═══ TOAST ═══ */
-.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(8px);padding:11px 24px;border-radius:10px;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:#fff;z-index:300;opacity:0;transition:all .3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+/* S621: z-index raised ABOVE the shared dialog engine's host (2147483000).
+   At 300 the toast rendered UNDERNEATH an open panel's frosted backdrop and
+   was blurred by it — 'Project number and name are required' was on screen
+   and physically unreadable. Not contrast, not font size: the panel was
+   blurring the message. Every message raised while a panel is open was
+   affected. */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(8px);padding:11px 24px;border-radius:10px;font-weight:600;font-size:calc(13px + var(--ts));font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:#fff;z-index:2147483100;opacity:0;transition:all .3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.2)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.success{background:#059669}
 .toast.error{background:#DC2626}
@@ -3902,7 +3908,15 @@ function openEditProjectModal() {
   if (_epApi) return;
   var _pr = null;
   D.panel({
-    title: 'Edit Project', icon: '\u270e', accent: 'slate', width: 480, dismissable: false,
+    /* S621 (Mark, field-reported): the X IS BACK. S518 removed it to stop Esc
+       and X closing silently and bypassing the S493 unsaved-changes guard —
+       right instinct, wrong execution: it deleted the button instead of making
+       the button behave, leaving Edit Project the only panel in the Hub with no
+       way to close it from the corner. onDismiss (engine 1.3.0) routes X and Esc
+       through the SAME guarded close that Cancel uses, so the X is back AND the
+       3-button dialog still fires whenever closing would lose typed work. */
+    title: 'Edit Project', icon: '\u270e', accent: 'slate', width: 480,
+    onDismiss: function () { closeEditProjectModal(); },
     buttons: [
       { label: 'Cancel', kind: 'cancel', onClick: function () { closeEditProjectModal(); return false; } },
       { label: 'Save Changes', kind: 'primary', onClick: function () { saveEditProject(); return false; } }
@@ -3938,6 +3952,14 @@ function openEditProjectModal() {
   _dq('ep-name').value = proj.project_name || '';
   _dq('ep-client').value = proj.client || '';
   _dq('ep-address').value = proj.address || '';
+  /* S621: the staff list is filled ON OPEN. It used to be filled once at
+     sign-in by loadUserMap() — at which point this panel does not exist,
+     because the shared engine builds panels on open and tears them down on
+     close. The fill found nothing, skipped silently, and never ran again, so
+     the dropdown held only its placeholder forever. Same fault family as the
+     PIN crash and the header leak: sign-in-time code reaching for markup that
+     now only exists while a panel is up. */
+  try { _populatePMDropdowns(); } catch(e){ console.warn('[Hub] PM list fill failed:', e); }
   _dq('ep-pm').value = proj.project_manager || '';
   // S493: snapshot what the form opened with, so Cancel can tell edited from
   // untouched and only interrupt when something would actually be lost.
@@ -5020,9 +5042,16 @@ function openNewProjectModal() {
   _dq('np-address').value = '';
   // S495 (Mark, S489): PM defaults to whoever creates the project — that is who
   // it belongs to until someone says otherwise. Still editable here and later.
+  /* S621: fill on open — see the note in the Edit Project panel. */
+  try { _populatePMDropdowns(); } catch(e){ console.warn('[Hub] PM list fill failed:', e); }
   var _npPm = _dq('np-pm');
   _npPm.value = (_profile && _profile.id) ? _profile.id : '';
-  if (_npPm.value && _npPm.selectedIndex < 0) _npPm.value = '';
+  /* S621: the guard checked .value, but a browser handed a value with no
+     matching option reports value as EMPTY and index -1. So the guard's own
+     condition was false exactly when it was needed, the reset never ran, and
+     the box rendered BLANK — not even "— Select —". Index is the only honest
+     test for "nothing is selected". */
+  if (_npPm.selectedIndex < 0) _npPm.value = '';
   var _npSug = _dq('np-client-suggest');
   if (_npSug) { _npSug.style.display = 'none'; _npSug.innerHTML = ''; }
   var _npDup = _dq('np-dupe-warn');
@@ -6914,6 +6943,19 @@ window.addEventListener('storage', function (ev) {
 
 function applyDark(on) {
   document.body.classList.toggle('dark-mode', on);
+  /* S621 THEME BRIDGE — THE DIALOG ENGINE. Every shared panel in the Hub
+     rendered LIGHT on a dark board: New Project, Edit Project, Profile, Change
+     Role, Client Rename, Notification Review, Reset Password. Not a missing
+     reskin — the engine ships Bold Light AND Bold Dark with the approved
+     tokens, and decides between them by reading documentElement[data-theme].
+     The Hub only ever set body.dark-mode, so the engine resolved 'light' every
+     time and its dark skin had never once been seen.
+     Diesel hit this exact fault and fixed it at S497 with this exact line; the
+     Hub never received it. The old header engine mirrored to <html> for its
+     hosts — headerEngine2 does not, so every tool migrated to it lost the
+     mirror silently. The engine watches this attribute, so live flips follow. */
+  try { document.documentElement.setAttribute('data-theme', on ? 'dark' : 'light'); }
+  catch(e){ console.warn('[Hub] dialog theme mirror failed:', e); }
   // S492 THEME BRIDGE. The Hub owns the mode (ARENCON_Dark + body.dark-mode);
   // the shared header MIRRORS it. Never the other way round — wired backwards,
   // the header's own memory and the page's memory drift apart and the button
@@ -8811,7 +8853,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S621';
+const HUB_BUILD = 'S622';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
