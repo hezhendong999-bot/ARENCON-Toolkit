@@ -1873,9 +1873,19 @@ function setupKeyboardShortcuts() {
 function _showLoginScreen(){
   var el = document.getElementById('login-screen');
   if (el) el.style.display = 'flex';
+  else console.error('[Hub] login-screen missing — cannot present sign-in');
   var hh = document.getElementById('hub-header');           /* S492: no header while signed out */
   if (hh) hh.style.display = 'none';
-  else console.error('[Hub] login-screen missing — cannot present sign-in');
+  /* S620 — showApp() does BOTH halves: hides the login screen and reveals the
+     app. This did only half the reverse; it never hid the app. Invisible on a
+     cold load because the app starts hidden, but any mid-session sign-out left
+     the sign-in card stacked on top of a fully rendered, fully STALE project
+     page that still looked live and clickable.
+     (The console.error above was also mis-wired: it hung off the header lookup
+     while reporting a missing login screen, so the one condition worth shouting
+     about could never report itself.) */
+  var aw = document.getElementById('app-wrap');
+  if (aw) aw.style.display = 'none';
 }
 
 async function tryRestoreSession() {
@@ -1884,32 +1894,38 @@ async function tryRestoreSession() {
     _showLoginScreen();
     return;
   }
-  // Try getUser first
-  try {
-    const user = await _sb.auth.getUser();
-    if (user && user.id) {
-      _user = user;
-      await loadProfile();
-      showApp();
-      return;
-    }
-  } catch (e) {
-    console.warn('[Hub] getUser failed:', e.message || e);
+  /* S620 — THE GUARD COVERS THE AUTH CALL ONLY.
+     It used to wrap the success path too (loadProfile + showApp), so ANY crash
+     while starting the app was caught and reported as "getUser failed", and the
+     Hub then fell through and presented the sign-in screen to someone who was
+     correctly signed in. That is exactly what happened: a null-element crash in
+     the PIN code was read as an expired session for weeks.
+     Auth outcome and startup outcome are now separate questions. If auth
+     succeeds we NEVER fall through to the login screen; a startup fault is
+     logged loudly, with its real stack, under its real name. */
+  var user = null;
+  try { user = await _sb.auth.getUser(); }
+  catch (e) { console.warn('[Hub] getUser failed:', e.message || e); }
+  if (user && user.id) {
+    _user = user;
+    try { await loadProfile(); showApp(); }
+    catch (e) { console.error('[Hub] signed in, but the app failed to start:', e); }
+    return;
   }
   // Try refresh session independently
-  try {
-    const refreshed = await _sb.auth.refreshSession();
-    if (refreshed) {
-      const user2 = await _sb.auth.getUser();
-      if (user2 && user2.id) {
-        _user = user2;
-        await loadProfile();
-        showApp();
-        return;
-      }
+  var refreshed = null;
+  try { refreshed = await _sb.auth.refreshSession(); }
+  catch (e) { console.warn('[Hub] refreshSession failed:', e.message || e); }
+  if (refreshed) {
+    var user2 = null;
+    try { user2 = await _sb.auth.getUser(); }
+    catch (e) { console.warn('[Hub] getUser after refresh failed:', e.message || e); }
+    if (user2 && user2.id) {
+      _user = user2;
+      try { await loadProfile(); showApp(); }
+      catch (e) { console.error('[Hub] signed in, but the app failed to start:', e); }
+      return;
     }
-  } catch (e) {
-    console.warn('[Hub] refreshSession failed:', e.message || e);
   }
   // Show login
   _showLoginScreen();
@@ -6983,16 +6999,29 @@ document.addEventListener('DOMContentLoaded', _injectModalX);
 
 /* ═══ Token refresh timer ═══ */
 var _refreshFailCount = 0;
-setInterval(async () => {
+var _refreshTimer = setInterval(async () => {
   if (_user && _sb) {
+    /* S620: being offline is not an expired session. Without this a machine
+       that lost its connection for 90 minutes would be signed out on the
+       strength of three network errors. */
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     try {
       var result = await _sb.auth.refreshSession();
       if (result) _refreshFailCount = 0;
       else _refreshFailCount++;
     } catch (e) { _refreshFailCount++; }
-    // After 3 consecutive failures, stop trying (token is dead)
+    /* S620 — THE WATCHDOG NOW ACTS. After 3 consecutive failures the token is
+       dead. This used to log a warning and keep looping every 30 minutes
+       forever, leaving a fully interactive Hub whose every write would fail:
+       stale project counts, stale report lists, stale storage figures, and no
+       indication anywhere on screen. A tab left open overnight looked perfectly
+       normal the next morning. It now stops, says so, and presents sign-in. */
     if (_refreshFailCount >= 3) {
-      console.warn('Token refresh failed 3x — session may be expired');
+      console.warn('[Hub] token refresh failed 3x — session expired, returning to sign-in');
+      clearInterval(_refreshTimer);
+      _user = null;
+      try { toast('Your session expired — please sign in again', 'error'); } catch (e) {}
+      try { _showLoginScreen(); } catch (e) {}
     }
   }
 }, 1800000); // 30 min
@@ -8488,8 +8517,17 @@ function _pgEscHtml(s) {
   var _pinSetupIsChange = false;
 
   function refreshPinUI() {
-    var hasPin = !!_pinHash;
+    /* S620 — ROOT CAUSE of the sign-in crash. This function paints the PIN block
+       that lives INSIDE the Profile panel. Since that panel moved to the shared
+       panel engine it is built on open and torn down on close, so none of these
+       elements exist while it is shut. The sign-in wrapper below called this
+       unconditionally, hit a null element, and threw — which aborted the rest of
+       that wrapper and left the INACTIVITY LOCK UNARMED on every sign-in.
+       There is nothing to paint when the panel is closed, and openProfileModal()
+       already calls this on open, so the correct behaviour is to do nothing. */
     var statusEl = _dq('pin-status-text');
+    if (!statusEl) return;
+    var hasPin = !!_pinHash;
     if (hasPin) {
       statusEl.innerHTML = '<span class="pin-active">✓ PIN is set (' + _pinDigitCount + ' digits)</span>';
     } else {
@@ -8588,11 +8626,16 @@ function _pgEscHtml(s) {
     } else {
       _pinHash = null;
     }
-    refreshPinUI();
+    /* S620 — ORDER IS LOAD-BEARING. Arming the lock now happens BEFORE any
+       painting, and the painting cannot abort it. Previously refreshPinUI() ran
+       first and threw, so the three calls below never executed and the Hub's
+       auto-lock silently stopped arming. A cosmetic fault must never be able to
+       switch off a security feature. */
     stampActivity();
     startInactivityChecker();
     // Check immediately in case returning to a stale tab
     checkInactivity();
+    try { refreshPinUI(); } catch (e) { console.warn('[Hub] PIN UI deferred:', e); }
   };
 
   // Refresh PIN UI when profile modal opens
@@ -8740,7 +8783,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S616';
+const HUB_BUILD = 'S620';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
