@@ -5181,7 +5181,7 @@ document.addEventListener('click', function(e) {
       _openHeights();
     }
     var mm = document.getElementById('dv-more-menu');
-    if (mm) mm.style.display = 'none';
+    if (mm) mm.classList.remove('open');   /* S622: the ⋯ menu opens by CLASS (shared engine, shadow root). An inline display:none here outranked that rule and could never be cleared — one tap on Field Heights killed the ⋯ menu for the whole session. */
     return;
   }
   if (e.target.closest && e.target.closest('#dv-heights-close')) {

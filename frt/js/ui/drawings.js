@@ -1155,7 +1155,18 @@ document.addEventListener('click', function(e) {
   Object.keys(panels).forEach(function(btnId) {
     if (trig.id === btnId) return;                 /* own panel: owner toggles it */
     var p = document.getElementById(panels[btnId]);
-    if (p) p.style.display = 'none';
+    if (!p) return;
+    /* S622 (Mark: "the 3 dot button doesn't work at all"). The ⋯ menu is the
+       SHARED header-engine dropdown and opens by CLASS — headerEngine2's
+       buildSharedMenu puts the panel in a shadow root behind
+       :host(.open) .menu{display:block}. An inline display:none written HERE
+       outranks that stylesheet rule and nothing ever clears it, so the FIRST
+       tap on Layers / Heights / Seal killed the ⋯ menu for the rest of the
+       session — taking Download Drawing, Markup Diagnostic, Tasks and the Pin
+       Write Log with it. Layers menu and the heights panel are still
+       inline-driven and keep the inline path. ONE NODE, ONE VOCABULARY. */
+    if (btnId === 'dv-more-btn') { p.classList.remove('open'); return; }
+    p.style.display = 'none';
   });
 }, true);
 
@@ -1229,7 +1240,7 @@ document.addEventListener('click', function(e) {
   var hit = e.target.closest && e.target.closest('[data-dv-action="redact"]');
   if (!hit) return;
   var mm = document.getElementById('dv-more-menu');
-  if (mm) mm.style.display = 'none';
+  if (mm) mm.classList.remove('open');   /* S622: class, never inline — see the exclusivity note above */
   _toggleSealEditMode();
   return;
   /* unreachable — kept so the old accessor comment survives below */
