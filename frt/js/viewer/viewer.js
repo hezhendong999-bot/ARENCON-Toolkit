@@ -1647,7 +1647,17 @@ function _renderPins() {
     var _proj = Model.getProject() || {};
     var _ui = _proj.ui || {};
     var _inspectorColors = _ui.inspectorColors || {};
-    var _showRings = !!_ui.showInspectorRings;
+    /* S623 — WHY THE RING NEVER APPEARED. Since S83 this read
+       proj.ui.inspectorColors, and NOTHING in any tool ever wrote that object.
+       The lookup always came back empty, ic was always null, _showRing was
+       therefore always false, and the ring could not render no matter what.
+       The engine was complete; the tap was never connected. Fall back to the
+       palette resolver, which derives a stable colour from the user id — the
+       same one the inspector's badge uses. A cached colour, if a future Hub
+       write ever provides one, still wins. */
+    var _showRings = (_ui.showInspectorRings !== undefined && _ui.showInspectorRings !== null)
+      ? !!_ui.showInspectorRings
+      : _defaultShowRings();          /* solo job → off; more than one inspector → on */
     // Per-device hidden list (populated from IDB state store during boot by app.js);
     // viewer consults a shared global if set. Default: none hidden.
     var _hiddenInspectors = (window._frtHiddenInspectors && window._frtHiddenInspectors.slice) ? window._frtHiddenInspectors : [];
@@ -1663,7 +1673,7 @@ function _renderPins() {
 
     var glPins = pins.map(function(d){
       var cb = d.defic.createdBy || null;
-      var ic = cb ? (_inspectorColors[cb] || null) : null;
+      var ic = cb ? (_inspectorColors[cb] || Model._inspectorColor(cb)) : null;
       var hidden = cb && _hiddenInspectors.indexOf(cb) !== -1;
       // S119: effective priority + status (max across obs / all-addressed)
       var effPri = Model.getEffectivePriority(d.defic);
@@ -5079,7 +5089,7 @@ document.addEventListener('click', function(e) {
     if (menu) {
       var opening = menu.style.display === 'none';
       menu.style.display = opening ? 'block' : 'none';
-      if (opening) _populateCtrHighlight();   // refresh roster each open
+      if (opening) { _populateCtrHighlight(); _populateInspectors(); }   // refresh roster each open
     }
     e.stopPropagation();
     return;
@@ -5125,6 +5135,29 @@ document.addEventListener('change', function(e) {
     var cid = e.target.value === '__all__' ? null : e.target.value;
     if (window.PinsGL && window.PinsGL.setHighlightContractor) window.PinsGL.setHighlightContractor(cid);
   }
+  /* S623 — inspector rings. Master lives on the PROJECT (everyone opening this
+     job sees the same default); the per-person hide list is per-device. */
+  if (e.target.id === 'dv-insp-master') {
+    var proj = Model.getProject();
+    if (proj) {
+      proj.ui = proj.ui || {};
+      proj.ui.showInspectorRings = !!e.target.checked;
+      /* touch(), not saveNow() — saveNow writes IDB only, and a field saved to
+         IDB without the dirty flag gets overwritten by the next cloud pull
+         (the S351b lesson). */
+      try { Model.touch(); } catch (_) {}
+    }
+    _renderPins();
+  }
+  if (e.target.classList && e.target.classList.contains('dv-insp-row')) {
+    var uid = e.target.getAttribute('data-uid');
+    var list = (window._frtHiddenInspectors || []).slice();
+    var at = list.indexOf(uid);
+    if (e.target.checked) { if (at !== -1) list.splice(at, 1); }
+    else if (at === -1) { list.push(uid); }
+    _saveHiddenInspectors(list);
+    _renderPins();
+  }
 });
 
 // Contractor Highlight Mode — populate radio rows from the LIVE roster each time
@@ -5153,6 +5186,88 @@ function _populateCtrHighlight() {
       + '<input type="radio" name="dv-ctr-highlight" value="' + c.id + '"' + (cur === c.id ? ' checked' : '') + '> '
       + '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:' + col + ';margin-right:6px;vertical-align:middle;"></span>'
       + (c.name || '') + '</label>';
+  });
+  rows.innerHTML = html;
+}
+
+/* ── S623: INSPECTOR RINGS in the SHOW popover ───────────────────────────────
+   Mirrors _populateCtrHighlight deliberately — same row class, same 44px touch
+   target, same rebuild-on-open so a roster change mid-session is picked up.
+   Difference: contractor highlight is a RADIO lens (one at a time, per-session),
+   inspectors are CHECKBOXES (hide any combination) because the field need is
+   "take Ian's pins off my sheet while I work", not "look at only Ian's".
+
+   The hidden list is PER-DEVICE and deliberately not synced: it is a view
+   preference about one person's screen, and pushing it through the sync engine
+   would let one inspector's tidying hide pins on somebody else's tablet. */
+function _inspHiddenKey() {
+  var p = Model.getProject() || {};
+  return 'frt_hidden_inspectors_' + (p.id || 'local');
+}
+function _loadHiddenInspectors() {
+  try {
+    var raw = localStorage.getItem(_inspHiddenKey());
+    window._frtHiddenInspectors = raw ? (JSON.parse(raw) || []) : [];
+  } catch (_) { window._frtHiddenInspectors = []; }
+  return window._frtHiddenInspectors;
+}
+function _saveHiddenInspectors(list) {
+  window._frtHiddenInspectors = list || [];
+  try { localStorage.setItem(_inspHiddenKey(), JSON.stringify(window._frtHiddenInspectors)); } catch (_) {}
+}
+
+/* Everyone who has actually placed a pin on THIS project, with their colour. */
+function _projectInspectors() {
+  var proj = Model.getProject() || {};
+  var seen = {}, out = [];
+  var scan = function(arr) {
+    (arr || []).forEach(function(d) {
+      var cb = d && d.createdBy;
+      if (!cb || seen[cb]) return;
+      seen[cb] = true;
+      var who = Model.resolveInspector(cb) || {};
+      out.push({
+        id: cb,
+        name: (who.name || '').trim() || who.initials || '\u2014',
+        color: who.color || Model._inspectorColor(cb)
+      });
+    });
+  };
+  /* BOTH pin arrays — the general bucket AND every contractor's list. Sweeping
+     only one is the recurring miss in this codebase. */
+  scan(proj.generalDeficiencies);
+  (proj.contractors || []).forEach(function(c) { scan(c && c.deficiencies); });
+  return out;
+}
+
+function _defaultShowRings() {
+  try { return _projectInspectors().length > 1; } catch (_) { return false; }
+}
+
+function _populateInspectors() {
+  var group = document.getElementById('dv-insp-group');
+  var rows  = document.getElementById('dv-insp-rows');
+  if (!group || !rows) return;
+  var people = _projectInspectors();
+  /* Solo job: nothing to attribute, so the whole group stays out of the way. */
+  if (people.length < 2) { group.style.display = 'none'; rows.innerHTML = ''; return; }
+  group.style.display = '';
+  var hidden = _loadHiddenInspectors();
+  var proj = Model.getProject() || {};
+  var ui = proj.ui || {};
+  var ringsOn = (ui.showInspectorRings !== undefined && ui.showInspectorRings !== null)
+    ? !!ui.showInspectorRings : true;
+  var me = Model.getCurrentUser();
+  var html = '<label class="dv-layer-row" style="min-height:44px;">'
+    + '<input type="checkbox" id="dv-insp-master"' + (ringsOn ? ' checked' : '') + '> Inspector rings</label>';
+  people.forEach(function(p) {
+    var on = hidden.indexOf(p.id) === -1;
+    html += '<label class="dv-layer-row" style="min-height:44px;">'
+      + '<input type="checkbox" class="dv-insp-row" data-uid="' + p.id + '"' + (on ? ' checked' : '') + '> '
+      + '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;'
+      + 'border:3px solid ' + p.color + ';margin-right:6px;vertical-align:middle;"></span>'
+      + p.name + (p.id === me ? ' <span style="opacity:.6;font-size:11px;">(you)</span>' : '')
+      + '</label>';
   });
   rows.innerHTML = html;
 }

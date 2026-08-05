@@ -512,6 +512,12 @@ function ensurePdfJs(cb){
           <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:6px;">HIGHLIGHT CONTRACTOR</div>
           <div id="dv-ctr-highlight-rows"></div>
         </div>
+        <!-- S623 (Mark): inspector attribution. Hidden entirely on a solo job —
+             nothing to attribute when one person placed every pin. -->
+        <div id="dv-insp-group" style="display:none;border-top:1px solid var(--hairline,rgba(0,0,0,.12));margin-top:8px;padding-top:8px;">
+          <div style="font-size:calc(11px + var(--ts));color:var(--steel);font-weight:700;margin-bottom:6px;">INSPECTORS</div>
+          <div id="dv-insp-rows"></div>
+        </div>
       </div>
     </div>
     <!-- Field Heights (promoted to toolbar — used often in field reviews).

@@ -525,6 +525,35 @@ export var CONTRACTOR_COLOR_PALETTE = [
   '#D2415C', '#8B6FE0', '#3E9E55', '#2C7FB8'
 ];
 
+/* S623 (Mark) — INSPECTOR RING PALETTE. Its own list, deliberately NOT the
+   contractor one.
+   Until now _inspectorColor() hashed into CONTRACTOR_COLOR_PALETTE, so an
+   inspector and a contractor could land on the same colour — and on a pin
+   showing both signals at once that is unreadable. Mark: "I feel like we
+   should have more distinct colours between the inspector badge and the
+   contractor colours ... for closed colour, it's not visible at all. Same for
+   the site records."
+   The ring is drawn as the outer teardrop with the body inset inside it
+   (pinsGL _drawPinAtNative), so the ring TOUCHES the body and must out-contrast
+   whatever colour that body happens to be. Every entry below was measured in
+   CIE L*a*b* against BOTH:
+     • all five pin body colours — high #A85959, low #B07F5A, closed/general
+       #5F8068, recommendation #5E5440, site record #6B6FA8   (worst ΔE 27.8)
+     • all eight CONTRACTOR_COLOR_PALETTE entries, because the contractor
+       highlight lens RECOLOURS the body to a contractor colour  (worst ΔE 26.0)
+   and against each other (closest pair ΔE 30.7). ΔE 25 is roughly where two
+   colours stop being separable at a glance on a busy drawing, so 26 is the
+   floor everything here clears.
+   Red and green hues are excluded on purpose: they already mean "high" and
+   "closed", and a ring in either reads as a status rather than a person.
+   RULE: adding an entry means re-running that check. A colour that looks fine
+   in a swatch can still vanish on one pin state — that is exactly the bug this
+   list was created to fix. */
+export var INSPECTOR_COLOR_PALETTE = [
+  '#E4E87D', '#99338B', '#49DADF', '#AD531F',
+  '#C99CAE', '#A38729', '#C78CD9', '#A5BF88'
+];
+
 /**
  * Pick the first unused color from CONTRACTOR_COLOR_PALETTE. If all 8
  * are already used by other contractors, cycle (palette repeats without
@@ -4684,8 +4713,12 @@ export var Model = {
     if (!userId) return null;
     var h = 0, s = String(userId);
     for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
-    var idx = Math.abs(h) % CONTRACTOR_COLOR_PALETTE.length;
-    return CONTRACTOR_COLOR_PALETTE[idx];
+    /* S623: INSPECTOR_COLOR_PALETTE, not the contractor one — see the note there.
+       Still hashed from the user id, so a person's colour is stable across every
+       project and device and the ring on a drawing always matches that person's
+       badge elsewhere in the tool. */
+    var idx = Math.abs(h) % INSPECTOR_COLOR_PALETTE.length;
+    return INSPECTOR_COLOR_PALETTE[idx];
   },
 
   _inspectorInitials: function(name) {
