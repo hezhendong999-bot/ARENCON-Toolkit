@@ -1332,7 +1332,7 @@ window.addEventListener('load', () => {
             _ov.innerHTML='<div style="max-width:420px;background:#fff;border-radius:16px;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center;">'
               +'<div style="font-size:15px;font-weight:700;color:#9C2742;margin-bottom:10px;">Open this report from the Project Hub</div>'
               +'<div style="font-size:13px;line-height:1.5;color:#5E5B68;margin-bottom:18px;">This link is missing a specific report. To keep each inspector\u2019s report separate, open the Diesel report from its project in the Hub \u2014 pick an existing report or create a new one.</div>'
-              +'<a href="ARENCON_Project_Hub.html" style="display:inline-block;background:#9C2742;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:10px 22px;border-radius:10px;">Go to Project Hub</a>'
+              +'<a href="../ARENCON_Project_Hub.html" style="display:inline-block;background:#9C2742;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:10px 22px;border-radius:10px;">Go to Project Hub</a>'
               +'</div>';
             document.body.appendChild(_ov);
           }

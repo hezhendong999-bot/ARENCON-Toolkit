@@ -132,7 +132,11 @@ function _doSignOut(){
     try{CloudSync.stopAutoSave();CloudSync.destroy();}catch(e){}
   }
   sessionStorage.setItem('ARENCON_signed_out','1');
-  window.location.href='ARENCON_Project_Hub.html';
+  /* S620 (Mark, field-reported — raised before and missed): the Hub sits at the
+     SITE ROOT, but this file runs from /diesel-app/, so a bare filename resolved
+     to /diesel-app/ARENCON_Project_Hub.html and every sign-out landed on a 404.
+     Every other Hub link in this app already had the ../; these two did not. */
+  window.location.href='../ARENCON_Project_Hub.html';
 }
 
 function signOutSession(){
