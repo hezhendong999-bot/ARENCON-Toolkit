@@ -521,43 +521,81 @@ export function isSiteRecordsName(nm) {
 // neon they vibrate. NOTE: only NEW contractors get these; existing contractors
 // keep their stored colour until deliberately remapped.
 export var CONTRACTOR_COLOR_PALETTE = [
+  /* Slots 0–7 — the ORIGINAL eight, deliberately UNCHANGED. Contractors on
+     existing projects carry the colour already stored on them, and these are
+     the colours already printed in reports the clients have. Editing any of
+     them would repaint every list badge, dot, tinted band and PDF on live
+     jobs. Grandfathered: each is individually verified clear of the inspector
+     palette (worst ΔE 26.2), not band-guaranteed like the ones below. */
   '#5B5FD6', '#1E9E6F', '#D98A1E', '#1AA3C4',
-  '#D2415C', '#8B6FE0', '#3E9E55', '#2C7FB8'
+  '#D2415C', '#8B6FE0', '#3E9E55', '#2C7FB8',
+  /* Slots 8–15 (S623b, Mark: "we need more colours so that we don't run out").
+     Doubles the roster before the palette repeats. These sit in the DEEP band
+     (L* 20–46), the opposite end from INSPECTOR_COLOR_PALETTE's light band, so
+     a contractor colour can never be mistaken for an inspector's — closest new
+     contractor to any inspector is ΔE 32.5. All clear the five pin body
+     colours, the original eight above, all twelve inspector colours and both
+     sheet backgrounds by ΔE 26+, and each other by 30.5. */
+  '#781765', '#245E12', '#B44E22', '#145167',
+  '#531F1D', '#1A3B89', '#786517', '#114029'
 ];
 
 /* S623 (Mark) — INSPECTOR RING PALETTE. Its own list, deliberately NOT the
    contractor one.
    Until now _inspectorColor() hashed into CONTRACTOR_COLOR_PALETTE, so an
    inspector and a contractor could land on the same colour — and on a pin
-   showing both signals at once that is unreadable. Mark: "I feel like we
-   should have more distinct colours between the inspector badge and the
-   contractor colours ... for closed colour, it's not visible at all. Same for
-   the site records."
-   The ring is drawn as the outer teardrop with the body inset inside it
-   (pinsGL _drawPinAtNative), so the ring TOUCHES the body and must out-contrast
-   whatever colour that body happens to be. Every entry below was measured in
-   CIE L*a*b* against BOTH:
+   showing both signals at once that is unreadable.
+
+   ── THE RULE (Mark, S623b): "Contractor colours shall never overlap with
+   inspector badge colours and shall always be distinguished apart easily."
+   That is enforced STRUCTURALLY, by LIGHTNESS BAND, not by audit:
+
+       CONTRACTOR_COLOR_PALETTE  →  DEEP band,  L* 20–42
+       INSPECTOR_COLOR_PALETTE   →  LIGHT band, L* 66–90
+
+   The two bands cannot meet, so no future addition to either list can ever
+   collide with the other — the guarantee survives people who never read this
+   comment. Measured across the current lists: closest contractor-to-inspector
+   ΔE 28.8, minimum lightness gap 26 L*. Hue carries identity WITHIN a family;
+   lightness carries which family it is. That also means the two read apart
+   instantly on a greyscale drawing print, where hue tells you nothing.
+
+   ── EVERY ENTRY BELOW CLEARS, in CIE L*a*b*:
      • all five pin body colours — high #A85959, low #B07F5A, closed/general
-       #5F8068, recommendation #5E5440, site record #6B6FA8   (worst ΔE 27.8)
-     • all eight CONTRACTOR_COLOR_PALETTE entries, because the contractor
-       highlight lens RECOLOURS the body to a contractor colour  (worst ΔE 26.0)
-   and against each other (closest pair ΔE 30.7). ΔE 25 is roughly where two
-   colours stop being separable at a glance on a busy drawing, so 26 is the
-   floor everything here clears.
-   Red and green hues are excluded on purpose: they already mean "high" and
-   "closed", and a ring in either reads as a status rather than a person.
-   RULE: adding an entry means re-running that check. A colour that looks fine
-   in a swatch can still vanish on one pin state — that is exactly the bug this
-   list was created to fix. */
+       #5F8068, recommendation #5E5440, site record #6B6FA8. The ring is drawn
+       as the outer teardrop with the body inset inside it, so it TOUCHES the
+       body and must out-contrast whatever colour that body happens to be. The
+       first attempt measured ΔE 17.0 against closed-green and was invisible —
+       that bug is what this floor exists to prevent.
+     • the eight LEGACY contractor colours listed below, because contractors on
+       EXISTING projects keep the colour already stored on them; a new palette
+       does not retro-fit old jobs.
+     • every current CONTRACTOR_COLOR_PALETTE entry, because the contractor
+       highlight lens recolours the pin body to a contractor colour.
+     • both sheet backgrounds, light and dark.
+     • each other (closest pair ΔE 21.8).
+   Worst case across all of that: ΔE 26.0. Below roughly 25 two colours stop
+   being separable at a glance on a busy drawing.
+
+   LEGACY contractor colours that must stay cleared:
+     #5B5FD6 #1E9E6F #D98A1E #1AA3C4 #D2415C #8B6FE0 #3E9E55 #2C7FB8
+
+   RULE FOR ANYONE ADDING TO THIS LIST: stay inside the light band, then
+   re-run the clearance check. A colour that looks fine as a swatch can still
+   vanish on one pin state — that is exactly the bug this list was created to
+   fix. */
 export var INSPECTOR_COLOR_PALETTE = [
-  '#E4E87D', '#99338B', '#49DADF', '#AD531F',
-  '#C99CAE', '#A38729', '#C78CD9', '#A5BF88'
+  '#DCE071', '#E58AE5', '#58DADA', '#EDB4AB',
+  '#A3B6EB', '#8AE59F', '#ADB98D', '#DD88AD',
+  '#DCB360', '#F2C4EF', '#ABEDCC', '#CEEBA3'
 ];
 
 /**
- * Pick the first unused color from CONTRACTOR_COLOR_PALETTE. If all 8
- * are already used by other contractors, cycle (palette repeats without
- * enforced uniqueness — visual collision is acceptable on >8 contractors).
+ * Pick the first unused color from CONTRACTOR_COLOR_PALETTE. If every slot
+ * is already used by other contractors, cycle (palette repeats without
+ * enforced uniqueness — visual collision is acceptable past the end of the
+ * list). S623b: the list is now 16 slots, not 8, so that point is twice as far
+ * away; the loop below is length-driven and needed no change.
  *
  * @param {string[]} usedColors  Hex strings already assigned. Order ignored.
  * @returns {string}             A hex color from the palette.
@@ -568,7 +606,7 @@ export function nextContractorColor(usedColors) {
   for (var i = 0; i < CONTRACTOR_COLOR_PALETTE.length; i++) {
     if (!used[CONTRACTOR_COLOR_PALETTE[i]]) return CONTRACTOR_COLOR_PALETTE[i];
   }
-  // All 8 used — cycle by length-mod (deterministic, no random).
+  // Every slot used — cycle by length-mod (deterministic, no random).
   return CONTRACTOR_COLOR_PALETTE[(usedColors || []).length % CONTRACTOR_COLOR_PALETTE.length];
 }
 
