@@ -270,7 +270,8 @@ function _buildToolbar() {
 
 var _markupActive = false;
 var _lbDisarmTool = null;   // F8 (S487h): set by _buildMarkupBar; disarms tool + clears chrome
-var _closeAfterPersist = false;   // S305-style: commit triggered by closing the lightbox
+var _closeAfterPersist = false;
+var _persistBusy = false;        /* S626: save in flight — close/save/nav blocked until it settles */   // S305-style: commit triggered by closing the lightbox
 var _markupBar = null;
 function _buildMarkupBar(overlay){
   if (_markupBar) return;
@@ -938,6 +939,13 @@ function _resolveOriginalSrc(p){
 
 
 function _saveMarkup(){
+  /* S626 (Diesel S303 pattern, ported): a save is a PROMISE IN FLIGHT — the
+     async cleanBlob → persist chain below can take seconds on a tablet. Until
+     now a second Esc / close-tap / save-tap during that window re-entered this
+     function against half-committed state. The shared (Diesel) lightbox has
+     blocked this since S303; FRT never did — the one real gap the S625
+     lightbox comparison found. */
+  if (_persistBusy){ toast('Still saving \u2014 one moment\u2026'); return; }
   // S354: persist when the strokes CHANGED since attach (including deletions, even
   // down to zero). The old guard used isDirty() (strokes.length>0), so deleting all
   // marks — or any delete where the result still differed — could skip persistence
@@ -961,6 +969,7 @@ function _saveMarkup(){
   // S347d: capture a GUARANTEED clean-original Blob from the engine's source image
   // (this.img, drawn under the strokes) — under never-bake this is THE stored
   // image (clean), not a fallback. We do NOT bake a marked binary anymore.
+  _persistBusy = true;
   window.MarkupEngine.cleanBlob().then(function(cleanBlob){
       var p = _photos[_idx]; if (!p){ _exitMarkupNoSave(); return; }
       // never-bake: the photo's stored image stays CLEAN. Strokes + frame are
@@ -979,10 +988,11 @@ function _saveMarkup(){
       // Persist + sync hook. cleanBlob is the durable original; strokes/frame are data.
       try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:cleanBlob,index:_idx,strokes:savedStrokes,cleanBlob:cleanBlob,mkFrame:_mkFrame}})); } catch(e){}
       try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); else if (Model && Model.saveNow) Model.saveNow(); } catch(_){}
+      _persistBusy = false;   /* S626: settled — the door unlocks */
       _exitMarkupNoSave();
       if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
       if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
-    }).catch(function(e){ _closeAfterPersist = false; _navAfterPersist = null; toast('Save failed: '+e.message, 'error'); /* stay in markup so strokes aren't lost */ });
+    }).catch(function(e){ _persistBusy = false; _closeAfterPersist = false; _navAfterPersist = null; toast('Save failed: '+e.message, 'error'); /* stay in markup so strokes aren't lost */ });
 }
 
 function _revertMarkup(){
@@ -1324,6 +1334,10 @@ function _open(photos, startIdx, opts) {
 }
 
 function _close() {
+  /* S626: a save already in flight owns the close — _closeAfterPersist will
+     finish it when the persist settles. A second close-tap here must not tear
+     the overlay down around a half-written save. */
+  if (_persistBusy){ _closeAfterPersist = true; toast('Still saving — one moment…'); return; }
   // Copy Diesel S305: closing the lightbox with unsaved strokes COMMITS them
   // first (bake + persist), then tears down — no silent discard. If clean, just close.
   if (_markupActive && window.MarkupEngine && window.MarkupEngine.hasChangesSinceAttach()){

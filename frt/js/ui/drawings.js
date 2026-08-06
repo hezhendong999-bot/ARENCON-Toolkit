@@ -830,10 +830,24 @@ function _renderSealMarkersInViewer() {
     el.style.left = (b.x * 100) + '%'; el.style.top = (b.y * 100) + '%';
     el.style.width = (b.w * 100) + '%'; el.style.height = (b.h * 100) + '%';
     /* Mark (S492): the viewer cover carries the SAME label the PDF prints —
-       "Seal redacted — refer to original issued drawing" — sized to the box
-       in SHEET space (like print), so what you see is what exports. */
-    var bw = b.w * W, bh = b.h * H;
-    var fs = Math.max(8, Math.min(bw / 12, bh / 2.6));
+       "Seal redacted — refer to original issued drawing".
+       S626 (Mark's console capture, 1490.04): the label was being sized in
+       SHEET space and then shrunk again by the zoom transform — his reading
+       showed an 8px font squeezed into a 3px-tall strip: present, invisible.
+       Size against the ON-SCREEN box instead (rect ÷ --seal-inv gives CSS px
+       before the counter-scale), floor in SCREEN pixels, and below the size
+       where text physically can't be read, drop the label entirely — a clean
+       blue cover beats an illegible smear. The PDF path is untouched and
+       still prints the full white labelled cover at any size. */
+    var _rect = layer.getBoundingClientRect();
+    var _sw = (_rect.width || W), _sh = (_rect.height || H);
+    var bwScr = b.w * _sw, bhScr = b.h * _sh;
+    var fsScr = Math.min(bwScr / 12, bhScr / 2.6);
+    var _inv = parseFloat(getComputedStyle(layer).getPropertyValue('--seal-inv')) || 1;
+    var fs = Math.max(9, fsScr) * _inv;   /* pre-multiply so the transform lands it at >=9 screen px */
+    var _labelHtml = (fsScr >= 6)
+      ? '<div class="seal-mark-label" style="font-size:' + fs.toFixed(2) + 'px;">Seal redacted \u2014 refer to original issued drawing</div>'
+      : '';
     /* S498c (Mark): edit chrome reworked to match the selection-box feel.
        — ✕ is a red round button FLOATING OUTSIDE the box (top-right corner,
          like the selection box's red ✕) so nothing inside can cover it.
@@ -846,7 +860,7 @@ function _renderSealMarkersInViewer() {
        All chrome counter-scales via --seal-inv so it holds constant screen
        size at any zoom. */
     var _dirs = ['nw','n','ne','e','se','s','sw','w'];
-    el.innerHTML = '<div class="seal-mark-label" style="font-size:' + fs + 'px;">Seal redacted \u2014 refer to original issued drawing</div>'
+    el.innerHTML = _labelHtml
       + (_sealEditMode
         ? '<button class="seal-del" data-seal-del="' + idx + '" title="Remove this cover">\u2715</button>'
           + '<button class="seal-all" data-seal-all="' + idx + '" title="Apply this cover to every page of this set">\u29C9 All pages</button>'
