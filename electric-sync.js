@@ -1108,6 +1108,11 @@ const CloudSync = (function () {
   function _updPill() {
     try {
       if (document.getElementById('arcUpdPill')) return;
+      /* S622e (Mark's screenshots, 06 Aug): the shared updateReady module and
+         this facade could each render a pill — two on screen at once. The
+         module already defers to this one; this one now defers back. One
+         pill per screen, whichever renders first. */
+      if (document.getElementById('arc-update-pill')) return;
       var p = document.createElement('button');
       p.id = 'arcUpdPill'; p.type = 'button';
       p.textContent = '\u2191 Update ready';
