@@ -979,8 +979,18 @@ function _applyLoadedState(raw) {
     });
     // Test type
     if (s.testType) {
+      /* S622c — THE PUMP-TYPE SELECTION DIED ON EVERY CLOUD LOAD. This path
+         only called setPumpTestType if a radio named "pump-test-type"
+         existed — a control extinct since the S582 button merge — so the
+         stored choice was never restored to the screen, the default button's
+         hard-coded 'on' class stayed lit, and the next autosave collected
+         'std' and pushed it with a fresh entry stamp, actively overwriting
+         the real choice on every device. tool_data_history for 06 Aug shows
+         it plainly: every save from every device left as 'std', stamp 0.
+         Restore unconditionally; the legacy radio write stays harmless. */
       const r = document.querySelector(`input[name="pump-test-type"][value="${s.testType}"]`);
-      if (r) { r.checked = true; setPumpTestType(s.testType); }
+      if (r) r.checked = true;
+      if (typeof setPumpTestType === 'function') setPumpTestType(s.testType);
       /* S582: saved reports count as chosen; only a new-era pre-choice save stays gated. */
       try{ _ttChosen = (s.ttChosen===false) ? false : true; if(typeof _ttApplyGate==='function') _ttApplyGate(); }catch(_e){}
     }

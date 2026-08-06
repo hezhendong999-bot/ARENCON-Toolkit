@@ -374,6 +374,36 @@ await settle(5);
 { const vals = {}; for (const n of ['AD','IP','PC']) vals[n] = (await get(n, 'proj') || {}).consultant; vals.cloud = (cloud.data.proj||{}).consultant;
   chk('E4 header blank does not wipe content (accepted trade-off intact)', Object.values(vals).every(v => v === 'Keep Me'), JSON.stringify(vals)); }
 
+/* E5 — S622c: THE SCENARIO THAT WOULD HAVE CAUGHT MARK'S RPM DRIFT.
+   Offline edit on a PROJECT-FIELD key (pm-rpm), reconnect into a moved
+   cloud. The S622 fieldMaps dirty-keep raised no kept-local flag, the
+   facade never reset the push dedupe, and the reconnect flush was
+   swallowed — the device sat ahead of the cloud forever. The original
+   battle ran offline scenarios only on npshPsi (which had the flag);
+   family × scenario coverage is now explicit. */
+await reset({ proj: { 'pm-rpm': '50' }, _fts: { proj: { 'pm-rpm': AGO(60) } } });
+await boot('AD', REPO, 'S622'); await boot('IP', REPO, 'S622'); await boot('PC', REPO, 'S622');
+await settle(2);
+await off('IP');
+await setDeep('AD', ['proj', 'pm-rpm'], '53'); await save('AD'); await settle(2);
+await sleep(250);
+await setDeep('IP', ['proj', 'pm-rpm'], '22233'); await save('IP');   // typed AFTER the 53, offline
+await on('IP');
+await settle(7);
+{ const vals = {}; for (const n of ['AD','IP','PC']) vals[n] = (await get(n, 'proj') || {})['pm-rpm']; vals.cloud = (cloud.data.proj||{})['pm-rpm'];
+  chk('E5 offline project-field edit propagates on reconnect (no drift)', Object.values(vals).every(v => String(v) === '22233'), JSON.stringify(vals)); }
+/* E6 — mid-typing pull on a project-field key (the Test-1 window, fieldMap flavour) */
+await reset({ proj: { 'pm-rpm': '10' }, _fts: { proj: { 'pm-rpm': AGO(60) } } });
+await boot('AD', REPO, 'S622'); await boot('IP', REPO, 'S622'); await boot('PC', REPO, 'S622');
+await settle(2);
+await setDeep('AD', ['proj', 'pm-rpm'], '33'); await save('AD'); await beat('IP');   // IP pulls the 33
+await setDeep('IP', ['proj', 'pm-rpm'], '20');                                        // typing AFTER the pull
+await beat('IP');                                                                     // heartbeat mid-typing
+await save('IP');
+await settle(6);
+{ const vals = {}; for (const n of ['AD','IP','PC']) vals[n] = (await get(n, 'proj') || {})['pm-rpm']; vals.cloud = (cloud.data.proj||{})['pm-rpm'];
+  chk('E6 project-field value typed after a pull still wins', Object.values(vals).every(v => String(v) === '20'), JSON.stringify(vals)); }
+
 /* ── GROUP F: signatures (statusMaps) under collision ─────────────────── */
 console.log('── F. Signatures under collision ──');
 /* F1: never-signed device colliding must not wipe a signature */

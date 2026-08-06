@@ -708,8 +708,17 @@ const CloudSync = (function () {
           if (_projectId) { try { await engine.pull(_projectId, engine.instanceId || _instanceId); _lastPullAt = Date.now(); } catch (_) {} }
           return save(_collectStateFn ? JSON.stringify(_collectStateFn()) : _lastSavedJson);
         })())
-          .then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); })
-          .catch(function () { _setStatus('pending', 'Saved locally'); });
+          .then(function (r) {
+            _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally');
+            /* S622c — the facade-level truth: a save that resolved WITHOUT a
+               cloud row while the device believes it is online is the drift
+               seed. Record it; the engine's push_result rows say why. */
+            try { if (!r && navigator.onLine && engine && engine.constructor) _diag('push_result', { outcome: 'save-resolved-null-online' }); } catch (_) {}
+          })
+          .catch(function (e) {
+            _setStatus('pending', 'Saved locally');
+            try { if (navigator.onLine) _diag('push_result', { outcome: 'save-threw-online', err: String(e && e.message || e).slice(0, 120) }); } catch (_) {}
+          });
       } else if (engine.isPending) {
         engine.flush().then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); });
       } else { _setStatus('synced', 'Online'); }
@@ -736,13 +745,37 @@ const CloudSync = (function () {
         if (!_collectStateFn) return;
         var now = JSON.stringify(_collectStateFn());
         _lastSavedJson = now;
-        _lastPushedJson = now;      // the cloud round-trip that produced this IS the confirmation
-        _pendingSince = null;
+        /* ═══ S622c — CONFIRMATION HONESTY (Mark's iPhone, 06 Aug: pm-rpm
+           22233 stranded for good). This baseline declared "the cloud
+           round-trip that produced this IS the confirmation" and advanced
+           the push dedupe + cleared the durable pending marker for WHATEVER
+           the merge applied. True when the merge applied cloud content —
+           false when the merge KEPT LOCAL VALUES the cloud does not have:
+           the device's own winning entry was recorded as already-on-the-
+           server, every later save deduped as sent, the wake flush skipped
+           it, and pendingPush:false was even persisted to the IDB cache —
+           zero pushes forever, drift surviving refresh. The dedupe's own
+           S524 header states the law: it advances only on a CONFIRMED push.
+           When the merge kept anything local, this device is AHEAD of the
+           cloud — nothing is confirmed. Baseline the local ledger, leave
+           the push dedupe and the unsent marker alone; the S604 re-arm
+           right after this pushes the winning state through the normal
+           If-Match path. The S600 anti-resurrection property is untouched:
+           a stale screen that LOST the merge kept nothing, confirms as
+           before, and still has nothing left to send. */
+        var _ahead = false;
+        try { _ahead = !!engine.lastPullKeptLocal; } catch (_) {}
+        if (!_ahead) {
+          _lastPushedJson = now;      // the cloud round-trip that produced this IS the confirmation
+          _pendingSince = null;
+        } else if (!_pendingSince) {
+          _pendingSince = new Date().toISOString();   // unsent work exists — keep it durable
+        }
         _cachePut(_cacheKey(), {
           state: now, projectId: _projectId, toolKey: _toolKey,
           instanceId: engine.instanceId || _instanceId,
           instanceNumber: engine.instanceNumber || _instanceNumber,
-          savedAt: new Date().toISOString(), pendingPush: false, pendingSince: null
+          savedAt: new Date().toISOString(), pendingPush: _ahead, pendingSince: _pendingSince
         });
       } catch (e) { console.warn('[DieselSync] re-baseline after cloud apply failed:', e && e.message); }
     };

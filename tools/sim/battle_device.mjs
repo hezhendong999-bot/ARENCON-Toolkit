@@ -76,8 +76,8 @@ for await (const line of rl) {
       await CS.heartbeatTick();
       await new Promise(r => setTimeout(r, m.settle || 130));
       send({ id: m.id, ok: true });
-    } else if (m.cmd === 'offline') { online = false; send({ id: m.id, ok: true }); }
-    else if (m.cmd === 'online')  { online = true;  send({ id: m.id, ok: true }); }
+    } else if (m.cmd === 'offline') { online = false; try { w.dispatchEvent(new w.Event('offline')); } catch (_) {} send({ id: m.id, ok: true }); }
+    else if (m.cmd === 'online')  { online = true;  try { w.dispatchEvent(new w.Event('online')); } catch (_) {} await new Promise(r => setTimeout(r, 250)); send({ id: m.id, ok: true }); }
     else if (m.cmd === 'get')     { send({ id: m.id, ok: true, screen: screen }); }
     else if (m.cmd === 'exit')    { send({ id: m.id, ok: true }); process.exit(0); }
     else send({ id: m.id, ok: false, err: 'unknown cmd' });

@@ -493,13 +493,24 @@ const CloudSync = (function () {
         if (!_collectStateFn) return;
         var now = JSON.stringify(_collectStateFn());
         _lastSavedJson = now;
-        _lastPushedJson = now;      // the cloud round-trip that produced this IS the confirmation
-        _pendingSince = null;
+        /* S622c — confirmation honesty, mirrored from Diesel (see the Diesel
+           facade for the full 06 Aug pm-rpm stranding account): the dedupe
+           advances and the unsent marker clears ONLY when the merge kept
+           nothing local. A device the merge left AHEAD of the cloud has
+           unconfirmed work; the S604 re-arm pushes it on the next beat. */
+        var _ahead = false;
+        try { _ahead = !!engine.lastPullKeptLocal; } catch (_) {}
+        if (!_ahead) {
+          _lastPushedJson = now;      // the cloud round-trip that produced this IS the confirmation
+          _pendingSince = null;
+        } else if (!_pendingSince) {
+          _pendingSince = new Date().toISOString();   // unsent work exists — keep it durable
+        }
         _cachePut(_cacheKey(), {
           state: now, projectId: _projectId, toolKey: _toolKey,
           instanceId: engine.instanceId || _instanceId,
           instanceNumber: engine.instanceNumber || _instanceNumber,
-          savedAt: new Date().toISOString(), pendingPush: false, pendingSince: null
+          savedAt: new Date().toISOString(), pendingPush: _ahead, pendingSince: _pendingSince
         });
       } catch (e) { console.warn('[ElectricSync] re-baseline after cloud apply failed:', e && e.message); }
     };
