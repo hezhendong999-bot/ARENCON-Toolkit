@@ -50,14 +50,21 @@ describe('S135 Phase 1a — contractor-scoped trade schema', () => {
   });
 
   describe('CONTRACTOR_COLOR_PALETTE', () => {
-    it('exports exactly 8 unique hex strings', () => {
-      expect(CONTRACTOR_COLOR_PALETTE).toHaveLength(8);
+    it('S623b: 16 unique hex slots, and slots 0-7 are the frozen original eight', () => {
+      expect(CONTRACTOR_COLOR_PALETTE).toHaveLength(16);
       const unique = new Set(CONTRACTOR_COLOR_PALETTE);
-      expect(unique.size).toBe(8);
-      // Every entry is a 7-char hex string
+      expect(unique.size).toBe(16);
       CONTRACTOR_COLOR_PALETTE.forEach(c => {
         expect(c).toMatch(/^#[0-9A-F]{6}$/i);
       });
+      // Slots 0-7 are GRANDFATHERED: contractors on live projects carry these
+      // stored colours and they are printed in client reports. If this
+      // assertion fails, someone edited a frozen slot — see
+      // LOCKED_INSPECTOR_ATTRIBUTION.md §3 before touching anything.
+      expect(CONTRACTOR_COLOR_PALETTE.slice(0, 8)).toEqual([
+        '#5B5FD6', '#1E9E6F', '#D98A1E', '#1AA3C4',
+        '#D2415C', '#8B6FE0', '#3E9E55', '#2C7FB8'
+      ]);
     });
   });
 
