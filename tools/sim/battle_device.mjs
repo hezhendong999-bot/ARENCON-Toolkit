@@ -75,6 +75,15 @@ for await (const line of rl) {
       CS.startAutoSave(w._collectCloudState, 1e9);
       await new Promise(r => setTimeout(r, 50));
       send({ id: m.id, ok: true });
+    } else if (m.cmd === 'load') {
+      /* S623 — a real session ALWAYS opens with a cloud load, and that pull is
+         the first round trip a device makes. Without it a simulated device
+         types its first value having never heard from the server, which no
+         inspector ever does. Additive command: existing harnesses that do not
+         send it behave exactly as before. */
+      await CS.load();
+      await new Promise(r => setTimeout(r, 80));
+      send({ id: m.id, ok: true });
     } else if (m.cmd === 'set') {
       deepSet(screen, m.path, m.value);
       send({ id: m.id, ok: true });
