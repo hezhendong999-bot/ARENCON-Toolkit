@@ -1585,23 +1585,24 @@ const CloudSync = (function () {
       });
   }
 
+  /* ═══ S622g — ONE UPDATE PILL IN THE TOOLKIT (Mark, 06 Aug, photographed:
+     two pills on screen at once, and this one sitting on top of the Prev/Next
+     footer — the exact corner S595 ruled out for this tool). This drew its
+     own pill in its own corner while lib/ui/updateReady.js drew another at
+     the top. Per the shared-engine rule the host does not keep a matching
+     copy: it DELETES its own and CALLS the engine, passing the apply path it
+     owns (restore point first, so the person lands back where they were).
+     Detection and apply stay here; the pixels belong to the engine. */
   function _updPill() {
     try {
-      if (document.getElementById('arcUpdPill')) return;
-      /* S622e (Mark's screenshots, 06 Aug): the shared updateReady module and
-         this facade could each render a pill — two on screen at once. The
-         module already defers to this one; this one now defers back. One
-         pill per screen, whichever renders first. */
-      if (document.getElementById('arc-update-pill')) return;
-      var p = document.createElement('button');
-      p.id = 'arcUpdPill'; p.type = 'button';
-      p.textContent = '\u2191 Update ready';
-      p.title = 'A newer version is installed. Tap to switch now — it will keep your place.';
-      p.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9500;background:rgba(46,158,114,.14);' +
-        'color:#2E9E72;border:1px solid rgba(46,158,114,.45);border-radius:999px;padding:8px 14px;' +
-        'font:600 12.5px Calibri,sans-serif;cursor:pointer;backdrop-filter:blur(8px);min-height:36px;';
-      p.addEventListener('click', function () { _updApply('user tapped'); });
-      document.body.appendChild(p);
+      var _eng = (typeof window !== 'undefined') ? window.ArcUpdateReady : null;
+      if (_eng && typeof _eng.show === 'function') {
+        _eng.show(function () { _updApply('user tapped'); });
+        return;
+      }
+      /* engine absent (a host that never loaded it) — stay silent rather than
+         reintroduce a second look; the update still applies on backgrounding,
+         on idle, and on the next open. */
     } catch (_) {}
   }
 
