@@ -1487,6 +1487,32 @@ function updateRevisionDisplay() {
   if(el2) el2.value = formDateModified;
 }
 var _autosaveTimer = null;
+/* ═══ S622k — TYPING SAVES; LEAVING A FIELD IS NOT A SAVE EVENT (Mark's four
+   T1 scenarios, 07 Aug — together they proved the mechanism in one sitting).
+   Rated Speed's own typing handler updated the chart but never triggered a
+   save; like ~90 other fields, it saved only when the browser fired the
+   leave-the-field event. Two consequences, both observed on-device:
+     • a field never left = a value that never reached the cloud at all
+       (his scenario 2: the iPhone's newer number invisible everywhere);
+     • the entry stamp minted at BLUR time, so whoever left their field LAST
+       won the race regardless of who TYPED last (his scenario 4).
+   One delegated listener now routes every keystroke in a report field into
+   the existing debounced autosave — the same keystroke-time stamp law the
+   flow rows have had since S594, applied to the whole report. Capture phase
+   so a field that stops propagation cannot opt out. Dialog and search
+   inputs are excluded; the debounce and the change-scoped push keep the
+   write volume identical to before. The ~90 inline handlers stay as they
+   are — redundant calls into a debounce cost nothing. */
+try {
+  document.addEventListener('input', function (e) {
+    var el = e && e.target;
+    if (!el || !el.matches) return;
+    if (!el.matches('input, textarea, select')) return;
+    if (el.closest('.dlg-backdrop, dialog, .help-panel, .modal, [data-nosave]')) return;
+    if (typeof debounceAutosave === 'function') debounceAutosave();
+  }, true);
+} catch (_) {}
+
 function debounceAutosave() {
   clearTimeout(_autosaveTimer);
   _autosaveTimer = setTimeout(() => {

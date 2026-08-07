@@ -589,3 +589,27 @@ body[data-ptype="std"] #perf-std .np-head .np-t,
 body.dark-mode[data-ptype="std"] #perf-std .np-head .np-t{ color:var(--m3)!important; }
 body[data-ptype="pld"] #perf-pld .np-head .np-t,
 body.dark-mode[data-ptype="pld"] #perf-pld .np-head .np-t{ color:var(--m7)!important; }
+
+/* ═══ S622k — CHART CARDS FOLLOW THE TYPE TOO (Mark, T5: "you forgot the flow
+   chart titles"). The curve cards and the Water Supply data card sit in an
+   independent section OUTSIDE the perf containers, so every earlier rule
+   walked right past them. Addressed by their own ids; the 3-pt charts wear
+   blue, the PLD charts purple, the shared data card follows whichever type
+   is active. Titles, icons and the header rule only — the plot area keeps
+   its own series colours, which carry engineering meaning. */
+body[data-ptype="std"] #fig-chart3pt .fig-hd .fig-t,
+body[data-ptype="std"] #fig-netChart3pt .fig-hd .fig-t,
+body[data-ptype="std"] #fig-chart3pt .fig-hd svg,
+body[data-ptype="std"] #fig-netChart3pt .fig-hd svg,
+body[data-ptype="std"] #wsd-card > .card-header,
+body[data-ptype="std"] #wsd-card > .card-header svg{ color:var(--m3)!important; }
+body[data-ptype="std"] #wsd-card > .card-header{ background:linear-gradient(var(--m3-bg), var(--m3-bg)), var(--b-chiphdr)!important; border-bottom:2px solid var(--m3)!important; }
+body[data-ptype="std"] #fig-chart3pt, body[data-ptype="std"] #fig-netChart3pt{ border-color:var(--m3-br)!important; box-shadow:inset 4px 0 0 var(--m3); }
+body[data-ptype="pld"] #fig-pldChart .fig-hd .fig-t,
+body[data-ptype="pld"] #fig-pldNetChart .fig-hd .fig-t,
+body[data-ptype="pld"] #fig-pldChart .fig-hd svg,
+body[data-ptype="pld"] #fig-pldNetChart .fig-hd svg,
+body[data-ptype="pld"] #wsd-card > .card-header,
+body[data-ptype="pld"] #wsd-card > .card-header svg{ color:var(--m7)!important; }
+body[data-ptype="pld"] #wsd-card > .card-header{ background:linear-gradient(var(--m7-bg), var(--m7-bg)), var(--b-chiphdr)!important; border-bottom:2px solid var(--m7)!important; }
+body[data-ptype="pld"] #fig-pldChart, body[data-ptype="pld"] #fig-pldNetChart{ border-color:var(--m7-br)!important; box-shadow:inset 4px 0 0 var(--m7); }
