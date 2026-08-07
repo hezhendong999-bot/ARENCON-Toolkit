@@ -1058,6 +1058,42 @@ const CloudSync = (function () {
      current tab and scroll position are saved first and restored on the way
      in, so the person lands exactly where they were. Unsent work is flushed
      before the reload either way. */
+  /* ═══ S622j — LOOK-NOW PULLS (Mark, 07 Aug field run). Two symptoms, one
+     cause: the heartbeat runs every ~60-75s, and nothing pulls at the exact
+     moments a person LOOKS. (a) A field held focused during a sync keeps its
+     typed value by design — but after blur, the reconciled value waited for
+     the next scheduled beat, so the screen sat stale for up to a cycle and
+     read as "stuck". (b) On the desktop, switching to the tab to check it is
+     precisely when the person expects freshness — and precisely when the
+     browser had been throttling the timer. Now: leaving a field, returning
+     to the tab, and focusing the window each trigger an immediate pull,
+     throttled to one per 3s, online only. Data decisions are untouched —
+     this only moves WHEN the screen catches up to them. */
+  var _lookPullAt = 0;
+  function _lookNowPull(why) {
+    try {
+      if (!navigator.onLine || !_projectId) return;
+      var t = Date.now();
+      if (t - _lookPullAt < 3000) return;
+      _lookPullAt = t;
+      engine.pull(_projectId, engine.instanceId || _instanceId)
+        .then(function () { _lastPullAt = Date.now(); })
+        .catch(function () {});
+    } catch (_) {}
+  }
+  try {
+    document.addEventListener('focusout', function (e) {
+      var el = e && e.target;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+        setTimeout(function () { _lookNowPull('blur'); }, 250);   // let the autosave stamp first
+      }
+    }, true);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') _lookNowPull('tab-visible');
+    });
+    window.addEventListener('focus', function () { _lookNowPull('window-focus'); });
+  } catch (_) {}
+
   var _updReady = false, _updApplied = false, _lastActivityAt = Date.now();
   try {
     ['pointerdown', 'keydown', 'input', 'touchstart'].forEach(function (evt) {

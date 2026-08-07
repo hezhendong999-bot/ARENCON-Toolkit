@@ -566,3 +566,26 @@ body[data-ptype="pld"] #perf-pld .card:first-of-type > .card-header::after{
   color:var(--m7); background:var(--m7-bg); border:1px solid var(--m7-br);
   border-radius:999px; padding:2px 10px; line-height:1.6;
 }
+
+/* ═══ S622j — COLOUR SECTIONING, MARK'S EXTENSION (07 Aug: "change all titles
+   in the flow chart itself — at each flow point — to purple or blue to match;
+   sub cards for flow points should match too"). The flow-point titles
+   (0% Flow / 25% Flow / …) and the placard subsection title now carry the
+   type colour. Deliberately STOPS there: titles and the existing rails only,
+   no tinting of the sub-card bodies — the working surface stays neutral so
+   readings and verdict chips keep their own meaning. */
+body[data-ptype="std"] #perf-std .fp-head .pt,
+body.dark-mode[data-ptype="std"] #perf-std .fp-head .pt{ color:var(--m3)!important; }
+body[data-ptype="pld"] #perf-pld .fp-head .pt,
+body.dark-mode[data-ptype="pld"] #perf-pld .fp-head .pt{ color:var(--m7)!important; }
+/* the small descriptor stays quiet — only the point name carries the colour */
+body[data-ptype="std"] #perf-std .fp-head .pt small,
+body[data-ptype="pld"] #perf-pld .fp-head .pt small{ color:var(--steel)!important; font-weight:400; }
+/* flow-point card edge joins the family rail */
+body[data-ptype="std"] #perf-std .fp-card{ border-color:var(--m3-br)!important; }
+body[data-ptype="pld"] #perf-pld .fp-card{ border-color:var(--m7-br)!important; }
+/* "⚙ Rated values read from the placard" — title follows the type */
+body[data-ptype="std"] #perf-std .np-head .np-t,
+body.dark-mode[data-ptype="std"] #perf-std .np-head .np-t{ color:var(--m3)!important; }
+body[data-ptype="pld"] #perf-pld .np-head .np-t,
+body.dark-mode[data-ptype="pld"] #perf-pld .np-head .np-t{ color:var(--m7)!important; }
