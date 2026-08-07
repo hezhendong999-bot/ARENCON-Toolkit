@@ -1745,11 +1745,22 @@ function collectState() {
     const el = document.getElementById(id);
     if (el) proj[id] = el.value;
   });
-  var testType = 'std';
+  /* ═══ S622i — A DEFAULT THE PERSON NEVER CHOSE MUST NEVER LEAVE THE DEVICE
+     (Mark's B2, 06 Aug: pick 7-Point on PC, sync to the phone, hard-refresh
+     PC — and BOTH devices were back on 3-Point). The kill chain: if the boot
+     restore fails to relight the buttons for any reason, this collect used to
+     fall back to 'std', the engine saw 'std' vs the ledger's 'pld', minted it
+     as a fresh entry, and the fabricated default beat the real choice on
+     every device. The skeleton rule (S622, statusMaps) applies to this scalar
+     too: no button lit and no choice made → the save simply OMITS testType,
+     and absence never deletes — the cloud's real choice survives no matter
+     what state this device's screen is in. */
+  var testType;
   document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) testType=b.dataset.ptype; });
   // S582: whether a person has actually chosen the test type. Legacy saves have
   // no field; the load path treats a present testType as chosen (see below).
   var ttChosen = (typeof _ttChosen!=='undefined') ? !!_ttChosen : true;
+  if (testType === undefined) ttChosen = undefined;   // unset ships as absent, not as a claim
   // Equipment checkboxes
   /* ═══ S616c — EQUIPMENT ANSWERS GET IDENTITIES ═══════════════════════════
      These were stored as POSITIONS — "boxes 0, 3 and 5 are ticked" — with no

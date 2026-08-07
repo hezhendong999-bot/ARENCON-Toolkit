@@ -519,3 +519,50 @@ body[data-ptype="pld"] #perf-pld input:focus{ border-color:var(--ty); }
 @media(max-width:600px){
   .pump-type-btns.tt-locked .ts-mode.on::after{ top:auto; bottom:11px; right:12px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   S622i — COLOUR SECTIONING, TAKE 2 (Mark, on-device: "not obvious enough —
+   overwritten somewhat by the Bold skin"). He was right about the mechanism:
+   the Bold skin paints every .card-header with !important, so the S622g tint
+   silently lost everywhere except the left rail. This block supersedes with
+   matching force. Still Level 2 — no saturated panels — but now the identity
+   actually lands: every card header inside the section carries the type's
+   ink and wash, the header icons follow, and the section's first card wears
+   a small type chip so the mode is named, not just tinted, at any scroll
+   depth. Burgundy elsewhere is untouched.
+   ═══════════════════════════════════════════════════════════════════════ */
+body[data-ptype="std"] #perf-std .card-header,
+body.dark-mode[data-ptype="std"] #perf-std .card-header{
+  background:linear-gradient(var(--m3-bg), var(--m3-bg)), var(--b-chiphdr)!important;
+  color:var(--m3)!important;
+  border-bottom:2px solid var(--m3)!important;
+}
+body[data-ptype="std"] #perf-std .card-header svg,
+body.dark-mode[data-ptype="std"] #perf-std .card-header svg{ color:var(--m3)!important; }
+body[data-ptype="pld"] #perf-pld .card-header,
+body.dark-mode[data-ptype="pld"] #perf-pld .card-header{
+  background:linear-gradient(var(--m7-bg), var(--m7-bg)), var(--b-chiphdr)!important;
+  color:var(--m7)!important;
+  border-bottom:2px solid var(--m7)!important;
+}
+body[data-ptype="pld"] #perf-pld .card-header svg,
+body.dark-mode[data-ptype="pld"] #perf-pld .card-header svg{ color:var(--m7)!important; }
+
+/* every card in the section carries the rail (S622g targeted direct children
+   only; wrappers made some cards miss it) */
+body[data-ptype="std"] #perf-std .card{ border-color:var(--m3-br)!important; box-shadow:inset 4px 0 0 var(--m3); }
+body[data-ptype="pld"] #perf-pld .card{ border-color:var(--m7-br)!important; box-shadow:inset 4px 0 0 var(--m7); }
+
+/* the mode is NAMED once per section — a small chip on the first card */
+body[data-ptype="std"] #perf-std .card:first-of-type > .card-header::after{
+  content:"3-POINT";
+  margin-left:auto; font-size:calc(10px + var(--ts)); font-weight:700; letter-spacing:.5px;
+  color:var(--m3); background:var(--m3-bg); border:1px solid var(--m3-br);
+  border-radius:999px; padding:2px 10px; line-height:1.6;
+}
+body[data-ptype="pld"] #perf-pld .card:first-of-type > .card-header::after{
+  content:"7-POINT PLD";
+  margin-left:auto; font-size:calc(10px + var(--ts)); font-weight:700; letter-spacing:.5px;
+  color:var(--m7); background:var(--m7-bg); border:1px solid var(--m7-br);
+  border-radius:999px; padding:2px 10px; line-height:1.6;
+}

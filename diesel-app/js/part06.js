@@ -1495,7 +1495,7 @@ document.addEventListener('input', function(e) {
      that survives, because that is literally what the number records. */
   if(tbl === 'std') {
     stdData[idx][field] = el.value;
-    if (stdData[idx]) stdData[idx]._ts = Date.now();
+    if (stdData[idx]) stdData[idx]._ts = (window.ArcSyncNow ? window.ArcSyncNow() : Date.now());   // S622i: server-anchored
     updateStdCalcCells(idx);
     if(['flow','suction','discharge','cutsheet'].includes(field)) {
       clearTimeout(stdChartTimer);
@@ -1503,7 +1503,7 @@ document.addEventListener('input', function(e) {
     }
   } else if(tbl === 'pld') {
     pldData[idx][field] = el.value;
-    if (pldData[idx]) pldData[idx]._ts = Date.now();   // S594: entry-time stamp
+    if (pldData[idx]) pldData[idx]._ts = (window.ArcSyncNow ? window.ArcSyncNow() : Date.now());   // S594 entry-time, S622i server-anchored
     updatePldCalcCells(idx);
     // Debounce chart updates so rapid typing doesn't freeze
     clearTimeout(pldChartTimer);

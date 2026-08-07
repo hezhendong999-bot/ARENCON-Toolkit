@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608070420';
+var CACHE_NAME = 'arencon-frt-202608070529';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -249,7 +249,18 @@ self.addEventListener('install', function(e) {
         });
       });
       var appPromises = APP_FILES.map(function(url) {
-        return cache.add(url).catch(function(err) {
+        /* ═══ S622i — PRECACHE MUST BYPASS THE HTTP CACHE (Mark's PC, 06 Aug:
+           "Update ready" survived three taps and countless reloads, then fixed
+           itself "after a while"). cache.add() fetches through the normal HTTP
+           cache, and GitHub Pages serves assets with a ~10-minute CDN lifetime,
+           so a brand-new worker could fill its brand-new cache with OLD file
+           bodies. The pill honestly said an update existed; tapping it reloaded
+           the same old app out of the "new" cache until the CDN expired.
+           cache:'reload' forces every precached body to come from the origin. */
+        return fetch(new Request(url, { cache: 'reload' })).then(function(resp) {
+          if (!resp || !resp.ok) throw new Error('HTTP ' + (resp && resp.status));
+          return cache.put(url, resp);
+        }).catch(function(err) {
           console.warn('[SW] Failed to cache:', url, err);
         });
       });

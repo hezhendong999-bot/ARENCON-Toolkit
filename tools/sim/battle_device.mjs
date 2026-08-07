@@ -17,7 +17,17 @@ const BASE = process.env.CLOUD_BASE;            // http://127.0.0.1:PORT
 const DEV  = process.env.DEVICE_ID || 'dev-x';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'https://arencon.app/' });
-const w = dom.window; global.window = w; global.document = w.document;
+const w = dom.window;
+/* S622i skew probe: CLOCK_SKEW_MS biases THIS device's Date.now, exactly like
+   a tablet whose wall clock runs ahead. The engine under test must neutralize
+   it via server-anchored minting. */
+const _SKEW = parseInt(process.env.CLOCK_SKEW_MS || '0', 10) || 0;
+if (_SKEW) {
+  const _realNow = Date.now.bind(Date);
+  const _biased = () => _realNow() + _SKEW;
+  Date.now = _biased;
+  try { w.Date.now = _biased; } catch (_) {}
+} global.window = w; global.document = w.document;
 let online = true;
 Object.defineProperty(w.navigator, 'onLine', { get: () => online, configurable: true });
 Object.defineProperty(global, 'navigator', { value: w.navigator, configurable: true });
@@ -76,6 +86,7 @@ for await (const line of rl) {
       await CS.heartbeatTick();
       await new Promise(r => setTimeout(r, m.settle || 130));
       send({ id: m.id, ok: true });
+    } else if (m.cmd === 'dbg') { send({ id: m.id, ok: true, offset: (typeof w.__arcSvrOffset === 'undefined' ? 'never-learned' : w.__arcSvrOffset), skew: _SKEW });
     } else if (m.cmd === 'offline') { online = false; try { w.dispatchEvent(new w.Event('offline')); } catch (_) {} send({ id: m.id, ok: true }); }
     else if (m.cmd === 'online')  { online = true;  try { w.dispatchEvent(new w.Event('online')); } catch (_) {} await new Promise(r => setTimeout(r, 250)); send({ id: m.id, ok: true }); }
     else if (m.cmd === 'get')     { send({ id: m.id, ok: true, screen: screen }); }
