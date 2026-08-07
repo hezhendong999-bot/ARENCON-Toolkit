@@ -459,55 +459,68 @@ body.dark-mode{ --m3:#46C5E8; --m3-bg:rgba(70,197,232,.12); --m3-br:rgba(70,197,
   --unset:#E0A36A; --unset-bg:rgba(224,163,106,.14); --unset-br:rgba(224,163,106,.42); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   S622g — PUMP-TYPE COLOUR SECTIONING (Level 2, Mark-approved 06 Aug) + the
-   HARD-LOCK affordance.
+   S622m — PUMP-TYPE COLOUR: ONE RULE (Mark, 07 Aug: "there is no consistency
+   with these cards — some with blue band on left, some with a different shade
+   of background. Stop patching and make them universal.")
 
-   Mark, on the first prototype: "not obvious enough — a bit more than just a
-   band in the header." So the identity is carried across the whole section,
-   not hung off one edge: a full-height rail on the card, a tinted header, a
-   soft wash down the body, coloured field labels and %-point chips. Muted
-   throughout — low-alpha fills and accent-coloured text, never a saturated
-   panel — so it reads at arm's length on a tablet without shouting.
+   He is right, and this block replaces FOUR stacked patches (S622g, S622i,
+   S622j, S622k). Each was written to reach cards the previous one had missed,
+   and because each targeted a different container, they applied different
+   decoration — a left rail here, a tinted header there, a body wash somewhere
+   else. The result read as an accident, because it was one.
 
-   Reuses the S582 identity tokens (--m3 blue = 3-Point, --m7 purple =
-   7-Point) rather than inventing hues, so the choice cards and the sections
-   they govern are visibly the same system in both skins. Burgundy stays the
-   primary-action colour; the report/PDF palette and the deficiency status
-   colours are untouched — this is UI chrome only.
+   THE RULE, and there is only one:
+     A card that belongs to the active pump test type colours its TITLE TEXT
+     and its title ICON. Nothing else. No rails, no tinted headers, no body
+     washes, no border colours.
 
-   ONE attribute drives all of it (body[data-ptype]), set by _ttApplyLock().
+   Every surface in the test-type family is listed in ONE selector group per
+   type, so a card cannot be half-styled and a future card is added by putting
+   it in the list — not by writing another block. If a new decoration is ever
+   wanted, it changes here, once, for all of them.
+
+   Deliberately NOT coloured: verdict chips (pass/fail own their meaning),
+   plot series (engineering meaning), input surfaces, and the report/PDF
+   palette (a separate, locked system).
    ═══════════════════════════════════════════════════════════════════════ */
-body[data-ptype="std"] #perf-std{ --ty:var(--m3); --ty-bg:var(--m3-bg); --ty-br:var(--m3-br); }
-body[data-ptype="pld"] #perf-pld{ --ty:var(--m7); --ty-bg:var(--m7-bg); --ty-br:var(--m7-br); }
 
-/* the section's cards wear the identity */
-body[data-ptype="std"] #perf-std > .card,
-body[data-ptype="pld"] #perf-pld > .card{
-  border-color:var(--ty-br);
-  box-shadow:inset 4px 0 0 var(--ty);
+/* ── 3-Point: blue ───────────────────────────────────────────────────────── */
+body[data-ptype="std"] #perf-std .card-header,
+body[data-ptype="std"] #perf-std .card-header svg,
+body[data-ptype="std"] #perf-std .fp-head .pt,
+body[data-ptype="std"] #perf-std .np-head .np-t,
+body[data-ptype="std"] #wsd-card > .card-header,
+body[data-ptype="std"] #wsd-card > .card-header svg,
+body[data-ptype="std"] #fig-chart3pt .fig-hd .fig-t,
+body[data-ptype="std"] #fig-chart3pt .fig-hd svg,
+body[data-ptype="std"] #fig-netChart3pt .fig-hd .fig-t,
+body[data-ptype="std"] #fig-netChart3pt .fig-hd svg{
+  color:var(--m3)!important;
 }
-body[data-ptype="std"] #perf-std > .card > .card-header,
-body[data-ptype="pld"] #perf-pld > .card > .card-header{
-  background:var(--ty-bg);
-  border-bottom-color:var(--ty-br);
-  color:var(--ty);
-}
-body[data-ptype="std"] #perf-std > .card > .card-header svg,
-body[data-ptype="pld"] #perf-pld > .card > .card-header svg{ color:var(--ty); }
-/* soft wash — fades out so long sections do not become a coloured page */
-body[data-ptype="std"] #perf-std > .card > .card-body,
-body[data-ptype="pld"] #perf-pld > .card > .card-body{
-  background:linear-gradient(var(--ty-bg), transparent 240px);
-}
-/* subsection bars and %-point chips carry it too */
-body[data-ptype="std"] #perf-std .ts-subsec .bar,
-body[data-ptype="pld"] #perf-pld .ts-subsec .bar{ background:var(--ty); }
-body[data-ptype="std"] #perf-std input:focus,
-body[data-ptype="pld"] #perf-pld input:focus{ border-color:var(--ty); }
 
-/* ── HARD LOCK: the chosen card says it is in use; the other recedes ─────
-   Not disabled — still tappable, because switching is allowed, it just asks
-   first. Opacity is the honest signal: "this is not what the report is". */
+/* ── 7-Point PLD: purple ─────────────────────────────────────────────────── */
+body[data-ptype="pld"] #perf-pld .card-header,
+body[data-ptype="pld"] #perf-pld .card-header svg,
+body[data-ptype="pld"] #perf-pld .fp-head .pt,
+body[data-ptype="pld"] #perf-pld .np-head .np-t,
+body[data-ptype="pld"] #wsd-card > .card-header,
+body[data-ptype="pld"] #wsd-card > .card-header svg,
+body[data-ptype="pld"] #fig-pldChart .fig-hd .fig-t,
+body[data-ptype="pld"] #fig-pldChart .fig-hd svg,
+body[data-ptype="pld"] #fig-pldNetChart .fig-hd .fig-t,
+body[data-ptype="pld"] #fig-pldNetChart .fig-hd svg{
+  color:var(--m7)!important;
+}
+
+/* The flow-point descriptor stays quiet — only the point NAME takes colour. */
+body[data-ptype="std"] #perf-std .fp-head .pt small,
+body[data-ptype="pld"] #perf-pld .fp-head .pt small{
+  color:var(--steel)!important; font-weight:400;
+}
+
+/* ── HARD LOCK affordance (unchanged behaviour, kept with its family) ─────
+   The chosen type says it is in use; the other recedes. Still tappable —
+   switching is allowed, it just asks first. */
 .pump-type-btns.tt-locked .ts-mode:not(.on){ opacity:.45; }
 .pump-type-btns.tt-locked .ts-mode.on::after{
   content:"\1F512 In use";
@@ -519,97 +532,3 @@ body[data-ptype="pld"] #perf-pld input:focus{ border-color:var(--ty); }
 @media(max-width:600px){
   .pump-type-btns.tt-locked .ts-mode.on::after{ top:auto; bottom:11px; right:12px; }
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   S622i — COLOUR SECTIONING, TAKE 2 (Mark, on-device: "not obvious enough —
-   overwritten somewhat by the Bold skin"). He was right about the mechanism:
-   the Bold skin paints every .card-header with !important, so the S622g tint
-   silently lost everywhere except the left rail. This block supersedes with
-   matching force. Still Level 2 — no saturated panels — but now the identity
-   actually lands: every card header inside the section carries the type's
-   ink and wash, the header icons follow, and the section's first card wears
-   a small type chip so the mode is named, not just tinted, at any scroll
-   depth. Burgundy elsewhere is untouched.
-   ═══════════════════════════════════════════════════════════════════════ */
-body[data-ptype="std"] #perf-std .card-header,
-body.dark-mode[data-ptype="std"] #perf-std .card-header{
-  /* S622l (Mark, T6): title TEXT carries the colour — no tinted band, no
-     thick underline. Every section header matches the flow-point titles. */
-  color:var(--m3)!important;
-}
-body[data-ptype="std"] #perf-std .card-header svg,
-body.dark-mode[data-ptype="std"] #perf-std .card-header svg{ color:var(--m3)!important; }
-body[data-ptype="pld"] #perf-pld .card-header,
-body.dark-mode[data-ptype="pld"] #perf-pld .card-header{
-  /* S622l (Mark, T6): title TEXT carries the colour — no tinted band, no
-     thick underline. Every section header matches the flow-point titles. */
-  color:var(--m7)!important;
-}
-body[data-ptype="pld"] #perf-pld .card-header svg,
-body.dark-mode[data-ptype="pld"] #perf-pld .card-header svg{ color:var(--m7)!important; }
-
-/* every card in the section carries the rail (S622g targeted direct children
-   only; wrappers made some cards miss it) */
-body[data-ptype="std"] #perf-std .card{ border-color:var(--m3-br)!important; box-shadow:inset 4px 0 0 var(--m3); }
-body[data-ptype="pld"] #perf-pld .card{ border-color:var(--m7-br)!important; box-shadow:inset 4px 0 0 var(--m7); }
-
-/* the mode is NAMED once per section — a small chip on the first card */
-body[data-ptype="std"] #perf-std .card:first-of-type > .card-header::after{
-  content:"3-POINT";
-  margin-left:auto; font-size:calc(10px + var(--ts)); font-weight:700; letter-spacing:.5px;
-  color:var(--m3); background:var(--m3-bg); border:1px solid var(--m3-br);
-  border-radius:999px; padding:2px 10px; line-height:1.6;
-}
-body[data-ptype="pld"] #perf-pld .card:first-of-type > .card-header::after{
-  content:"7-POINT PLD";
-  margin-left:auto; font-size:calc(10px + var(--ts)); font-weight:700; letter-spacing:.5px;
-  color:var(--m7); background:var(--m7-bg); border:1px solid var(--m7-br);
-  border-radius:999px; padding:2px 10px; line-height:1.6;
-}
-
-/* ═══ S622j — COLOUR SECTIONING, MARK'S EXTENSION (07 Aug: "change all titles
-   in the flow chart itself — at each flow point — to purple or blue to match;
-   sub cards for flow points should match too"). The flow-point titles
-   (0% Flow / 25% Flow / …) and the placard subsection title now carry the
-   type colour. Deliberately STOPS there: titles and the existing rails only,
-   no tinting of the sub-card bodies — the working surface stays neutral so
-   readings and verdict chips keep their own meaning. */
-body[data-ptype="std"] #perf-std .fp-head .pt,
-body.dark-mode[data-ptype="std"] #perf-std .fp-head .pt{ color:var(--m3)!important; }
-body[data-ptype="pld"] #perf-pld .fp-head .pt,
-body.dark-mode[data-ptype="pld"] #perf-pld .fp-head .pt{ color:var(--m7)!important; }
-/* the small descriptor stays quiet — only the point name carries the colour */
-body[data-ptype="std"] #perf-std .fp-head .pt small,
-body[data-ptype="pld"] #perf-pld .fp-head .pt small{ color:var(--steel)!important; font-weight:400; }
-/* flow-point card edge joins the family rail */
-body[data-ptype="std"] #perf-std .fp-card{ border-color:var(--m3-br)!important; }
-body[data-ptype="pld"] #perf-pld .fp-card{ border-color:var(--m7-br)!important; }
-/* "⚙ Rated values read from the placard" — title follows the type */
-body[data-ptype="std"] #perf-std .np-head .np-t,
-body.dark-mode[data-ptype="std"] #perf-std .np-head .np-t{ color:var(--m3)!important; }
-body[data-ptype="pld"] #perf-pld .np-head .np-t,
-body.dark-mode[data-ptype="pld"] #perf-pld .np-head .np-t{ color:var(--m7)!important; }
-
-/* ═══ S622k — CHART CARDS FOLLOW THE TYPE TOO (Mark, T5: "you forgot the flow
-   chart titles"). The curve cards and the Water Supply data card sit in an
-   independent section OUTSIDE the perf containers, so every earlier rule
-   walked right past them. Addressed by their own ids; the 3-pt charts wear
-   blue, the PLD charts purple, the shared data card follows whichever type
-   is active. Titles, icons and the header rule only — the plot area keeps
-   its own series colours, which carry engineering meaning. */
-body[data-ptype="std"] #fig-chart3pt .fig-hd .fig-t,
-body[data-ptype="std"] #fig-netChart3pt .fig-hd .fig-t,
-body[data-ptype="std"] #fig-chart3pt .fig-hd svg,
-body[data-ptype="std"] #fig-netChart3pt .fig-hd svg,
-body[data-ptype="std"] #wsd-card > .card-header,
-body[data-ptype="std"] #wsd-card > .card-header svg{ color:var(--m3)!important; }
-
-body[data-ptype="std"] #fig-chart3pt, body[data-ptype="std"] #fig-netChart3pt{ border-color:var(--m3-br)!important; box-shadow:inset 4px 0 0 var(--m3); }
-body[data-ptype="pld"] #fig-pldChart .fig-hd .fig-t,
-body[data-ptype="pld"] #fig-pldNetChart .fig-hd .fig-t,
-body[data-ptype="pld"] #fig-pldChart .fig-hd svg,
-body[data-ptype="pld"] #fig-pldNetChart .fig-hd svg,
-body[data-ptype="pld"] #wsd-card > .card-header,
-body[data-ptype="pld"] #wsd-card > .card-header svg{ color:var(--m7)!important; }
-
-body[data-ptype="pld"] #fig-pldChart, body[data-ptype="pld"] #fig-pldNetChart{ border-color:var(--m7-br)!important; box-shadow:inset 4px 0 0 var(--m7); }
