@@ -1027,18 +1027,26 @@ body.dark-mode .pg-tool-body{background:#151920;}
 .pg-thumb:hover{border-color:rgba(156,39,66,.4);}
 .pg-thumb.selected{border-color:#9C2742;}
 .pg-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-.pg-thumb-badge{position:absolute;top:4px;right:4px;font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;color:white;pointer-events:none;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pg-thumb-badge{position:absolute;top:4px;right:4px;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:10px;color:white;pointer-events:none;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.45);line-height:1.25;}
 /* S430 Fix-3: FRT badge-parity — multi-reference photos render ONE card with a
    stacked column of category-coloured badges (mirrors FRT .ph-badges canon).
    Colours are FRT's semantic set: high=red, low=amber, closed=green,
    site=#6E6AA8, rec=#5E5440 (S317). Calibri, muted, never bright. */
-.pg-thumb-badges{position:absolute;top:4px;right:4px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:85%;pointer-events:none;z-index:2;}
-.pg-thumb-badges .pg-badge{font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;color:#fff;font-family:Calibri,sans-serif;letter-spacing:.2px;box-shadow:0 1px 3px rgba(0,0,0,.4);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;}
+.pg-thumb-badges{position:absolute;top:4px;right:4px;display:flex;flex-direction:column;align-items:flex-end;gap:3px;max-width:90%;pointer-events:none;z-index:2;}
+/* S627: sized to MATCH the tools' own galleries — FRT paints 11px/9px-radius,
+   Diesel 10.5px/10px-radius, both on 120x100 cards. Hub tiles are 100px and up,
+   so the old 8px square tag was smaller for no reason and hard to read at
+   arm's length on a tablet. One badge, one size, across all three screens. */
+.pg-thumb-badges .pg-badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:10px;color:#fff;font-family:Calibri,sans-serif;letter-spacing:.1px;box-shadow:0 1px 4px rgba(0,0,0,.45);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .pg-badge.pgb-high{background:#C0445F;}
 .pg-badge.pgb-low{background:#D98A1E;}
 .pg-badge.pgb-closed{background:#2E9E72;}
 .pg-badge.pgb-site{background:#6E6AA8;}
 .pg-badge.pgb-rec{background:#5E5440;}
+/* S627: pump-tool badges. No new colours — the fill is the source tool's own
+   gallery colour, handed in per badge; this is only the neutral fallback that
+   mirrors the pump gallery's own default .ph-badge background. */
+.pg-badge.pgb-tool{background:#455A64;}
 .pg-thumb.pg-missing{background:#eceaee;}
 .pg-thumb .pg-missing-tile{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;text-align:center;background:repeating-linear-gradient(45deg,#eceaee,#eceaee 8px,#e4e1e6 8px,#e4e1e6 16px);color:#928E9C;font-family:Calibri,sans-serif;pointer-events:none;}
 .pg-thumb .pg-missing-tile .pg-missing-ico{font-size:20px;line-height:1;opacity:.7;}
@@ -7588,7 +7596,35 @@ function _pgExtractPhotos(row) {
        honoured, same as FRT — a deleted photo must not resurrect here. The
        old data.photos / checklistState reads are kept as a harmless fallback
        for any truly ancient standalone row. */
-    function _pumpOne(ph, type, caption, dateHint) {
+    /* ══ S627 — the Hub badge must MATCH THE TOOL'S OWN PHOTO GALLERY ══
+       Mark's rule: a photo carries the same badge in the Hub as it does in the
+       tool it was taken in. No Hub-invented palette. These five hexes are a
+       mirror of the pump gallery's own `.ph-badge-*` rules (diesel-01.css) —
+       change them only when that stylesheet changes.
+
+       Why not simply paint `badgeColor` off the wire: for a tagged gauge photo
+       the pushed hex is the per-reading colour, but the tool's gallery paints
+       gauge photos with the FLOW colour, because the inline per-reading painter
+       it checks for does not exist. Trusting the wire would make the Hub
+       disagree with the screen it is meant to match. The category is the honest
+       signal, so the Hub colours from the category and ignores badgeColor.
+
+       `cat` is what the Hub knows from the container it just read. It carries
+       the older photos too: only 8 of the 384 pump photos in the cloud carry a
+       stamped category, so a wire-only mapping would leave the rest uncoloured
+       until someone happened to re-save the report. */
+    var _PUMP_GALLERY_HEX = { checklist: '#5E7A8C', deficiency: '#A85959',
+                              general: '#6E86B8', flow: '#B07F5A',
+                              records: '#6E6AA8' };
+    /* The tools' own stamped tokens, mapped onto the same five. Diesel emits
+       gauge/record; Electric emits response as its own token where Diesel folds
+       responses in with deficiencies — both land on the colour the tool's
+       gallery paints. */
+    var _PUMP_TOKEN_CAT = { deficiency: 'deficiency', response: 'deficiency',
+                            checklist: 'checklist', flow: 'flow',
+                            gauge: 'flow', record: 'records',
+                            records: 'records', general: 'general' };
+    function _pumpOne(ph, type, caption, dateHint, cat) {
       if (!ph) return;
       if (ph.deleted || ph.delState === 'deleted' || ph.delAt) return;
       var src = _pgResolveR2Src(ph, projectId);
@@ -7596,31 +7632,38 @@ function _pgExtractPhotos(row) {
       if (!src) return;
       var rec = _makeRec(src, type, caption, (typeof ph === 'object' && ph.date) || dateHint || '');
       if (!rec) return;
-      if (typeof ph === 'object' && ph.badgeText) {
-        rec.badges = [{ text: ph.badgeText,
-                        cls: type === 'deficiency' ? 'pgb-high' : 'pgb-site' }];
+      /* Badge TEXT is the tool's own short code ("D1", "3·75", "4.2") when the
+         report was saved by a build that stamps it — identical to the gallery.
+         Older rows have none, so the container name stands in. Either way every
+         pump photo now carries a badge: without one it fell through to the
+         un-classed inline tile badge and painted green or burgundy beside its
+         purple neighbours, which is two colour systems on one screen. */
+      var _cat = _PUMP_TOKEN_CAT[(typeof ph === 'object' && ph.badgeType) || ''] || cat || 'records';
+      var _txt = (typeof ph === 'object' && ph.badgeText) || caption || '';
+      if (_txt) {
+        rec.badges = [{ text: _txt, cls: 'pgb-tool', hex: _PUMP_GALLERY_HEX[_cat] || '#455A64' }];
       }
       photos.push(rec);
     }
     // Site + placard photos (modern container)
     (data.recordPhotos || []).forEach(function(ph) {
       var isPlacard = ph && (ph.kind === 'placard' || ph.kind === 'placard-pld');
-      _pumpOne(ph, 'site', isPlacard ? 'Placard' : 'Site', '');
+      _pumpOne(ph, 'site', isPlacard ? 'Placard' : 'Site', '', 'records');
     });
     // Flow-test photos (modern containers; Pld is the placard-derived set)
-    (data.flowTestPhotos || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Flow Test', ''); });
-    (data.flowTestPhotosPld || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Flow Test', ''); });
+    (data.flowTestPhotos || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Flow Test', '', 'flow'); });
+    (data.flowTestPhotosPld || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Flow Test', '', 'flow'); });
     // deficiencies: { [name]: [ {photos:[], responses:[{photos:[]}] } ] }
     function _pumpDefics(obj) {
       if (!obj || typeof obj !== 'object') return;
       Object.values(obj).forEach(function(arr) {
         (arr || []).forEach(function(d) {
           (d.photos || []).forEach(function(ph) {
-            _pumpOne(ph, 'deficiency', d.description ? d.description.substring(0, 30) : 'Deficiency', d.date || '');
+            _pumpOne(ph, 'deficiency', d.description ? d.description.substring(0, 30) : 'Deficiency', d.date || '', 'deficiency');
           });
           (d.responses || []).forEach(function(resp) {
             (resp.photos || []).forEach(function(ph) {
-              _pumpOne(ph, 'response', 'Response', resp.date || d.date || '');
+              _pumpOne(ph, 'response', 'Response', resp.date || d.date || '', 'deficiency');
             });
           });
         });
@@ -7630,18 +7673,33 @@ function _pgExtractPhotos(row) {
     // general deficiencies array
     (data.generalDeficiencies || []).forEach(function(d) {
       (d.photos || []).forEach(function(ph) {
-        _pumpOne(ph, 'deficiency', d.description ? d.description.substring(0, 30) : 'General Defic', d.date || '');
+        _pumpOne(ph, 'deficiency', d.description ? d.description.substring(0, 30) : 'General Defic', d.date || '', 'general');
       });
       (d.responses || []).forEach(function(resp) {
         (resp.photos || []).forEach(function(ph) {
-          _pumpOne(ph, 'response', 'Gen Resp', resp.date || d.date || '');
+          _pumpOne(ph, 'response', 'Gen Resp', resp.date || d.date || '', 'general');
         });
       });
     });
+    /* S627 — CHECKLIST PHOTOS. The pump tools file these under `clState`; the
+       Hub only ever read the pre-cloud `checklistState` name below, so every
+       checklist photo taken since the tools moved container has been invisible
+       here — ~50 live in Diesel today, all safely in cloud storage, none of
+       them reachable from the Hub. Shape is { <itemId>: { photos:[…] } }. The
+       item id (s2_1) means nothing to a reader, so the checklist number rides
+       in badgeText on reports saved by a build that stamps it, exactly as the
+       tool's own gallery shows it. Tombstones are honoured by _pumpOne. */
+    if (data.clState && typeof data.clState === 'object') {
+      Object.keys(data.clState).forEach(function(k) {
+        var it = data.clState[k];
+        if (!it || !Array.isArray(it.photos)) return;
+        it.photos.forEach(function(ph) { _pumpOne(ph, 'site', 'Checklist', '', 'checklist'); });
+      });
+    }
     // Legacy standalone fallbacks — pre-cloud rows only; harmless when absent
-    (data.photos || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Site', ''); });
+    (data.photos || []).forEach(function(ph) { _pumpOne(ph, 'site', 'Site', '', 'records'); });
     (data.checklistState ? Object.values(data.checklistState) : []).forEach(function(item) {
-      (item.photos || []).forEach(function(ph) { _pumpOne(ph, 'site', item.label || 'Checklist', ''); });
+      (item.photos || []).forEach(function(ph) { _pumpOne(ph, 'site', item.label || 'Checklist', '', 'checklist'); });
     });
   }
 
@@ -7844,7 +7902,14 @@ function _pgRender() {
         if (ph.badges && ph.badges.length) {
           html += '<div class="pg-thumb-badges">';
           ph.badges.forEach(function(b) {
-            html += '<span class="pg-badge ' + _pgEsc(b.cls || 'pgb-high') + '">' + _pgEscHtml(b.text || '') + '</span>';
+            /* S627: a badge may carry the SOURCE TOOL's own colour so the Hub
+               shows what the tool's gallery shows. Guarded to a literal 6-digit
+               hex — never interpolate an arbitrary stored string into a style
+               attribute. FRT badges pass no hex and keep their classes. */
+            var _hx = (b.hex && /^#[0-9A-Fa-f]{6}$/.test(b.hex)) ? b.hex : '';
+            html += '<span class="pg-badge ' + _pgEsc(b.cls || 'pgb-high') + '"'
+                  + (_hx ? ' style="background:' + _hx + ';"' : '') + '>'
+                  + _pgEscHtml(b.text || '') + '</span>';
           });
           html += '</div>';
         } else {
@@ -8863,7 +8928,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S625';
+const HUB_BUILD = 'S627';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
