@@ -5219,18 +5219,29 @@ function _saveHiddenInspectors(list) {
 /* Everyone who has actually placed a pin on THIS project, with their colour. */
 function _projectInspectors() {
   var proj = Model.getProject() || {};
-  var seen = {}, out = [];
+  /* S627: id-keyed bookkeeping is Object.create(null), never {}. A createdBy
+     of 'constructor' or '__proto__' would otherwise read as already-seen via
+     the prototype and that person would vanish from the list — the same fault
+     family that silently dropped merge items at S625/S626b. */
+  var seen = Object.create(null), out = [];
+  /* S627: count per person, and count the pins nobody is recorded against, so
+     the panel can say how much of the sheet predates attribution. */
+  _unattributedPins = 0;
   var scan = function(arr) {
     (arr || []).forEach(function(d) {
-      var cb = d && d.createdBy;
-      if (!cb || seen[cb]) return;
-      seen[cb] = true;
+      if (!d) return;
+      var cb = d.createdBy;
+      if (!cb) { _unattributedPins++; return; }
+      if (seen[cb]) { seen[cb].count++; return; }
       var who = Model.resolveInspector(cb) || {};
-      out.push({
+      var rec = {
         id: cb,
         name: (who.name || '').trim() || who.initials || '\u2014',
-        color: who.color || Model._inspectorColor(cb)
-      });
+        color: who.color || Model._inspectorColor(cb),
+        count: 1
+      };
+      seen[cb] = rec;
+      out.push(rec);
     });
   };
   /* BOTH pin arrays — the general bucket AND every contractor's list. Sweeping
@@ -5240,17 +5251,35 @@ function _projectInspectors() {
   return out;
 }
 
+/* S627: set by _projectInspectors() on every sweep — pins carrying no author. */
+var _unattributedPins = 0;
+
+/* S627 (Mark, on-device: "I don't see any inspector ring") — WHY THE FEATURE
+   WAS INVISIBLE ON REAL WORK. The rule was "rings on only when two or more
+   IDENTIFIED people have pinned". On 1490.04 five of six pins were placed in
+   March, before attribution existed, and carry no author at all; one July pin
+   carries one. One identified person, so the panel hid itself and no ring
+   drew — correct by the old rule and useless in practice, because EVERY
+   ARENCON report predating this spring is in that state. Worse, a feature
+   that hides itself is indistinguishable from a broken one, which is exactly
+   how Mark read it.
+   Now: one identified person is enough. The panel appears, the ring draws, and
+   an Unattributed line says how many pins can never carry one. Nothing is
+   invented — a pin with no author still gets no ring, because guessing who
+   placed it would put a wrong name on a client report. */
 function _defaultShowRings() {
-  try { return _projectInspectors().length > 1; } catch (_) { return false; }
+  try { return _projectInspectors().length >= 1; } catch (_) { return false; }
 }
 
 function _populateInspectors() {
   var group = document.getElementById('dv-insp-group');
   var rows  = document.getElementById('dv-insp-rows');
   if (!group || !rows) return;
-  var people = _projectInspectors();
-  /* Solo job: nothing to attribute, so the whole group stays out of the way. */
-  if (people.length < 2) { group.style.display = 'none'; rows.innerHTML = ''; return; }
+  var people = _projectInspectors();   /* also refreshes _unattributedPins */
+  /* S627: one identified inspector is enough — see _defaultShowRings. Only a
+     sheet where NOBODY is recorded hides the panel, because there is then
+     genuinely nothing to attribute and nothing the toggles could change. */
+  if (people.length < 1) { group.style.display = 'none'; rows.innerHTML = ''; return; }
   group.style.display = '';
   var hidden = _loadHiddenInspectors();
   var proj = Model.getProject() || {};
@@ -5267,8 +5296,26 @@ function _populateInspectors() {
       + '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;'
       + 'border:3px solid ' + p.color + ';margin-right:6px;vertical-align:middle;"></span>'
       + p.name + (p.id === me ? ' <span style="opacity:.6;font-size:11px;">(you)</span>' : '')
+      /* S627: the count was specified with this row from the start and never
+         rendered. It is what makes the panel readable at a glance on a busy
+         sheet — who owns how much of it. */
+      + ' <span style="opacity:.6;font-size:11px;">' + p.count
+      + (p.count === 1 ? ' pin' : ' pins') + '</span>'
       + '</label>';
   });
+  /* S627: pins placed before attribution existed. Stated, not hidden — an
+     inspector looking at a sheet with no rings on it deserves to know the
+     reason is the age of the pins, not a broken tool. Deliberately NOT a
+     checkbox: there is no ring to switch off, and a dead control teaches
+     people the panel lies. */
+  if (_unattributedPins > 0) {
+    html += '<div class="dv-layer-row" style="min-height:44px;opacity:.75;cursor:default;">'
+      + '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;'
+      + 'border:3px dashed currentColor;margin-right:6px;vertical-align:middle;opacity:.5;"></span>'
+      + 'Unattributed <span style="opacity:.7;font-size:11px;">' + _unattributedPins
+      + (_unattributedPins === 1 ? ' pin \u00b7 placed before attribution'
+                                 : ' pins \u00b7 placed before attribution') + '</span></div>';
+  }
   rows.innerHTML = html;
 }
 

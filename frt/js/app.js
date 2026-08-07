@@ -310,6 +310,22 @@ function _restoreView() {
 // so the strip always matches the page in both modes — no hardcoded color guess,
 // it follows whatever tokens are live (base or Bold overlay).
 function _setThemeColor() {
+  /* S627 (raised by the platform lane, verified here) — FRT expresses day/night
+     as a CLASS on <body>. Every shared module — the dialog engine, the help
+     panel — decides light-vs-dark by reading data-theme on the ROOT element,
+     which FRT has never written. Result: those panels render their LIGHT skin
+     forever, on a tool sitting in night mode, and the dark skin is simply
+     unreachable. The pump tool established this fix at S497; the Hub carried
+     the same fault until S622. The class stays authoritative for FRT's own
+     stylesheet (which has no data-theme rules at all, so this cannot restyle
+     anything FRT paints itself) — the attribute is purely the shared layer's
+     copy of the same truth. Lives here because this runs on every path that
+     changes the mode: the toggle, boot restore, and a change made in another
+     ARENCON tab. */
+  try {
+    document.documentElement.setAttribute(
+      'data-theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+  } catch (e) {}
   try {
     var bg = getComputedStyle(document.body).backgroundColor;
     if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
@@ -2721,7 +2737,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S626';
+var FRT_BUILD = 'S627';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3507,8 +3523,62 @@ boot();
    then position is captured, then the reload. The cloud push is deliberately
    NOT part of flush: the work is already durable on the device, and the
    heartbeat pushes it on the next beat after the swap. */
+
+/* S627 — "is the drawing viewer actually on screen?", asked so it cannot be
+   wrong again. The overlay is position:fixed, so offsetParent is null even
+   when it fills the display; and it is shown/hidden by INLINE style, so a
+   class check would miss it too. getComputedStyle is the only reading that
+   survives both, and it also catches a stylesheet hiding the overlay by a
+   route the inline style knows nothing about. */
+function _dvOnScreen(el) {
+  try {
+    if (!el) return false;
+    var cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    var r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  } catch (_) { return false; }
+}
+
+/* S627 (Mark, on-device: "the update button keeps coming back") — WHY THE
+   PILL CRIED WOLF. Every tool in the toolkit shares ONE service worker, so a
+   push to the pump tool rewrites it and every FRT tablet is told a new build
+   is waiting, even though not one line of FRT changed. The pump lane pushed
+   four times on the night of 06 Aug; that is four pills on a device running
+   identical FRT code. A signal that fires when nothing relevant happened is
+   worse than no signal — the crew learns to ignore it, and then ignores the
+   one that matters.
+   The update itself is NOT suppressed: shared modules under lib/ are real FRT
+   code and must still land. A shared-only change stages silently and applies
+   at the next safe moment exactly as before. What changes is that nobody is
+   interrupted to be told about it.
+   The stamp is read from app.js itself rather than a second build file, so
+   there is no duplicate that can drift out of step with FRT_BUILD. It is a
+   cache read — the worker has already precached the new copy by the time it
+   announces itself. If anything at all goes wrong reading it we return true
+   and show the pill: an extra pill is a nuisance, a missed update is a stale
+   tool in a pump room. */
+function _frtOwnBuildChanged() {
+  return fetch('js/app.js', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.text() : null; })
+    .then(function (txt) {
+      if (!txt) return true;
+      var m = txt.match(/var FRT_BUILD = '([^']+)'/);
+      if (!m) return true;
+      var incoming = m[1];
+      if (incoming === FRT_BUILD) {
+        try { console.log('[LiveUpdate] shared-module change only (FRT still ' + FRT_BUILD + ') — applying quietly, no pill'); } catch (_) {}
+        return false;
+      }
+      try { console.log('[LiveUpdate] FRT itself changed: ' + FRT_BUILD + ' \u2192 ' + incoming); } catch (_) {}
+      return true;
+    })
+    .catch(function () { return true; });
+}
+
 initLiveUpdate({
   toolName: 'FRT',
+  ownBuildChanged: _frtOwnBuildChanged,   /* S627: pill only when FRT itself moved */
   flush: function () {
     return Promise.resolve().then(function () {
       if (typeof Model !== 'undefined' && Model.saveNow) return Model.saveNow();
@@ -3517,8 +3587,18 @@ initLiveUpdate({
   isBusy: function () {
     try {
       // Mid-markup: the drawing viewer overlay is open.
-      var dv = document.getElementById('drawing-viewer-overlay');
-      if (dv && dv.style.display !== 'none' && dv.offsetParent !== null) return true;
+      /* S627 — THIS GUARD HAD NEVER FIRED ONCE. The old test was
+         `dv.offsetParent !== null`, and offsetParent is ALWAYS null for a
+         position:fixed element — which .drawing-viewer-overlay is (frt.css
+         line 229, inset:0). So the check read "viewer not visible" with the
+         viewer filling the screen, isBusy() always returned false, and a tap
+         on the update pill reloaded straight out of an open drawing. That
+         skips the markup save that runs on viewer CLOSE — the S528 loss
+         family, live and unguarded since S622. Mark hit it on 07 Aug: the
+         pill never said "close the drawing to apply" because nothing was ever
+         blocking. Ask the browser what it actually painted, not for a layout
+         side-effect that a fixed element does not have. */
+      if (dv && _dvOnScreen(dv)) return true;
       // Photos in flight — a swap mid-upload risks re-work at best.
       if (typeof BinaryOutbox !== 'undefined' && BinaryOutbox.getStatusCounts) {
         var c = BinaryOutbox.getStatusCounts();
@@ -3539,7 +3619,7 @@ initLiveUpdate({
   busyReason: function () {
     try {
       var dv = document.getElementById('drawing-viewer-overlay');
-      if (dv && dv.style.display !== 'none' && dv.offsetParent !== null) {
+      if (dv && _dvOnScreen(dv)) {   /* S627: same dead offsetParent test — see isBusy */
         return 'close the drawing to apply';
       }
       if (typeof BinaryOutbox !== 'undefined' && BinaryOutbox.getStatusCounts) {
