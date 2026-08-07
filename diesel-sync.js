@@ -1246,6 +1246,13 @@ const CloudSync = (function () {
       /* The previous tick never came back — a hung request, not a failed one.
          Release it rather than going deaf for the rest of the session. */
       _tickDiag('watchdog-release', { heldFor: Date.now() - _pullingSince });
+      /* S622l — STALL BEACON (Mark's T1/T2/T5, 07 Aug: the Android tablet's
+         recorder trail simply STOPS at 21:22 while the other two devices
+         kept syncing — a typed 60 stranded because nothing was running to
+         push it. The watchdog releasing the busy flag is the one moment the
+         stall is visible from inside; put it on the wire so the next silence
+         has a timestamped cause instead of an absence. */
+      try { _diag('push_result', { outcome: 'tick-stall-watchdog', heldForMs: Date.now() - _pullingSince, visible: document.visibilityState, online: navigator.onLine }); } catch (_) {}
       _pulling = false;
     }
     /* ═══ S595 — THE PULL WAS GATED ON FOCUS, WHICH NEVER CLEARS ═══════════
