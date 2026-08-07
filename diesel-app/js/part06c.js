@@ -704,10 +704,81 @@ if(typeof setPumpTestType==='function') setPumpTestType('std');
    That is deliberate — S575 proved this file executes code at load time, so the
    safe shape is additive flags, not moved initialisation. */
 var _ttChosen = false;   // becomes true on user pick or on loading a saved testType
+/* ═══ S622g — PUMP-TYPE HARD LOCK (Mark, standing queue item) ══════════════
+   The type governs the whole report — flow points, charts, acceptance
+   criteria and the PDF all differ — so switching it after readings exist is a
+   decision, not a toggle. Before any performance data is entered, switching
+   stays one tap: a fresh report must not nag. The moment a reading exists the
+   choice LOCKS, and switching asks once first (shared dialog engine, one tap,
+   never a browser dialog, never type-to-confirm).
+   Nothing is deleted either way: the two types keep separate readings, so the
+   other set is still there if the person switches back — the dialog says so,
+   because a confirmation that overstates the damage teaches people to ignore
+   confirmations. */
+function _ttHasPerfData(){
+  try{
+    var rows = [].concat(
+      Array.isArray(typeof stdData!=='undefined'?stdData:null) ? stdData : [],
+      Array.isArray(typeof pldData!=='undefined'?pldData:null) ? pldData : []);
+    var FIELDS = ['flow','cutsheet','placard','suction','discharge','rpm','bfUp','bfDown'];
+    for(var i=0;i<rows.length;i++){
+      var r = rows[i]; if(!r || typeof r!=='object') continue;
+      for(var j=0;j<FIELDS.length;j++){
+        var v = r[FIELDS[j]];
+        if(v!=null && String(v).trim()!=='') return true;
+      }
+    }
+  }catch(_e){}
+  return false;
+}
+function _ttLabel(t){ return t==='pld' ? '7-Point with PLD' : '3-Point Standard'; }
+function _ttApplyLock(){
+  try{
+    var locked = _ttChosen && _ttHasPerfData();
+    var wrap = document.querySelector('.pump-type-btns');
+    if(wrap) wrap.classList.toggle('tt-locked', !!locked);
+    /* Level 2 colour identity: ONE attribute on the body drives every tinted
+       surface in CSS (rail, header, body wash, labels, %-chips). No per-element
+       JS styling — the skin stays in the stylesheet where both themes see it. */
+    var cur = 'std';
+    document.querySelectorAll('.pump-type-btns button').forEach(function(b){
+      if(b.classList.contains('on')) cur = b.dataset.ptype || 'std';
+    });
+    document.body.setAttribute('data-ptype', _ttChosen ? cur : '');
+  }catch(_e){}
+}
 function _ttChoose(type){
+  /* already the active choice → nothing to confirm, nothing to change */
+  var curBtn = document.querySelector('.pump-type-btns button.on');
+  var cur = curBtn && curBtn.dataset ? curBtn.dataset.ptype : null;
+  if(_ttChosen && cur === type) return;
+  if(_ttChosen && cur && _ttHasPerfData()){
+    var Dlg = window.ArenconDlg;
+    if(Dlg && typeof Dlg.confirm === 'function'){
+      Dlg.confirm({
+        title: 'Switch pump test type?',
+        accent: 'warn',
+        message: 'This report currently follows ' + _ttLabel(cur) + '. Switching to ' +
+                 _ttLabel(type) + ' changes every performance section, the charts and the final report to the ' +
+                 _ttLabel(type) + ' format.',
+        detail: 'Nothing is deleted — the readings already entered stay saved and come back if you switch back.',
+        confirmText: 'Switch',
+        cancelText: 'Cancel — go back',
+        onConfirm: function(){ _ttCommit(type); }
+      });
+      return;
+    }
+    /* engine unavailable: the safe default is to leave the report as it is
+       rather than switch silently — never a browser confirm(). */
+    return;
+  }
+  _ttCommit(type);
+}
+function _ttCommit(type){
   _ttChosen = true;
   setPumpTestType(type);
   _ttApplyGate();
+  _ttApplyLock();
   if(typeof debounceAutosave==='function') debounceAutosave();
 }
 function _ttApplyGate(){
@@ -732,6 +803,7 @@ function _ttApplyGate(){
 }
 
 _ttApplyGate();
+if(typeof _ttApplyLock==='function') _ttApplyLock();   // S622g: boot state
 
 // Phase nav: initial render (Setup active, Summary panel active)
 if(typeof switchPhase==='function'){
@@ -986,6 +1058,11 @@ function setPumpTestType(type) {
   });
   const note4a = document.getElementById('tab-type-note-4a');
   if(note4a) note4a.textContent = 'All sections below use the selected test type.';
+  /* S622g: every route into the type — a tap, a cloud load, a JSON restore —
+     lands here, so the lock state and the colour identity are refreshed here
+     rather than at each call site (that is how the choice went unrestored in
+     the first place). */
+  if(typeof _ttApplyLock==='function') _ttApplyLock();
   if(typeof updateProgress==='function') updateProgress();
   // S221: mirror water-supply/demand data between 3-Point and 7-Point on tab switch.
   // The field-level _syncSupply only ran on oninput, so values entered on one tab never

@@ -646,3 +646,9 @@ _lwwItemEmpty
 _lwwRevertDirtyKept
 _resolveSpecConflicts
 _pushRun
+
+@ S622g pump-type hard lock + 3pt/7pt colour sectioning (Mark, standing queue item; Level 2 approved 06 Aug 2026)
+_ttHasPerfData
+_ttApplyLock
+_ttCommit
+.tt-locked
