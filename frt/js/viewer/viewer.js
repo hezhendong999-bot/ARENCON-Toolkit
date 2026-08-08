@@ -1673,7 +1673,12 @@ function _renderPins() {
 
     var glPins = pins.map(function(d){
       var cb = d.defic.createdBy || null;
-      var ic = cb ? (_inspectorColors[cb] || Model._inspectorColor(cb)) : null;
+      /* S627: a cached project-level override still wins if one ever exists;
+         otherwise inspectorColorFor gives the colour the person CHOSE, falling
+         back to the id-hash only for someone who has never picked. Do not call
+         Model._inspectorColor here — that skips the choice entirely, which is
+         how a chosen colour would silently never reach the drawing. */
+      var ic = cb ? (_inspectorColors[cb] || Model.inspectorColorFor(cb)) : null;
       var hidden = cb && _hiddenInspectors.indexOf(cb) !== -1;
       // S119: effective priority + status (max across obs / all-addressed)
       var effPri = Model.getEffectivePriority(d.defic);
@@ -5083,6 +5088,23 @@ document.addEventListener('click', function(e) {
 });
 
 // ── Layers Toggle ───────────────────────────────────────
+/* S627 — CHOSEN COLOURS ARRIVE AFTER THE FIRST PAINT. Who each person is (and
+   now which colour they picked) is fetched in the background, so the first
+   render of a drawing draws every ring with the id-hash fallback. Without this
+   the correct colours would not appear until the inspector happened to close
+   and reopen the drawing — the ring would be wrong for the whole session and
+   look like the picker had not saved. Repaint once the answer lands; the
+   listener is cheap and only fires when a batch resolves. */
+try {
+  Model.onChange('inspectors', function () {
+    try {
+      _renderPins();
+      var m = document.getElementById('dv-layers-menu');
+      if (m && m.style.display !== 'none') _populateInspectors();
+    } catch (_) {}
+  });
+} catch (_) {}
+
 document.addEventListener('click', function(e) {
   if (e.target.closest && e.target.closest('#dv-layers-btn')) {
     var menu = document.getElementById('dv-layers-menu');
@@ -5237,7 +5259,7 @@ function _projectInspectors() {
       var rec = {
         id: cb,
         name: (who.name || '').trim() || who.initials || '\u2014',
-        color: who.color || Model._inspectorColor(cb),
+        color: who.color || Model.inspectorColorFor(cb),   /* S627: chosen colour wins */
         count: 1
       };
       seen[cb] = rec;

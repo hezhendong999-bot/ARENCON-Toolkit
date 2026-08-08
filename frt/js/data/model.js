@@ -101,8 +101,14 @@ var _currentUserId = null;
 // Pure data layer — model.js has no Auth import, so app.js injects a batch
 // fetch fn via Model.setInspectorFetch(). Resolver only does cache + shape.
 var _inspectorCache = {};        // userId -> { name, initials, color }
-var _inspectorFetch = null;      // injected: function(idArray) -> Promise<[{id,full_name}]>
+var _inspectorFetch = null;      // injected: function(idArray) -> Promise<[{id,full_name,ring_color}]>
 var _inspectorPending = {};      // userId -> true while a fetch is in flight
+/* S627: userId -> the colour that person CHOSE (profiles.ring_color). Separate
+   from _inspectorCache on purpose — the cache is a display shape that gets
+   rebuilt, this is the authoritative identity and is consulted by
+   inspectorColorFor() even before a name has resolved. Object.create(null) so a
+   user id can never collide with an inherited property name. */
+var _inspectorChosen = Object.create(null);
 // Deterministic id -> muted palette slot (reuses CONTRACTOR_COLOR_PALETTE so
 // no new colors enter the system; stable per id across sessions).
 
@@ -4759,6 +4765,27 @@ export var Model = {
     return INSPECTOR_COLOR_PALETTE[idx];
   },
 
+  /* ═══ S627 (Mark) — THE COLOUR A PERSON CHOSE BEATS THE ONE WE GUESSED ══════
+     _inspectorColor above hashes the user id into a fixed list. It is stable,
+     but it is a guess, and with 17 people over 12 slots it was guessing WRONG:
+     eleven of seventeen staff shared a ring colour with somebody else, so on a
+     job with Nasim and William both pinning, the ring said two different people
+     were one person. A signal that confidently states something false is worse
+     than no signal.
+     Each person now picks their own, stored on their account (profiles.ring_color)
+     so it follows them to every project, every tool and every device. This
+     resolver prefers that choice and falls back to the hash for anyone who has
+     not chosen — so nothing changes for them until they do, and a tool that
+     cannot reach the profile row still draws something sensible offline.
+     Read through this, never _inspectorColor directly, or a chosen colour is
+     silently ignored. */
+  inspectorColorFor: function(userId) {
+    if (!userId) return null;
+    var chosen = _inspectorChosen[userId];
+    if (chosen) return chosen;
+    return this._inspectorColor(userId);
+  },
+
   _inspectorInitials: function(name) {
     var n = (name || '').trim();
     if (!n) return '\u2014';
@@ -4779,12 +4806,12 @@ export var Model = {
     if (userId === _currentUserId) {
       // Self is special-cased by app.js (it already knows the signed-in
       // name); seed a color-only provisional so the chip paints instantly.
-      var pSelf = { name: '', initials: '\u2014', color: this._inspectorColor(userId) };
+      var pSelf = { name: '', initials: '\u2014', color: this.inspectorColorFor(userId) };
       this.primeInspectors([userId]);
       return pSelf;
     }
     this.primeInspectors([userId]);
-    return { name: '', initials: '\u2014', color: this._inspectorColor(userId) };
+    return { name: '', initials: '\u2014', color: this.inspectorColorFor(userId) };
   },
 
   // Directly seed/override a resolved entry (app.js uses this for the
@@ -4794,7 +4821,7 @@ export var Model = {
     _inspectorCache[userId] = {
       name: (name || '').trim(),
       initials: this._inspectorInitials(name),
-      color: this._inspectorColor(userId)
+      color: this.inspectorColorFor(userId)   /* S627: chosen colour wins */
     };
     this._notify('inspectors', { userId: userId });
   },
@@ -4816,17 +4843,21 @@ export var Model = {
       (rows || []).forEach(function(r) {
         if (!r || !r.id) return;
         var nm = (r.full_name || '').trim();
+        /* S627: the person's own choice, recorded before the display shape is
+           built so inspectorColorFor() is correct from this moment on. */
+        var pick = (r.ring_color && /^#[0-9A-Fa-f]{6}$/.test(r.ring_color)) ? r.ring_color : null;
+        if (pick) _inspectorChosen[r.id] = pick;
         _inspectorCache[r.id] = {
           name: nm,
           initials: self._inspectorInitials(nm),
-          color: self._inspectorColor(r.id)
+          color: pick || self._inspectorColor(r.id)
         };
       });
       // Any id that came back with no row: cache a color-only entry so we
       // don't refetch forever (e.g. deleted profile).
       want.forEach(function(id) {
         if (!_inspectorCache[id]) {
-          _inspectorCache[id] = { name: '', initials: '\u2014', color: self._inspectorColor(id) };
+          _inspectorCache[id] = { name: '', initials: '\u2014', color: self.inspectorColorFor(id) };
         }
         delete _inspectorPending[id];
       });

@@ -2737,7 +2737,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S627';
+var FRT_BUILD = 'S628';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3011,7 +3011,7 @@ function boot() {
       if (Model.setInspectorFetch) {
         Model.setInspectorFetch(function (ids) {
           if (!ids || !ids.length) return Promise.resolve([]);
-          return Auth.request('/rest/v1/profiles?id=in.(' + ids.join(',') + ')&select=id,full_name')
+          return Auth.request('/rest/v1/profiles?id=in.(' + ids.join(',') + ')&select=id,full_name,ring_color')
             .then(function (rows) { return rows || []; });
         });
       }
