@@ -1787,6 +1787,12 @@ function createSupabaseClient(url, key) {
     },
 
     // REST API for tables
+    /* S629: rpc() — calls a Postgres function through PostgREST. Same request
+       pipeline and auth headers as every table call; row-level security
+       applies inside the function exactly as it does to a direct update. */
+    rpc(fn, args) {
+      return request('/rest/v1/rpc/' + fn, { method: 'POST', body: args || {} });
+    },
     from(table) {
       let _filters = [];
       let _select = '*';
@@ -3419,9 +3425,17 @@ async function toggleTool(key) {
   }
   var wasEnabled = idx >= 0; // true if we just DISABLED it
 
-  // Save to Supabase
+  /* S629 — same overwrite bug as the star, same cure. This used to send the
+     whole enabled_tools list back as this browser last saw it, so two people
+     enabling different tools on one project within a board-refresh window
+     silently dropped one of them. The database now flips exactly ONE tool on
+     the current list and returns the resulting list, which becomes local
+     truth — including anyone else's toggles we didn't know about. */
   try {
-    await _sb.from('projects').eq('id', proj.id).update({ enabled_tools: proj.enabled_tools });
+    var fresh = await _sb.rpc('set_tool_enabled',
+      { p_project: proj.id, p_tool: key, p_enable: !wasEnabled });
+    if (Array.isArray(fresh) && (fresh.length === 0 || typeof fresh[0] !== 'string')) fresh = fresh[0];
+    if (Array.isArray(fresh)) proj.enabled_tools = fresh;
     toast(AVAILABLE_TOOLS[key].name + (wasEnabled ? ' disabled' : ' enabled'), 'success');
   } catch (e) {
     console.error('Failed to save tools:', e);
@@ -3848,22 +3862,43 @@ async function toggleStar(projectId) {
   if (!_profile) return;
   var proj = _projects.find(function(p) { return p.id === projectId; });
   if (!proj) return;
+  /* S629 — THE STAR IS NO LONGER A LIST OVERWRITE. starred_by is one shared
+     list per project holding every user's star. This function used to send
+     that whole list back as this browser last loaded it — so if someone else
+     starred the project since your board refreshed, your tap sent a list
+     without them in it and their star was silently erased. The database now
+     applies "add me / remove me" to the CURRENT list in one atomic step;
+     nobody's tap can carry stale knowledge of anyone else's star.
+     UI updates optimistically, then settles on the database's answer —
+     which is the truth even if someone toggled in the same second. */
   var sb = proj.starred_by || [];
   var idx = sb.indexOf(_profile.id);
-  if (idx >= 0) {
-    sb.splice(idx, 1);
-  } else {
-    sb.push(_profile.id);
-  }
+  var wantOn = idx < 0;
+  if (wantOn) { sb.push(_profile.id); } else { sb.splice(idx, 1); }
   proj.starred_by = sb;
+  renderProjects();
+  if (_detailProjectId === projectId) _updateDetailStar(proj);
   try {
-    await _sb.from('projects').eq('id', proj.id).update({ starred_by: sb });
+    var nowOn = await _sb.rpc('toggle_star', { p_project: proj.id });
+    if (Array.isArray(nowOn)) nowOn = nowOn[0];
+    if (typeof nowOn === 'boolean' && nowOn !== wantOn) {
+      /* Someone else's tap interleaved with ours — the database's final word
+         wins. Reconcile the local list to it rather than arguing. */
+      var i2 = proj.starred_by.indexOf(_profile.id);
+      if (nowOn && i2 < 0) proj.starred_by.push(_profile.id);
+      if (!nowOn && i2 >= 0) proj.starred_by.splice(i2, 1);
+      renderProjects();
+      if (_detailProjectId === projectId) _updateDetailStar(proj);
+    }
   } catch (e) {
+    /* Save failed — put the star back the way it was and say so. */
+    var i3 = proj.starred_by.indexOf(_profile.id);
+    if (wantOn && i3 >= 0) proj.starred_by.splice(i3, 1);
+    if (!wantOn && i3 < 0) proj.starred_by.push(_profile.id);
+    renderProjects();
+    if (_detailProjectId === projectId) _updateDetailStar(proj);
     toast('Failed to update star: ' + e.message, 'error');
   }
-  renderProjects();
-  // Update detail star if open
-  if (_detailProjectId === projectId) _updateDetailStar(proj);
 }
 
 function toggleStarFromDetail() {
@@ -8956,7 +8991,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S628';
+const HUB_BUILD = 'S629';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
