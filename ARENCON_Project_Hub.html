@@ -4029,6 +4029,34 @@ async function saveEditProject() {
     toast('Project number and name are required', 'error');
     return;
   }
+  /* S628 (Mark) — THE DUPLICATE-NUMBER GATE NOW COVERS EDIT, NOT JUST CREATE.
+     S497d blocked creating a number that already exists, but nothing stopped
+     you renaming an existing project ONTO one. The whole guard could be walked
+     around without meaning to: make the project on a free number, correct the
+     number afterwards, and you have two live projects on one number with no
+     warning at any point.
+
+     Deliberately only fires when the number ACTUALLY CHANGED. The three
+     duplicate pairs already in the database predate this rule, and a blanket
+     check would trap them — you could no longer fix a client name or an
+     address on either Footlocker without first resolving the duplicate, on a
+     panel that never mentions why. Editing anything else on an existing
+     duplicate stays free; only moving a number onto a taken one is refused.
+
+     Trashed projects are excluded, matching create: a number freed by deleting
+     a project is available again. */
+  var _numWas = String(proj.project_number || '').trim();
+  if (num !== _numWas) {
+    var _dupEdit = (_projects || []).find(function(p) {
+      return p.id !== proj.id && !p.deleted_at
+          && String(p.project_number || '').trim() === num;
+    });
+    if (_dupEdit) {
+      toast('Project ' + num + ' already exists (' + (_dupEdit.project_name || 'Untitled')
+            + '). Open it and add a New Report instead.', 'error');
+      return;
+    }
+  }
   var btn = _dq('ep-save-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
@@ -8928,7 +8956,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S627';
+const HUB_BUILD = 'S628';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
