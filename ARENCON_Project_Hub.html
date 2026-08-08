@@ -7388,7 +7388,7 @@ function _pgMakeR2FolderSlug(pn, pname) {
 }
 
 // Resolve photo src from r2Key using project slug folder — ALWAYS rebuilds, never trusts stored r2Url
-function _pgResolveR2Src(ph, projectId) {
+function _pgResolveR2Src(ph, projectId, toolKey, instanceId) {
   if (!ph || typeof ph !== 'object') return (typeof ph === 'string') ? ph : '';
   // Always rebuild from r2Key using slug (r2Url in Supabase may be stale)
   if (ph.r2Key) {
@@ -7418,6 +7418,32 @@ function _pgResolveR2Src(ph, projectId) {
   }
   // Fallback to r2Url if no r2Key
   if (ph.r2Url) return ph.r2Url;
+  /* S631 — REBUILD THE ADDRESS FROM THE PHOTO'S OWN ID (pump tools only).
+     Flow-test evidence photos (gauges, calibration certs, equipment, flow
+     charts) save to the cloud with r2Key/r2Url/r2Status all blank — verified
+     across every such photo in the database, 58 of 58, all-time, while every
+     one of the 326 site/placard photos carries its pointer. The bytes ARE in
+     R2: all 39 live ones were confirmed present in the bucket. Diesel shows
+     them because it rebuilds the address from the photo id when the pointer is
+     missing; the Hub gave up and skipped the photo, so a whole class of
+     commissioning evidence was invisible to anyone reviewing from the board.
+     The pump key is deterministic — photos/{projectId}/{tool}/original/{id}.jpg,
+     with the S398 instance prefix when the record carries r2v===2 — so the Hub
+     can address it exactly as the tool does.
+     SCOPE IS DELIBERATE: pump tools only. FRT filenames are not derived from
+     the photo id (defic_<uuid>.jpg, site_*), so guessing one there would invent
+     an address that never existed. Reached only when there is NO key, NO url
+     and NO inline bytes — the case that previously returned '' — so every
+     photo that resolved before resolves identically.
+     This is a READ-side repair, not the cure: the tool still saves a blank
+     pointer, which is Lane C's to fix. A wrong guess costs an honest "Photo
+     unavailable" tile via the observer's existing 404 path, never a broken grid. */
+  if (!ph.dataUrl && !ph.d && ph.id && projectId &&
+      (toolKey === 'diesel' || toolKey === 'electric')) {
+    var _fn = (ph.r2v === 2 && instanceId ? (instanceId + '__') : '') + ph.id + '.jpg';
+    return R2_WORKER + '/photos/' + encodeURIComponent(projectId) + '/'
+         + encodeURIComponent(toolKey) + '/original/' + encodeURIComponent(_fn);
+  }
   return ph.dataUrl || '';
 }
 
@@ -7715,7 +7741,7 @@ function _pgExtractPhotos(row) {
     function _pumpOne(ph, type, caption, dateHint, cat) {
       if (!ph) return;
       if (ph.deleted || ph.delState === 'deleted' || ph.delAt) return;
-      var src = _pgResolveR2Src(ph, projectId);
+      var src = _pgResolveR2Src(ph, projectId, toolKey, row.id || '');
       if (!src) src = (typeof ph === 'object') ? (ph.d || ph.dataUrl || '') : '';
       if (!src) return;
       var rec = _makeRec(src, type, caption, (typeof ph === 'object' && ph.date) || dateHint || '');
@@ -9016,7 +9042,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S630';
+const HUB_BUILD = 'S631';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
