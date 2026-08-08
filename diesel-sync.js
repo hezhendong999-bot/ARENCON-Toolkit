@@ -1673,6 +1673,11 @@ const CloudSync = (function () {
     recoverUnsentWork: _recoverUnsentWork,   // S524 I-5 — call after boot load()
     syncNow: syncNow, destroy: destroy, readUrlParams: readUrlParams,
     getSyncDiag: getSyncDiag, showSyncStatus: showSyncStatus,   // S585 on-device console
+    /* S624 — the host owns the heartbeat timer and its gate, so it is the only
+       thing that can report a heartbeat that stopped running. It cannot report
+       that through the sync path it is describing, so it needs the recorder
+       directly. Liveness telemetry only — never a route for report data. */
+    reportDiag: _diag,
     heartbeatTick: heartbeatTick, request: _request,
     get projectInfo() { return _projectInfo; },
     get projectId() { return _projectId; },

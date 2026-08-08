@@ -2007,7 +2007,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S623';
+var ELEC_BUILD = 'S624';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -7609,15 +7609,103 @@ function _openToolQR(){
 var _heartbeatRunning = false;
 var _syncLock = false;
 var _cloudSyncedAt = null;
+
+/* ═══ S624 — HEARTBEAT LIVENESS (ported from Diesel; Electric carried the
+   identical shape and therefore the identical fault). The gate
+   `if(_syncLock || _heartbeatRunning) return;` guarded a flag that was raised
+   before an un-timed await. A REJECTED tick was survivable — the catch ran.
+   A tick that NEVER SETTLES (hung fetch on a WiFi handover, captive portal, or
+   dying pump-room signal) neither resolved nor rejected, so the flag stayed
+   raised forever: the timer kept firing and every beat returned at the gate,
+   silently, before any logging could run. The engine's own TICK_WATCHDOG_MS
+   guards a flag INSIDE heartbeatTick and is no help, because the outer gate
+   stops heartbeatTick ever being called.
+   Four layers, liveness only — nothing here touches stamps, merge outcomes,
+   the collision door or the push dedupe. */
+var HB_TICK_TIMEOUT_MS  = 20000;
+var HB_GAG_WATCHDOG_MS  = 45000;
+var HB_STALE_FLOOR_MS   = 90000;
+var _hbRaisedAt = 0;
+var _hbLastDoneAt = 0;
+var _hbLivenessWired = false;
+
+function _hbDiag(outcome, extra){
+  try{
+    if(typeof CloudSync==='undefined' || !CloudSync.reportDiag) return;
+    CloudSync.reportDiag('push_result', Object.assign({
+      outcome: outcome,
+      heldForMs: _hbRaisedAt ? (Date.now() - _hbRaisedAt) : 0,
+      sinceLastTickMs: _hbLastDoneAt ? (Date.now() - _hbLastDoneAt) : null,
+      visibilityState: (typeof document!=='undefined' ? document.visibilityState : 'unknown'),
+      online: (typeof navigator!=='undefined' ? navigator.onLine : null)
+    }, extra || {}));
+  }catch(_){ }
+}
+
+/* Staleness is "three intended checks missed", read from the scheduler's own
+   declared interval rather than a fixed minute count, so it follows the
+   cadence instead of going stale beside it. */
+function _hbStaleThresholdMs(){
+  var iv = 15000;
+  try{ if(window.ArcSyncCadence && ArcSyncCadence.desiredIntervalMs) iv = ArcSyncCadence.desiredIntervalMs(); }catch(_){ }
+  return Math.max(3 * iv, HB_STALE_FLOOR_MS);
+}
+function _hbIsStale(){
+  if(!_csHubMode) return false;
+  var last = _hbLastDoneAt || _cloudSyncedAt || 0;
+  if(!last) return false;
+  return (Date.now() - last) > _hbStaleThresholdMs();
+}
+function _hbStaleMinutes(){
+  var last = _hbLastDoneAt || _cloudSyncedAt || 0;
+  if(!last) return 0;
+  return Math.max(1, Math.round((Date.now() - last) / 60000));
+}
+
+/* A timeout cannot rescue a timer that has stopped firing — which is exactly
+   what Android does to a backgrounded tab it never resumes. */
+function _hbCheckLiveness(why){
+  try{
+    if(!_csHubMode || !_csProjectId) return;
+    var noTimer = !window._syncHeartbeatTimer;
+    var silent  = _hbLastDoneAt && (Date.now() - _hbLastDoneAt) > _hbStaleThresholdMs();
+    if(noTimer || silent){
+      _hbDiag('heartbeat-timer-restarted', { why: why, noTimer: noTimer, silent: !!silent });
+      _startHeartbeat();
+      try{ if(window.ArcSyncCadence && ArcSyncCadence.wake) ArcSyncCadence.wake(); }catch(_){ }
+      try{ _syncHeartbeat(); }catch(_){ }
+    }
+  }catch(_){ }
+}
+function _hbWireLiveness(){
+  if(_hbLivenessWired) return;
+  _hbLivenessWired = true;
+  try{
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState === 'visible') _hbCheckLiveness('tab-visible');
+    });
+    window.addEventListener('focus',  function(){ _hbCheckLiveness('window-focus'); });
+    window.addEventListener('online', function(){ _hbCheckLiveness('online'); });
+  }catch(_){ }
+}
+
 function _startHeartbeat(){
   if(!_csHubMode || !_csProjectId) return;
   if(window._syncHeartbeatTimer) clearInterval(window._syncHeartbeatTimer);
   window._syncHeartbeatTimer = setInterval(_syncHeartbeat, 15000);
+  _hbWireLiveness();
 }
 function _stopHeartbeat(){
   if(window._syncHeartbeatTimer){ clearInterval(window._syncHeartbeatTimer); window._syncHeartbeatTimer=null; }
 }
 async function _syncHeartbeat(){
+  /* LAYER 2 — watchdog the FLAG itself, so a failure nobody imagined still
+     breaks out within a minute. */
+  if(_heartbeatRunning && _hbRaisedAt && (Date.now() - _hbRaisedAt) > HB_GAG_WATCHDOG_MS){
+    _hbDiag('heartbeat-gag-released');
+    _heartbeatRunning = false;
+    _hbRaisedAt = 0;
+  }
   if(_syncLock || _heartbeatRunning) return;
   if(!_csHubMode || !_csProjectId || typeof CloudSync==='undefined' || !CloudSync.isInitialized) return;
   if(!navigator.onLine) return;
@@ -7628,6 +7716,7 @@ async function _syncHeartbeat(){
      only WHEN to check — never what data wins. */
   try{ if(window.ArcSyncCadence && !ArcSyncCadence.shouldTick({hasPendingWork: (typeof CloudSync!=='undefined' && CloudSync.hasPendingSync)})) return; }catch(_){ }
   _heartbeatRunning = true;
+  _hbRaisedAt = Date.now();
   try {
     /* S567 — the shared engine owns the heartbeat now. heartbeatTick() does,
        in order: S321 never pull over a live edit; a cheap updated_at probe
@@ -7637,12 +7726,26 @@ async function _syncHeartbeat(){
        that applies through the S25 empty-cloud guard + _mergeCloudLocal union
        — the same protective apply this function used to do by hand. The
        header pull-flash moved into the facade with it. */
-    await CloudSync.heartbeatTick();
+    /* LAYER 1 — timeout the wait. The tick cannot be cancelled (fetch cannot
+       be), but it no longer owns the flag, so the next beat runs. */
+    await Promise.race([
+      CloudSync.heartbeatTick(),
+      new Promise(function(_, reject){
+        setTimeout(function(){ reject(new Error('heartbeat-tick-timeout')); }, HB_TICK_TIMEOUT_MS);
+      })
+    ]);
+    _hbLastDoneAt = Date.now();
   } catch(e){
     console.warn('[Heartbeat] Error:', e);
     _syncLock = false;
+    if(e && String(e.message||e).indexOf('heartbeat-tick-timeout') !== -1){
+      _hbDiag('heartbeat-tick-timeout', { timeoutMs: HB_TICK_TIMEOUT_MS });
+    }
+  } finally {
+    /* Released HERE, never on the happy path only. */
+    _heartbeatRunning = false;
+    _hbRaisedAt = 0;
   }
-  _heartbeatRunning = false;
 }
 function _mergeCloudLocal(cloud, local){
   if(cloud && local){

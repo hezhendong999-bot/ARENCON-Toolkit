@@ -532,3 +532,20 @@ body[data-ptype="pld"] #perf-pld .fp-head .pt small{
 @media(max-width:600px){
   .pump-type-btns.tt-locked .ts-mode.on::after{ top:auto; bottom:11px; right:12px; }
 }
+
+/* ═══ S624 — VISIBLE STALENESS ══════════════════════════════════════════════
+   The last-sync readout is hidden on narrow screens (diesel-01.css, S267 —
+   it crowded the icon buttons). That is right for a healthy device and WRONG
+   for a stalled one: the tablet is the device that stalls, so on the tablet
+   the warning would never have been seen at all. The healthy readout stays
+   hidden on mobile; the STALE state overrides the hide and shows itself.
+   Attention colour, not failure red — the data is safe, it just has not
+   travelled yet, and reserving red for real loss keeps red meaningful. */
+#cloud-status #last-sync-text.is-stale{
+  display:inline-flex!important;
+  align-items:center;
+  color:#C98A4A;
+  font-weight:600;
+  white-space:nowrap;
+}
+body.dark-mode #cloud-status #last-sync-text.is-stale{ color:#E0A36A; }

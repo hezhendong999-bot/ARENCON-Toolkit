@@ -15,12 +15,24 @@ function _renderLastSync(){
   var el = document.getElementById('last-sync-text');
   if(!el) return;
   if(!_lastSyncTs){ el.style.display = 'none'; return; }
-  el.textContent = 'last sync: ' + _fmtSyncAgo(_lastSyncTs);
+  /* S624 — VISIBLE STALENESS. A stalled device that looks healthy is the real
+     hazard: the number on screen is trusted, so it has to be honest about its
+     own age. The threshold is NOT a fixed minute count — it is read from the
+     scheduler's own declared interval (_hbStaleThresholdMs: three intended
+     checks missed, with a floor), so it follows the cadence instead of going
+     stale beside it. If that helper is not loaded yet, fall back to the plain
+     display rather than guessing at a threshold. */
+  var stale = false;
+  try{ stale = (typeof _hbIsStale === 'function') && _hbIsStale(); }catch(_){ stale = false; }
+  el.textContent = (stale ? '\u26A0 not synced for ' : 'last sync: ') + _fmtSyncAgo(_lastSyncTs);
+  el.classList.toggle('is-stale', !!stale);
   el.style.display = '';
 }
 function _startLastSyncTicker(){
   if(_lastSyncTimer) return;
-  _lastSyncTimer = setInterval(_renderLastSync, 30000);
+  /* 15s, not 30s: this readout is now a health indicator, and the delay before
+     a stalled device admits it should not itself be half a minute. */
+  _lastSyncTimer = setInterval(_renderLastSync, 15000);
 }
 // S265: inspector chip — ported from FRT. Identity = signed-in user (profiles.full_name),
 // shared localStorage key 'ARENCON_FR_Inspector' so FRT and diesel show the SAME name.

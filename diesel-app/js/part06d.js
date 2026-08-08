@@ -1686,15 +1686,131 @@ function openHelp(){
 var _heartbeatRunning = false;
 var _syncLock = false;
 var _cloudSyncedAt = null; // Timestamp of last cloud push — prevents self-triggering
+
+/* ═══ S624 — HEARTBEAT LIVENESS (Mark, 07 Aug: device and-ceerf7 stopped
+   emitting to sync_diag entirely at 21:22Z while the other two kept going; a
+   typed value stranded; only a page refresh recovered).
+
+   THE GAG. _syncHeartbeat opened with `if(_syncLock || _heartbeatRunning)
+   return;`, raised the flag, awaited CloudSync.heartbeatTick() and lowered it
+   afterwards. A REJECTED tick was fine — the catch ran and the flag came down.
+   A tick that NEVER SETTLES was not: a hung fetch (WiFi handover, captive
+   portal, dying pump-room signal) neither resolves nor rejects, so the flag
+   stayed raised forever. The 15s timer kept firing and every tick returned at
+   the gate. The loop was alive and permanently silent — and because it
+   returned BEFORE any logging, it could not even report its own condition.
+
+   The engine's own TICK_WATCHDOG_MS guards `_pulling` INSIDE heartbeatTick,
+   which is no help at all here: the outer flag prevents heartbeatTick from
+   ever being called, so the engine watchdog never gets a turn.
+
+   FOUR LAYERS, because any one alone leaves a hole:
+     1 a hard timeout on the await, so an unsettling promise cannot own the flag
+     2 a watchdog on the FLAG ITSELF, so an unimagined failure still breaks out
+     3 a liveness check on the TIMER, since Android can freeze it while
+       backgrounded and not resume it — a timeout cannot fix a timer that
+       stopped firing
+     4 visible staleness, because a stalled device that looks healthy is the
+       real hazard: Mark would trust a stale number on screen.
+   Liveness only. Nothing here touches stamps, merge outcomes, the collision
+   door or the push dedupe — this changes WHETHER a check runs, never who wins. */
+var HB_TICK_TIMEOUT_MS  = 20000;   // a tick may not hold the flag longer than this
+var HB_GAG_WATCHDOG_MS  = 45000;   // ...and the flag may not stay raised longer than this
+var HB_STALE_FLOOR_MS   = 90000;   // staleness never nags sooner than this
+var _hbRaisedAt = 0;               // when the flag went up (0 = down)
+var _hbLastDoneAt = 0;             // last tick that actually COMPLETED
+var _hbLivenessWired = false;
+
+/* Telemetry has to survive the very condition it reports, so it never routes
+   through the sync path it is describing. */
+function _hbDiag(outcome, extra){
+  try{
+    if(typeof CloudSync==='undefined' || !CloudSync.reportDiag) return;
+    CloudSync.reportDiag('push_result', Object.assign({
+      outcome: outcome,
+      heldForMs: _hbRaisedAt ? (Date.now() - _hbRaisedAt) : 0,
+      sinceLastTickMs: _hbLastDoneAt ? (Date.now() - _hbLastDoneAt) : null,
+      visibilityState: (typeof document!=='undefined' ? document.visibilityState : 'unknown'),
+      online: (typeof navigator!=='undefined' ? navigator.onLine : null)
+    }, extra || {}));
+  }catch(_){ }
+}
+
+/* THE STALENESS CONTRACT — deliberately NOT a fixed number of minutes.
+   The scheduler already declares how often it intends to check
+   (ArcSyncCadence.desiredIntervalMs: 15s working, 30s idle, 60s long-idle), so
+   staleness is "three intervals missed", with a floor so the 15s cadence does
+   not nag over one slow round trip. Three because one miss is a dropped
+   request and two is jitter. When the cadence is retuned — or when Realtime
+   lands and scheduled beats become rare — this threshold follows on its own.
+   There is no magic minute count here to go stale. */
+function _hbStaleThresholdMs(){
+  var iv = 15000;
+  try{ if(window.ArcSyncCadence && ArcSyncCadence.desiredIntervalMs) iv = ArcSyncCadence.desiredIntervalMs(); }catch(_){ }
+  return Math.max(3 * iv, HB_STALE_FLOOR_MS);
+}
+function _hbIsStale(){
+  if(!_csHubMode) return false;
+  var last = _hbLastDoneAt || _cloudSyncedAt || 0;
+  if(!last) return false;
+  return (Date.now() - last) > _hbStaleThresholdMs();
+}
+function _hbStaleMinutes(){
+  var last = _hbLastDoneAt || _cloudSyncedAt || 0;
+  if(!last) return 0;
+  return Math.max(1, Math.round((Date.now() - last) / 60000));
+}
+
+/* LAYER 3 — the timer itself can die. A timeout cannot rescue a beat that has
+   stopped firing, which is exactly what Android does to a backgrounded tab it
+   never resumes. On each moment the person looks at or returns to the tool,
+   confirm the timer still exists and that a tick has completed within living
+   memory; restart it if not, and say so. */
+function _hbCheckLiveness(why){
+  try{
+    if(!_csHubMode || !_csProjectId) return;
+    var noTimer = !window._syncHeartbeatTimer;
+    var silent  = _hbLastDoneAt && (Date.now() - _hbLastDoneAt) > _hbStaleThresholdMs();
+    if(noTimer || silent){
+      _hbDiag('heartbeat-timer-restarted', { why: why, noTimer: noTimer, silent: !!silent });
+      _startHeartbeat();
+      try{ if(window.ArcSyncCadence && ArcSyncCadence.wake) ArcSyncCadence.wake(); }catch(_){ }
+      try{ _syncHeartbeat(); }catch(_){ }
+    }
+  }catch(_){ }
+}
+function _hbWireLiveness(){
+  if(_hbLivenessWired) return;
+  _hbLivenessWired = true;
+  try{
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState === 'visible') _hbCheckLiveness('tab-visible');
+    });
+    window.addEventListener('focus',  function(){ _hbCheckLiveness('window-focus'); });
+    window.addEventListener('online', function(){ _hbCheckLiveness('online'); });
+  }catch(_){ }
+}
+
 function _startHeartbeat(){
   if(!_csHubMode || !_csProjectId) return;
   if(window._syncHeartbeatTimer) clearInterval(window._syncHeartbeatTimer);
   window._syncHeartbeatTimer = setInterval(_syncHeartbeat, 15000);
+  _hbWireLiveness();
 }
 function _stopHeartbeat(){
   if(window._syncHeartbeatTimer){ clearInterval(window._syncHeartbeatTimer); window._syncHeartbeatTimer=null; }
 }
 async function _syncHeartbeat(){
+  /* LAYER 2 — WATCHDOG THE FLAG. Before honouring the gate, ask how long it
+     has been closed. A flag raised beyond the watchdog belongs to a tick that
+     is never coming back; release it and say so. This is the backstop that
+     covers failures layer 1 did not anticipate — including a timeout that
+     itself fails to fire. */
+  if(_heartbeatRunning && _hbRaisedAt && (Date.now() - _hbRaisedAt) > HB_GAG_WATCHDOG_MS){
+    _hbDiag('heartbeat-gag-released');
+    _heartbeatRunning = false;
+    _hbRaisedAt = 0;
+  }
   if(_syncLock || _heartbeatRunning) return;
   if(!_csHubMode || !_csProjectId || typeof CloudSync==='undefined' || !CloudSync.isInitialized) return;
   if(!navigator.onLine) return;
@@ -1705,6 +1821,7 @@ async function _syncHeartbeat(){
      only WHEN to check — never what data wins. */
   try{ if(window.ArcSyncCadence && !ArcSyncCadence.shouldTick({hasPendingWork: (typeof CloudSync!=='undefined' && CloudSync.hasPendingSync)})) return; }catch(_){ }
   _heartbeatRunning = true;
+  _hbRaisedAt = Date.now();
   try {
     /* S496 Phase 2 — THE 4TH HOST EDIT (missed in the first Phase 2 push, which
        ported only 3; Mark's two-window test caught it: nothing ever synced in).
@@ -1721,9 +1838,33 @@ async function _syncHeartbeat(){
        S321 edit-deferral (active input OR pending autosave debounce) is
        enforced INSIDE the tick, before the pull. Pulling also refreshes the
        engine's If-Match token, so the next push preconditions correctly. */
-    await CloudSync.heartbeatTick();
-  } catch(e){ console.warn('[Heartbeat] Error:', e); }
-  _heartbeatRunning = false;
+    /* LAYER 1 — TIMEOUT THE WAIT. A rejected tick was always survivable; an
+       unsettling one was not. Race it, and treat the timeout exactly as a
+       failure: release, record, carry on. The tick is not cancelled — fetch
+       cannot be — but it no longer owns the flag, so the next beat runs. */
+    await Promise.race([
+      CloudSync.heartbeatTick(),
+      new Promise(function(_, reject){
+        setTimeout(function(){ reject(new Error('heartbeat-tick-timeout')); }, HB_TICK_TIMEOUT_MS);
+      })
+    ]);
+    _hbLastDoneAt = Date.now();
+    /* A completed tick IS cloud contact, even when nothing changed. Without
+       this the readout only advanced on a successful PUSH, so a device that
+       was healthily receiving looked stale — and a health indicator that cries
+       wolf is one nobody reads. */
+    try{ _lastSyncTs = Date.now(); _renderLastSync(); _startLastSyncTicker(); }catch(_){ }
+  } catch(e){
+    console.warn('[Heartbeat] Error:', e);
+    if(e && String(e.message||e).indexOf('heartbeat-tick-timeout') !== -1){
+      _hbDiag('heartbeat-tick-timeout', { timeoutMs: HB_TICK_TIMEOUT_MS });
+    }
+  } finally {
+    /* Released HERE, never on the happy path only — a throw between the raise
+       and the lower was the same permanent gag by another route. */
+    _heartbeatRunning = false;
+    _hbRaisedAt = 0;
+  }
 }
 // S25 guard: does a state object carry real report content?
 // Conservative — any single content signal counts. On error, assume content
