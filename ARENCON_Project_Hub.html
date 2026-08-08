@@ -3583,7 +3583,12 @@ async function _loadAndRenderInstances(proj) {
           + '<button class="ri-act-btn" onclick="event.stopPropagation();renameInstance(\'' + inst.id + '\')" title="Rename">✏️</button>'
           + '<button class="ri-act-btn danger" onclick="event.stopPropagation();deleteInstance(\'' + inst.id + '\',\'' + esc(title).replace(/'/g, "\\'") + '\')" title="Delete">🗑️</button>'
           + '</span>';
-        html += '<div class="rrow" style="--tc:' + t.color + '" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\')" title="Open ' + esc(title) + '">'
+        /* S630: the row passes its own event so launchToolInstance can tell an
+           ordinary tap (same tab) from a deliberate ctrl/cmd/shift-click (new
+           tab). onauxclick carries MIDDLE-click, which never fires onclick on a
+           div — without it, the one gesture people reach for most to open a
+           second copy would silently do nothing. */
+        html += '<div class="rrow" style="--tc:' + t.color + '" onclick="launchToolInstance(\'' + key + '\',\'' + inst.id + '\',false,event)" onauxclick="if(event.button===1){event.preventDefault();launchToolInstance(\'' + key + '\',\'' + inst.id + '\',false,event);}" title="Open ' + esc(title) + '">'
           + '<div class="rmain">'
           + '<div class="rtitle">' + esc(title) + '</div>'
           + '<div class="rmeta">'
@@ -3738,7 +3743,7 @@ function _showOwnWarn(key, instanceId, name){
     +'</div></div>';
   document.body.appendChild(ov);
 }
-function launchToolInstance(key, instanceId, force) {
+function launchToolInstance(key, instanceId, force, ev) {
   if (!_detailProjectId) return;
   var _m = _riMeta[instanceId];
   var _isViewer = _profile && _profile.role === 'viewer';
@@ -3769,6 +3774,26 @@ function launchToolInstance(key, instanceId, force) {
      a UUID contains hyphens, and window names must not contain characters the
      browser treats specially. */
   var winName = 'arencon_rpt_' + String(instanceId).replace(/[^A-Za-z0-9_]/g, '_');
+  /* S630 (Mark) — SAME TAB IS THE DEFAULT. The S495 note above is still true
+     about the hazard, but the cure produced its own mess: the Hub opened the
+     report in a SECOND tab, the tool's Back then navigated THAT tab to the
+     Hub, and every report opened left a duplicate Hub behind. A day of field
+     work ended with a row of identical Hub tabs.
+     Navigating in place is strictly SAFER than the named window it replaces:
+     there is only ever one tab, so two tabs on one report cannot happen at
+     all, and Back returns to the Hub the user came from. The tool tabs are
+     free to be reopened; nothing is lost, because leaving a tool already
+     flushes through its own save guard (FRT _leaveTool / Diesel part12).
+     ESCAPE HATCH, now real: ctrl/cmd/shift-click or middle-click opens a
+     second copy in a new tab, still NAMED per report so a repeat of the same
+     gesture on the same report focuses that tab instead of duplicating it.
+     The S495 comment claimed the browser already gave this for free via
+     "Open in new tab" — it did NOT: .rrow is a div, not a link, so modifier
+     clicks did nothing. The modifier is read from the event the row now
+     passes in; with no event (create-new-report, the ownership warning's
+     "Open anyway") the answer is same tab, which is the intended default. */
+  var _newTab = !!(ev && (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1));
+  if (!_newTab) { window.location.href = url; return; }
   var w = window.open(url, winName);
   // If the tab already existed, window.open returns it WITHOUT navigating or
   // raising it on some browsers — focus() brings it forward so the click feels
@@ -8991,7 +9016,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S629';
+const HUB_BUILD = 'S630';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
