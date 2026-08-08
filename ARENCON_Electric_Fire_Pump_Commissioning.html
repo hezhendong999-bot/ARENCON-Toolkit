@@ -2007,7 +2007,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S624';
+var ELEC_BUILD = 'S625';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -7734,7 +7734,15 @@ async function _syncHeartbeat(){
         setTimeout(function(){ reject(new Error('heartbeat-tick-timeout')); }, HB_TICK_TIMEOUT_MS);
       })
     ]);
-    _hbLastDoneAt = Date.now();
+    /* S625 — Mark's B2: in airplane mode the tick returns immediately
+       (correctly — there is nothing to contact), and counting that return as
+       cloud contact made the tool refresh its own "last synced" clock every
+       15 seconds while offline: a stalled device REASSURING the person it is
+       healthy, which is the exact hazard the staleness layer exists to kill.
+       A tick only counts as contact when the network was actually there. */
+    if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+      _hbLastDoneAt = Date.now();
+    }
   } catch(e){
     console.warn('[Heartbeat] Error:', e);
     _syncLock = false;

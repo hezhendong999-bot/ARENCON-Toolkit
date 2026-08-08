@@ -1848,12 +1848,20 @@ async function _syncHeartbeat(){
         setTimeout(function(){ reject(new Error('heartbeat-tick-timeout')); }, HB_TICK_TIMEOUT_MS);
       })
     ]);
-    _hbLastDoneAt = Date.now();
+    /* S625 — Mark's B2: in airplane mode the tick returns immediately
+       (correctly — there is nothing to contact), and counting that return as
+       cloud contact made the tool refresh its own "last synced" clock every
+       15 seconds while offline: a stalled device REASSURING the person it is
+       healthy, which is the exact hazard the staleness layer exists to kill.
+       A tick only counts as contact when the network was actually there. */
+    if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+      _hbLastDoneAt = Date.now();
     /* A completed tick IS cloud contact, even when nothing changed. Without
        this the readout only advanced on a successful PUSH, so a device that
        was healthily receiving looked stale — and a health indicator that cries
        wolf is one nobody reads. */
-    try{ _lastSyncTs = Date.now(); _renderLastSync(); _startLastSyncTicker(); }catch(_){ }
+      try{ _lastSyncTs = Date.now(); _renderLastSync(); _startLastSyncTicker(); }catch(_){ }
+    }
   } catch(e){
     console.warn('[Heartbeat] Error:', e);
     if(e && String(e.message||e).indexOf('heartbeat-tick-timeout') !== -1){
