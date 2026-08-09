@@ -88,6 +88,24 @@ if (ctl && typeof ctl.setCloud === 'function') {
   check('it clears when the device syncs again',
         !root.querySelector('.cloud').classList.contains('is-stale'),
         'stale class cleared');
+
+  /* S629b — the realtime status hook fires setCloud on every socket
+     transition. A partial update must not silently repaint anything it did
+     not mention: a flapping socket showing a healthy green dot while a save
+     is failing is the same false reassurance as the offline pill that
+     reported itself synced. */
+  ctl.setCloud({ state: 'err', text: 'Save failed' });
+  ctl.setCloud({ live: false });
+  const dotAfter = root.querySelector('.dot').getAttribute('data-s');
+  check('a socket status update does not repaint the sync dot',
+        dotAfter === 'err', 'dot after a live-only update = ' + dotAfter + ' (must stay err)');
+
+  ctl.setCloud({ live: true });
+  check('the live-socket indicator appears when the socket is joined',
+        root.querySelector('.cloud').classList.contains('is-live'), '');
+  ctl.setCloud({ live: false });
+  check('and disappears when it is not — absent is the honest default',
+        !root.querySelector('.cloud').classList.contains('is-live'), '');
 }
 
 /* ── THE HALF THAT WAS MISSING ────────────────────────────────────────────
