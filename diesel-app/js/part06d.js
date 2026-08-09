@@ -2367,6 +2367,30 @@ function _mergeCloudLocal(cloud, local){
       if(n) console.info('[merge] S354 reconciled '+n+' cross-device deletion(s) by delAt');
     }catch(e){ console.warn('[merge] S354 deletion reconcile error', e); }
   })();
+  /* ═══ S627 — TYPED VALUES ARE ARBITRATED, NOT SURRENDERED ════════════════
+     Everything above rescues BINARY that the cloud strips — photo data,
+     markup vectors, sketch images — and then returns the cloud document,
+     because "cloud owns structure" is correct canon and stays. But the same
+     sweep silently handed every TYPED value to the cloud as well, and that is
+     where Mark's offline edit died on reopen, three builds running: the value
+     was stamped at its true edit moment, persisted, restored from disk and
+     the push re-armed — and then discarded HERE, one layer outside anything
+     the engine harnesses could see (tools/sim/bootmerge.mjs, which drives
+     THIS function verbatim, reproduces it: 77 in, 200 out).
+     The rule applied now is the one the running app already uses everywhere
+     else: per key, the newer ENTRY TIME wins. Nothing is minted; a value only
+     survives if this device recorded typing it later than the cloud's copy
+     was typed. Cloud still wins every tie, every unstamped key, and every key
+     it holds more recently — so a stale local copy still yields exactly as
+     S488/S601 require. Structure, arrays and photos are untouched by this. */
+  try {
+    if (cloud && local && typeof window !== 'undefined' && typeof window.ArcBootArbitrate === 'function') {
+      var _arb = window.ArcBootArbitrate(cloud, local, 'diesel');
+      if (_arb && _arb.took) {
+        console.log('[merge S627] boot: kept ' + _arb.took + ' locally-typed value(s) with a newer entry time — ' + _arb.keys.join(', '));
+      }
+    }
+  } catch(e){ console.warn('[merge S627] boot arbitration skipped:', e && e.message); }
   // S305: per-pull merge log removed (30s heartbeat spam); backup-restore and
   // error logs inside the merge still fire when something actually happens.
   return cloud || local;
