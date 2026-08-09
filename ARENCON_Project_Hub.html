@@ -9481,7 +9481,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S633';
+const HUB_BUILD = 'S637';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
@@ -9496,6 +9496,35 @@ try {
     b.style.cssText = 'position:fixed;left:10px;bottom:8px;z-index:20;pointer-events:none;' +
       'font:400 10.5px Calibri,sans-serif;color:#928E9C;opacity:.65;';
     document.body.appendChild(b);
+    /* ═══ S637 — THE STAMP MUST NOT BE ABLE TO LIE ═══════════════════════════
+       HUB_BUILD is typed by hand, so it only moves when someone remembers to
+       move it. On 09 Aug a 215-line change to this page's layout shipped
+       without touching it: the old shell and the new one both read "S633".
+       A stale-copy bug was then diagnosed FROM that stamp — "it says S633, so
+       it's an older shell" — and the inference was worthless, because every
+       shell said S633. A diagnostic that cannot be wrong out loud is worse
+       than no diagnostic.
+       The worker serving this page already knows exactly which build it is
+       serving and has answered GET_BUILD_STAMP since S546; nothing here asked.
+       Now the stamp shows the SERVING SHELL's version beside the hand-typed
+       one. That half cannot go stale — it is whatever is actually on the
+       device — so "old shell or not" becomes a fact you can read instead of
+       an inference from a number someone may have forgotten. If the two ever
+       disagree with what was pushed, the shell figure is the true one. */
+    try {
+      var _sw = navigator.serviceWorker;
+      if (_sw && _sw.controller && window.MessageChannel) {
+        var _ch = new MessageChannel();
+        _ch.port1.onmessage = function (ev) {
+          var cn = ev && ev.data && ev.data.cacheName;
+          if (!cn) return;
+          var m = String(cn).match(/(\d{12})$/);
+          b.textContent = 'build ' + HUB_BUILD + ' · shell ' + (m ? m[1] : cn);
+          try { console.info('%c[Hub] serving shell ' + cn, 'background:#5E5B68;color:#fff;padding:2px 8px;border-radius:4px;'); } catch (e) {}
+        };
+        _sw.controller.postMessage({ type: 'GET_BUILD_STAMP' }, [_ch.port2]);
+      }
+    } catch (e) {}
   });
 } catch (e) {}
 import '/lib/ui/hubHelpCards.js';
