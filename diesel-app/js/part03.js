@@ -11,6 +11,13 @@ function _fmtSyncAgo(ms){
   if(h < 24) return h + 'h ago';
   return Math.floor(h / 24) + 'd ago';
 }
+/* S630 — a duration, not a point in time: S628 shipped "not synced for 3m
+   ago", which reads clumsily, and a warning that reads clumsily gets trusted
+   less. */
+function _fmtSyncDur(ts){
+  var m = Math.max(1, Math.round((Date.now() - ts) / 60000));
+  return m + 'm';
+}
 function _renderLastSync(){
   /* ═══ S628 — THE STALENESS WARNING NEVER EXISTED WHERE IT WAS WRITTEN.
      Mark, three minutes in airplane mode: "I don't think this feature exists.
@@ -27,7 +34,7 @@ function _renderLastSync(){
   var stale = false;
   try{ stale = (typeof _hbIsStale === 'function') && _hbIsStale(); }catch(_){ stale = false; }
   var txt = !_lastSyncTs ? ''
-          : (stale ? '\u26A0 not synced for ' + _fmtSyncAgo(_lastSyncTs)
+          : (stale ? '\u26A0 not synced for ' + _fmtSyncDur(_lastSyncTs)
                    : 'last sync: ' + _fmtSyncAgo(_lastSyncTs));
   var ctl = (typeof window !== 'undefined') && window.__dslHeaderCtl;
   if(ctl && typeof ctl.setCloud === 'function'){

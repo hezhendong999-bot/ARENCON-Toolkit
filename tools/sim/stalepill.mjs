@@ -125,6 +125,7 @@ if (ctl && typeof ctl.setCloud === 'function') {
     console, Date, Math, String,
     _lastSyncTs: Date.now() - 180000,
     _fmtSyncAgo: () => '3m ago',
+    _fmtSyncDur: () => '3m',
     _hbIsStale: () => true
   });
   vm.runInContext(src.slice(at, end) + '\n_renderLastSync();', ctx);
@@ -134,6 +135,50 @@ if (ctl && typeof ctl.setCloud === 'function') {
   check('the host sends the warning text AND the stale flag',
         typeof sent.lastSync === 'string' && sent.lastSync.indexOf('not synced') > 0 && sent.stale === true,
         'sent ' + JSON.stringify(sent));
+  check('the DIESEL warning reads as a duration, not "3m ago"',
+        typeof sent.lastSync === 'string' && sent.lastSync.indexOf('ago') === -1,
+        'text = "' + sent.lastSync + '"');
+}
+
+/* ── ELECTRIC, the tool the S624 port reported complete and left blind ──
+   Same assertion as the Diesel host above: drive the shipped _renderLastSync
+   verbatim and prove it reaches a controller. Electric had the staleness
+   helpers from the S624 copy and no readout at all, so they were defined and
+   never called for six sessions. */
+{
+  const vm = await import('vm');
+  const html = fs.readFileSync(path.join(REPO, 'ARENCON_Electric_Fire_Pump_Commissioning.html'), 'utf8');
+  const at = html.indexOf('function _renderLastSync(){');
+  if (at < 0) {
+    /* A probe whose subject is missing must say so. The first run of this arm
+       printed NOTHING on the pre-fix file and read as a pass — the same
+       silence that let a broken layer 4 look delivered for six sessions. */
+    check('ELECTRIC routes its readout through its header controller', false,
+          'Electric has no _renderLastSync at all — layer 4 is absent, not merely wrong');
+    check('ELECTRIC sends the warning text AND the stale flag', false, 'no readout to send through');
+  } else {
+  let i = html.indexOf('{', at), d = 0, end = i;
+  for (; i < html.length; i++) { if (html[i] === '{') d++; else if (html[i] === '}') { d--; if (!d) { end = i + 1; break; } } }
+  const calls = [];
+  const ctx = vm.createContext({
+    window: { __elecHeaderCtl: { setCloud: o => calls.push(o) } },
+    console, Date, Math, String,
+    _elecLastSyncTs: Date.now() - 240000,
+    _elecFmtAgo: () => '4m ago',
+    _elecFmtDur: () => '4m',
+    _hbIsStale: () => true
+  });
+  vm.runInContext(html.slice(at, end) + '\n_renderLastSync();', ctx);
+  const sent = calls[0] || {};
+  check('ELECTRIC routes its readout through its header controller',
+        calls.length === 1, 'setCloud called ' + calls.length + ' time(s)');
+  check('ELECTRIC sends the warning text AND the stale flag',
+        typeof sent.lastSync === 'string' && sent.lastSync.indexOf('not synced') > 0 && sent.stale === true,
+        'sent ' + JSON.stringify(sent));
+  check('the warning reads as a duration, not "4m ago"',
+        typeof sent.lastSync === 'string' && sent.lastSync.indexOf('ago') === -1,
+        'text = "' + sent.lastSync + '"');
+  }
 }
 
 const failed = results.filter(x => !x.pass);

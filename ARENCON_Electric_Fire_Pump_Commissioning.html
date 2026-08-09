@@ -2007,7 +2007,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S625';
+var ELEC_BUILD = 'S630';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -7656,6 +7656,41 @@ function _hbIsStale(){
   if(!last) return false;
   return (Date.now() - last) > _hbStaleThresholdMs();
 }
+/* ═══ S630 — ELECTRIC FINALLY HAS THE READOUT (layer 4). S624 ported layers
+   1-3 by COPYING them and carried the staleness helpers along, but Electric
+   had no last-sync display for them to write to, so _hbIsStale sat defined
+   and never called for six sessions while the port was reported complete.
+   The warning now renders through Electric's own header controller — the
+   same shared cloud-status element Diesel uses, so it inherits the amber
+   styling and the opacity override without a second stylesheet. */
+var _elecLastSyncTs = 0, _elecLastSyncTimer = null;
+/* "not synced for 4m ago" is not English. A duration and a point in time need
+   different words, and a warning that reads clumsily gets trusted less. */
+function _elecFmtDur(ts){
+  var m = Math.max(1, Math.round((Date.now() - ts) / 60000));
+  return m + 'm';
+}
+function _elecFmtAgo(ts){
+  var m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  return m < 1 ? 'just now' : (m + 'm ago');
+}
+function _renderLastSync(){
+  var stale = false;
+  try{ stale = _hbIsStale(); }catch(_){ stale = false; }
+  var txt = !_elecLastSyncTs ? ''
+          : (stale ? '\u26A0 not synced for ' + _elecFmtDur(_elecLastSyncTs)
+                   : 'last sync: ' + _elecFmtAgo(_elecLastSyncTs));
+  try{
+    var c = window.__elecHeaderCtl;
+    if(c && c.setCloud) c.setCloud({ lastSync: txt, stale: stale });
+  }catch(_){ }
+}
+function _startLastSyncTicker(){
+  if(_elecLastSyncTimer) return;
+  /* 15s, not 30s: this is a health indicator now, and the delay before a
+     stalled device admits it should not itself be half a minute. */
+  _elecLastSyncTimer = setInterval(_renderLastSync, 15000);
+}
 function _hbStaleMinutes(){
   var last = _hbLastDoneAt || _cloudSyncedAt || 0;
   if(!last) return 0;
@@ -7742,6 +7777,10 @@ async function _syncHeartbeat(){
        A tick only counts as contact when the network was actually there. */
     if (typeof navigator === 'undefined' || navigator.onLine !== false) {
       _hbLastDoneAt = Date.now();
+      /* A completed tick IS cloud contact — the readout must advance on it,
+         not only on a successful push, or a healthily-receiving device looks
+         stale and the warning cries wolf. */
+      try{ _elecLastSyncTs = Date.now(); _renderLastSync(); _startLastSyncTicker(); }catch(_){ }
     }
   } catch(e){
     console.warn('[Heartbeat] Error:', e);
