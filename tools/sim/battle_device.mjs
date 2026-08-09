@@ -171,7 +171,7 @@ for await (const line of rl) {
       await CS.heartbeatTick();
       await new Promise(r => setTimeout(r, m.settle || 130));
       send({ id: m.id, ok: true });
-    } else if (m.cmd === 'dbg') { send({ id: m.id, ok: true, offset: (typeof w.__arcSvrOffset === 'undefined' ? 'never-learned' : w.__arcSvrOffset), skew: _SKEW });
+    } else if (m.cmd === 'dbg') { send({ id: m.id, ok: true, offset: (typeof w.__arcSvrOffset === 'undefined' ? 'never-learned' : w.__arcSvrOffset), skew: _SKEW, ledger: (w.__arcLedgerPeek ? w.__arcLedgerPeek() : null) });
     } else if (m.cmd === 'offline') { online = false; try { w.dispatchEvent(new w.Event('offline')); } catch (_) {} send({ id: m.id, ok: true }); }
     else if (m.cmd === 'online')  { online = true;  try { w.dispatchEvent(new w.Event('online')); } catch (_) {} await new Promise(r => setTimeout(r, 250)); send({ id: m.id, ok: true }); }
     else if (m.cmd === 'get')     { send({ id: m.id, ok: true, screen: screen }); }

@@ -39,6 +39,7 @@ const REPO = path.resolve(HERE, '../..');
 const ROW  = 'c6036627-3615-4dc0-bda2-bbf4c5d1c179';
 
 let cloud = { data: {}, updatedAt: new Date().toISOString() };
+let wire = [];
 const server = http.createServer((req, res) => {
   let body = ''; req.on('data', c => body += c);
   req.on('end', () => {
@@ -53,7 +54,7 @@ const server = http.createServer((req, res) => {
       if (req.method === 'PATCH') {
         const im = req.headers['if-match'];
         if (im && String(im).replace(/"/g, '') !== cloud.updatedAt) return send(412, {});
-        try { const nd = JSON.parse(body).data; if (nd) cloud.data = nd; } catch (_) {}
+        try { const nd = JSON.parse(body).data; if (nd) { cloud.data = nd; const r=(nd._fts&&nd._fts._root)||{}; wire.push({ at: Date.now(), val: nd.npshPsi, stamp: r.npshPsi||0 }); } } catch (_) {}
         cloud.updatedAt = new Date().toISOString();
         return send(200, [{ id: ROW, instance_number: 1, updated_at: cloud.updatedAt }]);
       }
@@ -118,8 +119,12 @@ await d.call('set', { path: ['npshPsi'], value: '35' });
 await d.call('save');                       // saved locally, offline
 await sleep(250);
 
+const dbg1 = await d.call('dbg');
+console.log('           after OFFLINE save: ledger=' + JSON.stringify(dbg1.ledger || null).slice(0,140));
 const snap = (await d.call('snapshot')).store;
 const idbKeys = Object.keys(snap.idb || {}).map(k => k + ':' + (snap.idb[k] || []).length).join(' ');
+(snap.idb.syncMeta || []).forEach(r => console.log('           syncMeta record id=' + r.id +
+  '  ledger.npshPsi=' + JSON.stringify(r.ledger && r.ledger.npshPsi)));
 console.log('           persisted world: localStorage keys=' + Object.keys(snap.localStorage).length + ', idb ' + idbKeys);
 
 /* Does anything on disk remember WHEN 35 WAS TYPED? A loose search for "_fts"
@@ -138,6 +143,7 @@ d.child.kill('SIGKILL');                    // the app is CLOSED, not background
 await sleep(300);
 
 console.log('\nSESSION 2  reopen ONLINE (as the TWA forces), same storage, fresh process');
+wire.length = 0; const wire2 = wire;
 d = spawnDevice('AD');
 await d.call('restore', { store: snap });
 await d.call('init', { row: ROW });
@@ -149,6 +155,9 @@ await d.call('save');
 for (let i = 0; i < 4; i++) { await d.call('beat'); await sleep(120); }
 await sleep(200);
 
+const dbg2 = await d.call('dbg');
+console.log('           after reopen: ledger=' + JSON.stringify(dbg2.ledger || null).slice(0,120));
+console.log('           session-2 cloud writes: ' + wire2.length + '  ' + JSON.stringify(wire2.map(w=>w.val)));
 const screen = (await d.call('get')).screen.npshPsi;
 check('the offline edit survives the app closing (screen)',
       screen === '35', 'screen shows ' + screen + ', expected 35');
