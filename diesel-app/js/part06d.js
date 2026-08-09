@@ -2200,8 +2200,51 @@ function _mergeCloudLocal(cloud, local){
     // excluding 'uploaded' means we never resurrect a deliberate cross-device delete.
     // Matched by id only (id-less rows can't be safely de-duped).
     (function _s335NewPhotoUnion(){
+      /* ═══ S638 — THE GATE WAS SHUTTING ON SUCCESS ═══════════════════════
+         Mark, 09 Aug: photo added to the 3-pt 100% row on the tablet, absent
+         on the iPhone and the PC. Read live from the database: that row held
+         ZERO photos while the 0% row held five, all with valid addresses. The
+         photo never reached the cloud at all.
+
+         isFresh() required `p.d` — the photo's bytes still held inline — AND
+         r2Status !== 'uploaded'. Both conditions stop being true THE MOMENT
+         THE UPLOAD SUCCEEDS: the status flips to 'uploaded' and the retire
+         pass then frees the inline copy precisely because the bytes are now
+         safe in cloud storage. So the window in which a new photo could be
+         rescued closed exactly when the photo became safest, and on office
+         wifi that window is a second or two. After it, any incoming pull —
+         heartbeat or live socket — merged the photo away, and this device
+         then pushed the state without it. The bytes sit in R2 with nothing
+         referencing them. That is silent loss of evidence, not a display bug.
+
+         WHY THE GATE WAS THERE, and it was a real concern: a photo deleted on
+         another device is also uploaded-and-absent-from-cloud, and resurrecting
+         it would undo a colleague's deletion. The old code could not tell the
+         two apart, so it refused both.
+
+         THE SNAPSHOT TELLS THEM APART. If the last row this device pulled did
+         not contain the photo's id, the cloud has never known about it —
+         nobody can have deleted what was never there, so it is a local capture
+         and is rescued. If the id WAS in that snapshot and is gone now, that
+         is a real removal and it stays removed. When this device has no
+         snapshot to consult the answer is null, and null falls back to the old
+         conservative behaviour: not knowing is never a licence to resurrect.
+         Soft-deletes remain excluded outright (S337), and the S354 delete
+         arbitration still runs AFTER this pass, so a genuine cross-device
+         delete carrying a newer timestamp re-flags the photo either way.
+         Harness: tools/sim/photounion.mjs (fails on S636). */
+      function cloudKnew(id){
+        try {
+          if (typeof window.__arcCloudKnewPhoto !== 'function') return null;
+          return window.__arcCloudKnewPhoto(id);
+        } catch (_) { return null; }
+      }
       function isFresh(p){
-        return p && p.id && p.d && p.r2Status !== 'uploaded' && !p.deleted;   // S337: never resurrect a soft-deleted photo
+        if (!p || !p.id || p.deleted || _isPhotoDeleted(p)) return false;   // S337: never resurrect a soft-deleted photo
+        if (p.d && p.r2Status !== 'uploaded') return true;                  // S335: an in-flight capture, as before
+        /* S638: a capture whose upload SUCCEEDED before the row was pushed.
+           Only when the cloud has demonstrably never seen it. */
+        return cloudKnew(p.id) === false;
       }
       // Union local-only fresh photos from a local array into the matching cloud array.
       function unionArr(cloudArr, localArr, label){
