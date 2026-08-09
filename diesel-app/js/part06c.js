@@ -1744,6 +1744,62 @@ function _ensureDeficIds(){
     }
   }catch(e){ console.warn('[S532] deficiency id backfill skipped:', e && e.message); }
 }
+/* ═══ S636 — ONE PHOTO SERIALISER. THE ADDRESS WAS BEING DROPPED ═══════════
+   Lane B, twice: every new flow-test photo saves with a blank pointer, and 39
+   older records carry no address at all. Read live from the database today:
+
+     record photos     326 saved, 0 with no address
+     checklist photos   52 saved, 0 with no address
+     flow-test photos   33 saved, 31 with no address
+     flow-test PLD      25 saved, 23 with no address
+
+   Not 39. FIFTY-FOUR. And the distribution is the whole diagnosis: a fault in
+   uploading, in R2, or in the sync engine could not possibly spare 378 photos
+   and hit 54 in exactly two arrays. Something specific to those two arrays was
+   throwing the address away.
+
+   It was this function's three hand-written field lists. recordPhotos copied
+   r2Key/r2Url/r2Status; the two flow lists never named them, so on EVERY save
+   the pointer was silently dropped on the way out. The bytes reached cloud
+   storage fine and the photo kept working on the device that took it — its
+   copy is in memory — which is why this survived so long: it is invisible
+   until someone opens the report on a second device, and then the photo simply
+   is not there. The flow lists also omitted the markup bookkeeping
+   (_annotated, _mkTs, _origBackupId, _isOrigBackup), so annotated flow photos
+   lost their strokes' provenance the same way.
+
+   THE FIX IS THE DUPLICATION, NOT THE TWO MISSING LINES. Three lists of ~20
+   fields each, maintained by hand, drift — that is what happened, and adding
+   the three names to two of them leaves list number four to be written next
+   year by someone who forgets again. One serialiser now, every photo array
+   through it, per-array extras passed in. A field added here reaches every
+   photo surface at once.
+
+   S560/S372 CONTRACT PRESERVED: _mkDisplay and _localSrc are derived caches
+   and are deliberately NOT written out — _mkDisplay is recomposited from the
+   clean original plus mk on load, and _localSrc is a live object URL that means
+   nothing on another device or after a restart. Harness: tools/sim/photoout.mjs */
+function _photoOut(p, extra) {
+  var o = {
+    d: p.d, n: p.n, id: p.id || '',
+    caption: p.caption || '',
+    r2Key: p.r2Key || '', r2Status: p.r2Status || '', r2Url: p.r2Url || '',
+    mk: p.mk || null,
+    _annotated: p._annotated || false,
+    _origBackupId: p._origBackupId || '',
+    _isOrigBackup: p._isOrigBackup || false,
+    _mkTs: p._mkTs || 0,
+    rotation: p.rotation || 0,
+    deleted: p.deleted || false,
+    deletedDate: p.deletedDate || '',
+    deletedBy: p.deletedBy || '',
+    delState: p.delState || '',
+    delAt: p.delAt || ''
+  };
+  if (extra) Object.keys(extra).forEach(function (k) { o[k] = extra[k]; });
+  return o;
+}
+
 function collectState() {
   _ensureFlowPhotoIds();
   _ensureDeficIds();
@@ -1879,10 +1935,10 @@ function collectState() {
     sigStrokes: (function(){ var o={}; if(typeof _sigStrokes!=='undefined') Object.keys(_sigStrokes).forEach(function(k){ o[k]={s:JSON.parse(JSON.stringify(_sigStrokes[k]||[]))}; }); return o; })(),
     // Photos stored separately to keep main state lean
     batData: {b1:[...batData.b1], b2:[...batData.b2]},
-    flowTestPhotosPld: flowTestPhotosPld.map(p=>({d:p.d,n:p.n,id:p.id||'',tag:p.tag||'',caption:p.caption||'',mk:p.mk||null,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
+    flowTestPhotosPld: flowTestPhotosPld.map(p=>_photoOut(p,{tag:p.tag||''})),
     deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
-    flowTestPhotos: flowTestPhotos.map(p=>({d:p.d,n:p.n,id:p.id||'',tag:p.tag||'',caption:p.caption||'',mk:p.mk||null,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
-    recordPhotos: recordPhotos.map(p=>({d:p.d,n:p.n,id:p.id,kind:p.kind,caption:p.caption||'',date:p.date||'',r2Key:p.r2Key||'',r2Status:p.r2Status||'',r2Url:p.r2Url||'',mk:p.mk||null,_annotated:p._annotated||false,_origBackupId:p._origBackupId||'',_isOrigBackup:p._isOrigBackup||false,_mkTs:p._mkTs||0,rotation:p.rotation||0,deleted:p.deleted||false,deletedDate:p.deletedDate||'',deletedBy:p.deletedBy||'',delState:p.delState||'',delAt:p.delAt||''})),
+    flowTestPhotos: flowTestPhotos.map(p=>_photoOut(p,{tag:p.tag||''})),
+    recordPhotos: recordPhotos.map(p=>_photoOut(p,{kind:p.kind,date:p.date||''})),
     sketchEntries: sketchEntries.map(e=>({id:e.id||'', comment:e.comment, markupImg:e.markupImg||null})),
     formRevision,
     formDateModified,
