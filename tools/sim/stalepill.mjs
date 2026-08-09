@@ -70,7 +70,15 @@ if (ctl && typeof ctl.setCloud === 'function') {
         healthy.indexOf('last sync') === 0 && !healthyStale,
         'text="' + healthy + '" stale=' + healthyStale);
 
+  /* Start from the real initial condition: the pill is display:none until
+     something turns it on. Five reports of "this feature does not exist" and
+     no check ever asserted VISIBILITY — only text content, which a hidden
+     element holds just as happily. */
+  root.querySelector('.cloud').classList.remove('on');
   ctl.setCloud({ lastSync: '\u26A0 not synced for 3m', stale: true });
+  check('the pill is actually VISIBLE when it carries a warning',
+        root.querySelector('.cloud').classList.contains('on'),
+        'display:none unless .on — a warning in a hidden element is not a warning');
   const warn = root.querySelector('.csync').textContent;
   const isStale = root.querySelector('.cloud').classList.contains('is-stale');
   check('the staleness warning reaches the screen',
