@@ -53,6 +53,7 @@ import { createIDB } from './lib/data/idb.js';
 import { createSync, contentEquals } from './lib/data/sync.js';   // S583: canonical no-change comparison
 import { createBinaryOutbox } from './lib/data/photoOutbox.js';   // S544: shared photo rescue
 import { createChangeJournal } from './lib/data/changeJournal.js'; // S555: what did that save do
+import { createRealtime } from './lib/data/realtime.js';           // S629: live change notifications
 import { merge3, applyResolutions, summarizeConflict } from './lib/data/merge.js';
 import * as Dlg from './lib/ui/dialogEngine.js';
 
@@ -900,6 +901,11 @@ const CloudSync = (function () {
           const meta = await _fetchRowMeta();
           _instanceId = engine.instanceId || _instanceId;
           _instanceNumber = engine.instanceNumber || _instanceNumber;
+          /* S629 — the row's identity is only known here, and the socket
+             filters on it server-side so a device is never woken by other
+             people's reports. Started after the boot load, never before:
+             a notification arriving mid-boot would race the boot merge. */
+          try { _rtStart(); } catch (_) {}
           const sj = JSON.stringify(data);
           _lastSavedJson = sj;
           _cachePut(_cacheKey(), {
@@ -1567,7 +1573,54 @@ const CloudSync = (function () {
         .catch(function () {});
     } catch (_) {}
   }
+  /* ═══ S629 — REALTIME: HEAR ABOUT A CHANGE WHEN IT HAPPENS ════════════════
+     Mark asked for this repeatedly; it was sequenced last on purpose, behind
+     the merge work, because a faster delivery pipe on top of a moving target
+     hides regressions. It is also the cure for the symptom he reported at
+     S625 — "sometimes I have to refresh the page for the other device to
+     catch up" — which was never a wrong DECISION, only a late one.
+     THE CONTRACT, deliberately narrow: the socket announces that this row
+     changed and nothing else. It carries no report data and decides nothing.
+     The notification runs the SAME look-now pull that leaving a field runs,
+     so stamps, merge law, the collision door and offline handling are
+     untouched, and the 3s throttle already there stops a burst of edits from
+     becoming a burst of pulls. If every socket in the fleet died, the tool
+     behaves exactly as it does today, only slower to notice — the heartbeat
+     is still the floor and is never switched off, because a socket that
+     drops silently must not mean a silent tool (the S624 gag in a new
+     costume). Self-echo is not filtered here: a pull triggered by this
+     device's own write is a no-op through contentEquals, and filtering by
+     device id would need the write to carry one, which is exactly the kind
+     of coupling that turns a transport into a decision-maker. */
+  var _rt = null;
+  function _rtStart() {
+    try {
+      if (_rt || !_csHubMode || !_projectId) return;
+      var inst = engine.instanceId || _instanceId;
+      if (!inst) return;
+      _rt = createRealtime({
+        url: Auth.SUPABASE_URL,
+        anonKey: Auth.SUPABASE_ANON_KEY,
+        getToken: function () { try { return localStorage.getItem('sb-access-token'); } catch (_) { return null; } },
+        log: function (m) { console.log(m); },
+        onStatus: function (st) {
+          try { if (window.__dslHeaderCtl) window.__dslHeaderCtl.setCloud({ live: st === 'live' }); } catch (_) {}
+        }
+      });
+      _rt.subscribe({
+        table: 'tool_data',
+        filter: 'id=eq.' + inst,
+        channel: 'tool_data:' + inst,
+        onChange: function () { _lookNowPull('realtime'); }
+      });
+      try { window.__dslRealtime = _rt; } catch (_) {}   // on-device diagnosis
+    } catch (e) { console.warn('[realtime] start skipped:', e && e.message); }
+  }
+  function _rtStop() { try { if (_rt) { _rt.stop(); _rt = null; } } catch (_) {} }
+
   try {
+    window.addEventListener('online',  function () { _rtStart(); });
+    window.addEventListener('offline', function () { _rtStop(); });
     document.addEventListener('focusout', function (e) {
       var el = e && e.target;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
