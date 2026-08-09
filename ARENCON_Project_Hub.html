@@ -1843,6 +1843,12 @@ function createSupabaseClient(url, key) {
            the one surface that deliberately reads soft-deleted rows. */
         notIs(col, val) { _filters.push(`${col}=not.is.${val === null ? 'null' : val}`); return builder; },
         ilike(col, val) { _filters.push(`${col}=ilike.${encodeURIComponent(val)}`); return builder; },
+        /* S633: needed for the board's delta freshness check — "give me only
+           what changed since I last looked". The value MUST be URL-encoded:
+           a timestamp carries a '+' for the UTC offset, and an unencoded '+'
+           in a query string decodes as a space, which silently turns the
+           filter into a malformed date rather than an error. */
+        gt(col, val) { _filters.push(`${col}=gt.${encodeURIComponent(val)}`); return builder; },
         order(col, opts = {}) { _order = col + (opts.ascending === false ? '.desc' : '.asc'); return builder; },
         single() { _single = true; return builder; },
 
@@ -2374,6 +2380,8 @@ async function loadProjects() {
     _projects = [];
   }
   renderProjects();
+  _freshStamp(_projects);
+  _freshStart();
   /* S498 — pending correction requests slide up bottom-right once the board
      is in. Fire-and-forget: the board never waits on it. */
   _notifInit();
@@ -2384,6 +2392,129 @@ async function loadProjects() {
     var proj = _projects.find(function(p){ return p.id === _oid; });
     if (proj) openProject(_oid);
   }
+}
+
+/* ═══ S633 — BOARD FRESHNESS ═══
+   The board used to be a photograph. Once loaded it never changed, so two
+   people working at the same time each stared at their own frozen copy: a
+   star, a tool switch, a new report or a status change made by anyone else
+   was invisible until someone happened to reload. On a shared field tablet
+   that gets picked up, used and put down, the board could be hours stale with
+   nothing on screen admitting it.
+
+   Two mechanisms, deliberately both:
+
+   1. RETURN — coming back to the board reloads it in full. This is the one
+      that catches everything, including a project that was hard-deleted, which
+      a "what changed" question can never report because the row is simply gone.
+   2. DELTA — while the board is actually on screen, a quiet check every 30s
+      asks only for rows touched since the last one. Almost every check returns
+      nothing and costs a few hundred bytes. Asking for rows-since rather than
+      re-downloading all of them is what keeps this flat at 300 projects
+      instead of growing with the list. The projects_updated_at trigger stamps
+      every write, including the star and tool-toggle functions, so a delta
+      check genuinely sees them.
+
+   NOT a live socket. That was considered and deferred: this Hub talks to the
+   database through a small hand-written client with no live-connection
+   capability, so "live" means either a new third-party dependency in the
+   offline cache or a hand-written socket protocol that must survive a tablet
+   losing signal in a pump room. Neither is free of risk, and neither is free
+   of judgement about how it fails in the field. This is the foundation that
+   version would sit on rather than replace.
+
+   THE HOLD RULES MATTER MORE THAN THE REFRESH. A background redraw that
+   fires at the wrong moment is worse than a stale board: it can drop a
+   half-typed value, clear a selection, or move the page under a thumb. So the
+   silent check stands down whenever the screen is not visible, a modal is
+   open, a bulk selection is armed, or the person is typing. Scroll position is
+   captured and restored across the redraw. The user-initiated path (RETURN)
+   holds only on an open modal — someone coming back to the board is asking
+   for the board. */
+var _freshTimer = null;
+var _freshLastSeen = '';
+var _freshBound = false;
+var _FRESH_MS = 30000;
+
+function _freshStamp(list) {
+  (list || []).forEach(function (p) {
+    if (p && p.updated_at && p.updated_at > _freshLastSeen) _freshLastSeen = p.updated_at;
+  });
+}
+
+/* Reasons never to redraw the board behind someone's back. */
+function _freshHold() {
+  if (!_sb || !_profile) return true;
+  if (document.visibilityState !== 'visible') return true;
+  if (document.querySelector('.modal-overlay.show')) return true;
+  if (typeof _bulkSelected !== 'undefined' && _bulkSelected && _bulkSelected.length) return true;
+  var ae = document.activeElement;
+  if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName || '')) return true;
+  return false;
+}
+
+/* Redraw without stealing the reader's place on the page. */
+function _freshRedraw() {
+  var y = window.scrollY;
+  renderProjects();
+  window.scrollTo(0, y);
+  if (_detailProjectId) {
+    var d = _projects.find(function (p) { return p.id === _detailProjectId; });
+    if (d) { try { _updateDetailStar(d); } catch (e) {} }
+  }
+}
+
+/* Quiet delta check — only rows changed since the last look. */
+async function _freshPoll() {
+  if (_freshHold() || !_freshLastSeen) return;
+  try {
+    var rows = await _sb.from('projects').select('*').gt('updated_at', _freshLastSeen).execute();
+    if (!rows || !rows.length) return;
+    rows.forEach(function (r) {
+      var i = -1;
+      for (var k = 0; k < _projects.length; k++) { if (_projects[k].id === r.id) { i = k; break; } }
+      if (i >= 0) _projects[i] = r; else _projects.push(r);
+    });
+    _freshStamp(rows);
+    _freshRedraw();
+  } catch (e) {
+    /* Background work stays silent — a failed check is not the person's
+       problem and a toast for it would cry wolf on every signal dropout. The
+       next check, or the next return to the board, picks it up. */
+    console.warn('[fresh] delta check skipped', e && e.message);
+  }
+}
+
+/* Full reload — used when someone comes back to the board. */
+async function _freshFull() {
+  if (!_sb || !_profile) return;
+  if (document.querySelector('.modal-overlay.show')) return;
+  try {
+    var rows = await _sb.from('projects').select('*').order('updated_at', { ascending: false }).execute();
+    if (!rows) return;
+    _projects = rows;
+    _freshStamp(rows);
+    _freshRedraw();
+  } catch (e) {
+    console.warn('[fresh] return reload skipped', e && e.message);
+  }
+}
+
+function _freshStart() {
+  if (_freshTimer) clearInterval(_freshTimer);
+  _freshTimer = setInterval(_freshPoll, _FRESH_MS);
+  if (_freshBound) return;
+  _freshBound = true;
+  /* One place that answers "the screen came back", rather than a sixth
+     hand-rolled copy of the same listener. pageshow with persisted=true is the
+     mobile case the visibility event alone misses: a tablet restoring the page
+     from the back-forward cache never fires visibilitychange. */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') _freshFull();
+  });
+  window.addEventListener('pageshow', function (ev) {
+    if (ev && ev.persisted) _freshFull();
+  });
 }
 
 /* ═══ S493 — 1000-SERIES BAND GROUPING (restored) ═══
@@ -9213,7 +9344,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S631';
+const HUB_BUILD = 'S633';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
