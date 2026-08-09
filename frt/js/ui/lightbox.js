@@ -271,6 +271,120 @@ function _buildToolbar() {
 var _markupActive = false;
 var _lbDisarmTool = null;   // F8 (S487h): set by _buildMarkupBar; disarms tool + clears chrome
 var _closeAfterPersist = false;
+/* ═══ S628c — PHOTO MARKUP DID NOT SURVIVE THE TAB CLOSING ════════════════════
+   Mark, field check 08 Aug: mark up a photo, close the browser tab straight
+   away, come back — the strokes are gone.
+
+   WHY. Until a save runs, the strokes exist ONLY inside the markup engine.
+   _saveMarkup() is the sole path that moves them onto the photo record, and it
+   only fires on close, on Save, or on navigating to another photo. Nothing ran
+   it when the page went away. The drawing viewer has had a flush on unload
+   since S125; the photo lightbox never got one, so the same class of loss sat
+   open on the surface inspectors use most.
+
+   WHY NOT JUST CALL _saveMarkup(). It is asynchronous — it waits on
+   cleanBlob(), which can take seconds on a tablet. A page that is closing does
+   not wait for promises. Calling it here would look like a fix and reliably
+   lose the race.
+
+   WHAT THIS DOES INSTEAD. The expensive half of a save is the image work. The
+   part that carries the inspector's actual work is the strokes, and those are a
+   small array we can read and write SYNCHRONOUSLY. So on the way out we put the
+   strokes and their authoring frame onto the record — the same two fields a
+   real save writes — and mark the project dirty. The stored image is untouched
+   and stays clean, which is exactly what never-bake already expects.
+
+   AND A BACKSTOP. Marking dirty schedules an async write that may itself not
+   finish. So the strokes also go to localStorage, which IS synchronous and
+   survives the tab dying. On the next boot, _restoreMarkupRescue() puts them
+   back if the record came back without them. Belt and braces, because the thing
+   being protected is an inspector's field work and there is no second chance to
+   collect it.
+
+   NOT a substitute for saving properly: no clean blob is captured here, so the
+   photo keeps whatever image it already had. Strokes are never lost; the image
+   housekeeping happens on the next real save. */
+var RESCUE_KEY = 'frt_markup_rescue_v1';
+
+function _flushMarkupForUnload(){
+  try {
+    if (!_markupActive || !window.MarkupEngine) return false;
+    var p = _photos[_idx];
+    if (!p) return false;
+    var changed = window.MarkupEngine.hasChangesSinceAttach
+      ? window.MarkupEngine.hasChangesSinceAttach()
+      : window.MarkupEngine.isDirty();
+    if (!changed) return false;
+
+    var strokes = window.MarkupEngine.exportStrokes();
+    var frame = (window.MarkupEngine.w && window.MarkupEngine.h)
+      ? { w: window.MarkupEngine.w, h: window.MarkupEngine.h } : null;
+
+    /* Same two fields a real save writes — no more, no less. */
+    p._markupStrokes = strokes;
+    if (frame) p._mkFrame = frame;
+    p._annotated = !!(strokes && strokes.length);
+
+    try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); } catch(_){}
+
+    /* Synchronous backstop. Keyed by photo id so a stale rescue can never be
+       applied to the wrong photo. */
+    try {
+      localStorage.setItem(RESCUE_KEY, JSON.stringify({
+        photoId: p.id, strokes: strokes, mkFrame: frame, at: Date.now()
+      }));
+    } catch(_){}
+
+    try { console.warn('[Lightbox] markup flushed on unload \u2014 ' +
+      (strokes ? strokes.length : 0) + ' stroke(s) rescued for photo ' + p.id); } catch(_){}
+    return true;
+  } catch(_) { return false; }
+}
+
+/* Called once the lightbox has genuinely saved, so a completed save does not
+   leave a rescue behind to be re-applied later. */
+function _clearMarkupRescue(){
+  try { localStorage.removeItem(RESCUE_KEY); } catch(_){}
+}
+
+/* Boot-time repair. Only fills a gap — never overwrites strokes that are
+   already on the record, because the record is the authority once it has them. */
+function _restoreMarkupRescue(photos){
+  try {
+    var raw = localStorage.getItem(RESCUE_KEY);
+    if (!raw) return 0;
+    var r = JSON.parse(raw);
+    if (!r || !r.photoId || !r.strokes) { _clearMarkupRescue(); return 0; }
+    var n = 0;
+    (photos || []).forEach(function(p){
+      if (!p || p.id !== r.photoId) return;
+      if (p._markupStrokes && p._markupStrokes.length) return;   // record already has them
+      p._markupStrokes = r.strokes;
+      if (r.mkFrame) p._mkFrame = r.mkFrame;
+      p._annotated = !!(r.strokes && r.strokes.length);
+      n++;
+    });
+    if (n) {
+      try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); } catch(_){}
+      try { console.warn('[Lightbox] recovered ' + r.strokes.length +
+        ' stroke(s) left behind by a closed tab'); } catch(_){}
+    }
+    _clearMarkupRescue();
+    return n;
+  } catch(_) { return 0; }
+}
+
+/* pagehide is the one that actually fires when a tab is closed or the app is
+   backgrounded on Android; beforeunload alone is not reliable there, and
+   visibilitychange catches the swipe-away case. All three are cheap and
+   idempotent, so arm all three rather than bet on one. */
+try {
+  window.addEventListener('pagehide', function(){ _flushMarkupForUnload(); });
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'hidden') _flushMarkupForUnload();
+  });
+} catch(_){}
+
 var _persistBusy = false;        /* S626: save in flight — close/save/nav blocked until it settles */   // S305-style: commit triggered by closing the lightbox
 var _markupBar = null;
 function _buildMarkupBar(overlay){
@@ -989,6 +1103,7 @@ function _saveMarkup(){
       try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:cleanBlob,index:_idx,strokes:savedStrokes,cleanBlob:cleanBlob,mkFrame:_mkFrame}})); } catch(e){}
       try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); else if (Model && Model.saveNow) Model.saveNow(); } catch(_){}
       _persistBusy = false;   /* S626: settled — the door unlocks */
+      _clearMarkupRescue();   /* S628c: a completed save supersedes any rescue */
       _exitMarkupNoSave();
       if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
       if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
@@ -1624,6 +1739,10 @@ export var Lightbox = {
   open: _open,
   close: _close,
   isOpen: function() { return _isOpen; },
+  /* S628c: called from the app's unload handler — synchronous by design. */
+  flushForUnload: _flushMarkupForUnload,
+  /* S628c: called after photos load, to put back anything a closed tab left. */
+  restoreRescue: _restoreMarkupRescue,
   // S350d diagnostic: reach the live active photo + rotation state from console.
   activePhoto: function(){ return _photos[_idx] || null; },
   rotState: function(){

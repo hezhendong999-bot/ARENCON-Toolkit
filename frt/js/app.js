@@ -1084,6 +1084,17 @@ function handleBeforeUnload(e) {
   try {
     if (Markup && Markup.saveNow) Markup.saveNow();
   } catch(_) {}
+  /* S628c: the DRAWING markup has been flushed here since S125; the PHOTO
+     lightbox never was, so marking up a photo and closing the tab lost the
+     strokes outright (Mark, field check 08 Aug). Synchronous by design — a
+     closing page does not wait for promises.
+     Reached via window._frtLightbox, NOT a bare Lightbox: app.js does not
+     import the module, so a bare reference throws ReferenceError, the catch
+     swallows it, and the whole thing becomes a fix that silently does nothing. */
+  try {
+    var _lb = window._frtLightbox;
+    if (_lb && _lb.flushForUnload) _lb.flushForUnload();
+  } catch(_) {}
   var params = new URLSearchParams(window.location.search);
   if (params.get('project')) return;
   if (Model.hasUnsavedChanges()) { e.preventDefault(); e.returnValue = ''; }
@@ -2737,7 +2748,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S628b';
+var FRT_BUILD = 'S628c';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
