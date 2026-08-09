@@ -12,19 +12,32 @@ function _fmtSyncAgo(ms){
   return Math.floor(h / 24) + 'd ago';
 }
 function _renderLastSync(){
-  var el = document.getElementById('last-sync-text');
-  if(!el) return;
-  if(!_lastSyncTs){ el.style.display = 'none'; return; }
-  /* S624 — VISIBLE STALENESS. A stalled device that looks healthy is the real
-     hazard: the number on screen is trusted, so it has to be honest about its
-     own age. The threshold is NOT a fixed minute count — it is read from the
-     scheduler's own declared interval (_hbStaleThresholdMs: three intended
-     checks missed, with a floor), so it follows the cadence instead of going
-     stale beside it. If that helper is not loaded yet, fall back to the plain
-     display rather than guessing at a threshold. */
+  /* ═══ S628 — THE STALENESS WARNING NEVER EXISTED WHERE IT WAS WRITTEN.
+     Mark, three minutes in airplane mode: "I don't think this feature exists.
+     It only says working offline or saved locally." Correct — the readout is
+     rendered by the shared header engine INSIDE ITS SHADOW ROOT, so this
+     function's document.getElementById('last-sync-text') has been returning
+     null, and the .is-stale rule added to the host stylesheet could not cross
+     the boundary either. Two builds of "visible staleness" wrote to nothing.
+     Route through the header controller, which owns the element. The
+     threshold is unchanged and still read from the scheduler's own declared
+     interval by _hbStaleThresholdMs (three intended checks missed, with a
+     floor) rather than a fixed minute count, so it follows the cadence and
+     survives Realtime. */
   var stale = false;
   try{ stale = (typeof _hbIsStale === 'function') && _hbIsStale(); }catch(_){ stale = false; }
-  el.textContent = (stale ? '\u26A0 not synced for ' : 'last sync: ') + _fmtSyncAgo(_lastSyncTs);
+  var txt = !_lastSyncTs ? ''
+          : (stale ? '\u26A0 not synced for ' + _fmtSyncAgo(_lastSyncTs)
+                   : 'last sync: ' + _fmtSyncAgo(_lastSyncTs));
+  var ctl = (typeof window !== 'undefined') && window.__dslHeaderCtl;
+  if(ctl && typeof ctl.setCloud === 'function'){
+    try{ ctl.setCloud({ lastSync: txt, stale: stale }); return; }catch(_){ }
+  }
+  /* Fallback for any surface not yet on the header engine. */
+  var el = document.getElementById('last-sync-text');
+  if(!el) return;
+  if(!txt){ el.style.display = 'none'; return; }
+  el.textContent = txt;
   el.classList.toggle('is-stale', !!stale);
   el.style.display = '';
 }
