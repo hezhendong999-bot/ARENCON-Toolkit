@@ -985,6 +985,16 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 }
 /* S493 restore — PM avatar badge (June design): initials in a small muted
    circle; identity reads as a shape distinct from the semantic pills. */
+/* S628f — colour picker swatches. 30px is a deliberate compromise: big enough
+   to judge a colour and to hit with a gloved finger on a tablet, small enough
+   that all 48 fit without the panel scrolling past the preview. */
+.ring-sw{aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;display:flex;align-items:center;justify-content:center;min-height:26px;transition:transform .09s}
+.ring-sw:hover{transform:scale(1.12)}
+@media(pointer:coarse){.ring-sw:hover{transform:none}}
+.ring-sw.sel{border-color:var(--ink,#111);box-shadow:0 0 0 2px var(--panel,#fff),0 0 0 4px var(--ink,#111)}
+.ring-sw.taken{cursor:not-allowed;opacity:.45}
+.ring-sw.taken:hover{transform:none}
+.ring-sw span{font-size:9.5px;font-weight:800;color:rgba(0,0,0,.62);letter-spacing:-.3px}
 .pm-avatar{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.4px;margin-left:auto;flex-shrink:0;font-family:Calibri,'Segoe UI',system-ui,sans-serif}
 .backup-status{font-size:calc(10px + var(--ts));padding:0 18px 8px;color:var(--silver);font-weight:500}
 .backup-status.not-backed{color:var(--warn)}
@@ -6730,6 +6740,128 @@ async function _notifDismiss() {
    already surfaces the same standing with "N not backed up" and the
    Notification Review panel. Removed on Mark's explicit instruction. */
 
+/* ═══ S628f — MY COLOUR: the picker (Mark, 07-08 Aug 2026) ═══════════════════
+   Each person picks the colour that identifies them — the ring around their
+   pins on a drawing and their badge everywhere else — and it follows them to
+   every project, every tool and every device.
+
+   WHY A FIXED LIST AND NOT A COLOUR WHEEL. Every colour below was generated,
+   not chosen by eye, and each one clears a measured distance from all five pin
+   body colours, every contractor colour, and both the light and dark drawing
+   sheets. That is what guarantees a ring stays readable on a real marked-up
+   drawing rather than only in a settings panel. Each is also far enough from
+   every OTHER colour here that two inspectors can never end up with rings you
+   cannot tell apart at arm's length. 48 is not a round number picked for
+   looks — it is the most that exist under those two constraints, at the same
+   separation the toolkit's original inspector colours already met.
+
+   ONE COLOUR, ONE PERSON, FIRM-WIDE. A colour already taken is shown with its
+   owner's initials and cannot be selected. That is the whole point: the ring
+   is a claim about who did the work.
+
+   Anyone who has never picked keeps their automatically-assigned colour, so
+   nothing goes blank and nothing is forced. */
+var _RING_PALETTE = ["#FF4D4D", "#C9A5A5", "#F07C65", "#FF670F", "#FFAF75", "#C9832C", "#E8C799", "#C99F04", "#C9B255", "#F7D10F", "#DBE04C", "#86941B", "#CFF018", "#A1BA73", "#BFE87D", "#8DE805", "#7EBA29", "#90F77C", "#46D136", "#27FF24", "#52A358", "#ABD1B0", "#95F0B3", "#1ABA52", "#0FFF7F", "#28E097", "#44B295", "#51F0E8", "#6CB5BA", "#4DE1FF", "#3C9FC9", "#9ED5FF", "#5EA8F7", "#99A0BA", "#6B84FF", "#B4A8FF", "#B972F7", "#E6C5F0", "#F419FF", "#FFB2FE", "#D171CE", "#FF75FA", "#FF24D7", "#C985B3", "#F740A2", "#E86BA1", "#FF4D79", "#F799A9"];
+
+function _ringOwnerMap() {
+  /* colour -> someone else's name. Own colour excluded: it is not "taken". */
+  var m = {};
+  Object.keys(_userRingColour || {}).forEach(function (uid) {
+    if (_profile && uid === _profile.id) return;
+    m[String(_userRingColour[uid]).toUpperCase()] = _userMap[uid] || '';
+  });
+  return m;
+}
+
+function _ringInitials(n) {
+  var parts = String(n || '').trim().split(/\s+/);
+  if (!parts[0]) return '?';
+  return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0]
+                           : parts[0].substring(0, 2)).toUpperCase();
+}
+
+var _ringPending = null;   // colour chosen in the panel, not yet saved
+
+function _ringSwatchGrid() {
+  var owners = _ringOwnerMap();
+  var mine = (_ringPending || (_profile && _profile.ring_color) || '').toUpperCase();
+  var h = '<div id="ring-grid" style="display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin-top:10px">';
+  _RING_PALETTE.forEach(function (hex) {
+    var owner = owners[hex.toUpperCase()];
+    var sel = (hex.toUpperCase() === mine);
+    h += '<div class="ring-sw' + (owner ? ' taken' : '') + (sel ? ' sel' : '') + '"'
+      + ' data-hex="' + hex + '"'
+      + ' title="' + (owner ? esc(owner) : hex) + '"'
+      + ' style="background:' + hex + '">'
+      + (owner ? '<span>' + esc(_ringInitials(owner)) + '</span>' : '')
+      + '</div>';
+  });
+  return h + '</div>';
+}
+
+function _ringPreview() {
+  var c = (_ringPending || (_profile && _profile.ring_color) || '#888');
+  /* Same teardrop the drawing viewer paints: outer = your colour, body =
+     priority, white disc, number. Shown on a light sheet and a dark sheet
+     because a ring has to survive both. */
+  function pin(body, num) {
+    var path = 'M16 40 C16 40 3 24.5 3 15.5 C3 7.5 8.8 2 16 2 C23.2 2 29 7.5 29 15.5 C29 24.5 16 40 16 40 Z';
+    return '<svg width="30" height="39" viewBox="0 0 32 42">'
+      + '<path d="' + path + '" fill="' + c + '"/>'
+      + '<g transform="translate(16,21) scale(0.88) translate(-16,-21)">'
+      + '<path d="' + path + '" fill="' + body + '"/></g>'
+      + '<circle cx="16" cy="14" r="11" fill="#fff" opacity=".95"/>'
+      + '<text x="16" y="14" text-anchor="middle" dominant-baseline="central" '
+      + 'font-family="Calibri,sans-serif" font-size="13" font-weight="700" fill="' + body + '">'
+      + num + '</text></svg>';
+  }
+  var trio = pin('#A85959', '7') + pin('#B07F5A', '8') + pin('#5F8068', '9');
+  return '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">'
+    + '<span class="pm-avatar" style="--avc:' + c + ';background:' + c + ';margin:0">'
+    + esc(_ringInitials(_profile && _profile.full_name)) + '</span>'
+    + '<div style="background:#e8eaed;border-radius:8px;padding:5px 9px;display:flex;gap:5px">' + trio + '</div>'
+    + '<div style="background:#1a1a1a;border-radius:8px;padding:5px 9px;display:flex;gap:5px">' + trio + '</div>'
+    + '</div>';
+}
+
+function _ringRefresh() {
+  var host = _dq('ring-host');
+  if (!host) return;
+  host.innerHTML = _ringSwatchGrid() + _ringPreview();
+  Array.prototype.forEach.call(host.querySelectorAll('.ring-sw'), function (el) {
+    if (el.classList.contains('taken')) return;
+    el.onclick = function () {
+      _ringPending = el.getAttribute('data-hex');
+      _ringRefresh();
+      var b = _dq('ring-save'); if (b) b.disabled = false;
+    };
+  });
+}
+
+async function _ringSave() {
+  if (!_ringPending || !_profile) return;
+  var btn = _dq('ring-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  try {
+    await _sb.from('profiles').update({ ring_color: _ringPending }).eq('id', _profile.id).execute();
+    _profile.ring_color = _ringPending;
+    _userRingColour[_profile.id] = _ringPending;
+    _ringPending = null;
+    /* Repaint the board so the badge changes under them immediately — a
+       settings change you cannot see is a settings change people repeat. */
+    try { if (typeof renderProjects === 'function') renderProjects(); } catch (_) {}
+    toast('\u2713 Colour saved', 'success');
+    _ringRefresh();
+    if (btn) btn.textContent = 'Save colour';
+  } catch (e) {
+    /* The privilege guard rejects role and is_active from a browser, never
+       ring_color — so a failure here is a genuine network or permission
+       problem and must be shown, not swallowed. */
+    toast('Could not save colour: ' + (e && e.message ? e.message : 'unknown error'), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Save colour'; }
+  }
+}
+
 /* ═══ Profile Modal ═══ */
 function openProfileModal() {
   if (!_profile) return;
@@ -6760,6 +6892,13 @@ function openProfileModal() {
     <div class="profile-section">\
       <label>Role</label>\
       <div class="profile-val" id="prof-role">\u2014</div>\
+    </div>\
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">\
+    <h3 style="font-size:calc(15px + var(--ts));margin-bottom:4px">\ud83c\udfa8 My colour</h3>\
+    <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:6px;line-height:1.45">The ring around your pins on a drawing, and your badge everywhere else. Faded swatches are already taken by a colleague.</p>\
+    <div id="ring-host"></div>\
+    <div class="modal-actions" style="margin-top:10px;justify-content:flex-start">\
+      <button class="dash-btn primary" id="ring-save" disabled onclick="_ringSave()">Save colour</button>\
     </div>\
     <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">\
     <h3 style="font-size:calc(15px + var(--ts));margin-bottom:12px">\ud83d\udd12 Change Password</h3>\
@@ -6801,6 +6940,10 @@ function openProfileModal() {
   _dq('prof-role').textContent = formatRole(_profile.role);
   _dq('prof-new-pass').value = '';
   _dq('prof-confirm-pass').value = '';
+  /* S628f: the panel body builds synchronously above, so the grid can be
+     painted right here — the same place every other field is filled. */
+  _ringPending = null;
+  try { _ringRefresh(); } catch (e) { console.warn('[Profile] colour picker:', e); }
   /* The PIN system wraps this function from outside and refreshes its own
      status right after it returns — the panel builds synchronously, so that
      wrapper keeps working unchanged. */

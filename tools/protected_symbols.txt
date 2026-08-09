@@ -701,3 +701,16 @@ _isHousekeepingPath
 _HOUSEKEEPING_LEAVES
 ctrTip
 _userRingColour
+
+@ S628f (Lane B file, Lane A build — Mark: "everyone pick their own colour, in account settings") THE COLOUR PICKER. Lives in the Hub profile panel. 48 swatches, GENERATED not hand-typed: every one clears >=26 dE from all five pin body colours, every contractor colour and both light and dark drawing sheets, and >=21.8 dE from every other swatch — the same separation the toolkit's original inspector palette already met. 48 is the CEILING under those two constraints, proven by a 43k-candidate packing search; it is not a round number. DO NOT add colours by relaxing either floor: closer-to-a-pin-colour means an unreadable ring on a real drawing, closer-to-each-other means two inspectors who cannot be told apart, and Mark rejected both. A colour taken by a colleague shows their initials and cannot be selected — one colour, one person, firm-wide. Anyone who has never picked keeps their auto-assigned colour, so nothing goes blank and nobody is forced. Preview shows the badge plus the real teardrop on a light sheet AND a dark sheet, because a ring must survive both. Save writes profiles.ring_color only; the S628b privilege guard rejects role and is_active from a browser but never this, so a failure here is genuine and is shown, never swallowed. Board repaints on save — a settings change you cannot see is one people repeat. NOTE the profile panel body is a backslash-continued string literal: every inserted line needs exactly ONE trailing backslash (a doubled one silently terminates the markup) — caught during this build.
+_RING_PALETTE
+_ringOwnerMap
+_ringSwatchGrid
+_ringPreview
+_ringRefresh
+_ringSave
+_ringPending
+_ringInitials
+ring-host
+ring-save
+.ring-sw
