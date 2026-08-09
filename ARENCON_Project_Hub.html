@@ -985,16 +985,60 @@ body.dark-mode .project-card-check{background:rgba(30,41,59,.9)}
 }
 /* S493 restore — PM avatar badge (June design): initials in a small muted
    circle; identity reads as a shape distinct from the semantic pills. */
-/* S628f — colour picker swatches. 30px is a deliberate compromise: big enough
-   to judge a colour and to hit with a gloved finger on a tablet, small enough
-   that all 48 fit without the panel scrolling past the preview. */
-.ring-sw{aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;display:flex;align-items:center;justify-content:center;min-height:26px;transition:transform .09s}
-.ring-sw:hover{transform:scale(1.12)}
+/* S628f — colour picker swatches.
+   S629 RESTYLE — ported from the approved demo DEMO_inspector_colour_S627.html.
+   WHY THIS BROKE THE FIRST TIME: the original build copied the demo's token
+   NAMES (--ink, --panel, --rule) but not the tokens themselves, and the Hub
+   defines none of them. Every rule silently fell back to its light-page
+   default: the selection ring resolved to near-black and vanished against the
+   dark panel (so picking a colour looked like nothing happened), and the owner
+   initials went black on a faded tile. Tokens are now DEFINED HERE, scoped to
+   #ring-host alone, in both modes. The Hub switches with body.dark-mode, not a
+   data-theme attribute — any future edit here must carry both. */
+#ring-host{--rc-card:#FFFFFF;--rc-ink:#1B1A22;--rc-ink2:#5E5B68;--rc-ink3:#928E9C;
+  --rc-rule:#D2CEDB;--rc-brand:#9C2742;--rc-chip:rgba(156,39,66,.06);
+  --rc-shadow:0 6px 24px rgba(28,35,51,.10)}
+body.dark-mode #ring-host{--rc-card:#17151c;--rc-ink:#f4f3f6;--rc-ink2:#a09aa8;--rc-ink3:#6b6674;
+  --rc-rule:rgba(255,255,255,.12);--rc-brand:#C9476A;--rc-chip:rgba(201,71,106,.12);
+  --rc-shadow:0 8px 28px rgba(0,0,0,.55)}
+.rc-card{background:var(--rc-card);border:1px solid var(--rc-rule);border-radius:16px;
+  box-shadow:var(--rc-shadow);padding:14px 15px;margin-top:10px;backdrop-filter:blur(8px)}
+.rc-h2{font-size:calc(12px + var(--ts));letter-spacing:.9px;text-transform:uppercase;
+  color:var(--rc-ink3);margin:0 0 10px;font-weight:700}
+.rc-sub{font-size:calc(13px + var(--ts));color:var(--rc-ink2);line-height:1.5;margin:0 0 4px}
+.rc-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:6px}
+.ring-sw{position:relative;aspect-ratio:1;border-radius:7px;cursor:pointer;border:2px solid transparent;
+  display:flex;align-items:center;justify-content:center;min-height:22px;transition:transform .09s}
+.ring-sw:hover{transform:scale(1.13)}
+/* Mandatory coarse-pointer fallback — hover does not exist on a tablet. */
 @media(pointer:coarse){.ring-sw:hover{transform:none}}
-.ring-sw.sel{border-color:var(--ink,#111);box-shadow:0 0 0 2px var(--panel,#fff),0 0 0 4px var(--ink,#111)}
-.ring-sw.taken{cursor:not-allowed;opacity:.45}
+.ring-sw.sel{border-color:var(--rc-ink);box-shadow:0 0 0 3px var(--rc-card),0 0 0 5px var(--rc-ink)}
+.ring-sw.taken{cursor:not-allowed;opacity:.5}
 .ring-sw.taken:hover{transform:none}
-.ring-sw span{font-size:9.5px;font-weight:800;color:rgba(0,0,0,.62);letter-spacing:-.3px}
+.ring-sw span{font-size:10.5px;font-weight:700;color:rgba(0,0,0,.62);letter-spacing:-.3px}
+.rc-legend{display:flex;gap:14px;margin-top:12px;padding-top:10px;border-top:1px solid var(--rc-rule);
+  font-size:calc(12px + var(--ts));color:var(--rc-ink2);flex-wrap:wrap}
+.rc-legend b{color:var(--rc-ink);font-weight:600}
+.rc-note{font-size:calc(12px + var(--ts));color:var(--rc-ink2);line-height:1.55;margin-top:12px;
+  padding-top:10px;border-top:1px solid var(--rc-rule)}
+.rc-note b{color:var(--rc-ink)}
+.rc-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--rc-rule)}
+.rc-row:last-child{border-bottom:none}
+.rc-lbl{font-size:calc(11px + var(--ts));color:var(--rc-ink3);width:104px;flex-shrink:0;line-height:1.3}
+.rc-sheet{border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;flex:1;
+  justify-content:center;min-height:56px}
+.rc-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 6px;border-radius:14px;
+  background:var(--rc-chip);border:1px solid var(--rc-rule);font-size:calc(13px + var(--ts));color:var(--rc-ink)}
+.rc-dot{width:15px;height:15px;border-radius:50%;border:3px solid;flex-shrink:0}
+.rc-pill{display:inline-block;background:var(--rc-chip);border:1px solid var(--rc-rule);
+  border-radius:12px;padding:3px 10px;font-size:calc(12px + var(--ts));color:var(--rc-ink);margin:3px 4px 0 0}
+.rc-who{font-size:calc(12px + var(--ts));color:var(--rc-ink2);margin-top:12px;line-height:1.5}
+.rc-savebar{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.rc-save{background:var(--rc-brand);color:#fff;border:none;border-radius:9px;padding:10px 18px;
+  font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts));font-weight:600;cursor:pointer;min-height:44px}
+.rc-save[disabled]{opacity:.45;cursor:default}
+.rc-cancel{background:transparent;color:var(--rc-ink2);border:1px solid var(--rc-rule);border-radius:9px;
+  padding:10px 16px;font-family:Calibri,sans-serif;font-size:calc(14px + var(--ts));cursor:pointer;min-height:44px}
 .pm-avatar{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.4px;margin-left:auto;flex-shrink:0;font-family:Calibri,'Segoe UI',system-ui,sans-serif}
 .backup-status{font-size:calc(10px + var(--ts));padding:0 18px 8px;color:var(--silver);font-weight:500}
 .backup-status.not-backed{color:var(--warn)}
@@ -6916,7 +6960,7 @@ var _ringPending = null;   // colour chosen in the panel, not yet saved
 function _ringSwatchGrid() {
   var owners = _ringOwnerMap();
   var mine = (_ringPending || (_profile && _profile.ring_color) || '').toUpperCase();
-  var h = '<div id="ring-grid" style="display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin-top:10px">';
+  var h = '<div id="ring-grid" class="rc-grid">';
   _RING_PALETTE.forEach(function (hex) {
     var owner = owners[hex.toUpperCase()];
     var sel = (hex.toUpperCase() === mine);
@@ -6930,43 +6974,140 @@ function _ringSwatchGrid() {
   return h + '</div>';
 }
 
+var _ringUid = 0;   /* unique clip ids — two SVGs sharing one id clip wrong */
+
+/* The exact teardrop the drawing viewer paints, in the same layer order:
+   outer = your colour, body = priority, contractor tip clipped INSIDE the
+   body, white disc, number. If the on-canvas renderer ever changes, this
+   changes with it — a preview that flatters is worse than no preview. */
+function _ringPinSVG(ring, body, num, tip) {
+  var path = 'M16 40 C16 40 3 24.5 3 15.5 C3 7.5 8.8 2 16 2 C23.2 2 29 7.5 29 15.5 C29 24.5 16 40 16 40 Z';
+  var inner = 'translate(16,21) scale(0.88) translate(-16,-21)';
+  var cid = 'rcclip' + (++_ringUid);
+  var h = '<svg width="30" height="39" viewBox="0 0 32 42" '
+        + 'style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">';
+  if (tip) {
+    h += '<defs><clipPath id="' + cid + '">'
+       + '<path d="' + path + '" transform="' + inner + '"/></clipPath></defs>';
+  }
+  h += '<path d="' + path + '" fill="' + ring + '"/>'
+     + '<g transform="' + inner + '"><path d="' + path + '" fill="' + body + '"/></g>';
+  /* Tip zone matches the renderer exactly: y 26-42, clipped to the inner
+     teardrop so it can never spill past the silhouette, drawn under the disc
+     so it never fights the number. */
+  if (tip) h += '<rect x="0" y="26" width="32" height="16" fill="' + tip + '" clip-path="url(#' + cid + ')"/>';
+  h += '<circle cx="16" cy="14" r="11" fill="#fff" opacity=".95"/>'
+     + '<text x="16" y="14" text-anchor="middle" dominant-baseline="central" '
+     + 'font-family="Calibri,sans-serif" font-size="13" font-weight="700" fill="' + body + '">'
+     + num + '</text></svg>';
+  return h;
+}
+
 function _ringPreview() {
   var c = (_ringPending || (_profile && _profile.ring_color) || '#888');
-  /* Same teardrop the drawing viewer paints: outer = your colour, body =
-     priority, white disc, number. Shown on a light sheet and a dark sheet
-     because a ring has to survive both. */
-  function pin(body, num) {
-    var path = 'M16 40 C16 40 3 24.5 3 15.5 C3 7.5 8.8 2 16 2 C23.2 2 29 7.5 29 15.5 C29 24.5 16 40 16 40 Z';
-    return '<svg width="30" height="39" viewBox="0 0 32 42">'
-      + '<path d="' + path + '" fill="' + c + '"/>'
-      + '<g transform="translate(16,21) scale(0.88) translate(-16,-21)">'
-      + '<path d="' + path + '" fill="' + body + '"/></g>'
-      + '<circle cx="16" cy="14" r="11" fill="#fff" opacity=".95"/>'
-      + '<text x="16" y="14" text-anchor="middle" dominant-baseline="central" '
-      + 'font-family="Calibri,sans-serif" font-size="13" font-weight="700" fill="' + body + '">'
-      + num + '</text></svg>';
+  /* Priority body colours and contractor accents are read from the same
+     values the tool ships; a preview in invented colours proves nothing. */
+  var HIGH = '#A85959', LOW = '#B07F5A', CLOSED = '#5F8068';
+  function trio(tip) {
+    return _ringPinSVG(c, HIGH, '7', tip) + _ringPinSVG(c, LOW, '8', tip)
+         + _ringPinSVG(c, CLOSED, '9', tip);
   }
-  var trio = pin('#A85959', '7') + pin('#B07F5A', '8') + pin('#5F8068', '9');
-  return '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">'
-    + '<span class="pm-avatar" style="--avc:' + c + ';background:' + c + ';margin:0">'
-    + esc(_ringInitials(_profile && _profile.full_name)) + '</span>'
-    + '<div style="background:#e8eaed;border-radius:8px;padding:5px 9px;display:flex;gap:5px">' + trio + '</div>'
-    + '<div style="background:#1a1a1a;border-radius:8px;padding:5px 9px;display:flex;gap:5px">' + trio + '</div>'
-    + '</div>';
+  function row(label, body) {
+    return '<div class="rc-row"><div class="rc-lbl">' + label + '</div>' + body + '</div>';
+  }
+  var h = '<div class="rc-card"><h2 class="rc-h2">Preview</h2>';
+
+  h += row('Your badge',
+        '<div class="rc-sheet" style="background:transparent">'
+      + '<span class="rc-badge"><span class="rc-dot" style="border-color:' + c + '"></span> '
+      + esc((_profile && _profile.full_name) || 'You') + '</span></div>');
+
+  h += row('Pin on a light sheet',
+        '<div class="rc-sheet" style="background:#e8eaed">' + trio(null) + '</div>');
+
+  h += row('Pin on a dark sheet',
+        '<div class="rc-sheet" style="background:#1a1a1a">' + trio(null) + '</div>');
+
+  h += row('Over red linework',
+        '<div class="rc-sheet" style="background:#e8eaed;position:relative;overflow:hidden">'
+      + '<div style="position:absolute;inset:0">'
+      + '<div style="position:absolute;left:0;right:0;top:16px;height:3px;background:#e02020"></div>'
+      + '<div style="position:absolute;left:0;right:0;top:40px;height:3px;background:#e02020"></div>'
+      + '<div style="position:absolute;left:34%;top:0;bottom:0;width:2px;background:#9aa0a6"></div>'
+      + '<div style="position:absolute;left:66%;top:0;bottom:0;width:2px;background:#9aa0a6"></div>'
+      + '</div><div style="position:relative">' + _ringPinSVG(c, HIGH, '7', null) + '</div></div>');
+
+  /* Contractor tip. Three different trades on one sheet: the ring stays
+     yours, the body still shows how bad it is, and only the point carries
+     the trade — the three facts a pin has to hold at once. */
+  h += row('With a contractor tip',
+        '<div class="rc-sheet" style="background:#e8eaed">'
+      + _ringPinSVG(c, HIGH, '7', '#3D8585')
+      + _ringPinSVG(c, LOW, '8', '#3D4D88')
+      + _ringPinSVG(c, CLOSED, '9', '#9E6B40') + '</div>');
+
+  return h + '</div>';
+}
+
+function _ringColleagues() {
+  /* Who owns what, spelled out. The initials on a 22px tile tell you a colour
+     is spoken for; they do not tell you by whom, and "whose colour is that on
+     my drawing" is the question this whole feature exists to answer. */
+  var owners = _ringOwnerMap(), rows = [];
+  Object.keys(owners).forEach(function (hex) {
+    if (owners[hex]) rows.push({ hex: hex, name: owners[hex] });
+  });
+  if (!rows.length) return '';
+  rows.sort(function (a, b) { return a.name.localeCompare(b.name); });
+  var h = '<div class="rc-who"><b style="color:var(--rc-ink)">Taken by colleagues</b><div>';
+  rows.forEach(function (r) {
+    h += '<span class="rc-pill"><span style="display:inline-block;width:9px;height:9px;'
+       + 'border-radius:50%;background:' + r.hex + ';margin-right:6px;vertical-align:middle"></span>'
+       + esc(r.name) + '</span>';
+  });
+  return h + '</div></div>';
 }
 
 function _ringRefresh() {
   var host = _dq('ring-host');
   if (!host) return;
-  host.innerHTML = _ringSwatchGrid() + _ringPreview();
+  var pending = !!_ringPending;
+
+  host.innerHTML =
+      '<div class="rc-card">'
+    +   '<h2 class="rc-h2">Choose a colour</h2>'
+    +   '<p class="rc-sub">Your colour is how the toolkit says which pins and notes are yours '
+    +   '\u2014 the ring around your pins on a drawing, and your badge everywhere else. '
+    +   'It follows you to every project and every device.</p>'
+    +   _ringSwatchGrid()
+    +   '<div class="rc-legend"><span><b>' + _RING_PALETTE.length + '</b> colours available</span>'
+    +     '<span>Faded + initials = <b>already taken</b> by a colleague</span></div>'
+    +   '<div class="rc-note">Every colour here is checked against the pin colours, the '
+    +     'contractor colours and both light and dark drawing sheets, so whichever you pick '
+    +     'stays readable on a real drawing. No two swatches are closer than the separation '
+    +     'the toolkit\u2019s existing inspector colours already meet \u2014 so two people can '
+    +     'never end up with rings you cannot tell apart on a busy sheet.</div>'
+    + '</div>'
+    + _ringPreview()
+    + '<div class="rc-savebar">'
+    +   '<button class="rc-save" id="ring-save"' + (pending ? '' : ' disabled')
+    +     ' onclick="_ringSave()">Save my colour</button>'
+    +   '<button class="rc-cancel" id="ring-cancel" type="button">Cancel</button>'
+    + '</div>'
+    + _ringColleagues();
+
   Array.prototype.forEach.call(host.querySelectorAll('.ring-sw'), function (el) {
     if (el.classList.contains('taken')) return;
     el.onclick = function () {
       _ringPending = el.getAttribute('data-hex');
       _ringRefresh();
-      var b = _dq('ring-save'); if (b) b.disabled = false;
     };
   });
+  /* Cancel drops the unsaved choice and puts the panel back where it was.
+     It does NOT close the profile panel — the other sections here are
+     unrelated and closing them would be a surprise. */
+  var cx = _dq('ring-cancel');
+  if (cx) cx.onclick = function () { _ringPending = null; _ringRefresh(); };
 }
 
 async function _ringSave() {
@@ -6983,13 +7124,13 @@ async function _ringSave() {
     try { if (typeof renderProjects === 'function') renderProjects(); } catch (_) {}
     toast('\u2713 Colour saved', 'success');
     _ringRefresh();
-    if (btn) btn.textContent = 'Save colour';
+    if (btn) btn.textContent = 'Save my colour';
   } catch (e) {
     /* The privilege guard rejects role and is_active from a browser, never
        ring_color — so a failure here is a genuine network or permission
        problem and must be shown, not swallowed. */
     toast('Could not save colour: ' + (e && e.message ? e.message : 'unknown error'), 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Save colour'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Save my colour'; }
   }
 }
 
@@ -7025,12 +7166,8 @@ function openProfileModal() {
       <div class="profile-val" id="prof-role">\u2014</div>\
     </div>\
     <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">\
-    <h3 style="font-size:calc(15px + var(--ts));margin-bottom:4px">\ud83c\udfa8 My colour</h3>\
-    <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:6px;line-height:1.45">The ring around your pins on a drawing, and your badge everywhere else. Faded swatches are already taken by a colleague.</p>\
+    <h3 style="font-size:calc(15px + var(--ts));margin-bottom:4px">\ud83c\udfa8 My inspector colour</h3>\
     <div id="ring-host"></div>\
-    <div class="modal-actions" style="margin-top:10px;justify-content:flex-start">\
-      <button class="dash-btn primary" id="ring-save" disabled onclick="_ringSave()">Save colour</button>\
-    </div>\
     <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">\
     <h3 style="font-size:calc(15px + var(--ts));margin-bottom:12px">\ud83d\udd12 Change Password</h3>\
     <div class="modal-field">\
