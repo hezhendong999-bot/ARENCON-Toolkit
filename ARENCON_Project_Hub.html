@@ -1589,7 +1589,28 @@ let _userInitials = {};    // {userId: initials} — from profiles.initials (Adm
    this restores the system-assigned default. Initials-only is Mark's standing
    rule: no full names on cards. */
 var _PM_PALETTE = ['#9C2742','#2C7FB8','#3E8E6E','#C98A4A','#6E4FA0','#347B7B','#B5694E','#4F7AA0'];
+/* ═══ S628e — ONE PERSON, ONE COLOUR, EVERYWHERE ═══════════════════════════
+   Mark, 08 Aug: "the hub page has two different golds and neither matches
+   the pink. I need all to be the same colour."
+
+   He was looking at three different systems inventing three different colours
+   for the same human being: this hash off their initials, the field tool's
+   hash off their user id, and (until S627) a third guess for the pin ring.
+   A colour that identifies a person is worthless if it changes depending on
+   which screen you are looking at.
+
+   profiles.ring_color is now the single source of truth — the colour that
+   person CHOSE — and every surface reads it. The hash below survives only as
+   the fallback for someone who has never picked, so nothing goes blank while
+   the roster fills in.
+
+   Note the two families do NOT mix: the Hub badge is a filled chip and the
+   drawing ring is an outline, so the same colour reads correctly in both
+   without either needing a variant. */
+var _userRingColour = {};   // {userId: '#RRGGBB'} — from profiles.ring_color
 function _pmColour(userId) {
+  var chosen = _userRingColour[userId];
+  if (chosen) return chosen;
   var ini = _userInitials[userId];
   if (!ini) return 'var(--silver)';
   var h = 0;
@@ -2157,13 +2178,20 @@ async function loadProfile() {
 // ── Load lightweight user map (for all roles, not just admin) ──
 async function loadUserMap() {
   try {
-    var rows = await _sb.from('profiles').select('id,full_name,email,initials').execute();
+    var rows = await _sb.from('profiles').select('id,full_name,email,initials,ring_color').execute();
     _userMap = {};
     _userInitials = {};
+    _userRingColour = {};
     if (rows && rows.length) {
       rows.forEach(function(u) {
         _userMap[u.id] = u.full_name || u.email || '—';
         if (u.initials) _userInitials[u.id] = u.initials;
+        /* S628e: shape-checked before use — a bad value would paint an invalid
+           colour and the badge would silently fall back to browser default,
+           which looks like the badge is broken rather than the data. */
+        if (u.ring_color && /^#[0-9A-Fa-f]{6}$/.test(u.ring_color)) {
+          _userRingColour[u.id] = u.ring_color;
+        }
       });
     }
   } catch (e) {

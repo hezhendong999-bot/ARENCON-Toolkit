@@ -193,8 +193,60 @@ function _removeOverlay(overlay) {
  * @param {Object} mergeResult - the full merge3 result (for applyResolutions)
  * @returns {Promise<{resolutions: Array, merged: Object}|null>}
  */
+/* ═══ S628d — THE CONFLICT MODAL WAS ASKING ABOUT ITS OWN PLUMBING ═══════════
+   Mark, 08 Aug: got a "3 items need your decision" modal whose three items were
+   _TAB, _WROTEAT and MODIFIED, and correctly refused to answer it.
+
+   He was right. Those are not his work. _tab is which browser tab wrote last.
+   _wroteAt and modified are timestamps the app stamps on itself. Asking an
+   inspector to choose between "2qwxw" and "uoke9", or between two times three
+   seconds apart, is asking a question with no meaningful answer — and the
+   answer changes nothing he can see. Worse, it teaches people that the conflict
+   modal is noise, so the day it asks about a real deficiency they click through
+   it.
+
+   A conflict is worth interrupting someone for only when the two sides differ
+   in something the inspector actually wrote. Everything else is housekeeping
+   and the merge engine already has a rule for it — dropping these from the
+   modal does NOT skip them, because mergeApplyResolutions only overrides the
+   paths it is given and the merge's own resolution stands for the rest.
+
+   If EVERY conflict is housekeeping, no modal appears at all. That was exactly
+   this case: three internal fields, zero real disagreements, and Mark should
+   never have been stopped. */
+var _HOUSEKEEPING_LEAVES = {
+  modified: 1, datemodified: 1, updatedat: 1, updated_at: 1,
+  lastmodified: 1, lastsaved: 1, savedat: 1, syncedat: 1, rev: 1, version: 1
+};
+
+function _isHousekeepingPath(path) {
+  try {
+    var parts = String(path || '').split('.');
+    var leaf = parts[parts.length - 1] || '';
+    /* Anything underscore-prefixed is internal by this codebase's own
+       convention (_ts, _fts, _dev, _tab, _via, _wroteAt, _build, _cloudSyncedAt). */
+    if (leaf.charAt(0) === '_') return true;
+    return !!_HOUSEKEEPING_LEAVES[leaf.toLowerCase()];
+  } catch (_) { return false; }
+}
+
 export function showConflictModal(conflicts, mergeResult) {
   return new Promise(function(resolve) {
+    /* S628d: filter BEFORE the empty check, so an all-housekeeping clash
+       resolves silently instead of raising a modal about nothing. */
+    var _all = conflicts || [];
+    var _hidden = [];
+    conflicts = _all.filter(function(c) {
+      if (_isHousekeepingPath(c && c.path)) { _hidden.push(c); return false; }
+      return true;
+    });
+    if (_hidden.length) {
+      try {
+        console.log('[Sync] ' + _hidden.length + ' housekeeping field(s) resolved by the merge, not shown: '
+          + _hidden.map(function(c){ return c.path; }).join(', '));
+      } catch (_) {}
+    }
+
     if (!conflicts || !conflicts.length) {
       // Defensive: nothing to do
       resolve({ resolutions: [], merged: mergeResult.merged });

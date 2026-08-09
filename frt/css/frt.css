@@ -11752,3 +11752,16 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+
+/* ══ S628e — LAYERS POPOVER WIDTH, MOBILE BREAKPOINT TOO ═══════════════════
+   S628b widened the panel, but only for the desktop rule. Inside the mobile
+   media query the panel is re-pinned with `#dv-layers-menu[style*="block"]
+   { min-width:180px !important }`, and that attribute selector is MORE
+   specific than the id alone — so on a tablet, the exact device this list is
+   read on, the names went right on wrapping. Matching the attribute selector
+   here is the only way to beat it without editing the mobile block and risking
+   the S79 positioning rules that share it. */
+.drawing-viewer-overlay #dv-layers-menu[style*="block"]{
+  min-width:262px !important;
+  max-width:min(340px, calc(100vw - 24px)) !important;
+}

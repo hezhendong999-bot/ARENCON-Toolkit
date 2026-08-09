@@ -146,9 +146,30 @@
   // Caller handles translate + scale to place at screen position.
   function _drawPinAtNative(ctx, pin, state, dimmed, highlightColor, pinAlpha){
     var isOutstanding = !pin.isClosed;
-    // Contractor-highlight lens recolours a matching pin to its contractor's
-    // colour (passed in); otherwise the normal priority/status fill applies.
-    var fillHex = highlightColor || _priorityFillHex(pin);
+    /* ═══ S628e — CONTRACTOR COLOUR GOES ON THE TIP, NOT THE WHOLE BODY ══════
+       Mark, three times across 08 Aug: "the contractor colour is supposed to be
+       just the tip, not the entire body."
+
+       The S328 record says whole-teardrop recolour and names it as his spec, and
+       I cited that record twice before doing what he asked. Once was defensible;
+       twice was not. It is his tool and his call, and the record is now wrong —
+       corrected in the PK alongside this change so no later session "restores"
+       whole-body recolour on the grounds that the document says so.
+
+       He is also right on the merits, and it is more obvious now than it was at
+       S328. A pin carries three separate facts: WHO placed it (the ring), HOW
+       BAD it is (the body), and WHOSE trade it belongs to (the contractor).
+       Repainting the whole body swallowed two of the three to show one — with
+       rings now on by default, selecting a contractor turned every matching pin
+       into a flat block of one colour and you could no longer see priority at
+       all. Tip-only keeps all three legible at once.
+
+       The body therefore keeps its priority/status fill even under the lens;
+       only the lower point of the teardrop takes the contractor's colour. The
+       DIM applied to non-matching pins is unchanged — that half of the lens was
+       never the problem. */
+    var ctrTip  = highlightColor || null;
+    var fillHex = _priorityFillHex(pin);
     // Effective per-pin opacity (contractor-highlight dim, closed 0.5, etc.).
     // Every layer below multiplies its own alpha by this so the dim actually
     // reaches the paint — otherwise the internal globalAlpha resets wiped it.
@@ -185,6 +206,25 @@
       _teardropPath(ctx, 0, 0, 1);
       ctx.fill();
       if (_supportsFilter) ctx.filter = 'none';
+    }
+
+    /* S628e: the contractor tip. Clip to the teardrop so the wedge can never
+       spill past the silhouette, then fill the lower portion — below the white
+       number disc, so it never fights the number for legibility. Drawn after
+       the body (and after the ring's inner fill) so it reads on both, and
+       before the disc so the disc still sits on top. */
+    if (ctrTip){
+      if (_supportsFilter) ctx.filter = 'none';
+      ctx.save();
+      _teardropPath(ctx, 0, 0, hasRing ? 0.88 : 1);   // stay inside the ring if one is drawn
+      ctx.clip();
+      ctx.fillStyle = ctrTip;
+      ctx.globalAlpha = _pa;
+      ctx.beginPath();
+      ctx.rect(0, 26, 32, 16);      // tip zone: below the disc, down past the point
+      ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha = _pa;
     }
 
     // Layer 1: inner white circle at (16, 14), r=11, α=0.95
