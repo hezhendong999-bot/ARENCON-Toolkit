@@ -1948,6 +1948,20 @@ function _flowEqSetCat(k){ _flowEqActiveCat=k; _renderFlowEquipModal(); }
 function _flowEqAddPhotoObj(dataUrl, name){
   var arr=_flowEqArr(); if(!arr) return;
   var _ph=ArcPhoto.mint(dataUrl, name||'photo.jpg', {extra:{tag:_flowEqActiveCat||'flow_chart', caption:''}});
+  /* ═══ S626 — THE POINTER IS BORN WITH THE PHOTO (Lane B's audit, 08 Aug:
+     58 of 58 flow-test photos all-time saved with r2Key/r2Url/r2Status blank,
+     against 326 of 326 record photos correct; all 39 live ones ARE in R2).
+     This creation path minted and pushed but NEVER enqueued — the upload the
+     bytes actually got came later, from the S563 catch-up sweep, which sets
+     the pointer on the in-memory object AFTER the first autosave has already
+     shipped a blank to the cloud; the cloud's blank then kept winning. The
+     cure is on the WRITE side, at birth, before any save can run — NOT the
+     Hub's read-side key rebuild (S631), which exists only so old records can
+     display: lean on that instead of saving the pointer and the defect
+     becomes permanent and invisible, and the nightly sweep goes quiet for
+     the wrong reason. _r2EnqueuePhoto is a no-op outside Hub mode or before
+     the folder is known — exactly the window S563 still exists to cover. */
+  if(typeof _r2EnqueuePhoto==='function'){ try{ _r2EnqueuePhoto(_ph); }catch(e){ console.warn('[FlowEq] enqueue at creation failed:', e&&e.message); } }
   arr.push(_ph);
   if(typeof _renderRecordZones==='function') _renderRecordZones();
   _renderFlowEquipModal();

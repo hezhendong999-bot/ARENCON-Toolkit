@@ -1117,7 +1117,7 @@ let flowTestPhotoInput = document.getElementById('global-file-input');
 // 4b independent flow test photo upload
 let flowTestPhotosPld = [];
 function triggerFlowTestPhotoPld() { openFlowEquipModal('pld'); }
-function _pfFlowTestPld(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ flowTestPhotosPld.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbsPld(); }; r.readAsDataURL(f); }
+function _pfFlowTestPld(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ var _ph=ArcPhoto.mint(ev.target.result,f.name); if(typeof _r2EnqueuePhoto==='function'){ try{ _r2EnqueuePhoto(_ph); }catch(_e){} }  /* S626: pointer born with the photo — see _flowEqAddPhotoObj */ flowTestPhotosPld.push(_ph); renderFlowTestThumbsPld(); }; r.readAsDataURL(f); }
 function triggerFlowTestCameraPld() {
   if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfFlowTestPld(f); }); return; }
   const fi = document.getElementById('global-file-input');
@@ -1143,7 +1143,7 @@ function renderFlowTestThumbsPld() {
     </div>`).join('');
 }
 function triggerFlowTestPhoto() { openFlowEquipModal('std'); }
-function _pfFlowTest(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ flowTestPhotos.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbs(); }; r.readAsDataURL(f); }
+function _pfFlowTest(f){ if(!f||!f.type||f.type.indexOf('image/')!==0) return; var r=new FileReader(); r.onload=function(ev){ var _ph=ArcPhoto.mint(ev.target.result,f.name); if(typeof _r2EnqueuePhoto==='function'){ try{ _r2EnqueuePhoto(_ph); }catch(_e){} }  /* S626: pointer born with the photo — see _flowEqAddPhotoObj */ flowTestPhotos.push(_ph); renderFlowTestThumbs(); }; r.readAsDataURL(f); }
 function triggerFlowTestCamera() {
   if(typeof _camBurst==='function'){ _camBurst(function(f){ _pfFlowTest(f); }); return; }
   currentPhotoId = '__flowtest';
