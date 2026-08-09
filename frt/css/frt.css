@@ -11724,3 +11724,31 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
   -webkit-user-drag:none !important;
   -webkit-tap-highlight-color:transparent !important;
 }
+
+/* ══ S628b — LAYERS POPOVER: STOP THE NAMES WRAPPING ═══════════════════════
+   The popover carries an inline min-width of 180px from before it listed
+   people. Contractor names ("Classic Fire & Life Safety") and inspector rows
+   (name + "(you)" + pin count) now wrap onto two lines inside it, which
+   wastes most of the panel's height and makes the list harder to scan on a
+   tablet at arm's length. Widen the panel and keep each row on one line; the
+   name itself may ellipsis rather than push the row taller, because the row's
+   job is identification at a glance, not full display of a long company name
+   (the title attribute still carries it in full).
+   Overrides the inline min-width via the id + !important — the inline style
+   lives in index.html and rewriting markup for a spacing fix is not worth the
+   risk on a file this size. */
+.drawing-viewer-overlay #dv-layers-menu{
+  min-width:262px !important;
+  max-width:340px !important;
+}
+.drawing-viewer-overlay #dv-layers-menu .dv-layer-row{
+  flex-wrap:nowrap !important;
+  white-space:nowrap;
+  min-height:44px;              /* gloved-finger target, unchanged intent */
+}
+.drawing-viewer-overlay #dv-layers-menu .dv-layer-row > span:not(:first-child),
+.drawing-viewer-overlay #dv-layers-menu .dv-layer-row label{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}

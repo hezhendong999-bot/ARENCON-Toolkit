@@ -109,6 +109,10 @@ var _inspectorPending = {};      // userId -> true while a fetch is in flight
    inspectorColorFor() even before a name has resolved. Object.create(null) so a
    user id can never collide with an inherited property name. */
 var _inspectorChosen = Object.create(null);
+/* S628b: ids whose cache row was seeded LOCALLY (name only, no profile record
+   behind it). Cleared the moment the server answers. Without this a seeded row
+   looks identical to a resolved one and the fetch is skipped forever. */
+var _inspectorPartial = Object.create(null);
 // Deterministic id -> muted palette slot (reuses CONTRACTOR_COLOR_PALETTE so
 // no new colors enter the system; stable per id across sessions).
 
@@ -4823,6 +4827,9 @@ export var Model = {
       initials: this._inspectorInitials(name),
       color: this.inspectorColorFor(userId)   /* S627: chosen colour wins */
     };
+    /* S628b: this row is a local placeholder. Flag it so primeInspectors still
+       goes and gets the real record — including the colour this person chose. */
+    _inspectorPartial[userId] = true;
     this._notify('inspectors', { userId: userId });
   },
 
@@ -4833,7 +4840,17 @@ export var Model = {
     var want = [];
     (userIds || []).forEach(function(id) {
       if (!id) return;
-      if (_inspectorCache[id] || _inspectorPending[id]) return;
+      /* S628b — WHY THE SIGNED-IN USER KEPT THEIR OLD COLOUR. setInspectorEntry
+         seeds a cache row at sign-in (S143) so your own name shows instantly
+         without a round trip. That row is name-only: it has never seen the
+         profile record, so its colour is the id-hash fallback. The filter below
+         then treated "cached" as "resolved" and never fetched the real record,
+         so the colour the person CHOSE could not reach the screen — for
+         themselves. Colleagues resolved correctly, which is exactly the shape
+         Mark reported: everyone else fine, himself still pink.
+         A locally-seeded row is a placeholder, not an answer. Fetch it anyway. */
+      if (_inspectorPending[id]) return;
+      if (_inspectorCache[id] && !_inspectorPartial[id]) return;
       _inspectorPending[id] = true;
       want.push(id);
     });
@@ -4847,6 +4864,7 @@ export var Model = {
            built so inspectorColorFor() is correct from this moment on. */
         var pick = (r.ring_color && /^#[0-9A-Fa-f]{6}$/.test(r.ring_color)) ? r.ring_color : null;
         if (pick) _inspectorChosen[r.id] = pick;
+        delete _inspectorPartial[r.id];          /* S628b: server has spoken */
         _inspectorCache[r.id] = {
           name: nm,
           initials: self._inspectorInitials(nm),
@@ -4859,6 +4877,7 @@ export var Model = {
         if (!_inspectorCache[id]) {
           _inspectorCache[id] = { name: '', initials: '\u2014', color: self.inspectorColorFor(id) };
         }
+        delete _inspectorPartial[id];            /* S628b: asked and answered, even if empty */
         delete _inspectorPending[id];
       });
       self._notify('inspectors', { userIds: want });
