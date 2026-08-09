@@ -194,11 +194,19 @@
       ctx.globalAlpha = _pa;
       _teardropPath(ctx, 0, 0, 1);
       ctx.fill();
-      // Inner teardrop at 0.88 scale in priority color — ring thickness ~3px at 32×42
+      // Inner teardrop at 0.76 scale in priority color.
+      // S629 (Mark): ring thickness DOUBLED from 0.88 → 0.76 inner scale, ~3px
+      // to ~6px at 32×42. It is the fastest read on a busy sheet — whose pin is
+      // this — and at 3px it was losing that fight against the body colour once
+      // a drawing filled up. The teardrop itself does NOT grow, so pin spacing
+      // and hit targets are unchanged; the priority body absorbs the loss. The
+      // white number disc (r=11 at cy=14) is untouched, so numbers read exactly
+      // as before. The Hub's colour-picker preview mirrors this number — if it
+      // changes here it changes there, or the preview starts lying.
       // Reset filter so inner doesn't double-shadow
       if (_supportsFilter) ctx.filter = 'none';
       ctx.fillStyle = fillHex;
-      _teardropPath(ctx, 0, 0, 0.88);
+      _teardropPath(ctx, 0, 0, 0.76);
       ctx.fill();
     } else {
       ctx.fillStyle = fillHex;
@@ -216,7 +224,7 @@
     if (ctrTip){
       if (_supportsFilter) ctx.filter = 'none';
       ctx.save();
-      _teardropPath(ctx, 0, 0, hasRing ? 0.88 : 1);   // stay inside the ring if one is drawn
+      _teardropPath(ctx, 0, 0, hasRing ? 0.76 : 1);   // stay inside the ring if one is drawn
       ctx.clip();
       ctx.fillStyle = ctrTip;
       ctx.globalAlpha = _pa;

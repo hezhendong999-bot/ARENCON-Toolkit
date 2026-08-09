@@ -316,21 +316,29 @@ body.select-mode .view-list .project-card{padding-left:42px}
   --d-draft:#2C7FB8;--d-review:#C98A4A;--d-issued:#3E8E6E;}
 body.dark-mode{--d-frt:#7B8AE0;--d-dfp:#F0A93C;--d-efp:#48C5E8;--d-ist:#3FC9C7;--d-obc:#52C07E;--d-dd:#B57BD8;
   --d-draft:#46C5E8;--d-review:#E0A36A;--d-issued:#48C896;}
-/* Base tinted tool-pill shell (override solid inline bg) */
-.view-list .tool-pill{
+/* Base tinted tool-pill shell (override solid inline bg).
+   S629 (Mark: "the card view is wrong in dark mode and day mode"). These rules
+   were scoped to .view-list, so the SAME project showed two different colour
+   languages on one screen: muted mode-aware pills in the list, saturated
+   fixed-colour pills in the cards, which never switched with the theme at all
+   because the JS writes those colours inline. Scope dropped — one treatment,
+   both views, both modes. The --d-* tokens above already carry the light/dark
+   pair, so the cards now follow the theme for the first time. LIST-ONLY rules
+   (grid columns, 30px avatars) stay scoped; those are layout, not colour. */
+.tool-pill{
   background:transparent !important;border:1px solid;border-radius:999px;
   padding:3px 10px 3px 9px;gap:5px;font-weight:700;letter-spacing:.2px;}
-.view-list .tool-pill svg{display:none;} /* demo uses a dot, not the icon glyph */
-.view-list .tool-pill::before{content:'';width:6px;height:6px;border-radius:50%;display:inline-block;background:currentColor;}
+.tool-pill svg{display:none;} /* demo uses a dot, not the icon glyph */
+.tool-pill::before{content:'';width:6px;height:6px;border-radius:50%;display:inline-block;background:currentColor;}
 /* Per-tool tints — matched by the inline colour the JS sets, via attribute would be ideal;
    instead we colour all tool-pills with a data hook added in JS (see tool-pill class additions). */
-.view-list .tool-pill.tp-frt{color:var(--d-frt);background:color-mix(in srgb,var(--d-frt) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-frt) 35%,transparent);}
-.view-list .tool-pill.tp-diesel{color:var(--d-dfp);background:color-mix(in srgb,var(--d-dfp) 14%,transparent) !important;border-color:color-mix(in srgb,var(--d-dfp) 36%,transparent);}
-.view-list .tool-pill.tp-electric{color:var(--d-efp);background:color-mix(in srgb,var(--d-efp) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-efp) 34%,transparent);}
-.view-list .tool-pill.tp-ist{color:var(--d-ist);background:color-mix(in srgb,var(--d-ist) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-ist) 35%,transparent);}
-.view-list .tool-pill.tp-obc{color:var(--d-obc);background:color-mix(in srgb,var(--d-obc) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-obc) 34%,transparent);}
-.view-list .tool-pill.tp-dd{color:var(--d-dd);background:color-mix(in srgb,var(--d-dd) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-dd) 35%,transparent);}
-.view-list .pm-avatar{color:var(--avc,#888)!important;background:color-mix(in srgb,var(--avc,#888) 16%,transparent)!important;border:1px solid color-mix(in srgb,var(--avc,#888) 38%,transparent)!important;font-weight:800;letter-spacing:-.2px}
+.tool-pill.tp-frt{color:var(--d-frt);background:color-mix(in srgb,var(--d-frt) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-frt) 35%,transparent);}
+.tool-pill.tp-diesel{color:var(--d-dfp);background:color-mix(in srgb,var(--d-dfp) 14%,transparent) !important;border-color:color-mix(in srgb,var(--d-dfp) 36%,transparent);}
+.tool-pill.tp-electric{color:var(--d-efp);background:color-mix(in srgb,var(--d-efp) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-efp) 34%,transparent);}
+.tool-pill.tp-ist{color:var(--d-ist);background:color-mix(in srgb,var(--d-ist) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-ist) 35%,transparent);}
+.tool-pill.tp-obc{color:var(--d-obc);background:color-mix(in srgb,var(--d-obc) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-obc) 34%,transparent);}
+.tool-pill.tp-dd{color:var(--d-dd);background:color-mix(in srgb,var(--d-dd) 13%,transparent) !important;border-color:color-mix(in srgb,var(--d-dd) 35%,transparent);}
+.pm-avatar{color:var(--avc,#888)!important;background:color-mix(in srgb,var(--avc,#888) 16%,transparent)!important;border:1px solid color-mix(in srgb,var(--avc,#888) 38%,transparent)!important;font-weight:800;letter-spacing:-.2px}
 
 .band-header{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;padding:6px 2px 8px;margin-bottom:2px;cursor:pointer;font-family:Calibri,'Segoe UI',system-ui,sans-serif;text-align:left;border-bottom:1px solid var(--border);min-height:38px}
 .band-caret{color:var(--silver);font-size:calc(11px + var(--ts));width:11px;flex-shrink:0}
@@ -1013,9 +1021,21 @@ body.dark-mode #ring-host{--rc-card:#17151c;--rc-ink:#f4f3f6;--rc-ink2:#a09aa8;-
 /* Mandatory coarse-pointer fallback — hover does not exist on a tablet. */
 @media(pointer:coarse){.ring-sw:hover{transform:none}}
 .ring-sw.sel{border-color:var(--rc-ink);box-shadow:0 0 0 3px var(--rc-card),0 0 0 5px var(--rc-ink)}
-.ring-sw.taken{cursor:not-allowed;opacity:.5}
+/* S629 (Mark: "make the staff initials more visible"). Fading the whole tile
+   faded the label with it — the tile has to read as spoken-for, but the LABEL
+   has to say who by, and "whose colour is that" is the question this feature
+   exists to answer. So the tile keeps its colour and takes a mode-aware scrim;
+   the initials sit above it at full contrast. Holds 2 OR 3 letters — several
+   staff are three (MZN, LAS) and the tile must not clip them. */
+.ring-sw.taken{cursor:not-allowed}
+.ring-sw.taken::after{content:'';position:absolute;inset:0;border-radius:inherit;
+  background:rgba(255,255,255,.58);pointer-events:none}
+body.dark-mode .ring-sw.taken::after{background:rgba(0,0,0,.50)}
 .ring-sw.taken:hover{transform:none}
-.ring-sw span{font-size:10.5px;font-weight:700;color:rgba(0,0,0,.62);letter-spacing:-.3px}
+.ring-sw span{position:relative;z-index:1;font-size:11px;font-weight:800;color:#1B1A22;
+  letter-spacing:-.2px;line-height:1;text-align:center}
+body.dark-mode .ring-sw span{color:#f4f3f6}
+.ring-sw span.i3{font-size:9px;letter-spacing:-.6px}
 .rc-legend{display:flex;gap:14px;margin-top:12px;padding-top:10px;border-top:1px solid var(--rc-rule);
   font-size:calc(12px + var(--ts));color:var(--rc-ink2);flex-wrap:wrap}
 .rc-legend b{color:var(--rc-ink);font-weight:600}
@@ -1025,7 +1045,7 @@ body.dark-mode #ring-host{--rc-card:#17151c;--rc-ink:#f4f3f6;--rc-ink2:#a09aa8;-
 .rc-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--rc-rule)}
 .rc-row:last-child{border-bottom:none}
 .rc-lbl{font-size:calc(11px + var(--ts));color:var(--rc-ink3);width:104px;flex-shrink:0;line-height:1.3}
-.rc-sheet{border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;flex:1;
+.rc-sheet{border-radius:8px;padding:6px 8px;display:flex;align-items:center;gap:6px;flex:1;
   justify-content:center;min-height:56px}
 .rc-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 6px;border-radius:14px;
   background:var(--rc-chip);border:1px solid var(--rc-rule);font-size:calc(13px + var(--ts));color:var(--rc-ink)}
@@ -6939,11 +6959,20 @@ async function _notifDismiss() {
 var _RING_PALETTE = ["#FF4D4D", "#C9A5A5", "#F07C65", "#FF670F", "#FFAF75", "#C9832C", "#E8C799", "#C99F04", "#C9B255", "#F7D10F", "#DBE04C", "#86941B", "#CFF018", "#A1BA73", "#BFE87D", "#8DE805", "#7EBA29", "#90F77C", "#46D136", "#27FF24", "#52A358", "#ABD1B0", "#95F0B3", "#1ABA52", "#0FFF7F", "#28E097", "#44B295", "#51F0E8", "#6CB5BA", "#4DE1FF", "#3C9FC9", "#9ED5FF", "#5EA8F7", "#99A0BA", "#6B84FF", "#B4A8FF", "#B972F7", "#E6C5F0", "#F419FF", "#FFB2FE", "#D171CE", "#FF75FA", "#FF24D7", "#C985B3", "#F740A2", "#E86BA1", "#FF4D79", "#F799A9"];
 
 function _ringOwnerMap() {
-  /* colour -> someone else's name. Own colour excluded: it is not "taken". */
+  /* colour -> the colleague who owns it. Own colour excluded: it is not "taken".
+     S629 (Mark): initials come from profiles.initials — the ones typed in at
+     account setup — NOT derived from the name. Some staff are two letters (MH),
+     some are three (MZN, LAS), and a derived two-letter guess is simply the
+     wrong label on someone else's colour. Name-derived initials survive only as
+     the fallback for anyone Admin has not set yet. */
   var m = {};
   Object.keys(_userRingColour || {}).forEach(function (uid) {
     if (_profile && uid === _profile.id) return;
-    m[String(_userRingColour[uid]).toUpperCase()] = _userMap[uid] || '';
+    var nm = _userMap[uid] || '';
+    m[String(_userRingColour[uid]).toUpperCase()] = {
+      name: nm,
+      ini: (_userInitials[uid] || _ringInitials(nm))
+    };
   });
   return m;
 }
@@ -6964,11 +6993,12 @@ function _ringSwatchGrid() {
   _RING_PALETTE.forEach(function (hex) {
     var owner = owners[hex.toUpperCase()];
     var sel = (hex.toUpperCase() === mine);
+    var ini = owner ? String(owner.ini || '') : '';
     h += '<div class="ring-sw' + (owner ? ' taken' : '') + (sel ? ' sel' : '') + '"'
       + ' data-hex="' + hex + '"'
-      + ' title="' + (owner ? esc(owner) : hex) + '"'
+      + ' title="' + (owner ? esc(owner.name) + ' \u2014 ' + hex : hex) + '"'
       + ' style="background:' + hex + '">'
-      + (owner ? '<span>' + esc(_ringInitials(owner)) + '</span>' : '')
+      + (owner ? '<span' + (ini.length > 2 ? ' class="i3"' : '') + '>' + esc(ini) + '</span>' : '')
       + '</div>';
   });
   return h + '</div>';
@@ -6978,11 +7008,15 @@ var _ringUid = 0;   /* unique clip ids — two SVGs sharing one id clip wrong */
 
 /* The exact teardrop the drawing viewer paints, in the same layer order:
    outer = your colour, body = priority, contractor tip clipped INSIDE the
-   body, white disc, number. If the on-canvas renderer ever changes, this
-   changes with it — a preview that flatters is worse than no preview. */
+   body, white disc, number. The inner scale MUST match pinsGL.js — S629 moved
+   both from 0.88 to 0.76 together (ring ~3px → ~6px). If the on-canvas pin
+   changes and this does not, the preview starts lying, which is worse than
+   having no preview at all. */
+var _RING_INNER = 0.76;
+
 function _ringPinSVG(ring, body, num, tip) {
   var path = 'M16 40 C16 40 3 24.5 3 15.5 C3 7.5 8.8 2 16 2 C23.2 2 29 7.5 29 15.5 C29 24.5 16 40 16 40 Z';
-  var inner = 'translate(16,21) scale(0.88) translate(-16,-21)';
+  var inner = 'translate(16,21) scale(' + _RING_INNER + ') translate(-16,-21)';
   var cid = 'rcclip' + (++_ringUid);
   var h = '<svg width="30" height="39" viewBox="0 0 32 42" '
         + 'style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">';
@@ -7005,46 +7039,37 @@ function _ringPinSVG(ring, body, num, tip) {
 
 function _ringPreview() {
   var c = (_ringPending || (_profile && _profile.ring_color) || '#888');
-  /* Priority body colours and contractor accents are read from the same
-     values the tool ships; a preview in invented colours proves nothing. */
+  /* Priority body colours and contractor accents are the values the tool
+     actually ships; a preview in invented colours proves nothing. */
   var HIGH = '#A85959', LOW = '#B07F5A', CLOSED = '#5F8068';
-  function trio(tip) {
-    return _ringPinSVG(c, HIGH, '7', tip) + _ringPinSVG(c, LOW, '8', tip)
-         + _ringPinSVG(c, CLOSED, '9', tip);
+  var T1 = '#3D8585', T2 = '#3D4D88', T3 = '#9E6B40';   // teal / indigo / bronze
+  function trio(t1, t2, t3) {
+    return _ringPinSVG(c, HIGH, '7', t1) + _ringPinSVG(c, LOW, '8', t2)
+         + _ringPinSVG(c, CLOSED, '9', t3);
+  }
+  /* Both sheets side by side on ONE row: a ring has to survive a white
+     drawing and a dark one, and comparing them means seeing them together. */
+  function sheets(t1, t2, t3) {
+    return '<div class="rc-sheet" style="background:#e8eaed">' + trio(t1, t2, t3) + '</div>'
+         + '<div class="rc-sheet" style="background:#1a1a1a">' + trio(t1, t2, t3) + '</div>';
   }
   function row(label, body) {
     return '<div class="rc-row"><div class="rc-lbl">' + label + '</div>' + body + '</div>';
   }
+  var ini = (_profile && _userInitials[_profile.id])
+         || _ringInitials(_profile && _profile.full_name);
+
   var h = '<div class="rc-card"><h2 class="rc-h2">Preview</h2>';
 
+  /* The dashboard's own avatar component, not a lookalike — same class, so it
+     can never drift away from what the board shows. */
   h += row('Your badge',
-        '<div class="rc-sheet" style="background:transparent">'
-      + '<span class="rc-badge"><span class="rc-dot" style="border-color:' + c + '"></span> '
-      + esc((_profile && _profile.full_name) || 'You') + '</span></div>');
+        '<div class="rc-sheet" style="background:transparent;justify-content:flex-start">'
+      + '<span class="pm-avatar" style="--avc:' + c + ';background:' + c + ';margin:0" title="'
+      + esc((_profile && _profile.full_name) || '') + '">' + esc(ini) + '</span></div>');
 
-  h += row('Pin on a light sheet',
-        '<div class="rc-sheet" style="background:#e8eaed">' + trio(null) + '</div>');
-
-  h += row('Pin on a dark sheet',
-        '<div class="rc-sheet" style="background:#1a1a1a">' + trio(null) + '</div>');
-
-  h += row('Over red linework',
-        '<div class="rc-sheet" style="background:#e8eaed;position:relative;overflow:hidden">'
-      + '<div style="position:absolute;inset:0">'
-      + '<div style="position:absolute;left:0;right:0;top:16px;height:3px;background:#e02020"></div>'
-      + '<div style="position:absolute;left:0;right:0;top:40px;height:3px;background:#e02020"></div>'
-      + '<div style="position:absolute;left:34%;top:0;bottom:0;width:2px;background:#9aa0a6"></div>'
-      + '<div style="position:absolute;left:66%;top:0;bottom:0;width:2px;background:#9aa0a6"></div>'
-      + '</div><div style="position:relative">' + _ringPinSVG(c, HIGH, '7', null) + '</div></div>');
-
-  /* Contractor tip. Three different trades on one sheet: the ring stays
-     yours, the body still shows how bad it is, and only the point carries
-     the trade — the three facts a pin has to hold at once. */
-  h += row('With a contractor tip',
-        '<div class="rc-sheet" style="background:#e8eaed">'
-      + _ringPinSVG(c, HIGH, '7', '#3D8585')
-      + _ringPinSVG(c, LOW, '8', '#3D4D88')
-      + _ringPinSVG(c, CLOSED, '9', '#9E6B40') + '</div>');
+  h += row('Your pins', sheets(null, null, null));
+  h += row('With a contractor tip', sheets(T1, T2, T3));
 
   return h + '</div>';
 }
@@ -7055,7 +7080,7 @@ function _ringColleagues() {
      my drawing" is the question this whole feature exists to answer. */
   var owners = _ringOwnerMap(), rows = [];
   Object.keys(owners).forEach(function (hex) {
-    if (owners[hex]) rows.push({ hex: hex, name: owners[hex] });
+    if (owners[hex] && owners[hex].name) rows.push({ hex: hex, name: owners[hex].name });
   });
   if (!rows.length) return '';
   rows.sort(function (a, b) { return a.name.localeCompare(b.name); });
