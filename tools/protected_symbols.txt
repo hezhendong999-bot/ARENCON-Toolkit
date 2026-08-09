@@ -752,3 +752,22 @@ _photoOut
 __arcCloudKnewPhoto
 _snapPhotoIds
 _snapPhotoIdsFor
+
+@ S629 (Mark, twice: "I want this to look like the demo you showed me", "just match the demo") THE COLOUR PICKER LOOKS LIKE ITS APPROVED DEMO. The S628f build copied the demo's CSS variable NAMES (--ink, --panel, --rule) without bringing the tokens; the Hub defines none of them, so every rule fell back to a light-page default — the selection ring resolved near-black on a near-black panel and was INVISIBLE (picking a colour looked like nothing happened) and the owner initials went black on a faded tile. Tokens are now defined on #ring-host itself, both modes. THE HUB SWITCHES WITH body.dark-mode, NOT data-theme — any edit here must carry both or it breaks in one mode only. Ported from DEMO_inspector_colour_S627.html: card, uppercase section heads, 12-across grid, legend, separation note, labelled preview rows, Save/Cancel pair, and the named "taken by colleagues" list (initials on a 22px tile say a colour is spoken for but not by whom, and "whose colour is that" is the question the feature exists to answer). NEW ROW: the contractor tip, showing three trades at once — ring stays yours, body still shows priority, only the point carries the trade. The preview pin is the RENDERER'S geometry, tip zone y26-42 clipped to the 0.88 inner teardrop, same as pinsGL; if the on-canvas pin changes this changes with it, because a preview that flatters is worse than none. Mark chose preview-only (option A): real pins still show the tip ONLY under the contractor lens, unchanged.
+.rc-card
+.rc-h2
+.rc-grid
+.rc-legend
+.rc-note
+.rc-row
+.rc-sheet
+.rc-badge
+.rc-pill
+.rc-save
+.rc-cancel
+_ringPinSVG
+_ringColleagues
+ring-cancel
+
+@ S629b (Mark, reviewing the ported picker) FOUR CORRECTIONS + THE CARD/LIST COLOUR SPLIT. (1) Swatch initials now come from profiles.initials — the ones typed at account setup — NOT derived from the name, and the tile holds THREE letters (MZN, LAS) not two. (2) The taken tile no longer fades as a whole (that faded the label too); it keeps its colour under a mode-aware scrim with the initials above at full contrast. (3) The preview badge is the dashboard's own .pm-avatar component, same class, so it cannot drift from what the board shows — do NOT substitute a lookalike. (4) The red-linework row is GONE by Mark's call; preview is now TWO pin rows, light sheet left and dark sheet right on each, plain then contractor-tipped. (5) RING THICKNESS DOUBLED: inner teardrop 0.88 → 0.76 in pinsGL.js AND _RING_INNER in the Hub preview. THESE TWO NUMBERS MOVE TOGETHER OR THE PREVIEW LIES. (6) The tool-pill and pm-avatar colour rules lost their .view-list scope: cards were painting saturated inline colours that never followed the theme while the list painted muted mode-aware ones, so one screen showed two colour languages. One treatment, both views, both modes. List-ONLY rules (grid columns, 30px avatars) stay scoped — those are layout, not colour.
+_RING_INNER
