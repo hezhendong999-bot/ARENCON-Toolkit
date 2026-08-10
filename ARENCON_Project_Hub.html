@@ -7162,23 +7162,40 @@ async function _ringSave() {
 /* ═══ Profile Modal ═══ */
 function openProfileModal() {
   if (!_profile) return;
-  /* S630 — the Account panel. Mark: "a user setting option just like any other
-     commercial app... they can access this from any tool by clicking on their
-     name in the header." The SHELL is shared (lib/ui/accountPanel.js); the Hub
-     only supplies its own sections. Every other tool will pass its own and get
-     an identical panel — that is the point, and it is why nothing below draws
-     headings or cards of its own.
-
-     Grouping is deliberate and is the commercial boundary:
-       Account      identity + how you sign in (password, lock PIN)
-       Preferences  your colour, appearance, text size — affect nobody else
-     Role and initials are shown READ-ONLY here and remain Admin-set. Anything
-     that changes another person's data stays in the Admin panel. */
-  if (!window.openAccountPanel) { toast('Account panel not loaded \u2014 refresh the page', 'error'); return; }
+  /* S518: shared dialog engine. The PIN section keeps its inline buttons in
+     the body (they manage a sub-form, not the panel); only Close and Update
+     Password moved to the engine footer. */
+  var D = window.Dlg;
+  if (!D || !D.panel) { toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return; }
   if (_profApi) return;
   var _pr = null;
-
-  var PW_HTML = '<div class="modal-field">\
+  D.panel({
+    title: 'My Profile', icon: '\u2699', accent: 'slate', width: 480,
+    buttons: [
+      { label: 'Close', kind: 'cancel' },
+      { label: 'Update Password', kind: 'primary', onClick: function () { changePassword(); return false; } }
+    ],
+    build: function (bd, api) {
+      _profApi = api; _pr = bd.getRootNode ? bd.getRootNode() : bd;
+      _panelCss(bd); _panelPush(_pr);
+      bd.innerHTML = '<div class="profile-section">\
+      <label>Name</label>\
+      <div class="profile-val" id="prof-name">\u2014</div>\
+    </div>\
+    <div class="profile-section">\
+      <label>Email</label>\
+      <div class="profile-val" id="prof-email">\u2014</div>\
+    </div>\
+    <div class="profile-section">\
+      <label>Role</label>\
+      <div class="profile-val" id="prof-role">\u2014</div>\
+    </div>\
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">\
+    <h3 style="font-size:calc(15px + var(--ts));margin-bottom:4px">\ud83c\udfa8 My inspector colour</h3>\
+    <div id="ring-host"></div>\
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">\
+    <h3 style="font-size:calc(15px + var(--ts));margin-bottom:12px">\ud83d\udd12 Change Password</h3>\
+    <div class="modal-field">\
       <label>New Password</label>\
       <input type="password" id="prof-new-pass" placeholder="Min 8 characters" autocomplete="new-password">\
     </div>\
@@ -7186,11 +7203,9 @@ function openProfileModal() {
       <label>Confirm Password</label>\
       <input type="password" id="prof-confirm-pass" placeholder="Re-enter password" autocomplete="new-password">\
     </div>\
-    <div class="modal-actions" style="margin-top:8px;justify-content:flex-start">\
-      <button class="dash-btn primary" id="prof-pw-btn" onclick="changePassword()">Update password</button>\
-    </div>';
-
-  var PIN_HTML = '<p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">Set a 4\u20138 digit PIN for automatic screen lock after inactivity</p>\
+    <div class="pin-setup-section">\
+      <h3>\ud83d\udd11 Lock PIN</h3>\
+      <p style="font-size:calc(12px + var(--ts));color:var(--steel);margin-bottom:12px">Set a 4\u20138 digit PIN for automatic screen lock after inactivity</p>\
       <div class="pin-setup-row">\
         <div class="pin-setup-status" id="pin-status-text"><span class="pin-none">No PIN set</span></div>\
       </div>\
@@ -7209,58 +7224,22 @@ function openProfileModal() {
         <button class="dash-btn secondary" id="pin-set-btn" onclick="_pinSetupStart(false)">Set PIN</button>\
         <button class="dash-btn secondary" id="pin-change-btn" onclick="_pinSetupStart(true)" style="display:none">Change PIN</button>\
         <button class="dash-btn secondary" id="pin-remove-btn" onclick="_pinRemove()" style="display:none;color:var(--red);border-color:#FCA5A5">Remove PIN</button>\
-      </div>';
-
-  var ctl = window.openAccountPanel({
-    dlg: window.Dlg,
-    dark: document.body.classList.contains('dark-mode'),
-    toast: toast,
-    identity: [
-      { label: 'Name',     value: _profile.full_name || '\u2014' },
-      { label: 'Email',    value: _profile.email || '\u2014' },
-      { label: 'Role',     value: formatRole(_profile.role),
-        note: 'Set by an administrator.' },
-      { label: 'Initials', value: (_userInitials[_profile.id] || '\u2014'),
-        note: 'Set by an administrator \u2014 these label your colour for everyone else.' }
-    ],
-    theme: {
-      current: document.body.classList.contains('dark-mode') ? 'dark' : 'light',
-      options: [{ value: 'light', label: '\u2600 Light' }, { value: 'dark', label: '\u263E Dark' }],
-      set: function (v) {
-        var want = (v === 'dark');
-        if (want !== _darkMode) toggleDark();
-      }
-    },
-    textSize: {
-      current: localStorage.getItem('arencon-text-size') || 'M',
-      options: [{ value: 'S', label: 'Small' }, { value: 'M', label: 'Medium' }],
-      set: function (v) { applyTextSize(v); localStorage.setItem('arencon-text-size', v); }
-    },
-    sections: [
-      { id: 'colour', group: 'prefs', title: 'My inspector colour', icon: '\uD83C\uDFA8',
-        html: '<div id="ring-host"></div>',
-        mount: function () {
-          _ringPending = null;
-          try { _ringRefresh(); } catch (e) { console.warn('[Account] colour picker:', e); }
-        } },
-      { id: 'password', group: 'account', title: 'Password', icon: '\uD83D\uDD12',
-        html: PW_HTML,
-        mount: function () {
-          try { _dq('prof-new-pass').value = ''; _dq('prof-confirm-pass').value = ''; } catch (e) {}
-        } },
-      { id: 'pin', group: 'account', title: 'Lock PIN', icon: '\uD83D\uDD11',
-        html: PIN_HTML }
-    ],
-    onBuild: function (bd, api, root) {
-      _profApi = api; _pr = root;
-      _panelCss(bd); _panelPush(_pr);
-    },
-    onClose: function () { _panelPop(_pr); _profApi = null; }
-  });
+      </div>\
+    </div>';
+    }
+  }).then(function () { _panelPop(_pr); _profApi = null; });
+  _dq('prof-name').textContent = _profile.full_name || '\u2014';
+  _dq('prof-email').textContent = _profile.email || '—';
+  _dq('prof-role').textContent = formatRole(_profile.role);
+  _dq('prof-new-pass').value = '';
+  _dq('prof-confirm-pass').value = '';
+  /* S628f: the panel body builds synchronously above, so the grid can be
+     painted right here — the same place every other field is filled. */
+  _ringPending = null;
+  try { _ringRefresh(); } catch (e) { console.warn('[Profile] colour picker:', e); }
   /* The PIN system wraps this function from outside and refreshes its own
-     status right after it returns \u2014 the panel builds synchronously, so that
+     status right after it returns — the panel builds synchronously, so that
      wrapper keeps working unchanged. */
-  return ctl;
 }
 
 function closeProfileModal() {
@@ -9512,11 +9491,6 @@ import { Dlg } from '/lib/ui/dialogEngine.js';
    Safe by ordering: modules run after parse, and every one of those call
    sites fires on a user click, long after this line. */
 window.Dlg = Dlg;
-/* S630: the shared Account panel. Same bridge pattern as Dlg above — the Hub's
-   classic openProfileModal() cannot see a module's bindings, and it only ever
-   fires on a user click, long after this line runs. */
-import { openAccountPanel } from '/lib/ui/accountPanel.js';
-window.openAccountPanel = openAccountPanel;
 import { downloadProjectBundle, TOOL_SOURCES } from '/lib/export/projectDocsSources.js';
 /* S500: the shared Help engine + the Hub's own card registry. hubHelpCards.js
    calls registerHelp() on import, so importing it is what loads the 16 Hub cards.
