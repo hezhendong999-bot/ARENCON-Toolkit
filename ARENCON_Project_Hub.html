@@ -10351,6 +10351,35 @@ function initHubHeader(){
     onLogout:     () => { try { doLogout(); } catch(e){ console.warn(e); } }
   });
 
+  /* S633e — the account avatar. Sign Out, Profile and the user chip left this
+     header; the avatar is where they went, so the header MUST get account
+     details or people are left with no way out. Colour and initials come from
+     the same roster the colour picker uses, so a person is one colour
+     everywhere: header, board, and the ring on their pins. */
+  cfg.account = {
+    name:     (_profile && _profile.full_name) || '',
+    email:    (_profile && _profile.email) || '',
+    initials: (_profile && _userInitials[_profile.id]) || _ringInitials(_profile && _profile.full_name),
+    colour:   (_profile && _profile.ring_color) || '#888888',
+    onAccount: () => { try { openProfileModal(); } catch(e){ console.warn(e); } },
+    /* Sign out ALWAYS confirms. It sat in the bar as a bright button until
+       tonight, one mis-tap from ending someone's session mid-review. */
+    onSignOut: async () => {
+      if (!window.Dlg || typeof Dlg.confirm !== 'function') {
+        toast('Dialog engine not loaded \u2014 refresh the page', 'error'); return;
+      }
+      const ok = await Dlg.confirm({
+        title: 'Sign out',
+        message: 'Sign out of the ARENCON Toolkit on this device?',
+        detail: 'You will need to sign in again to open any tool. Anything already saved is safe.',
+        confirmText: 'Sign out',
+        icon: '\u21AA'
+      });
+      if (!ok) return;
+      try { doLogout(); } catch(e){ console.warn(e); }
+    }
+  };
+
   const ctl = buildHeader2(mount, cfg);
   window.__hubHdr = ctl;
 
