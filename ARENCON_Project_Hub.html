@@ -9554,7 +9554,13 @@ function _pgEscHtml(s) {
        fact in the database, not a hope. */
   (function(){
     try{
-      var K='arencon-drawer-flush-v1';
+      /* v2 supersedes arencon-drawer-flush-v1 (S645): that run executed perfectly
+         on device (07:47, both phases in sync_diag) yet the fossil survived —
+         because no-store forbade the phone from KEEPING the fresh page, it also
+         never REPLACED the old entry. Header is now no-cache (keep, but always
+         revalidate), so this second run's real network load overwrites July with
+         current. Old flag deliberately ignored so the ritual re-arms once. */
+      var K='arencon-drawer-flush-v2';
       if(localStorage.getItem(K)==='done') return;
       var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)
              || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
@@ -9660,7 +9666,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S645';
+const HUB_BUILD = 'S646';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
