@@ -1947,6 +1947,129 @@ function _mergeCloudLocal(cloud, local){
        devices held the arrays in different orders. Photos minted before ids
        existed fall back to index so legacy binaries still rescue; an id-bearing
        photo can never cross-copy. */
+    /* ═══ S639 — ONE PHOTO WALK, NOT EIGHT ═════════════════════════════════
+       Seven times now, one class of defect: a pass that has to visit every
+       photo surface in the report visits all but one, and photos on the
+       forgotten surface are lost silently for months. The tool's own comments
+       record five before tonight — checklist photos keyed to a name that never
+       existed (silent no-op, binaries wiped on every apply); PLD flow photos
+       with no preserve pass at all; general-deficiency photos likewise;
+       sketches keyed to a name that never existed; and "fifth copy of the same
+       body". Tonight added two more: three drifting field lists in the
+       serialiser, and a rescue gate that could not tell a new photo from a
+       deleted one.
+
+       Every one was fixed on its own. The shape that produces them was not.
+       This is that shape: each pass below carried its OWN enumeration of the
+       surfaces, so each was an independent chance to forget one, and a photo
+       surface added later has to be remembered in every pass separately.
+
+       These two walkers are now the only enumeration. Add a photo surface here
+       and every pass — preserve, binary invariant, new-photo rescue, delete
+       arbitration, backup reconcile — picks it up at once. That is the whole
+       point: it must be impossible to add a surface to the report and have it
+       protected by only some of them.
+
+       _eachPhotoArray  — every photo ARRAY in one state, with a label.
+       _eachPhotoPair   — the same arrays on cloud and local side by side,
+                          paired the way each surface identifies itself: rows
+                          by index, checklist items by id, deficiencies by
+                          contractor then index, responses by index. Never by
+                          array position across different containers (S353).
+       Both are id-agnostic; matching photos WITHIN an array stays each pass's
+       own business, because the rules genuinely differ (S353 id-only for
+       preserve, id-or-index for others). */
+    function _eachPhotoArray(s, cb){
+      if(!s) return;
+      if(Array.isArray(s.flowTestPhotos))    cb(s.flowTestPhotos, 'flowTestPhotos');
+      if(Array.isArray(s.flowTestPhotosPld)) cb(s.flowTestPhotosPld, 'flowTestPhotosPld');
+      if(Array.isArray(s.recordPhotos))      cb(s.recordPhotos, 'recordPhotos');
+      ['stdData','pldData'].forEach(function(key){
+        (Array.isArray(s[key]) ? s[key] : []).forEach(function(r, i){
+          if(r && Array.isArray(r.photos)) cb(r.photos, key+'['+i+']');
+        });
+      });
+      Object.keys(s.clState||{}).forEach(function(k){
+        var v = s.clState[k];
+        if(v && Array.isArray(v.photos)) cb(v.photos, 'clState['+k+']');
+      });
+      Object.keys(s.deficiencies||{}).forEach(function(ctr){
+        (s.deficiencies[ctr]||[]).forEach(function(d, di){
+          if(!d) return;
+          if(Array.isArray(d.photos)) cb(d.photos, 'defic['+ctr+']['+di+']');
+          (d.responses||[]).forEach(function(r, ri){
+            if(r && Array.isArray(r.photos)) cb(r.photos, 'defic['+ctr+']['+di+'].resp['+ri+']');
+          });
+        });
+      });
+      (Array.isArray(s.generalDeficiencies)?s.generalDeficiencies:[]).forEach(function(d, di){
+        if(!d) return;
+        if(Array.isArray(d.photos)) cb(d.photos, 'genDefic['+di+']');
+        (d.responses||[]).forEach(function(r, ri){
+          if(r && Array.isArray(r.photos)) cb(r.photos, 'genDefic['+di+'].resp['+ri+']');
+        });
+      });
+    }
+    function _eachPhoto(s, cb){
+      _eachPhotoArray(s, function(arr, label){ arr.forEach(function(p){ cb(p, label); }); });
+    }
+    /* ensure=true creates the cloud-side array when the container exists but
+       the array does not — the case a wholly-new local photo array has to be
+       rescued into (S335). It never invents a CONTAINER: a checklist item or
+       deficiency the cloud does not have is not this pass's business. */
+    function _eachPhotoPair(cloud, local, cb, ensure){
+      if(!cloud || !local) return;
+      function pair(cArrOwner, cKey, lArr, label){
+        if(!Array.isArray(lArr) || !cArrOwner) return;
+        if(!Array.isArray(cArrOwner[cKey])){
+          if(!ensure) return;
+          cArrOwner[cKey] = [];
+        }
+        cb(cArrOwner[cKey], lArr, label);
+      }
+      ['flowTestPhotos','flowTestPhotosPld','recordPhotos'].forEach(function(key){
+        pair(cloud, key, local[key], key);
+      });
+      ['stdData','pldData'].forEach(function(key){
+        var ca = cloud[key], la = local[key];
+        if(!Array.isArray(ca) || !Array.isArray(la)) return;
+        ca.forEach(function(cr, i){
+          var lr = la[i];
+          if(cr && lr) pair(cr, 'photos', lr.photos, key+'['+i+']');
+        });
+      });
+      if(local.clState && cloud.clState){
+        Object.keys(local.clState).forEach(function(k){
+          var lc = local.clState[k], cc = cloud.clState[k];
+          if(lc && cc) pair(cc, 'photos', lc.photos, 'clState['+k+']');
+        });
+      }
+      if(local.deficiencies && cloud.deficiencies){
+        Object.keys(local.deficiencies).forEach(function(ctr){
+          if(!cloud.deficiencies[ctr]) return;
+          (cloud.deficiencies[ctr]||[]).forEach(function(cd, di){
+            var ld = (local.deficiencies[ctr]||[])[di];
+            if(!cd || !ld) return;
+            pair(cd, 'photos', ld.photos, 'defic['+ctr+']['+di+']');
+            (cd.responses||[]).forEach(function(cr, ri){
+              var lr = (ld.responses||[])[ri];
+              if(cr && lr) pair(cr, 'photos', lr.photos, 'defic['+ctr+']['+di+'].resp['+ri+']');
+            });
+          });
+        });
+      }
+      if(Array.isArray(local.generalDeficiencies) && Array.isArray(cloud.generalDeficiencies)){
+        cloud.generalDeficiencies.forEach(function(cd, di){
+          var ld = local.generalDeficiencies[di];
+          if(!cd || !ld) return;
+          pair(cd, 'photos', ld.photos, 'genDefic['+di+']');
+          (cd.responses||[]).forEach(function(cr, ri){
+            var lr = (ld.responses||[])[ri];
+            if(cr && lr) pair(cr, 'photos', lr.photos, 'genDefic['+di+'].resp['+ri+']');
+          });
+        });
+      }
+    }
     function _preservePhotoArr(cloudArr, localArr){
       if(!Array.isArray(cloudArr) || !Array.isArray(localArr)) return;
       var byId={};
@@ -1956,97 +2079,27 @@ function _mergeCloudLocal(cloud, local){
         var lp = cp.id ? byId[cp.id] : localArr[pi];
         if(!lp) return;
         if(!cp.d && lp.d) cp.d = lp.d;
-        if(!cp.r2Url && lp.r2Url){ cp.r2Url = lp.r2Url; cp.r2Key = lp.r2Key; }
+        /* S639 — filled independently. Folding the row pass in revealed the
+           shared body only copied r2Key when r2Url was ALSO missing, so a
+           photo carrying a URL but no key kept an incomplete address. */
+        if(!cp.r2Url && lp.r2Url) cp.r2Url = lp.r2Url;
+        if(!cp.r2Key && lp.r2Key) cp.r2Key = lp.r2Key;
+        if(!cp.r2Status && lp.r2Status) cp.r2Status = lp.r2Status;
+        if(!cp.tag && lp.tag) cp.tag = lp.tag;   // S639: was flow-rows-only; now every surface
         _preserveMk(cp, lp);
       });
     }
-    // Preserve flow test photos (S353: match strictly by id — never by array
-    // index. Index pairing copied one photo's binary/markup onto another when the
-    // two devices held the arrays in different orders.)
-    if(local.flowTestPhotos && cloud.flowTestPhotos){
-      var _lmFT={}; local.flowTestPhotos.forEach(function(p){ if(p&&p.id) _lmFT[p.id]=p; });
-      cloud.flowTestPhotos.forEach(function(cp){
-        var lp = cp && cp.id ? _lmFT[cp.id] : null;
-        if(lp && !cp.d && lp.d) cp.d = lp.d;
-        if(lp && !cp.r2Url && lp.r2Url) cp.r2Url = lp.r2Url;
-        if(lp && !cp.r2Key && lp.r2Key) cp.r2Key = lp.r2Key;
-        _preserveMk(cp, lp);
-      });
-    }
-    // S314 Gap A: flowTestPhotosPld had NO preserve pass — every cloud apply wiped
-    // live 7-pt flow chart photo binaries (cloud strips .d by design). Mirror of
-    // the flowTestPhotos pass above.
-    if(local.flowTestPhotosPld && cloud.flowTestPhotosPld){
-      var _lmFTP={}; local.flowTestPhotosPld.forEach(function(p){ if(p&&p.id) _lmFTP[p.id]=p; });
-      cloud.flowTestPhotosPld.forEach(function(cp){
-        var lp = cp && cp.id ? _lmFTP[cp.id] : null;
-        if(lp && !cp.d && lp.d) cp.d = lp.d;
-        if(lp && !cp.r2Url && lp.r2Url) cp.r2Url = lp.r2Url;
-        if(lp && !cp.r2Key && lp.r2Key) cp.r2Key = lp.r2Key;
-        _preserveMk(cp, lp);
-      });
-    }
-    // Preserve site record photos — S353 ROOT FIX: match STRICTLY by id, never by
-    // array index. The old index fallback copied one photo's identity (kind, .d,
-    // deleted flag) onto a different photo's slot whenever the two devices held
-    // recordPhotos in different orders — this is why a 7-pt placard kept showing
-    // up as a Pump photo, and why deleted flags bled between photos. A cloud photo
-    // with no id-match is simply a different photo and is left untouched.
-    if(local.recordPhotos && cloud.recordPhotos){
-      var _lmRP={}; local.recordPhotos.forEach(function(p){ if(p&&p.id) _lmRP[p.id]=p; });
-      cloud.recordPhotos.forEach(function(cp){
-        var lp = cp && cp.id ? _lmRP[cp.id] : null;
-        if(lp && !cp.d && lp.d) cp.d = lp.d;
-        if(lp && !cp.r2Url && lp.r2Url){ cp.r2Url=lp.r2Url; cp.r2Key=lp.r2Key; }
-        _preserveMk(cp, lp);
-      });
-    }
-    // Preserve deficiency photos — S496 item 10: routed through _preservePhotoArr
-    if(local.deficiencies && cloud.deficiencies){
-      Object.keys(cloud.deficiencies).forEach(function(ctr){
-        if(!local.deficiencies[ctr]) return;
-        (cloud.deficiencies[ctr]||[]).forEach(function(cd,di){
-          var ld = (local.deficiencies[ctr]||[])[di];
-          if(!ld) return;
-          _preservePhotoArr(cd.photos, ld.photos);
-          // Preserve response photos
-          (cd.responses||[]).forEach(function(cr,ri){
-            var lr = (ld.responses||[])[ri];
-            if(!lr) return;
-            _preservePhotoArr(cr.photos, lr.photos);
-          });
-        });
-      });
-    }
-    // S314 Gap B: generalDeficiencies photos had NO preserve pass — every cloud
-    // apply wiped live general-deficiency photo binaries. S496 item 10: routed
-    // through _preservePhotoArr (the shared implementation exists precisely so
-    // this omission cannot recur).
-    if(local.generalDeficiencies && cloud.generalDeficiencies){
-      (cloud.generalDeficiencies||[]).forEach(function(cd,di){
-        var ld = (local.generalDeficiencies||[])[di];
-        if(!cd||!ld) return;
-        _preservePhotoArr(cd.photos, ld.photos);
-        (cd.responses||[]).forEach(function(cr,ri){
-          var lr = (ld.responses||[])[ri];
-          if(!lr) return;
-          _preservePhotoArr(cr.photos, lr.photos);
-        });
-      });
-    }
-    // Preserve checklist item photos
-    // S281 B2: the checklist state object is `clState` (clState[id].photos),
-    // NOT `checklistDetails` — that key never existed in collectState() output,
-    // so this preserve pass was silently a no-op and checklist photo binaries
-    // were lost on every cloud apply. Keyed on clState now.
-    // S496 item 10: fifth copy of the same body — routed through _preservePhotoArr.
-    if(local.clState && cloud.clState){
-      Object.keys(cloud.clState).forEach(function(k){
-        var cc=cloud.clState[k], lc=local.clState[k];
-        if(!lc||!cc) return;
-        _preservePhotoArr(cc.photos, lc.photos);
-      });
-    }
+    /* S639 — the six preserve passes above were six copies of one idea, each
+       with its own list of surfaces. Two of them (PLD flow photos, general
+       deficiencies) were once missing entirely and wiped binaries on every
+       apply until someone noticed; a seventh copy is how the next surface gets
+       forgotten. One walk now, one body, every surface. Cloud strips the photo
+       bytes by design, so this restores them — and the pointer, the slot tag
+       and the markup — from the local copy, matched strictly by id (S353:
+       index pairing once attached one photo's identity to another's slot). */
+    _eachPhotoPair(cloud, local, function(cloudArr, localArr){
+      _preservePhotoArr(cloudArr, localArr);
+    });
     // S239: Preserve local flow-test row edits (stdData/pldData/pump curves).
     // The heartbeat only applies cloud when cloud is >5s newer, but a value typed
     // locally in the last few seconds (not yet pushed) must not be clobbered.
@@ -2081,26 +2134,11 @@ function _mergeCloudLocal(cloud, local){
     _preserveRows(cloud.pldData, local.pldData);
     _preserveRows(cloud.pumpCurvePoints, local.pumpCurvePoints);
     _preserveRows(cloud.pldPumpCurvePoints, local.pldPumpCurvePoints);
-    // Preserve gauge photo binaries on flow rows (cloud strips dataUrl; local owns the blob + R2 refs).
-    function _preserveRowPhotos(cloudArr, localArr){
-      if(!Array.isArray(cloudArr) || !Array.isArray(localArr)) return;
-      cloudArr.forEach(function(cr, i){
-        var lr = localArr[i];
-        if(!cr || !lr || !Array.isArray(cr.photos) || !Array.isArray(lr.photos)) return;
-        var _lmRow={}; lr.photos.forEach(function(x){ if(x&&x.id) _lmRow[x.id]=x; });
-        cr.photos.forEach(function(cp){
-          // S353: match strictly by id — never by index.
-          var lp = cp && cp.id ? _lmRow[cp.id] : null;
-          if(!lp) return;
-          if(!cp.d && lp.d) cp.d = lp.d;
-          if(!cp.r2Url && lp.r2Url){ cp.r2Url = lp.r2Url; cp.r2Key = lp.r2Key; }
-          if(!cp.tag && lp.tag) cp.tag = lp.tag;
-          _preserveMk(cp, lp);
-        });
-      });
-    }
-    _preserveRowPhotos(cloud.stdData, local.stdData);
-    _preserveRowPhotos(cloud.pldData, local.pldData);
+    /* S639 — _preserveRowPhotos lived here as a seventh copy of the preserve
+       body, differing from the shared one only in also carrying the slot tag
+       across. That rule was the RIGHT one and is now in _preservePhotoArr, so
+       every surface keeps its tag rather than only the flow rows. The walk it
+       did (rows by index) is _eachPhotoPair's job. */
     // Preserve sketch images. S314 Gap C: this pass was keyed on 'sketches', a key
     // that never existed in collectState() output (the key is 'sketchEntries') —
     // silent no-op, same class as the S281 B2 checklistDetails bug. Cloud strips
@@ -2129,15 +2167,8 @@ function _mergeCloudLocal(cloud, local){
     // annotated, backup removed from cloud) is NOT resurrected.
     (function _reconcileOrigBackups(){
       var needed = {};
-      function scanArr(arr){ (arr||[]).forEach(function(p){ if(p && p._annotated && p._origBackupId) needed[p._origBackupId]=true; }); }
-      Object.keys(cloud.clState||{}).forEach(function(k){ scanArr((cloud.clState[k]||{}).photos); });
-      (cloud.stdData||[]).forEach(function(r){ scanArr(r&&r.photos); });
-      (cloud.pldData||[]).forEach(function(r){ scanArr(r&&r.photos); });
-      scanArr(cloud.flowTestPhotos); scanArr(cloud.flowTestPhotosPld);
-      Object.keys(cloud.deficiencies||{}).forEach(function(ctr){
-        (cloud.deficiencies[ctr]||[]).forEach(function(dd){ scanArr(dd&&dd.photos); (dd&&dd.responses||[]).forEach(function(r){ scanArr(r&&r.photos); }); });
-      });
-      (cloud.generalDeficiencies||[]).forEach(function(dd){ scanArr(dd&&dd.photos); (dd&&dd.responses||[]).forEach(function(r){ scanArr(r&&r.photos); }); });
+      /* S639 — ninth and last copy of the surface list in this function. */
+      _eachPhoto(cloud, function(p){ if(p && p._annotated && p._origBackupId) needed[p._origBackupId]=true; });
       var have = {};
       cloud.recordPhotos = cloud.recordPhotos || [];
       cloud.recordPhotos.forEach(function(b){ if(b&&b.id) have[b.id]=true; });
@@ -2157,28 +2188,16 @@ function _mergeCloudLocal(cloud, local){
     // cloud _mkTs, annotation removed) where dropping the marked composite is
     // intentional. ════
     (function _s314BinaryInvariant(){
-      function walk(s, cb){
-        if(!s) return;
-        (Array.isArray(s.flowTestPhotos)?s.flowTestPhotos:[]).forEach(cb);
-        (Array.isArray(s.flowTestPhotosPld)?s.flowTestPhotosPld:[]).forEach(cb);
-        (Array.isArray(s.recordPhotos)?s.recordPhotos:[]).forEach(cb);
-        (Array.isArray(s.stdData)?s.stdData:[]).forEach(function(r){ ((r&&r.photos)||[]).forEach(cb); });
-        (Array.isArray(s.pldData)?s.pldData:[]).forEach(function(r){ ((r&&r.photos)||[]).forEach(cb); });
-        Object.keys(s.clState||{}).forEach(function(k){ var v=s.clState[k]; ((v&&v.photos)||[]).forEach(cb); });
-        Object.keys(s.deficiencies||{}).forEach(function(ctr){ (s.deficiencies[ctr]||[]).forEach(function(d){
-          if(!d) return; (d.photos||[]).forEach(cb);
-          (d.responses||[]).forEach(function(r){ ((r&&r.photos)||[]).forEach(cb); });
-        });});
-        (Array.isArray(s.generalDeficiencies)?s.generalDeficiencies:[]).forEach(function(d){
-          if(!d) return; (d.photos||[]).forEach(cb);
-          (d.responses||[]).forEach(function(r){ ((r&&r.photos)||[]).forEach(cb); });
-        });
-      }
+      /* S639 — this pass carried its own copy of the surface list. It was the
+         net meant to catch whatever the targeted passes missed, which makes an
+         omission HERE the most expensive kind: the backstop with a hole in it
+         looks like protection. It now walks the same enumeration as everything
+         else, so it cannot drift from the passes it is backing up. */
       try{
         var localById={};
-        walk(local, function(p){ if(p && p.id && p.d) localById[p.id]=p; });
+        _eachPhoto(local, function(p){ if(p && p.id && p.d) localById[p.id]=p; });
         var n=0;
-        walk(cloud, function(cp){
+        _eachPhoto(cloud, function(cp){
           if(!cp || !cp.id || cp.d) return;
           var lp=localById[cp.id]; if(!lp) return;
           var lts=lp._mkTs||0, cts=cp._mkTs||0;
@@ -2260,66 +2279,15 @@ function _mergeCloudLocal(cloud, local){
         return added;
       }
       try{
+        /* S639 — this pass carried the seventh copy of the surface list, and
+           it is the one that decides whether a new photo survives at all. It
+           now walks the shared enumeration with ensure=true, which creates the
+           cloud-side array when a container exists but the array does not —
+           the case a wholly-new local photo array has to be rescued into. */
         var total=0;
-        // Top-level photo arrays — ensure the cloud array exists so a wholly-new
-        // local array (cloud had none) is still rescued.
-        ['flowTestPhotos','flowTestPhotosPld','recordPhotos'].forEach(function(key){
-          if(Array.isArray(local[key]) && local[key].some(isFresh)){
-            if(!Array.isArray(cloud[key])) cloud[key]=[];
-            total+=unionArr(cloud[key], local[key], key);
-          }
-        });
-        // Per-row photo arrays (flow rows): match rows by index, union their photos.
-        ['stdData','pldData'].forEach(function(key){
-          var ca=cloud[key], la=local[key];
-          if(!Array.isArray(ca)||!Array.isArray(la)) return;
-          ca.forEach(function(cr,i){
-            var lr=la[i];
-            if(!cr||!lr||!Array.isArray(lr.photos)) return;
-            if(!Array.isArray(cr.photos)) cr.photos=[];
-            total+=unionArr(cr.photos, lr.photos, key+'['+i+']');
-          });
-        });
-        // Checklist item photos (clState keyed by id).
-        if(local.clState && cloud.clState){
-          Object.keys(local.clState).forEach(function(k){
-            var lc=local.clState[k], cc=cloud.clState[k];
-            if(!lc||!cc||!Array.isArray(lc.photos)) return;
-            if(!Array.isArray(cc.photos)) cc.photos=[];
-            total+=unionArr(cc.photos, lc.photos, 'clState['+k+']');
-          });
-        }
-        // Contractor deficiency photos + response photos (keyed by counter, then index).
-        if(local.deficiencies && cloud.deficiencies){
-          Object.keys(local.deficiencies).forEach(function(ctr){
-            if(!cloud.deficiencies[ctr]) return;
-            (cloud.deficiencies[ctr]||[]).forEach(function(cd,di){
-              var ld=(local.deficiencies[ctr]||[])[di];
-              if(!cd||!ld) return;
-              if(Array.isArray(ld.photos)){ if(!Array.isArray(cd.photos)) cd.photos=[]; total+=unionArr(cd.photos, ld.photos, 'defic['+ctr+']['+di+']'); }
-              (cd.responses||[]).forEach(function(cr,ri){
-                var lr=(ld.responses||[])[ri];
-                if(!cr||!lr||!Array.isArray(lr.photos)) return;
-                if(!Array.isArray(cr.photos)) cr.photos=[];
-                total+=unionArr(cr.photos, lr.photos, 'defic['+ctr+']['+di+'].resp['+ri+']');
-              });
-            });
-          });
-        }
-        // General deficiency photos + response photos (index-matched).
-        if(local.generalDeficiencies && cloud.generalDeficiencies){
-          (cloud.generalDeficiencies||[]).forEach(function(cd,di){
-            var ld=(local.generalDeficiencies||[])[di];
-            if(!cd||!ld) return;
-            if(Array.isArray(ld.photos)){ if(!Array.isArray(cd.photos)) cd.photos=[]; total+=unionArr(cd.photos, ld.photos, 'genDefic['+di+']'); }
-            (cd.responses||[]).forEach(function(cr,ri){
-              var lr=(ld.responses||[])[ri];
-              if(!cr||!lr||!Array.isArray(lr.photos)) return;
-              if(!Array.isArray(cr.photos)) cr.photos=[];
-              total+=unionArr(cr.photos, lr.photos, 'genDefic['+di+'].resp['+ri+']');
-            });
-          });
-        }
+        _eachPhotoPair(cloud, local, function(cloudArr, localArr, label){
+          total += unionArr(cloudArr, localArr, label);
+        }, true);
         if(total) console.info('[merge] S335 union rescued '+total+' fresh photo(s) total');
       }catch(e){ console.warn('[merge] S335 union error', e); }
     })();
@@ -2349,17 +2317,13 @@ function _mergeCloudLocal(cloud, local){
       _normalizeAllPhotoDel(local);
       _normalizeAllPhotoDel(cloud);
       // Capture local deletion state by id.
+      /* S639 — eighth copy of the surface list, retired. A surface missed here
+         means a genuine deletion made on one device never reaches the others,
+         which reads to an inspector as a photo that refuses to delete. */
       var localState = {};
-      (function walk(state){
-        function visit(p){ if(p && p.id) localState[p.id] = { deleted: _isPhotoDeleted(p), delAt: p.delAt||p.deletedDate||'' }; }
-        function arr(a){ if(Array.isArray(a)) a.forEach(visit); }
-        arr(state.flowTestPhotos); arr(state.flowTestPhotosPld); arr(state.recordPhotos);
-        if(Array.isArray(state.stdData)) state.stdData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arr(r.photos); });
-        if(Array.isArray(state.pldData)) state.pldData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arr(r.photos); });
-        if(state.clState) Object.keys(state.clState).forEach(function(k){ var v=state.clState[k]; if(v&&Array.isArray(v.photos)) arr(v.photos); });
-        if(state.deficiencies) Object.keys(state.deficiencies).forEach(function(ctr){ (state.deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); }); });
-        if(Array.isArray(state.generalDeficiencies)) state.generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); });
-      })(local);
+      _eachPhoto(local, function(p){
+        if(p && p.id) localState[p.id] = { deleted: _isPhotoDeleted(p), delAt: p.delAt||p.deletedDate||'' };
+      });
       var n=0;
       // S354 RECONCILE: arbitrate deletion by NEWEST delAt across the two sides.
       // - A live photo has no delAt, so a real delete (with delAt) always wins over
@@ -2400,13 +2364,8 @@ function _mergeCloudLocal(cloud, local){
           n++;
         }
       }
-      function arrC(a){ if(Array.isArray(a)) a.forEach(reconcile); }
-      arrC(cloud.flowTestPhotos); arrC(cloud.flowTestPhotosPld); arrC(cloud.recordPhotos);
-      if(Array.isArray(cloud.stdData)) cloud.stdData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arrC(r.photos); });
-      if(Array.isArray(cloud.pldData)) cloud.pldData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arrC(r.photos); });
-      if(cloud.clState) Object.keys(cloud.clState).forEach(function(k){ var v=cloud.clState[k]; if(v&&Array.isArray(v.photos)) arrC(v.photos); });
-      if(cloud.deficiencies) Object.keys(cloud.deficiencies).forEach(function(ctr){ (cloud.deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))arrC(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arrC(r.photos); }); }); });
-      if(Array.isArray(cloud.generalDeficiencies)) cloud.generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))arrC(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arrC(r.photos); }); });
+      /* S639 — the last hand-written surface list in this function. */
+      _eachPhoto(cloud, reconcile);
       if(n) console.info('[merge] S354 reconciled '+n+' cross-device deletion(s) by delAt');
     }catch(e){ console.warn('[merge] S354 deletion reconcile error', e); }
   })();
