@@ -9566,7 +9566,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S643';
+const HUB_BUILD = 'S644';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
@@ -9715,9 +9715,14 @@ function _hubBootDiag(cacheName) {
        S589 — so "a cached Hub page with no build stamp" is on its own proof the
        copy predates August. (The earlier plan of reading HUB_BUILD out of the
        cached copy would have found nothing and reported a clean device.)
-     • It also still carries "Not enabled" from the old tool-activation cards,
-       removed at S495 on 20 Jul. Confirmed present in that blob and absent from
-       this file, so it corroborates the first signal instead of guessing.
+     • It also still carries the old tool-activation card label that S495
+       removed on 20 Jul. S643b: that phrase is now ASSEMBLED FROM TWO HALVES
+       at the point of use, because writing it out plainly put it into this
+       file — and the first live audit duly reported the current build as
+       matching the pre-July fingerprint. A fingerprint that matches the page
+       carrying it is not a fingerprint. It never caused a wrong delete (only
+       the build stamp decides that) but the corroborating signal was worthless
+       until this was fixed.
 
    WHAT IT WILL NEVER DELETE. A wrong delete here costs an inspector their
    offline drawing tiles in a basement, so the guards come before the cure:
@@ -9808,9 +9813,9 @@ async function _hubCacheAudit() {
           row.verdict = 'keep:unreadable';
           rec.caches.push(row); continue;
         }
-        var m = txt.match(/HUB_BUILD\s*=\s*'S(\d+)'/);
+        var m = txt.match(/HUB_BUILD\s*=\s*'S(\d+)/);   /* no closing quote: a suffixed stamp like S643b must still read as 643, not as unstamped */
         row.hub = m ? ('S' + m[1]) : 'unstamped';
-        row.preS495 = txt.indexOf('Not enabled') !== -1;
+        row.preS495 = txt.indexOf('Not' + ' ' + 'enabled') !== -1;
         var isOld = !m || (parseInt(m[1], 10) < CUR);
         if (/tiles/i.test(name)) row.verdict = 'keep:tiles';
         else if (name === newest) row.verdict = 'keep:newest';
