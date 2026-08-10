@@ -9566,7 +9566,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S642';
+const HUB_BUILD = 'S643';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
@@ -9698,6 +9698,179 @@ function _hubBootDiag(cacheName) {
     }).catch(function () {});
   } catch (_) {}
 }
+
+/* ═══ S643 — FIND AND DESTROY THE STALE JULY PAGE ═══════════════════════════
+   Mark, 10 Aug: an offline cold start of the installed iPhone app still opens a
+   Hub from before 20 July. Three sessions tried to fix this from inside the
+   running page and all three failed for one reason: THE PAGE THAT MISBEHAVES
+   WAS BUILT IN JULY, so nothing written afterwards ever executes on it. The fix
+   has to remove the July copy from the device, or stop it being stored at all.
+
+   Nobody has ever enumerated what the device is holding. This does — and where
+   it is safe, it deletes it.
+
+   HOW AN OLD HUB IS RECOGNISED (both signals verified against the real July
+   blob 4e8837a1, commit 318b6992, 01 Jul):
+     • That page contains NO HUB_BUILD constant at all — the constant arrived at
+       S589 — so "a cached Hub page with no build stamp" is on its own proof the
+       copy predates August. (The earlier plan of reading HUB_BUILD out of the
+       cached copy would have found nothing and reported a clean device.)
+     • It also still carries "Not enabled" from the old tool-activation cards,
+       removed at S495 on 20 Jul. Confirmed present in that blob and absent from
+       this file, so it corroborates the first signal instead of guessing.
+
+   WHAT IT WILL NEVER DELETE. A wrong delete here costs an inspector their
+   offline drawing tiles in a basement, so the guards come before the cure:
+     • any cache holding a Hub page stamped with this build or newer;
+     • the newest-stamped cache on the origin, whatever it contains;
+     • anything with "tiles" in its name — those are rendered drawing tiles;
+     • any cache with no Hub page in it at all;
+     • anything it could not read cleanly.
+   AMBIGUITY ALWAYS RESOLVES TO KEEP. The only thing removed is a cache proven
+   to hold a Hub page older than this one.
+
+   It also records every service-worker registration and unregisters any whose
+   script is not this origin's /sw.js — every live page in the toolkit registers
+   that one, so anything else is an orphan of an older scheme. Unregistering is
+   reversible: the next load re-registers.
+
+   Runs on EVERY boot, so no repro is needed from anyone; the deletion happens
+   on an ordinary good launch and the bad launch afterwards has nothing left to
+   serve. If it comes back finding nothing, that is the answer that ends the
+   client-side theories: the copy lives somewhere no page code can reach and the
+   fix moves to the network layer (Cloudflare no-store on HTML).
+   Report queues in localStorage and flushes on any boot with a connection. */
+async function _hubCacheAudit() {
+  var rec = {
+    at: new Date().toISOString(), build: HUB_BUILD,
+    controlled: false, standalone: false, online: (navigator.onLine !== false),
+    regs: [], caches: [], deleted: [], note: ''
+  };
+  var CUR = parseInt(String(HUB_BUILD).replace(/[^0-9]/g, ''), 10) || 0;
+  try {
+    try { rec.controlled = !!(navigator.serviceWorker && navigator.serviceWorker.controller); } catch (_) {}
+    try {
+      rec.standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+                    || (navigator.standalone === true);
+    } catch (_) {}
+
+    /* Registrations first — a second worker on this origin is the leading
+       explanation for a page nothing shipped since July can influence. */
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        var regs = await navigator.serviceWorker.getRegistrations();
+        var mine = location.origin + '/sw.js';
+        for (var ri = 0; ri < regs.length; ri++) {
+          var r = regs[ri], su = '';
+          try {
+            su = (r.active && r.active.scriptURL) || (r.waiting && r.waiting.scriptURL)
+              || (r.installing && r.installing.scriptURL) || '';
+          } catch (_) {}
+          var foreign = !!su && String(su).split('?')[0] !== mine;
+          var rrow = { scope: r.scope, script: su, foreign: foreign, unregistered: false };
+          if (foreign) { try { rrow.unregistered = await r.unregister(); } catch (_) {} }
+          rec.regs.push(rrow);
+        }
+      }
+    } catch (e) { rec.note += 'regs:' + ((e && e.message) || 'err') + ';'; }
+
+    if (!window.caches || !caches.keys) {
+      rec.note += 'no-cachestorage;';
+      return _hubAuditSend(rec);
+    }
+    var names = await caches.keys();
+    /* The live shell always carries the highest UTC stamp. Protect it by name
+       as well as by content — two independent guards on the one cache whose
+       loss would break offline for everybody. */
+    var newest = null, newestN = -1;
+    names.forEach(function (n) {
+      var mm = String(n).match(/(\d{12})/);
+      if (mm && +mm[1] > newestN) { newestN = +mm[1]; newest = n; }
+    });
+
+    for (var ci = 0; ci < names.length; ci++) {
+      var name = names[ci];
+      var row = { name: name, entries: null, hub: null, preS495: false, verdict: 'keep' };
+      try {
+        var c = await caches.open(name);
+        var keys = await c.keys();
+        row.entries = keys.length;
+        var hubReq = null;
+        for (var ki = 0; ki < keys.length; ki++) {
+          var u = '';
+          try { u = new URL(keys[ki].url).pathname; } catch (_) { u = keys[ki].url || ''; }
+          if (u.indexOf('ARENCON_Project_Hub.html') !== -1) { hubReq = keys[ki]; break; }
+        }
+        if (!hubReq) { row.verdict = 'keep:no-hub-page'; rec.caches.push(row); continue; }
+        var resp = await c.match(hubReq, { ignoreSearch: true });
+        var txt = resp ? await resp.text() : '';
+        if (!txt || txt.length < 1000) {
+          row.verdict = 'keep:unreadable';
+          rec.caches.push(row); continue;
+        }
+        var m = txt.match(/HUB_BUILD\s*=\s*'S(\d+)'/);
+        row.hub = m ? ('S' + m[1]) : 'unstamped';
+        row.preS495 = txt.indexOf('Not enabled') !== -1;
+        var isOld = !m || (parseInt(m[1], 10) < CUR);
+        if (/tiles/i.test(name)) row.verdict = 'keep:tiles';
+        else if (name === newest) row.verdict = 'keep:newest';
+        else if (!isOld) row.verdict = 'keep:current-or-newer';
+        else {
+          var gone = false;
+          try { gone = await caches.delete(name); } catch (_) {}
+          row.verdict = gone ? 'DELETED:old-hub' : 'delete-failed';
+          if (gone) rec.deleted.push(name);
+        }
+      } catch (e) { row.verdict = 'error:' + ((e && e.message) || 'err'); }
+      rec.caches.push(row);
+    }
+  } catch (e) { rec.note += 'fatal:' + ((e && e.message) || 'err') + ';'; }
+  try {
+    console.info('%c[Hub] cache audit', 'background:#2C7FB8;color:#fff;padding:2px 8px;border-radius:4px;', rec);
+  } catch (_) {}
+  _hubAuditSend(rec);
+}
+
+/* Same durable pattern as the boot row (S639): write locally FIRST, because the
+   boot that matters most is the one with no connection, then flush on any boot
+   that has one. Separate queue key so a full audit row can never crowd out the
+   small boot rows. */
+function _hubAuditSend(rec) {
+  try {
+    var Q = 'arencon-hub-audit-q';
+    var q = [];
+    try { q = JSON.parse(localStorage.getItem(Q) || '[]'); } catch (_) { q = []; }
+    q.push(rec);
+    if (q.length > 10) q = q.slice(-10);
+    try { localStorage.setItem(Q, JSON.stringify(q)); } catch (_) {}
+    var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
+    if (!tok || navigator.onLine === false) return;   // stays queued
+    var send = q.slice();
+    fetch(SUPABASE_URL + '/rest/v1/sync_diag', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
+                 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify(send.map(function (r) {
+        return {
+          device: (function () { try { return localStorage.getItem('arencon-device-id'); } catch (_) { return null; } })(),
+          tool: 'hub',
+          event: 'hub_cache_audit',
+          detail: r
+        };
+      }))
+    }).then(function (resp) {
+      if (resp && resp.ok) { try { localStorage.setItem(Q, '[]'); } catch (_) {} }
+    }).catch(function () {});
+  } catch (_) {}
+}
+
+try {
+  window.addEventListener('load', function () {
+    /* A beat after load so the board paints first — this is diagnostics and
+       housekeeping, never something anyone waits on. */
+    setTimeout(function () { try { _hubCacheAudit(); } catch (e) {} }, 1200);
+  });
+} catch (e) {}
 
 /* ── S588 LIVE UPDATE (Mark: nobody should ever check a build number again) ──
    The Hub is deliberately FIRST: a bad swap here costs a reload at a desk, not
