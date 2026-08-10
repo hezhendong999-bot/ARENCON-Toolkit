@@ -728,6 +728,45 @@ export function _s464Run(proj, dryRun) {
   return res;
 }
 
+/* ═══ S646 — FRT NEVER RECORDED *WHEN* ANYTHING WAS TYPED ══════════════════
+   Mark, 10 Aug: "will they lose data if they enter comments in Pins?" — yes,
+   and this is why.
+
+   Since S594 the engine's law has been that an entry time is minted AT THE
+   KEYSTROKE, by the person's finger, and the save-time pass only carries
+   stamps forward (S597: every time that pass guessed, it guessed wrong).
+   _lwwStampOf therefore resolves an item as "its own _ts always wins, else
+   the previous state's, else — changed and never stamped anywhere — now".
+
+   Diesel was taught to stamp. FRT never was: `_ts =` appears nowhere in the
+   whole tool. So an FRT item is stamped exactly ONCE, by the save-time pass,
+   the first time it is written — and from then on it always has a _ts, the
+   first rule fires forever, and the stamp FREEZES at the moment of first save.
+   Two inspectors editing the same already-saved pin therefore both present
+   the SAME entry time, every comparison is a tie, and the later edit cannot
+   displace the earlier one. The second inspector watches their own text
+   revert. Measured, not theorised: frt/tests/sim/pincomment.mjs.
+
+   This is the S641d defect (Diesel checklist comments) in FRT's half of the
+   estate — same root, fixed on one tool only, never carried across.
+
+   THE RULE, verbatim from S594/S641d: only HUMAN input paths stamp. Every
+   mutator below is reachable only from a UI or viewer action on this device —
+   no load, apply or merge path calls any of them (verified caller-by-caller).
+   Programmatic writes must NEVER stamp, or merely opening a report on a
+   second device would outrank a real answer.
+
+   Server-anchored (S622i): a tablet whose wall clock runs ahead must not win
+   every argument by being wrong about the time. */
+function _entryStamp(item) {
+  try {
+    if (item && typeof item === 'object') {
+      item._ts = (typeof window !== 'undefined' && window.ArcSyncNow) ? window.ArcSyncNow() : Date.now();
+    }
+  } catch (_) { /* an entry time must never break an edit */ }
+  return item;
+}
+
 export var Model = {
 
   getProject: function() { return _project; },
@@ -1329,6 +1368,7 @@ export var Model = {
     if (!obs || !obs[obsIdx]) return;
     if (f.defic.observations) f.defic.observations[obsIdx].text = text;
     else if (f.defic.entries) f.defic.entries[obsIdx].description = text;
+    _entryStamp(obs[obsIdx]);   // S646: typing in a pin IS the inspector answering
     _dirty = true;
     _queueSave();
   },
@@ -1338,6 +1378,11 @@ export var Model = {
     if (!f) return;
     var oldStatus = f.defic.status;
     f.defic.status = newStatus;
+    /* S646 — the PIN is stamped. Its observations are NOT, even though the
+       bulk pass below writes `addressed` onto each: handing every observation
+       a fresh entry time would let a status change outrank a colleague's newer
+       comment on those observations (S641d). */
+    _entryStamp(f.defic);
 
     // If closing, record closure metadata
     if ((newStatus === 'closed' || newStatus === 'Addressed & Closed') &&
@@ -1431,6 +1476,7 @@ export var Model = {
     var f = this.findDeficiency(deficId);
     if (!f) return;
     f.defic.priority = priority;
+    _entryStamp(f.defic);   // S646
     _dirty = true;
     _queueSave();
   },
@@ -1564,6 +1610,7 @@ export var Model = {
     var inst = (_project && _project.currentFrtInstance) || 1;
     var today = new Date().toISOString().split('T')[0];
     obs[obsIdx].addressed = !obs[obsIdx].addressed;
+    _entryStamp(obs[obsIdx]);   // S646: marking one observation addressed is that person's entry
     // S119: track per-obs closure metadata so the PDF filter can hide obs that
     // were addressed in earlier FRT instances (mirrors pin-level closedDate /
     // closedOnInstance pattern). Clear on reopen.
@@ -1614,6 +1661,7 @@ export var Model = {
     var obs = f.defic.observations || [];
     if (!obs[obsIdx]) return;
     obs[obsIdx].priority = priority;
+    _entryStamp(obs[obsIdx]);   // S646
     _dirty = true;
     _queueSave();
     this._notify('observation', { action: 'priority', deficId: deficId, obsIdx: obsIdx, priority: priority });
@@ -1633,6 +1681,11 @@ export var Model = {
     if (!obs[obsIdx]) return;
     obs[obsIdx].trade = trade || '';
     obs[obsIdx].tradeSource = (source === 'ai') ? 'ai' : 'manual';
+    /* S646 — a MANUAL override is a person entering something and stamps. An
+       AI retag is not: stamping it would let the tagger outrank a colleague's
+       real edit on the same observation, which is precisely what S641d
+       refused to do for photo deletes. */
+    if (obs[obsIdx].tradeSource !== 'ai') _entryStamp(obs[obsIdx]);
     _dirty = true;
     _queueSave();
     this._notify('observation', { action: 'trade', deficId: deficId, obsIdx: obsIdx, trade: obs[obsIdx].trade, tradeSource: obs[obsIdx].tradeSource });
@@ -4400,6 +4453,7 @@ export var Model = {
     var f = this.findDeficiency(deficId);
     if (!f) return;
     f.defic.closedNote = note;
+    _entryStamp(f.defic);   // S646
     _dirty = true;
     _queueSave();
   },
@@ -4581,6 +4635,11 @@ export var Model = {
     var v = !!val;
     (f.defic.observations || []).forEach(function(o) { if (o) o.isRecommendation = v; });
     f.defic.isRecommendation = v;   // rollup stays consistent (every obs == v)
+    /* S646 — the PIN is stamped, its observations deliberately are not. A
+       pin-level bulk action must not hand every observation a fresh entry time
+       and outrank a colleague's newer comment text on them (S641d's photo-
+       delete reasoning, applied here). */
+    _entryStamp(f.defic);
     _dirty = true;
     _queueSave();
     this._notify('deficiency', { action: 'set-recommendation', deficId: deficId, isRecommendation: v });
@@ -4599,6 +4658,7 @@ export var Model = {
     if (obsIdx < 0 || obsIdx >= obs.length || !obs[obsIdx]) return false;
     obs[obsIdx].isRecommendation = !!val;
     f.defic.isRecommendation = obs.some(function(o) { return o && o.isRecommendation; });
+    _entryStamp(obs[obsIdx]);   // S646
     _dirty = true;
     _queueSave();
     this._notify('deficiency', { action: 'set-recommendation', deficId: deficId, obsIdx: obsIdx, isRecommendation: !!val });
