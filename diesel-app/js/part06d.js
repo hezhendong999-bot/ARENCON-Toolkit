@@ -935,6 +935,16 @@ function _assignRowPreservePhotos(target, src){
   }
 }
 function _applyLoadedState(raw) {
+  /* ═══ S643 — THIS RESTORE HAS ALWAYS FAILED IN SILENCE ═════════════════════
+     Every line below sits in ONE try. The first thing that throws abandons
+     every remaining line, so the screen keeps whatever it had — and the only
+     trace is a console message on a tablet nobody is holding a laptop next to.
+     Mark's two standing complaints are both this: a report that opens
+     completely empty (it threw early at boot), and performance values that
+     never repaint when a colleague's edit arrives (it threw partway).
+     The marker records how far the restore got. The catch now reports it, so
+     the next occurrence names its own cause instead of costing an evening. */
+  var _alsStep = 'start';
   try {
     var raw2 = null;
     var embEl = document.getElementById('embedded-state');
@@ -945,11 +955,14 @@ function _applyLoadedState(raw) {
     var raw_final = raw2 || raw;
     if (!raw_final) return;
     raw = raw_final; // use embedded if present (save-as HTML)
+    _alsStep='parse';
     const s = JSON.parse(raw);
+    _alsStep='photo-delete-flags';
     if(typeof _normalizeAllPhotoDel==='function') _normalizeAllPhotoDel(s); // S354: migrate photo deletion flags to canonical model on load
     /* S616c — prefer the per-photo decisions. Older reports carry only the
        one-way exclusion list and are read exactly as before, so nothing about
        an existing report changes on open. */
+    _alsStep='appendix-decisions';
     if(s.appendixState && typeof s.appendixState==='object' && !Array.isArray(s.appendixState) && typeof _appendixExcl!=='undefined'){
       _appendixExcl = new Set();
       if(typeof _appendixIncl!=='undefined') _appendixIncl = new Set();
@@ -971,6 +984,7 @@ function _applyLoadedState(raw) {
     // the DOM and the blob self-heals. Non-Hub (standalone) load is unaffected.
     var _hubLockedIds = (typeof _csHubMode!=='undefined' && _csHubMode)
       ? {'pi-projno':1,'pi-projname':1,'pi-client':1,'pi-addr':1} : {};
+    _alsStep='project-fields';
     Object.entries(s.proj||{}).forEach(([id,val]) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -978,6 +992,7 @@ function _applyLoadedState(raw) {
       el.value = val;
     });
     // Test type
+    _alsStep='pump-type';
     if (s.testType) {
       /* S622c — THE PUMP-TYPE SELECTION DIED ON EVERY CLOUD LOAD. This path
          only called setPumpTestType if a radio named "pump-test-type"
@@ -995,12 +1010,16 @@ function _applyLoadedState(raw) {
       try{ _ttChosen = (s.ttChosen===false) ? false : true; if(typeof _ttApplyGate==='function') _ttApplyGate(); }catch(_e){}
     }
     // stdData — assign fields, but preserve any local photo binary the incoming copy lacks
+    _alsStep='3pt-rows';
     if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) _assignRowPreservePhotos(stdData[i], r); });
+    _alsStep='npsh';
     if (s.npshPsi !== undefined) { npshPsi = s.npshPsi; var _ne=document.getElementById('npsh-psi'); if(_ne) _ne.value = s.npshPsi||''; }
     if (s.npshPsiPld !== undefined) { npshPsiPld = s.npshPsiPld; var _nep=document.getElementById('npsh-psi-pld'); if(_nep) _nep.value = s.npshPsiPld||''; }
     // pldData
+    _alsStep='7pt-rows';
     if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) _assignRowPreservePhotos(pldData[i], r); });
     // safety margin per-chart state (on/off + chip offset)
+    _alsStep='chart-state';
     if (s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
     if (s.smCapVis){ Object.keys(smCapVis).forEach(function(k){ if(s.smCapVis[k]) Object.assign(smCapVis[k], s.smCapVis[k]); }); }
     if (s.annDsForce){ Object.keys(annDsForce).forEach(function(k){ if(s.annDsForce[k]) annDsForce[k]=Object.assign({}, s.annDsForce[k]); }); }
@@ -1014,6 +1033,7 @@ function _applyLoadedState(raw) {
       s.pldPumpCurvePoints.forEach(p => pldPumpCurvePoints.push(p));
     }
     // clState
+    _alsStep='checklists';
     if (s.clState) { var _migCl2=_migrateClState(s.clState, s.clSchemaVer); Object.assign(clState, _migCl2); Object.keys(clState).forEach(function(k){ if(clState[k]) delete clState[k].timestamp; }); }
     // customItems
     if (s.customItems) Object.assign(customItems, s.customItems);
@@ -1024,6 +1044,7 @@ function _applyLoadedState(raw) {
     }
     if (Array.isArray(s.distribution)) { distribution.length = 0; s.distribution.forEach(n => distribution.push(n)); }   // S328
     if (s.contractorTrades) contractorTrades = JSON.parse(JSON.stringify(s.contractorTrades));
+    _alsStep='deficiencies';
     if (s.deficiencies) {
       Object.keys(deficiencies).forEach(k => delete deficiencies[k]);
       Object.assign(deficiencies, s.deficiencies);
@@ -1046,6 +1067,7 @@ function _applyLoadedState(raw) {
       witnessSignRows.length = 0;
       s.witnessSignRows.forEach(r => witnessSignRows.push(r));
     }
+    _alsStep='signatures';
     if (s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ var v=s.sigStrokes[k]; _sigStrokes[k]=(v&&!Array.isArray(v)&&Array.isArray(v.s))?v.s:v; }); }   // S605: unwrap {s:[...]}; legacy bare arrays pass through
     // flowTestPhotos
     /* S640 — the render call is gone from this data branch; the one repaint
@@ -1073,6 +1095,7 @@ function _applyLoadedState(raw) {
       flowTestPhotos.length = 0;
       s.flowTestPhotos.forEach(p => flowTestPhotos.push(p));    }
     // recordPhotos (site records: pump / placard / site)
+    _alsStep='site-photos';
     if (s.recordPhotos) {
       recordPhotos.length = 0;
       s.recordPhotos.forEach(function(p){ recordPhotos.push(p); });
@@ -1086,8 +1109,10 @@ function _applyLoadedState(raw) {
     // Revision
     if (s.formRevision) { formRevision = s.formRevision; }
     if (s.formDateModified) { formDateModified = s.formDateModified; }
+    _alsStep='revision';
     updateRevisionDisplay();
     // Re-render
+    _alsStep='render-tables';
     renderStdTable();
     renderPldTable();
     renderPumpCurveTable();
@@ -1100,6 +1125,7 @@ function _applyLoadedState(raw) {
        gallery in the first place. The S606 lesson stands and is why the general
        group is IN that list: its data synced but the screen never redrew it. */
     updateDeficSummary();
+    _alsStep='render-signatures';
     renderAllSignRows();
     /* S606 — repaint every signature pad from the just-applied strokes; the
        rebuilt rows repaint their own pads, the consultant pad needs this. */
@@ -1107,6 +1133,7 @@ function _applyLoadedState(raw) {
     calcTotalDemand();
     calcTotalDemandPld();
     syncAllFields();
+    _alsStep='render-charts';
     refreshAllCharts();
     // S239: if the Performance Test tab is the active panel at load time, the plain
     // refreshAllCharts() above runs while the canvas may not be measured yet. Re-run
@@ -1130,10 +1157,25 @@ function _applyLoadedState(raw) {
        Mark hit deleting from the iPhone. One list now, in
        _dslRefreshPhotoSurfaces: checklists, deficiencies, general
        deficiencies, record zones, flow thumbs AND the gallery. */
+    _alsStep='photo-surfaces';
     if (typeof _dslRefreshPhotoSurfaces === 'function') _dslRefreshPhotoSurfaces();
     setTimeout(function(){ updateProgress(); updateVerdict(); try{ if(typeof _pgPurgeExpired==='function') _pgPurgeExpired(); }catch(_e){} try{ if(typeof _rebuildAllMkDisplays==='function') _rebuildAllMkDisplays(); }catch(_e){} }, 200);
+    _alsStep='complete';
   } catch(e) {
     console.error('Load error:', e);
+    /* S643 — a restore that dies here leaves the report showing stale values
+       or nothing at all, and until now said so only to a console. Name the
+       step and the error where a session can read them. Reporting must never
+       be able to break the load it is reporting on. */
+    try {
+      if (typeof CloudSync !== 'undefined' && CloudSync && typeof CloudSync.reportDiag === 'function') {
+        CloudSync.reportDiag('apply_failed', {
+          step: _alsStep,
+          err: String((e && e.message) || e).slice(0, 200),
+          build: (typeof DIESEL_BUILD !== 'undefined' ? DIESEL_BUILD : '?')
+        });
+      }
+    } catch(_e2) {}
   }
 }
 

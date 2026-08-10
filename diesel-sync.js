@@ -224,6 +224,12 @@ function _applyCloudSilent(cloudState) {
       build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
   } catch (e) {
     console.warn('[DieselSync] silent apply failed:', e && e.message);
+    /* S643 — the outer half of the same blindness. A throw HERE (the host
+       merge, the collect, the stringify) means the screen never even reached
+       _applyLoadedState, so that function's own reporting cannot fire. Two
+       layers, two reports; between them there is no longer a way for a cloud
+       update to fail to reach the screen without saying so. */
+    try { _diag('apply_failed', { step: 'facade-apply', err: String((e && e.message) || e).slice(0, 200) }); } catch (_) {}
   }
 }
 

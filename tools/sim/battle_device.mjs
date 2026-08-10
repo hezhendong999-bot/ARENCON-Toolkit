@@ -47,8 +47,18 @@ w.localStorage.setItem('arencon-device-id', DEV);
 global.DIESEL_BUILD = w.DIESEL_BUILD = process.env.DEV_BUILD || 'SIM';
 
 let screen = {};
+/* S643 — A DEVICE WHOSE SCREEN REFUSES THE UPDATE. Until now every simulated
+   device painted perfectly, so the estate could not express the one thing
+   Mark hit: the cloud value arrives, the engine records it as held, and the
+   restore dies before the screen shows it. paintfail models exactly that —
+   the real _applyLoadedState throws and the facade swallows it, which is the
+   shipped behaviour, not an invention of this harness. */
+let paintOk = true;
 w._collectCloudState = () => JSON.parse(JSON.stringify(screen));
-w._applyLoadedState = j => { screen = JSON.parse(j); };
+w._applyLoadedState = j => {
+  if (!paintOk) throw new Error('SIM: restore threw before it reached the screen');
+  screen = JSON.parse(j);
+};
 w._mergeCloudLocal = c => c; w._stateHasContent = () => true;
 
 await import(pathToFileURL(path.join(ROOT, 'diesel-sync.js')).href);
@@ -174,6 +184,8 @@ for await (const line of rl) {
     } else if (m.cmd === 'dbg') { send({ id: m.id, ok: true, offset: (typeof w.__arcSvrOffset === 'undefined' ? 'never-learned' : w.__arcSvrOffset), skew: _SKEW, ledger: (w.__arcLedgerPeek ? w.__arcLedgerPeek() : null) });
     } else if (m.cmd === 'offline') { online = false; try { w.dispatchEvent(new w.Event('offline')); } catch (_) {} send({ id: m.id, ok: true }); }
     else if (m.cmd === 'online')  { online = true;  try { w.dispatchEvent(new w.Event('online')); } catch (_) {} await new Promise(r => setTimeout(r, 250)); send({ id: m.id, ok: true }); }
+    else if (m.cmd === 'paintfail') { paintOk = false; send({ id: m.id, ok: true }); }
+    else if (m.cmd === 'paintok')   { paintOk = true;  send({ id: m.id, ok: true }); }
     else if (m.cmd === 'get')     { send({ id: m.id, ok: true, screen: screen }); }
     else if (m.cmd === 'exit')    { send({ id: m.id, ok: true }); process.exit(0); }
     else send({ id: m.id, ok: false, err: 'unknown cmd' });
