@@ -9532,7 +9532,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S637';
+const HUB_BUILD = 'S638';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
@@ -9572,13 +9572,72 @@ try {
           var m = String(cn).match(/(\d{12})$/);
           b.textContent = 'build ' + HUB_BUILD + ' · shell ' + (m ? m[1] : cn);
           try { console.info('%c[Hub] serving shell ' + cn, 'background:#5E5B68;color:#fff;padding:2px 8px;border-radius:4px;'); } catch (e) {}
+          try { _hubBootDiag(cn); } catch (e) {}
         };
         _sw.controller.postMessage({ type: 'GET_BUILD_STAMP' }, [_ch.port2]);
+      } else {
+        /* No worker controlling this load — report that too. It is the single
+           most useful fact about a boot that renders an old page, and it is
+           exactly the case the message path above cannot report. */
+        try { _hubBootDiag(null); } catch (e) {}
       }
     } catch (e) {}
   });
 } catch (e) {}
 import '/lib/ui/hubHelpCards.js';
+
+/* ═══ S638 — THE HUB NOW REPORTS ITS OWN BOOT ═══════════════════════════════
+   Mark, 09 Aug: airplane mode on → open the app → connect → sign in → the
+   project page renders an OLD layout listing reports deleted weeks ago; close
+   and reopen with signal and it is correct. I produced two confident wrong
+   explanations (a permanently stuck worker, then reinstall the app) before
+   noticing I had nothing to reason FROM.
+   Meanwhile the pump tools log a boot row to sync_diag with their build, so
+   the same phone's Diesel build at 19:08 was a database query away — S636,
+   fully current. The Hub logged nothing at all, so the one page that actually
+   misbehaved was the one page invisible from here.
+   This closes that. One small row per boot, fire-and-forget, never blocking:
+     controlled — was a service worker serving this load at all? A boot with
+                  no controller is answered by the browser's own cache, which
+                  is the leading explanation for an old page appearing only on
+                  an offline cold start.
+     shell      — WHICH cached build answered, straight from the worker.
+     standalone — Mark's own hypothesis: that the installed home-screen app
+                  behaves differently from Safari. Recorded rather than argued.
+     online     — whether the radio was up at boot, to tie a bad render to the
+                  offline start rather than to the sign-in that followed.
+   Diagnostic only: it changes no behaviour and touches no report data. It
+   exists so the NEXT occurrence is read, not guessed at. */
+function _hubBootDiag(cacheName) {
+  try {
+    var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
+    if (!tok) return;                        // signed out — nothing to attribute
+    if (window.__hubBootDiagSent) return;    // once per load
+    window.__hubBootDiagSent = true;
+    var standalone = false;
+    try {
+      standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+                || (navigator.standalone === true);
+    } catch (_) {}
+    fetch(SUPABASE_URL + '/rest/v1/sync_diag', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
+                 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        device: (function () { try { return localStorage.getItem('arencon-device-id'); } catch (_) { return null; } })(),
+        tool: 'hub',
+        event: 'hub_boot',
+        detail: {
+          build: HUB_BUILD,
+          shell: cacheName || null,
+          controlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+          standalone: standalone,
+          online: (navigator.onLine !== false)
+        }
+      })
+    }).catch(function () {});
+  } catch (_) {}
+}
 
 /* ── S588 LIVE UPDATE (Mark: nobody should ever check a build number again) ──
    The Hub is deliberately FIRST: a bad swap here costs a reload at a desk, not
