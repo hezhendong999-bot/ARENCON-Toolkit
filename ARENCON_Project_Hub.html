@@ -9462,6 +9462,56 @@ function _pgEscHtml(s) {
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(){});
   }
+
+  /* ═══ S641 — KEEP THE BROWSER'S OWN DISK COPY CURRENT (root cause, take 2) ═
+     Mark rejected S639's launcher file, and he was right: it dodged the
+     mechanism instead of fixing it, and demanded a re-add of every install.
+
+     THE MECHANISM, completed by tonight's evidence: iOS launched the app
+     offline and rendered a PRE-20-JULY Hub while the service worker's own
+     cache was provably current. The old copy lived in WebKit's HTTP disk
+     cache — a store none of our code reads, but which iOS falls back to when
+     it starts the app offline without consulting the worker. And the reason
+     that copy was JULY, not last week: since S588 the worker answers every
+     navigation itself, so WebKit's network stack never performs the page
+     request any more — the disk entry stopped being refreshed the day the
+     worker took over, and fossilised at whatever iOS last fetched natively.
+     The worker fixed freshness for its own cache and, invisibly, froze the
+     other one.
+
+     THE FIX is one background request: on every online load, and again
+     whenever the radio comes back, re-fetch this page with cache:'reload'.
+     That mode both bypasses and REWRITES the HTTP disk entry, so the copy
+     iOS falls back to is never older than the last online open. No new
+     file, no re-add: the next ordinary online launch of the EXISTING app
+     runs this line and repairs the fossil in place. The response is
+     discarded — this is cache maintenance, not navigation.
+
+     SECOND LAYER — the page defends itself when it IS the fallback: a load
+     with no controlling worker is the bypass signature (every normal launch
+     is controlled). If such a page regains network, reload once: the online
+     path serves the current build. One-shot per session, so a browser that
+     legitimately never controls (private mode) cannot loop. A July page
+     carries neither layer — nothing can reach it — but it stops mattering
+     the moment the disk entry under it is rewritten. */
+  (function(){
+    try{
+      var PAGE='ARENCON_Project_Hub.html';
+      var repair=function(){
+        try{ fetch(PAGE,{cache:'reload'}).catch(function(){}); }catch(e){}
+      };
+      if(navigator.onLine!==false) repair();
+      window.addEventListener('online',function(){
+        repair();
+        try{
+          if(!navigator.serviceWorker || navigator.serviceWorker.controller) return;
+          if(sessionStorage.getItem('arencon-bypass-reload')) return;
+          sessionStorage.setItem('arencon-bypass-reload','1');
+          setTimeout(function(){ location.reload(); }, 1500);
+        }catch(e){}
+      });
+    }catch(e){}
+  })();
 })();
 </script>
 <script type="module">
@@ -9506,7 +9556,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S639';
+const HUB_BUILD = 'S641';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
