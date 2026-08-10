@@ -3885,8 +3885,14 @@ async function _loadAndRenderDeletedInstances(proj) {
 
   var rows = [];
   try {
-    rows = await _sb.from('tool_data').eq('project_id', proj.id)
-      .notIs('deleted_at', null).order('tool_key').order('instance_number').execute();
+    /* S642: deleted rows are no longer visible to any client query — a
+       restrictive policy hides them, so a pre-20-July page resurrected from
+       an unreachable iOS cache cannot list or edit them either (proven live:
+       five current online boots failed to displace that copy, so the filter
+       moved to the database, which every copy of every page must pass
+       through). This panel is the legitimate reader and goes through the
+       security-definer function instead. */
+    rows = await _sb.rpc('hub_list_deleted_reports', { p_project: proj.id });
   } catch (e) {
     sec.style.display = 'none';
     return;
@@ -6316,9 +6322,10 @@ async function restoreInstance(instanceId, title) {
   });
   if (!_ok) return;
   try {
-    await _sb.from('tool_data').eq('id', instanceId).update({
-      deleted_at: null, deleted_by: null
-    });
+    /* S642: clients cannot update a deleted row (that immutability is the
+       whole protection) — restore is the one sanctioned exception and runs
+       server-side. */
+    await _sb.rpc('hub_restore_report', { p_id: instanceId });
     toast('Report restored', 'success');
     if (_detailProjectId) {
       var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
@@ -6356,8 +6363,11 @@ async function purgeInstance(instanceId, title) {
            Uses the mechanism that exists rather than building a parallel audit
            table. (The UPDATE itself creates no extra snapshot: the trigger only
            snapshots UPDATEs when the data blob changed, and it does not.) */
-        await _sb.from('tool_data').eq('id', instanceId).update({ updated_by: _profile ? _profile.id : null });
-        await _sb.from('tool_data').eq('id', instanceId).delete();
+        /* S642: client deletes on tool_data are blocked outright; purge runs
+           server-side. The function stamps updated_by with the purger FIRST,
+           so the existing DELETE trigger's tool_data_history snapshot carries
+           who purged — the S495 audit rule, unchanged in effect. */
+        await _sb.rpc('hub_purge_report', { p_id: instanceId, p_actor: _profile ? _profile.id : null });
         toast('Report permanently deleted', 'success');
         if (_detailProjectId) {
           var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
@@ -9556,7 +9566,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S641';
+const HUB_BUILD = 'S642';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
