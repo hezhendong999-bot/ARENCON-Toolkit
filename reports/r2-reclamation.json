@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-09T06:34:13.869Z",
+  "generatedAt": "2026-08-10T07:04:06.536Z",
   "note": "DRY-RUN REPORT ONLY. Nothing here deletes or authorizes deletion. Reclamation, if ever built, is a separate manual Mark-present step driven from this tombstone-based list — never a bucket scan.",
   "currentRows": 54,
-  "referencedFilenames": 1108,
+  "referencedFilenames": 1114,
   "tombstoneSnapshots": 14,
   "purgedDistinctFilenames": 80,
   "heldCount": 75,
