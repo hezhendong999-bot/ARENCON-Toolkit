@@ -1048,7 +1048,11 @@ function _applyLoadedState(raw) {
     }
     if (s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ var v=s.sigStrokes[k]; _sigStrokes[k]=(v&&!Array.isArray(v)&&Array.isArray(v.s))?v.s:v; }); }   // S605: unwrap {s:[...]}; legacy bare arrays pass through
     // flowTestPhotos
-    if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(p=>flowTestPhotosPld.push(p)); renderFlowTestThumbsPld(); }
+    /* S640 — the render call is gone from this data branch; the one repaint
+       list runs at the end of this function. Note this exact assignment also
+       appears ~16 lines below: a pre-existing duplicate, harmless because it
+       is idempotent, left alone here rather than tangled into a repaint fix. */
+    if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(p=>flowTestPhotosPld.push(p)); }
     // batData
     if (s.batData) {
       if(s.batData.b1) batData.b1 = s.batData.b1.map(Number);
@@ -1064,7 +1068,7 @@ function _applyLoadedState(raw) {
       });
     }
     // flowTestPhotosPld
-    if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(function(p){flowTestPhotosPld.push(p);}); renderFlowTestThumbsPld(); }
+    if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(function(p){flowTestPhotosPld.push(p);}); }   // S640: repaint is the shared list's job
     if (s.flowTestPhotos) {
       flowTestPhotos.length = 0;
       s.flowTestPhotos.forEach(p => flowTestPhotos.push(p));    }
@@ -1088,14 +1092,13 @@ function _applyLoadedState(raw) {
     renderPldTable();
     renderPumpCurveTable();
     renderPldPumpCurveTable();
-    renderFlowTestThumbs();
     renderContractorTags();
-    renderDeficGroups();
-    /* S606 — the General (no-contractor) group, where recommendations and
-       site records live, was the ONE section missing from this list: its data
-       has synced since S605 but the screen never redrew it without a reload
-       (Mark's "recommendation section doesn't sync at all"). */
-    if (typeof renderGeneralDeficGroup === 'function') renderGeneralDeficGroup();
+    /* S640 — renderFlowTestThumbs / renderDeficGroups / renderGeneralDeficGroup
+       used to be named here as well. They are photo surfaces, so they belong to
+       the one repaint list and are called from _dslRefreshPhotoSurfaces below;
+       naming them in two places is how this list drifted out of step with the
+       gallery in the first place. The S606 lesson stands and is why the general
+       group is IN that list: its data synced but the screen never redrew it. */
     updateDeficSummary();
     renderAllSignRows();
     /* S606 — repaint every signature pad from the just-applied strokes; the
@@ -1121,12 +1124,13 @@ function _applyLoadedState(raw) {
        ((prev===status) ? null : status) and silently ERASED the saved answer.
        The heartbeat's own re-render map (L~11119) always included s5m — only this
        boot-apply list was short. Lists now identical. */
-    ['s1','s2','s3','s4','s4pld','s5m','s5'].forEach(sec => {
-      const cont = document.getElementById({s5m:'cl-s5-mandatory'}[sec] || ('cl-'+sec));
-      if (!cont) return;
-      const sMap = {s1:S1,s2:S2,s3:S3,s4:S4_items,s4pld:S4_items,s5m:S5_mandatory,s5:S5};
-      if(sMap[sec]) renderChecklist(sMap[sec], {s5m:'cl-s5-mandatory'}[sec] || ('cl-'+sec), sec);
-    });
+    /* S640 — this loop was the apply path's OWN photo-surface list. It drew
+       the checklists but never the gallery, so a colleague's added or deleted
+       photo did not appear there until the report was reopened — which is what
+       Mark hit deleting from the iPhone. One list now, in
+       _dslRefreshPhotoSurfaces: checklists, deficiencies, general
+       deficiencies, record zones, flow thumbs AND the gallery. */
+    if (typeof _dslRefreshPhotoSurfaces === 'function') _dslRefreshPhotoSurfaces();
     setTimeout(function(){ updateProgress(); updateVerdict(); try{ if(typeof _pgPurgeExpired==='function') _pgPurgeExpired(); }catch(_e){} try{ if(typeof _rebuildAllMkDisplays==='function') _rebuildAllMkDisplays(); }catch(_e){} }, 200);
   } catch(e) {
     console.error('Load error:', e);

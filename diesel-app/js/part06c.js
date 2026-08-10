@@ -2624,6 +2624,26 @@ async function _dslMarkupPersist(p, mk){
 // opens the lightbox without a renderer ctx, so its thumbs never refreshed
 // after a markup save ("takes a bit to show up").
 function _dslRefreshPhotoSurfaces(){
+  /* ═══ S640 — THE REPAINT LIST WAS TWO LISTS, EACH MISSING THE OTHER'S ════
+     Mark: deleting a photo on the iPhone deletes it everywhere, but the tablet
+     only shows it after a refresh. The DATA arrived and merged correctly — the
+     screen was never told.
+
+     There were two surface lists doing this job. THIS one covered the gallery
+     but not the flow-test thumbs. The cloud-apply path covered the flow-test
+     thumbs but never the gallery. So whichever surface an inspector happened
+     to be looking at decided whether a colleague's change appeared, and the
+     answer for the gallery was always "not until you reopen the report".
+
+     Same shape as S636/S638/S639 and the five before them: a list of photo
+     surfaces maintained by hand in more than one place. This is now the ONLY
+     repaint list, and the apply path calls it instead of naming surfaces
+     itself. Add a photo surface to the tool and add it HERE — once.
+
+     Deliberately NOT here: renderStdTable / renderPldTable. Those rebuild
+     input fields, and repainting them from a lightbox action could take the
+     caret out from under someone mid-entry. The cloud apply calls them
+     separately, where a full rebuild is already happening. */
   try{
     if(typeof renderChecklist==='function'){
       if(typeof S1!=='undefined') renderChecklist(S1,'cl-s1','s1');
@@ -2636,6 +2656,8 @@ function _dslRefreshPhotoSurfaces(){
     if(typeof renderDeficGroups==='function') renderDeficGroups();
     if(typeof renderGeneralDeficGroup==='function') renderGeneralDeficGroup();
     if(typeof _renderRecordZones==='function') _renderRecordZones();
+    if(typeof renderFlowTestThumbs==='function') renderFlowTestThumbs();          // S640
+    if(typeof renderFlowTestThumbsPld==='function') renderFlowTestThumbsPld();    // S640
     if(typeof _renderPhotoGallery==='function') _renderPhotoGallery();
   }catch(e){ console.warn('[DLB] surface refresh failed', e); }
 }
