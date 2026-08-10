@@ -9506,7 +9506,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S638';
+const HUB_BUILD = 'S639';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
@@ -9584,8 +9584,6 @@ import '/lib/ui/hubHelpCards.js';
    exists so the NEXT occurrence is read, not guessed at. */
 function _hubBootDiag(cacheName) {
   try {
-    var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
-    if (!tok) return;                        // signed out — nothing to attribute
     if (window.__hubBootDiagSent) return;    // once per load
     window.__hubBootDiagSent = true;
     var standalone = false;
@@ -9593,22 +9591,50 @@ function _hubBootDiag(cacheName) {
       standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
                 || (navigator.standalone === true);
     } catch (_) {}
+    var nav = null;
+    try { var ne = performance.getEntriesByType('navigation')[0]; if (ne) nav = ne.type; } catch (_) {}
+    var rec = {
+      at: new Date().toISOString(),
+      build: HUB_BUILD,
+      shell: cacheName || null,
+      controlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+      standalone: standalone,
+      online: (navigator.onLine !== false),
+      nav: nav
+    };
+    /* ═══ S639 — THE BOOT THAT MATTERS IS THE ONE THIS COULDN'T SEND ════════
+       The failing boot is an OFFLINE cold start: at that moment the fetch
+       below cannot leave the phone, so S638's version dropped precisely the
+       row the whole exercise existed to capture, then marked itself sent.
+       Now every boot is written to localStorage FIRST, and each online boot
+       flushes whatever its predecessors could not send. A page too old to
+       carry this code still can't report itself — that page is eliminated by
+       launch.html — but any future bad boot on current code leaves a record
+       that survives being offline. */
+    var Q = 'arencon-hub-boot-q';
+    var q = [];
+    try { q = JSON.parse(localStorage.getItem(Q) || '[]'); } catch (_) { q = []; }
+    q.push(rec);
+    if (q.length > 20) q = q.slice(-20);
+    try { localStorage.setItem(Q, JSON.stringify(q)); } catch (_) {}
+
+    var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
+    if (!tok || navigator.onLine === false) return;   // stays queued for a boot that can send
+    var send = q.slice();
     fetch(SUPABASE_URL + '/rest/v1/sync_diag', {
       method: 'POST',
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
                  'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-      body: JSON.stringify({
-        device: (function () { try { return localStorage.getItem('arencon-device-id'); } catch (_) { return null; } })(),
-        tool: 'hub',
-        event: 'hub_boot',
-        detail: {
-          build: HUB_BUILD,
-          shell: cacheName || null,
-          controlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
-          standalone: standalone,
-          online: (navigator.onLine !== false)
-        }
-      })
+      body: JSON.stringify(send.map(function (r) {
+        return {
+          device: (function () { try { return localStorage.getItem('arencon-device-id'); } catch (_) { return null; } })(),
+          tool: 'hub',
+          event: 'hub_boot',
+          detail: r
+        };
+      }))
+    }).then(function (resp) {
+      if (resp && resp.ok) { try { localStorage.setItem(Q, '[]'); } catch (_) {} }
     }).catch(function () {});
   } catch (_) {}
 }

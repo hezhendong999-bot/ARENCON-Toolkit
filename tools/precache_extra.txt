@@ -126,3 +126,5 @@ lib/data/changeJournal.js
 # Diesel graphs. Missing this offline = Electric boots with NO cloud layer at
 # all — no local-cache load fallback, no queued saves.
 electric-sync.js
+lib/ui/accountPanel.js   # S639 revert: wiring pulled (Mark), module kept precached pending redesign — protected symbol
+launch.html              # S639: PWA start_url — must work offline via the worker

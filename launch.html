@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARENCON</title>
+<!-- ═══ S639 — WHY THIS FILE EXISTS (root cause, proven, 09 Aug) ═══════════
+  Mark's iPhone, repeatable: airplane mode → open the installed app → connect
+  → sign in → the project page renders the PRE-20-JULY Hub — big activation
+  cards saying "Not enabled", reports as arrow rows — and lists reports
+  deleted on 20 Jul and 02 Aug as live and editable. Close and reopen with
+  signal: current page. Same minute, the phone's telemetry reported the
+  CURRENT build with the current service-worker shell in control.
+
+  Both facts are true, and together they convict the one store left:
+    · "Not enabled" left the Hub in S495 (pushed 20 Jul 01:34). The deleted
+      report of 20 Jul 20:47 is VISIBLE in the bad render, so the running
+      page predates 20 July — it is not merely stale, it is from before the
+      deleted-report filter existed.
+    · The service worker cannot have served it: since S590 the worker answers
+      navigations ONLY from its current build's cache, which is precached
+      with cache:'reload' from the origin. A worker-served page is current by
+      construction — and the telemetry shows the worker's cache IS current.
+    · Therefore the ancient page was served AROUND the worker: on an offline
+      cold launch, iOS sometimes starts the installed app without consulting
+      the service worker and falls back to WebKit's own HTTP disk cache —
+      which still held a July copy of ARENCON_Project_Hub.html and, offline,
+      served it despite its age. That copy is invisible to the worker, to the
+      version floor (older than S536's wiring on that page? no — older than
+      S495, and the floor reads the worker it never talked to), and to every
+      fix shipped since, because a page from July cannot run code from August.
+
+  You cannot patch a page that predates the patch. The only reliable fix is
+  to stop LAUNCHING the app at a URL for which an ancient disk-cache entry
+  exists. This file is that fix: it is NEW, so no cache on any device on
+  earth holds an old copy of it, and the app's manifest now starts here. It
+  forwards to the Hub with a unique query string, so even a bypassed worker
+  cannot be answered by the old queryless disk entry — the URL never matches.
+  With the worker in control (the normal case), ignoreSearch matching serves
+  the current precached Hub exactly as before, offline included.
+
+  Honest trade, stated plainly: on an iOS offline cold start where the worker
+  is ALSO bypassed, this now fails to load instead of serving a three-week-old
+  page with deleted reports editable. A visible failure beats a silent lie.
+  Field tablets are Android TWA and unaffected: the TWA's start URL is baked
+  into the APK, and Android serves navigations through the worker.
+
+  EXISTING iOS INSTALLS ADOPT THIS ONLY WHEN RE-ADDED to the home screen —
+  the start URL is captured at install time. One re-add, then immune. ═══ -->
+<meta name="theme-color" content="#9C2742">
+<style>
+  html,body{margin:0;height:100%;background:#0b0a0d;color:#928E9C;
+    font:400 14px Calibri,sans-serif;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<noscript>Open <a href="ARENCON_Project_Hub.html" style="color:#C9476A">the Project Hub</a>.</noscript>
+<script>
+  /* replace(), not assign: this page must not sit in history, or Back from
+     the Hub would bounce through it. The unique query is the entire point —
+     see the note above. */
+  location.replace('ARENCON_Project_Hub.html?lb=' + Date.now());
+</script>
+</body>
+</html>
