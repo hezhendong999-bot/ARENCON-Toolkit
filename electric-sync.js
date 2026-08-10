@@ -163,6 +163,14 @@ const ElectricJournal = createChangeJournal({
 try { window._elecJournal = ElectricJournal; } catch (_) {}
 
 const model = {
+  /* S643b — Electric's getProject() is a FRESH collect of what the inspector is
+     actually looking at, so a failed repaint CAN leave the screen
+     disagreeing with what the engine applied. That is the one condition
+     under which the ledger may be anchored to the device. FRT must never
+     set this: its getProject() hands back the in-memory model by
+     reference, and anchoring there would put photo binaries into a ledger
+     that gets persisted to disk. */
+  getProjectReadsScreen: true,
   getProject: function () {
     const w = window;
     if (typeof w._collectCloudState === 'function') return w._collectCloudState();
