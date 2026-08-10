@@ -804,3 +804,6 @@ _anchorLedgerToDevice
 
 @ S643 THE RESTORE STOPS FAILING IN SILENCE. Every line of _applyLoadedState sits in ONE try, so the first thing that throws abandons every remaining line and the screen keeps whatever it had — with no trace but a console message on a tablet nobody has a laptop next to. Mark's two standing complaints are both this: a report that opens completely EMPTY (it threw early at boot, and re-entering "fixes" it because the retry succeeds), and performance values that never repaint when a colleague's edit arrives (it threw partway). _alsStep records how far the restore got and the terminal catch reports it to sync_diag as apply_failed with the step and the exception message; the facade's _applyCloudSilent catch reports the same event with step 'facade-apply' for throws that never reach _applyLoadedState at all (the host merge, the collect, the stringify). Two layers, two reports: there is no longer a way for a cloud update to fail to reach the screen without saying so. Do NOT remove the step markers or collapse them, and do NOT make the reporting able to throw — it must never break the load it is reporting on.
 _alsStep
+
+@ One-time iOS drawer flush — the frozen July navigation entry is evicted by one real network load (S645)
+arencon-drawer-flush-v1

@@ -9522,6 +9522,100 @@ function _pgEscHtml(s) {
       });
     }catch(e){}
   })();
+
+  /* ═══ S645 — ONE-TIME DRAWER FLUSH (iOS installed app only) ══════════════
+     Why S641's repair was not enough, proven on device: a page-context
+     fetch() and a top-level NAVIGATION are filed under different keys in
+     WebKit's disk cache (different request headers), so five telemetry-proven
+     repair runs rewrote the fetch entry while the NAVIGATION entry — the one
+     an offline cold start falls back to — stayed July. The S643/644 audit
+     then proved our own storage clean: one worker, current cache, tiles,
+     nothing else. What remains is that navigation entry, and no code that
+     runs UNDER the worker can touch it, because with the worker answering,
+     WebKit's network stack never performs the page request.
+
+     So, once per device, step the worker aside for exactly one load:
+     unregister → reload. That reload is a REAL network navigation — the
+     first since early August — and the server now answers Cache-Control:
+     no-store (Cloudflare, 10 Aug), so the July navigation entry is replaced/
+     invalidated and nothing new is stored. The reload boots this same page
+     fresh from the network; the ordinary registration line above re-installs
+     the worker and re-precaches, and a flag marks the ritual done.
+
+     GUARDS — each one load-bearing:
+     • iOS installed app only (standalone + iOS UA). The symptom exists only
+       there; field tablets and desktops never run this and never blink.
+     • Online, AND a fresh HEAD of this page must succeed BEFORE the worker
+       is stepped aside — never trade a working offline app for a flush.
+     • Runs at boot only, seconds in — nothing typed yet, nothing to lose.
+     • One-shot: localStorage flag. sessionStorage phase flag so the
+       post-flush boot finishes the ritual instead of repeating it.
+     • Every phase reports to sync_diag (durable queue) so the flush is a
+       fact in the database, not a hope. */
+  (function(){
+    try{
+      var K='arencon-drawer-flush-v1';
+      if(localStorage.getItem(K)==='done') return;
+      var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)
+             || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+      var standalone=false;
+      try{ standalone=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)
+                    ||(navigator.standalone===true); }catch(e){}
+      if(!(isIOS&&standalone)) return;
+      var diag=function(phase,extra){
+        try{
+          var Q='arencon-hub-flush-q', q=[];
+          try{ q=JSON.parse(localStorage.getItem(Q)||'[]'); }catch(e){ q=[]; }
+          q.push({at:new Date().toISOString(),phase:phase,extra:extra||null});
+          if(q.length>10) q=q.slice(-10);
+          try{ localStorage.setItem(Q,JSON.stringify(q)); }catch(e){}
+          var tok=null; try{ tok=localStorage.getItem('sb-access-token'); }catch(e){}
+          if(!tok||navigator.onLine===false) return;
+          var send=q.slice();
+          fetch(SUPABASE_URL+'/rest/v1/sync_diag',{method:'POST',
+            headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+tok,
+                     'Content-Type':'application/json','Prefer':'return=minimal'},
+            body:JSON.stringify(send.map(function(r){return{
+              device:(function(){try{return localStorage.getItem('arencon-device-id');}catch(e){return null;}})(),
+              tool:'hub',event:'hub_drawer_flush',detail:r};}))
+          }).then(function(resp){ if(resp&&resp.ok){ try{ localStorage.setItem(Q,'[]'); }catch(e){} } })
+            .catch(function(){});
+        }catch(e){}
+      };
+      /* Phase 2: we ARE the fresh network-served boot. Finish and mark done.
+         The registration line above has already re-registered the worker. */
+      if(sessionStorage.getItem(K+'-p2')==='1'){
+        try{ sessionStorage.removeItem(K+'-p2'); }catch(e){}
+        try{ localStorage.setItem(K,'done'); }catch(e){}
+        diag('phase2-complete',{controlled:!!(navigator.serviceWorker&&navigator.serviceWorker.controller)});
+        return;
+      }
+      /* Phase 1: gate hard, then step the worker aside for one load. */
+      if(navigator.onLine===false){ return; }   // try again next boot
+      window.addEventListener('load',function(){
+        setTimeout(function(){
+          try{
+            if(!navigator.serviceWorker||!navigator.serviceWorker.getRegistration) return;
+            navigator.serviceWorker.getRegistration().then(function(reg){
+              if(!reg){ try{ localStorage.setItem(K,'done'); }catch(e){}
+                        diag('phase1-no-registration'); return; }
+              fetch('ARENCON_Project_Hub.html',{method:'HEAD',cache:'reload'})
+                .then(function(r){
+                  if(!r||!r.ok){ diag('phase1-network-check-failed',{status:r&&r.status}); return; }
+                  reg.unregister().then(function(ok){
+                    if(!ok){ diag('phase1-unregister-refused'); return; }
+                    try{ sessionStorage.setItem(K+'-p2','1'); }catch(e){}
+                    diag('phase1-unregistered-reloading');
+                    setTimeout(function(){ location.reload(); },400);
+                  });
+                })
+                .catch(function(){ diag('phase1-network-check-failed',{err:true}); });
+            });
+          }catch(e){}
+        },2500);
+      });
+    }catch(e){}
+  })();
 })();
 </script>
 <script type="module">
@@ -9566,7 +9660,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S644';
+const HUB_BUILD = 'S645';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
