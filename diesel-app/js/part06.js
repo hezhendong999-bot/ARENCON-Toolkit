@@ -1036,7 +1036,7 @@ document.getElementById('global-file-input').addEventListener('change', function
       const r=new FileReader();
       r.onload=ev=>{ compressImage(ev.target.result, 1600, 0.85, function(compressed){
         if(!clState[id]) return; // never auto-vivify; a real item always exists before upload
-        clState[id].photos.push(ArcPhoto.mint(compressed,f.name,{date:photoDate}));
+        clState[id].photos.push(ArcPhoto.mint(compressed,f.name,{date:photoDate}));clState[id]._ts=Date.now();   /* S641: a photo attach is an inspector edit — stamp the item (S594 doctrine) */
         var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
         var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
         var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
@@ -1132,7 +1132,7 @@ function handleFiles(id, files, isDefic) {
           // "camera opens, photo taken, nothing saves" bug.)
           if(!clState[id]) clState[id] = { status:null, comment:'', photos:[], customText:'' };
           if(!Array.isArray(clState[id].photos)) clState[id].photos=[];
-          clState[id].photos.push(ArcPhoto.mint(compressed,f.name,{date:photoDate}));
+          clState[id].photos.push(ArcPhoto.mint(compressed,f.name,{date:photoDate}));clState[id]._ts=Date.now();   /* S641: a photo attach is an inspector edit — stamp the item (S594 doctrine) */
           var _pg=document.getElementById('pg-'+id); if(_pg) _pg.innerHTML = renderThumbs(id);
           var _id=document.getElementById('id-'+id); if(_id) _id.classList.add('open');
           var _pb=document.getElementById('pbtn-'+id); if(_pb) _pb.classList.add('open-ind');
