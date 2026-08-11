@@ -1249,7 +1249,7 @@ body.text-l{--ts:4px;}
     <h3>Open on Mobile</h3>
     <p>Scan with your phone camera to open the Hub</p>
     <div id="qr-code-large"></div>
-    <div class="qr-modal-url">hezhendong999-bot.github.io/ARENCON-Toolkit/ARENCON_Project_Hub.html</div>
+    <div class="qr-modal-url">arencon.app/ARENCON_Project_Hub.html</div>
   </div>
   <button class="qr-modal-close" onclick="closeQRModal()">✕ Close</button>
 </div>
@@ -9394,7 +9394,13 @@ function _pgEscHtml(s) {
 <!-- PWA: QR code modal + service worker registration -->
 <script>
 (function(){
-  var hubUrl='https://hezhendong999-bot.github.io/ARENCON-Toolkit/ARENCON_Project_Hub.html';
+  /* S647: was the raw GitHub origin. Every QR scanned off this screen installed
+     the app at the OLD address, whose update engine was bricked the day the
+     custom domain was adopted (that origin now 301s, and an update engine cannot
+     update itself across a redirect to a different host). That is the fossil: a
+     July shell that still queried live data, invisible to every audit and flush
+     because those ran at arencon.app. Hand out the real address only. */
+  var hubUrl='https://arencon.app/ARENCON_Project_Hub.html';
   var _qrLastUrl='';
 
   window.openQRModal=function(url,title,desc){
@@ -9453,7 +9459,7 @@ function _pgEscHtml(s) {
     var addr=proj?proj.address||'':'';
     var toolFile=AVAILABLE_TOOLS[toolKey]?AVAILABLE_TOOLS[toolKey].file:'';
     if(!toolFile)return;
-    var base='https://hezhendong999-bot.github.io/ARENCON-Toolkit/';
+    var base='https://arencon.app/';   /* S647: see hubUrl — never hand out the old origin */
     var url=base+toolFile+'?project='+encodeURIComponent(projectId)
       +'&pn='+encodeURIComponent(pn)
       +'&pname='+encodeURIComponent(pname)
@@ -9666,7 +9672,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S646';
+const HUB_BUILD = 'S647';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
