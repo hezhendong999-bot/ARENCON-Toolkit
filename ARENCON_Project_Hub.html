@@ -1893,6 +1893,9 @@ function createSupabaseClient(url, key) {
       let _select = '*';
       let _order = null;
       let _single = false;
+      /* S649 — see minimal() below. Declared with the other builder state so a
+         builder chain never leaks the flag into the next one. */
+      let _minimal = false;
 
       const builder = {
         select(cols) { _select = cols || '*'; return builder; },
@@ -1915,6 +1918,17 @@ function createSupabaseClient(url, key) {
         gt(col, val) { _filters.push(`${col}=gt.${encodeURIComponent(val)}`); return builder; },
         order(col, opts = {}) { _order = col + (opts.ascending === false ? '.desc' : '.asc'); return builder; },
         single() { _single = true; return builder; },
+        /* S649 — "do the write, don't hand the row back."
+           PostgreSQL applies SELECT policies to the row an UPDATE returns. The
+           restrictive policy tool_data_hide_deleted (deleted_at IS NULL) is what
+           keeps deleted reports hidden from everyone — so the instant a soft
+           delete stamps deleted_at, the row it would hand back is one the
+           requester may not see, and the whole statement is refused. The write
+           was never the problem; asking for the row back was. Callers that
+           don't need the row say so with .minimal() and the refusal cannot
+           arise. Do NOT "fix" this by weakening tool_data_hide_deleted — that
+           policy is the entire protection for deleted reports. */
+        minimal() { _minimal = true; return builder; },
 
         async execute() {
           let path = '/rest/v1/' + table + '?select=' + encodeURIComponent(_select);
@@ -1938,7 +1952,9 @@ function createSupabaseClient(url, key) {
           return request(path, {
             method: 'PATCH',
             body: data,
-            headers: { 'Prefer': 'return=representation' }
+            /* S649: representation stays the default so every existing caller
+               behaves exactly as before; only a .minimal() chain opts out. */
+            headers: { 'Prefer': _minimal ? 'return=minimal' : 'return=representation' }
           });
         },
 
@@ -6293,7 +6309,11 @@ async function deleteInstance(instanceId, title) {
   });
   if (!_ok) return;
   try {
-    await _sb.from('tool_data').eq('id', instanceId).update({
+    /* S649 — .minimal() is load-bearing, not tidiness. Without it this update
+       asks for the report back, and the report has just become invisible to
+       everyone by policy, so the database refuses the whole statement and no
+       report can be deleted at all. Nothing else about the delete changed. */
+    await _sb.from('tool_data').eq('id', instanceId).minimal().update({
       deleted_at: new Date().toISOString(),
       deleted_by: _user ? _user.id : null
     });
@@ -9779,7 +9799,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S648';
+const HUB_BUILD = 'S649';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
