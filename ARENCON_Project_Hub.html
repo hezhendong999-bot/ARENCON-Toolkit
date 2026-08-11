@@ -9057,8 +9057,32 @@ function _pgEscHtml(s) {
 <script>
 (function(){
   /* ── Constants ── */
-  var SOFT_LOCK_MS  = 4 * 60 * 60 * 1000;  // 4 hours → PIN lock
-  var HARD_LOCK_MS  = 8 * 60 * 60 * 1000;  // 8 hours → full sign-out
+  /* ═══ S648 — SESSION POLICY (Mark, 10 Aug) ════════════════════════════════
+     The defect this replaces: the whole inactivity check aborted unless the
+     user had a PIN, so the 8-hour sign-out was a dependent of a feature it has
+     no business depending on — 13 of 17 staff had NO automatic sign-out at all
+     and stayed signed in indefinitely on whatever device they last touched.
+
+     Commercial shape, adapted where field reality breaks the textbook:
+     • Idle → LOCK (session and work preserved), never a hard sign-out. Textbook
+       products sign out on idle; on a tablet in a basement that strands unsynced
+       work behind a login screen the inspector cannot pass.
+     • Absolute ceiling 12h, both tiers (Mark: 7 days is too long) → real
+       sign-out, revoked SERVER-SIDE so a copied session dies too.
+     • The ceiling DEFERS while offline or while work is unsynced — it escalates
+       to locked and completes once the device is online and clean. A ceiling
+       that fires in a basement is a hazard, not a safeguard.
+     • Save-first: nothing locks or signs out until work is committed locally.
+     • Device tiers: a shared tablet and a personal desktop are not one risk.
+       A device that has seen two or more distinct users IS shared, detected
+       rather than declared, because nobody will remember to declare it. */
+  var TIER_SHARED_IDLE_MS   = 30 * 60 * 1000;       // shared field tablet
+  var TIER_PERSONAL_IDLE_MS = 4 * 60 * 60 * 1000;   // personal device
+  var CEILING_MS    = 12 * 60 * 60 * 1000;          // both tiers → sign-out
+  var LS_SEEN_USERS = 'ARENCON_deviceUsers';        // distinct user ids on device
+  var LS_SESSION_START = 'ARENCON_sessionStart';    // ceiling anchor
+  var SOFT_LOCK_MS  = TIER_PERSONAL_IDLE_MS;  // legacy alias — tier decides at runtime
+  var HARD_LOCK_MS  = CEILING_MS;             // legacy alias
   var CHECK_INTERVAL_MS = 60 * 1000;        // check every 60s
   var LS_ACTIVITY_KEY = 'ARENCON_lastActivity';
   var LS_PIN_LEN_KEY  = 'ARENCON_pinLen';   // cached digit count for dot rendering
@@ -9113,17 +9137,89 @@ function _pgEscHtml(s) {
     });
   }
 
+  /* Shared iff two or more distinct users have signed in on this device. */
+  function deviceIsShared() {
+    try {
+      var seen = JSON.parse(localStorage.getItem(LS_SEEN_USERS) || '[]');
+      return seen.length >= 2;
+    } catch (e) { return false; }
+  }
+  function noteDeviceUser(uid) {
+    if (!uid) return;
+    try {
+      var seen = JSON.parse(localStorage.getItem(LS_SEEN_USERS) || '[]');
+      if (seen.indexOf(uid) === -1) { seen.push(uid); localStorage.setItem(LS_SEEN_USERS, JSON.stringify(seen)); }
+    } catch (e) {}
+  }
+  function idleLimitMs() { return deviceIsShared() ? TIER_SHARED_IDLE_MS : TIER_PERSONAL_IDLE_MS; }
+
+  function sessionStartedAt() {
+    try {
+      var t = localStorage.getItem(LS_SESSION_START);
+      if (t) return parseInt(t, 10);
+      localStorage.setItem(LS_SESSION_START, Date.now().toString());
+    } catch (e) {}
+    return Date.now();
+  }
+
+  /* Is there work that has not reached the cloud yet? Conservative: any doubt
+     counts as unsynced, because the cost of a wrong "clean" is a lost report. */
+  function workIsUnsynced() {
+    try {
+      if (window.CloudSync && typeof window.CloudSync.hasPending === 'function') return !!window.CloudSync.hasPending();
+      if (typeof window._csDirty !== 'undefined') return !!window._csDirty;
+    } catch (e) { return true; }
+    return false;
+  }
+
+  /* Commit whatever is open before the screen goes away. Never lock over
+     uncommitted typing. */
+  async function saveBeforeLock() {
+    try { if (typeof window._flushPendingNotes === 'function') await window._flushPendingNotes(); } catch (e) {}
+    try { if (window.CloudSync && typeof window.CloudSync.flush === 'function') await window.CloudSync.flush(); } catch (e) {}
+  }
+
+  function sessionDiag(event, extra) {
+    try {
+      var tok = localStorage.getItem('sb-access-token');
+      if (!tok || navigator.onLine === false) return;
+      fetch(SUPABASE_URL + '/rest/v1/sync_diag', { method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
+                   'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify([{ device: localStorage.getItem('arencon-device-id'), tool: 'hub',
+          event: 'session_guard', detail: Object.assign({ at: new Date().toISOString(), phase: event,
+            tier: deviceIsShared() ? 'shared' : 'personal' }, extra || {}) }])
+      }).catch(function(){});
+    } catch (e) {}
+  }
+
   function checkInactivity() {
-    // Only check if user is logged in and has a PIN set
-    if (!_user || !_pinHash || _locked) return;
-    var elapsed = Date.now() - getLastActivity();
-    if (elapsed >= HARD_LOCK_MS) {
-      // Full sign-out — no PIN option
-      doLogout();
+    /* S648: the PIN gate is GONE from the ceiling. Idle-lock still needs a PIN
+       because a lock nobody can open offline would brick an inspection — that
+       is why mandatory PIN enrolment is the next piece — but the 12-hour
+       ceiling now applies to every signed-in user, PIN or no PIN. */
+    if (!_user || _locked) return;
+    var now = Date.now();
+
+    // ── Absolute ceiling: 12h since sign-in, both tiers ──
+    if (now - sessionStartedAt() >= CEILING_MS) {
+      if (navigator.onLine === false || workIsUnsynced()) {
+        /* Deferred, not cancelled. Lock if we can; complete the sign-out on a
+           later pass once the device is online and clean. */
+        sessionDiag('ceiling-deferred', { online: navigator.onLine !== false, unsynced: workIsUnsynced() });
+        if (_pinHash) { saveBeforeLock().then(showPinLock); }
+        return;
+      }
+      sessionDiag('ceiling-signout', {});
+      saveBeforeLock().then(function(){ doLogout(); });
       return;
     }
-    if (elapsed >= SOFT_LOCK_MS) {
-      showPinLock();
+
+    // ── Idle lock: tier-dependent, preserves session and work ──
+    if (!_pinHash) return;                       // see enrolment note above
+    if (now - getLastActivity() >= idleLimitMs()) {
+      sessionDiag('idle-lock', { limitMin: Math.round(idleLimitMs() / 60000) });
+      saveBeforeLock().then(showPinLock);
     }
   }
 
@@ -9365,6 +9461,13 @@ function _pgEscHtml(s) {
        auto-lock silently stopped arming. A cosmetic fault must never be able to
        switch off a security feature. */
     stampActivity();
+    /* S648: anchor the 12-hour ceiling at sign-in, and record who has used this
+       device so the tier can be DETECTED (two distinct users ⇒ shared tablet ⇒
+       30-minute idle lock) rather than declared by someone who will forget. */
+    try {
+      localStorage.setItem(LS_SESSION_START, Date.now().toString());
+      noteDeviceUser(_user && _user.id);
+    } catch (e) {}
     startInactivityChecker();
     // Check immediately in case returning to a stale tab
     checkInactivity();
@@ -9381,6 +9484,10 @@ function _pgEscHtml(s) {
   // Clear on logout
   var _origDoLogout = window.doLogout;
   window.doLogout = async function() {
+    /* S648: revoke on the SERVER too. A device-only sign-out left the session
+       valid centrally, so a copied session outlived the sign-out. */
+    try { await _sb.auth.signOut({ scope: 'global' }); } catch (e) {}
+    try { localStorage.removeItem(LS_SESSION_START); } catch (e) {}
     _locked = false;
     _pinHash = null;
     _pinEntry = '';
@@ -9672,7 +9779,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S647';
+const HUB_BUILD = 'S648';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
