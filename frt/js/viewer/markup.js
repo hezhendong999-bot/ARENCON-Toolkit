@@ -802,21 +802,30 @@ function _dvStyleDimFinChip(chip) {
   no.style.cssText = _DV_PILL_X;
   chip.appendChild(ok); chip.appendChild(no);
 }
-/* S651 — the Refresh (↻) and Remove-scale (⊘) buttons only mean anything on a
-   drawing that HAS a scale. Show them with the calibration state so an
-   uncalibrated drawing keeps the toolbar it has always had, and so the pair
-   appears the moment a scale is set (which is also the moment the keypad stops
-   auto-opening — the change Ian had no way to undo). Safe to call often:
-   idempotent, touches only two style.display values. */
+/* S651 — the Refresh (↻) and Remove-scale (⊘) buttons only DO anything on a
+   drawing that has a scale, but they are ALWAYS VISIBLE (Mark, 12 Aug).
+   S651 first shipped them hidden until calibrated; the cost showed up
+   immediately — the feature looked like it had never deployed, because an
+   uncalibrated drawing gives you nothing to find. A control you cannot see is
+   a control nobody knows exists. They now dim instead of disappearing, and
+   tapping one while there is no scale explains itself rather than no-opping.
+   Safe to call often: idempotent, touches opacity + aria-disabled only. */
 function _syncDimScaleButtons() {
   try {
     var dim = window._dimTool;
     var dr = _getCurrentDrawing();
     var on = !!(dim && dr && dim.isCalibrated(dr));
-    var rb = document.getElementById('dim-recalc-btn');
-    var ub = document.getElementById('dim-uncal-btn');
-    if (rb) rb.style.display = on ? '' : 'none';
-    if (ub) ub.style.display = on ? '' : 'none';
+    var ids = ['dim-recalc-btn', 'dim-uncal-btn'];
+    for (var i = 0; i < ids.length; i++) {
+      var b = document.getElementById(ids[i]);
+      if (!b) continue;
+      b.style.display = '';            /* never hide — see note above */
+      b.style.opacity = on ? '' : '0.4';
+      b.setAttribute('aria-disabled', on ? 'false' : 'true');
+      /* Deliberately NOT the disabled attribute and NOT pointer-events:none —
+         a dead button on a tablet reads as a broken app. The handlers stay
+         reachable so a tap can say why nothing happened. */
+    }
   } catch (_) {}
 }
 function _updateDimFinChip() {
@@ -4966,6 +4975,13 @@ function _wireEvents() {
     if (dimRecalcBtn) {
       var _drR = _getCurrentDrawing();
       var _dimR = window._dimTool;
+      if (!(_dimR && _drR && _dimR.isCalibrated(_drR))) {
+        /* Visible-but-dimmed: say why rather than no-op. A tablet button that
+           does nothing when tapped reads as a broken app. */
+        try { toast('No scale on this drawing — dimensions are typed in, nothing to recompute'); } catch (_) {}
+        e.stopPropagation();
+        return;
+      }
       if (_dimR && _drR && _dimR.isCalibrated(_drR)) {
         /* mode 'measured' — the ONLY mode used here. It recomputes dimensions
            the user never typed over and leaves hand-set values alone. Never
@@ -4983,6 +4999,11 @@ function _wireEvents() {
     if (dimUncalBtn) {
       var _drU = _getCurrentDrawing();
       var _dimU = window._dimTool;
+      if (!(_dimU && _drU && _dimU.isCalibrated(_drU))) {
+        try { toast('No scale set on this drawing — nothing to remove'); } catch (_) {}
+        e.stopPropagation();
+        return;
+      }
       if (_dimU && _drU && _dimU.isCalibrated(_drU)) {
         /* Count what the user will actually lose sight of, so the modal can say
            it plainly rather than asking them to accept an unknown. Typed values
