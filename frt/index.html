@@ -738,6 +738,16 @@ function ensurePdfJs(cb){
           <button class="dim-unit-btn" data-dim-unit="metric">m</button>
         </div>
         <button id="dim-calibrate-btn" class="dim-v3-cal" data-tip="Optional — draw across a known distance to set scale">📏</button>
+        <!-- S651 (Mark, after Ian's 12 Aug report). Both only make sense once a
+             scale exists, so markup.js shows/hides them with the calibration
+             state — an uncalibrated drawing sees the toolbar exactly as before.
+             ↻ recomputes ONLY dimensions the user never typed over; hand-set
+             values are never touched. ⊘ removes the scale entirely and returns
+             the drawing to type-your-own, which had no exit before: a scale
+             could be set and replaced but never cleared, so a drawing entered
+             measured mode permanently and the keypad stopped opening. -->
+        <button id="dim-recalc-btn" class="dim-v3-cal" data-tip="Recompute measured dimensions — typed values are kept" style="display:none;">↻</button>
+        <button id="dim-uncal-btn" class="dim-v3-cal" data-tip="Remove the scale — go back to typing each dimension" style="display:none;">⊘</button>
       </div>
       <!-- S407 — Polyline sub-toolbar (mirrors the dimension pattern; V4 from
            the open list). Hidden by default; shown while the polyline tool is

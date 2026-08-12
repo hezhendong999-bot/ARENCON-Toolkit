@@ -802,9 +802,27 @@ function _dvStyleDimFinChip(chip) {
   no.style.cssText = _DV_PILL_X;
   chip.appendChild(ok); chip.appendChild(no);
 }
+/* S651 — the Refresh (↻) and Remove-scale (⊘) buttons only mean anything on a
+   drawing that HAS a scale. Show them with the calibration state so an
+   uncalibrated drawing keeps the toolbar it has always had, and so the pair
+   appears the moment a scale is set (which is also the moment the keypad stops
+   auto-opening — the change Ian had no way to undo). Safe to call often:
+   idempotent, touches only two style.display values. */
+function _syncDimScaleButtons() {
+  try {
+    var dim = window._dimTool;
+    var dr = _getCurrentDrawing();
+    var on = !!(dim && dr && dim.isCalibrated(dr));
+    var rb = document.getElementById('dim-recalc-btn');
+    var ub = document.getElementById('dim-uncal-btn');
+    if (rb) rb.style.display = on ? '' : 'none';
+    if (ub) ub.style.display = on ? '' : 'none';
+  } catch (_) {}
+}
 function _updateDimFinChip() {
   var chip = document.getElementById('dim-finchip');
   var dim = window._dimTool;
+  _syncDimScaleButtons();
   if (!chip || !dim) return;
   _dvStyleDimFinChip(chip);
   var anchor = dim.chainFinishAnchor ? dim.chainFinishAnchor() : null;
@@ -4933,6 +4951,80 @@ function _wireEvents() {
       var addBtnPair = document.getElementById('dim-add-btn');
       if (addBtnPair) addBtnPair.classList.remove('active');
       _renderAll();
+      e.stopPropagation();
+      return;
+    }
+    /* ── S651 — Refresh + Reset scale (Mark, after Ian's 12 Aug report) ────
+       Ian set a scale by accident on a drawing he had been dimensioning by
+       hand. Setting a scale flips the drawing into measured mode: the keypad
+       stops auto-opening on commit, and the numbers on existing dimensions get
+       recomputed. There was no way back — a scale could be replaced but never
+       removed — so it read as "I can't set my dimensions anymore" and looked
+       like the tool had overwritten his work.
+       Both buttons operate on the CURRENT drawing only. */
+    var dimRecalcBtn = e.target.closest && e.target.closest('#dim-recalc-btn');
+    if (dimRecalcBtn) {
+      var _drR = _getCurrentDrawing();
+      var _dimR = window._dimTool;
+      if (_dimR && _drR && _dimR.isCalibrated(_drR)) {
+        /* mode 'measured' — the ONLY mode used here. It recomputes dimensions
+           the user never typed over and leaves hand-set values alone. Never
+           pass 'all' from this button: that clears overrides, which is exactly
+           the "it redid all my dimensions" complaint this exists to answer. */
+        var _nR = _dimR.recalibrateAll(_objects, _dimR.getCalibration(_drR), 'measured');
+        _pushHistory(); _markDirty(); _renderAll(); _updateDimFinChip();
+        try { toast(_nR ? ('Recomputed ' + _nR + ' dimension' + (_nR > 1 ? 's' : '') + ' — typed values kept')
+                        : 'Nothing to recompute'); } catch (_) {}
+      }
+      e.stopPropagation();
+      return;
+    }
+    var dimUncalBtn = e.target.closest && e.target.closest('#dim-uncal-btn');
+    if (dimUncalBtn) {
+      var _drU = _getCurrentDrawing();
+      var _dimU = window._dimTool;
+      if (_dimU && _drU && _dimU.isCalibrated(_drU)) {
+        /* Count what the user will actually lose sight of, so the modal can say
+           it plainly rather than asking them to accept an unknown. Typed values
+           survive; measured-only dimensions have no typed value to fall back on
+           and revert to the "— set —" placeholder. Showing a stale number after
+           the scale is gone would put a false dimension in a client report. */
+        var _measuredOnly = 0;
+        for (var _iU = 0; _iU < _objects.length; _iU++) {
+          var _oU = _objects[_iU];
+          if (!_oU || _oU.type !== 'dimension') continue;
+          var _typed = (_oU.overrideNote != null && _oU.overrideNote !== '') ||
+                       (typeof _oU.ovrM === 'number') ||
+                       (_oU.overrideLabel != null && _oU.overrideLabel !== '');
+          if (!_typed) _measuredOnly++;
+        }
+        var _msg = 'Remove the scale from this drawing? New dimensions will go back to ' +
+                   'asking you to type the value.\n\n' +
+                   'Dimensions you typed yourself are kept exactly as they are.';
+        if (_measuredOnly > 0) {
+          _msg += '\n\n' + _measuredOnly + ' measured dimension' + (_measuredOnly > 1 ? 's' : '') +
+                  ' will go back to "— set —" for you to fill in. Undo can restore the scale.';
+        }
+        showConfirm('Remove Scale', _msg).then(function (yes) {
+          if (!yes) return;
+          _pushHistory();   /* before the mutation, so Undo restores the scale */
+          try { delete _drU.calibration; } catch (_) { _drU.calibration = null; }
+          /* Clear the computed values on measured-only dimensions. Typed values
+             (ovrM / overrideNote / overrideLabel) are deliberately untouched —
+             resolveLabel keeps showing them. */
+          for (var _jU = 0; _jU < _objects.length; _jU++) {
+            var _oJ = _objects[_jU];
+            if (!_oJ || _oJ.type !== 'dimension') continue;
+            var _typedJ = (_oJ.overrideNote != null && _oJ.overrideNote !== '') ||
+                          (typeof _oJ.ovrM === 'number') ||
+                          (_oJ.overrideLabel != null && _oJ.overrideLabel !== '');
+            if (_typedJ) continue;
+            _oJ.rawValue = null; _oJ.rawLabel = null; _oJ.trueM = null; _oJ.isGuess = false;
+          }
+          _markDirty(); _renderAll(); _updateDimFinChip(); _syncDimScaleButtons();
+          try { toast('Scale removed — type each dimension again'); } catch (_) {}
+        });
+      }
       e.stopPropagation();
       return;
     }
