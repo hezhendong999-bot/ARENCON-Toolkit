@@ -1918,16 +1918,11 @@ function createSupabaseClient(url, key) {
         gt(col, val) { _filters.push(`${col}=gt.${encodeURIComponent(val)}`); return builder; },
         order(col, opts = {}) { _order = col + (opts.ascending === false ? '.desc' : '.asc'); return builder; },
         single() { _single = true; return builder; },
-        /* S649 — "do the write, don't hand the row back."
-           PostgreSQL applies SELECT policies to the row an UPDATE returns. The
-           restrictive policy tool_data_hide_deleted (deleted_at IS NULL) is what
-           keeps deleted reports hidden from everyone — so the instant a soft
-           delete stamps deleted_at, the row it would hand back is one the
-           requester may not see, and the whole statement is refused. The write
-           was never the problem; asking for the row back was. Callers that
-           don't need the row say so with .minimal() and the refusal cannot
-           arise. Do NOT "fix" this by weakening tool_data_hide_deleted — that
-           policy is the entire protection for deleted reports. */
+        /* S649 — "do the write, don't hand the row back." Callers that don't
+           need the updated row back say so with .minimal(). Kept because it is
+           the correct default for fire-and-forget writes, but note it is NOT
+           what fixed the report delete: a restrictive SELECT policy blocks the
+           update itself, returning clause or not. See hub_delete_report. */
         minimal() { _minimal = true; return builder; },
 
         async execute() {
@@ -6309,14 +6304,17 @@ async function deleteInstance(instanceId, title) {
   });
   if (!_ok) return;
   try {
-    /* S649 — .minimal() is load-bearing, not tidiness. Without it this update
-       asks for the report back, and the report has just become invisible to
-       everyone by policy, so the database refuses the whole statement and no
-       report can be deleted at all. Nothing else about the delete changed. */
-    await _sb.from('tool_data').eq('id', instanceId).minimal().update({
-      deleted_at: new Date().toISOString(),
-      deleted_by: _user ? _user.id : null
-    });
+    /* S649b — the delete MUST run server-side, like its three siblings.
+       S642 moved list/restore/purge into database functions but left this one
+       editing the row directly. That cannot work: the rule that hides deleted
+       reports also requires a report to stay visible to whoever just changed
+       it, so a report is not permitted to hide itself. Every delete failed.
+       Proven at the database — the same update fails with no returning clause
+       anywhere, and an ordinary edit to the same report succeeds.
+       Do NOT "fix" a future delete failure by weakening tool_data_hide_deleted;
+       that policy is the only thing keeping deleted reports out of projects,
+       exports and client PDFs. Route new paths through hub_delete_report. */
+    await _sb.rpc('hub_delete_report', { p_id: instanceId, p_actor: _profile ? _profile.id : null });
     toast('Report moved to Deleted \u2014 restore from this project', 'success');
     if (_detailProjectId) {
       var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
@@ -9799,7 +9797,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S649';
+const HUB_BUILD = 'S649b';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
