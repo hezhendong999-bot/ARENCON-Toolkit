@@ -9094,13 +9094,34 @@ function _pgEscHtml(s) {
      • Device tiers: a shared tablet and a personal desktop are not one risk.
        A device that has seen two or more distinct users IS shared, detected
        rather than declared, because nobody will remember to declare it. */
-  var TIER_SHARED_IDLE_MS   = 30 * 60 * 1000;       // shared field tablet
-  var TIER_PERSONAL_IDLE_MS = 4 * 60 * 60 * 1000;   // personal device
-  var CEILING_MS    = 12 * 60 * 60 * 1000;          // both tiers → sign-out
-  var LS_SEEN_USERS = 'ARENCON_deviceUsers';        // distinct user ids on device
-  var LS_SESSION_START = 'ARENCON_sessionStart';    // ceiling anchor
-  var SOFT_LOCK_MS  = TIER_PERSONAL_IDLE_MS;  // legacy alias — tier decides at runtime
-  var HARD_LOCK_MS  = CEILING_MS;             // legacy alias
+  /* ═══ S650 — MARK'S TWO-STAGE MODEL SUPERSEDES THE S648 CEILING ═══════════
+     S648 counted 12 hours from SIGN-IN. That signs an inspector out at 6pm
+     because they signed in at 6am — mid-inspection, the exact failure the
+     design was supposed to prevent. Mark's model instead runs the sign-out
+     clock ONLY WHILE THE SCREEN IS LOCKED:
+
+         active ──4h idle──▶ LOCKED ──8h still locked──▶ signed out
+                               │
+                               └── PIN entered ──▶ active, both clocks reset
+
+     Same 12-hour worst case, but it can only ever fire on a device nobody is
+     touching. Someone actively working is never interrupted.
+
+     Tier detection (shared vs personal) is RETIRED — Mark, correctly: the app
+     cannot know. Detection was late and sticky (a tablet used by one person
+     read "personal"; a desktop a colleague once used read "shared" forever),
+     i.e. wrong exactly when it mattered. One rule for every device.
+     deviceIsShared/idleLimitMs/noteDeviceUser remain DEFINED but are no longer
+     consulted by policy: they are in the append-only protected manifest from
+     S648 and only Mark may authorise removing those three lines. */
+  var IDLE_LOCK_MS      = 4 * 60 * 60 * 1000;   // active → locked
+  var LOCKED_SIGNOUT_MS = 8 * 60 * 60 * 1000;   // locked → signed out
+  var LS_LOCKED_AT   = 'ARENCON_lockedAt';      // survives app close (see below)
+  var LS_SEEN_USERS = 'ARENCON_deviceUsers';    // retained: useful device record
+  var LS_SESSION_START = 'ARENCON_sessionStart';
+  var LS_PIN_CACHE  = 'ARENCON_pinCache';       // {uid, hash} — OFFLINE UNLOCK
+  var SOFT_LOCK_MS  = IDLE_LOCK_MS;   // legacy aliases
+  var HARD_LOCK_MS  = LOCKED_SIGNOUT_MS;
   var CHECK_INTERVAL_MS = 60 * 1000;        // check every 60s
   var LS_ACTIVITY_KEY = 'ARENCON_lastActivity';
   var LS_PIN_LEN_KEY  = 'ARENCON_pinLen';   // cached digit count for dot rendering
@@ -9112,12 +9133,57 @@ function _pgEscHtml(s) {
   var _pinDigitCount = 6; // default dot count, updated from LS cache or profile
   var _checkTimer = null;
   var _locked = false;
+  var _enrolling = false;   // S650: mandatory PIN enrolment in progress
+  var _enrollStage = 0;     // 1 = choose, 2 = confirm
+  var _enrollFirst = '';
 
-  /* ── SHA-256 hash ── */
-  async function hashPin(pin) {
+  /* ── PIN hashing ─────────────────────────────────────────────────────────
+     A 4-digit PIN hashed with one pass of SHA-256 is trivially reversible:
+     ten thousand candidates is a fraction of a second, and with no salt every
+     staff member's PIN falls at once to a single sweep of anyone who can read
+     the profiles table. S650 stores salted, heavily-iterated hashes instead,
+     so each PIN must be attacked individually and slowly.
+
+     Backward compatible ON PURPOSE: the four PINs already set are stored in
+     the old format and must keep working. Verification accepts either, and a
+     successful old-format entry is silently upgraded in place. Nobody is
+     locked out by the change and nothing needs re-enrolling. */
+  var PIN_ITERS = 210000;
+  function _b64(bytes){ var s=''; bytes.forEach(function(b){ s+=String.fromCharCode(b); }); return btoa(s); }
+  function _unb64(str){ return Uint8Array.from(atob(str), function(c){ return c.charCodeAt(0); }); }
+
+  async function hashPinLegacy(pin) {
     var enc = new TextEncoder().encode(pin);
     var buf = await crypto.subtle.digest('SHA-256', enc);
     return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  }
+  /* Kept under its original name: other call sites and the manifest know it. */
+  async function hashPin(pin) { return hashPinLegacy(pin); }
+
+  async function _pbkdf2(pin, salt, iters) {
+    var key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']);
+    var bits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt: salt, iterations: iters, hash:'SHA-256' }, key, 256);
+    return new Uint8Array(bits);
+  }
+  async function hashPinStrong(pin) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var h = await _pbkdf2(pin, salt, PIN_ITERS);
+    return 'pbkdf2$' + PIN_ITERS + '$' + _b64(salt) + '$' + _b64(h);
+  }
+  /* Constant-time-ish compare; avoids leaking position of first difference. */
+  function _eq(a, b) {
+    if (a.length !== b.length) return false;
+    var d = 0; for (var i=0;i<a.length;i++) d |= (a.charCodeAt(i) ^ b.charCodeAt(i));
+    return d === 0;
+  }
+  async function verifyPinAgainst(pin, stored) {
+    if (!stored) return false;
+    if (stored.indexOf('pbkdf2$') === 0) {
+      var p = stored.split('$');
+      var h = await _pbkdf2(pin, _unb64(p[2]), parseInt(p[1],10));
+      return _eq(_b64(h), p[3]);
+    }
+    return _eq(await hashPinLegacy(pin), stored);   // legacy SHA-256
   }
 
   /* ── Activity tracking ── */
@@ -9211,33 +9277,137 @@ function _pgEscHtml(s) {
     } catch (e) {}
   }
 
+  /* ── Offline unlock ───────────────────────────────────────────────────────
+     The PIN hash used to come only from the profile fetched at sign-in. A
+     tablet reopened in a basement therefore had NOTHING to check a PIN
+     against — unlockable only with signal, which is the one thing a basement
+     does not have. The hash is cached on the device, tied to the user it
+     belongs to so a second person's PIN can never unlock the first's session. */
+  function cachePinLocally(hash) {
+    try {
+      if (!_user) return;
+      localStorage.setItem(LS_PIN_CACHE, JSON.stringify({ uid: _user.id, hash: hash, len: _pinDigitCount }));
+    } catch (e) {}
+  }
+  function cachedPinFor(uid) {
+    try {
+      var c = JSON.parse(localStorage.getItem(LS_PIN_CACHE) || 'null');
+      return (c && c.uid === uid) ? c : null;
+    } catch (e) { return null; }
+  }
+
+  function getLockedAt() {
+    try { var t = localStorage.getItem(LS_LOCKED_AT); return t ? parseInt(t,10) : 0; } catch (e) { return 0; }
+  }
+
   function checkInactivity() {
-    /* S648: the PIN gate is GONE from the ceiling. Idle-lock still needs a PIN
-       because a lock nobody can open offline would brick an inspection — that
-       is why mandatory PIN enrolment is the next piece — but the 12-hour
-       ceiling now applies to every signed-in user, PIN or no PIN. */
-    if (!_user || _locked) return;
+    if (!_user || _enrolling) return;
     var now = Date.now();
 
-    // ── Absolute ceiling: 12h since sign-in, both tiers ──
-    if (now - sessionStartedAt() >= CEILING_MS) {
+    /* ── Stage 2: locked. The 8-hour clock runs ONLY here. ── */
+    if (_locked) {
+      var lockedAt = getLockedAt();
+      if (!lockedAt) return;
+      if (now - lockedAt < LOCKED_SIGNOUT_MS) return;
       if (navigator.onLine === false || workIsUnsynced()) {
-        /* Deferred, not cancelled. Lock if we can; complete the sign-out on a
-           later pass once the device is online and clean. */
-        sessionDiag('ceiling-deferred', { online: navigator.onLine !== false, unsynced: workIsUnsynced() });
-        if (_pinHash) { saveBeforeLock().then(showPinLock); }
+        /* Deferred, never cancelled: signing out offline strands unsynced work
+           behind a login screen the inspector cannot pass. Stays locked and
+           completes on a later pass once online and clean. */
+        sessionDiag('signout-deferred', { online: navigator.onLine !== false, unsynced: workIsUnsynced() });
         return;
       }
-      sessionDiag('ceiling-signout', {});
+      sessionDiag('locked-signout', { lockedMin: Math.round((now - lockedAt)/60000) });
       saveBeforeLock().then(function(){ doLogout(); });
       return;
     }
 
-    // ── Idle lock: tier-dependent, preserves session and work ──
-    if (!_pinHash) return;                       // see enrolment note above
-    if (now - getLastActivity() >= idleLimitMs()) {
-      sessionDiag('idle-lock', { limitMin: Math.round(idleLimitMs() / 60000) });
+    /* ── Stage 1: active. Idle → lock. Session and work preserved. ── */
+    if (!_pinHash) return;          // enrolment gate below guarantees one exists
+    if (now - getLastActivity() >= IDLE_LOCK_MS) {
+      sessionDiag('idle-lock', {});
       saveBeforeLock().then(showPinLock);
+    }
+  }
+
+  /* ── MANDATORY PIN ENROLMENT (S650, Mark: "several just won't do it") ─────
+     Voluntary enrolment failed — 13 of 17 never set one, which is why the
+     sign-out was silently switched off for them. Enrolment is now a gate: no
+     PIN, no board. It reuses the lock overlay rather than adding a second
+     full-screen surface, so there is one place a PIN is ever typed.
+
+     Deliberately NOT enforced while offline. Sign-in needs the network, but a
+     RESTORED session on a tablet in a basement does not, and blocking the
+     board there would brick an inspection to enforce a policy that can be
+     enforced two minutes later. It arms the moment the device is online. */
+  function startEnrolment() {
+    if (_enrolling || _locked) return;
+    _enrolling = true; _enrollStage = 1; _enrollFirst = ''; _pinEntry = ''; _pinAttempts = 0;
+    var logo = document.querySelector('.login-logo img, .login-card img');
+    var lockLogo = document.getElementById('pin-lock-logo');
+    if (lockLogo) {
+      var src = logo ? logo.src : '';
+      if (!src) { try { src = (window.__hubHdr && window.__hubHdr.logoSrc) || ''; } catch (e) {} }
+      if (src) lockLogo.src = src;
+      lockLogo.style.display = src ? '' : 'none';
+    }
+    paintEnrolment();
+    document.getElementById('pin-lock').classList.add('show');
+    sessionDiag('enrolment-shown', {});
+  }
+
+  function paintEnrolment(errMsg) {
+    var t = document.querySelector('#pin-lock .pin-lock-title');
+    var sub = document.getElementById('pin-lock-user');
+    if (t) t.textContent = _enrollStage === 1 ? 'Set your PIN' : 'Confirm your PIN';
+    if (sub) sub.textContent = _enrollStage === 1
+      ? 'Choose 4–8 digits. You will use this to unlock the app in the field, with or without signal.'
+      : 'Enter the same digits again';
+    var err = document.getElementById('pin-error');
+    if (err) err.textContent = errMsg || '';
+    renderPinDots();
+  }
+
+  function pinIsWeak(pin) {
+    if (/^(\d)\1+$/.test(pin)) return true;                 // 0000, 1111
+    var asc = true, desc = true;
+    for (var i = 1; i < pin.length; i++) {
+      if (+pin[i] !== +pin[i-1] + 1) asc = false;
+      if (+pin[i] !== +pin[i-1] - 1) desc = false;
+    }
+    return asc || desc;                                      // 1234, 4321
+  }
+
+  async function submitEnrolment() {
+    if (_enrollStage === 1) {
+      if (_pinEntry.length < 4) { paintEnrolment('PIN must be at least 4 digits'); return; }
+      if (pinIsWeak(_pinEntry)) { _pinEntry = ''; paintEnrolment('Too easy to guess — avoid repeats and runs'); return; }
+      _enrollFirst = _pinEntry; _pinEntry = ''; _enrollStage = 2; paintEnrolment(); return;
+    }
+    if (_pinEntry !== _enrollFirst) {
+      _pinEntry = ''; _enrollFirst = ''; _enrollStage = 1;
+      paintEnrolment('Those did not match — start again'); return;
+    }
+    var err = document.getElementById('pin-error');
+    if (err) err.textContent = 'Saving…';
+    try {
+      var hash = await hashPinStrong(_pinEntry);
+      await _sb.from('profiles').eq('id', _user.id).update({ pin_hash: hash });
+      _pinHash = hash;
+      _pinDigitCount = _pinEntry.length;
+      try { localStorage.setItem(LS_PIN_LEN_KEY, _pinDigitCount.toString()); } catch (e) {}
+      if (_profile) _profile.pin_hash = hash;
+      cachePinLocally(hash);
+      _enrolling = false; _pinEntry = ''; _enrollFirst = ''; _enrollStage = 0;
+      document.getElementById('pin-lock').classList.remove('show');
+      /* Put the overlay back the way the lock screen expects to find it. */
+      var t = document.querySelector('#pin-lock .pin-lock-title');
+      if (t) t.textContent = 'Session Locked';
+      stampActivity();
+      try { refreshPinUI(); } catch (e) {}
+      sessionDiag('enrolment-complete', { digits: _pinDigitCount });
+      if (typeof toast === 'function') toast('PIN set — the app will lock after 4 hours idle', 'success');
+    } catch (e) {
+      paintEnrolment('Could not save — check your connection and try again');
     }
   }
 
@@ -9247,6 +9417,11 @@ function _pgEscHtml(s) {
     _locked = true;
     _pinEntry = '';
     _pinAttempts = 0;
+    /* Written down, not held in memory: otherwise closing the app while locked
+       would restart the 8-hour clock on every reopen, and closing the app
+       becomes a way to never be signed out. An existing stamp is preserved so
+       reopening does not extend the deadline. */
+    try { if (!getLockedAt()) localStorage.setItem(LS_LOCKED_AT, Date.now().toString()); } catch (e) {}
 
     // Set logo
     /* S498 FIX. This read '.hdr img' — the page header. Since S492 the header
@@ -9277,6 +9452,13 @@ function _pgEscHtml(s) {
   function renderPinDots() {
     var container = document.getElementById('pin-dots');
     var html = '';
+    if (_enrolling) {
+      /* No fixed length yet: show at least four slots, growing as they type. */
+      var slots = Math.max(4, _pinEntry.length);
+      for (var e = 0; e < slots; e++) html += '<div class="pin-dot' + (e < _pinEntry.length ? ' filled' : '') + '"></div>';
+      container.innerHTML = html;
+      return;
+    }
     for (var i = 0; i < _pinDigitCount; i++) {
       html += '<div class="pin-dot' + (i < _pinEntry.length ? ' filled' : '') + '"></div>';
     }
@@ -9295,6 +9477,8 @@ function _pgEscHtml(s) {
     document.getElementById('pin-error').textContent = '';
     renderPinDots();
 
+    // During enrolment there is no known digit count yet — OK submits.
+    if (_enrolling) return;
     // Auto-submit when entry matches cached digit count (or at least 4 digits)
     if (_pinEntry.length >= _pinDigitCount && _pinEntry.length >= 4) {
       setTimeout(verifyPin, 150);
@@ -9309,6 +9493,7 @@ function _pgEscHtml(s) {
   };
 
   window._pinConfirm = function() {
+    if (_enrolling) { submitEnrolment(); return; }
     if (_pinEntry.length < 4) {
       document.getElementById('pin-error').textContent = 'PIN must be at least 4 digits';
       return;
@@ -9317,13 +9502,25 @@ function _pgEscHtml(s) {
   };
 
   async function verifyPin() {
-    var h = await hashPin(_pinEntry);
-    if (h === _pinHash) {
-      // Success
+    var entered = _pinEntry;
+    if (await verifyPinAgainst(entered, _pinHash)) {
+      // Success — BOTH clocks reset: the 8-hour sign-out only runs while locked.
       _locked = false;
       _pinAttempts = 0;
+      try { localStorage.removeItem(LS_LOCKED_AT); } catch (e) {}
       stampActivity();
       document.getElementById('pin-lock').classList.remove('show');
+      /* Silent upgrade of a legacy hash, now that we hold a correct PIN. */
+      if (_pinHash && _pinHash.indexOf('pbkdf2$') !== 0) {
+        try {
+          var upgraded = await hashPinStrong(entered);
+          await _sb.from('profiles').eq('id', _user.id).update({ pin_hash: upgraded });
+          _pinHash = upgraded;
+          if (_profile) _profile.pin_hash = upgraded;
+          cachePinLocally(upgraded);
+          sessionDiag('pin-hash-upgraded', {});
+        } catch (e) {}
+      }
       return;
     }
     // Wrong PIN
@@ -9446,7 +9643,13 @@ function _pgEscHtml(s) {
   };
 
   window._pinRemove = async function() {
-    // Simple confirmation via the numpad-style approach: just remove
+    /* S650: a PIN is mandatory. Removing one would switch the idle lock off for
+       that user and, because the sign-out clock only runs while locked, switch
+       their automatic sign-out off with it — the exact hole this session
+       closed. Changing a PIN remains available. */
+    if (typeof toast === 'function') toast('A PIN is required — use Change PIN instead', 'error');
+    return;
+    /* eslint-disable no-unreachable */
     try {
       await _sb.from('profiles').eq('id', _user.id).update({ pin_hash: null });
       _pinHash = null;
@@ -9465,11 +9668,19 @@ function _pgEscHtml(s) {
   var _origShowApp = window.showApp;
   window.showApp = function() {
     _origShowApp();
-    // Load PIN from profile
+    /* Load the PIN. Server value wins; the device cache is the fallback that
+       makes an offline unlock possible at all. */
+    var _cachedPin = cachedPinFor(_user && _user.id);
     if (_profile && _profile.pin_hash) {
       _pinHash = _profile.pin_hash;
       var cached = localStorage.getItem(LS_PIN_LEN_KEY);
       _pinDigitCount = cached ? parseInt(cached, 10) : 6;
+      cachePinLocally(_pinHash);
+    } else if (_cachedPin && navigator.onLine === false) {
+      /* Restored offline with no profile fetch — trust the device copy rather
+         than treat the user as having no PIN and leave the session unlockable. */
+      _pinHash = _cachedPin.hash;
+      _pinDigitCount = _cachedPin.len || 6;
     } else {
       _pinHash = null;
     }
@@ -9487,9 +9698,29 @@ function _pgEscHtml(s) {
       noteDeviceUser(_user && _user.id);
     } catch (e) {}
     startInactivityChecker();
+
+    /* ── Restore a lock that was in force when the app was last closed ──
+       Without this, closing the app while locked would hand back an unlocked
+       board on reopen — the lock would be trivially bypassable. */
+    var _lockedAt = getLockedAt();
+    if (_lockedAt && _pinHash) {
+      if (Date.now() - _lockedAt >= LOCKED_SIGNOUT_MS
+          && navigator.onLine !== false && !workIsUnsynced()) {
+        sessionDiag('locked-signout-on-boot', { lockedMin: Math.round((Date.now()-_lockedAt)/60000) });
+        doLogout();
+        return;
+      }
+      showPinLock();               // still within the window — re-present the lock
+    }
+
     // Check immediately in case returning to a stale tab
     checkInactivity();
     try { refreshPinUI(); } catch (e) { console.warn('[Hub] PIN UI deferred:', e); }
+
+    /* ── Enrolment gate: no PIN, no board (when online) ── */
+    if (!_pinHash && !_locked && navigator.onLine !== false) {
+      setTimeout(startEnrolment, 400);   // let the board paint behind the overlay
+    }
   };
 
   // Refresh PIN UI when profile modal opens
@@ -9506,7 +9737,9 @@ function _pgEscHtml(s) {
        valid centrally, so a copied session outlived the sign-out. */
     try { await _sb.auth.signOut({ scope: 'global' }); } catch (e) {}
     try { localStorage.removeItem(LS_SESSION_START); } catch (e) {}
+    try { localStorage.removeItem(LS_LOCKED_AT); } catch (e) {}
     _locked = false;
+    _enrolling = false; _enrollStage = 0; _enrollFirst = '';
     _pinHash = null;
     _pinEntry = '';
     document.getElementById('pin-lock').classList.remove('show');
@@ -9797,7 +10030,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S649b';
+const HUB_BUILD = 'S650';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */

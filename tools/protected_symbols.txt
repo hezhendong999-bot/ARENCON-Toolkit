@@ -840,3 +840,14 @@ noteDeviceUser
 sessionStartedAt
 workIsUnsynced
 saveBeforeLock
+
+@ Mandatory PIN enrolment + two-stage lock/sign-out (Mark's model, S650)
+startEnrolment
+submitEnrolment
+paintEnrolment
+pinIsWeak
+hashPinStrong
+verifyPinAgainst
+cachePinLocally
+cachedPinFor
+getLockedAt
