@@ -308,7 +308,13 @@ var RESCUE_KEY = 'frt_markup_rescue_v1';
 
 function _flushMarkupForUnload(){
   try {
-    if (!_markupActive || !window.MarkupEngine) return false;
+    /* S650: the guard used to be `if (!_markupActive) return`, which meant the
+       backstop covered you WHILE drawing and abandoned you the moment you
+       pressed save — markup mode exits on save, so the riskiest instant (stamped
+       in memory, write not yet resolved) was the one instant with no rescue.
+       When markup is no longer active, fall through to the post-save branch
+       below rather than returning. */
+    if (!_markupActive || !window.MarkupEngine) return _flushSavedButUnwritten();
     var p = _photos[_idx];
     if (!p) return false;
     var changed = window.MarkupEngine.hasChangesSinceAttach
@@ -337,6 +343,32 @@ function _flushMarkupForUnload(){
 
     try { console.warn('[Lightbox] markup flushed on unload \u2014 ' +
       (strokes ? strokes.length : 0) + ' stroke(s) rescued for photo ' + p.id); } catch(_){}
+    return true;
+  } catch(_) { return false; }
+}
+
+/* S650 — backstop for the window between "saved" and "written to disk".
+   _saveMarkup stamps the record and calls Model.saveNow(); IndexedDB is async,
+   so a tab closed mid-write still loses the strokes. localStorage is
+   synchronous and survives that, so re-stash from the RECORD (not the engine —
+   markup has already detached by now) whenever the model still has unwritten
+   changes. Boot-time repair then fills the gap on next open.
+   Returns true if something was rescued. */
+function _flushSavedButUnwritten(){
+  try {
+    var p = _photos && _photos[_idx];
+    if (!p || !p._markupStrokes || !p._markupStrokes.length) return false;
+    /* Only if the write genuinely has not landed — otherwise every close would
+       leave a stale rescue behind for the boot repair to reconcile. */
+    var dirty = true;
+    try {
+      if (typeof Model !== 'undefined' && Model.hasUnsavedChanges) dirty = !!Model.hasUnsavedChanges();
+    } catch(_){}
+    if (!dirty) return false;
+    localStorage.setItem(RESCUE_KEY, JSON.stringify({
+      photoId: p.id, strokes: p._markupStrokes, mkFrame: p._mkFrame || null, at: Date.now()
+    }));
+    try { console.warn('[Lightbox] S650: saved-but-unwritten markup rescued on unload for photo ' + p.id); } catch(_){}
     return true;
   } catch(_) { return false; }
 }
@@ -1101,9 +1133,50 @@ function _saveMarkup(){
       if (_mkFrame) p._mkFrame = _mkFrame; // authoring frame — source of truth for compositing
       // Persist + sync hook. cleanBlob is the durable original; strokes/frame are data.
       try { document.dispatchEvent(new CustomEvent('frt-markup-saved',{detail:{photo:p,blob:cleanBlob,index:_idx,strokes:savedStrokes,cleanBlob:cleanBlob,mkFrame:_mkFrame}})); } catch(e){}
-      try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); else if (Model && Model.saveNow) Model.saveNow(); } catch(_){}
+      /* S650: persistence moved below — a durable saveNow(), not a debounced
+         touch(). The dispatch above stays here because the R2/backup listeners
+         must run against the stamped record before the write. */
       _persistBusy = false;   /* S626: settled — the door unlocks */
-      _clearMarkupRescue();   /* S628c: a completed save supersedes any rescue */
+      /* ── S650 — A SAVE MUST REACH DISK BEFORE IT COUNTS AS SAVED. ────────
+         Root cause of "mark a photo, close the tab, marks are gone" (Mark,
+         field check 11 Aug; three photos on 1490.04 sit in the cloud carrying
+         _mkFrame with no _markupStrokes — the fingerprint of strokes that were
+         still in memory when the page died).
+
+         Two gaps lined up, and BOTH had to close:
+         1. Model.touch() only marks dirty and starts an 800 ms debounce. The
+            page has no unload hook that forces the write early, so closing the
+            tab inside that window loses the strokes outright. saveNow() writes
+            immediately — markup is a deliberate, low-frequency act, so there is
+            no thrash argument for debouncing it.
+         2. The rescue was cleared HERE, the instant the in-memory stamp landed
+            — i.e. the backstop was switched off at the exact moment the data
+            was most vulnerable, before anything durable existed. The rescue now
+            survives until the write actually resolves.
+
+         Order matters: stash first, write, clear only on success. On failure
+         the rescue is deliberately LEFT in place so the next boot repairs it.
+         Do not "tidy" this back to touch() + immediate clear. */
+      try {
+        localStorage.setItem(RESCUE_KEY, JSON.stringify({
+          photoId: p.id, strokes: savedStrokes, mkFrame: _mkFrame, at: Date.now()
+        }));
+      } catch(_){}
+      try {
+        var _dur = (typeof Model !== 'undefined' && Model.saveNow) ? Model.saveNow() : null;
+        if (_dur && typeof _dur.then === 'function') {
+          _dur.then(function(){ _clearMarkupRescue(); })
+              .catch(function(e){
+                try { console.warn('[Lightbox] S650: durable save failed, rescue kept for next boot:', e && e.message); } catch(_){}
+              });
+        } else {
+          /* saveNow returned nothing (older shape) — fall back to the dirty
+             flag so the strokes are at least queued, and keep the rescue. */
+          try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); } catch(_){}
+        }
+      } catch(_){
+        try { if (typeof Model !== 'undefined' && Model.touch) Model.touch(); } catch(_){}
+      }
       _exitMarkupNoSave();
       if (_closeAfterPersist){ _closeAfterPersist = false; _finishClose(); return; }   // close was the trigger
       if (_navAfterPersist != null){ var ni = _navAfterPersist; _navAfterPersist = null; _showPhoto(ni); }   // nav was the trigger
