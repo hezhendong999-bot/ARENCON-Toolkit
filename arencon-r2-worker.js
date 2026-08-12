@@ -1,4 +1,38 @@
 /**
+ * ╔════════════════════════════════════════════════════════════════════════╗
+ * ║  S649 — THIS FILE IS NOT THE DEPLOYED WORKER. DO NOT PASTE IT INTO     ║
+ * ║  CLOUDFLARE. DEPLOYING IT DESTROYS CLIENT-FACING SHARE LINKS.          ║
+ * ╚════════════════════════════════════════════════════════════════════════╝
+ *
+ * On 2026-08-01 this file was pasted into the Cloudflare dashboard to ship a
+ * markup fix. The live worker at that moment carried a share-link service that
+ * this file has never contained, so the paste silently deleted it. Every photo
+ * link in every already-issued client report went dead, and new exports stopped
+ * producing links. Nobody noticed for ten days, until a report had to go out.
+ * Recovered 2026-08-11 by rolling back to version c7e91c2f in Cloudflare's
+ * deployment history.
+ *
+ * The live worker has TWO routes this file does not:
+ *   POST /mintlinks      — issues share tokens (writes to KV namespace LINKS)
+ *   GET  /p/{token}      — resolves a share token to a photo
+ * Bindings on the live worker: R2 bucket BUCKET -> arencon-files,
+ * KV namespace LINKS -> arencon-pdf-links, secret PDFLINK_SECRET (token
+ * signing — if this is ever deleted, no already-issued link can be reproduced).
+ *
+ * BEFORE deploying anything to arencon-r2-worker:
+ *   1. Confirm the file you are about to deploy contains BOTH routes above.
+ *      If it does not, STOP — you are about to delete the link service.
+ *   2. Verify live afterwards: https://files.arencon.app/p/{a known token}
+ *      must return an image, and POST /mintlinks must answer 401 (not 404).
+ *      A worker-JSON {"error":"Not found"} on either means the route is gone.
+ *   3. Cloudflare keeps ~100 prior versions under Deployments -> Version
+ *      History. That is the rollback path, and it is the only surviving copy
+ *      of the link service until this file is reconciled with live.
+ *
+ * OUTSTANDING: capture the true live worker source and replace this file with
+ * it, then re-land the S555 markup fix on top. Until that is done, this file
+ * is a REFERENCE ONLY for the routes it does contain.
+ *
  * ARENCON R2 Storage Worker — Cloudflare Worker
  * Handles photo/drawing storage in Cloudflare R2 bucket.
  *
