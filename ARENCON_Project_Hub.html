@@ -209,7 +209,15 @@ body.dark-mode .hub-view-toggle{background:var(--card)}
 /* S498: last column was 92px, which truncated "Not backed up" to "Not bac…" —
    the ellipsis was hiding the one word that carries the meaning. Widened to fit
    the longest real string at the largest text-size step. */
-.view-list .project-card-bottom{order:7;margin:0;flex:none;display:grid;grid-template-columns:repeat(6,54px) minmax(112px,max-content);gap:6px;align-items:center}
+/* S651 — ROOT CAUSE of tool chips not lining up between rows (Mark, screenshot).
+   The six tool columns are fixed, so pills line up WITHIN this block — but the
+   7th column was minmax(112px,max-content), so the block's own width changed
+   with whatever column 7 held. "📥 2026-05-02" is a few px narrower than
+   "⚠ Not backed up", and because the project name absorbs the slack (flex:1)
+   the whole block slid sideways by that difference — a backed-up row sat ~10px
+   right of its neighbours. Fixing column 7 makes the block a constant width on
+   every row, so the chips form true vertical columns. */
+.view-list .project-card-bottom{order:7;margin:0;flex:none;display:grid;grid-template-columns:repeat(6,54px) 112px;gap:6px;align-items:center}
 .view-list .project-card-bottom .tool-pill{width:100%;justify-content:center;margin:0;font-size:calc(11px + var(--ts))}
 .view-list .project-card-bottom .tool-pill.tp-frt{grid-column:1}
 .view-list .project-card-bottom .tool-pill.tp-diesel{grid-column:2}
@@ -231,6 +239,9 @@ body.dark-mode .hub-view-toggle{background:var(--card)}
    the text collapses back to the icon so the column still fits. */
 .view-list .backup-status.not-backed{font-size:calc(10.5px + var(--ts));color:var(--warn,#E0A36A);font-weight:600;white-space:nowrap}
 @media(max-width:900px){
+  /* S651: narrow screens collapse column 7 to the bare icon, so the column is
+     pinned to icon width here — same constant-width principle, smaller number. */
+  .view-list .project-card-bottom{grid-template-columns:repeat(6,54px) 28px}
   .view-list .backup-status.not-backed{font-size:0 !important}
   .view-list .backup-status.not-backed::before{content:'⚠';font-size:calc(13px + var(--ts));color:var(--warn,#E0A36A)}
 }
@@ -9111,13 +9122,13 @@ function _pgEscHtml(s) {
      cannot know. Detection was late and sticky (a tablet used by one person
      read "personal"; a desktop a colleague once used read "shared" forever),
      i.e. wrong exactly when it mattered. One rule for every device.
-     deviceIsShared/idleLimitMs/noteDeviceUser remain DEFINED but are no longer
-     consulted by policy: they are in the append-only protected manifest from
-     S648 and only Mark may authorise removing those three lines. */
+     S651: the three tier helpers are now DELETED with Mark's authorisation and
+     their manifest lines removed. idleLimitMs had become a latent crash — it
+     still referenced the TIER_* constants S650 deleted — so leaving it defined
+     was not the safe option it looked like. */
   var IDLE_LOCK_MS      = 4 * 60 * 60 * 1000;   // active → locked
   var LOCKED_SIGNOUT_MS = 8 * 60 * 60 * 1000;   // locked → signed out
   var LS_LOCKED_AT   = 'ARENCON_lockedAt';      // survives app close (see below)
-  var LS_SEEN_USERS = 'ARENCON_deviceUsers';    // retained: useful device record
   var LS_SESSION_START = 'ARENCON_sessionStart';
   var LS_PIN_CACHE  = 'ARENCON_pinCache';       // {uid, hash} — OFFLINE UNLOCK
   var SOFT_LOCK_MS  = IDLE_LOCK_MS;   // legacy aliases
@@ -9221,22 +9232,6 @@ function _pgEscHtml(s) {
     });
   }
 
-  /* Shared iff two or more distinct users have signed in on this device. */
-  function deviceIsShared() {
-    try {
-      var seen = JSON.parse(localStorage.getItem(LS_SEEN_USERS) || '[]');
-      return seen.length >= 2;
-    } catch (e) { return false; }
-  }
-  function noteDeviceUser(uid) {
-    if (!uid) return;
-    try {
-      var seen = JSON.parse(localStorage.getItem(LS_SEEN_USERS) || '[]');
-      if (seen.indexOf(uid) === -1) { seen.push(uid); localStorage.setItem(LS_SEEN_USERS, JSON.stringify(seen)); }
-    } catch (e) {}
-  }
-  function idleLimitMs() { return deviceIsShared() ? TIER_SHARED_IDLE_MS : TIER_PERSONAL_IDLE_MS; }
-
   function sessionStartedAt() {
     try {
       var t = localStorage.getItem(LS_SESSION_START);
@@ -9272,7 +9267,7 @@ function _pgEscHtml(s) {
                    'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
         body: JSON.stringify([{ device: localStorage.getItem('arencon-device-id'), tool: 'hub',
           event: 'session_guard', detail: Object.assign({ at: new Date().toISOString(), phase: event,
-            tier: deviceIsShared() ? 'shared' : 'personal' }, extra || {}) }])
+            }, extra || {}) }])
       }).catch(function(){});
     } catch (e) {}
   }
@@ -9693,10 +9688,7 @@ function _pgEscHtml(s) {
     /* S648: anchor the 12-hour ceiling at sign-in, and record who has used this
        device so the tier can be DETECTED (two distinct users ⇒ shared tablet ⇒
        30-minute idle lock) rather than declared by someone who will forget. */
-    try {
-      localStorage.setItem(LS_SESSION_START, Date.now().toString());
-      noteDeviceUser(_user && _user.id);
-    } catch (e) {}
+    try { localStorage.setItem(LS_SESSION_START, Date.now().toString()); } catch (e) {}
     startInactivityChecker();
 
     /* ── Restore a lock that was in force when the app was last closed ──
@@ -10030,7 +10022,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S650';
+const HUB_BUILD = 'S651';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
