@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-12T06:57:08.408Z",
+  "generated_at": "2026-08-13T07:01:36.121Z",
   "policy": {
     "retention_days": 90,
     "warn_days": 14,
@@ -27,8 +27,8 @@
         "status": "draft",
         "deleted_at": "2026-07-21T00:47:18.066+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 22,
-        "days_until_eligible": 68
+        "days_deleted": 23,
+        "days_until_eligible": 67
       },
       {
         "kind": "report",
@@ -40,8 +40,8 @@
         "status": "draft",
         "deleted_at": "2026-07-23T00:40:53.312+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 20,
-        "days_until_eligible": 70
+        "days_deleted": 21,
+        "days_until_eligible": 69
       },
       {
         "kind": "report",
@@ -53,8 +53,8 @@
         "status": "draft",
         "deleted_at": "2026-07-27T21:32:05.362+00:00",
         "deleted_by": "a9f11baf-8b55-4145-b0d2-3212dee204a8",
-        "days_deleted": 15,
-        "days_until_eligible": 75
+        "days_deleted": 16,
+        "days_until_eligible": 74
       },
       {
         "kind": "report",
@@ -66,8 +66,8 @@
         "status": "draft",
         "deleted_at": "2026-07-28T14:46:37.838+00:00",
         "deleted_by": "06e6a4f5-c162-4cb4-b6f2-9bb14b2a8128",
-        "days_deleted": 14,
-        "days_until_eligible": 76
+        "days_deleted": 15,
+        "days_until_eligible": 75
       },
       {
         "kind": "report",
@@ -79,8 +79,8 @@
         "status": "draft",
         "deleted_at": "2026-08-02T22:32:04.192+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 9,
-        "days_until_eligible": 81
+        "days_deleted": 10,
+        "days_until_eligible": 80
       },
       {
         "kind": "report",
@@ -92,8 +92,8 @@
         "status": "draft",
         "deleted_at": "2026-08-12T01:35:23.243922+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 0,
-        "days_until_eligible": 90
+        "days_deleted": 1,
+        "days_until_eligible": 89
       }
     ]
   },
@@ -108,8 +108,8 @@
         "client": "ARENCON",
         "deleted_at": "2026-05-22T02:59:23.426+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 82,
-        "days_until_eligible": 8
+        "days_deleted": 83,
+        "days_until_eligible": 7
       }
     ],
     "holding": [
@@ -121,8 +121,8 @@
         "client": "Caplink",
         "deleted_at": "2026-06-23T18:35:00.008+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 49,
-        "days_until_eligible": 41
+        "days_deleted": 50,
+        "days_until_eligible": 40
       },
       {
         "kind": "project",
@@ -132,8 +132,8 @@
         "client": null,
         "deleted_at": "2026-07-19T17:19:00.986+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 23,
-        "days_until_eligible": 67
+        "days_deleted": 24,
+        "days_until_eligible": 66
       },
       {
         "kind": "project",
@@ -143,8 +143,8 @@
         "client": null,
         "deleted_at": "2026-07-19T17:38:18.653+00:00",
         "deleted_by": "877c9ec2-e7d8-4ae1-8ff9-ab2619d0aa8f",
-        "days_deleted": 23,
-        "days_until_eligible": 67
+        "days_deleted": 24,
+        "days_until_eligible": 66
       }
     ]
   }
