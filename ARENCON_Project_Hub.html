@@ -9689,6 +9689,24 @@ function _pgEscHtml(s) {
        device so the tier can be DETECTED (two distinct users ⇒ shared tablet ⇒
        30-minute idle lock) rather than declared by someone who will forget. */
     try { localStorage.setItem(LS_SESSION_START, Date.now().toString()); } catch (e) {}
+    /* S652 — the header avatar showed "?" on the live Hub. The header is built
+       once at boot, BEFORE the profile and the roster have been fetched, so
+       initials and colour resolved to nothing and the fallback stuck. Nothing
+       ever refreshed it. The avatar is now the only route to Account and Sign
+       out, so a "?" there is not cosmetic — it is the way out of the app
+       looking broken. Repaint it once the profile is actually known. */
+    try {
+      if (window.__hubHdr && window.__hubHdr.setAccount) {
+        window.__hubHdr.setAccount({
+          name:     (_profile && _profile.full_name) || '',
+          email:    (_profile && _profile.email) || '',
+          initials: (_profile && _userInitials[_profile.id])
+                    || _ringInitials(_profile && _profile.full_name) || '?',
+          colour:   (_profile && _profile.ring_color) || '#888888'
+        });
+      }
+    } catch (e) { console.warn('[Hub] avatar refresh:', e); }
+
     startInactivityChecker();
 
     /* ── Restore a lock that was in force when the app was last closed ──
@@ -10022,7 +10040,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S651';
+const HUB_BUILD = 'S652';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
