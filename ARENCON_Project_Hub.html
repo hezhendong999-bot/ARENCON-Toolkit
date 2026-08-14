@@ -7174,6 +7174,81 @@ function _ringRefresh() {
   if (cx) cx.onclick = function () { _ringPending = null; _ringRefresh(); };
 }
 
+/* ═══ S658 — THE HUB OPENS THE SHARED ACCOUNT PANEL ═════════════════════════
+   Last of the four headers. FRT, Diesel and Electric moved to the shared panel
+   in S653; the Hub was still opening its own My Profile dialog, so the tool
+   that owns the design was the one not using it.
+
+   Hosts pass DATA, never markup (S652). Everything below is the Hub's own
+   state — roster, palette, who holds which colour — handed over as values. The
+   panel owns every style it needs, which is why the picker no longer collapses
+   inside the shadow root the way it did in S630.
+
+   The old openProfileModal stays in the file, unreferenced by the header, so
+   nothing that still calls it breaks. It is no longer how anyone reaches
+   Account. */
+async function openAccountPanelHub() {
+  var mod;
+  try {
+    mod = await import('./lib/ui/accountPanel.js');
+  } catch (e) {
+    console.warn('[Hub] account panel failed to load:', e);
+    /* Never leave someone with no way into their own settings. */
+    try { openProfileModal(); } catch (_) {}
+    return;
+  }
+  var owners = _ringOwnerMap();
+  var taken = Object.keys(owners).map(function (hex) {
+    return { name: owners[hex].name, initials: owners[hex].ini, colour: hex };
+  });
+  mod.openAccountPanel({
+    dark: document.documentElement.getAttribute('data-theme') === 'dark',
+    identity: {
+      name: (_profile && _profile.full_name) || '',
+      email: (_profile && _profile.email) || '',
+      role: (_profile && _profile.role === 'super_admin') ? 'Super Admin'
+          : ((_profile && _profile.role === 'admin') ? 'Admin' : 'Inspector'),
+      initials: (_profile && _userInitials[_profile.id])
+                || _ringInitials(_profile && _profile.full_name) || '?'
+    },
+    colour: {
+      palette: _RING_PALETTE,
+      taken: taken,
+      current: (_profile && _profile.ring_color) || '#888888',
+      onSave: async function (hex) {
+        /* Same write the old panel made. The colour identifies this person's
+           marks on every drawing, so a failure must surface, never be
+           swallowed — the panel shows the message it throws. */
+        await _sb.from('profiles').update({ ring_color: hex }).eq('id', _profile.id).execute();
+        _profile.ring_color = hex;
+        _userRingColour[_profile.id] = hex;
+        try { if (typeof renderProjects === 'function') renderProjects(); } catch (_) {}
+        try {
+          if (window.__hubHdr && window.__hubHdr.setAccount) window.__hubHdr.setAccount({ colour: hex });
+        } catch (_) {}
+      }
+    },
+    theme: {
+      current: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
+      options: [{ value: 'light', label: '\u2600 Light' }, { value: 'dark', label: '\u263E Dark' }],
+      set: function (v) {
+        var wantDark = (v === 'dark');
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (wantDark !== isDark) { try { toggleDark(); } catch (e) { console.warn(e); } }
+      }
+    },
+    security: {
+      hasPin: !!_pinHash,
+      onPassword: async function (pw) {
+        var r = await _sb.auth.updateUser({ password: pw });
+        if (r && r.error) throw new Error(r.error.message || 'update failed');
+      },
+      onPin: function () { try { _pinSetupStart(!!_pinHash); } catch (e) { console.warn(e); } }
+    },
+    toast: function (m, k) { try { toast(m, k); } catch (_) {} }
+  });
+}
+
 async function _ringSave() {
   if (!_ringPending || !_profile) return;
   var btn = _dq('ring-save');
@@ -10040,7 +10115,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S652';
+const HUB_BUILD = 'S658';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
@@ -10711,9 +10786,9 @@ function initHubHeader(){
   const cfg = hubHeaderConfig({
     logoSrc: LOGO_SRC,
     onHome:       () => { try { showDashboard(); } catch(e){ console.warn(e); } },
-    onUser:       () => { try { openProfileModal(); } catch(e){ console.warn(e); } },
+    onUser:       () => { try { openAccountPanelHub(); } catch(e){ console.warn(e); } },
     onAdmin:      () => { try { showAdmin(); } catch(e){ console.warn(e); } },
-    onProfile:    () => { try { openProfileModal(); } catch(e){ console.warn(e); } },
+    onProfile:    () => { try { openAccountPanelHub(); } catch(e){ console.warn(e); } },
     onTools:      () => { window.location.href = 'index.html'; },
     onExportAll:  () => { try { exportAllProjects(); } catch(e){ console.warn(e); } },
     onExportDocs: () => { try { exportProjectDocsFromDashboard(); } catch(e){ console.warn(e); } },
@@ -10735,7 +10810,7 @@ function initHubHeader(){
     email:    (_profile && _profile.email) || '',
     initials: (_profile && _userInitials[_profile.id]) || _ringInitials(_profile && _profile.full_name),
     colour:   (_profile && _profile.ring_color) || '#888888',
-    onAccount: () => { try { openProfileModal(); } catch(e){ console.warn(e); } },
+    onAccount: () => { try { openAccountPanelHub(); } catch(e){ console.warn(e); } },
     /* Sign out ALWAYS confirms. It sat in the bar as a bright button until
        tonight, one mis-tap from ending someone's session mid-review. */
     onSignOut: async () => {
