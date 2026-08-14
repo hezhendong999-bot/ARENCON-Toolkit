@@ -156,7 +156,17 @@
     var feet = 0, inches = 0, matched = false;
     var hasMetricTok = /(mm|cm|km|\bm\b)/.test(low);
     // dash form: feet - inches (optionally with a fraction)
-    var dash = low.match(/^(\d+)\s*-\s*(\d+(?:\s+\d+\/\d+)?(?:\.\d+)?)\s*(?:"|in|inch|inches)?$/);
+    /* ── S657 — the dash form must accept what the tool ITSELF prints. ──────
+       Previously this pattern allowed no foot mark before the dash, so the
+       tool's own display value `8'-4"` failed to match here, fell through to
+       the loose branch below, matched only the feet, and returned 8'-0".
+       Retyping exactly what was on screen silently DROPPED THE INCHES — a
+       wrong dimension in a client report, with nothing to notice.
+       Now the separator may be a dash, an underscore or plain whitespace, the
+       feet may carry ' / ft / ′, and the inches may carry " / in / ″.
+       Anything typed here is one of the shapes an inspector actually types:
+         8-4   8_4   8 4   8'-4"   8'4"   8ft4in   8-4 1/2   8'-4 1/2" */
+    var dash = low.match(/^(\d+)\s*(?:'|\u2032|ft|feet|foot)?\s*[-_\s]\s*(\d+(?:\s+\d+\/\d+)?(?:\.\d+)?)\s*(?:"|\u2033|in|inch|inches)?$/);
     if (dash && !hasMetricTok) {
       feet = parseInt(dash[1], 10); inches = _parseInchToken(dash[2]); matched = true;
     } else {
@@ -165,7 +175,11 @@
       var iM = low.match(/(?:'|ft|feet|foot)\s*(\d+(?:\s+\d+\/\d+)?(?:\.\d+)?)\s*(?:"|in|inch|inches)?/);
       if (iM) { inches = _parseInchToken(iM[1]); matched = true; }
       else {
-        var iOnly = low.match(/^(\d+(?:\s+\d+\/\d+)?(?:\.\d+)?)\s*(?:"|in|inch|inches)$/);
+        /* S657 — a lone fraction is a real sprinkler dimension (3/4", 2 1/2").
+           The old pattern required a leading whole number, so `3/4"` fell
+           through to the note branch and froze as text instead of becoming a
+           length. Whole part now optional, and the inch mark may be " or ″. */
+        var iOnly = low.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s*(?:"|\u2033|in|inch|inches)$/);
         if (iOnly) { inches = _parseInchToken(iOnly[1]); feet = 0; matched = true; }
       }
     }
