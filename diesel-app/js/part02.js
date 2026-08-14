@@ -174,7 +174,26 @@
       onQR: function(){ call('_openToolQR'); },
       onToggleTheme: function(){ call('toggleDarkMode'); },
       onTextSize: function(){ call('cycleTextSize'); },
-      onSignout: function(){ call('signOutSession'); }
+      onSignout: function(){ call('signOutSession'); },
+      /* S653 — unified header. Avatar carries Account and Sign out, matching
+         the Hub; the standalone Sign Out button drops out of the bar once
+         identity is available (_accountFor in lib/ui/headerConfigs.js). */
+      onAccount: function(){
+        import('/lib/ui/accountPanel.js').then(function(m){
+          var A = window.Auth || {};
+          m.openAccountPanel({
+            dark: document.documentElement.getAttribute('data-theme') === 'dark',
+            identity: {
+              name: (A.getFullName && A.getFullName()) || '',
+              email: ((A.getUser && A.getUser()) || {}).email || '',
+              role: (A.isSuperAdmin && A.isSuperAdmin()) ? 'Super Admin'
+                  : ((A.isAdmin && A.isAdmin()) ? 'Admin' : 'Inspector'),
+              initials: (A.getInitials && A.getInitials()) || '?'
+            },
+            security: { hasPin: true }
+          });
+        })['catch'](function(e){ console.warn('[Diesel] account panel:', e); });
+      }
     });
     window.__dslHeaderCtl = buildHeader2(document.getElementById('hdr-mount'), cfg);
 
