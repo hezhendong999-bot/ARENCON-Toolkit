@@ -715,14 +715,16 @@ function _editDimensionLabel(obj) {
       ? Math.round(obj.ovrM * 1000) + 'mm'
       : dim.formatMeters(obj.ovrM).replace(/[^0-9'"\-\/. ]/g, '').trim();
   } else {
-    // No override — seed from the MEASURED label. Guarded: an uncalibrated
-    // drawing has no measured value, and there the placeholder should show.
-    try {
-      var _mLbl = (dim.computeLabel ? dim.computeLabel(obj, _getCurrentDrawing()) : null);
-      if (_mLbl && typeof _mLbl === 'string' && /\d/.test(_mLbl)) {
-        seed = _mLbl.replace(/[^0-9'"\-\/. ]/g, '').trim();
-      }
-    } catch (_) {}
+    // S660 — seed from the STORED measured label. S659 called
+    // dim.computeLabel(obj, drawing), but that function takes four
+    // coordinates plus a calibration and returns an object, so the call
+    // produced nothing, the guard swallowed it, and the field stayed empty —
+    // which is the bug Mark saw. obj.rawLabel is the measured label already
+    // written onto every dimension at draw time and rewritten by
+    // recalibrateAll, so it is the value actually on the drawing.
+    if (typeof obj.rawLabel === 'string' && /\d/.test(obj.rawLabel)) {
+      seed = obj.rawLabel.replace(/[^0-9'"\-\/. ]/g, '').trim();
+    }
   }
   els.input.value = seed;
 

@@ -771,15 +771,16 @@ function ensurePdfJs(cb){
           <button class="dim-kp-close" id="dim-kp-close" title="Close" aria-label="Close">✕</button>
         </div>
         <div class="dim-kp-interp" id="dim-kp-interp">&nbsp;</div>
-        <div class="dim-kp-keys">
-          <button data-dk="7">7</button><button data-dk="8">8</button><button data-dk="9">9</button><button class="k-sym k-imponly" data-dk="'">&#39;</button>
-          <button data-dk="4">4</button><button data-dk="5">5</button><button data-dk="6">6</button><button class="k-sym k-imponly" data-dk="&quot;">&quot;</button>
-          <button data-dk="1">1</button><button data-dk="2">2</button><button data-dk="3">3</button><button class="k-sym k-imponly" data-dk="-">-</button>
-          <button data-dk="0">0</button><button class="k-sym" data-dk=".">.</button><button class="k-sym k-imponly" data-dk="/">/</button><button class="k-act" data-dk="BK">⌫</button>
+        <!-- S660 (Mark) — the numeric keys are gone. The OS keyboard opens on
+             the field instead: it is the keyboard every inspector already knows,
+             at the size their thumb is trained on, and it costs no panel space.
+             The two ACTIONS stay, because neither exists on a keyboard:
+             revert-to-measured, and Done. Both keep their data-dk handlers. -->
+        <div class="dim-kp-keys dim-kp-actions">
           <button class="k-rev span2" data-dk="REV">↺ revert to measured</button>
           <button class="k-act span2" data-dk="OK">✓ Done</button>
         </div>
-        <div class="dim-kp-tip" id="dim-kp-tip">Type here or tap keys. Start the next dimension and this locks in automatically. Non-numbers (TYP., EQ) are kept as a note.</div>
+        <div class="dim-kp-tip" id="dim-kp-tip">Type 8-4, 8_4, 8 4 or 8'-4" — all the same. 8m means metres. Non-numbers (TYP., EQ) are kept as a note.</div>
       </div>
       <!-- S330 #37 — Finish chip (between dims in continuous/running) -->
       <div id="dim-finchip" class="dim-finchip"><button id="dim-fin-x" title="Done — stop here"><span class="dim-fin-ic">✕</span><span class="dim-fin-lbl">Done</span></button></div>
