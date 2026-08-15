@@ -700,14 +700,29 @@ function _editDimensionLabel(obj) {
   _dimKpObj = obj;
   _dimKpCommitted = false;
 
-  // Seed the field: numeric override -> its typed form; note -> the note;
-  // otherwise blank (placeholder shows the measured value).
+  // S659 (Mark) — SEED WITH WHAT IS ON THE DRAWING, always.
+  // Previously the field was left blank whenever a dimension had no typed
+  // override, so opening a measured dimension gave an empty box and the only
+  // way to change it was to retype the whole value — including the feet when
+  // only the inches were wrong. Now the current label seeds the field and is
+  // selected, so typing replaces it and a single tap puts the caret where the
+  // finger landed. Clearing the field still means "revert to measured" on
+  // apply; that behaviour is unchanged, it is simply no longer the start state.
   var seed = '';
   if (obj.overrideNote != null && obj.overrideNote !== '') seed = obj.overrideNote;
   else if (typeof obj.ovrM === 'number') {
     seed = (dim.getDisplayUnit() === 'metric')
       ? Math.round(obj.ovrM * 1000) + 'mm'
       : dim.formatMeters(obj.ovrM).replace(/[^0-9'"\-\/. ]/g, '').trim();
+  } else {
+    // No override — seed from the MEASURED label. Guarded: an uncalibrated
+    // drawing has no measured value, and there the placeholder should show.
+    try {
+      var _mLbl = (dim.computeLabel ? dim.computeLabel(obj, _getCurrentDrawing()) : null);
+      if (_mLbl && typeof _mLbl === 'string' && /\d/.test(_mLbl)) {
+        seed = _mLbl.replace(/[^0-9'"\-\/. ]/g, '').trim();
+      }
+    } catch (_) {}
   }
   els.input.value = seed;
 
@@ -736,7 +751,19 @@ function _editDimensionLabel(obj) {
 
   els.kp.classList.add('show');
   _dimKpRender();
-  if (!isTouch) setTimeout(function () { try { els.input.focus(); els.input.select(); } catch (e) {} }, 40);
+  /* S659 — focus and select on TOUCH as well as desktop.
+     The old guard was `if (!isTouch)`, so on a tablet the field never took
+     focus: the OS keyboard did not open, the seeded value was not selected,
+     and the only way in was the small custom keys. That is the whole reason
+     editing a dimension on a tablet felt broken.
+     select() after focus() is what makes typing REPLACE rather than append;
+     a single tap in the field afterwards still places the caret where the
+     finger landed, which is how you change only the inches.
+     The delay is longer on touch because the panel animates in and iOS/Android
+     ignore focus() issued mid-transition. */
+  setTimeout(function () {
+    try { els.input.focus(); els.input.select(); } catch (e) {}
+  }, isTouch ? 120 : 40);
 }
 function _dimKpRender() {
   var dim = window._dimTool;
