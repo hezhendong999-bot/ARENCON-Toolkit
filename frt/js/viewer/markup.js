@@ -3729,7 +3729,18 @@ function _handleSelectDown(e) {
   try {
     var _dimSel = window._dimTool;
     if (_dimSel && _dimSel.hitTestDimension) {
-      var _hitSel = _dimSel.hitTestDimension(pos, _objects.map(toV1));
+      /* S662 — the edit-tap zone is SCREEN-constant and touch-aware.
+         The default tolerance is 8 DRAWING units, which shrinks as you zoom
+         out: on a full sheet it is a 2–4 screen-px sliver, untappable under
+         a finger — the reason editing felt broken while the demo (thumb-
+         sized target) felt fine. Same principle as the S552 vertex handles.
+         ±24 screen px on touch (≈48 px band), ±10 on desktop, converted to
+         drawing units via _uiScale() so it holds at any zoom.
+         Deliberately passed HERE only: the armed-tap and dbl-click callers
+         keep the tight default so an armed tap still draws across an
+         existing dimension (locked S661 behaviour). */
+      var _selCoarse = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+      var _hitSel = _dimSel.hitTestDimension(pos, _objects.map(toV1), (_selCoarse ? 24 : 10) * _uiScale());
       if (_hitSel) {
         _dimVertexEditId = _hitSel.id;
         _renderAll();
