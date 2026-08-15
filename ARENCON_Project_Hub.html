@@ -7238,12 +7238,17 @@ async function openAccountPanelHub() {
       }
     },
     security: {
-      hasPin: !!_pinHash,
+      /* S666: was !!_pinHash — that variable lives inside the PIN-lock closure
+         and is NOT visible here, so every click on Account threw a
+         ReferenceError before the panel could open (console, 15 Aug). The same
+         fact is available at this scope on the profile row, which is where
+         _pinHash itself is loaded from at sign-in. */
+      hasPin: !!(_profile && _profile.pin_hash),
       onPassword: async function (pw) {
         var r = await _sb.auth.updateUser({ password: pw });
         if (r && r.error) throw new Error(r.error.message || 'update failed');
       },
-      onPin: function () { try { _pinSetupStart(!!_pinHash); } catch (e) { console.warn(e); } }
+      onPin: function () { try { _pinSetupStart(!!(_profile && _profile.pin_hash)); } catch (e) { console.warn(e); } }
     },
     toast: function (m, k) { try { toast(m, k); } catch (_) {} }
   });
@@ -10115,7 +10120,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S658';
+const HUB_BUILD = 'S666';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
