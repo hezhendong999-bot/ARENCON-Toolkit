@@ -7219,7 +7219,11 @@ async function openAccountPanelHub() {
         /* Same write the old panel made. The colour identifies this person's
            marks on every drawing, so a failure must surface, never be
            swallowed — the panel shows the message it throws. */
-        await _sb.from('profiles').update({ ring_color: hex }).eq('id', _profile.id).execute();
+        /* S667: filters come BEFORE update. update() is a terminal async call
+           that reads the filters already collected — chaining .eq() after it
+           lands on a Promise, which is the "_sb.from(...).update(...).eq is
+           not a function" Mark hit. */
+        await _sb.from('profiles').eq('id', _profile.id).update({ ring_color: hex });
         _profile.ring_color = hex;
         _userRingColour[_profile.id] = hex;
         try { if (typeof renderProjects === 'function') renderProjects(); } catch (_) {}
@@ -7259,7 +7263,12 @@ async function _ringSave() {
   var btn = _dq('ring-save');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
   try {
-    await _sb.from('profiles').update({ ring_color: _ringPending }).eq('id', _profile.id).execute();
+    /* S667: same defect as the panel's save, and it predates it — the old
+       dialog's Save my colour has been throwing at this line for as long as
+       the chain has been written this way. It stayed invisible because that
+       dialog swallowed the error; the new panel surfaces failures, which is
+       how it came to light. */
+    await _sb.from('profiles').eq('id', _profile.id).update({ ring_color: _ringPending });
     _profile.ring_color = _ringPending;
     _userRingColour[_profile.id] = _ringPending;
     _ringPending = null;
@@ -10120,7 +10129,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
    engine. */
-const HUB_BUILD = 'S666';
+const HUB_BUILD = 'S667';
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
