@@ -2831,6 +2831,21 @@ function _dimChainRelease(e) {
         _renderDimensionPreview();
       }
       _updateDimFinChip();
+      /* ── S661 (Mark) — SINGLE MODE HANDS YOU BACK TO SELECT. ────────────
+         The complaint this fixes: tapping an existing dimension to edit it
+         started a NEW dimension on top of it instead, repeatedly, because the
+         tool stays armed and an armed tap always draws.
+         Disarming after a committed Single dimension means that by the time
+         you reach for an existing one, nothing is armed and the tap edits.
+         Continuous and Run deliberately STAY armed — those modes exist to draw
+         chains, and disarming mid-chain would be the opposite of useful.
+         Gated on state 'idle' so a half-drawn dimension is never abandoned. */
+      try {
+        var _mdNow = (dim.getMode ? dim.getMode() : 'single');
+        if (_mdNow === 'single' && stAfter && stAfter.state === 'idle') {
+          _setActiveTool('select');
+        }
+      } catch (_) {}
     }
     return;
   }
@@ -3675,6 +3690,30 @@ function _handleSelectDown(e) {
   // no drag starts on a modifier click). Copy/delete/resize/rotate handles,
   // group move, and rubber-band all live in the engine now.
   var pos = _getPos(e);
+  /* ── S661 (Mark) — SELECT IS THE EDIT PATH FOR DIMENSIONS. ──────────────
+     A dimension is a couple of pixels of line plus a small value chip, and
+     rubber-banding one to then find an edit command is not something anyone
+     can do with a thumb. With Select active, a plain tap on a dimension now
+     opens its value editor directly — same result as the desktop double-click,
+     reachable on a tablet.
+     Deliberately does NOT apply while the dimension tool is armed: an armed
+     tap must still be able to draw across an existing dimension, which is
+     routine on a congested sprinkler sheet. Arming is the switch between the
+     two behaviours, so a tap never has to guess what you meant. */
+  try {
+    var _dimSel = window._dimTool;
+    if (_dimSel && _dimSel.hitTestDimension) {
+      var _hitSel = _dimSel.hitTestDimension(pos, _objects.map(toV1));
+      if (_hitSel) {
+        _dimVertexEditId = _hitSel.id;
+        _renderAll();
+        // hitTestDimension returns a v1 VIEW (a copy) — resolve the live
+        // stroke so label writes land on the real object.
+        _editDimensionLabel(_findObj(_hitSel.id) || _hitSel);
+        return;
+      }
+    }
+  } catch (_) {}
   SelHost._selDown(pos, !!(e && (e.ctrlKey || e.metaKey)));
 }
 
