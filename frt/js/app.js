@@ -2648,27 +2648,6 @@ var _inspectorLocked = false;
 function _buildHeader(){
   var mount = document.getElementById('hdr-mount');
   if (!mount || _hdrCtl) return;
-  /* S653: opens the SHARED account panel. Hosts pass DATA, never markup —
-     the panel owns its own styling because it renders inside a shadow root the
-     page stylesheet cannot reach (that was the S630 failure). */
-  function _openAccountPanel(){
-    import('../../lib/ui/accountPanel.js').then(function(m){
-      var A = window.Auth || {};
-      m.openAccountPanel({
-        dark: document.documentElement.getAttribute('data-theme') === 'dark',
-        identity: {
-          name: (A.getFullName && A.getFullName()) || '',
-          email: ((A.getUser && A.getUser()) || {}).email || '',
-          role: (A.isSuperAdmin && A.isSuperAdmin()) ? 'Super Admin'
-              : ((A.isAdmin && A.isAdmin()) ? 'Admin' : 'Inspector'),
-          initials: (A.getInitials && A.getInitials()) || '?'
-        },
-        security: { hasPin: true },
-        toast: function(msg){ if (typeof showToast === 'function') showToast(msg); }
-      });
-    }).catch(function(e){ console.warn('[FRT] account panel:', e); });
-  }
-
   var cfg = frtHeaderConfig({
     onBack: function(){ _leaveTool(); },                       /* S412 save-guarded */
     onHome: function(){
@@ -2706,11 +2685,15 @@ function _buildHeader(){
     onToggleTheme: toggleDarkMode,
     onTextSize: cycleTextSize,
     onSignout: function(){ _signOut(); },
-    /* S653 — unified header. The avatar now carries Account and Sign out, the
-       same as the Hub; the standalone Sign Out button drops out of the bar
-       automatically once identity is available (see _accountFor in
-       lib/ui/headerConfigs.js). One panel, one place a PIN is ever typed. */
-    onAccount: function(){ _openAccountPanel(); }
+    /* S668 (Mark authorised): the per-tool Account handler is GONE. It passed
+       no roster and no palette, so lib/ui/accountPanel.js opened with a blank
+       name and no colour picker — openAccountPanel had nothing to draw. The
+       ENGINE now opens it fully wired from the shared identity module, so all
+       four tools run one implementation and there is nothing here to keep in
+       step. Only the toast route stays host-owned: FRT's own showToast is what
+       the shared /lib/ modules call by name, so the engine's messages go
+       through it rather than the console. */
+    toast: function(msg){ if (typeof showToast === 'function') showToast(msg); }
   });
   _hdrCtl = buildHeader2(mount, cfg);
   window._frtHeaderCtl = _hdrCtl;   /* other modules + console access */

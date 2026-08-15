@@ -174,26 +174,12 @@
       onQR: function(){ call('_openToolQR'); },
       onToggleTheme: function(){ call('toggleDarkMode'); },
       onTextSize: function(){ call('cycleTextSize'); },
-      onSignout: function(){ call('signOutSession'); },
-      /* S653 — unified header. Avatar carries Account and Sign out, matching
-         the Hub; the standalone Sign Out button drops out of the bar once
-         identity is available (_accountFor in lib/ui/headerConfigs.js). */
-      onAccount: function(){
-        import('/lib/ui/accountPanel.js').then(function(m){
-          var A = window.Auth || {};
-          m.openAccountPanel({
-            dark: document.documentElement.getAttribute('data-theme') === 'dark',
-            identity: {
-              name: (A.getFullName && A.getFullName()) || '',
-              email: ((A.getUser && A.getUser()) || {}).email || '',
-              role: (A.isSuperAdmin && A.isSuperAdmin()) ? 'Super Admin'
-                  : ((A.isAdmin && A.isAdmin()) ? 'Admin' : 'Inspector'),
-              initials: (A.getInitials && A.getInitials()) || '?'
-            },
-            security: { hasPin: true }
-          });
-        })['catch'](function(e){ console.warn('[Diesel] account panel:', e); });
-      }
+      onSignout: function(){ call('signOutSession'); }
+      /* S668 (Mark authorised): the per-tool Account handler is GONE. It passed
+         no roster and no palette, so lib/ui/accountPanel.js opened with a blank
+         name and no colour picker — openAccountPanel had nothing to draw. The
+         ENGINE opens it fully wired from the shared identity module now, so all
+         four tools run one implementation. */
     });
     window.__dslHeaderCtl = buildHeader2(document.getElementById('hdr-mount'), cfg);
 
