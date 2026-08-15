@@ -104,7 +104,15 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
    doing no work of its own. scrollbar-gutter:stable stays — it is what stops
    the layout jumping when a scrollbar appears, and on its own it reserves the
    strip exactly once. */
-html{overflow-x:hidden;scrollbar-gutter:stable;background:var(--smoke);}
+/* S663 — the last 15px. With max-width:100vw gone (S662) the bar reached
+   1157 against a 1172 viewport: exactly the scrollbar gutter. scrollbar-gutter
+   :stable holds that strip PERMANENTLY, scrollbar or not, so on a short page
+   like Project Info the header stopped 15px short of the edge for a scrollbar
+   that was not there. Removed on Mark's call: a gap visible on every screen is
+   worse than the thing the gutter prevents — a 15px shift on the less common
+   moment a page grows tall enough to need scrolling, which is how the web
+   behaves by default anyway. */
+html{overflow-x:hidden;background:var(--smoke);}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .app-header{background:var(--b-chrome-bg);color:var(--b-chrome-fg);position:sticky;top:0;z-index:1000;box-shadow:0 2px 12px rgba(27,36,56,.4);width:100%;box-sizing:border-box;}
