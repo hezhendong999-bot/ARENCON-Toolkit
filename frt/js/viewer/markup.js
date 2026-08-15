@@ -680,6 +680,15 @@ function _calRoundRect(ctx, x, y, w, h, r) {
 // to the measured value. Non-numeric text is kept as a frozen note.
 var _dimKpObj = null;       // the dimension object being edited
 var _dimKpCommitted = false;
+/* S662 — what the editor OPENED with. If the field still equals this on apply,
+   the dimension's override state is restored exactly as it was at open, so
+   merely looking at a dimension can never convert measured → overridden
+   (S660 shipped that bug: any non-empty field wrote ovrM, and the seed made
+   the field always non-empty). Restoring the ORIGINAL values — not skipping —
+   also means an already-overridden dimension survives an open/close without
+   its stored ovrM being re-parsed through the ½″ display formatter. */
+var _dimKpSeed = '';
+var _dimKpOrig = null;
 
 function _dimKpEls() {
   return {
@@ -727,6 +736,9 @@ function _editDimensionLabel(obj) {
     }
   }
   els.input.value = seed;
+  // S662 — remember the open state; see _dimKpSeed declaration.
+  _dimKpSeed = seed;
+  _dimKpOrig = { ovrM: obj.ovrM, overrideNote: obj.overrideNote, overrideLabel: obj.overrideLabel };
 
   // metric/imperial key visibility follows the display unit
   els.kp.classList.toggle('metric', dim.getDisplayUnit() === 'metric');
@@ -787,6 +799,18 @@ function _dimKpApply() {
   if (!dim || !_dimKpObj) return;
   var els = _dimKpEls();
   var v = (els.input.value || '').trim();
+  // S662 — field unchanged since open → restore the state it opened with.
+  // Covers type-then-retype-the-original too: live keystrokes may have
+  // written intermediate overrides, so restoring (not skipping) is required.
+  if (v === _dimKpSeed) {
+    if (_dimKpOrig) {
+      _dimKpObj.ovrM = _dimKpOrig.ovrM;
+      _dimKpObj.overrideNote = _dimKpOrig.overrideNote;
+      _dimKpObj.overrideLabel = _dimKpOrig.overrideLabel;
+    }
+    _renderAll();
+    return;
+  }
   if (v === '') {
     // empty -> revert to measured (clears any override)
     _dimKpObj.ovrM = undefined;
@@ -806,6 +830,8 @@ function _dimKpCommit(silent) {
   var els = _dimKpEls();
   if (els.kp) els.kp.classList.remove('show');
   _dimKpObj = null;
+  _dimKpSeed = '';
+  _dimKpOrig = null;
   if (!silent) { _pushHistory(); _markDirty(); }
   else { _markDirty(); }
 }
