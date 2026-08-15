@@ -112,7 +112,14 @@ body{font-family:Calibri,sans-serif;background:var(--smoke);color:var(--slate);f
    worse than the thing the gutter prevents — a 15px shift on the less common
    moment a page grows tall enough to need scrolling, which is how the web
    behaves by default anyway. */
-html{overflow-x:hidden;background:var(--smoke);}
+/* S664 — the answer was a diff, not an investigation (Mark, correctly: the
+   Diesel header uses the SAME engine and has never had this gap).
+   DIESEL HAS NO html{} RULE AT ALL. FRT had one, and overflow-x:hidden on
+   html makes the browser treat html as its own scrolling box, which reserves
+   a scrollbar strip — the last 15px. body already carries overflow-x:hidden,
+   which is what actually suppresses horizontal overflow here, and body sets
+   the same background, so the rule was contributing nothing except the gap.
+   Removed: FRT's root now matches Diesel's, which is the header that works. */
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .app-header{background:var(--b-chrome-bg);color:var(--b-chrome-fg);position:sticky;top:0;z-index:1000;box-shadow:0 2px 12px rgba(27,36,56,.4);width:100%;box-sizing:border-box;}
