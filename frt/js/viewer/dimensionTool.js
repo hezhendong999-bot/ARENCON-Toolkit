@@ -391,8 +391,15 @@
 
   function computeLabel(x1, y1, x2, y2, calibration) {
     if (!calibration || !calibration.scaleRatio) return null;
+    /* S663 — never return a value that isn't a real number. A missing
+       coordinate (undefined) or a broken ratio (NaN/Infinity, e.g. a
+       calibration built from a zero-length line) must yield null so callers
+       KEEP the stored value, not "NaN'-0\"". A stored good value never loses
+       to a broken calculation. */
+    if (!isFinite(calibration.scaleRatio)) return null;
     var px = _pixelDist(x1, y1, x2, y2);
     var rawValue = px * calibration.scaleRatio;            // in calibration.units
+    if (!isFinite(rawValue)) return null;
     var units = calibration.units || 'ft';
     var trueM = units === 'm' ? rawValue : rawValue * 0.3048; // store metres
     var rawLabel = formatLabel(rawValue, units);
@@ -564,10 +571,13 @@
         obj.rawValue = lab.rawValue;
         obj.rawLabel = lab.rawLabel;
         obj.trueM = lab.trueM;
+        /* S663 — count WRITES, not visits. computeLabel now returns null for
+           anything non-finite; a dim it couldn't recompute keeps its stored
+           value and must not be claimed in the "Recomputed N" toast. */
+        n++;
       }
       if (mode === 'all') { obj.ovrM = undefined; obj.overrideNote = null; obj.overrideLabel = null; }
       if (obj.isGuess) obj.isGuess = false;
-      n++;
     }
     return n;
   }
