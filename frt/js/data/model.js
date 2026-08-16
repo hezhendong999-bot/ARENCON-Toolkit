@@ -4850,6 +4850,21 @@ export var Model = {
     return this._inspectorColor(userId);
   },
 
+  /* S671 — a colour saved in the Account panel takes effect on what is ALREADY
+     open. Announced by the single write path (lib/ui/headerIdentity.js) and
+     applied here, so the ring, the deficiency chips and the layers panel all
+     follow the same notification they already follow when a name resolves.
+     Ignores anything that is not a real hex, so a malformed announcement can
+     never blank a person's colour. */
+  applyInspectorColour: function(userId, hex) {
+    if (!userId || !hex || !/^#[0-9A-Fa-f]{6}$/.test(hex)) return false;
+    if (_inspectorChosen[userId] === hex) return false;
+    _inspectorChosen[userId] = hex;
+    if (_inspectorCache[userId]) _inspectorCache[userId].color = hex;
+    this._notify('inspectors', { userId: userId, colour: hex });
+    return true;
+  },
+
   _inspectorInitials: function(name) {
     var n = (name || '').trim();
     if (!n) return '\u2014';
@@ -4866,7 +4881,26 @@ export var Model = {
   //  - unknown                -> provisional { name:'', initials:'\u2014', color } + bg batch fetch
   resolveInspector: function(userId) {
     if (!userId) return { name: '\u2014', initials: '\u2014', color: null };
-    if (_inspectorCache[userId]) return _inspectorCache[userId];
+    /* ═══ S671 — WHY YOUR OWN RING WAS NEVER THE COLOUR YOU PICKED ═══════════
+       Measured on 1490.04: Elvis painted #B972F7, exactly what his account
+       stores. Mark painted #F2C4EF — slot 10 of the fallback palette below,
+       i.e. a colour derived from his user id, not the #F419FF on his account.
+       Everyone resolved correctly except the person looking at the screen.
+
+       Cause: sign-in seeds a LOCAL placeholder row here (S143) so your own name
+       appears without a round trip, and that placeholder carries a guessed
+       colour. S628b marked such rows partial so the real record would still be
+       fetched — but the fetch is only ever triggered from this function, and
+       the line below returned the placeholder and exited BEFORE reaching it.
+       The flag was written and nothing could read it, so the fix shipped and
+       changed nothing.
+
+       A placeholder is a stand-in, not an answer: hand it back so the screen
+       paints instantly, but go and get the real record in the same breath. */
+    if (_inspectorCache[userId]) {
+      if (_inspectorPartial[userId]) this.primeInspectors([userId]);
+      return _inspectorCache[userId];
+    }
     if (userId === _currentUserId) {
       // Self is special-cased by app.js (it already knows the signed-in
       // name); seed a color-only provisional so the chip paints instantly.
@@ -5090,4 +5124,18 @@ export var Model = {
 
 // S340: expose Model for console diagnostics (read-only debugging hook).
 try { if (typeof window !== 'undefined') window._frtModel = Model; } catch(_){}
+
+/* S671: listen for a ring colour saved anywhere in the toolkit — the Account
+   panel is shared, so the announcement is shared too and no tool has to be
+   wired individually. Attached here rather than in app.js because the model is
+   what holds the colour; a listener that lives beside the data it updates
+   cannot be lost when a host is refactored. */
+try {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('arencon:ring-colour', function (e) {
+      var d = (e && e.detail) || {};
+      try { Model.applyInspectorColour(d.userId, d.colour); } catch (_) {}
+    });
+  }
+} catch (_) {}
 
