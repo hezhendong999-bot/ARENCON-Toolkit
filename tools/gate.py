@@ -405,6 +405,91 @@ def main():
             return 1
         print(f'── frt.css ?v= gate: ✓ bumped v={_vo} → v={_vn}')
 
+    # ── PHOTO LIGHTBOX CONVERGENCE GATE (S665, Mark) ────────────────────────
+    # ONE photo lightbox: lib/ui/lightbox.js. Every tool consumes it.
+    #
+    # WHY A GATE AND NOT A DOCUMENT: the locked spec has said "port like-for-
+    # like, do not reinvent per tool" since S344, and Electric grew its own
+    # photo lightbox anyway — not by decision, but because nothing stopped it.
+    # Nobody chose to drift. Drift is what happens by default when the cheapest
+    # path is to write a new one. So the cheapest path has to be blocked.
+    # A rule enforced by prose is a rule enforced by whoever remembers it.
+    #
+    # WHAT IT CATCHES: a file that DECLARES its own photo-lightbox entry point
+    # (window.*Lightbox = / function openLightbox). Calling one is fine and is
+    # the entire point — consumers must be free to open the shared shell.
+    #
+    # GRANDFATHERED, DELIBERATELY: FRT and Electric already own private photo
+    # lightboxes. A blanket rule would block every push to them from today,
+    # which turns the gate into an obstacle to be bypassed rather than a floor.
+    # These two paths are KNOWN DEBT: they may keep their existing declaration
+    # and shrink toward the shared shell, but the count may never GROW, and no
+    # file outside this list may declare one at all. Removing a path from this
+    # list when its tool converges is part of shipping that conversion.
+    _LB_GRANDFATHERED = {
+        'frt/js/ui/lightbox.js',                          # FRT — converge last (largest consumer)
+        'ARENCON_Electric_Fire_Pump_Commissioning.html',  # Electric — Lane C owns this
+    }
+    # Matches a DECLARATION of a lightbox entry point, in the shapes that
+    # actually occur in this codebase — verified against Electric's inline
+    # lightbox, which the first draft of this pattern scored as ZERO because
+    # `function open[A-Z]\w*[Ll]ightbox` cannot match `function openLightbox(`
+    # (it demands a second "lightbox" after the capital). Written from the real
+    # file, not from imagination: openLightbox, _pgOpenLightbox,
+    # _enhancedOpenLightbox, window.*Lightbox =.
+    # Deliberately NOT matched: closeLightbox / lightboxNav — helpers of an
+    # existing lightbox, not a new one; and any CALL of the shared shell.
+    _LB_DECL = re.compile(
+        r'window\.\w*[Ll]ightbox\w*\s*=\s*(?!=)'
+        r'|function\s+\w*[Oo]pen\w*[Ll]ightbox\w*\s*\('
+        r'|\w*[Oo]pen\w*[Ll]ightbox\w*\s*=\s*function',
+    )
+    # Counted on RAW text, NOT _code_only. Verified: the comment/string scanner
+    # desyncs on frt/js/ui/lightbox.js (regex literals containing quotes — the
+    # exact hazard its own docstring names) and reported ZERO declarations in a
+    # file that visibly declares one, so a grandfathered file could have grown a
+    # second lightbox with the gate reporting clean. js_symbols handles this by
+    # unioning raw and stripped; a growth-only counter can simply read raw.
+    # The residual false positive — a COMMENT that adds a line looking like a
+    # declaration — costs one conversation. The false negative costs the drift
+    # this gate exists to stop.
+    def _lb_count(t):
+        return len(_LB_DECL.findall(t))
+    _lbrel = (a.path.strip().lstrip('./') or _repo_rel(a.new) or a.new)
+    # Only JS/HTML can declare a JS lightbox. Scoping matters: the first draft
+    # ran on every file type and BLOCKED ITS OWN PUSH, because the comment above
+    # quotes `function openLightbox(` while explaining the pattern. That is the
+    # same cry-wolf failure the S511 note records — a gate that fires on prose
+    # is a gate people start bypassing, and a bypassed gate protects nothing.
+    _lb_scoped = _lbrel.lower().endswith(('.js', '.html', '.htm'))
+    if _lb_scoped and _lbrel not in _LB_GRANDFATHERED \
+            and _lbrel != 'lib/ui/lightbox.js':
+        _lb_old = _lb_count(old)
+        _lb_new = _lb_count(new)
+        if _lb_new > _lb_old:
+            print('── photo lightbox convergence gate')
+            print(f'   ✗ BLOCKED — {_lbrel} declares its own photo lightbox '
+                  f'({_lb_old} → {_lb_new}).')
+            print('     There is ONE photo lightbox: lib/ui/lightbox.js.')
+            print('     Consume it — window.LightboxShell.build() — instead of')
+            print('     growing a private copy. Electric drifted exactly this way.')
+            print('     If this is genuinely a new consumer of the shared shell,')
+            print('     it should be CALLING the shell, not declaring a lightbox.')
+            return 1
+    elif _lb_scoped and _lbrel in _LB_GRANDFATHERED:
+        _lb_old = _lb_count(old)
+        _lb_new = _lb_count(new)
+        if _lb_new > _lb_old:
+            print('── photo lightbox convergence gate')
+            print(f'   ✗ BLOCKED — {_lbrel} is GRANDFATHERED known debt '
+                  f'({_lb_old} → {_lb_new}).')
+            print('     Its private photo lightbox may shrink toward')
+            print('     lib/ui/lightbox.js. It may not grow.')
+            return 1
+        if _lb_new < _lb_old:
+            print(f'── photo lightbox convergence gate: ✓ {_lbrel} '
+                  f'shed a private lightbox declaration ({_lb_old} → {_lb_new})')
+
     # S510 — an .html tool carries BOTH: script blocks and a large inline <style>.
     # Selecting one extractor by extension meant every .html file was scanned with
     # js_symbols alone, so protected CSS selectors living inside a tool's <style>
