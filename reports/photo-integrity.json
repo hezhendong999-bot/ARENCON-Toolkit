@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-16T05:55:46.405Z",
+  "generatedAt": "2026-08-17T06:02:11.739Z",
   "rows": 57,
-  "photoPointers": 1261,
+  "photoPointers": 1266,
   "uniqueUrls": 946,
   "brokenCount": 22,
   "broken": [
@@ -248,64 +248,9 @@
       "status": "404"
     }
   ],
-  "noPointerCount": 51,
+  "noPointerCount": 46,
   "noPointerBaseline": 39,
   "noPointer": [
-    {
-      "row_id": "5c289941-1447-427c-ad41-ba617ba718c5",
-      "project_id": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "dp_recovered_1775192620197_5fdtlj",
-      "r2Key": null,
-      "r2Url": null,
-      "ctx": "pool",
-      "noPointer": true
-    },
-    {
-      "row_id": "5c289941-1447-427c-ad41-ba617ba718c5",
-      "project_id": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "dp_recovered_1775192620197_unr6x2",
-      "r2Key": null,
-      "r2Url": null,
-      "ctx": "pool",
-      "noPointer": true
-    },
-    {
-      "row_id": "5c289941-1447-427c-ad41-ba617ba718c5",
-      "project_id": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "sp_recovered_1775425959934_6nen",
-      "r2Key": null,
-      "r2Url": null,
-      "ctx": "pool",
-      "noPointer": true
-    },
-    {
-      "row_id": "5c289941-1447-427c-ad41-ba617ba718c5",
-      "project_id": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "sp_recovered_1775425959934_eq8v",
-      "r2Key": null,
-      "r2Url": null,
-      "ctx": "pool",
-      "noPointer": true
-    },
-    {
-      "row_id": "5c289941-1447-427c-ad41-ba617ba718c5",
-      "project_id": "6338d5af-fbb0-4e30-9a8e-65f1c7dd3efb",
-      "tool_key": "frt",
-      "instance": 1,
-      "photoId": "sp_recovered_1775425959934_oudn",
-      "r2Key": null,
-      "r2Url": null,
-      "ctx": "pool",
-      "noPointer": true
-    },
     {
       "row_id": "f55ea08d-70b3-4a30-bc9b-ca78760530c0",
       "project_id": "8b860906-6054-4b7b-acc8-672a77fa1c71",
