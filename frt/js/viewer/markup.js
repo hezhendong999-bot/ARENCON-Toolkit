@@ -327,6 +327,12 @@ var _shapeDrag = false;   // S339 — true while a shape is being press-drag-dra
 // next two endpoint-area positions become draggable handles. Drag start
 // sets _dimVertexDragHandle to 0 (A) or 1 (B); cleared on mouseup.
 var _dimVertexEditId = null;
+/* S664 — label chips as tap targets. The renderer computes each dim's painted
+   label box (_labelBox) but draws on THROWAWAY v1 views, so the box dies each
+   frame. Render copies it here, keyed by id — a transient side map, never
+   written onto the saved objects (no render state in the sync payload).
+   Stale entries for deleted dims are harmless: lookups go through _objects. */
+var _dimLabelBoxes = {};
 var _dimVertexDragHandle = null;
 
 // S126 #6 — Dimension calibrate mode. Activated by the Calibrate button on
@@ -1699,7 +1705,9 @@ function _renderAll() {
       if (_dobj && _dobj.type === 'dimension' &&
           window._dimTool && typeof window._dimTool.renderObject === 'function'){
         ctx.save();
-        window._dimTool.renderObject(ctx, toV1(_dobj));   // S461g: _dimTool speaks v1 — raw strokes rendered NOTHING (invisible dims)
+        var _dv664 = toV1(_dobj);
+        window._dimTool.renderObject(ctx, _dv664);   // S461g: _dimTool speaks v1 — raw strokes rendered NOTHING (invisible dims)
+        if (_dv664._labelBox) _dimLabelBoxes[_dobj.id] = _dv664._labelBox;   // S664
         ctx.restore();
       }
     }
@@ -2016,7 +2024,9 @@ function _drawObjectRaw(ctx, obj) {
   else if (t === 'dimension') {
     ctx.restore();
     if (window._dimTool && typeof window._dimTool.renderObject === 'function') {
-      window._dimTool.renderObject(ctx, toV1(obj));   // S461: _dimTool speaks v1
+      var _dv664b = toV1(obj);
+      window._dimTool.renderObject(ctx, _dv664b);   // S461: _dimTool speaks v1
+      if (_dv664b._labelBox) _dimLabelBoxes[obj.id] = _dv664b._labelBox;   // S664
     }
     return;
   }
@@ -3740,6 +3750,32 @@ function _handleSelectDown(e) {
          keep the tight default so an armed tap still draws across an
          existing dimension (locked S661 behaviour). */
       var _selCoarse = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+      /* S664 — the LABEL CHIP is a tap target, checked before the line. When
+         you want to edit a value, eye and finger go to the "8'-4" text, not
+         the thin line beside it: tap the number to change the number. Point-
+         in-rect against the painted chip (from _dimLabelBoxes, harvested at
+         render), padded screen-constant so a fit-zoomed chip stays tappable.
+         Overlapping chips: nearest centre wins. Host-owned tap policy — the
+         engine owns the chip geometry, not what a tap on it means. */
+      var _lbPad = (_selCoarse ? 12 : 4) * _uiScale();
+      var _lbBest = null, _lbBestD = Infinity;
+      for (var _lbI = _objects.length - 1; _lbI >= 0; _lbI--) {
+        var _lbO = _objects[_lbI];
+        if (!_lbO || _lbO.type !== 'dimension') continue;
+        var _lbB = _dimLabelBoxes[_lbO.id];
+        if (!_lbB) continue;
+        if (pos.x < _lbB.x - _lbPad || pos.x > _lbB.x + _lbB.w + _lbPad ||
+            pos.y < _lbB.y - _lbPad || pos.y > _lbB.y + _lbB.h + _lbPad) continue;
+        var _lbDx = pos.x - (_lbB.x + _lbB.w / 2), _lbDy = pos.y - (_lbB.y + _lbB.h / 2);
+        var _lbD = _lbDx * _lbDx + _lbDy * _lbDy;
+        if (_lbD < _lbBestD) { _lbBest = _lbO; _lbBestD = _lbD; }
+      }
+      if (_lbBest) {
+        _dimVertexEditId = _lbBest.id;
+        _renderAll();
+        _editDimensionLabel(_lbBest);   // live object — no lookup needed
+        return;
+      }
       var _hitSel = _dimSel.hitTestDimension(pos, _objects.map(toV1), (_selCoarse ? 24 : 10) * _uiScale());
       if (_hitSel) {
         _dimVertexEditId = _hitSel.id;

@@ -1141,6 +1141,13 @@
     if (!pos || !objects) return null;
     var tol = tolerance || 8;
     var tol2 = tol * tol;
+    /* S664 — NEAREST wins, not first-drawn. With the touch-sized tap zone
+       (S662b), a finger landing between two dims on a congested sheet often
+       has BOTH in tolerance; returning the first in draw order made the
+       winner feel random. Scan all candidates, return the closest line. With
+       a single candidate (the common case, and all tight-tolerance callers)
+       behaviour is identical. */
+    var best = null, bestD = Infinity;
     for (var i = objects.length - 1; i >= 0; i--) {
       var o = objects[i];
       if (!o || o.type !== 'dimension') continue;
@@ -1152,9 +1159,10 @@
       } else {
         ax = o.x1; ay = o.y1; bx = o.x2; by = o.y2;
       }
-      if (_distSqPtSeg(pos.x, pos.y, ax, ay, bx, by) <= tol2) return o;
+      var d = _distSqPtSeg(pos.x, pos.y, ax, ay, bx, by);
+      if (d <= tol2 && d < bestD) { best = o; bestD = d; }
     }
-    return null;
+    return best;
   }
 
   /**
