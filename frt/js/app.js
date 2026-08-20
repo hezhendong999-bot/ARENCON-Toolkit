@@ -22,6 +22,7 @@ import { Presence } from './data/presence.js';
 import { BinaryOutbox } from './data/photoOutbox.js';
 import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
+import { createRealtime } from '../../lib/data/realtime.js';   /* S672b: live change wake — Diesel's S629 module, one implementation */
 import { buildHeader2, ensureSharedMenuCSS } from '../../lib/ui/headerEngine2.js';   /* S488 Wave 3: sealed header; S580: the shared dropdown stylesheet, so the drawing viewer's ⋯ menu IS the header menu rather than a copy of it */
 import { upgradeChromeButton, watchChromeTheme } from '../../lib/ui/chromeButton.js';   /* S524: the seven drawing-viewer chrome buttons */
 import { frtHeaderConfig } from '../../lib/ui/headerConfigs.js';
@@ -1425,6 +1426,57 @@ function _frtSyncDiag(event, detail) {
    defined and never called, the heartbeatLiveness S630 failure again. */
 try { window._frtSyncDiag = _frtSyncDiag; } catch (_) {}
 
+/* S672b — LIVE CHANGE WAKE (port of Diesel's field-proven S629 wiring).
+   The socket announces one fact — "the row you are working on changed" — and
+   the response is to run _frtHeartbeatTick IMMEDIATELY instead of waiting out
+   the interval. The tick already owns every gate (hidden tab, typing defer,
+   busy watchdog, offline, no-user) and the pull it runs is the same pull with
+   the same merge law and stale guards, so the socket cannot change any
+   outcome, only the moment it is noticed: a colleague's pin lands in ~1s
+   instead of up to 15. The heartbeat stays as the floor — a dropped socket
+   means slower, never silent (the S624 lesson). Self-echo needs no filter: a
+   wake caused by this device's own write probes, finds nothing newer, and
+   records 'no-change'. */
+var _frtRt = null, _frtRtWakeAt = 0;
+function _frtRtStart() {
+  try {
+    if (_frtRt || !_hubMode || !_projectId) return;
+    var inst = SyncEngine.instanceId;
+    if (!inst) return;                      // next tick retries; id arrives with the first pull
+    _frtRt = createRealtime({
+      url: Auth.SUPABASE_URL,
+      anonKey: Auth.SUPABASE_ANON_KEY,
+      getToken: function () { try { return localStorage.getItem('sb-access-token'); } catch (_) { return null; } },
+      log: function (m) { try { console.log(m); } catch (_) {} },
+      onStatus: function (st) {
+        /* Socket state is telemetry, not UI: the cloud pill keeps meaning
+           "saved/synced", which inspectors already trust. Only transitions
+           leave the device, so a flapping tablet radio cannot flood the
+           table. */
+        _frtSyncDiag('realtime_status', { status: st });
+      }
+    });
+    _frtRt.subscribe({
+      table: 'tool_data',
+      filter: 'id=eq.' + inst,
+      channel: 'tool_data:' + inst,
+      onChange: function () {
+        var now = Date.now();
+        if (now - _frtRtWakeAt < 3000) return;   // a burst of saves = one wake
+        _frtRtWakeAt = now;
+        try { _frtHeartbeatTick(); } catch (_) {}
+      }
+    });
+    try { window.__frtRealtime = _frtRt; } catch (_) {}   // on-device diagnosis
+  } catch (e) { try { console.warn('[realtime] start skipped:', e && e.message); } catch (_) {} }
+}
+try {
+  window.addEventListener('offline', function () {
+    try { if (_frtRt) { _frtRt.stop(); _frtRt = null; } } catch (_) {}
+  });
+  /* 'online' needs no listener: the next heartbeat tick calls _frtRtStart. */
+} catch (_) {}
+
 function _frtTickDiag(why, extra) {
   var now = Date.now();
   // Quiet-state dedupe (Diesel S585 form): an idle device repeating
@@ -1443,6 +1495,10 @@ function _frtTickDiag(why, extra) {
 }
 
 async function _frtHeartbeatTick() {
+  _frtRtStart();   /* S672b: idempotent; here because this is the first moment
+                      _projectId AND SyncEngine.instanceId are both reliably
+                      known — a boot-time start would race the first pull for
+                      the instance id, the four-door boot-race shape again. */
   var _why = '';
   if (!_hubMode || !_projectId) _why = 'no-project';
   else if (!navigator.onLine) _why = 'offline';
