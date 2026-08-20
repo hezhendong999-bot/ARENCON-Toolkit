@@ -2007,7 +2007,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S641d';
+var ELEC_BUILD = 'S673';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -7532,8 +7532,15 @@ window.addEventListener('load', () => {
       }).then(function(result){
         if(result && result.state){
           _applyLoadedState(JSON.stringify(result.state));
+          /* S673 — announce the boot apply so the sync barrier lifts, the
+             ledger anchors to what is actually on screen, and held work
+             flushes. Guarded: a no-op on facades that predate the barrier. */
+          try { if (CloudSync.bootApplyComplete) CloudSync.bootApplyComplete(result.state); } catch(_){}
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
+        } else {
+          /* S673 — no saved state: the (empty) report IS the boot apply. */
+          try { if (CloudSync.bootApplyComplete) CloudSync.bootApplyComplete(null); } catch(_){}
         }
         /* S488: status badge via sealed header ctl (same 3-state colors). */
         if(result && result.row){
@@ -7557,6 +7564,8 @@ window.addEventListener('load', () => {
         console.error('CloudSync init error:', e);
         showToast('Cloud sync failed — working in local mode', 3000);
         loadAutosave();
+        /* S673 — the local restore is the boot apply on this path. */
+        try { if (CloudSync.bootApplyComplete) CloudSync.bootApplyComplete(null); } catch(_){}
       });
 
     } else {

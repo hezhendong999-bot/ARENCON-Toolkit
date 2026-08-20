@@ -334,6 +334,16 @@ const CloudSync = (function () {
   } catch (_) {}
   let _lastPushedJson = '';   // S524 I-5: advances only on CONFIRMED push
   let _pendingSince = null;   // S524 I-5: when unsent work first appeared (durable)
+  /* S673 — the boot barrier, mirrored from Diesel (see diesel-sync.js for the
+     full field-test-3 account, 17 Aug: a relaunch pushed a blank NPSH wearing
+     a fresh mint and destroyed the unsent offline work on disk). Until the
+     host announces its boot apply, the facade is inert on every outbound and
+     record-touching door; a 20s fallback guarantees sync can never be wedged.
+     Harness: tools/sim/bootlaunder.mjs. */
+  let _bootApplied = false;
+  let _bootHoldTimer = null;
+  let _bootAppliedState = null;
+  const BOOT_HOLD_MAX_MS = 20000;
   let _initialized = false;
   let _pulling = false;
   /* S602 — tick health, mirrored from Diesel. */
@@ -446,6 +456,12 @@ const CloudSync = (function () {
     _projectId = opts.projectId || null;
     _instanceId = opts.instanceId || null;
 
+    /* S673 — arm the boot barrier before anything else can fire (mirror). */
+    try { engine.holdEditStamps = true; } catch (_) {}
+    if (!_bootHoldTimer && !_bootApplied) {
+      _bootHoldTimer = setTimeout(function () { _liftBootHold('timeout'); }, BOOT_HOLD_MAX_MS);
+    }
+
     /* S603 — startup can no longer hang; mirrored from Diesel (see
        diesel-sync.js for the full reasoning and the Android evidence). */
     async function _step(name, fn, ms) {
@@ -499,6 +515,10 @@ const CloudSync = (function () {
     engine.onModelReplaced = function () {
       try {
         if (!_collectStateFn) return;
+        /* S673 — no re-baseline during boot (mirror): this fires on the boot
+           capture pull too, and a collect here reads the unpainted skeleton —
+           overwriting the previous session's unsent work on disk. */
+        if (!_bootApplied) return;
         var now = JSON.stringify(_collectStateFn());
         _lastSavedJson = now;
         /* S622c — confirmation honesty, mirrored from Diesel (see the Diesel
@@ -528,6 +548,7 @@ const CloudSync = (function () {
     var _lastKickAt = 0;
     function _lifecycleKick(pullToo) {
       if (!_initialized) return;
+      if (!_bootApplied) return;   // S673 — a kick during boot collects the skeleton; hold it
       var now = Date.now();
       if (now - _lastKickAt < 2000) return;
       _lastKickAt = now;
@@ -635,11 +656,22 @@ const CloudSync = (function () {
           _instanceNumber = engine.instanceNumber || _instanceNumber;
           const sj = JSON.stringify(data);
           _lastSavedJson = sj;
+          /* S673 (mirror) — retain the boot-decided document for the anchor,
+             and carry the durable unsent-work marker instead of erasing it
+             (the OPEN-6 second defect). */
+          _bootAppliedState = data;
+          var _prevRec = null;
+          try { _prevRec = await _cacheGet(_cacheKey()); } catch (_) {}
           _cachePut(_cacheKey(), {
             state: sj, projectId: _projectId, toolKey: _toolKey,
             instanceId: _instanceId, instanceNumber: _instanceNumber,
-            savedAt: (meta && meta.updated_at) || new Date().toISOString()
+            savedAt: (meta && meta.updated_at) || new Date().toISOString(),
+            pendingPush: !!(_prevRec && _prevRec.pendingPush),
+            pendingSince: (_prevRec && _prevRec.pendingSince) || null
           });
+          if (_prevRec && _prevRec.pendingPush && !_pendingSince) {
+            _pendingSince = _prevRec.pendingSince || new Date().toISOString();
+          }
           _setStatus('synced', 'Loaded from cloud');
           return {
             source: 'cloud',
@@ -733,6 +765,10 @@ const CloudSync = (function () {
    * (call sites pass the same collect, so the two are equivalent). */
   async function save(stateJson) {
     if (typeof stateJson !== 'string') stateJson = JSON.stringify(stateJson);
+    /* S673 — nothing saves before the report exists (mirror): while the boot
+       barrier holds, a collect is not the report — caching it destroys the
+       unsent-work record and pushing it launders blanks. Do nothing at all. */
+    if (!_bootApplied) { _setStatus('pending', 'Loading report\u2026'); return null; }
     /* S524 DOCTRINE I-5 — THE 110-MINUTE BUG. _lastSavedJson was set BEFORE
        the push; when the push failed, the next autosave tick collected the
        same content, matched the dedupe, and returned — so a failed push was
@@ -858,6 +894,26 @@ const CloudSync = (function () {
        • The server wipe guard (PT409) and the pull-side guards still apply.
        • It is a no-op when there is nothing unsent.
      ══════════════════════════════════════════════════════════════════════ */
+  /* ═══ S673 — LIFTING THE BOOT BARRIER (mirror; see diesel-sync.js for the
+     full ordering rationale: anchor first, then flush with honest stamps). */
+  function _liftBootHold(why) {
+    if (_bootApplied) return;
+    _bootApplied = true;
+    if (_bootHoldTimer) { clearTimeout(_bootHoldTimer); _bootHoldTimer = null; }
+    try { engine.holdEditStamps = false; } catch (_) {}
+    try { if (engine.anchorBoot) engine.anchorBoot(_bootAppliedState); } catch (e) {
+      console.warn('[ElectricSync S673] boot anchor failed (continuing):', e && e.message);
+    }
+    if (why !== 'host') console.warn('[ElectricSync S673] boot barrier lifted by ' + why);
+    if (_collectStateFn) {
+      try {
+        var j = JSON.stringify(_collectStateFn());
+        engine.pushVia = 'boot-complete';
+        Promise.resolve(save(j)).catch(function () {});
+      } catch (_) {}
+    }
+  }
+
   async function _recoverUnsentWork() {
     try {
       const rec = await _cacheGet(_cacheKey());
@@ -923,6 +979,7 @@ const CloudSync = (function () {
        rest of the session by a request that hangs instead of failing, and the
        cloud check is time-bound. See diesel-sync.js for the full reasoning. */
     if (!_netUp() || !_initialized || !_projectId) return;   // S584
+    if (!_bootApplied) return;   // S673 — barrier holds until the boot apply
     if (_pulling && (Date.now() - _pullingSince) < ELEC_TICK_WATCHDOG_MS) return;
     _pulling = false;
     /* ═══ S595 — THE PULL WAS GATED ON FOCUS, WHICH NEVER CLEARS ═══════════
@@ -1081,6 +1138,7 @@ const CloudSync = (function () {
   function _lookNowPull(why) {
     try {
       if (!navigator.onLine || !_projectId) return;
+      if (!_bootApplied) return;   // S673 — a mid-boot apply+re-baseline destroys the unsent cache
       var t = Date.now();
       if (t - _lookPullAt < 3000) return;
       _lookPullAt = t;
@@ -1192,6 +1250,11 @@ const CloudSync = (function () {
     init: init, load: load, save: save,
     startAutoSave: startAutoSave, stopAutoSave: stopAutoSave,
     recoverUnsentWork: _recoverUnsentWork,   // S524 I-5 — call after boot load()
+    /* S673 — the host announces its boot apply is done (mirror). */
+    bootApplyComplete: function (appliedState) {
+      if (appliedState) _bootAppliedState = appliedState;
+      _liftBootHold('host');
+    },
     syncNow: syncNow, destroy: destroy, readUrlParams: readUrlParams,
     heartbeatTick: heartbeatTick, request: _request,
     /* S624 — the host owns the heartbeat timer and its gate, so it is the only

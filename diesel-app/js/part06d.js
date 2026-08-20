@@ -1564,8 +1564,15 @@ window.addEventListener('load', () => {
             if(_localNow){ _toApply = _mergeCloudLocal(result.state, _localNow); }
           } catch(e){ console.warn('[S488] boot merge fallback (applying cloud raw):', e && e.message); _toApply = result.state; }
           _applyLoadedState(JSON.stringify(_toApply));
+          /* S673 — announce the boot apply so the sync barrier lifts, the
+             ledger anchors to what is actually on screen, and held work
+             flushes. Guarded: a no-op on facades that predate the barrier. */
+          try { if (CloudSync.bootApplyComplete) CloudSync.bootApplyComplete(_toApply); } catch(_){}
           showToast('Project loaded from ' + result.source, 2000);
           if(result.source==='cloud') setTimeout(_r2PrefetchPhotos, 800);
+        } else {
+          /* S673 — no saved state: the (empty) report IS the boot apply. */
+          try { if (CloudSync.bootApplyComplete) CloudSync.bootApplyComplete(null); } catch(_){}
         }
         // Show status badge — S366: derive from the restored revision string with
         // FRT colours (ISSUED green #1A7A4A, DRAFT/REVISION amber #E67E22). Falls back to
@@ -1593,6 +1600,8 @@ window.addEventListener('load', () => {
         console.error('CloudSync init error:', e);
         showToast('Cloud sync failed — working in local mode', 3000);
         loadAutosave();
+        /* S673 — the local restore is the boot apply on this path. */
+        try { if (CloudSync.bootApplyComplete) CloudSync.bootApplyComplete(null); } catch(_){}
       });
 
     } else {

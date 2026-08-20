@@ -106,6 +106,7 @@ console.log(`\n=== STALEMATE (${TARGET.toUpperCase()} code) ===\n`);
   await import(pathToFileURL(path.join(ROOT, 'diesel-sync.js')).href);
   const CS = w.CloudSync;
   await CS.init({ toolKey: 'diesel', projectId: 'p1', instanceId: ROW });
+  try { if (CS.bootApplyComplete) CS.bootApplyComplete(null); } catch(_){}   // S673: model the shipped host's boot announcement
   CS.startAutoSave(collect, 1e9);
   await new Promise(r => setTimeout(r, 80));
 

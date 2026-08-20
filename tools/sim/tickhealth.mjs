@@ -103,6 +103,7 @@ const mod = pathToFileURL(path.join(ROOT, 'diesel-sync.js')).href;
 await import(mod);
 const CS = w.CloudSync;
 await CS.init({ toolKey: 'diesel', projectId: PROJECT, instanceId: ROW_ID });
+try { if (CS.bootApplyComplete) CS.bootApplyComplete(null); } catch(_){}   // S673: model the shipped host's boot announcement
 CS.startAutoSave(collect, 1e9);          // huge interval: we drive ticks by hand
 await new Promise(r => setTimeout(r, 50));
 

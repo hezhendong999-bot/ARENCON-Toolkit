@@ -542,6 +542,24 @@ const CloudSync = (function () {
   let _lastPushOkAt = 0, _lastPushFailAt = 0, _lastPushFailMsg = '', _lastPullAt = 0;
   let _lastPushedJson = '';   // S524 I-5: advances only on CONFIRMED push
   let _pendingSince = null;   // S524 I-5: when unsent work first appeared (durable)
+  /* ═══ S673 — THE BOOT BARRIER (Mark's field test 3, 17 Aug: NPSH wiped on
+     every device by a relaunch). S602 starts the autosave loop, the heartbeat
+     and the lifecycle kick BEFORE load() resolves and before the host paints.
+     In that window every collect reads the default skeleton: the kick pushed
+     the blank at 21:14:32 wearing a fresh mint, an early pull's re-baseline
+     destroyed the unsent 770 on disk, and the boot pull's deliberate anchor
+     skip meant nothing corrected the record before pushes began.
+     Until the host announces its boot apply (bootApplyComplete), the facade
+     is INERT on every outbound and record-touching door: no saves, no kicks,
+     no ticks, no realtime pulls, no edit stamps. load()'s own capture pull is
+     the boot itself and is exempt. A 20s fallback lifts the barrier if a boot
+     dies partway, so sync can never be wedged by it — honest late is safe;
+     silent skeleton pushes are not. Harness: tools/sim/bootlaunder.mjs
+     (2 checks red on S643b, green here; 4 negative controls green on both). */
+  let _bootApplied = false;
+  let _bootHoldTimer = null;
+  let _bootAppliedState = null;
+  const BOOT_HOLD_MAX_MS = 20000;
   let _initialized = false;
   let _pulling = false;
 
@@ -678,6 +696,14 @@ const CloudSync = (function () {
     _projectId = opts.projectId || null;
     _instanceId = opts.instanceId || null;
 
+    /* S673 — arm the boot barrier before anything else can fire. The host
+       lifts it via bootApplyComplete() after its paint; the timer guarantees
+       a failed boot can never leave sync held forever. */
+    try { engine.holdEditStamps = true; } catch (_) {}
+    if (!_bootHoldTimer && !_bootApplied) {
+      _bootHoldTimer = setTimeout(function () { _liftBootHold('timeout'); }, BOOT_HOLD_MAX_MS);
+    }
+
     /* ═══ S603 — STARTUP CAN NO LONGER HANG (the Android root) ══════════════
        These four awaits had no time limit. A network request that HANGS
        instead of failing — the wifi/LTE handover shape, routine on Android —
@@ -758,6 +784,15 @@ const CloudSync = (function () {
     engine.onModelReplaced = function () {
       try {
         if (!_collectStateFn) return;
+        /* ═══ S673 — NO RE-BASELINE DURING BOOT. This handler fires on the
+           boot capture pull too (the capture flag suppresses the APPLY, not
+           this callback). Collecting here reads the unpainted skeleton: the
+           cache record holding the previous session's unsent work is then
+           overwritten by a blank document — which is exactly where the
+           field-test 770 died on disk — and the push dedupe certifies a
+           screen nobody has seen. load()'s own cachePut is the authoritative
+           boot-time cache write, and it now carries the pending marker. */
+        if (!_bootApplied) return;
         var now = JSON.stringify(_collectStateFn());
         _lastSavedJson = now;
         /* ═══ S622c — CONFIRMATION HONESTY (Mark's iPhone, 06 Aug: pm-rpm
@@ -809,6 +844,7 @@ const CloudSync = (function () {
     var _lastKickAt = 0;
     function _lifecycleKick(pullToo) {
       if (!_initialized) return;
+      if (!_bootApplied) return;   // S673 — a kick during boot collects the skeleton; hold it
       var now = Date.now();
       if (now - _lastKickAt < 2000) return;   // debounce event bursts
       _lastKickAt = now;
@@ -922,11 +958,28 @@ const CloudSync = (function () {
           try { _rtStart(); } catch (_) {}
           const sj = JSON.stringify(data);
           _lastSavedJson = sj;
+          /* S673 — the anchor's reference document: what the boot decided the
+             report holds, for bootApplyComplete to compare the screen against. */
+          _bootAppliedState = data;
+          /* S673 — carry the durable unsent-work marker. This cachePut used to
+             rewrite the record WITHOUT pendingPush/pendingSince, erasing the
+             knowledge that offline work was never confirmed — before recovery
+             or the boot flush could act on it (the S634-41d OPEN-6 second
+             defect, and half of how the field-test 770 was lost). The merged
+             state above already folds the disk work in (S601), so carrying the
+             flag simply keeps the flush armed until a confirmed push clears it. */
+          var _prevRec = null;
+          try { _prevRec = await _cacheGet(_cacheKey()); } catch (_) {}
           _cachePut(_cacheKey(), {
             state: sj, projectId: _projectId, toolKey: _toolKey,
             instanceId: _instanceId, instanceNumber: _instanceNumber,
-            savedAt: (meta && meta.updated_at) || new Date().toISOString()
+            savedAt: (meta && meta.updated_at) || new Date().toISOString(),
+            pendingPush: !!(_prevRec && _prevRec.pendingPush),
+            pendingSince: (_prevRec && _prevRec.pendingSince) || null
           });
+          if (_prevRec && _prevRec.pendingPush && !_pendingSince) {
+            _pendingSince = _prevRec.pendingSince || new Date().toISOString();
+          }
           _setStatus('synced', 'Loaded from cloud');
           return {
             source: 'cloud',
@@ -1027,6 +1080,15 @@ const CloudSync = (function () {
    * (call sites pass the same collect, so the two are equivalent). */
   async function save(stateJson) {
     if (typeof stateJson !== 'string') stateJson = JSON.stringify(stateJson);
+    /* ═══ S673 — NOTHING SAVES BEFORE THE REPORT EXISTS. While the boot
+       barrier holds, the screen is (or may be) the default skeleton, so a
+       collect is not the report — caching it would DESTROY the unsent-work
+       record from the previous session (how the field-test 770 died on
+       disk), and pushing it launders blanks into "newest truth". Do nothing
+       at all: no cache write, no stamp, no push. The barrier is lifted by
+       the host's bootApplyComplete (or the 20s fallback), whose flush then
+       sends what the screen genuinely holds. */
+    if (!_bootApplied) { _setStatus('pending', 'Loading report\u2026'); return null; }
     /* S524 DOCTRINE I-5 — THE 110-MINUTE BUG. _lastSavedJson was set BEFORE
        the push; when the push failed, the next autosave tick collected the
        same content, matched the dedupe, and returned — so a failed push was
@@ -1171,6 +1233,38 @@ const CloudSync = (function () {
     } catch (_) {}
   }
 
+  /* ═══ S673 — LIFTING THE BOOT BARRIER ═════════════════════════════════════
+     Called by the host (bootApplyComplete) the moment its boot apply has run,
+     or by the 20s fallback if a boot dies partway. Idempotent. Order matters:
+       1. anchor the ledger to what the device ACTUALLY shows now (the S643
+          law, extended to the boot door at the moment S643 said it needed —
+          after the host's paint, not inside the pull). Unpainted fields are
+          detected and reported, and an unminted recovered edit is scrubbed
+          from the ledger so its honest mint happens at step 2;
+       2. flush: one collect→save so recovered offline work and anything
+          typed while the barrier held goes up through the normal push path,
+          wearing honest stamps.
+     On the timeout path there may be no applied state; the anchor then runs
+     against an empty document, which only re-reads the screen — still
+     strictly better than pushing with a ledger that describes the cloud. */
+  function _liftBootHold(why) {
+    if (_bootApplied) return;
+    _bootApplied = true;
+    if (_bootHoldTimer) { clearTimeout(_bootHoldTimer); _bootHoldTimer = null; }
+    try { engine.holdEditStamps = false; } catch (_) {}
+    try { if (engine.anchorBoot) engine.anchorBoot(_bootAppliedState); } catch (e) {
+      console.warn('[DieselSync S673] boot anchor failed (continuing):', e && e.message);
+    }
+    if (why !== 'host') console.warn('[DieselSync S673] boot barrier lifted by ' + why);
+    if (_collectStateFn) {
+      try {
+        var j = JSON.stringify(_collectStateFn());
+        engine.pushVia = 'boot-complete';
+        Promise.resolve(save(j)).catch(function () {});
+      } catch (_) {}
+    }
+  }
+
   /* ══════════════════════════════════════════════════════════════════════
      S524 DOCTRINE I-5 — RECOVER UNSENT WORK ON RELAUNCH.
      Call AFTER load() has completed and the host has applied its boot merge.
@@ -1258,6 +1352,7 @@ const CloudSync = (function () {
        Harness: sim/tickhealth.mjs (fails on S601, passes here). */
     var _why = '';
     if (!_netUp()) _why = 'offline';                                     // S584: live OS read
+    else if (!_bootApplied) _why = 'boot-pending';                       // S673 — barrier holds
     else if (_pulling && (Date.now() - _pullingSince) < TICK_WATCHDOG_MS) _why = 'busy';
     else if (!_initialized) _why = 'not-initialised';
     else if (!_projectId) _why = 'no-project';
@@ -1579,6 +1674,7 @@ const CloudSync = (function () {
   function _lookNowPull(why) {
     try {
       if (!navigator.onLine || !_projectId) return;
+      if (!_bootApplied) return;   // S673 — a mid-boot apply+re-baseline destroys the unsent cache
       var t = Date.now();
       if (t - _lookPullAt < 3000) return;
       _lookPullAt = t;
@@ -1738,6 +1834,12 @@ const CloudSync = (function () {
     init: init, load: load, save: save,
     startAutoSave: startAutoSave, stopAutoSave: stopAutoSave,
     recoverUnsentWork: _recoverUnsentWork,   // S524 I-5 — call after boot load()
+    /* S673 — the host announces its boot apply is done; the barrier lifts,
+       the ledger anchors to the painted screen, and held work flushes. */
+    bootApplyComplete: function (appliedState) {
+      if (appliedState) _bootAppliedState = appliedState;
+      _liftBootHold('host');
+    },
     syncNow: syncNow, destroy: destroy, readUrlParams: readUrlParams,
     getSyncDiag: getSyncDiag, showSyncStatus: showSyncStatus,   // S585 on-device console
     /* S624 — the host owns the heartbeat timer and its gate, so it is the only

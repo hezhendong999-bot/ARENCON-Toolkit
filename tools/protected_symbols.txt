@@ -857,3 +857,10 @@ verifyPinAgainst
 cachePinLocally
 cachedPinFor
 getLockedAt
+
+@ Boot barrier + boot anchor — relaunch can no longer launder blanks or destroy unsent work (Mark's field test 3, S673)
+bootApplyComplete
+_liftBootHold
+_bootApplied
+holdEditStamps
+anchorBoot

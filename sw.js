@@ -9,18 +9,18 @@
 // The value is opaque — only opened as a cache key, compared with !== in the
 // activate-purge filter, and echoed in the sw-updated message. Never parsed,
 // never ordered. A per-push timestamp works identically and cannot collide.
-// FORMAT: arencon-frt-202608200139<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
+// FORMAT: arencon-frt-202607271900<UTC yyyymmddhhmm>. Bump = set to the current UTC time.
 // Do NOT go back to a counter.
 // S547: this worker keeps the historic 'arencon-frt-' namespace, which it now
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608200359';
+var CACHE_NAME = 'arencon-frt-202608200401';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
 // cache" action or on full site-data wipe.
-var TILE_CACHE = 'arencon-frt-202608200139tiles-v1';
+var TILE_CACHE = 'arencon-frt-202607271900tiles-v1';
 
 // Is this a tile URL served by the Cloudflare R2 Worker?
 // Pattern: https://arencon-r2-worker.*/workers.dev/{pid}/tiles/{drawingId}/...

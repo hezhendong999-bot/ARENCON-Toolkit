@@ -95,6 +95,7 @@ await import(pathToFileURL(path.join(ROOT, 'diesel-sync.js')).href);
 const CS = w.CloudSync;
 if (!CS) { console.error('SUBJECT MISSING: CloudSync did not load from ' + ROOT); process.exit(2); }
 await CS.init({ toolKey: 'diesel', projectId: 'p1', instanceId: ROW });
+try { if (CS.bootApplyComplete) CS.bootApplyComplete(null); } catch(_){}   // S673: model the shipped host's boot announcement
 CS.startAutoSave(w._collectCloudState, 1e9);          // no timer-driven saves
 await CS.load();                                       // boot pull — the real baseline
 await new Promise(r => setTimeout(r, 80));
