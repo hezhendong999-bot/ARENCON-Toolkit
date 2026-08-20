@@ -55,3 +55,18 @@ export var SyncEngine = createSync({
     }
   }
 });
+
+/* S672 — the engine's telemetry hook was never wired in FRT. Diesel connects
+   engine.onDiag to its sync_diag writer (S599); FRT built the same writer
+   (_frtSyncDiag, in app.js) and then never handed it to the engine, so every
+   FRT pull decision, push conflict and — as of S672 — save-mode report went
+   nowhere. One line closes the gap. Late-bound through window because app.js
+   loads after this shim; absent writer = silent no-op, never a failed save. */
+SyncEngine.onDiag = function (event, detail) {
+  try {
+    if (typeof window._frtSyncDiag === 'function') {
+      window._frtSyncDiag(event, Object.assign(
+        { build: (window.FRT_BUILD || '?') }, detail || {}));
+    }
+  } catch (_) {}
+};

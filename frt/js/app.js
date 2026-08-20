@@ -1419,6 +1419,11 @@ function _frtSyncDiag(event, detail) {
     }).catch(function () {});
   } catch (_) {}
 }
+/* S672: exposed at module load because the engine shim (frt/js/data/sync.js)
+   wires SyncEngine.onDiag to this writer late-bound through window. Left
+   module-private, that wire would be a silent no-op forever — a helper
+   defined and never called, the heartbeatLiveness S630 failure again. */
+try { window._frtSyncDiag = _frtSyncDiag; } catch (_) {}
 
 function _frtTickDiag(why, extra) {
   var now = Date.now();
