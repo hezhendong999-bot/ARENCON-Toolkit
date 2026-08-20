@@ -50,7 +50,19 @@ const server = http.createServer((req, res) => {
         const im = req.headers['if-match'];
         if (im && String(im).replace(/"/g, '') !== cloud.updatedAt) return send(412, {});
         try { const nd = JSON.parse(b).data; if (nd) cloud.data = nd; } catch (_) {}
-        cloud.updatedAt = new Date(Date.now() + (++tick) * 1000).toISOString();
+        /* S666 — THE MOCK'S CLOCK POISONED THE EXPERIMENT. updated_at was
+           fabricated one FAKE SECOND into the future per write, compounding.
+           The engine's server anchor (S622i _learnServerStamp) reads exactly
+           this field, NTP-style — that is its job — so each device learned a
+           different fake offset depending on which writes it anchored on, and
+           an EARLIER keystroke was minted ~600ms in the future of a LATER
+           one. Every merge after that was lawful arbitration on poisoned
+           time: permanent split, manufactured entirely by the mock. Real
+           Supabase serves ONE clock; the mock must too. Monotonic +1ms only
+           when two writes share a millisecond — tokens stay distinct, the
+           clock stays honest. */
+        tick = Math.max(Date.now(), tick + 1);
+        cloud.updatedAt = new Date(tick).toISOString();
         return send(200, [{ id: ROW, instance_number: 1, updated_at: cloud.updatedAt }]);
       }
     }
@@ -161,7 +173,14 @@ for (let i = 2; i <= 4; i++) {
   await sleep(120);
 }
 await settle(8);
+/* S666 — settle-then-converge (see deficsync.mjs): interleaved pushes here
+   collide, and the S622e backoff (350ms x attempt + up to 900ms jitter) can
+   land the last re-push after a fixed settle. Poll until every pin is in the
+   cloud, hard-capped so a real loss still fails loudly, then settle again so
+   the devices hear it. */
 const want = ['A pin 1','A pin 2','A pin 3','A pin 4','B pin 2','B pin 3','B pin 4'];
+for (let w = 0; w < 160 && want.some(x => cloudTexts().indexOf(x) < 0); w++) await sleep(100);   /* S666b: load margin */
+await settle(6);
 const got = cloudTexts();
 const missing = want.filter(x => got.indexOf(x) < 0);
 check('every pin from both inspectors survived',

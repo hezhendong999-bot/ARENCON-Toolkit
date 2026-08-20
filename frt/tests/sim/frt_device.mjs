@@ -35,10 +35,24 @@ global.indexedDB = w.indexedDB = new FDBFactory();
 global.IDBKeyRange = w.IDBKeyRange = FDBKeyRange;
 
 const realFetch = global.fetch.bind(global);
+/* S666 hunt — tally what this device actually asks the cloud, so a silent
+   pull can be classified: token-check-only (skip) vs full fetch (merge ran). */
+const netTally = { tokenChecks: 0, fullGets: 0, patches: 0, patch412: 0 };
 global.fetch = w.fetch = function (url, opts) {
   if (!online) return Promise.reject(new Error('Failed to fetch'));
   const u = new URL(String(url), 'https://x.supabase.co');
-  return realFetch(BASE + u.pathname + u.search, opts);
+  const isTD = u.pathname.includes('/tool_data');
+  const method = (opts && opts.method) || 'GET';
+  if (isTD && method === 'GET') {
+    if ((u.search || '').includes('select=updated_at')) netTally.tokenChecks++;
+    else netTally.fullGets++;
+  }
+  const p = realFetch(BASE + u.pathname + u.search, opts);
+  if (isTD && method === 'PATCH') {
+    netTally.patches++;
+    return p.then(r => { if (r && r.status === 412) netTally.patch412++; return r; });
+  }
+  return p;
 };
 w.localStorage.setItem('sb-access-token', 'tok');
 w.localStorage.setItem('sb-refresh-token', 'ref');
@@ -47,7 +61,42 @@ w.localStorage.setItem('arencon-device-id', DEV);
 const { Model } = await import(pathToFileURL(path.join(ROOT, 'frt/js/data/model.js')).href);
 const { IDB } = await import(pathToFileURL(path.join(ROOT, 'frt/js/data/idb.js')).href);
 const { SyncEngine } = await import(pathToFileURL(path.join(ROOT, 'frt/js/data/sync.js')).href);
+const { applyResolutions } = await import(pathToFileURL(path.join(ROOT, 'lib/data/merge.js')).href);
 await IDB.init();
+
+/* ── onConflict wiring (S666; the S646 session wrote this and never pushed it).
+   WITHOUT THIS, the engine's default handler logs "no handler wired. Push
+   abandoned." and DROPS the push — which is how four harness results became
+   artifacts and three were reported to Mark as field defects. A probe that
+   does not reproduce the real app's wiring proves nothing about the app.
+   The real app (frt/js/app.js) shows a modal and applies the user's picks via
+   applyResolutions. Here the "user" is a POLICY — 'theirs' | 'mine' |
+   'cancel' — set per-device by the parent test, defaulting to 'theirs'
+   (accept the other inspector's version), which is the modal's own default
+   emphasis. Every invocation is recorded and reported so tests can assert on
+   WHAT conflicted, not just the outcome. */
+let conflictPolicy = 'theirs';
+const conflictLog = [];
+SyncEngine.onConflict = function (conflicts, mergeResult) {
+  conflictLog.push({ n: (conflicts || []).length, paths: (conflicts || []).map(c => c.path) });
+  if (conflictPolicy === 'cancel') return null;   // user closed the modal
+  const res = (conflicts || []).map(c => ({ path: c.path, chosen: conflictPolicy }));
+  return { merged: applyResolutions(mergeResult, res) };
+};
+SyncEngine.onSilentMerge = function () { /* toast in the real app; nothing to decide */ };
+/* S666 — the engine narrates its own pull/push decisions through onDiag; that
+   is the channel to watch, not guesses. To a FILE when DIAG_FILE is set —
+   console forwarding proved heavy enough to close the very race being hunted
+   (22 clean VERBOSE runs vs ~1-in-10 failures without) — else stderr. */
+import fs from 'fs';
+const DIAGF = process.env.DIAG_FILE || '';
+try {
+  SyncEngine.onDiag = (ev, d) => {
+    const line = '[' + DEV + '] ' + ev + ' ' + JSON.stringify(d) + '\n';
+    if (DIAGF) { try { fs.appendFileSync(DIAGF, line); } catch (_) {} }
+    else process.stderr.write(line);
+  };
+} catch (_) {}
 
 const rl = readline.createInterface({ input: process.stdin });
 const send = o => process.stdout.write(JSON.stringify(o) + '\n');
@@ -83,6 +132,16 @@ for await (const line of rl) {
       send({ id: m.id, ok: true });
     } else if (m.cmd === 'get') {
       send({ id: m.id, ok: true, proj: JSON.parse(JSON.stringify(Model.getProject() || {})) });
+    } else if (m.cmd === 'net') {
+      /* S666 hunt — this device's cloud traffic so far */
+      send({ id: m.id, ok: true, net: netTally });
+    } else if (m.cmd === 'policy') {
+      /* S666 — set this device's conflict answer: 'theirs' | 'mine' | 'cancel' */
+      conflictPolicy = m.value || 'theirs';
+      send({ id: m.id, ok: true, policy: conflictPolicy });
+    } else if (m.cmd === 'conflicts') {
+      /* S666 — what did THIS device's conflict modal see, and how often */
+      send({ id: m.id, ok: true, log: conflictLog });
     } else if (m.cmd === 'offline') { online = false; send({ id: m.id, ok: true }); }
     else if (m.cmd === 'online')  { online = true;  send({ id: m.id, ok: true }); }
     else if (m.cmd === 'exit')    { send({ id: m.id, ok: true }); process.exit(0); }

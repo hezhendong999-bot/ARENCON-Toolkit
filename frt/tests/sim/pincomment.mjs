@@ -51,7 +51,19 @@ const server = http.createServer((req, res) => {
         const im = req.headers['if-match'];
         if (im && String(im).replace(/"/g, '') !== cloud.updatedAt) { conflicts++; return send(412, {}); }
         try { const nd = JSON.parse(b).data; if (nd) cloud.data = nd; } catch (_) {}
-        cloud.updatedAt = new Date(Date.now() + (++tick) * 1000).toISOString();
+        /* S666 — THE MOCK'S CLOCK POISONED THE EXPERIMENT. updated_at was
+           fabricated one FAKE SECOND into the future per write, compounding.
+           The engine's server anchor (S622i _learnServerStamp) reads exactly
+           this field, NTP-style — that is its job — so each device learned a
+           different fake offset depending on which writes it anchored on, and
+           an EARLIER keystroke was minted ~600ms in the future of a LATER
+           one. Every merge after that was lawful arbitration on poisoned
+           time: permanent split, manufactured entirely by the mock. Real
+           Supabase serves ONE clock; the mock must too. Monotonic +1ms only
+           when two writes share a millisecond — tokens stay distinct, the
+           clock stays honest. */
+        tick = Math.max(Date.now(), tick + 1);
+        cloud.updatedAt = new Date(tick).toISOString();
         return send(200, [{ id: ROW, instance_number: 1, updated_at: cloud.updatedAt }]);
       }
     }
@@ -131,7 +143,14 @@ await D('tabletA').call('push');
 await sleep(250);
 await D('phoneB').call('call', { fn: 'updateObservation', args: [DEF, 0, 'B revision'] });
 await D('phoneB').call('push');
-for (let i = 0; i < 6; i++) { await D('tabletA').call('pull'); await D('phoneB').call('pull'); await sleep(120); }
+/* S666 — settle-then-converge (see deficsync.mjs): the S622e collision
+   backoff can outlast a fixed run of rounds; poll the cloud until the
+   contested write lands, then pull until agreement, both hard-capped. */
+for (let w = 0; w < 120 && textIn(cloud.data) !== 'B revision'; w++) await sleep(100);   /* S666b: load margin */
+for (let i = 0; i < 40; i++) {   /* S666b */
+  await D('tabletA').call('pull'); await D('phoneB').call('pull'); await sleep(120);
+  if ((await screenText('tabletA')) === 'B revision' && (await screenText('phoneB')) === 'B revision') break;
+}
 
 const a = await screenText('tabletA'), b = await screenText('phoneB');
 check('a genuine collision actually occurred (the 412 door was exercised)',
@@ -155,7 +174,13 @@ const dB = await D('phoneB').call('call', { fn: 'addDeficiency', args: [ctrId] }
 await D('phoneB').call('call', { fn: 'addObservation', args: [dB.ret] });
 await D('phoneB').call('call', { fn: 'updateObservation', args: [dB.ret, 0, 'from B'] });
 await D('phoneB').call('push');
-for (let i = 0; i < 6; i++) { await D('tabletA').call('pull'); await D('phoneB').call('pull'); await sleep(120); }
+/* S666 — settle-then-converge, phase 2. */
+for (let w = 0; w < 120; w++) {   /* S666b */
+  const t = (((cloud.data.contractors || [])[0] || {}).deficiencies || []).map(d => ((d.observations || [])[0] || {}).text);
+  if (t.indexOf('from A') >= 0 && t.indexOf('from B') >= 0) break;
+  await sleep(100);
+}
+for (let i = 0; i < 24; i++) { await D('tabletA').call('pull'); await D('phoneB').call('pull'); await sleep(120); }   /* S666b */
 const all = (((cloud.data.contractors || [])[0] || {}).deficiencies || [])
   .map(d => ((d.observations || [])[0] || {}).text).filter(Boolean);
 check('both new pins survive (different items never collide)',
@@ -168,7 +193,9 @@ await D('phoneB').call('push');
 await sleep(200);
 await D('tabletA').call('call', { fn: 'updateObsTrade', args: [DEF, 0, 'Sprinkler', 'ai'] });
 await D('tabletA').call('push');
-for (let i = 0; i < 6; i++) { await D('tabletA').call('pull'); await D('phoneB').call('pull'); await sleep(120); }
+/* S666 — settle-then-converge, phase 3. */
+for (let w = 0; w < 120 && textIn(cloud.data) !== 'human wins'; w++) await sleep(100);   /* S666b */
+for (let i = 0; i < 24; i++) { await D('tabletA').call('pull'); await D('phoneB').call('pull'); await sleep(120); }   /* S666b */
 check('the AI retag left the newer human comment standing',
   textIn(cloud.data) === 'human wins',
   'cloud="' + textIn(cloud.data) + '"   (want "human wins", was "' + beforeAi + '")');
