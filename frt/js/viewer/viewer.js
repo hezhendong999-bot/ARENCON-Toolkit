@@ -947,10 +947,46 @@ document.addEventListener('mouseup', function() {
 });
 
 // Zoom: mouse wheel
+/* ═══ S667 — A WHEEL BURST IS A GESTURE. ═════════════════════════════════════
+   Pinch-zoom on touch defers the expensive work (markup backing-buffer
+   realloc + full re-render, S183a; pin buffer repaint, S185) until fingers
+   lift — one settle per gesture. Wheel/trackpad zoom had NO such deferral:
+   EVERY tick paid the full price, and the comment inside
+   _resizeMarkupForScale marks that exact site as the one that caused a
+   field crash. A mouse wheel fires a few discrete ticks; a laptop trackpad
+   fires DOZENS of events per second — which is precisely Mark's report:
+   phone smooth (pinch defers), strong desktop nearly smooth (absorbs it),
+   office PCs laggy, office trackpads worst of all.
+   Fix: first wheel tick opens the SAME gesture the pinch path opens
+   (Markup.setGestureActive(true) + _activatePinsGesture()); a quiet period
+   of _WHEEL_GESTURE_END_MS closes it the SAME way touchend does. During the
+   burst, zoom rides the cheap CSS transform (crisp tiles keep rendering via
+   TiledPdf's own scheduler); markup/pins settle once at the end — identical
+   to what a pinch has always looked like. NOT a parallel system: the wheel
+   is handed to the engines the pinch already built. */
+var _wheelGestureTimer = null;
+var _WHEEL_GESTURE_END_MS = 150;
+function _wheelGestureTick() {
+  if (_wheelGestureTimer) {
+    clearTimeout(_wheelGestureTimer);
+  } else {
+    try { if (typeof Markup !== 'undefined' && Markup.setGestureActive) Markup.setGestureActive(true); } catch (_e) {}
+    _activatePinsGesture();
+  }
+  _wheelGestureTimer = setTimeout(function () {
+    _wheelGestureTimer = null;
+    // A live two-finger pinch owns the gesture; its own touchend closes it.
+    if (_touchStartDist > 0) return;
+    try { if (typeof Markup !== 'undefined' && Markup.setGestureActive) Markup.setGestureActive(false); } catch (_e) {}
+    _deactivatePinsGesture();
+  }, _WHEEL_GESTURE_END_MS);
+}
 document.addEventListener('wheel', function(e) {
   var area = document.getElementById('dv-canvas-area');
   if (!area || !area.contains(e.target)) return;
   e.preventDefault();
+
+  _wheelGestureTick();   // S667 — open/extend the gesture before any zoom math
 
   var rect = area.getBoundingClientRect();
   var mx = e.clientX - rect.left;
